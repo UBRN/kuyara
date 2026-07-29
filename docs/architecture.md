@@ -1,4 +1,4 @@
-# Kuyara architecture
+# kuyara architecture
 
 ## Current workspace
 
