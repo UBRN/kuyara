@@ -4,19 +4,24 @@
     "slug": "kuyara",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/icons/kuyara-icon.png",
     "scheme": "kuyara",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": {
+        "light": "./assets/icons/kuyara-icon-ios-light.png",
+        "dark": "./assets/icons/kuyara-icon-ios-dark.png",
+        "tinted": "./assets/icons/kuyara-icon-ios-tinted.png"
+      },
       "deploymentTarget": "16.4"
     },
     "android": {
+      "icon": "./assets/icons/kuyara-icon-android-legacy.png",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#142F3B",
+        "foregroundImage": "./assets/icons/kuyara-icon-android-foreground.png",
+        "backgroundImage": "./assets/icons/kuyara-icon-android-background.png",
+        "monochromeImage": "./assets/icons/kuyara-icon-android-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
     },
@@ -29,9 +34,14 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "backgroundColor": "#F4F6F5",
+          "image": "./assets/splash/kuyara-splash-symbol-light.png",
+          "imageWidth": 160,
+          "resizeMode": "contain",
+          "dark": {
+            "backgroundColor": "#0D191E",
+            "image": "./assets/splash/kuyara-splash-symbol-dark.png"
+          }
         }
       ]
     ],
