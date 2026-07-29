@@ -135,9 +135,16 @@ The repository may be in transition. Inspect the real tree before assuming this 
 - Add contract tests for shared Worker schemas and failure shapes.
 - Test critical screens and user interactions with React Native Testing Library.
 - Keep Maestro E2E coverage small and focused on critical flows such as onboarding, permission handling, and receiving a recommendation.
-- For each change, run the narrowest relevant checks first, then broader checks justified by the impact.
-- Before the scaffold defines package scripts, discover available commands from the repository and report what could and could not be run.
-- After the scaffold is stable, replace this paragraph with exact install, type-check, lint, format, unit, contract, E2E, iOS, Android, and Worker commands.
+- Run commands from the repository root unless a different directory is stated.
+- Install exactly from the committed lockfile with `pnpm install --frozen-lockfile`.
+- Run the verified aggregate lint, TypeScript, and Worker bundle checks with `pnpm check`.
+- Run lint alone with `pnpm run lint` and all current TypeScript checks with `pnpm run typecheck`.
+- Inspect the resolved mobile configuration with `pnpm --filter @kuyara/mobile exec expo config --type public --json`.
+- Run Expo Doctor from `apps/mobile` with `pnpm dlx expo-doctor@latest`.
+- For a local iOS Simulator smoke test, run `pnpm --filter @kuyara/mobile exec expo start --ios --port 8082` and stop Metro with Ctrl+C after verification.
+- Verify the Worker bundle without deployment with `pnpm --filter @kuyara/worker bundle`.
+- Start the local Worker with `pnpm --filter @kuyara/worker dev --port 8788`; this is a long-running process and must be stopped after verification.
+- No format, unit, contract, E2E, or Android build script exists yet. Do not invent or document one as available until the corresponding infrastructure is added and verified.
 
 ## Dependency policy
 
@@ -166,4 +173,3 @@ The repository may be in transition. Inspect the real tree before assuming this 
 - Flag hard-coded user-visible strings, inaccessible controls, and missing platform fallbacks.
 - Flag speculative sync infrastructure or provider coupling added without an approved requirement.
 - Prefer CI for deterministic formatting and lint enforcement; review should focus on correctness, security, privacy, architecture, and regressions.
-

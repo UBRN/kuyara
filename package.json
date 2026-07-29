@@ -1,0 +1,14 @@
+{
+  "name": "kuyara",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.18.0",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "lint": "pnpm --filter @kuyara/mobile lint",
+    "typecheck": "pnpm --recursive --if-present typecheck",
+    "check": "pnpm run lint && pnpm run typecheck && pnpm --filter @kuyara/worker bundle"
+  }
+}
