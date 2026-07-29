@@ -41,6 +41,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
+    "test:theme": "node --test src/theme/theme.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "private": true
