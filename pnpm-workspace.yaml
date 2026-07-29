@@ -1,0 +1,11 @@
+packages:
+  - apps/*
+  - packages/*
+
+overrides:
+  '@unrs/resolver-binding-wasm32-wasi@1.12.2>@napi-rs/wasm-runtime': 1.1.6
+
+allowBuilds:
+  esbuild: true
+  unrs-resolver: true
+  workerd: true
