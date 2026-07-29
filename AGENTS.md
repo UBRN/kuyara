@@ -1,8 +1,8 @@
-# Kuyara repository instructions
+# kuyara repository instructions
 
 ## Product and current scope
 
-Kuyara is an open-source weather and outfit recommendation app built with React Native, TypeScript, and Expo for iOS and Android.
+kuyara is an open-source weather and outfit recommendation app built with React Native, TypeScript, and Expo for iOS and Android.
 
 - Optimize the first release for iOS, but keep Android buildable and avoid iOS-only assumptions in shared code.
 - Keep the MVP small: no account, cross-device sync, behavioral analytics, or notifications.

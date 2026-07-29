@@ -1,8 +1,8 @@
-# Kuyara product decisions
+# kuyara product decisions
 
 ## Confirmed MVP decisions
 
-- Kuyara is an open-source weather and outfit recommendation app for iOS and Android.
+- kuyara is an open-source weather and outfit recommendation app for iOS and Android.
 - The first release is optimized for iOS while shared code remains Android-compatible.
 - Turkish and English are supported from the beginning. The device language and system theme are the defaults, with language and theme overrides available in Settings.
 - The MVP has no account, cross-device sync, behavioral analytics, or notifications.
