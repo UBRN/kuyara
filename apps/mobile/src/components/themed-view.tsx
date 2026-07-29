@@ -1,16 +1,18 @@
 import { View, type ViewProps } from 'react-native';
 
-import { ThemeColor } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import type { SemanticColorRole } from '@/theme/theme';
+import { useKuyaraTheme } from '@/theme/theme-context';
 
 export type ThemedViewProps = ViewProps & {
-  lightColor?: string;
-  darkColor?: string;
-  type?: ThemeColor;
+  backgroundRole?: SemanticColorRole;
 };
 
-export function ThemedView({ style, lightColor, darkColor, type, ...otherProps }: ThemedViewProps) {
-  const theme = useTheme();
+export function ThemedView({
+  style,
+  backgroundRole = 'background',
+  ...otherProps
+}: ThemedViewProps) {
+  const theme = useKuyaraTheme();
 
-  return <View style={[{ backgroundColor: theme[type ?? 'background'] }, style]} {...otherProps} />;
+  return <View style={[{ backgroundColor: theme.colors[backgroundRole] }, style]} {...otherProps} />;
 }

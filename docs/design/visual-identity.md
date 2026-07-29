@@ -6,6 +6,8 @@ This document is the canonical reference for kuyara branding and the visual inte
 
 The decisions below are approved constraints. They describe design intent and acceptance criteria; they do not imply that semantic design tokens, components, or every platform asset have been implemented. When implementation and this document conflict, report the conflict instead of silently choosing or redefining the identity.
 
+The current implementation details for semantic tokens and theme consumption are documented in [`design-system.md`](design-system.md).
+
 ## Brand foundation
 
 ### Name
