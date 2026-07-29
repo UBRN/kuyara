@@ -19,6 +19,11 @@
 - The Worker currently has no WeatherKit, AI, credential, persistence, rate-limit, or production API implementation.
 - The contracts package intentionally contains no request/response schemas until an API contract is confirmed.
 
+## Approved visual identity
+
+- The canonical approved brand and visual constraints are recorded in [`docs/design/visual-identity.md`](design/visual-identity.md). That document is the source of truth for UI, UX, themes, icons, illustrations, motion, splash screens, and other branding work.
+- The approved app symbol is Balanced Horizon — V2: Unified Gap System. Its repository master is `apps/mobile/assets/brand/kuyara-symbol-master.svg`, and its locked geometry must not be silently altered.
+
 ## Future possibilities, not MVP commitments
 
 - A remote sync adapter may later be implemented with either Supabase or Firebase, but not both in production.

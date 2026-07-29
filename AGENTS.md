@@ -127,6 +127,14 @@ The repository may be in transition. Inspect the real tree before assuming this 
 - Accessibility is a definition-of-done requirement: support font scaling, meaningful screen-reader labels, logical focus order, sufficient contrast, adequate touch targets, and reduced-motion preferences.
 - Target the minimum iOS version supported by the selected stable Expo SDK and pin the actual deployment target in repository configuration.
 
+## UI and visual identity
+
+- Before UI, UX, theme, icon, illustration, animation, splash, or branding work, read the canonical [`docs/design/visual-identity.md`](docs/design/visual-identity.md) and treat its approved decisions as constraints.
+- Do not introduce new brand colors, fonts, icon geometry, visual metaphors, or motion styles without explicit approval, and never silently modify the approved Balanced Horizon V2 master geometry.
+- Use semantic design tokens rather than hardcoded brand values in feature UI.
+- Preserve platform-adaptive iOS and Android behavior instead of forcing pixel-identical interfaces.
+- Validate important UI in Turkish and English, light and dark themes, text scaling, screen readers, and Reduced Motion; report conflicts between documentation and implementation instead of silently choosing one.
+
 ## Testing and verification
 
 - Test behavior and boundaries, not implementation details or coverage percentages alone.
