@@ -48,6 +48,8 @@ Version 2 leaves version 1 unchanged and adds `wardrobe_items`. Its UUID primary
 
 One composite index over `(local_profile_id, deleted_at, updated_at DESC)` supports the profile-scoped active and explicitly deleted access patterns without speculative indexes. The table and index use idempotent creation inside the migration transaction. Version 2 advances `user_version` only after both succeed; failure rolls back the new schema while preserving version 1 profile data and its schema version.
 
+Version 3 leaves versions 1 and 2 unchanged and adds nine nullable columns to `wardrobe_items`: `garment_type_id`, `color_family`, and explicit thermal, water, wind, breathability, arm-coverage, leg-coverage, and traction overrides. SQL checks constrain each non-null enum value, while `garment_type_id` intentionally has no SQL list or foreign key because the canonical catalog is bundled TypeScript data. Existing rows retain their identity, owner, category, display values, photo path, lifecycle timestamps, and deletion state with every new column null; no type or property is inferred during migration.
+
 Future migrations must add one ordered migration object immediately after the current version. Do not edit released migrations, skip a version, or add a destructive fallback.
 
 ### Wardrobe persistence boundary
@@ -72,9 +74,19 @@ The local data source owns fixed-column parameterized create and update statemen
 
 Photo persistence is deliberately path-only. The domain and record store a normalized forward-slash relative path into future app-private storage, never a blob, base64 value, absolute path, or `file://` URI. This slice performs no image selection, compression, copying, deletion, or external upload.
 
-The six current categories express only structural outfit roles. Detailed catalog, weather, fabric, warmth, waterproofing, formality, layer-order, brand, purchase, AI, and provider metadata are not present in the schema and remain a separate design task. A future remote sync adapter will map separate remote records and complement rather than replace SQLite.
+The six categories continue to express only structural outfit roles. A versioned, immutable mobile catalog supplies canonical garment types and validated coarse defaults without copying those definitions into SQLite. Wardrobe rows store the selected type reference, an optional canonical color family, and only explicit user overrides. Weather, fabric, formality, selected runtime layer role, brand, purchase, AI, and provider metadata remain outside the item schema. A future remote sync adapter will map separate remote records and complement rather than replace SQLite.
 
-The research-backed, not-yet-implemented taxonomy and recommended version 3 direction are specified in [`clothing-taxonomy.md`](clothing-taxonomy.md). That specification keeps canonical catalog definitions, user-owned wardrobe records, and runtime-effective recommendation inputs separate; it does not change the current version 2 schema or runtime behavior.
+The research-backed taxonomy and version 3 contract are specified in [`clothing-taxonomy.md`](clothing-taxonomy.md). Mobile-only values and Zod schemas live in the catalog domain because no Worker API contract uses them yet. The catalog validator enforces ID, category, coverage, localization, applicability, and deprecation invariants before exporting deeply frozen definitions.
+
+The effective-garment read model is derived at runtime:
+
+```text
+validated canonical type defaults ─┐
+                                   ├─ pure effective resolver
+validated Wardrobe item overrides ─┘
+```
+
+The resolver has no SQLite, localization, weather-provider, UI, or outfit-composition dependency. It returns an explicit legacy view for unclassified version 2 rows, a resolved view for valid typed rows, or a sanitized invalid-data outcome for missing types, category mismatches, and inapplicable overrides. Catalog applicability filters future catalog suggestions only and is never consulted when reading or resolving an owned item.
 
 ### Local profile lifecycle
 

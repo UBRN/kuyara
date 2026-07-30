@@ -2,15 +2,15 @@
 
 ## Status, purpose, and scope
 
-This is the canonical technical design proposal for the clothing taxonomy that a future kuyara catalog, Wardrobe flow, and deterministic recommendation engine can share. It is based on the repository state at commit `7286df18cb66dbaab00ac42a8d326d09821a577e` and external research accessed on 2026-07-30.
+This is the canonical technical design and implemented domain contract for the clothing taxonomy that the kuyara catalog, Wardrobe flow, and a future deterministic recommendation engine can share. It is based on the repository state at commit `7286df18cb66dbaab00ac42a8d326d09821a577e` and external research accessed on 2026-07-30.
 
-The document specifies stable identifiers, concept boundaries, values, validation rules, representative records, and a recommended SQLite migration version 3 direction. It does **not** implement a catalog, change migration version 1 or 2, define weather thresholds, or add runtime behavior. Production catalog defaults and the user experience for optional overrides still require a separate implementation Goal.
+The document specifies stable identifiers, concept boundaries, values, validation rules, catalog records, and SQLite migration version 3. The implemented taxonomy foundation does **not** change migration version 1 or 2, define weather thresholds, add Wardrobe UI, or implement outfit recommendation behavior.
 
 kuyara provides everyday clothing guidance, not medical or occupational-safety advice. In extreme conditions, official local weather alerts and public-safety guidance take priority over an outfit recommendation. The US alert names and Fahrenheit thresholds in some research sources are evidence about weather effects only; they are not kuyara domain values.
 
 ## Current repository state
 
-The implemented local-first boundary has these facts:
+The local-first boundary before schema version 3 had these facts:
 
 - SQLite migration version 2 stores profile-owned `wardrobe_items` with UUID lifecycle fields, optional `name`, optional free-text `color`, optional private `photo_relative_path`, and one required `category`.
 - The six stable structural categories are `top`, `bottom`, `one_piece`, `outerwear`, `footwear`, and `accessory`.
@@ -20,7 +20,15 @@ The implemented local-first boundary has these facts:
 - Today currently uses presentation-only fixture codes such as `clothing.cottonShirt`, `clothing.lightTrenchCoat`, `clothing.hoodedRainJacket`, and `clothing.waterproofAnkleBoots`. They are not catalog identifiers, Wardrobe records, provider DTOs, or recommendation-engine outputs.
 - No catalog, detailed garment classification, migration version 3, recommendation engine, WeatherKit contract, or AI integration exists yet.
 
-The taxonomy must extend these facts rather than reinterpret migration version 2 or treat the Today fixture as production catalog data.
+The implemented taxonomy extends these facts rather than reinterpreting migration version 2 or treating the Today fixture as production catalog data.
+
+Current implementation locations are:
+
+- taxonomy values, Zod schemas, and inferred types: `apps/mobile/src/features/catalog/domain/garment-taxonomy.ts`
+- immutable catalog definitions and validation: `apps/mobile/src/features/catalog/domain/garment-catalog.ts`
+- Turkish and English catalog messages: `apps/mobile/src/features/catalog/localization/catalog-messages.ts`
+- effective garment resolution: `apps/mobile/src/features/wardrobe/domain/effective-garment.ts`
+- schema version 3: `apps/mobile/src/infrastructure/sqlite/migrations.ts`
 
 The current fixture concepts would be normalized only when that mock slice is deliberately replaced:
 
@@ -216,7 +224,7 @@ Rules:
 - Applicability belongs to the canonical catalog, not a Wardrobe item.
 - Changing the profile preference never hides, invalidates, deletes, or reclassifies an owned Wardrobe item.
 - The recommendation engine may use every active owned item regardless of current catalog applicability.
-- Exact single-preference assignments in the production catalog are a merchandising/product decision. The examples below are model tests, not final social rules.
+- Production applicability is settled as follows: `blouse`, `skirt`, and `dress` contain only `womens`; every other canonical type, including `jumpsuit`, contains both `womens` and `mens`.
 
 ## Canonical MVP garment types
 
@@ -296,7 +304,7 @@ The future catalog definition should contain:
 
 Catalog validation must reject duplicate IDs, duplicate values in sets, invalid enum values, category/coverage mismatches, missing localization keys, active types with a replacement, deprecated replacement cycles, and a replacement whose structural category differs unless an explicit migration design approves the semantic change.
 
-### Proposed Wardrobe fields
+### Wardrobe schema version 3 fields
 
 Migration version 3 should retain all version 2 fields and add nullable columns:
 
@@ -421,13 +429,14 @@ This distinguishes `null` as state/absence from domain values. For example, `wat
 
 Future code should keep each value list in one readonly tuple/module and infer the TypeScript union from that list. If a value crosses a Worker/mobile contract, a Zod schema should be constructed from the same exported values rather than duplicating a second list. Mobile-only catalog definitions stay in the mobile catalog domain until a real shared contract exists; `packages/contracts` must not become a speculative dumping ground.
 
-Suggested future placement, not files created by this Goal:
+Implemented placement:
 
 ```text
 apps/mobile/src/features/catalog/domain/
-  garment-type-values.ts
-  garment-type.ts
+  garment-taxonomy.ts
   garment-catalog.ts
+apps/mobile/src/features/catalog/localization/
+  catalog-messages.ts
 apps/mobile/src/features/wardrobe/domain/
   effective-garment.ts
 apps/mobile/src/features/wardrobe/data/
@@ -435,7 +444,7 @@ apps/mobile/src/features/wardrobe/data/
   wardrobe-item-mapper.ts
 apps/mobile/src/infrastructure/sqlite/
   migrations.ts                # append v3; never edit v1/v2
-packages/contracts/src/        # only values that later cross the API boundary
+packages/contracts/src/        # remains reserved until values cross an API boundary
 ```
 
 ## Representative catalog records
@@ -451,7 +460,7 @@ These records are **model-consistency examples**, not the final production fixtu
 | `overshirt` | `top` | `mid`, `outer`, `standalone` | `light` | `none` | `none` | `moderate` | `upper_body`; arms `full` | — | both |
 | `trousers` | `bottom` | `standalone` | `light` | — | — | `moderate` | `lower_body`; legs `full` | — | both |
 | `shorts` | `bottom` | `standalone` | `none` | — | — | `high` | `lower_body`; legs `partial` | — | both |
-| `dress` | `one_piece` | `standalone` | `light` | — | — | `moderate` | `full_body`; arms `none`, legs `partial` | — | `womens` example |
+| `dress` | `one_piece` | `standalone` | `light` | — | — | `moderate` | `full_body`; arms `none`, legs `partial` | — | `womens` |
 | `insulated_jacket` | `outerwear` | `outer` | `high` | `water_resistant` | `wind_resistant` | `low` | `upper_body`; arms `full` | — | both |
 | `rain_jacket` | `outerwear` | `outer` | `light` | `waterproof` | `wind_resistant` | `moderate` | `upper_body`; arms `full` | — | both |
 | `sneakers` | `footwear` | — | `light` | `none` | — | `moderate` | `feet` | `everyday` | both |
@@ -497,12 +506,12 @@ The engine can combine multiple thermal contributions, an outer layer with wind/
 
 The third approach is selected. It keeps catalog assumptions replaceable, Wardrobe facts user-owned, and runtime composition explicit.
 
-## Recommended migration version 3 direction
+## Implemented migration version 3
 
-A separate implementation Goal should:
+The implementation:
 
 1. Append migration version 3 after version 2 without editing released SQL.
-2. Add the nine nullable columns listed under “Proposed Wardrobe fields”, with SQL checks for non-null enum values but no SQL list of garment type IDs.
+2. Add the nine nullable columns listed under “Wardrobe schema version 3 fields”, with SQL checks for non-null enum values but no SQL list of garment type IDs.
 3. Leave all existing rows intact, retain their required category, and set every new column to null. Do not infer a concrete type from category, name, color, photo, or Today fixture.
 4. Require `garmentTypeId` for newly created items at the repository/application boundary while continuing to read legacy unclassified rows.
 5. Add a validated bundled catalog and explicit catalog-to-domain and record-to-domain mapping; do not store the canonical catalog in SQLite for the MVP.
@@ -510,19 +519,18 @@ A separate implementation Goal should:
 7. Add effective-property resolution tests, catalog invariant tests, v2-to-v3 migration tests, mapper round trips, invalid enum tests, legacy-row behavior, deprecation behavior, and override/default precedence tests.
 8. Keep provider condition codes, normalized current-weather needs, layer assignment, temperature thresholds, and recommendation outputs out of the Wardrobe table.
 
-The migration implementation must decide whether SQLite can add each checked column directly on every supported SQLite version or whether a table-copy migration is required. That is an implementation verification detail, not permission to edit migration version 2.
+The implementation uses transactional `ALTER TABLE ... ADD COLUMN` statements with nullable checked columns. The production SQL is exercised by the repository's Node SQLite adapter for empty, version 1, and released version 2 databases, including rollback and idempotent re-entry, without editing migration version 2.
 
 ## Open product questions
 
-- Which types are shown by default in each clothing-preference catalog? The data model supports either or both; the production applicability assignments need product review.
 - Should advanced property overrides be visible during add-item, behind an optional “details” step, or initially only available during edit? The schema supports all without making them required.
 - Should the existing free-text `color` remain user-editable beside the canonical picker, or become a read-only/custom display name? Existing data must be preserved either way.
 - Is `umbrella` permanently a Wardrobe accessory, or should a later product model distinguish carried gear from worn accessories? The MVP can keep it as `accessory` without adding a seventh category.
 - What evidence qualifies a SKU-specific `waterproof`, enhanced-traction, or future UPF claim? Until a policy exists, defaults remain conservative and user-facing safety claims are prohibited.
 - Should catalog updates ship only with app releases in the MVP, or can a later signed remote catalog update independently? Remote catalog delivery, signatures, and cache policy are outside this Goal.
 
-## Boundaries for the next implementation Goal
+## Implemented boundary
 
-The next catalog/migration Goal may implement only the validated catalog values, localization keys, migration version 3, updated Wardrobe domain/record/mapper/repository behavior, and focused tests described here. It must not silently add a recommendation algorithm, temperature thresholds, WeatherKit/provider contracts, AI, sync, authentication, photo analysis, a Wardrobe screen, or speculative remote catalog infrastructure.
+This catalog/migration implementation contains only the validated catalog values, localization keys, migration version 3, updated Wardrobe domain/record/mapper/repository behavior, effective resolver, and focused tests described here. It does not add a recommendation algorithm, temperature thresholds, WeatherKit/provider contracts, AI, sync, authentication, photo analysis, a Wardrobe screen, or speculative remote catalog infrastructure.
 
-Before implementation, resolve any product question that changes required UI or production applicability. The taxonomy boundary itself is sufficient to proceed safely with catalog fixtures and a non-destructive migration version 3 while preserving legacy items.
+Product questions that affect future override UI remain deferred. Production applicability is settled above, and the non-destructive migration preserves legacy items without guessing a type.

@@ -5,6 +5,7 @@ import { latestDatabaseVersion, migrateDatabase } from './migrations.ts';
 import { NodeSqliteDatabase } from '../../../test/node-sqlite-database.mjs';
 
 const timestamp = '2026-07-30T10:00:00.000Z';
+const deletedTimestamp = '2026-07-30T11:00:00.000Z';
 
 async function createReleasedVersionOneDatabase(database) {
   await database.execAsync(`
@@ -29,6 +30,31 @@ async function createReleasedVersionOneDatabase(database) {
   `);
 }
 
+async function createReleasedVersionTwoDatabase(database) {
+  await createReleasedVersionOneDatabase(database);
+  await database.execAsync(`
+    CREATE TABLE IF NOT EXISTS wardrobe_items (
+      id TEXT PRIMARY KEY NOT NULL,
+      local_profile_id TEXT NOT NULL,
+      name TEXT,
+      category TEXT NOT NULL CHECK (
+        category IN ('top', 'bottom', 'one_piece', 'outerwear', 'footwear', 'accessory')
+      ),
+      color TEXT,
+      photo_relative_path TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT,
+      FOREIGN KEY (local_profile_id) REFERENCES local_profiles(id)
+        ON UPDATE RESTRICT
+        ON DELETE RESTRICT
+    );
+    CREATE INDEX IF NOT EXISTS idx_wardrobe_items_profile_deleted_updated
+    ON wardrobe_items (local_profile_id, deleted_at, updated_at DESC);
+    PRAGMA user_version = 2;
+  `);
+}
+
 async function insertProfile(database, id = 'stable-profile-id') {
   await database.runAsync(
     `
@@ -41,7 +67,7 @@ async function insertProfile(database, id = 'stable-profile-id') {
   );
 }
 
-test('an empty database applies versions 1 and 2 in order with the final schema', async (t) => {
+test('an empty database applies versions 1 through 3 in order with the final schema', async (t) => {
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
 
@@ -61,7 +87,7 @@ test('an empty database applies versions 1 and 2 in order with the final schema'
     'PRAGMA index_info(idx_wardrobe_items_profile_deleted_updated)',
   );
 
-  assert.equal(latestDatabaseVersion, 2);
+  assert.equal(latestDatabaseVersion, 3);
   assert.equal(version.user_version, latestDatabaseVersion);
   assert.equal(profileTable.name, 'local_profiles');
   assert.match(profileTable.sql, /CHECK \(singleton_key = 1\)/);
@@ -94,6 +120,15 @@ test('an empty database applies versions 1 and 2 in order with the final schema'
       'created_at',
       'updated_at',
       'deleted_at',
+      'garment_type_id',
+      'color_family',
+      'thermal_level_override',
+      'water_protection_override',
+      'wind_protection_override',
+      'breathability_override',
+      'arm_coverage_override',
+      'leg_coverage_override',
+      'traction_suitability_override',
     ],
   );
   assert.equal(
@@ -112,7 +147,7 @@ test('an empty database applies versions 1 and 2 in order with the final schema'
   );
 });
 
-test('an existing version 1 database upgrades without changing local profile data', async (t) => {
+test('an existing version 1 database upgrades through version 3 without changing profile data', async (t) => {
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
   await createReleasedVersionOneDatabase(database);
@@ -126,7 +161,7 @@ test('an existing version 1 database upgrades without changing local profile dat
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'wardrobe_items'",
   );
 
-  assert.equal(version.user_version, 2);
+  assert.equal(version.user_version, 3);
   assert.deepEqual(rows.map((row) => ({ ...row })), [{
     id: 'stable-profile-id',
     created_at: timestamp,
@@ -134,29 +169,54 @@ test('an existing version 1 database upgrades without changing local profile dat
   assert.equal(wardrobeTable.name, 'wardrobe_items');
 });
 
-test('version 2 is idempotent and preserves existing wardrobe rows when retried', async (t) => {
+test('version 3 preserves a released version 2 wardrobe row and is not reapplied', async (t) => {
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
-  await migrateDatabase(database);
+  await createReleasedVersionTwoDatabase(database);
   await insertProfile(database);
   await database.runAsync(
     `
       INSERT INTO wardrobe_items (
         id, local_profile_id, name, category, color, photo_relative_path,
         created_at, updated_at, deleted_at
-      ) VALUES (?, ?, ?, 'top', NULL, NULL, ?, ?, NULL)
+      ) VALUES (?, ?, ?, 'top', 'Mavi', 'wardrobe/legacy.jpg', ?, ?, ?)
     `,
-    ['item-id', 'stable-profile-id', 'Kazak', timestamp, timestamp],
+    [
+      'item-id',
+      'stable-profile-id',
+      'Kazak',
+      timestamp,
+      deletedTimestamp,
+      deletedTimestamp,
+    ],
   );
 
-  await database.execAsync('PRAGMA user_version = 1;');
   await migrateDatabase(database);
   await migrateDatabase(database);
 
   const version = await database.getFirstAsync('PRAGMA user_version');
-  const rows = await database.getAllAsync('SELECT id, name FROM wardrobe_items');
-  assert.equal(version.user_version, 2);
-  assert.deepEqual(rows.map((row) => ({ ...row })), [{ id: 'item-id', name: 'Kazak' }]);
+  const rows = await database.getAllAsync('SELECT * FROM wardrobe_items');
+  assert.equal(version.user_version, 3);
+  assert.deepEqual(rows.map((row) => ({ ...row })), [{
+    id: 'item-id',
+    local_profile_id: 'stable-profile-id',
+    name: 'Kazak',
+    category: 'top',
+    color: 'Mavi',
+    photo_relative_path: 'wardrobe/legacy.jpg',
+    created_at: timestamp,
+    updated_at: deletedTimestamp,
+    deleted_at: deletedTimestamp,
+    garment_type_id: null,
+    color_family: null,
+    thermal_level_override: null,
+    water_protection_override: null,
+    wind_protection_override: null,
+    breathability_override: null,
+    arm_coverage_override: null,
+    leg_coverage_override: null,
+    traction_suitability_override: null,
+  }]);
 });
 
 test('wardrobe schema enforces owner and category constraints', async (t) => {
@@ -184,6 +244,50 @@ test('wardrobe schema enforces owner and category constraints', async (t) => {
   assert.deepEqual(rows.map((row) => ({ ...row })), [
     { id: 'valid-item', category: 'accessory' },
   ]);
+});
+
+test('version 3 constrains nullable taxonomy enums without constraining catalog IDs', async (t) => {
+  const database = new NodeSqliteDatabase();
+  t.after(() => database.close());
+  await migrateDatabase(database);
+  await insertProfile(database);
+  await database.runAsync(
+    `
+      INSERT INTO wardrobe_items (
+        id, local_profile_id, name, category, color, photo_relative_path,
+        created_at, updated_at, deleted_at, garment_type_id, color_family
+      ) VALUES (?, ?, NULL, 'top', NULL, NULL, ?, ?, NULL, ?, 'blue')
+    `,
+    ['future-type-item', 'stable-profile-id', timestamp, timestamp, 'future_type'],
+  );
+
+  const invalidEnumValues = [
+    ['color_family', 'cyan'],
+    ['thermal_level_override', 'extreme'],
+    ['water_protection_override', 'submersible'],
+    ['wind_protection_override', 'windproof'],
+    ['breathability_override', 'maximum'],
+    ['arm_coverage_override', 'quarter'],
+    ['leg_coverage_override', 'quarter'],
+    ['traction_suitability_override', 'certified'],
+  ];
+  for (const [column, value] of invalidEnumValues) {
+    await assert.rejects(() =>
+      database.runAsync(
+        `UPDATE wardrobe_items SET ${column} = ? WHERE id = ?`,
+        [value, 'future-type-item'],
+      ),
+    );
+  }
+
+  const row = await database.getFirstAsync(
+    'SELECT garment_type_id, color_family FROM wardrobe_items WHERE id = ?',
+    ['future-type-item'],
+  );
+  assert.deepEqual({ ...row }, {
+    garment_type_id: 'future_type',
+    color_family: 'blue',
+  });
 });
 
 test('version 1 profile constraints remain enforced after the version 2 migration', async (t) => {
@@ -278,4 +382,63 @@ test('a failed version 2 migration rolls back its table, version, and preserves 
   assert.equal(version.user_version, 1);
   assert.deepEqual({ ...profile }, { id: 'stable-profile-id' });
   assert.equal(wardrobeTable, null);
+});
+
+test('a failed version 3 migration rolls back added columns and preserves version 2 rows', async (t) => {
+  const database = new NodeSqliteDatabase();
+  t.after(() => database.close());
+  await createReleasedVersionTwoDatabase(database);
+  await insertProfile(database);
+  await database.runAsync(
+    `
+      INSERT INTO wardrobe_items (
+        id, local_profile_id, name, category, color, photo_relative_path,
+        created_at, updated_at, deleted_at
+      ) VALUES ('legacy-item', 'stable-profile-id', 'Kazak', 'top', NULL, NULL, ?, ?, NULL)
+    `,
+    [timestamp, timestamp],
+  );
+
+  const failingDatabase = {
+    execAsync: (source) => database.execAsync(source),
+    runAsync: (source, params) => database.runAsync(source, params),
+    getFirstAsync: (source, params) => database.getFirstAsync(source, params),
+    getAllAsync: (source, params) => database.getAllAsync(source, params),
+    withExclusiveTransactionAsync: (task) =>
+      database.withExclusiveTransactionAsync((transaction) =>
+        task({
+          execAsync: async (source) => {
+            if (source.includes('ADD COLUMN garment_type_id')) {
+              await transaction.execAsync(
+                'ALTER TABLE wardrobe_items ADD COLUMN garment_type_id TEXT;',
+              );
+              throw new Error('injected version 3 failure');
+            }
+            return transaction.execAsync(source);
+          },
+          runAsync: transaction.runAsync.bind(transaction),
+          getFirstAsync: transaction.getFirstAsync.bind(transaction),
+          getAllAsync: transaction.getAllAsync.bind(transaction),
+        }),
+      ),
+  };
+
+  await assert.rejects(
+    () => migrateDatabase(failingDatabase),
+    /injected version 3 failure/,
+  );
+
+  const version = await database.getFirstAsync('PRAGMA user_version');
+  const columns = await database.getAllAsync('PRAGMA table_info(wardrobe_items)');
+  const row = await database.getFirstAsync(
+    'SELECT id, name, category FROM wardrobe_items WHERE id = ?',
+    ['legacy-item'],
+  );
+  assert.equal(version.user_version, 2);
+  assert.equal(columns.some(({ name }) => name === 'garment_type_id'), false);
+  assert.deepEqual({ ...row }, {
+    id: 'legacy-item',
+    name: 'Kazak',
+    category: 'top',
+  });
 });

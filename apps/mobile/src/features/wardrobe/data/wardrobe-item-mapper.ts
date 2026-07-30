@@ -1,4 +1,16 @@
+import type { ZodType } from 'zod';
+
 import type { WardrobeItemRecord } from '@/features/wardrobe/data/wardrobe-item-record';
+import {
+  breathabilitySchema,
+  colorFamilySchema,
+  coverageSchema,
+  garmentTypeIdSchema,
+  thermalLevelSchema,
+  tractionSuitabilitySchema,
+  waterProtectionSchema,
+  windProtectionSchema,
+} from '@/features/catalog/domain/garment-taxonomy';
 import {
   isWardrobeItemCategory,
   normalizeWardrobePhotoRelativePath,
@@ -20,6 +32,19 @@ function isUtcIsoTimestamp(value: string): boolean {
 
 function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === 'string';
+}
+
+function mapNullableEnum<Value>(value: unknown, schema: ZodType<Value>): Value | null {
+  if (value === null) {
+    return null;
+  }
+
+  const result = schema.safeParse(value);
+  if (!result.success) {
+    throw new WardrobeItemMappingError();
+  }
+
+  return result.data;
 }
 
 function isUuidV4(value: string): boolean {
@@ -58,6 +83,36 @@ export function mapWardrobeCategoryFromRecord(value: string): WardrobeItemCatego
 export function mapWardrobeItemRecord(record: WardrobeItemRecord): WardrobeItem {
   try {
     const normalizedPhotoPath = normalizeWardrobePhotoRelativePath(record.photoRelativePath);
+    const garmentTypeId = mapNullableEnum(record.garmentTypeId, garmentTypeIdSchema);
+    const colorFamily = mapNullableEnum(record.colorFamily, colorFamilySchema);
+    const thermalLevelOverride = mapNullableEnum(
+      record.thermalLevelOverride,
+      thermalLevelSchema,
+    );
+    const waterProtectionOverride = mapNullableEnum(
+      record.waterProtectionOverride,
+      waterProtectionSchema,
+    );
+    const windProtectionOverride = mapNullableEnum(
+      record.windProtectionOverride,
+      windProtectionSchema,
+    );
+    const breathabilityOverride = mapNullableEnum(
+      record.breathabilityOverride,
+      breathabilitySchema,
+    );
+    const armCoverageOverride = mapNullableEnum(
+      record.armCoverageOverride,
+      coverageSchema,
+    );
+    const legCoverageOverride = mapNullableEnum(
+      record.legCoverageOverride,
+      coverageSchema,
+    );
+    const tractionSuitabilityOverride = mapNullableEnum(
+      record.tractionSuitabilityOverride,
+      tractionSuitabilitySchema,
+    );
     const hasValidDeletedAt =
       record.deletedAt === null ||
       (typeof record.deletedAt === 'string' && isUtcIsoTimestamp(record.deletedAt));
@@ -84,7 +139,16 @@ export function mapWardrobeItemRecord(record: WardrobeItemRecord): WardrobeItem 
       localProfileId: record.localProfileId,
       name: record.name,
       category: mapWardrobeCategoryFromRecord(record.category),
+      garmentTypeId,
       color: record.color,
+      colorFamily,
+      thermalLevelOverride,
+      waterProtectionOverride,
+      windProtectionOverride,
+      breathabilityOverride,
+      armCoverageOverride,
+      legCoverageOverride,
+      tractionSuitabilityOverride,
       photoRelativePath: normalizedPhotoPath,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
