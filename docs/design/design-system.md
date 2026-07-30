@@ -91,7 +91,7 @@ The canonical primitive entry point is `apps/mobile/src/components/ui/index.ts`.
 - `IconButton` requires an `accessibilityLabel` at the type boundary, accepts an optional standard accessibility hint through React Native props, owns the 44-point target, and receives icon content as a render function with the resolved semantic icon color. It does not select an icon system or glyph.
 - `SectionHeader` composes a heading, optional supporting text, and optional trailing action. It changes to a stacked layout at large text sizes so the action does not compress the heading.
 
-The checked-in Today feature is the first product composition over the primitives. Its route uses `Screen`, `AppText`, `Surface`, and `SectionHeader`; feature-specific weather and outfit components own their product semantics rather than widening the generic primitive API. The former Home and Explore demonstrations and their tab scaffold have been removed from the product route tree. Focused primitive tests preserve coverage for `Button` and `IconButton` even though Today intentionally has no interaction.
+The checked-in Today feature is the first product composition over the primitives. Its route uses `Screen`, `AppText`, `Surface`, and `SectionHeader`; feature-specific weather and outfit components own their product semantics rather than widening the generic primitive API. The finalized primary tab bar is a navigation presentation component rather than a generic UI primitive. It uses the same semantic theme, minimum touch target, localized visible labels, platform-specific symbol names, and selected accessibility state. Focused primitive tests preserve coverage for `Button` and `IconButton`.
 
 Semantic tokens and primitives have different responsibilities. Tokens name visual roles and scales; primitives turn those roles into small accessibility and interaction contracts. Feature code remains responsible for localized content, layout composition, user intent, and domain-specific behavior. It may use raw React Native layout views where no semantic surface or control is intended.
 
@@ -115,10 +115,11 @@ Implemented now:
 - Reduced-motion resolution and change observation
 - Router/navigation and status-bar integration
 - Typed adaptive UI primitives over the semantic tokens
-- A single-screen Expo Router shell that can later be wrapped by final product navigation
+- A root Expo Router Stack for onboarding plus stable JavaScript Tabs for Today, Weather, Wardrobe, and Settings
+- A nested Stack boundary per tab, with localized semantic tab controls and short Weather/Wardrobe placeholders
 - Device-language English/Turkish Today strings and locale-aware fixed-date formatting
 - The deterministic Today loaded-state composition with a concise weather summary, immediate guidance, and exactly three vertically discoverable outfit cards
-- A database/profile bootstrap state, three-step local onboarding flow, and pushed Settings screen built from the same semantic tokens and scalable primitives
+- A database/profile bootstrap state, three-step local onboarding flow, and Settings tab built from the same semantic tokens and scalable primitives
 - Persisted system/Turkish/English and system/light/dark preferences supplied to the existing localization and theme providers
 - A feature-specific radio-style preference option with selected-state semantics; it remains inside the profile feature rather than widening the generic primitive API
 - Loading, unavailable, and stale-loaded Today presentation contracts
@@ -127,7 +128,7 @@ Implemented now:
 
 Deferred intentionally:
 
-- Final tab navigation
+- Any migration from JavaScript Tabs to SDK 57's alpha Native Tabs
 - Worker, WeatherKit, location, AI, wardrobe ownership, and deterministic recommendation-engine integration
 - Text inputs, selectors, switches, modal or feedback frameworks, and product-specific components
 - Divider, because the current shell has no repeated separator need
@@ -138,4 +139,4 @@ Deferred intentionally:
 - Shadows or elevation until a real hierarchy requires them
 - Android visual refinement and emulator validation; shared React Native code remains build-compatible, but Android was not validated in this task
 
-The final product navigation decision remains separate. The current root uses a stable Expo Router Stack for the onboarding gate, Today, and pushed Settings screen; it does not add product tabs, placeholders, or a custom tab bar. Android source compatibility is preserved, but Android build, emulator, and visual refinement remain unverified and deferred.
+The four-tab information architecture is final. The current root uses a stable Expo Router Stack for the onboarding gate and Expo Router JavaScript Tabs for the main application. Native Tabs are not a drop-in implementation detail while the SDK 57 API remains alpha; any later migration must be reviewed explicitly. Android source compatibility is preserved, but Android build, emulator, and visual refinement remain unverified and deferred.

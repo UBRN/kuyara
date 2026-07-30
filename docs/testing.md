@@ -8,6 +8,14 @@ The mobile workspace uses Node's built-in test runner with Node's TypeScript str
 pnpm --filter @kuyara/mobile test
 ```
 
+React Native component tests use Jest, `jest-expo`, React Native Testing Library 14, and the React 19-compatible `test-renderer` package. They remain separate from the Node suites and run with:
+
+```bash
+pnpm --filter @kuyara/mobile test:components
+```
+
+The component suite renders the production tab-bar presentation, localized Weather and Wardrobe placeholders, and the profile route gate. Expo Router 57's `renderRouter` helper assumes the older synchronous Testing Library renderer, while React Native Testing Library 14 uses an asynchronous React 19 renderer. The suite therefore does not force the native route tree through that incompatible helper: it tests production navigation controls and intents directly and mocks only the Expo Router boundary for the gate. Device-level path transitions, nested native Stack behavior, VoiceOver/TalkBack output, and platform visuals remain simulator or device verification concerns.
+
 Run the focused local-profile persistence suite with:
 
 ```bash
@@ -30,4 +38,4 @@ Wardrobe persistence tests execute the production migrations through version 3 a
 
 The same focused suite validates every taxonomy enum and Zod schema, all 30 immutable canonical catalog entries, duplicate and category-shape rejection, deprecation cycles, Turkish/English localization completeness, approved clothing-preference applicability, and pure effective-garment resolution for defaults, overrides, legacy rows, and invalid data.
 
-Presentation tests should focus on pure onboarding/route decisions, localization completeness, accessibility contracts, and source boundaries. Simulator verification remains required for genuine persistence across termination/relaunch, navigation behavior, native accessibility output, Dynamic Type, appearances, Reduced Motion, and visual regressions.
+Presentation tests should focus on pure onboarding/route decisions, localization completeness, accessibility contracts, navigation intents, and source boundaries. Simulator verification remains required for genuine persistence across termination/relaunch, complete navigation behavior, native accessibility output, Dynamic Type, appearances, Reduced Motion, and visual regressions.

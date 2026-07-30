@@ -19,9 +19,16 @@
 - The Worker currently has no WeatherKit, AI, credential, persistence, rate-limit, or production API implementation.
 - The contracts package intentionally contains no request/response schemas until an API contract is confirmed.
 
+## Implemented primary navigation
+
+- The final main tabs are Today, Weather, Wardrobe, and Settings. Their visible paths are `/`, `/weather`, `/wardrobe`, and `/settings`; Expo Router route groups do not appear in user-visible URLs.
+- The root Stack retains the device-local onboarding gate and keeps `/onboarding` outside the tab navigator. An incomplete profile cannot enter the tab group, while a completed profile opens Today by default.
+- The current app uses Expo Router's stable JavaScript Tabs. SDK 57 Native Tabs remain alpha and are not used; moving to Native Tabs later requires a separate, deliberate migration decision.
+- Each main tab owns a nested Stack boundary. Future Wardrobe create and edit screens will live inside the Wardrobe Stack rather than being pushed from Today.
+- Weather and Wardrobe currently contain only short localized placeholder screens. No live weather behavior or Wardrobe CRUD interface is implemented by the navigation foundation.
+
 ## Implemented Today mock slice
 
-- The mobile app opens Today only after the device-local onboarding gate is complete. Final product tab navigation remains deferred; Weather and Wardrobe routes are not implemented, and Settings is a normal pushed route rather than a tab.
 - Today currently renders one typed, deterministic İstanbul fixture with a fixed retrieval time, a concise mock weather summary, localized clothing guidance, and exactly three complete outfit options in the vertical reading flow: Comfortable, Polished, and Rain-ready.
 - Fixture values and language-independent weather, clothing, intent, and reason codes are separate from English and Turkish presentation copy. The fixture is a replaceable presentation input, not a WeatherKit DTO, database record, AI response, or recommendation-engine result.
 - The presentation contract supports loaded, loading, unavailable, and stale-loaded states. The checked-in route intentionally renders only the canonical fresh loaded fixture and does not claim that it is live.
@@ -35,9 +42,9 @@
 - Expo SQLite is now the durable source of truth for one device-local profile. Schema migration version 1 is applied from application bootstrap before route content is shown.
 - The profile receives one Expo Crypto UUID v4 when it is first created. It starts with no clothing choice, system language, system appearance, and incomplete onboarding; repeated or concurrent initialization returns the same persisted row.
 - First launch presents a short, accountless onboarding flow. “Women’s clothing” or “Men’s clothing” is required, while language and appearance default to system and remain reviewable before completion.
-- Completing onboarding atomically stores the three preferences and completion state, then the local route gate replaces onboarding with Today.
-- Settings is reachable from Today and persists clothing, language, and appearance changes immediately. The existing localization and semantic theme providers consume the saved preferences, so successful changes update visible UI without an app reload.
-- The slice adds no account, authentication, remote profile, synchronization engine, analytics, notifications, location permission, WeatherKit, Worker request, AI, wardrobe persistence, or final tab navigation.
+- Completing onboarding atomically stores the three preferences and completion state, then the local route gate opens the tab group on Today.
+- Settings is a main tab and remains reachable from Today's existing settings action. It persists clothing, language, and appearance changes immediately. The existing localization and semantic theme providers consume the saved preferences, so successful changes update visible UI without an app reload.
+- The slice adds no account, authentication, remote profile, synchronization engine, analytics, notifications, location permission, WeatherKit, Worker request, or AI behavior.
 
 ## Implemented local-first wardrobe persistence slice
 

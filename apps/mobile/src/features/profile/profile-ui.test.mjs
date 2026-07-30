@@ -90,6 +90,12 @@ test('English and Turkish include complete onboarding, Settings, and accessibili
     assert.ok(copy.preferences.themeDark);
     assert.ok(copy.settings.title);
     assert.ok(copy.settings.saveError);
+    assert.ok(copy.navigation.today);
+    assert.ok(copy.navigation.weather);
+    assert.ok(copy.navigation.wardrobe);
+    assert.ok(copy.navigation.settings);
+    assert.ok(copy.weather.placeholderBody);
+    assert.ok(copy.wardrobe.placeholderBody);
     assert.ok(copy.today.settingsAction);
     assert.ok(copy.today.settingsHint);
   }
@@ -99,25 +105,30 @@ test('English and Turkish include complete onboarding, Settings, and accessibili
 
 test('route and presentation sources preserve local gating and accessible selected states', async () => {
   const source = async (path) => readFile(new URL(path, import.meta.url), 'utf8');
-  const [indexRoute, onboardingRoute, settingsRoute, layout, option, onboarding, settings, today] =
+  const [todayRoute, onboardingRoute, settingsRoute, layout, tabsLayout, tabBar, option, onboarding, settings, today] =
     await Promise.all([
-      source('../../app/index.tsx'),
+      source('../../app/(tabs)/(today)/index.tsx'),
       source('../../app/onboarding.tsx'),
-      source('../../app/settings.tsx'),
+      source('../../app/(tabs)/settings/index.tsx'),
       source('../../app/_layout.tsx'),
+      source('../../app/(tabs)/_layout.tsx'),
+      source('../../navigation/primary-tab-bar.tsx'),
       source('./presentation/preference-option.tsx'),
       source('./presentation/onboarding-screen.tsx'),
       source('./presentation/settings-screen.tsx'),
       source('../today/presentation/today-screen.tsx'),
     ]);
-  const routeSources = `${indexRoute}\n${onboardingRoute}\n${settingsRoute}`;
-  const presentationSources = `${option}\n${onboarding}\n${settings}\n${today}`;
+  const routeSources = `${todayRoute}\n${onboardingRoute}\n${settingsRoute}\n${tabsLayout}`;
+  const presentationSources = `${tabBar}\n${option}\n${onboarding}\n${settings}\n${today}`;
 
-  assert.match(indexRoute, /<Redirect href="\/onboarding"/);
+  assert.match(tabsLayout, /<Redirect href="\/onboarding"/);
   assert.match(onboardingRoute, /<Redirect href="\/"/);
   assert.match(layout, /gestureEnabled: false/);
+  assert.match(layout, /name="\(tabs\)"/);
   assert.match(settingsRoute, /<SettingsScreen/);
   assert.match(today, /testID="today-settings-button"/);
+  assert.match(tabBar, /accessibilityRole="tab"/);
+  assert.match(tabBar, /accessibilityState=\{\{ selected: isSelected \}\}/);
   assert.match(option, /accessibilityRole="radio"/);
   assert.match(option, /accessibilityState=\{\{ disabled, selected \}\}/);
   assert.match(onboarding, /accessibilityRole="alert"/);
