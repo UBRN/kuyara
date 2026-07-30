@@ -1,13 +1,31 @@
-export const wardrobeItemCategories = [
-  'top',
-  'bottom',
-  'one_piece',
-  'outerwear',
-  'footwear',
-  'accessory',
-] as const;
+import {
+  structuralCategories,
+  structuralCategorySchema,
+  type Breathability,
+  type ColorFamily,
+  type Coverage,
+  type GarmentTypeId,
+  type StructuralCategory,
+  type ThermalLevel,
+  type TractionSuitability,
+  type WaterProtection,
+  type WindProtection,
+} from '@/features/catalog/domain/garment-taxonomy';
 
-export type WardrobeItemCategory = (typeof wardrobeItemCategories)[number];
+export const wardrobeItemCategories = structuralCategories;
+export type WardrobeItemCategory = StructuralCategory;
+
+export type WardrobeItemTaxonomyFields = Readonly<{
+  garmentTypeId: GarmentTypeId | null;
+  colorFamily: ColorFamily | null;
+  thermalLevelOverride: ThermalLevel | null;
+  waterProtectionOverride: WaterProtection | null;
+  windProtectionOverride: WindProtection | null;
+  breathabilityOverride: Breathability | null;
+  armCoverageOverride: Coverage | null;
+  legCoverageOverride: Coverage | null;
+  tractionSuitabilityOverride: TractionSuitability | null;
+}>;
 
 export type WardrobeItem = Readonly<{
   id: string;
@@ -19,13 +37,22 @@ export type WardrobeItem = Readonly<{
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
-}>;
+}> & WardrobeItemTaxonomyFields;
 
 export type CreateWardrobeItemInput = Readonly<{
   localProfileId: string;
   name?: string | null;
-  category: WardrobeItemCategory;
+  category?: WardrobeItemCategory;
+  garmentTypeId: GarmentTypeId;
   color?: string | null;
+  colorFamily?: ColorFamily | null;
+  thermalLevelOverride?: ThermalLevel | null;
+  waterProtectionOverride?: WaterProtection | null;
+  windProtectionOverride?: WindProtection | null;
+  breathabilityOverride?: Breathability | null;
+  armCoverageOverride?: Coverage | null;
+  legCoverageOverride?: Coverage | null;
+  tractionSuitabilityOverride?: TractionSuitability | null;
   photoRelativePath?: string | null;
 }>;
 
@@ -34,7 +61,16 @@ export type UpdateWardrobeItemInput = Readonly<{
   localProfileId: string;
   name?: string | null;
   category?: WardrobeItemCategory;
+  garmentTypeId?: GarmentTypeId;
   color?: string | null;
+  colorFamily?: ColorFamily | null;
+  thermalLevelOverride?: ThermalLevel | null;
+  waterProtectionOverride?: WaterProtection | null;
+  windProtectionOverride?: WindProtection | null;
+  breathabilityOverride?: Breathability | null;
+  armCoverageOverride?: Coverage | null;
+  legCoverageOverride?: Coverage | null;
+  tractionSuitabilityOverride?: TractionSuitability | null;
   photoRelativePath?: string | null;
 }>;
 
@@ -46,7 +82,7 @@ export class WardrobeItemValidationError extends Error {
 }
 
 export function isWardrobeItemCategory(value: string): value is WardrobeItemCategory {
-  return (wardrobeItemCategories as readonly string[]).includes(value);
+  return structuralCategorySchema.safeParse(value).success;
 }
 
 export function normalizeOptionalWardrobeText(

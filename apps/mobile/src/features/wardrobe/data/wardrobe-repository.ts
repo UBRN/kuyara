@@ -1,3 +1,24 @@
+import type { ZodType } from 'zod';
+
+import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
+import {
+  breathabilitySchema,
+  colorFamilySchema,
+  coverageSchema,
+  garmentTypeIdSchema,
+  thermalLevelSchema,
+  tractionSuitabilitySchema,
+  waterProtectionSchema,
+  windProtectionSchema,
+  type Breathability,
+  type ColorFamily,
+  type Coverage,
+  type GarmentTypeId,
+  type ThermalLevel,
+  type TractionSuitability,
+  type WaterProtection,
+  type WindProtection,
+} from '@/features/catalog/domain/garment-taxonomy';
 import {
   mapWardrobeCategoryToRecord,
   mapWardrobeItemRecord,
@@ -24,7 +45,16 @@ type WardrobeRepositoryDependencies = Readonly<{
 type MutableWardrobeFields = Readonly<{
   name: string | null;
   category: WardrobeItemCategory;
+  garmentTypeId: GarmentTypeId | null;
   color: string | null;
+  colorFamily: ColorFamily | null;
+  thermalLevelOverride: ThermalLevel | null;
+  waterProtectionOverride: WaterProtection | null;
+  windProtectionOverride: WindProtection | null;
+  breathabilityOverride: Breathability | null;
+  armCoverageOverride: Coverage | null;
+  legCoverageOverride: Coverage | null;
+  tractionSuitabilityOverride: TractionSuitability | null;
   photoRelativePath: string | null;
 }>;
 
@@ -86,19 +116,130 @@ function requireCategory(value: WardrobeItemCategory): WardrobeItemCategory {
   return value;
 }
 
+function requireEnum<Value>(value: unknown, schema: ZodType<Value>): Value {
+  const result = schema.safeParse(value);
+  if (!result.success) {
+    throw new WardrobeItemValidationError();
+  }
+
+  return result.data;
+}
+
+function optionalEnum<Value>(
+  value: unknown,
+  schema: ZodType<Value>,
+): Value | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  return requireEnum(value, schema);
+}
+
+function taxonomyFieldsAreConsistent(fields: MutableWardrobeFields): boolean {
+  if (fields.garmentTypeId === null) {
+    return (
+      fields.colorFamily === null &&
+      fields.thermalLevelOverride === null &&
+      fields.waterProtectionOverride === null &&
+      fields.windProtectionOverride === null &&
+      fields.breathabilityOverride === null &&
+      fields.armCoverageOverride === null &&
+      fields.legCoverageOverride === null &&
+      fields.tractionSuitabilityOverride === null
+    );
+  }
+
+  const type = getGarmentType(fields.garmentTypeId);
+  return Boolean(
+    type &&
+    type.structuralCategory === fields.category &&
+    (type.defaultThermalLevel !== null || fields.thermalLevelOverride === null) &&
+    (type.defaultWaterProtection !== null || fields.waterProtectionOverride === null) &&
+    (type.defaultWindProtection !== null || fields.windProtectionOverride === null) &&
+    (type.defaultBreathability !== null || fields.breathabilityOverride === null) &&
+    (type.defaultArmCoverage !== null || fields.armCoverageOverride === null) &&
+    (type.defaultLegCoverage !== null || fields.legCoverageOverride === null) &&
+    (type.defaultTractionSuitability !== null ||
+      fields.tractionSuitabilityOverride === null),
+  );
+}
+
+function requireConsistentTaxonomyFields(
+  fields: MutableWardrobeFields,
+): MutableWardrobeFields {
+  if (!taxonomyFieldsAreConsistent(fields)) {
+    throw new WardrobeItemValidationError();
+  }
+
+  return fields;
+}
+
+function requireValidPersistedTaxonomy(item: WardrobeItem): WardrobeItem {
+  if (!taxonomyFieldsAreConsistent(item)) {
+    throw new WardrobeItemMappingError();
+  }
+
+  return item;
+}
+
 function mutableFieldsFromCreate(input: CreateWardrobeItemInput): MutableWardrobeFields {
-  return {
+  const garmentTypeId = requireEnum(input.garmentTypeId, garmentTypeIdSchema);
+  const type = getGarmentType(garmentTypeId);
+  if (!type) {
+    throw new WardrobeItemValidationError();
+  }
+
+  return requireConsistentTaxonomyFields({
     name: normalizeOptionalWardrobeText(input.name),
-    category: requireCategory(input.category),
+    category: Object.prototype.hasOwnProperty.call(input, 'category')
+      ? requireCategory(input.category as WardrobeItemCategory)
+      : type.structuralCategory,
+    garmentTypeId,
     color: normalizeOptionalWardrobeText(input.color),
+    colorFamily: optionalEnum(input.colorFamily, colorFamilySchema),
+    thermalLevelOverride: optionalEnum(
+      input.thermalLevelOverride,
+      thermalLevelSchema,
+    ),
+    waterProtectionOverride: optionalEnum(
+      input.waterProtectionOverride,
+      waterProtectionSchema,
+    ),
+    windProtectionOverride: optionalEnum(
+      input.windProtectionOverride,
+      windProtectionSchema,
+    ),
+    breathabilityOverride: optionalEnum(
+      input.breathabilityOverride,
+      breathabilitySchema,
+    ),
+    armCoverageOverride: optionalEnum(input.armCoverageOverride, coverageSchema),
+    legCoverageOverride: optionalEnum(input.legCoverageOverride, coverageSchema),
+    tractionSuitabilityOverride: optionalEnum(
+      input.tractionSuitabilityOverride,
+      tractionSuitabilitySchema,
+    ),
     photoRelativePath: normalizeWardrobePhotoRelativePath(input.photoRelativePath),
-  };
+  });
 }
 
 function hasMutableUpdate(input: UpdateWardrobeItemInput): boolean {
-  return ['name', 'category', 'color', 'photoRelativePath'].some((key) =>
-    Object.prototype.hasOwnProperty.call(input, key),
-  );
+  return [
+    'name',
+    'category',
+    'garmentTypeId',
+    'color',
+    'colorFamily',
+    'thermalLevelOverride',
+    'waterProtectionOverride',
+    'windProtectionOverride',
+    'breathabilityOverride',
+    'armCoverageOverride',
+    'legCoverageOverride',
+    'tractionSuitabilityOverride',
+    'photoRelativePath',
+  ].some((key) => Object.prototype.hasOwnProperty.call(input, key));
 }
 
 function mutableFieldsFromUpdate(
@@ -109,20 +250,77 @@ function mutableFieldsFromUpdate(
     throw new WardrobeItemValidationError();
   }
 
-  return {
+  const hasGarmentTypeUpdate = Object.prototype.hasOwnProperty.call(
+    input,
+    'garmentTypeId',
+  );
+  const garmentTypeId = hasGarmentTypeUpdate
+    ? requireEnum(input.garmentTypeId, garmentTypeIdSchema)
+    : current.garmentTypeId;
+  const selectedType = garmentTypeId ? getGarmentType(garmentTypeId) : null;
+
+  return requireConsistentTaxonomyFields({
     name: Object.prototype.hasOwnProperty.call(input, 'name')
       ? normalizeOptionalWardrobeText(input.name)
       : current.name,
     category: Object.prototype.hasOwnProperty.call(input, 'category')
       ? requireCategory(input.category as WardrobeItemCategory)
-      : current.category,
+      : hasGarmentTypeUpdate && selectedType
+        ? selectedType.structuralCategory
+        : current.category,
+    garmentTypeId,
     color: Object.prototype.hasOwnProperty.call(input, 'color')
       ? normalizeOptionalWardrobeText(input.color)
       : current.color,
+    colorFamily: Object.prototype.hasOwnProperty.call(input, 'colorFamily')
+      ? optionalEnum(input.colorFamily, colorFamilySchema)
+      : current.colorFamily,
+    thermalLevelOverride: Object.prototype.hasOwnProperty.call(
+      input,
+      'thermalLevelOverride',
+    )
+      ? optionalEnum(input.thermalLevelOverride, thermalLevelSchema)
+      : current.thermalLevelOverride,
+    waterProtectionOverride: Object.prototype.hasOwnProperty.call(
+      input,
+      'waterProtectionOverride',
+    )
+      ? optionalEnum(input.waterProtectionOverride, waterProtectionSchema)
+      : current.waterProtectionOverride,
+    windProtectionOverride: Object.prototype.hasOwnProperty.call(
+      input,
+      'windProtectionOverride',
+    )
+      ? optionalEnum(input.windProtectionOverride, windProtectionSchema)
+      : current.windProtectionOverride,
+    breathabilityOverride: Object.prototype.hasOwnProperty.call(
+      input,
+      'breathabilityOverride',
+    )
+      ? optionalEnum(input.breathabilityOverride, breathabilitySchema)
+      : current.breathabilityOverride,
+    armCoverageOverride: Object.prototype.hasOwnProperty.call(
+      input,
+      'armCoverageOverride',
+    )
+      ? optionalEnum(input.armCoverageOverride, coverageSchema)
+      : current.armCoverageOverride,
+    legCoverageOverride: Object.prototype.hasOwnProperty.call(
+      input,
+      'legCoverageOverride',
+    )
+      ? optionalEnum(input.legCoverageOverride, coverageSchema)
+      : current.legCoverageOverride,
+    tractionSuitabilityOverride: Object.prototype.hasOwnProperty.call(
+      input,
+      'tractionSuitabilityOverride',
+    )
+      ? optionalEnum(input.tractionSuitabilityOverride, tractionSuitabilitySchema)
+      : current.tractionSuitabilityOverride,
     photoRelativePath: Object.prototype.hasOwnProperty.call(input, 'photoRelativePath')
       ? normalizeWardrobePhotoRelativePath(input.photoRelativePath)
       : current.photoRelativePath,
-  };
+  });
 }
 
 export class LocalWardrobeRepository implements WardrobeRepository {
@@ -153,7 +351,16 @@ export class LocalWardrobeRepository implements WardrobeRepository {
         localProfileId,
         name: fields.name,
         category: mapWardrobeCategoryToRecord(fields.category),
+        garmentTypeId: fields.garmentTypeId,
         color: fields.color,
+        colorFamily: fields.colorFamily,
+        thermalLevelOverride: fields.thermalLevelOverride,
+        waterProtectionOverride: fields.waterProtectionOverride,
+        windProtectionOverride: fields.windProtectionOverride,
+        breathabilityOverride: fields.breathabilityOverride,
+        armCoverageOverride: fields.armCoverageOverride,
+        legCoverageOverride: fields.legCoverageOverride,
+        tractionSuitabilityOverride: fields.tractionSuitabilityOverride,
         photoRelativePath: fields.photoRelativePath,
         createdAt: now,
         updatedAt: now,
@@ -210,7 +417,16 @@ export class LocalWardrobeRepository implements WardrobeRepository {
         localProfileId: current.localProfileId,
         name: fields.name,
         category: mapWardrobeCategoryToRecord(fields.category),
+        garmentTypeId: fields.garmentTypeId,
         color: fields.color,
+        colorFamily: fields.colorFamily,
+        thermalLevelOverride: fields.thermalLevelOverride,
+        waterProtectionOverride: fields.waterProtectionOverride,
+        windProtectionOverride: fields.windProtectionOverride,
+        breathabilityOverride: fields.breathabilityOverride,
+        armCoverageOverride: fields.armCoverageOverride,
+        legCoverageOverride: fields.legCoverageOverride,
+        tractionSuitabilityOverride: fields.tractionSuitabilityOverride,
         photoRelativePath: fields.photoRelativePath,
         updatedAt: requireTimestamp(this.dependencies.now()),
       });
@@ -258,7 +474,7 @@ export class LocalWardrobeRepository implements WardrobeRepository {
     localProfileId: string,
     includeDeleted: boolean,
   ): WardrobeItem {
-    const item = mapWardrobeItemRecord(record);
+    const item = requireValidPersistedTaxonomy(mapWardrobeItemRecord(record));
 
     if (
       item.localProfileId !== localProfileId ||
