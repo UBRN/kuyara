@@ -103,16 +103,16 @@ test('the current shell theme access renders under authored light and dark input
   }
 });
 
-test('English and Turkish locale resolution preserve the supported shell languages', () => {
+test('English and Turkish locale resolution preserve the supported product languages', () => {
   assert.equal(resolveSupportedLanguage('en-US'), 'en');
   assert.equal(resolveSupportedLanguage('tr-TR'), 'tr');
   assert.equal(resolveSupportedLanguage('TR_tr'), 'tr');
   assert.equal(getMessages('en-US'), messages.en);
   assert.equal(getMessages('tr-TR'), messages.tr);
-  assert.equal(messages.en.home.title, 'Welcome to kuyara');
-  assert.match(messages.tr.home.title, /kuyara/);
-  assert.equal(messages.en.explore.expandSection('Motion'), 'Expand Motion');
-  assert.equal(messages.tr.explore.collapseSection('Hareket'), 'Hareket bölümünü daralt');
+  assert.equal(messages.en.today.title, 'Today');
+  assert.equal(messages.tr.today.title, 'Bugün');
+  assert.equal(messages.en.today.outfits['outfit.rainReady'].title, 'Rain-ready');
+  assert.equal(messages.tr.today.outfits['outfit.rainReady'].title, 'Yağmura hazır');
 });
 
 test('feature source does not hardcode approved primitive colors or disable font scaling', async () => {

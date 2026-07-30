@@ -1,58 +1,26 @@
-# Welcome to your Expo app 👋
+# kuyara mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+The mobile workspace is an Expo SDK 57 and React Native application using Expo Router.
 
-## Get started
+The checked-in app currently opens into kuyara’s first product-facing Today slice. Today is driven by a typed deterministic İstanbul fixture and presents a localized mock weather summary plus exactly three complete outfit suggestions. It does not access live weather, location, AI, a Worker API, SQLite, or wardrobe data.
 
 From the repository root:
 
-1. Install dependencies
-
-   ```bash
-   pnpm install
-   ```
-
-2. Start the app
-
-   ```bash
-   pnpm --filter @kuyara/mobile start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
 ```bash
-pnpm --filter @kuyara/mobile reset-project
+pnpm install --frozen-lockfile
+pnpm --filter @kuyara/mobile start
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+Run the repository checks with:
 
-### Other setup steps
+```bash
+pnpm check
+```
 
-- To run ESLint, use `pnpm lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+Inspect the resolved public Expo configuration with:
 
-## Learn more
+```bash
+pnpm --filter @kuyara/mobile exec expo config --type public --json
+```
 
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Final product navigation, onboarding, persisted language and appearance settings, real data integrations, and Android visual validation are separate future work.

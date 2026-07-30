@@ -21,7 +21,14 @@ export function resolveAppTextStyle(
   theme: KuyaraTheme,
   variant: TypographyRole,
   colorRole: SemanticColorRole,
+  usesNaturalLineHeight = false,
 ) {
+  if (usesNaturalLineHeight) {
+    const { lineHeight: _lineHeight, ...scalableTypography } = typography[variant];
+
+    return [scalableTypography, { color: theme.colors[colorRole] }] as const;
+  }
+
   return [typography[variant], { color: theme.colors[colorRole] }] as const;
 }
 
