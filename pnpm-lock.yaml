@@ -49,6 +49,9 @@ importers:
       expo-linking:
         specifier: ~57.0.4
         version: 57.0.4(expo@57.0.9)(react-native@0.86.2(@babel/core@7.29.7(supports-color@10.2.2))(@react-native/jest-preset@0.86.2(@babel/core@7.29.7(supports-color@10.2.2))(react@19.2.3)(supports-color@10.2.2))(@react-native/metro-config@0.86.2(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@19.2.17)(react@19.2.3)(supports-color@10.2.2))(react@19.2.3)(supports-color@10.2.2)
+      expo-location:
+        specifier: ~57.0.7
+        version: 57.0.7(expo@57.0.9)(supports-color@10.2.2)(typescript@6.0.3)
       expo-router:
         specifier: ~57.0.9
         version: 57.0.9(920eb190d93e6382113f661b1868d2c2)
@@ -2987,6 +2990,11 @@ packages:
     peerDependencies:
       react: '*'
       react-native: '*'
+
+  expo-location@57.0.7:
+    resolution: {integrity: sha512-HPsS6Sse8GgMv9QiENXUEp9awl0O6iX0mFKJkxsHtC1HiouDXKCDlSnW66/E6U1ykwZ2M9ymJnZLRpWu0ua+/g==}
+    peerDependencies:
+      expo: '*'
 
   expo-mcp@0.2.4:
     resolution: {integrity: sha512-rBomlm+085wNa+UF9YC3bXGZR6LlYPfOlUXwKBB5R7+dnASk0VjWFETuxyApdtXw9OItmOsAXolUxrAlEYfqSA==}
@@ -8876,6 +8884,14 @@ snapshots:
     transitivePeerDependencies:
       - expo
       - supports-color
+
+  expo-location@57.0.7(expo@57.0.9)(supports-color@10.2.2)(typescript@6.0.3):
+    dependencies:
+      '@expo/image-utils': 0.11.4(supports-color@10.2.2)(typescript@6.0.3)
+      expo: 57.0.9(58011c8d913c70dd3db29322082a4e3b)
+    transitivePeerDependencies:
+      - supports-color
+      - typescript
 
   expo-mcp@0.2.4(supports-color@10.2.2):
     dependencies:
