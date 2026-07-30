@@ -43,8 +43,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "test": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test src/theme/theme.test.mjs src/components/ui/primitives.test.mjs src/features/today/today.test.mjs src/infrastructure/sqlite/migrations.test.mjs src/features/profile/profile-persistence.test.mjs src/features/profile/profile-ui.test.mjs",
+    "test": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test src/theme/theme.test.mjs src/components/ui/primitives.test.mjs src/features/today/today.test.mjs src/infrastructure/sqlite/migrations.test.mjs src/features/profile/profile-persistence.test.mjs src/features/profile/profile-ui.test.mjs src/features/wardrobe/wardrobe-persistence.test.mjs",
     "test:profile": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test src/infrastructure/sqlite/migrations.test.mjs src/features/profile/profile-persistence.test.mjs",
+    "test:wardrobe": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test src/infrastructure/sqlite/migrations.test.mjs src/features/wardrobe/wardrobe-persistence.test.mjs",
     "test:theme": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test src/theme/theme.test.mjs",
     "typecheck": "tsc --noEmit"
   },

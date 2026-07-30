@@ -10,7 +10,7 @@ type Migration = Readonly<{
   migrate: (database: SqliteExecutor) => Promise<void>;
 }>;
 
-export const latestDatabaseVersion = 1;
+export const latestDatabaseVersion = 2;
 
 const migrationV1: Migration = {
   version: 1,
@@ -37,7 +37,36 @@ const migrationV1: Migration = {
   },
 };
 
-const migrations = [migrationV1] as const satisfies readonly Migration[];
+const migrationV2: Migration = {
+  version: 2,
+  async migrate(database) {
+    await database.execAsync(`
+      CREATE TABLE IF NOT EXISTS wardrobe_items (
+        id TEXT PRIMARY KEY NOT NULL,
+        local_profile_id TEXT NOT NULL,
+        name TEXT,
+        category TEXT NOT NULL CHECK (
+          category IN ('top', 'bottom', 'one_piece', 'outerwear', 'footwear', 'accessory')
+        ),
+        color TEXT,
+        photo_relative_path TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        deleted_at TEXT,
+        FOREIGN KEY (local_profile_id) REFERENCES local_profiles(id)
+          ON UPDATE RESTRICT
+          ON DELETE RESTRICT
+      );
+    `);
+
+    await database.execAsync(`
+      CREATE INDEX IF NOT EXISTS idx_wardrobe_items_profile_deleted_updated
+      ON wardrobe_items (local_profile_id, deleted_at, updated_at DESC);
+    `);
+  },
+};
+
+const migrations = [migrationV1, migrationV2] as const satisfies readonly Migration[];
 
 async function readUserVersion(database: SqliteExecutor): Promise<number> {
   const row = await database.getFirstAsync<UserVersionRow>('PRAGMA user_version');

@@ -14,10 +14,18 @@ Run the focused local-profile persistence suite with:
 pnpm --filter @kuyara/mobile test:profile
 ```
 
+Run the focused wardrobe persistence and migration suite with:
+
+```bash
+pnpm --filter @kuyara/mobile test:wardrobe
+```
+
 The profile migration and data-source tests use Node 24's built-in in-memory SQLite implementation through a test-only adapter for the small project-owned executor contract. This executes the production migration SQL, constraints, parameterized writes, transaction rollback, and repository mappings without mocking SQL statements or importing the Expo native module into Node.
 
 Production still opens Expo SQLite on device. The Node adapter is test infrastructure only and must not become an application persistence implementation.
 
-Migration tests must verify empty-database application, ordered version changes, idempotent re-entry, required constraints, and rollback without data deletion. Data-source/repository tests must cover singleton creation, concurrent initialization, row/domain mapping, explicit preference updates, atomic onboarding completion, invalid stored values, and sanitized errors. Controller tests cover loading, incomplete, completed, failure, repeated initialization, saving, and refreshed profile state.
+Migration tests must verify empty-database application, ordered version changes, version 1 upgrades, idempotent re-entry, required constraints, and rollback without data deletion or version advancement. Profile data-source/repository tests cover singleton creation, concurrent initialization, row/domain mapping, explicit preference updates, atomic onboarding completion, invalid stored values, and sanitized errors. Controller tests cover loading, incomplete, completed, failure, repeated initialization, saving, and refreshed profile state.
+
+Wardrobe persistence tests execute the production version 2 SQL and cover foreign-key/category constraints, rollback, UUID creation, profile isolation, explicit domain-record mapping, active list/get behavior, mutable-field updates, lifecycle preservation, atomic soft deletion, missing/deleted write behavior, relative photo-path validation, bound parameters, and sanitized repository errors. Deleted rows must disappear from default reads while remaining available only through the explicit include-deleted operation.
 
 Presentation tests should focus on pure onboarding/route decisions, localization completeness, accessibility contracts, and source boundaries. Simulator verification remains required for genuine persistence across termination/relaunch, navigation behavior, native accessibility output, Dynamic Type, appearances, Reduced Motion, and visual regressions.
