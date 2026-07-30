@@ -122,7 +122,12 @@ export function WardrobeRouteStatus({
 export function WardrobeNewItemRoute({
   confirmation = showWardrobeConfirmation,
 }: Readonly<{ confirmation?: WardrobeConfirmation }>) {
-  const { createItem, state } = useWardrobeApplication();
+  const {
+    createItem,
+    discardStagedPhoto,
+    preparePhoto,
+    state,
+  } = useWardrobeApplication();
   const [isDirty, setIsDirty] = useState(false);
   const guard = useWardrobeExitGuard(isDirty, confirmation);
 
@@ -133,11 +138,13 @@ export function WardrobeNewItemRoute({
       isBusy={state.status === 'ready' && state.isMutating}
       mode="create"
       onBackRequested={guard.requestBack}
-      onCreate={async (input) => {
-        await createItem(input);
+      onCreate={async (input, photoChange) => {
+        await createItem(input, photoChange);
         guard.returnToList();
       }}
+      onDiscardStagedPhoto={discardStagedPhoto}
       onDirtyChange={setIsDirty}
+      onSelectPhoto={preparePhoto}
     />
   );
 }
@@ -233,12 +240,15 @@ export function WardrobeEditItemRoute({
         await application.softDeleteItem(item.id);
         guard.returnToList();
       }}
+      onDiscardStagedPhoto={application.discardStagedPhoto}
       onDirtyChange={setIsDirty}
+      onSelectPhoto={application.preparePhoto}
       onCreate={async () => undefined}
-      onUpdate={async (input) => {
-        await application.updateItem(item.id, input);
+      onUpdate={async (input, photoChange) => {
+        await application.updateItem(item.id, input, photoChange);
         guard.returnToList();
       }}
+      photoPreviewUri={application.resolvePhotoUri(item.photoRelativePath)}
     />
   );
 }

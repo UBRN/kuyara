@@ -6,7 +6,7 @@ import { WardrobeListScreen } from '@/features/wardrobe/presentation/wardrobe-li
 
 export function WardrobeListRoute() {
   const router = useRouter();
-  const { refresh, state } = useWardrobeApplication();
+  const { refresh, resolvePhotoUri, state } = useWardrobeApplication();
 
   useFocusEffect(
     useCallback(() => {
@@ -21,6 +21,7 @@ export function WardrobeListRoute() {
       onAdd={() => router.push('./new')}
       onEdit={(id) => router.push(`./${id}`)}
       onRetry={() => void refresh()}
+      resolvePhotoUri={resolvePhotoUri}
       state={state}
     />
   );
