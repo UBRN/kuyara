@@ -2,9 +2,9 @@
 
 ## Status and relationship to the visual identity
 
-This document is the implementation reference for kuyara's current semantic design-token foundation. The approved brand decisions remain canonical in [`visual-identity.md`](visual-identity.md). This foundation is intentionally small: it supports the application shell and near-term MVP presentation without defining a component library or final product screens.
+This document is the implementation reference for kuyara's semantic design-token foundation and small adaptive UI primitive layer. The approved brand decisions remain canonical in [`visual-identity.md`](visual-identity.md). The implementation supports the application shell and near-term MVP presentation without defining final product screens or a broad component library.
 
-The implementation lives in `apps/mobile/src/theme/`. Primitive values feed authored semantic light and dark colors, which feed a typed application theme and the shared presentation components:
+Tokens and theme resolution live in `apps/mobile/src/theme/`; the shared primitive layer lives in `apps/mobile/src/components/ui/`. Primitive values feed authored semantic light and dark colors, which feed a typed application theme and shared presentation components:
 
 ```text
 approved brand primitives
@@ -13,7 +13,9 @@ semantic light and dark roles
         ↓
 typed kuyara theme
         ↓
-Router shell and shared UI
+adaptive UI primitives
+        ↓
+Router shell and feature presentation
 ```
 
 ## Primitive and semantic colors
@@ -61,11 +63,12 @@ Components read the typed theme with `useKuyaraTheme()`. Expo Router receives a 
 Use semantic meaning in presentation code:
 
 ```tsx
-const theme = useKuyaraTheme();
-
-<View style={{ backgroundColor: theme.colors.surface }}>
-  <Text style={{ color: theme.colors.textPrimary }}>...</Text>
-</View>;
+<Screen>
+  <Surface>
+    <AppText variant="title">...</AppText>
+    <Button label={messages.action} onPress={handlePress} />
+  </Surface>
+</Screen>;
 ```
 
 Do not import primitives or select a literal hue in feature code:
@@ -77,11 +80,30 @@ Do not import primitives or select a literal hue in feature code:
 
 Static non-color scales may be imported for `StyleSheet.create` when that keeps shared styles stable. Theme-dependent colors remain on the resolved theme.
 
+## Adaptive UI primitives
+
+The canonical primitive entry point is `apps/mobile/src/components/ui/index.ts`. Primitives consume the theme on behalf of presentation code and provide narrow, typed defaults while still accepting the relevant React Native props and `style` escape hatch.
+
+- `AppText` supports the existing `display`, `titleLarge`, `title`, `body`, `bodyStrong`, `caption`, `label`, and `code` typography roles plus typed semantic color roles. Font scaling is enabled by default, normal `Text` props are forwarded, and content is not truncated implicitly.
+- `Screen` is the shared scrollable page foundation used by both checked-in routes. It applies the semantic application background, safe-area and existing-tab insets, page padding, and the current maximum content width. A non-scrollable or keyboard-specific screen API is deferred until a checked-in flow requires it.
+- `Surface` provides only `default`, `muted`, `elevated`, and `interactive` semantic variants. It uses semantic surface and border roles with the approved card radius; `elevated` denotes hierarchy without inventing a shadow token.
+- `Button` provides `primary`, `secondary`, and `quiet` variants. The required visible `label` keeps localized text at the call site. Loading preserves label width, blocks activation, shows progress, and exposes busy and disabled accessibility state.
+- `IconButton` requires an `accessibilityLabel` at the type boundary, accepts an optional standard accessibility hint through React Native props, owns the 44-point target, and receives icon content as a render function with the resolved semantic icon color. It does not select an icon system or glyph.
+- `SectionHeader` composes a heading, optional supporting text, and optional trailing action. It changes to a stacked layout at large text sizes so the action does not compress the heading.
+
+The checked-in starter routes demonstrate the primitives without becoming product screens: Home uses `Screen`, `AppText`, and `Surface`; Explore adds primary and quiet `Button` usage, while its existing collapsible sections use `SectionHeader`, `IconButton`, and a muted `Surface`.
+
+Semantic tokens and primitives have different responsibilities. Tokens name visual roles and scales; primitives turn those roles into small accessibility and interaction contracts. Feature code remains responsible for localized content, layout composition, user intent, and domain-specific behavior. It may use raw React Native layout views where no semantic surface or control is intended.
+
+Primitive APIs favor composition, a small variant union, and standard React Native props over arbitrary colors, numeric typography configuration, spacing props, or collections of styling booleans. New variants or primitives require a current product use rather than speculative completeness.
+
 ## Platform and accessibility policy
 
 Kuyara identity colors are authored explicitly, so uncontrolled platform colors do not replace them. `PlatformColor` and `DynamicColorIOS` are not currently needed. If a future native control or system surface benefits materially from a platform color, the value must be centralized behind a semantic role with a cross-platform fallback rather than scattered through feature code.
 
-The current provider represents system appearance and Reduce Motion. Shared text preserves Dynamic Type behavior, current pressable headings meet the 44-point minimum target, and collapsibles expose button role, label, and expanded state. Important UI still requires screen-reader, focus-order, large-text, and contrast review as real product screens are implemented.
+The current provider represents system appearance and Reduce Motion. `AppText` preserves Dynamic Type behavior. Buttons expose button role, accessible name, disabled state, and busy state; icon-only buttons require a label; section titles expose heading semantics; interactive primitives use at least a 44-point target and a semantic focus ring. Labels can wrap, loading does not collapse button width, and control state is conveyed through accessibility metadata in addition to visual feedback.
+
+Press feedback is an immediate opacity or semantic-background change, not a decorative animation, so it remains responsive with Reduce Motion enabled. Existing collapsible content omits its fade when Reduce Motion is on. VoiceOver focus order follows source order: section heading, localized expand/collapse button, then expanded content. Accessibility hints are left to call sites and should only be supplied when the action result is not clear from its label.
 
 ## Implemented and deferred
 
@@ -92,15 +114,21 @@ Implemented now:
 - System-default theme provider with an override-ready preference type
 - Reduced-motion resolution and change observation
 - Router/navigation and status-bar integration
-- Current shared shell and starter screens consuming semantic tokens
+- Typed adaptive UI primitives over the semantic tokens
+- Current shared shell and starter screens consuming the primitive layer
 - Device-language English/Turkish shell strings
-- Focused token, resolver, shell-context, localization, and source-boundary tests
+- Focused token, primitive-contract, interaction, shell-context, localization, and source-boundary tests
 
 Deferred intentionally:
 
 - Persisted language or appearance settings
-- Product-screen components and a component library
+- Text inputs, selectors, switches, modal or feedback frameworks, and product-specific components
+- Divider, because the current shell has no repeated separator need
+- Destructive button styling, because no checked-in flow justifies it
+- Non-scrollable and keyboard-specific screen behavior until a checked-in flow requires either
 - Status tokens and status components
 - Platform-color adapters until a concrete native integration needs them
 - Shadows or elevation until a real hierarchy requires them
 - Android visual refinement and emulator validation; shared React Native code remains build-compatible, but Android was not validated in this task
+
+The final product navigation and native-tabs decision remain separate. This work preserves the checked-in Expo Router route behavior and its existing native-tab scaffold; it does not migrate navigation, add product tabs, or treat the unstable native-tabs API as the committed long-term foundation.
