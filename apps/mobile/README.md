@@ -2,7 +2,9 @@
 
 The mobile workspace is an Expo SDK 57 and React Native application using Expo Router.
 
-The checked-in app opens through a device-local onboarding gate backed by Expo SQLite. Onboarding stores one UUID-backed local profile plus clothing, language, and appearance preferences; Today exposes a pushed Settings screen for editing those values. Today itself remains driven by a typed deterministic İstanbul fixture and does not access live weather, location, AI, a Worker API, or wardrobe data.
+The checked-in app opens through a device-local onboarding gate backed by Expo SQLite. Onboarding stores one UUID-backed local profile plus clothing, language, and appearance preferences. The Weather tab supports manual sample locations and explicit foreground device location, then persists deterministic sample weather for cache-first fresh/stale behavior. Today remains driven by its separate typed İstanbul fixture; neither surface accesses live WeatherKit, AI, or a Worker API.
+
+`index.js` is the physical mobile entry that delegates to Expo Router. Keeping the entry inside the workspace package avoids resolving the app entry itself through a pnpm symlink when Metro uses the monorepo server root.
 
 From the repository root:
 
@@ -23,10 +25,16 @@ Run the complete mobile test suite with:
 pnpm --filter @kuyara/mobile test
 ```
 
+Run the focused weather suite with:
+
+```bash
+pnpm --filter @kuyara/mobile test:weather
+```
+
 Inspect the resolved public Expo configuration with:
 
 ```bash
 pnpm --filter @kuyara/mobile exec expo config --type public --json
 ```
 
-Final product tab navigation, real data integrations, account/sync behavior, and Android visual validation are separate future work.
+Because `expo-location` changes native permissions, rebuild the generated native app after configuration changes instead of relying on an older Expo Go or development binary. Live WeatherKit, account/sync behavior, and Android visual refinement are separate future work.

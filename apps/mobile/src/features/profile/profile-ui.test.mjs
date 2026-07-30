@@ -94,7 +94,7 @@ test('English and Turkish include complete onboarding, Settings, and accessibili
     assert.ok(copy.navigation.weather);
     assert.ok(copy.navigation.wardrobe);
     assert.ok(copy.navigation.settings);
-    assert.ok(copy.weather.placeholderBody);
+    assert.ok(copy.weather.introduction);
     assert.ok(copy.wardrobe.emptyBody);
     assert.ok(copy.wardrobe.typeRequiredError);
     assert.ok(copy.wardrobe.discardAction);

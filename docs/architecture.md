@@ -50,6 +50,8 @@ One composite index over `(local_profile_id, deleted_at, updated_at DESC)` suppo
 
 Version 3 leaves versions 1 and 2 unchanged and adds nine nullable columns to `wardrobe_items`: `garment_type_id`, `color_family`, and explicit thermal, water, wind, breathability, arm-coverage, leg-coverage, and traction overrides. SQL checks constrain each non-null enum value, while `garment_type_id` intentionally has no SQL list or foreign key because the canonical catalog is bundled TypeScript data. Existing rows retain their identity, owner, category, display values, photo path, lifecycle timestamps, and deletion state with every new column null; no type or property is inferred during migration.
 
+Version 4 leaves the earlier schema unchanged and adds one profile-owned active location, location-bound weather snapshots, and their current-local-day hourly entries. Coordinates are rounded to the nearest `0.01°` and represented as integer hundredths before they cross the location adapter. That is roughly 1.1 km north-to-south and less east-to-west at kuyara's sample latitudes: useful for local weather while avoiding unnecessary device precision. The normalized pair also forms device-location cache identity and can be converted back to decimal degrees by a future Worker request mapper. Manual selections store a stable catalog ID; device selections store only normalized coordinates, time zone, and approximate/full accuracy. Raw coordinates, permission diagnostics, and provider payloads are not persisted or logged. Snapshot replacement and hourly replacement are atomic, and retention is bounded to the active location plus the newest previous location.
+
 Future migrations must add one ordered migration object immediately after the current version. Do not edit released migrations, skip a version, or add a destructive fallback.
 
 ### Wardrobe application and persistence boundary
@@ -98,6 +100,30 @@ validated Wardrobe item overrides ─┘
 
 The resolver has no SQLite, localization, weather-provider, UI, or outfit-composition dependency. It returns an explicit legacy view for unclassified version 2 rows, a resolved view for valid typed rows, or a sanitized invalid-data outcome for missing types, category mismatches, and inapplicable overrides. Catalog applicability filters future catalog suggestions only and is never consulted when reading or resolving an owned item.
 
+### Foreground location and local weather boundary
+
+The Weather tab now follows a feature-local dependency flow:
+
+```text
+localized Weather presentation
+        ↓
+weather application controller/provider
+        ↓
+weather repository and validated domain snapshots
+        ↓                         ↓
+SQLite weather data source        provider interface
+                                  ↓
+                          deterministic sample provider
+```
+
+The controller owns bootstrap, location-selection intent, permission rationale, foreground-only device lookup, fresh/stale evaluation, refresh coalescing, location-switch races, and foreground revalidation. It reads permission state during bootstrap without prompting. The native foreground permission request occurs only after the user selects device location and confirms the localized rationale; permanently denied access offers the platform Settings action. Manual selection remains available without permission.
+
+The `expo-location` adapter is the only feature code that imports the native location module. Raw platform positions stay inside that adapter and are reduced to normalized coordinates plus approximate/full accuracy before returning. Shared domain, repository, controller, and presentation code remains platform-neutral. iOS requests only When In Use authorization and defaults to reduced accuracy. Android declares coarse location while explicitly excluding fine, background, activity, and location foreground-service permissions for this scope.
+
+SQLite is the durable source of truth for the active selection and the last valid snapshots. A cache is fresh through exactly 30 minutes, stale after that boundary, and still rendered while a background or manual refresh runs. Failed refreshes never erase the prior valid snapshot. A refresh result is published only if it still belongs to the selected location; the repository validates time zone, source/location identity, measurements, ordering, and same-local-day hourly membership before persistence.
+
+The checked-in provider is deterministic development data with disclosed sample provenance. It supports success, delayed stale success, and failure scenarios without network access. It is replaceable through the provider interface; WeatherKit, Worker endpoints, shared request/response contracts, TanStack Query, recommendation logic, and AI remain outside this slice.
+
 ### Local profile lifecycle
 
 The data source performs get-or-create in an exclusive transaction. It reads the singleton first, then uses `INSERT OR IGNORE` with a newly generated Expo Crypto UUID v4 and reads the winning row. The in-memory initialization promise coalesces repeated React/Strict Mode calls, while the schema constraint protects across data-source instances. The UUID is never regenerated once a row exists and is never shown or logged.
@@ -114,7 +140,7 @@ After readiness, the root Expo Router Stack keeps `/onboarding` separate from th
 
 The main application uses Expo Router's stable JavaScript Tabs with four finalized destinations: Today at `/`, Weather at `/weather`, Wardrobe at `/wardrobe`, and Settings at `/settings`. Route-group names remain absent from visible paths. Today is the explicit initial route, and each tab has one nested Stack boundary. Wardrobe owns `/wardrobe/new` and `/wardrobe/[id]` inside its existing Stack. SDK 57 Native Tabs are alpha and are intentionally not used; adopting them later is a separate migration decision.
 
-The localized tab-bar presentation is separate from route composition. Expo Router owns route state and tab events, while the bar renders semantic-theme colors, platform-specific `expo-symbols` names, visible labels, 44-point minimum targets, localized tab roles and names, and selected accessibility state. Weather retains its placeholder; Wardrobe route files are thin adapters over feature presentation and application boundaries. Its dirty-form guard uses the navigator's `beforeRemove` event so header back, iOS gestures, and Android system back share the same localized discard confirmation.
+The localized tab-bar presentation is separate from route composition. Expo Router owns route state and tab events, while the bar renders semantic-theme colors, platform-specific `expo-symbols` names, visible labels, 44-point minimum targets, localized tab roles and names, and selected accessibility state. Weather and Wardrobe route files are thin adapters over feature presentation and application boundaries. Wardrobe's dirty-form guard uses the navigator's `beforeRemove` event so header back, iOS gestures, and Android system back share the same localized discard confirmation.
 
 The localization provider resolves a saved `system | tr | en` preference through the established device-locale fallback. The existing theme provider receives the saved `system | light | dark` preference. Neither architecture is duplicated, and both providers update when the controller publishes a successfully persisted profile.
 
@@ -147,4 +173,4 @@ The Worker is the server-side boundary for future WeatherKit and AI provider cal
 3. The Worker validates input, calls privileged providers, validates their output, and returns a versioned response defined in the contracts package.
 4. The mobile client validates the response before mapping it into domain state and preserves the last known good snapshot if refresh fails.
 
-This describes the approved direction. The local profile, profile-owned wardrobe persistence, catalog classification, and first Wardrobe CRUD presentation are implemented; Worker APIs, remote request state, live weather, recommendation logic, and remote synchronization remain deferred.
+This describes the approved direction. The local profile, profile-owned wardrobe persistence, catalog classification, first Wardrobe CRUD presentation, foreground location choice, and persisted sample weather are implemented; Worker APIs, remote request state, live WeatherKit data, recommendation logic, and remote synchronization remain deferred.

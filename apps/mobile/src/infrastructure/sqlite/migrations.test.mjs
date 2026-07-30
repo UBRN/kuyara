@@ -67,7 +67,7 @@ async function insertProfile(database, id = 'stable-profile-id') {
   );
 }
 
-test('an empty database applies versions 1 through 3 in order with the final schema', async (t) => {
+test('an empty database applies versions 1 through 4 in order with the final schema', async (t) => {
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
 
@@ -87,7 +87,7 @@ test('an empty database applies versions 1 through 3 in order with the final sch
     'PRAGMA index_info(idx_wardrobe_items_profile_deleted_updated)',
   );
 
-  assert.equal(latestDatabaseVersion, 3);
+  assert.equal(latestDatabaseVersion, 4);
   assert.equal(version.user_version, latestDatabaseVersion);
   assert.equal(profileTable.name, 'local_profiles');
   assert.match(profileTable.sql, /CHECK \(singleton_key = 1\)/);
@@ -147,7 +147,7 @@ test('an empty database applies versions 1 through 3 in order with the final sch
   );
 });
 
-test('an existing version 1 database upgrades through version 3 without changing profile data', async (t) => {
+test('an existing version 1 database upgrades through version 4 without changing profile data', async (t) => {
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
   await createReleasedVersionOneDatabase(database);
@@ -161,7 +161,7 @@ test('an existing version 1 database upgrades through version 3 without changing
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'wardrobe_items'",
   );
 
-  assert.equal(version.user_version, 3);
+  assert.equal(version.user_version, 4);
   assert.deepEqual(rows.map((row) => ({ ...row })), [{
     id: 'stable-profile-id',
     created_at: timestamp,
@@ -169,7 +169,7 @@ test('an existing version 1 database upgrades through version 3 without changing
   assert.equal(wardrobeTable.name, 'wardrobe_items');
 });
 
-test('version 3 preserves a released version 2 wardrobe row and is not reapplied', async (t) => {
+test('versions 3 and 4 preserve a released version 2 wardrobe row and are not reapplied', async (t) => {
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
   await createReleasedVersionTwoDatabase(database);
@@ -196,7 +196,7 @@ test('version 3 preserves a released version 2 wardrobe row and is not reapplied
 
   const version = await database.getFirstAsync('PRAGMA user_version');
   const rows = await database.getAllAsync('SELECT * FROM wardrobe_items');
-  assert.equal(version.user_version, 3);
+  assert.equal(version.user_version, 4);
   assert.deepEqual(rows.map((row) => ({ ...row })), [{
     id: 'item-id',
     local_profile_id: 'stable-profile-id',
@@ -441,4 +441,57 @@ test('a failed version 3 migration rolls back added columns and preserves versio
     name: 'Kazak',
     category: 'top',
   });
+});
+
+test('version 4 upgrades a released version 3 database and rolls back atomically on failure', async (t) => {
+  const database = new NodeSqliteDatabase();
+  t.after(() => database.close());
+  await createReleasedVersionTwoDatabase(database);
+  await insertProfile(database);
+
+  const stopBeforeVersionFour = {
+    execAsync: (source) => database.execAsync(source),
+    runAsync: (source, params) => database.runAsync(source, params),
+    getFirstAsync: (source, params) => database.getFirstAsync(source, params),
+    getAllAsync: (source, params) => database.getAllAsync(source, params),
+    withExclusiveTransactionAsync: (task) =>
+      database.withExclusiveTransactionAsync((transaction) =>
+        task({
+          execAsync: async (source) => {
+            if (source.includes('CREATE TABLE IF NOT EXISTS active_locations')) {
+              throw new Error('injected version 4 failure');
+            }
+            return transaction.execAsync(source);
+          },
+          runAsync: transaction.runAsync.bind(transaction),
+          getFirstAsync: transaction.getFirstAsync.bind(transaction),
+          getAllAsync: transaction.getAllAsync.bind(transaction),
+        }),
+      ),
+  };
+
+  await assert.rejects(
+    () => migrateDatabase(stopBeforeVersionFour),
+    /injected version 4 failure/,
+  );
+  const failedVersion = await database.getFirstAsync('PRAGMA user_version');
+  const failedWeatherTable = await database.getFirstAsync(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'weather_snapshots'",
+  );
+  const profile = await database.getFirstAsync('SELECT id FROM local_profiles');
+  assert.equal(failedVersion.user_version, 3);
+  assert.equal(failedWeatherTable, null);
+  assert.deepEqual({ ...profile }, { id: 'stable-profile-id' });
+
+  await migrateDatabase(database);
+  const version = await database.getFirstAsync('PRAGMA user_version');
+  const tables = await database.getAllAsync(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('active_locations', 'weather_snapshots', 'weather_hourly_entries') ORDER BY name",
+  );
+  assert.equal(version.user_version, 4);
+  assert.deepEqual(tables.map(({ name }) => name), [
+    'active_locations',
+    'weather_hourly_entries',
+    'weather_snapshots',
+  ]);
 });

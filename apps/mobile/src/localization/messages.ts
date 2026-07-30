@@ -8,6 +8,10 @@ import type {
   TodayLocationCode,
   WeatherConditionCode,
 } from '@/features/today/model';
+import type {
+  ManualLocationId,
+  WeatherConditionCode as LiveWeatherConditionCode,
+} from '@/features/weather/domain/weather';
 import {
   catalogMessages,
   type CatalogMessages,
@@ -125,7 +129,46 @@ export type AppMessages = Readonly<{
   }>;
   weather: Readonly<{
     title: string;
-    placeholderBody: string;
+    introduction: string;
+    activeLocationHeading: string;
+    noLocation: string;
+    currentLocation: string;
+    approximateLocation: string;
+    fullLocation: string;
+    useCurrentLocation: string;
+    locationRationaleTitle: string;
+    locationRationaleBody: string;
+    continuePermission: string;
+    cancel: string;
+    deniedBody: string;
+    permanentDeniedBody: string;
+    servicesUnavailableBody: string;
+    lookupFailedBody: string;
+    selectionFailedBody: string;
+    openSettings: string;
+    manualHeading: string;
+    manualBody: string;
+    locations: Readonly<Record<ManualLocationId, string>>;
+    sampleDisclosure: string;
+    currentHeading: string;
+    hourlyHeading: string;
+    noSnapshot: string;
+    loadErrorTitle: string;
+    loadErrorBody: string;
+    retry: string;
+    refresh: string;
+    refreshing: string;
+    refreshFailed: string;
+    fresh: string;
+    stale: string;
+    updatedAt: (time: string) => string;
+    feelsLike: (temperature: string) => string;
+    range: (minimum: string, maximum: string) => string;
+    precipitation: (probability: number) => string;
+    wind: (speed: string) => string;
+    humidity: (humidity: number) => string;
+    uvIndex: (index: string) => string;
+    conditions: Readonly<Record<LiveWeatherConditionCode, string>>;
   }>;
   wardrobe: Readonly<{
     title: string;
@@ -265,7 +308,54 @@ const en = {
   },
   weather: {
     title: 'Weather',
-    placeholderBody: 'Your weather details will appear here.',
+    introduction: 'Choose one active location for today’s weather.',
+    activeLocationHeading: 'Active location',
+    noLocation: 'No location selected yet.',
+    currentLocation: 'Current location',
+    approximateLocation: 'Approximate location',
+    fullLocation: 'Precise location',
+    useCurrentLocation: 'Use my current location',
+    locationRationaleTitle: 'Use your location for weather?',
+    locationRationaleBody: 'kuyara requests location only while you use the app, for a one-time weather lookup. Approximate location is enough.',
+    continuePermission: 'Continue',
+    cancel: 'Not now',
+    deniedBody: 'Location access was not granted. You can choose a sample location or try again later.',
+    permanentDeniedBody: 'Location access can no longer be requested here. Open system settings or choose a sample location.',
+    servicesUnavailableBody: 'Location services are unavailable or turned off. Choose a sample location or try again after enabling them.',
+    lookupFailedBody: 'Your location could not be found. Your previous location is unchanged.',
+    selectionFailedBody: 'That location could not be saved. Your previous location is still active.',
+    openSettings: 'Open system settings',
+    manualHeading: 'Sample locations',
+    manualBody: 'These fixed development locations exercise the flow; production place search is not available yet.',
+    locations: {
+      'sample.istanbul': 'Sample İstanbul',
+      'sample.ankara': 'Sample Ankara',
+      'sample.london': 'Sample London',
+    },
+    sampleDisclosure: 'Sample weather data — not live weather.',
+    currentHeading: 'Current conditions',
+    hourlyHeading: 'Remaining hours today',
+    noSnapshot: 'Weather will appear after a location is selected and sample data is available.',
+    loadErrorTitle: 'Weather could not be prepared',
+    loadErrorBody: 'Your saved local data is still safe. Please try again.',
+    retry: 'Try again',
+    refresh: 'Refresh weather',
+    refreshing: 'Refreshing weather…',
+    refreshFailed: 'Refresh failed. The last matching weather remains visible.',
+    fresh: 'Fresh',
+    stale: 'May be out of date',
+    updatedAt: (time) => `Last updated ${time}`,
+    feelsLike: (temperature) => `Feels like ${temperature}`,
+    range: (minimum, maximum) => `Low ${minimum} · High ${maximum}`,
+    precipitation: (probability) => `${Math.round(probability * 100)}% precipitation`,
+    wind: (speed) => `Wind ${speed} m/s`,
+    humidity: (humidity) => `${Math.round(humidity * 100)}% humidity`,
+    uvIndex: (index) => `UV index ${index}`,
+    conditions: {
+      clear: 'Clear', mostly_clear: 'Mostly clear', partly_cloudy: 'Partly cloudy',
+      cloudy: 'Cloudy', fog: 'Fog', drizzle: 'Drizzle', rain: 'Rain',
+      heavy_rain: 'Heavy rain', sleet: 'Sleet', snow: 'Snow', thunderstorm: 'Thunderstorm',
+    },
   },
   wardrobe: {
     title: 'Wardrobe',
@@ -501,7 +591,54 @@ const tr = {
   },
   weather: {
     title: 'Hava',
-    placeholderBody: 'Hava durumu ayrıntılarınız burada görünecek.',
+    introduction: 'Bugünün hava durumu için tek bir etkin konum seçin.',
+    activeLocationHeading: 'Etkin konum',
+    noLocation: 'Henüz konum seçilmedi.',
+    currentLocation: 'Mevcut konum',
+    approximateLocation: 'Yaklaşık konum',
+    fullLocation: 'Kesin konum',
+    useCurrentLocation: 'Mevcut konumumu kullan',
+    locationRationaleTitle: 'Konumunuz hava durumu için kullanılsın mı?',
+    locationRationaleBody: 'kuyara konumu yalnızca uygulamayı kullanırken, tek seferlik hava durumu sorgusu için ister. Yaklaşık konum yeterlidir.',
+    continuePermission: 'Devam et',
+    cancel: 'Şimdi değil',
+    deniedBody: 'Konum erişimi verilmedi. Örnek bir konum seçebilir veya daha sonra yeniden deneyebilirsiniz.',
+    permanentDeniedBody: 'Konum erişimi buradan yeniden istenemiyor. Sistem ayarlarını açın veya örnek bir konum seçin.',
+    servicesUnavailableBody: 'Konum servisleri kullanılamıyor veya kapalı. Örnek konum seçin ya da servisleri açtıktan sonra yeniden deneyin.',
+    lookupFailedBody: 'Konumunuz bulunamadı. Önceki konumunuz değiştirilmedi.',
+    selectionFailedBody: 'Bu konum kaydedilemedi. Önceki konumunuz etkin kalıyor.',
+    openSettings: 'Sistem ayarlarını aç',
+    manualHeading: 'Örnek konumlar',
+    manualBody: 'Bu sabit geliştirme konumları akışı denemek içindir; gerçek yer araması henüz kullanılamıyor.',
+    locations: {
+      'sample.istanbul': 'Örnek İstanbul',
+      'sample.ankara': 'Örnek Ankara',
+      'sample.london': 'Örnek Londra',
+    },
+    sampleDisclosure: 'Örnek hava durumu verisi — canlı değildir.',
+    currentHeading: 'Mevcut koşullar',
+    hourlyHeading: 'Bugünün kalan saatleri',
+    noSnapshot: 'Bir konum seçilip örnek veri kullanılabilir olduğunda hava durumu burada görünecek.',
+    loadErrorTitle: 'Hava durumu hazırlanamadı',
+    loadErrorBody: 'Kayıtlı yerel verileriniz güvende. Lütfen yeniden deneyin.',
+    retry: 'Yeniden dene',
+    refresh: 'Hava durumunu yenile',
+    refreshing: 'Hava durumu yenileniyor…',
+    refreshFailed: 'Yenileme başarısız oldu. Son eşleşen hava durumu gösterilmeye devam ediyor.',
+    fresh: 'Güncel',
+    stale: 'Güncelliğini yitirmiş olabilir',
+    updatedAt: (time) => `Son güncelleme ${time}`,
+    feelsLike: (temperature) => `Hissedilen ${temperature}`,
+    range: (minimum, maximum) => `En düşük ${minimum} · En yüksek ${maximum}`,
+    precipitation: (probability) => `%${Math.round(probability * 100)} yağış`,
+    wind: (speed) => `Rüzgâr ${speed} m/sn`,
+    humidity: (humidity) => `%${Math.round(humidity * 100)} nem`,
+    uvIndex: (index) => `UV endeksi ${index}`,
+    conditions: {
+      clear: 'Açık', mostly_clear: 'Çoğunlukla açık', partly_cloudy: 'Parçalı bulutlu',
+      cloudy: 'Bulutlu', fog: 'Sisli', drizzle: 'Çiseleme', rain: 'Yağmurlu',
+      heavy_rain: 'Kuvvetli yağmur', sleet: 'Karla karışık yağmur', snow: 'Karlı', thunderstorm: 'Gök gürültülü fırtına',
+    },
   },
   wardrobe: {
     title: 'Gardırop',

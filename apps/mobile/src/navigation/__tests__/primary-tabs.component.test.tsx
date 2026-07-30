@@ -8,7 +8,8 @@ import type { ProfileApplicationValue } from '@/features/profile/application/pro
 import { ProfileApplicationContext } from '@/features/profile/application/profile-context';
 import type { LocalProfile } from '@/features/profile/domain/profile';
 import { WardrobeListScreen } from '@/features/wardrobe/presentation/wardrobe-list-screen';
-import { WeatherPlaceholderScreen } from '@/features/weather/presentation/weather-placeholder-screen';
+import { WeatherApplicationContext } from '@/features/weather/application/weather-application-context';
+import { WeatherScreen } from '@/features/weather/presentation/weather-screen';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 import {
@@ -88,9 +89,24 @@ function TestProviders({
       value={createProfileApplication(onboardingCompleted)}>
       <LocalizationContext.Provider value={{ language, messages: messages[language] }}>
         <KuyaraThemeContext.Provider value={lightTheme}>
-          <SafeAreaProvider initialMetrics={initialMetrics}>
-            {children}
-          </SafeAreaProvider>
+          <WeatherApplicationContext.Provider value={{
+            state: {
+              status: 'ready', activeLocation: null, snapshot: null, freshness: null,
+              permission: { kind: 'undetermined' }, locationFlow: 'idle',
+              isSelectingLocation: false, isRefreshing: false, hasRefreshError: false,
+            },
+            retry: async () => undefined,
+            dismissLocationFlow: () => undefined,
+            beginDeviceLocationSelection: async () => undefined,
+            confirmDeviceLocationRequest: async () => undefined,
+            openApplicationSettings: async () => undefined,
+            selectManualLocation: async () => undefined,
+            refresh: async () => undefined,
+          }}>
+            <SafeAreaProvider initialMetrics={initialMetrics}>
+              {children}
+            </SafeAreaProvider>
+          </WeatherApplicationContext.Provider>
         </KuyaraThemeContext.Provider>
       </LocalizationContext.Provider>
     </ProfileApplicationContext.Provider>
@@ -165,12 +181,12 @@ describe.each([
   test('renders localized Weather and Wardrobe entry content', async () => {
     const weather = await render(
       <TestProviders language={language}>
-        <WeatherPlaceholderScreen />
+        <WeatherScreen />
       </TestProviders>,
     );
     expect(weather.getByText(messages[language].weather.title)).toBeOnTheScreen();
     expect(
-      weather.getByText(messages[language].weather.placeholderBody),
+      weather.getByText(messages[language].weather.introduction),
     ).toBeOnTheScreen();
     await weather.unmount();
 

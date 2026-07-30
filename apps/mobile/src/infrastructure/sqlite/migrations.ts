@@ -10,7 +10,7 @@ type Migration = Readonly<{
   migrate: (database: SqliteExecutor) => Promise<void>;
 }>;
 
-export const latestDatabaseVersion = 3;
+export const latestDatabaseVersion = 4;
 
 const migrationV1: Migration = {
   version: 1,
@@ -116,10 +116,101 @@ const migrationV3: Migration = {
   },
 };
 
+const migrationV4: Migration = {
+  version: 4,
+  async migrate(database) {
+    await database.execAsync(`
+      CREATE TABLE IF NOT EXISTS active_locations (
+        local_profile_id TEXT PRIMARY KEY NOT NULL,
+        location_key TEXT NOT NULL,
+        source TEXT NOT NULL CHECK (source IN ('manual', 'device')),
+        manual_catalog_id TEXT,
+        latitude_e2 INTEGER NOT NULL CHECK (latitude_e2 BETWEEN -9000 AND 9000),
+        longitude_e2 INTEGER NOT NULL CHECK (longitude_e2 BETWEEN -18000 AND 18000),
+        time_zone TEXT NOT NULL,
+        device_accuracy TEXT CHECK (
+          device_accuracy IS NULL OR device_accuracy IN ('approximate', 'full')
+        ),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        CHECK (
+          (source = 'manual' AND manual_catalog_id IS NOT NULL AND device_accuracy IS NULL)
+          OR
+          (source = 'device' AND manual_catalog_id IS NULL AND device_accuracy IS NOT NULL)
+        ),
+        FOREIGN KEY (local_profile_id) REFERENCES local_profiles(id)
+          ON UPDATE RESTRICT
+          ON DELETE RESTRICT
+      );
+    `);
+
+    await database.execAsync(`
+      CREATE TABLE IF NOT EXISTS weather_snapshots (
+        id TEXT PRIMARY KEY NOT NULL,
+        local_profile_id TEXT NOT NULL,
+        location_key TEXT NOT NULL,
+        time_zone TEXT NOT NULL,
+        fetched_at TEXT NOT NULL,
+        observed_at TEXT NOT NULL,
+        origin_kind TEXT NOT NULL CHECK (origin_kind IN ('sample', 'live')),
+        source_id TEXT NOT NULL,
+        temperature_c REAL NOT NULL,
+        apparent_temperature_c REAL NOT NULL,
+        minimum_temperature_c REAL NOT NULL,
+        maximum_temperature_c REAL NOT NULL,
+        condition_code TEXT NOT NULL CHECK (condition_code IN (
+          'clear', 'mostly_clear', 'partly_cloudy', 'cloudy', 'fog', 'drizzle',
+          'rain', 'heavy_rain', 'sleet', 'snow', 'thunderstorm'
+        )),
+        precipitation_probability REAL NOT NULL CHECK (
+          precipitation_probability BETWEEN 0 AND 1
+        ),
+        wind_speed_mps REAL NOT NULL CHECK (wind_speed_mps >= 0),
+        humidity REAL NOT NULL CHECK (humidity BETWEEN 0 AND 1),
+        uv_index REAL NOT NULL CHECK (uv_index >= 0),
+        UNIQUE (local_profile_id, location_key),
+        CHECK (minimum_temperature_c <= maximum_temperature_c),
+        FOREIGN KEY (local_profile_id) REFERENCES local_profiles(id)
+          ON UPDATE RESTRICT
+          ON DELETE RESTRICT
+      );
+    `);
+
+    await database.execAsync(`
+      CREATE TABLE IF NOT EXISTS weather_hourly_entries (
+        snapshot_id TEXT NOT NULL,
+        forecast_at TEXT NOT NULL,
+        temperature_c REAL NOT NULL,
+        apparent_temperature_c REAL NOT NULL,
+        condition_code TEXT NOT NULL CHECK (condition_code IN (
+          'clear', 'mostly_clear', 'partly_cloudy', 'cloudy', 'fog', 'drizzle',
+          'rain', 'heavy_rain', 'sleet', 'snow', 'thunderstorm'
+        )),
+        precipitation_probability REAL NOT NULL CHECK (
+          precipitation_probability BETWEEN 0 AND 1
+        ),
+        wind_speed_mps REAL NOT NULL CHECK (wind_speed_mps >= 0),
+        humidity REAL NOT NULL CHECK (humidity BETWEEN 0 AND 1),
+        uv_index REAL NOT NULL CHECK (uv_index >= 0),
+        PRIMARY KEY (snapshot_id, forecast_at),
+        FOREIGN KEY (snapshot_id) REFERENCES weather_snapshots(id)
+          ON UPDATE RESTRICT
+          ON DELETE CASCADE
+      );
+    `);
+
+    await database.execAsync(`
+      CREATE INDEX IF NOT EXISTS idx_weather_snapshots_profile_fetched
+      ON weather_snapshots (local_profile_id, fetched_at DESC);
+    `);
+  },
+};
+
 const migrations = [
   migrationV1,
   migrationV2,
   migrationV3,
+  migrationV4,
 ] as const satisfies readonly Migration[];
 
 async function readUserVersion(database: SqliteExecutor): Promise<number> {
