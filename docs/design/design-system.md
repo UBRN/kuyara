@@ -56,7 +56,7 @@ Motion durations are `immediate` 0 ms, `fast` 120 ms, `normal` 200 ms, and `deli
 
 ## Theme resolution and access
 
-`KuyaraThemeProvider` defaults to the `system` preference and resolves React Native's light, dark, null, and unspecified appearance states. It already accepts `system | light | dark`, so a future persisted Settings value can be supplied without changing token consumers; persistence is not implemented here.
+`KuyaraThemeProvider` defaults to the `system` preference and resolves React Native's light, dark, null, and unspecified appearance states. The profile application provider now supplies the persisted `system | light | dark` value without changing token consumers.
 
 Components read the typed theme with `useKuyaraTheme()`. Expo Router receives a matching React Navigation theme, the active semantic background is used across routes and tabs, and `expo-status-bar` selects light or dark content from the resolved appearance.
 
@@ -118,15 +118,17 @@ Implemented now:
 - A single-screen Expo Router shell that can later be wrapped by final product navigation
 - Device-language English/Turkish Today strings and locale-aware fixed-date formatting
 - The deterministic Today loaded-state composition with a concise weather summary, immediate guidance, and exactly three vertically discoverable outfit cards
+- A database/profile bootstrap state, three-step local onboarding flow, and pushed Settings screen built from the same semantic tokens and scalable primitives
+- Persisted system/Turkish/English and system/light/dark preferences supplied to the existing localization and theme providers
+- A feature-specific radio-style preference option with selected-state semantics; it remains inside the profile feature rather than widening the generic primitive API
 - Loading, unavailable, and stale-loaded Today presentation contracts
 - Large-text reflow in weather metrics and outfit item rows, grouped screen-reader descriptions, and a motion-independent Today layout
 - Focused token, primitive-contract, interaction, shell-context, localization, and source-boundary tests
 
 Deferred intentionally:
 
-- Persisted language or appearance settings
-- Final tab navigation, onboarding, and Settings UI
-- SQLite, Worker, WeatherKit, location, AI, wardrobe ownership, and deterministic recommendation-engine integration
+- Final tab navigation
+- Worker, WeatherKit, location, AI, wardrobe ownership, and deterministic recommendation-engine integration
 - Text inputs, selectors, switches, modal or feedback frameworks, and product-specific components
 - Divider, because the current shell has no repeated separator need
 - Destructive button styling, because no checked-in flow justifies it
@@ -136,4 +138,4 @@ Deferred intentionally:
 - Shadows or elevation until a real hierarchy requires them
 - Android visual refinement and emulator validation; shared React Native code remains build-compatible, but Android was not validated in this task
 
-The final product navigation decision remains separate. The current root uses a stable single-screen Expo Router Stack only to host Today; it does not add product tabs, placeholders, or a custom tab bar. Android source compatibility is preserved, but Android build, emulator, and visual refinement remain unverified and deferred.
+The final product navigation decision remains separate. The current root uses a stable Expo Router Stack for the onboarding gate, Today, and pushed Settings screen; it does not add product tabs, placeholders, or a custom tab bar. Android source compatibility is preserved, but Android build, emulator, and visual refinement remain unverified and deferred.

@@ -16,6 +16,8 @@ type OutfitCopy = Readonly<{
 
 export type TodayMessages = Readonly<{
   title: string;
+  settingsAction: string;
+  settingsHint: string;
   weatherHeading: string;
   guidanceHeading: string;
   outfitsHeading: string;
@@ -59,13 +61,113 @@ export type TodayMessages = Readonly<{
   }) => string;
 }>;
 
+export type PreferenceMessages = Readonly<{
+  clothingTitle: string;
+  clothingDescription: string;
+  womensClothing: string;
+  mensClothing: string;
+  languageTitle: string;
+  languageDescription: string;
+  languageSystem: string;
+  languageTurkish: string;
+  languageEnglish: string;
+  themeTitle: string;
+  themeDescription: string;
+  themeSystem: string;
+  themeLight: string;
+  themeDark: string;
+}>;
+
 export type AppMessages = Readonly<{
+  common: Readonly<{
+    back: string;
+    continue: string;
+  }>;
+  bootstrap: Readonly<{
+    loadingTitle: string;
+    loadingBody: string;
+    errorTitle: string;
+    errorBody: string;
+  }>;
+  onboarding: Readonly<{
+    stepPosition: (position: number, total: number) => string;
+    welcomeTitle: string;
+    welcomeBody: string;
+    promiseHeading: string;
+    weatherPromise: string;
+    outfitsPromise: string;
+    wardrobePromise: string;
+    clothingTitle: string;
+    clothingBody: string;
+    detailsTitle: string;
+    detailsBody: string;
+    completeAction: string;
+    clothingRequiredError: string;
+    saveError: string;
+  }>;
+  preferences: PreferenceMessages;
+  settings: Readonly<{
+    title: string;
+    introduction: string;
+    saving: string;
+    saveError: string;
+  }>;
   today: TodayMessages;
 }>;
 
 const en = {
+  common: {
+    back: 'Back',
+    continue: 'Continue',
+  },
+  bootstrap: {
+    loadingTitle: 'Preparing kuyara',
+    loadingBody: 'Your local preferences are loading.',
+    errorTitle: 'kuyara could not start',
+    errorBody: 'Your local data is still safe. Close the app and try again.',
+  },
+  onboarding: {
+    stepPosition: (position: number, total: number) => `Step ${position} of ${total}`,
+    welcomeTitle: 'Welcome to kuyara',
+    welcomeBody: 'A calm way to make daily clothing choices with the weather in mind.',
+    promiseHeading: 'What to expect',
+    weatherPromise: 'kuyara uses weather to simplify what to wear each day.',
+    outfitsPromise: 'You will see three complete outfit suggestions for different plans.',
+    wardrobePromise: 'When you add wardrobe pieces later, kuyara can include them in your options.',
+    clothingTitle: 'Choose your clothing preference',
+    clothingBody: 'This controls the catalog and recommendation style. You can change it later in Settings.',
+    detailsTitle: 'Make kuyara yours',
+    detailsBody: 'Confirm how kuyara should display language and appearance on this device.',
+    completeAction: 'Start using kuyara',
+    clothingRequiredError: 'Choose a clothing preference to continue.',
+    saveError: 'Your choices could not be saved. Please try again.',
+  },
+  preferences: {
+    clothingTitle: 'Clothing preference',
+    clothingDescription: 'Controls the catalog and recommendation style, not your identity.',
+    womensClothing: 'Women’s clothing',
+    mensClothing: 'Men’s clothing',
+    languageTitle: 'Language',
+    languageDescription: 'Choose a language or follow your device setting.',
+    languageSystem: 'System',
+    languageTurkish: 'Türkçe',
+    languageEnglish: 'English',
+    themeTitle: 'Appearance',
+    themeDescription: 'Choose an appearance or follow your device setting.',
+    themeSystem: 'System',
+    themeLight: 'Light',
+    themeDark: 'Dark',
+  },
+  settings: {
+    title: 'Settings',
+    introduction: 'Changes are saved on this device as soon as you select them.',
+    saving: 'Saving changes…',
+    saveError: 'That change could not be saved. Your previous setting is still active.',
+  },
   today: {
     title: 'Today',
+    settingsAction: 'Settings',
+    settingsHint: 'Opens clothing, language, and appearance settings.',
     weatherHeading: 'Weather at a glance',
     guidanceHeading: 'Your clothing strategy',
     outfitsHeading: 'Three ways to dress',
@@ -163,8 +265,58 @@ const en = {
 } satisfies AppMessages;
 
 const tr = {
+  common: {
+    back: 'Geri',
+    continue: 'Devam et',
+  },
+  bootstrap: {
+    loadingTitle: 'kuyara hazırlanıyor',
+    loadingBody: 'Bu cihazdaki tercihleriniz yükleniyor.',
+    errorTitle: 'kuyara başlatılamadı',
+    errorBody: 'Yerel verileriniz güvende. Uygulamayı kapatıp yeniden deneyin.',
+  },
+  onboarding: {
+    stepPosition: (position: number, total: number) => `${total} adımdan ${position}. adım`,
+    welcomeTitle: 'kuyara’ya hoş geldiniz',
+    welcomeBody: 'Hava durumunu dikkate alarak günlük giyim kararlarını sakinleştiren bir yol.',
+    promiseHeading: 'Sizi neler bekliyor',
+    weatherPromise: 'kuyara, her gün ne giyeceğinizi kolaylaştırmak için hava durumunu kullanır.',
+    outfitsPromise: 'Farklı planlar için üç eksiksiz kombin önerisi görürsünüz.',
+    wardrobePromise: 'Daha sonra gardırop parçaları eklediğinizde kuyara bunları seçeneklerinize katabilir.',
+    clothingTitle: 'Giyim tercihinizi seçin',
+    clothingBody: 'Bu seçim katalog ve öneri tarzını belirler. Daha sonra Ayarlar’dan değiştirebilirsiniz.',
+    detailsTitle: 'kuyara’yı size uygun hâle getirin',
+    detailsBody: 'kuyara’nın bu cihazda kullanacağı dili ve görünümü onaylayın.',
+    completeAction: 'kuyara’yı kullanmaya başla',
+    clothingRequiredError: 'Devam etmek için bir giyim tercihi seçin.',
+    saveError: 'Seçimleriniz kaydedilemedi. Lütfen yeniden deneyin.',
+  },
+  preferences: {
+    clothingTitle: 'Giyim tercihi',
+    clothingDescription: 'Kimliğinizi değil, katalog ve öneri tarzını belirler.',
+    womensClothing: 'Kadın giyim',
+    mensClothing: 'Erkek giyim',
+    languageTitle: 'Dil',
+    languageDescription: 'Bir dil seçin veya cihaz ayarını izleyin.',
+    languageSystem: 'Sistem',
+    languageTurkish: 'Türkçe',
+    languageEnglish: 'English',
+    themeTitle: 'Görünüm',
+    themeDescription: 'Bir görünüm seçin veya cihaz ayarını izleyin.',
+    themeSystem: 'Sistem',
+    themeLight: 'Açık',
+    themeDark: 'Koyu',
+  },
+  settings: {
+    title: 'Ayarlar',
+    introduction: 'Yaptığınız seçimler anında bu cihaza kaydedilir.',
+    saving: 'Değişiklikler kaydediliyor…',
+    saveError: 'Bu değişiklik kaydedilemedi. Önceki ayarınız kullanılmaya devam ediyor.',
+  },
   today: {
     title: 'Bugün',
+    settingsAction: 'Ayarlar',
+    settingsHint: 'Giyim, dil ve görünüm ayarlarını açar.',
     weatherHeading: 'Kısaca hava durumu',
     guidanceHeading: 'Bugünün giyim stratejisi',
     outfitsHeading: 'Üç farklı kombin',
