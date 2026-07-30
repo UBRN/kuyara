@@ -15,6 +15,7 @@ kuyara is an open-source weather and outfit recommendation app built with React 
 - Preserve unrelated user changes. Do not revert or overwrite work you did not create.
 - Prefer the smallest coherent change that satisfies the request and existing architecture.
 - Do not create branches or worktrees, commit, push, publish, deploy, or mutate external systems unless the user explicitly requests it.
+- An explicitly started Codex Goal may be committed and pushed with a normal non-force push without a second approval only after it succeeds, all required checks pass, the initially clean worktree still contains only Goal-scoped changes, the final diff is reviewed, and the remote branch is not ahead. Do not do this when checks fail, scope is unclear, user changes are present, or the remote advanced; never force-push, rebase, create a branch or worktree, tag, PR, release, or deploy under this permission.
 - Do not add or upgrade dependencies without explaining the need and checking compatibility with the installed Expo SDK.
 - Never invent commands, paths, scripts, environment variables, API shapes, or completed verification.
 - If a requested change conflicts with these rules or a recorded decision, stop and explain the conflict.
