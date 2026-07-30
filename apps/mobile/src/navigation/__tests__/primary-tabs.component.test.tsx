@@ -7,7 +7,7 @@ import PrimaryTabsRouteLayout from '@/app/(tabs)/_layout';
 import type { ProfileApplicationValue } from '@/features/profile/application/profile-context';
 import { ProfileApplicationContext } from '@/features/profile/application/profile-context';
 import type { LocalProfile } from '@/features/profile/domain/profile';
-import { WardrobePlaceholderScreen } from '@/features/wardrobe/presentation/wardrobe-placeholder-screen';
+import { WardrobeListScreen } from '@/features/wardrobe/presentation/wardrobe-list-screen';
 import { WeatherPlaceholderScreen } from '@/features/weather/presentation/weather-placeholder-screen';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
@@ -162,7 +162,7 @@ describe.each([
     });
   });
 
-  test('renders the localized Weather and Wardrobe placeholder content', async () => {
+  test('renders localized Weather and Wardrobe entry content', async () => {
     const weather = await render(
       <TestProviders language={language}>
         <WeatherPlaceholderScreen />
@@ -176,12 +176,23 @@ describe.each([
 
     const wardrobe = await render(
       <TestProviders language={language}>
-        <WardrobePlaceholderScreen />
+        <WardrobeListScreen
+          onAdd={() => undefined}
+          onEdit={() => undefined}
+          onRetry={() => undefined}
+          state={{
+            status: 'ready',
+            items: [],
+            isRefreshing: false,
+            isMutating: false,
+            hasRefreshError: false,
+          }}
+        />
       </TestProviders>,
     );
     expect(wardrobe.getByText(messages[language].wardrobe.title)).toBeOnTheScreen();
     expect(
-      wardrobe.getByText(messages[language].wardrobe.placeholderBody),
+      wardrobe.getByText(messages[language].wardrobe.emptyBody),
     ).toBeOnTheScreen();
   });
 });

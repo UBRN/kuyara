@@ -52,11 +52,15 @@ Version 3 leaves versions 1 and 2 unchanged and adds nine nullable columns to `w
 
 Future migrations must add one ordered migration object immediately after the current version. Do not edit released migrations, skip a version, or add a destructive fallback.
 
-### Wardrobe persistence boundary
+### Wardrobe application and persistence boundary
 
-The wardrobe slice follows the established executor boundary without adding presentation or application state that no current screen consumes:
+The wardrobe slice follows the established executor boundary and now adds a narrow feature-local application controller for its list and forms:
 
 ```text
+Wardrobe routes and localized presentation
+        ↓
+feature-local controller/provider and explicit form mapper
+        ↓
 wardrobe domain model and input invariants
         ↓
 local wardrobe repository and sanitized error model
@@ -71,6 +75,10 @@ project-owned SQLite executor
 The domain item and SQLite record are separate types. The mapper explicitly converts the stable category representation and rejects invalid stored enums, timestamps, nullable values, or non-canonical photo paths. The repository owns client UUID and clock dependencies, input normalization, profile isolation checks, patch-style domain updates, and stable `invalid-input | invalid-data | not-found | unavailable` errors. SQLite and its raw errors do not cross this boundary.
 
 The local data source owns fixed-column parameterized create and update statements. Updates preserve the UUID, `local_profile_id`, and `created_at`; successful writes refresh `updated_at`. Soft delete atomically sets `deleted_at` and `updated_at`, after which normal get/list/update operations ignore the row. A separate explicit read can include deleted items for tests or a future recovery workflow.
+
+The controller owns initial loading, stable active-list refresh, retry state, and one in-flight mutation. It injects the ready local profile ID into repository calls, refreshes the list after successful writes, coalesces rapid duplicate save intents, and rejects malformed route UUIDs before repository access. Presentation never receives SQLite records or SQL.
+
+The form model contains only the editable optional name, required catalog type, color family, and seven nullable overrides. Its pure mapper derives applicable overrides from non-null catalog defaults, clears unsupported values, and deliberately omits UUID, owner, lifecycle, deletion, legacy `color`, and photo fields. Patch-style updates therefore preserve hidden fields. A confirmed type change resets explicit overrides and lets the effective-garment resolver use the new catalog defaults.
 
 Photo persistence is deliberately path-only. The domain and record store a normalized forward-slash relative path into future app-private storage, never a blob, base64 value, absolute path, or `file://` URI. This slice performs no image selection, compression, copying, deletion, or external upload.
 
@@ -102,9 +110,9 @@ The profile application provider opens the database, migrates it, constructs the
 
 After readiness, the root Expo Router Stack keeps `/onboarding` separate from the main application. The `(tabs)` route-group layout applies the local gate before mounting product navigation: incomplete profiles redirect to `/onboarding`, completed profiles resolve to `/`, and completed profiles cannot normally return to onboarding. Deep links to `/weather`, `/wardrobe`, or `/settings` therefore pass through the same gate.
 
-The main application uses Expo Router's stable JavaScript Tabs with four finalized destinations: Today at `/`, Weather at `/weather`, Wardrobe at `/wardrobe`, and Settings at `/settings`. Route-group names remain absent from visible paths. Today is the explicit initial route, and each tab has one nested Stack boundary so later detail routes do not require a navigation rewrite. In particular, future Wardrobe `new` and `[id]` screens belong inside the Wardrobe Stack. SDK 57 Native Tabs are alpha and are intentionally not used; adopting them later is a separate migration decision.
+The main application uses Expo Router's stable JavaScript Tabs with four finalized destinations: Today at `/`, Weather at `/weather`, Wardrobe at `/wardrobe`, and Settings at `/settings`. Route-group names remain absent from visible paths. Today is the explicit initial route, and each tab has one nested Stack boundary. Wardrobe owns `/wardrobe/new` and `/wardrobe/[id]` inside its existing Stack. SDK 57 Native Tabs are alpha and are intentionally not used; adopting them later is a separate migration decision.
 
-The localized tab-bar presentation is separate from route composition. Expo Router owns route state and tab events, while the bar renders semantic-theme colors, platform-specific `expo-symbols` names, visible labels, 44-point minimum targets, localized tab roles and names, and selected accessibility state. Weather and Wardrobe route adapters currently render only their localized placeholder presentation components.
+The localized tab-bar presentation is separate from route composition. Expo Router owns route state and tab events, while the bar renders semantic-theme colors, platform-specific `expo-symbols` names, visible labels, 44-point minimum targets, localized tab roles and names, and selected accessibility state. Weather retains its placeholder; Wardrobe route files are thin adapters over feature presentation and application boundaries. Its dirty-form guard uses the navigator's `beforeRemove` event so header back, iOS gestures, and Android system back share the same localized discard confirmation.
 
 The localization provider resolves a saved `system | tr | en` preference through the established device-locale fallback. The existing theme provider receives the saved `system | light | dark` preference. Neither architecture is duplicated, and both providers update when the controller publishes a successfully persisted profile.
 
@@ -137,4 +145,4 @@ The Worker is the server-side boundary for future WeatherKit and AI provider cal
 3. The Worker validates input, calls privileged providers, validates their output, and returns a versioned response defined in the contracts package.
 4. The mobile client validates the response before mapping it into domain state and preserves the last known good snapshot if refresh fails.
 
-This describes the approved direction. The local profile and profile-owned wardrobe persistence portions are now implemented; Wardrobe presentation, catalog classification, Worker, remote request state, live weather, recommendation logic, and remote synchronization remain deferred.
+This describes the approved direction. The local profile, profile-owned wardrobe persistence, catalog classification, and first Wardrobe CRUD presentation are implemented; Worker APIs, remote request state, live weather, recommendation logic, and remote synchronization remain deferred.
