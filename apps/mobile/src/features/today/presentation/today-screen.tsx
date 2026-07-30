@@ -1,6 +1,7 @@
+import { SymbolView } from 'expo-symbols';
 import { ActivityIndicator, StyleSheet, View, useWindowDimensions } from 'react-native';
 
-import { AppText, Screen, SectionHeader, Surface } from '@/components/ui';
+import { AppText, IconButton, Screen, SectionHeader, Surface } from '@/components/ui';
 import type { TodayScreenState } from '@/features/today/model';
 import { OutfitSuggestionCard } from '@/features/today/presentation/outfit-suggestion-card';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
@@ -12,9 +13,10 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 type TodayScreenProps = Readonly<{
   state: TodayScreenState;
   language: SupportedLanguage;
+  onOpenSettings: () => void;
 }>;
 
-export function TodayScreen({ state, language }: TodayScreenProps) {
+export function TodayScreen({ state, language, onOpenSettings }: TodayScreenProps) {
   const presentation = createTodayPresentation(state, language);
   const theme = useKuyaraTheme();
   const { fontScale } = useWindowDimensions();
@@ -51,11 +53,29 @@ export function TodayScreen({ state, language }: TodayScreenProps) {
   return (
     <Screen testID="today-screen" contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <AppText
-          accessibilityRole="header"
-          variant={usesAccessibilityLayout ? 'titleLarge' : 'display'}>
-          {presentation.copy.title}
-        </AppText>
+        <View style={styles.titleRow}>
+          <AppText
+            accessibilityRole="header"
+            style={styles.title}
+            variant={usesAccessibilityLayout ? 'titleLarge' : 'display'}>
+            {presentation.copy.title}
+          </AppText>
+          <IconButton
+            accessibilityHint={presentation.copy.settingsHint}
+            accessibilityLabel={presentation.copy.settingsAction}
+            icon={(color) => (
+              <SymbolView
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                name={{ ios: 'gearshape.fill', android: 'settings', web: 'settings' }}
+                size={22}
+                tintColor={color}
+              />
+            )}
+            onPress={onOpenSettings}
+            testID="today-settings-button"
+          />
+        </View>
         <View
           style={[
             styles.contextRow,
@@ -112,6 +132,16 @@ const styles = StyleSheet.create({
   header: {
     gap: spacing.sm,
     paddingTop: spacing.lg,
+  },
+  titleRow: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: spacing.lg,
+    justifyContent: 'space-between',
+  },
+  title: {
+    flex: 1,
+    flexShrink: 1,
   },
   contextRow: {
     alignItems: 'baseline',

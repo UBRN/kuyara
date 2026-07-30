@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { Platform, StyleSheet, Text, type TextProps, useWindowDimensions } from 'react-native';
 
 import { resolveAppTextStyle } from '@/components/ui/primitive-contracts';
@@ -12,13 +13,16 @@ export type AppTextProps = TextProps & {
   colorRole?: SemanticColorRole;
 };
 
-export function AppText({
-  allowFontScaling = true,
-  colorRole = 'textPrimary',
-  style,
-  variant = 'body',
-  ...rest
-}: AppTextProps) {
+export const AppText = forwardRef<Text, AppTextProps>(function AppText(
+  {
+    allowFontScaling = true,
+    colorRole = 'textPrimary',
+    style,
+    variant = 'body',
+    ...rest
+  },
+  ref,
+) {
   const theme = useKuyaraTheme();
   const { fontScale } = useWindowDimensions();
   const fontFamily =
@@ -27,6 +31,7 @@ export function AppText({
   return (
     <Text
       allowFontScaling={allowFontScaling}
+      ref={ref}
       style={[
         styles.text,
         resolveAppTextStyle(theme, variant, colorRole, fontScale > 1.5),
@@ -36,7 +41,7 @@ export function AppText({
       {...rest}
     />
   );
-}
+});
 
 const styles = StyleSheet.create({
   text: {
