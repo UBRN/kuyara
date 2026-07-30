@@ -1,5 +1,5 @@
-import { WeatherPlaceholderScreen } from '@/features/weather/presentation/weather-placeholder-screen';
+import { WeatherScreen } from '@/features/weather/presentation/weather-screen';
 
 export default function WeatherRoute() {
-  return <WeatherPlaceholderScreen />;
+  return <WeatherScreen />;
 }

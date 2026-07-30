@@ -1,6 +1,6 @@
 {
   "name": "@kuyara/mobile",
-  "main": "expo-router/entry",
+  "main": "./index.js",
   "version": "1.0.0",
   "dependencies": {
     "@expo/ui": "~57.0.8",
@@ -15,6 +15,7 @@
     "expo-image-manipulator": "~57.0.7",
     "expo-image-picker": "~57.0.7",
     "expo-linking": "~57.0.4",
+    "expo-location": "~57.0.7",
     "expo-router": "~57.0.9",
     "expo-splash-screen": "~57.0.5",
     "expo-sqlite": "~57.0.1",
@@ -53,9 +54,10 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "test": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test src/theme/theme.test.mjs src/components/ui/primitives.test.mjs src/features/today/today.test.mjs src/infrastructure/sqlite/migrations.test.mjs src/features/profile/profile-persistence.test.mjs src/features/profile/profile-ui.test.mjs src/features/wardrobe/wardrobe-persistence.test.mjs src/features/wardrobe/wardrobe-photo.test.mjs",
+    "test": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test src/theme/theme.test.mjs src/components/ui/primitives.test.mjs src/features/today/today.test.mjs src/infrastructure/sqlite/migrations.test.mjs src/features/profile/profile-persistence.test.mjs src/features/profile/profile-ui.test.mjs src/features/wardrobe/wardrobe-persistence.test.mjs src/features/wardrobe/wardrobe-photo.test.mjs src/features/weather/weather-persistence.test.mjs src/features/weather/weather-application.test.mjs",
     "test:profile": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test src/infrastructure/sqlite/migrations.test.mjs src/features/profile/profile-persistence.test.mjs",
     "test:wardrobe": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test src/infrastructure/sqlite/migrations.test.mjs src/features/wardrobe/wardrobe-persistence.test.mjs src/features/wardrobe/wardrobe-photo.test.mjs",
+    "test:weather": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test src/infrastructure/sqlite/migrations.test.mjs src/features/weather/weather-persistence.test.mjs src/features/weather/weather-application.test.mjs",
     "test:theme": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test src/theme/theme.test.mjs",
     "test:components": "jest --runInBand",
     "typecheck": "tsc --noEmit"
