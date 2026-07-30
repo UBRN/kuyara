@@ -20,6 +20,22 @@ As product features are added, mobile code is organized feature-first while pres
 
 Expo SQLite will own durable local user data and required snapshots. TanStack Query will own remote request state. Hooks or narrow contexts will own transient UI state. These are confirmed boundaries, but none of those feature dependencies or implementations are part of the current scaffold.
 
+The first product-facing mobile slice lives under `apps/mobile/src/features/today/`. Its small screen model defines loaded, loading, and unavailable presentation states; loaded snapshots additionally distinguish fresh and stale content. A single frozen fixture supplies the checked-in route with language-independent weather, outfit, clothing, and reason codes. A pure presentation mapper formats the fixed timestamp and maps those codes to English or Turkish before feature-specific React components render them with the shared primitives.
+
+This flow is intentionally local and presentational:
+
+```text
+typed deterministic Today fixture
+        ↓
+locale-aware presentation mapper
+        ↓
+Today screen compositions
+        ↓
+semantic tokens and adaptive UI primitives
+```
+
+The fixture boundary can later be replaced by a controller or repository result without making the route responsible for data access. No repository, use case, provider DTO, runtime schema, persistence layer, network client, recommendation engine, or global state container is introduced by the mock slice.
+
 ## Worker and contract boundaries
 
 The Worker is the server-side boundary for future WeatherKit and AI provider calls, credential protection, validation, and operational limits. Its current entrypoint deliberately returns an empty response and exposes no invented production API.
@@ -33,4 +49,4 @@ The Worker is the server-side boundary for future WeatherKit and AI provider cal
 3. The Worker validates input, calls privileged providers, validates their output, and returns a versioned response defined in the contracts package.
 4. The mobile client validates the response before mapping it into domain state and preserves the last known good snapshot if refresh fails.
 
-This describes the approved direction, not functionality implemented by this scaffold.
+This describes the approved direction, not functionality implemented by the current deterministic Today fixture.

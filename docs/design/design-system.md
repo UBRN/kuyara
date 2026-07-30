@@ -84,14 +84,14 @@ Static non-color scales may be imported for `StyleSheet.create` when that keeps 
 
 The canonical primitive entry point is `apps/mobile/src/components/ui/index.ts`. Primitives consume the theme on behalf of presentation code and provide narrow, typed defaults while still accepting the relevant React Native props and `style` escape hatch.
 
-- `AppText` supports the existing `display`, `titleLarge`, `title`, `body`, `bodyStrong`, `caption`, `label`, and `code` typography roles plus typed semantic color roles. Font scaling is enabled by default, normal `Text` props are forwarded, and content is not truncated implicitly.
-- `Screen` is the shared scrollable page foundation used by both checked-in routes. It applies the semantic application background, safe-area and existing-tab insets, page padding, and the current maximum content width. A non-scrollable or keyboard-specific screen API is deferred until a checked-in flow requires it.
+- `AppText` supports the existing `display`, `titleLarge`, `title`, `body`, `bodyStrong`, `caption`, `label`, and `code` typography roles plus typed semantic color roles. Font scaling is enabled by default, normal `Text` props are forwarded, and content is not truncated implicitly. At accessibility sizes it releases authored line heights so native text can grow without clipping. Feature compositions remain responsible for choosing a smaller semantic heading role when an oversized display treatment no longer fits.
+- `Screen` is the shared scrollable page foundation used by the checked-in route. It applies the semantic application background, safe-area insets, page padding, and the current maximum content width. A non-scrollable or keyboard-specific screen API is deferred until a checked-in flow requires it.
 - `Surface` provides only `default`, `muted`, `elevated`, and `interactive` semantic variants. It uses semantic surface and border roles with the approved card radius; `elevated` denotes hierarchy without inventing a shadow token.
 - `Button` provides `primary`, `secondary`, and `quiet` variants. The required visible `label` keeps localized text at the call site. Loading preserves label width, blocks activation, shows progress, and exposes busy and disabled accessibility state.
 - `IconButton` requires an `accessibilityLabel` at the type boundary, accepts an optional standard accessibility hint through React Native props, owns the 44-point target, and receives icon content as a render function with the resolved semantic icon color. It does not select an icon system or glyph.
 - `SectionHeader` composes a heading, optional supporting text, and optional trailing action. It changes to a stacked layout at large text sizes so the action does not compress the heading.
 
-The checked-in starter routes demonstrate the primitives without becoming product screens: Home uses `Screen`, `AppText`, and `Surface`; Explore adds primary and quiet `Button` usage, while its existing collapsible sections use `SectionHeader`, `IconButton`, and a muted `Surface`.
+The checked-in Today feature is the first product composition over the primitives. Its route uses `Screen`, `AppText`, `Surface`, and `SectionHeader`; feature-specific weather and outfit components own their product semantics rather than widening the generic primitive API. The former Home and Explore demonstrations and their tab scaffold have been removed from the product route tree. Focused primitive tests preserve coverage for `Button` and `IconButton` even though Today intentionally has no interaction.
 
 Semantic tokens and primitives have different responsibilities. Tokens name visual roles and scales; primitives turn those roles into small accessibility and interaction contracts. Feature code remains responsible for localized content, layout composition, user intent, and domain-specific behavior. It may use raw React Native layout views where no semantic surface or control is intended.
 
@@ -115,13 +115,18 @@ Implemented now:
 - Reduced-motion resolution and change observation
 - Router/navigation and status-bar integration
 - Typed adaptive UI primitives over the semantic tokens
-- Current shared shell and starter screens consuming the primitive layer
-- Device-language English/Turkish shell strings
+- A single-screen Expo Router shell that can later be wrapped by final product navigation
+- Device-language English/Turkish Today strings and locale-aware fixed-date formatting
+- The deterministic Today loaded-state composition with a concise weather summary, immediate guidance, and exactly three vertically discoverable outfit cards
+- Loading, unavailable, and stale-loaded Today presentation contracts
+- Large-text reflow in weather metrics and outfit item rows, grouped screen-reader descriptions, and a motion-independent Today layout
 - Focused token, primitive-contract, interaction, shell-context, localization, and source-boundary tests
 
 Deferred intentionally:
 
 - Persisted language or appearance settings
+- Final tab navigation, onboarding, and Settings UI
+- SQLite, Worker, WeatherKit, location, AI, wardrobe ownership, and deterministic recommendation-engine integration
 - Text inputs, selectors, switches, modal or feedback frameworks, and product-specific components
 - Divider, because the current shell has no repeated separator need
 - Destructive button styling, because no checked-in flow justifies it
@@ -131,4 +136,4 @@ Deferred intentionally:
 - Shadows or elevation until a real hierarchy requires them
 - Android visual refinement and emulator validation; shared React Native code remains build-compatible, but Android was not validated in this task
 
-The final product navigation and native-tabs decision remain separate. This work preserves the checked-in Expo Router route behavior and its existing native-tab scaffold; it does not migrate navigation, add product tabs, or treat the unstable native-tabs API as the committed long-term foundation.
+The final product navigation decision remains separate. The current root uses a stable single-screen Expo Router Stack only to host Today; it does not add product tabs, placeholders, or a custom tab bar. Android source compatibility is preserved, but Android build, emulator, and visual refinement remain unverified and deferred.

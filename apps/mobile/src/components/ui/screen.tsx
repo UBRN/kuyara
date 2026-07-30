@@ -3,7 +3,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { layout, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
-import { platformLayout } from '@/theme/platform';
 
 export type ScreenProps = Omit<ScrollViewProps, 'contentInset'>;
 
@@ -16,7 +15,7 @@ export function Screen({
 }: ScreenProps) {
   const safeAreaInsets = useSafeAreaInsets();
   const theme = useKuyaraTheme();
-  const bottomInset = safeAreaInsets.bottom + platformLayout.bottomTabInset + spacing.lg;
+  const bottomInset = safeAreaInsets.bottom + spacing.lg;
   const scrollIndicatorInsets =
     Platform.OS === 'ios' ? { ...safeAreaInsets, bottom: bottomInset } : undefined;
   const platformContentStyle = Platform.select({
