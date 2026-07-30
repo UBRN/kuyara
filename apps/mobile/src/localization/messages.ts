@@ -88,6 +88,12 @@ export type AppMessages = Readonly<{
     back: string;
     continue: string;
   }>;
+  navigation: Readonly<{
+    today: string;
+    weather: string;
+    wardrobe: string;
+    settings: string;
+  }>;
   bootstrap: Readonly<{
     loadingTitle: string;
     loadingBody: string;
@@ -117,6 +123,14 @@ export type AppMessages = Readonly<{
     saving: string;
     saveError: string;
   }>;
+  weather: Readonly<{
+    title: string;
+    placeholderBody: string;
+  }>;
+  wardrobe: Readonly<{
+    title: string;
+    placeholderBody: string;
+  }>;
   today: TodayMessages;
 }>;
 
@@ -125,6 +139,12 @@ const en = {
   common: {
     back: 'Back',
     continue: 'Continue',
+  },
+  navigation: {
+    today: 'Today',
+    weather: 'Weather',
+    wardrobe: 'Wardrobe',
+    settings: 'Settings',
   },
   bootstrap: {
     loadingTitle: 'Preparing kuyara',
@@ -169,6 +189,14 @@ const en = {
     introduction: 'Changes are saved on this device as soon as you select them.',
     saving: 'Saving changes…',
     saveError: 'That change could not be saved. Your previous setting is still active.',
+  },
+  weather: {
+    title: 'Weather',
+    placeholderBody: 'Your weather details will appear here.',
+  },
+  wardrobe: {
+    title: 'Wardrobe',
+    placeholderBody: 'Your wardrobe will appear here.',
   },
   today: {
     title: 'Today',
@@ -276,6 +304,12 @@ const tr = {
     back: 'Geri',
     continue: 'Devam et',
   },
+  navigation: {
+    today: 'Bugün',
+    weather: 'Hava',
+    wardrobe: 'Gardırop',
+    settings: 'Ayarlar',
+  },
   bootstrap: {
     loadingTitle: 'kuyara hazırlanıyor',
     loadingBody: 'Bu cihazdaki tercihleriniz yükleniyor.',
@@ -319,6 +353,14 @@ const tr = {
     introduction: 'Yaptığınız seçimler anında bu cihaza kaydedilir.',
     saving: 'Değişiklikler kaydediliyor…',
     saveError: 'Bu değişiklik kaydedilemedi. Önceki ayarınız kullanılmaya devam ediyor.',
+  },
+  weather: {
+    title: 'Hava',
+    placeholderBody: 'Hava durumu ayrıntılarınız burada görünecek.',
+  },
+  wardrobe: {
+    title: 'Gardırop',
+    placeholderBody: 'Gardırobunuz burada görünecek.',
   },
   today: {
     title: 'Bugün',

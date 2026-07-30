@@ -156,14 +156,16 @@ test('screen source keeps all suggestions in the vertical flow with large-text a
   assert.doesNotMatch(`${todayScreen}${weatherSummary}${outfitCard}`, /numberOfLines=|allowFontScaling=\{false\}/);
 });
 
-test('feature and route sources contain no live-data or deferred integration', async () => {
+test('feature and route sources contain no live-data or experimental navigation integration', async () => {
   const sources = await featureSource();
-  const route = await readFile(new URL('../../app/index.tsx', import.meta.url), 'utf8');
+  const route = await readFile(new URL('../../app/(tabs)/(today)/index.tsx', import.meta.url), 'utf8');
   const layout = await readFile(new URL('../../app/_layout.tsx', import.meta.url), 'utf8');
-  const combined = `${sources.join('\n')}\n${route}\n${layout}`;
+  const tabs = await readFile(new URL('../../navigation/primary-tabs.tsx', import.meta.url), 'utf8');
+  const combined = `${sources.join('\n')}\n${route}\n${layout}\n${tabs}`;
 
   assert.doesNotMatch(combined, /Date\.now|Math\.random|fetch\(|axios|WeatherKit|SQLite|location permission|openai|anthropic/i);
   assert.match(route, /canonicalTodayScreenState/);
   assert.match(layout, /<Stack/);
-  assert.doesNotMatch(layout, /NativeTabs|AppTabs/);
+  assert.match(tabs, /<Tabs/);
+  assert.doesNotMatch(`${layout}${tabs}`, /NativeTabs|unstable-native-tabs/);
 });
