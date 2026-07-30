@@ -6,6 +6,7 @@
     "@expo/ui": "~57.0.7",
     "expo": "~57.0.8",
     "expo-constants": "~57.0.7",
+    "expo-crypto": "~57.0.1",
     "expo-device": "~57.0.1",
     "expo-font": "~57.0.1",
     "expo-glass-effect": "~57.0.1",
@@ -13,6 +14,7 @@
     "expo-linking": "~57.0.4",
     "expo-router": "~57.0.8",
     "expo-splash-screen": "~57.0.5",
+    "expo-sqlite": "~57.0.1",
     "expo-status-bar": "~57.0.1",
     "expo-symbols": "~57.0.1",
     "expo-system-ui": "~57.0.1",
@@ -41,7 +43,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "test:theme": "node --test src/theme/theme.test.mjs",
+    "test": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test src/theme/theme.test.mjs src/components/ui/primitives.test.mjs src/features/today/today.test.mjs src/infrastructure/sqlite/migrations.test.mjs src/features/profile/profile-persistence.test.mjs src/features/profile/profile-ui.test.mjs",
+    "test:profile": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test src/infrastructure/sqlite/migrations.test.mjs src/features/profile/profile-persistence.test.mjs",
+    "test:theme": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test src/theme/theme.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "private": true

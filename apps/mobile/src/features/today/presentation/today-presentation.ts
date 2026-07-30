@@ -25,6 +25,8 @@ export type LoadedTodayPresentation = Readonly<{
   kind: 'loaded';
   copy: Readonly<{
     title: string;
+    settingsAction: string;
+    settingsHint: string;
     weatherHeading: string;
     guidanceHeading: string;
     outfitsHeading: string;
@@ -135,6 +137,8 @@ function createLoadedPresentation(
     kind: 'loaded',
     copy: {
       title: copy.title,
+      settingsAction: copy.settingsAction,
+      settingsHint: copy.settingsHint,
       weatherHeading: copy.weatherHeading,
       guidanceHeading: copy.guidanceHeading,
       outfitsHeading: copy.outfitsHeading,

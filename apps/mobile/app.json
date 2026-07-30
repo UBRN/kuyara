@@ -43,7 +43,8 @@
             "image": "./assets/splash/kuyara-splash-symbol-dark.png"
           }
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,

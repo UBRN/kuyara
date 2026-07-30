@@ -1,5 +1,9 @@
 import type { TextStyle } from 'react-native';
 
+import type { ThemePreference } from '@/domain/preferences';
+
+export type { ThemePreference } from '@/domain/preferences';
+
 export const brandColors = Object.freeze({
   deepAtmosphere: '#142F3B',
   calmCurrent: '#27606A',
@@ -142,7 +146,6 @@ export const reducedMotion = Object.freeze({
   deliberate: 0,
 } as const satisfies MotionTokens);
 
-export type ThemePreference = 'system' | 'light' | 'dark';
 export type ThemeColorScheme = 'light' | 'dark';
 export type SystemColorScheme = ThemeColorScheme | 'unspecified' | null | undefined;
 
