@@ -5,6 +5,13 @@ import type {
 } from '@/features/wardrobe/domain/wardrobe-item';
 import type { WardrobeRepository } from '@/features/wardrobe/data/wardrobe-repository';
 import { isWardrobeRouteId } from '@/features/wardrobe/application/wardrobe-form';
+import {
+  unavailableWardrobePhotoManager,
+  unchangedWardrobePhoto,
+  type WardrobePhotoChange,
+  type WardrobePhotoManager,
+} from '@/features/wardrobe/application/wardrobe-photo-manager';
+import type { StagedWardrobePhoto } from '@/features/wardrobe/data/wardrobe-photo-adapters';
 
 export type WardrobeApplicationState =
   | Readonly<{ status: 'loading' }>
@@ -18,8 +25,14 @@ export type WardrobeApplicationState =
     }>;
 
 type Listener = () => void;
-type CreateInput = Omit<CreateWardrobeItemInput, 'localProfileId'>;
-type UpdateInput = Omit<UpdateWardrobeItemInput, 'id' | 'localProfileId'>;
+type CreateInput = Omit<
+  CreateWardrobeItemInput,
+  'localProfileId' | 'photoRelativePath'
+>;
+type UpdateInput = Omit<
+  UpdateWardrobeItemInput,
+  'id' | 'localProfileId' | 'photoRelativePath'
+>;
 
 export class WardrobeApplicationController {
   private state: WardrobeApplicationState = { status: 'loading' };
@@ -30,13 +43,19 @@ export class WardrobeApplicationController {
   private readonly listeners = new Set<Listener>();
   private readonly localProfileId: string;
   private readonly loadRepository: () => Promise<WardrobeRepository>;
+  private readonly photoManager: WardrobePhotoManager;
+  private readonly reportPhotoCleanupError: () => void;
 
   constructor(
     localProfileId: string,
     loadRepository: () => Promise<WardrobeRepository>,
+    photoManager: WardrobePhotoManager = unavailableWardrobePhotoManager,
+    reportPhotoCleanupError: () => void = () => undefined,
   ) {
     this.localProfileId = localProfileId;
     this.loadRepository = loadRepository;
+    this.photoManager = photoManager;
+    this.reportPhotoCleanupError = reportPhotoCleanupError;
   }
 
   getSnapshot = (): WardrobeApplicationState => this.state;
@@ -79,27 +98,41 @@ export class WardrobeApplicationController {
     return repository.getActiveItem(this.localProfileId, id);
   }
 
-  createItem(input: CreateInput): Promise<WardrobeItem> {
+  preparePhoto(): Promise<StagedWardrobePhoto | null> {
+    return this.photoManager.preparePhoto();
+  }
+
+  discardStagedPhoto(photo: StagedWardrobePhoto): Promise<void> {
+    return this.cleanupPhoto(() => this.photoManager.discardStagedPhoto(photo));
+  }
+
+  resolvePhotoUri(relativePath: string | null): string | null {
+    return this.photoManager.resolvePhotoUri(relativePath);
+  }
+
+  createItem(
+    input: CreateInput,
+    photoChange: WardrobePhotoChange = unchangedWardrobePhoto,
+  ): Promise<WardrobeItem> {
     return this.mutate(
-      (repository) =>
-        repository.createItem({ ...input, localProfileId: this.localProfileId }),
+      (repository) => this.createItemWithPhoto(repository, input, photoChange),
       (items, created) =>
         this.sortItems([created, ...items.filter((item) => item.id !== created.id)]),
     );
   }
 
-  updateItem(id: string, input: UpdateInput): Promise<WardrobeItem> {
+  updateItem(
+    id: string,
+    input: UpdateInput,
+    photoChange: WardrobePhotoChange = unchangedWardrobePhoto,
+  ): Promise<WardrobeItem> {
     if (!isWardrobeRouteId(id)) {
       return Promise.reject(new Error('The wardrobe item is not available.'));
     }
 
     return this.mutate(
       (repository) =>
-        repository.updateItem({
-          ...input,
-          id,
-          localProfileId: this.localProfileId,
-        }),
+        this.updateItemWithPhoto(repository, id, input, photoChange),
       (items, updated) =>
         this.sortItems([updated, ...items.filter((item) => item.id !== updated.id)]),
     );
@@ -157,6 +190,112 @@ export class WardrobeApplicationController {
       } else {
         this.setState({ status: 'error' });
       }
+    }
+  }
+
+  private async createItemWithPhoto(
+    repository: WardrobeRepository,
+    input: CreateInput,
+    photoChange: WardrobePhotoChange,
+  ): Promise<WardrobeItem> {
+    if (photoChange.kind !== 'replace') {
+      return repository.createItem({
+        ...input,
+        localProfileId: this.localProfileId,
+      });
+    }
+
+    const stored = await this.photoManager.commitStagedPhoto(
+      photoChange.stagedPhoto,
+    );
+    try {
+      const created = await repository.createItem({
+        ...input,
+        localProfileId: this.localProfileId,
+        photoRelativePath: stored.relativePath,
+      });
+      await this.cleanupPhoto(() =>
+        this.photoManager.discardStagedPhoto(photoChange.stagedPhoto),
+      );
+      return created;
+    } catch (error) {
+      await this.cleanupPhoto(() =>
+        this.photoManager.deleteStoredPhoto(stored.relativePath),
+      );
+      throw error;
+    }
+  }
+
+  private async updateItemWithPhoto(
+    repository: WardrobeRepository,
+    id: string,
+    input: UpdateInput,
+    photoChange: WardrobePhotoChange,
+  ): Promise<WardrobeItem> {
+    if (photoChange.kind === 'unchanged') {
+      return repository.updateItem({
+        ...input,
+        id,
+        localProfileId: this.localProfileId,
+      });
+    }
+
+    const current = await repository.getActiveItem(this.localProfileId, id);
+    if (!current) {
+      throw new Error('The wardrobe item is not available.');
+    }
+
+    if (photoChange.kind === 'remove') {
+      const updated = await repository.updateItem({
+        ...input,
+        id,
+        localProfileId: this.localProfileId,
+        photoRelativePath: null,
+      });
+      const previousPhotoPath = current.photoRelativePath;
+      if (previousPhotoPath) {
+        await this.cleanupPhoto(() =>
+          this.photoManager.deleteStoredPhoto(previousPhotoPath),
+        );
+      }
+      return updated;
+    }
+
+    const stored = await this.photoManager.commitStagedPhoto(
+      photoChange.stagedPhoto,
+    );
+    try {
+      const updated = await repository.updateItem({
+        ...input,
+        id,
+        localProfileId: this.localProfileId,
+        photoRelativePath: stored.relativePath,
+      });
+      await this.cleanupPhoto(() =>
+        this.photoManager.discardStagedPhoto(photoChange.stagedPhoto),
+      );
+      const previousPhotoPath = current.photoRelativePath;
+      if (previousPhotoPath && previousPhotoPath !== stored.relativePath) {
+        await this.cleanupPhoto(() =>
+          this.photoManager.deleteStoredPhoto(previousPhotoPath),
+        );
+      }
+      return updated;
+    } catch (error) {
+      await this.cleanupPhoto(() =>
+        this.photoManager.deleteStoredPhoto(stored.relativePath),
+      );
+      throw error;
+    }
+  }
+
+  private async cleanupPhoto(operation: () => Promise<void>): Promise<void> {
+    try {
+      await operation();
+    } catch {
+      try {
+        this.reportPhotoCleanupError();
+      } catch {}
     }
   }
 

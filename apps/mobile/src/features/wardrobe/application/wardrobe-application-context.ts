@@ -1,6 +1,8 @@
 import { createContext, use } from 'react';
 
 import type { WardrobeApplicationState } from '@/features/wardrobe/application/wardrobe-application-controller';
+import type { WardrobePhotoChange } from '@/features/wardrobe/application/wardrobe-photo-manager';
+import type { StagedWardrobePhoto } from '@/features/wardrobe/data/wardrobe-photo-adapters';
 import type {
   CreateWardrobeItemInput,
   UpdateWardrobeItemInput,
@@ -11,12 +13,20 @@ export type WardrobeApplicationValue = Readonly<{
   state: WardrobeApplicationState;
   refresh: () => Promise<void>;
   getItem: (id: string) => Promise<WardrobeItem | null>;
+  preparePhoto: () => Promise<StagedWardrobePhoto | null>;
+  discardStagedPhoto: (photo: StagedWardrobePhoto) => Promise<void>;
+  resolvePhotoUri: (relativePath: string | null) => string | null;
   createItem: (
-    input: Omit<CreateWardrobeItemInput, 'localProfileId'>,
+    input: Omit<CreateWardrobeItemInput, 'localProfileId' | 'photoRelativePath'>,
+    photoChange?: WardrobePhotoChange,
   ) => Promise<WardrobeItem>;
   updateItem: (
     id: string,
-    input: Omit<UpdateWardrobeItemInput, 'id' | 'localProfileId'>,
+    input: Omit<
+      UpdateWardrobeItemInput,
+      'id' | 'localProfileId' | 'photoRelativePath'
+    >,
+    photoChange?: WardrobePhotoChange,
   ) => Promise<WardrobeItem>;
   softDeleteItem: (id: string) => Promise<WardrobeItem>;
 }>;

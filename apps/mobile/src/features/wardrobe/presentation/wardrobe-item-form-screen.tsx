@@ -1,5 +1,6 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Image,
   StyleSheet,
   TextInput,
   View,
@@ -25,6 +26,11 @@ import {
   type WardrobeFormValues,
   type WardrobeOverrideDefinition,
 } from '@/features/wardrobe/application/wardrobe-form';
+import {
+  unchangedWardrobePhoto,
+  type WardrobePhotoChange,
+} from '@/features/wardrobe/application/wardrobe-photo-manager';
+import type { StagedWardrobePhoto } from '@/features/wardrobe/data/wardrobe-photo-adapters';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import {
   showWardrobeConfirmation,
@@ -41,13 +47,18 @@ type WardrobeItemFormScreenProps = Readonly<{
   garmentTypes: readonly GarmentType[];
   isBusy: boolean;
   confirmation?: WardrobeConfirmation;
+  photoPreviewUri?: string | null;
   onBackRequested: (isDirty: boolean) => void;
   onDirtyChange: (isDirty: boolean) => void;
+  onSelectPhoto?: () => Promise<StagedWardrobePhoto | null>;
+  onDiscardStagedPhoto?: (photo: StagedWardrobePhoto) => Promise<void>;
   onCreate: (
     input: NonNullable<ReturnType<typeof mapWardrobeCreateValues>>,
+    photoChange?: WardrobePhotoChange,
   ) => Promise<void>;
   onUpdate?: (
     input: NonNullable<ReturnType<typeof mapWardrobeUpdateValues>>,
+    photoChange?: WardrobePhotoChange,
   ) => Promise<void>;
   onDelete?: () => Promise<void>;
 }>;
@@ -68,8 +79,13 @@ export function WardrobeItemFormScreen({
   onBackRequested,
   onCreate,
   onDelete,
+  onDiscardStagedPhoto = async () => undefined,
   onDirtyChange,
+  onSelectPhoto = async () => {
+    throw new Error('Photo selection is unavailable.');
+  },
   onUpdate,
+  photoPreviewUri = null,
 }: WardrobeItemFormScreenProps) {
   const messages = useMessages();
   const copy = messages.wardrobe;
@@ -81,25 +97,134 @@ export function WardrobeItemFormScreen({
   const [deleteError, setDeleteError] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState(false);
+  const [photoChange, setPhotoChange] = useState<WardrobePhotoChange>(
+    unchangedWardrobePhoto,
+  );
+  const [unreadablePhotoUri, setUnreadablePhotoUri] = useState<string | null>(null);
   const operationRef = useRef<Promise<void> | null>(null);
-  const busy = isBusy || isSaving || isDeleting;
-  const isDirty = !wardrobeFormValuesEqual(values, initialValues);
+  const mountedRef = useRef(true);
+  const stagedPhotoRef = useRef<StagedWardrobePhoto | null>(null);
+  const discardStagedPhotoRef = useRef(onDiscardStagedPhoto);
+  const busy = isBusy || isSaving || isDeleting || isProcessingPhoto;
+  const photoIsDirty = photoChange.kind !== 'unchanged';
+  const isDirty =
+    !wardrobeFormValuesEqual(values, initialValues) || photoIsDirty;
   const selectedType = values.garmentTypeId
     ? getGarmentType(values.garmentTypeId)
     : null;
   const supportedOverrides = listSupportedWardrobeOverrides(
     values.garmentTypeId,
   );
+  const resolvedPreviewUri =
+    photoChange.kind === 'replace'
+      ? photoChange.stagedPhoto.previewUri
+      : photoChange.kind === 'remove'
+        ? null
+        : photoPreviewUri;
+  const hasPhoto =
+    resolvedPreviewUri !== null ||
+    (photoChange.kind === 'unchanged' && Boolean(item?.photoRelativePath));
+  const visiblePreviewUri =
+    resolvedPreviewUri === unreadablePhotoUri ? null : resolvedPreviewUri;
+  const photoTypeLabel = selectedType
+    ? messages.catalog[selectedType.nameKey]
+    : copy.unclassifiedType;
+
+  useEffect(() => {
+    discardStagedPhotoRef.current = onDiscardStagedPhoto;
+  }, [onDiscardStagedPhoto]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      const stagedPhoto = stagedPhotoRef.current;
+      if (stagedPhoto) {
+        void discardStagedPhotoRef.current(stagedPhoto).catch(() => undefined);
+      }
+    };
+  }, []);
+
+  const changePhoto = (next: WardrobePhotoChange) => {
+    stagedPhotoRef.current =
+      next.kind === 'replace' ? next.stagedPhoto : null;
+    setPhotoChange(next);
+    onDirtyChange(
+      !wardrobeFormValuesEqual(values, initialValues) ||
+        next.kind !== 'unchanged',
+    );
+    setSaveError(false);
+  };
 
   const updateValues = (
     updater: (current: WardrobeFormValues) => WardrobeFormValues,
   ) => {
     setValues((current) => {
       const next = updater(current);
-      onDirtyChange(!wardrobeFormValuesEqual(next, initialValues));
+      onDirtyChange(
+        !wardrobeFormValuesEqual(next, initialValues) ||
+          photoChange.kind !== 'unchanged',
+      );
       return next;
     });
     setSaveError(false);
+  };
+
+  const selectPhoto = () => {
+    if (operationRef.current || busy) {
+      return;
+    }
+
+    setPhotoError(false);
+    setIsProcessingPhoto(true);
+    void onSelectPhoto()
+      .then(async (stagedPhoto) => {
+        if (!stagedPhoto) {
+          return;
+        }
+
+        if (!mountedRef.current) {
+          await onDiscardStagedPhoto(stagedPhoto).catch(() => undefined);
+          return;
+        }
+
+        const previous = stagedPhotoRef.current;
+        if (previous) {
+          await onDiscardStagedPhoto(previous).catch(() => undefined);
+        }
+        if (!mountedRef.current) {
+          await onDiscardStagedPhoto(stagedPhoto).catch(() => undefined);
+          return;
+        }
+        setUnreadablePhotoUri(null);
+        changePhoto({ kind: 'replace', stagedPhoto });
+      })
+      .catch(() => {
+        if (mountedRef.current) {
+          setPhotoError(true);
+        }
+      })
+      .finally(() => {
+        if (mountedRef.current) {
+          setIsProcessingPhoto(false);
+        }
+      });
+  };
+
+  const removePhoto = () => {
+    if (operationRef.current || busy || !hasPhoto) {
+      return;
+    }
+
+    const stagedPhoto = stagedPhotoRef.current;
+    if (stagedPhoto) {
+      void onDiscardStagedPhoto(stagedPhoto).catch(() => undefined);
+    }
+    setUnreadablePhotoUri(null);
+    setPhotoError(false);
+    changePhoto(item?.photoRelativePath ? { kind: 'remove' } : unchangedWardrobePhoto);
   };
 
   const selectType = (garmentType: GarmentType) => {
@@ -146,13 +271,17 @@ export function WardrobeItemFormScreen({
       ? (() => {
           const payload = mapWardrobeCreateValues(values);
           return payload
-            ? onCreate(payload)
+            ? photoChange.kind === 'unchanged'
+              ? onCreate(payload)
+              : onCreate(payload, photoChange)
             : Promise.reject(new Error('The form is invalid.'));
         })()
       : (() => {
           const payload = mapWardrobeUpdateValues(values);
           return payload && onUpdate
-            ? onUpdate(payload)
+            ? photoChange.kind === 'unchanged'
+              ? onUpdate(payload)
+              : onUpdate(payload, photoChange)
             : Promise.reject(new Error('Update is unavailable.'));
         })())
       .catch(() => {
@@ -201,6 +330,7 @@ export function WardrobeItemFormScreen({
       testID={mode === 'create' ? 'wardrobe-create-form' : 'wardrobe-edit-form'}>
       <View style={styles.header}>
         <Button
+          disabled={busy}
           label={copy.backAction}
           onPress={() => onBackRequested(isDirty)}
           variant="quiet"
@@ -232,6 +362,64 @@ export function WardrobeItemFormScreen({
           testID="wardrobe-name-input"
           value={values.name}
         />
+      </View>
+
+      <View style={styles.section}>
+        <SectionHeader
+          title={copy.photoTitle}
+          supportingText={copy.photoDescription}
+        />
+        {visiblePreviewUri ? (
+          <Image
+            accessible
+            accessibilityLabel={copy.photoAccessibilityLabel(photoTypeLabel)}
+            onError={() => setUnreadablePhotoUri(visiblePreviewUri)}
+            resizeMode="cover"
+            source={{ uri: visiblePreviewUri }}
+            style={[
+              styles.photoPreview,
+              { backgroundColor: theme.colors.surfaceMuted },
+            ]}
+            testID="wardrobe-photo-preview"
+          />
+        ) : (
+          <Surface style={styles.photoEmpty} variant="muted">
+            <AppText colorRole="textSecondary">{copy.photoEmptyBody}</AppText>
+          </Surface>
+        )}
+        <View style={styles.photoActions}>
+          <Button
+            disabled={isSaving || isDeleting || isBusy}
+            label={
+              isProcessingPhoto
+                ? copy.photoProcessingLabel
+                : hasPhoto
+                  ? copy.changePhotoAction
+                  : copy.selectPhotoAction
+            }
+            loading={isProcessingPhoto}
+            onPress={selectPhoto}
+            testID="wardrobe-photo-select-button"
+            variant="secondary"
+          />
+          {hasPhoto ? (
+            <Button
+              disabled={busy}
+              label={copy.removePhotoAction}
+              onPress={removePhoto}
+              testID="wardrobe-photo-remove-button"
+              variant="quiet"
+            />
+          ) : null}
+        </View>
+        {photoError ? (
+          <AppText
+            accessibilityLiveRegion="assertive"
+            accessibilityRole="alert"
+            testID="wardrobe-photo-error">
+            {copy.photoError}
+          </AppText>
+        ) : null}
       </View>
 
       <View accessibilityRole="radiogroup" style={styles.section}>
@@ -361,7 +549,7 @@ export function WardrobeItemFormScreen({
       <Button
         label={isSaving ? copy.savingLabel : copy.saveAction}
         loading={isSaving}
-        disabled={isDeleting || isBusy}
+        disabled={isDeleting || isBusy || isProcessingPhoto}
         onPress={save}
         testID="wardrobe-save-button"
       />
@@ -410,6 +598,19 @@ const styles = StyleSheet.create({
   },
   options: {
     gap: spacing.md,
+  },
+  photoActions: {
+    gap: spacing.sm,
+  },
+  photoEmpty: {
+    minHeight: 96,
+    padding: spacing.lg,
+  },
+  photoPreview: {
+    alignSelf: 'stretch',
+    borderRadius: radii.card,
+    height: 220,
+    width: '100%',
   },
   attributeGroup: {
     gap: spacing.md,

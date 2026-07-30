@@ -13,7 +13,10 @@
         "dark": "./assets/icons/kuyara-icon-ios-dark.png",
         "tinted": "./assets/icons/kuyara-icon-ios-tinted.png"
       },
-      "deploymentTarget": "16.4"
+      "deploymentTarget": "16.4",
+      "infoPlist": {
+        "CFBundleAllowMixedLocalizations": true
+      }
     },
     "android": {
       "icon": "./assets/icons/kuyara-icon-android-legacy.png",
@@ -44,8 +47,20 @@
           }
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow kuyara to select a wardrobe photo.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
       "expo-sqlite"
     ],
+    "locales": {
+      "en": "./src/localization/native/en.json",
+      "tr": "./src/localization/native/tr.json"
+    },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
