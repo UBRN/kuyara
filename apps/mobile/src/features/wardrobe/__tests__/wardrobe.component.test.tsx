@@ -4,6 +4,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { garmentCatalog } from '@/features/catalog/domain/garment-catalog';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
+import type { StagedWardrobePhoto } from '@/features/wardrobe/data/wardrobe-photo-adapters';
 import type { WardrobeConfirmation } from '@/features/wardrobe/presentation/wardrobe-confirmation';
 import { WardrobeItemFormScreen } from '@/features/wardrobe/presentation/wardrobe-item-form-screen';
 import { WardrobeRouteStatus } from '@/features/wardrobe/presentation/wardrobe-item-routes';
@@ -57,6 +58,11 @@ const item: WardrobeItem = {
 const formTypes = garmentCatalog.garmentTypes.filter(({ typeId }) =>
   ['t_shirt', 'rain_jacket', 'umbrella'].includes(typeId),
 );
+
+const stagedPhoto: StagedWardrobePhoto = {
+  id: '218f0f4d-1d45-4ae7-a8f1-796e8297d3b4',
+  previewUri: 'file:///private/cache/staged-photo.jpg',
+};
 
 function TestProviders({
   children,
@@ -159,6 +165,33 @@ test('list shows localized catalog values and emits the edit intent', async () =
   expect(result.queryByText('rain_jacket')).not.toBeOnTheScreen();
   await fireEvent.press(result.getByTestId(`wardrobe-item-${item.id}`));
   expect(onEdit).toHaveBeenCalledWith(item.id);
+});
+
+test('list renders an accessible thumbnail and falls back safely after image failure', async () => {
+  const itemWithPhoto = {
+    ...item,
+    photoRelativePath:
+      'kuyara/wardrobe/photos/318f0f4d-1d45-4ae7-a8f1-796e8297d3b4.jpg',
+  };
+  const result = await render(
+    <TestProviders>
+      <WardrobeListScreen
+        onAdd={() => undefined}
+        onEdit={() => undefined}
+        onRetry={() => undefined}
+        resolvePhotoUri={() => 'file:///private/documents/photo.jpg'}
+        state={{ ...readyState, items: [itemWithPhoto] }}
+      />
+    </TestProviders>,
+  );
+
+  const thumbnail = result.getByTestId(`wardrobe-photo-${item.id}`);
+  expect(thumbnail.props.accessibilityLabel).toBe(
+    messages.en.wardrobe.photoAccessibilityLabel('Rain jacket'),
+  );
+  await fireEvent(thumbnail, 'error');
+  expect(result.queryByTestId(`wardrobe-photo-${item.id}`)).not.toBeOnTheScreen();
+  expect(result.getByTestId(`wardrobe-item-${item.id}`)).toBeOnTheScreen();
 });
 
 test('missing items show a localized safe return instead of crashing', async () => {
@@ -289,6 +322,170 @@ test('unchanged and changed forms report distinct back intents', async () => {
   await fireEvent.changeText(result.getByTestId('wardrobe-name-input'), 'Changed');
   await fireEvent.press(result.getByRole('button', { name: messages.en.wardrobe.backAction }));
   expect(onBack).toHaveBeenLastCalledWith(true);
+});
+
+test('picker cancellation leaves the form unchanged and photo errors preserve other values', async () => {
+  const onBack = jest.fn();
+  const onSelectPhoto = jest
+    .fn<Promise<StagedWardrobePhoto | null>, []>()
+    .mockResolvedValueOnce(null)
+    .mockRejectedValueOnce(new Error('picker unavailable'));
+  const result = await render(
+    <TestProviders>
+      <WardrobeItemFormScreen
+        garmentTypes={formTypes}
+        isBusy={false}
+        mode="create"
+        onBackRequested={onBack}
+        onCreate={async () => undefined}
+        onDirtyChange={() => undefined}
+        onSelectPhoto={onSelectPhoto}
+      />
+    </TestProviders>,
+  );
+
+  await fireEvent.press(result.getByTestId('wardrobe-photo-select-button'));
+  await waitFor(() => expect(onSelectPhoto).toHaveBeenCalledTimes(1));
+  await fireEvent.press(result.getByRole('button', { name: messages.en.wardrobe.backAction }));
+  expect(onBack).toHaveBeenLastCalledWith(false);
+
+  await fireEvent.changeText(result.getByTestId('wardrobe-name-input'), 'My shell');
+  await fireEvent.press(result.getByTestId('wardrobe-photo-select-button'));
+  await waitFor(() => expect(result.getByTestId('wardrobe-photo-error')).toBeOnTheScreen());
+  expect(result.getByTestId('wardrobe-name-input').props.value).toBe('My shell');
+  expect(result.getByRole('button', { name: messages.en.wardrobe.selectPhotoAction })).toBeEnabled();
+});
+
+test('photo processing exposes busy state and selected photo participates in dirty save state', async () => {
+  let resolveSelection: ((photo: StagedWardrobePhoto) => void) | undefined;
+  const onCreate = jest.fn(async () => undefined);
+  const onBack = jest.fn();
+  const result = await render(
+    <TestProviders>
+      <WardrobeItemFormScreen
+        garmentTypes={formTypes}
+        isBusy={false}
+        mode="create"
+        onBackRequested={onBack}
+        onCreate={onCreate}
+        onDirtyChange={() => undefined}
+        onSelectPhoto={() =>
+          new Promise((resolve) => {
+            resolveSelection = resolve;
+          })
+        }
+      />
+    </TestProviders>,
+  );
+
+  await fireEvent.press(result.getByTestId('wardrobe-type-rain_jacket'));
+  await fireEvent.press(result.getByTestId('wardrobe-photo-select-button'));
+  expect(result.getByTestId('wardrobe-photo-select-button').props.accessibilityState).toEqual(
+    expect.objectContaining({ busy: true, disabled: true }),
+  );
+  expect(result.getByTestId('wardrobe-save-button').props.accessibilityState.disabled).toBe(true);
+  await act(async () => resolveSelection?.(stagedPhoto));
+  await waitFor(() => expect(result.getByTestId('wardrobe-photo-preview')).toBeOnTheScreen());
+  expect(result.getByTestId('wardrobe-photo-preview').props.accessibilityLabel).toBe(
+    messages.en.wardrobe.photoAccessibilityLabel('Rain jacket'),
+  );
+  await fireEvent.press(result.getByTestId('wardrobe-save-button'));
+  expect(onCreate).toHaveBeenCalledWith(
+    expect.objectContaining({ garmentTypeId: 'rain_jacket' }),
+    { kind: 'replace', stagedPhoto },
+  );
+  await fireEvent.press(result.getByRole('button', { name: messages.en.wardrobe.backAction }));
+  expect(onBack).toHaveBeenLastCalledWith(true);
+});
+
+test('changing and removing an edit photo cleans staging and marks removal for normal save', async () => {
+  const onDiscard = jest.fn(async () => undefined);
+  const onUpdate = jest.fn(async () => undefined);
+  const itemWithPhoto = {
+    ...item,
+    photoRelativePath:
+      'kuyara/wardrobe/photos/318f0f4d-1d45-4ae7-a8f1-796e8297d3b4.jpg',
+  };
+  const result = await render(
+    <TestProviders>
+      <WardrobeItemFormScreen
+        garmentTypes={formTypes}
+        isBusy={false}
+        item={itemWithPhoto}
+        mode="edit"
+        onBackRequested={() => undefined}
+        onCreate={async () => undefined}
+        onDiscardStagedPhoto={onDiscard}
+        onDirtyChange={() => undefined}
+        onSelectPhoto={async () => stagedPhoto}
+        onUpdate={onUpdate}
+        photoPreviewUri="file:///private/documents/existing.jpg"
+      />
+    </TestProviders>,
+  );
+
+  expect(result.getByRole('button', { name: messages.en.wardrobe.changePhotoAction })).toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('wardrobe-photo-select-button'));
+  await waitFor(() =>
+    expect(result.getByTestId('wardrobe-photo-preview').props.source.uri).toBe(
+      stagedPhoto.previewUri,
+    ),
+  );
+  await fireEvent.press(result.getByTestId('wardrobe-photo-remove-button'));
+  expect(onDiscard).toHaveBeenCalledWith(stagedPhoto);
+  expect(result.queryByTestId('wardrobe-photo-preview')).not.toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('wardrobe-save-button'));
+  expect(onUpdate).toHaveBeenCalledWith(expect.any(Object), { kind: 'remove' });
+});
+
+test('edit keeps replace and remove actions available when a stored photo file is missing', async () => {
+  const itemWithMissingPhoto = {
+    ...item,
+    photoRelativePath:
+      'kuyara/wardrobe/photos/318f0f4d-1d45-4ae7-a8f1-796e8297d3b4.jpg',
+  };
+  const result = await render(
+    <TestProviders>
+      <WardrobeItemFormScreen
+        garmentTypes={formTypes}
+        isBusy={false}
+        item={itemWithMissingPhoto}
+        mode="edit"
+        onBackRequested={() => undefined}
+        onCreate={async () => undefined}
+        onDirtyChange={() => undefined}
+        onUpdate={async () => undefined}
+        photoPreviewUri={null}
+      />
+    </TestProviders>,
+  );
+
+  expect(result.queryByTestId('wardrobe-photo-preview')).not.toBeOnTheScreen();
+  expect(result.getByRole('button', { name: messages.en.wardrobe.changePhotoAction })).toBeOnTheScreen();
+  expect(result.getByRole('button', { name: messages.en.wardrobe.removePhotoAction })).toBeOnTheScreen();
+});
+
+test('leaving a form discards its staged photo', async () => {
+  const onDiscard = jest.fn(async () => undefined);
+  const result = await render(
+    <TestProviders>
+      <WardrobeItemFormScreen
+        garmentTypes={formTypes}
+        isBusy={false}
+        mode="create"
+        onBackRequested={() => undefined}
+        onCreate={async () => undefined}
+        onDiscardStagedPhoto={onDiscard}
+        onDirtyChange={() => undefined}
+        onSelectPhoto={async () => stagedPhoto}
+      />
+    </TestProviders>,
+  );
+
+  await fireEvent.press(result.getByTestId('wardrobe-photo-select-button'));
+  await waitFor(() => expect(result.getByTestId('wardrobe-photo-preview')).toBeOnTheScreen());
+  await result.unmount();
+  await waitFor(() => expect(onDiscard).toHaveBeenCalledWith(stagedPhoto));
 });
 
 test('edit prefills values and cancels or confirms type-reset behavior', async () => {

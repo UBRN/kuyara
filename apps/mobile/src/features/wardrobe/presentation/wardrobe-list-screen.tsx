@@ -1,7 +1,9 @@
 import { SymbolView } from 'expo-symbols';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Pressable,
   StyleSheet,
   View,
@@ -14,7 +16,7 @@ import type { CatalogMessageKey } from '@/features/catalog/domain/garment-taxono
 import type { WardrobeApplicationState } from '@/features/wardrobe/application/wardrobe-application-controller';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import { useMessages } from '@/localization/use-messages';
-import { interaction, layout, spacing } from '@/theme/theme';
+import { interaction, layout, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 type WardrobeListScreenProps = Readonly<{
@@ -22,12 +24,18 @@ type WardrobeListScreenProps = Readonly<{
   onAdd: () => void;
   onEdit: (id: string) => void;
   onRetry: () => void;
+  resolvePhotoUri?: (relativePath: string | null) => string | null;
 }>;
 
 function WardrobeListItem({
   item,
   onPress,
-}: Readonly<{ item: WardrobeItem; onPress: () => void }>) {
+  resolvePhotoUri,
+}: Readonly<{
+  item: WardrobeItem;
+  onPress: () => void;
+  resolvePhotoUri: (relativePath: string | null) => string | null;
+}>) {
   const messages = useMessages();
   const theme = useKuyaraTheme();
   const garmentType = item.garmentTypeId
@@ -43,6 +51,9 @@ function WardrobeListItem({
     ? messages.catalog[`catalog.color_family.${item.colorFamily}`]
     : null;
   const title = item.name ?? typeLabel;
+  const photoUri = resolvePhotoUri(item.photoRelativePath);
+  const [unreadablePhotoUri, setUnreadablePhotoUri] = useState<string | null>(null);
+  const visiblePhotoUri = photoUri === unreadablePhotoUri ? null : photoUri;
 
   return (
     <Pressable
@@ -58,6 +69,20 @@ function WardrobeListItem({
       testID={`wardrobe-item-${item.id}`}
       style={({ pressed }) => pressed && styles.pressed}>
       <Surface style={styles.itemCard} variant="interactive">
+        {visiblePhotoUri ? (
+          <Image
+            accessible
+            accessibilityLabel={messages.wardrobe.photoAccessibilityLabel(typeLabel)}
+            onError={() => setUnreadablePhotoUri(visiblePhotoUri)}
+            resizeMode="cover"
+            source={{ uri: visiblePhotoUri }}
+            style={[
+              styles.thumbnail,
+              { backgroundColor: theme.colors.surfaceMuted },
+            ]}
+            testID={`wardrobe-photo-${item.id}`}
+          />
+        ) : null}
         <View style={styles.itemCopy}>
           <AppText variant="bodyStrong">{title}</AppText>
           {item.name ? (
@@ -83,6 +108,7 @@ export function WardrobeListScreen({
   onAdd,
   onEdit,
   onRetry,
+  resolvePhotoUri = () => null,
   state,
 }: WardrobeListScreenProps) {
   const insets = useSafeAreaInsets();
@@ -174,7 +200,11 @@ export function WardrobeListScreen({
         </Surface>
       }
       renderItem={({ item }) => (
-        <WardrobeListItem item={item} onPress={() => onEdit(item.id)} />
+        <WardrobeListItem
+          item={item}
+          onPress={() => onEdit(item.id)}
+          resolvePhotoUri={resolvePhotoUri}
+        />
       )}
       ItemSeparatorComponent={() => <View style={styles.separator} />}
       refreshing={state.isRefreshing}
@@ -228,6 +258,11 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: spacing.md,
+  },
+  thumbnail: {
+    borderRadius: radii.compact,
+    height: 64,
+    width: 64,
   },
   pressed: {
     opacity: interaction.pressedOpacity,

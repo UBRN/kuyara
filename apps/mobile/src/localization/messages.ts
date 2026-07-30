@@ -152,6 +152,15 @@ export type AppMessages = Readonly<{
     nameLabel: string;
     nameDescription: string;
     namePlaceholder: string;
+    photoTitle: string;
+    photoDescription: string;
+    photoEmptyBody: string;
+    selectPhotoAction: string;
+    changePhotoAction: string;
+    removePhotoAction: string;
+    photoProcessingLabel: string;
+    photoError: string;
+    photoAccessibilityLabel: (type: string) => string;
     typeTitle: string;
     typeDescription: string;
     typeRequiredError: string;
@@ -279,6 +288,16 @@ const en = {
     nameLabel: 'Item name',
     nameDescription: 'Optional. Use a name that helps you recognize this item.',
     namePlaceholder: 'For example, everyday rain jacket',
+    photoTitle: 'Photo',
+    photoDescription: 'Optional. One photo is stored privately on this device.',
+    photoEmptyBody: 'No photo selected.',
+    selectPhotoAction: 'Select photo',
+    changePhotoAction: 'Change photo',
+    removePhotoAction: 'Remove photo',
+    photoProcessingLabel: 'Preparing photo…',
+    photoError:
+      'The photo could not be prepared. Your other changes are still here; please try again.',
+    photoAccessibilityLabel: (type: string) => `${type} wardrobe item photo.`,
     typeTitle: 'Clothing type',
     typeDescription: 'Required. Choose the closest type from the catalog.',
     typeRequiredError: 'Choose a clothing type before saving.',
@@ -505,6 +524,16 @@ const tr = {
     nameLabel: 'Parça adı',
     nameDescription: 'İsteğe bağlı. Bu parçayı tanımanıza yardımcı olacak bir ad kullanın.',
     namePlaceholder: 'Örneğin günlük yağmurluk',
+    photoTitle: 'Fotoğraf',
+    photoDescription: 'İsteğe bağlı. Tek fotoğraf yalnızca bu cihazda gizli tutulur.',
+    photoEmptyBody: 'Fotoğraf seçilmedi.',
+    selectPhotoAction: 'Fotoğraf seç',
+    changePhotoAction: 'Fotoğrafı değiştir',
+    removePhotoAction: 'Fotoğrafı kaldır',
+    photoProcessingLabel: 'Fotoğraf hazırlanıyor…',
+    photoError:
+      'Fotoğraf hazırlanamadı. Diğer değişiklikleriniz hâlâ burada; lütfen yeniden deneyin.',
+    photoAccessibilityLabel: (type: string) => `${type} gardırop parçası fotoğrafı.`,
     typeTitle: 'Giyim türü',
     typeDescription: 'Zorunlu. Katalogdan en yakın türü seçin.',
     typeRequiredError: 'Kaydetmeden önce bir giyim türü seçin.',
