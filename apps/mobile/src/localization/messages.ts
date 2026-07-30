@@ -129,7 +129,71 @@ export type AppMessages = Readonly<{
   }>;
   wardrobe: Readonly<{
     title: string;
-    placeholderBody: string;
+    addAction: string;
+    addHint: string;
+    emptyTitle: string;
+    emptyBody: string;
+    emptyAction: string;
+    loadingLabel: string;
+    loadErrorTitle: string;
+    loadErrorBody: string;
+    retryAction: string;
+    itemHint: string;
+    unclassifiedType: string;
+    itemAccessibilityLabel: (values: {
+      name: string | null;
+      type: string;
+      category: string;
+      color: string | null;
+    }) => string;
+    newTitle: string;
+    editTitle: string;
+    backAction: string;
+    nameLabel: string;
+    nameDescription: string;
+    namePlaceholder: string;
+    typeTitle: string;
+    typeDescription: string;
+    typeRequiredError: string;
+    colorTitle: string;
+    colorDescription: string;
+    colorUnspecified: string;
+    attributesTitle: string;
+    attributesDescription: string;
+    attributeDefault: (value: string) => string;
+    attributeLabels: Readonly<{
+      thermalLevelOverride: string;
+      waterProtectionOverride: string;
+      windProtectionOverride: string;
+      breathabilityOverride: string;
+      armCoverageOverride: string;
+      legCoverageOverride: string;
+      tractionSuitabilityOverride: string;
+    }>;
+    saveAction: string;
+    savingLabel: string;
+    createError: string;
+    updateError: string;
+    typeChangeTitle: string;
+    typeChangeBody: string;
+    keepTypeAction: string;
+    changeTypeAction: string;
+    discardTitle: string;
+    discardBody: string;
+    keepEditingAction: string;
+    discardAction: string;
+    deleteSectionTitle: string;
+    deleteSectionBody: string;
+    deleteAction: string;
+    deletingLabel: string;
+    deleteConfirmTitle: string;
+    deleteConfirmBody: string;
+    cancelDeleteAction: string;
+    confirmDeleteAction: string;
+    deleteError: string;
+    notFoundTitle: string;
+    notFoundBody: string;
+    returnToWardrobeAction: string;
   }>;
   today: TodayMessages;
 }>;
@@ -196,7 +260,69 @@ const en = {
   },
   wardrobe: {
     title: 'Wardrobe',
-    placeholderBody: 'Your wardrobe will appear here.',
+    addAction: 'Add item',
+    addHint: 'Opens the new wardrobe item form.',
+    emptyTitle: 'Your wardrobe is ready for its first item',
+    emptyBody: 'Add the clothes you own so they are ready for future outfit choices.',
+    emptyAction: 'Add your first item',
+    loadingLabel: 'Loading your wardrobe.',
+    loadErrorTitle: 'Your wardrobe could not be loaded',
+    loadErrorBody: 'Your saved items are still safe. Please try again.',
+    retryAction: 'Try again',
+    itemHint: 'Opens this wardrobe item for editing.',
+    unclassifiedType: 'Type not selected',
+    itemAccessibilityLabel: ({ name, type, category, color }) =>
+      [name, type, category, color].filter(Boolean).join('. '),
+    newTitle: 'Add wardrobe item',
+    editTitle: 'Edit wardrobe item',
+    backAction: 'Back to wardrobe',
+    nameLabel: 'Item name',
+    nameDescription: 'Optional. Use a name that helps you recognize this item.',
+    namePlaceholder: 'For example, everyday rain jacket',
+    typeTitle: 'Clothing type',
+    typeDescription: 'Required. Choose the closest type from the catalog.',
+    typeRequiredError: 'Choose a clothing type before saving.',
+    colorTitle: 'Color family',
+    colorDescription: 'Optional. Choose the item’s main color family.',
+    colorUnspecified: 'Not specified',
+    attributesTitle: 'Item properties',
+    attributesDescription:
+      'Keep the catalog default or choose a value that better describes this item.',
+    attributeDefault: (value: string) => `Catalog default: ${value}`,
+    attributeLabels: {
+      thermalLevelOverride: 'Insulation',
+      waterProtectionOverride: 'Water protection',
+      windProtectionOverride: 'Wind protection',
+      breathabilityOverride: 'Breathability',
+      armCoverageOverride: 'Arm coverage',
+      legCoverageOverride: 'Leg coverage',
+      tractionSuitabilityOverride: 'Traction',
+    },
+    saveAction: 'Save item',
+    savingLabel: 'Saving item…',
+    createError: 'This item could not be added. Your entries are still here; please try again.',
+    updateError: 'This item could not be saved. Your changes are still here; please try again.',
+    typeChangeTitle: 'Change clothing type?',
+    typeChangeBody:
+      'Changing the type will remove your item property choices and use the new type’s catalog defaults.',
+    keepTypeAction: 'Keep current type',
+    changeTypeAction: 'Change type and reset properties',
+    discardTitle: 'Discard unsaved changes?',
+    discardBody: 'Your changes to this wardrobe item will be lost.',
+    keepEditingAction: 'Keep editing',
+    discardAction: 'Discard changes',
+    deleteSectionTitle: 'Remove from wardrobe',
+    deleteSectionBody: 'This item will no longer appear in your wardrobe list.',
+    deleteAction: 'Delete item',
+    deletingLabel: 'Deleting item…',
+    deleteConfirmTitle: 'Delete this item?',
+    deleteConfirmBody: 'The item will be removed from your wardrobe list.',
+    cancelDeleteAction: 'Keep item',
+    confirmDeleteAction: 'Delete from wardrobe',
+    deleteError: 'This item could not be deleted. Please try again.',
+    notFoundTitle: 'Wardrobe item not found',
+    notFoundBody: 'It may have been deleted or is no longer available.',
+    returnToWardrobeAction: 'Return to wardrobe',
   },
   today: {
     title: 'Today',
@@ -360,7 +486,69 @@ const tr = {
   },
   wardrobe: {
     title: 'Gardırop',
-    placeholderBody: 'Gardırobunuz burada görünecek.',
+    addAction: 'Parça ekle',
+    addHint: 'Yeni gardırop parçası formunu açar.',
+    emptyTitle: 'Gardırobunuz ilk parçaya hazır',
+    emptyBody: 'Sahip olduğunuz parçaları ilerideki kombin seçimleri için ekleyin.',
+    emptyAction: 'İlk parçanızı ekleyin',
+    loadingLabel: 'Gardırobunuz yükleniyor.',
+    loadErrorTitle: 'Gardırobunuz yüklenemedi',
+    loadErrorBody: 'Kayıtlı parçalarınız güvende. Lütfen yeniden deneyin.',
+    retryAction: 'Yeniden dene',
+    itemHint: 'Bu gardırop parçasını düzenlemek için açar.',
+    unclassifiedType: 'Tür seçilmedi',
+    itemAccessibilityLabel: ({ name, type, category, color }) =>
+      [name, type, category, color].filter(Boolean).join('. '),
+    newTitle: 'Gardırop parçası ekle',
+    editTitle: 'Gardırop parçasını düzenle',
+    backAction: 'Gardıroba dön',
+    nameLabel: 'Parça adı',
+    nameDescription: 'İsteğe bağlı. Bu parçayı tanımanıza yardımcı olacak bir ad kullanın.',
+    namePlaceholder: 'Örneğin günlük yağmurluk',
+    typeTitle: 'Giyim türü',
+    typeDescription: 'Zorunlu. Katalogdan en yakın türü seçin.',
+    typeRequiredError: 'Kaydetmeden önce bir giyim türü seçin.',
+    colorTitle: 'Renk ailesi',
+    colorDescription: 'İsteğe bağlı. Parçanın ana renk ailesini seçin.',
+    colorUnspecified: 'Belirtilmedi',
+    attributesTitle: 'Parça özellikleri',
+    attributesDescription:
+      'Katalog varsayılanını kullanın veya bu parçayı daha iyi anlatan bir değer seçin.',
+    attributeDefault: (value: string) => `Katalog varsayılanı: ${value}`,
+    attributeLabels: {
+      thermalLevelOverride: 'Yalıtım',
+      waterProtectionOverride: 'Su koruması',
+      windProtectionOverride: 'Rüzgâr koruması',
+      breathabilityOverride: 'Nefes alabilirlik',
+      armCoverageOverride: 'Kol kapatma',
+      legCoverageOverride: 'Bacak kapatma',
+      tractionSuitabilityOverride: 'Tutuş',
+    },
+    saveAction: 'Parçayı kaydet',
+    savingLabel: 'Parça kaydediliyor…',
+    createError: 'Bu parça eklenemedi. Girdileriniz hâlâ burada; lütfen yeniden deneyin.',
+    updateError: 'Bu parça kaydedilemedi. Değişiklikleriniz hâlâ burada; lütfen yeniden deneyin.',
+    typeChangeTitle: 'Giyim türü değiştirilsin mi?',
+    typeChangeBody:
+      'Türü değiştirmek, parça özellikleri seçimlerinizi kaldırır ve yeni türün katalog varsayılanlarını kullanır.',
+    keepTypeAction: 'Mevcut türü koru',
+    changeTypeAction: 'Türü değiştir ve özellikleri sıfırla',
+    discardTitle: 'Kaydedilmemiş değişiklikler silinsin mi?',
+    discardBody: 'Bu gardırop parçasında yaptığınız değişiklikler kaybolacak.',
+    keepEditingAction: 'Düzenlemeye devam et',
+    discardAction: 'Değişiklikleri sil',
+    deleteSectionTitle: 'Gardıroptan kaldır',
+    deleteSectionBody: 'Bu parça artık gardırop listenizde görünmeyecek.',
+    deleteAction: 'Parçayı sil',
+    deletingLabel: 'Parça siliniyor…',
+    deleteConfirmTitle: 'Bu parça silinsin mi?',
+    deleteConfirmBody: 'Parça gardırop listenizden kaldırılacak.',
+    cancelDeleteAction: 'Parçayı koru',
+    confirmDeleteAction: 'Gardıroptan sil',
+    deleteError: 'Bu parça silinemedi. Lütfen yeniden deneyin.',
+    notFoundTitle: 'Gardırop parçası bulunamadı',
+    notFoundBody: 'Bu parça silinmiş veya artık kullanılamıyor olabilir.',
+    returnToWardrobeAction: 'Gardıroba dön',
   },
   today: {
     title: 'Bugün',

@@ -116,12 +116,13 @@ Implemented now:
 - Router/navigation and status-bar integration
 - Typed adaptive UI primitives over the semantic tokens
 - A root Expo Router Stack for onboarding plus stable JavaScript Tabs for Today, Weather, Wardrobe, and Settings
-- A nested Stack boundary per tab, with localized semantic tab controls and short Weather/Wardrobe placeholders
+- A nested Stack boundary per tab, with localized semantic tab controls, a short Weather placeholder, and Wardrobe list/create/edit screens inside the existing Wardrobe Stack
 - Device-language English/Turkish Today strings and locale-aware fixed-date formatting
 - The deterministic Today loaded-state composition with a concise weather summary, immediate guidance, and exactly three vertically discoverable outfit cards
 - A database/profile bootstrap state, three-step local onboarding flow, and Settings tab built from the same semantic tokens and scalable primitives
 - Persisted system/Turkish/English and system/light/dark preferences supplied to the existing localization and theme providers
 - A feature-specific radio-style preference option with selected-state semantics; it remains inside the profile feature rather than widening the generic primitive API
+- Feature-specific Wardrobe text input and radio-style catalog/property options built from semantic tokens, plus a separated destructive section whose native confirmation uses the platform destructive action style
 - Loading, unavailable, and stale-loaded Today presentation contracts
 - Large-text reflow in weather metrics and outfit item rows, grouped screen-reader descriptions, and a motion-independent Today layout
 - Focused token, primitive-contract, interaction, shell-context, localization, and source-boundary tests
@@ -129,10 +130,10 @@ Implemented now:
 Deferred intentionally:
 
 - Any migration from JavaScript Tabs to SDK 57's alpha Native Tabs
-- Worker, WeatherKit, location, AI, wardrobe ownership, and deterministic recommendation-engine integration
-- Text inputs, selectors, switches, modal or feedback frameworks, and product-specific components
+- Worker, WeatherKit, location, AI, Wardrobe-to-recommendation integration, and the deterministic recommendation engine
+- Generic text-input, selector, switch, modal, or feedback frameworks; the Wardrobe controls remain feature-specific
 - Divider, because the current shell has no repeated separator need
-- Destructive button styling, because no checked-in flow justifies it
+- A generic destructive button variant or new destructive color token; Wardrobe distinguishes removal through copy, section hierarchy, accessibility semantics, and the platform Alert style
 - Non-scrollable and keyboard-specific screen behavior until a checked-in flow requires either
 - Status tokens and status components
 - Platform-color adapters until a concrete native integration needs them

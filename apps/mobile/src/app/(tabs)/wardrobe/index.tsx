@@ -1,5 +1,5 @@
-import { WardrobePlaceholderScreen } from '@/features/wardrobe/presentation/wardrobe-placeholder-screen';
+import { WardrobeListRoute } from '@/features/wardrobe/presentation/wardrobe-list-route';
 
 export default function WardrobeRoute() {
-  return <WardrobePlaceholderScreen />;
+  return <WardrobeListRoute />;
 }
