@@ -111,6 +111,8 @@ test('English and Turkish locale resolution preserve the supported shell languag
   assert.equal(getMessages('tr-TR'), messages.tr);
   assert.equal(messages.en.home.title, 'Welcome to kuyara');
   assert.match(messages.tr.home.title, /kuyara/);
+  assert.equal(messages.en.explore.expandSection('Motion'), 'Expand Motion');
+  assert.equal(messages.tr.explore.collapseSection('Hareket'), 'Hareket bölümünü daralt');
 });
 
 test('feature source does not hardcode approved primitive colors or disable font scaling', async () => {

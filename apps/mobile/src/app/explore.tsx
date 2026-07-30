@@ -1,172 +1,152 @@
 import { Image } from 'expo-image';
-import { SymbolView } from 'expo-symbols';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Platform, StyleSheet, View } from 'react-native';
 
 import { ExternalLink } from '@/components/external-link';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { AppText, Button, Screen } from '@/components/ui';
 import { Collapsible } from '@/components/ui/collapsible';
 import { WebBadge } from '@/components/web-badge';
 import { useMessages } from '@/localization/use-messages';
-import { interaction, layout, radii, spacing } from '@/theme/theme';
-import { useKuyaraTheme } from '@/theme/theme-context';
-import { platformLayout } from '@/theme/platform';
+import { radii, spacing } from '@/theme/theme';
 
 export default function ExploreScreen() {
-  const safeAreaInsets = useSafeAreaInsets();
   const messages = useMessages();
-  const theme = useKuyaraTheme();
-  const insets = {
-    ...safeAreaInsets,
-    bottom: safeAreaInsets.bottom + platformLayout.bottomTabInset + spacing.lg,
-  };
-
-  const contentPlatformStyle = Platform.select({
-    android: {
-      paddingTop: insets.top,
-      paddingLeft: insets.left,
-      paddingRight: insets.right,
-      paddingBottom: insets.bottom,
-    },
-    web: {
-      paddingTop: spacing['2xl'],
-      paddingBottom: spacing.xl,
-    },
-  });
 
   return (
-    <ScrollView
-      testID="explore-screen"
-      style={[styles.scrollView, { backgroundColor: theme.colors.background }]}
-      contentInset={insets}
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.titleContainer}>
-          <ThemedText testID="explore-title" accessibilityRole="header" variant="titleLarge">
-            {messages.explore.title}
-          </ThemedText>
-          <ThemedText
-            testID="explore-introduction"
-            style={styles.centerText}
-            themeColor="textSecondary">
-            {messages.explore.introduction}
-          </ThemedText>
+    <Screen testID="explore-screen" contentContainerStyle={styles.content}>
+      <View style={styles.titleContainer}>
+        <AppText
+          testID="explore-title"
+          accessibilityRole="header"
+          variant="titleLarge"
+          style={styles.centerText}>
+          {messages.explore.title}
+        </AppText>
+        <AppText
+          testID="explore-introduction"
+          style={styles.centerText}
+          colorRole="textSecondary">
+          {messages.explore.introduction}
+        </AppText>
 
-          <ExternalLink href="https://docs.expo.dev" asChild>
-            <Pressable
-              style={({ pressed }) => [styles.linkPressable, pressed && styles.pressed]}>
-              <ThemedView backgroundRole="surfaceInteractive" style={styles.linkButton}>
-                <ThemedText variant="label" style={styles.linkLabel}>
-                  {messages.explore.documentation}
-                </ThemedText>
-                <SymbolView
-                  tintColor={theme.colors.iconPrimary}
-                  name={{ ios: 'arrow.up.right.square', android: 'link', web: 'link' }}
-                  size={12}
-                />
-              </ThemedView>
-            </Pressable>
+        <ExternalLink href="https://docs.expo.dev" asChild>
+          <Button label={messages.explore.documentation} style={styles.documentationButton} />
+        </ExternalLink>
+      </View>
+
+      <View style={styles.sectionsWrapper}>
+        <Collapsible
+          title={messages.explore.routingTitle}
+          collapsedAccessibilityLabel={
+            messages.explore.expandSection(messages.explore.routingTitle)
+          }
+          expandedAccessibilityLabel={
+            messages.explore.collapseSection(messages.explore.routingTitle)
+          }>
+          <AppText>{messages.explore.routingBody}</AppText>
+          <ExternalLink href="https://docs.expo.dev/router/introduction" asChild>
+            <Button
+              label={messages.explore.learnMore}
+              style={styles.learnMoreButton}
+              variant="quiet"
+            />
           </ExternalLink>
-        </ThemedView>
+        </Collapsible>
 
-        <ThemedView style={styles.sectionsWrapper}>
-          <Collapsible title={messages.explore.routingTitle}>
-            <ThemedText>{messages.explore.routingBody}</ThemedText>
-            <ExternalLink href="https://docs.expo.dev/router/introduction">
-              <ThemedText variant="label" themeColor="brandAccent">
-                {messages.explore.learnMore}
-              </ThemedText>
-            </ExternalLink>
-          </Collapsible>
+        <Collapsible
+          title={messages.explore.platformTitle}
+          collapsedAccessibilityLabel={
+            messages.explore.expandSection(messages.explore.platformTitle)
+          }
+          expandedAccessibilityLabel={
+            messages.explore.collapseSection(messages.explore.platformTitle)
+          }>
+          <View style={styles.collapsibleContent}>
+            <AppText>{messages.explore.platformBody}</AppText>
+            <Image
+              source={require('@/assets/images/tutorial-web.png')}
+              style={styles.imageTutorial}
+            />
+          </View>
+        </Collapsible>
 
-          <Collapsible title={messages.explore.platformTitle}>
-            <ThemedView backgroundRole="surfaceMuted" style={styles.collapsibleContent}>
-              <ThemedText>{messages.explore.platformBody}</ThemedText>
-              <Image
-                source={require('@/assets/images/tutorial-web.png')}
-                style={styles.imageTutorial}
-              />
-            </ThemedView>
-          </Collapsible>
+        <Collapsible
+          title={messages.explore.imagesTitle}
+          collapsedAccessibilityLabel={
+            messages.explore.expandSection(messages.explore.imagesTitle)
+          }
+          expandedAccessibilityLabel={
+            messages.explore.collapseSection(messages.explore.imagesTitle)
+          }>
+          <AppText>{messages.explore.imagesBody}</AppText>
+          <Image source={require('@/assets/images/react-logo.png')} style={styles.imageReact} />
+          <ExternalLink href="https://docs.expo.dev/develop/user-interface/images/" asChild>
+            <Button
+              label={messages.explore.learnMore}
+              style={styles.learnMoreButton}
+              variant="quiet"
+            />
+          </ExternalLink>
+        </Collapsible>
 
-          <Collapsible title={messages.explore.imagesTitle}>
-            <ThemedText>{messages.explore.imagesBody}</ThemedText>
-            <Image source={require('@/assets/images/react-logo.png')} style={styles.imageReact} />
-            <ExternalLink href="https://docs.expo.dev/develop/user-interface/images/">
-              <ThemedText variant="label" themeColor="brandAccent">
-                {messages.explore.learnMore}
-              </ThemedText>
-            </ExternalLink>
-          </Collapsible>
+        <Collapsible
+          title={messages.explore.themeTitle}
+          collapsedAccessibilityLabel={
+            messages.explore.expandSection(messages.explore.themeTitle)
+          }
+          expandedAccessibilityLabel={
+            messages.explore.collapseSection(messages.explore.themeTitle)
+          }>
+          <AppText>{messages.explore.themeBody}</AppText>
+          <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/" asChild>
+            <Button
+              label={messages.explore.learnMore}
+              style={styles.learnMoreButton}
+              variant="quiet"
+            />
+          </ExternalLink>
+        </Collapsible>
 
-          <Collapsible title={messages.explore.themeTitle}>
-            <ThemedText>{messages.explore.themeBody}</ThemedText>
-            <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-              <ThemedText variant="label" themeColor="brandAccent">
-                {messages.explore.learnMore}
-              </ThemedText>
-            </ExternalLink>
-          </Collapsible>
-
-          <Collapsible title={messages.explore.animationsTitle}>
-            <ThemedText>{messages.explore.animationsBody}</ThemedText>
-          </Collapsible>
-        </ThemedView>
-        {Platform.OS === 'web' && <WebBadge />}
-      </ThemedView>
-    </ScrollView>
+        <Collapsible
+          title={messages.explore.animationsTitle}
+          collapsedAccessibilityLabel={
+            messages.explore.expandSection(messages.explore.animationsTitle)
+          }
+          expandedAccessibilityLabel={
+            messages.explore.collapseSection(messages.explore.animationsTitle)
+          }>
+          <AppText>{messages.explore.animationsBody}</AppText>
+        </Collapsible>
+      </View>
+      {Platform.OS === 'web' && <WebBadge />}
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollView: {
-    flex: 1,
-  },
-  contentContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  container: {
-    maxWidth: layout.maxContentWidth,
-    flexGrow: 1,
-    width: '100%',
+  content: {
+    paddingBottom: spacing.lg,
   },
   titleContainer: {
     alignSelf: 'stretch',
+    width: '100%',
     gap: spacing.lg,
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing['2xl'],
   },
   centerText: {
+    alignSelf: 'stretch',
     textAlign: 'center',
   },
-  pressed: {
-    opacity: interaction.pressedOpacity,
-  },
-  linkPressable: {
+  documentationButton: {
     alignSelf: 'center',
-    maxWidth: '100%',
-  },
-  linkButton: {
-    flexShrink: 1,
-    flexDirection: 'row',
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.sm,
-    borderRadius: radii.pill,
-    justifyContent: 'center',
-    gap: spacing.xs,
-    alignItems: 'center',
-  },
-  linkLabel: {
-    flexShrink: 1,
-    textAlign: 'center',
   },
   sectionsWrapper: {
     gap: spacing.xl,
-    paddingHorizontal: spacing.xl,
     paddingTop: spacing.lg,
+  },
+  learnMoreButton: {
+    alignSelf: 'flex-start',
   },
   collapsibleContent: {
     alignItems: 'center',

@@ -1,10 +1,8 @@
 import { version } from 'expo/package.json';
 import { Image } from 'expo-image';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { ThemedText } from './themed-text';
-import { ThemedView } from './themed-view';
-
+import { AppText } from '@/components/ui';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -12,10 +10,10 @@ export function WebBadge() {
   const theme = useKuyaraTheme();
 
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText variant="code" themeColor="textSecondary" style={styles.versionText}>
+    <View style={styles.container}>
+      <AppText variant="code" colorRole="textSecondary" style={styles.versionText}>
         v{version}
-      </ThemedText>
+      </AppText>
       <Image
         source={
           theme.isDark
@@ -24,7 +22,7 @@ export function WebBadge() {
         }
         style={styles.badgeImage}
       />
-    </ThemedView>
+    </View>
   );
 }
 
