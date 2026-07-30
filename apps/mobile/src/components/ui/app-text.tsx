@@ -1,4 +1,4 @@
-import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
+import { Platform, StyleSheet, Text, type TextProps, useWindowDimensions } from 'react-native';
 
 import { resolveAppTextStyle } from '@/components/ui/primitive-contracts';
 import {
@@ -20,13 +20,19 @@ export function AppText({
   ...rest
 }: AppTextProps) {
   const theme = useKuyaraTheme();
+  const { fontScale } = useWindowDimensions();
   const fontFamily =
     variant === 'code' ? Platform.select({ ios: 'ui-monospace', default: 'monospace' }) : undefined;
 
   return (
     <Text
       allowFontScaling={allowFontScaling}
-      style={[styles.text, resolveAppTextStyle(theme, variant, colorRole), { fontFamily }, style]}
+      style={[
+        styles.text,
+        resolveAppTextStyle(theme, variant, colorRole, fontScale > 1.5),
+        { fontFamily },
+        style,
+      ]}
       {...rest}
     />
   );

@@ -1,7 +1,7 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router/react-navigation';
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
-import AppTabs from '@/components/app-tabs';
 import { KuyaraThemeProvider } from '@/theme/theme-provider';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -24,7 +24,7 @@ function ThemedApplicationShell() {
   return (
     <ThemeProvider value={navigationTheme}>
       <StatusBar style={theme.isDark ? 'light' : 'dark'} />
-      <AppTabs />
+      <Stack screenOptions={{ headerShown: false }} />
     </ThemeProvider>
   );
 }

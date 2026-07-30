@@ -1,8 +1,19 @@
 import { useMemo } from 'react';
 
 import { getDeviceLocale } from '@/localization/device-locale';
-import { getMessages } from '@/localization/messages';
+import { getMessages, resolveSupportedLanguage } from '@/localization/messages';
+
+export function useLocalization() {
+  return useMemo(() => {
+    const locale = getDeviceLocale();
+
+    return {
+      language: resolveSupportedLanguage(locale),
+      messages: getMessages(locale),
+    } as const;
+  }, []);
+}
 
 export function useMessages() {
-  return useMemo(() => getMessages(getDeviceLocale()), []);
+  return useLocalization().messages;
 }

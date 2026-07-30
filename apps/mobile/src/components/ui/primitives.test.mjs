@@ -18,9 +18,16 @@ test('AppText resolves typed semantic variants and colors in both appearances', 
   for (const scheme of ['light', 'dark']) {
     const theme = createKuyaraTheme(scheme);
     const [variantStyle, colorStyle] = resolveAppTextStyle(theme, 'title', 'textSecondary');
+    const [accessibilityStyle] = resolveAppTextStyle(
+      theme,
+      'title',
+      'textSecondary',
+      true,
+    );
 
     assert.equal(variantStyle, typography.title);
     assert.equal(colorStyle.color, theme.colors.textSecondary);
+    assert.equal('lineHeight' in accessibilityStyle, false);
   }
 });
 
@@ -29,6 +36,7 @@ test('AppText preserves scaling, heading props, and normal Text props', async ()
 
   assert.match(appTextSource, /allowFontScaling = true/);
   assert.match(appTextSource, /allowFontScaling=\{allowFontScaling\}/);
+  assert.match(appTextSource, /fontScale > 1\.5/);
   assert.match(appTextSource, /\.\.\.rest/);
   assert.doesNotMatch(appTextSource, /numberOfLines=/);
 });
