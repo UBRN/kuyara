@@ -74,6 +74,8 @@ Photo persistence is deliberately path-only. The domain and record store a norma
 
 The six current categories express only structural outfit roles. Detailed catalog, weather, fabric, warmth, waterproofing, formality, layer-order, brand, purchase, AI, and provider metadata are not present in the schema and remain a separate design task. A future remote sync adapter will map separate remote records and complement rather than replace SQLite.
 
+The research-backed, not-yet-implemented taxonomy and recommended version 3 direction are specified in [`clothing-taxonomy.md`](clothing-taxonomy.md). That specification keeps canonical catalog definitions, user-owned wardrobe records, and runtime-effective recommendation inputs separate; it does not change the current version 2 schema or runtime behavior.
+
 ### Local profile lifecycle
 
 The data source performs get-or-create in an exclusive transaction. It reads the singleton first, then uses `INSERT OR IGNORE` with a newly generated Expo Crypto UUID v4 and reads the winning row. The in-memory initialization promise coalesces repeated React/Strict Mode calls, while the schema constraint protects across data-source instances. The UUID is never regenerated once a row exists and is never shown or logged.
