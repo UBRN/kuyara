@@ -18,7 +18,7 @@ The mobile app uses Expo Router and managed Continuous Native Generation, so nat
 
 As product features are added, mobile code is organized feature-first while preserving presentation, domain/application, and data boundaries. React components render state and emit user intent; use cases coordinate behavior; repositories isolate SQLite and external data. Domain models, local records, and API DTOs remain distinct and use explicit mappers.
 
-Expo SQLite owns the implemented local profile and its preferences. TanStack Query will own future remote request state. Hooks or narrow contexts own transient UI state.
+Expo SQLite owns the implemented local profile, its preferences, and profile-owned wardrobe items. TanStack Query will own future remote request state. Hooks or narrow contexts own transient UI state.
 
 The local-profile vertical slice follows this concrete dependency flow:
 
@@ -38,13 +38,41 @@ onboarding gate, Settings, localization/theme preferences, Today navigation
 
 Only the infrastructure adapter imports `expo-sqlite`. The data source owns SQL and row mapping; the repository validates and maps persistence records into domain values; the application controller owns loading, failure, saving, and refreshed profile state. Routes and presentation components depend on that application contract and do not know table names, columns, or SQL.
 
-### Database version 1
+### Database migrations
 
 `PRAGMA user_version` records the schema version. Bootstrap enables foreign keys and WAL, reads the current version, and applies each pending migration in ascending order through an exclusive transaction. A migration updates `user_version` inside the same transaction and only after its schema work succeeds. Completed migrations are safe to call again; a newer unsupported version or failed migration surfaces a bootstrap error without deleting or recreating the database.
 
 Version 1 creates only `local_profiles`. `singleton_key` is constrained to the sole value `1` and is the primary key, while `id` is a unique generated UUID. Stable, locale-independent checks constrain clothing (`womens`, `mens`, or null before onboarding), language (`system`, `tr`, `en`), theme (`system`, `light`, `dark`), and the integer onboarding flag. Lifecycle timestamps use UTC ISO-8601 text. `deleted_at` is nullable to preserve the settled local-data record shape, but profile deletion and soft-delete workflows are intentionally not implemented.
 
-To add migration version 2, add one migration object with version `2` immediately after version 1, make its schema change idempotent within the migration transaction, and raise the exported latest version to `2`. Do not edit version 1 after release, skip a version, or add a destructive fallback.
+Version 2 leaves version 1 unchanged and adds `wardrobe_items`. Its UUID primary key is associated with `local_profiles.id` through a restrictive foreign key. Nullable `name`, `color`, `photo_relative_path`, and `deleted_at` columns are distinct from the required stable category and UTC ISO-8601 lifecycle timestamps. A database check restricts category storage to `top`, `bottom`, `one_piece`, `outerwear`, `footwear`, or `accessory`.
+
+One composite index over `(local_profile_id, deleted_at, updated_at DESC)` supports the profile-scoped active and explicitly deleted access patterns without speculative indexes. The table and index use idempotent creation inside the migration transaction. Version 2 advances `user_version` only after both succeed; failure rolls back the new schema while preserving version 1 profile data and its schema version.
+
+Future migrations must add one ordered migration object immediately after the current version. Do not edit released migrations, skip a version, or add a destructive fallback.
+
+### Wardrobe persistence boundary
+
+The wardrobe slice follows the established executor boundary without adding presentation or application state that no current screen consumes:
+
+```text
+wardrobe domain model and input invariants
+        ↓
+local wardrobe repository and sanitized error model
+        ↓
+explicit domain/category ↔ persistence record mapper
+        ↓
+SQLite wardrobe local data source with profile-scoped bound SQL
+        ↓
+project-owned SQLite executor
+```
+
+The domain item and SQLite record are separate types. The mapper explicitly converts the stable category representation and rejects invalid stored enums, timestamps, nullable values, or non-canonical photo paths. The repository owns client UUID and clock dependencies, input normalization, profile isolation checks, patch-style domain updates, and stable `invalid-input | invalid-data | not-found | unavailable` errors. SQLite and its raw errors do not cross this boundary.
+
+The local data source owns fixed-column parameterized create and update statements. Updates preserve the UUID, `local_profile_id`, and `created_at`; successful writes refresh `updated_at`. Soft delete atomically sets `deleted_at` and `updated_at`, after which normal get/list/update operations ignore the row. A separate explicit read can include deleted items for tests or a future recovery workflow.
+
+Photo persistence is deliberately path-only. The domain and record store a normalized forward-slash relative path into future app-private storage, never a blob, base64 value, absolute path, or `file://` URI. This slice performs no image selection, compression, copying, deletion, or external upload.
+
+The six current categories express only structural outfit roles. Detailed catalog, weather, fabric, warmth, waterproofing, formality, layer-order, brand, purchase, AI, and provider metadata are not present in the schema and remain a separate design task. A future remote sync adapter will map separate remote records and complement rather than replace SQLite.
 
 ### Local profile lifecycle
 
@@ -91,4 +119,4 @@ The Worker is the server-side boundary for future WeatherKit and AI provider cal
 3. The Worker validates input, calls privileged providers, validates their output, and returns a versioned response defined in the contracts package.
 4. The mobile client validates the response before mapping it into domain state and preserves the last known good snapshot if refresh fails.
 
-This describes the approved direction. The local profile and SQLite portion is now implemented; Worker, remote request state, live weather, recommendation logic, and remote synchronization remain deferred.
+This describes the approved direction. The local profile and profile-owned wardrobe persistence portions are now implemented; Wardrobe presentation, catalog classification, Worker, remote request state, live weather, recommendation logic, and remote synchronization remain deferred.
