@@ -31,10 +31,16 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
+    "@react-native/jest-preset": "0.86.0",
+    "@testing-library/react-native": "^14.0.1",
+    "@types/jest": "29.5.14",
     "@types/react": "~19.2.2",
     "eslint": "^9.39.5",
     "eslint-config-expo": "~57.0.0",
     "expo-mcp": "~0.2.4",
+    "jest": "~29.7.0",
+    "jest-expo": "57.0.2",
+    "test-renderer": "~1.2.0",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -48,7 +54,20 @@
     "test:profile": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test src/infrastructure/sqlite/migrations.test.mjs src/features/profile/profile-persistence.test.mjs",
     "test:wardrobe": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test src/infrastructure/sqlite/migrations.test.mjs src/features/wardrobe/wardrobe-persistence.test.mjs",
     "test:theme": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test src/theme/theme.test.mjs",
+    "test:components": "jest --runInBand",
     "typecheck": "tsc --noEmit"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/src/$1"
+    },
+    "testMatch": [
+      "<rootDir>/src/**/*.component.test.tsx"
+    ],
+    "transformIgnorePatterns": [
+      "node_modules/(?!(.pnpm|(jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg))"
+    ]
   },
   "private": true
 }

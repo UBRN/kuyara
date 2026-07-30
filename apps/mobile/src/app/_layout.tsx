@@ -5,12 +5,10 @@ import { StatusBar } from 'expo-status-bar';
 import { ProfileApplicationProvider } from '@/features/profile/application/profile-application-provider';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { BootstrapScreen } from '@/features/profile/presentation/bootstrap-screen';
-import { useMessages } from '@/localization/use-messages';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 function ThemedApplicationShell() {
   const theme = useKuyaraTheme();
-  const messages = useMessages();
   const { state } = useProfileApplication();
   const baseNavigationTheme = theme.isDark ? DarkTheme : DefaultTheme;
   const navigationTheme = {
@@ -38,18 +36,10 @@ function ThemedApplicationShell() {
           animation: theme.isReduceMotionEnabled ? 'none' : 'default',
           headerShown: false,
         }}>
-        <Stack.Screen name="index" />
+        <Stack.Screen name="(tabs)" />
         <Stack.Screen
           name="onboarding"
           options={{ gestureEnabled: false }}
-        />
-        <Stack.Screen
-          name="settings"
-          options={{
-            headerBackButtonDisplayMode: 'minimal',
-            headerShown: true,
-            title: messages.settings.title,
-          }}
         />
       </Stack>
     </ThemeProvider>
