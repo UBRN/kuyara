@@ -10,7 +10,7 @@ type Migration = Readonly<{
   migrate: (database: SqliteExecutor) => Promise<void>;
 }>;
 
-export const latestDatabaseVersion = 2;
+export const latestDatabaseVersion = 3;
 
 const migrationV1: Migration = {
   version: 1,
@@ -66,7 +66,61 @@ const migrationV2: Migration = {
   },
 };
 
-const migrations = [migrationV1, migrationV2] as const satisfies readonly Migration[];
+const migrationV3: Migration = {
+  version: 3,
+  async migrate(database) {
+    await database.execAsync(`
+      ALTER TABLE wardrobe_items ADD COLUMN garment_type_id TEXT;
+      ALTER TABLE wardrobe_items ADD COLUMN color_family TEXT CHECK (
+        color_family IS NULL OR color_family IN (
+          'black', 'white', 'gray', 'brown', 'beige', 'red', 'orange',
+          'yellow', 'green', 'blue', 'purple', 'pink', 'multicolor'
+        )
+      );
+      ALTER TABLE wardrobe_items ADD COLUMN thermal_level_override TEXT CHECK (
+        thermal_level_override IS NULL OR thermal_level_override IN (
+          'none', 'light', 'moderate', 'high'
+        )
+      );
+      ALTER TABLE wardrobe_items ADD COLUMN water_protection_override TEXT CHECK (
+        water_protection_override IS NULL OR water_protection_override IN (
+          'none', 'water_resistant', 'waterproof'
+        )
+      );
+      ALTER TABLE wardrobe_items ADD COLUMN wind_protection_override TEXT CHECK (
+        wind_protection_override IS NULL OR wind_protection_override IN (
+          'none', 'wind_resistant'
+        )
+      );
+      ALTER TABLE wardrobe_items ADD COLUMN breathability_override TEXT CHECK (
+        breathability_override IS NULL OR breathability_override IN (
+          'low', 'moderate', 'high'
+        )
+      );
+      ALTER TABLE wardrobe_items ADD COLUMN arm_coverage_override TEXT CHECK (
+        arm_coverage_override IS NULL OR arm_coverage_override IN (
+          'none', 'partial', 'full'
+        )
+      );
+      ALTER TABLE wardrobe_items ADD COLUMN leg_coverage_override TEXT CHECK (
+        leg_coverage_override IS NULL OR leg_coverage_override IN (
+          'none', 'partial', 'full'
+        )
+      );
+      ALTER TABLE wardrobe_items ADD COLUMN traction_suitability_override TEXT CHECK (
+        traction_suitability_override IS NULL OR traction_suitability_override IN (
+          'everyday', 'enhanced'
+        )
+      );
+    `);
+  },
+};
+
+const migrations = [
+  migrationV1,
+  migrationV2,
+  migrationV3,
+] as const satisfies readonly Migration[];
 
 async function readUserVersion(database: SqliteExecutor): Promise<number> {
   const row = await database.getFirstAsync<UserVersionRow>('PRAGMA user_version');

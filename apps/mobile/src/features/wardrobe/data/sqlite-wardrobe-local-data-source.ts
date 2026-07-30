@@ -15,7 +15,16 @@ type WardrobeItemRow = Readonly<{
   local_profile_id: string;
   name: string | null;
   category: string;
+  garment_type_id: string | null;
   color: string | null;
+  color_family: string | null;
+  thermal_level_override: string | null;
+  water_protection_override: string | null;
+  wind_protection_override: string | null;
+  breathability_override: string | null;
+  arm_coverage_override: string | null;
+  leg_coverage_override: string | null;
+  traction_suitability_override: string | null;
   photo_relative_path: string | null;
   created_at: string;
   updated_at: string;
@@ -27,7 +36,16 @@ const wardrobeItemColumns = `
   local_profile_id,
   name,
   category,
+  garment_type_id,
   color,
+  color_family,
+  thermal_level_override,
+  water_protection_override,
+  wind_protection_override,
+  breathability_override,
+  arm_coverage_override,
+  leg_coverage_override,
+  traction_suitability_override,
   photo_relative_path,
   created_at,
   updated_at,
@@ -40,7 +58,16 @@ function mapRow(row: WardrobeItemRow): WardrobeItemRecord {
     localProfileId: row.local_profile_id,
     name: row.name,
     category: row.category,
+    garmentTypeId: row.garment_type_id,
     color: row.color,
+    colorFamily: row.color_family,
+    thermalLevelOverride: row.thermal_level_override,
+    waterProtectionOverride: row.water_protection_override,
+    windProtectionOverride: row.wind_protection_override,
+    breathabilityOverride: row.breathability_override,
+    armCoverageOverride: row.arm_coverage_override,
+    legCoverageOverride: row.leg_coverage_override,
+    tractionSuitabilityOverride: row.traction_suitability_override,
     photoRelativePath: row.photo_relative_path,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -85,19 +112,37 @@ export class SqliteWardrobeLocalDataSource implements WardrobeLocalDataSource {
             local_profile_id,
             name,
             category,
+            garment_type_id,
             color,
+            color_family,
+            thermal_level_override,
+            water_protection_override,
+            wind_protection_override,
+            breathability_override,
+            arm_coverage_override,
+            leg_coverage_override,
+            traction_suitability_override,
             photo_relative_path,
             created_at,
             updated_at,
             deleted_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         [
           record.id,
           record.localProfileId,
           record.name,
           record.category,
+          record.garmentTypeId,
           record.color,
+          record.colorFamily,
+          record.thermalLevelOverride,
+          record.waterProtectionOverride,
+          record.windProtectionOverride,
+          record.breathabilityOverride,
+          record.armCoverageOverride,
+          record.legCoverageOverride,
+          record.tractionSuitabilityOverride,
           record.photoRelativePath,
           record.createdAt,
           record.updatedAt,
@@ -161,7 +206,16 @@ export class SqliteWardrobeLocalDataSource implements WardrobeLocalDataSource {
           SET
             name = ?,
             category = ?,
+            garment_type_id = ?,
             color = ?,
+            color_family = ?,
+            thermal_level_override = ?,
+            water_protection_override = ?,
+            wind_protection_override = ?,
+            breathability_override = ?,
+            arm_coverage_override = ?,
+            leg_coverage_override = ?,
+            traction_suitability_override = ?,
             photo_relative_path = ?,
             updated_at = ?
           WHERE id = ? AND local_profile_id = ? AND deleted_at IS NULL
@@ -169,7 +223,16 @@ export class SqliteWardrobeLocalDataSource implements WardrobeLocalDataSource {
         [
           record.name,
           record.category,
+          record.garmentTypeId,
           record.color,
+          record.colorFamily,
+          record.thermalLevelOverride,
+          record.waterProtectionOverride,
+          record.windProtectionOverride,
+          record.breathabilityOverride,
+          record.armCoverageOverride,
+          record.legCoverageOverride,
+          record.tractionSuitabilityOverride,
           record.photoRelativePath,
           record.updatedAt,
           record.id,

@@ -8,6 +8,10 @@ import type {
   TodayLocationCode,
   WeatherConditionCode,
 } from '@/features/today/model';
+import {
+  catalogMessages,
+  type CatalogMessages,
+} from '@/features/catalog/localization/catalog-messages';
 
 type OutfitCopy = Readonly<{
   title: string;
@@ -79,6 +83,7 @@ export type PreferenceMessages = Readonly<{
 }>;
 
 export type AppMessages = Readonly<{
+  catalog: CatalogMessages;
   common: Readonly<{
     back: string;
     continue: string;
@@ -116,6 +121,7 @@ export type AppMessages = Readonly<{
 }>;
 
 const en = {
+  catalog: catalogMessages.en,
   common: {
     back: 'Back',
     continue: 'Continue',
@@ -265,6 +271,7 @@ const en = {
 } satisfies AppMessages;
 
 const tr = {
+  catalog: catalogMessages.tr,
   common: {
     back: 'Geri',
     continue: 'Devam et',

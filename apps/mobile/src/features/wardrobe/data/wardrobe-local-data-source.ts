@@ -7,7 +7,16 @@ export type UpdateWardrobeItemRecord = Readonly<{
   localProfileId: string;
   name: string | null;
   category: string;
+  garmentTypeId: string | null;
   color: string | null;
+  colorFamily: string | null;
+  thermalLevelOverride: string | null;
+  waterProtectionOverride: string | null;
+  windProtectionOverride: string | null;
+  breathabilityOverride: string | null;
+  armCoverageOverride: string | null;
+  legCoverageOverride: string | null;
+  tractionSuitabilityOverride: string | null;
   photoRelativePath: string | null;
   updatedAt: string;
 }>;
