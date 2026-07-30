@@ -28,6 +28,8 @@ export type AppMessages = {
     animationsTitle: string;
     animationsBody: string;
     learnMore: string;
+    expandSection: (title: string) => string;
+    collapseSection: (title: string) => string;
   };
   web: {
     starter: string;
@@ -65,6 +67,8 @@ const en = {
     animationsTitle: 'Motion',
     animationsBody: 'Interface motion respects the system Reduce Motion preference.',
     learnMore: 'Learn more',
+    expandSection: (title: string) => `Expand ${title}`,
+    collapseSection: (title: string) => `Collapse ${title}`,
   },
   web: {
     starter: 'kuyara starter',
@@ -103,6 +107,8 @@ const tr = {
     animationsTitle: 'Hareket',
     animationsBody: 'Arayüz hareketleri sistemdeki Hareketi Azalt tercihine uyar.',
     learnMore: 'Daha fazla bilgi',
+    expandSection: (title: string) => `${title} bölümünü genişlet`,
+    collapseSection: (title: string) => `${title} bölümünü daralt`,
   },
   web: {
     starter: 'kuyara başlangıcı',

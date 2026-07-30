@@ -10,9 +10,8 @@ import { SymbolView } from 'expo-symbols';
 import { Pressable, View, StyleSheet } from 'react-native';
 
 import { ExternalLink } from './external-link';
-import { ThemedText } from './themed-text';
-import { ThemedView } from './themed-view';
 
+import { AppText, Surface } from '@/components/ui';
 import { useMessages } from '@/localization/use-messages';
 import { interaction, layout, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -40,13 +39,13 @@ export default function AppTabs() {
 export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
   return (
     <Pressable {...props} style={({ pressed }) => pressed && styles.pressed}>
-      <ThemedView
-        backgroundRole={isFocused ? 'surfaceInteractive' : 'surfaceMuted'}
+      <Surface
+        variant={isFocused ? 'interactive' : 'muted'}
         style={styles.tabButtonView}>
-        <ThemedText variant="label" themeColor={isFocused ? 'textPrimary' : 'textSecondary'}>
+        <AppText variant="label" colorRole={isFocused ? 'textPrimary' : 'textSecondary'}>
           {children}
-        </ThemedText>
-      </ThemedView>
+        </AppText>
+      </Surface>
     </Pressable>
   );
 }
@@ -57,16 +56,16 @@ export function CustomTabList(props: TabListProps) {
 
   return (
     <View {...props} style={styles.tabListContainer}>
-      <ThemedView backgroundRole="backgroundElevated" style={styles.innerContainer}>
-        <ThemedText variant="bodyStrong" style={styles.brandText}>
+      <Surface variant="elevated" style={styles.innerContainer}>
+        <AppText variant="bodyStrong" style={styles.brandText}>
           {messages.web.starter}
-        </ThemedText>
+        </AppText>
 
         {props.children}
 
         <ExternalLink href="https://docs.expo.dev" asChild>
           <Pressable style={styles.externalPressable}>
-            <ThemedText variant="label">{messages.web.docs}</ThemedText>
+            <AppText variant="label">{messages.web.docs}</AppText>
             <SymbolView
               tintColor={theme.colors.iconPrimary}
               name={{ ios: 'arrow.up.right.square', web: 'link' }}
@@ -74,7 +73,7 @@ export function CustomTabList(props: TabListProps) {
             />
           </Pressable>
         </ExternalLink>
-      </ThemedView>
+      </Surface>
     </View>
   );
 }
