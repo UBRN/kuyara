@@ -16,6 +16,9 @@ importers:
       '@expo/ui':
         specifier: ~57.0.8
         version: 57.0.8(1b351603c4bd1ad9dd0b42e82adf812e)
+      '@kuyara/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       expo:
         specifier: ~57.0.9
         version: 57.0.9(58011c8d913c70dd3db29322082a4e3b)

@@ -2,7 +2,7 @@
 
 The mobile workspace is an Expo SDK 57 and React Native application using Expo Router.
 
-The checked-in app opens through a device-local onboarding gate backed by Expo SQLite. Onboarding stores one UUID-backed local profile plus clothing, language, and appearance preferences. The Weather tab supports manual sample locations and explicit foreground device location, then persists deterministic sample weather for cache-first fresh/stale behavior. Today remains driven by its separate typed İstanbul fixture; neither surface accesses live WeatherKit, AI, or a Worker API.
+The checked-in app opens through a device-local onboarding gate backed by Expo SQLite. Onboarding stores one UUID-backed local profile plus clothing, language, and appearance preferences. The Weather tab supports manual sample locations and explicit foreground device location, then reads deterministic sample weather from the local Worker and persists it for cache-first fresh/stale behavior. Today remains driven by its separate typed İstanbul fixture; neither surface accesses live WeatherKit or AI.
 
 `index.js` is the physical mobile entry that delegates to Expo Router. Keeping the entry inside the workspace package avoids resolving the app entry itself through a pnpm symlink when Metro uses the monorepo server root.
 
@@ -12,6 +12,14 @@ From the repository root:
 pnpm install --frozen-lockfile
 pnpm --filter @kuyara/mobile start
 ```
+
+For local weather development, start the deterministic Worker in another terminal:
+
+```bash
+pnpm --filter @kuyara/worker dev --port 8788
+```
+
+The iOS Simulator and web default to `http://127.0.0.1:8788`; the Android emulator defaults to `http://10.0.2.2:8788`. Set `EXPO_PUBLIC_KUYARA_WORKER_BASE_URL` to an origin such as `http://192.168.1.10:8788` before starting Expo when a physical device needs the Mac's LAN address. Non-development builds require this variable to contain an HTTPS origin.
 
 Run the repository checks with:
 
