@@ -1,5 +1,5 @@
 import * as Crypto from 'expo-crypto';
-import { AppState, type AppStateStatus } from 'react-native';
+import { AppState, Platform, type AppStateStatus } from 'react-native';
 import { type PropsWithChildren, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 
 import { WeatherApplicationController } from '@/features/weather/application/weather-application-controller';
@@ -7,15 +7,22 @@ import {
   WeatherApplicationContext,
   type WeatherApplicationValue,
 } from '@/features/weather/application/weather-application-context';
-import { DeterministicFakeWeatherProvider } from '@/features/weather/data/deterministic-fake-weather-provider';
+import { resolveWorkerBaseUrl } from '@/config/worker-base-url';
 import { ExpoDeviceLocationGateway } from '@/features/weather/data/expo-device-location-gateway';
 import { LocalWeatherRepository } from '@/features/weather/data/weather-repository';
 import { SqliteWeatherLocalDataSource } from '@/features/weather/data/sqlite-weather-local-data-source';
+import { WorkerWeatherProvider } from '@/features/weather/data/worker-weather-provider';
 import { openKuyaraDatabase } from '@/infrastructure/sqlite/expo-sqlite-database';
 import { migrateDatabase } from '@/infrastructure/sqlite/migrations';
 
 const now = () => new Date().toISOString();
-const provider = new DeterministicFakeWeatherProvider({ now });
+const provider = new WorkerWeatherProvider({
+  baseUrl: resolveWorkerBaseUrl({
+    configuredUrl: process.env.EXPO_PUBLIC_KUYARA_WORKER_BASE_URL,
+    isDevelopment: __DEV__,
+    platform: Platform.OS === 'android' ? 'android' : Platform.OS === 'web' ? 'web' : 'ios',
+  }),
+});
 const deviceLocation = new ExpoDeviceLocationGateway();
 
 async function loadRepository() {
