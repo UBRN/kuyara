@@ -2,6 +2,8 @@
 
 ## Last Completed Milestone
 
+The mobile Weather resilience slice was completed on 2026-08-01. The provider-neutral mobile boundary now distinguishes network, service, and invalid-response failures; Weather presents cacheless network failures as offline and other provider failures as unavailable, while cached stale weather and the active location remain intact. Successful retry clears the failure, and Turkish/English accessible notices preserve the sample-data disclosure.
+
 The deterministic sample Weather Worker was deployed to a controlled Cloudflare development Worker on 2026-08-01. `kuyara-weather-dev` is available at `https://kuyara-weather-dev.ubarin08.workers.dev`; remote contract smoke tests returned 200 for a valid request, 400 for an invalid request, 405 for a wrong method, and 404 for a wrong route. Deployment version `8c0b59cd-bdaa-4dcb-a903-3c41839f5ec2` has no bindings or secrets, observability is disabled, and no WeatherKit credential or production provider is present.
 
 The mobile Worker weather adapter was completed on 2026-08-01. Mobile development now calls the local `POST /v1/weather` sample endpoint through shared Zod contracts, maps responses into the existing local snapshot model while retaining local location identity, and preserves the established SQLite cache-first and failure behavior.
@@ -27,6 +29,7 @@ The repository-scoped `kuyara-next-goal` Skill was completed and validated on 20
 - A versioned Worker weather endpoint with shared runtime contracts, deterministic local mock data, and privacy-safe error handling.
 - A controlled `workers.dev` deployment of the deterministic sample endpoint for explicit remote development use.
 - A mobile HTTP weather provider with environment-aware Worker origins, runtime response validation, and explicit contract-to-domain mapping.
+- Provider-independent mobile weather failure classification with localized offline/unavailable states, retry, and last-known-good preservation.
 - Turkish and English presentation plus System, Light, and Dark appearance preferences.
 
 Weather uses the local Worker's deterministic sample endpoint by default in development. Developers may explicitly select the remote development sample URL; production mobile configuration does not use it. The Today screen remains a deterministic mock experience, and neither it nor Weather uses production WeatherKit or a completed recommendation engine.
@@ -45,17 +48,19 @@ Weather uses the local Worker's deterministic sample endpoint by default in deve
 
 ## Current Focus
 
-- Prepare the production WeatherKit adapter behind the confirmed Worker provider boundary when Apple credentials and setup are available.
+- Design the deterministic recommendation engine in separate Apple-independent milestones, beginning with provider-independent weather-to-clothing requirement rules and boundary cases.
 
 ## Next Approved Milestones
 
-1. Integrate production WeatherKit behind the Worker provider boundary after credentials and Apple Developer setup are available.
-2. Design and implement the deterministic recommendation engine in separate focused milestones.
+1. Design and implement the deterministic recommendation engine in separate focused milestones.
+2. Integrate the resulting local recommendation flow with Today in a later focused milestone.
+3. Return to production WeatherKit behind the existing Worker provider boundary only after Apple Developer enrollment is available and the user explicitly lifts the temporary constraint.
 
 ## Known Issues or Blockers
 
 - The Worker foundation, remote development deployment, and mobile adapter have no implementation blocker; the local and remote development endpoints intentionally serve only sample data.
-- Production WeatherKit work cannot begin until credentials and Apple Developer setup are available. The provider, contract, and mobile adapter boundaries are ready, while the app intentionally continues to use local sample weather.
+- Apple Developer enrollment is pending. Production WeatherKit and credential work, TestFlight, App Store Connect and production release operations, and other membership-dependent work are paused until the user explicitly lifts the constraint. This is temporary and does not cancel WeatherKit or the iOS-first direction.
+- The provider, contract, and mobile adapter boundaries are ready, and the app intentionally continues to use only deterministic sample weather. Apple-independent development, tests, Simulator work, and release preparation remain unblocked.
 - The generated iOS project depends on a machine-local Node path. A newly generated local project may need its own ignored `.xcode.env.local` before native builds.
 
 ## Deferred Scope

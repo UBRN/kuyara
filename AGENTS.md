@@ -9,6 +9,11 @@ kuyara is an open-source weather and outfit recommendation app built with React 
 - Treat confirmed product decisions in `docs/` as authoritative. Do not silently change them.
 - Separate current MVP work from future possibilities. Do not implement speculative infrastructure.
 
+## Temporary project constraint
+
+- Apple Developer enrollment is pending. Until the user explicitly lifts this constraint, do not initiate production WeatherKit integration or credentials, TestFlight, App Store Connect or production release operations, or other work requiring active Apple Developer Program membership.
+- This does not cancel WeatherKit or the iOS release direction. Continue Apple-independent implementation, tests, Simulator work, and release preparation; keep weather provider-independent and use only the deterministic/sample provider for now.
+
 ## Working rules
 
 - Inspect the repository, applicable `AGENTS.md` files, and `git status` before editing.

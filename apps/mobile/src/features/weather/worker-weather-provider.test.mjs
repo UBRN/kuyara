@@ -67,7 +67,7 @@ test('posts only the shared location request and restores local identity while m
   assert.deepEqual(snapshot.hourly, successBody.data.hourly);
 });
 
-test('validates stable API errors before exposing their code', async () => {
+test('classifies stable API errors as service failures before exposing their code', async () => {
   const provider = new WorkerWeatherProvider({
     baseUrl: 'http://127.0.0.1:8788',
     fetch: async () => jsonResponse({ error: { code: 'weather_unavailable' } }, { status: 503 }),
@@ -76,12 +76,12 @@ test('validates stable API errors before exposing their code', async () => {
   await assert.rejects(
     () => provider.fetchSnapshot(location),
     (error) => error instanceof WorkerWeatherProviderError
-      && error.kind === 'api'
+      && error.kind === 'service'
       && error.code === 'weather_unavailable',
   );
 });
 
-test('rejects malformed success, malformed error, mismatched time zone, and network failure', async () => {
+test('classifies malformed success, malformed error, and mismatched time zone responses', async () => {
   const cases = [
     async () => jsonResponse({ data: { ...successBody.data, hourly: [] } }),
     async () => jsonResponse({ error: { code: 'provider_secret' } }, { status: 503 }),
@@ -100,13 +100,19 @@ test('rejects malformed success, malformed error, mismatched time zone, and netw
     );
   }
 
-  const offline = new WorkerWeatherProvider({
+});
+
+test('classifies a rejected fetch as a network failure without leaking its details', async () => {
+  const provider = new WorkerWeatherProvider({
     baseUrl: 'http://worker.test',
     fetch: async () => { throw new Error('offline details'); },
   });
   await assert.rejects(
-    () => offline.fetchSnapshot(location),
-    (error) => error instanceof WorkerWeatherProviderError && error.kind === 'network',
+    () => provider.fetchSnapshot(location),
+    (error) => error instanceof WorkerWeatherProviderError
+      && error.kind === 'network'
+      && error.code === null
+      && !error.message.includes('offline details'),
   );
 });
 
