@@ -158,7 +158,12 @@ export type AppMessages = Readonly<{
     retry: string;
     refresh: string;
     refreshing: string;
-    refreshFailed: string;
+    offlineTitle: string;
+    offlineBody: string;
+    offlineNotice: string;
+    unavailableTitle: string;
+    unavailableBody: string;
+    unavailableNotice: string;
     fresh: string;
     stale: string;
     updatedAt: (time: string) => string;
@@ -341,7 +346,12 @@ const en = {
     retry: 'Try again',
     refresh: 'Refresh weather',
     refreshing: 'Refreshing weather…',
-    refreshFailed: 'Refresh failed. The last matching weather remains visible.',
+    offlineTitle: 'You appear to be offline',
+    offlineBody: 'Connect to the internet and try loading weather again.',
+    offlineNotice: 'You are offline. The last matching weather remains visible.',
+    unavailableTitle: 'Weather is temporarily unavailable',
+    unavailableBody: 'The weather service could not provide valid data. Please try again.',
+    unavailableNotice: 'Weather is temporarily unavailable. The last matching weather remains visible.',
     fresh: 'Fresh',
     stale: 'May be out of date',
     updatedAt: (time) => `Last updated ${time}`,
@@ -624,7 +634,12 @@ const tr = {
     retry: 'Yeniden dene',
     refresh: 'Hava durumunu yenile',
     refreshing: 'Hava durumu yenileniyor…',
-    refreshFailed: 'Yenileme başarısız oldu. Son eşleşen hava durumu gösterilmeye devam ediyor.',
+    offlineTitle: 'Çevrimdışı görünüyorsunuz',
+    offlineBody: 'İnternete bağlanıp hava durumunu yeniden yüklemeyi deneyin.',
+    offlineNotice: 'Çevrimdışısınız. Son eşleşen hava durumu gösterilmeye devam ediyor.',
+    unavailableTitle: 'Hava durumu geçici olarak kullanılamıyor',
+    unavailableBody: 'Hava durumu servisi geçerli veri sağlayamadı. Lütfen yeniden deneyin.',
+    unavailableNotice: 'Hava durumu geçici olarak kullanılamıyor. Son eşleşen hava durumu gösterilmeye devam ediyor.',
     fresh: 'Güncel',
     stale: 'Güncelliğini yitirmiş olabilir',
     updatedAt: (time) => `Son güncelleme ${time}`,

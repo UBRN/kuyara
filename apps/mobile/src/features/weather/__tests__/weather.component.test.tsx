@@ -19,7 +19,7 @@ const initialMetrics = {
 const baseState: WeatherReadyState = {
   status: 'ready', activeLocation: null, snapshot: null, freshness: null,
   permission: { kind: 'undetermined' }, locationFlow: 'idle',
-  isSelectingLocation: false, isRefreshing: false, hasRefreshError: false,
+  isSelectingLocation: false, isRefreshing: false, refreshFailure: null,
 };
 
 function sampleSnapshot() {
@@ -89,6 +89,51 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
     await fireEvent.press(result.getByRole('button', { name: copy.useCurrentLocation }));
     expect(value.beginDeviceLocationSelection).toHaveBeenCalledTimes(1);
   });
+
+  test.each([
+    ['offline', 'offlineTitle', 'offlineBody'],
+    ['unavailable', 'unavailableTitle', 'unavailableBody'],
+  ] as const)('shows a localized cacheless %s state with an accessible retry', async (
+    refreshFailure,
+    titleKey,
+    bodyKey,
+  ) => {
+    const active = getManualLocation('sample.istanbul')!;
+    const value = createValue({ ...baseState, activeLocation: active, refreshFailure });
+    const result = await render(
+      <Providers language={language} value={value}><WeatherScreen /></Providers>,
+    );
+    const copy = messages[language].weather;
+    expect(result.getByRole('header', { name: copy[titleKey] })).toBeOnTheScreen();
+    expect(result.getByText(copy[bodyKey]).props.accessibilityLiveRegion).toBe('polite');
+    expect(result.getByText(copy.sampleDisclosure)).toBeOnTheScreen();
+    await fireEvent.press(result.getByRole('button', { name: copy.retry }));
+    expect(value.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  test.each([
+    ['offline', 'offlineNotice'],
+    ['unavailable', 'unavailableNotice'],
+  ] as const)('keeps cached stale weather visible with a localized %s notice', async (
+    refreshFailure,
+    noticeKey,
+  ) => {
+    const active = getManualLocation('sample.istanbul')!;
+    const value = createValue({
+      ...baseState,
+      activeLocation: active,
+      snapshot: sampleSnapshot(),
+      freshness: 'stale',
+      refreshFailure,
+    });
+    const result = await render(
+      <Providers language={language} value={value}><WeatherScreen /></Providers>,
+    );
+    const copy = messages[language].weather;
+    expect(result.getByText(copy.stale)).toBeOnTheScreen();
+    expect(result.getAllByText(copy.conditions.rain).length).toBeGreaterThan(0);
+    expect(result.getByText(copy[noticeKey]).props.accessibilityLiveRegion).toBe('polite');
+  });
 });
 
 test('rationale is shown before confirmation and permanent denial opens Settings', async () => {
@@ -121,14 +166,14 @@ test('selected location, stale snapshot, refreshing, failure, and hourly content
     snapshot: sampleSnapshot(),
     freshness: 'stale',
     isRefreshing: true,
-    hasRefreshError: true,
+    refreshFailure: 'unavailable',
   });
   const result = await render(
     <Providers language="en" value={value}><WeatherScreen /></Providers>,
   );
   expect(result.getByRole('radio', { name: messages.en.weather.locations[active.catalogId] }).props.accessibilityState.selected).toBe(true);
   expect(result.getByText(messages.en.weather.stale)).toBeOnTheScreen();
-  expect(result.getByText(messages.en.weather.refreshFailed)).toBeOnTheScreen();
+  expect(result.getByText(messages.en.weather.unavailableNotice).props.accessibilityLiveRegion).toBe('polite');
   expect(result.getAllByText(messages.en.weather.conditions.rain).length).toBeGreaterThan(0);
   expect(result.getByLabelText(messages.en.weather.refreshing).props.accessibilityState.busy).toBe(true);
 });

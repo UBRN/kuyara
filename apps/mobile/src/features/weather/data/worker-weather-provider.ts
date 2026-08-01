@@ -7,9 +7,11 @@ import {
 } from '@kuyara/contracts';
 
 import { mapWorkerWeatherToProvidedSnapshot } from '@/features/weather/data/worker-weather-mapper';
-import type {
-  ProvidedWeatherSnapshot,
-  WeatherProvider,
+import {
+  WeatherProviderError,
+  type ProvidedWeatherSnapshot,
+  type WeatherProvider,
+  type WeatherProviderFailureKind,
 } from '@/features/weather/data/weather-provider';
 import type { ActiveLocation } from '@/features/weather/domain/weather';
 
@@ -19,14 +21,12 @@ type Dependencies = Readonly<{
   fetch?: Fetch;
 }>;
 
-export class WorkerWeatherProviderError extends Error {
+export class WorkerWeatherProviderError extends WeatherProviderError {
   readonly code: WeatherV1ErrorCode | null;
-  readonly kind: 'api' | 'invalid-response' | 'network';
 
-  constructor(kind: WorkerWeatherProviderError['kind'], code: WeatherV1ErrorCode | null = null) {
-    super('Weather could not be loaded from the Worker.');
+  constructor(kind: WeatherProviderFailureKind, code: WeatherV1ErrorCode | null = null) {
+    super(kind);
     this.name = 'WorkerWeatherProviderError';
-    this.kind = kind;
     this.code = code;
   }
 }
@@ -70,7 +70,7 @@ export class WorkerWeatherProvider implements WeatherProvider {
     if (!response.ok) {
       const error = weatherV1ErrorSchema.safeParse(body);
       if (!error.success) throw new WorkerWeatherProviderError('invalid-response');
-      throw new WorkerWeatherProviderError('api', error.data.error.code);
+      throw new WorkerWeatherProviderError('service', error.data.error.code);
     }
 
     const success = weatherV1SuccessSchema.safeParse(body);

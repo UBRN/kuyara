@@ -11,12 +11,18 @@
 - Wardrobe photos are optional, remain on-device in the MVP, and are not sent to AI.
 - “Women's clothing” and “Men's clothing” are mutable clothing preferences, not biological-sex fields.
 
+## Temporary Apple constraint
+
+- Apple Developer enrollment is pending as of 2026-08-01. Until the user explicitly lifts this constraint, production WeatherKit integration and credentials, TestFlight, App Store Connect and production release operations, and other work requiring active Apple Developer Program membership are paused.
+- This is a temporary project constraint, not a cancellation of WeatherKit or the iOS-first release direction. The provider abstraction remains the required architecture, and WeatherKit work will resume after membership is available and the user removes the constraint.
+- Apple-independent development, automated tests, iOS Simulator validation, and release preparation continue. Weather uses only the deterministic/sample provider during this period; no temporary real provider is selected.
+
 ## Current scaffold
 
 - The repository is a pnpm workspace with an Expo SDK 57 mobile app, a Cloudflare Worker package, and a shared contracts package.
 - The mobile app uses Expo Router and managed Continuous Native Generation. Native `ios/` and `android/` directories are generated only when needed and are not committed.
 - Expo SDK 57 sets iOS 16.4 as the minimum supported iOS version. Android remains supported by the shared Expo project.
-- The Worker has a local deterministic weather v1 foundation but no WeatherKit, AI, credential, persistence, rate-limit, deployment, or production-provider implementation.
+- The Worker has a deterministic weather v1 foundation and a controlled development-only sample deployment, but no WeatherKit, AI, credential, persistence, rate-limit, or production-provider implementation.
 - The contracts package contains the confirmed provider-neutral weather v1 request, success, and stable minimal error schemas.
 
 ## Implemented primary navigation
@@ -94,10 +100,10 @@
 
 ## Implemented mobile Worker weather adapter
 
-- Mobile depends directly on the shared contracts package and validates every Worker success or stable error body before using it. Network failures and malformed responses cross into the existing application controller only as provider failures.
+- Mobile depends directly on the shared contracts package and validates every Worker success or stable error body before using it. The provider-neutral mobile boundary distinguishes network, service, and invalid-response failures; the application presents network failures as offline and all other provider failures as unavailable.
 - Requests contain only normalized coordinates and IANA time zone. The response mapper restores the selected location key from local request context and assigns a stable local source ID; profile, catalog, permission, and accuracy identity never enters the API contract.
 - Local development defaults to the iOS/web loopback or Android emulator host alias and supports `EXPO_PUBLIC_KUYARA_WORKER_BASE_URL` for a reachable LAN origin. Non-development configuration requires an explicit HTTPS origin.
-- The provider switch does not change SQLite schema or ownership, the exact 30-minute freshness boundary, cache-first rendering, refresh coalescing, manual refresh, stale display, or last-known-good behavior.
+- The provider switch does not change SQLite schema or ownership, the exact 30-minute freshness boundary, cache-first rendering, refresh coalescing, manual refresh, stale display, or last-known-good behavior. Offline and unavailable refreshes preserve both the active location and last valid snapshot; a successful retry clears the failure.
 
 ## Approved visual identity
 
