@@ -88,6 +88,9 @@ test('mandatory thermal and coverage shortfalls remain composition-aware', () =>
     projectCatalogEffectiveGarment('long_sleeve_t_shirt', 'womens'),
   );
   assert.equal(thermalResult.status, 'eligible');
+  assert.equal(thermalResult.garment.candidateKey,
+    'catalog:long_sleeve_t_shirt');
+  assert.equal(Object.isFrozen(thermalResult.garment), true);
   assert.equal(evaluation(thermalResult, 'thermal').status, 'shortfall');
   assert.equal(evaluation(thermalResult, 'thermal').contribution, 33);
   assert.equal(evaluation(thermalResult, 'thermal').hardFailure, false);
@@ -207,6 +210,7 @@ test('directly targeted mandatory water, wind, and traction failures reject', ()
       projection,
     );
     assert.equal(result.status, 'ineligible', candidateKey(projection));
+    assert.equal(result.garment.candidateKey, candidateKey(projection));
     assert.equal(result.score, null, candidateKey(projection));
     assert.deepEqual(
       result.reasonCodes,
@@ -334,6 +338,13 @@ test('lifecycle, invalid data, unavailable catalog, and accessories fail explici
       'wardrobe_garment_invalid',
       'catalog_type_unavailable',
     ],
+  );
+
+  assert.deepEqual(
+    [deleted, legacy, invalid, unavailable].map((projection) =>
+      evaluateGarmentEligibility(clothingRequirements(), projection).garment
+    ),
+    [null, null, null, null],
   );
 
   const umbrella = evaluateGarmentEligibility(
