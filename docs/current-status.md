@@ -2,6 +2,8 @@
 
 ## Last Completed Milestone
 
+The first deterministic weather-to-clothing requirement milestone was completed on 2026-08-01. A pure provider-independent mobile domain function now converts validated current and remaining-hour weather into immutable mandatory and optional thermal, coverage, breathability, wind, water, and traction requirements with language-independent reason codes. Past daily extrema do not escalate current requirements when remaining-hour coverage exists; daily min/max retain the wide-range reason and a documented no-future-hour fallback. The slice selects no garments, Wardrobe items, layers, slots, accessories, or outfits.
+
 The mobile Weather resilience slice was completed on 2026-08-01. The provider-neutral mobile boundary now distinguishes network, service, and invalid-response failures; Weather presents cacheless network failures as offline and other provider failures as unavailable, while cached stale weather and the active location remain intact. Successful retry clears the failure, and Turkish/English accessible notices preserve the sample-data disclosure.
 
 The deterministic sample Weather Worker was deployed to a controlled Cloudflare development Worker on 2026-08-01. `kuyara-weather-dev` is available at `https://kuyara-weather-dev.ubarin08.workers.dev`; remote contract smoke tests returned 200 for a valid request, 400 for an invalid request, 405 for a wrong method, and 404 for a wrong route. Deployment version `8c0b59cd-bdaa-4dcb-a903-3c41839f5ec2` has no bindings or secrets, observability is disabled, and no WeatherKit credential or production provider is present.
@@ -30,6 +32,7 @@ The repository-scoped `kuyara-next-goal` Skill was completed and validated on 20
 - A controlled `workers.dev` deployment of the deterministic sample endpoint for explicit remote development use.
 - A mobile HTTP weather provider with environment-aware Worker origins, runtime response validation, and explicit contract-to-domain mapping.
 - Provider-independent mobile weather failure classification with localized offline/unavailable states, retry, and last-known-good preservation.
+- Deterministic provider-independent conversion from validated weather snapshots into structured clothing-property requirements, with tested boundary, conflict, precedence, and remaining-hour behavior.
 - Turkish and English presentation plus System, Light, and Dark appearance preferences.
 
 Weather uses the local Worker's deterministic sample endpoint by default in development. Developers may explicitly select the remote development sample URL; production mobile configuration does not use it. The Today screen remains a deterministic mock experience, and neither it nor Weather uses production WeatherKit or a completed recommendation engine.
@@ -48,11 +51,11 @@ Weather uses the local Worker's deterministic sample endpoint by default in deve
 
 ## Current Focus
 
-- Design the deterministic recommendation engine in separate Apple-independent milestones, beginning with provider-independent weather-to-clothing requirement rules and boundary cases.
+- Continue the deterministic recommendation engine in separate Apple-independent milestones, next by matching structured clothing requirements against canonical effective garment properties without composing complete outfits.
 
 ## Next Approved Milestones
 
-1. Design and implement the deterministic recommendation engine in separate focused milestones.
+1. Design and implement requirement-to-effective-garment eligibility and scoring as a separate focused deterministic milestone, without complete outfit composition.
 2. Integrate the resulting local recommendation flow with Today in a later focused milestone.
 3. Return to production WeatherKit behind the existing Worker provider boundary only after Apple Developer enrollment is available and the user explicitly lifts the temporary constraint.
 
