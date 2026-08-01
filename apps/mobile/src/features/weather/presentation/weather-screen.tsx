@@ -104,6 +104,19 @@ export function WeatherScreen() {
   };
   const flowMessage = flowMessages[state.locationFlow];
   const snapshot = state.snapshot;
+  const failureCopy = state.refreshFailure === 'offline'
+    ? {
+        title: copy.offlineTitle,
+        body: copy.offlineBody,
+        notice: copy.offlineNotice,
+      }
+    : state.refreshFailure === 'unavailable'
+      ? {
+          title: copy.unavailableTitle,
+          body: copy.unavailableBody,
+          notice: copy.unavailableNotice,
+        }
+      : null;
 
   return (
     <Screen contentContainerStyle={styles.content} testID="weather-screen">
@@ -208,14 +221,21 @@ export function WeatherScreen() {
         </>
       ) : (
         <Surface style={styles.card} variant="muted">
-          <AppText>{copy.noSnapshot}</AppText>
+          {failureCopy && (
+            <AppText accessibilityRole="header" variant="title">{failureCopy.title}</AppText>
+          )}
+          <AppText accessibilityLiveRegion={failureCopy ? 'polite' : undefined}>
+            {failureCopy?.body ?? copy.noSnapshot}
+          </AppText>
         </Surface>
       )}
 
-      {state.hasRefreshError && <AppText accessibilityLiveRegion="polite">{copy.refreshFailed}</AppText>}
+      {snapshot && failureCopy && (
+        <AppText accessibilityLiveRegion="polite">{failureCopy.notice}</AppText>
+      )}
       {state.activeLocation && (
         <Button
-          label={state.isRefreshing ? copy.refreshing : copy.refresh}
+          label={state.isRefreshing ? copy.refreshing : (failureCopy ? copy.retry : copy.refresh)}
           loading={state.isRefreshing}
           onPress={() => void application.refresh()}
         />

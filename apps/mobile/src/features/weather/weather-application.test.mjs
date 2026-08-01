@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { WeatherApplicationController } from './application/weather-application-controller.ts';
 import { DeterministicFakeWeatherProvider } from './data/deterministic-fake-weather-provider.ts';
 import { getManualLocation } from './data/manual-location-catalog.ts';
+import { WeatherProviderError } from './data/weather-provider.ts';
 
 const profileId = 'profile-id';
 
@@ -148,7 +149,7 @@ test('fresh cache is immediate, while stale bootstrap deduplicates refresh and k
   await Promise.all([first, second]);
   assert.equal(staleHarness.controller.getSnapshot().snapshot.fetchedAt, stale.fetchedAt);
   assert.equal(staleHarness.controller.getSnapshot().freshness, 'stale');
-  assert.equal(staleHarness.controller.getSnapshot().hasRefreshError, true);
+  assert.equal(staleHarness.controller.getSnapshot().refreshFailure, 'unavailable');
 });
 
 test('manual refresh bypasses freshness and an old request cannot replace a newly active location', async () => {
@@ -186,7 +187,7 @@ test('a committed location remains active when its follow-up cache read fails', 
   await harness.controller.selectManualLocation('sample.london');
   assert.equal(harness.controller.getSnapshot().activeLocation.locationKey, london.locationKey);
   assert.equal(harness.controller.getSnapshot().snapshot, null);
-  assert.equal(harness.controller.getSnapshot().hasRefreshError, true);
+  assert.equal(harness.controller.getSnapshot().refreshFailure, 'unavailable');
   assert.equal(harness.controller.getSnapshot().locationFlow, 'idle');
 });
 
@@ -220,12 +221,88 @@ test('future or corrupt cache is not displayed and no-cache failure is explicit'
   const harness = createHarness({
     active: istanbul,
     snapshots: [future],
-    provider: { fetchSnapshot: async () => { throw new Error('offline'); } },
+    provider: { fetchSnapshot: async () => { throw new WeatherProviderError('network'); } },
   });
   await harness.controller.initialize();
   await settle();
   assert.equal(harness.controller.getSnapshot().snapshot, null);
-  assert.equal(harness.controller.getSnapshot().hasRefreshError, true);
+  assert.equal(harness.controller.getSnapshot().refreshFailure, 'offline');
+});
+
+test('a network failure with no cached snapshot is offline and preserves the active location', async () => {
+  const istanbul = getManualLocation('sample.istanbul');
+  const harness = createHarness({
+    active: istanbul,
+    provider: { fetchSnapshot: async () => { throw new WeatherProviderError('network'); } },
+  });
+
+  await harness.controller.initialize();
+  await settle();
+  assert.equal(harness.controller.getSnapshot().snapshot, null);
+  assert.equal(harness.controller.getSnapshot().refreshFailure, 'offline');
+  assert.equal(harness.controller.getSnapshot().activeLocation.locationKey, istanbul.locationKey);
+});
+
+test('provider failures preserve a cached stale snapshot and active location for both outcomes', async () => {
+  const istanbul = getManualLocation('sample.istanbul');
+  const stale = snapshotFor(istanbul, '2026-07-30T09:29:59.999Z');
+  const cases = [
+    ['network', 'offline'],
+    ['service', 'unavailable'],
+    ['invalid-response', 'unavailable'],
+  ];
+
+  for (const [providerFailure, refreshFailure] of cases) {
+    const harness = createHarness({
+      active: istanbul,
+      snapshots: [stale],
+      provider: {
+        fetchSnapshot: async () => { throw new WeatherProviderError(providerFailure); },
+      },
+    });
+    await harness.controller.initialize();
+    await settle();
+    const state = harness.controller.getSnapshot();
+    assert.equal(state.activeLocation.locationKey, istanbul.locationKey);
+    assert.equal(state.snapshot.fetchedAt, stale.fetchedAt);
+    assert.equal(state.freshness, 'stale');
+    assert.equal(state.refreshFailure, refreshFailure);
+  }
+});
+
+test('a cacheless service failure is unavailable and retry clears only after success', async () => {
+  const istanbul = getManualLocation('sample.istanbul');
+  const outcomes = [
+    new WeatherProviderError('service'),
+    new WeatherProviderError('network'),
+    providedFor(istanbul, '2026-07-30T10:00:00.000Z', 17),
+  ];
+  const harness = createHarness({
+    active: istanbul,
+    provider: {
+      async fetchSnapshot() {
+        const outcome = outcomes.shift();
+        if (outcome instanceof Error) throw outcome;
+        return outcome;
+      },
+    },
+  });
+
+  await harness.controller.initialize();
+  await settle();
+  assert.equal(harness.controller.getSnapshot().refreshFailure, 'unavailable');
+  assert.equal(harness.controller.getSnapshot().snapshot, null);
+  assert.equal(harness.controller.getSnapshot().activeLocation.locationKey, istanbul.locationKey);
+
+  await harness.controller.refresh();
+  assert.equal(harness.controller.getSnapshot().refreshFailure, 'offline');
+  assert.equal(harness.controller.getSnapshot().snapshot, null);
+  assert.equal(harness.controller.getSnapshot().activeLocation.locationKey, istanbul.locationKey);
+
+  await harness.controller.refresh();
+  assert.equal(harness.controller.getSnapshot().refreshFailure, null);
+  assert.equal(harness.controller.getSnapshot().snapshot.current.temperatureCelsius, 17);
+  assert.equal(harness.controller.getSnapshot().activeLocation.locationKey, istanbul.locationKey);
 });
 
 test('deterministic fake supports delay, failure, hourly data, and later refresh times', async () => {

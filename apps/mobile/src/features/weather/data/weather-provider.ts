@@ -15,6 +15,21 @@ export type ProvidedWeatherSnapshot = Readonly<{
   hourly: readonly HourlyWeather[];
 }>;
 
+export type WeatherProviderFailureKind =
+  | 'network'
+  | 'service'
+  | 'invalid-response';
+
+export class WeatherProviderError extends Error {
+  readonly kind: WeatherProviderFailureKind;
+
+  constructor(kind: WeatherProviderFailureKind) {
+    super('Weather could not be loaded from the provider.');
+    this.name = 'WeatherProviderError';
+    this.kind = kind;
+  }
+}
+
 export interface WeatherProvider {
   fetchSnapshot(location: ActiveLocation): Promise<ProvidedWeatherSnapshot>;
 }

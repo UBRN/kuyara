@@ -130,6 +130,8 @@ The development composition uses the network-backed Worker provider adapter. It 
 
 The Worker origin resolves from `EXPO_PUBLIC_KUYARA_WORKER_BASE_URL` when set. Development otherwise defaults to `http://127.0.0.1:8788` for the iOS Simulator and web, or `http://10.0.2.2:8788` for the Android emulator. Physical devices use an explicit reachable LAN origin. Non-development composition requires an explicit HTTPS origin. This configuration changes only the remote provider boundary: SQLite remains the source of truth, and exact 30-minute freshness, cache-first rendering, request deduplication, manual refresh, last-known-good preservation, and failure presentation remain owned by the existing controller and repository.
 
+The mobile provider boundary classifies failures without depending on the Worker adapter: transport rejection is `network`, a validated non-success response is `service`, and malformed success or error data is `invalid-response`. The application maps only `network` to an offline outcome; every other provider or persistence failure becomes unavailable. A cached snapshot and its active location remain visible for either outcome, and only a successfully validated and persisted retry clears the failure. Local repository failures during bootstrap still use the existing screen-level load error rather than appearing as network failures.
+
 ### Local profile lifecycle
 
 The data source performs get-or-create in an exclusive transaction. It reads the singleton first, then uses `INSERT OR IGNORE` with a newly generated Expo Crypto UUID v4 and reads the winning row. The in-memory initialization promise coalesces repeated React/Strict Mode calls, while the schema constraint protects across data-source instances. The UUID is never regenerated once a row exists and is never shown or logged.
@@ -168,13 +170,15 @@ The fixture boundary can later be replaced by a controller or repository result 
 
 ## Worker and contract boundaries
 
+Apple Developer enrollment is temporarily pending. Production WeatherKit integration and credential work are therefore paused until the user explicitly lifts the constraint; this is not an architectural cancellation. The checked-in composition continues to use only deterministic sample weather while Apple-independent implementation, testing, Simulator work, and release preparation proceed.
+
 The Worker is the server-side boundary for future WeatherKit and AI provider calls, credential protection, validation, and operational limits. It now exposes the first versioned mobile API boundary at `POST /v1/weather`. The route accepts only normalized integer hundredth-degree coordinates and an IANA time zone; it does not accept a profile ID, location key, permission state, accuracy label, or raw native location payload.
 
 `packages/contracts` owns the strict Zod request, success, and stable error schemas plus their inferred TypeScript types. The success contract uses the same settled weather condition vocabulary and validates timestamps, measurement ranges, minimum/current/maximum relationships, and ordered same-local-day hourly entries. Its provenance is only `sample | live`; provider names and provider payloads do not cross the shared API.
 
 The Worker route validates the request before invoking an injected provider. The provider returns a provider-neutral internal snapshot, and an explicit mapper validates and converts that model into the shared success DTO. Provider failures and invalid provider values become the same minimal `weather_unavailable` response; invalid requests, unknown routes, wrong methods, and unexpected failures have their own stable codes without localized messages, provider details, stacks, or configuration data.
 
-The checked-in composition uses a deterministic local mock with an injected clock and explicit `sample` provenance. It has no credentials, bindings, authentication, persistence, rate limiting, upstream network call, or deployment configuration. The route sets `Cache-Control: no-store` and does not log coordinates or request bodies. A future WeatherKit adapter will implement the same internal provider interface and keep signing, secrets, and raw provider validation entirely inside the Worker.
+The checked-in composition uses a deterministic local mock with an injected clock and explicit `sample` provenance. It has no credentials, bindings, authentication, persistence, rate limiting, or upstream network call. The route sets `Cache-Control: no-store` and does not log coordinates or request bodies. Each future real provider must have its own adapter-local raw response validation, unit and condition normalization, and provider-specific error mapping before producing the existing provider-neutral snapshot. A future WeatherKit adapter will implement that same interface and keep signing, secrets, and raw provider data entirely inside the Worker.
 
 ## Data flow once implemented
 

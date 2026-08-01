@@ -7,7 +7,10 @@ import {
   WeatherRepositoryError,
   type WeatherRepository,
 } from '@/features/weather/data/weather-repository';
-import type { WeatherProvider } from '@/features/weather/data/weather-provider';
+import {
+  WeatherProviderError,
+  type WeatherProvider,
+} from '@/features/weather/data/weather-provider';
 import {
   weatherFreshness,
   type ActiveLocation,
@@ -25,6 +28,8 @@ export type LocationFlowState =
   | 'lookup-failed'
   | 'selection-failed';
 
+export type WeatherRefreshFailure = 'offline' | 'unavailable';
+
 export type WeatherReadyState = Readonly<{
   status: 'ready';
   activeLocation: ActiveLocation | null;
@@ -34,7 +39,7 @@ export type WeatherReadyState = Readonly<{
   locationFlow: LocationFlowState;
   isSelectingLocation: boolean;
   isRefreshing: boolean;
-  hasRefreshError: boolean;
+  refreshFailure: WeatherRefreshFailure | null;
 }>;
 
 export type WeatherApplicationState =
@@ -182,7 +187,7 @@ export class WeatherApplicationController {
         status: 'ready', activeLocation, snapshot,
         freshness,
         permission, locationFlow: 'idle', isSelectingLocation: false,
-        isRefreshing: false, hasRefreshError: false,
+        isRefreshing: false, refreshFailure: null,
       });
       if (activeLocation && freshness !== 'fresh') void this.refreshLocation(activeLocation);
     } catch {
@@ -221,7 +226,7 @@ export class WeatherApplicationController {
 
     this.setReady({
       ...this.requireReady(), activeLocation: persisted, snapshot: null,
-      freshness: null, isRefreshing: false, hasRefreshError: false,
+      freshness: null, isRefreshing: false, refreshFailure: null,
     });
 
     try {
@@ -232,12 +237,12 @@ export class WeatherApplicationController {
       this.setReady({
         ...this.requireReady(), snapshot: loadedFreshness === 'invalid' ? null : loadedSnapshot,
         freshness: loadedFreshness === 'invalid' ? null : loadedFreshness,
-        isSelectingLocation: false, isRefreshing: false, hasRefreshError: false,
+        isSelectingLocation: false, isRefreshing: false, refreshFailure: null,
       });
       if (loadedFreshness !== 'fresh') void this.refreshLocation(persisted);
     } catch {
       this.setReady({
-        ...this.requireReady(), isSelectingLocation: false, hasRefreshError: true,
+        ...this.requireReady(), isSelectingLocation: false, refreshFailure: 'unavailable',
       });
     }
   }
@@ -246,7 +251,7 @@ export class WeatherApplicationController {
     const existing = this.refreshes.get(location.locationKey);
     if (existing) return existing;
     if (this.state.status === 'ready' && this.state.activeLocation?.locationKey === location.locationKey) {
-      this.setReady({ ...this.state, isRefreshing: true, hasRefreshError: false });
+      this.setReady({ ...this.state, isRefreshing: true });
     }
     const promise = this.refreshOnce(location).finally(() => this.refreshes.delete(location.locationKey));
     this.refreshes.set(location.locationKey, promise);
@@ -268,12 +273,19 @@ export class WeatherApplicationController {
         this.setReady({
           ...this.state, snapshot,
           freshness: freshness === 'invalid' ? null : freshness,
-          isRefreshing: false, hasRefreshError: false,
+          isRefreshing: false, refreshFailure: null,
         });
       }
-    } catch {
+    } catch (error) {
       if (this.state.status === 'ready' && this.state.activeLocation?.locationKey === location.locationKey) {
-        this.setReady({ ...this.state, isRefreshing: false, hasRefreshError: true });
+        this.setReady({
+          ...this.state,
+          isRefreshing: false,
+          refreshFailure:
+            error instanceof WeatherProviderError && error.kind === 'network'
+              ? 'offline'
+              : 'unavailable',
+        });
       }
     }
   }

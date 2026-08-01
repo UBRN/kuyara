@@ -1,5 +1,9 @@
 # kuyara testing conventions
 
+## Temporary Apple constraint
+
+Apple Developer enrollment is pending. Until the user explicitly removes this constraint, validation must not initiate WeatherKit credential or production integration work, TestFlight, App Store Connect, production release operations, or another step requiring active Apple Developer Program membership. Apple-independent unit, contract, component, Worker dry-run, and iOS Simulator checks continue normally. Weather integration tests use deterministic providers and fixed raw-response fixtures rather than live external weather calls.
+
 ## Shared contract and Worker tests
 
 The weather v1 schemas and invariant checks use Node 24's built-in test runner. Run them from the repository root with:
@@ -62,7 +66,7 @@ The same focused suite validates every taxonomy enum and Zod schema, all 30 immu
 
 Wardrobe application tests additionally cover form-value mapping, catalog-derived property applicability, hidden legacy-field preservation, type-change reset behavior, UUID route validation, list loading/retry state, duplicate mutation coalescing, and confirmed-write fallback when a follow-up list read fails. RNTL tests cover localized empty/list/error states, catalog labels, create/edit validation, selected semantics, busy state, retryable save/delete failures, type-change and delete confirmation boundaries, dirty-state navigation intent, not-found recovery, and semantic light/dark rendering.
 
-Weather tests execute migration version 4 and its rollback, validate source-specific location records, normalized coordinate keys, profile/location isolation, atomic snapshot replacement, bounded retention, exact 30-minute freshness, same-local-day hourly entries, and invalid stored data. Controller tests cover prompt-free bootstrap, the rationale-before-request boundary, approximate accuracy, requestable/permanent denial, Settings recovery, disabled services, cache-first launch, stale background refresh, refresh failure preservation, request coalescing, and location-switch races. The deterministic provider's success, delayed stale success, and failure paths are reproducible. RNTL covers English and Turkish manual selection, sample disclosure, permission rationale and Settings states, stale/failure labeling, refresh intent, and hourly accessibility output.
+Weather tests execute migration version 4 and its rollback, validate source-specific location records, normalized coordinate keys, profile/location isolation, atomic snapshot replacement, bounded retention, exact 30-minute freshness, same-local-day hourly entries, and invalid stored data. Provider and controller tests cover network, stable service, and invalid-response classification; cacheless offline/unavailable outcomes; cached stale preservation; successful and failed retry; active-location preservation; prompt-free bootstrap; permission states; refresh coalescing; and location-switch races. The deterministic provider's success, delayed stale success, and failure paths are reproducible. RNTL covers English and Turkish offline/unavailable states, retry intent, live-region announcements, manual selection, sample disclosure, permission handling, stale notices, and hourly accessibility output.
 
 Presentation tests should focus on pure onboarding/route decisions, localization completeness, accessibility contracts, navigation intents, and source boundaries. Simulator verification remains required for genuine persistence across termination/relaunch, complete navigation behavior, native accessibility output, Dynamic Type, appearances, Reduced Motion, and visual regressions.
 

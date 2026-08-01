@@ -93,7 +93,7 @@ function TestProviders({
             state: {
               status: 'ready', activeLocation: null, snapshot: null, freshness: null,
               permission: { kind: 'undetermined' }, locationFlow: 'idle',
-              isSelectingLocation: false, isRefreshing: false, hasRefreshError: false,
+              isSelectingLocation: false, isRefreshing: false, refreshFailure: null,
             },
             retry: async () => undefined,
             dismissLocationFlow: () => undefined,
