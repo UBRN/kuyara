@@ -2,5 +2,15 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "kuyara-worker",
   "main": "src/index.ts",
-  "compatibility_date": "2026-07-29"
+  "compatibility_date": "2026-07-29",
+  "env": {
+    "development": {
+      "name": "kuyara-weather-dev",
+      "workers_dev": true,
+      "preview_urls": false,
+      "observability": {
+        "enabled": false
+      }
+    }
+  }
 }
