@@ -2,6 +2,8 @@
 
 ## Last Completed Milestone
 
+The deterministic garment eligibility and scoring milestone was completed on 2026-08-01. Bundled catalog defaults and resolved owned-item overrides now converge on one canonical effective-property input. The pure evaluator records composition-aware thermal, breathability, and arm/leg coverage contributions without rejecting useful individual layers; only mandatory targeted outerwear water/wind and footwear water/traction failures hard-reject. Eligible candidates receive deterministic bounded `0..100` scores, stable language-independent reasons, and candidate-key tie ordering. Catalog preference filters bundled candidates only, lifecycle and invalid-data failures are explicit, and no garment combinations, slots, selected roles, or outfits are produced.
+
 The first deterministic weather-to-clothing requirement milestone was completed on 2026-08-01. A pure provider-independent mobile domain function now converts validated current and remaining-hour weather into immutable mandatory and optional thermal, coverage, breathability, wind, water, and traction requirements with language-independent reason codes. Past daily extrema do not escalate current requirements when remaining-hour coverage exists; daily min/max retain the wide-range reason and a documented no-future-hour fallback. The slice selects no garments, Wardrobe items, layers, slots, accessories, or outfits.
 
 The mobile Weather resilience slice was completed on 2026-08-01. The provider-neutral mobile boundary now distinguishes network, service, and invalid-response failures; Weather presents cacheless network failures as offline and other provider failures as unavailable, while cached stale weather and the active location remain intact. Successful retry clears the failure, and Turkish/English accessible notices preserve the sample-data disclosure.
@@ -33,9 +35,10 @@ The repository-scoped `kuyara-next-goal` Skill was completed and validated on 20
 - A mobile HTTP weather provider with environment-aware Worker origins, runtime response validation, and explicit contract-to-domain mapping.
 - Provider-independent mobile weather failure classification with localized offline/unavailable states, retry, and last-known-good preservation.
 - Deterministic provider-independent conversion from validated weather snapshots into structured clothing-property requirements, with tested boundary, conflict, precedence, and remaining-hour behavior.
+- Pure catalog/Wardrobe effective-property projection and deterministic per-garment eligibility, requirement evaluation, bounded scoring, over-protection penalties, and stable tie behavior.
 - Turkish and English presentation plus System, Light, and Dark appearance preferences.
 
-Weather uses the local Worker's deterministic sample endpoint by default in development. Developers may explicitly select the remote development sample URL; production mobile configuration does not use it. The Today screen remains a deterministic mock experience, and neither it nor Weather uses production WeatherKit or a completed recommendation engine.
+Weather uses the local Worker's deterministic sample endpoint by default in development. Developers may explicitly select the remote development sample URL; production mobile configuration does not use it. The Today screen remains a deterministic mock experience and does not yet consume the domain recommendation rules; production WeatherKit and complete outfit composition are not implemented.
 
 ## Development Environment
 
@@ -51,11 +54,11 @@ Weather uses the local Worker's deterministic sample endpoint by default in deve
 
 ## Current Focus
 
-- Continue the deterministic recommendation engine in separate Apple-independent milestones, next by matching structured clothing requirements against canonical effective garment properties without composing complete outfits.
+- Continue the deterministic recommendation engine in separate Apple-independent milestones, next by composing compatible eligible garments while reusing the recorded per-requirement evaluations.
 
 ## Next Approved Milestones
 
-1. Design and implement requirement-to-effective-garment eligibility and scoring as a separate focused deterministic milestone, without complete outfit composition.
+1. Design and implement deterministic outfit composition from compatible eligible garments as a separate focused milestone, without UI integration.
 2. Integrate the resulting local recommendation flow with Today in a later focused milestone.
 3. Return to production WeatherKit behind the existing Worker provider boundary only after Apple Developer enrollment is available and the user explicitly lifts the temporary constraint.
 
