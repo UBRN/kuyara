@@ -2,6 +2,8 @@
 
 ## Last Completed Milestone
 
+The Cloudflare Worker foundation and versioned weather v1 contract were completed on 2026-08-01. `POST /v1/weather` now validates normalized coordinates and IANA time zones through shared Zod contracts, uses an injected provider-neutral boundary and explicit API mapper, and serves deterministic sample data locally with stable sanitized errors.
+
 The Wardrobe list navigation regression was corrected on 2026-08-01. Add and edit actions now use the documented absolute Wardrobe routes, with focused route-level regression coverage.
 
 The minimal local Maestro foundation was completed on 2026-08-01. It adds the current official local CLI workflow, repository-local configuration, and two independently reset iOS Simulator flows covering onboarding and persisted preference updates.
@@ -18,9 +20,10 @@ The repository-scoped `kuyara-next-goal` Skill was completed and validated on 20
 - A private, single-photo Wardrobe lifecycle covering system-library selection, resize/compression, relative-path persistence, replacement, removal, and safe cleanup.
 - Foreground-only manual or device location selection with localized permission handling.
 - Device-local weather snapshots with exact 30-minute freshness behavior, stale-data preservation, manual refresh, and deterministic sample data.
+- A versioned Worker weather endpoint with shared runtime contracts, deterministic local mock data, and privacy-safe error handling.
 - Turkish and English presentation plus System, Light, and Dark appearance preferences.
 
-Weather currently uses the local deterministic sample-provider path. The Today screen remains a deterministic mock experience; neither it nor Weather uses production WeatherKit or a completed recommendation engine.
+Weather currently uses the mobile-local deterministic sample-provider path; it is not yet wired to the Worker endpoint. The Today screen remains a deterministic mock experience, and neither it nor Weather uses production WeatherKit or a completed recommendation engine.
 
 ## Development Environment
 
@@ -35,19 +38,18 @@ Weather currently uses the local deterministic sample-provider path. The Today s
 
 ## Current Focus
 
-- Plan the Cloudflare Worker foundation and versioned weather contract.
+- Prepare the production WeatherKit adapter behind the confirmed Worker provider boundary when Apple credentials and setup are available.
 
 ## Next Approved Milestones
 
-1. Plan and implement the Cloudflare Worker foundation and versioned weather contract.
-2. Integrate production WeatherKit later, after credentials and provider boundaries are ready.
+1. Integrate production WeatherKit behind the Worker provider boundary after credentials and Apple Developer setup are available.
+2. Add the mobile Worker HTTP adapter and deliberately switch weather composition in a separate focused Goal.
 3. Design and implement the deterministic recommendation engine in separate focused milestones.
 
 ## Known Issues or Blockers
 
-- No known blocker prevents the next approved milestone.
-- The Worker currently exposes no production weather API, and `packages/contracts` has no confirmed weather request/response contract.
-- Production WeatherKit work cannot begin until credentials and the Worker/provider boundaries are ready; the app intentionally continues to use sample weather.
+- The Worker foundation has no implementation blocker; its local endpoint intentionally serves only sample data.
+- Production WeatherKit work cannot begin until credentials and Apple Developer setup are available. The provider and contract boundaries are now ready, while the app intentionally continues to use local sample weather.
 - The generated iOS project depends on a machine-local Node path. A newly generated local project may need its own ignored `.xcode.env.local` before native builds.
 
 ## Deferred Scope

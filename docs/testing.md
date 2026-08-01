@@ -1,5 +1,21 @@
 # kuyara testing conventions
 
+## Shared contract and Worker tests
+
+The weather v1 schemas and invariant checks use Node 24's built-in test runner. Run them from the repository root with:
+
+```bash
+pnpm --filter @kuyara/contracts test
+```
+
+The Worker suite calls the production request handler directly with Web-standard `Request` and `Response` objects and injected providers:
+
+```bash
+pnpm --filter @kuyara/worker test
+```
+
+The focused coverage includes strict normalized-coordinate and IANA-time-zone requests, the complete condition vocabulary, timestamp and measurement constraints, minimum/current/maximum consistency, ordered same-local-day hourly data, stable error shapes, deterministic sample output, route/method handling, malformed input, provider failure, invalid provider output, and privacy-safe responses. This does not require a Worker-runtime test framework because the foundation uses only Web APIs and injected boundaries; local Wrangler smoke testing covers the actual development runtime.
+
 ## Mobile unit and boundary tests
 
 The mobile workspace uses Node's built-in test runner with Node's TypeScript stripping and the checked-in path resolver. Run every current mobile test from the repository root with:

@@ -16,8 +16,8 @@
 - The repository is a pnpm workspace with an Expo SDK 57 mobile app, a Cloudflare Worker package, and a shared contracts package.
 - The mobile app uses Expo Router and managed Continuous Native Generation. Native `ios/` and `android/` directories are generated only when needed and are not committed.
 - Expo SDK 57 sets iOS 16.4 as the minimum supported iOS version. Android remains supported by the shared Expo project.
-- The Worker currently has no WeatherKit, AI, credential, persistence, rate-limit, or production API implementation.
-- The contracts package intentionally contains no request/response schemas until an API contract is confirmed.
+- The Worker has a local deterministic weather v1 foundation but no WeatherKit, AI, credential, persistence, rate-limit, deployment, or production-provider implementation.
+- The contracts package contains the confirmed provider-neutral weather v1 request, success, and stable minimal error schemas.
 
 ## Implemented primary navigation
 
@@ -83,6 +83,14 @@
 - A cached snapshot is fresh through exactly 30 minutes and stale after that boundary. Fresh cache renders without a fetch; stale cache renders immediately and refreshes in the background. Manual refresh is always available, and refresh failure preserves and labels the last valid result.
 - The current provider is a deterministic, visibly disclosed sample source with reproducible success, delayed-stale-success, and failure paths. It performs no network request and is replaceable behind a narrow provider interface.
 - This slice does not add WeatherKit, Worker API routes, shared network contracts, TanStack Query, recommendation rules, AI, accounts, synchronization, analytics, notifications, background location, or background refresh.
+
+## Implemented Worker weather v1 foundation
+
+- `POST /v1/weather` accepts only normalized integer hundredth-degree latitude/longitude values and an IANA time zone. Profile IDs, location keys, native permission data, accuracy labels, and raw coordinates are not part of the API.
+- Shared strict Zod schemas define the request, provider-neutral success data, established condition codes and weather invariants, and minimal stable error codes. The response identifies data only as `sample` or `live`; WeatherKit names and raw provider structures remain internal.
+- The Worker validates before provider access, maps an injected provider-neutral model through an explicit API mapper, and sanitizes invalid input, route/method failures, unavailable or invalid provider data, and unexpected errors. Responses do not expose provider details, stacks, secrets, or internal configuration.
+- The current Worker composition uses a deterministic clock-injected local mock and marks every success as sample data. It has no upstream call, credential, secret, binding, authentication, persistence, rate limiting, deployment, DNS, or remote resource.
+- The mobile app remains wired to its existing local deterministic provider. Its Worker HTTP adapter, base URL configuration, contract-to-domain mapper, and provider switch are deferred with production WeatherKit integration.
 
 ## Approved visual identity
 

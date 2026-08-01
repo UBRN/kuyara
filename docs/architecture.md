@@ -162,9 +162,13 @@ The fixture boundary can later be replaced by a controller or repository result 
 
 ## Worker and contract boundaries
 
-The Worker is the server-side boundary for future WeatherKit and AI provider calls, credential protection, validation, and operational limits. Its current entrypoint deliberately returns an empty response and exposes no invented production API.
+The Worker is the server-side boundary for future WeatherKit and AI provider calls, credential protection, validation, and operational limits. It now exposes the first versioned mobile API boundary at `POST /v1/weather`. The route accepts only normalized integer hundredth-degree coordinates and an IANA time zone; it does not accept a profile ID, location key, permission state, accuracy label, or raw native location payload.
 
-`packages/contracts` is reserved for Zod schemas shared by mobile and Worker and the TypeScript types inferred from them. It currently exports no schema because no request or response contract has been confirmed. Provider payloads, API DTOs, domain models, and persistence records must not be merged into one model.
+`packages/contracts` owns the strict Zod request, success, and stable error schemas plus their inferred TypeScript types. The success contract uses the same settled weather condition vocabulary and validates timestamps, measurement ranges, minimum/current/maximum relationships, and ordered same-local-day hourly entries. Its provenance is only `sample | live`; provider names and provider payloads do not cross the shared API.
+
+The Worker route validates the request before invoking an injected provider. The provider returns a provider-neutral internal snapshot, and an explicit mapper validates and converts that model into the shared success DTO. Provider failures and invalid provider values become the same minimal `weather_unavailable` response; invalid requests, unknown routes, wrong methods, and unexpected failures have their own stable codes without localized messages, provider details, stacks, or configuration data.
+
+The checked-in composition uses a deterministic local mock with an injected clock and explicit `sample` provenance. It has no credentials, bindings, authentication, persistence, rate limiting, upstream network call, or deployment configuration. The route sets `Cache-Control: no-store` and does not log coordinates or request bodies. A future WeatherKit adapter will implement the same internal provider interface and keep signing, secrets, and raw provider validation entirely inside the Worker.
 
 ## Data flow once implemented
 
@@ -173,4 +177,4 @@ The Worker is the server-side boundary for future WeatherKit and AI provider cal
 3. The Worker validates input, calls privileged providers, validates their output, and returns a versioned response defined in the contracts package.
 4. The mobile client validates the response before mapping it into domain state and preserves the last known good snapshot if refresh fails.
 
-This describes the approved direction. The local profile, profile-owned wardrobe persistence, catalog classification, first Wardrobe CRUD presentation, foreground location choice, and persisted sample weather are implemented; Worker APIs, remote request state, live WeatherKit data, recommendation logic, and remote synchronization remain deferred.
+Step 3 and the shared contract needed by step 4 now exist and are exercised locally with the deterministic mock. Mobile still uses its existing device-local sample provider, so its Worker HTTP client and response mapping, remote request state, live WeatherKit adapter, recommendation logic, and remote synchronization remain deferred.
