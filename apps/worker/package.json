@@ -5,8 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
+    "test": "node --experimental-strip-types --test src/weather-handler.test.mjs",
     "typecheck": "tsc --noEmit",
     "bundle": "wrangler deploy --dry-run --outdir dist"
+  },
+  "dependencies": {
+    "@kuyara/contracts": "workspace:*"
   },
   "devDependencies": {
     "typescript": "~6.0.3",
