@@ -2,6 +2,8 @@
 
 ## Last Completed Milestone
 
+The Wardrobe list navigation regression was corrected on 2026-08-01. Add and edit actions now use the documented absolute Wardrobe routes, with focused route-level regression coverage.
+
 The minimal local Maestro foundation was completed on 2026-08-01. It adds the current official local CLI workflow, repository-local configuration, and two independently reset iOS Simulator flows covering onboarding and persisted preference updates.
 
 The last completed product milestone is the device-local weather foundation (`dcb39ae`, 2026-07-30). It added foreground-only location selection, normalized approximate device coordinates, persisted local weather snapshots, bounded stale-cache behavior, and a deterministic sample provider. Production WeatherKit is not integrated.
@@ -44,7 +46,6 @@ Weather currently uses the local deterministic sample-provider path. The Today s
 ## Known Issues or Blockers
 
 - No known blocker prevents the next approved milestone.
-- The Wardrobe empty-state add action currently resolves to `kuyara:///` and opens Expo Router's Unmatched Route screen on iOS; its route must be corrected in a separate product-fix milestone before Wardrobe creation is suitable for a stable Maestro flow.
 - The Worker currently exposes no production weather API, and `packages/contracts` has no confirmed weather request/response contract.
 - Production WeatherKit work cannot begin until credentials and the Worker/provider boundaries are ready; the app intentionally continues to use sample weather.
 - The generated iOS project depends on a machine-local Node path. A newly generated local project may need its own ignored `.xcode.env.local` before native builds.
