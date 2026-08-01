@@ -113,7 +113,11 @@ weather repository and validated domain snapshots
         ↓                         ↓
 SQLite weather data source        provider interface
                                   ↓
-                          deterministic sample provider
+                         Worker HTTP provider adapter
+                                  ↓
+                    shared weather v1 Zod contracts
+                                  ↓
+                    local Worker sample provider
 ```
 
 The controller owns bootstrap, location-selection intent, permission rationale, foreground-only device lookup, fresh/stale evaluation, refresh coalescing, location-switch races, and foreground revalidation. It reads permission state during bootstrap without prompting. The native foreground permission request occurs only after the user selects device location and confirms the localized rationale; permanently denied access offers the platform Settings action. Manual selection remains available without permission.
@@ -122,7 +126,9 @@ The `expo-location` adapter is the only feature code that imports the native loc
 
 SQLite is the durable source of truth for the active selection and the last valid snapshots. A cache is fresh through exactly 30 minutes, stale after that boundary, and still rendered while a background or manual refresh runs. Failed refreshes never erase the prior valid snapshot. A refresh result is published only if it still belongs to the selected location; the repository validates time zone, source/location identity, measurements, ordering, and same-local-day hourly membership before persistence.
 
-The checked-in provider is deterministic development data with disclosed sample provenance. It supports success, delayed stale success, and failure scenarios without network access. It is replaceable through the provider interface; WeatherKit, Worker endpoints, shared request/response contracts, TanStack Query, recommendation logic, and AI remain outside this slice.
+The development composition uses the network-backed Worker provider adapter. It sends only normalized coordinates and the selected IANA time zone to `POST /v1/weather`, validates success and stable error bodies with the shared Zod contracts, then maps valid data into the existing provider snapshot. The mapper restores the device-local location key from the request context; profile identity, catalog identity, permission state, and accuracy remain outside the API. The existing deterministic in-process provider remains available to focused tests but is no longer the application composition.
+
+The Worker origin resolves from `EXPO_PUBLIC_KUYARA_WORKER_BASE_URL` when set. Development otherwise defaults to `http://127.0.0.1:8788` for the iOS Simulator and web, or `http://10.0.2.2:8788` for the Android emulator. Physical devices use an explicit reachable LAN origin. Non-development composition requires an explicit HTTPS origin. This configuration changes only the remote provider boundary: SQLite remains the source of truth, and exact 30-minute freshness, cache-first rendering, request deduplication, manual refresh, last-known-good preservation, and failure presentation remain owned by the existing controller and repository.
 
 ### Local profile lifecycle
 
@@ -177,4 +183,4 @@ The checked-in composition uses a deterministic local mock with an injected cloc
 3. The Worker validates input, calls privileged providers, validates their output, and returns a versioned response defined in the contracts package.
 4. The mobile client validates the response before mapping it into domain state and preserves the last known good snapshot if refresh fails.
 
-Step 3 and the shared contract needed by step 4 now exist and are exercised locally with the deterministic mock. Mobile still uses its existing device-local sample provider, so its Worker HTTP client and response mapping, remote request state, live WeatherKit adapter, recommendation logic, and remote synchronization remain deferred.
+Steps 2 through 4 now operate end-to-end in local development through the HTTP adapter and deterministic Worker sample endpoint. Production WeatherKit, authentication, operational limits, recommendation logic, and remote synchronization remain deferred.
