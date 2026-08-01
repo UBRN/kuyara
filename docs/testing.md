@@ -49,3 +49,38 @@ Wardrobe application tests additionally cover form-value mapping, catalog-derive
 Weather tests execute migration version 4 and its rollback, validate source-specific location records, normalized coordinate keys, profile/location isolation, atomic snapshot replacement, bounded retention, exact 30-minute freshness, same-local-day hourly entries, and invalid stored data. Controller tests cover prompt-free bootstrap, the rationale-before-request boundary, approximate accuracy, requestable/permanent denial, Settings recovery, disabled services, cache-first launch, stale background refresh, refresh failure preservation, request coalescing, and location-switch races. The deterministic provider's success, delayed stale success, and failure paths are reproducible. RNTL covers English and Turkish manual selection, sample disclosure, permission rationale and Settings states, stale/failure labeling, refresh intent, and hourly accessibility output.
 
 Presentation tests should focus on pure onboarding/route decisions, localization completeness, accessibility contracts, navigation intents, and source boundaries. Simulator verification remains required for genuine persistence across termination/relaunch, complete navigation behavior, native accessibility output, Dynamic Type, appearances, Reduced Motion, and visual regressions.
+
+## Local iOS end-to-end flows
+
+The repository contains two critical local Maestro flows in `.maestro/flows`:
+
+- fresh-install onboarding;
+- fresh-install onboarding followed by updating and relaunch-verifying clothing, language, and theme preferences.
+
+Both flows clear the application state at the start, run independently, and use the app's stable accessibility identifiers. They intentionally exclude Android, cloud execution, CI, screenshots, system permission permutations, and broad regression coverage.
+
+### Prerequisites
+
+- Install the current official Maestro CLI on macOS:
+
+  ```bash
+  brew tap mobile-dev-inc/tap
+  brew install mobile-dev-inc/tap/maestro
+  ```
+
+- Start an iPhone Simulator containing the local `com.ubrn.kuyara` development build.
+- Start Metro if the installed development build is not already connected to a running bundler:
+
+  ```bash
+  pnpm --filter @kuyara/mobile exec expo start
+  ```
+
+### Run
+
+From the repository root:
+
+```bash
+pnpm e2e:ios
+```
+
+Maestro reads `.maestro/config.yaml` and executes the two local flows. Each run removes Kuyara's Simulator data because the flows launch with `clearState: true`; do not use a Simulator whose local app data must be preserved.
