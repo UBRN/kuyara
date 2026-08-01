@@ -116,6 +116,7 @@ type GarmentEligibilityBase = Readonly<{
 
 export type EligibleGarmentResult = GarmentEligibilityBase & Readonly<{
   status: 'eligible';
+  garment: EffectiveGarmentCandidate;
   score: number;
   scoreBeforePenalties: number;
   penaltyPoints: number;
@@ -123,6 +124,7 @@ export type EligibleGarmentResult = GarmentEligibilityBase & Readonly<{
 
 export type IneligibleGarmentResult = GarmentEligibilityBase & Readonly<{
   status: 'ineligible';
+  garment: EffectiveGarmentCandidate | null;
   score: null;
   scoreBeforePenalties: null;
   penaltyPoints: 0;
@@ -475,12 +477,14 @@ function unnecessaryWaterPenalty(
 
 function ineligibleResult(
   candidateKey: string,
+  garment: EffectiveGarmentCandidate | null,
   evaluations: readonly GarmentRequirementEvaluation[],
   reasons: Iterable<GarmentEligibilityReasonCode>,
 ): IneligibleGarmentResult {
   return Object.freeze({
     status: 'ineligible',
     candidateKey,
+    garment,
     score: null,
     scoreBeforePenalties: null,
     penaltyPoints: 0,
@@ -494,14 +498,14 @@ export function evaluateGarmentEligibility(
   projection: EffectiveGarmentProjection,
 ): GarmentEligibilityResult {
   if (projection.status === 'rejected') {
-    return ineligibleResult(projection.candidateKey, [], [
+    return ineligibleResult(projection.candidateKey, null, [], [
       projection.reasonCode,
     ]);
   }
 
   const { garment } = projection;
   if (garment.properties.category === 'accessory') {
-    return ineligibleResult(garment.candidateKey, [], [
+    return ineligibleResult(garment.candidateKey, garment, [], [
       'unsupported_category',
     ]);
   }
@@ -516,6 +520,7 @@ export function evaluateGarmentEligibility(
   if (hardFailures.length > 0) {
     return ineligibleResult(
       garment.candidateKey,
+      garment,
       evaluations,
       hardFailures.flatMap(({ requirement }) => {
         const reason = hardFailureReason(requirement);
@@ -585,6 +590,7 @@ export function evaluateGarmentEligibility(
   return Object.freeze({
     status: 'eligible',
     candidateKey: garment.candidateKey,
+    garment,
     score: Math.max(scoreBeforePenalties - penaltyPoints, 0),
     scoreBeforePenalties,
     penaltyPoints,
