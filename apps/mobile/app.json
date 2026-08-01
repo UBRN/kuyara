@@ -8,6 +8,7 @@
     "scheme": "kuyara",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "bundleIdentifier": "com.ubrn.kuyara",
       "icon": {
         "light": "./assets/icons/kuyara-icon-ios-light.png",
         "dark": "./assets/icons/kuyara-icon-ios-dark.png",

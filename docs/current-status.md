@@ -2,6 +2,8 @@
 
 ## Last Completed Milestone
 
+The minimal local Maestro foundation was completed on 2026-08-01. It adds the current official local CLI workflow, repository-local configuration, and two independently reset iOS Simulator flows covering onboarding and persisted preference updates.
+
 The last completed product milestone is the device-local weather foundation (`dcb39ae`, 2026-07-30). It added foreground-only location selection, normalized approximate device coordinates, persisted local weather snapshots, bounded stale-cache behavior, and a deterministic sample provider. Production WeatherKit is not integrated.
 
 The repository-scoped `kuyara-next-goal` Skill was completed and validated on 2026-08-01. It provides bounded Propose, Execute, and Review workflows grounded in the current repository state.
@@ -31,18 +33,18 @@ Weather currently uses the local deterministic sample-provider path. The Today s
 
 ## Current Focus
 
-- Add a minimal local Maestro foundation for critical iOS flows.
+- Plan the Cloudflare Worker foundation and versioned weather contract.
 
 ## Next Approved Milestones
 
-1. Add a minimal local Maestro foundation with no more than two critical iOS flows.
-2. Plan and implement the Cloudflare Worker foundation and versioned weather contract.
-3. Integrate production WeatherKit later, after credentials and provider boundaries are ready.
-4. Design and implement the deterministic recommendation engine in separate focused milestones.
+1. Plan and implement the Cloudflare Worker foundation and versioned weather contract.
+2. Integrate production WeatherKit later, after credentials and provider boundaries are ready.
+3. Design and implement the deterministic recommendation engine in separate focused milestones.
 
 ## Known Issues or Blockers
 
 - No known blocker prevents the next approved milestone.
+- The Wardrobe empty-state add action currently resolves to `kuyara:///` and opens Expo Router's Unmatched Route screen on iOS; its route must be corrected in a separate product-fix milestone before Wardrobe creation is suitable for a stable Maestro flow.
 - The Worker currently exposes no production weather API, and `packages/contracts` has no confirmed weather request/response contract.
 - Production WeatherKit work cannot begin until credentials and the Worker/provider boundaries are ready; the app intentionally continues to use sample weather.
 - The generated iOS project depends on a machine-local Node path. A newly generated local project may need its own ignored `.xcode.env.local` before native builds.
