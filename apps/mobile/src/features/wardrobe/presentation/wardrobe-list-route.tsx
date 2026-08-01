@@ -18,8 +18,8 @@ export function WardrobeListRoute() {
 
   return (
     <WardrobeListScreen
-      onAdd={() => router.push('./new')}
-      onEdit={(id) => router.push(`./${id}`)}
+      onAdd={() => router.push('/wardrobe/new')}
+      onEdit={(id) => router.push(`/wardrobe/${id}`)}
       onRetry={() => void refresh()}
       resolvePhotoUri={resolvePhotoUri}
       state={state}
