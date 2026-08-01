@@ -182,3 +182,33 @@ The repository may be in transition. Inspect the real tree before assuming this 
 - Flag hard-coded user-visible strings, inaccessible controls, and missing platform fallbacks.
 - Flag speculative sync infrastructure or provider coupling added without an approved requirement.
 - Prefer CI for deterministic formatting and lint enforcement; review should focus on correctness, security, privacy, architecture, and regressions.
+
+## Efficient execution
+
+- Protect correctness, safety, and architectural consistency before token savings.
+- Read only files relevant to the current task.
+- Do not perform repository-wide scans unless necessary.
+- Do not reread unchanged documentation without a task-specific reason.
+- Batch related inspections and commands.
+- Keep exploratory command output bounded.
+- Do not repeat a successful check unless the implementation changed afterward.
+- During implementation, run only focused checks.
+- Run one broader validation pass at the end only when proportionate to risk.
+- Documentation-only changes do not require builds or full test suites.
+- Do not use subagents unless parallelism clearly reduces total work.
+- Keep final reports focused on changes, validation, risks, and next state.
+
+## Validation strategy
+
+Use risk-proportionate validation.
+
+- During implementation, run the smallest relevant tests.
+- Do not rerun successful checks unless affected code changed.
+- At completion, run one consolidated validation pass when necessary.
+- Documentation changes normally require only Markdown review and
+  `git diff --check`.
+- Domain logic changes require focused unit tests.
+- UI changes require focused component tests and relevant accessibility checks.
+- Native iOS changes require one affected iOS build or Simulator verification.
+- Do not run Android validation unless Android code or shared native
+  configuration changed.
