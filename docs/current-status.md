@@ -4,7 +4,7 @@
 
 The last completed product milestone is the device-local weather foundation (`dcb39ae`, 2026-07-30). It added foreground-only location selection, normalized approximate device coordinates, persisted local weather snapshots, bounded stale-cache behavior, and a deterministic sample provider. Production WeatherKit is not integrated.
 
-The latest repository change (`113964d`, 2026-08-01) added efficient-execution and risk-proportionate validation guidance to the contributor rules.
+The repository-scoped `kuyara-next-goal` Skill was completed and validated on 2026-08-01. It provides bounded Propose, Execute, and Review workflows grounded in the current repository state.
 
 ## Implemented Capabilities
 
@@ -26,17 +26,14 @@ Weather currently uses the local deterministic sample-provider path. The Today s
 
 ## Current Focus
 
-- Stabilize the tooling workflow.
-- Add and maintain this current-status document.
-- Create and validate a repository-scoped `kuyara-next-goal` Skill.
+- Add a minimal local Maestro foundation for critical iOS flows.
 
 ## Next Approved Milestones
 
-1. Create and validate `kuyara-next-goal`.
-2. Add a minimal local Maestro foundation with no more than two critical iOS flows.
-3. Plan and implement the Cloudflare Worker foundation and versioned weather contract.
-4. Integrate production WeatherKit later, after credentials and provider boundaries are ready.
-5. Design and implement the deterministic recommendation engine in separate focused milestones.
+1. Add a minimal local Maestro foundation with no more than two critical iOS flows.
+2. Plan and implement the Cloudflare Worker foundation and versioned weather contract.
+3. Integrate production WeatherKit later, after credentials and provider boundaries are ready.
+4. Design and implement the deterministic recommendation engine in separate focused milestones.
 
 ## Known Issues or Blockers
 
