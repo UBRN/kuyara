@@ -1,0 +1,31 @@
+appId: com.ubrn.kuyara
+name: Complete fresh-install onboarding
+tags:
+  - critical
+  - ios
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: onboarding-step-1
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-2
+- tapOn:
+    id: onboarding-clothing-womens
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-3
+- tapOn:
+    id: onboarding-language-en
+- tapOn:
+    id: onboarding-theme-light
+- tapOn:
+    id: onboarding-complete
+- assertVisible:
+    id: today-screen
+- assertVisible:
+    id: tab-today
+    selected: true

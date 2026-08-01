@@ -1,0 +1,63 @@
+appId: com.ubrn.kuyara
+name: Update and persist settings
+tags:
+  - critical
+  - ios
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: onboarding-step-1
+- tapOn:
+    id: onboarding-continue
+- tapOn:
+    id: onboarding-clothing-womens
+- tapOn:
+    id: onboarding-continue
+- tapOn:
+    id: onboarding-language-en
+- tapOn:
+    id: onboarding-theme-light
+- tapOn:
+    id: onboarding-complete
+- assertVisible:
+    id: today-screen
+- tapOn:
+    id: tab-settings
+- assertVisible:
+    id: settings-screen
+- tapOn:
+    id: settings-clothing-mens
+- tapOn:
+    id: settings-language-tr
+- assertVisible:
+    id: settings-clothing-mens
+    selected: true
+- assertVisible:
+    id: settings-language-tr
+    selected: true
+- scrollUntilVisible:
+    element:
+      id: settings-theme-dark
+    direction: DOWN
+- tapOn:
+    id: settings-theme-dark
+- assertVisible:
+    id: settings-theme-dark
+    selected: true
+- launchApp
+- tapOn:
+    id: tab-settings
+- assertVisible:
+    id: settings-clothing-mens
+    selected: true
+- assertVisible:
+    id: settings-language-tr
+    selected: true
+- scrollUntilVisible:
+    element:
+      id: settings-theme-dark
+    direction: DOWN
+- assertVisible:
+    id: settings-theme-dark
+    selected: true
