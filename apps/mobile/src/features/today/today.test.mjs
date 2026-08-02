@@ -126,17 +126,15 @@ test('loading, unavailable, and stale presentation states remain explicit and lo
   assert.match(stale.header.freshness, /out of date/i);
 });
 
-test('Today presentation resolves on both semantic themes and has no decorative motion dependency', async () => {
+test('Today presentation resolves on both semantic themes without motion-dependent information', () => {
   const light = createKuyaraTheme('light');
   const dark = createKuyaraTheme('dark');
   const reduced = createKuyaraTheme('light', true);
-  const sources = await featureSource();
 
   assert.notEqual(light.colors.background, dark.colors.background);
   assert.ok(light.colors.textPrimary);
   assert.ok(dark.colors.textPrimary);
   assert.equal(Object.values(reduced.motion).every((duration) => duration === 0), true);
-  assert.equal(sources.some((source) => /react-native-reanimated|Animated\./.test(source)), false);
 });
 
 test('screen source keeps all suggestions in the vertical flow with large-text and accessibility contracts', async () => {

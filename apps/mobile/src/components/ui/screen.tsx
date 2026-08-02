@@ -1,10 +1,11 @@
-import { Platform, ScrollView, StyleSheet, type ScrollViewProps } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
+import Animated, { type AnimatedScrollViewProps } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { layout, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
-export type ScreenProps = Omit<ScrollViewProps, 'contentInset'>;
+export type ScreenProps = Omit<AnimatedScrollViewProps, 'contentInset'>;
 
 export function Screen({
   children,
@@ -38,7 +39,7 @@ export function Screen({
   });
 
   return (
-    <ScrollView
+    <Animated.ScrollView
       contentInsetAdjustmentBehavior="never"
       scrollIndicatorInsets={scrollIndicatorInsets}
       showsVerticalScrollIndicator={showsVerticalScrollIndicator}
@@ -46,7 +47,7 @@ export function Screen({
       contentContainerStyle={[styles.content, platformContentStyle, contentContainerStyle]}
       {...rest}>
       {children}
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 

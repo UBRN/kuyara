@@ -156,7 +156,7 @@ test('English and Turkish wardrobe copy has matching complete keys', () => {
   }
 });
 
-test('wardrobe routes remain thin and presentation has no SQLite or SQL access', async () => {
+test('wardrobe routes remain thin, virtualized, and free of SQLite or SQL access', async () => {
   const source = async (path) => readFile(new URL(path, import.meta.url), 'utf8');
   const [indexRoute, newRoute, editRoute, form, list, routeComposition] =
     await Promise.all([
@@ -173,7 +173,7 @@ test('wardrobe routes remain thin and presentation has no SQLite or SQL access',
   const persistenceAccess = /expo-sqlite|\bSELECT\s+.+\s+FROM\b|\bINSERT\s+INTO\b|\bUPDATE\s+wardrobe_items\b/i;
   assert.doesNotMatch(routeSources, persistenceAccess);
   assert.doesNotMatch(presentationSources, persistenceAccess);
-  assert.match(list, /<FlatList/);
+  assert.match(list, /<Animated\.FlatList/);
   assert.match(routeComposition, /beforeRemove/);
   assert.match(routeComposition, /discardTitle/);
   assert.match(routeComposition, /garmentCatalog\.garmentTypes/);

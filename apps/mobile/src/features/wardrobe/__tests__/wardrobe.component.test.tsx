@@ -1,5 +1,6 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
+import { StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { garmentCatalog } from '@/features/catalog/domain/garment-catalog';
@@ -144,6 +145,10 @@ test('list exposes accessible loading and retryable error states', async () => {
   await fireEvent.press(
     error.getByRole('button', { name: messages.en.wardrobe.retryAction }),
   );
+  expect(
+    StyleSheet.flatten(error.getByTestId('wardrobe-load-error').props.style)
+      .paddingTop,
+  ).toBe(initialMetrics.insets.top + 24);
   expect(onRetry).toHaveBeenCalledTimes(1);
 });
 
@@ -165,6 +170,35 @@ test('list shows localized catalog values and emits the edit intent', async () =
   expect(result.queryByText('rain_jacket')).not.toBeOnTheScreen();
   await fireEvent.press(result.getByTestId(`wardrobe-item-${item.id}`));
   expect(onEdit).toHaveBeenCalledWith(item.id);
+});
+
+test('ready list keeps virtualization and refresh below measured header clearance', async () => {
+  const onRetry = jest.fn();
+  const result = await render(
+    <TestProviders>
+      <WardrobeListScreen
+        onAdd={() => undefined}
+        onEdit={() => undefined}
+        onRetry={onRetry}
+        state={{ ...readyState, items: [item] }}
+      />
+    </TestProviders>,
+  );
+
+  await fireEvent(result.getByTestId('wardrobe-stretchy-header'), 'layout', {
+    nativeEvent: { layout: { height: 151, width: 390, x: 0, y: 0 } },
+  });
+
+  const list = result.getByTestId('wardrobe-list');
+  const contentStyle = StyleSheet.flatten(list.props.contentContainerStyle);
+  expect(contentStyle.paddingTop).toBe(151 + 24);
+  expect(list.props.progressViewOffset).toBe(151);
+  expect(list.props.alwaysBounceVertical).toBe(true);
+  expect(list.props.data).toEqual([item]);
+  expect(list.props.keyExtractor(item)).toBe(item.id);
+
+  await fireEvent(list, 'refresh');
+  expect(onRetry).toHaveBeenCalledTimes(1);
 });
 
 test('list renders an accessible thumbnail and falls back safely after image failure', async () => {
