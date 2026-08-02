@@ -1,7 +1,16 @@
 import { SymbolView } from 'expo-symbols';
+import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
-import { AppText, IconButton, Screen, SectionHeader, Surface } from '@/components/ui';
+import {
+  AppText,
+  IconButton,
+  Screen,
+  SectionHeader,
+  StretchyHeader,
+  Surface,
+} from '@/components/ui';
 import type { TodayScreenState } from '@/features/today/model';
 import { OutfitSuggestionCard } from '@/features/today/presentation/outfit-suggestion-card';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
@@ -21,6 +30,11 @@ export function TodayScreen({ state, language, onOpenSettings }: TodayScreenProp
   const theme = useKuyaraTheme();
   const { fontScale } = useWindowDimensions();
   const usesAccessibilityLayout = fontScale > 1.5;
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const scrollOffset = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler((event) => {
+    scrollOffset.set(event.contentOffset.y);
+  });
 
   if (presentation.kind !== 'loaded') {
     return (
@@ -51,8 +65,12 @@ export function TodayScreen({ state, language, onOpenSettings }: TodayScreenProp
   }
 
   return (
-    <Screen testID="today-screen" contentContainerStyle={styles.content}>
-      <View style={styles.header}>
+    <View style={[styles.loadedScreen, { backgroundColor: theme.colors.background }]}>
+      <StretchyHeader
+        contentContainerStyle={styles.header}
+        onHeightChange={setHeaderHeight}
+        scrollOffset={scrollOffset}
+        testID="today-stretchy-header">
         <View style={styles.titleRow}>
           <AppText
             accessibilityRole="header"
@@ -90,48 +108,59 @@ export function TodayScreen({ state, language, onOpenSettings }: TodayScreenProp
           variant="caption">
           {presentation.header.freshness}
         </AppText>
-      </View>
+      </StretchyHeader>
 
-      <View style={styles.section}>
-        <SectionHeader title={presentation.copy.weatherHeading} />
-        <WeatherSummary weather={presentation.weather} />
-      </View>
-
-      <View style={styles.section}>
-        <SectionHeader title={presentation.copy.guidanceHeading} />
-        <Surface variant="interactive" style={styles.guidanceCard} testID="today-guidance">
-          <AppText variant="bodyStrong">{presentation.guidance}</AppText>
-        </Surface>
-      </View>
-
-      <View style={styles.section}>
-        <SectionHeader
-          title={presentation.copy.outfitsHeading}
-          supportingText={presentation.copy.outfitsSupportingText}
-        />
-        <View style={styles.outfitList} testID="today-outfit-list">
-          {presentation.suggestions.map((suggestion) => (
-            <OutfitSuggestionCard
-              key={suggestion.id}
-              suggestion={suggestion}
-              piecesHeading={presentation.copy.piecesHeading}
-              reasonsHeading={presentation.copy.reasonsHeading}
-            />
-          ))}
+      <Screen
+        alwaysBounceVertical
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: headerHeight + spacing['2xl'] },
+        ]}
+        onScroll={scrollHandler}
+        testID="today-screen">
+        <View style={styles.section}>
+          <SectionHeader title={presentation.copy.weatherHeading} />
+          <WeatherSummary weather={presentation.weather} />
         </View>
-      </View>
-    </Screen>
+
+        <View style={styles.section}>
+          <SectionHeader title={presentation.copy.guidanceHeading} />
+          <Surface variant="interactive" style={styles.guidanceCard} testID="today-guidance">
+            <AppText variant="bodyStrong">{presentation.guidance}</AppText>
+          </Surface>
+        </View>
+
+        <View style={styles.section}>
+          <SectionHeader
+            title={presentation.copy.outfitsHeading}
+            supportingText={presentation.copy.outfitsSupportingText}
+          />
+          <View style={styles.outfitList} testID="today-outfit-list">
+            {presentation.suggestions.map((suggestion) => (
+              <OutfitSuggestionCard
+                key={suggestion.id}
+                suggestion={suggestion}
+                piecesHeading={presentation.copy.piecesHeading}
+                reasonsHeading={presentation.copy.reasonsHeading}
+              />
+            ))}
+          </View>
+        </View>
+      </Screen>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  loadedScreen: {
+    flex: 1,
+  },
   content: {
     gap: spacing['2xl'],
     paddingBottom: spacing['2xl'],
   },
   header: {
     gap: spacing.sm,
-    paddingTop: spacing.lg,
   },
   titleRow: {
     alignItems: 'flex-start',

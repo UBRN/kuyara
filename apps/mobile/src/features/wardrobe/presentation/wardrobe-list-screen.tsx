@@ -2,15 +2,18 @@ import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Image,
   Pressable,
   StyleSheet,
   View,
 } from 'react-native';
+import Animated, {
+  useAnimatedScrollHandler,
+  useSharedValue,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppText, Button, Surface } from '@/components/ui';
+import { AppText, Button, StretchyHeader, Surface } from '@/components/ui';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import type { CatalogMessageKey } from '@/features/catalog/domain/garment-taxonomy';
 import type { WardrobeApplicationState } from '@/features/wardrobe/application/wardrobe-application-controller';
@@ -115,12 +118,21 @@ export function WardrobeListScreen({
   const messages = useMessages();
   const theme = useKuyaraTheme();
   const copy = messages.wardrobe;
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const scrollOffset = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler((event) => {
+    scrollOffset.set(event.contentOffset.y);
+  });
   const horizontalPadding = spacing.xl;
   const contentInsets = {
     paddingBottom: insets.bottom + spacing.xl,
     paddingLeft: insets.left + horizontalPadding,
     paddingRight: insets.right + horizontalPadding,
     paddingTop: insets.top + spacing.xl,
+  };
+  const listContentInsets = {
+    ...contentInsets,
+    paddingTop: headerHeight + spacing.xl,
   };
 
   if (state.status === 'loading') {
@@ -155,68 +167,84 @@ export function WardrobeListScreen({
   }
 
   return (
-    <FlatList
-      accessibilityLabel={copy.title}
-      contentContainerStyle={[
-        styles.listContent,
-        contentInsets,
-        state.items.length === 0 && styles.emptyListContent,
-      ]}
-      data={state.items}
-      keyExtractor={(item) => item.id}
-      ListHeaderComponent={
-        <View style={styles.header}>
-          <AppText accessibilityRole="header" variant="titleLarge">
-            {copy.title}
-          </AppText>
-          {state.items.length > 0 ? (
-            <Button
-              accessibilityHint={copy.addHint}
-              label={copy.addAction}
-              onPress={onAdd}
-              testID="wardrobe-add-button"
-            />
-          ) : null}
-          {state.hasRefreshError ? (
-            <Surface style={styles.inlineError} variant="muted">
+    <View style={[styles.readyScreen, { backgroundColor: theme.colors.background }]}>
+      <StretchyHeader
+        contentContainerStyle={styles.header}
+        onHeightChange={setHeaderHeight}
+        scrollOffset={scrollOffset}
+        testID="wardrobe-stretchy-header">
+        <AppText accessibilityRole="header" variant="titleLarge">
+          {copy.title}
+        </AppText>
+        {state.items.length > 0 ? (
+          <Button
+            accessibilityHint={copy.addHint}
+            label={copy.addAction}
+            onPress={onAdd}
+            testID="wardrobe-add-button"
+          />
+        ) : null}
+      </StretchyHeader>
+
+      <Animated.FlatList<WardrobeItem>
+        accessibilityLabel={copy.title}
+        alwaysBounceVertical
+        contentContainerStyle={[
+          styles.listContent,
+          listContentInsets,
+          state.items.length === 0 && styles.emptyListContent,
+        ]}
+        data={state.items}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={
+          state.hasRefreshError ? (
+            <Surface style={[styles.inlineError, styles.listHeader]} variant="muted">
               <AppText accessibilityRole="alert">{copy.loadErrorBody}</AppText>
               <Button label={copy.retryAction} onPress={onRetry} variant="secondary" />
             </Surface>
-          ) : null}
-        </View>
-      }
-      ListEmptyComponent={
-        <Surface style={styles.emptyCard} variant="elevated">
-          <AppText accessibilityRole="header" variant="title">
-            {copy.emptyTitle}
-          </AppText>
-          <AppText colorRole="textSecondary">{copy.emptyBody}</AppText>
-          <Button
-            accessibilityHint={copy.addHint}
-            label={copy.emptyAction}
-            onPress={onAdd}
-            testID="wardrobe-empty-add-button"
+          ) : null
+        }
+        ListEmptyComponent={
+          <Surface style={styles.emptyCard} variant="elevated">
+            <AppText accessibilityRole="header" variant="title">
+              {copy.emptyTitle}
+            </AppText>
+            <AppText colorRole="textSecondary">{copy.emptyBody}</AppText>
+            <Button
+              accessibilityHint={copy.addHint}
+              label={copy.emptyAction}
+              onPress={onAdd}
+              testID="wardrobe-empty-add-button"
+            />
+          </Surface>
+        }
+        onRefresh={onRetry}
+        onScroll={scrollHandler}
+        progressViewOffset={headerHeight}
+        refreshing={state.isRefreshing}
+        renderItem={({ item }) => (
+          <WardrobeListItem
+            item={item}
+            onPress={() => onEdit(item.id)}
+            resolvePhotoUri={resolvePhotoUri}
           />
-        </Surface>
-      }
-      renderItem={({ item }) => (
-        <WardrobeListItem
-          item={item}
-          onPress={() => onEdit(item.id)}
-          resolvePhotoUri={resolvePhotoUri}
-        />
-      )}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
-      refreshing={state.isRefreshing}
-      onRefresh={onRetry}
-      showsVerticalScrollIndicator={false}
-      style={{ backgroundColor: theme.colors.background }}
-      testID="wardrobe-list"
-    />
+        )}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        showsVerticalScrollIndicator={false}
+        style={[styles.list, { backgroundColor: theme.colors.background }]}
+        testID="wardrobe-list"
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  readyScreen: {
+    flex: 1,
+  },
+  list: {
+    flex: 1,
+  },
   centered: {
     alignItems: 'center',
     flex: 1,
@@ -234,7 +262,9 @@ const styles = StyleSheet.create({
   },
   header: {
     gap: spacing.lg,
-    marginBottom: spacing.xl,
+  },
+  listHeader: {
+    marginBottom: spacing.md,
   },
   inlineError: {
     gap: spacing.md,

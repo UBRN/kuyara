@@ -39,7 +39,7 @@
 - Fixture values and language-independent weather, clothing, intent, and reason codes are separate from English and Turkish presentation copy. The fixture is a replaceable presentation input, not a WeatherKit DTO, database record, AI response, or recommendation-engine result.
 - The presentation contract supports loaded, loading, unavailable, and stale-loaded states. The checked-in route intentionally renders only the canonical fresh loaded fixture and does not claim that it is live.
 - The Today fixture still has no WeatherKit, Worker API, location permission, AI, wardrobe ownership, account, sync, analytics, notification, or refresh behavior. Its only integration with the local-profile slice is an accessible Settings navigation action and the application-wide persisted language/theme resolution.
-- Today uses the existing semantic theme and adaptive primitives, keeps all important content in a scalable vertical layout, supplies grouped VoiceOver labels for weather and outfit summaries, and has no animation dependency, so Reduced Motion does not remove information.
+- Today uses the existing semantic theme and adaptive primitives, keeps all important content in a scalable vertical layout, and supplies grouped VoiceOver labels for weather and outfit summaries. Its loaded state uses the shared stretchy-header presentation primitive: only the semantic surface background stretches into the measured top safe area during native negative overscroll, while localized text, controls, semantics, and touch targets remain fixed. The direct gesture-linked response has no spring or timing continuation and remains enabled with Reduce Motion; no information depends on the effect.
 - English and Turkish plus light, dark, and system appearances are supported through device defaults and persisted local Settings overrides.
 - Shared React Native source remains Android-compatible, but Android build, emulator, and visual refinement are intentionally deferred for this slice.
 
@@ -79,6 +79,7 @@
 - Normal edits omit the legacy `color` and photo path fields, so patch-style repository updates preserve them. Type changes clear explicit property overrides after confirmation while preserving the item name and color family.
 - Successful create, update, and confirmed soft delete refresh the repository-backed list before returning. Load, validation, saving, deletion, not-found, retry, and unsaved-change states are localized in English and Turkish.
 - The UI adds no photo controls, search, filters, grouping, sorting controls, restore flow, hard deletion, new migration, dependency, or remote behavior.
+- The ready Wardrobe list retains its virtualized React Native FlatList through Reanimated's animated FlatList wrapper and adopts the same shared stretchy header. Title and add controls stay fixed and unscaled; refresh errors, empty/list content, and the refresh indicator remain below the measured compact header.
 
 ## Implemented foreground location and local weather slice
 
