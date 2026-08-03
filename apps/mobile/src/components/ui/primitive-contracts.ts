@@ -9,6 +9,7 @@ import {
 
 export type SurfaceVariant = 'default' | 'muted' | 'elevated' | 'interactive';
 export type ButtonVariant = 'primary' | 'secondary' | 'quiet';
+export type PillTone = 'accent-filled' | 'bordered';
 
 export const surfaceColorRoleByVariant = Object.freeze({
   default: 'surface',
@@ -64,6 +65,22 @@ export function resolveButtonColors(
     backgroundColor: pressed ? theme.colors.surfaceInteractive : 'transparent',
     borderColor: 'transparent',
     textColor: theme.colors.brandAccent,
+  } as const;
+}
+
+export function resolvePillColors(theme: KuyaraTheme, tone: PillTone) {
+  if (tone === 'accent-filled') {
+    return {
+      backgroundColor: theme.colors.brandAccent,
+      borderColor: theme.colors.brandAccent,
+      textColorRole: 'textOnBrand',
+    } as const;
+  }
+
+  return {
+    backgroundColor: 'transparent',
+    borderColor: theme.colors.borderSubtle,
+    textColorRole: 'textPrimary',
   } as const;
 }
 

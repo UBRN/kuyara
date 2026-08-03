@@ -1,9 +1,9 @@
-import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/ui';
 import type { AppMessages } from '@/localization/messages';
+import { withAlpha } from '@/theme/color-alpha';
 import { borderWidths, interaction, layout, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -11,7 +11,6 @@ export type PrimaryTabRouteName = '(today)' | 'weather' | 'wardrobe' | 'settings
 
 export type PrimaryTabDefinition = Readonly<{
   accessibilityLabel: string;
-  icon: SymbolViewProps['name'];
   label: string;
   routeName: PrimaryTabRouteName;
   testID: string;
@@ -23,32 +22,24 @@ export function createPrimaryTabDefinitions(
   return [
     {
       accessibilityLabel: labels.today,
-      icon: { ios: 'calendar', android: 'today', web: 'today' },
       label: labels.today,
       routeName: '(today)',
       testID: 'tab-today',
     },
     {
       accessibilityLabel: labels.weather,
-      icon: {
-        ios: 'cloud.sun.fill',
-        android: 'partly_cloudy_day',
-        web: 'partly_cloudy_day',
-      },
       label: labels.weather,
       routeName: 'weather',
       testID: 'tab-weather',
     },
     {
       accessibilityLabel: labels.wardrobe,
-      icon: { ios: 'tshirt.fill', android: 'checkroom', web: 'checkroom' },
       label: labels.wardrobe,
       routeName: 'wardrobe',
       testID: 'tab-wardrobe',
     },
     {
       accessibilityLabel: labels.settings,
-      icon: { ios: 'gearshape.fill', android: 'settings', web: 'settings' },
       label: labels.settings,
       routeName: 'settings',
       testID: 'tab-settings',
@@ -77,16 +68,14 @@ export function PrimaryTabBar({
       style={[
         styles.tabBar,
         {
-          backgroundColor: theme.colors.backgroundElevated,
+          backgroundColor: withAlpha(theme.colors.backgroundElevated, 0.92),
           borderTopColor: theme.colors.borderSubtle,
           paddingBottom: Math.max(insets.bottom, spacing.sm),
         },
       ]}>
       {tabs.map((tab) => {
         const isSelected = tab.routeName === selectedRouteName;
-        const color = isSelected
-          ? theme.colors.brandPrimary
-          : theme.colors.iconSecondary;
+        const color = isSelected ? theme.colors.brandPrimary : theme.colors.iconSecondary;
 
         return (
           <Pressable
@@ -101,13 +90,6 @@ export function PrimaryTabBar({
               pressed && styles.pressed,
             ]}
             testID={tab.testID}>
-            <SymbolView
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-              name={tab.icon}
-              size={24}
-              tintColor={color}
-            />
             <AppText
               accessibilityElementsHidden
               importantForAccessibility="no"
@@ -115,6 +97,12 @@ export function PrimaryTabBar({
               variant={isSelected ? 'label' : 'caption'}>
               {tab.label}
             </AppText>
+            <View
+              style={[
+                styles.indicator,
+                { backgroundColor: isSelected ? theme.colors.brandPrimary : 'transparent' },
+              ]}
+            />
           </Pressable>
         );
       })}
@@ -136,6 +124,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: layout.minimumTouchTarget,
     paddingHorizontal: spacing.xs,
+  },
+  indicator: {
+    borderRadius: 1,
+    height: 2,
+    width: 14,
   },
   pressed: {
     opacity: interaction.pressedOpacity,

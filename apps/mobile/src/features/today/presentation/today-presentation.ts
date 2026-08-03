@@ -10,6 +10,11 @@ type LocalizedOutfitPiece = Readonly<{
   item: string;
 }>;
 
+export type LocalizedHourlyRainProbability = Readonly<{
+  label: string;
+  probabilityPercent: number;
+}>;
+
 export type LoadedOutfitPresentation = Readonly<{
   id: string;
   positionLabel: string;
@@ -27,12 +32,16 @@ export type LoadedTodayPresentation = Readonly<{
     title: string;
     settingsAction: string;
     settingsHint: string;
-    weatherHeading: string;
-    guidanceHeading: string;
-    outfitsHeading: string;
-    outfitsSupportingText: string;
     piecesHeading: string;
     reasonsHeading: string;
+    recommendedTodayHeading: string;
+    otherOptionsHeading: string;
+    windLabel: string;
+    humidityLabel: string;
+    uvIndexLabel: string;
+    sunriseLabel: string;
+    sunsetLabel: string;
+    rainOutlookHeading: string;
   }>;
   header: Readonly<{
     location: string;
@@ -46,9 +55,15 @@ export type LoadedTodayPresentation = Readonly<{
     apparentTemperature: string;
     range: string;
     rainProbability: string;
+    wind: string;
+    humidity: string;
+    uvIndex: string;
+    sunrise: string;
+    sunset: string;
+    hourlyRainProbability: readonly LocalizedHourlyRainProbability[];
+    rainOutlookTakeaway: string;
     accessibilityLabel: string;
   }>;
-  guidance: string;
   suggestions: readonly LoadedOutfitPresentation[];
 }>;
 
@@ -139,12 +154,16 @@ function createLoadedPresentation(
       title: copy.title,
       settingsAction: copy.settingsAction,
       settingsHint: copy.settingsHint,
-      weatherHeading: copy.weatherHeading,
-      guidanceHeading: copy.guidanceHeading,
-      outfitsHeading: copy.outfitsHeading,
-      outfitsSupportingText: copy.outfitsSupportingText,
       piecesHeading: copy.piecesHeading,
       reasonsHeading: copy.reasonsHeading,
+      recommendedTodayHeading: copy.recommendedTodayHeading,
+      otherOptionsHeading: copy.otherOptionsHeading,
+      windLabel: copy.windLabel,
+      humidityLabel: copy.humidityLabel,
+      uvIndexLabel: copy.uvIndexLabel,
+      sunriseLabel: copy.sunriseLabel,
+      sunsetLabel: copy.sunsetLabel,
+      rainOutlookHeading: copy.rainOutlookHeading,
     },
     header: {
       location: copy.locations[snapshot.location],
@@ -165,6 +184,13 @@ function createLoadedPresentation(
       rainProbability: copy.rainProbability(
         `${formatNumber(weather.precipitationProbabilityPercent, language)}%`,
       ),
+      wind: copy.windValue(weather.windSpeedKmh, weather.windDirection),
+      humidity: copy.humidityValue(weather.humidityPercent),
+      uvIndex: copy.uvIndexValue(weather.uvIndex),
+      sunrise: weather.sunriseTime,
+      sunset: weather.sunsetTime,
+      hourlyRainProbability: weather.hourlyRainProbability,
+      rainOutlookTakeaway: copy.rainOutlookTakeaway,
       accessibilityLabel: copy.weatherAccessibilityLabel({
         condition: copy.conditions[weather.condition],
         current: weather.temperatureCelsius,
@@ -174,7 +200,6 @@ function createLoadedPresentation(
         rainProbability: weather.precipitationProbabilityPercent,
       }),
     },
-    guidance: copy.strategies[snapshot.strategy],
     suggestions: snapshot.suggestions.map((suggestion, index) =>
       localizeOutfit(suggestion, index, snapshot.suggestions.length, language),
     ),

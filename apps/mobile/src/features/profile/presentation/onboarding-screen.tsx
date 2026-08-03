@@ -24,7 +24,8 @@ import { PreferenceOption } from '@/features/profile/presentation/preference-opt
 import { getDeviceLocale } from '@/localization/device-locale';
 import { resolveLanguagePreference } from '@/localization/language-preference';
 import { getMessages } from '@/localization/messages';
-import { spacing } from '@/theme/theme';
+import { useKuyaraTheme } from '@/theme/theme-context';
+import { radii, spacing } from '@/theme/theme';
 
 type OnboardingScreenProps = Readonly<{
   initialClothingPreference: ClothingPreference | null;
@@ -59,6 +60,7 @@ export function OnboardingScreen({
   const messages = getMessages(language);
   const copy = messages.onboarding;
   const preferenceCopy = messages.preferences;
+  const theme = useKuyaraTheme();
 
   const stepTitle =
     draft.step === 0
@@ -113,7 +115,7 @@ export function OnboardingScreen({
   return (
     <Screen testID={`onboarding-step-${draft.step + 1}`} contentContainerStyle={styles.content}>
       <View style={styles.heading}>
-        <AppText colorRole="textSecondary" variant="caption">
+        <AppText colorRole="brandAccent" variant="eyebrow">
           {copy.stepPosition(draft.step + 1, totalSteps)}
         </AppText>
         <AppText accessibilityRole="header" ref={headingRef} variant="titleLarge">
@@ -129,22 +131,27 @@ export function OnboardingScreen({
       </View>
 
       {draft.step === 0 ? (
-        <Surface style={styles.panel} variant="elevated">
-          <SectionHeader title={copy.promiseHeading} />
+        <Surface style={styles.panel} variant="default">
+          <AppText colorRole="brandAccent" variant="eyebrow">
+            {copy.promiseHeading}
+          </AppText>
           <View style={styles.promiseList}>
-            <AppText>{copy.weatherPromise}</AppText>
-            <AppText>{copy.outfitsPromise}</AppText>
-            <AppText>{copy.wardrobePromise}</AppText>
+            {[copy.weatherPromise, copy.outfitsPromise, copy.wardrobePromise].map((promise) => (
+              <View key={promise} style={styles.promiseRow}>
+                <View
+                  accessibilityElementsHidden
+                  importantForAccessibility="no"
+                  style={[styles.promiseMarker, { backgroundColor: theme.colors.brandAccent }]}
+                />
+                <AppText style={styles.promiseText}>{promise}</AppText>
+              </View>
+            ))}
           </View>
         </Surface>
       ) : null}
 
       {draft.step === 1 ? (
         <View style={styles.section} accessibilityLabel={preferenceCopy.clothingTitle}>
-          <SectionHeader
-            title={preferenceCopy.clothingTitle}
-            supportingText={preferenceCopy.clothingDescription}
-          />
           <View style={styles.options}>
             <PreferenceOption
               label={preferenceCopy.womensClothing}
@@ -251,7 +258,7 @@ export function OnboardingScreen({
               dispatch({ type: 'back' });
             }}
             testID="onboarding-back"
-            variant="secondary"
+            variant="quiet"
           />
         ) : null}
         <Button
@@ -280,7 +287,22 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
   },
   promiseList: {
-    gap: spacing.lg,
+    gap: spacing.md,
+  },
+  promiseRow: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  promiseMarker: {
+    borderRadius: radii.pill,
+    height: 6,
+    marginTop: 9,
+    width: 6,
+  },
+  promiseText: {
+    flex: 1,
+    flexShrink: 1,
   },
   details: {
     gap: spacing['2xl'],

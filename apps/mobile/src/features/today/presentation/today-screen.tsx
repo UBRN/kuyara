@@ -3,19 +3,13 @@ import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
-import {
-  AppText,
-  IconButton,
-  Screen,
-  SectionHeader,
-  StretchyHeader,
-  Surface,
-} from '@/components/ui';
+import { AppText, IconButton, Screen, Surface, StretchyHeader } from '@/components/ui';
 import type { TodayScreenState } from '@/features/today/model';
 import { OutfitSuggestionCard } from '@/features/today/presentation/outfit-suggestion-card';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
-import { WeatherSummary } from '@/features/today/presentation/weather-summary';
+import { WeatherCard } from '@/features/today/presentation/weather-card';
 import type { SupportedLanguage } from '@/localization/messages';
+import { withAlpha } from '@/theme/color-alpha';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -23,9 +17,15 @@ type TodayScreenProps = Readonly<{
   state: TodayScreenState;
   language: SupportedLanguage;
   onOpenSettings: () => void;
+  onOpenOutfitDetail: (id: string) => void;
 }>;
 
-export function TodayScreen({ state, language, onOpenSettings }: TodayScreenProps) {
+export function TodayScreen({
+  state,
+  language,
+  onOpenSettings,
+  onOpenOutfitDetail,
+}: TodayScreenProps) {
   const presentation = createTodayPresentation(state, language);
   const theme = useKuyaraTheme();
   const { fontScale } = useWindowDimensions();
@@ -64,6 +64,8 @@ export function TodayScreen({ state, language, onOpenSettings }: TodayScreenProp
     );
   }
 
+  const [primarySuggestion, ...otherSuggestions] = presentation.suggestions;
+
   return (
     <View style={[styles.loadedScreen, { backgroundColor: theme.colors.background }]}>
       <StretchyHeader
@@ -71,13 +73,18 @@ export function TodayScreen({ state, language, onOpenSettings }: TodayScreenProp
         onHeightChange={setHeaderHeight}
         scrollOffset={scrollOffset}
         testID="today-stretchy-header">
-        <View style={styles.titleRow}>
-          <AppText
-            accessibilityRole="header"
-            style={styles.title}
-            variant={usesAccessibilityLayout ? 'titleLarge' : 'display'}>
-            {presentation.copy.title}
-          </AppText>
+        <View style={[styles.titleRow, usesAccessibilityLayout && styles.stackedContextRow]}>
+          <View>
+            <AppText
+              accessibilityLabel={`${presentation.copy.title}. ${presentation.header.location}`}
+              accessibilityRole="header"
+              variant="bodyStrong">
+              {presentation.header.location}
+            </AppText>
+            <AppText colorRole="textSecondary" variant="caption">
+              {presentation.header.date}
+            </AppText>
+          </View>
           <IconButton
             accessibilityHint={presentation.copy.settingsHint}
             accessibilityLabel={presentation.copy.settingsAction}
@@ -86,21 +93,14 @@ export function TodayScreen({ state, language, onOpenSettings }: TodayScreenProp
                 accessibilityElementsHidden
                 importantForAccessibility="no-hide-descendants"
                 name={{ ios: 'gearshape.fill', android: 'settings', web: 'settings' }}
-                size={22}
+                size={18}
                 tintColor={color}
               />
             )}
             onPress={onOpenSettings}
+            style={[styles.settingsButton, { backgroundColor: withAlpha(theme.colors.textPrimary, 0.1) }]}
             testID="today-settings-button"
           />
-        </View>
-        <View
-          style={[
-            styles.contextRow,
-            usesAccessibilityLayout && styles.stackedContextRow,
-          ]}>
-          <AppText variant="bodyStrong">{presentation.header.location}</AppText>
-          <AppText colorRole="textSecondary">{presentation.header.date}</AppText>
         </View>
         <AppText
           accessibilityLiveRegion={presentation.header.isStale ? 'polite' : 'none'}
@@ -118,34 +118,58 @@ export function TodayScreen({ state, language, onOpenSettings }: TodayScreenProp
         ]}
         onScroll={scrollHandler}
         testID="today-screen">
-        <View style={styles.section}>
-          <SectionHeader title={presentation.copy.weatherHeading} />
-          <WeatherSummary weather={presentation.weather} />
-        </View>
-
-        <View style={styles.section}>
-          <SectionHeader title={presentation.copy.guidanceHeading} />
-          <Surface variant="interactive" style={styles.guidanceCard} testID="today-guidance">
-            <AppText variant="bodyStrong">{presentation.guidance}</AppText>
-          </Surface>
-        </View>
-
-        <View style={styles.section}>
-          <SectionHeader
-            title={presentation.copy.outfitsHeading}
-            supportingText={presentation.copy.outfitsSupportingText}
-          />
-          <View style={styles.outfitList} testID="today-outfit-list">
-            {presentation.suggestions.map((suggestion) => (
-              <OutfitSuggestionCard
-                key={suggestion.id}
-                suggestion={suggestion}
-                piecesHeading={presentation.copy.piecesHeading}
-                reasonsHeading={presentation.copy.reasonsHeading}
-              />
-            ))}
+        {primarySuggestion ? (
+          <View style={styles.section}>
+            <AppText colorRole="brandAccent" variant="eyebrow">
+              {presentation.copy.recommendedTodayHeading}
+            </AppText>
+            <OutfitSuggestionCard
+              onPress={() => onOpenOutfitDetail(primarySuggestion.id)}
+              suggestion={primarySuggestion}
+              variant="primary"
+            />
           </View>
-        </View>
+        ) : null}
+
+        <WeatherCard
+          accessibilityLabel={presentation.weather.accessibilityLabel}
+          apparentTemperature={presentation.weather.apparentTemperature}
+          condition={presentation.weather.condition}
+          rainProbability={presentation.weather.rainProbability}
+          rainTimeline={{
+            heading: presentation.copy.rainOutlookHeading,
+            takeaway: presentation.weather.rainOutlookTakeaway,
+            hours: presentation.weather.hourlyRainProbability,
+          }}
+          range={presentation.weather.range}
+          stats={[
+            { label: presentation.copy.windLabel, value: presentation.weather.wind },
+            { label: presentation.copy.humidityLabel, value: presentation.weather.humidity },
+            { label: presentation.copy.uvIndexLabel, value: presentation.weather.uvIndex },
+            { label: presentation.copy.sunriseLabel, value: presentation.weather.sunrise },
+            { label: presentation.copy.sunsetLabel, value: presentation.weather.sunset },
+          ]}
+          temperature={presentation.weather.temperature}
+          testID="today-weather-card"
+        />
+
+        {otherSuggestions.length > 0 ? (
+          <View style={styles.section}>
+            <AppText colorRole="brandAccent" variant="eyebrow">
+              {presentation.copy.otherOptionsHeading}
+            </AppText>
+            <View style={styles.outfitList} testID="today-outfit-list">
+              {otherSuggestions.map((suggestion) => (
+                <OutfitSuggestionCard
+                  key={suggestion.id}
+                  onPress={() => onOpenOutfitDetail(suggestion.id)}
+                  suggestion={suggestion}
+                  variant="secondary"
+                />
+              ))}
+            </View>
+          </View>
+        ) : null}
       </Screen>
     </View>
   );
@@ -160,7 +184,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing['2xl'],
   },
   header: {
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   titleRow: {
     alignItems: 'flex-start',
@@ -168,9 +192,12 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
     justifyContent: 'space-between',
   },
-  title: {
-    flex: 1,
-    flexShrink: 1,
+  settingsButton: {
+    borderRadius: 15,
+    borderWidth: 0,
+    height: 30,
+    minHeight: 0,
+    width: 30,
   },
   contextRow: {
     alignItems: 'baseline',
@@ -184,13 +211,10 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
   },
   section: {
-    gap: spacing.lg,
-  },
-  guidanceCard: {
-    padding: spacing.xl,
+    gap: spacing.md,
   },
   outfitList: {
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   feedbackContent: {
     alignItems: 'center',

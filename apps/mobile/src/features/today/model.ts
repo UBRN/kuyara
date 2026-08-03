@@ -39,6 +39,20 @@ export type RecommendationReasonCode =
 
 export type OutfitEmphasis = 'recommended' | 'weatherReady';
 
+export type HourlyRainProbability = Readonly<{
+  label: string;
+  probabilityPercent: number;
+}>;
+
+export type SixHourlyRainProbabilities = readonly [
+  HourlyRainProbability,
+  HourlyRainProbability,
+  HourlyRainProbability,
+  HourlyRainProbability,
+  HourlyRainProbability,
+  HourlyRainProbability,
+];
+
 export type OutfitPiece = Readonly<{
   slot: ClothingSlotCode;
   item: ClothingItemCode;
@@ -71,6 +85,13 @@ export type TodaySnapshot = Readonly<{
     minimumTemperatureCelsius: number;
     maximumTemperatureCelsius: number;
     precipitationProbabilityPercent: number;
+    windSpeedKmh: number;
+    windDirection: string;
+    humidityPercent: number;
+    uvIndex: number;
+    sunriseTime: string;
+    sunsetTime: string;
+    hourlyRainProbability: SixHourlyRainProbabilities;
   }>;
   strategy: ClothingStrategyCode;
   suggestions: ThreeOutfitSuggestions;

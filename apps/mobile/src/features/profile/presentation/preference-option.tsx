@@ -11,16 +11,19 @@ type PreferenceOptionProps = Readonly<{
   disabled?: boolean;
   onPress: () => void;
   testID?: string;
+  layout?: 'stacked' | 'row';
 }>;
 
 export function PreferenceOption({
   disabled = false,
   label,
+  layout: optionLayout = 'stacked',
   onPress,
   selected,
   testID,
 }: PreferenceOptionProps) {
   const theme = useKuyaraTheme();
+  const isRow = optionLayout === 'row';
 
   return (
     <Pressable
@@ -32,37 +35,37 @@ export function PreferenceOption({
       testID={testID}
       style={({ pressed }) => {
         const selectedStyle: ViewStyle = {
-          backgroundColor: selected
-            ? theme.colors.surfaceInteractive
-            : theme.colors.surface,
-          borderColor: selected
-            ? theme.colors.borderStrong
-            : theme.colors.borderSubtle,
+          backgroundColor: selected ? theme.colors.brandAccent : theme.colors.surface,
+          borderColor: selected ? theme.colors.brandAccent : theme.colors.borderSubtle,
         };
 
         return [
           styles.option,
+          isRow && styles.rowOption,
           selectedStyle,
           pressed && !disabled && styles.pressed,
           disabled && styles.disabled,
         ];
       }}>
-      <AppText variant="bodyStrong" style={styles.label}>
+      <AppText
+        colorRole={selected ? 'textOnBrand' : 'textPrimary'}
+        style={[styles.label, isRow && styles.rowLabel]}
+        variant="bodyStrong">
         {label}
       </AppText>
-      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-        <SymbolView
-          name={{
-            ios: selected ? 'checkmark.circle.fill' : 'circle',
-            android: selected ? 'check_circle' : 'radio_button_unchecked',
-            web: selected ? 'check_circle' : 'radio_button_unchecked',
-          }}
-          size={24}
-          tintColor={
-            selected ? theme.colors.iconPrimary : theme.colors.iconSecondary
-          }
-        />
-      </View>
+      {isRow ? null : (
+        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          <SymbolView
+            name={{
+              ios: selected ? 'checkmark.circle.fill' : 'circle',
+              android: selected ? 'check_circle' : 'radio_button_unchecked',
+              web: selected ? 'check_circle' : 'radio_button_unchecked',
+            }}
+            size={24}
+            tintColor={selected ? theme.colors.textOnBrand : theme.colors.iconSecondary}
+          />
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -79,9 +82,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
+  rowOption: {
+    flex: 1,
+    justifyContent: 'center',
+  },
   label: {
     flex: 1,
     flexShrink: 1,
+  },
+  rowLabel: {
+    flex: 0,
+    textAlign: 'center',
   },
   pressed: {
     opacity: interaction.pressedOpacity,

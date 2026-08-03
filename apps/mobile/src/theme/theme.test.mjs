@@ -6,6 +6,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import { getMessages, messages, resolveSupportedLanguage } from '../localization/messages.ts';
+import { withAlpha } from './color-alpha.ts';
 import {
   brandColors,
   createKuyaraTheme,
@@ -113,6 +114,12 @@ test('English and Turkish locale resolution preserve the supported product langu
   assert.equal(messages.tr.today.title, 'Bugün');
   assert.equal(messages.en.today.outfits['outfit.rainReady'].title, 'Rain-ready');
   assert.equal(messages.tr.today.outfits['outfit.rainReady'].title, 'Yağmura hazır');
+});
+
+test('withAlpha converts a hex token to an rgba string at the given opacity', () => {
+  assert.equal(withAlpha('#142F3B', 0.45), 'rgba(20, 47, 59, 0.45)');
+  assert.equal(withAlpha('#EFF4F3', 0.1), 'rgba(239, 244, 243, 0.1)');
+  assert.throws(() => withAlpha('not-a-color', 0.5));
 });
 
 test('feature source does not hardcode approved primitive colors or disable font scaling', async () => {
