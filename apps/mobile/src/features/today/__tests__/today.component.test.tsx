@@ -18,11 +18,13 @@ const initialMetrics = {
 
 test('loaded Today reserves measured overlay clearance and preserves settings intent', async () => {
   const onOpenSettings = jest.fn();
+  const onOpenOutfitDetail = jest.fn();
   const result = await render(
     <KuyaraThemeContext.Provider value={lightTheme}>
       <SafeAreaProvider initialMetrics={initialMetrics}>
         <TodayScreen
           language="en"
+          onOpenOutfitDetail={onOpenOutfitDetail}
           onOpenSettings={onOpenSettings}
           state={canonicalTodayScreenState}
         />
@@ -38,7 +40,12 @@ test('loaded Today reserves measured overlay clearance and preserves settings in
     result.getByTestId('today-screen').props.contentContainerStyle,
   );
   expect(screenStyle.paddingTop).toBe(179 + spacing['2xl']);
-  expect(result.getByTestId('today-outfit-list').children).toHaveLength(3);
+
+  const suggestions = canonicalTodayScreenState.snapshot.suggestions;
+  expect(result.getByTestId('today-outfit-list').children).toHaveLength(suggestions.length - 1);
+
+  await fireEvent.press(result.getByTestId(`outfit-card-${suggestions[0].id}`));
+  expect(onOpenOutfitDetail).toHaveBeenCalledWith(suggestions[0].id);
 
   await fireEvent.press(result.getByTestId('today-settings-button'));
   expect(onOpenSettings).toHaveBeenCalledTimes(1);
@@ -50,6 +57,7 @@ test('loading Today keeps its existing feedback layout without the loaded header
       <SafeAreaProvider initialMetrics={initialMetrics}>
         <TodayScreen
           language="en"
+          onOpenOutfitDetail={() => undefined}
           onOpenSettings={() => undefined}
           state={{ kind: 'loading' }}
         />

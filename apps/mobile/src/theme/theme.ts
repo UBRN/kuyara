@@ -70,14 +70,21 @@ export const typography = Object.freeze({
     fontWeight: '600',
   },
   titleLarge: {
-    fontSize: 32,
-    lineHeight: 40,
-    fontWeight: '600',
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: '700',
   },
   title: {
     fontSize: 24,
     lineHeight: 32,
     fontWeight: '600',
+  },
+  eyebrow: {
+    fontSize: 10.5,
+    lineHeight: 14,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
   },
   body: {
     fontSize: 17,

@@ -8,6 +8,7 @@ import {
   resolveAppTextStyle,
   resolveButtonColors,
   resolveInteractiveAccessibilityState,
+  resolvePillColors,
   resolveSurfaceColors,
   surfaceColorRoleByVariant,
 } from './primitive-contracts.ts';
@@ -115,6 +116,27 @@ test('Screen and Surface keep children on semantic light and dark foundations', 
     assert.match(screenSource, /\{children\}/);
     assert.match(surfaceSource, /\.\.\.rest/);
   }
+});
+
+test('Pill tones resolve distinct semantic colors in both appearances', () => {
+  for (const scheme of ['light', 'dark']) {
+    const theme = createKuyaraTheme(scheme);
+    const filled = resolvePillColors(theme, 'accent-filled');
+    const bordered = resolvePillColors(theme, 'bordered');
+
+    assert.equal(filled.backgroundColor, theme.colors.brandAccent);
+    assert.equal(filled.textColorRole, 'textOnBrand');
+    assert.equal(bordered.backgroundColor, 'transparent');
+    assert.equal(bordered.borderColor, theme.colors.borderSubtle);
+    assert.equal(bordered.textColorRole, 'textPrimary');
+  }
+});
+
+test('PhotoPlaceholder derives its stripe tint from the theme accent, not a hardcoded color', async () => {
+  const photoPlaceholderSource = await source('./photo-placeholder.tsx');
+
+  assert.match(photoPlaceholderSource, /withAlpha\(theme\.colors\.brandAccent/);
+  assert.doesNotMatch(photoPlaceholderSource, /#[0-9a-fA-F]{6}/);
 });
 
 test('SectionHeader reflows large text and exposes heading semantics', async () => {

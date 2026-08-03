@@ -33,10 +33,10 @@ export function WardrobeOption({
       style={({ pressed }) => {
         const selectedStyle: ViewStyle = {
           backgroundColor: selected
-            ? theme.colors.surfaceInteractive
+            ? theme.colors.brandAccent
             : theme.colors.surface,
           borderColor: selected
-            ? theme.colors.borderStrong
+            ? theme.colors.brandAccent
             : theme.colors.borderSubtle,
         };
 
@@ -47,7 +47,10 @@ export function WardrobeOption({
           disabled && styles.disabled,
         ];
       }}>
-      <AppText variant="bodyStrong" style={styles.label}>
+      <AppText
+        colorRole={selected ? 'textOnBrand' : 'textPrimary'}
+        style={styles.label}
+        variant="bodyStrong">
         {label}
       </AppText>
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
@@ -59,7 +62,7 @@ export function WardrobeOption({
           }}
           size={24}
           tintColor={
-            selected ? theme.colors.iconPrimary : theme.colors.iconSecondary
+            selected ? theme.colors.textOnBrand : theme.colors.iconSecondary
           }
         />
       </View>

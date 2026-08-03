@@ -14,8 +14,10 @@ const featureSource = async () => {
     './model.ts',
     './presentation/today-presentation.ts',
     './presentation/today-screen.tsx',
-    './presentation/weather-summary.tsx',
+    './presentation/weather-card.tsx',
+    './presentation/weather-glyph.tsx',
     './presentation/outfit-suggestion-card.tsx',
+    './presentation/outfit-detail-screen.tsx',
   ];
 
   return Promise.all(files.map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
@@ -34,6 +36,20 @@ test('canonical Today fixture is fixed, frozen, and contains realistic mock weat
     minimumTemperatureCelsius: 10,
     maximumTemperatureCelsius: 17,
     precipitationProbabilityPercent: 45,
+    windSpeedKmh: 18,
+    windDirection: 'NE',
+    humidityPercent: 78,
+    uvIndex: 2,
+    sunriseTime: '06:42',
+    sunsetTime: '19:15',
+    hourlyRainProbability: [
+      { label: '6a', probabilityPercent: 15 },
+      { label: '9a', probabilityPercent: 60 },
+      { label: '12p', probabilityPercent: 50 },
+      { label: '3p', probabilityPercent: 25 },
+      { label: '6p', probabilityPercent: 12 },
+      { label: '9p', probabilityPercent: 6 },
+    ],
   });
   assert.equal(Object.isFrozen(canonicalTodayFixture), true);
   assert.equal(Object.isFrozen(canonicalTodayFixture.weather), true);
@@ -137,32 +153,44 @@ test('Today presentation resolves on both semantic themes without motion-depende
   assert.equal(Object.values(reduced.motion).every((duration) => duration === 0), true);
 });
 
+test('weather glyph animation respects Reduce Motion instead of looping unconditionally', async () => {
+  const glyphSource = await readFile(
+    new URL('./presentation/weather-glyph.tsx', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(glyphSource, /isReduceMotionEnabled/);
+  assert.match(glyphSource, /withRepeat/);
+});
+
 test('screen source keeps all suggestions in the vertical flow with large-text and accessibility contracts', async () => {
-  const [todayScreen, weatherSummary, outfitCard] = await Promise.all([
+  const [todayScreen, weatherCard, outfitCard] = await Promise.all([
     readFile(new URL('./presentation/today-screen.tsx', import.meta.url), 'utf8'),
-    readFile(new URL('./presentation/weather-summary.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('./presentation/weather-card.tsx', import.meta.url), 'utf8'),
     readFile(new URL('./presentation/outfit-suggestion-card.tsx', import.meta.url), 'utf8'),
   ]);
 
-  assert.match(todayScreen, /presentation\.suggestions\.map/);
+  assert.match(todayScreen, /otherSuggestions\.map/);
   assert.match(todayScreen, /testID="today-outfit-list"/);
   assert.doesNotMatch(todayScreen, /horizontal|FlatList|carousel|show more/i);
-  assert.match(weatherSummary, /fontScale > 1\.5/);
+  assert.match(weatherCard, /fontScale > 1\.5/);
   assert.match(outfitCard, /fontScale > 1\.5/);
-  assert.match(weatherSummary, /accessibilityLabel=\{weather\.accessibilityLabel\}/);
+  assert.match(todayScreen, /accessibilityLabel=\{presentation\.weather\.accessibilityLabel\}/);
   assert.match(outfitCard, /accessibilityLabel=\{suggestion\.accessibilityLabel\}/);
-  assert.doesNotMatch(`${todayScreen}${weatherSummary}${outfitCard}`, /numberOfLines=|allowFontScaling=\{false\}/);
+  assert.doesNotMatch(`${todayScreen}${weatherCard}${outfitCard}`, /numberOfLines=|allowFontScaling=\{false\}/);
 });
 
 test('feature and route sources contain no live-data or experimental navigation integration', async () => {
   const sources = await featureSource();
   const route = await readFile(new URL('../../app/(tabs)/(today)/index.tsx', import.meta.url), 'utf8');
+  const detailRoute = await readFile(new URL('../../app/(tabs)/(today)/[id].tsx', import.meta.url), 'utf8');
   const layout = await readFile(new URL('../../app/_layout.tsx', import.meta.url), 'utf8');
   const tabs = await readFile(new URL('../../navigation/primary-tabs.tsx', import.meta.url), 'utf8');
-  const combined = `${sources.join('\n')}\n${route}\n${layout}\n${tabs}`;
+  const combined = `${sources.join('\n')}\n${route}\n${detailRoute}\n${layout}\n${tabs}`;
 
   assert.doesNotMatch(combined, /Date\.now|Math\.random|fetch\(|axios|WeatherKit|SQLite|location permission|openai|anthropic/i);
   assert.match(route, /canonicalTodayScreenState/);
+  assert.match(detailRoute, /canonicalTodayScreenState/);
   assert.match(layout, /<Stack/);
   assert.match(tabs, /<Tabs/);
   assert.doesNotMatch(`${layout}${tabs}`, /NativeTabs|unstable-native-tabs/);

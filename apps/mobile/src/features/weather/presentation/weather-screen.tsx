@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { AppText, Button, Screen, SectionHeader, Surface } from '@/components/ui';
+import { AppText, Button, Pill, Screen, Surface } from '@/components/ui';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { manualLocationCatalog } from '@/features/weather/data/manual-location-catalog';
 import type { ActiveLocation, ManualLocationId } from '@/features/weather/domain/weather';
+import { WeatherCard } from '@/features/today/presentation/weather-card';
 import { useLocalization } from '@/localization/use-messages';
 import { borderWidths, layout, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -71,6 +73,7 @@ export function WeatherScreen() {
   const copy = messages.weather;
   const application = useWeatherApplication();
   const { state } = application;
+  const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
 
   if (state.status === 'loading') {
     return (
@@ -95,6 +98,7 @@ export function WeatherScreen() {
   const accuracy = state.activeLocation?.source === 'device'
     ? (state.activeLocation.accuracy === 'full' ? copy.fullLocation : copy.approximateLocation)
     : null;
+  const isLocationPickerVisible = isLocationPickerOpen || state.locationFlow !== 'idle';
   const flowMessages: Partial<Record<typeof state.locationFlow, string>> = {
     'denied-requestable': copy.deniedBody,
     'denied-permanent': copy.permanentDeniedBody,
@@ -120,56 +124,69 @@ export function WeatherScreen() {
 
   return (
     <Screen contentContainerStyle={styles.content} testID="weather-screen">
-      <SectionHeader title={copy.title} supportingText={copy.introduction} />
+      <AppText accessibilityRole="header" variant="titleLarge">{copy.title}</AppText>
+      <AppText colorRole="textSecondary">{copy.introduction}</AppText>
 
-      <Surface style={styles.card} variant="elevated">
-        <AppText accessibilityRole="header" variant="title">{copy.activeLocationHeading}</AppText>
-        <AppText variant="bodyStrong">{activeName}</AppText>
-        {accuracy && <AppText colorRole="textSecondary">{accuracy}</AppText>}
-        <Button
-          label={copy.useCurrentLocation}
-          loading={state.isSelectingLocation}
-          onPress={() => void application.beginDeviceLocationSelection()}
-        />
-      </Surface>
-
-      {state.locationFlow === 'rationale' && (
-        <Surface accessibilityLiveRegion="polite" style={styles.card} variant="interactive">
-          <AppText accessibilityRole="header" variant="title">{copy.locationRationaleTitle}</AppText>
-          <AppText>{copy.locationRationaleBody}</AppText>
-          <View style={styles.actions}>
-            <Button label={copy.continuePermission} onPress={() => void application.confirmDeviceLocationRequest()} />
-            <Button label={copy.cancel} variant="quiet" onPress={application.dismissLocationFlow} />
-          </View>
-        </Surface>
-      )}
-
-      {flowMessage && (
-        <Surface accessibilityLiveRegion="polite" style={styles.card} variant="muted">
-          <AppText>{flowMessage}</AppText>
-          {state.locationFlow === 'denied-permanent' && (
-            <Button label={copy.openSettings} variant="secondary" onPress={() => void application.openApplicationSettings()} />
-          )}
-          <Button label={copy.cancel} variant="quiet" onPress={application.dismissLocationFlow} />
-        </Surface>
-      )}
-
-      <Surface style={styles.card}>
-        <AppText accessibilityRole="header" variant="title">{copy.manualHeading}</AppText>
-        <AppText colorRole="textSecondary">{copy.manualBody}</AppText>
-        <View accessibilityRole="radiogroup" style={styles.options}>
-          {manualLocationCatalog.map((entry) => (
-            <LocationOption
-              key={entry.catalogId}
-              id={entry.catalogId}
-              label={copy.locations[entry.catalogId]}
-              selected={state.activeLocation?.source === 'manual' && state.activeLocation.catalogId === entry.catalogId}
-              disabled={state.isSelectingLocation}
-              onSelect={(id) => void application.selectManualLocation(id)}
-            />
-          ))}
+      <View style={styles.locationRow}>
+        <View style={styles.locationNameGroup}>
+          <AppText variant="bodyStrong">{activeName}</AppText>
+          {accuracy && <AppText colorRole="textSecondary" variant="caption">{accuracy}</AppText>}
         </View>
-      </Surface>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setIsLocationPickerOpen((open) => !open)}
+          testID="weather-change-location-button">
+          <Pill label={copy.changeLocationAction} tone="bordered" />
+        </Pressable>
+      </View>
+
+      {isLocationPickerVisible ? (
+        <View style={styles.locationPicker} testID="weather-location-picker">
+          <Button
+            label={copy.useCurrentLocation}
+            loading={state.isSelectingLocation}
+            onPress={() => void application.beginDeviceLocationSelection()}
+          />
+
+          {state.locationFlow === 'rationale' && (
+            <Surface accessibilityLiveRegion="polite" style={styles.card} variant="interactive">
+              <AppText accessibilityRole="header" variant="title">{copy.locationRationaleTitle}</AppText>
+              <AppText>{copy.locationRationaleBody}</AppText>
+              <View style={styles.actions}>
+                <Button label={copy.continuePermission} onPress={() => void application.confirmDeviceLocationRequest()} />
+                <Button label={copy.cancel} variant="quiet" onPress={application.dismissLocationFlow} />
+              </View>
+            </Surface>
+          )}
+
+          {flowMessage && (
+            <Surface accessibilityLiveRegion="polite" style={styles.card} variant="muted">
+              <AppText>{flowMessage}</AppText>
+              {state.locationFlow === 'denied-permanent' && (
+                <Button label={copy.openSettings} variant="secondary" onPress={() => void application.openApplicationSettings()} />
+              )}
+              <Button label={copy.cancel} variant="quiet" onPress={application.dismissLocationFlow} />
+            </Surface>
+          )}
+
+          <Surface style={styles.card}>
+            <AppText accessibilityRole="header" variant="title">{copy.manualHeading}</AppText>
+            <AppText colorRole="textSecondary">{copy.manualBody}</AppText>
+            <View accessibilityRole="radiogroup" style={styles.options}>
+              {manualLocationCatalog.map((entry) => (
+                <LocationOption
+                  key={entry.catalogId}
+                  id={entry.catalogId}
+                  label={copy.locations[entry.catalogId]}
+                  selected={state.activeLocation?.source === 'manual' && state.activeLocation.catalogId === entry.catalogId}
+                  disabled={state.isSelectingLocation}
+                  onSelect={(id) => void application.selectManualLocation(id)}
+                />
+              ))}
+            </View>
+          </Surface>
+        </View>
+      ) : null}
 
       <Surface accessibilityLiveRegion="polite" style={styles.disclosure} variant="muted">
         <AppText variant="bodyStrong">{copy.sampleDisclosure}</AppText>
@@ -177,27 +194,39 @@ export function WeatherScreen() {
 
       {snapshot ? (
         <>
-          <Surface style={styles.card} variant="elevated">
-            <View style={styles.headingRow}>
-              <AppText accessibilityRole="header" variant="title">{copy.currentHeading}</AppText>
-              <AppText variant="label">{state.freshness === 'fresh' ? copy.fresh : copy.stale}</AppText>
-            </View>
-            <AppText variant="display">{temperature(snapshot.current.temperatureCelsius, language)}</AppText>
-            <AppText variant="bodyStrong">{copy.conditions[snapshot.current.condition]}</AppText>
-            <AppText colorRole="textSecondary">{copy.feelsLike(temperature(snapshot.current.apparentTemperatureCelsius, language))}</AppText>
-            <AppText colorRole="textSecondary">{copy.range(
+          <WeatherCard
+            accessibilityLabel={[
+              copy.conditions[snapshot.current.condition],
+              temperature(snapshot.current.temperatureCelsius, language),
+              copy.feelsLike(temperature(snapshot.current.apparentTemperatureCelsius, language)),
+              copy.range(
+                temperature(snapshot.minimumTemperatureCelsius, language),
+                temperature(snapshot.maximumTemperatureCelsius, language),
+              ),
+              copy.precipitation(snapshot.current.precipitationProbability),
+            ].join('. ')}
+            apparentTemperature={copy.feelsLike(temperature(snapshot.current.apparentTemperatureCelsius, language))}
+            condition={copy.conditions[snapshot.current.condition]}
+            rainProbability={copy.precipitation(snapshot.current.precipitationProbability)}
+            range={copy.range(
               temperature(snapshot.minimumTemperatureCelsius, language),
               temperature(snapshot.maximumTemperatureCelsius, language),
-            )}</AppText>
-            <AppText colorRole="textSecondary">{copy.precipitation(snapshot.current.precipitationProbability)}</AppText>
-            <AppText colorRole="textSecondary">{copy.wind(decimal(snapshot.current.windSpeedMetersPerSecond, language))}</AppText>
-            <AppText colorRole="textSecondary">{copy.humidity(snapshot.current.humidity)}</AppText>
-            <AppText colorRole="textSecondary">{copy.uvIndex(decimal(snapshot.current.uvIndex, language))}</AppText>
-            <AppText variant="caption">{copy.updatedAt(time(snapshot.fetchedAt, snapshot.timeZone, language))}</AppText>
-          </Surface>
+            )}
+            stats={[
+              { label: copy.windLabel, value: `${decimal(snapshot.current.windSpeedMetersPerSecond, language)} m/s` },
+              { label: copy.humidityLabel, value: `${Math.round(snapshot.current.humidity * 100)}%` },
+              { label: copy.uvIndexLabel, value: decimal(snapshot.current.uvIndex, language) },
+            ]}
+            temperature={temperature(snapshot.current.temperatureCelsius, language)}
+            testID="weather-current-card"
+          />
+          <View style={styles.headingRow}>
+            <AppText variant="label">{state.freshness === 'fresh' ? copy.fresh : copy.stale}</AppText>
+            <AppText colorRole="textSecondary" variant="caption">{copy.updatedAt(time(snapshot.fetchedAt, snapshot.timeZone, language))}</AppText>
+          </View>
 
           <Surface style={styles.card}>
-            <AppText accessibilityRole="header" variant="title">{copy.hourlyHeading}</AppText>
+            <AppText colorRole="brandAccent" variant="eyebrow">{copy.hourlyHeading}</AppText>
             {snapshot.hourly.map((hour) => (
               <View
                 accessible
@@ -249,6 +278,13 @@ const styles = StyleSheet.create({
   center: { flexGrow: 1, justifyContent: 'center', gap: spacing.lg },
   card: { gap: spacing.md, padding: spacing.lg },
   disclosure: { padding: spacing.md },
+  locationRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  locationNameGroup: { gap: spacing.xs / 2 },
+  locationPicker: { gap: spacing.md },
   actions: { gap: spacing.sm },
   options: { gap: spacing.sm },
   option: {

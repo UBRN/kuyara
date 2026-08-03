@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { useState } from 'react';
 
-import { AppText, Screen, SectionHeader } from '@/components/ui';
+import { AppText, Screen } from '@/components/ui';
 import type {
   ClothingPreference,
   LanguagePreference,
@@ -46,19 +46,22 @@ export function SettingsScreen({
 
   return (
     <Screen testID="settings-screen" contentContainerStyle={styles.content}>
-      <AppText colorRole="textSecondary" style={styles.introduction}>
+      <AppText accessibilityRole="header" style={styles.title} variant="titleLarge">
+        {messages.settings.title}
+      </AppText>
+      <AppText colorRole="textSecondary">
         {messages.settings.introduction}
       </AppText>
 
       <View style={styles.section}>
-        <SectionHeader
-          title={copy.clothingTitle}
-          supportingText={copy.clothingDescription}
-        />
-        <View style={styles.options}>
+        <AppText colorRole="brandAccent" variant="eyebrow">
+          {copy.clothingTitle}
+        </AppText>
+        <View style={styles.rowOptions}>
           <PreferenceOption
             disabled={isSaving}
             label={copy.womensClothing}
+            layout="row"
             onPress={() => void save(() => updateClothingPreference('womens'))}
             selected={profile.clothingPreference === 'womens'}
             testID="settings-clothing-womens"
@@ -66,6 +69,7 @@ export function SettingsScreen({
           <PreferenceOption
             disabled={isSaving}
             label={copy.mensClothing}
+            layout="row"
             onPress={() => void save(() => updateClothingPreference('mens'))}
             selected={profile.clothingPreference === 'mens'}
             testID="settings-clothing-mens"
@@ -74,10 +78,9 @@ export function SettingsScreen({
       </View>
 
       <View style={styles.section}>
-        <SectionHeader
-          title={copy.languageTitle}
-          supportingText={copy.languageDescription}
-        />
+        <AppText colorRole="brandAccent" variant="eyebrow">
+          {copy.languageTitle}
+        </AppText>
         <View style={styles.options}>
           {(
             [
@@ -99,11 +102,10 @@ export function SettingsScreen({
       </View>
 
       <View style={styles.section}>
-        <SectionHeader
-          title={copy.themeTitle}
-          supportingText={copy.themeDescription}
-        />
-        <View style={styles.options}>
+        <AppText colorRole="brandAccent" variant="eyebrow">
+          {copy.themeTitle}
+        </AppText>
+        <View style={styles.rowOptions}>
           {(
             [
               ['system', copy.themeSystem],
@@ -115,6 +117,7 @@ export function SettingsScreen({
               key={value}
               disabled={isSaving}
               label={label}
+              layout="row"
               onPress={() => void save(() => updateThemePreference(value))}
               selected={profile.themePreference === value}
               testID={`settings-theme-${value}`}
@@ -146,7 +149,7 @@ const styles = StyleSheet.create({
     gap: spacing['2xl'],
     paddingBottom: spacing['2xl'],
   },
-  introduction: {
+  title: {
     marginTop: spacing.xl,
   },
   section: {
@@ -154,5 +157,9 @@ const styles = StyleSheet.create({
   },
   options: {
     gap: spacing.md,
+  },
+  rowOptions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
   },
 });

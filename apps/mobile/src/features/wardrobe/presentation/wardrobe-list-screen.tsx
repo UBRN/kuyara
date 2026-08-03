@@ -13,13 +13,13 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppText, Button, StretchyHeader, Surface } from '@/components/ui';
+import { AppText, Button, PhotoPlaceholder, StretchyHeader, Surface } from '@/components/ui';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import type { CatalogMessageKey } from '@/features/catalog/domain/garment-taxonomy';
 import type { WardrobeApplicationState } from '@/features/wardrobe/application/wardrobe-application-controller';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import { useMessages } from '@/localization/use-messages';
-import { interaction, layout, radii, spacing } from '@/theme/theme';
+import { layout, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 type WardrobeListScreenProps = Readonly<{
@@ -69,40 +69,51 @@ function WardrobeListItem({
       })}
       accessibilityRole="button"
       onPress={onPress}
-      testID={`wardrobe-item-${item.id}`}
-      style={({ pressed }) => pressed && styles.pressed}>
-      <Surface style={styles.itemCard} variant="interactive">
-        {visiblePhotoUri ? (
-          <Image
-            accessible
-            accessibilityLabel={messages.wardrobe.photoAccessibilityLabel(typeLabel)}
-            onError={() => setUnreadablePhotoUri(visiblePhotoUri)}
-            resizeMode="cover"
-            source={{ uri: visiblePhotoUri }}
-            style={[
-              styles.thumbnail,
-              { backgroundColor: theme.colors.surfaceMuted },
-            ]}
-            testID={`wardrobe-photo-${item.id}`}
-          />
-        ) : null}
-        <View style={styles.itemCopy}>
-          <AppText variant="bodyStrong">{title}</AppText>
-          {item.name ? (
-            <AppText colorRole="textSecondary">{typeLabel}</AppText>
-          ) : null}
-          <AppText colorRole="textSecondary" variant="caption">
-            {[categoryLabel, colorLabel].filter(Boolean).join(' · ')}
-          </AppText>
-        </View>
-        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          <SymbolView
-            name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
-            size={20}
-            tintColor={theme.colors.iconSecondary}
-          />
-        </View>
-      </Surface>
+      testID={`wardrobe-item-${item.id}`}>
+      {({ pressed }) => (
+        <Surface
+          style={[
+            styles.itemCard,
+            pressed && { borderColor: theme.colors.borderStrong },
+          ]}
+          variant="interactive">
+          {visiblePhotoUri ? (
+            <Image
+              accessible
+              accessibilityLabel={messages.wardrobe.photoAccessibilityLabel(typeLabel)}
+              onError={() => setUnreadablePhotoUri(visiblePhotoUri)}
+              resizeMode="cover"
+              source={{ uri: visiblePhotoUri }}
+              style={[styles.thumbnail, { backgroundColor: theme.colors.surfaceMuted }]}
+              testID={`wardrobe-photo-${item.id}`}
+            />
+          ) : (
+            <PhotoPlaceholder
+              borderRadius={radii.compact}
+              height={56}
+              label={messages.wardrobe.photoTitle}
+              testID={`wardrobe-photo-placeholder-${item.id}`}
+              width={56}
+            />
+          )}
+          <View style={styles.itemCopy}>
+            <AppText variant="bodyStrong">{title}</AppText>
+            {item.name ? (
+              <AppText colorRole="textSecondary">{typeLabel}</AppText>
+            ) : null}
+            <AppText colorRole="textSecondary" variant="caption">
+              {[categoryLabel, colorLabel].filter(Boolean).join(' · ')}
+            </AppText>
+          </View>
+          <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            <SymbolView
+              name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+              size={20}
+              tintColor={theme.colors.iconSecondary}
+            />
+          </View>
+        </Surface>
+      )}
     </Pressable>
   );
 }
@@ -181,6 +192,7 @@ export function WardrobeListScreen({
             accessibilityHint={copy.addHint}
             label={copy.addAction}
             onPress={onAdd}
+            style={styles.addButton}
             testID="wardrobe-add-button"
           />
         ) : null}
@@ -263,6 +275,10 @@ const styles = StyleSheet.create({
   header: {
     gap: spacing.lg,
   },
+  addButton: {
+    alignSelf: 'flex-start',
+    borderRadius: radii.pill,
+  },
   listHeader: {
     marginBottom: spacing.md,
   },
@@ -291,10 +307,7 @@ const styles = StyleSheet.create({
   },
   thumbnail: {
     borderRadius: radii.compact,
-    height: 64,
-    width: 64,
-  },
-  pressed: {
-    opacity: interaction.pressedOpacity,
+    height: 56,
+    width: 56,
   },
 });
