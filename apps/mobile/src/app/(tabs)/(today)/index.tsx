@@ -11,6 +11,7 @@ export default function TodayRoute() {
   return (
     <TodayScreen
       language={language}
+      onOpenOutfitDetail={(id) => router.push(`/${id}`)}
       onOpenSettings={() => router.push('/settings')}
       state={canonicalTodayScreenState}
     />

@@ -6,7 +6,7 @@ import {
   View,
 } from 'react-native';
 
-import { AppText, Button, Screen, SectionHeader, Surface } from '@/components/ui';
+import { AppText, Button, PhotoPlaceholder, Screen, Surface } from '@/components/ui';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import type {
   CatalogMessageKey,
@@ -62,6 +62,22 @@ type WardrobeItemFormScreenProps = Readonly<{
   ) => Promise<void>;
   onDelete?: () => Promise<void>;
 }>;
+
+function FormSectionLabel({
+  heading,
+  description,
+}: Readonly<{ heading: string; description?: string }>) {
+  return (
+    <View style={styles.sectionLabel}>
+      <AppText colorRole="brandAccent" variant="eyebrow">
+        {heading}
+      </AppText>
+      {description ? (
+        <AppText colorRole="textSecondary">{description}</AppText>
+      ) : null}
+    </View>
+  );
+}
 
 function attributeMessageKey(
   definition: WardrobeOverrideDefinition,
@@ -333,18 +349,19 @@ export function WardrobeItemFormScreen({
           disabled={busy}
           label={copy.backAction}
           onPress={() => onBackRequested(isDirty)}
+          style={styles.headerBackButton}
           variant="quiet"
         />
-        <AppText accessibilityRole="header" variant="titleLarge">
+        <AppText
+          accessibilityRole="header"
+          style={styles.headerTitle}
+          variant="titleLarge">
           {mode === 'create' ? copy.newTitle : copy.editTitle}
         </AppText>
       </View>
 
       <View style={styles.section}>
-        <SectionHeader
-          title={copy.nameLabel}
-          supportingText={copy.nameDescription}
-        />
+        <FormSectionLabel description={copy.nameDescription} heading={copy.nameLabel} />
         <TextInput
           accessibilityLabel={copy.nameLabel}
           editable={!busy}
@@ -365,10 +382,7 @@ export function WardrobeItemFormScreen({
       </View>
 
       <View style={styles.section}>
-        <SectionHeader
-          title={copy.photoTitle}
-          supportingText={copy.photoDescription}
-        />
+        <FormSectionLabel description={copy.photoDescription} heading={copy.photoTitle} />
         {visiblePreviewUri ? (
           <Image
             accessible
@@ -383,9 +397,13 @@ export function WardrobeItemFormScreen({
             testID="wardrobe-photo-preview"
           />
         ) : (
-          <Surface style={styles.photoEmpty} variant="muted">
-            <AppText colorRole="textSecondary">{copy.photoEmptyBody}</AppText>
-          </Surface>
+          <PhotoPlaceholder
+            borderRadius={radii.card}
+            height={140}
+            label={copy.photoEmptyBody}
+            testID="wardrobe-photo-empty"
+            width="100%"
+          />
         )}
         <View style={styles.photoActions}>
           <Button
@@ -423,10 +441,7 @@ export function WardrobeItemFormScreen({
       </View>
 
       <View accessibilityRole="radiogroup" style={styles.section}>
-        <SectionHeader
-          title={copy.typeTitle}
-          supportingText={copy.typeDescription}
-        />
+        <FormSectionLabel description={copy.typeDescription} heading={copy.typeTitle} />
         <View style={styles.options}>
           {garmentTypes.map((garmentType) => (
             <WardrobeOption
@@ -450,10 +465,7 @@ export function WardrobeItemFormScreen({
       </View>
 
       <View accessibilityRole="radiogroup" style={styles.section}>
-        <SectionHeader
-          title={copy.colorTitle}
-          supportingText={copy.colorDescription}
-        />
+        <FormSectionLabel description={copy.colorDescription} heading={copy.colorTitle} />
         <View style={styles.options}>
           <WardrobeOption
             disabled={busy}
@@ -481,10 +493,7 @@ export function WardrobeItemFormScreen({
 
       {selectedType && supportedOverrides.length > 0 ? (
         <View style={styles.section} testID="wardrobe-attributes">
-          <SectionHeader
-            title={copy.attributesTitle}
-            supportingText={copy.attributesDescription}
-          />
+          <FormSectionLabel description={copy.attributesDescription} heading={copy.attributesTitle} />
           {supportedOverrides.map((definition) => {
             const defaultValue = selectedType[definition.defaultField];
             if (typeof defaultValue !== 'string') {
@@ -556,10 +565,7 @@ export function WardrobeItemFormScreen({
 
       {mode === 'edit' && onDelete ? (
         <Surface style={styles.deleteSection} variant="muted">
-          <SectionHeader
-            title={copy.deleteSectionTitle}
-            supportingText={copy.deleteSectionBody}
-          />
+          <FormSectionLabel description={copy.deleteSectionBody} heading={copy.deleteSectionTitle} />
           {deleteError ? (
             <AppText
               accessibilityLiveRegion="assertive"
@@ -590,21 +596,29 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
   },
   header: {
-    alignItems: 'flex-start',
-    gap: spacing.lg,
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  headerBackButton: {
+    flexShrink: 0,
+  },
+  headerTitle: {
+    flex: 1,
+    flexShrink: 1,
+    textAlign: 'center',
   },
   section: {
     gap: spacing.lg,
+  },
+  sectionLabel: {
+    gap: spacing.xs,
   },
   options: {
     gap: spacing.md,
   },
   photoActions: {
     gap: spacing.sm,
-  },
-  photoEmpty: {
-    minHeight: 96,
-    padding: spacing.lg,
   },
   photoPreview: {
     alignSelf: 'stretch',
@@ -617,7 +631,7 @@ const styles = StyleSheet.create({
   },
   textInput: {
     borderRadius: radii.control,
-    borderWidth: borderWidths.strong,
+    borderWidth: borderWidths.subtle,
     fontSize: typography.body.fontSize,
     minHeight: 52,
     paddingHorizontal: spacing.lg,

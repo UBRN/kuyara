@@ -1,156 +1,110 @@
-import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 
-import { AppText, Surface } from '@/components/ui';
+import { AppText, Pill } from '@/components/ui';
 import type { LoadedOutfitPresentation } from '@/features/today/presentation/today-presentation';
-import { radii, spacing } from '@/theme/theme';
+import { borderWidths, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
+
+export type OutfitSuggestionCardVariant = 'primary' | 'secondary';
 
 type OutfitSuggestionCardProps = Readonly<{
   suggestion: LoadedOutfitPresentation;
-  piecesHeading: string;
-  reasonsHeading: string;
+  variant: OutfitSuggestionCardVariant;
+  onPress: () => void;
 }>;
 
 export function OutfitSuggestionCard({
   suggestion,
-  piecesHeading,
-  reasonsHeading,
+  variant,
+  onPress,
 }: OutfitSuggestionCardProps) {
   const theme = useKuyaraTheme();
   const { fontScale } = useWindowDimensions();
   const usesStackedLayout = fontScale > 1.5;
+  const garmentSummary = suggestion.pieces.map(({ item }) => item).join(' · ');
+  const isPrimary = variant === 'primary';
 
   return (
-    <Surface
-      accessible
+    <Pressable
       accessibilityLabel={suggestion.accessibilityLabel}
-      testID={`outfit-card-${suggestion.id}`}
-      style={[
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
         styles.card,
-        suggestion.emphasis && { borderColor: theme.colors.borderStrong },
-      ]}>
-      <View style={styles.headingGroup}>
-        <View style={[styles.eyebrowRow, usesStackedLayout && styles.stackedEyebrowRow]}>
-          <AppText variant="caption" colorRole="textSecondary">
-            {suggestion.positionLabel}
-          </AppText>
-          {suggestion.emphasis ? (
-            <Surface variant="interactive" style={styles.badge}>
-              <AppText variant="caption" colorRole="brandAccent">
-                {suggestion.emphasis}
-              </AppText>
-            </Surface>
-          ) : null}
-        </View>
-        <AppText variant="title">{suggestion.title}</AppText>
-        <AppText colorRole="textSecondary">{suggestion.description}</AppText>
+        isPrimary ? styles.primaryCard : styles.secondaryCard,
+        {
+          borderColor: isPrimary ? theme.colors.borderStrong : theme.colors.borderSubtle,
+          backgroundColor: theme.colors.surface,
+        },
+        pressed && {
+          borderColor: isPrimary ? theme.colors.textPrimary : theme.colors.focusRing,
+          backgroundColor: isPrimary ? theme.colors.surfaceInteractive : theme.colors.surface,
+        },
+      ]}
+      testID={`outfit-card-${suggestion.id}`}>
+      <View style={[styles.headingRow, usesStackedLayout && styles.stackedHeadingRow]}>
+        <AppText style={styles.title} variant={isPrimary ? 'title' : 'bodyStrong'}>
+          {suggestion.title}
+        </AppText>
+        {suggestion.emphasis ? (
+          isPrimary ? (
+            <Pill label={suggestion.emphasis} tone="accent-filled" />
+          ) : (
+            <AppText colorRole="brandAccent" variant="eyebrow">
+              {suggestion.emphasis}
+            </AppText>
+          )
+        ) : null}
       </View>
-
-      <View style={styles.section}>
-        <AppText variant="label">{piecesHeading}</AppText>
-        <View style={styles.pieceList}>
-          {suggestion.pieces.map(({ item, slot }) => (
-            <View
-              key={`${slot}-${item}`}
-              style={[styles.pieceRow, usesStackedLayout && styles.stackedPieceRow]}>
-              <AppText variant="caption" colorRole="textSecondary" style={styles.slotLabel}>
-                {slot}
-              </AppText>
-              <AppText variant="bodyStrong" style={styles.itemLabel}>
-                {item}
-              </AppText>
-            </View>
-          ))}
-        </View>
+      {isPrimary ? (
+        <AppText colorRole="brandAccent" style={styles.decisionText}>
+          {suggestion.description}
+        </AppText>
+      ) : null}
+      <AppText colorRole="textSecondary" style={styles.garmentSummary} variant="caption">
+        {garmentSummary}
+      </AppText>
+      <View style={styles.chevronRow}>
+        <AppText colorRole="brandAccent">→</AppText>
       </View>
-
-      <View style={styles.section}>
-        <AppText variant="label">{reasonsHeading}</AppText>
-        <View style={styles.reasonList}>
-          {suggestion.reasons.map((reason) => (
-            <View key={reason} style={styles.reasonRow}>
-              <View
-                accessibilityElementsHidden
-                importantForAccessibility="no"
-                style={[styles.reasonMarker, { backgroundColor: theme.colors.brandAccent }]}
-              />
-              <AppText colorRole="textSecondary" style={styles.reasonText}>
-                {reason}
-              </AppText>
-            </View>
-          ))}
-        </View>
-      </View>
-    </Surface>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    gap: spacing.xl,
-    padding: spacing.xl,
-  },
-  headingGroup: {
+    borderRadius: radii.card,
+    borderWidth: borderWidths.subtle,
     gap: spacing.sm,
   },
-  eyebrowRow: {
-    alignItems: 'center',
+  primaryCard: {
+    padding: spacing.xl,
+  },
+  secondaryCard: {
+    padding: spacing.lg,
+  },
+  headingRow: {
+    alignItems: 'baseline',
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
     justifyContent: 'space-between',
   },
-  stackedEyebrowRow: {
+  stackedHeadingRow: {
     alignItems: 'flex-start',
     flexDirection: 'column',
   },
-  badge: {
-    alignSelf: 'flex-start',
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  section: {
-    gap: spacing.md,
-  },
-  pieceList: {
-    gap: spacing.sm,
-  },
-  pieceRow: {
-    alignItems: 'baseline',
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  stackedPieceRow: {
-    alignItems: 'flex-start',
-    flexDirection: 'column',
-    gap: spacing.xs,
-  },
-  slotLabel: {
-    flexBasis: 88,
-    flexGrow: 0,
-    flexShrink: 0,
-  },
-  itemLabel: {
+  title: {
     flex: 1,
     flexShrink: 1,
   },
-  reasonList: {
-    gap: spacing.sm,
+  decisionText: {
+    marginTop: -spacing.xs,
   },
-  reasonRow: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    gap: spacing.sm,
+  garmentSummary: {
+    marginTop: spacing.xs / 2,
   },
-  reasonMarker: {
-    borderRadius: radii.pill,
-    height: 6,
-    marginTop: 9,
-    width: 6,
-  },
-  reasonText: {
-    flex: 1,
-    flexShrink: 1,
+  chevronRow: {
+    alignItems: 'flex-end',
   },
 });

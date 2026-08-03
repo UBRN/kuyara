@@ -81,8 +81,9 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
       <Providers language={language} value={value}><WeatherScreen /></Providers>,
     );
     const copy = messages[language].weather;
-    expect(result.getByRole('button', { name: copy.useCurrentLocation })).toBeOnTheScreen();
     expect(result.getByText(copy.sampleDisclosure)).toBeOnTheScreen();
+    await fireEvent.press(result.getByRole('button', { name: copy.changeLocationAction }));
+    expect(result.getByRole('button', { name: copy.useCurrentLocation })).toBeOnTheScreen();
     for (const location of Object.values(copy.locations)) {
       expect(result.getByRole('radio', { name: location })).toBeOnTheScreen();
     }
@@ -171,6 +172,7 @@ test('selected location, stale snapshot, refreshing, failure, and hourly content
   const result = await render(
     <Providers language="en" value={value}><WeatherScreen /></Providers>,
   );
+  await fireEvent.press(result.getByRole('button', { name: messages.en.weather.changeLocationAction }));
   expect(result.getByRole('radio', { name: messages.en.weather.locations[active.catalogId] }).props.accessibilityState.selected).toBe(true);
   expect(result.getByText(messages.en.weather.stale)).toBeOnTheScreen();
   expect(result.getByText(messages.en.weather.unavailableNotice).props.accessibilityLiveRegion).toBe('polite');
@@ -183,6 +185,7 @@ test('manual selection emits stable catalog ID', async () => {
   const result = await render(
     <Providers language="tr" value={value}><WeatherScreen /></Providers>,
   );
+  await fireEvent.press(result.getByRole('button', { name: messages.tr.weather.changeLocationAction }));
   await fireEvent.press(result.getByRole('radio', { name: messages.tr.weather.locations['sample.ankara'] }));
   expect(value.selectManualLocation).toHaveBeenCalledWith('sample.ankara');
 });

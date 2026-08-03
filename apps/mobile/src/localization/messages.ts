@@ -26,10 +26,8 @@ export type TodayMessages = Readonly<{
   title: string;
   settingsAction: string;
   settingsHint: string;
-  weatherHeading: string;
-  guidanceHeading: string;
-  outfitsHeading: string;
-  outfitsSupportingText: string;
+  recommendedTodayHeading: string;
+  otherOptionsHeading: string;
   piecesHeading: string;
   reasonsHeading: string;
   locations: Readonly<Record<TodayLocationCode, string>>;
@@ -45,6 +43,16 @@ export type TodayMessages = Readonly<{
   apparentTemperature: (temperature: string) => string;
   temperatureRange: (minimum: string, maximum: string) => string;
   rainProbability: (probability: string) => string;
+  windLabel: string;
+  humidityLabel: string;
+  uvIndexLabel: string;
+  sunriseLabel: string;
+  sunsetLabel: string;
+  rainOutlookHeading: string;
+  rainOutlookTakeaway: string;
+  windValue: (speedKmh: number, direction: string) => string;
+  humidityValue: (percent: number) => string;
+  uvIndexValue: (value: number) => string;
   optionPosition: (position: number, total: number) => string;
   loadingTitle: string;
   loadingBody: string;
@@ -71,7 +79,6 @@ export type TodayMessages = Readonly<{
 
 export type PreferenceMessages = Readonly<{
   clothingTitle: string;
-  clothingDescription: string;
   womensClothing: string;
   mensClothing: string;
   languageTitle: string;
@@ -136,6 +143,7 @@ export type AppMessages = Readonly<{
     approximateLocation: string;
     fullLocation: string;
     useCurrentLocation: string;
+    changeLocationAction: string;
     locationRationaleTitle: string;
     locationRationaleBody: string;
     continuePermission: string;
@@ -173,6 +181,9 @@ export type AppMessages = Readonly<{
     wind: (speed: string) => string;
     humidity: (humidity: number) => string;
     uvIndex: (index: string) => string;
+    windLabel: string;
+    humidityLabel: string;
+    uvIndexLabel: string;
     conditions: Readonly<Record<LiveWeatherConditionCode, string>>;
   }>;
   wardrobe: Readonly<{
@@ -291,7 +302,6 @@ const en = {
   },
   preferences: {
     clothingTitle: 'Clothing preference',
-    clothingDescription: 'Controls the catalog and recommendation style, not your identity.',
     womensClothing: 'Women’s clothing',
     mensClothing: 'Men’s clothing',
     languageTitle: 'Language',
@@ -320,6 +330,7 @@ const en = {
     approximateLocation: 'Approximate location',
     fullLocation: 'Precise location',
     useCurrentLocation: 'Use my current location',
+    changeLocationAction: 'Change',
     locationRationaleTitle: 'Use your location for weather?',
     locationRationaleBody: 'kuyara requests location only while you use the app, for a one-time weather lookup. Approximate location is enough.',
     continuePermission: 'Continue',
@@ -361,6 +372,9 @@ const en = {
     wind: (speed) => `Wind ${speed} m/s`,
     humidity: (humidity) => `${Math.round(humidity * 100)}% humidity`,
     uvIndex: (index) => `UV index ${index}`,
+    windLabel: 'Wind',
+    humidityLabel: 'Humidity',
+    uvIndexLabel: 'UV',
     conditions: {
       clear: 'Clear', mostly_clear: 'Mostly clear', partly_cloudy: 'Partly cloudy',
       cloudy: 'Cloudy', fog: 'Fog', drizzle: 'Drizzle', rain: 'Rain',
@@ -447,10 +461,8 @@ const en = {
     title: 'Today',
     settingsAction: 'Settings',
     settingsHint: 'Opens clothing, language, and appearance settings.',
-    weatherHeading: 'Weather at a glance',
-    guidanceHeading: 'Your clothing strategy',
-    outfitsHeading: 'Three ways to dress',
-    outfitsSupportingText: 'Complete options for different plans, all suited to today.',
+    recommendedTodayHeading: 'Recommended today',
+    otherOptionsHeading: 'Other options',
     piecesHeading: 'Wear',
     reasonsHeading: 'Why it works',
     locations: {
@@ -514,6 +526,16 @@ const en = {
     apparentTemperature: (temperature: string) => `Feels like ${temperature}`,
     temperatureRange: (minimum: string, maximum: string) => `Low ${minimum} · High ${maximum}`,
     rainProbability: (probability: string) => `${probability} chance of rain`,
+    windLabel: 'Wind',
+    humidityLabel: 'Humidity',
+    uvIndexLabel: 'UV',
+    sunriseLabel: 'Sunrise',
+    sunsetLabel: 'Sunset',
+    rainOutlookHeading: 'Rain chance today',
+    rainOutlookTakeaway: 'Heaviest between 9–12, moderate wind through midday.',
+    windValue: (speedKmh: number, direction: string) => `${speedKmh} km/h ${direction}`,
+    humidityValue: (percent: number) => `${percent}%`,
+    uvIndexValue: (value: number) => `${value} · Low`,
     optionPosition: (position: number, total: number) => `Option ${position} of ${total}`,
     loadingTitle: 'Preparing today’s guidance',
     loadingBody: 'Your weather summary and outfit options will appear here.',
@@ -579,7 +601,6 @@ const tr = {
   },
   preferences: {
     clothingTitle: 'Giyim tercihi',
-    clothingDescription: 'Kimliğinizi değil, katalog ve öneri tarzını belirler.',
     womensClothing: 'Kadın giyim',
     mensClothing: 'Erkek giyim',
     languageTitle: 'Dil',
@@ -608,6 +629,7 @@ const tr = {
     approximateLocation: 'Yaklaşık konum',
     fullLocation: 'Kesin konum',
     useCurrentLocation: 'Mevcut konumumu kullan',
+    changeLocationAction: 'Değiştir',
     locationRationaleTitle: 'Konumunuz hava durumu için kullanılsın mı?',
     locationRationaleBody: 'kuyara konumu yalnızca uygulamayı kullanırken, tek seferlik hava durumu sorgusu için ister. Yaklaşık konum yeterlidir.',
     continuePermission: 'Devam et',
@@ -649,6 +671,9 @@ const tr = {
     wind: (speed) => `Rüzgâr ${speed} m/sn`,
     humidity: (humidity) => `%${Math.round(humidity * 100)} nem`,
     uvIndex: (index) => `UV endeksi ${index}`,
+    windLabel: 'Rüzgâr',
+    humidityLabel: 'Nem',
+    uvIndexLabel: 'UV',
     conditions: {
       clear: 'Açık', mostly_clear: 'Çoğunlukla açık', partly_cloudy: 'Parçalı bulutlu',
       cloudy: 'Bulutlu', fog: 'Sisli', drizzle: 'Çiseleme', rain: 'Yağmurlu',
@@ -735,10 +760,8 @@ const tr = {
     title: 'Bugün',
     settingsAction: 'Ayarlar',
     settingsHint: 'Giyim, dil ve görünüm ayarlarını açar.',
-    weatherHeading: 'Kısaca hava durumu',
-    guidanceHeading: 'Bugünün giyim stratejisi',
-    outfitsHeading: 'Üç farklı kombin',
-    outfitsSupportingText: 'Farklı planlara uygun, bugün için eksiksiz seçenekler.',
+    recommendedTodayHeading: 'Bugün için önerilen',
+    otherOptionsHeading: 'Diğer seçenekler',
     piecesHeading: 'Parçalar',
     reasonsHeading: 'Neden uygun',
     locations: {
@@ -802,6 +825,16 @@ const tr = {
     apparentTemperature: (temperature: string) => `Hissedilen ${temperature}`,
     temperatureRange: (minimum: string, maximum: string) => `En düşük ${minimum} · En yüksek ${maximum}`,
     rainProbability: (probability: string) => `Yağmur olasılığı ${probability}`,
+    windLabel: 'Rüzgâr',
+    humidityLabel: 'Nem',
+    uvIndexLabel: 'UV',
+    sunriseLabel: 'Gündoğumu',
+    sunsetLabel: 'Günbatımı',
+    rainOutlookHeading: 'Bugünkü yağmur olasılığı',
+    rainOutlookTakeaway: '9–12 arası en yoğun, öğlene kadar rüzgâr orta şiddette.',
+    windValue: (speedKmh: number, direction: string) => `${speedKmh} km/sa ${direction}`,
+    humidityValue: (percent: number) => `%${percent}`,
+    uvIndexValue: (value: number) => `${value} · Düşük`,
     optionPosition: (position: number, total: number) => `${total} seçenekten ${position}.`,
     loadingTitle: 'Bugünün önerileri hazırlanıyor',
     loadingBody: 'Hava özeti ve kombin seçenekleri burada görünecek.',
