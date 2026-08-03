@@ -46,7 +46,7 @@ export function SettingsScreen({
 
   return (
     <Screen testID="settings-screen" contentContainerStyle={styles.content}>
-      <AppText colorRole="textSecondary">
+      <AppText colorRole="textSecondary" style={styles.introduction}>
         {messages.settings.introduction}
       </AppText>
 
@@ -145,7 +145,9 @@ const styles = StyleSheet.create({
   content: {
     gap: spacing['2xl'],
     paddingBottom: spacing['2xl'],
-    paddingTop: spacing.xl,
+  },
+  introduction: {
+    marginTop: spacing.xl,
   },
   section: {
     gap: spacing.lg,
