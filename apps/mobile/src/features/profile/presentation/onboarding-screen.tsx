@@ -270,10 +270,10 @@ const styles = StyleSheet.create({
   content: {
     gap: spacing['2xl'],
     paddingBottom: spacing['2xl'],
-    paddingTop: spacing.xl,
   },
   heading: {
     gap: spacing.sm,
+    marginTop: spacing.xl,
   },
   panel: {
     gap: spacing.lg,
