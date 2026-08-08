@@ -10,6 +10,7 @@
     "e2e:ios": "env JAVA_HOME=\"$(brew --prefix openjdk)/libexec/openjdk.jdk/Contents/Home\" maestro test .maestro",
     "lint": "pnpm --filter @kuyara/mobile lint",
     "typecheck": "pnpm --recursive --if-present typecheck",
-    "check": "pnpm run lint && pnpm run typecheck && pnpm --filter @kuyara/worker bundle"
+    "test": "pnpm --recursive --if-present test",
+    "check": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm --filter @kuyara/worker bundle"
   }
 }
