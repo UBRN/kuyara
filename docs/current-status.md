@@ -1,30 +1,14 @@
 # Current Project Status
 
-## Last Completed Milestone
+## Recently Completed Milestones
+
+Keep only the most recent two or three completed milestones here. Older entries stay in Git history; this document describes the current state, not the full changelog.
 
 The shared stretchy-header presentation slice was completed on 2026-08-03. Loaded Today and the ready Wardrobe list now share one feature-independent Reanimated primitive that measures the current top safe area, reserves compact overlay clearance, and stretches only its semantic background during native negative overscroll. The background reaches the top edge at exactly the measured inset, clamps further visual expansion, and returns through native scroll physics; text, controls, accessibility frames, and list virtualization remain unchanged. Wardrobe retains React Native FlatList, and no dependency, route, localization, persistence, domain, recommendation, or provider behavior was added. Automated coverage and native Release validation on the approved iPhone 17 iOS 26.5 Simulator covered its Dynamic Island inset, compact and stretched states, positive scrolling, Today and empty/populated Wardrobe content, pull-to-refresh, English and Turkish, light and dark appearances, accessibility text, Reduce Motion, and the runtime accessibility hierarchy. An actual VoiceOver session was unavailable because that Simulator environment does not expose the required control; the app's existing portrait-only configuration also prevents a live landscape layout, while changing inset values and remeasurement are covered by component tests.
 
 The deterministic one-outfit composition milestone was completed on 2026-08-01. A pure mobile domain function now consumes `ClothingRequirements` and evaluated effective garment candidates to return one immutable complete outfit or a structured failure. It supports separates or one-piece body cores, required footwear, optional maximum-one mid and outer layers, runtime role assignment, unique candidate use, collective thermal/breathability/coverage evaluation, authoritative outerwear and footwear protection, bounded outfit penalties, source-neutral catalog/Wardrobe treatment, and stable composition ordering. Mandatory protective outer layers can produce an explicit penalized `breathability_protection_tradeoff` when the non-protective core remains breathable; protection is never weakened and a deficient core still fails. No UI or three-outfit diversity behavior was added.
 
 The deterministic garment eligibility and scoring milestone was completed on 2026-08-01. Bundled catalog defaults and resolved owned-item overrides now converge on one canonical effective-property input. The pure evaluator records composition-aware thermal, breathability, and arm/leg coverage contributions without rejecting useful individual layers; only mandatory targeted outerwear water/wind and footwear water/traction failures hard-reject. Eligible candidates receive deterministic bounded `0..100` scores, stable language-independent reasons, and candidate-key tie ordering. Catalog preference filters bundled candidates only, lifecycle and invalid-data failures are explicit, and no garment combinations, slots, selected roles, or outfits are produced.
-
-The first deterministic weather-to-clothing requirement milestone was completed on 2026-08-01. A pure provider-independent mobile domain function now converts validated current and remaining-hour weather into immutable mandatory and optional thermal, coverage, breathability, wind, water, and traction requirements with language-independent reason codes. Past daily extrema do not escalate current requirements when remaining-hour coverage exists; daily min/max retain the wide-range reason and a documented no-future-hour fallback. The slice selects no garments, Wardrobe items, layers, slots, accessories, or outfits.
-
-The mobile Weather resilience slice was completed on 2026-08-01. The provider-neutral mobile boundary now distinguishes network, service, and invalid-response failures; Weather presents cacheless network failures as offline and other provider failures as unavailable, while cached stale weather and the active location remain intact. Successful retry clears the failure, and Turkish/English accessible notices preserve the sample-data disclosure.
-
-The deterministic sample Weather Worker was deployed to a controlled Cloudflare development Worker on 2026-08-01. `kuyara-weather-dev` is available at `https://kuyara-weather-dev.ubarin08.workers.dev`; remote contract smoke tests returned 200 for a valid request, 400 for an invalid request, 405 for a wrong method, and 404 for a wrong route. Deployment version `8c0b59cd-bdaa-4dcb-a903-3c41839f5ec2` has no bindings or secrets, observability is disabled, and no WeatherKit credential or production provider is present.
-
-The mobile Worker weather adapter was completed on 2026-08-01. Mobile development now calls the local `POST /v1/weather` sample endpoint through shared Zod contracts, maps responses into the existing local snapshot model while retaining local location identity, and preserves the established SQLite cache-first and failure behavior.
-
-The Cloudflare Worker foundation and versioned weather v1 contract were completed on 2026-08-01. `POST /v1/weather` validates normalized coordinates and IANA time zones through shared Zod contracts, uses an injected provider-neutral boundary and explicit API mapper, and serves deterministic sample data locally with stable sanitized errors.
-
-The Wardrobe list navigation regression was corrected on 2026-08-01. Add and edit actions now use the documented absolute Wardrobe routes, with focused route-level regression coverage.
-
-The minimal local Maestro foundation was completed on 2026-08-01. It adds the current official local CLI workflow, repository-local configuration, and two independently reset iOS Simulator flows covering onboarding and persisted preference updates.
-
-The last completed product milestone is the device-local weather foundation (`dcb39ae`, 2026-07-30). It added foreground-only location selection, normalized approximate device coordinates, persisted local weather snapshots, bounded stale-cache behavior, and a deterministic sample provider. Production WeatherKit is not integrated.
-
-The repository-scoped `kuyara-next-goal` Skill was completed and validated on 2026-08-01. It provides bounded Propose, Execute, and Review workflows grounded in the current repository state.
 
 ## Implemented Capabilities
 
@@ -45,6 +29,16 @@ The repository-scoped `kuyara-next-goal` Skill was completed and validated on 20
 
 Weather uses the local Worker's deterministic sample endpoint by default in development. Developers may explicitly select the remote development sample URL; production mobile configuration does not use it. The Today screen remains a deterministic mock experience and does not yet consume the domain recommendation rules; three-outfit diversity, Today integration, and production WeatherKit are not implemented.
 
+## In Progress
+
+A mobile UI redesign is checked in on `main` as explicit work in progress (`9a693b6`, 2026-08-04, committed as `wip(mobile): redesign onboarding/settings/today/wardrobe/weather UI`). It is not a completed milestone. Its author landed it deliberately unfinished on top of the isolated onboarding/settings safe-area spacing fix (`adbbba7`), which is complete on its own.
+
+The change adds `Pill` and `PhotoPlaceholder` shared primitives with their `resolvePillColors` contract, an eyebrow typography style, and a `withAlpha` theme helper in `apps/mobile/src/theme/color-alpha.ts`. Today replaces `weather-summary.tsx` with a new weather card and weather glyph and gains an outfit detail screen behind the new `(tabs)/(today)/[id].tsx` route. The resulting visual language is then applied across onboarding, settings, the Wardrobe list and item form, Weather, and the primary tab bar, with extended localization messages. Theme, primitive, Today, Wardrobe, and Weather test files were updated in the same commit.
+
+No data source, persistence, migration, domain, recommendation, provider, or route-architecture behavior changed. The new outfit detail route still reads the existing deterministic `canonicalTodayScreenState` fixture, so Today remains a mock experience.
+
+The commit does not claim completed visual-identity conformance, accessibility definition-of-done, Turkish/English and light/dark verification, or Simulator validation. Do not assume them, and do not record this work as complete until they are performed. Verify the result against [`design/visual-identity.md`](design/visual-identity.md) before building further presentation work on top of it.
+
 ## Development Environment
 
 - Kuyara is an Expo SDK 57, React Native, and TypeScript pnpm workspace with `apps/mobile`, `apps/worker`, and `packages/contracts`.
@@ -53,8 +47,9 @@ Weather uses the local Worker's deterministic sample endpoint by default in deve
 - XcodeBuildMCP is installed through Homebrew, configured for Codex, and has been verified through a successful iPhone Simulator build and launch.
 - The generated local iOS project is not tracked. Its machine-local `apps/mobile/ios/.xcode.env.local` selects `/opt/homebrew/opt/node@24/bin/node`; the file is covered by the ignored generated `ios/` directory.
 - Built-in Codex Memories are enabled. No separate Memory MCP is required.
-- `AGENTS.md` contains the repository's efficient-execution rules and risk-proportionate validation strategy.
-- `.agents/skills/kuyara-next-goal/SKILL.md` contains the repository-scoped workflow for selecting, executing, and reviewing Goals.
+- `AGENTS.md` contains the repository's efficient-execution rules and risk-proportionate validation strategy. `CLAUDE.md` only imports it, so the rules keep a single source.
+- `.agents/skills/kuyara-next-goal/SKILL.md` is the single source for the repository-scoped workflow that selects, executes, and reviews Goals. `.claude/skills/kuyara-next-goal` is a relative symlink to that directory so Claude Code discovers the same skill; do not copy the file.
+- On 2026-08-09 the mobile `test` script moved from a hand-listed file set to Node's `src/**/*.test.mjs` glob discovery (`f780498`). Hand-listing had silently dropped `wardrobe-application.test.mjs`, so its 12 tests had never executed; the focused `test:wardrobe` script now includes it. The same change added a root `pnpm test` script and wired it into `pnpm check`, which previously ran lint, typecheck, and the Worker bundle but no tests. This was a test-discovery and verification fix, not a product milestone.
 - The development-only Worker is named `kuyara-weather-dev` and uses its assigned `workers.dev` URL. The deployment has no bindings, secrets, credentials, persistence, analytics, custom domain, or production WeatherKit access.
 
 ## Current Focus
@@ -69,6 +64,7 @@ Weather uses the local Worker's deterministic sample endpoint by default in deve
 
 ## Known Issues or Blockers
 
+- The in-progress UI redesign described above is unfinished by its author's own commit message. Its visual, accessibility, localization, appearance, and Simulator verification status is unknown.
 - The Worker foundation, remote development deployment, and mobile adapter have no implementation blocker; the local and remote development endpoints intentionally serve only sample data.
 - Apple Developer enrollment is pending. Production WeatherKit and credential work, TestFlight, App Store Connect and production release operations, and other membership-dependent work are paused until the user explicitly lifts the constraint. This is temporary and does not cancel WeatherKit or the iOS-first direction.
 - The provider, contract, and mobile adapter boundaries are ready, and the app intentionally continues to use only deterministic sample weather. Apple-independent development, tests, Simulator work, and release preparation remain unblocked.
@@ -87,7 +83,7 @@ Weather uses the local Worker's deterministic sample endpoint by default in deve
 
 ## How to Continue
 
-For each new Codex session:
+For each new agent session:
 
 1. Read `AGENTS.md`.
 2. Read this document.

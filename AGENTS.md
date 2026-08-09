@@ -151,14 +151,16 @@ The repository may be in transition. Inspect the real tree before assuming this 
 - Keep Maestro E2E coverage small and focused on critical flows such as onboarding, permission handling, and receiving a recommendation.
 - Run commands from the repository root unless a different directory is stated.
 - Install exactly from the committed lockfile with `pnpm install --frozen-lockfile`.
-- Run the verified aggregate lint, TypeScript, and Worker bundle checks with `pnpm check`.
+- Run the verified aggregate lint, TypeScript, Node test, and Worker bundle checks with `pnpm check`.
 - Run lint alone with `pnpm run lint` and all current TypeScript checks with `pnpm run typecheck`.
+- Run every workspace Node test suite with `pnpm test`. The mobile React Native Testing Library suite uses Jest, runs separately with `pnpm --filter @kuyara/mobile test:components`, and is not part of `pnpm check`.
+- Run the local Maestro iOS flows with `pnpm e2e:ios`; this requires a Simulator with the local development build and clears its app data.
 - Inspect the resolved mobile configuration with `pnpm --filter @kuyara/mobile exec expo config --type public --json`.
 - Run Expo Doctor from `apps/mobile` with `pnpm dlx expo-doctor@latest`.
 - For a local iOS Simulator smoke test, run `pnpm --filter @kuyara/mobile exec expo start --ios --port 8082` and stop Metro with Ctrl+C after verification.
 - Verify the Worker bundle without deployment with `pnpm --filter @kuyara/worker bundle`.
 - Start the local Worker with `pnpm --filter @kuyara/worker dev --port 8788`; this is a long-running process and must be stopped after verification.
-- No format, unit, contract, E2E, or Android build script exists yet. Do not invent or document one as available until the corresponding infrastructure is added and verified.
+- No format or Android build script exists yet. Do not invent or document one as available until the corresponding infrastructure is added and verified.
 
 ## Dependency policy
 
@@ -176,6 +178,7 @@ The repository may be in transition. Inspect the real tree before assuming this 
 - Use ADRs for consequential, difficult-to-reverse choices or changes to existing decisions.
 - Update the relevant document when behavior or a durable decision changes.
 - Keep this file concise and focused on rules that apply repeatedly. Put explanations and historical context in `docs/`.
+- This file is the single instruction source for every coding agent. `CLAUDE.md` only imports it; do not duplicate these rules into another agent-instruction file.
 
 ## Code review rules
 
