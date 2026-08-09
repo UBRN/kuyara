@@ -33,3 +33,5 @@ apps/worker/**/*.pfx
 # Logs and operating-system files
 *.log
 .DS_Store
+
+# Per-machine agent settings
