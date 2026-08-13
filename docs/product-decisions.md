@@ -6,8 +6,9 @@
 - The first release is optimized for iOS while shared code remains Android-compatible.
 - Turkish and English are supported from the beginning. The device language and system theme are the defaults, with language and theme overrides available in Settings.
 - The MVP has no account, cross-device sync, behavioral analytics, or notifications.
+- kuyara is free and ad-free, with no subscription and no in-app purchase. Paid provider usage is maintainer-funded and bounded.
 - Expo SQLite is the durable source of truth for user-created local data. Remote sync may complement, but must not replace, the local store in a future release.
-- Apple WeatherKit is accessed through the Worker. Weather constraints are deterministic; AI can only rank or compose allowed items and must have a deterministic fallback.
+- Weather providers are accessed only through the Worker behind a provider-neutral contract. Weather constraints are deterministic; AI generates exactly three complete outfits from a closed candidate set and must have a device-local deterministic fallback.
 - Wardrobe photos are optional, remain on-device in the MVP, and are not sent to AI.
 - “Women's clothing” and “Men's clothing” are mutable clothing preferences, not biological-sex fields.
 
@@ -15,7 +16,8 @@
 
 - Apple Developer enrollment is pending as of 2026-08-01. Until the user explicitly lifts this constraint, production WeatherKit integration and credentials, TestFlight, App Store Connect and production release operations, and other work requiring active Apple Developer Program membership are paused.
 - This is a temporary project constraint, not a cancellation of WeatherKit or the iOS-first release direction. The provider abstraction remains the required architecture, and WeatherKit work will resume after membership is available and the user removes the constraint.
-- Apple-independent development, automated tests, iOS Simulator validation, and release preparation continue. Weather uses only the deterministic/sample provider during this period; no temporary real provider is selected.
+- Apple-independent development, automated tests, iOS Simulator validation, and release preparation continue.
+- The earlier rule that weather must use only the deterministic/sample provider during this period, with no temporary real provider selected, was revoked on 2026-08-13. Real Apple-independent weather providers are now approved; see [Approved weather provider strategy](#approved-weather-provider-strategy). The deterministic sample provider remains a development and test source only and is never a production fallback. The membership pause above is unchanged: WeatherKit credentials and integration, TestFlight, App Store Connect, and release operations stay paused.
 
 ## Current scaffold
 
@@ -133,6 +135,97 @@
 - A mandatory waterproof or wind-resistant outer layer may resolve, but never erase, a breathability conflict: when the body core and optional mid layer meet mandatory breathability, the outfit remains valid with a `breathability_protection_tradeoff` evaluation, the outer shortfall remains explicit, and a deterministic penalty applies. A non-breathable core still fails, and water or wind protection is never weakened to avoid the conflict.
 - Outfit scores use aggregate requirement satisfaction and bounded thermal, unnecessary-water, and protection-versus-breathability penalties. Garment scores are used only inside compatible slot groups. Equal outcomes prefer fewer optional layers and then stable slot-local and composition-key ordering; catalog and owned candidates receive no source bonus.
 - Failures retain stable codes, missing slots, unmet mandatory requirements with weather reasons, best observed evidence, and considered candidate keys. Accessories, fashion/color/occasion logic, comfort personalization, three-outfit diversity, UI integration, persistence, providers, AI, and Apple-dependent behavior remain outside this slice.
+
+## Approved product model and API budget
+
+Approved 2026-08-13. Not implemented.
+
+- kuyara remains free, ad-free, subscription-free, and without in-app purchase.
+- The maintainer may personally fund a small, controlled API budget. Paid API usage must have explicit hard or safely derived limits.
+- Automatic top-up and uncontrolled pay-as-you-go overage are not allowed.
+- The recurring API-cost target and the OpenRouter credit assumption are recorded, with their date, under [Dated operating assumptions](#dated-operating-assumptions).
+- Prices, quotas, licences, and provider conditions are time-sensitive. Reverify them against official sources before implementation rather than trusting any figure recorded here.
+
+## Approved weather provider strategy
+
+Approved 2026-08-13. Not implemented. The checked-in application still fetches deterministic sample data from the Worker.
+
+- The current target chain is Open-Meteo primary, OpenWeather fallback, then the last valid device-local weather snapshot.
+- Once WeatherKit becomes available the target chain is WeatherKit primary, Open-Meteo fallback, OpenWeather fallback, then the last valid device-local weather snapshot. WeatherKit is inserted at the head of the established chain rather than replacing it.
+- The existing provider-neutral Worker and mobile boundaries must be preserved. Each upstream provider must have an isolated adapter with raw-response runtime validation, explicit unit and condition mapping, timeout handling, and sanitized errors.
+- Provider payloads and secrets must not cross into mobile and must not be logged.
+- Fallback may occur only for eligible availability, timeout, quota or rate-limit, authentication or configuration, upstream, or invalid-response failures. Valid weather that is merely undesirable, or that differs between providers, is never a fallback trigger.
+- Attempts per request must be bounded, and retry or fallback loops must be prevented.
+- The exact 30-minute freshness behavior and last-known-good semantics already implemented on mobile must not change.
+- Open-Meteo attribution requirements must be supported, and WeatherKit attribution requirements must be supported when WeatherKit is introduced. The earlier "provider names never cross the API" rule is narrowed only as much as a controlled, non-secret attribution identifier or attribution metadata requires; raw provider data and internal errors remain private.
+- OpenWeather usage must be bounded by provider-side limits plus Kuyara-side protection. Exact limits must be recalculated from official current pricing during implementation.
+
+## Approved AI recommendation strategy
+
+Approved 2026-08-13. Not implemented. No AI provider, shared AI contract, or Worker AI route exists in the repository.
+
+- AI must generate exactly three complete outfit combinations. These combinations are AI-generated, not deterministic.
+- AI is constrained by the deterministic weather requirements and a closed set of allowed candidate garments, and may select only candidate identifiers supplied in the request.
+- AI must not invent catalog entries, wardrobe items, slots, properties, or candidate identifiers.
+- Every AI response must pass shared Zod validation and existing or new deterministic domain invariants before it can be displayed or persisted. Invalid or partially invalid output is never silently repaired into a different outfit.
+- AI failure must not prevent the user from receiving recommendations. The final fallback is a device-local deterministic three-outfit generator built from the existing validated composition evidence.
+- The deterministic three-outfit fallback is therefore a prerequisite for safely shipping AI, even though AI integration is the current product priority.
+- The approved AI provider chain is OpenRouter primary, a Cloudflare Workers AI binding fallback, then device-local deterministic three-outfit generation.
+- AI output is structured data, not user-visible prose. It may return only allowed candidate identifiers plus a small closed vocabulary of approved intent or reason codes if the design needs them. All user-visible Turkish and English copy continues to come from application localization keys.
+- Provider names, internal errors, prompts, model reasoning, and secret or configuration details must not be exposed in the mobile contract.
+
+### Approved OpenRouter constraints
+
+- Use only free models or a free-model routing configuration, and never silently fall back to a paid OpenRouter model.
+- Do not enable automatic credit top-up.
+- Keep the API key only as a Worker secret, and apply an API-key spending limit as an additional guardrail.
+- Model choice is configuration-driven and replaceable.
+- Prefer a specifically evaluated structured-output-capable free model, or a controlled ordered free-model set, over uncontrolled random model selection.
+
+### Approved Workers AI constraints
+
+- Integrate through a Cloudflare Workers AI binding rather than exposing Cloudflare credentials to mobile.
+- Select an explicitly evaluated structured-output-capable model.
+- Treat the free neuron allocation as a quota, not a guaranteed number of requests.
+- Exceeding quota, capacity failure, invalid structured output, or provider failure must proceed to the deterministic fallback without breaking the product.
+
+## Approved AI input privacy boundary
+
+Approved 2026-08-13. Not implemented.
+
+AI may receive only the minimum sanitized structured data required to compose outfits:
+
+- an opaque candidate key,
+- the catalog garment type,
+- structural category and supported role or property evidence,
+- canonical color family when available,
+- source kind such as catalog or owned,
+- the deterministic weather and clothing requirements,
+- clothing preference where catalog applicability requires it.
+
+AI must not receive wardrobe photos, photo paths or URIs, user-entered free-form wardrobe names, `localProfileId`, profile or device identifiers, exact coordinates, raw location payloads, secrets, complete internal database records, or unrelated personal data.
+
+## Approved recommendation caching, refresh, and status behavior
+
+Approved 2026-08-13. Not implemented. Today still renders the deterministic fixture, and no recommendation snapshot is persisted.
+
+- The last valid recommendation snapshot must be persisted on-device and rendered immediately when available.
+- AI must not be called on every application launch. A recommendation must be generated or refreshed only when the relevant weather snapshot is refreshed after becoming stale, the active location changes, clothing preference changes, relevant wardrobe contents or properties change, or the user explicitly requests a refresh.
+- Duplicate in-flight generation requests must be coalesced, and a failed refresh must preserve the last valid recommendation.
+- A successful deterministic fallback is a valid recommendation result and may replace an unavailable AI attempt according to the future implementation design.
+- Transient provider or model identity must stay out of the durable domain model unless it is needed for coarse provenance or user status.
+- The Worker must provide a non-AI liveness check. Worker liveness, AI configuration readiness, and an active AI provider probe are distinct. The active probe may consume provider quota, so it must be explicitly triggered, bounded, rate-limited, and briefly cached; a successful probe does not guarantee that a later full recommendation request will succeed.
+- The recommendation result must record a coarse generation mode: AI-assisted or deterministic fallback.
+- Today will eventually show a small accessible localized "AI-assisted" or "Standard recommendation" indicator, and Settings will eventually include an accessible localized "Check AI status" action with a manual active probe. Provider names and technical failures are not exposed to normal users.
+
+## Dated operating assumptions
+
+Recorded 2026-08-13. These are time-sensitive operating assumptions, not permanent architectural guarantees. Reverify each against official sources before implementation.
+
+- The initial recurring API-cost target is approximately USD 5 per month, excluding the one-time OpenRouter credit purchase below.
+- A one-time USD 10 OpenRouter credit purchase is the currently approved assumption for qualifying for OpenRouter's higher free-model request limit.
+- OpenWeather's exact free-tier and paid limits must be recalculated from official current pricing during implementation rather than frozen here.
+- Provider pricing, quotas, licences, model availability, and terms may change at any time.
 
 ## Approved visual identity
 

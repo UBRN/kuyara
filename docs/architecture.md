@@ -170,15 +170,86 @@ The fixture boundary can later be replaced by a controller or repository result 
 
 ## Worker and contract boundaries
 
-Apple Developer enrollment is temporarily pending. Production WeatherKit integration and credential work are therefore paused until the user explicitly lifts the constraint; this is not an architectural cancellation. The checked-in composition continues to use only deterministic sample weather while Apple-independent implementation, testing, Simulator work, and release preparation proceed.
+Apple Developer enrollment is temporarily pending. Production WeatherKit integration and credential work are therefore paused until the user explicitly lifts the constraint; this is not an architectural cancellation. Apple-independent implementation, testing, Simulator work, and release preparation proceed. The checked-in composition still serves deterministic sample weather, but that is the current state rather than a rule: real Apple-independent weather providers are approved, and the deterministic sample provider remains a development and test source that is never a production fallback.
 
-The Worker is the server-side boundary for future WeatherKit and AI provider calls, credential protection, validation, and operational limits. It now exposes the first versioned mobile API boundary at `POST /v1/weather`. The route accepts only normalized integer hundredth-degree coordinates and an IANA time zone; it does not accept a profile ID, location key, permission state, accuracy label, or raw native location payload.
+The Worker is the server-side boundary for weather and AI provider calls, credential protection, validation, and operational limits. It now exposes the first versioned mobile API boundary at `POST /v1/weather`. The route accepts only normalized integer hundredth-degree coordinates and an IANA time zone; it does not accept a profile ID, location key, permission state, accuracy label, or raw native location payload.
 
-`packages/contracts` owns the strict Zod request, success, and stable error schemas plus their inferred TypeScript types. The success contract uses the same settled weather condition vocabulary and validates timestamps, measurement ranges, minimum/current/maximum relationships, and ordered same-local-day hourly entries. Its provenance is only `sample | live`; provider names and provider payloads do not cross the shared API.
+`packages/contracts` owns the strict Zod request, success, and stable error schemas plus their inferred TypeScript types. The success contract uses the same settled weather condition vocabulary and validates timestamps, measurement ranges, minimum/current/maximum relationships, and ordered same-local-day hourly entries. Its provenance is only `sample | live`, and no provider identity crosses the shared API today. Raw provider payloads, credentials, and internal error detail must never cross it. The approved target composition narrows that rule only as much as attribution requires, because upstream providers oblige kuyara to display attribution: a controlled, non-secret attribution identifier or attribution metadata may reach mobile for display. The checked-in schema does not yet carry one.
 
 The Worker route validates the request before invoking an injected provider. The provider returns a provider-neutral internal snapshot, and an explicit mapper validates and converts that model into the shared success DTO. Provider failures and invalid provider values become the same minimal `weather_unavailable` response; invalid requests, unknown routes, wrong methods, and unexpected failures have their own stable codes without localized messages, provider details, stacks, or configuration data.
 
-The checked-in composition uses a deterministic local mock with an injected clock and explicit `sample` provenance. It has no credentials, bindings, authentication, persistence, rate limiting, or upstream network call. The route sets `Cache-Control: no-store` and does not log coordinates or request bodies. Each future real provider must have its own adapter-local raw response validation, unit and condition normalization, and provider-specific error mapping before producing the existing provider-neutral snapshot. A future WeatherKit adapter will implement that same interface and keep signing, secrets, and raw provider data entirely inside the Worker.
+The checked-in composition uses a deterministic local mock with an injected clock and explicit `sample` provenance. It has no credentials, bindings, authentication, persistence, rate limiting, or upstream network call. The route sets `Cache-Control: no-store` and does not log coordinates or request bodies. Each future real provider must have its own adapter-local raw response validation, unit and condition normalization, and provider-specific error mapping before producing the existing provider-neutral snapshot. Every real adapter, including the future WeatherKit one, implements that same interface and keeps signing, credentials, and raw provider data entirely inside the Worker.
+
+## Approved target composition
+
+Approved 2026-08-13 and recorded in [`product-decisions.md`](product-decisions.md). **None of this section is checked in.** It fixes where approved behavior will live so later work does not relitigate the boundaries. It deliberately does not name endpoints, schema fields, model identifiers, environment variables, migrations, or provider response mappings that have not been designed yet.
+
+### Target weather provider chain
+
+The chain lives entirely inside the Worker. Mobile keeps depending on the existing provider-neutral contract and gains no provider knowledge.
+
+```text
+Worker weather route
+        ↓
+ordered provider chain: Open-Meteo primary → OpenWeather fallback
+        ↓                              ↓
+   per-provider adapter          per-provider adapter
+   raw-response validation, unit and condition mapping,
+   timeout, provider-specific error classification
+        ↓
+existing provider-neutral internal snapshot
+        ↓
+existing explicit API mapper and shared success DTO
+```
+
+Once Apple Developer Program access exists, WeatherKit is inserted at the head of this same chain. The mobile weather domain, its repository, the exact 30-minute freshness boundary, and last-known-good behavior do not change when the chain changes.
+
+The chain advances to the next provider only for eligible availability, timeout, quota or rate-limit, authentication or configuration, upstream, or invalid-response failures. Valid weather is never rejected because its conditions are undesirable or because two providers disagree. Attempts per request are bounded so a chain cannot loop.
+
+Attribution is the one controlled addition to the shared contract, as described above.
+
+### Target recommendation and AI flow
+
+Deterministic rules bound the request, AI composes within those bounds, and validation gates the result twice.
+
+```text
+mobile: deterministic requirements + closed candidate set
+        ↓  sanitized request: no photos, paths, identifiers, or coordinates
+Worker AI route
+        ↓
+ordered AI chain: OpenRouter primary → Workers AI binding fallback
+        ↓
+Worker-side runtime validation and sanitized failure mapping
+        ↓  structured response: allowed candidate identifiers + closed code vocabulary
+mobile: shared contract validation, then deterministic domain invariants
+        ↓
+persisted recommendation snapshot and localized presentation
+```
+
+The request carries only sanitized structured evidence; the forbidden inputs are listed in [`product-decisions.md`](product-decisions.md). The response carries structured data, never user-visible prose, so all Turkish and English copy stays in localization keys. A response failing either validation stage is rejected rather than repaired into a different outfit.
+
+### Where each fallback lives
+
+Four distinct fallbacks operate at three boundaries. Keeping them separate is what lets any one of them fail without breaking the product.
+
+| Fallback | Location | Trigger |
+| --- | --- | --- |
+| Next weather provider in the chain | inside the Worker | eligible upstream weather failure |
+| Last known good weather snapshot | mobile SQLite and weather repository | refresh fails after the chain is exhausted |
+| Next AI provider in the chain | inside the Worker | eligible AI provider failure or invalid structured output |
+| Deterministic three-outfit generation | on device | AI unavailable, over quota, or rejected by validation |
+
+The two Worker-side fallbacks are invisible to mobile, which sees one success or one sanitized failure. The two device-side fallbacks are what let the app still show weather and a recommendation with no network and no AI at all.
+
+### Health, readiness, and probe distinctions
+
+Three separate questions, deliberately not collapsed into one endpoint:
+
+- **Worker liveness** — is the Worker running? Involves no AI provider and consumes no quota.
+- **AI configuration readiness** — is AI configured well enough to attempt a request? Inspects configuration only and calls no provider.
+- **Active AI provider probe** — will a provider answer right now? This consumes provider quota, so it must be explicitly triggered, bounded, rate-limited, and briefly cached.
+
+A successful probe describes only the moment it ran. It never guarantees that a later full recommendation request will succeed, so the deterministic fallback stays mandatory regardless of probe state.
 
 ## Data flow once implemented
 
@@ -187,4 +258,4 @@ The checked-in composition uses a deterministic local mock with an injected cloc
 3. The Worker validates input, calls privileged providers, validates their output, and returns a versioned response defined in the contracts package.
 4. The mobile client validates the response before mapping it into domain state and preserves the last known good snapshot if refresh fails.
 
-Steps 2 through 4 now operate end-to-end in local development through the HTTP adapter and deterministic Worker sample endpoint. Production WeatherKit, authentication, operational limits, recommendation logic, and remote synchronization remain deferred.
+Steps 2 through 4 now operate end-to-end in local development through the HTTP adapter and deterministic Worker sample endpoint. Authentication and remote synchronization remain deferred, and production WeatherKit stays blocked by Apple Developer Program enrollment. The real weather provider chain, the AI recommendation flow, operational limits, and recommendation persistence are approved and sequenced in [`current-status.md`](current-status.md) but are not implemented.
