@@ -682,13 +682,14 @@ test('update changes only mutable fields and preserves identity, owner, and crea
   });
 });
 
-test('soft delete atomically timestamps the row and excludes it from active operations', async (t) => {
+test('soft delete atomically clears the photo path, timestamps the row, and excludes it from active operations', async (t) => {
   const { repository, setTime } = await createRepository(t);
   const item = await repository.createItem({
     localProfileId: profileId,
     category: 'footwear',
     garmentTypeId: 'weather_boots',
     name: 'Bot',
+    photoRelativePath: 'kuyara/wardrobe/photos/518f0f4d-1d45-4ae7-a8f1-796e8297d3b4.jpg',
   });
   setTime(updatedAt);
 
@@ -696,6 +697,7 @@ test('soft delete atomically timestamps the row and excludes it from active oper
 
   assert.equal(deleted.deletedAt, updatedAt);
   assert.equal(deleted.updatedAt, updatedAt);
+  assert.equal(deleted.photoRelativePath, null);
   assert.equal(await repository.getActiveItem(profileId, item.id), null);
   assert.deepEqual(await repository.listActiveItems(profileId), []);
   assert.deepEqual(await repository.getItemIncludingDeleted(profileId, item.id), deleted);

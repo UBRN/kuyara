@@ -143,8 +143,21 @@ export class WardrobeApplicationController {
       return Promise.reject(new Error('The wardrobe item is not available.'));
     }
 
+    const previousPhotoPath =
+      this.state.status === 'ready'
+        ? (this.state.items.find((item) => item.id === id)?.photoRelativePath ?? null)
+        : null;
+
     return this.mutate(
-      (repository) => repository.softDeleteItem(this.localProfileId, id),
+      async (repository) => {
+        const deleted = await repository.softDeleteItem(this.localProfileId, id);
+        if (previousPhotoPath) {
+          await this.cleanupPhoto(() =>
+            this.photoManager.deleteStoredPhoto(previousPhotoPath),
+          );
+        }
+        return deleted;
+      },
       (items, deleted) => items.filter((item) => item.id !== deleted.id),
     );
   }

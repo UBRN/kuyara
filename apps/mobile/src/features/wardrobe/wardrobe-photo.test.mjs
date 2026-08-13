@@ -192,7 +192,8 @@ function repository(events, options = {}) {
     },
     async softDeleteItem() {
       events.push('write-soft-delete');
-      current = { ...current, deletedAt: current.updatedAt };
+      if (options.failSoftDelete) throw new Error('soft delete failed');
+      current = { ...current, photoRelativePath: null, deletedAt: current.updatedAt };
       return current;
     },
   };
@@ -269,7 +270,7 @@ test('replace preserves the old photo on failure and removes it only after succe
   ]);
 });
 
-test('remove follows database-first ordering and soft delete never deletes the photo', async () => {
+test('remove and soft delete clear the path before deleting the previous photo', async () => {
   const failureEvents = [];
   const failure = await readyController(failureEvents, { failUpdate: true });
   await assert.rejects(() =>
@@ -291,11 +292,26 @@ test('remove follows database-first ordering and soft delete never deletes the p
   assert.equal(updated.photoRelativePath, null);
   assert.deepEqual(successEvents, ['read-current', 'write-update', 'delete-old']);
 
+  const failedDeleteEvents = [];
+  const failedSoftDelete = await readyController(failedDeleteEvents, {
+    failSoftDelete: true,
+  });
+  await assert.rejects(() => failedSoftDelete.controller.softDeleteItem(itemId));
+  assert.deepEqual(failedDeleteEvents, ['write-soft-delete']);
+
   const deleteEvents = [];
   const softDelete = await readyController(deleteEvents);
   const deleted = await softDelete.controller.softDeleteItem(itemId);
-  assert.equal(deleted.photoRelativePath, oldPath);
-  assert.deepEqual(deleteEvents, ['write-soft-delete']);
+  assert.equal(deleted.photoRelativePath, null);
+  assert.deepEqual(deleteEvents, ['write-soft-delete', 'delete-old']);
+  assert.deepEqual(softDelete.controller.getSnapshot().items, []);
+
+  const noPhotoEvents = [];
+  const noPhoto = await readyController(noPhotoEvents, {
+    current: wardrobeItem(null),
+  });
+  await noPhoto.controller.softDeleteItem(itemId);
+  assert.deepEqual(noPhotoEvents, ['write-soft-delete']);
 });
 
 test('cleanup failure does not roll back a successful database update', async () => {
@@ -308,4 +324,16 @@ test('cleanup failure does not roll back a successful database update', async ()
   );
   assert.equal(updated.photoRelativePath, newPath);
   assert.equal(result.cleanupReports(), 1);
+
+  const deleteEvents = [];
+  const deleteResult = await readyController(
+    deleteEvents,
+    {},
+    { failOldCleanup: true },
+  );
+  const deleted = await deleteResult.controller.softDeleteItem(itemId);
+  assert.equal(deleted.photoRelativePath, null);
+  assert.deepEqual(deleteEvents, ['write-soft-delete', 'delete-old']);
+  assert.deepEqual(deleteResult.controller.getSnapshot().items, []);
+  assert.equal(deleteResult.cleanupReports(), 1);
 });
