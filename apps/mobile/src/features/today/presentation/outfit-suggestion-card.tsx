@@ -21,7 +21,6 @@ export function OutfitSuggestionCard({
   const theme = useKuyaraTheme();
   const { fontScale } = useWindowDimensions();
   const usesStackedLayout = fontScale > 1.5;
-  const garmentSummary = suggestion.pieces.map(({ item }) => item).join(' · ');
   const isPrimary = variant === 'primary';
 
   return (
@@ -56,14 +55,6 @@ export function OutfitSuggestionCard({
           )
         ) : null}
       </View>
-      {isPrimary ? (
-        <AppText colorRole="brandAccent" style={styles.decisionText}>
-          {suggestion.description}
-        </AppText>
-      ) : null}
-      <AppText colorRole="textSecondary" style={styles.garmentSummary} variant="caption">
-        {garmentSummary}
-      </AppText>
       <View style={styles.chevronRow}>
         <AppText colorRole="brandAccent">→</AppText>
       </View>
@@ -100,9 +91,6 @@ const styles = StyleSheet.create({
   },
   decisionText: {
     marginTop: -spacing.xs,
-  },
-  garmentSummary: {
-    marginTop: spacing.xs / 2,
   },
   chevronRow: {
     alignItems: 'flex-end',

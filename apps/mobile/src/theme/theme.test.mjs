@@ -112,8 +112,8 @@ test('English and Turkish locale resolution preserve the supported product langu
   assert.equal(getMessages('tr-TR'), messages.tr);
   assert.equal(messages.en.today.title, 'Today');
   assert.equal(messages.tr.today.title, 'Bugün');
-  assert.equal(messages.en.today.outfits['outfit.rainReady'].title, 'Rain-ready');
-  assert.equal(messages.tr.today.outfits['outfit.rainReady'].title, 'Yağmura hazır');
+  assert.equal(messages.en.today.slots.outer_layer, 'Outer layer');
+  assert.equal(messages.tr.today.slots.outer_layer, 'Dış katman');
 });
 
 test('withAlpha converts a hex token to an rgba string at the given opacity', () => {

@@ -1,9 +1,16 @@
+import {
+  outfitSlots,
+  type AssignedOutfitGarment,
+  type OutfitCandidate,
+} from '@/features/recommendation/domain/outfit-composition';
 import type {
-  OutfitSuggestion,
   TodayScreenState,
   TodaySnapshot,
 } from '@/features/today/model';
-import { getMessages, type SupportedLanguage } from '@/localization/messages';
+import {
+  getMessages,
+  type SupportedLanguage,
+} from '@/localization/messages';
 
 type LocalizedOutfitPiece = Readonly<{
   slot: string;
@@ -20,7 +27,6 @@ export type LoadedOutfitPresentation = Readonly<{
   id: string;
   positionLabel: string;
   title: string;
-  description: string;
   emphasis?: string;
   pieces: readonly LocalizedOutfitPiece[];
   reasons: readonly string[];
@@ -40,8 +46,6 @@ export type LoadedTodayPresentation = Readonly<{
     windLabel: string;
     humidityLabel: string;
     uvIndexLabel: string;
-    sunriseLabel: string;
-    sunsetLabel: string;
     rainOutlookHeading: string;
   }>;
   header: Readonly<{
@@ -59,15 +63,13 @@ export type LoadedTodayPresentation = Readonly<{
     wind: string;
     humidity: string;
     uvIndex: string;
-    sunrise: string;
-    sunset: string;
     hourlyRainProbability: readonly LocalizedHourlyRainProbability[];
-    rainOutlookTakeaway: string;
     metricsAccessibilityLabel: string;
     rainTimelineAccessibilityLabel: string;
     accessibilityLabel: string;
   }>;
   suggestions: readonly LoadedOutfitPresentation[];
+  noOutfit: Readonly<{ title: string; body: string }> | null;
 }>;
 
 export type TodayPresentation =
@@ -84,60 +86,102 @@ function localeTag(language: SupportedLanguage): string {
 }
 
 function formatNumber(value: number, language: SupportedLanguage): string {
-  return new Intl.NumberFormat(localeTag(language), { maximumFractionDigits: 0 }).format(value);
+  return new Intl.NumberFormat(localeTag(language), {
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatDecimal(value: number, language: SupportedLanguage): string {
+  return new Intl.NumberFormat(localeTag(language), {
+    maximumFractionDigits: 1,
+  }).format(value);
 }
 
 function formatTemperature(value: number, language: SupportedLanguage): string {
   return `${formatNumber(value, language)}°`;
 }
 
-function formatDate(snapshot: TodaySnapshot, language: SupportedLanguage): string {
+function formatDate(
+  value: string,
+  timeZone: string,
+  language: SupportedLanguage,
+): string {
   return new Intl.DateTimeFormat(localeTag(language), {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
-    timeZone: snapshot.timeZone,
-  }).format(new Date(snapshot.retrievedAt));
+    timeZone,
+  }).format(new Date(value));
 }
 
-function formatTime(snapshot: TodaySnapshot, language: SupportedLanguage): string {
+function formatTime(
+  value: string,
+  timeZone: string,
+  language: SupportedLanguage,
+): string {
   return new Intl.DateTimeFormat(localeTag(language), {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
-    timeZone: snapshot.timeZone,
-  }).format(new Date(snapshot.retrievedAt));
+    timeZone,
+  }).format(new Date(value));
+}
+
+function assignedGarments(outfit: OutfitCandidate): readonly AssignedOutfitGarment[] {
+  const assigned = [
+    ...(outfit.body.kind === 'separates'
+      ? [outfit.body.primaryTop, outfit.body.bottom]
+      : [outfit.body.onePiece]),
+    outfit.midLayer,
+    outfit.outerLayer,
+    outfit.footwear,
+  ].filter((garment): garment is AssignedOutfitGarment => garment !== null);
+
+  return outfitSlots.flatMap((slot) => {
+    const garment = assigned.find((candidate) => candidate.slot === slot);
+    return garment ? [garment] : [];
+  });
+}
+
+function sentenceList(values: readonly string[]): string {
+  return values.join(' ');
 }
 
 function localizeOutfit(
-  suggestion: OutfitSuggestion,
+  outfit: OutfitCandidate,
   index: number,
   total: number,
+  weatherReasons: readonly string[],
   language: SupportedLanguage,
 ): LoadedOutfitPresentation {
-  const copy = getMessages(language).today;
-  const outfitCopy = copy.outfits[suggestion.intent];
-  const pieces = suggestion.pieces.map(({ item, slot }) => ({
+  const messages = getMessages(language);
+  const copy = messages.today;
+  const pieces = assignedGarments(outfit).map(({ garment, slot }) => ({
     slot: copy.slots[slot],
-    item: copy.items[item],
+    item:
+      messages.catalog[
+        `catalog.garment_type.${garment.garmentTypeId}.name`
+      ],
   }));
-  const reasons = suggestion.reasons.map((reason) => copy.reasons[reason]);
+  const title = pieces.map(({ item }) => item).join(' + ');
+  const reasons = [
+    ...weatherReasons,
+    ...outfit.reasonCodes.map((reason) => copy.compositionReasons[reason]),
+  ];
 
   return {
-    id: suggestion.id,
+    id: `outfit-${index + 1}`,
     positionLabel: copy.optionPosition(index + 1, total),
-    title: outfitCopy.title,
-    description: outfitCopy.description,
-    emphasis: suggestion.emphasis ? copy.emphasis[suggestion.emphasis] : undefined,
+    title,
+    emphasis: index === 0 ? copy.emphasis.recommended : undefined,
     pieces,
     reasons,
     accessibilityLabel: copy.outfitAccessibilityLabel({
       position: index + 1,
       total,
-      title: outfitCopy.title,
-      description: outfitCopy.description,
+      title,
       pieces: pieces.map(({ item, slot }) => `${slot}: ${item}`).join(', '),
-      reasons: reasons.join(' '),
+      reasons: sentenceList(reasons),
     }),
   };
 }
@@ -146,19 +190,48 @@ function createLoadedPresentation(
   snapshot: TodaySnapshot,
   language: SupportedLanguage,
 ): LoadedTodayPresentation {
-  const copy = getMessages(language).today;
-  const time = formatTime(snapshot, language);
+  const messages = getMessages(language);
+  const copy = messages.today;
+  const weatherCopy = messages.weather;
   const weather = snapshot.weather;
+  const current = weather.current;
+  const time = formatTime(weather.fetchedAt, weather.timeZone, language);
   const isStale = snapshot.freshness === 'stale';
-  const wind = copy.windValue(weather.windSpeedKmh, weather.windDirection);
-  const humidity = copy.humidityValue(weather.humidityPercent);
-  const uvIndex = copy.uvIndexValue(weather.uvIndex);
-  const hourlyRainProbability = weather.hourlyRainProbability.map((hour) => ({
-    ...hour,
-    accessibilityLabel: `${hour.label}. ${copy.rainProbability(
-      copy.humidityValue(hour.probabilityPercent),
-    )}`,
-  }));
+  const wind = weatherCopy.windValue(
+    formatDecimal(current.windSpeedMetersPerSecond, language),
+  );
+  const humidity = copy.humidityValue(current.humidity);
+  const uvIndex = copy.uvIndexValue(formatDecimal(current.uvIndex, language));
+  const condition = weatherCopy.conditions[current.condition];
+  const hourlyRainProbability = weather.hourly
+    .filter(
+      ({ forecastAt }) =>
+        Date.parse(forecastAt) >= Date.parse(current.observedAt),
+    )
+    .slice(0, 6)
+    .map((hour) => {
+      const probabilityPercent = Math.round(
+        hour.precipitationProbability * 100,
+      );
+      const label = formatTime(hour.forecastAt, weather.timeZone, language);
+      return {
+        label,
+        probabilityPercent,
+        accessibilityLabel: `${label}. ${copy.rainProbability(
+          `${formatNumber(probabilityPercent, language)}%`,
+        )}`,
+      };
+    });
+  const weatherReasons = snapshot.recommendation.requirements.reasonCodes.map(
+    (reason) => copy.requirementReasons[reason],
+  );
+  const outfits =
+    snapshot.recommendation.status === 'recommended'
+      ? snapshot.recommendation.outfits
+      : [];
+  const suggestions = outfits.map((outfit, index) =>
+    localizeOutfit(outfit, index, outfits.length, weatherReasons, language),
+  );
 
   return {
     kind: 'loaded',
@@ -173,60 +246,57 @@ function createLoadedPresentation(
       windLabel: copy.windLabel,
       humidityLabel: copy.humidityLabel,
       uvIndexLabel: copy.uvIndexLabel,
-      sunriseLabel: copy.sunriseLabel,
-      sunsetLabel: copy.sunsetLabel,
       rainOutlookHeading: copy.rainOutlookHeading,
     },
     header: {
-      location: copy.locations[snapshot.location],
-      date: formatDate(snapshot, language),
+      location:
+        snapshot.activeLocation.source === 'manual'
+          ? weatherCopy.locations[snapshot.activeLocation.catalogId]
+          : weatherCopy.currentLocation,
+      date: formatDate(current.observedAt, weather.timeZone, language),
       freshness: isStale ? copy.staleAt(time) : copy.updatedAt(time),
       isStale,
     },
     weather: {
-      condition: copy.conditions[weather.condition],
-      temperature: formatTemperature(weather.temperatureCelsius, language),
+      condition,
+      temperature: formatTemperature(current.temperatureCelsius, language),
       apparentTemperature: copy.apparentTemperature(
-        formatTemperature(weather.apparentTemperatureCelsius, language),
+        formatTemperature(current.apparentTemperatureCelsius, language),
       ),
       range: copy.temperatureRange(
         formatTemperature(weather.minimumTemperatureCelsius, language),
         formatTemperature(weather.maximumTemperatureCelsius, language),
       ),
       rainProbability: copy.rainProbability(
-        `${formatNumber(weather.precipitationProbabilityPercent, language)}%`,
+        `${formatNumber(current.precipitationProbability * 100, language)}%`,
       ),
       wind,
       humidity,
       uvIndex,
-      sunrise: weather.sunriseTime,
-      sunset: weather.sunsetTime,
       hourlyRainProbability,
-      rainOutlookTakeaway: copy.rainOutlookTakeaway,
       metricsAccessibilityLabel: [
         `${copy.windLabel}: ${wind}`,
         `${copy.humidityLabel}: ${humidity}`,
         `${copy.uvIndexLabel}: ${uvIndex}`,
-        `${copy.sunriseLabel}: ${weather.sunriseTime}`,
-        `${copy.sunsetLabel}: ${weather.sunsetTime}`,
       ].join('. '),
       rainTimelineAccessibilityLabel: [
         copy.rainOutlookHeading,
         ...hourlyRainProbability.map((hour) => hour.accessibilityLabel),
-        copy.rainOutlookTakeaway,
       ].join('. '),
       accessibilityLabel: copy.weatherAccessibilityLabel({
-        condition: copy.conditions[weather.condition],
-        current: weather.temperatureCelsius,
-        apparent: weather.apparentTemperatureCelsius,
+        condition,
+        current: current.temperatureCelsius,
+        apparent: current.apparentTemperatureCelsius,
         minimum: weather.minimumTemperatureCelsius,
         maximum: weather.maximumTemperatureCelsius,
-        rainProbability: weather.precipitationProbabilityPercent,
+        rainProbability: Math.round(current.precipitationProbability * 100),
       }),
     },
-    suggestions: snapshot.suggestions.map((suggestion, index) =>
-      localizeOutfit(suggestion, index, snapshot.suggestions.length, language),
-    ),
+    suggestions,
+    noOutfit:
+      snapshot.recommendation.status === 'unavailable'
+        ? { title: copy.noOutfitTitle, body: copy.noOutfitBody }
+        : null,
   };
 }
 
