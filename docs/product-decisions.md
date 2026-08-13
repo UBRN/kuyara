@@ -24,7 +24,7 @@
 - The repository is a pnpm workspace with an Expo SDK 57 mobile app, a Cloudflare Worker package, and a shared contracts package.
 - The mobile app uses Expo Router and managed Continuous Native Generation. Native `ios/` and `android/` directories are generated only when needed and are not committed.
 - Expo SDK 57 sets iOS 16.4 as the minimum supported iOS version. Android remains supported by the shared Expo project.
-- The Worker has a deterministic weather v1 foundation and a controlled development-only sample deployment, but no WeatherKit, AI, credential, persistence, rate-limit, or production-provider implementation.
+- The Worker has a deterministic weather v1 foundation, a controlled development-only sample deployment, and the AI recommendation contract, route, and orchestration behind a deterministic stub provider, but no WeatherKit, real AI provider, credential, persistence, rate-limit, or production-provider implementation.
 - The contracts package contains the confirmed provider-neutral weather v1 request, success, and stable minimal error schemas.
 
 ## Implemented primary navigation
@@ -167,7 +167,7 @@ Approved 2026-08-13. Not implemented. The checked-in application still fetches d
 
 ## Approved AI recommendation strategy
 
-Approved 2026-08-13. Not implemented. No AI provider, shared AI contract, or Worker AI route exists in the repository.
+Approved 2026-08-13. Partly implemented. The shared AI contract and the Worker AI route with ordered provider orchestration exist as of 2026-08-14; no real AI provider does, so the route is currently served by a deterministic in-Worker stub.
 
 - AI must generate exactly three complete outfit combinations. These combinations are AI-generated, not deterministic.
 - AI is constrained by the deterministic weather requirements and a closed set of allowed candidate garments, and may select only candidate identifiers supplied in the request.
@@ -196,7 +196,7 @@ Approved 2026-08-13. Not implemented. No AI provider, shared AI contract, or Wor
 
 ## Approved AI input privacy boundary
 
-Approved 2026-08-13. Not implemented.
+Approved 2026-08-13. Enforced in the shared contract as of 2026-08-14: the request schema is strict and admits only the fields listed below, so the forbidden fields have no representation and are rejected rather than filtered.
 
 AI may receive only the minimum sanitized structured data required to compose outfits:
 
