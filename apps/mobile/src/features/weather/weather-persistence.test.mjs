@@ -110,7 +110,17 @@ test('snapshot and hourly data round-trip, remain location-bound, and retain act
   const ankara = getManualLocation('sample.ankara');
   const london = getManualLocation('sample.london');
   await repository.setActiveLocation(profileId, istanbul);
-  await repository.saveSnapshot(profileId, provided(istanbul, '2026-07-30T10:00:00.000Z', 16));
+  const saved = await repository.saveSnapshot(profileId, provided(istanbul, '2026-07-30T10:00:00.000Z', 16));
+  assert.deepEqual(Object.keys(saved.current).sort(), [
+    'apparentTemperatureCelsius',
+    'condition',
+    'humidity',
+    'observedAt',
+    'precipitationProbability',
+    'temperatureCelsius',
+    'uvIndex',
+    'windSpeedMetersPerSecond',
+  ]);
   await repository.saveSnapshot(profileId, provided(ankara, '2026-07-30T11:00:00.000Z', 11));
   await repository.saveSnapshot(profileId, provided(london, '2026-07-30T12:00:00.000Z', 20));
 
