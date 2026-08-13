@@ -16,9 +16,12 @@ import {
 import type { ActiveLocation } from '@/features/weather/domain/weather';
 
 type Fetch = (input: string, init: RequestInit) => Promise<Response>;
+const requestTimeoutMilliseconds = 10000;
+
 type Dependencies = Readonly<{
   baseUrl: string;
   fetch?: Fetch;
+  requestTimeoutMilliseconds?: number;
 }>;
 
 export class WorkerWeatherProviderError extends WeatherProviderError {
@@ -42,10 +45,12 @@ async function readJson(response: Response): Promise<unknown> {
 export class WorkerWeatherProvider implements WeatherProvider {
   private readonly baseUrl: string;
   private readonly fetch: Fetch;
+  private readonly requestTimeoutMilliseconds: number;
 
   constructor(dependencies: Dependencies) {
     this.baseUrl = dependencies.baseUrl.replace(/\/$/, '');
     this.fetch = dependencies.fetch ?? globalThis.fetch;
+    this.requestTimeoutMilliseconds = dependencies.requestTimeoutMilliseconds ?? requestTimeoutMilliseconds;
   }
 
   async fetchSnapshot(location: ActiveLocation): Promise<ProvidedWeatherSnapshot> {
@@ -55,31 +60,38 @@ export class WorkerWeatherProvider implements WeatherProvider {
       timeZone: location.timeZone,
     });
 
-    let response: Response;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.requestTimeoutMilliseconds);
     try {
-      response = await this.fetch(`${this.baseUrl}${weatherV1Path}`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(request),
-      });
-    } catch {
-      throw new WorkerWeatherProviderError('network');
-    }
+      let response: Response;
+      try {
+        response = await this.fetch(`${this.baseUrl}${weatherV1Path}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(request),
+          signal: controller.signal,
+        });
+      } catch {
+        throw new WorkerWeatherProviderError('network');
+      }
 
-    const body = await readJson(response);
-    if (!response.ok) {
-      const error = weatherV1ErrorSchema.safeParse(body);
-      if (!error.success) throw new WorkerWeatherProviderError('invalid-response');
-      throw new WorkerWeatherProviderError('service', error.data.error.code);
-    }
+      const body = await readJson(response);
+      if (!response.ok) {
+        const error = weatherV1ErrorSchema.safeParse(body);
+        if (!error.success) throw new WorkerWeatherProviderError('invalid-response');
+        throw new WorkerWeatherProviderError('service', error.data.error.code);
+      }
 
-    const success = weatherV1SuccessSchema.safeParse(body);
-    if (!success.success) throw new WorkerWeatherProviderError('invalid-response');
+      const success = weatherV1SuccessSchema.safeParse(body);
+      if (!success.success) throw new WorkerWeatherProviderError('invalid-response');
 
-    try {
-      return mapWorkerWeatherToProvidedSnapshot(location, success.data.data);
-    } catch {
-      throw new WorkerWeatherProviderError('invalid-response');
+      try {
+        return mapWorkerWeatherToProvidedSnapshot(location, success.data.data);
+      } catch {
+        throw new WorkerWeatherProviderError('invalid-response');
+      }
+    } finally {
+      clearTimeout(timeout);
     }
   }
 }
