@@ -8,6 +8,7 @@ import {
 } from './garment-eligibility.ts';
 import {
   composeOutfit,
+  composeOutfits,
   outfitCompositionFailureCodes,
   outfitCompositionReasonCodes,
 } from './outfit-composition.ts';
@@ -419,4 +420,127 @@ test('outfit over-insulation penalty is bounded and does not count footwear warm
     outfitCompositionReasonCodes.length);
   assert.equal(new Set(outfitCompositionFailureCodes).size,
     outfitCompositionFailureCodes.length);
+});
+
+test('returns three pairwise meaningfully different outfits with the best outfit first', () => {
+  const requirements = clothingRequirements();
+  const candidates = [
+    catalogCandidate(requirements, 'jumpsuit'),
+    catalogCandidate(requirements, 'sweater'),
+    catalogCandidate(requirements, 'cardigan'),
+    catalogCandidate(requirements, 'light_jacket'),
+    catalogCandidate(requirements, 'rain_jacket'),
+    catalogCandidate(requirements, 'sandals'),
+  ];
+  const result = composeOutfits(requirements, candidates);
+  const best = composeOutfit(requirements, candidates);
+
+  assert.equal(result.status, 'composed');
+  assert.equal(best.status, 'composed');
+  assert.equal(result.outfits.length, 3);
+  assert.deepEqual(result.outfits[0], best.outfit);
+  assert.equal(Object.isFrozen(result.outfits), true);
+
+  for (let leftIndex = 0; leftIndex < result.outfits.length; leftIndex += 1) {
+    for (
+      let rightIndex = leftIndex + 1;
+      rightIndex < result.outfits.length;
+      rightIndex += 1
+    ) {
+      const left = result.outfits[leftIndex];
+      const right = result.outfits[rightIndex];
+      const leftCore = left.body.kind === 'separates'
+        ? [
+            left.body.primaryTop.garment.candidateKey,
+            left.body.bottom.garment.candidateKey,
+          ].sort()
+        : [left.body.onePiece.garment.candidateKey];
+      const rightCore = right.body.kind === 'separates'
+        ? [
+            right.body.primaryTop.garment.candidateKey,
+            right.body.bottom.garment.candidateKey,
+          ].sort()
+        : [right.body.onePiece.garment.candidateKey];
+      const differentBodyCore = left.body.kind !== right.body.kind ||
+        leftCore.length !== rightCore.length ||
+        leftCore.some((key, index) => key !== rightCore[index]);
+      const leftOnly = left.candidateKeys.filter(
+        (key) => !right.candidateKeys.includes(key),
+      );
+      const rightOnly = right.candidateKeys.filter(
+        (key) => !left.candidateKeys.includes(key),
+      );
+
+      assert.equal(
+        differentBodyCore || leftOnly.length >= 2 || rightOnly.length >= 2,
+        true,
+      );
+    }
+  }
+});
+
+test('returns exactly two outfits when only two meaningful options exist', () => {
+  const requirements = clothingRequirements();
+  const result = composeOutfits(requirements, [
+    catalogCandidate(requirements, 't_shirt'),
+    catalogCandidate(requirements, 'shorts'),
+    catalogCandidate(requirements, 'trousers'),
+    catalogCandidate(requirements, 'light_jacket'),
+    catalogCandidate(requirements, 'sandals'),
+  ]);
+
+  assert.equal(result.status, 'composed');
+  assert.equal(result.outfits.length, 2);
+});
+
+test('returns exactly one outfit when only one option exists', () => {
+  const requirements = clothingRequirements();
+  const result = composeOutfits(requirements, [
+    catalogCandidate(requirements, 't_shirt'),
+    catalogCandidate(requirements, 'shorts'),
+    catalogCandidate(requirements, 'light_jacket'),
+    catalogCandidate(requirements, 'sandals'),
+  ]);
+
+  assert.equal(result.status, 'composed');
+  assert.equal(result.outfits.length, 1);
+});
+
+test('returns the same failure as composeOutfit when no composition is valid', () => {
+  const requirements = clothingRequirements(requirement('thermal', 'high'));
+  const candidates = [
+    catalogCandidate(requirements, 't_shirt'),
+    catalogCandidate(requirements, 'shorts'),
+    catalogCandidate(requirements, 'sandals'),
+  ];
+
+  assert.deepEqual(
+    composeOutfits(requirements, candidates),
+    composeOutfit(requirements, candidates),
+  );
+});
+
+test('returns the same outfits for a fixed candidate reordering', () => {
+  const requirements = clothingRequirements();
+  const candidates = [
+    catalogCandidate(requirements, 'jumpsuit'),
+    catalogCandidate(requirements, 'sweater'),
+    catalogCandidate(requirements, 'cardigan'),
+    catalogCandidate(requirements, 'light_jacket'),
+    catalogCandidate(requirements, 'rain_jacket'),
+    catalogCandidate(requirements, 'sandals'),
+  ];
+  const reordered = [
+    candidates[5],
+    candidates[2],
+    candidates[0],
+    candidates[4],
+    candidates[1],
+    candidates[3],
+  ];
+
+  assert.deepEqual(
+    composeOutfits(requirements, reordered),
+    composeOutfits(requirements, candidates),
+  );
 });
