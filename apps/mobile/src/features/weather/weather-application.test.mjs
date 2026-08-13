@@ -1,11 +1,62 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
+import { registerHooks } from 'node:module';
+import ts from 'typescript';
 
 import { WeatherApplicationController } from './application/weather-application-controller.ts';
 import { DeterministicFakeWeatherProvider } from './data/deterministic-fake-weather-provider.ts';
 import { getManualLocation } from './data/manual-location-catalog.ts';
 import { WeatherProviderError } from './data/weather-provider.ts';
+import { WorkerWeatherProvider } from './data/worker-weather-provider.ts';
+
+const nativeModuleMocks = new Map([
+  ['expo-crypto', 'export function randomUUID() { return "test-id"; }'],
+  ['expo-location', `
+    export const Accuracy = { Low: 1 };
+    export const PermissionStatus = { UNDETERMINED: 'undetermined' };
+  `],
+  ['expo-sqlite', 'export async function openDatabaseAsync() { throw new Error("unused"); }'],
+  ['react-native', `
+    export const AppState = { currentState: 'active', addEventListener() { return { remove() {} }; } };
+    export const Linking = { openSettings() { return Promise.resolve(); } };
+    export const Platform = { OS: 'ios' };
+  `],
+]);
+
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    const mock = nativeModuleMocks.get(specifier);
+    if (mock) {
+      return {
+        shortCircuit: true,
+        url: `data:text/javascript,${encodeURIComponent(mock)}`,
+      };
+    }
+    return nextResolve(specifier, context);
+  },
+  load(url, context, nextLoad) {
+    if (
+      url.endsWith('/application/weather-application-provider.tsx')
+      || url.endsWith('/infrastructure/sqlite/expo-sqlite-database.ts')
+    ) {
+      const source = readFileSync(new URL(url), 'utf8');
+      return {
+        format: 'module',
+        shortCircuit: true,
+        source: ts.transpileModule(source, {
+          compilerOptions: {
+            jsx: ts.JsxEmit.ReactJSX,
+            module: ts.ModuleKind.ESNext,
+            target: ts.ScriptTarget.ES2022,
+          },
+        }).outputText,
+      };
+    }
+    return nextLoad(url, context);
+  },
+});
 
 const profileId = 'profile-id';
 
@@ -108,6 +159,49 @@ test('bootstrap with no active location never requests permission or weather', a
   assert.equal(controller.getSnapshot().status, 'ready');
   assert.equal(controller.getSnapshot().activeLocation, null);
   assert.deepEqual(calls, { permissionRequests: 0, lookups: 0, settings: 0, provider: 0 });
+});
+
+test('weather bootstrap degrades missing production configuration to retryable unavailable state', async () => {
+  const configuredUrl = process.env.EXPO_PUBLIC_KUYARA_WORKER_BASE_URL;
+  const isDevelopment = globalThis.__DEV__;
+  delete process.env.EXPO_PUBLIC_KUYARA_WORKER_BASE_URL;
+  globalThis.__DEV__ = false;
+
+  try {
+    let providerModule;
+    await assert.doesNotReject(async () => {
+      providerModule = await import('./application/weather-application-provider.tsx');
+    });
+
+    process.env.EXPO_PUBLIC_KUYARA_WORKER_BASE_URL = 'https://weather.example.com';
+    assert.ok(providerModule.createWeatherProvider() instanceof WorkerWeatherProvider);
+
+    delete process.env.EXPO_PUBLIC_KUYARA_WORKER_BASE_URL;
+    let provider;
+    assert.doesNotThrow(() => {
+      provider = providerModule.createWeatherProvider();
+    });
+    const istanbul = getManualLocation('sample.istanbul');
+    await assert.rejects(
+      () => provider.fetchSnapshot(istanbul),
+      (error) => error instanceof WeatherProviderError && error.kind === 'service',
+    );
+
+    const harness = createHarness({ active: istanbul, provider });
+    await harness.controller.initialize();
+    await settle();
+    assert.equal(harness.controller.getSnapshot().refreshFailure, 'unavailable');
+    assert.equal(harness.calls.provider, 1);
+
+    await harness.controller.refresh();
+    assert.equal(harness.controller.getSnapshot().refreshFailure, 'unavailable');
+    assert.equal(harness.calls.provider, 2);
+  } finally {
+    if (configuredUrl === undefined) delete process.env.EXPO_PUBLIC_KUYARA_WORKER_BASE_URL;
+    else process.env.EXPO_PUBLIC_KUYARA_WORKER_BASE_URL = configuredUrl;
+    if (isDevelopment === undefined) delete globalThis.__DEV__;
+    else globalThis.__DEV__ = isDevelopment;
+  }
 });
 
 test('device selection shows rationale before requesting and accepts approximate success', async () => {
