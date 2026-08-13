@@ -16,6 +16,7 @@ export type WeatherCardRainTimeline = Readonly<{
   heading: string;
   takeaway: string;
   hours: readonly LocalizedHourlyRainProbability[];
+  accessibilityLabel: string;
 }>;
 
 type WeatherCardProps = Readonly<{
@@ -25,6 +26,7 @@ type WeatherCardProps = Readonly<{
   range: string;
   rainProbability: string;
   stats: readonly WeatherCardStat[];
+  metricsAccessibilityLabel: string;
   rainTimeline?: WeatherCardRainTimeline;
   accessibilityLabel: string;
   testID?: string;
@@ -40,6 +42,7 @@ export function WeatherCard({
   range,
   rainProbability,
   stats,
+  metricsAccessibilityLabel,
   rainTimeline,
   accessibilityLabel,
   testID,
@@ -52,12 +55,17 @@ export function WeatherCard({
 
   return (
     <View
-      accessible
-      accessibilityLabel={accessibilityLabel}
       style={[styles.card, { backgroundColor: withAlpha(theme.colors.brandAccent, 0.08) }]}
       testID={testID}>
-      <View style={[styles.primaryRow, usesStackedLayout && styles.stackedPrimaryRow]}>
-        <WeatherGlyph />
+      <View
+        accessible
+        accessibilityLabel={accessibilityLabel}
+        style={[styles.primaryRow, usesStackedLayout && styles.stackedPrimaryRow]}>
+        <View
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants">
+          <WeatherGlyph />
+        </View>
         <View style={styles.conditionGroup}>
           <AppText style={styles.conditionText} variant="bodyStrong">
             {`${temperature} · ${condition}`}
@@ -68,7 +76,10 @@ export function WeatherCard({
         </View>
       </View>
 
-      <View style={[styles.statsRow, { borderTopColor: theme.colors.borderSubtle }]}>
+      <View
+        accessible
+        accessibilityLabel={metricsAccessibilityLabel}
+        style={[styles.statsRow, { borderTopColor: theme.colors.borderSubtle }]}>
         {stats.map((stat) => (
           <View key={stat.label} style={styles.stat}>
             <AppText colorRole="textSecondary" variant="eyebrow">
@@ -82,7 +93,10 @@ export function WeatherCard({
       </View>
 
       {rainTimeline ? (
-        <View style={[styles.timeline, { borderTopColor: theme.colors.borderSubtle }]}>
+        <View
+          accessible
+          accessibilityLabel={rainTimeline.accessibilityLabel}
+          style={[styles.timeline, { borderTopColor: theme.colors.borderSubtle }]}>
           <AppText colorRole="textSecondary" variant="eyebrow">
             {rainTimeline.heading}
           </AppText>
@@ -115,7 +129,11 @@ export function WeatherCard({
           </AppText>
         </View>
       ) : (
-        <AppText colorRole="textSecondary">{rainProbability}</AppText>
+        <View
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants">
+          <AppText colorRole="textSecondary">{rainProbability}</AppText>
+        </View>
       )}
     </View>
   );

@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, isHiddenFromAccessibility, render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -47,8 +47,21 @@ test('loaded Today reserves measured overlay clearance and preserves settings in
   await fireEvent.press(result.getByTestId(`outfit-card-${suggestions[0].id}`));
   expect(onOpenOutfitDetail).toHaveBeenCalledWith(suggestions[0].id);
 
-  await fireEvent.press(result.getByTestId('today-settings-button'));
+  const settingsButton = result.getByTestId('today-settings-button');
+  expect(settingsButton.props.hitSlop).toBe(7);
+  expect(30 + settingsButton.props.hitSlop * 2).toBeGreaterThanOrEqual(44);
+  await fireEvent.press(settingsButton);
   expect(onOpenSettings).toHaveBeenCalledTimes(1);
+
+  expect(result.getByLabelText(
+    /Wind: 18 km\/h NE.*Humidity: 78%.*UV: 2 · Low.*Sunrise: 06:42.*Sunset: 19:15/,
+  )).toBeOnTheScreen();
+  expect(result.getByLabelText(
+    /Rain chance today.*6a\. 15% chance of rain.*9p\. 6% chance of rain.*Heaviest between 9–12/,
+  )).toBeOnTheScreen();
+  expect(isHiddenFromAccessibility(
+    result.getByTestId('weather-glyph', { includeHiddenElements: true }),
+  )).toBe(true);
 });
 
 test('loading Today keeps its existing feedback layout without the loaded header', async () => {

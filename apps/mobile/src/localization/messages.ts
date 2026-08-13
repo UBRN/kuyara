@@ -181,6 +181,8 @@ export type AppMessages = Readonly<{
     wind: (speed: string) => string;
     humidity: (humidity: number) => string;
     uvIndex: (index: string) => string;
+    windValue: (speed: string) => string;
+    humidityValue: (humidity: number) => string;
     windLabel: string;
     humidityLabel: string;
     uvIndexLabel: string;
@@ -372,6 +374,8 @@ const en = {
     wind: (speed) => `Wind ${speed} m/s`,
     humidity: (humidity) => `${Math.round(humidity * 100)}% humidity`,
     uvIndex: (index) => `UV index ${index}`,
+    windValue: (speed) => `${speed} m/s`,
+    humidityValue: (humidity) => `${Math.round(humidity * 100)}%`,
     windLabel: 'Wind',
     humidityLabel: 'Humidity',
     uvIndexLabel: 'UV',
@@ -671,6 +675,8 @@ const tr = {
     wind: (speed) => `Rüzgâr ${speed} m/sn`,
     humidity: (humidity) => `%${Math.round(humidity * 100)} nem`,
     uvIndex: (index) => `UV endeksi ${index}`,
+    windValue: (speed) => `${speed} m/sn`,
+    humidityValue: (humidity) => `%${Math.round(humidity * 100)}`,
     windLabel: 'Rüzgâr',
     humidityLabel: 'Nem',
     uvIndexLabel: 'UV',

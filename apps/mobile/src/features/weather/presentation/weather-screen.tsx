@@ -134,6 +134,7 @@ export function WeatherScreen() {
         </View>
         <Pressable
           accessibilityRole="button"
+          hitSlop={10}
           onPress={() => setIsLocationPickerOpen((open) => !open)}
           testID="weather-change-location-button">
           <Pill label={copy.changeLocationAction} tone="bordered" />
@@ -212,9 +213,14 @@ export function WeatherScreen() {
               temperature(snapshot.minimumTemperatureCelsius, language),
               temperature(snapshot.maximumTemperatureCelsius, language),
             )}
+            metricsAccessibilityLabel={[
+              copy.wind(decimal(snapshot.current.windSpeedMetersPerSecond, language)),
+              copy.humidity(snapshot.current.humidity),
+              copy.uvIndex(decimal(snapshot.current.uvIndex, language)),
+            ].join('. ')}
             stats={[
-              { label: copy.windLabel, value: `${decimal(snapshot.current.windSpeedMetersPerSecond, language)} m/s` },
-              { label: copy.humidityLabel, value: `${Math.round(snapshot.current.humidity * 100)}%` },
+              { label: copy.windLabel, value: copy.windValue(decimal(snapshot.current.windSpeedMetersPerSecond, language)) },
+              { label: copy.humidityLabel, value: copy.humidityValue(snapshot.current.humidity) },
               { label: copy.uvIndexLabel, value: decimal(snapshot.current.uvIndex, language) },
             ]}
             temperature={temperature(snapshot.current.temperatureCelsius, language)}

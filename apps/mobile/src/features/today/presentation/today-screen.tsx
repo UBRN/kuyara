@@ -88,6 +88,7 @@ export function TodayScreen({
           <IconButton
             accessibilityHint={presentation.copy.settingsHint}
             accessibilityLabel={presentation.copy.settingsAction}
+            hitSlop={7}
             icon={(color) => (
               <SymbolView
                 accessibilityElementsHidden
@@ -137,11 +138,13 @@ export function TodayScreen({
           condition={presentation.weather.condition}
           rainProbability={presentation.weather.rainProbability}
           rainTimeline={{
+            accessibilityLabel: presentation.weather.rainTimelineAccessibilityLabel,
             heading: presentation.copy.rainOutlookHeading,
             takeaway: presentation.weather.rainOutlookTakeaway,
             hours: presentation.weather.hourlyRainProbability,
           }}
           range={presentation.weather.range}
+          metricsAccessibilityLabel={presentation.weather.metricsAccessibilityLabel}
           stats={[
             { label: presentation.copy.windLabel, value: presentation.weather.wind },
             { label: presentation.copy.humidityLabel, value: presentation.weather.humidity },
