@@ -155,6 +155,15 @@ export type OutfitCompositionResult =
   | OutfitCompositionSuccess
   | OutfitCompositionFailure;
 
+export type OutfitCompositionsSuccess = Readonly<{
+  status: 'composed';
+  outfits: readonly OutfitCandidate[]; // 1, 2 or 3 entries, best first
+}>;
+
+export type OutfitCompositionsResult =
+  | OutfitCompositionsSuccess
+  | OutfitCompositionFailure;
+
 type BodyCore =
   | Readonly<{
       kind: 'separates';
@@ -964,15 +973,11 @@ function supportsRole(
   return result.garment.properties.supportedLayerRoles.includes(role);
 }
 
-/**
- * Composes one complete deterministic outfit from already evaluated candidates.
- * It assigns runtime roles but does not mutate garment data or re-evaluate
- * garment-level requirement applicability.
- */
-export function composeOutfit(
+/** Returns every valid composition, sorted best first, or the shared failure. */
+function collectValidOutfits(
   requirements: ClothingRequirements,
   candidates: readonly GarmentEligibilityResult[],
-): OutfitCompositionResult {
+): OutfitCompositionsResult {
   const consideredCandidateKeys = Object.freeze(
     candidates.map(({ candidateKey }) => candidateKey).sort(compareStrings),
   );
@@ -1096,7 +1101,10 @@ export function composeOutfit(
 
   const valid = evaluated.filter(isValid).sort(compareOutfits);
   if (valid.length > 0) {
-    return Object.freeze({ status: 'composed', outfit: valid[0] });
+    return Object.freeze({
+      status: 'composed',
+      outfits: Object.freeze(valid),
+    });
   }
 
   const evidence = bestEvidence(mandatoryRequirements, evaluated);
@@ -1134,4 +1142,90 @@ export function composeOutfit(
     evidence,
     consideredCandidateKeys,
   );
+}
+
+function hasDifferentBodyCore(
+  left: OutfitCandidate,
+  right: OutfitCandidate,
+): boolean {
+  if (left.body.kind !== right.body.kind) {
+    return true;
+  }
+  if (left.body.kind === 'one_piece' && right.body.kind === 'one_piece') {
+    return left.body.onePiece.garment.candidateKey !==
+      right.body.onePiece.garment.candidateKey;
+  }
+  if (left.body.kind === 'separates' && right.body.kind === 'separates') {
+    return left.body.primaryTop.garment.candidateKey !==
+        right.body.primaryTop.garment.candidateKey ||
+      left.body.bottom.garment.candidateKey !==
+        right.body.bottom.garment.candidateKey;
+  }
+  return false;
+}
+
+function hasTwoCandidateKeysAbsentFrom(
+  left: OutfitCandidate,
+  right: OutfitCandidate,
+): boolean {
+  const rightKeys = new Set(right.candidateKeys);
+  let absent = 0;
+  for (const key of left.candidateKeys) {
+    if (!rightKeys.has(key) && (absent += 1) >= 2) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function meaningfullyDifferent(
+  left: OutfitCandidate,
+  right: OutfitCandidate,
+): boolean {
+  return hasDifferentBodyCore(left, right) ||
+    hasTwoCandidateKeysAbsentFrom(left, right) ||
+    hasTwoCandidateKeysAbsentFrom(right, left);
+}
+
+function selectDiverseOutfits(
+  outfits: readonly OutfitCandidate[],
+): readonly OutfitCandidate[] {
+  const selected: OutfitCandidate[] = [];
+  for (const outfit of outfits) {
+    if (selected.every((candidate) => meaningfullyDifferent(outfit, candidate))) {
+      selected.push(outfit);
+    }
+    if (selected.length === 3) {
+      break;
+    }
+  }
+  return Object.freeze(selected);
+}
+
+/**
+ * Composes one complete deterministic outfit from already evaluated candidates.
+ * It assigns runtime roles but does not mutate garment data or re-evaluate
+ * garment-level requirement applicability.
+ */
+export function composeOutfit(
+  requirements: ClothingRequirements,
+  candidates: readonly GarmentEligibilityResult[],
+): OutfitCompositionResult {
+  const result = collectValidOutfits(requirements, candidates);
+  return result.status === 'failure'
+    ? result
+    : Object.freeze({ status: 'composed', outfit: result.outfits[0] });
+}
+
+export function composeOutfits(
+  requirements: ClothingRequirements,
+  candidates: readonly GarmentEligibilityResult[],
+): OutfitCompositionsResult {
+  const result = collectValidOutfits(requirements, candidates);
+  return result.status === 'failure'
+    ? result
+    : Object.freeze({
+        status: 'composed',
+        outfits: selectDiverseOutfits(result.outfits),
+      });
 }
