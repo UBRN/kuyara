@@ -152,12 +152,18 @@ The localized tab-bar presentation is separate from route composition. Expo Rout
 
 The localization provider resolves a saved `system | tr | en` preference through the established device-locale fallback. The existing theme provider receives the saved `system | light | dark` preference. Neither architecture is duplicated, and both providers update when the controller publishes a successfully persisted profile.
 
-The first product-facing mobile slice lives under `apps/mobile/src/features/today/`. Its small screen model defines loaded, loading, and unavailable presentation states; loaded snapshots additionally distinguish fresh and stale content. A single frozen fixture supplies the checked-in route with language-independent weather, outfit, clothing, and reason codes. A pure presentation mapper formats the fixed timestamp and maps those codes to English or Turkish before feature-specific React components render them with the shared primitives.
+Today lives under `apps/mobile/src/features/today/`. Its screen model defines loaded, loading, and unavailable presentation states; a loaded snapshot carries the real `WeatherSnapshot`, the active location, its freshness, and the recommendation result, and holds no duplicated copy of the snapshot's own fields. A pure presentation mapper localizes the language-independent codes into English or Turkish before feature-specific React components render them with the shared primitives.
 
-This flow is intentionally local and presentational:
+The route composes existing application state and owns no data access:
 
 ```text
-typed deterministic Today fixture
+weather snapshot + wardrobe items + clothing preference
+        ↓
+recommendOutfits use case  (features/recommendation/application)
+        ↓
+deriveClothingRequirements → garment eligibility → composeOutfits
+        ↓
+Today screen model
         ↓
 locale-aware presentation mapper
         ↓
@@ -166,7 +172,7 @@ Today screen compositions
 semantic tokens and adaptive UI primitives
 ```
 
-The fixture boundary can later be replaced by a controller or repository result without making the route responsible for data access. No repository, use case, provider DTO, runtime schema, persistence layer, network client, recommendation engine, or global state container is introduced by the mock slice.
+`recommendOutfits` is a pure function: it reads no clock, performs no I/O, and returns the same result for the same input regardless of candidate order. Recomputation is memoized on weather snapshot identity, Wardrobe contents, and clothing preference, so a recommendation is produced only on a relevant change. The result records a coarse generation mode; only the deterministic fallback is produced today. No repository, provider DTO, runtime schema, persistence layer, network client, or global state container is introduced by Today itself — it consumes the Weather and Wardrobe application providers, both mounted at the root.
 
 ## Worker and contract boundaries
 

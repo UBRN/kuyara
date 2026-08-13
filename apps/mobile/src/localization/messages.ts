@@ -1,13 +1,8 @@
 import type {
-  ClothingItemCode,
-  ClothingSlotCode,
-  ClothingStrategyCode,
-  OutfitEmphasis,
-  OutfitIntentCode,
-  RecommendationReasonCode,
-  TodayLocationCode,
-  WeatherConditionCode,
-} from '@/features/today/model';
+  OutfitCompositionReasonCode,
+  OutfitSlot,
+} from '@/features/recommendation/domain/outfit-composition';
+import type { ClothingRequirementReasonCode } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 import type {
   ManualLocationId,
   WeatherConditionCode as LiveWeatherConditionCode,
@@ -17,11 +12,6 @@ import {
   type CatalogMessages,
 } from '@/features/catalog/localization/catalog-messages';
 
-type OutfitCopy = Readonly<{
-  title: string;
-  description: string;
-}>;
-
 export type TodayMessages = Readonly<{
   title: string;
   settingsAction: string;
@@ -30,14 +20,10 @@ export type TodayMessages = Readonly<{
   otherOptionsHeading: string;
   piecesHeading: string;
   reasonsHeading: string;
-  locations: Readonly<Record<TodayLocationCode, string>>;
-  conditions: Readonly<Record<WeatherConditionCode, string>>;
-  strategies: Readonly<Record<ClothingStrategyCode, string>>;
-  outfits: Readonly<Record<OutfitIntentCode, OutfitCopy>>;
-  slots: Readonly<Record<ClothingSlotCode, string>>;
-  items: Readonly<Record<ClothingItemCode, string>>;
-  reasons: Readonly<Record<RecommendationReasonCode, string>>;
-  emphasis: Readonly<Record<OutfitEmphasis, string>>;
+  slots: Readonly<Record<OutfitSlot, string>>;
+  requirementReasons: Readonly<Record<ClothingRequirementReasonCode, string>>;
+  compositionReasons: Readonly<Record<OutfitCompositionReasonCode, string>>;
+  emphasis: Readonly<{ recommended: string }>;
   updatedAt: (time: string) => string;
   staleAt: (time: string) => string;
   apparentTemperature: (temperature: string) => string;
@@ -46,19 +32,17 @@ export type TodayMessages = Readonly<{
   windLabel: string;
   humidityLabel: string;
   uvIndexLabel: string;
-  sunriseLabel: string;
-  sunsetLabel: string;
   rainOutlookHeading: string;
-  rainOutlookTakeaway: string;
-  windValue: (speedKmh: number, direction: string) => string;
   humidityValue: (percent: number) => string;
-  uvIndexValue: (value: number) => string;
+  uvIndexValue: (value: string) => string;
   optionPosition: (position: number, total: number) => string;
   loadingTitle: string;
   loadingBody: string;
   loadingAccessibilityLabel: string;
   unavailableTitle: string;
   unavailableBody: string;
+  noOutfitTitle: string;
+  noOutfitBody: string;
   weatherAccessibilityLabel: (values: {
     condition: string;
     current: number;
@@ -71,7 +55,6 @@ export type TodayMessages = Readonly<{
     position: number;
     total: number;
     title: string;
-    description: string;
     pieces: string;
     reasons: string;
   }) => string;
@@ -469,61 +452,39 @@ const en = {
     otherOptionsHeading: 'Other options',
     piecesHeading: 'Wear',
     reasonsHeading: 'Why it works',
-    locations: {
-      'location.istanbul': 'İstanbul',
-    },
-    conditions: {
-      'weather.lightRain': 'Cool with possible light rain',
-    },
-    strategies: {
-      'strategy.lightLayersRainReady':
-        'Choose light layers, and keep something rain-ready nearby.',
-    },
-    outfits: {
-      'outfit.comfortable': {
-        title: 'Comfortable',
-        description: 'An easy layered option for a relaxed day.',
-      },
-      'outfit.polished': {
-        title: 'Polished',
-        description: 'Clean lines with enough coverage for changing weather.',
-      },
-      'outfit.rainReady': {
-        title: 'Rain-ready',
-        description: 'Extra protection for longer stretches outdoors.',
-      },
-    },
     slots: {
-      'slot.top': 'Top',
-      'slot.bottom': 'Bottom',
-      'slot.outerLayer': 'Outer layer',
-      'slot.footwear': 'Footwear',
-      'slot.accessory': 'Accessory',
+      primary_top: 'Top',
+      bottom: 'Bottom',
+      one_piece: 'One-piece',
+      mid_layer: 'Mid layer',
+      outer_layer: 'Outer layer',
+      footwear: 'Footwear',
     },
-    items: {
-      'clothing.cottonShirt': 'Cotton shirt',
-      'clothing.relaxedTrousers': 'Relaxed trousers',
-      'clothing.lightOvershirt': 'Light overshirt',
-      'clothing.waterResistantSneakers': 'Water-resistant sneakers',
-      'accessory.compactUmbrella': 'Compact umbrella',
-      'clothing.fineKnitTop': 'Fine-knit top',
-      'clothing.tailoredTrousers': 'Tailored trousers',
-      'clothing.lightTrenchCoat': 'Light trench coat',
-      'clothing.waterResistantLoafers': 'Water-resistant loafers',
-      'clothing.longSleeveTee': 'Long-sleeve T-shirt',
-      'clothing.straightJeans': 'Straight-leg jeans',
-      'clothing.hoodedRainJacket': 'Hooded rain jacket',
-      'clothing.waterproofAnkleBoots': 'Waterproof ankle boots',
+    requirementReasons: {
+      temperature_low: 'Low temperatures require insulation.',
+      apparent_temperature_low: 'It feels cold enough to require insulation.',
+      temperature_high: 'High temperatures require breathable clothing.',
+      apparent_temperature_high: 'It feels hot enough to require breathable clothing.',
+      daily_range_wide: 'A wide temperature range calls for adjustable layers.',
+      daily_extrema_fallback: 'The daily temperature range is based on current conditions.',
+      wind_elevated: 'Elevated wind calls for wind protection.',
+      wind_strong: 'Strong wind requires wind protection.',
+      precipitation_possible: 'Possible precipitation calls for water protection.',
+      precipitation_likely: 'Likely precipitation requires water protection.',
+      condition_drizzle: 'Drizzle calls for light water protection.',
+      condition_rain: 'Rain requires water protection.',
+      condition_heavy_rain: 'Heavy rain requires waterproof protection.',
+      condition_sleet: 'Sleet requires warmth, water protection, and traction.',
+      condition_snow: 'Snow requires warmth, water protection, and traction.',
+      condition_thunderstorm: 'Thunderstorms require water protection and traction.',
     },
-    reasons: {
-      'reason.coolMorning': 'Comfortable through the cool morning.',
-      'reason.possibleRain': 'Prepared for a chance of rain.',
-      'reason.temperatureDrop': 'Easy to adjust if the temperature drops.',
-      'reason.moderateWind': 'Adds coverage when the breeze picks up.',
+    compositionReasons: {
+      breathability_protection_tradeoff: 'Protection is prioritized over breathability.',
+      thermal_over_protection: 'This outfit is warmer than required.',
+      unnecessary_water_protection: 'This outfit includes more water protection than required.',
     },
     emphasis: {
       recommended: 'Recommended',
-      weatherReady: 'Most weather-ready',
     },
     updatedAt: (time: string) => `Updated at ${time}`,
     staleAt: (time: string) => `Last updated at ${time} · May be out of date`,
@@ -533,19 +494,17 @@ const en = {
     windLabel: 'Wind',
     humidityLabel: 'Humidity',
     uvIndexLabel: 'UV',
-    sunriseLabel: 'Sunrise',
-    sunsetLabel: 'Sunset',
     rainOutlookHeading: 'Rain chance today',
-    rainOutlookTakeaway: 'Heaviest between 9–12, moderate wind through midday.',
-    windValue: (speedKmh: number, direction: string) => `${speedKmh} km/h ${direction}`,
-    humidityValue: (percent: number) => `${percent}%`,
-    uvIndexValue: (value: number) => `${value} · Low`,
+    humidityValue: (humidity: number) => `${Math.round(humidity * 100)}%`,
+    uvIndexValue: (value: string) => value,
     optionPosition: (position: number, total: number) => `Option ${position} of ${total}`,
     loadingTitle: 'Preparing today’s guidance',
     loadingBody: 'Your weather summary and outfit options will appear here.',
     loadingAccessibilityLabel: 'Preparing today’s guidance. Content is loading.',
     unavailableTitle: 'Today’s guidance is unavailable',
     unavailableBody: 'There is no saved guidance to show right now.',
+    noOutfitTitle: 'Outfit unavailable',
+    noOutfitBody: 'No complete outfit can be recommended for these conditions.',
     weatherAccessibilityLabel: ({
       condition,
       current,
@@ -560,12 +519,14 @@ const en = {
       position,
       total,
       title,
-      description,
       pieces,
       reasons,
     }) =>
-      `Option ${position} of ${total}: ${title}. ${description} Wear: ${pieces}. ` +
-      `Why it works: ${reasons}`,
+      [
+        `Option ${position} of ${total}: ${title}.`,
+        `Wear: ${pieces}.`,
+        reasons ? `Why it works: ${reasons}` : null,
+      ].filter(Boolean).join(' '),
   },
 } satisfies AppMessages;
 
@@ -770,61 +731,39 @@ const tr = {
     otherOptionsHeading: 'Diğer seçenekler',
     piecesHeading: 'Parçalar',
     reasonsHeading: 'Neden uygun',
-    locations: {
-      'location.istanbul': 'İstanbul',
-    },
-    conditions: {
-      'weather.lightRain': 'Serin, hafif yağmur ihtimali var',
-    },
-    strategies: {
-      'strategy.lightLayersRainReady':
-        'Hafif katmanlar seçin; yağmura uygun bir parçayı yakınınızda tutun.',
-    },
-    outfits: {
-      'outfit.comfortable': {
-        title: 'Rahat',
-        description: 'Sakin bir gün için kolay ve katmanlı bir seçenek.',
-      },
-      'outfit.polished': {
-        title: 'Özenli',
-        description: 'Değişen havaya uygun korumayla temiz ve düzenli bir görünüm.',
-      },
-      'outfit.rainReady': {
-        title: 'Yağmura hazır',
-        description: 'Dışarıda daha uzun kalacağınız zamanlar için ekstra koruma.',
-      },
-    },
     slots: {
-      'slot.top': 'Üst',
-      'slot.bottom': 'Alt',
-      'slot.outerLayer': 'Dış katman',
-      'slot.footwear': 'Ayakkabı',
-      'slot.accessory': 'Aksesuar',
+      primary_top: 'Üst',
+      bottom: 'Alt',
+      one_piece: 'Tek parça',
+      mid_layer: 'Orta katman',
+      outer_layer: 'Dış katman',
+      footwear: 'Ayakkabı',
     },
-    items: {
-      'clothing.cottonShirt': 'Pamuklu gömlek',
-      'clothing.relaxedTrousers': 'Rahat kesim pantolon',
-      'clothing.lightOvershirt': 'Hafif gömlek ceket',
-      'clothing.waterResistantSneakers': 'Suya dayanıklı spor ayakkabı',
-      'accessory.compactUmbrella': 'Kompakt şemsiye',
-      'clothing.fineKnitTop': 'İnce örgü üst',
-      'clothing.tailoredTrousers': 'Kumaş pantolon',
-      'clothing.lightTrenchCoat': 'Hafif trençkot',
-      'clothing.waterResistantLoafers': 'Suya dayanıklı loafer',
-      'clothing.longSleeveTee': 'Uzun kollu tişört',
-      'clothing.straightJeans': 'Düz kesim jean',
-      'clothing.hoodedRainJacket': 'Kapüşonlu yağmurluk',
-      'clothing.waterproofAnkleBoots': 'Su geçirmez bilek botu',
+    requirementReasons: {
+      temperature_low: 'Düşük sıcaklıklar yalıtım gerektiriyor.',
+      apparent_temperature_low: 'Hissedilen sıcaklık yalıtım gerektirecek kadar düşük.',
+      temperature_high: 'Yüksek sıcaklıklar nefes alabilen giysiler gerektiriyor.',
+      apparent_temperature_high: 'Hissedilen sıcaklık nefes alabilen giysiler gerektirecek kadar yüksek.',
+      daily_range_wide: 'Geniş sıcaklık aralığı ayarlanabilir katmanlar gerektiriyor.',
+      daily_extrema_fallback: 'Günlük sıcaklık aralığı mevcut koşullara dayanıyor.',
+      wind_elevated: 'Artan rüzgâr, rüzgâr koruması gerektiriyor.',
+      wind_strong: 'Kuvvetli rüzgâr, rüzgâr koruması gerektiriyor.',
+      precipitation_possible: 'Yağış ihtimali su koruması gerektiriyor.',
+      precipitation_likely: 'Beklenen yağış su koruması gerektiriyor.',
+      condition_drizzle: 'Çiseleme hafif su koruması gerektiriyor.',
+      condition_rain: 'Yağmur su koruması gerektiriyor.',
+      condition_heavy_rain: 'Kuvvetli yağmur su geçirmez koruma gerektiriyor.',
+      condition_sleet: 'Karla karışık yağmur sıcaklık, su koruması ve tutuş gerektiriyor.',
+      condition_snow: 'Kar sıcaklık, su koruması ve tutuş gerektiriyor.',
+      condition_thunderstorm: 'Gök gürültülü fırtına su koruması ve tutuş gerektiriyor.',
     },
-    reasons: {
-      'reason.coolMorning': 'Serin sabah boyunca rahat tutar.',
-      'reason.possibleRain': 'Yağmur ihtimaline karşı hazırlıklıdır.',
-      'reason.temperatureDrop': 'Sıcaklık düşerse kolayca uyarlanabilir.',
-      'reason.moderateWind': 'Rüzgâr arttığında daha fazla koruma sağlar.',
+    compositionReasons: {
+      breathability_protection_tradeoff: 'Koruma, nefes alabilirliğe göre önceliklendirildi.',
+      thermal_over_protection: 'Bu kombin gerekenden daha sıcak.',
+      unnecessary_water_protection: 'Bu kombin gerekenden daha fazla su koruması içeriyor.',
     },
     emphasis: {
       recommended: 'Önerilen',
-      weatherReady: 'Havaya en hazırlıklı',
     },
     updatedAt: (time: string) => `Son güncelleme ${time}`,
     staleAt: (time: string) => `Son güncelleme ${time} · Güncelliğini yitirmiş olabilir`,
@@ -834,19 +773,17 @@ const tr = {
     windLabel: 'Rüzgâr',
     humidityLabel: 'Nem',
     uvIndexLabel: 'UV',
-    sunriseLabel: 'Gündoğumu',
-    sunsetLabel: 'Günbatımı',
     rainOutlookHeading: 'Bugünkü yağmur olasılığı',
-    rainOutlookTakeaway: '9–12 arası en yoğun, öğlene kadar rüzgâr orta şiddette.',
-    windValue: (speedKmh: number, direction: string) => `${speedKmh} km/sa ${direction}`,
-    humidityValue: (percent: number) => `%${percent}`,
-    uvIndexValue: (value: number) => `${value} · Düşük`,
+    humidityValue: (humidity: number) => `%${Math.round(humidity * 100)}`,
+    uvIndexValue: (value: string) => value,
     optionPosition: (position: number, total: number) => `${total} seçenekten ${position}.`,
     loadingTitle: 'Bugünün önerileri hazırlanıyor',
     loadingBody: 'Hava özeti ve kombin seçenekleri burada görünecek.',
     loadingAccessibilityLabel: 'Bugünün önerileri hazırlanıyor. İçerik yükleniyor.',
     unavailableTitle: 'Bugünün önerileri kullanılamıyor',
     unavailableBody: 'Şu anda gösterilecek kayıtlı bir öneri yok.',
+    noOutfitTitle: 'Kombin bulunamadı',
+    noOutfitBody: 'Bu koşullar için eksiksiz bir kombin önerilemiyor.',
     weatherAccessibilityLabel: ({
       condition,
       current,
@@ -861,12 +798,14 @@ const tr = {
       position,
       total,
       title,
-      description,
       pieces,
       reasons,
     }) =>
-      `${total} seçenekten ${position}. ${title}. ${description} Parçalar: ${pieces}. ` +
-      `Neden uygun: ${reasons}`,
+      [
+        `${total} seçenekten ${position}. ${title}.`,
+        `Parçalar: ${pieces}.`,
+        reasons ? `Neden uygun: ${reasons}` : null,
+      ].filter(Boolean).join(' '),
   },
 } satisfies AppMessages;
 

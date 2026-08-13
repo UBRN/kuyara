@@ -14,7 +14,6 @@ export type WeatherCardStat = Readonly<{
 
 export type WeatherCardRainTimeline = Readonly<{
   heading: string;
-  takeaway: string;
   hours: readonly LocalizedHourlyRainProbability[];
   accessibilityLabel: string;
 }>;
@@ -124,9 +123,6 @@ export function WeatherCard({
               </View>
             ))}
           </View>
-          <AppText colorRole="brandAccent" style={styles.takeaway} variant="caption">
-            {rainTimeline.takeaway}
-          </AppText>
         </View>
       ) : (
         <View
@@ -199,8 +195,5 @@ const styles = StyleSheet.create({
   bar: {
     borderRadius: 2,
     width: '100%',
-  },
-  takeaway: {
-    marginTop: spacing.xs,
   },
 });

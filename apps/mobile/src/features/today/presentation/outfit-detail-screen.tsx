@@ -50,9 +50,6 @@ export function OutfitDetailScreen({
           {suggestion.title}
         </AppText>
         {suggestion.emphasis ? <Pill label={suggestion.emphasis} tone="accent-filled" /> : null}
-        <AppText colorRole="textSecondary" style={styles.description}>
-          {suggestion.description}
-        </AppText>
       </View>
 
       <View style={styles.section}>
@@ -73,25 +70,27 @@ export function OutfitDetailScreen({
         </View>
       </View>
 
-      <View style={styles.section}>
-        <AppText colorRole="brandAccent" variant="eyebrow">
-          {presentation.copy.reasonsHeading}
-        </AppText>
-        <View style={styles.reasonList}>
-          {suggestion.reasons.map((reason) => (
-            <View key={reason} style={styles.reasonRow}>
-              <View
-                accessibilityElementsHidden
-                importantForAccessibility="no"
-                style={[styles.reasonMarker, { backgroundColor: theme.colors.brandAccent }]}
-              />
-              <AppText colorRole="textSecondary" style={styles.reasonText}>
-                {reason}
-              </AppText>
-            </View>
-          ))}
+      {suggestion.reasons.length > 0 ? (
+        <View style={styles.section}>
+          <AppText colorRole="brandAccent" variant="eyebrow">
+            {presentation.copy.reasonsHeading}
+          </AppText>
+          <View style={styles.reasonList}>
+            {suggestion.reasons.map((reason) => (
+              <View key={reason} style={styles.reasonRow}>
+                <View
+                  accessibilityElementsHidden
+                  importantForAccessibility="no"
+                  style={[styles.reasonMarker, { backgroundColor: theme.colors.brandAccent }]}
+                />
+                <AppText colorRole="textSecondary" style={styles.reasonText}>
+                  {reason}
+                </AppText>
+              </View>
+            ))}
+          </View>
         </View>
-      </View>
+      ) : null}
 
       <View
         style={[
@@ -113,10 +112,6 @@ const styles = StyleSheet.create({
   headingGroup: {
     gap: spacing.sm,
     marginTop: spacing.lg,
-  },
-  description: {
-    lineHeight: 24,
-    marginTop: spacing.xs,
   },
   section: {
     gap: spacing.md,
