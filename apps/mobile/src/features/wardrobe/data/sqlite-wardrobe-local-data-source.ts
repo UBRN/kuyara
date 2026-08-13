@@ -265,7 +265,7 @@ export class SqliteWardrobeLocalDataSource implements WardrobeLocalDataSource {
       const result = await transaction.runAsync(
         `
           UPDATE wardrobe_items
-          SET deleted_at = ?, updated_at = ?
+          SET photo_relative_path = NULL, deleted_at = ?, updated_at = ?
           WHERE id = ? AND local_profile_id = ? AND deleted_at IS NULL
         `,
         [deletedAt, deletedAt, id, localProfileId],
