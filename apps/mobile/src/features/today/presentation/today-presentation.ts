@@ -13,6 +13,7 @@ type LocalizedOutfitPiece = Readonly<{
 export type LocalizedHourlyRainProbability = Readonly<{
   label: string;
   probabilityPercent: number;
+  accessibilityLabel: string;
 }>;
 
 export type LoadedOutfitPresentation = Readonly<{
@@ -62,6 +63,8 @@ export type LoadedTodayPresentation = Readonly<{
     sunset: string;
     hourlyRainProbability: readonly LocalizedHourlyRainProbability[];
     rainOutlookTakeaway: string;
+    metricsAccessibilityLabel: string;
+    rainTimelineAccessibilityLabel: string;
     accessibilityLabel: string;
   }>;
   suggestions: readonly LoadedOutfitPresentation[];
@@ -147,6 +150,15 @@ function createLoadedPresentation(
   const time = formatTime(snapshot, language);
   const weather = snapshot.weather;
   const isStale = snapshot.freshness === 'stale';
+  const wind = copy.windValue(weather.windSpeedKmh, weather.windDirection);
+  const humidity = copy.humidityValue(weather.humidityPercent);
+  const uvIndex = copy.uvIndexValue(weather.uvIndex);
+  const hourlyRainProbability = weather.hourlyRainProbability.map((hour) => ({
+    ...hour,
+    accessibilityLabel: `${hour.label}. ${copy.rainProbability(
+      copy.humidityValue(hour.probabilityPercent),
+    )}`,
+  }));
 
   return {
     kind: 'loaded',
@@ -184,13 +196,25 @@ function createLoadedPresentation(
       rainProbability: copy.rainProbability(
         `${formatNumber(weather.precipitationProbabilityPercent, language)}%`,
       ),
-      wind: copy.windValue(weather.windSpeedKmh, weather.windDirection),
-      humidity: copy.humidityValue(weather.humidityPercent),
-      uvIndex: copy.uvIndexValue(weather.uvIndex),
+      wind,
+      humidity,
+      uvIndex,
       sunrise: weather.sunriseTime,
       sunset: weather.sunsetTime,
-      hourlyRainProbability: weather.hourlyRainProbability,
+      hourlyRainProbability,
       rainOutlookTakeaway: copy.rainOutlookTakeaway,
+      metricsAccessibilityLabel: [
+        `${copy.windLabel}: ${wind}`,
+        `${copy.humidityLabel}: ${humidity}`,
+        `${copy.uvIndexLabel}: ${uvIndex}`,
+        `${copy.sunriseLabel}: ${weather.sunriseTime}`,
+        `${copy.sunsetLabel}: ${weather.sunsetTime}`,
+      ].join('. '),
+      rainTimelineAccessibilityLabel: [
+        copy.rainOutlookHeading,
+        ...hourlyRainProbability.map((hour) => hour.accessibilityLabel),
+        copy.rainOutlookTakeaway,
+      ].join('. '),
       accessibilityLabel: copy.weatherAccessibilityLabel({
         condition: copy.conditions[weather.condition],
         current: weather.temperatureCelsius,
