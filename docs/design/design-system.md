@@ -92,7 +92,7 @@ The canonical primitive entry point is `apps/mobile/src/components/ui/index.ts`.
 - `SectionHeader` composes a heading, optional supporting text, and optional trailing action. It changes to a stacked layout at large text sizes so the action does not compress the heading.
 - `StretchyHeader` is a feature-independent absolute presentation primitive used by loaded Today and the ready Wardrobe list. It consumes a Reanimated shared vertical offset, measures safe-area-inclusive compact clearance, and stretches only its semantic `surface` background upward with a bottom-anchored transform. Pull distance and bottom-corner interpolation clamp at the current top inset; header content is never transformed. Scroll containers, feature state, localized content, navigation, refresh, and item rendering remain owned by each feature.
 
-The checked-in Today feature is the first product composition over the primitives. Its route uses `Screen`, `AppText`, `Surface`, and `SectionHeader`; feature-specific weather and outfit components own their product semantics rather than widening the generic primitive API. The finalized primary tab bar is a navigation presentation component rather than a generic UI primitive. It uses the same semantic theme, minimum touch target, localized visible labels, platform-specific symbol names, and selected accessibility state. Focused primitive tests preserve coverage for `Button` and `IconButton`.
+The checked-in Today feature is the first product composition over the primitives. Its route uses `Screen`, `AppText`, `Surface`, and `SectionHeader`; feature-specific weather and outfit components own their product semantics rather than widening the generic primitive API. The finalized primary tab bar is a navigation presentation component rather than a generic UI primitive. It uses the same semantic theme, minimum touch target, localized visible labels, a selection indicator, and selected accessibility state. Focused primitive tests preserve coverage for `Button` and `IconButton`.
 
 Semantic tokens and primitives have different responsibilities. Tokens name visual roles and scales; primitives turn those roles into small accessibility and interaction contracts. Feature code remains responsible for localized content, layout composition, user intent, and domain-specific behavior. It may use raw React Native layout views where no semantic surface or control is intended.
 
@@ -108,30 +108,11 @@ Press feedback is an immediate opacity or semantic-background change, not a deco
 
 ## Implemented and deferred
 
-Implemented now:
-
-- Approved primitives and authored light/dark semantic colors
-- Typed spacing, typography, radii, border, interaction, layout, and motion values
-- System-default theme provider with an override-ready preference type
-- Reduced-motion resolution and change observation
-- Router/navigation and status-bar integration
-- Typed adaptive UI primitives over the semantic tokens
-- A root Expo Router Stack for onboarding plus stable JavaScript Tabs for Today, Weather, Wardrobe, and Settings
-- A nested Stack boundary per tab, with localized semantic tab controls, a short Weather placeholder, and Wardrobe list/create/edit screens inside the existing Wardrobe Stack
-- Device-language English/Turkish Today strings and locale-aware fixed-date formatting
-- The deterministic Today loaded-state composition with a concise weather summary, immediate guidance, and exactly three vertically discoverable outfit cards
-- A database/profile bootstrap state, three-step local onboarding flow, and Settings tab built from the same semantic tokens and scalable primitives
-- Persisted system/Turkish/English and system/light/dark preferences supplied to the existing localization and theme providers
-- A feature-specific radio-style preference option with selected-state semantics; it remains inside the profile feature rather than widening the generic primitive API
-- Feature-specific Wardrobe text input and radio-style catalog/property options built from semantic tokens, plus a separated destructive section whose native confirmation uses the platform destructive action style
-- Loading, unavailable, and stale-loaded Today presentation contracts
-- Large-text reflow in weather metrics and outfit item rows, grouped screen-reader descriptions, and a motion-independent Today layout
-- Focused token, primitive-contract, interaction, shell-context, localization, and source-boundary tests
+Current implementation and milestone status is maintained in [`../current-status.md`](../current-status.md).
 
 Deferred intentionally:
 
 - Any migration from JavaScript Tabs to SDK 57's alpha Native Tabs
-- Worker, WeatherKit, location, AI, Wardrobe-to-recommendation integration, and the deterministic recommendation engine
 - Generic text-input, selector, switch, modal, or feedback frameworks; the Wardrobe controls remain feature-specific
 - Divider, because the current shell has no repeated separator need
 - A generic destructive button variant or new destructive color token; Wardrobe distinguishes removal through copy, section hierarchy, accessibility semantics, and the platform Alert style
