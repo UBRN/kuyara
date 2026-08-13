@@ -6,13 +6,15 @@ kuyara is an open-source weather and outfit recommendation app built with React 
 
 - Optimize the first release for iOS, but keep Android buildable and avoid iOS-only assumptions in shared code.
 - Keep the MVP small: no account, cross-device sync, behavioral analytics, or notifications.
+- kuyara is free and ad-free, with no subscription and no in-app purchase. Paid provider usage runs on a small maintainer-funded budget and must have explicit hard or safely derived limits; automatic top-up and uncontrolled pay-as-you-go overage are not allowed.
 - Treat confirmed product decisions in `docs/` as authoritative. Do not silently change them.
 - Separate current MVP work from future possibilities. Do not implement speculative infrastructure.
 
 ## Temporary project constraint
 
 - Apple Developer enrollment is pending. Until the user explicitly lifts this constraint, do not initiate production WeatherKit integration or credentials, TestFlight, App Store Connect or production release operations, or other work requiring active Apple Developer Program membership.
-- This does not cancel WeatherKit or the iOS release direction. Continue Apple-independent implementation, tests, Simulator work, and release preparation; keep weather provider-independent and use only the deterministic/sample provider for now.
+- This does not cancel WeatherKit or the iOS release direction. Continue Apple-independent implementation, tests, Simulator work, and release preparation, and keep weather provider-independent.
+- Real Apple-independent weather providers may be implemented. The deterministic sample provider is a development and test source only; it is never a production fallback.
 
 ## Working rules
 
@@ -41,7 +43,7 @@ kuyara/
 ```
 
 - `apps/mobile`: Expo and React Native application.
-- `apps/worker`: Cloudflare Worker for WeatherKit and AI integrations.
+- `apps/worker`: Cloudflare Worker for weather and AI provider integrations.
 - `packages/contracts`: shared Zod schemas and API types.
 - `docs`: product decisions, architecture, and ADRs.
 
@@ -76,23 +78,30 @@ The repository may be in transition. Inspect the real tree before assuming this 
 - Expo SQLite owns durable local user data and necessary cached snapshots.
 - TanStack Query owns remote request state, caching, retry, invalidation, and refetch behavior.
 - React hooks or narrowly scoped context own transient UI state.
-- Zod validates untrusted Worker, WeatherKit-derived, and AI payloads at runtime.
+- Zod validates untrusted Worker, provider-derived, and AI payloads at runtime.
 - Add Zustand only after demonstrating a concrete state-sharing problem. Do not add Redux Toolkit without an explicit requirement.
 - Do not duplicate the same canonical data across React context, TanStack Query, and SQLite.
 
 ## Weather and recommendation behavior
 
-- Apple WeatherKit is the initial weather provider, accessed only through the Worker.
+- Reach every weather provider only through the Worker. The provider chain is a Worker composition concern; mobile depends on the provider-neutral contract.
+- Apple WeatherKit remains the intended first provider once Developer Program membership is available. Until then, real Apple-independent providers serve production.
+- Give each upstream provider an isolated adapter with raw-response runtime validation, explicit unit and condition mapping, timeout handling, and sanitized errors before it produces the provider-neutral model.
+- Fall back to the next provider only for eligible failures: availability, timeout, quota or rate limit, authentication or configuration, upstream failure, or invalid response. Never fall back because valid conditions are undesirable or differ between providers.
+- Bound the maximum attempts per request and prevent retry or fallback loops.
+- Support each provider's attribution requirements. A controlled, non-secret attribution identifier or attribution metadata may cross the mobile API; raw provider data, credentials, and internal errors must not.
 - Cache the last valid weather data and recommendation snapshot on-device and render them immediately when available.
 - Treat data older than 30 minutes as stale: show it, then refresh in the background on app launch.
 - Provide manual refresh and show the last successful update time.
 - A failed refresh must not erase the last valid result.
-- Do not build a long-term WeatherKit archive.
+- Do not build a long-term weather archive.
 - Determine weather constraints and required clothing properties with deterministic, testable rules.
-- AI may rank or compose only from allowed catalog items and rule outputs.
-- Validate AI output with Zod and domain invariants before displaying it.
-- Never allow AI output to invent catalog entries or user wardrobe items.
-- Provide a deterministic fallback when AI is unavailable, invalid, rate-limited, or over budget.
+- AI generates exactly three complete outfits from the deterministic requirements and a closed set of candidate garments supplied in the request. It may select only supplied candidate identifiers and must never invent catalog entries, wardrobe items, slots, properties, or identifiers.
+- Validate every AI response with shared Zod schemas and deterministic domain invariants before it is displayed or persisted. Never silently repair invalid or partially invalid output into a different outfit.
+- Keep AI output structured data, not user-visible prose. All Turkish and English copy comes from localization keys.
+- Provide a device-local deterministic three-outfit fallback. AI failure must never prevent a recommendation, so that fallback is a prerequisite for shipping AI.
+- Generate or refresh a recommendation only on a relevant change — a stale weather snapshot refreshed, the active location, clothing preference, relevant wardrobe contents or properties, or an explicit user request — not on every launch. Coalesce duplicate in-flight requests and preserve the last valid recommendation when a refresh fails.
+- Record a coarse generation mode on the result, AI-assisted or deterministic fallback. Never expose provider names, model identity, or technical failures to users.
 
 ## Wardrobe and local files
 
@@ -104,15 +113,21 @@ The repository may be in transition. Inspect the real tree before assuming this 
 
 ## Worker, API, security, and privacy
 
-- Keep the Worker focused on protecting credentials, calling WeatherKit and AI providers, validating inputs/outputs, enforcing rate and spend limits, and exposing a versioned mobile API.
+- Keep the Worker focused on protecting credentials, calling weather and AI providers, validating inputs/outputs, enforcing rate and spend limits, and exposing a versioned mobile API.
 - Store credentials as Cloudflare Worker secrets. Never commit them, expose them through public Expo environment variables, bundle them in the mobile app, or log them.
+- Integrate AI providers through server-side adapters or platform bindings. Provider credentials must never reach mobile.
 - Keep privileged signing and provider authentication server-side.
 - Put shared request and response schemas in `packages/contracts` when both mobile and Worker use them.
 - Treat every network and AI response as untrusted until runtime validation succeeds.
 - Return stable, minimal error shapes; do not leak provider responses, tokens, stack traces, or internal configuration.
+- Send AI only the minimum sanitized structured data needed to compose outfits: opaque candidate keys, catalog garment type, structural category and supported role/property evidence, canonical color family when available, source kind such as catalog or owned, the deterministic weather and clothing requirements, and clothing preference where catalog applicability requires it.
+- Never send AI wardrobe photos, photo paths or URIs, user-entered free-form wardrobe names, `localProfileId`, profile or device identifiers, exact coordinates, raw location payloads, secrets, complete internal database records, or unrelated personal data.
 - Do not log exact coordinates, wardrobe contents, photos, personal preferences, complete AI prompts, or unnecessary user data.
 - Prefer coarse, privacy-preserving operational metrics. Do not add behavioral tracking in the MVP.
 - Use free tiers and hard spend controls where available. Fail safely when a quota or limit is reached.
+- Keep paid provider keys as Worker secrets, apply a provider-side spending limit where one exists, and never enable automatic credit top-up or uncontrolled pay-as-you-go overage.
+- Recalculate exact provider quota, rate, and spend limits from current official pricing during implementation. Do not freeze prices or quotas in this file.
+- Distinguish a non-AI Worker liveness check, AI configuration readiness that calls no provider, and an active AI provider probe. An active probe consumes quota, so it must be explicitly triggered, bounded, rate-limited, and briefly cached, and a successful probe never guarantees that a later full request will succeed.
 
 ## Localization and preferences
 

@@ -27,7 +27,7 @@ The deterministic one-outfit composition milestone was completed on 2026-08-01. 
 - Pure one-outfit composition with separates/one-piece branches, runtime roles, collective mandatory validation, targeted protection authority, explicit protection-versus-breathability trade-offs, bounded scoring, deterministic ordering, and structured failures.
 - Turkish and English presentation plus System, Light, and Dark appearance preferences.
 
-Weather uses the local Worker's deterministic sample endpoint by default in development. Developers may explicitly select the remote development sample URL; production mobile configuration does not use it. The Today screen remains a deterministic mock experience and does not yet consume the domain recommendation rules; three-outfit diversity, Today integration, and production WeatherKit are not implemented.
+Weather uses the local Worker's deterministic sample endpoint by default in development. Developers may explicitly select the remote development sample URL; production mobile configuration does not use it. The Today screen remains a deterministic mock experience and does not yet consume the domain recommendation rules; three-outfit diversity, Today integration, and production WeatherKit are not implemented. Nothing from the approved AI-first strategy is implemented either: the repository contains no real weather provider, no AI provider, no shared AI contract, no Worker AI route, no liveness, readiness, or probe endpoint, and no recommendation persistence.
 
 ## In Progress
 
@@ -54,29 +54,39 @@ The commit does not claim completed visual-identity conformance, accessibility d
 
 ## Current Focus
 
-- Continue the deterministic recommendation engine in separate Apple-independent milestones, next by generating and selecting three meaningfully diverse outfits from the validated one-outfit composition evidence without adding UI integration in the same Goal.
+Kuyara's approved direction is AI-first: AI generates three complete outfits from a closed candidate set, with a device-local deterministic three-outfit generator as the final fallback. The full approved strategy — provider chains, privacy boundary, spend controls, caching, and status behavior — is recorded in [`product-decisions.md`](product-decisions.md). None of it is implemented yet.
+
+- The next Goal is deterministic three-outfit generation and meaningful diversity, built from the existing validated one-outfit composition evidence.
+- It comes first because it is the minimum safety prerequisite for AI: AI failure must never leave the user without a recommendation.
+- Do not add provider, Worker, persistence, Today, or UI integration to that Goal.
 
 ## Next Approved Milestones
 
-1. Design and implement deterministic three-outfit generation and diversity from validated one-outfit candidates as a separate focused milestone, without UI integration.
-2. Integrate the resulting complete local recommendation flow with Today in a later focused milestone.
-3. Return to production WeatherKit behind the existing Worker provider boundary only after Apple Developer enrollment is available and the user explicitly lifts the temporary constraint.
+1. **Deterministic three-outfit generation and diversity.** Generate and select three meaningfully diverse outfits from the validated one-outfit composition evidence. Out of scope: any provider, Worker, persistence, Today, or UI integration.
+2. **Provider-neutral AI recommendation contracts and Worker orchestration.** Split into two Goals, mirroring the existing precedent where the Worker weather v1 foundation and the real mobile adapter were separate milestones:
+   - **2a — contracts and orchestration.** Sanitized request and structured response contracts, the Worker route and orchestration, a deterministic in-Worker stub provider, the runtime validation and deterministic domain validation boundary, bounded attempts, sanitized failures, plus liveness and configuration-readiness design. Out of scope: real provider credentials, Today UI, recommendation persistence.
+   - **2b — real AI provider adapters.** OpenRouter primary adapter, Cloudflare Workers AI binding fallback, and the explicitly triggered active probe. Out of scope: Today UI and recommendation persistence.
+3. **Mobile recommendation application and persistence flow.** Worker client boundary, device-local recommendation snapshot, refresh and invalidation rules, and the device-local deterministic fallback. Out of scope: broad UI redesign.
+4. **Today and Settings integration.** Replace the Today fixture with the real recommendation flow, add the coarse generation-mode status, and add the manual AI status probe surface. Preserve localization and accessibility requirements, and account for the unfinished UI redesign recorded under In Progress rather than declaring it complete.
+5. **Real weather provider chain.** Open-Meteo primary, OpenWeather fallback, controlled attribution metadata, and rate, quota, timeout, budget, and fallback behavior. Mobile last-known-good behavior and the exact 30-minute freshness boundary must not change.
+6. **WeatherKit integration**, after Apple Developer Program access becomes available and the user explicitly lifts the temporary constraint. Insert WeatherKit at the head of the established provider chain without changing the mobile weather domain.
+
+A milestone may be split further if repository evidence shows it cannot be safely reviewed or tested as one Goal. Do not combine milestones for convenience.
 
 ## Known Issues or Blockers
 
 - The in-progress UI redesign described above is unfinished by its author's own commit message. The 2026-08-13 remediation pass closed two specific accessibility defects in it — the sub-44-point touch targets and the card-wide weather accessibility node — but this does not complete its accessibility definition of done. Its visual-identity conformance, full accessibility review, appearance, and Simulator verification status remains unknown.
 - The Android `permissions` array no longer requests `ACCESS_FINE_LOCATION`, but `expo-location`'s config plugin still adds it and only prebuild applies `blockedPermissions`. The resolved AndroidManifest has not been verified; confirm it during the deferred Android validation.
 - Physical-device accessibility verification is still outstanding for the weather card: real VoiceOver focus order and spoken grouping cannot be confirmed by component tests or the Simulator.
-- The Worker foundation, remote development deployment, and mobile adapter have no implementation blocker; the local and remote development endpoints intentionally serve only sample data.
+- The Worker foundation, remote development deployment, and mobile adapter have no implementation blocker; the local and remote development endpoints currently serve only sample data.
 - Apple Developer enrollment is pending. Production WeatherKit and credential work, TestFlight, App Store Connect and production release operations, and other membership-dependent work are paused until the user explicitly lifts the constraint. This is temporary and does not cancel WeatherKit or the iOS-first direction.
-- The provider, contract, and mobile adapter boundaries are ready, and the app intentionally continues to use only deterministic sample weather. Apple-independent development, tests, Simulator work, and release preparation remain unblocked.
+- The provider, contract, and mobile adapter boundaries are ready, and the app still uses only deterministic sample weather. That is current state rather than a constraint: real Apple-independent providers are approved and sequenced as milestone 5. Apple-independent development, tests, Simulator work, and release preparation remain unblocked.
 - The generated iOS project depends on a machine-local Node path. A newly generated local project may need its own ignored `.xcode.env.local` before native builds.
 
 ## Deferred Scope
 
 - Accounts and cross-device synchronization.
 - Analytics and notifications.
-- Production AI integration.
 - App Store submission.
 - Android-specific feature development.
 - Maestro Cloud and CI integration.
