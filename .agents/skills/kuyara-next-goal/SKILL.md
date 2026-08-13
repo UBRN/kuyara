@@ -61,6 +61,6 @@ Inspect the actual diff and task-relevant files, then verify claims against avai
 - Batch related inspection and avoid full-tree scans.
 - Distinguish prerequisites from product implementation.
 - Choose one small vertical slice and do not combine unrelated work.
-- Do not request repetitive progress reports or use subagents unless they clearly reduce total work.
+- Do not request repetitive progress reports. Delegate per the repository delegation rules and verify delegated output before accepting it.
 - Do not rerun successful checks unless affected implementation changed.
 - Keep proposed Goal prompts substantially shorter than older long-form Kuyara prompts.

@@ -203,7 +203,8 @@ The repository may be in transition. Inspect the real tree before assuming this 
 - During implementation, run only focused checks.
 - Run one broader validation pass at the end only when proportionate to risk.
 - Documentation-only changes do not require builds or full test suites.
-- Do not use subagents unless parallelism clearly reduces total work.
+- Delegate scoped, mechanical work when the spec is cheaper to write than the work. A delegated task needs files in scope, invariants, and its verification stated up front.
+- Architecture, integration, and final verification stay with the main agent; delegated output is not accepted until it passes the repository checks.
 - Keep final reports focused on changes, validation, risks, and next state.
 
 ## Validation strategy
