@@ -116,6 +116,34 @@ test('classifies a rejected fetch as a network failure without leaking its detai
   );
 });
 
+test('aborts a stuck request as a network failure and allows a subsequent retry', { timeout: 250 }, async () => {
+  let attempts = 0;
+  let firstSignal;
+  const provider = new WorkerWeatherProvider({
+    baseUrl: 'http://worker.test',
+    requestTimeoutMilliseconds: 10,
+    fetch: async (_input, init) => {
+      attempts += 1;
+      if (attempts > 1) return jsonResponse(successBody);
+      firstSignal = init.signal;
+      return new Promise((_resolve, reject) => {
+        firstSignal.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+      });
+    },
+  });
+
+  await assert.rejects(
+    () => provider.fetchSnapshot(location),
+    (error) => error instanceof WorkerWeatherProviderError
+      && error.kind === 'network'
+      && error.code === null,
+  );
+  assert.equal(firstSignal instanceof AbortSignal, true);
+  assert.equal(firstSignal.aborted, true);
+  assert.equal((await provider.fetchSnapshot(location)).fetchedAt, fetchedAt);
+  assert.equal(attempts, 2);
+});
+
 test('uses platform-aware local development URLs and requires an explicit production URL', () => {
   assert.equal(resolveWorkerBaseUrl({ isDevelopment: true, platform: 'ios' }), 'http://127.0.0.1:8788');
   assert.equal(resolveWorkerBaseUrl({ isDevelopment: true, platform: 'android' }), 'http://10.0.2.2:8788');

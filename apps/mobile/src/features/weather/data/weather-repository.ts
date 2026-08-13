@@ -106,7 +106,16 @@ function mapLocation(record: ActiveLocationRecord): ActiveLocation {
 function mapHourly(record: HourlyWeatherRecord): HourlyWeather {
   const value = requireMeasurements({ ...record, condition: record.condition as HourlyWeather['condition'] });
   if (!isUtcIso(record.forecastAt)) throw new WeatherMappingError();
-  return { ...value, forecastAt: record.forecastAt };
+  return {
+    temperatureCelsius: value.temperatureCelsius,
+    apparentTemperatureCelsius: value.apparentTemperatureCelsius,
+    condition: value.condition,
+    precipitationProbability: value.precipitationProbability,
+    windSpeedMetersPerSecond: value.windSpeedMetersPerSecond,
+    humidity: value.humidity,
+    uvIndex: value.uvIndex,
+    forecastAt: record.forecastAt,
+  };
 }
 
 function mapSnapshot(record: WeatherSnapshotRecord): WeatherSnapshot {
@@ -138,7 +147,16 @@ function mapSnapshot(record: WeatherSnapshotRecord): WeatherSnapshot {
       timeZone: record.timeZone,
       fetchedAt: record.fetchedAt,
       origin: { kind: record.originKind, sourceId: record.sourceId },
-      current: { ...current, observedAt: record.observedAt },
+      current: {
+        temperatureCelsius: current.temperatureCelsius,
+        apparentTemperatureCelsius: current.apparentTemperatureCelsius,
+        condition: current.condition,
+        precipitationProbability: current.precipitationProbability,
+        windSpeedMetersPerSecond: current.windSpeedMetersPerSecond,
+        humidity: current.humidity,
+        uvIndex: current.uvIndex,
+        observedAt: record.observedAt,
+      },
       minimumTemperatureCelsius: record.minimumTemperatureCelsius,
       maximumTemperatureCelsius: record.maximumTemperatureCelsius,
       hourly,
