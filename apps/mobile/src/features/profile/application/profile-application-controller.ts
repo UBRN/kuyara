@@ -81,30 +81,42 @@ export class ProfileApplicationController {
   private updateProfile(
     operation: (repository: ProfileRepository) => Promise<LocalProfile>,
   ): Promise<void> {
-    if (this.updatePromise) {
-      return this.updatePromise;
-    }
-
     if (this.state.status !== 'ready' || !this.repository) {
       return Promise.reject(new Error('The local profile is not ready.'));
     }
 
-    const previousProfile = this.state.profile;
-    this.setState({ status: 'ready', profile: previousProfile, isSaving: true });
+    const repository = this.repository;
+    const run = async (): Promise<void> => {
+      if (this.state.status !== 'ready') {
+        throw new Error('The local profile is not ready.');
+      }
 
-    this.updatePromise = operation(this.repository)
-      .then((profile) => {
-        this.setState({ status: 'ready', profile, isSaving: false });
-      })
-      .catch((error) => {
-        this.setState({ status: 'ready', profile: previousProfile, isSaving: false });
+      const previousProfile = this.state.profile;
+      try {
+        const profile = await operation(repository);
+        this.setState({ status: 'ready', profile, isSaving: true });
+      } catch (error) {
+        this.setState({ status: 'ready', profile: previousProfile, isSaving: true });
         throw error;
-      })
+      }
+    };
+
+    if (!this.updatePromise) {
+      this.setState({ status: 'ready', profile: this.state.profile, isSaving: true });
+    }
+    const updatePromise = (this.updatePromise
+      ? this.updatePromise.then(run, run)
+      : run()
+    )
       .finally(() => {
-        this.updatePromise = null;
+        if (this.updatePromise === updatePromise && this.state.status === 'ready') {
+          this.updatePromise = null;
+          this.setState({ status: 'ready', profile: this.state.profile, isSaving: false });
+        }
       });
 
-    return this.updatePromise;
+    this.updatePromise = updatePromise;
+    return updatePromise;
   }
 
   private setState(state: ProfileApplicationState): void {
