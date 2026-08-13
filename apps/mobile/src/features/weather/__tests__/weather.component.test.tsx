@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, isHiddenFromAccessibility, render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -82,7 +82,10 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
     );
     const copy = messages[language].weather;
     expect(result.getByText(copy.sampleDisclosure)).toBeOnTheScreen();
-    await fireEvent.press(result.getByRole('button', { name: copy.changeLocationAction }));
+    const locationButton = result.getByRole('button', { name: copy.changeLocationAction });
+    expect(locationButton.props.hitSlop).toBe(10);
+    expect(24 + locationButton.props.hitSlop * 2).toBeGreaterThanOrEqual(44);
+    await fireEvent.press(locationButton);
     expect(result.getByRole('button', { name: copy.useCurrentLocation })).toBeOnTheScreen();
     for (const location of Object.values(copy.locations)) {
       expect(result.getByRole('radio', { name: location })).toBeOnTheScreen();
@@ -134,6 +137,26 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
     expect(result.getByText(copy.stale)).toBeOnTheScreen();
     expect(result.getAllByText(copy.conditions.rain).length).toBeGreaterThan(0);
     expect(result.getByText(copy[noticeKey]).props.accessibilityLiveRegion).toBe('polite');
+  });
+
+  test('groups localized current metrics and hides the decorative glyph', async () => {
+    const value = createValue({
+      ...baseState,
+      activeLocation: getManualLocation('sample.istanbul')!,
+      snapshot: sampleSnapshot(),
+      freshness: 'fresh',
+    });
+    const result = await render(
+      <Providers language={language} value={value}><WeatherScreen /></Providers>,
+    );
+    expect(result.getByLabelText(language === 'en'
+      ? 'Wind 4 m/s. 70% humidity. UV index 2'
+      : 'Rüzgâr 4 m/sn. %70 nem. UV endeksi 2')).toBeOnTheScreen();
+    expect(result.getByText(language === 'en' ? '4 m/s' : '4 m/sn')).toBeOnTheScreen();
+    expect(result.getByText(language === 'en' ? '70%' : '%70')).toBeOnTheScreen();
+    expect(isHiddenFromAccessibility(
+      result.getByTestId('weather-glyph', { includeHiddenElements: true }),
+    )).toBe(true);
   });
 });
 
