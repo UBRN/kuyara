@@ -247,3 +247,107 @@ test('application controller exposes loading, incomplete, completed, failure, an
   await failingController.initialize();
   assert.deepEqual(failingController.getSnapshot(), { status: 'error' });
 });
+
+test('application controller serializes distinct concurrent updates without dropping successors', async () => {
+  let profile = {
+    id: 'profile-id',
+    clothingPreference: null,
+    languagePreference: 'system',
+    themePreference: 'system',
+    onboardingCompleted: true,
+    createdAt,
+    updatedAt: createdAt,
+  };
+  const calls = [];
+  const language = Promise.withResolvers();
+  const theme = Promise.withResolvers();
+  const repository = {
+    getOrCreateProfile: async () => profile,
+    updateLanguagePreference: async (languagePreference) => {
+      calls.push(['language', languagePreference]);
+      await language.promise;
+      return (profile = { ...profile, languagePreference });
+    },
+    updateThemePreference: async (themePreference) => {
+      calls.push(['theme', themePreference]);
+      await theme.promise;
+      return (profile = { ...profile, themePreference });
+    },
+  };
+  const controller = new ProfileApplicationController(async () => repository);
+  await controller.initialize();
+
+  const languageUpdate = controller.updateLanguagePreference('tr');
+  const themeUpdate = controller.updateThemePreference('dark');
+  let themeSettled = false;
+  void themeUpdate.then(() => {
+    themeSettled = true;
+  });
+
+  assert.deepEqual(calls, [['language', 'tr']]);
+  assert.equal(controller.getSnapshot().isSaving, true);
+
+  language.resolve();
+  await languageUpdate;
+  assert.deepEqual(calls, [['language', 'tr'], ['theme', 'dark']]);
+  assert.equal(controller.getSnapshot().profile.languagePreference, 'tr');
+  assert.equal(controller.getSnapshot().isSaving, true);
+  assert.equal(themeSettled, false);
+
+  theme.resolve();
+  await themeUpdate;
+  assert.deepEqual({
+    languagePreference: profile.languagePreference,
+    themePreference: profile.themePreference,
+  }, {
+    languagePreference: 'tr',
+    themePreference: 'dark',
+  });
+  assert.equal(controller.getSnapshot().profile.themePreference, 'dark');
+  assert.equal(controller.getSnapshot().isSaving, false);
+});
+
+test('application controller continues queued updates after a predecessor rejects', async () => {
+  const failure = new Error('language failed');
+  const language = Promise.withResolvers();
+  const theme = Promise.withResolvers();
+  const calls = [];
+  let profile = {
+    id: 'profile-id',
+    clothingPreference: null,
+    languagePreference: 'system',
+    themePreference: 'system',
+    onboardingCompleted: true,
+    createdAt,
+    updatedAt: createdAt,
+  };
+  const repository = {
+    getOrCreateProfile: async () => profile,
+    updateLanguagePreference: async (languagePreference) => {
+      calls.push(['language', languagePreference]);
+      await language.promise;
+      return (profile = { ...profile, languagePreference });
+    },
+    updateThemePreference: async (themePreference) => {
+      calls.push(['theme', themePreference]);
+      await theme.promise;
+      return (profile = { ...profile, themePreference });
+    },
+  };
+  const controller = new ProfileApplicationController(async () => repository);
+  await controller.initialize();
+
+  const languageUpdate = controller.updateLanguagePreference('tr');
+  const themeUpdate = controller.updateThemePreference('dark');
+
+  language.reject(failure);
+  await assert.rejects(languageUpdate, (error) => error === failure);
+  assert.deepEqual(calls, [['language', 'tr'], ['theme', 'dark']]);
+  assert.equal(controller.getSnapshot().profile.languagePreference, 'system');
+  assert.equal(controller.getSnapshot().isSaving, true);
+
+  theme.resolve();
+  await themeUpdate;
+  assert.equal(controller.getSnapshot().profile.themePreference, 'dark');
+  assert.equal(controller.getSnapshot().isSaving, false);
+});
