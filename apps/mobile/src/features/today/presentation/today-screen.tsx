@@ -132,25 +132,40 @@ export function TodayScreen({
           </View>
         ) : null}
 
+        {presentation.noOutfit ? (
+          <Surface
+            accessible
+            accessibilityLabel={`${presentation.noOutfit.title}. ${presentation.noOutfit.body}`}
+            accessibilityRole="alert"
+            style={styles.feedbackCard}
+            variant="muted">
+            <AppText accessibilityRole="header" style={styles.centerText} variant="title">
+              {presentation.noOutfit.title}
+            </AppText>
+            <AppText colorRole="textSecondary" style={styles.centerText}>
+              {presentation.noOutfit.body}
+            </AppText>
+          </Surface>
+        ) : null}
+
         <WeatherCard
           accessibilityLabel={presentation.weather.accessibilityLabel}
           apparentTemperature={presentation.weather.apparentTemperature}
           condition={presentation.weather.condition}
           rainProbability={presentation.weather.rainProbability}
-          rainTimeline={{
-            accessibilityLabel: presentation.weather.rainTimelineAccessibilityLabel,
-            heading: presentation.copy.rainOutlookHeading,
-            takeaway: presentation.weather.rainOutlookTakeaway,
-            hours: presentation.weather.hourlyRainProbability,
-          }}
+          rainTimeline={presentation.weather.hourlyRainProbability.length > 0
+            ? {
+                accessibilityLabel: presentation.weather.rainTimelineAccessibilityLabel,
+                heading: presentation.copy.rainOutlookHeading,
+                hours: presentation.weather.hourlyRainProbability,
+              }
+            : undefined}
           range={presentation.weather.range}
           metricsAccessibilityLabel={presentation.weather.metricsAccessibilityLabel}
           stats={[
             { label: presentation.copy.windLabel, value: presentation.weather.wind },
             { label: presentation.copy.humidityLabel, value: presentation.weather.humidity },
             { label: presentation.copy.uvIndexLabel, value: presentation.weather.uvIndex },
-            { label: presentation.copy.sunriseLabel, value: presentation.weather.sunrise },
-            { label: presentation.copy.sunsetLabel, value: presentation.weather.sunset },
           ]}
           temperature={presentation.weather.temperature}
           testID="today-weather-card"
