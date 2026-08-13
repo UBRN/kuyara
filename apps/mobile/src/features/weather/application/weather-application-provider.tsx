@@ -7,8 +7,15 @@ import {
   WeatherApplicationContext,
   type WeatherApplicationValue,
 } from '@/features/weather/application/weather-application-context';
-import { resolveWorkerBaseUrl } from '@/config/worker-base-url';
+import {
+  resolveWorkerBaseUrl,
+  WorkerBaseUrlConfigurationError,
+} from '@/config/worker-base-url';
 import { ExpoDeviceLocationGateway } from '@/features/weather/data/expo-device-location-gateway';
+import {
+  WeatherProviderError,
+  type WeatherProvider,
+} from '@/features/weather/data/weather-provider';
 import { LocalWeatherRepository } from '@/features/weather/data/weather-repository';
 import { SqliteWeatherLocalDataSource } from '@/features/weather/data/sqlite-weather-local-data-source';
 import { WorkerWeatherProvider } from '@/features/weather/data/worker-weather-provider';
@@ -16,14 +23,24 @@ import { openKuyaraDatabase } from '@/infrastructure/sqlite/expo-sqlite-database
 import { migrateDatabase } from '@/infrastructure/sqlite/migrations';
 
 const now = () => new Date().toISOString();
-const provider = new WorkerWeatherProvider({
-  baseUrl: resolveWorkerBaseUrl({
-    configuredUrl: process.env.EXPO_PUBLIC_KUYARA_WORKER_BASE_URL,
-    isDevelopment: __DEV__,
-    platform: Platform.OS === 'android' ? 'android' : Platform.OS === 'web' ? 'web' : 'ios',
-  }),
-});
 const deviceLocation = new ExpoDeviceLocationGateway();
+
+export function createWeatherProvider(): WeatherProvider {
+  try {
+    return new WorkerWeatherProvider({
+      baseUrl: resolveWorkerBaseUrl({
+        configuredUrl: process.env.EXPO_PUBLIC_KUYARA_WORKER_BASE_URL,
+        isDevelopment: __DEV__,
+        platform: Platform.OS === 'android' ? 'android' : Platform.OS === 'web' ? 'web' : 'ios',
+      }),
+    });
+  } catch (error) {
+    if (!(error instanceof WorkerBaseUrlConfigurationError)) throw error;
+    return {
+      fetchSnapshot: () => Promise.reject(new WeatherProviderError('service')),
+    };
+  }
+}
 
 async function loadRepository() {
   const database = await openKuyaraDatabase();
@@ -38,9 +55,10 @@ export function WeatherApplicationProvider({
   children,
   localProfileId,
 }: PropsWithChildren<{ localProfileId: string }>) {
+  const provider = useMemo(() => createWeatherProvider(), []);
   const controller = useMemo(() => new WeatherApplicationController(localProfileId, {
     loadRepository, provider, deviceLocation, now,
-  }), [localProfileId]);
+  }), [localProfileId, provider]);
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
   const appState = useRef<AppStateStatus>(AppState.currentState);
 
