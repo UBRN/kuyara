@@ -65,7 +65,7 @@ The Today mock slice was replaced by the real deterministic recommendation flow.
 - Each wardrobe item has a client-generated UUID, its existing `localProfileId`, optional user-visible name and color, one small structural category, an optional app-private photo relative path, UTC lifecycle timestamps, and nullable soft-deletion time.
 - The stable structural categories are `top`, `bottom`, `one_piece`, `outerwear`, `footwear`, and `accessory`. They describe an item's role in an outfit and are stored independently from localized UI copy.
 - Active reads are profile-scoped and exclude soft-deleted rows by default. Update and delete operations cannot act through another profile ID; deletion sets `deletedAt` and `updatedAt` rather than removing the row.
-- SQLite stores only a normalized relative photo path. Absolute paths, URIs, backslashes, parent traversal, and empty path values are not persisted; photo import, compression, copying, cleanup, and external transmission remain unimplemented.
+- SQLite stores only a normalized relative photo path. Absolute paths, URIs, backslashes, parent traversal, and empty path values are not persisted; external transmission remains excluded. Photo import, compression, copying, and cleanup were unimplemented in this slice and landed later as the private single-photo lifecycle.
 - Version 2 deliberately deferred detailed catalog and recommendation properties and reserved no free-form metadata field for them. Version 3 now adds only the approved canonical type, color family, and limited overrides; season, fabric, formality, runtime layer assignment, brand, purchase data, AI tags, and provider fields remain excluded.
 - The original version 2 persistence slice added no presentation or application state. The current Wardrobe UI now consumes the same repository through a feature-local controller/provider; it adds no global state, recommendation engine, WeatherKit, AI, account, authentication, synchronization, outbox, or conflict-resolution behavior.
 
@@ -95,7 +95,7 @@ The Today mock slice was replaced by the real deterministic recommendation flow.
 - Only normalized hundredth-degree coordinates, IANA time zone, source, and approximate/full accuracy cross the native adapter or reach SQLite. Raw coordinates and native permission diagnostics are neither logged nor persisted.
 - SQLite schema version 4 owns one active location per local profile and location-bound weather snapshots with ordered current-local-day hourly entries. Snapshot replacement is atomic and retention is bounded to the active location plus the newest previous location.
 - A cached snapshot is fresh through exactly 30 minutes and stale after that boundary. Fresh cache renders without a fetch; stale cache renders immediately and refreshes in the background. Manual refresh is always available, and refresh failure preserves and labels the last valid result.
-- The current provider is a deterministic, visibly disclosed sample source with reproducible success, delayed-stale-success, and failure paths. It performs no network request and is replaceable behind a narrow provider interface.
+- The provider of this slice is a deterministic, visibly disclosed sample source with reproducible success, delayed-stale-success, and failure paths, replaceable behind a narrow provider interface. It performed no network request and now survives only in focused tests: the application composition calls the Worker over HTTP.
 - This slice does not add WeatherKit, Worker API routes, shared network contracts, TanStack Query, recommendation rules, AI, accounts, synchronization, analytics, notifications, background location, or background refresh.
 
 ## Implemented Worker weather v1 foundation
@@ -103,7 +103,7 @@ The Today mock slice was replaced by the real deterministic recommendation flow.
 - `POST /v1/weather` accepts only normalized integer hundredth-degree latitude/longitude values and an IANA time zone. Profile IDs, location keys, native permission data, accuracy labels, and raw coordinates are not part of the API.
 - Shared strict Zod schemas define the request, provider-neutral success data, established condition codes and weather invariants, and minimal stable error codes. The response identifies data only as `sample` or `live`; WeatherKit names and raw provider structures remain internal.
 - The Worker validates before provider access, maps an injected provider-neutral model through an explicit API mapper, and sanitizes invalid input, route/method failures, unavailable or invalid provider data, and unexpected errors. Responses do not expose provider details, stacks, secrets, or internal configuration.
-- The current Worker composition uses a deterministic clock-injected local mock and marks every success as sample data. It has no upstream call, credential, secret, binding, authentication, persistence, rate limiting, deployment, DNS, or remote resource.
+- The current Worker composition uses a deterministic clock-injected local mock and marks every success as sample data. It has no upstream call, credential, secret, binding, authentication, persistence, rate limiting, DNS, or remote resource. A controlled `workers.dev` development deployment of this same sample composition was added later for explicit remote development use and adds none of the above.
 - Mobile development composition calls this local endpoint through a contract-validating HTTP provider adapter. Production WeatherKit integration remains deferred.
 
 ## Implemented mobile Worker weather adapter
@@ -212,7 +212,7 @@ AI must not receive wardrobe photos, photo paths or URIs, user-entered free-form
 
 ## Approved recommendation caching, refresh, and status behavior
 
-Approved 2026-08-13. Not implemented. Today still renders the deterministic fixture, and no recommendation snapshot is persisted.
+Approved 2026-08-13. Not implemented. Today renders the real deterministic recommendation, recomputed in memory on each relevant change, and no recommendation snapshot is persisted.
 
 - The last valid recommendation snapshot must be persisted on-device and rendered immediately when available.
 - AI must not be called on every application launch. A recommendation must be generated or refreshed only when the relevant weather snapshot is refreshed after becoming stale, the active location changes, clothing preference changes, relevant wardrobe contents or properties change, or the user explicitly requests a refresh.
@@ -233,6 +233,8 @@ Recorded 2026-08-13. These are time-sensitive operating assumptions, not permane
 - Provider pricing, quotas, licences, model availability, and terms may change at any time.
 
 ## Approved visual identity
+
+Approved 2026-07-29.
 
 - The canonical approved brand and visual constraints are recorded in [`docs/design/visual-identity.md`](design/visual-identity.md). That document is the source of truth for UI, UX, themes, icons, illustrations, motion, splash screens, and other branding work.
 - The approved app symbol is Balanced Horizon — V2: Unified Gap System. Its repository master is `apps/mobile/assets/brand/kuyara-symbol-master.svg`, and its locked geometry must not be silently altered.

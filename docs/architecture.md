@@ -188,7 +188,7 @@ The checked-in composition uses a deterministic local mock with an injected cloc
 
 ## Approved target composition
 
-Approved 2026-08-13 and recorded in [`product-decisions.md`](product-decisions.md). **None of this section is checked in.** It fixes where approved behavior will live so later work does not relitigate the boundaries. It deliberately does not name endpoints, schema fields, model identifiers, environment variables, migrations, or provider response mappings that have not been designed yet.
+Approved 2026-08-13 and recorded in [`product-decisions.md`](product-decisions.md). **Nothing in this section is checked in except where a subsection states otherwise; Goal 2a's contracts and Worker orchestration are implemented.** It fixes where approved behavior will live so later work does not relitigate the boundaries. It deliberately does not name endpoints, schema fields, model identifiers, environment variables, migrations, or provider response mappings that have not been designed yet.
 
 ### Target weather provider chain
 
