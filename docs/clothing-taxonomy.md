@@ -17,8 +17,8 @@ The local-first boundary before schema version 3 had these facts:
 - `WardrobeItem`, `WardrobeItemRecord`, their explicit mapper, the repository, and the SQLite data source are separate boundaries. Invalid stored values do not cross into the domain.
 - The local profile stores the mutable clothing preference as `womens` or `mens`; this is a catalog/recommendation preference, not biological sex.
 - User-facing English and Turkish strings live in the localization boundary. Persisted values are locale-independent.
-- Today currently uses presentation-only fixture codes such as `clothing.cottonShirt`, `clothing.lightTrenchCoat`, `clothing.hoodedRainJacket`, and `clothing.waterproofAnkleBoots`. They are not catalog identifiers, Wardrobe records, provider DTOs, or recommendation-engine outputs.
-- No catalog, detailed garment classification, migration version 3, recommendation engine, WeatherKit contract, or AI integration exists yet.
+- Today no longer uses presentation-only fixture codes. It renders real composed outfits produced by the deterministic recommendation rules from catalog-backed garments.
+- The catalog, detailed garment classification, migration version 3, and the deterministic recommendation engine exist. No WeatherKit contract or real AI provider exists yet.
 
 The implemented taxonomy extends these facts rather than reinterpreting migration version 2 or treating the Today fixture as production catalog data.
 
@@ -30,7 +30,7 @@ Current implementation locations are:
 - effective garment resolution: `apps/mobile/src/features/wardrobe/domain/effective-garment.ts`
 - schema version 3: `apps/mobile/src/infrastructure/sqlite/migrations.ts`
 
-The current fixture concepts would be normalized only when that mock slice is deliberately replaced:
+The table below is a historical exercise from when Today still rendered fixture concepts. That slice has since been replaced by the real recommendation flow; the table is kept only because it shows how labels map onto taxonomy identity.
 
 | Today fixture concept | Taxonomy interpretation, not an implemented mapping |
 | --- | --- |
@@ -413,7 +413,6 @@ This distinguishes `null` as state/absence from domain values. For example, `wat
 - Every catalog type and displayable enum value must have both English and Turkish messages before catalog validation succeeds.
 - Search synonyms such as Turkish “mont” or “kaban” are optional localized search metadata, never identifiers.
 - Do not construct sentences from translated fragments. Recommendation reasons remain complete localized messages.
-- Today fixture codes remain isolated presentation fixture codes until that slice is deliberately replaced; do not alias them to `typeId` values silently.
 
 ## Catalog and schema versioning
 
