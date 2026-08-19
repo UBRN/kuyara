@@ -14,6 +14,7 @@ import {
 
 export type TodayMessages = Readonly<{
   title: string;
+  headerAccessibilityLabel: (values: { title: string; location: string }) => string;
   settingsAction: string;
   settingsHint: string;
   recommendedTodayHeading: string;
@@ -29,12 +30,21 @@ export type TodayMessages = Readonly<{
   apparentTemperature: (temperature: string) => string;
   temperatureRange: (minimum: string, maximum: string) => string;
   rainProbability: (probability: string) => string;
+  hourlyRainAccessibilityLabel: (values: {
+    time: string;
+    probabilityPercent: number;
+  }) => string;
   windLabel: string;
   humidityLabel: string;
   uvIndexLabel: string;
   rainOutlookHeading: string;
   humidityValue: (percent: number) => string;
   uvIndexValue: (value: string) => string;
+  metricsAccessibilityLabel: (values: {
+    windSpeed: string;
+    humidityPercent: string;
+    uvIndex: string;
+  }) => string;
   optionPosition: (position: number, total: number) => string;
   loadingTitle: string;
   loadingBody: string;
@@ -54,9 +64,8 @@ export type TodayMessages = Readonly<{
   outfitAccessibilityLabel: (values: {
     position: number;
     total: number;
-    title: string;
-    pieces: string;
-    reasons: string;
+    pieces: readonly Readonly<{ slot: string; item: string }>[];
+    reasons: readonly string[];
   }) => string;
 }>;
 
@@ -159,9 +168,28 @@ export type AppMessages = Readonly<{
     feelsLike: (temperature: string) => string;
     range: (minimum: string, maximum: string) => string;
     precipitation: (probability: number) => string;
+    currentConditionsAccessibilityLabel: (values: {
+      condition: string;
+      temperature: string;
+      apparentTemperature: string;
+      minimumTemperature: string;
+      maximumTemperature: string;
+      precipitationProbability: number;
+    }) => string;
     wind: (speed: string) => string;
     humidity: (humidity: number) => string;
     uvIndex: (index: string) => string;
+    metricsAccessibilityLabel: (values: {
+      windSpeed: string;
+      humidity: number;
+      uvIndex: string;
+    }) => string;
+    hourlyForecastAccessibilityLabel: (values: {
+      time: string;
+      temperature: string;
+      condition: string;
+      precipitationProbability: number;
+    }) => string;
     windValue: (speed: string) => string;
     humidityValue: (humidity: number) => string;
     windLabel: string;
@@ -350,9 +378,30 @@ const en = {
     feelsLike: (temperature) => `Feels like ${temperature}`,
     range: (minimum, maximum) => `Low ${minimum} · High ${maximum}`,
     precipitation: (probability) => `${Math.round(probability * 100)}% precipitation`,
+    currentConditionsAccessibilityLabel: ({
+      condition,
+      temperature,
+      apparentTemperature,
+      minimumTemperature,
+      maximumTemperature,
+      precipitationProbability,
+    }) =>
+      `${condition}. ${temperature}. Feels like ${apparentTemperature}. ` +
+      `Low ${minimumTemperature} · High ${maximumTemperature}. ` +
+      `${Math.round(precipitationProbability * 100)}% precipitation`,
     wind: (speed) => `Wind ${speed} m/s`,
     humidity: (humidity) => `${Math.round(humidity * 100)}% humidity`,
     uvIndex: (index) => `UV index ${index}`,
+    metricsAccessibilityLabel: ({ windSpeed, humidity, uvIndex }) =>
+      `Wind ${windSpeed} m/s. ${Math.round(humidity * 100)}% humidity. UV index ${uvIndex}`,
+    hourlyForecastAccessibilityLabel: ({
+      time,
+      temperature,
+      condition,
+      precipitationProbability,
+    }) =>
+      `${time}. ${temperature}. ${condition}. ` +
+      `${Math.round(precipitationProbability * 100)}% precipitation`,
     windValue: (speed) => `${speed} m/s`,
     humidityValue: (humidity) => `${Math.round(humidity * 100)}%`,
     windLabel: 'Wind',
@@ -442,6 +491,7 @@ const en = {
   },
   today: {
     title: 'Today',
+    headerAccessibilityLabel: ({ title, location }) => `${title}. ${location}`,
     settingsAction: 'Settings',
     settingsHint: 'Opens clothing, language, and appearance settings.',
     recommendedTodayHeading: 'Recommended today',
@@ -487,12 +537,16 @@ const en = {
     apparentTemperature: (temperature: string) => `Feels like ${temperature}`,
     temperatureRange: (minimum: string, maximum: string) => `Low ${minimum} · High ${maximum}`,
     rainProbability: (probability: string) => `${probability} chance of rain`,
+    hourlyRainAccessibilityLabel: ({ time, probabilityPercent }) =>
+      `${time}. ${probabilityPercent}% chance of rain`,
     windLabel: 'Wind',
     humidityLabel: 'Humidity',
     uvIndexLabel: 'UV',
     rainOutlookHeading: 'Rain chance today',
     humidityValue: (humidity: number) => `${Math.round(humidity * 100)}%`,
     uvIndexValue: (value: string) => value,
+    metricsAccessibilityLabel: ({ windSpeed, humidityPercent, uvIndex }) =>
+      `Wind: ${windSpeed} m/s. Humidity: ${humidityPercent}%. UV: ${uvIndex}`,
     optionPosition: (position: number, total: number) => `Option ${position} of ${total}`,
     loadingTitle: 'Preparing today’s guidance',
     loadingBody: 'Your weather summary and outfit options will appear here.',
@@ -514,15 +568,15 @@ const en = {
     outfitAccessibilityLabel: ({
       position,
       total,
-      title,
       pieces,
       reasons,
-    }) =>
-      [
-        `Option ${position} of ${total}: ${title}.`,
-        `Wear: ${pieces}.`,
-        reasons ? `Why it works: ${reasons}` : null,
-      ].filter(Boolean).join(' '),
+    }) => {
+      return [
+        `Option ${position} of ${total}.`,
+        ...pieces.map(({ slot, item }) => `${slot}: ${item}.`),
+        reasons.length > 0 ? `Why it works: ${reasons.join(' ')}` : null,
+      ].filter(Boolean).join(' ');
+    },
   },
 } satisfies AppMessages;
 
@@ -627,9 +681,31 @@ const tr = {
     feelsLike: (temperature) => `Hissedilen ${temperature}`,
     range: (minimum, maximum) => `En düşük ${minimum} · En yüksek ${maximum}`,
     precipitation: (probability) => `%${Math.round(probability * 100)} yağış`,
+    currentConditionsAccessibilityLabel: ({
+      condition,
+      temperature,
+      apparentTemperature,
+      minimumTemperature,
+      maximumTemperature,
+      precipitationProbability,
+    }) =>
+      `${condition}. Sıcaklık ${temperature}. Hissedilen sıcaklık ${apparentTemperature}. ` +
+      `En düşük ${minimumTemperature}, en yüksek ${maximumTemperature}. ` +
+      `Yağış olasılığı yüzde ${Math.round(precipitationProbability * 100)}.`,
     wind: (speed) => `Rüzgâr ${speed} m/sn`,
     humidity: (humidity) => `%${Math.round(humidity * 100)} nem`,
     uvIndex: (index) => `UV endeksi ${index}`,
+    metricsAccessibilityLabel: ({ windSpeed, humidity, uvIndex }) =>
+      `Rüzgâr hızı saniyede ${windSpeed} metre. ` +
+      `Nem yüzde ${Math.round(humidity * 100)}. UV endeksi ${uvIndex}.`,
+    hourlyForecastAccessibilityLabel: ({
+      time,
+      temperature,
+      condition,
+      precipitationProbability,
+    }) =>
+      `Saat ${time}. Sıcaklık ${temperature}. ${condition}. ` +
+      `Yağış olasılığı yüzde ${Math.round(precipitationProbability * 100)}.`,
     windValue: (speed) => `${speed} m/sn`,
     humidityValue: (humidity) => `%${Math.round(humidity * 100)}`,
     windLabel: 'Rüzgâr',
@@ -719,6 +795,8 @@ const tr = {
   },
   today: {
     title: 'Bugün',
+    headerAccessibilityLabel: ({ title, location }) =>
+      `${title}. Konum: ${location}.`,
     settingsAction: 'Ayarlar',
     settingsHint: 'Giyim, dil ve görünüm ayarlarını açar.',
     recommendedTodayHeading: 'Bugün için önerilen',
@@ -764,12 +842,17 @@ const tr = {
     apparentTemperature: (temperature: string) => `Hissedilen ${temperature}`,
     temperatureRange: (minimum: string, maximum: string) => `En düşük ${minimum} · En yüksek ${maximum}`,
     rainProbability: (probability: string) => `Yağmur olasılığı ${probability}`,
+    hourlyRainAccessibilityLabel: ({ time, probabilityPercent }) =>
+      `Saat ${time} için yağmur olasılığı yüzde ${probabilityPercent}.`,
     windLabel: 'Rüzgâr',
     humidityLabel: 'Nem',
     uvIndexLabel: 'UV',
     rainOutlookHeading: 'Bugünkü yağmur olasılığı',
     humidityValue: (humidity: number) => `%${Math.round(humidity * 100)}`,
     uvIndexValue: (value: string) => value,
+    metricsAccessibilityLabel: ({ windSpeed, humidityPercent, uvIndex }) =>
+      `Rüzgâr hızı saniyede ${windSpeed} metre. ` +
+      `Nem yüzde ${humidityPercent}. UV endeksi ${uvIndex}.`,
     optionPosition: (position: number, total: number) => `${total} seçenekten ${position}.`,
     loadingTitle: 'Bugünün önerileri hazırlanıyor',
     loadingBody: 'Hava özeti ve kombin seçenekleri burada görünecek.',
@@ -791,15 +874,16 @@ const tr = {
     outfitAccessibilityLabel: ({
       position,
       total,
-      title,
       pieces,
       reasons,
-    }) =>
-      [
-        `${total} seçenekten ${position}. ${title}.`,
-        `Parçalar: ${pieces}.`,
-        reasons ? `Neden uygun: ${reasons}` : null,
-      ].filter(Boolean).join(' '),
+    }) => {
+      const ordinal = ['birincisi', 'ikincisi', 'üçüncüsü'][position - 1] ?? `${position}. seçenek`;
+      return [
+        `${total} seçenekten ${ordinal}.`,
+        ...pieces.map(({ slot, item }) => `${slot}: ${item}.`),
+        reasons.length > 0 ? `Bu kombin şu nedenlerle uygun: ${reasons.join(' ')}` : null,
+      ].filter(Boolean).join(' ');
+    },
   },
 } satisfies AppMessages;
 

@@ -694,14 +694,16 @@ test('update changes only mutable fields and preserves identity, owner, and crea
   });
 });
 
-test('soft delete atomically clears the photo path, timestamps the row, and excludes it from active operations', async (t) => {
+test('soft delete retains the photo path for cleanup, timestamps the row, and excludes it from active operations', async (t) => {
   const { repository, setTime } = await createRepository(t);
+  const photoRelativePath =
+    'kuyara/wardrobe/photos/518f0f4d-1d45-4ae7-a8f1-796e8297d3b4.jpg';
   const item = await repository.createItem({
     localProfileId: profileId,
     category: 'footwear',
     garmentTypeId: 'weather_boots',
     name: 'Bot',
-    photoRelativePath: 'kuyara/wardrobe/photos/518f0f4d-1d45-4ae7-a8f1-796e8297d3b4.jpg',
+    photoRelativePath,
   });
   setTime(updatedAt);
 
@@ -709,10 +711,13 @@ test('soft delete atomically clears the photo path, timestamps the row, and excl
 
   assert.equal(deleted.deletedAt, updatedAt);
   assert.equal(deleted.updatedAt, updatedAt);
-  assert.equal(deleted.photoRelativePath, null);
+  assert.equal(deleted.photoRelativePath, photoRelativePath);
   assert.equal(await repository.getActiveItem(profileId, item.id), null);
   assert.deepEqual(await repository.listActiveItems(profileId), []);
   assert.deepEqual(await repository.getItemIncludingDeleted(profileId, item.id), deleted);
+  assert.deepEqual(await repository.listPendingPhotoCleanup(profileId), [
+    { id: item.id, photoRelativePath },
+  ]);
   await assert.rejects(
     () => repository.updateItem({
       id: item.id,
@@ -724,6 +729,49 @@ test('soft delete atomically clears the photo path, timestamps the row, and excl
   await assert.rejects(
     () => repository.softDeleteItem(profileId, item.id),
     assertRepositoryError('not-found'),
+  );
+
+  assert.equal(
+    await repository.clearPendingPhotoCleanup(profileId, item.id, photoRelativePath),
+    true,
+  );
+  assert.equal(
+    (await repository.getItemIncludingDeleted(profileId, item.id)).photoRelativePath,
+    null,
+  );
+  assert.deepEqual(await repository.listPendingPhotoCleanup(profileId), []);
+});
+
+test('pending cleanup excludes a photo path while any live row still references it', async (t) => {
+  const { repository, setTime } = await createRepository(t);
+  const photoRelativePath =
+    'kuyara/wardrobe/photos/518f0f4d-1d45-4ae7-a8f1-796e8297d3b4.jpg';
+  const deletedItem = await repository.createItem({
+    localProfileId: profileId,
+    garmentTypeId: 'weather_boots',
+    photoRelativePath,
+  });
+  setTime(updatedAt);
+  await repository.softDeleteItem(profileId, deletedItem.id);
+  await repository.createItem({
+    localProfileId: profileId,
+    garmentTypeId: 'rain_jacket',
+    photoRelativePath,
+  });
+
+  assert.deepEqual(await repository.listPendingPhotoCleanup(profileId), []);
+  assert.equal(
+    await repository.clearPendingPhotoCleanup(
+      profileId,
+      deletedItem.id,
+      photoRelativePath,
+    ),
+    false,
+  );
+  assert.equal(
+    (await repository.getItemIncludingDeleted(profileId, deletedItem.id))
+      .photoRelativePath,
+    photoRelativePath,
   );
 });
 

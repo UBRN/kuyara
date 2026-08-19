@@ -194,6 +194,58 @@ export class SqliteWardrobeLocalDataSource implements WardrobeLocalDataSource {
     return rows.map(mapRow);
   }
 
+  async listPendingPhotoCleanup(localProfileId: string): Promise<WardrobeItemRecord[]> {
+    const rows = await this.database.getAllAsync<WardrobeItemRow>(
+      `
+        SELECT ${wardrobeItemColumns}
+        FROM wardrobe_items AS pending
+        WHERE pending.local_profile_id = ?
+          AND pending.deleted_at IS NOT NULL
+          AND pending.photo_relative_path IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1
+            FROM wardrobe_items AS active
+            WHERE active.deleted_at IS NULL
+              AND active.photo_relative_path = pending.photo_relative_path
+          )
+        ORDER BY pending.deleted_at ASC, pending.id ASC
+      `,
+      [localProfileId],
+    );
+
+    return rows.map(mapRow);
+  }
+
+  async clearPendingPhotoCleanup(
+    localProfileId: string,
+    id: string,
+    photoRelativePath: string,
+  ): Promise<boolean> {
+    const result = await this.database.runAsync(
+      `
+        UPDATE wardrobe_items
+        SET photo_relative_path = NULL
+        WHERE id = ?
+          AND local_profile_id = ?
+          AND deleted_at IS NOT NULL
+          AND photo_relative_path = ?
+          AND NOT EXISTS (
+            SELECT 1
+            FROM wardrobe_items AS active
+            WHERE active.deleted_at IS NULL
+              AND active.photo_relative_path = wardrobe_items.photo_relative_path
+          )
+      `,
+      [id, localProfileId, photoRelativePath],
+    );
+
+    if (result.changes > 1) {
+      throw new WardrobeDataSourceError('write-failed');
+    }
+
+    return result.changes === 1;
+  }
+
   async updateActiveItem(
     record: UpdateWardrobeItemRecord,
   ): Promise<WardrobeItemRecord | null> {
@@ -265,7 +317,7 @@ export class SqliteWardrobeLocalDataSource implements WardrobeLocalDataSource {
       const result = await transaction.runAsync(
         `
           UPDATE wardrobe_items
-          SET photo_relative_path = NULL, deleted_at = ?, updated_at = ?
+          SET deleted_at = ?, updated_at = ?
           WHERE id = ? AND local_profile_id = ? AND deleted_at IS NULL
         `,
         [deletedAt, deletedAt, id, localProfileId],

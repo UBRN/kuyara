@@ -527,6 +527,52 @@ test('returns three pairwise meaningfully different outfits with the best outfit
   }
 });
 
+// At 28 C in clear, calm weather, high breathability exhausts the catalog to
+// two body cores; footwear-only swaps are near-duplicates, so two is correct.
+test('returns two high-heat outfits instead of footwear-only near-duplicates', () => {
+  const requirements = clothingRequirements(
+    requirement('breathability', 'high', {
+      reasonCodes: Object.freeze(['temperature_high']),
+    }),
+  );
+  const tops = [
+    catalogCandidate(requirements, 't_shirt'),
+    catalogCandidate(requirements, 'long_sleeve_t_shirt'),
+  ];
+  const bottom = catalogCandidate(requirements, 'shorts');
+  const footwear = [
+    catalogCandidate(requirements, 'sneakers'),
+    catalogCandidate(requirements, 'closed_shoes'),
+    catalogCandidate(requirements, 'ankle_boots'),
+    catalogCandidate(requirements, 'weather_boots'),
+    catalogCandidate(requirements, 'sandals'),
+  ];
+  const validCompositions = tops.flatMap((top) =>
+    footwear.map((shoes) =>
+      composeOutfit(requirements, [top, bottom, shoes]),
+    ),
+  );
+  const result = composeOutfits(requirements, [...tops, bottom, ...footwear]);
+
+  assert.equal(validCompositions.length, 10);
+  assert.equal(
+    validCompositions.every(({ status }) => status === 'composed'),
+    true,
+  );
+  assert.equal(result.status, 'composed');
+  assert.equal(result.outfits.length, 2);
+  assert.equal(
+    result.outfits.every(({ body }) => body.kind === 'separates'),
+    true,
+  );
+  assert.deepEqual(
+    result.outfits
+      .map(({ body }) => body.primaryTop.garment.candidateKey)
+      .sort(),
+    ['catalog:long_sleeve_t_shirt', 'catalog:t_shirt'],
+  );
+});
+
 test('returns exactly two outfits when only two meaningful options exist', () => {
   const requirements = clothingRequirements();
   const result = composeOutfits(requirements, [

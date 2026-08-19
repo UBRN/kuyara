@@ -105,12 +105,21 @@ test('loaded mapping uses localized catalog names, slot order, positions, and fi
 
 test('shared weather reasons lead every outfit and per-outfit composition reasons follow', () => {
   const english = loadedPresentation();
+  const turkish = loadedPresentation(todayScreenState, 'tr');
 
   assert.deepEqual(english.suggestions[0].reasons, weatherReasons);
   assert.deepEqual(english.suggestions[1].reasons, [
     ...weatherReasons,
     'This outfit is warmer than required.',
   ]);
+  assert.equal(
+    english.suggestions[0].accessibilityLabel,
+    'Option 1 of 3. Top: T-shirt. Bottom: Shorts. Outer layer: Rain jacket. Footwear: Sneakers. Why it works: Strong wind requires wind protection. Likely precipitation requires water protection. Drizzle calls for light water protection. Rain requires water protection.',
+  );
+  assert.equal(
+    turkish.suggestions[0].accessibilityLabel,
+    '3 seçenekten birincisi. Üst: Tişört. Alt: Şort. Dış katman: Yağmurluk. Ayakkabı: Spor ayakkabı. Bu kombin şu nedenlerle uygun: Kuvvetli rüzgâr, rüzgâr koruması gerektiriyor. Beklenen yağış su koruması gerektiriyor. Çiseleme hafif su koruması gerektiriyor. Yağmur su koruması gerektiriyor.',
+  );
 });
 
 test('an unavailable recommendation keeps the loaded weather presentation and exposes local no-outfit copy', () => {
@@ -164,6 +173,22 @@ test('stale freshness and fewer than six current-or-future rain entries localize
   assert.equal(turkish.header.location, 'Örnek İstanbul');
   assert.equal(english.weather.condition, 'Rain');
   assert.equal(turkish.weather.condition, 'Yağmurlu');
+  assert.equal(
+    english.weather.hourlyRainProbability[0].accessibilityLabel,
+    '09:00. 65% chance of rain',
+  );
+  assert.equal(
+    turkish.weather.hourlyRainProbability[0].accessibilityLabel,
+    'Saat 09:00 için yağmur olasılığı yüzde 65.',
+  );
+  assert.equal(
+    english.weather.metricsAccessibilityLabel,
+    'Wind: 8 m/s. Humidity: 78%. UV: 2',
+  );
+  assert.equal(
+    turkish.weather.metricsAccessibilityLabel,
+    'Rüzgâr hızı saniyede 8 metre. Nem yüzde 78. UV endeksi 2.',
+  );
 });
 
 test('loading, unavailable, and semantic theme behavior remains explicit', () => {
