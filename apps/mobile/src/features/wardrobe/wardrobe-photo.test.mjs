@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { registerHooks } from 'node:module';
 import test from 'node:test';
 
 import { WardrobeApplicationController } from './application/wardrobe-application-controller.ts';
@@ -12,6 +13,97 @@ import {
   calculateWardrobePhotoResize,
   wardrobePhotoPolicy,
 } from './domain/wardrobe-photo.ts';
+
+const nativeImageCalls = [];
+const nativeFiles = new Set();
+let nativeCopyFailure = null;
+
+function nativeFileUri(parts) {
+  const [root, ...segments] = parts;
+  const rootUri = typeof root === 'string' ? root : root.uri;
+  return [rootUri.replace(/\/$/, ''), ...segments].join('/');
+}
+
+globalThis.__kuyaraWardrobePhotoNativeMocks = {
+  Directory: class {
+    create() {}
+  },
+  File: class {
+    constructor(...parts) {
+      this.uri = nativeFileUri(parts);
+    }
+
+    get exists() {
+      return nativeFiles.has(this.uri);
+    }
+
+    async copy(destination) {
+      nativeFiles.add(destination.uri);
+      throw nativeCopyFailure;
+    }
+
+    delete() {
+      nativeFiles.delete(this.uri);
+    }
+  },
+  ImageManipulator: {
+    manipulate(uri) {
+      nativeImageCalls.push(['manipulate', uri]);
+      return {
+        resize(dimensions) {
+          nativeImageCalls.push(['resize', dimensions]);
+        },
+        async renderAsync() {
+          nativeImageCalls.push(['render']);
+          return {
+            async saveAsync(options) {
+              nativeImageCalls.push(['save', options]);
+              return {
+                uri: 'file:///cache/processed.jpg',
+                width: 1600,
+                height: 1200,
+              };
+            },
+          };
+        },
+      };
+    },
+  },
+  Paths: {
+    cache: { uri: 'file:///cache' },
+    document: { uri: 'file:///documents' },
+  },
+};
+
+const nativeMockModules = {
+  'expo-file-system': `
+    const mocks = globalThis.__kuyaraWardrobePhotoNativeMocks;
+    export const { Directory, File, Paths } = mocks;
+  `,
+  'expo-image-manipulator': `
+    export const ImageManipulator =
+      globalThis.__kuyaraWardrobePhotoNativeMocks.ImageManipulator;
+    export const SaveFormat = Object.freeze({ JPEG: 'jpeg' });
+  `,
+  'expo-image-picker': 'export const launchImageLibraryAsync = async () => null;',
+};
+
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    const source = nativeMockModules[specifier];
+    if (source) {
+      return {
+        shortCircuit: true,
+        url: `data:text/javascript,${encodeURIComponent(source)}`,
+      };
+    }
+    return nextResolve(specifier, context);
+  },
+});
+
+const { ExpoPrivateWardrobePhotoStorage, ExpoWardrobePhotoProcessor } = await import(
+  './data/expo-wardrobe-photo-adapters.ts'
+);
 
 const profileId = '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4';
 const itemId = '118f0f4d-1d45-4ae7-a8f1-796e8297d3b4';
@@ -102,6 +194,93 @@ test('photo manager treats picker cancellation as no change and stages processed
   assert.deepEqual(calls, ['pick', 'pick-ready', 'process-ready', 'stage-ready']);
 });
 
+test('photo manager stops before storage and repository when processing rejects', async () => {
+  const calls = [];
+  const repositoryEvents = [];
+  const storage = {
+    async stagePhoto() { calls.push('stage'); throw new Error('unexpected'); },
+  };
+  const processorFailure = new LocalWardrobePhotoManager(
+    {
+      async pickPhoto() {
+        calls.push('pick-ready');
+        return { uri: 'file:///picked.heic', width: 4000, height: 3000 };
+      },
+    },
+    {
+      async processPhoto() {
+        calls.push('process-failed');
+        throw new Error('processor failed');
+      },
+    },
+    storage,
+  );
+  const processorController = new WardrobeApplicationController(
+    profileId,
+    async () => repository(repositoryEvents, { current: null }),
+    processorFailure,
+  );
+  await processorController.initialize();
+  await assert.rejects(() => processorController.preparePhoto(), /processor failed/);
+  assert.deepEqual(calls, ['pick-ready', 'process-failed']);
+  assert.deepEqual(repositoryEvents, []);
+});
+
+test('Expo processor requests aspect-ratio resize and JPEG compression', async () => {
+  nativeImageCalls.length = 0;
+  const result = await new ExpoWardrobePhotoProcessor().processPhoto({
+    uri: 'file:///picked.heic',
+    width: 4000,
+    height: 3000,
+  });
+
+  assert.deepEqual(nativeImageCalls, [
+    ['manipulate', 'file:///picked.heic'],
+    ['resize', { width: 1600, height: null }],
+    ['render'],
+    ['save', { base64: false, compress: 0.8, format: 'jpeg' }],
+  ]);
+  assert.deepEqual(result, {
+    uri: 'file:///cache/processed.jpg',
+    width: 1600,
+    height: 1200,
+  });
+});
+
+test('failed private copy removes its partial destination before repository write', async (t) => {
+  nativeFiles.clear();
+  nativeCopyFailure = new Error('copy failed');
+  t.after(() => {
+    nativeCopyFailure = null;
+    nativeFiles.clear();
+  });
+
+  const stagedUri = `file:///cache/kuyara/wardrobe/staging/${stagedPhoto.id}.jpg`;
+  const destinationUri = `file:///documents/${newPath}`;
+  nativeFiles.add(stagedUri);
+  const repositoryEvents = [];
+  const storage = new ExpoPrivateWardrobePhotoStorage(
+    () => '418f0f4d-1d45-4ae7-a8f1-796e8297d3b4',
+  );
+  const manager = new LocalWardrobePhotoManager({}, {}, storage);
+  const controller = new WardrobeApplicationController(
+    profileId,
+    async () => repository(repositoryEvents, { current: null }),
+    manager,
+  );
+  await controller.initialize();
+
+  await assert.rejects(
+    () => controller.createItem(
+      { garmentTypeId: 'rain_jacket' },
+      { kind: 'replace', stagedPhoto },
+    ),
+    (error) => error === nativeCopyFailure,
+  );
+  assert.deepEqual(repositoryEvents, []);
+  assert.equal(nativeFiles.has(destinationUri), false);
+});
+
 test('managed photo paths are unique UUID JPEG paths and reject unmanaged deletion targets', () => {
   const first = createManagedWardrobePhotoRelativePath(
     '518f0f4d-1d45-4ae7-a8f1-796e8297d3b4',
@@ -127,10 +306,6 @@ test('Expo adapters use the single-image privacy options and current processing/
   assert.match(adapterSource, /base64:\s*false/);
   assert.match(adapterSource, /exif:\s*false/);
   assert.doesNotMatch(adapterSource, /launchCameraAsync|requestMediaLibraryPermissionsAsync/);
-  assert.match(adapterSource, /ImageManipulator\.manipulate\(/);
-  assert.match(adapterSource, /renderAsync\(\)/);
-  assert.match(adapterSource, /SaveFormat\.JPEG/);
-  assert.doesNotMatch(adapterSource, /manipulateAsync\(/);
   assert.match(adapterSource, /new Directory\(\s*Paths\.document/);
   assert.match(adapterSource, /new File\(/);
   assert.doesNotMatch(adapterSource, /expo-file-system\/legacy/);
@@ -176,6 +351,25 @@ function repository(events, options = {}) {
   let current = options.current ?? wardrobeItem();
   return {
     async listActiveItems() { return current && !current.deletedAt ? [current] : []; },
+    async listPendingPhotoCleanup() {
+      return current?.deletedAt && current.photoRelativePath && !options.livePhotoReference
+        ? [{ id: current.id, photoRelativePath: current.photoRelativePath }]
+        : [];
+    },
+    async clearPendingPhotoCleanup(_localProfileId, id, photoRelativePath) {
+      events.push('clear-pending');
+      if (options.failPendingClear) throw new Error('clear pending failed');
+      if (
+        current?.id !== id ||
+        current.deletedAt === null ||
+        current.photoRelativePath !== photoRelativePath ||
+        options.livePhotoReference
+      ) {
+        return false;
+      }
+      current = { ...current, photoRelativePath: null };
+      return true;
+    },
     async getActiveItem() { events.push('read-current'); return current; },
     async getItemIncludingDeleted() { return current; },
     async createItem(input) {
@@ -193,7 +387,7 @@ function repository(events, options = {}) {
     async softDeleteItem() {
       events.push('write-soft-delete');
       if (options.failSoftDelete) throw new Error('soft delete failed');
-      current = { ...current, photoRelativePath: null, deletedAt: current.updatedAt };
+      current = { ...current, deletedAt: current.updatedAt };
       return current;
     },
   };
@@ -209,7 +403,7 @@ async function readyController(events, repositoryOptions = {}, managerOptions = 
     () => { cleanupReports += 1; },
   );
   await controller.initialize();
-  return { controller, cleanupReports: () => cleanupReports };
+  return { controller, repo, cleanupReports: () => cleanupReports };
 }
 
 test('create keeps DB and files consistent on success and failure', async () => {
@@ -270,7 +464,7 @@ test('replace preserves the old photo on failure and removes it only after succe
   ]);
 });
 
-test('remove and soft delete clear the path before deleting the previous photo', async () => {
+test('remove clears first, while soft delete clears only after deleting the previous photo', async () => {
   const failureEvents = [];
   const failure = await readyController(failureEvents, { failUpdate: true });
   await assert.rejects(() =>
@@ -303,8 +497,16 @@ test('remove and soft delete clear the path before deleting the previous photo',
   const softDelete = await readyController(deleteEvents);
   const deleted = await softDelete.controller.softDeleteItem(itemId);
   assert.equal(deleted.photoRelativePath, null);
-  assert.deepEqual(deleteEvents, ['write-soft-delete', 'delete-old']);
+  assert.deepEqual(deleteEvents, [
+    'write-soft-delete',
+    'delete-old',
+    'clear-pending',
+  ]);
   assert.deepEqual(softDelete.controller.getSnapshot().items, []);
+  assert.equal(
+    (await softDelete.repo.getItemIncludingDeleted()).photoRelativePath,
+    null,
+  );
 
   const noPhotoEvents = [];
   const noPhoto = await readyController(noPhotoEvents, {
@@ -332,8 +534,91 @@ test('cleanup failure does not roll back a successful database update', async ()
     { failOldCleanup: true },
   );
   const deleted = await deleteResult.controller.softDeleteItem(itemId);
-  assert.equal(deleted.photoRelativePath, null);
+  assert.equal(deleted.photoRelativePath, oldPath);
   assert.deepEqual(deleteEvents, ['write-soft-delete', 'delete-old']);
   assert.deepEqual(deleteResult.controller.getSnapshot().items, []);
+  assert.equal(
+    (await deleteResult.repo.getItemIncludingDeleted()).photoRelativePath,
+    oldPath,
+  );
   assert.equal(deleteResult.cleanupReports(), 1);
+});
+
+test('initialization retries a pending deletion and clears the tombstone path', async () => {
+  const events = [];
+  const repo = repository(events, {
+    current: { ...wardrobeItem(), deletedAt: '2026-07-30T10:05:00.000Z' },
+  });
+  const controller = new WardrobeApplicationController(
+    profileId,
+    async () => repo,
+    photoManager(events),
+  );
+
+  await controller.initialize();
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(controller.getSnapshot().status, 'ready');
+  assert.deepEqual(events, ['delete-old', 'clear-pending']);
+  assert.equal((await repo.getItemIncludingDeleted()).photoRelativePath, null);
+});
+
+test('a still-failing retry stays pending without blocking or failing initialization', async () => {
+  const repo = repository([], {
+    current: { ...wardrobeItem(), deletedAt: '2026-07-30T10:05:00.000Z' },
+  });
+  let cleanupStarted;
+  let rejectCleanup;
+  const started = new Promise((resolve) => { cleanupStarted = resolve; });
+  const retryingManager = {
+    ...photoManager([]),
+    async deleteStoredPhoto() {
+      cleanupStarted();
+      await new Promise((_resolve, reject) => { rejectCleanup = reject; });
+    },
+  };
+  let cleanupReports = 0;
+  const controller = new WardrobeApplicationController(
+    profileId,
+    async () => repo,
+    retryingManager,
+    () => { cleanupReports += 1; },
+  );
+
+  await controller.initialize();
+  assert.equal(controller.getSnapshot().status, 'ready');
+  await started;
+  rejectCleanup(new Error('cleanup failed again'));
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(controller.getSnapshot().status, 'ready');
+  assert.equal((await repo.getItemIncludingDeleted()).photoRelativePath, oldPath);
+  assert.equal(cleanupReports, 1);
+});
+
+test('pending cleanup never sends unmanaged or live-referenced paths to storage', async () => {
+  for (const [path, repositoryOptions] of [
+    ['wardrobe/photos/unmanaged.jpg', {}],
+    [oldPath, { livePhotoReference: true }],
+  ]) {
+    const events = [];
+    const repo = repository(events, {
+      ...repositoryOptions,
+      current: {
+        ...wardrobeItem(path),
+        deletedAt: '2026-07-30T10:05:00.000Z',
+      },
+    });
+    const controller = new WardrobeApplicationController(
+      profileId,
+      async () => repo,
+      photoManager(events),
+    );
+
+    await controller.initialize();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.deepEqual(events, []);
+    assert.equal((await repo.getItemIncludingDeleted()).photoRelativePath, path);
+  }
 });

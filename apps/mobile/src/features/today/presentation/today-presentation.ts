@@ -37,6 +37,7 @@ export type LoadedTodayPresentation = Readonly<{
   kind: 'loaded';
   copy: Readonly<{
     title: string;
+    headerAccessibilityLabel: (values: { title: string; location: string }) => string;
     settingsAction: string;
     settingsHint: string;
     piecesHeading: string;
@@ -143,10 +144,6 @@ function assignedGarments(outfit: OutfitCandidate): readonly AssignedOutfitGarme
   });
 }
 
-function sentenceList(values: readonly string[]): string {
-  return values.join(' ');
-}
-
 function localizeOutfit(
   outfit: OutfitCandidate,
   index: number,
@@ -179,9 +176,8 @@ function localizeOutfit(
     accessibilityLabel: copy.outfitAccessibilityLabel({
       position: index + 1,
       total,
-      title,
-      pieces: pieces.map(({ item, slot }) => `${slot}: ${item}`).join(', '),
-      reasons: sentenceList(reasons),
+      pieces,
+      reasons,
     }),
   };
 }
@@ -217,9 +213,10 @@ function createLoadedPresentation(
       return {
         label,
         probabilityPercent,
-        accessibilityLabel: `${label}. ${copy.rainProbability(
-          `${formatNumber(probabilityPercent, language)}%`,
-        )}`,
+        accessibilityLabel: copy.hourlyRainAccessibilityLabel({
+          time: label,
+          probabilityPercent,
+        }),
       };
     });
   const weatherReasons = snapshot.recommendation.requirements.reasonCodes.map(
@@ -237,6 +234,7 @@ function createLoadedPresentation(
     kind: 'loaded',
     copy: {
       title: copy.title,
+      headerAccessibilityLabel: copy.headerAccessibilityLabel,
       settingsAction: copy.settingsAction,
       settingsHint: copy.settingsHint,
       piecesHeading: copy.piecesHeading,
@@ -274,11 +272,11 @@ function createLoadedPresentation(
       humidity,
       uvIndex,
       hourlyRainProbability,
-      metricsAccessibilityLabel: [
-        `${copy.windLabel}: ${wind}`,
-        `${copy.humidityLabel}: ${humidity}`,
-        `${copy.uvIndexLabel}: ${uvIndex}`,
-      ].join('. '),
+      metricsAccessibilityLabel: copy.metricsAccessibilityLabel({
+        windSpeed: formatDecimal(current.windSpeedMetersPerSecond, language),
+        humidityPercent: formatNumber(current.humidity * 100, language),
+        uvIndex: formatDecimal(current.uvIndex, language),
+      }),
       rainTimelineAccessibilityLabel: [
         copy.rainOutlookHeading,
         ...hourlyRainProbability.map((hour) => hour.accessibilityLabel),

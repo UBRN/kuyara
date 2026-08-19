@@ -3,7 +3,10 @@ import type {
   UpdateWardrobeItemInput,
   WardrobeItem,
 } from '@/features/wardrobe/domain/wardrobe-item';
-import type { WardrobeRepository } from '@/features/wardrobe/data/wardrobe-repository';
+import type {
+  PendingWardrobePhotoCleanup,
+  WardrobeRepository,
+} from '@/features/wardrobe/data/wardrobe-repository';
 import { isWardrobeRouteId } from '@/features/wardrobe/application/wardrobe-form';
 import {
   unavailableWardrobePhotoManager,
@@ -12,6 +15,7 @@ import {
   type WardrobePhotoManager,
 } from '@/features/wardrobe/application/wardrobe-photo-manager';
 import type { StagedWardrobePhoto } from '@/features/wardrobe/data/wardrobe-photo-adapters';
+import { isManagedWardrobePhotoRelativePath } from '@/features/wardrobe/data/wardrobe-photo-path';
 
 export type WardrobeApplicationState =
   | Readonly<{ status: 'loading' }>
@@ -103,7 +107,9 @@ export class WardrobeApplicationController {
   }
 
   discardStagedPhoto(photo: StagedWardrobePhoto): Promise<void> {
-    return this.cleanupPhoto(() => this.photoManager.discardStagedPhoto(photo));
+    return this.cleanupPhoto(() =>
+      this.photoManager.discardStagedPhoto(photo),
+    ).then(() => undefined);
   }
 
   resolvePhotoUri(relativePath: string | null): string | null {
@@ -143,18 +149,14 @@ export class WardrobeApplicationController {
       return Promise.reject(new Error('The wardrobe item is not available.'));
     }
 
-    const previousPhotoPath =
-      this.state.status === 'ready'
-        ? (this.state.items.find((item) => item.id === id)?.photoRelativePath ?? null)
-        : null;
-
     return this.mutate(
       async (repository) => {
         const deleted = await repository.softDeleteItem(this.localProfileId, id);
-        if (previousPhotoPath) {
-          await this.cleanupPhoto(() =>
-            this.photoManager.deleteStoredPhoto(previousPhotoPath),
-          );
+        if (
+          deleted.photoRelativePath &&
+          (await this.cleanupPendingPhotos(repository, deleted.id))
+        ) {
+          return { ...deleted, photoRelativePath: null };
         }
         return deleted;
       },
@@ -173,6 +175,7 @@ export class WardrobeApplicationController {
         isMutating: false,
         hasRefreshError: false,
       });
+      void this.cleanupPendingPhotos(this.repository);
     } catch {
       this.setState({ status: 'error' });
     }
@@ -302,14 +305,67 @@ export class WardrobeApplicationController {
     }
   }
 
-  private async cleanupPhoto(operation: () => Promise<void>): Promise<void> {
+  private async cleanupPendingPhotos(
+    repository: WardrobeRepository,
+    itemId?: string,
+  ): Promise<boolean> {
+    if (this.photoManager === unavailableWardrobePhotoManager) {
+      return false;
+    }
+
+    let pending: readonly PendingWardrobePhotoCleanup[];
+    try {
+      pending = await repository.listPendingPhotoCleanup(this.localProfileId);
+    } catch {
+      this.reportCleanupError();
+      return false;
+    }
+
+    let requestedItemWasCleared = false;
+    for (const photo of pending) {
+      if (
+        (itemId && photo.id !== itemId) ||
+        !isManagedWardrobePhotoRelativePath(photo.photoRelativePath)
+      ) {
+        continue;
+      }
+
+      const fileWasDeleted = await this.cleanupPhoto(() =>
+        this.photoManager.deleteStoredPhoto(photo.photoRelativePath),
+      );
+      if (!fileWasDeleted) {
+        continue;
+      }
+
+      let pathWasCleared = false;
+      const clearSucceeded = await this.cleanupPhoto(async () => {
+        pathWasCleared = await repository.clearPendingPhotoCleanup(
+          this.localProfileId,
+          photo.id,
+          photo.photoRelativePath,
+        );
+      });
+      requestedItemWasCleared ||=
+        clearSucceeded && pathWasCleared && photo.id === itemId;
+    }
+
+    return requestedItemWasCleared;
+  }
+
+  private async cleanupPhoto(operation: () => Promise<void>): Promise<boolean> {
     try {
       await operation();
+      return true;
     } catch {
-      try {
-        this.reportPhotoCleanupError();
-      } catch {}
+      this.reportCleanupError();
+      return false;
     }
+  }
+
+  private reportCleanupError(): void {
+    try {
+      this.reportPhotoCleanupError();
+    } catch {}
   }
 
   private mutate(
