@@ -175,7 +175,7 @@ Approved 2026-08-13. Partly implemented. The shared AI contract and the Worker A
 - Every AI response must pass shared Zod validation and existing or new deterministic domain invariants before it can be displayed or persisted. Invalid or partially invalid output is never silently repaired into a different outfit.
 - AI failure must not prevent the user from receiving recommendations. The final fallback is a device-local deterministic three-outfit generator built from the existing validated composition evidence.
 - The deterministic three-outfit fallback is therefore a prerequisite for safely shipping AI, even though AI integration is the current product priority.
-- The approved AI provider chain is OpenRouter primary, a Cloudflare Workers AI binding fallback, then device-local deterministic three-outfit generation.
+- The approved AI provider chain is a Cloudflare Workers AI binding first, then OpenRouter, then device-local deterministic three-outfit generation. This order was revised on 2026-08-19; it was originally OpenRouter primary with Workers AI as the fallback. The change is a user decision taken on the evidence in [Free-model evaluation, 2026-08-19](#free-model-evaluation-2026-08-19): no evaluated free OpenRouter model returned contract-valid output, while the Workers AI binding did, so the original order made every request exhaust failing attempts before reaching a working provider. OpenRouter stays in the chain, behind Workers AI, so a future re-evaluation can promote it again through configuration.
 - AI output is structured data, not user-visible prose. It may return only allowed candidate identifiers plus a small closed vocabulary of approved intent or reason codes if the design needs them. All user-visible Turkish and English copy continues to come from application localization keys.
 - Provider names, internal errors, prompts, model reasoning, and secret or configuration details must not be exposed in the mobile contract.
 
@@ -193,6 +193,37 @@ Approved 2026-08-13. Partly implemented. The shared AI contract and the Worker A
 - Select an explicitly evaluated structured-output-capable model.
 - Treat the free neuron allocation as a quota, not a guaranteed number of requests.
 - Exceeding quota, capacity failure, invalid structured output, or provider failure must proceed to the deterministic fallback without breaking the product.
+
+## Implemented real AI provider adapters
+
+Implemented 2026-08-19 as Goal 2b, within the approved constraints above and the chain order recorded there as revised the same day. Both adapters sit behind the Goal 2a seam; no contract, handler, router, or endpoint changed. Configuration is `OPENROUTER_MODELS` and `WORKERS_AI_MODEL` in `wrangler.jsonc`, with `OPENROUTER_API_KEY` supplied as a gitignored local `.dev.vars` value. Nothing was deployed and no secret was set on the remote Worker: the existing `workers.dev` URL is public and unauthenticated, so putting a billable key behind it must wait for the rate limiting that milestone 4 owns.
+
+The deterministic stub was removed from production composition, since `AGENTS.md` forbids the deterministic sample provider from acting as a production fallback. `docs/current-status.md` had described 2b as appending the real adapters to the existing list, which would have left the stub answering every request; the real adapters now form the whole production list and the stub is a test double only.
+
+### Free-model evaluation, 2026-08-19
+
+The approved constraint is to prefer a specifically evaluated structured-output-capable free model or a controlled ordered free-model set over uncontrolled random model selection. Accordingly `openrouter/free` was rejected — it selects randomly — and all seven free OpenRouter models that advertise `structured_outputs` in the models API were evaluated directly against the real contract payload with `max_tokens: 2048`.
+
+| Model | Result |
+| --- | --- |
+| `openai/gpt-oss-20b:free` | 429 once; then 200 after 95 s, ignoring the schema (bare array keyed by slot) |
+| `z-ai/glm-5.2:free` | 429 on both attempts, upstream shared-pool rate limit |
+| `google/gemma-4-26b-a4b-it:free` | 200 after 22.7 s, each outfit wrapped in `{ items: [...] }` |
+| `nvidia/nemotron-nano-9b-v2:free` | 200 after 44.2 s, truncated |
+| `nvidia/nemotron-3-super-120b-a12b:free` | 200 after 18.4 s, malformed JSON and truncated |
+| `dots-studio/dots-3-note-preview:free` | 200 after 17.8 s, truncated |
+| `liquid/lfm-2.5-2.6b:free` | 200 after 9.3 s, truncated |
+| `@cf/meta/llama-3.3-70b-instruct-fp8-fast` (Workers AI) | 200 in about 8 s, contract-valid three outfits |
+
+None of the seven free OpenRouter models returned contract-valid output. Advertising `structured_outputs` in the models API did not mean the free-pool provider actually enforced the schema, and `strict: true` with `require_parameters: true` did not change that. The Cloudflare Workers AI fallback is currently the only provider that produces a valid recommendation.
+
+The configured OpenRouter set is `openai/gpt-oss-20b:free`, `z-ai/glm-5.2:free`, `google/gemma-4-26b-a4b-it:free`, kept in configuration so it can be re-evaluated without a code change. **Resolved on 2026-08-19:** the user reordered the chain to put Workers AI first. A request that the Workers AI hop satisfies now returns in 8.6 to 17.0 seconds instead of spending about 29 seconds failing through OpenRouter first, and OpenRouter is reached only when the Workers AI hop fails or its daily Neuron allocation is exhausted. The reorder also required raising the per-attempt timeout to 20 seconds, because the Workers AI hop sits close enough to the previous 10-second default to be aborted at the boundary. Trimming the OpenRouter set and revisiting the free-only constraint remain open and are not blocking.
+
+### Spend and quota posture as implemented
+
+- The Cloudflare account is on the Workers Free plan, where the 10,000 Neuron daily allocation is a hard stop rather than billable overage. This satisfies the no-uncontrolled-overage rule with no code-side spend control.
+- OpenRouter usage is free-model only. The hard cap remains the per-key credit limit configured in the OpenRouter dashboard, with automatic top-up left off.
+- Free OpenRouter models require the account setting that permits providers which may train on submitted data. This is acceptable only because the Goal 2a request schema is strict and admits nothing but opaque candidate keys, closed enum properties, and deterministic requirements — no photos, paths, free-form names, identifiers, or coordinates have any representation in it.
 
 ## Approved AI input privacy boundary
 
