@@ -42,6 +42,21 @@ type WardrobeRepositoryDependencies = Readonly<{
   now: () => string;
 }>;
 
+type WardrobePhotoCleanupDataSource = WardrobeLocalDataSource &
+  Readonly<{
+    listPendingPhotoCleanup(localProfileId: string): Promise<WardrobeItemRecord[]>;
+    clearPendingPhotoCleanup(
+      localProfileId: string,
+      id: string,
+      photoRelativePath: string,
+    ): Promise<boolean>;
+  }>;
+
+export type PendingWardrobePhotoCleanup = Readonly<{
+  id: string;
+  photoRelativePath: string;
+}>;
+
 type MutableWardrobeFields = Readonly<{
   name: string | null;
   category: WardrobeItemCategory;
@@ -63,6 +78,14 @@ export interface WardrobeRepository {
   getActiveItem(localProfileId: string, id: string): Promise<WardrobeItem | null>;
   getItemIncludingDeleted(localProfileId: string, id: string): Promise<WardrobeItem | null>;
   listActiveItems(localProfileId: string): Promise<WardrobeItem[]>;
+  listPendingPhotoCleanup(
+    localProfileId: string,
+  ): Promise<PendingWardrobePhotoCleanup[]>;
+  clearPendingPhotoCleanup(
+    localProfileId: string,
+    id: string,
+    photoRelativePath: string,
+  ): Promise<boolean>;
   updateItem(input: UpdateWardrobeItemInput): Promise<WardrobeItem>;
   softDeleteItem(localProfileId: string, id: string): Promise<WardrobeItem>;
 }
@@ -324,11 +347,11 @@ function mutableFieldsFromUpdate(
 }
 
 export class LocalWardrobeRepository implements WardrobeRepository {
-  private readonly dataSource: WardrobeLocalDataSource;
+  private readonly dataSource: WardrobePhotoCleanupDataSource;
   private readonly dependencies: WardrobeRepositoryDependencies;
 
   constructor(
-    dataSource: WardrobeLocalDataSource,
+    dataSource: WardrobePhotoCleanupDataSource,
     dependencies: WardrobeRepositoryDependencies,
   ) {
     this.dataSource = dataSource;
@@ -397,6 +420,41 @@ export class LocalWardrobeRepository implements WardrobeRepository {
       const owner = requireIdentifier(localProfileId);
       const records = await this.dataSource.listActiveItems(owner);
       return records.map((record) => this.mapScopedRecord(record, owner, false));
+    });
+  }
+
+  listPendingPhotoCleanup(
+    localProfileId: string,
+  ): Promise<PendingWardrobePhotoCleanup[]> {
+    return this.execute(async () => {
+      const owner = requireIdentifier(localProfileId);
+      const records = await this.dataSource.listPendingPhotoCleanup(owner);
+
+      return records.map((record) => {
+        const item = this.mapScopedRecord(record, owner, true);
+        if (item.deletedAt === null || item.photoRelativePath === null) {
+          throw new WardrobeItemMappingError();
+        }
+
+        return { id: item.id, photoRelativePath: item.photoRelativePath };
+      });
+    });
+  }
+
+  clearPendingPhotoCleanup(
+    localProfileId: string,
+    id: string,
+    photoRelativePath: string,
+  ): Promise<boolean> {
+    return this.execute(() => {
+      const owner = requireIdentifier(localProfileId);
+      const itemId = requireIdentifier(id);
+      const normalizedPath = normalizeWardrobePhotoRelativePath(photoRelativePath);
+      if (!normalizedPath) {
+        throw new WardrobeItemValidationError();
+      }
+
+      return this.dataSource.clearPendingPhotoCleanup(owner, itemId, normalizedPath);
     });
   }
 

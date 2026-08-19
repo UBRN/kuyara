@@ -76,7 +76,10 @@ export function TodayScreen({
         <View style={[styles.titleRow, usesAccessibilityLayout && styles.stackedContextRow]}>
           <View>
             <AppText
-              accessibilityLabel={`${presentation.copy.title}. ${presentation.header.location}`}
+              accessibilityLabel={presentation.copy.headerAccessibilityLabel({
+                title: presentation.copy.title,
+                location: presentation.header.location,
+              })}
               accessibilityRole="header"
               variant="bodyStrong">
               {presentation.header.location}

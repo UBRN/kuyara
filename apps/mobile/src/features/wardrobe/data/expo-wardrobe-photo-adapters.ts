@@ -123,7 +123,16 @@ export class ExpoPrivateWardrobePhotoStorage implements WardrobePhotoStorage {
     directory.create({ idempotent: true, intermediates: true });
     const relativePath = createManagedWardrobePhotoRelativePath(this.createId());
     const stored = new File(Paths.document, ...relativePath.split('/'));
-    await staged.copy(stored);
+    try {
+      await staged.copy(stored);
+    } catch (error) {
+      try {
+        if (stored.exists) {
+          stored.delete();
+        }
+      } catch {}
+      throw error;
+    }
 
     return { relativePath, previewUri: stored.uri };
   }

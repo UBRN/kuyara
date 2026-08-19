@@ -235,6 +235,32 @@ test('list renders an accessible thumbnail and falls back safely after image fai
   expect(result.getByTestId(`wardrobe-item-${item.id}`)).toBeOnTheScreen();
 });
 
+test('list keeps an item and its placeholder when its stored photo is missing', async () => {
+  const missingPhotoPath =
+    'kuyara/wardrobe/photos/318f0f4d-1d45-4ae7-a8f1-796e8297d3b4.jpg';
+  const resolvePhotoUri = jest.fn(() => null);
+  const result = await render(
+    <TestProviders>
+      <WardrobeListScreen
+        onAdd={() => undefined}
+        onEdit={() => undefined}
+        onRetry={() => undefined}
+        resolvePhotoUri={resolvePhotoUri}
+        state={{
+          ...readyState,
+          items: [{ ...item, photoRelativePath: missingPhotoPath }],
+        }}
+      />
+    </TestProviders>,
+  );
+
+  expect(resolvePhotoUri).toHaveBeenCalledWith(missingPhotoPath);
+  expect(result.getByTestId(`wardrobe-item-${item.id}`)).toBeOnTheScreen();
+  expect(
+    result.getByTestId(`wardrobe-photo-placeholder-${item.id}`),
+  ).toBeOnTheScreen();
+});
+
 test('missing items show a localized safe return instead of crashing', async () => {
   const onBack = jest.fn();
   const result = await render(

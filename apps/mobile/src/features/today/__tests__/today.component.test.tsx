@@ -60,6 +60,7 @@ test('loaded Today reserves overlay clearance and preserves grouped accessibilit
   expect(result.getByTestId('today-outfit-list').children).toHaveLength(
     presentation.suggestions.length - 1,
   );
+  expect(result.getByRole('header', { name: 'Today. Sample İstanbul' })).toBeOnTheScreen();
 
   await fireEvent.press(result.getByTestId(`outfit-card-${presentation.suggestions[0].id}`));
   expect(onOpenOutfitDetail).toHaveBeenCalledWith('outfit-1');
@@ -111,6 +112,9 @@ test('rendered outfit copy comes from localization and never from the wardrobe f
   for (const suggestion of turkish.suggestions) {
     expect(turkishResult.getByText(suggestion.title)).toBeOnTheScreen();
   }
+  expect(turkishResult.getByRole('header', {
+    name: 'Bugün. Konum: Örnek İstanbul.',
+  })).toBeOnTheScreen();
 });
 
 test('outfit detail lists localized weather reasons alongside localized pieces', async () => {

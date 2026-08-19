@@ -197,16 +197,14 @@ export function WeatherScreen() {
       {snapshot ? (
         <>
           <WeatherCard
-            accessibilityLabel={[
-              copy.conditions[snapshot.current.condition],
-              temperature(snapshot.current.temperatureCelsius, language),
-              copy.feelsLike(temperature(snapshot.current.apparentTemperatureCelsius, language)),
-              copy.range(
-                temperature(snapshot.minimumTemperatureCelsius, language),
-                temperature(snapshot.maximumTemperatureCelsius, language),
-              ),
-              copy.precipitation(snapshot.current.precipitationProbability),
-            ].join('. ')}
+            accessibilityLabel={copy.currentConditionsAccessibilityLabel({
+              condition: copy.conditions[snapshot.current.condition],
+              temperature: temperature(snapshot.current.temperatureCelsius, language),
+              apparentTemperature: temperature(snapshot.current.apparentTemperatureCelsius, language),
+              minimumTemperature: temperature(snapshot.minimumTemperatureCelsius, language),
+              maximumTemperature: temperature(snapshot.maximumTemperatureCelsius, language),
+              precipitationProbability: snapshot.current.precipitationProbability,
+            })}
             apparentTemperature={copy.feelsLike(temperature(snapshot.current.apparentTemperatureCelsius, language))}
             condition={copy.conditions[snapshot.current.condition]}
             rainProbability={copy.precipitation(snapshot.current.precipitationProbability)}
@@ -214,11 +212,11 @@ export function WeatherScreen() {
               temperature(snapshot.minimumTemperatureCelsius, language),
               temperature(snapshot.maximumTemperatureCelsius, language),
             )}
-            metricsAccessibilityLabel={[
-              copy.wind(decimal(snapshot.current.windSpeedMetersPerSecond, language)),
-              copy.humidity(snapshot.current.humidity),
-              copy.uvIndex(decimal(snapshot.current.uvIndex, language)),
-            ].join('. ')}
+            metricsAccessibilityLabel={copy.metricsAccessibilityLabel({
+              windSpeed: decimal(snapshot.current.windSpeedMetersPerSecond, language),
+              humidity: snapshot.current.humidity,
+              uvIndex: decimal(snapshot.current.uvIndex, language),
+            })}
             stats={[
               { label: copy.windLabel, value: copy.windValue(decimal(snapshot.current.windSpeedMetersPerSecond, language)) },
               { label: copy.humidityLabel, value: copy.humidityValue(snapshot.current.humidity) },
@@ -237,12 +235,12 @@ export function WeatherScreen() {
             {snapshot.hourly.map((hour) => (
               <View
                 accessible
-                accessibilityLabel={[
-                  time(hour.forecastAt, snapshot.timeZone, language),
-                  temperature(hour.temperatureCelsius, language),
-                  copy.conditions[hour.condition],
-                  copy.precipitation(hour.precipitationProbability),
-                ].join('. ')}
+                accessibilityLabel={copy.hourlyForecastAccessibilityLabel({
+                  time: time(hour.forecastAt, snapshot.timeZone, language),
+                  temperature: temperature(hour.temperatureCelsius, language),
+                  condition: copy.conditions[hour.condition],
+                  precipitationProbability: hour.precipitationProbability,
+                })}
                 key={hour.forecastAt}
                 style={styles.hourRow}>
                 <AppText variant="bodyStrong">{time(hour.forecastAt, snapshot.timeZone, language)}</AppText>

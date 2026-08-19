@@ -150,8 +150,14 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
       <Providers language={language} value={value}><WeatherScreen /></Providers>,
     );
     expect(result.getByLabelText(language === 'en'
+      ? 'Rain. 16°. Feels like 15°. Low 12° · High 19°. 50% precipitation'
+      : 'Yağmurlu. Sıcaklık 16°. Hissedilen sıcaklık 15°. En düşük 12°, en yüksek 19°. Yağış olasılığı yüzde 50.')).toBeOnTheScreen();
+    expect(result.getByLabelText(language === 'en'
       ? 'Wind 4 m/s. 70% humidity. UV index 2'
-      : 'Rüzgâr 4 m/sn. %70 nem. UV endeksi 2')).toBeOnTheScreen();
+      : 'Rüzgâr hızı saniyede 4 metre. Nem yüzde 70. UV endeksi 2.')).toBeOnTheScreen();
+    expect(result.getByLabelText(language === 'en'
+      ? '12:00 PM. 16°. Rain. 50% precipitation'
+      : 'Saat 12:00. Sıcaklık 16°. Yağmurlu. Yağış olasılığı yüzde 50.')).toBeOnTheScreen();
     expect(result.getByText(language === 'en' ? '4 m/s' : '4 m/sn')).toBeOnTheScreen();
     expect(result.getByText(language === 'en' ? '70%' : '%70')).toBeOnTheScreen();
     expect(isHiddenFromAccessibility(
