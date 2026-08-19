@@ -4,11 +4,18 @@ import { StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { garmentCatalog } from '@/features/catalog/domain/garment-catalog';
+import {
+  WardrobeApplicationContext,
+  type WardrobeApplicationValue,
+} from '@/features/wardrobe/application/wardrobe-application-context';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import type { StagedWardrobePhoto } from '@/features/wardrobe/data/wardrobe-photo-adapters';
 import type { WardrobeConfirmation } from '@/features/wardrobe/presentation/wardrobe-confirmation';
 import { WardrobeItemFormScreen } from '@/features/wardrobe/presentation/wardrobe-item-form-screen';
-import { WardrobeRouteStatus } from '@/features/wardrobe/presentation/wardrobe-item-routes';
+import {
+  WardrobeNewItemRoute,
+  WardrobeRouteStatus,
+} from '@/features/wardrobe/presentation/wardrobe-item-routes';
 import { WardrobeListScreen } from '@/features/wardrobe/presentation/wardrobe-list-screen';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
@@ -242,6 +249,41 @@ test('missing items show a localized safe return instead of crashing', async () 
     }),
   );
   expect(onBack).toHaveBeenCalledTimes(1);
+});
+
+test('create route shows initialization status instead of the form until wardrobe is ready', async () => {
+  const refresh = jest.fn(async () => undefined);
+  const application = {
+    refresh,
+    getItem: async () => null,
+    preparePhoto: async () => null,
+    discardStagedPhoto: async () => undefined,
+    resolvePhotoUri: () => null,
+    createItem: async () => item,
+    updateItem: async () => item,
+    softDeleteItem: async () => item,
+  };
+  const renderRoute = (state: WardrobeApplicationValue['state']) =>
+    render(
+      <WardrobeApplicationContext.Provider value={{ ...application, state }}>
+        <TestProviders>
+          <WardrobeNewItemRoute />
+        </TestProviders>
+      </WardrobeApplicationContext.Provider>,
+    );
+
+  const loading = await renderRoute({ status: 'loading' });
+  expect(loading.getByTestId('wardrobe-item-loading')).toBeOnTheScreen();
+  expect(loading.queryByTestId('wardrobe-save-button')).not.toBeOnTheScreen();
+  await loading.unmount();
+
+  const error = await renderRoute({ status: 'error' });
+  expect(error.getByTestId('wardrobe-item-error')).toBeOnTheScreen();
+  expect(error.queryByTestId('wardrobe-save-button')).not.toBeOnTheScreen();
+  await fireEvent.press(
+    error.getByRole('button', { name: messages.en.wardrobe.retryAction }),
+  );
+  expect(refresh).toHaveBeenCalledTimes(1);
 });
 
 function CreateForm({

@@ -36,7 +36,7 @@ export function createWeatherHandler(
     if (request.method !== 'POST') {
       return errorResponse(405, 'method_not_allowed', { Allow: 'POST' });
     }
-    if (!request.headers.get('content-type')?.toLowerCase().startsWith('application/json')) {
+    if (request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') {
       return errorResponse(400, 'invalid_request');
     }
 

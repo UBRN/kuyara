@@ -181,7 +181,7 @@ export const aiCandidateSchema = z.object({
   properties: z.object({
     category: z.enum(structuralCategories),
     bodyRegion: z.enum(bodyRegions).nullable(),
-    supportedLayerRoles: z.array(z.enum(layerRoles)).min(1).max(4),
+    supportedLayerRoles: z.array(z.enum(layerRoles)).max(4),
     thermalLevel: z.enum(thermalLevels).nullable(),
     waterProtection: z.enum(waterProtections).nullable(),
     windProtection: z.enum(windProtections).nullable(),

@@ -68,10 +68,13 @@ function findRequirement(result, kind, target) {
 
 test('thermal and coverage thresholds use exact lower-bound semantics', () => {
   const cases = [
+    [18.001, null, null],
     [18, null, null],
     [17.999, 'light', 'optional'],
+    [12.001, 'light', 'optional'],
     [12, 'light', 'optional'],
     [11.999, 'moderate', 'mandatory'],
+    [5.001, 'moderate', 'mandatory'],
     [5, 'moderate', 'mandatory'],
     [4.999, 'high', 'mandatory'],
   ];
@@ -102,8 +105,10 @@ test('breathability thresholds distinguish optional warmth from mandatory heat',
   const cases = [
     [23.999, null, null],
     [24, 'moderate', 'optional'],
+    [24.001, 'moderate', 'optional'],
     [27.999, 'moderate', 'optional'],
     [28, 'high', 'mandatory'],
+    [28.001, 'high', 'mandatory'],
   ];
 
   for (const [temperature, minimum, priority] of cases) {
@@ -201,17 +206,24 @@ test('daily range reason starts at exactly eight degrees', () => {
     minimumTemperatureCelsius: 16,
     maximumTemperatureCelsius: 24,
   }));
+  const wider = deriveClothingRequirements(snapshot({
+    minimumTemperatureCelsius: 16,
+    maximumTemperatureCelsius: 24.001,
+  }));
 
   assert.equal(narrow.reasonCodes.includes('daily_range_wide'), false);
   assert.equal(wide.reasonCodes.includes('daily_range_wide'), true);
+  assert.equal(wider.reasonCodes.includes('daily_range_wide'), true);
 });
 
 test('wind boundaries do not double-promote thermal protection', () => {
   const cases = [
     [4.999, null, null],
     [5, 'wind_resistant', 'optional'],
+    [5.001, 'wind_resistant', 'optional'],
     [7.999, 'wind_resistant', 'optional'],
     [8, 'wind_resistant', 'mandatory'],
+    [8.001, 'wind_resistant', 'mandatory'],
   ];
 
   for (const [wind, minimum, priority] of cases) {
@@ -240,8 +252,10 @@ test('precipitation probability boundaries map to optional and mandatory body pr
   const cases = [
     [0.299, null, null],
     [0.3, 'water_resistant', 'optional'],
+    [0.301, 'water_resistant', 'optional'],
     [0.599, 'water_resistant', 'optional'],
     [0.6, 'waterproof', 'mandatory'],
+    [0.601, 'waterproof', 'mandatory'],
   ];
 
   for (const [probability, minimum, priority] of cases) {

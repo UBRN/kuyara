@@ -134,6 +134,7 @@ export function WeatherScreen() {
         </View>
         <Pressable
           accessibilityRole="button"
+          accessibilityState={{ expanded: isLocationPickerVisible }}
           hitSlop={10}
           onPress={() => setIsLocationPickerOpen((open) => !open)}
           testID="weather-change-location-button">

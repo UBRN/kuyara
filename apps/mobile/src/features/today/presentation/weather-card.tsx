@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     flexDirection: 'row',
     gap: spacing.sm,
-    height: RAIN_BAR_MAX_HEIGHT + 20,
+    minHeight: RAIN_BAR_MAX_HEIGHT + 20,
   },
   barColumn: {
     alignItems: 'center',

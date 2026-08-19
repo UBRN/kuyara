@@ -2,12 +2,19 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  aiReadyV1Path,
+  aiReadyV1SuccessSchema,
   aiOutfitSchema,
+  aiRecommendV1Path,
   aiRecommendV1RequestSchema,
   aiRecommendV1SuccessSchema,
   aiV1CandidateLimit,
+  aiV1ErrorCodes,
+  aiV1ErrorSchema,
   clothingRequirementReasonCodes,
   clothingRequirementSchema,
+  healthV1Path,
+  healthV1SuccessSchema,
 } from './ai-v1.ts';
 
 const reasonCodes = ['temperature_low'];
@@ -63,9 +70,65 @@ function validSuccess() {
   return { data: { outfits: ['1', '2', '3'].map(separatesOutfit) } };
 }
 
+test('exports the versioned AI route paths', () => {
+  assert.equal(aiRecommendV1Path, '/v1/ai/recommend');
+  assert.equal(healthV1Path, '/v1/health');
+  assert.equal(aiReadyV1Path, '/v1/ai/ready');
+});
+
+test('error schema accepts every declared code and rejects unknown codes', () => {
+  for (const code of aiV1ErrorCodes) {
+    assert.equal(aiV1ErrorSchema.safeParse({ error: { code } }).success, true, code);
+  }
+  assert.equal(aiV1ErrorSchema.safeParse({
+    error: { code: 'made_up' },
+  }).success, false);
+});
+
+test('health and readiness schemas accept valid payloads and reject malformed ones', () => {
+  assert.equal(healthV1SuccessSchema.safeParse({ data: { status: 'ok' } }).success, true);
+  assert.equal(healthV1SuccessSchema.safeParse({ data: { status: 'ready' } }).success, false);
+  for (const status of ['ready', 'not_configured']) {
+    assert.equal(aiReadyV1SuccessSchema.safeParse({ data: { status } }).success, true);
+  }
+  assert.equal(aiReadyV1SuccessSchema.safeParse({ data: { status: 'ok' } }).success, false);
+});
+
 test('accepts a valid request and an exactly three-outfit success', () => {
   assert.equal(aiRecommendV1RequestSchema.safeParse(validRequest()).success, true);
   assert.equal(aiRecommendV1SuccessSchema.safeParse(validSuccess()).success, true);
+});
+
+test('accepts footwear with no layer roles and rejects more than four roles', () => {
+  const sneakers = candidate('catalog:sneakers', {
+    garmentTypeId: 'sneakers',
+    colorFamily: 'white',
+    properties: {
+      category: 'footwear',
+      bodyRegion: 'feet',
+      supportedLayerRoles: [],
+      thermalLevel: 'light',
+      waterProtection: 'none',
+      windProtection: null,
+      breathability: 'moderate',
+      armCoverage: null,
+      legCoverage: null,
+      tractionSuitability: 'everyday',
+    },
+  });
+  assert.equal(aiRecommendV1RequestSchema.safeParse({
+    ...validRequest(), candidates: [sneakers],
+  }).success, true);
+
+  const tooManyRoles = candidate('catalog:too-many-roles', {
+    properties: {
+      ...candidate().properties,
+      supportedLayerRoles: ['base', 'mid', 'outer', 'standalone', 'base'],
+    },
+  });
+  assert.equal(aiRecommendV1RequestSchema.safeParse({
+    ...validRequest(), candidates: [tooManyRoles],
+  }).success, false);
 });
 
 test('strict schemas reject unknown request, candidate, properties, and outfit-garment keys', () => {
@@ -188,6 +251,12 @@ test('success requires exactly three outfits', () => {
   assert.equal(aiRecommendV1SuccessSchema.safeParse({
     data: { outfits: [...success.data.outfits, separatesOutfit('4')] },
   }).success, false);
+});
+
+test('success rejects an invalid candidate key', () => {
+  const success = validSuccess();
+  success.data.outfits[0][0].candidateKey = 'free form';
+  assert.equal(aiRecommendV1SuccessSchema.safeParse(success).success, false);
 });
 
 test('outfits reject duplicate candidate keys and duplicate slots', () => {
