@@ -3,6 +3,11 @@
   "name": "kuyara-worker",
   "main": "src/index.ts",
   "compatibility_date": "2026-07-29",
+  "ai": { "binding": "AI" },
+  "vars": {
+    "OPENROUTER_MODELS": ["openai/gpt-oss-20b:free", "z-ai/glm-5.2:free", "google/gemma-4-26b-a4b-it:free"],
+    "WORKERS_AI_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+  },
   "env": {
     "development": {
       "name": "kuyara-weather-dev",
