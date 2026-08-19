@@ -54,9 +54,15 @@ test('returns deterministic, contract-valid sample weather without echoing locat
 
 test('maps malformed JSON, schema failures, and missing JSON content type to invalid_request', async () => {
   const handler = mockHandler();
+  assert.equal((await handler(request('/v1/weather', {
+    headers: { 'content-type': 'application/json; charset=utf-8' },
+  }))).status, 200);
   await assertError(await handler(request('/v1/weather', { body: '{' })), 400, 'invalid_request');
   await assertError(await handler(request('/v1/weather', {
     body: JSON.stringify({ ...validBody, latitudeE2: 4100.5 }),
+  })), 400, 'invalid_request');
+  await assertError(await handler(request('/v1/weather', {
+    headers: { 'content-type': 'application/jsonp' },
   })), 400, 'invalid_request');
   await assertError(await handler(request('/v1/weather', {
     headers: { 'content-type': 'text/plain' },

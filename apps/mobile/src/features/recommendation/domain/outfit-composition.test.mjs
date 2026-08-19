@@ -422,6 +422,54 @@ test('outfit over-insulation penalty is bounded and does not count footwear warm
     outfitCompositionFailureCodes.length);
 });
 
+test('outfit over-insulation starts above body strength one', () => {
+  const requirements = clothingRequirements();
+  const cases = [
+    ['long_sleeve_t_shirt', 1, 0, 50],
+    ['sweater', 2, 10, 40],
+  ];
+
+  for (const [top, bodyStrength, penaltyPoints, score] of cases) {
+    const result = composeOutfit(requirements, [
+      catalogCandidate(requirements, top),
+      catalogCandidate(requirements, 'shorts'),
+      catalogCandidate(requirements, 'sandals'),
+    ]);
+
+    assert.equal(result.status, 'composed');
+    assert.equal(result.outfit.aggregates.thermal.bodyStrength, bodyStrength);
+    assert.equal(result.outfit.penaltyBreakdown.thermalOverProtection,
+      penaltyPoints);
+    assert.equal(result.outfit.penaltyPoints, penaltyPoints);
+    assert.equal(result.outfit.score, score);
+  }
+});
+
+test('aggregate outfit penalties are capped at thirty points', () => {
+  const requirements = clothingRequirements(
+    requirement('breathability', 'high', {
+      priority: 'optional',
+      reasonCodes: Object.freeze(['temperature_high']),
+    }),
+    requirement('wind_protection', 'wind_resistant', {
+      reasonCodes: Object.freeze(['wind_strong']),
+    }),
+  );
+  const result = composeOutfit(requirements, [
+    catalogCandidate(requirements, 'sweater'),
+    catalogCandidate(requirements, 'trousers'),
+    catalogCandidate(requirements, 'rain_jacket'),
+    catalogCandidate(requirements, 'weather_boots'),
+  ]);
+
+  assert.equal(result.status, 'composed');
+  assert.equal(result.outfit.aggregates.thermal.bodyStrength, 4);
+  assert.equal(result.outfit.penaltyBreakdown.thermalOverProtection, 20);
+  assert.equal(result.outfit.penaltyBreakdown.unnecessaryWaterProtection, 20);
+  assert.equal(result.outfit.penaltyBreakdown.breathabilityProtectionTradeoff, 0);
+  assert.equal(result.outfit.penaltyPoints, 30);
+});
+
 test('returns three pairwise meaningfully different outfits with the best outfit first', () => {
   const requirements = clothingRequirements();
   const candidates = [
