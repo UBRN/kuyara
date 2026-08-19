@@ -18,7 +18,9 @@ The mobile app uses Expo Router and managed Continuous Native Generation, so nat
 
 As product features are added, mobile code is organized feature-first while preserving presentation, domain/application, and data boundaries. React components render state and emit user intent; use cases coordinate behavior; repositories isolate SQLite and external data. Domain models, local records, and API DTOs remain distinct and use explicit mappers.
 
-Expo SQLite owns the implemented local profile, its preferences, and profile-owned wardrobe items. TanStack Query will own future remote request state. Hooks or narrow contexts own transient UI state.
+Expo SQLite owns the implemented local profile, its preferences, and profile-owned wardrobe items. Hooks or narrow contexts own transient UI state.
+
+Remote weather request state is a deliberate deviation from the `AGENTS.md` state-ownership rule that assigns remote request state to TanStack Query. A purpose-built application controller owns it instead, because it already provides exactly what the weather rules require — per-location coalescing of duplicate in-flight requests, preservation of the last valid snapshot across a failed refresh, and the exact 30-minute freshness boundary — each covered by tests. Adding TanStack Query now would introduce a dependency without adding behavior, and running both would create the competing sources of truth those same rules forbid. TanStack Query remains the intended owner for future remote state this controller does not already cover; what must hold either way is exactly one owner per piece of state.
 
 The local-profile vertical slice follows this concrete dependency flow:
 
