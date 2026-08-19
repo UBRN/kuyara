@@ -2,11 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { ProfileApplicationController } from './application/profile-application-controller.ts';
+import { resolveProfileHomeRoute } from './application/profile-route-gate.ts';
 import {
   LocalProfileRepository,
   ProfileRepositoryError,
 } from './data/profile-repository.ts';
 import { SqliteProfileLocalDataSource } from './data/sqlite-profile-local-data-source.ts';
+import { recommendOutfits } from '../recommendation/application/recommend-outfits.ts';
+import { todayWeatherSnapshot } from '../today/__tests__/fixtures.ts';
 import { migrateDatabase } from '../../infrastructure/sqlite/migrations.ts';
 import { NodeSqliteDatabase } from '../../../test/node-sqlite-database.mjs';
 
@@ -128,6 +131,92 @@ test('onboarding completion and preference updates persist with bound values', a
     theme_preference: 'dark',
     onboarding_completed: 1,
   });
+});
+
+test('controller clothing preference updates flow into Today recommendations', async (t) => {
+  const { dataSource } = await createLocalDataSource(t);
+  const repository = new LocalProfileRepository(dataSource);
+  const controller = new ProfileApplicationController(async () => repository);
+  const womensOnlyKeys = ['catalog:blouse', 'catalog:skirt', 'catalog:dress'];
+  const recommendForCurrentProfile = () => {
+    const state = controller.getSnapshot();
+    assert.equal(state.status, 'ready');
+    return recommendOutfits({
+      snapshot: todayWeatherSnapshot,
+      wardrobeItems: [],
+      clothingPreference: state.profile.clothingPreference,
+    });
+  };
+  const usesWomensOnlyKey = (recommendation) =>
+    recommendation.outfits.some((outfit) =>
+      outfit.candidateKeys.some((key) => womensOnlyKeys.includes(key)),
+    );
+
+  await controller.initialize();
+  await controller.completeOnboarding({
+    clothingPreference: 'womens',
+    languagePreference: 'en',
+    themePreference: 'light',
+  });
+  const womensRecommendation = recommendForCurrentProfile();
+  assert.equal(womensRecommendation.status, 'recommended');
+  assert.equal(usesWomensOnlyKey(womensRecommendation), true);
+
+  await controller.updateClothingPreference('mens');
+  const mensRecommendation = recommendForCurrentProfile();
+  assert.equal(mensRecommendation.status, 'recommended');
+  assert.equal(usesWomensOnlyKey(mensRecommendation), false);
+});
+
+test('failed onboarding completion stays incomplete across launch and succeeds on retry', async (t) => {
+  const { database, dataSource } = await createLocalDataSource(t);
+  const repository = new LocalProfileRepository(dataSource);
+  const controller = new ProfileApplicationController(async () => repository);
+  const preferences = {
+    clothingPreference: 'womens',
+    languagePreference: 'en',
+    themePreference: 'light',
+  };
+
+  await controller.initialize();
+  await database.execAsync(`
+    CREATE TRIGGER reject_onboarding_completion
+    BEFORE UPDATE OF onboarding_completed ON local_profiles
+    WHEN NEW.onboarding_completed = 1
+    BEGIN
+      SELECT RAISE(FAIL, 'forced completion failure');
+    END
+  `);
+
+  await assert.rejects(
+    () => controller.completeOnboarding(preferences),
+    (error) => error instanceof ProfileRepositoryError && error.code === 'unavailable',
+  );
+  const failedRow = await database.getFirstAsync(
+    'SELECT onboarding_completed FROM local_profiles WHERE singleton_key = 1',
+  );
+  assert.equal(failedRow.onboarding_completed, 0);
+
+  const relaunchedDataSource = new SqliteProfileLocalDataSource(database, {
+    createId: () => 'unused',
+    now: () => updatedAt,
+  });
+  const relaunchedController = new ProfileApplicationController(async () =>
+    new LocalProfileRepository(relaunchedDataSource));
+  await relaunchedController.initialize();
+  const relaunchedState = relaunchedController.getSnapshot();
+  assert.equal(relaunchedState.status, 'ready');
+  assert.equal(resolveProfileHomeRoute(relaunchedState.profile), 'onboarding');
+
+  await database.execAsync('DROP TRIGGER reject_onboarding_completion');
+  await relaunchedController.completeOnboarding(preferences);
+  const completedState = relaunchedController.getSnapshot();
+  assert.equal(completedState.status, 'ready');
+  assert.equal(resolveProfileHomeRoute(completedState.profile), 'today');
+  const completedRow = await database.getFirstAsync(
+    'SELECT onboarding_completed FROM local_profiles WHERE singleton_key = 1',
+  );
+  assert.equal(completedRow.onboarding_completed, 1);
 });
 
 test('repository maps persistence values and rejects invalid stored enums predictably', async () => {

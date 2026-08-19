@@ -126,16 +126,31 @@ export function WardrobeNewItemRoute({
     createItem,
     discardStagedPhoto,
     preparePhoto,
+    refresh,
     state,
   } = useWardrobeApplication();
   const [isDirty, setIsDirty] = useState(false);
   const guard = useWardrobeExitGuard(isDirty, confirmation);
 
+  if (state.status === 'loading') {
+    return <WardrobeRouteStatus onBack={guard.returnToList} status="loading" />;
+  }
+
+  if (state.status === 'error') {
+    return (
+      <WardrobeRouteStatus
+        onBack={guard.returnToList}
+        onRetry={() => void refresh()}
+        status="error"
+      />
+    );
+  }
+
   return (
     <WardrobeItemFormScreen
       confirmation={confirmation}
       garmentTypes={garmentCatalog.garmentTypes}
-      isBusy={state.status === 'ready' && state.isMutating}
+      isBusy={state.isMutating}
       mode="create"
       onBackRequested={guard.requestBack}
       onCreate={async (input, photoChange) => {

@@ -120,7 +120,6 @@ export type AppMessages = Readonly<{
   weather: Readonly<{
     title: string;
     introduction: string;
-    activeLocationHeading: string;
     noLocation: string;
     currentLocation: string;
     approximateLocation: string;
@@ -141,7 +140,6 @@ export type AppMessages = Readonly<{
     manualBody: string;
     locations: Readonly<Record<ManualLocationId, string>>;
     sampleDisclosure: string;
-    currentHeading: string;
     hourlyHeading: string;
     noSnapshot: string;
     loadErrorTitle: string;
@@ -309,7 +307,6 @@ const en = {
   weather: {
     title: 'Weather',
     introduction: 'Choose one active location for today’s weather.',
-    activeLocationHeading: 'Active location',
     noLocation: 'No location selected yet.',
     currentLocation: 'Current location',
     approximateLocation: 'Approximate location',
@@ -334,7 +331,6 @@ const en = {
       'sample.london': 'Sample London',
     },
     sampleDisclosure: 'Sample weather data — not live weather.',
-    currentHeading: 'Current conditions',
     hourlyHeading: 'Remaining hours today',
     noSnapshot: 'Weather will appear after a location is selected and sample data is available.',
     loadErrorTitle: 'Weather could not be prepared',
@@ -588,7 +584,6 @@ const tr = {
   weather: {
     title: 'Hava',
     introduction: 'Bugünün hava durumu için tek bir etkin konum seçin.',
-    activeLocationHeading: 'Etkin konum',
     noLocation: 'Henüz konum seçilmedi.',
     currentLocation: 'Mevcut konum',
     approximateLocation: 'Yaklaşık konum',
@@ -613,7 +608,6 @@ const tr = {
       'sample.london': 'Örnek Londra',
     },
     sampleDisclosure: 'Örnek hava durumu verisi — canlı değildir.',
-    currentHeading: 'Mevcut koşullar',
     hourlyHeading: 'Bugünün kalan saatleri',
     noSnapshot: 'Bir konum seçilip örnek veri kullanılabilir olduğunda hava durumu burada görünecek.',
     loadErrorTitle: 'Hava durumu hazırlanamadı',

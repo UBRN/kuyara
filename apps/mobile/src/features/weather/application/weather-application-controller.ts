@@ -161,13 +161,18 @@ export class WeatherApplicationController {
     if (this.state.status !== 'ready') return;
     const permission = await this.dependencies.deviceLocation.getPermissionState();
     const current = this.requireReady();
+    const freshness = current.snapshot
+      ? weatherFreshness(current.snapshot.fetchedAt, this.dependencies.now())
+      : null;
     this.setReady({
       ...current,
+      snapshot: freshness === 'invalid' ? null : current.snapshot,
+      freshness: freshness === 'invalid' ? null : freshness,
       permission,
       locationFlow: permission.kind === 'granted' ? 'idle' : current.locationFlow,
     });
     if (!current.activeLocation) return;
-    if (!current.snapshot || weatherFreshness(current.snapshot.fetchedAt, this.dependencies.now()) !== 'fresh') {
+    if (!current.snapshot || freshness !== 'fresh') {
       await this.refreshLocation(current.activeLocation);
     }
   }
@@ -224,9 +229,13 @@ export class WeatherApplicationController {
       return;
     }
 
+    const current = this.requireReady();
+    const locationChanged = persisted.locationKey !== current.activeLocation?.locationKey;
     this.setReady({
-      ...this.requireReady(), activeLocation: persisted, snapshot: null,
-      freshness: null, isRefreshing: false, refreshFailure: null,
+      ...current, activeLocation: persisted,
+      snapshot: locationChanged ? null : current.snapshot,
+      freshness: locationChanged ? null : current.freshness,
+      isRefreshing: false, refreshFailure: null,
     });
 
     try {

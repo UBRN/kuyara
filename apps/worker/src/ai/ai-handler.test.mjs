@@ -114,6 +114,33 @@ test('falls back in order after a provider throws', async () => {
   assert.deepEqual(calls, ['failing', 'succeeding']);
 });
 
+test('falls back when an outfit uses a layer role unsupported by its candidate', async () => {
+  const invalid = validOutput();
+  invalid.data.outfits[0][0].layerRole = 'outer';
+  const expected = validOutput('2');
+  const response = await createAiHandler({ providers: [
+    { generateOutfits: async () => invalid },
+    { generateOutfits: async () => expected },
+  ] })(request());
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), expected);
+});
+
+test('limits default provider attempts to four', async () => {
+  let attempts = 0;
+  const provider = {
+    async generateOutfits() {
+      attempts += 1;
+      throw new Error('provider failed');
+    },
+  };
+  const response = await createAiHandler({ providers: Array(5).fill(provider) })(request());
+
+  await assertError(response, 503, 'ai_unavailable');
+  assert.equal(attempts, 4);
+});
+
 test('stops after the first successful provider', async () => {
   let laterCalls = 0;
   const response = await createAiHandler({ providers: [
@@ -226,6 +253,14 @@ test('GET and PUT return method_not_allowed with Allow POST', async () => {
 
 test('wrong content type, malformed JSON, and schema violations return invalid_request', async () => {
   const handler = createAiHandler({ providers: [] });
+  assert.equal((await createAiHandler({
+    providers: [new DeterministicStubAiProvider()],
+  })(request({
+    headers: { 'content-type': 'application/json; charset=utf-8' },
+  }))).status, 200);
+  await assertError(await handler(request({
+    headers: { 'content-type': 'application/jsonp' },
+  })), 400, 'invalid_request');
   await assertError(await handler(request({
     headers: { 'content-type': 'text/plain' },
   })), 400, 'invalid_request');

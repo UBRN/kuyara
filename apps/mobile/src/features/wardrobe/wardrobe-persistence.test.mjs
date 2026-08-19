@@ -244,6 +244,18 @@ test('catalog validation rejects duplicates, invalid shapes, and replacement cyc
   );
 });
 
+test('catalog validation requires arm coverage for upper-body types', () => {
+  const missingArmCoverage = structuredClone(garmentCatalog);
+  missingArmCoverage.garmentTypes[0] = {
+    ...missingArmCoverage.garmentTypes[0],
+    defaultArmCoverage: null,
+  };
+  assert.throws(
+    () => validateGarmentCatalog(missingArmCoverage),
+    GarmentCatalogValidationError,
+  );
+});
+
 test('every catalog localization key is unique and present in English and Turkish', () => {
   assert.equal(
     new Set(catalogLocalizationKeys).size,
