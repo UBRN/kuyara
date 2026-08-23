@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ProfileApplicationProvider } from '@/features/profile/application/profile-application-provider';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { BootstrapScreen } from '@/features/profile/presentation/bootstrap-screen';
+import { RecommendationApplicationProvider } from '@/features/recommendation/application/recommendation-application-provider';
 import { WeatherApplicationProvider } from '@/features/weather/application/weather-application-provider';
 import { WardrobeApplicationProvider } from '@/features/wardrobe/application/wardrobe-application-provider';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -33,20 +34,22 @@ function ThemedApplicationShell() {
   return (
     <WeatherApplicationProvider localProfileId={state.profile.id}>
       <WardrobeApplicationProvider localProfileId={state.profile.id}>
-        <ThemeProvider value={navigationTheme}>
-          <StatusBar style={theme.isDark ? 'light' : 'dark'} />
-          <Stack
-            screenOptions={{
-              animation: theme.isReduceMotionEnabled ? 'none' : 'default',
-              headerShown: false,
-            }}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen
-              name="onboarding"
-              options={{ gestureEnabled: false }}
-            />
-          </Stack>
-        </ThemeProvider>
+        <RecommendationApplicationProvider localProfileId={state.profile.id}>
+          <ThemeProvider value={navigationTheme}>
+            <StatusBar style={theme.isDark ? 'light' : 'dark'} />
+            <Stack
+              screenOptions={{
+                animation: theme.isReduceMotionEnabled ? 'none' : 'default',
+                headerShown: false,
+              }}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen
+                name="onboarding"
+                options={{ gestureEnabled: false }}
+              />
+            </Stack>
+          </ThemeProvider>
+        </RecommendationApplicationProvider>
       </WardrobeApplicationProvider>
     </WeatherApplicationProvider>
   );
