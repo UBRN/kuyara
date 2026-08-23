@@ -14,12 +14,9 @@ import {
   deriveClothingRequirements,
   type ClothingRequirements,
 } from '@/features/recommendation/domain/weather-to-clothing-requirements';
+import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import type { WeatherSnapshot } from '@/features/weather/domain/weather';
-
-export type RecommendationGenerationMode =
-  | 'ai_assisted'
-  | 'deterministic_fallback';
 
 export type OutfitRecommendationInput = Readonly<{
   snapshot: WeatherSnapshot;
@@ -72,7 +69,7 @@ export function recommendOutfits(
       })
     : Object.freeze({
         status: 'recommended',
-        generationMode: 'deterministic_fallback',
+        generationMode: 'deterministic-fallback',
         requirements,
         outfits: composition.outfits,
       });
