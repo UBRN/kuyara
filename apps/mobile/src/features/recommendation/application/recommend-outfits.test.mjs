@@ -120,7 +120,7 @@ test('cold wet weather recommends immutable deterministic catalog outfits', () =
   });
 
   assert.equal(result.status, 'recommended');
-  assert.equal(result.generationMode, 'deterministic_fallback');
+  assert.equal(result.generationMode, 'deterministic-fallback');
   assert.equal(result.outfits.length >= 1 && result.outfits.length <= 3, true);
   assert.deepEqual(result.requirements, deriveClothingRequirements(weather));
   assert.equal(result.outfits.every((outfit) =>
