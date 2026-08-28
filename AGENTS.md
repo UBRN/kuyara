@@ -220,6 +220,8 @@ The repository may be in transition. Inspect the real tree before assuming this 
 - Documentation-only changes do not require builds or full test suites.
 - Delegate scoped, mechanical work when the spec is cheaper to write than the work. A delegated task needs files in scope, invariants, and its verification stated up front.
 - Architecture, integration, and final verification stay with the main agent; delegated output is not accepted until it passes the repository checks.
+- A sandboxed delegate lane has no network access. Do not give a lane any step that needs `pnpm install --frozen-lockfile` or registry access. Install from the lockfile in the main agent before the lane starts, and state the lane's acceptance check in terms of commands that run offline against the already installed workspace.
+- Steps that need the iOS Simulator or a long-running local server are not lane work either. Keep `pnpm e2e:ios` and `pnpm --filter @kuyara/worker dev --port 8788` in the main agent or a non-sandboxed sub-agent, and give the lane `pnpm check` or a filtered test command as its acceptance criterion instead.
 - Keep final reports focused on changes, validation, risks, and next state.
 
 ## Validation strategy
