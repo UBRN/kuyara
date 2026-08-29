@@ -9,10 +9,16 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_KUYARA_WORKER_BASE_URL": "https://kuyara-worker.ubarin08.workers.dev"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_KUYARA_WORKER_BASE_URL": "https://kuyara-worker.ubarin08.workers.dev"
+      }
     }
   },
   "submit": {

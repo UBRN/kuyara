@@ -175,12 +175,16 @@ test('uses platform-aware local development URLs and requires an explicit produc
   assert.equal(resolveWorkerBaseUrl({ isDevelopment: true, platform: 'ios' }), 'http://127.0.0.1:8788');
   assert.equal(resolveWorkerBaseUrl({ isDevelopment: true, platform: 'android' }), 'http://10.0.2.2:8788');
   assert.equal(resolveWorkerBaseUrl({
-    configuredUrl: 'https://weather.example.com/',
+    configuredUrl: 'https://kuyara-worker.ubarin08.workers.dev',
     isDevelopment: false,
     platform: 'ios',
-  }), 'https://weather.example.com');
+  }), 'https://kuyara-worker.ubarin08.workers.dev');
   assert.throws(
-    () => resolveWorkerBaseUrl({ isDevelopment: false, platform: 'ios' }),
+    () => resolveWorkerBaseUrl({
+      configuredUrl: undefined,
+      isDevelopment: false,
+      platform: 'ios',
+    }),
     WorkerBaseUrlConfigurationError,
   );
   assert.throws(
