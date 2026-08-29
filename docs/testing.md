@@ -1,8 +1,8 @@
 # kuyara testing conventions
 
-## Temporary Apple constraint
+## Apple Developer Program
 
-The temporary Apple constraint governs validation; weather integration tests use deterministic providers and fixed raw-response fixtures rather than live external weather calls.
+The Apple Developer Program section governs release-facing validation; weather integration tests use deterministic providers and fixed raw-response fixtures rather than live external weather calls.
 
 ## Repository and configuration checks
 
