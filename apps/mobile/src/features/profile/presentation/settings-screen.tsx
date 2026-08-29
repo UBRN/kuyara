@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, View } from 'react-native';
 import { useState } from 'react';
 
 import { AppText, Screen } from '@/components/ui';
@@ -9,11 +9,12 @@ import type {
 } from '@/domain/preferences';
 import type { AiProbeUiState } from '@/features/recommendation/application/use-ai-probe';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
+import type { NotificationPermissionState } from '@/features/notifications/data/notification-gateway';
 import type { LocalProfile } from '@/features/profile/domain/profile';
 import { AiStatusSection } from '@/features/profile/presentation/ai-status-section';
 import { PreferenceOption } from '@/features/profile/presentation/preference-option';
 import { useMessages } from '@/localization/use-messages';
-import { spacing } from '@/theme/theme';
+import { interaction, layout, spacing } from '@/theme/theme';
 
 type SettingsScreenProps = Readonly<{
   aiStatus: AiProbeUiState;
@@ -25,6 +26,11 @@ type SettingsScreenProps = Readonly<{
   updateClothingPreference: (preference: ClothingPreference) => Promise<void>;
   updateLanguagePreference: (preference: LanguagePreference) => Promise<void>;
   updateThemePreference: (preference: ThemePreference) => Promise<void>;
+  notificationPermission: NotificationPermissionState;
+  isNotificationBusy: boolean;
+  onToggleNotifications: (optIn: boolean) => Promise<void>;
+  onOpenNotificationSettings: () => void;
+  onSendTestNotification: () => Promise<boolean>;
 }>;
 
 export function SettingsScreen({
@@ -33,6 +39,11 @@ export function SettingsScreen({
   isSaving,
   lastGenerationMode,
   onCheckAiStatus,
+  isNotificationBusy,
+  notificationPermission,
+  onOpenNotificationSettings,
+  onSendTestNotification,
+  onToggleNotifications,
   profile,
   updateClothingPreference,
   updateLanguagePreference,
@@ -41,6 +52,9 @@ export function SettingsScreen({
   const messages = useMessages();
   const copy = messages.preferences;
   const [hasSaveError, setHasSaveError] = useState(false);
+  const [testNotificationResult, setTestNotificationResult] = useState<
+    'scheduled' | 'failed' | null
+  >(null);
 
   const save = async (operation: () => Promise<void>) => {
     if (isSaving) {
@@ -137,6 +151,69 @@ export function SettingsScreen({
         </View>
       </View>
 
+      <View style={styles.section}>
+        <AppText colorRole="brandAccent" variant="eyebrow">
+          {messages.notifications.title}
+        </AppText>
+        <View style={styles.notificationRow}>
+          <AppText colorRole="textSecondary" style={styles.notificationIntroduction}>
+            {messages.notifications.introduction}
+          </AppText>
+          <Switch
+            accessibilityLabel={messages.notifications.toggleLabel}
+            disabled={isNotificationBusy}
+            onValueChange={(optIn) => void save(() => onToggleNotifications(optIn))}
+            testID="settings-notifications-toggle"
+            value={profile.notificationsOptIn}
+          />
+        </View>
+        {notificationPermission.kind === 'denied' ? (
+          <>
+            <AppText colorRole="textSecondary">
+              {messages.notifications.permissionDeniedHint}
+            </AppText>
+            <Pressable
+              accessibilityRole="button"
+              onPress={onOpenNotificationSettings}
+              style={({ pressed }) => [
+                styles.notificationAction,
+                pressed && styles.pressed,
+              ]}
+              testID="settings-notifications-open-settings">
+              <AppText colorRole="brandAccent" variant="bodyStrong">
+                {messages.notifications.openSettingsAction}
+              </AppText>
+            </Pressable>
+          </>
+        ) : null}
+        {__DEV__ ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              setTestNotificationResult(null);
+              void onSendTestNotification().then((scheduled) => {
+                setTestNotificationResult(scheduled ? 'scheduled' : 'failed');
+              });
+            }}
+            style={({ pressed }) => [
+              styles.notificationAction,
+              pressed && styles.pressed,
+            ]}
+            testID="settings-notifications-test">
+            <AppText colorRole="brandAccent" variant="bodyStrong">
+              {messages.notifications.testNotificationAction}
+            </AppText>
+          </Pressable>
+        ) : null}
+        {testNotificationResult ? (
+          <AppText accessibilityLiveRegion="polite" colorRole="textSecondary">
+            {testNotificationResult === 'scheduled'
+              ? messages.notifications.testNotificationScheduled
+              : messages.notifications.testNotificationFailed}
+          </AppText>
+        ) : null}
+      </View>
+
       <AiStatusSection
         aiStatus={aiStatus}
         isProbeSupported={isProbeSupported}
@@ -179,5 +256,21 @@ const styles = StyleSheet.create({
   rowOptions: {
     flexDirection: 'row',
     gap: spacing.sm,
+  },
+  notificationRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.lg,
+  },
+  notificationIntroduction: {
+    flex: 1,
+  },
+  notificationAction: {
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    minHeight: layout.minimumTouchTarget,
+  },
+  pressed: {
+    opacity: interaction.pressedOpacity,
   },
 });

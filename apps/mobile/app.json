@@ -81,7 +81,8 @@
           "isAndroidMotionActivityEnabled": false
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      ["expo-notifications", { "enableBackgroundRemoteNotifications": false }]
     ],
     "locales": {
       "en": "./src/localization/native/en.json",

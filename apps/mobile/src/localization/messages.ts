@@ -142,6 +142,18 @@ export type AppMessages = Readonly<{
     saving: string;
     saveError: string;
   }>;
+  notifications: Readonly<{
+    title: string;
+    introduction: string;
+    toggleLabel: string;
+    permissionDeniedHint: string;
+    openSettingsAction: string;
+    testNotificationAction: string;
+    testNotificationTitle: string;
+    testNotificationBody: string;
+    testNotificationScheduled: string;
+    testNotificationFailed: string;
+  }>;
   weather: Readonly<{
     title: string;
     introduction: string;
@@ -364,6 +376,18 @@ const en = {
     aiStatusUnsupported: 'AI status checks are not available on this build.',
     saving: 'Saving changes…',
     saveError: 'That change could not be saved. Your previous setting is still active.',
+  },
+  notifications: {
+    title: 'Notifications',
+    introduction: 'Choose whether kuyara can send notifications on this device.',
+    toggleLabel: 'Allow notifications',
+    permissionDeniedHint: 'Notifications are turned off in system settings.',
+    openSettingsAction: 'Open Settings',
+    testNotificationAction: 'Send test notification',
+    testNotificationTitle: 'A note from kuyara',
+    testNotificationBody: 'Notifications are ready on this device.',
+    testNotificationScheduled: 'A test notification will appear shortly.',
+    testNotificationFailed: 'The test notification could not be scheduled.',
   },
   weather: {
     title: 'Weather',
@@ -689,6 +713,18 @@ const tr = {
     aiStatusUnsupported: 'AI durum kontrolleri bu sürümde kullanılamıyor.',
     saving: 'Değişiklikler kaydediliyor…',
     saveError: 'Bu değişiklik kaydedilemedi. Önceki ayarınız kullanılmaya devam ediyor.',
+  },
+  notifications: {
+    title: 'Bildirimler',
+    introduction: 'kuyara bu cihazda bildirim gönderebilsin mi?',
+    toggleLabel: 'Bildirimlere izin ver',
+    permissionDeniedHint: 'Bildirimler sistem ayarlarında kapalı.',
+    openSettingsAction: 'Ayarları Aç',
+    testNotificationAction: 'Test bildirimi gönder',
+    testNotificationTitle: 'kuyara’dan bir not',
+    testNotificationBody: 'Bildirimler bu cihazda hazır.',
+    testNotificationScheduled: 'Test bildirimi birazdan görünecek.',
+    testNotificationFailed: 'Test bildirimi planlanamadı.',
   },
   weather: {
     title: 'Hava',

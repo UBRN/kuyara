@@ -10,7 +10,7 @@ type Migration = Readonly<{
   migrate: (database: SqliteExecutor) => Promise<void>;
 }>;
 
-export const latestDatabaseVersion = 5;
+export const latestDatabaseVersion = 6;
 
 const migrationV1: Migration = {
   version: 1,
@@ -230,12 +230,24 @@ const migrationV5: Migration = {
   },
 };
 
+const migrationV6: Migration = {
+  version: 6,
+  async migrate(database) {
+    await database.execAsync(`
+      ALTER TABLE local_profiles
+        ADD COLUMN notifications_opt_in INTEGER NOT NULL DEFAULT 0
+          CHECK (notifications_opt_in IN (0, 1));
+    `);
+  },
+};
+
 const migrations = [
   migrationV1,
   migrationV2,
   migrationV3,
   migrationV4,
   migrationV5,
+  migrationV6,
 ] as const satisfies readonly Migration[];
 
 async function readUserVersion(database: SqliteExecutor): Promise<number> {

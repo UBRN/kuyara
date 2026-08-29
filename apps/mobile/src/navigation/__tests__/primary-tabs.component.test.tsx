@@ -57,6 +57,7 @@ function createProfile(onboardingCompleted: boolean): LocalProfile {
     languagePreference: 'system',
     themePreference: 'system',
     onboardingCompleted,
+    notificationsOptIn: false,
     createdAt: '2026-07-30T10:00:00.000Z',
     updatedAt: '2026-07-30T10:00:00.000Z',
   };
@@ -73,6 +74,7 @@ function createProfileApplication(onboardingCompleted: boolean): ProfileApplicat
     updateClothingPreference: async () => undefined,
     updateLanguagePreference: async () => undefined,
     updateThemePreference: async () => undefined,
+    updateNotificationsOptIn: async () => undefined,
   };
 }
 

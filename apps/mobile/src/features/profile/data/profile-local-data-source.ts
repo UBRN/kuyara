@@ -17,6 +17,7 @@ export interface ProfileLocalDataSource {
   updateClothingPreference(preference: ClothingPreference): Promise<LocalProfileRecord>;
   updateLanguagePreference(preference: LanguagePreference): Promise<LocalProfileRecord>;
   updateThemePreference(preference: ThemePreference): Promise<LocalProfileRecord>;
+  updateNotificationsOptIn(optIn: boolean): Promise<LocalProfileRecord>;
 }
 
 export class ProfileDataSourceError extends Error {

@@ -25,6 +25,15 @@ jest.mock('@/infrastructure/sqlite/migrations', () => ({
   migrateDatabase: async () => undefined,
 }));
 
+jest.mock('@/features/notifications/application/notification-context', () => ({
+  useNotificationApplication: () => ({
+    state: { permission: { kind: 'undetermined' }, isBusy: false },
+    setOptIn: async () => 'enabled',
+    sendTestNotification: async () => true,
+    openApplicationSettings: async () => undefined,
+  }),
+}));
+
 let mockProfile = createProfile();
 
 jest.mock('@/features/profile/data/sqlite-profile-local-data-source', () => ({
@@ -51,6 +60,7 @@ function createProfile(): LocalProfileRecord {
     languagePreference: 'en',
     themePreference: 'light',
     onboardingCompleted: 1,
+    notificationsOptIn: 0,
     createdAt: '2026-07-30T10:00:00.000Z',
     updatedAt: '2026-07-30T10:00:00.000Z',
     deletedAt: null,

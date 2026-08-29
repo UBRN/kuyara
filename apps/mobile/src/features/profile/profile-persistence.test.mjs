@@ -22,6 +22,7 @@ const createRecord = (overrides = {}) => ({
   languagePreference: 'system',
   themePreference: 'system',
   onboardingCompleted: 0,
+  notificationsOptIn: 0,
   createdAt,
   updatedAt: createdAt,
   deletedAt: null,
@@ -66,6 +67,23 @@ test('a missing profile is created once and concurrent initialization returns on
   assert.equal(first.languagePreference, 'system');
   assert.equal(first.themePreference, 'system');
   assert.equal(first.onboardingCompleted, 0);
+  assert.equal(first.notificationsOptIn, 0);
+});
+
+test('notification opt-in defaults off and persists across a new repository', async (t) => {
+  const { database, dataSource } = await createLocalDataSource(t);
+  const repository = new LocalProfileRepository(dataSource);
+
+  assert.equal((await repository.getOrCreateProfile()).notificationsOptIn, false);
+  assert.equal((await repository.updateNotificationsOptIn(true)).notificationsOptIn, true);
+
+  const relaunchedRepository = new LocalProfileRepository(
+    new SqliteProfileLocalDataSource(database, {
+      createId: () => 'unused',
+      now: () => updatedAt,
+    }),
+  );
+  assert.equal((await relaunchedRepository.getOrCreateProfile()).notificationsOptIn, true);
 });
 
 test('an existing profile is returned unchanged without generating another UUID', async (t) => {
@@ -238,6 +256,16 @@ test('repository maps persistence values and rejects invalid stored enums predic
       error instanceof ProfileRepositoryError &&
       error.code === 'invalid-data' &&
       !error.message.includes('sepia'),
+  );
+
+  const invalidNotificationsRepository = new LocalProfileRepository({
+    getOrCreateProfile: async () => createRecord({ notificationsOptIn: 2 }),
+  });
+  await assert.rejects(
+    () => invalidNotificationsRepository.getOrCreateProfile(),
+    (error) =>
+      error instanceof ProfileRepositoryError &&
+      error.code === 'invalid-data',
   );
 });
 

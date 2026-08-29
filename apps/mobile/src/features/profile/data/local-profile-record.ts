@@ -4,6 +4,7 @@ export type LocalProfileRecord = Readonly<{
   languagePreference: string;
   themePreference: string;
   onboardingCompleted: number;
+  notificationsOptIn: number;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;

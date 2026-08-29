@@ -14,6 +14,7 @@ export type ProfileApplicationValue = Readonly<{
   updateClothingPreference: (preference: ClothingPreference) => Promise<void>;
   updateLanguagePreference: (preference: LanguagePreference) => Promise<void>;
   updateThemePreference: (preference: ThemePreference) => Promise<void>;
+  updateNotificationsOptIn: (optIn: boolean) => Promise<void>;
 }>;
 
 export const ProfileApplicationContext =
