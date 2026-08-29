@@ -28,20 +28,14 @@ packages/contracts  Shared Zod schemas and API types
 docs/               Product decisions, architecture, and design
 ```
 
+The root `pnpm-lock.yaml` is the only dependency lockfile, and workspace discovery is limited to `apps/*` and `packages/*`. Mobile uses managed Continuous Native Generation, so native `ios/` and `android/` directories are generated only when needed and are not committed. Expo SDK 57 sets iOS 16.4 as the minimum supported version, while the shared Expo project remains Android-compatible.
+
+The Worker currently serves the deterministic weather v1 foundation, has a controlled development-only sample deployment, and serves the AI route through ordered Workers AI and OpenRouter adapters. Mobile persists one recommendation snapshot per local profile and has a device-local deterministic fallback. WeatherKit, the real weather provider chain, Worker rate limiting, and the active AI probe are not implemented. The contracts package owns the provider-neutral weather v1 request, success, and stable minimal error schemas.
+
 ## Getting started
 
 ```bash
 pnpm install --frozen-lockfile
-```
-
-Start the deterministic Worker in one terminal and the app in another:
-
-```bash
-pnpm --filter @kuyara/worker dev --port 8788
-```
-
-```bash
-pnpm --filter @kuyara/mobile start
 ```
 
 Run lint, TypeScript, the Node test suites, and the Worker bundle check:
@@ -50,8 +44,7 @@ Run lint, TypeScript, the Node test suites, and the Worker bundle check:
 pnpm check
 ```
 
-More detail is in [`apps/mobile/README.md`](apps/mobile/README.md) and
-[`docs/testing.md`](docs/testing.md).
+Development, focused test, Worker, Expo, and Simulator commands are in [`docs/testing.md`](docs/testing.md); mobile configuration details are in [`apps/mobile/README.md`](apps/mobile/README.md).
 
 ## Documentation
 
