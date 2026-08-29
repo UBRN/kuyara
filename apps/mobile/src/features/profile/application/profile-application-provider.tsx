@@ -1,6 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import {
   type PropsWithChildren,
+  useCallback,
   useEffect,
   useMemo,
   useSyncExternalStore,
@@ -45,6 +46,11 @@ export function ProfileApplicationProvider({ children }: PropsWithChildren) {
     void controller.initialize();
   }, [controller]);
 
+  const updateNotificationsOptIn = useCallback(
+    (optIn: boolean) => controller.updateNotificationsOptIn(optIn),
+    [controller],
+  );
+
   const value = useMemo<ProfileApplicationValue>(
     () => ({
       state,
@@ -56,8 +62,9 @@ export function ProfileApplicationProvider({ children }: PropsWithChildren) {
         controller.updateLanguagePreference(preference),
       updateThemePreference: (preference) =>
         controller.updateThemePreference(preference),
+      updateNotificationsOptIn,
     }),
-    [controller, state],
+    [controller, state, updateNotificationsOptIn],
   );
 
   const languagePreference =

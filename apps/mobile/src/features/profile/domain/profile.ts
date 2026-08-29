@@ -10,6 +10,7 @@ export type LocalProfile = Readonly<{
   languagePreference: LanguagePreference;
   themePreference: ThemePreference;
   onboardingCompleted: boolean;
+  notificationsOptIn: boolean;
   createdAt: string;
   updatedAt: string;
 }>;
