@@ -1,11 +1,17 @@
-import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Linking, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import { AppText } from '@/components/ui';
 import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
 import type { LocalizedHourlyRainProbability } from '@/features/today/presentation/today-presentation';
+import { useLocalization } from '@/localization/use-messages';
 import { withAlpha } from '@/theme/color-alpha';
 import { radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
+
+const weatherAttributionUrls: Readonly<Record<string, string>> = {
+  'open-meteo': 'https://open-meteo.com/',
+  openweather: 'https://openweathermap.org/',
+};
 
 export type WeatherCardStat = Readonly<{
   label: string;
@@ -28,6 +34,7 @@ type WeatherCardProps = Readonly<{
   metricsAccessibilityLabel: string;
   rainTimeline?: WeatherCardRainTimeline;
   accessibilityLabel: string;
+  sourceId?: string;
   testID?: string;
 }>;
 
@@ -46,10 +53,17 @@ export function WeatherCard({
   metricsAccessibilityLabel,
   rainTimeline,
   accessibilityLabel,
+  sourceId,
   testID,
 }: WeatherCardProps) {
   const theme = useKuyaraTheme();
+  const { messages } = useLocalization();
   const { fontScale } = useWindowDimensions();
+  const attributionLabel = sourceId === 'open-meteo'
+    ? messages.weather.attributionOpenMeteo
+    : sourceId === 'openweather'
+      ? messages.weather.attributionOpenWeather
+      : null;
   const usesStackedLayout = fontScale > 1.5;
   const significantBarColor = theme.colors.brandAccent;
   const mutedBarColor = withAlpha(theme.colors.brandAccent, RAIN_BAR_MUTED_ALPHA);
@@ -133,6 +147,18 @@ export function WeatherCard({
           <AppText colorRole="textSecondary">{rainProbability}</AppText>
         </View>
       )}
+
+      {attributionLabel && sourceId && (
+        <Pressable
+          accessibilityRole="link"
+          hitSlop={13}
+          onPress={() => { void Linking.openURL(weatherAttributionUrls[sourceId]); }}
+          style={styles.attribution}>
+          <AppText colorRole="textSecondary" variant="caption">
+            {attributionLabel}
+          </AppText>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -142,6 +168,9 @@ const styles = StyleSheet.create({
     borderRadius: radii.card,
     gap: spacing.md,
     padding: spacing.lg,
+  },
+  attribution: {
+    alignSelf: 'flex-start',
   },
   primaryRow: {
     alignItems: 'center',

@@ -1,5 +1,6 @@
 import { fireEvent, isHiddenFromAccessibility, render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
+import { Linking } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { WeatherApplicationContext, type WeatherApplicationValue } from '@/features/weather/application/weather-application-context';
@@ -22,13 +23,13 @@ const baseState: WeatherReadyState = {
   isSelectingLocation: false, isRefreshing: false, refreshFailure: null,
 };
 
-function sampleSnapshot() {
+function sampleSnapshot(sourceId = 'test') {
   const location = getManualLocation('sample.istanbul')!;
   return {
     id: '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4', localProfileId: 'profile-id',
     locationKey: location.locationKey, timeZone: location.timeZone,
     fetchedAt: '2026-07-30T09:00:00.000Z',
-    origin: { kind: 'sample' as const, sourceId: 'test' },
+    origin: { kind: 'sample' as const, sourceId },
     current: {
       observedAt: '2026-07-30T09:00:00.000Z', temperatureCelsius: 16,
       apparentTemperatureCelsius: 15, condition: 'rain' as const,
@@ -97,6 +98,7 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
   test.each([
     ['offline', 'offlineTitle', 'offlineBody'],
     ['unavailable', 'unavailableTitle', 'unavailableBody'],
+    ['rate-limited', 'rateLimitedTitle', 'rateLimitedBody'],
   ] as const)('shows a localized cacheless %s state with an accessible retry', async (
     refreshFailure,
     titleKey,
@@ -118,6 +120,7 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
   test.each([
     ['offline', 'offlineNotice'],
     ['unavailable', 'unavailableNotice'],
+    ['rate-limited', 'rateLimitedNotice'],
   ] as const)('keeps cached stale weather visible with a localized %s notice', async (
     refreshFailure,
     noticeKey,
@@ -164,6 +167,48 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
       result.getByTestId('weather-glyph', { includeHiddenElements: true }),
     )).toBe(true);
   });
+
+  test.each([
+    ['open-meteo', 'attributionOpenMeteo', 'https://open-meteo.com/'],
+    ['openweather', 'attributionOpenWeather', 'https://openweathermap.org/'],
+  ] as const)('shows an accessible %s attribution link that opens its licence URL', async (
+    sourceId,
+    copyKey,
+    url,
+  ) => {
+    const openUrl = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    const value = createValue({
+      ...baseState,
+      activeLocation: getManualLocation('sample.istanbul')!,
+      snapshot: sampleSnapshot(sourceId),
+      freshness: 'fresh',
+    });
+    const result = await render(
+      <Providers language={language} value={value}><WeatherScreen /></Providers>,
+    );
+    const copy = messages[language].weather;
+    const link = result.getByRole('link', { name: copy[copyKey] });
+    expect(link).toBeOnTheScreen();
+    await fireEvent.press(link);
+    expect(openUrl).toHaveBeenCalledWith(url);
+    openUrl.mockRestore();
+  });
+
+  test.each(['sample', 'kuyara-worker-weather-v1', 'unknown-source'])(
+    'renders no attribution link for the %s source',
+    async (sourceId) => {
+      const value = createValue({
+        ...baseState,
+        activeLocation: getManualLocation('sample.istanbul')!,
+        snapshot: sampleSnapshot(sourceId),
+        freshness: 'fresh',
+      });
+      const result = await render(
+        <Providers language={language} value={value}><WeatherScreen /></Providers>,
+      );
+      expect(result.queryByRole('link')).toBeNull();
+    },
+  );
 });
 
 test('rationale is shown before confirmation and permanent denial opens Settings', async () => {

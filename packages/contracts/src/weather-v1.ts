@@ -22,7 +22,10 @@ export const weatherV1ErrorCodes = [
   'method_not_allowed',
   'weather_unavailable',
   'internal_error',
+  'rate_limited',
 ] as const;
+
+export const weatherSourceIds = ['sample', 'open-meteo', 'openweather'] as const;
 
 const utcTimestampSchema = z.string().datetime({ offset: false });
 
@@ -59,7 +62,7 @@ const hourlyWeatherSchema = weatherMeasurementsSchema.extend({
   forecastAt: utcTimestampSchema,
 }).strict();
 
-function localDateKey(timestamp: string, timeZone: string): string | null {
+export function weatherLocalDateKey(timestamp: string, timeZone: string): string | null {
   try {
     const date = new Date(timestamp);
     if (!Number.isFinite(date.getTime())) return null;
@@ -79,12 +82,23 @@ function localDateKey(timestamp: string, timeZone: string): string | null {
 const weatherV1DataSchema = z.object({
   timeZone: ianaTimeZoneSchema,
   fetchedAt: utcTimestampSchema,
-  origin: z.object({ kind: z.enum(['sample', 'live']) }).strict(),
+  origin: z.object({
+    kind: z.enum(['sample', 'live']),
+    sourceId: z.enum(weatherSourceIds),
+  }).strict(),
   current: currentWeatherSchema,
   minimumTemperatureCelsius: z.number().finite(),
   maximumTemperatureCelsius: z.number().finite(),
   hourly: z.array(hourlyWeatherSchema).min(1).max(25),
 }).strict().superRefine((value, context) => {
+  if ((value.origin.sourceId === 'sample') !== (value.origin.kind === 'sample')) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'origin.sourceId must be "sample" if and only if origin.kind is "sample".',
+      path: ['origin', 'sourceId'],
+    });
+  }
+
   if (
     value.minimumTemperatureCelsius > value.maximumTemperatureCelsius ||
     value.current.temperatureCelsius < value.minimumTemperatureCelsius ||
@@ -97,14 +111,14 @@ const weatherV1DataSchema = z.object({
     });
   }
 
-  const currentLocalDate = localDateKey(value.current.observedAt, value.timeZone);
+  const currentLocalDate = weatherLocalDateKey(value.current.observedAt, value.timeZone);
   let previousForecastAt: string | null = null;
   for (let index = 0; index < value.hourly.length; index += 1) {
     const forecastAt = value.hourly[index].forecastAt;
     if (
       (previousForecastAt !== null && previousForecastAt >= forecastAt) ||
       currentLocalDate === null ||
-      localDateKey(forecastAt, value.timeZone) !== currentLocalDate
+      weatherLocalDateKey(forecastAt, value.timeZone) !== currentLocalDate
     ) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
@@ -127,6 +141,7 @@ export const weatherV1ErrorSchema = z.object({
 }).strict();
 
 export type WeatherConditionCode = (typeof weatherConditionCodes)[number];
+export type WeatherSourceId = (typeof weatherSourceIds)[number];
 export type WeatherV1ErrorCode = (typeof weatherV1ErrorCodes)[number];
 export type WeatherV1Request = z.infer<typeof weatherV1RequestSchema>;
 export type WeatherV1Success = z.infer<typeof weatherV1SuccessSchema>;

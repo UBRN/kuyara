@@ -28,7 +28,7 @@ export type LocationFlowState =
   | 'lookup-failed'
   | 'selection-failed';
 
-export type WeatherRefreshFailure = 'offline' | 'unavailable';
+export type WeatherRefreshFailure = 'offline' | 'unavailable' | 'rate-limited';
 
 export type WeatherReadyState = Readonly<{
   status: 'ready';
@@ -293,7 +293,9 @@ export class WeatherApplicationController {
           refreshFailure:
             error instanceof WeatherProviderError && error.kind === 'network'
               ? 'offline'
-              : 'unavailable',
+              : error instanceof WeatherProviderError && error.kind === 'rate-limited'
+                ? 'rate-limited'
+                : 'unavailable',
         });
       }
     }

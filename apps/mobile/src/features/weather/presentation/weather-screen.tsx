@@ -120,7 +120,13 @@ export function WeatherScreen() {
           body: copy.unavailableBody,
           notice: copy.unavailableNotice,
         }
-      : null;
+      : state.refreshFailure === 'rate-limited'
+        ? {
+            title: copy.rateLimitedTitle,
+            body: copy.rateLimitedBody,
+            notice: copy.rateLimitedNotice,
+          }
+        : null;
 
   return (
     <Screen contentContainerStyle={styles.content} testID="weather-screen">
@@ -223,6 +229,7 @@ export function WeatherScreen() {
               { label: copy.uvIndexLabel, value: decimal(snapshot.current.uvIndex, language) },
             ]}
             temperature={temperature(snapshot.current.temperatureCelsius, language)}
+            sourceId={snapshot.origin.sourceId}
             testID="weather-current-card"
           />
           <View style={styles.headingRow}>

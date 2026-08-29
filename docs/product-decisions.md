@@ -139,17 +139,19 @@ Approved 2026-08-13. Not implemented.
 
 ## Approved weather provider strategy
 
-Approved 2026-08-13. Not implemented. The checked-in application still fetches deterministic sample data from the Worker.
+Approved 2026-08-13. Implemented 2026-08-29 as milestone 5. Design, the pricing basis, and full rationale are canonical in [ADR 0002](adr/0002-real-weather-provider-chain.md); the decisions below stay recorded here and are not superseded.
 
-- The current target chain is Open-Meteo primary, OpenWeather fallback, then the last valid device-local weather snapshot.
-- Once WeatherKit becomes available the target chain is WeatherKit primary, Open-Meteo fallback, OpenWeather fallback, then the last valid device-local weather snapshot. WeatherKit is inserted at the head of the established chain rather than replacing it.
-- The existing provider-neutral Worker and mobile boundaries must be preserved. Each upstream provider must have an isolated adapter with raw-response runtime validation, explicit unit and condition mapping, timeout handling, and sanitized errors.
-- Provider payloads and secrets must not cross into mobile and must not be logged.
+- The chain is Open-Meteo primary, OpenWeather fallback, then the last valid device-local weather snapshot. OpenWeather is absent from the chain until the `OPENWEATHER_API_KEY` Worker secret is set, so Open-Meteo currently serves alone.
+- Once WeatherKit becomes available the chain becomes WeatherKit primary, Open-Meteo fallback, OpenWeather fallback, then the last valid device-local weather snapshot. WeatherKit is inserted at the head of the established chain rather than replacing it.
+- The existing provider-neutral Worker and mobile boundaries are preserved. Each upstream provider has an isolated adapter with raw-response runtime validation, explicit unit and condition mapping, timeout handling, and sanitized errors.
+- Provider payloads and secrets do not cross into mobile and are not logged.
 - Weather fallback eligibility is governed by the [repository rule in `AGENTS.md`](../AGENTS.md#weather-and-recommendation-behavior).
-- Attempts per request must be bounded, and retry or fallback loops must be prevented.
-- The exact 30-minute freshness behavior and last-known-good semantics already implemented on mobile must not change.
-- Open-Meteo attribution requirements must be supported, and WeatherKit attribution requirements must be supported when WeatherKit is introduced. The earlier "provider names never cross the API" rule is narrowed only as much as a controlled, non-secret attribution identifier or attribution metadata requires; raw provider data and internal errors remain private.
-- OpenWeather usage must be bounded by provider-side limits plus Kuyara-side protection. Exact limits must be recalculated from official current pricing during implementation.
+- Attempts per request are bounded, and retry or fallback loops are prevented.
+- The exact 30-minute freshness behavior and last-known-good semantics already implemented on mobile did not change.
+- Open-Meteo attribution requirements are supported, and WeatherKit attribution requirements must be supported when WeatherKit is introduced. The earlier "provider names never cross the API" rule is narrowed only as much as a controlled, non-secret attribution identifier or attribution metadata requires; raw provider data and internal errors remain private.
+- OpenWeather usage is bounded by provider-side limits plus Kuyara-side protection. Exact limits were recalculated from official current pricing on 2026-08-29; see [ADR 0002's pricing and limits basis](adr/0002-real-weather-provider-chain.md#pricing-and-limits-basis-recalculated-2026-08-29-do-not-freeze) rather than restating the numbers here.
+- Open-Meteo's free tier is non-commercial use only. Kuyara's free, ad-free, no-subscription, no-in-app-purchase, open-source nature is recorded as a deliberate reading that fits the terms' non-commercial examples, not a certification; re-check if the product ever monetizes.
+- Before the `OPENWEATHER_API_KEY` secret is ever set, the OpenWeather account's Billing plans "Calls per day" must be lowered to 1,000 or less. The 2,000 default permits billed overage, which the repository rule against uncontrolled pay-as-you-go usage does not allow.
 
 ## Approved AI recommendation strategy
 
@@ -243,13 +245,15 @@ recalculated provider pricing that set the probe limits, are canonical in
   an unauthenticated endpoint. Cloudflare Workers AI stays a hard stop on the
   Free plan.
 - **Deploy checklist (not done here).** `kv_namespaces`, `ratelimits`, `vars`,
-  and `ai` are all declared at the top level of `wrangler.jsonc`, which covers
-  `wrangler dev` and `wrangler deploy --dry-run`. Cloudflare does not inherit
-  these into named environments, so before the AI route and probe are deployed
-  to `kuyara-weather-dev` (the public `workers.dev` URL) they must be
-  redeclared under `env.development`, the `PROBE_COUNTER` KV namespace must be
-  created and its real id substituted for the placeholder, and
-  `OPENROUTER_API_KEY` must be set as a secret on that environment.
+  and `ai` are all declared at the top level of `wrangler.jsonc`, which is the
+  Worker's only environment as of
+  [ADR 0003](adr/0003-single-worker-environment.md). The named
+  `env.development` was removed precisely because Cloudflare does not inherit
+  top-level bindings into named environments. Deploying the AI route and probe
+  is therefore a plain `wrangler deploy` with no `--env`, targeting
+  `kuyara-worker`, and still requires creating the `PROBE_COUNTER` KV namespace
+  and substituting its real id for the placeholder, and setting
+  `OPENROUTER_API_KEY` as a secret on that Worker.
 
 ## Approved AI input privacy boundary
 
@@ -286,7 +290,7 @@ Recorded 2026-08-13. These are time-sensitive operating assumptions, not permane
 
 - The initial recurring API-cost target is approximately USD 5 per month, excluding the one-time OpenRouter credit purchase below.
 - A one-time USD 10 OpenRouter credit purchase is the currently approved assumption for qualifying for OpenRouter's higher free-model request limit.
-- OpenWeather's exact free-tier and paid limits must be recalculated from official current pricing during implementation rather than frozen here.
+- OpenWeather's free-tier and paid limits were recalculated from official current pricing on 2026-08-29; see [ADR 0002's pricing and limits basis](adr/0002-real-weather-provider-chain.md#pricing-and-limits-basis-recalculated-2026-08-29-do-not-freeze) rather than this dated note.
 - Provider pricing, quotas, licences, model availability, and terms may change at any time.
 
 ## Approved visual identity

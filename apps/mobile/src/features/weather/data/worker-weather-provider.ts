@@ -79,7 +79,10 @@ export class WorkerWeatherProvider implements WeatherProvider {
       if (!response.ok) {
         const error = weatherV1ErrorSchema.safeParse(body);
         if (!error.success) throw new WorkerWeatherProviderError('invalid-response');
-        throw new WorkerWeatherProviderError('service', error.data.error.code);
+        const kind = response.status === 429 || error.data.error.code === 'rate_limited'
+          ? 'rate-limited'
+          : 'service';
+        throw new WorkerWeatherProviderError(kind, error.data.error.code);
       }
 
       const success = weatherV1SuccessSchema.safeParse(body);

@@ -76,6 +76,7 @@ export class DeterministicMockWeatherProvider implements WeatherProvider {
       timeZone: location.timeZone,
       fetchedAt,
       provenance: 'sample',
+      sourceId: 'sample',
       current: { ...current, observedAt: fetchedAt },
       minimumTemperatureCelsius: baseTemperature - 4,
       maximumTemperatureCelsius: baseTemperature + 4,
