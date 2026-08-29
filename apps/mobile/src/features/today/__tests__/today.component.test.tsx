@@ -10,8 +10,11 @@ import {
 import { OutfitDetailScreen } from '@/features/today/presentation/outfit-detail-screen';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { TodayScreen } from '@/features/today/presentation/today-screen';
-import { messages } from '@/localization/messages';
-import { lightTheme, spacing } from '@/theme/theme';
+import { CARD_BACKGROUND_ALPHA } from '@/features/today/presentation/weather-card';
+import { LocalizationContext } from '@/localization/localization-context';
+import { messages, type SupportedLanguage } from '@/localization/messages';
+import { withAlpha } from '@/theme/color-alpha';
+import { darkTheme, lightTheme, spacing, type KuyaraTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 jest.mock('expo-symbols', () => ({
@@ -23,11 +26,17 @@ const initialMetrics = {
   insets: { top: 59, right: 0, bottom: 34, left: 0 },
 };
 
-function providers(children: React.ReactNode) {
+function providers(
+  children: React.ReactNode,
+  theme: KuyaraTheme = lightTheme,
+  language: SupportedLanguage = 'en',
+) {
   return (
-    <KuyaraThemeContext.Provider value={lightTheme}>
-      <SafeAreaProvider initialMetrics={initialMetrics}>{children}</SafeAreaProvider>
-    </KuyaraThemeContext.Provider>
+    <LocalizationContext value={{ language, messages: messages[language] }}>
+      <KuyaraThemeContext.Provider value={theme}>
+        <SafeAreaProvider initialMetrics={initialMetrics}>{children}</SafeAreaProvider>
+      </KuyaraThemeContext.Provider>
+    </LocalizationContext>
   );
 }
 
@@ -150,7 +159,7 @@ test('outfit detail lists localized weather reasons alongside localized pieces',
     />,
   ));
 
-  expect(result.getByText(messages.en.today.reasonsHeading)).toBeOnTheScreen();
+  expect(result.getByText(eyebrow(messages.en.today.reasonsHeading, 'en'))).toBeOnTheScreen();
   for (const reason of presentation.suggestions[0].reasons) {
     expect(result.getByText(reason)).toBeOnTheScreen();
   }
@@ -210,4 +219,68 @@ test('loading Today keeps its existing feedback layout without the loaded header
 
   expect(result.getByTestId('today-loading-screen')).toBeOnTheScreen();
   expect(result.queryByTestId('today-stretchy-header')).not.toBeOnTheScreen();
+});
+
+function eyebrow(text: string, language: SupportedLanguage): string {
+  return text.toLocaleUpperCase(language === 'tr' ? 'tr-TR' : 'en-GB');
+}
+
+describe.each(['en', 'tr'] as const)('%s Today weather card', (language: SupportedLanguage) => {
+  test('uppercases eyebrow headings with the active language casing rules, not the device locale', async () => {
+    const result = await render(providers(
+      <TodayScreen
+        language={language}
+        onOpenOutfitDetail={() => undefined}
+        onOpenSettings={() => undefined}
+        state={todayScreenState}
+      />,
+      lightTheme,
+      language,
+    ));
+
+    expect(
+      result.getByText(eyebrow(messages[language].today.recommendedTodayHeading, language)),
+    ).toBeOnTheScreen();
+
+    if (language === 'tr') {
+      expect(result.getByText('BUGÜN İÇİN ÖNERİLEN')).toBeOnTheScreen();
+      expect(result.queryByText('BUGÜN IÇIN ÖNERILEN')).not.toBeOnTheScreen();
+    }
+  });
+
+  test.each([
+    ['light', lightTheme],
+    ['dark', darkTheme],
+  ] as const)('renders localized weather-card copy with the %s theme applied', async (_name, theme) => {
+    const result = await render(providers(
+      <TodayScreen
+        language={language}
+        onOpenOutfitDetail={() => undefined}
+        onOpenSettings={() => undefined}
+        state={todayScreenState}
+      />,
+      theme,
+      language,
+    ));
+
+    expect(
+      result.getByText(eyebrow(messages[language].today.rainOutlookHeading, language)),
+    ).toBeOnTheScreen();
+    expect(
+      result.getByText(eyebrow(messages[language].today.windLabel, language)),
+    ).toBeOnTheScreen();
+
+    const cardStyle = StyleSheet.flatten(result.getByTestId('today-weather-card').props.style);
+    expect(cardStyle.backgroundColor).toBe(
+      withAlpha(theme.colors.brandAccent, CARD_BACKGROUND_ALPHA),
+    );
+  });
+});
+
+test('light and dark themes resolve different weather-card semantic colors', () => {
+  expect(lightTheme.colors.brandAccent).not.toBe(darkTheme.colors.brandAccent);
+  expect(lightTheme.colors.background).not.toBe(darkTheme.colors.background);
+  expect(
+    withAlpha(lightTheme.colors.brandAccent, CARD_BACKGROUND_ALPHA),
+  ).not.toBe(withAlpha(darkTheme.colors.brandAccent, CARD_BACKGROUND_ALPHA));
 });

@@ -159,6 +159,20 @@ describe.each([
     });
   });
 
+  test('keeps every visible tab label on one line so the bar cannot grow at accessibility text sizes', async () => {
+    const result = await render(
+      <PrimaryTabBarHarness language={language} onNavigate={() => undefined} />,
+    );
+
+    for (const label of expectedLabels) {
+      const visibleLabel = result.getByText(label, { includeHiddenElements: true });
+
+      expect(visibleLabel.props.numberOfLines).toBe(1);
+      expect(visibleLabel.props.ellipsizeMode).toBe('tail');
+      expect(visibleLabel.props.allowFontScaling).not.toBe(false);
+    }
+  });
+
   test('emits Wardrobe and Settings navigation intents and updates selected state', async () => {
     const onNavigate = jest.fn();
     const result = await render(

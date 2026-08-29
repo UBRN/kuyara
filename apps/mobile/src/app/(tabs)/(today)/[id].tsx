@@ -48,7 +48,7 @@ export default function OutfitDetailRoute() {
 
   return (
     <OutfitDetailScreen
-      backLabel={`← ${messages.today.title}`}
+      backLabel={messages.today.backAction}
       language={language}
       onBack={() => router.back()}
       state={state}

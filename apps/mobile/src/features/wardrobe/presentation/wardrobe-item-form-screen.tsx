@@ -593,7 +593,6 @@ const styles = StyleSheet.create({
   content: {
     gap: spacing['2xl'],
     paddingBottom: spacing['2xl'],
-    paddingTop: spacing.lg,
   },
   header: {
     alignItems: 'center',

@@ -7,7 +7,7 @@ import { manualLocationCatalog } from '@/features/weather/data/manual-location-c
 import type { ActiveLocation, ManualLocationId } from '@/features/weather/domain/weather';
 import { WeatherCard } from '@/features/today/presentation/weather-card';
 import { useLocalization } from '@/localization/use-messages';
-import { borderWidths, layout, radii, spacing } from '@/theme/theme';
+import { borderWidths, interaction, layout, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 function temperature(value: number, language: 'en' | 'tr'): string {
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
-  pressed: { opacity: 0.72 },
+  pressed: { opacity: interaction.pressedOpacity },
   headingRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: spacing.md },
   hourRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.lg, paddingVertical: spacing.sm },
   hourDetails: { flex: 1, minWidth: 180, gap: spacing.xs },

@@ -1,8 +1,10 @@
-import { forwardRef } from 'react';
+import { forwardRef, use } from 'react';
 import { Platform, StyleSheet, Text, type TextProps, useWindowDimensions } from 'react-native';
 
 import { resolveAppTextStyle } from '@/components/ui/primitive-contracts';
+import { LocalizationContext } from '@/localization/localization-context';
 import {
+  typography,
   type SemanticColorRole,
   type TypographyRole,
 } from '@/theme/theme';
@@ -16,6 +18,7 @@ export type AppTextProps = TextProps & {
 export const AppText = forwardRef<Text, AppTextProps>(function AppText(
   {
     allowFontScaling = true,
+    children,
     colorRole = 'textPrimary',
     style,
     variant = 'body',
@@ -25,6 +28,7 @@ export const AppText = forwardRef<Text, AppTextProps>(function AppText(
 ) {
   const theme = useKuyaraTheme();
   const { fontScale } = useWindowDimensions();
+  const language = use(LocalizationContext)?.language ?? 'en';
   const fontFamily =
     variant === 'code' ? Platform.select({ ios: 'ui-monospace', default: 'monospace' }) : undefined;
 
@@ -38,10 +42,19 @@ export const AppText = forwardRef<Text, AppTextProps>(function AppText(
         { fontFamily },
         style,
       ]}
-      {...rest}
-    />
+      {...rest}>
+      {uppercasesContent(variant) && typeof children === 'string'
+        ? children.toLocaleUpperCase(language === 'tr' ? 'tr-TR' : 'en-GB')
+        : children}
+    </Text>
   );
 });
+
+function uppercasesContent(variant: TypographyRole): boolean {
+  const role = typography[variant];
+
+  return 'textTransform' in role && role.textTransform === 'uppercase';
+}
 
 const styles = StyleSheet.create({
   text: {

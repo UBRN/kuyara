@@ -97,6 +97,13 @@ function formatNumber(value: number, language: SupportedLanguage): string {
   }).format(value);
 }
 
+function formatPercent(ratio: number, language: SupportedLanguage): string {
+  return new Intl.NumberFormat(localeTag(language), {
+    style: 'percent',
+    maximumFractionDigits: 0,
+  }).format(ratio);
+}
+
 function formatDecimal(value: number, language: SupportedLanguage): string {
   return new Intl.NumberFormat(localeTag(language), {
     maximumFractionDigits: 1,
@@ -288,7 +295,7 @@ function createLoadedPresentation(
         formatTemperature(weather.maximumTemperatureCelsius, language),
       ),
       rainProbability: copy.rainProbability(
-        `${formatNumber(current.precipitationProbability * 100, language)}%`,
+        formatPercent(current.precipitationProbability, language),
       ),
       wind,
       humidity,
