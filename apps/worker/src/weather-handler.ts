@@ -7,8 +7,16 @@ import {
 
 import { InvalidProviderWeatherError, mapProviderWeatherToApi } from './weather/provider-weather-mapper.ts';
 import type { WeatherProvider } from './weather/weather-provider.ts';
+import { WeatherProviderError } from './weather/weather-provider-error.ts';
 
-type Dependencies = Readonly<{ provider: WeatherProvider }>;
+type RateLimiter = Readonly<{
+  limit(input: { key: string }): Promise<{ success: boolean }>;
+}>;
+
+type Dependencies = Readonly<{
+  provider: WeatherProvider;
+  rateLimiter: RateLimiter;
+}>;
 
 const jsonHeaders = {
   'Cache-Control': 'no-store',
@@ -36,6 +44,12 @@ export function createWeatherHandler(
     if (request.method !== 'POST') {
       return errorResponse(405, 'method_not_allowed', { Allow: 'POST' });
     }
+    const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
+    const { success } = await dependencies.rateLimiter?.limit({ key: `weather:${ip}` })
+      ?? { success: true };
+    if (!success) {
+      return errorResponse(429, 'rate_limited', { 'Retry-After': '60' });
+    }
     if (request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') {
       return errorResponse(400, 'invalid_request');
     }
@@ -53,7 +67,10 @@ export function createWeatherHandler(
     let providerSnapshot;
     try {
       providerSnapshot = await dependencies.provider.fetchWeather(requestResult.data);
-    } catch {
+    } catch (error) {
+      if (error instanceof WeatherProviderError) {
+        return errorResponse(503, 'weather_unavailable');
+      }
       return errorResponse(503, 'weather_unavailable');
     }
 

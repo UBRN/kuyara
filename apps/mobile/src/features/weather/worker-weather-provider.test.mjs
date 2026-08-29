@@ -23,7 +23,7 @@ const successBody = {
   data: {
     timeZone: location.timeZone,
     fetchedAt,
-    origin: { kind: 'sample' },
+    origin: { kind: 'sample', sourceId: 'sample' },
     current: { observedAt: fetchedAt, ...measurements },
     minimumTemperatureCelsius: 12,
     maximumTemperatureCelsius: 19,
@@ -61,10 +61,23 @@ test('posts only the shared location request and restores local identity while m
   assert.equal(snapshot.timeZone, location.timeZone);
   assert.deepEqual(snapshot.origin, {
     kind: 'sample',
-    sourceId: 'kuyara-worker-weather-v1',
+    sourceId: 'sample',
   });
   assert.deepEqual(snapshot.current, successBody.data.current);
   assert.deepEqual(snapshot.hourly, successBody.data.hourly);
+});
+
+test('carries through a live provider sourceId instead of hard-coding it', async () => {
+  const provider = new WorkerWeatherProvider({
+    baseUrl: 'http://127.0.0.1:8788',
+    fetch: async () => jsonResponse({
+      data: { ...successBody.data, origin: { kind: 'live', sourceId: 'open-meteo' } },
+    }),
+  });
+
+  const snapshot = await provider.fetchSnapshot(location);
+
+  assert.deepEqual(snapshot.origin, { kind: 'live', sourceId: 'open-meteo' });
 });
 
 test('classifies stable API errors as service failures before exposing their code', async () => {
@@ -78,6 +91,20 @@ test('classifies stable API errors as service failures before exposing their cod
     (error) => error instanceof WorkerWeatherProviderError
       && error.kind === 'service'
       && error.code === 'weather_unavailable',
+  );
+});
+
+test('classifies a rate_limited response as a distinct rate-limited failure kind', async () => {
+  const provider = new WorkerWeatherProvider({
+    baseUrl: 'http://127.0.0.1:8788',
+    fetch: async () => jsonResponse({ error: { code: 'rate_limited' } }, { status: 429 }),
+  });
+
+  await assert.rejects(
+    () => provider.fetchSnapshot(location),
+    (error) => error instanceof WorkerWeatherProviderError
+      && error.kind === 'rate-limited'
+      && error.code === 'rate_limited',
   );
 });
 

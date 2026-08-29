@@ -184,6 +184,7 @@ export function TodayScreen({
             { label: presentation.copy.uvIndexLabel, value: presentation.weather.uvIndex },
           ]}
           temperature={presentation.weather.temperature}
+          sourceId={state.kind === 'loaded' ? state.snapshot.weather.origin.sourceId : undefined}
           testID="today-weather-card"
         />
 

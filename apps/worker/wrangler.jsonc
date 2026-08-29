@@ -3,26 +3,20 @@
   "name": "kuyara-worker",
   "main": "src/index.ts",
   "compatibility_date": "2026-07-29",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": false },
   "ai": { "binding": "AI" },
   "kv_namespaces": [
     { "binding": "PROBE_COUNTER", "id": "0000000000000000000000000000abcd" }
   ],
   "ratelimits": [
     { "name": "AI_PROBE_RATE_LIMIT", "namespace_id": "1001", "simple": { "limit": 3, "period": 60 } },
-    { "name": "AI_RECOMMEND_RATE_LIMIT", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } }
+    { "name": "AI_RECOMMEND_RATE_LIMIT", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
+    { "name": "WEATHER_RATE_LIMIT", "namespace_id": "1003", "simple": { "limit": 20, "period": 60 } }
   ],
   "vars": {
     "OPENROUTER_MODELS": ["openai/gpt-oss-20b:free", "z-ai/glm-5.2:free", "google/gemma-4-26b-a4b-it:free"],
     "WORKERS_AI_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
-  },
-  "env": {
-    "development": {
-      "name": "kuyara-weather-dev",
-      "workers_dev": true,
-      "preview_urls": false,
-      "observability": {
-        "enabled": false
-      }
-    }
   }
 }

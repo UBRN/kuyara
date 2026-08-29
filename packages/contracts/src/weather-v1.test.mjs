@@ -24,7 +24,7 @@ function validSuccess() {
     data: {
       timeZone: 'Europe/Istanbul',
       fetchedAt: '2026-08-01T09:30:00.000Z',
-      origin: { kind: 'sample' },
+      origin: { kind: 'sample', sourceId: 'sample' },
       current: { ...measurements, observedAt: '2026-08-01T09:30:00.000Z' },
       minimumTemperatureCelsius: 12,
       maximumTemperatureCelsius: 19,
@@ -67,6 +67,30 @@ test('rejects fractional, out-of-range, unknown, and invalid-time-zone request d
 
 test('accepts a provider-neutral success payload with sample provenance', () => {
   assert.equal(weatherV1SuccessSchema.safeParse(validSuccess()).success, true);
+});
+
+test('accepts a live payload sourced from open-meteo', () => {
+  const value = validSuccess();
+  value.data.origin = { kind: 'live', sourceId: 'open-meteo' };
+  assert.equal(weatherV1SuccessSchema.safeParse(value).success, true);
+});
+
+test('rejects a sample kind sourced from a live provider', () => {
+  const value = validSuccess();
+  value.data.origin = { kind: 'sample', sourceId: 'open-meteo' };
+  assert.equal(weatherV1SuccessSchema.safeParse(value).success, false);
+});
+
+test('rejects a live kind sourced from the sample provider', () => {
+  const value = validSuccess();
+  value.data.origin = { kind: 'live', sourceId: 'sample' };
+  assert.equal(weatherV1SuccessSchema.safeParse(value).success, false);
+});
+
+test('rejects an unknown source id', () => {
+  const value = validSuccess();
+  value.data.origin = { kind: 'live', sourceId: 'weatherapi' };
+  assert.equal(weatherV1SuccessSchema.safeParse(value).success, false);
 });
 
 test('rejects invalid measurement and timestamp values', () => {
@@ -123,4 +147,11 @@ test('accepts every stable minimal error code and rejects extra detail', () => {
   assert.equal(weatherV1ErrorSchema.safeParse({
     error: { code: 'internal_error', stack: 'private' },
   }).success, false);
+});
+
+test('includes rate_limited among the stable error codes', () => {
+  assert.ok(weatherV1ErrorCodes.includes('rate_limited'));
+  assert.equal(weatherV1ErrorSchema.safeParse({
+    error: { code: 'rate_limited' },
+  }).success, true);
 });

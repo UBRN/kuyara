@@ -20,7 +20,7 @@ export function mapProviderWeatherToApi(
       data: {
         timeZone: snapshot.timeZone,
         fetchedAt: snapshot.fetchedAt,
-        origin: { kind: snapshot.provenance },
+        origin: { kind: snapshot.provenance, sourceId: snapshot.sourceId },
         current: snapshot.current,
         minimumTemperatureCelsius: snapshot.minimumTemperatureCelsius,
         maximumTemperatureCelsius: snapshot.maximumTemperatureCelsius,

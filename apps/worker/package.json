@@ -10,7 +10,8 @@
     "bundle": "wrangler deploy --dry-run --outdir dist"
   },
   "dependencies": {
-    "@kuyara/contracts": "workspace:*"
+    "@kuyara/contracts": "workspace:*",
+    "zod": "3.25.76"
   },
   "devDependencies": {
     "typescript": "~6.0.3",

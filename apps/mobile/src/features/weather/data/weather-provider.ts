@@ -18,6 +18,7 @@ export type ProvidedWeatherSnapshot = Readonly<{
 export type WeatherProviderFailureKind =
   | 'network'
   | 'service'
+  | 'rate-limited'
   | 'invalid-response';
 
 export class WeatherProviderError extends Error {

@@ -1,4 +1,4 @@
-import type { WeatherConditionCode } from '@kuyara/contracts';
+import type { WeatherConditionCode, WeatherSourceId } from '@kuyara/contracts';
 
 export type ProviderLocation = Readonly<{
   latitudeE2: number;
@@ -20,6 +20,7 @@ export type ProviderWeatherSnapshot = Readonly<{
   timeZone: string;
   fetchedAt: string;
   provenance: 'sample' | 'live';
+  sourceId: WeatherSourceId;
   current: ProviderWeatherMeasurements & Readonly<{ observedAt: string }>;
   minimumTemperatureCelsius: number;
   maximumTemperatureCelsius: number;
@@ -27,5 +28,5 @@ export type ProviderWeatherSnapshot = Readonly<{
 }>;
 
 export interface WeatherProvider {
-  fetchWeather(location: ProviderLocation): Promise<ProviderWeatherSnapshot>;
+  fetchWeather(location: ProviderLocation, signal?: AbortSignal): Promise<ProviderWeatherSnapshot>;
 }

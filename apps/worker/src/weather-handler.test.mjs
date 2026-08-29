@@ -5,6 +5,7 @@ import { weatherV1ErrorSchema, weatherV1SuccessSchema } from '@kuyara/contracts'
 
 import { createWeatherHandler } from './weather-handler.ts';
 import { DeterministicMockWeatherProvider } from './weather/mock-weather-provider.ts';
+import { WeatherProviderError } from './weather/weather-provider-error.ts';
 
 const fixedNow = '2026-08-01T09:30:00.000Z';
 const validBody = {
@@ -12,6 +13,7 @@ const validBody = {
   longitudeE2: 2898,
   timeZone: 'Europe/Istanbul',
 };
+const permissiveRateLimiter = { limit: async () => ({ success: true }) };
 
 function request(path = '/v1/weather', options = {}) {
   return new Request(`http://localhost${path}`, {
@@ -25,6 +27,7 @@ function request(path = '/v1/weather', options = {}) {
 function mockHandler() {
   return createWeatherHandler({
     provider: new DeterministicMockWeatherProvider({ now: () => fixedNow }),
+    rateLimiter: permissiveRateLimiter,
   });
 }
 
@@ -80,6 +83,7 @@ test('maps wrong methods and routes to stable errors', async () => {
 test('maps provider failures to weather_unavailable without leaking failure detail', async () => {
   const handler = createWeatherHandler({
     provider: { fetchWeather: async () => { throw new Error('secret provider detail'); } },
+    rateLimiter: permissiveRateLimiter,
   });
   const response = await handler(request());
   await assertError(response, 503, 'weather_unavailable');
@@ -87,11 +91,13 @@ test('maps provider failures to weather_unavailable without leaking failure deta
 
 test('validates provider output before returning it', async () => {
   const handler = createWeatherHandler({
+    rateLimiter: permissiveRateLimiter,
     provider: {
       fetchWeather: async () => ({
         timeZone: 'Europe/Istanbul',
         fetchedAt: fixedNow,
         provenance: 'sample',
+        sourceId: 'sample',
         current: {
           observedAt: fixedNow,
           temperatureCelsius: 16,
@@ -112,6 +118,54 @@ test('validates provider output before returning it', async () => {
 
   const malformedHandler = createWeatherHandler({
     provider: { fetchWeather: async () => null },
+    rateLimiter: permissiveRateLimiter,
   });
   await assertError(await malformedHandler(request()), 503, 'weather_unavailable');
+});
+
+test('returns rate_limited with Retry-After when the limiter denies the request', async () => {
+  let providerCalls = 0;
+  const handler = createWeatherHandler({
+    provider: { fetchWeather: async () => { providerCalls += 1; return null; } },
+    rateLimiter: { limit: async ({ key }) => {
+      assert.equal(key, 'weather:203.0.113.7');
+      return { success: false };
+    } },
+  });
+  const response = await handler(request('/v1/weather', {
+    headers: {
+      'cf-connecting-ip': '203.0.113.7',
+      'content-type': 'application/json',
+    },
+  }));
+
+  assert.equal(response.headers.get('retry-after'), '60');
+  await assertError(response, 429, 'rate_limited');
+  assert.equal(providerCalls, 0);
+});
+
+test('checks the rate limit before parsing a malformed body', async () => {
+  const handler = createWeatherHandler({
+    provider: { fetchWeather: async () => null },
+    rateLimiter: { limit: async () => ({ success: false }) },
+  });
+
+  await assertError(
+    await handler(request('/v1/weather', { body: '{' })),
+    429,
+    'rate_limited',
+  );
+});
+
+test('maps WeatherProviderError to sanitized weather_unavailable', async () => {
+  const handler = createWeatherHandler({
+    provider: { fetchWeather: async () => { throw new WeatherProviderError('auth'); } },
+    rateLimiter: permissiveRateLimiter,
+  });
+  const response = await handler(request());
+  const body = await response.json();
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(body, { error: { code: 'weather_unavailable' } });
+  assert.equal(JSON.stringify(body).includes('auth'), false);
 });
