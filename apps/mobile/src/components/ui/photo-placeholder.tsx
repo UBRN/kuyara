@@ -15,6 +15,7 @@ export type PhotoPlaceholderProps = Readonly<{
 const STRIPE_WIDTH = 6;
 const STRIPE_GAP = 10;
 const STRIPE_SPAN_PADDING = 120;
+const MINIMUM_LABEL_HEIGHT = 96;
 
 function buildStripeOffsets(spanWidth: number): readonly number[] {
   const offsets: number[] = [];
@@ -67,9 +68,11 @@ export function PhotoPlaceholder({
           />
         ))}
       </View>
-      <AppText colorRole="textSecondary" variant="code">
-        {label}
-      </AppText>
+      {height >= MINIMUM_LABEL_HEIGHT ? (
+        <AppText colorRole="textSecondary" variant="code">
+          {label}
+        </AppText>
+      ) : null}
     </View>
   );
 }

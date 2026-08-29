@@ -33,6 +33,8 @@ type WeatherCardProps = Readonly<{
 
 const RAIN_BAR_MAX_HEIGHT = 34;
 const RAIN_BAR_SIGNIFICANT_THRESHOLD = 40;
+export const RAIN_BAR_MUTED_ALPHA = 0.7;
+export const CARD_BACKGROUND_ALPHA = 0.08;
 
 export function WeatherCard({
   condition,
@@ -50,11 +52,11 @@ export function WeatherCard({
   const { fontScale } = useWindowDimensions();
   const usesStackedLayout = fontScale > 1.5;
   const significantBarColor = theme.colors.brandAccent;
-  const mutedBarColor = withAlpha(theme.colors.brandAccent, 0.3);
+  const mutedBarColor = withAlpha(theme.colors.brandAccent, RAIN_BAR_MUTED_ALPHA);
 
   return (
     <View
-      style={[styles.card, { backgroundColor: withAlpha(theme.colors.brandAccent, 0.08) }]}
+      style={[styles.card, { backgroundColor: withAlpha(theme.colors.brandAccent, CARD_BACKGROUND_ALPHA) }]}
       testID={testID}>
       <View
         accessible
@@ -66,7 +68,7 @@ export function WeatherCard({
           <WeatherGlyph />
         </View>
         <View style={styles.conditionGroup}>
-          <AppText style={styles.conditionText} variant="bodyStrong">
+          <AppText variant="label">
             {`${temperature} · ${condition}`}
           </AppText>
           <AppText colorRole="brandAccent" style={styles.feelsText} variant="caption">
@@ -84,7 +86,7 @@ export function WeatherCard({
             <AppText colorRole="textSecondary" variant="eyebrow">
               {stat.label}
             </AppText>
-            <AppText style={styles.statValue} variant="bodyStrong">
+            <AppText variant="label">
               {stat.value}
             </AppText>
           </View>
@@ -154,10 +156,6 @@ const styles = StyleSheet.create({
     flex: 1,
     flexShrink: 1,
   },
-  conditionText: {
-    fontSize: 14,
-    lineHeight: 18,
-  },
   feelsText: {
     marginTop: spacing.xs,
   },
@@ -171,10 +169,6 @@ const styles = StyleSheet.create({
   },
   stat: {
     gap: spacing.xs,
-  },
-  statValue: {
-    fontSize: 13,
-    lineHeight: 17,
   },
   timeline: {
     borderTopWidth: StyleSheet.hairlineWidth,

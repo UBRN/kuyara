@@ -336,6 +336,33 @@ function CreateForm({
   );
 }
 
+test('create and edit forms apply the top safe-area inset instead of a fixed offset', async () => {
+  const createResult = await render(<CreateForm />);
+  const createContentStyle = StyleSheet.flatten(
+    createResult.getByTestId('wardrobe-create-form').props.contentContainerStyle,
+  );
+  expect(createContentStyle.paddingTop).toBe(initialMetrics.insets.top);
+
+  const editResult = await render(
+    <TestProviders>
+      <WardrobeItemFormScreen
+        garmentTypes={formTypes}
+        isBusy={false}
+        item={item}
+        mode="edit"
+        onBackRequested={() => undefined}
+        onCreate={async () => undefined}
+        onDirtyChange={() => undefined}
+        onUpdate={async () => undefined}
+      />
+    </TestProviders>,
+  );
+  const editContentStyle = StyleSheet.flatten(
+    editResult.getByTestId('wardrobe-edit-form').props.contentContainerStyle,
+  );
+  expect(editContentStyle.paddingTop).toBe(initialMetrics.insets.top);
+});
+
 test('create form uses catalog options, reports required validation, and has no delete action', async () => {
   const onCreate = jest.fn(async () => undefined);
   const result = await render(<CreateForm onCreate={onCreate} />);

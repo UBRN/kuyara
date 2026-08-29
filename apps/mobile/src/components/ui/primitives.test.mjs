@@ -139,6 +139,13 @@ test('PhotoPlaceholder derives its stripe tint from the theme accent, not a hard
   assert.doesNotMatch(photoPlaceholderSource, /#[0-9a-fA-F]{6}/);
 });
 
+test('PhotoPlaceholder only renders its label when the box is tall enough to fit it', async () => {
+  const photoPlaceholderSource = await source('./photo-placeholder.tsx');
+
+  assert.match(photoPlaceholderSource, /height >= MINIMUM_LABEL_HEIGHT/);
+  assert.match(photoPlaceholderSource, /MINIMUM_LABEL_HEIGHT\s*=\s*96/);
+});
+
 test('SectionHeader reflows large text and exposes heading semantics', async () => {
   const sectionHeaderSource = await source('./section-header.tsx');
 

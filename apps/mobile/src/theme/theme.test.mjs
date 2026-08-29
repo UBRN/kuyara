@@ -141,3 +141,127 @@ test('feature source does not hardcode approved primitive colors or disable font
     }
   }
 });
+
+test('feature source keeps typography on theme roles instead of literal fontSize/lineHeight styles', async () => {
+  const sourceRoot = new URL('../features/', import.meta.url);
+  const entries = await readdir(sourceRoot, { recursive: true, withFileTypes: true });
+  const sourceFiles = entries.filter(
+    (entry) =>
+      entry.isFile() &&
+      /\.(ts|tsx)$/.test(entry.name) &&
+      !entry.parentPath.replaceAll('\\', '/').includes('/components/ui'),
+  );
+
+  for (const entry of sourceFiles) {
+    const source = await readFile(`${entry.parentPath}/${entry.name}`, 'utf8');
+
+    assert.equal(
+      /\b(fontSize|lineHeight)\s*:\s*-?\d/.test(source),
+      false,
+      `${entry.parentPath}/${entry.name} declares a literal fontSize/lineHeight; use a theme typography role instead`,
+    );
+  }
+});
+
+// --- WCAG 1.4.3 / 1.4.11 contrast evidence -------------------------------
+
+function hexToRgb(hex) {
+  const match = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!match) {
+    throw new Error(`Expected a 6-digit hex color, received: ${hex}`);
+  }
+  const value = match[1];
+  return {
+    r: Number.parseInt(value.slice(0, 2), 16),
+    g: Number.parseInt(value.slice(2, 4), 16),
+    b: Number.parseInt(value.slice(4, 6), 16),
+  };
+}
+
+function compositeOver(foregroundHex, alpha, background) {
+  const fg = hexToRgb(foregroundHex);
+  const bg = typeof background === 'string' ? hexToRgb(background) : background;
+  const blend = (fgChannel, bgChannel) =>
+    Math.round(fgChannel * alpha + bgChannel * (1 - alpha));
+
+  return {
+    r: blend(fg.r, bg.r),
+    g: blend(fg.g, bg.g),
+    b: blend(fg.b, bg.b),
+  };
+}
+
+function relativeLuminance(rgb) {
+  const linearize = (channel) => {
+    const value = channel / 255;
+    return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  };
+
+  const r = linearize(rgb.r);
+  const g = linearize(rgb.g);
+  const b = linearize(rgb.b);
+
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrastRatio(rgbA, rgbB) {
+  const luminanceA = relativeLuminance(rgbA);
+  const luminanceB = relativeLuminance(rgbB);
+  const lighter = Math.max(luminanceA, luminanceB);
+  const darker = Math.min(luminanceA, luminanceB);
+
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function contrastOfHexOverBackground(foregroundHex, backgroundHex) {
+  return contrastRatio(hexToRgb(foregroundHex), hexToRgb(backgroundHex));
+}
+
+const CARD_BACKGROUND_ALPHA = 0.08;
+const PHOTO_PLACEHOLDER_BACKGROUND_ALPHA = 0.05;
+const RAIN_BAR_MUTED_ALPHA = 0.7;
+
+test('weather-card and photo-placeholder tinted surfaces meet WCAG contrast thresholds', () => {
+  for (const semanticColors of [lightSemanticColors, darkSemanticColors]) {
+    const cardBackground = compositeOver(
+      semanticColors.brandAccent,
+      CARD_BACKGROUND_ALPHA,
+      semanticColors.background,
+    );
+    const photoPlaceholderBackground = compositeOver(
+      semanticColors.brandAccent,
+      PHOTO_PLACEHOLDER_BACKGROUND_ALPHA,
+      semanticColors.surface,
+    );
+    const mutedRainBar = compositeOver(
+      semanticColors.brandAccent,
+      RAIN_BAR_MUTED_ALPHA,
+      cardBackground,
+    );
+
+    assert.ok(
+      contrastRatio(hexToRgb(semanticColors.textPrimary), cardBackground) >= 4.5,
+      'textPrimary on card background must meet 4.5:1',
+    );
+    assert.ok(
+      contrastRatio(hexToRgb(semanticColors.textSecondary), cardBackground) >= 4.5,
+      'textSecondary on card background must meet 4.5:1',
+    );
+    assert.ok(
+      contrastRatio(hexToRgb(semanticColors.brandAccent), cardBackground) >= 4.5,
+      'brandAccent text on card background must meet 4.5:1',
+    );
+    assert.ok(
+      contrastOfHexOverBackground(semanticColors.textOnBrand, semanticColors.brandAccent) >= 4.5,
+      'textOnBrand on brandAccent (accent-filled Pill) must meet 4.5:1',
+    );
+    assert.ok(
+      contrastRatio(hexToRgb(semanticColors.textSecondary), photoPlaceholderBackground) >= 4.5,
+      'textSecondary on photo-placeholder background must meet 4.5:1',
+    );
+    assert.ok(
+      contrastRatio(mutedRainBar, cardBackground) >= 3.0,
+      'muted rain bar on card background must meet the 3.0:1 non-text contrast minimum',
+    );
+  }
+});

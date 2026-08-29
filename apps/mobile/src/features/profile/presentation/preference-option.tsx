@@ -98,6 +98,6 @@ const styles = StyleSheet.create({
     opacity: interaction.pressedOpacity,
   },
   disabled: {
-    opacity: 0.48,
+    opacity: interaction.disabledOpacity,
   },
 });

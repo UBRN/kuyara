@@ -20,6 +20,7 @@ export type TodayMessages = Readonly<{
   generationModeAiAssisted: string;
   generationModeStandard: string;
   generationModeAccessibilityLabel: (label: string) => string;
+  backAction: string;
   recommendedTodayHeading: string;
   otherOptionsHeading: string;
   piecesHeading: string;
@@ -525,6 +526,7 @@ const en = {
     generationModeStandard: 'Standard recommendation',
     generationModeAccessibilityLabel: (label: string) =>
       `Recommendation source: ${label}`,
+    backAction: 'Back to Today',
     recommendedTodayHeading: 'Recommended today',
     otherOptionsHeading: 'Other options',
     piecesHeading: 'Wear',
@@ -846,6 +848,7 @@ const tr = {
     generationModeStandard: 'Standart öneri',
     generationModeAccessibilityLabel: (label: string) =>
       `Öneri kaynağı: ${label}`,
+    backAction: 'Bugün’e dön',
     recommendedTodayHeading: 'Bugün için önerilen',
     otherOptionsHeading: 'Diğer seçenekler',
     piecesHeading: 'Parçalar',
