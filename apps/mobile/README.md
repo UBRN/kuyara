@@ -25,9 +25,9 @@ Worker origins are intentionally distinct:
 | --- | --- | --- |
 | iOS Simulator and web | `http://127.0.0.1:8788` | Built-in development default |
 | Android emulator | `http://10.0.2.2:8788` | Built-in development default |
-| Remote development sample | `https://kuyara-weather-dev.ubarin08.workers.dev` | Set `EXPO_PUBLIC_KUYARA_WORKER_BASE_URL` explicitly |
+| Deployed Worker | `https://kuyara-worker.ubarin08.workers.dev` | Set `EXPO_PUBLIC_KUYARA_WORKER_BASE_URL` explicitly |
 
-The remote URL is the deployed deterministic sample Worker for development verification only. It is not production mobile configuration. [`apps/mobile/.env.example`](.env.example) records the optional value without enabling it; leave the variable unset to keep the platform-specific local defaults. A physical device can instead use the Mac's LAN origin, such as `http://192.168.1.10:8788`, by setting the same variable before starting Expo. Non-development builds require this variable to contain an HTTPS origin, but must not use the sample Worker.
+The remote URL is the deployed Worker, which serves real weather through the Open-Meteo/OpenWeather chain and hosts the AI route. It is rate-limited per IP but unauthenticated, so use it deliberately rather than by default. [`apps/mobile/.env.example`](.env.example) records the optional value without enabling it; leave the variable unset to keep the platform-specific local defaults, which expect `wrangler dev` on port 8788. A physical device can instead use the Mac's LAN origin, such as `http://192.168.1.10:8788`, by setting the same variable before starting Expo. Non-development builds require this variable to contain an HTTPS origin. The earlier `kuyara-weather-dev` sample Worker was deleted on 2026-08-29.
 
 Test and verification commands are documented in [`docs/testing.md`](../../docs/testing.md).
 
