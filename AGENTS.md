@@ -5,18 +5,17 @@
 kuyara is an open-source weather and outfit recommendation app built with React Native, TypeScript, and Expo for iOS and Android.
 
 - Optimize the first release for iOS, but keep Android buildable and avoid iOS-only assumptions in shared code.
-- Keep the MVP small: no account, cross-device sync, behavioral analytics, or notifications.
+- Keep the MVP small: no account, cross-device sync, or behavioral analytics. Notifications are limited to on-device local weather alerts with no server-sent push; see [ADR 0004](docs/adr/0004-notifications-in-the-mvp.md).
 - kuyara is free and ad-free, with no subscription and no in-app purchase. Paid provider usage runs on a small maintainer-funded budget and must have explicit hard or safely derived limits; automatic top-up and uncontrolled pay-as-you-go overage are not allowed.
 - Treat confirmed product decisions in `docs/` as authoritative. Do not silently change them.
 - Separate current MVP work from future possibilities. Do not implement speculative infrastructure.
 
-## Temporary project constraint
+## Apple Developer Program
 
-- Apple Developer enrollment is pending as of 2026-08-01. Until the user explicitly lifts this constraint, do not initiate production WeatherKit integration or credentials, TestFlight, App Store Connect or production release operations, or other work requiring active Apple Developer Program membership.
-- This does not cancel WeatherKit or the iOS release direction. Continue Apple-independent implementation, tests, Simulator work, and release preparation, and keep weather provider-independent.
-- The provider abstraction remains required, and WeatherKit work resumes only after membership is available and the user removes this constraint.
-- Real Apple-independent weather providers may be implemented. The deterministic sample provider is a development and test source only; it is never a production fallback.
-- The earlier sample-only rule was revoked on 2026-08-13; this did not change the membership-dependent pause above.
+- Apple Developer Program membership became active on 2026-08-29; the earlier enrollment-pending pause is lifted. WeatherKit integration and credentials, EAS Build, iOS signing credentials, and TestFlight are now permitted work.
+- Being unblocked is not pre-authorization. App Store Connect submission, TestFlight distribution, deploys, and other production release operations still require an explicit user request per the Working rules.
+- The Worker provider abstraction remains required. WeatherKit is inserted at the head of the established provider chain, not a replacement for it, and mobile keeps depending on the provider-neutral contract.
+- Real Apple-independent weather providers may be implemented. The deterministic sample provider is a development and test source only; it is never a production fallback. (The earlier sample-only rule was revoked on 2026-08-13.)
 
 ## Working rules
 
@@ -87,7 +86,7 @@ The repository may be in transition. Inspect the real tree before assuming this 
 ## Weather and recommendation behavior
 
 - Reach every weather provider only through the Worker. The provider chain is a Worker composition concern; mobile depends on the provider-neutral contract.
-- Apple WeatherKit remains the intended first provider once Developer Program membership is available. Until then, real Apple-independent providers serve production.
+- Apple WeatherKit is the intended first provider and is now implementable (membership active since 2026-08-29). Until it is integrated, the real Apple-independent providers serve production.
 - Give each upstream provider an isolated adapter with raw-response runtime validation, explicit unit and condition mapping, timeout handling, and sanitized errors before it produces the provider-neutral model.
 - Fall back to the next provider only for eligible failures: availability, timeout, quota or rate limit, authentication or configuration, upstream failure, or invalid response. Never fall back because valid conditions are undesirable or differ between providers.
 - Bound the maximum attempts per request and prevent retry or fallback loops.

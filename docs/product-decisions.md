@@ -5,16 +5,16 @@
 - kuyara is an open-source weather and outfit recommendation app for iOS and Android.
 - The first release is optimized for iOS while shared code remains Android-compatible.
 - Turkish and English are supported from the beginning. The device language and system theme are the defaults, with language and theme overrides available in Settings.
-- The MVP has no account, cross-device sync, behavioral analytics, or notifications.
+- The MVP has no account, cross-device sync, or behavioral analytics. Notifications are limited to on-device local weather alerts with no server-sent push; see [Approved notifications scope](#approved-notifications-scope) and [ADR 0004](adr/0004-notifications-in-the-mvp.md).
 - kuyara is free and ad-free, with no subscription and no in-app purchase. Paid provider usage is maintainer-funded and bounded.
 - Expo SQLite is the durable source of truth for user-created local data. Remote sync may complement, but must not replace, the local store in a future release.
 - Weather providers are accessed only through the Worker behind a provider-neutral contract. Weather constraints are deterministic; AI generates exactly three complete outfits from a closed candidate set and must have a device-local deterministic fallback.
 - Wardrobe photos are optional, remain on-device in the MVP, and are not sent to AI.
 - “Women's clothing” and “Men's clothing” are mutable clothing preferences, not biological-sex fields.
 
-## Temporary Apple constraint
+## Apple Developer Program
 
-The current membership pause, its scope, and the 2026-08-13 revocation of the earlier sample-only rule are canonical in the [`AGENTS.md` temporary project constraint](../AGENTS.md#temporary-project-constraint).
+Membership became active on 2026-08-29 and the earlier enrollment-pending pause is lifted. WeatherKit, EAS Build, iOS signing credentials, and TestFlight are permitted; production release operations still need an explicit user request. Scope, and the 2026-08-13 revocation of the earlier sample-only rule, are canonical in [`AGENTS.md`](../AGENTS.md#apple-developer-program).
 
 ## Current scaffold
 
@@ -285,6 +285,18 @@ Approved 2026-08-13. Implemented for milestone 3. Mobile persists one recommenda
 - The recommendation result must record a coarse generation mode: AI-assisted or deterministic fallback.
 - Today shows a small accessible localized "AI-assisted" or "Standard recommendation" indicator, and Settings includes an accessible localized "Check AI status" action with a manual active probe (both landed in milestone 4). Provider names and technical failures are not exposed to normal users.
 
+## Approved notifications scope
+
+Approved 2026-08-29. Not implemented. Design and rejected alternative are canonical in [ADR 0004](adr/0004-notifications-in-the-mvp.md); the decisions below stay recorded here.
+
+- Notifications exist to warn the user about upcoming weather that changes what they need to wear.
+- The MVP ships **on-device local weather alerts only**. No push token, no APNs registration, no Worker endpoint, and no server-side device, token, or location store. No new identifier is created or stored, and the AI input privacy boundary and the "no coordinates persisted or logged" rule are untouched.
+- Delivered in three milestones:
+  - **N1, mobile notification foundation.** The `expo-notifications` config plugin; an OS permission flow surfaced in Settings; a `notifications_opt_in` preference on `local_profiles` (schema version 6), following the existing language and theme preference pattern; a notification-response deep-link observer in the root layout; and a development-only test-notification action. `expo-notifications` is imported only in one adapter behind a feature application controller. No weather logic, no background task, no push token. All user-visible strings come from localization keys.
+  - **N2, local weather alerts.** A deterministic alert-rule module over the existing weather snapshot and hourly data, in the style of the deterministic recommendation engine. On every app open, deterministically reschedule local notifications for upcoming threshold crossings in the fresh forecast; additionally attempt a best-effort `expo-background-task` refresh when iOS grants it. The background task is a staleness reducer, not a guarantee that a change is caught, and it stops if the user swipes the app away. Plus repeat suppression and quiet hours. Alert thresholds are an N2 design question. Still no server.
+  - **N3, server-sent push. Deferred, not scheduled.** Reconsidered only if N2 proves insufficient in real use, and only with its own ADR covering the server-owned subscription store, the persisted-coordinate privacy posture, delivery, and hard spend controls.
+- Alert timeliness is bounded by how often the user opens the app plus what iOS grants `BGTaskScheduler`. This is an accepted limitation and the reason N3 stays on the table.
+
 ## Dated operating assumptions
 
 Recorded 2026-08-13. These are time-sensitive operating assumptions, not permanent architectural guarantees. Reverify each against official sources before implementation.
@@ -305,3 +317,4 @@ Approved 2026-07-29.
 
 - A remote sync adapter may later be implemented with either Supabase or Firebase, but not both in production.
 - Accounts, cross-device sync, an outbox, and conflict resolution require separate product and architecture decisions.
+- Server-sent push notifications (N3 in [Approved notifications scope](#approved-notifications-scope)) are deferred and would need their own ADR; the MVP ships on-device local weather alerts only.
