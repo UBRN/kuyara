@@ -251,9 +251,10 @@ recalculated provider pricing that set the probe limits, are canonical in
   `env.development` was removed precisely because Cloudflare does not inherit
   top-level bindings into named environments. Deploying the AI route and probe
   is therefore a plain `wrangler deploy` with no `--env`, targeting
-  `kuyara-worker`, and still requires creating the `PROBE_COUNTER` KV namespace
-  and substituting its real id for the placeholder, and setting
-  `OPENROUTER_API_KEY` as a secret on that Worker.
+  `kuyara-worker`. **Done on 2026-08-29:** the `PROBE_COUNTER` KV namespace was
+  created and its real id substituted for the placeholder, `OPENROUTER_API_KEY`
+  and `OPENWEATHER_API_KEY` were set as secrets on `kuyara-worker`, and the
+  Worker was deployed with every binding attached.
 
 ## Approved AI input privacy boundary
 

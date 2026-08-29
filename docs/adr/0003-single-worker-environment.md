@@ -51,8 +51,9 @@ name and nothing else.
   `EXPO_PUBLIC_KUYARA_WORKER_BASE_URL`, so only that value changes.
 - `OPENWEATHER_API_KEY` is already on `kuyara-worker`, so the secret and the
   deploy target now agree. Secrets no longer need an `--env` qualifier.
-- The `PROBE_COUNTER` KV namespace id in `wrangler.jsonc` is still a placeholder
-  and must be provisioned before a real deploy. Unchanged by this ADR.
+- The `PROBE_COUNTER` KV namespace was provisioned on 2026-08-29 and its real id
+  replaced the placeholder, which was the last deploy blocker. `kuyara-worker`
+  was deployed the same day with all bindings and both provider secrets.
 - When a real production environment is needed, it gets its own ADR and, if it is
   a named environment, a complete binding block written knowing this trap.
 
