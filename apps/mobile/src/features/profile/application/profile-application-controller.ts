@@ -67,6 +67,10 @@ export class ProfileApplicationController {
     return this.updateProfile((repository) => repository.updateThemePreference(preference));
   }
 
+  updateNotificationsOptIn(optIn: boolean): Promise<void> {
+    return this.updateProfile((repository) => repository.updateNotificationsOptIn(optIn));
+  }
+
   private async initializeOnce(): Promise<void> {
     try {
       const repository = await this.loadRepository();

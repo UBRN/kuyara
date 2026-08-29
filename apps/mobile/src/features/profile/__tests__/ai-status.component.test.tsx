@@ -139,12 +139,18 @@ test('Settings screen includes the AI status section', async () => {
       isSaving={false}
       lastGenerationMode="deterministic-fallback"
       onCheckAiStatus={() => undefined}
+      isNotificationBusy={false}
+      notificationPermission={{ kind: 'undetermined' }}
+      onOpenNotificationSettings={() => undefined}
+      onSendTestNotification={async () => true}
+      onToggleNotifications={async () => undefined}
       profile={{
         id: 'profile-id',
         clothingPreference: 'womens',
         languagePreference: 'en',
         themePreference: 'light',
         onboardingCompleted: true,
+        notificationsOptIn: false,
         createdAt: checkedAt,
         updatedAt: checkedAt,
       }}

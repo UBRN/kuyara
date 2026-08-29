@@ -20,6 +20,7 @@ type LocalProfileRow = Readonly<{
   language_preference: string;
   theme_preference: string;
   onboarding_completed: number;
+  notifications_opt_in: number;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -37,6 +38,7 @@ const selectProfileSql = `
     language_preference,
     theme_preference,
     onboarding_completed,
+    notifications_opt_in,
     created_at,
     updated_at,
     deleted_at
@@ -51,6 +53,7 @@ function mapRow(row: LocalProfileRow): LocalProfileRecord {
     languagePreference: row.language_preference,
     themePreference: row.theme_preference,
     onboardingCompleted: row.onboarding_completed,
+    notificationsOptIn: row.notifications_opt_in,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
@@ -181,7 +184,21 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
     );
   }
 
-  private async updateProfile(source: string, values: string[]): Promise<LocalProfileRecord> {
+  updateNotificationsOptIn(optIn: boolean): Promise<LocalProfileRecord> {
+    return this.updateProfile(
+      `
+        UPDATE local_profiles
+        SET notifications_opt_in = ?, updated_at = ?
+        WHERE singleton_key = 1 AND deleted_at IS NULL
+      `,
+      [optIn ? 1 : 0],
+    );
+  }
+
+  private async updateProfile(
+    source: string,
+    values: (string | number)[],
+  ): Promise<LocalProfileRecord> {
     let profile: LocalProfileRecord | null = null;
 
     await this.database.withExclusiveTransactionAsync(async (transaction) => {

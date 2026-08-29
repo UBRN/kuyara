@@ -22,6 +22,7 @@ export interface ProfileRepository {
   updateClothingPreference(preference: ClothingPreference): Promise<LocalProfile>;
   updateLanguagePreference(preference: LanguagePreference): Promise<LocalProfile>;
   updateThemePreference(preference: ThemePreference): Promise<LocalProfile>;
+  updateNotificationsOptIn(optIn: boolean): Promise<LocalProfile>;
 }
 
 export class ProfileRepositoryError extends Error {
@@ -46,6 +47,8 @@ function mapRecord(record: LocalProfileRecord): LocalProfile {
     record.clothingPreference === null || isClothingPreference(record.clothingPreference);
   const hasValidCompletion =
     record.onboardingCompleted === 0 || record.onboardingCompleted === 1;
+  const hasValidNotificationsOptIn =
+    record.notificationsOptIn === 0 || record.notificationsOptIn === 1;
   const completedWithoutPreference =
     record.onboardingCompleted === 1 && record.clothingPreference === null;
 
@@ -55,6 +58,7 @@ function mapRecord(record: LocalProfileRecord): LocalProfile {
     !isLanguagePreference(record.languagePreference) ||
     !isThemePreference(record.themePreference) ||
     !hasValidCompletion ||
+    !hasValidNotificationsOptIn ||
     completedWithoutPreference ||
     !isUtcIsoTimestamp(record.createdAt) ||
     !isUtcIsoTimestamp(record.updatedAt) ||
@@ -69,6 +73,7 @@ function mapRecord(record: LocalProfileRecord): LocalProfile {
     languagePreference: record.languagePreference,
     themePreference: record.themePreference,
     onboardingCompleted: record.onboardingCompleted === 1,
+    notificationsOptIn: record.notificationsOptIn === 1,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   };
@@ -99,6 +104,10 @@ export class LocalProfileRepository implements ProfileRepository {
 
   updateThemePreference(preference: ThemePreference): Promise<LocalProfile> {
     return this.execute(() => this.dataSource.updateThemePreference(preference));
+  }
+
+  updateNotificationsOptIn(optIn: boolean): Promise<LocalProfile> {
+    return this.execute(() => this.dataSource.updateNotificationsOptIn(optIn));
   }
 
   private async execute(operation: () => Promise<LocalProfileRecord>): Promise<LocalProfile> {
