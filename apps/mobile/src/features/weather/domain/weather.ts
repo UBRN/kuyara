@@ -67,6 +67,13 @@ export type WeatherSnapshot = Readonly<{
 
 export type WeatherFreshness = 'fresh' | 'stale';
 export const weatherFreshnessWindowMilliseconds = 30 * 60 * 1000;
+/**
+ * Device clocks drift, and the Worker stamps `fetchedAt` from Cloudflare's own
+ * NTP-accurate clock. A device running a few seconds slow therefore receives a
+ * timestamp in its own future, which must not be read as corrupt data. Measured
+ * on the iOS Simulator: roughly 30 ms ahead, enough to reject every refresh.
+ */
+export const weatherClockSkewToleranceMilliseconds = 2 * 60 * 1000;
 
 export class WeatherValidationError extends Error {
   constructor() {
@@ -120,7 +127,10 @@ export function weatherFreshness(
 ): WeatherFreshness | 'invalid' {
   const fetched = Date.parse(fetchedAt);
   const current = Date.parse(now);
-  if (!Number.isFinite(fetched) || !Number.isFinite(current) || fetched > current) {
+  if (
+    !Number.isFinite(fetched) || !Number.isFinite(current)
+    || fetched - current > weatherClockSkewToleranceMilliseconds
+  ) {
     return 'invalid';
   }
 

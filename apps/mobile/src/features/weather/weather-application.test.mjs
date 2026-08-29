@@ -359,7 +359,7 @@ test('requestable and permanent denial, services failure, and Settings remain ex
 
 test('future or corrupt cache is not displayed and no-cache failure is explicit', async () => {
   const istanbul = getManualLocation('sample.istanbul');
-  const future = snapshotFor(istanbul, '2026-07-30T10:01:00.000Z');
+  const future = snapshotFor(istanbul, '2026-07-30T10:10:00.000Z');
   const harness = createHarness({
     active: istanbul,
     snapshots: [future],

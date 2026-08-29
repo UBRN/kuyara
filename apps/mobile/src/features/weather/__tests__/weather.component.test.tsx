@@ -76,13 +76,13 @@ function createValue(state: WeatherReadyState = baseState) {
 }
 
 describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
-  test('shows localized device and manual paths with sample disclosure', async () => {
+  test('shows localized device and manual paths without a sample disclosure over live data', async () => {
     const value = createValue();
     const result = await render(
       <Providers language={language} value={value}><WeatherScreen /></Providers>,
     );
     const copy = messages[language].weather;
-    expect(result.getByText(copy.sampleDisclosure)).toBeOnTheScreen();
+    expect(result.queryByText(copy.sampleDisclosure)).toBeNull();
     const locationButton = result.getByRole('button', { name: copy.changeLocationAction });
     expect(locationButton.props.hitSlop).toBe(10);
     expect(24 + locationButton.props.hitSlop * 2).toBeGreaterThanOrEqual(44);
@@ -112,7 +112,7 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
     const copy = messages[language].weather;
     expect(result.getByRole('header', { name: copy[titleKey] })).toBeOnTheScreen();
     expect(result.getByText(copy[bodyKey]).props.accessibilityLiveRegion).toBe('polite');
-    expect(result.getByText(copy.sampleDisclosure)).toBeOnTheScreen();
+    expect(result.queryByText(copy.sampleDisclosure)).toBeNull();
     await fireEvent.press(result.getByRole('button', { name: copy.retry }));
     expect(value.refresh).toHaveBeenCalledTimes(1);
   });
@@ -138,6 +138,7 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
     );
     const copy = messages[language].weather;
     expect(result.getByText(copy.stale)).toBeOnTheScreen();
+    expect(result.getByText(copy.sampleDisclosure)).toBeOnTheScreen();
     expect(result.getAllByText(copy.conditions.rain).length).toBeGreaterThan(0);
     expect(result.getByText(copy[noticeKey]).props.accessibilityLiveRegion).toBe('polite');
   });
