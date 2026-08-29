@@ -6,6 +6,7 @@ import { LocalWeatherRepository, WeatherRepositoryError } from './data/weather-r
 import { SqliteWeatherLocalDataSource } from './data/sqlite-weather-local-data-source.ts';
 import {
   normalizeCoordinates,
+  weatherClockSkewToleranceMilliseconds,
   weatherFreshness,
   weatherFreshnessWindowMilliseconds,
 } from './domain/weather.ts';
@@ -67,7 +68,7 @@ function provided(location, fetchedAt, temperature = 16) {
   };
 }
 
-test('coordinates normalize before persistence and freshness has an exact 30-minute boundary', () => {
+test('coordinates normalize before persistence, freshness has an exact 30-minute boundary, and clock skew is tolerated', () => {
   assert.deepEqual(normalizeCoordinates(41.0082, 28.9784), {
     latitudeE2: 4101,
     longitudeE2: 2898,
@@ -76,7 +77,14 @@ test('coordinates normalize before persistence and freshness has an exact 30-min
   const fetched = '2026-07-30T10:00:00.000Z';
   assert.equal(weatherFreshness(fetched, new Date(Date.parse(fetched) + weatherFreshnessWindowMilliseconds).toISOString()), 'fresh');
   assert.equal(weatherFreshness(fetched, new Date(Date.parse(fetched) + weatherFreshnessWindowMilliseconds + 1).toISOString()), 'stale');
-  assert.equal(weatherFreshness('2026-07-30T10:01:00.000Z', fetched), 'invalid');
+  assert.equal(
+    weatherFreshness(new Date(Date.parse(fetched) + weatherClockSkewToleranceMilliseconds).toISOString(), fetched),
+    'fresh',
+  );
+  assert.equal(
+    weatherFreshness(new Date(Date.parse(fetched) + weatherClockSkewToleranceMilliseconds + 1).toISOString(), fetched),
+    'invalid',
+  );
 });
 
 test('migration v4 enforces one active location and maps manual and device variants', async (t) => {
