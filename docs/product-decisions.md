@@ -24,7 +24,7 @@
 - The repository is a pnpm workspace with an Expo SDK 57 mobile app, a Cloudflare Worker package, and a shared contracts package.
 - The mobile app uses Expo Router and managed Continuous Native Generation. Native `ios/` and `android/` directories are generated only when needed and are not committed.
 - Expo SDK 57 sets iOS 16.4 as the minimum supported iOS version. Android remains supported by the shared Expo project.
-- The Worker has a deterministic weather v1 foundation, a controlled development-only sample deployment, and the AI recommendation contract, route, and orchestration behind a deterministic stub provider, but no WeatherKit, real AI provider, credential, persistence, rate-limit, or production-provider implementation.
+- The Worker has a deterministic weather v1 foundation, a controlled development-only sample deployment, and the AI recommendation contract and route served by ordered Workers AI and OpenRouter adapters. Mobile persists one recommendation snapshot per local profile and falls back to the device-local deterministic generator. WeatherKit, a real weather provider chain, Worker rate limiting, and the active AI probe are not implemented.
 - The contracts package contains the confirmed provider-neutral weather v1 request, success, and stable minimal error schemas.
 
 ## Implemented primary navigation
@@ -37,15 +37,15 @@
 
 ## Implemented deterministic Today integration
 
-The Today mock slice was replaced by the real deterministic recommendation flow. The former fixture, its three named intents, and their pre-written prose no longer exist.
+The Today mock slice was replaced by the real recommendation flow. The remaining İstanbul fixture is test-only; its former production use, three named intents, and pre-written prose no longer exist.
 
-- Today composes its outfits from the live chain: the active weather snapshot and the persisted clothing preference derive clothing requirements, bundled catalog types and owned Wardrobe items become evaluated candidates, and the deterministic composition returns up to three meaningfully different outfits. The result records a coarse generation mode, currently always the deterministic fallback; no AI is involved yet.
+- Today renders outfits from the persisted recommendation snapshot. The active weather snapshot and persisted clothing preference derive clothing requirements, bundled catalog types and owned Wardrobe items become evaluated candidates, and the Worker AI route returns exactly three outfits when it succeeds. The result records `ai-assisted` in that case and `deterministic-fallback` when the device-local generator is used.
 - Outfits have no intent identity. The former Comfortable, Polished, and Rain-ready labels were removed because the deterministic engine produces diversity, not intent, and no domain evidence supports an intent claim. An outfit's heading is now its localized catalog garment names in slot order, the first option carries the Recommended emphasis, and the others are presented as other options.
 - Explanations are language-independent codes localized at the presentation boundary: the snapshot's clothing-requirement reason codes lead every outfit's reason list, followed by that outfit's own composition reason codes. They are rendered as a list on the outfit detail screen rather than as a paragraph, because a wide-range day legitimately emits both a low-temperature and a high-temperature reason.
 - Today shows only weather fields the real snapshot actually carries. Sunrise time, sunset time, wind direction, and the accessory slot were removed because no data source produces them; wind is reported in metres per second, matching Weather. The rain outlook is derived from the real hourly forecast and renders only when future hourly entries exist.
 - The Wardrobe application provider is mounted at the root alongside Weather, because Today depends on Wardrobe contents. Wardrobe state is application-scoped, not tab-scoped.
 - Today renders loading while weather or wardrobe is still loading, and the unavailable state when weather failed, no snapshot exists, or no location is active. A Wardrobe refresh failure never blanks Today; it recommends from the catalog alone. The recommendation is recomputed only when the weather snapshot identity, Wardrobe contents, or clothing preference changes.
-- Today still has no WeatherKit, AI, account, sync, analytics, or notification behavior, and no recommendation persistence.
+- Today still has no WeatherKit, account, sync, analytics, or notification behavior. It does use the Worker AI route and persisted recommendation snapshots.
 - Today uses the existing semantic theme and adaptive primitives, keeps all important content in a scalable vertical layout, and supplies grouped VoiceOver labels for weather and outfit summaries. Its loaded state uses the shared stretchy-header presentation primitive: only the semantic surface background stretches into the measured top safe area during native negative overscroll, while localized text, controls, semantics, and touch targets remain fixed. The direct gesture-linked response has no spring or timing continuation and remains enabled with Reduce Motion; no information depends on the effect.
 - English and Turkish plus light, dark, and system appearances are supported through device defaults and persisted local Settings overrides.
 - Shared React Native source remains Android-compatible, but Android build, emulator, and visual refinement are intentionally deferred for this slice.
@@ -167,7 +167,7 @@ Approved 2026-08-13. Not implemented. The checked-in application still fetches d
 
 ## Approved AI recommendation strategy
 
-Approved 2026-08-13. Partly implemented. The shared AI contract and the Worker AI route with ordered provider orchestration exist as of 2026-08-14; no real AI provider does, so the route is currently served by a deterministic in-Worker stub.
+Approved 2026-08-13. Partly implemented. The shared AI contract and the Worker AI route use ordered Workers AI and OpenRouter adapters. The deterministic in-Worker stub is a test double only and is absent from production composition.
 
 - AI must generate exactly three complete outfit combinations. These combinations are AI-generated, not deterministic.
 - AI is constrained by the deterministic weather requirements and a closed set of allowed candidate garments, and may select only candidate identifiers supplied in the request.
@@ -243,7 +243,7 @@ AI must not receive wardrobe photos, photo paths or URIs, user-entered free-form
 
 ## Approved recommendation caching, refresh, and status behavior
 
-Approved 2026-08-13. Not implemented. Today renders the real deterministic recommendation, recomputed in memory on each relevant change, and no recommendation snapshot is persisted.
+Approved 2026-08-13. Implemented for milestone 3. Mobile persists one recommendation snapshot per local profile, coalesces duplicate in-flight refreshes, refreshes only for the approved triggers, preserves the last valid result on failure, and wires the device-local deterministic fallback. The generation-mode status surface and active AI probe remain milestone 4 work.
 
 - The last valid recommendation snapshot must be persisted on-device and rendered immediately when available.
 - AI must not be called on every application launch. A recommendation must be generated or refreshed only when the relevant weather snapshot is refreshed after becoming stale, the active location changes, clothing preference changes, relevant wardrobe contents or properties change, or the user explicitly requests a refresh.

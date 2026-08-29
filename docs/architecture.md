@@ -54,6 +54,8 @@ Version 3 leaves versions 1 and 2 unchanged and adds nine nullable columns to `w
 
 Version 4 leaves the earlier schema unchanged and adds one profile-owned active location, location-bound weather snapshots, and their current-local-day hourly entries. Coordinates are rounded to the nearest `0.01°` and represented as integer hundredths before they cross the location adapter. That is roughly 1.1 km north-to-south and less east-to-west at kuyara's sample latitudes: useful for local weather while avoiding unnecessary device precision. The normalized pair also forms device-location cache identity and can be converted back to decimal degrees by a future Worker request mapper. Manual selections store a stable catalog ID; device selections store only normalized coordinates, time zone, and approximate/full accuracy. Raw coordinates, permission diagnostics, and provider payloads are not persisted or logged. Snapshot replacement and hourly replacement are atomic, and retention is bounded to the active location plus the newest previous location.
 
+Version 5 leaves the earlier schema unchanged and adds `recommendation_snapshots`, with one row per `local_profile_id`. Each row stores a UUID `id`, the owning profile, `weather_snapshot_id`, `location_key`, an `ai-assisted` or `deterministic-fallback` generation mode, validated context and outfit JSON, and UTC ISO-8601 creation and update timestamps. A restrictive foreign key associates the unique `local_profile_id` with `local_profiles.id`. The current schema version is 5.
+
 Future migrations must add one ordered migration object immediately after the current version. Do not edit released migrations, skip a version, or add a destructive fallback.
 
 ### Wardrobe application and persistence boundary
@@ -174,7 +176,7 @@ Today screen compositions
 semantic tokens and adaptive UI primitives
 ```
 
-`recommendOutfits` is a pure function: it reads no clock, performs no I/O, and returns the same result for the same input regardless of candidate order. Recomputation is memoized on weather snapshot identity, Wardrobe contents, and clothing preference, so a recommendation is produced only on a relevant change. The result records a coarse generation mode; only the deterministic fallback is produced today. No repository, provider DTO, runtime schema, persistence layer, network client, or global state container is introduced by Today itself — it consumes the Weather and Wardrobe application providers, both mounted at the root.
+`recommendOutfits` is a pure function: it reads no clock, performs no I/O, and returns the same result for the same input regardless of candidate order. Recomputation is memoized on weather snapshot identity, Wardrobe contents, and clothing preference, so a recommendation is produced only on a relevant change. Today reads the persisted recommendation snapshot through `RecommendationApplicationProvider`; the result is tagged `ai-assisted` when the Worker AI call succeeds and `deterministic-fallback` otherwise. No repository, provider DTO, runtime schema, persistence layer, network client, or global state container is introduced by Today itself; it consumes application providers mounted at the root.
 
 ## Worker and contract boundaries
 
@@ -190,7 +192,7 @@ The checked-in composition uses a deterministic local mock with an injected cloc
 
 ## Approved target composition
 
-Approved 2026-08-13 and recorded in [`product-decisions.md`](product-decisions.md). **Nothing in this section is checked in except where a subsection states otherwise; Goal 2a's contracts and Worker orchestration are implemented.** It fixes where approved behavior will live so later work does not relitigate the boundaries. It deliberately does not name endpoints, schema fields, model identifiers, environment variables, migrations, or provider response mappings that have not been designed yet.
+Approved 2026-08-13 and recorded in [`product-decisions.md`](product-decisions.md). **The target composition is largely implemented through Goals 2a, 2b, and milestone 3. Production WeatherKit, a real weather provider chain, and the explicitly triggered active AI probe remain unimplemented.** It fixes where approved behavior will live so later work does not relitigate the boundaries. It deliberately does not name endpoints, schema fields, model identifiers, environment variables, migrations, or provider response mappings that have not been designed yet.
 
 ### Target weather provider chain
 
@@ -291,4 +293,4 @@ A successful probe describes only the moment it ran. It never guarantees that a 
 3. The Worker validates input, calls privileged providers, validates their output, and returns a versioned response defined in the contracts package.
 4. The mobile client validates the response before mapping it into domain state and preserves the last known good snapshot if refresh fails.
 
-Steps 2 through 4 now operate end-to-end in local development through the HTTP adapter and deterministic Worker sample endpoint. Authentication and remote synchronization remain deferred, and production WeatherKit stays blocked by Apple Developer Program enrollment. The Worker side of the AI recommendation flow — contracts, route, ordered provider orchestration, validation, and the liveness and readiness endpoints — is implemented behind a deterministic stub provider. The real weather provider chain, real AI provider adapters, operational limits, and recommendation persistence are approved and sequenced in [`current-status.md`](current-status.md) but are not implemented.
+Steps 2 through 4 now operate end-to-end in local development through the HTTP adapters and deterministic Worker weather sample endpoint. Authentication and remote synchronization remain deferred, and production WeatherKit stays blocked by Apple Developer Program enrollment. The AI recommendation flow is implemented end-to-end: the Worker composes ordered Workers AI and OpenRouter adapters, mobile validates and maps the response, and one recommendation snapshot per local profile is persisted with a device-local deterministic fallback. The real weather provider chain and the explicitly triggered active AI probe remain approved and sequenced in [`current-status.md`](current-status.md), but are not implemented.

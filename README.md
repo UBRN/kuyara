@@ -23,7 +23,7 @@ Worker boundary, in a pnpm workspace on Node.js 24.
 
 ```text
 apps/mobile         Expo and React Native application
-apps/worker         Cloudflare Worker for weather and future AI providers
+apps/worker         Cloudflare Worker for weather and AI providers
 packages/contracts  Shared Zod schemas and API types
 docs/               Product decisions, architecture, and design
 ```
