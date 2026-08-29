@@ -26,7 +26,7 @@ The current scaffold and workspace layout are canonical in the [`README.md` Stac
 - The root Stack retains the device-local onboarding gate and keeps `/onboarding` outside the tab navigator. An incomplete profile cannot enter the tab group, while a completed profile opens Today by default.
 - The current app uses Expo Router's stable JavaScript Tabs. SDK 57 Native Tabs remain alpha and are not used; moving to Native Tabs later requires a separate, deliberate migration decision.
 - Each main tab owns a nested Stack boundary. Wardrobe create and edit screens live inside the Wardrobe Stack rather than being pushed from Today.
-- Weather now provides foreground location selection and Worker-backed persisted sample weather at `/weather`. Wardrobe provides its first local CRUD experience at `/wardrobe`, `/wardrobe/new`, and `/wardrobe/[id]` without changing the tab or root Stack architecture.
+- Weather provides foreground location selection and Worker-backed persisted live weather at `/weather`. Wardrobe provides local CRUD at `/wardrobe`, `/wardrobe/new`, and `/wardrobe/[id]` without changing the tab or root Stack architecture.
 
 ## Implemented deterministic Today integration
 
@@ -38,7 +38,7 @@ The Today mock slice was replaced by the real recommendation flow. The remaining
 - Today shows only weather fields the real snapshot actually carries. Sunrise time, sunset time, wind direction, and the accessory slot were removed because no data source produces them; wind is reported in metres per second, matching Weather. The rain outlook is derived from the real hourly forecast and renders only when future hourly entries exist.
 - The Wardrobe application provider is mounted at the root alongside Weather, because Today depends on Wardrobe contents. Wardrobe state is application-scoped, not tab-scoped.
 - Today renders loading while weather or wardrobe is still loading, and the unavailable state when weather failed, no snapshot exists, or no location is active. A Wardrobe refresh failure never blanks Today; it recommends from the catalog alone. The recommendation is recomputed only when the weather snapshot identity, Wardrobe contents, or clothing preference changes.
-- Today still has no WeatherKit, account, sync, analytics, or notification behavior. It does use the Worker AI route and persisted recommendation snapshots.
+- Today has no WeatherKit, account, sync, analytics, or weather-alert logic. It uses the Worker AI route, persisted recommendation snapshots, and is the destination for notification-response deep links.
 - Today uses the existing semantic theme and adaptive primitives, keeps all important content in a scalable vertical layout, and supplies grouped VoiceOver labels for weather and outfit summaries. Its loaded state uses the shared stretchy-header presentation primitive: only the semantic surface background stretches into the measured top safe area during native negative overscroll, while localized text, controls, semantics, and touch targets remain fixed. The direct gesture-linked response has no spring or timing continuation and remains enabled with Reduce Motion; no information depends on the effect.
 - English and Turkish plus light, dark, and system appearances are supported through device defaults and persisted local Settings overrides.
 - Shared React Native source remains Android-compatible, but Android build, emulator, and visual refinement are intentionally deferred for this slice.
@@ -96,14 +96,14 @@ The Today mock slice was replaced by the real recommendation flow. The remaining
 - `POST /v1/weather` accepts only normalized integer hundredth-degree latitude/longitude values and an IANA time zone. Profile IDs, location keys, native permission data, accuracy labels, and raw coordinates are not part of the API.
 - Shared strict Zod schemas define the request, provider-neutral success data, established condition codes and weather invariants, and minimal stable error codes. The response identifies data only as `sample` or `live`; WeatherKit names and raw provider structures remain internal.
 - The Worker validates before provider access, maps an injected provider-neutral model through an explicit API mapper, and sanitizes invalid input, route/method failures, unavailable or invalid provider data, and unexpected errors. Responses do not expose provider details, stacks, secrets, or internal configuration.
-- The current Worker composition uses a deterministic clock-injected local mock and marks every success as sample data. It has no upstream call, credential, secret, binding, authentication, persistence, rate limiting, DNS, or remote resource. A controlled `workers.dev` development deployment of this same sample composition was added later for explicit remote development use and adds none of the above.
-- Mobile development composition calls this local endpoint through a contract-validating HTTP provider adapter. Production WeatherKit integration remains deferred.
+- The original foundation used a deterministic clock-injected mock. The current production composition uses the real provider chain, while the mock remains an injected test double.
+- Mobile calls the Worker through a contract-validating HTTP provider adapter. WeatherKit is the next provider milestone.
 
 ## Implemented mobile Worker weather adapter
 
 - Mobile depends directly on the shared contracts package and validates every Worker success or stable error body before using it. The provider-neutral mobile boundary distinguishes network, service, and invalid-response failures; the application presents network failures as offline and all other provider failures as unavailable.
 - Requests contain only normalized coordinates and IANA time zone. The response mapper restores the selected location key from local request context and assigns a stable local source ID; profile, catalog, permission, and accuracy identity never enters the API contract.
-- Local development defaults to the iOS/web loopback or Android emulator host alias and supports `EXPO_PUBLIC_KUYARA_WORKER_BASE_URL` for a reachable LAN origin. Non-development configuration requires an explicit HTTPS origin.
+- Local development defaults to the iOS/web loopback or Android emulator host alias and supports `EXPO_PUBLIC_KUYARA_WORKER_BASE_URL` for a reachable LAN origin. Preview and production EAS profiles provide the required HTTPS origin.
 - The provider switch does not change SQLite schema or ownership, the exact 30-minute freshness boundary, cache-first rendering, refresh coalescing, manual refresh, stale display, or last-known-good behavior. Offline and unavailable refreshes preserve both the active location and last valid snapshot; a successful retry clears the failure.
 
 ## Implemented deterministic weather-to-clothing requirements
@@ -129,19 +129,18 @@ The Today mock slice was replaced by the real recommendation flow. The remaining
 
 ## Approved product model and API budget
 
-Approved 2026-08-13. Not implemented.
+Approved 2026-08-13. The Worker enforces its checked-in request limits; provider-account spending controls remain an external operating requirement.
 
 - kuyara remains free, ad-free, subscription-free, and without in-app purchase.
 - The maintainer may personally fund a small, controlled API budget. Paid API usage must have explicit hard or safely derived limits.
 - Automatic top-up and uncontrolled pay-as-you-go overage are not allowed.
-- The recurring API-cost target and the OpenRouter credit assumption are recorded, with their date, under [Dated operating assumptions](#dated-operating-assumptions).
 - Prices, quotas, licences, and provider conditions are time-sensitive. Reverify them against official sources before implementation rather than trusting any figure recorded here.
 
 ## Approved weather provider strategy
 
 Approved 2026-08-13. Implemented 2026-08-29 as milestone 5. Design, the pricing basis, and full rationale are canonical in [ADR 0002](adr/0002-real-weather-provider-chain.md); the decisions below stay recorded here and are not superseded.
 
-- The chain is Open-Meteo primary, OpenWeather fallback, then the last valid device-local weather snapshot. OpenWeather is absent from the chain until the `OPENWEATHER_API_KEY` Worker secret is set, so Open-Meteo currently serves alone.
+- The chain is Open-Meteo primary, OpenWeather fallback, then the last valid device-local weather snapshot. OpenWeather was enabled and its live fallback verified on 2026-08-29.
 - Once WeatherKit becomes available the chain becomes WeatherKit primary, Open-Meteo fallback, OpenWeather fallback, then the last valid device-local weather snapshot. WeatherKit is inserted at the head of the established chain rather than replacing it.
 - The existing provider-neutral Worker and mobile boundaries are preserved. Each upstream provider has an isolated adapter with raw-response runtime validation, explicit unit and condition mapping, timeout handling, and sanitized errors.
 - Provider payloads and secrets do not cross into mobile and are not logged.
@@ -151,11 +150,11 @@ Approved 2026-08-13. Implemented 2026-08-29 as milestone 5. Design, the pricing 
 - Open-Meteo attribution requirements are supported, and WeatherKit attribution requirements must be supported when WeatherKit is introduced. The earlier "provider names never cross the API" rule is narrowed only as much as a controlled, non-secret attribution identifier or attribution metadata requires; raw provider data and internal errors remain private.
 - OpenWeather usage is bounded by provider-side limits plus Kuyara-side protection. Exact limits were recalculated from official current pricing on 2026-08-29; see [ADR 0002's pricing and limits basis](adr/0002-real-weather-provider-chain.md#pricing-and-limits-basis-recalculated-2026-08-29-do-not-freeze) rather than restating the numbers here.
 - Open-Meteo's free tier is non-commercial use only. Kuyara's free, ad-free, no-subscription, no-in-app-purchase, open-source nature is recorded as a deliberate reading that fits the terms' non-commercial examples, not a certification; re-check if the product ever monetizes.
-- Before the `OPENWEATHER_API_KEY` secret is ever set, the OpenWeather account's Billing plans "Calls per day" must be lowered to 1,000 or less. The 2,000 default permits billed overage, which the repository rule against uncontrolled pay-as-you-go usage does not allow.
+- OpenWeather was enabled only after its provider-side daily call limit was lowered to remove billable overage; ADR 0002 records the dated basis.
 
 ## Approved AI recommendation strategy
 
-Approved 2026-08-13. Partly implemented. The shared AI contract and the Worker AI route use ordered Workers AI and OpenRouter adapters. The deterministic in-Worker stub is a test double only and is absent from production composition.
+Approved 2026-08-13. Implemented end to end. The shared AI contract and Worker route use ordered Workers AI and OpenRouter adapters; mobile validates and persists the result and owns the deterministic fallback. The in-Worker stub is test-only.
 
 - AI must generate exactly three complete outfit combinations. These combinations are AI-generated, not deterministic.
 - AI is constrained by the deterministic weather requirements and a closed set of allowed candidate garments, and may select only candidate identifiers supplied in the request.
@@ -184,28 +183,13 @@ Approved 2026-08-13. Partly implemented. The shared AI contract and the Worker A
 
 ## Implemented real AI provider adapters
 
-Implemented 2026-08-19 as Goal 2b, within the approved constraints above and the chain order recorded there as revised the same day. Both adapters sit behind the Goal 2a seam; no contract, handler, router, or endpoint changed. Configuration is `OPENROUTER_MODELS` and `WORKERS_AI_MODEL` in `wrangler.jsonc`, with `OPENROUTER_API_KEY` supplied as a gitignored local `.dev.vars` value. Nothing was deployed and no secret was set on the remote Worker. Milestone 4 added the Worker-side rate limiting that this waited on (see below); a deploy of the AI route and probe to the public `workers.dev` URL is still a separate operational step and remains gated by the pending Apple-independent deployment decision.
+Implemented 2026-08-19 as Goal 2b, within the approved constraints above and the chain order revised the same day. Both adapters sit behind the Goal 2a seam. They were initially verified locally; after milestone 4 added Worker-side rate limiting, the AI route and probe were deployed on 2026-08-29.
 
 The deterministic stub was removed from production composition, since `AGENTS.md` forbids the deterministic sample provider from acting as a production fallback. `docs/current-status.md` had described 2b as appending the real adapters to the existing list, which would have left the stub answering every request; the real adapters now form the whole production list and the stub is a test double only.
 
 ### Free-model evaluation, 2026-08-19
 
-The approved constraint is to prefer a specifically evaluated structured-output-capable free model or a controlled ordered free-model set over uncontrolled random model selection. Accordingly `openrouter/free` was rejected — it selects randomly — and all seven free OpenRouter models that advertise `structured_outputs` in the models API were evaluated directly against the real contract payload with `max_tokens: 2048`.
-
-| Model | Result |
-| --- | --- |
-| `openai/gpt-oss-20b:free` | 429 once; then 200 after 95 s, ignoring the schema (bare array keyed by slot) |
-| `z-ai/glm-5.2:free` | 429 on both attempts, upstream shared-pool rate limit |
-| `google/gemma-4-26b-a4b-it:free` | 200 after 22.7 s, each outfit wrapped in `{ items: [...] }` |
-| `nvidia/nemotron-nano-9b-v2:free` | 200 after 44.2 s, truncated |
-| `nvidia/nemotron-3-super-120b-a12b:free` | 200 after 18.4 s, malformed JSON and truncated |
-| `dots-studio/dots-3-note-preview:free` | 200 after 17.8 s, truncated |
-| `liquid/lfm-2.5-2.6b:free` | 200 after 9.3 s, truncated |
-| `@cf/meta/llama-3.3-70b-instruct-fp8-fast` (Workers AI) | 200 in about 8 s, contract-valid three outfits |
-
-None of the seven free OpenRouter models returned contract-valid output. Advertising `structured_outputs` in the models API did not mean the free-pool provider actually enforced the schema, and `strict: true` with `require_parameters: true` did not change that. The Cloudflare Workers AI fallback is currently the only provider that produces a valid recommendation.
-
-The configured OpenRouter set is `openai/gpt-oss-20b:free`, `z-ai/glm-5.2:free`, `google/gemma-4-26b-a4b-it:free`, kept in configuration so it can be re-evaluated without a code change. **Resolved on 2026-08-19:** the user reordered the chain to put Workers AI first. A request that the Workers AI hop satisfies now returns in 8.6 to 17.0 seconds instead of spending about 29 seconds failing through OpenRouter first, and OpenRouter is reached only when the Workers AI hop fails or its daily Neuron allocation is exhausted. The reorder also required raising the per-attempt timeout to 20 seconds, because the Workers AI hop sits close enough to the previous 10-second default to be aborted at the boundary. Trimming the OpenRouter set and revisiting the free-only constraint remain open and are not blocking.
+Seven free OpenRouter models advertising structured output were evaluated against the real contract; none returned a contract-valid response. The evaluated Workers AI model did, so the provider order was changed to Workers AI first and OpenRouter fallback. Model selection stays configuration-driven, and shared Zod validation remains authoritative regardless of provider claims.
 
 ### Spend and quota posture as implemented
 
@@ -219,42 +203,10 @@ Implemented 2026-08-29 as milestone 4. Design and rationale, including the
 recalculated provider pricing that set the probe limits, are canonical in
 [ADR 0001](adr/0001-worker-ai-probe-and-rate-limiting.md).
 
-- **Generation-mode surface.** Today shows a text-labelled `Pill` next to the
-  recommendation heading ("AI-assisted" / "Standard recommendation"), and
-  Settings shows the same as a read-only line. The value is the coarse
-  `generationMode` already recorded on the snapshot; no domain or model change.
-  State is never communicated by colour alone.
-- **Active AI probe.** `POST /v1/ai/probe` is a distinct endpoint from Worker
-  liveness and AI configuration readiness. It runs only the first provider in
-  the chain, one attempt, a 20-second timeout, against a fixed minimal
-  in-Worker request; it returns only `{ status: 'ok' | 'unavailable', checkedAt }`
-  with no provider name, model identity, or error text. Results are cached in
-  the isolate for 60 seconds. Settings has an explicit "Check AI status" action
-  with an inline loading animation that respects Reduced Motion; the copy never
-  states or implies that a later recommendation will succeed.
-- **Rate limiting.** Both `POST /v1/ai/recommend` and `POST /v1/ai/probe` apply
-  a per-IP burst limit through the native Cloudflare rate-limit binding
-  (`cf-connecting-ip`, 10/60s and 3/60s). The probe additionally enforces a
-  per-day global cap of 30 through a KV counter keyed `probe:YYYY-MM-DD`, so a
-  determined caller cannot drain the daily Neuron allocation. When a binding is
-  absent (local `wrangler dev`, unit tests) the check degrades to permissive.
-  Exceeding a limit returns `429` with the `rate_limited` error code and
-  `Retry-After: 60`.
-- **Spend posture is unchanged.** OpenRouter models remain `:free`, so there is
-  no billing risk; the risk the limits address is quota exhaustion and abuse of
-  an unauthenticated endpoint. Cloudflare Workers AI stays a hard stop on the
-  Free plan.
-- **Deploy checklist (not done here).** `kv_namespaces`, `ratelimits`, `vars`,
-  and `ai` are all declared at the top level of `wrangler.jsonc`, which is the
-  Worker's only environment as of
-  [ADR 0003](adr/0003-single-worker-environment.md). The named
-  `env.development` was removed precisely because Cloudflare does not inherit
-  top-level bindings into named environments. Deploying the AI route and probe
-  is therefore a plain `wrangler deploy` with no `--env`, targeting
-  `kuyara-worker`. **Done on 2026-08-29:** the `PROBE_COUNTER` KV namespace was
-  created and its real id substituted for the placeholder, `OPENROUTER_API_KEY`
-  and `OPENWEATHER_API_KEY` were set as secrets on `kuyara-worker`, and the
-  Worker was deployed with every binding attached.
+- **Generation mode.** Today and Settings show only the accessible localized `ai-assisted` or `deterministic-fallback` status already stored on the recommendation snapshot.
+- **Active probe.** `POST /v1/ai/probe` is distinct from liveness and configuration readiness. It makes one bounded call to the first provider, briefly caches the sanitized `ok | unavailable` result, and never exposes provider or model details. Settings triggers it explicitly and respects Reduced Motion.
+- **Limits.** Recommendation and probe routes use per-IP burst limits; the probe also has a KV-backed daily cap. Kuyara limit denials return the stable `rate_limited` error, while upstream quota or capacity failures follow the normal sanitized AI fallback. Missing bindings degrade permissively, so deployed bindings must remain configured.
+- **Deployment.** The single Worker environment was deployed with its required bindings on 2026-08-29. Environment ownership is canonical in [ADR 0003](adr/0003-single-worker-environment.md).
 
 ## Approved AI input privacy boundary
 
@@ -279,7 +231,7 @@ Approved 2026-08-13. Implemented for milestone 3. Mobile persists one recommenda
 - The last valid recommendation snapshot must be persisted on-device and rendered immediately when available.
 - AI must not be called on every application launch. A recommendation must be generated or refreshed only when the relevant weather snapshot is refreshed after becoming stale, the active location changes, clothing preference changes, relevant wardrobe contents or properties change, or the user explicitly requests a refresh.
 - Duplicate in-flight generation requests must be coalesced, and a failed refresh must preserve the last valid recommendation.
-- A successful deterministic fallback is a valid recommendation result and may replace an unavailable AI attempt according to the future implementation design.
+- A successful deterministic fallback is a valid recommendation result and replaces an unavailable AI attempt through the implemented mobile application flow.
 - Transient provider or model identity must stay out of the durable domain model unless it is needed for coarse provenance or user status.
 - The Worker must provide a non-AI liveness check. Worker liveness, AI configuration readiness, and an active AI provider probe are distinct. The active probe may consume provider quota, so it must be explicitly triggered, bounded, rate-limited, and briefly cached; a successful probe does not guarantee that a later full recommendation request will succeed. Implemented in milestone 4 as `POST /v1/ai/probe`.
 - The recommendation result must record a coarse generation mode: AI-assisted or deterministic fallback.
@@ -287,24 +239,20 @@ Approved 2026-08-13. Implemented for milestone 3. Mobile persists one recommenda
 
 ## Approved notifications scope
 
-Approved 2026-08-29. Not implemented. Design and rejected alternative are canonical in [ADR 0004](adr/0004-notifications-in-the-mvp.md); the decisions below stay recorded here.
+Approved 2026-08-29. Partly implemented: N1 is complete, N2 is next, and N3 is deferred. Design and rejected alternatives are canonical in [ADR 0004](adr/0004-notifications-in-the-mvp.md).
 
 - Notifications exist to warn the user about upcoming weather that changes what they need to wear.
 - The MVP ships **on-device local weather alerts only**. No push token, no APNs registration, no Worker endpoint, and no server-side device, token, or location store. No new identifier is created or stored, and the AI input privacy boundary and the "no coordinates persisted or logged" rule are untouched.
-- Delivered in three milestones:
-  - **N1, mobile notification foundation.** The `expo-notifications` config plugin; an OS permission flow surfaced in Settings; a `notifications_opt_in` preference on `local_profiles` (schema version 6), following the existing language and theme preference pattern; a notification-response deep-link observer in the root layout; and a development-only test-notification action. `expo-notifications` is imported only in one adapter behind a feature application controller. No weather logic, no background task, no push token. All user-visible strings come from localization keys.
+- Scoped in three milestones:
+  - **N1, mobile notification foundation — complete.** The `expo-notifications` config plugin; an OS permission flow surfaced in Settings; a `notifications_opt_in` preference on `local_profiles` (schema version 6), following the existing language and theme preference pattern; a notification-response deep-link observer in the root layout; and a development-only test-notification action. `expo-notifications` is imported only in one adapter behind a feature application controller. No weather logic, no background task, no push token. All user-visible strings come from localization keys.
   - **N2, local weather alerts.** A deterministic alert-rule module over the existing weather snapshot and hourly data, in the style of the deterministic recommendation engine. On every app open, deterministically reschedule local notifications for upcoming threshold crossings in the fresh forecast; additionally attempt a best-effort `expo-background-task` refresh when iOS grants it. The background task is a staleness reducer, not a guarantee that a change is caught, and it stops if the user swipes the app away. Plus repeat suppression and quiet hours. Alert thresholds are an N2 design question. Still no server.
   - **N3, server-sent push. Deferred, not scheduled.** Reconsidered only if N2 proves insufficient in real use, and only with its own ADR covering the server-owned subscription store, the persisted-coordinate privacy posture, delivery, and hard spend controls.
 - Alert timeliness is bounded by how often the user opens the app plus what iOS grants `BGTaskScheduler`. This is an accepted limitation and the reason N3 stays on the table.
 
-## Dated operating assumptions
+## Operating assumptions
 
-Recorded 2026-08-13. These are time-sensitive operating assumptions, not permanent architectural guarantees. Reverify each against official sources before implementation.
-
-- The initial recurring API-cost target is approximately USD 5 per month, excluding the one-time OpenRouter credit purchase below.
-- A one-time USD 10 OpenRouter credit purchase is the currently approved assumption for qualifying for OpenRouter's higher free-model request limit.
-- OpenWeather's free-tier and paid limits were recalculated from official current pricing on 2026-08-29; see [ADR 0002's pricing and limits basis](adr/0002-real-weather-provider-chain.md#pricing-and-limits-basis-recalculated-2026-08-29-do-not-freeze) rather than this dated note.
-- Provider pricing, quotas, licences, model availability, and terms may change at any time.
+- Provider usage remains within a small maintainer-funded budget with automatic top-up disabled and hard or safely derived limits.
+- Current pricing, quotas, licences, model availability, and terms must be reverified before provider changes. ADR 0001 and ADR 0002 record the dated basis for the current limits.
 
 ## Approved visual identity
 

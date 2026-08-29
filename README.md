@@ -11,10 +11,12 @@ with the sun in Turkic mythology.
 
 ## Status
 
-Pre-release. The app runs locally against a deterministic sample weather endpoint;
-production WeatherKit is not integrated. There is no account, cross-device sync,
-analytics, or notifications in the MVP. See [`docs/current-status.md`](docs/current-status.md)
-for what is implemented today.
+Pre-release. The app fetches live weather through the Worker, produces up to
+three validated outfit recommendations with a device-local deterministic fallback,
+and includes the mobile notification foundation. WeatherKit and local weather
+alert rules are the next approved milestones. There is no account, cross-device
+sync, behavioral analytics, or server-sent push. See
+[`docs/current-status.md`](docs/current-status.md) for the current state.
 
 ## Stack
 
@@ -30,7 +32,11 @@ docs/               Product decisions, architecture, and design
 
 The root `pnpm-lock.yaml` is the only dependency lockfile, and workspace discovery is limited to `apps/*` and `packages/*`. Mobile uses managed Continuous Native Generation, so native `ios/` and `android/` directories are generated only when needed and are not committed. Expo SDK 57 sets iOS 16.4 as the minimum supported version, while the shared Expo project remains Android-compatible.
 
-The Worker currently serves the deterministic weather v1 foundation, has a controlled development-only sample deployment, and serves the AI route through ordered Workers AI and OpenRouter adapters. Mobile persists one recommendation snapshot per local profile and has a device-local deterministic fallback. WeatherKit, the real weather provider chain, Worker rate limiting, and the active AI probe are not implemented. The contracts package owns the provider-neutral weather v1 request, success, and stable minimal error schemas.
+The Worker serves real weather through an Open-Meteo/OpenWeather chain and AI
+recommendations through ordered Workers AI/OpenRouter adapters. Weather and AI
+routes are rate limited, the active AI probe is available from Settings, and
+preview/production mobile builds use the deployed Worker. The contracts package
+owns the provider-neutral runtime schemas; WeatherKit is not integrated yet.
 
 ## Getting started
 
@@ -48,6 +54,7 @@ Development, focused test, Worker, Expo, and Simulator commands are in [`docs/te
 
 ## Documentation
 
+- [`docs/current-status.md`](docs/current-status.md) — current state and next milestones
 - [`docs/product-decisions.md`](docs/product-decisions.md) — confirmed MVP decisions
 - [`docs/architecture.md`](docs/architecture.md) — boundaries and data flow
 - [`docs/clothing-taxonomy.md`](docs/clothing-taxonomy.md) — garment catalog contract

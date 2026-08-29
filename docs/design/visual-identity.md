@@ -98,12 +98,6 @@ The permanent editable repository master is:
 
 `apps/mobile/assets/brand/kuyara-symbol-master.svg`
 
-The selected external source below is retained only as historical design provenance:
-
-`/Users/utkubarin/.codex/visualizations/2026/07/29/019faf11-21ab-7722-abe6-8863066cdf82/kuyara-balanced-horizon-vector/kuyara-balanced-horizon-v2-unified-gap-system.svg`
-
-Production integration subsequently copied and checksum-verified that source into the repository. Repository code, documentation, and workflows must refer to the repository master and must not depend on the external `.codex` path.
-
 ## Approved palette
 
 | Color | Value | Intended role |
@@ -117,7 +111,7 @@ Production integration subsequently copied and checksum-verified that source int
 
 Deep Atmosphere and Calm Current form the main navy-to-petrol identity. Quiet Sky is an accent, not a dominant technology blue. Soft Mist, Night Layer, and Cloud White provide calm light and dark foundations without relying on pure black or harsh white.
 
-Neon cyan, glow, glassy gradients, rainbow gradients, and highly saturated technology colors are prohibited. These values are approved brand colors, but they do not imply that semantic UI tokens already exist. Feature UI must consume future semantic tokens rather than scattering hardcoded brand values through components.
+Neon cyan, glow, glassy gradients, rainbow gradients, and highly saturated technology colors are prohibited. Feature UI consumes the existing semantic tokens and must not scatter hardcoded brand values through components.
 
 ## Typography
 

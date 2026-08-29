@@ -2,33 +2,31 @@
 
 Status: Accepted (2026-08-29)
 
-This is the repository's first ADR. Format: Status, Context, Decision, Pricing
-basis, Consequences, Alternatives considered, Out of scope. Later ADRs live
-beside this file as `NNNN-title.md`.
+Implementation: Completed and deployed on 2026-08-29.
 
 ## Context
 
-Milestone 4 has two halves:
+At decision time, milestone 4 had two halves:
 
 1. A coarse generation-mode status surface. The recommendation snapshot already
    records `ai-assisted` or `deterministic-fallback` (mobile domain type
    `RecommendationGenerationMode`, persisted in `recommendation_snapshots`,
-   migration v5). No user-visible surface exists yet.
+   migration v5). No user-visible surface existed yet.
 2. An active AI probe. The Worker already exposes a non-AI liveness check
    (`GET /v1/health`) and an AI configuration-readiness check
    (`GET /v1/ai/ready`, calls no provider). The third distinct question, "does a
    provider actually answer right now", has no endpoint. An active probe spends
    real provider quota, so `docs/product-decisions.md` requires it to be
    explicitly triggered, bounded, rate-limited, and briefly cached, and a
-   successful probe must not be presented as a guarantee that a later full
+   successful probe could not be presented as a guarantee that a later full
    recommendation will succeed.
 
-One decision was left open and blocks deployment: the existing `workers.dev`
-URL is public and unauthenticated, and `OPENROUTER_API_KEY` has never been set
-on the remote Worker because there is no request throttling in front of it. The
-probe widens that surface with a second endpoint that does upstream work on an
-anonymous caller's request. The Worker has no KV, no Durable Object, no rate
-limiting, and no cache layer today; every response is `Cache-Control: no-store`.
+One decision was still open: the public Worker endpoint was unauthenticated and
+the remote provider credential had not been configured because no request
+throttling protected it. The proposed probe widened that surface with a second
+endpoint doing upstream work for anonymous callers. The Worker then had no KV,
+Durable Object, rate limiter, or cache layer; every response used
+`Cache-Control: no-store`.
 
 The operator chose (2026-08-29) to add rate limiting now, in Milestone 4,
 covering both AI endpoints, and to record the decision in this ADR plus the
@@ -215,27 +213,10 @@ precedent, plus a localized "Checking AI status…" line.
   "Check AI status" button when it dismisses.
 - No new dependency, no new theme token, no new shared primitive.
 
-### 8. Documentation
-
-- This ADR.
-- `docs/product-decisions.md`: the probe and rate-limiting posture under the
-  caching/refresh/status section; the note that `OPENROUTER_API_KEY` may now be
-  set on the remote Worker once the binding and namespace are provisioned.
-- `docs/architecture.md`: the Worker now has four endpoints; the rate-limit and
-  daily-counter layer; the probe's bounded single-attempt behavior.
-- `docs/current-status.md`: Milestone 4 status.
-- `docs/design/design-system.md`: this ADR does not add status tokens or status
-  components. A separate note records that `eyebrow`, `Pill`, `PhotoPlaceholder`,
-  and `withAlpha` exist in code but are undocumented in that file (pre-existing
-  drift from the 2026-08-29 redesign, not introduced here).
-
 ## Consequences
 
-- The `workers.dev` URL can hold `OPENROUTER_API_KEY` once the KV namespace and
-  rate-limit namespaces are provisioned, because burst limits bound per-IP abuse
-  and the daily counter bounds total probe spend against the Neuron pool. `:free`
-  OpenRouter models carry no billing risk; the config only ever iterates
-  `OPENROUTER_MODELS`, all `:free`.
+- Provider work is bounded by per-IP burst controls and the probe's daily cap.
+  OpenRouter configuration remains free-model-only.
 - The probe costs roughly one recommendation's worth of quota per uncached call.
   At 30/day that is about 4,000 Neurons, under half the daily pool, leaving room
   for real traffic. `ponytail:` a probe-specific lower `max_tokens` on the
@@ -267,10 +248,7 @@ precedent, plus a localized "Checking AI status…" line.
 
 ## Out of scope
 
-- Deploying the Worker, provisioning the KV namespace, or setting any remote
-  secret. Those remain operational steps gated by the pending Apple-independent
-  deployment decision and are not part of this change.
+- Remote deployment and provisioning were separate operational work and were
+  completed later on 2026-08-29.
 - Probe-specific `max_tokens` tuning on the provider adapters.
-- Reconciling `docs/design/design-system.md` with the redesign primitives beyond
-  the drift note.
 - Any change to the recommendation refresh/coalescing logic.

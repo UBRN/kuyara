@@ -2,6 +2,8 @@
 
 Status: Accepted (2026-08-29)
 
+Implementation: N1 completed on 2026-08-29; N2 remains next; N3 remains deferred.
+
 ## Context
 
 The confirmed MVP decisions excluded notifications entirely ("The MVP has no
@@ -48,7 +50,7 @@ being alerted about weather changing within the hour.
 
 Notifications enter the MVP as **on-device local weather alerts only**. No push
 token, no APNs registration, no Worker endpoint, no server-side device or
-location store. Delivered in three milestones:
+location store. The decision is scoped into three milestones:
 
 - **N1, mobile notification foundation.** The `expo-notifications` config
   plugin; an OS permission flow surfaced in Settings; a `notifications_opt_in`
@@ -84,20 +86,10 @@ location store. Delivered in three milestones:
   accepted limitation, and the reason N3 stays on the table.
 - `expo-background-task` background execution is unavailable on the iOS
   Simulator, so N2's background path needs one physical-device verification.
-- N1 is independently shippable and unblocks nothing else; it can proceed while
-  WeatherKit (milestone 6) is in flight.
-- The project is CNG: `apps/mobile/ios` and `apps/mobile/android` are gitignored
-  and `android` is not even generated locally. EAS Build runs `npx expo prebuild`
-  remotely, so the `expo-notifications` config plugin is applied in the build
-  regardless of the local `ios` folder. The local `apps/mobile/ios` is a stale
-  dev-only artifact; it is re-synced by `npx expo prebuild` (no `--clean`) or by
-  `npx expo run:ios`, never by deleting it or running `prebuild --clean`.
-- `expo-notifications` is a dependency, so its config plugin auto-applies even
-  without an entry in `plugins`; it adds the iOS `aps-environment` entitlement
-  unconditionally. N1 accepts that entitlement and simply never requests a push
-  token. Stripping it would need a custom config plugin and is not warranted.
-  With `enableBackgroundRemoteNotifications` left `false`, no `remote-notification`
-  background mode is added.
+- N1 is independently shippable and was completed without weather-alert logic.
+- Continuous Native Generation applies the `expo-notifications` plugin during
+  builds. Its iOS notification entitlement is accepted, while remote background
+  notifications remain disabled and no push token is requested.
 
 ## Out of scope
 

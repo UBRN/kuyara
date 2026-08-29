@@ -139,6 +139,5 @@ Deferred intentionally:
 - Status tokens and status components
 - Platform-color adapters until a concrete native integration needs them
 - Shadows or elevation until a real hierarchy requires them
-- Android visual refinement and emulator validation; shared React Native code remains build-compatible, but Android was not validated in this task
 
 The four-tab information architecture is final. The current root uses a stable Expo Router Stack for the onboarding gate and Expo Router JavaScript Tabs for the main application. Native Tabs are not a drop-in implementation detail while the SDK 57 API remains alpha; any later migration must be reviewed explicitly. Android source compatibility is preserved, but Android build, emulator, and visual refinement remain unverified and deferred.

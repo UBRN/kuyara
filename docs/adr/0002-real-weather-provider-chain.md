@@ -2,6 +2,8 @@
 
 Status: Accepted (2026-08-29)
 
+Implementation: Completed and deployed on 2026-08-29. WeatherKit remains a separate milestone.
+
 ## Context
 
 Milestone 5 replaces the deterministic sample weather source with real
@@ -10,9 +12,8 @@ Apple-independent providers. Before this change the Worker served
 `docs/product-decisions.md` recorded the approved chain as "not implemented".
 
 The approved target chain is Open-Meteo primary, OpenWeather fallback, then the
-last valid device-local snapshot. WeatherKit is inserted at the head of the same
-chain once Apple Developer Program membership is available; that is milestone 6
-and remains paused by the temporary constraint in `AGENTS.md`.
+last valid device-local snapshot. WeatherKit is a separate milestone that will
+be inserted at the head of the same chain without changing mobile.
 
 The mobile weather domain, the exact 30-minute freshness boundary, and
 last-known-good behavior were required to stay unchanged. They did.
@@ -160,12 +161,9 @@ Before the secret is set, the OpenWeather account's Billing plans tab must have
 overage and would violate the repository rule against uncontrolled
 pay-as-you-go usage.
 
-**Satisfied on 2026-08-29.** The account's "Calls per day" was lowered to 1,000,
-so no billable range exists above the free allowance, and only then was the key
-set: as a Worker secret on `kuyara-worker` (the Worker's single environment, see
-[ADR 0003](0003-single-worker-environment.md)) and in the git-ignored
-`apps/worker/.dev.vars` for local `wrangler dev`. The fallback is therefore now
-part of the chain.
+**Satisfied on 2026-08-29.** The provider-side cap was lowered before OpenWeather
+was enabled, so no billable range exists above the free allowance. The fallback
+is now part of the chain.
 
 ### 8. Contract and attribution
 
@@ -234,7 +232,6 @@ weather calls spend no money, so a per-IP burst limiter is proportionate.
 
 ## Out of scope
 
-- WeatherKit. Milestone 6, still paused by the Apple Developer constraint.
+- WeatherKit integration (milestone 6).
 - Any long-term weather archive.
-- Deploying the Worker. The OpenWeather secret itself is no longer out of scope;
-  it was enabled on 2026-08-29 under decision 7.
+- Remote deployment and credential provisioning; both were completed separately.
