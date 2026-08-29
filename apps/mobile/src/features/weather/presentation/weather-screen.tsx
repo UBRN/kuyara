@@ -196,9 +196,11 @@ export function WeatherScreen() {
         </View>
       ) : null}
 
-      <Surface accessibilityLiveRegion="polite" style={styles.disclosure} variant="muted">
-        <AppText variant="bodyStrong">{copy.sampleDisclosure}</AppText>
-      </Surface>
+      {snapshot?.origin.kind === 'sample' ? (
+        <Surface accessibilityLiveRegion="polite" style={styles.disclosure} variant="muted">
+          <AppText variant="bodyStrong">{copy.sampleDisclosure}</AppText>
+        </Surface>
+      ) : null}
 
       {snapshot ? (
         <>
