@@ -135,6 +135,7 @@ export const layout = Object.freeze({
 
 export const interaction = Object.freeze({
   pressedOpacity: 0.72,
+  disabledOpacity: 0.48,
 } as const);
 
 export const standardMotion = Object.freeze({

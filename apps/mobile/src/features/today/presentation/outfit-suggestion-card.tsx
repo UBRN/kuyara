@@ -55,7 +55,10 @@ export function OutfitSuggestionCard({
           )
         ) : null}
       </View>
-      <View style={styles.chevronRow}>
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={styles.chevronRow}>
         <AppText colorRole="brandAccent">→</AppText>
       </View>
     </Pressable>

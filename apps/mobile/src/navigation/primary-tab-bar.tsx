@@ -92,7 +92,9 @@ export function PrimaryTabBar({
             testID={tab.testID}>
             <AppText
               accessibilityElementsHidden
+              ellipsizeMode="tail"
               importantForAccessibility="no"
+              numberOfLines={1}
               style={{ color }}
               variant={isSelected ? 'label' : 'caption'}>
               {tab.label}
