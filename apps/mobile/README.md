@@ -1,6 +1,6 @@
 # kuyara mobile
 
-The mobile workspace is an Expo SDK 57 and React Native application using Expo Router.
+The mobile workspace uses the repository [stack and workspace layout](../../README.md#stack).
 
 The checked-in app opens through a device-local onboarding gate backed by Expo SQLite. Onboarding stores one UUID-backed local profile plus clothing, language, and appearance preferences. The Weather tab supports manual sample locations and explicit foreground device location, then reads deterministic sample weather from the local Worker and persists it for cache-first fresh/stale behavior. Today renders composed outfits from the persisted recommendation snapshot, using the Worker AI route when available and the device-local deterministic fallback otherwise. The İstanbul fixture is test-only, and WeatherKit is not integrated.
 
@@ -29,28 +29,6 @@ Worker origins are intentionally distinct:
 
 The remote URL is the deployed deterministic sample Worker for development verification only. It is not production mobile configuration. [`apps/mobile/.env.example`](.env.example) records the optional value without enabling it; leave the variable unset to keep the platform-specific local defaults. A physical device can instead use the Mac's LAN origin, such as `http://192.168.1.10:8788`, by setting the same variable before starting Expo. Non-development builds require this variable to contain an HTTPS origin, but must not use the sample Worker.
 
-Run the repository checks with:
-
-```bash
-pnpm check
-```
-
-Run the complete mobile test suite with:
-
-```bash
-pnpm --filter @kuyara/mobile test
-```
-
-Run the focused weather suite with:
-
-```bash
-pnpm --filter @kuyara/mobile test:weather
-```
-
-Inspect the resolved public Expo configuration with:
-
-```bash
-pnpm --filter @kuyara/mobile exec expo config --type public --json
-```
+Test and verification commands are documented in [`docs/testing.md`](../../docs/testing.md).
 
 Because `expo-location` changes native permissions, rebuild the generated native app after configuration changes instead of relying on an older Expo Go or development binary. Live WeatherKit, account/sync behavior, and Android visual refinement are separate future work.

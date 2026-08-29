@@ -2,15 +2,7 @@
 
 ## Current workspace
 
-The repository is a small pnpm monorepo running on Node.js 24:
-
-```text
-apps/mobile       Expo SDK 57 and React Native application
-apps/worker       Cloudflare Worker boundary
-packages/contracts Shared runtime schemas and API types
-```
-
-The root `pnpm-lock.yaml` is the only dependency lockfile. Workspace discovery is limited to `apps/*` and `packages/*`.
+The stack and workspace layout are documented in the [`README.md` Stack section](../README.md#stack).
 
 ## Mobile boundaries
 
@@ -180,7 +172,7 @@ semantic tokens and adaptive UI primitives
 
 ## Worker and contract boundaries
 
-Apple Developer enrollment is temporarily pending. Production WeatherKit integration and credential work are therefore paused until the user explicitly lifts the constraint; this is not an architectural cancellation. Apple-independent implementation, testing, Simulator work, and release preparation proceed. The checked-in composition still serves deterministic sample weather, but that is the current state rather than a rule: real Apple-independent weather providers are approved, and the deterministic sample provider remains a development and test source that is never a production fallback.
+The [temporary Apple constraint](../AGENTS.md#temporary-project-constraint) is canonical in `AGENTS.md`. The checked-in composition still serves deterministic sample weather, but that is the current state rather than a rule: real Apple-independent weather providers are approved, and the deterministic sample provider remains a development and test source that is never a production fallback.
 
 The Worker is the server-side boundary for weather and AI provider calls, credential protection, validation, and operational limits. It now exposes the first versioned mobile API boundary at `POST /v1/weather`. The route accepts only normalized integer hundredth-degree coordinates and an IANA time zone; it does not accept a profile ID, location key, permission state, accuracy label, or raw native location payload.
 
@@ -192,7 +184,7 @@ The checked-in composition uses a deterministic local mock with an injected cloc
 
 ## Approved target composition
 
-Approved 2026-08-13 and recorded in [`product-decisions.md`](product-decisions.md). **The target composition is largely implemented through Goals 2a, 2b, and milestone 3. Production WeatherKit, a real weather provider chain, and the explicitly triggered active AI probe remain unimplemented.** It fixes where approved behavior will live so later work does not relitigate the boundaries. It deliberately does not name endpoints, schema fields, model identifiers, environment variables, migrations, or provider response mappings that have not been designed yet.
+The approved [weather provider strategy](product-decisions.md#approved-weather-provider-strategy) and [AI recommendation strategy](product-decisions.md#approved-ai-recommendation-strategy), including their rationale, are canonical in `product-decisions.md`. This section records only where those boundaries and fallbacks live and how they connect. The composition is largely implemented through Goals 2a, 2b, and milestone 3; production WeatherKit, a real weather provider chain, and the explicitly triggered active AI probe remain unimplemented.
 
 ### Target weather provider chain
 
@@ -212,9 +204,9 @@ existing provider-neutral internal snapshot
 existing explicit API mapper and shared success DTO
 ```
 
-Once Apple Developer Program access exists, WeatherKit is inserted at the head of this same chain. The mobile weather domain, its repository, the exact 30-minute freshness boundary, and last-known-good behavior do not change when the chain changes.
+WeatherKit is inserted at the head of this same chain once it becomes available. The mobile weather domain, its repository, the exact 30-minute freshness boundary, and last-known-good behavior do not change when the chain changes.
 
-The chain advances to the next provider only for eligible availability, timeout, quota or rate-limit, authentication or configuration, upstream, or invalid-response failures. Valid weather is never rejected because its conditions are undesirable or because two providers disagree. Attempts per request are bounded so a chain cannot loop.
+The chain advances only under the [repository fallback eligibility rule](../AGENTS.md#weather-and-recommendation-behavior), and attempts per request are bounded so it cannot loop.
 
 Attribution is the one controlled addition to the shared contract, as described above.
 
@@ -236,7 +228,7 @@ mobile: shared contract validation, then deterministic domain invariants
 persisted recommendation snapshot and localized presentation
 ```
 
-The request carries only sanitized structured evidence; the forbidden inputs are listed in [`product-decisions.md`](product-decisions.md). The response carries structured data, never user-visible prose, so all Turkish and English copy stays in localization keys. A response failing either validation stage is rejected rather than repaired into a different outfit.
+The request follows the canonical [AI input privacy boundary](product-decisions.md#approved-ai-input-privacy-boundary). The response carries structured data, never user-visible prose, so all Turkish and English copy stays in localization keys. A response failing either validation stage is rejected rather than repaired into a different outfit.
 
 ### Goal 2a design: AI contracts and Worker orchestration
 
@@ -249,19 +241,17 @@ Two details were settled during implementation. The candidate upper bound is **1
 - **Worker-side validation is structural and closed-set only**, not a re-implementation of `composeOutfits`'s scoring/tradeoff logic: response shape (zod), every `candidateKey` drawn from the request's closed candidate set, no duplicate `candidateKey` within one outfit, and slot completeness (`primary_top`+`bottom` XOR `one_piece`, exactly one `footwear`, at most one each of `mid_layer`/`outer_layer`). Any violation collapses to `ai_unavailable`; the specific rule that failed is never exposed to the client. Full mandatory-requirement satisfaction checking stays where `composeOutfits`/`evaluateGarmentEligibility` already live, in mobile.
 - **Endpoints in scope for 2a**: `GET /v1/health` (generic Worker liveness) and `GET /v1/ai/ready` (configuration readiness, calls no provider). The active AI provider probe from [Health, readiness, and probe distinctions](#health-readiness-and-probe-distinctions) is explicitly deferred — it needs real provider quota and the Today "Check AI status" trigger, so it belongs with milestone 4, not 2a.
 
-### Goal 2b design: real AI provider adapters
+### AI handler and provider adapter contract
 
-Designed and implemented 2026-08-19. Adds two real adapters behind the Goal 2a seam. The contracts, `createAiHandler`, the router, and both endpoints are unchanged: an adapter only has to return a candidate JSON object, because the handler already owns the ordered walk, the per-attempt timeout, zod validation, the closed-candidate-set check, and the collapse to one sanitized `ai_unavailable`.
+This is the current state of the seam, not the state any one Goal left it in.
 
-That unchanged claim describes Goal 2b's own scope. Later maintenance did modify two of those pieces, so read them at their current state rather than as 2b left them. `createAiHandler` now bounds attempts per request through a `maxAttempts` option defaulting to 4 — the Workers AI hop plus the three configured OpenRouter models — rejects a response whose `layerRole` is not among the matching candidate's `supportedLayerRoles`, and requires an exact `application/json` media type rather than any type merely starting with it. In the contracts, `supportedLayerRoles` no longer requires at least one role: the canonical taxonomy gives footwear and accessories an empty role set, and the previous lower bound rejected every request containing footwear.
-
-- **Shared prompt surface** (`apps/worker/src/ai/ai-prompt.ts`). `outfitJsonSchema` is a hand-written JSON Schema whose shape is exactly `aiRecommendV1SuccessSchema`'s, so an adapter returns the parsed model output with no mapping step. It is hand-written rather than derived: the workspace is on zod 3.25.76, and the structural outfit rules live in `superRefine`, which no converter can express. Those rules stay enforced by the handler's zod parse — the JSON Schema only shapes the model output and is never treated as validation. `buildMessages` states the invariants imperatively and passes `clothingPreference`, `requirements`, and `candidates` straight through; the request object is already the sanitized privacy boundary, so the prompt builder filters nothing and adds nothing.
-- **OpenRouter adapter** (`openrouter-ai-provider.ts`). Posts to the chat-completions endpoint with `response_format: json_schema` (`strict: true`), `provider: { require_parameters: true }` to restrict routing to endpoints that support structured outputs, `max_tokens: 2048`, and the caller's `AbortSignal`. The API key is a private class field, never a public property. Every failure throws a constant-message `Error`: the key, the response body, the status text, and provider identity are never interpolated, so sanitization holds at the adapter rather than depending on the handler.
-- **Workers AI adapter** (`workers-ai-provider.ts`). Calls the `AI` binding with the same messages, the same JSON Schema, and `max_tokens: 2048`, then unwraps `result.response`. The raw binding result exposes `response` as a non-enumerable getter, so it is absent from `JSON.stringify` output but present on the object — verified against the live binding. The binding takes no `AbortSignal`, so the adapter calls `signal.throwIfAborted()` first and otherwise relies on the handler's per-attempt race; no second timeout exists.
-- **Composition moved into the request path** (`index.ts`). Goal 2a built every provider at module scope and exported `fetch(request)`, which no env-dependent adapter could reach. `fetch(request, env)` now calls the exported `createAiProviders(env)`: one `WorkersAiProvider` when the binding and its model are present, then one `OpenRouterAiProvider` per configured model id in order. That order was reversed on 2026-08-19 by user decision after the free-model evaluation; see `product-decisions.md`. Per-model instances are deliberate — the handler's existing ordered walk *is* the model fallback chain, so no second fallback loop exists. `aiReady` is `providers.length > 0`, so `/v1/ai/ready` reports real configuration state while still calling no provider. Weather composition stays at module scope.
-- **The deterministic stub is not composed in production.** `AGENTS.md` requires that the deterministic sample provider never act as a production fallback, so `DeterministicStubAiProvider` was removed from `index.ts` and survives only as an injected test double. When nothing is configured the provider list is empty, `/v1/ai/ready` reports `not_configured`, and `/v1/ai/recommend` returns `ai_unavailable` — which is the correct signal for the device-local deterministic fallback that milestone 3 adds.
-- **The per-attempt timeout is 20 seconds, not the handler's 10-second default.** Measured over five isolated runs the Workers AI hop took 7.9, 8.5, 8.6, 9.6 and 10.0 seconds; the last one crossed the 10-second boundary and the working provider was aborted, producing a spurious `ai_unavailable`. `index.ts` passes `attemptTimeoutMs: 20_000` into the existing injectable handler parameter, so the handler itself is unchanged.
-- **`max_tokens` is a correctness bound, not a tuning knob.** Without it both runtimes stopped at their default length and returned truncated JSON that failed `JSON.parse` or zod. It is fixed in code and deliberately absent from `Env` and `wrangler.jsonc`.
+- **The handler owns everything an adapter would otherwise duplicate**: the ordered walk, the per-attempt timeout, zod validation, the closed-candidate-set check, and the collapse to one sanitized `ai_unavailable`. An adapter only has to return a candidate JSON object. `createAiHandler` bounds attempts per request through a `maxAttempts` option defaulting to 4, the Workers AI hop plus the three configured OpenRouter models, so the chain cannot loop.
+- **The handler's response checks go past shape.** It rejects a response whose `layerRole` is not among the matching candidate's `supportedLayerRoles`, and requires an exact `application/json` media type rather than any type merely starting with it. In the contracts, `supportedLayerRoles` has no minimum size: the canonical taxonomy gives footwear and accessories an empty role set, and an earlier lower bound rejected every request containing footwear.
+- **The shared prompt surface** (`ai-prompt.ts`) holds `outfitJsonSchema`, a hand-written JSON Schema whose shape is exactly `aiRecommendV1SuccessSchema`'s, so an adapter returns parsed model output with no mapping step. It is hand-written rather than derived because the workspace is on zod 3.25.76 and the structural outfit rules live in `superRefine`, which no converter can express. Those rules stay enforced by the handler's zod parse; the JSON Schema only shapes model output and is never treated as validation. `buildMessages` passes the already-sanitized request straight through, adding and filtering nothing.
+- **`max_tokens: 2048` is a correctness bound, not a tuning knob.** Without it both runtimes stopped at their default length and returned truncated JSON that failed `JSON.parse` or zod. It is fixed in code and deliberately absent from `Env` and `wrangler.jsonc`. The per-attempt timeout is likewise a measured bound rather than a default: `index.ts` passes `attemptTimeoutMs: 20_000` into the handler's existing injectable parameter, because the Workers AI hop runs close enough to 10 seconds to be aborted mid-success.
+- **Adapters keep sanitization at their own boundary.** The OpenRouter adapter holds its API key in a private class field and throws only constant-message errors, so the key, the response body, the status text, and provider identity are never interpolated into an error. The Workers AI binding takes no `AbortSignal`, so that adapter calls `signal.throwIfAborted()` first and otherwise relies on the handler's per-attempt race; no second timeout exists.
+- **Composition happens in the request path.** `fetch(request, env)` calls `createAiProviders(env)`, which builds one Workers AI provider when the binding and its model are present, then one OpenRouter provider per configured model id in order. Per-model instances are deliberate: the handler's ordered walk *is* the model fallback chain, so no second fallback loop exists. `aiReady` is `providers.length > 0`, so `/v1/ai/ready` reports real configuration state while still calling no provider. Weather composition stays at module scope.
+- **The deterministic stub is never composed in production.** It survives only as an injected test double. When nothing is configured the provider list is empty, `/v1/ai/ready` reports `not_configured`, and `/v1/ai/recommend` returns `ai_unavailable`, which is the correct signal for the device-local deterministic fallback.
 
 ### Where each fallback lives
 
@@ -293,4 +283,4 @@ A successful probe describes only the moment it ran. It never guarantees that a 
 3. The Worker validates input, calls privileged providers, validates their output, and returns a versioned response defined in the contracts package.
 4. The mobile client validates the response before mapping it into domain state and preserves the last known good snapshot if refresh fails.
 
-Steps 2 through 4 now operate end-to-end in local development through the HTTP adapters and deterministic Worker weather sample endpoint. Authentication and remote synchronization remain deferred, and production WeatherKit stays blocked by Apple Developer Program enrollment. The AI recommendation flow is implemented end-to-end: the Worker composes ordered Workers AI and OpenRouter adapters, mobile validates and maps the response, and one recommendation snapshot per local profile is persisted with a device-local deterministic fallback. The real weather provider chain and the explicitly triggered active AI probe remain approved and sequenced in [`current-status.md`](current-status.md), but are not implemented.
+Steps 2 through 4 now operate end-to-end in local development through the HTTP adapters and deterministic Worker weather sample endpoint. Authentication, remote synchronization, and production WeatherKit remain unimplemented. The AI recommendation flow is implemented end-to-end: the Worker composes ordered Workers AI and OpenRouter adapters, mobile validates and maps the response, and one recommendation snapshot per local profile is persisted with a device-local deterministic fallback. The real weather provider chain and the explicitly triggered active AI probe remain approved and sequenced in [`current-status.md`](current-status.md), but are not implemented.

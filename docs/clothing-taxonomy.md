@@ -30,25 +30,6 @@ Current implementation locations are:
 - effective garment resolution: `apps/mobile/src/features/wardrobe/domain/effective-garment.ts`
 - schema version 3: `apps/mobile/src/infrastructure/sqlite/migrations.ts`
 
-The table below is a historical exercise from when Today still rendered fixture concepts. That slice has since been replaced by the real recommendation flow; the table is kept only because it shows how labels map onto taxonomy identity.
-
-| Today fixture concept | Taxonomy interpretation, not an implemented mapping |
-| --- | --- |
-| Cotton shirt | `shirt`; cotton is material detail, deferred from the MVP taxonomy. |
-| Relaxed or tailored trousers | `trousers`; fit and formality are not type identity. |
-| Light overshirt | `overshirt`; light warmth is a property/default. |
-| Water-resistant sneakers | `sneakers` plus `water_resistant`. |
-| Compact umbrella | `umbrella`; compact size is presentation/product detail. |
-| Fine-knit top | Requires product review between `sweater` and another top; the label alone must not force a mapping. |
-| Light trench coat | `trench_coat` plus a light thermal value. |
-| Water-resistant loafers | `closed_shoes` plus `water_resistant`; loafer is a style. |
-| Long-sleeve T-shirt | `long_sleeve_t_shirt`. |
-| Straight-leg jeans | `jeans`; leg fit is not type identity. |
-| Hooded rain jacket | `rain_jacket`; a hood is deferred construction detail. |
-| Waterproof ankle boots | `ankle_boots` plus `waterproof`; do not silently reclassify as `weather_boots`. |
-
-This mapping exercise demonstrates the boundary; it does not modify fixture codes or create catalog records.
-
 ## Research findings and design consequences
 
 The evidence and kuyara's conclusions are deliberately separated below.
@@ -282,24 +263,25 @@ New types may be appended without changing existing records. The engine must han
 
 ### Canonical `GarmentType` definition
 
-The future catalog definition should contain:
+The catalog definition and its ownership boundary are:
 
 | Field | Rule |
 | --- | --- |
-| `typeId` | Immutable canonical ID matching the naming regex; unique within every catalog version. |
-| `structuralCategory` | Exactly one of the six existing categories. |
-| `nameKey` | `catalog.garment_type.<typeId>.name`; both Turkish and English messages required. |
+| `typeId` | Immutable canonical ID matching the naming regex and unique within every catalog version. A Wardrobe item stores one reference or null for legacy data, and the effective view carries the resolved ID when available. |
+| `structuralCategory` | Exactly one of the six existing categories. A Wardrobe item retains the category snapshot, and the effective view rejects a typed item when the two disagree. |
+| `nameKey` | `catalog.garment_type.<typeId>.name`; both Turkish and English messages required. SQLite stores only the user's optional item name, while the effective view uses the localized type label plus that optional name. |
 | `bodyRegion` | One primary body region or null only for a carried item such as `umbrella`. |
 | `supportedLayerRoles` | Unique set of layer capabilities; empty only when layering does not apply. |
-| `defaultThermalLevel` | One thermal level or null when not applicable. |
+| `defaultThermalLevel` | One thermal level or null when not applicable. As with every weather-property default, a Wardrobe item stores only an explicit actual-item override and the effective view resolves the override over the current default. |
 | `defaultWaterProtection` | One water value for relevant types; null when not applicable. |
 | `defaultWindProtection` | One wind value for relevant types; null when not applicable. |
 | `defaultBreathability` | One breathability value for relevant worn types; null for carried items. |
 | `defaultArmCoverage` | Required for upper/full-body types; otherwise null. |
 | `defaultLegCoverage` | Required for lower/full-body types; otherwise null. |
 | `defaultTractionSuitability` | Required for footwear; otherwise null. |
-| `apparelPreferenceApplicability` | Non-empty unique set containing `womens`, `mens`, or both. |
-| `status` | `active` or `deprecated`; deprecated entries remain resolvable. |
+| `colorFamily` | The catalog does not prescribe an owned item's color. A Wardrobe item stores the canonical family and optional display text; the effective view uses the family for compatibility and the text only for display. |
+| `apparelPreferenceApplicability` | Non-empty unique set containing `womens`, `mens`, or both. A Wardrobe item stores no applicability metadata, and preference changes never remove an owned item. |
+| `status` | `active` or `deprecated`; deprecated entries remain resolvable against the current catalog manifest. Wardrobe items do not copy catalog versions or defaults. |
 | `replacedByTypeId` | Null for active types; optional valid different ID for a deprecated type. |
 
 Catalog validation must reject duplicate IDs, duplicate values in sets, invalid enum values, category/coverage mismatches, missing localization keys, active types with a replacement, deprecated replacement cycles, and a replacement whose structural category differs unless an explicit migration design approves the semantic change.
@@ -338,54 +320,9 @@ The resulting effective garment view is computed in the domain/application bound
 
 The MVP does not offer a user-created or free-text custom type. New items select a canonical type; legacy `garmentTypeId = null` is a migration state, not a selectable “unknown” type. A future custom-type feature would require its own stable identity, sync, localization, and fallback decisions.
 
-## Catalog–Wardrobe boundary
-
-| Concern | Canonical catalog | Wardrobe item | Effective garment view |
-| --- | --- | --- | --- |
-| Identity | Owns immutable `typeId` definitions | Stores one reference or null for legacy | Carries the resolved ID when available |
-| Structural category | Defines the category for each type | Retains the existing category snapshot | Rejects a typed item when the two disagree |
-| Weather properties | Supplies validated coarse defaults | Stores only explicit actual-item overrides | Resolves override over current default |
-| User-visible name | Supplies localization key | May store the user's optional item name | Uses localized type label plus optional item name |
-| Color | Does not prescribe an owned item's color | Stores canonical family and optional display text | Uses family for compatibility, text for display only |
-| Clothing preference | Supplies applicability metadata | Stores none | Never removes an owned item because preference changed |
-| Versioning | Manifest owns `catalogVersion` and deprecations | Does not copy catalog version/defaults | Resolves against current retained definition |
-
 Changing a catalog default deliberately updates the effective value of an unoverridden item; it never overwrites SQLite. Explicit overrides remain stable. A deleted or renamed display label does not break an item because IDs are immutable and deprecated definitions remain resolvable. Reclassification to a replacement ID is an explicit user operation that updates `updatedAt`; it is not a catalog side effect.
 
-## Persistence, derivation, and runtime decision table
-
-| Field | Owner | Data type | Source | Persisted? | Overrideable? | MVP status | Rationale |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `structuralCategory` | Canonical catalog | Existing six-value enum | Type definition | Catalog only | No | Add with catalog | Intrinsic category of every canonical type. |
-| existing `category` snapshot | Wardrobe item | Existing six-value enum | Catalog; legacy user selection | Yes, existing column | No independent override once typed | Keep | Preserves v2 rows and orphan resilience; must match type when present. |
-| `garmentTypeId` | Wardrobe item | Stable string ID | User type selection | Yes; nullable only for legacy | Reclassifiable by explicit user action | Add in v3 | Connects an actual item to stable defaults without copying the catalog. |
-| `nameKey` | Canonical catalog | Localization key | Bundled catalog | Catalog only | No | Add with catalog | Labels do not belong in SQLite. |
-| `bodyRegion` | Canonical catalog | Small enum or null | Type definition | Catalog only | No in MVP | Add with catalog | Structural fact; umbrella is null. |
-| `supportedLayerRoles` | Canonical catalog | Set of `base`/`mid`/`outer`/`standalone` | Type definition | Catalog only | No in MVP | Add with catalog | One type can support multiple roles. |
-| selected `layerRole` | Recommendation input | One supported role | Candidate outfit composition | No | Runtime choice | Add with engine | The same item can play different roles in different outfits. |
-| `thermalLevel` default | Canonical catalog | `none`/`light`/`moderate`/`high` or null | Catalog estimate | Catalog only | Via item override | Add with catalog | Coarse ordinal, not degrees. |
-| `thermalLevelOverride` | Wardrobe item | Same enum or null | Explicit user correction | Yes | Yes | Add in v3 | Captures actual item variation; null means catalog default. |
-| `waterProtection` default | Canonical catalog | `none`/`water_resistant`/`waterproof` or null | Catalog evidence/default | Catalog only | Via item override | Add with catalog | Independent from warmth and precipitation codes. |
-| `waterProtectionOverride` | Wardrobe item | Same enum or null | Explicit user correction | Yes | Yes | Add in v3 | Real products vary within one type. |
-| `windProtection` default | Canonical catalog | `none`/`wind_resistant` or null | Catalog evidence/default | Catalog only | Via item override | Add with catalog | Wind affects heat loss independently. |
-| `windProtectionOverride` | Wardrobe item | Same enum or null | Explicit user correction | Yes | Yes | Add in v3 | Avoids making type defaults immutable user truth. |
-| `breathability` default | Canonical catalog | `low`/`moderate`/`high` or null | Catalog estimate | Catalog only | Via item override | Add with catalog | Useful in hot weather without lab precision. |
-| `breathabilityOverride` | Wardrobe item | Same enum or null | Explicit user correction | Yes | Yes | Add in v3 | Supports unusually breathable or occlusive real items. |
-| `armCoverage`/`legCoverage` defaults | Canonical catalog | `none`/`partial`/`full` or null | Type definition | Catalog only | Via item overrides | Add with catalog | Needed for heat, sun, cold, and rain reasoning. |
-| coverage overrides | Wardrobe item | Same values or null | Explicit user correction | Yes | Yes | Add in v3 | Broad types such as dress and skirt vary. |
-| `tractionSuitability` default | Canonical catalog | `everyday`/`enhanced` or null | Footwear type default | Catalog only | Via item override | Add with catalog | Separates ground suitability from water protection without safety claims. |
-| `tractionSuitabilityOverride` | Wardrobe item | Same enum or null | Explicit user correction | Yes | Yes | Add in v3 | Sole construction varies within a type. |
-| `colorFamily` | Wardrobe item | Optional canonical enum | User selection | Yes | Directly editable | Add in v3 | Minimum deterministic color input. |
-| existing `color` | Wardrobe item | Optional display text | User | Yes, already | Directly editable | Keep | Display/search value only; never infer engine facts from it. |
-| `apparelPreferenceApplicability` | Canonical catalog | Non-empty set of `womens`/`mens` | Catalog curation | Catalog only | No per item | Add with catalog | Filters catalog, never invalidates owned data. |
-| clothing preference | User profile | Existing `womens`/`mens` | Onboarding/Settings | Yes, already | Yes | Keep | Mutable preference, not identity. |
-| `season` | Runtime-derived | No taxonomy field | Calendar/presentation context only | No | No | Reject | Duplicates multiple independent weather properties. |
-| garment temperature range | Runtime-derived | No taxonomy field | No valid garment source | No | No | Reject | Implies false precision and ignores person/activity/layers. |
-| provider condition code | Recommendation input | Provider DTO value before mapping | Weather provider | No garment persistence | No | Reject from taxonomy | Provider-specific and current-weather data. |
-| normalized weather needs | Recommendation input | Domain requirement set | Deterministic weather rules | Cache only with recommendation snapshot if later approved | No garment override | Future engine | Computed from current weather, not a garment fact. |
-| effective garment properties | Runtime-derived | Resolved read model | Catalog defaults + item overrides | No | No | Add with engine | Prevents a second source of truth. |
-| complete recommendation result | Runtime-derived | Separate snapshot contract | Engine output | Not part of taxonomy; future cache only | No | Future engine | Must not be stored as item metadata. |
-| catalog version | Canonical catalog | Monotonic integer or release string | Bundled catalog manifest | Catalog manifest; optional snapshot provenance | No | Add with catalog | Catalog data changes independently of SQLite schema. |
+`season` is rejected as a taxonomy field for the reasons in [Why one `season` field is insufficient](#why-one-season-field-is-insufficient). A per-garment temperature range is also rejected because it implies false precision and ignores the person, activity, and layering. A provider condition code and normalized current-weather needs are recommendation inputs, never garment facts. The selected `layerRole`, effective garment properties, and complete recommendation result are runtime-derived and must never become persisted item metadata.
 
 ## Unknown, null, default, and not-applicable behavior
 
@@ -475,33 +412,11 @@ These defaults intentionally remain coarse. A mesh sneaker, heavy sweater, short
 
 ## Scenario sufficiency checks
 
-These checks evaluate whether the taxonomy carries the necessary distinctions. They do not define thresholds or generate an outfit.
-
-### Hot, sunny, and dry
-
-The engine can compare low thermal levels, high breathability, arm/leg coverage, footwear openness through type/defaults, a brimmed hat, and coarse color compatibility. It does not infer cooling from color family and does not claim UV protection from coverage alone. A future verified sun-protection property may improve recommendations, but its absence does not block the MVP taxonomy.
-
-### Cool, windy, and rainy
-
-The engine can select compatible base/mid/outer roles, compare thermal contribution, require water and wind protection independently, assess footwear water protection, and add an umbrella. Because a top such as `overshirt` can support more than one role, composition does not require misclassifying it as `outerwear`.
-
-### Cold with possible snow
-
-The engine can combine multiple thermal contributions, an outer layer with wind/water protection, `weather_boots` with enhanced traction, and coverage for head, neck, and hands. The taxonomy does not promise safety on ice, assign a garment a Celsius rating, or override official extreme-weather warnings.
+These checks show that the taxonomy carries the needed distinctions without defining thresholds or generating an outfit. It infers no cooling from color family and no UV protection from coverage alone, and a multi-role type such as `overshirt` remains a `top` rather than being misclassified as `outerwear`. It promises no safety on ice, assigns no Celsius rating per garment, and never overrides official extreme-weather warnings.
 
 ## Alternatives considered
 
-| Criterion | Detailed type only | Type + many independent required attributes | Small catalog defaults + limited overrides |
-| --- | --- | --- | --- |
-| MVP simplicity | Superficially simple, but type list explodes | Low; many controls and validation paths | High; type selection works immediately |
-| Deterministic engine | Weak; weather behavior hidden in names | Strong | Strong with explicit effective properties |
-| User input burden | Low until ambiguous types fail | Very high | Low by default, optional corrections |
-| Localization | Poor as combined type names multiply | Moderate | Good; stable IDs and reusable attribute labels |
-| Migration cost | High whenever a new distinction is needed | High initial schema/UI cost | Controlled nullable v3 additions and catalog-only growth |
-| Adding a new type | Risks new implicit rules | Easy but requires full attribute entry | Easy; add one validated catalog record |
-| Testability | Weak, many name-based special cases | Strong but large matrix | Strong, with catalog invariants and override resolution |
-| Provider independence | Possible but often leaks weather names into types | Strong | Strong |
-| Future sync | IDs are stable but semantics are opaque | Large record payloads/conflicts | Stable references plus explicit user-owned overrides |
+The three approaches considered were detailed type only, type plus many independent required attributes, and small catalog defaults plus limited overrides. A type-only model hides weather behavior in names and makes the type list explode, while a fully attribute-driven model puts an unacceptable input burden on the user.
 
 The third approach is selected. It keeps catalog assumptions replaceable, Wardrobe facts user-owned, and runtime composition explicit.
 

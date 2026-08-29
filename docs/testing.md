@@ -2,7 +2,57 @@
 
 ## Temporary Apple constraint
 
-Apple Developer enrollment is pending. Until the user explicitly removes this constraint, validation must not initiate WeatherKit credential or production integration work, TestFlight, App Store Connect, production release operations, or another step requiring active Apple Developer Program membership. Apple-independent unit, contract, component, Worker dry-run, and iOS Simulator checks continue normally. Weather integration tests use deterministic providers and fixed raw-response fixtures rather than live external weather calls.
+The [temporary Apple constraint](../AGENTS.md#temporary-project-constraint) governs validation; weather integration tests use deterministic providers and fixed raw-response fixtures rather than live external weather calls.
+
+## Repository and configuration checks
+
+Run commands from the repository root unless a different directory is stated. The aggregate check covers lint, TypeScript, every workspace Node test suite, and the Worker bundle:
+
+```bash
+pnpm check
+```
+
+Run focused repository checks with `pnpm run lint`, `pnpm run typecheck`, or `pnpm test`. The mobile Jest component suite is separate from `pnpm check`:
+
+```bash
+pnpm --filter @kuyara/mobile test:components
+```
+
+Inspect the resolved public Expo configuration from the repository root:
+
+```bash
+pnpm --filter @kuyara/mobile exec expo config --type public --json
+```
+
+Run Expo Doctor from `apps/mobile`:
+
+```bash
+pnpm dlx expo-doctor@latest
+```
+
+Verify the Worker bundle without deployment:
+
+```bash
+pnpm --filter @kuyara/worker bundle
+```
+
+Start the local Worker when runtime verification is needed, then stop it after the check:
+
+```bash
+pnpm --filter @kuyara/worker dev --port 8788
+```
+
+Start the mobile development server from the repository root with:
+
+```bash
+pnpm --filter @kuyara/mobile start
+```
+
+For a local iOS Simulator smoke test, start Metro and stop it with Ctrl+C after verification:
+
+```bash
+pnpm --filter @kuyara/mobile exec expo start --ios --port 8082
+```
 
 ## Shared contract and Worker tests
 

@@ -12,9 +12,11 @@ kuyara is an open-source weather and outfit recommendation app built with React 
 
 ## Temporary project constraint
 
-- Apple Developer enrollment is pending. Until the user explicitly lifts this constraint, do not initiate production WeatherKit integration or credentials, TestFlight, App Store Connect or production release operations, or other work requiring active Apple Developer Program membership.
+- Apple Developer enrollment is pending as of 2026-08-01. Until the user explicitly lifts this constraint, do not initiate production WeatherKit integration or credentials, TestFlight, App Store Connect or production release operations, or other work requiring active Apple Developer Program membership.
 - This does not cancel WeatherKit or the iOS release direction. Continue Apple-independent implementation, tests, Simulator work, and release preparation, and keep weather provider-independent.
+- The provider abstraction remains required, and WeatherKit work resumes only after membership is available and the user removes this constraint.
 - Real Apple-independent weather providers may be implemented. The deterministic sample provider is a development and test source only; it is never a production fallback.
+- The earlier sample-only rule was revoked on 2026-08-13; this did not change the membership-dependent pause above.
 
 ## Working rules
 
@@ -120,8 +122,7 @@ The repository may be in transition. Inspect the real tree before assuming this 
 - Put shared request and response schemas in `packages/contracts` when both mobile and Worker use them.
 - Treat every network and AI response as untrusted until runtime validation succeeds.
 - Return stable, minimal error shapes; do not leak provider responses, tokens, stack traces, or internal configuration.
-- Send AI only the minimum sanitized structured data needed to compose outfits: opaque candidate keys, catalog garment type, structural category and supported role/property evidence, canonical color family when available, source kind such as catalog or owned, the deterministic weather and clothing requirements, and clothing preference where catalog applicability requires it.
-- Never send AI wardrobe photos, photo paths or URIs, user-entered free-form wardrobe names, `localProfileId`, profile or device identifiers, exact coordinates, raw location payloads, secrets, complete internal database records, or unrelated personal data.
+- Send AI only the minimum sanitized structured data defined by the [approved AI input privacy boundary](docs/product-decisions.md#approved-ai-input-privacy-boundary). Never send photos, paths, free-form names, identifiers, or coordinates.
 - Do not log exact coordinates, wardrobe contents, photos, personal preferences, complete AI prompts, or unnecessary user data.
 - Prefer coarse, privacy-preserving operational metrics. Do not add behavioral tracking in the MVP.
 - Use free tiers and hard spend controls where available. Fail safely when a quota or limit is reached.
@@ -169,12 +170,7 @@ The repository may be in transition. Inspect the real tree before assuming this 
 - Run the verified aggregate lint, TypeScript, Node test, and Worker bundle checks with `pnpm check`.
 - Run lint alone with `pnpm run lint` and all current TypeScript checks with `pnpm run typecheck`.
 - Run every workspace Node test suite with `pnpm test`. The mobile React Native Testing Library suite uses Jest, runs separately with `pnpm --filter @kuyara/mobile test:components`, and is not part of `pnpm check`.
-- Run the local Maestro iOS flows with `pnpm e2e:ios`; this requires a Simulator with the local development build and clears its app data.
-- Inspect the resolved mobile configuration with `pnpm --filter @kuyara/mobile exec expo config --type public --json`.
-- Run Expo Doctor from `apps/mobile` with `pnpm dlx expo-doctor@latest`.
-- For a local iOS Simulator smoke test, run `pnpm --filter @kuyara/mobile exec expo start --ios --port 8082` and stop Metro with Ctrl+C after verification.
-- Verify the Worker bundle without deployment with `pnpm --filter @kuyara/worker bundle`.
-- Start the local Worker with `pnpm --filter @kuyara/worker dev --port 8788`; this is a long-running process and must be stopped after verification.
+- See [`docs/testing.md`](docs/testing.md) for focused suites, Expo configuration and Doctor checks, Simulator smoke testing, Worker bundle and development commands, and `pnpm e2e:ios`.
 - No format or Android build script exists yet. Do not invent or document one as available until the corresponding infrastructure is added and verified.
 
 ## Dependency policy
@@ -206,8 +202,9 @@ The repository may be in transition. Inspect the real tree before assuming this 
 - Flag speculative sync infrastructure or provider coupling added without an approved requirement.
 - Prefer CI for deterministic formatting and lint enforcement; review should focus on correctness, security, privacy, architecture, and regressions.
 
-## Efficient execution
+## Efficient execution and validation
 
+- Use risk-proportionate validation.
 - Protect correctness, safety, and architectural consistency before token savings.
 - Read only files relevant to the current task.
 - Do not perform repository-wide scans unless necessary.
@@ -215,26 +212,15 @@ The repository may be in transition. Inspect the real tree before assuming this 
 - Batch related inspections and commands.
 - Keep exploratory command output bounded.
 - Do not repeat a successful check unless the implementation changed afterward.
-- During implementation, run only focused checks.
-- Run one broader validation pass at the end only when proportionate to risk.
-- Documentation-only changes do not require builds or full test suites.
+- During implementation, run only the smallest relevant checks.
+- Run one consolidated validation pass at the end only when proportionate to risk.
+- Documentation-only changes normally require only Markdown review and `git diff --check`, not builds or full test suites.
+- Domain logic changes require focused unit tests.
+- UI changes require focused component tests and relevant accessibility checks.
+- Native iOS changes require one affected iOS build or Simulator verification.
+- Do not run Android validation unless Android code or shared native configuration changed.
 - Delegate scoped, mechanical work when the spec is cheaper to write than the work. A delegated task needs files in scope, invariants, and its verification stated up front.
 - Architecture, integration, and final verification stay with the main agent; delegated output is not accepted until it passes the repository checks.
 - A sandboxed delegate lane has no network access. Do not give a lane any step that needs `pnpm install --frozen-lockfile` or registry access. Install from the lockfile in the main agent before the lane starts, and state the lane's acceptance check in terms of commands that run offline against the already installed workspace.
 - Steps that need the iOS Simulator or a long-running local server are not lane work either. Keep `pnpm e2e:ios` and `pnpm --filter @kuyara/worker dev --port 8788` in the main agent or a non-sandboxed sub-agent, and give the lane `pnpm check` or a filtered test command as its acceptance criterion instead.
 - Keep final reports focused on changes, validation, risks, and next state.
-
-## Validation strategy
-
-Use risk-proportionate validation.
-
-- During implementation, run the smallest relevant tests.
-- Do not rerun successful checks unless affected code changed.
-- At completion, run one consolidated validation pass when necessary.
-- Documentation changes normally require only Markdown review and
-  `git diff --check`.
-- Domain logic changes require focused unit tests.
-- UI changes require focused component tests and relevant accessibility checks.
-- Native iOS changes require one affected iOS build or Simulator verification.
-- Do not run Android validation unless Android code or shared native
-  configuration changed.

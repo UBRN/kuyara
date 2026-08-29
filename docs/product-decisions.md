@@ -14,18 +14,11 @@
 
 ## Temporary Apple constraint
 
-- Apple Developer enrollment is pending as of 2026-08-01. Until the user explicitly lifts this constraint, production WeatherKit integration and credentials, TestFlight, App Store Connect and production release operations, and other work requiring active Apple Developer Program membership are paused.
-- This is a temporary project constraint, not a cancellation of WeatherKit or the iOS-first release direction. The provider abstraction remains the required architecture, and WeatherKit work will resume after membership is available and the user removes the constraint.
-- Apple-independent development, automated tests, iOS Simulator validation, and release preparation continue.
-- The earlier rule that weather must use only the deterministic/sample provider during this period, with no temporary real provider selected, was revoked on 2026-08-13. Real Apple-independent weather providers are now approved; see [Approved weather provider strategy](#approved-weather-provider-strategy). The deterministic sample provider remains a development and test source only and is never a production fallback. The membership pause above is unchanged: WeatherKit credentials and integration, TestFlight, App Store Connect, and release operations stay paused.
+The current membership pause, its scope, and the 2026-08-13 revocation of the earlier sample-only rule are canonical in the [`AGENTS.md` temporary project constraint](../AGENTS.md#temporary-project-constraint).
 
 ## Current scaffold
 
-- The repository is a pnpm workspace with an Expo SDK 57 mobile app, a Cloudflare Worker package, and a shared contracts package.
-- The mobile app uses Expo Router and managed Continuous Native Generation. Native `ios/` and `android/` directories are generated only when needed and are not committed.
-- Expo SDK 57 sets iOS 16.4 as the minimum supported iOS version. Android remains supported by the shared Expo project.
-- The Worker has a deterministic weather v1 foundation, a controlled development-only sample deployment, and the AI recommendation contract and route served by ordered Workers AI and OpenRouter adapters. Mobile persists one recommendation snapshot per local profile and falls back to the device-local deterministic generator. WeatherKit, a real weather provider chain, Worker rate limiting, and the active AI probe are not implemented.
-- The contracts package contains the confirmed provider-neutral weather v1 request, success, and stable minimal error schemas.
+The current scaffold and workspace layout are canonical in the [`README.md` Stack section](../README.md#stack).
 
 ## Implemented primary navigation
 
@@ -115,23 +108,16 @@ The Today mock slice was replaced by the real recommendation flow. The remaining
 
 ## Implemented deterministic weather-to-clothing requirements
 
-- A pure provider-independent domain function converts one validated `WeatherSnapshot` into immutable, stably ordered clothing-property requirements. It emits only thermal level, breathability, arm/leg coverage, body/feet water protection, wind protection, traction, mandatory/optional priority, and language-independent reason codes. It does not select garments, catalog candidates, Wardrobe items, layers, slots, accessories, or outfits.
-- Current measurements and hourly measurements at or after `current.observedAt` are the primary exposure horizon. At least one hourly entry strictly after `observedAt` counts as remaining-hour coverage. Only when no such entry exists do the daily minimum and maximum participate in mandatory thermal and breathability exposure as a documented fallback. A past daily extreme therefore cannot independently escalate a current requirement when remaining-hour coverage exists.
-- Cold exposure is the lowest relevant air or apparent temperature: below `5°C` requires high thermal protection, `5°C` through below `12°C` requires moderate, and `12°C` through below `18°C` requires light. Below `12°C`, full arm and leg coverage is mandatory; from `12°C` through below `18°C`, it is optional.
-- Heat exposure is the highest relevant air or apparent temperature: `24°C` through below `28°C` produces optional moderate breathability, while `28°C` and above requires high breathability. Wind remains independent: `5 m/s` through below `8 m/s` produces optional wind resistance, while `8 m/s` and above requires it. Wind does not additionally promote thermal level after apparent temperature is considered.
-- A daily maximum-minus-minimum range of at least `8°C` emits `daily_range_wide` but does not itself escalate protection when adequate remaining-hour coverage exists. Precipitation probability from `0.30` through below `0.60` produces optional water-resistant body protection; `0.60` and above requires waterproof body protection.
-- Explicit conditions override weaker probability guidance. Drizzle requires water-resistant body protection; rain requires waterproof body protection and makes water-resistant feet protection optional; heavy rain and thunderstorms require waterproof body plus water-resistant feet protection and make enhanced traction optional; sleet and snow require waterproof body and feet protection plus enhanced traction. Thunderstorm protection requirements never imply that clothing makes outdoor activity safe.
-- Requirements on the same property and target merge to the strongest value, with mandatory taking precedence and reason codes deduplicated in stable order. Independent needs do not cancel one another, so hot rain may require both breathability and water protection. Clothing preference is not an input and cannot weaken weather protection.
-- Every numeric boundary above is a deliberately coarse Kuyara product heuristic for everyday guidance. None is a scientific comfort rating, garment temperature rating, medical recommendation, occupational-safety rule, severe-weather alert, or assurance of safety.
+- A pure provider-independent domain function converts one validated `WeatherSnapshot` into immutable, stably ordered clothing-property requirements without selecting garments, layers, slots, accessories, or outfits.
+- Current and remaining-hour measurements take precedence over past daily extremes. Weather dimensions remain independent, explicit conditions override weaker probability guidance, and requirements merge deterministically without clothing preference weakening protection.
+- The boundaries are coarse, deterministic everyday-guidance heuristics covered by tests, not comfort ratings, garment temperature ratings, medical or occupational-safety rules, severe-weather alerts, or assurances of safety. Their exact values live in `apps/mobile/src/features/recommendation/domain/weather-to-clothing-requirements.ts` and `weather-to-clothing-requirements.test.mjs`.
 
 ## Implemented deterministic garment eligibility and scoring
 
 - A pure mobile domain layer projects bundled catalog defaults and successfully resolved owned-item overrides into one canonical effective-property input. Catalog preference mismatch and unavailable catalog types fail explicitly; active owned items remain independent of current catalog preference, while deleted, legacy, invalid, and unmappable owned items are excluded. Retained deprecated definitions remain valid for already-owned garments.
 - Thermal, breathability, arm coverage, and leg coverage are composition-aware. Applicable shortfalls and missing values retain their weather reason codes and weighted score contribution but do not reject one garment, even when mandatory; later outfit composition must verify their combined satisfaction.
 - Individual-garment hard rejection is limited to mandatory body water or wind protection on outerwear candidates and mandatory feet water protection or traction on footwear. Optional failures never reject, and incompatible requirement/category combinations are `not_applicable` and excluded from scoring. Accessories are unsupported in this slice and cannot satisfy protection requirements.
-- Applicable mandatory requirements have weight `2` and optional requirements weight `1`. Ordinal contribution is the actual-to-minimum strength ratio capped at `100`; an eligible candidate with no applicable requirement starts at neutral `50`. Scores are rounded integers clamped to `0..100`, and stronger-than-minimum values receive no unbounded bonus.
-- Over-protection subtracts `5` per thermal step above an applicable minimum; with no thermal need, moderate and high thermal levels subtract `10` and `20`. When breathability is requested without an applicable water need, water-resistant and waterproof properties subtract `5` and `10`. Combined penalties are capped at `30`.
-- Eligibility and scoring reason codes are language-independent and stably ordered. Equal scores use the stable candidate key as the deterministic tie break. Scores are comparable only among candidates for the same composition role or compatible category; they are not global quality scores across tops, bottoms, outerwear, footwear, or other categories. This slice does not assign roles, combine garments, or produce outfits.
+- Scoring is bounded and deterministic, over-protection is penalized, and language-independent reason codes and equal-score ties are stably ordered. Scores compare only candidates for the same composition role or compatible category, not global quality across categories. The exact weights, caps, and penalties live in `apps/mobile/src/features/recommendation/domain/garment-eligibility.ts` and `garment-eligibility.test.mjs`.
 
 ## Implemented deterministic one-outfit composition
 
@@ -159,7 +145,7 @@ Approved 2026-08-13. Not implemented. The checked-in application still fetches d
 - Once WeatherKit becomes available the target chain is WeatherKit primary, Open-Meteo fallback, OpenWeather fallback, then the last valid device-local weather snapshot. WeatherKit is inserted at the head of the established chain rather than replacing it.
 - The existing provider-neutral Worker and mobile boundaries must be preserved. Each upstream provider must have an isolated adapter with raw-response runtime validation, explicit unit and condition mapping, timeout handling, and sanitized errors.
 - Provider payloads and secrets must not cross into mobile and must not be logged.
-- Fallback may occur only for eligible availability, timeout, quota or rate-limit, authentication or configuration, upstream, or invalid-response failures. Valid weather that is merely undesirable, or that differs between providers, is never a fallback trigger.
+- Weather fallback eligibility is governed by the [repository rule in `AGENTS.md`](../AGENTS.md#weather-and-recommendation-behavior).
 - Attempts per request must be bounded, and retry or fallback loops must be prevented.
 - The exact 30-minute freshness behavior and last-known-good semantics already implemented on mobile must not change.
 - Open-Meteo attribution requirements must be supported, and WeatherKit attribution requirements must be supported when WeatherKit is introduced. The earlier "provider names never cross the API" rule is narrowed only as much as a controlled, non-secret attribution identifier or attribution metadata requires; raw provider data and internal errors remain private.
