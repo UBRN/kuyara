@@ -392,6 +392,7 @@ test('provider failures preserve a cached stale snapshot and active location for
     ['network', 'offline'],
     ['service', 'unavailable'],
     ['invalid-response', 'unavailable'],
+    ['rate-limited', 'rate-limited'],
   ];
 
   for (const [providerFailure, refreshFailure] of cases) {

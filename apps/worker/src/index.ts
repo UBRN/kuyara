@@ -13,7 +13,14 @@ import {
 } from './ai/workers-ai-provider.ts';
 import { createRouter } from './router.ts';
 import { createWeatherHandler } from './weather-handler.ts';
-import { DeterministicMockWeatherProvider } from './weather/mock-weather-provider.ts';
+import {
+  createDailyCappedWeatherProvider,
+  openWeatherDailyCallLimit,
+} from './weather/daily-capped-weather-provider.ts';
+import { OpenMeteoWeatherProvider } from './weather/open-meteo-weather-provider.ts';
+import { OpenWeatherWeatherProvider } from './weather/openweather-weather-provider.ts';
+import type { WeatherProvider } from './weather/weather-provider.ts';
+import { createWeatherProviderChain } from './weather/weather-provider-chain.ts';
 
 interface KvNamespace {
   get(key: string): Promise<string | null>;
@@ -33,15 +40,14 @@ export type Env = Readonly<{
   OPENROUTER_MODELS?: readonly string[];
   WORKERS_AI_MODEL?: string;
   AI?: WorkersAiBinding;
+  // Shared by the AI probe and the namespaced weather daily cap.
   PROBE_COUNTER?: KvNamespace;
   AI_PROBE_RATE_LIMIT?: RateLimitBinding;
   AI_RECOMMEND_RATE_LIMIT?: RateLimitBinding;
+  OPENWEATHER_API_KEY?: string;
+  WEATHER_RATE_LIMIT?: RateLimitBinding;
 }>;
 
-const weatherProvider = new DeterministicMockWeatherProvider({
-  now: () => new Date().toISOString(),
-});
-const weatherHandler = createWeatherHandler({ provider: weatherProvider });
 const permissiveRateLimiter: RateLimiter = {
   limit: async () => ({ success: true }),
 };
@@ -88,9 +94,32 @@ export function createAiProviders(env: Env): AiProvider[] {
   return providers;
 }
 
+export function createWeatherProviders(env: Env): readonly WeatherProvider[] {
+  const providers: WeatherProvider[] = [new OpenMeteoWeatherProvider()];
+  if (
+    typeof env.OPENWEATHER_API_KEY === 'string'
+    && env.OPENWEATHER_API_KEY.length > 0
+  ) {
+    providers.push(createDailyCappedWeatherProvider({
+      provider: new OpenWeatherWeatherProvider({ apiKey: env.OPENWEATHER_API_KEY }),
+      counter: env.PROBE_COUNTER
+        ? createKvProbeDailyCounter(env.PROBE_COUNTER)
+        : permissiveProbeDailyCounter,
+      dailyLimit: openWeatherDailyCallLimit,
+      sourceSlug: 'openweather',
+    }));
+  }
+  return providers;
+}
+
 export default {
   fetch(request: Request, env: Env): Promise<Response> {
     const providers = createAiProviders(env);
+    const rateLimiter = env.WEATHER_RATE_LIMIT ?? permissiveRateLimiter;
+    const weatherHandler = createWeatherHandler({
+      provider: createWeatherProviderChain({ providers: createWeatherProviders(env) }),
+      rateLimiter,
+    });
     // Workers AI measured 7.9-9.6s against the handler's 10s default, so the working
     // provider was being aborted at the boundary; 20s leaves real headroom.
     const aiHandler = createAiHandler({

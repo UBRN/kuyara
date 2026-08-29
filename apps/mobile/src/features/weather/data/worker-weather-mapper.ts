@@ -22,7 +22,7 @@ export function mapWorkerWeatherToProvidedSnapshot(
     fetchedAt: data.fetchedAt,
     origin: {
       kind: data.origin.kind,
-      sourceId: 'kuyara-worker-weather-v1',
+      sourceId: data.origin.sourceId,
     },
     current: data.current,
     minimumTemperatureCelsius: data.minimumTemperatureCelsius,

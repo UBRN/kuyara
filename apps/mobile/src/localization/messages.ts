@@ -178,6 +178,11 @@ export type AppMessages = Readonly<{
     unavailableTitle: string;
     unavailableBody: string;
     unavailableNotice: string;
+    rateLimitedTitle: string;
+    rateLimitedBody: string;
+    rateLimitedNotice: string;
+    attributionOpenMeteo: string;
+    attributionOpenWeather: string;
     fresh: string;
     stale: string;
     updatedAt: (time: string) => string;
@@ -400,6 +405,11 @@ const en = {
     unavailableTitle: 'Weather is temporarily unavailable',
     unavailableBody: 'The weather service could not provide valid data. Please try again.',
     unavailableNotice: 'Weather is temporarily unavailable. The last matching weather remains visible.',
+    rateLimitedTitle: 'Weather updates are paused for a moment',
+    rateLimitedBody: 'Too many weather requests right now. Please try again shortly.',
+    rateLimitedNotice: 'Weather updates are paused for a moment. The last matching weather remains visible.',
+    attributionOpenMeteo: 'Weather data by Open-Meteo.com',
+    attributionOpenWeather: 'Weather data by OpenWeather',
     fresh: 'Fresh',
     stale: 'May be out of date',
     updatedAt: (time) => `Last updated ${time}`,
@@ -720,6 +730,11 @@ const tr = {
     unavailableTitle: 'Hava durumu geçici olarak kullanılamıyor',
     unavailableBody: 'Hava durumu servisi geçerli veri sağlayamadı. Lütfen yeniden deneyin.',
     unavailableNotice: 'Hava durumu geçici olarak kullanılamıyor. Son eşleşen hava durumu gösterilmeye devam ediyor.',
+    rateLimitedTitle: 'Hava durumu güncellemeleri kısa süreliğine durduruldu',
+    rateLimitedBody: 'Şu anda çok fazla hava durumu isteği var. Lütfen kısa süre sonra yeniden deneyin.',
+    rateLimitedNotice: 'Hava durumu güncellemeleri kısa süreliğine durduruldu. Son eşleşen hava durumu gösterilmeye devam ediyor.',
+    attributionOpenMeteo: 'Hava durumu verisi: Open-Meteo.com',
+    attributionOpenWeather: 'Hava durumu verisi: OpenWeather',
     fresh: 'Güncel',
     stale: 'Güncelliğini yitirmiş olabilir',
     updatedAt: (time) => `Son güncelleme ${time}`,
