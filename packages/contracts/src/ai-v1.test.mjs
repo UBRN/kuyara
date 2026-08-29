@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  aiProbeV1Path,
+  aiProbeV1SuccessSchema,
   aiReadyV1Path,
   aiReadyV1SuccessSchema,
   aiOutfitSchema,
@@ -72,8 +74,34 @@ function validSuccess() {
 
 test('exports the versioned AI route paths', () => {
   assert.equal(aiRecommendV1Path, '/v1/ai/recommend');
+  assert.equal(aiProbeV1Path, '/v1/ai/probe');
   assert.equal(healthV1Path, '/v1/health');
   assert.equal(aiReadyV1Path, '/v1/ai/ready');
+});
+
+test('probe success schema accepts both statuses and rejects malformed payloads', () => {
+  const checkedAt = '2026-08-29T12:34:56.000Z';
+  for (const status of ['ok', 'unavailable']) {
+    assert.equal(aiProbeV1SuccessSchema.safeParse({
+      data: { status, checkedAt },
+    }).success, true, status);
+  }
+
+  for (const payload of [
+    { data: { status: 'unknown', checkedAt } },
+    { data: { status: 'ok', checkedAt: 'not-a-datetime' } },
+    { data: { status: 'ok' } },
+    { data: { status: 'ok', checkedAt, unexpected: true } },
+    { data: { status: 'ok', checkedAt }, unexpected: true },
+  ]) {
+    assert.equal(aiProbeV1SuccessSchema.safeParse(payload).success, false);
+  }
+});
+
+test('AI error schema accepts rate limiting', () => {
+  assert.equal(aiV1ErrorSchema.safeParse({
+    error: { code: 'rate_limited' },
+  }).success, true);
 });
 
 test('error schema accepts every declared code and rejects unknown codes', () => {

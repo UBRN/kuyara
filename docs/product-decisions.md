@@ -182,7 +182,7 @@ Approved 2026-08-13. Partly implemented. The shared AI contract and the Worker A
 
 ## Implemented real AI provider adapters
 
-Implemented 2026-08-19 as Goal 2b, within the approved constraints above and the chain order recorded there as revised the same day. Both adapters sit behind the Goal 2a seam; no contract, handler, router, or endpoint changed. Configuration is `OPENROUTER_MODELS` and `WORKERS_AI_MODEL` in `wrangler.jsonc`, with `OPENROUTER_API_KEY` supplied as a gitignored local `.dev.vars` value. Nothing was deployed and no secret was set on the remote Worker: the existing `workers.dev` URL is public and unauthenticated, so putting a billable key behind it must wait for the rate limiting that milestone 4 owns.
+Implemented 2026-08-19 as Goal 2b, within the approved constraints above and the chain order recorded there as revised the same day. Both adapters sit behind the Goal 2a seam; no contract, handler, router, or endpoint changed. Configuration is `OPENROUTER_MODELS` and `WORKERS_AI_MODEL` in `wrangler.jsonc`, with `OPENROUTER_API_KEY` supplied as a gitignored local `.dev.vars` value. Nothing was deployed and no secret was set on the remote Worker. Milestone 4 added the Worker-side rate limiting that this waited on (see below); a deploy of the AI route and probe to the public `workers.dev` URL is still a separate operational step and remains gated by the pending Apple-independent deployment decision.
 
 The deterministic stub was removed from production composition, since `AGENTS.md` forbids the deterministic sample provider from acting as a production fallback. `docs/current-status.md` had described 2b as appending the real adapters to the existing list, which would have left the stub answering every request; the real adapters now form the whole production list and the stub is a test double only.
 
@@ -211,6 +211,46 @@ The configured OpenRouter set is `openai/gpt-oss-20b:free`, `z-ai/glm-5.2:free`,
 - OpenRouter usage is free-model only. The hard cap remains the per-key credit limit configured in the OpenRouter dashboard, with automatic top-up left off.
 - Free OpenRouter models require the account setting that permits providers which may train on submitted data. This is acceptable only because the Goal 2a request schema is strict and admits nothing but opaque candidate keys, closed enum properties, and deterministic requirements — no photos, paths, free-form names, identifiers, or coordinates have any representation in it.
 
+## Implemented generation-mode surface, active AI probe, and Worker rate limiting
+
+Implemented 2026-08-29 as milestone 4. Design and rationale, including the
+recalculated provider pricing that set the probe limits, are canonical in
+[ADR 0001](adr/0001-worker-ai-probe-and-rate-limiting.md).
+
+- **Generation-mode surface.** Today shows a text-labelled `Pill` next to the
+  recommendation heading ("AI-assisted" / "Standard recommendation"), and
+  Settings shows the same as a read-only line. The value is the coarse
+  `generationMode` already recorded on the snapshot; no domain or model change.
+  State is never communicated by colour alone.
+- **Active AI probe.** `POST /v1/ai/probe` is a distinct endpoint from Worker
+  liveness and AI configuration readiness. It runs only the first provider in
+  the chain, one attempt, a 20-second timeout, against a fixed minimal
+  in-Worker request; it returns only `{ status: 'ok' | 'unavailable', checkedAt }`
+  with no provider name, model identity, or error text. Results are cached in
+  the isolate for 60 seconds. Settings has an explicit "Check AI status" action
+  with an inline loading animation that respects Reduced Motion; the copy never
+  states or implies that a later recommendation will succeed.
+- **Rate limiting.** Both `POST /v1/ai/recommend` and `POST /v1/ai/probe` apply
+  a per-IP burst limit through the native Cloudflare rate-limit binding
+  (`cf-connecting-ip`, 10/60s and 3/60s). The probe additionally enforces a
+  per-day global cap of 30 through a KV counter keyed `probe:YYYY-MM-DD`, so a
+  determined caller cannot drain the daily Neuron allocation. When a binding is
+  absent (local `wrangler dev`, unit tests) the check degrades to permissive.
+  Exceeding a limit returns `429` with the `rate_limited` error code and
+  `Retry-After: 60`.
+- **Spend posture is unchanged.** OpenRouter models remain `:free`, so there is
+  no billing risk; the risk the limits address is quota exhaustion and abuse of
+  an unauthenticated endpoint. Cloudflare Workers AI stays a hard stop on the
+  Free plan.
+- **Deploy checklist (not done here).** `kv_namespaces`, `ratelimits`, `vars`,
+  and `ai` are all declared at the top level of `wrangler.jsonc`, which covers
+  `wrangler dev` and `wrangler deploy --dry-run`. Cloudflare does not inherit
+  these into named environments, so before the AI route and probe are deployed
+  to `kuyara-weather-dev` (the public `workers.dev` URL) they must be
+  redeclared under `env.development`, the `PROBE_COUNTER` KV namespace must be
+  created and its real id substituted for the placeholder, and
+  `OPENROUTER_API_KEY` must be set as a secret on that environment.
+
 ## Approved AI input privacy boundary
 
 Approved 2026-08-13. Enforced in the shared contract as of 2026-08-14: the request schema is strict and admits only the fields listed below, so the forbidden fields have no representation and are rejected rather than filtered.
@@ -229,16 +269,16 @@ AI must not receive wardrobe photos, photo paths or URIs, user-entered free-form
 
 ## Approved recommendation caching, refresh, and status behavior
 
-Approved 2026-08-13. Implemented for milestone 3. Mobile persists one recommendation snapshot per local profile, coalesces duplicate in-flight refreshes, refreshes only for the approved triggers, preserves the last valid result on failure, and wires the device-local deterministic fallback. The generation-mode status surface and active AI probe remain milestone 4 work.
+Approved 2026-08-13. Implemented for milestone 3. Mobile persists one recommendation snapshot per local profile, coalesces duplicate in-flight refreshes, refreshes only for the approved triggers, preserves the last valid result on failure, and wires the device-local deterministic fallback. The generation-mode status surface and active AI probe were implemented in milestone 4 on 2026-08-29; see [Implemented generation-mode surface, active AI probe, and Worker rate limiting](#implemented-generation-mode-surface-active-ai-probe-and-worker-rate-limiting).
 
 - The last valid recommendation snapshot must be persisted on-device and rendered immediately when available.
 - AI must not be called on every application launch. A recommendation must be generated or refreshed only when the relevant weather snapshot is refreshed after becoming stale, the active location changes, clothing preference changes, relevant wardrobe contents or properties change, or the user explicitly requests a refresh.
 - Duplicate in-flight generation requests must be coalesced, and a failed refresh must preserve the last valid recommendation.
 - A successful deterministic fallback is a valid recommendation result and may replace an unavailable AI attempt according to the future implementation design.
 - Transient provider or model identity must stay out of the durable domain model unless it is needed for coarse provenance or user status.
-- The Worker must provide a non-AI liveness check. Worker liveness, AI configuration readiness, and an active AI provider probe are distinct. The active probe may consume provider quota, so it must be explicitly triggered, bounded, rate-limited, and briefly cached; a successful probe does not guarantee that a later full recommendation request will succeed.
+- The Worker must provide a non-AI liveness check. Worker liveness, AI configuration readiness, and an active AI provider probe are distinct. The active probe may consume provider quota, so it must be explicitly triggered, bounded, rate-limited, and briefly cached; a successful probe does not guarantee that a later full recommendation request will succeed. Implemented in milestone 4 as `POST /v1/ai/probe`.
 - The recommendation result must record a coarse generation mode: AI-assisted or deterministic fallback.
-- Today will eventually show a small accessible localized "AI-assisted" or "Standard recommendation" indicator, and Settings will eventually include an accessible localized "Check AI status" action with a manual active probe. Provider names and technical failures are not exposed to normal users.
+- Today shows a small accessible localized "AI-assisted" or "Standard recommendation" indicator, and Settings includes an accessible localized "Check AI status" action with a manual active probe (both landed in milestone 4). Provider names and technical failures are not exposed to normal users.
 
 ## Dated operating assumptions
 

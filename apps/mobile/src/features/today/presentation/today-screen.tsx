@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
-import { AppText, IconButton, Screen, Surface, StretchyHeader } from '@/components/ui';
+import { AppText, IconButton, Pill, Screen, Surface, StretchyHeader } from '@/components/ui';
 import type { TodayScreenState } from '@/features/today/model';
 import { OutfitSuggestionCard } from '@/features/today/presentation/outfit-suggestion-card';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
@@ -124,9 +124,22 @@ export function TodayScreen({
         testID="today-screen">
         {primarySuggestion ? (
           <View style={styles.section}>
-            <AppText colorRole="brandAccent" variant="eyebrow">
-              {presentation.copy.recommendedTodayHeading}
-            </AppText>
+            <View style={styles.contextRow}>
+              <AppText colorRole="brandAccent" variant="eyebrow">
+                {presentation.copy.recommendedTodayHeading}
+              </AppText>
+              {presentation.generationMode ? (
+                <View
+                  accessible
+                  accessibilityLabel={presentation.generationMode.accessibilityLabel}>
+                  <Pill
+                    label={presentation.generationMode.label}
+                    testID="today-generation-mode"
+                    tone={presentation.generationMode.tone}
+                  />
+                </View>
+              ) : null}
+            </View>
             <OutfitSuggestionCard
               onPress={() => onOpenOutfitDetail(primarySuggestion.id)}
               suggestion={primarySuggestion}
@@ -221,7 +234,7 @@ const styles = StyleSheet.create({
     width: 30,
   },
   contextRow: {
-    alignItems: 'baseline',
+    alignItems: 'center',
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,

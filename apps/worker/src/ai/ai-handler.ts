@@ -7,9 +7,11 @@ import {
 } from '@kuyara/contracts';
 
 import type { AiProvider } from './ai-provider.ts';
+import type { RateLimiter } from './probe-handler.ts';
 
 type Dependencies = Readonly<{
   providers: readonly AiProvider[];
+  rateLimiter?: RateLimiter;
   attemptTimeoutMs?: number;
   maxAttempts?: number;
 }>;
@@ -33,6 +35,7 @@ function errorResponse(
 
 export function createAiHandler({
   providers,
+  rateLimiter,
   attemptTimeoutMs = 10_000,
   // Covers Workers AI plus the configured three-model OpenRouter chain.
   maxAttempts = 4,
@@ -42,6 +45,13 @@ export function createAiHandler({
     if (url.pathname !== aiRecommendV1Path) return errorResponse(404, 'not_found');
     if (request.method !== 'POST') {
       return errorResponse(405, 'method_not_allowed', { Allow: 'POST' });
+    }
+    if (rateLimiter) {
+      const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
+      const { success } = await rateLimiter.limit({ key: `recommend:${ip}` });
+      if (!success) {
+        return errorResponse(429, 'rate_limited', { 'Retry-After': '60' });
+      }
     }
     if (request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') {
       return errorResponse(400, 'invalid_request');

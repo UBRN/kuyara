@@ -17,6 +17,9 @@ export type TodayMessages = Readonly<{
   headerAccessibilityLabel: (values: { title: string; location: string }) => string;
   settingsAction: string;
   settingsHint: string;
+  generationModeAiAssisted: string;
+  generationModeStandard: string;
+  generationModeAccessibilityLabel: (label: string) => string;
   recommendedTodayHeading: string;
   otherOptionsHeading: string;
   piecesHeading: string;
@@ -123,6 +126,18 @@ export type AppMessages = Readonly<{
   settings: Readonly<{
     title: string;
     introduction: string;
+    aiStatusHeading: string;
+    aiStatusIntro: string;
+    aiStatusLastAiAssisted: string;
+    aiStatusLastStandard: string;
+    aiStatusLastUnknown: string;
+    aiStatusCheckAction: string;
+    aiStatusChecking: string;
+    aiStatusResultOk: (time: string) => string;
+    aiStatusResultUnavailable: string;
+    aiStatusResultRateLimited: string;
+    aiStatusResultError: string;
+    aiStatusUnsupported: string;
     saving: string;
     saveError: string;
   }>;
@@ -329,6 +344,18 @@ const en = {
   settings: {
     title: 'Settings',
     introduction: 'Changes are saved on this device as soon as you select them.',
+    aiStatusHeading: 'AI status',
+    aiStatusIntro: 'Check whether AI responds right now.',
+    aiStatusLastAiAssisted: 'Last recommendation: AI-assisted.',
+    aiStatusLastStandard: 'Last recommendation: Standard.',
+    aiStatusLastUnknown: 'The last recommendation source is unknown.',
+    aiStatusCheckAction: 'Check AI status',
+    aiStatusChecking: 'Checking AI status…',
+    aiStatusResultOk: (time: string) => `AI responded at ${time}`,
+    aiStatusResultUnavailable: 'AI did not respond right now.',
+    aiStatusResultRateLimited: 'Checked too often. Try again in a little while.',
+    aiStatusResultError: 'AI status could not be checked.',
+    aiStatusUnsupported: 'AI status checks are not available on this build.',
     saving: 'Saving changes…',
     saveError: 'That change could not be saved. Your previous setting is still active.',
   },
@@ -494,6 +521,10 @@ const en = {
     headerAccessibilityLabel: ({ title, location }) => `${title}. ${location}`,
     settingsAction: 'Settings',
     settingsHint: 'Opens clothing, language, and appearance settings.',
+    generationModeAiAssisted: 'AI-assisted',
+    generationModeStandard: 'Standard recommendation',
+    generationModeAccessibilityLabel: (label: string) =>
+      `Recommendation source: ${label}`,
     recommendedTodayHeading: 'Recommended today',
     otherOptionsHeading: 'Other options',
     piecesHeading: 'Wear',
@@ -632,6 +663,18 @@ const tr = {
   settings: {
     title: 'Ayarlar',
     introduction: 'Yaptığınız seçimler anında bu cihaza kaydedilir.',
+    aiStatusHeading: 'AI durumu',
+    aiStatusIntro: 'AI’nin şu anda yanıt verip vermediğini kontrol edin.',
+    aiStatusLastAiAssisted: 'Son öneri: AI destekli.',
+    aiStatusLastStandard: 'Son öneri: Standart.',
+    aiStatusLastUnknown: 'Son önerinin kaynağı bilinmiyor.',
+    aiStatusCheckAction: 'AI durumunu kontrol et',
+    aiStatusChecking: 'AI durumu kontrol ediliyor…',
+    aiStatusResultOk: (time: string) => `AI saat ${time} yanıt verdi.`,
+    aiStatusResultUnavailable: 'AI şu anda yanıt vermedi.',
+    aiStatusResultRateLimited: 'Çok sık kontrol edildi. Biraz sonra yeniden deneyin.',
+    aiStatusResultError: 'AI durumu kontrol edilemedi.',
+    aiStatusUnsupported: 'AI durum kontrolleri bu sürümde kullanılamıyor.',
     saving: 'Değişiklikler kaydediliyor…',
     saveError: 'Bu değişiklik kaydedilemedi. Önceki ayarınız kullanılmaya devam ediyor.',
   },
@@ -799,6 +842,10 @@ const tr = {
       `${title}. Konum: ${location}.`,
     settingsAction: 'Ayarlar',
     settingsHint: 'Giyim, dil ve görünüm ayarlarını açar.',
+    generationModeAiAssisted: 'AI destekli',
+    generationModeStandard: 'Standart öneri',
+    generationModeAccessibilityLabel: (label: string) =>
+      `Öneri kaynağı: ${label}`,
     recommendedTodayHeading: 'Bugün için önerilen',
     otherOptionsHeading: 'Diğer seçenekler',
     piecesHeading: 'Parçalar',

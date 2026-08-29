@@ -1,4 +1,5 @@
 import {
+  aiProbeV1Path,
   aiReadyV1Path,
   aiReadyV1SuccessSchema,
   aiRecommendV1Path,
@@ -13,6 +14,7 @@ type Handler = (request: Request) => Promise<Response>;
 type Dependencies = Readonly<{
   weatherHandler: Handler;
   aiHandler: Handler;
+  probeHandler: Handler;
   aiReady: boolean;
 }>;
 
@@ -36,12 +38,14 @@ function errorResponse(
 export function createRouter({
   weatherHandler,
   aiHandler,
+  probeHandler,
   aiReady,
 }: Dependencies): Handler {
   return async (request: Request): Promise<Response> => {
     const pathname = new URL(request.url).pathname;
     if (pathname === weatherV1Path) return weatherHandler(request);
     if (pathname === aiRecommendV1Path) return aiHandler(request);
+    if (pathname === aiProbeV1Path) return probeHandler(request);
 
     if (pathname === healthV1Path) {
       if (request.method !== 'GET') {
