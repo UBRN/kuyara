@@ -251,6 +251,50 @@ test('GET and PUT return method_not_allowed with Allow POST', async () => {
   }
 });
 
+test('rate limiter denial returns rate_limited without calling a provider', async () => {
+  let providerCalls = 0;
+  const keys = [];
+  const response = await createAiHandler({
+    providers: [{
+      async generateOutfits() {
+        providerCalls += 1;
+        return validOutput();
+      },
+    }],
+    rateLimiter: {
+      async limit(input) {
+        keys.push(input.key);
+        return { success: false };
+      },
+    },
+  })(request({ headers: {
+    'content-type': 'application/json',
+    'cf-connecting-ip': '203.0.113.20',
+  } }));
+
+  assert.equal(response.headers.get('retry-after'), '60');
+  await assertError(response, 429, 'rate_limited');
+  assert.deepEqual(keys, ['recommend:203.0.113.20']);
+  assert.equal(providerCalls, 0);
+});
+
+test('rate limiter approval preserves recommendation behavior', async () => {
+  const keys = [];
+  const response = await createAiHandler({
+    providers: [{ generateOutfits: async () => validOutput() }],
+    rateLimiter: {
+      async limit(input) {
+        keys.push(input.key);
+        return { success: true };
+      },
+    },
+  })(request());
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), validOutput());
+  assert.deepEqual(keys, ['recommend:unknown']);
+});
+
 test('wrong content type, malformed JSON, and schema violations return invalid_request', async () => {
   const handler = createAiHandler({ providers: [] });
   assert.equal((await createAiHandler({

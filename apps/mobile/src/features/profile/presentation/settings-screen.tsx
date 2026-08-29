@@ -7,12 +7,19 @@ import type {
   LanguagePreference,
   ThemePreference,
 } from '@/domain/preferences';
+import type { AiProbeUiState } from '@/features/recommendation/application/use-ai-probe';
+import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import type { LocalProfile } from '@/features/profile/domain/profile';
+import { AiStatusSection } from '@/features/profile/presentation/ai-status-section';
 import { PreferenceOption } from '@/features/profile/presentation/preference-option';
 import { useMessages } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
 
 type SettingsScreenProps = Readonly<{
+  aiStatus: AiProbeUiState;
+  isProbeSupported: boolean;
+  lastGenerationMode: RecommendationGenerationMode | null;
+  onCheckAiStatus: () => void;
   profile: LocalProfile;
   isSaving: boolean;
   updateClothingPreference: (preference: ClothingPreference) => Promise<void>;
@@ -21,7 +28,11 @@ type SettingsScreenProps = Readonly<{
 }>;
 
 export function SettingsScreen({
+  aiStatus,
+  isProbeSupported,
   isSaving,
+  lastGenerationMode,
+  onCheckAiStatus,
   profile,
   updateClothingPreference,
   updateLanguagePreference,
@@ -125,6 +136,13 @@ export function SettingsScreen({
           ))}
         </View>
       </View>
+
+      <AiStatusSection
+        aiStatus={aiStatus}
+        isProbeSupported={isProbeSupported}
+        lastGenerationMode={lastGenerationMode}
+        onCheckAiStatus={onCheckAiStatus}
+      />
 
       {isSaving ? (
         <AppText accessibilityLiveRegion="polite" colorRole="textSecondary">

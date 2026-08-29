@@ -113,3 +113,20 @@ export const todayScreenState = Object.freeze({
     }),
   }),
 } as const satisfies TodayScreenState);
+
+const todayRecommendation = todayScreenState.snapshot.recommendation;
+
+if (todayRecommendation.status !== 'recommended') {
+  throw new Error('Expected the Today fixture to contain a recommendation.');
+}
+
+export const aiAssistedTodayScreenState = Object.freeze({
+  ...todayScreenState,
+  snapshot: Object.freeze({
+    ...todayScreenState.snapshot,
+    recommendation: Object.freeze({
+      ...todayRecommendation,
+      generationMode: 'ai-assisted',
+    }),
+  }),
+} as const satisfies TodayScreenState);
