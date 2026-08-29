@@ -69,6 +69,11 @@ export type LoadedTodayPresentation = Readonly<{
     rainTimelineAccessibilityLabel: string;
     accessibilityLabel: string;
   }>;
+  generationMode: Readonly<{
+    label: string;
+    tone: 'accent-filled' | 'bordered';
+    accessibilityLabel: string;
+  }> | null;
   suggestions: readonly LoadedOutfitPresentation[];
   noOutfit: Readonly<{ title: string; body: string }> | null;
 }>;
@@ -229,6 +234,23 @@ function createLoadedPresentation(
   const suggestions = outfits.map((outfit, index) =>
     localizeOutfit(outfit, index, outfits.length, weatherReasons, language),
   );
+  const generationMode = snapshot.recommendation.status === 'recommended'
+    ? snapshot.recommendation.generationMode === 'ai-assisted'
+      ? {
+          label: copy.generationModeAiAssisted,
+          tone: 'accent-filled' as const,
+          accessibilityLabel: copy.generationModeAccessibilityLabel(
+            copy.generationModeAiAssisted,
+          ),
+        }
+      : {
+          label: copy.generationModeStandard,
+          tone: 'bordered' as const,
+          accessibilityLabel: copy.generationModeAccessibilityLabel(
+            copy.generationModeStandard,
+          ),
+        }
+    : null;
 
   return {
     kind: 'loaded',
@@ -290,6 +312,7 @@ function createLoadedPresentation(
         rainProbability: Math.round(current.precipitationProbability * 100),
       }),
     },
+    generationMode,
     suggestions,
     noOutfit:
       snapshot.recommendation.status === 'unavailable'

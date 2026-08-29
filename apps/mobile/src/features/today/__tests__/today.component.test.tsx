@@ -3,6 +3,7 @@ import { StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import {
+  aiAssistedTodayScreenState,
   todayScreenState,
   todayWardrobeItems,
 } from '@/features/today/__tests__/fixtures';
@@ -115,6 +116,26 @@ test('rendered outfit copy comes from localization and never from the wardrobe f
   expect(turkishResult.getByRole('header', {
     name: 'Bugün. Konum: Örnek İstanbul.',
   })).toBeOnTheScreen();
+});
+
+describe.each(['en', 'tr'] as const)('%s Today generation mode', (language) => {
+  test.each([
+    [aiAssistedTodayScreenState, 'generationModeAiAssisted'],
+    [todayScreenState, 'generationModeStandard'],
+  ] as const)('shows the recommendation source', async (state, messageKey) => {
+    const result = await render(providers(
+      <TodayScreen
+        language={language}
+        onOpenOutfitDetail={() => undefined}
+        onOpenSettings={() => undefined}
+        state={state}
+      />,
+    ));
+
+    expect(result.getByTestId('today-generation-mode')).toHaveTextContent(
+      messages[language].today[messageKey],
+    );
+  });
 });
 
 test('outfit detail lists localized weather reasons alongside localized pieces', async () => {

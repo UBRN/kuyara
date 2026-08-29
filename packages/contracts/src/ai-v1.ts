@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export const aiRecommendV1Path = '/v1/ai/recommend' as const;
+export const aiProbeV1Path = '/v1/ai/probe' as const;
 export const healthV1Path = '/v1/health' as const;
 export const aiReadyV1Path = '/v1/ai/ready' as const;
 
@@ -116,6 +117,7 @@ export const aiV1ErrorCodes = [
   'method_not_allowed',
   'ai_unavailable',
   'internal_error',
+  'rate_limited',
 ] as const;
 
 // Measured worst case: 494 bytes per candidate; 128 candidates total 66,983 bytes.
@@ -280,6 +282,13 @@ export const aiRecommendV1SuccessSchema = z.object({
   }).strict(),
 }).strict();
 
+export const aiProbeV1SuccessSchema = z.object({
+  data: z.object({
+    status: z.enum(['ok', 'unavailable']),
+    checkedAt: z.string().datetime(),
+  }).strict(),
+}).strict();
+
 export const aiV1ErrorSchema = z.object({
   error: z.object({
     code: z.enum(aiV1ErrorCodes),
@@ -297,6 +306,7 @@ export const aiReadyV1SuccessSchema = z.object({
 export type AiV1ErrorCode = (typeof aiV1ErrorCodes)[number];
 export type AiRecommendV1Request = z.infer<typeof aiRecommendV1RequestSchema>;
 export type AiRecommendV1Success = z.infer<typeof aiRecommendV1SuccessSchema>;
+export type AiProbeV1Success = z.infer<typeof aiProbeV1SuccessSchema>;
 export type AiV1Error = z.infer<typeof aiV1ErrorSchema>;
 export type AiCandidate = z.infer<typeof aiCandidateSchema>;
 export type ClothingRequirement = z.infer<typeof clothingRequirementSchema>;

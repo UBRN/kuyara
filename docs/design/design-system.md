@@ -110,6 +110,8 @@ Press feedback is an immediate opacity or semantic-background change, not a deco
 
 Current implementation and milestone status is maintained in [`../current-status.md`](../current-status.md).
 
+Documentation drift to reconcile: the 2026-08-29 mobile redesign added an `eyebrow` typography role, `Pill` and `PhotoPlaceholder` shared primitives with `resolvePillColors`, and a `withAlpha` theme helper (`apps/mobile/src/theme/color-alpha.ts`); this document still describes the pre-redesign primitive and typography set. The milestone 4 generation-mode indicator is built on the existing `Pill` with a text label and existing tokens (`brandAccent` for AI-assisted, `borderSubtle` for standard), and the Settings probe loading animation drives `theme.motion` durations with a static Reduced-Motion path; no status token or status component was added, so state is never signalled by colour alone.
+
 Deferred intentionally:
 
 - Any migration from JavaScript Tabs to SDK 57's alpha Native Tabs

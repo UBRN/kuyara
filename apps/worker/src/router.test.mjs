@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { weatherV1SuccessSchema } from '@kuyara/contracts';
+import { aiProbeV1SuccessSchema, weatherV1SuccessSchema } from '@kuyara/contracts';
 
 import { createAiHandler } from './ai/ai-handler.ts';
+import { createProbeHandler } from './ai/probe-handler.ts';
 import { createRouter } from './router.ts';
 import { createWeatherHandler } from './weather-handler.ts';
 import { DeterministicMockWeatherProvider } from './weather/mock-weather-provider.ts';
@@ -21,8 +22,23 @@ function router({ aiReady = true, providers = [] } = {}) {
       provider: new DeterministicMockWeatherProvider({ now: () => fixedNow }),
     }),
     aiHandler: createAiHandler({ providers }),
+    probeHandler: createProbeHandler({
+      providers,
+      rateLimiter: { limit: async () => ({ success: true }) },
+      dailyCounter: { get: async () => 0, increment: async () => {} },
+      now: () => new Date(fixedNow),
+    }),
     aiReady,
   });
+}
+
+function validAiOutput() {
+  const outfit = [
+    { slot: 'primary_top', layerRole: 'base', candidateKey: 'probe-top' },
+    { slot: 'bottom', layerRole: 'standalone', candidateKey: 'probe-bottom' },
+    { slot: 'footwear', layerRole: null, candidateKey: 'probe-shoes' },
+  ];
+  return { data: { outfits: [outfit, outfit, outfit] } };
 }
 
 async function assertJson(response, status, body) {
@@ -74,6 +90,23 @@ test('non-GET readiness returns method_not_allowed with Allow GET', async () => 
     new Request('http://localhost/v1/ai/ready', { method: 'POST' }),
   );
   assert.equal(response.headers.get('allow'), 'GET');
+  await assertJson(response, 405, { error: { code: 'method_not_allowed' } });
+});
+
+test('POST AI probe routes to the probe handler', async () => {
+  const response = await router({ providers: [{
+    generateOutfits: async () => validAiOutput(),
+  }] })(new Request('http://localhost/v1/ai/probe', { method: 'POST' }));
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(aiProbeV1SuccessSchema.safeParse(body).success, true);
+  assert.equal(body.data.status, 'ok');
+});
+
+test('GET AI probe returns method_not_allowed with Allow POST', async () => {
+  const response = await router()(new Request('http://localhost/v1/ai/probe'));
+  assert.equal(response.headers.get('allow'), 'POST');
   await assertJson(response, 405, { error: { code: 'method_not_allowed' } });
 });
 
