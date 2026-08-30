@@ -1,6 +1,6 @@
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
-import { ActivityIndicator, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, RefreshControl, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
 import { AppText, IconButton, Pill, Screen, Surface, StretchyHeader } from '@/components/ui';
@@ -18,6 +18,7 @@ type TodayScreenProps = Readonly<{
   language: SupportedLanguage;
   onOpenSettings: () => void;
   onOpenOutfitDetail: (id: string) => void;
+  onRefresh: () => void;
 }>;
 
 export function TodayScreen({
@@ -25,6 +26,7 @@ export function TodayScreen({
   language,
   onOpenSettings,
   onOpenOutfitDetail,
+  onRefresh,
 }: TodayScreenProps) {
   const presentation = createTodayPresentation(state, language);
   const theme = useKuyaraTheme();
@@ -88,26 +90,44 @@ export function TodayScreen({
               {presentation.header.date}
             </AppText>
           </View>
-          <IconButton
-            accessibilityHint={presentation.copy.settingsHint}
-            accessibilityLabel={presentation.copy.settingsAction}
-            hitSlop={7}
-            icon={(color) => (
-              <SymbolView
-                accessibilityElementsHidden
-                importantForAccessibility="no-hide-descendants"
-                name={{ ios: 'gearshape.fill', android: 'settings', web: 'settings' }}
-                size={18}
-                tintColor={color}
-              />
-            )}
-            onPress={onOpenSettings}
-            style={[styles.settingsButton, { backgroundColor: withAlpha(theme.colors.textPrimary, 0.1) }]}
-            testID="today-settings-button"
-          />
+          <View style={styles.headerActions}>
+            <IconButton
+              accessibilityLabel={presentation.copy.refreshAction}
+              hitSlop={7}
+              icon={(color) => (
+                <SymbolView
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                  name={{ ios: 'arrow.clockwise', android: 'refresh', web: 'refresh' }}
+                  size={18}
+                  tintColor={color}
+                />
+              )}
+              onPress={onRefresh}
+              style={[styles.settingsButton, { backgroundColor: withAlpha(theme.colors.textPrimary, 0.1) }]}
+              testID="today-refresh-button"
+            />
+            <IconButton
+              accessibilityHint={presentation.copy.settingsHint}
+              accessibilityLabel={presentation.copy.settingsAction}
+              hitSlop={7}
+              icon={(color) => (
+                <SymbolView
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                  name={{ ios: 'gearshape.fill', android: 'settings', web: 'settings' }}
+                  size={18}
+                  tintColor={color}
+                />
+              )}
+              onPress={onOpenSettings}
+              style={[styles.settingsButton, { backgroundColor: withAlpha(theme.colors.textPrimary, 0.1) }]}
+              testID="today-settings-button"
+            />
+          </View>
         </View>
         <AppText
-          accessibilityLiveRegion={presentation.header.isStale ? 'polite' : 'none'}
+          accessibilityLiveRegion={presentation.header.announceFreshness ? 'polite' : 'none'}
           colorRole="textSecondary"
           variant="caption">
           {presentation.header.freshness}
@@ -116,11 +136,18 @@ export function TodayScreen({
 
       <Screen
         alwaysBounceVertical
-        contentContainerStyle={[
-          styles.content,
-          { paddingTop: headerHeight + spacing['2xl'] },
-        ]}
+        contentContainerStyle={styles.content}
+        contentTopClearance={headerHeight + spacing['2xl']}
         onScroll={scrollHandler}
+        refreshControl={
+          <RefreshControl
+            colors={[theme.colors.iconSecondary]}
+            onRefresh={onRefresh}
+            progressViewOffset={headerHeight}
+            refreshing={presentation.header.isRefreshing}
+            tintColor={theme.colors.iconSecondary}
+          />
+        }
         testID="today-screen">
         {primarySuggestion ? (
           <View style={styles.section}>
@@ -226,6 +253,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.lg,
     justifyContent: 'space-between',
+  },
+  headerActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
   },
   settingsButton: {
     borderRadius: 15,

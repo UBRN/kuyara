@@ -5,11 +5,21 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { layout, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
-export type ScreenProps = Omit<AnimatedScrollViewProps, 'contentInset'>;
+export type ScreenProps = Omit<AnimatedScrollViewProps, 'contentInset'> &
+  Readonly<{
+    /**
+     * Total space to reserve above the content, measured from the top of the
+     * screen and including the top safe area. Pass the measured height of an
+     * absolute overlay header. Omit it when the content starts below the safe
+     * area with no overlay.
+     */
+    contentTopClearance?: number;
+  }>;
 
 export function Screen({
   children,
   contentContainerStyle,
+  contentTopClearance,
   showsVerticalScrollIndicator = false,
   style,
   ...rest
@@ -19,15 +29,23 @@ export function Screen({
   const bottomInset = safeAreaInsets.bottom + spacing.lg;
   const scrollIndicatorInsets =
     Platform.OS === 'ios' ? { ...safeAreaInsets, bottom: bottomInset } : undefined;
+  // iOS resolves the top safe area itself through contentInsetAdjustmentBehavior,
+  // which is also what UIRefreshControl measures its pull against. Android has no
+  // equivalent, so the same clearance is applied as padding there.
+  const requestedClearance = contentTopClearance ?? safeAreaInsets.top;
+  const paddingTop =
+    Platform.OS === 'ios'
+      ? Math.max(requestedClearance - safeAreaInsets.top, 0)
+      : requestedClearance;
   const platformContentStyle = Platform.select({
     ios: {
-      paddingTop: safeAreaInsets.top,
+      paddingTop,
       paddingBottom: bottomInset,
       paddingLeft: safeAreaInsets.left + spacing.xl,
       paddingRight: safeAreaInsets.right + spacing.xl,
     },
     android: {
-      paddingTop: safeAreaInsets.top,
+      paddingTop,
       paddingBottom: bottomInset,
       paddingLeft: safeAreaInsets.left + spacing.xl,
       paddingRight: safeAreaInsets.right + spacing.xl,
@@ -40,7 +58,7 @@ export function Screen({
 
   return (
     <Animated.ScrollView
-      contentInsetAdjustmentBehavior="never"
+      contentInsetAdjustmentBehavior="automatic"
       scrollIndicatorInsets={scrollIndicatorInsets}
       showsVerticalScrollIndicator={showsVerticalScrollIndicator}
       style={[styles.screen, { backgroundColor: theme.colors.background }, style]}
