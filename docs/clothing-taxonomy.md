@@ -68,16 +68,16 @@ Use a **small canonical garment-type catalog with defaults plus limited Wardrobe
 The model has five boundaries:
 
 1. `GarmentType` is an app-bundled, provider-independent catalog definition identified by an immutable `typeId`.
-2. `WardrobeItem` is a user-owned SQLite record that refers to a type, retains lifecycle data, and stores only actual item values or explicit overrides.
+2. `WardrobeItem` is a personal SQLite record that refers to a type, retains lifecycle data, and stores only actual item values or explicit overrides. It is not a recommendation input.
 3. Catalog defaults describe the typical item for a type. They are useful starting points, not immutable truths about every owned item.
-4. An effective garment view resolves each override over the current catalog default.
-5. A recommendation input adds current weather needs, profile sensitivity/preferences, activity context when available, and the role assigned in a candidate outfit. Those runtime facts are not written back as garment taxonomy.
+4. An effective garment view resolves each Wardrobe override over the current catalog default for personal-record display and editing.
+5. A recommendation input contains catalog candidate identifiers and properties, deterministic weather requirements, clothing preference, and a local calendar day seed. Runtime outfit roles are not written back as garment taxonomy.
 
 ```text
-canonical GarmentType defaults ─┐
-                                ├─ effective garment view ─┐
-WardrobeItem values/overrides ──┘                          ├─ recommendation input
-current weather and context ───────────────────────────────┘
+canonical GarmentType defaults ───────────────┐
+deterministic weather requirements ───────────┤
+clothing preference + local calendar day seed ├─ recommendation input
+WardrobeItem values/overrides ─ effective garment view (personal record only)
 ```
 
 This gives the deterministic engine explicit dimensions without requiring a user to classify every property manually.
@@ -201,7 +201,7 @@ Rules:
 - The same `GarmentType` can be available to both preferences.
 - Applicability belongs to the canonical catalog, not a Wardrobe item.
 - Changing the profile preference never hides, invalidates, deletes, or reclassifies an owned Wardrobe item.
-- The recommendation engine may use every active owned item regardless of current catalog applicability.
+- The recommendation engine uses only catalog types whose applicability contains the current clothing preference. Owned and wanted Wardrobe items are never recommendation candidates in the MVP.
 - Production applicability is settled as follows: `blouse`, `skirt`, and `dress` contain only `womens`; every other canonical type, including `jumpsuit`, contains both `womens` and `mens`.
 
 ## Canonical MVP garment types
@@ -358,7 +358,7 @@ This distinguishes `null` as state/absence from domain values. For example, `wat
 - Adding a new persisted enum value does require application compatibility analysis and may require a schema migration if a SQL `CHECK` must change.
 - Renaming display copy changes localization only. Renaming an ID is prohibited; create a new ID, deprecate the old one, and offer an explicit user-approved reclassification.
 - Never delete a type definition while an installed database could reference it. Deprecated definitions remain as tombstones with enough defaults to resolve existing items.
-- Catalog defaults are versioned as a complete, validated manifest. Exact historical defaults need not be copied into every Wardrobe item; an independently cached recommendation snapshot may record `catalogVersion` for provenance later.
+- Catalog defaults are versioned as a complete, validated manifest. Exact historical defaults need not be copied into every Wardrobe item; recommendation cache identity includes `catalogVersion`.
 
 Each value list lives in one readonly tuple/module, and the TypeScript union is inferred from it. If a value later crosses a Worker/mobile contract, its Zod schema must use the same exported values rather than duplicate a second list. Mobile-only catalog definitions stay in the mobile catalog domain until a real shared contract exists; `packages/contracts` must not become a speculative dumping ground.
 
