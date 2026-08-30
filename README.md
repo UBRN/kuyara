@@ -2,9 +2,9 @@
 
 An open-source weather and outfit recommendation app for iOS and Android.
 
-kuyara reads the local weather and suggests what to wear from a canonical clothing
-catalog and your own wardrobe. Recommendations come from deterministic, testable
-rules; AI may only rank or compose items those rules already allow.
+kuyara reads the local weather and suggests what to wear from its bundled garment
+catalog. The Wardrobe is a personal record of garments you own or want; it does
+not shape recommendations. Deterministic, testable rules bound what AI may compose.
 
 The name comes from *Koyash* (also written *Kuyash*), one of the names associated
 with the sun in Turkic mythology.
@@ -13,8 +13,9 @@ with the sun in Turkic mythology.
 
 Pre-release. The app fetches live weather through the Worker, produces up to
 three validated outfit recommendations with a device-local deterministic fallback,
-and includes the mobile notification foundation. WeatherKit and local weather
-alert rules are the next approved milestones. There is no account, cross-device
+and includes the mobile notification foundation. Approved next work includes the
+UI and UX revision, catalog-only recommendation and three-tab navigation changes,
+WeatherKit, and local weather alerts. The current MVP has no account, cross-device
 sync, behavioral analytics, or server-sent push. See
 [`docs/current-status.md`](docs/current-status.md) for the current state.
 

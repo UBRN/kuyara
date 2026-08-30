@@ -12,6 +12,8 @@ As product features are added, mobile code is organized feature-first while pres
 
 Expo SQLite owns the implemented local profile, its preferences, and profile-owned wardrobe items. Hooks or narrow contexts own transient UI state.
 
+Wardrobe data remains durable local state, but [ADR 0005](adr/0005-catalog-only-recommendation-candidates.md) removes it from recommendation inputs. Recommendations assemble catalog candidates independently from Wardrobe loading or ownership state.
+
 Remote weather request state is a deliberate deviation from the `AGENTS.md` state-ownership rule that assigns remote request state to TanStack Query. A purpose-built application controller owns it instead, because it already provides exactly what the weather rules require — per-location coalescing of duplicate in-flight requests, preservation of the last valid snapshot across a failed refresh, and the exact 30-minute freshness boundary — each covered by tests. Adding TanStack Query now would introduce a dependency without adding behavior, and running both would create the competing sources of truth those same rules forbid. TanStack Query remains the intended owner for future remote state this controller does not already cover; what must hold either way is exactly one owner per piece of state.
 
 The local-profile vertical slice follows this concrete dependency flow:
@@ -49,6 +51,8 @@ Version 4 leaves the earlier schema unchanged and adds one profile-owned active 
 Version 5 leaves the earlier schema unchanged and adds `recommendation_snapshots`, with one row per `local_profile_id`. Each row stores a UUID `id`, the owning profile, `weather_snapshot_id`, `location_key`, an `ai-assisted` or `deterministic-fallback` generation mode, validated context and outfit JSON, and UTC ISO-8601 creation and update timestamps. A restrictive foreign key associates the unique `local_profile_id` with `local_profiles.id`.
 
 Version 6 adds the required `notifications_opt_in` integer preference to `local_profiles`, defaulting to `0` and constrained to `0 | 1`. The current schema version is 6.
+
+Approved version 7 adds an `owned | wanted` state to `wardrobe_items`, preserves every existing row, and defaults existing entries to `owned`. New entries require a catalog garment type; existing null `garment_type_id` rows remain readable, editable, and deletable as legacy records.
 
 Future migrations must add one ordered migration object immediately after the current version. Do not edit released migrations, skip a version, or add a destructive fallback.
 
@@ -97,6 +101,8 @@ validated Wardrobe item overrides ─┘
 ```
 
 The resolver has no SQLite, localization, weather-provider, UI, or outfit-composition dependency. It returns an explicit legacy view for unclassified version 2 rows, a resolved view for valid typed rows, or a sanitized invalid-data outcome for missing types, category mismatches, and inapplicable overrides. Catalog applicability filters future catalog suggestions only and is never consulted when reading or resolving an owned item.
+
+These passages preserve the implemented Wardrobe and version 3 history. ADR 0005 governs recommendation assembly: neither resolved owned items nor wanted items become candidates.
 
 ### Foreground location and local weather boundary
 
@@ -147,11 +153,11 @@ Schema version 6 keeps notification opt-in as device-local profile state. Settin
 
 The profile application provider opens the database, migrates it, constructs the local data source and repository, and loads or creates the profile. While this is pending, a calm localized bootstrap state is rendered instead of Today. Initialization failure renders a stable localized error and never falls through to product routes.
 
-After readiness, the root Expo Router Stack keeps `/onboarding` separate from the main application. The `(tabs)` route-group layout applies the local gate before mounting product navigation: incomplete profiles redirect to `/onboarding`, completed profiles resolve to `/`, and completed profiles cannot normally return to onboarding. Deep links to `/weather`, `/wardrobe`, or `/settings` therefore pass through the same gate.
+After readiness, the root Expo Router Stack keeps `/onboarding` separate from the main application. The `(tabs)` route-group layout applies the local gate before mounting product navigation: incomplete profiles redirect to `/onboarding`, completed profiles resolve to `/`, and completed profiles cannot normally return to onboarding. Deep links to `/weather`, `/profile`, and Profile-hosted Wardrobe or Settings routes therefore pass through the same gate.
 
-The main application uses Expo Router's stable JavaScript Tabs with four finalized destinations: Today at `/`, Weather at `/weather`, Wardrobe at `/wardrobe`, and Settings at `/settings`. Route-group names remain absent from visible paths. Today is the explicit initial route, and each tab has one nested Stack boundary. Wardrobe owns `/wardrobe/new` and `/wardrobe/[id]` inside its existing Stack. SDK 57 Native Tabs are alpha and are intentionally not used; adopting them later is a separate migration decision.
+The main application uses Expo Router's stable JavaScript Tabs with three finalized destinations: Today at `/`, Weather at `/weather`, and Profile at `/profile`. Route-group names remain absent from visible paths. Today is the explicit initial route, and each tab has one nested Stack boundary. Profile owns Wardrobe, wanted records, and Settings; Settings opens from the Profile header rather than the tab bar. SDK 57 Native Tabs are alpha and are intentionally not used; adopting them later is a separate migration decision. See [ADR 0006](adr/0006-three-tab-information-architecture.md).
 
-The localized tab-bar presentation is separate from route composition. Expo Router owns route state and tab events, while the bar renders semantic-theme colors, platform-specific `expo-symbols` names, visible labels, 44-point minimum targets, localized tab roles and names, and selected accessibility state. Weather and Wardrobe route files are thin adapters over feature presentation and application boundaries. Wardrobe's dirty-form guard uses the navigator's `beforeRemove` event so header back, iOS gestures, and Android system back share the same localized discard confirmation.
+The localized tab-bar presentation is separate from route composition. Expo Router owns route state and tab events, while the bar renders semantic-theme colors, platform-specific `expo-symbols` names, visible labels, 44-point minimum targets, localized tab roles and names, and selected accessibility state. Weather and Profile route files are thin adapters over feature presentation and application boundaries. Wardrobe's dirty-form guard uses the navigator's `beforeRemove` event so header back, iOS gestures, and Android system back share the same localized discard confirmation.
 
 The localization provider resolves a saved `system | tr | en` preference through the established device-locale fallback. The existing theme provider receives the saved `system | light | dark` preference. Neither architecture is duplicated, and both providers update when the controller publishes a successfully persisted profile.
 
@@ -160,11 +166,11 @@ Today lives under `apps/mobile/src/features/today/`. Its screen model defines lo
 The route composes existing application state and owns no data access:
 
 ```text
-weather snapshot + wardrobe items + clothing preference
+weather snapshot + clothing preference + catalog version + local day seed
         ↓
 recommendOutfits use case  (features/recommendation/application)
         ↓
-deriveClothingRequirements → garment eligibility → composeOutfits
+deriveClothingRequirements → filter catalog candidates → garment eligibility → composeOutfits
         ↓
 Today screen model
         ↓
@@ -175,7 +181,7 @@ Today screen compositions
 semantic tokens and adaptive UI primitives
 ```
 
-`recommendOutfits` is a pure function: it reads no clock, performs no I/O, and returns the same result for the same input regardless of candidate order. Recomputation is memoized on weather snapshot identity, Wardrobe contents, and clothing preference, so a recommendation is produced only on a relevant change. Today reads the persisted recommendation snapshot through `RecommendationApplicationProvider`; the result is tagged `ai-assisted` when the Worker AI call succeeds and `deterministic-fallback` otherwise. No repository, provider DTO, runtime schema, persistence layer, network client, or global state container is introduced by Today itself; it consumes application providers mounted at the root.
+`recommendOutfits` is a pure function: it reads no clock, performs no I/O, and returns the same result for the same input regardless of candidate order. Recommendation cache identity is weather snapshot identity, clothing preference, catalog version, and local calendar day seed. Generation occurs only after a stale weather snapshot refresh, an active-location or clothing-preference change, the start of a new local day, or an explicit user request. Today reads the persisted recommendation snapshot through `RecommendationApplicationProvider`; the result is tagged `ai-assisted` when the Worker AI call succeeds and `deterministic-fallback` otherwise. Today never reads Wardrobe ownership state; outfit detail is the only recommendation surface that may show `owned` or `wanted`. No repository, provider DTO, runtime schema, persistence layer, network client, or global state container is introduced by Today itself; it consumes application providers mounted at the root.
 
 ## Worker and contract boundaries
 
@@ -219,11 +225,11 @@ Attribution (`origin.sourceId`) is the one controlled addition to the shared con
 
 ### Target recommendation and AI flow
 
-Deterministic rules bound the request, AI composes within those bounds, and validation gates the result twice.
+Deterministic rules bound the request, AI composes within those bounds, and validation gates the result twice. AI is not a personalization layer. It turns catalog-only candidates into three stylistically coherent and varied outfits with color harmony, consistent formality, plausible layering, and no previous-day repetition.
 
 ```text
-mobile: deterministic requirements + closed candidate set
-        ↓  sanitized request: no photos, paths, identifiers, or coordinates
+mobile: deterministic requirements + preference-filtered catalog candidates + day seed
+        ↓  sanitized request: no Wardrobe data, photos, paths, profile/device IDs, or coordinates
 Worker AI route
         ↓
 ordered AI chain: Workers AI binding → OpenRouter fallback
@@ -241,6 +247,8 @@ The request follows the canonical [AI input privacy boundary](product-decisions.
 
 Designed 2026-08-13, implemented 2026-08-14 as described below. Covers only the shared contracts and Worker side of the flow above; real provider credentials (2b), the mobile Worker client, and recommendation persistence (milestone 3) are separate Goals.
 
+This historical contract record predates ADR 0005. The current candidate source, day seed, and narrowed privacy boundary are defined by that ADR and [`product-decisions.md`](product-decisions.md#approved-catalog-only-recommendation-and-wardrobe-model).
+
 Two details were settled during implementation. The candidate upper bound is **125**, derived from a measured worst-case serialized candidate of 494 bytes against a provider-neutral 64 KiB request-payload budget and locked by a test; it is a transport and prompt-size bound, not a token count, and assumes no model. The structural outfit invariants below live in the shared zod schema rather than in Worker code, so mobile and the Worker enforce one implementation and the Worker adds only the closed-candidate-set membership check, which is the single rule that needs the request. The per-attempt timeout is injectable, defaulting to 10 seconds, so timeout behavior is testable without real waiting.
 
 - **Contracts** (`packages/contracts/src/ai-v1.ts`, `POST /v1/ai/recommend`). Request carries `clothingPreference`, the `ClothingRequirement[]` discriminated union (mirrors the existing mobile domain type, including `water_protection`'s `target: 'body'|'feet'`), and a bounded `candidates` array of only the mobile-side `status === 'eligible'` garments (`EligibleGarmentResult`) — never the full ready/ineligible set. Each candidate carries contract-owned enums and nullable properties, matching `EffectiveGarmentCandidate`/`EffectiveGarmentProperties` shape without importing mobile types. The candidate-array upper bound was measured during implementation and is recorded above. Response success is exactly 3 outfits, each an ordered list of `{slot, layerRole, candidateKey}` using contract-owned slot/layer-role enums; mobile maps these to its own `OutfitSlot`/`LayerRole` types through an explicit, tested mapper in both directions. Response error reuses the weather-v1 error shape with codes `invalid_request | not_found | method_not_allowed | ai_unavailable | internal_error | rate_limited` (`rate_limited` added in milestone 4).
@@ -251,6 +259,8 @@ Two details were settled during implementation. The candidate upper bound is **1
 ### AI handler and provider adapter contract
 
 This is the current state of the seam, not the state any one Goal left it in.
+
+Candidate assembly and prompt acceptance must follow [ADR 0005](adr/0005-catalog-only-recommendation-candidates.md); the provider orchestration history below remains unchanged.
 
 - **The handler owns everything an adapter would otherwise duplicate**: the ordered walk, the per-attempt timeout, zod validation, the closed-candidate-set check, and the collapse to one sanitized `ai_unavailable`. An adapter only has to return a candidate JSON object. `createAiHandler` bounds attempts per request through a `maxAttempts` option defaulting to 4, the Workers AI hop plus the three configured OpenRouter models, so the chain cannot loop.
 - **The handler's response checks go past shape.** It rejects a response whose `layerRole` is not among the matching candidate's `supportedLayerRoles`, and requires an exact `application/json` media type rather than any type merely starting with it. In the contracts, `supportedLayerRoles` has no minimum size: the canonical taxonomy gives footwear and accessories an empty role set, and an earlier lower bound rejected every request containing footwear.
