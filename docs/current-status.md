@@ -12,6 +12,7 @@ The MVP still has no account, cross-device sync, behavioral analytics, or server
 
 ## Recently Completed
 
+- **Manual refresh affordance** (2026-08-30): pull-to-refresh on Today and Weather, refreshing weather only and never triggering recommendation generation. Today gains a visible refresh button in its stretchy header and a three-state freshness line (last updated, refreshing, refresh failed) on a polite live region; Weather's existing refresh button moves below the location row. The gesture is never the only refresh path, because it is unreachable for VoiceOver and Switch Control. See [Approved manual refresh affordance](product-decisions.md#approved-manual-refresh-affordance).
 - **First TestFlight path** (2026-08-30): iOS distribution credentials, production build, App Store Connect app record, and `eas submit` to TestFlight internal testing. Adds `ITSAppUsesNonExemptEncryption: false`, a localized `NSMotionUsageDescription` (CoreMotion is linked transitively by `expo-location`), and `promptToConfigurePushNotifications: false`. Verified live weather on a physical device.
 - **N1 mobile notification foundation** (`6e586e9`, 2026-08-29): local opt-in and permission handling, notification-response routing, development-only test action, and schema v6.
 - **Milestone 5, real weather providers** (2026-08-29): Open-Meteo primary and OpenWeather fallback with bounded attempts, validation, attribution, and usage controls. See [ADR 0002](adr/0002-real-weather-provider-chain.md).

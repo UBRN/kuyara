@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { AppText, Button, Pill, Screen, Surface } from '@/components/ui';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
@@ -70,6 +70,7 @@ function LocationOption({
 
 export function WeatherScreen() {
   const { language, messages } = useLocalization();
+  const theme = useKuyaraTheme();
   const copy = messages.weather;
   const application = useWeatherApplication();
   const { state } = application;
@@ -129,7 +130,17 @@ export function WeatherScreen() {
         : null;
 
   return (
-    <Screen contentContainerStyle={styles.content} testID="weather-screen">
+    <Screen
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl
+          colors={[theme.colors.iconSecondary]}
+          onRefresh={() => void application.refresh()}
+          refreshing={state.isRefreshing}
+          tintColor={theme.colors.iconSecondary}
+        />
+      }
+      testID="weather-screen">
       <AppText accessibilityRole="header" variant="titleLarge">{copy.title}</AppText>
       <AppText colorRole="textSecondary">{copy.introduction}</AppText>
 
@@ -147,6 +158,15 @@ export function WeatherScreen() {
           <Pill label={copy.changeLocationAction} tone="bordered" />
         </Pressable>
       </View>
+
+      {state.activeLocation && (
+        <Button
+          label={state.isRefreshing ? copy.refreshing : (failureCopy ? copy.retry : copy.refresh)}
+          loading={state.isRefreshing}
+          onPress={() => void application.refresh()}
+          testID="weather-refresh-button"
+        />
+      )}
 
       {isLocationPickerVisible ? (
         <View style={styles.locationPicker} testID="weather-location-picker">
@@ -275,13 +295,6 @@ export function WeatherScreen() {
 
       {snapshot && failureCopy && (
         <AppText accessibilityLiveRegion="polite">{failureCopy.notice}</AppText>
-      )}
-      {state.activeLocation && (
-        <Button
-          label={state.isRefreshing ? copy.refreshing : (failureCopy ? copy.retry : copy.refresh)}
-          loading={state.isRefreshing}
-          onPress={() => void application.refresh()}
-        />
       )}
     </Screen>
   );

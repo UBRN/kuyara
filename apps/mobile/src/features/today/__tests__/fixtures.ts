@@ -102,6 +102,8 @@ export const todayWardrobeItems = Object.freeze([
 
 export const todayScreenState = Object.freeze({
   kind: 'loaded',
+  isRefreshing: false,
+  refreshFailed: false,
   snapshot: Object.freeze({
     weather: todayWeatherSnapshot,
     activeLocation: todayActiveLocation,
@@ -122,6 +124,8 @@ if (todayRecommendation.status !== 'recommended') {
 
 export const aiAssistedTodayScreenState = Object.freeze({
   ...todayScreenState,
+  isRefreshing: false,
+  refreshFailed: false,
   snapshot: Object.freeze({
     ...todayScreenState.snapshot,
     recommendation: Object.freeze({

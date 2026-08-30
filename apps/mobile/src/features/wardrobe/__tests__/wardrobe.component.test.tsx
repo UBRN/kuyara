@@ -336,12 +336,15 @@ function CreateForm({
   );
 }
 
-test('create and edit forms apply the top safe-area inset instead of a fixed offset', async () => {
+test('create and edit forms leave the top safe area to the platform instead of a fixed offset', async () => {
   const createResult = await render(<CreateForm />);
-  const createContentStyle = StyleSheet.flatten(
-    createResult.getByTestId('wardrobe-create-form').props.contentContainerStyle,
-  );
-  expect(createContentStyle.paddingTop).toBe(initialMetrics.insets.top);
+  const createForm = createResult.getByTestId('wardrobe-create-form');
+  const createContentStyle = StyleSheet.flatten(createForm.props.contentContainerStyle);
+  // The form reserves no clearance of its own, so iOS resolves the top safe area
+  // through the content inset. A non-zero padding here would mean a fixed offset
+  // crept back in and would double the inset.
+  expect(createForm.props.contentInsetAdjustmentBehavior).toBe('automatic');
+  expect(createContentStyle.paddingTop).toBe(0);
 
   const editResult = await render(
     <TestProviders>
@@ -357,10 +360,10 @@ test('create and edit forms apply the top safe-area inset instead of a fixed off
       />
     </TestProviders>,
   );
-  const editContentStyle = StyleSheet.flatten(
-    editResult.getByTestId('wardrobe-edit-form').props.contentContainerStyle,
-  );
-  expect(editContentStyle.paddingTop).toBe(initialMetrics.insets.top);
+  const editForm = editResult.getByTestId('wardrobe-edit-form');
+  const editContentStyle = StyleSheet.flatten(editForm.props.contentContainerStyle);
+  expect(editForm.props.contentInsetAdjustmentBehavior).toBe('automatic');
+  expect(editContentStyle.paddingTop).toBe(0);
 });
 
 test('create form uses catalog options, reports required validation, and has no delete action', async () => {

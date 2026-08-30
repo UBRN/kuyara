@@ -205,3 +205,29 @@ test('loading, unavailable, and semantic theme behavior remains explicit', () =>
   assert.notEqual(light.colors.background, dark.colors.background);
   assert.equal(Object.values(reduced.motion).every((duration) => duration === 0), true);
 });
+
+test('the freshness line reports refreshing, failure, staleness, and last update in that precedence', () => {
+  const base = todayScreenState;
+
+  const refreshing = loadedPresentation({ ...base, isRefreshing: true, refreshFailed: true });
+  assert.equal(refreshing.header.freshness, 'Refreshing weather…');
+  assert.equal(refreshing.header.isRefreshing, true);
+  assert.equal(refreshing.header.announceFreshness, true);
+
+  const failed = loadedPresentation({ ...base, isRefreshing: false, refreshFailed: true });
+  assert.match(failed.header.freshness, /^Couldn't refresh · Showing last update from /);
+  assert.equal(failed.header.isRefreshing, false);
+  assert.equal(failed.header.announceFreshness, true);
+
+  const settled = loadedPresentation({ ...base, isRefreshing: false, refreshFailed: false });
+  assert.match(settled.header.freshness, /^Updated at |^Last updated at /);
+  assert.equal(settled.header.announceFreshness, settled.header.isStale);
+
+  const turkish = loadedPresentation({ ...base, isRefreshing: true, refreshFailed: false }, 'tr');
+  assert.equal(turkish.header.freshness, 'Hava durumu yenileniyor…');
+});
+
+test('the refresh action label is localized and matches the Weather screen wording', () => {
+  assert.equal(loadedPresentation().copy.refreshAction, 'Refresh weather');
+  assert.equal(loadedPresentation(todayScreenState, 'tr').copy.refreshAction, 'Hava durumunu yenile');
+});

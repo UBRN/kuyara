@@ -264,3 +264,28 @@ test('manual selection emits stable catalog ID', async () => {
   await fireEvent.press(result.getByRole('radio', { name: messages.tr.weather.locations['sample.ankara'] }));
   expect(value.selectManualLocation).toHaveBeenCalledWith('sample.ankara');
 });
+
+test('Weather offers a pull-to-refresh gesture alongside the visible refresh button', async () => {
+  const value = createValue({
+    ...baseState,
+    activeLocation: getManualLocation('sample.istanbul')!,
+    snapshot: sampleSnapshot(),
+    freshness: 'fresh',
+  });
+  const result = await render(
+    <Providers language="en" value={value}>
+      <WeatherScreen />
+    </Providers>,
+  );
+
+  const button = result.getByTestId('weather-refresh-button');
+  fireEvent.press(button);
+  expect(value.refresh).toHaveBeenCalledTimes(1);
+
+  const refreshControl = result.getByTestId('weather-screen').props.refreshControl;
+  expect(refreshControl).toBeTruthy();
+  expect(refreshControl.props.refreshing).toBe(false);
+
+  refreshControl.props.onRefresh();
+  expect(value.refresh).toHaveBeenCalledTimes(2);
+});

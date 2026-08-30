@@ -249,6 +249,22 @@ Approved 2026-08-29. Partly implemented: N1 is complete, N2 is next, and N3 is d
   - **N3, server-sent push. Deferred, not scheduled.** Reconsidered only if N2 proves insufficient in real use, and only with its own ADR covering the server-owned subscription store, the persisted-coordinate privacy posture, delivery, and hard spend controls.
 - Alert timeliness is bounded by how often the user opens the app plus what iOS grants `BGTaskScheduler`. This is an accepted limitation and the reason N3 stays on the table.
 
+## Approved manual refresh affordance
+
+Approved and implemented 2026-08-30. Adds a pull-to-refresh gesture to Today and Weather while keeping a visible refresh control on both screens.
+
+- **Pull-to-refresh refreshes weather only.** It calls the existing weather `refresh()` and never triggers recommendation generation. Recommendation refresh keeps its approved triggers in [Approved recommendation caching, refresh, and status behavior](#approved-recommendation-caching-refresh-and-status-behavior); a pull gesture is deliberately not treated as the "user explicitly requests a refresh" trigger, so the gesture cannot consume AI quota. A refreshed weather snapshot may still cause a recommendation refresh through the already approved staleness trigger.
+- **The gesture is never the only way to refresh.** Pull-to-refresh cannot be activated by VoiceOver or Switch Control, so every screen that offers it must also offer a visible control that calls the same function. This is an accessibility definition-of-done requirement, not a preference.
+- **Today** gains the gesture on its `Screen` scroll view and a visible refresh `IconButton` in the stretchy header, placed before the existing settings button and sharing its 30-point body and 7-point hit slop. The refresh indicator is offset below the measured compact header, matching the ready Wardrobe list.
+- **Weather** gains the gesture on its `Screen` scroll view. Its existing refresh button is preserved and moves from the end of the page to directly below the location row, so the refresh control sits next to the location it refreshes and is reached early in the focus order. The button keeps its existing retry behavior on failure.
+- **Wardrobe is unchanged.** It already exposes both a gesture and a visible retry control.
+- **Refresh status is announced, not only shown.** Today's freshness line becomes a three-state line: last updated, refreshing, or refresh failed. It uses a polite live region while a refresh is in flight, in addition to the existing stale case.
+- **A failed refresh preserves the last valid snapshot** and labels it. This restates the existing rule; the gesture does not change it.
+- The refresh indicator uses the resolved `iconSecondary` semantic role. No brand color, design token, motion token, or UI primitive is added. The platform refresh control owns its own reduced-motion behavior.
+- New localization keys are limited to Today's refresh action label, refreshing status, and refresh-failure status, in English and Turkish. They reuse the wording already approved for the Weather screen so the same action is not named two ways.
+- **The `Screen` primitive owns top-inset resolution.** `Screen` previously disabled iOS content-inset adjustment (`contentInsetAdjustmentBehavior="never"`) and reproduced the top safe area as content padding. That silently disabled pull-to-refresh, because `UIRefreshControl` measures its pull against the adjusted content inset. `Screen` now lets iOS resolve the top inset and exposes a `contentTopClearance` prop for screens with an absolute overlay header. The prop is the total space above the content measured from the top of the screen, safe area included; `Screen` subtracts the inset on iOS, where the system supplies it, and applies the full value on Android, where no equivalent mechanism exists. Feature code no longer performs safe-area arithmetic.
+- Out of scope: refreshing the recommendation from the gesture, a generic pull-to-refresh primitive, a non-scrollable screen API, background refresh, and any change to the 30-minute freshness boundary or refresh coalescing.
+
 ## Operating assumptions
 
 - Provider usage remains within a small maintainer-funded budget with automatic top-up disabled and hard or safely derived limits.

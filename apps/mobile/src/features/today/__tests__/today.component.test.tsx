@@ -55,6 +55,7 @@ test('loaded Today reserves overlay clearance and preserves grouped accessibilit
       language="en"
       onOpenOutfitDetail={onOpenOutfitDetail}
       onOpenSettings={onOpenSettings}
+      onRefresh={() => undefined}
       state={todayScreenState}
     />,
   ));
@@ -66,7 +67,9 @@ test('loaded Today reserves overlay clearance and preserves grouped accessibilit
   const screenStyle = StyleSheet.flatten(
     result.getByTestId('today-screen').props.contentContainerStyle,
   );
-  expect(screenStyle.paddingTop).toBe(179 + spacing['2xl']);
+  // iOS resolves the top safe area itself, so Screen reserves only the remainder
+  // of the overlay header above the content.
+  expect(screenStyle.paddingTop).toBe(179 + spacing['2xl'] - initialMetrics.insets.top);
   expect(result.getByTestId('today-outfit-list').children).toHaveLength(
     presentation.suggestions.length - 1,
   );
@@ -101,6 +104,7 @@ test('rendered outfit copy comes from localization and never from the wardrobe f
       language="en"
       onOpenOutfitDetail={() => undefined}
       onOpenSettings={() => undefined}
+      onRefresh={() => undefined}
       state={todayScreenState}
     />,
   ));
@@ -116,6 +120,7 @@ test('rendered outfit copy comes from localization and never from the wardrobe f
       language="tr"
       onOpenOutfitDetail={() => undefined}
       onOpenSettings={() => undefined}
+      onRefresh={() => undefined}
       state={todayScreenState}
     />,
   ));
@@ -137,6 +142,7 @@ describe.each(['en', 'tr'] as const)('%s Today generation mode', (language) => {
         language={language}
         onOpenOutfitDetail={() => undefined}
         onOpenSettings={() => undefined}
+        onRefresh={() => undefined}
         state={state}
       />,
     ));
@@ -174,6 +180,8 @@ test('an unavailable recommendation keeps header and weather while replacing sug
   if (recommendation.status !== 'recommended') throw new Error('Expected fixture recommendation.');
   const state = {
     kind: 'loaded' as const,
+    isRefreshing: false,
+    refreshFailed: false,
     snapshot: {
       ...todayScreenState.snapshot,
       recommendation: {
@@ -195,6 +203,7 @@ test('an unavailable recommendation keeps header and weather while replacing sug
       language="en"
       onOpenOutfitDetail={() => undefined}
       onOpenSettings={() => undefined}
+      onRefresh={() => undefined}
       state={state}
     />,
   ));
@@ -213,6 +222,7 @@ test('loading Today keeps its existing feedback layout without the loaded header
       language="en"
       onOpenOutfitDetail={() => undefined}
       onOpenSettings={() => undefined}
+      onRefresh={() => undefined}
       state={{ kind: 'loading' }}
     />,
   ));
@@ -232,6 +242,7 @@ describe.each(['en', 'tr'] as const)('%s Today weather card', (language: Support
         language={language}
         onOpenOutfitDetail={() => undefined}
         onOpenSettings={() => undefined}
+        onRefresh={() => undefined}
         state={todayScreenState}
       />,
       lightTheme,
@@ -257,6 +268,7 @@ describe.each(['en', 'tr'] as const)('%s Today weather card', (language: Support
         language={language}
         onOpenOutfitDetail={() => undefined}
         onOpenSettings={() => undefined}
+        onRefresh={() => undefined}
         state={todayScreenState}
       />,
       theme,
@@ -283,4 +295,46 @@ test('light and dark themes resolve different weather-card semantic colors', () 
   expect(
     withAlpha(lightTheme.colors.brandAccent, CARD_BACKGROUND_ALPHA),
   ).not.toBe(withAlpha(darkTheme.colors.brandAccent, CARD_BACKGROUND_ALPHA));
+});
+
+test('loaded Today offers both a pull-to-refresh gesture and a visible refresh control', async () => {
+  const onRefresh = jest.fn();
+  const result = await render(providers(
+    <TodayScreen
+      language="en"
+      onOpenOutfitDetail={jest.fn()}
+      onOpenSettings={jest.fn()}
+      onRefresh={onRefresh}
+      state={todayScreenState}
+    />,
+  ));
+
+  const button = result.getByTestId('today-refresh-button');
+  expect(button.props.accessibilityLabel).toBe('Refresh weather');
+  fireEvent.press(button);
+  expect(onRefresh).toHaveBeenCalledTimes(1);
+
+  const refreshControl = result.getByTestId('today-screen').props.refreshControl;
+  expect(refreshControl).toBeTruthy();
+  expect(refreshControl.props.refreshing).toBe(false);
+  expect(refreshControl.props.progressViewOffset).toBeGreaterThan(0);
+
+  refreshControl.props.onRefresh();
+  expect(onRefresh).toHaveBeenCalledTimes(2);
+});
+
+test('a Today refresh in flight announces itself and shows the spinner', async () => {
+  const result = await render(providers(
+    <TodayScreen
+      language="en"
+      onOpenOutfitDetail={jest.fn()}
+      onOpenSettings={jest.fn()}
+      onRefresh={jest.fn()}
+      state={{ ...todayScreenState, isRefreshing: true }}
+    />,
+  ));
+
+  const line = result.getByText('Refreshing weather…');
+  expect(line.props.accessibilityLiveRegion).toBe('polite');
+  expect(result.getByTestId('today-screen').props.refreshControl.props.refreshing).toBe(true);
 });

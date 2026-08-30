@@ -10,7 +10,8 @@ export default function TodayRoute() {
   const { language } = useLocalization();
   const router = useRouter();
   const { state: recommendationState } = useRecommendationApplication();
-  const { state: weatherState } = useWeatherApplication();
+  const weatherApplication = useWeatherApplication();
+  const weatherState = weatherApplication.state;
   const recommendation = recommendationState.status === 'ready'
     ? recommendationState.snapshot?.recommendation ?? null
     : null;
@@ -35,6 +36,8 @@ export default function TodayRoute() {
         freshness: weatherState.freshness,
         recommendation,
       },
+      isRefreshing: weatherState.isRefreshing,
+      refreshFailed: weatherState.refreshFailure !== null,
     };
   }
 
@@ -43,6 +46,7 @@ export default function TodayRoute() {
       language={language}
       onOpenOutfitDetail={(id) => router.push(`/${id}`)}
       onOpenSettings={() => router.push('/settings')}
+      onRefresh={() => void weatherApplication.refresh()}
       state={state}
     />
   );
