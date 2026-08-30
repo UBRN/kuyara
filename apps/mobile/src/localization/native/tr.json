@@ -1,6 +1,7 @@
 {
   "ios": {
     "NSLocationWhenInUseUsageDescription": "kuyara’nın uygulamayı kullanırken tek seferlik hava durumu sorgusu için yaklaşık konumunuzu kullanmasına izin verin.",
+    "NSMotionUsageDescription": "kuyara’nın tek seferlik hava durumu sorgusu için yaklaşık konumunuzu tahmin etmeye yardımcı olacak hareket verilerini kullanmasına izin verin.",
     "NSPhotoLibraryUsageDescription": "kuyara’nın gardırop fotoğrafı seçmesine izin verin."
   }
 }

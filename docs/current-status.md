@@ -6,15 +6,15 @@
 - **Weather:** Mobile preserves the last valid snapshot, refreshes data older than 30 minutes, and reaches providers only through the Worker. The deployed chain is Open-Meteo followed by OpenWeather, with bounded attempts, runtime validation, attribution, rate limiting, and a best-effort OpenWeather daily cap. The deterministic provider is test-only.
 - **Recommendations:** Deterministic weather requirements, garment evaluation, and up-to-three-outfit composition are implemented. The Worker uses Workers AI followed by OpenRouter; mobile validates and persists the result and falls back to the device-local deterministic generator. Today and Settings expose only the coarse generation mode, and Settings includes the bounded active AI probe.
 - **Notifications:** N1 is complete. Schema v6 stores `notifications_opt_in`; Settings owns the permission flow and OS-settings redirect; notification taps open Today; and the test action is development-only. N2 weather-alert rules and background rescheduling are not implemented.
-- **Builds:** iOS is the first release target. EAS preview and production profiles use the deployed Worker; development keeps its local Worker fallback. Shared code remains Android-compatible, but Android validation is deferred.
+- **Builds:** iOS is the first release target. EAS production credentials, a production build, and an App Store Connect record (`com.ubrn.kuyara`, ASC app `6806664440`) exist; build 1.0.0 (2) is on TestFlight internal testing and was verified on a physical device against the deployed Worker. EAS preview and production profiles use the deployed Worker; development keeps its local Worker fallback. Shared code remains Android-compatible, but Android validation is deferred.
 
 The MVP still has no account, cross-device sync, behavioral analytics, or server-sent push. Production WeatherKit is not implemented.
 
 ## Recently Completed
 
+- **First TestFlight path** (2026-08-30): iOS distribution credentials, production build, App Store Connect app record, and `eas submit` to TestFlight internal testing. Adds `ITSAppUsesNonExemptEncryption: false`, a localized `NSMotionUsageDescription` (CoreMotion is linked transitively by `expo-location`), and `promptToConfigurePushNotifications: false`. Verified live weather on a physical device.
 - **N1 mobile notification foundation** (`6e586e9`, 2026-08-29): local opt-in and permission handling, notification-response routing, development-only test action, and schema v6.
 - **Milestone 5, real weather providers** (2026-08-29): Open-Meteo primary and OpenWeather fallback with bounded attempts, validation, attribution, and usage controls. See [ADR 0002](adr/0002-real-weather-provider-chain.md).
-- **Milestone 4, AI status and limits** (2026-08-29): Worker rate limits, active AI probe, and Today/Settings generation-mode UI. See [ADR 0001](adr/0001-worker-ai-probe-and-rate-limiting.md).
 
 Nothing is currently in progress.
 

@@ -1,6 +1,7 @@
 {
   "ios": {
     "NSLocationWhenInUseUsageDescription": "Allow kuyara to use your approximate location for a one-time weather lookup while you use the app.",
+    "NSMotionUsageDescription": "Allow kuyara to use motion data to help estimate your approximate location for a one-time weather lookup.",
     "NSPhotoLibraryUsageDescription": "Allow kuyara to select a wardrobe photo."
   }
 }
