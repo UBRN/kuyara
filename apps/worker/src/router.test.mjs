@@ -33,12 +33,11 @@ function router({ aiReady = true, providers = [] } = {}) {
 }
 
 function validAiOutput() {
-  const outfit = [
-    { slot: 'primary_top', layerRole: 'base', candidateKey: 'probe-top' },
-    { slot: 'bottom', layerRole: 'standalone', candidateKey: 'probe-bottom' },
-    { slot: 'footwear', layerRole: null, candidateKey: 'probe-shoes' },
-  ];
-  return { data: { outfits: [outfit, outfit, outfit] } };
+  return { data: { picks: [
+    { optionId: 'probe-casual', archetypeId: 'weekend_relaxed' },
+    { optionId: 'probe-smart', archetypeId: 'smart_casual' },
+    { optionId: 'probe-formal', archetypeId: 'office_ready' },
+  ] } };
 }
 
 async function assertJson(response, status, body) {

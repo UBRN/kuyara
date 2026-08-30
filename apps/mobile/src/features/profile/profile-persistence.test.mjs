@@ -161,8 +161,8 @@ test('controller clothing preference updates flow into Today recommendations', a
     assert.equal(state.status, 'ready');
     return recommendOutfits({
       snapshot: todayWeatherSnapshot,
-      wardrobeItems: [],
       clothingPreference: state.profile.clothingPreference,
+      dayVariant: 0,
     });
   };
   const usesWomensOnlyKey = (recommendation) =>

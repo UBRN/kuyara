@@ -1,6 +1,6 @@
 import type { AiRecommendV1Request } from '@kuyara/contracts';
 
-import { buildMessages, outfitJsonSchema } from './ai-prompt.ts';
+import { buildMessages, buildPickJsonSchema } from './ai-prompt.ts';
 import type { AiProvider } from './ai-provider.ts';
 
 export interface WorkersAiBinding {
@@ -24,13 +24,15 @@ export class WorkersAiProvider implements AiProvider {
     signal: AbortSignal,
   ): Promise<unknown> {
     signal.throwIfAborted();
+    const messages = buildMessages(request);
+    const responseSchema = buildPickJsonSchema(request.options);
     // ponytail: binding takes no AbortSignal; the handler's per-attempt race bounds it.
     const result = await this.options.ai.run(this.options.model, {
       max_tokens: 2048,
-      messages: buildMessages(request),
+      messages,
       response_format: {
         type: 'json_schema',
-        json_schema: outfitJsonSchema,
+        json_schema: responseSchema,
       },
     });
     if (typeof result !== 'object' || result === null || !Object.hasOwn(result, 'response')) {

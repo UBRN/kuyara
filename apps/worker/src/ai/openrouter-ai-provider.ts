@@ -1,6 +1,6 @@
 import type { AiRecommendV1Request } from '@kuyara/contracts';
 
-import { buildMessages, outfitJsonSchema } from './ai-prompt.ts';
+import { buildMessages, buildPickJsonSchema } from './ai-prompt.ts';
 import type { AiProvider } from './ai-provider.ts';
 
 type Options = Readonly<{
@@ -24,6 +24,8 @@ export class OpenRouterAiProvider implements AiProvider {
     request: AiRecommendV1Request,
     signal: AbortSignal,
   ): Promise<unknown> {
+    const messages = buildMessages(request);
+    const responseSchema = buildPickJsonSchema(request.options);
     const response = await (this.#fetch ?? globalThis.fetch)(
       'https://openrouter.ai/api/v1/chat/completions',
       {
@@ -36,13 +38,13 @@ export class OpenRouterAiProvider implements AiProvider {
         body: JSON.stringify({
           model: this.model,
           max_tokens: 2048,
-          messages: buildMessages(request),
+          messages,
           response_format: {
             type: 'json_schema',
             json_schema: {
-              name: 'kuyara_outfits',
+              name: 'kuyara_picks',
               strict: true,
-              schema: outfitJsonSchema,
+              schema: responseSchema,
             },
           },
           provider: { require_parameters: true },

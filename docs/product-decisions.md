@@ -8,8 +8,8 @@
 - The MVP has no account, cross-device sync, or behavioral analytics. Notifications are limited to on-device local weather alerts with no server-sent push; see [Approved notifications scope](#approved-notifications-scope) and [ADR 0004](adr/0004-notifications-in-the-mvp.md).
 - kuyara is free and ad-free, with no subscription and no in-app purchase. Paid provider usage is maintainer-funded and bounded.
 - Expo SQLite is the durable source of truth for user-created local data. Remote sync may complement, but must not replace, the local store in a future release.
-- Weather providers are accessed only through the Worker behind a provider-neutral contract. Weather constraints are deterministic; AI generates exactly three complete outfits from a closed candidate set and must have a device-local deterministic fallback.
-- Wardrobe photos are optional, remain on-device in the MVP, and are not sent to AI.
+- Weather providers are accessed only through the Worker behind a provider-neutral contract. Weather constraints are deterministic; AI selects three of at most 24 deterministically precomposed catalog outfits filtered by clothing preference and must have a device-local catalog-only deterministic fallback.
+- The Wardrobe is a personal record of garments marked `owned` or `wanted`, not a recommendation input. Wardrobe photos are optional, remain on-device in the MVP, and are not sent to AI.
 - “Women's clothing” and “Men's clothing” are mutable clothing preferences, not biological-sex fields.
 
 ## Apple Developer Program
@@ -20,24 +20,27 @@ Membership became active on 2026-08-29 and the earlier enrollment-pending pause 
 
 The current scaffold and workspace layout are canonical in the [`README.md` Stack section](../README.md#stack).
 
-## Implemented primary navigation
+## Approved primary navigation
 
-- The final main tabs are Today, Weather, Wardrobe, and Settings. Their visible paths are `/`, `/weather`, `/wardrobe`, and `/settings`; Expo Router route groups do not appear in user-visible URLs.
+Approved 2026-08-30. Rationale and consequences are canonical in [ADR 0006](adr/0006-three-tab-information-architecture.md).
+
+- The final main tabs are Today at `/`, Weather at `/weather`, and Profile at `/profile`; Expo Router route groups do not appear in user-visible URLs.
 - The root Stack retains the device-local onboarding gate and keeps `/onboarding` outside the tab navigator. An incomplete profile cannot enter the tab group, while a completed profile opens Today by default.
 - The current app uses Expo Router's stable JavaScript Tabs. SDK 57 Native Tabs remain alpha and are not used; moving to Native Tabs later requires a separate, deliberate migration decision.
-- Each main tab owns a nested Stack boundary. Wardrobe create and edit screens live inside the Wardrobe Stack rather than being pushed from Today.
-- Weather provides foreground location selection and Worker-backed persisted live weather at `/weather`. Wardrobe provides local CRUD at `/wardrobe`, `/wardrobe/new`, and `/wardrobe/[id]` without changing the tab or root Stack architecture.
+- Each main tab owns a nested Stack boundary. Wardrobe and wanted records live inside Profile rather than owning a tab or being pushed from Today.
+- Weather provides foreground location selection and Worker-backed persisted live weather at `/weather`. Settings opens from an icon in the Profile header and is not a tab.
+- Clothing preference remains prominent and required in onboarding because it is the only user input that shapes recommendations. Its control is the last Settings section and is deliberately not prominent there.
 
 ## Implemented deterministic Today integration
 
 The Today mock slice was replaced by the real recommendation flow. The remaining İstanbul fixture is test-only; its former production use, three named intents, and pre-written prose no longer exist.
 
-- Today renders outfits from the persisted recommendation snapshot. The active weather snapshot and persisted clothing preference derive clothing requirements, bundled catalog types and owned Wardrobe items become evaluated candidates, and the Worker AI route returns exactly three outfits when it succeeds. The result records `ai-assisted` in that case and `deterministic-fallback` when the device-local generator is used.
+- Today renders outfits from the persisted recommendation snapshot. The active weather snapshot and persisted clothing preference derive clothing requirements, bundled catalog types filtered by that preference become the only evaluated candidates, and the Worker AI route returns exactly three outfits when it succeeds. The result records `ai-assisted` in that case and `deterministic-fallback` when the device-local catalog-only generator is used.
 - Outfits have no intent identity. The former Comfortable, Polished, and Rain-ready labels were removed because the deterministic engine produces diversity, not intent, and no domain evidence supports an intent claim. An outfit's heading is now its localized catalog garment names in slot order, the first option carries the Recommended emphasis, and the others are presented as other options.
 - Explanations are language-independent codes localized at the presentation boundary: the snapshot's clothing-requirement reason codes lead every outfit's reason list, followed by that outfit's own composition reason codes. They are rendered as a list on the outfit detail screen rather than as a paragraph, because a wide-range day legitimately emits both a low-temperature and a high-temperature reason.
 - Today shows only weather fields the real snapshot actually carries. Sunrise time, sunset time, wind direction, and the accessory slot were removed because no data source produces them; wind is reported in metres per second, matching Weather. The rain outlook is derived from the real hourly forecast and renders only when future hourly entries exist.
-- The Wardrobe application provider is mounted at the root alongside Weather, because Today depends on Wardrobe contents. Wardrobe state is application-scoped, not tab-scoped.
-- Today renders loading while weather or wardrobe is still loading, and the unavailable state when weather failed, no snapshot exists, or no location is active. A Wardrobe refresh failure never blanks Today; it recommends from the catalog alone. The recommendation is recomputed only when the weather snapshot identity, Wardrobe contents, or clothing preference changes.
+- Wardrobe state is independent from Today. Today never reads ownership state or waits for Wardrobe data.
+- Today renders loading while weather is loading, and the unavailable state when weather failed, no snapshot exists, or no location is active. Recommendation refresh occurs only after a stale weather snapshot is refreshed, the active location or clothing preference changes, a new local calendar day starts, or the user explicitly requests it. Today never shows whether a suggested garment is `owned` or `wanted`; outfit detail alone may show ownership state.
 - Today has no WeatherKit, account, sync, analytics, or weather-alert logic. It uses the Worker AI route, persisted recommendation snapshots, and is the destination for notification-response deep links.
 - Today uses the existing semantic theme and adaptive primitives, keeps all important content in a scalable vertical layout, and supplies grouped VoiceOver labels for weather and outfit summaries. Its loaded state uses the shared stretchy-header presentation primitive: only the semantic surface background stretches into the measured top safe area during native negative overscroll, while localized text, controls, semantics, and touch targets remain fixed. The direct gesture-linked response has no spring or timing continuation and remains enabled with Reduce Motion; no information depends on the effect.
 - English and Turkish plus light, dark, and system appearances are supported through device defaults and persisted local Settings overrides.
@@ -49,8 +52,12 @@ The Today mock slice was replaced by the real recommendation flow. The remaining
 - The profile receives one Expo Crypto UUID v4 when it is first created. It starts with no clothing choice, system language, system appearance, and incomplete onboarding; repeated or concurrent initialization returns the same persisted row.
 - First launch presents a short, accountless onboarding flow. “Women’s clothing” or “Men’s clothing” is required, while language and appearance default to system and remain reviewable before completion.
 - Completing onboarding atomically stores the three preferences and completion state, then the local route gate opens the tab group on Today.
-- Settings is a main tab and remains reachable from Today's existing settings action. It persists clothing, language, and appearance changes immediately. The existing localization and semantic theme providers consume the saved preferences, so successful changes update visible UI without an app reload.
+- Settings opens from the Profile header and is not a tab. It persists clothing, language, and appearance changes immediately. Clothing preference is the last section and is deliberately not prominent there, while onboarding keeps it prominent and required. The existing localization and semantic theme providers consume the saved preferences, so successful changes update visible UI without an app reload.
 - The slice adds no account, authentication, remote profile, synchronization engine, analytics, notifications, location permission, WeatherKit, Worker request, or AI behavior.
+
+## Approved account copy boundary
+
+Approved 2026-08-30. Documentation may state the present fact that the MVP has no account. User-facing copy must not promise that there will never be an account or that everything stays on the device, because accounts are planned.
 
 ## Implemented local-first wardrobe persistence slice
 
@@ -65,7 +72,7 @@ The Today mock slice was replaced by the real recommendation flow. The remaining
 ## Implemented clothing taxonomy and wardrobe schema version 3
 
 - The bundled version 1 garment catalog defines the 30 canonical types, structural categories, weather-relevant default properties, stable localization keys, and deprecation metadata specified in [`clothing-taxonomy.md`](clothing-taxonomy.md). Zod schemas and TypeScript types derive from the same readonly value sources.
-- Catalog applicability filters only general catalog suggestions. It is not biological sex and never hides, invalidates, deletes, or excludes a valid item the user already owns or deliberately adds to the Wardrobe.
+- Catalog applicability filters recommendation candidates and new Wardrobe choices. It is not biological sex and never hides, invalidates, deletes, or excludes a valid item already recorded in the Wardrobe.
 - `blouse`, `skirt`, and `dress` apply to the `womens` catalog preference. Every other canonical type, including `jumpsuit`, applies to both `womens` and `mens`.
 - SQLite migration version 3 preserves every version 2 field and row while adding a nullable canonical type reference, canonical color family, and seven explicit property-override columns. Legacy rows remain unclassified until the user chooses a type; migration never infers one.
 - Catalog defaults remain bundled code rather than duplicated SQLite data. A pure effective-garment resolver uses an explicit item override when present and otherwise the current catalog default; legacy, resolved, and invalid-data outcomes remain distinct.
@@ -114,18 +121,30 @@ The Today mock slice was replaced by the real recommendation flow. The remaining
 
 ## Implemented deterministic garment eligibility and scoring
 
-- A pure mobile domain layer projects bundled catalog defaults and successfully resolved owned-item overrides into one canonical effective-property input. Catalog preference mismatch and unavailable catalog types fail explicitly; active owned items remain independent of current catalog preference, while deleted, legacy, invalid, and unmappable owned items are excluded. Retained deprecated definitions remain valid for already-owned garments.
+- A pure mobile domain layer projects bundled catalog defaults into canonical effective-property inputs. Catalog preference mismatch and unavailable catalog types fail explicitly. The existing owned-item resolver remains available for personal Wardrobe records, including retained deprecated definitions, but its output is never assembled into recommendation candidates; see [ADR 0005](adr/0005-catalog-only-recommendation-candidates.md).
 - Thermal, breathability, arm coverage, and leg coverage are composition-aware. Applicable shortfalls and missing values retain their weather reason codes and weighted score contribution but do not reject one garment, even when mandatory; later outfit composition must verify their combined satisfaction.
 - Individual-garment hard rejection is limited to mandatory body water or wind protection on outerwear candidates and mandatory feet water protection or traction on footwear. Optional failures never reject, and incompatible requirement/category combinations are `not_applicable` and excluded from scoring. Accessories are unsupported in this slice and cannot satisfy protection requirements.
 - Scoring is bounded and deterministic, over-protection is penalized, and language-independent reason codes and equal-score ties are stably ordered. Scores compare only candidates for the same composition role or compatible category, not global quality across categories. The exact weights, caps, and penalties live in `apps/mobile/src/features/recommendation/domain/garment-eligibility.ts` and `garment-eligibility.test.mjs`.
 
 ## Implemented deterministic one-outfit composition
 
-- A pure mobile domain function now composes already evaluated eligible catalog and Wardrobe candidates into exactly one immutable outfit or a structured failure. A complete outfit uses either primary top plus bottom or one `one_piece`, always includes footwear, and may add at most one supported mid layer and one supported outer layer. Runtime slot and layer-role assignments never mutate garment or Wardrobe data, and one candidate key cannot fill multiple slots.
+- A pure mobile domain function composes already evaluated eligible candidates into exactly one immutable outfit or a structured failure. Production candidate assembly supplies catalog candidates only. A complete outfit uses either primary top plus bottom or one `one_piece`, always includes footwear, and may add at most one supported mid layer and one supported outer layer. Runtime slot and layer-role assignments never mutate catalog or Wardrobe data, and one candidate key cannot fill multiple slots.
 - Thermal contribution is summed across body garments while footwear warmth remains separate evidence. Body breathability normally uses the least-breathable assigned body garment; arm and leg coverage use the strongest applicable collective coverage. Mandatory body water and wind are authoritative only from the assigned outer layer's existing eligibility evaluation, while mandatory feet water and traction are authoritative only from footwear.
 - A mandatory waterproof or wind-resistant outer layer may resolve, but never erase, a breathability conflict: when the body core and optional mid layer meet mandatory breathability, the outfit remains valid with a `breathability_protection_tradeoff` evaluation, the outer shortfall remains explicit, and a deterministic penalty applies. A non-breathable core still fails, and water or wind protection is never weakened to avoid the conflict.
-- Outfit scores use aggregate requirement satisfaction and bounded thermal, unnecessary-water, and protection-versus-breathability penalties. Garment scores are used only inside compatible slot groups. Equal outcomes prefer fewer optional layers and then stable slot-local and composition-key ordering; catalog and owned candidates receive no source bonus.
+- Outfit scores use aggregate requirement satisfaction and bounded thermal, unnecessary-water, and protection-versus-breathability penalties. Garment scores are used only inside compatible slot groups. Equal outcomes prefer fewer optional layers and then stable slot-local and composition-key ordering. Every recommendation candidate comes from the catalog.
 - Failures retain stable codes, missing slots, unmet mandatory requirements with weather reasons, best observed evidence, and considered candidate keys. Accessories, fashion/color/occasion logic, comfort personalization, three-outfit diversity, UI integration, persistence, providers, AI, and Apple-dependent behavior remain outside this slice.
+
+## Approved catalog-only recommendation and Wardrobe model
+
+Approved 2026-08-30. Rationale, costs, and implementation consequences are canonical in [ADR 0005](adr/0005-catalog-only-recommendation-candidates.md). Section 4 of that ADR is amended by [ADR 0007](adr/0007-ai-selects-precomposed-outfits.md).
+
+- The AI option set is at most 24 outfits composed deterministically from the bundled garment catalog filtered by clothing preference. The Wardrobe is never a candidate source. AI may select only supplied option identifiers and must never invent outfits, catalog entries, wardrobe items, slots, properties, or identifiers.
+- The Wardrobe is a personal record. Each entry is `owned` or `wanted`; there is no separate wishlist table, screen, or tab, and marking either state has no effect on recommendations in the MVP.
+- Every newly created Wardrobe entry must reference a catalog garment type. Existing null `garmentTypeId` rows remain readable, editable, and deletable as legacy records; no data is discarded. New records do not offer free-form garment entry outside the catalog.
+- Ownership state appears only on outfit detail, never on Today.
+- Both AI and the device-local deterministic three-outfit fallback compose from the catalog only.
+- A local day variant, the local day of year modulo 7, makes results stable within one local day and different the next day for the same weather. Recommendation cache identity is weather snapshot identity, clothing preference, catalog version, and day variant.
+- SQLite schema version 7 adds Wardrobe entry state, preserves every existing row, and defaults existing entries to `owned`.
 
 ## Approved product model and API budget
 
@@ -154,16 +173,17 @@ Approved 2026-08-13. Implemented 2026-08-29 as milestone 5. Design, the pricing 
 
 ## Approved AI recommendation strategy
 
-Approved 2026-08-13. Implemented end to end. The shared AI contract and Worker route use ordered Workers AI and OpenRouter adapters; mobile validates and persists the result and owns the deterministic fallback. The in-Worker stub is test-only.
+Approved 2026-08-13 and restated 2026-08-30. The provider chain is implemented end to end; the catalog-only job, the precomposed option contract, and the day variant are planned. The shared AI contract and Worker route use ordered Workers AI and OpenRouter adapters; mobile validates and persists the result and owns the deterministic fallback. The in-Worker stub is test-only.
 
-- AI must generate exactly three complete outfit combinations. These combinations are AI-generated, not deterministic.
-- AI is constrained by the deterministic weather requirements and a closed set of allowed candidate garments, and may select only candidate identifiers supplied in the request.
+- AI must return exactly three outfit selections. The combinations themselves are composed deterministically; AI chooses among them and labels each with one archetype identifier.
+- AI remains central, but it is not personalization. It turns a set of already valid outfits into three that are meaningfully different from each other and do not repeat the previous day. Layering, formality consistency, and mandatory weather requirements are enforced before the request; color harmony is out of scope for the MVP because the catalog describes garment types, which have no color.
+- AI receives deterministic weather requirements, precomposed option identifiers and their garment properties, clothing preference, catalog version, and a local day variant. The catalog is filtered by clothing preference before composition, and AI may select only option identifiers supplied in the request.
 - AI must not invent catalog entries, wardrobe items, slots, properties, or candidate identifiers.
 - Every AI response must pass shared Zod validation and existing or new deterministic domain invariants before it can be displayed or persisted. Invalid or partially invalid output is never silently repaired into a different outfit.
-- AI failure must not prevent the user from receiving recommendations. The final fallback is a device-local deterministic three-outfit generator built from the existing validated composition evidence.
+- AI failure must not prevent the user from receiving recommendations. The final fallback is a device-local deterministic three-outfit generator that uses the same catalog-only candidates and existing validated composition evidence.
 - The deterministic three-outfit fallback is therefore a prerequisite for safely shipping AI, even though AI integration is the current product priority.
 - The approved AI provider chain is a Cloudflare Workers AI binding first, then OpenRouter, then device-local deterministic three-outfit generation. This order was revised on 2026-08-19; it was originally OpenRouter primary with Workers AI as the fallback. The change is a user decision taken on the evidence in [Free-model evaluation, 2026-08-19](#free-model-evaluation-2026-08-19): no evaluated free OpenRouter model returned contract-valid output, while the Workers AI binding did, so the original order made every request exhaust failing attempts before reaching a working provider. OpenRouter stays in the chain, behind Workers AI, so a future re-evaluation can promote it again through configuration.
-- AI output is structured data, not user-visible prose. It may return only allowed candidate identifiers plus a small closed vocabulary of approved intent or reason codes if the design needs them. All user-visible Turkish and English copy continues to come from application localization keys.
+- AI output is structured data, not user-visible prose. It may return only supplied option identifiers plus archetype identifiers from the closed twelve-entry list. All user-visible Turkish and English copy continues to come from application localization keys.
 - Provider names, internal errors, prompts, model reasoning, and secret or configuration details must not be exposed in the mobile contract.
 
 ### Approved OpenRouter constraints
@@ -195,7 +215,7 @@ Seven free OpenRouter models advertising structured output were evaluated agains
 
 - The Cloudflare account is on the Workers Free plan, where the 10,000 Neuron daily allocation is a hard stop rather than billable overage. This satisfies the no-uncontrolled-overage rule with no code-side spend control.
 - OpenRouter usage is free-model only. The hard cap remains the per-key credit limit configured in the OpenRouter dashboard, with automatic top-up left off.
-- Free OpenRouter models require the account setting that permits providers which may train on submitted data. This is acceptable only because the Goal 2a request schema is strict and admits nothing but opaque candidate keys, closed enum properties, and deterministic requirements — no photos, paths, free-form names, identifiers, or coordinates have any representation in it.
+- Free OpenRouter models require the account setting that permits providers which may train on submitted data. This is acceptable only because the request schema is strict and admits catalog candidate identifiers and properties, deterministic requirements, clothing preference, and day seed. Wardrobe-derived data, photos, paths, free-form names, profile or device identifiers, and coordinates have no representation in it.
 
 ## Implemented generation-mode surface, active AI probe, and Worker rate limiting
 
@@ -210,26 +230,25 @@ recalculated provider pricing that set the probe limits, are canonical in
 
 ## Approved AI input privacy boundary
 
-Approved 2026-08-13. Enforced in the shared contract as of 2026-08-14: the request schema is strict and admits only the fields listed below, so the forbidden fields have no representation and are rejected rather than filtered.
+Approved 2026-08-13 and narrowed on 2026-08-30. The simpler catalog-only boundary removes every Wardrobe-derived field. The strict request schema admits only the fields listed below, so forbidden fields have no representation and are rejected rather than filtered.
 
 AI may receive only the minimum sanitized structured data required to compose outfits:
 
-- an opaque candidate key,
-- the catalog garment type,
-- structural category and supported role or property evidence,
-- canonical color family when available,
-- source kind such as catalog or owned,
-- the deterministic weather and clothing requirements,
-- clothing preference where catalog applicability requires it.
+- catalog candidate identifiers and garment types,
+- catalog structural categories, supported roles, and property evidence,
+- deterministic weather and clothing requirements,
+- clothing preference,
+- a local calendar day seed.
 
-AI must not receive wardrobe photos, photo paths or URIs, user-entered free-form wardrobe names, `localProfileId`, profile or device identifiers, exact coordinates, raw location payloads, secrets, complete internal database records, or unrelated personal data.
+AI must not receive Wardrobe-derived data of any kind, including source kinds, overrides, photos, photo paths or URIs, free-form names, or ownership state. It also must not receive `localProfileId`, profile or device identifiers, exact coordinates, raw location payloads, secrets, complete internal database records, or unrelated personal data.
 
 ## Approved recommendation caching, refresh, and status behavior
 
-Approved 2026-08-13. Implemented for milestone 3. Mobile persists one recommendation snapshot per local profile, coalesces duplicate in-flight refreshes, refreshes only for the approved triggers, preserves the last valid result on failure, and wires the device-local deterministic fallback. The generation-mode status surface and active AI probe were implemented in milestone 4 on 2026-08-29; see [Implemented generation-mode surface, active AI probe, and Worker rate limiting](#implemented-generation-mode-surface-active-ai-probe-and-worker-rate-limiting).
+Approved 2026-08-13 and revised 2026-08-30. Milestone 3 implemented persistence, coalescing, last-valid preservation, and the deterministic fallback; the local day trigger and revised cache identity are planned. The generation-mode status surface and active AI probe were implemented in milestone 4 on 2026-08-29; see [Implemented generation-mode surface, active AI probe, and Worker rate limiting](#implemented-generation-mode-surface-active-ai-probe-and-worker-rate-limiting).
 
 - The last valid recommendation snapshot must be persisted on-device and rendered immediately when available.
-- AI must not be called on every application launch. A recommendation must be generated or refreshed only when the relevant weather snapshot is refreshed after becoming stale, the active location changes, clothing preference changes, relevant wardrobe contents or properties change, or the user explicitly requests a refresh.
+- AI must not be called on every application launch. A recommendation must be generated or refreshed only when the relevant weather snapshot is refreshed after becoming stale, the active location changes, clothing preference changes, a new local calendar day starts, or the user explicitly requests a refresh.
+- Recommendation input includes a local day variant. Within one local day the result is stable and cacheable; the next day produces different outfits from the same weather, and the variant repeats on a seven-day cycle. Cache identity is weather snapshot identity, clothing preference, catalog version, and day variant.
 - Duplicate in-flight generation requests must be coalesced, and a failed refresh must preserve the last valid recommendation.
 - A successful deterministic fallback is a valid recommendation result and replaces an unavailable AI attempt through the implemented mobile application flow.
 - Transient provider or model identity must stay out of the durable domain model unless it is needed for coarse provenance or user status.
@@ -281,4 +300,5 @@ Approved 2026-07-29.
 
 - A remote sync adapter may later be implemented with either Supabase or Firebase, but not both in production.
 - Accounts, cross-device sync, an outbox, and conflict resolution require separate product and architecture decisions.
+- Owned garments may later softly influence recommendations only as a tie-breaker between equally suitable catalog candidates, never as a filter.
 - Server-sent push notifications (N3 in [Approved notifications scope](#approved-notifications-scope)) are deferred and would need their own ADR; the MVP ships on-device local weather alerts only.

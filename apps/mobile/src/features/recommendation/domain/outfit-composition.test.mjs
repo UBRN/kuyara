@@ -106,6 +106,18 @@ test('composes the minimum separates outfit with runtime roles and immutable evi
   assert.equal(Object.isFrozen(result.outfit.requirementEvaluations), true);
 });
 
+test('rejects an outfit whose slot garments span casual through formal', () => {
+  const requirements = clothingRequirements();
+  const result = composeOutfit(requirements, [
+    catalogCandidate(requirements, 't_shirt'),
+    catalogCandidate(requirements, 'trousers'),
+    catalogCandidate(requirements, 'sneakers'),
+  ]);
+
+  assert.equal(result.status, 'failure');
+  assert.deepEqual(result.reasonCodes, ['no_valid_composition']);
+});
+
 test('one-piece replaces separates and may add one mid and one outer layer', () => {
   const requirements = clothingRequirements(
     requirement('thermal', 'high'),
@@ -299,7 +311,7 @@ test('authoritative slots reject a top outer for body water but accept footwear 
   );
   const feetResult = composeOutfit(feetRequirements, [
     catalogCandidate(feetRequirements, 't_shirt'),
-    catalogCandidate(feetRequirements, 'trousers'),
+    catalogCandidate(feetRequirements, 'shorts'),
     catalogCandidate(feetRequirements, 'weather_boots'),
   ]);
   assert.equal(feetResult.status, 'composed');
@@ -405,7 +417,7 @@ test('outfit over-insulation penalty is bounded and does not count footwear warm
   const requirements = clothingRequirements();
   const result = composeOutfit(requirements, [
     catalogCandidate(requirements, 'sweater'),
-    catalogCandidate(requirements, 'trousers'),
+    catalogCandidate(requirements, 'jeans'),
     catalogCandidate(requirements, 'weather_boots'),
   ]);
 
@@ -456,8 +468,8 @@ test('aggregate outfit penalties are capped at thirty points', () => {
     }),
   );
   const result = composeOutfit(requirements, [
-    catalogCandidate(requirements, 'sweater'),
-    catalogCandidate(requirements, 'trousers'),
+    catalogCandidate(requirements, 'sweatshirt'),
+    catalogCandidate(requirements, 'jeans'),
     catalogCandidate(requirements, 'rain_jacket'),
     catalogCandidate(requirements, 'weather_boots'),
   ]);
@@ -542,7 +554,6 @@ test('returns two high-heat outfits instead of footwear-only near-duplicates', (
   const bottom = catalogCandidate(requirements, 'shorts');
   const footwear = [
     catalogCandidate(requirements, 'sneakers'),
-    catalogCandidate(requirements, 'closed_shoes'),
     catalogCandidate(requirements, 'ankle_boots'),
     catalogCandidate(requirements, 'weather_boots'),
     catalogCandidate(requirements, 'sandals'),
@@ -554,7 +565,7 @@ test('returns two high-heat outfits instead of footwear-only near-duplicates', (
   );
   const result = composeOutfits(requirements, [...tops, bottom, ...footwear]);
 
-  assert.equal(validCompositions.length, 10);
+  assert.equal(validCompositions.length, 8);
   assert.equal(
     validCompositions.every(({ status }) => status === 'composed'),
     true,
@@ -578,7 +589,7 @@ test('returns exactly two outfits when only two meaningful options exist', () =>
   const result = composeOutfits(requirements, [
     catalogCandidate(requirements, 't_shirt'),
     catalogCandidate(requirements, 'shorts'),
-    catalogCandidate(requirements, 'trousers'),
+    catalogCandidate(requirements, 'jeans'),
     catalogCandidate(requirements, 'light_jacket'),
     catalogCandidate(requirements, 'sandals'),
   ]);

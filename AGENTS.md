@@ -97,15 +97,20 @@ The repository may be in transition. Inspect the real tree before assuming this 
 - A failed refresh must not erase the last valid result.
 - Do not build a long-term weather archive.
 - Determine weather constraints and required clothing properties with deterministic, testable rules.
-- AI generates exactly three complete outfits from the deterministic requirements and a closed set of candidate garments supplied in the request. It may select only supplied candidate identifiers and must never invent catalog entries, wardrobe items, slots, properties, or identifiers.
+- A deterministic layer composes at most 24 complete, valid, requirement-satisfying, formality-consistent outfits from the bundled catalog filtered by clothing preference. AI then selects exactly three of them and labels each with one archetype identifier from a closed twelve-entry list. The Wardrobe is never a candidate source in the MVP. AI may select only supplied option identifiers and must never invent outfits, catalog entries, wardrobe items, slots, properties, or identifiers. See [ADR 0007](docs/adr/0007-ai-selects-precomposed-outfits.md).
 - Validate every AI response with shared Zod schemas and deterministic domain invariants before it is displayed or persisted. Never silently repair invalid or partially invalid output into a different outfit.
 - Keep AI output structured data, not user-visible prose. All Turkish and English copy comes from localization keys.
-- Provide a device-local deterministic three-outfit fallback. AI failure must never prevent a recommendation, so that fallback is a prerequisite for shipping AI.
-- Generate or refresh a recommendation only on a relevant change — a stale weather snapshot refreshed, the active location, clothing preference, relevant wardrobe contents or properties, or an explicit user request — not on every launch. Coalesce duplicate in-flight requests and preserve the last valid recommendation when a refresh fails.
+- AI turns a set of already valid outfits into three that are meaningfully different from each other and do not repeat the previous day. Structural validity, mandatory weather requirements, plausible layering, and formality consistency are enforced before the request rather than by the model, and color harmony is out of scope for the MVP. It is not personalization. Its inputs are the deterministic requirements, precomposed option identifiers and properties, clothing preference, catalog version, and a local day variant.
+- Provide a device-local deterministic three-outfit fallback that also composes from the catalog only. AI failure must never prevent a recommendation, so that fallback is a prerequisite for shipping AI.
+- Generate or refresh a recommendation only when a stale weather snapshot is refreshed, the active location changes, clothing preference changes, a new local calendar day starts, or the user explicitly requests it, not on every launch. Cache identity is weather snapshot identity, clothing preference, catalog version, and day variant. The Worker additionally caches the shared AI result under a key derived from the requirement vector without reason codes, clothing preference, catalog version, and day variant, because the request contains no personal data. Coalesce duplicate in-flight requests and preserve the last valid recommendation when a refresh fails.
 - Record a coarse generation mode on the result, AI-assisted or deterministic fallback. Never expose provider names, model identity, or technical failures to users.
 
 ## Wardrobe and local files
 
+- Treat the Wardrobe as a personal record, not a recommendation input. Each entry is `owned` or `wanted`; do not add a separate wishlist table, screen, or tab, and do not let either state affect recommendations in the MVP.
+- Require a catalog garment type for every newly created Wardrobe entry. Keep legacy entries with a null `garmentTypeId` readable, editable, and deletable, and do not offer new free-form entries outside the catalog.
+- Add Wardrobe entry state through ordered SQLite schema version 7. Preserve every existing row and default existing entries to `owned`.
+- Show ownership state only on outfit detail, never on Today.
 - Wardrobe photos are optional and are not sent to AI in the MVP.
 - Resize and compress an imported image, copy it into app-private storage, and store only its relative path in SQLite.
 - Do not store image blobs in SQLite.
@@ -121,7 +126,7 @@ The repository may be in transition. Inspect the real tree before assuming this 
 - Put shared request and response schemas in `packages/contracts` when both mobile and Worker use them.
 - Treat every network and AI response as untrusted until runtime validation succeeds.
 - Return stable, minimal error shapes; do not leak provider responses, tokens, stack traces, or internal configuration.
-- Send AI only the minimum sanitized structured data defined by the [approved AI input privacy boundary](docs/product-decisions.md#approved-ai-input-privacy-boundary). Never send photos, paths, free-form names, identifiers, or coordinates.
+- Send AI only the minimum sanitized structured data defined by the [approved AI input privacy boundary](docs/product-decisions.md#approved-ai-input-privacy-boundary): precomposed catalog option identifiers and properties, deterministic weather requirements, clothing preference, catalog version, and day variant. Never send wardrobe-derived data, photos, paths, free-form names, profile or device identifiers, or coordinates.
 - Do not log exact coordinates, wardrobe contents, photos, personal preferences, complete AI prompts, or unnecessary user data.
 - Prefer coarse, privacy-preserving operational metrics. Do not add behavioral tracking in the MVP.
 - Use free tiers and hard spend controls where available. Fail safely when a quota or limit is reached.
@@ -136,11 +141,13 @@ The repository may be in transition. Inspect the real tree before assuming this 
 - Default to the device language and system theme.
 - Allow Turkish/English and System/Light/Dark overrides in Settings.
 - Model “Women's clothing” and “Men's clothing” as a mutable clothing preference, not biological sex.
+- Do not promise in user-facing copy that there will never be an account or that everything stays on the device. Accounts are planned; factual documentation about the current accountless MVP is allowed.
 - Keep stored enum values locale-independent; translate only at the presentation boundary.
 - Avoid constructing sentences from translated fragments.
 
 ## Platform-adaptive UI and accessibility
 
+- Keep three primary tabs: Today at `/`, Weather at `/weather`, and Profile at `/profile`. Put Wardrobe and the wanted list inside Profile, and reach Settings from the Profile header rather than a tab. Keep clothing preference prominent and required in onboarding, but place its Settings control last and do not make it prominent there.
 - Keep product identity and information architecture consistent while adapting controls, navigation, feedback, and interaction patterns to each platform.
 - Follow Apple Human Interface Guidelines on iOS. Use Liquid Glass selectively on supported systems, principally for navigation and controls, with a graceful fallback on older supported iOS versions.
 - Follow Material 3 Expressive guidance on Android.

@@ -11,6 +11,10 @@ import {
   catalogMessages,
   type CatalogMessages,
 } from '@/features/catalog/localization/catalog-messages';
+import {
+  recommendationMessages,
+  type RecommendationMessages,
+} from '@/features/recommendation/localization/recommendation-messages';
 
 export type TodayMessages = Readonly<{
   title: string;
@@ -94,6 +98,7 @@ export type PreferenceMessages = Readonly<{
 
 export type AppMessages = Readonly<{
   catalog: CatalogMessages;
+  recommendation: RecommendationMessages;
   common: Readonly<{
     back: string;
     continue: string;
@@ -315,6 +320,7 @@ export type AppMessages = Readonly<{
 
 const en = {
   catalog: catalogMessages.en,
+  recommendation: recommendationMessages.en,
   common: {
     back: 'Back',
     continue: 'Continue',
@@ -655,6 +661,7 @@ const en = {
 
 const tr = {
   catalog: catalogMessages.tr,
+  recommendation: recommendationMessages.tr,
   common: {
     back: 'Geri',
     continue: 'Devam et',

@@ -7,9 +7,9 @@ import {
 } from './recommendation-repository.ts';
 import { SqliteRecommendationLocalDataSource } from './sqlite-recommendation-local-data-source.ts';
 import {
-  createAiRecommendationRequest,
-  mapWorkerAiRecommendation,
+  createRecommendationContext,
 } from './worker-ai-recommendation-mapper.ts';
+import { recommendOutfits } from '../application/recommend-outfits.ts';
 import { migrateDatabase } from '../../../infrastructure/sqlite/migrations.ts';
 import { NodeSqliteDatabase } from '../../../../test/node-sqlite-database.mjs';
 
@@ -30,20 +30,20 @@ function recommendationInput() {
       origin: { kind: 'sample', sourceId: 'persistence-test' },
       current: {
         observedAt,
-        temperatureCelsius: 30,
-        apparentTemperatureCelsius: 30,
+        temperatureCelsius: 16,
+        apparentTemperatureCelsius: 16,
         condition: 'clear',
         precipitationProbability: 0,
         windSpeedMetersPerSecond: 0,
         humidity: 0.5,
         uvIndex: 0,
       },
-      minimumTemperatureCelsius: 30,
-      maximumTemperatureCelsius: 31,
+      minimumTemperatureCelsius: 16,
+      maximumTemperatureCelsius: 17,
       hourly: [{
         forecastAt: '2026-08-01T19:00:00.000Z',
-        temperatureCelsius: 30,
-        apparentTemperatureCelsius: 30,
+        temperatureCelsius: 16,
+        apparentTemperatureCelsius: 16,
         condition: 'clear',
         precipitationProbability: 0,
         windSpeedMetersPerSecond: 0,
@@ -52,15 +52,9 @@ function recommendationInput() {
       }],
     },
     clothingPreference: 'womens',
-    wardrobeItems: [],
+    dayVariant: 3,
   };
 }
-
-const workerOutfit = [
-  { slot: 'primary_top', layerRole: 'standalone', candidateKey: 'catalog:t_shirt' },
-  { slot: 'bottom', layerRole: 'standalone', candidateKey: 'catalog:shorts' },
-  { slot: 'footwear', layerRole: null, candidateKey: 'catalog:sandals' },
-];
 
 async function setup() {
   const database = new NodeSqliteDatabase();
@@ -83,17 +77,13 @@ async function setup() {
 
 function generatedRecommendation() {
   const input = recommendationInput();
-  const request = createAiRecommendationRequest(input);
-  const ai = mapWorkerAiRecommendation(request, {
-    outfits: [workerOutfit, workerOutfit, workerOutfit],
-  });
+  const context = createRecommendationContext(input);
+  const recommendation = recommendOutfits(input);
+  if (recommendation.status !== 'recommended') throw new Error('fixture unavailable');
   return {
     input,
-    request,
-    recommendation: Object.freeze({
-      ...ai,
-      generationMode: 'deterministic-fallback',
-    }),
+    request: context,
+    recommendation,
   };
 }
 
@@ -124,7 +114,35 @@ test('migration v5 persists a validated recommendation snapshot with lifecycle f
   assert.equal(replaced.updatedAt, secondTime);
   assert.equal(replaced.generationMode, 'deterministic-fallback');
   assert.equal(replaced.recommendation.outfits.length, 3);
+  assert.equal(new Set(replaced.recommendation.outfits.map(
+    ({ archetypeId }) => archetypeId)).size, 3);
   assert.deepEqual(await repository.getSnapshot(profileId), replaced);
+});
+
+test('older structured outfits without archetypes derive distinct fallback labels on read', async (t) => {
+  const { database, repository } = await setup();
+  t.after(() => database.close());
+  const generated = generatedRecommendation();
+  await repository.saveSnapshot(profileId, {
+    weatherSnapshotId: generated.input.snapshot.id,
+    locationKey: generated.input.snapshot.locationKey,
+    context: generated.request,
+    recommendation: generated.recommendation,
+  });
+  const row = await database.getFirstAsync(
+    'SELECT outfits_json FROM recommendation_snapshots WHERE local_profile_id = ?',
+    [profileId],
+  );
+  const withoutArchetypes = JSON.parse(row.outfits_json).map(({ garments }) => garments);
+  await database.runAsync(
+    'UPDATE recommendation_snapshots SET outfits_json = ? WHERE local_profile_id = ?',
+    [JSON.stringify(withoutArchetypes), profileId],
+  );
+
+  const restored = await repository.getSnapshot(profileId);
+
+  assert.equal(new Set(restored.recommendation.outfits.map(
+    ({ archetypeId }) => archetypeId)).size, 3);
 });
 
 test('failed replacement leaves the last valid snapshot intact', async (t) => {

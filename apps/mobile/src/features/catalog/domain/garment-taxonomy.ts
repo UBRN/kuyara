@@ -107,6 +107,7 @@ export const garmentTypeStatuses = Object.freeze([
   'active',
   'deprecated',
 ] as const);
+export const formalityLevels = ['casual', 'smart', 'formal'] as const;
 
 export const garmentTypeIdSchema = z.enum(garmentTypeIds);
 export const structuralCategorySchema = z.enum(structuralCategories);
@@ -120,6 +121,7 @@ export const coverageSchema = z.enum(coverageLevels);
 export const tractionSuitabilitySchema = z.enum(tractionSuitabilities);
 export const colorFamilySchema = z.enum(colorFamilies);
 export const garmentTypeStatusSchema = z.enum(garmentTypeStatuses);
+export const formalitySchema = z.enum(formalityLevels);
 export const apparelPreferenceApplicabilitySchema = z.enum(clothingPreferences);
 
 export type GarmentTypeId = z.infer<typeof garmentTypeIdSchema>;
@@ -134,6 +136,7 @@ export type Coverage = z.infer<typeof coverageSchema>;
 export type TractionSuitability = z.infer<typeof tractionSuitabilitySchema>;
 export type ColorFamily = z.infer<typeof colorFamilySchema>;
 export type GarmentTypeStatus = z.infer<typeof garmentTypeStatusSchema>;
+export type Formality = z.infer<typeof formalitySchema>;
 
 export type GarmentTypeNameKey =
   `catalog.garment_type.${GarmentTypeId}.name`;
@@ -159,6 +162,7 @@ export const garmentTypeSchema = z.object({
     .readonly(),
   status: garmentTypeStatusSchema,
   replacedByTypeId: garmentTypeIdSchema.nullable(),
+  formality: formalitySchema,
 }).strict();
 
 type ParsedGarmentType = z.infer<typeof garmentTypeSchema>;
