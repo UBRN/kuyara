@@ -31,6 +31,8 @@ export default function OutfitDetailRoute() {
   } else {
     state = {
       kind: 'loaded',
+      isRefreshing: false,
+      refreshFailed: false,
       snapshot: {
         weather: weatherState.snapshot,
         activeLocation: weatherState.activeLocation,

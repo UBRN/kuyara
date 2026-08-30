@@ -40,6 +40,7 @@ export type LoadedTodayPresentation = Readonly<{
     headerAccessibilityLabel: (values: { title: string; location: string }) => string;
     settingsAction: string;
     settingsHint: string;
+    refreshAction: string;
     piecesHeading: string;
     reasonsHeading: string;
     recommendedTodayHeading: string;
@@ -54,6 +55,8 @@ export type LoadedTodayPresentation = Readonly<{
     date: string;
     freshness: string;
     isStale: boolean;
+    isRefreshing: boolean;
+    announceFreshness: boolean;
   }>;
   weather: Readonly<{
     condition: string;
@@ -197,6 +200,8 @@ function localizeOutfit(
 function createLoadedPresentation(
   snapshot: TodaySnapshot,
   language: SupportedLanguage,
+  isRefreshing: boolean,
+  refreshFailed: boolean,
 ): LoadedTodayPresentation {
   const messages = getMessages(language);
   const copy = messages.today;
@@ -266,6 +271,7 @@ function createLoadedPresentation(
       headerAccessibilityLabel: copy.headerAccessibilityLabel,
       settingsAction: copy.settingsAction,
       settingsHint: copy.settingsHint,
+      refreshAction: copy.refreshAction,
       piecesHeading: copy.piecesHeading,
       reasonsHeading: copy.reasonsHeading,
       recommendedTodayHeading: copy.recommendedTodayHeading,
@@ -281,8 +287,16 @@ function createLoadedPresentation(
           ? weatherCopy.locations[snapshot.activeLocation.catalogId]
           : weatherCopy.currentLocation,
       date: formatDate(current.observedAt, weather.timeZone, language),
-      freshness: isStale ? copy.staleAt(time) : copy.updatedAt(time),
+      freshness: isRefreshing
+        ? copy.refreshingStatus
+        : refreshFailed
+          ? copy.refreshFailedAt(time)
+          : isStale
+            ? copy.staleAt(time)
+            : copy.updatedAt(time),
       isStale,
+      isRefreshing,
+      announceFreshness: isRefreshing || refreshFailed || isStale,
     },
     weather: {
       condition,
@@ -352,5 +366,10 @@ export function createTodayPresentation(
     };
   }
 
-  return createLoadedPresentation(state.snapshot, language);
+  return createLoadedPresentation(
+    state.snapshot,
+    language,
+    state.isRefreshing,
+    state.refreshFailed,
+  );
 }

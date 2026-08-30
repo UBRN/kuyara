@@ -16,4 +16,9 @@ export type TodaySnapshot = Readonly<{
 export type TodayScreenState =
   | Readonly<{ kind: 'loading' }>
   | Readonly<{ kind: 'unavailable' }>
-  | Readonly<{ kind: 'loaded'; snapshot: TodaySnapshot }>;
+  | Readonly<{
+      kind: 'loaded';
+      snapshot: TodaySnapshot;
+      isRefreshing: boolean;
+      refreshFailed: boolean;
+    }>;
