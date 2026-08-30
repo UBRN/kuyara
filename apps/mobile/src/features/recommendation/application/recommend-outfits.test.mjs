@@ -134,7 +134,7 @@ test('cold wet weather recommends immutable deterministic catalog outfits', () =
   assert.equal(Object.isFrozen(result.outfits), true);
 });
 
-test('owned wardrobe items join the evaluated candidates', () => {
+test('wardrobe items never join the catalog-only recommendation candidates', () => {
   const result = recommendOutfits({
     snapshot: warmWetSnapshot(),
     wardrobeItems: [wardrobeItem()],
@@ -142,7 +142,21 @@ test('owned wardrobe items join the evaluated candidates', () => {
   });
 
   assert.equal(result.status, 'recommended');
-  assert.equal(candidateKeys(result).includes('wardrobe:owned-wet-shoes'), true);
+  assert.equal(candidateKeys(result).includes('wardrobe:owned-wet-shoes'), false);
+});
+
+test('fallback archetypes use rule order and advance past duplicates', () => {
+  const result = recommendOutfits({
+    snapshot: coldWetSnapshot(),
+    wardrobeItems: [],
+    clothingPreference: 'womens',
+  });
+
+  assert.equal(result.status, 'recommended');
+  assert.deepEqual(
+    result.outfits.map(({ archetypeId }) => archetypeId),
+    ['rain_ready', 'snow_day', 'wind_guard'],
+  );
 });
 
 test('mens recommendations exclude womens-only catalog types', () => {

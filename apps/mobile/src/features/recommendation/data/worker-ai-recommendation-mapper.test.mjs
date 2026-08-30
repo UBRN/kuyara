@@ -20,20 +20,20 @@ function input() {
       origin: { kind: 'sample', sourceId: 'mapper-test' },
       current: {
         observedAt,
-        temperatureCelsius: 30,
-        apparentTemperatureCelsius: 30,
+        temperatureCelsius: 16,
+        apparentTemperatureCelsius: 16,
         condition: 'clear',
         precipitationProbability: 0,
         windSpeedMetersPerSecond: 0,
         humidity: 0.5,
         uvIndex: 0,
       },
-      minimumTemperatureCelsius: 30,
-      maximumTemperatureCelsius: 31,
+      minimumTemperatureCelsius: 16,
+      maximumTemperatureCelsius: 17,
       hourly: [{
         forecastAt: '2026-08-01T19:00:00.000Z',
-        temperatureCelsius: 30,
-        apparentTemperatureCelsius: 30,
+        temperatureCelsius: 16,
+        apparentTemperatureCelsius: 16,
         condition: 'clear',
         precipitationProbability: 0,
         windSpeedMetersPerSecond: 0,
@@ -42,6 +42,7 @@ function input() {
       }],
     },
     clothingPreference: 'womens',
+    dayVariant: 0,
     wardrobeItems: [{
       id: 'private-item',
       localProfileId: 'profile-one',
@@ -65,42 +66,71 @@ function input() {
   };
 }
 
-const outfit = [
-  { slot: 'primary_top', layerRole: 'standalone', candidateKey: 'catalog:t_shirt' },
-  { slot: 'bottom', layerRole: 'standalone', candidateKey: 'catalog:shorts' },
-  { slot: 'footwear', layerRole: null, candidateKey: 'catalog:sandals' },
-];
-
-test('builds a sanitized request and maps validated arrangements to domain outfits', () => {
-  const request = createAiRecommendationRequest(input());
-  const serialized = JSON.stringify(request);
-
-  assert.equal(request.candidates.some(({ candidateKey }) => candidateKey === 'wardrobe:private-item'), true);
-  assert.equal(request.candidates.find(({ candidateKey }) => candidateKey === 'wardrobe:private-item').colorFamily, 'blue');
-  assert.doesNotMatch(serialized, /do not send this|private color text|private\/photo\.jpg|profile-one/);
-
-  const result = mapWorkerAiRecommendation(request, {
-    outfits: [outfit, outfit, outfit],
+function picks(request) {
+  const used = new Set();
+  return request.options.slice(0, 3).map((option) => {
+    const candidates = [
+      option.traits.outerWaterProtective && 'rain_ready',
+      option.traits.tractionEnhanced && 'snow_day',
+      option.traits.outerThermalHigh && 'cold_shield',
+      option.traits.windResistant && 'wind_guard',
+      option.traits.hasMidLayer && option.traits.hasOuterLayer && 'layered_warmth',
+      option.traits.hasMidLayer && !option.traits.hasOuterLayer && 'in_between',
+      !option.traits.hasOuterLayer && option.traits.breathabilityHigh && 'light_and_airy',
+      option.formality === 'formal' && 'office_ready',
+      option.formality !== 'casual' && 'smart_casual',
+      option.garments.some(({ slot, garmentTypeId }) =>
+        slot === 'footwear' && garmentTypeId === 'sneakers') && 'on_the_move',
+      option.formality === 'casual' && 'weekend_relaxed',
+      'everyday_easy',
+    ].filter(Boolean);
+    const archetypeId = candidates.find((candidate) => !used.has(candidate));
+    if (!archetypeId) throw new Error('fixture needs three distinct archetypes');
+    used.add(archetypeId);
+    return { optionId: option.optionId, archetypeId };
   });
+}
+
+test('different day variants rotate distinct deterministic option sets for identical weather', () => {
+  const first = createAiRecommendationRequest(input());
+  const repeated = createAiRecommendationRequest(input());
+  const next = createAiRecommendationRequest({ ...input(), dayVariant: 1 });
+
+  assert.deepEqual(first, repeated);
+  assert.equal(first.catalogVersion, 2);
+  assert.equal(first.dayVariant, 0);
+  assert.equal(first.options.length > 3 && first.options.length <= 24, true);
+  assert.notDeepEqual(
+    first.options.map(({ optionId }) => optionId),
+    next.options.map(({ optionId }) => optionId),
+  );
+  assert.doesNotMatch(
+    JSON.stringify(first),
+    /do not send this|private color text|private\/photo\.jpg|profile-one|wardrobe:/,
+  );
+});
+
+test('maps each validated pick to its locally composed outfit and archetype', () => {
+  const request = createAiRecommendationRequest(input());
+  const selected = picks(request);
+  const result = mapWorkerAiRecommendation(request, { picks: selected });
 
   assert.equal(result.status, 'recommended');
   assert.equal(result.generationMode, 'ai-assisted');
   assert.equal(result.outfits.length, 3);
-  assert.deepEqual(result.outfits[0].candidateKeys, [
-    'catalog:sandals',
-    'catalog:shorts',
-    'catalog:t_shirt',
-  ]);
+  assert.deepEqual(
+    result.outfits.map(({ archetypeId }) => archetypeId),
+    selected.map(({ archetypeId }) => archetypeId),
+  );
 });
 
-test('rejects an AI layer assignment that deterministic domain rules do not reproduce', () => {
+test('rejects a response pick whose option id was not supplied', () => {
   const request = createAiRecommendationRequest(input());
-  const invalid = outfit.map((garment) =>
-    garment.slot === 'primary_top' ? { ...garment, layerRole: 'base' } : garment,
-  );
+  const selected = picks(request);
+  selected[0] = { ...selected[0], optionId: 'unknown-option' };
 
   assert.throws(
-    () => mapWorkerAiRecommendation(request, { outfits: [invalid, outfit, outfit] }),
+    () => mapWorkerAiRecommendation(request, { picks: selected }),
     (error) => error instanceof WorkerAiRecommendationMappingError,
   );
 });

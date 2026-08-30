@@ -11,7 +11,7 @@ import {
 } from '@/features/catalog/domain/garment-taxonomy';
 import type { ClothingPreference } from '@/domain/preferences';
 
-export const garmentCatalogVersion = 1;
+export const garmentCatalogVersion = 2;
 
 export class GarmentCatalogValidationError extends Error {
   constructor() {
@@ -54,6 +54,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: null,
     defaultTractionSuitability: null,
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'casual',
   }),
   defineGarmentType({
     typeId: 'long_sleeve_t_shirt',
@@ -68,6 +69,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: null,
     defaultTractionSuitability: null,
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'casual',
   }),
   defineGarmentType({
     typeId: 'shirt',
@@ -82,6 +84,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: null,
     defaultTractionSuitability: null,
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'smart',
   }),
   defineGarmentType({
     typeId: 'blouse',
@@ -96,6 +99,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: null,
     defaultTractionSuitability: null,
     apparelPreferenceApplicability: womensPreference,
+    formality: 'smart',
   }),
   defineGarmentType({
     typeId: 'sweatshirt',
@@ -110,6 +114,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: null,
     defaultTractionSuitability: null,
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'casual',
   }),
   defineGarmentType({
     typeId: 'hoodie',
@@ -124,6 +129,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: null,
     defaultTractionSuitability: null,
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'casual',
   }),
   defineGarmentType({
     typeId: 'sweater',
@@ -138,6 +144,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: null,
     defaultTractionSuitability: null,
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'smart',
   }),
   defineGarmentType({
     typeId: 'cardigan',
@@ -152,6 +159,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: null,
     defaultTractionSuitability: null,
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'smart',
   }),
   defineGarmentType({
     typeId: 'overshirt',
@@ -166,6 +174,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: null,
     defaultTractionSuitability: null,
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'casual',
   }),
   defineGarmentType({
     typeId: 'trousers',
@@ -180,6 +189,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: 'full',
     defaultTractionSuitability: null,
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'formal',
   }),
   defineGarmentType({
     typeId: 'jeans',
@@ -194,6 +204,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: 'full',
     defaultTractionSuitability: null,
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'casual',
   }),
   defineGarmentType({
     typeId: 'shorts',
@@ -208,6 +219,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: 'partial',
     defaultTractionSuitability: null,
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'casual',
   }),
   defineGarmentType({
     typeId: 'skirt',
@@ -222,6 +234,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: 'partial',
     defaultTractionSuitability: null,
     apparelPreferenceApplicability: womensPreference,
+    formality: 'smart',
   }),
   defineGarmentType({
     typeId: 'dress',
@@ -236,6 +249,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: 'partial',
     defaultTractionSuitability: null,
     apparelPreferenceApplicability: womensPreference,
+    formality: 'formal',
   }),
   defineGarmentType({
     typeId: 'jumpsuit',
@@ -250,6 +264,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: 'full',
     defaultTractionSuitability: null,
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'smart',
   }),
   defineGarmentType({
     typeId: 'light_jacket',
@@ -264,6 +279,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: null,
     defaultTractionSuitability: null,
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'smart',
   }),
   defineGarmentType({
     typeId: 'trench_coat',
@@ -278,6 +294,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: null,
     defaultTractionSuitability: null,
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'formal',
   }),
   defineGarmentType({
     typeId: 'rain_jacket',
@@ -292,6 +309,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: null,
     defaultTractionSuitability: null,
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'casual',
   }),
   defineGarmentType({
     typeId: 'insulated_jacket',
@@ -306,6 +324,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: null,
     defaultTractionSuitability: null,
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'casual',
   }),
   defineGarmentType({
     typeId: 'coat',
@@ -320,6 +339,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: null,
     defaultTractionSuitability: null,
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'formal',
   }),
   defineGarmentType({
     typeId: 'sneakers',
@@ -334,6 +354,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: null,
     defaultTractionSuitability: 'everyday',
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'casual',
   }),
   defineGarmentType({
     typeId: 'closed_shoes',
@@ -348,6 +369,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: null,
     defaultTractionSuitability: 'everyday',
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'formal',
   }),
   defineGarmentType({
     typeId: 'ankle_boots',
@@ -362,6 +384,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: null,
     defaultTractionSuitability: 'everyday',
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'smart',
   }),
   defineGarmentType({
     typeId: 'weather_boots',
@@ -376,6 +399,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: null,
     defaultTractionSuitability: 'enhanced',
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'casual',
   }),
   defineGarmentType({
     typeId: 'sandals',
@@ -390,6 +414,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: null,
     defaultTractionSuitability: 'everyday',
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'casual',
   }),
   defineGarmentType({
     typeId: 'beanie',
@@ -404,6 +429,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: null,
     defaultTractionSuitability: null,
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'casual',
   }),
   defineGarmentType({
     typeId: 'brimmed_hat',
@@ -418,6 +444,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: null,
     defaultTractionSuitability: null,
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'smart',
   }),
   defineGarmentType({
     typeId: 'scarf',
@@ -432,6 +459,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: null,
     defaultTractionSuitability: null,
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'smart',
   }),
   defineGarmentType({
     typeId: 'gloves',
@@ -446,6 +474,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: null,
     defaultTractionSuitability: null,
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'smart',
   }),
   defineGarmentType({
     typeId: 'umbrella',
@@ -460,6 +489,7 @@ const garmentTypeDefinitions = [
     defaultLegCoverage: null,
     defaultTractionSuitability: null,
     apparelPreferenceApplicability: bothPreferences,
+    formality: 'smart',
   }),
 ] as const;
 
