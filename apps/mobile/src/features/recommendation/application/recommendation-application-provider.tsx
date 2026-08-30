@@ -10,8 +10,8 @@ import {
 
 import {
   RecommendationApplicationController,
+  localDayVariant,
   recommendationRefreshTrigger,
-  recommendationWardrobeKey,
   type RecommendationSignals,
 } from '@/features/recommendation/application/recommendation-application-controller';
 import {
@@ -25,7 +25,6 @@ import {
   WorkerAiClient,
   WorkerAiClientError,
 } from '@/features/recommendation/data/worker-ai-client';
-import { useWardrobeApplication } from '@/features/wardrobe/application/wardrobe-application-context';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { resolveWorkerBaseUrl, WorkerBaseUrlConfigurationError } from '@/config/worker-base-url';
 import { openKuyaraDatabase } from '@/infrastructure/sqlite/expo-sqlite-database';
@@ -65,7 +64,7 @@ export function RecommendationApplicationProvider({
 }: PropsWithChildren<{ localProfileId: string }>) {
   const { state: profileState } = useProfileApplication();
   const { state: weatherState } = useWeatherApplication();
-  const { state: wardrobeState } = useWardrobeApplication();
+  const dayVariant = localDayVariant();
   const client = useMemo(() => createRecommendationClient(), []);
   const controller = useMemo(
     () => new RecommendationApplicationController(localProfileId, {
@@ -79,12 +78,6 @@ export function RecommendationApplicationProvider({
     controller.getSnapshot,
     controller.getSnapshot,
   );
-  const wardrobeKey = useMemo(
-    () => wardrobeState.status === 'ready'
-      ? recommendationWardrobeKey(wardrobeState.items)
-      : null,
-    [wardrobeState],
-  );
   const input = useMemo(() => {
     const clothingPreference = profileState.status === 'ready'
       ? profileState.profile.clothingPreference
@@ -92,16 +85,14 @@ export function RecommendationApplicationProvider({
     if (
       weatherState.status !== 'ready' ||
       !weatherState.snapshot ||
-      wardrobeState.status !== 'ready' ||
-      wardrobeState.hasRefreshError ||
       !clothingPreference
     ) return null;
     return {
       snapshot: weatherState.snapshot,
-      wardrobeItems: wardrobeState.items,
       clothingPreference,
+      dayVariant,
     };
-  }, [profileState, wardrobeState, weatherState]);
+  }, [dayVariant, profileState, weatherState]);
   const previousSignals = useRef<RecommendationSignals | null>(null);
   const staleRefreshSnapshotId = useRef<string | null>(null);
 
@@ -121,12 +112,12 @@ export function RecommendationApplicationProvider({
   }, [weatherState]);
 
   useEffect(() => {
-    if (state.status !== 'ready' || !input || wardrobeKey === null) return;
+    if (state.status !== 'ready' || !input) return;
     const current: RecommendationSignals = {
       weatherSnapshotId: input.snapshot.id,
       locationKey: input.snapshot.locationKey,
       clothingPreference: input.clothingPreference,
-      wardrobeKey,
+      dayVariant: input.dayVariant,
     };
     const previous = previousSignals.current;
     previousSignals.current = current;
@@ -141,7 +132,7 @@ export function RecommendationApplicationProvider({
     }
 
     if (trigger) void controller.refresh(trigger, input);
-  }, [controller, input, state.status, wardrobeKey]);
+  }, [controller, input, state.status]);
 
   const value = useMemo<RecommendationApplicationValue>(() => ({
     state,

@@ -31,6 +31,8 @@ type Dependencies = Readonly<{
 
 const PROBE_REQUEST = {
   clothingPreference: 'mens',
+  catalogVersion: 2,
+  dayVariant: 0,
   requirements: [
     {
       kind: 'thermal',
@@ -39,66 +41,65 @@ const PROBE_REQUEST = {
       reasonCodes: ['temperature_low'],
     },
   ],
-  candidates: [
+  options: [
     {
-      candidateKey: 'probe-top',
-      source: 'catalog',
-      garmentTypeId: 't_shirt',
-      colorFamily: null,
-      properties: {
-        category: 'top',
-        bodyRegion: 'upper_body',
-        supportedLayerRoles: ['base'],
-        thermalLevel: 'light',
-        waterProtection: null,
-        windProtection: null,
-        breathability: 'moderate',
-        armCoverage: 'partial',
-        legCoverage: null,
-        tractionSuitability: null,
+      optionId: 'probe-casual',
+      formality: 'casual',
+      garments: [
+        { slot: 'primary_top', layerRole: 'standalone', garmentTypeId: 't_shirt' },
+        { slot: 'bottom', layerRole: 'standalone', garmentTypeId: 'trousers' },
+        { slot: 'footwear', layerRole: null, garmentTypeId: 'sneakers' },
+      ],
+      traits: {
+        hasMidLayer: false,
+        hasOuterLayer: false,
+        outerThermalHigh: false,
+        outerWaterProtective: false,
+        windResistant: false,
+        tractionEnhanced: false,
+        breathabilityHigh: true,
       },
     },
     {
-      candidateKey: 'probe-bottom',
-      source: 'catalog',
-      garmentTypeId: 'trousers',
-      colorFamily: null,
-      properties: {
-        category: 'bottom',
-        bodyRegion: 'lower_body',
-        supportedLayerRoles: ['standalone'],
-        thermalLevel: 'light',
-        waterProtection: null,
-        windProtection: null,
-        breathability: null,
-        armCoverage: null,
-        legCoverage: 'full',
-        tractionSuitability: null,
+      optionId: 'probe-smart',
+      formality: 'smart',
+      garments: [
+        { slot: 'primary_top', layerRole: 'standalone', garmentTypeId: 'shirt' },
+        { slot: 'bottom', layerRole: 'standalone', garmentTypeId: 'jeans' },
+        { slot: 'footwear', layerRole: null, garmentTypeId: 'closed_shoes' },
+      ],
+      traits: {
+        hasMidLayer: false,
+        hasOuterLayer: false,
+        outerThermalHigh: false,
+        outerWaterProtective: false,
+        windResistant: false,
+        tractionEnhanced: false,
+        breathabilityHigh: false,
       },
     },
     {
-      candidateKey: 'probe-shoes',
-      source: 'catalog',
-      garmentTypeId: 'sneakers',
-      colorFamily: null,
-      properties: {
-        category: 'footwear',
-        bodyRegion: 'feet',
-        supportedLayerRoles: ['standalone'],
-        thermalLevel: null,
-        waterProtection: null,
-        windProtection: null,
-        breathability: null,
-        armCoverage: null,
-        legCoverage: null,
-        tractionSuitability: 'everyday',
+      optionId: 'probe-formal',
+      formality: 'formal',
+      garments: [
+        { slot: 'one_piece', layerRole: 'standalone', garmentTypeId: 'dress' },
+        { slot: 'footwear', layerRole: null, garmentTypeId: 'ankle_boots' },
+      ],
+      traits: {
+        hasMidLayer: false,
+        hasOuterLayer: false,
+        outerThermalHigh: false,
+        outerWaterProtective: false,
+        windResistant: false,
+        tractionEnhanced: false,
+        breathabilityHigh: false,
       },
     },
   ],
 } satisfies AiRecommendV1Request;
 
-const probeCandidates = new Map<string, AiRecommendV1Request['candidates'][number]>(
-  PROBE_REQUEST.candidates.map((candidate) => [candidate.candidateKey, candidate]),
+const probeOptions = new Map<string, AiRecommendV1Request['options'][number]>(
+  PROBE_REQUEST.options.map((option) => [option.optionId, option]),
 );
 
 const jsonHeaders = {
@@ -170,13 +171,7 @@ export function createProbeHandler({
         if (
           !controller.signal.aborted &&
           result.success &&
-          result.data.data.outfits.every((outfit) =>
-            outfit.every(({ candidateKey, layerRole }) => {
-              const candidate = probeCandidates.get(candidateKey);
-              return candidate !== undefined && (
-                layerRole === null || candidate.properties.supportedLayerRoles.includes(layerRole)
-              );
-            }))
+          result.data.data.picks.every(({ optionId }) => probeOptions.has(optionId))
         ) {
           status = 'ok';
         }

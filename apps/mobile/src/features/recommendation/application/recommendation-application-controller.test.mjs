@@ -3,18 +3,39 @@ import test from 'node:test';
 
 import {
   RecommendationApplicationController,
+  localDayVariant,
   recommendationRefreshTrigger,
-  recommendationWardrobeKey,
   shouldRefreshRecommendation,
 } from './recommendation-application-controller.ts';
 
 const profileId = 'profile-one';
 const now = '2026-08-01T20:00:00.000Z';
-const workerOutfit = [
-  { slot: 'primary_top', layerRole: 'standalone', candidateKey: 'catalog:t_shirt' },
-  { slot: 'bottom', layerRole: 'standalone', candidateKey: 'catalog:shorts' },
-  { slot: 'footwear', layerRole: null, candidateKey: 'catalog:sandals' },
-];
+function workerResponse(request) {
+  const used = new Set();
+  return {
+    picks: request.options.slice(0, 3).map((option) => {
+      const candidates = [
+        option.traits.outerWaterProtective && 'rain_ready',
+        option.traits.tractionEnhanced && 'snow_day',
+        option.traits.outerThermalHigh && 'cold_shield',
+        option.traits.windResistant && 'wind_guard',
+        option.traits.hasMidLayer && option.traits.hasOuterLayer && 'layered_warmth',
+        option.traits.hasMidLayer && !option.traits.hasOuterLayer && 'in_between',
+        !option.traits.hasOuterLayer && option.traits.breathabilityHigh && 'light_and_airy',
+        option.formality === 'formal' && 'office_ready',
+        option.formality !== 'casual' && 'smart_casual',
+        option.garments.some(({ slot, garmentTypeId }) =>
+          slot === 'footwear' && garmentTypeId === 'sneakers') && 'on_the_move',
+        option.formality === 'casual' && 'weekend_relaxed',
+        'everyday_easy',
+      ].filter(Boolean);
+      const archetypeId = candidates.find((candidate) => !used.has(candidate));
+      if (!archetypeId) throw new Error('fixture needs three distinct archetypes');
+      used.add(archetypeId);
+      return { optionId: option.optionId, archetypeId };
+    }),
+  };
+}
 
 function input(temperatureCelsius = 30) {
   const observedAt = '2026-08-01T18:00:00.000Z';
@@ -50,7 +71,7 @@ function input(temperatureCelsius = 30) {
       }],
     },
     clothingPreference: 'womens',
-    wardrobeItems: [],
+    dayVariant: 3,
   };
 }
 
@@ -75,9 +96,7 @@ function createHarness({ cached = null, client, failSave = false } = {}) {
       return stored;
     },
   };
-  const recommend = client?.recommend ?? (async () => ({
-    outfits: [workerOutfit, workerOutfit, workerOutfit],
-  }));
+  const recommend = client?.recommend ?? (async (request) => workerResponse(request));
   const aiClient = {
     async recommend(...args) {
       calls.client += 1;
@@ -97,47 +116,15 @@ test('refresh decision allows only the five approved change triggers', () => {
     'stale-weather-refreshed',
     'active-location-changed',
     'clothing-preference-changed',
-    'wardrobe-changed',
+    'local-day-changed',
     'explicit',
   ]) assert.equal(shouldRefreshRecommendation(trigger), true);
 });
 
-test('wardrobe invalidation ignores private presentation fields but tracks recommendation properties', () => {
-  const item = {
-    id: 'item-one',
-    localProfileId: profileId,
-    name: 'private name',
-    category: 'top',
-    garmentTypeId: 't_shirt',
-    color: 'private color',
-    colorFamily: 'blue',
-    thermalLevelOverride: null,
-    waterProtectionOverride: null,
-    windProtectionOverride: null,
-    breathabilityOverride: null,
-    armCoverageOverride: null,
-    legCoverageOverride: null,
-    tractionSuitabilityOverride: null,
-    photoRelativePath: 'private/photo.jpg',
-    createdAt: now,
-    updatedAt: now,
-    deletedAt: null,
-  };
-
-  assert.equal(
-    recommendationWardrobeKey([item]),
-    recommendationWardrobeKey([{
-      ...item,
-      name: 'renamed',
-      color: 'different free-form color',
-      photoRelativePath: 'private/replaced.jpg',
-      updatedAt: '2026-08-01T20:05:00.000Z',
-    }]),
-  );
-  assert.notEqual(
-    recommendationWardrobeKey([item]),
-    recommendationWardrobeKey([{ ...item, thermalLevelOverride: 'high' }]),
-  );
+test('local day variant is a deterministic seven-day ring', () => {
+  assert.equal(localDayVariant(new Date(2026, 0, 1, 12)), 1);
+  assert.equal(localDayVariant(new Date(2026, 0, 2, 12)), 2);
+  assert.equal(localDayVariant(new Date(2026, 0, 8, 12)), 1);
 });
 
 test('trigger selection distinguishes stale refresh from unapproved weather changes', () => {
@@ -145,8 +132,7 @@ test('trigger selection distinguishes stale refresh from unapproved weather chan
     weatherSnapshotId: 'weather-two',
     locationKey: 'location-one',
     clothingPreference: 'womens',
-    wardrobeKey: 'wardrobe-one',
-    contextKey: 'context-one',
+    dayVariant: 3,
   };
   const previous = { ...current, weatherSnapshotId: 'weather-one' };
 
@@ -165,8 +151,8 @@ test('trigger selection distinguishes stale refresh from unapproved weather chan
     'clothing-preference-changed',
   );
   assert.equal(
-    recommendationRefreshTrigger({ ...previous, wardrobeKey: 'old' }, current, null),
-    'wardrobe-changed',
+    recommendationRefreshTrigger({ ...previous, dayVariant: 2 }, current, null),
+    'local-day-changed',
   );
 });
 
@@ -184,16 +170,20 @@ test('app initialization renders cache without requesting a recommendation', asy
 
 test('duplicate concurrent refreshes share one AI request and one save', async () => {
   let resolve;
+  let receivedRequest;
   const pending = new Promise((done) => { resolve = done; });
   const { controller, calls } = createHarness({
-    client: { recommend: async () => pending },
+    client: { recommend: async (request) => {
+      receivedRequest = request;
+      return pending;
+    } },
   });
   await controller.initialize();
 
-  const first = controller.refresh('explicit', input());
-  const second = controller.refresh('explicit', input());
+  const first = controller.refresh('explicit', input(16));
+  const second = controller.refresh('explicit', input(16));
   assert.equal(calls.client, 1);
-  resolve({ outfits: [workerOutfit, workerOutfit, workerOutfit] });
+  resolve(workerResponse(receivedRequest));
   const [firstResult, secondResult] = await Promise.all([first, second]);
 
   assert.equal(firstResult, secondResult);
@@ -216,6 +206,27 @@ test('AI client failure returns and persists a three-outfit deterministic fallba
   assert.deepEqual(calls, { client: 1, saves: 1 });
 });
 
+test('an unknown response option id falls back deterministically', async () => {
+  const { controller, calls } = createHarness({
+    client: {
+      recommend: async (request) => {
+        const response = workerResponse(request);
+        response.picks[0] = { ...response.picks[0], optionId: 'unknown-option' };
+        return response;
+      },
+    },
+  });
+  await controller.initialize();
+
+  const snapshot = await controller.refresh('explicit', input(16));
+
+  assert.equal(snapshot.generationMode, 'deterministic-fallback');
+  assert.equal(snapshot.recommendation.outfits.length, 3);
+  assert.equal(new Set(snapshot.recommendation.outfits.map(
+    ({ archetypeId }) => archetypeId)).size, 3);
+  assert.deepEqual(calls, { client: 1, saves: 1 });
+});
+
 test('weather with no clothing requirements skips AI and persists the deterministic fallback', async () => {
   const { controller, calls } = createHarness();
   await controller.initialize();
@@ -227,7 +238,7 @@ test('weather with no clothing requirements skips AI and persists the determinis
   assert.deepEqual(calls, { client: 0, saves: 1 });
 });
 
-test('candidate sets above the Worker limit skip AI without blocking local fallback', async () => {
+test('wardrobe volume does not affect the catalog-only AI request', async () => {
   const oversized = input(16);
   oversized.wardrobeItems = Array.from({ length: 126 }, (_value, index) => ({
     id: `accessory-${index}`,
@@ -254,9 +265,9 @@ test('candidate sets above the Worker limit skip AI without blocking local fallb
 
   const snapshot = await controller.refresh('explicit', oversized);
 
-  assert.equal(snapshot.generationMode, 'deterministic-fallback');
+  assert.equal(snapshot.generationMode, 'ai-assisted');
   assert.equal(snapshot.recommendation.outfits.length, 3);
-  assert.deepEqual(calls, { client: 0, saves: 1 });
+  assert.deepEqual(calls, { client: 1, saves: 1 });
 });
 
 test('failed refresh keeps the previous snapshot in memory and in the repository', async () => {

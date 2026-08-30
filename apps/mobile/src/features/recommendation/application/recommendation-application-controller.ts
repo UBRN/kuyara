@@ -18,21 +18,20 @@ import {
   mapWorkerAiRecommendation,
   type RecommendationContext,
 } from '@/features/recommendation/data/worker-ai-recommendation-mapper';
-import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 
 export type RecommendationRefreshTrigger =
   | 'app-opened'
   | 'stale-weather-refreshed'
   | 'active-location-changed'
   | 'clothing-preference-changed'
-  | 'wardrobe-changed'
+  | 'local-day-changed'
   | 'explicit';
 
 export type RecommendationSignals = Readonly<{
   weatherSnapshotId: string;
   locationKey: string;
   clothingPreference: string;
-  wardrobeKey: string;
+  dayVariant: number;
 }>;
 
 export function shouldRefreshRecommendation(
@@ -57,29 +56,8 @@ export function recommendationRefreshTrigger(
   if (previous.clothingPreference !== current.clothingPreference) {
     return 'clothing-preference-changed';
   }
-  if (previous.wardrobeKey !== current.wardrobeKey) return 'wardrobe-changed';
+  if (previous.dayVariant !== current.dayVariant) return 'local-day-changed';
   return null;
-}
-
-export function recommendationWardrobeKey(
-  items: readonly WardrobeItem[],
-): string {
-  return JSON.stringify([...items]
-    .sort((left, right) => left.id.localeCompare(right.id))
-    .map((item) => [
-      item.id,
-      item.category,
-      item.garmentTypeId,
-      item.colorFamily,
-      item.thermalLevelOverride,
-      item.waterProtectionOverride,
-      item.windProtectionOverride,
-      item.breathabilityOverride,
-      item.armCoverageOverride,
-      item.legCoverageOverride,
-      item.tractionSuitabilityOverride,
-      item.deletedAt,
-    ]));
 }
 
 export type RecommendationApplicationState =
@@ -102,6 +80,15 @@ type Dependencies = Readonly<{
 }>;
 
 type Listener = () => void;
+
+export function localDayVariant(date: Date = new Date()): number {
+  const dayOfYear = Math.floor(
+    (Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) -
+      Date.UTC(date.getFullYear(), 0, 0)) /
+      (24 * 60 * 60 * 1000),
+  );
+  return dayOfYear % 7;
+}
 
 export class RecommendationApplicationController {
   private state: RecommendationApplicationState = { status: 'loading' };

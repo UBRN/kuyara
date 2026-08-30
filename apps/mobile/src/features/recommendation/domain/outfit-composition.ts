@@ -1,12 +1,14 @@
 import type {
   Breathability,
   Coverage,
+  Formality,
   LayerRole,
   ThermalLevel,
   TractionSuitability,
   WaterProtection,
   WindProtection,
 } from '@/features/catalog/domain/garment-taxonomy';
+import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import {
   compareGarmentEligibilityResults,
   type EffectiveGarmentCandidate,
@@ -127,6 +129,7 @@ export type OutfitCandidate = Readonly<{
   reasonCodes: readonly OutfitCompositionReasonCode[];
   candidateKeys: readonly string[];
   compositionKey: string;
+  formality: Formality;
 }>;
 
 export type OutfitRequirementBestEvidence = Readonly<{
@@ -202,6 +205,7 @@ const reasonOrder = new Map(
   outfitCompositionReasonCodes.map((code, index) => [code, index]),
 );
 const slotOrder = new Map(outfitSlots.map((slot, index) => [slot, index]));
+const formalityOrder = Object.freeze(['casual', 'smart', 'formal'] as const);
 
 function compareStrings(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -794,6 +798,22 @@ function evaluateDraft(
           'standalone',
         ),
       });
+  const formalities = [
+    ...(body.kind === 'separates'
+      ? [body.primaryTop, body.bottom]
+      : [body.onePiece]),
+    midLayer,
+    outerLayer,
+    assignedGarment(draft.footwear, 'footwear', null),
+  ].flatMap((assigned) => {
+    const formality = assigned && getGarmentType(assigned.garment.garmentTypeId)?.formality;
+    return formality ? [formality] : [];
+  });
+  const formality = formalities.reduce<Formality>((leastFormal, candidate) =>
+    formalityOrder.indexOf(candidate) < formalityOrder.indexOf(leastFormal)
+      ? candidate
+      : leastFormal,
+  formalities[0] ?? 'casual');
 
   return Object.freeze({
     body,
@@ -809,11 +829,28 @@ function evaluateDraft(
     reasonCodes: orderedReasonCodes(reasons),
     candidateKeys: candidateKeys(draft),
     compositionKey: compositionKey(draft),
+    formality,
   });
 }
 
 function isValid(candidate: OutfitCandidate): boolean {
-  return candidate.requirementEvaluations.every(
+  const formalities = [
+    ...(candidate.body.kind === 'separates'
+      ? [candidate.body.primaryTop, candidate.body.bottom]
+      : [candidate.body.onePiece]),
+    candidate.midLayer,
+    candidate.outerLayer,
+    candidate.footwear,
+  ].flatMap((assigned) => {
+    const formality = assigned && getGarmentType(assigned.garment.garmentTypeId)?.formality;
+    return formality ? [formality] : [];
+  });
+  const formalityRanks = formalities.map((formality) =>
+    formalityOrder.indexOf(formality));
+
+  return formalityRanks.length === candidate.candidateKeys.length &&
+    Math.max(...formalityRanks) - Math.min(...formalityRanks) <= 1 &&
+    candidate.requirementEvaluations.every(
     ({ requirement, status }) =>
       requirement.priority === 'optional' ||
       status === 'met' ||
@@ -1189,13 +1226,17 @@ function meaningfullyDifferent(
 
 function selectDiverseOutfits(
   outfits: readonly OutfitCandidate[],
+  count: number,
+  startOffset: number,
 ): readonly OutfitCandidate[] {
   const selected: OutfitCandidate[] = [];
-  for (const outfit of outfits) {
+  const offset = outfits.length === 0 ? 0 : startOffset % outfits.length;
+  const rotated = [...outfits.slice(offset), ...outfits.slice(0, offset)];
+  for (const outfit of rotated) {
     if (selected.every((candidate) => meaningfullyDifferent(outfit, candidate))) {
       selected.push(outfit);
     }
-    if (selected.length === 3) {
+    if (selected.length === count) {
       break;
     }
   }
@@ -1226,6 +1267,20 @@ export function composeOutfits(
     ? result
     : Object.freeze({
         status: 'composed',
-        outfits: selectDiverseOutfits(result.outfits),
+        outfits: selectDiverseOutfits(result.outfits, 3, 0),
+      });
+}
+
+export function composeOutfitOptions(
+  requirements: ClothingRequirements,
+  candidates: readonly GarmentEligibilityResult[],
+  startOffset: number,
+): OutfitCompositionsResult {
+  const result = collectValidOutfits(requirements, candidates);
+  return result.status === 'failure'
+    ? result
+    : Object.freeze({
+        status: 'composed',
+        outfits: selectDiverseOutfits(result.outfits, 24, startOffset),
       });
 }

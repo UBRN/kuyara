@@ -1,15 +1,35 @@
 import type {
-  AiCandidate,
-  AiOutfitGarment,
+  AiOption,
   AiRecommendV1Request,
+  OutfitArchetypeId,
 } from '@kuyara/contracts';
 
 import type { AiProvider } from './ai-provider.ts';
 
-function layerRole(candidate: AiCandidate): AiOutfitGarment['layerRole'] {
-  return candidate.properties.supportedLayerRoles.includes('standalone')
-    ? 'standalone'
-    : candidate.properties.supportedLayerRoles[0] ?? null;
+function validArchetypes(option: AiOption): OutfitArchetypeId[] {
+  const archetypes: OutfitArchetypeId[] = [];
+  if (option.formality === 'formal') archetypes.push('office_ready');
+  if (option.formality !== 'casual') archetypes.push('smart_casual');
+  if (option.formality === 'casual') archetypes.push('weekend_relaxed');
+  if (option.traits.hasMidLayer && option.traits.hasOuterLayer) {
+    archetypes.push('layered_warmth');
+  }
+  if (option.traits.outerThermalHigh) archetypes.push('cold_shield');
+  if (option.traits.outerWaterProtective) archetypes.push('rain_ready');
+  if (option.traits.tractionEnhanced) archetypes.push('snow_day');
+  if (option.traits.windResistant) archetypes.push('wind_guard');
+  if (!option.traits.hasOuterLayer && option.traits.breathabilityHigh) {
+    archetypes.push('light_and_airy');
+  }
+  if (option.garments.some(({ slot, garmentTypeId }) =>
+    slot === 'footwear' && garmentTypeId === 'sneakers')) {
+    archetypes.push('on_the_move');
+  }
+  if (option.traits.hasMidLayer && !option.traits.hasOuterLayer) {
+    archetypes.push('in_between');
+  }
+  archetypes.push('everyday_easy');
+  return archetypes;
 }
 
 export class DeterministicStubAiProvider implements AiProvider {
@@ -18,53 +38,16 @@ export class DeterministicStubAiProvider implements AiProvider {
     signal: AbortSignal,
   ): Promise<unknown> {
     signal.throwIfAborted();
+    const options = request.options.slice(0, 3);
+    if (options.length !== 3) throw new Error('Three options are required.');
 
-    const groups = new Map<AiCandidate['properties']['category'], AiCandidate[]>();
-    for (const candidate of request.candidates) {
-      const group = groups.get(candidate.properties.category) ?? [];
-      group.push(candidate);
-      groups.set(candidate.properties.category, group);
-    }
-    for (const group of groups.values()) {
-      group.sort((left, right) => left.candidateKey.localeCompare(right.candidateKey));
-    }
-
-    const tops = groups.get('top') ?? [];
-    const bottoms = groups.get('bottom') ?? [];
-    const onePieces = groups.get('one_piece') ?? [];
-    const footwear = groups.get('footwear') ?? [];
-    const useSeparates = tops.length > 0 && bottoms.length > 0;
-    if ((!useSeparates && onePieces.length === 0) || footwear.length === 0) {
-      throw new Error('Cannot build three structurally complete outfits.');
-    }
-
-    const outfits = Array.from({ length: 3 }, (_, index): AiOutfitGarment[] => {
-      const shoe = footwear[index % footwear.length];
-      const body = useSeparates
-        ? [
-            {
-              slot: 'primary_top' as const,
-              layerRole: layerRole(tops[index % tops.length]),
-              candidateKey: tops[index % tops.length].candidateKey,
-            },
-            {
-              slot: 'bottom' as const,
-              layerRole: layerRole(bottoms[index % bottoms.length]),
-              candidateKey: bottoms[index % bottoms.length].candidateKey,
-            },
-          ]
-        : [{
-            slot: 'one_piece' as const,
-            layerRole: layerRole(onePieces[index % onePieces.length]),
-            candidateKey: onePieces[index % onePieces.length].candidateKey,
-          }];
-      return [...body, {
-        slot: 'footwear',
-        layerRole: null,
-        candidateKey: shoe.candidateKey,
-      }];
+    const used = new Set<OutfitArchetypeId>();
+    const picks = options.map((option) => {
+      const archetypeId = validArchetypes(option).find((candidate) => !used.has(candidate));
+      if (!archetypeId) throw new Error('Three distinct archetypes are required.');
+      used.add(archetypeId);
+      return { optionId: option.optionId, archetypeId };
     });
-
-    return { data: { outfits } };
+    return { data: { picks } };
   }
 }

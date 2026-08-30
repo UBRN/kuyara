@@ -8,44 +8,46 @@ import {
 
 const request = {
   clothingPreference: 'womens',
+  catalogVersion: 2,
+  dayVariant: 3,
   requirements: [{
     kind: 'thermal',
     minimum: 'light',
     priority: 'mandatory',
     reasonCodes: ['temperature_low'],
   }],
-  candidates: [
-    candidate('catalog:t_shirt', 't_shirt', 'top', 'upper_body', ['base', 'standalone']),
-    candidate('catalog:trousers', 'trousers', 'bottom', 'lower_body', ['standalone']),
-    candidate('catalog:sneakers', 'sneakers', 'footwear', 'feet', []),
+  options: [
+    option('option-1', 't_shirt', 'shorts', 'sneakers'),
+    option('option-2', 'long_sleeve_t_shirt', 'jeans', 'sandals'),
+    option('option-3', 'shirt', 'trousers', 'closed_shoes', 'smart'),
   ],
 };
 
 const responseData = {
-  outfits: Array.from({ length: 3 }, () => [
-    { slot: 'primary_top', layerRole: 'standalone', candidateKey: 'catalog:t_shirt' },
-    { slot: 'bottom', layerRole: 'standalone', candidateKey: 'catalog:trousers' },
-    { slot: 'footwear', layerRole: null, candidateKey: 'catalog:sneakers' },
-  ]),
+  picks: [
+    { optionId: 'option-1', archetypeId: 'everyday_easy' },
+    { optionId: 'option-2', archetypeId: 'weekend_relaxed' },
+    { optionId: 'option-3', archetypeId: 'smart_casual' },
+  ],
 };
 
-function candidate(candidateKey, garmentTypeId, category, bodyRegion, supportedLayerRoles) {
+function option(optionId, primaryTop, bottom, footwear, formality = 'casual') {
   return {
-    candidateKey,
-    source: 'catalog',
-    garmentTypeId,
-    colorFamily: null,
-    properties: {
-      category,
-      bodyRegion,
-      supportedLayerRoles,
-      thermalLevel: 'light',
-      waterProtection: null,
-      windProtection: null,
-      breathability: 'moderate',
-      armCoverage: category === 'top' ? 'partial' : null,
-      legCoverage: category === 'bottom' ? 'full' : null,
-      tractionSuitability: category === 'footwear' ? 'everyday' : null,
+    optionId,
+    formality,
+    garments: [
+      { slot: 'primary_top', layerRole: 'standalone', garmentTypeId: primaryTop },
+      { slot: 'bottom', layerRole: 'standalone', garmentTypeId: bottom },
+      { slot: 'footwear', layerRole: null, garmentTypeId: footwear },
+    ],
+    traits: {
+      hasMidLayer: false,
+      hasOuterLayer: false,
+      outerThermalHigh: false,
+      outerWaterProtective: false,
+      windResistant: false,
+      tractionEnhanced: false,
+      breathabilityHigh: primaryTop === 't_shirt',
     },
   };
 }
@@ -76,7 +78,7 @@ test('rejects malformed success data without repairing it', async () => {
   const client = new WorkerAiClient({
     baseUrl: 'https://worker.example',
     fetch: async () => new Response(JSON.stringify({
-      data: { outfits: responseData.outfits.slice(0, 2) },
+      data: { picks: responseData.picks.slice(0, 2) },
     }), { status: 200 }),
   });
 
