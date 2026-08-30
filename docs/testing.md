@@ -86,7 +86,7 @@ React Native component tests use Jest, `jest-expo`, React Native Testing Library
 pnpm --filter @kuyara/mobile test:components
 ```
 
-The component suite covers the production tab bar, localized Weather and Wardrobe states, the profile route gate, Today/Settings generation-mode surfaces, the AI probe flow, and notification Settings. Expo Router 57's `renderRouter` helper assumes an older synchronous renderer, so tests exercise production controls and navigation intents directly while mocking only native navigation state. Device-level transitions, gestures, VoiceOver/TalkBack output, notification delivery, and platform visuals remain simulator or device verification concerns.
+The component suite covers the production tab bar, localized Weather and Wardrobe states, the profile route gate, Today/Settings generation-mode surfaces, the AI probe flow, and notification Settings. The approved three-tab Profile navigation requires corresponding component coverage when implemented; no such coverage is claimed yet. Expo Router 57's `renderRouter` helper assumes an older synchronous renderer, so tests exercise production controls and navigation intents directly while mocking only native navigation state. Device-level transitions, gestures, VoiceOver/TalkBack output, notification delivery, and platform visuals remain simulator or device verification concerns.
 
 Run the focused local-profile persistence suite with:
 
