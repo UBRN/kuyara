@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    gap: spacing['2xl'],
+    gap: spacing.xl,
     paddingBottom: spacing['2xl'],
   },
   header: {
@@ -278,10 +278,10 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
   },
   section: {
-    gap: spacing.md,
+    gap: spacing.lg,
   },
   outfitList: {
-    gap: spacing.md,
+    gap: spacing.lg,
   },
   feedbackContent: {
     alignItems: 'center',

@@ -1,11 +1,13 @@
+import { SymbolView } from 'expo-symbols';
 import { StyleSheet, View } from 'react-native';
 
-import { AppText, Button } from '@/components/ui';
+import { AppText, Button, Surface } from '@/components/ui';
 import type { AiProbeUiState } from '@/features/recommendation/application/use-ai-probe';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import { ProbeLoadingOverlay } from '@/features/profile/presentation/probe-loading-overlay';
 import { useLocalization } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
+import { useKuyaraTheme } from '@/theme/theme-context';
 
 export type AiStatusSectionProps = Readonly<{
   aiStatus: AiProbeUiState;
@@ -21,6 +23,7 @@ export function AiStatusSection({
   onCheckAiStatus,
 }: AiStatusSectionProps) {
   const { language, messages } = useLocalization();
+  const theme = useKuyaraTheme();
   const copy = messages.settings;
   const lastGenerationModeCopy = lastGenerationMode === 'ai-assisted'
     ? copy.aiStatusLastAiAssisted
@@ -43,9 +46,16 @@ export function AiStatusSection({
             : aiStatus.kind === 'rate-limited'
               ? copy.aiStatusResultRateLimited
               : copy.aiStatusResultError;
+  const resultIcon = !isProbeSupported
+    ? { ios: 'info.circle.fill', android: 'info', web: 'info' } as const
+    : aiStatus.kind === 'ok'
+      ? { ios: 'checkmark.circle.fill', android: 'check_circle', web: 'check_circle' } as const
+      : aiStatus.kind === 'checking'
+        ? { ios: 'clock.fill', android: 'schedule', web: 'schedule' } as const
+        : { ios: 'exclamationmark.circle.fill', android: 'error', web: 'error' } as const;
 
   return (
-    <View style={styles.section} testID="settings-ai-status">
+    <Surface style={styles.section} testID="settings-ai-status" variant="elevated">
       <AppText colorRole="brandAccent" variant="eyebrow">
         {copy.aiStatusHeading}
       </AppText>
@@ -54,27 +64,48 @@ export function AiStatusSection({
       <Button
         disabled={!isProbeSupported || aiStatus.kind === 'checking'}
         label={copy.aiStatusCheckAction}
+        loading={aiStatus.kind === 'checking'}
         onPress={onCheckAiStatus}
         testID="settings-ai-status-check"
       />
       {result ? (
-        <AppText
-          accessibilityLiveRegion="polite"
-          colorRole="textSecondary"
-          testID="settings-ai-status-result">
-          {result}
-        </AppText>
+        <View style={styles.resultRow}>
+          <SymbolView
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            name={resultIcon}
+            size={20}
+            testID="settings-ai-status-result-icon"
+            tintColor={theme.colors.iconSecondary}
+          />
+          <AppText
+            accessibilityLiveRegion="polite"
+            colorRole="textSecondary"
+            style={styles.resultCopy}
+            testID="settings-ai-status-result">
+            {result}
+          </AppText>
+        </View>
       ) : null}
       {aiStatus.kind === 'checking' ? (
         <ProbeLoadingOverlay label={copy.aiStatusChecking} />
       ) : null}
-    </View>
+    </Surface>
   );
 }
 
 const styles = StyleSheet.create({
   section: {
     gap: spacing.lg,
+    padding: spacing.xl,
     position: 'relative',
+  },
+  resultRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  resultCopy: {
+    flex: 1,
   },
 });

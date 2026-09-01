@@ -23,7 +23,9 @@ tags:
 - assertVisible:
     id: today-screen
 - tapOn:
-    id: tab-settings
+    id: tab-profile
+- tapOn:
+    id: profile-settings-button
 - assertVisible:
     id: settings-screen
 - tapOn:
@@ -47,7 +49,9 @@ tags:
     selected: true
 - launchApp
 - tapOn:
-    id: tab-settings
+    id: tab-profile
+- tapOn:
+    id: profile-settings-button
 - assertVisible:
     id: settings-clothing-mens
     selected: true

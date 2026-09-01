@@ -1,4 +1,4 @@
-import type { TextStyle } from 'react-native';
+import type { TextStyle, ViewStyle } from 'react-native';
 
 import type { ThemePreference } from '@/domain/preferences';
 
@@ -14,8 +14,10 @@ export const brandColors = Object.freeze({
 } as const);
 
 export const lightSemanticColors = Object.freeze({
-  background: brandColors.softMist,
-  backgroundElevated: brandColors.cloudWhite,
+  // Soft Mist has only 1.085:1 headroom to white; moving the ground down creates
+  // a 1.255:1 surface step, matching the dark theme's existing 1.276:1.
+  background: '#D0DDDC',
+  backgroundElevated: brandColors.softMist,
   surface: brandColors.cloudWhite,
   surfaceMuted: '#E7EEED',
   surfaceInteractive: '#DDE8E7',
@@ -138,6 +140,54 @@ export const interaction = Object.freeze({
   disabledOpacity: 0.48,
 } as const);
 
+export type ElevationTokens = Readonly<
+  Record<
+    'raised' | 'chrome',
+    Readonly<
+      Required<
+        Pick<
+          ViewStyle,
+          'shadowColor' | 'shadowOffset' | 'shadowOpacity' | 'shadowRadius' | 'elevation'
+        >
+      >
+    >
+  >
+>;
+
+const lightElevation = Object.freeze({
+  raised: {
+    shadowColor: brandColors.nightLayer,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  chrome: {
+    shadowColor: brandColors.nightLayer,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+} as const satisfies ElevationTokens);
+
+const darkElevation = Object.freeze({
+  raised: {
+    shadowColor: brandColors.nightLayer,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  chrome: {
+    shadowColor: brandColors.nightLayer,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+} as const satisfies ElevationTokens);
+
 export const standardMotion = Object.freeze({
   immediate: 0,
   fast: 120,
@@ -168,6 +218,7 @@ export type KuyaraTheme = Readonly<{
   borderWidths: typeof borderWidths;
   layout: typeof layout;
   interaction: typeof interaction;
+  elevation: ElevationTokens;
   motion: MotionTokens;
 }>;
 
@@ -186,6 +237,7 @@ export const lightTheme = Object.freeze({
   isDark: false,
   isReduceMotionEnabled: false,
   colors: lightSemanticColors,
+  elevation: lightElevation,
   motion: standardMotion,
 } as const satisfies KuyaraTheme);
 
@@ -195,6 +247,7 @@ export const darkTheme = Object.freeze({
   isDark: true,
   isReduceMotionEnabled: false,
   colors: darkSemanticColors,
+  elevation: darkElevation,
   motion: standardMotion,
 } as const satisfies KuyaraTheme);
 

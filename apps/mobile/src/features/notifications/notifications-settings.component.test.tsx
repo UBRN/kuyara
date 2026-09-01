@@ -1,7 +1,7 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import SettingsRoute from '@/app/(tabs)/settings';
+import SettingsRoute from '@/app/(tabs)/(profile)/settings';
 import { NotificationApplicationProvider } from '@/features/notifications/application/notification-application-provider';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { ProfileApplicationProvider } from '@/features/profile/application/profile-application-provider';

@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 
-import { AppText, Pill } from '@/components/ui';
+import { AppText, Pill, Surface } from '@/components/ui';
 import type { LoadedOutfitPresentation } from '@/features/today/presentation/today-presentation';
 import { borderWidths, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -28,40 +28,45 @@ export function OutfitSuggestionCard({
       accessibilityLabel={suggestion.accessibilityLabel}
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.card,
-        isPrimary ? styles.primaryCard : styles.secondaryCard,
-        {
-          borderColor: isPrimary ? theme.colors.borderStrong : theme.colors.borderSubtle,
-          backgroundColor: theme.colors.surface,
-        },
-        pressed && {
-          borderColor: isPrimary ? theme.colors.textPrimary : theme.colors.focusRing,
-          backgroundColor: isPrimary ? theme.colors.surfaceInteractive : theme.colors.surface,
-        },
-      ]}
       testID={`outfit-card-${suggestion.id}`}>
-      <View style={[styles.headingRow, usesStackedLayout && styles.stackedHeadingRow]}>
-        <AppText style={styles.title} variant={isPrimary ? 'title' : 'bodyStrong'}>
-          {suggestion.title}
-        </AppText>
-        {suggestion.emphasis ? (
-          isPrimary ? (
-            <Pill label={suggestion.emphasis} tone="accent-filled" />
-          ) : (
-            <AppText colorRole="brandAccent" variant="eyebrow">
-              {suggestion.emphasis}
+      {({ pressed }) => (
+        <Surface
+          style={[
+            styles.card,
+            isPrimary ? styles.primaryCard : styles.secondaryCard,
+            { borderColor: isPrimary ? theme.colors.borderStrong : theme.colors.borderSubtle },
+            pressed && {
+              borderColor: isPrimary ? theme.colors.textPrimary : theme.colors.focusRing,
+              backgroundColor: isPrimary
+                ? theme.colors.surfaceInteractive
+                : theme.colors.backgroundElevated,
+            },
+          ]}
+          testID={`outfit-card-${suggestion.id}-surface`}
+          variant="elevated">
+          <View style={[styles.headingRow, usesStackedLayout && styles.stackedHeadingRow]}>
+            <AppText style={styles.title} variant={isPrimary ? 'title' : 'bodyStrong'}>
+              {suggestion.title}
             </AppText>
-          )
-        ) : null}
-      </View>
-      <AppText colorRole="textSecondary">{suggestion.summary}</AppText>
-      <View
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        style={styles.chevronRow}>
-        <AppText colorRole="brandAccent">→</AppText>
-      </View>
+            {suggestion.emphasis ? (
+              isPrimary ? (
+                <Pill label={suggestion.emphasis} tone="accent-filled" />
+              ) : (
+                <AppText colorRole="brandAccent" variant="eyebrow">
+                  {suggestion.emphasis}
+                </AppText>
+              )
+            ) : null}
+          </View>
+          <AppText colorRole="textSecondary">{suggestion.summary}</AppText>
+          <View
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={styles.chevronRow}>
+            <AppText colorRole="brandAccent">→</AppText>
+          </View>
+        </Surface>
+      )}
     </Pressable>
   );
 }
@@ -70,7 +75,7 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: radii.card,
     borderWidth: borderWidths.subtle,
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   primaryCard: {
     padding: spacing.xl,

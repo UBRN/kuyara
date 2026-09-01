@@ -14,7 +14,7 @@ import { CARD_BACKGROUND_ALPHA } from '@/features/today/presentation/weather-car
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 import { withAlpha } from '@/theme/color-alpha';
-import { darkTheme, lightTheme, spacing, type KuyaraTheme } from '@/theme/theme';
+import { darkTheme, lightTheme, spacing, typography, type KuyaraTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 jest.mock('expo-symbols', () => ({
@@ -73,6 +73,11 @@ test('loaded Today reserves overlay clearance and preserves grouped accessibilit
   expect(result.getByTestId('today-outfit-list').children).toHaveLength(
     presentation.suggestions.length - 1,
   );
+  expect(StyleSheet.flatten(
+    result.getByTestId('outfit-card-outfit-1-surface').props.style,
+  )).toMatchObject(lightTheme.elevation.raised);
+  expect(StyleSheet.flatten(result.getByText('20°').props.style).fontSize)
+    .toBe(typography.display.fontSize);
   expect(result.getByRole('header', { name: 'Today. Sample İstanbul' })).toBeOnTheScreen();
 
   await fireEvent.press(result.getByTestId(`outfit-card-${presentation.suggestions[0].id}`));
@@ -193,6 +198,9 @@ test('outfit detail lists localized weather reasons alongside localized pieces',
     expect(result.getByText(slot)).toBeOnTheScreen();
     expect(result.getByText(item)).toBeOnTheScreen();
   }
+  expect(result.getAllByTestId('outfit-piece-divider', { includeHiddenElements: true })).toHaveLength(
+    presentation.suggestions[0].pieces.length - 1,
+  );
 });
 
 test('an unavailable recommendation keeps header and weather while replacing suggestions with local copy', async () => {
@@ -306,6 +314,7 @@ describe.each(['en', 'tr'] as const)('%s Today weather card', (language: Support
     expect(cardStyle.backgroundColor).toBe(
       withAlpha(theme.colors.brandAccent, CARD_BACKGROUND_ALPHA),
     );
+    expect(cardStyle).toMatchObject(theme.elevation.raised);
   });
 });
 

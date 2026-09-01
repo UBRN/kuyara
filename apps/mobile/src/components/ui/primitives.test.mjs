@@ -109,13 +109,35 @@ test('Screen and Surface keep children on semantic light and dark foundations', 
     const theme = createKuyaraTheme(scheme);
 
     for (const [variant, role] of Object.entries(surfaceColorRoleByVariant)) {
-      assert.equal(resolveSurfaceColors(theme, variant).backgroundColor, theme.colors[role]);
+      const resolvedStyle = resolveSurfaceColors(theme, variant);
+
+      assert.equal(resolvedStyle.backgroundColor, theme.colors[role]);
+      if (variant === 'elevated') {
+        assert.equal(resolvedStyle.shadowColor, theme.elevation.raised.shadowColor);
+        assert.equal(resolvedStyle.elevation, theme.elevation.raised.elevation);
+      } else {
+        assert.equal('shadowColor' in resolvedStyle, false);
+        assert.equal('elevation' in resolvedStyle, false);
+      }
     }
 
     assert.match(screenSource, /theme\.colors\.background/);
     assert.match(screenSource, /\{children\}/);
     assert.match(surfaceSource, /\.\.\.rest/);
   }
+});
+
+test('Divider uses semantic tokens, supports one inset, and stays decorative', async () => {
+  const dividerSource = await source('./divider.tsx');
+
+  assert.match(dividerSource, /variant\?: 'full' \| 'inset'/);
+  assert.match(dividerSource, /theme\.colors\.borderSubtle/);
+  assert.match(dividerSource, /borderWidths\.subtle/);
+  assert.match(dividerSource, /marginStart: spacing\.[a-zA-Z0-9]+/);
+  assert.match(dividerSource, /accessibilityElementsHidden/);
+  assert.match(dividerSource, /importantForAccessibility="no-hide-descendants"/);
+  assert.match(dividerSource, /accessible=\{false\}/);
+  assert.doesNotMatch(dividerSource, /#[0-9a-fA-F]{6}/);
 });
 
 test('Pill tones resolve distinct semantic colors in both appearances', () => {

@@ -2,7 +2,11 @@
 
 Status: Accepted (2026-08-30)
 
-Implementation: Planned.
+Implementation: Complete (milestone 6). Three tabs are live: Today at `/`,
+Weather at `/weather`, and Profile at `/profile`. Wardrobe and Settings are
+stack destinations reached from the Profile tab; Settings opens from an icon
+in the Profile header. The wanted list is a filter on the wardrobe list
+rather than a separate screen, matching the rejected alternative below.
 
 ## Context
 

@@ -142,8 +142,8 @@ function PrimaryTabBarHarness({
 }
 
 describe.each([
-  ['en', ['Today', 'Weather', 'Wardrobe', 'Settings']],
-  ['tr', ['Bugün', 'Hava', 'Gardırop', 'Ayarlar']],
+  ['en', ['Today', 'Weather', 'Profile']],
+  ['tr', ['Bugün', 'Hava', 'Profil']],
 ] as const)('%s primary tabs', (language, expectedLabels) => {
   test('shows all localized controls with tab roles, names, and Today selected', async () => {
     const result = await render(
@@ -159,6 +159,11 @@ describe.each([
     expect(result.getByTestId('tab-weather').props.accessibilityState).toEqual({
       selected: false,
     });
+    expect(result.getByTestId('tab-profile').props.accessibilityState).toEqual({
+      selected: false,
+    });
+    expect(result.queryByTestId('tab-wardrobe')).not.toBeOnTheScreen();
+    expect(result.queryByTestId('tab-settings')).not.toBeOnTheScreen();
   });
 
   test('keeps every visible tab label on one line so the bar cannot grow at accessibility text sizes', async () => {
@@ -175,21 +180,15 @@ describe.each([
     }
   });
 
-  test('emits Wardrobe and Settings navigation intents and updates selected state', async () => {
+  test('emits Profile navigation intent and updates selected state', async () => {
     const onNavigate = jest.fn();
     const result = await render(
       <PrimaryTabBarHarness language={language} onNavigate={onNavigate} />,
     );
 
     await fireEvent.press(result.getByRole('tab', { name: expectedLabels[2] }));
-    expect(onNavigate).toHaveBeenLastCalledWith('wardrobe');
-    expect(result.getByTestId('tab-wardrobe').props.accessibilityState).toEqual({
-      selected: true,
-    });
-
-    await fireEvent.press(result.getByRole('tab', { name: expectedLabels[3] }));
-    expect(onNavigate).toHaveBeenLastCalledWith('settings');
-    expect(result.getByTestId('tab-settings').props.accessibilityState).toEqual({
+    expect(onNavigate).toHaveBeenLastCalledWith('(profile)');
+    expect(result.getByTestId('tab-profile').props.accessibilityState).toEqual({
       selected: true,
     });
   });

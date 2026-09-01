@@ -107,6 +107,7 @@ export type AppMessages = Readonly<{
   navigation: Readonly<{
     today: string;
     weather: string;
+    profile: string;
     wardrobe: string;
     settings: string;
   }>;
@@ -150,6 +151,19 @@ export type AppMessages = Readonly<{
     aiStatusUnsupported: string;
     saving: string;
     saveError: string;
+  }>;
+  profile: Readonly<{
+    title: string;
+    settingsAction: string;
+    settingsHint: string;
+    wardrobeTitle: string;
+    wardrobeHint: string;
+    ownedLabel: string;
+    wantedLabel: string;
+    wardrobeLoading: string;
+    wardrobeEmpty: string;
+    wardrobeUnavailable: string;
+    wardrobeSummary: (values: { owned: number; wanted: number }) => string;
   }>;
   notifications: Readonly<{
     title: string;
@@ -257,7 +271,14 @@ export type AppMessages = Readonly<{
       type: string;
       category: string;
       color: string | null;
+      state: string;
     }) => string;
+    ownedLabel: string;
+    wantedLabel: string;
+    itemOwnedLabel: string;
+    itemWantedLabel: string;
+    wantedEmptyTitle: string;
+    wantedEmptyBody: string;
     newTitle: string;
     editTitle: string;
     backAction: string;
@@ -273,6 +294,8 @@ export type AppMessages = Readonly<{
     photoProcessingLabel: string;
     photoError: string;
     photoAccessibilityLabel: (type: string) => string;
+    entryStateTitle: string;
+    entryStateDescription: string;
     typeTitle: string;
     typeDescription: string;
     typeRequiredError: string;
@@ -329,6 +352,7 @@ const en = {
   navigation: {
     today: 'Today',
     weather: 'Weather',
+    profile: 'Profile',
     wardrobe: 'Wardrobe',
     settings: 'Settings',
   },
@@ -386,6 +410,20 @@ const en = {
     aiStatusUnsupported: 'AI status checks are not available on this build.',
     saving: 'Saving changes…',
     saveError: 'That change could not be saved. Your previous setting is still active.',
+  },
+  profile: {
+    title: 'Profile',
+    settingsAction: 'Settings',
+    settingsHint: 'Opens app settings.',
+    wardrobeTitle: 'Wardrobe',
+    wardrobeHint: 'Opens your owned and wanted items.',
+    ownedLabel: 'Owned',
+    wantedLabel: 'Wanted',
+    wardrobeLoading: 'Loading wardrobe counts.',
+    wardrobeEmpty: 'You have not added any owned or wanted items yet.',
+    wardrobeUnavailable: 'Wardrobe counts are unavailable right now.',
+    wardrobeSummary: ({ owned, wanted }) =>
+      `${owned} owned, ${wanted} wanted. Opens wardrobe.`,
   },
   notifications: {
     title: 'Notifications',
@@ -498,8 +536,14 @@ const en = {
     retryAction: 'Try again',
     itemHint: 'Opens this wardrobe item for editing.',
     unclassifiedType: 'Type not selected',
-    itemAccessibilityLabel: ({ name, type, category, color }) =>
-      [name, type, category, color].filter(Boolean).join('. '),
+    itemAccessibilityLabel: ({ name, type, category, color, state }) =>
+      [name, type, category, color, state].filter(Boolean).join('. '),
+    ownedLabel: 'Owned',
+    wantedLabel: 'Wanted',
+    itemOwnedLabel: 'Owned',
+    itemWantedLabel: 'Wanted',
+    wantedEmptyTitle: 'No wanted items yet',
+    wantedEmptyBody: 'Add pieces you would like to keep track of here.',
     newTitle: 'Add wardrobe item',
     editTitle: 'Edit wardrobe item',
     backAction: 'Back to wardrobe',
@@ -516,6 +560,8 @@ const en = {
     photoError:
       'The photo could not be prepared. Your other changes are still here; please try again.',
     photoAccessibilityLabel: (type: string) => `${type} wardrobe item photo.`,
+    entryStateTitle: 'Wardrobe list',
+    entryStateDescription: 'Choose whether you own this item or want it.',
     typeTitle: 'Clothing type',
     typeDescription: 'Required. Choose the closest type from the catalog.',
     typeRequiredError: 'Choose a clothing type before saving.',
@@ -672,6 +718,7 @@ const tr = {
   navigation: {
     today: 'Bugün',
     weather: 'Hava',
+    profile: 'Profil',
     wardrobe: 'Gardırop',
     settings: 'Ayarlar',
   },
@@ -729,6 +776,20 @@ const tr = {
     aiStatusUnsupported: 'AI durum kontrolleri bu sürümde kullanılamıyor.',
     saving: 'Değişiklikler kaydediliyor…',
     saveError: 'Bu değişiklik kaydedilemedi. Önceki ayarınız kullanılmaya devam ediyor.',
+  },
+  profile: {
+    title: 'Profil',
+    settingsAction: 'Ayarlar',
+    settingsHint: 'Uygulama ayarlarını açar.',
+    wardrobeTitle: 'Gardırop',
+    wardrobeHint: 'Sahip olduğunuz ve istediğiniz parçaları açar.',
+    ownedLabel: 'Sahip olduklarım',
+    wantedLabel: 'İstediklerim',
+    wardrobeLoading: 'Gardırop sayıları yükleniyor.',
+    wardrobeEmpty: 'Henüz sahip olduğunuz veya istediğiniz bir parça eklemediniz.',
+    wardrobeUnavailable: 'Gardırop sayıları şu anda gösterilemiyor.',
+    wardrobeSummary: ({ owned, wanted }) =>
+      `Sahip olduğunuz ${owned}, istediğiniz ${wanted} parça var. Gardırobu açar.`,
   },
   notifications: {
     title: 'Bildirimler',
@@ -842,8 +903,14 @@ const tr = {
     retryAction: 'Yeniden dene',
     itemHint: 'Bu gardırop parçasını düzenlemek için açar.',
     unclassifiedType: 'Tür seçilmedi',
-    itemAccessibilityLabel: ({ name, type, category, color }) =>
-      [name, type, category, color].filter(Boolean).join('. '),
+    itemAccessibilityLabel: ({ name, type, category, color, state }) =>
+      [name, type, category, color, state].filter(Boolean).join('. '),
+    ownedLabel: 'Sahip olduklarım',
+    wantedLabel: 'İstediklerim',
+    itemOwnedLabel: 'Sahip olunan',
+    itemWantedLabel: 'İstenen',
+    wantedEmptyTitle: 'İstenen parça yok',
+    wantedEmptyBody: 'Takip etmek istediğiniz parçaları buraya ekleyin.',
     newTitle: 'Gardırop parçası ekle',
     editTitle: 'Gardırop parçasını düzenle',
     backAction: 'Gardıroba dön',
@@ -860,6 +927,8 @@ const tr = {
     photoError:
       'Fotoğraf hazırlanamadı. Diğer değişiklikleriniz hâlâ burada; lütfen yeniden deneyin.',
     photoAccessibilityLabel: (type: string) => `${type} gardırop parçası fotoğrafı.`,
+    entryStateTitle: 'Gardırop listesi',
+    entryStateDescription: 'Bu parçaya sahip olduğunuzu veya parçayı istediğinizi seçin.',
     typeTitle: 'Giyim türü',
     typeDescription: 'Zorunlu. Katalogdan en yakın türü seçin.',
     typeRequiredError: 'Kaydetmeden önce bir giyim türü seçin.',

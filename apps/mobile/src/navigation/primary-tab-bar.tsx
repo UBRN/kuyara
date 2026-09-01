@@ -7,7 +7,7 @@ import { withAlpha } from '@/theme/color-alpha';
 import { borderWidths, interaction, layout, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
-export type PrimaryTabRouteName = '(today)' | 'weather' | 'wardrobe' | 'settings';
+export type PrimaryTabRouteName = '(today)' | 'weather' | '(profile)';
 
 export type PrimaryTabDefinition = Readonly<{
   accessibilityLabel: string;
@@ -33,16 +33,10 @@ export function createPrimaryTabDefinitions(
       testID: 'tab-weather',
     },
     {
-      accessibilityLabel: labels.wardrobe,
-      label: labels.wardrobe,
-      routeName: 'wardrobe',
-      testID: 'tab-wardrobe',
-    },
-    {
-      accessibilityLabel: labels.settings,
-      label: labels.settings,
-      routeName: 'settings',
-      testID: 'tab-settings',
+      accessibilityLabel: labels.profile,
+      label: labels.profile,
+      routeName: '(profile)',
+      testID: 'tab-profile',
     },
   ];
 }
@@ -72,6 +66,7 @@ export function PrimaryTabBar({
           borderTopColor: theme.colors.borderSubtle,
           paddingBottom: Math.max(insets.bottom, spacing.sm),
         },
+        theme.elevation.chrome,
       ]}>
       {tabs.map((tab) => {
         const isSelected = tab.routeName === selectedRouteName;
