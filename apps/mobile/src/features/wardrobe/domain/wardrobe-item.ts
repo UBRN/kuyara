@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import {
   structuralCategories,
   structuralCategorySchema,
@@ -14,6 +16,9 @@ import {
 
 export const wardrobeItemCategories = structuralCategories;
 export type WardrobeItemCategory = StructuralCategory;
+
+export const wardrobeEntryStateSchema = z.enum(['owned', 'wanted']);
+export type WardrobeEntryState = z.infer<typeof wardrobeEntryStateSchema>;
 
 export type WardrobeItemTaxonomyFields = Readonly<{
   garmentTypeId: GarmentTypeId | null;
@@ -32,6 +37,7 @@ export type WardrobeItem = Readonly<{
   localProfileId: string;
   name: string | null;
   category: WardrobeItemCategory;
+  entryState: WardrobeEntryState;
   color: string | null;
   photoRelativePath: string | null;
   createdAt: string;
@@ -43,6 +49,7 @@ export type CreateWardrobeItemInput = Readonly<{
   localProfileId: string;
   name?: string | null;
   category?: WardrobeItemCategory;
+  entryState?: WardrobeEntryState;
   garmentTypeId: GarmentTypeId;
   color?: string | null;
   colorFamily?: ColorFamily | null;
@@ -61,6 +68,7 @@ export type UpdateWardrobeItemInput = Readonly<{
   localProfileId: string;
   name?: string | null;
   category?: WardrobeItemCategory;
+  entryState?: WardrobeEntryState;
   garmentTypeId?: GarmentTypeId;
   color?: string | null;
   colorFamily?: ColorFamily | null;

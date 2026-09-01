@@ -83,6 +83,7 @@ export const todayWardrobeItems = Object.freeze([
     localProfileId: 'profile-one',
     name: 'Private rainy-day pair',
     category: 'footwear',
+    entryState: 'owned',
     garmentTypeId: 'sneakers',
     color: null,
     colorFamily: 'blue',
