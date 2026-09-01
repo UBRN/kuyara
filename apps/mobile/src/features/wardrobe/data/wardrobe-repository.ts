@@ -30,11 +30,13 @@ import {
   isWardrobeItemCategory,
   normalizeOptionalWardrobeText,
   normalizeWardrobePhotoRelativePath,
+  wardrobeEntryStateSchema,
   WardrobeItemValidationError,
   type CreateWardrobeItemInput,
   type UpdateWardrobeItemInput,
   type WardrobeItem,
   type WardrobeItemCategory,
+  type WardrobeEntryState,
 } from '@/features/wardrobe/domain/wardrobe-item';
 
 type WardrobeRepositoryDependencies = Readonly<{
@@ -60,6 +62,7 @@ export type PendingWardrobePhotoCleanup = Readonly<{
 type MutableWardrobeFields = Readonly<{
   name: string | null;
   category: WardrobeItemCategory;
+  entryState: WardrobeEntryState;
   garmentTypeId: GarmentTypeId | null;
   color: string | null;
   colorFamily: ColorFamily | null;
@@ -218,6 +221,9 @@ function mutableFieldsFromCreate(input: CreateWardrobeItemInput): MutableWardrob
     category: Object.prototype.hasOwnProperty.call(input, 'category')
       ? requireCategory(input.category as WardrobeItemCategory)
       : type.structuralCategory,
+    entryState: Object.prototype.hasOwnProperty.call(input, 'entryState')
+      ? requireEnum(input.entryState, wardrobeEntryStateSchema)
+      : 'owned',
     garmentTypeId,
     color: normalizeOptionalWardrobeText(input.color),
     colorFamily: optionalEnum(input.colorFamily, colorFamilySchema),
@@ -251,6 +257,7 @@ function hasMutableUpdate(input: UpdateWardrobeItemInput): boolean {
   return [
     'name',
     'category',
+    'entryState',
     'garmentTypeId',
     'color',
     'colorFamily',
@@ -291,6 +298,9 @@ function mutableFieldsFromUpdate(
       : hasGarmentTypeUpdate && selectedType
         ? selectedType.structuralCategory
         : current.category,
+    entryState: Object.prototype.hasOwnProperty.call(input, 'entryState')
+      ? requireEnum(input.entryState, wardrobeEntryStateSchema)
+      : current.entryState,
     garmentTypeId,
     color: Object.prototype.hasOwnProperty.call(input, 'color')
       ? normalizeOptionalWardrobeText(input.color)
@@ -374,6 +384,7 @@ export class LocalWardrobeRepository implements WardrobeRepository {
         localProfileId,
         name: fields.name,
         category: mapWardrobeCategoryToRecord(fields.category),
+        entryState: fields.entryState,
         garmentTypeId: fields.garmentTypeId,
         color: fields.color,
         colorFamily: fields.colorFamily,
@@ -475,6 +486,7 @@ export class LocalWardrobeRepository implements WardrobeRepository {
         localProfileId: current.localProfileId,
         name: fields.name,
         category: mapWardrobeCategoryToRecord(fields.category),
+        entryState: fields.entryState,
         garmentTypeId: fields.garmentTypeId,
         color: fields.color,
         colorFamily: fields.colorFamily,

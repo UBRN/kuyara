@@ -15,6 +15,7 @@ type WardrobeItemRow = Readonly<{
   local_profile_id: string;
   name: string | null;
   category: string;
+  entry_state: string;
   garment_type_id: string | null;
   color: string | null;
   color_family: string | null;
@@ -36,6 +37,7 @@ const wardrobeItemColumns = `
   local_profile_id,
   name,
   category,
+  entry_state,
   garment_type_id,
   color,
   color_family,
@@ -58,6 +60,7 @@ function mapRow(row: WardrobeItemRow): WardrobeItemRecord {
     localProfileId: row.local_profile_id,
     name: row.name,
     category: row.category,
+    entryState: row.entry_state,
     garmentTypeId: row.garment_type_id,
     color: row.color,
     colorFamily: row.color_family,
@@ -112,6 +115,7 @@ export class SqliteWardrobeLocalDataSource implements WardrobeLocalDataSource {
             local_profile_id,
             name,
             category,
+            entry_state,
             garment_type_id,
             color,
             color_family,
@@ -126,13 +130,14 @@ export class SqliteWardrobeLocalDataSource implements WardrobeLocalDataSource {
             created_at,
             updated_at,
             deleted_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         [
           record.id,
           record.localProfileId,
           record.name,
           record.category,
+          record.entryState,
           record.garmentTypeId,
           record.color,
           record.colorFamily,
@@ -258,6 +263,7 @@ export class SqliteWardrobeLocalDataSource implements WardrobeLocalDataSource {
           SET
             name = ?,
             category = ?,
+            entry_state = ?,
             garment_type_id = ?,
             color = ?,
             color_family = ?,
@@ -275,6 +281,7 @@ export class SqliteWardrobeLocalDataSource implements WardrobeLocalDataSource {
         [
           record.name,
           record.category,
+          record.entryState,
           record.garmentTypeId,
           record.color,
           record.colorFamily,

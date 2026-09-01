@@ -3,6 +3,7 @@ export type WardrobeItemRecord = Readonly<{
   localProfileId: string;
   name: string | null;
   category: string;
+  entryState: string;
   garmentTypeId: string | null;
   color: string | null;
   colorFamily: string | null;

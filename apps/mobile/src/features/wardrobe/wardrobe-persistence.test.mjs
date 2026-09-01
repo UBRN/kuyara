@@ -46,13 +46,17 @@ import {
   mapWardrobeCategoryFromRecord,
   mapWardrobeCategoryToRecord,
   mapWardrobeItemRecord,
+  WardrobeItemMappingError,
 } from './data/wardrobe-item-mapper.ts';
 import {
   LocalWardrobeRepository,
   WardrobeRepositoryError,
 } from './data/wardrobe-repository.ts';
 import { SqliteWardrobeLocalDataSource } from './data/sqlite-wardrobe-local-data-source.ts';
-import { wardrobeItemCategories } from './domain/wardrobe-item.ts';
+import {
+  wardrobeEntryStateSchema,
+  wardrobeItemCategories,
+} from './domain/wardrobe-item.ts';
 import { resolveEffectiveGarment } from './domain/effective-garment.ts';
 import { migrateDatabase } from '../../infrastructure/sqlite/migrations.ts';
 import { NodeSqliteDatabase } from '../../../test/node-sqlite-database.mjs';
@@ -145,6 +149,12 @@ test('taxonomy enums and garment schemas accept only canonical values', () => {
     }).success,
     false,
   );
+});
+
+test('wardrobe entry state schema accepts only stable persistence values', () => {
+  assert.equal(wardrobeEntryStateSchema.safeParse('owned').success, true);
+  assert.equal(wardrobeEntryStateSchema.safeParse('wanted').success, true);
+  assert.equal(wardrobeEntryStateSchema.safeParse('borrowed').success, false);
 });
 
 test('canonical catalog is complete, immutable, versioned, and uses approved applicability', () => {
@@ -294,6 +304,7 @@ test('create generates a UUID and maps a profile-owned item across domain and pe
     localProfileId: profileId,
     name: 'Yağmurluk',
     category: 'outerwear',
+    entryState: 'owned',
     garmentTypeId: 'rain_jacket',
     color: 'Petrol',
     colorFamily: null,
@@ -314,6 +325,7 @@ test('create generates a UUID and maps a profile-owned item across domain and pe
     localProfileId: row.local_profile_id,
     name: row.name,
     category: row.category,
+    entryState: row.entry_state,
     garmentTypeId: row.garment_type_id,
     color: row.color,
     colorFamily: row.color_family,
@@ -331,6 +343,53 @@ test('create generates a UUID and maps a profile-owned item across domain and pe
   }), item);
   assert.equal('photo_relative_path' in row, true);
   assert.equal('photo' in row, false);
+});
+
+test('entry state round-trips, validates stored values, and update preserves omission', async (t) => {
+  const { dataSource, repository, setTime } = await createRepository(t);
+  const owned = await repository.createItem({
+    localProfileId: profileId,
+    garmentTypeId: 'sweater',
+  });
+  const wanted = await repository.createItem({
+    localProfileId: profileId,
+    garmentTypeId: 'trousers',
+    entryState: 'wanted',
+  });
+
+  for (const item of [owned, wanted]) {
+    const record = await dataSource.getActiveItem(profileId, item.id);
+    assert.equal(record.entryState, item.entryState);
+    assert.deepEqual(mapWardrobeItemRecord(record), item);
+  }
+
+  const wantedRecord = await dataSource.getActiveItem(profileId, wanted.id);
+  assert.throws(
+    () => mapWardrobeItemRecord({ ...wantedRecord, entryState: 'borrowed' }),
+    WardrobeItemMappingError,
+  );
+
+  setTime(updatedAt);
+  const changed = await repository.updateItem({
+    id: owned.id,
+    localProfileId: profileId,
+    entryState: 'wanted',
+  });
+  const preserved = await repository.updateItem({
+    id: wanted.id,
+    localProfileId: profileId,
+    name: 'İstenen pantolon',
+  });
+  assert.equal(changed.entryState, 'wanted');
+  assert.equal(preserved.entryState, 'wanted');
+  await assert.rejects(
+    () => repository.createItem({
+      localProfileId: profileId,
+      garmentTypeId: 'sweater',
+      entryState: null,
+    }),
+    assertRepositoryError('invalid-input'),
+  );
 });
 
 test('taxonomy fields round-trip and update distinguishes omission from clearing an override', async (t) => {
@@ -443,6 +502,7 @@ test('released version 2 rows remain readable as unclassified legacy items', asy
     localProfileId: profileId,
     name: 'Eski Kazak',
     category: 'top',
+    entryState: 'owned',
     garmentTypeId: null,
     color: 'Lacivert',
     colorFamily: null,
@@ -702,6 +762,7 @@ test('soft delete retains the photo path for cleanup, timestamps the row, and ex
     localProfileId: profileId,
     category: 'footwear',
     garmentTypeId: 'weather_boots',
+    entryState: 'wanted',
     name: 'Bot',
     photoRelativePath,
   });
@@ -712,6 +773,7 @@ test('soft delete retains the photo path for cleanup, timestamps the row, and ex
   assert.equal(deleted.deletedAt, updatedAt);
   assert.equal(deleted.updatedAt, updatedAt);
   assert.equal(deleted.photoRelativePath, photoRelativePath);
+  assert.equal(deleted.entryState, 'wanted');
   assert.equal(await repository.getActiveItem(profileId, item.id), null);
   assert.deepEqual(await repository.listActiveItems(profileId), []);
   assert.deepEqual(await repository.getItemIncludingDeleted(profileId, item.id), deleted);
@@ -895,6 +957,7 @@ test('repository rejects invalid stored data without exposing persistence detail
     localProfileId: profileId,
     name: null,
     category: 'top',
+    entryState: 'owned',
     garmentTypeId: 't_shirt',
     color: null,
     colorFamily: null,
