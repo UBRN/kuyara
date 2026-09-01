@@ -59,6 +59,8 @@ The card plane could not move up instead: there is only 1.085:1 of headroom betw
 
 `surfaceMuted` and `surfaceInteractive` legitimately invert between the two appearances, so the ladder is not globally monotone. What holds in both appearances, and what `theme.test.mjs` now asserts, is: surface over background is at least 1.2:1, `background` has the lowest luminance, and `backgroundElevated` is at or above `surface`.
 
+M6.1 moves the light `surface` value to `#FFFFFF` while `background` stays `#D0DDDC`, per [ADR 0008](../adr/0008-expanding-the-visual-vocabulary-for-m6-1.md). That pairing measures 1.395:1, the strongest light card-over-ground contrast evaluated so far.
+
 The 40pt `display` typography role, previously defined but unused, is now used for exactly one hero value per screen.
 
 ## Scales
@@ -144,6 +146,8 @@ Milestone 6 moved three items off the deferred list below:
 - Shadows and elevation are now implemented, as exactly two levels and no more: `elevation.raised` for content cards and `elevation.chrome` for navigation chrome (tab bar, collapsing header). Each is a single cross-platform style object carrying the iOS shadow properties and the Android `elevation` value together, and the dark appearance uses markedly lower opacity because the dark surface step already carries the separation. The previous reason for deferring, until a real hierarchy requires them, is now satisfied: there is a ground plane, a card plane, and a chrome plane. See Elevation ladder above.
 - Divider is now implemented as a `Divider` primitive in `apps/mobile/src/components/ui/divider.tsx`, with a full and an inset variant, hidden from the accessibility tree. The previous reason for deferring, that the current shell has no repeated separator need, is now satisfied by four repeated needs: the hourly forecast rows, the settings rows, the outfit piece rows, and the wardrobe rows.
 - Status colors were considered for milestone 6 and rejected: green, red, and amber fall outside the approved blue and neutral palette and would need separate visual identity approval, so they stay deferred below. The underlying accessibility defect was fixed a different way instead: states that were previously signalled by color alone now pair an icon with text, in the AI status section and in the preference option control. The destructive button variant therefore also stays deferred, since it was waiting on status colors.
+
+An icon system for the tab bar and for feature surfaces such as garment slot rows and header actions is no longer deferred: [ADR 0008](../adr/0008-expanding-the-visual-vocabulary-for-m6-1.md) approves it for M6.1. Extending the existing `expo-symbols` `SymbolView` mechanism, already used for the icon-plus-text pairs above, is preferred over adding an icon dependency.
 
 Deferred intentionally:
 

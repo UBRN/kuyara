@@ -113,6 +113,8 @@ Deep Atmosphere and Calm Current form the main navy-to-petrol identity. Quiet Sk
 
 Neon cyan, glow, glassy gradients, rainbow gradients, and highly saturated technology colors are prohibited. Feature UI consumes the existing semantic tokens and must not scatter hardcoded brand values through components.
 
+`#FFFFFF` is permitted as a light-theme surface and card color, approved in [ADR 0008](../adr/0008-expanding-the-visual-vocabulary-for-m6-1.md). It is a neutral surface value, not a new brand hue: the six approved brand hexes above and the Balanced Horizon V2 master geometry remain locked and unchanged.
+
 ## Typography
 
 - Application UI uses platform-appropriate system fonts.
