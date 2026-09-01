@@ -238,38 +238,6 @@ test('weather with no clothing requirements skips AI and persists the determinis
   assert.deepEqual(calls, { client: 0, saves: 1 });
 });
 
-test('wardrobe volume does not affect the catalog-only AI request', async () => {
-  const oversized = input(16);
-  oversized.wardrobeItems = Array.from({ length: 126 }, (_value, index) => ({
-    id: `accessory-${index}`,
-    localProfileId: profileId,
-    name: null,
-    category: 'accessory',
-    garmentTypeId: 'umbrella',
-    color: null,
-    colorFamily: null,
-    thermalLevelOverride: null,
-    waterProtectionOverride: null,
-    windProtectionOverride: null,
-    breathabilityOverride: null,
-    armCoverageOverride: null,
-    legCoverageOverride: null,
-    tractionSuitabilityOverride: null,
-    photoRelativePath: null,
-    createdAt: now,
-    updatedAt: now,
-    deletedAt: null,
-  }));
-  const { controller, calls } = createHarness();
-  await controller.initialize();
-
-  const snapshot = await controller.refresh('explicit', oversized);
-
-  assert.equal(snapshot.generationMode, 'ai-assisted');
-  assert.equal(snapshot.recommendation.outfits.length, 3);
-  assert.deepEqual(calls, { client: 1, saves: 1 });
-});
-
 test('failed refresh keeps the previous snapshot in memory and in the repository', async () => {
   const cached = Object.freeze({
     id: 'cached-recommendation',

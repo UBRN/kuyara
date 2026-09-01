@@ -83,30 +83,6 @@ function warmWetSnapshot() {
   });
 }
 
-function wardrobeItem(overrides = {}) {
-  return Object.freeze({
-    id: 'owned-wet-shoes',
-    localProfileId: 'profile-one',
-    name: null,
-    category: 'footwear',
-    garmentTypeId: 'sneakers',
-    color: null,
-    colorFamily: null,
-    thermalLevelOverride: null,
-    waterProtectionOverride: 'waterproof',
-    windProtectionOverride: null,
-    breathabilityOverride: null,
-    armCoverageOverride: null,
-    legCoverageOverride: null,
-    tractionSuitabilityOverride: 'enhanced',
-    photoRelativePath: null,
-    createdAt: '2026-08-01T10:00:00.000Z',
-    updatedAt: '2026-08-01T10:00:00.000Z',
-    deletedAt: null,
-    ...overrides,
-  });
-}
-
 function candidateKeys(result) {
   return result.outfits.flatMap((outfit) => outfit.candidateKeys);
 }
@@ -115,7 +91,6 @@ test('cold wet weather recommends immutable deterministic catalog outfits', () =
   const weather = coldWetSnapshot();
   const result = recommendOutfits({
     snapshot: weather,
-    wardrobeItems: [],
     clothingPreference: 'womens',
   });
 
@@ -134,21 +109,9 @@ test('cold wet weather recommends immutable deterministic catalog outfits', () =
   assert.equal(Object.isFrozen(result.outfits), true);
 });
 
-test('wardrobe items never join the catalog-only recommendation candidates', () => {
-  const result = recommendOutfits({
-    snapshot: warmWetSnapshot(),
-    wardrobeItems: [wardrobeItem()],
-    clothingPreference: 'womens',
-  });
-
-  assert.equal(result.status, 'recommended');
-  assert.equal(candidateKeys(result).includes('wardrobe:owned-wet-shoes'), false);
-});
-
 test('fallback archetypes use rule order and advance past duplicates', () => {
   const result = recommendOutfits({
     snapshot: coldWetSnapshot(),
-    wardrobeItems: [],
     clothingPreference: 'womens',
   });
 
@@ -163,12 +126,10 @@ test('mens recommendations exclude womens-only catalog types', () => {
   const weather = warmWetSnapshot();
   const womens = recommendOutfits({
     snapshot: weather,
-    wardrobeItems: [],
     clothingPreference: 'womens',
   });
   const mens = recommendOutfits({
     snapshot: weather,
-    wardrobeItems: [],
     clothingPreference: 'mens',
   });
   const womensOnlyKeys = ['catalog:blouse', 'catalog:skirt', 'catalog:dress'];
@@ -185,44 +146,14 @@ test('mens recommendations exclude womens-only catalog types', () => {
   );
 });
 
-test('soft-deleted wardrobe items never appear in an outfit', () => {
-  const result = recommendOutfits({
-    snapshot: warmWetSnapshot(),
-    wardrobeItems: [
-      wardrobeItem({ deletedAt: '2026-08-01T12:00:00.000Z' }),
-    ],
-    clothingPreference: 'womens',
-  });
-
-  assert.equal(result.status, 'recommended');
-  assert.equal(candidateKeys(result).includes('wardrobe:owned-wet-shoes'), false);
-});
-
-test('recommendations are deterministic across repeated and reordered input', () => {
-  const weather = warmWetSnapshot();
-  const wardrobeItems = Object.freeze([
-    wardrobeItem(),
-    wardrobeItem({
-      id: 'owned-rain-jacket',
-      category: 'outerwear',
-      garmentTypeId: 'rain_jacket',
-      waterProtectionOverride: null,
-      tractionSuitabilityOverride: null,
-    }),
-  ]);
+test('recommendations are deterministic across repeated calls with the same input', () => {
   const input = Object.freeze({
-    snapshot: weather,
-    wardrobeItems,
+    snapshot: warmWetSnapshot(),
     clothingPreference: 'womens',
   });
 
   const first = recommendOutfits(input);
   const repeated = recommendOutfits(input);
-  const reordered = recommendOutfits({
-    ...input,
-    wardrobeItems: Object.freeze([...wardrobeItems].reverse()),
-  });
 
   assert.deepEqual(first, repeated);
-  assert.deepEqual(first, reordered);
 });

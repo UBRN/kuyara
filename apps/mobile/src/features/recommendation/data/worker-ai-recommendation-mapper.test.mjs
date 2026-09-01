@@ -43,26 +43,6 @@ function input() {
     },
     clothingPreference: 'womens',
     dayVariant: 0,
-    wardrobeItems: [{
-      id: 'private-item',
-      localProfileId: 'profile-one',
-      name: 'do not send this',
-      category: 'footwear',
-      garmentTypeId: 'sneakers',
-      color: 'private color text',
-      colorFamily: 'blue',
-      thermalLevelOverride: null,
-      waterProtectionOverride: null,
-      windProtectionOverride: null,
-      breathabilityOverride: null,
-      armCoverageOverride: null,
-      legCoverageOverride: null,
-      tractionSuitabilityOverride: null,
-      photoRelativePath: 'private/photo.jpg',
-      createdAt: '2026-08-01T10:00:00.000Z',
-      updatedAt: '2026-08-01T10:00:00.000Z',
-      deletedAt: null,
-    }],
   };
 }
 
@@ -106,7 +86,7 @@ test('different day variants rotate distinct deterministic option sets for ident
   );
   assert.doesNotMatch(
     JSON.stringify(first),
-    /do not send this|private color text|private\/photo\.jpg|profile-one|wardrobe:/,
+    /profile-one|wardrobe:/,
   );
 });
 
