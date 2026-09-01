@@ -1,3 +1,4 @@
+import type { RecommendedOutfit } from '@/features/recommendation/application/recommend-outfits';
 import {
   outfitSlots,
   type AssignedOutfitGarment,
@@ -27,6 +28,7 @@ export type LoadedOutfitPresentation = Readonly<{
   id: string;
   positionLabel: string;
   title: string;
+  summary: string;
   emphasis?: string;
   pieces: readonly LocalizedOutfitPiece[];
   reasons: readonly string[];
@@ -160,7 +162,7 @@ function assignedGarments(outfit: OutfitCandidate): readonly AssignedOutfitGarme
 }
 
 function localizeOutfit(
-  outfit: OutfitCandidate,
+  outfit: RecommendedOutfit,
   index: number,
   total: number,
   weatherReasons: readonly string[],
@@ -175,7 +177,8 @@ function localizeOutfit(
         `catalog.garment_type.${garment.garmentTypeId}.name`
       ],
   }));
-  const title = pieces.map(({ item }) => item).join(' + ');
+  const title = messages.recommendation.archetypes[outfit.archetypeId];
+  const summary = pieces.map(({ item }) => item).join(' + ');
   const reasons = [
     ...weatherReasons,
     ...outfit.reasonCodes.map((reason) => copy.compositionReasons[reason]),
@@ -185,12 +188,14 @@ function localizeOutfit(
     id: `outfit-${index + 1}`,
     positionLabel: copy.optionPosition(index + 1, total),
     title,
+    summary,
     emphasis: index === 0 ? copy.emphasis.recommended : undefined,
     pieces,
     reasons,
     accessibilityLabel: copy.outfitAccessibilityLabel({
       position: index + 1,
       total,
+      archetype: title,
       pieces,
       reasons,
     }),

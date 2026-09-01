@@ -75,6 +75,7 @@ export type TodayMessages = Readonly<{
   outfitAccessibilityLabel: (values: {
     position: number;
     total: number;
+    archetype: string;
     pieces: readonly Readonly<{ slot: string; item: string }>[];
     reasons: readonly string[];
   }) => string;
@@ -647,11 +648,13 @@ const en = {
     outfitAccessibilityLabel: ({
       position,
       total,
+      archetype,
       pieces,
       reasons,
     }) => {
       return [
         `Option ${position} of ${total}.`,
+        `${archetype}.`,
         ...pieces.map(({ slot, item }) => `${slot}: ${item}.`),
         reasons.length > 0 ? `Why it works: ${reasons.join(' ')}` : null,
       ].filter(Boolean).join(' ');
@@ -991,12 +994,14 @@ const tr = {
     outfitAccessibilityLabel: ({
       position,
       total,
+      archetype,
       pieces,
       reasons,
     }) => {
       const ordinal = ['birincisi', 'ikincisi', 'üçüncüsü'][position - 1] ?? `${position}. seçenek`;
       return [
         `${total} seçenekten ${ordinal}.`,
+        `${archetype}.`,
         ...pieces.map(({ slot, item }) => `${slot}: ${item}.`),
         reasons.length > 0 ? `Bu kombin şu nedenlerle uygun: ${reasons.join(' ')}` : null,
       ].filter(Boolean).join(' ');

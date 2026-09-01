@@ -55,6 +55,7 @@ export function OutfitSuggestionCard({
           )
         ) : null}
       </View>
+      <AppText colorRole="textSecondary">{suggestion.summary}</AppText>
       <View
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
