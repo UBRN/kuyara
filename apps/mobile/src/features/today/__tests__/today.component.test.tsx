@@ -113,9 +113,9 @@ test('rendered outfit copy comes from localization and never from the wardrobe f
     expect(englishResult.getByText(suggestion.title)).toBeOnTheScreen();
   }
   for (const summary of [
-    'T-shirt + Shorts + Rain jacket + Weather boots',
-    'Jumpsuit + Rain jacket + Weather boots',
-    'Blouse + Shorts + Rain jacket + Weather boots',
+    'T-shirt + Shorts + Rain jacket + Winter boots',
+    'Jumpsuit + Rain jacket + Winter boots',
+    'Blouse + Shorts + Rain jacket + Winter boots',
   ]) {
     expect(englishResult.getByText(summary)).toBeOnTheScreen();
   }
@@ -137,9 +137,9 @@ test('rendered outfit copy comes from localization and never from the wardrobe f
     expect(turkishResult.getByText(suggestion.title)).toBeOnTheScreen();
   }
   for (const summary of [
-    'Tişört + Şort + Yağmurluk + Hava koşullarına uygun bot',
-    'Tulum + Yağmurluk + Hava koşullarına uygun bot',
-    'Bluz + Şort + Yağmurluk + Hava koşullarına uygun bot',
+    'Tişört + Şort + Yağmurluk + Kışlık bot',
+    'Tulum + Yağmurluk + Kışlık bot',
+    'Bluz + Şort + Yağmurluk + Kışlık bot',
   ]) {
     expect(turkishResult.getByText(summary)).toBeOnTheScreen();
   }
