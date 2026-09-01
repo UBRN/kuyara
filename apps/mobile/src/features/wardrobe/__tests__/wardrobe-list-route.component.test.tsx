@@ -41,6 +41,7 @@ const item: WardrobeItem = {
   localProfileId: '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4',
   name: 'City shell',
   category: 'outerwear',
+  entryState: 'owned',
   garmentTypeId: 'rain_jacket',
   color: null,
   colorFamily: 'blue',

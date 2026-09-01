@@ -139,7 +139,7 @@ Approved 2026-08-30. Documentation may state the present fact that the MVP has n
 Approved 2026-08-30. Rationale, costs, and implementation consequences are canonical in [ADR 0005](adr/0005-catalog-only-recommendation-candidates.md). Section 4 of that ADR is amended by [ADR 0007](adr/0007-ai-selects-precomposed-outfits.md).
 
 - The AI option set is at most 24 outfits composed deterministically from the bundled garment catalog filtered by clothing preference. The Wardrobe is never a candidate source. AI may select only supplied option identifiers and must never invent outfits, catalog entries, wardrobe items, slots, properties, or identifiers.
-- The Wardrobe is a personal record. Each entry is `owned` or `wanted`; there is no separate wishlist table, screen, or tab, and marking either state has no effect on recommendations in the MVP.
+- The Wardrobe is a personal record. Each entry is `owned` or `wanted`, stored locale-independently and translated only at the presentation boundary; there is no separate wishlist table, screen, or tab, and marking either state has no effect on recommendations in the MVP.
 - Every newly created Wardrobe entry must reference a catalog garment type. Existing null `garmentTypeId` rows remain readable, editable, and deletable as legacy records; no data is discarded. New records do not offer free-form garment entry outside the catalog.
 - Ownership state appears only on outfit detail, never on Today.
 - Both AI and the device-local deterministic three-outfit fallback compose from the catalog only.

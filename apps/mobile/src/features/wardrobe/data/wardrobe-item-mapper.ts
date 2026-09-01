@@ -14,6 +14,7 @@ import {
 import {
   isWardrobeItemCategory,
   normalizeWardrobePhotoRelativePath,
+  wardrobeEntryStateSchema,
   type WardrobeItem,
   type WardrobeItemCategory,
 } from '@/features/wardrobe/domain/wardrobe-item';
@@ -34,17 +35,21 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === 'string';
 }
 
-function mapNullableEnum<Value>(value: unknown, schema: ZodType<Value>): Value | null {
-  if (value === null) {
-    return null;
-  }
-
+function mapEnum<Value>(value: unknown, schema: ZodType<Value>): Value {
   const result = schema.safeParse(value);
   if (!result.success) {
     throw new WardrobeItemMappingError();
   }
 
   return result.data;
+}
+
+function mapNullableEnum<Value>(value: unknown, schema: ZodType<Value>): Value | null {
+  if (value === null) {
+    return null;
+  }
+
+  return mapEnum(value, schema);
 }
 
 function isUuidV4(value: string): boolean {
@@ -83,6 +88,7 @@ export function mapWardrobeCategoryFromRecord(value: string): WardrobeItemCatego
 export function mapWardrobeItemRecord(record: WardrobeItemRecord): WardrobeItem {
   try {
     const normalizedPhotoPath = normalizeWardrobePhotoRelativePath(record.photoRelativePath);
+    const entryState = mapEnum(record.entryState, wardrobeEntryStateSchema);
     const garmentTypeId = mapNullableEnum(record.garmentTypeId, garmentTypeIdSchema);
     const colorFamily = mapNullableEnum(record.colorFamily, colorFamilySchema);
     const thermalLevelOverride = mapNullableEnum(
@@ -139,6 +145,7 @@ export function mapWardrobeItemRecord(record: WardrobeItemRecord): WardrobeItem 
       localProfileId: record.localProfileId,
       name: record.name,
       category: mapWardrobeCategoryFromRecord(record.category),
+      entryState,
       garmentTypeId,
       color: record.color,
       colorFamily,

@@ -67,7 +67,7 @@ async function insertProfile(database, id = 'stable-profile-id') {
   );
 }
 
-test('an empty database applies versions 1 through 6 in order with the final schema', async (t) => {
+test('an empty database applies versions 1 through 7 in order with the final schema', async (t) => {
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
 
@@ -87,7 +87,7 @@ test('an empty database applies versions 1 through 6 in order with the final sch
     'PRAGMA index_info(idx_wardrobe_items_profile_deleted_updated)',
   );
 
-  assert.equal(latestDatabaseVersion, 6);
+  assert.equal(latestDatabaseVersion, 7);
   assert.equal(version.user_version, latestDatabaseVersion);
   assert.equal(profileTable.name, 'local_profiles');
   assert.match(profileTable.sql, /CHECK \(singleton_key = 1\)/);
@@ -130,6 +130,7 @@ test('an empty database applies versions 1 through 6 in order with the final sch
       'arm_coverage_override',
       'leg_coverage_override',
       'traction_suitability_override',
+      'entry_state',
     ],
   );
   assert.equal(
@@ -140,7 +141,11 @@ test('an empty database applies versions 1 through 6 in order with the final sch
     wardrobeColumns
       .filter(({ notnull }) => notnull === 1)
       .map(({ name }) => name),
-    ['id', 'local_profile_id', 'category', 'created_at', 'updated_at'],
+    ['id', 'local_profile_id', 'category', 'created_at', 'updated_at', 'entry_state'],
+  );
+  assert.equal(
+    wardrobeColumns.find(({ name }) => name === 'entry_state').dflt_value,
+    "'owned'",
   );
   assert.deepEqual(
     wardrobeIndexColumns.map(({ name }) => name),
@@ -148,7 +153,7 @@ test('an empty database applies versions 1 through 6 in order with the final sch
   );
 });
 
-test('an existing version 1 database upgrades through version 6 without changing profile data', async (t) => {
+test('an existing version 1 database upgrades through version 7 without changing profile data', async (t) => {
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
   await createReleasedVersionOneDatabase(database);
@@ -164,7 +169,7 @@ test('an existing version 1 database upgrades through version 6 without changing
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'wardrobe_items'",
   );
 
-  assert.equal(version.user_version, 6);
+  assert.equal(version.user_version, 7);
   assert.deepEqual(rows.map((row) => ({ ...row })), [{
     id: 'stable-profile-id',
     created_at: timestamp,
@@ -173,7 +178,7 @@ test('an existing version 1 database upgrades through version 6 without changing
   assert.equal(wardrobeTable.name, 'wardrobe_items');
 });
 
-test('versions 3 through 6 preserve a released version 2 wardrobe row and are not reapplied', async (t) => {
+test('versions 3 through 7 preserve a released version 2 wardrobe row and are not reapplied', async (t) => {
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
   await createReleasedVersionTwoDatabase(database);
@@ -200,7 +205,7 @@ test('versions 3 through 6 preserve a released version 2 wardrobe row and are no
 
   const version = await database.getFirstAsync('PRAGMA user_version');
   const rows = await database.getAllAsync('SELECT * FROM wardrobe_items');
-  assert.equal(version.user_version, 6);
+  assert.equal(version.user_version, 7);
   assert.deepEqual(rows.map((row) => ({ ...row })), [{
     id: 'item-id',
     local_profile_id: 'stable-profile-id',
@@ -220,10 +225,83 @@ test('versions 3 through 6 preserve a released version 2 wardrobe row and are no
     arm_coverage_override: null,
     leg_coverage_override: null,
     traction_suitability_override: null,
+    entry_state: 'owned',
   }]);
 });
 
-test('wardrobe schema enforces owner and category constraints', async (t) => {
+test('version 7 preserves version 6 wardrobe rows and defaults their entry state to owned', async (t) => {
+  const database = new NodeSqliteDatabase();
+  t.after(() => database.close());
+
+  const stopBeforeVersionSeven = {
+    execAsync: (source) => database.execAsync(source),
+    runAsync: (source, params) => database.runAsync(source, params),
+    getFirstAsync: (source, params) => database.getFirstAsync(source, params),
+    getAllAsync: (source, params) => database.getAllAsync(source, params),
+    withExclusiveTransactionAsync: (task) =>
+      database.withExclusiveTransactionAsync((transaction) =>
+        task({
+          execAsync: async (source) => {
+            if (source.includes('ADD COLUMN entry_state')) {
+              throw new Error('stop before version 7');
+            }
+            return transaction.execAsync(source);
+          },
+          runAsync: transaction.runAsync.bind(transaction),
+          getFirstAsync: transaction.getFirstAsync.bind(transaction),
+          getAllAsync: transaction.getAllAsync.bind(transaction),
+        }),
+      ),
+  };
+
+  await assert.rejects(
+    () => migrateDatabase(stopBeforeVersionSeven),
+    /stop before version 7/,
+  );
+  await insertProfile(database);
+  await database.runAsync(
+    `
+      INSERT INTO wardrobe_items (
+        id, local_profile_id, name, category, color, photo_relative_path,
+        created_at, updated_at, deleted_at, garment_type_id, color_family
+      ) VALUES
+        ('active-item', 'stable-profile-id', 'Kazak', 'top', 'Mavi', NULL, ?, ?, NULL, 'sweater', 'blue'),
+        ('deleted-item', 'stable-profile-id', 'Bot', 'footwear', 'Siyah', 'wardrobe/boot.jpg', ?, ?, ?, 'weather_boots', 'black')
+    `,
+    [timestamp, timestamp, timestamp, deletedTimestamp, deletedTimestamp],
+  );
+
+  await migrateDatabase(database);
+
+  const version = await database.getFirstAsync('PRAGMA user_version');
+  const rows = await database.getAllAsync('SELECT * FROM wardrobe_items ORDER BY id');
+  assert.equal(version.user_version, 7);
+  assert.deepEqual(rows.map((row) => ({ ...row })), [
+    {
+      id: 'active-item', local_profile_id: 'stable-profile-id', name: 'Kazak',
+      category: 'top', color: 'Mavi', photo_relative_path: null,
+      created_at: timestamp, updated_at: timestamp, deleted_at: null,
+      garment_type_id: 'sweater', color_family: 'blue',
+      thermal_level_override: null, water_protection_override: null,
+      wind_protection_override: null, breathability_override: null,
+      arm_coverage_override: null, leg_coverage_override: null,
+      traction_suitability_override: null,
+      entry_state: 'owned',
+    },
+    {
+      id: 'deleted-item', local_profile_id: 'stable-profile-id', name: 'Bot',
+      category: 'footwear', color: 'Siyah', photo_relative_path: 'wardrobe/boot.jpg',
+      created_at: timestamp, updated_at: deletedTimestamp, deleted_at: deletedTimestamp,
+      garment_type_id: 'weather_boots', color_family: 'black',
+      thermal_level_override: null, water_protection_override: null,
+      wind_protection_override: null, breathability_override: null,
+      arm_coverage_override: null, leg_coverage_override: null,
+      traction_suitability_override: null, entry_state: 'owned',
+    },
+  ]);
+});
+
+test('wardrobe schema enforces owner, category, and entry state constraints', async (t) => {
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
   await migrateDatabase(database);
@@ -243,10 +321,18 @@ test('wardrobe schema enforces owner and category constraints', async (t) => {
   await assert.rejects(() => insertWardrobeItem('orphan', 'missing-profile', 'top'));
   await assert.rejects(() => insertWardrobeItem('invalid-category', 'stable-profile-id', 'hat'));
   await insertWardrobeItem('valid-item', 'stable-profile-id', 'accessory');
+  await database.runAsync(
+    "UPDATE wardrobe_items SET entry_state = 'wanted' WHERE id = 'valid-item'",
+  );
+  await assert.rejects(() =>
+    database.runAsync(
+      "UPDATE wardrobe_items SET entry_state = 'borrowed' WHERE id = 'valid-item'",
+    ),
+  );
 
-  const rows = await database.getAllAsync('SELECT id, category FROM wardrobe_items');
+  const rows = await database.getAllAsync('SELECT id, category, entry_state FROM wardrobe_items');
   assert.deepEqual(rows.map((row) => ({ ...row })), [
-    { id: 'valid-item', category: 'accessory' },
+    { id: 'valid-item', category: 'accessory', entry_state: 'wanted' },
   ]);
 });
 
@@ -492,7 +578,7 @@ test('version 4 upgrades a released version 3 database and rolls back atomically
   const tables = await database.getAllAsync(
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('active_locations', 'weather_snapshots', 'weather_hourly_entries') ORDER BY name",
   );
-  assert.equal(version.user_version, 6);
+  assert.equal(version.user_version, 7);
   assert.deepEqual(tables.map(({ name }) => name), [
     'active_locations',
     'weather_hourly_entries',
