@@ -34,6 +34,9 @@ Do not combine these milestones merely for convenience. Server-sent push (N3) re
 ## Known Issues and Manual Verification Gaps
 
 - Primary tab labels truncate at the largest accessibility text size; accessible names remain complete. Adding or changing tab icons requires design approval.
+- In the dark theme `backgroundElevated` and `surface` resolve to the same value, and the dark elevation shadows are deliberately faint because the dark surface step already carries the separation. An elevated card therefore separates from the ground but not from a plain surface. No screen depends on that distinction today, so no dark tint was added for it.
+- `.maestro/flows/update-settings.yaml` was updated for the three-tab navigation, reaching Settings through the Profile tab and its header button, but has not been executed since. It needs one `pnpm e2e:ios` run on a Simulator to confirm.
+- Settings content scrolls under the status bar once the screen is scrolled, because the screen has no masking header. This predates M6 and is not a regression, but it reads as unpolished.
 - The resolved Android manifest has not been checked after blocking fine-location permission through Expo configuration.
 - Real-device VoiceOver focus order and spoken grouping remain unverified for the weather card.
 - N2's background execution cannot be verified on the iOS Simulator and will require a physical-device check.
