@@ -34,10 +34,16 @@ export function resolveAppTextStyle(
 }
 
 export function resolveSurfaceColors(theme: KuyaraTheme, variant: SurfaceVariant) {
-  return {
+  const colors = {
     backgroundColor: theme.colors[surfaceColorRoleByVariant[variant]],
     borderColor: theme.colors.borderSubtle,
   } as const;
+
+  if (variant === 'elevated') {
+    return { ...colors, ...theme.elevation.raised } as const;
+  }
+
+  return colors;
 }
 
 export function resolveButtonColors(

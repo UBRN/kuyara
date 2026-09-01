@@ -112,7 +112,7 @@ test('route and presentation sources preserve local gating and accessible select
     await Promise.all([
       source('../../app/(tabs)/(today)/index.tsx'),
       source('../../app/onboarding.tsx'),
-      source('../../app/(tabs)/settings/index.tsx'),
+      source('../../app/(tabs)/(profile)/settings/index.tsx'),
       source('../../app/_layout.tsx'),
       source('../../app/(tabs)/_layout.tsx'),
       source('../../navigation/primary-tab-bar.tsx'),

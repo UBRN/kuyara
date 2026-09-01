@@ -77,19 +77,11 @@ export function PrimaryTabs() {
         }}
       />
       <Tabs.Screen
-        name="wardrobe"
+        name="(profile)"
         options={{
-          tabBarAccessibilityLabel: labels.wardrobe,
-          tabBarButtonTestID: "tab-wardrobe",
-          title: labels.wardrobe,
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          tabBarAccessibilityLabel: labels.settings,
-          tabBarButtonTestID: "tab-settings",
-          title: labels.settings,
+          tabBarAccessibilityLabel: labels.profile,
+          tabBarButtonTestID: "tab-profile",
+          title: labels.profile,
         }}
       />
     </Tabs>

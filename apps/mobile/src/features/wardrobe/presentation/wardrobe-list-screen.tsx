@@ -17,9 +17,12 @@ import { AppText, Button, PhotoPlaceholder, StretchyHeader, Surface } from '@/co
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import type { CatalogMessageKey } from '@/features/catalog/domain/garment-taxonomy';
 import type { WardrobeApplicationState } from '@/features/wardrobe/application/wardrobe-application-controller';
-import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
+import type {
+  WardrobeEntryState,
+  WardrobeItem,
+} from '@/features/wardrobe/domain/wardrobe-item';
 import { useMessages } from '@/localization/use-messages';
-import { layout, radii, spacing } from '@/theme/theme';
+import { borderWidths, interaction, layout, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 type WardrobeListScreenProps = Readonly<{
@@ -53,6 +56,12 @@ function WardrobeListItem({
   const colorLabel = item.colorFamily
     ? messages.catalog[`catalog.color_family.${item.colorFamily}`]
     : null;
+  const stateLabel = item.entryState === 'owned'
+    ? messages.wardrobe.ownedLabel
+    : messages.wardrobe.wantedLabel;
+  const stateAccessibilityLabel = item.entryState === 'owned'
+    ? messages.wardrobe.itemOwnedLabel
+    : messages.wardrobe.itemWantedLabel;
   const title = item.name ?? typeLabel;
   const photoUri = resolvePhotoUri(item.photoRelativePath);
   const [unreadablePhotoUri, setUnreadablePhotoUri] = useState<string | null>(null);
@@ -66,6 +75,7 @@ function WardrobeListItem({
         type: typeLabel,
         category: categoryLabel,
         color: colorLabel,
+        state: stateAccessibilityLabel,
       })}
       accessibilityRole="button"
       onPress={onPress}
@@ -104,6 +114,9 @@ function WardrobeListItem({
             <AppText colorRole="textSecondary" variant="caption">
               {[categoryLabel, colorLabel].filter(Boolean).join(' · ')}
             </AppText>
+            <AppText colorRole="textSecondary" variant="caption">
+              {stateLabel}
+            </AppText>
           </View>
           <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
             <SymbolView
@@ -130,6 +143,7 @@ export function WardrobeListScreen({
   const theme = useKuyaraTheme();
   const copy = messages.wardrobe;
   const [headerHeight, setHeaderHeight] = useState(0);
+  const [entryState, setEntryState] = useState<WardrobeEntryState>('owned');
   const scrollOffset = useSharedValue(0);
   const scrollHandler = useAnimatedScrollHandler((event) => {
     scrollOffset.set(event.contentOffset.y);
@@ -177,6 +191,16 @@ export function WardrobeListScreen({
     );
   }
 
+  const filteredItems = state.items.filter(
+    (item) => item.entryState === entryState,
+  );
+  const emptyTitle = entryState === 'owned'
+    ? copy.emptyTitle
+    : copy.wantedEmptyTitle;
+  const emptyBody = entryState === 'owned'
+    ? copy.emptyBody
+    : copy.wantedEmptyBody;
+
   return (
     <View style={[styles.readyScreen, { backgroundColor: theme.colors.background }]}>
       <StretchyHeader
@@ -204,27 +228,74 @@ export function WardrobeListScreen({
         contentContainerStyle={[
           styles.listContent,
           listContentInsets,
-          state.items.length === 0 && styles.emptyListContent,
+          filteredItems.length === 0 && styles.emptyListContent,
         ]}
-        data={state.items}
+        data={filteredItems}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={
-          state.hasRefreshError ? (
-            <Surface style={[styles.inlineError, styles.listHeader]} variant="muted">
-              <AppText accessibilityRole="alert">{copy.loadErrorBody}</AppText>
-              <Button label={copy.retryAction} onPress={onRetry} variant="secondary" />
-            </Surface>
-          ) : null
+          <View style={styles.listHeader}>
+            <View style={styles.filter}>
+              {(['owned', 'wanted'] as const).map((value) => {
+                const selected = entryState === value;
+                const label = value === 'owned' ? copy.ownedLabel : copy.wantedLabel;
+
+                return (
+                  <Pressable
+                    accessibilityLabel={label}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected }}
+                    key={value}
+                    onPress={() => setEntryState(value)}
+                    style={({ pressed }) => [
+                      styles.filterSegment,
+                      {
+                        backgroundColor: selected
+                          ? theme.colors.brandAccent
+                          : theme.colors.surfaceInteractive,
+                        borderColor: selected
+                          ? theme.colors.brandAccent
+                          : theme.colors.borderSubtle,
+                      },
+                      pressed && styles.filterPressed,
+                    ]}
+                    testID={`wardrobe-filter-${value}`}>
+                    <AppText
+                      colorRole={selected ? 'textOnBrand' : 'textPrimary'}
+                      variant="bodyStrong">
+                      {label}
+                    </AppText>
+                    {selected ? (
+                      <View
+                        accessibilityElementsHidden
+                        importantForAccessibility="no-hide-descendants">
+                        <SymbolView
+                          name={{ ios: 'checkmark', android: 'check', web: 'check' }}
+                          size={18}
+                          tintColor={theme.colors.textOnBrand}
+                        />
+                      </View>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+            {state.hasRefreshError ? (
+              <Surface style={styles.inlineError} variant="muted">
+                <AppText accessibilityRole="alert">{copy.loadErrorBody}</AppText>
+                <Button label={copy.retryAction} onPress={onRetry} variant="secondary" />
+              </Surface>
+            ) : null}
+          </View>
         }
         ListEmptyComponent={
           <Surface style={styles.emptyCard} variant="elevated">
             <AppText accessibilityRole="header" variant="title">
-              {copy.emptyTitle}
+              {emptyTitle}
             </AppText>
-            <AppText colorRole="textSecondary">{copy.emptyBody}</AppText>
+            <AppText colorRole="textSecondary">{emptyBody}</AppText>
             <Button
               accessibilityHint={copy.addHint}
-              label={copy.emptyAction}
+              label={state.items.length === 0 ? copy.emptyAction : copy.addAction}
               onPress={onAdd}
               testID="wardrobe-empty-add-button"
             />
@@ -280,7 +351,26 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
   },
   listHeader: {
+    gap: spacing.md,
     marginBottom: spacing.md,
+  },
+  filter: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  filterSegment: {
+    alignItems: 'center',
+    borderRadius: radii.control,
+    borderWidth: borderWidths.strong,
+    flex: 1,
+    flexDirection: 'row',
+    gap: spacing.sm,
+    justifyContent: 'center',
+    minHeight: layout.minimumTouchTarget,
+    paddingHorizontal: spacing.md,
+  },
+  filterPressed: {
+    opacity: interaction.pressedOpacity,
   },
   inlineError: {
     gap: spacing.md,

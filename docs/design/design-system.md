@@ -51,13 +51,23 @@ Contrast was calculated with the WCAG relative-luminance formula. The measuremen
 
 The first four rows are text pairs measured against the 4.5:1 threshold. The last row is meaningful non-text content measured against the 3:1 threshold; rain probability is additionally encoded by bar height and repeated in the group's accessibility label, so it never depends on color alone. The weather card tint is `brandAccent` at 0.08 over `background`, and the photo placeholder tint is `brandAccent` at 0.05 over `surface`. These pairs are asserted in `theme.test.mjs`.
 
+### Elevation ladder
+
+Milestone 6 fixed the light appearance's flat ground-to-card contrast by moving the ground plane down rather than lifting the card. `background` moved to `#D0DDDC`; `surface` stays Cloud White `#EFF4F3`; `backgroundElevated` moved to Soft Mist `#F4F6F5` and is now the highest plane instead of a duplicate of `surface`. Measured, the light surface-over-background contrast went from 1.023:1 to 1.255:1, which matches the dark appearance's existing 1.276:1.
+
+The card plane could not move up instead: there is only 1.085:1 of headroom between Soft Mist and pure white, so the card plane physically cannot be lifted far enough. No new brand color was introduced. `#D0DDDC` is a derived neutral of the same class as the pre-existing derived neutrals `#E7EEED`, `#DDE8E7`, and `#C5D5D6`; the six approved brand hexes are unchanged.
+
+`surfaceMuted` and `surfaceInteractive` legitimately invert between the two appearances, so the ladder is not globally monotone. What holds in both appearances, and what `theme.test.mjs` now asserts, is: surface over background is at least 1.2:1, `background` has the lowest luminance, and `backgroundElevated` is at or above `surface`.
+
+The 40pt `display` typography role, previously defined but unused, is now used for exactly one hero value per screen.
+
 ## Scales
 
 Spacing follows a restrained four-point rhythm: `xs` 4, `sm` 8, `md` 12, `lg` 16, `xl` 24, and `2xl` 32. The separate `minimumTouchTarget` layout value is 44 points; it is not treated as spacing.
 
 Typography uses platform system fonts and the semantic roles `display`, `titleLarge`, `title`, `eyebrow`, `body`, `bodyStrong`, `caption`, `label`, and `code`. The `code` role selects the platform system monospace face. The `eyebrow` role is a small uppercase letter-spaced label used above a value or a grouped block, currently by the Today weather card's metric and rain-timeline headings; it carries no color of its own and is normally paired with the `textSecondary` role. React Native font scaling remains enabled; shared text does not set `allowFontScaling={false}` or cap the font-size multiplier. Turkish text is stored in localization files rather than token definitions.
 
-Shape roles are `compact` 8, `control` 12, `card` 20, `sheet` 28, and `pill` 999. Border widths are `subtle` 1 and `strong` 2. The system does not define shadows or elevation because the current shell does not need them.
+Shape roles are `compact` 8, `control` 12, `card` 20, `sheet` 28, and `pill` 999. Border widths are `subtle` 1 and `strong` 2. Elevation is authored as exactly two levels: `elevation.raised` for content cards and `elevation.chrome` for navigation chrome such as the tab bar and the collapsing header. Each level is a single cross-platform style object carrying the iOS shadow properties and the Android `elevation` value together. The dark appearance uses markedly lower shadow opacity, because the dark surface step already carries the separation.
 
 Interaction opacity is tokenized as `pressedOpacity` 0.72 and `disabledOpacity` 0.48. Presentation code uses these tokens rather than repeating the literal values.
 
@@ -129,15 +139,19 @@ Current implementation and milestone status is maintained in [`../current-status
 
 The milestone 4 generation-mode indicator reuses the existing `Pill` with a text label and existing tokens (`brandAccent` for AI-assisted, `borderSubtle` for standard), and the Settings probe loading animation drives `theme.motion` durations with a static Reduced-Motion path. No status token or status component was added, so state is never signalled by colour alone.
 
+Milestone 6 moved three items off the deferred list below:
+
+- Shadows and elevation are now implemented, as exactly two levels and no more: `elevation.raised` for content cards and `elevation.chrome` for navigation chrome (tab bar, collapsing header). Each is a single cross-platform style object carrying the iOS shadow properties and the Android `elevation` value together, and the dark appearance uses markedly lower opacity because the dark surface step already carries the separation. The previous reason for deferring, until a real hierarchy requires them, is now satisfied: there is a ground plane, a card plane, and a chrome plane. See Elevation ladder above.
+- Divider is now implemented as a `Divider` primitive in `apps/mobile/src/components/ui/divider.tsx`, with a full and an inset variant, hidden from the accessibility tree. The previous reason for deferring, that the current shell has no repeated separator need, is now satisfied by four repeated needs: the hourly forecast rows, the settings rows, the outfit piece rows, and the wardrobe rows.
+- Status colors were considered for milestone 6 and rejected: green, red, and amber fall outside the approved blue and neutral palette and would need separate visual identity approval, so they stay deferred below. The underlying accessibility defect was fixed a different way instead: states that were previously signalled by color alone now pair an icon with text, in the AI status section and in the preference option control. The destructive button variant therefore also stays deferred, since it was waiting on status colors.
+
 Deferred intentionally:
 
 - Any migration from JavaScript Tabs to SDK 57's alpha Native Tabs
 - Generic text-input, selector, switch, modal, or feedback frameworks; the Wardrobe controls remain feature-specific
-- Divider, because the current shell has no repeated separator need
 - A generic destructive button variant or new destructive color token; Wardrobe distinguishes removal through copy, section hierarchy, accessibility semantics, and the platform Alert style
 - Non-scrollable and keyboard-specific screen behavior until a checked-in flow requires either
 - Status tokens and status components
 - Platform-color adapters until a concrete native integration needs them
-- Shadows or elevation until a real hierarchy requires them
 
 The three-tab information architecture is final: Today, Weather, and Profile. Wardrobe and wanted records live inside Profile, and Settings opens from the Profile header. The current root uses a stable Expo Router Stack for the onboarding gate and Expo Router JavaScript Tabs for the main application. Native Tabs are not a drop-in implementation detail while the SDK 57 API remains alpha; any later migration must be reviewed explicitly. Android source compatibility is preserved, but Android build, emulator, and visual refinement remain unverified and deferred.

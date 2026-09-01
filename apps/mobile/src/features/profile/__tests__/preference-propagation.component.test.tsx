@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import SettingsRoute from '@/app/(tabs)/settings';
+import SettingsRoute from '@/app/(tabs)/(profile)/settings';
 import type {
   LanguagePreference,
   ThemePreference,

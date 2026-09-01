@@ -70,6 +70,35 @@ test('Reduce Motion removes decorative duration while preserving standard timing
   assert.equal(Object.values(reducedMotion).every((duration) => duration === 0), true);
 });
 
+test('themes expose two calm, platform-complete elevation levels independent of motion', () => {
+  const light = createKuyaraTheme('light');
+  const dark = createKuyaraTheme('dark');
+  const reduced = createKuyaraTheme('light', true);
+
+  for (const theme of [light, dark]) {
+    assert.deepEqual(Object.keys(theme.elevation).sort(), ['chrome', 'raised']);
+
+    for (const level of Object.values(theme.elevation)) {
+      assert.equal(level.shadowColor, brandColors.nightLayer);
+      assert.deepEqual(Object.keys(level).sort(), [
+        'elevation',
+        'shadowColor',
+        'shadowOffset',
+        'shadowOpacity',
+        'shadowRadius',
+      ]);
+      assert.equal(typeof level.elevation, 'number');
+    }
+
+    assert.ok(theme.elevation.chrome.shadowOpacity > theme.elevation.raised.shadowOpacity);
+    assert.ok(theme.elevation.chrome.elevation > theme.elevation.raised.elevation);
+  }
+
+  assert.ok(light.elevation.raised.shadowOpacity > dark.elevation.raised.shadowOpacity);
+  assert.ok(light.elevation.chrome.shadowOpacity > dark.elevation.chrome.shadowOpacity);
+  assert.equal(reduced.elevation, light.elevation);
+});
+
 function ShellThemeProbe() {
   const theme = useKuyaraTheme();
 
@@ -217,9 +246,31 @@ function contrastOfHexOverBackground(foregroundHex, backgroundHex) {
   return contrastRatio(hexToRgb(foregroundHex), hexToRgb(backgroundHex));
 }
 
+test('light and dark surface ladders retain visible, monotone elevation steps', () => {
+  for (const semanticColors of [lightSemanticColors, darkSemanticColors]) {
+    assert.ok(
+      contrastOfHexOverBackground(semanticColors.surface, semanticColors.background) >= 1.2,
+      'surface and background must retain at least 1.2:1 contrast',
+    );
+
+    const background = relativeLuminance(hexToRgb(semanticColors.background));
+    const surfaceInteractive = relativeLuminance(hexToRgb(semanticColors.surfaceInteractive));
+    const surfaceMuted = relativeLuminance(hexToRgb(semanticColors.surfaceMuted));
+    const surface = relativeLuminance(hexToRgb(semanticColors.surface));
+    const backgroundElevated = relativeLuminance(hexToRgb(semanticColors.backgroundElevated));
+
+    // surfaceMuted and surfaceInteractive intentionally invert between schemes.
+    assert.equal(
+      background,
+      Math.min(background, surfaceInteractive, surfaceMuted, surface, backgroundElevated),
+    );
+    assert.ok(backgroundElevated >= surface);
+  }
+});
+
 const CARD_BACKGROUND_ALPHA = 0.08;
 const PHOTO_PLACEHOLDER_BACKGROUND_ALPHA = 0.05;
-const RAIN_BAR_MUTED_ALPHA = 0.7;
+const RAIN_BAR_MUTED_ALPHA = 0.77;
 
 test('weather-card and photo-placeholder tinted surfaces meet WCAG contrast thresholds', () => {
   for (const semanticColors of [lightSemanticColors, darkSemanticColors]) {

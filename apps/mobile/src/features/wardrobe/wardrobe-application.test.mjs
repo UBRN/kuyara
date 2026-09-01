@@ -160,9 +160,9 @@ test('wardrobe routes remain thin, virtualized, and free of SQLite or SQL access
   const source = async (path) => readFile(new URL(path, import.meta.url), 'utf8');
   const [indexRoute, newRoute, editRoute, form, list, routeComposition] =
     await Promise.all([
-      source('../../app/(tabs)/wardrobe/index.tsx'),
-      source('../../app/(tabs)/wardrobe/new.tsx'),
-      source('../../app/(tabs)/wardrobe/[id].tsx'),
+      source('../../app/(tabs)/(profile)/wardrobe/index.tsx'),
+      source('../../app/(tabs)/(profile)/wardrobe/new.tsx'),
+      source('../../app/(tabs)/(profile)/wardrobe/[id].tsx'),
       source('./presentation/wardrobe-item-form-screen.tsx'),
       source('./presentation/wardrobe-list-screen.tsx'),
       source('./presentation/wardrobe-item-routes.tsx'),

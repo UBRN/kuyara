@@ -1,7 +1,8 @@
 import { Pressable, StyleSheet, Switch, View } from 'react-native';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 
-import { AppText, Screen } from '@/components/ui';
+import { AppText, Screen, Surface } from '@/components/ui';
+import { Divider } from '@/components/ui/divider';
 import type {
   ClothingPreference,
   LanguagePreference,
@@ -78,31 +79,7 @@ export function SettingsScreen({
         {messages.settings.introduction}
       </AppText>
 
-      <View style={styles.section}>
-        <AppText colorRole="brandAccent" variant="eyebrow">
-          {copy.clothingTitle}
-        </AppText>
-        <View style={styles.rowOptions}>
-          <PreferenceOption
-            disabled={isSaving}
-            label={copy.womensClothing}
-            layout="row"
-            onPress={() => void save(() => updateClothingPreference('womens'))}
-            selected={profile.clothingPreference === 'womens'}
-            testID="settings-clothing-womens"
-          />
-          <PreferenceOption
-            disabled={isSaving}
-            label={copy.mensClothing}
-            layout="row"
-            onPress={() => void save(() => updateClothingPreference('mens'))}
-            selected={profile.clothingPreference === 'mens'}
-            testID="settings-clothing-mens"
-          />
-        </View>
-      </View>
-
-      <View style={styles.section}>
+      <Surface style={styles.groupCard} variant="elevated">
         <AppText colorRole="brandAccent" variant="eyebrow">
           {copy.languageTitle}
         </AppText>
@@ -113,45 +90,48 @@ export function SettingsScreen({
               ['tr', copy.languageTurkish],
               ['en', copy.languageEnglish],
             ] as const
-          ).map(([value, label]) => (
-            <PreferenceOption
-              key={value}
-              disabled={isSaving}
-              label={label}
-              onPress={() => void save(() => updateLanguagePreference(value))}
-              selected={profile.languagePreference === value}
-              testID={`settings-language-${value}`}
-            />
+          ).map(([value, label], index) => (
+            <Fragment key={value}>
+              {index > 0 ? <Divider variant="inset" /> : null}
+              <PreferenceOption
+                disabled={isSaving}
+                label={label}
+                onPress={() => void save(() => updateLanguagePreference(value))}
+                selected={profile.languagePreference === value}
+                testID={`settings-language-${value}`}
+              />
+            </Fragment>
           ))}
         </View>
-      </View>
+      </Surface>
 
-      <View style={styles.section}>
+      <Surface style={styles.groupCard} variant="elevated">
         <AppText colorRole="brandAccent" variant="eyebrow">
           {copy.themeTitle}
         </AppText>
-        <View style={styles.rowOptions}>
+        <View style={styles.options}>
           {(
             [
               ['system', copy.themeSystem],
               ['light', copy.themeLight],
               ['dark', copy.themeDark],
             ] as const
-          ).map(([value, label]) => (
-            <PreferenceOption
-              key={value}
-              disabled={isSaving}
-              label={label}
-              layout="row"
-              onPress={() => void save(() => updateThemePreference(value))}
-              selected={profile.themePreference === value}
-              testID={`settings-theme-${value}`}
-            />
+          ).map(([value, label], index) => (
+            <Fragment key={value}>
+              {index > 0 ? <Divider variant="inset" /> : null}
+              <PreferenceOption
+                disabled={isSaving}
+                label={label}
+                onPress={() => void save(() => updateThemePreference(value))}
+                selected={profile.themePreference === value}
+                testID={`settings-theme-${value}`}
+              />
+            </Fragment>
           ))}
         </View>
-      </View>
+      </Surface>
 
-      <View style={styles.section}>
+      <Surface style={styles.groupCard} variant="elevated">
         <AppText colorRole="brandAccent" variant="eyebrow">
           {messages.notifications.title}
         </AppText>
@@ -212,7 +192,7 @@ export function SettingsScreen({
               : messages.notifications.testNotificationFailed}
           </AppText>
         ) : null}
-      </View>
+      </Surface>
 
       <AiStatusSection
         aiStatus={aiStatus}
@@ -220,6 +200,29 @@ export function SettingsScreen({
         lastGenerationMode={lastGenerationMode}
         onCheckAiStatus={onCheckAiStatus}
       />
+
+      <Surface style={styles.groupCard} variant="elevated">
+        <AppText colorRole="brandAccent" variant="eyebrow">
+          {copy.clothingTitle}
+        </AppText>
+        <View style={styles.options}>
+          <PreferenceOption
+            disabled={isSaving}
+            label={copy.womensClothing}
+            onPress={() => void save(() => updateClothingPreference('womens'))}
+            selected={profile.clothingPreference === 'womens'}
+            testID="settings-clothing-womens"
+          />
+          <Divider variant="inset" />
+          <PreferenceOption
+            disabled={isSaving}
+            label={copy.mensClothing}
+            onPress={() => void save(() => updateClothingPreference('mens'))}
+            selected={profile.clothingPreference === 'mens'}
+            testID="settings-clothing-mens"
+          />
+        </View>
+      </Surface>
 
       {isSaving ? (
         <AppText accessibilityLiveRegion="polite" colorRole="textSecondary">
@@ -247,15 +250,12 @@ const styles = StyleSheet.create({
   title: {
     marginTop: spacing.xl,
   },
-  section: {
+  groupCard: {
     gap: spacing.lg,
+    padding: spacing.xl,
   },
   options: {
     gap: spacing.md,
-  },
-  rowOptions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
   },
   notificationRow: {
     alignItems: 'center',
