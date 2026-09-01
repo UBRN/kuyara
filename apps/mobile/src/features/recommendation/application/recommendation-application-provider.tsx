@@ -78,6 +78,7 @@ export function RecommendationApplicationProvider({
     controller.getSnapshot,
     controller.getSnapshot,
   );
+  const persistedSnapshot = state.status === 'ready' ? state.snapshot : null;
   const input = useMemo(() => {
     const clothingPreference = profileState.status === 'ready'
       ? profileState.profile.clothingPreference
@@ -93,7 +94,6 @@ export function RecommendationApplicationProvider({
       dayVariant,
     };
   }, [dayVariant, profileState, weatherState]);
-  const previousSignals = useRef<RecommendationSignals | null>(null);
   const staleRefreshSnapshotId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -119,8 +119,14 @@ export function RecommendationApplicationProvider({
       clothingPreference: input.clothingPreference,
       dayVariant: input.dayVariant,
     };
-    const previous = previousSignals.current;
-    previousSignals.current = current;
+    const previous: RecommendationSignals | null = persistedSnapshot
+      ? {
+          weatherSnapshotId: persistedSnapshot.weatherSnapshotId,
+          locationKey: persistedSnapshot.locationKey,
+          clothingPreference: persistedSnapshot.clothingPreference,
+          dayVariant: persistedSnapshot.dayVariant,
+        }
+      : null;
 
     const trigger = recommendationRefreshTrigger(
       previous,
@@ -132,7 +138,7 @@ export function RecommendationApplicationProvider({
     }
 
     if (trigger) void controller.refresh(trigger, input);
-  }, [controller, input, state.status]);
+  }, [controller, input, persistedSnapshot, state.status]);
 
   const value = useMemo<RecommendationApplicationValue>(() => ({
     state,
