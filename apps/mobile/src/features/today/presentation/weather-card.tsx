@@ -1,6 +1,6 @@
 import { Linking, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 
-import { AppText } from '@/components/ui';
+import { AppText, Surface } from '@/components/ui';
 import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
 import type { LocalizedHourlyRainProbability } from '@/features/today/presentation/today-presentation';
 import { useLocalization } from '@/localization/use-messages';
@@ -69,9 +69,10 @@ export function WeatherCard({
   const mutedBarColor = withAlpha(theme.colors.brandAccent, RAIN_BAR_MUTED_ALPHA);
 
   return (
-    <View
+    <Surface
       style={[styles.card, { backgroundColor: withAlpha(theme.colors.brandAccent, CARD_BACKGROUND_ALPHA) }]}
-      testID={testID}>
+      testID={testID}
+      variant="elevated">
       <View
         accessible
         accessibilityLabel={accessibilityLabel}
@@ -82,9 +83,10 @@ export function WeatherCard({
           <WeatherGlyph />
         </View>
         <View style={styles.conditionGroup}>
-          <AppText variant="label">
-            {`${temperature} · ${condition}`}
-          </AppText>
+          <View style={styles.conditionRow}>
+            <AppText variant="display">{temperature}</AppText>
+            <AppText variant="label">{condition}</AppText>
+          </View>
           <AppText colorRole="brandAccent" style={styles.feelsText} variant="caption">
             {`${apparentTemperature} · ${range}`}
           </AppText>
@@ -159,14 +161,14 @@ export function WeatherCard({
           </AppText>
         </Pressable>
       )}
-    </View>
+    </Surface>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
     borderRadius: radii.card,
-    gap: spacing.md,
+    gap: spacing.lg,
     padding: spacing.lg,
   },
   attribution: {
@@ -185,6 +187,12 @@ const styles = StyleSheet.create({
     flex: 1,
     flexShrink: 1,
   },
+  conditionRow: {
+    alignItems: 'baseline',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
   feelsText: {
     marginTop: spacing.xs,
   },
@@ -201,7 +209,7 @@ const styles = StyleSheet.create({
   },
   timeline: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    gap: spacing.sm,
+    gap: spacing.md,
     paddingTop: spacing.md,
   },
   bars: {

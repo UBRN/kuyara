@@ -1,8 +1,11 @@
+import { Fragment } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText, Button, Pill, Screen } from '@/components/ui';
+import { Divider } from '@/components/ui/divider';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import type { TodayScreenState } from '@/features/today/model';
+import { CARD_BACKGROUND_ALPHA } from '@/features/today/presentation/weather-card';
 import type { SupportedLanguage } from '@/localization/messages';
 import { withAlpha } from '@/theme/color-alpha';
 import { radii, spacing } from '@/theme/theme';
@@ -57,15 +60,18 @@ export function OutfitDetailScreen({
           {presentation.copy.piecesHeading}
         </AppText>
         <View style={styles.pieceList}>
-          {suggestion.pieces.map(({ slot, item }) => (
-            <View key={`${slot}-${item}`} style={styles.pieceRow}>
-              <AppText colorRole="textSecondary" style={styles.slotLabel}>
-                {slot}
-              </AppText>
-              <AppText style={styles.itemLabel} variant="bodyStrong">
-                {item}
-              </AppText>
-            </View>
+          {suggestion.pieces.map(({ slot, item }, index) => (
+            <Fragment key={`${slot}-${item}`}>
+              {index > 0 ? <Divider testID="outfit-piece-divider" variant="inset" /> : null}
+              <View style={styles.pieceRow}>
+                <AppText colorRole="textSecondary" style={styles.slotLabel}>
+                  {slot}
+                </AppText>
+                <AppText style={styles.itemLabel} variant="bodyStrong">
+                  {item}
+                </AppText>
+              </View>
+            </Fragment>
           ))}
         </View>
       </View>
@@ -95,7 +101,7 @@ export function OutfitDetailScreen({
       <View
         style={[
           styles.weatherRecap,
-          { backgroundColor: withAlpha(theme.colors.brandAccent, 0.08) },
+          { backgroundColor: withAlpha(theme.colors.brandAccent, CARD_BACKGROUND_ALPHA) },
         ]}>
         <AppText variant="caption">
           {`${presentation.weather.temperature} · ${presentation.weather.condition} · ${presentation.weather.rainProbability}`}
@@ -114,8 +120,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   section: {
-    gap: spacing.md,
-    marginTop: spacing['2xl'],
+    gap: spacing.lg,
+    marginTop: spacing.xl,
   },
   pieceList: {
     gap: spacing.sm,

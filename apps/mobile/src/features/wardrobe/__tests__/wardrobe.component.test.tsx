@@ -1,4 +1,4 @@
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -62,6 +62,13 @@ const item: WardrobeItem = {
   createdAt: '2026-07-30T10:00:00.000Z',
   updatedAt: '2026-07-30T10:05:00.000Z',
   deletedAt: null,
+};
+
+const wantedItem: WardrobeItem = {
+  ...item,
+  id: '218f0f4d-1d45-4ae7-a8f1-796e8297d3b4',
+  name: 'Trail boots',
+  entryState: 'wanted',
 };
 
 const formTypes = garmentCatalog.garmentTypes.filter(({ typeId }) =>
@@ -175,9 +182,57 @@ test('list shows localized catalog values and emits the edit intent', async () =
 
   expect(result.getByText('Yağmurluk')).toBeOnTheScreen();
   expect(result.getByText('Dış giyim · Mavi')).toBeOnTheScreen();
+  expect(
+    within(result.getByTestId(`wardrobe-item-${item.id}`)).getByText(
+      messages.tr.wardrobe.ownedLabel,
+    ),
+  ).toBeOnTheScreen();
   expect(result.queryByText('rain_jacket')).not.toBeOnTheScreen();
   await fireEvent.press(result.getByTestId(`wardrobe-item-${item.id}`));
   expect(onEdit).toHaveBeenCalledWith(item.id);
+});
+
+test('list filters owned and wanted entries with accessible selected state', async () => {
+  const result = await render(
+    <TestProviders>
+      <WardrobeListScreen
+        onAdd={() => undefined}
+        onEdit={() => undefined}
+        onRetry={() => undefined}
+        state={{ ...readyState, items: [item, wantedItem] }}
+      />
+    </TestProviders>,
+  );
+
+  expect(result.getByTestId('wardrobe-filter-owned').props.accessibilityState.selected).toBe(true);
+  expect(result.getByTestId(`wardrobe-item-${item.id}`)).toBeOnTheScreen();
+  expect(result.queryByTestId(`wardrobe-item-${wantedItem.id}`)).not.toBeOnTheScreen();
+
+  await fireEvent.press(result.getByTestId('wardrobe-filter-wanted'));
+  expect(result.getByTestId('wardrobe-filter-wanted').props.accessibilityState.selected).toBe(true);
+  expect(result.getByTestId(`wardrobe-item-${wantedItem.id}`)).toBeOnTheScreen();
+  expect(result.queryByTestId(`wardrobe-item-${item.id}`)).not.toBeOnTheScreen();
+  expect(
+    within(result.getByTestId(`wardrobe-item-${wantedItem.id}`)).getByText(
+      messages.en.wardrobe.wantedLabel,
+    ),
+  ).toBeOnTheScreen();
+});
+
+test('each wardrobe segment has localized empty copy', async () => {
+  const result = await render(
+    <TestProviders>
+      <WardrobeListScreen
+        onAdd={() => undefined}
+        onEdit={() => undefined}
+        onRetry={() => undefined}
+        state={{ ...readyState, items: [item] }}
+      />
+    </TestProviders>,
+  );
+
+  await fireEvent.press(result.getByTestId('wardrobe-filter-wanted'));
+  expect(result.getByText(messages.en.wardrobe.wantedEmptyBody)).toBeOnTheScreen();
 });
 
 test('ready list keeps virtualization and refresh below measured header clearance', async () => {
@@ -374,11 +429,45 @@ test('create form uses catalog options, reports required validation, and has no 
   expect(result.getByRole('radio', { name: 'T-shirt' })).toBeOnTheScreen();
   expect(result.getByRole('radio', { name: 'Rain jacket' })).toBeOnTheScreen();
   expect(result.queryByTestId('wardrobe-delete-button')).not.toBeOnTheScreen();
+  expect(result.getByTestId('wardrobe-entry-state-owned').props.accessibilityState.selected).toBe(true);
   await fireEvent.press(result.getByTestId('wardrobe-save-button'));
   expect(result.getByRole('alert')).toHaveTextContent(
     messages.en.wardrobe.typeRequiredError,
   );
   expect(onCreate).not.toHaveBeenCalled();
+});
+
+test('create and edit forms persist the selected wardrobe state', async () => {
+  const onCreate = jest.fn(async () => undefined);
+  const createResult = await render(<CreateForm onCreate={onCreate} />);
+  await fireEvent.press(createResult.getByTestId('wardrobe-entry-state-wanted'));
+  await fireEvent.press(createResult.getByTestId('wardrobe-type-t_shirt'));
+  await fireEvent.press(createResult.getByTestId('wardrobe-save-button'));
+  expect(onCreate).toHaveBeenCalledWith(
+    expect.objectContaining({ entryState: 'wanted' }),
+  );
+
+  const onUpdate = jest.fn(async () => undefined);
+  const editResult = await render(
+    <TestProviders>
+      <WardrobeItemFormScreen
+        garmentTypes={formTypes}
+        isBusy={false}
+        item={wantedItem}
+        mode="edit"
+        onBackRequested={() => undefined}
+        onCreate={async () => undefined}
+        onDirtyChange={() => undefined}
+        onUpdate={onUpdate}
+      />
+    </TestProviders>,
+  );
+  expect(editResult.getByTestId('wardrobe-entry-state-wanted').props.accessibilityState.selected).toBe(true);
+  await fireEvent.press(editResult.getByTestId('wardrobe-entry-state-owned'));
+  await fireEvent.press(editResult.getByTestId('wardrobe-save-button'));
+  expect(onUpdate).toHaveBeenCalledWith(
+    expect.objectContaining({ entryState: 'owned' }),
+  );
 });
 
 test('type selection exposes only catalog-supported attributes and selected state', async () => {

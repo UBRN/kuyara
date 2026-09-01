@@ -31,7 +31,10 @@ import {
   type WardrobePhotoChange,
 } from '@/features/wardrobe/application/wardrobe-photo-manager';
 import type { StagedWardrobePhoto } from '@/features/wardrobe/data/wardrobe-photo-adapters';
-import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
+import type {
+  WardrobeEntryState,
+  WardrobeItem,
+} from '@/features/wardrobe/domain/wardrobe-item';
 import {
   showWardrobeConfirmation,
   type WardrobeConfirmation,
@@ -107,7 +110,11 @@ export function WardrobeItemFormScreen({
   const copy = messages.wardrobe;
   const theme = useKuyaraTheme();
   const initialValues = useMemo(() => createWardrobeFormValues(item), [item]);
+  const initialEntryState = item?.entryState ?? 'owned';
   const [values, setValues] = useState(initialValues);
+  const [entryState, setEntryState] = useState<WardrobeEntryState>(
+    initialEntryState,
+  );
   const [validationError, setValidationError] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [deleteError, setDeleteError] = useState(false);
@@ -126,7 +133,9 @@ export function WardrobeItemFormScreen({
   const busy = isBusy || isSaving || isDeleting || isProcessingPhoto;
   const photoIsDirty = photoChange.kind !== 'unchanged';
   const isDirty =
-    !wardrobeFormValuesEqual(values, initialValues) || photoIsDirty;
+    !wardrobeFormValuesEqual(values, initialValues) ||
+    entryState !== initialEntryState ||
+    photoIsDirty;
   const selectedType = values.garmentTypeId
     ? getGarmentType(values.garmentTypeId)
     : null;
@@ -169,6 +178,7 @@ export function WardrobeItemFormScreen({
     setPhotoChange(next);
     onDirtyChange(
       !wardrobeFormValuesEqual(values, initialValues) ||
+        entryState !== initialEntryState ||
         next.kind !== 'unchanged',
     );
     setSaveError(false);
@@ -181,10 +191,21 @@ export function WardrobeItemFormScreen({
       const next = updater(current);
       onDirtyChange(
         !wardrobeFormValuesEqual(next, initialValues) ||
+          entryState !== initialEntryState ||
           photoChange.kind !== 'unchanged',
       );
       return next;
     });
+    setSaveError(false);
+  };
+
+  const updateEntryState = (next: WardrobeEntryState) => {
+    setEntryState(next);
+    onDirtyChange(
+      !wardrobeFormValuesEqual(values, initialValues) ||
+        next !== initialEntryState ||
+        photoChange.kind !== 'unchanged',
+    );
     setSaveError(false);
   };
 
@@ -288,16 +309,16 @@ export function WardrobeItemFormScreen({
           const payload = mapWardrobeCreateValues(values);
           return payload
             ? photoChange.kind === 'unchanged'
-              ? onCreate(payload)
-              : onCreate(payload, photoChange)
+              ? onCreate({ ...payload, entryState })
+              : onCreate({ ...payload, entryState }, photoChange)
             : Promise.reject(new Error('The form is invalid.'));
         })()
       : (() => {
           const payload = mapWardrobeUpdateValues(values);
           return payload && onUpdate
             ? photoChange.kind === 'unchanged'
-              ? onUpdate(payload)
-              : onUpdate(payload, photoChange)
+              ? onUpdate({ ...payload, entryState })
+              : onUpdate({ ...payload, entryState }, photoChange)
             : Promise.reject(new Error('Update is unavailable.'));
         })())
       .catch(() => {
@@ -379,6 +400,29 @@ export function WardrobeItemFormScreen({
           testID="wardrobe-name-input"
           value={values.name}
         />
+      </View>
+
+      <View accessibilityRole="radiogroup" style={styles.section}>
+        <FormSectionLabel
+          description={copy.entryStateDescription}
+          heading={copy.entryStateTitle}
+        />
+        <View style={styles.options}>
+          <WardrobeOption
+            disabled={busy}
+            label={copy.ownedLabel}
+            onPress={() => updateEntryState('owned')}
+            selected={entryState === 'owned'}
+            testID="wardrobe-entry-state-owned"
+          />
+          <WardrobeOption
+            disabled={busy}
+            label={copy.wantedLabel}
+            onPress={() => updateEntryState('wanted')}
+            selected={entryState === 'wanted'}
+            testID="wardrobe-entry-state-wanted"
+          />
+        </View>
       </View>
 
       <View style={styles.section}>

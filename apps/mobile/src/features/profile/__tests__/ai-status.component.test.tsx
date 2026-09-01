@@ -12,6 +12,14 @@ import {
 } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
+jest.mock('expo-symbols', () => ({
+  SymbolView: (props: Record<string, unknown>) => {
+    const React = jest.requireActual('react');
+    const { View } = jest.requireActual('react-native');
+    return React.createElement(View, props);
+  },
+}));
+
 const checkedAt = '2026-08-29T12:34:00.000Z';
 const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
@@ -88,6 +96,24 @@ describe.each(['en', 'tr'] as const)('%s AI status section', (language) => {
       language === 'en' ? /^AI responded at .+/ : /^AI saat .+ yanıt verdi\.$/,
     );
     expect(status.props.accessibilityLiveRegion).toBe('polite');
+  });
+
+  test('uses different non-color icons for successful and failed results', async () => {
+    const success = await section(language, {
+      aiStatus: { kind: 'ok', checkedAt },
+    }).rendered;
+    const successIcon = success.getByTestId('settings-ai-status-result-icon', {
+      includeHiddenElements: true,
+    });
+
+    const failure = await section(language, {
+      aiStatus: { kind: 'error' },
+    }).rendered;
+    const failureIcon = failure.getByTestId('settings-ai-status-result-icon', {
+      includeHiddenElements: true,
+    });
+
+    expect(successIcon.props.name).not.toEqual(failureIcon.props.name);
   });
 
   test('disables unsupported checks and announces build availability', async () => {

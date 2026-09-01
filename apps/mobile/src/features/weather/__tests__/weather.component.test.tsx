@@ -1,6 +1,6 @@
-import { fireEvent, isHiddenFromAccessibility, render } from '@testing-library/react-native';
+import { fireEvent, isHiddenFromAccessibility, render, within } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { Linking } from 'react-native';
+import { Linking, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { WeatherApplicationContext, type WeatherApplicationValue } from '@/features/weather/application/weather-application-context';
@@ -9,7 +9,7 @@ import type { WeatherReadyState } from '@/features/weather/application/weather-a
 import { WeatherScreen } from '@/features/weather/presentation/weather-screen';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
-import { lightTheme } from '@/theme/theme';
+import { lightTheme, typography } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 const initialMetrics = {
@@ -37,12 +37,20 @@ function sampleSnapshot(sourceId = 'test') {
       humidity: 0.7, uvIndex: 2,
     },
     minimumTemperatureCelsius: 12, maximumTemperatureCelsius: 19,
-    hourly: [{
-      forecastAt: '2026-07-30T09:00:00.000Z', temperatureCelsius: 16,
-      apparentTemperatureCelsius: 15, condition: 'rain' as const,
-      precipitationProbability: 0.5, windSpeedMetersPerSecond: 4,
-      humidity: 0.7, uvIndex: 2,
-    }],
+    hourly: [
+      {
+        forecastAt: '2026-07-30T09:00:00.000Z', temperatureCelsius: 16,
+        apparentTemperatureCelsius: 15, condition: 'rain' as const,
+        precipitationProbability: 0.5, windSpeedMetersPerSecond: 4,
+        humidity: 0.7, uvIndex: 2,
+      },
+      {
+        forecastAt: '2026-07-30T10:00:00.000Z', temperatureCelsius: 17,
+        apparentTemperatureCelsius: 16, condition: 'cloudy' as const,
+        precipitationProbability: 0.2, windSpeedMetersPerSecond: 3,
+        humidity: 0.65, uvIndex: 3,
+      },
+    ],
   };
 }
 
@@ -164,6 +172,14 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
       : 'Saat 12:00. Sıcaklık 16°. Yağmurlu. Yağış olasılığı yüzde 50.')).toBeOnTheScreen();
     expect(result.getByText(language === 'en' ? '4 m/s' : '4 m/sn')).toBeOnTheScreen();
     expect(result.getByText(language === 'en' ? '70%' : '%70')).toBeOnTheScreen();
+    const currentCard = result.getByTestId('weather-current-card');
+    expect(StyleSheet.flatten(currentCard.props.style)).toMatchObject(lightTheme.elevation.raised);
+    expect(StyleSheet.flatten(within(currentCard).getByText('16°').props.style).fontSize)
+      .toBe(typography.display.fontSize);
+    expect(StyleSheet.flatten(result.getByTestId('weather-hourly-card').props.style))
+      .toMatchObject(lightTheme.elevation.raised);
+    expect(result.getAllByTestId('weather-hour-divider', { includeHiddenElements: true }))
+      .toHaveLength(1);
     expect(isHiddenFromAccessibility(
       result.getByTestId('weather-glyph', { includeHiddenElements: true }),
     )).toBe(true);

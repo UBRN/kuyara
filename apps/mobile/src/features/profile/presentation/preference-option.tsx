@@ -53,19 +53,17 @@ export function PreferenceOption({
         variant="bodyStrong">
         {label}
       </AppText>
-      {isRow ? null : (
-        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          <SymbolView
-            name={{
-              ios: selected ? 'checkmark.circle.fill' : 'circle',
-              android: selected ? 'check_circle' : 'radio_button_unchecked',
-              web: selected ? 'check_circle' : 'radio_button_unchecked',
-            }}
-            size={24}
-            tintColor={selected ? theme.colors.textOnBrand : theme.colors.iconSecondary}
-          />
-        </View>
-      )}
+      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <SymbolView
+          name={{
+            ios: selected ? 'checkmark.circle.fill' : 'circle',
+            android: selected ? 'check_circle' : 'radio_button_unchecked',
+            web: selected ? 'check_circle' : 'radio_button_unchecked',
+          }}
+          size={24}
+          tintColor={selected ? theme.colors.textOnBrand : theme.colors.iconSecondary}
+        />
+      </View>
     </Pressable>
   );
 }
