@@ -5,7 +5,6 @@ import {
   RecommendationApplicationController,
   localDayVariant,
   recommendationRefreshTrigger,
-  shouldRefreshRecommendation,
 } from './recommendation-application-controller.ts';
 
 const profileId = 'profile-one';
@@ -110,21 +109,49 @@ function createHarness({ cached = null, client, failSave = false } = {}) {
   return { controller, calls, repository, getStored: () => stored };
 }
 
-test('refresh decision allows only the five approved change triggers', () => {
-  assert.equal(shouldRefreshRecommendation('app-opened'), false);
-  for (const trigger of [
-    'stale-weather-refreshed',
-    'active-location-changed',
-    'clothing-preference-changed',
-    'local-day-changed',
-    'explicit',
-  ]) assert.equal(shouldRefreshRecommendation(trigger), true);
-});
-
 test('local day variant is a deterministic seven-day ring', () => {
   assert.equal(localDayVariant(new Date(2026, 0, 1, 12)), 1);
   assert.equal(localDayVariant(new Date(2026, 0, 2, 12)), 2);
   assert.equal(localDayVariant(new Date(2026, 0, 8, 12)), 1);
+});
+
+test('a missing persisted snapshot triggers the first recommendation', () => {
+  const current = {
+    weatherSnapshotId: 'weather-one',
+    locationKey: 'location-one',
+    clothingPreference: 'womens',
+    dayVariant: 3,
+  };
+
+  assert.equal(
+    recommendationRefreshTrigger(null, current, null),
+    'first-recommendation',
+  );
+});
+
+test('equal persisted signals do not trigger a recommendation on reopen', () => {
+  const current = {
+    weatherSnapshotId: 'weather-one',
+    locationKey: 'location-one',
+    clothingPreference: 'womens',
+    dayVariant: 3,
+  };
+
+  assert.equal(recommendationRefreshTrigger(current, current, null), null);
+});
+
+test('a changed persisted location triggers a recommendation', () => {
+  const current = {
+    weatherSnapshotId: 'weather-one',
+    locationKey: 'location-one',
+    clothingPreference: 'womens',
+    dayVariant: 3,
+  };
+
+  assert.equal(
+    recommendationRefreshTrigger({ ...current, locationKey: 'old' }, current, null),
+    'active-location-changed',
+  );
 });
 
 test('trigger selection distinguishes stale refresh from unapproved weather changes', () => {
@@ -136,7 +163,6 @@ test('trigger selection distinguishes stale refresh from unapproved weather chan
   };
   const previous = { ...current, weatherSnapshotId: 'weather-one' };
 
-  assert.equal(recommendationRefreshTrigger(null, current, null), null);
   assert.equal(recommendationRefreshTrigger(previous, current, null), null);
   assert.equal(
     recommendationRefreshTrigger(previous, current, 'weather-one'),
@@ -154,18 +180,6 @@ test('trigger selection distinguishes stale refresh from unapproved weather chan
     recommendationRefreshTrigger({ ...previous, dayVariant: 2 }, current, null),
     'local-day-changed',
   );
-});
-
-test('app initialization renders cache without requesting a recommendation', async () => {
-  const cached = { id: 'cached-recommendation' };
-  const { controller, calls } = createHarness({ cached });
-
-  await controller.initialize();
-  await controller.refresh('app-opened', input());
-
-  assert.equal(controller.getSnapshot().status, 'ready');
-  assert.equal(controller.getSnapshot().snapshot, cached);
-  assert.deepEqual(calls, { client: 0, saves: 0 });
 });
 
 test('duplicate concurrent refreshes share one AI request and one save', async () => {

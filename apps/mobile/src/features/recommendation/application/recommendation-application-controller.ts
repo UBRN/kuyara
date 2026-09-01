@@ -20,7 +20,7 @@ import {
 } from '@/features/recommendation/data/worker-ai-recommendation-mapper';
 
 export type RecommendationRefreshTrigger =
-  | 'app-opened'
+  | 'first-recommendation'
   | 'stale-weather-refreshed'
   | 'active-location-changed'
   | 'clothing-preference-changed'
@@ -31,14 +31,8 @@ export type RecommendationSignals = Readonly<{
   weatherSnapshotId: string;
   locationKey: string;
   clothingPreference: string;
-  dayVariant: number;
+  dayVariant: number | null;
 }>;
-
-export function shouldRefreshRecommendation(
-  trigger: RecommendationRefreshTrigger,
-): boolean {
-  return trigger !== 'app-opened';
-}
 
 export function recommendationRefreshTrigger(
   previous: RecommendationSignals | null,
@@ -49,7 +43,7 @@ export function recommendationRefreshTrigger(
     staleRefreshSnapshotId &&
     staleRefreshSnapshotId !== current.weatherSnapshotId
   ) return 'stale-weather-refreshed';
-  if (!previous) return null;
+  if (!previous) return 'first-recommendation';
   if (previous.locationKey !== current.locationKey) {
     return 'active-location-changed';
   }
@@ -123,10 +117,6 @@ export class RecommendationApplicationController {
     trigger: RecommendationRefreshTrigger,
     input: OutfitRecommendationInput,
   ): Promise<RecommendationSnapshot | null> {
-    if (!shouldRefreshRecommendation(trigger)) {
-      return Promise.resolve(this.currentSnapshot());
-    }
-
     let context: RecommendationContext;
     try {
       context = createRecommendationContext(input);
