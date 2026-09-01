@@ -112,6 +112,15 @@ test('rendered outfit copy comes from localization and never from the wardrobe f
   for (const suggestion of english.suggestions) {
     expect(englishResult.getByText(suggestion.title)).toBeOnTheScreen();
   }
+  for (const summary of [
+    'T-shirt + Shorts + Rain jacket + Weather boots',
+    'Jumpsuit + Rain jacket + Weather boots',
+    'Blouse + Shorts + Rain jacket + Weather boots',
+  ]) {
+    expect(englishResult.getByText(summary)).toBeOnTheScreen();
+  }
+  expect(englishResult.getByTestId('outfit-card-outfit-1').props.accessibilityLabel)
+    .toContain('Rain Ready');
   expect(englishResult.getByText(messages.en.today.emphasis.recommended)).toBeOnTheScreen();
   expect(englishResult.queryByText(todayWardrobeItems[0].name!)).not.toBeOnTheScreen();
 
@@ -127,6 +136,15 @@ test('rendered outfit copy comes from localization and never from the wardrobe f
   for (const suggestion of turkish.suggestions) {
     expect(turkishResult.getByText(suggestion.title)).toBeOnTheScreen();
   }
+  for (const summary of [
+    'Tişört + Şort + Yağmurluk + Hava koşullarına uygun bot',
+    'Tulum + Yağmurluk + Hava koşullarına uygun bot',
+    'Bluz + Şort + Yağmurluk + Hava koşullarına uygun bot',
+  ]) {
+    expect(turkishResult.getByText(summary)).toBeOnTheScreen();
+  }
+  expect(turkishResult.getByTestId('outfit-card-outfit-1').props.accessibilityLabel)
+    .toContain('Yağmura Hazır');
   expect(turkishResult.getByRole('header', {
     name: 'Bugün. Konum: Örnek İstanbul.',
   })).toBeOnTheScreen();
@@ -166,6 +184,8 @@ test('outfit detail lists localized weather reasons alongside localized pieces',
   ));
 
   expect(result.getByText(eyebrow(messages.en.today.reasonsHeading, 'en'))).toBeOnTheScreen();
+  expect(result.getByRole('header', { name: presentation.suggestions[0].title }))
+    .toBeOnTheScreen();
   for (const reason of presentation.suggestions[0].reasons) {
     expect(result.getByText(reason)).toBeOnTheScreen();
   }

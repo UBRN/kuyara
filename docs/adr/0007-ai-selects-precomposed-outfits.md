@@ -2,7 +2,12 @@
 
 Status: Accepted (2026-08-30)
 
-Implementation: Planned.
+Implementation: Landed, with one outstanding item. The contract, Worker
+validation, deterministic option construction, catalog formality, the mapper,
+and rule-based fallback archetype assignment shipped in `ade0d58`; archetype
+names became the outfit titles on Today and outfit detail in the change that
+followed. Neuron cost per call still has to be measured against a live Workers
+AI call rather than estimated.
 
 Amends [ADR 0005](0005-catalog-only-recommendation-candidates.md), section 4.
 
