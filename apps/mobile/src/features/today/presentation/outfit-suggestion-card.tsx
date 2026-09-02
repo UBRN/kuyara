@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   primaryCard: {
-    padding: spacing.xl,
+    padding: spacing.lg,
   },
   secondaryCard: {
     flex: 1,

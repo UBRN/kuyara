@@ -67,7 +67,7 @@ test('loaded Today reserves overlay clearance and preserves grouped accessibilit
   );
   // iOS resolves the top safe area itself, so Screen reserves only the remainder
   // of the overlay header above the content.
-  expect(screenStyle.paddingTop).toBe(179 + spacing['2xl'] - initialMetrics.insets.top);
+  expect(screenStyle.paddingTop).toBe(179 + spacing.xl - initialMetrics.insets.top);
   expect(result.getByTestId('today-outfit-list').children).toHaveLength(
     presentation.suggestions.length - 1,
   );

@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.control,
     flexDirection: 'row',
     gap: spacing.sm,
-    marginTop: spacing.xl,
+    marginTop: spacing.md,
     padding: spacing.md,
   },
   ownershipSummaryText: {
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: spacing.lg,
-    marginTop: spacing.xl,
+    marginTop: spacing.md,
   },
   pieceList: {
     gap: spacing.md,
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
   },
   weatherRecap: {
     borderRadius: radii.card,
-    marginTop: spacing['2xl'],
+    marginTop: spacing.md,
     padding: spacing.lg,
   },
 });

@@ -26,7 +26,7 @@ export function Screen({
 }: ScreenProps) {
   const safeAreaInsets = useSafeAreaInsets();
   const theme = useKuyaraTheme();
-  const bottomInset = safeAreaInsets.bottom + spacing.lg;
+  const bottomInset = safeAreaInsets.bottom + spacing.md;
   const scrollIndicatorInsets =
     Platform.OS === 'ios' ? { ...safeAreaInsets, bottom: bottomInset } : undefined;
   // iOS resolves the top safe area itself through contentInsetAdjustmentBehavior,

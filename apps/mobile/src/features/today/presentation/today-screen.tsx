@@ -142,7 +142,7 @@ export function TodayScreen({
       <Screen
         alwaysBounceVertical
         contentContainerStyle={styles.content}
-        contentTopClearance={headerHeight + spacing['2xl']}
+        contentTopClearance={headerHeight + spacing.xl}
         onScroll={scrollHandler}
         refreshControl={
           <RefreshControl
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    gap: spacing.xl,
+    gap: spacing.md,
     paddingBottom: spacing['2xl'],
   },
   header: {
