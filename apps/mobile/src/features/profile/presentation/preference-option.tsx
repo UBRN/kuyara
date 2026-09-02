@@ -35,7 +35,7 @@ export function PreferenceOption({
       style={({ pressed }) => {
         const selectedStyle: ViewStyle = {
           backgroundColor: selected ? theme.colors.brandAccent : theme.colors.surface,
-          borderColor: selected ? theme.colors.brandAccent : theme.colors.borderSubtle,
+          borderColor: selected ? theme.colors.brandAccent : theme.colors.borderDefined,
         };
 
         return [

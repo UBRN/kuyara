@@ -51,7 +51,7 @@ export function ProfileScreen({
   return (
     <Screen contentContainerStyle={styles.content} testID="profile-screen">
       <View style={styles.header}>
-        <AppText accessibilityRole="header" style={styles.title} variant="titleLarge">
+        <AppText accessibilityRole="header" style={styles.title} variant="title">
           {copy.title}
         </AppText>
         <IconButton
@@ -63,7 +63,6 @@ export function ProfileScreen({
             styles.settingsButton,
             {
               backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.borderSubtle,
             },
           ]}
           testID="profile-settings-button"
@@ -88,7 +87,7 @@ export function ProfileScreen({
                 testID="profile-wardrobe-button">
                 <View style={styles.ownedCopy}>
                   <View style={styles.numberLine}>
-                    <AppText testID="profile-owned-count" variant="display">
+                    <AppText tabularNumbers testID="profile-owned-count" variant="display">
                       {counts.owned}
                     </AppText>
                     <AppText colorRole="textSecondary">
@@ -116,7 +115,7 @@ export function ProfileScreen({
                 testID="profile-wanted-button">
                 <Icon color={theme.colors.iconPrimary} name="heart" size={21} />
                 <AppText style={styles.rowLabel}>{copy.wantedLabel}</AppText>
-                <AppText testID="profile-wanted-count" variant="bodyStrong">
+                <AppText tabularNumbers testID="profile-wanted-count" variant="bodyStrong">
                   {counts.wanted}
                 </AppText>
                 <Icon color={theme.colors.iconSecondary} name="chevronRight" size={20} />
@@ -153,6 +152,7 @@ export function ProfileScreen({
                       </AppText>
                       <AppText
                         colorRole="textSecondary"
+                        tabularNumbers
                         testID={`profile-category-${category}-count`}
                         variant="caption">
                         {count}

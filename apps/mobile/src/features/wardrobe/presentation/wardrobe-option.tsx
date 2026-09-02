@@ -40,7 +40,7 @@ export function WardrobeOption({
             : theme.colors.surface,
           borderColor: selected
             ? theme.colors.brandAccent
-            : theme.colors.borderSubtle,
+            : theme.colors.borderDefined,
         };
 
         return [

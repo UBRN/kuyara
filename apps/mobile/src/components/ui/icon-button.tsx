@@ -62,7 +62,7 @@ export function IconButton({
         styles.button,
         {
           backgroundColor: theme.colors.surfaceInteractive,
-          borderColor: theme.colors.borderSubtle,
+          borderColor: theme.colors.borderDefined,
         },
         pressed && !disabled && styles.pressed,
         disabled && styles.disabled,

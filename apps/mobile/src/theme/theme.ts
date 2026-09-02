@@ -27,10 +27,19 @@ export const lightSemanticColors = Object.freeze({
   brandPrimary: brandColors.deepAtmosphere,
   brandAccent: brandColors.calmCurrent,
   borderSubtle: '#C5D5D6',
+  borderDefined: '#5C7A83',
   borderStrong: brandColors.calmCurrent,
   focusRing: brandColors.calmCurrent,
   iconPrimary: brandColors.deepAtmosphere,
   iconSecondary: brandColors.calmCurrent,
+  // Derived semantic values keep status inks within ±0.8 of brandAccent's
+  // contrast against this appearance's surface.
+  successInk: '#216048',
+  successContainer: '#DCEBE3',
+  warningInk: '#7A4F12',
+  warningContainer: '#F2E6CE',
+  dangerInk: '#9B2C2C',
+  dangerContainer: '#F8E3E1',
   scrim: 'rgba(13, 25, 30, 0.48)',
 } as const);
 
@@ -49,10 +58,19 @@ export const darkSemanticColors = Object.freeze({
   brandPrimary: brandColors.quietSky,
   brandAccent: brandColors.quietSky,
   borderSubtle: '#345866',
+  borderDefined: '#527E90',
   borderStrong: brandColors.quietSky,
   focusRing: brandColors.quietSky,
   iconPrimary: brandColors.cloudWhite,
   iconSecondary: brandColors.quietSky,
+  // Derived semantic values keep status inks within ±0.8 of brandAccent's
+  // contrast against this appearance's surface.
+  successInk: '#7FD3AE',
+  successContainer: '#0B2620',
+  warningInk: '#EABB6E',
+  warningContainer: '#292010',
+  dangerInk: '#F2A6A2',
+  dangerContainer: '#301D1B',
   scrim: 'rgba(13, 25, 30, 0.72)',
 } as const satisfies SemanticColors);
 

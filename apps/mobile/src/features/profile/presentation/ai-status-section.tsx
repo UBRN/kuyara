@@ -45,13 +45,17 @@ export function AiStatusSection({
             : aiStatus.kind === 'rate-limited'
               ? copy.aiStatusResultRateLimited
               : copy.aiStatusResultError;
-  const resultIcon: IconName = !isProbeSupported
-    ? 'info'
-    : aiStatus.kind === 'ok'
-      ? 'checkCircle'
+  const resultTone: { icon: IconName; color: string } | null = !isProbeSupported
+    ? { icon: 'info', color: theme.colors.brandAccent }
+    : aiStatus.kind === 'idle'
+      ? null
       : aiStatus.kind === 'checking'
-        ? 'clock'
-        : 'error';
+        ? { icon: 'clock', color: theme.colors.iconSecondary }
+        : aiStatus.kind === 'ok'
+          ? { icon: 'checkCircle', color: theme.colors.successInk }
+          : aiStatus.kind === 'unavailable' || aiStatus.kind === 'rate-limited'
+            ? { icon: 'warning', color: theme.colors.warningInk }
+            : { icon: 'error', color: theme.colors.dangerInk };
 
   return (
     <View style={styles.group} testID="settings-ai-status">
@@ -68,15 +72,16 @@ export function AiStatusSection({
           onPress={onCheckAiStatus}
           testID="settings-ai-status-check"
         />
-        {result ? (
+        {result && resultTone ? (
           <View style={styles.resultRow}>
             <View testID="settings-ai-status-result-icon">
-              <Icon color={theme.colors.iconSecondary} name={resultIcon} size={20} />
+              <Icon color={resultTone.color} name={resultTone.icon} size={20} />
             </View>
             <AppText
               accessibilityLiveRegion="polite"
               colorRole="textSecondary"
               style={styles.resultCopy}
+              tabularNumbers
               testID="settings-ai-status-result">
               {result}
             </AppText>
@@ -96,7 +101,7 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: spacing.lg,
-    padding: spacing.xl,
+    padding: spacing.lg,
     position: 'relative',
   },
   resultRow: {

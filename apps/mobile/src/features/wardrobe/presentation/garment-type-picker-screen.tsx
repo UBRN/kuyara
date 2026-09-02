@@ -80,7 +80,7 @@ export function GarmentTypePickerScreen({
 
           return (
             <View key={category} style={styles.section}>
-              <AppText accessibilityRole="header" variant="eyebrow">
+              <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
                 {categoryLabel}
               </AppText>
               <Surface style={styles.groupCard}>
@@ -155,6 +155,6 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   options: {
-    gap: spacing.md,
+    gap: spacing.sm,
   },
 });

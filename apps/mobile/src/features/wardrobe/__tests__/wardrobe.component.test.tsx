@@ -175,7 +175,7 @@ test('list exposes accessible loading and retryable error states', async () => {
   expect(
     StyleSheet.flatten(error.getByTestId('wardrobe-load-error').props.style)
       .paddingTop,
-  ).toBe(initialMetrics.insets.top + 24);
+  ).toBe(initialMetrics.insets.top + 16);
   expect(onRetry).toHaveBeenCalledTimes(1);
 });
 
@@ -536,12 +536,12 @@ test('garment type picker groups preference-filtered options with accessible rad
 
   expect(result.getAllByRole('header')).toEqual(
     expect.arrayContaining([
-      expect.objectContaining({ props: expect.objectContaining({ children: 'TOP' }) }),
-      expect.objectContaining({ props: expect.objectContaining({ children: 'BOTTOM' }) }),
-      expect.objectContaining({ props: expect.objectContaining({ children: 'ONE-PIECE' }) }),
-      expect.objectContaining({ props: expect.objectContaining({ children: 'OUTERWEAR' }) }),
-      expect.objectContaining({ props: expect.objectContaining({ children: 'FOOTWEAR' }) }),
-      expect.objectContaining({ props: expect.objectContaining({ children: 'ACCESSORY' }) }),
+      expect.objectContaining({ props: expect.objectContaining({ children: 'Top' }) }),
+      expect.objectContaining({ props: expect.objectContaining({ children: 'Bottom' }) }),
+      expect.objectContaining({ props: expect.objectContaining({ children: 'One-piece' }) }),
+      expect.objectContaining({ props: expect.objectContaining({ children: 'Outerwear' }) }),
+      expect.objectContaining({ props: expect.objectContaining({ children: 'Footwear' }) }),
+      expect.objectContaining({ props: expect.objectContaining({ children: 'Accessory' }) }),
     ]),
   );
   expect(result.queryByRole('radio', { name: 'Blouse' })).not.toBeOnTheScreen();

@@ -49,13 +49,13 @@ const styles = StyleSheet.create({
   content: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing['2xl'],
+    paddingVertical: spacing.lg,
   },
   card: {
     alignItems: 'center',
     gap: spacing.lg,
     maxWidth: 520,
-    padding: spacing.xl,
+    padding: spacing.lg,
     width: '100%',
   },
   centered: {

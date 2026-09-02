@@ -31,10 +31,17 @@ const requiredSemanticRoles = [
   'brandPrimary',
   'brandAccent',
   'borderSubtle',
+  'borderDefined',
   'borderStrong',
   'focusRing',
   'iconPrimary',
   'iconSecondary',
+  'successInk',
+  'successContainer',
+  'warningInk',
+  'warningContainer',
+  'dangerInk',
+  'dangerContainer',
   'scrim',
 ];
 
@@ -306,6 +313,98 @@ test('light and dark surface ladders retain visible, monotone elevation steps', 
       assert.ok(background < layer, 'background must be the strictly lowest surface');
     }
     assert.ok(backgroundElevated <= surface);
+  }
+});
+
+test('status inks stay inside the accent contrast band and remain legible on every plane', () => {
+  const statusRoles = [
+    ['successInk', 'successContainer'],
+    ['warningInk', 'warningContainer'],
+    ['dangerInk', 'dangerContainer'],
+  ];
+
+  for (const semanticColors of [lightSemanticColors, darkSemanticColors]) {
+    const accentContrast = contrastOfHexOverBackground(
+      semanticColors.brandAccent,
+      semanticColors.surface,
+    );
+    const expectedContainerContrast = semanticColors === lightSemanticColors ? 1.23 : 1.14;
+
+    for (const [inkRole, containerRole] of statusRoles) {
+      const ink = semanticColors[inkRole];
+      const container = semanticColors[containerRole];
+
+      assert.ok(contrastOfHexOverBackground(ink, semanticColors.surface) >= 4.5);
+      assert.ok(contrastOfHexOverBackground(ink, semanticColors.background) >= 4.5);
+      assert.ok(
+        Math.abs(contrastOfHexOverBackground(ink, semanticColors.surface) - accentContrast) <=
+          0.8,
+      );
+
+      const containerContrast = contrastOfHexOverBackground(container, semanticColors.surface);
+      assert.ok(Math.abs(containerContrast - expectedContainerContrast) <= 0.02);
+      assert.ok(containerContrast < 3);
+      assert.ok(contrastOfHexOverBackground(ink, container) >= 4.5);
+    }
+
+    assert.ok(
+      contrastOfHexOverBackground(semanticColors.textOnBrand, semanticColors.dangerInk) >= 4.5,
+    );
+  }
+});
+
+test('defined borders identify interactive boundaries on every plane', () => {
+  for (const semanticColors of [lightSemanticColors, darkSemanticColors]) {
+    for (const plane of ['surface', 'background', 'backgroundElevated']) {
+      assert.ok(
+        contrastOfHexOverBackground(semanticColors.borderDefined, semanticColors[plane]) >= 3,
+      );
+    }
+  }
+
+  assert.ok(
+    contrastOfHexOverBackground(lightSemanticColors.borderDefined, lightSemanticColors.surface) <
+      contrastOfHexOverBackground(lightSemanticColors.textSecondary, lightSemanticColors.surface),
+  );
+});
+
+test('elevation contact contrast pins light thresholds and the accepted dark defect', () => {
+  const light = createKuyaraTheme('light');
+  const dark = createKuyaraTheme('dark');
+  const lightBackground = hexToRgb(light.colors.background);
+  const darkBackground = hexToRgb(dark.colors.background);
+
+  assert.ok(
+    contrastRatio(
+      compositeOver(
+        light.elevation.raised.shadowColor,
+        light.elevation.raised.shadowOpacity,
+        lightBackground,
+      ),
+      lightBackground,
+    ) >= 1.2,
+  );
+  assert.ok(
+    contrastRatio(
+      compositeOver(
+        light.elevation.chrome.shadowColor,
+        light.elevation.chrome.shadowOpacity,
+        lightBackground,
+      ),
+      lightBackground,
+    ) >= 1.35,
+  );
+
+  for (const elevation of [dark.elevation.raised, dark.elevation.chrome]) {
+    // Recorded, accepted defect: dark shadows are decorative. The 1.276:1 plane step
+    // plus the hairline separates content; no dark screen may rely on shadow alone.
+    assert.equal(
+      contrastRatio(
+        compositeOver(elevation.shadowColor, elevation.shadowOpacity, darkBackground),
+        darkBackground,
+      ),
+      1,
+    );
   }
 });
 

@@ -88,7 +88,7 @@ export function Button({
             <AppText
               accessibilityElementsHidden
               colorRole={
-                variant === 'primary'
+                variant === 'primary' || variant === 'destructive'
                   ? 'textOnBrand'
                   : variant === 'quiet'
                     ? 'brandAccent'

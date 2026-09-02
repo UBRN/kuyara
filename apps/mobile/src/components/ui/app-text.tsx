@@ -13,6 +13,7 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 export type AppTextProps = TextProps & {
   variant?: TypographyRole;
   colorRole?: SemanticColorRole;
+  tabularNumbers?: boolean;
 };
 
 export const AppText = forwardRef<Text, AppTextProps>(function AppText(
@@ -21,6 +22,7 @@ export const AppText = forwardRef<Text, AppTextProps>(function AppText(
     children,
     colorRole = 'textPrimary',
     style,
+    tabularNumbers = false,
     variant = 'body',
     ...rest
   },
@@ -40,6 +42,7 @@ export const AppText = forwardRef<Text, AppTextProps>(function AppText(
         styles.text,
         resolveAppTextStyle(theme, variant, colorRole, fontScale > 1.5),
         { fontFamily },
+        tabularNumbers && { fontVariant: ['tabular-nums'] },
         style,
       ]}
       {...rest}>

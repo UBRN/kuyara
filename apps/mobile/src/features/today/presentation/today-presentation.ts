@@ -200,7 +200,7 @@ function createLoadedPresentation(
     ? snapshot.recommendation.generationMode === 'ai-assisted'
       ? {
           label: copy.generationModeAiAssisted,
-          tone: 'accent-filled' as const,
+          tone: 'bordered' as const,
           accessibilityLabel: copy.generationModeAccessibilityLabel(
             copy.generationModeAiAssisted,
           ),

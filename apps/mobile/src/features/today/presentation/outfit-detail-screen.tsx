@@ -59,7 +59,7 @@ export function OutfitDetailScreen({
       <View
         style={[styles.ownershipSummary, { backgroundColor: theme.colors.surfaceMuted }]}
         testID="outfit-detail-ownership-summary">
-        <Icon color={theme.colors.iconSecondary} name="info" size={16} />
+        <Icon color={theme.colors.brandAccent} name="info" size={16} />
         <AppText colorRole="textSecondary" style={styles.ownershipSummaryText} variant="caption">
           {presentation.copy.ownershipSummary}
         </AppText>
@@ -123,7 +123,7 @@ export function OutfitDetailScreen({
           styles.weatherRecap,
           { backgroundColor: withAlpha(theme.colors.brandAccent, CARD_BACKGROUND_ALPHA) },
         ]}>
-        <AppText variant="caption">
+        <AppText tabularNumbers variant="caption">
           {`${presentation.weather.temperature} · ${presentation.weather.condition} · ${presentation.weather.rainProbability}`}
         </AppText>
       </View>

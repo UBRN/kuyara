@@ -88,7 +88,7 @@ function LocationOption({
         styles.option,
         {
           backgroundColor: selected ? theme.colors.surfaceInteractive : theme.colors.surface,
-          borderColor: selected ? theme.colors.focusRing : theme.colors.borderSubtle,
+          borderColor: selected ? theme.colors.focusRing : theme.colors.borderDefined,
         },
         pressed && styles.pressed,
       ]}>
@@ -316,7 +316,7 @@ export function WeatherScreen() {
                 ]}>
                 <View style={styles.currentConditionGroup}>
                   <View style={styles.currentConditionRow}>
-                    <AppText variant="display">
+                    <AppText tabularNumbers variant="display">
                       {temperature(snapshot.current.temperatureCelsius, language)}
                     </AppText>
                     <AppText variant="bodyStrong">
@@ -387,7 +387,7 @@ export function WeatherScreen() {
                     <AppText colorRole="textSecondary" variant="eyebrow">
                       {stat.label}
                     </AppText>
-                    <AppText variant="bodyStrong">{stat.value}</AppText>
+                    <AppText tabularNumbers variant="bodyStrong">{stat.value}</AppText>
                   </View>
                 ))}
               </View>
@@ -439,6 +439,7 @@ export function WeatherScreen() {
                         styles.hourTime,
                         usesAccessibilityLayout && styles.stackedHourTime,
                       ]}
+                      tabularNumbers
                       variant="bodyStrong">
                       {time(hour.forecastAt, snapshot.timeZone, language)}
                     </AppText>
@@ -466,7 +467,7 @@ export function WeatherScreen() {
                           ]}
                         />
                       </View>
-                      <AppText colorRole="textSecondary" variant="caption">
+                      <AppText colorRole="textSecondary" tabularNumbers variant="caption">
                         {percentage(hour.precipitationProbability, language)}
                       </AppText>
                     </View>
@@ -475,6 +476,7 @@ export function WeatherScreen() {
                         styles.hourTemperature,
                         usesAccessibilityLayout && styles.stackedHourTemperature,
                       ]}
+                      tabularNumbers
                       variant="bodyStrong">
                       {temperature(hour.temperatureCelsius, language)}
                     </AppText>
@@ -502,8 +504,8 @@ export function WeatherScreen() {
           accessibilityLiveRegion="polite"
           style={styles.staleNotice}
           variant="muted">
-          <Icon color={theme.colors.iconSecondary} name="warning" size={17} />
-          <AppText colorRole="textSecondary" variant="caption">
+          <Icon color={theme.colors.warningInk} name="warning" size={17} />
+          <AppText colorRole="warningInk" variant="caption">
             {failureCopy.notice}
           </AppText>
         </Surface>

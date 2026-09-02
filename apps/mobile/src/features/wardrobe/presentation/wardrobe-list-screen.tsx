@@ -183,12 +183,12 @@ export function WardrobeListScreen({
   const scrollHandler = useAnimatedScrollHandler((event) => {
     scrollOffset.set(event.contentOffset.y);
   });
-  const horizontalPadding = spacing.xl;
+  const horizontalPadding = spacing.lg;
   const contentInsets = {
-    paddingBottom: insets.bottom + spacing.xl,
+    paddingBottom: insets.bottom + spacing['2xl'],
     paddingLeft: insets.left + horizontalPadding,
     paddingRight: insets.right + horizontalPadding,
-    paddingTop: insets.top + spacing.xl,
+    paddingTop: insets.top + spacing.lg,
   };
   const listContentInsets = {
     ...contentInsets,
@@ -315,7 +315,7 @@ export function WardrobeListScreen({
                           : theme.colors.surface,
                         borderColor: selected
                           ? theme.colors.brandPrimary
-                          : theme.colors.borderSubtle,
+                          : theme.colors.borderDefined,
                       },
                       pressed && styles.filterPressed,
                     ]}
@@ -327,6 +327,7 @@ export function WardrobeListScreen({
                     </AppText>
                     <AppText
                       colorRole={selected ? 'textOnBrand' : 'textSecondary'}
+                      tabularNumbers
                       variant="bodyStrong">
                       {count}
                     </AppText>
@@ -388,7 +389,7 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: spacing.lg,
     justifyContent: 'center',
-    padding: spacing.xl,
+    padding: spacing.lg,
   },
   listContent: {
     alignSelf: 'center',
@@ -415,6 +416,7 @@ const styles = StyleSheet.create({
   },
   addButton: {
     borderRadius: radii.pill,
+    // Horizontal clearance for the absolutely positioned add icon.
     paddingLeft: spacing['2xl'] + spacing.sm,
   },
   addIcon: {
@@ -452,7 +454,7 @@ const styles = StyleSheet.create({
   emptyCard: {
     gap: spacing.lg,
     justifyContent: 'center',
-    padding: spacing.xl,
+    padding: spacing.lg,
   },
   itemCard: {
     alignItems: 'center',

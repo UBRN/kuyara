@@ -41,18 +41,18 @@ export function Screen({
     ios: {
       paddingTop,
       paddingBottom: bottomInset,
-      paddingLeft: safeAreaInsets.left + spacing.xl,
-      paddingRight: safeAreaInsets.right + spacing.xl,
+      paddingLeft: safeAreaInsets.left + spacing.lg,
+      paddingRight: safeAreaInsets.right + spacing.lg,
     },
     android: {
       paddingTop,
       paddingBottom: bottomInset,
-      paddingLeft: safeAreaInsets.left + spacing.xl,
-      paddingRight: safeAreaInsets.right + spacing.xl,
+      paddingLeft: safeAreaInsets.left + spacing.lg,
+      paddingRight: safeAreaInsets.right + spacing.lg,
     },
     web: {
-      paddingTop: spacing['2xl'],
-      paddingBottom: spacing.xl,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing['2xl'],
     },
   });
 
@@ -78,6 +78,6 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: layout.maxContentWidth,
     alignSelf: 'center',
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing.lg,
   },
 });

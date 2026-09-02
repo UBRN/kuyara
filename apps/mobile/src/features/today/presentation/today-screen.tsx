@@ -111,12 +111,12 @@ export function TodayScreen({
           accessible
           accessibilityLabel={presentation.weather.accessibilityLabel}
           style={[styles.heroRow, usesAccessibilityLayout && styles.stackedHeroRow]}>
-          <AppText testID="today-header-temperature" variant="display">
+          <AppText tabularNumbers testID="today-header-temperature" variant="display">
             {presentation.weather.temperature}
           </AppText>
           <View style={styles.heroCopy}>
             <AppText>{presentation.weather.condition}</AppText>
-            <AppText colorRole="textSecondary" variant="caption">
+            <AppText colorRole="textSecondary" tabularNumbers variant="caption">
               {`${presentation.weather.range} · ${presentation.weather.apparentTemperature}`}
             </AppText>
           </View>
@@ -133,6 +133,7 @@ export function TodayScreen({
             accessibilityLiveRegion={presentation.header.announceFreshness ? 'polite' : 'none'}
             colorRole="textSecondary"
             style={styles.freshnessText}
+            tabularNumbers
             variant="caption">
             {presentation.header.freshness}
           </AppText>
@@ -314,13 +315,13 @@ const styles = StyleSheet.create({
   feedbackContent: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing['2xl'],
+    paddingVertical: spacing.lg,
   },
   feedbackCard: {
     alignItems: 'center',
     gap: spacing.lg,
     maxWidth: 520,
-    padding: spacing.xl,
+    padding: spacing.lg,
     width: '100%',
   },
   centerText: {

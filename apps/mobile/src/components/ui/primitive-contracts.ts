@@ -8,7 +8,7 @@ import {
 } from '../../theme/theme';
 
 export type SurfaceVariant = 'default' | 'muted' | 'elevated' | 'interactive';
-export type ButtonVariant = 'primary' | 'secondary' | 'quiet';
+export type ButtonVariant = 'primary' | 'secondary' | 'quiet' | 'destructive';
 export type PillTone = 'accent-filled' | 'bordered';
 
 export const surfaceColorRoleByVariant = Object.freeze({
@@ -59,10 +59,18 @@ export function resolveButtonColors(
     } as const;
   }
 
+  if (variant === 'destructive') {
+    return {
+      backgroundColor: theme.colors.dangerInk,
+      borderColor: theme.colors.dangerInk,
+      textColor: theme.colors.textOnBrand,
+    } as const;
+  }
+
   if (variant === 'secondary') {
     return {
       backgroundColor: theme.colors.surfaceInteractive,
-      borderColor: theme.colors.borderStrong,
+      borderColor: theme.colors.borderDefined,
       textColor: theme.colors.textPrimary,
     } as const;
   }

@@ -96,7 +96,7 @@ export function OutfitSuggestionCard({
                 <View
                   style={[styles.reason, { backgroundColor: theme.colors.surfaceMuted }]}
                   testID={`outfit-card-${suggestion.id}-reason`}>
-                  <Icon color={theme.colors.iconSecondary} name="info" size={16} />
+                  <Icon color={theme.colors.brandAccent} name="info" size={16} />
                   <AppText colorRole="textSecondary" style={styles.reasonText} variant="caption">
                     {suggestion.reasons.join(' ')}
                   </AppText>

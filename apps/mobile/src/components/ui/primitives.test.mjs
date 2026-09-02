@@ -63,12 +63,19 @@ test('Button semantic variants resolve for light and dark appearances', () => {
     const theme = createKuyaraTheme(scheme);
     const primary = resolveButtonColors(theme, 'primary', false);
     const secondary = resolveButtonColors(theme, 'secondary', false);
+    const destructive = resolveButtonColors(theme, 'destructive', false);
+    const destructivePressed = resolveButtonColors(theme, 'destructive', true);
     const quietPressed = resolveButtonColors(theme, 'quiet', true);
 
     assert.equal(primary.backgroundColor, theme.colors.brandPrimary);
     assert.equal(primary.textColor, theme.colors.textOnBrand);
     assert.equal(secondary.backgroundColor, theme.colors.surfaceInteractive);
+    assert.equal(secondary.borderColor, theme.colors.borderDefined);
     assert.equal(secondary.textColor, theme.colors.textPrimary);
+    assert.equal(destructive.backgroundColor, theme.colors.dangerInk);
+    assert.equal(destructive.borderColor, theme.colors.dangerInk);
+    assert.equal(destructive.textColor, theme.colors.textOnBrand);
+    assert.deepEqual(destructivePressed, destructive);
     assert.equal(quietPressed.backgroundColor, theme.colors.surfaceInteractive);
     assert.equal(quietPressed.textColor, theme.colors.brandAccent);
   }
