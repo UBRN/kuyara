@@ -19,15 +19,18 @@ jest.mock('expo-symbols', () => ({
 
 jest.mock('expo-router', () => {
   const push = jest.fn();
+  const back = jest.fn();
 
   return {
     useFocusEffect: () => undefined,
-    useRouter: () => ({ push }),
+    useRouter: () => ({ back, push }),
+    __mockBack: back,
     __mockPush: push,
   };
 });
 
-const { __mockPush: mockPush } = jest.requireMock('expo-router') as {
+const { __mockBack: mockBack, __mockPush: mockPush } = jest.requireMock('expo-router') as {
+  __mockBack: jest.Mock;
   __mockPush: jest.Mock;
 };
 
@@ -104,6 +107,7 @@ async function renderRoute(items: readonly WardrobeItem[]) {
 }
 
 beforeEach(() => {
+  mockBack.mockClear();
   mockPush.mockClear();
 });
 
@@ -122,4 +126,10 @@ test('selecting an item navigates to its absolute edit route', async () => {
   const result = await renderRoute([item]);
   await fireEvent.press(result.getByTestId(`wardrobe-item-${item.id}`));
   expect(mockPush).toHaveBeenCalledWith(`/wardrobe/${item.id}`);
+});
+
+test('header back affordance returns to Profile', async () => {
+  const result = await renderRoute([item]);
+  await fireEvent.press(result.getByTestId('wardrobe-back-button'));
+  expect(mockBack).toHaveBeenCalledTimes(1);
 });

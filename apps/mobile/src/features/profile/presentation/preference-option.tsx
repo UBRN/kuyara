@@ -1,7 +1,6 @@
-import { SymbolView } from 'expo-symbols';
-import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, type ViewStyle } from 'react-native';
 
-import { AppText } from '@/components/ui';
+import { AppText, Icon } from '@/components/ui';
 import { borderWidths, interaction, layout, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -53,17 +52,11 @@ export function PreferenceOption({
         variant="bodyStrong">
         {label}
       </AppText>
-      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-        <SymbolView
-          name={{
-            ios: selected ? 'checkmark.circle.fill' : 'circle',
-            android: selected ? 'check_circle' : 'radio_button_unchecked',
-            web: selected ? 'check_circle' : 'radio_button_unchecked',
-          }}
-          size={24}
-          tintColor={selected ? theme.colors.textOnBrand : theme.colors.iconSecondary}
-        />
-      </View>
+      <Icon
+        color={selected ? theme.colors.textOnBrand : theme.colors.iconSecondary}
+        name={selected ? 'checkCircle' : 'circle'}
+        size={24}
+      />
     </Pressable>
   );
 }

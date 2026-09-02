@@ -1,15 +1,29 @@
 import { Fragment, useState } from 'react';
-import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import {
+  Linking,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 
-import { AppText, Button, Pill, Screen, Surface } from '@/components/ui';
+import { AppText, Button, Icon, Screen, SectionHeader, Surface } from '@/components/ui';
 import { Divider } from '@/components/ui/divider';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { manualLocationCatalog } from '@/features/weather/data/manual-location-catalog';
 import type { ActiveLocation, ManualLocationId } from '@/features/weather/domain/weather';
-import { WeatherCard } from '@/features/today/presentation/weather-card';
+import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
 import { useLocalization } from '@/localization/use-messages';
 import { borderWidths, interaction, layout, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
+
+const weatherAttributionUrls: Readonly<Record<string, string>> = {
+  'open-meteo': 'https://open-meteo.com/',
+  openweather: 'https://openweathermap.org/',
+};
+
+const PRECIPITATION_BAR_HEIGHT = 32;
 
 function temperature(value: number, language: 'en' | 'tr'): string {
   return `${new Intl.NumberFormat(language === 'tr' ? 'tr-TR' : 'en-US', {
@@ -27,6 +41,20 @@ function time(value: string, timeZone: string, language: 'en' | 'tr'): string {
   return new Intl.DateTimeFormat(language === 'tr' ? 'tr-TR' : 'en-US', {
     hour: '2-digit', minute: '2-digit', timeZone,
   }).format(new Date(value));
+}
+
+function percentage(value: number, language: 'en' | 'tr'): string {
+  return new Intl.NumberFormat(language === 'tr' ? 'tr-TR' : 'en-US', {
+    maximumFractionDigits: 0,
+    style: 'percent',
+  }).format(value);
+}
+
+function accessibilitySentence(...parts: readonly (string | null)[]): string {
+  return parts
+    .filter((part): part is string => Boolean(part))
+    .map((part) => part.replace(/[.!?…]+$/u, ''))
+    .join('. ');
 }
 
 function locationName(
@@ -72,6 +100,7 @@ function LocationOption({
 export function WeatherScreen() {
   const { language, messages } = useLocalization();
   const theme = useKuyaraTheme();
+  const { fontScale } = useWindowDimensions();
   const copy = messages.weather;
   const application = useWeatherApplication();
   const { state } = application;
@@ -129,6 +158,22 @@ export function WeatherScreen() {
             notice: copy.rateLimitedNotice,
           }
         : null;
+  const refreshLabel = state.isRefreshing
+    ? copy.refreshing
+    : failureCopy
+      ? copy.retry
+      : copy.refresh;
+  const locationAccessibilityLabel = accessibilitySentence(
+    activeName,
+    accuracy,
+    copy.changeLocationAction,
+  );
+  const attributionLabel = snapshot?.origin.sourceId === 'open-meteo'
+    ? copy.attributionOpenMeteo
+    : snapshot?.origin.sourceId === 'openweather'
+      ? copy.attributionOpenWeather
+      : null;
+  const usesAccessibilityLayout = fontScale > 1.5;
 
   return (
     <Screen
@@ -142,35 +187,53 @@ export function WeatherScreen() {
         />
       }
       testID="weather-screen">
-      <View style={styles.introSection}>
-        <AppText accessibilityRole="header" variant="titleLarge">{copy.title}</AppText>
-        <AppText colorRole="textSecondary">{copy.introduction}</AppText>
-      </View>
+      <SectionHeader
+        title={copy.title}
+        trailingAction={state.activeLocation ? (
+          <Pressable
+            accessibilityLabel={refreshLabel}
+            accessibilityRole="button"
+            accessibilityState={{ busy: state.isRefreshing, disabled: state.isRefreshing }}
+            disabled={state.isRefreshing}
+            onPress={() => void application.refresh()}
+            style={({ pressed }) => [
+              styles.refreshButton,
+              { backgroundColor: theme.colors.surfaceInteractive },
+              pressed && styles.pressed,
+            ]}
+            testID="weather-refresh-button">
+            <Icon color={theme.colors.iconSecondary} name="refresh" size={15} />
+            <AppText colorRole="textSecondary" variant="label">{refreshLabel}</AppText>
+          </Pressable>
+        ) : undefined}
+      />
+      <AppText colorRole="textSecondary">{copy.introduction}</AppText>
 
       <View style={styles.locationSection}>
-        <View style={styles.locationRow}>
-          <View style={styles.locationNameGroup}>
-            <AppText variant="bodyStrong">{activeName}</AppText>
-            {accuracy && <AppText colorRole="textSecondary" variant="caption">{accuracy}</AppText>}
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ expanded: isLocationPickerVisible }}
-            hitSlop={10}
-            onPress={() => setIsLocationPickerOpen((open) => !open)}
-            testID="weather-change-location-button">
-            <Pill label={copy.changeLocationAction} tone="bordered" />
-          </Pressable>
-        </View>
-
-        {state.activeLocation && (
-          <Button
-            label={state.isRefreshing ? copy.refreshing : (failureCopy ? copy.retry : copy.refresh)}
-            loading={state.isRefreshing}
-            onPress={() => void application.refresh()}
-            testID="weather-refresh-button"
-          />
-        )}
+        <Pressable
+          accessibilityLabel={locationAccessibilityLabel}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: isLocationPickerVisible }}
+          hitSlop={10}
+          onPress={() => setIsLocationPickerOpen((open) => !open)}
+          style={({ pressed }) => pressed && styles.pressed}
+          testID="weather-change-location-button">
+          <Surface pointerEvents="none" style={[styles.locationCard, theme.elevation.raised]}>
+            <Icon color={theme.colors.iconSecondary} name="location" size={20} />
+            <View style={styles.locationNameGroup}>
+              <AppText variant="bodyStrong">{activeName}</AppText>
+              {accuracy ? (
+                <AppText colorRole="textSecondary" variant="caption">{accuracy}</AppText>
+              ) : null}
+            </View>
+            <View style={styles.locationAffordance}>
+              <AppText colorRole="textSecondary" variant="label">
+                {copy.changeLocationAction}
+              </AppText>
+              <Icon color={theme.colors.iconSecondary} name="chevronRight" size={15} />
+            </View>
+          </Surface>
+        </Pressable>
 
         {isLocationPickerVisible ? (
           <View style={styles.locationPicker} testID="weather-location-picker">
@@ -230,65 +293,192 @@ export function WeatherScreen() {
       {snapshot ? (
         <>
           <View style={styles.currentSection}>
-            <WeatherCard
-              accessibilityLabel={copy.currentConditionsAccessibilityLabel({
-                condition: copy.conditions[snapshot.current.condition],
-                temperature: temperature(snapshot.current.temperatureCelsius, language),
-                apparentTemperature: temperature(snapshot.current.apparentTemperatureCelsius, language),
-                minimumTemperature: temperature(snapshot.minimumTemperatureCelsius, language),
-                maximumTemperature: temperature(snapshot.maximumTemperatureCelsius, language),
-                precipitationProbability: snapshot.current.precipitationProbability,
-              })}
-              apparentTemperature={copy.feelsLike(temperature(snapshot.current.apparentTemperatureCelsius, language))}
-              condition={copy.conditions[snapshot.current.condition]}
-              rainProbability={copy.precipitation(snapshot.current.precipitationProbability)}
-              range={copy.range(
-                temperature(snapshot.minimumTemperatureCelsius, language),
-                temperature(snapshot.maximumTemperatureCelsius, language),
-              )}
-              metricsAccessibilityLabel={copy.metricsAccessibilityLabel({
-                windSpeed: decimal(snapshot.current.windSpeedMetersPerSecond, language),
-                humidity: snapshot.current.humidity,
-                uvIndex: decimal(snapshot.current.uvIndex, language),
-              })}
-              stats={[
-                { label: copy.windLabel, value: copy.windValue(decimal(snapshot.current.windSpeedMetersPerSecond, language)) },
-                { label: copy.humidityLabel, value: copy.humidityValue(snapshot.current.humidity) },
-                { label: copy.uvIndexLabel, value: decimal(snapshot.current.uvIndex, language) },
-              ]}
-              temperature={temperature(snapshot.current.temperatureCelsius, language)}
-              sourceId={snapshot.origin.sourceId}
-              testID="weather-current-card"
-            />
+            <Surface
+              style={[styles.card, theme.elevation.raised]}
+              testID="weather-current-card">
+              <View
+                accessible
+                accessibilityLabel={copy.currentConditionsAccessibilityLabel({
+                  condition: copy.conditions[snapshot.current.condition],
+                  temperature: temperature(snapshot.current.temperatureCelsius, language),
+                  apparentTemperature: temperature(
+                    snapshot.current.apparentTemperatureCelsius,
+                    language,
+                  ),
+                  minimumTemperature: temperature(snapshot.minimumTemperatureCelsius, language),
+                  maximumTemperature: temperature(snapshot.maximumTemperatureCelsius, language),
+                  precipitationProbability: snapshot.current.precipitationProbability,
+                })}
+                style={[
+                  styles.currentHero,
+                  usesAccessibilityLayout && styles.stackedCurrentHero,
+                ]}>
+                <View style={styles.currentConditionGroup}>
+                  <View style={styles.currentConditionRow}>
+                    <AppText variant="display">
+                      {temperature(snapshot.current.temperatureCelsius, language)}
+                    </AppText>
+                    <AppText variant="bodyStrong">
+                      {copy.conditions[snapshot.current.condition]}
+                    </AppText>
+                  </View>
+                  <AppText colorRole="textSecondary" variant="caption">
+                    {copy.feelsLike(
+                      temperature(snapshot.current.apparentTemperatureCelsius, language),
+                    )}
+                  </AppText>
+                  <AppText colorRole="textSecondary" variant="caption">
+                    {`${copy.range(
+                      temperature(snapshot.minimumTemperatureCelsius, language),
+                      temperature(snapshot.maximumTemperatureCelsius, language),
+                    )} · ${copy.precipitation(snapshot.current.precipitationProbability)}`}
+                  </AppText>
+                </View>
+                <View
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants">
+                  <WeatherGlyph />
+                </View>
+              </View>
+
+              <Divider testID="weather-current-divider" />
+
+              <View
+                style={[
+                  styles.statsGrid,
+                  usesAccessibilityLayout && styles.stackedStatsGrid,
+                ]}>
+                {([
+                  {
+                    accessibilityLabel: copy.wind(
+                      decimal(snapshot.current.windSpeedMetersPerSecond, language),
+                    ),
+                    icon: 'wind',
+                    label: copy.windLabel,
+                    value: copy.windValue(
+                      decimal(snapshot.current.windSpeedMetersPerSecond, language),
+                    ),
+                  },
+                  {
+                    accessibilityLabel: copy.humidity(snapshot.current.humidity),
+                    icon: 'humidity',
+                    label: copy.humidityLabel,
+                    value: copy.humidityValue(snapshot.current.humidity),
+                  },
+                  {
+                    accessibilityLabel: copy.uvIndex(
+                      decimal(snapshot.current.uvIndex, language),
+                    ),
+                    icon: 'uv',
+                    label: copy.uvIndexLabel,
+                    value: decimal(snapshot.current.uvIndex, language),
+                  },
+                ] as const).map((stat) => (
+                  <View
+                    accessible
+                    accessibilityLabel={stat.accessibilityLabel}
+                    key={stat.label}
+                    style={[
+                      styles.stat,
+                      usesAccessibilityLayout && styles.stackedStat,
+                    ]}>
+                    <Icon color={theme.colors.iconSecondary} name={stat.icon} size={18} />
+                    <AppText colorRole="textSecondary" variant="eyebrow">
+                      {stat.label}
+                    </AppText>
+                    <AppText variant="bodyStrong">{stat.value}</AppText>
+                  </View>
+                ))}
+              </View>
+
+              {attributionLabel ? (
+                <Pressable
+                  accessibilityRole="link"
+                  hitSlop={13}
+                  onPress={() => {
+                    void Linking.openURL(weatherAttributionUrls[snapshot.origin.sourceId]);
+                  }}
+                  style={styles.attribution}>
+                  <AppText colorRole="textSecondary" variant="caption">
+                    {attributionLabel}
+                  </AppText>
+                </Pressable>
+              ) : null}
+            </Surface>
             <View style={styles.headingRow}>
               <AppText variant="label">{state.freshness === 'fresh' ? copy.fresh : copy.stale}</AppText>
               <AppText colorRole="textSecondary" variant="caption">{copy.updatedAt(time(snapshot.fetchedAt, snapshot.timeZone, language))}</AppText>
             </View>
           </View>
 
-          <Surface style={styles.card} testID="weather-hourly-card" variant="elevated">
+          <Surface
+            style={[styles.card, theme.elevation.raised]}
+            testID="weather-hourly-card">
             <AppText colorRole="brandAccent" variant="eyebrow">{copy.hourlyHeading}</AppText>
-            {snapshot.hourly.map((hour, index) => (
-              <Fragment key={hour.forecastAt}>
-                {index > 0 ? <Divider testID="weather-hour-divider" variant="inset" /> : null}
-                <View
-                  accessible
-                  accessibilityLabel={copy.hourlyForecastAccessibilityLabel({
-                    time: time(hour.forecastAt, snapshot.timeZone, language),
-                    temperature: temperature(hour.temperatureCelsius, language),
-                    condition: copy.conditions[hour.condition],
-                    precipitationProbability: hour.precipitationProbability,
-                  })}
-                  style={styles.hourRow}>
-                  <AppText variant="bodyStrong">{time(hour.forecastAt, snapshot.timeZone, language)}</AppText>
-                  <View style={styles.hourDetails}>
-                    <AppText>{temperature(hour.temperatureCelsius, language)}</AppText>
-                    <AppText colorRole="textSecondary">{copy.conditions[hour.condition]}</AppText>
-                    <AppText colorRole="textSecondary">{copy.precipitation(hour.precipitationProbability)}</AppText>
+            <View>
+              {snapshot.hourly.map((hour, index) => (
+                <Fragment key={hour.forecastAt}>
+                  {index > 0 ? <Divider testID="weather-hour-divider" /> : null}
+                  <View
+                    accessible
+                    accessibilityLabel={copy.hourlyForecastAccessibilityLabel({
+                      time: time(hour.forecastAt, snapshot.timeZone, language),
+                      temperature: temperature(hour.temperatureCelsius, language),
+                      condition: copy.conditions[hour.condition],
+                      precipitationProbability: hour.precipitationProbability,
+                    })}
+                    style={[
+                      styles.hourRow,
+                      usesAccessibilityLayout && styles.stackedHourRow,
+                    ]}>
+                    <AppText
+                      style={[
+                        styles.hourTime,
+                        usesAccessibilityLayout && styles.stackedHourTime,
+                      ]}
+                      variant="bodyStrong">
+                      {time(hour.forecastAt, snapshot.timeZone, language)}
+                    </AppText>
+                    <Icon color={theme.colors.iconSecondary} name="tabWeather" size={22} />
+                    <View style={styles.precipitationGroup}>
+                      <View
+                        accessible={false}
+                        accessibilityElementsHidden
+                        importantForAccessibility="no-hide-descendants"
+                        style={[
+                          styles.precipitationBar,
+                          { backgroundColor: theme.colors.surfaceMuted },
+                        ]}
+                        testID="weather-hour-precipitation-bar">
+                        <View
+                          style={[
+                            styles.precipitationFill,
+                            {
+                              backgroundColor: theme.colors.brandAccent,
+                              height: Math.max(
+                                2,
+                                hour.precipitationProbability * PRECIPITATION_BAR_HEIGHT,
+                              ),
+                            },
+                          ]}
+                        />
+                      </View>
+                      <AppText colorRole="textSecondary" variant="caption">
+                        {percentage(hour.precipitationProbability, language)}
+                      </AppText>
+                    </View>
+                    <AppText
+                      style={[
+                        styles.hourTemperature,
+                        usesAccessibilityLayout && styles.stackedHourTemperature,
+                      ]}
+                      variant="bodyStrong">
+                      {temperature(hour.temperatureCelsius, language)}
+                    </AppText>
                   </View>
-                </View>
-              </Fragment>
-            ))}
+                </Fragment>
+              ))}
+            </View>
           </Surface>
         </>
       ) : (
@@ -303,7 +493,17 @@ export function WeatherScreen() {
       )}
 
       {snapshot && failureCopy && (
-        <AppText accessibilityLiveRegion="polite">{failureCopy.notice}</AppText>
+        <Surface
+          accessible
+          accessibilityLabel={failureCopy.notice}
+          accessibilityLiveRegion="polite"
+          style={styles.staleNotice}
+          variant="muted">
+          <Icon color={theme.colors.iconSecondary} name="warning" size={17} />
+          <AppText colorRole="textSecondary" variant="caption">
+            {failureCopy.notice}
+          </AppText>
+        </Surface>
       )}
     </Screen>
   );
@@ -312,17 +512,33 @@ export function WeatherScreen() {
 const styles = StyleSheet.create({
   content: { gap: spacing.xl, paddingBottom: spacing['2xl'] },
   center: { flexGrow: 1, justifyContent: 'center', gap: spacing.lg },
-  introSection: { gap: spacing.md },
   locationSection: { gap: spacing.lg },
   currentSection: { gap: spacing.md },
   card: { gap: spacing.lg, padding: spacing.lg },
   disclosure: { padding: spacing.md },
-  locationRow: {
+  refreshButton: {
+    alignItems: 'center',
+    borderRadius: radii.control,
+    flexDirection: 'row',
+    gap: spacing.xs,
+    minHeight: layout.minimumTouchTarget,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  locationCard: {
     alignItems: 'center',
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: spacing.md,
+    minHeight: layout.minimumTouchTarget,
+    padding: spacing.lg,
   },
-  locationNameGroup: { gap: spacing.xs / 2 },
+  locationNameGroup: { flex: 1, flexShrink: 1, gap: spacing.xs / 2 },
+  locationAffordance: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexShrink: 0,
+    gap: spacing.xs,
+  },
   locationPicker: { gap: spacing.md },
   actions: { gap: spacing.sm },
   options: { gap: spacing.sm },
@@ -335,7 +551,68 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   pressed: { opacity: interaction.pressedOpacity },
+  currentHero: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.lg,
+  },
+  stackedCurrentHero: {
+    alignItems: 'flex-start',
+    flexDirection: 'column',
+  },
+  currentConditionGroup: { flex: 1, flexShrink: 1, gap: spacing.xs },
+  currentConditionRow: {
+    alignItems: 'baseline',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  stackedStatsGrid: { flexDirection: 'column' },
+  stat: {
+    alignItems: 'flex-start',
+    flex: 1,
+    gap: spacing.xs,
+    minWidth: 0,
+  },
+  stackedStat: { flex: 0, width: '100%' },
+  attribution: { alignSelf: 'flex-start' },
   headingRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: spacing.md },
-  hourRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.lg, paddingVertical: spacing.sm },
-  hourDetails: { flex: 1, minWidth: 180, gap: spacing.xs },
+  hourRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.md,
+    minHeight: layout.minimumTouchTarget,
+    paddingVertical: spacing.md,
+  },
+  stackedHourRow: { alignItems: 'flex-start', flexDirection: 'column' },
+  hourTime: { width: 76 },
+  stackedHourTime: { width: 'auto' },
+  precipitationGroup: {
+    alignItems: 'center',
+    flex: 1,
+    flexDirection: 'row',
+    gap: spacing.xs,
+    minWidth: 48,
+  },
+  precipitationBar: {
+    borderRadius: radii.pill,
+    height: PRECIPITATION_BAR_HEIGHT,
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+    width: 4,
+  },
+  precipitationFill: { borderRadius: radii.pill, width: '100%' },
+  hourTemperature: { minWidth: 52, textAlign: 'right' },
+  stackedHourTemperature: { textAlign: 'left' },
+  staleNotice: {
+    alignItems: 'center',
+    borderRadius: radii.control,
+    flexDirection: 'row',
+    gap: spacing.sm,
+    padding: spacing.md,
+  },
 });

@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { use } from 'react';
 
 import { useNotificationApplication } from '@/features/notifications/application/notification-context';
@@ -42,6 +43,7 @@ export default function SettingsRoute() {
       lastGenerationMode={lastGenerationMode}
       isNotificationBusy={notificationState.isBusy}
       notificationPermission={notificationState.permission}
+      onBack={() => router.back()}
       onCheckAiStatus={check}
       onOpenNotificationSettings={() => void openApplicationSettings()}
       onSendTestNotification={() => sendTestNotification({

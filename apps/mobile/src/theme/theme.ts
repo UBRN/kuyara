@@ -15,10 +15,10 @@ export const brandColors = Object.freeze({
 
 export const lightSemanticColors = Object.freeze({
   // Soft Mist has only 1.085:1 headroom to white; moving the ground down creates
-  // a 1.255:1 surface step, matching the dark theme's existing 1.276:1.
+  // a 1.395:1 surface step while the dark theme keeps its existing 1.276:1.
   background: '#D0DDDC',
   backgroundElevated: brandColors.softMist,
-  surface: brandColors.cloudWhite,
+  surface: '#FFFFFF',
   surfaceMuted: '#E7EEED',
   surfaceInteractive: '#DDE8E7',
   textPrimary: brandColors.deepAtmosphere,
@@ -157,9 +157,9 @@ export type ElevationTokens = Readonly<
 const lightElevation = Object.freeze({
   raised: {
     shadowColor: brandColors.nightLayer,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
     elevation: 3,
   },
   chrome: {

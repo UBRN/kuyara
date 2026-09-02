@@ -1,4 +1,3 @@
-import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,7 +12,15 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppText, Button, PhotoPlaceholder, StretchyHeader, Surface } from '@/components/ui';
+import {
+  AppText,
+  Button,
+  GarmentSlotTile,
+  Icon,
+  IconButton,
+  StretchyHeader,
+  Surface,
+} from '@/components/ui';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import type { CatalogMessageKey } from '@/features/catalog/domain/garment-taxonomy';
 import type { WardrobeApplicationState } from '@/features/wardrobe/application/wardrobe-application-controller';
@@ -28,6 +35,7 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 type WardrobeListScreenProps = Readonly<{
   state: WardrobeApplicationState;
   onAdd: () => void;
+  onBack?: () => void;
   onEdit: (id: string) => void;
   onRetry: () => void;
   resolvePhotoUri?: (relativePath: string | null) => string | null;
@@ -69,6 +77,7 @@ function WardrobeListItem({
 
   return (
     <Pressable
+      accessible
       accessibilityHint={messages.wardrobe.itemHint}
       accessibilityLabel={messages.wardrobe.itemAccessibilityLabel({
         name: item.name,
@@ -84,13 +93,14 @@ function WardrobeListItem({
         <Surface
           style={[
             styles.itemCard,
+            theme.elevation.raised,
             pressed && { borderColor: theme.colors.borderStrong },
-          ]}
-          variant="interactive">
+          ]}>
           {visiblePhotoUri ? (
             <Image
-              accessible
-              accessibilityLabel={messages.wardrobe.photoAccessibilityLabel(typeLabel)}
+              accessibilityElementsHidden
+              accessible={false}
+              importantForAccessibility="no-hide-descendants"
               onError={() => setUnreadablePhotoUri(visiblePhotoUri)}
               resizeMode="cover"
               source={{ uri: visiblePhotoUri }}
@@ -98,33 +108,57 @@ function WardrobeListItem({
               testID={`wardrobe-photo-${item.id}`}
             />
           ) : (
-            <PhotoPlaceholder
-              borderRadius={radii.compact}
-              height={56}
-              label={messages.wardrobe.photoTitle}
-              testID={`wardrobe-photo-placeholder-${item.id}`}
-              width={56}
-            />
+            <View
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              testID={`wardrobe-photo-placeholder-${item.id}`}>
+              <GarmentSlotTile
+                category={item.category}
+                color={theme.colors.iconSecondary}
+                size={56}
+              />
+            </View>
           )}
           <View style={styles.itemCopy}>
             <AppText variant="bodyStrong">{title}</AppText>
             {item.name ? (
-              <AppText colorRole="textSecondary">{typeLabel}</AppText>
+              <AppText colorRole="textSecondary" variant="caption">
+                {typeLabel}
+              </AppText>
             ) : null}
-            <AppText colorRole="textSecondary" variant="caption">
-              {[categoryLabel, colorLabel].filter(Boolean).join(' · ')}
-            </AppText>
+            <View style={styles.itemCaption}>
+              {item.colorFamily ? (
+                <View
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                  style={[
+                    styles.colorSwatch,
+                    {
+                      backgroundColor: item.colorFamily === 'multicolor'
+                        ? theme.colors.brandAccent
+                        : item.colorFamily,
+                      borderColor: theme.colors.borderSubtle,
+                    },
+                  ]}
+                  testID={`wardrobe-color-swatch-${item.id}`}
+                />
+              ) : null}
+              <AppText
+                colorRole="textSecondary"
+                style={styles.itemCaptionCopy}
+                variant="caption">
+                {[categoryLabel, colorLabel].filter(Boolean).join(' · ')}
+              </AppText>
+            </View>
             <AppText colorRole="textSecondary" variant="caption">
               {stateLabel}
             </AppText>
           </View>
-          <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-            <SymbolView
-              name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
-              size={20}
-              tintColor={theme.colors.iconSecondary}
-            />
-          </View>
+          <Icon
+            color={theme.colors.iconSecondary}
+            name="chevronRight"
+            size={20}
+          />
         </Surface>
       )}
     </Pressable>
@@ -133,6 +167,7 @@ function WardrobeListItem({
 
 export function WardrobeListScreen({
   onAdd,
+  onBack = () => undefined,
   onEdit,
   onRetry,
   resolvePhotoUri = () => null,
@@ -194,6 +229,8 @@ export function WardrobeListScreen({
   const filteredItems = state.items.filter(
     (item) => item.entryState === entryState,
   );
+  const ownedCount = state.items.filter((item) => item.entryState === 'owned').length;
+  const wantedCount = state.items.length - ownedCount;
   const emptyTitle = entryState === 'owned'
     ? copy.emptyTitle
     : copy.wantedEmptyTitle;
@@ -204,22 +241,44 @@ export function WardrobeListScreen({
   return (
     <View style={[styles.readyScreen, { backgroundColor: theme.colors.background }]}>
       <StretchyHeader
-        contentContainerStyle={styles.header}
         onHeightChange={setHeaderHeight}
         scrollOffset={scrollOffset}
         testID="wardrobe-stretchy-header">
-        <AppText accessibilityRole="header" variant="titleLarge">
-          {copy.title}
-        </AppText>
-        {state.items.length > 0 ? (
-          <Button
-            accessibilityHint={copy.addHint}
-            label={copy.addAction}
-            onPress={onAdd}
-            style={styles.addButton}
-            testID="wardrobe-add-button"
+        <View style={styles.headerRow}>
+          <IconButton
+            accessibilityLabel={copy.backAction}
+            icon={(color) => <Icon color={color} name="chevronLeft" size={20} />}
+            onPress={onBack}
+            style={styles.backButton}
+            testID="wardrobe-back-button"
           />
-        ) : null}
+          <AppText
+            accessibilityRole="header"
+            style={styles.headerTitle}
+            variant="titleLarge">
+            {copy.title}
+          </AppText>
+          <View style={styles.addAction}>
+            <Button
+              accessibilityHint={copy.addHint}
+              label={copy.addAction}
+              onPress={onAdd}
+              style={styles.addButton}
+              testID="wardrobe-add-button"
+            />
+            <View
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              pointerEvents="none"
+              style={styles.addIcon}>
+              <Icon
+                color={theme.colors.textOnBrand}
+                name="plus"
+                size={16}
+              />
+            </View>
+          </View>
+        </View>
       </StretchyHeader>
 
       <Animated.FlatList<WardrobeItem>
@@ -238,11 +297,13 @@ export function WardrobeListScreen({
               {(['owned', 'wanted'] as const).map((value) => {
                 const selected = entryState === value;
                 const label = value === 'owned' ? copy.ownedLabel : copy.wantedLabel;
+                const count = value === 'owned' ? ownedCount : wantedCount;
 
                 return (
                   <Pressable
-                    accessibilityLabel={label}
-                    accessibilityRole="tab"
+                    accessible
+                    accessibilityLabel={copy.filterCountAccessibilityLabel({ label, count })}
+                    accessibilityRole="button"
                     accessibilityState={{ selected }}
                     key={value}
                     onPress={() => setEntryState(value)}
@@ -250,31 +311,25 @@ export function WardrobeListScreen({
                       styles.filterSegment,
                       {
                         backgroundColor: selected
-                          ? theme.colors.brandAccent
-                          : theme.colors.surfaceInteractive,
+                          ? theme.colors.brandPrimary
+                          : theme.colors.surface,
                         borderColor: selected
-                          ? theme.colors.brandAccent
+                          ? theme.colors.brandPrimary
                           : theme.colors.borderSubtle,
                       },
                       pressed && styles.filterPressed,
                     ]}
                     testID={`wardrobe-filter-${value}`}>
                     <AppText
-                      colorRole={selected ? 'textOnBrand' : 'textPrimary'}
+                      colorRole={selected ? 'textOnBrand' : 'textSecondary'}
                       variant="bodyStrong">
                       {label}
                     </AppText>
-                    {selected ? (
-                      <View
-                        accessibilityElementsHidden
-                        importantForAccessibility="no-hide-descendants">
-                        <SymbolView
-                          name={{ ios: 'checkmark', android: 'check', web: 'check' }}
-                          size={18}
-                          tintColor={theme.colors.textOnBrand}
-                        />
-                      </View>
-                    ) : null}
+                    <AppText
+                      colorRole={selected ? 'textOnBrand' : 'textSecondary'}
+                      variant="bodyStrong">
+                      {count}
+                    </AppText>
                   </Pressable>
                 );
               })}
@@ -343,12 +398,30 @@ const styles = StyleSheet.create({
   emptyListContent: {
     flexGrow: 1,
   },
-  header: {
-    gap: spacing.lg,
+  headerRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  headerTitle: {
+    flex: 1,
+    flexShrink: 1,
+  },
+  backButton: {
+    borderRadius: radii.pill,
+  },
+  addAction: {
+    position: 'relative',
   },
   addButton: {
-    alignSelf: 'flex-start',
     borderRadius: radii.pill,
+    paddingLeft: spacing['2xl'] + spacing.sm,
+  },
+  addIcon: {
+    left: spacing.lg,
+    position: 'absolute',
+    top: '50%',
+    transform: [{ translateY: -8 }],
   },
   listHeader: {
     gap: spacing.md,
@@ -360,8 +433,8 @@ const styles = StyleSheet.create({
   },
   filterSegment: {
     alignItems: 'center',
-    borderRadius: radii.control,
-    borderWidth: borderWidths.strong,
+    borderRadius: radii.pill,
+    borderWidth: borderWidths.subtle,
     flex: 1,
     flexDirection: 'row',
     gap: spacing.sm,
@@ -391,12 +464,27 @@ const styles = StyleSheet.create({
   itemCopy: {
     flex: 1,
     gap: spacing.xs,
+    minWidth: 0,
+  },
+  itemCaption: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  itemCaptionCopy: {
+    flexShrink: 1,
+  },
+  colorSwatch: {
+    borderRadius: radii.pill,
+    borderWidth: borderWidths.subtle,
+    height: spacing.md,
+    width: spacing.md,
   },
   separator: {
     height: spacing.md,
   },
   thumbnail: {
-    borderRadius: radii.compact,
+    borderRadius: radii.control,
     height: 56,
     width: 56,
   },

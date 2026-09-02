@@ -96,6 +96,13 @@ test('themes expose two calm, platform-complete elevation levels independent of 
 
   assert.ok(light.elevation.raised.shadowOpacity > dark.elevation.raised.shadowOpacity);
   assert.ok(light.elevation.chrome.shadowOpacity > dark.elevation.chrome.shadowOpacity);
+  assert.deepEqual(light.elevation.raised, {
+    shadowColor: brandColors.nightLayer,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 3,
+  });
   assert.equal(reduced.elevation, light.elevation);
 });
 
@@ -143,6 +150,30 @@ test('English and Turkish locale resolution preserve the supported product langu
   assert.equal(messages.tr.today.title, 'Bugün');
   assert.equal(messages.en.today.slots.outer_layer, 'Outer layer');
   assert.equal(messages.tr.today.slots.outer_layer, 'Dış katman');
+  assert.equal(messages.en.profile.piecesSavedUnit({ count: 1 }), 'piece saved');
+  assert.equal(messages.en.profile.piecesSavedUnit({ count: 2 }), 'pieces saved');
+  assert.equal(messages.tr.profile.piecesSavedUnit({ count: 2 }), 'parça kayıtlı');
+  assert.equal(
+    messages.en.profile.categoryCountAccessibilityLabel({ category: 'Tops', count: 3 }),
+    'Tops: 3.',
+  );
+  assert.equal(
+    messages.tr.profile.categoryCountAccessibilityLabel({ category: 'Üstler', count: 3 }),
+    'Üstler: 3.',
+  );
+  assert.equal(
+    messages.en.wardrobe.filterCountAccessibilityLabel({ label: 'Owned', count: 4 }),
+    'Owned: 4.',
+  );
+  assert.equal(
+    messages.tr.wardrobe.filterCountAccessibilityLabel({ label: 'Sahip olduklarım', count: 4 }),
+    'Sahip olduklarım: 4.',
+  );
+  assert.equal(messages.en.today.otherOptionPieceCount({ count: 1 }), '1 piece');
+  assert.equal(messages.en.today.otherOptionPieceCount({ count: 2 }), '2 pieces');
+  assert.equal(messages.tr.today.otherOptionPieceCount({ count: 2 }), '2 parça');
+  assert.equal(messages.en.wardrobe.addAction, 'Add');
+  assert.equal(messages.tr.wardrobe.addAction, 'Ekle');
 });
 
 test('withAlpha converts a hex token to an rgba string at the given opacity', () => {
@@ -247,6 +278,17 @@ function contrastOfHexOverBackground(foregroundHex, backgroundHex) {
 }
 
 test('light and dark surface ladders retain visible, monotone elevation steps', () => {
+  assert.equal(lightSemanticColors.surface, '#FFFFFF');
+  assert.equal(
+    Number(
+      contrastOfHexOverBackground(
+        lightSemanticColors.surface,
+        lightSemanticColors.background,
+      ).toFixed(3),
+    ),
+    1.395,
+  );
+
   for (const semanticColors of [lightSemanticColors, darkSemanticColors]) {
     assert.ok(
       contrastOfHexOverBackground(semanticColors.surface, semanticColors.background) >= 1.2,
@@ -260,11 +302,10 @@ test('light and dark surface ladders retain visible, monotone elevation steps', 
     const backgroundElevated = relativeLuminance(hexToRgb(semanticColors.backgroundElevated));
 
     // surfaceMuted and surfaceInteractive intentionally invert between schemes.
-    assert.equal(
-      background,
-      Math.min(background, surfaceInteractive, surfaceMuted, surface, backgroundElevated),
-    );
-    assert.ok(backgroundElevated >= surface);
+    for (const layer of [surfaceInteractive, surfaceMuted, surface, backgroundElevated]) {
+      assert.ok(background < layer, 'background must be the strictly lowest surface');
+    }
+    assert.ok(backgroundElevated <= surface);
   }
 });
 

@@ -98,10 +98,10 @@ test('loaded mapping uses localized catalog names, slot order, positions, and fi
     ],
   );
   assert.deepEqual(english.suggestions[0].pieces, [
-    { slot: 'Top', item: 'T-shirt' },
-    { slot: 'Bottom', item: 'Shorts' },
-    { slot: 'Outer layer', item: 'Rain jacket' },
-    { slot: 'Footwear', item: 'Winter boots' },
+    { slot: 'Top', item: 'T-shirt', category: 'top' },
+    { slot: 'Bottom', item: 'Shorts', category: 'bottom' },
+    { slot: 'Outer layer', item: 'Rain jacket', category: 'outerwear' },
+    { slot: 'Footwear', item: 'Winter boots', category: 'footwear' },
   ]);
   assert.equal(
     english.suggestions.every(({ reasons }) =>

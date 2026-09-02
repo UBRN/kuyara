@@ -1,7 +1,6 @@
-import { SymbolView } from 'expo-symbols';
 import { StyleSheet, View } from 'react-native';
 
-import { AppText, Button, Surface } from '@/components/ui';
+import { AppText, Button, Icon, Surface, type IconName } from '@/components/ui';
 import type { AiProbeUiState } from '@/features/recommendation/application/use-ai-probe';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import { ProbeLoadingOverlay } from '@/features/profile/presentation/probe-loading-overlay';
@@ -46,55 +45,55 @@ export function AiStatusSection({
             : aiStatus.kind === 'rate-limited'
               ? copy.aiStatusResultRateLimited
               : copy.aiStatusResultError;
-  const resultIcon = !isProbeSupported
-    ? { ios: 'info.circle.fill', android: 'info', web: 'info' } as const
+  const resultIcon: IconName = !isProbeSupported
+    ? 'info'
     : aiStatus.kind === 'ok'
-      ? { ios: 'checkmark.circle.fill', android: 'check_circle', web: 'check_circle' } as const
+      ? 'checkCircle'
       : aiStatus.kind === 'checking'
-        ? { ios: 'clock.fill', android: 'schedule', web: 'schedule' } as const
-        : { ios: 'exclamationmark.circle.fill', android: 'error', web: 'error' } as const;
+        ? 'clock'
+        : 'error';
 
   return (
-    <Surface style={styles.section} testID="settings-ai-status" variant="elevated">
+    <View style={styles.group} testID="settings-ai-status">
       <AppText colorRole="brandAccent" variant="eyebrow">
         {copy.aiStatusHeading}
       </AppText>
-      <AppText colorRole="textSecondary">{copy.aiStatusIntro}</AppText>
-      <AppText>{lastGenerationModeCopy}</AppText>
-      <Button
-        disabled={!isProbeSupported || aiStatus.kind === 'checking'}
-        label={copy.aiStatusCheckAction}
-        loading={aiStatus.kind === 'checking'}
-        onPress={onCheckAiStatus}
-        testID="settings-ai-status-check"
-      />
-      {result ? (
-        <View style={styles.resultRow}>
-          <SymbolView
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            name={resultIcon}
-            size={20}
-            testID="settings-ai-status-result-icon"
-            tintColor={theme.colors.iconSecondary}
-          />
-          <AppText
-            accessibilityLiveRegion="polite"
-            colorRole="textSecondary"
-            style={styles.resultCopy}
-            testID="settings-ai-status-result">
-            {result}
-          </AppText>
-        </View>
-      ) : null}
-      {aiStatus.kind === 'checking' ? (
-        <ProbeLoadingOverlay label={copy.aiStatusChecking} />
-      ) : null}
-    </Surface>
+      <Surface style={[styles.section, theme.elevation.raised]}>
+        <AppText colorRole="textSecondary">{copy.aiStatusIntro}</AppText>
+        <AppText>{lastGenerationModeCopy}</AppText>
+        <Button
+          disabled={!isProbeSupported || aiStatus.kind === 'checking'}
+          label={copy.aiStatusCheckAction}
+          loading={aiStatus.kind === 'checking'}
+          onPress={onCheckAiStatus}
+          testID="settings-ai-status-check"
+        />
+        {result ? (
+          <View style={styles.resultRow}>
+            <View testID="settings-ai-status-result-icon">
+              <Icon color={theme.colors.iconSecondary} name={resultIcon} size={20} />
+            </View>
+            <AppText
+              accessibilityLiveRegion="polite"
+              colorRole="textSecondary"
+              style={styles.resultCopy}
+              testID="settings-ai-status-result">
+              {result}
+            </AppText>
+          </View>
+        ) : null}
+        {aiStatus.kind === 'checking' ? (
+          <ProbeLoadingOverlay label={copy.aiStatusChecking} />
+        ) : null}
+      </Surface>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  group: {
+    gap: spacing.md,
+  },
   section: {
     gap: spacing.lg,
     padding: spacing.xl,
