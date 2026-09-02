@@ -26,7 +26,7 @@ Approved 2026-08-30. Rationale and consequences are canonical in [ADR 0006](adr/
 
 - The final main tabs are Today at `/`, Weather at `/weather`, and Profile at `/profile`; Expo Router route groups do not appear in user-visible URLs.
 - The root Stack retains the device-local onboarding gate and keeps `/onboarding` outside the tab navigator. An incomplete profile cannot enter the tab group, while a completed profile opens Today by default.
-- The current app uses Expo Router's stable JavaScript Tabs. SDK 57 Native Tabs remain alpha and are not used; moving to Native Tabs later requires a separate, deliberate migration decision.
+- The primary tab bar is adopting Expo Router Native Tabs in place of Expo Router's stable JavaScript Tabs. This accepts the documented alpha risk of the SDK 57 API; kuyara's three static, non-nested tabs do not hit any of its three documented limitations. See [ADR 0012](adr/0012-adopting-expo-router-native-tabs.md).
 - Each main tab owns a nested Stack boundary. Wardrobe and wanted records live inside Profile rather than owning a tab or being pushed from Today.
 - Weather provides foreground location selection and Worker-backed persisted live weather at `/weather`. Settings opens from an icon in the Profile header and is not a tab.
 - Clothing preference remains prominent and required in onboarding because it is the only user input that shapes recommendations. Its control is the last Settings section and is deliberately not prominent there.

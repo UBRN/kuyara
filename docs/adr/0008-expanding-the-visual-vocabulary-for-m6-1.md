@@ -62,25 +62,33 @@ mechanism is strongly preferred over adding an icon dependency.
 - M6.1 moved the light card surface to `#FFFFFF` and extended `SymbolView`
   coverage to the tab bar and header actions through a new `Icon` primitive,
   without a further round of visual identity approval.
-- Garment slot icons are drawn with plain React Native Views instead, not SF
-  Symbols, Material Symbols, or a new `react-native-svg` dependency. At the
-  pinned iOS 16.4 deployment target there is no SF Symbol for the `bottom`
-  slot at all, and every outerwear symbol is past the target (`jacket` and
-  `coat` arrived in SF Symbols 6 / iOS 18, `hanger` in SF Symbols 5 / iOS 17),
-  while Material Symbols has no glyph for any of the four slots; a partially
-  present set would render blank rows on real devices. Adding
-  `react-native-svg` was rejected because it is a native module, out of scope
-  for a presentation milestone. What ships instead is a layered-stack family
-  keyed by the existing six-value structural category union (`top`,
-  `bottom`, `one_piece`, `outerwear`, `footwear`, `accessory`) from
-  `apps/mobile/src/features/catalog/domain/garment-taxonomy.ts`: three
-  stacked rounded bars with the filled bar marking the slot's position,
-  outerwear as the faint stack inside an enclosing border, one-piece as a
-  single full-height bar, and accessory as the faint stack plus a corner
-  mark. It echoes the layered-horizon brand geometry without altering the
-  Balanced Horizon V2 master geometry, tints from semantic roles so dark
-  theme is free, and scales with font size. It ships as the
+- Garment slot icons ship as bundled artwork instead of SF Symbols, Material
+  Symbols, or a new `react-native-svg` dependency. At the then-pinned iOS 16.4
+  deployment target there was no SF Symbol for the `bottom` slot at all, and
+  every outerwear symbol was past the target (`jacket` and `coat` arrived in
+  SF Symbols 6 / iOS 18, `hanger` in SF Symbols 5 / iOS 17), while Material
+  Symbols has no glyph for any of the four slots; a partially present set
+  would render blank rows on real devices. Adding `react-native-svg` was
+  rejected because it is a native module, out of scope for a presentation
+  milestone. What ships, after a later polish round replaced an original
+  plain-View layered-stack drawing, is one bundled monochrome template image
+  per structural category (`apps/mobile/assets/icons/garment/`, authored as
+  SVG and rasterised to transparent PNG at 1x/2x/3x), keyed by the existing
+  six-value structural category union (`top`, `bottom`, `one_piece`,
+  `outerwear`, `footwear`, `accessory`) from
+  `apps/mobile/src/features/catalog/domain/garment-taxonomy.ts`, rendered
+  through React Native `Image` with `tintColor` so the artwork takes its
+  colour from the semantic theme in both appearances. It ships as the
   `GarmentSlotGlyph`/`GarmentSlotTile` primitives.
+- At a 26.0 minimum ([ADR 0011](0011-minimum-ios-26.md)), `hanger` (SF
+  Symbols 5), `jacket`, and `coat` (SF Symbols 6) all become available. But a
+  sweep of every SF Symbols version file from 1.0 through 7.0 found no
+  `pants`, `trousers`, `jeans`, `shorts`, or `skirt` symbol at any version, so
+  no deployment target makes the four-slot set native. This ADR's conclusion,
+  bundled artwork for all six slots, is upheld for a narrowed reason: a set
+  drawn in two visual idioms, three-quarters Apple's line style and
+  one-quarter ours, reads as unfinished, which the design language's
+  iconography law now forbids.
 - Status colors and the destructive button variant remain deferred. This ADR
   does not approve them.
 
