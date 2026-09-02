@@ -1,7 +1,7 @@
 import { Fragment } from 'react';
 import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 
-import { AppText, GarmentSlotGlyph, GarmentSlotTile, Icon, Pill, Surface } from '@/components/ui';
+import { AppText, GarmentSlotGlyph, Icon, Pill, Surface } from '@/components/ui';
 import { Divider } from '@/components/ui/divider';
 import type { LoadedOutfitPresentation } from '@/features/today/presentation/today-presentation';
 import { radii, spacing } from '@/theme/theme';
@@ -57,9 +57,12 @@ export function OutfitSuggestionCard({
                 <AppText style={styles.title} variant="title">
                   {suggestion.title}
                 </AppText>
-                {suggestion.emphasis ? (
-                <Pill label={suggestion.emphasis} tone="accent-filled" />
-                ) : null}
+                <View style={styles.trailingGroup}>
+                  {suggestion.emphasis ? (
+                    <Pill label={suggestion.emphasis} tone="accent-filled" />
+                  ) : null}
+                  <Icon color={theme.colors.iconSecondary} name="chevronRight" size={16} />
+                </View>
               </View>
               <View style={styles.pieceList}>
                 {suggestion.pieces.map((piece, index) => (
@@ -73,10 +76,10 @@ export function OutfitSuggestionCard({
                     <View
                       style={styles.pieceRow}
                       testID={`outfit-card-${suggestion.id}-piece`}>
-                      <GarmentSlotTile
+                      <GarmentSlotGlyph
                         category={piece.category}
-                        color={theme.colors.iconPrimary}
-                        size={28}
+                        color={theme.colors.iconSecondary}
+                        size={22}
                       />
                       <AppText style={styles.itemLabel}>{piece.item}</AppText>
                       <AppText
@@ -99,14 +102,11 @@ export function OutfitSuggestionCard({
                   </AppText>
                 </View>
               ) : null}
-              <View style={styles.chevronRow}>
-                <Icon color={theme.colors.iconSecondary} name="chevronRight" size={16} />
-              </View>
             </>
           ) : (
             <>
               <View style={styles.glyphRow}>
-                {suggestion.pieces.map((piece) => (
+                {suggestion.pieces.slice(0, 2).map((piece) => (
                   <GarmentSlotGlyph
                     category={piece.category}
                     color={theme.colors.iconSecondary}
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   headingRow: {
-    alignItems: 'baseline',
+    alignItems: 'center',
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
@@ -161,6 +161,12 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     flexShrink: 1,
+  },
+  trailingGroup: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexShrink: 0,
+    gap: spacing.sm,
   },
   pieceList: {
     gap: spacing.sm,
@@ -189,9 +195,6 @@ const styles = StyleSheet.create({
   reasonText: {
     flex: 1,
     flexShrink: 1,
-  },
-  chevronRow: {
-    alignItems: 'flex-end',
   },
   glyphRow: {
     alignItems: 'center',

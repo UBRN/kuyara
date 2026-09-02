@@ -55,7 +55,7 @@ export function AiStatusSection({
 
   return (
     <View style={styles.group} testID="settings-ai-status">
-      <AppText colorRole="brandAccent" variant="eyebrow">
+      <AppText accessibilityRole="header" variant="bodyStrong">
         {copy.aiStatusHeading}
       </AppText>
       <Surface style={[styles.section, theme.elevation.raised]}>

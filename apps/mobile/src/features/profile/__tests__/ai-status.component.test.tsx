@@ -163,6 +163,8 @@ test('Settings screen includes the AI status section', async () => {
       lastGenerationMode="deterministic-fallback"
       onBack={onBack}
       onCheckAiStatus={() => undefined}
+      onOpenAppearance={() => undefined}
+      onOpenLanguage={() => undefined}
       isNotificationBusy={false}
       notificationPermission={{ kind: 'undetermined' }}
       onOpenNotificationSettings={() => undefined}
@@ -179,8 +181,6 @@ test('Settings screen includes the AI status section', async () => {
         updatedAt: checkedAt,
       }}
       updateClothingPreference={async () => undefined}
-      updateLanguagePreference={async () => undefined}
-      updateThemePreference={async () => undefined}
     />,
     'en',
   ));

@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -6,8 +6,6 @@ import { AppText, Icon, IconButton, Screen, Surface } from '@/components/ui';
 import { Divider } from '@/components/ui/divider';
 import type {
   ClothingPreference,
-  LanguagePreference,
-  ThemePreference,
 } from '@/domain/preferences';
 import type { NotificationPermissionState } from '@/features/notifications/data/notification-gateway';
 import type { LocalProfile } from '@/features/profile/domain/profile';
@@ -24,12 +22,12 @@ type SettingsScreenProps = Readonly<{
   isProbeSupported: boolean;
   lastGenerationMode: RecommendationGenerationMode | null;
   onBack: () => void;
+  onOpenAppearance: () => void;
+  onOpenLanguage: () => void;
   onCheckAiStatus: () => void;
   profile: LocalProfile;
   isSaving: boolean;
   updateClothingPreference: (preference: ClothingPreference) => Promise<void>;
-  updateLanguagePreference: (preference: LanguagePreference) => Promise<void>;
-  updateThemePreference: (preference: ThemePreference) => Promise<void>;
   notificationPermission: NotificationPermissionState;
   isNotificationBusy: boolean;
   onToggleNotifications: (optIn: boolean) => Promise<void>;
@@ -43,6 +41,8 @@ export function SettingsScreen({
   isSaving,
   lastGenerationMode,
   onBack,
+  onOpenAppearance,
+  onOpenLanguage,
   onCheckAiStatus,
   isNotificationBusy,
   notificationPermission,
@@ -51,8 +51,6 @@ export function SettingsScreen({
   onToggleNotifications,
   profile,
   updateClothingPreference,
-  updateLanguagePreference,
-  updateThemePreference,
 }: SettingsScreenProps) {
   const messages = useMessages();
   const theme = useKuyaraTheme();
@@ -119,79 +117,51 @@ export function SettingsScreen({
         <AppText colorRole="textSecondary">{messages.settings.introduction}</AppText>
 
         <View style={styles.group}>
-          <AppText colorRole="brandAccent" variant="eyebrow">
+          <AppText accessibilityRole="header" variant="bodyStrong">
             {copy.languageTitle}
           </AppText>
           <Surface style={[styles.groupCard, theme.elevation.raised]}>
-            <View style={styles.settingSummary}>
+            <Pressable
+              accessibilityHint={copy.languageDescription}
+              accessibilityLabel={`${copy.languageTitle}, ${languageValue}`}
+              accessibilityRole="button"
+              onPress={onOpenLanguage}
+              style={({ pressed }) => [styles.settingSummary, pressed && styles.pressed]}
+              testID="settings-language-row">
               <Icon color={theme.colors.iconSecondary} name="language" size={21} />
               <View style={styles.settingCopy}>
                 <AppText>{copy.languageTitle}</AppText>
                 <AppText colorRole="textSecondary">{languageValue}</AppText>
               </View>
-            </View>
-            <Divider variant="inset" />
-            <View style={styles.options}>
-              {(
-                [
-                  ['system', copy.languageSystem],
-                  ['tr', copy.languageTurkish],
-                  ['en', copy.languageEnglish],
-                ] as const
-              ).map(([value, label], index) => (
-                <Fragment key={value}>
-                  {index > 0 ? <Divider variant="inset" /> : null}
-                  <PreferenceOption
-                    disabled={isSaving}
-                    label={label}
-                    onPress={() => void save(() => updateLanguagePreference(value))}
-                    selected={profile.languagePreference === value}
-                    testID={`settings-language-${value}`}
-                  />
-                </Fragment>
-              ))}
-            </View>
+              <Icon color={theme.colors.iconSecondary} name="chevronRight" size={20} />
+            </Pressable>
           </Surface>
         </View>
 
         <View style={styles.group}>
-          <AppText colorRole="brandAccent" variant="eyebrow">
+          <AppText accessibilityRole="header" variant="bodyStrong">
             {copy.themeTitle}
           </AppText>
           <Surface style={[styles.groupCard, theme.elevation.raised]}>
-            <View style={styles.settingSummary}>
+            <Pressable
+              accessibilityHint={copy.themeDescription}
+              accessibilityLabel={`${copy.themeTitle}, ${themeValue}`}
+              accessibilityRole="button"
+              onPress={onOpenAppearance}
+              style={({ pressed }) => [styles.settingSummary, pressed && styles.pressed]}
+              testID="settings-theme-row">
               <Icon color={theme.colors.iconSecondary} name="theme" size={21} />
               <View style={styles.settingCopy}>
                 <AppText>{copy.themeTitle}</AppText>
                 <AppText colorRole="textSecondary">{themeValue}</AppText>
               </View>
-            </View>
-            <Divider variant="inset" />
-            <View style={styles.options}>
-              {(
-                [
-                  ['system', copy.themeSystem],
-                  ['light', copy.themeLight],
-                  ['dark', copy.themeDark],
-                ] as const
-              ).map(([value, label], index) => (
-                <Fragment key={value}>
-                  {index > 0 ? <Divider variant="inset" /> : null}
-                  <PreferenceOption
-                    disabled={isSaving}
-                    label={label}
-                    onPress={() => void save(() => updateThemePreference(value))}
-                    selected={profile.themePreference === value}
-                    testID={`settings-theme-${value}`}
-                  />
-                </Fragment>
-              ))}
-            </View>
+              <Icon color={theme.colors.iconSecondary} name="chevronRight" size={20} />
+            </Pressable>
           </Surface>
         </View>
 
         <View style={styles.group}>
-          <AppText colorRole="brandAccent" variant="eyebrow">
+          <AppText accessibilityRole="header" variant="bodyStrong">
             {messages.notifications.title}
           </AppText>
           <Surface style={[styles.groupCard, theme.elevation.raised]}>
@@ -271,7 +241,7 @@ export function SettingsScreen({
         />
 
         <View style={styles.group}>
-          <AppText colorRole="brandAccent" variant="eyebrow">
+          <AppText accessibilityRole="header" variant="bodyStrong">
             {copy.clothingTitle}
           </AppText>
           <Surface style={[styles.groupCard, theme.elevation.raised]}>

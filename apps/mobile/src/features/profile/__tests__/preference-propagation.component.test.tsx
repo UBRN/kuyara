@@ -1,9 +1,11 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import SettingsRoute from '@/app/(tabs)/(profile)/settings';
+import AppearanceSettingsRoute from '@/app/(tabs)/(profile)/settings/appearance';
+import LanguageSettingsRoute from '@/app/(tabs)/(profile)/settings/language';
 import type {
   LanguagePreference,
   ThemePreference,
@@ -18,8 +20,13 @@ jest.mock('expo-symbols', () => ({
 }));
 
 jest.mock('expo-router', () => ({
-  router: { back: jest.fn() },
+  router: { back: jest.fn(), push: jest.fn() },
 }));
+
+const mockRouter = jest.requireMock('expo-router').router as {
+  back: jest.Mock;
+  push: jest.Mock;
+};
 
 jest.mock('@/infrastructure/sqlite/expo-sqlite-database', () => ({
   openKuyaraDatabase: async () => ({}),
@@ -71,9 +78,26 @@ function createProfile(): LocalProfileRecord {
   };
 }
 
-function MountedSettingsRoute({ onMount }: Readonly<{ onMount: () => void }>) {
+function MountedSettingsRoutes({ onMount }: Readonly<{ onMount: () => void }>) {
+  const [route, setRoute] = useState<'appearance' | 'language' | 'settings'>('settings');
+
   useEffect(onMount, [onMount]);
-  return <SettingsRoute />;
+  useEffect(() => {
+    mockRouter.back.mockImplementation(() => setRoute('settings'));
+    mockRouter.push.mockImplementation((path: string) => {
+      if (path === '/settings/appearance') {
+        setRoute('appearance');
+      } else if (path === '/settings/language') {
+        setRoute('language');
+      }
+    });
+  }, []);
+
+  return route === 'appearance'
+    ? <AppearanceSettingsRoute />
+    : route === 'language'
+      ? <LanguageSettingsRoute />
+      : <SettingsRoute />;
 }
 
 test('live preference changes propagate localized copy and dark semantic colors without remounting', async () => {
@@ -82,7 +106,7 @@ test('live preference changes propagate localized copy and dark semantic colors 
   const result = await render(
     <SafeAreaProvider initialMetrics={initialMetrics}>
       <ProfileApplicationProvider>
-        <MountedSettingsRoute onMount={onMount} />
+        <MountedSettingsRoutes onMount={onMount} />
       </ProfileApplicationProvider>
     </SafeAreaProvider>,
   );
@@ -94,8 +118,28 @@ test('live preference changes propagate localized copy and dark semantic colors 
       .backgroundColor,
   ).toBe(lightSemanticColors.background);
 
+  expect(result.getByRole('button', {
+    name: `${messages.en.preferences.languageTitle}, ${messages.en.preferences.languageEnglish}`,
+  })).toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('settings-language-row'));
+  expect(await result.findByTestId('settings-language-picker')).toBeOnTheScreen();
+
   await fireEvent.press(result.getByTestId('settings-language-tr'));
+  await waitFor(() => {
+    expect(result.getByTestId('settings-language-tr').props.accessibilityState.selected)
+      .toBe(true);
+  });
+
+  await fireEvent.press(result.getByRole('button', { name: messages.tr.common.back }));
   expect(await result.findByText(messages.tr.settings.title)).toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('settings-language-row'));
+  expect(result.getByTestId('settings-language-tr').props.accessibilityState.selected).toBe(true);
+  await fireEvent.press(result.getByRole('button', { name: messages.tr.common.back }));
+
+  expect(result.getByRole('button', {
+    name: `${messages.tr.preferences.themeTitle}, ${messages.tr.preferences.themeLight}`,
+  })).toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('settings-theme-row'));
 
   await waitFor(() => {
     expect(
@@ -106,9 +150,14 @@ test('live preference changes propagate localized copy and dark semantic colors 
 
   await waitFor(() => {
     expect(
-      StyleSheet.flatten(result.getByTestId('settings-screen').props.style)
+      StyleSheet.flatten(result.getByTestId('settings-appearance-picker').props.style)
         .backgroundColor,
     ).toBe(darkSemanticColors.background);
   });
+  await fireEvent.press(result.getByRole('button', { name: messages.tr.common.back }));
+  expect(
+    StyleSheet.flatten(result.getByTestId('settings-screen').props.style)
+      .backgroundColor,
+  ).toBe(darkSemanticColors.background);
   expect(onMount).toHaveBeenCalledTimes(1);
 });

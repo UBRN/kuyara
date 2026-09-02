@@ -147,7 +147,7 @@ test('an unavailable recommendation keeps the loaded weather presentation and ex
   assert.equal(turkish.weather.temperature, '20°');
 });
 
-test('stale freshness and fewer than six current-or-future rain entries localize in both languages', () => {
+test('stale freshness and outfit copy localize in both languages', () => {
   const staleState = {
     ...todayScreenState,
     snapshot: { ...todayScreenState.snapshot, freshness: 'stale' },
@@ -158,17 +158,6 @@ test('stale freshness and fewer than six current-or-future rain entries localize
   assert.equal(english.header.isStale, true);
   assert.match(english.header.freshness, /09:05.*out of date/i);
   assert.match(turkish.header.freshness, /09:05.*Güncelliğini yitirmiş olabilir/);
-  assert.deepEqual(
-    english.weather.hourlyRainProbability.map(({ label, probabilityPercent }) => ({
-      label,
-      probabilityPercent,
-    })),
-    [
-      { label: '09:00', probabilityPercent: 65 },
-      { label: '10:00', probabilityPercent: 45 },
-      { label: '11:00', probabilityPercent: 20 },
-    ],
-  );
   assert.deepEqual(
     turkish.suggestions.map(({ title }) => title),
     ['Yağmura Hazır', 'Karlı Gün', 'Rüzgara Karşı'],
@@ -185,22 +174,6 @@ test('stale freshness and fewer than six current-or-future rain entries localize
   assert.equal(turkish.header.location, 'Örnek İstanbul');
   assert.equal(english.weather.condition, 'Rain');
   assert.equal(turkish.weather.condition, 'Yağmurlu');
-  assert.equal(
-    english.weather.hourlyRainProbability[0].accessibilityLabel,
-    '09:00. 65% chance of rain',
-  );
-  assert.equal(
-    turkish.weather.hourlyRainProbability[0].accessibilityLabel,
-    'Saat 09:00 için yağmur olasılığı yüzde 65.',
-  );
-  assert.equal(
-    english.weather.metricsAccessibilityLabel,
-    'Wind: 8 m/s. Humidity: 78%. UV: 2',
-  );
-  assert.equal(
-    turkish.weather.metricsAccessibilityLabel,
-    'Rüzgâr hızı saniyede 8 metre. Nem yüzde 78. UV endeksi 2.',
-  );
 });
 
 test('loading, unavailable, and semantic theme behavior remains explicit', () => {

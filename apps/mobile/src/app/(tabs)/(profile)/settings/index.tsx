@@ -22,8 +22,6 @@ export default function SettingsRoute() {
   const {
     state,
     updateClothingPreference,
-    updateLanguagePreference,
-    updateThemePreference,
   } = useProfileApplication();
 
   if (state.status !== 'ready') {
@@ -45,6 +43,8 @@ export default function SettingsRoute() {
       notificationPermission={notificationState.permission}
       onBack={() => router.back()}
       onCheckAiStatus={check}
+      onOpenAppearance={() => router.push('/settings/appearance')}
+      onOpenLanguage={() => router.push('/settings/language')}
       onOpenNotificationSettings={() => void openApplicationSettings()}
       onSendTestNotification={() => sendTestNotification({
         title: messages.notifications.testNotificationTitle,
@@ -55,8 +55,6 @@ export default function SettingsRoute() {
       }}
       profile={state.profile}
       updateClothingPreference={updateClothingPreference}
-      updateLanguagePreference={updateLanguagePreference}
-      updateThemePreference={updateThemePreference}
     />
   );
 }

@@ -9,7 +9,7 @@ import {
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppText, Button, Icon, Screen, SectionHeader } from '@/components/ui';
+import { AppText, Button, Icon, Screen } from '@/components/ui';
 import type {
   ClothingPreference,
   LanguagePreference,
@@ -186,7 +186,7 @@ export function OnboardingScreen({
 
       {draft.step === 0 ? (
         <View style={styles.panel}>
-          <AppText colorRole="brandAccent" variant="eyebrow">
+          <AppText accessibilityRole="header" variant="bodyStrong">
             {copy.promiseHeading}
           </AppText>
           <View style={styles.promiseList}>
@@ -244,10 +244,14 @@ export function OnboardingScreen({
       {draft.step === 2 ? (
         <View style={styles.details}>
           <View style={styles.section}>
-            <SectionHeader
-              title={preferenceCopy.languageTitle}
-              supportingText={preferenceCopy.languageDescription}
-            />
+            <View style={styles.sectionHeading}>
+              <AppText accessibilityRole="header" variant="bodyStrong">
+                {preferenceCopy.languageTitle}
+              </AppText>
+              <AppText colorRole="textSecondary">
+                {preferenceCopy.languageDescription}
+              </AppText>
+            </View>
             <View style={styles.options}>
               {(
                 [
@@ -268,10 +272,14 @@ export function OnboardingScreen({
           </View>
 
           <View style={styles.section}>
-            <SectionHeader
-              title={preferenceCopy.themeTitle}
-              supportingText={preferenceCopy.themeDescription}
-            />
+            <View style={styles.sectionHeading}>
+              <AppText accessibilityRole="header" variant="bodyStrong">
+                {preferenceCopy.themeTitle}
+              </AppText>
+              <AppText colorRole="textSecondary">
+                {preferenceCopy.themeDescription}
+              </AppText>
+            </View>
             <View style={styles.options}>
               {(
                 [
@@ -384,6 +392,9 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: spacing.lg,
+  },
+  sectionHeading: {
+    gap: spacing.xs,
   },
   options: {
     gap: spacing.md,

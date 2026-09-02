@@ -1,15 +1,16 @@
 import { Fragment } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { AppText, Button, GarmentSlotTile, Icon, Pill, Screen, Surface } from '@/components/ui';
+import { AppText, Button, GarmentSlotGlyph, Icon, Pill, Screen, Surface } from '@/components/ui';
 import { Divider } from '@/components/ui/divider';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import type { TodayScreenState } from '@/features/today/model';
-import { CARD_BACKGROUND_ALPHA } from '@/features/today/presentation/weather-card';
 import type { SupportedLanguage } from '@/localization/messages';
 import { withAlpha } from '@/theme/color-alpha';
 import { radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
+
+const CARD_BACKGROUND_ALPHA = 0.08;
 
 type OutfitDetailScreenProps = Readonly<{
   state: TodayScreenState;
@@ -65,7 +66,7 @@ export function OutfitDetailScreen({
       </View>
 
       <View style={styles.section}>
-        <AppText colorRole="brandAccent" variant="eyebrow">
+        <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
           {presentation.copy.piecesHeading}
         </AppText>
         <View style={styles.pieceList}>
@@ -76,10 +77,10 @@ export function OutfitDetailScreen({
                 style={[styles.pieceCard, { backgroundColor: theme.colors.surface }]}
                 testID="outfit-detail-piece-card"
                 variant="elevated">
-                <GarmentSlotTile
+                <GarmentSlotGlyph
                   category={category}
-                  color={theme.colors.iconPrimary}
-                  size={28}
+                  color={theme.colors.iconSecondary}
+                  size={22}
                 />
                 <View style={styles.pieceCopy}>
                   <AppText style={styles.itemLabel} variant="bodyStrong">
@@ -97,7 +98,7 @@ export function OutfitDetailScreen({
 
       {suggestion.reasons.length > 0 ? (
         <View style={styles.section}>
-          <AppText colorRole="brandAccent" variant="eyebrow">
+          <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
             {presentation.copy.reasonsHeading}
           </AppText>
           <View style={styles.reasonList}>
