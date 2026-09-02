@@ -2,7 +2,7 @@
 
 Status: Accepted (2026-09-02)
 
-Implementation: Not yet landed.
+Implementation: Landed in Milestone B (2026-09-02). `primary-tab-bar.tsx` is deleted and `primary-tabs.tsx` renders `NativeTabs` with three triggers.
 
 ## Context
 

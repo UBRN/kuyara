@@ -2,7 +2,7 @@
 
 Status: Accepted (2026-09-02)
 
-Implementation: Not yet landed.
+Implementation: Landed in Milestone B (2026-09-02). `apps/mobile/app.json` pins `ios.deploymentTarget` to `26.0` and the regenerated iOS project builds at that target.
 
 ## Context
 
