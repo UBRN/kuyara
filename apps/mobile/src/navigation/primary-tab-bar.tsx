@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppText } from '@/components/ui';
+import { AppText, Icon, type IconName } from '@/components/ui';
 import type { AppMessages } from '@/localization/messages';
 import { withAlpha } from '@/theme/color-alpha';
 import { borderWidths, interaction, layout, spacing } from '@/theme/theme';
@@ -11,6 +11,7 @@ export type PrimaryTabRouteName = '(today)' | 'weather' | '(profile)';
 
 export type PrimaryTabDefinition = Readonly<{
   accessibilityLabel: string;
+  icon: IconName;
   label: string;
   routeName: PrimaryTabRouteName;
   testID: string;
@@ -22,18 +23,21 @@ export function createPrimaryTabDefinitions(
   return [
     {
       accessibilityLabel: labels.today,
+      icon: 'tabToday',
       label: labels.today,
       routeName: '(today)',
       testID: 'tab-today',
     },
     {
       accessibilityLabel: labels.weather,
+      icon: 'tabWeather',
       label: labels.weather,
       routeName: 'weather',
       testID: 'tab-weather',
     },
     {
       accessibilityLabel: labels.profile,
+      icon: 'tabProfile',
       label: labels.profile,
       routeName: '(profile)',
       testID: 'tab-profile',
@@ -85,6 +89,7 @@ export function PrimaryTabBar({
               pressed && styles.pressed,
             ]}
             testID={tab.testID}>
+            <Icon color={color} name={tab.icon} size={25} />
             <AppText
               accessibilityElementsHidden
               ellipsizeMode="tail"

@@ -1,5 +1,7 @@
 export { AppText, type AppTextProps } from './app-text';
 export { Button, type ButtonProps } from './button';
+export { GarmentSlotGlyph, GarmentSlotTile } from './garment-slot-glyph';
+export { Icon, iconNames, type IconName } from './icon';
 export { IconButton, type IconButtonProps } from './icon-button';
 export { PhotoPlaceholder, type PhotoPlaceholderProps } from './photo-placeholder';
 export { Pill, type PillProps } from './pill';

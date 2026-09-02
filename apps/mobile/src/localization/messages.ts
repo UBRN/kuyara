@@ -27,6 +27,7 @@ export type TodayMessages = Readonly<{
   backAction: string;
   recommendedTodayHeading: string;
   otherOptionsHeading: string;
+  otherOptionPieceCount: (values: { count: number }) => string;
   piecesHeading: string;
   reasonsHeading: string;
   slots: Readonly<Record<OutfitSlot, string>>;
@@ -156,6 +157,16 @@ export type AppMessages = Readonly<{
     title: string;
     settingsAction: string;
     settingsHint: string;
+    locationTitle: string;
+    locationChangeHint: string;
+    locationUnset: string;
+    recommendationsWorking: string;
+    recommendationsNeedLocation: string;
+    piecesSavedUnit: (values: { count: number }) => string;
+    categoryCountAccessibilityLabel: (values: {
+      category: string;
+      count: number;
+    }) => string;
     wardrobeTitle: string;
     wardrobeHint: string;
     ownedLabel: string;
@@ -256,6 +267,7 @@ export type AppMessages = Readonly<{
   wardrobe: Readonly<{
     title: string;
     addAction: string;
+    filterCountAccessibilityLabel: (values: { label: string; count: number }) => string;
     addHint: string;
     emptyTitle: string;
     emptyBody: string;
@@ -415,6 +427,13 @@ const en = {
     title: 'Profile',
     settingsAction: 'Settings',
     settingsHint: 'Opens app settings.',
+    locationTitle: 'Location',
+    locationChangeHint: 'Opens the weather screen so you can change your location.',
+    locationUnset: 'No location set yet',
+    recommendationsWorking: 'Recommendations are working',
+    recommendationsNeedLocation: 'Recommendations need a location',
+    piecesSavedUnit: ({ count }) => count === 1 ? 'piece saved' : 'pieces saved',
+    categoryCountAccessibilityLabel: ({ category, count }) => `${category}: ${count}.`,
     wardrobeTitle: 'Wardrobe',
     wardrobeHint: 'Opens your owned and wanted items.',
     ownedLabel: 'Owned',
@@ -525,7 +544,8 @@ const en = {
   },
   wardrobe: {
     title: 'Wardrobe',
-    addAction: 'Add item',
+    addAction: 'Add',
+    filterCountAccessibilityLabel: ({ label, count }) => `${label}: ${count}.`,
     addHint: 'Opens the new wardrobe item form.',
     emptyTitle: 'Your wardrobe is ready for its first item',
     emptyBody: 'Add the clothes you own so they are ready for future outfit choices.',
@@ -619,6 +639,7 @@ const en = {
     backAction: 'Back to Today',
     recommendedTodayHeading: 'Recommended today',
     otherOptionsHeading: 'Other options',
+    otherOptionPieceCount: ({ count }) => count === 1 ? '1 piece' : `${count} pieces`,
     piecesHeading: 'Wear',
     reasonsHeading: 'Why it works',
     slots: {
@@ -781,6 +802,13 @@ const tr = {
     title: 'Profil',
     settingsAction: 'Ayarlar',
     settingsHint: 'Uygulama ayarlarını açar.',
+    locationTitle: 'Konum',
+    locationChangeHint: 'Konumunu değiştirebilmen için hava ekranını açar.',
+    locationUnset: 'Henüz konum seçilmedi',
+    recommendationsWorking: 'Öneriler çalışıyor',
+    recommendationsNeedLocation: 'Öneriler için konum gerekiyor',
+    piecesSavedUnit: () => 'parça kayıtlı',
+    categoryCountAccessibilityLabel: ({ category, count }) => `${category}: ${count}.`,
     wardrobeTitle: 'Gardırop',
     wardrobeHint: 'Sahip olduğunuz ve istediğiniz parçaları açar.',
     ownedLabel: 'Sahip olduklarım',
@@ -892,7 +920,8 @@ const tr = {
   },
   wardrobe: {
     title: 'Gardırop',
-    addAction: 'Parça ekle',
+    addAction: 'Ekle',
+    filterCountAccessibilityLabel: ({ label, count }) => `${label}: ${count}.`,
     addHint: 'Yeni gardırop parçası formunu açar.',
     emptyTitle: 'Gardırobunuz ilk parçaya hazır',
     emptyBody: 'Sahip olduğunuz parçaları ilerideki kombin seçimleri için ekleyin.',
@@ -987,6 +1016,7 @@ const tr = {
     backAction: 'Bugün’e dön',
     recommendedTodayHeading: 'Bugün için önerilen',
     otherOptionsHeading: 'Diğer seçenekler',
+    otherOptionPieceCount: ({ count }) => `${count} parça`,
     piecesHeading: 'Parçalar',
     reasonsHeading: 'Neden uygun',
     slots: {

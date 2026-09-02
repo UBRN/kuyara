@@ -91,7 +91,9 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
     );
     const copy = messages[language].weather;
     expect(result.queryByText(copy.sampleDisclosure)).toBeNull();
-    const locationButton = result.getByRole('button', { name: copy.changeLocationAction });
+    const locationButton = result.getByRole('button', {
+      name: `${copy.noLocation} ${copy.changeLocationAction}`,
+    });
     expect(locationButton.props.hitSlop).toBe(10);
     expect(24 + locationButton.props.hitSlop * 2).toBeGreaterThanOrEqual(44);
     await fireEvent.press(locationButton);
@@ -148,7 +150,7 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
     expect(result.getByText(copy.stale)).toBeOnTheScreen();
     expect(result.getByText(copy.sampleDisclosure)).toBeOnTheScreen();
     expect(result.getAllByText(copy.conditions.rain).length).toBeGreaterThan(0);
-    expect(result.getByText(copy[noticeKey]).props.accessibilityLiveRegion).toBe('polite');
+    expect(result.getByLabelText(copy[noticeKey]).props.accessibilityLiveRegion).toBe('polite');
   });
 
   test('groups localized current metrics and hides the decorative glyph', async () => {
@@ -165,8 +167,14 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
       ? 'Rain. 16°. Feels like 15°. Low 12° · High 19°. 50% precipitation'
       : 'Yağmurlu. Sıcaklık 16°. Hissedilen sıcaklık 15°. En düşük 12°, en yüksek 19°. Yağış olasılığı yüzde 50.')).toBeOnTheScreen();
     expect(result.getByLabelText(language === 'en'
-      ? 'Wind 4 m/s. 70% humidity. UV index 2'
-      : 'Rüzgâr hızı saniyede 4 metre. Nem yüzde 70. UV endeksi 2.')).toBeOnTheScreen();
+      ? 'Wind 4 m/s'
+      : 'Rüzgâr 4 m/sn')).toBeOnTheScreen();
+    expect(result.getByLabelText(language === 'en'
+      ? '70% humidity'
+      : '%70 nem')).toBeOnTheScreen();
+    expect(result.getByLabelText(language === 'en'
+      ? 'UV index 2'
+      : 'UV endeksi 2')).toBeOnTheScreen();
     expect(result.getByLabelText(language === 'en'
       ? '12:00 PM. 16°. Rain. 50% precipitation'
       : 'Saat 12:00. Sıcaklık 16°. Yağmurlu. Yağış olasılığı yüzde 50.')).toBeOnTheScreen();
@@ -180,6 +188,15 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
       .toMatchObject(lightTheme.elevation.raised);
     expect(result.getAllByTestId('weather-hour-divider', { includeHiddenElements: true }))
       .toHaveLength(1);
+    expect(StyleSheet.flatten(
+      result.getByTestId('weather-hour-divider', { includeHiddenElements: true }).props.style,
+    ).marginStart).toBeUndefined();
+    for (const bar of result.getAllByTestId(
+      'weather-hour-precipitation-bar',
+      { includeHiddenElements: true },
+    )) {
+      expect(isHiddenFromAccessibility(bar)).toBe(true);
+    }
     expect(isHiddenFromAccessibility(
       result.getByTestId('weather-glyph', { includeHiddenElements: true }),
     )).toBe(true);
@@ -263,10 +280,12 @@ test('selected location, stale snapshot, refreshing, failure, and hourly content
   const result = await render(
     <Providers language="en" value={value}><WeatherScreen /></Providers>,
   );
-  await fireEvent.press(result.getByRole('button', { name: messages.en.weather.changeLocationAction }));
+  await fireEvent.press(result.getByRole('button', {
+    name: `${messages.en.weather.locations[active.catalogId]}. ${messages.en.weather.changeLocationAction}`,
+  }));
   expect(result.getByRole('radio', { name: messages.en.weather.locations[active.catalogId] }).props.accessibilityState.selected).toBe(true);
   expect(result.getByText(messages.en.weather.stale)).toBeOnTheScreen();
-  expect(result.getByText(messages.en.weather.unavailableNotice).props.accessibilityLiveRegion).toBe('polite');
+  expect(result.getByLabelText(messages.en.weather.unavailableNotice).props.accessibilityLiveRegion).toBe('polite');
   expect(result.getAllByText(messages.en.weather.conditions.rain).length).toBeGreaterThan(0);
   expect(result.getByLabelText(messages.en.weather.refreshing).props.accessibilityState.busy).toBe(true);
 });
@@ -276,7 +295,9 @@ test('manual selection emits stable catalog ID', async () => {
   const result = await render(
     <Providers language="tr" value={value}><WeatherScreen /></Providers>,
   );
-  await fireEvent.press(result.getByRole('button', { name: messages.tr.weather.changeLocationAction }));
+  await fireEvent.press(result.getByRole('button', {
+    name: `${messages.tr.weather.noLocation} ${messages.tr.weather.changeLocationAction}`,
+  }));
   await fireEvent.press(result.getByRole('radio', { name: messages.tr.weather.locations['sample.ankara'] }));
   expect(value.selectManualLocation).toHaveBeenCalledWith('sample.ankara');
 });
@@ -295,6 +316,8 @@ test('Weather offers a pull-to-refresh gesture alongside the visible refresh but
   );
 
   const button = result.getByTestId('weather-refresh-button');
+  expect(button.props.accessibilityLabel).toBe(messages.en.weather.refresh);
+  expect(StyleSheet.flatten(button.props.style).minHeight).toBeGreaterThanOrEqual(44);
   fireEvent.press(button);
   expect(value.refresh).toHaveBeenCalledTimes(1);
 
@@ -304,4 +327,26 @@ test('Weather offers a pull-to-refresh gesture alongside the visible refresh but
 
   refreshControl.props.onRefresh();
   expect(value.refresh).toHaveBeenCalledTimes(2);
+});
+
+test('device location card has one composed accessible name', async () => {
+  const location = getManualLocation('sample.istanbul')!;
+  const value = createValue({
+    ...baseState,
+    activeLocation: {
+      source: 'device',
+      accuracy: 'approximate',
+      coordinates: location.coordinates,
+      locationKey: 'device:4101:2898',
+      timeZone: location.timeZone,
+    },
+  });
+  const result = await render(
+    <Providers language="en" value={value}><WeatherScreen /></Providers>,
+  );
+
+  expect(result.getByRole('button', {
+    name: `${messages.en.weather.currentLocation}. ${messages.en.weather.approximateLocation}. ${messages.en.weather.changeLocationAction}`,
+  })).toBeOnTheScreen();
+  expect(result.queryByRole('button', { name: messages.en.weather.changeLocationAction })).toBeNull();
 });

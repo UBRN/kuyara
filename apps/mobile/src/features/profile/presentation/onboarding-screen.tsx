@@ -7,8 +7,9 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppText, Button, Screen, SectionHeader, Surface } from '@/components/ui';
+import { AppText, Button, Icon, Screen, SectionHeader } from '@/components/ui';
 import type {
   ClothingPreference,
   LanguagePreference,
@@ -25,7 +26,7 @@ import { getDeviceLocale } from '@/localization/device-locale';
 import { resolveLanguagePreference } from '@/localization/language-preference';
 import { getMessages } from '@/localization/messages';
 import { useKuyaraTheme } from '@/theme/theme-context';
-import { radii, spacing } from '@/theme/theme';
+import { borderWidths, radii, spacing } from '@/theme/theme';
 
 type OnboardingScreenProps = Readonly<{
   initialClothingPreference: ClothingPreference | null;
@@ -112,15 +113,68 @@ export function OnboardingScreen({
     }
   };
 
+  const promises = [
+    ['location', copy.weatherPromise],
+    ['sparkle', copy.outfitsPromise],
+    ['heart', copy.wardrobePromise],
+  ] as const;
+
   return (
-    <Screen testID={`onboarding-step-${draft.step + 1}`} contentContainerStyle={styles.content}>
+    <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
+      <Screen
+        contentContainerStyle={styles.content}
+        testID={`onboarding-step-${draft.step + 1}`}>
       <View style={styles.heading}>
-        <AppText colorRole="brandAccent" variant="eyebrow">
-          {copy.stepPosition(draft.step + 1, totalSteps)}
-        </AppText>
         <AppText accessibilityRole="header" ref={headingRef} variant="titleLarge">
           {stepTitle}
         </AppText>
+        <View
+          accessible
+          accessibilityLabel={copy.stepPosition(draft.step + 1, totalSteps)}
+          accessibilityRole="progressbar"
+          accessibilityValue={{ max: totalSteps, min: 1, now: draft.step + 1 }}
+          style={styles.progress}>
+          {Array.from({ length: totalSteps }, (_, index) => (
+            <View
+              key={index}
+              style={[
+                styles.progressSegment,
+                {
+                  backgroundColor: index <= draft.step
+                    ? theme.colors.brandPrimary
+                    : theme.colors.borderSubtle,
+                },
+              ]}
+            />
+          ))}
+        </View>
+        <View
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={styles.illustration}>
+          <View style={[styles.horizonRing, { borderColor: theme.colors.brandAccent }]} />
+          <View
+            style={[
+              styles.horizonBar,
+              styles.horizonBarLight,
+              { backgroundColor: theme.colors.surfaceInteractive },
+            ]}
+          />
+          <View
+            style={[
+              styles.horizonBar,
+              styles.horizonBarMedium,
+              { backgroundColor: theme.colors.brandAccent },
+            ]}
+          />
+          <View
+            style={[
+              styles.horizonBar,
+              styles.horizonBarHeavy,
+              { backgroundColor: theme.colors.brandPrimary },
+            ]}
+          />
+        </View>
         <AppText colorRole="textSecondary">
           {draft.step === 0
             ? copy.welcomeBody
@@ -131,23 +185,28 @@ export function OnboardingScreen({
       </View>
 
       {draft.step === 0 ? (
-        <Surface style={styles.panel} variant="default">
+        <View style={styles.panel}>
           <AppText colorRole="brandAccent" variant="eyebrow">
             {copy.promiseHeading}
           </AppText>
           <View style={styles.promiseList}>
-            {[copy.weatherPromise, copy.outfitsPromise, copy.wardrobePromise].map((promise) => (
-              <View key={promise} style={styles.promiseRow}>
-                <View
-                  accessibilityElementsHidden
-                  importantForAccessibility="no"
-                  style={[styles.promiseMarker, { backgroundColor: theme.colors.brandAccent }]}
-                />
+            {promises.map(([icon, promise]) => (
+              <View
+                accessible
+                accessibilityLabel={promise}
+                key={promise}
+                style={styles.promiseRow}>
+                <View style={[
+                    styles.promiseChip,
+                    { backgroundColor: theme.colors.surfaceInteractive },
+                  ]}>
+                  <Icon color={theme.colors.iconSecondary} name={icon} size={19} />
+                </View>
                 <AppText style={styles.promiseText}>{promise}</AppText>
               </View>
             ))}
           </View>
-        </Surface>
+        </View>
       ) : null}
 
       {draft.step === 1 ? (
@@ -244,39 +303,55 @@ export function OnboardingScreen({
         </AppText>
       ) : null}
 
-      <View
+      </Screen>
+
+      <SafeAreaView
+        edges={['bottom']}
         style={[
-          styles.actions,
-          fontScale > 1.5 && styles.stackedActions,
+          styles.pinnedAction,
+          {
+            backgroundColor: theme.colors.backgroundElevated,
+            borderColor: theme.colors.borderSubtle,
+          },
         ]}>
-        {draft.step > 0 ? (
-          <Button
-            disabled={isSaving}
-            label={messages.common.back}
-            onPress={() => {
-              setSaveError(false);
-              dispatch({ type: 'back' });
-            }}
-            testID="onboarding-back"
-            variant="quiet"
-          />
+        {draft.step === 0 ? (
+          <AppText colorRole="textSecondary" variant="caption">
+            {messages.weather.locationRationaleBody}
+          </AppText>
         ) : null}
-        <Button
-          label={draft.step === totalSteps - 1 ? copy.completeAction : messages.common.continue}
-          loading={isSaving}
-          onPress={draft.step === totalSteps - 1 ? complete : goForward}
-          testID={draft.step === totalSteps - 1 ? 'onboarding-complete' : 'onboarding-continue'}
-          style={styles.primaryAction}
-        />
-      </View>
-    </Screen>
+        <View style={[styles.actions, fontScale > 1.5 && styles.stackedActions]}>
+          {draft.step > 0 ? (
+            <Button
+              disabled={isSaving}
+              label={messages.common.back}
+              onPress={() => {
+                setSaveError(false);
+                dispatch({ type: 'back' });
+              }}
+              testID="onboarding-back"
+              variant="quiet"
+            />
+          ) : null}
+          <Button
+            label={draft.step === totalSteps - 1 ? copy.completeAction : messages.common.continue}
+            loading={isSaving}
+            onPress={draft.step === totalSteps - 1 ? complete : goForward}
+            testID={draft.step === totalSteps - 1 ? 'onboarding-complete' : 'onboarding-continue'}
+            style={styles.primaryAction}
+          />
+        </View>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
   content: {
     gap: spacing['2xl'],
-    paddingBottom: spacing['2xl'],
+    paddingBottom: spacing.xl,
   },
   heading: {
     gap: spacing.sm,
@@ -284,21 +359,21 @@ const styles = StyleSheet.create({
   },
   panel: {
     gap: spacing.lg,
-    padding: spacing.xl,
   },
   promiseList: {
     gap: spacing.md,
   },
   promiseRow: {
-    alignItems: 'flex-start',
+    alignItems: 'center',
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing.md,
   },
-  promiseMarker: {
+  promiseChip: {
+    alignItems: 'center',
     borderRadius: radii.pill,
-    height: 6,
-    marginTop: 9,
-    width: 6,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
   },
   promiseText: {
     flex: 1,
@@ -318,12 +393,53 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
     justifyContent: 'flex-end',
-    marginTop: 'auto',
   },
   stackedActions: {
     flexDirection: 'column-reverse',
   },
   primaryAction: {
     flexGrow: 1,
+  },
+  progress: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  progressSegment: {
+    borderRadius: radii.pill,
+    flex: 1,
+    height: 6,
+  },
+  illustration: {
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.lg,
+  },
+  horizonRing: {
+    borderRadius: radii.pill,
+    borderWidth: borderWidths.strong,
+    height: 20,
+    marginBottom: spacing.xs,
+    width: 20,
+  },
+  horizonBar: {
+    borderRadius: radii.pill,
+  },
+  horizonBarLight: {
+    height: 8,
+    width: 104,
+  },
+  horizonBarMedium: {
+    height: 12,
+    width: 136,
+  },
+  horizonBarHeavy: {
+    height: 16,
+    width: 168,
+  },
+  pinnedAction: {
+    borderTopWidth: borderWidths.subtle,
+    gap: spacing.md,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
   },
 });

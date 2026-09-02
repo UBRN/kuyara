@@ -1,13 +1,13 @@
-import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { ActivityIndicator, RefreshControl, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
-import { AppText, IconButton, Pill, Screen, Surface, StretchyHeader } from '@/components/ui';
+import { AppText, Icon, IconButton, Pill, Screen, Surface, StretchyHeader } from '@/components/ui';
 import type { TodayScreenState } from '@/features/today/model';
 import { OutfitSuggestionCard } from '@/features/today/presentation/outfit-suggestion-card';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { WeatherCard } from '@/features/today/presentation/weather-card';
+import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
 import type { SupportedLanguage } from '@/localization/messages';
 import { withAlpha } from '@/theme/color-alpha';
 import { spacing } from '@/theme/theme';
@@ -75,34 +75,24 @@ export function TodayScreen({
         onHeightChange={setHeaderHeight}
         scrollOffset={scrollOffset}
         testID="today-stretchy-header">
-        <View style={[styles.titleRow, usesAccessibilityLayout && styles.stackedContextRow]}>
-          <View>
-            <AppText
-              accessibilityLabel={presentation.copy.headerAccessibilityLabel({
-                title: presentation.copy.title,
-                location: presentation.header.location,
-              })}
-              accessibilityRole="header"
-              variant="bodyStrong">
-              {presentation.header.location}
-            </AppText>
-            <AppText colorRole="textSecondary" variant="caption">
-              {presentation.header.date}
-            </AppText>
-          </View>
+        <View style={styles.titleRow}>
+          <Icon name="location" color={theme.colors.iconSecondary} size={16} />
+          <AppText
+            accessibilityLabel={presentation.copy.headerAccessibilityLabel({
+              title: presentation.copy.title,
+              location: presentation.header.location,
+            })}
+            accessibilityRole="header"
+            numberOfLines={1}
+            style={styles.location}
+            variant="title">
+            {presentation.header.location}
+          </AppText>
           <View style={styles.headerActions}>
             <IconButton
               accessibilityLabel={presentation.copy.refreshAction}
               hitSlop={7}
-              icon={(color) => (
-                <SymbolView
-                  accessibilityElementsHidden
-                  importantForAccessibility="no-hide-descendants"
-                  name={{ ios: 'arrow.clockwise', android: 'refresh', web: 'refresh' }}
-                  size={18}
-                  tintColor={color}
-                />
-              )}
+              icon={(color) => <Icon color={color} name="refresh" size={18} />}
               onPress={onRefresh}
               style={[styles.settingsButton, { backgroundColor: withAlpha(theme.colors.textPrimary, 0.1) }]}
               testID="today-refresh-button"
@@ -111,27 +101,43 @@ export function TodayScreen({
               accessibilityHint={presentation.copy.settingsHint}
               accessibilityLabel={presentation.copy.settingsAction}
               hitSlop={7}
-              icon={(color) => (
-                <SymbolView
-                  accessibilityElementsHidden
-                  importantForAccessibility="no-hide-descendants"
-                  name={{ ios: 'gearshape.fill', android: 'settings', web: 'settings' }}
-                  size={18}
-                  tintColor={color}
-                />
-              )}
+              icon={(color) => <Icon color={color} name="settings" size={18} />}
               onPress={onOpenSettings}
               style={[styles.settingsButton, { backgroundColor: withAlpha(theme.colors.textPrimary, 0.1) }]}
               testID="today-settings-button"
             />
           </View>
         </View>
-        <AppText
-          accessibilityLiveRegion={presentation.header.announceFreshness ? 'polite' : 'none'}
-          colorRole="textSecondary"
-          variant="caption">
-          {presentation.header.freshness}
-        </AppText>
+        <View
+          accessible
+          accessibilityLabel={presentation.weather.accessibilityLabel}
+          style={[styles.heroRow, usesAccessibilityLayout && styles.stackedHeroRow]}>
+          <AppText testID="today-header-temperature" variant="display">
+            {presentation.weather.temperature}
+          </AppText>
+          <View style={styles.heroCopy}>
+            <AppText>{presentation.weather.condition}</AppText>
+            <AppText colorRole="textSecondary" variant="caption">
+              {`${presentation.weather.range} · ${presentation.weather.apparentTemperature}`}
+            </AppText>
+          </View>
+          <View
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={styles.weatherGlyph}>
+            <WeatherGlyph testID="today-header-weather-glyph" />
+          </View>
+        </View>
+        <View style={styles.freshnessRow}>
+          <Icon name="clock" color={theme.colors.iconSecondary} size={13} />
+          <AppText
+            accessibilityLiveRegion={presentation.header.announceFreshness ? 'polite' : 'none'}
+            colorRole="textSecondary"
+            style={styles.freshnessText}
+            variant="caption">
+            {presentation.header.freshness}
+          </AppText>
+        </View>
       </StretchyHeader>
 
       <Screen
@@ -192,9 +198,6 @@ export function TodayScreen({
         ) : null}
 
         <WeatherCard
-          accessibilityLabel={presentation.weather.accessibilityLabel}
-          apparentTemperature={presentation.weather.apparentTemperature}
-          condition={presentation.weather.condition}
           rainProbability={presentation.weather.rainProbability}
           rainTimeline={presentation.weather.hourlyRainProbability.length > 0
             ? {
@@ -203,14 +206,12 @@ export function TodayScreen({
                 hours: presentation.weather.hourlyRainProbability,
               }
             : undefined}
-          range={presentation.weather.range}
           metricsAccessibilityLabel={presentation.weather.metricsAccessibilityLabel}
           stats={[
             { label: presentation.copy.windLabel, value: presentation.weather.wind },
             { label: presentation.copy.humidityLabel, value: presentation.weather.humidity },
             { label: presentation.copy.uvIndexLabel, value: presentation.weather.uvIndex },
           ]}
-          temperature={presentation.weather.temperature}
           sourceId={state.kind === 'loaded' ? state.snapshot.weather.origin.sourceId : undefined}
           testID="today-weather-card"
         />
@@ -220,7 +221,9 @@ export function TodayScreen({
             <AppText colorRole="brandAccent" variant="eyebrow">
               {presentation.copy.otherOptionsHeading}
             </AppText>
-            <View style={styles.outfitList} testID="today-outfit-list">
+            <View
+              style={[styles.outfitList, usesAccessibilityLayout && styles.stackedOutfitList]}
+              testID="today-outfit-list">
               {otherSuggestions.map((suggestion) => (
                 <OutfitSuggestionCard
                   key={suggestion.id}
@@ -246,13 +249,16 @@ const styles = StyleSheet.create({
     paddingBottom: spacing['2xl'],
   },
   header: {
-    gap: spacing.xs,
+    gap: spacing.md,
   },
   titleRow: {
-    alignItems: 'flex-start',
+    alignItems: 'center',
     flexDirection: 'row',
-    gap: spacing.lg,
-    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  location: {
+    flex: 1,
+    flexShrink: 1,
   },
   headerActions: {
     alignItems: 'center',
@@ -273,15 +279,41 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     justifyContent: 'space-between',
   },
-  stackedContextRow: {
+  heroRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  stackedHeroRow: {
     alignItems: 'flex-start',
     flexDirection: 'column',
+  },
+  heroCopy: {
+    flex: 1,
+    flexShrink: 1,
+    gap: spacing.xs,
+  },
+  weatherGlyph: {
+    marginStart: 'auto',
+  },
+  freshnessRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  freshnessText: {
+    flex: 1,
+    flexShrink: 1,
   },
   section: {
     gap: spacing.lg,
   },
   outfitList: {
+    flexDirection: 'row',
     gap: spacing.lg,
+  },
+  stackedOutfitList: {
+    flexDirection: 'column',
   },
   feedbackContent: {
     alignItems: 'center',

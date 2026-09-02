@@ -98,22 +98,18 @@ describe.each(['en', 'tr'] as const)('%s AI status section', (language) => {
     expect(status.props.accessibilityLiveRegion).toBe('polite');
   });
 
-  test('uses different non-color icons for successful and failed results', async () => {
+  test('uses different localized text for successful and failed results', async () => {
     const success = await section(language, {
       aiStatus: { kind: 'ok', checkedAt },
     }).rendered;
-    const successIcon = success.getByTestId('settings-ai-status-result-icon', {
-      includeHiddenElements: true,
-    });
+    const successResult = success.getByTestId('settings-ai-status-result');
 
     const failure = await section(language, {
       aiStatus: { kind: 'error' },
     }).rendered;
-    const failureIcon = failure.getByTestId('settings-ai-status-result-icon', {
-      includeHiddenElements: true,
-    });
+    const failureResult = failure.getByTestId('settings-ai-status-result');
 
-    expect(successIcon.props.name).not.toEqual(failureIcon.props.name);
+    expect(successResult.props.children).not.toEqual(failureResult.props.children);
   });
 
   test('disables unsupported checks and announces build availability', async () => {
@@ -158,12 +154,14 @@ test('checking overlay renders with standard and reduced motion', async () => {
 });
 
 test('Settings screen includes the AI status section', async () => {
+  const onBack = jest.fn();
   const result = await render(providers(
     <SettingsScreen
       aiStatus={{ kind: 'idle' }}
       isProbeSupported
       isSaving={false}
       lastGenerationMode="deterministic-fallback"
+      onBack={onBack}
       onCheckAiStatus={() => undefined}
       isNotificationBusy={false}
       notificationPermission={{ kind: 'undetermined' }}
@@ -188,4 +186,6 @@ test('Settings screen includes the AI status section', async () => {
   ));
 
   expect(result.getByTestId('settings-ai-status')).toBeOnTheScreen();
+  await fireEvent.press(result.getByRole('button', { name: messages.en.common.back }));
+  expect(onBack).toHaveBeenCalledTimes(1);
 });

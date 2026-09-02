@@ -1,4 +1,4 @@
-import { fireEvent, isHiddenFromAccessibility, render } from '@testing-library/react-native';
+import { fireEvent, isHiddenFromAccessibility, render, within } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -76,9 +76,35 @@ test('loaded Today reserves overlay clearance and preserves grouped accessibilit
   expect(StyleSheet.flatten(
     result.getByTestId('outfit-card-outfit-1-surface').props.style,
   )).toMatchObject(lightTheme.elevation.raised);
-  expect(StyleSheet.flatten(result.getByText('20°').props.style).fontSize)
+  expect(StyleSheet.flatten(result.getByTestId('today-header-temperature').props.style).fontSize)
     .toBe(typography.display.fontSize);
+  expect(StyleSheet.flatten(result.getByText('Sample İstanbul').props.style).fontSize)
+    .toBe(typography.title.fontSize);
+  expect(result.getByText('Sample İstanbul').props.numberOfLines).toBe(1);
   expect(result.getByRole('header', { name: 'Today. Sample İstanbul' })).toBeOnTheScreen();
+
+  expect(result.getAllByTestId('outfit-card-outfit-1-piece')).toHaveLength(
+    presentation.suggestions[0].pieces.length,
+  );
+  expect(result.getAllByTestId('outfit-card-outfit-1-divider', {
+    includeHiddenElements: true,
+  })).toHaveLength(presentation.suggestions[0].pieces.length - 1);
+  expect(result.getByTestId('outfit-card-outfit-1-reason')).toHaveTextContent(
+    presentation.suggestions[0].reasons.join(' '),
+  );
+  expect(isHiddenFromAccessibility(
+    result.getByTestId('today-header-weather-glyph', { includeHiddenElements: true }),
+  )).toBe(true);
+
+  const optionListStyle = StyleSheet.flatten(result.getByTestId('today-outfit-list').props.style);
+  expect(optionListStyle.flexDirection).toBe('column');
+  expect(StyleSheet.flatten(
+    result.getByTestId('outfit-card-outfit-2-surface').props.style,
+  )).toMatchObject({
+    ...lightTheme.elevation.raised,
+    backgroundColor: lightTheme.colors.surface,
+    borderColor: lightTheme.colors.borderSubtle,
+  });
 
   await fireEvent.press(result.getByTestId(`outfit-card-${presentation.suggestions[0].id}`));
   expect(onOpenOutfitDetail).toHaveBeenCalledWith('outfit-1');
@@ -96,9 +122,6 @@ test('loaded Today reserves overlay clearance and preserves grouped accessibilit
     /Rain chance today.*09:00\. 65% chance of rain.*11:00\. 20% chance of rain/,
   )).toBeOnTheScreen();
   expect(result.queryByText(/Sunrise|Sunset/)).not.toBeOnTheScreen();
-  expect(isHiddenFromAccessibility(
-    result.getByTestId('weather-glyph', { includeHiddenElements: true }),
-  )).toBe(true);
 });
 
 test('rendered outfit copy comes from localization and never from the wardrobe free-form name', async () => {
@@ -117,12 +140,15 @@ test('rendered outfit copy comes from localization and never from the wardrobe f
   for (const suggestion of english.suggestions) {
     expect(englishResult.getByText(suggestion.title)).toBeOnTheScreen();
   }
-  for (const summary of [
-    'T-shirt + Shorts + Rain jacket + Winter boots',
-    'Jumpsuit + Rain jacket + Winter boots',
-    'Blouse + Shorts + Rain jacket + Winter boots',
-  ]) {
-    expect(englishResult.getByText(summary)).toBeOnTheScreen();
+  const englishPrimary = within(englishResult.getByTestId('outfit-card-outfit-1'));
+  for (const { item, slot } of english.suggestions[0].pieces) {
+    expect(englishPrimary.getByText(item)).toBeOnTheScreen();
+    expect(englishPrimary.getByText(slot)).toBeOnTheScreen();
+  }
+  for (const suggestion of english.suggestions.slice(1)) {
+    expect(within(englishResult.getByTestId(`outfit-card-${suggestion.id}`)).getByText(
+      messages.en.today.otherOptionPieceCount({ count: suggestion.pieces.length }),
+    )).toBeOnTheScreen();
   }
   expect(englishResult.getByTestId('outfit-card-outfit-1').props.accessibilityLabel)
     .toContain('Rain Ready');
@@ -141,12 +167,15 @@ test('rendered outfit copy comes from localization and never from the wardrobe f
   for (const suggestion of turkish.suggestions) {
     expect(turkishResult.getByText(suggestion.title)).toBeOnTheScreen();
   }
-  for (const summary of [
-    'Tişört + Şort + Yağmurluk + Kışlık bot',
-    'Tulum + Yağmurluk + Kışlık bot',
-    'Bluz + Şort + Yağmurluk + Kışlık bot',
-  ]) {
-    expect(turkishResult.getByText(summary)).toBeOnTheScreen();
+  const turkishPrimary = within(turkishResult.getByTestId('outfit-card-outfit-1'));
+  for (const { item, slot } of turkish.suggestions[0].pieces) {
+    expect(turkishPrimary.getByText(item)).toBeOnTheScreen();
+    expect(turkishPrimary.getByText(slot)).toBeOnTheScreen();
+  }
+  for (const suggestion of turkish.suggestions.slice(1)) {
+    expect(within(turkishResult.getByTestId(`outfit-card-${suggestion.id}`)).getByText(
+      messages.tr.today.otherOptionPieceCount({ count: suggestion.pieces.length }),
+    )).toBeOnTheScreen();
   }
   expect(turkishResult.getByTestId('outfit-card-outfit-1').props.accessibilityLabel)
     .toContain('Yağmura Hazır');
@@ -191,6 +220,9 @@ test('outfit detail lists localized weather reasons alongside localized pieces',
   expect(result.getByText(eyebrow(messages.en.today.reasonsHeading, 'en'))).toBeOnTheScreen();
   expect(result.getByRole('header', { name: presentation.suggestions[0].title }))
     .toBeOnTheScreen();
+  expect(result.getByTestId('outfit-detail-ownership-summary')).toHaveTextContent(
+    messages.en.onboarding.wardrobePromise,
+  );
   for (const reason of presentation.suggestions[0].reasons) {
     expect(result.getByText(reason)).toBeOnTheScreen();
   }
@@ -198,6 +230,9 @@ test('outfit detail lists localized weather reasons alongside localized pieces',
     expect(result.getByText(slot)).toBeOnTheScreen();
     expect(result.getByText(item)).toBeOnTheScreen();
   }
+  expect(result.getAllByTestId('outfit-detail-piece-card')).toHaveLength(
+    presentation.suggestions[0].pieces.length,
+  );
   expect(result.getAllByTestId('outfit-piece-divider', { includeHiddenElements: true })).toHaveLength(
     presentation.suggestions[0].pieces.length - 1,
   );

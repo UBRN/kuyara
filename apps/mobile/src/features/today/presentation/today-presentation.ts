@@ -1,4 +1,5 @@
 import type { RecommendedOutfit } from '@/features/recommendation/application/recommend-outfits';
+import type { StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import {
   outfitSlots,
   type AssignedOutfitGarment,
@@ -16,6 +17,7 @@ import {
 type LocalizedOutfitPiece = Readonly<{
   slot: string;
   item: string;
+  category: StructuralCategory;
 }>;
 
 export type LocalizedHourlyRainProbability = Readonly<{
@@ -29,6 +31,7 @@ export type LoadedOutfitPresentation = Readonly<{
   positionLabel: string;
   title: string;
   summary: string;
+  pieceCountLabel: string;
   emphasis?: string;
   pieces: readonly LocalizedOutfitPiece[];
   reasons: readonly string[];
@@ -45,6 +48,7 @@ export type LoadedTodayPresentation = Readonly<{
     refreshAction: string;
     piecesHeading: string;
     reasonsHeading: string;
+    ownershipSummary: string;
     recommendedTodayHeading: string;
     otherOptionsHeading: string;
     windLabel: string;
@@ -54,7 +58,6 @@ export type LoadedTodayPresentation = Readonly<{
   }>;
   header: Readonly<{
     location: string;
-    date: string;
     freshness: string;
     isStale: boolean;
     isRefreshing: boolean;
@@ -119,19 +122,6 @@ function formatTemperature(value: number, language: SupportedLanguage): string {
   return `${formatNumber(value, language)}°`;
 }
 
-function formatDate(
-  value: string,
-  timeZone: string,
-  language: SupportedLanguage,
-): string {
-  return new Intl.DateTimeFormat(localeTag(language), {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    timeZone,
-  }).format(new Date(value));
-}
-
 function formatTime(
   value: string,
   timeZone: string,
@@ -176,6 +166,7 @@ function localizeOutfit(
       messages.catalog[
         `catalog.garment_type.${garment.garmentTypeId}.name`
       ],
+    category: garment.properties.category,
   }));
   const title = messages.recommendation.archetypes[outfit.archetypeId];
   const summary = pieces.map(({ item }) => item).join(' + ');
@@ -189,6 +180,7 @@ function localizeOutfit(
     positionLabel: copy.optionPosition(index + 1, total),
     title,
     summary,
+    pieceCountLabel: copy.otherOptionPieceCount({ count: pieces.length }),
     emphasis: index === 0 ? copy.emphasis.recommended : undefined,
     pieces,
     reasons,
@@ -279,6 +271,7 @@ function createLoadedPresentation(
       refreshAction: copy.refreshAction,
       piecesHeading: copy.piecesHeading,
       reasonsHeading: copy.reasonsHeading,
+      ownershipSummary: messages.onboarding.wardrobePromise,
       recommendedTodayHeading: copy.recommendedTodayHeading,
       otherOptionsHeading: copy.otherOptionsHeading,
       windLabel: copy.windLabel,
@@ -291,7 +284,6 @@ function createLoadedPresentation(
         snapshot.activeLocation.source === 'manual'
           ? weatherCopy.locations[snapshot.activeLocation.catalogId]
           : weatherCopy.currentLocation,
-      date: formatDate(current.observedAt, weather.timeZone, language),
       freshness: isRefreshing
         ? copy.refreshingStatus
         : refreshFailed
