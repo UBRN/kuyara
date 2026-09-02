@@ -212,6 +212,7 @@ The English and Turkish labels below are localization copy, not identity. They m
 
 | Structural category | `typeId` | English label | Turkish label |
 | --- | --- | --- | --- |
+| `top` | `sleeveless_top` | Sleeveless top | Kolsuz üst |
 | `top` | `t_shirt` | T-shirt | Tişört |
 | `top` | `long_sleeve_t_shirt` | Long-sleeve T-shirt | Uzun kollu tişört |
 | `top` | `shirt` | Shirt | Gömlek |
@@ -223,6 +224,7 @@ The English and Turkish labels below are localization copy, not identity. They m
 | `top` | `overshirt` | Overshirt | Gömlek ceket |
 | `bottom` | `trousers` | Trousers | Pantolon |
 | `bottom` | `jeans` | Jeans | Jean |
+| `bottom` | `leggings` | Leggings | Tayt |
 | `bottom` | `shorts` | Shorts | Şort |
 | `bottom` | `skirt` | Skirt | Etek |
 | `one_piece` | `dress` | Dress | Elbise |
@@ -386,26 +388,30 @@ These records are **model-consistency examples**, not the final production fixtu
 
 | `typeId` | Category | Roles | Thermal | Water | Wind | Breathability | Region / coverage | Traction | Applicability |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `sleeveless_top` | `top` | `base`, `standalone` | `none` | — | — | `high` | `upper_body`; arms `none` | — | both |
 | `t_shirt` | `top` | `base`, `standalone` | `none` | — | — | `high` | `upper_body`; arms `partial` | — | both |
 | `long_sleeve_t_shirt` | `top` | `base`, `standalone` | `light` | — | — | `high` | `upper_body`; arms `full` | — | both |
 | `sweater` | `top` | `mid`, `standalone` | `moderate` | — | — | `moderate` | `upper_body`; arms `full` | — | both |
 | `cardigan` | `top` | `mid`, `standalone` | `moderate` | — | — | `moderate` | `upper_body`; arms `full` | — | both |
 | `overshirt` | `top` | `mid`, `outer`, `standalone` | `light` | `none` | `none` | `moderate` | `upper_body`; arms `full` | — | both |
 | `trousers` | `bottom` | `standalone` | `light` | — | — | `moderate` | `lower_body`; legs `full` | — | both |
+| `leggings` | `bottom` | `standalone` | `moderate` | — | — | `moderate` | `lower_body`; legs `full` | — | both |
 | `shorts` | `bottom` | `standalone` | `none` | — | — | `high` | `lower_body`; legs `partial` | — | both |
 | `dress` | `one_piece` | `standalone` | `light` | — | — | `moderate` | `full_body`; arms `none`, legs `partial` | — | `womens` |
 | `insulated_jacket` | `outerwear` | `outer` | `high` | `water_resistant` | `wind_resistant` | `low` | `upper_body`; arms `full` | — | both |
-| `rain_jacket` | `outerwear` | `outer` | `light` | `waterproof` | `wind_resistant` | `moderate` | `upper_body`; arms `full` | — | both |
+| `rain_jacket` | `outerwear` | `outer` | `none` | `waterproof` | `wind_resistant` | `moderate` | `upper_body`; arms `full` | — | both |
 | `sneakers` | `footwear` | — | `light` | `none` | — | `moderate` | `feet` | `everyday` | both |
 | `sandals` | `footwear` | — | `none` | `none` | — | `high` | `feet` | `everyday` | both |
 | `weather_boots` | `footwear` | — | `high` | `waterproof` | — | `low` | `feet` | `enhanced` | both |
 | `beanie` | `accessory` | — | `moderate` | — | — | `moderate` | `head` | — | both |
 | `scarf` | `accessory` | — | `moderate` | — | — | `moderate` | `neck` | — | both |
-| `gloves` | `accessory` | — | `moderate` | `water_resistant` | — | `moderate` | `hands` | — | both |
+| `gloves` | `accessory` | — | `moderate` | `none` | — | `moderate` | `hands` | — | both |
 | `brimmed_hat` | `accessory` | — | `none` | — | — | `high` | `head` | — | both |
 | `umbrella` | `accessory` | — | — | `waterproof` | — | — | — | — | both |
 
 These defaults intentionally remain coarse. A mesh sneaker, heavy sweater, short-sleeved dress, unlined waterproof shell, or fashion boot can use the appropriate Wardrobe overrides rather than forcing another canonical type.
+
+That argument no longer covers recommendations. [ADR 0005](adr/0005-catalog-only-recommendation-candidates.md) removed the Wardrobe from the candidate set, so an override widens nothing a recommendation can see; it still applies to the Wardrobe as a personal record. [ADR 0013](adr/0013-catalog-content-corrections-and-version-3.md) accordingly corrected four property values and added `sleeveless_top` and `leggings` at catalog version 3.
 
 ## Scenario sufficiency checks
 
