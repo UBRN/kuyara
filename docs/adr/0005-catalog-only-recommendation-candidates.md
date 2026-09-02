@@ -2,12 +2,20 @@
 
 Status: Accepted (2026-08-30)
 
-Implementation: Planned.
+Implementation: Landed. Catalog-only candidates, the Wardrobe entry state, and
+schema version 7 shipped; the local day variant is `localDayVariant()` in
+`recommendation-application-controller.ts`, compared by the `local-day-changed`
+trigger and carried into the Worker cache key.
 
 Amended by [ADR 0007](0007-ai-selects-precomposed-outfits.md) (2026-08-30):
 section 4's AI job becomes selection and labeling of precomposed outfits, color
 harmony is removed from the MVP, and the day seed becomes a seven-slot day
 variant.
+
+Amended by [ADR 0013](0013-catalog-content-corrections-and-version-3.md)
+(2026-09-03): the "Out of scope" line excluding catalog expansion no longer
+holds. Two garment types are added and four property values corrected at catalog
+version 3.
 
 ## Context
 
