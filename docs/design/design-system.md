@@ -18,6 +18,8 @@ adaptive UI primitives
 Router shell and feature presentation
 ```
 
+This file is the mechanism. [`design-language.md`](design-language.md) is the layer above it that decides which mechanism to use, translating the approved identity into concrete rules for density, hierarchy, surface and depth strategy, colour, typography, iconography, and motion. Shadow contact contrast, a new measurable rule for when a shadow may serve as a plane separator, is defined there; see [Elevation ladder](#elevation-ladder) below for its current values.
+
 ## Primitive and semantic colors
 
 `brandColors` records the six approved palette values once: `deepAtmosphere`, `calmCurrent`, `quietSky`, `softMist`, `nightLayer`, and `cloudWhite`. Presentation code must not import or consume these primitive names. They are inputs to semantic roles, not UI instructions.
@@ -27,11 +29,24 @@ Both appearances expose the same semantic roles:
 - Foundations: `background`, `backgroundElevated`, `surface`, `surfaceMuted`, `surfaceInteractive`
 - Content: `textPrimary`, `textSecondary`, `textOnBrand`, `iconPrimary`, `iconSecondary`
 - Identity and interaction: `brandPrimary`, `brandAccent`, `focusRing`
-- Boundaries and overlays: `borderSubtle`, `borderStrong`, `scrim`
+- Boundaries and overlays: `borderSubtle`, `borderStrong`, `borderDefined`, `scrim`
+- Status: `successInk`, `successContainer`, `warningInk`, `warningContainer`, `dangerInk`, `dangerContainer`
 
 The light and dark sets are authored independently. Dark appearance is not an inversion. Light appearance uses the derived neutral `#D0DDDC` as the page foundation, pure white for card surfaces, Soft Mist for the navigation and chrome plane between them, and Deep Atmosphere for primary content and controls. Dark appearance uses Night Layer as the page foundation, Deep Atmosphere for elevated content, Cloud White for primary content, and Quiet Sky for secondary content, focus, and primary controls. A few restrained tonal surface and border values extend the approved palette for hierarchy; they are semantic UI values, not additional brand colors.
 
-Status roles are intentionally deferred until the app has concrete informational, success, warning, and error presentation. Adding indistinguishable or unused status colors now would be speculative. Future status UI must not communicate state by color alone.
+Status roles are approved, not deferred: the condition the earlier deferral named, concrete informational, success, warning, and error presentation, was already met by six sites in the shipped app before anyone re-read it (`ai-status-section.tsx`, `wardrobe-item-form-screen.tsx`, `weather-screen.tsx`, `outfit-detail-screen.tsx`, `outfit-suggestion-card.tsx`, `today-screen.tsx`). See [ADR 0010](../adr/0010-status-colours-destructive-variant-and-defined-borders.md) and [`design-language.md`](design-language.md#law-4-one-accent-and-a-status-band). Every status ink is tuned so its contrast against its own appearance's `surface` lies within ±0.8 of `brandAccent`'s, and status UI must always communicate state through ink, glyph, and text together, never color alone.
+
+| role | light | dark |
+| --- | --- | --- |
+| `successInk` | `#216048` | `#7FD3AE` |
+| `successContainer` | `#DCEBE3` | `#0B2620` |
+| `warningInk` | `#7A4F12` | `#EABB6E` |
+| `warningContainer` | `#F2E6CE` | `#292010` |
+| `dangerInk` | `#9B2C2C` | `#F2A6A2` |
+| `dangerContainer` | `#F8E3E1` | `#301D1B` |
+| `borderDefined` | `#5C7A83` | `#527E90` |
+
+These are derived semantic values in the same class as the existing derived neutrals `#E7EEED`, `#DDE8E7`, `#C5D5D6`, and `#D0DDDC`. They are not new brand colors; the six approved brand hexes and the Balanced Horizon V2 master geometry are unchanged. `borderDefined` identifies interactive components (chips, outline buttons); `borderSubtle` narrows to decorative dividers inside a container, where no component is being identified.
 
 ### Contrast evidence
 
@@ -48,8 +63,20 @@ Contrast was calculated with the WCAG relative-luminance formula. The measuremen
 | Accent-filled pill label on its fill | 6.37:1 | 10.03:1 |
 | Photo placeholder label on its tint | 5.95:1 | 7.04:1 |
 | Muted rain bar against the weather card | 3.15:1 | 4.97:1 |
+| Success ink on surface | 7.42:1 | 7.89:1 |
+| Success ink on background | 5.32:1 | 10.07:1 |
+| Warning ink on surface | 7.11:1 | 7.89:1 |
+| Warning ink on background | 5.10:1 | 10.08:1 |
+| Danger ink on surface | 7.53:1 | 7.17:1 |
+| Danger ink on background | 5.40:1 | 9.15:1 |
+| Status ink on its own container | 6.02 to 6.12:1 | 8.16 to 9.04:1 |
+| Status container tint on its surface (decorative, not the signal) | 1.23:1 ±0.01 | 1.14:1 ±0.01 |
+| `borderDefined` on surface | 4.60:1 | 3.17:1 |
+| `borderDefined` on background | 3.30:1 | 4.04:1 |
+| `borderDefined` on backgroundElevated | 4.24:1 | 3.17:1 |
+| Destructive button label on its `dangerInk` fill | 7.53:1 | 9.15:1 |
 
-The first four rows are text pairs measured against the 4.5:1 threshold. The last row is meaningful non-text content measured against the 3:1 threshold; rain probability is additionally encoded by bar height and repeated in the group's accessibility label, so it never depends on color alone. The weather card tint is `brandAccent` at 0.08 over `background`, and the photo placeholder tint is `brandAccent` at 0.05 over `surface`. These pairs are asserted in `theme.test.mjs`.
+The first four rows are text pairs measured against the 4.5:1 threshold. The next non-status row is meaningful non-text content measured against the 3:1 threshold; rain probability is additionally encoded by bar height and repeated in the group's accessibility label, so it never depends on color alone. The weather card tint is `brandAccent` at 0.08 over `background`, and the photo placeholder tint is `brandAccent` at 0.05 over `surface`. The status ink rows are text pairs measured against 4.5:1 on both planes a status instance may sit on. The status container row is intentionally below the 3:1 non-text threshold: the container fill is decorative and is never the signal, while the ink on it stays at 6.02 to 9.04:1. The `borderDefined` rows are non-text pairs measured against 3:1 across every plane a control may sit on. These pairs are asserted in `theme.test.mjs`.
 
 ### Elevation ladder
 
@@ -125,6 +152,12 @@ Semantic tokens and primitives have different responsibilities. Tokens name visu
 
 Primitive APIs favor composition, a small variant union, and standard React Native props over arbitrary colors, numeric typography configuration, spacing props, or collections of styling booleans. New variants or primitives require a current product use rather than speculative completeness.
 
+This requirement applies to variants and primitives, not to the design language layer. [ADR 0009](../adr/0009-a-design-language-layer-and-its-deferral-carve-out.md) carves out an explicit exception, with the test that decides which side a thing falls on, quoted from [`design-language.md`](design-language.md#law-8-the-deferral-carve-out):
+
+> If the thing is a role, a named slot in the system: a colour role, a typography role, a spacing meaning, an elevation meaning, a border meaning, a motion meaning, it belongs to the design language layer and may be defined ahead of any use.
+>
+> If the thing is a variant or a primitive, a concrete component API, the "current product use" requirement stands unchanged.
+
 ## Platform and accessibility policy
 
 Kuyara identity colors are authored explicitly, so uncontrolled platform colors do not replace them. `PlatformColor` and `DynamicColorIOS` are not currently needed. If a future native control or system surface benefits materially from a platform color, the value must be centralized behind a semantic role with a cross-platform fallback rather than scattered through feature code.
@@ -147,7 +180,7 @@ Milestone 6 moved three items off the deferred list below:
 
 - Shadows and elevation are now implemented, as exactly two levels and no more: `elevation.raised` for content cards and `elevation.chrome` for navigation chrome (tab bar, collapsing header). Each is a single cross-platform style object carrying the iOS shadow properties and the Android `elevation` value together, and the dark appearance uses markedly lower opacity because the dark surface step already carries the separation. The previous reason for deferring, until a real hierarchy requires them, is now satisfied: there is a ground plane, a card plane, and a chrome plane. See Elevation ladder above.
 - Divider is now implemented as a `Divider` primitive in `apps/mobile/src/components/ui/divider.tsx`, with a full and an inset variant, hidden from the accessibility tree. The previous reason for deferring, that the current shell has no repeated separator need, is now satisfied by four repeated needs: the hourly forecast rows, the settings rows, the outfit piece rows, and the wardrobe rows.
-- Status colors were considered for milestone 6 and rejected: green, red, and amber fall outside the approved blue and neutral palette and would need separate visual identity approval, so they stay deferred below. The underlying accessibility defect was fixed a different way instead: states that were previously signalled by color alone now pair an icon with text, in the AI status section and in the preference option control. The destructive button variant therefore also stays deferred, since it was waiting on status colors.
+- Status colors were considered for milestone 6 and deferred: green, red, and amber fall outside the approved blue and neutral palette and needed separate visual identity approval. That approval now exists: the design language overhaul approved seven new colour roles and a new `borderDefined` neutral (see Approved new colour roles above and [ADR 0010](../adr/0010-status-colours-destructive-variant-and-defined-borders.md)). The icon-plus-text fix made for milestone 6, in the AI status section and in the preference option control, remains correct: color is still never the only signal. The destructive button variant is also approved, filling with `dangerInk` rather than waiting further.
 
 M6.1 implemented the icon system approved by [ADR 0008](../adr/0008-expanding-the-visual-vocabulary-for-m6-1.md): the `Icon` primitive extends the existing `expo-symbols` `SymbolView` mechanism, already used for the icon-plus-text pairs above, to the tab bar and header actions, rather than adding an icon dependency. Garment slot rows use the separate `GarmentSlotGlyph`/`GarmentSlotTile` primitives instead; a later polish round replaced their original plain-View drawing with bundled monochrome template artwork rendered through `Image` and `tintColor`, still keyed by the same structural categories. See [ADR 0008](../adr/0008-expanding-the-visual-vocabulary-for-m6-1.md) and the Adaptive UI primitives section above for why a symbol font remains unusable for these four slots.
 
@@ -155,9 +188,9 @@ Deferred intentionally:
 
 - Any migration from JavaScript Tabs to SDK 57's alpha Native Tabs
 - Generic text-input, selector, switch, modal, or feedback frameworks; the Wardrobe controls remain feature-specific
-- A generic destructive button variant or new destructive color token; Wardrobe distinguishes removal through copy, section hierarchy, accessibility semantics, and the platform Alert style
 - Non-scrollable and keyboard-specific screen behavior until a checked-in flow requires either
-- Status tokens and status components
 - Platform-color adapters until a concrete native integration needs them
+
+The design language carve-out ([ADR 0009](../adr/0009-a-design-language-layer-and-its-deferral-carve-out.md)) moved the role-shaped items formerly on this list, status tokens and the destructive variant's color, off it; every primitive-shaped item above is untouched.
 
 The three-tab information architecture is final: Today, Weather, and Profile. Wardrobe and wanted records live inside Profile, and Settings opens from the Profile header. The current root uses a stable Expo Router Stack for the onboarding gate and Expo Router JavaScript Tabs for the main application. Native Tabs are not a drop-in implementation detail while the SDK 57 API remains alpha; any later migration must be reviewed explicitly. Android source compatibility is preserved, but Android build, emulator, and visual refinement remain unverified and deferred.

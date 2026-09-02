@@ -6,7 +6,7 @@ This document is the canonical reference for kuyara branding and the visual inte
 
 The decisions below are approved constraints. They describe design intent and acceptance criteria; they do not imply that semantic design tokens, components, or every platform asset have been implemented. When implementation and this document conflict, report the conflict instead of silently choosing or redefining the identity.
 
-The current implementation details for semantic tokens and theme consumption are documented in [`design-system.md`](design-system.md).
+The current implementation details for semantic tokens and theme consumption are documented in [`design-system.md`](design-system.md). [`design-language.md`](design-language.md) sits between the two: this document states intent, `design-language.md` turns that intent into concrete rules for density, hierarchy, colour, iconography, and motion, and `design-system.md` implements those rules as tokens and primitives.
 
 ## Brand foundation
 
@@ -114,6 +114,8 @@ Deep Atmosphere and Calm Current form the main navy-to-petrol identity. Quiet Sk
 Neon cyan, glow, glassy gradients, rainbow gradients, and highly saturated technology colors are prohibited. Feature UI consumes the existing semantic tokens and must not scatter hardcoded brand values through components.
 
 `#FFFFFF` is permitted as a light-theme surface and card color, approved in [ADR 0008](../adr/0008-expanding-the-visual-vocabulary-for-m6-1.md). It is a neutral surface value, not a new brand hue: the six approved brand hexes above and the Balanced Horizon V2 master geometry remain locked and unchanged.
+
+The palette was further extended with derived semantic status values, success, warning, and danger ink and container pairs plus a `borderDefined` neutral, approved in [ADR 0010](../adr/0010-status-colours-destructive-variant-and-defined-borders.md) and detailed in [`design-language.md`](design-language.md#law-4-one-accent-and-a-status-band). These are not new brand colors: the six approved brand hexes above and the Balanced Horizon V2 master geometry remain locked and unchanged.
 
 ## Typography
 
