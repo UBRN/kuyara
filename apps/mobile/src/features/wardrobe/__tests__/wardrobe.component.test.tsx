@@ -3,7 +3,10 @@ import type { PropsWithChildren } from 'react';
 import { StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { garmentCatalog } from '@/features/catalog/domain/garment-catalog';
+import {
+  garmentCatalog,
+  getGarmentType,
+} from '@/features/catalog/domain/garment-catalog';
 import {
   WardrobeApplicationContext,
   type WardrobeApplicationValue,
@@ -12,6 +15,7 @@ import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import type { StagedWardrobePhoto } from '@/features/wardrobe/data/wardrobe-photo-adapters';
 import type { WardrobeConfirmation } from '@/features/wardrobe/presentation/wardrobe-confirmation';
 import { WardrobeItemFormScreen } from '@/features/wardrobe/presentation/wardrobe-item-form-screen';
+import { GarmentTypePickerScreen } from '@/features/wardrobe/presentation/garment-type-picker-screen';
 import {
   WardrobeNewItemRoute,
   WardrobeRouteStatus,
@@ -31,9 +35,13 @@ jest.mock('expo-router', () => ({
     addListener: () => () => undefined,
     dispatch: () => undefined,
   }),
+  useLocalSearchParams: () => ({}),
   useRouter: () => ({
     back: () => undefined,
+    dismissTo: () => undefined,
+    push: () => undefined,
     replace: () => undefined,
+    setParams: () => undefined,
   }),
 }));
 
@@ -71,9 +79,13 @@ const wantedItem: WardrobeItem = {
   entryState: 'wanted',
 };
 
-const formTypes = garmentCatalog.garmentTypes.filter(({ typeId }) =>
-  ['t_shirt', 'rain_jacket', 'umbrella'].includes(typeId),
-);
+function requireGarmentType(typeId: string) {
+  const garmentType = getGarmentType(typeId);
+  if (!garmentType) {
+    throw new Error(`Missing test garment type: ${typeId}`);
+  }
+  return garmentType;
+}
 
 const stagedPhoto: StagedWardrobePhoto = {
   id: '218f0f4d-1d45-4ae7-a8f1-796e8297d3b4',
@@ -417,23 +429,28 @@ test('create route shows initialization status instead of the form until wardrob
 
 function CreateForm({
   confirmation,
+  garmentTypeSelection,
   onBackRequested = () => undefined,
   onCreate = async () => undefined,
+  onOpenGarmentTypePicker = () => undefined,
 }: Readonly<{
   confirmation?: WardrobeConfirmation;
+  garmentTypeSelection?: ReturnType<typeof getGarmentType>;
   onBackRequested?: (dirty: boolean) => void;
   onCreate?: (input: Record<string, unknown>) => Promise<void>;
+  onOpenGarmentTypePicker?: (selectedTypeId: string | null) => void;
 }>) {
   return (
     <TestProviders>
       <WardrobeItemFormScreen
         confirmation={confirmation}
-        garmentTypes={formTypes}
+        garmentTypeSelection={garmentTypeSelection}
         isBusy={false}
         mode="create"
         onBackRequested={onBackRequested}
         onCreate={onCreate}
         onDirtyChange={() => undefined}
+        onOpenGarmentTypePicker={onOpenGarmentTypePicker}
       />
     </TestProviders>
   );
@@ -452,7 +469,6 @@ test('create and edit forms leave the top safe area to the platform instead of a
   const editResult = await render(
     <TestProviders>
       <WardrobeItemFormScreen
-        garmentTypes={formTypes}
         isBusy={false}
         item={item}
         mode="edit"
@@ -469,36 +485,91 @@ test('create and edit forms leave the top safe area to the platform instead of a
   expect(editContentStyle.paddingTop).toBe(0);
 });
 
-test('create form uses catalog options, reports required validation, and has no delete action', async () => {
+test('create form keeps only the required picker and entry state options visible by default', async () => {
   const onCreate = jest.fn(async () => undefined);
-  const result = await render(<CreateForm onCreate={onCreate} />);
+  const onOpenGarmentTypePicker = jest.fn();
+  const result = await render(
+    <CreateForm
+      onCreate={onCreate}
+      onOpenGarmentTypePicker={onOpenGarmentTypePicker}
+    />,
+  );
 
-  expect(result.getByRole('radio', { name: 'T-shirt' })).toBeOnTheScreen();
-  expect(result.getByRole('radio', { name: 'Rain jacket' })).toBeOnTheScreen();
+  expect(result.getAllByRole('radio')).toHaveLength(2);
+  expect(result.queryByRole('radio', { name: 'T-shirt' })).not.toBeOnTheScreen();
+  expect(result.getByTestId('wardrobe-type-picker-row')).toHaveAccessibilityValue({
+    text: messages.en.wardrobe.unclassifiedType,
+  });
+  expect(result.getByTestId('wardrobe-details-toggle').props.accessibilityState).toEqual(
+    expect.objectContaining({ expanded: false }),
+  );
+  expect(result.queryByTestId('wardrobe-color-unspecified')).not.toBeOnTheScreen();
+  expect(result.getByText(messages.en.wardrobe.detailsCaption)).toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('wardrobe-type-picker-row'));
+  expect(onOpenGarmentTypePicker).toHaveBeenCalledWith(null);
   expect(result.queryByTestId('wardrobe-delete-button')).not.toBeOnTheScreen();
   expect(result.getByTestId('wardrobe-entry-state-owned').props.accessibilityState.selected).toBe(true);
   await fireEvent.press(result.getByTestId('wardrobe-save-button'));
-  expect(result.getByRole('alert')).toHaveTextContent(
+  expect(result.getByTestId('wardrobe-type-error')).toHaveTextContent(
     messages.en.wardrobe.typeRequiredError,
+  );
+  expect(result.getByTestId('wardrobe-type-error')).toHaveProp(
+    'accessibilityLiveRegion',
+    'assertive',
   );
   expect(onCreate).not.toHaveBeenCalled();
 });
 
+test('garment type picker groups preference-filtered options with accessible radio state', async () => {
+  const onSelect = jest.fn();
+  const result = await render(
+    <TestProviders>
+      <GarmentTypePickerScreen
+        clothingPreference="mens"
+        garmentTypes={garmentCatalog.garmentTypes}
+        onBack={() => undefined}
+        onSelect={onSelect}
+        selectedTypeId="rain_jacket"
+      />
+    </TestProviders>,
+  );
+
+  expect(result.getAllByRole('header')).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ props: expect.objectContaining({ children: 'TOP' }) }),
+      expect.objectContaining({ props: expect.objectContaining({ children: 'BOTTOM' }) }),
+      expect.objectContaining({ props: expect.objectContaining({ children: 'ONE-PIECE' }) }),
+      expect.objectContaining({ props: expect.objectContaining({ children: 'OUTERWEAR' }) }),
+      expect.objectContaining({ props: expect.objectContaining({ children: 'FOOTWEAR' }) }),
+      expect.objectContaining({ props: expect.objectContaining({ children: 'ACCESSORY' }) }),
+    ]),
+  );
+  expect(result.queryByRole('radio', { name: 'Blouse' })).not.toBeOnTheScreen();
+  expect(result.getByRole('radio', { name: 'Rain jacket' }).props.accessibilityState).toEqual(
+    expect.objectContaining({ selected: true }),
+  );
+  await fireEvent.press(result.getByRole('radio', { name: 'T-shirt' }));
+  expect(onSelect).toHaveBeenCalledWith('t_shirt');
+});
+
 test('create and edit forms persist the selected wardrobe state', async () => {
   const onCreate = jest.fn(async () => undefined);
-  const createResult = await render(<CreateForm onCreate={onCreate} />);
+  const createResult = await render(
+    <CreateForm
+      garmentTypeSelection={requireGarmentType('t_shirt')}
+      onCreate={onCreate}
+    />,
+  );
   await fireEvent.press(createResult.getByTestId('wardrobe-entry-state-wanted'));
-  await fireEvent.press(createResult.getByTestId('wardrobe-type-t_shirt'));
   await fireEvent.press(createResult.getByTestId('wardrobe-save-button'));
   expect(onCreate).toHaveBeenCalledWith(
-    expect.objectContaining({ entryState: 'wanted' }),
+    expect.objectContaining({ entryState: 'wanted', garmentTypeId: 't_shirt' }),
   );
 
   const onUpdate = jest.fn(async () => undefined);
   const editResult = await render(
     <TestProviders>
       <WardrobeItemFormScreen
-        garmentTypes={formTypes}
         isBusy={false}
         item={wantedItem}
         mode="edit"
@@ -518,13 +589,15 @@ test('create and edit forms persist the selected wardrobe state', async () => {
 });
 
 test('type selection exposes only catalog-supported attributes and selected state', async () => {
-  const result = await render(<CreateForm />);
-  await fireEvent.press(result.getByTestId('wardrobe-type-umbrella'));
+  const result = await render(
+    <CreateForm garmentTypeSelection={requireGarmentType('umbrella')} />,
+  );
 
-  expect(result.getByTestId('wardrobe-type-umbrella').props.accessibilityState).toEqual({
-    disabled: false,
-    selected: true,
+  expect(result.getByTestId('wardrobe-type-picker-row')).toHaveAccessibilityValue({
+    text: 'Umbrella',
   });
+  expect(result.queryByTestId('wardrobe-attribute-waterProtectionOverride')).not.toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('wardrobe-details-toggle'));
   expect(result.getByTestId('wardrobe-attribute-waterProtectionOverride')).toBeOnTheScreen();
   expect(result.queryByTestId('wardrobe-attribute-thermalLevelOverride')).not.toBeOnTheScreen();
 });
@@ -538,11 +611,15 @@ test('valid create maps values, blocks rapid duplicate presses, and reports dirt
   );
   const onBack = jest.fn();
   const result = await render(
-    <CreateForm onBackRequested={onBack} onCreate={onCreate} />,
+    <CreateForm
+      garmentTypeSelection={requireGarmentType('umbrella')}
+      onBackRequested={onBack}
+      onCreate={onCreate}
+    />,
   );
 
   await fireEvent.changeText(result.getByTestId('wardrobe-name-input'), 'City umbrella');
-  await fireEvent.press(result.getByTestId('wardrobe-type-umbrella'));
+  await fireEvent.press(result.getByTestId('wardrobe-details-toggle'));
   await fireEvent.press(result.getByTestId('wardrobe-color-blue'));
   await fireEvent.press(result.getByTestId('wardrobe-save-button'));
   await fireEvent.press(result.getByTestId('wardrobe-save-button'));
@@ -572,9 +649,13 @@ test('create failure preserves entries and allows retry', async () => {
     .fn<Promise<void>, [Record<string, unknown>]>()
     .mockRejectedValueOnce(new Error('write failed'))
     .mockResolvedValueOnce(undefined);
-  const result = await render(<CreateForm onCreate={onCreate} />);
+  const result = await render(
+    <CreateForm
+      garmentTypeSelection={requireGarmentType('t_shirt')}
+      onCreate={onCreate}
+    />,
+  );
   await fireEvent.changeText(result.getByTestId('wardrobe-name-input'), 'My tee');
-  await fireEvent.press(result.getByTestId('wardrobe-type-t_shirt'));
   await fireEvent.press(result.getByTestId('wardrobe-save-button'));
 
   await waitFor(() => expect(result.getByTestId('wardrobe-save-error')).toBeOnTheScreen());
@@ -602,7 +683,6 @@ test('picker cancellation leaves the form unchanged and photo errors preserve ot
   const result = await render(
     <TestProviders>
       <WardrobeItemFormScreen
-        garmentTypes={formTypes}
         isBusy={false}
         mode="create"
         onBackRequested={onBack}
@@ -632,7 +712,7 @@ test('photo processing exposes busy state and selected photo participates in dir
   const result = await render(
     <TestProviders>
       <WardrobeItemFormScreen
-        garmentTypes={formTypes}
+        garmentTypeSelection={requireGarmentType('rain_jacket')}
         isBusy={false}
         mode="create"
         onBackRequested={onBack}
@@ -647,7 +727,6 @@ test('photo processing exposes busy state and selected photo participates in dir
     </TestProviders>,
   );
 
-  await fireEvent.press(result.getByTestId('wardrobe-type-rain_jacket'));
   await fireEvent.press(result.getByTestId('wardrobe-photo-select-button'));
   expect(result.getByTestId('wardrobe-photo-select-button').props.accessibilityState).toEqual(
     expect.objectContaining({ busy: true, disabled: true }),
@@ -678,7 +757,6 @@ test('changing and removing an edit photo cleans staging and marks removal for n
   const result = await render(
     <TestProviders>
       <WardrobeItemFormScreen
-        garmentTypes={formTypes}
         isBusy={false}
         item={itemWithPhoto}
         mode="edit"
@@ -716,7 +794,6 @@ test('edit keeps replace and remove actions available when a stored photo file i
   const result = await render(
     <TestProviders>
       <WardrobeItemFormScreen
-        garmentTypes={formTypes}
         isBusy={false}
         item={itemWithMissingPhoto}
         mode="edit"
@@ -739,7 +816,6 @@ test('leaving a form discards its staged photo', async () => {
   const result = await render(
     <TestProviders>
       <WardrobeItemFormScreen
-        garmentTypes={formTypes}
         isBusy={false}
         mode="create"
         onBackRequested={() => undefined}
@@ -766,7 +842,6 @@ test('edit prefills values and cancels or confirms type-reset behavior', async (
     <TestProviders>
       <WardrobeItemFormScreen
         confirmation={confirmation}
-        garmentTypes={formTypes}
         isBusy={false}
         item={item}
         mode="edit"
@@ -780,18 +855,42 @@ test('edit prefills values and cancels or confirms type-reset behavior', async (
   );
 
   expect(result.getByTestId('wardrobe-name-input').props.value).toBe(item.name);
-  expect(result.getByTestId('wardrobe-type-rain_jacket').props.accessibilityState.selected).toBe(true);
-  await fireEvent.press(result.getByTestId('wardrobe-type-umbrella'));
+  expect(result.getByTestId('wardrobe-type-picker-row')).toHaveAccessibilityValue({
+    text: 'Rain jacket',
+  });
+  await fireEvent.press(result.getByTestId('wardrobe-details-toggle'));
+  expect(result.getByTestId('wardrobe-attribute-thermalLevelOverride')).toBeOnTheScreen();
+  await result.rerender(
+    <TestProviders>
+      <WardrobeItemFormScreen
+        confirmation={confirmation}
+        garmentTypeSelection={requireGarmentType('umbrella')}
+        isBusy={false}
+        item={item}
+        mode="edit"
+        onBackRequested={() => undefined}
+        onCreate={async () => undefined}
+        onDelete={async () => undefined}
+        onDirtyChange={() => undefined}
+        onUpdate={async () => undefined}
+      />
+    </TestProviders>,
+  );
   expect(confirmation).toHaveBeenCalledWith(
     expect.objectContaining({ title: messages.en.wardrobe.typeChangeTitle }),
     expect.any(Function),
   );
-  expect(result.getByTestId('wardrobe-type-rain_jacket').props.accessibilityState.selected).toBe(true);
+  expect(result.getByTestId('wardrobe-type-picker-row')).toHaveAccessibilityValue({
+    text: 'Rain jacket',
+  });
   await act(async () => {
     pendingConfirm.current?.();
   });
-  expect(result.getByTestId('wardrobe-type-umbrella').props.accessibilityState.selected).toBe(true);
+  expect(result.getByTestId('wardrobe-type-picker-row')).toHaveAccessibilityValue({
+    text: 'Umbrella',
+  });
   expect(result.queryByTestId('wardrobe-attribute-thermalLevelOverride')).not.toBeOnTheScreen();
+  expect(result.getByTestId('wardrobe-attribute-waterProtectionOverride')).toBeOnTheScreen();
 });
 
 test('edit update failure preserves values and remains retryable', async () => {
@@ -802,7 +901,6 @@ test('edit update failure preserves values and remains retryable', async () => {
   const result = await render(
     <TestProviders dark>
       <WardrobeItemFormScreen
-        garmentTypes={formTypes}
         isBusy={false}
         item={item}
         mode="edit"
@@ -835,7 +933,6 @@ test('delete requires confirmation, reports failure, and allows retry', async ()
     <TestProviders>
       <WardrobeItemFormScreen
         confirmation={confirmation}
-        garmentTypes={formTypes}
         isBusy={false}
         item={item}
         mode="edit"

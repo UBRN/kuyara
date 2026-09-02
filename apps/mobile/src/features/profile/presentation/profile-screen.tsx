@@ -226,14 +226,13 @@ export function ProfileScreen({
 
 const styles = StyleSheet.create({
   content: {
-    gap: spacing['2xl'],
+    gap: spacing.md,
     paddingBottom: spacing['2xl'],
   },
   header: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: spacing.lg,
-    marginTop: spacing.xl,
   },
   title: {
     flex: 1,
