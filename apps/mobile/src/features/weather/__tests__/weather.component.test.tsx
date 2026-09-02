@@ -97,6 +97,7 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
     expect(locationButton.props.hitSlop).toBe(10);
     expect(24 + locationButton.props.hitSlop * 2).toBeGreaterThanOrEqual(44);
     await fireEvent.press(locationButton);
+    expect(result.getByRole('header', { name: copy.manualHeading })).toBeOnTheScreen();
     expect(result.getByRole('button', { name: copy.useCurrentLocation })).toBeOnTheScreen();
     for (const location of Object.values(copy.locations)) {
       expect(result.getByRole('radio', { name: location })).toBeOnTheScreen();
@@ -123,7 +124,7 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
     expect(result.getByRole('header', { name: copy[titleKey] })).toBeOnTheScreen();
     expect(result.getByText(copy[bodyKey]).props.accessibilityLiveRegion).toBe('polite');
     expect(result.queryByText(copy.sampleDisclosure)).toBeNull();
-    await fireEvent.press(result.getByRole('button', { name: copy.retry }));
+    await fireEvent.press(result.getByRole('button', { name: copy.refreshAccessibilityLabel }));
     expect(value.refresh).toHaveBeenCalledTimes(1);
   });
 
@@ -186,6 +187,9 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
       .toBe(typography.display.fontSize);
     expect(StyleSheet.flatten(result.getByTestId('weather-hourly-card').props.style))
       .toMatchObject(lightTheme.elevation.raised);
+    expect(result.getByRole('header', {
+      name: messages[language].weather.hourlyHeading,
+    })).toBeOnTheScreen();
     expect(result.getAllByTestId('weather-hour-divider', { includeHiddenElements: true }))
       .toHaveLength(1);
     expect(StyleSheet.flatten(
@@ -287,7 +291,10 @@ test('selected location, stale snapshot, refreshing, failure, and hourly content
   expect(result.getByText(messages.en.weather.stale)).toBeOnTheScreen();
   expect(result.getByLabelText(messages.en.weather.unavailableNotice).props.accessibilityLiveRegion).toBe('polite');
   expect(result.getAllByText(messages.en.weather.conditions.rain).length).toBeGreaterThan(0);
-  expect(result.getByLabelText(messages.en.weather.refreshing).props.accessibilityState.busy).toBe(true);
+  expect(
+    result.getByLabelText(messages.en.weather.refreshAccessibilityLabel).props.accessibilityState
+      .busy,
+  ).toBe(true);
 });
 
 test('manual selection emits stable catalog ID', async () => {
@@ -316,8 +323,9 @@ test('Weather offers a pull-to-refresh gesture alongside the visible refresh but
   );
 
   const button = result.getByTestId('weather-refresh-button');
-  expect(button.props.accessibilityLabel).toBe(messages.en.weather.refresh);
-  expect(StyleSheet.flatten(button.props.style).minHeight).toBeGreaterThanOrEqual(44);
+  expect(button.props.accessibilityLabel).toBe(messages.en.weather.refreshAccessibilityLabel);
+  expect(result.getByText(messages.en.weather.refresh)).toBeOnTheScreen();
+  expect(button.props.hitSlop).toBe(10);
   fireEvent.press(button);
   expect(value.refresh).toHaveBeenCalledTimes(1);
 

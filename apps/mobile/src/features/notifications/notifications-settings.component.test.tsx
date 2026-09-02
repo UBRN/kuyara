@@ -13,7 +13,7 @@ jest.mock('expo-symbols', () => ({
 }));
 
 jest.mock('expo-router', () => ({
-  router: { back: jest.fn(), navigate: jest.fn() },
+  router: { back: jest.fn(), push: jest.fn() },
 }));
 
 jest.mock('@/features/notifications/data/expo-notification-gateway', () => ({

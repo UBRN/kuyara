@@ -110,6 +110,18 @@ test('Profile settings entry point is reachable and wardrobe counts render', asy
   expect(result.getByTestId('profile-owned-count')).toHaveTextContent('2');
   expect(result.getByTestId('profile-wanted-count')).toHaveTextContent('1');
   expect(result.getByTestId('profile-category-outerwear-count')).toHaveTextContent('3');
+  expect(
+    result.getByRole('header', { name: messages.en.profile.wardrobeTitle }),
+  ).toBeOnTheScreen();
+  for (const category of ['top', 'bottom', 'outerwear', 'footwear'] as const) {
+    const categoryLabel =
+      messages.en.catalog[`catalog.attribute.structural_category.${category}`];
+    const count = category === 'outerwear' ? 3 : 0;
+    expect(result.getByText(categoryLabel)).toBeOnTheScreen();
+    expect(result.getByLabelText(
+      messages.en.profile.categoryCountAccessibilityLabel({ category: categoryLabel, count }),
+    )).toBeOnTheScreen();
+  }
 });
 
 test('Profile renders the localized empty wardrobe state', async () => {

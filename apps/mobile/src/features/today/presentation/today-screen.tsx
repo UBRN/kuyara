@@ -6,7 +6,6 @@ import { AppText, Icon, IconButton, Pill, Screen, Surface, StretchyHeader } from
 import type { TodayScreenState } from '@/features/today/model';
 import { OutfitSuggestionCard } from '@/features/today/presentation/outfit-suggestion-card';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
-import { WeatherCard } from '@/features/today/presentation/weather-card';
 import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
 import type { SupportedLanguage } from '@/localization/messages';
 import { withAlpha } from '@/theme/color-alpha';
@@ -157,15 +156,21 @@ export function TodayScreen({
         testID="today-screen">
         {primarySuggestion ? (
           <View style={styles.section}>
-            <View style={styles.contextRow}>
-              <AppText colorRole="brandAccent" variant="eyebrow">
+            <View style={[styles.contextRow, usesAccessibilityLayout && styles.stackedContextRow]}>
+              <AppText
+                accessibilityRole="header"
+                colorRole="textPrimary"
+                style={styles.contextHeading}
+                variant="bodyStrong">
                 {presentation.copy.recommendedTodayHeading}
               </AppText>
               {presentation.generationMode ? (
                 <View
                   accessible
-                  accessibilityLabel={presentation.generationMode.accessibilityLabel}>
+                  accessibilityLabel={presentation.generationMode.accessibilityLabel}
+                  style={usesAccessibilityLayout ? styles.stackedGenerationMode : undefined}>
                   <Pill
+                    icon={(color) => <Icon color={color} name="sparkle" size={12} />}
                     label={presentation.generationMode.label}
                     testID="today-generation-mode"
                     tone={presentation.generationMode.tone}
@@ -197,28 +202,9 @@ export function TodayScreen({
           </Surface>
         ) : null}
 
-        <WeatherCard
-          rainProbability={presentation.weather.rainProbability}
-          rainTimeline={presentation.weather.hourlyRainProbability.length > 0
-            ? {
-                accessibilityLabel: presentation.weather.rainTimelineAccessibilityLabel,
-                heading: presentation.copy.rainOutlookHeading,
-                hours: presentation.weather.hourlyRainProbability,
-              }
-            : undefined}
-          metricsAccessibilityLabel={presentation.weather.metricsAccessibilityLabel}
-          stats={[
-            { label: presentation.copy.windLabel, value: presentation.weather.wind },
-            { label: presentation.copy.humidityLabel, value: presentation.weather.humidity },
-            { label: presentation.copy.uvIndexLabel, value: presentation.weather.uvIndex },
-          ]}
-          sourceId={state.kind === 'loaded' ? state.snapshot.weather.origin.sourceId : undefined}
-          testID="today-weather-card"
-        />
-
         {otherSuggestions.length > 0 ? (
           <View style={styles.section}>
-            <AppText colorRole="brandAccent" variant="eyebrow">
+            <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
               {presentation.copy.otherOptionsHeading}
             </AppText>
             <View
@@ -275,9 +261,19 @@ const styles = StyleSheet.create({
   contextRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.sm,
     justifyContent: 'space-between',
+  },
+  stackedContextRow: {
+    alignItems: 'flex-start',
+    flexDirection: 'column',
+  },
+  contextHeading: {
+    flex: 1,
+    flexShrink: 1,
+  },
+  stackedGenerationMode: {
+    alignSelf: 'flex-start',
   },
   heroRow: {
     alignItems: 'center',

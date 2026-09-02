@@ -217,6 +217,7 @@ export type AppMessages = Readonly<{
     loadErrorBody: string;
     retry: string;
     refresh: string;
+    refreshAccessibilityLabel: string;
     refreshing: string;
     offlineTitle: string;
     offlineBody: string;
@@ -488,7 +489,8 @@ const en = {
     loadErrorTitle: 'Weather could not be prepared',
     loadErrorBody: 'Your saved local data is still safe. Please try again.',
     retry: 'Try again',
-    refresh: 'Refresh weather',
+    refresh: 'Refresh',
+    refreshAccessibilityLabel: 'Refresh weather',
     refreshing: 'Refreshing weather…',
     offlineTitle: 'You appear to be offline',
     offlineBody: 'Connect to the internet and try loading weather again.',
@@ -863,7 +865,8 @@ const tr = {
     loadErrorTitle: 'Hava durumu hazırlanamadı',
     loadErrorBody: 'Kayıtlı yerel verileriniz güvende. Lütfen yeniden deneyin.',
     retry: 'Yeniden dene',
-    refresh: 'Hava durumunu yenile',
+    refresh: 'Yenile',
+    refreshAccessibilityLabel: 'Hava durumunu yenile',
     refreshing: 'Hava durumu yenileniyor…',
     offlineTitle: 'Çevrimdışı görünüyorsunuz',
     offlineBody: 'İnternete bağlanıp hava durumunu yeniden yüklemeyi deneyin.',

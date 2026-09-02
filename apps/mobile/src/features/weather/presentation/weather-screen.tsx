@@ -8,7 +8,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
-import { AppText, Button, Icon, Screen, SectionHeader, Surface } from '@/components/ui';
+import { AppText, Button, Icon, Pill, Screen, SectionHeader, Surface } from '@/components/ui';
 import { Divider } from '@/components/ui/divider';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { manualLocationCatalog } from '@/features/weather/data/manual-location-catalog';
@@ -158,11 +158,6 @@ export function WeatherScreen() {
             notice: copy.rateLimitedNotice,
           }
         : null;
-  const refreshLabel = state.isRefreshing
-    ? copy.refreshing
-    : failureCopy
-      ? copy.retry
-      : copy.refresh;
   const locationAccessibilityLabel = accessibilitySentence(
     activeName,
     accuracy,
@@ -191,19 +186,23 @@ export function WeatherScreen() {
         title={copy.title}
         trailingAction={state.activeLocation ? (
           <Pressable
-            accessibilityLabel={refreshLabel}
+            accessibilityLabel={copy.refreshAccessibilityLabel}
             accessibilityRole="button"
             accessibilityState={{ busy: state.isRefreshing, disabled: state.isRefreshing }}
             disabled={state.isRefreshing}
+            hitSlop={10}
             onPress={() => void application.refresh()}
             style={({ pressed }) => [
               styles.refreshButton,
-              { backgroundColor: theme.colors.surfaceInteractive },
+              { backgroundColor: theme.colors.surface },
               pressed && styles.pressed,
             ]}
             testID="weather-refresh-button">
-            <Icon color={theme.colors.iconSecondary} name="refresh" size={15} />
-            <AppText colorRole="textSecondary" variant="label">{refreshLabel}</AppText>
+            <Pill
+              icon={(color) => <Icon color={color} name="refresh" size={15} />}
+              label={copy.refresh}
+              tone="bordered"
+            />
           </Pressable>
         ) : undefined}
       />
@@ -265,7 +264,9 @@ export function WeatherScreen() {
             )}
 
             <Surface style={styles.card}>
-              <AppText accessibilityRole="header" variant="title">{copy.manualHeading}</AppText>
+              <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
+                {copy.manualHeading}
+              </AppText>
               <AppText colorRole="textSecondary">{copy.manualBody}</AppText>
               <View accessibilityRole="radiogroup" style={styles.options}>
                 {manualLocationCatalog.map((entry) => (
@@ -414,7 +415,9 @@ export function WeatherScreen() {
           <Surface
             style={[styles.card, theme.elevation.raised]}
             testID="weather-hourly-card">
-            <AppText colorRole="brandAccent" variant="eyebrow">{copy.hourlyHeading}</AppText>
+            <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
+              {copy.hourlyHeading}
+            </AppText>
             <View>
               {snapshot.hourly.map((hour, index) => (
                 <Fragment key={hour.forecastAt}>
@@ -517,13 +520,8 @@ const styles = StyleSheet.create({
   card: { gap: spacing.lg, padding: spacing.lg },
   disclosure: { padding: spacing.md },
   refreshButton: {
-    alignItems: 'center',
-    borderRadius: radii.control,
-    flexDirection: 'row',
-    gap: spacing.xs,
-    minHeight: layout.minimumTouchTarget,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    alignSelf: 'flex-start',
+    borderRadius: radii.pill,
   },
   locationCard: {
     alignItems: 'center',

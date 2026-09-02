@@ -124,7 +124,17 @@ test('empty and populated add actions navigate to the absolute new-item route', 
 
 test('selecting an item navigates to its absolute edit route', async () => {
   const result = await renderRoute([item]);
-  await fireEvent.press(result.getByTestId(`wardrobe-item-${item.id}`));
+  const row = result.getByTestId(`wardrobe-item-${item.id}`);
+  expect(row.props.accessibilityLabel).toBe(
+    messages.en.wardrobe.itemAccessibilityLabel({
+      name: item.name,
+      type: messages.en.catalog['catalog.garment_type.rain_jacket.name'],
+      category: messages.en.catalog['catalog.attribute.structural_category.outerwear'],
+      color: messages.en.catalog['catalog.color_family.blue'],
+      state: messages.en.wardrobe.itemOwnedLabel,
+    }),
+  );
+  await fireEvent.press(row);
   expect(mockPush).toHaveBeenCalledWith(`/wardrobe/${item.id}`);
 });
 
