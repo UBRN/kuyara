@@ -5,7 +5,7 @@ import { WorkersAiProvider } from './workers-ai-provider.ts';
 
 const request = {
   clothingPreference: 'mens',
-  catalogVersion: 2,
+  catalogVersion: 3,
   dayVariant: 3,
   requirements: [{
     kind: 'thermal',

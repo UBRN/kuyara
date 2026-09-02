@@ -204,11 +204,7 @@ test('canonical catalog is complete, immutable, versioned, and uses approved app
 
 test('catalog validation rejects duplicates, invalid shapes, and replacement cycles', () => {
   const duplicate = structuredClone(garmentCatalog);
-  duplicate.garmentTypes[1] = {
-    ...duplicate.garmentTypes[1],
-    typeId: 't_shirt',
-    nameKey: 'catalog.garment_type.t_shirt.name',
-  };
+  duplicate.garmentTypes[1] = { ...duplicate.garmentTypes[0] };
   assert.throws(
     () => validateGarmentCatalog(duplicate),
     GarmentCatalogValidationError,
@@ -433,7 +429,7 @@ test('taxonomy fields round-trip and update distinguishes omission from clearing
   assert.equal(updated.colorFamily, 'green');
   const resolved = resolveEffectiveGarment(updated);
   assert.equal(resolved.status, 'resolved');
-  assert.equal(resolved.garment.thermalLevel, 'light');
+  assert.equal(resolved.garment.thermalLevel, 'none');
   assert.deepEqual({ ...row }, {
     garment_type_id: 'rain_jacket',
     color_family: 'green',

@@ -77,7 +77,7 @@ test('different day variants rotate distinct deterministic option sets for ident
   const next = createAiRecommendationRequest({ ...input(), dayVariant: 1 });
 
   assert.deepEqual(first, repeated);
-  assert.equal(first.catalogVersion, 2);
+  assert.equal(first.catalogVersion, 3);
   assert.equal(first.dayVariant, 0);
   assert.equal(first.options.length > 3 && first.options.length <= 24, true);
   assert.notDeepEqual(

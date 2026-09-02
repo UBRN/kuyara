@@ -31,7 +31,7 @@ type Dependencies = Readonly<{
 
 const PROBE_REQUEST = {
   clothingPreference: 'mens',
-  catalogVersion: 2,
+  catalogVersion: 3,
   dayVariant: 0,
   requirements: [
     {

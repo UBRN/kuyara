@@ -51,7 +51,7 @@ function option(optionId = 'option-1', overrides = {}) {
 function validRequest() {
   return {
     clothingPreference: 'womens',
-    catalogVersion: 2,
+    catalogVersion: 3,
     dayVariant: 0,
     requirements: [{
       kind: 'thermal',

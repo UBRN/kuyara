@@ -162,7 +162,7 @@ test('valid provider output returns ok and receives three valid probe options', 
   assert.equal(serialized.includes(providerName), false);
   assert.equal(serialized.includes('error'), false);
   assert.equal(aiRecommendV1RequestSchema.safeParse(capturedRequest).success, true);
-  assert.equal(capturedRequest.catalogVersion, 2);
+  assert.equal(capturedRequest.catalogVersion, 3);
   assert.equal(capturedRequest.dayVariant, 0);
   assert.deepEqual(
     capturedRequest.options.map(({ optionId }) => optionId),

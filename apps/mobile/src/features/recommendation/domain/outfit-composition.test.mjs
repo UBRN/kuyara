@@ -6,8 +6,10 @@ import {
   projectCatalogEffectiveGarment,
   projectWardrobeEffectiveGarment,
 } from './garment-eligibility.ts';
+import { listGarmentTypesForPreference } from '../../catalog/domain/garment-catalog.ts';
 import {
   composeOutfit,
+  composeOutfitOptions,
   composeOutfits,
   outfitCompositionFailureCodes,
   outfitCompositionReasonCodes,
@@ -32,10 +34,10 @@ function requirement(kind, minimum, overrides = {}) {
   });
 }
 
-function catalogCandidate(requirements, typeId) {
+function catalogCandidate(requirements, typeId, preference = 'womens') {
   return evaluateGarmentEligibility(
     requirements,
-    projectCatalogEffectiveGarment(typeId, 'womens'),
+    projectCatalogEffectiveGarment(typeId, preference),
   );
 }
 
@@ -138,7 +140,7 @@ test('one-piece replaces separates and may add one mid and one outer layer', () 
   assert.equal(result.outfit.body.onePiece.layerRole, 'standalone');
   assert.equal(result.outfit.midLayer.layerRole, 'mid');
   assert.equal(result.outfit.outerLayer.layerRole, 'outer');
-  assert.equal(result.outfit.aggregates.thermal.bodyStrength, 4);
+  assert.equal(result.outfit.aggregates.thermal.bodyStrength, 3);
   assert.equal(evaluation(result, 'thermal').status, 'met');
   assert.equal(evaluation(result, 'water_protection', 'body').status, 'met');
   assert.equal(new Set(result.outfit.candidateKeys).size,
@@ -267,7 +269,7 @@ test('without mandatory water or wind, normal bottleneck breathability is restor
   const result = composeOutfit(requirements, [
     catalogCandidate(requirements, 't_shirt'),
     catalogCandidate(requirements, 'shorts'),
-    catalogCandidate(requirements, 'rain_jacket'),
+    catalogCandidate(requirements, 'light_jacket'),
     catalogCandidate(requirements, 'sandals'),
   ]);
 
@@ -475,7 +477,7 @@ test('aggregate outfit penalties are capped at thirty points', () => {
   ]);
 
   assert.equal(result.status, 'composed');
-  assert.equal(result.outfit.aggregates.thermal.bodyStrength, 4);
+  assert.equal(result.outfit.aggregates.thermal.bodyStrength, 3);
   assert.equal(result.outfit.penaltyBreakdown.thermalOverProtection, 20);
   assert.equal(result.outfit.penaltyBreakdown.unnecessaryWaterProtection, 20);
   assert.equal(result.outfit.penaltyBreakdown.breathabilityProtectionTradeoff, 0);
@@ -539,8 +541,45 @@ test('returns three pairwise meaningfully different outfits with the best outfit
   }
 });
 
-// At 28 C in clear, calm weather, high breathability exhausts the catalog to
-// two body cores; footwear-only swaps are near-duplicates, so two is correct.
+test('catalog keeps at least three AI options across cold-wet and hot buckets for both preferences', () => {
+  const buckets = [
+    ['cold-wet', clothingRequirements(
+      requirement('thermal', 'high'),
+      requirement('water_protection', 'waterproof', {
+        target: 'body',
+        reasonCodes: Object.freeze(['condition_rain']),
+      }),
+    )],
+    ['hot', clothingRequirements(
+      requirement('breathability', 'high', {
+        reasonCodes: Object.freeze(['temperature_high']),
+      }),
+    )],
+  ];
+
+  for (const preference of ['womens', 'mens']) {
+    for (const [bucket, requirements] of buckets) {
+      const result = composeOutfitOptions(
+        requirements,
+        listGarmentTypesForPreference(preference).map(({ typeId }) =>
+          catalogCandidate(requirements, typeId, preference)),
+        0,
+      );
+      const optionCount = result.status === 'composed' ? result.outfits.length : 0;
+
+      assert.equal(
+        optionCount >= 3,
+        true,
+        `${preference} ${bucket} returned ${optionCount} options`,
+      );
+    }
+  }
+});
+
+// This pins an explicit two-top candidate list to check that footwear-only swaps
+// are rejected as near-duplicates, so two is correct here. The full catalog now
+// reaches three high-breathability body cores at catalog version 3, because
+// `sleeveless_top` closed the gap this case was originally written against.
 test('returns two high-heat outfits instead of footwear-only near-duplicates', () => {
   const requirements = clothingRequirements(
     requirement('breathability', 'high', {
