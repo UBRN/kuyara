@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
     maxWidth: layout.maxContentWidth,
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
     width: '100%',
   },

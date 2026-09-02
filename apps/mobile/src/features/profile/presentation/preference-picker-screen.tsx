@@ -77,7 +77,7 @@ export function PreferencePickerScreen<T extends string>({
 
       <Screen
         contentContainerStyle={styles.content}
-        contentTopClearance={headerHeight + spacing['2xl']}
+        contentTopClearance={headerHeight + spacing.xl}
         testID={testID}>
         <Surface style={[styles.groupCard, theme.elevation.raised]}>
           <View accessibilityLabel={title} accessibilityRole="radiogroup" style={styles.options}>
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
     maxWidth: layout.maxContentWidth,
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
     width: '100%',
   },
@@ -142,11 +142,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    gap: spacing['2xl'],
+    gap: spacing.md,
     paddingBottom: spacing['2xl'],
   },
   groupCard: {
-    padding: spacing.xl,
+    padding: spacing.lg,
   },
   options: {
     gap: spacing.md,
