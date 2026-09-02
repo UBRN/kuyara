@@ -149,11 +149,11 @@ The repository may be in transition. Inspect the real tree before assuming this 
 
 - Keep three primary tabs: Today at `/`, Weather at `/weather`, and Profile at `/profile`. Put Wardrobe and the wanted list inside Profile, and reach Settings from the Profile header rather than a tab. Keep clothing preference prominent and required in onboarding, but place its Settings control last and do not make it prominent there.
 - Keep product identity and information architecture consistent while adapting controls, navigation, feedback, and interaction patterns to each platform.
-- Follow Apple Human Interface Guidelines on iOS. Use Liquid Glass selectively on supported systems, principally for navigation and controls, with a graceful fallback on older supported iOS versions.
+- Follow Apple Human Interface Guidelines on iOS. The system draws Liquid Glass on the native tab bar and other standard navigation and controls; at a 26.0 minimum there is no older supported iOS appearance to maintain as a fallback.
 - Follow Material 3 Expressive guidance on Android.
 - Do not force one platform's visual components or interaction conventions onto the other.
 - Accessibility is a definition-of-done requirement: support font scaling, meaningful screen-reader labels, logical focus order, sufficient contrast, adequate touch targets, and reduced-motion preferences.
-- Target the minimum iOS version supported by the selected stable Expo SDK and pin the actual deployment target in repository configuration.
+- Target iOS 26.0 as the minimum supported version, a recorded decision rather than merely the floor the selected stable Expo SDK happens to allow (see [ADR 0011](docs/adr/0011-minimum-ios-26.md)), and pin the actual deployment target in repository configuration.
 
 ## UI and visual identity
 

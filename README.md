@@ -31,7 +31,7 @@ packages/contracts  Shared Zod schemas and API types
 docs/               Product decisions, architecture, and design
 ```
 
-The root `pnpm-lock.yaml` is the only dependency lockfile, and workspace discovery is limited to `apps/*` and `packages/*`. Mobile uses managed Continuous Native Generation, so native `ios/` and `android/` directories are generated only when needed and are not committed. Expo SDK 57 sets iOS 16.4 as the minimum supported version, while the shared Expo project remains Android-compatible.
+The root `pnpm-lock.yaml` is the only dependency lockfile, and workspace discovery is limited to `apps/*` and `packages/*`. Mobile uses managed Continuous Native Generation, so native `ios/` and `android/` directories are generated only when needed and are not committed. The app config pins iOS 26.0 as the minimum supported version (see [ADR 0011](docs/adr/0011-minimum-ios-26.md)), while the shared Expo project remains Android-compatible.
 
 The Worker serves real weather through an Open-Meteo/OpenWeather chain and AI
 recommendations through ordered Workers AI/OpenRouter adapters. Weather and AI

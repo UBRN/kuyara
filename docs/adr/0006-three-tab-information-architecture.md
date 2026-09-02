@@ -61,6 +61,8 @@ remain unchanged in principle.
 
 ## Out of scope
 
-- Migrating from JavaScript Tabs to Native Tabs.
+- Migrating from JavaScript Tabs to Native Tabs. This option is since taken up
+  separately; see [ADR 0012](0012-adopting-expo-router-native-tabs.md). The
+  three-tab architecture decided here is unchanged by that migration.
 - Redesigning visual identity, tab icons, or shared navigation primitives.
 - Changing the onboarding gate or adding account navigation.
