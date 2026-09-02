@@ -8,7 +8,17 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
-import { AppText, Button, Icon, Pill, Screen, SectionHeader, Surface } from '@/components/ui';
+import {
+  AppText,
+  Button,
+  haptics,
+  Icon,
+  Pill,
+  Screen,
+  SectionHeader,
+  Surface,
+  useRefreshOutcomeHaptics,
+} from '@/components/ui';
 import { Divider } from '@/components/ui/divider';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { manualLocationCatalog } from '@/features/weather/data/manual-location-catalog';
@@ -105,6 +115,10 @@ export function WeatherScreen() {
   const application = useWeatherApplication();
   const { state } = application;
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
+  useRefreshOutcomeHaptics(
+    state.status === 'ready' && state.isRefreshing,
+    state.status === 'ready' && state.refreshFailure !== null,
+  );
 
   if (state.status === 'loading') {
     return (
@@ -176,7 +190,10 @@ export function WeatherScreen() {
       refreshControl={
         <RefreshControl
           colors={[theme.colors.iconSecondary]}
-          onRefresh={() => void application.refresh()}
+          onRefresh={() => {
+            haptics.impactLight();
+            void application.refresh();
+          }}
           refreshing={state.isRefreshing}
           tintColor={theme.colors.iconSecondary}
         />
@@ -516,10 +533,10 @@ export function WeatherScreen() {
 
 const styles = StyleSheet.create({
   content: { gap: spacing.md, paddingBottom: spacing['2xl'] },
-  center: { flexGrow: 1, justifyContent: 'center', gap: spacing.lg },
-  locationSection: { gap: spacing.lg },
+  center: { flexGrow: 1, justifyContent: 'center', gap: spacing.md },
+  locationSection: { gap: spacing.md },
   currentSection: { gap: spacing.md },
-  card: { gap: spacing.lg, padding: spacing.lg },
+  card: { gap: spacing.md, padding: spacing.lg },
   disclosure: { padding: spacing.md },
   refreshButton: {
     alignSelf: 'flex-start',

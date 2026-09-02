@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   section: {
-    gap: spacing.lg,
+    gap: spacing.md,
     padding: spacing.lg,
     position: 'relative',
   },

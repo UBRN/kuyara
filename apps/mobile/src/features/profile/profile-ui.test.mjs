@@ -115,7 +115,7 @@ test('route and presentation sources preserve local gating and accessible select
       source('../../app/(tabs)/(profile)/settings/index.tsx'),
       source('../../app/_layout.tsx'),
       source('../../app/(tabs)/_layout.tsx'),
-      source('../../navigation/primary-tab-bar.tsx'),
+      source('../../navigation/primary-tabs.tsx'),
       source('./presentation/preference-option.tsx'),
       source('./presentation/onboarding-screen.tsx'),
       source('./presentation/settings-screen.tsx'),
@@ -130,8 +130,11 @@ test('route and presentation sources preserve local gating and accessible select
   assert.match(layout, /name="\(tabs\)"/);
   assert.match(settingsRoute, /<SettingsScreen/);
   assert.match(today, /testID="today-settings-button"/);
-  assert.match(tabBar, /accessibilityRole="tab"/);
-  assert.match(tabBar, /accessibilityState=\{\{ selected: isSelected \}\}/);
+  // The native tab bar supplies the tab role and the selected state itself, so the
+  // app only has to keep each trigger's accessible name and test id. See ADR 0012.
+  assert.match(tabBar, /<NativeTabs\b/);
+  assert.match(tabBar, /accessibilityLabel=\{tab\.accessibilityLabel\}/);
+  assert.match(tabBar, /testID=\{tab\.testID\}/);
   assert.match(option, /accessibilityRole="radio"/);
   assert.match(option, /accessibilityState=\{\{ disabled, selected \}\}/);
   assert.match(onboarding, /accessibilityRole="alert"/);
