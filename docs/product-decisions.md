@@ -71,9 +71,9 @@ Approved 2026-08-30. Documentation may state the present fact that the MVP has n
 
 ## Implemented clothing taxonomy and wardrobe schema version 3
 
-- The bundled version 1 garment catalog defines the 30 canonical types, structural categories, weather-relevant default properties, stable localization keys, and deprecation metadata specified in [`clothing-taxonomy.md`](clothing-taxonomy.md). Zod schemas and TypeScript types derive from the same readonly value sources.
+- The bundled garment catalog defines the canonical types, structural categories, weather-relevant default properties, stable localization keys, and deprecation metadata specified in [`clothing-taxonomy.md`](clothing-taxonomy.md). Zod schemas and TypeScript types derive from the same readonly value sources. It defined 30 types at version 1; catalog version 3 defines 32, per [ADR 0013](adr/0013-catalog-content-corrections-and-version-3.md).
 - Catalog applicability filters recommendation candidates and new Wardrobe choices. It is not biological sex and never hides, invalidates, deletes, or excludes a valid item already recorded in the Wardrobe.
-- `blouse`, `skirt`, and `dress` apply to the `womens` catalog preference. Every other canonical type, including `jumpsuit`, applies to both `womens` and `mens`.
+- `blouse`, `skirt`, and `dress` apply to the `womens` catalog preference. Every other canonical type, including `jumpsuit`, `sleeveless_top`, and `leggings`, applies to both `womens` and `mens`.
 - SQLite migration version 3 preserves every version 2 field and row while adding a nullable canonical type reference, canonical color family, and seven explicit property-override columns. Legacy rows remain unclassified until the user chooses a type; migration never infers one.
 - Catalog defaults remain bundled code rather than duplicated SQLite data. A pure effective-garment resolver uses an explicit item override when present and otherwise the current catalog default; legacy, resolved, and invalid-data outcomes remain distinct.
 - The Wardrobe form derives type names, color families, supported property controls, option labels, and defaults from this bundled catalog and taxonomy. Changing a type with explicit overrides requires confirmation and resets those overrides so the new type defaults apply.
@@ -284,6 +284,19 @@ Approved and implemented 2026-08-30. Adds a pull-to-refresh gesture to Today and
 - New localization keys are limited to Today's refresh action label, refreshing status, and refresh-failure status, in English and Turkish. They reuse the wording already approved for the Weather screen so the same action is not named two ways.
 - **The `Screen` primitive owns top-inset resolution.** `Screen` previously disabled iOS content-inset adjustment (`contentInsetAdjustmentBehavior="never"`) and reproduced the top safe area as content padding. That silently disabled pull-to-refresh, because `UIRefreshControl` measures its pull against the adjusted content inset. `Screen` now lets iOS resolve the top inset and exposes a `contentTopClearance` prop for screens with an absolute overlay header. The prop is the total space above the content measured from the top of the screen, safe area included; `Screen` subtracts the inset on iOS, where the system supplies it, and applies the full value on Android, where no equivalent mechanism exists. Feature code no longer performs safe-area arithmetic.
 - Out of scope: refreshing the recommendation from the gesture, a generic pull-to-refresh primitive, a non-scrollable screen API, background refresh, and any change to the 30-minute freshness boundary or refresh coalescing.
+
+## Approved catalog content revision and version 3
+
+Approved 2026-09-03. Rationale, the measured cost of the version bump, and the
+rejected alternatives are canonical in
+[ADR 0013](adr/0013-catalog-content-corrections-and-version-3.md).
+
+- Four property corrections: `blouse`, `trench_coat`, and `rain_jacket` thermal levels drop, and `gloves` loses its water resistance. Accessories never enter an outfit, so the `gloves` change corrects the record without changing behaviour.
+- Two types are added, `sleeveless_top` and `leggings`, both applying to `womens` and `mens`. They close the only two gaps no existing type reaches: no top with bare arms, and no bottom above `light` thermal. ADR 0005 removed the Wardrobe override that previously justified coarse catalog defaults for recommendations.
+- `overshirt` stays a `top` and `jumpsuit` stays available to both preferences. Both reconsiderations are closed, not deferred.
+- `garmentCatalogVersion` moves from 2 to 3 once, covering every content change together. Bumping is mandatory whenever content changes: a stale shared AI cache would serve picks the client then rejects, silently degrading every user to the deterministic fallback.
+- The user-visible cost is at most one extra loading state on the first launch after the update. The persisted snapshot is discarded only when the content change makes it un-recomposable, Today regenerates on that same launch, and offline use is unaffected because the deterministic fallback composes from the new catalog.
+- Out of scope: breathability, wind and traction values, any new property axis, colour, the Wardrobe as a candidate source, and schema migrations.
 
 ## Operating assumptions
 

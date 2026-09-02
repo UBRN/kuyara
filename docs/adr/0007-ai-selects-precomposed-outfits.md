@@ -195,7 +195,9 @@ recommendation is never withheld.
 ## Out of scope
 
 - Colorways and any color model.
-- Expanding the 30-type catalog.
+- Expanding the 30-type catalog. Superseded by
+  [ADR 0013](0013-catalog-content-corrections-and-version-3.md) (2026-09-03),
+  which adds two types and moves the catalog to version 3.
 - Wardrobe as a candidate source or a tie-breaker.
 - Replacing the OpenRouter step, which stays in the chain before the
   deterministic fallback.
