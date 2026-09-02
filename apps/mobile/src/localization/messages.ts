@@ -30,6 +30,9 @@ export type TodayMessages = Readonly<{
   otherOptionPieceCount: (values: { count: number }) => string;
   piecesHeading: string;
   reasonsHeading: string;
+  ownershipOwnedAction: string;
+  ownershipWantedAction: string;
+  ownershipSummary: (values: { owned: number; total: number }) => string;
   slots: Readonly<Record<OutfitSlot, string>>;
   requirementReasons: Readonly<Record<ClothingRequirementReasonCode, string>>;
   compositionReasons: Readonly<Record<OutfitCompositionReasonCode, string>>;
@@ -654,6 +657,10 @@ const en = {
     otherOptionPieceCount: ({ count }) => count === 1 ? '1 piece' : `${count} pieces`,
     piecesHeading: 'Wear',
     reasonsHeading: 'Why it works',
+    ownershipOwnedAction: 'I own it',
+    ownershipWantedAction: 'I want it',
+    ownershipSummary: ({ owned, total }) =>
+      `You own ${owned} of ${total} ${total === 1 ? 'piece' : 'pieces'}.`,
     slots: {
       primary_top: 'Top',
       bottom: 'Bottom',
@@ -1037,6 +1044,10 @@ const tr = {
     otherOptionPieceCount: ({ count }) => `${count} parça`,
     piecesHeading: 'Parçalar',
     reasonsHeading: 'Neden uygun',
+    ownershipOwnedAction: 'Bende var',
+    ownershipWantedAction: 'İstiyorum',
+    ownershipSummary: ({ owned, total }) =>
+      `Bu kombindeki ${total} parçadan ${owned} tanesi sende var.`,
     slots: {
       primary_top: 'Üst',
       bottom: 'Alt',

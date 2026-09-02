@@ -2,7 +2,7 @@ import { Fragment, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppText, Icon, IconButton, Screen, Surface } from '@/components/ui';
+import { AppText, haptics, Icon, IconButton, Screen, Surface } from '@/components/ui';
 import { Divider } from '@/components/ui/divider';
 import { PreferenceOption } from '@/features/profile/presentation/preference-option';
 import { useMessages } from '@/localization/use-messages';
@@ -44,6 +44,7 @@ export function PreferencePickerScreen<T extends string>({
       return;
     }
 
+    if (selectedValue !== value) haptics.selection();
     setHasSaveError(false);
     try {
       await onSelect(value);

@@ -2,7 +2,17 @@ import { useState } from 'react';
 import { ActivityIndicator, RefreshControl, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
-import { AppText, Icon, IconButton, Pill, Screen, Surface, StretchyHeader } from '@/components/ui';
+import {
+  AppText,
+  haptics,
+  Icon,
+  IconButton,
+  Pill,
+  Screen,
+  Surface,
+  StretchyHeader,
+  useRefreshOutcomeHaptics,
+} from '@/components/ui';
 import type { TodayScreenState } from '@/features/today/model';
 import { OutfitSuggestionCard } from '@/features/today/presentation/outfit-suggestion-card';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
@@ -36,6 +46,10 @@ export function TodayScreen({
   const scrollHandler = useAnimatedScrollHandler((event) => {
     scrollOffset.set(event.contentOffset.y);
   });
+  useRefreshOutcomeHaptics(
+    presentation.kind === 'loaded' && presentation.header.isRefreshing,
+    state.kind === 'loaded' && state.refreshFailed,
+  );
 
   if (presentation.kind !== 'loaded') {
     return (
@@ -148,7 +162,10 @@ export function TodayScreen({
         refreshControl={
           <RefreshControl
             colors={[theme.colors.iconSecondary]}
-            onRefresh={onRefresh}
+            onRefresh={() => {
+              haptics.impactLight();
+              onRefresh();
+            }}
             progressViewOffset={headerHeight}
             refreshing={presentation.header.isRefreshing}
             tintColor={theme.colors.iconSecondary}
@@ -303,7 +320,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   section: {
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   outfitList: {
     flexDirection: 'row',
@@ -319,7 +336,7 @@ const styles = StyleSheet.create({
   },
   feedbackCard: {
     alignItems: 'center',
-    gap: spacing.lg,
+    gap: spacing.md,
     maxWidth: 520,
     padding: spacing.lg,
     width: '100%',

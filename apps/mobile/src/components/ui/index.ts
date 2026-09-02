@@ -10,3 +10,4 @@ export { SectionHeader, type SectionHeaderProps } from './section-header';
 export { Surface, type SurfaceProps } from './surface';
 export { StretchyHeader, type StretchyHeaderProps } from './stretchy-header';
 export type { ButtonVariant, PillTone, SurfaceVariant } from './primitive-contracts';
+export { haptics, useRefreshOutcomeHaptics } from './haptics';

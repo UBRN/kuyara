@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
   },
   card: {
     alignItems: 'center',
-    gap: spacing.lg,
+    gap: spacing.md,
     maxWidth: 520,
     padding: spacing.lg,
     width: '100%',

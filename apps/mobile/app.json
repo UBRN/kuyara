@@ -14,7 +14,7 @@
         "dark": "./assets/icons/kuyara-icon-ios-dark.png",
         "tinted": "./assets/icons/kuyara-icon-ios-tinted.png"
       },
-      "deploymentTarget": "16.4",
+      "deploymentTarget": "26.0",
       "infoPlist": {
         "CFBundleAllowMixedLocalizations": true,
         "NSLocationDefaultAccuracyReduced": true,
