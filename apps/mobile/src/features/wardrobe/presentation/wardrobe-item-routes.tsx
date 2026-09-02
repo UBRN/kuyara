@@ -353,11 +353,11 @@ export function WardrobeGarmentTypePickerRoute() {
 
 const styles = StyleSheet.create({
   centered: {
-    gap: spacing.lg,
+    gap: spacing.md,
     justifyContent: 'center',
   },
   statusCard: {
-    gap: spacing.lg,
+    gap: spacing.md,
     padding: spacing.lg,
   },
 });

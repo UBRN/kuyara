@@ -1,6 +1,5 @@
-import { fireEvent, render } from '@testing-library/react-native';
-import type { PropsWithChildren } from 'react';
-import { useState } from 'react';
+import { render, within } from '@testing-library/react-native';
+import type { PropsWithChildren, ReactNode } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import PrimaryTabsRouteLayout from '@/app/(tabs)/_layout';
@@ -12,11 +11,7 @@ import { WeatherApplicationContext } from '@/features/weather/application/weathe
 import { WeatherScreen } from '@/features/weather/presentation/weather-screen';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
-import {
-  createPrimaryTabDefinitions,
-  PrimaryTabBar,
-  type PrimaryTabRouteName,
-} from '@/navigation/primary-tab-bar';
+import { PrimaryTabs } from '@/navigation/primary-tabs';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
@@ -24,24 +19,58 @@ jest.mock('expo-symbols', () => ({
   SymbolView: () => null,
 }));
 
-jest.mock('expo-router', () => {
-  const { Text: MockText } = jest.requireActual('react-native');
+jest.mock('expo-router/unstable-native-tabs', () => {
+  const { Text: MockText, View: MockView } = jest.requireActual('react-native');
 
-  function MockTabs() {
-    return <MockText testID="primary-tabs-route">Primary tabs</MockText>;
+  function MockNativeTabs({ children }: Readonly<{ children?: ReactNode }>) {
+    return <MockView testID="primary-tabs-route">{children}</MockView>;
   }
 
-  function MockTabScreen() {
+  function MockTrigger({
+    accessibilityLabel,
+    children,
+    name,
+    testID,
+  }: Readonly<{
+    accessibilityLabel?: string;
+    children?: ReactNode;
+    name?: string;
+    testID?: string;
+  }>) {
+    return (
+      <MockView
+        accessible
+        accessibilityLabel={accessibilityLabel}
+        accessibilityRole="tab"
+        name={name}
+        testID={testID}>
+        {children}
+      </MockView>
+    );
+  }
+
+  function MockLabel({ children }: Readonly<{ children?: string }>) {
+    return <MockText>{children}</MockText>;
+  }
+
+  function MockIcon() {
     return null;
   }
 
-  MockTabs.Screen = MockTabScreen;
+  MockTrigger.Icon = MockIcon;
+  MockTrigger.Label = MockLabel;
+  MockNativeTabs.Trigger = MockTrigger;
+
+  return { NativeTabs: MockNativeTabs };
+});
+
+jest.mock('expo-router', () => {
+  const { Text: MockText } = jest.requireActual('react-native');
 
   return {
     Redirect: ({ href }: { href: string }) => (
       <MockText testID="route-redirect">{href}</MockText>
     ),
-    Tabs: MockTabs,
   };
 });
 
@@ -115,81 +144,32 @@ function TestProviders({
   );
 }
 
-function PrimaryTabBarHarness({
-  language,
-  onNavigate,
-}: Readonly<{
-  language: SupportedLanguage;
-  onNavigate: (routeName: PrimaryTabRouteName) => void;
-}>) {
-  const [selectedRouteName, setSelectedRouteName] =
-    useState<PrimaryTabRouteName>('(today)');
-  const tabs = createPrimaryTabDefinitions(messages[language].navigation);
-
-  return (
-    <TestProviders language={language}>
-      <PrimaryTabBar
-        onLongPress={() => undefined}
-        onSelect={(routeName) => {
-          onNavigate(routeName);
-          setSelectedRouteName(routeName);
-        }}
-        selectedRouteName={selectedRouteName}
-        tabs={tabs}
-      />
-    </TestProviders>
-  );
-}
-
 describe.each([
   ['en', ['Today', 'Weather', 'Profile']],
   ['tr', ['Bugün', 'Hava', 'Profil']],
 ] as const)('%s primary tabs', (language, expectedLabels) => {
-  test('shows all localized controls with tab roles, names, and Today selected', async () => {
+  test('declares exactly three localized native tabs in route order', async () => {
     const result = await render(
-      <PrimaryTabBarHarness language={language} onNavigate={() => undefined} />,
+      <TestProviders language={language}>
+        <PrimaryTabs />
+      </TestProviders>,
     );
+    const triggers = result.getAllByRole('tab');
 
-    for (const label of expectedLabels) {
-      expect(result.getByRole('tab', { name: label })).toBeOnTheScreen();
-    }
-    expect(result.getByTestId('tab-today').props.accessibilityState).toEqual({
-      selected: true,
-    });
-    expect(result.getByTestId('tab-weather').props.accessibilityState).toEqual({
-      selected: false,
-    });
-    expect(result.getByTestId('tab-profile').props.accessibilityState).toEqual({
-      selected: false,
-    });
-    expect(result.queryByTestId('tab-wardrobe')).not.toBeOnTheScreen();
-    expect(result.queryByTestId('tab-settings')).not.toBeOnTheScreen();
-  });
-
-  test('keeps every visible tab label on one line so the bar cannot grow at accessibility text sizes', async () => {
-    const result = await render(
-      <PrimaryTabBarHarness language={language} onNavigate={() => undefined} />,
-    );
-
-    for (const label of expectedLabels) {
-      const visibleLabel = result.getByText(label, { includeHiddenElements: true });
-
-      expect(visibleLabel.props.numberOfLines).toBe(1);
-      expect(visibleLabel.props.ellipsizeMode).toBe('tail');
-      expect(visibleLabel.props.allowFontScaling).not.toBe(false);
-    }
-  });
-
-  test('emits Profile navigation intent and updates selected state', async () => {
-    const onNavigate = jest.fn();
-    const result = await render(
-      <PrimaryTabBarHarness language={language} onNavigate={onNavigate} />,
-    );
-
-    await fireEvent.press(result.getByRole('tab', { name: expectedLabels[2] }));
-    expect(onNavigate).toHaveBeenLastCalledWith('(profile)');
-    expect(result.getByTestId('tab-profile').props.accessibilityState).toEqual({
-      selected: true,
+    expect(triggers).toHaveLength(3);
+    expect(
+      triggers.map(({ props }) => ({
+        accessibilityLabel: props.accessibilityLabel,
+        name: props.name,
+        testID: props.testID,
+      })),
+    ).toEqual([
+      { accessibilityLabel: expectedLabels[0], name: '(today)', testID: 'tab-today' },
+      { accessibilityLabel: expectedLabels[1], name: 'weather', testID: 'tab-weather' },
+      { accessibilityLabel: expectedLabels[2], name: '(profile)', testID: 'tab-profile' },
+    ]);
+    expectedLabels.forEach((label, index) => {
+      expect(within(triggers[index]).getByText(label)).toBeOnTheScreen();
     });
   });
 

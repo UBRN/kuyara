@@ -7,7 +7,7 @@ import {
   View,
 } from 'react-native';
 
-import { AppText, Button, Icon, PhotoPlaceholder, Screen, Surface } from '@/components/ui';
+import { AppText, Button, haptics, Icon, PhotoPlaceholder, Screen, Surface } from '@/components/ui';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import type {
   CatalogMessageKey,
@@ -208,6 +208,7 @@ export function WardrobeItemFormScreen({
   }, [entryState, initialEntryState, initialValues, onDirtyChange, photoChange.kind]);
 
   const updateEntryState = (next: WardrobeEntryState) => {
+    if (entryState !== next) haptics.selection();
     setEntryState(next);
     onDirtyChange(
       !wardrobeFormValuesEqual(values, initialValues) ||

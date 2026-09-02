@@ -1,11 +1,11 @@
-import { Fragment } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText, Button, GarmentSlotGlyph, Icon, Pill, Screen, Surface } from '@/components/ui';
-import { Divider } from '@/components/ui/divider';
+import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import type { TodayScreenState } from '@/features/today/model';
-import type { SupportedLanguage } from '@/localization/messages';
+import type { GarmentOwnershipState } from '@/features/wardrobe/domain/garment-type-ownership';
+import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { withAlpha } from '@/theme/color-alpha';
 import { radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -18,6 +18,8 @@ type OutfitDetailScreenProps = Readonly<{
   suggestionId: string | undefined;
   onBack: () => void;
   backLabel: string;
+  ownershipByGarmentType: Readonly<Record<string, GarmentOwnershipState>>;
+  onSetOwnership: (garmentTypeId: GarmentTypeId, next: 'owned' | 'wanted') => void;
 }>;
 
 export function OutfitDetailScreen({
@@ -26,8 +28,11 @@ export function OutfitDetailScreen({
   suggestionId,
   onBack,
   backLabel,
+  ownershipByGarmentType,
+  onSetOwnership,
 }: OutfitDetailScreenProps) {
   const theme = useKuyaraTheme();
+  const copy = getMessages(language).today;
   const presentation = createTodayPresentation(state, language);
   const suggestion =
     presentation.kind === 'loaded'
@@ -45,6 +50,10 @@ export function OutfitDetailScreen({
     );
   }
 
+  const ownedCount = suggestion.pieces.filter(
+    ({ garmentTypeId }) => ownershipByGarmentType[garmentTypeId] === 'owned',
+  ).length;
+
   return (
     <Screen testID="outfit-detail-screen">
       <Button label={backLabel} onPress={onBack} style={styles.backButton} variant="quiet" />
@@ -61,7 +70,7 @@ export function OutfitDetailScreen({
         testID="outfit-detail-ownership-summary">
         <Icon color={theme.colors.brandAccent} name="info" size={16} />
         <AppText colorRole="textSecondary" style={styles.ownershipSummaryText} variant="caption">
-          {presentation.copy.ownershipSummary}
+          {copy.ownershipSummary({ owned: ownedCount, total: suggestion.pieces.length })}
         </AppText>
       </View>
 
@@ -70,10 +79,13 @@ export function OutfitDetailScreen({
           {presentation.copy.piecesHeading}
         </AppText>
         <View style={styles.pieceList}>
-          {suggestion.pieces.map(({ category, slot, item }, index) => (
-            <Fragment key={`${slot}-${item}`}>
-              {index > 0 ? <Divider testID="outfit-piece-divider" variant="inset" /> : null}
+          {suggestion.pieces.map(({ category, garmentTypeId, slot, item }) => {
+            const owned = ownershipByGarmentType[garmentTypeId] === 'owned';
+            const wanted = ownershipByGarmentType[garmentTypeId] === 'wanted';
+
+            return (
               <Surface
+                key={`${slot}-${item}`}
                 style={[styles.pieceCard, { backgroundColor: theme.colors.surface }]}
                 testID="outfit-detail-piece-card"
                 variant="elevated">
@@ -82,17 +94,37 @@ export function OutfitDetailScreen({
                   color={theme.colors.iconSecondary}
                   size={22}
                 />
-                <View style={styles.pieceCopy}>
-                  <AppText style={styles.itemLabel} variant="bodyStrong">
-                    {item}
-                  </AppText>
-                  <AppText colorRole="textSecondary" variant="caption">
-                    {slot}
-                  </AppText>
+                <View style={styles.pieceContent}>
+                  <View>
+                    <AppText style={styles.itemLabel} variant="bodyStrong">
+                      {item}
+                    </AppText>
+                    <AppText colorRole="textSecondary" variant="caption">
+                      {slot}
+                    </AppText>
+                  </View>
+                  <View style={styles.ownershipActions}>
+                    <Button
+                      accessibilityState={{ selected: owned }}
+                      label={copy.ownershipOwnedAction}
+                      onPress={owned ? undefined : () => onSetOwnership(garmentTypeId, 'owned')}
+                      style={styles.ownershipAction}
+                      testID={`outfit-detail-ownership-${garmentTypeId}-owned`}
+                      variant={owned ? 'primary' : 'secondary'}
+                    />
+                    <Button
+                      accessibilityState={{ selected: wanted }}
+                      label={copy.ownershipWantedAction}
+                      onPress={wanted ? undefined : () => onSetOwnership(garmentTypeId, 'wanted')}
+                      style={styles.ownershipAction}
+                      testID={`outfit-detail-ownership-${garmentTypeId}-wanted`}
+                      variant={wanted ? 'primary' : 'secondary'}
+                    />
+                  </View>
                 </View>
               </Surface>
-            </Fragment>
-          ))}
+            );
+          })}
         </View>
       </View>
 
@@ -137,7 +169,7 @@ const styles = StyleSheet.create({
   },
   headingGroup: {
     gap: spacing.sm,
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
   },
   ownershipSummary: {
     alignItems: 'flex-start',
@@ -152,25 +184,33 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   section: {
-    gap: spacing.lg,
+    gap: spacing.md,
     marginTop: spacing.md,
   },
   pieceList: {
     gap: spacing.md,
   },
   pieceCard: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flexDirection: 'row',
     gap: spacing.md,
     padding: spacing.lg,
   },
-  pieceCopy: {
+  pieceContent: {
     flex: 1,
     flexShrink: 1,
+    gap: spacing.sm,
   },
   itemLabel: {
     flex: 1,
     flexShrink: 1,
+  },
+  ownershipActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  ownershipAction: {
+    flex: 1,
   },
   reasonList: {
     gap: spacing.sm,

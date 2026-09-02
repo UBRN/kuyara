@@ -10,6 +10,8 @@ import {
 import { OutfitDetailScreen } from '@/features/today/presentation/outfit-detail-screen';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { TodayScreen } from '@/features/today/presentation/today-screen';
+import { WardrobeApplicationContext } from '@/features/wardrobe/application/wardrobe-application-context';
+import { resolveGarmentOwnership } from '@/features/wardrobe/domain/garment-type-ownership';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 import { lightTheme, spacing, typography, type KuyaraTheme } from '@/theme/theme';
@@ -208,6 +210,8 @@ test('outfit detail lists localized weather reasons alongside localized pieces',
       backLabel={messages.en.common.back}
       language="en"
       onBack={() => undefined}
+      onSetOwnership={() => undefined}
+      ownershipByGarmentType={{}}
       state={todayScreenState}
       suggestionId="outfit-1"
     />,
@@ -222,7 +226,7 @@ test('outfit detail lists localized weather reasons alongside localized pieces',
   expect(result.getByRole('header', { name: presentation.suggestions[0].title }))
     .toBeOnTheScreen();
   expect(result.getByTestId('outfit-detail-ownership-summary')).toHaveTextContent(
-    messages.en.onboarding.wardrobePromise,
+    messages.en.today.ownershipSummary({ owned: 0, total: presentation.suggestions[0].pieces.length }),
   );
   for (const reason of presentation.suggestions[0].reasons) {
     expect(result.getByText(reason)).toBeOnTheScreen();
@@ -234,9 +238,102 @@ test('outfit detail lists localized weather reasons alongside localized pieces',
   expect(result.getAllByTestId('outfit-detail-piece-card')).toHaveLength(
     presentation.suggestions[0].pieces.length,
   );
-  expect(result.getAllByTestId('outfit-piece-divider', { includeHiddenElements: true })).toHaveLength(
-    presentation.suggestions[0].pieces.length - 1,
-  );
+});
+
+describe.each(['en', 'tr'] as const)('%s outfit detail ownership', (language) => {
+  test('shows matched states, actions, selection semantics, and the owned count', async () => {
+    const onSetOwnership = jest.fn();
+    const presentation = loadedPresentation(language);
+    const ownershipByGarmentType = Object.fromEntries(
+      presentation.suggestions[0].pieces.map(({ garmentTypeId }) => [
+        garmentTypeId,
+        resolveGarmentOwnership(garmentTypeId, todayWardrobeItems).state,
+      ]),
+    );
+    const result = await render(providers(
+      <OutfitDetailScreen
+        backLabel={messages[language].common.back}
+        language={language}
+        onBack={() => undefined}
+        onSetOwnership={onSetOwnership}
+        ownershipByGarmentType={ownershipByGarmentType}
+        state={todayScreenState}
+        suggestionId="outfit-1"
+      />,
+      lightTheme,
+      language,
+    ));
+
+    expect(
+      result.getByTestId('outfit-detail-ownership-shorts-owned').props.accessibilityState,
+    ).toMatchObject({ selected: false });
+    expect(
+      result.getByTestId('outfit-detail-ownership-shorts-wanted').props.accessibilityState,
+    ).toMatchObject({ selected: false });
+    expect(result.getByTestId('outfit-detail-ownership-summary')).toHaveTextContent(
+      messages[language].today.ownershipSummary({
+        owned: 1,
+        total: presentation.suggestions[0].pieces.length,
+      }),
+    );
+
+    const ownedSelected = result.getByTestId('outfit-detail-ownership-t_shirt-owned');
+    const wantedUnselected = result.getByTestId('outfit-detail-ownership-t_shirt-wanted');
+    expect(ownedSelected.props.accessibilityState.selected).toBe(true);
+    expect(wantedUnselected.props.accessibilityState.selected).toBe(false);
+    await fireEvent.press(ownedSelected);
+    expect(onSetOwnership).not.toHaveBeenCalled();
+    await fireEvent.press(wantedUnselected);
+    expect(onSetOwnership).toHaveBeenCalledWith('t_shirt', 'wanted');
+
+    onSetOwnership.mockClear();
+    const ownedUnselected = result.getByTestId('outfit-detail-ownership-rain_jacket-owned');
+    const wantedSelected = result.getByTestId('outfit-detail-ownership-rain_jacket-wanted');
+    expect(ownedUnselected.props.accessibilityState.selected).toBe(false);
+    expect(wantedSelected.props.accessibilityState.selected).toBe(true);
+    await fireEvent.press(wantedSelected);
+    expect(onSetOwnership).not.toHaveBeenCalled();
+    await fireEvent.press(ownedUnselected);
+    expect(onSetOwnership).toHaveBeenCalledWith('rain_jacket', 'owned');
+  });
+});
+
+test('Today keeps outfit ownership state and actions hidden', async () => {
+  const result = await render(providers(
+    <WardrobeApplicationContext value={{
+      state: {
+        status: 'ready',
+        items: todayWardrobeItems,
+        isRefreshing: false,
+        isMutating: false,
+        hasRefreshError: false,
+      },
+      refresh: async () => undefined,
+      getItem: async () => null,
+      preparePhoto: async () => null,
+      discardStagedPhoto: async () => undefined,
+      resolvePhotoUri: () => null,
+      createItem: jest.fn(),
+      updateItem: jest.fn(),
+      softDeleteItem: jest.fn(),
+    }}>
+      <TodayScreen
+        language="en"
+        onOpenOutfitDetail={() => undefined}
+        onOpenSettings={() => undefined}
+        onRefresh={() => undefined}
+        state={todayScreenState}
+      />
+    </WardrobeApplicationContext>,
+  ));
+
+  expect(result.queryByRole('button', {
+    name: messages.en.today.ownershipOwnedAction,
+  })).not.toBeOnTheScreen();
+  expect(result.queryByRole('button', {
+    name: messages.en.today.ownershipWantedAction,
+  })).not.toBeOnTheScreen();
+  expect(result.queryAllByTestId(/^outfit-detail-ownership-/)).toHaveLength(0);
 });
 
 test('an unavailable recommendation keeps header and weather while replacing suggestions with local copy', async () => {

@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   panel: {
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   promiseList: {
     gap: spacing.md,
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   section: {
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   sectionHeading: {
     gap: spacing.xs,

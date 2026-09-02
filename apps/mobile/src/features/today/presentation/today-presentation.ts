@@ -1,5 +1,8 @@
 import type { RecommendedOutfit } from '@/features/recommendation/application/recommend-outfits';
-import type { StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
+import type {
+  GarmentTypeId,
+  StructuralCategory,
+} from '@/features/catalog/domain/garment-taxonomy';
 import {
   outfitSlots,
   type AssignedOutfitGarment,
@@ -18,6 +21,7 @@ type LocalizedOutfitPiece = Readonly<{
   slot: string;
   item: string;
   category: StructuralCategory;
+  garmentTypeId: GarmentTypeId;
 }>;
 
 export type LoadedOutfitPresentation = Readonly<{
@@ -42,7 +46,6 @@ export type LoadedTodayPresentation = Readonly<{
     refreshAction: string;
     piecesHeading: string;
     reasonsHeading: string;
-    ownershipSummary: string;
     recommendedTodayHeading: string;
     otherOptionsHeading: string;
   }>;
@@ -145,6 +148,7 @@ function localizeOutfit(
         `catalog.garment_type.${garment.garmentTypeId}.name`
       ],
     category: garment.properties.category,
+    garmentTypeId: garment.garmentTypeId,
   }));
   const title = messages.recommendation.archetypes[outfit.archetypeId];
   const summary = pieces.map(({ item }) => item).join(' + ');
@@ -224,7 +228,6 @@ function createLoadedPresentation(
       refreshAction: copy.refreshAction,
       piecesHeading: copy.piecesHeading,
       reasonsHeading: copy.reasonsHeading,
-      ownershipSummary: messages.onboarding.wardrobePromise,
       recommendedTodayHeading: copy.recommendedTodayHeading,
       otherOptionsHeading: copy.otherOptionsHeading,
     },

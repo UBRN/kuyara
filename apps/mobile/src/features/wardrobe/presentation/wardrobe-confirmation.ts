@@ -1,5 +1,7 @@
 import { Alert } from 'react-native';
 
+import { haptics } from '@/components/ui';
+
 export type WardrobeConfirmationRequest = Readonly<{
   title: string;
   message: string;
@@ -17,6 +19,7 @@ export const showWardrobeConfirmation: WardrobeConfirmation = (
   request,
   onConfirm,
 ) => {
+  if (request.destructive) haptics.warning();
   Alert.alert(request.title, request.message, [
     {
       text: request.cancelLabel,

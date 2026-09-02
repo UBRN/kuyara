@@ -16,6 +16,7 @@ import {
   AppText,
   Button,
   GarmentSlotTile,
+  haptics,
   Icon,
   IconButton,
   StretchyHeader,
@@ -306,7 +307,10 @@ export function WardrobeListScreen({
                     accessibilityRole="button"
                     accessibilityState={{ selected }}
                     key={value}
-                    onPress={() => setEntryState(value)}
+                    onPress={() => {
+                      if (!selected) haptics.selection();
+                      setEntryState(value);
+                    }}
                     style={({ pressed }) => [
                       styles.filterSegment,
                       {
@@ -387,7 +391,7 @@ const styles = StyleSheet.create({
   centered: {
     alignItems: 'center',
     flex: 1,
-    gap: spacing.lg,
+    gap: spacing.md,
     justifyContent: 'center',
     padding: spacing.lg,
   },
@@ -452,7 +456,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   emptyCard: {
-    gap: spacing.lg,
+    gap: spacing.md,
     justifyContent: 'center',
     padding: spacing.lg,
   },

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppText, Icon, IconButton, Screen, Surface } from '@/components/ui';
+import { AppText, haptics, Icon, IconButton, Screen, Surface } from '@/components/ui';
 import { Divider } from '@/components/ui/divider';
 import type {
   ClothingPreference,
@@ -249,7 +249,10 @@ export function SettingsScreen({
               <PreferenceOption
                 disabled={isSaving}
                 label={copy.womensClothing}
-                onPress={() => void save(() => updateClothingPreference('womens'))}
+                onPress={() => {
+                  if (profile.clothingPreference !== 'womens') haptics.selection();
+                  void save(() => updateClothingPreference('womens'));
+                }}
                 selected={profile.clothingPreference === 'womens'}
                 testID="settings-clothing-womens"
               />
@@ -257,7 +260,10 @@ export function SettingsScreen({
               <PreferenceOption
                 disabled={isSaving}
                 label={copy.mensClothing}
-                onPress={() => void save(() => updateClothingPreference('mens'))}
+                onPress={() => {
+                  if (profile.clothingPreference !== 'mens') haptics.selection();
+                  void save(() => updateClothingPreference('mens'));
+                }}
                 selected={profile.clothingPreference === 'mens'}
                 testID="settings-clothing-mens"
               />
@@ -318,7 +324,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   groupCard: {
-    gap: spacing.lg,
+    gap: spacing.md,
     padding: spacing.lg,
   },
   options: {
