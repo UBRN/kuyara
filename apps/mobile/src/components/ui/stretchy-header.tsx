@@ -161,8 +161,8 @@ export function StretchyHeader({
         style={[
           styles.content,
           {
-            paddingLeft: insets.left + spacing.xl,
-            paddingRight: insets.right + spacing.xl,
+            paddingLeft: insets.left + spacing.lg,
+            paddingRight: insets.right + spacing.lg,
           },
           contentContainerStyle,
         ]}

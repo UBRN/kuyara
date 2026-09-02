@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
     margin: spacing.lg,
-    padding: spacing.xl,
+    padding: spacing.lg,
   },
   dots: {
     flexDirection: 'row',

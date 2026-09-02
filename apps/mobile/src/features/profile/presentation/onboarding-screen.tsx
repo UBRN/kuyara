@@ -358,12 +358,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    gap: spacing['2xl'],
-    paddingBottom: spacing.xl,
+    gap: spacing.md,
+    paddingBottom: spacing['2xl'],
   },
   heading: {
     gap: spacing.sm,
-    marginTop: spacing.xl,
+    marginTop: spacing.md,
   },
   panel: {
     gap: spacing.lg,
@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   details: {
-    gap: spacing['2xl'],
+    gap: spacing.md,
   },
   section: {
     gap: spacing.lg,
@@ -429,7 +429,6 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     borderWidth: borderWidths.strong,
     height: 20,
-    marginBottom: spacing.xs,
     width: 20,
   },
   horizonBar: {
@@ -450,7 +449,7 @@ const styles = StyleSheet.create({
   pinnedAction: {
     borderTopWidth: borderWidths.subtle,
     gap: spacing.md,
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
   },
 });

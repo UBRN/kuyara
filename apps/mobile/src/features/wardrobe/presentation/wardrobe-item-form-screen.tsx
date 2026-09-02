@@ -75,7 +75,7 @@ function FormSectionLabel({
 }: Readonly<{ heading: string; description?: string }>) {
   return (
     <View style={styles.sectionLabel}>
-      <AppText colorRole="brandAccent" variant="eyebrow">
+      <AppText colorRole="textPrimary" variant="bodyStrong">
         {heading}
       </AppText>
       {description ? (
@@ -420,15 +420,15 @@ export function WardrobeItemFormScreen({
             {
               backgroundColor: theme.colors.surface,
               borderColor: validationError
-                ? theme.colors.borderStrong
-                : theme.colors.borderSubtle,
+                ? theme.colors.dangerInk
+                : theme.colors.borderDefined,
             },
             pressed && !busy && styles.pressed,
             busy && styles.disabled,
           ]}
           testID="wardrobe-type-picker-row">
           <View style={styles.typePickerCopy}>
-            <AppText colorRole="brandAccent" variant="eyebrow">
+            <AppText colorRole="textPrimary" variant="bodyStrong">
               {copy.typeTitle}
             </AppText>
             <AppText variant="bodyStrong">
@@ -442,10 +442,11 @@ export function WardrobeItemFormScreen({
         </Pressable>
         {validationError ? (
           <View style={styles.errorRow}>
-            <Icon color={theme.colors.iconSecondary} name="error" size={20} />
+            <Icon color={theme.colors.dangerInk} name="error" size={20} />
             <AppText
               accessibilityLiveRegion="assertive"
               accessibilityRole="alert"
+              colorRole="dangerInk"
               style={styles.errorCopy}
               testID="wardrobe-type-error">
               {copy.typeRequiredError}
@@ -489,7 +490,7 @@ export function WardrobeItemFormScreen({
             styles.textInput,
             {
               backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.borderSubtle,
+              borderColor: theme.colors.borderDefined,
               color: theme.colors.textPrimary,
             },
           ]}
@@ -691,12 +692,17 @@ export function WardrobeItemFormScreen({
         <Surface style={styles.deleteSection} variant="muted">
           <FormSectionLabel description={copy.deleteSectionBody} heading={copy.deleteSectionTitle} />
           {deleteError ? (
-            <AppText
-              accessibilityLiveRegion="assertive"
-              accessibilityRole="alert"
-              testID="wardrobe-delete-error">
-              {copy.deleteError}
-            </AppText>
+            <View style={styles.errorRow}>
+              <Icon color={theme.colors.dangerInk} name="error" size={20} />
+              <AppText
+                accessibilityLiveRegion="assertive"
+                accessibilityRole="alert"
+                colorRole="dangerInk"
+                style={styles.errorCopy}
+                testID="wardrobe-delete-error">
+                {copy.deleteError}
+              </AppText>
+            </View>
           ) : null}
           <Button
             accessibilityHint={copy.deleteSectionBody}
@@ -705,7 +711,7 @@ export function WardrobeItemFormScreen({
             loading={isDeleting}
             onPress={requestDelete}
             testID="wardrobe-delete-button"
-            variant="secondary"
+            variant="destructive"
           />
         </Surface>
       ) : null}
@@ -732,7 +738,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   section: {
-    gap: spacing.lg,
+    gap: spacing.sm,
   },
   typePickerRow: {
     alignItems: 'center',
@@ -759,7 +765,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   options: {
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   photoActions: {
     gap: spacing.sm,
@@ -771,10 +777,10 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   attributeGroup: {
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   detailsCard: {
-    gap: spacing.lg,
+    gap: spacing.md,
     padding: spacing.lg,
   },
   detailsToggle: {
@@ -788,10 +794,10 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   detailsContent: {
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   detailSection: {
-    gap: spacing.lg,
+    gap: spacing.sm,
   },
   expandedChevron: {
     transform: [{ rotate: '90deg' }],
@@ -811,7 +817,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   deleteSection: {
-    gap: spacing.lg,
+    gap: spacing.md,
     padding: spacing.lg,
   },
 });

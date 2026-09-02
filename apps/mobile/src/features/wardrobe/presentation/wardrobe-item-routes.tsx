@@ -358,6 +358,6 @@ const styles = StyleSheet.create({
   },
   statusCard: {
     gap: spacing.lg,
-    padding: spacing.xl,
+    padding: spacing.lg,
   },
 });
