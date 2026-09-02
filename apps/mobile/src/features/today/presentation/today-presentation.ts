@@ -20,12 +20,6 @@ type LocalizedOutfitPiece = Readonly<{
   category: StructuralCategory;
 }>;
 
-export type LocalizedHourlyRainProbability = Readonly<{
-  label: string;
-  probabilityPercent: number;
-  accessibilityLabel: string;
-}>;
-
 export type LoadedOutfitPresentation = Readonly<{
   id: string;
   positionLabel: string;
@@ -51,10 +45,6 @@ export type LoadedTodayPresentation = Readonly<{
     ownershipSummary: string;
     recommendedTodayHeading: string;
     otherOptionsHeading: string;
-    windLabel: string;
-    humidityLabel: string;
-    uvIndexLabel: string;
-    rainOutlookHeading: string;
   }>;
   header: Readonly<{
     location: string;
@@ -69,12 +59,6 @@ export type LoadedTodayPresentation = Readonly<{
     apparentTemperature: string;
     range: string;
     rainProbability: string;
-    wind: string;
-    humidity: string;
-    uvIndex: string;
-    hourlyRainProbability: readonly LocalizedHourlyRainProbability[];
-    metricsAccessibilityLabel: string;
-    rainTimelineAccessibilityLabel: string;
     accessibilityLabel: string;
   }>;
   generationMode: Readonly<{
@@ -110,12 +94,6 @@ function formatPercent(ratio: number, language: SupportedLanguage): string {
     style: 'percent',
     maximumFractionDigits: 0,
   }).format(ratio);
-}
-
-function formatDecimal(value: number, language: SupportedLanguage): string {
-  return new Intl.NumberFormat(localeTag(language), {
-    maximumFractionDigits: 1,
-  }).format(value);
 }
 
 function formatTemperature(value: number, language: SupportedLanguage): string {
@@ -207,32 +185,7 @@ function createLoadedPresentation(
   const current = weather.current;
   const time = formatTime(weather.fetchedAt, weather.timeZone, language);
   const isStale = snapshot.freshness === 'stale';
-  const wind = weatherCopy.windValue(
-    formatDecimal(current.windSpeedMetersPerSecond, language),
-  );
-  const humidity = copy.humidityValue(current.humidity);
-  const uvIndex = copy.uvIndexValue(formatDecimal(current.uvIndex, language));
   const condition = weatherCopy.conditions[current.condition];
-  const hourlyRainProbability = weather.hourly
-    .filter(
-      ({ forecastAt }) =>
-        Date.parse(forecastAt) >= Date.parse(current.observedAt),
-    )
-    .slice(0, 6)
-    .map((hour) => {
-      const probabilityPercent = Math.round(
-        hour.precipitationProbability * 100,
-      );
-      const label = formatTime(hour.forecastAt, weather.timeZone, language);
-      return {
-        label,
-        probabilityPercent,
-        accessibilityLabel: copy.hourlyRainAccessibilityLabel({
-          time: label,
-          probabilityPercent,
-        }),
-      };
-    });
   const weatherReasons = snapshot.recommendation.requirements.reasonCodes.map(
     (reason) => copy.requirementReasons[reason],
   );
@@ -274,10 +227,6 @@ function createLoadedPresentation(
       ownershipSummary: messages.onboarding.wardrobePromise,
       recommendedTodayHeading: copy.recommendedTodayHeading,
       otherOptionsHeading: copy.otherOptionsHeading,
-      windLabel: copy.windLabel,
-      humidityLabel: copy.humidityLabel,
-      uvIndexLabel: copy.uvIndexLabel,
-      rainOutlookHeading: copy.rainOutlookHeading,
     },
     header: {
       location:
@@ -308,19 +257,6 @@ function createLoadedPresentation(
       rainProbability: copy.rainProbability(
         formatPercent(current.precipitationProbability, language),
       ),
-      wind,
-      humidity,
-      uvIndex,
-      hourlyRainProbability,
-      metricsAccessibilityLabel: copy.metricsAccessibilityLabel({
-        windSpeed: formatDecimal(current.windSpeedMetersPerSecond, language),
-        humidityPercent: formatNumber(current.humidity * 100, language),
-        uvIndex: formatDecimal(current.uvIndex, language),
-      }),
-      rainTimelineAccessibilityLabel: [
-        copy.rainOutlookHeading,
-        ...hourlyRainProbability.map((hour) => hour.accessibilityLabel),
-      ].join('. '),
       accessibilityLabel: copy.weatherAccessibilityLabel({
         condition,
         current: current.temperatureCelsius,

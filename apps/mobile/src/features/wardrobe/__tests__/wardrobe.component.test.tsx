@@ -210,6 +210,11 @@ test('list shows localized catalog values and emits the edit intent', async () =
       }),
     }),
   ).toHaveProp('testID', `wardrobe-item-${item.id}`);
+  expect(
+    result.getByTestId(`wardrobe-photo-placeholder-${item.id}`, {
+      includeHiddenElements: true,
+    }),
+  ).toHaveProp('importantForAccessibility', 'no-hide-descendants');
   await fireEvent.press(result.getByTestId(`wardrobe-item-${item.id}`));
   expect(onEdit).toHaveBeenCalledWith(item.id);
 });

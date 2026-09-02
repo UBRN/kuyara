@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import {
   AppText,
-  GarmentSlotTile,
+  GarmentSlotGlyph,
   Icon,
   IconButton,
   Screen,
@@ -71,7 +71,7 @@ export function ProfileScreen({
       </View>
 
       <View style={styles.section}>
-        <AppText accessibilityRole="header" variant="title">
+        <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
           {copy.wardrobeTitle}
         </AppText>
         <Surface
@@ -143,10 +143,10 @@ export function ProfileScreen({
                         fontScale > 1.5 && styles.largeTextCategory,
                       ]}
                       testID={`profile-category-${category}`}>
-                      <GarmentSlotTile
+                      <GarmentSlotGlyph
                         category={category}
-                        color={theme.colors.iconPrimary}
-                        size={28}
+                        color={theme.colors.iconSecondary}
+                        size={22}
                       />
                       <AppText colorRole="textSecondary" variant="caption">
                         {categoryLabel}
@@ -175,7 +175,7 @@ export function ProfileScreen({
       </View>
 
       <View style={styles.section}>
-        <AppText accessibilityRole="header" variant="title">
+        <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
           {copy.locationTitle}
         </AppText>
         <Surface style={theme.elevation.raised} testID="profile-location-card">

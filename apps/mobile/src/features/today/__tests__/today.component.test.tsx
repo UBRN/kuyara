@@ -10,11 +10,9 @@ import {
 import { OutfitDetailScreen } from '@/features/today/presentation/outfit-detail-screen';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { TodayScreen } from '@/features/today/presentation/today-screen';
-import { CARD_BACKGROUND_ALPHA } from '@/features/today/presentation/weather-card';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
-import { withAlpha } from '@/theme/color-alpha';
-import { darkTheme, lightTheme, spacing, typography, type KuyaraTheme } from '@/theme/theme';
+import { lightTheme, spacing, typography, type KuyaraTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 jest.mock('expo-symbols', () => ({
@@ -115,12 +113,8 @@ test('loaded Today reserves overlay clearance and preserves grouped accessibilit
   await fireEvent.press(settingsButton);
   expect(onOpenSettings).toHaveBeenCalledTimes(1);
 
-  expect(result.getByLabelText(
-    /Wind: 8 m\/s.*Humidity: 78%.*UV: 2/,
-  )).toBeOnTheScreen();
-  expect(result.getByLabelText(
-    /Rain chance today.*09:00\. 65% chance of rain.*11:00\. 20% chance of rain/,
-  )).toBeOnTheScreen();
+  expect(result.queryByTestId('today-weather-card')).not.toBeOnTheScreen();
+  expect(result.queryByText(messages.en.weather.attributionOpenMeteo)).not.toBeOnTheScreen();
   expect(result.queryByText(/Sunrise|Sunset/)).not.toBeOnTheScreen();
 });
 
@@ -146,9 +140,11 @@ test('rendered outfit copy comes from localization and never from the wardrobe f
     expect(englishPrimary.getByText(slot)).toBeOnTheScreen();
   }
   for (const suggestion of english.suggestions.slice(1)) {
-    expect(within(englishResult.getByTestId(`outfit-card-${suggestion.id}`)).getByText(
+    const card = englishResult.getByTestId(`outfit-card-${suggestion.id}`);
+    expect(within(card).getByText(
       messages.en.today.otherOptionPieceCount({ count: suggestion.pieces.length }),
     )).toBeOnTheScreen();
+    expect(card.props.accessibilityLabel).toBe(suggestion.accessibilityLabel);
   }
   expect(englishResult.getByTestId('outfit-card-outfit-1').props.accessibilityLabel)
     .toContain('Rain Ready');
@@ -217,7 +213,12 @@ test('outfit detail lists localized weather reasons alongside localized pieces',
     />,
   ));
 
-  expect(result.getByText(eyebrow(messages.en.today.reasonsHeading, 'en'))).toBeOnTheScreen();
+  const reasonsHeading = result.getByRole('header', { name: messages.en.today.reasonsHeading });
+  expect(StyleSheet.flatten(reasonsHeading.props.style)).toMatchObject({
+    color: lightTheme.colors.textPrimary,
+    fontSize: typography.bodyStrong.fontSize,
+    fontWeight: typography.bodyStrong.fontWeight,
+  });
   expect(result.getByRole('header', { name: presentation.suggestions[0].title }))
     .toBeOnTheScreen();
   expect(result.getByTestId('outfit-detail-ownership-summary')).toHaveTextContent(
@@ -272,7 +273,7 @@ test('an unavailable recommendation keeps header and weather while replacing sug
   ));
 
   expect(result.getByTestId('today-stretchy-header')).toBeOnTheScreen();
-  expect(result.getByTestId('today-weather-card')).toBeOnTheScreen();
+  expect(result.queryByTestId('today-weather-card')).not.toBeOnTheScreen();
   expect(result.getByRole('alert', {
     name: `${messages.en.today.noOutfitTitle}. ${messages.en.today.noOutfitBody}`,
   })).toBeOnTheScreen();
@@ -294,12 +295,8 @@ test('loading Today keeps its existing feedback layout without the loaded header
   expect(result.queryByTestId('today-stretchy-header')).not.toBeOnTheScreen();
 });
 
-function eyebrow(text: string, language: SupportedLanguage): string {
-  return text.toLocaleUpperCase(language === 'tr' ? 'tr-TR' : 'en-GB');
-}
-
-describe.each(['en', 'tr'] as const)('%s Today weather card', (language: SupportedLanguage) => {
-  test('uppercases eyebrow headings with the active language casing rules, not the device locale', async () => {
+describe.each(['en', 'tr'] as const)('%s Today section headings', (language: SupportedLanguage) => {
+  test('uses localized sentence-case bodyStrong headers', async () => {
     const result = await render(providers(
       <TodayScreen
         language={language}
@@ -312,53 +309,18 @@ describe.each(['en', 'tr'] as const)('%s Today weather card', (language: Support
       language,
     ));
 
-    expect(
-      result.getByText(eyebrow(messages[language].today.recommendedTodayHeading, language)),
-    ).toBeOnTheScreen();
-
-    if (language === 'tr') {
-      expect(result.getByText('BUGÜN İÇİN ÖNERİLEN')).toBeOnTheScreen();
-      expect(result.queryByText('BUGÜN IÇIN ÖNERILEN')).not.toBeOnTheScreen();
+    for (const heading of [
+      messages[language].today.recommendedTodayHeading,
+      messages[language].today.otherOptionsHeading,
+    ]) {
+      const element = result.getByRole('header', { name: heading });
+      expect(StyleSheet.flatten(element.props.style)).toMatchObject({
+        color: lightTheme.colors.textPrimary,
+        fontSize: typography.bodyStrong.fontSize,
+        fontWeight: typography.bodyStrong.fontWeight,
+      });
     }
   });
-
-  test.each([
-    ['light', lightTheme],
-    ['dark', darkTheme],
-  ] as const)('renders localized weather-card copy with the %s theme applied', async (_name, theme) => {
-    const result = await render(providers(
-      <TodayScreen
-        language={language}
-        onOpenOutfitDetail={() => undefined}
-        onOpenSettings={() => undefined}
-        onRefresh={() => undefined}
-        state={todayScreenState}
-      />,
-      theme,
-      language,
-    ));
-
-    expect(
-      result.getByText(eyebrow(messages[language].today.rainOutlookHeading, language)),
-    ).toBeOnTheScreen();
-    expect(
-      result.getByText(eyebrow(messages[language].today.windLabel, language)),
-    ).toBeOnTheScreen();
-
-    const cardStyle = StyleSheet.flatten(result.getByTestId('today-weather-card').props.style);
-    expect(cardStyle.backgroundColor).toBe(
-      withAlpha(theme.colors.brandAccent, CARD_BACKGROUND_ALPHA),
-    );
-    expect(cardStyle).toMatchObject(theme.elevation.raised);
-  });
-});
-
-test('light and dark themes resolve different weather-card semantic colors', () => {
-  expect(lightTheme.colors.brandAccent).not.toBe(darkTheme.colors.brandAccent);
-  expect(lightTheme.colors.background).not.toBe(darkTheme.colors.background);
-  expect(
-    withAlpha(lightTheme.colors.brandAccent, CARD_BACKGROUND_ALPHA),
-  ).not.toBe(withAlpha(darkTheme.colors.brandAccent, CARD_BACKGROUND_ALPHA));
 });
 
 test('loaded Today offers both a pull-to-refresh gesture and a visible refresh control', async () => {
