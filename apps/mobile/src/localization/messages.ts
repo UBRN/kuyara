@@ -311,7 +311,12 @@ export type AppMessages = Readonly<{
     entryStateDescription: string;
     typeTitle: string;
     typeDescription: string;
+    typeChoosePrompt: string;
+    typePickerHint: string;
+    typeAccessibilityLabel: (value: string) => string;
     typeRequiredError: string;
+    detailsTitle: string;
+    detailsCaption: string;
     colorTitle: string;
     colorDescription: string;
     colorUnspecified: string;
@@ -586,7 +591,12 @@ const en = {
     entryStateDescription: 'Choose whether you own this item or want it.',
     typeTitle: 'Clothing type',
     typeDescription: 'Required. Choose the closest type from the catalog.',
+    typeChoosePrompt: 'Choose a type',
+    typePickerHint: 'Opens the clothing type chooser.',
+    typeAccessibilityLabel: (value: string) => `Clothing type, required: ${value}`,
     typeRequiredError: 'Choose a clothing type before saving.',
+    detailsTitle: 'Details',
+    detailsCaption: 'Optional. Catalog defaults are used if you leave these alone.',
     colorTitle: 'Color family',
     colorDescription: 'Optional. Choose the item’s main color family.',
     colorUnspecified: 'Not specified',
@@ -963,7 +973,12 @@ const tr = {
     entryStateDescription: 'Bu parçaya sahip olduğunuzu veya parçayı istediğinizi seçin.',
     typeTitle: 'Giyim türü',
     typeDescription: 'Zorunlu. Katalogdan en yakın türü seçin.',
+    typeChoosePrompt: 'Tür seçin',
+    typePickerHint: 'Giyim türü seçicisini açar.',
+    typeAccessibilityLabel: (value: string) => `Giyim türü, zorunlu: ${value}`,
     typeRequiredError: 'Kaydetmeden önce bir giyim türü seçin.',
+    detailsTitle: 'Ayrıntılar',
+    detailsCaption: 'İsteğe bağlı. Dokunmazsan katalog değerleri kullanılır.',
     colorTitle: 'Renk ailesi',
     colorDescription: 'İsteğe bağlı. Parçanın ana renk ailesini seçin.',
     colorUnspecified: 'Belirtilmedi',

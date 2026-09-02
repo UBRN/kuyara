@@ -112,7 +112,7 @@ export function SettingsScreen({
 
       <Screen
         contentContainerStyle={styles.content}
-        contentTopClearance={headerHeight + spacing['2xl']}
+        contentTopClearance={headerHeight + spacing.xl}
         testID="settings-screen">
         <AppText colorRole="textSecondary">{messages.settings.introduction}</AppText>
 
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    gap: spacing['2xl'],
+    gap: spacing.md,
     paddingBottom: spacing['2xl'],
   },
   group: {
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
   },
   groupCard: {
     gap: spacing.lg,
-    padding: spacing.xl,
+    padding: spacing.lg,
   },
   options: {
     gap: spacing.md,

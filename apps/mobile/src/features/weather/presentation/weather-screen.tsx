@@ -513,7 +513,7 @@ export function WeatherScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { gap: spacing.xl, paddingBottom: spacing['2xl'] },
+  content: { gap: spacing.md, paddingBottom: spacing['2xl'] },
   center: { flexGrow: 1, justifyContent: 'center', gap: spacing.lg },
   locationSection: { gap: spacing.lg },
   currentSection: { gap: spacing.md },

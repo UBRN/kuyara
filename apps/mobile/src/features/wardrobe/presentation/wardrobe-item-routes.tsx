@@ -1,9 +1,13 @@
-import { useNavigation, useRouter } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet } from 'react-native';
 
 import { AppText, Button, Screen, Surface } from '@/components/ui';
-import { garmentCatalog } from '@/features/catalog/domain/garment-catalog';
+import {
+  garmentCatalog,
+  getGarmentType,
+} from '@/features/catalog/domain/garment-catalog';
+import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { isWardrobeRouteId } from '@/features/wardrobe/application/wardrobe-form';
 import { useWardrobeApplication } from '@/features/wardrobe/application/wardrobe-application-context';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
@@ -12,6 +16,7 @@ import {
   type WardrobeConfirmation,
 } from '@/features/wardrobe/presentation/wardrobe-confirmation';
 import { WardrobeItemFormScreen } from '@/features/wardrobe/presentation/wardrobe-item-form-screen';
+import { GarmentTypePickerScreen } from '@/features/wardrobe/presentation/garment-type-picker-screen';
 import { useMessages } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -129,6 +134,10 @@ export function WardrobeNewItemRoute({
     refresh,
     state,
   } = useWardrobeApplication();
+  const router = useRouter();
+  const { garmentTypeId } = useLocalSearchParams<{
+    garmentTypeId?: string | string[];
+  }>();
   const [isDirty, setIsDirty] = useState(false);
   const guard = useWardrobeExitGuard(isDirty, confirmation);
 
@@ -149,7 +158,9 @@ export function WardrobeNewItemRoute({
   return (
     <WardrobeItemFormScreen
       confirmation={confirmation}
-      garmentTypes={garmentCatalog.garmentTypes}
+      garmentTypeSelection={
+        typeof garmentTypeId === 'string' ? getGarmentType(garmentTypeId) : null
+      }
       isBusy={state.isMutating}
       mode="create"
       onBackRequested={guard.requestBack}
@@ -159,6 +170,15 @@ export function WardrobeNewItemRoute({
       }}
       onDiscardStagedPhoto={discardStagedPhoto}
       onDirtyChange={setIsDirty}
+      onGarmentTypeSelectionHandled={() =>
+        router.setParams({ garmentTypeId: undefined })
+      }
+      onOpenGarmentTypePicker={(selectedTypeId) =>
+        router.push({
+          pathname: '/wardrobe/garment-type',
+          params: { returnTo: 'new', selectedTypeId: selectedTypeId ?? '' },
+        })
+      }
       onSelectPhoto={preparePhoto}
     />
   );
@@ -173,6 +193,9 @@ export function WardrobeEditItemRoute({
 }>) {
   const application = useWardrobeApplication();
   const router = useRouter();
+  const { garmentTypeId } = useLocalSearchParams<{
+    garmentTypeId?: string | string[];
+  }>();
   const [item, setItem] = useState<WardrobeItem | null>(null);
   const [loadStatus, setLoadStatus] = useState<'loading' | 'error' | 'ready'>(
     'loading',
@@ -244,7 +267,9 @@ export function WardrobeEditItemRoute({
   return (
     <WardrobeItemFormScreen
       confirmation={confirmation}
-      garmentTypes={garmentCatalog.garmentTypes}
+      garmentTypeSelection={
+        typeof garmentTypeId === 'string' ? getGarmentType(garmentTypeId) : null
+      }
       isBusy={
         application.state.status === 'ready' && application.state.isMutating
       }
@@ -257,6 +282,19 @@ export function WardrobeEditItemRoute({
       }}
       onDiscardStagedPhoto={application.discardStagedPhoto}
       onDirtyChange={setIsDirty}
+      onGarmentTypeSelectionHandled={() =>
+        router.setParams({ garmentTypeId: undefined })
+      }
+      onOpenGarmentTypePicker={(selectedTypeId) =>
+        router.push({
+          pathname: '/wardrobe/garment-type',
+          params: {
+            itemId: item.id,
+            returnTo: 'edit',
+            selectedTypeId: selectedTypeId ?? '',
+          },
+        })
+      }
       onSelectPhoto={application.preparePhoto}
       onCreate={async () => undefined}
       onUpdate={async (input, photoChange) => {
@@ -264,6 +302,51 @@ export function WardrobeEditItemRoute({
         guard.returnToList();
       }}
       photoPreviewUri={application.resolvePhotoUri(item.photoRelativePath)}
+    />
+  );
+}
+
+export function WardrobeGarmentTypePickerRoute() {
+  const profileApplication = useProfileApplication();
+  const router = useRouter();
+  const { itemId, returnTo, selectedTypeId } = useLocalSearchParams<{
+    itemId?: string | string[];
+    returnTo?: string | string[];
+    selectedTypeId?: string | string[];
+  }>();
+
+  if (
+    profileApplication.state.status !== 'ready' ||
+    !profileApplication.state.profile.clothingPreference
+  ) {
+    return null;
+  }
+
+  const selection =
+    typeof selectedTypeId === 'string' && getGarmentType(selectedTypeId)
+      ? selectedTypeId
+      : null;
+
+  return (
+    <GarmentTypePickerScreen
+      clothingPreference={profileApplication.state.profile.clothingPreference}
+      garmentTypes={garmentCatalog.garmentTypes}
+      onBack={() => router.back()}
+      onSelect={(nextTypeId) => {
+        if (returnTo === 'edit' && isWardrobeRouteId(itemId)) {
+          router.dismissTo({
+            pathname: '/wardrobe/[id]',
+            params: { garmentTypeId: nextTypeId, id: itemId },
+          });
+          return;
+        }
+
+        router.dismissTo({
+          pathname: '/wardrobe/new',
+          params: { garmentTypeId: nextTypeId },
+        });
+      }}
+      selectedTypeId={selection}
     />
   );
 }

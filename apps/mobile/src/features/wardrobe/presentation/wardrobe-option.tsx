@@ -1,4 +1,5 @@
 import { SymbolView } from 'expo-symbols';
+import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { AppText } from '@/components/ui';
@@ -9,6 +10,7 @@ type WardrobeOptionProps = Readonly<{
   label: string;
   selected: boolean;
   disabled?: boolean;
+  leading?: ReactNode;
   onPress: () => void;
   testID?: string;
 }>;
@@ -16,6 +18,7 @@ type WardrobeOptionProps = Readonly<{
 export function WardrobeOption({
   disabled = false,
   label,
+  leading,
   onPress,
   selected,
   testID,
@@ -47,6 +50,11 @@ export function WardrobeOption({
           disabled && styles.disabled,
         ];
       }}>
+      {leading ? (
+        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          {leading}
+        </View>
+      ) : null}
       <AppText
         colorRole={selected ? 'textOnBrand' : 'textPrimary'}
         style={styles.label}
