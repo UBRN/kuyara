@@ -98,7 +98,7 @@ function RainDrop({
   );
 }
 
-export function WeatherGlyph() {
+export function WeatherGlyph({ testID = 'weather-glyph' }: Readonly<{ testID?: string }>) {
   const theme = useKuyaraTheme();
   const bobOffset = useBobOffset(theme.isReduceMotionEnabled);
   const dropProgress0 = useDropProgress(theme.isReduceMotionEnabled, 0);
@@ -108,7 +108,7 @@ export function WeatherGlyph() {
   const dropColor = theme.colors.textPrimary;
 
   return (
-    <View style={styles.container} testID="weather-glyph">
+    <View style={styles.container} testID={testID}>
       <CloudLobe offset={bobOffset} style={{ backgroundColor: cloudColor, left: 2, top: 4, width: 22, height: 14 }} />
       <CloudLobe offset={bobOffset} style={{ backgroundColor: cloudColor, left: 10, top: 0, width: 14, height: 14 }} />
       <RainDrop progress={dropProgress0} color={dropColor} left={7} />

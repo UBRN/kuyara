@@ -2,7 +2,7 @@
 
 Status: Accepted (2026-09-01)
 
-Implementation: Planned for M6.1.
+Implementation: Landed in M6.1.
 
 ## Context
 
@@ -59,14 +59,28 @@ mechanism is strongly preferred over adding an icon dependency.
 
 ## Consequences
 
-- M6.1 can move the light card surface to `#FFFFFF` and extend `SymbolView`
-  coverage to the tab bar and feature surfaces without a further round of
-  visual identity approval.
-- Garment-type icons may not exist in SF Symbols or Material Symbols, so
-  custom vector assets may be required for slot rows. This is an open
-  question to be settled during implementation rather than here. If custom
-  assets are needed, they must still work on both platforms and must not
-  alter the brand symbol geometry.
+- M6.1 moved the light card surface to `#FFFFFF` and extended `SymbolView`
+  coverage to the tab bar and header actions through a new `Icon` primitive,
+  without a further round of visual identity approval.
+- Garment slot icons are drawn with plain React Native Views instead, not SF
+  Symbols, Material Symbols, or a new `react-native-svg` dependency. At the
+  pinned iOS 16.4 deployment target there is no SF Symbol for the `bottom`
+  slot at all, and every outerwear symbol is past the target (`jacket` and
+  `coat` arrived in SF Symbols 6 / iOS 18, `hanger` in SF Symbols 5 / iOS 17),
+  while Material Symbols has no glyph for any of the four slots; a partially
+  present set would render blank rows on real devices. Adding
+  `react-native-svg` was rejected because it is a native module, out of scope
+  for a presentation milestone. What ships instead is a layered-stack family
+  keyed by the existing six-value structural category union (`top`,
+  `bottom`, `one_piece`, `outerwear`, `footwear`, `accessory`) from
+  `apps/mobile/src/features/catalog/domain/garment-taxonomy.ts`: three
+  stacked rounded bars with the filled bar marking the slot's position,
+  outerwear as the faint stack inside an enclosing border, one-piece as a
+  single full-height bar, and accessory as the faint stack plus a corner
+  mark. It echoes the layered-horizon brand geometry without altering the
+  Balanced Horizon V2 master geometry, tints from semantic roles so dark
+  theme is free, and scales with font size. It ships as the
+  `GarmentSlotGlyph`/`GarmentSlotTile` primitives.
 - Status colors and the destructive button variant remain deferred. This ADR
   does not approve them.
 
@@ -85,7 +99,9 @@ mechanism is strongly preferred over adding an icon dependency.
 ## Out of scope
 
 - Status colors and the destructive button variant.
-- The specific icon set, glyph choices, or custom asset production for
-  garment-type slot rows.
 - Any change to the Balanced Horizon V2 master geometry or the six approved
   brand hexes.
+
+The specific icon set, glyph choices, and the garment-slot glyph approach
+were originally left open here and are now recorded above under
+Consequences.

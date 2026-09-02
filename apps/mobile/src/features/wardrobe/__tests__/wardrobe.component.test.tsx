@@ -183,11 +183,33 @@ test('list shows localized catalog values and emits the edit intent', async () =
   expect(result.getByText('Yağmurluk')).toBeOnTheScreen();
   expect(result.getByText('Dış giyim · Mavi')).toBeOnTheScreen();
   expect(
+    StyleSheet.flatten(
+      result.getByTestId(`wardrobe-color-swatch-${item.id}`, {
+        includeHiddenElements: true,
+      }).props.style,
+    ),
+  ).toMatchObject({
+    backgroundColor: 'blue',
+    borderColor: lightTheme.colors.borderSubtle,
+    borderWidth: 1,
+  });
+  expect(
     within(result.getByTestId(`wardrobe-item-${item.id}`)).getByText(
       messages.tr.wardrobe.ownedLabel,
     ),
   ).toBeOnTheScreen();
   expect(result.queryByText('rain_jacket')).not.toBeOnTheScreen();
+  expect(
+    result.getByRole('button', {
+      name: messages.tr.wardrobe.itemAccessibilityLabel({
+        name: item.name,
+        type: 'Yağmurluk',
+        category: 'Dış giyim',
+        color: 'Mavi',
+        state: messages.tr.wardrobe.itemOwnedLabel,
+      }),
+    }),
+  ).toHaveProp('testID', `wardrobe-item-${item.id}`);
   await fireEvent.press(result.getByTestId(`wardrobe-item-${item.id}`));
   expect(onEdit).toHaveBeenCalledWith(item.id);
 });
@@ -205,6 +227,19 @@ test('list filters owned and wanted entries with accessible selected state', asy
   );
 
   expect(result.getByTestId('wardrobe-filter-owned').props.accessibilityState.selected).toBe(true);
+  expect(result.getByTestId('wardrobe-filter-owned').props.accessibilityRole).toBe('button');
+  expect(result.getByTestId('wardrobe-filter-owned').props.accessibilityLabel).toBe(
+    messages.en.wardrobe.filterCountAccessibilityLabel({
+      label: messages.en.wardrobe.ownedLabel,
+      count: 1,
+    }),
+  );
+  expect(result.getByTestId('wardrobe-filter-wanted').props.accessibilityLabel).toBe(
+    messages.en.wardrobe.filterCountAccessibilityLabel({
+      label: messages.en.wardrobe.wantedLabel,
+      count: 1,
+    }),
+  );
   expect(result.getByTestId(`wardrobe-item-${item.id}`)).toBeOnTheScreen();
   expect(result.queryByTestId(`wardrobe-item-${wantedItem.id}`)).not.toBeOnTheScreen();
 
@@ -264,7 +299,7 @@ test('ready list keeps virtualization and refresh below measured header clearanc
   expect(onRetry).toHaveBeenCalledTimes(1);
 });
 
-test('list renders an accessible thumbnail and falls back safely after image failure', async () => {
+test('list keeps a thumbnail decorative and falls back safely to the garment tile after image failure', async () => {
   const itemWithPhoto = {
     ...item,
     photoRelativePath:
@@ -282,12 +317,17 @@ test('list renders an accessible thumbnail and falls back safely after image fai
     </TestProviders>,
   );
 
-  const thumbnail = result.getByTestId(`wardrobe-photo-${item.id}`);
-  expect(thumbnail.props.accessibilityLabel).toBe(
-    messages.en.wardrobe.photoAccessibilityLabel('Rain jacket'),
-  );
+  const thumbnail = result.getByTestId(`wardrobe-photo-${item.id}`, {
+    includeHiddenElements: true,
+  });
+  expect(thumbnail.props.accessible).toBe(false);
   await fireEvent(thumbnail, 'error');
   expect(result.queryByTestId(`wardrobe-photo-${item.id}`)).not.toBeOnTheScreen();
+  expect(
+    result.getByTestId(`wardrobe-photo-placeholder-${item.id}`, {
+      includeHiddenElements: true,
+    }),
+  ).toBeOnTheScreen();
   expect(result.getByTestId(`wardrobe-item-${item.id}`)).toBeOnTheScreen();
 });
 
@@ -313,7 +353,9 @@ test('list keeps an item and its placeholder when its stored photo is missing', 
   expect(resolvePhotoUri).toHaveBeenCalledWith(missingPhotoPath);
   expect(result.getByTestId(`wardrobe-item-${item.id}`)).toBeOnTheScreen();
   expect(
-    result.getByTestId(`wardrobe-photo-placeholder-${item.id}`),
+    result.getByTestId(`wardrobe-photo-placeholder-${item.id}`, {
+      includeHiddenElements: true,
+    }),
   ).toBeOnTheScreen();
 });
 

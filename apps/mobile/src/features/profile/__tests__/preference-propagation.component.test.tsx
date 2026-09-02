@@ -17,6 +17,10 @@ jest.mock('expo-symbols', () => ({
   SymbolView: () => null,
 }));
 
+jest.mock('expo-router', () => ({
+  router: { back: jest.fn() },
+}));
+
 jest.mock('@/infrastructure/sqlite/expo-sqlite-database', () => ({
   openKuyaraDatabase: async () => ({}),
 }));
@@ -84,6 +88,7 @@ test('live preference changes propagate localized copy and dark semantic colors 
   );
 
   expect(await result.findByText(messages.en.settings.title)).toBeOnTheScreen();
+  expect(result.getByRole('button', { name: messages.en.common.back })).toBeOnTheScreen();
   expect(
     StyleSheet.flatten(result.getByTestId('settings-screen').props.style)
       .backgroundColor,

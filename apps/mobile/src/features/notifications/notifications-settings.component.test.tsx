@@ -13,7 +13,7 @@ jest.mock('expo-symbols', () => ({
 }));
 
 jest.mock('expo-router', () => ({
-  router: { navigate: jest.fn() },
+  router: { back: jest.fn(), navigate: jest.fn() },
 }));
 
 jest.mock('@/features/notifications/data/expo-notification-gateway', () => ({
@@ -113,6 +113,8 @@ test('granting permission from the switch persists the opt-in flag', async () =>
   const { gateway } = createGateway('undetermined');
   const result = await renderSettings(gateway);
   const toggle = await result.findByTestId('settings-notifications-toggle');
+
+  expect(toggle.props.accessibilityLabel).toBe(messages.en.notifications.toggleLabel);
 
   await act(async () => {
     fireEvent(toggle, 'valueChange', true);

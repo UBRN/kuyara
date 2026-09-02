@@ -1,7 +1,6 @@
-import { Linking, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText, Surface } from '@/components/ui';
-import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
 import type { LocalizedHourlyRainProbability } from '@/features/today/presentation/today-presentation';
 import { useLocalization } from '@/localization/use-messages';
 import { withAlpha } from '@/theme/color-alpha';
@@ -25,15 +24,10 @@ export type WeatherCardRainTimeline = Readonly<{
 }>;
 
 type WeatherCardProps = Readonly<{
-  condition: string;
-  temperature: string;
-  apparentTemperature: string;
-  range: string;
   rainProbability: string;
   stats: readonly WeatherCardStat[];
   metricsAccessibilityLabel: string;
   rainTimeline?: WeatherCardRainTimeline;
-  accessibilityLabel: string;
   sourceId?: string;
   testID?: string;
 }>;
@@ -44,27 +38,20 @@ export const RAIN_BAR_MUTED_ALPHA = 0.7;
 export const CARD_BACKGROUND_ALPHA = 0.08;
 
 export function WeatherCard({
-  condition,
-  temperature,
-  apparentTemperature,
-  range,
   rainProbability,
   stats,
   metricsAccessibilityLabel,
   rainTimeline,
-  accessibilityLabel,
   sourceId,
   testID,
 }: WeatherCardProps) {
   const theme = useKuyaraTheme();
   const { messages } = useLocalization();
-  const { fontScale } = useWindowDimensions();
   const attributionLabel = sourceId === 'open-meteo'
     ? messages.weather.attributionOpenMeteo
     : sourceId === 'openweather'
       ? messages.weather.attributionOpenWeather
       : null;
-  const usesStackedLayout = fontScale > 1.5;
   const significantBarColor = theme.colors.brandAccent;
   const mutedBarColor = withAlpha(theme.colors.brandAccent, RAIN_BAR_MUTED_ALPHA);
 
@@ -75,28 +62,8 @@ export function WeatherCard({
       variant="elevated">
       <View
         accessible
-        accessibilityLabel={accessibilityLabel}
-        style={[styles.primaryRow, usesStackedLayout && styles.stackedPrimaryRow]}>
-        <View
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants">
-          <WeatherGlyph />
-        </View>
-        <View style={styles.conditionGroup}>
-          <View style={styles.conditionRow}>
-            <AppText variant="display">{temperature}</AppText>
-            <AppText variant="label">{condition}</AppText>
-          </View>
-          <AppText colorRole="brandAccent" style={styles.feelsText} variant="caption">
-            {`${apparentTemperature} · ${range}`}
-          </AppText>
-        </View>
-      </View>
-
-      <View
-        accessible
         accessibilityLabel={metricsAccessibilityLabel}
-        style={[styles.statsRow, { borderTopColor: theme.colors.borderSubtle }]}>
+        style={styles.statsRow}>
         {stats.map((stat) => (
           <View key={stat.label} style={styles.stat}>
             <AppText colorRole="textSecondary" variant="eyebrow">
@@ -174,34 +141,10 @@ const styles = StyleSheet.create({
   attribution: {
     alignSelf: 'flex-start',
   },
-  primaryRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  stackedPrimaryRow: {
-    alignItems: 'flex-start',
-    flexDirection: 'column',
-  },
-  conditionGroup: {
-    flex: 1,
-    flexShrink: 1,
-  },
-  conditionRow: {
-    alignItems: 'baseline',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-  },
-  feelsText: {
-    marginTop: spacing.xs,
-  },
   statsRow: {
-    borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.lg,
-    paddingTop: spacing.md,
     rowGap: spacing.md,
   },
   stat: {

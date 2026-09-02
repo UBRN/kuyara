@@ -95,8 +95,10 @@ test('Profile settings entry point is reachable and wardrobe counts render', asy
         },
       ]}>
       <ProfileScreen
+        activePlaceName="Istanbul"
         onOpenSettings={onOpenSettings}
         onOpenWardrobe={() => undefined}
+        onOpenWeather={() => undefined}
       />
     </TestProviders>,
   );
@@ -107,17 +109,66 @@ test('Profile settings entry point is reachable and wardrobe counts render', asy
   expect(onOpenSettings).toHaveBeenCalledTimes(1);
   expect(result.getByTestId('profile-owned-count')).toHaveTextContent('2');
   expect(result.getByTestId('profile-wanted-count')).toHaveTextContent('1');
+  expect(result.getByTestId('profile-category-outerwear-count')).toHaveTextContent('3');
 });
 
 test('Profile renders the localized empty wardrobe state', async () => {
   const result = await render(
     <TestProviders items={[]}>
       <ProfileScreen
+        activePlaceName={null}
         onOpenSettings={() => undefined}
         onOpenWardrobe={() => undefined}
+        onOpenWeather={() => undefined}
       />
     </TestProviders>,
   );
 
   expect(result.getByText(messages.en.profile.wardrobeEmpty)).toBeOnTheScreen();
+});
+
+test('Profile opens the active location and reports working recommendations', async () => {
+  const onOpenWeather = jest.fn();
+  const result = await render(
+    <TestProviders items={[item]}>
+      <ProfileScreen
+        activePlaceName="Istanbul"
+        onOpenSettings={() => undefined}
+        onOpenWardrobe={() => undefined}
+        onOpenWeather={onOpenWeather}
+      />
+    </TestProviders>,
+  );
+
+  expect(
+    result.getByRole('header', { name: messages.en.profile.locationTitle }),
+  ).toBeOnTheScreen();
+  await fireEvent.press(
+    result.getByRole('button', {
+      name: `Istanbul, ${messages.en.weather.approximateLocation}`,
+    }),
+  );
+  expect(onOpenWeather).toHaveBeenCalledTimes(1);
+  expect(result.getByText(messages.en.profile.recommendationsWorking)).toBeOnTheScreen();
+});
+
+test('Profile renders the unset location without an approximate caption', async () => {
+  const result = await render(
+    <TestProviders items={[]}>
+      <ProfileScreen
+        activePlaceName={null}
+        onOpenSettings={() => undefined}
+        onOpenWardrobe={() => undefined}
+        onOpenWeather={() => undefined}
+      />
+    </TestProviders>,
+  );
+
+  expect(
+    result.getByRole('button', { name: messages.en.profile.locationUnset }),
+  ).toBeOnTheScreen();
+  expect(result.queryByText(messages.en.weather.approximateLocation)).not.toBeOnTheScreen();
+  expect(
+    result.getByText(messages.en.profile.recommendationsNeedLocation),
+  ).toBeOnTheScreen();
 });
