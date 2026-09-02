@@ -5,7 +5,7 @@ import { OpenRouterAiProvider } from './openrouter-ai-provider.ts';
 
 const request = {
   clothingPreference: 'womens',
-  catalogVersion: 2,
+  catalogVersion: 3,
   dayVariant: 0,
   requirements: [{
     kind: 'thermal',

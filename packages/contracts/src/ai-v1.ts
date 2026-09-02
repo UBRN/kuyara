@@ -6,6 +6,7 @@ export const healthV1Path = '/v1/health' as const;
 export const aiReadyV1Path = '/v1/ai/ready' as const;
 
 export const garmentTypeIds = [
+  'sleeveless_top',
   't_shirt',
   'long_sleeve_t_shirt',
   'shirt',
@@ -17,6 +18,7 @@ export const garmentTypeIds = [
   'overshirt',
   'trousers',
   'jeans',
+  'leggings',
   'shorts',
   'skirt',
   'dress',

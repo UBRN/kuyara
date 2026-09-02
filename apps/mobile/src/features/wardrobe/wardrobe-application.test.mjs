@@ -83,7 +83,7 @@ test('supported override controls derive from catalog defaults', () => {
     ['waterProtectionOverride'],
   );
   assert.deepEqual(listSupportedWardrobeOverrides(null), []);
-  assert.equal(garmentCatalog.garmentTypes.length, 30);
+  assert.equal(garmentCatalog.garmentTypes.length, 32);
 });
 
 test('edit values preserve overrides until type changes, then reset to new defaults', () => {

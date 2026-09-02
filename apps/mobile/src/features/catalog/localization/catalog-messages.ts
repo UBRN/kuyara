@@ -7,6 +7,7 @@ import {
 export type CatalogMessages = Readonly<Record<CatalogMessageKey, string>>;
 
 const en = {
+  'catalog.garment_type.sleeveless_top.name': 'Sleeveless top',
   'catalog.garment_type.t_shirt.name': 'T-shirt',
   'catalog.garment_type.long_sleeve_t_shirt.name': 'Long-sleeve T-shirt',
   'catalog.garment_type.shirt.name': 'Shirt',
@@ -18,6 +19,7 @@ const en = {
   'catalog.garment_type.overshirt.name': 'Overshirt',
   'catalog.garment_type.trousers.name': 'Trousers',
   'catalog.garment_type.jeans.name': 'Jeans',
+  'catalog.garment_type.leggings.name': 'Leggings',
   'catalog.garment_type.shorts.name': 'Shorts',
   'catalog.garment_type.skirt.name': 'Skirt',
   'catalog.garment_type.dress.name': 'Dress',
@@ -89,6 +91,7 @@ const en = {
 } satisfies CatalogMessages;
 
 const tr = {
+  'catalog.garment_type.sleeveless_top.name': 'Kolsuz üst',
   'catalog.garment_type.t_shirt.name': 'Tişört',
   'catalog.garment_type.long_sleeve_t_shirt.name': 'Uzun kollu tişört',
   'catalog.garment_type.shirt.name': 'Gömlek',
@@ -100,6 +103,7 @@ const tr = {
   'catalog.garment_type.overshirt.name': 'Gömlek ceket',
   'catalog.garment_type.trousers.name': 'Pantolon',
   'catalog.garment_type.jeans.name': 'Kot pantolon',
+  'catalog.garment_type.leggings.name': 'Tayt',
   'catalog.garment_type.shorts.name': 'Şort',
   'catalog.garment_type.skirt.name': 'Etek',
   'catalog.garment_type.dress.name': 'Elbise',
