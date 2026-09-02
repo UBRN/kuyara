@@ -11,7 +11,7 @@ import {
 } from '@/features/catalog/domain/garment-taxonomy';
 import type { ClothingPreference } from '@/domain/preferences';
 
-export const garmentCatalogVersion = 2;
+export const garmentCatalogVersion = 3;
 
 export class GarmentCatalogValidationError extends Error {
   constructor() {
@@ -41,6 +41,21 @@ const bothPreferences = ['womens', 'mens'] as const;
 const womensPreference = ['womens'] as const;
 
 const garmentTypeDefinitions = [
+  defineGarmentType({
+    typeId: 'sleeveless_top',
+    structuralCategory: 'top',
+    bodyRegion: 'upper_body',
+    supportedLayerRoles: ['base', 'standalone'],
+    defaultThermalLevel: 'none',
+    defaultWaterProtection: null,
+    defaultWindProtection: null,
+    defaultBreathability: 'high',
+    defaultArmCoverage: 'none',
+    defaultLegCoverage: null,
+    defaultTractionSuitability: null,
+    apparelPreferenceApplicability: bothPreferences,
+    formality: 'casual',
+  }),
   defineGarmentType({
     typeId: 't_shirt',
     structuralCategory: 'top',
@@ -91,7 +106,7 @@ const garmentTypeDefinitions = [
     structuralCategory: 'top',
     bodyRegion: 'upper_body',
     supportedLayerRoles: ['base', 'standalone'],
-    defaultThermalLevel: 'light',
+    defaultThermalLevel: 'none',
     defaultWaterProtection: null,
     defaultWindProtection: null,
     defaultBreathability: 'moderate',
@@ -207,6 +222,21 @@ const garmentTypeDefinitions = [
     formality: 'casual',
   }),
   defineGarmentType({
+    typeId: 'leggings',
+    structuralCategory: 'bottom',
+    bodyRegion: 'lower_body',
+    supportedLayerRoles: ['standalone'],
+    defaultThermalLevel: 'moderate',
+    defaultWaterProtection: null,
+    defaultWindProtection: null,
+    defaultBreathability: 'moderate',
+    defaultArmCoverage: null,
+    defaultLegCoverage: 'full',
+    defaultTractionSuitability: null,
+    apparelPreferenceApplicability: bothPreferences,
+    formality: 'casual',
+  }),
+  defineGarmentType({
     typeId: 'shorts',
     structuralCategory: 'bottom',
     bodyRegion: 'lower_body',
@@ -286,7 +316,7 @@ const garmentTypeDefinitions = [
     structuralCategory: 'outerwear',
     bodyRegion: 'upper_body',
     supportedLayerRoles: ['outer'],
-    defaultThermalLevel: 'moderate',
+    defaultThermalLevel: 'light',
     defaultWaterProtection: 'water_resistant',
     defaultWindProtection: 'wind_resistant',
     defaultBreathability: 'low',
@@ -301,7 +331,7 @@ const garmentTypeDefinitions = [
     structuralCategory: 'outerwear',
     bodyRegion: 'upper_body',
     supportedLayerRoles: ['outer'],
-    defaultThermalLevel: 'light',
+    defaultThermalLevel: 'none',
     defaultWaterProtection: 'waterproof',
     defaultWindProtection: 'wind_resistant',
     defaultBreathability: 'moderate',
@@ -467,7 +497,7 @@ const garmentTypeDefinitions = [
     bodyRegion: 'hands',
     supportedLayerRoles: [],
     defaultThermalLevel: 'moderate',
-    defaultWaterProtection: 'water_resistant',
+    defaultWaterProtection: 'none',
     defaultWindProtection: null,
     defaultBreathability: 'moderate',
     defaultArmCoverage: null,

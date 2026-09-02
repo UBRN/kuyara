@@ -79,12 +79,12 @@ export const todayActiveLocation = Object.freeze({
 
 export const todayWardrobeItems = Object.freeze([
   Object.freeze({
-    id: 'owned-t-shirt',
+    id: 'owned-jumpsuit',
     localProfileId: 'profile-one',
     name: 'Private rainy-day pair',
-    category: 'top',
+    category: 'one_piece',
     entryState: 'owned',
-    garmentTypeId: 't_shirt',
+    garmentTypeId: 'jumpsuit',
     color: null,
     colorFamily: 'blue',
     thermalLevelOverride: null,

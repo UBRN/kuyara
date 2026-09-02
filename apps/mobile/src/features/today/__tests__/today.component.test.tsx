@@ -265,10 +265,10 @@ describe.each(['en', 'tr'] as const)('%s outfit detail ownership', (language) =>
     ));
 
     expect(
-      result.getByTestId('outfit-detail-ownership-shorts-owned').props.accessibilityState,
+      result.getByTestId('outfit-detail-ownership-weather_boots-owned').props.accessibilityState,
     ).toMatchObject({ selected: false });
     expect(
-      result.getByTestId('outfit-detail-ownership-shorts-wanted').props.accessibilityState,
+      result.getByTestId('outfit-detail-ownership-weather_boots-wanted').props.accessibilityState,
     ).toMatchObject({ selected: false });
     expect(result.getByTestId('outfit-detail-ownership-summary')).toHaveTextContent(
       messages[language].today.ownershipSummary({
@@ -277,14 +277,14 @@ describe.each(['en', 'tr'] as const)('%s outfit detail ownership', (language) =>
       }),
     );
 
-    const ownedSelected = result.getByTestId('outfit-detail-ownership-t_shirt-owned');
-    const wantedUnselected = result.getByTestId('outfit-detail-ownership-t_shirt-wanted');
+    const ownedSelected = result.getByTestId('outfit-detail-ownership-jumpsuit-owned');
+    const wantedUnselected = result.getByTestId('outfit-detail-ownership-jumpsuit-wanted');
     expect(ownedSelected.props.accessibilityState.selected).toBe(true);
     expect(wantedUnselected.props.accessibilityState.selected).toBe(false);
     await fireEvent.press(ownedSelected);
     expect(onSetOwnership).not.toHaveBeenCalled();
     await fireEvent.press(wantedUnselected);
-    expect(onSetOwnership).toHaveBeenCalledWith('t_shirt', 'wanted');
+    expect(onSetOwnership).toHaveBeenCalledWith('jumpsuit', 'wanted');
 
     onSetOwnership.mockClear();
     const ownedUnselected = result.getByTestId('outfit-detail-ownership-rain_jacket-owned');

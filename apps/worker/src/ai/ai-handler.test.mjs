@@ -51,7 +51,7 @@ function onePieceOption(optionId, formality, onePiece, footwear, traits = {}) {
 function validRequestBody() {
   return {
     clothingPreference: 'womens',
-    catalogVersion: 2,
+    catalogVersion: 3,
     dayVariant: 0,
     requirements: [{
       kind: 'thermal',

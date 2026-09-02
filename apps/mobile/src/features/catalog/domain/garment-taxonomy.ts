@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { clothingPreferences } from '@/domain/preferences';
 
 export const garmentTypeIds = Object.freeze([
+  'sleeveless_top',
   't_shirt',
   'long_sleeve_t_shirt',
   'shirt',
@@ -14,6 +15,7 @@ export const garmentTypeIds = Object.freeze([
   'overshirt',
   'trousers',
   'jeans',
+  'leggings',
   'shorts',
   'skirt',
   'dress',
