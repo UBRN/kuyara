@@ -254,6 +254,9 @@ not panic; both are forms of demanding attention, which the identity forbids.
 
 - **Two families, and no third.** `Icon` (system symbols through `expo-symbols`) and
   `GarmentSlotGlyph` (bundled monochrome artwork). A third family requires an ADR.
+- **A single icon family is drawn in one idiom.** A set may not mix a platform symbol
+  source with a bundled one: a set that is three-quarters one idiom and one-quarter the
+  other reads as unfinished, even when the mixed-in glyphs are individually correct.
 - Icon size is bound to the text it sits with, not chosen freely: 16 with `caption`, 20
   with `body`, 24 with `title`, 28 and above only standalone.
 - **Fill carries state.** Outline = available or unselected; filled = selected or
@@ -275,7 +278,55 @@ Durations are already tokenized (`immediate` 0, `fast` 120, `normal` 200, `delib
   possible amount of attention](https://calmtech.com/).
 - Motion is never the only indication of a state change.
 
-## Law 8: the deferral carve-out
+## Law 8: non-visual feedback
+
+Haptics answer the same question motion does: how does the app respond to a touch. The
+rule:
+
+> **The app is confirming something the user cannot see, or a physical threshold was
+> crossed under the user's finger.**
+
+Everywhere else, silence.
+
+| Site | Feedback | Reason |
+| --- | --- | --- |
+| Pull-to-refresh threshold crossed, Today and Weather | impact light | Finger is on the glass, a physical threshold |
+| Refresh outcome, success or failure | notification success / error | The user may not be looking at the screen |
+| Selection change: tab bar, theme, language, clothing preference, wardrobe owned/wanted filter and toggle | selection | State changes under the finger |
+| Destructive confirmation | notification warning | Not reversible |
+| Navigation, including tapping an outfit card to open detail | **none** | Ordinary navigation |
+| Ordinary buttons and chevron rows | **none** | Same |
+
+Roughly six sites, not a hundred. A repeated action must not punish the hand with
+constant vibration, which matches Apple's own guidance and this identity's existing
+avoidance of anything attention-demanding.
+
+Every site above needs explicit code: every interactive surface here is a hand-built
+`Pressable`, `RefreshControl`, or `Alert.alert` composition, not a system control, so
+none of the platform automatic-haptic carve-outs (pickers, switches, sliders) apply.
+
+**Android must not receive the same calls.** `expo-haptics`'s `impactAsync`,
+`notificationAsync`, and `selectionAsync` fall back to Android's raw `Vibrator`, which
+Android's own guidance calls "buzzy" and advises against: given the choice between buzzy
+haptics and no haptics, choose no haptics. The Android path is
+`performAndroidHapticsAsync` with the `AndroidHaptics` constants, which also respects
+the system per-app haptic setting. The wrapper branches by platform; a single call
+routed identically to both platforms is a defect.
+
+**Structure.** Feature code never imports `expo-haptics`, exactly as it never imports a
+brand primitive or a provider SDK. A single wrapper under `components/ui` consumes
+semantic haptic tokens and is the only caller.
+
+**No in-app toggle.** Deferred to the OS setting. iOS silently no-ops when the user has
+disabled haptics, under Low Power Mode, while the Camera is active, and during
+Dictation. An in-app switch would duplicate an OS setting and create a second source of
+truth for the same state. Recorded tension, so this can be revisited on evidence:
+Microsoft's Xbox Accessibility Guideline 110 argues for an in-app toggle and intensity
+control, because haptics can be bothersome, distracting, or even painful for users with
+sensory processing disorders or chronic pain. The OS setting is judged to cover this,
+since a user for whom haptics are aversive will have disabled them system-wide.
+
+## Law 9: the deferral carve-out
 
 `design-system.md:126` requires "a current product use rather than speculative
 completeness" before a new variant or primitive. That rule is **correct for components
@@ -351,6 +402,8 @@ without reading the rest of this document.
   standalone) (Law 6).
 - Confirm no animation loops, pulses, or runs ambiently, and that no state change is
   indicated by motion alone (Law 7).
+- Grep `features/` for `expo-haptics`. Zero matches: only the `components/ui` wrapper
+  imports it (Law 8).
 
 ## Relationship to the mockups
 
@@ -410,4 +463,4 @@ and which durations apply to which interaction. It does not cover:
 - Concrete component variants and primitives (text input, selector, switch, modal
   frameworks, non-scrollable/keyboard screen APIs, platform-colour adapters). These
   stay governed by `design-system.md`'s "current product use, not speculative
-  completeness" rule; the role-shaped carve-out in Law 8 does not reach them.
+  completeness" rule; the role-shaped carve-out in Law 9 does not reach them.

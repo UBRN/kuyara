@@ -76,7 +76,7 @@ The deferral rule at `design-system.md:126` gets a carve-out, quoted exactly:
 | generic text-input / selector / switch / modal frameworks (`:157`) | Stays deferred. These are primitives, not roles; the carve-out does not reach them |
 | non-scrollable / keyboard screen API (`:159`) | Stays deferred. Primitive |
 | platform-colour adapters (`:161`) | Stays deferred. Primitive |
-| Native Tabs migration (`:156`) | Stays deferred. Gated on the SDK, unrelated |
+| Native Tabs migration (`:156`) | Resolved: adopted, separately from this carve-out. See [ADR 0012](0012-adopting-expo-router-native-tabs.md) |
 
 - The carve-out does not empty the deferral list. It moves exactly the
   role-shaped items off it and leaves every primitive-shaped item exactly

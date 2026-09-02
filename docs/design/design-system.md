@@ -100,6 +100,8 @@ Shape roles are `compact` 8, `control` 12, `card` 20, `sheet` 28, and `pill` 999
 
 Interaction opacity is tokenized as `pressedOpacity` 0.72 and `disabledOpacity` 0.48. Presentation code uses these tokens rather than repeating the literal values.
 
+Semantic haptic tokens live beside these existing `interaction` tokens in `theme.ts:138`, per [`design-language.md`](design-language.md#law-8-non-visual-feedback)'s feedback law. A single wrapper under `components/ui` is the only caller of `expo-haptics`; feature code never imports it directly, and `theme.test.mjs`'s existing repository-wide assertion is the enforcement point for that boundary.
+
 `withAlpha(hexColor, alpha)` in `theme/color-alpha.ts` derives a translucent `rgba()` value from an already resolved semantic color. It is the only approved way to build a tinted surface, and it rejects anything other than a six-digit hex input. It never introduces a new hue: the input must be a semantic role read from the theme, never a brand primitive.
 
 Motion durations are `immediate` 0 ms, `fast` 120 ms, `normal` 200 ms, and `deliberate` 320 ms. The theme provider reads `AccessibilityInfo.isReduceMotionEnabled()` and listens for `reduceMotionChanged`. With Reduce Motion enabled, all tokenized durations resolve to 0 and decorative entering animation is omitted. Content visibility and state never depend on animation.
@@ -146,13 +148,13 @@ The canonical primitive entry point is `apps/mobile/src/components/ui/index.ts`.
 - `PhotoPlaceholder` fills a fixed photo area with a striped semantic tint while no image is available. It renders its label only at heights of 96 points and above, because a thumbnail-sized box clips text at accessibility sizes; at smaller sizes it is a silent swatch and the surrounding row supplies the accessible name.
 - `StretchyHeader` is a feature-independent absolute presentation primitive used by loaded Today and the ready Wardrobe list. It consumes a Reanimated shared vertical offset, measures safe-area-inclusive compact clearance, and stretches only its semantic `surface` background upward with a bottom-anchored transform. Pull distance and bottom-corner interpolation clamp at the current top inset; header content is never transformed. Scroll containers, feature state, localized content, navigation, refresh, and item rendering remain owned by each feature.
 
-The checked-in Today feature is the first product composition over the primitives. Its route uses `Screen`, `AppText`, `Surface`, and `SectionHeader`; feature-specific weather and outfit components own their product semantics rather than widening the generic primitive API. The approved three-tab primary bar is a navigation presentation component rather than a generic UI primitive. It uses the same semantic theme, minimum touch target, localized visible labels, a selection indicator, and selected accessibility state. Focused primitive tests preserve coverage for `Button` and `IconButton`.
+The checked-in Today feature is the first product composition over the primitives. Its route uses `Screen`, `AppText`, `Surface`, and `SectionHeader`; feature-specific weather and outfit components own their product semantics rather than widening the generic primitive API. The approved three-tab primary bar is a navigation presentation component rather than a generic UI primitive. It uses the same semantic theme, minimum touch target, localized visible labels, a selection indicator, and selected accessibility state. It is migrating from a hand-built bar to a native tab bar; see [ADR 0012](../adr/0012-adopting-expo-router-native-tabs.md). Focused primitive tests preserve coverage for `Button` and `IconButton`.
 
 Semantic tokens and primitives have different responsibilities. Tokens name visual roles and scales; primitives turn those roles into small accessibility and interaction contracts. Feature code remains responsible for localized content, layout composition, user intent, and domain-specific behavior. It may use raw React Native layout views where no semantic surface or control is intended.
 
 Primitive APIs favor composition, a small variant union, and standard React Native props over arbitrary colors, numeric typography configuration, spacing props, or collections of styling booleans. New variants or primitives require a current product use rather than speculative completeness.
 
-This requirement applies to variants and primitives, not to the design language layer. [ADR 0009](../adr/0009-a-design-language-layer-and-its-deferral-carve-out.md) carves out an explicit exception, with the test that decides which side a thing falls on, quoted from [`design-language.md`](design-language.md#law-8-the-deferral-carve-out):
+This requirement applies to variants and primitives, not to the design language layer. [ADR 0009](../adr/0009-a-design-language-layer-and-its-deferral-carve-out.md) carves out an explicit exception, with the test that decides which side a thing falls on, quoted from [`design-language.md`](design-language.md#law-9-the-deferral-carve-out):
 
 > If the thing is a role, a named slot in the system: a colour role, a typography role, a spacing meaning, an elevation meaning, a border meaning, a motion meaning, it belongs to the design language layer and may be defined ahead of any use.
 >
@@ -186,11 +188,10 @@ M6.1 implemented the icon system approved by [ADR 0008](../adr/0008-expanding-th
 
 Deferred intentionally:
 
-- Any migration from JavaScript Tabs to SDK 57's alpha Native Tabs
 - Generic text-input, selector, switch, modal, or feedback frameworks; the Wardrobe controls remain feature-specific
 - Non-scrollable and keyboard-specific screen behavior until a checked-in flow requires either
 - Platform-color adapters until a concrete native integration needs them
 
 The design language carve-out ([ADR 0009](../adr/0009-a-design-language-layer-and-its-deferral-carve-out.md)) moved the role-shaped items formerly on this list, status tokens and the destructive variant's color, off it; every primitive-shaped item above is untouched.
 
-The three-tab information architecture is final: Today, Weather, and Profile. Wardrobe and wanted records live inside Profile, and Settings opens from the Profile header. The current root uses a stable Expo Router Stack for the onboarding gate and Expo Router JavaScript Tabs for the main application. Native Tabs are not a drop-in implementation detail while the SDK 57 API remains alpha; any later migration must be reviewed explicitly. Android source compatibility is preserved, but Android build, emulator, and visual refinement remain unverified and deferred.
+The three-tab information architecture is final: Today, Weather, and Profile. Wardrobe and wanted records live inside Profile, and Settings opens from the Profile header. The current root uses a stable Expo Router Stack for the onboarding gate. The primary tab bar is migrating from Expo Router JavaScript Tabs to Expo Router Native Tabs; see [ADR 0012](../adr/0012-adopting-expo-router-native-tabs.md) for the accepted alpha risk and why its three documented limitations do not bind kuyara's three static tabs. Android source compatibility is preserved, but Android build, emulator, and visual refinement remain unverified and deferred.
