@@ -13,9 +13,9 @@ with the sun in Turkic mythology.
 
 Pre-release. The app fetches live weather through the Worker, produces up to
 three validated outfit recommendations with a device-local deterministic fallback,
-and includes the mobile notification foundation. Approved next work includes the
-UI and UX revision, catalog-only recommendation and three-tab navigation changes,
-WeatherKit, and local weather alerts. The current MVP has no account, cross-device
+and includes the mobile notification foundation. Apple WeatherKit is live in
+production at the head of the weather provider chain. Approved next work is
+local weather alerts. The current MVP has no account, cross-device
 sync, behavioral analytics, or server-sent push. See
 [`docs/current-status.md`](docs/current-status.md) for the current state.
 
@@ -33,11 +33,11 @@ docs/               Product decisions, architecture, and design
 
 The root `pnpm-lock.yaml` is the only dependency lockfile, and workspace discovery is limited to `apps/*` and `packages/*`. Mobile uses managed Continuous Native Generation, so native `ios/` and `android/` directories are generated only when needed and are not committed. The app config pins iOS 26.0 as the minimum supported version (see [ADR 0011](docs/adr/0011-minimum-ios-26.md)), while the shared Expo project remains Android-compatible.
 
-The Worker serves real weather through an Open-Meteo/OpenWeather chain and AI
-recommendations through ordered Workers AI/OpenRouter adapters. Weather and AI
-routes are rate limited, the active AI probe is available from Settings, and
-preview/production mobile builds use the deployed Worker. The contracts package
-owns the provider-neutral runtime schemas; WeatherKit is not integrated yet.
+The Worker serves real weather through a WeatherKit/Open-Meteo/OpenWeather chain
+and AI recommendations through ordered Workers AI/OpenRouter adapters. Weather
+and AI routes are rate limited, the active AI probe is available from Settings,
+and preview/production mobile builds use the deployed Worker. The contracts
+package owns the provider-neutral runtime schemas.
 
 ## Getting started
 

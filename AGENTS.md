@@ -86,7 +86,7 @@ The repository may be in transition. Inspect the real tree before assuming this 
 ## Weather and recommendation behavior
 
 - Reach every weather provider only through the Worker. The provider chain is a Worker composition concern; mobile depends on the provider-neutral contract.
-- Apple WeatherKit is the intended first provider and is now implementable (membership active since 2026-08-29). Until it is integrated, the real Apple-independent providers serve production.
+- Apple WeatherKit is the integrated primary provider, live in production since 2026-09-03, at the head of the chain ahead of the real Apple-independent providers.
 - Give each upstream provider an isolated adapter with raw-response runtime validation, explicit unit and condition mapping, timeout handling, and sanitized errors before it produces the provider-neutral model.
 - Fall back to the next provider only for eligible failures: availability, timeout, quota or rate limit, authentication or configuration, upstream failure, or invalid response. Never fall back because valid conditions are undesirable or differ between providers.
 - Bound the maximum attempts per request and prevent retry or fallback loops.

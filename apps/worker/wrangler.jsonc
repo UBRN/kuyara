@@ -5,7 +5,7 @@
   "compatibility_date": "2026-07-29",
   "workers_dev": true,
   "preview_urls": false,
-  "observability": { "enabled": false },
+  "observability": { "enabled": true },
   "ai": { "binding": "AI" },
   "kv_namespaces": [
     { "binding": "PROBE_COUNTER", "id": "b07e2d01c9144a148992318a168174eb" }

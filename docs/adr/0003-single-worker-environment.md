@@ -37,6 +37,11 @@ flag.
 move to the top level unchanged, so the deployment behavior those settings
 expressed is preserved.
 
+Those are the values as of this ADR. `observability` was later turned on; see
+[Worker and contract boundaries](../architecture.md#worker-and-contract-boundaries) for
+the current setting and what it captures. This ADR's decision is the single
+environment, not any particular value of these three settings.
+
 The alternative, redeclaring every binding under `env.development`, was rejected.
 It keeps two copies of the binding list that must be edited together forever,
 and the failure mode of forgetting is silent. There is one deployment target and

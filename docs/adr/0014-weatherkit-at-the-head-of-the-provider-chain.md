@@ -2,9 +2,10 @@
 
 Status: Accepted (2026-09-03)
 
-Implementation: adapter, signer, chain wiring and tests are complete. No live
-WeatherKit call has been made; that step is blocked on Apple credentials the
-maintainer must create. See [Operational requirement](#8-operational-requirement-before-weatherkit-is-enabled).
+Implementation: complete and live in production since 2026-09-03. The four
+secrets are set on the deployed Worker and `origin.sourceId` reads `weatherkit`.
+The first live call falsified one of this ADR's stated assumptions; see
+[Outcome](#outcome-2026-09-03).
 
 ## Context
 
@@ -198,9 +199,12 @@ the four secrets. Until then the four-secret gate keeps the chain exactly as it
 is today, and every code path in this ADR is exercised by unit tests against
 recorded responses rather than by a live call.
 
-**Not satisfied as of 2026-09-03.** No live WeatherKit request has been made and
-no claim in this ADR about Apple's runtime behaviour, as opposed to its
-documentation, has been verified against the real service.
+**Satisfied on 2026-09-03.** The Service ID `com.ubrn.kuyara.weatherkit` and a
+WeatherKit-enabled key were created, the four secrets were set, and the Worker
+was redeployed. Apple's runtime behaviour is now partly verified against the
+real service rather than only against its documentation; see
+[Outcome](#outcome-2026-09-03) for what the first live call confirmed and what
+it disproved.
 
 ## Consequences
 
@@ -209,14 +213,54 @@ documentation, has been verified against the real service.
 - Every provider now has 3,000 ms rather than 4,000 ms per attempt.
 - The Weather screen shows Apple attribution whenever Apple served the data, and
   still shows nothing for an unrecognized source.
-- Apple's documentation gaps are carried as risk rather than as assumption: the
-  quota-exhausted status code, whether `conditionCode`'s string values are
-  literally the Swift enum's 34 cases, and the exact `date-time` serialization
-  are all unconfirmed by Apple's own pages. Each failure mode lands on a
-  fallback-eligible error, so the worst case is a demotion to Open-Meteo rather
-  than a broken response.
+- Apple's documentation gaps were carried as risk rather than as assumption.
+  One of the three has since been resolved against the live service and the
+  assumption was wrong: `conditionCode` is PascalCase, not the Swift enum's
+  case names. The quota-exhausted status code and the exact `date-time`
+  serialization remain unconfirmed by Apple's own pages. Each failure mode
+  lands on a fallback-eligible error, so the worst case is a demotion to
+  Open-Meteo rather than a broken response. Carrying these as
+  fallback-eligible errors is what limited the `conditionCode` defect to a
+  silent demotion instead of an outage.
 - `PrecipitationType` and `pressureTrend` are not consumed, so Apple's known
   documentation defect in the `PrecipitationType` term list does not reach us.
+
+## Outcome (2026-09-03)
+
+The secrets were set the same day this ADR was accepted, and the first live
+request exposed a defect that every test in this ADR's scope had missed.
+
+**What was wrong.** Apple's REST API serializes `conditionCode` in PascalCase
+(`MostlyClear`, `PartlyCloudy`). The mapper's 34-entry table was keyed on the
+camelCase Swift `WeatherCondition` case names (`mostlyClear`), which this ADR
+listed above as an unconfirmed assumption. Every lookup missed,
+`mapWeatherKitCondition` threw `invalid_response`, and the chain demoted to
+Open-Meteo on every single request.
+
+**Why it was invisible.** The demotion is exactly the designed behaviour. The
+deployment succeeded, `/v1/weather` returned HTTP 200, the response validated
+against the contract, and the unit suite stayed green because its recorded
+fixtures used the spelling the documentation implied. Nothing in the system
+reported a problem, because by its own definition there was none. The only
+observable difference was `origin.sourceId`.
+
+**The fix.** Commit `a59a000` lowers the first character of `conditionCode`
+during lookup rather than rewriting all 34 keys, so both spellings resolve and
+the table keeps the naming Apple's own enum uses. The existing 34-case test now
+asserts each code in both spellings.
+
+**What the live call confirmed.** Everything else in the adapter was correct
+against real data: the response schema parsed the live body unchanged, the km/h
+to m/s wind conversion, the nearest-hour source for current precipitation
+probability, and the local-day filtering all produced values consistent with
+Open-Meteo's reading of the same coordinates minutes earlier. The ES256 signer,
+the `id` and `sub` JWT claims, and the one-hour token cache work against the
+real service.
+
+**What this changes for future providers.** A provider chain that falls back
+cleanly also hides a broken provider completely. Adding a provider is not
+finished when its tests pass and its deployment succeeds; it is finished when a
+live response is observed carrying that provider's own `origin.sourceId`.
 
 ## Alternatives considered
 

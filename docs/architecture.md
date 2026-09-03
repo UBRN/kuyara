@@ -122,7 +122,7 @@ SQLite weather data source        provider interface
                     shared weather v1 Zod contracts
                                   ↓
                     Worker provider chain
-                  Open-Meteo → OpenWeather
+             WeatherKit → Open-Meteo → OpenWeather
 ```
 
 The controller owns bootstrap, location-selection intent, permission rationale, foreground-only device lookup, fresh/stale evaluation, refresh coalescing, location-switch races, and foreground revalidation. It reads permission state during bootstrap without prompting. The native foreground permission request occurs only after the user selects device location and confirms the localized rationale; permanently denied access offers the platform Settings action. Manual selection remains available without permission.
@@ -189,26 +189,26 @@ The [Apple Developer Program](../AGENTS.md#apple-developer-program) status is ca
 
 The Worker is the server-side boundary for weather and AI provider calls, credential protection, validation, and operational limits. Its mobile API includes weather, AI recommendation, and active-probe routes plus non-AI liveness and configuration-only AI readiness. `POST /v1/weather` accepts only normalized integer hundredth-degree coordinates and an IANA time zone; it does not accept a profile ID, location key, permission state, accuracy label, or raw native location payload.
 
-`packages/contracts` owns the strict Zod request, success, and stable error schemas plus their inferred TypeScript types. The success contract uses the same settled weather condition vocabulary and validates timestamps, measurement ranges, minimum/current/maximum relationships, and ordered same-local-day hourly entries. Its provenance is `sample | live`. Raw provider payloads, credentials, and internal error detail must never cross it. The one controlled addition is `origin.sourceId` (`sample | open-meteo | openweather`), a non-secret attribution identifier the mobile app maps to localized attribution text; see [Weather provider chain](#weather-provider-chain) below.
+`packages/contracts` owns the strict Zod request, success, and stable error schemas plus their inferred TypeScript types. The success contract uses the same settled weather condition vocabulary and validates timestamps, measurement ranges, minimum/current/maximum relationships, and ordered same-local-day hourly entries. Its provenance is `sample | live`. Raw provider payloads, credentials, and internal error detail must never cross it. The one controlled addition is `origin.sourceId` (`sample | weatherkit | open-meteo | openweather`), a non-secret attribution identifier the mobile app maps to localized attribution text; see [Weather provider chain](#weather-provider-chain) below.
 
 The Worker route validates the request before invoking an injected provider. The provider returns a provider-neutral internal snapshot, and an explicit mapper validates and converts that model into the shared success DTO. Provider failures and invalid provider values become the same minimal `weather_unavailable` response; invalid requests, unknown routes, wrong methods, and unexpected failures have their own stable codes without localized messages, provider details, stacks, or configuration data.
 
-The checked-in production composition is the real chain described below; the deterministic local mock with its injected clock and explicit `sample` provenance is now a test double only. The route sets `Cache-Control: no-store`, does not log coordinates or request bodies, and is rate limited (see below). Every real adapter, including the future WeatherKit one, implements the same provider interface and keeps signing, credentials, and raw provider data entirely inside the Worker.
+The checked-in production composition is the real chain described below; the deterministic local mock with its injected clock and explicit `sample` provenance is now a test double only. The route sets `Cache-Control: no-store`, does not log coordinates or request bodies, and is rate limited (see below). Worker observability is enabled, so Cloudflare retains invocation metadata for deployed requests; the Worker source contains no logging call of its own, so nothing the application chooses to write reaches those logs, and coordinates stay in the unlogged request body. Every real adapter, including WeatherKit, implements the same provider interface and keeps signing, credentials, and raw provider data entirely inside the Worker.
 
 ## Approved target composition
 
-The approved [weather provider strategy](product-decisions.md#approved-weather-provider-strategy) and [AI recommendation strategy](product-decisions.md#approved-ai-recommendation-strategy), including their rationale, are canonical in `product-decisions.md`. This section records only where those boundaries and fallbacks live and how they connect. The composition is implemented through Goals 2a, 2b, milestone 3, milestone 4 (the active AI probe and Worker rate limiting), and milestone 5 (the real weather provider chain); only production WeatherKit remains unimplemented.
+The approved [weather provider strategy](product-decisions.md#approved-weather-provider-strategy) and [AI recommendation strategy](product-decisions.md#approved-ai-recommendation-strategy), including their rationale, are canonical in `product-decisions.md`. This section records only where those boundaries and fallbacks live and how they connect. The composition is implemented through Goals 2a, 2b, milestone 3, milestone 4 (the active AI probe and Worker rate limiting), milestone 5 (the real weather provider chain), and milestone 6 (WeatherKit at the head of the chain).
 
 ### Weather provider chain
 
-Implemented 2026-08-29 as milestone 5. Design, the pricing basis, and full rationale are canonical in [ADR 0002](adr/0002-real-weather-provider-chain.md); this section records only where the chain lives and how it connects. The chain lives entirely inside the Worker. Mobile keeps depending on the existing provider-neutral contract and gains no provider knowledge.
+Implemented 2026-08-29 as milestone 5 and extended with WeatherKit on 2026-09-03 as milestone 6. Design, the pricing basis, and full rationale are canonical in [ADR 0002](adr/0002-real-weather-provider-chain.md) and [ADR 0014](adr/0014-weatherkit-at-the-head-of-the-provider-chain.md); this section records only where the chain lives and how it connects. The chain lives entirely inside the Worker. Mobile keeps depending on the existing provider-neutral contract and gains no provider knowledge.
 
 ```text
 Worker weather route
         ↓
-ordered provider chain: Open-Meteo primary → OpenWeather fallback
-        ↓                              ↓
-   per-provider adapter          per-provider adapter
+ordered provider chain: WeatherKit primary → Open-Meteo fallback → OpenWeather fallback
+        ↓                              ↓                              ↓
+   per-provider adapter          per-provider adapter          per-provider adapter
    raw-response validation, unit and condition mapping,
    timeout, provider-specific error classification
         ↓
@@ -217,9 +217,9 @@ existing provider-neutral internal snapshot
 existing explicit API mapper and shared success DTO
 ```
 
-OpenWeather joined the chain on 2026-08-29 after its provider-side cap and Worker credential were configured; the live fallback was then verified. WeatherKit will be inserted at the head of this same chain in milestone 6. The mobile weather domain, its repository, the exact 30-minute freshness boundary, and last-known-good behavior did not change when the chain changed.
+OpenWeather joined the chain on 2026-08-29 after its provider-side cap and Worker credential were configured; the live fallback was then verified. WeatherKit was inserted at the head of this same chain on 2026-09-03 as milestone 6 and is now the primary provider, serving live production traffic. The mobile weather domain, its repository, the exact 30-minute freshness boundary, and last-known-good behavior did not change when the chain changed.
 
-The chain advances only for the eligible failure kinds classified in the Worker's weather provider error module, per the [repository fallback eligibility rule](../AGENTS.md#weather-and-recommendation-behavior), never because valid weather is undesirable or differs between providers. Attempts per request are bounded at 2, with a 4,000 ms per-attempt timeout, so a retry or fallback loop is structurally impossible. `POST /v1/weather` is separately rate limited at 20 requests/60s per IP, and OpenWeather calls carry an additional best-effort daily cap inside the Worker; see ADR 0002 for both and for the honest limits of that cap.
+The chain advances only for the eligible failure kinds classified in the Worker's weather provider error module, per the [repository fallback eligibility rule](../AGENTS.md#weather-and-recommendation-behavior), never because valid weather is undesirable or differs between providers. Attempts per request are bounded at 3, with a 3,000 ms per-attempt timeout, so a retry or fallback loop is structurally impossible. `POST /v1/weather` is separately rate limited at 20 requests/60s per IP, and OpenWeather calls carry an additional best-effort daily cap inside the Worker; see ADR 0002 for both and for the honest limits of that cap.
 
 Attribution (`origin.sourceId`) is the one controlled addition to the shared contract, as described above.
 
@@ -304,4 +304,4 @@ Rate limiting also covers `POST /v1/ai/recommend` (per-IP, 10/60s). Both endpoin
 3. The Worker validates input, calls privileged providers, validates their output, and returns a versioned response defined in the contracts package.
 4. The mobile client validates the response before mapping it into domain state and preserves the last known good snapshot if refresh fails.
 
-This flow operates end to end for live weather and AI recommendations. The Worker composes Open-Meteo/OpenWeather for weather and Workers AI/OpenRouter for recommendations; mobile validates and persists both response types, preserves the last valid weather snapshot, and uses the device-local deterministic outfit generator when AI is unavailable. The active AI probe and endpoint rate limits are deployed. Authentication, remote synchronization, and WeatherKit remain unimplemented.
+This flow operates end to end for live weather and AI recommendations. The Worker composes WeatherKit/Open-Meteo/OpenWeather for weather and Workers AI/OpenRouter for recommendations; mobile validates and persists both response types, preserves the last valid weather snapshot, and uses the device-local deterministic outfit generator when AI is unavailable. The active AI probe and endpoint rate limits are deployed. Authentication and remote synchronization remain unimplemented.
