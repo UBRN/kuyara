@@ -10,7 +10,7 @@ The mobile app uses Expo Router and managed Continuous Native Generation, so nat
 
 As product features are added, mobile code is organized feature-first while preserving presentation, domain/application, and data boundaries. React components render state and emit user intent; use cases coordinate behavior; repositories isolate SQLite and external data. Domain models, local records, and API DTOs remain distinct and use explicit mappers.
 
-Expo SQLite owns the implemented local profile, its preferences, and profile-owned wardrobe items. Hooks or narrow contexts own transient UI state.
+Expo SQLite owns the implemented local profile, its preferences, and profile-owned wardrobe items. Hooks or narrow contexts own transient UI state. SQLite is the device-side working database rather than the product's permanent authority: once accounts land, Supabase Postgres becomes authoritative for account-backed data and SQLite keeps its read-and-write-first role. See [Intended future boundaries](#intended-future-boundaries).
 
 Wardrobe data remains durable local state, but [ADR 0005](adr/0005-catalog-only-recommendation-candidates.md) removes it from recommendation inputs. Recommendations assemble catalog candidates independently from Wardrobe loading or ownership state.
 
@@ -303,6 +303,46 @@ The probe handler (`apps/worker/src/ai/probe-handler.ts`) is assembled by inject
 
 Rate limiting also covers `POST /v1/ai/recommend` (per-IP, 10/60s). Both endpoints use native Cloudflare rate-limit bindings; the probe additionally uses a `PROBE_COUNTER` KV namespace. The deployed single environment keeps `kv_namespaces`, `ratelimits`, `vars`, and `ai` at the top level of `wrangler.jsonc`; see [ADR 0003](adr/0003-single-worker-environment.md). When a binding is absent the handlers degrade to permissive, so local development and unit tests remain usable.
 
+## Intended future boundaries
+
+Nothing in this section is implemented. It records where two approved directions will attach so that current work does not foreclose them, and so that no agent builds them early. Both are explicitly forbidden to implement without an approved task: see [ADR 0022](adr/0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md) and [ADR 0023](adr/0023-behavioural-product-analytics-with-posthog.md).
+
+### Supabase, when accounts arrive
+
+Supabase Auth, PostgreSQL, and Storage are the intended long-term backend. They attach beside the existing stack rather than replacing any of it: the Cloudflare Worker keeps its role as the boundary for WeatherKit, AI, and provider secrets, and Expo SQLite keeps its role as the store the application reads and writes first.
+
+The attachment point already exists. The repository interface is the seam, and a remote data source would sit alongside the SQLite local data source under it:
+
+```text
+application controller
+        ↓
+repository interface                      ← the seam
+        ↓                    ↘
+SQLite local data source      future Supabase remote data source
+        ↓                              ↓
+persistence record             future remote record
+        ↘                      ↙
+          explicit mappers → domain model
+```
+
+What the current code owes that future, and must keep: client-generated UUIDs, `localProfileId` on profile-owned rows, ordered migrations, `createdAt`/`updatedAt`/`deletedAt`, and four separate model families (domain, SQLite record, API DTO, future remote record) joined only by explicit mappers. What it must not add: a remote data source with no caller, an outbox, a sync engine, conflict resolution, or a server revision system.
+
+Promoting existing device rows into an authenticated remote profile is real migration work and needs its own ADR when it is scheduled.
+
+### The analytics boundary
+
+Product analytics attaches through a project-owned boundary, on the same principle that keeps `expo-sqlite` and provider SDKs out of features:
+
+```text
+features / application
+        ↓
+ProductAnalytics boundary        ← event taxonomy and the privacy filter live here
+        ↓
+PostHog adapter
+```
+
+Feature code emits named domain events; the boundary owns the taxonomy, enforces the payload exclusion list, and is the single place a provider swap would touch. It is an outbound path with its own closed exclusion list, parallel to and independent of the [AI input privacy boundary](product-decisions.md#approved-ai-input-privacy-boundary) and the Worker logging rules, and it weakens neither.
+
 ## Current end-to-end data flow
 
 1. Mobile presentation sends user intent to application services.
@@ -310,4 +350,4 @@ Rate limiting also covers `POST /v1/ai/recommend` (per-IP, 10/60s). Both endpoin
 3. The Worker validates input, calls privileged providers, validates their output, and returns a versioned response defined in the contracts package.
 4. The mobile client validates the response before mapping it into domain state and preserves the last known good snapshot if refresh fails.
 
-This flow operates end to end for live weather and AI recommendations. The Worker composes WeatherKit/Open-Meteo/OpenWeather for weather and Workers AI/OpenRouter for recommendations; mobile validates and persists both response types, preserves the last valid weather snapshot, and uses the device-local deterministic outfit generator when AI is unavailable. The active AI probe and endpoint rate limits are deployed. Authentication and remote synchronization remain unimplemented.
+This flow operates end to end for live weather and AI recommendations. The Worker composes WeatherKit/Open-Meteo/OpenWeather for weather and Workers AI/OpenRouter for recommendations; mobile validates and persists both response types, preserves the last valid weather snapshot, and uses the device-local deterministic outfit generator when AI is unavailable. The active AI probe and endpoint rate limits are deployed. Authentication, remote synchronization, and analytics remain unimplemented; their intended shape is in [Intended future boundaries](#intended-future-boundaries).

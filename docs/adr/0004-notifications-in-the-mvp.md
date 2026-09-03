@@ -4,6 +4,14 @@ Status: Accepted (2026-08-29)
 
 Implementation: N1 completed on 2026-08-29; N2 remains next; N3 remains deferred.
 
+Note (2026-09-04): two rules this ADR quotes have since changed, and neither changes its
+decision. "No behavioral analytics" was revoked by
+[ADR 0023](0023-behavioural-product-analytics-with-posthog.md), and the local-first framing
+cited below was amended by
+[ADR 0022](0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md). The
+argument against server push rests on there being no account and no server-owned per-user
+store today, which is still true; N3 remains deferred and still needs its own ADR.
+
 ## Context
 
 The confirmed MVP decisions excluded notifications entirely ("The MVP has no

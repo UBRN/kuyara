@@ -2,12 +2,13 @@
 
 ## Confirmed MVP decisions
 
-- kuyara is an open-source weather and outfit recommendation app for iOS and Android.
+- kuyara is a publicly developed, source-available weather and outfit recommendation app for iOS and Android. It is licensed under the PolyForm Noncommercial License 1.0.0 and is deliberately not described as open source; see [Approved licensing posture](#approved-licensing-posture) and [ADR 0024](adr/0024-relicensing-to-polyform-noncommercial.md).
 - The first release is optimized for iOS while shared code remains Android-compatible.
 - Turkish and English are supported from the beginning. The device language and system theme are the defaults, with language and theme overrides available in Settings.
-- The MVP has no account, cross-device sync, or behavioral analytics. Notifications are limited to on-device local weather alerts with no server-sent push; see [Approved notifications scope](#approved-notifications-scope) and [ADR 0004](adr/0004-notifications-in-the-mvp.md).
+- The first release has no account and no cross-device sync. Notifications are limited to on-device local weather alerts with no server-sent push; see [Approved notifications scope](#approved-notifications-scope) and [ADR 0004](adr/0004-notifications-in-the-mvp.md).
+- Revoked 2026-09-04: "the MVP has no behavioral analytics". Behavioural product analytics is now part of the production direction, with PostHog as the provider and the first public release as its deadline. Nothing is implemented. See [Approved analytics direction](#approved-analytics-direction) and [ADR 0023](adr/0023-behavioural-product-analytics-with-posthog.md).
 - kuyara is free and ad-free, with no subscription and no in-app purchase. Paid provider usage is maintainer-funded and bounded.
-- Expo SQLite is the durable source of truth for user-created local data. Remote sync may complement, but must not replace, the local store in a future release.
+- Expo SQLite is the durable device-side database for user-created data and the store the app reads and writes first. Amended 2026-09-04: kuyara is not fundamentally a local-first product, the accountless first release is a scope decision, and Supabase Auth, PostgreSQL and Storage are the intended long-term backend. See [Approved backend and account direction](#approved-backend-and-account-direction) and [ADR 0022](adr/0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md).
 - Weather providers are accessed only through the Worker behind a provider-neutral contract. Weather constraints are deterministic; AI selects three of at most 24 deterministically precomposed catalog outfits filtered by clothing preference and must have a device-local catalog-only deterministic fallback.
 - The Wardrobe is a personal record of garments marked `owned` or `wanted`, not a recommendation input. Wardrobe photos are optional, remain on-device in the MVP, and are not sent to AI.
 - Decided and pending (ADR 0015, 2026-09-03): the profile field becomes `gender`, valued `woman` or `man`, required, with woman listed before man. The catalog keeps `womens`/`mens` as its own applicability vocabulary, unchanged and still not a sex field; a single explicit mapping converts gender to it. The profile also gains an optional `birthYear`, stored on-device and never transmitted; only a derived age band crosses the network. See [ADR 0015](adr/0015-gender-and-age-band-in-the-profile.md).
@@ -169,7 +170,7 @@ Approved 2026-08-13. Implemented 2026-08-29 as milestone 5, and extended with We
 - The exact 30-minute freshness behavior and last-known-good semantics already implemented on mobile did not change.
 - Open-Meteo, OpenWeather and Apple WeatherKit attribution requirements are all supported. Apple's requirement to display the Apple Weather trademark and a legal link to its other data sources is met by adding `weatherkit` to the `origin.sourceId` union and one localized attribution row on the Weather screen; the weather domain model, freshness rules and schema are unchanged. The earlier "provider names never cross the API" rule is narrowed only as much as a controlled, non-secret attribution identifier or attribution metadata requires; raw provider data and internal errors remain private.
 - OpenWeather usage is bounded by provider-side limits plus Kuyara-side protection. Exact limits were recalculated from official current pricing on 2026-08-29; see [ADR 0002's pricing and limits basis](adr/0002-real-weather-provider-chain.md#pricing-and-limits-basis-recalculated-2026-08-29-do-not-freeze) rather than restating the numbers here.
-- Open-Meteo's free tier is non-commercial use only. Kuyara's free, ad-free, no-subscription, no-in-app-purchase, open-source nature is recorded as a deliberate reading that fits the terms' non-commercial examples, not a certification; re-check if the product ever monetizes.
+- Open-Meteo's free tier is non-commercial use only. Kuyara's free, ad-free, no-subscription, no-in-app-purchase, noncommercially licensed nature is recorded as a deliberate reading that fits the terms' non-commercial examples, not a certification; re-check if the product ever monetizes. The 2026-09-04 move from MIT to PolyForm Noncommercial does not disturb that reading and, if anything, supports it.
 - OpenWeather was enabled only after its provider-side daily call limit was lowered to remove billable overage; ADR 0002 records the dated basis.
 - WeatherKit's 500,000 monthly calls are included with the Apple Developer Program membership and Apple has no automatic overage; more quota requires an explicit human subscription. A Kuyara-side daily cap derived from that allowance still applies. Limits were recalculated on 2026-09-03; see [ADR 0014's pricing and limits basis](adr/0014-weatherkit-at-the-head-of-the-provider-chain.md#pricing-and-limits-basis-recalculated-2026-09-03-do-not-freeze) rather than restating the numbers here.
 
@@ -327,9 +328,64 @@ Approved 2026-07-29.
 - The canonical approved brand and visual constraints are recorded in [`docs/design/visual-identity.md`](design/visual-identity.md). That document is the source of truth for UI, UX, themes, icons, illustrations, motion, splash screens, and other branding work.
 - The approved app symbol is Balanced Horizon — V2: Unified Gap System. Its repository master is `apps/mobile/assets/brand/kuyara-symbol-master.svg`, and its locked geometry must not be silently altered.
 
+## Approved backend and account direction
+
+Approved 2026-09-04. Canonical in [ADR 0022](adr/0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md). Nothing here is implemented, and this section authorizes no Supabase dependency, table, client, or sync code.
+
+- kuyara is not fundamentally a local-first product. The first production release ships without accounts and cross-device synchronization because that keeps the first shippable scope manageable, not because device-only storage is the intended end state. "Local-first" may describe the MVP's implementation behaviour; it may not describe the product.
+- The MVP is unchanged by this: Expo SQLite is the durable device-side database, no account is required, no sync engine exists, all user data the current product needs may live on the device, and the Cloudflare Worker stays the boundary for WeatherKit, AI, and provider secrets.
+- The long-term backend is Supabase: **Auth** for accounts, **PostgreSQL** for durable account-backed data, and **Storage** for synchronized files, with Closet photos the first candidate.
+- Once accounts land, Supabase Postgres is authoritative for account-backed data and Expo SQLite is the device-side working store the app reads and writes first, then reconciles. SQLite is not removed and is not reduced to a throwaway cache.
+- Firebase is not the planned production backend. Any Firebase evaluation stays an isolated prototype, never a second production backend beside Supabase, and the two are never used simultaneously in production.
+- Current persistence must stay migration-friendly without implementing sync: client UUIDs, `localProfileId`, ordered migrations, `createdAt`/`updatedAt`/`deletedAt`, separated domain, record, DTO and future remote models with explicit mappers, repository interfaces, and UI that imports neither `expo-sqlite` nor a future Supabase SDK.
+- Still forbidden without a further approved decision: sync engine, outbox, conflict resolution, server revision system, Supabase tables or Auth or Storage, remote repository implementations, and placeholder sync abstractions with no caller.
+- Accounts must earn themselves. Basic weather and general outfit recommendations should stay usable without one; richer personalization is the natural account-backed tier; the Closet is the strongest candidate for an account-required feature, because backup, cross-device persistence and synchronized photos are what a user loses today when they change phones. No account gating is implemented or scheduled.
+
+## Approved analytics direction
+
+Approved 2026-09-04, revoking the earlier "no behavioral analytics in the MVP" rule. Canonical in [ADR 0023](adr/0023-behavioural-product-analytics-with-posthog.md). Nothing is implemented: no SDK, no event, no consent surface.
+
+- Behavioural product analytics is part of the production direction, sequenced **before the first public App Store release** so the behaviour of the first real users is measurable.
+- **PostHog** is the product analytics provider.
+- The objective is maximum useful behavioural coverage, not maximum event volume: enough structured events and coarse properties to reconstruct activation, funnels, feature adoption, retention, abandonment and friction, and before-and-after comparison. High-frequency signals are aggregated, sampled, or omitted.
+- Analytics sits behind a project-owned `ProductAnalytics` boundary with one PostHog adapter behind it, not SDK calls scattered through screens.
+- Intended coverage: app lifecycle and sessions, onboarding progress and abandonment, screen and navigation usage, weather interactions, recommendation impressions and interactions, outfit selection, refresh and retry, Closet adoption and CRUD, Settings usage, failure and recovery, feature adoption, and account conversion once accounts exist.
+- Never in an analytics or error payload: exact coordinates, Closet photos or image content, free-form user text, full AI prompts or model responses, raw provider responses, secrets, complete SQLite rows, credentials, or a persistent device fingerprint. `localProfileId` is not an analytics identifier; an anonymous analytics identity, if needed, is designed for analytics specifically.
+- Allowed coarse properties where they answer a question: weather condition category, recommendation generation mode, selected outfit position, cache or fallback state, feature entry point, success or failure category, screen name, feature usage state.
+- The event and property schema is reviewed as its own artifact before the integration is written.
+- Automated crash and error tracking is planned, with **PostHog Error Tracking** the preferred first candidate so failures and the behaviour preceding them live in one system. Source maps and release correlation are decided at implementation time.
+- **Session replay is an evaluation item, not an approval.** Privacy masking is designed first, personal surfaces are never captured unmasked, sampling bounds volume and cost, and consent implications and free-tier impact are established before it could be enabled. Unrestricted capture is not approved.
+- **Grafana is operational observability, not product analytics.** PostHog answers product-behaviour questions; a Grafana Cloud or OpenTelemetry-compatible stack would answer Worker latency, error rates, provider failures, fallback behaviour, and quota health. It may be evaluated later, preferring a free tier with spending controls. Nothing is added now.
+- A user-submitted "Report a problem" flow is a separate future feature with no chosen implementation.
+- The existing cost posture applies: free tiers, explicit quotas, hard spending limits, no pay-as-you-go surprise, and an event budget. Current prices and quotas are not recorded here; reverify them from official sources at implementation time.
+
+## Approved privacy and consent posture for analytics
+
+Approved 2026-09-04. The preference below is the product's intent; it does not settle the legal or platform question, which is [an open item](#unresolved-privacy-and-compliance-questions).
+
+- **App Tracking Transparency is not expected to apply.** ATT governs linking user or device data with data from other companies' apps and sites for advertising or measurement, or sharing it with data brokers. kuyara's direction includes no advertising, no IDFA, no cross-app or cross-site tracking, and no data-broker sharing, so first-party product analytics alone does not trigger it. No ATT prompt is added.
+- **ATT and general privacy consent are different subjects.** App Privacy disclosure, the App Store Connect data-collection questionnaire, a privacy policy, consent, retention, deletion, and consent revocation are separate obligations with their own current rules.
+- Product preference: no permanent "Share analytics" toggle purely as a product preference, and no long Terms & Conditions flow unless genuinely required. Analytics serves product improvement, reliability, and the maintainer's own learning; data is not sold, not used for advertising, and not intentionally shared with data brokers or unrelated third parties.
+- A short, understandable privacy disclosure is preferred to a legalistic agreement flow, if that satisfies the verified requirement.
+
+### Unresolved privacy and compliance questions
+
+- Whether current Apple and applicable privacy requirements oblige a consent, revocation, or deletion mechanism for first-party product analytics, and what form it must take. If they do, the requirement wins over the product preference above. This must be verified against current official Apple documentation before the analytics implementation and again before App Store submission. No consent UX is designed.
+- Whether an anonymous analytics identity is needed at all, and what Apple's current rules require of one.
+
+## Approved licensing posture
+
+Approved 2026-09-04. Canonical in [ADR 0024](adr/0024-relicensing-to-polyform-noncommercial.md); the terms themselves are in [`LICENSE`](../LICENSE) and the summary in [`LICENSING.md`](../LICENSING.md).
+
+- The project licence for current and future work is the **PolyForm Noncommercial License 1.0.0**, applied as the exact unmodified official text from the PolyForm Project.
+- kuyara is described as **source-available**, never as open source. The OSI definition forbids restricting fields of endeavour, and kuyara reserves commercial use.
+- Noncommercial use, modification, and redistribution are granted by the licence. Commercial use requires separate written permission or a commercial licence from the copyright holder.
+- **The MIT history is not revoked.** Versions distributed under MIT from 2026-07-25 until 2026-09-04 remain under MIT, and the rights already granted for those versions stand, commercial use included. A licence change is forward-looking.
+- Relicensing was possible because ownership is unambiguous: every commit is the maintainer's, under two identities for the same person, with no `Co-authored-by` trailers and no outside pull request.
+- A contributor licence agreement, commercial licence terms, dual licensing, and trademark policy are all out of scope and undecided.
+
 ## Future possibilities, not MVP commitments
 
-- A remote sync adapter may later be implemented with either Supabase or Firebase, but not both in production.
-- Accounts, cross-device sync, an outbox, and conflict resolution require separate product and architecture decisions.
+- Accounts, cross-device sync, an outbox, and conflict resolution require separate product and architecture decisions. Their intended shape is recorded in [Approved backend and account direction](#approved-backend-and-account-direction).
 - Owned garments may later softly influence recommendations only as a tie-breaker between equally suitable catalog candidates, never as a filter.
 - Server-sent push notifications (N3 in [Approved notifications scope](#approved-notifications-scope)) are deferred and would need their own ADR; the MVP ships on-device local weather alerts only.
