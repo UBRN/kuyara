@@ -25,7 +25,7 @@ export const weatherV1ErrorCodes = [
   'rate_limited',
 ] as const;
 
-export const weatherSourceIds = ['sample', 'open-meteo', 'openweather'] as const;
+export const weatherSourceIds = ['sample', 'open-meteo', 'openweather', 'weatherkit'] as const;
 
 const utcTimestampSchema = z.string().datetime({ offset: false });
 

@@ -31,6 +31,7 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 const weatherAttributionUrls: Readonly<Record<string, string>> = {
   'open-meteo': 'https://open-meteo.com/',
   openweather: 'https://openweathermap.org/',
+  weatherkit: 'https://developer.apple.com/weatherkit/data-source-attribution/',
 };
 
 const PRECIPITATION_BAR_HEIGHT = 32;
@@ -177,11 +178,12 @@ export function WeatherScreen() {
     accuracy,
     copy.changeLocationAction,
   );
-  const attributionLabel = snapshot?.origin.sourceId === 'open-meteo'
-    ? copy.attributionOpenMeteo
-    : snapshot?.origin.sourceId === 'openweather'
-      ? copy.attributionOpenWeather
-      : null;
+  const attributionLabels: Readonly<Record<string, string>> = {
+    'open-meteo': copy.attributionOpenMeteo,
+    openweather: copy.attributionOpenWeather,
+    weatherkit: copy.attributionAppleWeather,
+  };
+  const attributionLabel = attributionLabels[snapshot?.origin.sourceId ?? ''] ?? null;
   const usesAccessibilityLayout = fontScale > 1.5;
 
   return (

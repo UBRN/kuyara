@@ -233,6 +233,7 @@ export type AppMessages = Readonly<{
     rateLimitedNotice: string;
     attributionOpenMeteo: string;
     attributionOpenWeather: string;
+    attributionAppleWeather: string;
     fresh: string;
     stale: string;
     updatedAt: (time: string) => string;
@@ -511,6 +512,7 @@ const en = {
     rateLimitedNotice: 'Weather updates are paused for a moment. The last matching weather remains visible.',
     attributionOpenMeteo: 'Weather data by Open-Meteo.com',
     attributionOpenWeather: 'Weather data by OpenWeather',
+    attributionAppleWeather: 'Weather data by Apple Weather',
     fresh: 'Fresh',
     stale: 'May be out of date',
     updatedAt: (time) => `Last updated ${time}`,
@@ -896,6 +898,7 @@ const tr = {
     rateLimitedNotice: 'Hava durumu güncellemeleri kısa süreliğine durduruldu. Son eşleşen hava durumu gösterilmeye devam ediyor.',
     attributionOpenMeteo: 'Hava durumu verisi: Open-Meteo.com',
     attributionOpenWeather: 'Hava durumu verisi: OpenWeather',
+    attributionAppleWeather: 'Hava durumu verisi: Apple Weather',
     fresh: 'Güncel',
     stale: 'Güncelliğini yitirmiş olabilir',
     updatedAt: (time) => `Son güncelleme ${time}`,

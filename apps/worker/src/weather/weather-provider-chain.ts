@@ -4,8 +4,11 @@ import {
   WeatherProviderError,
 } from './weather-provider-error.ts';
 
-export const weatherMaxAttempts = 2;
-export const weatherAttemptTimeoutMs = 4000;
+// Three providers, and the mobile client aborts the whole request at 10s
+// (requestTimeoutMilliseconds in worker-weather-provider.ts), so 3 x 3000 leaves
+// 1000ms of Worker overhead. See ADR 0014.
+export const weatherMaxAttempts = 3;
+export const weatherAttemptTimeoutMs = 3000;
 
 export function createWeatherProviderChain(dependencies: Readonly<{
   providers: readonly WeatherProvider[];
