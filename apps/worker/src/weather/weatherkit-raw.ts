@@ -93,7 +93,11 @@ const conditions = new Map<string, WeatherConditionCode>([
 ]);
 
 export function mapWeatherKitCondition(conditionCode: string): WeatherConditionCode {
-  const condition = conditions.get(conditionCode);
+  // The REST API returns PascalCase ("MostlyClear") while the Swift WeatherCondition cases
+  // this map is keyed by are camelCase; lowering the first character accepts both spellings.
+  const condition = conditions.get(
+    conditionCode.charAt(0).toLowerCase() + conditionCode.slice(1),
+  );
   if (condition === undefined) throw new WeatherProviderError('invalid_response');
   return condition;
 }
