@@ -27,7 +27,8 @@ Approved 2026-08-30. Rationale and consequences are canonical in [ADR 0006](adr/
 - The final main tabs are Today at `/`, Weather at `/weather`, and Profile at `/profile`; Expo Router route groups do not appear in user-visible URLs.
 - The root Stack retains the device-local onboarding gate and keeps `/onboarding` outside the tab navigator. An incomplete profile cannot enter the tab group, while a completed profile opens Today by default.
 - The primary tab bar is adopting Expo Router Native Tabs in place of Expo Router's stable JavaScript Tabs. This accepts the documented alpha risk of the SDK 57 API; kuyara's three static, non-nested tabs do not hit any of its three documented limitations. See [ADR 0012](adr/0012-adopting-expo-router-native-tabs.md).
-- Each main tab owns a nested Stack boundary. Wardrobe and wanted records live inside Profile rather than owning a tab or being pushed from Today.
+- Each main tab owns a nested Stack boundary. The Closet and wanted records live inside Profile rather than owning a tab or being pushed from Today. The three tabs are Today / Weather / Profile in English and Bugün / Hava / Profil in Turkish.
+- The English user-facing label for the garment collection is **Closet**; the Turkish is **Gardırop**. "Wardrobe" is not used in new English product copy. Settled 2026-09-03 and not yet implemented: the shipped strings in `messages.ts` still say "Wardrobe", so this is pending work rather than current behavior. See the amendment note in [ADR 0006](adr/0006-three-tab-information-architecture.md). Confirmed 2026-09-04 as **visible copy only**: the internal domain name, tables, route segment, types, file names and test ids stay `wardrobe`, and renaming them for terminology alone is out of scope rather than merely deferred.
 - Weather provides foreground location selection and Worker-backed persisted live weather at `/weather`. Settings opens from an icon in the Profile header and is not a tab.
 - Clothing preference remains prominent and required in onboarding because it is the only user input that shapes recommendations. Its control is the last Settings section and is deliberately not prominent there. Decided and pending (ADR 0015, 2026-09-03): the prominent, required field becomes gender rather than clothing preference; the prominence rule itself is unchanged. See [ADR 0015](adr/0015-gender-and-age-band-in-the-profile.md).
 
@@ -304,6 +305,20 @@ rejected alternatives are canonical in
 
 - Provider usage remains within a small maintainer-funded budget with automatic top-up disabled and hard or safely derived limits.
 - Current pricing, quotas, licences, model availability, and terms must be reverified before provider changes. ADR 0001 and ADR 0002 record the dated basis for the current limits.
+
+## Approved visual direction, Direction E
+
+Approved 2026-09-03. Canonical in [ADR 0021](adr/0021-direction-e-a-visual-first-design-language.md).
+
+- kuyara is styling-first with weather as a meaningful input, roughly a 70 / 30 balance of attention. The application should feel like a styling product before it feels like a weather product.
+- Today is visual-first. The user sees the outfit, understands the look, reads one short rationale, and opens details only if they want them. Today does not list the garment names.
+- Simple garment illustration is permitted and is the visual subject. The earlier prohibition on literal clothing illustration is withdrawn; the prohibition on literal weather illustration stands.
+- The weather tints the surface the garment composition sits on rather than occupying a separate full-width band.
+- Weather leads with insight rather than measurement, and its hourly forecast is a horizontal scrollable rail.
+- AI provenance sits beside the recommendation it describes, never as footer metadata, and never in green. A deterministic recommendation gets no badge.
+- Durable qualities: high contrast, restrained chrome, intentional negative space, visual content before explanatory text, few user-visible labels on overview surfaces, selective rather than pervasive accent colour, and typography that supports the imagery rather than carrying the identity alone.
+- Direction E applies to every surface, not only Today. Settled 2026-09-04: Profile, the Closet and Settings adopt it rather than preserving the M6.1 white-card-over-ground step, the light page ground is Soft Mist app-wide, and the recorded `surface` over `background` 1.2:1 assertion is superseded when the tokens land. Text and non-text contrast floors are unchanged.
+- The direction was produced by a throwaway HTML spike. It proves visual direction, not native correctness; the validation list is in ADR 0021.
 
 ## Approved visual identity
 

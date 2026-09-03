@@ -30,6 +30,15 @@ The main application has three primary tabs:
 Wardrobe and the wanted list live inside Profile. Settings opens from an icon in
 the Profile header and is not a tab.
 
+Amended 2026-09-03: the English user-facing label for that destination is **Closet**, not
+Wardrobe. Turkish is unchanged at **Gardırop**. The structure this ADR decided is
+untouched; only the word changes. The internal domain name, the SQLite tables, the route
+segment and the repository types remain `wardrobe` until a separate rename, so the label
+change is a localization and documentation change rather than a refactor.
+
+Implementation of that label change: not started. The English strings in
+`apps/mobile/src/localization/messages.ts` still read "Wardrobe".
+
 Clothing preference is the only user input that shapes recommendations. It
 remains a prominent, required onboarding step. In Settings it is the last
 section and is deliberately not prominent.

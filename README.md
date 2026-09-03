@@ -3,7 +3,7 @@
 An open-source weather and outfit recommendation app for iOS and Android.
 
 kuyara reads the local weather and suggests what to wear from its bundled garment
-catalog. The Wardrobe is a personal record of garments you own or want; it does
+catalog. The Closet is a personal record of garments you own or want; it does
 not shape recommendations. Deterministic, testable rules bound what AI may compose.
 
 The name comes from *Koyash* (also written *Kuyash*), one of the names associated
@@ -14,9 +14,10 @@ with the sun in Turkic mythology.
 Pre-release. The app fetches live weather through the Worker, produces up to
 three validated outfit recommendations with a device-local deterministic fallback,
 and includes the mobile notification foundation. Apple WeatherKit is live in
-production at the head of the weather provider chain. Approved next work is
-local weather alerts. The current MVP has no account, cross-device
-sync, behavioral analytics, or server-sent push. See
+production at the head of the weather provider chain. The active work is an
+interface redesign whose visual direction is settled (Direction E, [ADR 0021](docs/adr/0021-direction-e-a-visual-first-design-language.md));
+local weather alerts are approved and unblocked but not started. The current MVP
+has no account, cross-device sync, behavioral analytics, or server-sent push. See
 [`docs/current-status.md`](docs/current-status.md) for the current state.
 
 ## Stack
@@ -60,6 +61,7 @@ Development, focused test, Worker, Expo, and Simulator commands are in [`docs/te
 - [`docs/architecture.md`](docs/architecture.md) — boundaries and data flow
 - [`docs/clothing-taxonomy.md`](docs/clothing-taxonomy.md) — garment catalog contract
 - [`docs/design/visual-identity.md`](docs/design/visual-identity.md) — brand and visual rules
+- [`docs/design/design-language.md`](docs/design/design-language.md) — the laws between intent and tokens
 - [`docs/design/design-system.md`](docs/design/design-system.md) — tokens and components
 - [`docs/testing.md`](docs/testing.md) — test conventions and how to run them
 - [`AGENTS.md`](AGENTS.md) — repository rules for contributors and coding agents

@@ -63,7 +63,9 @@ The central visual idea is **layers and harmony**. It connects:
 - Personal preferences meeting environmental conditions
 - Several inputs becoming one simple recommendation
 
-Visual work should communicate this idea through calm structure, relationships, and rhythm rather than literal weather or clothing illustrations.
+Visual work should communicate this idea through calm structure, relationships, and rhythm rather than literal weather illustration.
+
+The clothing half of that restriction was withdrawn by [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md). Simple garment illustration is now part of the language and is the visual subject of Today: the user should see the outfit before reading it. The weather half stands, and there is no literal sky photography or illustrated weather scene.
 
 ## Mythological influence
 
@@ -113,13 +115,17 @@ Deep Atmosphere and Calm Current form the main navy-to-petrol identity. Quiet Sk
 
 Neon cyan, glow, glassy gradients, rainbow gradients, and highly saturated technology colors are prohibited. Feature UI consumes the existing semantic tokens and must not scatter hardcoded brand values through components.
 
+This prohibition was narrowed once, by [ADR 0018](../adr/0018-the-atmospheric-condition-band.md). A **two-stop tonal interpolation between two approved palette values** is permitted where the ground carries the current weather on Today and Weather. [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md) later moved that ground from a full-width band at the top of the screen to the tint of the surface the garment composition sits on; the permission and its bounds are unchanged, only the shape. Every other gradient remains prohibited, glass, glow, rainbow and saturated technology gradients included, and the permitted band is bounded by recorded contrast measurements rather than by taste. The narrowing exists because a whole-page weather tint was measured to be arithmetically unavailable in the light appearance: the usable ground band there is nine of 255 grey levels, squeezed between the card above it and secondary text and control borders below it.
+
 `#FFFFFF` is permitted as a light-theme surface and card color, approved in [ADR 0008](../adr/0008-expanding-the-visual-vocabulary-for-m6-1.md). It is a neutral surface value, not a new brand hue: the six approved brand hexes above and the Balanced Horizon V2 master geometry remain locked and unchanged.
 
 The palette was further extended with derived semantic status values, success, warning, and danger ink and container pairs plus a `borderDefined` neutral, approved in [ADR 0010](../adr/0010-status-colours-destructive-variant-and-defined-borders.md) and detailed in [`design-language.md`](design-language.md#law-4-one-accent-and-a-status-band). These are not new brand colors: the six approved brand hexes above and the Balanced Horizon V2 master geometry remain locked and unchanged.
 
+[ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md) changed how the palette is allocated rather than what it contains. The light page ground rises to Soft Mist, supporting text becomes a derived neutral instead of Calm Current, and Calm Current becomes a selective accent rather than the default supporting ink. Colour is spent on the garments and on the weather tint behind them; interface text carries as little of it as the hierarchy allows. The six approved hexes are still the only brand colours.
+
 ## Typography
 
-- Application UI uses platform-appropriate system fonts.
+- Application UI uses platform-appropriate system fonts. The semantic type scale and its retuning are recorded in [`design-system.md`](design-system.md) and [ADR 0017](../adr/0017-a-retuned-typography-scale.md).
 - No custom application font is required for the MVP.
 - A custom lowercase `kuyara` wordmark may be developed and approved separately.
 - The app icon must not contain text, initials, or a hidden `k`.
@@ -179,11 +185,17 @@ The app icon and interface icons are separate systems. Prefer platform-native ic
 
 Custom interface icons should use clean forms, softened corners, moderate weight, and reliable small-size clarity. Illustrations should be minimal, geometric, lightly editorial, and limited in color.
 
-Avoid photorealistic 3D clothing, plastic characters, AI sparkle aesthetics, fantasy mythology, and overly playful mascot styles. Garment and wardrobe imagery should prioritize recognizability and color accuracy over decorative brand effects.
+Avoid photorealistic 3D clothing, plastic characters, AI sparkle aesthetics, fantasy mythology, and overly playful mascot styles. Garment and closet imagery should prioritize recognizability and color accuracy over decorative brand effects.
+
+### Garment silhouettes
+
+Approved by [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md). A small set of simple line silhouettes represents the common garment types. One stroke weight at every rendered size, one optical size, no ornament beyond the single detail that identifies a type. A garment with no specific silhouette falls back to its structural category, so a composition degrades to six shapes rather than breaking; complete per-type artwork is not required and is not built speculatively.
+
+The silhouette is a slot in the composition, not an asset the composition depends on. A later version may render the same slot as richer illustration, catalogue artwork, a product image, or the user's own Closet photograph, without redesigning the information hierarchy.
 
 ## Motion
 
-Motion must be restrained, functional, and calm. Use it for hierarchy, feedback, and state transitions, and ensure that critical information remains understandable without motion.
+Motion must be restrained, functional, and calm. Use it for hierarchy, feedback, and state transitions, and ensure that critical information remains understandable without motion. Continuous and repeating motion is permitted where it supports the weather atmosphere, state, hierarchy, feedback, or product character, per [ADR 0020](../adr/0020-rewriting-the-motion-law.md) and [`design-language.md`](design-language.md#law-7-motion); it must never be the only indication of a state change, must not sit under a screen's hero value, and must respect Reduced Motion.
 
 Reduce or remove motion when Reduced Motion is enabled. Avoid constant decorative animation and transitions that delay the user's decision.
 
