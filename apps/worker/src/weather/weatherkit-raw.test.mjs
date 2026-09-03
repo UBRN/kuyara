@@ -183,6 +183,9 @@ test('maps every documented WeatherKit condition code', () => {
   assert.equal(cases.length, 34);
   for (const [conditionCode, condition] of cases) {
     assert.equal(mapWeatherKitCondition(conditionCode), condition);
+    // The live REST API sends PascalCase, not the Swift case names.
+    const pascalCase = conditionCode.charAt(0).toUpperCase() + conditionCode.slice(1);
+    assert.equal(mapWeatherKitCondition(pascalCase), condition);
   }
 });
 
