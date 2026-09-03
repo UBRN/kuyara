@@ -28,40 +28,79 @@ tags:
     id: profile-settings-button
 - assertVisible:
     id: settings-screen
+
+# Language and appearance are value rows that push their own picker screen.
+# Selection does not pop the picker, so each one is entered and left explicitly
+# through the picker's own back control. A swipe-back gesture pops the whole
+# Profile stack rather than one screen, and the control's accessibility label is
+# localized, so this flow depends on its test id instead.
 - tapOn:
-    id: settings-clothing-mens
+    id: settings-language-row
+- assertVisible:
+    id: settings-language-picker
 - tapOn:
     id: settings-language-tr
 - assertVisible:
-    id: settings-clothing-mens
-    selected: true
-- assertVisible:
     id: settings-language-tr
     selected: true
+- tapOn:
+    id: settings-picker-back
+- assertVisible:
+    id: settings-screen
+
+- tapOn:
+    id: settings-theme-row
+- assertVisible:
+    id: settings-appearance-picker
+- tapOn:
+    id: settings-theme-dark
+- assertVisible:
+    id: settings-theme-dark
+    selected: true
+- tapOn:
+    id: settings-picker-back
+- assertVisible:
+    id: settings-screen
+
+# Clothing preference sits last on Settings by design, so it needs a scroll.
 - scrollUntilVisible:
     element:
-      id: settings-theme-dark
+      id: settings-clothing-mens
     direction: DOWN
 - tapOn:
-    id: settings-theme-dark
+    id: settings-clothing-mens
 - assertVisible:
-    id: settings-theme-dark
+    id: settings-clothing-mens
     selected: true
+
 - launchApp
 - tapOn:
     id: tab-profile
 - tapOn:
     id: profile-settings-button
 - assertVisible:
-    id: settings-clothing-mens
-    selected: true
+    id: settings-screen
+
+# The two picker rows sit at the top of Settings, so they are checked before the
+# scroll that brings clothing preference into view and pushes them off screen.
+- tapOn:
+    id: settings-language-row
 - assertVisible:
     id: settings-language-tr
     selected: true
-- scrollUntilVisible:
-    element:
-      id: settings-theme-dark
-    direction: DOWN
+- tapOn:
+    id: settings-picker-back
+- tapOn:
+    id: settings-theme-row
 - assertVisible:
     id: settings-theme-dark
+    selected: true
+- tapOn:
+    id: settings-picker-back
+- scrollUntilVisible:
+    element:
+      id: settings-clothing-mens
+    direction: DOWN
+- assertVisible:
+    id: settings-clothing-mens
     selected: true

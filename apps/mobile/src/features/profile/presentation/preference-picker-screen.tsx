@@ -69,6 +69,7 @@ export function PreferencePickerScreen<T extends string>({
             hitSlop={7}
             icon={(color) => <Icon color={color} name="chevronLeft" size={20} />}
             onPress={onBack}
+            testID="settings-picker-back"
           />
           <AppText accessibilityRole="header" style={styles.headerTitle} variant="titleLarge">
             {title}
