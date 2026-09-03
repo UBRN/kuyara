@@ -12,6 +12,8 @@ The MVP still has no account, cross-device sync, behavioral analytics, or server
 
 ## Recently Completed
 
+- **Redesign direction and its four decisions** (2026-09-03): a research and decision milestone; no application code changed. The first redesign session diagnosed why the screens still read as flat after Milestones A and B applied the design language in full, and the cause was structural rather than chromatic. Four findings, each verified against the tree: the application sets `headerShown: false` in both `app/_layout.tsx` and `navigation/primary-tab-stack.tsx`, so outside the tab bar it draws none of iOS 26's chrome and hand-rolls three different header patterns instead, meaning [ADR 0012](adr/0012-adopting-expo-router-native-tabs.md)'s "let the OS draw it" argument was applied to the tab bar and nowhere else; `Surface` serves simultaneously as hero card, list row, group card, empty state, error state and form section, so shape carries no meaning; `title` and `titleLarge` were both 24 points with nothing between 24 and 40, so Law 1's three emphasis levels were not expressible and most of every screen rendered at 17 or 13; and the primitive layer stopped at `Surface`, whose measured cost is an 824-line wardrobe form, a 637-line Weather screen, three separate owned/wanted controls, two segmented controls, two disclosures, and six independent re-implementations of the same large-text stacking branch. Four decisions followed, each with its own ADR: the type scale is retuned to 56 / 34 / 22 / 17 / 15 / 13 / 10.5 with negative tracking on the three largest roles ([ADR 0017](adr/0017-a-retuned-typography-scale.md)); the weather moves into a condition-tinted ground rather than a whole-page tint ([ADR 0018](adr/0018-the-atmospheric-condition-band.md); the band shape it originally specified was replaced days later by the tinted stage of [ADR 0021](adr/0021-direction-e-a-visual-first-design-language.md), while its arithmetic stands); `@expo/ui`, an unused dependency since the monorepo was scaffolded, is adopted at the control layer and closes the generic-framework deferral ([ADR 0019](adr/0019-adopting-expo-ui-at-the-control-layer.md)); and Law 7's blanket ban on repeating motion is replaced with a conditional rule ([ADR 0020](adr/0020-rewriting-the-motion-law.md)). The atmosphere decision rests on a measurement worth repeating here, because it closes a question three earlier milestones each reopened: a whole-page weather tint is not available in the light appearance at all. The page ground is bounded above by the card at 1.3946:1 and below by `textSecondary` at 4.5:1 and `borderDefined` at 3:1, leaving a usable band of L 0.63499 to 0.70290, **nine of 255 grey levels**, with almost no chroma room at that luminance. Confining the atmosphere to a condition band that carries only `textPrimary` and icons removes both floors and widens the band to L 0.28739 to 0.70290, seventy-two levels. All twenty-six atmosphere values were then derived as sRGB interpolations between two approved brand hexes at recorded ratios and measured: the worst text contrast in the light set is 4.73:1 and in the dark set 12.82:1, every stop clears 4.5:1 for text and 3:1 for icons, and `neutral` equals the page ground exactly, so under that decision no screen outside Today and Weather changed. (The 2026-09-04 decision to apply Direction E app-wide moves the light ground itself; the atmosphere arithmetic is unaffected.) A gradient is a core React Native style prop, so no dependency is added; the phase 0 probe has since run and found that the prop ADR 0018 named silently no-ops, with `experimental_backgroundImage` as the working one on 0.86.2. The three-tab architecture was examined and deliberately not reopened. Mobbin was unavailable during the session (the MCP requires a paid plan) and nothing was inferred from it.
+
 - **The end-to-end suite runs again** (2026-09-03): `pnpm e2e:ios` passes 2/2 after three corrections, and the one regression the previous status entry predicted was not among them. Maestro resolves test ids on native tab bar items without difficulty, verified by a throwaway probe flow that tapped `tab-profile` and `tab-today` and asserted the resulting screens, so [ADR 0012](adr/0012-adopting-expo-router-native-tabs.md)'s move cost the suite nothing. What actually broke was older. `today-screen.tsx` carried its container id only on the populated path, deriving `today-${presentation.kind}-screen` in its early return, so both flows asserted an id that a fresh install never renders: no location is selected on first launch, so Today lands on the unavailable state. The container id is now stable across every branch and the state-specific id moved inward onto the feedback card, which keeps `today-loading-screen` and `today-unavailable-screen` addressable; a component test pins the invariant in both states and was confirmed to fail without the fix. The settings flow was then stale in two ways from the M6.1 restructure: language and appearance are no longer inline controls but value rows pushing their own picker screens, and clothing preference sits last on Settings by design and needs a scroll to reach. The flow now enters and leaves each picker explicitly. It leaves through the picker's own back control rather than a swipe-back gesture, which was measured to pop the entire Profile stack rather than one screen, and that control gained a test id because its only other handle was a localized accessibility label the flow itself changes when it switches to Turkish. The post-relaunch assertions were reordered so the two picker rows are checked before the scroll that pushes them off screen. Verified with `pnpm check`, `pnpm --filter @kuyara/mobile test:components` (123/123), and `pnpm e2e:ios` (2/2).
 
 - **WeatherKit went live** (2026-09-03): the four Apple secrets (`WEATHERKIT_TEAM_ID`, `WEATHERKIT_SERVICE_ID`, `WEATHERKIT_KEY_ID`, `WEATHERKIT_PRIVATE_KEY`) are set on the deployed Worker and `/v1/weather` now returns `origin.sourceId: "weatherkit"`. Configuring the secrets was not sufficient. The adapter had never made a live call, and its first one failed on every response: Apple's REST API serializes `conditionCode` in PascalCase (`MostlyClear`), while `weatherkit-raw.ts`'s table was keyed on the camelCase Swift `WeatherCondition` case names the documentation implies (`mostlyClear`). Every lookup missed, `mapWeatherKitCondition` threw `invalid_response`, and the chain fell back to Open-Meteo without any outward sign, because that is exactly what the chain is built to do. This is the risk that was recorded as an open gap when the adapter was written, now resolved in favour of the REST behaviour over the documentation. The fix lowers the first character during lookup rather than rewriting all 34 keys, so both spellings map and the table keeps the naming Apple's own enum uses; the existing 34-case test now asserts each code in both spellings. Everything else in the adapter was correct against real data: the schema parsed the live body unchanged, the km/h to m/s conversion, the nearest-hour precipitation probability, and the local-day filtering all produced values consistent with Open-Meteo's reading of the same location minutes earlier.
@@ -48,57 +50,221 @@ The MVP still has no account, cross-device sync, behavioral analytics, or server
 - **N1 mobile notification foundation** (`6e586e9`, 2026-08-29): local opt-in and permission handling, notification-response routing, development-only test action, and schema v6.
 - **Milestone 5, real weather providers** (2026-08-29): Open-Meteo primary and OpenWeather fallback with bounded attempts, validation, attribution, and usage controls. See [ADR 0002](adr/0002-real-weather-provider-chain.md).
 
-Nothing is currently in progress.
+The interface redesign is in progress. Its direction is settled and its documentation
+is amended (steps 1 to 3 below are done); the next piece of work is design goal 1, the
+composition rule and silhouette set. No application code has changed for it.
 
 ## Next Approved Milestones
 
 An interface redesign that changes information architecture, not only visual
-treatment, became the active work on 2026-09-03. Everything else is held behind
-it, including the work below the presentation layer that would have survived it,
-because the maintainer chose to serialize rather than run two moving fronts
-through one repository.
+treatment, became the active work on 2026-09-03. It was serialized ahead of everything
+else while its scope was still moving.
 
-The redesign must be designed against the decided target, not against what is on
-screen today. [ADR 0015](adr/0015-gender-and-age-band-in-the-profile.md) and
-[ADR 0016](adr/0016-location-in-onboarding-and-an-honest-empty-state.md) already
-settle what onboarding asks and what Today's empty state must accomplish; both
-deliberately leave layout and copy to this redesign. Designing the current three
-screens and fitting the decided content in afterwards would produce the second
-pass this ordering exists to avoid.
+**The serialization was lifted on 2026-09-04.** With Direction E accepted and the
+documentation amended, work that changes no screen may run in parallel with the
+redesign's design sessions, provided it has no meaningful file or architectural
+contention with them. The redesign remains the primary front; parallel work is
+additional, not a substitute, and anything that touches presentation code stays behind
+it.
 
-Its own decisions land as ADRs when they are settled, not as they are explored.
-Where it conflicts with a recorded decision, the conflict is raised rather than
-resolved silently. The measured values in
-[`design-language.md`](design/design-language.md) and the tab decisions in
-[ADR 0006](adr/0006-three-tab-information-architecture.md) and
-[ADR 0012](adr/0012-adopting-expo-router-native-tabs.md) are the likeliest
-places for that.
+Its direction is settled and recorded. Five ADRs carry it:
+[ADR 0017](adr/0017-a-retuned-typography-scale.md),
+[ADR 0018](adr/0018-the-atmospheric-condition-band.md),
+[ADR 0019](adr/0019-adopting-expo-ui-at-the-control-layer.md),
+[ADR 0020](adr/0020-rewriting-the-motion-law.md), and
+[ADR 0021](adr/0021-direction-e-a-visual-first-design-language.md), which is the
+accepted visual language and amends parts of 0017 and 0018. The three-tab architecture
+is untouched: [ADR 0006](adr/0006-three-tab-information-architecture.md) and
+[ADR 0012](adr/0012-adopting-expo-router-native-tabs.md) were examined and deliberately
+not reopened; only the English label changed, from Wardrobe to Closet.
 
-**Held behind the redesign, and independent of it.** These change no screen and
-can start the moment the redesign's scope stops moving.
+### What the spike settled, and what comes next
 
-1. **Gender and age band, everything below the UI.** Phases 1, 2, 4 and 5 of [ADR 0015](adr/0015-gender-and-age-band-in-the-profile.md): schema version 8 and the profile domain, the age band and formality order table in `packages/contracts`, the deterministic fallback's use of that order, and the `ageBand` request field with its Worker prompt and cache-key changes. The `onboarding_completed` reset moves out of the schema phase and into the onboarding phase, since resetting it before onboarding has anything new to ask would return every installation to the old form for nothing.
+**Steps 1 and 2 are done.** The decisions were recorded on 2026-09-03, and the visual
+design spike ran in its own session with no production code. It produced five directions
+across the iPhone Simulator and disposable HTML, and the maintainer accepted
+**Direction E**, recorded in
+[ADR 0021](adr/0021-direction-e-a-visual-first-design-language.md).
 
-2. **Real location selection, below the UI.** The Worker place-search route and its shared contract, widening `ManualLocationId`, removing the duplicate literal whitelist in `weather-repository.ts`, and carrying each location's display name with its data. The picker screen itself is held with the other screen work.
+The spike also answered both Phase 0 probes early, and turned up a third finding that
+neither probe asked for. All three matter:
 
-**Held behind the redesign, and shaped by it.** These are decided; what the
-redesign restructures determines how they are built.
+- `backgroundImage: 'linear-gradient(...)'` **silently no-ops** on React Native 0.86.2 in
+  the dev build, in both its string and its object form, with no warning and no type
+  error. `experimental_backgroundImage` renders correctly. ADR 0018 §6 names the wrong
+  prop.
+- `@expo/ui`'s universal components **do mount** in the existing dev build, but
+  `Host matchContents` collapses to zero height inside a `ScrollView` and renders nothing;
+  an explicit height works. Separately, one component in the universal set terminates the
+  app with no crash report, narrowed to the `List` / `Button` import group and not
+  isolated further. `FieldGroup`, `ListItem` and `Switch` are fine.
+- `Host` follows the **device** appearance, not kuyara's resolved theme, so a Light
+  preference on a dark device inverts every native control. `Host colorScheme` fixes it.
 
-3. **Gender and age band, onboarding and Settings.** Phase 3 of ADR 0015.
+**Step 3 is done.** The documents the spike moved were amended rather than replaced:
+`visual-identity.md` (clothing illustration, palette allocation), `design-language.md`
+(Laws 1, 3 and 5), `design-system.md` (the atmosphere role, the light allocation, the
+silhouette vocabulary), ADR 0006 (the Closet label), ADR 0017 and ADR 0018 (amendment
+headers rather than silent contradiction).
 
-4. **The location picker screen**, completing milestone 2.
+**Step 4 is the next UI/UX sequence below.** The earlier phase list, which assumed a
+type-led Today and a full-width atmospheric band, is superseded by it.
 
-5. **Location in onboarding, and an honest empty state.** See [ADR 0016](adr/0016-location-in-onboarding-and-an-honest-empty-state.md). This one is additionally blocked on milestones 2 and 4 regardless of the redesign: the decline path has to lead to real city selection, and shipping it while the picker still offers three sample cities would put the application's worst screen in front of every new user.
+### Next UI/UX iteration goals
 
-**Not blocked by any of the above.**
+Each is one focused session ending in reviewable evidence, not production code, unless
+its acceptance criteria say otherwise. Goals 4 to 6 design against the 2026-09-04
+decision that Direction E applies app-wide: Soft Mist ground, no white-card step, and
+separation carried by type and space. Two changes from the obvious order, both from
+repository evidence: the composition rule comes first because every board in the spike is
+hand-placed and nothing can be implemented without it, and the app shell moves up because
+its bottom inset changes the layout of every screen drawn inside it.
 
-6. **Local weather alerts (N2).** Add deterministic alert rules, local scheduling from fresh forecasts, repeat suppression, quiet hours, and best-effort background refresh. No server or push token; see [ADR 0004](adr/0004-notifications-in-the-mvp.md).
+**1. Composition rule and silhouette set**
+- *Purpose.* Turn the spike's hand-placed boards into a rule, and draw the silhouettes
+  properly.
+- *Design question.* Given a slot list of two to five pieces, where does each go and how
+  large is it, such that a two-piece look, a one-piece look and a five-piece look all read
+  as composed? Silhouette paths occupy different proportions of their viewBox, so sizing
+  must use drawn bounds rather than containers.
+- *Evidence.* A stated rule plus rendered boards for at least a two-piece, a three-piece,
+  a one-piece and a five-piece outfit, drawn from real catalogue combinations.
+- *Acceptance.* No combination produces overlap, clipping, an empty half, or two anchors
+  of visibly unequal weight. The fallback to structural-category glyphs is exercised.
+- *Out of scope.* Rendering architecture, per-type production artwork, any React Native
+  code.
 
-Do not combine these milestones merely for convenience. Server-sent push (N3) remains deferred and requires its own ADR.
+**2. Recommendation detail**
+- *Purpose.* Build the surface Today now defers to. It is where the garment names, layer
+  structure, per-piece reasoning, weather reasoning and substitutions went.
+- *Design question.* Does the illustration language survive at detail density, where names
+  and reasoning sit beside the pieces rather than replacing them?
+- *Evidence.* HTML mockup, light and dark, Turkish and English.
+- *Acceptance.* Every piece of information Today dropped has a home. The screen does not
+  regress into the D2 five-row list, and the entry transition from Today is described.
+- *Out of scope.* Substitution interaction design, the outfit-ownership control that
+  ADR-tracked work still owes a decision on.
+
+**3. App shell and three-tab navigation**
+- *Purpose.* Settle the shell every other screen is drawn inside.
+- *Design question.* How much chrome can the tab bar carry before the styling-first
+  feeling degrades, and how does its bottom inset change each screen's composition?
+- *Evidence.* HTML shell plus a light Expo feasibility check on touch targets, safe areas,
+  label legibility at Dynamic Type sizes, and Native Tabs' constraints.
+- *Acceptance.* Three tabs, correct Turkish and English labels, selected state carrying at
+  least two non-colour signals, and a recorded content inset that later screens design
+  against.
+- *Out of scope.* Navigation code. [ADR 0012](adr/0012-adopting-expo-router-native-tabs.md)'s
+  Native Tabs decision is not reopened.
+
+**4. Profile**
+- *Purpose.* Make the third tab part of the same product rather than a settings list.
+- *Design question.* What is Profile actually for, once it is neither a dashboard nor a
+  menu? Every direction in the spike left it 30 to 40 percent empty, and none solved it.
+- *Evidence.* HTML mockup with entry points to Closet and Settings.
+- *Acceptance.* It reads as belonging to Direction E, and the emptiness is answered rather
+  than padded. Gender and age band from
+  [ADR 0015](adr/0015-gender-and-age-band-in-the-profile.md) have a place.
+- *Out of scope.* Closet and Settings themselves.
+
+**5. Closet**
+- *Purpose.* Apply the language to the user's own garments, where real photographs may or
+  may not exist.
+- *Design question.* How does a list behave when some entries have a user photograph, some
+  have only a catalogue type, and legacy rows have neither? This is the first place the
+  silhouette's replaceability is actually tested.
+- *Evidence.* HTML mockup covering all three states, plus the empty state.
+- *Acceptance.* The three states coexist without the list looking broken, and the English
+  label is Closet throughout.
+- *Out of scope.* The add and edit form, and the photo pipeline.
+
+**6. Settings**
+- *Purpose.* Native-feeling controls that still belong to Direction E.
+- *Design question.* Where is the boundary between what
+  [ADR 0019](adr/0019-adopting-expo-ui-at-the-control-layer.md) hands to the platform and
+  what keeps kuyara's identity, given that native grouped lists render in system colours?
+- *Evidence.* HTML mockup, plus a note on which rows are `@expo/ui` and which are not.
+- *Acceptance.* Language, appearance, gender, birth year, notifications and the AI status
+  section all have a home, and the system-colour trade is visible rather than hidden.
+- *Out of scope.* The `@expo/ui` crash isolation, which belongs to the native spike.
+
+**7. Cross-screen convergence and the native port spike**
+- *Purpose.* Prove the language holds across every surface, then port it to a real Expo
+  spike to validate rather than redesign.
+- *Design question.* What breaks first when the whole set is seen together at the largest
+  Dynamic Type size, in Turkish, in dark?
+- *Evidence.* A native Expo spike, disposable, with genuine Simulator captures.
+- *Acceptance.* The full validation list in
+  [ADR 0021](adr/0021-direction-e-a-visual-first-design-language.md) is exercised: Dynamic
+  Type, both languages, genuine dark mode set through the app's own preference, VoiceOver,
+  Reduced Motion, touch targets, safe areas, contrast, silhouette legibility at small
+  sizes, horizontal scrolling on Weather, and progressive-disclosure accessibility. Native
+  correctness is proven or the specific failures are recorded.
+- *Out of scope.* Production implementation. That is a separate milestone with its own
+  gates.
+
+Weather is not in this list. Its content direction is accepted as it stands and only
+inherits the shell.
+
+### Unblocked, and independent of the redesign
+
+Unblocked as of 2026-09-04, and each may run in parallel with a design session. The
+first two change no screen and touch neither `apps/mobile/src/features` presentation
+code nor the design tokens, so they have no contention with the redesign at all. The
+third changes visible strings and their assertions but no layout, so it is sequenced
+against live screen work rather than run blindly beside it.
+
+1. **Gender and age band, everything below the UI.** Phases 1, 2, 4 and 5 of
+   [ADR 0015](adr/0015-gender-and-age-band-in-the-profile.md): schema version 8 and the
+   profile domain, the age band and formality order table in `packages/contracts`, the
+   deterministic fallback's use of that order, and the `ageBand` request field with its
+   Worker prompt and cache-key changes. The `onboarding_completed` reset moves out of
+   the schema phase and into the onboarding phase, since resetting it before onboarding
+   has anything new to ask would return every installation to the old form for nothing.
+
+2. **Real location selection, below the UI.** The Worker place-search route and its
+   shared contract, widening `ManualLocationId`, removing the duplicate literal
+   whitelist in `weather-repository.ts`, and carrying each location's display name with
+   its data. The picker screen itself is held with the other screen work.
+
+3. **The Closet label, English copy only.** Approved 2026-09-04. Replace the visible
+   English "Wardrobe" strings in `apps/mobile/src/localization/messages.ts` with
+   "Closet" and update the assertions and Maestro flows that match on that text or on
+   the accessibility labels derived from it. Turkish is already "Gardırop". **No
+   internal rename:** the domain name, SQLite tables, route segment, types, file names
+   and test ids stay `wardrobe`, and renaming them for terminology alone is explicitly
+   out of scope. It is listed here rather than with the redesign because it is a string
+   change that does not depend on any layout decision, but it does touch feature files,
+   so it is sequenced against whatever screen work is live.
+
+### Held behind the redesign, and shaped by it
+
+These are decided; what the redesign restructures determines how they are built.
+
+4. **Gender and age band, onboarding and Settings.** Phase 3 of ADR 0015.
+
+5. **The location picker screen**, completing milestone 2.
+
+6. **Location in onboarding, and an honest empty state.** See
+   [ADR 0016](adr/0016-location-in-onboarding-and-an-honest-empty-state.md). This one is
+   additionally blocked on milestones 2 and 5 regardless of the redesign: the decline
+   path has to lead to real city selection, and shipping it while the picker still
+   offers three sample cities would put the application's worst screen in front of every
+   new user.
+
+### Not blocked by any of the above
+
+7. **Local weather alerts (N2).** Add deterministic alert rules, local scheduling from
+   fresh forecasts, repeat suppression, quiet hours, and best-effort background refresh.
+   No server or push token; see [ADR 0004](adr/0004-notifications-in-the-mvp.md).
+
+Do not combine these milestones merely for convenience. Server-sent push (N3) remains
+deferred and requires its own ADR.
 
 ## Known Issues and Manual Verification Gaps
 
 - The manual location picker ships sample data. The Weather screen offers three hardcoded entries labelled "Sample Istanbul", "Sample Ankara" and "Sample London" alongside the working device-location choice, and the picker is always visible, so every user meets them regardless of permission state. The valid ids are declared twice, as the `ManualLocationId` union in `weather.ts` and again as a literal array in `weather-repository.ts`, which must be edited together or persisted rows fail mapping. Neither the Worker nor `packages/contracts` has any place-search or geocoding route. This is addressed by the first approved milestone above.
+- The Closet label is decided and unimplemented. `messages.ts` still renders "Wardrobe" in English on the Profile row, the list title, the item-not-found screen and the return action; Turkish already reads "Gardırop". Milestone 3 above carries the string change.
 - App Store submission has unmet non-code prerequisites: a privacy policy URL, a support URL, the App Store Connect data-collection questionnaire, screenshots, and description copy. TestFlight distribution is unaffected.
 - WeatherKit is live and serving, but only its success path is verified. Apple still does not document which HTTP status a request gets once the monthly allowance is exhausted, so the quota mapping remains an assumption; it lands on a fallback-eligible error either way, and the worst case is a demotion to Open-Meteo. The daily cap has never been reached, so `createDailyCappedWeatherProvider`'s `quota` branch is untested against Apple in production.
 - The provider chain hides a broken provider. A failing adapter returns HTTP 200 from a lower-ranked source, so a green test suite and a successful deployment together do not prove the intended provider ran. Confirm `origin.sourceId` in a live response after any provider change.
@@ -111,7 +277,7 @@ Do not combine these milestones merely for convenience. Server-sent push (N3) re
 - In the dark theme `backgroundElevated` and `surface` resolve to the same value, and the dark elevation shadows are deliberately faint because the dark surface step already carries the separation. An elevated card therefore separates from the ground but not from a plain surface. No screen depends on that distinction today, so no dark tint was added for it.
 - `.maestro/flows/update-settings.yaml` was updated for the three-tab navigation, reaching Settings through the Profile tab and its header button, but has not been executed since. It needs one `pnpm e2e:ios` run on a Simulator to confirm.
 - The resolved Android manifest has not been checked after blocking fine-location permission through Expo configuration.
-- Real-device VoiceOver focus order and spoken grouping remain unverified for the weather card.
+- Real-device VoiceOver focus order and spoken grouping remain unverified for the Weather screen's stat and forecast groups. (The Today weather card this gap was originally recorded against was deleted in M6.1; the unverified grouping moved to the Weather tab with it.)
 - N2's background execution cannot be verified on the iOS Simulator and will require a physical-device check.
 - A generated local iOS project may need its own ignored `.xcode.env.local` Node path before native builds.
 - The neuron cost per call has not been measured against a live Workers AI call; ADR 0007's figure is still an estimate, not a measurement.
