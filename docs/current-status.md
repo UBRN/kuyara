@@ -8,10 +8,21 @@
 - **Notifications:** N1 is complete. Schema v6 stores `notifications_opt_in`; Settings owns the permission flow and OS-settings redirect; notification taps open Today; and the test action is development-only. N2 weather-alert rules and background rescheduling are not implemented.
 - **Builds:** iOS is the first release target. EAS production credentials, a production build, and an App Store Connect record (`com.ubrn.kuyara`, ASC app `6806664440`) exist; build 1.0.0 (2) is on TestFlight internal testing and was verified on a physical device against the deployed Worker. EAS preview and production profiles use the deployed Worker; development keeps its local Worker fallback. Shared code remains Android-compatible, but Android validation is deferred.
 
-The MVP still has no account, cross-device sync, behavioral analytics, or server-sent push. WeatherKit is configured and serving live traffic at the head of the provider chain.
+The shipped application still has no account, cross-device sync, analytics, or server-sent push. WeatherKit is configured and serving live traffic at the head of the provider chain.
+
+Three durable directions were settled on 2026-09-04 and are documentation-only; none has
+any implementation. kuyara is no longer described as fundamentally local-first, and
+Supabase Auth, PostgreSQL and Storage are the intended long-term backend, with Postgres
+authoritative for account-backed data once accounts exist and SQLite remaining the
+device-side working store ([ADR 0022](adr/0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md)).
+Behavioural product analytics is approved with PostHog as the provider and is sequenced
+before the first public release ([ADR 0023](adr/0023-behavioural-product-analytics-with-posthog.md)).
+The project moved from MIT to the PolyForm Noncommercial License 1.0.0 and is
+source-available rather than open source ([ADR 0024](adr/0024-relicensing-to-polyform-noncommercial.md)).
 
 ## Recently Completed
 
+- **Product direction, analytics, and licensing sync** (2026-09-04): a documentation and licensing milestone; no application code changed and no dependency was added. Three long-standing statements were corrected rather than extended. kuyara had described itself as local-first in every durable document, including a section heading in `AGENTS.md` whose first rule read that SQLite "is not a temporary database to be removed when remote sync is added"; that wording defended a correct engineering rule but stated it as a product identity, and a future agent reading it would have treated a server-authoritative design as a rule violation. The accountless first release is now recorded as a scope decision, with Supabase Auth, PostgreSQL and Storage as the intended backend, Postgres authoritative for account-backed data once accounts exist, and SQLite keeping its read-and-write-first role on the device ([ADR 0022](adr/0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md)). The "no behavioral analytics" MVP rule was revoked: behavioural product analytics is approved with PostHog as the provider, a project-owned `ProductAnalytics` boundary, a closed payload exclusion list that notably forbids reusing `localProfileId` as an analytics identifier, PostHog Error Tracking as the preferred crash-tracking candidate, session replay held as an evaluation item behind privacy masking, and Grafana kept separate as operational observability ([ADR 0023](adr/0023-behavioural-product-analytics-with-posthog.md)). Analytics is sequenced before the first public release, which promotes the privacy policy and the App Store Connect data-collection questionnaire from open prerequisites to release blockers, and leaves one genuinely unresolved question: whether Apple's current rules oblige a consent, revocation, or deletion mechanism. ATT is recorded as not expected to apply, since kuyara has no advertising, no IDFA, and no cross-app tracking, but that is deliberately not written as a finding that no privacy work is required. Finally the licence changed from MIT to the PolyForm Noncommercial License 1.0.0, applied as the exact unmodified official text, after confirming that all 114 commits are the maintainer's under two identities with no `Co-authored-by` trailer and no outside pull request; "open source" became "source-available" wherever it described the project, and the MIT grant on versions published before this date is explicitly not revoked ([ADR 0024](adr/0024-relicensing-to-polyform-noncommercial.md), [`LICENSING.md`](../LICENSING.md)).
 - **Redesign direction and its four decisions** (2026-09-03): a research and decision milestone; no application code changed. The first redesign session diagnosed why the screens still read as flat after Milestones A and B applied the design language in full, and the cause was structural rather than chromatic. Four findings, each verified against the tree: the application sets `headerShown: false` in both `app/_layout.tsx` and `navigation/primary-tab-stack.tsx`, so outside the tab bar it draws none of iOS 26's chrome and hand-rolls three different header patterns instead, meaning [ADR 0012](adr/0012-adopting-expo-router-native-tabs.md)'s "let the OS draw it" argument was applied to the tab bar and nowhere else; `Surface` serves simultaneously as hero card, list row, group card, empty state, error state and form section, so shape carries no meaning; `title` and `titleLarge` were both 24 points with nothing between 24 and 40, so Law 1's three emphasis levels were not expressible and most of every screen rendered at 17 or 13; and the primitive layer stopped at `Surface`, whose measured cost is an 824-line wardrobe form, a 637-line Weather screen, three separate owned/wanted controls, two segmented controls, two disclosures, and six independent re-implementations of the same large-text stacking branch. Four decisions followed, each with its own ADR: the type scale is retuned to 56 / 34 / 22 / 17 / 15 / 13 / 10.5 with negative tracking on the three largest roles ([ADR 0017](adr/0017-a-retuned-typography-scale.md)); the weather moves into a condition-tinted ground rather than a whole-page tint ([ADR 0018](adr/0018-the-atmospheric-condition-band.md); the band shape it originally specified was replaced days later by the tinted stage of [ADR 0021](adr/0021-direction-e-a-visual-first-design-language.md), while its arithmetic stands); `@expo/ui`, an unused dependency since the monorepo was scaffolded, is adopted at the control layer and closes the generic-framework deferral ([ADR 0019](adr/0019-adopting-expo-ui-at-the-control-layer.md)); and Law 7's blanket ban on repeating motion is replaced with a conditional rule ([ADR 0020](adr/0020-rewriting-the-motion-law.md)). The atmosphere decision rests on a measurement worth repeating here, because it closes a question three earlier milestones each reopened: a whole-page weather tint is not available in the light appearance at all. The page ground is bounded above by the card at 1.3946:1 and below by `textSecondary` at 4.5:1 and `borderDefined` at 3:1, leaving a usable band of L 0.63499 to 0.70290, **nine of 255 grey levels**, with almost no chroma room at that luminance. Confining the atmosphere to a condition band that carries only `textPrimary` and icons removes both floors and widens the band to L 0.28739 to 0.70290, seventy-two levels. All twenty-six atmosphere values were then derived as sRGB interpolations between two approved brand hexes at recorded ratios and measured: the worst text contrast in the light set is 4.73:1 and in the dark set 12.82:1, every stop clears 4.5:1 for text and 3:1 for icons, and `neutral` equals the page ground exactly, so under that decision no screen outside Today and Weather changed. (The 2026-09-04 decision to apply Direction E app-wide moves the light ground itself; the atmosphere arithmetic is unaffected.) A gradient is a core React Native style prop, so no dependency is added; the phase 0 probe has since run and found that the prop ADR 0018 named silently no-ops, with `experimental_backgroundImage` as the working one on 0.86.2. The three-tab architecture was examined and deliberately not reopened. Mobbin was unavailable during the session (the MCP requires a paid plan) and nothing was inferred from it.
 
 - **The end-to-end suite runs again** (2026-09-03): `pnpm e2e:ios` passes 2/2 after three corrections, and the one regression the previous status entry predicted was not among them. Maestro resolves test ids on native tab bar items without difficulty, verified by a throwaway probe flow that tapped `tab-profile` and `tab-today` and asserted the resulting screens, so [ADR 0012](adr/0012-adopting-expo-router-native-tabs.md)'s move cost the suite nothing. What actually broke was older. `today-screen.tsx` carried its container id only on the populated path, deriving `today-${presentation.kind}-screen` in its early return, so both flows asserted an id that a fresh install never renders: no location is selected on first launch, so Today lands on the unavailable state. The container id is now stable across every branch and the state-specific id moved inward onto the feedback card, which keeps `today-loading-screen` and `today-unavailable-screen` addressable; a component test pins the invariant in both states and was confirmed to fail without the fix. The settings flow was then stale in two ways from the M6.1 restructure: language and appearance are no longer inline controls but value rows pushing their own picker screens, and clothing preference sits last on Settings by design and needs a scroll to reach. The flow now enters and leaves each picker explicitly. It leaves through the picker's own back control rather than a swipe-back gesture, which was measured to pop the entire Profile stack rather than one screen, and that control gained a test id because its only other handle was a localized accessibility label the flow itself changes when it switches to Turkish. The post-relaunch assertions were reordered so the two picker rows are checked before the scroll that pushes them off screen. Verified with `pnpm check`, `pnpm --filter @kuyara/mobile test:components` (123/123), and `pnpm e2e:ios` (2/2).
@@ -261,11 +272,67 @@ These are decided; what the redesign restructures determines how they are built.
 Do not combine these milestones merely for convenience. Server-sent push (N3) remains
 deferred and requires its own ADR.
 
+### Analytics, and what it makes a release prerequisite
+
+Approved 2026-09-04 by [ADR 0023](adr/0023-behavioural-product-analytics-with-posthog.md),
+which revoked the earlier no-analytics rule. Analytics is sequenced **before the first
+public App Store release**, so items 9 and 11 below become submission blockers rather
+than follow-up work. Nothing here is started, and none of it may be started by inference:
+each item needs its own approved task.
+
+The taxonomy sits downstream of the redesign. Screen-name and navigation events depend on
+the information architecture the redesign settles, so writing it against screens that are
+about to change would be wasted work. The order below reflects that, not a schedule; no
+dates are assigned.
+
+8. **Analytics design and event taxonomy.** The event and property schema, reviewed as
+   its own artifact before any integration. Covers the areas ADR 0023 enumerates, keeps
+   properties structured, language-independent and low-cardinality, and encodes the
+   payload exclusion list. Includes deciding whether an anonymous analytics identity is
+   needed at all; `localProfileId` may not be reused as one.
+
+9. **Apple privacy, consent, revocation, and deletion requirements.** Verify against
+   current official Apple documentation what App Privacy disclosure, consent, retention,
+   deletion, and revocation actually require for first-party product analytics. ATT is
+   not expected to apply and no ATT prompt is planned, but that is not a finding that no
+   privacy work is required. The outcome decides whether a consent or revocation
+   mechanism must exist, which the product would prefer to avoid but does not get to
+   decide. Blocks item 10.
+
+10. **PostHog product analytics integration.** The `ProductAnalytics` boundary, one
+    PostHog adapter behind it, and the taxonomy's call sites. No SDK calls in features.
+
+11. **App Store privacy disclosure and privacy policy.** Update the privacy policy URL
+    and the App Store Connect data-collection questionnaire to describe analytics
+    collection accurately, before any analytics-enabled release. This joins the existing
+    submission prerequisites recorded under Known Issues.
+
+12. **PostHog Error Tracking integration.** Automated crash, exception, and error
+    tracking, with source maps and release correlation decided at implementation time and
+    the same payload exclusion list applied to error metadata.
+
+13. **Session replay evaluation.** Only after privacy masking and a sampling strategy are
+    designed. Not approved for capture; personal surfaces are never captured unmasked.
+
+14. **Operational observability evaluation.** A Grafana Cloud or OpenTelemetry-compatible
+    stack for Worker latency, error rates, provider failures, fallback behaviour, and
+    quota health. Separate from product analytics and later than it; prefer a usable free
+    tier with spending controls.
+
+15. **Supabase accounts and sync**, when product scope reaches it. Auth, Postgres, and
+    Storage per [ADR 0022](adr/0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md).
+    Promoting existing device rows into an authenticated profile needs its own ADR. Until
+    then the only obligation is the negative one: keep the boundaries migration-friendly
+    and build no sync infrastructure.
+
+Provider prices and quotas are deliberately absent from this list. Reverify them from
+official sources when each item is implemented.
+
 ## Known Issues and Manual Verification Gaps
 
 - The manual location picker ships sample data. The Weather screen offers three hardcoded entries labelled "Sample Istanbul", "Sample Ankara" and "Sample London" alongside the working device-location choice, and the picker is always visible, so every user meets them regardless of permission state. The valid ids are declared twice, as the `ManualLocationId` union in `weather.ts` and again as a literal array in `weather-repository.ts`, which must be edited together or persisted rows fail mapping. Neither the Worker nor `packages/contracts` has any place-search or geocoding route. This is addressed by the first approved milestone above.
 - The Closet label is decided and unimplemented. `messages.ts` still renders "Wardrobe" in English on the Profile row, the list title, the item-not-found screen and the return action; Turkish already reads "Gardırop". Milestone 3 above carries the string change.
-- App Store submission has unmet non-code prerequisites: a privacy policy URL, a support URL, the App Store Connect data-collection questionnaire, screenshots, and description copy. TestFlight distribution is unaffected.
+- App Store submission has unmet non-code prerequisites: a privacy policy URL, a support URL, the App Store Connect data-collection questionnaire, screenshots, and description copy. TestFlight distribution is unaffected. Since 2026-09-04 the first two of those also depend on the analytics decision: the privacy policy and the questionnaire have to describe analytics collection, and whether a consent or revocation mechanism is required is unresolved. See milestones 9 and 11 above.
 - WeatherKit is live and serving, but only its success path is verified. Apple still does not document which HTTP status a request gets once the monthly allowance is exhausted, so the quota mapping remains an assumption; it lands on a fallback-eligible error either way, and the worst case is a demotion to Open-Meteo. The daily cap has never been reached, so `createDailyCappedWeatherProvider`'s `quota` branch is untested against Apple in production.
 - The provider chain hides a broken provider. A failing adapter returns HTTP 200 from a lower-ranked source, so a green test suite and a successful deployment together do not prove the intended provider ran. Confirm `origin.sourceId` in a live response after any provider change.
 - `garment-type-picker-screen.tsx` is the only screen that fills the two sanctioned spacing exception slots with `spacing.lg` instead of its siblings' values: `headerHeight + spacing.lg` for the sticky-header clearance where every other screen uses `spacing.xl`, and a trailing `paddingBottom` of `lg` where every other screen uses `spacing['2xl']`. Both were left alone during the Law 2 rhythm correction because fixing them would add space rather than remove it, and the trailing one now also has to clear a floating native tab bar. Neither is a Law 2 violation as written; the inconsistency is unresolved.

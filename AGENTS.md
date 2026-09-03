@@ -2,10 +2,12 @@
 
 ## Product and current scope
 
-kuyara is an open-source weather and outfit recommendation app built with React Native, TypeScript, and Expo for iOS and Android.
+kuyara is a publicly developed, source-available weather and outfit recommendation app built with React Native, TypeScript, and Expo for iOS and Android. It is licensed under the PolyForm Noncommercial License 1.0.0; do not describe it as open source. See [ADR 0024](docs/adr/0024-relicensing-to-polyform-noncommercial.md) and [`LICENSING.md`](LICENSING.md).
 
 - Optimize the first release for iOS, but keep Android buildable and avoid iOS-only assumptions in shared code.
-- Keep the MVP small: no account, cross-device sync, or behavioral analytics. Notifications are limited to on-device local weather alerts with no server-sent push; see [ADR 0004](docs/adr/0004-notifications-in-the-mvp.md).
+- Keep the first release small: no account and no cross-device sync. Notifications are limited to on-device local weather alerts with no server-sent push; see [ADR 0004](docs/adr/0004-notifications-in-the-mvp.md).
+- Do not describe kuyara as fundamentally local-first. The accountless first release is a scope decision. Supabase Auth, PostgreSQL, and Storage are the intended long-term backend, and once accounts exist Postgres is authoritative for account-backed data while SQLite stays the device-side working store. See [ADR 0022](docs/adr/0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md).
+- Behavioral product analytics is approved and planned, with PostHog as the provider, sequenced before the first public release. It is not implemented; do not install an SDK or emit events without an approved task. See [ADR 0023](docs/adr/0023-behavioural-product-analytics-with-posthog.md).
 - kuyara is free and ad-free, with no subscription and no in-app purchase. Paid provider usage runs on a small maintainer-funded budget and must have explicit hard or safely derived limits; automatic top-up and uncontrolled pay-as-you-go overage are not allowed.
 - Treat confirmed product decisions in `docs/` as authoritative. Do not silently change them.
 - Separate current MVP work from future possibilities. Do not implement speculative infrastructure.
@@ -61,9 +63,9 @@ The repository may be in transition. Inspect the real tree before assuming this 
 - Avoid generic abstractions until at least one concrete boundary or repeated use justifies them.
 - Keep one clear source of truth for each piece of state.
 
-## Local-first data rules
+## Local data and future-sync rules
 
-- Expo SQLite is the durable on-device source of truth for user-created data. It is not a temporary database to be removed when remote sync is added.
+- Expo SQLite is the durable device-side database for user-created data and the store the application reads and writes first. It is not a temporary database to be removed when remote sync is added, and it is not the product's permanent final authority either; see [ADR 0022](docs/adr/0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md).
 - Access SQLite through repository interfaces and local data sources.
 - Establish explicit, ordered, testable schema migrations from the first schema.
 - Generate stable UUIDs on the client for user-created records. Do not use auto-incrementing IDs for syncable entities.
@@ -71,8 +73,9 @@ The repository may be in transition. Inspect the real tree before assuming this 
 - Use soft deletion where future cross-device deletion must be representable.
 - Create a stable `localProfileId` before accounts exist so local data can later be linked to an authenticated profile.
 - Do not implement an outbox, sync engine, conflict-resolution protocol, or server revision system in the MVP.
-- Preserve boundaries that allow a future Supabase or Firebase remote adapter. A remote service will complement SQLite as a sync layer, not replace the local-first model.
-- Do not use Supabase and Firebase simultaneously in production. A Firebase learning prototype should remain isolated from the production architecture.
+- Keep persistence migration-friendly without implementing sync. Preserve the boundaries a future Supabase adapter needs: client UUIDs, `localProfileId`, ordered migrations, lifecycle fields, separate domain/record/DTO/remote models with explicit mappers, and repository interfaces. Do not add remote repository implementations or placeholder sync abstractions with no caller.
+- Supabase is the intended production backend. Firebase is not; if it is ever evaluated it stays an isolated prototype, never a second production backend, and the two are never used simultaneously in production.
+- UI and domain code must not depend on a future Supabase SDK any more than they may depend on `expo-sqlite` today.
 
 ## State ownership
 
@@ -128,7 +131,10 @@ The repository may be in transition. Inspect the real tree before assuming this 
 - Return stable, minimal error shapes; do not leak provider responses, tokens, stack traces, or internal configuration.
 - Send AI only the minimum sanitized structured data defined by the [approved AI input privacy boundary](docs/product-decisions.md#approved-ai-input-privacy-boundary): precomposed catalog option identifiers and properties, deterministic weather requirements, clothing preference, age band, catalog version, and day variant. Never send wardrobe-derived data, photos, paths, free-form names, profile or device identifiers, birth year, or coordinates.
 - Do not log exact coordinates, wardrobe contents, photos, personal preferences, complete AI prompts, or unnecessary user data.
-- Prefer coarse, privacy-preserving operational metrics. Do not add behavioral tracking in the MVP.
+- Prefer coarse, privacy-preserving operational metrics.
+- Behavioral analytics is planned and must use an intentional, reviewed event schema behind a project-owned `ProductAnalytics` boundary rather than provider SDK calls scattered through features. Keep properties structured, language-independent, and low-cardinality; aggregate, sample, or omit high-frequency signals.
+- Analytics and error payloads must never carry exact coordinates, photos or image content, free-form user text, full AI prompts or model responses, raw provider responses, secrets, complete SQLite rows, credentials, or a persistent device fingerprint. Never reuse `localProfileId` as an analytics identifier.
+- App Tracking Transparency is not expected to apply to first-party product analytics, but App Privacy disclosure, consent, retention, deletion, and revocation are separate obligations. Verify them against current official Apple documentation before implementing analytics and again before submission; do not record a conclusion that no privacy work is required.
 - Use free tiers and hard spend controls where available. Fail safely when a quota or limit is reached.
 - Keep paid provider keys as Worker secrets, apply a provider-side spending limit where one exists, and never enable automatic credit top-up or uncontrolled pay-as-you-go overage.
 - Recalculate exact provider quota, rate, and spend limits from current official pricing during implementation. Do not freeze prices or quotas in this file.
@@ -207,7 +213,8 @@ The repository may be in transition. Inspect the real tree before assuming this 
 - Flag changes that break offline use, discard last-known-good data after refresh failure, or create competing sources of truth.
 - Flag iOS-only shared-code assumptions that leave Android unbuildable.
 - Flag hard-coded user-visible strings, inaccessible controls, and missing platform fallbacks.
-- Flag speculative sync infrastructure or provider coupling added without an approved requirement.
+- Flag speculative sync infrastructure or provider coupling added without an approved requirement, including remote repository implementations or sync abstractions with no caller.
+- Flag analytics or error payloads that carry raw user content, exact coordinates, photos, free-form text, or a reused persistence identifier.
 - Prefer CI for deterministic formatting and lint enforcement; review should focus on correctness, security, privacy, architecture, and regressions.
 
 ## Efficient execution and validation

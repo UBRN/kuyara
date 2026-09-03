@@ -35,6 +35,11 @@ re-derive rather than trusting these numbers later.
   subscription and no in-app purchase, and is open source, which fits the terms'
   non-commercial examples. Recorded here as a deliberate reading, not a
   certification. Re-check if the product ever monetizes.
+  (Amended 2026-09-04: the project is no longer open source. It is source-available
+  under the PolyForm Noncommercial License 1.0.0, which restricts commercial use
+  rather than permitting it; see [ADR 0024](0024-relicensing-to-polyform-noncommercial.md).
+  The reading above is unaffected and better supported, and the monetization caveat
+  stands.)
 - Data is CC BY 4.0 and requires the visible attribution "Weather data by
   Open-Meteo.com" linked to `https://open-meteo.com/`.
 - No SLA. The terms state uninterrupted provision is not guaranteed.

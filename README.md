@@ -1,6 +1,7 @@
 # kuyara
 
-An open-source weather and outfit recommendation app for iOS and Android.
+A publicly developed, source-available weather and outfit recommendation app for iOS
+and Android.
 
 kuyara reads the local weather and suggests what to wear from its bundled garment
 catalog. The Closet is a personal record of garments you own or want; it does
@@ -16,8 +17,10 @@ three validated outfit recommendations with a device-local deterministic fallbac
 and includes the mobile notification foundation. Apple WeatherKit is live in
 production at the head of the weather provider chain. The active work is an
 interface redesign whose visual direction is settled (Direction E, [ADR 0021](docs/adr/0021-direction-e-a-visual-first-design-language.md));
-local weather alerts are approved and unblocked but not started. The current MVP
-has no account, cross-device sync, behavioral analytics, or server-sent push. See
+local weather alerts are approved and unblocked but not started. The shipped app has no
+account, cross-device sync, analytics, or server-sent push; accounts on Supabase and
+PostHog product analytics are both approved directions with no implementation yet, and
+analytics is sequenced before the first public release. See
 [`docs/current-status.md`](docs/current-status.md) for the current state.
 
 ## Stack
@@ -68,4 +71,8 @@ Development, focused test, Worker, Expo, and Simulator commands are in [`docs/te
 
 ## License
 
-[MIT](LICENSE)
+[PolyForm Noncommercial License 1.0.0](LICENSE). Source-available, not open source:
+noncommercial use, modification, and redistribution are granted, and commercial use
+needs separate written permission from the copyright holder. Versions distributed
+before 2026-09-04 were MIT licensed and remain so. See [`LICENSING.md`](LICENSING.md)
+and [ADR 0024](docs/adr/0024-relicensing-to-polyform-noncommercial.md).
