@@ -129,6 +129,17 @@ Every stop clears 4.5:1 for text and 3:1 for icons, in both appearances. The dar
 band's ceiling is Deep Atmosphere's own luminance, so the sky never out-lightens the
 card plane.
 
+Recorded 2026-09-04 from the visual design spike, which put these values on a device for
+the first time: **clearing the floors is not the same as being perceptible.** The table's
+light `veiledDay` bottom stop sits 8 red levels off the page ground, and on screen that
+state was indistinguishable from an untinted screen; retuning it to roughly 27 levels off
+the ground made it read while staying inside every floor above. The spike's own retuned
+day values are not carried forward, because they were tuned against the `#D0DDDC` ground
+that [ADR 0021](0021-direction-e-a-visual-first-design-language.md) replaces, but the
+separation constraint survives the re-derivation: a stop within roughly 8 levels of the
+ground buys nothing. Whoever re-derives this table for the Soft Mist ground should check
+perceptibility on a device, not only the arithmetic.
+
 ### 5. The prohibition is narrowed, not reinterpreted
 
 `visual-identity.md` prohibits "neon cyan, glow, glassy gradients, rainbow gradients,
@@ -149,10 +160,10 @@ Corrected 2026-09-03 by the phase 0 probe, which ran during the visual design sp
 The prop this section originally named, `backgroundImage: 'linear-gradient(...)'`,
 **silently no-ops in the dev build in both its string and its object form**, with no
 warning and no type error. The working prop on React Native 0.86.2 is
-`experimental_backgroundImage`, verified on device by a throwaway spike route that is
-deliberately not committed. Any implementation of this ADR uses that prop. The fallback recorded here still applies if
-it regresses: a flat per-state colour using the bottom stop, which costs the two-stop
-reading and nothing else.
+`experimental_backgroundImage`, verified on device by a throwaway spike route that was
+never committed and has since been deleted. Any implementation of this ADR uses that
+prop. The fallback recorded here still applies if it regresses: a flat per-state colour
+using the bottom stop, which costs the two-stop reading and nothing else.
 
 ## Consequences
 

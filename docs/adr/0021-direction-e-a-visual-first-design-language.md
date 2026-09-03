@@ -190,7 +190,12 @@ or Settings look like; that is design goals 4, 5 and 6 in
   as an implementation constraint, not solved here.
 - **The Balanced Horizon geometry is currently unrepresented on Today.** With garments as
   the subject, an abstract layer mark competes with them rather than supporting them. This
-  is an open problem, not a resolved decision.
+  is an open problem, not a resolved decision. Two attempts are already spent, and neither
+  should be repeated blind: one mark per garment row read as a column of bullet dashes,
+  because a 64 point row pitch is too far apart for the marks to group into a figure, and
+  drawing the stack once at figure scale beside the outfit name (slab widths 1.000 / 0.818
+  / 0.895 at offsets 0.000 / 0.287 / 0.046, measured from the approved master's path
+  extents) belonged to a direction that was not chosen.
 - **The shape vocabulary limits differentiation.** A blouse and a shirt map to the same
   silhouette, so two alternate looks can open with the same drawing. That is the clearest
   argument in the spike for richer per-type illustration, and it is a cost of the MVP
