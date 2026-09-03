@@ -52,11 +52,30 @@ Nothing is currently in progress.
 
 ## Next Approved Milestones
 
-1. **Gender and age band in the profile.** Replace the clothing preference with a gender field, add an optional birth year, and let the derived age band shift formality preference in both the AI request and the deterministic fallback; see [ADR 0015](adr/0015-gender-and-age-band-in-the-profile.md). Onboarding keeps three steps but asks gender and birth year instead of clothing preference, language, and appearance, both of which already default to the device and stay changeable in Settings. Schema version 8 rebuilds the profile table, converts the stored values, adds `birth_year`, and resets `onboarding_completed` so existing installations are offered the birth year they never had a chance to give. Ordered first because the maintainer asked for it directly on 2026-09-03, which moves real location selection to second.
+An interface redesign that changes information architecture, not only visual
+treatment, is under evaluation as of 2026-09-03. Until its scope is known, work
+that touches screens is held and work below the presentation layer proceeds,
+because only the latter survives an architecture change intact. The ordering
+below reflects that split rather than feature priority.
 
-2. **Real location selection.** Replace the three-entry sample catalog with place search. The device-location flow is complete and unchanged; this milestone only replaces the manual alternative beside it. Add a Worker place-search route and its shared contract, backed by Open-Meteo's geocoding service, which is already a configured provider and needs no new credential or budget. Widen `ManualLocationId` from its closed three-value union, remove the duplicate literal whitelist in `weather-repository.ts` that must currently be edited in lockstep with that union, and carry each location's display name with its data instead of keying a localization record by id. No SQLite migration: `manual_catalog_id` is already an unconstrained `TEXT` column. Ordered ahead of N2 because it corrects a defect every user sees rather than adding a feature, and because alert rules written against the sample catalog would have to be revised once the location model changes.
+**Proceeding now, redesign-proof.** These change no screen.
 
-3. **Local weather alerts (N2).** Add deterministic alert rules, local scheduling from fresh forecasts, repeat suppression, quiet hours, and best-effort background refresh. No server or push token; see [ADR 0004](adr/0004-notifications-in-the-mvp.md).
+1. **Gender and age band, everything below the UI.** Phases 1, 2, 4 and 5 of [ADR 0015](adr/0015-gender-and-age-band-in-the-profile.md): schema version 8 and the profile domain, the age band and formality order table in `packages/contracts`, the deterministic fallback's use of that order, and the `ageBand` request field with its Worker prompt and cache-key changes. The `onboarding_completed` reset moves out of the schema phase and into the onboarding phase, since resetting it before onboarding has anything new to ask would return every installation to the old form for nothing.
+
+2. **Real location selection, below the UI.** The Worker place-search route and its shared contract, widening `ManualLocationId`, removing the duplicate literal whitelist in `weather-repository.ts`, and carrying each location's display name with its data. The picker screen itself is held with the other screen work.
+
+**Held until the redesign's scope is known.** These are decided and blocked only
+on knowing what the redesign restructures.
+
+3. **Gender and age band, onboarding and Settings.** Phase 3 of ADR 0015.
+
+4. **The location picker screen**, completing milestone 2.
+
+5. **Location in onboarding, and an honest empty state.** See [ADR 0016](adr/0016-location-in-onboarding-and-an-honest-empty-state.md). This one is additionally blocked on milestones 2 and 4 regardless of the redesign: the decline path has to lead to real city selection, and shipping it while the picker still offers three sample cities would put the application's worst screen in front of every new user.
+
+**Not blocked by any of the above.**
+
+6. **Local weather alerts (N2).** Add deterministic alert rules, local scheduling from fresh forecasts, repeat suppression, quiet hours, and best-effort background refresh. No server or push token; see [ADR 0004](adr/0004-notifications-in-the-mvp.md).
 
 Do not combine these milestones merely for convenience. Server-sent push (N3) remains deferred and requires its own ADR.
 
