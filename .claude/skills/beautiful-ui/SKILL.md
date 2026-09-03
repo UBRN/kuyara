@@ -17,6 +17,13 @@ the failures that keep recurring.
    spacing, emphasis and when a surface is allowed to mean something.
 3. `docs/design/design-system.md`: the tokens and primitives that implement both.
 
+The accepted visual direction is **Direction E**, `docs/adr/0021-direction-e-a-visual-first-design-language.md`.
+Read it before 1 to 3 for anything on Today, and before ADR 0017 or ADR 0018, both of
+which it amends: garment illustration is the visual subject, Today's hero is the
+composition rather than a type role, the weather tints the surface the garments sit on
+instead of occupying its own band, and the light page ground rises to Soft Mist. None of
+it is implemented yet, so the shipped tree still shows the earlier allocation.
+
 Read 2 in full for a new screen. For a targeted change, read the laws your diff
 touches plus **How to check a screen** at the end of it.
 
@@ -32,7 +39,10 @@ dark, shadow contact is exactly 1.000:1 because the shadow colour is the backgro
 
 **Never propose a new card colour, a darker ground, or a heavier shadow to fix
 flatness.** Three milestones already walked that ladder to its end. Fix flatness with
-type scale, weight, and the spacing ladder.
+type scale, weight, and the spacing ladder. The measurements above are the shipped
+build's; ADR 0021 moves the light ground *up* to Soft Mist precisely because Direction
+E's Today stops needing a card step at all, which is the opposite move from finding
+more depth.
 
 ## The laws, by name
 
@@ -44,8 +54,8 @@ type scale, weight, and the spacing ladder.
 | 4 | One accent, a status band | Status = ink + glyph + text, always all three. Colour is never the only signal |
 | 5 | Typographic tone | Tabular figures for anything that changes without a layout change. Nothing below `caption` 13 except `eyebrow` 10.5 |
 | 6 | Iconography | Icon size tracks adjacent text (16/caption, 20/body, 24/title, 28+ standalone) |
-| 7 | Motion | Nothing loops, pulses, or runs ambiently. No state change signalled by motion alone |
-| 8 | Non-visual feedback | Only `components/ui` may import `expo-haptics`. Zero matches under `features/` |
+| 7 | Motion | Repeating motion is allowed when it supports atmosphere, state, hierarchy, feedback or character (ADR 0020). Never the only signal of a state change, never under a hero value, always off under Reduced Motion |
+| 8 | Non-visual feedback | Only `components/ui` may import `expo-haptics` or `@expo/ui` (ADR 0019). Zero matches under `features/` for either |
 | 9 | Deferral carve-out | How a deferred item may return as a role rather than a primitive |
 
 Law 2 is the one that silently rots: it was written and then not applied in sixteen

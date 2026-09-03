@@ -21,22 +21,27 @@ rg "spacing\.xl|spacing\['2xl'\]" apps/mobile/src/features
 At most one `xl` per screen (hero to body only); `2xl` only as trailing scroll space.
 
 ```bash
-rg "gap: (theme\.)?spacing\.lg" apps/mobile/src/features
+rg -B4 "gap: (theme\.)?spacing\.lg" apps/mobile/src/features
 ```
 
-`lg` is container inset, not a gap between groups. Almost every hit is meant to be `md`.
+`lg` is container inset, not a gap between groups, so a **vertical** hit is almost always
+meant to be `md`. Read the context before changing one: Law 2 is a rule about vertical
+space, and the three current hits are all `flexDirection: 'row'` gaps, which it does not
+govern.
 
 ```bash
-rg "expo-haptics" apps/mobile/src/features
+rg "@expo/ui|expo-haptics" apps/mobile/src/features
 ```
 
-Must be empty. Only `components/ui` imports it.
+Must be empty. Only `components/ui` imports either; see ADR 0019 for `@expo/ui`.
 
 ```bash
-rg "fontSize|lineHeight" apps/mobile/src/features
+rg "(fontSize|lineHeight):\s*-?\d" apps/mobile/src/features
 ```
 
-Must be empty. `theme.test.mjs` fails the suite otherwise.
+Must be empty. That is the exact rule `theme.test.mjs` enforces: a **literal** number.
+Reading a value off a role (`typography.body.fontSize`) is allowed and does occur, so
+grepping the bare property names raises false alarms.
 
 ## 2. Automated checks
 
@@ -72,7 +77,7 @@ pick what the diff can plausibly break, and say which axes you skipped.
 | Light **and** dark | Contrast, and separators that only existed as a shadow (dark shadow contact is 1.000:1) |
 | Larger text settings | Fixed line heights clipping, rows colliding, native tab labels (they do not scale, expected) |
 | Screen reader | Missing labels, decorative icons still in the tree, focus order not following source order |
-| Reduced Motion | Anything still animating; press feedback must stay immediate |
+| Reduced Motion | Any ambient or repeating motion that does not short-circuit (repeating motion is permitted, ADR 0020, stopping here is not optional); press feedback must stay immediate |
 | Touch targets | 44 points of actual area, reached by painted size or `hitSlop` |
 | Colour alone | Every status needs ink **and** glyph **and** text |
 
