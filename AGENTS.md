@@ -162,6 +162,7 @@ The repository may be in transition. Inspect the real tree before assuming this 
 - Use semantic design tokens rather than hardcoded brand values in feature UI.
 - Preserve platform-adaptive iOS and Android behavior instead of forcing pixel-identical interfaces.
 - Validate important UI in Turkish and English, light and dark themes, text scaling, screen readers, and Reduced Motion; report conflicts between documentation and implementation instead of silently choosing one.
+- Agents that support skills should load `beautiful-ui` before UI work, `platform-ios-ui` or `platform-android-ui` for platform-specific behavior, and `ui-verification` before calling UI work done. They live in `.claude/skills/` and hold reading order, measured platform traps, and the verification gate; the rules themselves stay in this file and in `docs/design/`.
 
 ## Testing and verification
 
@@ -195,7 +196,7 @@ The repository may be in transition. Inspect the real tree before assuming this 
 - Use ADRs for consequential, difficult-to-reverse choices or changes to existing decisions.
 - Update the relevant document when behavior or a durable decision changes.
 - Keep this file concise and focused on rules that apply repeatedly. Put explanations and historical context in `docs/`.
-- This file is the single instruction source for every coding agent. `CLAUDE.md` only imports it; do not duplicate these rules into another agent-instruction file.
+- This file is the single instruction source for every coding agent. `CLAUDE.md` only imports it; do not duplicate these rules into another agent-instruction file. The skills in `.claude/skills/` are workflow and pointers, not a second rule source, and must stay that way.
 
 ## Code review rules
 
