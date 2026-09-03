@@ -53,19 +53,36 @@ Nothing is currently in progress.
 ## Next Approved Milestones
 
 An interface redesign that changes information architecture, not only visual
-treatment, is under evaluation as of 2026-09-03. Until its scope is known, work
-that touches screens is held and work below the presentation layer proceeds,
-because only the latter survives an architecture change intact. The ordering
-below reflects that split rather than feature priority.
+treatment, became the active work on 2026-09-03. Everything else is held behind
+it, including the work below the presentation layer that would have survived it,
+because the maintainer chose to serialize rather than run two moving fronts
+through one repository.
 
-**Proceeding now, redesign-proof.** These change no screen.
+The redesign must be designed against the decided target, not against what is on
+screen today. [ADR 0015](adr/0015-gender-and-age-band-in-the-profile.md) and
+[ADR 0016](adr/0016-location-in-onboarding-and-an-honest-empty-state.md) already
+settle what onboarding asks and what Today's empty state must accomplish; both
+deliberately leave layout and copy to this redesign. Designing the current three
+screens and fitting the decided content in afterwards would produce the second
+pass this ordering exists to avoid.
+
+Its own decisions land as ADRs when they are settled, not as they are explored.
+Where it conflicts with a recorded decision, the conflict is raised rather than
+resolved silently. The measured values in
+[`design-language.md`](design/design-language.md) and the tab decisions in
+[ADR 0006](adr/0006-three-tab-information-architecture.md) and
+[ADR 0012](adr/0012-adopting-expo-router-native-tabs.md) are the likeliest
+places for that.
+
+**Held behind the redesign, and independent of it.** These change no screen and
+can start the moment the redesign's scope stops moving.
 
 1. **Gender and age band, everything below the UI.** Phases 1, 2, 4 and 5 of [ADR 0015](adr/0015-gender-and-age-band-in-the-profile.md): schema version 8 and the profile domain, the age band and formality order table in `packages/contracts`, the deterministic fallback's use of that order, and the `ageBand` request field with its Worker prompt and cache-key changes. The `onboarding_completed` reset moves out of the schema phase and into the onboarding phase, since resetting it before onboarding has anything new to ask would return every installation to the old form for nothing.
 
 2. **Real location selection, below the UI.** The Worker place-search route and its shared contract, widening `ManualLocationId`, removing the duplicate literal whitelist in `weather-repository.ts`, and carrying each location's display name with its data. The picker screen itself is held with the other screen work.
 
-**Held until the redesign's scope is known.** These are decided and blocked only
-on knowing what the redesign restructures.
+**Held behind the redesign, and shaped by it.** These are decided; what the
+redesign restructures determines how they are built.
 
 3. **Gender and age band, onboarding and Settings.** Phase 3 of ADR 0015.
 
