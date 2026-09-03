@@ -201,3 +201,10 @@ recommendation is never withheld.
 - Wardrobe as a candidate source or a tie-breaker.
 - Replacing the OpenRouter step, which stays in the chain before the
   deterministic fallback.
+
+## Note (2026-09-03)
+
+[ADR 0015](0015-gender-and-age-band-in-the-profile.md) adds `ageBand` to the AI
+request. The band reorders preference among the precomposed formality levels
+(`casual`/`smart`/`formal`) and excludes none of them, so the candidate set,
+the three-option guarantee, and this ADR's validity guarantees are unaffected.

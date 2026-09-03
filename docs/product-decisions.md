@@ -10,7 +10,7 @@
 - Expo SQLite is the durable source of truth for user-created local data. Remote sync may complement, but must not replace, the local store in a future release.
 - Weather providers are accessed only through the Worker behind a provider-neutral contract. Weather constraints are deterministic; AI selects three of at most 24 deterministically precomposed catalog outfits filtered by clothing preference and must have a device-local catalog-only deterministic fallback.
 - The Wardrobe is a personal record of garments marked `owned` or `wanted`, not a recommendation input. Wardrobe photos are optional, remain on-device in the MVP, and are not sent to AI.
-- “Women's clothing” and “Men's clothing” are mutable clothing preferences, not biological-sex fields.
+- Decided and pending (ADR 0015, 2026-09-03): the profile field becomes `gender`, valued `woman` or `man`, required, with woman listed before man. The catalog keeps `womens`/`mens` as its own applicability vocabulary, unchanged and still not a sex field; a single explicit mapping converts gender to it. The profile also gains an optional `birthYear`, stored on-device and never transmitted; only a derived age band crosses the network. See [ADR 0015](adr/0015-gender-and-age-band-in-the-profile.md).
 
 ## Apple Developer Program
 
@@ -29,7 +29,7 @@ Approved 2026-08-30. Rationale and consequences are canonical in [ADR 0006](adr/
 - The primary tab bar is adopting Expo Router Native Tabs in place of Expo Router's stable JavaScript Tabs. This accepts the documented alpha risk of the SDK 57 API; kuyara's three static, non-nested tabs do not hit any of its three documented limitations. See [ADR 0012](adr/0012-adopting-expo-router-native-tabs.md).
 - Each main tab owns a nested Stack boundary. Wardrobe and wanted records live inside Profile rather than owning a tab or being pushed from Today.
 - Weather provides foreground location selection and Worker-backed persisted live weather at `/weather`. Settings opens from an icon in the Profile header and is not a tab.
-- Clothing preference remains prominent and required in onboarding because it is the only user input that shapes recommendations. Its control is the last Settings section and is deliberately not prominent there.
+- Clothing preference remains prominent and required in onboarding because it is the only user input that shapes recommendations. Its control is the last Settings section and is deliberately not prominent there. Decided and pending (ADR 0015, 2026-09-03): the prominent, required field becomes gender rather than clothing preference; the prominence rule itself is unchanged. See [ADR 0015](adr/0015-gender-and-age-band-in-the-profile.md).
 
 ## Implemented deterministic Today integration
 
@@ -72,7 +72,7 @@ Approved 2026-08-30. Documentation may state the present fact that the MVP has n
 ## Implemented clothing taxonomy and wardrobe schema version 3
 
 - The bundled garment catalog defines the canonical types, structural categories, weather-relevant default properties, stable localization keys, and deprecation metadata specified in [`clothing-taxonomy.md`](clothing-taxonomy.md). Zod schemas and TypeScript types derive from the same readonly value sources. It defined 30 types at version 1; catalog version 3 defines 32, per [ADR 0013](adr/0013-catalog-content-corrections-and-version-3.md).
-- Catalog applicability filters recommendation candidates and new Wardrobe choices. It is not biological sex and never hides, invalidates, deletes, or excludes a valid item already recorded in the Wardrobe.
+- Catalog applicability filters recommendation candidates and new Wardrobe choices. It is not biological sex and never hides, invalidates, deletes, or excludes a valid item already recorded in the Wardrobe. Decided and pending (ADR 0015, 2026-09-03): this vocabulary stays `womens`/`mens` and unchanged even as the profile field it derives from is renamed to gender; catalog applicability itself still is not a sex field. See [ADR 0015](adr/0015-gender-and-age-band-in-the-profile.md).
 - `blouse`, `skirt`, and `dress` apply to the `womens` catalog preference. Every other canonical type, including `jumpsuit`, `sleeveless_top`, and `leggings`, applies to both `womens` and `mens`.
 - SQLite migration version 3 preserves every version 2 field and row while adding a nullable canonical type reference, canonical color family, and seven explicit property-override columns. Legacy rows remain unclassified until the user chooses a type; migration never infers one.
 - Catalog defaults remain bundled code rather than duplicated SQLite data. A pure effective-garment resolver uses an explicit item override when present and otherwise the current catalog default; legacy, resolved, and invalid-data outcomes remain distinct.
@@ -231,7 +231,7 @@ recalculated provider pricing that set the probe limits, are canonical in
 
 ## Approved AI input privacy boundary
 
-Approved 2026-08-13 and narrowed on 2026-08-30. The simpler catalog-only boundary removes every Wardrobe-derived field. The strict request schema admits only the fields listed below, so forbidden fields have no representation and are rejected rather than filtered.
+Approved 2026-08-13 and narrowed on 2026-08-30. The simpler catalog-only boundary removes every Wardrobe-derived field. The strict request schema admits only the fields listed below, so forbidden fields have no representation and are rejected rather than filtered. Decided and pending (ADR 0015, 2026-09-03): the boundary gains `ageBand`. See [ADR 0015](adr/0015-gender-and-age-band-in-the-profile.md).
 
 AI may receive only the minimum sanitized structured data required to compose outfits:
 
@@ -239,18 +239,19 @@ AI may receive only the minimum sanitized structured data required to compose ou
 - catalog structural categories, supported roles, and property evidence,
 - deterministic weather and clothing requirements,
 - clothing preference,
+- age band,
 - a local calendar day seed.
 
-AI must not receive Wardrobe-derived data of any kind, including source kinds, overrides, photos, photo paths or URIs, free-form names, or ownership state. It also must not receive `localProfileId`, profile or device identifiers, exact coordinates, raw location payloads, secrets, complete internal database records, or unrelated personal data.
+AI must not receive Wardrobe-derived data of any kind, including source kinds, overrides, photos, photo paths or URIs, free-form names, or ownership state. It also must not receive `localProfileId`, profile or device identifiers, exact coordinates, raw location payloads, secrets, complete internal database records, birth year, or unrelated personal data.
 
 ## Approved recommendation caching, refresh, and status behavior
 
-Approved 2026-08-13 and revised 2026-08-30 and 2026-09-01. Milestone 3 implemented persistence, coalescing, last-valid preservation, and the deterministic fallback; the local day trigger and revised cache identity are planned. The 2026-09-01 revision adds the missing-snapshot condition and names the persisted snapshot as the comparison baseline; it clarifies the existing decision rather than reversing it, so it needs no ADR. The generation-mode status surface and active AI probe were implemented in milestone 4 on 2026-08-29; see [Implemented generation-mode surface, active AI probe, and Worker rate limiting](#implemented-generation-mode-surface-active-ai-probe-and-worker-rate-limiting).
+Approved 2026-08-13 and revised 2026-08-30 and 2026-09-01. Milestone 3 implemented persistence, coalescing, last-valid preservation, and the deterministic fallback; the local day trigger and revised cache identity are planned. The 2026-09-01 revision adds the missing-snapshot condition and names the persisted snapshot as the comparison baseline; it clarifies the existing decision rather than reversing it, so it needs no ADR. The generation-mode status surface and active AI probe were implemented in milestone 4 on 2026-08-29; see [Implemented generation-mode surface, active AI probe, and Worker rate limiting](#implemented-generation-mode-surface-active-ai-probe-and-worker-rate-limiting). Decided and pending (ADR 0015, 2026-09-03): gender replaces the clothing preference in the device-side trigger and baseline rather than joining it, because the preference is derived from gender, and a change of age band is added as a trigger. The trigger is the band, not the birth year: correcting a mistyped year that leaves the user in the same band must not discard a valid snapshot. See [ADR 0015](adr/0015-gender-and-age-band-in-the-profile.md).
 
 - The last valid recommendation snapshot must be persisted on-device and rendered immediately when available.
-- AI must not be called on every application launch. A recommendation must be generated or refreshed only when there is no persisted recommendation yet, the relevant weather snapshot is refreshed after becoming stale, the active location changes, clothing preference changes, a new local calendar day starts, or the user explicitly requests a refresh.
-- The "not on every launch" rule is enforced against the persisted recommendation snapshot, not against in-memory state. The comparison baseline is the stored snapshot's weather snapshot identity, location key, clothing preference, and day variant. A process-local baseline resets on every mount, which makes the first location selection stop counting as a change and leaves a clean install with no recommendation at all.
-- Recommendation input includes a local day variant. Within one local day the result is stable and cacheable; the next day produces different outfits from the same weather, and the variant repeats on a seven-day cycle. Cache identity is weather snapshot identity, clothing preference, catalog version, and day variant.
+- AI must not be called on every application launch. A recommendation must be generated or refreshed only when there is no persisted recommendation yet, the relevant weather snapshot is refreshed after becoming stale, the active location changes, gender changes, the age band changes, a new local calendar day starts, or the user explicitly requests a refresh.
+- The "not on every launch" rule is enforced against the persisted recommendation snapshot, not against in-memory state. The comparison baseline is the stored snapshot's weather snapshot identity, location key, gender, age band, and day variant. A process-local baseline resets on every mount, which makes the first location selection stop counting as a change and leaves a clean install with no recommendation at all.
+- Recommendation input includes a local day variant. Within one local day the result is stable and cacheable; the next day produces different outfits from the same weather, and the variant repeats on a seven-day cycle. Cache identity is weather snapshot identity, clothing preference, age band, catalog version, and day variant. The Worker's key keeps naming the clothing preference because that is the contract field it receives; gender is the device-side field the preference is derived from, and it never reaches the Worker under that name.
 - Duplicate in-flight generation requests must be coalesced, and a failed refresh must preserve the last valid recommendation.
 - A successful deterministic fallback is a valid recommendation result and replaces an unavailable AI attempt through the implemented mobile application flow.
 - Transient provider or model identity must stay out of the durable domain model unless it is needed for coarse provenance or user status.

@@ -15,7 +15,7 @@ The local-first boundary before schema version 3 had these facts:
 - SQLite migration version 2 stores profile-owned `wardrobe_items` with UUID lifecycle fields, optional `name`, optional free-text `color`, optional private `photo_relative_path`, and one required `category`.
 - The six stable structural categories are `top`, `bottom`, `one_piece`, `outerwear`, `footwear`, and `accessory`.
 - `WardrobeItem`, `WardrobeItemRecord`, their explicit mapper, the repository, and the SQLite data source are separate boundaries. Invalid stored values do not cross into the domain.
-- The local profile stores the mutable clothing preference as `womens` or `mens`; this is a catalog/recommendation preference, not biological sex.
+- The local profile stores the mutable clothing preference as `womens` or `mens`; this is a catalog/recommendation preference, not biological sex. Decided and pending (ADR 0015, 2026-09-03): the profile no longer stores a clothing preference directly. It stores gender (`woman`/`man`), and a single explicit mapping converts gender to catalog applicability. The catalog vocabulary itself stays `womens`/`mens`, unchanged, and is still not a sex field. See [ADR 0015](adr/0015-gender-and-age-band-in-the-profile.md).
 - User-facing English and Turkish strings live in the localization boundary. Persisted values are locale-independent.
 The implemented taxonomy extends these facts rather than reinterpreting migration version 2 or treating the Today fixture as production catalog data.
 
