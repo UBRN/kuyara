@@ -104,7 +104,7 @@ Approved 2026-08-30. Documentation may state the present fact that the MVP has n
 - Shared strict Zod schemas define the request, provider-neutral success data, established condition codes and weather invariants, and minimal stable error codes. The response identifies data only as `sample` or `live`; WeatherKit names and raw provider structures remain internal.
 - The Worker validates before provider access, maps an injected provider-neutral model through an explicit API mapper, and sanitizes invalid input, route/method failures, unavailable or invalid provider data, and unexpected errors. Responses do not expose provider details, stacks, secrets, or internal configuration.
 - The original foundation used a deterministic clock-injected mock. The current production composition uses the real provider chain, while the mock remains an injected test double.
-- Mobile calls the Worker through a contract-validating HTTP provider adapter. WeatherKit is the next provider milestone.
+- Mobile calls the Worker through a contract-validating HTTP provider adapter. WeatherKit now sits at the head of the same chain; see [ADR 0014](adr/0014-weatherkit-at-the-head-of-the-provider-chain.md).
 
 ## Implemented mobile Worker weather adapter
 
@@ -157,19 +157,20 @@ Approved 2026-08-13. The Worker enforces its checked-in request limits; provider
 
 ## Approved weather provider strategy
 
-Approved 2026-08-13. Implemented 2026-08-29 as milestone 5. Design, the pricing basis, and full rationale are canonical in [ADR 0002](adr/0002-real-weather-provider-chain.md); the decisions below stay recorded here and are not superseded.
+Approved 2026-08-13. Implemented 2026-08-29 as milestone 5, and extended with WeatherKit on 2026-09-03. Design, the pricing basis, and full rationale are canonical in [ADR 0002](adr/0002-real-weather-provider-chain.md) and [ADR 0014](adr/0014-weatherkit-at-the-head-of-the-provider-chain.md); the decisions below stay recorded here and are not superseded.
 
 - The chain is Open-Meteo primary, OpenWeather fallback, then the last valid device-local weather snapshot. OpenWeather was enabled and its live fallback verified on 2026-08-29.
-- Once WeatherKit becomes available the chain becomes WeatherKit primary, Open-Meteo fallback, OpenWeather fallback, then the last valid device-local weather snapshot. WeatherKit is inserted at the head of the established chain rather than replacing it.
+- The chain is now WeatherKit primary, Open-Meteo fallback, OpenWeather fallback, then the last valid device-local weather snapshot. WeatherKit was inserted at the head of the established chain rather than replacing it, and is present only when its four Apple credentials are configured. No live WeatherKit call has been made yet; see [ADR 0014](adr/0014-weatherkit-at-the-head-of-the-provider-chain.md).
 - The existing provider-neutral Worker and mobile boundaries are preserved. Each upstream provider has an isolated adapter with raw-response runtime validation, explicit unit and condition mapping, timeout handling, and sanitized errors.
 - Provider payloads and secrets do not cross into mobile and are not logged.
 - Weather fallback eligibility is governed by the [repository rule in `AGENTS.md`](../AGENTS.md#weather-and-recommendation-behavior).
-- Attempts per request are bounded, and retry or fallback loops are prevented.
+- Attempts per request are bounded, and retry or fallback loops are prevented. The bound rose from two to three attempts when WeatherKit joined the chain, and the per-attempt timeout narrowed from 4,000 ms to 3,000 ms so three attempts still fit inside the mobile client's 10,000 ms abort.
 - The exact 30-minute freshness behavior and last-known-good semantics already implemented on mobile did not change.
-- Open-Meteo attribution requirements are supported, and WeatherKit attribution requirements must be supported when WeatherKit is introduced. The earlier "provider names never cross the API" rule is narrowed only as much as a controlled, non-secret attribution identifier or attribution metadata requires; raw provider data and internal errors remain private.
+- Open-Meteo, OpenWeather and Apple WeatherKit attribution requirements are all supported. Apple's requirement to display the Apple Weather trademark and a legal link to its other data sources is met by adding `weatherkit` to the `origin.sourceId` union and one localized attribution row on the Weather screen; the weather domain model, freshness rules and schema are unchanged. The earlier "provider names never cross the API" rule is narrowed only as much as a controlled, non-secret attribution identifier or attribution metadata requires; raw provider data and internal errors remain private.
 - OpenWeather usage is bounded by provider-side limits plus Kuyara-side protection. Exact limits were recalculated from official current pricing on 2026-08-29; see [ADR 0002's pricing and limits basis](adr/0002-real-weather-provider-chain.md#pricing-and-limits-basis-recalculated-2026-08-29-do-not-freeze) rather than restating the numbers here.
 - Open-Meteo's free tier is non-commercial use only. Kuyara's free, ad-free, no-subscription, no-in-app-purchase, open-source nature is recorded as a deliberate reading that fits the terms' non-commercial examples, not a certification; re-check if the product ever monetizes.
 - OpenWeather was enabled only after its provider-side daily call limit was lowered to remove billable overage; ADR 0002 records the dated basis.
+- WeatherKit's 500,000 monthly calls are included with the Apple Developer Program membership and Apple has no automatic overage; more quota requires an explicit human subscription. A Kuyara-side daily cap derived from that allowance still applies. Limits were recalculated on 2026-09-03; see [ADR 0014's pricing and limits basis](adr/0014-weatherkit-at-the-head-of-the-provider-chain.md#pricing-and-limits-basis-recalculated-2026-09-03-do-not-freeze) rather than restating the numbers here.
 
 ## Approved AI recommendation strategy
 
