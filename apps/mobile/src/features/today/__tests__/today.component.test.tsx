@@ -392,6 +392,29 @@ test('loading Today keeps its existing feedback layout without the loaded header
   expect(result.queryByTestId('today-stretchy-header')).not.toBeOnTheScreen();
 });
 
+// The end-to-end flows assert that onboarding lands on Today, so the container id
+// has to survive every branch. It previously existed only on the populated path,
+// and a fresh install with no location selected renders the unavailable one.
+test('every Today state carries the stable today-screen container id', async () => {
+  for (const state of [
+    { kind: 'loading' },
+    { kind: 'unavailable' },
+  ] as const) {
+    const result = await render(providers(
+      <TodayScreen
+        language="en"
+        onOpenOutfitDetail={() => undefined}
+        onOpenSettings={() => undefined}
+        onRefresh={() => undefined}
+        state={state}
+      />,
+    ));
+
+    expect(result.getByTestId('today-screen')).toBeOnTheScreen();
+    expect(result.getByTestId(`today-${state.kind}-screen`)).toBeOnTheScreen();
+  }
+});
+
 describe.each(['en', 'tr'] as const)('%s Today section headings', (language: SupportedLanguage) => {
   test('uses localized sentence-case bodyStrong headers', async () => {
     const result = await render(providers(

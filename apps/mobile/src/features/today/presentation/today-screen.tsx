@@ -56,10 +56,11 @@ export function TodayScreen({
       <Screen
         accessibilityLabel={presentation.accessibilityLabel}
         contentContainerStyle={styles.feedbackContent}
-        testID={`today-${presentation.kind}-screen`}>
+        testID="today-screen">
         <Surface
           accessibilityRole={presentation.kind === 'unavailable' ? 'alert' : undefined}
           style={styles.feedbackCard}
+          testID={`today-${presentation.kind}-screen`}
           variant="elevated">
           {presentation.kind === 'loading' ? (
             <ActivityIndicator
