@@ -50,8 +50,8 @@ A screen shows **at most three emphasis levels**, and **exactly one** hero.
 
 | level | roles | colour | count per screen |
 | --- | --- | --- | --- |
-| 1, hero | `display` 40 or `titleLarge` 24/700 | `textPrimary` | exactly 1 |
-| 2, anchor | `title` 24/600 or `bodyStrong` 17/600 | `textPrimary` | unbounded |
+| 1, hero | `display` 56 or `titleLarge` 34/700, **or a composed image** | `textPrimary` | exactly 1 |
+| 2, anchor | `title` 22/600 or `bodyStrong` 17/600 | `textPrimary` | unbounded |
 | 3, support | `body` 17/400, `caption` 13/400 | `textPrimary` or `textSecondary` | unbounded |
 
 - `eyebrow` is **not** an emphasis level. It is a data caption, uppercase and tracked,
@@ -60,8 +60,13 @@ A screen shows **at most three emphasis levels**, and **exactly one** hero.
 - **At most one accent-filled element per viewport.** If two things are filled with
   `brandAccent` at once, one of them is wrong. This matches the convention that [only
   one high-emphasis button belongs in a given context](https://polaris.shopify.com/components/page-actions).
-- The hero must be a value the user opened the screen to get: the temperature on Today
-  and Weather, the item count on Profile. A heading is never the hero.
+- The hero must be what the user opened the screen to get. A heading is never the hero.
+  **The hero is not always a type role.** [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md)
+  makes the garment composition Today's hero, and Today therefore carries no `display` at
+  all; the archetype name sits at `title` beside the image. Where the answer to the
+  screen's question is a value, the hero is still that value, as the temperature is on
+  Weather. Where the answer is a picture, the picture is the hero and the type steps down
+  to support it.
 
 Test: count on a screenshot. It is decidable without opening the code.
 
@@ -97,7 +102,13 @@ Why this is stricter than the mockups: see [Relationship to the mockups](#relati
 
 - **At most three planes on a screen**: ground, chrome, card. A card never sits on
   another card. A tinted row inside a card is not a fourth plane, it is a container
-  fill.
+  fill. The condition-tinted stage of
+  [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md) is not a fourth
+  plane either: it is the plane the garment composition sits on, and it carries no card,
+  no secondary copy, and no bordered control. That stage replaces the full-width
+  atmospheric band [ADR 0018](../adr/0018-the-atmospheric-condition-band.md) originally
+  specified; ADR 0018's state set, derivations and contrast floors are unchanged, only
+  the shape the atmosphere takes.
 - A plane change must coincide with a **change of information**. A plane is never
   introduced for decoration or for visual interest.
 - The card is identified by **radius 20 plus a 16 inset plus the fill step, together**.
@@ -226,7 +237,17 @@ outlining every card at 3:1 would read as a wireframe, the opposite of the ident
 ## Law 5: typographic tone
 
 - Sentence case everywhere. `eyebrow` uppercase only, only on numeric stat captions.
-- One `display` per screen (this is the hero of Law 1, stated from the type side).
+- **At most** one `display` per screen, and a screen whose hero is an image carries
+  none. Today has no `display` under
+  [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md); Weather keeps it,
+  because there the hero really is a number.
+- The scale is **56 / 34 / 22 / 17 / 15 / 13 / 10.5**, retuned by
+  [ADR 0017](../adr/0017-a-retuned-typography-scale.md). Before that retune `title` and
+  `titleLarge` were both 24 and nothing sat between 24 and 40, so the three emphasis
+  levels of Law 1 could not actually be expressed. `titleLarge` 34 matches the iOS
+  large title metric so a hand-drawn heading and a native large title agree.
+- The three largest roles carry negative tracking (`display` -1.5, `titleLarge` -0.6,
+  `title` -0.2). Without it the system face at hero sizes reads as a large label.
 - **Any number that changes without the layout changing uses tabular figures**
   (`fontVariant: ['tabular-nums']`): temperature, times, counts, percentages. A digit
   that shifts width on refresh reads as instability, which is the precise opposite of
@@ -272,11 +293,36 @@ Durations are already tokenized (`immediate` 0, `fast` 120, `normal` 200, `delib
 
 - `fast` 120, content entering, press feedback.
 - `normal` 200, a state change on something already on screen.
-- `deliberate` 320, reserved for a full-screen or sheet transition. Nothing else.
-- **Nothing repeats.** No looping, pulsing, or ambient animation, anywhere. This is the
-  same restraint [calm technology asks for: technology should require the smallest
-  possible amount of attention](https://calmtech.com/).
-- Motion is never the only indication of a state change.
+- `deliberate` 320, reserved for a full-screen or sheet transition.
+
+**Continuous and repeating motion is permitted**, under a condition. Rewritten by
+[ADR 0020](../adr/0020-rewriting-the-motion-law.md); the earlier blanket rule was
+"nothing repeats, anywhere", which two shipped components violated and which was
+costing the product its only ambient character on the two screens where the weather is
+the subject. The rule now is:
+
+> Motion may be used where it supports the weather atmosphere, state, hierarchy,
+> feedback, or product character. It must not demand attention unnecessarily, must not
+> harm performance or readability, and must respect Reduced Motion.
+
+Three requirements are hard, not judgment calls:
+
+- **Motion is never the only indication of a state change.** This is an accessibility
+  requirement and it survived the rewrite unchanged.
+- **Reduced Motion is honoured.** Tokenized durations already resolve to 0; any
+  ambient animation must short-circuit as `weather-glyph.tsx` and
+  `probe-loading-overlay.tsx` already do.
+- **Nothing moves under a screen's hero value.** The condition-tinted stage of
+  [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md) is deliberately
+  still, because continuous movement beneath large text is where ambient motion
+  measurably costs readability. ADR 0021 §10 sanctions entrance and transition motion
+  for the garment pieces on that stage; what stays still is the stage itself.
+
+Ambient motion has no duration token yet: `fast`, `normal` and `deliberate` all
+describe transitions, and a 1500 ms cloud bob is not a transition.
+`weather-glyph.tsx` currently hardcodes its own durations for that reason. An ambient
+duration role is added and measured with the redesign's token work; a duration is a role in
+the sense of Law 9, so it may be defined ahead of a second use.
 
 ## Law 8: non-visual feedback
 
@@ -328,8 +374,8 @@ since a user for whom haptics are aversive will have disabled them system-wide.
 
 ## Law 9: the deferral carve-out
 
-`design-system.md:126` requires "a current product use rather than speculative
-completeness" before a new variant or primitive. That rule is **correct for components
+[`design-system.md`](./design-system.md#adaptive-ui-primitives) requires "a current
+product use rather than speculative completeness" before a new variant or primitive. That rule is **correct for components
 and wrong for the language**, and keeping it applied to both is the documented cause of
 this milestone.
 
@@ -346,10 +392,12 @@ A vocabulary that arrives one step behind the need cannot produce a coherent int
 which is what the icon system (waited for ADR 0008), shadows and the divider (waited
 for M6), and the status roles (waited until now) each demonstrated in turn.
 
-Note that the deferral rule's own stated condition for status roles,
-`design-system.md:34`, "deferred until the app has concrete informational, success,
-warning, and error presentation", **was already satisfied and nobody noticed.** Six
-such sites exist in the shipped app today:
+Note that the deferral rule's own stated condition for status roles, as it was worded
+before ADR 0010 landed, "deferred until the app has concrete informational, success,
+warning, and error presentation", **was already satisfied and nobody noticed.**
+[`design-system.md`](./design-system.md#primitive-and-semantic-colors) now records the
+resolution rather than the condition. Six such sites existed in the shipped app when
+this was written:
 
 1. `features/profile/presentation/ai-status-section.tsx:48-54,73-74`, info / ok /
    checking / error
@@ -400,10 +448,16 @@ without reading the rest of this document.
   purely decorative icons are hidden from the accessibility tree (Law 6).
 - Confirm icon size matches its adjacent text size (16/caption, 20/body, 24/title, 28+
   standalone) (Law 6).
-- Confirm no animation loops, pulses, or runs ambiently, and that no state change is
-  indicated by motion alone (Law 7).
+- For any repeating animation, confirm it supports atmosphere, state, hierarchy,
+  feedback, or character; that it is not the only indication of a state change; that it
+  stops under Reduced Motion; and that it is not under a hero value (Law 7).
 - Grep `features/` for `expo-haptics`. Zero matches: only the `components/ui` wrapper
   imports it (Law 8).
+- Grep `features/` for `@expo/ui`. Zero matches: only `components/ui` wraps it
+  ([ADR 0019](../adr/0019-adopting-expo-ui-at-the-control-layer.md)).
+- For any atmosphere state on screen, confirm its measured stops still clear the card,
+  text and icon floors recorded in
+  [ADR 0018](../adr/0018-the-atmospheric-condition-band.md).
 
 ## Relationship to the mockups
 
@@ -424,10 +478,21 @@ single justification for the milestone's instruction to improve on them.
 
 Deliberate departures, each with its measured reason:
 
-1. **Ground stays `#D0DDDC`, not the mockups' `#F4F6F5`.** The mockups' own ground
-   under a white card measures **1.085:1**. The shipped value measures **1.395:1**. The
-   shipped product is already better than the mockup on the exact metric the mockups
-   were consulted to fix. Adopting the mockup ground would undo M6 and M6.1.
+1. **Ground stayed `#D0DDDC`, not the mockups' `#F4F6F5`. Superseded.** The reasoning
+   held while the light card plane was white: the mockup ground under a white card
+   measures **1.085:1** against the shipped **1.395:1**, so adopting it would have undone
+   M6 and M6.1 on the exact metric the mockups were consulted to fix.
+   [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md) §4 reverses the
+   conclusion by removing its premise: Direction E's Today has no white card, so the
+   ground is no longer bought with a card step, and raising it to Soft Mist lifts
+   `textPrimary` from 10.04:1 to 12.90:1. **The light page ground is Soft Mist
+   `#F4F6F5`.** Settled 2026-09-04 (ADR 0021's amendment): this applies to every screen,
+   Profile, Closet and Settings included, rather than being confined to Today. Those
+   screens are designed so separation comes from type, space and this language's other
+   devices, not from a card fill step, and the M6.1 invariant that light `surface` clears
+   `background` by 1.2:1 is superseded rather than defended. Text and non-text contrast
+   floors are unchanged and still binding, as is ADR 0018's rule that no atmosphere state
+   may make contrast worse than `neutral`.
 2. **The mockup amber `#8A5A16` is retuned to `#7A4F12`.** The mockup value measures
    **4.236:1** on the shipped ground, below 4.5:1. It fails as text on the ground
    plane. It was drawn against the lighter mockup ground where it passed.
@@ -460,7 +525,11 @@ and which durations apply to which interaction. It does not cover:
 - Brand foundation, the approved palette's six hexes, the master symbol geometry, the
   application icon, and splash screen treatment. Those are locked decisions in
   [`visual-identity.md`](./visual-identity.md).
-- Concrete component variants and primitives (text input, selector, switch, modal
-  frameworks, non-scrollable/keyboard screen APIs, platform-colour adapters). These
-  stay governed by `design-system.md`'s "current product use, not speculative
-  completeness" rule; the role-shaped carve-out in Law 9 does not reach them.
+- Concrete component variants and primitives still deferred, namely
+  non-scrollable/keyboard screen APIs and platform-colour adapters. These stay governed
+  by [`design-system.md`](./design-system.md#adaptive-ui-primitives)'s "current product
+  use, not speculative completeness" rule; the role-shaped carve-out in Law 9 does not
+  reach them. The text-input, selector, switch and modal frameworks that used to sit on
+  this list are no longer deferred:
+  [ADR 0019](../adr/0019-adopting-expo-ui-at-the-control-layer.md) resolved them by
+  adopting `@expo/ui` at the control layer.
