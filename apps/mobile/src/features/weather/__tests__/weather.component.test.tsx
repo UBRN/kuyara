@@ -209,6 +209,11 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
   test.each([
     ['open-meteo', 'attributionOpenMeteo', 'https://open-meteo.com/'],
     ['openweather', 'attributionOpenWeather', 'https://openweathermap.org/'],
+    [
+      'weatherkit',
+      'attributionAppleWeather',
+      'https://developer.apple.com/weatherkit/data-source-attribution/',
+    ],
   ] as const)('shows an accessible %s attribution link that opens its licence URL', async (
     sourceId,
     copyKey,
