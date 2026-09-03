@@ -66,3 +66,12 @@ remain unchanged in principle.
   three-tab architecture decided here is unchanged by that migration.
 - Redesigning visual identity, tab icons, or shared navigation primitives.
 - Changing the onboarding gate or adding account navigation.
+
+## Note (2026-09-03)
+
+[ADR 0015](0015-gender-and-age-band-in-the-profile.md) removes the onboarding
+language and appearance step; both now follow the device default and stay
+changeable in Settings. It also renames the onboarding/Settings preference from
+clothing preference to gender. This ADR's three-tab decision and its rule about
+that control's prominence (required and prominent in onboarding, last and
+unprominent in Settings) are unaffected.
