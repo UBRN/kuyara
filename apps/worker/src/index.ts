@@ -16,11 +16,17 @@ import { createWeatherHandler } from './weather-handler.ts';
 import {
   createDailyCappedWeatherProvider,
   openWeatherDailyCallLimit,
+  weatherKitDailyCallLimit,
 } from './weather/daily-capped-weather-provider.ts';
 import { OpenMeteoWeatherProvider } from './weather/open-meteo-weather-provider.ts';
 import { OpenWeatherWeatherProvider } from './weather/openweather-weather-provider.ts';
 import type { WeatherProvider } from './weather/weather-provider.ts';
 import { createWeatherProviderChain } from './weather/weather-provider-chain.ts';
+import {
+  createWeatherKitTokenProvider,
+  type WeatherKitCredentials,
+} from './weather/weatherkit-token.ts';
+import { WeatherKitWeatherProvider } from './weather/weatherkit-weather-provider.ts';
 
 interface KvNamespace {
   get(key: string): Promise<string | null>;
@@ -45,6 +51,10 @@ export type Env = Readonly<{
   AI_PROBE_RATE_LIMIT?: RateLimitBinding;
   AI_RECOMMEND_RATE_LIMIT?: RateLimitBinding;
   OPENWEATHER_API_KEY?: string;
+  WEATHERKIT_TEAM_ID?: string;
+  WEATHERKIT_SERVICE_ID?: string;
+  WEATHERKIT_KEY_ID?: string;
+  WEATHERKIT_PRIVATE_KEY?: string;
   WEATHER_RATE_LIMIT?: RateLimitBinding;
 }>;
 
@@ -94,8 +104,30 @@ export function createAiProviders(env: Env): AiProvider[] {
   return providers;
 }
 
+function weatherKitCredentials(env: Env): WeatherKitCredentials | null {
+  const teamId = env.WEATHERKIT_TEAM_ID;
+  const serviceId = env.WEATHERKIT_SERVICE_ID;
+  const keyId = env.WEATHERKIT_KEY_ID;
+  const privateKeyPem = env.WEATHERKIT_PRIVATE_KEY;
+  if (!teamId || !serviceId || !keyId || !privateKeyPem) return null;
+  return { teamId, serviceId, keyId, privateKeyPem };
+}
+
 export function createWeatherProviders(env: Env): readonly WeatherProvider[] {
   const providers: WeatherProvider[] = [new OpenMeteoWeatherProvider()];
+  const weatherKit = weatherKitCredentials(env);
+  if (weatherKit) {
+    providers.unshift(createDailyCappedWeatherProvider({
+      provider: new WeatherKitWeatherProvider({
+        token: createWeatherKitTokenProvider(weatherKit),
+      }),
+      counter: env.PROBE_COUNTER
+        ? createKvProbeDailyCounter(env.PROBE_COUNTER)
+        : permissiveProbeDailyCounter,
+      dailyLimit: weatherKitDailyCallLimit,
+      sourceSlug: 'weatherkit',
+    }));
+  }
   if (
     typeof env.OPENWEATHER_API_KEY === 'string'
     && env.OPENWEATHER_API_KEY.length > 0

@@ -3,6 +3,10 @@ import { WeatherProviderError } from './weather-provider-error.ts';
 
 export const openWeatherDailyCallLimit = 500;
 
+// Apple includes 500,000 calls per month with the Developer Program membership,
+// roughly 16,129 per 31-day month; this is half of that. See ADR 0014.
+export const weatherKitDailyCallLimit = 8000;
+
 export type WeatherDailyCounter = Readonly<{
   get(key: string): Promise<number>;
   increment(key: string): Promise<void>;
