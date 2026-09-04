@@ -84,11 +84,24 @@ currently discards.
 caption carries a marker and a word, and one summary line states the count. The marker is
 a filled or hollow dot, so state is never carried by colour alone.
 
-The product has no state copy. It has `ownershipOwnedAction` "I own it" and
-`ownershipWantedAction` "I want it", which are actions. Four state strings are approved
-here: **"Owned" / "Wanted"** and **"Sende var" / "İstenen"**. They are specified rather
-than added, and land with the screen that consumes them, because unused localization keys
-are the speculative infrastructure `AGENTS.md` forbids.
+**Correction, 2026-09-04**, made the same day this ADR was accepted. The original text
+here read that the product has no ownership state copy at all and that four new strings
+were needed. That was wrong, and it was wrong because the search stopped at the `today`
+namespace. English state copy already exists: `ownedLabel` "Owned" and `wantedLabel`
+"Wanted", in both the `profile` and `wardrobe` namespaces
+(`apps/mobile/src/localization/messages.ts:449,573`). The English captions reuse those and
+no new English string is owed.
+
+Turkish is the real gap. Its existing pair is "Sahip olduklarım" and "İstediklerim"
+(`messages.ts:835,960`), which are collection labels, "the ones I own" and "the ones I
+want". They are correct for a filter and wrong as a caption under a single garment. **One
+new Turkish pair is approved: "Sende var" / "İstiyorsun"**, matching the register of the
+existing action strings "Bende var" and "İstiyorum" rather than inventing a new one.
+
+`ownershipOwnedAction` "I own it" and `ownershipWantedAction` "I want it" remain what they
+are, actions, and are not reused as state. The new Turkish pair is specified rather than
+added, and lands with the screen that consumes it, because unused localization keys are
+the speculative infrastructure `AGENTS.md` forbids.
 
 The control that *changes* ownership is deliberately not designed here and remains open.
 
@@ -128,7 +141,8 @@ rather than a cross-fade between two pictures.
   Substitutions are not, by decision 6.
 - **Two pieces of existing data stop being discarded**: `suppliedByCandidateKeys` and
   `OutfitCandidate.formality`, neither of which the shipped detail screen reads.
-- **Four localization strings are owed** when the screen is implemented.
+- **One Turkish string pair is owed** when the screen is implemented. English reuses
+  `ownedLabel` and `wantedLabel`. See the correction in decision 5.
 - **Turkish role labels are the tightest text on the screen.** "ORTA KATMAN" wraps to two
   lines under the layer rail's caption cap. It does not collide at the default text size,
   and it is the case to check first under Dynamic Type.
@@ -154,7 +168,7 @@ often satisfies none, so per-garment rows would either invent reasons or leave b
 **Printing `layerRole` under each piece.** Rejected on decision 3: it prints "standalone"
 under a pair of jeans.
 
-**Adding the four ownership strings now.** Rejected as unused keys with no consumer.
+**Adding the Turkish ownership state pair now.** Rejected as unused keys with no consumer.
 
 ## Out of scope
 
