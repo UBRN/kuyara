@@ -22,6 +22,8 @@ source-available rather than open source ([ADR 0024](adr/0024-relicensing-to-pol
 
 ## Recently Completed
 
+- **The app shell and its three tabs** (2026-09-04): a design milestone plus a read-only feasibility check against the installed packages; no application code changed and no dependency was added. The design half was quick and the feasibility half found two defects in shipped code that mattered more ([ADR 0027](adr/0027-the-app-shell-and-its-three-tabs.md)). First, the selected tab is signalled by colour alone: `iconNames` maps all three tabs to filled SF Symbols, `house.fill`, `sun.max.fill` and `person.fill`, and one symbol is passed for both states, so the icon is identical whether or not its tab is selected and `tintColor` carries the whole signal. That fails Law 4's "colour is never the only signal" in the one place every screen inherits. Second, `Screen` computes `safeAreaInsets.bottom + spacing.md` but merges the caller's `contentContainerStyle` last, so a screen's own `paddingBottom` replaces that inset rather than adding to it; eight screens do that, seven passing a flat `spacing['2xl']` and the garment type picker passing `spacing.lg`, rendering 32 or 16 points where 46 was intended. Both fixes are approved and sequenced ahead of the category-glyph redraw. The fix for the first needs no custom tab bar and does not reopen [ADR 0012](adr/0012-adopting-expo-router-native-tabs.md): the installed expo-router documents `sf={{ default: "house", selected: "house.fill" }}` as its own worked example, and `labelStyle` takes a `{ default, selected }` pair whose style type includes `fontWeight`. A selection capsule was drafted as the second signal and withdrawn, because nothing in the package draws one. The recorded content inset is a rule rather than a number, because the bar's height is not exposed anywhere in the package's type surface and the platform already clears it, automatically on iOS for the first nested scroll view and through a safe-area wrapper on Android: a feature screen never sets `paddingBottom` on `Screen`. The Android question was answered too, and the answer is that there is no counterpart to Liquid Glass: `NativeTabs` resolves to `react-native-screens`' `Tabs.Host`, whose bar subclasses Material's `BottomNavigationView` with a solid `colorSurfaceContainer` background, and Material 3 defines no translucent material for the navigation bar at all. That splits the second selected-state signal, because Material 3 Expressive states the bar's label is no longer bolded when selected, so the weight change is iOS-only and Android keeps the Material active indicator it already has. Chrome was settled at an icon and a label: icons alone buy no height, since the bar height is the platform's, and a badge would be the only saturated fill on the screen with nothing to count. Two items stay open: ADR 0012's Dynamic Type re-check, which the repository never recorded an answer to and which stays open until it is verified on the Simulator, and a touch-target measurement, which Jest cannot supply because the component test mocks the native tabs module entirely.
+
 - **The recommendation detail surface** (2026-09-04): a design milestone; no application code changed and no dependency was added. [ADR 0021](adr/0021-direction-e-a-visual-first-design-language.md) took the garment names off Today and deferred five things to a detail surface it did not design. Two of the five were not in the product. Nothing in the contract, the domain or the persisted snapshot produces a per-slot substitution, because the composer emits three whole outfits and the AI returns only option and archetype identifiers, so substitutions are now recorded as a future product decision rather than designed around ([ADR 0026](adr/0026-the-recommendation-detail-surface.md) section 6, amending ADR 0021 section 7). Ownership has only action copy, "I own it" and "I want it", so four state strings were approved and deliberately not added yet, since unused localization keys are the speculative infrastructure the repository rules forbid. The other three were cheaper than expected. `OutfitRequirementEvaluation.suppliedByCandidateKeys` already records which garment satisfies which requirement, and the snapshot stores only `{archetypeId, garments:[{slot, layerRole, candidateKey}]}` and recomposes the outfit on read, so those evaluations are rebuilt on every load: per-piece reasoning needs no schema change, no migration and no contract change, only a presentation join over data the domain currently discards. The design itself rests on one move. The board is [ADR 0025](adr/0025-the-garment-board-composition-rule.md)'s `compose()` run with a second parameter set rather than a second layout, so both surfaces produce the same family, arrangement and reading order, and the transition between them moves the pieces instead of cross-fading two pictures. Detail then spends on captions the margin and gutter the composition already reserved. The board sits on the page ground rather than the condition-tinted stage, because Law 3 forbids secondary copy there and a detail surface is entirely secondary copy; the weather keeps one quiet tinted recap row, and the tint draining away is what the transition animates. Reasoning is organised by weather requirement with each row naming the garments that answer it, rather than one row per garment, which is the device that stops the screen returning to the five-row list the redesign diagnosed as a cause of flatness. Captions use the slot label rather than `layerRole`, which would print "standalone" under a pair of jeans. Evidence: the screen in English and Turkish, light and dark, with zero caption collisions and zero spill in all four, measured against each piece's drawn box rather than its viewBox container. The mockups are kept outside the repository.
 
 - **The garment board composition rule** (2026-09-04): a design milestone; no application code changed and no dependency was added. [ADR 0021](adr/0021-direction-e-a-visual-first-design-language.md) made the garment composition Today's hero and then recorded, against itself, that the rule producing one was unbuilt: the spike had a single board, five hand-tuned percentages, repeated unchanged on every screen. It recorded a second obstacle in the same list, that equal layout boxes do not produce equal perceived size because silhouette paths fill different proportions of their viewBox. Both are now closed by [ADR 0025](adr/0025-the-garment-board-composition-rule.md), specified in [`design/garment-board.md`](design/garment-board.md). Artwork is sized from its own drawn bounds rather than its container, by the geometric mean of that box, and the metric is deliberately the bounding box and not the ink: ADR 0021 makes the silhouette a replaceable slot, and a line drawing replaced by a photograph gains roughly three times the ink at identical size, so an ink metric would re-break the layout the first time the artwork improved. A four-step ladder sizes the slots, with footwear the stated exception because shoe aspect ratios span 2.86 for a sneaker to 0.94 for an ankle boot and a shoe is recognised by the length of its profile. There are two placement families and one predicate between them, whether the outfit carries a layer at all, since footwear is always present and never earns a column of its own. The stage's height is derived from the composition and clamped to 0.80 to 1.16 of its width, because a dress tall enough to span a two-anchor core would be drawn 0.55 wide and a fixed stage yields either a squashed one-piece or an empty band; that is the rule's most reversible part and the one to revisit if native validation shows the jump between outfits is distracting. The composition is then placed by its ink centroid rather than its bounding box, which lifted a two-piece board's weakest half from 4.8% ink coverage to 23.3%. Nine silhouettes were added, bringing the set to twenty-two drawings covering all 27 outfit-eligible catalog types; `dress` and `jumpsuit` were not optional, since without them a one-piece look could not be drawn at all. Evidence: ten slot lists covering every shape the composer can emit, generated from the slot list alone and rendered in both appearances, with overlap 0 and clipping 0 on all ten, anchor parity by drawn area 1.000 against 1.654 for the same board sized by container width, and a weakest half of 0.144. Two findings were left open rather than absorbed. The six shipped structural-category glyphs are drawn far heavier than the silhouettes, measured at 1.86x the ink of the anchor beside them, which is a live failure of Law 6's one-idiom bullet recorded rather than waived; and those six categories cannot separate `primary_top` from `mid_layer`, so an all-fallback board draws the same shape twice at two sizes. Neither blocks goal 2. The rule's reference implementation and rendered boards are kept outside the repository.
@@ -69,10 +71,10 @@ The interface redesign is in progress. Its direction is settled and its document
 is amended (steps 1 to 3 below are done). Design goal 1, the composition rule and
 silhouette set, is done and accepted as
 [ADR 0025](adr/0025-the-garment-board-composition-rule.md), and goal 2, the recommendation
-detail surface, as [ADR 0026](adr/0026-the-recommendation-detail-surface.md); the next
-piece of work is
-design goal 3, the app shell and its three tabs. No application code has changed for
-the redesign.
+detail surface, as [ADR 0026](adr/0026-the-recommendation-detail-surface.md), and goal 3,
+the app shell, as [ADR 0027](adr/0027-the-app-shell-and-its-three-tabs.md); the next piece
+of work is
+design goal 4, Profile. No application code has changed for the redesign.
 
 ## Next Approved Milestones
 
@@ -156,17 +158,14 @@ its bottom inset changes the layout of every screen drawn inside it.
   strings are owed when the screen is implemented. The control that changes ownership is
   still undecided.
 
-**3. App shell and three-tab navigation**
-- *Purpose.* Settle the shell every other screen is drawn inside.
-- *Design question.* How much chrome can the tab bar carry before the styling-first
-  feeling degrades, and how does its bottom inset change each screen's composition?
-- *Evidence.* HTML shell plus a light Expo feasibility check on touch targets, safe areas,
-  label legibility at Dynamic Type sizes, and Native Tabs' constraints.
-- *Acceptance.* Three tabs, correct Turkish and English labels, selected state carrying at
-  least two non-colour signals, and a recorded content inset that later screens design
-  against.
-- *Out of scope.* Navigation code. [ADR 0012](adr/0012-adopting-expo-router-native-tabs.md)'s
-  Native Tabs decision is not reopened.
+**3. App shell and three-tab navigation. Done, 2026-09-04.**
+- Accepted as [ADR 0027](adr/0027-the-app-shell-and-its-three-tabs.md). Three tabs and the
+  shipped labels were already correct; two non-colour selected-state signals were not, and
+  the recorded content inset turned out to be a rule about ownership rather than a number.
+- *Two defect fixes approved, and sequenced first.* See "Implementation the redesign has
+  approved" below.
+- *Left open, deliberately.* ADR 0012's Dynamic Type re-check stays open until it is
+  verified on the Simulator, and the tab bar still has no touch-target measurement.
 
 **4. Profile**
 - *Purpose.* Make the third tab part of the same product rather than a settings list.
@@ -216,6 +215,37 @@ its bottom inset changes the layout of every screen drawn inside it.
 
 Weather is not in this list. Its content direction is accepted as it stands and only
 inherits the shell.
+
+### Implementation the redesign has approved
+
+Design goals 1 to 3 each ended with implementation work that is decided but not built.
+The order is fixed and was set on 2026-09-04: **the two shell fixes come first**, because
+every screen is drawn inside the shell and neither depends on anything the remaining design
+goals decide.
+
+1. **The tab bar's selected state.** [ADR 0027](adr/0027-the-app-shell-and-its-three-tabs.md)
+   section 3. Outline icon unselected and filled selected on both platforms, plus a
+   semibold selected label on iOS only. The outline variants get new `iconNames` entries
+   rather than reshaping the existing three, because `tabWeather` is also rendered outside
+   the tab bar at `weather-screen.tsx:465` through a path that has no selected variant. No
+   custom tab bar, and Android keeps its Material active indicator instead of the weight
+   change.
+
+2. **The bottom inset.** [ADR 0027](adr/0027-the-app-shell-and-its-three-tabs.md) section 4.
+   Eight screens pass a `paddingBottom` through `contentContainerStyle` that replaces
+   `Screen`'s safe-area inset instead of adding to it. Either those eight stop setting it or
+   `Screen` merges additively; the rule that a feature screen never sets `paddingBottom` on
+   `Screen` holds either way.
+
+3. **The structural-category glyph redraw.**
+   [ADR 0025](adr/0025-the-garment-board-composition-rule.md)'s open item. The six shipped
+   category glyphs are drawn far heavier than the silhouettes and currently fail Law 6's
+   one-idiom rule. No screen depends on them, which is why they sit behind the shell fixes.
+
+Also owed, and small: one Turkish ownership state string pair for the recommendation detail
+surface ([ADR 0026](adr/0026-the-recommendation-detail-surface.md) decision 5), and the
+Simulator verification of tab label behaviour at accessibility text sizes that ADR 0012
+asked for and ADR 0027 keeps open.
 
 ### Unblocked, and independent of the redesign
 
