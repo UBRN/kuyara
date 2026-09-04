@@ -329,7 +329,7 @@ Approved 2026-09-04. Canonical in [ADR 0026](adr/0026-the-recommendation-detail-
 - Its board is [ADR 0025](adr/0025-the-garment-board-composition-rule.md)'s composition rule run with a second parameter set, not a second layout, so Today and detail share one composition and the transition between them moves the pieces.
 - The board sits on the page ground rather than the condition-tinted stage, because Law 3 forbids secondary copy on that stage. The weather keeps one quiet tinted recap row.
 - Reasoning is organised by weather requirement and each row names the garments that answer it, rather than one row per garment. This is what keeps the screen from returning to the five-row list the redesign diagnosed.
-- Ownership state appears here and nowhere else. Four state strings are approved, "Owned" / "Wanted" and "Sende var" / "İstenen"; they land with the screen that consumes them rather than as unused keys. The control that changes ownership is still undecided.
+- Ownership state appears here and nowhere else. English reuses the existing `ownedLabel` and `wantedLabel`; Turkish needs one new pair, "Sende var" / "İstiyorsun", because its existing strings are collection labels rather than per-item state. It lands with the screen that consumes it rather than as unused keys. The control that changes ownership is still undecided.
 
 ## Approved visual identity
 
