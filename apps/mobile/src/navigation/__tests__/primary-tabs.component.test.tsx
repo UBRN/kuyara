@@ -1,5 +1,6 @@
 import { render, within } from '@testing-library/react-native';
 import type { PropsWithChildren, ReactNode } from 'react';
+import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import PrimaryTabsRouteLayout from '@/app/(tabs)/_layout';
@@ -12,7 +13,7 @@ import { WeatherScreen } from '@/features/weather/presentation/weather-screen';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 import { PrimaryTabs } from '@/navigation/primary-tabs';
-import { lightTheme } from '@/theme/theme';
+import { lightTheme, typography } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 jest.mock('expo-symbols', () => ({
@@ -22,8 +23,15 @@ jest.mock('expo-symbols', () => ({
 jest.mock('expo-router/unstable-native-tabs', () => {
   const { Text: MockText, View: MockView } = jest.requireActual('react-native');
 
-  function MockNativeTabs({ children }: Readonly<{ children?: ReactNode }>) {
-    return <MockView testID="primary-tabs-route">{children}</MockView>;
+  function MockNativeTabs({
+    children,
+    labelStyle,
+  }: Readonly<{ children?: ReactNode; labelStyle?: unknown }>) {
+    return (
+      <MockView labelStyle={labelStyle} testID="primary-tabs-route">
+        {children}
+      </MockView>
+    );
   }
 
   function MockTrigger({
@@ -53,8 +61,8 @@ jest.mock('expo-router/unstable-native-tabs', () => {
     return <MockText>{children}</MockText>;
   }
 
-  function MockIcon() {
-    return null;
+  function MockIcon({ md, sf }: Readonly<{ md?: unknown; sf?: unknown }>) {
+    return <MockView md={md} sf={sf} testID="tab-icon" />;
   }
 
   MockTrigger.Icon = MockIcon;
@@ -171,6 +179,38 @@ describe.each([
     expectedLabels.forEach((label, index) => {
       expect(within(triggers[index]).getByText(label)).toBeOnTheScreen();
     });
+  });
+
+  test('signals the selected tab without relying on colour', async () => {
+    const result = await render(
+      <TestProviders language={language}>
+        <PrimaryTabs />
+      </TestProviders>,
+    );
+
+    // Signal one, both platforms: the icon changes shape, outline to filled.
+    const icons = result.getAllByTestId('tab-icon');
+    expect(icons).toHaveLength(3);
+    expect(icons.map(({ props }) => props.sf)).toEqual([
+      { default: 'house', selected: 'house.fill' },
+      { default: 'sun.max', selected: 'sun.max.fill' },
+      { default: 'person', selected: 'person.fill' },
+    ]);
+    icons.forEach(({ props }) => {
+      expect(props.sf.default).not.toBe(props.sf.selected);
+    });
+
+    // Android keeps a single symbol: `AndroidSymbol` has no filled weather glyph, so the
+    // Material active indicator carries the state there instead.
+    expect(icons.map(({ props }) => props.md)).toEqual(['home', 'wb_sunny', 'person']);
+
+    // Signal two, iOS only: Material 3 Expressive stops bolding the selected label, so
+    // the weight must not reach Android.
+    expect(result.getByTestId('primary-tabs-route').props.labelStyle).toEqual(
+      Platform.OS === 'ios'
+        ? { selected: { fontWeight: typography.label.fontWeight } }
+        : undefined,
+    );
   });
 
   test('renders localized Weather and Wardrobe entry content', async () => {

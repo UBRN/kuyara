@@ -46,19 +46,30 @@ which is the only place on that screen where chrome and content compete.
   on the screen, it would sit directly under the garments, and nothing the product
   currently produces needs counting. The capability exists and stays unused.
 
-### 3. The selected tab must carry two non-colour signals, and today it carries none
+### 3. The selected tab must carry two non-colour signals of its own
 
 **The defect.** `iconNames` maps all three tabs to filled SF Symbols, `house.fill`,
 `sun.max.fill` and `person.fill` (`apps/mobile/src/components/ui/icon.tsx:15`), and
-`primary-tabs.tsx:65` passes the one symbol for both states. The icon is therefore
-identical whether or not its tab is selected, and `tintColor` carries the entire signal.
-That fails Law 4's "colour is never the only signal" in the shell itself, which is the one
-place in the product every screen inherits.
+`primary-tabs.tsx` passes the one symbol for both states. The icon is therefore identical
+whether or not its tab is selected.
+
+**Corrected against the Simulator, 2026-09-04.** An earlier draft of this decision said the
+selected state carried no non-colour signal at all. That was wrong, and the run that
+verified the fix is what disproved it: on iOS 26 the OS draws a **selection capsule**
+behind the selected item, which is a shape signal and was there before this change. So the
+accurate statement is narrower and still worth fixing: **the application contributed no
+signal of its own**, and Law 6's "fill carries state" was being ignored in the one place
+every screen inherits. Colour was not the only signal, so this was a Law 6 failure rather
+than a Law 4 one.
 
 **Approved fix.** Two signals, neither of them colour:
 
-1. **Icon shape.** Outline unselected, filled selected, on both platforms. Law 6 already
-   states that fill carries state; the shell is simply not doing it.
+1. **Icon shape.** Outline unselected, filled selected. Law 6 already states that fill
+   carries state; the shell was simply not doing it. **On iOS only, as implemented.** The
+   installed `AndroidSymbol` union has no filled counterpart for the weather glyph, only
+   `home_filled` exists among the three, so pairing two tabs and not the third would read
+   as a bug. Android keeps one symbol per tab and lets its Material active indicator carry
+   the state.
 2. **A second signal that differs by platform**, because the platforms disagree about what
    the right one is. On iOS the selected label goes to semibold. On Android it must not:
    see decision 6.
@@ -96,9 +107,10 @@ Two implementation constraints that are not footnotes:
   `fontWeight` rather than from a semantic token. Introducing a weight token is a separate
   decision and is not made here.
 
-A selection capsule behind the icon was drafted as the second signal and withdrawn:
-nothing in the installed package's type surface draws one, and inventing it would have
-meant replacing the OS bar.
+A selection capsule was drafted as the second signal and withdrawn, correctly but for the
+wrong reason. The installed package exposes no prop that draws one, so the application
+cannot ask for it. It does not need to: iOS 26 draws one itself, which the Simulator run
+confirmed.
 
 ### 4. The bottom inset is a rule, not a number
 
@@ -160,7 +172,7 @@ with the fix.
 Whether the fix is to remove the seven `paddingBottom` values or to make `Screen` merge
 them additively is an implementation decision, not this ADR's. The rule holds either way.
 
-### 5. Dynamic Type stays open until it is verified on the Simulator
+### 5. Dynamic Type, verified and closed
 
 [ADR 0012](0012-adopting-expo-router-native-tabs.md) recorded that primary tab labels
 truncate at the largest accessibility text size, and required a re-check after the
@@ -176,10 +188,21 @@ The API can express a fixed size if one is needed, because `NativeTabsLabelStyle
 `fontSize`. Whether one *is* needed is native behaviour, invisible to the type
 definitions, to the JS source and to an HTML mockup.
 
-**This item stays open and is not closed by this ADR.** A Simulator observation from an
-earlier session reported that the labels neither grow nor truncate at an accessibility
-content size, which would close it. That observation is not recorded anywhere in the
-repository and is not re-verified here; it is a lead, not a finding.
+**Verified on the Simulator, 2026-09-04, and now closed.** With
+`xcrun simctl ui <udid> content_size accessibility-extra-extra-extra-large`, the page
+content scales dramatically, the Weather title fills a third of the screen and the body
+copy wraps to one or two words per line, while **the three tab labels stay at their normal
+size and do not truncate**. The tab bar is visually unchanged at the largest accessibility
+size.
+
+So UIKit does not apply Dynamic Type to tab bar labels, and the truncation ADR 0012
+recorded was a property of the hand-built bar that the migration removed. No `fontSize` is
+needed in `labelStyle`, and the arithmetic above describes a risk that cannot be reached.
+
+This is the answer ADR 0012 asked for and the repository never wrote down. It also means
+the tab labels do **not** grow for a user who needs larger text, which is the platform's
+behaviour rather than ours, and is the reason the labels are not the only affordance:
+every tab also carries an icon and an `accessibilityLabel`.
 
 ### 6. Android gets no Liquid Glass, and does not want one
 
@@ -217,10 +240,16 @@ Android-only props.
 
 So the two non-colour signals are per platform, and each is the platform's own:
 
-| platform | signal 1 | signal 2 |
+| platform | drawn by the OS | contributed by the app |
 | --- | --- | --- |
-| iOS | outline icon unselected, filled selected | selected label at semibold |
-| Android | outline icon unselected, filled selected | the Material active indicator, left enabled |
+| iOS | the selection capsule | outline icon to filled, and the selected label at semibold |
+| Android | the Material active indicator | nothing; see below |
+
+Android ends with one non-colour signal, the indicator, and it is the OS's rather than
+ours. The icon pair is unavailable there because the installed `AndroidSymbol` union
+contains no filled weather glyph, and the label weight is ruled out by Material 3
+Expressive. That is an accepted limitation of an unverified platform, recorded rather than
+worked around.
 
 `labelStyle` is not iOS-only, so the weight must be applied per platform rather than
 globally, and `disableIndicator` must never be set.

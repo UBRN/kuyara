@@ -22,6 +22,8 @@ source-available rather than open source ([ADR 0024](adr/0024-relicensing-to-pol
 
 ## Recently Completed
 
+- **The tab bar's selected state, and the Dynamic Type answer** (2026-09-04): the first implementation task out of the redesign's approved queue, and the first application code change since the redesign began. `iconNames` gains three outline entries and `primary-tabs.tsx` now passes `sf={{ default, selected }}` per tab plus a `labelStyle` on `<NativeTabs>` that sets the selected label to the `label` typography role's weight, guarded to iOS with `Platform.select`. The outline variants are new keys rather than a reshape of the existing three, because `tabWeather` is also rendered outside the tab bar at `weather-screen.tsx:465` through `SymbolView`, whose `name` prop has no selected variant. Two facts settled the platform split. The installed `AndroidSymbol` union, 4055 names, contains no filled counterpart for the weather glyph, only `home_filled` exists among the three, so pairing two tabs and not the third would read as a bug; and Material 3 Expressive states the navigation bar's label is no longer bolded when selected. Android therefore keeps one symbol per tab and relies on its Material active indicator, which is recorded as an accepted limitation of an unverified platform rather than worked around. The Simulator run corrected the ADR twice. iOS 26 draws a **selection capsule** behind the selected tab, so the pre-existing state was not signalled by colour alone as [ADR 0027](adr/0027-the-app-shell-and-its-three-tabs.md) first claimed; the accurate defect is that the application contributed no signal of its own and Law 6's "fill carries state" was ignored. And the Dynamic Type question ADR 0012 opened at the migration is now **answered and closed**: at `accessibility-extra-extra-extra-large` the page content scales dramatically while the three tab labels stay at their normal size and do not truncate, because UIKit does not apply Dynamic Type to tab bar labels at all. Verified with `pnpm check`, `pnpm --filter @kuyara/mobile test:components` at 125 tests, and one iOS Simulator run that exercised all three tabs. The new component assertions were confirmed to fail against the pre-fix source before being accepted.
+
 - **The app shell and its three tabs** (2026-09-04): a design milestone plus a read-only feasibility check against the installed packages; no application code changed and no dependency was added. The design half was quick and the feasibility half found two defects in shipped code that mattered more ([ADR 0027](adr/0027-the-app-shell-and-its-three-tabs.md)). First, the selected tab is signalled by colour alone: `iconNames` maps all three tabs to filled SF Symbols, `house.fill`, `sun.max.fill` and `person.fill`, and one symbol is passed for both states, so the icon is identical whether or not its tab is selected and `tintColor` carries the whole signal. That fails Law 4's "colour is never the only signal" in the one place every screen inherits. Second, `Screen` computes `safeAreaInsets.bottom + spacing.md` but merges the caller's `contentContainerStyle` last, so a screen's own `paddingBottom` replaces that inset rather than adding to it; eight screens do that, seven passing a flat `spacing['2xl']` and the garment type picker passing `spacing.lg`, rendering 32 or 16 points where 46 was intended. Both fixes are approved and sequenced ahead of the category-glyph redraw. The fix for the first needs no custom tab bar and does not reopen [ADR 0012](adr/0012-adopting-expo-router-native-tabs.md): the installed expo-router documents `sf={{ default: "house", selected: "house.fill" }}` as its own worked example, and `labelStyle` takes a `{ default, selected }` pair whose style type includes `fontWeight`. A selection capsule was drafted as the second signal and withdrawn, because nothing in the package draws one. The recorded content inset is a rule rather than a number, because the bar's height is not exposed anywhere in the package's type surface and the platform already clears it, automatically on iOS for the first nested scroll view and through a safe-area wrapper on Android: a feature screen never sets `paddingBottom` on `Screen`. The Android question was answered too, and the answer is that there is no counterpart to Liquid Glass: `NativeTabs` resolves to `react-native-screens`' `Tabs.Host`, whose bar subclasses Material's `BottomNavigationView` with a solid `colorSurfaceContainer` background, and Material 3 defines no translucent material for the navigation bar at all. That splits the second selected-state signal, because Material 3 Expressive states the bar's label is no longer bolded when selected, so the weight change is iOS-only and Android keeps the Material active indicator it already has. Chrome was settled at an icon and a label: icons alone buy no height, since the bar height is the platform's, and a badge would be the only saturated fill on the screen with nothing to count. Two items stay open: ADR 0012's Dynamic Type re-check, which the repository never recorded an answer to and which stays open until it is verified on the Simulator, and a touch-target measurement, which Jest cannot supply because the component test mocks the native tabs module entirely.
 
 - **The recommendation detail surface** (2026-09-04): a design milestone; no application code changed and no dependency was added. [ADR 0021](adr/0021-direction-e-a-visual-first-design-language.md) took the garment names off Today and deferred five things to a detail surface it did not design. Two of the five were not in the product. Nothing in the contract, the domain or the persisted snapshot produces a per-slot substitution, because the composer emits three whole outfits and the AI returns only option and archetype identifiers, so substitutions are now recorded as a future product decision rather than designed around ([ADR 0026](adr/0026-the-recommendation-detail-surface.md) section 6, amending ADR 0021 section 7). Ownership has only action copy, "I own it" and "I want it", so four state strings were approved and deliberately not added yet, since unused localization keys are the speculative infrastructure the repository rules forbid. The other three were cheaper than expected. `OutfitRequirementEvaluation.suppliedByCandidateKeys` already records which garment satisfies which requirement, and the snapshot stores only `{archetypeId, garments:[{slot, layerRole, candidateKey}]}` and recomposes the outfit on read, so those evaluations are rebuilt on every load: per-piece reasoning needs no schema change, no migration and no contract change, only a presentation join over data the domain currently discards. The design itself rests on one move. The board is [ADR 0025](adr/0025-the-garment-board-composition-rule.md)'s `compose()` run with a second parameter set rather than a second layout, so both surfaces produce the same family, arrangement and reading order, and the transition between them moves the pieces instead of cross-fading two pictures. Detail then spends on captions the margin and gutter the composition already reserved. The board sits on the page ground rather than the condition-tinted stage, because Law 3 forbids secondary copy there and a detail surface is entirely secondary copy; the weather keeps one quiet tinted recap row, and the tint draining away is what the transition animates. Reasoning is organised by weather requirement with each row naming the garments that answer it, rather than one row per garment, which is the device that stops the screen returning to the five-row list the redesign diagnosed as a cause of flatness. Captions use the slot label rather than `layerRole`, which would print "standalone" under a pair of jeans. Evidence: the screen in English and Turkish, light and dark, with zero caption collisions and zero spill in all four, measured against each piece's drawn box rather than its viewBox container. The mockups are kept outside the repository.
@@ -164,8 +166,9 @@ its bottom inset changes the layout of every screen drawn inside it.
   the recorded content inset turned out to be a rule about ownership rather than a number.
 - *Two defect fixes approved, and sequenced first.* See "Implementation the redesign has
   approved" below.
-- *Left open, deliberately.* ADR 0012's Dynamic Type re-check stays open until it is
-  verified on the Simulator, and the tab bar still has no touch-target measurement.
+- *Closed since.* ADR 0012's Dynamic Type re-check was verified on the Simulator on
+  2026-09-04: UIKit does not scale tab bar labels, so they neither grow nor truncate at the
+  largest accessibility size. The tab bar still has no touch-target measurement.
 
 **4. Profile**
 - *Purpose.* Make the third tab part of the same product rather than a settings list.
@@ -202,7 +205,9 @@ its bottom inset changes the layout of every screen drawn inside it.
 - *Purpose.* Prove the language holds across every surface, then port it to a real Expo
   spike to validate rather than redesign.
 - *Design question.* What breaks first when the whole set is seen together at the largest
-  Dynamic Type size, in Turkish, in dark?
+  Dynamic Type size, in Turkish, in dark? (The tab bar half of this is answered:
+  [ADR 0027](adr/0027-the-app-shell-and-its-three-tabs.md) section 5 records that UIKit
+  does not scale tab bar labels at all, verified at the largest accessibility size.)
 - *Evidence.* A native Expo spike, disposable, with genuine Simulator captures.
 - *Acceptance.* The full validation list in
   [ADR 0021](adr/0021-direction-e-a-visual-first-design-language.md) is exercised: Dynamic
@@ -219,17 +224,15 @@ inherits the shell.
 ### Implementation the redesign has approved
 
 Design goals 1 to 3 each ended with implementation work that is decided but not built.
-The order is fixed and was set on 2026-09-04: **the two shell fixes come first**, because
-every screen is drawn inside the shell and neither depends on anything the remaining design
-goals decide.
+The order was set on 2026-09-04: **the two shell fixes come first**, because every screen is
+drawn inside the shell and neither depends on anything the remaining design goals decide.
+The first is now done; **the bottom inset is the next implementation task.**
 
-1. **The tab bar's selected state.** [ADR 0027](adr/0027-the-app-shell-and-its-three-tabs.md)
-   section 3. Outline icon unselected and filled selected on both platforms, plus a
-   semibold selected label on iOS only. The outline variants get new `iconNames` entries
-   rather than reshaping the existing three, because `tabWeather` is also rendered outside
-   the tab bar at `weather-screen.tsx:465` through a path that has no selected variant. No
-   custom tab bar, and Android keeps its Material active indicator instead of the weight
-   change.
+1. ~~**The tab bar's selected state.**~~ **Done, 2026-09-04.** Implemented and verified on
+   the Simulator; see the entry in Recently Completed. iOS now changes the icon from
+   outline to filled and sets the selected label to the `label` role's weight. Android
+   keeps one symbol per tab, because the installed `AndroidSymbol` union has no filled
+   weather glyph, and relies on its Material active indicator.
 
 2. **The bottom inset.** [ADR 0027](adr/0027-the-app-shell-and-its-three-tabs.md) section 4.
    Eight screens pass a `paddingBottom` through `contentContainerStyle` that replaces
