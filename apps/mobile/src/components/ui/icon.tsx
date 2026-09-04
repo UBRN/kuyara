@@ -12,9 +12,17 @@ type PlatformIconNames = Readonly<{
 }>;
 
 export const iconNames = Object.freeze({
+  // The tab bar pairs each filled symbol with an outline one so that selection is not
+  // signalled by colour alone (ADR 0027). The Android names are deliberately identical
+  // to their filled entry: `AndroidSymbol` carries no filled counterpart for the weather
+  // glyph, so Android keeps one icon per tab and lets the Material active indicator
+  // carry the state instead.
   tabToday: { ios: 'house.fill', android: 'home', web: 'home' },
+  tabTodayOutline: { ios: 'house', android: 'home', web: 'home' },
   tabWeather: { ios: 'sun.max.fill', android: 'wb_sunny', web: 'wb_sunny' },
+  tabWeatherOutline: { ios: 'sun.max', android: 'wb_sunny', web: 'wb_sunny' },
   tabProfile: { ios: 'person.fill', android: 'person', web: 'person' },
+  tabProfileOutline: { ios: 'person', android: 'person', web: 'person' },
   settings: { ios: 'gearshape.fill', android: 'settings', web: 'settings' },
   chevronRight: { ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' },
   chevronLeft: { ios: 'chevron.left', android: 'chevron_left', web: 'chevron_left' },
