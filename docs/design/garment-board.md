@@ -5,6 +5,9 @@ Status: **accepted**, 2026-09-04, by
 decision, its alternatives and its consequences; this file is the specification, and is
 where the parameters and the silhouette set live.
 
+[ADR 0026](../adr/0026-the-recommendation-detail-surface.md) adds a second parameter set
+to it, in section 9, without changing the rule.
+
 It answers the first consequence
 [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md) recorded against
 itself: *"A composition rule has to be written that this ADR does not contain. Every
@@ -189,6 +192,44 @@ never appear in an outfit. ADR 0021 already flags that for product discussion.
 **Fallback.** A garment with no silhouette falls back to its structural category and is
 composed by the identical rule, with its drawn bounds measured from the artwork's alpha
 instead of a path. The board degrades; it does not break.
+
+## 9. Presets: Today and detail
+
+The parameters above are Today's. A second surface expresses a different density by
+changing parameters, never by changing the algorithm, so both surfaces produce the same
+family, the same relative arrangement and the same reading order for a given slot list.
+That is what lets a transition between them move the pieces rather than cross-fade two
+pictures.
+
+The detail preset, approved by
+[ADR 0026](../adr/0026-the-recommendation-detail-surface.md), opens the composition up so
+a two-line caption fits under every piece:
+
+| parameter | Today | detail |
+| --- | --- | --- |
+| core gap | 0.60 | 1.35 |
+| rail gap | 0.45 | 1.15 |
+| footwear clearance | 0.55 | 1.10 |
+| footwear rise | 0.20 | 0.10 |
+| core width cap | 0.235 | 0.215 |
+| rail width cap | 0.170 | 0.150 |
+| gutter | 0.095 | 0.135 |
+| mid inset | 0.20 | 0.16 |
+| top / bottom inset | 0.235 / 0.125 | 0.045 / 0.055 |
+| stage height range | 0.80 to 1.16 | 0.60 to 1.45 |
+
+The insets collapse because the detail board is not on the tinted stage and has no
+temperature or condition glyph in its corners to clear.
+
+**Captions.** A caption is centred on its piece's own axis and sits 7 points below the
+piece's drawn box. Its width is capped per column, **0.42** of the plate width for the
+core column and **0.30** for the layer rail. The asymmetry is deliberate: the core column
+holds the longest names, and capping both columns equally either wraps a core name
+mid-token or lets the two columns' captions meet. The plate's height is the lowest caption
+edge, not the lowest piece edge.
+
+Any change to the ladder or the caps in the table above has to be checked against both
+presets.
 
 ## What was checked
 
