@@ -279,7 +279,9 @@ shell; no screen depends on the fallback glyphs.
 - **Two shipped defects are now recorded rather than latent.** Both were found by checking
   the feasibility question against the installed packages, not by designing.
 - **The Dynamic Type verification is still owed** and remains an open item in
-  `current-status.md`.
+  `current-status.md`. (Note, 2026-09-04: closed later the same day by the Simulator
+  check recorded in section 5; the sentence above describes the state when the decision
+  was written.)
 - **Neither fix breaks a test, and that is the problem.** Nothing asserts `iconNames`'
   shape or frozenness, and nothing asserts `paddingBottom` anywhere. The only compile-time
   surface either fix touches is `weather-screen.tsx:465`, which the chosen approach avoids.
@@ -301,7 +303,8 @@ exposed, it is the OS's on iOS 26, and the platform already clears it. A hardcod
 would be wrong on the first device that disagreed.
 
 **Closing the Dynamic Type item on the strength of the earlier Simulator observation.**
-Rejected: it is not in the repository and was not re-verified.
+Rejected: it is not in the repository and was not re-verified. (Note, 2026-09-04: the item
+was then closed by a fresh Simulator check, not by that observation; see section 5.)
 
 ## Out of scope
 

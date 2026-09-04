@@ -61,7 +61,7 @@ The Today mock slice was replaced by the real recommendation flow. The remaining
 
 Approved 2026-08-30. Documentation may state the present fact that the MVP has no account. User-facing copy must not promise that there will never be an account or that everything stays on the device, because accounts are planned.
 
-## Implemented local-first wardrobe persistence slice
+## Implemented wardrobe persistence slice
 
 - Expo SQLite schema version 2 adds profile-owned wardrobe items without changing version 1 or replacing the durable local profile store. A future remote sync adapter may complement this schema but will use separate remote records and explicit mapping.
 - Each wardrobe item has a client-generated UUID, its existing `localProfileId`, optional user-visible name and color, one small structural category, an optional app-private photo relative path, UTC lifecycle timestamps, and nullable soft-deletion time.
