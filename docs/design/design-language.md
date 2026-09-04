@@ -275,11 +275,22 @@ not panic; both are forms of demanding attention, which the identity forbids.
 
 - **Two families, and no third.** `Icon` (system symbols through `expo-symbols`) and
   `GarmentSlotGlyph` (bundled monochrome artwork). A third family requires an ADR.
+  [ADR 0025](../adr/0025-the-garment-board-composition-rule.md) extends
+  `GarmentSlotGlyph` to per-type garment silhouettes rather than adding a third family:
+  the six structural categories become that family's fallback tier. **That family
+  currently fails the one-idiom bullet below**, because the shipped category glyphs are
+  drawn far heavier than the silhouettes, measured at 1.86x the ink of a silhouette
+  anchor beside them. The failure is recorded, not waived, and the redraw is sequenced
+  as its own work.
 - **A single icon family is drawn in one idiom.** A set may not mix a platform symbol
   source with a bundled one: a set that is three-quarters one idiom and one-quarter the
   other reads as unfinished, even when the mixed-in glyphs are individually correct.
 - Icon size is bound to the text it sits with, not chosen freely: 16 with `caption`, 20
-  with `body`, 24 with `title`, 28 and above only standalone.
+  with `body`, 24 with `title`, 28 and above only standalone. **The garment board is
+  exempt.** Its pieces are the screen's subject rather than iconography, and
+  [`garment-board.md`](./garment-board.md) sizes them from their own drawn bounds; at
+  the five-piece metric a `primary_top` is drawn about 82 points wide on a 349-point
+  stage.
 - **Fill carries state.** Outline = available or unselected; filled = selected or
   active. `circle`/`checkCircle` and `heart`/`heartFilled` already do this; it becomes a
   law so the next pair does it too.
@@ -520,6 +531,10 @@ This document defines roles and their measured limits: what may be emphasized, h
 space and planes carry hierarchy, which colours and icons exist and where they may sit,
 and which durations apply to which interaction. It does not cover:
 
+- Where each garment goes on Today's condition-tinted stage and how large it is drawn.
+  That is [`garment-board.md`](./garment-board.md), accepted by
+  [ADR 0025](../adr/0025-the-garment-board-composition-rule.md), which also carries the
+  silhouette set.
 - Token names, primitive values, theme resolution, or component APIs. Those live in
   [`design-system.md`](./design-system.md).
 - Brand foundation, the approved palette's six hexes, the master symbol geometry, the
