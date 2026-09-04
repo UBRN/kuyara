@@ -47,5 +47,6 @@ cannot take the same calls, so the wrapper is where the platform difference live
 
 ## Before claiming iOS work done
 
-One affected Simulator run or iOS build, per `AGENTS.md`. See the `ui-verification`
-skill for the gate and `docs/testing.md` for the commands.
+One affected Simulator run or iOS build, per `AGENTS.md`; commands are in
+`docs/testing.md`. That run checks the change itself. It is not a VoiceOver, Reduced
+Motion or largest-text-size tour; those follow the risk rule in `AGENTS.md`.

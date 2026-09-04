@@ -74,5 +74,7 @@ before you finish; it is almost always meant to be `md`.
 ## Finish
 
 Run the **How to check a screen** list at the end of `design-language.md`. Every item
-is decidable from a screenshot, a grep, or a computed contrast value. Then hand off to
-the `ui-verification` skill. Visual correctness is not done until it passes there.
+is decidable from a screenshot, a grep, or a computed contrast value. Then run the
+automated checks in the `ui-verification` skill. Do not start a manual accessibility
+pass from here: it is not part of routine work, and `AGENTS.md` names the four cases
+that call for one.

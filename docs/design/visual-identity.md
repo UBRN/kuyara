@@ -212,4 +212,4 @@ UI work is not complete until it considers:
 - Turkish and English content and layout behavior
 - Small-size icon legibility
 
-Important UI should be reviewed in Turkish and English, in light and dark themes, with larger text settings, with a screen reader, and with Reduced Motion enabled.
+These are product requirements, kept in routine development by the automated checks in `AGENTS.md`. The granular manual pass with a screen reader, Reduced Motion, and the largest text settings is risk-based rather than routine; `AGENTS.md` names the cases that call for it.

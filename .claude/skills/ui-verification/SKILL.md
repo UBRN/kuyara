@@ -1,12 +1,22 @@
 ---
 name: ui-verification
-description: Use before claiming any kuyara UI change is done, complete, or passing. It is the definition-of-done gate (Turkish/English, light/dark, text scaling, screen reader, Reduced Motion, contrast, touch targets), plus the exact repository commands and the greppable design-language checks. Trigger on "is this done", "verify the UI", "accessibility check", "a11y", "run the checks", or before any commit that touches apps/mobile presentation code.
+description: Use when finishing a kuyara UI change to run the exact repository checks and the greppable design-language checks, and to decide whether the manual accessibility pass applies. The manual pass (VoiceOver, focus order, Reduced Motion, largest text size) is risk-based, not routine. Trigger on "verify the UI", "run the checks", "accessibility check", "a11y", or before a commit that touches apps/mobile presentation code.
 ---
 
 # UI verification gate
 
-Accessibility is a definition-of-done requirement in `AGENTS.md`, not a later pass.
-A UI change is unfinished until this gate is satisfied or the gap is stated explicitly.
+Accessibility is a product requirement in `AGENTS.md`. Routine UI work keeps it through
+sections 1, 2 and 4 below: the greps, the automated suites, and one affected Simulator
+run. Section 3 is the manual pass, and it is **not** routine. It runs only when:
+
+- the task directly changes accessibility behavior (labels, roles, focus order,
+  announcements, hit areas, colour-only signals);
+- motion or animation behavior changes and Reduced Motion is affected;
+- the work is the dedicated accessibility and polish milestone;
+- the user asks for it.
+
+A new screen alone does not trigger it. Dedicated screen-reader verification was already
+deferred to that milestone; spreading it across every task is drift, not diligence.
 
 ## 1. Greppable design-language checks
 
@@ -66,10 +76,10 @@ Focused suites, Expo Doctor, Worker dev, and `pnpm e2e:ios` are documented in
 `docs/testing.md`. Run the smallest relevant check during implementation and one
 consolidated pass at the end.
 
-## 3. The manual matrix
+## 3. The manual pass (risk-based, see the top of this file)
 
-Important UI is reviewed across all of these. Not every change needs the whole grid,
-pick what the diff can plausibly break, and say which axes you skipped.
+When one of the four cases applies, pick the axes the change can plausibly break, not
+the whole grid. When none applies, skip this section without listing its axes.
 
 | Axis | What fails here |
 | --- | --- |
@@ -94,5 +104,6 @@ the `platform-android-ui` skill.
 
 ## 5. Report honestly
 
-State which axes were checked, which were skipped and why, and any failing output
-verbatim. A check you did not run is not a check that passed.
+State which commands ran and any failing output verbatim. If the manual pass ran, say
+which axes it covered. If it did not run, one line saying so is enough; do not account
+for each skipped axis. A check you did not run is not a check that passed.

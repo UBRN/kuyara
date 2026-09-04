@@ -168,8 +168,8 @@ The repository may be in transition. Inspect the real tree before assuming this 
 - Use semantic design tokens rather than hardcoded brand values in feature UI.
 - Feature code never imports `@expo/ui` or `expo-haptics`. `components/ui` wraps both and is the only importer; `rg "@expo/ui|expo-haptics" apps/mobile/src/features` must return nothing. Native controls render in system colours by design, the same trade [ADR 0012](docs/adr/0012-adopting-expo-router-native-tabs.md) took for the tab bar; see [ADR 0019](docs/adr/0019-adopting-expo-ui-at-the-control-layer.md).
 - Preserve platform-adaptive iOS and Android behavior instead of forcing pixel-identical interfaces.
-- Validate important UI in Turkish and English, light and dark themes, text scaling, screen readers, and Reduced Motion; report conflicts between documentation and implementation instead of silently choosing one.
-- Agents that support skills should load `beautiful-ui` before UI work, `platform-ios-ui` or `platform-android-ui` for platform-specific behavior, and `ui-verification` before calling UI work done. They live in `.claude/skills/` and hold reading order, measured platform traps, and the verification gate; the rules themselves stay in this file and in `docs/design/`.
+- Routine UI work keeps the accessibility standard through the automated checks: the theme and component suites, the greppable design-language checks, and one affected Simulator run for iOS changes. The granular manual pass (a VoiceOver tour, focus-order inspection, a Reduced Motion Simulator tour, the largest accessibility text size) is not part of routine work, and a new screen alone does not trigger it. Run it only when a task directly changes accessibility behavior, when motion or animation behavior changes and Reduced Motion is affected, in the dedicated accessibility and polish milestone, or when the user asks. Report conflicts between documentation and implementation instead of silently choosing one.
+- Agents that support skills should load `beautiful-ui` before UI work, `platform-ios-ui` or `platform-android-ui` for platform-specific behavior, and `ui-verification` for the exact checks and the rule for when the manual accessibility pass applies. They live in `.claude/skills/` and hold reading order, measured platform traps, and the verification commands; the rules themselves stay in this file and in `docs/design/`.
 
 ## Testing and verification
 
@@ -231,7 +231,7 @@ The repository may be in transition. Inspect the real tree before assuming this 
 - Run one consolidated validation pass at the end only when proportionate to risk.
 - Documentation-only changes normally require only Markdown review and `git diff --check`, not builds or full test suites.
 - Domain logic changes require focused unit tests.
-- UI changes require focused component tests and relevant accessibility checks.
+- UI changes require focused component tests and the automated accessibility checks; the manual accessibility pass follows the risk rule in the UI and visual identity section.
 - Native iOS changes require one affected iOS build or Simulator verification.
 - Do not run Android validation unless Android code or shared native configuration changed.
 - Delegate scoped, mechanical work when the spec is cheaper to write than the work. A delegated task needs files in scope, invariants, and its verification stated up front.
