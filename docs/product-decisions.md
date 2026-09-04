@@ -321,6 +321,16 @@ Approved 2026-09-03. Canonical in [ADR 0021](adr/0021-direction-e-a-visual-first
 - Direction E applies to every surface, not only Today. Settled 2026-09-04: Profile, the Closet and Settings adopt it rather than preserving the M6.1 white-card-over-ground step, the light page ground is Soft Mist app-wide, and the recorded `surface` over `background` 1.2:1 assertion is superseded when the tokens land. Text and non-text contrast floors are unchanged.
 - The direction was produced by a throwaway HTML spike. It proves visual direction, not native correctness; the validation list is in ADR 0021.
 
+## Approved recommendation detail surface
+
+Approved 2026-09-04. Canonical in [ADR 0026](adr/0026-the-recommendation-detail-surface.md).
+
+- The surface Today defers to under [ADR 0021](adr/0021-direction-e-a-visual-first-design-language.md) section 7. It carries the garment names, the layer structure, the weather reasoning, per-piece reasoning, composition trade-offs, ownership state, formality, a quiet weather recap, and AI provenance.
+- Its board is [ADR 0025](adr/0025-the-garment-board-composition-rule.md)'s composition rule run with a second parameter set, not a second layout, so Today and detail share one composition and the transition between them moves the pieces.
+- The board sits on the page ground rather than the condition-tinted stage, because Law 3 forbids secondary copy on that stage. The weather keeps one quiet tinted recap row.
+- Reasoning is organised by weather requirement and each row names the garments that answer it, rather than one row per garment. This is what keeps the screen from returning to the five-row list the redesign diagnosed.
+- Ownership state appears here and nowhere else. Four state strings are approved, "Owned" / "Wanted" and "Sende var" / "İstenen"; they land with the screen that consumes them rather than as unused keys. The control that changes ownership is still undecided.
+
 ## Approved visual identity
 
 Approved 2026-07-29.
@@ -388,4 +398,5 @@ Approved 2026-09-04. Canonical in [ADR 0024](adr/0024-relicensing-to-polyform-no
 
 - Accounts, cross-device sync, an outbox, and conflict resolution require separate product and architecture decisions. Their intended shape is recorded in [Approved backend and account direction](#approved-backend-and-account-direction).
 - Owned garments may later softly influence recommendations only as a tie-breaker between equally suitable catalog candidates, never as a filter.
+- Per-slot substitutions on a recommendation are not in the MVP. No layer of the product produces one: the composer emits three whole outfits and the AI returns only option and archetype identifiers. Offering substitutions is a new feature needing its own product and architecture decision, not a presentation of existing data. Recorded by [ADR 0026](adr/0026-the-recommendation-detail-surface.md), which amends [ADR 0021](adr/0021-direction-e-a-visual-first-design-language.md) section 7 to that extent.
 - Server-sent push notifications (N3 in [Approved notifications scope](#approved-notifications-scope)) are deferred and would need their own ADR; the MVP ships on-device local weather alerts only.
