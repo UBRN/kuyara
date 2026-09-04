@@ -5,9 +5,9 @@ The mobile workspace uses the repository [stack and workspace layout](../../READ
 The checked-in app opens through a device-local onboarding gate backed by Expo
 SQLite. It persists profile preferences, Wardrobe data, weather and recommendation
 snapshots, and the notification opt-in state. Weather comes from the Worker's
-Open-Meteo/OpenWeather chain; Today uses the Worker AI route when available and
-the device-local deterministic generator otherwise. WeatherKit and local weather
-alert rules are not implemented yet.
+provider chain, WeatherKit followed by Open-Meteo and OpenWeather; Today uses the
+Worker AI route when available and the device-local deterministic generator
+otherwise. Local weather alert rules are not implemented yet.
 
 `index.js` is the physical mobile entry that delegates to Expo Router. Keeping the entry inside the workspace package avoids resolving the app entry itself through a pnpm symlink when Metro uses the monorepo server root.
 
@@ -41,4 +41,4 @@ put credentials in the mobile environment.
 
 Test and verification commands are documented in [`docs/testing.md`](../../docs/testing.md).
 
-Rebuild the generated native app after changing native plugins, permissions, or configuration instead of relying on an older Expo Go or development binary. Live WeatherKit, account/sync behavior, and Android visual refinement are separate future work.
+Rebuild the generated native app after changing native plugins, permissions, or configuration instead of relying on an older Expo Go or development binary. Account/sync behavior and Android visual refinement are separate future work.

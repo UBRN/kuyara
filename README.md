@@ -66,6 +66,7 @@ Development, focused test, Worker, Expo, and Simulator commands are in [`docs/te
 - [`docs/design/visual-identity.md`](docs/design/visual-identity.md) — brand and visual rules
 - [`docs/design/design-language.md`](docs/design/design-language.md) — the laws between intent and tokens
 - [`docs/design/design-system.md`](docs/design/design-system.md) — tokens and components
+- [`docs/design/garment-board.md`](docs/design/garment-board.md) — where each garment sits on Today's stage
 - [`docs/testing.md`](docs/testing.md) — test conventions and how to run them
 - [`AGENTS.md`](AGENTS.md) — repository rules for contributors and coding agents
 
