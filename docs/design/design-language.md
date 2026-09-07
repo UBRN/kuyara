@@ -456,7 +456,10 @@ without reading the rest of this document.
   content, never between two pieces of content (Law 2).
 - Grep the screen file for `paddingBottom` on the style passed to `Screen`'s
   `contentContainerStyle`. There must be none, because `Screen` owns the bottom inset
-  ([ADR 0027](../adr/0027-the-app-shell-and-its-three-tabs.md) section 4).
+  ([ADR 0027](../adr/0027-the-app-shell-and-its-three-tabs.md) section 4). A screen whose
+  scroll container is not `Screen` (a `FlatList`, a native list) adds the bottom safe-area
+  inset itself, once, in the primitive or the list's content inset, never as a feature
+  constant.
 - Check list row vertical padding. Exactly 12, touch target at least 44 (Law 2).
 - Count planes stacked in one place. At most 3: ground, chrome, card. No card sits on
   another card (Law 3).

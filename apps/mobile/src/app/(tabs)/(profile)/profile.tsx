@@ -30,7 +30,7 @@ export default function ProfileRoute() {
               accessibilityLabel={messages.profile.settingsAction}
               icon={(color) => <Icon color={color} name="settings" size={20} />}
               onPress={() => router.push('/settings')}
-              style={{ backgroundColor: 'transparent', borderColor: 'transparent', borderWidth: 0 }}
+              variant="quiet"
               testID="profile-settings-button"
             />
           ),

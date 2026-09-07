@@ -4,7 +4,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { WardrobeApplicationState } from '@/features/wardrobe/application/wardrobe-application-controller';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
-import { WardrobeListScreen } from '@/features/wardrobe/presentation/wardrobe-list-screen';
+import {
+  WardrobeListScreen,
+  resolveGridGeometry,
+} from '@/features/wardrobe/presentation/wardrobe-list-screen';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
@@ -340,4 +343,20 @@ test('a background refresh failure shows a retryable banner without discarding t
     result.getByRole('button', { name: messages.en.wardrobe.retryAction }),
   );
   expect(onRetry).toHaveBeenCalledTimes(1);
+});
+
+test('grid geometry follows the window width and reproduces ADR 0029 at the 393 point reference', () => {
+  const twoColumns = resolveGridGeometry(393, false);
+  expect(twoColumns.numColumns).toBe(2);
+  expect(twoColumns.geometry.width).toBe(174.5);
+  expect(twoColumns.geometry.height).toBeCloseTo(218, 5);
+
+  const oneColumn = resolveGridGeometry(393, true);
+  expect(oneColumn.numColumns).toBe(1);
+  expect(oneColumn.geometry.width).toBe(361);
+  expect(oneColumn.geometry.height).toBeCloseTo(280, 5);
+
+  // A 375 point device: two tiles plus the gap still fit inside the 343 point content box.
+  const narrow = resolveGridGeometry(375, false);
+  expect(narrow.geometry.width * 2 + 12).toBe(343);
 });

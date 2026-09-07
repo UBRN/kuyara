@@ -1,6 +1,7 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { View as RNView } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import {
   NativeList,
@@ -20,7 +21,11 @@ jest.mock('expo-symbols', () => ({
 }));
 
 function TestProviders({ children }: PropsWithChildren) {
-  return <KuyaraThemeContext.Provider value={lightTheme}>{children}</KuyaraThemeContext.Provider>;
+  return (
+    <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 59, right: 0, bottom: 34, left: 0 } }}>
+      <KuyaraThemeContext.Provider value={lightTheme}>{children}</KuyaraThemeContext.Provider>
+    </SafeAreaProvider>
+  );
 }
 
 function glyph({ color, size }: Readonly<{ color: string; size: number }>) {

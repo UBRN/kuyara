@@ -57,6 +57,27 @@ test('renders the tile, glyph, and separator geometry from ADR 0028 section 2 at
   expect(result.queryByTestId('row-1-value-stacked')).toBeNull();
 });
 
+test('at exactly fontScale 1.5 the controls reach their cap while the value stays on the label line', async () => {
+  mockFontScale(1.5);
+
+  const result = await render(
+    <TestProviders>
+      <ListRowGroup testID="group">
+        <ListRow glyph={locationGlyph} label="Wanted" onPress={() => {}} testID="row-1" value="3" />
+        <ListRow glyph={locationGlyph} label="Location" testID="row-2" />
+      </ListRowGroup>
+    </TestProviders>,
+  );
+
+  const tileStyle = StyleSheet.flatten(result.getByTestId('row-1-tile').props.style);
+  const separatorStyle = StyleSheet.flatten(result.getByTestId('group-separator-0').props.style);
+
+  expect(tileStyle.width).toBe(42);
+  expect(separatorStyle.marginStart).toBe(70);
+  expect(result.getByTestId('row-1-value-inline')).toBeTruthy();
+  expect(result.queryByTestId('row-1-value-stacked')).toBeNull();
+});
+
 test('scales the tile, glyph, and separator to the ADR 0028 section 3 values at the largest accessibility size and stacks the value', async () => {
   mockFontScale(3.12);
 

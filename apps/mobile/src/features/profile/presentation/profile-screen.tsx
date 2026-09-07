@@ -362,6 +362,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   group: {
-    marginTop: spacing.xl,
+    // ADR 0028 section 1: 24 between the rail and the group. The content column already
+    // contributes its 12 gap, so the margin carries only the remainder.
+    marginTop: spacing.xl - spacing.md,
   },
 });

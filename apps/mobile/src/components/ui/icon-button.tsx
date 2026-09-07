@@ -22,6 +22,8 @@ export type IconButtonProps = Omit<
   icon: (color: string) => ReactNode;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
+  /** `quiet` draws no fill and no border, for a glyph the system already frames, such as a native header's bar button. */
+  variant?: 'default' | 'quiet';
 };
 
 export function IconButton({
@@ -33,6 +35,7 @@ export function IconButton({
   onFocus,
   onPress,
   style,
+  variant = 'default',
   ...rest
 }: IconButtonProps) {
   const theme = useKuyaraTheme();
@@ -64,6 +67,7 @@ export function IconButton({
           backgroundColor: theme.colors.surfaceInteractive,
           borderColor: theme.colors.borderDefined,
         },
+        variant === 'quiet' && styles.quiet,
         pressed && !disabled && styles.pressed,
         disabled && styles.disabled,
         isFocused && { borderColor: theme.colors.focusRing },
@@ -83,6 +87,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: radii.control,
     borderWidth: borderWidths.strong,
+  },
+  quiet: {
+    backgroundColor: 'transparent',
+    borderColor: 'transparent',
+    borderWidth: 0,
   },
   pressed: {
     opacity: interaction.pressedOpacity,
