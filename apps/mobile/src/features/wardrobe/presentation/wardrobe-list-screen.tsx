@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FlatList, ScrollView, StyleSheet, View } from 'react-native';
+import { FlatList, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -42,22 +42,29 @@ type WardrobeListScreenProps = Readonly<{
 }>;
 
 // Section 1: a two-column grid of 174.5 by 218 tiles, one column of 361 by 280 above
-// `fontScale` 1.5 (ADR 0028 section 3's stacked-layout threshold).
+// `fontScale` 1.5 (ADR 0028 section 3's stacked-layout threshold). Those are the numbers
+// on the ADR's 393 point reference screen; the width is derived from the window so a 375
+// point device does not clip the right column and a 440 point one does not leave a gutter.
 const GRID_GAP = spacing.md;
-const TWO_COLUMN_GEOMETRY: WardrobeGridTileGeometry = { height: 218, width: 174.5 };
-const ONE_COLUMN_GEOMETRY: WardrobeGridTileGeometry = { height: 280, width: 361 };
+const GRID_INSET = spacing.lg;
+const TWO_COLUMN_ASPECT = 218 / 174.5;
+const ONE_COLUMN_ASPECT = 280 / 361;
+
+export function resolveGridGeometry(
+  windowWidth: number,
+  usesStackedLayout: boolean,
+): Readonly<{ geometry: WardrobeGridTileGeometry; numColumns: number }> {
+  const contentWidth = windowWidth - GRID_INSET * 2;
+  if (usesStackedLayout) {
+    return { geometry: { height: contentWidth * ONE_COLUMN_ASPECT, width: contentWidth }, numColumns: 1 };
+  }
+  const width = (contentWidth - GRID_GAP) / 2;
+  return { geometry: { height: width * TWO_COLUMN_ASPECT, width }, numColumns: 2 };
+}
 const LOADING_TILE_COUNT = 6;
 
 type CategoryFilter = StructuralCategory | 'all';
 
-function resolveGrid(usesStackedLayout: boolean): Readonly<{
-  geometry: WardrobeGridTileGeometry;
-  numColumns: 1 | 2;
-}> {
-  return usesStackedLayout
-    ? { geometry: ONE_COLUMN_GEOMETRY, numColumns: 1 }
-    : { geometry: TWO_COLUMN_GEOMETRY, numColumns: 2 };
-}
 
 export function WardrobeListScreen({
   initialEntryState = 'owned',
@@ -71,6 +78,7 @@ export function WardrobeListScreen({
   const messages = useMessages();
   const theme = useKuyaraTheme();
   const { usesStackedLayout } = useTextScaling();
+  const { width: windowWidth } = useWindowDimensions();
   const copy = messages.wardrobe;
   const [entryState, setEntryState] = useState<WardrobeEntryState>(initialEntryState);
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>('all');
@@ -83,7 +91,7 @@ export function WardrobeListScreen({
     // The pull has finished: derive the reset during render rather than in an effect.
     setIsPulling(false);
   }
-  const { geometry, numColumns } = resolveGrid(usesStackedLayout);
+  const { geometry, numColumns } = resolveGridGeometry(windowWidth, usesStackedLayout);
 
   const horizontalPadding = spacing.lg;
   const contentInsets = {

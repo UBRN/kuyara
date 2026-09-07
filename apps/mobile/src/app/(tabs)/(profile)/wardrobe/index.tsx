@@ -29,7 +29,7 @@ export default function WardrobeRoute() {
               accessibilityLabel={messages.wardrobe.addAction}
               icon={(color) => <Icon color={color} name="plus" size={20} />}
               onPress={() => router.push('/wardrobe/new')}
-              style={{ backgroundColor: 'transparent', borderColor: 'transparent', borderWidth: 0 }}
+              variant="quiet"
               testID="wardrobe-add-button"
             />
           ),

@@ -51,15 +51,10 @@ export function OutfitDetailScreen({
   }
 
   // Law 8: the owned/wanted pair mirrors the wardrobe toggle, a selection change under the finger.
-
   const setOwnership = (garmentTypeId: GarmentTypeId, next: 'owned' | 'wanted') => {
-
     haptics.selection();
-
     onSetOwnership(garmentTypeId, next);
-
   };
-
 
   const ownedCount = suggestion.pieces.filter(
     ({ garmentTypeId }) => ownershipByGarmentType[garmentTypeId] === 'owned',

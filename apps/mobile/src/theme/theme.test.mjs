@@ -159,11 +159,11 @@ test('English and Turkish locale resolution preserve the supported product langu
   assert.equal(messages.tr.today.slots.outer_layer, 'Dış katman');
   assert.equal(
     messages.en.profile.closetHeadingAccessibilityLabel({ count: 3 }),
-    'Closet, 3. Opens closet.',
+    'Closet, 3.',
   );
   assert.equal(
     messages.tr.profile.closetHeadingAccessibilityLabel({ count: 3 }),
-    'Gardırop, 3. Gardırobu açar.',
+    'Gardırop, 3.',
   );
   assert.equal(
     messages.en.profile.railItemAccessibilityLabel({ label: 'Rain jacket', position: 1, total: 3 }),
