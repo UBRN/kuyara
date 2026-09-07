@@ -1,7 +1,9 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import SettingsRoute from '@/app/(tabs)/(profile)/settings';
+import NotificationsSettingsRoute from '@/app/(tabs)/(profile)/settings/notifications';
 import { NotificationApplicationProvider } from '@/features/notifications/application/notification-application-provider';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { ProfileApplicationProvider } from '@/features/profile/application/profile-application-provider';
@@ -12,9 +14,19 @@ jest.mock('expo-symbols', () => ({
   SymbolView: () => null,
 }));
 
+jest.mock('@expo/ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
+jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
+jest.mock('@expo/ui/swift-ui/modifiers', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
+
 jest.mock('expo-router', () => ({
   router: { back: jest.fn(), push: jest.fn() },
+  Stack: { Screen: () => null },
 }));
+
+const mockRouter = jest.requireMock('expo-router').router as {
+  back: jest.Mock;
+  push: jest.Mock;
+};
 
 jest.mock('@/features/notifications/data/expo-notification-gateway', () => ({
   ExpoNotificationGateway: class {},
@@ -96,12 +108,31 @@ function NotificationBridge({
   );
 }
 
+// ADR 0030 section 5: the toggle now lives on `/settings/notifications`, reached from the
+// root list's Notifications row, so this harness mirrors `MountedSettingsRoutes` in
+// `preference-propagation.component.test.tsx` rather than mounting the toggle directly.
+function MountedNotificationRoutes({ onMount }: Readonly<{ onMount: () => void }>) {
+  const [route, setRoute] = useState<'notifications' | 'settings'>('settings');
+
+  useEffect(onMount, [onMount]);
+  useEffect(() => {
+    mockRouter.back.mockImplementation(() => setRoute('settings'));
+    mockRouter.push.mockImplementation((path: string) => {
+      if (path === '/settings/notifications') {
+        setRoute('notifications');
+      }
+    });
+  }, []);
+
+  return route === 'notifications' ? <NotificationsSettingsRoute /> : <SettingsRoute />;
+}
+
 function renderSettings(gateway: ReturnType<typeof createGateway>['gateway']) {
   return render(
     <SafeAreaProvider initialMetrics={initialMetrics}>
       <ProfileApplicationProvider>
         <NotificationBridge gateway={gateway}>
-          <SettingsRoute />
+          <MountedNotificationRoutes onMount={() => {}} />
         </NotificationBridge>
       </ProfileApplicationProvider>
     </SafeAreaProvider>,
@@ -112,16 +143,16 @@ test('granting permission from the switch persists the opt-in flag', async () =>
   mockProfile = createProfile();
   const { gateway } = createGateway('undetermined');
   const result = await renderSettings(gateway);
-  const toggle = await result.findByTestId('settings-notifications-toggle');
 
-  expect(toggle.props.accessibilityLabel).toBe(messages.en.notifications.toggleLabel);
+  await fireEvent.press(await result.findByTestId('settings-notifications-row'));
+  const toggle = await result.findByTestId('settings-notifications-toggle-row-toggle');
 
   await act(async () => {
     fireEvent(toggle, 'valueChange', true);
   });
 
   await waitFor(() => expect(
-    result.getByTestId('settings-notifications-toggle').props.value,
+    result.getByTestId('settings-notifications-toggle-row-toggle').props.value,
   ).toBe(true));
 });
 
@@ -129,6 +160,8 @@ test('denied permission shows the hint and opens application settings', async ()
   mockProfile = createProfile();
   const { gateway, openApplicationSettings } = createGateway('denied');
   const result = await renderSettings(gateway);
+
+  await fireEvent.press(await result.findByTestId('settings-notifications-row'));
 
   expect(await result.findByText(messages.en.notifications.permissionDeniedHint))
     .toBeOnTheScreen();

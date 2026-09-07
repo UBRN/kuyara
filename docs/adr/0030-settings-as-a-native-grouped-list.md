@@ -42,6 +42,8 @@ version line. Inside a cell, nothing is kuyara's: label, secondary value, separa
 chevron, toggle and picker are the system's. This makes the system-colour trade visible
 rather than hidden, which is what goal 6's acceptance asked for.
 
+Amended 2026-09-07: the installed `@expo/ui` 57.0.8 SwiftUI API exposes `listStyle('insetGrouped')` and `scrollContentBackground('hidden')`, so the wrapper uses both and keeps kuyara's ground visible; verified on the iPhone 17 Pro / iOS 26.3 Simulator the same day.
+
 ### 2. Root groups, in order
 
 1. Language, Appearance; each a value row ("System" / "Sistem") opening a native picker
@@ -64,9 +66,11 @@ before the chevron, and above `fontScale` 1.5 it stacks under the label. Because
 list is the system's to lay out under Dynamic Type, the Profile-only cap on control
 scaling does not apply here.
 
-Section headings are kuyara's: sentence case, `bodyStrong` 17, `textPrimary`, drawn
+Section headings are kuyara's: sentence case, `bodyStrong` 17, `textSecondary`, drawn
 outside the native group with 12 below before the group and 24 between groups. SwiftUI's
-uppercase header never appears. Only About you carries a heading.
+uppercase header never appears. Only About you carries a heading. Amended 2026-09-07: was
+`textPrimary` at acceptance; ADR 0028 section 2 was corrected the same day to
+`textSecondary` and this section carries the same amendment.
 
 ### 4. The version line
 
@@ -109,6 +113,8 @@ system date picker. No age category is shown anywhere. This is the ADR 0015 amen
 - `Host` follows the device appearance by default, so a Light preference on a dark device
   would invert every native control; the spike's finding stands and `Host colorScheme`
   follows the app's resolved theme.
+
+Amended 2026-09-07: the installed `@expo/ui` 57.0.8 SwiftUI API exposes `tint`, so the wrapper applies `brandPrimary` to the list and toggle, verified on the Simulator the same day, with the existing pushed pickers unchanged.
 
 ## Consequences
 

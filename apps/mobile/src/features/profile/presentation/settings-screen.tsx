@@ -1,78 +1,33 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, Switch, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Constants from 'expo-constants';
+import { StyleSheet } from 'react-native';
 
-import { AppText, haptics, Icon, IconButton, Screen, Surface } from '@/components/ui';
-import { Divider } from '@/components/ui/divider';
-import type {
-  ClothingPreference,
-} from '@/domain/preferences';
-import type { NotificationPermissionState } from '@/features/notifications/data/notification-gateway';
+import { AppText, Icon, NativeList, NativeListSection, NativeListRow } from '@/components/ui';
 import type { LocalProfile } from '@/features/profile/domain/profile';
-import { AiStatusSection } from '@/features/profile/presentation/ai-status-section';
-import { PreferenceOption } from '@/features/profile/presentation/preference-option';
-import type { AiProbeUiState } from '@/features/recommendation/application/use-ai-probe';
-import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import { useMessages } from '@/localization/use-messages';
-import { interaction, layout, radii, spacing } from '@/theme/theme';
-import { useKuyaraTheme } from '@/theme/theme-context';
+import { spacing } from '@/theme/theme';
 
-type SettingsScreenProps = Readonly<{
-  aiStatus: AiProbeUiState;
-  isProbeSupported: boolean;
-  lastGenerationMode: RecommendationGenerationMode | null;
-  onBack: () => void;
-  onOpenAppearance: () => void;
-  onOpenLanguage: () => void;
-  onCheckAiStatus: () => void;
+// About you keeps clothing preference until ADR 0015 supplies gender and birth date.
+export type SettingsScreenProps = Readonly<{
   profile: LocalProfile;
-  isSaving: boolean;
-  updateClothingPreference: (preference: ClothingPreference) => Promise<void>;
-  notificationPermission: NotificationPermissionState;
-  isNotificationBusy: boolean;
-  onToggleNotifications: (optIn: boolean) => Promise<void>;
-  onOpenNotificationSettings: () => void;
-  onSendTestNotification: () => Promise<boolean>;
+  notificationsOn: boolean;
+  onOpenLanguage: () => void;
+  onOpenAppearance: () => void;
+  onOpenNotifications: () => void;
+  onOpenAiStatus: () => void;
+  onOpenClothingPreference: () => void;
 }>;
 
 export function SettingsScreen({
-  aiStatus,
-  isProbeSupported,
-  isSaving,
-  lastGenerationMode,
-  onBack,
+  notificationsOn,
+  onOpenAiStatus,
   onOpenAppearance,
+  onOpenClothingPreference,
   onOpenLanguage,
-  onCheckAiStatus,
-  isNotificationBusy,
-  notificationPermission,
-  onOpenNotificationSettings,
-  onSendTestNotification,
-  onToggleNotifications,
+  onOpenNotifications,
   profile,
-  updateClothingPreference,
 }: SettingsScreenProps) {
   const messages = useMessages();
-  const theme = useKuyaraTheme();
   const copy = messages.preferences;
-  const [headerHeight, setHeaderHeight] = useState(0);
-  const [hasSaveError, setHasSaveError] = useState(false);
-  const [testNotificationResult, setTestNotificationResult] = useState<
-    'scheduled' | 'failed' | null
-  >(null);
-
-  const save = async (operation: () => Promise<void>) => {
-    if (isSaving) {
-      return;
-    }
-
-    setHasSaveError(false);
-    try {
-      await operation();
-    } catch {
-      setHasSaveError(true);
-    }
-  };
 
   const languageValue = profile.languagePreference === 'system'
     ? copy.languageSystem
@@ -84,274 +39,80 @@ export function SettingsScreen({
     : profile.themePreference === 'light'
       ? copy.themeLight
       : copy.themeDark;
+  const clothingValue = profile.clothingPreference === 'mens' ? copy.mensClothing : copy.womensClothing;
+  const notificationValue = notificationsOn
+    ? messages.notifications.statusOn
+    : messages.notifications.statusOff;
+  const version = Constants.expoConfig?.version;
+  const build = Constants.platform?.ios?.buildNumber
+    ?? Constants.platform?.android?.versionCode?.toString();
 
   return (
-    <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
-      <SafeAreaView
-        edges={['top']}
-        onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}
-        style={[
-          styles.header,
-          { backgroundColor: theme.colors.surface },
-          theme.elevation.chrome,
-        ]}
-        testID="settings-header">
-        <View style={styles.headerContent}>
-          <IconButton
-            accessibilityLabel={messages.common.back}
-            hitSlop={7}
-            icon={(color) => <Icon color={color} name="chevronLeft" size={20} />}
-            onPress={onBack}
-            testID="settings-back-button"
-          />
-          <AppText accessibilityRole="header" style={styles.headerTitle} variant="titleLarge">
-            {messages.settings.title}
-          </AppText>
-        </View>
-      </SafeAreaView>
-
-      <Screen
-        contentContainerStyle={styles.content}
-        contentTopClearance={headerHeight + spacing.xl}
-        testID="settings-screen">
-        <AppText colorRole="textSecondary">{messages.settings.introduction}</AppText>
-
-        <View style={styles.group}>
-          <AppText accessibilityRole="header" variant="bodyStrong">
-            {copy.languageTitle}
-          </AppText>
-          <Surface style={[styles.groupCard, theme.elevation.raised]}>
-            <Pressable
-              accessibilityHint={copy.languageDescription}
-              accessibilityLabel={`${copy.languageTitle}, ${languageValue}`}
-              accessibilityRole="button"
-              onPress={onOpenLanguage}
-              style={({ pressed }) => [styles.settingSummary, pressed && styles.pressed]}
-              testID="settings-language-row">
-              <Icon color={theme.colors.iconSecondary} name="language" size={21} />
-              <View style={styles.settingCopy}>
-                <AppText>{copy.languageTitle}</AppText>
-                <AppText colorRole="textSecondary">{languageValue}</AppText>
-              </View>
-              <Icon color={theme.colors.iconSecondary} name="chevronRight" size={20} />
-            </Pressable>
-          </Surface>
-        </View>
-
-        <View style={styles.group}>
-          <AppText accessibilityRole="header" variant="bodyStrong">
-            {copy.themeTitle}
-          </AppText>
-          <Surface style={[styles.groupCard, theme.elevation.raised]}>
-            <Pressable
-              accessibilityHint={copy.themeDescription}
-              accessibilityLabel={`${copy.themeTitle}, ${themeValue}`}
-              accessibilityRole="button"
-              onPress={onOpenAppearance}
-              style={({ pressed }) => [styles.settingSummary, pressed && styles.pressed]}
-              testID="settings-theme-row">
-              <Icon color={theme.colors.iconSecondary} name="theme" size={21} />
-              <View style={styles.settingCopy}>
-                <AppText>{copy.themeTitle}</AppText>
-                <AppText colorRole="textSecondary">{themeValue}</AppText>
-              </View>
-              <Icon color={theme.colors.iconSecondary} name="chevronRight" size={20} />
-            </Pressable>
-          </Surface>
-        </View>
-
-        <View style={styles.group}>
-          <AppText accessibilityRole="header" variant="bodyStrong">
-            {messages.notifications.title}
-          </AppText>
-          <Surface style={[styles.groupCard, theme.elevation.raised]}>
-            <View style={styles.notificationRow}>
-              <Icon color={theme.colors.iconSecondary} name="bell" size={21} />
-              <View style={styles.notificationIntroduction}>
-                <AppText>{messages.notifications.toggleLabel}</AppText>
-                <AppText colorRole="textSecondary">
-                  {messages.notifications.introduction}
-                </AppText>
-              </View>
-              <Switch
-                accessibilityLabel={messages.notifications.toggleLabel}
-                disabled={isNotificationBusy}
-                onValueChange={(optIn) => void save(() => onToggleNotifications(optIn))}
-                testID="settings-notifications-toggle"
-                value={profile.notificationsOptIn}
-              />
-            </View>
-            {notificationPermission.kind === 'denied' ? (
-              <>
-                <Divider variant="inset" />
-                <AppText colorRole="textSecondary">
-                  {messages.notifications.permissionDeniedHint}
-                </AppText>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={onOpenNotificationSettings}
-                  style={({ pressed }) => [
-                    styles.notificationAction,
-                    pressed && styles.pressed,
-                  ]}
-                  testID="settings-notifications-open-settings">
-                  <AppText colorRole="brandAccent" variant="bodyStrong">
-                    {messages.notifications.openSettingsAction}
-                  </AppText>
-                </Pressable>
-              </>
-            ) : null}
-            {__DEV__ ? (
-              <>
-                <Divider variant="inset" />
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => {
-                    setTestNotificationResult(null);
-                    void onSendTestNotification().then((scheduled) => {
-                      setTestNotificationResult(scheduled ? 'scheduled' : 'failed');
-                    });
-                  }}
-                  style={({ pressed }) => [
-                    styles.notificationAction,
-                    pressed && styles.pressed,
-                  ]}
-                  testID="settings-notifications-test">
-                  <AppText colorRole="brandAccent" variant="bodyStrong">
-                    {messages.notifications.testNotificationAction}
-                  </AppText>
-                </Pressable>
-              </>
-            ) : null}
-            {testNotificationResult ? (
-              <AppText accessibilityLiveRegion="polite" colorRole="textSecondary">
-                {testNotificationResult === 'scheduled'
-                  ? messages.notifications.testNotificationScheduled
-                  : messages.notifications.testNotificationFailed}
-              </AppText>
-            ) : null}
-          </Surface>
-        </View>
-
-        <AiStatusSection
-          aiStatus={aiStatus}
-          isProbeSupported={isProbeSupported}
-          lastGenerationMode={lastGenerationMode}
-          onCheckAiStatus={onCheckAiStatus}
+    <NativeList testID="settings-screen">
+      <NativeListSection testID="settings-primary-group">
+        <NativeListRow
+          glyph={({ color, size }) => <Icon color={color} name="language" size={size} />}
+          label={copy.languageTitle}
+          onPress={onOpenLanguage}
+          testID="settings-language-row"
+          value={languageValue}
         />
+        <NativeListRow
+          glyph={({ color, size }) => <Icon color={color} name="theme" size={size} />}
+          label={copy.themeTitle}
+          onPress={onOpenAppearance}
+          testID="settings-theme-row"
+          value={themeValue}
+        />
+      </NativeListSection>
 
-        <View style={styles.group}>
-          <AppText accessibilityRole="header" variant="bodyStrong">
-            {copy.clothingTitle}
-          </AppText>
-          <Surface style={[styles.groupCard, theme.elevation.raised]}>
-            <View style={styles.options}>
-              <PreferenceOption
-                disabled={isSaving}
-                label={copy.womensClothing}
-                onPress={() => {
-                  if (profile.clothingPreference !== 'womens') haptics.selection();
-                  void save(() => updateClothingPreference('womens'));
-                }}
-                selected={profile.clothingPreference === 'womens'}
-                testID="settings-clothing-womens"
-              />
-              <Divider variant="inset" />
-              <PreferenceOption
-                disabled={isSaving}
-                label={copy.mensClothing}
-                onPress={() => {
-                  if (profile.clothingPreference !== 'mens') haptics.selection();
-                  void save(() => updateClothingPreference('mens'));
-                }}
-                selected={profile.clothingPreference === 'mens'}
-                testID="settings-clothing-mens"
-              />
-            </View>
-          </Surface>
-        </View>
+      <NativeListSection testID="settings-services-group">
+        <NativeListRow
+          glyph={({ color, size }) => <Icon color={color} name="bell" size={size} />}
+          label={messages.notifications.title}
+          onPress={onOpenNotifications}
+          testID="settings-notifications-row"
+          value={notificationValue}
+        />
+        <NativeListRow
+          glyph={({ color, size }) => <Icon color={color} name="sparkle" size={size} />}
+          label={messages.settings.aiStatusHeading}
+          onPress={onOpenAiStatus}
+          testID="settings-ai-status-row"
+        />
+      </NativeListSection>
 
-        {isSaving ? (
-          <AppText accessibilityLiveRegion="polite" colorRole="textSecondary">
-            {messages.settings.saving}
-          </AppText>
-        ) : null}
-        {hasSaveError ? (
+      <NativeListSection
+        heading={messages.settings.aboutYouHeading}
+        footer={messages.settings.aboutYouFooter}
+        testID="settings-about-you-group">
+        <NativeListRow
+          glyph={({ color, size }) => <Icon color={color} name="tabProfileOutline" size={size} />}
+          label={copy.clothingTitle}
+          onPress={onOpenClothingPreference}
+          testID="settings-clothing-row"
+          value={clothingValue}
+        />
+      </NativeListSection>
+      {version ? (
+        <NativeListSection footer={
           <AppText
-            accessibilityLiveRegion="assertive"
-            accessibilityRole="alert"
             colorRole="textSecondary"
-            testID="settings-save-error">
-            {messages.settings.saveError}
+            style={styles.version}
+            tabularNumbers
+            variant="caption">
+            {messages.settings.versionLine(version, build)}
           </AppText>
-        ) : null}
-      </Screen>
-    </View>
+        } />
+      ) : null}
+    </NativeList>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
-  header: {
-    borderBottomLeftRadius: radii.card,
-    borderBottomRightRadius: radii.card,
-    left: 0,
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    zIndex: 1,
-  },
-  headerContent: {
-    alignItems: 'center',
-    alignSelf: 'center',
-    flexDirection: 'row',
-    gap: spacing.md,
-    maxWidth: layout.maxContentWidth,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
+  version: {
+    textAlign: 'center',
+    paddingBottom: spacing['2xl'],
     width: '100%',
-  },
-  headerTitle: {
-    flex: 1,
-  },
-  content: {
-    gap: spacing.md,
-  },
-  group: {
-    gap: spacing.md,
-  },
-  groupCard: {
-    gap: spacing.md,
-    padding: spacing.lg,
-  },
-  options: {
-    gap: spacing.md,
-  },
-  settingSummary: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.md,
-    minHeight: layout.minimumTouchTarget,
-  },
-  settingCopy: {
-    flex: 1,
-  },
-  notificationRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  notificationIntroduction: {
-    flex: 1,
-  },
-  notificationAction: {
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-    minHeight: layout.minimumTouchTarget,
-  },
-  pressed: {
-    opacity: interaction.pressedOpacity,
   },
 });

@@ -62,16 +62,25 @@ tags:
 - assertVisible:
     id: settings-screen
 
-# Clothing preference sits last on Settings by design, so it needs a scroll.
+# Clothing preference sits last on Settings by design, so it needs a scroll, and since
+# ADR 0030 it opens its own pushed picker like language and appearance.
 - scrollUntilVisible:
     element:
-      id: settings-clothing-mens
+      id: settings-clothing-row
     direction: DOWN
+- tapOn:
+    id: settings-clothing-row
+- assertVisible:
+    id: settings-clothing-picker
 - tapOn:
     id: settings-clothing-mens
 - assertVisible:
     id: settings-clothing-mens
     selected: true
+- tapOn:
+    id: settings-picker-back
+- assertVisible:
+    id: settings-screen
 
 - launchApp
 - tapOn:
@@ -99,8 +108,12 @@ tags:
     id: settings-picker-back
 - scrollUntilVisible:
     element:
-      id: settings-clothing-mens
+      id: settings-clothing-row
     direction: DOWN
+- tapOn:
+    id: settings-clothing-row
 - assertVisible:
     id: settings-clothing-mens
     selected: true
+- tapOn:
+    id: settings-picker-back
