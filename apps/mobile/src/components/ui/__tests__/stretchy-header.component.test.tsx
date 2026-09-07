@@ -101,7 +101,7 @@ test('recomputes reserved height when the safe-area inset changes', async () => 
         onHeightChange={onHeightChange}
         scrollOffset={scrollOffset}
         testID="rotating-stretchy-header">
-        <Text accessibilityRole="header">Wardrobe</Text>
+        <Text accessibilityRole="header">Closet</Text>
       </StretchyHeader>
     </TestProviders>
   );
