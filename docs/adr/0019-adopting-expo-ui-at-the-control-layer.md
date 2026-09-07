@@ -101,7 +101,7 @@ without a new decision.
   component in the universal set terminates the app with no crash report, narrowed to the
   `List` / `Button` import group and not isolated further. Isolating that crash is a
   prerequisite for adopting those two components. `FieldGroup`, `ListItem` and `Switch`
-  are clear.
+  are clear. Amended 2026-09-07: Isolated on 2026-09-07 on the iPhone 17 Pro / iOS 26.3 Simulator with five probe screens swapped into the Settings route: importing the group does not crash; `List` and `ListItem` render; `Button` with the `label` prop renders; `Button` given string children terminates the app with an `NSInternalInconsistencyException` from `RCTComponentViewFactory`, "ComponentView with componentHandle (`RawText`) not found", because Fabric has no `RawText` view to mount inside a SwiftUI host. A crash report is written after all (`kuyara-2026-09-07-175305.ips`). `ListItem` takes a plain string or an `@expo/ui` `Text` as its headline, `supportingText`, an `@expo/ui` `Text` in `trailing`, and an `RNHostView` in `leading` holding kuyara's own 28 by 28 tile with a tinted PNG glyph, which verifies list-row check 2 at runtime. A React Native `Text` placed directly in a slot does not crash but breaks the row layout; the rule is that slot content is `@expo/ui` components or an `RNHostView`, never bare React Native views or strings on `Button`.
 - Accessibility for these controls comes from the platform, as it does for the tab
   bar. The manual matrix still runs; what changes is that the adaptation is not ours
   to implement.
