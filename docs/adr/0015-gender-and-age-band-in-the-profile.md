@@ -6,6 +6,15 @@ Implementation: not started. This ADR records the decision and the reversals it
 makes; the milestone that carries it out is listed in
 [`current-status.md`](../current-status.md).
 
+Amended by [ADR 0028](0028-the-profile-tab-and-the-list-row-anatomy.md) and
+[ADR 0030](0030-settings-as-a-native-grouped-list.md) on 2026-09-07. The personal fact
+collected is the **birth date**, not the birth year: the stored value is `birthDate`
+(column `birth_date`, an ISO calendar date), the interface shows the locale-formatted
+date itself, and no age category is ever user-facing. The band in section 3 is still
+derived on the device, from the date's year exactly as it was from the year, and is
+still the only thing that crosses the network. Everything the band does downstream
+(sections 4 to 6) is unaffected. Section 2, 7 and 8 carry the amended wording inline.
+
 ## Context
 
 The profile has carried one recommendation-shaping input since the first schema:
@@ -59,13 +68,21 @@ know is which catalog the supplied options were drawn from, not who the user is.
 
 ### 2. Birth year is optional and never leaves the device
 
+*Amended 2026-09-07: read "birth date" and `birthDate` for "birth year" and
+`birthYear` throughout this section. The date is entered with the system date picker,
+shown locale-formatted where the personal fact appears, and the band is derived from its
+year. A band is never persisted for display, never shown as a label, and never logged or
+sent to analytics; where a personal fact is shown, it is the date itself.*
+
 The profile gains a nullable `birthYear`. It is asked once in onboarding, may be
 skipped, and can be set or changed later in Settings.
 
 Birth year is stored on the device and is never sent anywhere. Only the band
 derived from it crosses the network. This is deliberate: the maintainer chose to
 collect a birth year rather than a band so the value does not go stale, and the
-privacy cost of that precision is contained by never transmitting it.
+privacy cost of that precision is contained by never transmitting it. The 2026-09-07
+amendment raises that precision to a full date for the same reason, and the same
+containment applies: the date never leaves the device.
 
 ### 3. Age bands
 
@@ -170,14 +187,17 @@ required; onboarding was asking for a choice the system had already made.
 Gender stays required and prominent, which preserves
 [ADR 0006](0006-three-tab-information-architecture.md)'s rule. Its Settings
 control stays last and deliberately unprominent, with woman listed before man.
-Birth year sits beside it.
+Birth year sits beside it. *Amended 2026-09-07: the onboarding step and the Settings
+row collect the birth date with the system date picker, and neither Profile nor
+Settings shows an age category; see ADR 0030 sections 2 and 6 and ADR 0028 section 4.*
 
 ### 8. Migration and existing installations
 
 Schema version 8 rebuilds the profile table, because SQLite cannot alter a
 `CHECK` constraint in place. It renames `clothing_preference` to `gender`,
 converts `womens` to `woman` and `mens` to `man`, and adds a nullable
-`birth_year`.
+`birth_year`. *Amended 2026-09-07: the column is `birth_date`, an ISO calendar date
+stored as text, nullable; the static bounds below apply to its year.*
 
 The column's `CHECK` constraint uses a static lower and upper bound rather than
 the current year, because SQLite requires a `CHECK` expression to be
