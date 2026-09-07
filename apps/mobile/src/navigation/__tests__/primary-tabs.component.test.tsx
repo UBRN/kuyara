@@ -20,6 +20,19 @@ jest.mock('expo-symbols', () => ({
   SymbolView: () => null,
 }));
 
+// ADR 0019: `@expo/ui` renders native views that do not mount under Jest, so the
+// Closet's segmented control is tested against a mocked module here too, exactly as
+// `expo-router/unstable-native-tabs` is mocked below.
+jest.mock('@expo/ui/community/segmented-control', () => {
+  const { View: MockView } = jest.requireActual('react-native');
+
+  function MockSegmentedControl({ testID }: Readonly<{ testID?: string }>) {
+    return <MockView testID={testID} />;
+  }
+
+  return { SegmentedControl: MockSegmentedControl };
+});
+
 jest.mock('expo-router/unstable-native-tabs', () => {
   const { Text: MockText, View: MockView } = jest.requireActual('react-native');
 
@@ -225,6 +238,10 @@ describe.each([
     ).toBeOnTheScreen();
     await weather.unmount();
 
+    // ADR 0029: the Closet's title is the native large title set by the route file
+    // (`app/(tabs)/(profile)/wardrobe/index.tsx`), not rendered by `WardrobeListScreen`
+    // itself, exactly as Profile's title is not rendered by `profile-screen.tsx`. The
+    // empty state reuses Profile's own sentence rather than a wardrobe-specific one.
     const wardrobe = await render(
       <TestProviders language={language}>
         <WardrobeListScreen
@@ -241,9 +258,8 @@ describe.each([
         />
       </TestProviders>,
     );
-    expect(wardrobe.getByText(messages[language].wardrobe.title)).toBeOnTheScreen();
     expect(
-      wardrobe.getByText(messages[language].wardrobe.emptyBody),
+      wardrobe.getByText(messages[language].profile.wardrobeEmpty),
     ).toBeOnTheScreen();
   });
 });
