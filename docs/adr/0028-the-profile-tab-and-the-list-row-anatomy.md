@@ -144,8 +144,8 @@ keyword.
    screen.
 2. The rail ships with the photo and glyph rungs at once. The silhouette rung waits for
    Today's board implementation, because the twenty-two drawings live only outside the
-   repository and the six shipped category glyphs are drawn 1.86× too heavy (ADR 0025's
-   open redraw).
+   repository and the six shipped category glyphs were drawn 1.86× too heavy until the redraw of
+   2026-09-07 closed ADR 0025's open item.
 3. The route to the list gains an optional initial filter so the Wanted row can open on
    the wanted state. The Profile "wanted" row's inability to do so today is a recorded
    known issue.
