@@ -22,6 +22,8 @@ source-available rather than open source ([ADR 0024](adr/0024-relicensing-to-pol
 
 ## Recently Completed
 
+- **The `@expo/ui` crash, isolated** (2026-09-07): the prerequisite [ADR 0019](adr/0019-adopting-expo-ui-at-the-control-layer.md) and [ADR 0030](adr/0030-settings-as-a-native-grouped-list.md) left open, closed by the orchestrator between lanes with no application code change kept. Isolated on 2026-09-07 on the iPhone 17 Pro / iOS 26.3 Simulator with five probe screens swapped into the Settings route: importing the group does not crash; `List` and `ListItem` render; `Button` with the `label` prop renders; `Button` given string children terminates the app with an `NSInternalInconsistencyException` from `RCTComponentViewFactory`, "ComponentView with componentHandle (`RawText`) not found", because Fabric has no `RawText` view to mount inside a SwiftUI host. A crash report is written after all (`kuyara-2026-09-07-175305.ips`). `ListItem` takes a plain string or an `@expo/ui` `Text` as its headline, `supportingText`, an `@expo/ui` `Text` in `trailing`, and an `RNHostView` in `leading` holding kuyara's own 28 by 28 tile with a tinted PNG glyph, which verifies list-row check 2 at runtime. A React Native `Text` placed directly in a slot does not crash but breaks the row layout; the rule is that slot content is `@expo/ui` components or an `RNHostView`, never bare React Native views or strings on `Button`. Settings can now be built on the native list.
+
 - **The English Closet label** (2026-09-07): every user-visible English "Wardrobe" string in the mobile localization catalog now says "Closet", including navigation, onboarding, Profile, list, form, error, destructive-action and accessibility copy. Turkish remains "Gardırop", and localization keys, domain names, SQLite tables, route segments, types, file names and test ids remain unchanged. Verified with the scoped `rg` checks, `pnpm --filter @kuyara/mobile test:components`, `pnpm check`, `git diff --check` and `git status --short`. The two Maestro flows were re-run by the orchestrator afterwards on the iPhone 17 Pro / iOS 26.3 Simulator and passed 2/2.
 
 - **Profile, the Closet and Settings, designed and closed against the list-row reference** (2026-09-07): a design milestone; no application code changed and no dependency was added. The three target sheets drawn on 2026-09-04 were measured against the eight-check list-row reference adopted the same morning and failed four of them: bare glyphs where the reference has a monochrome tile, separators at the container edge, Settings headings inside the native group, and no group container on Profile. One shared renderer was corrected once, so all three sheets moved together; a first browser measurement then found the row chevron scaling to 62 points at the largest accessibility size and breaking "Wanted" mid-word, which set the `min(fontScale, 1.5)` cap on row controls. The maintainer's own byAir screenshots were measured at 3x afterwards and agreed within a few points (group inset 16, separator 54 from the group edge, row pitch 54, sentence-case headings outside the group, a centred version line last), and three follow-ups closed the same day: the Settings version line, the Profile group radius at Law 3's 20, and a 12 point heading-to-group gap. Accepted as [ADR 0028](adr/0028-the-profile-tab-and-the-list-row-anatomy.md), [ADR 0029](adr/0029-the-closet-grid.md) and [ADR 0030](adr/0030-settings-as-a-native-grouped-list.md), which also amend [ADR 0015](adr/0015-gender-and-age-band-in-the-profile.md) from birth year to birth date with no user-facing age category. The Turkish wanted label became "İstekler" because the twelve-letter first choice could not fit the label column at `fontScale` 3.118.
@@ -130,7 +132,7 @@ neither probe asked for. All three matter:
   `Host matchContents` collapses to zero height inside a `ScrollView` and renders nothing;
   an explicit height works. Separately, one component in the universal set terminates the
   app with no crash report, narrowed to the `List` / `Button` import group and not
-  isolated further. `FieldGroup`, `ListItem` and `Switch` are fine.
+  isolated further (it was, on 2026-09-07; see Recently Completed). `FieldGroup`, `ListItem` and `Switch` are fine.
 - `Host` follows the **device** appearance, not kuyara's resolved theme, so a Light
   preference on a dark device inverts every native control. `Host colorScheme` fixes it.
 
@@ -267,7 +269,7 @@ way.
   from one `{version}` / `{build}` template key. The build-number API, `expo-constants` or
   `expo-application`, is still verified at implementation. Provider and model identity
   stay hidden; the sheet's variant that shows them is not the target.
-- *Left open, deliberately.* The `@expo/ui` `List` / `Button` crash isolation, owned by
+- *Left open, deliberately, except the first, which closed on 2026-09-07 (see Recently Completed).* The `@expo/ui` `List` / `Button` crash isolation, owned by
   goal 7; Android rendering; whether a separate saving line survives against the real
   component.
 - *Amendment.* ADR 0028 and ADR 0030 amend [ADR 0015](adr/0015-gender-and-age-band-in-the-profile.md):
@@ -326,7 +328,7 @@ Both shell fixes are now done.
    sequenced after the inset fix and the English Closet label. The shared row anatomy is
    one primitive, written once. The rail's and the grid's silhouette rung and the
    colour-family fill wait for Today's board implementation; Settings waits for the
-   `@expo/ui` crash isolation. The route gains an optional initial filter for the Wanted
+   `@expo/ui` crash isolation, which closed on 2026-09-07. The route gains an optional initial filter for the Wanted
    row.
 
 Also owed, and small: one Turkish ownership state string pair for the recommendation detail
