@@ -62,7 +62,7 @@ export function GarmentTypePickerScreen({
 
       <Screen
         contentContainerStyle={styles.content}
-        contentTopClearance={headerHeight + spacing.lg}
+        contentTopClearance={headerHeight + spacing.xl}
         testID="wardrobe-garment-type-picker">
         {structuralCategories.map((category) => {
           const categoryTypes = garmentTypes.filter(
