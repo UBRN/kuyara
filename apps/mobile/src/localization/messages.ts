@@ -141,7 +141,9 @@ export type AppMessages = Readonly<{
   preferences: PreferenceMessages;
   settings: Readonly<{
     title: string;
-    introduction: string;
+    aboutYouHeading: string;
+    aboutYouFooter: string;
+    versionLine: (version: string, build?: string | null) => string;
     aiStatusHeading: string;
     aiStatusIntro: string;
     aiStatusLastAiAssisted: string;
@@ -181,6 +183,8 @@ export type AppMessages = Readonly<{
     title: string;
     introduction: string;
     toggleLabel: string;
+    statusOn: string;
+    statusOff: string;
     permissionDeniedHint: string;
     openSettingsAction: string;
     testNotificationAction: string;
@@ -420,7 +424,9 @@ const en = {
   },
   settings: {
     title: 'Settings',
-    introduction: 'Changes are saved on this device as soon as you select them.',
+    aboutYouHeading: 'About you',
+    aboutYouFooter: 'Clothing preference selects the catalog your outfit suggestions are drawn from.',
+    versionLine: (version: string, build?: string | null) => build ? `Version ${version} (${build})` : `Version ${version}`,
     aiStatusHeading: 'AI status',
     aiStatusIntro: 'Check whether AI responds right now.',
     aiStatusLastAiAssisted: 'Last recommendation: AI-assisted.',
@@ -457,6 +463,8 @@ const en = {
     title: 'Notifications',
     introduction: 'Choose whether kuyara can send notifications on this device.',
     toggleLabel: 'Allow notifications',
+    statusOn: 'On',
+    statusOff: 'Off',
     permissionDeniedHint: 'Notifications are turned off in system settings.',
     openSettingsAction: 'Open Settings',
     testNotificationAction: 'Send test notification',
@@ -811,7 +819,9 @@ const tr = {
   },
   settings: {
     title: 'Ayarlar',
-    introduction: 'Yaptığınız seçimler anında bu cihaza kaydedilir.',
+    aboutYouHeading: 'Hakkında',
+    aboutYouFooter: 'Giyim tercihi, kombin önerilerinizin çekildiği katalogu belirler.',
+    versionLine: (version: string, build?: string | null) => build ? `Sürüm ${version} (${build})` : `Sürüm ${version}`,
     aiStatusHeading: 'AI durumu',
     aiStatusIntro: 'AI’nin şu anda yanıt verip vermediğini kontrol edin.',
     aiStatusLastAiAssisted: 'Son öneri: AI destekli.',
@@ -848,6 +858,8 @@ const tr = {
     title: 'Bildirimler',
     introduction: 'kuyara bu cihazda bildirim gönderebilsin mi?',
     toggleLabel: 'Bildirimlere izin ver',
+    statusOn: 'Açık',
+    statusOff: 'Kapalı',
     permissionDeniedHint: 'Bildirimler sistem ayarlarında kapalı.',
     openSettingsAction: 'Ayarları Aç',
     testNotificationAction: 'Test bildirimi gönder',
