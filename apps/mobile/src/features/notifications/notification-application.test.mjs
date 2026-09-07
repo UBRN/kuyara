@@ -13,7 +13,6 @@ function createGateway(permission, requestedPermission = permission) {
         return requestedPermission;
       },
       openApplicationSettings: async () => undefined,
-      scheduleTestNotification: async () => true,
       subscribeToResponses: () => () => undefined,
     },
     getRequestCount: () => requestCount,

@@ -1,7 +1,6 @@
 import type {
   NotificationGateway,
   NotificationPermissionState,
-  TestNotificationContent,
 } from '@/features/notifications/data/notification-gateway';
 
 export type NotificationApplicationState = Readonly<{
@@ -65,10 +64,6 @@ export class NotificationApplicationController {
     } finally {
       this.setState({ ...this.state, isBusy: false });
     }
-  }
-
-  sendTestNotification(content: TestNotificationContent): Promise<boolean> {
-    return this.gateway.scheduleTestNotification(content);
   }
 
   private setState(state: NotificationApplicationState): void {

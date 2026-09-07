@@ -187,11 +187,6 @@ export type AppMessages = Readonly<{
     statusOff: string;
     permissionDeniedHint: string;
     openSettingsAction: string;
-    testNotificationAction: string;
-    testNotificationTitle: string;
-    testNotificationBody: string;
-    testNotificationScheduled: string;
-    testNotificationFailed: string;
   }>;
   weather: Readonly<{
     title: string;
@@ -274,30 +269,14 @@ export type AppMessages = Readonly<{
   wardrobe: Readonly<{
     title: string;
     addAction: string;
-    filterCountAccessibilityLabel: (values: { label: string; count: number }) => string;
     addHint: string;
-    emptyTitle: string;
-    emptyBody: string;
-    emptyAction: string;
     loadingLabel: string;
     loadErrorTitle: string;
     loadErrorBody: string;
     retryAction: string;
-    itemHint: string;
     unclassifiedType: string;
-    itemAccessibilityLabel: (values: {
-      name: string | null;
-      type: string;
-      category: string;
-      color: string | null;
-      state: string;
-    }) => string;
     ownedLabel: string;
     wantedLabel: string;
-    itemOwnedLabel: string;
-    itemWantedLabel: string;
-    wantedEmptyTitle: string;
-    wantedEmptyBody: string;
     // ADR 0029 section 2: new plural chip strings for the Closet's category filter. The
     // catalogue's singular attribute labels (`catalog.attribute.structural_category.*`)
     // stay for the type picker and the tile subline.
@@ -467,11 +446,6 @@ const en = {
     statusOff: 'Off',
     permissionDeniedHint: 'Notifications are turned off in system settings.',
     openSettingsAction: 'Open Settings',
-    testNotificationAction: 'Send test notification',
-    testNotificationTitle: 'A note from kuyara',
-    testNotificationBody: 'Notifications are ready on this device.',
-    testNotificationScheduled: 'A test notification will appear shortly.',
-    testNotificationFailed: 'The test notification could not be scheduled.',
   },
   weather: {
     title: 'Weather',
@@ -564,25 +538,14 @@ const en = {
   wardrobe: {
     title: 'Closet',
     addAction: 'Add',
-    filterCountAccessibilityLabel: ({ label, count }) => `${label}: ${count}.`,
     addHint: 'Opens the new closet item form.',
-    emptyTitle: 'Your closet is ready for its first item',
-    emptyBody: 'Add the clothes you own so they are ready for future outfit choices.',
-    emptyAction: 'Add your first item',
     loadingLabel: 'Loading your closet.',
     loadErrorTitle: 'Your closet could not be loaded',
     loadErrorBody: 'Your saved items are still safe. Please try again.',
     retryAction: 'Try again',
-    itemHint: 'Opens this closet item for editing.',
     unclassifiedType: 'Type not selected',
-    itemAccessibilityLabel: ({ name, type, category, color, state }) =>
-      [name, type, category, color, state].filter(Boolean).join('. '),
     ownedLabel: 'Owned',
     wantedLabel: 'Wanted',
-    itemOwnedLabel: 'Owned',
-    itemWantedLabel: 'Wanted',
-    wantedEmptyTitle: 'No wanted items yet',
-    wantedEmptyBody: 'Add pieces you would like to keep track of here.',
     categoryFilterAll: 'All',
     categoryFilterLabels: {
       top: 'Tops',
@@ -862,11 +825,6 @@ const tr = {
     statusOff: 'Kapalı',
     permissionDeniedHint: 'Bildirimler sistem ayarlarında kapalı.',
     openSettingsAction: 'Ayarları Aç',
-    testNotificationAction: 'Test bildirimi gönder',
-    testNotificationTitle: 'kuyara’dan bir not',
-    testNotificationBody: 'Bildirimler bu cihazda hazır.',
-    testNotificationScheduled: 'Test bildirimi birazdan görünecek.',
-    testNotificationFailed: 'Test bildirimi planlanamadı.',
   },
   weather: {
     title: 'Hava',
@@ -960,28 +918,17 @@ const tr = {
   wardrobe: {
     title: 'Gardırop',
     addAction: 'Ekle',
-    filterCountAccessibilityLabel: ({ label, count }) => `${label}: ${count}.`,
     addHint: 'Yeni gardırop parçası formunu açar.',
-    emptyTitle: 'Gardırobunuz ilk parçaya hazır',
-    emptyBody: 'Sahip olduğunuz parçaları ilerideki kombin seçimleri için ekleyin.',
-    emptyAction: 'İlk parçanızı ekleyin',
     loadingLabel: 'Gardırobunuz yükleniyor.',
     loadErrorTitle: 'Gardırobunuz yüklenemedi',
     loadErrorBody: 'Kayıtlı parçalarınız güvende. Lütfen yeniden deneyin.',
     retryAction: 'Yeniden dene',
-    itemHint: 'Bu gardırop parçasını düzenlemek için açar.',
     unclassifiedType: 'Tür seçilmedi',
-    itemAccessibilityLabel: ({ name, type, category, color, state }) =>
-      [name, type, category, color, state].filter(Boolean).join('. '),
     ownedLabel: 'Sahip olduklarım',
     // ADR 0028 section 5: the twelve-letter "İstediklerim" could not fit the label
     // column at fontScale 3.118. The Profile lane already unified profile.wantedLabel;
     // this closes the same key here so the two screens cannot drift again.
     wantedLabel: 'İstekler',
-    itemOwnedLabel: 'Sahip olunan',
-    itemWantedLabel: 'İstenen',
-    wantedEmptyTitle: 'İstenen parça yok',
-    wantedEmptyBody: 'Takip etmek istediğiniz parçaları buraya ekleyin.',
     categoryFilterAll: 'Tümü',
     categoryFilterLabels: {
       top: 'Üstler',

@@ -173,14 +173,6 @@ test('English and Turkish locale resolution preserve the supported product langu
     messages.tr.profile.railItemAccessibilityLabel({ label: 'Yağmurluk', position: 1, total: 3 }),
     'Yağmurluk, 3 parçadan 1.',
   );
-  assert.equal(
-    messages.en.wardrobe.filterCountAccessibilityLabel({ label: 'Owned', count: 4 }),
-    'Owned: 4.',
-  );
-  assert.equal(
-    messages.tr.wardrobe.filterCountAccessibilityLabel({ label: 'Sahip olduklarım', count: 4 }),
-    'Sahip olduklarım: 4.',
-  );
   assert.equal(messages.en.today.otherOptionPieceCount({ count: 1 }), '1 piece');
   assert.equal(messages.en.today.otherOptionPieceCount({ count: 2 }), '2 pieces');
   assert.equal(messages.tr.today.otherOptionPieceCount({ count: 2 }), '2 parça');
