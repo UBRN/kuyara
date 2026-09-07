@@ -22,6 +22,8 @@ source-available rather than open source ([ADR 0024](adr/0024-relicensing-to-pol
 
 ## Recently Completed
 
+- **Profile, the Closet and Settings, designed and closed against the list-row reference** (2026-09-07): a design milestone; no application code changed and no dependency was added. The three target sheets drawn on 2026-09-04 were measured against the eight-check list-row reference adopted the same morning and failed four of them: bare glyphs where the reference has a monochrome tile, separators at the container edge, Settings headings inside the native group, and no group container on Profile. One shared renderer was corrected once, so all three sheets moved together; a first browser measurement then found the row chevron scaling to 62 points at the largest accessibility size and breaking "Wanted" mid-word, which set the `min(fontScale, 1.5)` cap on row controls. The maintainer's own byAir screenshots were measured at 3x afterwards and agreed within a few points (group inset 16, separator 54 from the group edge, row pitch 54, sentence-case headings outside the group, a centred version line last), and three follow-ups closed the same day: the Settings version line, the Profile group radius at Law 3's 20, and a 12 point heading-to-group gap. Accepted as [ADR 0028](adr/0028-the-profile-tab-and-the-list-row-anatomy.md), [ADR 0029](adr/0029-the-closet-grid.md) and [ADR 0030](adr/0030-settings-as-a-native-grouped-list.md), which also amend [ADR 0015](adr/0015-gender-and-age-band-in-the-profile.md) from birth year to birth date with no user-facing age category. The Turkish wanted label became "İstekler" because the twelve-letter first choice could not fit the label column at `fontScale` 3.118.
+
 - **The tab bar's selected state, and the Dynamic Type answer** (2026-09-04): the first implementation task out of the redesign's approved queue, and the first application code change since the redesign began. `iconNames` gains three outline entries and `primary-tabs.tsx` now passes `sf={{ default, selected }}` per tab plus a `labelStyle` on `<NativeTabs>` that sets the selected label to the `label` typography role's weight, guarded to iOS with `Platform.select`. The outline variants are new keys rather than a reshape of the existing three, because `tabWeather` is also rendered outside the tab bar at `weather-screen.tsx:465` through `SymbolView`, whose `name` prop has no selected variant. Two facts settled the platform split. The installed `AndroidSymbol` union, 4055 names, contains no filled counterpart for the weather glyph, only `home_filled` exists among the three, so pairing two tabs and not the third would read as a bug; and Material 3 Expressive states the navigation bar's label is no longer bolded when selected. Android therefore keeps one symbol per tab and relies on its Material active indicator, which is recorded as an accepted limitation of an unverified platform rather than worked around. The Simulator run corrected the ADR twice. iOS 26 draws a **selection capsule** behind the selected tab, so the pre-existing state was not signalled by colour alone as [ADR 0027](adr/0027-the-app-shell-and-its-three-tabs.md) first claimed; the accurate defect is that the application contributed no signal of its own and Law 6's "fill carries state" was ignored. And the Dynamic Type question ADR 0012 opened at the migration is now **answered and closed**: at `accessibility-extra-extra-extra-large` the page content scales dramatically while the three tab labels stay at their normal size and do not truncate, because UIKit does not apply Dynamic Type to tab bar labels at all. Verified with `pnpm check`, `pnpm --filter @kuyara/mobile test:components` at 125 tests, and one iOS Simulator run that exercised all three tabs. The new component assertions were confirmed to fail against the pre-fix source before being accepted.
 
 - **The app shell and its three tabs** (2026-09-04): a design milestone plus a read-only feasibility check against the installed packages; no application code changed and no dependency was added. The design half was quick and the feasibility half found two defects in shipped code that mattered more ([ADR 0027](adr/0027-the-app-shell-and-its-three-tabs.md)). First, the selected tab is signalled by colour alone: `iconNames` maps all three tabs to filled SF Symbols, `house.fill`, `sun.max.fill` and `person.fill`, and one symbol is passed for both states, so the icon is identical whether or not its tab is selected and `tintColor` carries the whole signal. That fails Law 4's "colour is never the only signal" in the one place every screen inherits. Second, `Screen` computes `safeAreaInsets.bottom + spacing.md` but merges the caller's `contentContainerStyle` last, so a screen's own `paddingBottom` replaces that inset rather than adding to it; eight screens do that, seven passing a flat `spacing['2xl']` and the garment type picker passing `spacing.lg`, rendering 32 or 16 points where 46 was intended. Both fixes are approved and sequenced ahead of the category-glyph redraw. The fix for the first needs no custom tab bar and does not reopen [ADR 0012](adr/0012-adopting-expo-router-native-tabs.md): the installed expo-router documents `sf={{ default: "house", selected: "house.fill" }}` as its own worked example, and `labelStyle` takes a `{ default, selected }` pair whose style type includes `fontWeight`. A selection capsule was drafted as the second signal and withdrawn, because nothing in the package draws one. The recorded content inset is a rule rather than a number, because the bar's height is not exposed anywhere in the package's type surface and the platform already clears it, automatically on iOS for the first nested scroll view and through a safe-area wrapper on Android: a feature screen never sets `paddingBottom` on `Screen`. The Android question was answered too, and the answer is that there is no counterpart to Liquid Glass: `NativeTabs` resolves to `react-native-screens`' `Tabs.Host`, whose bar subclasses Material's `BottomNavigationView` with a solid `colorSurfaceContainer` background, and Material 3 defines no translucent material for the navigation bar at all. That splits the second selected-state signal, because Material 3 Expressive states the bar's label is no longer bolded when selected, so the weight change is iOS-only and Android keeps the Material active indicator it already has. Chrome was settled at an icon and a label: icons alone buy no height, since the bar height is the platform's, and a badge would be the only saturated fill on the screen with nothing to count. Two items stay open: ADR 0012's Dynamic Type re-check, which the repository never recorded an answer to and which stays open until it is verified on the Simulator, and a touch-target measurement, which Jest cannot supply because the component test mocks the native tabs module entirely.
@@ -191,8 +193,10 @@ How the goals use it:
   which makes that transition spatial, so the audit records whether the ADR's motion
   wording needs to say spring. Any other finding becomes a line in the relevant ADR, not
   a redrawn mockup. The audit is owed and has not run.
-- The order is unchanged: goal 4 is next, and the bottom inset stays the next
-  implementation task. No application code changes for any of this.
+- Goals 4 to 6 were closed against this checklist on 2026-09-07 (ADR 0028, ADR 0029,
+  ADR 0030). Goal 7 is the next design goal; the bottom inset stays the next
+  implementation task; the goals 1 to 3 audit is still owed. No application code changed
+  for any of this.
 
 Where the reference and Direction E pull apart, recorded so the next session does not
 rediscover it: the reference's grouping rests on a card fill step, and
@@ -229,51 +233,42 @@ way.
   2026-09-04: UIKit does not scale tab bar labels, so they neither grow nor truncate at the
   largest accessibility size. The tab bar still has no touch-target measurement.
 
-**4. Profile**
-- *Purpose.* Make the third tab part of the same product rather than a settings list.
-- *Design question.* What is Profile actually for, once it is neither a dashboard nor a
-  menu? Every direction in the spike left it 30 to 40 percent empty, and none solved it.
-- *Evidence.* HTML mockup with entry points to Closet and Settings.
-- *Acceptance.* It reads as belonging to Direction E, and the emptiness is answered rather
-  than padded. Gender and age band from
-  [ADR 0015](adr/0015-gender-and-age-band-in-the-profile.md) have a place. The row
-  anatomy, checks 1 to 4 of the list-row reference, is decided here on the Closet and
-  Settings entry rows and is the one goals 5 and 6 reuse; the mockup passes the full
-  checklist.
-- *Out of scope.* Closet and Settings themselves.
+**4. Profile. Done, 2026-09-07.**
+- Accepted as [ADR 0028](adr/0028-the-profile-tab-and-the-list-row-anatomy.md): the Closet
+  is the subject, with a rail of the user's own pieces as the hero and one inset group for
+  the Wanted and Location rows. The list-row anatomy, checks 1 to 5 of the reference, is
+  decided there once and goals 5 and 6 inherit it. The sheet was drawn on 2026-09-04,
+  measured against the checklist on 2026-09-07, corrected in four places (leading tile,
+  separator inset, group container, a capped control scale at accessibility sizes), and
+  approved visually the same day.
+- *Left open, deliberately.* The rail's silhouette rung waits for Today's board
+  implementation and ADR 0025's glyph redraw; the photo and glyph rungs can ship first.
+  Five accessory silhouettes are wanted and not approved. The Turkish register question
+  stays recorded below.
 
-**5. Closet**
-- *Purpose.* Apply the language to the user's own garments, where real photographs may or
-  may not exist.
-- *Design question.* How does a list behave when some entries have a user photograph, some
-  have only a catalogue type, and legacy rows have neither? This is the first place the
-  silhouette's replaceability is actually tested.
-- *Evidence.* HTML mockup covering all three states, plus the empty state.
-- *Acceptance.* The three states coexist without the list looking broken, and the English
-  label is Closet throughout. Rows use goal 4's anatomy unchanged, and the mockup passes
-  the list-row checklist.
-- *Out of scope.* The add and edit form, and the photo pipeline.
+**5. Closet. Done, 2026-09-07.**
+- Accepted as [ADR 0029](adr/0029-the-closet-grid.md): a two-column grid of the rail's
+  tile, a native segmented owned/wanted filter without counts, kuyara-drawn category chips,
+  a plus bar button, and one tile contract that lets the photo, silhouette and glyph states
+  share a frame. The colour-family fill on silhouettes is approved as content colour for
+  the rail and the grid only.
+- *Left open, deliberately.* The add and edit form and the photo pipeline; accessory
+  silhouettes, so an accessories tile is a glyph tile until five drawings are approved.
 
-**6. Settings**
-- *Purpose.* Native-feeling controls that still belong to Direction E.
-- *Design question.* Where is the boundary between what
-  [ADR 0019](adr/0019-adopting-expo-ui-at-the-control-layer.md) hands to the platform and
-  what keeps kuyara's identity, given that native grouped lists render in system colours?
-- *Reference.* The list-row reference above, with its settings screenshot. Two decisions
-  are carried in rather than reopened: section headings sit outside the native group as
-  kuyara's sentence-case `bodyStrong` (check 5), and a version line is the screen's last
-  element, centred, `caption` in `textSecondary` with tabular figures, from one localized
-  template key with a placeholder rather than assembled fragments. The build number is
-  EAS-managed (`appVersionSource: remote` with `autoIncrement` in `apps/mobile/eas.json`)
-  and is not in `app.json`, so which API reports it at runtime, `expo-constants` or
-  `expo-application`, is verified at implementation rather than assumed;
-  `expo-application` would be a new dependency and needs the usual justification.
-- *Evidence.* HTML mockup, plus a note on which rows are `@expo/ui` and which are not.
-- *Acceptance.* Language, appearance, gender, birth year, notifications, the AI status
-  section and the version line all have a home, the system-colour trade is visible rather
-  than hidden, rows use goal 4's anatomy unchanged, and the mockup passes the list-row
-  checklist.
-- *Out of scope.* The `@expo/ui` crash isolation, which belongs to the native spike.
+**6. Settings. Done, 2026-09-07.**
+- Accepted as [ADR 0030](adr/0030-settings-as-a-native-grouped-list.md): a native inset
+  grouped list in system colours over kuyara's ground, kuyara's sentence-case headings
+  outside the group, the shared leading tile, Notifications and AI status as their own
+  surfaces, About you last with the birth date shown as a date, and a centred version line
+  from one `{version}` / `{build}` template key. The build-number API, `expo-constants` or
+  `expo-application`, is still verified at implementation. Provider and model identity
+  stay hidden; the sheet's variant that shows them is not the target.
+- *Left open, deliberately.* The `@expo/ui` `List` / `Button` crash isolation, owned by
+  goal 7; Android rendering; whether a separate saving line survives against the real
+  component.
+- *Amendment.* ADR 0028 and ADR 0030 amend [ADR 0015](adr/0015-gender-and-age-band-in-the-profile.md):
+  the fact collected is the birth date, shown only as the locale-formatted date, with no
+  user-facing age category anywhere; the band is still derived on-device from the year.
 
 **7. Cross-screen convergence and the native port spike**
 - *Purpose.* Prove the language holds across every surface, then port it to a real Expo
@@ -322,6 +317,15 @@ The first is now done; **the bottom inset is the next implementation task.**
    category glyphs are drawn far heavier than the silhouettes and currently fail Law 6's
    one-idiom rule. No screen depends on them, which is why they sit behind the shell fixes.
 
+4. **The three list-shaped screens.** Profile ([ADR 0028](adr/0028-the-profile-tab-and-the-list-row-anatomy.md)),
+   the Closet ([ADR 0029](adr/0029-the-closet-grid.md)) and Settings
+   ([ADR 0030](adr/0030-settings-as-a-native-grouped-list.md)), approved 2026-09-07 and
+   sequenced after the inset fix and the English Closet label. The shared row anatomy is
+   one primitive, written once. The rail's and the grid's silhouette rung and the
+   colour-family fill wait for Today's board implementation; Settings waits for the
+   `@expo/ui` crash isolation. The route gains an optional initial filter for the Wanted
+   row.
+
 Also owed, and small: one Turkish ownership state string pair for the recommendation detail
 surface ([ADR 0026](adr/0026-the-recommendation-detail-surface.md) decision 5), and the
 Simulator verification of tab label behaviour at accessibility text sizes that ADR 0012
@@ -362,7 +366,7 @@ against live screen work rather than run blindly beside it.
 
 These are decided; what the redesign restructures determines how they are built.
 
-4. **Gender and age band, onboarding and Settings.** Phase 3 of ADR 0015.
+4. **Gender and birth date, onboarding and Settings.** Phase 3 of ADR 0015 as amended on 2026-09-07: the birth date replaces the birth year, and the Settings half is designed in [ADR 0030](adr/0030-settings-as-a-native-grouped-list.md).
 
 5. **The location picker screen**, completing milestone 2.
 
@@ -469,5 +473,5 @@ official sources when each item is implemented.
 - `wardrobe-list-screen.tsx` fakes a leading-icon button. `Button` has no icon slot, so the Add action pads the label with `spacing['2xl'] + spacing.sm` and overlays a `plus` icon with absolute positioning and a hardcoded `translateY: -8`. It is spacing arithmetic in the sense the Law 2 correction removed elsewhere, and it is the only place a button is built this way. The goal 5 design replaces the control with a native bar button, so no primitive is added for it.
 - `wardrobe-list-screen.tsx` colours its swatch with the stored enum. `colorSwatch` sets `backgroundColor` to `item.colorFamily` directly, so a locale-independent domain value (`beige`, `gray`, `brown`) is rendered by the coincidence that every family name is also a CSS colour keyword, with `multicolor` special-cased to `brandAccent`. It works today and it is the one place a persisted value reaches a style without a mapper. The goal 5 design replaces the dot with a per-family fill table, which would also be that mapper.
 - `settings-screen.tsx` renders the notifications control as a bare React Native `Switch` with no `trackColor`, so it is the only control on a kuyara-drawn card that shows the system's default green tint rather than the palette. It is not a boundary violation (the rule covers `expo-haptics` and `@expo/ui`), but it is a system-colour control that [ADR 0019](adr/0019-adopting-expo-ui-at-the-control-layer.md) did not account for, and the goal 6 design moves the whole screen to the native list where the trade is explicit and tinted.
-- Design goal 4's Profile sheet proposes a different personal fact from [ADR 0015](adr/0015-gender-and-age-band-in-the-profile.md): a locale-formatted birth date stored as `birthDate`, with no user-facing age category anywhere and the band derived only at the moment a recommendation needs it. ADR 0015, [`architecture.md`](architecture.md), and goal 6's acceptance line still say birth year. Neither has been chosen; the sheet also declares itself the canonical implementation target, which its private folder's own rule contradicts. Adopting the sheet owes an ADR 0015 amendment and the three document updates; rejecting it owes a note on the sheet. Decide before ADR 0015's phase 3 or goal 6 is built.
+- Decided 2026-09-07: the birth date replaces the birth year. ADR 0015 carries the amendment inline, and `architecture.md`, `product-decisions.md` and `AGENTS.md` were updated with it. The remaining wording that still says birth year is inside ADR 0015's original sections, kept for the record under the amendment note.
 - [`design-system.md`](design/design-system.md)'s Elevation ladder narrates three allocations in sequence, M6, M6.1 and the 2026-09-04 supersession, so the current rule has to be read out of a changelog. Consolidating it is deliberately deferred until the Direction E tokens land, because the 1.2:1 assertion it describes is still in `theme.test.mjs` until then; fold the history into one current statement in the same change that replaces that assertion.
