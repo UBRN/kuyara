@@ -157,16 +157,21 @@ test('English and Turkish locale resolution preserve the supported product langu
   assert.equal(messages.tr.today.title, 'Bugün');
   assert.equal(messages.en.today.slots.outer_layer, 'Outer layer');
   assert.equal(messages.tr.today.slots.outer_layer, 'Dış katman');
-  assert.equal(messages.en.profile.piecesSavedUnit({ count: 1 }), 'piece saved');
-  assert.equal(messages.en.profile.piecesSavedUnit({ count: 2 }), 'pieces saved');
-  assert.equal(messages.tr.profile.piecesSavedUnit({ count: 2 }), 'parça kayıtlı');
   assert.equal(
-    messages.en.profile.categoryCountAccessibilityLabel({ category: 'Tops', count: 3 }),
-    'Tops: 3.',
+    messages.en.profile.closetHeadingAccessibilityLabel({ count: 3 }),
+    'Closet, 3. Opens closet.',
   );
   assert.equal(
-    messages.tr.profile.categoryCountAccessibilityLabel({ category: 'Üstler', count: 3 }),
-    'Üstler: 3.',
+    messages.tr.profile.closetHeadingAccessibilityLabel({ count: 3 }),
+    'Gardırop, 3. Gardırobu açar.',
+  );
+  assert.equal(
+    messages.en.profile.railItemAccessibilityLabel({ label: 'Rain jacket', position: 1, total: 3 }),
+    'Rain jacket, 1 of 3.',
+  );
+  assert.equal(
+    messages.tr.profile.railItemAccessibilityLabel({ label: 'Yağmurluk', position: 1, total: 3 }),
+    'Yağmurluk, 3 parçadan 1.',
   );
   assert.equal(
     messages.en.wardrobe.filterCountAccessibilityLabel({ label: 'Owned', count: 4 }),

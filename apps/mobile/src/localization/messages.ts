@@ -160,24 +160,21 @@ export type AppMessages = Readonly<{
     title: string;
     settingsAction: string;
     settingsHint: string;
-    locationTitle: string;
-    locationChangeHint: string;
     locationUnset: string;
-    recommendationsWorking: string;
-    recommendationsNeedLocation: string;
-    piecesSavedUnit: (values: { count: number }) => string;
-    categoryCountAccessibilityLabel: (values: {
-      category: string;
-      count: number;
-    }) => string;
     wardrobeTitle: string;
-    wardrobeHint: string;
-    ownedLabel: string;
+    closetHeadingAccessibilityLabel: (values: { count: number }) => string;
+    closetHeadingHint: string;
     wantedLabel: string;
     wardrobeLoading: string;
     wardrobeEmpty: string;
     wardrobeUnavailable: string;
-    wardrobeSummary: (values: { owned: number; wanted: number }) => string;
+    addPieceAction: string;
+    railAllPiecesLabel: string;
+    railItemAccessibilityLabel: (values: {
+      label: string;
+      position: number;
+      total: number;
+    }) => string;
   }>;
   notifications: Readonly<{
     title: string;
@@ -437,22 +434,18 @@ const en = {
     title: 'Profile',
     settingsAction: 'Settings',
     settingsHint: 'Opens app settings.',
-    locationTitle: 'Location',
-    locationChangeHint: 'Opens the weather screen so you can change your location.',
     locationUnset: 'No location set yet',
-    recommendationsWorking: 'Recommendations are working',
-    recommendationsNeedLocation: 'Recommendations need a location',
-    piecesSavedUnit: ({ count }) => count === 1 ? 'piece saved' : 'pieces saved',
-    categoryCountAccessibilityLabel: ({ category, count }) => `${category}: ${count}.`,
     wardrobeTitle: 'Closet',
-    wardrobeHint: 'Opens your owned and wanted items.',
-    ownedLabel: 'Owned',
+    closetHeadingAccessibilityLabel: ({ count }) => `Closet, ${count}. Opens closet.`,
+    closetHeadingHint: 'Opens your closet.',
     wantedLabel: 'Wanted',
     wardrobeLoading: 'Loading closet counts.',
     wardrobeEmpty: 'You have not added any owned or wanted items yet.',
     wardrobeUnavailable: 'Closet counts are unavailable right now.',
-    wardrobeSummary: ({ owned, wanted }) =>
-      `${owned} owned, ${wanted} wanted. Opens closet.`,
+    addPieceAction: 'Add a piece',
+    railAllPiecesLabel: 'All pieces',
+    railItemAccessibilityLabel: ({ label, position, total }) =>
+      `${label}, ${position} of ${total}.`,
   },
   notifications: {
     title: 'Notifications',
@@ -823,22 +816,18 @@ const tr = {
     title: 'Profil',
     settingsAction: 'Ayarlar',
     settingsHint: 'Uygulama ayarlarını açar.',
-    locationTitle: 'Konum',
-    locationChangeHint: 'Konumunu değiştirebilmen için hava ekranını açar.',
     locationUnset: 'Henüz konum seçilmedi',
-    recommendationsWorking: 'Öneriler çalışıyor',
-    recommendationsNeedLocation: 'Öneriler için konum gerekiyor',
-    piecesSavedUnit: () => 'parça kayıtlı',
-    categoryCountAccessibilityLabel: ({ category, count }) => `${category}: ${count}.`,
     wardrobeTitle: 'Gardırop',
-    wardrobeHint: 'Sahip olduğunuz ve istediğiniz parçaları açar.',
-    ownedLabel: 'Sahip olduklarım',
-    wantedLabel: 'İstediklerim',
+    closetHeadingAccessibilityLabel: ({ count }) => `Gardırop, ${count}. Gardırobu açar.`,
+    closetHeadingHint: 'Gardırobunuzu açar.',
+    wantedLabel: 'İstekler',
     wardrobeLoading: 'Gardırop sayıları yükleniyor.',
     wardrobeEmpty: 'Henüz sahip olduğunuz veya istediğiniz bir parça eklemediniz.',
     wardrobeUnavailable: 'Gardırop sayıları şu anda gösterilemiyor.',
-    wardrobeSummary: ({ owned, wanted }) =>
-      `Sahip olduğunuz ${owned}, istediğiniz ${wanted} parça var. Gardırobu açar.`,
+    addPieceAction: 'Parça ekle',
+    railAllPiecesLabel: 'Tüm parçalar',
+    railItemAccessibilityLabel: ({ label, position, total }) =>
+      `${label}, ${total} parçadan ${position}.`,
   },
   notifications: {
     title: 'Bildirimler',
