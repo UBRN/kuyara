@@ -35,6 +35,7 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 
 type WardrobeListScreenProps = Readonly<{
   state: WardrobeApplicationState;
+  initialEntryState?: WardrobeEntryState;
   onAdd: () => void;
   onBack?: () => void;
   onEdit: (id: string) => void;
@@ -167,6 +168,7 @@ function WardrobeListItem({
 }
 
 export function WardrobeListScreen({
+  initialEntryState = 'owned',
   onAdd,
   onBack = () => undefined,
   onEdit,
@@ -179,7 +181,7 @@ export function WardrobeListScreen({
   const theme = useKuyaraTheme();
   const copy = messages.wardrobe;
   const [headerHeight, setHeaderHeight] = useState(0);
-  const [entryState, setEntryState] = useState<WardrobeEntryState>('owned');
+  const [entryState, setEntryState] = useState<WardrobeEntryState>(initialEntryState);
   const scrollOffset = useSharedValue(0);
   const scrollHandler = useAnimatedScrollHandler((event) => {
     scrollOffset.set(event.contentOffset.y);

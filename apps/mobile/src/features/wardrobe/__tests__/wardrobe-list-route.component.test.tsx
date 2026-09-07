@@ -143,3 +143,15 @@ test('header back affordance returns to Profile', async () => {
   await fireEvent.press(result.getByTestId('wardrobe-back-button'));
   expect(mockBack).toHaveBeenCalledTimes(1);
 });
+
+test('an initial entry state, passed by the route for ADR 0028\'s Wanted row, selects that filter on first render', async () => {
+  const wantedItem = { ...item, id: '218f0f4d-1d45-4ae7-a8f1-796e8297d3b4', entryState: 'wanted' as const };
+  const result = await render(
+    <TestProviders application={createApplication([item, wantedItem])}>
+      <WardrobeListRoute initialEntryState="wanted" />
+    </TestProviders>,
+  );
+
+  expect(result.getByTestId('wardrobe-filter-wanted').props.accessibilityState.selected).toBe(true);
+  expect(result.getByTestId('wardrobe-filter-owned').props.accessibilityState.selected).toBe(false);
+});
