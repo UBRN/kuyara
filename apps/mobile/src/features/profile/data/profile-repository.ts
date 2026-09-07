@@ -1,8 +1,6 @@
 import {
-  isClothingPreference,
   isLanguagePreference,
   isThemePreference,
-  type ClothingPreference,
   type LanguagePreference,
   type ThemePreference,
 } from '@/domain/preferences';
@@ -11,18 +9,23 @@ import {
   ProfileDataSourceError,
   type ProfileLocalDataSource,
 } from '@/features/profile/data/profile-local-data-source';
-import type {
-  LocalProfile,
-  OnboardingPreferences,
+import {
+  genderSchema,
+  isStoredBirthDate,
+  isValidBirthDate,
+  type Gender,
+  type Profile,
+  type ProfileOnboardingPreferences,
 } from '@/features/profile/domain/profile';
 
 export interface ProfileRepository {
-  getOrCreateProfile(): Promise<LocalProfile>;
-  completeOnboarding(preferences: OnboardingPreferences): Promise<LocalProfile>;
-  updateClothingPreference(preference: ClothingPreference): Promise<LocalProfile>;
-  updateLanguagePreference(preference: LanguagePreference): Promise<LocalProfile>;
-  updateThemePreference(preference: ThemePreference): Promise<LocalProfile>;
-  updateNotificationsOptIn(optIn: boolean): Promise<LocalProfile>;
+  getOrCreateProfile(): Promise<Profile>;
+  completeOnboarding(preferences: ProfileOnboardingPreferences): Promise<Profile>;
+  updateGender(preference: Gender): Promise<Profile>;
+  updateBirthDate(birthDate: string | null): Promise<Profile>;
+  updateLanguagePreference(preference: LanguagePreference): Promise<Profile>;
+  updateThemePreference(preference: ThemePreference): Promise<Profile>;
+  updateNotificationsOptIn(optIn: boolean): Promise<Profile>;
 }
 
 export class ProfileRepositoryError extends Error {
@@ -42,19 +45,20 @@ function isUtcIsoTimestamp(value: string): boolean {
   return Number.isFinite(parsed) && new Date(parsed).toISOString() === value;
 }
 
-function mapRecord(record: LocalProfileRecord): LocalProfile {
-  const hasValidClothingPreference =
-    record.clothingPreference === null || isClothingPreference(record.clothingPreference);
+function mapRecord(record: LocalProfileRecord): Profile {
+  const hasValidGender =
+    record.gender === null || genderSchema.safeParse(record.gender).success;
   const hasValidCompletion =
     record.onboardingCompleted === 0 || record.onboardingCompleted === 1;
   const hasValidNotificationsOptIn =
     record.notificationsOptIn === 0 || record.notificationsOptIn === 1;
   const completedWithoutPreference =
-    record.onboardingCompleted === 1 && record.clothingPreference === null;
+    record.onboardingCompleted === 1 && record.gender === null;
 
   if (
     !record.id ||
-    !hasValidClothingPreference ||
+    !hasValidGender ||
+    !isStoredBirthDate(record.birthDate) ||
     !isLanguagePreference(record.languagePreference) ||
     !isThemePreference(record.themePreference) ||
     !hasValidCompletion ||
@@ -69,7 +73,8 @@ function mapRecord(record: LocalProfileRecord): LocalProfile {
 
   return {
     id: record.id,
-    clothingPreference: record.clothingPreference,
+    gender: record.gender === null ? null : genderSchema.parse(record.gender),
+    birthDate: record.birthDate,
     languagePreference: record.languagePreference,
     themePreference: record.themePreference,
     onboardingCompleted: record.onboardingCompleted === 1,
@@ -82,35 +87,51 @@ function mapRecord(record: LocalProfileRecord): LocalProfile {
 export class LocalProfileRepository implements ProfileRepository {
   private readonly dataSource: ProfileLocalDataSource;
 
-  constructor(dataSource: ProfileLocalDataSource) {
+  private readonly now: () => Date;
+
+  constructor(dataSource: ProfileLocalDataSource, now: () => Date = () => new Date()) {
     this.dataSource = dataSource;
+    this.now = now;
   }
 
-  getOrCreateProfile(): Promise<LocalProfile> {
+  getOrCreateProfile(): Promise<Profile> {
     return this.execute(() => this.dataSource.getOrCreateProfile());
   }
 
-  completeOnboarding(preferences: OnboardingPreferences): Promise<LocalProfile> {
-    return this.execute(() => this.dataSource.completeOnboarding(preferences));
+  completeOnboarding(preferences: ProfileOnboardingPreferences): Promise<Profile> {
+    return this.execute(() => {
+      if (!genderSchema.safeParse(preferences.gender).success) throw new ProfileMappingError();
+      return this.dataSource.completeOnboarding(preferences);
+    });
   }
 
-  updateClothingPreference(preference: ClothingPreference): Promise<LocalProfile> {
-    return this.execute(() => this.dataSource.updateClothingPreference(preference));
+  updateGender(preference: Gender): Promise<Profile> {
+    return this.execute(() => {
+      if (!genderSchema.safeParse(preference).success) throw new ProfileMappingError();
+      return this.dataSource.updateGender(preference);
+    });
   }
 
-  updateLanguagePreference(preference: LanguagePreference): Promise<LocalProfile> {
+  updateBirthDate(birthDate: string | null): Promise<Profile> {
+    return this.execute(() => {
+      if (!isValidBirthDate(birthDate, this.now())) throw new ProfileMappingError();
+      return this.dataSource.updateBirthDate(birthDate);
+    });
+  }
+
+  updateLanguagePreference(preference: LanguagePreference): Promise<Profile> {
     return this.execute(() => this.dataSource.updateLanguagePreference(preference));
   }
 
-  updateThemePreference(preference: ThemePreference): Promise<LocalProfile> {
+  updateThemePreference(preference: ThemePreference): Promise<Profile> {
     return this.execute(() => this.dataSource.updateThemePreference(preference));
   }
 
-  updateNotificationsOptIn(optIn: boolean): Promise<LocalProfile> {
+  updateNotificationsOptIn(optIn: boolean): Promise<Profile> {
     return this.execute(() => this.dataSource.updateNotificationsOptIn(optIn));
   }
 
-  private async execute(operation: () => Promise<LocalProfileRecord>): Promise<LocalProfile> {
+  private async execute(operation: () => Promise<LocalProfileRecord>): Promise<Profile> {
     try {
       return mapRecord(await operation());
     } catch (error) {

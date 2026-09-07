@@ -1,5 +1,6 @@
 import {
   outfitArchetypeIds,
+  ageBandFormalityOrder,
   type AiRecommendV1Request,
 } from '@kuyara/contracts';
 
@@ -41,6 +42,7 @@ const systemContent = [
   'Pick exactly three supplied options by optionId.',
   'Never invent an optionId.',
   'Make the three picks meaningfully different.',
+  'Prefer formalities in the supplied formalityOrder; no formality is excluded.',
   'Give each pick one archetypeId from the allowed list.',
   'Use three different archetypeIds.',
   'Output structured data only, with no prose.',
@@ -54,6 +56,7 @@ export function buildMessages(request: AiRecommendV1Request) {
       // Cache-key and validation-only fields are deliberately omitted from model input.
       content: JSON.stringify({
         clothingPreference: request.clothingPreference,
+        formalityOrder: ageBandFormalityOrder[request.ageBand ?? 'adult'],
         options: request.options.map(({ optionId, formality, garments }) => ({
           optionId,
           formality,
