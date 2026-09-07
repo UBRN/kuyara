@@ -54,7 +54,7 @@ more depth.
 | 4 | One accent, a status band | Status = ink + glyph + text, always all three. Colour is never the only signal |
 | 5 | Typographic tone | Tabular figures for anything that changes without a layout change. Nothing below `caption` 13 except `eyebrow` 10.5 |
 | 6 | Iconography | Icon size tracks adjacent text (16/caption, 20/body, 24/title, 28+ standalone) |
-| 7 | Motion | Repeating motion is allowed when it supports atmosphere, state, hierarchy, feedback or character (ADR 0020). Never the only signal of a state change, never under a hero value, always off under Reduced Motion |
+| 7 | Motion | Repeating motion is allowed when it supports atmosphere, state, hierarchy, feedback or character (ADR 0020). Never the only signal of a state change, never under a hero value, always off under Reduced Motion. Effects motion (opacity, colour) takes a duration token; spatial motion (position, size) is the spring role, measured in design goal 7, never a hand-authored spring |
 | 8 | Non-visual feedback | Only `components/ui` may import `expo-haptics` or `@expo/ui` (ADR 0019). Zero matches under `features/` for either |
 | 9 | Deferral carve-out | How a deferred item may return as a role rather than a primitive |
 

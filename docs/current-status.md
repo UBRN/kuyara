@@ -76,7 +76,10 @@ silhouette set, is done and accepted as
 detail surface, as [ADR 0026](adr/0026-the-recommendation-detail-surface.md), and goal 3,
 the app shell, as [ADR 0027](adr/0027-the-app-shell-and-its-three-tabs.md); the next piece
 of work is
-design goal 4, Profile. No application code has changed for the redesign.
+design goal 4, Profile. On 2026-09-07 the three list-shaped goals, 4 to 6, gained a shared
+list-row reference and checklist, and Law 7 gained a spatial-versus-effects motion
+distinction; see "The list-row reference" below. No application code has changed for the
+redesign.
 
 ## Next Approved Milestones
 
@@ -144,6 +147,62 @@ repository evidence: the composition rule comes first because every board in the
 hand-placed and nothing can be implemented without it, and the app shell moves up because
 its bottom inset changes the layout of every screen drawn inside it.
 
+**The list-row reference, adopted 2026-09-07.** A third-party iOS app's settings screen
+(byAir; the screenshot is kept with the mockups outside the repository) was studied as a
+reference for the three list-shaped screens, goals 4 to 6. It is not a target to copy. What
+it shows is the platform's inset grouped list idiom, the same one Apple's own Settings app
+draws, and kuyara already chose that idiom through
+[ADR 0019](adr/0019-adopting-expo-ui-at-the-control-layer.md). The reference was
+decomposed into the checks below; the checks, not the screenshot, are what the goals
+inherit.
+
+1. Grouped inset rows, one group per section.
+2. A leading icon tile: a rounded square with a monochrome glyph, its fill derived through
+   `withAlpha` from a semantic role, the glyph sized by Law 6 (20 beside `body`). Whether
+   `@expo/ui`'s `ListItem` exposes a leading-tile slot is unverified and belongs to goal 7.
+3. The separator starts at the text edge, after the tile, not at the container edge.
+   `Divider`'s `inset` variant currently starts at 16; the corrected value is a
+   `components/ui` decision, never a feature-file one.
+4. A trailing value in `textSecondary` followed by a chevron, on one line, stacking under
+   the label above `fontScale` 1.5 through the one shared hook ADR 0019 calls for.
+5. Section headings stay kuyara's: sentence case, `bodyStrong`, drawn outside any native
+   group, so that SwiftUI's uppercase section header never appears (Law 5).
+6. One accent fill per viewport (Law 1, already binding). The reference's monochrome
+   tiles are why it satisfies this; coloured tiles would not.
+7. The tab bar is the platform's ([ADR 0012](adr/0012-adopting-expo-router-native-tabs.md),
+   [ADR 0027](adr/0027-the-app-shell-and-its-three-tabs.md)); nothing to design.
+8. Motion is classified as spatial or effects, per the Law 7 note added the same day in
+   [`design-language.md`](design/design-language.md#law-7-motion). Anything that moves
+   between positions or sizes is spatial and is specified as the spring role, not as one
+   of the three duration tokens.
+
+How the goals use it:
+
+- **Goal 4 decides the row anatomy, checks 1 to 4, once.** Goals 5 and 6 reuse it
+  unchanged. ADR 0019 measured what happens when the same control is written three times.
+- Goals 4 to 6 carry the checklist in their acceptance criteria.
+- Goal 6 takes the screenshot as its reference and carries two decisions already made:
+  check 5, and a version line as the screen's last element.
+- Goal 7 measures the spring role on the Simulator, under real Reduced Motion.
+- **Goals 1 to 3 are not reopened.** They are audited once against the checklist, as a
+  documented pass over the mockups kept outside the repository, and the audit is expected
+  to touch nothing but one question: [ADR 0026](adr/0026-the-recommendation-detail-surface.md)
+  moves the pieces between Today's board and the detail preset rather than cross-fading,
+  which makes that transition spatial, so the audit records whether the ADR's motion
+  wording needs to say spring. Any other finding becomes a line in the relevant ADR, not
+  a redrawn mockup. The audit is owed and has not run.
+- The order is unchanged: goal 4 is next, and the bottom inset stays the next
+  implementation task. No application code changes for any of this.
+
+Where the reference and Direction E pull apart, recorded so the next session does not
+rediscover it: the reference's grouping rests on a card fill step, and
+[ADR 0021](adr/0021-direction-e-a-visual-first-design-language.md)'s amendment removes
+that step from the light appearance. A native `@expo/ui` group will bring its own step
+back in system colours; that is the trade goal 6's acceptance already names as
+"visible rather than hidden". Dark is unaffected: the reference uses a black ground and
+kuyara uses Night Layer, both with a comparable group step. The palette is locked either
+way.
+
 **1. Composition rule and silhouette set. Done, 2026-09-04.**
 - Accepted as [ADR 0025](adr/0025-the-garment-board-composition-rule.md) and specified in
   [`design/garment-board.md`](design/garment-board.md). The remaining goals keep their
@@ -177,7 +236,10 @@ its bottom inset changes the layout of every screen drawn inside it.
 - *Evidence.* HTML mockup with entry points to Closet and Settings.
 - *Acceptance.* It reads as belonging to Direction E, and the emptiness is answered rather
   than padded. Gender and age band from
-  [ADR 0015](adr/0015-gender-and-age-band-in-the-profile.md) have a place.
+  [ADR 0015](adr/0015-gender-and-age-band-in-the-profile.md) have a place. The row
+  anatomy, checks 1 to 4 of the list-row reference, is decided here on the Closet and
+  Settings entry rows and is the one goals 5 and 6 reuse; the mockup passes the full
+  checklist.
 - *Out of scope.* Closet and Settings themselves.
 
 **5. Closet**
@@ -188,7 +250,8 @@ its bottom inset changes the layout of every screen drawn inside it.
   silhouette's replaceability is actually tested.
 - *Evidence.* HTML mockup covering all three states, plus the empty state.
 - *Acceptance.* The three states coexist without the list looking broken, and the English
-  label is Closet throughout.
+  label is Closet throughout. Rows use goal 4's anatomy unchanged, and the mockup passes
+  the list-row checklist.
 - *Out of scope.* The add and edit form, and the photo pipeline.
 
 **6. Settings**
@@ -196,9 +259,20 @@ its bottom inset changes the layout of every screen drawn inside it.
 - *Design question.* Where is the boundary between what
   [ADR 0019](adr/0019-adopting-expo-ui-at-the-control-layer.md) hands to the platform and
   what keeps kuyara's identity, given that native grouped lists render in system colours?
+- *Reference.* The list-row reference above, with its settings screenshot. Two decisions
+  are carried in rather than reopened: section headings sit outside the native group as
+  kuyara's sentence-case `bodyStrong` (check 5), and a version line is the screen's last
+  element, centred, `caption` in `textSecondary` with tabular figures, from one localized
+  template key with a placeholder rather than assembled fragments. The build number is
+  EAS-managed (`appVersionSource: remote` with `autoIncrement` in `apps/mobile/eas.json`)
+  and is not in `app.json`, so which API reports it at runtime, `expo-constants` or
+  `expo-application`, is verified at implementation rather than assumed;
+  `expo-application` would be a new dependency and needs the usual justification.
 - *Evidence.* HTML mockup, plus a note on which rows are `@expo/ui` and which are not.
-- *Acceptance.* Language, appearance, gender, birth year, notifications and the AI status
-  section all have a home, and the system-colour trade is visible rather than hidden.
+- *Acceptance.* Language, appearance, gender, birth year, notifications, the AI status
+  section and the version line all have a home, the system-colour trade is visible rather
+  than hidden, rows use goal 4's anatomy unchanged, and the mockup passes the list-row
+  checklist.
 - *Out of scope.* The `@expo/ui` crash isolation, which belongs to the native spike.
 
 **7. Cross-screen convergence and the native port spike**
@@ -214,7 +288,10 @@ its bottom inset changes the layout of every screen drawn inside it.
   Type, both languages, genuine dark mode set through the app's own preference, VoiceOver,
   Reduced Motion, touch targets, safe areas, contrast, silhouette legibility at small
   sizes, horizontal scrolling on Weather, and progressive-disclosure accessibility. Native
-  correctness is proven or the specific failures are recorded.
+  correctness is proven or the specific failures are recorded. The spatial spring role
+  from Law 7 is measured here, on the garment entrance and the Today-to-detail transition,
+  with its static end state confirmed under real Reduced Motion; and whether `@expo/ui`'s
+  `ListItem` can carry the leading icon tile (check 2) is answered.
 - *Out of scope.* Production implementation. That is a separate milestone with its own
   gates.
 

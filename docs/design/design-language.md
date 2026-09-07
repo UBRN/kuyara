@@ -335,6 +335,22 @@ describe transitions, and a 1500 ms cloud bob is not a transition.
 duration role is added and measured with the redesign's token work; a duration is a role in
 the sense of Law 9, so it may be defined ahead of a second use.
 
+**Spatial and effects motion, decided 2026-09-07.** Motion is one of two kinds. *Effects*
+motion changes a property in place: opacity, colour, a tint draining away. The three
+duration tokens describe effects motion and are complete for it. *Spatial* motion moves
+something between positions or sizes: a garment piece entering, the pieces travelling from
+Today's board to the detail preset, a row expanding. Both platforms now default spatial
+motion to springs, SwiftUI since iOS 17 and Material 3 Expressive through its own spatial
+versus effects split, and a duration with a curve reads as mechanical beside them. A
+spatial spring role is therefore approved as a role under Law 9 and may be named ahead of
+use; its parameters are measured in the native port spike, design goal 7 in
+[`current-status.md`](../current-status.md), not guessed here, exactly as
+[ADR 0020](../adr/0020-rewriting-the-motion-law.md) handled the ambient duration. Until it
+lands, feature code authors no spring parameters and a specification says "spatial" rather
+than a number. Reduced Motion resolves spatial motion the way it resolves the durations,
+to the static end state. Navigation transitions remain the platform's, as ADR 0020 left
+them.
+
 ## Law 8: non-visual feedback
 
 Haptics answer the same question motion does: how does the app respond to a touch. The
@@ -462,6 +478,9 @@ without reading the rest of this document.
 - For any repeating animation, confirm it supports atmosphere, state, hierarchy,
   feedback, or character; that it is not the only indication of a state change; that it
   stops under Reduced Motion; and that it is not under a hero value (Law 7).
+- For any motion that moves an element between positions or sizes, confirm it is
+  specified as spatial, the spring role once it lands, and not as one of the three
+  duration tokens (Law 7).
 - Grep `features/` for `expo-haptics`. Zero matches: only the `components/ui` wrapper
   imports it (Law 8).
 - Grep `features/` for `@expo/ui`. Zero matches: only `components/ui` wraps it
