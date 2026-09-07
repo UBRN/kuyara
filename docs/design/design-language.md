@@ -80,7 +80,7 @@ in `theme.ts` does not change; what changes is that each token now means somethi
 | `xs` | 4 | bind a label to its value, so the pair reads as one object |
 | `sm` | 8 | separate siblings inside one group (list rows, bullets) |
 | `md` | 12 | **the screen default.** Between groups, and between sections |
-| `lg` | 16 | container inset: a card's edge to its content |
+| `lg` | 16 | container inset: a card's edge to its content, and an overlay card's outer inset from the overlay's edge |
 
 And the two exceptions, stated once so they cannot spread:
 
@@ -366,7 +366,7 @@ Everywhere else, silence.
 | --- | --- | --- |
 | Pull-to-refresh threshold crossed, Today and Weather | impact light | Finger is on the glass, a physical threshold |
 | Refresh outcome, success or failure | notification success / error | The user may not be looking at the screen |
-| Selection change: tab bar, theme, language, clothing preference, wardrobe owned/wanted filter and toggle | selection | State changes under the finger |
+| Selection change: tab bar, theme, language, clothing preference, wardrobe owned/wanted filter and toggle, the outfit detail owned/wanted pair | selection | State changes under the finger |
 | Destructive confirmation | notification warning | Not reversible |
 | Navigation, including tapping an outfit card to open detail | **none** | Ordinary navigation |
 | Ordinary buttons and chevron rows | **none** | Same |
