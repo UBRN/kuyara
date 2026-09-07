@@ -4,7 +4,6 @@ import { Linking } from 'react-native';
 import type {
   NotificationGateway,
   NotificationPermissionState,
-  TestNotificationContent,
 } from '@/features/notifications/data/notification-gateway';
 
 try {
@@ -51,22 +50,6 @@ export class ExpoNotificationGateway implements NotificationGateway {
       await Linking.openSettings();
     } catch {
       return;
-    }
-  }
-
-  async scheduleTestNotification(content: TestNotificationContent): Promise<boolean> {
-    try {
-      await Notifications.scheduleNotificationAsync({
-        content,
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-          seconds: 2,
-          repeats: false,
-        },
-      });
-      return true;
-    } catch {
-      return false;
     }
   }
 

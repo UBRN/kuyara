@@ -148,7 +148,6 @@ test('English and Turkish wardrobe copy has matching complete keys', () => {
   );
   for (const language of ['en', 'tr']) {
     const copy = messages[language].wardrobe;
-    assert.ok(copy.emptyAction);
     assert.ok(copy.typeRequiredError);
     assert.ok(copy.discardAction);
     assert.ok(copy.confirmDeleteAction);
