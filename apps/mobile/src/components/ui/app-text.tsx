@@ -1,7 +1,8 @@
 import { forwardRef, use } from 'react';
-import { Platform, StyleSheet, Text, type TextProps, useWindowDimensions } from 'react-native';
+import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
 
 import { resolveAppTextStyle } from '@/components/ui/primitive-contracts';
+import { useTextScaling } from '@/components/ui/use-text-scaling';
 import { LocalizationContext } from '@/localization/localization-context';
 import {
   typography,
@@ -29,7 +30,7 @@ export const AppText = forwardRef<Text, AppTextProps>(function AppText(
   ref,
 ) {
   const theme = useKuyaraTheme();
-  const { fontScale } = useWindowDimensions();
+  const { usesStackedLayout } = useTextScaling();
   const language = use(LocalizationContext)?.language ?? 'en';
   const fontFamily =
     variant === 'code' ? Platform.select({ ios: 'ui-monospace', default: 'monospace' }) : undefined;
@@ -40,7 +41,7 @@ export const AppText = forwardRef<Text, AppTextProps>(function AppText(
       ref={ref}
       style={[
         styles.text,
-        resolveAppTextStyle(theme, variant, colorRole, fontScale > 1.5),
+        resolveAppTextStyle(theme, variant, colorRole, usesStackedLayout),
         { fontFamily },
         tabularNumbers && { fontVariant: ['tabular-nums'] },
         style,

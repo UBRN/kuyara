@@ -8,6 +8,9 @@ import {
   resolveAppTextStyle,
   resolveButtonColors,
   resolveInteractiveAccessibilityState,
+  resolveListRowGroupColors,
+  resolveListRowSeparatorInset,
+  resolveListRowTileGeometry,
   resolvePillColors,
   resolveSurfaceColors,
   surfaceColorRoleByVariant,
@@ -37,7 +40,8 @@ test('AppText preserves scaling, heading props, and normal Text props', async ()
 
   assert.match(appTextSource, /allowFontScaling = true/);
   assert.match(appTextSource, /allowFontScaling=\{allowFontScaling\}/);
-  assert.match(appTextSource, /fontScale > 1\.5/);
+  assert.match(appTextSource, /useTextScaling\(\)/);
+  assert.match(appTextSource, /usesStackedLayout/);
   assert.match(appTextSource, /\.\.\.rest/);
   assert.doesNotMatch(appTextSource, /numberOfLines=/);
 });
@@ -178,7 +182,59 @@ test('PhotoPlaceholder only renders its label when the box is tall enough to fit
 test('SectionHeader reflows large text and exposes heading semantics', async () => {
   const sectionHeaderSource = await source('./section-header.tsx');
 
-  assert.match(sectionHeaderSource, /fontScale > 1\.5/);
+  assert.match(sectionHeaderSource, /useTextScaling\(\)/);
   assert.match(sectionHeaderSource, /accessibilityRole="header"/);
   assert.match(sectionHeaderSource, /stackedContainer/);
+});
+
+test('useTextScaling caps the control scale and derives the stacked-layout threshold from ADR 0028 section 3', async () => {
+  const hookSource = await source('./use-text-scaling.ts');
+
+  assert.match(hookSource, /STACKED_LAYOUT_THRESHOLD = 1\.5/);
+  assert.match(hookSource, /MAXIMUM_CONTROL_SCALE = 1\.5/);
+});
+
+test('ListRowTile geometry matches ADR 0028 section 3 at the default and largest accessibility text sizes', () => {
+  const defaultGeometry = resolveListRowTileGeometry(1);
+  const largestGeometry = resolveListRowTileGeometry(1.5);
+
+  assert.equal(defaultGeometry.size, 28);
+  assert.equal(defaultGeometry.glyphSize, 20);
+  assert.equal(defaultGeometry.borderRadius, 7);
+  assert.equal(largestGeometry.size, 42);
+  assert.equal(largestGeometry.glyphSize, 30);
+  assert.equal(largestGeometry.borderRadius, 10.5);
+});
+
+test('The list-row separator starts at the text edge, 56 by default and 70 at the capped control scale', () => {
+  assert.equal(resolveListRowSeparatorInset(1), 56);
+  assert.equal(resolveListRowSeparatorInset(1.5), 70);
+});
+
+test('The list-row group is a hairline outline in light and the Night Layer surface step with no border in dark', () => {
+  const light = createKuyaraTheme('light');
+  const dark = createKuyaraTheme('dark');
+
+  const lightColors = resolveListRowGroupColors(light);
+  const darkColors = resolveListRowGroupColors(dark);
+
+  assert.equal(lightColors.backgroundColor, 'transparent');
+  assert.equal(lightColors.borderColor, light.colors.borderDefined);
+  assert.equal(lightColors.borderWidth, 1);
+  assert.equal(darkColors.backgroundColor, dark.colors.backgroundElevated);
+  assert.equal(darkColors.borderWidth, 0);
+});
+
+test('ListRow and ListRowGroup use semantic tokens for the leading tile, separator, and group appearance', async () => {
+  const [listRowSource, listRowTileSource] = await Promise.all([
+    source('./list-row.tsx'),
+    source('./list-row-tile.tsx'),
+  ]);
+
+  assert.match(listRowTileSource, /withAlpha\(theme\.colors\.textPrimary/);
+  assert.match(listRowSource, /accessibilityRole="button"/);
+  assert.match(listRowSource, /accessibilityLabel \?\?/);
+  assert.match(listRowSource, /minHeight: layout\.minimumTouchTarget/);
+  assert.doesNotMatch(listRowSource, /#[0-9a-fA-F]{6}/);
+  assert.doesNotMatch(listRowTileSource, /#[0-9a-fA-F]{6}/);
 });
