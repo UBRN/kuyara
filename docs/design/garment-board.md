@@ -262,7 +262,7 @@ top 40% inkier than the bottom; the magnitude of the imbalance falls, the sign f
 ## Open items this surfaced
 
 1. **The shipped structural-category glyphs are drawn too heavy to sit beside the
-   silhouettes.** In the all-fallback board the two anchors' ink differs by 1.86×, and
+   silhouettes.** (Redrawn 2026-09-07; see ADR 0025's consequences.) In the all-fallback board the two anchors' ink differed by 1.86×, and
    in a mixed board the fallback piece visibly dominates the three silhouettes around
    it. The fix is to redraw the six category glyphs at the silhouette's stroke weight;
    no change to the composition rule addresses it.
