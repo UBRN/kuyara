@@ -133,6 +133,13 @@ rather than a cross-fade between two pictures.
    [ADR 0020](0020-rewriting-the-motion-law.md)'s rule that motion is never the only
    indication of a state change.
 
+Amended 2026-09-07, from the goals 1 to 3 audit against the list-row checklist (check 8):
+items 1 and 3 are spatial motion, so they take the spatial spring role of the design
+language's Law 7 rather than a duration, and item 2's "over the same interval" is read as
+an effects fade on a duration token that ends no later than the pieces settle. Feature code
+authors no spring parameters; design goal 7 measures the role on the Simulator under
+Reduced Motion.
+
 ## Consequences
 
 - **Every item Today gave up has a home, except the one that does not exist.** Garment
