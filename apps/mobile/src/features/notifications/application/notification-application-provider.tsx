@@ -47,7 +47,6 @@ export function NotificationApplicationProvider(
   const value = useMemo<NotificationApplicationValue>(() => ({
     state,
     setOptIn: (optIn) => controller.setOptIn(optIn),
-    sendTestNotification: (content) => controller.sendTestNotification(content),
     openApplicationSettings: () => gateway.openApplicationSettings(),
   }), [controller, gateway, state]);
 

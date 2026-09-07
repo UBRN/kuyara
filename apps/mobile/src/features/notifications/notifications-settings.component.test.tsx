@@ -79,7 +79,6 @@ function createGateway(permission: 'undetermined' | 'denied') {
         : { kind: 'undetermined' as const },
       requestPermission: async () => ({ kind: 'granted' as const }),
       openApplicationSettings,
-      scheduleTestNotification: async () => true,
       subscribeToResponses: () => () => undefined,
     },
     openApplicationSettings,
