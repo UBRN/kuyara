@@ -119,7 +119,7 @@ system date picker. No age category is shown anywhere. This is the ADR 0015 amen
   version line.
 - **One prerequisite is not solved here.** The `@expo/ui` `List` / `Button` import group
   terminates the app with no crash report in the spike; isolating it belongs to the
-  native port spike, design goal 7, and nothing here assumes it is done.
+  native port spike, design goal 7, and nothing here assumes it is done. Amended 2026-09-07: Isolated on 2026-09-07 on the iPhone 17 Pro / iOS 26.3 Simulator with five probe screens swapped into the Settings route: importing the group does not crash; `List` and `ListItem` render; `Button` with the `label` prop renders; `Button` given string children terminates the app with an `NSInternalInconsistencyException` from `RCTComponentViewFactory`, "ComponentView with componentHandle (`RawText`) not found", because Fabric has no `RawText` view to mount inside a SwiftUI host. A crash report is written after all (`kuyara-2026-09-07-175305.ips`). `ListItem` takes a plain string or an `@expo/ui` `Text` as its headline, `supportingText`, an `@expo/ui` `Text` in `trailing`, and an `RNHostView` in `leading` holding kuyara's own 28 by 28 tile with a tinted PNG glyph, which verifies list-row check 2 at runtime. A React Native `Text` placed directly in a slot does not crash but breaks the row layout; the rule is that slot content is `@expo/ui` components or an `RNHostView`, never bare React Native views or strings on `Button`.
 - **Android renders the same components as Jetpack Compose** and is not drawn, as with
   every other sheet; ADR 0019 records Android as unverified.
 - **Whether a separate "Saving…" line survives** is decided at implementation against the
@@ -140,7 +140,7 @@ platform's.
 
 ## Out of scope
 
-- The `@expo/ui` crash isolation.
+- The `@expo/ui` crash isolation (done afterwards, 2026-09-07; see the amended consequence above).
 - The pushed pickers themselves; nothing about them is kuyara's.
 - Android verification.
 - Any production code change.
