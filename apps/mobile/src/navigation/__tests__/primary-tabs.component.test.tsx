@@ -104,6 +104,8 @@ function createProfile(onboardingCompleted: boolean): LocalProfile {
   return {
     id: 'profile-id',
     clothingPreference: onboardingCompleted ? 'womens' : null,
+    gender: onboardingCompleted ? 'woman' : null,
+    birthDate: null,
     languagePreference: 'system',
     themePreference: 'system',
     onboardingCompleted,

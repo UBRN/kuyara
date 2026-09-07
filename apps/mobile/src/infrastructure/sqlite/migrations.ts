@@ -10,7 +10,7 @@ type Migration = Readonly<{
   migrate: (database: SqliteExecutor) => Promise<void>;
 }>;
 
-export const latestDatabaseVersion = 7;
+export const latestDatabaseVersion = 8;
 
 const migrationV1: Migration = {
   version: 1,
@@ -252,6 +252,48 @@ const migrationV7: Migration = {
   },
 };
 
+const migrationV8: Migration = {
+  version: 8,
+  async migrate(database) {
+    // Defer on the transaction connection: Expo opens a separate connection for it.
+    await database.execAsync('PRAGMA defer_foreign_keys = ON;');
+    await database.execAsync(`
+      CREATE TABLE local_profiles_v8 (
+        singleton_key INTEGER PRIMARY KEY NOT NULL CHECK (singleton_key = 1),
+        id TEXT NOT NULL UNIQUE,
+        gender TEXT CHECK (gender IS NULL OR gender IN ('woman', 'man')),
+        language_preference TEXT NOT NULL CHECK (language_preference IN ('system', 'tr', 'en')),
+        theme_preference TEXT NOT NULL CHECK (theme_preference IN ('system', 'light', 'dark')),
+        onboarding_completed INTEGER NOT NULL CHECK (onboarding_completed IN (0, 1)),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        deleted_at TEXT,
+        notifications_opt_in INTEGER NOT NULL DEFAULT 0 CHECK (notifications_opt_in IN (0, 1)),
+        birth_date TEXT CHECK (
+          birth_date IS NULL OR (
+            birth_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+            AND CAST(substr(birth_date, 1, 4) AS INTEGER) BETWEEN 1900 AND 2100
+          )
+        )
+      );
+      INSERT INTO local_profiles_v8 (
+        singleton_key, id, gender, language_preference, theme_preference,
+        onboarding_completed, created_at, updated_at, deleted_at, notifications_opt_in
+      ) SELECT singleton_key, id,
+        CASE clothing_preference WHEN 'womens' THEN 'woman' WHEN 'mens' THEN 'man' END,
+        language_preference, theme_preference, onboarding_completed,
+        created_at, updated_at, deleted_at, notifications_opt_in
+      FROM local_profiles;
+      DROP TABLE local_profiles;
+      ALTER TABLE local_profiles_v8 RENAME TO local_profiles;
+    `);
+    const violations = await database.getAllAsync('PRAGMA foreign_key_check');
+    if (violations.length > 0) throw new Error('The profile migration violated foreign keys.');
+    // The rebuilt table has been checked; clear deferred references to the dropped table.
+    await database.execAsync('PRAGMA defer_foreign_keys = OFF;');
+  },
+};
+
 const migrations = [
   migrationV1,
   migrationV2,
@@ -260,6 +302,7 @@ const migrations = [
   migrationV5,
   migrationV6,
   migrationV7,
+  migrationV8,
 ] as const satisfies readonly Migration[];
 
 async function readUserVersion(database: SqliteExecutor): Promise<number> {

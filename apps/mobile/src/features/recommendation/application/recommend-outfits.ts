@@ -1,4 +1,4 @@
-import type { OutfitArchetypeId } from '@kuyara/contracts';
+import { ageBandFormalityOrder, type AgeBand, type FormalityLevel, type OutfitArchetypeId } from '@kuyara/contracts';
 
 import type { ClothingPreference } from '@/domain/preferences';
 import { listGarmentTypesForPreference } from '@/features/catalog/domain/garment-catalog';
@@ -7,7 +7,7 @@ import {
   projectCatalogEffectiveGarment,
 } from '@/features/recommendation/domain/garment-eligibility';
 import {
-  composeOutfits,
+  composeOutfitOptions,
   type OutfitCandidate,
   type OutfitCompositionFailure,
 } from '@/features/recommendation/domain/outfit-composition';
@@ -21,6 +21,7 @@ import type { WeatherSnapshot } from '@/features/weather/domain/weather';
 export type OutfitRecommendationInput = Readonly<{
   snapshot: WeatherSnapshot;
   clothingPreference: ClothingPreference;
+  ageBand?: AgeBand;
   dayVariant: number;
 }>;
 
@@ -128,20 +129,25 @@ export function outfitOptionId(outfit: OutfitCandidate): string {
 
 export function assignFallbackArchetypes(
   outfits: readonly OutfitCandidate[],
+  count: number = outfits.length,
 ): readonly RecommendedOutfit[] {
   const used = new Set<OutfitArchetypeId>();
-  return Object.freeze(outfits.map((outfit) => {
+  const selected: RecommendedOutfit[] = [];
+  for (const outfit of outfits) {
     const archetypeId = fallbackArchetypeOrder.find(
       (candidate) => !used.has(candidate) && outfitMatchesArchetype(outfit, candidate),
     );
-    if (!archetypeId) throw new Error('Distinct fallback archetypes are unavailable.');
+    if (!archetypeId) continue;
     used.add(archetypeId);
-    return Object.freeze({
+    selected.push(Object.freeze({
       ...outfit,
       optionId: outfitOptionId(outfit),
       archetypeId,
-    });
-  }));
+    }));
+    if (selected.length === count) break;
+  }
+  if (selected.length < count) throw new Error('Distinct fallback archetypes are unavailable.');
+  return Object.freeze(selected);
 }
 
 export function recommendOutfits(
@@ -156,7 +162,8 @@ export function recommendOutfits(
       ),
     ),
   ];
-  const composition = composeOutfits(requirements, candidates);
+  const composition = composeOutfitOptions(requirements, candidates, input.dayVariant);
+  const order: readonly FormalityLevel[] = ageBandFormalityOrder[input.ageBand ?? 'adult'];
 
   return composition.status === 'failure'
     ? Object.freeze({
@@ -168,6 +175,8 @@ export function recommendOutfits(
         status: 'recommended',
         generationMode: 'deterministic-fallback',
         requirements,
-        outfits: assignFallbackArchetypes(composition.outfits),
+        outfits: assignFallbackArchetypes([...composition.outfits].sort(
+          (left, right) => order.indexOf(left.formality) - order.indexOf(right.formality),
+        ), Math.min(3, composition.outfits.length)),
       });
 }

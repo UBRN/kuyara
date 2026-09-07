@@ -1,6 +1,7 @@
 export type LocalProfileRecord = Readonly<{
   id: string;
-  clothingPreference: string | null;
+  gender: string | null;
+  birthDate: string | null;
   languagePreference: string;
   themePreference: string;
   onboardingCompleted: number;

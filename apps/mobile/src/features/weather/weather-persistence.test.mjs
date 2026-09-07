@@ -23,9 +23,9 @@ async function setup() {
   await migrateDatabase(database);
   await database.runAsync(
     `INSERT INTO local_profiles (
-      singleton_key, id, clothing_preference, language_preference, theme_preference,
+      singleton_key, id, gender, language_preference, theme_preference,
       onboarding_completed, created_at, updated_at, deleted_at
-    ) VALUES (1, ?, 'womens', 'en', 'light', 1, ?, ?, NULL)`,
+    ) VALUES (1, ?, 'woman', 'en', 'light', 1, ?, ?, NULL)`,
     [profileId, '2026-07-30T09:00:00.000Z', '2026-07-30T09:00:00.000Z'],
   );
   const dataSource = new SqliteWeatherLocalDataSource(database);
@@ -91,7 +91,7 @@ test('migration v4 enforces one active location and maps manual and device varia
   const { database, repository } = await setup();
   t.after(() => database.close());
   const version = await database.getFirstAsync('PRAGMA user_version');
-  assert.equal(version.user_version, 7);
+  assert.equal(version.user_version, 8);
 
   const istanbul = getManualLocation('sample.istanbul');
   const manual = await repository.setActiveLocation(profileId, istanbul);

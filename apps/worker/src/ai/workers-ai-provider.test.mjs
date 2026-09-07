@@ -74,6 +74,7 @@ test('prompt sends only the approved model inputs', async () => {
   const payload = JSON.parse(input.messages[1].content);
   assert.deepEqual(payload, {
     clothingPreference: 'mens',
+    formalityOrder: ['smart', 'casual', 'formal'],
     options: [{
       optionId: 'option-1',
       formality: 'casual',

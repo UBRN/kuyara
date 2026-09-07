@@ -267,3 +267,9 @@ test('failed refresh keeps the previous snapshot in memory and in the repository
   assert.equal(controller.getSnapshot().snapshot, cached);
   assert.equal(getStored(), cached);
 });
+
+test('a band change refreshes but an unchanged band preserves the snapshot', () => {
+  const previous = { weatherSnapshotId: 'w', locationKey: 'l', clothingPreference: 'womens', dayVariant: 1, ageBand: 'adult' };
+  assert.equal(recommendationRefreshTrigger(previous, { ...previous, ageBand: 'older' }, null), 'age-band-changed');
+  assert.equal(recommendationRefreshTrigger(previous, { ...previous }, null), null);
+});

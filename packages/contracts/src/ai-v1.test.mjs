@@ -3,6 +3,8 @@ import test from 'node:test';
 
 import {
   aiOptionSchema,
+  ageBands,
+  ageBandFormalityOrder,
   aiProbeV1Path,
   aiProbeV1SuccessSchema,
   aiReadyV1Path,
@@ -339,4 +341,29 @@ test('accepts every requirement member and rejects bad kinds and member minimums
   assert.equal(clothingRequirementSchema.safeParse({
     ...base, kind: 'traction', minimum: 'everyday',
   }).success, false);
+});
+
+test('age band accepts only the three bands and remains optional for older clients', () => {
+  assert.equal(aiRecommendV1RequestSchema.safeParse(validRequest()).success, true);
+  for (const ageBand of ['young', 'adult', 'older']) {
+    assert.equal(aiRecommendV1RequestSchema.parse({ ...validRequest(), ageBand }).ageBand, ageBand);
+  }
+  for (const ageBand of ['child', null, 30]) {
+    assert.equal(aiRecommendV1RequestSchema.safeParse({ ...validRequest(), ageBand }).success, false);
+  }
+  for (const field of ['birthDate', 'birthYear', 'gender']) {
+    assert.equal(aiRecommendV1RequestSchema.safeParse({ ...validRequest(), [field]: '2000-01-01' }).success, false);
+  }
+});
+
+test('every age band ranks all three formalities without removing a level', () => {
+  assert.deepEqual(ageBands, ['young', 'adult', 'older']);
+  assert.deepEqual(ageBandFormalityOrder, {
+    young: ['casual', 'smart', 'formal'],
+    adult: ['smart', 'casual', 'formal'],
+    older: ['smart', 'formal', 'casual'],
+  });
+  for (const order of Object.values(ageBandFormalityOrder)) {
+    assert.deepEqual([...order].sort(), ['casual', 'formal', 'smart']);
+  }
 });

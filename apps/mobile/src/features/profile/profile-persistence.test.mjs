@@ -18,7 +18,8 @@ const updatedAt = '2026-07-30T10:05:00.000Z';
 
 const createRecord = (overrides = {}) => ({
   id: '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4',
-  clothingPreference: null,
+  gender: null,
+  birthDate: null,
   languagePreference: 'system',
   themePreference: 'system',
   onboardingCompleted: 0,
@@ -63,7 +64,7 @@ test('a missing profile is created once and concurrent initialization returns on
   assert.equal(count.count, 1);
   assert.equal(first.id, second.id);
   assert.equal(second.id, third.id);
-  assert.equal(first.clothingPreference, null);
+  assert.equal(first.gender, null);
   assert.equal(first.languagePreference, 'system');
   assert.equal(first.themePreference, 'system');
   assert.equal(first.onboardingCompleted, 0);
@@ -91,9 +92,9 @@ test('an existing profile is returned unchanged without generating another UUID'
   await database.runAsync(
     `
       INSERT INTO local_profiles (
-        singleton_key, id, clothing_preference, language_preference,
+        singleton_key, id, gender, language_preference,
         theme_preference, onboarding_completed, created_at, updated_at, deleted_at
-      ) VALUES (1, ?, 'mens', 'tr', 'dark', 1, ?, ?, NULL)
+      ) VALUES (1, ?, 'man', 'tr', 'dark', 1, ?, ?, NULL)
     `,
     ['existing-id', createdAt, updatedAt],
   );
@@ -111,7 +112,7 @@ test('an existing profile is returned unchanged without generating another UUID'
   assert.equal(generated, false);
   assert.deepEqual(profile, createRecord({
     id: 'existing-id',
-    clothingPreference: 'mens',
+    gender: 'man',
     languagePreference: 'tr',
     themePreference: 'dark',
     onboardingCompleted: 1,
@@ -128,23 +129,23 @@ test('onboarding completion and preference updates persist with bound values', a
   currentTime = updatedAt;
 
   const completed = await dataSource.completeOnboarding({
-    clothingPreference: 'womens',
+    gender: 'woman',
     languagePreference: 'en',
     themePreference: 'light',
   });
-  const clothing = await dataSource.updateClothingPreference('mens');
+  const clothing = await dataSource.updateGender('man');
   const language = await dataSource.updateLanguagePreference('tr');
   const theme = await dataSource.updateThemePreference('dark');
   const row = await database.getFirstAsync(
-    'SELECT clothing_preference, language_preference, theme_preference, onboarding_completed FROM local_profiles',
+    'SELECT gender, language_preference, theme_preference, onboarding_completed FROM local_profiles',
   );
 
   assert.equal(completed.onboardingCompleted, 1);
-  assert.equal(clothing.clothingPreference, 'mens');
+  assert.equal(clothing.gender, 'man');
   assert.equal(language.languagePreference, 'tr');
   assert.equal(theme.themePreference, 'dark');
   assert.deepEqual({ ...row }, {
-    clothing_preference: 'mens',
+    gender: 'man',
     language_preference: 'tr',
     theme_preference: 'dark',
     onboarding_completed: 1,
@@ -239,11 +240,11 @@ test('failed onboarding completion stays incomplete across launch and succeeds o
 
 test('repository maps persistence values and rejects invalid stored enums predictably', async () => {
   const validDataSource = {
-    getOrCreateProfile: async () => createRecord({ clothingPreference: 'womens' }),
+    getOrCreateProfile: async () => createRecord({ gender: 'woman' }),
   };
   const validRepository = new LocalProfileRepository(validDataSource);
   const valid = await validRepository.getOrCreateProfile();
-  assert.equal(valid.clothingPreference, 'womens');
+  assert.equal(valid.gender, 'woman');
   assert.equal(valid.onboardingCompleted, false);
   assert.equal('deletedAt' in valid, false);
 
@@ -277,9 +278,9 @@ test('repository delegates each explicit update and sanitizes data-source errors
       calls.push(['complete', preferences]);
       return createRecord({ ...preferences, onboardingCompleted: 1, updatedAt });
     },
-    updateClothingPreference: async (preference) => {
+    updateGender: async (preference) => {
       calls.push(['clothing', preference]);
-      return createRecord({ clothingPreference: preference, updatedAt });
+      return createRecord({ gender: preference, updatedAt });
     },
     updateLanguagePreference: async (preference) => {
       calls.push(['language', preference]);
@@ -292,11 +293,11 @@ test('repository delegates each explicit update and sanitizes data-source errors
   const repository = new LocalProfileRepository(dataSource);
 
   await repository.completeOnboarding({
-    clothingPreference: 'mens',
+    gender: 'man',
     languagePreference: 'tr',
     themePreference: 'dark',
   });
-  await repository.updateClothingPreference('womens');
+  await repository.updateGender('woman');
   await repository.updateLanguagePreference('en');
   await assert.rejects(
     () => repository.updateThemePreference('light'),
@@ -311,7 +312,8 @@ test('repository delegates each explicit update and sanitizes data-source errors
 test('application controller exposes loading, incomplete, completed, failure, and refreshed states', async () => {
   let profile = {
     id: 'profile-id',
-    clothingPreference: null,
+    gender: null,
+    birthDate: null,
     languagePreference: 'system',
     themePreference: 'system',
     onboardingCompleted: false,
@@ -326,8 +328,8 @@ test('application controller exposes loading, incomplete, completed, failure, an
     },
     completeOnboarding: async (preferences) =>
       (profile = { ...profile, ...preferences, onboardingCompleted: true, updatedAt }),
-    updateClothingPreference: async (clothingPreference) =>
-      (profile = { ...profile, clothingPreference, updatedAt }),
+    updateGender: async (gender) =>
+      (profile = { ...profile, gender, updatedAt }),
     updateLanguagePreference: async (languagePreference) =>
       (profile = { ...profile, languagePreference, updatedAt }),
     updateThemePreference: async (themePreference) =>
@@ -368,7 +370,8 @@ test('application controller exposes loading, incomplete, completed, failure, an
 test('application controller serializes distinct concurrent updates without dropping successors', async () => {
   let profile = {
     id: 'profile-id',
-    clothingPreference: null,
+    gender: null,
+    birthDate: null,
     languagePreference: 'system',
     themePreference: 'system',
     onboardingCompleted: true,
@@ -431,7 +434,8 @@ test('application controller continues queued updates after a predecessor reject
   const calls = [];
   let profile = {
     id: 'profile-id',
-    clothingPreference: null,
+    gender: null,
+    birthDate: null,
     languagePreference: 'system',
     themePreference: 'system',
     onboardingCompleted: true,
@@ -467,4 +471,53 @@ test('application controller continues queued updates after a predecessor reject
   await themeUpdate;
   assert.equal(controller.getSnapshot().profile.themePreference, 'dark');
   assert.equal(controller.getSnapshot().isSaving, false);
+});
+
+test('application maps legacy preference writes into gender and derives preference after relaunch', async (t) => {
+  const { database, dataSource } = await createLocalDataSource(t);
+  const controller = new ProfileApplicationController(async () => new LocalProfileRepository(dataSource));
+  await controller.initialize();
+  for (const [clothingPreference, gender] of [['womens', 'woman'], ['mens', 'man']]) {
+    await controller.updateClothingPreference(clothingPreference);
+    assert.equal(controller.getSnapshot().profile.gender, gender);
+    const stored = await database.getFirstAsync('SELECT * FROM local_profiles');
+    assert.equal(stored.gender, gender);
+    assert.equal('clothing_preference' in stored, false);
+    const relaunched = new ProfileApplicationController(async () => new LocalProfileRepository(
+      new SqliteProfileLocalDataSource(database, { createId: () => 'unused', now: () => updatedAt }),
+    ));
+    await relaunched.initialize();
+    assert.equal(relaunched.getSnapshot().profile.clothingPreference, clothingPreference);
+  }
+});
+
+test('birth date round trips, clears, and invalid writes leave the stored profile intact', async (t) => {
+  const { database, dataSource } = await createLocalDataSource(t);
+  const repository = new LocalProfileRepository(dataSource, () => new Date(2026, 8, 8));
+  await repository.getOrCreateProfile();
+  for (const birthDate of ['2000-02-29', null]) {
+    await repository.updateBirthDate(birthDate);
+    const relaunched = new LocalProfileRepository(new SqliteProfileLocalDataSource(database, {
+      createId: () => 'unused', now: () => updatedAt,
+    }));
+    assert.equal((await relaunched.getOrCreateProfile()).birthDate, birthDate);
+    assert.equal((await database.getFirstAsync('SELECT birth_date FROM local_profiles')).birth_date, birthDate);
+  }
+  for (const birthDate of ['2001-02-29', '2026-09-09', '1899-12-31']) {
+    await assert.rejects(() => repository.updateBirthDate(birthDate), (error) => error.code === 'invalid-data');
+    assert.equal((await repository.getOrCreateProfile()).birthDate, null);
+  }
+});
+
+test('a stored birth date is read back even when the device clock has moved behind it', async (t) => {
+  // ADR 0015 section 8: the moving future bound applies before a write only. A wrong or
+  // unset clock must never turn a stored profile into a mapping error at launch.
+  const { database, dataSource } = await createLocalDataSource(t);
+  const writer = new LocalProfileRepository(dataSource, () => new Date(2026, 8, 8));
+  await writer.getOrCreateProfile();
+  await writer.updateBirthDate('2000-02-29');
+  const relaunched = new LocalProfileRepository(new SqliteProfileLocalDataSource(database, {
+    createId: () => 'unused', now: () => updatedAt,
+  }), () => new Date(1970, 0, 1));
+  assert.equal((await relaunched.getOrCreateProfile()).birthDate, '2000-02-29');
 });

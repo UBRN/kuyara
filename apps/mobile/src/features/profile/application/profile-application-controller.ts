@@ -6,8 +6,27 @@ import type {
 import type { ProfileRepository } from '@/features/profile/data/profile-repository';
 import type {
   LocalProfile,
+  Profile,
   OnboardingPreferences,
+  Gender,
 } from '@/features/profile/domain/profile';
+
+const catalogPreferenceByGender = { woman: 'womens', man: 'mens' } as const;
+
+function genderFromClothingPreference(preference: ClothingPreference): Gender {
+  const gender = (Object.keys(catalogPreferenceByGender) as Gender[]).find(
+    (gender) => catalogPreferenceByGender[gender] === preference,
+  );
+  if (!gender) throw new Error('The clothing preference is invalid.');
+  return gender;
+}
+
+function applicationProfile(profile: Profile): LocalProfile {
+  return {
+    ...profile,
+    clothingPreference: profile.gender === null ? null : catalogPreferenceByGender[profile.gender],
+  };
+}
 
 export type ProfileApplicationState =
   | Readonly<{ status: 'loading' }>
@@ -48,13 +67,21 @@ export class ProfileApplicationController {
   }
 
   completeOnboarding(preferences: OnboardingPreferences): Promise<void> {
-    return this.updateProfile((repository) => repository.completeOnboarding(preferences));
+    return this.updateProfile((repository) => repository.completeOnboarding({
+      gender: genderFromClothingPreference(preferences.clothingPreference),
+      languagePreference: preferences.languagePreference,
+      themePreference: preferences.themePreference,
+    }));
   }
 
   updateClothingPreference(preference: ClothingPreference): Promise<void> {
     return this.updateProfile((repository) =>
-      repository.updateClothingPreference(preference),
+      repository.updateGender(genderFromClothingPreference(preference)),
     );
+  }
+
+  updateBirthDate(birthDate: string | null): Promise<void> {
+    return this.updateProfile((repository) => repository.updateBirthDate(birthDate));
   }
 
   updateLanguagePreference(preference: LanguagePreference): Promise<void> {
@@ -76,14 +103,14 @@ export class ProfileApplicationController {
       const repository = await this.loadRepository();
       const profile = await repository.getOrCreateProfile();
       this.repository = repository;
-      this.setState({ status: 'ready', profile, isSaving: false });
+      this.setState({ status: 'ready', profile: applicationProfile(profile), isSaving: false });
     } catch {
       this.setState({ status: 'error' });
     }
   }
 
   private updateProfile(
-    operation: (repository: ProfileRepository) => Promise<LocalProfile>,
+    operation: (repository: ProfileRepository) => Promise<Profile>,
   ): Promise<void> {
     if (this.state.status !== 'ready' || !this.repository) {
       return Promise.reject(new Error('The local profile is not ready.'));
@@ -98,7 +125,7 @@ export class ProfileApplicationController {
       const previousProfile = this.state.profile;
       try {
         const profile = await operation(repository);
-        this.setState({ status: 'ready', profile, isSaving: true });
+        this.setState({ status: 'ready', profile: applicationProfile(profile), isSaving: true });
       } catch (error) {
         this.setState({ status: 'ready', profile: previousProfile, isSaving: true });
         throw error;

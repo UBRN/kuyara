@@ -61,9 +61,9 @@ async function setup() {
   await migrateDatabase(database);
   await database.runAsync(
     `INSERT INTO local_profiles (
-      singleton_key, id, clothing_preference, language_preference, theme_preference,
+      singleton_key, id, gender, language_preference, theme_preference,
       onboarding_completed, created_at, updated_at, deleted_at
-    ) VALUES (1, ?, 'womens', 'en', 'light', 1, ?, ?, NULL)`,
+    ) VALUES (1, ?, 'woman', 'en', 'light', 1, ?, ?, NULL)`,
     [profileId, firstTime, firstTime],
   );
   const dataSource = new SqliteRecommendationLocalDataSource(database);
@@ -91,7 +91,7 @@ test('migration v5 persists a validated recommendation snapshot with lifecycle f
   const { database, repository, setNow } = await setup();
   t.after(() => database.close());
   const version = await database.getFirstAsync('PRAGMA user_version');
-  assert.equal(version.user_version, 7);
+  assert.equal(version.user_version, 8);
   const generated = generatedRecommendation();
 
   const first = await repository.saveSnapshot(profileId, {
@@ -185,4 +185,24 @@ test('corrupt persisted payload fails with a sanitized repository error', async 
       error.code === 'invalid-data' &&
       !String(error).includes('rawProvider'),
   );
+});
+
+test('persisted age bands survive reads and an older context without a band resolves to adult', async (t) => {
+  const { database, repository } = await setup();
+  t.after(() => database.close());
+  const generated = generatedRecommendation();
+  await repository.saveSnapshot(profileId, {
+    weatherSnapshotId: generated.input.snapshot.id,
+    locationKey: generated.input.snapshot.locationKey,
+    context: { ...generated.request, ageBand: 'older' },
+    recommendation: generated.recommendation,
+  });
+  assert.equal((await repository.getSnapshot(profileId)).ageBand, 'older');
+  const row = await database.getFirstAsync('SELECT context_json FROM recommendation_snapshots');
+  const context = JSON.parse(row.context_json);
+  assert.equal(context.ageBand, 'older');
+  assert.equal('birthDate' in context, false);
+  delete context.ageBand;
+  await database.runAsync('UPDATE recommendation_snapshots SET context_json = ?', [JSON.stringify(context)]);
+  assert.equal((await repository.getSnapshot(profileId)).ageBand, 'adult');
 });
