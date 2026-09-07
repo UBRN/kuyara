@@ -453,6 +453,9 @@ without reading the rest of this document.
   hero block and the body (Law 2).
 - Grep the screen file for `spacing['2xl']`. Only at the trailing edge of scrollable
   content, never between two pieces of content (Law 2).
+- Grep the screen file for `paddingBottom` on the style passed to `Screen`'s
+  `contentContainerStyle`. There must be none, because `Screen` owns the bottom inset
+  ([ADR 0027](../adr/0027-the-app-shell-and-its-three-tabs.md) section 4).
 - Check list row vertical padding. Exactly 12, touch target at least 44 (Law 2).
 - Count planes stacked in one place. At most 3: ground, chrome, card. No card sits on
   another card (Law 3).

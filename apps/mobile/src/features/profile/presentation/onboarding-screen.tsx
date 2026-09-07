@@ -359,7 +359,6 @@ const styles = StyleSheet.create({
   },
   content: {
     gap: spacing.md,
-    paddingBottom: spacing['2xl'],
   },
   heading: {
     gap: spacing.sm,

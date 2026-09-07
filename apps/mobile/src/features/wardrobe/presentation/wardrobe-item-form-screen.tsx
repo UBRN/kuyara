@@ -723,7 +723,6 @@ export function WardrobeItemFormScreen({
 const styles = StyleSheet.create({
   content: {
     gap: spacing.md,
-    paddingBottom: spacing['2xl'],
   },
   header: {
     alignItems: 'center',

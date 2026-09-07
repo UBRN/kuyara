@@ -23,7 +23,7 @@ import {
 import { WardrobeListScreen } from '@/features/wardrobe/presentation/wardrobe-list-screen';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
-import { darkTheme, lightTheme } from '@/theme/theme';
+import { darkTheme, lightTheme, spacing } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 jest.mock('expo-symbols', () => ({
@@ -483,6 +483,10 @@ test('create and edit forms leave the top safe area to the platform instead of a
   const editContentStyle = StyleSheet.flatten(editForm.props.contentContainerStyle);
   expect(editForm.props.contentInsetAdjustmentBehavior).toBe('automatic');
   expect(editContentStyle.paddingTop).toBe(0);
+  expect([createContentStyle.paddingBottom, editContentStyle.paddingBottom]).toEqual([
+    initialMetrics.insets.bottom + spacing.md,
+    initialMetrics.insets.bottom + spacing.md,
+  ]);
 });
 
 test('create form keeps only the required picker and entry state options visible by default', async () => {
@@ -548,6 +552,11 @@ test('garment type picker groups preference-filtered options with accessible rad
   expect(result.getByRole('radio', { name: 'Rain jacket' }).props.accessibilityState).toEqual(
     expect.objectContaining({ selected: true }),
   );
+  expect(
+    StyleSheet.flatten(
+      result.getByTestId('wardrobe-garment-type-picker').props.contentContainerStyle,
+    ).paddingBottom,
+  ).toBe(initialMetrics.insets.bottom + spacing.md);
   await fireEvent.press(result.getByRole('radio', { name: 'T-shirt' }));
   expect(onSelect).toHaveBeenCalledWith('t_shirt');
 });
