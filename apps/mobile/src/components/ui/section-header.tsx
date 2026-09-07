@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui/app-text';
+import { useTextScaling } from '@/components/ui/use-text-scaling';
 import { spacing } from '@/theme/theme';
 
 export type SectionHeaderProps = {
@@ -11,8 +12,7 @@ export type SectionHeaderProps = {
 };
 
 export function SectionHeader({ title, supportingText, trailingAction }: SectionHeaderProps) {
-  const { fontScale } = useWindowDimensions();
-  const usesStackedLayout = fontScale > 1.5;
+  const { usesStackedLayout } = useTextScaling();
 
   return (
     <View style={[styles.container, usesStackedLayout && styles.stackedContainer]}>

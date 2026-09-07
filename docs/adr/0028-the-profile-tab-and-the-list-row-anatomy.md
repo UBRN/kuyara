@@ -86,14 +86,16 @@ set.
 | Leading tile | 28 × 28, radius 7, a monochrome glyph at 20 beside `body` (Law 6), glyph in `textPrimary`, fill derived through `withAlpha` from the same ink at 8% in light and 12% in dark. Never a coloured tile; that is what keeps Law 1's one accent fill per viewport |
 | Separator | starts at the text edge, 16 inset + tile + 12 gap, which is 56 at the default text size; runs to the group's right edge; `borderSubtle` |
 | Trailing value | `body` 17 in `textSecondary`, tabular when numeric, then a chevron at 20, on one line |
-| Section heading | kuyara's, when a section has one: sentence case, `bodyStrong` 17, `textPrimary`, drawn outside any group, 12 below it before the group (Law 2 `md`), 24 between groups |
+| Section heading | kuyara's, when a section has one: sentence case, `bodyStrong` 17, `textSecondary`, drawn outside any group, 12 below it before the group (Law 2 `md`), 24 between groups. Amended 2026-09-07: was `textPrimary` at acceptance; the maintainer measured the byAir reference again and changed the heading ink to `textSecondary` |
 
 The measured reference (a 393 point screen at 3x) agreed within a few points: group inset
 16 and width 361, separator 54 from the group edge, row pitch 54, sentence-case headings
 outside the group, and a centred secondary version line last. Where it differed, the
-difference is kuyara's rule rather than an oversight: headings in `textPrimary` rather
-than grey, a Night Layer ground rather than black, and one accent fill per viewport where
-the reference showed three.
+difference is kuyara's rule rather than an oversight, with one exception the maintainer
+corrected the same day: a Night Layer ground rather than black, and one accent fill per
+viewport where the reference showed three. Section headings were first recorded as
+`textPrimary` rather than grey; amended 2026-09-07 to `textSecondary`, so this row is no
+longer one of kuyara's deliberate differences from the reference.
 
 ### 3. Text scaling
 

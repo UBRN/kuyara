@@ -4,12 +4,22 @@ import {
   type KuyaraTheme,
   type SemanticColorRole,
   type TypographyRole,
+  borderWidths,
+  spacing,
   typography,
 } from '../../theme/theme';
 
 export type SurfaceVariant = 'default' | 'muted' | 'elevated' | 'interactive';
 export type ButtonVariant = 'primary' | 'secondary' | 'quiet' | 'destructive';
 export type PillTone = 'accent-filled' | 'bordered';
+
+// ADR 0028 section 2, the list-row anatomy: a 28-point tile with a 20-point glyph and a
+// 7-point radius (a quarter of the tile) at the default text size, scaling together by
+// the capped `controlScale` from `useTextScaling` above `fontScale` 1.5.
+const LIST_ROW_BASE_TILE_SIZE = 28;
+const LIST_ROW_BASE_GLYPH_SIZE = 20;
+// 7 is a quarter of 28; the radius keeps that ratio as the tile scales.
+const LIST_ROW_TILE_RADIUS_RATIO = 0.25;
 
 export const surfaceColorRoleByVariant = Object.freeze({
   default: 'surface',
@@ -119,4 +129,34 @@ export function createPressHandler<Event>(
   }
 
   return (event: Event) => onPress(event);
+}
+
+export function resolveListRowTileGeometry(controlScale: number) {
+  const size = LIST_ROW_BASE_TILE_SIZE * controlScale;
+
+  return {
+    size,
+    glyphSize: LIST_ROW_BASE_GLYPH_SIZE * controlScale,
+    borderRadius: size * LIST_ROW_TILE_RADIUS_RATIO,
+  } as const;
+}
+
+export function resolveListRowSeparatorInset(controlScale: number): number {
+  return spacing.lg + LIST_ROW_BASE_TILE_SIZE * controlScale + spacing.md;
+}
+
+export function resolveListRowGroupColors(theme: KuyaraTheme) {
+  if (theme.isDark) {
+    return {
+      backgroundColor: theme.colors.backgroundElevated,
+      borderColor: 'transparent',
+      borderWidth: 0,
+    } as const;
+  }
+
+  return {
+    backgroundColor: 'transparent',
+    borderColor: theme.colors.borderDefined,
+    borderWidth: borderWidths.subtle,
+  } as const;
 }
