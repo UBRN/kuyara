@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
-import { AppText, Button, GarmentSlotGlyph, Icon, Pill, Screen, Surface } from '@/components/ui';
+import { AppText, Button, GarmentSlotGlyph, Icon, Pill, Screen, Surface, haptics } from '@/components/ui';
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import type { TodayScreenState } from '@/features/today/model';
@@ -49,6 +49,17 @@ export function OutfitDetailScreen({
       </Screen>
     );
   }
+
+  // Law 8: the owned/wanted pair mirrors the wardrobe toggle, a selection change under the finger.
+
+  const setOwnership = (garmentTypeId: GarmentTypeId, next: 'owned' | 'wanted') => {
+
+    haptics.selection();
+
+    onSetOwnership(garmentTypeId, next);
+
+  };
+
 
   const ownedCount = suggestion.pieces.filter(
     ({ garmentTypeId }) => ownershipByGarmentType[garmentTypeId] === 'owned',
@@ -107,7 +118,7 @@ export function OutfitDetailScreen({
                     <Button
                       accessibilityState={{ selected: owned }}
                       label={copy.ownershipOwnedAction}
-                      onPress={owned ? undefined : () => onSetOwnership(garmentTypeId, 'owned')}
+                      onPress={owned ? undefined : () => setOwnership(garmentTypeId, 'owned')}
                       style={styles.ownershipAction}
                       testID={`outfit-detail-ownership-${garmentTypeId}-owned`}
                       variant={owned ? 'primary' : 'secondary'}
@@ -115,7 +126,7 @@ export function OutfitDetailScreen({
                     <Button
                       accessibilityState={{ selected: wanted }}
                       label={copy.ownershipWantedAction}
-                      onPress={wanted ? undefined : () => onSetOwnership(garmentTypeId, 'wanted')}
+                      onPress={wanted ? undefined : () => setOwnership(garmentTypeId, 'wanted')}
                       style={styles.ownershipAction}
                       testID={`outfit-detail-ownership-${garmentTypeId}-wanted`}
                       variant={wanted ? 'primary' : 'secondary'}
