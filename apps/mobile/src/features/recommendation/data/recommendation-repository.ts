@@ -1,3 +1,5 @@
+import type { AgeBand } from '@kuyara/contracts';
+
 import type { OutfitRecommendationSuccess } from '@/features/recommendation/application/recommend-outfits';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import type {
@@ -17,6 +19,7 @@ export type RecommendationSnapshot = Readonly<{
   weatherSnapshotId: string;
   locationKey: string;
   clothingPreference: string;
+  ageBand: AgeBand;
   dayVariant: number | null;
   generationMode: RecommendationGenerationMode;
   recommendation: OutfitRecommendationSuccess;
@@ -90,6 +93,8 @@ function mapRecord(record: RecommendationSnapshotRecord): RecommendationSnapshot
       weatherSnapshotId: record.weatherSnapshotId,
       locationKey: record.locationKey,
       clothingPreference: context.clothingPreference,
+      // A legacy context predates the band; ADR 0015 resolves an absent band to adult.
+      ageBand: 'ageBand' in context && context.ageBand ? context.ageBand : 'adult',
       dayVariant: 'dayVariant' in context ? context.dayVariant : null,
       generationMode: record.generationMode,
       recommendation,

@@ -1,4 +1,5 @@
 import type {
+  AgeBand,
   AiRecommendV1Request,
   AiRecommendV1Success,
 } from '@kuyara/contracts';
@@ -24,6 +25,7 @@ export type RecommendationRefreshTrigger =
   | 'stale-weather-refreshed'
   | 'active-location-changed'
   | 'clothing-preference-changed'
+  | 'age-band-changed'
   | 'local-day-changed'
   | 'explicit';
 
@@ -31,6 +33,7 @@ export type RecommendationSignals = Readonly<{
   weatherSnapshotId: string;
   locationKey: string;
   clothingPreference: string;
+  ageBand: AgeBand;
   dayVariant: number | null;
 }>;
 
@@ -50,6 +53,7 @@ export function recommendationRefreshTrigger(
   if (previous.clothingPreference !== current.clothingPreference) {
     return 'clothing-preference-changed';
   }
+  if (previous.ageBand !== current.ageBand) return 'age-band-changed';
   if (previous.dayVariant !== current.dayVariant) return 'local-day-changed';
   return null;
 }

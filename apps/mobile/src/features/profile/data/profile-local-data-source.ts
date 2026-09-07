@@ -1,12 +1,12 @@
+import type { Gender } from '@/features/profile/domain/profile';
 import type {
-  ClothingPreference,
   LanguagePreference,
   ThemePreference,
 } from '@/domain/preferences';
 import type { LocalProfileRecord } from '@/features/profile/data/local-profile-record';
 
 export type PersistedOnboardingPreferences = Readonly<{
-  clothingPreference: ClothingPreference;
+  gender: Gender;
   languagePreference: LanguagePreference;
   themePreference: ThemePreference;
 }>;
@@ -14,7 +14,8 @@ export type PersistedOnboardingPreferences = Readonly<{
 export interface ProfileLocalDataSource {
   getOrCreateProfile(): Promise<LocalProfileRecord>;
   completeOnboarding(preferences: PersistedOnboardingPreferences): Promise<LocalProfileRecord>;
-  updateClothingPreference(preference: ClothingPreference): Promise<LocalProfileRecord>;
+  updateGender(preference: Gender): Promise<LocalProfileRecord>;
+  updateBirthDate(birthDate: string | null): Promise<LocalProfileRecord>;
   updateLanguagePreference(preference: LanguagePreference): Promise<LocalProfileRecord>;
   updateThemePreference(preference: ThemePreference): Promise<LocalProfileRecord>;
   updateNotificationsOptIn(optIn: boolean): Promise<LocalProfileRecord>;

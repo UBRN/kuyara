@@ -114,3 +114,13 @@ test('rejects a response pick whose option id was not supplied', () => {
     (error) => error instanceof WorkerAiRecommendationMappingError,
   );
 });
+
+test('mobile request sends only the band and preserves the option set across bands', () => {
+  const adult = createAiRecommendationRequest({ ...input(), ageBand: 'adult' });
+  for (const ageBand of ['young', 'adult', 'older']) {
+    const request = createAiRecommendationRequest({ ...input(), ageBand, birthDate: '2000-01-01' });
+    assert.equal(request.ageBand, ageBand);
+    assert.deepEqual(request.options, adult.options);
+    assert.equal('birthDate' in request, false);
+  }
+});

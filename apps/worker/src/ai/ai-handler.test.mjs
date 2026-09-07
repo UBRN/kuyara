@@ -593,3 +593,19 @@ test('wrong content type, malformed JSON, and schema violations return invalid_r
     body: JSON.stringify({ ...validRequestBody(), clothingPreference: 'private' }),
   })), 400, 'invalid_request');
 });
+
+test('shared cache separates all age bands and treats absence as adult', async () => {
+  const restore = installMemoryCache();
+  try {
+    let calls = 0;
+    const handle = createAiHandler({ providers: [{ async generateOutfits() {
+      calls += 1;
+      return validOutput();
+    } }] });
+    for (const ageBand of [undefined, 'adult', 'young', 'older', 'young']) {
+      const body = { ...validRequestBody(), ageBand };
+      assert.equal((await handle(request({ body: JSON.stringify(body) }))).status, 200);
+    }
+    assert.equal(calls, 3);
+  } finally { restore(); }
+});

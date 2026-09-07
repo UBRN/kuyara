@@ -75,9 +75,9 @@ async function insertProfile(database) {
   await database.runAsync(
     `
       INSERT INTO local_profiles (
-        singleton_key, id, clothing_preference, language_preference,
+        singleton_key, id, gender, language_preference,
         theme_preference, onboarding_completed, created_at, updated_at, deleted_at
-      ) VALUES (1, ?, 'womens', 'tr', 'dark', 1, ?, ?, NULL)
+      ) VALUES (1, ?, 'woman', 'tr', 'dark', 1, ?, ?, NULL)
     `,
     [profileId, createdAt, createdAt],
   );
@@ -570,7 +570,7 @@ test('unknown IDs and persisted type-category mismatches fail without changing r
 test('catalog applicability never prevents ownership of a valid canonical type', async (t) => {
   const { database, repository } = await createRepository(t);
   await database.runAsync(
-    "UPDATE local_profiles SET clothing_preference = 'mens' WHERE id = ?",
+    "UPDATE local_profiles SET gender = 'man' WHERE id = ?",
     [profileId],
   );
 

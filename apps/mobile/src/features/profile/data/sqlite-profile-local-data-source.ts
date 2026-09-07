@@ -1,5 +1,5 @@
+import type { Gender } from '@/features/profile/domain/profile';
 import type {
-  ClothingPreference,
   LanguagePreference,
   ThemePreference,
 } from '@/domain/preferences';
@@ -16,7 +16,8 @@ import type {
 
 type LocalProfileRow = Readonly<{
   id: string;
-  clothing_preference: string | null;
+  gender: string | null;
+  birth_date: string | null;
   language_preference: string;
   theme_preference: string;
   onboarding_completed: number;
@@ -34,7 +35,8 @@ type LocalProfileDependencies = Readonly<{
 const selectProfileSql = `
   SELECT
     id,
-    clothing_preference,
+    gender,
+    birth_date,
     language_preference,
     theme_preference,
     onboarding_completed,
@@ -49,7 +51,8 @@ const selectProfileSql = `
 function mapRow(row: LocalProfileRow): LocalProfileRecord {
   return {
     id: row.id,
-    clothingPreference: row.clothing_preference,
+    gender: row.gender,
+    birthDate: row.birth_date,
     languagePreference: row.language_preference,
     themePreference: row.theme_preference,
     onboardingCompleted: row.onboarding_completed,
@@ -107,14 +110,15 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
           INSERT OR IGNORE INTO local_profiles (
             singleton_key,
             id,
-            clothing_preference,
+            gender,
+            birth_date,
             language_preference,
             theme_preference,
             onboarding_completed,
             created_at,
             updated_at,
             deleted_at
-          ) VALUES (1, ?, NULL, 'system', 'system', 0, ?, ?, NULL)
+          ) VALUES (1, ?, NULL, NULL, 'system', 'system', 0, ?, ?, NULL)
         `,
         [id, now, now],
       );
@@ -136,7 +140,7 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
       `
         UPDATE local_profiles
         SET
-          clothing_preference = ?,
+          gender = ?,
           language_preference = ?,
           theme_preference = ?,
           onboarding_completed = 1,
@@ -144,21 +148,29 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
         WHERE singleton_key = 1 AND deleted_at IS NULL
       `,
       [
-        preferences.clothingPreference,
+        preferences.gender,
         preferences.languagePreference,
         preferences.themePreference,
       ],
     );
   }
 
-  updateClothingPreference(preference: ClothingPreference): Promise<LocalProfileRecord> {
+  updateGender(preference: Gender): Promise<LocalProfileRecord> {
     return this.updateProfile(
       `
         UPDATE local_profiles
-        SET clothing_preference = ?, updated_at = ?
+        SET gender = ?, updated_at = ?
         WHERE singleton_key = 1 AND deleted_at IS NULL
       `,
       [preference],
+    );
+  }
+
+  updateBirthDate(birthDate: string | null): Promise<LocalProfileRecord> {
+    return this.updateProfile(
+      `UPDATE local_profiles SET birth_date = ?, updated_at = ?
+       WHERE singleton_key = 1 AND deleted_at IS NULL`,
+      [birthDate],
     );
   }
 
@@ -197,7 +209,7 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
 
   private async updateProfile(
     source: string,
-    values: (string | number)[],
+    values: (string | number | null)[],
   ): Promise<LocalProfileRecord> {
     let profile: LocalProfileRecord | null = null;
 

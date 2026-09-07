@@ -68,7 +68,8 @@ const initialMetrics = {
 function createProfile(): LocalProfileRecord {
   return {
     id: 'profile-id',
-    clothingPreference: 'womens',
+    gender: 'woman',
+    birthDate: null,
     languagePreference: 'en',
     themePreference: 'light',
     onboardingCompleted: 1,

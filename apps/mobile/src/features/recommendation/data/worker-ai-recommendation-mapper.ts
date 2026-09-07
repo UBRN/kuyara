@@ -1,5 +1,6 @@
 import {
   aiOptionSchema,
+  ageBandSchema,
   aiRecommendV1RequestSchema,
   aiRecommendV1SuccessSchema,
   aiV1OptionLimit,
@@ -40,7 +41,6 @@ import {
   evaluateGarmentEligibility,
   projectCatalogEffectiveGarment,
   type EffectiveGarmentCandidate,
-  type GarmentEligibilityResult,
 } from '@/features/recommendation/domain/garment-eligibility';
 import {
   composeOutfit,
@@ -64,6 +64,7 @@ export class WorkerAiRecommendationMappingError extends Error {
 
 const recommendationContextSchema = z.object({
   clothingPreference: z.enum(clothingPreferences),
+  ageBand: ageBandSchema.optional(),
   catalogVersion: z.number().int().min(1),
   dayVariant: z.number().int().min(0).max(6),
   requirements: z.array(clothingRequirementSchema).max(8),
@@ -172,6 +173,7 @@ export function createRecommendationContext(
   );
   const parsed = recommendationContextSchema.safeParse({
     clothingPreference: input.clothingPreference,
+    ageBand: input.ageBand ?? 'adult',
     catalogVersion: garmentCatalogVersion,
     dayVariant: input.dayVariant,
     requirements: requirements.requirements,

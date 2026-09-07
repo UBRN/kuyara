@@ -59,15 +59,15 @@ async function insertProfile(database, id = 'stable-profile-id') {
   await database.runAsync(
     `
       INSERT INTO local_profiles (
-        singleton_key, id, clothing_preference, language_preference,
+        singleton_key, id, language_preference,
         theme_preference, onboarding_completed, created_at, updated_at, deleted_at
-      ) VALUES (1, ?, NULL, 'system', 'system', 0, ?, ?, NULL)
+      ) VALUES (1, ?, 'system', 'system', 0, ?, ?, NULL)
     `,
     [id, timestamp, timestamp],
   );
 }
 
-test('an empty database applies versions 1 through 7 in order with the final schema', async (t) => {
+test('an empty database applies versions 1 through 8 in order with the final schema', async (t) => {
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
 
@@ -87,7 +87,7 @@ test('an empty database applies versions 1 through 7 in order with the final sch
     'PRAGMA index_info(idx_wardrobe_items_profile_deleted_updated)',
   );
 
-  assert.equal(latestDatabaseVersion, 7);
+  assert.equal(latestDatabaseVersion, 8);
   assert.equal(version.user_version, latestDatabaseVersion);
   assert.equal(profileTable.name, 'local_profiles');
   assert.match(profileTable.sql, /CHECK \(singleton_key = 1\)/);
@@ -96,7 +96,7 @@ test('an empty database applies versions 1 through 7 in order with the final sch
     [
       'singleton_key',
       'id',
-      'clothing_preference',
+      'gender',
       'language_preference',
       'theme_preference',
       'onboarding_completed',
@@ -104,6 +104,7 @@ test('an empty database applies versions 1 through 7 in order with the final sch
       'updated_at',
       'deleted_at',
       'notifications_opt_in',
+      'birth_date',
     ],
   );
   assert.equal(wardrobeTable.name, 'wardrobe_items');
@@ -153,7 +154,7 @@ test('an empty database applies versions 1 through 7 in order with the final sch
   );
 });
 
-test('an existing version 1 database upgrades through version 7 without changing profile data', async (t) => {
+test('an existing version 1 database upgrades through version 8 without changing profile data', async (t) => {
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
   await createReleasedVersionOneDatabase(database);
@@ -169,7 +170,7 @@ test('an existing version 1 database upgrades through version 7 without changing
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'wardrobe_items'",
   );
 
-  assert.equal(version.user_version, 7);
+  assert.equal(version.user_version, 8);
   assert.deepEqual(rows.map((row) => ({ ...row })), [{
     id: 'stable-profile-id',
     created_at: timestamp,
@@ -178,7 +179,7 @@ test('an existing version 1 database upgrades through version 7 without changing
   assert.equal(wardrobeTable.name, 'wardrobe_items');
 });
 
-test('versions 3 through 7 preserve a released version 2 wardrobe row and are not reapplied', async (t) => {
+test('versions 3 through 8 preserve a released version 2 wardrobe row and are not reapplied', async (t) => {
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
   await createReleasedVersionTwoDatabase(database);
@@ -205,7 +206,7 @@ test('versions 3 through 7 preserve a released version 2 wardrobe row and are no
 
   const version = await database.getFirstAsync('PRAGMA user_version');
   const rows = await database.getAllAsync('SELECT * FROM wardrobe_items');
-  assert.equal(version.user_version, 7);
+  assert.equal(version.user_version, 8);
   assert.deepEqual(rows.map((row) => ({ ...row })), [{
     id: 'item-id',
     local_profile_id: 'stable-profile-id',
@@ -275,7 +276,7 @@ test('version 7 preserves version 6 wardrobe rows and defaults their entry state
 
   const version = await database.getFirstAsync('PRAGMA user_version');
   const rows = await database.getAllAsync('SELECT * FROM wardrobe_items ORDER BY id');
-  assert.equal(version.user_version, 7);
+  assert.equal(version.user_version, 8);
   assert.deepEqual(rows.map((row) => ({ ...row })), [
     {
       id: 'active-item', local_profile_id: 'stable-profile-id', name: 'Kazak',
@@ -578,7 +579,7 @@ test('version 4 upgrades a released version 3 database and rolls back atomically
   const tables = await database.getAllAsync(
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('active_locations', 'weather_snapshots', 'weather_hourly_entries') ORDER BY name",
   );
-  assert.equal(version.user_version, 7);
+  assert.equal(version.user_version, 8);
   assert.deepEqual(tables.map(({ name }) => name), [
     'active_locations',
     'weather_hourly_entries',
@@ -620,4 +621,96 @@ test('a failed version 6 migration rolls back the profile column and version', a
   const columns = await database.getAllAsync('PRAGMA table_info(local_profiles)');
   assert.equal(version.user_version, 5);
   assert.equal(columns.some(({ name }) => name === 'notifications_opt_in'), false);
+});
+
+async function createVersionSevenDatabase(database) {
+  const beforeV8 = {
+    execAsync: database.execAsync.bind(database),
+    getFirstAsync: database.getFirstAsync.bind(database),
+    withExclusiveTransactionAsync: (task) => database.withExclusiveTransactionAsync((transaction) => task({
+      execAsync: async (sql) => {
+        if (sql.includes('CREATE TABLE local_profiles_v8')) throw new Error('stop before v8');
+        return transaction.execAsync(sql);
+      },
+      runAsync: transaction.runAsync.bind(transaction),
+      getFirstAsync: transaction.getFirstAsync.bind(transaction),
+      getAllAsync: transaction.getAllAsync.bind(transaction),
+    })),
+  };
+  try { await migrateDatabase(beforeV8); } catch (error) { assert.match(error.message, /stop before v8/); }
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 7);
+}
+
+for (const [preference, gender, deletedAt] of [['womens', 'woman', null], ['mens', 'man', deletedTimestamp], [null, null, null]]) {
+  test(`version 8 preserves ${preference} profile and dependent rows`, async (t) => {
+    const database = new NodeSqliteDatabase();
+    t.after(() => database.close());
+    await createVersionSevenDatabase(database);
+    await insertProfile(database);
+    await database.runAsync(`UPDATE local_profiles SET clothing_preference = ?, language_preference = 'tr', theme_preference = 'dark', onboarding_completed = ?, notifications_opt_in = 1, deleted_at = ?`, [preference, preference === null ? 0 : 1, deletedAt]);
+    await database.runAsync(`INSERT INTO wardrobe_items (id, local_profile_id, category, created_at, updated_at, entry_state) VALUES ('item', 'stable-profile-id', 'top', ?, ?, 'wanted')`, [timestamp, timestamp]);
+    const before = { ...await database.getFirstAsync('SELECT * FROM local_profiles') };
+    const item = { ...await database.getFirstAsync('SELECT * FROM wardrobe_items') };
+    await migrateDatabase(database);
+    const { clothing_preference, ...preserved } = before;
+    assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM local_profiles') }, { ...preserved, gender, birth_date: null });
+    assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM wardrobe_items') }, item);
+    assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 8);
+    assert.equal((await database.getFirstAsync('PRAGMA foreign_keys')).foreign_keys, 1);
+    assert.deepEqual(await database.getAllAsync('PRAGMA foreign_key_check'), []);
+    await assert.rejects(() => database.runAsync("UPDATE wardrobe_items SET local_profile_id = 'missing'"), /FOREIGN KEY/);
+    await migrateDatabase(database);
+    assert.equal((await database.getFirstAsync('SELECT gender FROM local_profiles')).gender, gender);
+  });
+}
+
+test('version 8 static date constraint rejects out-of-bounds years', async (t) => {
+  const database = new NodeSqliteDatabase();
+  t.after(() => database.close());
+  await createVersionSevenDatabase(database);
+  await insertProfile(database);
+  await migrateDatabase(database);
+  for (const date of ['1900-01-01', '2100-12-31', null]) {
+    await database.runAsync('UPDATE local_profiles SET birth_date = ?', [date]);
+    assert.equal((await database.getFirstAsync('SELECT birth_date FROM local_profiles')).birth_date, date);
+  }
+  for (const date of ['1899-12-31', '2101-01-01', 'abcd-01-01']) {
+    await assert.rejects(() => database.runAsync('UPDATE local_profiles SET birth_date = ?', [date]), /CHECK/);
+  }
+});
+
+test('version 8 rolls back a failed rebuild and preserves weather and recommendation references on retry', async (t) => {
+  const database = new NodeSqliteDatabase();
+  t.after(() => database.close());
+  await createVersionSevenDatabase(database);
+  await insertProfile(database);
+  await database.execAsync(`
+    INSERT INTO active_locations VALUES ('stable-profile-id', 'manual:sample', 'manual', 'sample', 0, 0, 'UTC', NULL, '${timestamp}', '${timestamp}');
+    INSERT INTO weather_snapshots VALUES ('weather', 'stable-profile-id', 'manual:sample', 'UTC', '${timestamp}', '${timestamp}', 'sample', 'test', 20, 20, 19, 21, 'clear', 0, 0, 0.5, 0);
+    INSERT INTO weather_hourly_entries VALUES ('weather', '${timestamp}', 20, 20, 'clear', 0, 0, 0.5, 0);
+    INSERT INTO recommendation_snapshots VALUES ('recommendation', 'stable-profile-id', 'weather', 'manual:sample', 'deterministic-fallback', '{}', '[]', '${timestamp}', '${timestamp}');
+  `);
+  const tables = ['local_profiles', 'active_locations', 'weather_snapshots', 'weather_hourly_entries', 'recommendation_snapshots'];
+  const before = await Promise.all(tables.map((table) => database.getAllAsync(`SELECT * FROM ${table}`)));
+  const failingDatabase = {
+    execAsync: database.execAsync.bind(database),
+    getFirstAsync: database.getFirstAsync.bind(database),
+    withExclusiveTransactionAsync: (task) => database.withExclusiveTransactionAsync((transaction) => task({
+      execAsync: async (sql) => {
+        await transaction.execAsync(sql);
+        if (sql.includes('ALTER TABLE local_profiles_v8')) throw new Error('failed after rebuild');
+      },
+      runAsync: transaction.runAsync.bind(transaction),
+      getFirstAsync: transaction.getFirstAsync.bind(transaction),
+      getAllAsync: transaction.getAllAsync.bind(transaction),
+    })),
+  };
+  await assert.rejects(() => migrateDatabase(failingDatabase), /failed after rebuild/);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 7);
+  assert.equal((await database.getFirstAsync('PRAGMA foreign_keys')).foreign_keys, 1);
+  assert.equal((await database.getFirstAsync('PRAGMA defer_foreign_keys')).defer_foreign_keys, 0);
+  assert.deepEqual(await Promise.all(tables.map((table) => database.getAllAsync(`SELECT * FROM ${table}`))), before);
+  await migrateDatabase(database);
+  assert.deepEqual(await Promise.all(tables.slice(1).map((table) => database.getAllAsync(`SELECT * FROM ${table}`))), before.slice(1));
+  assert.deepEqual(await database.getAllAsync('PRAGMA foreign_key_check'), []);
 });
