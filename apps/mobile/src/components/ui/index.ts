@@ -9,6 +9,11 @@ export { PhotoPlaceholder, type PhotoPlaceholderProps } from './photo-placeholde
 export { Pill, type PillProps } from './pill';
 export { Screen, type ScreenProps } from './screen';
 export { SectionHeader, type SectionHeaderProps } from './section-header';
+export {
+  SegmentedControl,
+  type SegmentedControlOption,
+  type SegmentedControlProps,
+} from './segmented-control';
 export { Surface, type SurfaceProps } from './surface';
 export { StretchyHeader, type StretchyHeaderProps } from './stretchy-header';
 export type { ButtonVariant, PillTone, SurfaceVariant } from './primitive-contracts';

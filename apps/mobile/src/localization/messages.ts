@@ -7,6 +7,7 @@ import type {
   ManualLocationId,
   WeatherConditionCode as LiveWeatherConditionCode,
 } from '@/features/weather/domain/weather';
+import type { StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import {
   catalogMessages,
   type CatalogMessages,
@@ -293,6 +294,11 @@ export type AppMessages = Readonly<{
     itemWantedLabel: string;
     wantedEmptyTitle: string;
     wantedEmptyBody: string;
+    // ADR 0029 section 2: new plural chip strings for the Closet's category filter. The
+    // catalogue's singular attribute labels (`catalog.attribute.structural_category.*`)
+    // stay for the type picker and the tile subline.
+    categoryFilterAll: string;
+    categoryFilterLabels: Readonly<Record<StructuralCategory, string>>;
     newTitle: string;
     editTitle: string;
     backAction: string;
@@ -569,6 +575,15 @@ const en = {
     itemWantedLabel: 'Wanted',
     wantedEmptyTitle: 'No wanted items yet',
     wantedEmptyBody: 'Add pieces you would like to keep track of here.',
+    categoryFilterAll: 'All',
+    categoryFilterLabels: {
+      top: 'Tops',
+      bottom: 'Bottoms',
+      one_piece: 'One-piece',
+      outerwear: 'Outerwear',
+      footwear: 'Shoes',
+      accessory: 'Accessories',
+    },
     newTitle: 'Add closet item',
     editTitle: 'Edit closet item',
     backAction: 'Back to closet',
@@ -947,11 +962,23 @@ const tr = {
     itemAccessibilityLabel: ({ name, type, category, color, state }) =>
       [name, type, category, color, state].filter(Boolean).join('. '),
     ownedLabel: 'Sahip olduklarım',
-    wantedLabel: 'İstediklerim',
+    // ADR 0028 section 5: the twelve-letter "İstediklerim" could not fit the label
+    // column at fontScale 3.118. The Profile lane already unified profile.wantedLabel;
+    // this closes the same key here so the two screens cannot drift again.
+    wantedLabel: 'İstekler',
     itemOwnedLabel: 'Sahip olunan',
     itemWantedLabel: 'İstenen',
     wantedEmptyTitle: 'İstenen parça yok',
     wantedEmptyBody: 'Takip etmek istediğiniz parçaları buraya ekleyin.',
+    categoryFilterAll: 'Tümü',
+    categoryFilterLabels: {
+      top: 'Üstler',
+      bottom: 'Altlar',
+      one_piece: 'Tek parçalar',
+      outerwear: 'Dış giyim',
+      footwear: 'Ayakkabılar',
+      accessory: 'Aksesuarlar',
+    },
     newTitle: 'Gardırop parçası ekle',
     editTitle: 'Gardırop parçasını düzenle',
     backAction: 'Gardıroba dön',
