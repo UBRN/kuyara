@@ -15,12 +15,15 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 
 // ADR 0028 section 2, the list-row anatomy, and section 3, its text scaling. This is the
 // shared row and group primitive that Profile, the Closet and Settings adopt unchanged;
+// `labelWeight` is the one exception, added for Profile's Location row, whose label is
+// `bodyStrong` rather than the anatomy's default `body` (section 1 item 5).
 // no feature screen is composed here.
 const CHEVRON_BASE_SIZE = 20;
 
 export type ListRowProps = Readonly<{
   glyph: ListRowTileGlyph;
   label: string;
+  labelWeight?: 'body' | 'bodyStrong';
   supportingText?: string;
   value?: string;
   valueTabular?: boolean;
@@ -33,6 +36,7 @@ export function ListRow({
   accessibilityLabel,
   glyph,
   label,
+  labelWeight = 'body',
   onPress,
   supportingText,
   testID,
@@ -48,7 +52,7 @@ export function ListRow({
       <ListRowTile glyph={glyph} testID={testID ? `${testID}-tile` : undefined} />
       <View style={styles.textColumn}>
         <View style={styles.labelLine} testID={testID ? `${testID}-label-line` : undefined}>
-          <AppText style={styles.label} variant="body">
+          <AppText style={styles.label} variant={labelWeight}>
             {label}
           </AppText>
           {!usesStackedLayout && value ? (

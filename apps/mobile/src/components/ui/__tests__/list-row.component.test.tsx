@@ -149,6 +149,28 @@ test('a kuyara-drawn group is a hairline outline in light and the Night Layer su
   expect(darkStyle.borderWidth).toBe(0);
 });
 
+test('labelWeight renders the label at body by default and bodyStrong when requested, for ADR 0028 section 1\'s Location row', async () => {
+  mockFontScale(1);
+
+  const result = await render(
+    <TestProviders>
+      <ListRow glyph={locationGlyph} label="Wanted" testID="default-row" />
+      <ListRow glyph={locationGlyph} label="Istanbul" labelWeight="bodyStrong" testID="strong-row" />
+    </TestProviders>,
+  );
+
+  const defaultLabel = StyleSheet.flatten(
+    result.getByText('Wanted').props.style,
+  );
+  const strongLabel = StyleSheet.flatten(
+    result.getByText('Istanbul').props.style,
+  );
+
+  expect(defaultLabel.fontWeight).toBe(lightTheme.typography.body.fontWeight);
+  expect(strongLabel.fontWeight).toBe(lightTheme.typography.bodyStrong.fontWeight);
+  expect(strongLabel.fontSize).toBe(lightTheme.typography.bodyStrong.fontSize);
+});
+
 test('the group heading is sentence case bodyStrong in textSecondary and exposes heading semantics', async () => {
   mockFontScale(1);
 
