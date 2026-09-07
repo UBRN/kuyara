@@ -2,6 +2,7 @@ import { Host as UniversalHost, Icon as ExpoIcon, List as UniversalList, ListIte
 import { listStyle, scrollContentBackground, tint } from '@expo/ui/swift-ui/modifiers';
 import type { ReactElement, ReactNode } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/ui/app-text';
 import { Icon } from '@/components/ui/icon';
@@ -23,9 +24,13 @@ export type NativeListProps = Readonly<{ children: ReactNode; testID?: string }>
 export function NativeList({ children, testID }: NativeListProps) {
   const theme = useKuyaraTheme();
   const colorScheme = theme.isDark ? 'dark' : 'light';
+  // The same bottom safe-area rule Screen applies: the list is the screen's scroll container.
+  const safeAreaInsets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.root, { backgroundColor: theme.colors.background }]} testID={testID}>
+    <View
+      style={[styles.root, { backgroundColor: theme.colors.background, paddingBottom: safeAreaInsets.bottom }]}
+      testID={testID}>
       {swiftUI ? (
         <swiftUI.Host colorScheme={colorScheme} style={styles.root} useViewportSizeMeasurement>
           <swiftUI.List modifiers={[
