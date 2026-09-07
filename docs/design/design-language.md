@@ -277,11 +277,12 @@ not panic; both are forms of demanding attention, which the identity forbids.
   `GarmentSlotGlyph` (bundled monochrome artwork). A third family requires an ADR.
   [ADR 0025](../adr/0025-the-garment-board-composition-rule.md) extends
   `GarmentSlotGlyph` to per-type garment silhouettes rather than adding a third family:
-  the six structural categories become that family's fallback tier. **That family
-  currently fails the one-idiom bullet below**, because the shipped category glyphs are
-  drawn far heavier than the silhouettes, measured at 1.86x the ink of a silhouette
-  anchor beside them. The failure is recorded, not waived, and the redraw is sequenced
-  as its own work.
+  the six structural categories become that family's fallback tier. That family
+  failed the one-idiom bullet below until 2026-09-07, because the shipped category glyphs
+  were drawn far heavier than the silhouettes, measured at 1.86x the ink of a silhouette
+  anchor beside them. The six were redrawn in the silhouette idiom that day (ADR 0025's
+  consequences record the measurement and the optical raster weight for the 20 to 28
+  point display class).
 - **A single icon family is drawn in one idiom.** A set may not mix a platform symbol
   source with a bundled one: a set that is three-quarters one idiom and one-quarter the
   other reads as unfinished, even when the mixed-in glyphs are individually correct.
