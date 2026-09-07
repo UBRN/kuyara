@@ -145,7 +145,6 @@ const styles = StyleSheet.create({
   },
   content: {
     gap: spacing.md,
-    paddingBottom: spacing['2xl'],
   },
   groupCard: {
     padding: spacing.lg,
