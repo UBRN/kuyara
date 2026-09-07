@@ -17,6 +17,43 @@ jest.mock('expo-symbols', () => ({
   SymbolView: () => null,
 }));
 
+// The native control layer (ADR 0019) renders native views that do not mount under
+// Jest, and the wrapper already has its own coverage in
+// `components/ui/__tests__/segmented-control.component.test.tsx`. This screen test
+// mocks the wrapper itself rather than its native dependency, which also keeps
+// `features/` clear of that dependency's name, the boundary this repository greps for.
+jest.mock('@/components/ui/segmented-control', () => {
+  const { Pressable: MockPressable, View: MockView } = jest.requireActual('react-native');
+
+  function MockSegmentedControl({
+    onChange,
+    options,
+    testID,
+    value,
+  }: Readonly<{
+    onChange: (value: string) => void;
+    options: readonly Readonly<{ label: string; value: string }>[];
+    testID?: string;
+    value: string;
+  }>) {
+    return (
+      <MockView testID={testID}>
+        {options.map((option, index) => (
+          <MockPressable
+            accessibilityRole="button"
+            accessibilityState={{ selected: option.value === value }}
+            key={option.value}
+            onPress={() => onChange(option.value)}
+            testID={testID ? `${testID}-segment-${index}` : undefined}
+          />
+        ))}
+      </MockView>
+    );
+  }
+
+  return { SegmentedControl: MockSegmentedControl };
+});
+
 jest.mock('expo-router', () => {
   const push = jest.fn();
   const back = jest.fn();
@@ -111,37 +148,25 @@ beforeEach(() => {
   mockPush.mockClear();
 });
 
-test('empty and populated add actions navigate to the absolute new-item route', async () => {
-  const empty = await renderRoute([]);
-  await fireEvent.press(empty.getByTestId('wardrobe-empty-add-button'));
-  expect(mockPush).toHaveBeenLastCalledWith('/wardrobe/new');
-  await empty.unmount();
-
-  const populated = await renderRoute([item]);
-  await fireEvent.press(populated.getByTestId('wardrobe-add-button'));
+// The plus bar button that replaces this action lives in the route file's
+// `Stack.Screen` `headerRight`, not in `WardrobeListRoute`'s own tree, exactly as
+// `profile.tsx`'s settings gear is untested at the route level; only the empty state's
+// own "Add a piece" button is this component's to test.
+test('the empty state add action navigates to the absolute new-item route', async () => {
+  const result = await renderRoute([]);
+  await fireEvent.press(result.getByTestId('wardrobe-empty-add-button'));
   expect(mockPush).toHaveBeenLastCalledWith('/wardrobe/new');
 });
 
 test('selecting an item navigates to its absolute edit route', async () => {
   const result = await renderRoute([item]);
-  const row = result.getByTestId(`wardrobe-item-${item.id}`);
-  expect(row.props.accessibilityLabel).toBe(
-    messages.en.wardrobe.itemAccessibilityLabel({
-      name: item.name,
-      type: messages.en.catalog['catalog.garment_type.rain_jacket.name'],
-      category: messages.en.catalog['catalog.attribute.structural_category.outerwear'],
-      color: messages.en.catalog['catalog.color_family.blue'],
-      state: messages.en.wardrobe.itemOwnedLabel,
-    }),
+  const tile = result.getByTestId(`wardrobe-item-${item.id}`);
+  // ADR 0029 section 1: the user's own name, then the type as the subline.
+  expect(tile.props.accessibilityLabel).toBe(
+    `${item.name}. ${messages.en.catalog['catalog.garment_type.rain_jacket.name']}`,
   );
-  await fireEvent.press(row);
+  await fireEvent.press(tile);
   expect(mockPush).toHaveBeenCalledWith(`/wardrobe/${item.id}`);
-});
-
-test('header back affordance returns to Profile', async () => {
-  const result = await renderRoute([item]);
-  await fireEvent.press(result.getByTestId('wardrobe-back-button'));
-  expect(mockBack).toHaveBeenCalledTimes(1);
 });
 
 test('an initial entry state, passed by the route for ADR 0028\'s Wanted row, selects that filter on first render', async () => {
@@ -152,6 +177,10 @@ test('an initial entry state, passed by the route for ADR 0028\'s Wanted row, se
     </TestProviders>,
   );
 
-  expect(result.getByTestId('wardrobe-filter-wanted').props.accessibilityState.selected).toBe(true);
-  expect(result.getByTestId('wardrobe-filter-owned').props.accessibilityState.selected).toBe(false);
+  expect(
+    result.getByTestId('wardrobe-entry-filter-segment-1').props.accessibilityState.selected,
+  ).toBe(true);
+  expect(
+    result.getByTestId('wardrobe-entry-filter-segment-0').props.accessibilityState.selected,
+  ).toBe(false);
 });

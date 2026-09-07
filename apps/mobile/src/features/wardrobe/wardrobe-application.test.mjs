@@ -173,7 +173,10 @@ test('wardrobe routes remain thin, virtualized, and free of SQLite or SQL access
   const persistenceAccess = /expo-sqlite|\bSELECT\s+.+\s+FROM\b|\bINSERT\s+INTO\b|\bUPDATE\s+wardrobe_items\b/i;
   assert.doesNotMatch(routeSources, persistenceAccess);
   assert.doesNotMatch(presentationSources, persistenceAccess);
-  assert.match(list, /<Animated\.FlatList/);
+  // ADR 0029: the Closet grid drops the scroll-linked `StretchyHeader` animation for a
+  // native large title, so the list no longer needs Reanimated's `Animated.FlatList`
+  // wrapper; a plain `FlatList` is still virtualized, which is this assertion's intent.
+  assert.match(list, /<FlatList/);
   assert.match(routeComposition, /beforeRemove/);
   assert.match(routeComposition, /discardTitle/);
   assert.match(routeComposition, /garmentCatalog\.garmentTypes/);
