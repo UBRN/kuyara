@@ -238,3 +238,15 @@ test('ListRow and ListRowGroup use semantic tokens for the leading tile, separat
   assert.doesNotMatch(listRowSource, /#[0-9a-fA-F]{6}/);
   assert.doesNotMatch(listRowTileSource, /#[0-9a-fA-F]{6}/);
 });
+
+test('Pill keeps its label on the caption role instead of a compact literal scale (Law 5)', async () => {
+  const pillSource = await source('./pill.tsx');
+
+  assert.match(pillSource, /variant="caption"/);
+  assert.doesNotMatch(
+    pillSource,
+    /\b(fontSize|lineHeight)\s*:\s*-?\d/,
+    'pill.tsx declares a literal fontSize/lineHeight; Law 5 allows nothing below caption 13',
+  );
+  assert.ok(typography.caption.fontSize >= 13);
+});
