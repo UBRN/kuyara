@@ -10,7 +10,7 @@ type Migration = Readonly<{
   migrate: (database: SqliteExecutor) => Promise<void>;
 }>;
 
-export const latestDatabaseVersion = 8;
+export const latestDatabaseVersion = 9;
 
 const migrationV1: Migration = {
   version: 1,
@@ -294,6 +294,22 @@ const migrationV8: Migration = {
   },
 };
 
+const migrationV9: Migration = {
+  version: 9,
+  async migrate(database) {
+    await database.execAsync(`
+      ALTER TABLE active_locations ADD COLUMN display_name TEXT CHECK (
+        display_name IS NULL OR length(trim(display_name)) BETWEEN 1 AND 200
+      );
+      UPDATE active_locations SET display_name = CASE manual_catalog_id
+        WHEN 'sample.istanbul' THEN 'Istanbul'
+        WHEN 'sample.ankara' THEN 'Ankara'
+        WHEN 'sample.london' THEN 'London'
+      END WHERE source = 'manual';
+    `);
+  },
+};
+
 const migrations = [
   migrationV1,
   migrationV2,
@@ -303,6 +319,7 @@ const migrations = [
   migrationV6,
   migrationV7,
   migrationV8,
+  migrationV9,
 ] as const satisfies readonly Migration[];
 
 async function readUserVersion(database: SqliteExecutor): Promise<number> {

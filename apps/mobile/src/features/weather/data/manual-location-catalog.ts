@@ -7,6 +7,7 @@ import {
 
 function location(
   catalogId: ManualLocationId,
+  displayName: string,
   latitude: number,
   longitude: number,
   timeZone: string,
@@ -14,6 +15,7 @@ function location(
   return Object.freeze({
     source: 'manual',
     catalogId,
+    displayName,
     locationKey: manualLocationKey(catalogId),
     coordinates: Object.freeze(normalizeCoordinates(latitude, longitude)),
     timeZone,
@@ -21,9 +23,9 @@ function location(
 }
 
 export const manualLocationCatalog = Object.freeze([
-  location('sample.istanbul', 41.01, 28.98, 'Europe/Istanbul'),
-  location('sample.ankara', 39.93, 32.86, 'Europe/Istanbul'),
-  location('sample.london', 51.51, -0.13, 'Europe/London'),
+  location('sample.istanbul', 'Istanbul', 41.01, 28.98, 'Europe/Istanbul'),
+  location('sample.ankara', 'Ankara', 39.93, 32.86, 'Europe/Istanbul'),
+  location('sample.london', 'London', 51.51, -0.13, 'Europe/London'),
 ] as const);
 
 export function getManualLocation(id: ManualLocationId): ManualActiveLocation | null {
