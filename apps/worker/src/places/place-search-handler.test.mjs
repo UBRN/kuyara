@@ -20,7 +20,8 @@ test('search maps upstream fields, coarse coordinates and attribution with one b
     calls++;
     assert.equal(url.origin, 'https://geocoding-api.open-meteo.com');
     assert.deepEqual(Object.fromEntries(url.searchParams), { name: 'İzmir', count: '5', language: 'tr', format: 'json' });
-    assert.equal(init.redirect, 'error');
+    // 'manual', not 'error': workerd rejects 'error' before any network call (found live, 2026-09-08).
+    assert.equal(init.redirect, 'manual');
     return Response.json(raw);
   }, { limit: async ({ key }) => { assert.equal(key, 'weather:192.0.2.1'); return { success: true }; } });
   const result = await handle(request());
