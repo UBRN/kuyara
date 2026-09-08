@@ -12,7 +12,7 @@ export default function ProfileRoute() {
   const activeLocation = state.status === 'ready' ? state.activeLocation : null;
   const activePlaceName = activeLocation
     ? activeLocation.source === 'manual'
-      ? messages.weather.locations[activeLocation.catalogId]
+      ? activeLocation.displayName
       : messages.weather.currentLocation
     : null;
 

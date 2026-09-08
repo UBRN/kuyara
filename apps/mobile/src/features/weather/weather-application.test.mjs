@@ -154,6 +154,55 @@ async function settle() {
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+const searchedPlace = {
+  id: 'place.745044', displayName: 'İstanbul', region: 'İstanbul, Türkiye',
+  latitudeE2: 4101, longitudeE2: 2898, timeZone: 'Europe/Istanbul',
+};
+
+test('a searched place persists its name and normalized identity through the existing selection path', async () => {
+  const active = getManualLocation('sample.london');
+  const harness = createHarness({ active, snapshots: [snapshotFor(active, '2026-07-30T10:00:00.000Z')] });
+  await harness.controller.initialize();
+  const states = [];
+  harness.controller.subscribe(() => states.push(harness.controller.getSnapshot()));
+  await harness.controller.selectPlaceSearchResult(searchedPlace);
+  await settle();
+  const expected = {
+    source: 'manual', catalogId: searchedPlace.id, locationKey: 'manual:place.745044',
+    displayName: 'İstanbul', coordinates: { latitudeE2: 4101, longitudeE2: 2898 },
+    timeZone: 'Europe/Istanbul',
+  };
+  assert.deepEqual(await harness.repository.getActiveLocation(), expected);
+  assert.deepEqual(harness.controller.getSnapshot().activeLocation, expected);
+  assert.ok(states.some((state) => state.activeLocation?.catalogId === searchedPlace.id && state.snapshot === null));
+  assert.equal(harness.controller.getSnapshot().snapshot.locationKey, expected.locationKey);
+  assert.equal(harness.calls.provider, 1);
+});
+
+test('a searched place without a time zone leaves the persisted location and snapshot untouched', async () => {
+  const active = getManualLocation('sample.istanbul');
+  const snapshot = snapshotFor(active, '2026-07-30T10:00:00.000Z');
+  const harness = createHarness({ active, snapshots: [snapshot] });
+  await harness.controller.initialize();
+  await harness.controller.selectPlaceSearchResult({ ...searchedPlace, timeZone: null });
+  assert.deepEqual(await harness.repository.getActiveLocation(), active);
+  assert.deepEqual(harness.controller.getSnapshot().snapshot, snapshot);
+  assert.equal(harness.calls.provider, 0);
+});
+
+test('a failed searched-place save preserves the active location and last snapshot', async () => {
+  const active = getManualLocation('sample.london');
+  const snapshot = snapshotFor(active, '2026-07-30T10:00:00.000Z');
+  const harness = createHarness({ active, snapshots: [snapshot] });
+  await harness.controller.initialize();
+  harness.repository.setActiveLocation = async () => { throw new Error('storage failure'); };
+  await harness.controller.selectPlaceSearchResult(searchedPlace);
+  assert.deepEqual(harness.controller.getSnapshot().activeLocation, active);
+  assert.deepEqual(harness.controller.getSnapshot().snapshot, snapshot);
+  assert.equal(harness.controller.getSnapshot().locationFlow, 'selection-failed');
+  assert.equal(harness.calls.provider, 0);
+});
+
 test('bootstrap with no active location never requests permission or weather', async () => {
   const { controller, calls } = createHarness();
   await controller.initialize();

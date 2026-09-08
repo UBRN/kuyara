@@ -1,3 +1,5 @@
+import type { PlaceSearchResult } from '@kuyara/contracts';
+
 import type {
   DeviceLocationGateway,
   LocationPermissionState,
@@ -12,6 +14,9 @@ import {
   type WeatherProvider,
 } from '@/features/weather/data/weather-provider';
 import {
+  isManualLocationId,
+  manualLocationKey,
+  normalizeCoordinates,
   weatherFreshness,
   type ActiveLocation,
   type ManualLocationId,
@@ -150,6 +155,19 @@ export class WeatherApplicationController {
     const location = getManualLocation(id);
     if (!location) return;
     await this.selectLocation(location);
+  }
+
+  async selectPlaceSearchResult(place: PlaceSearchResult): Promise<void> {
+    if (place.timeZone === null || !isManualLocationId(place.id)) return;
+    if (this.requireReady().isSelectingLocation) return;
+    await this.selectLocation({
+      source: 'manual',
+      catalogId: place.id,
+      locationKey: manualLocationKey(place.id),
+      displayName: place.displayName,
+      coordinates: normalizeCoordinates(place.latitudeE2 / 100, place.longitudeE2 / 100),
+      timeZone: place.timeZone,
+    });
   }
 
   refresh(): Promise<void> {
