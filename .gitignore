@@ -37,3 +37,4 @@ apps/worker/**/*.pfx
 # Per-machine agent settings
 .claude/settings.local.json
 .claude/worktrees/
+.claude/launch.json
