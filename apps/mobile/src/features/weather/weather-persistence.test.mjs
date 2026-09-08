@@ -91,7 +91,7 @@ test('migration v4 enforces one active location and maps manual and device varia
   const { database, repository } = await setup();
   t.after(() => database.close());
   const version = await database.getFirstAsync('PRAGMA user_version');
-  assert.equal(version.user_version, 8);
+  assert.equal(version.user_version, 9);
 
   const istanbul = getManualLocation('sample.istanbul');
   const manual = await repository.setActiveLocation(profileId, istanbul);
@@ -106,7 +106,7 @@ test('migration v4 enforces one active location and maps manual and device varia
   const rows = await database.getAllAsync('SELECT local_profile_id, source FROM active_locations');
   assert.deepEqual(rows.map((row) => ({ ...row })), [{ local_profile_id: profileId, source: 'device' }]);
   await assert.rejects(() => database.runAsync(
-    `INSERT INTO active_locations VALUES (?, 'bad', 'device', 'sample.istanbul', 0, 0, 'UTC', NULL, ?, ?)`,
+    `INSERT INTO active_locations VALUES (?, 'bad', 'device', 'sample.istanbul', 0, 0, 'UTC', NULL, ?, ?, NULL)`,
     [profileId, '2026-07-30T10:00:00.000Z', '2026-07-30T10:00:00.000Z'],
   ));
 });
@@ -185,4 +185,40 @@ test('repository rejects mismatched location keys and hourly rows outside the lo
     () => repository.saveSnapshot(profileId, invalidSnapshot),
     (error) => error instanceof WeatherRepositoryError && error.code === 'invalid-input',
   );
+});
+
+test('searched place identity and display name survive a repository reload and switching locations', async (t) => {
+  const { database, repository } = await setup();
+  t.after(() => database.close());
+  const place = {
+    source: 'manual', catalogId: 'place.311046', displayName: 'İzmir',
+    locationKey: 'manual:place.311046', coordinates: { latitudeE2: 3841, longitudeE2: 2714 }, timeZone: 'Europe/Istanbul',
+  };
+  assert.deepEqual(await repository.setActiveLocation(profileId, place), place);
+  await repository.saveSnapshot(profileId, provided(place, '2026-07-30T10:00:00.000Z'));
+  const reloaded = new LocalWeatherRepository(new SqliteWeatherLocalDataSource(database), { createId: () => secondId, now: () => '2026-07-30T11:00:00.000Z' });
+  assert.deepEqual(await reloaded.getActiveLocation(profileId), place);
+  await reloaded.setActiveLocation(profileId, getManualLocation('sample.london'));
+  assert.equal((await reloaded.getSnapshot(profileId, place.locationKey)).locationKey, place.locationKey);
+  await reloaded.setActiveLocation(profileId, place);
+  assert.deepEqual(await reloaded.getActiveLocation(profileId), place);
+});
+
+test('invalid manual ids, names and coordinates fail before writing and corrupt rows fail on read', async (t) => {
+  const { database, repository } = await setup();
+  t.after(() => database.close());
+  const original = getManualLocation('sample.istanbul');
+  await repository.setActiveLocation(profileId, original);
+  for (const patch of [
+    { catalogId: 'place.01', locationKey: 'manual:place.01' },
+    { displayName: ' ' }, { displayName: 'x'.repeat(201) },
+    { coordinates: { latitudeE2: 1.5, longitudeE2: 0 } },
+  ]) {
+    await assert.rejects(() => repository.setActiveLocation(profileId, { ...original, ...patch }), (error) => error.code === 'invalid-input');
+    assert.deepEqual(await repository.getActiveLocation(profileId), original);
+  }
+  await database.runAsync("UPDATE active_locations SET manual_catalog_id = 'bad', location_key = 'manual:bad'");
+  await assert.rejects(() => repository.getActiveLocation(profileId), (error) => error.code === 'invalid-data');
+  await database.runAsync("UPDATE active_locations SET manual_catalog_id = 'place.1', location_key = 'manual:place.1', display_name = NULL");
+  await assert.rejects(() => repository.getActiveLocation(profileId), (error) => error.code === 'invalid-data');
 });

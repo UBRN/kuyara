@@ -18,6 +18,7 @@ const weatherBody = {
 
 function router({ aiReady = true, providers = [] } = {}) {
   return createRouter({
+    placeSearchHandler: async () => Response.json({ data: { places: [], attribution: ['open-meteo', 'geonames'] } }),
     weatherHandler: createWeatherHandler({
       provider: new DeterministicMockWeatherProvider({ now: () => fixedNow }),
     }),

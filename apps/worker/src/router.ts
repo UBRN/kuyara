@@ -7,12 +7,14 @@ import {
   healthV1Path,
   healthV1SuccessSchema,
   weatherV1Path,
+  placeSearchV1Path,
   type AiV1ErrorCode,
 } from '@kuyara/contracts';
 
 type Handler = (request: Request) => Promise<Response>;
 type Dependencies = Readonly<{
   weatherHandler: Handler;
+  placeSearchHandler: Handler;
   aiHandler: Handler;
   probeHandler: Handler;
   aiReady: boolean;
@@ -37,12 +39,14 @@ function errorResponse(
 
 export function createRouter({
   weatherHandler,
+  placeSearchHandler,
   aiHandler,
   probeHandler,
   aiReady,
 }: Dependencies): Handler {
   return async (request: Request): Promise<Response> => {
     const pathname = new URL(request.url).pathname;
+    if (pathname === placeSearchV1Path) return placeSearchHandler(request);
     if (pathname === weatherV1Path) return weatherHandler(request);
     if (pathname === aiRecommendV1Path) return aiHandler(request);
     if (pathname === aiProbeV1Path) return probeHandler(request);

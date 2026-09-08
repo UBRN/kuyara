@@ -72,6 +72,7 @@ export const todayWeatherSnapshot = Object.freeze({
 export const todayActiveLocation = Object.freeze({
   source: 'manual',
   catalogId: 'sample.istanbul',
+  displayName: 'Istanbul',
   locationKey: 'manual:sample.istanbul',
   coordinates: Object.freeze({ latitudeE2: 4101, longitudeE2: 2898 }),
   timeZone: 'Europe/Istanbul',

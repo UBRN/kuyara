@@ -1,3 +1,5 @@
+import { locationDisplayNameSchema } from '@kuyara/contracts';
+
 import type { WeatherLocalDataSource } from '@/features/weather/data/weather-local-data-source';
 import type {
   ActiveLocationRecord,
@@ -8,11 +10,11 @@ import type { ProvidedWeatherSnapshot } from '@/features/weather/data/weather-pr
 import {
   deviceLocationKey,
   isValidTimeZone,
+  isManualLocationId,
   isWeatherConditionCode,
   manualLocationKey,
   type ActiveLocation,
   type HourlyWeather,
-  type ManualLocationId,
   type WeatherMeasurements,
   type WeatherSnapshot,
   WeatherValidationError,
@@ -86,15 +88,15 @@ function mapLocation(record: ActiveLocationRecord): ActiveLocation {
     timeZone: record.timeZone,
   };
   if (record.source === 'manual' && record.manualCatalogId && record.deviceAccuracy === null) {
-    if (!['sample.istanbul', 'sample.ankara', 'sample.london'].includes(record.manualCatalogId)) {
+    if (!isManualLocationId(record.manualCatalogId) || !locationDisplayNameSchema.safeParse(record.displayName).success) {
       throw new WeatherMappingError();
     }
-    const catalogId = record.manualCatalogId as ManualLocationId;
+    const catalogId = record.manualCatalogId;
     if (record.locationKey !== manualLocationKey(catalogId)) throw new WeatherMappingError();
-    return { ...common, source: 'manual', catalogId };
+    return { ...common, source: 'manual', catalogId, displayName: locationDisplayNameSchema.parse(record.displayName) };
   }
   if (
-    record.source === 'device' && record.manualCatalogId === null &&
+    record.source === 'device' && record.manualCatalogId === null && record.displayName === null &&
     (record.deviceAccuracy === 'approximate' || record.deviceAccuracy === 'full')
   ) {
     if (record.locationKey !== deviceLocationKey(common.coordinates)) throw new WeatherMappingError();
@@ -238,6 +240,13 @@ export class LocalWeatherRepository implements WeatherRepository {
       if (!localProfileId || !location.locationKey || !isValidTimeZone(location.timeZone)) {
         throw new WeatherValidationError();
       }
+      if (location.source === 'manual' && (
+        !isManualLocationId(location.catalogId) || !locationDisplayNameSchema.safeParse(location.displayName).success
+      )) throw new WeatherValidationError();
+      if (
+        !Number.isInteger(location.coordinates.latitudeE2) || Math.abs(location.coordinates.latitudeE2) > 9000 ||
+        !Number.isInteger(location.coordinates.longitudeE2) || Math.abs(location.coordinates.longitudeE2) > 18000
+      ) throw new WeatherValidationError();
       const expectedLocationKey = location.source === 'manual'
         ? manualLocationKey(location.catalogId)
         : deviceLocationKey(location.coordinates);
@@ -250,6 +259,7 @@ export class LocalWeatherRepository implements WeatherRepository {
         locationKey: location.locationKey,
         source: location.source,
         manualCatalogId: location.source === 'manual' ? location.catalogId : null,
+        displayName: location.source === 'manual' ? locationDisplayNameSchema.parse(location.displayName) : null,
         latitudeE2: location.coordinates.latitudeE2,
         longitudeE2: location.coordinates.longitudeE2,
         timeZone: location.timeZone,

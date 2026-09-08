@@ -17,6 +17,7 @@ type ActiveLocationRow = Readonly<{
   location_key: string;
   source: string;
   manual_catalog_id: string | null;
+  display_name: string | null;
   latitude_e2: number;
   longitude_e2: number;
   time_zone: string;
@@ -62,6 +63,7 @@ function mapLocation(row: ActiveLocationRow): ActiveLocationRecord {
     locationKey: row.location_key,
     source: row.source,
     manualCatalogId: row.manual_catalog_id,
+    displayName: row.display_name,
     latitudeE2: row.latitude_e2,
     longitudeE2: row.longitude_e2,
     timeZone: row.time_zone,
@@ -152,12 +154,13 @@ export class SqliteWeatherLocalDataSource implements WeatherLocalDataSource {
       await transaction.runAsync(
         `INSERT INTO active_locations (
           local_profile_id, location_key, source, manual_catalog_id, latitude_e2,
-          longitude_e2, time_zone, device_accuracy, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          longitude_e2, time_zone, device_accuracy, created_at, updated_at, display_name
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(local_profile_id) DO UPDATE SET
           location_key = excluded.location_key,
           source = excluded.source,
           manual_catalog_id = excluded.manual_catalog_id,
+          display_name = excluded.display_name,
           latitude_e2 = excluded.latitude_e2,
           longitude_e2 = excluded.longitude_e2,
           time_zone = excluded.time_zone,
@@ -166,7 +169,7 @@ export class SqliteWeatherLocalDataSource implements WeatherLocalDataSource {
         [
           record.localProfileId, record.locationKey, record.source,
           record.manualCatalogId, record.latitudeE2, record.longitudeE2,
-          record.timeZone, record.deviceAccuracy, record.createdAt, record.updatedAt,
+          record.timeZone, record.deviceAccuracy, record.createdAt, record.updatedAt, record.displayName,
         ],
       );
       result = await readLocation(transaction, record.localProfileId);
