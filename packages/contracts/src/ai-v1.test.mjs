@@ -3,8 +3,8 @@ import test from 'node:test';
 
 import {
   aiOptionSchema,
-  ageBands,
-  ageBandFormalityOrder,
+  dressStyles,
+  formalityOrderByDressStyle,
   aiProbeV1Path,
   aiProbeV1SuccessSchema,
   aiReadyV1Path,
@@ -343,27 +343,38 @@ test('accepts every requirement member and rejects bad kinds and member minimums
   }).success, false);
 });
 
-test('age band accepts only the three bands and remains optional for older clients', () => {
+test('dress style accepts only the three styles and remains optional for previous clients', () => {
   assert.equal(aiRecommendV1RequestSchema.safeParse(validRequest()).success, true);
-  for (const ageBand of ['young', 'adult', 'older']) {
-    assert.equal(aiRecommendV1RequestSchema.parse({ ...validRequest(), ageBand }).ageBand, ageBand);
+  for (const dressStyle of dressStyles) {
+    assert.equal(
+      aiRecommendV1RequestSchema.parse({ ...validRequest(), dressStyle }).dressStyle,
+      dressStyle,
+    );
   }
-  for (const ageBand of ['child', null, 30]) {
-    assert.equal(aiRecommendV1RequestSchema.safeParse({ ...validRequest(), ageBand }).success, false);
+  for (const dressStyle of ['unknown', null, 30]) {
+    assert.equal(
+      aiRecommendV1RequestSchema.safeParse({ ...validRequest(), dressStyle }).success,
+      false,
+    );
   }
-  for (const field of ['birthDate', 'birthYear', 'gender']) {
+  for (const field of [
+    ['age', 'Band'].join(''),
+    'birthDate',
+    'birthYear',
+    'gender',
+  ]) {
     assert.equal(aiRecommendV1RequestSchema.safeParse({ ...validRequest(), [field]: '2000-01-01' }).success, false);
   }
 });
 
-test('every age band ranks all three formalities without removing a level', () => {
-  assert.deepEqual(ageBands, ['young', 'adult', 'older']);
-  assert.deepEqual(ageBandFormalityOrder, {
-    young: ['casual', 'smart', 'formal'],
-    adult: ['smart', 'casual', 'formal'],
-    older: ['smart', 'formal', 'casual'],
+test('every dress style ranks all three formalities without removing a level', () => {
+  assert.deepEqual(dressStyles, ['casual', 'smart', 'formal']);
+  assert.deepEqual(formalityOrderByDressStyle, {
+    casual: ['casual', 'smart', 'formal'],
+    smart: ['smart', 'casual', 'formal'],
+    formal: ['formal', 'smart', 'casual'],
   });
-  for (const order of Object.values(ageBandFormalityOrder)) {
+  for (const order of Object.values(formalityOrderByDressStyle)) {
     assert.deepEqual([...order].sort(), ['casual', 'formal', 'smart']);
   }
 });

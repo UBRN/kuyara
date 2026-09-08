@@ -11,13 +11,17 @@ tags:
 - tapOn:
     id: onboarding-continue
 - tapOn:
-    id: onboarding-clothing-womens
+    id: onboarding-gender-woman
 - tapOn:
     id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-3
 - tapOn:
-    id: onboarding-language-en
+    id: onboarding-dress-style-smart
 - tapOn:
-    id: onboarding-theme-light
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-4
 - tapOn:
     id: onboarding-complete
 - assertVisible:
@@ -62,20 +66,19 @@ tags:
 - assertVisible:
     id: settings-screen
 
-# Clothing preference sits last on Settings by design, so it needs a scroll, and since
-# ADR 0030 it opens its own pushed picker like language and appearance.
+# Gender sits in the final About you group, so it needs a scroll and opens its own picker.
 - scrollUntilVisible:
     element:
-      id: settings-clothing-row
+      id: settings-gender-row
     direction: DOWN
 - tapOn:
-    id: settings-clothing-row
+    id: settings-gender-row
 - assertVisible:
-    id: settings-clothing-picker
+    id: settings-gender-picker
 - tapOn:
-    id: settings-clothing-mens
+    id: settings-gender-man
 - assertVisible:
-    id: settings-clothing-mens
+    id: settings-gender-man
     selected: true
 - tapOn:
     id: settings-picker-back
@@ -91,7 +94,7 @@ tags:
     id: settings-screen
 
 # The two picker rows sit at the top of Settings, so they are checked before the
-# scroll that brings clothing preference into view and pushes them off screen.
+# scroll that brings gender into view and pushes them off screen.
 - tapOn:
     id: settings-language-row
 - assertVisible:
@@ -108,12 +111,12 @@ tags:
     id: settings-picker-back
 - scrollUntilVisible:
     element:
-      id: settings-clothing-row
+      id: settings-gender-row
     direction: DOWN
 - tapOn:
-    id: settings-clothing-row
+    id: settings-gender-row
 - assertVisible:
-    id: settings-clothing-mens
+    id: settings-gender-man
     selected: true
 - tapOn:
     id: settings-picker-back

@@ -1,4 +1,4 @@
-import type { Gender } from '@/features/profile/domain/profile';
+import type { DressStyle, Gender } from '@/features/profile/domain/profile';
 import type {
   LanguagePreference,
   ThemePreference,
@@ -17,6 +17,7 @@ import type {
 type LocalProfileRow = Readonly<{
   id: string;
   gender: string | null;
+  dress_style: string | null;
   birth_date: string | null;
   language_preference: string;
   theme_preference: string;
@@ -36,6 +37,7 @@ const selectProfileSql = `
   SELECT
     id,
     gender,
+    dress_style,
     birth_date,
     language_preference,
     theme_preference,
@@ -52,6 +54,7 @@ function mapRow(row: LocalProfileRow): LocalProfileRecord {
   return {
     id: row.id,
     gender: row.gender,
+    dressStyle: row.dress_style,
     birthDate: row.birth_date,
     languagePreference: row.language_preference,
     themePreference: row.theme_preference,
@@ -111,6 +114,7 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
             singleton_key,
             id,
             gender,
+            dress_style,
             birth_date,
             language_preference,
             theme_preference,
@@ -118,7 +122,7 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
             created_at,
             updated_at,
             deleted_at
-          ) VALUES (1, ?, NULL, NULL, 'system', 'system', 0, ?, ?, NULL)
+          ) VALUES (1, ?, NULL, NULL, NULL, 'system', 'system', 0, ?, ?, NULL)
         `,
         [id, now, now],
       );
@@ -141,16 +145,16 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
         UPDATE local_profiles
         SET
           gender = ?,
-          language_preference = ?,
-          theme_preference = ?,
+          dress_style = ?,
+          birth_date = ?,
           onboarding_completed = 1,
           updated_at = ?
         WHERE singleton_key = 1 AND deleted_at IS NULL
       `,
       [
         preferences.gender,
-        preferences.languagePreference,
-        preferences.themePreference,
+        preferences.dressStyle,
+        preferences.birthDate,
       ],
     );
   }
@@ -163,6 +167,14 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
         WHERE singleton_key = 1 AND deleted_at IS NULL
       `,
       [preference],
+    );
+  }
+
+  updateDressStyle(dressStyle: DressStyle): Promise<LocalProfileRecord> {
+    return this.updateProfile(
+      `UPDATE local_profiles SET dress_style = ?, updated_at = ?
+       WHERE singleton_key = 1 AND deleted_at IS NULL`,
+      [dressStyle],
     );
   }
 

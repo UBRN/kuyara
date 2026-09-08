@@ -1,4 +1,4 @@
-import type { AgeBand } from '@kuyara/contracts';
+import { dressStyleSchema, type DressStyle } from '@kuyara/contracts';
 import { z } from 'zod';
 
 import type {
@@ -10,6 +10,7 @@ import type {
 export type Profile = Readonly<{
   id: string;
   gender: Gender | null;
+  dressStyle: DressStyle | null;
   birthDate: string | null;
   languagePreference: LanguagePreference;
   themePreference: ThemePreference;
@@ -25,19 +26,13 @@ export type LocalProfile = Profile & Readonly<{
 }>;
 
 export type OnboardingPreferences = Readonly<{
-  clothingPreference: ClothingPreference;
-  languagePreference: LanguagePreference;
-  themePreference: ThemePreference;
+  gender: Gender;
+  dressStyle: DressStyle;
+  birthDate: string | null;
 }>;
 
 export const genderSchema = z.enum(['woman', 'man']);
 export type Gender = z.infer<typeof genderSchema>;
-
-export type ProfileOnboardingPreferences = Readonly<{
-  gender: Gender;
-  languagePreference: LanguagePreference;
-  themePreference: ThemePreference;
-}>;
 
 const birthDateSchema = z.string().date().refine((value) => {
   const year = Number(value.slice(0, 4));
@@ -59,9 +54,5 @@ export function isValidBirthDate(value: unknown, today: Date = new Date()): valu
   return parsed.data <= localToday;
 }
 
-export function deriveAgeBand(birthDate: string | null, today: Date = new Date()): AgeBand {
-  if (!isValidBirthDate(birthDate, today)) throw new Error('The birth date is invalid.');
-  if (birthDate === null) return 'adult';
-  const age = today.getFullYear() - Number(birthDate.slice(0, 4));
-  return age < 30 ? 'young' : age < 60 ? 'adult' : 'older';
-}
+export { dressStyleSchema };
+export type { DressStyle };

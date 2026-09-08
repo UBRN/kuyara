@@ -114,14 +114,14 @@ export const outfitSlots = [
 ] as const;
 
 export const formalityLevels = ['casual', 'smart', 'formal'] as const;
-export const ageBands = ['young', 'adult', 'older'] as const;
-export const ageBandSchema = z.enum(ageBands);
-export type AgeBand = (typeof ageBands)[number];
-export const ageBandFormalityOrder = Object.freeze({
-  young: Object.freeze(['casual', 'smart', 'formal'] as const),
-  adult: Object.freeze(['smart', 'casual', 'formal'] as const),
-  older: Object.freeze(['smart', 'formal', 'casual'] as const),
-} satisfies Record<AgeBand, readonly FormalityLevel[]>);
+export const dressStyles = ['casual', 'smart', 'formal'] as const;
+export const dressStyleSchema = z.enum(dressStyles);
+export type DressStyle = (typeof dressStyles)[number];
+export const formalityOrderByDressStyle = Object.freeze({
+  casual: Object.freeze(['casual', 'smart', 'formal'] as const),
+  smart: Object.freeze(['smart', 'casual', 'formal'] as const),
+  formal: Object.freeze(['formal', 'smart', 'casual'] as const),
+} satisfies Record<DressStyle, readonly FormalityLevel[]>);
 
 export const outfitArchetypeIds = [
   'everyday_easy',
@@ -270,7 +270,7 @@ export const aiOptionSchema = z.object({
 
 export const aiRecommendV1RequestSchema = z.object({
   clothingPreference: z.enum(clothingPreferences),
-  ageBand: ageBandSchema.optional(),
+  dressStyle: dressStyleSchema.optional(),
   catalogVersion: z.number().int().min(1),
   dayVariant: z.number().int().min(0).max(6),
   // Requirements are cache-key inputs and never reach the model.

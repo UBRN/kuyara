@@ -24,11 +24,11 @@ const profile = (onboardingCompleted) => ({
   updatedAt: '2026-07-30T10:00:00.000Z',
 });
 
-test('onboarding requires an accessible clothing choice before the final step', () => {
+test('onboarding requires gender and dress style before the optional birth date step', () => {
   let draft = createOnboardingDraft({
-    clothingPreference: null,
-    languagePreference: 'system',
-    themePreference: 'system',
+    gender: null,
+    dressStyle: null,
+    birthDate: null,
   });
 
   draft = reduceOnboardingDraft(draft, { type: 'continue' });
@@ -38,30 +38,42 @@ test('onboarding requires an accessible clothing choice before the final step', 
   assert.equal(draft.hasValidationError, true);
   assert.equal(onboardingPreferencesFromDraft(draft), null);
 
-  draft = reduceOnboardingDraft(draft, { type: 'select-clothing', value: 'womens' });
+  draft = reduceOnboardingDraft(draft, { type: 'select-gender', value: 'woman' });
   assert.equal(draft.hasValidationError, false);
   draft = reduceOnboardingDraft(draft, { type: 'continue' });
   assert.equal(draft.step, 2);
+  draft = reduceOnboardingDraft(draft, { type: 'continue' });
+  assert.equal(draft.step, 2);
+  assert.equal(draft.hasValidationError, true);
+  draft = reduceOnboardingDraft(draft, { type: 'select-dress-style', value: 'smart' });
+  draft = reduceOnboardingDraft(draft, { type: 'continue' });
+  assert.equal(draft.step, 3);
 });
 
-test('onboarding keeps clothing, language, and theme selections independent and reviewable', () => {
+test('onboarding keeps personal choices independent and reviewable', () => {
   let draft = createOnboardingDraft({
-    clothingPreference: null,
-    languagePreference: 'system',
-    themePreference: 'system',
+    gender: null,
+    dressStyle: null,
+    birthDate: null,
   });
-  draft = reduceOnboardingDraft(draft, { type: 'select-clothing', value: 'mens' });
-  draft = reduceOnboardingDraft(draft, { type: 'select-language', value: 'tr' });
-  draft = reduceOnboardingDraft(draft, { type: 'select-theme', value: 'dark' });
+  draft = reduceOnboardingDraft(draft, { type: 'select-gender', value: 'man' });
+  draft = reduceOnboardingDraft(draft, { type: 'select-dress-style', value: 'formal' });
+  draft = reduceOnboardingDraft(draft, { type: 'select-birth-date', value: '1994-03-14' });
 
   assert.deepEqual(onboardingPreferencesFromDraft(draft), {
-    clothingPreference: 'mens',
-    languagePreference: 'tr',
-    themePreference: 'dark',
+    gender: 'man',
+    dressStyle: 'formal',
+    birthDate: '1994-03-14',
   });
-  draft = reduceOnboardingDraft({ ...draft, step: 2 }, { type: 'back' });
-  assert.equal(draft.step, 1);
-  assert.equal(draft.clothingPreference, 'mens');
+  draft = reduceOnboardingDraft({ ...draft, step: 3 }, { type: 'back' });
+  assert.equal(draft.step, 2);
+  assert.equal(draft.gender, 'man');
+  draft = reduceOnboardingDraft(draft, { type: 'select-birth-date', value: null });
+  assert.deepEqual(onboardingPreferencesFromDraft(draft), {
+    gender: 'man',
+    dressStyle: 'formal',
+    birthDate: null,
+  });
 });
 
 test('language preference follows the device only in system mode', () => {
@@ -82,10 +94,15 @@ test('English and Turkish include complete onboarding, Settings, and accessibili
   for (const language of ['en', 'tr']) {
     const copy = messages[language];
     assert.ok(copy.onboarding.welcomeTitle);
-    assert.ok(copy.onboarding.clothingRequiredError);
+    assert.ok(copy.onboarding.genderRequiredError);
+    assert.ok(copy.onboarding.dressStyleRequiredError);
+    assert.ok(copy.onboarding.birthDateNotSet);
     assert.ok(copy.onboarding.saveError);
-    assert.ok(copy.preferences.womensClothing);
-    assert.ok(copy.preferences.mensClothing);
+    assert.ok(copy.preferences.genderWoman);
+    assert.ok(copy.preferences.genderMan);
+    assert.ok(copy.preferences.dressStyleCasual);
+    assert.ok(copy.preferences.dressStyleSmart);
+    assert.ok(copy.preferences.dressStyleFormal);
     assert.ok(copy.preferences.languageSystem);
     assert.ok(copy.preferences.themeDark);
     assert.ok(copy.settings.title);
@@ -101,8 +118,10 @@ test('English and Turkish include complete onboarding, Settings, and accessibili
     assert.ok(copy.today.settingsAction);
     assert.ok(copy.today.settingsHint);
   }
-  assert.equal(messages.en.preferences.womensClothing, 'Women’s clothing');
-  assert.equal(messages.tr.preferences.womensClothing, 'Kadın giyim');
+  assert.equal(messages.en.preferences.genderWoman, 'Woman');
+  assert.equal(messages.tr.preferences.genderWoman, 'Kadın');
+  assert.equal(messages.en.preferences.dressStyleFormal, 'Formal');
+  assert.equal(messages.tr.preferences.dressStyleFormal, 'Resmî');
 });
 
 test('route and presentation sources preserve local gating and accessible selected states', async () => {
@@ -139,7 +158,9 @@ test('route and presentation sources preserve local gating and accessible select
   assert.match(onboarding, /accessibilityRole="alert"/);
   assert.match(settings, /settings-language-/);
   assert.match(settings, /settings-theme-/);
-  assert.match(settings, /settings-clothing-/);
+  assert.match(settings, /settings-gender-/);
+  assert.match(settings, /settings-dress-style-/);
+  assert.match(settings, /settings-birth-date/);
   assert.doesNotMatch(routeSources, /expo-sqlite|useSQLiteContext|SELECT |UPDATE |INSERT /i);
   assert.doesNotMatch(presentationSources, /expo-sqlite|useSQLiteContext|SELECT |UPDATE |INSERT /i);
   assert.doesNotMatch(presentationSources, /biological sex|gender identity/i);

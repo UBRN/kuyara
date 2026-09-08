@@ -1,4 +1,9 @@
-import { ageBandFormalityOrder, type AgeBand, type FormalityLevel, type OutfitArchetypeId } from '@kuyara/contracts';
+import {
+  formalityOrderByDressStyle,
+  type DressStyle,
+  type FormalityLevel,
+  type OutfitArchetypeId,
+} from '@kuyara/contracts';
 
 import type { ClothingPreference } from '@/domain/preferences';
 import { listGarmentTypesForPreference } from '@/features/catalog/domain/garment-catalog';
@@ -21,7 +26,7 @@ import type { WeatherSnapshot } from '@/features/weather/domain/weather';
 export type OutfitRecommendationInput = Readonly<{
   snapshot: WeatherSnapshot;
   clothingPreference: ClothingPreference;
-  ageBand?: AgeBand;
+  dressStyle?: DressStyle;
   dayVariant: number;
 }>;
 
@@ -163,7 +168,8 @@ export function recommendOutfits(
     ),
   ];
   const composition = composeOutfitOptions(requirements, candidates, input.dayVariant);
-  const order: readonly FormalityLevel[] = ageBandFormalityOrder[input.ageBand ?? 'adult'];
+  const order: readonly FormalityLevel[] =
+    formalityOrderByDressStyle[input.dressStyle ?? 'smart'];
 
   return composition.status === 'failure'
     ? Object.freeze({

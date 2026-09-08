@@ -1,31 +1,30 @@
 import type {
-  ClothingPreference,
-  LanguagePreference,
-  ThemePreference,
-} from '@/domain/preferences';
-import type { OnboardingPreferences } from '@/features/profile/domain/profile';
+  DressStyle,
+  Gender,
+  OnboardingPreferences,
+} from '@/features/profile/domain/profile';
 
-export type OnboardingStep = 0 | 1 | 2;
+export type OnboardingStep = 0 | 1 | 2 | 3;
 
 export type OnboardingDraft = Readonly<{
   step: OnboardingStep;
-  clothingPreference: ClothingPreference | null;
-  languagePreference: LanguagePreference;
-  themePreference: ThemePreference;
+  gender: Gender | null;
+  dressStyle: DressStyle | null;
+  birthDate: string | null;
   hasValidationError: boolean;
 }>;
 
 export type OnboardingAction =
   | Readonly<{ type: 'continue' }>
   | Readonly<{ type: 'back' }>
-  | Readonly<{ type: 'select-clothing'; value: ClothingPreference }>
-  | Readonly<{ type: 'select-language'; value: LanguagePreference }>
-  | Readonly<{ type: 'select-theme'; value: ThemePreference }>;
+  | Readonly<{ type: 'select-gender'; value: Gender }>
+  | Readonly<{ type: 'select-dress-style'; value: DressStyle }>
+  | Readonly<{ type: 'select-birth-date'; value: string | null }>;
 
 export function createOnboardingDraft(values: {
-  clothingPreference: ClothingPreference | null;
-  languagePreference: LanguagePreference;
-  themePreference: ThemePreference;
+  gender: Gender | null;
+  dressStyle: DressStyle | null;
+  birthDate: string | null;
 }): OnboardingDraft {
   return {
     step: 0,
@@ -40,12 +39,15 @@ export function reduceOnboardingDraft(
 ): OnboardingDraft {
   switch (action.type) {
     case 'continue':
-      if (state.step === 1 && !state.clothingPreference) {
+      if (state.step === 1 && !state.gender) {
+        return { ...state, hasValidationError: true };
+      }
+      if (state.step === 2 && !state.dressStyle) {
         return { ...state, hasValidationError: true };
       }
       return {
         ...state,
-        step: Math.min(state.step + 1, 2) as OnboardingStep,
+        step: Math.min(state.step + 1, 3) as OnboardingStep,
         hasValidationError: false,
       };
     case 'back':
@@ -54,29 +56,33 @@ export function reduceOnboardingDraft(
         step: Math.max(state.step - 1, 0) as OnboardingStep,
         hasValidationError: false,
       };
-    case 'select-clothing':
+    case 'select-gender':
       return {
         ...state,
-        clothingPreference: action.value,
+        gender: action.value,
         hasValidationError: false,
       };
-    case 'select-language':
-      return { ...state, languagePreference: action.value };
-    case 'select-theme':
-      return { ...state, themePreference: action.value };
+    case 'select-dress-style':
+      return {
+        ...state,
+        dressStyle: action.value,
+        hasValidationError: false,
+      };
+    case 'select-birth-date':
+      return { ...state, birthDate: action.value };
   }
 }
 
 export function onboardingPreferencesFromDraft(
   state: OnboardingDraft,
 ): OnboardingPreferences | null {
-  if (!state.clothingPreference) {
+  if (!state.gender || !state.dressStyle) {
     return null;
   }
 
   return {
-    clothingPreference: state.clothingPreference,
-    languagePreference: state.languagePreference,
-    themePreference: state.themePreference,
+    gender: state.gender,
+    dressStyle: state.dressStyle,
+    birthDate: state.birthDate,
   };
 }
