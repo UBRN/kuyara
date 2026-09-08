@@ -25,9 +25,17 @@ tags:
 - assertVisible:
     id: onboarding-step-4
 - tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-5
+- assertVisible:
+    id: onboarding-place-search
+- tapOn:
     id: onboarding-complete
 - assertVisible:
     id: today-screen
+- assertVisible:
+    id: today-no-location
 - assertVisible:
     id: tab-today
     selected: true
