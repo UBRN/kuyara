@@ -16,6 +16,7 @@ export {
 } from './native-list';
 export { NativeToggle, type NativeToggleProps } from './native-toggle';
 export { NativeDatePicker, type NativeDatePickerProps } from './native-date-picker';
+export { NativeTextField, type NativeTextFieldProps } from './native-text-field';
 export { PhotoPlaceholder, type PhotoPlaceholderProps } from './photo-placeholder';
 export { Pill, type PillProps } from './pill';
 export { Screen, type ScreenProps } from './screen';

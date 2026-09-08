@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { fireEvent, isHiddenFromAccessibility, render, within } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { Linking, StyleSheet } from 'react-native';
@@ -11,6 +12,8 @@ import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 import { lightTheme, typography } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
+
+jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 
 const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
@@ -84,7 +87,7 @@ function createValue(state: WeatherReadyState = baseState) {
 }
 
 describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
-  test('shows localized device and manual paths without a sample disclosure over live data', async () => {
+  test('opens the dedicated location route without a sample picker on Weather', async () => {
     const value = createValue();
     const result = await render(
       <Providers language={language} value={value}><WeatherScreen /></Providers>,
@@ -97,13 +100,9 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
     expect(locationButton.props.hitSlop).toBe(10);
     expect(24 + locationButton.props.hitSlop * 2).toBeGreaterThanOrEqual(44);
     await fireEvent.press(locationButton);
-    expect(result.getByRole('header', { name: copy.manualHeading })).toBeOnTheScreen();
-    expect(result.getByRole('button', { name: copy.useCurrentLocation })).toBeOnTheScreen();
-    for (const location of Object.values(copy.locations)) {
-      expect(result.getByRole('radio', { name: location })).toBeOnTheScreen();
-    }
-    await fireEvent.press(result.getByRole('button', { name: copy.useCurrentLocation }));
-    expect(value.beginDeviceLocationSelection).toHaveBeenCalledTimes(1);
+    expect(router.push).toHaveBeenCalledWith('/weather/location');
+    expect(result.queryByRole('radiogroup')).toBeNull();
+    expect(result.getByTestId('weather-change-location-button')).toBeOnTheScreen();
   });
 
   test.each([
@@ -254,28 +253,6 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
   );
 });
 
-test('rationale is shown before confirmation and permanent denial opens Settings', async () => {
-  const rationale = createValue({ ...baseState, locationFlow: 'rationale' });
-  const result = await render(
-    <Providers language="en" value={rationale}><WeatherScreen /></Providers>,
-  );
-  await fireEvent.press(result.getByRole('button', { name: messages.en.weather.continuePermission }));
-  expect(rationale.confirmDeviceLocationRequest).toHaveBeenCalledTimes(1);
-  await result.unmount();
-
-  const permanent = createValue({
-    ...baseState,
-    permission: { kind: 'denied', canRequestAgain: false },
-    locationFlow: 'denied-permanent',
-  });
-  const denied = await render(
-    <Providers language="en" value={permanent}><WeatherScreen /></Providers>,
-  );
-  expect(denied.getByText(messages.en.weather.permanentDeniedBody)).toBeOnTheScreen();
-  await fireEvent.press(denied.getByRole('button', { name: messages.en.weather.openSettings }));
-  expect(permanent.openApplicationSettings).toHaveBeenCalledTimes(1);
-});
-
 test('selected location, stale snapshot, refreshing, failure, and hourly content remain visible', async () => {
   const active = getManualLocation('sample.istanbul')!;
   const value = createValue({
@@ -290,9 +267,9 @@ test('selected location, stale snapshot, refreshing, failure, and hourly content
     <Providers language="en" value={value}><WeatherScreen /></Providers>,
   );
   await fireEvent.press(result.getByRole('button', {
-    name: `${messages.en.weather.locations[active.catalogId]}. ${messages.en.weather.changeLocationAction}`,
+    name: `${active.displayName}. ${messages.en.weather.changeLocationAction}`,
   }));
-  expect(result.getByRole('radio', { name: messages.en.weather.locations[active.catalogId] }).props.accessibilityState.selected).toBe(true);
+  expect(result.getByText(active.displayName)).toBeOnTheScreen();
   expect(result.getByText(messages.en.weather.stale)).toBeOnTheScreen();
   expect(result.getByLabelText(messages.en.weather.unavailableNotice).props.accessibilityLiveRegion).toBe('polite');
   expect(result.getAllByText(messages.en.weather.conditions.rain).length).toBeGreaterThan(0);
@@ -302,16 +279,14 @@ test('selected location, stale snapshot, refreshing, failure, and hourly content
   ).toBe(true);
 });
 
-test('manual selection emits stable catalog ID', async () => {
-  const value = createValue();
-  const result = await render(
-    <Providers language="tr" value={value}><WeatherScreen /></Providers>,
-  );
-  await fireEvent.press(result.getByRole('button', {
-    name: `${messages.tr.weather.noLocation} ${messages.tr.weather.changeLocationAction}`,
-  }));
-  await fireEvent.press(result.getByRole('radio', { name: messages.tr.weather.locations['sample.ankara'] }));
-  expect(value.selectManualLocation).toHaveBeenCalledWith('sample.ankara');
+test('Weather renders a searched place from its persisted display name', async () => {
+  const value = createValue({ ...baseState, activeLocation: {
+    source: 'manual', catalogId: 'place.745044', displayName: 'İstanbul',
+    locationKey: 'manual:place.745044', coordinates: { latitudeE2: 4101, longitudeE2: 2898 },
+    timeZone: 'Europe/Istanbul',
+  } });
+  const result = await render(<Providers language="tr" value={value}><WeatherScreen /></Providers>);
+  expect(result.getByText('İstanbul')).toBeOnTheScreen();
 });
 
 test('Weather offers a pull-to-refresh gesture alongside the visible refresh button', async () => {

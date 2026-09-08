@@ -1,4 +1,5 @@
-import { Fragment, useState } from 'react';
+import { Fragment } from 'react';
+import { router } from 'expo-router';
 import {
   Linking,
   Pressable,
@@ -21,11 +22,10 @@ import {
 } from '@/components/ui';
 import { Divider } from '@/components/ui/divider';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
-import { manualLocationCatalog } from '@/features/weather/data/manual-location-catalog';
-import type { ActiveLocation, ManualLocationId } from '@/features/weather/domain/weather';
+import type { ActiveLocation } from '@/features/weather/domain/weather';
 import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
 import { useLocalization } from '@/localization/use-messages';
-import { borderWidths, interaction, layout, radii, spacing } from '@/theme/theme';
+import { interaction, layout, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 const weatherAttributionUrls: Readonly<Record<string, string>> = {
@@ -72,40 +72,7 @@ function locationName(
   location: ActiveLocation,
   copy: ReturnType<typeof useLocalization>['messages']['weather'],
 ): string {
-  return location.source === 'manual' ? copy.locations[location.catalogId] : copy.currentLocation;
-}
-
-function LocationOption({
-  id,
-  label,
-  selected,
-  disabled,
-  onSelect,
-}: Readonly<{
-  id: ManualLocationId;
-  label: string;
-  selected: boolean;
-  disabled: boolean;
-  onSelect: (id: ManualLocationId) => void;
-}>) {
-  const theme = useKuyaraTheme();
-  return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ selected, disabled }}
-      disabled={disabled}
-      onPress={() => onSelect(id)}
-      style={({ pressed }) => [
-        styles.option,
-        {
-          backgroundColor: selected ? theme.colors.surfaceInteractive : theme.colors.surface,
-          borderColor: selected ? theme.colors.focusRing : theme.colors.borderDefined,
-        },
-        pressed && styles.pressed,
-      ]}>
-      <AppText variant="bodyStrong">{label}</AppText>
-    </Pressable>
-  );
+  return location.source === 'manual' ? location.displayName : copy.currentLocation;
 }
 
 export function WeatherScreen() {
@@ -115,7 +82,6 @@ export function WeatherScreen() {
   const copy = messages.weather;
   const application = useWeatherApplication();
   const { state } = application;
-  const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
   useRefreshOutcomeHaptics(
     state.status === 'ready' && state.isRefreshing,
     state.status === 'ready' && state.refreshFailure !== null,
@@ -144,15 +110,6 @@ export function WeatherScreen() {
   const accuracy = state.activeLocation?.source === 'device'
     ? (state.activeLocation.accuracy === 'full' ? copy.fullLocation : copy.approximateLocation)
     : null;
-  const isLocationPickerVisible = isLocationPickerOpen || state.locationFlow !== 'idle';
-  const flowMessages: Partial<Record<typeof state.locationFlow, string>> = {
-    'denied-requestable': copy.deniedBody,
-    'denied-permanent': copy.permanentDeniedBody,
-    'services-unavailable': copy.servicesUnavailableBody,
-    'lookup-failed': copy.lookupFailedBody,
-    'selection-failed': copy.selectionFailedBody,
-  };
-  const flowMessage = flowMessages[state.locationFlow];
   const snapshot = state.snapshot;
   const failureCopy = state.refreshFailure === 'offline'
     ? {
@@ -231,9 +188,8 @@ export function WeatherScreen() {
         <Pressable
           accessibilityLabel={locationAccessibilityLabel}
           accessibilityRole="button"
-          accessibilityState={{ expanded: isLocationPickerVisible }}
           hitSlop={10}
-          onPress={() => setIsLocationPickerOpen((open) => !open)}
+          onPress={() => router.push('/weather/location')}
           style={({ pressed }) => pressed && styles.pressed}
           testID="weather-change-location-button">
           <Surface pointerEvents="none" style={[styles.locationCard, theme.elevation.raised]}>
@@ -253,55 +209,6 @@ export function WeatherScreen() {
           </Surface>
         </Pressable>
 
-        {isLocationPickerVisible ? (
-          <View style={styles.locationPicker} testID="weather-location-picker">
-            <Button
-              label={copy.useCurrentLocation}
-              loading={state.isSelectingLocation}
-              onPress={() => void application.beginDeviceLocationSelection()}
-            />
-
-            {state.locationFlow === 'rationale' && (
-              <Surface accessibilityLiveRegion="polite" style={styles.card} variant="interactive">
-                <AppText accessibilityRole="header" variant="title">{copy.locationRationaleTitle}</AppText>
-                <AppText>{copy.locationRationaleBody}</AppText>
-                <View style={styles.actions}>
-                  <Button label={copy.continuePermission} onPress={() => void application.confirmDeviceLocationRequest()} />
-                  <Button label={copy.cancel} variant="quiet" onPress={application.dismissLocationFlow} />
-                </View>
-              </Surface>
-            )}
-
-            {flowMessage && (
-              <Surface accessibilityLiveRegion="polite" style={styles.card} variant="muted">
-                <AppText>{flowMessage}</AppText>
-                {state.locationFlow === 'denied-permanent' && (
-                  <Button label={copy.openSettings} variant="secondary" onPress={() => void application.openApplicationSettings()} />
-                )}
-                <Button label={copy.cancel} variant="quiet" onPress={application.dismissLocationFlow} />
-              </Surface>
-            )}
-
-            <Surface style={styles.card}>
-              <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
-                {copy.manualHeading}
-              </AppText>
-              <AppText colorRole="textSecondary">{copy.manualBody}</AppText>
-              <View accessibilityRole="radiogroup" style={styles.options}>
-                {manualLocationCatalog.map((entry) => (
-                  <LocationOption
-                    key={entry.catalogId}
-                    id={entry.catalogId}
-                    label={copy.locations[entry.catalogId]}
-                    selected={state.activeLocation?.source === 'manual' && state.activeLocation.catalogId === entry.catalogId}
-                    disabled={state.isSelectingLocation}
-                    onSelect={(id) => void application.selectManualLocation(id)}
-                  />
-                ))}
-              </View>
-            </Surface>
-          </View>
-        ) : null}
       </View>
 
       {snapshot?.origin.kind === 'sample' ? (
@@ -557,17 +464,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexShrink: 0,
     gap: spacing.xs,
-  },
-  locationPicker: { gap: spacing.md },
-  actions: { gap: spacing.sm },
-  options: { gap: spacing.sm },
-  option: {
-    minHeight: layout.minimumTouchTarget,
-    justifyContent: 'center',
-    borderRadius: radii.control,
-    borderWidth: borderWidths.strong,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
   },
   pressed: { opacity: interaction.pressedOpacity },
   currentHero: {

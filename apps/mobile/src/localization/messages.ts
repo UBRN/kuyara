@@ -4,7 +4,6 @@ import type {
 } from '@/features/recommendation/domain/outfit-composition';
 import type { ClothingRequirementReasonCode } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 import type {
-  ManualLocationId,
   WeatherConditionCode as LiveWeatherConditionCode,
 } from '@/features/weather/domain/weather';
 import type { StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
@@ -215,9 +214,6 @@ export type AppMessages = Readonly<{
     lookupFailedBody: string;
     selectionFailedBody: string;
     openSettings: string;
-    manualHeading: string;
-    manualBody: string;
-    locations: Readonly<Record<ManualLocationId, string>>;
     sampleDisclosure: string;
     hourlyHeading: string;
     noSnapshot: string;
@@ -239,6 +235,18 @@ export type AppMessages = Readonly<{
     attributionOpenMeteo: string;
     attributionOpenWeather: string;
     attributionAppleWeather: string;
+    placeSearchTitle: string;
+    placeSearchLabel: string;
+    placeSearchPlaceholder: string;
+    placeSearchLoading: string;
+    placeSearchEmpty: string;
+    placeSearchSelected: string;
+    placeSearchAttribution: string;
+    placeSearchResultLabel: (name: string, region: string) => string;
+    placeSearchErrors: Readonly<Record<'invalid-input' | 'invalid-response' | 'unavailable' | 'rate-limited', string>>;
+    placeDeniedBody: string;
+    placePermanentDeniedBody: string;
+    placeServicesUnavailableBody: string;
     fresh: string;
     stale: string;
     updatedAt: (time: string) => string;
@@ -482,13 +490,6 @@ const en = {
     lookupFailedBody: 'Your location could not be found. Your previous location is unchanged.',
     selectionFailedBody: 'That location could not be saved. Your previous location is still active.',
     openSettings: 'Open system settings',
-    manualHeading: 'Sample locations',
-    manualBody: 'These fixed development locations exercise the flow; production place search is not available yet.',
-    locations: {
-      'sample.istanbul': 'Sample İstanbul',
-      'sample.ankara': 'Sample Ankara',
-      'sample.london': 'Sample London',
-    },
     sampleDisclosure: 'Sample weather data — not live weather.',
     hourlyHeading: 'Remaining hours today',
     noSnapshot: 'Weather will appear once a location is selected.',
@@ -510,6 +511,23 @@ const en = {
     attributionOpenMeteo: 'Weather data by Open-Meteo.com',
     attributionOpenWeather: 'Weather data by OpenWeather',
     attributionAppleWeather: 'Weather data by Apple Weather',
+    placeSearchTitle: 'Location',
+    placeSearchLabel: 'Search for a city',
+    placeSearchPlaceholder: 'Search for a city',
+    placeSearchLoading: 'Searching for places…',
+    placeSearchEmpty: 'No matching places. Try another city name.',
+    placeSearchSelected: 'Selected',
+    placeSearchAttribution: 'Place data by Open-Meteo and GeoNames',
+    placeSearchResultLabel: (name, region) => `${name}, ${region}`,
+    placeSearchErrors: {
+      'invalid-input': 'Enter a city name between 2 and 100 characters.',
+      'invalid-response': 'Search results could not be loaded. Try again.',
+      unavailable: 'Place search is temporarily unavailable. Try again later.',
+      'rate-limited': 'Too many searches. Wait a moment and try again.',
+    },
+    placeDeniedBody: 'Location access was not granted. Search for a city or try again later.',
+    placePermanentDeniedBody: 'Location access can no longer be requested here. Open system settings or search for a city.',
+    placeServicesUnavailableBody: 'Location services are unavailable or turned off. Search for a city or try again after enabling them.',
     fresh: 'Fresh',
     stale: 'May be out of date',
     updatedAt: (time) => `Last updated ${time}`,
@@ -869,13 +887,6 @@ const tr = {
     lookupFailedBody: 'Konumunuz bulunamadı. Önceki konumunuz değiştirilmedi.',
     selectionFailedBody: 'Bu konum kaydedilemedi. Önceki konumunuz etkin kalıyor.',
     openSettings: 'Sistem ayarlarını aç',
-    manualHeading: 'Örnek konumlar',
-    manualBody: 'Bu sabit geliştirme konumları akışı denemek içindir; gerçek yer araması henüz kullanılamıyor.',
-    locations: {
-      'sample.istanbul': 'Örnek İstanbul',
-      'sample.ankara': 'Örnek Ankara',
-      'sample.london': 'Örnek Londra',
-    },
     sampleDisclosure: 'Örnek hava durumu verisi — canlı değildir.',
     hourlyHeading: 'Bugünün kalan saatleri',
     noSnapshot: 'Bir konum seçildiğinde hava durumu burada görünecek.',
@@ -897,6 +908,23 @@ const tr = {
     attributionOpenMeteo: 'Hava durumu verisi: Open-Meteo.com',
     attributionOpenWeather: 'Hava durumu verisi: OpenWeather',
     attributionAppleWeather: 'Hava durumu verisi: Apple Weather',
+    placeSearchTitle: 'Konum',
+    placeSearchLabel: 'Şehir ara',
+    placeSearchPlaceholder: 'Şehir ara',
+    placeSearchLoading: 'Yerler aranıyor…',
+    placeSearchEmpty: 'Eşleşen yer bulunamadı. Başka bir şehir adı dene.',
+    placeSearchSelected: 'Seçili',
+    placeSearchAttribution: 'Yer verileri: Open-Meteo ve GeoNames',
+    placeSearchResultLabel: (name, region) => `${name}, ${region}`,
+    placeSearchErrors: {
+      'invalid-input': '2 ile 100 karakter arasında bir şehir adı yaz.',
+      'invalid-response': 'Arama sonuçları yüklenemedi. Tekrar dene.',
+      unavailable: 'Yer araması şu anda kullanılamıyor. Daha sonra tekrar dene.',
+      'rate-limited': 'Çok fazla arama yapıldı. Biraz bekleyip tekrar dene.',
+    },
+    placeDeniedBody: 'Konum erişimine izin verilmedi. Bir şehir ara veya daha sonra tekrar dene.',
+    placePermanentDeniedBody: 'Konum izni buradan tekrar istenemiyor. Sistem ayarlarını aç veya bir şehir ara.',
+    placeServicesUnavailableBody: 'Konum servisleri kullanılamıyor veya kapalı. Bir şehir ara veya servisleri açıp tekrar dene.',
     fresh: 'Güncel',
     stale: 'Güncelliğini yitirmiş olabilir',
     updatedAt: (time) => `Son güncelleme ${time}`,
