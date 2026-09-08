@@ -79,10 +79,10 @@ test('loaded Today reserves overlay clearance and preserves grouped accessibilit
   )).toMatchObject(lightTheme.elevation.raised);
   expect(StyleSheet.flatten(result.getByTestId('today-header-temperature').props.style).fontSize)
     .toBe(typography.display.fontSize);
-  expect(StyleSheet.flatten(result.getByText('Sample İstanbul').props.style).fontSize)
+  expect(StyleSheet.flatten(result.getByText('Istanbul').props.style).fontSize)
     .toBe(typography.title.fontSize);
-  expect(result.getByText('Sample İstanbul').props.numberOfLines).toBe(1);
-  expect(result.getByRole('header', { name: 'Today. Sample İstanbul' })).toBeOnTheScreen();
+  expect(result.getByText('Istanbul').props.numberOfLines).toBe(1);
+  expect(result.getByRole('header', { name: 'Today. Istanbul' })).toBeOnTheScreen();
 
   expect(result.getAllByTestId('outfit-card-outfit-1-piece')).toHaveLength(
     presentation.suggestions[0].pieces.length,
@@ -179,7 +179,7 @@ test('rendered outfit copy comes from localization and never from the wardrobe f
   expect(turkishResult.getByTestId('outfit-card-outfit-1').props.accessibilityLabel)
     .toContain('Yağmura Hazır');
   expect(turkishResult.getByRole('header', {
-    name: 'Bugün. Konum: Örnek İstanbul.',
+    name: 'Bugün. Konum: Istanbul.',
   })).toBeOnTheScreen();
 });
 

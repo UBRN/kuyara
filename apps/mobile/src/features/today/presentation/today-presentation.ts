@@ -234,7 +234,7 @@ function createLoadedPresentation(
     header: {
       location:
         snapshot.activeLocation.source === 'manual'
-          ? weatherCopy.locations[snapshot.activeLocation.catalogId]
+          ? snapshot.activeLocation.displayName
           : weatherCopy.currentLocation,
       freshness: isRefreshing
         ? copy.refreshingStatus

@@ -166,8 +166,8 @@ test('stale freshness and outfit copy localize in both languages', () => {
       'Bluz + Şort + Yağmurluk + Kışlık bot',
     ],
   );
-  assert.equal(english.header.location, 'Sample İstanbul');
-  assert.equal(turkish.header.location, 'Örnek İstanbul');
+  assert.equal(english.header.location, 'Istanbul');
+  assert.equal(turkish.header.location, 'Istanbul');
   assert.equal(english.weather.condition, 'Rain');
   assert.equal(turkish.weather.condition, 'Yağmurlu');
 });
