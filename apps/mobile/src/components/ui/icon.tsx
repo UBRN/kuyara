@@ -45,6 +45,8 @@ export const iconNames = Object.freeze({
   theme: { ios: 'circle.lefthalf.filled', android: 'contrast', web: 'contrast' },
   language: { ios: 'globe', android: 'language', web: 'language' },
   bell: { ios: 'bell.fill', android: 'notifications', web: 'notifications' },
+  calendar: { ios: 'calendar', android: 'calendar_today', web: 'calendar_today' },
+  clothing: { ios: 'tshirt', android: 'checkroom', web: 'checkroom' },
 } as const satisfies Readonly<Record<string, PlatformIconNames & SymbolViewProps['name']>>);
 
 export type IconName = keyof typeof iconNames;

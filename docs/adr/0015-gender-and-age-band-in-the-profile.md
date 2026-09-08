@@ -2,8 +2,9 @@
 
 Status: Accepted (2026-09-03)
 
-Implementation: not started. This ADR records the decision and the reversals it
-makes; the milestone that carries it out is listed in
+Implementation: complete (2026-09-08). Profile storage and recommendation behavior,
+onboarding and Settings, and the one-time schema v10 onboarding reset are implemented.
+Simulator and Maestro acceptance remain with the orchestrator; see
 [`current-status.md`](../current-status.md).
 
 Amended by [ADR 0028](0028-the-profile-tab-and-the-list-row-anatomy.md) and
@@ -14,6 +15,8 @@ date itself, and no age category is ever user-facing. The band in section 3 is s
 derived on the device, from the date's year exactly as it was from the year, and is
 still the only thing that crosses the network. Everything the band does downstream
 (sections 4 to 6) is unaffected. Section 2, 7 and 8 carry the amended wording inline.
+
+[ADR 0031](0031-dress-style-is-the-formality-signal.md) retired the age band on 2026-09-08.
 
 ## Context
 
@@ -206,13 +209,16 @@ meaning as time passes and would fail to re-validate on a later table rebuild.
 The bound that has to move with the calendar, rejecting a birth year in the
 future, belongs to the domain layer, which already validates before writing.
 
-The same migration sets `onboarding_completed` back to 0. Existing installations
-therefore see onboarding again, which is how they are offered the birth year they
-never had a chance to give. Their language, appearance, and gender selections are
-preserved, so onboarding opens with their existing answers rather than an empty
-form. This is the aggressive option and was chosen knowingly: the installed base
-is a small internal TestFlight group, and the alternative of a separate one-time
-prompt screen is more code for a population that does not need it.
+Schema version 10 sets `onboarding_completed` back to 0 after the new onboarding UI
+exists. The reset was deliberately moved out of version 8 so an installation is not
+returned to onboarding before there is a new question to answer. Existing installations
+therefore see onboarding again once, which is how they are offered the birth date they
+never had a chance to give. Their language, appearance, gender, other profile fields,
+dependent rows and cached snapshots are preserved, so onboarding opens with their
+existing answers rather than an empty form. This is the aggressive option and was
+chosen knowingly: the installed base is a small internal TestFlight group, and the
+alternative of a separate one-time prompt screen is more code for a population that
+does not need it.
 
 ## What this reverses
 
@@ -237,8 +243,9 @@ prompt screen is more code for a population that does not need it.
 - Recommendations become sensitive to a field the user may leave empty. The null
   case is not an error state; it is `adult`.
 - Every existing installation is returned to onboarding once.
-- Schema version 8 lands, which by precedent also disturbs the weather and
-  recommendation persistence assertions that pin the current version.
+- Schema version 8 carries the profile rebuild, and schema version 10 carries the
+  one-time onboarding reset. The latter also disturbs weather and recommendation
+  persistence assertions that pin the current version.
 
 ## Alternatives considered
 

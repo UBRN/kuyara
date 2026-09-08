@@ -194,6 +194,17 @@ test('useTextScaling caps the control scale and derives the stacked-layout thres
   assert.match(hookSource, /MAXIMUM_CONTROL_SCALE = 1\.5/);
 });
 
+test('NativeDatePicker owns the Expo UI date control boundary and is exported', async () => {
+  const [pickerSource, indexSource] = await Promise.all([
+    source('./native-date-picker.tsx'),
+    source('./index.ts'),
+  ]);
+
+  assert.match(pickerSource, /@expo\/ui\/swift-ui/);
+  assert.match(pickerSource, /displayedComponents=\{\['date'\]\}/);
+  assert.match(indexSource, /NativeDatePicker/);
+});
+
 test('ListRowTile geometry matches ADR 0028 section 3 at the default and largest accessibility text sizes', () => {
   const defaultGeometry = resolveListRowTileGeometry(1);
   const largestGeometry = resolveListRowTileGeometry(1.5);

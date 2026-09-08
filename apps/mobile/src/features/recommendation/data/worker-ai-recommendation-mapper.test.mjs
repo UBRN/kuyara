@@ -115,12 +115,18 @@ test('rejects a response pick whose option id was not supplied', () => {
   );
 });
 
-test('mobile request sends only the band and preserves the option set across bands', () => {
-  const adult = createAiRecommendationRequest({ ...input(), ageBand: 'adult' });
-  for (const ageBand of ['young', 'adult', 'older']) {
-    const request = createAiRecommendationRequest({ ...input(), ageBand, birthDate: '2000-01-01' });
-    assert.equal(request.ageBand, ageBand);
-    assert.deepEqual(request.options, adult.options);
+test('mobile request sends only dress style and preserves the candidate set across styles', () => {
+  const smart = createAiRecommendationRequest({ ...input(), dressStyle: 'smart' });
+  for (const dressStyle of ['casual', 'smart', 'formal']) {
+    const request = createAiRecommendationRequest({
+      ...input(),
+      dressStyle,
+      birthDate: '2000-01-01',
+    });
+    assert.equal(request.dressStyle, dressStyle);
+    assert.deepEqual(request.options, smart.options);
     assert.equal('birthDate' in request, false);
+    assert.equal('birthYear' in request, false);
+    assert.equal(['age', 'Band'].join('') in request, false);
   }
 });

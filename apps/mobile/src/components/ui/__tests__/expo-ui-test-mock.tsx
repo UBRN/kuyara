@@ -104,3 +104,25 @@ export function Switch({
     <RNSwitch disabled={disabled} onValueChange={onValueChange} testID={testID} value={value} />
   );
 }
+
+export function DatePicker({
+  onDateChange,
+  selection,
+  testID,
+  title,
+}: Readonly<{
+  onDateChange?: (date: Date) => void;
+  selection?: Date;
+  testID?: string;
+  title?: string;
+}>) {
+  return (
+    <Pressable
+      accessibilityLabel={title}
+      accessibilityRole="adjustable"
+      accessibilityValue={{ text: selection?.toISOString() }}
+      testID={testID}
+      {...{ onDateChange }}
+    />
+  );
+}

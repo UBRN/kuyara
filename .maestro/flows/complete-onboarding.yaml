@@ -13,15 +13,17 @@ tags:
 - assertVisible:
     id: onboarding-step-2
 - tapOn:
-    id: onboarding-clothing-womens
+    id: onboarding-gender-woman
 - tapOn:
     id: onboarding-continue
 - assertVisible:
     id: onboarding-step-3
 - tapOn:
-    id: onboarding-language-en
+    id: onboarding-dress-style-smart
 - tapOn:
-    id: onboarding-theme-light
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-4
 - tapOn:
     id: onboarding-complete
 - assertVisible:

@@ -60,6 +60,7 @@ function createProfile(): LocalProfileRecord {
   return {
     id: 'profile-id',
     gender: 'woman',
+    dressStyle: 'smart',
     birthDate: null,
     languagePreference: 'en',
     themePreference: 'light',

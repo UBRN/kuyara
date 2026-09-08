@@ -158,22 +158,44 @@ test('recommendations are deterministic across repeated calls with the same inpu
   assert.deepEqual(first, repeated);
 });
 
-test('fallback prefers each band formality while preserving three distinct valid options', () => {
-  for (const [ageBand, firstFormality] of [['young', 'casual'], ['adult', 'smart'], ['older', 'smart']]) {
-    const result = recommendOutfits({ snapshot: snapshot(), clothingPreference: 'womens', dayVariant: 0, ageBand });
+test('fallback prefers each dress style while preserving three distinct valid options', () => {
+  for (const dressStyle of ['casual', 'smart', 'formal']) {
+    const result = recommendOutfits({
+      snapshot: snapshot(),
+      clothingPreference: 'womens',
+      dayVariant: 0,
+      dressStyle,
+    });
     assert.equal(result.status, 'recommended');
     assert.equal(result.outfits.length, 3);
-    assert.equal(result.outfits[0].formality, firstFormality);
+    assert.equal(result.outfits[0].formality, dressStyle);
     assert.equal(new Set(result.outfits.map(({ optionId }) => optionId)).size, 3);
   }
 });
 
-test('each band keeps three distinct fallback outfits across catalog preferences, weather and day variants', () => {
+test('casual and formal styles select different triples from the same conditions', () => {
+  const shared = { snapshot: snapshot(), clothingPreference: 'womens', dayVariant: 0 };
+  const casual = recommendOutfits({ ...shared, dressStyle: 'casual' });
+  const formal = recommendOutfits({ ...shared, dressStyle: 'formal' });
+  assert.equal(casual.status, 'recommended');
+  assert.equal(formal.status, 'recommended');
+  assert.notDeepEqual(
+    casual.outfits.map(({ optionId }) => optionId),
+    formal.outfits.map(({ optionId }) => optionId),
+  );
+});
+
+test('each dress style keeps three distinct fallback outfits across catalog preferences, weather and day variants', () => {
   for (const clothingPreference of ['womens', 'mens']) {
-    for (const ageBand of ['young', 'adult', 'older']) {
+    for (const dressStyle of ['casual', 'smart', 'formal']) {
       for (const weather of [snapshot(), coldWetSnapshot(), warmWetSnapshot()]) {
         for (let dayVariant = 0; dayVariant < 7; dayVariant += 1) {
-          const result = recommendOutfits({ snapshot: weather, clothingPreference, ageBand, dayVariant });
+          const result = recommendOutfits({
+            snapshot: weather,
+            clothingPreference,
+            dressStyle,
+            dayVariant,
+          });
           assert.equal(result.status, 'recommended');
           assert.equal(result.outfits.length, 3);
           assert.equal(new Set(result.outfits.map(({ optionId }) => optionId)).size, 3);

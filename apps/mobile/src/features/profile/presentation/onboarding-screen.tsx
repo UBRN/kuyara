@@ -9,46 +9,43 @@ import {
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppText, Button, Icon, Screen } from '@/components/ui';
-import type {
-  ClothingPreference,
-  LanguagePreference,
-  ThemePreference,
-} from '@/domain/preferences';
+import { AppText, Button, Icon, NativeDatePicker, Screen } from '@/components/ui';
 import {
   createOnboardingDraft,
   onboardingPreferencesFromDraft,
   reduceOnboardingDraft,
 } from '@/features/profile/application/onboarding-state';
-import type { OnboardingPreferences } from '@/features/profile/domain/profile';
+import type {
+  DressStyle,
+  Gender,
+  OnboardingPreferences,
+} from '@/features/profile/domain/profile';
 import { PreferenceOption } from '@/features/profile/presentation/preference-option';
-import { getDeviceLocale } from '@/localization/device-locale';
-import { resolveLanguagePreference } from '@/localization/language-preference';
-import { getMessages } from '@/localization/messages';
+import { useMessages } from '@/localization/use-messages';
 import { useKuyaraTheme } from '@/theme/theme-context';
 import { borderWidths, radii, spacing } from '@/theme/theme';
 
 type OnboardingScreenProps = Readonly<{
-  initialClothingPreference: ClothingPreference | null;
-  initialLanguagePreference: LanguagePreference;
-  initialThemePreference: ThemePreference;
+  initialGender: Gender | null;
+  initialDressStyle: DressStyle | null;
+  initialBirthDate: string | null;
   onComplete: (preferences: OnboardingPreferences) => Promise<void>;
 }>;
 
-const totalSteps = 3;
+const totalSteps = 4;
 
 export function OnboardingScreen({
-  initialClothingPreference,
-  initialLanguagePreference,
-  initialThemePreference,
+  initialBirthDate,
+  initialDressStyle,
+  initialGender,
   onComplete,
 }: OnboardingScreenProps) {
   const [draft, dispatch] = useReducer(
     reduceOnboardingDraft,
     createOnboardingDraft({
-      clothingPreference: initialClothingPreference,
-      languagePreference: initialLanguagePreference,
-      themePreference: initialThemePreference,
+      gender: initialGender,
+      dressStyle: initialDressStyle,
+      birthDate: initialBirthDate,
     }),
   );
   const [saveError, setSaveError] = useState(false);
@@ -56,9 +53,8 @@ export function OnboardingScreen({
   const { fontScale } = useWindowDimensions();
   const announcedStep = useRef(false);
   const headingRef = useRef<Text>(null);
-  const deviceLocale = useMemo(() => getDeviceLocale(), []);
-  const language = resolveLanguagePreference(draft.languagePreference, deviceLocale);
-  const messages = getMessages(language);
+  const maximumBirthDate = useMemo(() => new Date(), []);
+  const messages = useMessages();
   const copy = messages.onboarding;
   const preferenceCopy = messages.preferences;
   const theme = useKuyaraTheme();
@@ -67,8 +63,10 @@ export function OnboardingScreen({
     draft.step === 0
       ? copy.welcomeTitle
       : draft.step === 1
-        ? copy.clothingTitle
-        : copy.detailsTitle;
+        ? copy.genderTitle
+        : draft.step === 2
+          ? copy.dressStyleTitle
+          : copy.birthDateTitle;
 
   useEffect(() => {
     if (announcedStep.current) {
@@ -88,8 +86,11 @@ export function OnboardingScreen({
   const goForward = () => {
     setSaveError(false);
 
-    if (draft.step === 1 && !draft.clothingPreference) {
-      AccessibilityInfo.announceForAccessibility(copy.clothingRequiredError);
+    if (draft.step === 1 && !draft.gender) {
+      AccessibilityInfo.announceForAccessibility(copy.genderRequiredError);
+    }
+    if (draft.step === 2 && !draft.dressStyle) {
+      AccessibilityInfo.announceForAccessibility(copy.dressStyleRequiredError);
     }
     dispatch({ type: 'continue' });
   };
@@ -97,7 +98,9 @@ export function OnboardingScreen({
   const complete = async () => {
     const preferences = onboardingPreferencesFromDraft(draft);
     if (!preferences || isSaving) {
-      AccessibilityInfo.announceForAccessibility(copy.clothingRequiredError);
+      AccessibilityInfo.announceForAccessibility(
+        draft.gender ? copy.dressStyleRequiredError : copy.genderRequiredError,
+      );
       return;
     }
 
@@ -179,8 +182,10 @@ export function OnboardingScreen({
           {draft.step === 0
             ? copy.welcomeBody
             : draft.step === 1
-              ? copy.clothingBody
-              : copy.detailsBody}
+              ? copy.genderBody
+              : draft.step === 2
+                ? copy.dressStyleBody
+                : copy.birthDateBody}
         </AppText>
       </View>
 
@@ -210,23 +215,23 @@ export function OnboardingScreen({
       ) : null}
 
       {draft.step === 1 ? (
-        <View style={styles.section} accessibilityLabel={preferenceCopy.clothingTitle}>
+        <View style={styles.section} accessibilityLabel={preferenceCopy.genderTitle}>
           <View style={styles.options}>
             <PreferenceOption
-              label={preferenceCopy.womensClothing}
+              label={preferenceCopy.genderWoman}
               onPress={() => {
-                dispatch({ type: 'select-clothing', value: 'womens' });
+                dispatch({ type: 'select-gender', value: 'woman' });
               }}
-              selected={draft.clothingPreference === 'womens'}
-              testID="onboarding-clothing-womens"
+              selected={draft.gender === 'woman'}
+              testID="onboarding-gender-woman"
             />
             <PreferenceOption
-              label={preferenceCopy.mensClothing}
+              label={preferenceCopy.genderMan}
               onPress={() => {
-                dispatch({ type: 'select-clothing', value: 'mens' });
+                dispatch({ type: 'select-gender', value: 'man' });
               }}
-              selected={draft.clothingPreference === 'mens'}
-              testID="onboarding-clothing-mens"
+              selected={draft.gender === 'man'}
+              testID="onboarding-gender-man"
             />
           </View>
           {draft.hasValidationError ? (
@@ -234,70 +239,73 @@ export function OnboardingScreen({
               accessibilityLiveRegion="assertive"
               accessibilityRole="alert"
               colorRole="textSecondary"
-              testID="onboarding-clothing-error">
-              {copy.clothingRequiredError}
+              testID="onboarding-gender-error">
+              {copy.genderRequiredError}
             </AppText>
           ) : null}
         </View>
       ) : null}
 
       {draft.step === 2 ? (
-        <View style={styles.details}>
-          <View style={styles.section}>
-            <View style={styles.sectionHeading}>
-              <AppText accessibilityRole="header" variant="bodyStrong">
-                {preferenceCopy.languageTitle}
-              </AppText>
-              <AppText colorRole="textSecondary">
-                {preferenceCopy.languageDescription}
-              </AppText>
-            </View>
-            <View style={styles.options}>
-              {(
-                [
-                  ['system', preferenceCopy.languageSystem],
-                  ['tr', preferenceCopy.languageTurkish],
-                  ['en', preferenceCopy.languageEnglish],
-                ] as const
-              ).map(([value, label]) => (
-                <PreferenceOption
-                  key={value}
-                  label={label}
-                  onPress={() => dispatch({ type: 'select-language', value })}
-                  selected={draft.languagePreference === value}
-                  testID={`onboarding-language-${value}`}
-                />
-              ))}
-            </View>
+        <View style={styles.section} accessibilityLabel={preferenceCopy.dressStyleTitle}>
+          <View style={styles.options} accessibilityRole="radiogroup">
+            <PreferenceOption
+              label={preferenceCopy.dressStyleCasual}
+              onPress={() => {
+                dispatch({ type: 'select-dress-style', value: 'casual' });
+              }}
+              selected={draft.dressStyle === 'casual'}
+              testID="onboarding-dress-style-casual"
+            />
+            <PreferenceOption
+              label={preferenceCopy.dressStyleSmart}
+              onPress={() => {
+                dispatch({ type: 'select-dress-style', value: 'smart' });
+              }}
+              selected={draft.dressStyle === 'smart'}
+              testID="onboarding-dress-style-smart"
+            />
+            <PreferenceOption
+              label={preferenceCopy.dressStyleFormal}
+              onPress={() => {
+                dispatch({ type: 'select-dress-style', value: 'formal' });
+              }}
+              selected={draft.dressStyle === 'formal'}
+              testID="onboarding-dress-style-formal"
+            />
           </View>
+          {draft.hasValidationError ? (
+            <AppText
+              accessibilityLiveRegion="assertive"
+              accessibilityRole="alert"
+              colorRole="textSecondary"
+              testID="onboarding-dress-style-error">
+              {copy.dressStyleRequiredError}
+            </AppText>
+          ) : null}
+        </View>
+      ) : null}
 
-          <View style={styles.section}>
-            <View style={styles.sectionHeading}>
-              <AppText accessibilityRole="header" variant="bodyStrong">
-                {preferenceCopy.themeTitle}
-              </AppText>
-              <AppText colorRole="textSecondary">
-                {preferenceCopy.themeDescription}
-              </AppText>
-            </View>
-            <View style={styles.options}>
-              {(
-                [
-                  ['system', preferenceCopy.themeSystem],
-                  ['light', preferenceCopy.themeLight],
-                  ['dark', preferenceCopy.themeDark],
-                ] as const
-              ).map(([value, label]) => (
-                <PreferenceOption
-                  key={value}
-                  label={label}
-                  onPress={() => dispatch({ type: 'select-theme', value })}
-                  selected={draft.themePreference === value}
-                  testID={`onboarding-theme-${value}`}
-                />
-              ))}
-            </View>
-          </View>
+      {draft.step === 3 ? (
+        <View style={styles.section}>
+          {draft.birthDate === null ? (
+            <AppText colorRole="textSecondary">{copy.birthDateNotSet}</AppText>
+          ) : null}
+          <NativeDatePicker
+            accessibilityLabel={copy.birthDateTitle}
+            maximumDate={maximumBirthDate}
+            onChange={(value) => dispatch({ type: 'select-birth-date', value })}
+            standalone
+            testID="onboarding-birth-date"
+            value={draft.birthDate}
+          />
+          {draft.birthDate !== null ? (
+            <Button
+              label={copy.birthDateClearAction}
+              onPress={() => dispatch({ type: 'select-birth-date', value: null })}
+              variant="quiet"
+            />
+          ) : null}
         </View>
       ) : null}
 
@@ -386,14 +394,8 @@ const styles = StyleSheet.create({
     flex: 1,
     flexShrink: 1,
   },
-  details: {
-    gap: spacing.md,
-  },
   section: {
     gap: spacing.md,
-  },
-  sectionHeading: {
-    gap: spacing.xs,
   },
   options: {
     gap: spacing.md,

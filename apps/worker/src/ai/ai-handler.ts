@@ -120,7 +120,7 @@ async function buildCacheRequest(request: AiRecommendV1Request): Promise<Request
   const canonical = [
     requirementKey,
     request.clothingPreference,
-    request.ageBand ?? 'adult',
+    request.dressStyle ?? 'smart',
     request.catalogVersion,
     request.dayVariant,
   ].join('\n');

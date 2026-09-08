@@ -18,7 +18,6 @@ import {
   RecommendationApplicationContext,
   type RecommendationApplicationValue,
 } from '@/features/recommendation/application/recommendation-application-context';
-import { deriveAgeBand } from '@/features/profile/domain/profile';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { LocalRecommendationRepository } from '@/features/recommendation/data/recommendation-repository';
 import { SqliteRecommendationLocalDataSource } from '@/features/recommendation/data/sqlite-recommendation-local-data-source';
@@ -92,7 +91,9 @@ export function RecommendationApplicationProvider({
     return {
       snapshot: weatherState.snapshot,
       clothingPreference,
-      ageBand: deriveAgeBand(profileState.status === 'ready' ? profileState.profile.birthDate : null),
+      dressStyle: profileState.status === 'ready'
+        ? profileState.profile.dressStyle ?? 'smart'
+        : 'smart',
       dayVariant,
     };
   }, [dayVariant, profileState, weatherState]);
@@ -119,7 +120,7 @@ export function RecommendationApplicationProvider({
       weatherSnapshotId: input.snapshot.id,
       locationKey: input.snapshot.locationKey,
       clothingPreference: input.clothingPreference,
-      ageBand: input.ageBand,
+      dressStyle: input.dressStyle ?? 'smart',
       dayVariant: input.dayVariant,
     };
     const previous: RecommendationSignals | null = persistedSnapshot
@@ -127,7 +128,7 @@ export function RecommendationApplicationProvider({
           weatherSnapshotId: persistedSnapshot.weatherSnapshotId,
           locationKey: persistedSnapshot.locationKey,
           clothingPreference: persistedSnapshot.clothingPreference,
-          ageBand: persistedSnapshot.ageBand,
+          dressStyle: persistedSnapshot.dressStyle,
           dayVariant: persistedSnapshot.dayVariant,
         }
       : null;

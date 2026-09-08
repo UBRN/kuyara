@@ -1,4 +1,4 @@
-import type { Gender } from '@/features/profile/domain/profile';
+import type { DressStyle, Gender } from '@/features/profile/domain/profile';
 import type {
   LanguagePreference,
   ThemePreference,
@@ -7,14 +7,15 @@ import type { LocalProfileRecord } from '@/features/profile/data/local-profile-r
 
 export type PersistedOnboardingPreferences = Readonly<{
   gender: Gender;
-  languagePreference: LanguagePreference;
-  themePreference: ThemePreference;
+  dressStyle: DressStyle;
+  birthDate: string | null;
 }>;
 
 export interface ProfileLocalDataSource {
   getOrCreateProfile(): Promise<LocalProfileRecord>;
   completeOnboarding(preferences: PersistedOnboardingPreferences): Promise<LocalProfileRecord>;
   updateGender(preference: Gender): Promise<LocalProfileRecord>;
+  updateDressStyle(dressStyle: DressStyle): Promise<LocalProfileRecord>;
   updateBirthDate(birthDate: string | null): Promise<LocalProfileRecord>;
   updateLanguagePreference(preference: LanguagePreference): Promise<LocalProfileRecord>;
   updateThemePreference(preference: ThemePreference): Promise<LocalProfileRecord>;
