@@ -59,9 +59,10 @@ const styles = StyleSheet.create({
   icon: {
     marginRight: spacing.xs,
   },
+  // Law 5 (design-language.md): nothing renders below `caption` 13 except the uppercase,
+  // tracked `eyebrow`, so the label sits on the `caption` role and adds only weight. The
+  // compact scale is the role, not a size of the Pill's own.
   label: {
-    fontSize: 11,
     fontWeight: '700',
-    lineHeight: 14,
   },
 });
