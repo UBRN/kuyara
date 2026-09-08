@@ -1,3 +1,5 @@
+import { OpenMeteoPlaceProvider } from './places/open-meteo-place-provider.ts';
+import { createPlaceSearchHandler } from './places/place-search-handler.ts';
 import { createAiHandler } from './ai/ai-handler.ts';
 import type { AiProvider } from './ai/ai-provider.ts';
 import { OpenRouterAiProvider } from './ai/openrouter-ai-provider.ts';
@@ -168,6 +170,10 @@ export default {
     });
     return createRouter({
       weatherHandler,
+      placeSearchHandler: createPlaceSearchHandler({
+        provider: new OpenMeteoPlaceProvider(),
+        rateLimiter: env.WEATHER_RATE_LIMIT ?? { limit: async () => ({ success: false }) },
+      }),
       aiHandler,
       probeHandler,
       aiReady: providers.length > 0,

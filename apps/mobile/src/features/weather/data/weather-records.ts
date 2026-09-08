@@ -3,6 +3,7 @@ export type ActiveLocationRecord = Readonly<{
   locationKey: string;
   source: string;
   manualCatalogId: string | null;
+  displayName: string | null;
   latitudeE2: number;
   longitudeE2: number;
   timeZone: string;

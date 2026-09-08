@@ -1,3 +1,5 @@
+import { manualLocationIdSchema } from '@kuyara/contracts';
+
 export const weatherConditionCodes = [
   'clear',
   'mostly_clear',
@@ -14,7 +16,11 @@ export const weatherConditionCodes = [
 
 export type WeatherConditionCode = (typeof weatherConditionCodes)[number];
 export type LocationAccuracy = 'approximate' | 'full';
-export type ManualLocationId = 'sample.istanbul' | 'sample.ankara' | 'sample.london';
+export type ManualLocationId = `sample.${string}` | `place.${number}`;
+
+export function isManualLocationId(value: unknown): value is ManualLocationId {
+  return manualLocationIdSchema.safeParse(value).success;
+}
 
 export type NormalizedCoordinates = Readonly<{
   latitudeE2: number;
@@ -30,6 +36,7 @@ type LocationBase = Readonly<{
 export type ManualActiveLocation = LocationBase & Readonly<{
   source: 'manual';
   catalogId: ManualLocationId;
+  displayName: string;
 }>;
 
 export type DeviceActiveLocation = LocationBase & Readonly<{
