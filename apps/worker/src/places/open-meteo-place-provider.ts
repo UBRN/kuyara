@@ -35,7 +35,10 @@ export class OpenMeteoPlaceProvider {
   private readonly timeoutMs: number;
 
   constructor(dependencies: { fetch?: typeof globalThis.fetch; timeoutMs?: number } = {}) {
-    this.fetch = dependencies.fetch ?? globalThis.fetch;
+    // Bind the global: storing `globalThis.fetch` on the instance and calling it as `this.fetch`
+    // passes the provider as `this`, which workerd rejects with "Illegal invocation" and Node
+    // tolerates. Every production search returned 503 until this was found on 2026-09-08.
+    this.fetch = dependencies.fetch ?? globalThis.fetch.bind(globalThis);
     this.timeoutMs = dependencies.timeoutMs ?? 4000;
   }
 
@@ -49,7 +52,9 @@ export class OpenMeteoPlaceProvider {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
-      const response = await this.fetch(url, { signal: controller.signal, redirect: 'error' });
+      // Workers' fetch accepts only 'follow' and 'manual'; 'manual' surfaces a redirect as a
+      // non-ok response, which the check below rejects.
+      const response = await this.fetch(url, { signal: controller.signal, redirect: 'manual' });
       if (!response.ok) throw new PlaceSearchProviderError();
       const raw = rawResponseSchema.parse(await response.json());
       const places = (raw.results ?? []).map((place) => ({
