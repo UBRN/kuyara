@@ -4,7 +4,7 @@ import type {
   OnboardingPreferences,
 } from '@/features/profile/domain/profile';
 
-export type OnboardingStep = 0 | 1 | 2 | 3;
+export type OnboardingStep = 0 | 1 | 2 | 3 | 4;
 
 export type OnboardingDraft = Readonly<{
   step: OnboardingStep;
@@ -47,7 +47,7 @@ export function reduceOnboardingDraft(
       }
       return {
         ...state,
-        step: Math.min(state.step + 1, 3) as OnboardingStep,
+        step: Math.min(state.step + 1, 4) as OnboardingStep,
         hasValidationError: false,
       };
     case 'back':

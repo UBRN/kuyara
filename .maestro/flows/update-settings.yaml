@@ -23,6 +23,10 @@ tags:
 - assertVisible:
     id: onboarding-step-4
 - tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-5
+- tapOn:
     id: onboarding-complete
 - assertVisible:
     id: today-screen

@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { ActivityIndicator, RefreshControl, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
 import {
   AppText,
+  Button,
   haptics,
   Icon,
   IconButton,
@@ -17,6 +19,7 @@ import type { TodayScreenState } from '@/features/today/model';
 import { OutfitSuggestionCard } from '@/features/today/presentation/outfit-suggestion-card';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
+import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import type { SupportedLanguage } from '@/localization/messages';
 import { withAlpha } from '@/theme/color-alpha';
 import { spacing } from '@/theme/theme';
@@ -37,7 +40,15 @@ export function TodayScreen({
   onOpenOutfitDetail,
   onRefresh,
 }: TodayScreenProps) {
-  const presentation = createTodayPresentation(state, language);
+  const router = useRouter();
+  const weatherApplication = useWeatherApplication();
+  const presentationState =
+    state.kind === 'unavailable' &&
+    weatherApplication.state.status === 'ready' &&
+    weatherApplication.state.activeLocation === null
+      ? { ...state, reason: 'no-active-location' as const }
+      : state;
+  const presentation = createTodayPresentation(presentationState, language);
   const theme = useKuyaraTheme();
   const { fontScale } = useWindowDimensions();
   const usesAccessibilityLayout = fontScale > 1.5;
@@ -58,9 +69,16 @@ export function TodayScreen({
         contentContainerStyle={styles.feedbackContent}
         testID="today-screen">
         <Surface
+          accessible
+          accessibilityLabel={presentation.accessibilityLabel}
           accessibilityRole={presentation.kind === 'unavailable' ? 'alert' : undefined}
           style={styles.feedbackCard}
-          testID={`today-${presentation.kind}-screen`}
+          testID={
+            presentation.kind === 'unavailable' &&
+            presentation.reason === 'no-active-location'
+              ? 'today-no-location'
+              : `today-${presentation.kind}-screen`
+          }
           variant="elevated">
           {presentation.kind === 'loading' ? (
             <ActivityIndicator
@@ -75,6 +93,12 @@ export function TodayScreen({
           <AppText colorRole="textSecondary" style={styles.centerText}>
             {presentation.body}
           </AppText>
+          {presentation.kind === 'unavailable' && presentation.actionLabel ? (
+            <Button
+              label={presentation.actionLabel}
+              onPress={() => router.push('/weather/location')}
+            />
+          ) : null}
         </Surface>
       </Screen>
     );

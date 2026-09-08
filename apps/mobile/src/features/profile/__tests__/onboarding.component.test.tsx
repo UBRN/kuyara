@@ -1,7 +1,13 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import type { PlaceSearchV1Data } from '@kuyara/contracts';
 
 import { OnboardingScreen } from '@/features/profile/presentation/onboarding-screen';
+import {
+  PlaceSearchApplicationContext,
+  WeatherApplicationContext,
+  type WeatherApplicationValue,
+} from '@/features/weather/application/weather-application-context';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
@@ -10,17 +16,89 @@ import { KuyaraThemeContext } from '@/theme/theme-context';
 jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 jest.mock('@expo/ui/swift-ui', () =>
   jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
+jest.mock('@/components/ui/native-text-field', () => {
+  const { TextInput } = jest.requireActual('react-native');
+  return {
+    NativeTextField: ({ label, ...props }: { label: string }) => (
+      <TextInput accessibilityLabel={label} {...props} />
+    ),
+  };
+});
+jest.mock('@/components/ui/native-list', () => {
+  const { Pressable, Text, View } = jest.requireActual('react-native');
+  return {
+    NativeList: View,
+    NativeListSection: ({ children, footer }: {
+      children: React.ReactNode;
+      footer?: string;
+    }) => <View>{children}<Text>{footer}</Text></View>,
+    NativeListRow: ({ label, onPress, testID, value }: {
+      label: string;
+      onPress?: () => void;
+      testID?: string;
+      value?: string;
+    }) => (
+      <Pressable accessibilityLabel={label} onPress={onPress} testID={testID}>
+        <Text>{label}</Text>
+        <Text>{value}</Text>
+      </Pressable>
+    ),
+  };
+});
 
 const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
   insets: { top: 47, right: 0, bottom: 34, left: 0 },
 };
 
+const place = {
+  id: 'place.745044',
+  displayName: 'İstanbul',
+  region: 'Türkiye',
+  latitudeE2: 4101,
+  longitudeE2: 2898,
+  timeZone: 'Europe/Istanbul',
+} as const;
+const placeData: PlaceSearchV1Data = {
+  places: [place],
+  attribution: ['open-meteo', 'geonames'],
+};
+
+function createWeatherApplication(
+  state: WeatherApplicationValue['state'] = {
+    status: 'ready',
+    activeLocation: null,
+    snapshot: null,
+    freshness: null,
+    permission: { kind: 'undetermined' },
+    locationFlow: 'idle',
+    isSelectingLocation: false,
+    isRefreshing: false,
+    refreshFailure: null,
+  },
+): WeatherApplicationValue {
+  return {
+    state,
+    retry: jest.fn(async () => undefined),
+    dismissLocationFlow: jest.fn(),
+    beginDeviceLocationSelection: jest.fn(async () => undefined),
+    confirmDeviceLocationRequest: jest.fn(async () => undefined),
+    openApplicationSettings: jest.fn(async () => undefined),
+    selectManualLocation: jest.fn(async () => undefined),
+    refresh: jest.fn(async () => undefined),
+  };
+}
+
 async function renderOnboarding(
   initialGender: 'woman' | 'man' | null,
   initialBirthDate: string | null,
   initialDressStyle: 'casual' | 'smart' | 'formal' | null = null,
   onComplete = jest.fn(async () => undefined),
+  weather = createWeatherApplication(),
+  search = {
+    searchPlaces: jest.fn(async (): Promise<PlaceSearchV1Data> => placeData),
+    selectPlaceSearchResult: jest.fn(async () => undefined),
+  },
 ) {
   return {
     onComplete,
@@ -28,16 +106,22 @@ async function renderOnboarding(
       <LocalizationContext.Provider value={{ language: 'en', messages: messages.en }}>
         <KuyaraThemeContext.Provider value={lightTheme}>
           <SafeAreaProvider initialMetrics={initialMetrics}>
-            <OnboardingScreen
-              initialBirthDate={initialBirthDate}
-              initialDressStyle={initialDressStyle}
-              initialGender={initialGender}
-              onComplete={onComplete}
-            />
+            <WeatherApplicationContext value={weather}>
+              <PlaceSearchApplicationContext value={search}>
+                <OnboardingScreen
+                  initialBirthDate={initialBirthDate}
+                  initialDressStyle={initialDressStyle}
+                  initialGender={initialGender}
+                  onComplete={onComplete}
+                />
+              </PlaceSearchApplicationContext>
+            </WeatherApplicationContext>
           </SafeAreaProvider>
         </KuyaraThemeContext.Provider>
       </LocalizationContext.Provider>,
     ),
+    weather,
+    search,
   };
 }
 
@@ -65,6 +149,12 @@ test('gender and dress style are required and a null birth date completes honest
     messages.en.onboarding.birthDateTitle,
   );
 
+  await fireEvent.press(result.getByTestId('onboarding-continue'));
+  expect(result.getByTestId('onboarding-step-5')).toBeOnTheScreen();
+  expect(result.getByText(messages.en.onboarding.locationTitle)).toBeOnTheScreen();
+  expect(result.getByTestId('onboarding-location-device')).toBeOnTheScreen();
+  expect(result.getByTestId('onboarding-place-search')).toBeOnTheScreen();
+  expect(result.getByTestId('onboarding-location-skip')).toBeOnTheScreen();
   await fireEvent.press(result.getByTestId('onboarding-complete'));
   await waitFor(() => expect(onComplete).toHaveBeenCalledWith({
     gender: 'woman',
@@ -85,4 +175,93 @@ test('existing profile values prefill the reopened onboarding steps', async () =
   expect(result.getByTestId('onboarding-birth-date').props.accessibilityValue.text).toContain(
     '1994-03-14',
   );
+});
+
+test('selecting a searched place uses the weather application without completing onboarding', async () => {
+  jest.useFakeTimers();
+  const onComplete = jest.fn(async () => undefined);
+  const { result, search } = await renderOnboarding(
+    'woman',
+    null,
+    'smart',
+    onComplete,
+  );
+
+  for (let step = 0; step < 4; step += 1) {
+    await fireEvent.press(result.getByTestId('onboarding-continue'));
+  }
+  await fireEvent.changeText(result.getByTestId('onboarding-place-search'), 'Ista');
+  await act(async () => {
+    jest.advanceTimersByTime(300);
+    await Promise.resolve();
+  });
+  await fireEvent.press(result.getByTestId('onboarding-place-place.745044'));
+
+  expect(search.selectPlaceSearchResult).toHaveBeenCalledWith(place);
+  expect(onComplete).not.toHaveBeenCalled();
+  expect(result.getByTestId('onboarding-step-5')).toBeOnTheScreen();
+  jest.useRealTimers();
+});
+
+test('device selection starts the shared flow and permanent denial keeps Settings available', async () => {
+  const active = await renderOnboarding('woman', null, 'smart');
+  for (let step = 0; step < 4; step += 1) {
+    await fireEvent.press(active.result.getByTestId('onboarding-continue'));
+  }
+  await fireEvent.press(active.result.getByTestId('onboarding-location-device'));
+  expect(active.weather.beginDeviceLocationSelection).toHaveBeenCalledTimes(1);
+  await active.result.unmount();
+
+  const deniedWeather = createWeatherApplication({
+    status: 'ready',
+    activeLocation: null,
+    snapshot: null,
+    freshness: null,
+    permission: { kind: 'denied', canRequestAgain: false },
+    locationFlow: 'denied-permanent',
+    isSelectingLocation: false,
+    isRefreshing: false,
+    refreshFailure: null,
+  });
+  const denied = await renderOnboarding('woman', null, 'smart', undefined, deniedWeather);
+  for (let step = 0; step < 4; step += 1) {
+    await fireEvent.press(denied.result.getByTestId('onboarding-continue'));
+  }
+  expect(denied.result.getByText(messages.en.weather.placePermanentDeniedBody))
+    .toBeOnTheScreen();
+  await fireEvent.press(denied.result.getByRole('button', {
+    name: messages.en.weather.openSettings,
+  }));
+  expect(deniedWeather.openApplicationSettings).toHaveBeenCalledTimes(1);
+  expect(denied.result.getByTestId('onboarding-complete')).toBeOnTheScreen();
+});
+
+test('a chosen location turns the final quiet action into the start action', async () => {
+  const weather = createWeatherApplication({
+    status: 'ready',
+    activeLocation: {
+      source: 'manual',
+      catalogId: place.id,
+      displayName: place.displayName,
+      locationKey: `manual:${place.id}`,
+      coordinates: { latitudeE2: place.latitudeE2, longitudeE2: place.longitudeE2 },
+      timeZone: place.timeZone,
+    },
+    snapshot: null,
+    freshness: null,
+    permission: { kind: 'undetermined' },
+    locationFlow: 'idle',
+    isSelectingLocation: false,
+    isRefreshing: false,
+    refreshFailure: null,
+  });
+  const { result, onComplete } = await renderOnboarding('woman', null, 'smart', undefined, weather);
+  for (let step = 0; step < 4; step += 1) {
+    await fireEvent.press(result.getByTestId('onboarding-continue'));
+  }
+  expect(result.queryByText(messages.en.weather.cancel)).not.toBeOnTheScreen();
+  await fireEvent.press(result.getByRole('button', {
+    name: messages.en.onboarding.completeAction,
+  }));
+  await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
 });

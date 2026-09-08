@@ -80,6 +80,8 @@ export type TodayPresentation =
       title: string;
       body: string;
       accessibilityLabel: string;
+      reason?: 'no-active-location' | 'failure';
+      actionLabel?: string;
     }>;
 
 function localeTag(language: SupportedLanguage): string {
@@ -294,8 +296,19 @@ export function createTodayPresentation(
   }
 
   if (state.kind === 'unavailable') {
+    if (state.reason === 'no-active-location') {
+      return {
+        kind: 'unavailable',
+        reason: 'no-active-location',
+        title: copy.noLocationTitle,
+        body: copy.noLocationBody,
+        actionLabel: copy.chooseLocationAction,
+        accessibilityLabel: `${copy.noLocationTitle}. ${copy.noLocationBody}`,
+      };
+    }
     return {
       kind: 'unavailable',
+      reason: 'failure',
       title: copy.unavailableTitle,
       body: copy.unavailableBody,
       accessibilityLabel: `${copy.unavailableTitle}. ${copy.unavailableBody}`,
