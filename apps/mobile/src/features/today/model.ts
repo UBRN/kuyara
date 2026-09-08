@@ -15,7 +15,10 @@ export type TodaySnapshot = Readonly<{
 
 export type TodayScreenState =
   | Readonly<{ kind: 'loading' }>
-  | Readonly<{ kind: 'unavailable' }>
+  | Readonly<{
+      kind: 'unavailable';
+      reason?: 'no-active-location';
+    }>
   | Readonly<{
       kind: 'loaded';
       snapshot: TodaySnapshot;

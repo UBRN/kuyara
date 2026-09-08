@@ -67,6 +67,7 @@ test.each(['tr', 'en'] as const)('%s picker searches, attributes results and sel
   const { weather, search, Providers } = harness(language);
   const copy = messages[language].weather;
   const result = await render(<Providers><WeatherLocationScreen /></Providers>);
+  expect(result.getByTestId('weather-location-controls')).toBeOnTheScreen();
   const field = result.getByLabelText(copy.placeSearchLabel);
   expect(field.props.placeholder).toBe(copy.placeSearchPlaceholder);
   await fireEvent.changeText(field, 'I'); await debounce();

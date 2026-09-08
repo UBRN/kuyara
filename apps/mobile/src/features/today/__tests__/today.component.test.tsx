@@ -10,6 +10,11 @@ import {
 import { OutfitDetailScreen } from '@/features/today/presentation/outfit-detail-screen';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { TodayScreen } from '@/features/today/presentation/today-screen';
+import {
+  WeatherApplicationContext,
+  type WeatherApplicationValue,
+} from '@/features/weather/application/weather-application-context';
+import type { ActiveLocation } from '@/features/weather/domain/weather';
 import { WardrobeApplicationContext } from '@/features/wardrobe/application/wardrobe-application-context';
 import { resolveGarmentOwnership } from '@/features/wardrobe/domain/garment-type-ownership';
 import { LocalizationContext } from '@/localization/localization-context';
@@ -20,6 +25,8 @@ import { KuyaraThemeContext } from '@/theme/theme-context';
 jest.mock('expo-symbols', () => ({
   SymbolView: () => null,
 }));
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 
 const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
@@ -30,11 +37,34 @@ function providers(
   children: React.ReactNode,
   theme: KuyaraTheme = lightTheme,
   language: SupportedLanguage = 'en',
+  activeLocation: ActiveLocation | null = todayScreenState.snapshot.activeLocation,
 ) {
+  const weather = {
+    state: {
+      status: 'ready',
+      activeLocation,
+      snapshot: activeLocation ? todayScreenState.snapshot.weather : null,
+      freshness: activeLocation ? 'fresh' : null,
+      permission: { kind: 'undetermined' },
+      locationFlow: 'idle',
+      isSelectingLocation: false,
+      isRefreshing: false,
+      refreshFailure: null,
+    },
+    retry: jest.fn(async () => undefined),
+    dismissLocationFlow: jest.fn(),
+    beginDeviceLocationSelection: jest.fn(async () => undefined),
+    confirmDeviceLocationRequest: jest.fn(async () => undefined),
+    openApplicationSettings: jest.fn(async () => undefined),
+    selectManualLocation: jest.fn(async () => undefined),
+    refresh: jest.fn(async () => undefined),
+  } satisfies WeatherApplicationValue;
   return (
     <LocalizationContext value={{ language, messages: messages[language] }}>
       <KuyaraThemeContext.Provider value={theme}>
-        <SafeAreaProvider initialMetrics={initialMetrics}>{children}</SafeAreaProvider>
+        <SafeAreaProvider initialMetrics={initialMetrics}>
+          <WeatherApplicationContext value={weather}>{children}</WeatherApplicationContext>
+        </SafeAreaProvider>
       </KuyaraThemeContext.Provider>
     </LocalizationContext>
   );
@@ -391,6 +421,47 @@ test('loading Today keeps its existing feedback layout without the loaded header
 
   expect(result.getByTestId('today-loading-screen')).toBeOnTheScreen();
   expect(result.queryByTestId('today-stretchy-header')).not.toBeOnTheScreen();
+});
+
+test('Today explains a missing active location and opens the existing location picker', async () => {
+  mockPush.mockClear();
+  const result = await render(providers(
+    <TodayScreen
+      language="en"
+      onOpenOutfitDetail={() => undefined}
+      onOpenSettings={() => undefined}
+      onRefresh={() => undefined}
+      state={{ kind: 'unavailable' }}
+    />,
+    lightTheme,
+    'en',
+    null,
+  ));
+
+  expect(result.getByTestId('today-no-location')).toBeOnTheScreen();
+  expect(result.getByText(messages.en.today.noLocationTitle)).toBeOnTheScreen();
+  expect(result.getByText(messages.en.today.noLocationBody)).toBeOnTheScreen();
+  await fireEvent.press(result.getByRole('button', {
+    name: messages.en.today.chooseLocationAction,
+  }));
+  expect(mockPush).toHaveBeenCalledWith('/weather/location');
+});
+
+test('Today keeps the generic unavailable copy for failures with an active location', async () => {
+  const result = await render(providers(
+    <TodayScreen
+      language="en"
+      onOpenOutfitDetail={() => undefined}
+      onOpenSettings={() => undefined}
+      onRefresh={() => undefined}
+      state={{ kind: 'unavailable' }}
+    />,
+  ));
+
+  expect(result.getByTestId('today-unavailable-screen')).toBeOnTheScreen();
+  expect(result.getByText(messages.en.today.unavailableTitle)).toBeOnTheScreen();
+  expect(result.getByText(messages.en.today.unavailableBody)).toBeOnTheScreen();
+  expect(result.queryByTestId('today-no-location')).not.toBeOnTheScreen();
 });
 
 // The end-to-end flows assert that onboarding lands on Today, so the container id

@@ -1,6 +1,8 @@
 import {
   AccessibilityInfo,
   findNodeHandle,
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
   Text,
   View,
@@ -21,6 +23,8 @@ import type {
   OnboardingPreferences,
 } from '@/features/profile/domain/profile';
 import { PreferenceOption } from '@/features/profile/presentation/preference-option';
+import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
+import { LocationSelectionControls } from '@/features/weather/presentation/location-selection-controls';
 import { useMessages } from '@/localization/use-messages';
 import { useKuyaraTheme } from '@/theme/theme-context';
 import { borderWidths, radii, spacing } from '@/theme/theme';
@@ -32,7 +36,7 @@ type OnboardingScreenProps = Readonly<{
   onComplete: (preferences: OnboardingPreferences) => Promise<void>;
 }>;
 
-const totalSteps = 4;
+const totalSteps = 5;
 
 export function OnboardingScreen({
   initialBirthDate,
@@ -58,6 +62,9 @@ export function OnboardingScreen({
   const copy = messages.onboarding;
   const preferenceCopy = messages.preferences;
   const theme = useKuyaraTheme();
+  const weatherState = useWeatherApplication().state;
+  const hasActiveLocation =
+    weatherState.status === 'ready' && weatherState.activeLocation !== null;
 
   const stepTitle =
     draft.step === 0
@@ -66,7 +73,9 @@ export function OnboardingScreen({
         ? copy.genderTitle
         : draft.step === 2
           ? copy.dressStyleTitle
-          : copy.birthDateTitle;
+          : draft.step === 3
+            ? copy.birthDateTitle
+            : copy.locationTitle;
 
   useEffect(() => {
     if (announcedStep.current) {
@@ -122,72 +131,89 @@ export function OnboardingScreen({
     ['heart', copy.wardrobePromise],
   ] as const;
 
-  return (
-    <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
-      <Screen
-        contentContainerStyle={styles.content}
-        testID={`onboarding-step-${draft.step + 1}`}>
-      <View style={styles.heading}>
-        <AppText accessibilityRole="header" ref={headingRef} variant="titleLarge">
-          {stepTitle}
-        </AppText>
-        <View
-          accessible
-          accessibilityLabel={copy.stepPosition(draft.step + 1, totalSteps)}
-          accessibilityRole="progressbar"
-          accessibilityValue={{ max: totalSteps, min: 1, now: draft.step + 1 }}
-          style={styles.progress}>
-          {Array.from({ length: totalSteps }, (_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.progressSegment,
-                {
-                  backgroundColor: index <= draft.step
-                    ? theme.colors.brandPrimary
-                    : theme.colors.borderSubtle,
-                },
-              ]}
-            />
-          ))}
-        </View>
-        <View
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-          style={styles.illustration}>
-          <View style={[styles.horizonRing, { borderColor: theme.colors.brandAccent }]} />
+  const heading = (
+    <View style={styles.heading}>
+      <AppText accessibilityRole="header" ref={headingRef} variant="titleLarge">
+        {stepTitle}
+      </AppText>
+      <View
+        accessible
+        accessibilityLabel={copy.stepPosition(draft.step + 1, totalSteps)}
+        accessibilityRole="progressbar"
+        accessibilityValue={{ max: totalSteps, min: 1, now: draft.step + 1 }}
+        style={styles.progress}>
+        {Array.from({ length: totalSteps }, (_, index) => (
           <View
+            key={index}
             style={[
-              styles.horizonBar,
-              styles.horizonBarLight,
-              { backgroundColor: theme.colors.surfaceInteractive },
+              styles.progressSegment,
+              {
+                backgroundColor: index <= draft.step
+                  ? theme.colors.brandPrimary
+                  : theme.colors.borderSubtle,
+              },
             ]}
           />
-          <View
-            style={[
-              styles.horizonBar,
-              styles.horizonBarMedium,
-              { backgroundColor: theme.colors.brandAccent },
-            ]}
-          />
-          <View
-            style={[
-              styles.horizonBar,
-              styles.horizonBarHeavy,
-              { backgroundColor: theme.colors.brandPrimary },
-            ]}
-          />
-        </View>
-        <AppText colorRole="textSecondary">
-          {draft.step === 0
-            ? copy.welcomeBody
-            : draft.step === 1
-              ? copy.genderBody
-              : draft.step === 2
-                ? copy.dressStyleBody
-                : copy.birthDateBody}
-        </AppText>
+        ))}
       </View>
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={styles.illustration}>
+        <View style={[styles.horizonRing, { borderColor: theme.colors.brandAccent }]} />
+        <View
+          style={[
+            styles.horizonBar,
+            styles.horizonBarLight,
+            { backgroundColor: theme.colors.surfaceInteractive },
+          ]}
+        />
+        <View
+          style={[
+            styles.horizonBar,
+            styles.horizonBarMedium,
+            { backgroundColor: theme.colors.brandAccent },
+          ]}
+        />
+        <View
+          style={[
+            styles.horizonBar,
+            styles.horizonBarHeavy,
+            { backgroundColor: theme.colors.brandPrimary },
+          ]}
+        />
+      </View>
+      <AppText colorRole="textSecondary">
+        {draft.step === 0
+          ? copy.welcomeBody
+          : draft.step === 1
+            ? copy.genderBody
+            : draft.step === 2
+              ? copy.dressStyleBody
+              : draft.step === 3
+                ? copy.birthDateBody
+                : copy.locationBody}
+      </AppText>
+    </View>
+  );
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={[styles.screen, { backgroundColor: theme.colors.background }]}>
+      {draft.step === 4 ? (
+        <SafeAreaView edges={['top']} style={styles.screen}>
+          <LocationSelectionControls
+            header={heading}
+            testID="onboarding-step-5"
+            testIDPrefix="onboarding"
+          />
+        </SafeAreaView>
+      ) : (
+        <Screen
+          contentContainerStyle={styles.content}
+          testID={`onboarding-step-${draft.step + 1}`}>
+          {heading}
 
       {draft.step === 0 ? (
         <View style={styles.panel}>
@@ -319,7 +345,8 @@ export function OnboardingScreen({
         </AppText>
       ) : null}
 
-      </Screen>
+        </Screen>
+      )}
 
       <SafeAreaView
         edges={['bottom']}
@@ -330,6 +357,15 @@ export function OnboardingScreen({
             borderColor: theme.colors.borderSubtle,
           },
         ]}>
+        {draft.step === 4 && saveError ? (
+          <AppText
+            accessibilityLiveRegion="assertive"
+            accessibilityRole="alert"
+            colorRole="textSecondary"
+            testID="onboarding-save-error">
+            {copy.saveError}
+          </AppText>
+        ) : null}
         {draft.step === 0 ? (
           <AppText colorRole="textSecondary" variant="caption">
             {messages.weather.locationRationaleBody}
@@ -348,16 +384,29 @@ export function OnboardingScreen({
               variant="quiet"
             />
           ) : null}
-          <Button
-            label={draft.step === totalSteps - 1 ? copy.completeAction : messages.common.continue}
-            loading={isSaving}
-            onPress={draft.step === totalSteps - 1 ? complete : goForward}
-            testID={draft.step === totalSteps - 1 ? 'onboarding-complete' : 'onboarding-continue'}
-            style={styles.primaryAction}
-          />
+          {draft.step === totalSteps - 1 ? (
+            <View style={styles.primaryAction} testID="onboarding-location-skip">
+              <Button
+                label={hasActiveLocation ? copy.completeAction : messages.weather.cancel}
+                loading={isSaving}
+                onPress={complete}
+                style={styles.skipAction}
+                testID="onboarding-complete"
+                variant="quiet"
+              />
+            </View>
+          ) : (
+            <Button
+              label={messages.common.continue}
+              loading={isSaving}
+              onPress={goForward}
+              style={styles.primaryAction}
+              testID="onboarding-continue"
+            />
+          )}
         </View>
       </SafeAreaView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -411,6 +460,9 @@ const styles = StyleSheet.create({
   },
   primaryAction: {
     flexGrow: 1,
+  },
+  skipAction: {
+    width: '100%',
   },
   progress: {
     flexDirection: 'row',

@@ -66,6 +66,9 @@ export type TodayMessages = Readonly<{
   loadingAccessibilityLabel: string;
   unavailableTitle: string;
   unavailableBody: string;
+  noLocationTitle: string;
+  noLocationBody: string;
+  chooseLocationAction: string;
   noOutfitTitle: string;
   noOutfitBody: string;
   weatherAccessibilityLabel: (values: {
@@ -141,6 +144,8 @@ export type AppMessages = Readonly<{
     birthDateBody: string;
     birthDateNotSet: string;
     birthDateClearAction: string;
+    locationTitle: string;
+    locationBody: string;
     completeAction: string;
     genderRequiredError: string;
     saveError: string;
@@ -403,6 +408,8 @@ const en = {
     birthDateBody: 'Optional. It helps us understand who uses kuyara. It does not change your suggestions.',
     birthDateNotSet: 'Not set',
     birthDateClearAction: 'Remove birth date',
+    locationTitle: 'Set your location',
+    locationBody: 'Use your device location or search for a city so kuyara can find the weather for your outfit suggestions. You can do this later.',
     completeAction: 'Start using kuyara',
     genderRequiredError: 'Choose your gender to continue.',
     saveError: 'Your choices could not be saved. Please try again.',
@@ -734,6 +741,9 @@ const en = {
     loadingAccessibilityLabel: 'Preparing today’s guidance. Content is loading.',
     unavailableTitle: 'Today’s guidance is unavailable',
     unavailableBody: 'There is no saved guidance to show right now.',
+    noLocationTitle: 'kuyara doesn’t know where you are yet',
+    noLocationBody: 'Choose your device location or search for a city to see today’s weather and outfit suggestions.',
+    chooseLocationAction: 'Choose a location',
     noOutfitTitle: 'Outfit unavailable',
     noOutfitBody: 'No complete outfit can be recommended for these conditions.',
     weatherAccessibilityLabel: ({
@@ -800,6 +810,8 @@ const tr = {
     birthDateBody: 'İsteğe bağlı. kuyara’yı kimlerin kullandığını anlamamıza yardımcı olur. Önerilerinizi değiştirmez.',
     birthDateNotSet: 'Ayarlanmadı',
     birthDateClearAction: 'Doğum tarihini kaldır',
+    locationTitle: 'Konumunu ayarla',
+    locationBody: 'kuyara’nın kombin önerileri için hava durumunu bulabilmesi adına cihaz konumunu kullan veya bir şehir ara. Bunu daha sonra da yapabilirsin.',
     completeAction: 'kuyara’yı kullanmaya başla',
     genderRequiredError: 'Devam etmek için cinsiyetinizi seçin.',
     saveError: 'Seçimleriniz kaydedilemedi. Lütfen yeniden deneyin.',
@@ -1137,6 +1149,9 @@ const tr = {
     loadingAccessibilityLabel: 'Bugünün önerileri hazırlanıyor. İçerik yükleniyor.',
     unavailableTitle: 'Bugünün önerileri kullanılamıyor',
     unavailableBody: 'Şu anda gösterilecek kayıtlı bir öneri yok.',
+    noLocationTitle: 'kuyara henüz nerede olduğunu bilmiyor',
+    noLocationBody: 'Bugünün hava durumunu ve kombin önerilerini görmek için cihaz konumunu kullan veya bir şehir ara.',
+    chooseLocationAction: 'Konum seç',
     noOutfitTitle: 'Kombin bulunamadı',
     noOutfitBody: 'Bu koşullar için eksiksiz bir kombin önerilemiyor.',
     weatherAccessibilityLabel: ({

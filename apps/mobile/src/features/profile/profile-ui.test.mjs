@@ -24,7 +24,7 @@ const profile = (onboardingCompleted) => ({
   updatedAt: '2026-07-30T10:00:00.000Z',
 });
 
-test('onboarding requires gender and dress style before the optional birth date step', () => {
+test('onboarding requires gender and dress style before optional birth date and location steps', () => {
   let draft = createOnboardingDraft({
     gender: null,
     dressStyle: null,
@@ -48,6 +48,12 @@ test('onboarding requires gender and dress style before the optional birth date 
   draft = reduceOnboardingDraft(draft, { type: 'select-dress-style', value: 'smart' });
   draft = reduceOnboardingDraft(draft, { type: 'continue' });
   assert.equal(draft.step, 3);
+  draft = reduceOnboardingDraft(draft, { type: 'continue' });
+  assert.equal(draft.step, 4);
+  draft = reduceOnboardingDraft(draft, { type: 'continue' });
+  assert.equal(draft.step, 4);
+  draft = reduceOnboardingDraft(draft, { type: 'back' });
+  assert.equal(draft.step, 3);
 });
 
 test('onboarding keeps personal choices independent and reviewable', () => {
@@ -65,8 +71,8 @@ test('onboarding keeps personal choices independent and reviewable', () => {
     dressStyle: 'formal',
     birthDate: '1994-03-14',
   });
-  draft = reduceOnboardingDraft({ ...draft, step: 3 }, { type: 'back' });
-  assert.equal(draft.step, 2);
+  draft = reduceOnboardingDraft({ ...draft, step: 4 }, { type: 'back' });
+  assert.equal(draft.step, 3);
   assert.equal(draft.gender, 'man');
   draft = reduceOnboardingDraft(draft, { type: 'select-birth-date', value: null });
   assert.deepEqual(onboardingPreferencesFromDraft(draft), {
@@ -97,6 +103,8 @@ test('English and Turkish include complete onboarding, Settings, and accessibili
     assert.ok(copy.onboarding.genderRequiredError);
     assert.ok(copy.onboarding.dressStyleRequiredError);
     assert.ok(copy.onboarding.birthDateNotSet);
+    assert.ok(copy.onboarding.locationTitle);
+    assert.ok(copy.onboarding.locationBody);
     assert.ok(copy.onboarding.saveError);
     assert.ok(copy.preferences.genderWoman);
     assert.ok(copy.preferences.genderMan);
@@ -117,6 +125,9 @@ test('English and Turkish include complete onboarding, Settings, and accessibili
     assert.ok(copy.wardrobe.confirmDeleteAction);
     assert.ok(copy.today.settingsAction);
     assert.ok(copy.today.settingsHint);
+    assert.ok(copy.today.noLocationTitle);
+    assert.ok(copy.today.noLocationBody);
+    assert.ok(copy.today.chooseLocationAction);
   }
   assert.equal(messages.en.preferences.genderWoman, 'Woman');
   assert.equal(messages.tr.preferences.genderWoman, 'Kadın');

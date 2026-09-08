@@ -2,8 +2,8 @@
 
 Status: Accepted (2026-09-03)
 
-Implementation: not started, and blocked. This decision cannot ship before real
-location selection, for the reason given under Dependency below.
+Implementation: completed 2026-09-08, after the real location picker satisfied the
+dependency below.
 
 ## Context
 
