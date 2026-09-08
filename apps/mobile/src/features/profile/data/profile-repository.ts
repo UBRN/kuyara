@@ -11,17 +11,20 @@ import {
 } from '@/features/profile/data/profile-local-data-source';
 import {
   genderSchema,
+  dressStyleSchema,
   isStoredBirthDate,
   isValidBirthDate,
   type Gender,
+  type DressStyle,
   type Profile,
-  type ProfileOnboardingPreferences,
+  type OnboardingPreferences,
 } from '@/features/profile/domain/profile';
 
 export interface ProfileRepository {
   getOrCreateProfile(): Promise<Profile>;
-  completeOnboarding(preferences: ProfileOnboardingPreferences): Promise<Profile>;
+  completeOnboarding(preferences: OnboardingPreferences): Promise<Profile>;
   updateGender(preference: Gender): Promise<Profile>;
+  updateDressStyle(dressStyle: DressStyle): Promise<Profile>;
   updateBirthDate(birthDate: string | null): Promise<Profile>;
   updateLanguagePreference(preference: LanguagePreference): Promise<Profile>;
   updateThemePreference(preference: ThemePreference): Promise<Profile>;
@@ -48,16 +51,20 @@ function isUtcIsoTimestamp(value: string): boolean {
 function mapRecord(record: LocalProfileRecord): Profile {
   const hasValidGender =
     record.gender === null || genderSchema.safeParse(record.gender).success;
+  const hasValidDressStyle =
+    record.dressStyle === null || dressStyleSchema.safeParse(record.dressStyle).success;
   const hasValidCompletion =
     record.onboardingCompleted === 0 || record.onboardingCompleted === 1;
   const hasValidNotificationsOptIn =
     record.notificationsOptIn === 0 || record.notificationsOptIn === 1;
   const completedWithoutPreference =
-    record.onboardingCompleted === 1 && record.gender === null;
+    record.onboardingCompleted === 1 &&
+    (record.gender === null || record.dressStyle === null);
 
   if (
     !record.id ||
     !hasValidGender ||
+    !hasValidDressStyle ||
     !isStoredBirthDate(record.birthDate) ||
     !isLanguagePreference(record.languagePreference) ||
     !isThemePreference(record.themePreference) ||
@@ -74,6 +81,7 @@ function mapRecord(record: LocalProfileRecord): Profile {
   return {
     id: record.id,
     gender: record.gender === null ? null : genderSchema.parse(record.gender),
+    dressStyle: record.dressStyle === null ? null : dressStyleSchema.parse(record.dressStyle),
     birthDate: record.birthDate,
     languagePreference: record.languagePreference,
     themePreference: record.themePreference,
@@ -98,9 +106,13 @@ export class LocalProfileRepository implements ProfileRepository {
     return this.execute(() => this.dataSource.getOrCreateProfile());
   }
 
-  completeOnboarding(preferences: ProfileOnboardingPreferences): Promise<Profile> {
+  completeOnboarding(preferences: OnboardingPreferences): Promise<Profile> {
     return this.execute(() => {
-      if (!genderSchema.safeParse(preferences.gender).success) throw new ProfileMappingError();
+      if (
+        !genderSchema.safeParse(preferences.gender).success ||
+        !dressStyleSchema.safeParse(preferences.dressStyle).success ||
+        !isValidBirthDate(preferences.birthDate, this.now())
+      ) throw new ProfileMappingError();
       return this.dataSource.completeOnboarding(preferences);
     });
   }
@@ -109,6 +121,13 @@ export class LocalProfileRepository implements ProfileRepository {
     return this.execute(() => {
       if (!genderSchema.safeParse(preference).success) throw new ProfileMappingError();
       return this.dataSource.updateGender(preference);
+    });
+  }
+
+  updateDressStyle(dressStyle: DressStyle): Promise<Profile> {
+    return this.execute(() => {
+      if (!dressStyleSchema.safeParse(dressStyle).success) throw new ProfileMappingError();
+      return this.dataSource.updateDressStyle(dressStyle);
     });
   }
 

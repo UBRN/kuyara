@@ -56,8 +56,9 @@ export function ProfileApplicationProvider({ children }: PropsWithChildren) {
       state,
       completeOnboarding: (preferences) =>
         controller.completeOnboarding(preferences),
-      updateClothingPreference: (preference) =>
-        controller.updateClothingPreference(preference),
+      updateGender: (gender) => controller.updateGender(gender),
+      updateDressStyle: (dressStyle) => controller.updateDressStyle(dressStyle),
+      updateBirthDate: (birthDate) => controller.updateBirthDate(birthDate),
       updateLanguagePreference: (preference) =>
         controller.updateLanguagePreference(preference),
       updateThemePreference: (preference) =>

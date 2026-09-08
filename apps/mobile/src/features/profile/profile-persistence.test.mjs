@@ -19,6 +19,7 @@ const updatedAt = '2026-07-30T10:05:00.000Z';
 const createRecord = (overrides = {}) => ({
   id: '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4',
   gender: null,
+  dressStyle: null,
   birthDate: null,
   languagePreference: 'system',
   themePreference: 'system',
@@ -92,9 +93,9 @@ test('an existing profile is returned unchanged without generating another UUID'
   await database.runAsync(
     `
       INSERT INTO local_profiles (
-        singleton_key, id, gender, language_preference,
+        singleton_key, id, gender, dress_style, language_preference,
         theme_preference, onboarding_completed, created_at, updated_at, deleted_at
-      ) VALUES (1, ?, 'man', 'tr', 'dark', 1, ?, ?, NULL)
+      ) VALUES (1, ?, 'man', 'smart', 'tr', 'dark', 1, ?, ?, NULL)
     `,
     ['existing-id', createdAt, updatedAt],
   );
@@ -113,6 +114,7 @@ test('an existing profile is returned unchanged without generating another UUID'
   assert.deepEqual(profile, createRecord({
     id: 'existing-id',
     gender: 'man',
+    dressStyle: 'smart',
     languagePreference: 'tr',
     themePreference: 'dark',
     onboardingCompleted: 1,
@@ -130,29 +132,36 @@ test('onboarding completion and preference updates persist with bound values', a
 
   const completed = await dataSource.completeOnboarding({
     gender: 'woman',
-    languagePreference: 'en',
-    themePreference: 'light',
+    dressStyle: 'smart',
+    birthDate: '1994-03-14',
   });
   const clothing = await dataSource.updateGender('man');
+  const dressStyle = await dataSource.updateDressStyle('formal');
   const language = await dataSource.updateLanguagePreference('tr');
   const theme = await dataSource.updateThemePreference('dark');
   const row = await database.getFirstAsync(
-    'SELECT gender, language_preference, theme_preference, onboarding_completed FROM local_profiles',
+    'SELECT gender, dress_style, birth_date, language_preference, theme_preference, onboarding_completed FROM local_profiles',
   );
 
   assert.equal(completed.onboardingCompleted, 1);
+  assert.equal(completed.birthDate, '1994-03-14');
+  assert.equal(completed.languagePreference, 'system');
+  assert.equal(completed.themePreference, 'system');
   assert.equal(clothing.gender, 'man');
+  assert.equal(dressStyle.dressStyle, 'formal');
   assert.equal(language.languagePreference, 'tr');
   assert.equal(theme.themePreference, 'dark');
   assert.deepEqual({ ...row }, {
     gender: 'man',
+    dress_style: 'formal',
+    birth_date: '1994-03-14',
     language_preference: 'tr',
     theme_preference: 'dark',
     onboarding_completed: 1,
   });
 });
 
-test('controller clothing preference updates flow into Today recommendations', async (t) => {
+test('controller gender updates flow into Today recommendations through the catalog mapping', async (t) => {
   const { dataSource } = await createLocalDataSource(t);
   const repository = new LocalProfileRepository(dataSource);
   const controller = new ProfileApplicationController(async () => repository);
@@ -163,6 +172,7 @@ test('controller clothing preference updates flow into Today recommendations', a
     return recommendOutfits({
       snapshot: todayWeatherSnapshot,
       clothingPreference: state.profile.clothingPreference,
+      dressStyle: state.profile.dressStyle ?? 'smart',
       dayVariant: 0,
     });
   };
@@ -173,15 +183,15 @@ test('controller clothing preference updates flow into Today recommendations', a
 
   await controller.initialize();
   await controller.completeOnboarding({
-    clothingPreference: 'womens',
-    languagePreference: 'en',
-    themePreference: 'light',
+    gender: 'woman',
+    dressStyle: 'smart',
+    birthDate: null,
   });
   const womensRecommendation = recommendForCurrentProfile();
   assert.equal(womensRecommendation.status, 'recommended');
   assert.equal(usesWomensOnlyKey(womensRecommendation), true);
 
-  await controller.updateClothingPreference('mens');
+  await controller.updateGender('man');
   const mensRecommendation = recommendForCurrentProfile();
   assert.equal(mensRecommendation.status, 'recommended');
   assert.equal(usesWomensOnlyKey(mensRecommendation), false);
@@ -192,9 +202,9 @@ test('failed onboarding completion stays incomplete across launch and succeeds o
   const repository = new LocalProfileRepository(dataSource);
   const controller = new ProfileApplicationController(async () => repository);
   const preferences = {
-    clothingPreference: 'womens',
-    languagePreference: 'en',
-    themePreference: 'light',
+    gender: 'woman',
+    dressStyle: 'smart',
+    birthDate: '1994-03-14',
   };
 
   await controller.initialize();
@@ -236,6 +246,29 @@ test('failed onboarding completion stays incomplete across launch and succeeds o
     'SELECT onboarding_completed FROM local_profiles WHERE singleton_key = 1',
   );
   assert.equal(completedRow.onboarding_completed, 1);
+});
+
+test('onboarding rejects a future birth date without changing the stored profile', async (t) => {
+  const { database, dataSource } = await createLocalDataSource(t);
+  const repository = new LocalProfileRepository(dataSource, () => new Date(2026, 8, 8));
+  await repository.getOrCreateProfile();
+
+  await assert.rejects(
+    () => repository.completeOnboarding({
+      gender: 'woman',
+      dressStyle: 'smart',
+      birthDate: '2026-09-09',
+    }),
+    (error) => error instanceof ProfileRepositoryError && error.code === 'invalid-data',
+  );
+  assert.deepEqual({ ...await database.getFirstAsync(
+    'SELECT gender, dress_style, birth_date, onboarding_completed FROM local_profiles',
+  ) }, {
+    gender: null,
+    dress_style: null,
+    birth_date: null,
+    onboarding_completed: 0,
+  });
 });
 
 test('repository maps persistence values and rejects invalid stored enums predictably', async () => {
@@ -282,6 +315,10 @@ test('repository delegates each explicit update and sanitizes data-source errors
       calls.push(['clothing', preference]);
       return createRecord({ gender: preference, updatedAt });
     },
+    updateDressStyle: async (dressStyle) => {
+      calls.push(['dress-style', dressStyle]);
+      return createRecord({ dressStyle, updatedAt });
+    },
     updateLanguagePreference: async (preference) => {
       calls.push(['language', preference]);
       return createRecord({ languagePreference: preference, updatedAt });
@@ -294,10 +331,11 @@ test('repository delegates each explicit update and sanitizes data-source errors
 
   await repository.completeOnboarding({
     gender: 'man',
-    languagePreference: 'tr',
-    themePreference: 'dark',
+    dressStyle: 'smart',
+    birthDate: '1994-03-14',
   });
   await repository.updateGender('woman');
+  await repository.updateDressStyle('formal');
   await repository.updateLanguagePreference('en');
   await assert.rejects(
     () => repository.updateThemePreference('light'),
@@ -306,13 +344,17 @@ test('repository delegates each explicit update and sanitizes data-source errors
       error.code === 'unavailable' &&
       !error.message.includes('SQLITE'),
   );
-  assert.deepEqual(calls.map(([name]) => name), ['complete', 'clothing', 'language']);
+  assert.deepEqual(
+    calls.map(([name]) => name),
+    ['complete', 'clothing', 'dress-style', 'language'],
+  );
 });
 
 test('application controller exposes loading, incomplete, completed, failure, and refreshed states', async () => {
   let profile = {
     id: 'profile-id',
     gender: null,
+    dressStyle: null,
     birthDate: null,
     languagePreference: 'system',
     themePreference: 'system',
@@ -330,6 +372,8 @@ test('application controller exposes loading, incomplete, completed, failure, an
       (profile = { ...profile, ...preferences, onboardingCompleted: true, updatedAt }),
     updateGender: async (gender) =>
       (profile = { ...profile, gender, updatedAt }),
+    updateDressStyle: async (dressStyle) =>
+      (profile = { ...profile, dressStyle, updatedAt }),
     updateLanguagePreference: async (languagePreference) =>
       (profile = { ...profile, languagePreference, updatedAt }),
     updateThemePreference: async (themePreference) =>
@@ -343,21 +387,28 @@ test('application controller exposes loading, incomplete, completed, failure, an
   assert.equal(controller.getSnapshot().profile.onboardingCompleted, false);
 
   await controller.completeOnboarding({
-    clothingPreference: 'womens',
-    languagePreference: 'en',
-    themePreference: 'light',
+    gender: 'woman',
+    dressStyle: 'smart',
+    birthDate: null,
   });
   assert.equal(controller.getSnapshot().profile.onboardingCompleted, true);
-  await controller.updateClothingPreference('mens');
+  await controller.updateGender('man');
+  await controller.updateDressStyle('formal');
   await controller.updateLanguagePreference('tr');
   await controller.updateThemePreference('dark');
   assert.deepEqual(
     {
       clothingPreference: controller.getSnapshot().profile.clothingPreference,
+      dressStyle: controller.getSnapshot().profile.dressStyle,
       languagePreference: controller.getSnapshot().profile.languagePreference,
       themePreference: controller.getSnapshot().profile.themePreference,
     },
-    { clothingPreference: 'mens', languagePreference: 'tr', themePreference: 'dark' },
+    {
+      clothingPreference: 'mens',
+      dressStyle: 'formal',
+      languagePreference: 'tr',
+      themePreference: 'dark',
+    },
   );
 
   const failingController = new ProfileApplicationController(async () => {
@@ -371,6 +422,7 @@ test('application controller serializes distinct concurrent updates without drop
   let profile = {
     id: 'profile-id',
     gender: null,
+    dressStyle: 'smart',
     birthDate: null,
     languagePreference: 'system',
     themePreference: 'system',
@@ -435,6 +487,7 @@ test('application controller continues queued updates after a predecessor reject
   let profile = {
     id: 'profile-id',
     gender: null,
+    dressStyle: 'smart',
     birthDate: null,
     languagePreference: 'system',
     themePreference: 'system',
@@ -473,12 +526,12 @@ test('application controller continues queued updates after a predecessor reject
   assert.equal(controller.getSnapshot().isSaving, false);
 });
 
-test('application maps legacy preference writes into gender and derives preference after relaunch', async (t) => {
+test('application updates gender and derives the catalog preference after relaunch', async (t) => {
   const { database, dataSource } = await createLocalDataSource(t);
   const controller = new ProfileApplicationController(async () => new LocalProfileRepository(dataSource));
   await controller.initialize();
   for (const [clothingPreference, gender] of [['womens', 'woman'], ['mens', 'man']]) {
-    await controller.updateClothingPreference(clothingPreference);
+    await controller.updateGender(gender);
     assert.equal(controller.getSnapshot().profile.gender, gender);
     const stored = await database.getFirstAsync('SELECT * FROM local_profiles');
     assert.equal(stored.gender, gender);
@@ -489,6 +542,29 @@ test('application maps legacy preference writes into gender and derives preferen
     await relaunched.initialize();
     assert.equal(relaunched.getSnapshot().profile.clothingPreference, clothingPreference);
   }
+});
+
+test('dress style updates round trip and reject values outside the contract', async (t) => {
+  const { database, dataSource } = await createLocalDataSource(t);
+  const repository = new LocalProfileRepository(dataSource);
+  await repository.getOrCreateProfile();
+
+  for (const dressStyle of ['casual', 'smart', 'formal']) {
+    await repository.updateDressStyle(dressStyle);
+    const relaunched = new LocalProfileRepository(
+      new SqliteProfileLocalDataSource(database, {
+        createId: () => 'unused',
+        now: () => updatedAt,
+      }),
+    );
+    assert.equal((await relaunched.getOrCreateProfile()).dressStyle, dressStyle);
+  }
+
+  await assert.rejects(
+    () => repository.updateDressStyle('unknown'),
+    (error) => error instanceof ProfileRepositoryError && error.code === 'invalid-data',
+  );
+  assert.equal((await repository.getOrCreateProfile()).dressStyle, 'formal');
 });
 
 test('birth date round trips, clears, and invalid writes leave the stored profile intact', async (t) => {

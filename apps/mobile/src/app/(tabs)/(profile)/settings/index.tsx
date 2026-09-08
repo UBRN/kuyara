@@ -28,7 +28,9 @@ export default function SettingsRoute() {
         notificationsOn={state.profile.notificationsOptIn}
         onOpenAiStatus={() => router.push('/settings/ai-status')}
         onOpenAppearance={() => router.push('/settings/appearance')}
-        onOpenClothingPreference={() => router.push('/settings/clothing')}
+        onOpenBirthDate={() => router.push('/settings/birth-date')}
+        onOpenDressStyle={() => router.push('/settings/dress-style')}
+        onOpenGender={() => router.push('/settings/gender')}
         onOpenLanguage={() => router.push('/settings/language')}
         onOpenNotifications={() => router.push('/settings/notifications')}
         profile={state.profile}

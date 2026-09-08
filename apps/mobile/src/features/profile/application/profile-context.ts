@@ -1,17 +1,19 @@
 import { createContext, use } from 'react';
 
-import type {
-  ClothingPreference,
-  LanguagePreference,
-  ThemePreference,
-} from '@/domain/preferences';
+import type { LanguagePreference, ThemePreference } from '@/domain/preferences';
 import type { ProfileApplicationState } from '@/features/profile/application/profile-application-controller';
-import type { OnboardingPreferences } from '@/features/profile/domain/profile';
+import type {
+  DressStyle,
+  Gender,
+  OnboardingPreferences,
+} from '@/features/profile/domain/profile';
 
 export type ProfileApplicationValue = Readonly<{
   state: ProfileApplicationState;
   completeOnboarding: (preferences: OnboardingPreferences) => Promise<void>;
-  updateClothingPreference: (preference: ClothingPreference) => Promise<void>;
+  updateGender: (gender: Gender) => Promise<void>;
+  updateDressStyle: (dressStyle: DressStyle) => Promise<void>;
+  updateBirthDate: (birthDate: string | null) => Promise<void>;
   updateLanguagePreference: (preference: LanguagePreference) => Promise<void>;
   updateThemePreference: (preference: ThemePreference) => Promise<void>;
   updateNotificationsOptIn: (optIn: boolean) => Promise<void>;

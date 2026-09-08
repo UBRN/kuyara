@@ -1,6 +1,6 @@
 import {
   outfitArchetypeIds,
-  ageBandFormalityOrder,
+  formalityOrderByDressStyle,
   type AiRecommendV1Request,
 } from '@kuyara/contracts';
 
@@ -56,7 +56,7 @@ export function buildMessages(request: AiRecommendV1Request) {
       // Cache-key and validation-only fields are deliberately omitted from model input.
       content: JSON.stringify({
         clothingPreference: request.clothingPreference,
-        formalityOrder: ageBandFormalityOrder[request.ageBand ?? 'adult'],
+        formalityOrder: formalityOrderByDressStyle[request.dressStyle ?? 'smart'],
         options: request.options.map(({ optionId, formality, garments }) => ({
           optionId,
           formality,

@@ -16,9 +16,9 @@ export default function OnboardingRoute() {
 
   return (
     <OnboardingScreen
-      initialClothingPreference={state.profile.clothingPreference}
-      initialLanguagePreference={state.profile.languagePreference}
-      initialThemePreference={state.profile.themePreference}
+      initialBirthDate={state.profile.birthDate}
+      initialDressStyle={state.profile.dressStyle}
+      initialGender={state.profile.gender}
       onComplete={completeOnboarding}
     />
   );

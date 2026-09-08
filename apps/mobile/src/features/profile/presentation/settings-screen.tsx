@@ -3,10 +3,9 @@ import { StyleSheet } from 'react-native';
 
 import { AppText, Icon, NativeList, NativeListSection, NativeListRow } from '@/components/ui';
 import type { LocalProfile } from '@/features/profile/domain/profile';
-import { useMessages } from '@/localization/use-messages';
+import { useLocalization } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
 
-// About you keeps clothing preference until ADR 0015 supplies gender and birth date.
 export type SettingsScreenProps = Readonly<{
   profile: LocalProfile;
   notificationsOn: boolean;
@@ -14,19 +13,23 @@ export type SettingsScreenProps = Readonly<{
   onOpenAppearance: () => void;
   onOpenNotifications: () => void;
   onOpenAiStatus: () => void;
-  onOpenClothingPreference: () => void;
+  onOpenGender: () => void;
+  onOpenDressStyle: () => void;
+  onOpenBirthDate: () => void;
 }>;
 
 export function SettingsScreen({
   notificationsOn,
   onOpenAiStatus,
   onOpenAppearance,
-  onOpenClothingPreference,
+  onOpenBirthDate,
+  onOpenDressStyle,
+  onOpenGender,
   onOpenLanguage,
   onOpenNotifications,
   profile,
 }: SettingsScreenProps) {
-  const messages = useMessages();
+  const { language, messages } = useLocalization();
   const copy = messages.preferences;
 
   const languageValue = profile.languagePreference === 'system'
@@ -39,7 +42,16 @@ export function SettingsScreen({
     : profile.themePreference === 'light'
       ? copy.themeLight
       : copy.themeDark;
-  const clothingValue = profile.clothingPreference === 'mens' ? copy.mensClothing : copy.womensClothing;
+  const genderValue = profile.gender === 'man' ? copy.genderMan : copy.genderWoman;
+  const dressStyleValue = profile.dressStyle === 'casual'
+    ? copy.dressStyleCasual
+    : profile.dressStyle === 'formal'
+      ? copy.dressStyleFormal
+      : copy.dressStyleSmart;
+  const birthDateValue = profile.birthDate === null
+    ? messages.onboarding.birthDateNotSet
+    : new Intl.DateTimeFormat(language, { dateStyle: 'long' })
+      .format(calendarDate(profile.birthDate));
   const notificationValue = notificationsOn
     ? messages.notifications.statusOn
     : messages.notifications.statusOff;
@@ -88,10 +100,24 @@ export function SettingsScreen({
         testID="settings-about-you-group">
         <NativeListRow
           glyph={({ color, size }) => <Icon color={color} name="tabProfileOutline" size={size} />}
-          label={copy.clothingTitle}
-          onPress={onOpenClothingPreference}
-          testID="settings-clothing-row"
-          value={clothingValue}
+          label={copy.genderTitle}
+          onPress={onOpenGender}
+          testID="settings-gender-row"
+          value={genderValue}
+        />
+        <NativeListRow
+          glyph={({ color, size }) => <Icon color={color} name="clothing" size={size} />}
+          label={copy.dressStyleTitle}
+          onPress={onOpenDressStyle}
+          testID="settings-dress-style-row"
+          value={dressStyleValue}
+        />
+        <NativeListRow
+          glyph={({ color, size }) => <Icon color={color} name="calendar" size={size} />}
+          label={copy.birthDateTitle}
+          onPress={onOpenBirthDate}
+          testID="settings-birth-date-row"
+          value={birthDateValue}
         />
       </NativeListSection>
       {version ? (
@@ -116,3 +142,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
 });
+
+function calendarDate(value: string): Date {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day, 12);
+}

@@ -1,5 +1,4 @@
 import type {
-  ClothingPreference,
   LanguagePreference,
   ThemePreference,
 } from '@/domain/preferences';
@@ -8,18 +7,11 @@ import type {
   LocalProfile,
   Profile,
   OnboardingPreferences,
+  DressStyle,
   Gender,
 } from '@/features/profile/domain/profile';
 
 const catalogPreferenceByGender = { woman: 'womens', man: 'mens' } as const;
-
-function genderFromClothingPreference(preference: ClothingPreference): Gender {
-  const gender = (Object.keys(catalogPreferenceByGender) as Gender[]).find(
-    (gender) => catalogPreferenceByGender[gender] === preference,
-  );
-  if (!gender) throw new Error('The clothing preference is invalid.');
-  return gender;
-}
 
 function applicationProfile(profile: Profile): LocalProfile {
   return {
@@ -67,17 +59,15 @@ export class ProfileApplicationController {
   }
 
   completeOnboarding(preferences: OnboardingPreferences): Promise<void> {
-    return this.updateProfile((repository) => repository.completeOnboarding({
-      gender: genderFromClothingPreference(preferences.clothingPreference),
-      languagePreference: preferences.languagePreference,
-      themePreference: preferences.themePreference,
-    }));
+    return this.updateProfile((repository) => repository.completeOnboarding(preferences));
   }
 
-  updateClothingPreference(preference: ClothingPreference): Promise<void> {
-    return this.updateProfile((repository) =>
-      repository.updateGender(genderFromClothingPreference(preference)),
-    );
+  updateGender(gender: Gender): Promise<void> {
+    return this.updateProfile((repository) => repository.updateGender(gender));
+  }
+
+  updateDressStyle(dressStyle: DressStyle): Promise<void> {
+    return this.updateProfile((repository) => repository.updateDressStyle(dressStyle));
   }
 
   updateBirthDate(birthDate: string | null): Promise<void> {

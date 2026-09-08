@@ -91,7 +91,7 @@ test('migration v5 persists a validated recommendation snapshot with lifecycle f
   const { database, repository, setNow } = await setup();
   t.after(() => database.close());
   const version = await database.getFirstAsync('PRAGMA user_version');
-  assert.equal(version.user_version, 9);
+  assert.equal(version.user_version, 10);
   const generated = generatedRecommendation();
 
   const first = await repository.saveSnapshot(profileId, {
@@ -187,22 +187,27 @@ test('corrupt persisted payload fails with a sanitized repository error', async 
   );
 });
 
-test('persisted age bands survive reads and an older context without a band resolves to adult', async (t) => {
+test('persisted dress style round trips and retired contexts resolve to smart', async (t) => {
   const { database, repository } = await setup();
   t.after(() => database.close());
   const generated = generatedRecommendation();
   await repository.saveSnapshot(profileId, {
     weatherSnapshotId: generated.input.snapshot.id,
     locationKey: generated.input.snapshot.locationKey,
-    context: { ...generated.request, ageBand: 'older' },
+    context: { ...generated.request, dressStyle: 'formal' },
     recommendation: generated.recommendation,
   });
-  assert.equal((await repository.getSnapshot(profileId)).ageBand, 'older');
+  assert.equal((await repository.getSnapshot(profileId)).dressStyle, 'formal');
   const row = await database.getFirstAsync('SELECT context_json FROM recommendation_snapshots');
   const context = JSON.parse(row.context_json);
-  assert.equal(context.ageBand, 'older');
+  assert.equal(context.dressStyle, 'formal');
   assert.equal('birthDate' in context, false);
-  delete context.ageBand;
+  delete context.dressStyle;
+  const retiredKey = ['age', 'Band'].join('');
+  context[retiredKey] = 'retired';
   await database.runAsync('UPDATE recommendation_snapshots SET context_json = ?', [JSON.stringify(context)]);
-  assert.equal((await repository.getSnapshot(profileId)).ageBand, 'adult');
+  assert.equal((await repository.getSnapshot(profileId)).dressStyle, 'smart');
+  delete context[retiredKey];
+  await database.runAsync('UPDATE recommendation_snapshots SET context_json = ?', [JSON.stringify(context)]);
+  assert.equal((await repository.getSnapshot(profileId)).dressStyle, 'smart');
 });

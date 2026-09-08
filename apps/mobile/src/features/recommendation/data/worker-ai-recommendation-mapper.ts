@@ -1,6 +1,5 @@
 import {
   aiOptionSchema,
-  ageBandSchema,
   aiRecommendV1RequestSchema,
   aiRecommendV1SuccessSchema,
   aiV1OptionLimit,
@@ -10,6 +9,7 @@ import {
   clothingRequirementSchema,
   colorFamilies,
   coverageLevels,
+  dressStyleSchema,
   garmentTypeIds,
   layerRoles,
   outfitArchetypeIds,
@@ -64,7 +64,7 @@ export class WorkerAiRecommendationMappingError extends Error {
 
 const recommendationContextSchema = z.object({
   clothingPreference: z.enum(clothingPreferences),
-  ageBand: ageBandSchema.optional(),
+  dressStyle: dressStyleSchema.optional(),
   catalogVersion: z.number().int().min(1),
   dayVariant: z.number().int().min(0).max(6),
   requirements: z.array(clothingRequirementSchema).max(8),
@@ -111,6 +111,19 @@ const legacyRecommendationContextSchema = z.object({
 export type RecommendationContext =
   | z.infer<typeof recommendationContextSchema>
   | z.infer<typeof legacyRecommendationContextSchema>;
+
+// Contexts persisted between 2026-09-08's phase 1 and ADR 0031 carry the retired age band.
+// No shipped build wrote one, but development databases did; a strict parse would otherwise
+// throw and take the whole persisted recommendation down with it. ADR 0031: read as smart.
+const retiredAgeBandKey = 'ageBand';
+
+function normalizeRetiredContext(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const record = value as Record<string, unknown>;
+  if (!Object.hasOwn(record, retiredAgeBandKey)) return value;
+  const { [retiredAgeBandKey]: _retired, ...rest } = record;
+  return { ...rest, dressStyle: 'smart' };
+}
 
 function assignedGarments(outfit: OutfitCandidate): readonly AssignedOutfitGarment[] {
   return [
@@ -173,7 +186,7 @@ export function createRecommendationContext(
   );
   const parsed = recommendationContextSchema.safeParse({
     clothingPreference: input.clothingPreference,
-    ageBand: input.ageBand ?? 'adult',
+    dressStyle: input.dressStyle ?? 'smart',
     catalogVersion: garmentCatalogVersion,
     dayVariant: input.dayVariant,
     requirements: requirements.requirements,
@@ -194,8 +207,10 @@ export function createAiRecommendationRequest(
 }
 
 export function parseRecommendationContext(value: unknown): RecommendationContext {
-  const current = recommendationContextSchema.safeParse(value);
-  if (current.success) return current.data;
+  const current = recommendationContextSchema.safeParse(normalizeRetiredContext(value));
+  if (current.success) {
+    return { ...current.data, dressStyle: current.data.dressStyle ?? 'smart' };
+  }
   const legacy = legacyRecommendationContextSchema.safeParse(value);
   if (!legacy.success) throw new WorkerAiRecommendationMappingError();
   return legacy.data;

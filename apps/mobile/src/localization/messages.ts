@@ -87,16 +87,19 @@ export type TodayMessages = Readonly<{
 }>;
 
 export type PreferenceMessages = Readonly<{
-  clothingTitle: string;
-  womensClothing: string;
-  mensClothing: string;
+  genderTitle: string;
+  genderWoman: string;
+  genderMan: string;
+  dressStyleTitle: string;
+  dressStyleCasual: string;
+  dressStyleSmart: string;
+  dressStyleFormal: string;
+  birthDateTitle: string;
   languageTitle: string;
-  languageDescription: string;
   languageSystem: string;
   languageTurkish: string;
   languageEnglish: string;
   themeTitle: string;
-  themeDescription: string;
   themeSystem: string;
   themeLight: string;
   themeDark: string;
@@ -130,12 +133,17 @@ export type AppMessages = Readonly<{
     weatherPromise: string;
     outfitsPromise: string;
     wardrobePromise: string;
-    clothingTitle: string;
-    clothingBody: string;
-    detailsTitle: string;
-    detailsBody: string;
+    genderTitle: string;
+    genderBody: string;
+    dressStyleTitle: string;
+    dressStyleBody: string;
+    dressStyleRequiredError: string;
+    birthDateTitle: string;
+    birthDateBody: string;
+    birthDateNotSet: string;
+    birthDateClearAction: string;
     completeAction: string;
-    clothingRequiredError: string;
+    genderRequiredError: string;
     saveError: string;
   }>;
   preferences: PreferenceMessages;
@@ -378,25 +386,33 @@ const en = {
     weatherPromise: 'kuyara uses weather to simplify what to wear each day.',
     outfitsPromise: 'You will see three complete outfit suggestions for different plans.',
     wardrobePromise: 'Your closet keeps track of pieces you own or want, separate from your outfit suggestions.',
-    clothingTitle: 'Choose your clothing preference',
-    clothingBody: 'This controls the catalog and recommendation style. You can change it later in Settings.',
-    detailsTitle: 'Make kuyara yours',
-    detailsBody: 'Confirm how kuyara should display language and appearance on this device.',
+    genderTitle: 'Your gender',
+    genderBody: 'kuyara uses it to choose the catalog your outfit suggestions come from. You can change it later in Settings.',
+    dressStyleTitle: 'How do you usually dress?',
+    dressStyleBody: 'Choose the look you wear most days. Suggestions lean that way first and exclude nothing. You can change it later in Settings.',
+    dressStyleRequiredError: 'Choose how you usually dress to continue.',
+    birthDateTitle: 'Your birth date',
+    birthDateBody: 'Optional. It helps us understand who uses kuyara. It does not change your suggestions.',
+    birthDateNotSet: 'Not set',
+    birthDateClearAction: 'Remove birth date',
     completeAction: 'Start using kuyara',
-    clothingRequiredError: 'Choose a clothing preference to continue.',
+    genderRequiredError: 'Choose your gender to continue.',
     saveError: 'Your choices could not be saved. Please try again.',
   },
   preferences: {
-    clothingTitle: 'Clothing preference',
-    womensClothing: 'Women’s clothing',
-    mensClothing: 'Men’s clothing',
+    genderTitle: 'Gender',
+    genderWoman: 'Woman',
+    genderMan: 'Man',
+    dressStyleTitle: 'Dress style',
+    dressStyleCasual: 'Casual',
+    dressStyleSmart: 'Smart',
+    dressStyleFormal: 'Formal',
+    birthDateTitle: 'Birth date',
     languageTitle: 'Language',
-    languageDescription: 'Choose a language or follow your device setting.',
     languageSystem: 'System',
     languageTurkish: 'Türkçe',
     languageEnglish: 'English',
     themeTitle: 'Appearance',
-    themeDescription: 'Choose an appearance or follow your device setting.',
     themeSystem: 'System',
     themeLight: 'Light',
     themeDark: 'Dark',
@@ -404,7 +420,7 @@ const en = {
   settings: {
     title: 'Settings',
     aboutYouHeading: 'About you',
-    aboutYouFooter: 'Clothing preference selects the catalog your outfit suggestions are drawn from.',
+    aboutYouFooter: 'Gender selects the catalog. Dress style shapes which suggestions come first. Birth date is optional and does not change suggestions.',
     versionLine: (version: string, build?: string | null) => build ? `Version ${version} (${build})` : `Version ${version}`,
     aiStatusHeading: 'AI status',
     aiStatusIntro: 'Check whether AI responds right now.',
@@ -757,25 +773,33 @@ const tr = {
     weatherPromise: 'kuyara, her gün ne giyeceğinizi kolaylaştırmak için hava durumunu kullanır.',
     outfitsPromise: 'Farklı planlar için üç eksiksiz kombin önerisi görürsünüz.',
     wardrobePromise: 'Gardırobunuz, sahip olduğunuz ya da istediğiniz parçaları kombin önerilerinizden ayrı tutar.',
-    clothingTitle: 'Giyim tercihinizi seçin',
-    clothingBody: 'Bu seçim katalog ve öneri tarzını belirler. Daha sonra Ayarlar’dan değiştirebilirsiniz.',
-    detailsTitle: 'kuyara’yı size uygun hâle getirin',
-    detailsBody: 'kuyara’nın bu cihazda kullanacağı dili ve görünümü onaylayın.',
+    genderTitle: 'Cinsiyetiniz',
+    genderBody: 'kuyara bunu kombin önerilerinizin geldiği kataloğu seçmek için kullanır. Daha sonra Ayarlar’dan değiştirebilirsiniz.',
+    dressStyleTitle: 'Genelde nasıl giyinirsiniz?',
+    dressStyleBody: 'Çoğu gün giydiğiniz görünümü seçin. Öneriler önce o yöne eğilir, hiçbir şeyi dışlamaz. Daha sonra Ayarlar’dan değiştirebilirsiniz.',
+    dressStyleRequiredError: 'Devam etmek için giyim tarzınızı seçin.',
+    birthDateTitle: 'Doğum tarihiniz',
+    birthDateBody: 'İsteğe bağlı. kuyara’yı kimlerin kullandığını anlamamıza yardımcı olur. Önerilerinizi değiştirmez.',
+    birthDateNotSet: 'Ayarlanmadı',
+    birthDateClearAction: 'Doğum tarihini kaldır',
     completeAction: 'kuyara’yı kullanmaya başla',
-    clothingRequiredError: 'Devam etmek için bir giyim tercihi seçin.',
+    genderRequiredError: 'Devam etmek için cinsiyetinizi seçin.',
     saveError: 'Seçimleriniz kaydedilemedi. Lütfen yeniden deneyin.',
   },
   preferences: {
-    clothingTitle: 'Giyim tercihi',
-    womensClothing: 'Kadın giyim',
-    mensClothing: 'Erkek giyim',
+    genderTitle: 'Cinsiyet',
+    genderWoman: 'Kadın',
+    genderMan: 'Erkek',
+    dressStyleTitle: 'Giyim tarzı',
+    dressStyleCasual: 'Günlük',
+    dressStyleSmart: 'Şık',
+    dressStyleFormal: 'Resmî',
+    birthDateTitle: 'Doğum tarihi',
     languageTitle: 'Dil',
-    languageDescription: 'Bir dil seçin veya cihaz ayarını izleyin.',
     languageSystem: 'Sistem',
     languageTurkish: 'Türkçe',
     languageEnglish: 'English',
     themeTitle: 'Görünüm',
-    themeDescription: 'Bir görünüm seçin veya cihaz ayarını izleyin.',
     themeSystem: 'Sistem',
     themeLight: 'Açık',
     themeDark: 'Koyu',
@@ -783,7 +807,7 @@ const tr = {
   settings: {
     title: 'Ayarlar',
     aboutYouHeading: 'Hakkında',
-    aboutYouFooter: 'Giyim tercihi, kombin önerilerinizin çekildiği katalogu belirler.',
+    aboutYouFooter: 'Cinsiyet kataloğu belirler. Giyim tarzı hangi önerilerin önce geleceğini etkiler. Doğum tarihi isteğe bağlıdır ve önerileri değiştirmez.',
     versionLine: (version: string, build?: string | null) => build ? `Sürüm ${version} (${build})` : `Sürüm ${version}`,
     aiStatusHeading: 'AI durumu',
     aiStatusIntro: 'AI’nin şu anda yanıt verip vermediğini kontrol edin.',
