@@ -2,7 +2,7 @@
 
 Status: Accepted (2026-09-07)
 
-Implementation: not started. This records an approved design produced by the 2026-09-04
+Implementation: landed 2026-09-07 (`NativeList`, `NativeListSection`, `NativeListRow` and the Settings root); the section 3 value stacking above `fontScale` 1.5 landed 2026-09-09. The rest of this header describes the state at acceptance. This records an approved design produced by the 2026-09-04
 design session and corrected on 2026-09-07 against the list-row reference, with the
 version line added the same day. No production code, contract or route was changed to
 reach it. The rendered target sheet, in English and Turkish, both appearances, the two
