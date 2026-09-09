@@ -26,12 +26,15 @@ export function Screen({
 }: ScreenProps) {
   const safeAreaInsets = useSafeAreaInsets();
   const theme = useKuyaraTheme();
-  const bottomInset = safeAreaInsets.bottom + spacing.md;
+  // iOS resolves both safe areas itself through contentInsetAdjustmentBehavior,
+  // which is also what UIRefreshControl measures its pull against, and under native
+  // tabs that automatic inset already includes the tab bar (ADR 0027 section 4).
+  // Adding the safe-area inset again on iOS double-counted the bar. Android has no
+  // equivalent, so the same clearance is applied as padding there.
+  const bottomInset =
+    Platform.OS === 'ios' ? spacing.md : safeAreaInsets.bottom + spacing.md;
   const scrollIndicatorInsets =
     Platform.OS === 'ios' ? { ...safeAreaInsets, bottom: bottomInset } : undefined;
-  // iOS resolves the top safe area itself through contentInsetAdjustmentBehavior,
-  // which is also what UIRefreshControl measures its pull against. Android has no
-  // equivalent, so the same clearance is applied as padding there.
   const requestedClearance = contentTopClearance ?? safeAreaInsets.top;
   const paddingTop =
     Platform.OS === 'ios'
