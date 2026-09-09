@@ -52,6 +52,7 @@ export type TodayMessages = Readonly<{
   staleAt: (time: string) => string;
   refreshingStatus: string;
   refreshFailedAt: (time: string) => string;
+  refreshAction: string;
   apparentTemperature: (temperature: string) => string;
   temperatureRange: (minimum: string, maximum: string) => string;
   rainProbability: (probability: string) => string;
@@ -774,6 +775,7 @@ const en = {
     staleAt: (time: string) => `Last updated at ${time} · May be out of date`,
     refreshingStatus: 'Refreshing weather…',
     refreshFailedAt: (time: string) => `Couldn't refresh · Showing last update from ${time}`,
+    refreshAction: 'Refresh',
     apparentTemperature: (temperature: string) => `Feels like ${temperature}`,
     temperatureRange: (minimum: string, maximum: string) => `Low ${minimum} · High ${maximum}`,
     rainProbability: (probability: string) => `${probability} chance of rain`,
@@ -1206,6 +1208,7 @@ const tr = {
     staleAt: (time: string) => `Son güncelleme ${time} · Güncelliğini yitirmiş olabilir`,
     refreshingStatus: 'Hava durumu yenileniyor…',
     refreshFailedAt: (time: string) => `Yenilenemedi · ${time} güncellemesi gösteriliyor`,
+    refreshAction: 'Yenile',
     apparentTemperature: (temperature: string) => `Hissedilen ${temperature}`,
     temperatureRange: (minimum: string, maximum: string) => `En düşük ${minimum} · En yüksek ${maximum}`,
     rainProbability: (probability: string) => `Yağmur olasılığı ${probability}`,
