@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
+import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
 import { NotificationApplicationProvider } from '@/features/notifications/application/notification-application-provider';
 import { WeatherAlertObserver } from '@/features/notifications/application/weather-alert-observer';
 import { registerBackgroundWeatherAlertTask } from '@/features/notifications/data/expo-background-weather-alert-task';
@@ -36,31 +37,33 @@ function ThemedApplicationShell() {
   }
 
   return (
-    <NotificationApplicationProvider
-      notificationsOptIn={state.profile.notificationsOptIn}
-      persistOptIn={updateNotificationsOptIn}>
-      <WeatherApplicationProvider localProfileId={state.profile.id}>
-        <WeatherAlertObserver />
-        <WardrobeApplicationProvider localProfileId={state.profile.id}>
-          <RecommendationApplicationProvider localProfileId={state.profile.id}>
-            <ThemeProvider value={navigationTheme}>
-              <StatusBar style={theme.isDark ? 'light' : 'dark'} />
-              <Stack
-                screenOptions={{
-                  animation: theme.isReduceMotionEnabled ? 'none' : 'default',
-                  headerShown: false,
-                }}>
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen
-                  name="onboarding"
-                  options={{ gestureEnabled: false }}
-                />
-              </Stack>
-            </ThemeProvider>
-          </RecommendationApplicationProvider>
-        </WardrobeApplicationProvider>
-      </WeatherApplicationProvider>
-    </NotificationApplicationProvider>
+    <ProductAnalyticsProvider>
+      <NotificationApplicationProvider
+        notificationsOptIn={state.profile.notificationsOptIn}
+        persistOptIn={updateNotificationsOptIn}>
+        <WeatherApplicationProvider localProfileId={state.profile.id}>
+          <WeatherAlertObserver />
+          <WardrobeApplicationProvider localProfileId={state.profile.id}>
+            <RecommendationApplicationProvider localProfileId={state.profile.id}>
+              <ThemeProvider value={navigationTheme}>
+                <StatusBar style={theme.isDark ? 'light' : 'dark'} />
+                <Stack
+                  screenOptions={{
+                    animation: theme.isReduceMotionEnabled ? 'none' : 'default',
+                    headerShown: false,
+                  }}>
+                  <Stack.Screen name="(tabs)" />
+                  <Stack.Screen
+                    name="onboarding"
+                    options={{ gestureEnabled: false }}
+                  />
+                </Stack>
+              </ThemeProvider>
+            </RecommendationApplicationProvider>
+          </WardrobeApplicationProvider>
+        </WeatherApplicationProvider>
+      </NotificationApplicationProvider>
+    </ProductAnalyticsProvider>
   );
 }
 
