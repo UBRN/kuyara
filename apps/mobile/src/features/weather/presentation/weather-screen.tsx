@@ -6,7 +6,6 @@ import {
   RefreshControl,
   StyleSheet,
   View,
-  useWindowDimensions,
 } from 'react-native';
 
 import {
@@ -19,6 +18,7 @@ import {
   SectionHeader,
   Surface,
   useRefreshOutcomeHaptics,
+  useTextScaling,
 } from '@/components/ui';
 import { Divider } from '@/components/ui/divider';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
@@ -78,7 +78,7 @@ function locationName(
 export function WeatherScreen() {
   const { language, messages } = useLocalization();
   const theme = useKuyaraTheme();
-  const { fontScale } = useWindowDimensions();
+  const { usesStackedLayout } = useTextScaling();
   const copy = messages.weather;
   const application = useWeatherApplication();
   const { state } = application;
@@ -141,8 +141,6 @@ export function WeatherScreen() {
     weatherkit: copy.attributionAppleWeather,
   };
   const attributionLabel = attributionLabels[snapshot?.origin.sourceId ?? ''] ?? null;
-  const usesAccessibilityLayout = fontScale > 1.5;
-
   return (
     <Screen
       contentContainerStyle={styles.content}
@@ -192,15 +190,41 @@ export function WeatherScreen() {
           onPress={() => router.push('/weather/location')}
           style={({ pressed }) => pressed && styles.pressed}
           testID="weather-change-location-button">
-          <Surface pointerEvents="none" style={[styles.locationCard, theme.elevation.raised]}>
-            <Icon color={theme.colors.iconSecondary} name="location" size={20} />
-            <View style={styles.locationNameGroup}>
-              <AppText variant="bodyStrong">{activeName}</AppText>
-              {accuracy ? (
-                <AppText colorRole="textSecondary" variant="caption">{accuracy}</AppText>
-              ) : null}
-            </View>
-            <View style={styles.locationAffordance}>
+          <Surface
+            pointerEvents="none"
+            style={[
+              styles.locationCard,
+              usesStackedLayout && styles.stackedLocationCard,
+              theme.elevation.raised,
+            ]}
+            testID="weather-location-card">
+            {usesStackedLayout ? (
+              <View style={styles.locationIdentityRow} testID="weather-location-identity-row">
+                <Icon color={theme.colors.iconSecondary} name="location" size={20} />
+                <View style={styles.locationNameGroup} testID="weather-location-name-group">
+                  <AppText variant="bodyStrong">{activeName}</AppText>
+                  {accuracy ? (
+                    <AppText colorRole="textSecondary" variant="caption">{accuracy}</AppText>
+                  ) : null}
+                </View>
+              </View>
+            ) : (
+              <>
+                <Icon color={theme.colors.iconSecondary} name="location" size={20} />
+                <View style={styles.locationNameGroup} testID="weather-location-name-group">
+                  <AppText variant="bodyStrong">{activeName}</AppText>
+                  {accuracy ? (
+                    <AppText colorRole="textSecondary" variant="caption">{accuracy}</AppText>
+                  ) : null}
+                </View>
+              </>
+            )}
+            <View
+              style={[
+                styles.locationAffordance,
+                usesStackedLayout && styles.stackedLocationAffordance,
+              ]}
+              testID="weather-location-affordance">
               <AppText colorRole="textSecondary" variant="label">
                 {copy.changeLocationAction}
               </AppText>
@@ -238,7 +262,7 @@ export function WeatherScreen() {
                 })}
                 style={[
                   styles.currentHero,
-                  usesAccessibilityLayout && styles.stackedCurrentHero,
+                  usesStackedLayout && styles.stackedCurrentHero,
                 ]}>
                 <View style={styles.currentConditionGroup}>
                   <View style={styles.currentConditionRow}>
@@ -273,7 +297,7 @@ export function WeatherScreen() {
               <View
                 style={[
                   styles.statsGrid,
-                  usesAccessibilityLayout && styles.stackedStatsGrid,
+                  usesStackedLayout && styles.stackedStatsGrid,
                 ]}>
                 {([
                   {
@@ -307,7 +331,7 @@ export function WeatherScreen() {
                     key={stat.label}
                     style={[
                       styles.stat,
-                      usesAccessibilityLayout && styles.stackedStat,
+                      usesStackedLayout && styles.stackedStat,
                     ]}>
                     <Icon color={theme.colors.iconSecondary} name={stat.icon} size={18} />
                     <AppText colorRole="textSecondary" variant="eyebrow">
@@ -358,12 +382,12 @@ export function WeatherScreen() {
                     })}
                     style={[
                       styles.hourRow,
-                      usesAccessibilityLayout && styles.stackedHourRow,
+                      usesStackedLayout && styles.stackedHourRow,
                     ]}>
                     <AppText
                       style={[
                         styles.hourTime,
-                        usesAccessibilityLayout && styles.stackedHourTime,
+                        usesStackedLayout && styles.stackedHourTime,
                       ]}
                       tabularNumbers
                       variant="bodyStrong">
@@ -400,7 +424,7 @@ export function WeatherScreen() {
                     <AppText
                       style={[
                         styles.hourTemperature,
-                        usesAccessibilityLayout && styles.stackedHourTemperature,
+                        usesStackedLayout && styles.stackedHourTemperature,
                       ]}
                       tabularNumbers
                       variant="bodyStrong">
@@ -458,12 +482,24 @@ const styles = StyleSheet.create({
     minHeight: layout.minimumTouchTarget,
     padding: spacing.lg,
   },
+  stackedLocationCard: {
+    alignItems: 'stretch',
+    flexDirection: 'column',
+  },
+  locationIdentityRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
   locationNameGroup: { flex: 1, flexShrink: 1, gap: spacing.xs / 2 },
   locationAffordance: {
     alignItems: 'center',
     flexDirection: 'row',
     flexShrink: 0,
     gap: spacing.xs,
+  },
+  stackedLocationAffordance: {
+    alignSelf: 'stretch',
   },
   pressed: { opacity: interaction.pressedOpacity },
   currentHero: {

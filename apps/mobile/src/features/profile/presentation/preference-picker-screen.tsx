@@ -2,7 +2,15 @@ import { Fragment, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppText, haptics, Icon, IconButton, Screen, Surface } from '@/components/ui';
+import {
+  AppText,
+  haptics,
+  Icon,
+  IconButton,
+  Screen,
+  Surface,
+  useTextScaling,
+} from '@/components/ui';
 import { Divider } from '@/components/ui/divider';
 import { PreferenceOption } from '@/features/profile/presentation/preference-option';
 import { useMessages } from '@/localization/use-messages';
@@ -36,6 +44,7 @@ export function PreferencePickerScreen<T extends string>({
 }: PreferencePickerScreenProps<T>) {
   const messages = useMessages();
   const theme = useKuyaraTheme();
+  const { usesStackedLayout } = useTextScaling();
   const [headerHeight, setHeaderHeight] = useState(0);
   const [hasSaveError, setHasSaveError] = useState(false);
 
@@ -62,8 +71,14 @@ export function PreferencePickerScreen<T extends string>({
           styles.header,
           { backgroundColor: theme.colors.surface },
           theme.elevation.chrome,
-        ]}>
-        <View style={styles.headerContent}>
+        ]}
+        testID="settings-picker-header">
+        <View
+          style={[
+            styles.headerContent,
+            usesStackedLayout && styles.stackedHeaderContent,
+          ]}
+          testID="settings-picker-header-content">
           <IconButton
             accessibilityLabel={messages.common.back}
             hitSlop={7}
@@ -71,7 +86,10 @@ export function PreferencePickerScreen<T extends string>({
             onPress={onBack}
             testID="settings-picker-back"
           />
-          <AppText accessibilityRole="header" style={styles.headerTitle} variant="titleLarge">
+          <AppText
+            accessibilityRole="header"
+            style={[styles.headerTitle, usesStackedLayout && styles.stackedHeaderTitle]}
+            variant="titleLarge">
             {title}
           </AppText>
         </View>
@@ -142,6 +160,14 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
+  },
+  stackedHeaderContent: {
+    alignItems: 'flex-start',
+    flexDirection: 'column',
+  },
+  stackedHeaderTitle: {
+    flex: 0,
+    width: '100%',
   },
   content: {
     gap: spacing.md,

@@ -2,7 +2,15 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppText, GarmentSlotGlyph, Icon, IconButton, Screen, Surface } from '@/components/ui';
+import {
+  AppText,
+  GarmentSlotGlyph,
+  Icon,
+  IconButton,
+  Screen,
+  Surface,
+  useTextScaling,
+} from '@/components/ui';
 import type { ClothingPreference } from '@/domain/preferences';
 import { listGarmentTypesForPreference } from '@/features/catalog/domain/garment-catalog';
 import {
@@ -32,6 +40,7 @@ export function GarmentTypePickerScreen({
 }: GarmentTypePickerScreenProps) {
   const messages = useMessages();
   const theme = useKuyaraTheme();
+  const { usesStackedLayout } = useTextScaling();
   const [headerHeight, setHeaderHeight] = useState(0);
   const applicableTypeIds = new Set(
     listGarmentTypesForPreference(clothingPreference).map(({ typeId }) => typeId),
@@ -46,15 +55,24 @@ export function GarmentTypePickerScreen({
           styles.header,
           { backgroundColor: theme.colors.surface },
           theme.elevation.chrome,
-        ]}>
-        <View style={styles.headerContent}>
+        ]}
+        testID="wardrobe-garment-type-picker-header">
+        <View
+          style={[
+            styles.headerContent,
+            usesStackedLayout && styles.stackedHeaderContent,
+          ]}
+          testID="wardrobe-garment-type-picker-header-content">
           <IconButton
             accessibilityLabel={messages.common.back}
             hitSlop={7}
             icon={(color) => <Icon color={color} name="chevronLeft" size={20} />}
             onPress={onBack}
           />
-          <AppText accessibilityRole="header" style={styles.headerTitle} variant="titleLarge">
+          <AppText
+            accessibilityRole="header"
+            style={[styles.headerTitle, usesStackedLayout && styles.stackedHeaderTitle]}
+            variant="titleLarge">
             {messages.wardrobe.typeTitle}
           </AppText>
         </View>
@@ -143,6 +161,14 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
+  },
+  stackedHeaderContent: {
+    alignItems: 'flex-start',
+    flexDirection: 'column',
+  },
+  stackedHeaderTitle: {
+    flex: 0,
+    width: '100%',
   },
   content: {
     gap: spacing.md,

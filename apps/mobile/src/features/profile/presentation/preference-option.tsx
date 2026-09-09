@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { AppText, Icon } from '@/components/ui';
 import { borderWidths, interaction, layout, radii, spacing } from '@/theme/theme';
@@ -49,14 +49,21 @@ export function PreferenceOption({
       <AppText
         colorRole={selected ? 'textOnBrand' : 'textPrimary'}
         style={[styles.label, isRow && styles.rowLabel]}
+        testID={testID ? `${testID}-label` : undefined}
         variant="bodyStrong">
         {label}
       </AppText>
-      <Icon
-        color={selected ? theme.colors.textOnBrand : theme.colors.iconSecondary}
-        name={selected ? 'checkCircle' : 'circle'}
-        size={24}
-      />
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={styles.mark}
+        testID={testID ? `${testID}-mark` : undefined}>
+        <Icon
+          color={selected ? theme.colors.textOnBrand : theme.colors.iconSecondary}
+          name={selected ? 'checkCircle' : 'circle'}
+          size={24}
+        />
+      </View>
     </Pressable>
   );
 }
@@ -82,8 +89,12 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   rowLabel: {
-    flex: 0,
     textAlign: 'center',
+  },
+  mark: {
+    flexShrink: 0,
+    height: 24,
+    width: 24,
   },
   pressed: {
     opacity: interaction.pressedOpacity,

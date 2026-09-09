@@ -218,7 +218,7 @@ export function ProfileScreen({
   const messages = useMessages();
   const copy = messages.profile;
   const theme = useKuyaraTheme();
-  const { fontScale } = useTextScaling();
+  const { fontScale, usesStackedLayout } = useTextScaling();
   const { resolvePhotoUri, state } = useWardrobeApplication();
   const railScale = resolveRailScale(fontScale);
 
@@ -240,21 +240,47 @@ export function ProfileScreen({
         accessibilityLabel={copy.closetHeadingAccessibilityLabel({ count: ownedItems.length })}
         accessibilityRole="button"
         onPress={() => onOpenWardrobe()}
-        style={({ pressed }) => [styles.closetHeading, pressed && styles.pressed]}
+        style={({ pressed }) => [
+          styles.closetHeading,
+          usesStackedLayout && styles.stackedClosetHeading,
+          pressed && styles.pressed,
+        ]}
         testID="profile-closet-heading">
-        <AppText style={styles.closetHeadingTitle} variant="title">
-          {copy.wardrobeTitle}
-        </AppText>
-        {isReady ? (
-          <AppText
-            colorRole="textSecondary"
-            tabularNumbers
-            testID="profile-closet-heading-count"
-            variant="body">
-            {ownedItems.length}
-          </AppText>
-        ) : null}
-        <Icon color={theme.colors.iconSecondary} name="chevronRight" size={20} />
+        {usesStackedLayout ? (
+          <>
+            <View style={styles.closetHeadingTitleRow} testID="profile-closet-heading-title-row">
+              <AppText style={styles.closetHeadingTitle} variant="title">
+                {copy.wardrobeTitle}
+              </AppText>
+              <Icon color={theme.colors.iconSecondary} name="chevronRight" size={20} />
+            </View>
+            {isReady ? (
+              <AppText
+                colorRole="textSecondary"
+                tabularNumbers
+                testID="profile-closet-heading-count"
+                variant="body">
+                {ownedItems.length}
+              </AppText>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <AppText style={styles.closetHeadingTitle} variant="title">
+              {copy.wardrobeTitle}
+            </AppText>
+            {isReady ? (
+              <AppText
+                colorRole="textSecondary"
+                tabularNumbers
+                testID="profile-closet-heading-count"
+                variant="body">
+                {ownedItems.length}
+              </AppText>
+            ) : null}
+            <Icon color={theme.colors.iconSecondary} name="chevronRight" size={20} />
+          </>
+        )}
       </Pressable>
 
       {!isReady ? (
@@ -328,6 +354,15 @@ const styles = StyleSheet.create({
   },
   closetHeadingTitle: {
     flex: 1,
+  },
+  stackedClosetHeading: {
+    alignItems: 'stretch',
+    flexDirection: 'column',
+  },
+  closetHeadingTitleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
   },
   pressed: {
     opacity: interaction.pressedOpacity,

@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { fireEvent, isHiddenFromAccessibility, render, within } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { Linking, StyleSheet } from 'react-native';
+import { Dimensions, Linking, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { WeatherApplicationContext, type WeatherApplicationValue } from '@/features/weather/application/weather-application-context';
@@ -19,6 +19,16 @@ const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
   insets: { top: 47, right: 0, bottom: 34, left: 0 },
 };
+
+const originalWindowDimensions = Dimensions.get('window');
+
+function mockFontScale(fontScale: number) {
+  Dimensions.set({ window: { ...originalWindowDimensions, fontScale } });
+}
+
+afterEach(() => {
+  Dimensions.set({ window: originalWindowDimensions });
+});
 
 const baseState: WeatherReadyState = {
   status: 'ready', activeLocation: null, snapshot: null, freshness: null,
@@ -288,6 +298,30 @@ test('Weather renders a searched place from its persisted display name', async (
   const result = await render(<Providers language="tr" value={value}><WeatherScreen /></Providers>);
   expect(result.getByText('İstanbul')).toBeOnTheScreen();
 });
+
+test.each([
+  [1, 'row', false],
+  [3.12, 'column', true],
+] as const)(
+  'Weather at fontScale %s uses a %s location-card layout that remains word-wrappable',
+  async (fontScale, flexDirection, stacked) => {
+    mockFontScale(fontScale);
+    const active = getManualLocation('sample.istanbul')!;
+    const result = await render(
+      <Providers language="en" value={createValue({ ...baseState, activeLocation: active })}>
+        <WeatherScreen />
+      </Providers>,
+    );
+
+    expect(StyleSheet.flatten(result.getByTestId('weather-location-card').props.style))
+      .toMatchObject({ flexDirection });
+    expect(StyleSheet.flatten(result.getByTestId('weather-location-name-group').props.style))
+      .toMatchObject({ flex: 1, flexShrink: 1 });
+    expect(StyleSheet.flatten(result.getByTestId('weather-location-affordance').props.style))
+      .toMatchObject(stacked ? { alignSelf: 'stretch' } : { flexShrink: 0 });
+    expect(Boolean(result.queryByTestId('weather-location-identity-row'))).toBe(stacked);
+  },
+);
 
 test('Weather offers a pull-to-refresh gesture alongside the visible refresh button', async () => {
   const value = createValue({
