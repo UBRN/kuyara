@@ -22,6 +22,8 @@ source-available rather than open source ([ADR 0024](adr/0024-relicensing-to-pol
 
 ## Recently Completed
 
+- **The silhouette rung and colour-family fill on Profile and the Closet** (2026-09-09): [ADR 0028](adr/0028-the-profile-tab-and-the-list-row-anatomy.md) section 6 and [ADR 0029](adr/0029-the-closet-grid.md) section 5 are implemented. Both personal-piece surfaces now use one `GarmentTileArtwork` ladder: a cover-cropped photo, then the approved garment-type silhouette in the piece's appearance-specific colour family, then the existing structural-category glyph for accessories and legacy null-type rows. An unreadable photo takes the same fallback. Drawn bounds fit uniformly into the centred 60% × 61% box and follow tile scaling; absent colour uses `stage`, and multicolor uses a unique two-stop blue-to-yellow gradient per tile. The tile stroke is the board's 1.9 divided by the tile's uniform scale rather than `non-scaling-stroke`, because react-native-svg 15.15.4 on iOS paints a non-scaling-stroke path in client space while a gradient fill still uses the path's local bounds, which left the multicolor fill outside the drawing on the Simulator; the board is unaffected because it fills with a solid colour. The fill table is content colour for these two surfaces only. Tile geometry, copy and accessibility labels are unchanged. Contrast assertions and component coverage cover both appearances and fallback states; native Simulator acceptance remains with the orchestrator. The five accessory drawings remain unapproved.
+
 - **The recommendation detail surface** (2026-09-09): [ADR 0026](adr/0026-the-recommendation-detail-surface.md) decisions 1 to 6 are implemented. `GarmentBoard` now exposes additive pixel layout geometry and a decorative mode, so detail reuses the unchanged composition algorithm and detail preset while each absolutely positioned caption owns its piece name, slot and truthful owned/wanted state semantics. Caption measurements extend the plate before reasoning begins. Requirement evaluations are joined to localized catalogue names in presentation and rendered one row per met requirement or trade-off; the existing ownership actions remain available without changing their behavior, and the foot of the screen carries the existing temperature, condition and rain probability on the stage tint. English reuses the existing Owned/Wanted strings; Turkish adds “Sende var” / “İstiyorsun”. No schema, contract, Worker, dependency, substitution affordance or data fetch changed. The domain's third `none` ownership state has no approved caption-state copy, so untracked pieces deliberately show no state marker or word while keeping both actions. Decision 7's entry transition remains open, and Simulator verification belongs to the orchestrator.
 
 - **Today's garment board, and the Direction E tokens under it** (2026-09-08): [ADR 0025](adr/0025-the-garment-board-composition-rule.md) is implemented. `components/ui/garment-board` carries the 22 approved silhouettes and the six redrawn category glyphs as path data with authoring-time drawn bounds (a test re-derives the bounds from the paths), the composition rule ported from the reference implementation with the Today and detail presets, and one `GarmentBoard` primitive on `react-native-svg`, the only importer of that package. The ten evidence slot lists pass overlap 0, clipping 0 and anchor parity 1.000 under both presets. Today now renders the approved target-set layout: a place row, the `stage`-filled board with the temperature and condition in its corner, the archetype at `title`, one rationale, a provenance line that shows the AI-assisted mark only when AI contributed, and two full alternate boards (ADR 0021 section 6 amended the same day). The header buttons went with the stretchy header: Settings is reached from Profile, refresh is pull-to-refresh. The theme moved to the Direction E allocation at the same time, because the stage is invisible on the old ground: light `background` is Soft Mist, `textSecondary` and `iconSecondary` are a derived neutral, `borderSubtle` is the mockup hairline, and `stage` is a new role; `theme.test.mjs` retired the 1.2:1 light card step per ADR 0021's amendment and gained the stage floors. Deviations from the mockup, each with a reason: the archetype and temperature use `title` and the small lines `caption` because the mockup's 30, 28, 12 and 11.5 point sizes are not ADR 0017 roles; the alternates heading is sentence-case `bodyStrong` rather than an uppercase eyebrow (Law 1); above font scale 1.5 the temperature row sits above the stage so scaled text cannot collide with width-sized garments. Still open: the entrance motion and the Today-to-detail transition (design goal 7 measures the spring), the per-condition stage tint (ADR 0018's seven states at ADR 0021's raised luminance have no recorded values), and the silhouette rung in the Profile rail and Closet grid, which can now reuse the primitive.
@@ -277,17 +279,17 @@ way.
   measured against the checklist on 2026-09-07, corrected in four places (leading tile,
   separator inset, group container, a capped control scale at accessibility sizes), and
   approved visually the same day.
-- *Left open, deliberately.* The rail's silhouette rung waits for Today's board
-  implementation and ADR 0025's glyph redraw; the photo and glyph rungs can ship first.
-  Five accessory silhouettes are wanted and not approved. The Turkish register question
-  stays recorded below.
+- *Implemented, 2026-09-09.* The rail's silhouette rung and colour-family fill now use the
+  approved board vocabulary through the shared tile artwork ladder.
+- *Left open, deliberately.* Five accessory silhouettes are wanted and not approved.
+  The Turkish register question stays recorded below.
 
 **5. Closet. Done, 2026-09-07.**
 - Accepted as [ADR 0029](adr/0029-the-closet-grid.md): a two-column grid of the rail's
   tile, a native segmented owned/wanted filter without counts, kuyara-drawn category chips,
   a plus bar button, and one tile contract that lets the photo, silhouette and glyph states
   share a frame. The colour-family fill on silhouettes is approved as content colour for
-  the rail and the grid only.
+  the rail and the grid only; the shared silhouette rung and fill landed on 2026-09-09.
 - *Left open, deliberately.* The add and edit form and the photo pipeline; accessory
   silhouettes, so an accessories tile is a glyph tile until five drawings are approved.
 
@@ -360,8 +362,8 @@ Both shell fixes are now done.
    shared `ListRow`/`ListRowGroup`/`ListRowTile` anatomy and, for Settings, the new
    `NativeList`/`NativeListSection`/`NativeListRow`/`NativeToggle` wrappers over it; see the three
    Recently Completed entries. What still waits: About you's Gender and Birth date rows
-   on ADR 0015's unimplemented phases, and the rail's and the grid's silhouette rung and
-   colour-family fill, which Today's board implementation unblocked on 2026-09-08.
+   on ADR 0015's unimplemented phases, and the five unapproved accessory silhouettes.
+   The rail's and grid's silhouette rung and colour-family fill landed on 2026-09-09.
 
 5. ~~**Today's garment board.**~~ **Done, 2026-09-08.** [ADR 0025](adr/0025-the-garment-board-composition-rule.md)
    and the Direction E tokens; see the entry in Recently Completed. It made the detail

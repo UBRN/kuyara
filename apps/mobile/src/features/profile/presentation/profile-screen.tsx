@@ -1,10 +1,9 @@
-import { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import {
   AppText,
   Button,
-  GarmentSlotGlyph,
+  GarmentTileArtwork,
   Icon,
   ListRow,
   ListRowGroup,
@@ -77,9 +76,7 @@ function RailItemTile({
 }>) {
   const messages = useMessages();
   const theme = useKuyaraTheme();
-  const [unreadablePhotoUri, setUnreadablePhotoUri] = useState<string | null>(null);
   const photoUri = resolvePhotoUri(item.photoRelativePath);
-  const visiblePhotoUri = photoUri === unreadablePhotoUri ? null : photoUri;
   const caption = resolveItemCaption(item, messages);
   const tileSize = {
     width: RAIL_TILE_WIDTH * scale,
@@ -103,22 +100,18 @@ function RailItemTile({
           { backgroundColor: theme.colors.surfaceMuted },
         ]}
         testID={`profile-rail-item-${item.id}-tile`}>
-        {visiblePhotoUri ? (
-          <Image
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            onError={() => setUnreadablePhotoUri(visiblePhotoUri)}
-            resizeMode="cover"
-            source={{ uri: visiblePhotoUri }}
-            style={StyleSheet.absoluteFill}
-          />
-        ) : (
-          <GarmentSlotGlyph
-            category={item.category}
-            color={theme.colors.iconSecondary}
-            size={RAIL_GLYPH_SIZE * scale}
-          />
-        )}
+        <GarmentTileArtwork
+          photoUri={photoUri}
+          garmentTypeId={item.garmentTypeId}
+          category={item.category}
+          colorFamily={item.colorFamily}
+          width={tileSize.width}
+          height={tileSize.height}
+          glyphSize={RAIL_GLYPH_SIZE * scale}
+          photoTestID={`profile-rail-photo-${item.id}`}
+          silhouetteTestID={`profile-rail-silhouette-${item.id}`}
+          placeholderTestID={`profile-rail-photo-placeholder-${item.id}`}
+        />
       </View>
       <AppText
         colorRole={caption.isOwnName ? 'textPrimary' : 'textSecondary'}

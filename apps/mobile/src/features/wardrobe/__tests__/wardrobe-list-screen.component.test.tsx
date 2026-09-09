@@ -248,7 +248,7 @@ test('selecting a tile emits the edit intent', async () => {
   expect(onEdit).toHaveBeenCalledWith(ownedItem.id);
 });
 
-test('a photo tile falls back to the category glyph after a load failure', async () => {
+test('a photo tile falls back to the silhouette after a load failure', async () => {
   const withPhoto = { ...ownedItem, photoRelativePath: 'kuyara/wardrobe/photos/a.jpg' };
   const result = await render(
     <TestProviders>
@@ -265,12 +265,14 @@ test('a photo tile falls back to the category glyph after a load failure', async
   const photo = result.getByTestId(`wardrobe-photo-${ownedItem.id}`, {
     includeHiddenElements: true,
   });
+  expect(photo).toHaveProp('resizeMode', 'cover');
+  expect(result.queryByTestId(`wardrobe-silhouette-${ownedItem.id}`, { includeHiddenElements: true })).toBeNull();
   await fireEvent(photo, 'error');
   expect(
     result.queryByTestId(`wardrobe-photo-${ownedItem.id}`),
   ).not.toBeOnTheScreen();
   expect(
-    result.getByTestId(`wardrobe-photo-placeholder-${ownedItem.id}`, {
+    result.getByTestId(`wardrobe-silhouette-${ownedItem.id}`, {
       includeHiddenElements: true,
     }),
   ).toBeOnTheScreen();
@@ -359,4 +361,20 @@ test('grid geometry follows the window width and reproduces ADR 0029 at the 393 
   // A 375 point device: two tiles plus the gap still fit inside the 343 point content box.
   const narrow = resolveGridGeometry(375, false);
   expect(narrow.geometry.width * 2 + 12).toBe(343);
+});
+
+test('the grid mixes coloured silhouettes, accessory glyphs and legacy glyphs', async () => {
+  const accessory = { ...ownedItem, id: 'accessory', garmentTypeId: 'beanie' as const, category: 'accessory' as const };
+  const result = await render(
+    <TestProviders>
+      <WardrobeListScreen onAdd={() => undefined} onEdit={() => undefined} onRetry={() => undefined}
+        state={readyState([ownedItem, accessory, legacyItem])} />
+    </TestProviders>,
+  );
+  const hidden = { includeHiddenElements: true };
+  expect(result.getByTestId(`wardrobe-silhouette-${ownedItem.id}`, hidden)).toBeOnTheScreen();
+  for (const item of [accessory, legacyItem]) {
+    expect(result.getByTestId(`wardrobe-photo-placeholder-${item.id}`, hidden)).toBeOnTheScreen();
+    expect(result.queryByTestId(`wardrobe-silhouette-${item.id}`, hidden)).toBeNull();
+  }
 });
