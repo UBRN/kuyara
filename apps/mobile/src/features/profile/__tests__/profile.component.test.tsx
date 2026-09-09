@@ -87,12 +87,14 @@ function TestProviders({
   children,
   items,
   status,
+  resolvePhotoUri,
 }: PropsWithChildren<{
   items: readonly WardrobeItem[];
   status?: 'ready' | 'loading' | 'error';
+  resolvePhotoUri?: WardrobeApplicationValue['resolvePhotoUri'];
 }>) {
   return (
-    <WardrobeApplicationContext.Provider value={application(items, status)}>
+    <WardrobeApplicationContext.Provider value={{ ...application(items, status), ...(resolvePhotoUri ? { resolvePhotoUri } : {}) }}>
       <LocalizationContext.Provider value={{ language: 'en', messages: messages.en }}>
         <KuyaraThemeContext.Provider value={lightTheme}>
           <SafeAreaProvider initialMetrics={initialMetrics}>
@@ -204,6 +206,9 @@ test('the rail tile scales by min(fontScale, 2) above 1.5 per ADR 0028 section 3
   expect(tileStyle.width).toBe(272);
   expect(tileStyle.height).toBe(340);
   expect(tileStyle.borderRadius).toBe(14);
+  const artwork = result.getByTestId(`profile-rail-silhouette-${baseItem.id}`, { includeHiddenElements: true });
+  expect(artwork).toHaveProp('width', 272);
+  expect(artwork).toHaveProp('height', 340);
 });
 
 test('the empty Closet shows the sentence and the Add a piece action, and hides the Wanted row', async () => {
@@ -311,3 +316,34 @@ test.each(['loading', 'error'] as const)(
     expect(result.getByTestId('profile-location-row')).toBeOnTheScreen();
   },
 );
+
+test('the rail mixes coloured silhouettes, accessory glyphs and legacy glyphs', async () => {
+  const accessory = itemWithId('accessory', { garmentTypeId: 'beanie', category: 'accessory' });
+  const legacy = itemWithId('legacy', { garmentTypeId: null });
+  const result = await render(
+    <TestProviders items={[baseItem, accessory, legacy]}>
+      <ProfileScreen activePlaceName={null} onOpenWardrobe={() => undefined} onOpenWeather={() => undefined} />
+    </TestProviders>,
+  );
+  const hidden = { includeHiddenElements: true };
+  expect(result.getByTestId(`profile-rail-silhouette-${baseItem.id}`, hidden)).toBeOnTheScreen();
+  for (const item of [accessory, legacy]) {
+    expect(result.getByTestId(`profile-rail-photo-placeholder-${item.id}`, hidden)).toBeOnTheScreen();
+    expect(result.queryByTestId(`profile-rail-silhouette-${item.id}`, hidden)).toBeNull();
+  }
+});
+
+test('the rail prefers a photo, falling to the silhouette when the photo cannot load', async () => {
+  const result = await render(
+    <TestProviders items={[{ ...baseItem, photoRelativePath: 'photo.jpg' }]} resolvePhotoUri={() => 'file:///photo.jpg'}>
+      <ProfileScreen activePlaceName={null} onOpenWardrobe={() => undefined} onOpenWeather={() => undefined} />
+    </TestProviders>,
+  );
+  const hidden = { includeHiddenElements: true };
+  const photo = result.getByTestId(`profile-rail-photo-${baseItem.id}`, hidden);
+  expect(photo).toHaveProp('resizeMode', 'cover');
+  expect(result.queryByTestId(`profile-rail-silhouette-${baseItem.id}`, hidden)).toBeNull();
+  await fireEvent(photo, 'error');
+  expect(result.getByTestId(`profile-rail-silhouette-${baseItem.id}`, hidden)).toBeOnTheScreen();
+  expect(result.queryByTestId(`profile-rail-photo-${baseItem.id}`, hidden)).toBeNull();
+});
