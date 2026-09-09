@@ -213,6 +213,16 @@ export type AppMessages = Readonly<{
     statusOff: string;
     permissionDeniedHint: string;
     openSettingsAction: string;
+    alerts: Readonly<{
+      rainTitle: string;
+      rainBody: (time: string) => string;
+      snowTitle: string;
+      snowBody: (time: string) => string;
+      dropTitle: string;
+      dropBody: (values: { time: string; temperatureCelsius: number }) => string;
+      riseTitle: string;
+      riseBody: (values: { time: string; temperatureCelsius: number }) => string;
+    }>;
   }>;
   weather: Readonly<{
     title: string;
@@ -496,6 +506,18 @@ const en = {
     statusOff: 'Off',
     permissionDeniedHint: 'Notifications are turned off in system settings.',
     openSettingsAction: 'Open Settings',
+    alerts: {
+      rainTitle: 'Rain is on the way',
+      rainBody: (time) => `Rain is expected around ${time}. Take something waterproof with you.`,
+      snowTitle: 'Snow is on the way',
+      snowBody: (time) => `Snow is expected around ${time}. Take a warm, waterproof layer with you.`,
+      dropTitle: 'It will feel colder',
+      dropBody: ({ time, temperatureCelsius }) =>
+        `Around ${time}, it will feel like ${temperatureCelsius}°C. Take a warmer layer with you.`,
+      riseTitle: 'It will feel warmer',
+      riseBody: ({ time, temperatureCelsius }) =>
+        `Around ${time}, it will feel like ${temperatureCelsius}°C. Choose a lighter layer.`,
+    },
   },
   weather: {
     title: 'Weather',
@@ -912,6 +934,18 @@ const tr = {
     statusOff: 'Kapalı',
     permissionDeniedHint: 'Bildirimler sistem ayarlarında kapalı.',
     openSettingsAction: 'Ayarları Aç',
+    alerts: {
+      rainTitle: 'Yağmur geliyor',
+      rainBody: (time) => `Saat ${time} civarında yağmur bekleniyor. Yanına su geçirmez bir parça al.`,
+      snowTitle: 'Kar geliyor',
+      snowBody: (time) => `Saat ${time} civarında kar bekleniyor. Yanına sıcak tutan, su geçirmez bir kat al.`,
+      dropTitle: 'Hava daha soğuk hissedilecek',
+      dropBody: ({ time, temperatureCelsius }) =>
+        `Saat ${time} civarında hissedilen sıcaklık ${temperatureCelsius}°C olacak. Yanına daha sıcak tutan bir kat al.`,
+      riseTitle: 'Hava daha sıcak hissedilecek',
+      riseBody: ({ time, temperatureCelsius }) =>
+        `Saat ${time} civarında hissedilen sıcaklık ${temperatureCelsius}°C olacak. Daha hafif bir kat seç.`,
+    },
   },
   weather: {
     title: 'Hava',

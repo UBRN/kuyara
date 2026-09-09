@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
 import { NotificationApplicationProvider } from '@/features/notifications/application/notification-application-provider';
+import { WeatherAlertObserver } from '@/features/notifications/application/weather-alert-observer';
 import { ProfileApplicationProvider } from '@/features/profile/application/profile-application-provider';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { BootstrapScreen } from '@/features/profile/presentation/bootstrap-screen';
@@ -37,6 +38,7 @@ function ThemedApplicationShell() {
       notificationsOptIn={state.profile.notificationsOptIn}
       persistOptIn={updateNotificationsOptIn}>
       <WeatherApplicationProvider localProfileId={state.profile.id}>
+        <WeatherAlertObserver />
         <WardrobeApplicationProvider localProfileId={state.profile.id}>
           <RecommendationApplicationProvider localProfileId={state.profile.id}>
             <ThemeProvider value={navigationTheme}>
