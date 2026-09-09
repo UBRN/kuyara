@@ -1,9 +1,11 @@
 import { Host as UniversalHost } from '@expo/ui';
-import { environment, lineLimit, tint } from '@expo/ui/swift-ui/modifiers';
-import { Platform, View } from 'react-native';
+import { environment, labelsHidden, tint } from '@expo/ui/swift-ui/modifiers';
+import { Platform, StyleSheet, View } from 'react-native';
 
+import { AppText } from '@/components/ui/app-text';
 import { useTextScaling } from '@/components/ui/use-text-scaling';
 import type { SupportedLanguage } from '@/localization/messages';
+import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // Load SwiftUI only on iOS, as native-list.tsx does.
@@ -69,20 +71,17 @@ export function NativeDatePicker({
   const { fontScale, usesStackedLayout } = useTextScaling();
   const selection = calendarDate(value, maximumDate);
   const colorScheme = theme.isDark ? 'dark' : 'light';
-  // Above the shared stacked threshold the standalone title wraps onto a second line
-  // instead of truncating, so the row reserves that line (ADR 0028 section 3).
-  const hostStyle = {
-    height: STANDALONE_ROW_HEIGHT * Math.min(fontScale, 2) * (usesStackedLayout ? 2 : 1),
-  };
+  const standaloneRowHeight = STANDALONE_ROW_HEIGHT * Math.min(fontScale, 2);
 
   if (swiftUI && NativeSwiftDatePicker) {
     // `Locale.availableIdentifiers` holds the bare `en` / `tr` identifiers, which is what
     // `SupportedLanguage` already is; an unknown value is ignored by the native modifier.
-    // `lineLimit()` (no argument) drops the compact picker's single-line label limit so a
-    // long title wraps at the word. The list-mounted picker keeps the system's own row
-    // layout (ADR 0030), so only the standalone one relaxes it.
     const modifiers = standalone
-      ? [environment('locale', language), lineLimit(), tint(theme.colors.brandPrimary)]
+      ? [
+          environment('locale', language),
+          ...(usesStackedLayout ? [labelsHidden()] : []),
+          tint(theme.colors.brandPrimary),
+        ]
       : [environment('locale', language)];
     const picker = (
       <NativeSwiftDatePicker
@@ -95,9 +94,26 @@ export function NativeDatePicker({
         title={accessibilityLabel}
       />
     );
-    return standalone ? (
-      <swiftUI.Host colorScheme={colorScheme} style={hostStyle}>{picker}</swiftUI.Host>
-    ) : picker;
+    if (!standalone) return picker;
+
+    const host = (
+      <swiftUI.Host colorScheme={colorScheme} style={{ height: standaloneRowHeight }}>
+        {picker}
+      </swiftUI.Host>
+    );
+    return usesStackedLayout ? (
+      <View>
+        <AppText
+          accessibilityElementsHidden
+          colorRole="textPrimary"
+          importantForAccessibility="no-hide-descendants"
+          style={styles.standaloneTitle}
+          variant="body">
+          {accessibilityLabel}
+        </AppText>
+        {host}
+      </View>
+    ) : host;
   }
 
   if (NativeAndroidDatePicker) {
@@ -112,9 +128,21 @@ export function NativeDatePicker({
       </View>
     );
     return standalone ? (
-      <UniversalHost colorScheme={colorScheme} style={hostStyle}>{picker}</UniversalHost>
+      <UniversalHost
+        colorScheme={colorScheme}
+        style={{
+          height: standaloneRowHeight * (usesStackedLayout ? 2 : 1),
+        }}>
+        {picker}
+      </UniversalHost>
     ) : picker;
   }
 
   return null;
 }
+
+const styles = StyleSheet.create({
+  standaloneTitle: {
+    marginBottom: spacing.sm,
+  },
+});

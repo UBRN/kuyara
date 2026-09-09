@@ -5,7 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { NativeDatePicker } from '@/components/ui/native-date-picker';
 import type { SupportedLanguage } from '@/localization/messages';
-import { lightTheme } from '@/theme/theme';
+import { lightTheme, spacing } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 jest.mock('@expo/ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
@@ -62,7 +62,6 @@ test.each(['tr', 'en'] as const)(
 
     expect(standalone.getByTestId('birth-date').props.modifiers).toEqual([
       { $type: 'environment', key: 'locale', value: language },
-      { $type: 'lineLimit', limit: undefined },
       { $type: 'tint', color: lightTheme.colors.brandPrimary },
     ]);
     await standalone.unmount();
@@ -79,8 +78,7 @@ test.each(['tr', 'en'] as const)(
 test.each([
   [1, 48],
   [1.5, 72],
-  [3, 192],
-])('at fontScale %s the standalone row reserves %s points for a wrapping title', async (
+])('at fontScale %s the standalone picker keeps its native label in one %s-point row', async (
   fontScale,
   height,
 ) => {
@@ -89,12 +87,41 @@ test.each([
 
   expect(StyleSheet.flatten(result.getByTestId('expo-ui-host').props.style))
     .toMatchObject({ height });
-  // The title is never truncated to fit one line, and it stays the accessibility name.
-  expect(result.getByTestId('birth-date').props.modifiers).toContainEqual({
-    $type: 'lineLimit',
-    limit: undefined,
-  });
+  expect(result.getByTestId('birth-date').props.modifiers).toEqual([
+    { $type: 'environment', key: 'locale', value: 'tr' },
+    { $type: 'tint', color: lightTheme.colors.brandPrimary },
+  ]);
+  expect(result.queryByText('Doğum tarihi', { includeHiddenElements: true })).toBeNull();
   expect(result.getByTestId('birth-date').props.accessibilityLabel).toBe('Doğum tarihi');
+});
+
+test('above fontScale 1.5 the standalone title stacks above a single-row picker', async () => {
+  mockFontScale(3);
+  const result = await renderPicker('tr');
+
+  expect(StyleSheet.flatten(result.getByTestId('expo-ui-host').props.style))
+    .toMatchObject({ height: 96 });
+  expect(result.getByTestId('birth-date').props.modifiers).toEqual([
+    { $type: 'environment', key: 'locale', value: 'tr' },
+    { $type: 'labelsHidden' },
+    { $type: 'tint', color: lightTheme.colors.brandPrimary },
+  ]);
+  expect(result.getByTestId('birth-date').props.accessibilityLabel).toBe('Doğum tarihi');
+  const visualTitle = result.getByText('Doğum tarihi', { includeHiddenElements: true });
+  expect(visualTitle).toHaveProp('accessibilityElementsHidden', true);
+  expect(visualTitle).toHaveProp('importantForAccessibility', 'no-hide-descendants');
+  expect(StyleSheet.flatten(visualTitle.props.style)).toMatchObject({ marginBottom: spacing.sm });
+});
+
+test('the list-mounted picker keeps the native row at accessibility sizes', async () => {
+  mockFontScale(3);
+  const result = await renderPicker('tr', { standalone: false });
+
+  expect(result.getByTestId('birth-date').props.modifiers).toEqual([
+    { $type: 'environment', key: 'locale', value: 'tr' },
+  ]);
+  expect(result.queryByText('Doğum tarihi', { includeHiddenElements: true })).toBeNull();
+  expect(result.queryByTestId('expo-ui-host')).toBeNull();
 });
 
 test('an unset value starts the picker at the maximum date and keeps the ISO contract', async () => {

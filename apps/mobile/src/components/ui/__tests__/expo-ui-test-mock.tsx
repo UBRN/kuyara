@@ -10,6 +10,7 @@ export const font = (params: Record<string, unknown>) => ({ $type: 'font', ...pa
 export const foregroundStyle = (style: unknown) => ({ $type: 'foregroundStyle', style });
 export const environment = (key: string, value: string) => ({ $type: 'environment', key, value });
 export const lineLimit = () => ({ $type: 'lineLimit', limit: undefined });
+export const labelsHidden = () => ({ $type: 'labelsHidden' });
 
 export function RNHostView({ children }: Readonly<{ children?: ReactNode }>) {
   return <View>{children}</View>;
