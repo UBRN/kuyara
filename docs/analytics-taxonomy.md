@@ -89,14 +89,16 @@ in this taxonomy overrides that gate.
 **Open, not decided here:** whether and how to link this anonymous identity to a future
 authenticated profile once accounts exist. See open question 1.
 
-## 3. Coarse age bucket and dress style: provisional profile-derived properties
+## 3. Coarse age bucket and dress style: the only profile-derived properties, kept
 
-Per ADR 0031, these are the only two profile-derived values that this draft considers for
-analytics. They create an unresolved privacy tension: attaching either value to events
-joined by the install identity conflicts with ADR 0033 section 5's proposed "not linked"
-answer, whose condition is that the identifier is never combined with profile data. The
-schema below is therefore **provisional pending the maintainer's linked-data decision** in
-section 8. It is not approved for implementation while that question remains open. No
+Per ADR 0031, these are the only two profile-derived values that analytics may carry.
+Attaching either value to events joined by the install identity means the identifier is
+combined with profile data, which is the condition ADR 0033 section 5 set for its proposed
+"not linked" answer. **Decided by the maintainer on 2026-09-09: both properties are kept,
+and the install identifier is therefore declared "linked to the user" in the App Privacy
+questionnaire**, with the privacy policy and ADR 0033 amended to match. The "not linked"
+answer is given up knowingly; the identifier still joins to no account, no
+`localProfileId` and no other system, and the exclusion list in section 4 is unchanged. No
 other profile field, including gender, is an analytics property under this taxonomy.
 
 | Property | Allowed values | Derivation rule |
@@ -112,15 +114,12 @@ and would hide the one segment where a product or legal question could arise. Bo
 are still derived at emit time only; no bucket is stored, and the date and year never leave
 the device.
 
-**Provisional attachment rule.** If section 8 chooses to keep these properties, they are
-attached to exactly four events: `onboarding_completed`, `recommendation_viewed`,
+**Attachment rule.** The two properties are attached to exactly four events: `onboarding_completed`, `recommendation_viewed`,
 `outfit_detail_opened`, and `closet_item_created`. No other event in section 5 carries
 either property. Two places carry a dress-style value for a different reason and are not
 segmentation: the `dress_style` step of `onboarding_step_completed`, and
 `setting_changed`'s `new_value` when `setting_name` is `dress_style`. Both report the value
-being chosen. If section 8 chooses to keep the "not linked" answer instead, both
-`dress_style` and `age_bucket` are removed from every event, including those two
-dress-style values, before implementation.
+being chosen.
 
 `gender` is intentionally never an analytics property.
 
@@ -220,15 +219,14 @@ come back."
 | Event | Trigger | Properties | Sampling / aggregation |
 | --- | --- | --- | --- |
 | `onboarding_started` | The welcome step is shown. | none | n/a |
-| `onboarding_step_completed` | The user advances past a step. | `step_name` (`welcome`\|`gender`\|`dress_style`\|`birth_date`\|`location`), `step_index` (1-5), `skipped` (boolean, only meaningful for `birth_date`/`location`), `dress_style` (only on the `dress_style` step, provisional under section 3) | none |
-| `onboarding_completed` | The last step finishes and the app enters the main tabs. | `dress_style` and `age_bucket` (provisional under section 3), `location_method` (`device`\|`manual`\|`skipped`) | none |
+| `onboarding_step_completed` | The user advances past a step. | `step_name` (`welcome`\|`gender`\|`dress_style`\|`birth_date`\|`location`), `step_index` (1-5), `skipped` (boolean, only meaningful for `birth_date`/`location`), `dress_style` (only on the `dress_style` step, section 3) | none |
+| `onboarding_completed` | The last step finishes and the app enters the main tabs. | `dress_style` and `age_bucket` (section 3), `location_method` (`device`\|`manual`\|`skipped`) | none |
 
 `gender` is intentionally absent from every onboarding event (section 3/4).
 
-The five-value onboarding step enum is provisional on section 8's consent-placement
-decision. If consent becomes an onboarding step, `analytics_consent` is added to
-`step_name`, the index range and implementation step count are updated in the same change,
-and `schema_version` is bumped. A first-launch sheet leaves the five-step enum unchanged.
+The five-value onboarding step enum is final: the consent surface is a first-launch sheet
+(decided 2026-09-09, section 8), so onboarding stays the five steps ADR 0031 records and no
+consent step is added.
 
 **Product questions answered.**
 
@@ -244,7 +242,7 @@ to keep coverage of "every screen" proportionate in event count.
 
 | Event | Trigger | Properties |
 | --- | --- | --- |
-| `screen_viewed` | A tracked screen gains focus. | `screen_name`: `onboarding`, `today`, `outfit_detail`, `weather`, `weather_location`, `profile`, `closet_list`, `closet_item_form`, `closet_garment_type_picker`, `settings`, `settings_appearance`, `settings_language`, `settings_notifications`, `settings_gender`, `settings_dress_style`, `settings_birth_date`, `settings_ai_status`, `settings_privacy` |
+| `screen_viewed` | A tracked screen gains focus. | `screen_name`: `onboarding`, `today`, `outfit_detail`, `weather`, `weather_location`, `profile`, `closet_list`, `closet_item_form`, `closet_garment_type_picker`, `settings`, `settings_appearance`, `settings_language`, `settings_notifications`, `settings_gender`, `settings_dress_style`, `settings_birth_date`, `settings_ai_status`, `settings_privacy`, `analytics_consent_sheet` |
 
 The implemented values mirror routes that exist, except `settings_privacy`, which is the
 required milestone 10 Privacy surface and remains provisional until that route is added.
@@ -253,11 +251,10 @@ screen: the grid's tile opens the edit form directly, so `closet_item_form` cove
 new and edit routes. Adding a route means adding a value here, not inventing an ad hoc name
 at the call site.
 
-The `onboarding` screen value currently covers the approved five-step flow and is
-provisional on the consent-surface decision in section 8. If consent is added as an
-onboarding step it remains one `screen_viewed` value, while the step-level enum in section
-5.2 gains `analytics_consent`. A first-launch sheet adds `analytics_consent_sheet` to
-`screen_name`. Either change updates this closed enum and bumps `schema_version`.
+The `onboarding` screen value covers the five-step flow. The consent surface is a
+first-launch sheet (decided 2026-09-09, section 8), so `screen_name` also carries
+`analytics_consent_sheet`; like `settings_privacy` it is provisional only in the sense that
+its route lands with milestone 10.
 
 **Product questions answered.**
 
@@ -311,7 +308,7 @@ table in the same change.
 
 | Event | Trigger | Properties |
 | --- | --- | --- |
-| `recommendation_viewed` | Today gains focus while a recommendation is visible, once per focus appearance. | `generation_mode` (`ai_assisted`\|`deterministic_fallback`), `cache_state` (`fresh`\|`stale_shown`\|`refreshing`), `outfit_count` (`3`), `dress_style` and `age_bucket` (provisional under section 3) |
+| `recommendation_viewed` | Today gains focus while a recommendation is visible, once per focus appearance. | `generation_mode` (`ai_assisted`\|`deterministic_fallback`), `cache_state` (`fresh`\|`stale_shown`\|`refreshing`), `outfit_count` (`3`), `dress_style` and `age_bucket` (section 3) |
 | `recommendation_regenerated` | A recommendation generation attempt completes. | `trigger_reason` (seven values, below), `result` (`success`\|`failure_kept_last_known`\|`failure_no_snapshot`), `generation_mode` (`ai_assisted`\|`deterministic_fallback`, present only when `result` is `success`) |
 
 `recommendation_viewed` is an impression, not a render counter. Rerenders while Today
@@ -368,7 +365,7 @@ An analysis that sees zero `explicit_request` events is seeing the product as it
 
 | Event | Trigger | Properties |
 | --- | --- | --- |
-| `outfit_detail_opened` | The user opens one of the three outfits from Today. | `outfit_position` (`1`\|`2`\|`3`), `archetype` (one of the twelve closed archetype identifiers already defined in the AI selection contract; not restated here to avoid drift from that source of truth), `generation_mode` (`ai_assisted`\|`deterministic_fallback`), `dress_style` and `age_bucket` (provisional under section 3) |
+| `outfit_detail_opened` | The user opens one of the three outfits from Today. | `outfit_position` (`1`\|`2`\|`3`), `archetype` (one of the twelve closed archetype identifiers already defined in the AI selection contract; not restated here to avoid drift from that source of truth), `generation_mode` (`ai_assisted`\|`deterministic_fallback`), `dress_style` and `age_bucket` (section 3) |
 
 This is the only selection signal the current product surfaces: there is no separate
 "choose this outfit" action beyond opening its detail. If a future explicit "wearing this"
@@ -412,7 +409,7 @@ Closet refresh starts from an already loaded list and keeps that list on failure
 
 | Event | Trigger | Properties |
 | --- | --- | --- |
-| `closet_item_created` | A new Closet entry is saved. | `state` (`owned`\|`wanted`), `garment_type_id` (catalog identifier, closed vocabulary), `has_photo` (boolean), `entry_point` (`closet_list`\|`outfit_detail`), `dress_style`, `age_bucket` (section 3, provisional) |
+| `closet_item_created` | A new Closet entry is saved. | `state` (`owned`\|`wanted`), `garment_type_id` (catalog identifier, closed vocabulary), `has_photo` (boolean), `entry_point` (`closet_list`\|`outfit_detail`), `dress_style`, `age_bucket` (section 3) |
 | `closet_item_updated` | An existing entry is edited and saved, or its ownership is changed from outfit detail. | `fields_changed` (subset of the closed set below), `garment_type_id`, `entry_point` (`closet_list`\|`outfit_detail`) |
 | `closet_item_deleted` | An entry is deleted. | `state` (`owned`\|`wanted`), `had_photo` (boolean) |
 
@@ -446,7 +443,7 @@ Closet screen views are covered by `screen_viewed` (5.3), not a separate event.
 
 | Event | Trigger | Properties |
 | --- | --- | --- |
-| `setting_changed` | Any Settings value changes. | `setting_name` (`appearance_theme`\|`language`\|`notifications_enabled`\|`dress_style`\|`gender`\|`birth_date`), `new_value` (present only for `appearance_theme`: `system`\|`light`\|`dark`; `language`: `system`\|`tr`\|`en`; `notifications_enabled`: boolean; `dress_style`: provisional under section 3; absent for `gender` and `birth_date`, since neither value is an allowed analytics property) |
+| `setting_changed` | Any Settings value changes. | `setting_name` (`appearance_theme`\|`language`\|`notifications_enabled`\|`dress_style`\|`gender`\|`birth_date`), `new_value` (present only for `appearance_theme`: `system`\|`light`\|`dark`; `language`: `system`\|`tr`\|`en`; `notifications_enabled`: boolean; `dress_style`: section 3; absent for `gender` and `birth_date`, since neither value is an allowed analytics property) |
 | `ai_probe_triggered` | The user triggers the AI status probe on the Settings AI status screen. | `result` (`ok`\|`unavailable`\|`rate_limited`\|`error`) |
 
 `ai_probe_triggered` lost two properties the code cannot supply. `probe_type` is gone
@@ -597,12 +594,11 @@ captures nothing at all.**
 
 | Event | Trigger | Properties |
 | --- | --- | --- |
-| `analytics_consent_granted` | Immediately after `optIn()` succeeds. It is the first event on the identity. | `surface` (`onboarding`\|`first_launch_sheet`\|`settings_privacy`) |
+| `analytics_consent_granted` | Immediately after `optIn()` succeeds. It is the first event on the identity. | `surface` (`first_launch_sheet`\|`settings_privacy`) |
 | `analytics_consent_withdrawn` | Immediately before `optOut()`, `reset()`, and the `$device_id` clear. It is the last event on the identity. | none |
 
-`surface` has three values because ADR 0033 leaves the consent surface's placement to
-milestone 10 design and lists an onboarding step and a first-launch sheet as the
-candidates; `settings_privacy` covers a re-consent after a withdrawal.
+`surface` has two values: the consent surface is a first-launch sheet (decided 2026-09-09,
+section 8) and `settings_privacy` covers a re-consent after a withdrawal.
 
 Declining, or never answering, is not an event and cannot be one: with `defaultOptIn: false`
 nothing may be captured before `optIn()`, and guideline 5.1.1 (ii) requires decline to be as
@@ -674,35 +670,36 @@ failure analysis, which are the reasons this taxonomy exists.
 
 ## 8. Open questions for the maintainer
 
-Four questions remain open. The rest of the first draft's list has been answered and the
-answers are now in the sections above.
+One question remains open. Everything else has been answered and the answers are in the
+sections above; the three decisions taken on 2026-09-09 are recorded below the list.
 
 1. **Identity linking at account creation.** Section 2 decides an anonymous identity is
    needed now, but not whether or how to link it to an authenticated profile once accounts
    exist. ADR 0033 section 7 keeps the related "linked or not linked" question open for the
    App Privacy questionnaire, and ADR 0022's accounts are milestone 15 work. Needs a
    decision when Supabase Auth work starts, not before.
-2. **Are `name` and `color_family` edits worth measuring?** Section 5.8 reports both as
-   category flags on `fields_changed`, with no values. The narrower question is whether
-   knowing that someone renamed an item or changed its colour family answers any product
-   question worth two more flags on the event. Dropping them costs nothing; keeping them is
-   also privacy-safe. Maintainer's call.
-3. **Profile-derived analytics properties and Apple's linked-data answer.** Choose exactly
-   one of these options before implementation:
-   - **(a) Keep both `dress_style` and `age_bucket`.** This preserves the four provisional
-     segmentation points in section 3, but the install identifier is then classified as
-     linked to the user in the App Privacy questionnaire and the matching privacy artifacts.
-   - **(b) Drop both properties.** This gives up dress-style and age-bucket segmentation
-     and keeps ADR 0033's proposed "not linked" answer under its stated condition.
-4. **Consent-surface placement.** Choose one of ADR 0033 section 6's two candidates:
-   an onboarding step, which extends the provisional step enum in section 5.2, or a
-   first-launch sheet, which adds the provisional screen value described in section 5.3.
+Decided 2026-09-09, by the maintainer:
+
+- **`name` and `color_family` edit flags: kept.** Section 5.8 keeps both as category flags
+  on `fields_changed`, values never sent.
+- **Profile-derived properties: kept, identifier declared linked.** `dress_style` and
+  `age_bucket` stay on the four events section 3 names, and the install identifier is
+  declared "linked to the user" in the App Privacy questionnaire; ADR 0033 carries the
+  matching amendment. The "not linked" option was declined.
+- **Consent surface: a first-launch sheet, as light as the rules allow.** One screen shown
+  once, before the first event, on the first launch after onboarding (and on the first
+  launch after the update that introduces analytics for existing installs). The
+  maintainer's intent is minimum friction: one short plain-language sentence on what is
+  collected and one on how to withdraw, one tap to accept. The floor that intent cannot go
+  under is ADR 0033 section 3 and App Store guideline 5.1.1: decline is one tap of equal
+  prominence, nothing about the app depends on the answer, and the copy says what is
+  collected. A sheet that hides the decline, pre-selects accept, or obscures what is
+  collected is not an option; Apple rejects it and ADR 0033 forbids it.
 
 Answered elsewhere, kept here as pointers:
 
-- **Consent behavior, revocation, and deletion.** Decided by ADR 0033 sections 3 and 4;
-  only the consent surface's placement remains open. See section 2 for the gate and
-  section 5.14 for the events.
+- **Consent behavior, revocation, and deletion.** Decided by ADR 0033 sections 3 and 4,
+  placement decided above. See section 2 for the gate and section 5.14 for the events.
 - **`age_bucket` under 18.** Decided 2026-09-09: a distinct `under_18` bucket, section 3.
 - **The `error_shown` window, cap, and ordering.** Decided 2026-09-09: one event per
   `(surface, failure_category)` per session, `occurrence_count` capped at `5+`, and the
