@@ -20,6 +20,7 @@ export class RecordingProductAnalytics implements ProductAnalytics {
   optInCount = 0;
   withdrawCount = 0;
   flushCount = 0;
+  private identityGeneration = 1;
 
   capture<Name extends AnalyticsEventName>(
     name: Name,
@@ -36,12 +37,19 @@ export class RecordingProductAnalytics implements ProductAnalytics {
 
   withdraw(): Promise<void> {
     this.withdrawCount += 1;
+    this.identityGeneration += 1;
     return Promise.resolve();
   }
 
   flush(): Promise<void> {
     this.flushCount += 1;
     return Promise.resolve();
+  }
+
+  // Withdrawal severs the identity (taxonomy 2), so the double regenerates its identifier
+  // exactly where a real adapter's `reset([])` would drop the persisted device id.
+  distinctId(): string {
+    return `recording-distinct-id-${this.identityGeneration}`;
   }
 
   names(): AnalyticsEventName[] {
