@@ -64,7 +64,12 @@ Every root row carries the shared leading tile: 28 × 28, radius 7, a monochrome
 separator starts 56 from the group edge. The trailing value is the system's secondary
 before the chevron, and above `fontScale` 1.5 it stacks under the label. Because the
 list is the system's to lay out under Dynamic Type, the Profile-only cap on control
-scaling does not apply here.
+scaling does not apply here. *Corrected 2026-09-09:* that last sentence was wrong about
+the tile. The leading tile is kuyara's own React Native view hosted inside the native
+row, so it keeps ADR 0028 section 3's capped control scale exactly as the Profile rows
+do; only the system-drawn text, chevron and separator are the system's to scale. Goal
+7's validation pass measured the shipped behaviour, and follow-up 3 implemented the
+value stacking through the same shared hook.
 
 Section headings are kuyara's: sentence case, `bodyStrong` 17, `textSecondary`, drawn
 outside the native group with 12 below before the group and 24 between groups. SwiftUI's
