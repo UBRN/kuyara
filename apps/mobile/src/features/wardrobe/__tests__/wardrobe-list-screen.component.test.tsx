@@ -118,7 +118,7 @@ function readyState(items: readonly WardrobeItem[], overrides: Partial<Extract<W
     items,
     isRefreshing: false,
     isMutating: false,
-    hasRefreshError: false,
+    refreshFailure: null,
     ...overrides,
   };
 }
@@ -334,7 +334,7 @@ test('a background refresh failure shows a retryable banner without discarding t
         onAdd={() => undefined}
         onEdit={() => undefined}
         onRetry={onRetry}
-        state={readyState([ownedItem], { hasRefreshError: true })}
+        state={readyState([ownedItem], { refreshFailure: 'unavailable' })}
       />
     </TestProviders>,
   );

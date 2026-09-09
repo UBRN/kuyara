@@ -1,5 +1,9 @@
 import type { PlaceSearchResult } from '@kuyara/contracts';
 
+import {
+  failureCategoryFromErrorKind,
+  type FailureCategory,
+} from '@/domain/failure-category';
 import type {
   DeviceLocationGateway,
   LocationPermissionState,
@@ -33,8 +37,6 @@ export type LocationFlowState =
   | 'lookup-failed'
   | 'selection-failed';
 
-export type WeatherRefreshFailure = 'offline' | 'unavailable' | 'rate-limited';
-
 export type WeatherReadyState = Readonly<{
   status: 'ready';
   activeLocation: ActiveLocation | null;
@@ -44,7 +46,7 @@ export type WeatherReadyState = Readonly<{
   locationFlow: LocationFlowState;
   isSelectingLocation: boolean;
   isRefreshing: boolean;
-  refreshFailure: WeatherRefreshFailure | null;
+  refreshFailure: FailureCategory | null;
 }>;
 
 export type WeatherApplicationState =
@@ -308,12 +310,11 @@ export class WeatherApplicationController {
         this.setReady({
           ...this.state,
           isRefreshing: false,
-          refreshFailure:
-            error instanceof WeatherProviderError && error.kind === 'network'
-              ? 'offline'
-              : error instanceof WeatherProviderError && error.kind === 'rate-limited'
-                ? 'rate-limited'
-                : 'unavailable',
+          // Weather cannot produce 'unknown': a throw that is not a provider error here
+          // is a repository or invariant failure, which stays 'unavailable' as before.
+          refreshFailure: error instanceof WeatherProviderError
+            ? failureCategoryFromErrorKind(error.kind)
+            : 'unavailable',
         });
       }
     }

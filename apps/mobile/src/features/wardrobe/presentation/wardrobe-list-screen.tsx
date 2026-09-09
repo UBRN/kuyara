@@ -208,7 +208,7 @@ export function WardrobeListScreen({
             testID="wardrobe-entry-filter"
             value={entryState}
           />
-          {state.hasRefreshError ? (
+          {state.refreshFailure !== null ? (
             <View style={styles.inlineError} testID="wardrobe-refresh-error">
               <Icon color={theme.colors.dangerInk} name="error" size={16} />
               <AppText

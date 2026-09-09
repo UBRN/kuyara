@@ -1,3 +1,4 @@
+import type { FailureCategory } from '@/domain/failure-category';
 import type { OutfitRecommendationResult } from '@/features/recommendation/application/recommend-outfits';
 import type {
   ActiveLocation,
@@ -18,6 +19,8 @@ export type TodayScreenState =
   | Readonly<{
       kind: 'unavailable';
       reason?: 'no-active-location';
+      // Carried for the analytics classification only; the Today surface never renders it.
+      failure?: FailureCategory;
     }>
   | Readonly<{
       kind: 'loaded';
@@ -25,3 +28,9 @@ export type TodayScreenState =
       isRefreshing: boolean;
       refreshFailed: boolean;
     }>;
+
+export function unavailableTodayState(
+  failure: FailureCategory | null,
+): TodayScreenState {
+  return failure ? { kind: 'unavailable', failure } : { kind: 'unavailable' };
+}

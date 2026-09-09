@@ -5,6 +5,10 @@ import type {
 } from '@kuyara/contracts';
 
 import {
+  failureCategoryFromErrorKind,
+  type FailureCategory,
+} from '@/domain/failure-category';
+import {
   recommendOutfits,
   type OutfitRecommendationInput,
   type OutfitRecommendationSuccess,
@@ -13,6 +17,7 @@ import type {
   RecommendationRepository,
   RecommendationSnapshot,
 } from '@/features/recommendation/data/recommendation-repository';
+import { WorkerAiClientError } from '@/features/recommendation/data/worker-ai-client';
 import {
   aiRequestFromContext,
   createRecommendationContext,
@@ -64,7 +69,19 @@ export type RecommendationApplicationState =
       status: 'ready';
       snapshot: RecommendationSnapshot | null;
       isRefreshing: boolean;
+      lastFailure: FailureCategory | null;
     }>;
+
+// The Worker client is the only error this feature can classify. Its kinds are
+// 'invalid-request' | 'network' | 'service' | 'invalid-response'; it has no rate-limit
+// kind today, so a throttled Worker arrives as 'service' and classifies as 'unavailable'.
+// Anything else thrown here (a composition invariant, a repository throw, a bare Error)
+// is 'unknown'.
+function recommendationFailureCategory(error: unknown): FailureCategory {
+  return error instanceof WorkerAiClientError
+    ? failureCategoryFromErrorKind(error.kind)
+    : 'unknown';
+}
 
 type AiClient = Readonly<{
   recommend(
@@ -124,7 +141,8 @@ export class RecommendationApplicationController {
     let context: RecommendationContext;
     try {
       context = createRecommendationContext(input);
-    } catch {
+    } catch (error) {
+      this.setLastFailure(recommendationFailureCategory(error));
       return Promise.resolve(this.currentSnapshot());
     }
     const request = aiRequestFromContext(context);
@@ -150,9 +168,14 @@ export class RecommendationApplicationController {
     try {
       this.repository = await this.dependencies.loadRepository();
       const snapshot = await this.repository.getSnapshot(this.localProfileId);
-      this.setReady({ status: 'ready', snapshot, isRefreshing: false });
-    } catch {
-      this.setReady({ status: 'ready', snapshot: null, isRefreshing: false });
+      this.setReady({ status: 'ready', snapshot, isRefreshing: false, lastFailure: null });
+    } catch (error) {
+      this.setReady({
+        status: 'ready',
+        snapshot: null,
+        isRefreshing: false,
+        lastFailure: recommendationFailureCategory(error),
+      });
     }
   }
 
@@ -162,13 +185,25 @@ export class RecommendationApplicationController {
     request: AiRecommendV1Request | null,
     input: OutfitRecommendationInput,
   ): Promise<RecommendationSnapshot | null> {
-    let recommendation: OutfitRecommendationSuccess;
-    try {
-      if (!request) throw new Error('No AI requirements.');
-      recommendation = mapWorkerAiRecommendation(request, await this.dependencies.client.recommend(request));
-    } catch {
+    // The deterministic fallback composes from the same catalog and effectively always
+    // succeeds, so an AI failure alone is not a failure the user sees. It is still the
+    // root cause when something after it leaves the state without a snapshot, so it is
+    // remembered here and preferred over a later, less specific throw.
+    let recommendation: OutfitRecommendationSuccess | null = null;
+    let aiFailure: FailureCategory | null = null;
+    if (request) {
+      try {
+        recommendation = mapWorkerAiRecommendation(request, await this.dependencies.client.recommend(request));
+      } catch (error) {
+        aiFailure = recommendationFailureCategory(error);
+      }
+    }
+    if (!recommendation) {
       const fallback = recommendOutfits(input);
-      if (fallback.status !== 'recommended') return this.currentSnapshot();
+      if (fallback.status !== 'recommended') {
+        this.setLastFailure(aiFailure ?? 'unknown');
+        return this.currentSnapshot();
+      }
       recommendation = fallback;
     }
 
@@ -184,10 +219,11 @@ export class RecommendationApplicationController {
         },
       );
       if (this.latestRequestKey === key) {
-        this.setReady({ status: 'ready', snapshot, isRefreshing: true });
+        this.setReady({ status: 'ready', snapshot, isRefreshing: true, lastFailure: null });
       }
       return snapshot;
-    } catch {
+    } catch (error) {
+      this.setLastFailure(aiFailure ?? recommendationFailureCategory(error));
       return this.currentSnapshot();
     }
   }
@@ -199,6 +235,12 @@ export class RecommendationApplicationController {
   private requireRepository(): RecommendationRepository {
     if (!this.repository) throw new Error('Recommendation repository is unavailable.');
     return this.repository;
+  }
+
+  private setLastFailure(lastFailure: FailureCategory): void {
+    if (this.state.status === 'ready') {
+      this.setReady({ ...this.state, lastFailure });
+    }
   }
 
   private setRefreshing(isRefreshing: boolean): void {

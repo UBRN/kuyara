@@ -15,6 +15,7 @@ import {
   wardrobeFormValuesEqual,
 } from './application/wardrobe-form.ts';
 import { WardrobeApplicationController } from './application/wardrobe-application-controller.ts';
+import { WardrobeRepositoryError } from './data/wardrobe-repository.ts';
 import { messages } from '../../localization/messages.ts';
 
 const profileId = '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4';
@@ -231,7 +232,7 @@ test('wardrobe controller loads active items and rejects invalid route IDs local
     items: [item],
     isRefreshing: false,
     isMutating: false,
-    hasRefreshError: false,
+    refreshFailure: null,
   });
   assert.equal(await controller.getItem('invalid'), null);
   assert.equal(calls.get, 0);
@@ -257,27 +258,38 @@ test('controller coalesces rapid saves and refreshes persisted items once', asyn
 });
 
 test('controller exposes retryable list failures without discarding prior items', async () => {
-  let fail = false;
+  let failure = null;
   const { repository } = createRepository({
     async listActiveItems() {
-      if (fail) {
-        throw new Error('database unavailable');
-      }
+      if (failure) throw failure;
       return [item];
     },
   });
   const controller = new WardrobeApplicationController(profileId, async () => repository);
   await controller.initialize();
-  fail = true;
-  await controller.refresh();
 
-  assert.deepEqual(controller.getSnapshot(), {
-    status: 'ready',
-    items: [item],
-    isRefreshing: false,
-    isMutating: false,
-    hasRefreshError: true,
-  });
+  // A repository error is a classified failure; the Closet has no network or rate-limit
+  // source, so every repository code maps to 'unavailable'.
+  for (const code of ['unavailable', 'invalid-data', 'invalid-input', 'not-found']) {
+    failure = new WardrobeRepositoryError(code);
+    await controller.refresh();
+    assert.deepEqual(controller.getSnapshot(), {
+      status: 'ready',
+      items: [item],
+      isRefreshing: false,
+      isMutating: false,
+      refreshFailure: 'unavailable',
+    });
+  }
+
+  // Anything the feature cannot classify stays 'unknown' rather than being guessed at.
+  failure = new Error('database unavailable');
+  await controller.refresh();
+  assert.equal(controller.getSnapshot().refreshFailure, 'unknown');
+
+  failure = null;
+  await controller.refresh();
+  assert.equal(controller.getSnapshot().refreshFailure, null);
 });
 
 test('a confirmed write remains successful when its follow-up list read fails', async () => {
@@ -302,7 +314,7 @@ test('a confirmed write remains successful when its follow-up list read fails', 
     items: [item],
     isRefreshing: false,
     isMutating: false,
-    hasRefreshError: true,
+    refreshFailure: 'unknown',
   });
 });
 

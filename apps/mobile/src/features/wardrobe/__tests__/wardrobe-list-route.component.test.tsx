@@ -105,7 +105,7 @@ function createApplication(items: readonly WardrobeItem[]): WardrobeApplicationV
       items,
       isRefreshing: false,
       isMutating: false,
-      hasRefreshError: false,
+      refreshFailure: null,
     },
     refresh: async () => undefined,
     getItem: async () => null,

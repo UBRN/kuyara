@@ -69,7 +69,7 @@ function application(
             items,
             isRefreshing: false,
             isMutating: false,
-            hasRefreshError: false,
+            refreshFailure: null,
           }
         : { status },
     refresh: async () => undefined,

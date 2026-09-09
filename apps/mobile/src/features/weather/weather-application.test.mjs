@@ -460,6 +460,17 @@ test('provider failures preserve a cached stale snapshot and active location for
     assert.equal(state.freshness, 'stale');
     assert.equal(state.refreshFailure, refreshFailure);
   }
+
+  // Weather cannot produce the shared 'unknown' category: a throw that is not a provider
+  // error is a repository or invariant failure, which stays 'unavailable'.
+  const unclassified = createHarness({
+    active: istanbul,
+    snapshots: [stale],
+    provider: { fetchSnapshot: async () => { throw new Error('not a provider error'); } },
+  });
+  await unclassified.controller.initialize();
+  await settle();
+  assert.equal(unclassified.controller.getSnapshot().refreshFailure, 'unavailable');
 });
 
 test('a cacheless service failure is unavailable and retry clears only after success', async () => {

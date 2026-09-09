@@ -258,7 +258,7 @@ describe.each([
             items: [],
             isRefreshing: false,
             isMutating: false,
-            hasRefreshError: false,
+            refreshFailure: null,
           }}
         />
       </TestProviders>,

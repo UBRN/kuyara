@@ -117,7 +117,7 @@ export function WeatherScreen() {
         body: copy.offlineBody,
         notice: copy.offlineNotice,
       }
-    : state.refreshFailure === 'unavailable'
+    : state.refreshFailure === 'unavailable' || state.refreshFailure === 'unknown'
       ? {
           title: copy.unavailableTitle,
           body: copy.unavailableBody,

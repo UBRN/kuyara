@@ -1,11 +1,16 @@
+import {
+  failureCategoryFromErrorKind,
+  type FailureCategory,
+} from '@/domain/failure-category';
 import type {
   CreateWardrobeItemInput,
   UpdateWardrobeItemInput,
   WardrobeItem,
 } from '@/features/wardrobe/domain/wardrobe-item';
-import type {
-  PendingWardrobePhotoCleanup,
-  WardrobeRepository,
+import {
+  WardrobeRepositoryError,
+  type PendingWardrobePhotoCleanup,
+  type WardrobeRepository,
 } from '@/features/wardrobe/data/wardrobe-repository';
 import { isWardrobeRouteId } from '@/features/wardrobe/application/wardrobe-form';
 import {
@@ -25,8 +30,18 @@ export type WardrobeApplicationState =
       items: readonly WardrobeItem[];
       isRefreshing: boolean;
       isMutating: boolean;
-      hasRefreshError: boolean;
+      refreshFailure: FailureCategory | null;
     }>;
+
+// The repository is the only error this feature can classify. Its codes are
+// 'invalid-input' | 'invalid-data' | 'not-found' | 'unavailable', none of which is a
+// network or rate-limit signal, so every repository failure is 'unavailable'; anything
+// else thrown while listing (a bare Error, a photo-manager throw) is 'unknown'.
+function wardrobeFailureCategory(error: unknown): FailureCategory {
+  return error instanceof WardrobeRepositoryError
+    ? failureCategoryFromErrorKind(error.code)
+    : 'unknown';
+}
 
 type Listener = () => void;
 type CreateInput = Omit<
@@ -173,7 +188,7 @@ export class WardrobeApplicationController {
         items,
         isRefreshing: false,
         isMutating: false,
-        hasRefreshError: false,
+        refreshFailure: null,
       });
       void this.cleanupPendingPhotos(this.repository);
     } catch {
@@ -186,7 +201,7 @@ export class WardrobeApplicationController {
     const previous = this.state.status === 'ready' ? this.state : null;
 
     if (previous) {
-      this.setState({ ...previous, isRefreshing: true, hasRefreshError: false });
+      this.setState({ ...previous, isRefreshing: true, refreshFailure: null });
     } else {
       this.setState({ status: 'loading' });
     }
@@ -198,11 +213,15 @@ export class WardrobeApplicationController {
         items,
         isRefreshing: false,
         isMutating: previous?.isMutating ?? false,
-        hasRefreshError: false,
+        refreshFailure: null,
       });
-    } catch {
+    } catch (error) {
       if (previous) {
-        this.setState({ ...previous, isRefreshing: false, hasRefreshError: true });
+        this.setState({
+          ...previous,
+          isRefreshing: false,
+          refreshFailure: wardrobeFailureCategory(error),
+        });
       } else {
         this.setState({ status: 'error' });
       }
@@ -406,15 +425,15 @@ export class WardrobeApplicationController {
           items: persistedItems,
           isRefreshing: false,
           isMutating: false,
-          hasRefreshError: false,
+          refreshFailure: null,
         });
-      } catch {
+      } catch (error) {
         this.setState({
           status: 'ready',
           items: confirmedItems,
           isRefreshing: false,
           isMutating: false,
-          hasRefreshError: true,
+          refreshFailure: wardrobeFailureCategory(error),
         });
       }
 

@@ -6,6 +6,7 @@ import {
   localDayVariant,
   recommendationRefreshTrigger,
 } from './recommendation-application-controller.ts';
+import { WorkerAiClientError } from '../data/worker-ai-client.ts';
 
 const profileId = 'profile-one';
 const now = '2026-08-01T20:00:00.000Z';
@@ -281,4 +282,82 @@ test('a dress style change refreshes but an unchanged style preserves the snapsh
     'dress-style-changed',
   );
   assert.equal(recommendationRefreshTrigger(previous, { ...previous }, null), null);
+});
+
+test('a failed save classifies the Worker client kind and clears it on the next success', async () => {
+  // Only the Worker client's own kinds are classifiable. It has no rate-limit kind today,
+  // so a throttled Worker arrives as 'service' and reads as an unavailable upstream.
+  const cases = [
+    ['network', 'offline'],
+    ['service', 'unavailable'],
+    ['invalid-request', 'unavailable'],
+    ['invalid-response', 'unavailable'],
+  ];
+
+  for (const [kind, category] of cases) {
+    const { controller } = createHarness({
+      client: { recommend: async () => { throw new WorkerAiClientError(kind); } },
+      failSave: true,
+    });
+    await controller.initialize();
+    assert.equal(controller.getSnapshot().lastFailure, null);
+
+    // The AI throw alone is survivable: the deterministic fallback composes. The save
+    // failure is what leaves the state without a snapshot, and it reports the AI cause
+    // rather than the less specific repository throw.
+    await controller.refresh('explicit', input(16));
+    assert.equal(controller.getSnapshot().lastFailure, category);
+  }
+
+  // With no AI failure to prefer, the save throw itself is classified, and it is not
+  // one of the Worker client's errors.
+  const { controller } = createHarness({ failSave: true });
+  await controller.initialize();
+  await controller.refresh('explicit', input(20));
+  assert.equal(controller.getSnapshot().lastFailure, 'unknown');
+});
+
+test('an unclassifiable throw is unknown, and a success clears the category', async () => {
+  const { controller } = createHarness({
+    client: { recommend: async () => { throw new Error('provider details'); } },
+    failSave: true,
+  });
+  await controller.initialize();
+
+  await controller.refresh('explicit', input(16));
+  assert.equal(controller.getSnapshot().lastFailure, 'unknown');
+
+  const recovered = createHarness();
+  await recovered.controller.initialize();
+  assert.equal(recovered.controller.getSnapshot().lastFailure, null);
+  await recovered.controller.refresh('explicit', input(16));
+  assert.equal(recovered.controller.getSnapshot().lastFailure, null);
+});
+
+test('an unusable input is an unknown failure without touching the AI client', async () => {
+  const { controller, calls } = createHarness();
+  await controller.initialize();
+
+  // A snapshot the recommendation context cannot be built from never reaches the client.
+  const unusable = input(16);
+  await controller.refresh('explicit', { ...unusable, snapshot: { ...unusable.snapshot, hourly: null } });
+
+  assert.equal(controller.getSnapshot().lastFailure, 'unknown');
+  assert.equal(calls.client, 0);
+});
+
+test('a repository load failure leaves the ready state carrying an unknown failure', async () => {
+  const controller = new RecommendationApplicationController(profileId, {
+    loadRepository: async () => { throw new Error('database unavailable'); },
+    client: { recommend: async () => { throw new Error('unused'); } },
+  });
+
+  await controller.initialize();
+
+  assert.deepEqual(controller.getSnapshot(), {
+    status: 'ready',
+    snapshot: null,
+    isRefreshing: false,
+    lastFailure: 'unknown',
+  });
 });

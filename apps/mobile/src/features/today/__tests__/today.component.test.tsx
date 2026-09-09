@@ -2,11 +2,13 @@ import { fireEvent, isHiddenFromAccessibility, render, within } from '@testing-l
 import { Dimensions, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { failureCategories } from '@/domain/failure-category';
 import {
   aiAssistedTodayScreenState,
   todayScreenState,
   todayWardrobeItems,
 } from '@/features/today/__tests__/fixtures';
+import { unavailableTodayState } from '@/features/today/model';
 import { OutfitDetailScreen } from '@/features/today/presentation/outfit-detail-screen';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { TodayScreen } from '@/features/today/presentation/today-screen';
@@ -390,7 +392,7 @@ test('Today keeps outfit ownership state and actions hidden', async () => {
         items: todayWardrobeItems,
         isRefreshing: false,
         isMutating: false,
-        hasRefreshError: false,
+        refreshFailure: null,
       },
       refresh: async () => undefined,
       getItem: async () => null,
@@ -516,6 +518,32 @@ test('Today keeps the generic unavailable copy for failures with an active locat
   expect(result.getByText(messages.en.today.unavailableTitle)).toBeOnTheScreen();
   expect(result.getByText(messages.en.today.unavailableBody)).toBeOnTheScreen();
   expect(result.queryByTestId('today-no-location')).not.toBeOnTheScreen();
+});
+
+// The route composes the cause into the state for the analytics classification only.
+// Today must render the same screen and the same copy whichever cause it carries.
+test('a classified unavailable state renders exactly the same screen as an unclassified one', async () => {
+  for (const failure of failureCategories) {
+    const result = await render(providers(
+      <TodayScreen
+        language="en"
+        onOpenOutfitDetail={() => undefined}
+
+        onRefresh={() => undefined}
+        state={{ kind: 'unavailable', failure }}
+      />,
+    ));
+
+    expect(result.getByTestId('today-unavailable-screen')).toBeOnTheScreen();
+    expect(result.getByText(messages.en.today.unavailableTitle)).toBeOnTheScreen();
+    expect(result.getByText(messages.en.today.unavailableBody)).toBeOnTheScreen();
+    expect(result.queryByTestId('today-no-location')).not.toBeOnTheScreen();
+  }
+});
+
+test('the route composition omits the cause when there is none to report', () => {
+  expect(unavailableTodayState(null)).toEqual({ kind: 'unavailable' });
+  expect(unavailableTodayState('offline')).toEqual({ kind: 'unavailable', failure: 'offline' });
 });
 
 // The end-to-end flows assert that onboarding lands on Today, so the container id
