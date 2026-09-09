@@ -52,3 +52,37 @@ test('layout does not mutate artwork or depend on the input ordering', () => {
   const reversed = composeGarmentBoard([...pieces].reverse());
   assert.deepEqual(first, reversed);
 });
+
+test('detail pixel boxes stay inside the board with the rail right of the core and footwear lowest', () => {
+  const width = 349;
+  const pieces = evidence[6][1].map(([slot, type]) => ({
+    slot,
+    garmentTypeId: type,
+    ...resolveGarmentSilhouette(type, categories[slot]),
+  }));
+  const result = composeGarmentBoard(pieces, detailPreset);
+  const height = result.stageHeight * width;
+  const boxes = result.order.map((piece) => {
+    const box = result.boxes.get(piece);
+    return {
+      slot: piece.slot,
+      x: box.x * width,
+      y: box.y * width,
+      width: box.w * width,
+      height: box.h * width,
+    };
+  });
+  const bySlot = new Map(boxes.map((box) => [box.slot, box]));
+  const core = [bySlot.get('primary_top'), bySlot.get('bottom')];
+  const rail = [bySlot.get('outer_layer'), bySlot.get('mid_layer')];
+  const footwear = bySlot.get('footwear');
+
+  assert.equal(boxes.length, pieces.length);
+  assert.equal(boxes.every((box) =>
+    box.x >= 0 && box.y >= 0 && box.x + box.width <= width && box.y + box.height <= height
+  ), true);
+  assert.ok(Math.min(...rail.map(({ x }) => x)) > Math.max(...core.map(({ x, width: boxWidth }) => x + boxWidth)));
+  assert.ok(footwear.y + footwear.height > Math.max(
+    ...boxes.filter(({ slot }) => slot !== 'footwear').map(({ y, height: boxHeight }) => y + boxHeight),
+  ));
+});

@@ -1,16 +1,27 @@
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { AppText, Button, GarmentSlotGlyph, Icon, Pill, Screen, Surface, haptics } from '@/components/ui';
+import {
+  AppText,
+  Button,
+  GarmentBoard,
+  Icon,
+  layoutGarmentBoard,
+  Pill,
+  Screen,
+  haptics,
+  useTextScaling,
+} from '@/components/ui';
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
-import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
+import {
+  createDetailCaptionLayout,
+  createTodayPresentation,
+} from '@/features/today/presentation/today-presentation';
 import type { TodayScreenState } from '@/features/today/model';
 import type { GarmentOwnershipState } from '@/features/wardrobe/domain/garment-type-ownership';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
-import { withAlpha } from '@/theme/color-alpha';
-import { radii, spacing } from '@/theme/theme';
+import { borderWidths, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
-
-const CARD_BACKGROUND_ALPHA = 0.08;
 
 type OutfitDetailScreenProps = Readonly<{
   state: TodayScreenState;
@@ -32,12 +43,26 @@ export function OutfitDetailScreen({
   onSetOwnership,
 }: OutfitDetailScreenProps) {
   const theme = useKuyaraTheme();
+  const { fontScale } = useTextScaling();
+  const [contentWidth, setContentWidth] = useState(0);
+  const [captionHeights, setCaptionHeights] = useState<Readonly<Record<string, number>>>({});
   const copy = getMessages(language).today;
   const presentation = createTodayPresentation(state, language);
   const suggestion =
     presentation.kind === 'loaded'
       ? presentation.suggestions.find(({ id }) => id === suggestionId)
       : undefined;
+  const boardLayout = suggestion
+    ? layoutGarmentBoard(suggestion.boardPieces, contentWidth, 'detail')
+    : { height: 0, boxes: [] };
+  const initialCaptionHeight = theme.typography.body.lineHeight * fontScale * 2;
+  const plateHeight = Math.max(
+    boardLayout.height,
+    ...boardLayout.boxes.map((box) => {
+      const caption = createDetailCaptionLayout(box, contentWidth);
+      return caption.top + (captionHeights[box.slot] ?? initialCaptionHeight);
+    }),
+  );
 
   if (presentation.kind !== 'loaded' || !suggestion) {
     return (
@@ -62,108 +87,170 @@ export function OutfitDetailScreen({
 
   return (
     <Screen testID="outfit-detail-screen">
-      <Button label={backLabel} onPress={onBack} style={styles.backButton} variant="quiet" />
-
-      <View style={styles.headingGroup}>
-        <AppText accessibilityRole="header" variant="titleLarge">
-          {suggestion.title}
-        </AppText>
-        {suggestion.emphasis ? <Pill label={suggestion.emphasis} tone="accent-filled" /> : null}
-      </View>
-
       <View
-        style={[styles.ownershipSummary, { backgroundColor: theme.colors.surfaceMuted }]}
-        testID="outfit-detail-ownership-summary">
-        <Icon color={theme.colors.brandAccent} name="info" size={16} />
-        <AppText colorRole="textSecondary" style={styles.ownershipSummaryText} variant="caption">
-          {copy.ownershipSummary({ owned: ownedCount, total: suggestion.pieces.length })}
-        </AppText>
-      </View>
+        onLayout={({ nativeEvent }) => setContentWidth(nativeEvent.layout.width)}
+        testID="outfit-detail-content">
+        <Button label={backLabel} onPress={onBack} style={styles.backButton} variant="quiet" />
 
-      <View style={styles.section}>
-        <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
-          {presentation.copy.piecesHeading}
-        </AppText>
-        <View style={styles.pieceList}>
-          {suggestion.pieces.map(({ category, garmentTypeId, slot, item }) => {
+        <View style={styles.headingGroup}>
+          <AppText accessibilityRole="header" variant="title">
+            {suggestion.title}
+          </AppText>
+          {suggestion.emphasis ? <Pill label={suggestion.emphasis} tone="accent-filled" /> : null}
+        </View>
+
+        <View
+          style={[styles.boardPlate, { height: plateHeight, width: contentWidth }]}
+          testID="outfit-detail-board-plate">
+          <GarmentBoard
+            accessibilityLabel={suggestion.boardAccessibilityLabel}
+            decorative
+            pieces={suggestion.boardPieces}
+            preset="detail"
+            testID="outfit-detail-board"
+            width={contentWidth}
+          />
+          {boardLayout.boxes.map((box) => {
+            const piece = suggestion.pieces.find(
+              ({ garmentTypeId }) => garmentTypeId === box.garmentTypeId,
+            );
+            if (!piece) return null;
+
+            const ownership = ownershipByGarmentType[piece.garmentTypeId] ?? 'none';
+            const ownershipLabel = ownership === 'owned'
+              ? copy.ownershipOwnedLabel
+              : ownership === 'wanted'
+                ? copy.ownershipWantedLabel
+                : null;
+            // ponytail: the domain's third `none` state has no approved caption copy; keep it
+            // unlabeled instead of presenting an untracked garment as wanted.
+            const captionLayout = createDetailCaptionLayout(box, contentWidth);
+
+            return (
+              <View
+                accessible
+                accessibilityLabel={[piece.item, piece.slot, ownershipLabel]
+                  .filter((value): value is string => value !== null)
+                  .join(', ')}
+                key={box.slot}
+                onLayout={({ nativeEvent }) => {
+                  const height = nativeEvent.layout.height;
+                  if (captionHeights[box.slot] === height) return;
+                  setCaptionHeights((current) => ({ ...current, [box.slot]: height }));
+                }}
+                style={[styles.caption, captionLayout]}
+                testID={`outfit-detail-caption-${piece.garmentTypeId}`}>
+                <AppText style={styles.captionText} variant="bodyStrong">
+                  {piece.item}
+                </AppText>
+                <View style={styles.captionMeta}>
+                  <AppText colorRole="textSecondary" style={styles.captionText} variant="caption">
+                    {piece.slot}
+                  </AppText>
+                  {ownershipLabel ? (
+                    <View style={styles.ownershipState}>
+                      <View
+                        accessibilityElementsHidden
+                        importantForAccessibility="no-hide-descendants"
+                        style={[
+                          styles.ownershipMarker,
+                          ownership === 'owned'
+                            ? {
+                                backgroundColor: theme.colors.brandAccent,
+                                borderColor: theme.colors.brandAccent,
+                              }
+                            : { borderColor: theme.colors.brandAccent },
+                        ]}
+                        testID={`outfit-detail-ownership-marker-${piece.garmentTypeId}`}
+                      />
+                      <AppText colorRole="textSecondary" variant="caption">
+                        {ownershipLabel}
+                      </AppText>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
+        <View style={styles.ownershipSummary} testID="outfit-detail-ownership-summary">
+          <Icon color={theme.colors.brandAccent} name="info" size={16} />
+          <AppText colorRole="textSecondary" style={styles.ownershipSummaryText} variant="caption">
+            {copy.ownershipSummary({ owned: ownedCount, total: suggestion.pieces.length })}
+          </AppText>
+        </View>
+
+        <View style={styles.ownershipControlList}>
+          {suggestion.pieces.map(({ garmentTypeId, item }) => {
             const owned = ownershipByGarmentType[garmentTypeId] === 'owned';
             const wanted = ownershipByGarmentType[garmentTypeId] === 'wanted';
 
             return (
-              <Surface
-                key={`${slot}-${item}`}
-                style={[styles.pieceCard, { backgroundColor: theme.colors.surface }]}
-                testID="outfit-detail-piece-card"
-                variant="elevated">
-                <GarmentSlotGlyph
-                  category={category}
-                  color={theme.colors.iconSecondary}
-                  size={22}
-                />
-                <View style={styles.pieceContent}>
-                  <View>
-                    <AppText style={styles.itemLabel} variant="bodyStrong">
-                      {item}
-                    </AppText>
-                    <AppText colorRole="textSecondary" variant="caption">
-                      {slot}
-                    </AppText>
-                  </View>
-                  <View style={styles.ownershipActions}>
-                    <Button
-                      accessibilityState={{ selected: owned }}
-                      label={copy.ownershipOwnedAction}
-                      onPress={owned ? undefined : () => setOwnership(garmentTypeId, 'owned')}
-                      style={styles.ownershipAction}
-                      testID={`outfit-detail-ownership-${garmentTypeId}-owned`}
-                      variant={owned ? 'primary' : 'secondary'}
-                    />
-                    <Button
-                      accessibilityState={{ selected: wanted }}
-                      label={copy.ownershipWantedAction}
-                      onPress={wanted ? undefined : () => setOwnership(garmentTypeId, 'wanted')}
-                      style={styles.ownershipAction}
-                      testID={`outfit-detail-ownership-${garmentTypeId}-wanted`}
-                      variant={wanted ? 'primary' : 'secondary'}
-                    />
-                  </View>
+              <View key={garmentTypeId} style={styles.ownershipControlGroup}>
+                <AppText colorRole="textSecondary" variant="caption">{item}</AppText>
+                <View style={styles.ownershipActions}>
+                  <Button
+                    accessibilityLabel={`${item}, ${copy.ownershipOwnedAction}`}
+                    accessibilityState={{ selected: owned }}
+                    label={copy.ownershipOwnedAction}
+                    onPress={owned ? undefined : () => setOwnership(garmentTypeId, 'owned')}
+                    style={styles.ownershipAction}
+                    testID={`outfit-detail-ownership-${garmentTypeId}-owned`}
+                    variant={owned ? 'primary' : 'secondary'}
+                  />
+                  <Button
+                    accessibilityLabel={`${item}, ${copy.ownershipWantedAction}`}
+                    accessibilityState={{ selected: wanted }}
+                    label={copy.ownershipWantedAction}
+                    onPress={wanted ? undefined : () => setOwnership(garmentTypeId, 'wanted')}
+                    style={styles.ownershipAction}
+                    testID={`outfit-detail-ownership-${garmentTypeId}-wanted`}
+                    variant={wanted ? 'primary' : 'secondary'}
+                  />
                 </View>
-              </Surface>
+              </View>
             );
           })}
         </View>
-      </View>
 
-      {suggestion.reasons.length > 0 ? (
-        <View style={styles.section}>
-          <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
-            {presentation.copy.reasonsHeading}
-          </AppText>
-          <View style={styles.reasonList}>
-            {suggestion.reasons.map((reason) => (
-              <View key={reason} style={styles.reasonRow}>
-                <View
-                  accessibilityElementsHidden
-                  importantForAccessibility="no-hide-descendants"
-                  style={[styles.reasonMarker, { backgroundColor: theme.colors.brandAccent }]}
-                />
-                <AppText colorRole="textSecondary" style={styles.reasonText} variant="body">
-                  {reason}
-                </AppText>
-              </View>
-            ))}
+        {suggestion.requirementRows.length > 0 ? (
+          <View style={styles.section}>
+            <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
+              {presentation.copy.reasonsHeading}
+            </AppText>
+            <View style={styles.reasonList}>
+              {suggestion.requirementRows.map((row) => (
+                <View key={row.id} style={styles.reasonRow}>
+                  <Icon
+                    color={row.kind === 'tradeoff' ? theme.colors.warningInk : theme.colors.brandAccent}
+                    name={row.kind === 'tradeoff' ? 'warning' : 'checkCircle'}
+                    size={20}
+                  />
+                  <AppText colorRole="textSecondary" style={styles.reasonText} variant="body">
+                    {row.text}
+                  </AppText>
+                </View>
+              ))}
+            </View>
           </View>
-        </View>
-      ) : null}
+        ) : null}
 
-      <View
-        style={[
-          styles.weatherRecap,
-          { backgroundColor: withAlpha(theme.colors.brandAccent, CARD_BACKGROUND_ALPHA) },
-        ]}>
-        <AppText tabularNumbers variant="caption">
-          {`${presentation.weather.temperature} · ${presentation.weather.condition} · ${presentation.weather.rainProbability}`}
-        </AppText>
+        <View
+          accessible
+          accessibilityLabel={[
+            presentation.weather.temperature,
+            presentation.weather.condition,
+            presentation.weather.rainProbability,
+          ].join(', ')}
+          style={[styles.weatherRecap, { backgroundColor: theme.colors.stage }]}
+          testID="outfit-detail-weather-recap">
+          <AppText tabularNumbers variant="caption">{presentation.weather.temperature}</AppText>
+          <AppText colorRole="textSecondary" variant="caption">{presentation.weather.condition}</AppText>
+          <AppText colorRole="textSecondary" tabularNumbers variant="caption">
+            {presentation.weather.rainProbability}
+          </AppText>
+        </View>
       </View>
     </Screen>
   );
@@ -174,16 +261,45 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   headingGroup: {
-    gap: spacing.sm,
-    marginTop: spacing.md,
-  },
-  ownershipSummary: {
-    alignItems: 'flex-start',
-    borderRadius: radii.control,
+    alignItems: 'center',
     flexDirection: 'row',
     gap: spacing.sm,
     marginTop: spacing.md,
-    padding: spacing.md,
+  },
+  boardPlate: {
+    marginTop: spacing.xl,
+    position: 'relative',
+  },
+  caption: {
+    alignItems: 'center',
+    position: 'absolute',
+  },
+  captionText: {
+    textAlign: 'center',
+  },
+  captionMeta: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    justifyContent: 'center',
+  },
+  ownershipState: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  ownershipMarker: {
+    borderRadius: radii.pill,
+    borderWidth: borderWidths.strong,
+    height: spacing.sm,
+    width: spacing.sm,
+  },
+  ownershipSummary: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
   },
   ownershipSummaryText: {
     flex: 1,
@@ -193,23 +309,12 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginTop: spacing.md,
   },
-  pieceList: {
+  ownershipControlList: {
     gap: spacing.md,
+    marginTop: spacing.md,
   },
-  pieceCard: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    gap: spacing.md,
-    padding: spacing.lg,
-  },
-  pieceContent: {
-    flex: 1,
-    flexShrink: 1,
+  ownershipControlGroup: {
     gap: spacing.sm,
-  },
-  itemLabel: {
-    flex: 1,
-    flexShrink: 1,
   },
   ownershipActions: {
     flexDirection: 'row',
@@ -226,18 +331,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
   },
-  reasonMarker: {
-    borderRadius: radii.pill,
-    height: 6,
-    marginTop: 9,
-    width: 6,
-  },
   reasonText: {
     flex: 1,
     flexShrink: 1,
   },
   weatherRecap: {
+    alignItems: 'center',
     borderRadius: radii.card,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    justifyContent: 'space-between',
     marginTop: spacing.md,
     padding: spacing.lg,
   },

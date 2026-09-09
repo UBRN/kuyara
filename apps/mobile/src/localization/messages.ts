@@ -16,6 +16,16 @@ import {
   type RecommendationMessages,
 } from '@/features/recommendation/localization/recommendation-messages';
 
+export type TodayRequirementName =
+  | 'thermal'
+  | 'breathability'
+  | 'arm_coverage'
+  | 'leg_coverage'
+  | 'body_water_protection'
+  | 'footwear_water_protection'
+  | 'wind_protection'
+  | 'traction';
+
 export type TodayMessages = Readonly<{
   title: string;
   generationModeAiAssisted: string;
@@ -27,8 +37,13 @@ export type TodayMessages = Readonly<{
   reasonsHeading: string;
   ownershipOwnedAction: string;
   ownershipWantedAction: string;
+  ownershipOwnedLabel: string;
+  ownershipWantedLabel: string;
   ownershipSummary: (values: { owned: number; total: number }) => string;
   slots: Readonly<Record<OutfitSlot, string>>;
+  requirementNames: Readonly<Record<TodayRequirementName, string>>;
+  requirementRow: (values: { requirement: string; garments: readonly string[] }) => string;
+  requirementTradeoffRow: (values: { requirement: string; garments: readonly string[] }) => string;
   requirementReasons: Readonly<Record<ClothingRequirementReasonCode, string>>;
   compositionReasons: Readonly<Record<OutfitCompositionReasonCode, string>>;
   emphasis: Readonly<{ recommended: string }>;
@@ -369,6 +384,11 @@ export type AppMessages = Readonly<{
   today: TodayMessages;
 }>;
 
+const englishOwnershipStateLabels = Object.freeze({
+  owned: 'Owned',
+  wanted: 'Wanted',
+});
+
 const en = {
   catalog: catalogMessages.en,
   recommendation: recommendationMessages.en,
@@ -583,8 +603,8 @@ const en = {
     loadErrorBody: 'Your saved items are still safe. Please try again.',
     retryAction: 'Try again',
     unclassifiedType: 'Type not selected',
-    ownedLabel: 'Owned',
-    wantedLabel: 'Wanted',
+    ownedLabel: englishOwnershipStateLabels.owned,
+    wantedLabel: englishOwnershipStateLabels.wanted,
     categoryFilterAll: 'All',
     categoryFilterLabels: {
       top: 'Tops',
@@ -674,6 +694,8 @@ const en = {
     reasonsHeading: 'Why it works',
     ownershipOwnedAction: 'I own it',
     ownershipWantedAction: 'I want it',
+    ownershipOwnedLabel: englishOwnershipStateLabels.owned,
+    ownershipWantedLabel: englishOwnershipStateLabels.wanted,
     ownershipSummary: ({ owned, total }) =>
       `You own ${owned} of ${total} ${total === 1 ? 'piece' : 'pieces'}.`,
     slots: {
@@ -684,6 +706,20 @@ const en = {
       outer_layer: 'Outer layer',
       footwear: 'Footwear',
     },
+    requirementNames: {
+      thermal: 'Warmth',
+      breathability: 'Breathability',
+      arm_coverage: 'Arm coverage',
+      leg_coverage: 'Leg coverage',
+      body_water_protection: 'Body water protection',
+      footwear_water_protection: 'Footwear water protection',
+      wind_protection: 'Wind protection',
+      traction: 'Traction',
+    },
+    requirementRow: ({ requirement, garments }) =>
+      `${requirement}: ${garments.join(', ')}.`,
+    requirementTradeoffRow: ({ requirement, garments }) =>
+      `Trade-off (${requirement}): ${garments.join(', ')}.`,
     requirementReasons: {
       temperature_low: 'Low temperatures require insulation.',
       apparent_temperature_low: 'It feels cold enough to require insulation.',
@@ -1077,6 +1113,8 @@ const tr = {
     reasonsHeading: 'Neden uygun',
     ownershipOwnedAction: 'Bende var',
     ownershipWantedAction: 'İstiyorum',
+    ownershipOwnedLabel: 'Sende var',
+    ownershipWantedLabel: 'İstiyorsun',
     ownershipSummary: ({ owned, total }) =>
       `Bu kombindeki ${total} parçadan ${owned} tanesi sende var.`,
     slots: {
@@ -1087,6 +1125,20 @@ const tr = {
       outer_layer: 'Dış katman',
       footwear: 'Ayakkabı',
     },
+    requirementNames: {
+      thermal: 'Sıcaklık koruması',
+      breathability: 'Nefes alabilirlik',
+      arm_coverage: 'Kol koruması',
+      leg_coverage: 'Bacak koruması',
+      body_water_protection: 'Gövde su koruması',
+      footwear_water_protection: 'Ayakkabı su koruması',
+      wind_protection: 'Rüzgâr koruması',
+      traction: 'Tutuş',
+    },
+    requirementRow: ({ requirement, garments }) =>
+      `${requirement}: ${garments.join(', ')}.`,
+    requirementTradeoffRow: ({ requirement, garments }) =>
+      `Denge (${requirement}): ${garments.join(', ')}.`,
     requirementReasons: {
       temperature_low: 'Düşük sıcaklıklar yalıtım gerektiriyor.',
       apparent_temperature_low: 'Hissedilen sıcaklık yalıtım gerektirecek kadar düşük.',

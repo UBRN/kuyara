@@ -7,7 +7,10 @@ import {
   todayWardrobeItems,
   todayWeatherSnapshot,
 } from './__tests__/fixtures.ts';
-import { createTodayPresentation } from './presentation/today-presentation.ts';
+import {
+  createDetailCaptionLayout,
+  createTodayPresentation,
+} from './presentation/today-presentation.ts';
 import { createKuyaraTheme } from '../../theme/theme.ts';
 import { composeGarmentBoard } from '../../components/ui/garment-board/compose-garment-board.ts';
 
@@ -132,6 +135,7 @@ test('pieces keep mid layer before outer layer even though the board paints oute
     midLayer: assignedGarment('mid_layer', 'sweater', 'top'),
     outerLayer: assignedGarment('outer_layer', 'rain_jacket', 'outerwear'),
     footwear: assignedGarment('footwear', 'weather_boots', 'footwear'),
+    requirementEvaluations: [],
     reasonCodes: [],
   };
   const state = {
@@ -177,6 +181,80 @@ test('shared weather reasons lead every outfit and per-outfit composition reason
   assert.equal(
     turkish.suggestions[0].accessibilityLabel,
     '3 seçenekten birincisi. Yağmura Hazır. Tek parça: Tulum. Dış katman: Yağmurluk. Ayakkabı: Kışlık bot. Bu kombin şu nedenlerle uygun: Kuvvetli rüzgâr, rüzgâr koruması gerektiriyor. Beklenen yağış su koruması gerektiriyor. Çiseleme hafif su koruması gerektiriyor. Yağmur su koruması gerektiriyor.',
+  );
+});
+
+test('detail reasoning groups garments by requirement and localizes trade-offs as rows', () => {
+  const english = loadedPresentation();
+  assert.deepEqual(english.suggestions[0].requirementRows, [
+    {
+      id: 'wind_protection',
+      kind: 'reason',
+      text: 'Wind protection: Rain jacket.',
+    },
+    {
+      id: 'body_water_protection',
+      kind: 'reason',
+      text: 'Body water protection: Rain jacket.',
+    },
+    {
+      id: 'footwear_water_protection',
+      kind: 'reason',
+      text: 'Footwear water protection: Winter boots.',
+    },
+  ]);
+
+  const recommendation = todayScreenState.snapshot.recommendation;
+  assert.equal(recommendation.status, 'recommended');
+  const first = recommendation.outfits[0];
+  const tradeoffState = {
+    ...todayScreenState,
+    snapshot: {
+      ...todayScreenState.snapshot,
+      recommendation: {
+        ...recommendation,
+        outfits: [{
+          ...first,
+          requirementEvaluations: [{
+            ...first.requirementEvaluations[0],
+            requirement: {
+              kind: 'breathability', minimum: 'high', priority: 'mandatory',
+              reasonCodes: ['temperature_high'],
+            },
+            status: 'tradeoff',
+            suppliedByCandidateKeys: [],
+            tradeoffCandidateKeys: ['catalog:rain_jacket'],
+          }],
+        }],
+      },
+    },
+  };
+
+  assert.deepEqual(loadedPresentation(tradeoffState).suggestions[0].requirementRows, [{
+    id: 'breathability',
+    kind: 'tradeoff',
+    text: 'Trade-off (Breathability): Rain jacket.',
+  }]);
+  assert.equal(
+    loadedPresentation(tradeoffState, 'tr').suggestions[0].requirementRows[0].text,
+    'Denge (Nefes alabilirlik): Yağmurluk.',
+  );
+});
+
+test('detail caption geometry centers each cap on the piece axis and clamps it inside the board', () => {
+  assert.deepEqual(
+    createDetailCaptionLayout(
+      { slot: 'one_piece', garmentTypeId: 'dress', x: 100, y: 20, width: 80, height: 100 },
+      360,
+    ),
+    { left: 64.4, top: 127, width: 151.2 },
+  );
+  assert.deepEqual(
+    createDetailCaptionLayout(
+      { slot: 'outer_layer', garmentTypeId: 'rain_jacket', x: 330, y: 30, width: 30, height: 70 },
+      360,
+    ),
+    { left: 252, top: 107, width: 108 },
   );
 });
 

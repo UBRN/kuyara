@@ -17,11 +17,26 @@ export type GarmentBoardPiece = Readonly<{
 
 type Preset = 'today' | 'detail';
 
+export type GarmentBoardLayoutBox = Readonly<{
+  slot: OutfitSlot;
+  garmentTypeId: GarmentTypeId;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}>;
+
+export type GarmentBoardLayout = Readonly<{
+  height: number;
+  boxes: readonly GarmentBoardLayoutBox[];
+}>;
+
 type GarmentBoardProps = Readonly<{
   pieces: readonly GarmentBoardPiece[];
   width: number;
   preset: Preset;
   accessibilityLabel: string;
+  decorative?: boolean;
   testID?: string;
 }>;
 
@@ -31,19 +46,51 @@ function composePieces(pieces: readonly GarmentBoardPiece[], preset: Preset) {
   })), preset === 'today' ? todayPreset : detailPreset);
 }
 
+export function layoutGarmentBoard(
+  pieces: readonly GarmentBoardPiece[],
+  width: number,
+  preset: Preset,
+): GarmentBoardLayout {
+  const result = composePieces(pieces, preset);
+
+  return {
+    height: width * result.stageHeight,
+    boxes: result.order.map((piece) => {
+      const box = result.boxes.get(piece)!;
+      return {
+        slot: piece.slot,
+        garmentTypeId: piece.garmentTypeId,
+        x: box.x * width,
+        y: box.y * width,
+        width: box.w * width,
+        height: box.h * width,
+      };
+    }),
+  };
+}
+
 export function measureGarmentBoardHeight(pieces: readonly GarmentBoardPiece[], width: number, preset: Preset) {
   return width * composePieces(pieces, preset).stageHeight;
 }
 
-export function GarmentBoard({ pieces, width, preset, accessibilityLabel, testID }: GarmentBoardProps) {
+export function GarmentBoard({
+  pieces,
+  width,
+  preset,
+  accessibilityLabel,
+  decorative = false,
+  testID,
+}: GarmentBoardProps) {
   const { colors } = useKuyaraTheme();
   const result = composePieces(pieces, preset);
 
   return (
     <Svg
-      accessible
-      accessibilityRole="image"
-      accessibilityLabel={accessibilityLabel}
+      accessible={decorative ? undefined : true}
+      accessibilityElementsHidden={decorative || undefined}
+      accessibilityRole={decorative ? undefined : 'image'}
+      accessibilityLabel={decorative ? undefined : accessibilityLabel}
+      importantForAccessibility={decorative ? 'no-hide-descendants' : undefined}
       testID={testID}
       width={width}
       height={width * result.stageHeight}
