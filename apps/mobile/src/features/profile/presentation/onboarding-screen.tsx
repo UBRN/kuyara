@@ -6,12 +6,11 @@ import {
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppText, Button, Icon, NativeDatePicker, Screen } from '@/components/ui';
+import { AppText, Button, Icon, NativeDatePicker, Screen, useTextScaling } from '@/components/ui';
 import {
   createOnboardingDraft,
   onboardingPreferencesFromDraft,
@@ -54,7 +53,7 @@ export function OnboardingScreen({
   );
   const [saveError, setSaveError] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const { fontScale } = useWindowDimensions();
+  const { usesStackedLayout } = useTextScaling();
   const announcedStep = useRef(false);
   const headingRef = useRef<Text>(null);
   const maximumBirthDate = useMemo(() => new Date(), []);
@@ -371,7 +370,7 @@ export function OnboardingScreen({
             {messages.weather.locationRationaleBody}
           </AppText>
         ) : null}
-        <View style={[styles.actions, fontScale > 1.5 && styles.stackedActions]}>
+        <View style={[styles.actions, usesStackedLayout && styles.stackedActions]}>
           {draft.step > 0 ? (
             <Button
               disabled={isSaving}
