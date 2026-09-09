@@ -2,8 +2,11 @@
 
 Status: Accepted (2026-09-04)
 
-Implementation: not started. This records an approved design rule produced by a design
-session. No production code, contract, or route was changed to reach it. The rule's
+Implementation: the rule and both parameter presets landed on 2026-09-08 in
+`apps/mobile/src/components/ui/garment-board/`, and Today renders the Today preset; the
+detail preset waits for ADR 0026's surface. This ADR records an approved design rule
+produced by a design session. No production code, contract, or route was changed to
+reach it. The rule's
 parameters, its reference implementation and its rendered evidence are described in
 [`design/garment-board.md`](../design/garment-board.md); this ADR records the decision
 and its consequences.

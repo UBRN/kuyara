@@ -18,16 +18,11 @@ import {
 
 export type TodayMessages = Readonly<{
   title: string;
-  headerAccessibilityLabel: (values: { title: string; location: string }) => string;
-  settingsAction: string;
-  settingsHint: string;
   generationModeAiAssisted: string;
   generationModeStandard: string;
   generationModeAccessibilityLabel: (label: string) => string;
   backAction: string;
-  recommendedTodayHeading: string;
   otherOptionsHeading: string;
-  otherOptionPieceCount: (values: { count: number }) => string;
   piecesHeading: string;
   reasonsHeading: string;
   ownershipOwnedAction: string;
@@ -39,7 +34,6 @@ export type TodayMessages = Readonly<{
   emphasis: Readonly<{ recommended: string }>;
   updatedAt: (time: string) => string;
   staleAt: (time: string) => string;
-  refreshAction: string;
   refreshingStatus: string;
   refreshFailedAt: (time: string) => string;
   apparentTemperature: (temperature: string) => string;
@@ -78,6 +72,10 @@ export type TodayMessages = Readonly<{
     minimum: number;
     maximum: number;
     rainProbability: number;
+  }) => string;
+  boardAccessibilityLabel: (values: { archetype: string; pieces: readonly string[] }) => string;
+  stageAccessibilityLabel: (values: {
+    temperature: string; condition: string; pieces: readonly string[]; archetype: string;
   }) => string;
   outfitAccessibilityLabel: (values: {
     position: number;
@@ -666,17 +664,12 @@ const en = {
   },
   today: {
     title: 'Today',
-    headerAccessibilityLabel: ({ title, location }) => `${title}. ${location}`,
-    settingsAction: 'Settings',
-    settingsHint: 'Opens clothing, language, and appearance settings.',
     generationModeAiAssisted: 'AI-assisted',
     generationModeStandard: 'Standard recommendation',
     generationModeAccessibilityLabel: (label: string) =>
       `Recommendation source: ${label}`,
     backAction: 'Back to Today',
-    recommendedTodayHeading: 'Recommended today',
     otherOptionsHeading: 'Other options',
-    otherOptionPieceCount: ({ count }) => count === 1 ? '1 piece' : `${count} pieces`,
     piecesHeading: 'Wear',
     reasonsHeading: 'Why it works',
     ownershipOwnedAction: 'I own it',
@@ -719,7 +712,6 @@ const en = {
     },
     updatedAt: (time: string) => `Updated at ${time}`,
     staleAt: (time: string) => `Last updated at ${time} · May be out of date`,
-    refreshAction: 'Refresh weather',
     refreshingStatus: 'Refreshing weather…',
     refreshFailedAt: (time: string) => `Couldn't refresh · Showing last update from ${time}`,
     apparentTemperature: (temperature: string) => `Feels like ${temperature}`,
@@ -756,6 +748,9 @@ const en = {
     }) =>
       `${condition}. ${current} degrees Celsius, feels like ${apparent} degrees. ` +
       `Low ${minimum}, high ${maximum}. ${rainProbability} percent chance of rain.`,
+    boardAccessibilityLabel: ({ archetype, pieces }) => `${archetype}. ${pieces.join(', ')}.`,
+    stageAccessibilityLabel: ({ temperature, condition, pieces, archetype }) =>
+      `${temperature} degrees Celsius. ${condition}. ${pieces.join(', ')}. ${archetype}.`,
     outfitAccessibilityLabel: ({
       position,
       total,
@@ -1072,18 +1067,12 @@ const tr = {
   },
   today: {
     title: 'Bugün',
-    headerAccessibilityLabel: ({ title, location }) =>
-      `${title}. Konum: ${location}.`,
-    settingsAction: 'Ayarlar',
-    settingsHint: 'Giyim, dil ve görünüm ayarlarını açar.',
     generationModeAiAssisted: 'AI destekli',
     generationModeStandard: 'Standart öneri',
     generationModeAccessibilityLabel: (label: string) =>
       `Öneri kaynağı: ${label}`,
     backAction: 'Bugün’e dön',
-    recommendedTodayHeading: 'Bugün için önerilen',
     otherOptionsHeading: 'Diğer seçenekler',
-    otherOptionPieceCount: ({ count }) => `${count} parça`,
     piecesHeading: 'Parçalar',
     reasonsHeading: 'Neden uygun',
     ownershipOwnedAction: 'Bende var',
@@ -1126,7 +1115,6 @@ const tr = {
     },
     updatedAt: (time: string) => `Son güncelleme ${time}`,
     staleAt: (time: string) => `Son güncelleme ${time} · Güncelliğini yitirmiş olabilir`,
-    refreshAction: 'Hava durumunu yenile',
     refreshingStatus: 'Hava durumu yenileniyor…',
     refreshFailedAt: (time: string) => `Yenilenemedi · ${time} güncellemesi gösteriliyor`,
     apparentTemperature: (temperature: string) => `Hissedilen ${temperature}`,
@@ -1164,6 +1152,9 @@ const tr = {
     }) =>
       `${condition}. Sıcaklık ${current} santigrat derece, hissedilen ${apparent} derece. ` +
       `En düşük ${minimum}, en yüksek ${maximum}. Yağmur olasılığı yüzde ${rainProbability}.`,
+    boardAccessibilityLabel: ({ archetype, pieces }) => `${archetype}. ${pieces.join(', ')}.`,
+    stageAccessibilityLabel: ({ temperature, condition, pieces, archetype }) =>
+      `${temperature} santigrat derece. ${condition}. ${pieces.join(', ')}. ${archetype}.`,
     outfitAccessibilityLabel: ({
       position,
       total,

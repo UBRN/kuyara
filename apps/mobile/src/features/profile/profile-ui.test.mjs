@@ -123,8 +123,6 @@ test('English and Turkish include complete onboarding, Settings, and accessibili
     assert.ok(copy.wardrobe.typeRequiredError);
     assert.ok(copy.wardrobe.discardAction);
     assert.ok(copy.wardrobe.confirmDeleteAction);
-    assert.ok(copy.today.settingsAction);
-    assert.ok(copy.today.settingsHint);
     assert.ok(copy.today.noLocationTitle);
     assert.ok(copy.today.noLocationBody);
     assert.ok(copy.today.chooseLocationAction);
@@ -158,7 +156,9 @@ test('route and presentation sources preserve local gating and accessible select
   assert.match(layout, /gestureEnabled: false/);
   assert.match(layout, /name="\(tabs\)"/);
   assert.match(settingsRoute, /<SettingsScreen/);
-  assert.match(today, /testID="today-settings-button"/);
+  // Since the Today board landed (ADR 0025, 2026-09-08) Today carries no header buttons;
+  // Settings is reached from the Profile header (ADR 0028) and the settings route above.
+  assert.doesNotMatch(today, /today-settings-button|today-refresh-button/);
   // The native tab bar supplies the tab role and the selected state itself, so the
   // app only has to keep each trigger's accessible name and test id. See ADR 0012.
   assert.match(tabBar, /<NativeTabs\b/);

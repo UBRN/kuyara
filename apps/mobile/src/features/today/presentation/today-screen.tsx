@@ -1,45 +1,37 @@
 import { useState } from 'react';
-import { ActivityIndicator, RefreshControl, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
 import {
   AppText,
   Button,
+  GarmentBoard,
   haptics,
   Icon,
-  IconButton,
-  Pill,
+  measureGarmentBoardHeight,
   Screen,
   Surface,
-  StretchyHeader,
   useRefreshOutcomeHaptics,
 } from '@/components/ui';
 import type { TodayScreenState } from '@/features/today/model';
-import { OutfitSuggestionCard } from '@/features/today/presentation/outfit-suggestion-card';
-import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
+import {
+  createTodayPresentation,
+  type LoadedTodayPresentation,
+} from '@/features/today/presentation/today-presentation';
 import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import type { SupportedLanguage } from '@/localization/messages';
-import { withAlpha } from '@/theme/color-alpha';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 type TodayScreenProps = Readonly<{
   state: TodayScreenState;
   language: SupportedLanguage;
-  onOpenSettings: () => void;
   onOpenOutfitDetail: (id: string) => void;
   onRefresh: () => void;
 }>;
 
-export function TodayScreen({
-  state,
-  language,
-  onOpenSettings,
-  onOpenOutfitDetail,
-  onRefresh,
-}: TodayScreenProps) {
+export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: TodayScreenProps) {
   const router = useRouter();
   const weatherApplication = useWeatherApplication();
   const presentationState =
@@ -52,11 +44,8 @@ export function TodayScreen({
   const theme = useKuyaraTheme();
   const { fontScale } = useWindowDimensions();
   const usesAccessibilityLayout = fontScale > 1.5;
-  const [headerHeight, setHeaderHeight] = useState(0);
-  const scrollOffset = useSharedValue(0);
-  const scrollHandler = useAnimatedScrollHandler((event) => {
-    scrollOffset.set(event.contentOffset.y);
-  });
+  // Measure the content after Screen applies its safe-area insets and width cap.
+  const [contentWidth, setContentWidth] = useState(0);
   useRefreshOutcomeHaptics(
     presentation.kind === 'loaded' && presentation.header.isRefreshing,
     state.kind === 'loaded' && state.refreshFailed,
@@ -74,8 +63,7 @@ export function TodayScreen({
           accessibilityRole={presentation.kind === 'unavailable' ? 'alert' : undefined}
           style={styles.feedbackCard}
           testID={
-            presentation.kind === 'unavailable' &&
-            presentation.reason === 'no-active-location'
+            presentation.kind === 'unavailable' && presentation.reason === 'no-active-location'
               ? 'today-no-location'
               : `today-${presentation.kind}-screen`
           }
@@ -94,140 +82,119 @@ export function TodayScreen({
             {presentation.body}
           </AppText>
           {presentation.kind === 'unavailable' && presentation.actionLabel ? (
-            <Button
-              label={presentation.actionLabel}
-              onPress={() => router.push('/weather/location')}
-            />
+            <Button label={presentation.actionLabel} onPress={() => router.push('/weather/location')} />
           ) : null}
         </Surface>
       </Screen>
     );
   }
 
-  const [primarySuggestion, ...otherSuggestions] = presentation.suggestions;
+  const [primary, ...alternates] = presentation.suggestions;
+  const alternateWidth = usesAccessibilityLayout
+    ? contentWidth
+    : Math.max(0, (contentWidth - spacing.lg) / 2);
 
   return (
-    <View style={[styles.loadedScreen, { backgroundColor: theme.colors.background }]}>
-      <StretchyHeader
-        contentContainerStyle={styles.header}
-        onHeightChange={setHeaderHeight}
-        scrollOffset={scrollOffset}
-        testID="today-stretchy-header">
-        <View style={styles.titleRow}>
-          <Icon name="location" color={theme.colors.iconSecondary} size={16} />
-          <AppText
-            accessibilityLabel={presentation.copy.headerAccessibilityLabel({
-              title: presentation.copy.title,
-              location: presentation.header.location,
-            })}
-            accessibilityRole="header"
-            numberOfLines={1}
-            style={styles.location}
-            variant="title">
+    <Screen
+      alwaysBounceVertical
+      refreshControl={
+        <RefreshControl
+          colors={[theme.colors.iconSecondary]}
+          onRefresh={() => {
+            haptics.impactLight();
+            onRefresh();
+          }}
+          refreshing={presentation.header.isRefreshing}
+          tintColor={theme.colors.iconSecondary}
+        />
+      }
+      testID="today-screen">
+      <View onLayout={({ nativeEvent }) => setContentWidth(nativeEvent.layout.width)} testID="today-content">
+        <View style={styles.placeRow}>
+          <Icon name="location" color={theme.colors.iconSecondary} size={13} />
+          <AppText colorRole="textSecondary" numberOfLines={1} style={styles.location} variant="caption">
             {presentation.header.location}
           </AppText>
-          <View style={styles.headerActions}>
-            <IconButton
-              accessibilityLabel={presentation.copy.refreshAction}
-              hitSlop={7}
-              icon={(color) => <Icon color={color} name="refresh" size={18} />}
-              onPress={onRefresh}
-              style={[styles.settingsButton, { backgroundColor: withAlpha(theme.colors.textPrimary, 0.1) }]}
-              testID="today-refresh-button"
-            />
-            <IconButton
-              accessibilityHint={presentation.copy.settingsHint}
-              accessibilityLabel={presentation.copy.settingsAction}
-              hitSlop={7}
-              icon={(color) => <Icon color={color} name="settings" size={18} />}
-              onPress={onOpenSettings}
-              style={[styles.settingsButton, { backgroundColor: withAlpha(theme.colors.textPrimary, 0.1) }]}
-              testID="today-settings-button"
-            />
-          </View>
         </View>
-        <View
-          accessible
-          accessibilityLabel={presentation.weather.accessibilityLabel}
-          style={[styles.heroRow, usesAccessibilityLayout && styles.stackedHeroRow]}>
-          <AppText tabularNumbers testID="today-header-temperature" variant="display">
-            {presentation.weather.temperature}
-          </AppText>
-          <View style={styles.heroCopy}>
-            <AppText>{presentation.weather.condition}</AppText>
-            <AppText colorRole="textSecondary" tabularNumbers variant="caption">
-              {`${presentation.weather.range} · ${presentation.weather.apparentTemperature}`}
+
+        {primary ? (
+          <>
+            <Pressable
+              accessible
+              accessibilityLabel={presentation.stageAccessibilityLabel}
+              accessibilityRole="button"
+              onPress={() => onOpenOutfitDetail(primary.id)}
+              style={({ pressed }) => ({ opacity: pressed ? theme.interaction.pressedOpacity : 1 })}>
+              {usesAccessibilityLayout ? <Sky weather={presentation.weather} /> : null}
+              <View
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                style={[
+                  styles.stage,
+                  {
+                    backgroundColor: theme.colors.stage,
+                    width: contentWidth,
+                    height: measureGarmentBoardHeight(primary.boardPieces, contentWidth, 'today'),
+                  },
+                ]}
+                testID="today-stage">
+                <GarmentBoard
+                  accessibilityLabel={presentation.stageAccessibilityLabel}
+                  pieces={primary.boardPieces}
+                  preset="today"
+                  testID="today-primary-board"
+                  width={contentWidth}
+                />
+                {!usesAccessibilityLayout ? <Sky overlay weather={presentation.weather} /> : null}
+              </View>
+              <View style={styles.titleRow}>
+                <AppText style={styles.outfitName} testID="today-archetype" variant="title">
+                  {primary.title}
+                </AppText>
+                <View style={styles.disclosure}>
+                  <Icon color={theme.colors.textPrimary} name="chevronRight" size={20} />
+                </View>
+              </View>
+            </Pressable>
+            <AppText
+              colorRole="textSecondary"
+              style={[styles.rationale, { maxWidth: theme.typography.body.fontSize * fontScale * 31 * 0.5 }]}
+              testID="today-rationale">
+              {primary.reasons[0]}
             </AppText>
+          </>
+        ) : (
+          <View accessible accessibilityLabel={presentation.weather.accessibilityLabel}>
+            <Sky weather={presentation.weather} />
           </View>
-          <View
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            style={styles.weatherGlyph}>
-            <WeatherGlyph testID="today-header-weather-glyph" />
-          </View>
-        </View>
-        <View style={styles.freshnessRow}>
-          <Icon name="clock" color={theme.colors.iconSecondary} size={13} />
+        )}
+
+        <View style={styles.provenance} testID="today-provenance">
+          {presentation.generationMode ? (
+            <>
+              <View testID="today-provenance-sparkle">
+                <Icon color={theme.colors.brandAccent} name="sparkle" size={12} />
+              </View>
+              <AppText
+                accessibilityLabel={presentation.generationMode.accessibilityLabel}
+                colorRole="textSecondary"
+                testID="today-generation-mode"
+                variant="caption">
+                {presentation.generationMode.label}
+              </AppText>
+              <AppText accessibilityElementsHidden importantForAccessibility="no-hide-descendants" colorRole="textSecondary" variant="caption">·</AppText>
+            </>
+          ) : null}
           <AppText
             accessibilityLiveRegion={presentation.header.announceFreshness ? 'polite' : 'none'}
             colorRole="textSecondary"
-            style={styles.freshnessText}
+            style={styles.freshness}
             tabularNumbers
+            testID="today-freshness"
             variant="caption">
             {presentation.header.freshness}
           </AppText>
         </View>
-      </StretchyHeader>
-
-      <Screen
-        alwaysBounceVertical
-        contentContainerStyle={styles.content}
-        contentTopClearance={headerHeight + spacing.xl}
-        onScroll={scrollHandler}
-        refreshControl={
-          <RefreshControl
-            colors={[theme.colors.iconSecondary]}
-            onRefresh={() => {
-              haptics.impactLight();
-              onRefresh();
-            }}
-            progressViewOffset={headerHeight}
-            refreshing={presentation.header.isRefreshing}
-            tintColor={theme.colors.iconSecondary}
-          />
-        }
-        testID="today-screen">
-        {primarySuggestion ? (
-          <View style={styles.section}>
-            <View style={[styles.contextRow, usesAccessibilityLayout && styles.stackedContextRow]}>
-              <AppText
-                accessibilityRole="header"
-                colorRole="textPrimary"
-                style={styles.contextHeading}
-                variant="bodyStrong">
-                {presentation.copy.recommendedTodayHeading}
-              </AppText>
-              {presentation.generationMode ? (
-                <View
-                  accessible
-                  accessibilityLabel={presentation.generationMode.accessibilityLabel}
-                  style={usesAccessibilityLayout ? styles.stackedGenerationMode : undefined}>
-                  <Pill
-                    icon={(color) => <Icon color={color} name="sparkle" size={12} />}
-                    label={presentation.generationMode.label}
-                    testID="today-generation-mode"
-                    tone={presentation.generationMode.tone}
-                  />
-                </View>
-              ) : null}
-            </View>
-            <OutfitSuggestionCard
-              onPress={() => onOpenOutfitDetail(primarySuggestion.id)}
-              suggestion={primarySuggestion}
-              variant="primary"
-            />
-          </View>
-        ) : null}
 
         {presentation.noOutfit ? (
           <Surface
@@ -245,127 +212,108 @@ export function TodayScreen({
           </Surface>
         ) : null}
 
-        {otherSuggestions.length > 0 ? (
-          <View style={styles.section}>
-            <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
-              {presentation.copy.otherOptionsHeading}
-            </AppText>
+        {alternates.length > 0 ? (
+          <View style={styles.alternates}>
+            <View
+              style={[styles.alternatesHeading, { borderBottomColor: theme.colors.borderSubtle }]}
+              testID="today-alternates-heading">
+              <AppText accessibilityRole="header" colorRole="textSecondary" variant="bodyStrong">
+                {presentation.copy.otherOptionsHeading}
+              </AppText>
+            </View>
             <View
               style={[styles.outfitList, usesAccessibilityLayout && styles.stackedOutfitList]}
               testID="today-outfit-list">
-              {otherSuggestions.map((suggestion) => (
-                <OutfitSuggestionCard
+              {alternates.map((suggestion) => (
+                <Pressable
+                  accessible
+                  accessibilityLabel={suggestion.boardAccessibilityLabel}
+                  accessibilityRole="button"
                   key={suggestion.id}
                   onPress={() => onOpenOutfitDetail(suggestion.id)}
-                  suggestion={suggestion}
-                  variant="secondary"
-                />
+                  style={({ pressed }) => [
+                    { width: alternateWidth, opacity: pressed ? theme.interaction.pressedOpacity : 1 },
+                  ]}
+                  testID={`today-alternate-${suggestion.id}`}>
+                  <View
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                    style={[styles.alternateStage, { backgroundColor: theme.colors.stage }]}>
+                    <GarmentBoard
+                      accessibilityLabel={suggestion.boardAccessibilityLabel}
+                      pieces={suggestion.boardPieces}
+                      preset="today"
+                      testID={`today-alternate-board-${suggestion.id}`}
+                      width={alternateWidth}
+                    />
+                  </View>
+                  <View style={styles.alternateTitleRow}>
+                    <AppText numberOfLines={1} style={styles.outfitName} variant="label">
+                      {suggestion.title}
+                    </AppText>
+                    <View style={styles.disclosure}>
+                      <Icon color={theme.colors.textPrimary} name="chevronRight" size={12} />
+                    </View>
+                  </View>
+                </Pressable>
               ))}
             </View>
           </View>
         ) : null}
-      </Screen>
+      </View>
+    </Screen>
+  );
+}
+
+function Sky({ weather, overlay = false }: Readonly<{
+  weather: LoadedTodayPresentation['weather'];
+  overlay?: boolean;
+}>) {
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      pointerEvents="none"
+      style={[styles.sky, overlay ? styles.skyOverlay : styles.skyAbove]}
+      testID="today-sky">
+      <View style={styles.skyText}>
+        <AppText tabularNumbers testID="today-header-temperature" variant="title">
+          {weather.temperature}
+        </AppText>
+        <AppText colorRole="textPrimary" style={styles.condition} testID="today-condition" variant="caption">
+          {weather.condition}
+        </AppText>
+      </View>
+      <View style={styles.weatherGlyph}>
+        <WeatherGlyph testID="today-header-weather-glyph" />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  loadedScreen: {
-    flex: 1,
-  },
-  content: {
-    gap: spacing.md,
-  },
-  header: {
-    gap: spacing.md,
-  },
-  titleRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  location: {
-    flex: 1,
-    flexShrink: 1,
-  },
-  headerActions: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  settingsButton: {
-    borderRadius: 15,
-    borderWidth: 0,
-    height: 30,
-    minHeight: 0,
-    width: 30,
-  },
-  contextRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.sm,
-    justifyContent: 'space-between',
-  },
-  stackedContextRow: {
-    alignItems: 'flex-start',
-    flexDirection: 'column',
-  },
-  contextHeading: {
-    flex: 1,
-    flexShrink: 1,
-  },
-  stackedGenerationMode: {
-    alignSelf: 'flex-start',
-  },
-  heroRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  stackedHeroRow: {
-    alignItems: 'flex-start',
-    flexDirection: 'column',
-  },
-  heroCopy: {
-    flex: 1,
-    flexShrink: 1,
-    gap: spacing.xs,
-  },
-  weatherGlyph: {
-    marginStart: 'auto',
-  },
-  freshnessRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  freshnessText: {
-    flex: 1,
-    flexShrink: 1,
-  },
-  section: {
-    gap: spacing.md,
-  },
-  outfitList: {
-    flexDirection: 'row',
-    gap: spacing.lg,
-  },
-  stackedOutfitList: {
-    flexDirection: 'column',
-  },
-  feedbackContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.lg,
-  },
-  feedbackCard: {
-    alignItems: 'center',
-    gap: spacing.md,
-    maxWidth: 520,
-    padding: spacing.lg,
-    width: '100%',
-  },
-  centerText: {
-    textAlign: 'center',
-  },
+  placeRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
+  location: { flex: 1, flexShrink: 1 },
+  stage: { borderRadius: 26, overflow: 'hidden' },
+  titleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg },
+  outfitName: { flex: 1, flexShrink: 1 },
+  disclosure: { opacity: 0.55 },
+  rationale: { marginTop: spacing.sm },
+  sky: { alignItems: 'flex-start', flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
+  skyText: { flex: 1, flexShrink: 1 },
+  skyOverlay: { position: 'absolute', top: 18, left: 20, right: 20 },
+  skyAbove: { marginBottom: spacing.md },
+  condition: { marginTop: spacing.xs, opacity: 0.76 },
+  weatherGlyph: { opacity: 0.7, transform: [{ scale: 31 / 36 }] },
+  provenance: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.md },
+  freshness: { flexShrink: 1 },
+  alternates: { marginTop: spacing.xl },
+  alternatesHeading: { paddingBottom: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth },
+  outfitList: { flexDirection: 'row', gap: spacing.lg, marginTop: spacing.md },
+  stackedOutfitList: { flexDirection: 'column', gap: spacing.md },
+  alternateStage: { borderRadius: 14, overflow: 'hidden' },
+  alternateTitleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  feedbackContent: { alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.lg },
+  feedbackCard: { alignItems: 'center', gap: spacing.md, maxWidth: 520, padding: spacing.lg, width: '100%' },
+  centerText: { textAlign: 'center' },
 });

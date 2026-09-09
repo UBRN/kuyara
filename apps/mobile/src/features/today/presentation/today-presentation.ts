@@ -5,6 +5,7 @@ import type {
 } from '@/features/catalog/domain/garment-taxonomy';
 import {
   outfitSlots,
+  type OutfitSlot,
   type AssignedOutfitGarment,
   type OutfitCandidate,
 } from '@/features/recommendation/domain/outfit-composition';
@@ -29,9 +30,10 @@ export type LoadedOutfitPresentation = Readonly<{
   positionLabel: string;
   title: string;
   summary: string;
-  pieceCountLabel: string;
   emphasis?: string;
   pieces: readonly LocalizedOutfitPiece[];
+  boardPieces: readonly Readonly<{ slot: OutfitSlot; garmentTypeId: GarmentTypeId; category: StructuralCategory }>[];
+  boardAccessibilityLabel: string;
   reasons: readonly string[];
   accessibilityLabel: string;
 }>;
@@ -40,13 +42,8 @@ export type LoadedTodayPresentation = Readonly<{
   kind: 'loaded';
   copy: Readonly<{
     title: string;
-    headerAccessibilityLabel: (values: { title: string; location: string }) => string;
-    settingsAction: string;
-    settingsHint: string;
-    refreshAction: string;
     piecesHeading: string;
     reasonsHeading: string;
-    recommendedTodayHeading: string;
     otherOptionsHeading: string;
   }>;
   header: Readonly<{
@@ -66,9 +63,9 @@ export type LoadedTodayPresentation = Readonly<{
   }>;
   generationMode: Readonly<{
     label: string;
-    tone: 'accent-filled' | 'bordered';
     accessibilityLabel: string;
   }> | null;
+  stageAccessibilityLabel: string;
   suggestions: readonly LoadedOutfitPresentation[];
   noOutfit: Readonly<{ title: string; body: string }> | null;
 }>;
@@ -143,7 +140,11 @@ function localizeOutfit(
 ): LoadedOutfitPresentation {
   const messages = getMessages(language);
   const copy = messages.today;
-  const pieces = assignedGarments(outfit).map(({ garment, slot }) => ({
+  const assigned = assignedGarments(outfit);
+  const boardPieces = assigned.map(({ garment, slot }) => ({
+    slot, garmentTypeId: garment.garmentTypeId, category: garment.properties.category,
+  }));
+  const pieces = assigned.map(({ garment, slot }) => ({
     slot: copy.slots[slot],
     item:
       messages.catalog[
@@ -164,9 +165,10 @@ function localizeOutfit(
     positionLabel: copy.optionPosition(index + 1, total),
     title,
     summary,
-    pieceCountLabel: copy.otherOptionPieceCount({ count: pieces.length }),
     emphasis: index === 0 ? copy.emphasis.recommended : undefined,
     pieces,
+    boardPieces,
+    boardAccessibilityLabel: copy.boardAccessibilityLabel({ archetype: title, pieces: pieces.map(({ item }) => item) }),
     reasons,
     accessibilityLabel: copy.outfitAccessibilityLabel({
       position: index + 1,
@@ -202,35 +204,21 @@ function createLoadedPresentation(
   const suggestions = outfits.map((outfit, index) =>
     localizeOutfit(outfit, index, outfits.length, weatherReasons, language),
   );
-  const generationMode = snapshot.recommendation.status === 'recommended'
-    ? snapshot.recommendation.generationMode === 'ai-assisted'
-      ? {
-          label: copy.generationModeAiAssisted,
-          tone: 'bordered' as const,
-          accessibilityLabel: copy.generationModeAccessibilityLabel(
-            copy.generationModeAiAssisted,
-          ),
-        }
-      : {
-          label: copy.generationModeStandard,
-          tone: 'bordered' as const,
-          accessibilityLabel: copy.generationModeAccessibilityLabel(
-            copy.generationModeStandard,
-          ),
-        }
+  const generationMode = snapshot.recommendation.status === 'recommended' &&
+    snapshot.recommendation.generationMode === 'ai-assisted'
+    ? {
+        label: copy.generationModeAiAssisted,
+        accessibilityLabel: copy.generationModeAccessibilityLabel(copy.generationModeAiAssisted),
+      }
     : null;
+  const primary = suggestions[0];
 
   return {
     kind: 'loaded',
     copy: {
       title: copy.title,
-      headerAccessibilityLabel: copy.headerAccessibilityLabel,
-      settingsAction: copy.settingsAction,
-      settingsHint: copy.settingsHint,
-      refreshAction: copy.refreshAction,
       piecesHeading: copy.piecesHeading,
       reasonsHeading: copy.reasonsHeading,
-      recommendedTodayHeading: copy.recommendedTodayHeading,
       otherOptionsHeading: copy.otherOptionsHeading,
     },
     header: {
@@ -272,6 +260,12 @@ function createLoadedPresentation(
       }),
     },
     generationMode,
+    stageAccessibilityLabel: primary ? copy.stageAccessibilityLabel({
+      temperature: formatNumber(current.temperatureCelsius, language),
+      condition,
+      pieces: primary.pieces.map(({ item }) => item),
+      archetype: primary.title,
+    }) : '',
     suggestions,
     noOutfit:
       snapshot.recommendation.status === 'unavailable'
