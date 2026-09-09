@@ -605,3 +605,30 @@ test('refreshing, failure and staleness announce freshness while retaining the l
   await result.rerender(screen(false, false));
   expect(result.getByTestId('today-freshness')).toHaveProp('accessibilityLiveRegion', 'none');
 });
+
+test.each([
+  [1, 'row'],
+  [1.5, 'row'],
+  [3, 'column'],
+])('at font scale %s the detail emphasis pill and ownership pairs use a %s layout', async (fontScale, direction) => {
+  Dimensions.set({ window: { ...originalDimensions, width: 390, fontScale } });
+  const result = await render(providers(
+    <OutfitDetailScreen
+      backLabel={messages.en.common.back}
+      language="en"
+      onBack={() => undefined}
+      onSetOwnership={() => undefined}
+      ownershipByGarmentType={{}}
+      state={todayScreenState}
+      suggestionId="outfit-1"
+    />,
+  ));
+
+  expect(result.getByText(messages.en.today.emphasis.recommended)).toBeOnTheScreen();
+  expect(StyleSheet.flatten(result.getByTestId('outfit-detail-heading-group').props.style).flexDirection)
+    .toBe(direction);
+  expect(StyleSheet.flatten(result.getByTestId('outfit-detail-ownership-actions-jumpsuit').props.style).flexDirection)
+    .toBe(direction);
+  expect(result.getByTestId('outfit-detail-ownership-jumpsuit-owned')).toBeOnTheScreen();
+  expect(result.getByTestId('outfit-detail-ownership-jumpsuit-wanted')).toBeOnTheScreen();
+});
