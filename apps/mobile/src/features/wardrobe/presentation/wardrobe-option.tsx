@@ -51,17 +51,25 @@ export function WardrobeOption({
         ];
       }}>
       {leading ? (
-        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <View
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={styles.fixedAdornment}>
           {leading}
         </View>
       ) : null}
       <AppText
         colorRole={selected ? 'textOnBrand' : 'textPrimary'}
         style={styles.label}
+        testID={testID ? `${testID}-label` : undefined}
         variant="bodyStrong">
         {label}
       </AppText>
-      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={styles.mark}
+        testID={testID ? `${testID}-mark` : undefined}>
         <SymbolView
           name={{
             ios: selected ? 'checkmark.circle.fill' : 'circle',
@@ -93,6 +101,14 @@ const styles = StyleSheet.create({
   label: {
     flex: 1,
     flexShrink: 1,
+  },
+  fixedAdornment: {
+    flexShrink: 0,
+  },
+  mark: {
+    flexShrink: 0,
+    height: 24,
+    width: 24,
   },
   pressed: {
     opacity: interaction.pressedOpacity,

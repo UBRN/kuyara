@@ -1,6 +1,6 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { StyleSheet } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import {
@@ -48,6 +48,16 @@ const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
   insets: { top: 47, right: 0, bottom: 34, left: 0 },
 };
+
+const originalWindowDimensions = Dimensions.get('window');
+
+function mockFontScale(fontScale: number) {
+  Dimensions.set({ window: { ...originalWindowDimensions, fontScale } });
+}
+
+afterEach(() => {
+  Dimensions.set({ window: originalWindowDimensions });
+});
 
 const item: WardrobeItem = {
   id: '118f0f4d-1d45-4ae7-a8f1-796e8297d3b4',
@@ -291,6 +301,55 @@ test('garment type picker groups preference-filtered options with accessible rad
   await fireEvent.press(result.getByRole('radio', { name: 'T-shirt' }));
   expect(onSelect).toHaveBeenCalledWith('t_shirt');
 });
+
+test.each([
+  [1, 'row'],
+  [3.12, 'column'],
+] as const)(
+  'the garment type picker header at fontScale %s uses a %s layout and options reserve the mark',
+  async (fontScale, flexDirection) => {
+    mockFontScale(fontScale);
+    const result = await render(
+      <TestProviders language="tr">
+        <GarmentTypePickerScreen
+          clothingPreference="mens"
+          garmentTypes={garmentCatalog.garmentTypes}
+          onBack={() => undefined}
+          onSelect={() => undefined}
+          selectedTypeId="rain_jacket"
+        />
+      </TestProviders>,
+    );
+
+    expect(
+      StyleSheet.flatten(
+        result.getByTestId('wardrobe-garment-type-picker-header-content').props.style,
+      ),
+    ).toMatchObject({ flexDirection });
+    expect(result.getByRole('header', { name: messages.tr.wardrobe.typeTitle }))
+      .toBeOnTheScreen();
+    expect(
+      StyleSheet.flatten(result.getByTestId('wardrobe-type-rain_jacket-label').props.style),
+    ).toMatchObject({ flex: 1, flexShrink: 1 });
+    expect(
+      StyleSheet.flatten(result.getByTestId(
+        'wardrobe-type-rain_jacket-mark',
+        { includeHiddenElements: true },
+      ).props.style),
+    ).toMatchObject({ flexShrink: 0, width: 24 });
+
+    fireEvent(result.getByTestId('wardrobe-garment-type-picker-header'), 'layout', {
+      nativeEvent: { layout: { height: 120 } },
+    });
+    await waitFor(() => {
+      expect(
+        StyleSheet.flatten(
+          result.getByTestId('wardrobe-garment-type-picker').props.contentContainerStyle,
+        ).paddingTop,
+      ).toBe(97);
+    });
+  },
+);
 
 test('create and edit forms persist the selected wardrobe state', async () => {
   const onCreate = jest.fn(async () => undefined);

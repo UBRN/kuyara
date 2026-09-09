@@ -1,6 +1,6 @@
 import { fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { useEffect, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import SettingsRoute from '@/app/(tabs)/(profile)/settings';
@@ -78,6 +78,16 @@ const initialMetrics = {
   insets: { top: 47, right: 0, bottom: 34, left: 0 },
 };
 
+const originalWindowDimensions = Dimensions.get('window');
+
+function mockFontScale(fontScale: number) {
+  Dimensions.set({ window: { ...originalWindowDimensions, fontScale } });
+}
+
+afterEach(() => {
+  Dimensions.set({ window: originalWindowDimensions });
+});
+
 function createProfile(): LocalProfileRecord {
   return {
     id: 'profile-id',
@@ -93,6 +103,53 @@ function createProfile(): LocalProfileRecord {
     deletedAt: null,
   };
 }
+
+test.each([
+  [1, 'row'],
+  [3.12, 'column'],
+] as const)(
+  'the preference picker header at fontScale %s uses a %s layout and keeps measured clearance',
+  async (fontScale, flexDirection) => {
+    mockFontScale(fontScale);
+    mockProfile = createProfile();
+    const result = await render(
+      <SafeAreaProvider initialMetrics={initialMetrics}>
+        <ProfileApplicationProvider>
+          <MountedSettingsRoutes onMount={() => undefined} />
+        </ProfileApplicationProvider>
+      </SafeAreaProvider>,
+    );
+
+    await result.findByTestId('settings-gender-row');
+    await fireEvent.press(result.getByTestId('settings-gender-row'));
+    expect(await result.findByTestId('settings-gender-picker')).toBeOnTheScreen();
+    expect(StyleSheet.flatten(result.getByTestId('settings-picker-header-content').props.style))
+      .toMatchObject({ flexDirection });
+    expect(result.getByRole('header', { name: messages.en.preferences.genderTitle }))
+      .toBeOnTheScreen();
+
+    const option = result.getByTestId('settings-gender-woman');
+    expect(option.props.accessibilityRole).toBe('radio');
+    expect(option.props.accessibilityState.selected).toBe(true);
+    expect(StyleSheet.flatten(result.getByTestId('settings-gender-woman-label').props.style))
+      .toMatchObject({ flex: 1, flexShrink: 1 });
+    expect(StyleSheet.flatten(result.getByTestId(
+      'settings-gender-woman-mark',
+      { includeHiddenElements: true },
+    ).props.style)).toMatchObject({ flexShrink: 0, width: 24 });
+
+    fireEvent(result.getByTestId('settings-picker-header'), 'layout', {
+      nativeEvent: { layout: { height: 120 } },
+    });
+    await waitFor(() => {
+      expect(
+        StyleSheet.flatten(
+          result.getByTestId('settings-gender-picker').props.contentContainerStyle,
+        ).paddingTop,
+      ).toBe(97);
+    });
+  },
+);
 
 function MountedSettingsRoutes({ onMount }: Readonly<{ onMount: () => void }>) {
   const [route, setRoute] = useState<'appearance' | 'birth-date' | 'dress-style' | 'gender' | 'language' | 'settings'>('settings');
