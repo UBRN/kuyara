@@ -93,6 +93,15 @@ export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: 
   const alternateWidth = usesAccessibilityLayout
     ? contentWidth
     : Math.max(0, (contentWidth - spacing.lg) / 2);
+  // Each board's stage height is derived from its own pieces, so two alternates side by
+  // side would end at different heights and their captions would sit on different
+  // baselines. The alternates share the taller stage and centre their board in it.
+  const alternateStageHeight = Math.max(
+    0,
+    ...alternates.map((suggestion) =>
+      measureGarmentBoardHeight(suggestion.boardPieces, alternateWidth, 'today'),
+    ),
+  );
 
   return (
     <Screen
@@ -238,7 +247,11 @@ export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: 
                   <View
                     accessibilityElementsHidden
                     importantForAccessibility="no-hide-descendants"
-                    style={[styles.alternateStage, { backgroundColor: theme.colors.stage }]}>
+                    style={[
+                      styles.alternateStage,
+                      { backgroundColor: theme.colors.stage, height: alternateStageHeight },
+                    ]}
+                    testID={`today-alternate-stage-${suggestion.id}`}>
                     <GarmentBoard
                       accessibilityLabel={suggestion.boardAccessibilityLabel}
                       pieces={suggestion.boardPieces}
@@ -311,7 +324,7 @@ const styles = StyleSheet.create({
   alternatesHeading: { paddingBottom: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth },
   outfitList: { flexDirection: 'row', gap: spacing.lg, marginTop: spacing.md },
   stackedOutfitList: { flexDirection: 'column', gap: spacing.md },
-  alternateStage: { borderRadius: 14, overflow: 'hidden' },
+  alternateStage: { borderRadius: 14, justifyContent: 'center', overflow: 'hidden' },
   alternateTitleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   feedbackContent: { alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.lg },
   feedbackCard: { alignItems: 'center', gap: spacing.md, maxWidth: 520, padding: spacing.lg, width: '100%' },

@@ -21,6 +21,7 @@ import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 import { darkTheme, lightTheme, spacing, typography, type KuyaraTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
+import { measureGarmentBoardHeight } from '@/components/ui';
 import { haptics } from '@/components/ui/haptics';
 
 jest.mock('expo-symbols', () => ({
@@ -133,6 +134,20 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     await fireEvent.press(result.getByTestId('today-stage', hidden));
     await fireEvent.press(result.getByTestId('today-archetype', hidden));
     expect(onOpenOutfitDetail.mock.calls).toEqual([['outfit-1'], ['outfit-1']]);
+    // Both alternates share the taller of their two derived stage heights, so their
+    // captions sit on one baseline; the shorter board is centred in its stage.
+    const alternateWidth = (358 - spacing.lg) / 2;
+    const tallestStage = Math.max(
+      ...presentation.suggestions
+        .slice(1)
+        .map((suggestion) => measureGarmentBoardHeight(suggestion.boardPieces, alternateWidth, 'today')),
+    );
+    expect(tallestStage).toBeGreaterThan(0);
+    for (const suggestion of presentation.suggestions.slice(1)) {
+      expect(
+        StyleSheet.flatten(result.getByTestId(`today-alternate-stage-${suggestion.id}`, hidden).props.style),
+      ).toMatchObject({ height: tallestStage, justifyContent: 'center' });
+    }
     for (const suggestion of presentation.suggestions.slice(1)) {
       const alternate = result.getByTestId(`today-alternate-${suggestion.id}`);
       expect(alternate.props.accessibilityLabel).toBe(suggestion.boardAccessibilityLabel);
