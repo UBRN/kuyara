@@ -39,3 +39,5 @@ export {
   type GarmentBoardLayout,
   type GarmentBoardLayoutBox,
 } from './garment-board/garment-board';
+
+export { GarmentTileArtwork } from './garment-board/garment-tile-artwork';

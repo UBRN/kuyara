@@ -1,7 +1,6 @@
-import { useState } from 'react';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
-import { AppText, GarmentSlotGlyph } from '@/components/ui';
+import { AppText, GarmentTileArtwork } from '@/components/ui';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import type { AppMessages } from '@/localization/messages';
@@ -9,9 +8,8 @@ import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // ADR 0029 sections 1 and 3. Each tile draws the first rung it can: the photo,
-// cover-cropped, else the structural-category glyph. The silhouette rung and the
-// colour-family fill wait for Today's board and are deliberately not added here. A
-// photo tile and a glyph tile share this one frame, one stage fill, one name line and
+// cover-cropped, else the colour-filled silhouette, else the structural-category glyph.
+// All three rungs share this one frame, one stage fill, one name line and
 // one subline slot, so mixed rows never stagger and legacy rows are never drawn broken.
 // No radius token in `radii` is 14; section 2's anatomy table fixes image tiles at 14
 // regardless of Law 3's 20 container radius, matching the rail's own local constant.
@@ -60,9 +58,7 @@ export function WardrobeGridTile({
   testID,
 }: WardrobeGridTileProps) {
   const theme = useKuyaraTheme();
-  const [unreadablePhotoUri, setUnreadablePhotoUri] = useState<string | null>(null);
   const photoUri = resolvePhotoUri(item.photoRelativePath);
-  const visiblePhotoUri = photoUri === unreadablePhotoUri ? null : photoUri;
   const { subline, title } = resolveTileCopy(item, messages);
   const accessibilityLabel = [title, subline].filter(Boolean).join('. ');
   const glyphSize = Math.min(geometry.width, geometry.height) * GLYPH_SIZE_RATIO;
@@ -80,25 +76,18 @@ export function WardrobeGridTile({
           geometry,
           { backgroundColor: theme.colors.surfaceMuted },
         ]}>
-        {visiblePhotoUri ? (
-          <Image
-            accessibilityElementsHidden
-            accessible={false}
-            importantForAccessibility="no-hide-descendants"
-            onError={() => setUnreadablePhotoUri(visiblePhotoUri)}
-            resizeMode="cover"
-            source={{ uri: visiblePhotoUri }}
-            style={StyleSheet.absoluteFill}
-            testID={`wardrobe-photo-${item.id}`}
-          />
-        ) : (
-          <View
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            testID={`wardrobe-photo-placeholder-${item.id}`}>
-            <GarmentSlotGlyph category={item.category} color={theme.colors.iconSecondary} size={glyphSize} />
-          </View>
-        )}
+        <GarmentTileArtwork
+          photoUri={photoUri}
+          garmentTypeId={item.garmentTypeId}
+          category={item.category}
+          colorFamily={item.colorFamily}
+          width={geometry.width}
+          height={geometry.height}
+          glyphSize={glyphSize}
+          photoTestID={`wardrobe-photo-${item.id}`}
+          silhouetteTestID={`wardrobe-silhouette-${item.id}`}
+          placeholderTestID={`wardrobe-photo-placeholder-${item.id}`}
+        />
       </View>
       <AppText numberOfLines={2} style={{ width: geometry.width }} variant="label">
         {title}
