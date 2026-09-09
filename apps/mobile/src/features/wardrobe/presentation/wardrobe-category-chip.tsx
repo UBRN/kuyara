@@ -11,7 +11,7 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 // scope, so this chip is radio-like rather than a toggle: exactly one of "All" and the
 // present categories is selected at a time. No haptic here, unlike the segmented
 // control (ADR 0029 section 2).
-const CHIP_HEIGHT = 40;
+const CHIP_MINIMUM_HEIGHT = 40;
 const CHIP_HIT_SLOP = 2;
 
 export type WardrobeCategoryChipProps = Readonly<{
@@ -57,9 +57,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: radii.pill,
     borderWidth: borderWidths.subtle,
-    height: CHIP_HEIGHT,
     justifyContent: 'center',
+    minHeight: CHIP_MINIMUM_HEIGHT,
     paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
   },
   pressed: {
     opacity: interaction.pressedOpacity,
