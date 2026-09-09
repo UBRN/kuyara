@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import { NativeDatePicker, NativeList, NativeListRow, NativeListSection } from '@/components/ui';
-import { useMessages } from '@/localization/use-messages';
+import { useLocalization } from '@/localization/use-messages';
 
 export type BirthDateSettingsScreenProps = Readonly<{
   birthDate: string | null;
@@ -14,7 +14,7 @@ export function BirthDateSettingsScreen({
   isSaving,
   onChange,
 }: BirthDateSettingsScreenProps) {
-  const messages = useMessages();
+  const { language, messages } = useLocalization();
   const [hasSaveError, setHasSaveError] = useState(false);
   const maximumBirthDate = useMemo(() => new Date(), []);
   // The system picker always displays a date, so the null state is said in words (ADR 0030 §6).
@@ -41,6 +41,7 @@ export function BirthDateSettingsScreen({
       <NativeListSection footer={footer} testID="settings-birth-date-group">
         <NativeDatePicker
           accessibilityLabel={messages.preferences.birthDateTitle}
+          language={language}
           maximumDate={maximumBirthDate}
           onChange={(value) => void save(value)}
           testID="settings-birth-date-picker"
