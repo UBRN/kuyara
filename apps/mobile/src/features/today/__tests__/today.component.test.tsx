@@ -152,7 +152,8 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     expect(result.getByTestId('today-screen').props.contentInsetAdjustmentBehavior).toBe('automatic');
     const screenStyle = StyleSheet.flatten(result.getByTestId('today-screen').props.contentContainerStyle);
     expect(screenStyle.paddingTop).toBe(0);
-    expect(screenStyle.paddingBottom).toBe(initialMetrics.insets.bottom + spacing.md);
+    // iOS leaves the bottom safe area and the tab bar to the automatic content inset.
+    expect(screenStyle.paddingBottom).toBe(spacing.md);
   });
 
   test('shows AI provenance beside freshness only when AI contributed', async () => {

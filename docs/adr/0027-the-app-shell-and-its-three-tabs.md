@@ -172,6 +172,15 @@ with the fix.
 Whether the fix is to remove the seven `paddingBottom` values or to make `Screen` merge
 them additively is an implementation decision, not this ADR's. The rule holds either way.
 
+*Implementation note, 2026-09-09.* `Screen` had also been adding `safeAreaInsets.bottom` to
+its own `spacing.md` on iOS, on top of the automatic content inset that this section says
+already clears the bar; a 300-point probe on the Simulator showed the last element sitting
+exactly 300 points above the tab bar's frame, so the automatic inset is the whole clearance
+and the safe-area term was a double count. iOS now pads `spacing.md` only, mirroring what
+`Screen` already did for the top edge; Android keeps `safeAreaInsets.bottom + spacing.md`.
+The visible gap under Today's boards is a separate `flexGrow: 1` effect recorded in
+`current-status.md`.
+
 ### 5. Dynamic Type, verified and closed
 
 [ADR 0012](0012-adopting-expo-router-native-tabs.md) recorded that primary tab labels
