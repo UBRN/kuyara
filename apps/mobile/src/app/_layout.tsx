@@ -1,9 +1,11 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router/react-navigation';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 
 import { NotificationApplicationProvider } from '@/features/notifications/application/notification-application-provider';
 import { WeatherAlertObserver } from '@/features/notifications/application/weather-alert-observer';
+import { registerBackgroundWeatherAlertTask } from '@/features/notifications/data/expo-background-weather-alert-task';
 import { ProfileApplicationProvider } from '@/features/profile/application/profile-application-provider';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { BootstrapScreen } from '@/features/profile/presentation/bootstrap-screen';
@@ -63,6 +65,10 @@ function ThemedApplicationShell() {
 }
 
 export default function RootLayout() {
+  useEffect(() => {
+    void registerBackgroundWeatherAlertTask();
+  }, []);
+
   return (
     <ProfileApplicationProvider>
       <ThemedApplicationShell />
