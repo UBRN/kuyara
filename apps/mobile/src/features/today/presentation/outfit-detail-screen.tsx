@@ -43,7 +43,7 @@ export function OutfitDetailScreen({
   onSetOwnership,
 }: OutfitDetailScreenProps) {
   const theme = useKuyaraTheme();
-  const { fontScale } = useTextScaling();
+  const { fontScale, usesStackedLayout } = useTextScaling();
   const [contentWidth, setContentWidth] = useState(0);
   const [captionHeights, setCaptionHeights] = useState<Readonly<Record<string, number>>>({});
   const copy = getMessages(language).today;
@@ -92,7 +92,9 @@ export function OutfitDetailScreen({
         testID="outfit-detail-content">
         <Button label={backLabel} onPress={onBack} style={styles.backButton} variant="quiet" />
 
-        <View style={styles.headingGroup}>
+        <View
+          style={[styles.headingGroup, usesStackedLayout && styles.stackedHeadingGroup]}
+          testID="outfit-detail-heading-group">
           <AppText accessibilityRole="header" variant="title">
             {suggestion.title}
           </AppText>
@@ -189,7 +191,9 @@ export function OutfitDetailScreen({
             return (
               <View key={garmentTypeId} style={styles.ownershipControlGroup}>
                 <AppText colorRole="textSecondary" variant="caption">{item}</AppText>
-                <View style={styles.ownershipActions}>
+                <View
+                  style={[styles.ownershipActions, usesStackedLayout && styles.stackedOwnershipActions]}
+                  testID={`outfit-detail-ownership-actions-${garmentTypeId}`}>
                   <Button
                     accessibilityLabel={`${item}, ${copy.ownershipOwnedAction}`}
                     accessibilityState={{ selected: owned }}
@@ -266,6 +270,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.md,
   },
+  // Above fontScale 1.5 the emphasis pill sits under the title instead of leaving the screen.
+  stackedHeadingGroup: {
+    alignItems: 'flex-start',
+    flexDirection: 'column',
+  },
   boardPlate: {
     marginTop: spacing.xl,
     position: 'relative',
@@ -319,6 +328,11 @@ const styles = StyleSheet.create({
   ownershipActions: {
     flexDirection: 'row',
     gap: spacing.sm,
+  },
+  // Interim until ADR 0026 decision 5's ownership control lands: the pair stacks above 1.5
+  // so Turkish labels wrap at the word instead of mid-word.
+  stackedOwnershipActions: {
+    flexDirection: 'column',
   },
   ownershipAction: {
     flex: 1,
