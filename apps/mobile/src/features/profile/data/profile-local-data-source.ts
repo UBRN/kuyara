@@ -1,4 +1,8 @@
-import type { DressStyle, Gender } from '@/features/profile/domain/profile';
+import type {
+  AnalyticsConsent,
+  DressStyle,
+  Gender,
+} from '@/features/profile/domain/profile';
 import type {
   LanguagePreference,
   ThemePreference,
@@ -20,6 +24,7 @@ export interface ProfileLocalDataSource {
   updateLanguagePreference(preference: LanguagePreference): Promise<LocalProfileRecord>;
   updateThemePreference(preference: ThemePreference): Promise<LocalProfileRecord>;
   updateNotificationsOptIn(optIn: boolean): Promise<LocalProfileRecord>;
+  updateAnalyticsConsent(consent: AnalyticsConsent): Promise<LocalProfileRecord>;
 }
 
 export class ProfileDataSourceError extends Error {

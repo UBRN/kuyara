@@ -91,7 +91,7 @@ test('migration v4 enforces one active location and maps manual and device varia
   const { database, repository } = await setup();
   t.after(() => database.close());
   const version = await database.getFirstAsync('PRAGMA user_version');
-  assert.equal(version.user_version, 11);
+  assert.equal(version.user_version, 12);
 
   const istanbul = getManualLocation('sample.istanbul');
   const manual = await repository.setActiveLocation(profileId, istanbul);

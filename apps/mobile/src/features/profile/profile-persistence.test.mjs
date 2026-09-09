@@ -25,6 +25,7 @@ const createRecord = (overrides = {}) => ({
   themePreference: 'system',
   onboardingCompleted: 0,
   notificationsOptIn: 0,
+  analyticsConsent: 'undecided',
   createdAt,
   updatedAt: createdAt,
   deletedAt: null,
@@ -86,6 +87,41 @@ test('notification opt-in defaults off and persists across a new repository', as
     }),
   );
   assert.equal((await relaunchedRepository.getOrCreateProfile()).notificationsOptIn, true);
+});
+
+test('analytics consent defaults to undecided, persists, and rejects an unknown value', async (t) => {
+  const { database, dataSource } = await createLocalDataSource(t);
+  const repository = new LocalProfileRepository(dataSource);
+
+  assert.equal((await repository.getOrCreateProfile()).analyticsConsent, 'undecided');
+  assert.equal((await repository.updateAnalyticsConsent('granted')).analyticsConsent, 'granted');
+  assert.equal((await repository.updateAnalyticsConsent('withdrawn')).analyticsConsent, 'withdrawn');
+  await assert.rejects(
+    () => repository.updateAnalyticsConsent('maybe'),
+    (error) => error instanceof ProfileRepositoryError && error.code === 'invalid-data',
+  );
+
+  const relaunchedRepository = new LocalProfileRepository(
+    new SqliteProfileLocalDataSource(database, {
+      createId: () => 'unused',
+      now: () => updatedAt,
+    }),
+  );
+  assert.equal(
+    (await relaunchedRepository.getOrCreateProfile()).analyticsConsent,
+    'withdrawn',
+  );
+});
+
+test('a record with an unknown analytics consent is rejected as invalid data', async () => {
+  const repository = new LocalProfileRepository({
+    getOrCreateProfile: async () => createRecord({ analyticsConsent: 'maybe' }),
+  });
+
+  await assert.rejects(
+    () => repository.getOrCreateProfile(),
+    (error) => error instanceof ProfileRepositoryError && error.code === 'invalid-data',
+  );
 });
 
 test('an existing profile is returned unchanged without generating another UUID', async (t) => {

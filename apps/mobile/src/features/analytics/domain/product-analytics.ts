@@ -34,6 +34,12 @@ export interface ProductAnalytics {
   // Sends whatever is buffered; called on the background transition after the trackers have
   // emitted their buffered events.
   flush(): Promise<void>;
+
+  // The provider's own anonymous per-install identifier, shown on the Privacy surface so a
+  // deletion request can name it (ADR 0033 section 4). `null` when analytics is disabled or
+  // the provider has not produced one yet. It is never an event property and never joined to
+  // `localProfileId`.
+  distinctId(): string | null;
 }
 
 export type CaptureAnalyticsEvent = ProductAnalytics['capture'];

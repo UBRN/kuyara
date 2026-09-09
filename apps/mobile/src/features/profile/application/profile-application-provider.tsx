@@ -13,6 +13,7 @@ import {
   type ProfileApplicationValue,
 } from '@/features/profile/application/profile-context';
 import { LocalProfileRepository } from '@/features/profile/data/profile-repository';
+import type { AnalyticsConsent } from '@/features/profile/domain/profile';
 import { SqliteProfileLocalDataSource } from '@/features/profile/data/sqlite-profile-local-data-source';
 import { openKuyaraDatabase } from '@/infrastructure/sqlite/expo-sqlite-database';
 import { migrateDatabase } from '@/infrastructure/sqlite/migrations';
@@ -50,6 +51,10 @@ export function ProfileApplicationProvider({ children }: PropsWithChildren) {
     (optIn: boolean) => controller.updateNotificationsOptIn(optIn),
     [controller],
   );
+  const updateAnalyticsConsent = useCallback(
+    (consent: AnalyticsConsent) => controller.updateAnalyticsConsent(consent),
+    [controller],
+  );
 
   const value = useMemo<ProfileApplicationValue>(
     () => ({
@@ -64,8 +69,9 @@ export function ProfileApplicationProvider({ children }: PropsWithChildren) {
       updateThemePreference: (preference) =>
         controller.updateThemePreference(preference),
       updateNotificationsOptIn,
+      updateAnalyticsConsent,
     }),
-    [controller, state, updateNotificationsOptIn],
+    [controller, state, updateAnalyticsConsent, updateNotificationsOptIn],
   );
 
   const languagePreference =

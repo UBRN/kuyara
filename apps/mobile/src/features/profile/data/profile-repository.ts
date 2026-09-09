@@ -10,10 +10,12 @@ import {
   type ProfileLocalDataSource,
 } from '@/features/profile/data/profile-local-data-source';
 import {
+  analyticsConsentSchema,
   genderSchema,
   dressStyleSchema,
   isStoredBirthDate,
   isValidBirthDate,
+  type AnalyticsConsent,
   type Gender,
   type DressStyle,
   type Profile,
@@ -29,6 +31,7 @@ export interface ProfileRepository {
   updateLanguagePreference(preference: LanguagePreference): Promise<Profile>;
   updateThemePreference(preference: ThemePreference): Promise<Profile>;
   updateNotificationsOptIn(optIn: boolean): Promise<Profile>;
+  updateAnalyticsConsent(consent: AnalyticsConsent): Promise<Profile>;
 }
 
 export class ProfileRepositoryError extends Error {
@@ -57,6 +60,8 @@ function mapRecord(record: LocalProfileRecord): Profile {
     record.onboardingCompleted === 0 || record.onboardingCompleted === 1;
   const hasValidNotificationsOptIn =
     record.notificationsOptIn === 0 || record.notificationsOptIn === 1;
+  const hasValidAnalyticsConsent =
+    analyticsConsentSchema.safeParse(record.analyticsConsent).success;
   const completedWithoutPreference =
     record.onboardingCompleted === 1 &&
     (record.gender === null || record.dressStyle === null);
@@ -70,6 +75,7 @@ function mapRecord(record: LocalProfileRecord): Profile {
     !isThemePreference(record.themePreference) ||
     !hasValidCompletion ||
     !hasValidNotificationsOptIn ||
+    !hasValidAnalyticsConsent ||
     completedWithoutPreference ||
     !isUtcIsoTimestamp(record.createdAt) ||
     !isUtcIsoTimestamp(record.updatedAt) ||
@@ -87,6 +93,7 @@ function mapRecord(record: LocalProfileRecord): Profile {
     themePreference: record.themePreference,
     onboardingCompleted: record.onboardingCompleted === 1,
     notificationsOptIn: record.notificationsOptIn === 1,
+    analyticsConsent: analyticsConsentSchema.parse(record.analyticsConsent),
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   };
@@ -148,6 +155,13 @@ export class LocalProfileRepository implements ProfileRepository {
 
   updateNotificationsOptIn(optIn: boolean): Promise<Profile> {
     return this.execute(() => this.dataSource.updateNotificationsOptIn(optIn));
+  }
+
+  updateAnalyticsConsent(consent: AnalyticsConsent): Promise<Profile> {
+    return this.execute(() => {
+      if (!analyticsConsentSchema.safeParse(consent).success) throw new ProfileMappingError();
+      return this.dataSource.updateAnalyticsConsent(consent);
+    });
   }
 
   private async execute(operation: () => Promise<LocalProfileRecord>): Promise<Profile> {

@@ -4,6 +4,7 @@ import type {
 } from '@/domain/preferences';
 import type { ProfileRepository } from '@/features/profile/data/profile-repository';
 import type {
+  AnalyticsConsent,
   LocalProfile,
   Profile,
   OnboardingPreferences,
@@ -86,6 +87,10 @@ export class ProfileApplicationController {
 
   updateNotificationsOptIn(optIn: boolean): Promise<void> {
     return this.updateProfile((repository) => repository.updateNotificationsOptIn(optIn));
+  }
+
+  updateAnalyticsConsent(consent: AnalyticsConsent): Promise<void> {
+    return this.updateProfile((repository) => repository.updateAnalyticsConsent(consent));
   }
 
   private async initializeOnce(): Promise<void> {
