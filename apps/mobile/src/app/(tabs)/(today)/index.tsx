@@ -45,7 +45,6 @@ export default function TodayRoute() {
     <TodayScreen
       language={language}
       onOpenOutfitDetail={(id) => router.push(`/${id}`)}
-      onOpenSettings={() => router.push('/settings')}
       onRefresh={() => void weatherApplication.refresh()}
       state={state}
     />

@@ -104,7 +104,7 @@ export function WeatherGlyph({ testID = 'weather-glyph' }: Readonly<{ testID?: s
   const dropProgress0 = useDropProgress(theme.isReduceMotionEnabled, 0);
   const dropProgress1 = useDropProgress(theme.isReduceMotionEnabled, 1);
   const dropProgress2 = useDropProgress(theme.isReduceMotionEnabled, 2);
-  const cloudColor = theme.colors.brandAccent;
+  const cloudColor = theme.colors.textPrimary;
   const dropColor = theme.colors.textPrimary;
 
   return (

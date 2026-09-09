@@ -23,6 +23,7 @@ const requiredSemanticRoles = [
   'background',
   'backgroundElevated',
   'surface',
+  'stage',
   'surfaceMuted',
   'surfaceInteractive',
   'textPrimary',
@@ -173,9 +174,6 @@ test('English and Turkish locale resolution preserve the supported product langu
     messages.tr.profile.railItemAccessibilityLabel({ label: 'Yağmurluk', position: 1, total: 3 }),
     'Yağmurluk, 3 parçadan 1.',
   );
-  assert.equal(messages.en.today.otherOptionPieceCount({ count: 1 }), '1 piece');
-  assert.equal(messages.en.today.otherOptionPieceCount({ count: 2 }), '2 pieces');
-  assert.equal(messages.tr.today.otherOptionPieceCount({ count: 2 }), '2 parça');
   assert.equal(messages.en.wardrobe.addAction, 'Add');
   assert.equal(messages.tr.wardrobe.addAction, 'Ekle');
 });
@@ -281,36 +279,41 @@ function contrastOfHexOverBackground(foregroundHex, backgroundHex) {
   return contrastRatio(hexToRgb(foregroundHex), hexToRgb(backgroundHex));
 }
 
-test('light and dark surface ladders retain visible, monotone elevation steps', () => {
+test('Direction E replaces the light card step with legible stage and supporting ink', () => {
+  assert.equal(lightSemanticColors.background, brandColors.softMist);
+  assert.equal(lightSemanticColors.backgroundElevated, lightSemanticColors.background);
   assert.equal(lightSemanticColors.surface, '#FFFFFF');
-  assert.equal(
-    Number(
-      contrastOfHexOverBackground(
-        lightSemanticColors.surface,
-        lightSemanticColors.background,
-      ).toFixed(3),
-    ),
-    1.395,
+  const lightStep = contrastOfHexOverBackground(
+    lightSemanticColors.surface, lightSemanticColors.background,
   );
+  // ADR 0021 supersedes the 1.2:1 light card-over-ground invariant.
+  assert.equal(Number(lightStep.toFixed(3)), 1.085, `light card step: ${lightStep.toFixed(3)}:1`);
 
-  for (const semanticColors of [lightSemanticColors, darkSemanticColors]) {
-    assert.ok(
-      contrastOfHexOverBackground(semanticColors.surface, semanticColors.background) >= 1.2,
-      'surface and background must retain at least 1.2:1 contrast',
-    );
-
-    const background = relativeLuminance(hexToRgb(semanticColors.background));
-    const surfaceInteractive = relativeLuminance(hexToRgb(semanticColors.surfaceInteractive));
-    const surfaceMuted = relativeLuminance(hexToRgb(semanticColors.surfaceMuted));
-    const surface = relativeLuminance(hexToRgb(semanticColors.surface));
-    const backgroundElevated = relativeLuminance(hexToRgb(semanticColors.backgroundElevated));
-
-    // surfaceMuted and surfaceInteractive intentionally invert between schemes.
-    for (const layer of [surfaceInteractive, surfaceMuted, surface, backgroundElevated]) {
-      assert.ok(background < layer, 'background must be the strictly lowest surface');
+  for (const [appearance, colors] of Object.entries({ light: lightSemanticColors, dark: darkSemanticColors })) {
+    for (const [ink, plane] of [
+      ['textPrimary', 'stage'],
+      ['textSecondary', 'background'],
+    ]) {
+      const ratio = contrastOfHexOverBackground(colors[ink], colors[plane]);
+      assert.ok(ratio >= 4.5, `${appearance} ${ink} on ${plane}: ${ratio.toFixed(3)}:1 >= 4.5:1`);
     }
-    assert.ok(backgroundElevated <= surface);
+    const conditionContrast = contrastRatio(
+      compositeOver(colors.textPrimary, 0.76, colors.stage),
+      hexToRgb(colors.stage),
+    );
+    assert.ok(conditionContrast >= 4.5, `${appearance} condition ink on stage: ${conditionContrast.toFixed(3)}:1 >= 4.5:1`);
   }
+
+  // The dark allocation still uses the original plane step; light muted surfaces
+  // are now below the page ground and chrome equals it, so that ordering is retired.
+  const colors = darkSemanticColors;
+  const darkStep = contrastOfHexOverBackground(colors.surface, colors.background);
+  assert.ok(darkStep >= 1.2, `dark surface step: ${darkStep.toFixed(3)}:1 >= 1.2:1`);
+  const background = relativeLuminance(hexToRgb(colors.background));
+  for (const role of ['surfaceInteractive', 'surfaceMuted', 'surface', 'backgroundElevated']) {
+    assert.ok(background < relativeLuminance(hexToRgb(colors[role])));
+  }
+  assert.ok(relativeLuminance(hexToRgb(colors.backgroundElevated)) <= relativeLuminance(hexToRgb(colors.surface)));
 });
 
 test('status inks stay inside the accent contrast band and remain legible on every plane', () => {

@@ -119,6 +119,14 @@ affordance. It does not render the full board in miniature, and it implies no ra
 The recommendation contract produces three meaningfully different options, not a ranked
 list, and the presentation must not claim otherwise.
 
+**Amendment, 2026-09-08.** An alternate preview renders the full composition at its
+column width with the Today preset, not its two anchors alone. The approved target set
+draws it so, and [ADR 0025](0025-the-garment-board-composition-rule.md) section 9's
+argument applies: one composition family at different sizes keeps the same reading order
+across surfaces, and a Today-preset board at about 158 points still draws a two-anchor
+core near 37 points. The no-ranking rule stands: two equal columns, no position labels,
+no emphasis pill.
+
 ### 7. Progressive disclosure
 
 Garment names, layer structure, per-piece reasoning, weather reasoning and substitutions
