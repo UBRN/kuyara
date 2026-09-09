@@ -185,19 +185,27 @@ test.each([1.5, 1.6, 3])('font scale %s keeps weather clear of garments and stac
   }
 });
 
-test('outfit detail lists localized weather reasons alongside localized pieces', async () => {
+test('outfit detail renders the detail board, in-place captions, requirement rows, ownership states, and weather recap', async () => {
   const presentation = loadedPresentation();
+  const ownershipByGarmentType: Record<string, 'owned' | 'wanted'> = {
+    jumpsuit: 'owned' as const,
+    rain_jacket: 'wanted' as const,
+    weather_boots: 'owned' as const,
+  };
   const result = await render(providers(
     <OutfitDetailScreen
       backLabel={messages.en.common.back}
       language="en"
       onBack={() => undefined}
       onSetOwnership={() => undefined}
-      ownershipByGarmentType={{}}
+      ownershipByGarmentType={ownershipByGarmentType}
       state={todayScreenState}
       suggestionId="outfit-1"
     />,
   ));
+  await fireEvent(result.getByTestId('outfit-detail-content'), 'layout', {
+    nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
+  });
 
   const reasonsHeading = result.getByRole('header', { name: messages.en.today.reasonsHeading });
   expect(StyleSheet.flatten(reasonsHeading.props.style)).toMatchObject({
@@ -207,19 +215,51 @@ test('outfit detail lists localized weather reasons alongside localized pieces',
   });
   expect(result.getByRole('header', { name: presentation.suggestions[0].title }))
     .toBeOnTheScreen();
+  const hidden = { includeHiddenElements: true };
+  expect(isHiddenFromAccessibility(result.getByTestId('outfit-detail-board', hidden))).toBe(true);
+  expect(result.getByTestId('outfit-detail-board', hidden)).toHaveProp('width', 358);
+  const plate = result.getByTestId('outfit-detail-board-plate');
+  const plateHeightBeforeCaptionMeasure = StyleSheet.flatten(plate.props.style).height;
+  const firstCaption = result.getByTestId('outfit-detail-caption-jumpsuit');
+  const firstCaptionTop = StyleSheet.flatten(firstCaption.props.style).top;
+  await fireEvent(firstCaption, 'layout', {
+    nativeEvent: { layout: { width: 120, height: 200, x: 0, y: 0 } },
+  });
+  expect(StyleSheet.flatten(result.getByTestId('outfit-detail-board-plate').props.style).height)
+    .toBeGreaterThanOrEqual(firstCaptionTop + 200);
+  expect(plateHeightBeforeCaptionMeasure).toBeGreaterThan(
+    result.getByTestId('outfit-detail-board', hidden).props.height,
+  );
+  for (const row of presentation.suggestions[0].requirementRows) {
+    expect(result.getByText(row.text)).toBeOnTheScreen();
+  }
+  for (const { garmentTypeId, item, slot } of presentation.suggestions[0].pieces) {
+    const caption = result.getByTestId(`outfit-detail-caption-${garmentTypeId}`);
+    expect(within(caption).getByText(slot)).toBeOnTheScreen();
+    expect(within(caption).getByText(item)).toBeOnTheScreen();
+    const state = ownershipByGarmentType[garmentTypeId];
+    const stateLabel = state === 'owned'
+      ? messages.en.today.ownershipOwnedLabel
+      : messages.en.today.ownershipWantedLabel;
+    expect(caption).toHaveProp(
+      'accessibilityLabel',
+      `${item}, ${slot}, ${stateLabel}`,
+    );
+    expect(result.getByTestId(
+      `outfit-detail-ownership-marker-${garmentTypeId}`,
+      hidden,
+    )).toBeOnTheScreen();
+    expect(within(caption).getByText(stateLabel)).toBeOnTheScreen();
+  }
   expect(result.getByTestId('outfit-detail-ownership-summary')).toHaveTextContent(
-    messages.en.today.ownershipSummary({ owned: 0, total: presentation.suggestions[0].pieces.length }),
+    messages.en.today.ownershipSummary({ owned: 2, total: presentation.suggestions[0].pieces.length }),
   );
-  for (const reason of presentation.suggestions[0].reasons) {
-    expect(result.getByText(reason)).toBeOnTheScreen();
-  }
-  for (const { item, slot } of presentation.suggestions[0].pieces) {
-    expect(result.getByText(slot)).toBeOnTheScreen();
-    expect(result.getByText(item)).toBeOnTheScreen();
-  }
-  expect(result.getAllByTestId('outfit-detail-piece-card')).toHaveLength(
-    presentation.suggestions[0].pieces.length,
-  );
+  const weatherRecap = within(result.getByTestId('outfit-detail-weather-recap'));
+  expect(weatherRecap.getByText('20°')).toBeOnTheScreen();
+  expect(weatherRecap.getByText('Rain')).toBeOnTheScreen();
+  expect(weatherRecap.getByText('65% chance of rain')).toBeOnTheScreen();
+  expect(StyleSheet.flatten(result.getByTestId('outfit-detail-weather-recap').props.style))
+    .toMatchObject({ backgroundColor: lightTheme.colors.stage });
 });
 
 describe.each(['en', 'tr'] as const)('%s outfit detail ownership', (language) => {
@@ -245,6 +285,17 @@ describe.each(['en', 'tr'] as const)('%s outfit detail ownership', (language) =>
       lightTheme,
       language,
     ));
+
+    const ownedLabel = messages[language].today.ownershipOwnedLabel;
+    const wantedLabel = messages[language].today.ownershipWantedLabel;
+    expect(result.getByTestId('outfit-detail-caption-jumpsuit')).toHaveProp(
+      'accessibilityLabel',
+      `${presentation.suggestions[0].pieces[0].item}, ${presentation.suggestions[0].pieces[0].slot}, ${ownedLabel}`,
+    );
+    expect(result.getByTestId('outfit-detail-caption-rain_jacket')).toHaveProp(
+      'accessibilityLabel',
+      `${presentation.suggestions[0].pieces[1].item}, ${presentation.suggestions[0].pieces[1].slot}, ${wantedLabel}`,
+    );
 
     expect(
       result.getByTestId('outfit-detail-ownership-weather_boots-owned').props.accessibilityState,
