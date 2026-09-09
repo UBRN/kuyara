@@ -2,7 +2,7 @@
 
 Status: Accepted (2026-09-09)
 
-Implementation: phases 1 and 2 landed 2026-09-09 (phase 1 independently reviewed, phase 2 verified on the Simulator); phase 3 not started.
+Implementation: phases 1 and 2 landed 2026-09-09 (phase 1 independently reviewed, phase 2 verified on the Simulator); phase 3 landed 2026-09-09, code-reviewed and verified on the Simulator for registration safety and unchanged foreground behavior, with the actual background execution left to a physical-device check the Simulator cannot give (see Known Issues). Dependency decision for phase 3: `expo-background-task` and its required peer `expo-task-manager`, both pinned `~57.0.16` (checked against the npm registry 2026-09-09), are the current stable releases aligned with the installed `expo@~57.0.9` (SDK 57), matching the `~57.0.x` pattern already used for `expo-location`, `expo-notifications`, and `expo-sqlite`. Neither package was previously in the lockfile. Bundle/native impact: `expo-background-task` wraps `BGTaskScheduler` on iOS and `WorkManager` on Android through a small JS surface with no extra permission beyond the config plugin's own `Info.plist`/manifest entries; `expo-task-manager` is its required peer and is already the standard companion Expo ships for out-of-app task registration. Both are maintained by the Expo core team, MIT-licensed, and add no new network path. No existing dependency covers this; a hand-rolled native module would duplicate what the platform package already wraps, so this is preferred over a custom implementation per the dependency policy.
 
 Completes: [ADR 0004](0004-notifications-in-the-mvp.md) milestone N2, which left
 "the alert-rule thresholds themselves" as an N2 design question.
