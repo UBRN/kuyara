@@ -2,9 +2,7 @@
 
 Status: Accepted (2026-09-04)
 
-Implementation: not started. This records an approved design produced by a design
-session. No production code, contract, or route was changed to reach it. The rendered
-mockups, in English and Turkish and in both appearances, are kept outside the repository.
+Implementation: decisions 1 to 6 implemented (2026-09-09); decision 7 remains open.
 
 Builds on: [ADR 0025](0025-the-garment-board-composition-rule.md), whose composition rule
 this surface reuses unchanged.

@@ -5,6 +5,7 @@ import type {
 } from '@/features/catalog/domain/garment-taxonomy';
 import {
   outfitSlots,
+  type OutfitRequirementEvaluation,
   type OutfitSlot,
   type AssignedOutfitGarment,
   type OutfitCandidate,
@@ -16,13 +17,57 @@ import type {
 import {
   getMessages,
   type SupportedLanguage,
+  type TodayRequirementName,
 } from '@/localization/messages';
+
+const DETAIL_CAPTION_GAP = 7;
+const DETAIL_CORE_CAP = 0.42;
+const DETAIL_RAIL_CAP = 0.30;
+
+type DetailBoardBox = Readonly<{
+  slot: OutfitSlot;
+  garmentTypeId: GarmentTypeId;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}>;
+
+export type DetailCaptionLayout = Readonly<{
+  left: number;
+  top: number;
+  width: number;
+}>;
+
+export function createDetailCaptionLayout(
+  box: DetailBoardBox,
+  boardWidth: number,
+): DetailCaptionLayout {
+  const cap = boardWidth * (
+    box.slot === 'mid_layer' || box.slot === 'outer_layer'
+      ? DETAIL_RAIL_CAP
+      : DETAIL_CORE_CAP
+  );
+  const centeredLeft = box.x + box.width / 2 - cap / 2;
+
+  return {
+    left: Math.min(Math.max(0, centeredLeft), boardWidth - cap),
+    top: box.y + box.height + DETAIL_CAPTION_GAP,
+    width: cap,
+  };
+}
 
 type LocalizedOutfitPiece = Readonly<{
   slot: string;
   item: string;
   category: StructuralCategory;
   garmentTypeId: GarmentTypeId;
+}>;
+
+export type LocalizedRequirementRow = Readonly<{
+  id: string;
+  kind: 'reason' | 'tradeoff';
+  text: string;
 }>;
 
 export type LoadedOutfitPresentation = Readonly<{
@@ -35,6 +80,7 @@ export type LoadedOutfitPresentation = Readonly<{
   boardPieces: readonly Readonly<{ slot: OutfitSlot; garmentTypeId: GarmentTypeId; category: StructuralCategory }>[];
   boardAccessibilityLabel: string;
   reasons: readonly string[];
+  requirementRows: readonly LocalizedRequirementRow[];
   accessibilityLabel: string;
 }>;
 
@@ -159,6 +205,31 @@ function localizeOutfit(
     ...weatherReasons,
     ...outfit.reasonCodes.map((reason) => copy.compositionReasons[reason]),
   ];
+  const pieceNamesByCandidateKey = new Map(
+    assigned.map(({ garment }, assignedIndex) => [garment.candidateKey, pieces[assignedIndex].item]),
+  );
+  const requirementRows = outfit.requirementEvaluations.flatMap((evaluation) => {
+    if (evaluation.status !== 'met' && evaluation.status !== 'tradeoff') return [];
+
+    const candidateKeys = evaluation.status === 'tradeoff'
+      ? evaluation.tradeoffCandidateKeys
+      : evaluation.suppliedByCandidateKeys;
+    const garmentNames = candidateKeys.flatMap((candidateKey) => {
+      const name = pieceNamesByCandidateKey.get(candidateKey);
+      return name ? [name] : [];
+    });
+    if (garmentNames.length === 0) return [];
+
+    const requirementName = copy.requirementNames[requirementNameKey(evaluation)];
+    const kind = evaluation.status === 'tradeoff' ? 'tradeoff' : 'reason';
+    return [{
+      id: requirementNameKey(evaluation),
+      kind,
+      text: kind === 'tradeoff'
+        ? copy.requirementTradeoffRow({ requirement: requirementName, garments: garmentNames })
+        : copy.requirementRow({ requirement: requirementName, garments: garmentNames }),
+    } satisfies LocalizedRequirementRow];
+  });
 
   return {
     id: `outfit-${index + 1}`,
@@ -170,6 +241,7 @@ function localizeOutfit(
     boardPieces,
     boardAccessibilityLabel: copy.boardAccessibilityLabel({ archetype: title, pieces: pieces.map(({ item }) => item) }),
     reasons,
+    requirementRows,
     accessibilityLabel: copy.outfitAccessibilityLabel({
       position: index + 1,
       total,
@@ -178,6 +250,16 @@ function localizeOutfit(
       reasons,
     }),
   };
+}
+
+function requirementNameKey(
+  evaluation: OutfitRequirementEvaluation,
+): TodayRequirementName {
+  const requirement = evaluation.requirement;
+  if (requirement.kind !== 'water_protection') return requirement.kind;
+  return requirement.target === 'body'
+    ? 'body_water_protection'
+    : 'footwear_water_protection';
 }
 
 function createLoadedPresentation(

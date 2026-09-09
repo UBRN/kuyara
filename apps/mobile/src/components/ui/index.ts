@@ -32,4 +32,10 @@ export type { ButtonVariant, PillTone, SurfaceVariant } from './primitive-contra
 export { haptics, useRefreshOutcomeHaptics } from './haptics';
 export { useTextScaling, type TextScaling } from './use-text-scaling';
 
-export { GarmentBoard, measureGarmentBoardHeight } from './garment-board/garment-board';
+export {
+  GarmentBoard,
+  layoutGarmentBoard,
+  measureGarmentBoardHeight,
+  type GarmentBoardLayout,
+  type GarmentBoardLayoutBox,
+} from './garment-board/garment-board';
