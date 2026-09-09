@@ -21,7 +21,7 @@ import {
 } from '@/features/today/presentation/today-presentation';
 import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
-import type { SupportedLanguage } from '@/localization/messages';
+import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -42,6 +42,7 @@ export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: 
       ? { ...state, reason: 'no-active-location' as const }
       : state;
   const presentation = createTodayPresentation(presentationState, language);
+  const copy = getMessages(language).today;
   const theme = useKuyaraTheme();
   // One shared threshold (ADR 0019): the stacked layout is the same rule ListRow applies.
   const { fontScale, usesStackedLayout: usesAccessibilityLayout } = useTextScaling();
@@ -106,7 +107,14 @@ export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: 
 
   return (
     <Screen
+      // Today's only refresh is the pull gesture, which a screen reader cannot perform.
+      // The custom action gives VoiceOver and TalkBack the same refresh without adding a
+      // visible control; the haptic belongs to the gesture, so it stays with the gesture.
+      accessibilityActions={[{ name: 'refresh', label: copy.refreshAction }]}
       alwaysBounceVertical
+      onAccessibilityAction={({ nativeEvent }) => {
+        if (nativeEvent.actionName === 'refresh') onRefresh();
+      }}
       refreshControl={
         <RefreshControl
           colors={[theme.colors.iconSecondary]}

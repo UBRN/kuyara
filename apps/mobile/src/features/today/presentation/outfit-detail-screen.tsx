@@ -56,13 +56,17 @@ export function OutfitDetailScreen({
     ? layoutGarmentBoard(suggestion.boardPieces, contentWidth, 'detail')
     : { height: 0, boxes: [] };
   const initialCaptionHeight = theme.typography.body.lineHeight * fontScale * 2;
-  const plateHeight = Math.max(
-    boardLayout.height,
-    ...boardLayout.boxes.map((box) => {
-      const caption = createDetailCaptionLayout(box, contentWidth);
-      return caption.top + (captionHeights[box.slot] ?? initialCaptionHeight);
-    }),
-  );
+  // Above 1.5 the captions leave the plate (see the caption list below), so the plate is
+  // exactly the board and nothing has to be reserved for text inside it.
+  const plateHeight = usesStackedLayout
+    ? boardLayout.height
+    : Math.max(
+        boardLayout.height,
+        ...boardLayout.boxes.map((box) => {
+          const caption = createDetailCaptionLayout(box, contentWidth);
+          return caption.top + (captionHeights[box.slot] ?? initialCaptionHeight);
+        }),
+      );
 
   if (presentation.kind !== 'loaded' || !suggestion) {
     return (
@@ -84,6 +88,97 @@ export function OutfitDetailScreen({
   const ownedCount = suggestion.pieces.filter(
     ({ garmentTypeId }) => ownershipByGarmentType[garmentTypeId] === 'owned',
   ).length;
+
+  const captionEntries = boardLayout.boxes.flatMap((box) => {
+    const piece = suggestion.pieces.find(
+      ({ garmentTypeId }) => garmentTypeId === box.garmentTypeId,
+    );
+    if (!piece) return [];
+
+    const ownership = ownershipByGarmentType[piece.garmentTypeId] ?? 'none';
+    // Owned and wanted are the exceptions worth a mark; an untracked garment is the
+    // default and stays visually quiet so the two tracked states keep their weight.
+    // Assistive tech still hears the state, so the silence is never ambiguous.
+    const ownershipLabel = ownership === 'owned'
+      ? copy.ownershipOwnedLabel
+      : ownership === 'wanted'
+        ? copy.ownershipWantedLabel
+        : null;
+
+    return [{
+      box,
+      piece,
+      ownership,
+      ownershipLabel,
+      spokenOwnership: ownershipLabel ?? copy.ownershipUntrackedLabel,
+    }];
+  });
+
+  // In place up to 1.5, one list under the plate above it: at accessibility sizes the
+  // measured caption boxes break by character and overlap each other and the footwear.
+  // Same content, same single accessible element, same test id in both branches.
+  const renderCaption = ({
+    box,
+    piece,
+    ownership,
+    ownershipLabel,
+    spokenOwnership,
+  }: (typeof captionEntries)[number]) => {
+    const captionLayout = usesStackedLayout
+      ? null
+      : createDetailCaptionLayout(box, contentWidth);
+    // Centred text belongs under a centred piece; in the list the box shrinks to its
+    // content and wrapped lines read from the left edge like every other list.
+    const captionTextStyle = captionLayout ? styles.captionText : undefined;
+
+    return (
+      <View
+        accessible
+        accessibilityLabel={`${piece.item}, ${piece.slot}, ${spokenOwnership}`}
+        key={box.slot}
+        onLayout={
+          captionLayout
+            ? ({ nativeEvent }) => {
+                const height = nativeEvent.layout.height;
+                if (captionHeights[box.slot] === height) return;
+                setCaptionHeights((current) => ({ ...current, [box.slot]: height }));
+              }
+            : undefined
+        }
+        style={captionLayout ? [styles.caption, captionLayout] : styles.stackedCaption}
+        testID={`outfit-detail-caption-${piece.garmentTypeId}`}>
+        <AppText style={captionTextStyle} variant="bodyStrong">
+          {piece.item}
+        </AppText>
+        <View style={styles.captionMeta}>
+          <AppText colorRole="textSecondary" style={captionTextStyle} variant="caption">
+            {piece.slot}
+          </AppText>
+          {ownershipLabel ? (
+            <View style={styles.ownershipState}>
+              <View
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                style={[
+                  styles.ownershipMarker,
+                  ownership === 'owned'
+                    ? {
+                        backgroundColor: theme.colors.brandAccent,
+                        borderColor: theme.colors.brandAccent,
+                      }
+                    : { borderColor: theme.colors.brandAccent },
+                ]}
+                testID={`outfit-detail-ownership-marker-${piece.garmentTypeId}`}
+              />
+              <AppText colorRole="textSecondary" variant="caption">
+                {ownershipLabel}
+              </AppText>
+            </View>
+          ) : null}
+        </View>
+      </View>
+    );
+  };
 
   return (
     <Screen testID="outfit-detail-screen">
@@ -112,69 +207,14 @@ export function OutfitDetailScreen({
             testID="outfit-detail-board"
             width={contentWidth}
           />
-          {boardLayout.boxes.map((box) => {
-            const piece = suggestion.pieces.find(
-              ({ garmentTypeId }) => garmentTypeId === box.garmentTypeId,
-            );
-            if (!piece) return null;
-
-            const ownership = ownershipByGarmentType[piece.garmentTypeId] ?? 'none';
-            // Owned and wanted are the exceptions worth a mark; an untracked garment is the
-            // default and stays visually quiet so the two tracked states keep their weight.
-            // Assistive tech still hears the state, so the silence is never ambiguous.
-            const ownershipLabel = ownership === 'owned'
-              ? copy.ownershipOwnedLabel
-              : ownership === 'wanted'
-                ? copy.ownershipWantedLabel
-                : null;
-            const spokenOwnership = ownershipLabel ?? copy.ownershipUntrackedLabel;
-            const captionLayout = createDetailCaptionLayout(box, contentWidth);
-
-            return (
-              <View
-                accessible
-                accessibilityLabel={`${piece.item}, ${piece.slot}, ${spokenOwnership}`}
-                key={box.slot}
-                onLayout={({ nativeEvent }) => {
-                  const height = nativeEvent.layout.height;
-                  if (captionHeights[box.slot] === height) return;
-                  setCaptionHeights((current) => ({ ...current, [box.slot]: height }));
-                }}
-                style={[styles.caption, captionLayout]}
-                testID={`outfit-detail-caption-${piece.garmentTypeId}`}>
-                <AppText style={styles.captionText} variant="bodyStrong">
-                  {piece.item}
-                </AppText>
-                <View style={styles.captionMeta}>
-                  <AppText colorRole="textSecondary" style={styles.captionText} variant="caption">
-                    {piece.slot}
-                  </AppText>
-                  {ownershipLabel ? (
-                    <View style={styles.ownershipState}>
-                      <View
-                        accessibilityElementsHidden
-                        importantForAccessibility="no-hide-descendants"
-                        style={[
-                          styles.ownershipMarker,
-                          ownership === 'owned'
-                            ? {
-                                backgroundColor: theme.colors.brandAccent,
-                                borderColor: theme.colors.brandAccent,
-                              }
-                            : { borderColor: theme.colors.brandAccent },
-                        ]}
-                        testID={`outfit-detail-ownership-marker-${piece.garmentTypeId}`}
-                      />
-                      <AppText colorRole="textSecondary" variant="caption">
-                        {ownershipLabel}
-                      </AppText>
-                    </View>
-                  ) : null}
-                </View>
-              </View>
-            );
-          })}
+          {usesStackedLayout ? null : captionEntries.map(renderCaption)}
         </View>
+
+        {usesStackedLayout ? (
+          <View style={styles.captionList} testID="outfit-detail-caption-list">
+            {captionEntries.map(renderCaption)}
+          </View>
+        ) : null}
 
         <View style={styles.ownershipSummary} testID="outfit-detail-ownership-summary">
           <Icon color={theme.colors.brandAccent} name="info" size={16} />
@@ -282,6 +322,13 @@ const styles = StyleSheet.create({
   caption: {
     alignItems: 'center',
     position: 'absolute',
+  },
+  captionList: {
+    gap: spacing.md,
+    marginTop: spacing.md,
+  },
+  stackedCaption: {
+    alignItems: 'flex-start',
   },
   captionText: {
     textAlign: 'center',

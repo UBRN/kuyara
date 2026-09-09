@@ -53,6 +53,13 @@ Two lines under each garment: its catalogue name at `bodyStrong`, then its slot 
 Captions are centred on their piece's own axis and are capped per column, wider for the
 core column than for the layer rail, so the two columns' captions cannot meet.
 
+**Amended 2026-09-09.** Goal 7's validation pass found that at the largest accessibility
+text sizes the in-place captions break by character and overlap each other and the
+footwear. Above `fontScale` 1.5, the one shared threshold ADR 0019 calls for, the captions
+therefore leave the plate and render as a single list directly under the board, in board
+order, each row the same accessible element with the same content; the plate is then
+exactly the board. At or below 1.5 this section applies unchanged.
+
 **The slot label is used, not `layerRole`.** The slot names already carry the layer
 structure, because they read "Mid layer" and "Outer layer". `layerRole` would print
 "standalone" under a pair of jeans, which is a layering concept that says nothing about a

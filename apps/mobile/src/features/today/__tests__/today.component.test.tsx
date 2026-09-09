@@ -21,7 +21,7 @@ import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 import { darkTheme, lightTheme, spacing, typography, type KuyaraTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
-import { measureGarmentBoardHeight } from '@/components/ui';
+import { layoutGarmentBoard, measureGarmentBoardHeight } from '@/components/ui';
 import { haptics } from '@/components/ui/haptics';
 
 jest.mock('expo-symbols', () => ({
@@ -604,6 +604,104 @@ test('refreshing, failure and staleness announce freshness while retaining the l
   expect(result.getByTestId('today-freshness')).toHaveProp('accessibilityLiveRegion', 'polite');
   await result.rerender(screen(false, false));
   expect(result.getByTestId('today-freshness')).toHaveProp('accessibilityLiveRegion', 'none');
+});
+
+describe.each(['en', 'tr'] as const)('%s Today refresh action', (language) => {
+  // Today's only refresh is the pull gesture, which a screen reader cannot perform.
+  test('exposes one localized custom action that refreshes without a visible control', async () => {
+    const onRefresh = jest.fn();
+    const impact = jest.spyOn(haptics, 'impactLight').mockImplementation(() => undefined);
+    const result = await render(providers(
+      <TodayScreen language={language} onOpenOutfitDetail={jest.fn()} onRefresh={onRefresh}
+        state={todayScreenState} />,
+      lightTheme,
+      language,
+    ));
+
+    const screen = result.getByTestId('today-screen');
+    expect(screen.props.accessibilityActions).toEqual([
+      { name: 'refresh', label: messages[language].today.refreshAction },
+    ]);
+    expect(result.queryByText(messages[language].today.refreshAction)).not.toBeOnTheScreen();
+
+    await fireEvent(screen, 'accessibilityAction', { nativeEvent: { actionName: 'refresh' } });
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    // The haptic belongs to the pull gesture, not to the assistive-technology action.
+    expect(impact).not.toHaveBeenCalled();
+
+    await fireEvent(screen, 'accessibilityAction', { nativeEvent: { actionName: 'magicTap' } });
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    impact.mockRestore();
+  });
+});
+
+// Goal 7 found the in-place captions breaking by character and overlapping the shoe at
+// the largest accessibility sizes. Above 1.5 they leave the plate as one list under it.
+describe.each(['en', 'tr'] as const)('%s outfit detail captions above 1.5', (language) => {
+  const ownershipByGarmentType: Record<string, 'owned' | 'wanted'> = {
+    jumpsuit: 'owned',
+    rain_jacket: 'wanted',
+  };
+  const detail = async (fontScale: number) => {
+    Dimensions.set({ window: { ...originalDimensions, width: 390, fontScale } });
+    const result = await render(providers(
+      <OutfitDetailScreen
+        backLabel={messages[language].common.back}
+        language={language}
+        onBack={() => undefined}
+        onSetOwnership={() => undefined}
+        ownershipByGarmentType={ownershipByGarmentType}
+        state={todayScreenState}
+        suggestionId="outfit-1"
+      />,
+      lightTheme,
+      language,
+    ));
+    await fireEvent(result.getByTestId('outfit-detail-content'), 'layout', {
+      nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
+    });
+    return result;
+  };
+
+  test('moves them under the plate in board order, keeping every label and test id', async () => {
+    const pieces = loadedPresentation(language).suggestions[0].pieces;
+    const inline = await detail(1);
+    const labels = pieces.map(({ garmentTypeId }) => {
+      const caption = inline.getByTestId(`outfit-detail-caption-${garmentTypeId}`);
+      expect(StyleSheet.flatten(caption.props.style).position).toBe('absolute');
+      return caption.props.accessibilityLabel;
+    });
+    expect(inline.queryByTestId('outfit-detail-caption-list')).toBeNull();
+
+    const board = layoutGarmentBoard(
+      loadedPresentation(language).suggestions[0].boardPieces, 358, 'detail',
+    );
+    const stacked = await detail(3);
+    const list = stacked.getByTestId('outfit-detail-caption-list');
+    const plate = stacked.getByTestId('outfit-detail-board-plate');
+    expect(within(plate).queryAllByTestId(/^outfit-detail-caption-/)).toHaveLength(0);
+    // With the captions out of the plate it is exactly the board, not board plus text.
+    expect(StyleSheet.flatten(plate.props.style).height).toBe(board.height);
+
+    const boardOrder = board.boxes
+      .map(({ garmentTypeId }) => garmentTypeId)
+      .filter((id) => pieces.some((piece) => piece.garmentTypeId === id));
+    expect(within(list).getAllByTestId(/^outfit-detail-caption-/).map((row) => row.props.testID))
+      .toEqual(boardOrder.map((id) => `outfit-detail-caption-${id}`));
+
+    for (const [index, { garmentTypeId, item, slot }] of pieces.entries()) {
+      const caption = stacked.getByTestId(`outfit-detail-caption-${garmentTypeId}`);
+      expect(caption.props.accessibilityLabel).toBe(labels[index]);
+      expect(caption.props.accessible).toBe(true);
+      expect(StyleSheet.flatten(caption.props.style).position).toBeUndefined();
+      expect(within(caption).getByText(item)).toBeOnTheScreen();
+      expect(within(caption).getByText(slot)).toBeOnTheScreen();
+    }
+    expect(stacked.getByTestId(
+      'outfit-detail-ownership-marker-jumpsuit', { includeHiddenElements: true },
+    )).toBeOnTheScreen();
+    expect(StyleSheet.flatten(list.props.style)).toMatchObject({ gap: spacing.md });
+  });
 });
 
 test.each([
