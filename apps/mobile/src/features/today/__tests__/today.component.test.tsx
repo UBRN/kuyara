@@ -262,6 +262,41 @@ test('outfit detail renders the detail board, in-place captions, requirement row
     .toMatchObject({ backgroundColor: lightTheme.colors.stage });
 });
 
+describe.each(['en', 'tr'] as const)('%s outfit detail untracked garments', (language) => {
+  test('speaks the untracked state but draws no marker or word', async () => {
+    const presentation = loadedPresentation(language);
+    const result = await render(providers(
+      <OutfitDetailScreen
+        backLabel={messages[language].common.back}
+        language={language}
+        onBack={() => undefined}
+        onSetOwnership={() => undefined}
+        ownershipByGarmentType={{}}
+        state={todayScreenState}
+        suggestionId="outfit-1"
+      />,
+      lightTheme,
+      language,
+    ));
+
+    const copy = messages[language].today;
+    for (const { garmentTypeId, item, slot } of presentation.suggestions[0].pieces) {
+      const caption = result.getByTestId(`outfit-detail-caption-${garmentTypeId}`);
+      expect(caption).toHaveProp('accessibilityLabel', `${item}, ${slot}, ${copy.ownershipUntrackedLabel}`);
+      expect(within(caption).queryByText(copy.ownershipUntrackedLabel)).toBeNull();
+      expect(within(caption).queryByText(copy.ownershipOwnedLabel)).toBeNull();
+      expect(within(caption).queryByText(copy.ownershipWantedLabel)).toBeNull();
+      expect(result.queryByTestId(
+        `outfit-detail-ownership-marker-${garmentTypeId}`,
+        { includeHiddenElements: true },
+      )).toBeNull();
+    }
+    expect(result.getByTestId('outfit-detail-ownership-summary')).toHaveTextContent(
+      copy.ownershipSummary({ owned: 0, total: presentation.suggestions[0].pieces.length }),
+    );
+  });
+});
+
 describe.each(['en', 'tr'] as const)('%s outfit detail ownership', (language) => {
   test('shows matched states, actions, selection semantics, and the owned count', async () => {
     const onSetOwnership = jest.fn();

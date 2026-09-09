@@ -39,6 +39,7 @@ export type TodayMessages = Readonly<{
   ownershipWantedAction: string;
   ownershipOwnedLabel: string;
   ownershipWantedLabel: string;
+  ownershipUntrackedLabel: string;
   ownershipSummary: (values: { owned: number; total: number }) => string;
   slots: Readonly<Record<OutfitSlot, string>>;
   requirementNames: Readonly<Record<TodayRequirementName, string>>;
@@ -696,6 +697,7 @@ const en = {
     ownershipWantedAction: 'I want it',
     ownershipOwnedLabel: englishOwnershipStateLabels.owned,
     ownershipWantedLabel: englishOwnershipStateLabels.wanted,
+    ownershipUntrackedLabel: 'Not in your Closet',
     ownershipSummary: ({ owned, total }) =>
       `You own ${owned} of ${total} ${total === 1 ? 'piece' : 'pieces'}.`,
     slots: {
@@ -1115,6 +1117,7 @@ const tr = {
     ownershipWantedAction: 'İstiyorum',
     ownershipOwnedLabel: 'Sende var',
     ownershipWantedLabel: 'İstiyorsun',
+    ownershipUntrackedLabel: 'Gardırobunda yok',
     ownershipSummary: ({ owned, total }) =>
       `Bu kombindeki ${total} parçadan ${owned} tanesi sende var.`,
     slots: {

@@ -117,21 +117,21 @@ export function OutfitDetailScreen({
             if (!piece) return null;
 
             const ownership = ownershipByGarmentType[piece.garmentTypeId] ?? 'none';
+            // Owned and wanted are the exceptions worth a mark; an untracked garment is the
+            // default and stays visually quiet so the two tracked states keep their weight.
+            // Assistive tech still hears the state, so the silence is never ambiguous.
             const ownershipLabel = ownership === 'owned'
               ? copy.ownershipOwnedLabel
               : ownership === 'wanted'
                 ? copy.ownershipWantedLabel
                 : null;
-            // ponytail: the domain's third `none` state has no approved caption copy; keep it
-            // unlabeled instead of presenting an untracked garment as wanted.
+            const spokenOwnership = ownershipLabel ?? copy.ownershipUntrackedLabel;
             const captionLayout = createDetailCaptionLayout(box, contentWidth);
 
             return (
               <View
                 accessible
-                accessibilityLabel={[piece.item, piece.slot, ownershipLabel]
-                  .filter((value): value is string => value !== null)
-                  .join(', ')}
+                accessibilityLabel={`${piece.item}, ${piece.slot}, ${spokenOwnership}`}
                 key={box.slot}
                 onLayout={({ nativeEvent }) => {
                   const height = nativeEvent.layout.height;
