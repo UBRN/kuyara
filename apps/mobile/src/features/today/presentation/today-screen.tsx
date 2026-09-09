@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import {
@@ -12,6 +12,7 @@ import {
   Screen,
   Surface,
   useRefreshOutcomeHaptics,
+  useTextScaling,
 } from '@/components/ui';
 import type { TodayScreenState } from '@/features/today/model';
 import {
@@ -42,8 +43,8 @@ export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: 
       : state;
   const presentation = createTodayPresentation(presentationState, language);
   const theme = useKuyaraTheme();
-  const { fontScale } = useWindowDimensions();
-  const usesAccessibilityLayout = fontScale > 1.5;
+  // One shared threshold (ADR 0019): the stacked layout is the same rule ListRow applies.
+  const { fontScale, usesStackedLayout: usesAccessibilityLayout } = useTextScaling();
   // Measure the content after Screen applies its safe-area insets and width cap.
   const [contentWidth, setContentWidth] = useState(0);
   useRefreshOutcomeHaptics(
