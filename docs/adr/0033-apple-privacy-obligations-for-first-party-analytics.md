@@ -1,6 +1,6 @@
 # ADR 0033: Apple's privacy obligations for first-party product analytics
 
-Status: Proposed (2026-09-09)
+Status: Accepted (2026-09-09)
 
 Implementation: not started. This ADR verifies what Apple actually requires of the
 analytics direction in [ADR 0023](0023-behavioural-product-analytics-with-posthog.md) and
@@ -181,6 +181,18 @@ legal outcome.
 PostHog's own terms impose no user-facing prompt; its documentation says "It's your
 responsibility to decide what data you collect, if it complies with regulations, and
 communicate with your users" (same page).
+
+**Placement, decided 2026-09-09.** The withdrawal control is unprominent, not hidden. It
+lives one level deep, on a Privacy surface opened from a plain row on the Settings root,
+placed with the other secondary groups rather than at the top, alongside the in-app
+privacy policy link that guideline 5.1.1 (i) requires anyway. The row and the toggle use
+the ordinary list-row anatomy of [ADR 0028](0028-the-profile-tab-and-the-list-row-anatomy.md)
+and [ADR 0030](0030-settings-as-a-native-grouped-list.md), with no accent, badge, banner or
+onboarding mention pointing at them. The maintainer asked for the control to be as
+inconspicuous as possible; this placement is the floor, because the guideline's own words
+are "easily accessible", the accessibility rules in `AGENTS.md` forbid controls that are
+hard to reach or unlabeled, and a reviewer who cannot find the control in two taps has
+grounds to reject. Two taps from Settings, a clear label, no dark pattern.
 
 ### 4. Deletion and revocation for an accountless app
 

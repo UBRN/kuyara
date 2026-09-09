@@ -81,6 +81,8 @@ function createGateway(permission: 'undetermined' | 'denied') {
         : { kind: 'undetermined' as const },
       requestPermission: async () => ({ kind: 'granted' as const }),
       openApplicationSettings,
+      cancelScheduledWeatherAlerts: async () => undefined,
+      scheduleWeatherAlert: async () => undefined,
       subscribeToResponses: () => () => undefined,
     },
     openApplicationSettings,
