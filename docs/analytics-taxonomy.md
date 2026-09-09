@@ -1,7 +1,8 @@
 # Analytics event and property taxonomy
 
-Status: draft, revised 2026-09-09 after review. Implements milestone 8 ("Analytics, and
-what it makes a release prerequisite") from `docs/current-status.md`.
+Status: draft, revised 2026-09-09 after the second independent review. Implements
+milestone 8 ("Analytics, and what it makes a release prerequisite") from
+`docs/current-status.md`.
 
 This document is the reviewable artifact named by
 [ADR 0023](adr/0023-behavioural-product-analytics-with-posthog.md), section 6: "the event
@@ -88,11 +89,15 @@ in this taxonomy overrides that gate.
 **Open, not decided here:** whether and how to link this anonymous identity to a future
 authenticated profile once accounts exist. See open question 1.
 
-## 3. Coarse age bucket and dress style: the only profile-derived properties
+## 3. Coarse age bucket and dress style: provisional profile-derived properties
 
-Per ADR 0031, these two are the only values derived from the profile that may appear on any
-analytics event or property. No other profile field (including gender) is an analytics
-property under this taxonomy.
+Per ADR 0031, these are the only two profile-derived values that this draft considers for
+analytics. They create an unresolved privacy tension: attaching either value to events
+joined by the install identity conflicts with ADR 0033 section 5's proposed "not linked"
+answer, whose condition is that the identifier is never combined with profile data. The
+schema below is therefore **provisional pending the maintainer's linked-data decision** in
+section 8. It is not approved for implementation while that question remains open. No
+other profile field, including gender, is an analytics property under this taxonomy.
 
 | Property | Allowed values | Derivation rule |
 | --- | --- | --- |
@@ -107,14 +112,15 @@ and would hide the one segment where a product or legal question could arise. Bo
 are still derived at emit time only; no bucket is stored, and the date and year never leave
 the device.
 
-**Which events carry them, as a rule rather than a judgement call.** Because there are no
-person profiles (section 2), these properties exist only where they are attached. They are
-attached to exactly four events, chosen because their product questions are segmentation
-questions: `onboarding_completed`, `recommendation_viewed`, `outfit_detail_opened`, and
-`closet_item_created`. No other event in section 5 carries either property. Two places
-carry a dress-style value for a different reason and are not segmentation: the
-`dress_style` step of `onboarding_step_completed`, and `setting_changed`'s `new_value` when
-`setting_name` is `dress_style`. Both report the value being chosen.
+**Provisional attachment rule.** If section 8 chooses to keep these properties, they are
+attached to exactly four events: `onboarding_completed`, `recommendation_viewed`,
+`outfit_detail_opened`, and `closet_item_created`. No other event in section 5 carries
+either property. Two places carry a dress-style value for a different reason and are not
+segmentation: the `dress_style` step of `onboarding_step_completed`, and
+`setting_changed`'s `new_value` when `setting_name` is `dress_style`. Both report the value
+being chosen. If section 8 chooses to keep the "not linked" answer instead, both
+`dress_style` and `age_bucket` are removed from every event, including those two
+dress-style values, before implementation.
 
 `gender` is intentionally never an analytics property.
 
@@ -159,9 +165,9 @@ meaning or an allowed value set changes, not when a new event is added. The SDK-
 version, OS version, and build number (already covered by the provider default, section 5.1)
 are not duplicated as custom properties on any event.
 
-**Count.** This document defines **twenty-four custom events**. `docs/current-status.md`
-records twenty, which was the count of the first draft before this revision; that line is
-corrected when the taxonomy is accepted.
+**Count.** This document defines **twenty-three custom events**. `docs/current-status.md`
+records twenty-four from the preceding revision; that line is corrected when this revision
+is accepted.
 
 **Domain values are mapped, not passed through.** Several enums below are the `snake_case`
 form of a kebab-case domain type. `generation_mode` is `ai_assisted` / `deterministic_fallback`
@@ -186,6 +192,18 @@ PostHog's own session properties, not a custom event.
 
 The backgrounded event is also the flush point for the aggregation rules in section 6.
 
+**SDK-default property audit.** ADR 0033 section 2 records the React Native SDK's device,
+locale, and timezone metadata (`docs/adr/0033-apple-privacy-obligations-for-first-party-analytics.md:99-103`).
+This taxonomy accepts the SDK's random install and session identifiers described in
+section 2, app version and build metadata, OS name and version, coarse device name or type,
+locale, and timezone. IP capture and every IP-derived geo property are disabled. Advertising
+identifiers, vendor identifiers, hardware identifiers, person-profile enrichment, and any
+property on the exclusion checklist remain disabled. The exact default key set, including
+the build and session property names, is **unknown until the SDK version is installed and
+pinned**. Milestone 10 must inspect a captured payload against this allowlist; a
+version-dependent default outside it is disabled or added here through review, never
+accepted implicitly.
+
 **Product questions answered.** Lifecycle autocapture answers "how often and how long is the
 app used?"
 
@@ -202,10 +220,15 @@ come back."
 | Event | Trigger | Properties | Sampling / aggregation |
 | --- | --- | --- | --- |
 | `onboarding_started` | The welcome step is shown. | none | n/a |
-| `onboarding_step_completed` | The user advances past a step. | `step_name` (`welcome`\|`gender`\|`dress_style`\|`birth_date`\|`location`), `step_index` (1-5), `skipped` (boolean, only meaningful for `birth_date`/`location`), `dress_style` (only on the `dress_style` step, section 3 values) | none |
-| `onboarding_completed` | The last step finishes and the app enters the main tabs. | `dress_style` (section 3), `age_bucket` (section 3), `location_method` (`device`\|`manual`\|`skipped`) | none |
+| `onboarding_step_completed` | The user advances past a step. | `step_name` (`welcome`\|`gender`\|`dress_style`\|`birth_date`\|`location`), `step_index` (1-5), `skipped` (boolean, only meaningful for `birth_date`/`location`), `dress_style` (only on the `dress_style` step, provisional under section 3) | none |
+| `onboarding_completed` | The last step finishes and the app enters the main tabs. | `dress_style` and `age_bucket` (provisional under section 3), `location_method` (`device`\|`manual`\|`skipped`) | none |
 
 `gender` is intentionally absent from every onboarding event (section 3/4).
+
+The five-value onboarding step enum is provisional on section 8's consent-placement
+decision. If consent becomes an onboarding step, `analytics_consent` is added to
+`step_name`, the index range and implementation step count are updated in the same change,
+and `schema_version` is bumped. A first-launch sheet leaves the five-step enum unchanged.
 
 **Product questions answered.**
 
@@ -223,12 +246,18 @@ to keep coverage of "every screen" proportionate in event count.
 | --- | --- | --- |
 | `screen_viewed` | A tracked screen gains focus. | `screen_name`: `onboarding`, `today`, `outfit_detail`, `weather`, `weather_location`, `profile`, `closet_list`, `closet_item_form`, `closet_garment_type_picker`, `settings`, `settings_appearance`, `settings_language`, `settings_notifications`, `settings_gender`, `settings_dress_style`, `settings_birth_date`, `settings_ai_status`, `settings_privacy` |
 
-The enum mirrors the routes that exist. Two corrections against the first draft:
-`closet_item_detail` was removed, because there is no Closet detail screen (the grid's tile
-opens the edit form directly, so `closet_item_form` covers both the new and edit routes);
-and `settings_privacy` was added for the Privacy surface ADR 0033 section 3 places one
-level under Settings. Adding a route means adding a value here, not inventing an ad hoc
-name at the call site.
+The implemented values mirror routes that exist, except `settings_privacy`, which is the
+required milestone 10 Privacy surface and remains provisional until that route is added.
+`closet_item_detail` was removed from the first draft because there is no Closet detail
+screen: the grid's tile opens the edit form directly, so `closet_item_form` covers both the
+new and edit routes. Adding a route means adding a value here, not inventing an ad hoc name
+at the call site.
+
+The `onboarding` screen value currently covers the approved five-step flow and is
+provisional on the consent-surface decision in section 8. If consent is added as an
+onboarding step it remains one `screen_viewed` value, while the step-level enum in section
+5.2 gains `analytics_consent`. A first-launch sheet adds `analytics_consent_sheet` to
+`screen_name`. Either change updates this closed enum and bumps `schema_version`.
 
 **Product questions answered.**
 
@@ -238,8 +267,19 @@ name at the call site.
 
 | Event | Trigger | Properties |
 | --- | --- | --- |
-| `weather_refreshed` | A weather fetch completes, manual or automatic (stale-data background refresh). | `trigger_method` (`manual`\|`automatic_stale`), `result` (`success`\|`failure_kept_last_known`), `condition_category` (present only when `result` is `success`) |
+| `weather_refreshed` | A weather fetch attempt completes. | `trigger_method` (`manual`\|`automatic_no_cache`\|`automatic_stale`\|`location_changed`), `result` (`success`\|`failure_kept_last_known`\|`failure_no_snapshot`), `condition_category` (present only when `result` is `success`) |
 | `location_changed` | The active location changes, in onboarding or in Settings/Weather. | `method` (`device`\|`manual_selection`), `change_context` (`onboarding`\|`weather_tab`) |
+
+The trigger enum exhausts the controller's fetch paths. An explicit `refresh()` is
+`manual`; startup or foreground refresh with no matching snapshot is
+`automatic_no_cache`; startup or foreground refresh with a non-fresh snapshot is
+`automatic_stale`; and the fetch started after a changed location is persisted is
+`location_changed`. A location-triggered fetch takes precedence over the cache-state
+labels. These paths are visible in
+`apps/mobile/src/features/weather/application/weather-application-controller.ts:173-175,193-195,205-215,239-269`.
+On failure, `failure_kept_last_known` means a prior snapshot remains renderable and
+`failure_no_snapshot` means none exists; the controller preserves the current snapshot on
+failure at lines 306-319.
 
 `condition_category` is a bucket over the provider-neutral model's closed eleven-code
 condition vocabulary (`weatherConditionCodes` in `packages/contracts/src/weather-v1.ts`,
@@ -257,8 +297,8 @@ The mapping is total and stated here so it cannot drift:
 
 The first draft also listed `extreme` and `unknown`. Neither exists: no code maps to
 `extreme`, and a failed refresh carries no new condition at all, which is why the property
-is omitted rather than sent as `unknown` when `result` is `failure_kept_last_known`. A new
-condition code extends the contract and this table in the same change.
+is omitted for both failure results. A new condition code extends the contract and this
+table in the same change.
 
 **Product questions answered.**
 
@@ -271,8 +311,23 @@ condition code extends the contract and this table in the same change.
 
 | Event | Trigger | Properties |
 | --- | --- | --- |
-| `recommendation_viewed` | Today renders a recommendation, cached or freshly generated. | `generation_mode` (`ai_assisted`\|`deterministic_fallback`), `cache_state` (`fresh`\|`stale_shown`\|`refreshing`), `outfit_count` (integer), `dress_style`, `age_bucket` (section 3) |
-| `recommendation_regenerated` | A new recommendation is generated. | `trigger_reason` (seven values, below), `generation_mode` (`ai_assisted`\|`deterministic_fallback`), `result` (`success`\|`failure_kept_last_known`) |
+| `recommendation_viewed` | Today gains focus while a recommendation is visible, once per focus appearance. | `generation_mode` (`ai_assisted`\|`deterministic_fallback`), `cache_state` (`fresh`\|`stale_shown`\|`refreshing`), `outfit_count` (`3`), `dress_style` and `age_bucket` (provisional under section 3) |
+| `recommendation_regenerated` | A recommendation generation attempt completes. | `trigger_reason` (seven values, below), `result` (`success`\|`failure_kept_last_known`\|`failure_no_snapshot`), `generation_mode` (`ai_assisted`\|`deterministic_fallback`, present only when `result` is `success`) |
+
+`recommendation_viewed` is an impression, not a render counter. Rerenders while Today
+remains focused do not emit it again. When cache states overlap, `refreshing` takes
+precedence over `stale_shown`, which takes precedence over `fresh`. The deterministic
+composer supplies at most 24 candidate options and the success contract selects exactly
+three suggestions. Therefore `outfit_count` is the fixed value `3`, not an unbounded
+integer. Any other count is invalid and does not emit `recommendation_viewed`
+(`packages/contracts/src/ai-v1.ts:150-151,293-299`).
+
+For `recommendation_regenerated`, `success` means a new snapshot was saved and returned.
+If the attempt returns the unchanged snapshot, the result is `failure_kept_last_known`; if
+it returns `null`, the result is `failure_no_snapshot`. Both failure forms omit
+`generation_mode`, because no newly generated result exists. The controller's fallback,
+unchanged-snapshot, and null paths are at
+`apps/mobile/src/features/recommendation/application/recommendation-application-controller.ts:159-192`.
 
 `trigger_reason` is the `snake_case` mapping of `RecommendationRefreshTrigger`
 (`features/recommendation/application/recommendation-application-controller.ts`), which has
@@ -313,7 +368,7 @@ An analysis that sees zero `explicit_request` events is seeing the product as it
 
 | Event | Trigger | Properties |
 | --- | --- | --- |
-| `outfit_detail_opened` | The user opens one of the three outfits from Today. | `outfit_position` (`1`\|`2`\|`3`), `archetype` (one of the twelve closed archetype identifiers already defined in the AI selection contract; not restated here to avoid drift from that source of truth), `generation_mode` (`ai_assisted`\|`deterministic_fallback`), `dress_style`, `age_bucket` (section 3) |
+| `outfit_detail_opened` | The user opens one of the three outfits from Today. | `outfit_position` (`1`\|`2`\|`3`), `archetype` (one of the twelve closed archetype identifiers already defined in the AI selection contract; not restated here to avoid drift from that source of truth), `generation_mode` (`ai_assisted`\|`deterministic_fallback`), `dress_style` and `age_bucket` (provisional under section 3) |
 
 This is the only selection signal the current product surfaces: there is no separate
 "choose this outfit" action beyond opening its detail. If a future explicit "wearing this"
@@ -328,14 +383,24 @@ action ships, it gets its own event rather than overloading this one.
 
 | Event | Trigger | Properties | Sampling / aggregation |
 | --- | --- | --- | --- |
-| `manual_refresh_triggered` | The user pulls to refresh, or taps a refresh control, on Today, Weather, or the Closet list. | `surface` (`today`\|`weather`\|`closet`), `result` (`success`\|`failure_kept_last_known`) | none, this action is user-paced |
-| `retry_after_failure_triggered` | The user retries after a shown failure state. | `surface` (`today`\|`weather`\|`recommendation`\|`closet`), `attempt_number` (integer, bounded by the Worker's configured max attempts), `result` (`success`\|`failure`) | See section 6: repeated retries within a short window are deduplicated client-side before they reach `ProductAnalytics`. |
+| `manual_refresh_triggered` | The user pulls to refresh, or taps a refresh control, on Today, Weather, or the Closet list. | `surface` (`today`\|`weather`\|`closet`), `result` (`success`\|`failure_kept_last_known`\|`failure_no_snapshot`) | none, this action is user-paced |
+| `retry_after_failure_triggered` | The user retries after a shown failure state. | `surface` (`today`\|`weather`\|`closet`), `attempt_number` (`1`\|`2`\|`3`\|`4`\|`5+`), `result` (`success`\|`failure`) | See section 6 for the UI retry counter and cap. |
 
 `closet` was missing from the first draft's `surface` enum: the Closet grid has its own
 pull to refresh (`features/wardrobe/presentation/wardrobe-list-screen.tsx`). It is also the
 one surface where the pull gesture and the failure-state retry button share a single
 handler (`onRetry`), so the two events must be distinguished at the call site by which
 control fired, not by the handler.
+
+`attempt_number` counts consecutive user-visible UI retry actions for the same surface and
+failure episode. The first retry is `1`; the counter resets after success or when the
+surface loses focus. Attempts five and above collapse to `5+`. This is a client-side
+analytics bound and is unrelated to the Worker's internal provider-attempt limit. There is
+no `recommendation` surface value because the current product has no separate
+recommendation retry control; Today's refresh control calls the weather application
+(`apps/mobile/src/app/(tabs)/(today)/index.tsx:44-49`).
+For `manual_refresh_triggered`, `failure_no_snapshot` applies only to Today or Weather;
+Closet refresh starts from an already loaded list and keeps that list on failure.
 
 **Product questions answered.**
 
@@ -347,18 +412,19 @@ control fired, not by the handler.
 
 | Event | Trigger | Properties |
 | --- | --- | --- |
-| `closet_item_created` | A new Closet entry is saved. | `state` (`owned`\|`wanted`), `garment_type_id` (catalog identifier, closed vocabulary), `has_photo` (boolean), `entry_point` (`closet_tab`\|`outfit_detail`), `dress_style`, `age_bucket` (section 3) |
-| `closet_item_updated` | An existing entry is edited and saved, or its ownership is changed from outfit detail. | `fields_changed` (subset of the closed set `garment_type`, `name`, `color_family`, `state`, `photo`), `garment_type_id`, `entry_point` (`closet_tab`\|`outfit_detail`) |
+| `closet_item_created` | A new Closet entry is saved. | `state` (`owned`\|`wanted`), `garment_type_id` (catalog identifier, closed vocabulary), `has_photo` (boolean), `entry_point` (`closet_list`\|`outfit_detail`), `dress_style`, `age_bucket` (section 3, provisional) |
+| `closet_item_updated` | An existing entry is edited and saved, or its ownership is changed from outfit detail. | `fields_changed` (subset of the closed set below), `garment_type_id`, `entry_point` (`closet_list`\|`outfit_detail`) |
 | `closet_item_deleted` | An entry is deleted. | `state` (`owned`\|`wanted`), `had_photo` (boolean) |
 
-`fields_changed` now covers all five editable fields. The first draft listed three and
-omitted `name` and `color_family`, which the form does edit
-(`features/wardrobe/presentation/wardrobe-item-form-screen.tsx`). It reports **which
-categories changed, never any value**: `name` is free text and its content may never leave
-the device (section 4), and `color_family` is a closed catalog vocabulary whose values are
-still not sent, because the product question is "what do people revisit", not "which colour
-won". Whether the `name` and `color_family` flags are worth carrying at all is open
-question 2.
+`fields_changed` covers `garment_type`, `name`, `color_family`,
+`thermal_level_override`, `water_protection_override`, `wind_protection_override`,
+`breathability_override`, `arm_coverage_override`, `leg_coverage_override`,
+`traction_suitability_override`, `state`, and `photo`. The seven override fields come from
+`WardrobeFormValues`
+(`apps/mobile/src/features/wardrobe/application/wardrobe-form.ts:32-43`). The event reports
+**which categories changed, never any value**: `name` is free text and its content may
+never leave the device (section 4), and neither color nor override values are sent. Whether
+the `name` and `color_family` flags are worth carrying at all is open question 2.
 
 `entry_point` is on `closet_item_updated` because ownership also changes outside the
 Closet: outfit detail's ownership control creates or updates a Closet entry directly, so an
@@ -380,7 +446,7 @@ Closet screen views are covered by `screen_viewed` (5.3), not a separate event.
 
 | Event | Trigger | Properties |
 | --- | --- | --- |
-| `setting_changed` | Any Settings value changes. | `setting_name` (`appearance_theme`\|`language`\|`notifications_enabled`\|`dress_style`\|`gender`\|`birth_date`), `new_value` (present only for `appearance_theme`: `system`\|`light`\|`dark`; `language`: `system`\|`tr`\|`en`; `notifications_enabled`: boolean; `dress_style`: section 3 values; absent for `gender` and `birth_date`, since neither value is an allowed analytics property) |
+| `setting_changed` | Any Settings value changes. | `setting_name` (`appearance_theme`\|`language`\|`notifications_enabled`\|`dress_style`\|`gender`\|`birth_date`), `new_value` (present only for `appearance_theme`: `system`\|`light`\|`dark`; `language`: `system`\|`tr`\|`en`; `notifications_enabled`: boolean; `dress_style`: provisional under section 3; absent for `gender` and `birth_date`, since neither value is an allowed analytics property) |
 | `ai_probe_triggered` | The user triggers the AI status probe on the Settings AI status screen. | `result` (`ok`\|`unavailable`\|`rate_limited`\|`error`) |
 
 `ai_probe_triggered` lost two properties the code cannot supply. `probe_type` is gone
@@ -403,7 +469,7 @@ case visible instead of collapsing it into a generic failure.
 
 | Event | Trigger | Properties | Sampling / aggregation |
 | --- | --- | --- | --- |
-| `error_shown` | A user-facing failure state renders on a surface, for the first time in this session for that `(surface, failure_category)` pair. | `surface` (`today`\|`weather`\|`recommendation`\|`closet`\|`settings`\|`onboarding`), `failure_category` (below), `occurrence_count` (integer, see the emission rule) | One event per `(surface, failure_category)` per session; see the rule below. |
+| `error_shown` | A user-facing failure state renders on a surface, for the first time in this session for that `(surface, failure_category)` pair. | `surface` (`today`\|`weather`\|`recommendation`\|`closet`\|`settings`\|`onboarding`), `failure_category` (below), `occurrence_count` (`1`\|`2`\|`3`\|`4`\|`5+`, see the emission rule) | One event per `(surface, failure_category)` per session; see the rule below. |
 | `error_recovered` | A success lands on a surface that emitted `error_shown` earlier in the same session. | `surface` (same enum), `failure_category` (the pair that recovered) | Once per `(surface, failure_category)` per session; a second failure and recovery in the same session does not emit again. |
 
 **Emission rule, decided 2026-09-09.** The first draft carried a `recovered` boolean on
@@ -411,10 +477,20 @@ case visible instead of collapsing it into a generic failure.
 something that happens later can never be set. Recovery is therefore its own event, joined
 to the failure by `(surface, failure_category)` within the session. `occurrence_count`
 follows the same shape: the boundary counts repeats of a pair in memory and finalises the
-count when the session ends or the app is backgrounded (the lifecycle event in 5.1 is the
-flush point), so exactly one `error_shown` per pair per session reaches PostHog. A count
-that is still open when the process is killed is lost, which is acceptable: this measures
-where friction is, not how many times it occurred to the last unit.
+count at the first of recovery, session end, or app backgrounding. The count uses the same
+closed buckets as `attempt_number`: one through four, with five and above collapsed to
+`5+`. Exactly one `error_shown` per pair per session reaches PostHog. A count that is still
+open when the process is killed is lost, which is acceptable: this measures where friction
+is, not how many times it occurred to the last unit.
+
+**Ordering and timestamps.** On recovery, the boundary emits the buffered `error_shown`
+before `error_recovered` for the same pair. On backgrounding or session end, it emits every
+buffered `error_shown` before the backgrounded lifecycle event. The timestamp attached to
+`error_shown` is the instant the first failure in the pair became visible, not the later
+flush time; `error_recovered` uses the recovery instant, and the lifecycle event uses its
+own transition time. This preserves causal ordering even when transport batches the
+events. Once a pair is finalised by recovery, later failures for that pair in the same
+session do not emit or change its count.
 
 **`failure_category` needs a classification that does not exist yet.** No shared failure
 taxonomy exists in the app today. The only classification is `WeatherRefreshFailure`
@@ -474,38 +550,43 @@ feature it measures. Revisit this section when Supabase Auth work is scheduled.
 ### 5.13 Notifications
 
 Local weather alerts shipped under ADR 0032 after ADR 0023 was written, so this area is not
-in its list. Three things are observable and one is not.
+in its list. Permission resolution and an alert response are observable today; successful
+scheduling, deduplication, and delivery are not.
 
 | Event | Trigger | Properties | Sampling / aggregation |
 | --- | --- | --- | --- |
 | `notification_permission_resolved` | The user turns the notifications setting on and the permission question resolves. | `outcome` (`enabled`\|`blocked`), `can_request_again` (boolean, present only when `outcome` is `blocked`) | none, user-paced |
-| `weather_alert_scheduled` | A planned alert is scheduled with the OS. | `alert_rule` (`precipitation_onset`\|`temperature_swing`) | Once per plan identifier: the scheduler cancels and reschedules every plan on each weather change, so the event is emitted only for plan identifiers not already in the delivery ledger, never on a rescheduling of a plan already recorded. |
-| `notification_opened` | The user taps a delivered weather alert and the app opens. | `alert_rule` (`unknown`) | none |
+| `notification_opened` | The app receives a response indicating that the user tapped a local notification. | none | none |
 
 `outcome` is the controller's own return value (`'enabled'` | `'blocked'` | `'disabled'`,
 in `features/notifications/application/notification-application-controller.ts`).
 `disabled`, the user turning the setting off, is already `setting_changed` with
 `notifications_enabled` (5.9) and is not duplicated here.
 
-`alert_rule` on `notification_opened` is **`unknown` and stays `unknown` for now**: the
-gateway's response subscription takes a listener with no payload
-(`features/notifications/data/notification-gateway.ts`), so the app knows a notification was
-tapped but not which one. Widening the listener to carry the plan identifier is a code
-change, not a taxonomy decision; until it happens the property is honest about what is
-known. The value is still sent rather than omitted so the enum can widen without a
-different event shape.
+`notification_opened` has no `alert_rule` property because the gateway's response
+subscription takes a listener with no payload
+(`apps/mobile/src/features/notifications/data/notification-gateway.ts:30-31`), so the app
+knows only that a notification was tapped. Widening the listener is a code change, not a
+taxonomy claim.
+
+**There is no scheduled event.** The Expo gateway catches and discards scheduling errors
+(`apps/mobile/src/features/notifications/data/expo-notification-gateway.ts:79-106`), so the
+caller cannot observe success. The scheduler also deletes pending ledger rows before it
+plans replacements (`apps/mobile/src/features/notifications/application/weather-alert-scheduler.ts:88-102`),
+so the current ledger cannot prove that a plan is new rather than rescheduled. No
+`weather_alert_scheduled` event or deduplication property is specified until code exposes a
+truthful result.
 
 **There is no delivered event.** iOS delivers a scheduled local notification with the app
 suspended or terminated, and no delivery receipt reaches the app. The delivery ledger's
 fired-identifier inference (a plan whose fire time has passed) is a scheduling bookkeeping
 device, not evidence that anything was displayed, and must not be emitted as one. Delivery
-volume is estimated from `weather_alert_scheduled` instead, with that caveat attached.
+volume is not estimated from the app today.
 
 **Product questions answered.**
 
 - `notification_permission_resolved`: how many people who want alerts are blocked by the
   OS permission?
-- `weather_alert_scheduled`: which alert rule actually fires, and how often?
 - `notification_opened`: do alerts bring people back into the app?
 
 ### 5.14 Consent
@@ -541,18 +622,14 @@ None of the events above fire on raw taps, scroll, or continuous gestures; all a
 a completed user action or a state transition, which already bounds their frequency to
 normal usage. The exceptions requiring an explicit rule:
 
-- `retry_after_failure_triggered`: a user or automatic retry loop must not turn into an
-  event storm. `attempt_number` is bounded by the Worker's configured max attempts per
-  request, and the `ProductAnalytics` boundary must not be called more often than that
-  bound regardless of UI retry-button mashing.
+- `retry_after_failure_triggered`: `attempt_number` is the consecutive UI retry count for
+  one surface and failure episode, reset on success or focus loss. Attempts five and above
+  collapse to `5+`. It is not bounded by the Worker.
 - `error_shown`: one event per `(surface, failure_category)` per session, with
-  `occurrence_count` finalised at session end or backgrounding (section 5.10). Repeats
-  never reach the network.
+  `occurrence_count` finalised at recovery, session end, or backgrounding and capped into
+  the same `1` through `5+` buckets (section 5.10). Repeats never reach the network.
 - `error_recovered`: once per `(surface, failure_category)` per session, so a flapping
   network cannot produce an alternating stream.
-- `weather_alert_scheduled`: deduplicated against the delivery ledger by plan identifier,
-  because rescheduling is normal and frequent while the plan set is unchanged
-  (section 5.13).
 - `screen_viewed`: fires on focus, so a tab-switching session can produce a dozen. It is
   left unsampled because it is the backbone of navigation analysis, and it is the first
   lever named in section 7 if volume ever becomes a constraint.
@@ -579,10 +656,12 @@ checked most days), sees two or three screens per open, and edits the Closet occ
 | `recommendation_regenerated` | about 25 |
 | `recommendation_viewed` | about 20 |
 | `outfit_detail_opened` | about 10 |
-| Everything else (manual refresh, retries, Closet, Settings, errors, notifications, first use, consent, onboarding amortised over the install's life) | about 25 |
+| Everything else (manual refresh, retries, Closet, Settings, errors, notification responses, first use, consent, onboarding amortised over the install's life) | about 25 |
 | **Total** | **about 200, call it 200 to 300 with error and retry variance** |
 
-So the monthly active user ceiling is roughly the plan's monthly event allowance divided by
+Removing the unobservable scheduling event does not materially change the rounded estimate
+because it was part of the aggregate "Everything else" row. So the monthly active user
+ceiling is roughly the plan's monthly event allowance divided by
 300. Verify the current allowance, its overage behaviour, and whether a free plan drops
 events or bills for them, from PostHog's own pricing page at implementation time; the first
 release's expected audience is orders of magnitude below any plausible ceiling, which is
@@ -595,7 +674,7 @@ failure analysis, which are the reasons this taxonomy exists.
 
 ## 8. Open questions for the maintainer
 
-Two questions remain open. The rest of the first draft's list has been answered and the
+Four questions remain open. The rest of the first draft's list has been answered and the
 answers are now in the sections above.
 
 1. **Identity linking at account creation.** Section 2 decides an anonymous identity is
@@ -608,15 +687,26 @@ answers are now in the sections above.
    knowing that someone renamed an item or changed its colour family answers any product
    question worth two more flags on the event. Dropping them costs nothing; keeping them is
    also privacy-safe. Maintainer's call.
+3. **Profile-derived analytics properties and Apple's linked-data answer.** Choose exactly
+   one of these options before implementation:
+   - **(a) Keep both `dress_style` and `age_bucket`.** This preserves the four provisional
+     segmentation points in section 3, but the install identifier is then classified as
+     linked to the user in the App Privacy questionnaire and the matching privacy artifacts.
+   - **(b) Drop both properties.** This gives up dress-style and age-bucket segmentation
+     and keeps ADR 0033's proposed "not linked" answer under its stated condition.
+4. **Consent-surface placement.** Choose one of ADR 0033 section 6's two candidates:
+   an onboarding step, which extends the provisional step enum in section 5.2, or a
+   first-launch sheet, which adds the provisional screen value described in section 5.3.
 
 Answered elsewhere, kept here as pointers:
 
-- **Consent, revocation, and deletion.** Decided by ADR 0033 sections 3 and 4, not open.
-  See section 2 for the gate and section 5.14 for the events.
+- **Consent behavior, revocation, and deletion.** Decided by ADR 0033 sections 3 and 4;
+  only the consent surface's placement remains open. See section 2 for the gate and
+  section 5.14 for the events.
 - **`age_bucket` under 18.** Decided 2026-09-09: a distinct `under_18` bucket, section 3.
-- **The `error_shown` window and cap.** Decided 2026-09-09: one event per
-  `(surface, failure_category)` per session with `occurrence_count` finalised at session end
-  or backgrounding, and recovery as its own event. Section 5.10.
+- **The `error_shown` window, cap, and ordering.** Decided 2026-09-09: one event per
+  `(surface, failure_category)` per session, `occurrence_count` capped at `5+`, and the
+  buffered failure emitted before recovery or the background lifecycle event. Section 5.10.
 - **Session replay and Error Tracking.** Held by ADR 0023 sections 8 and 9 and by
   milestones 12 and 13. This taxonomy covers neither, and both need their own privacy and
   sampling review before implementation.
