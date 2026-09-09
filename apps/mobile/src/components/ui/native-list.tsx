@@ -1,5 +1,5 @@
-import { Host as UniversalHost, Icon as ExpoIcon, List as UniversalList, ListItem, RNHostView, Row, Text as ExpoText } from '@expo/ui';
-import { listStyle, scrollContentBackground, tint } from '@expo/ui/swift-ui/modifiers';
+import { Column, Host as UniversalHost, Icon as ExpoIcon, List as UniversalList, ListItem, RNHostView, Row, Text as ExpoText } from '@expo/ui';
+import { font, foregroundStyle, listStyle, scrollContentBackground, tint } from '@expo/ui/swift-ui/modifiers';
 import type { ReactElement, ReactNode } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { AppText } from '@/components/ui/app-text';
 import { Icon } from '@/components/ui/icon';
 import { ListRowTile, type ListRowTileGlyph } from '@/components/ui/list-row-tile';
 import { NativeToggle } from '@/components/ui/native-toggle';
+import { useTextScaling } from '@/components/ui/use-text-scaling';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -18,6 +19,14 @@ const swiftUI = Platform.select<() => typeof import('@expo/ui/swift-ui') | null>
   default: () => null,
 })();
 const SYSTEM_SECONDARY_LABEL = 'secondaryLabel';
+// `textStyle.color` cannot name a system colour on iOS (Expo UI parses CSS colours only), so the
+// secondary ink is the hierarchical foreground style; the `body` text style keeps Dynamic Type.
+const IOS_SECONDARY_TEXT_MODIFIERS = Platform.OS === 'ios'
+  ? [font({ textStyle: 'body' }), foregroundStyle({ type: 'hierarchical', style: 'secondary' })]
+  : undefined;
+const IOS_BODY_SEMIBOLD_FONT_MODIFIERS = Platform.OS === 'ios'
+  ? [font({ textStyle: 'body', weight: 'semibold' })]
+  : undefined;
 
 export type NativeListProps = Readonly<{ children: ReactNode; testID?: string }>;
 
@@ -126,17 +135,43 @@ export function NativeListRow({
   value,
 }: NativeListRowProps) {
   const theme = useKuyaraTheme();
+  const { usesStackedLayout } = useTextScaling();
   const showChevron = chevron ?? (Boolean(onPress) && !toggle && !tinted);
+  const stacksValue = usesStackedLayout && value !== undefined && !toggle;
 
   const headline: ReactNode = tinted ? (
-    <ExpoText textStyle={{ color: theme.colors.brandPrimary, fontWeight: '600' }}>
+    <ExpoText
+      modifiers={IOS_BODY_SEMIBOLD_FONT_MODIFIERS}
+      textStyle={{ color: theme.colors.brandPrimary, fontWeight: '600' }}>
       {label}
     </ExpoText>
   ) : secondary ? (
-    <ExpoText textStyle={{ color: SYSTEM_SECONDARY_LABEL }}>{label}</ExpoText>
+    <ExpoText modifiers={IOS_SECONDARY_TEXT_MODIFIERS} textStyle={{ color: SYSTEM_SECONDARY_LABEL }}>
+      {label}
+    </ExpoText>
   ) : (
     label
   );
+  const stackedValue = stacksValue ? (
+    <ExpoText
+      modifiers={IOS_SECONDARY_TEXT_MODIFIERS}
+      testID={testID ? `${testID}-value-stacked` : undefined}
+      textStyle={{ color: SYSTEM_SECONDARY_LABEL }}>
+      {value}
+    </ExpoText>
+  ) : null;
+  const resolvedSupportingText: ReactNode = stacksValue ? (
+    supportingText !== undefined ? (
+      <Column alignment="start" spacing={2}>
+        {stackedValue}
+        <ExpoText
+          modifiers={IOS_SECONDARY_TEXT_MODIFIERS}
+          textStyle={{ color: SYSTEM_SECONDARY_LABEL }}>
+          {supportingText}
+        </ExpoText>
+      </Column>
+    ) : stackedValue
+  ) : supportingText;
 
   const trailing: ReactNode = toggle ? (
     <NativeToggle
@@ -145,10 +180,12 @@ export function NativeListRow({
       testID={testID ? `${testID}-toggle` : undefined}
       value={toggle.value}
     />
-  ) : value !== undefined || showChevron ? (
+  ) : (!stacksValue && value !== undefined) || showChevron ? (
     <Row alignment="center" spacing={4}>
-      {value !== undefined ? (
-        <ExpoText textStyle={{ color: SYSTEM_SECONDARY_LABEL }}>{value}</ExpoText>
+      {!stacksValue && value !== undefined ? (
+        <ExpoText modifiers={IOS_SECONDARY_TEXT_MODIFIERS} textStyle={{ color: SYSTEM_SECONDARY_LABEL }}>
+          {value}
+        </ExpoText>
       ) : null}
       {showChevron ? (
         Platform.OS === 'ios' ? (
@@ -172,7 +209,7 @@ export function NativeListRow({
         ) : undefined
       }
       onPress={onPress}
-      supportingText={supportingText}
+      supportingText={resolvedSupportingText}
       testID={glyph ? undefined : testID}
       trailing={trailing}>
       {headline}

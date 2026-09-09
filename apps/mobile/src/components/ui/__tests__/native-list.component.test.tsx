@@ -1,6 +1,6 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { View as RNView } from 'react-native';
+import { Dimensions, View as RNView } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import {
@@ -32,7 +32,18 @@ function glyph({ color, size }: Readonly<{ color: string; size: number }>) {
   return <RNView style={{ width: size, height: size, backgroundColor: color }} />;
 }
 
-test('a navigable row shows its label, its value and a chevron, and fires onPress', async () => {
+const originalWindowDimensions = Dimensions.get('window');
+
+function mockFontScale(fontScale: number) {
+  Dimensions.set({ window: { ...originalWindowDimensions, fontScale } });
+}
+
+afterEach(() => {
+  Dimensions.set({ window: originalWindowDimensions });
+});
+
+test('at fontScale 1 a navigable row keeps its value in trailing with the chevron', async () => {
+  mockFontScale(1);
   const onPress = jest.fn();
   const result = await render(
     <TestProviders>
@@ -44,11 +55,52 @@ test('a navigable row shows its label, its value and a chevron, and fires onPres
 
   expect(result.getByText('Language')).toBeOnTheScreen();
   expect(result.getByText('System')).toBeOnTheScreen();
+  expect(result.getByText('System').props.modifiers).toEqual([
+    { $type: 'font', textStyle: 'body' },
+    { $type: 'foregroundStyle', style: { type: 'hierarchical', style: 'secondary' } },
+  ]);
+  expect(result.queryByTestId('row-value-stacked')).toBeNull();
   expect(result.getAllByTestId('expo-ui-icon')).toHaveLength(1);
   expect(result.getByTestId('expo-ui-icon')).toHaveStyle({ backgroundColor: 'tertiaryLabel' });
 
   fireEvent.press(result.getByTestId('row'));
   expect(onPress).toHaveBeenCalledTimes(1);
+});
+
+test('at exactly fontScale 1.5 a navigable row keeps its value in trailing', async () => {
+  mockFontScale(1.5);
+
+  const result = await render(
+    <TestProviders>
+      <NativeList testID="group">
+        <NativeListRow label="Language" onPress={() => {}} testID="row" value="System" />
+      </NativeList>
+    </TestProviders>,
+  );
+
+  expect(result.getByText('System')).toBeOnTheScreen();
+  expect(result.queryByTestId('row-value-stacked')).toBeNull();
+  expect(result.getAllByTestId('expo-ui-icon')).toHaveLength(1);
+});
+
+test('at fontScale 3.118 a navigable row stacks its value and keeps only the chevron trailing', async () => {
+  mockFontScale(3.118);
+
+  const result = await render(
+    <TestProviders>
+      <NativeList testID="group">
+        <NativeListRow label="Language" onPress={() => {}} testID="row" value="System" />
+      </NativeList>
+    </TestProviders>,
+  );
+
+  expect(result.getByTestId('row-value-stacked').props.children).toBe('System');
+  expect(result.getByTestId('row-value-stacked').props.modifiers).toEqual([
+    { $type: 'font', textStyle: 'body' },
+    { $type: 'foregroundStyle', style: { type: 'hierarchical', style: 'secondary' } },
+  ]);
+  expect(result.getAllByText('System')).toHaveLength(1);
+  expect(result.getAllByTestId('expo-ui-icon')).toHaveLength(1);
 });
 
 test('a value-only row shows no chevron, and a plain informational row shows neither', async () => {
@@ -89,6 +141,9 @@ test('tinted renders the headline in brandPrimary and suppresses the default che
   expect(result.getByText('Check AI status').props.style.color).toBe(
     lightTheme.colors.brandPrimary,
   );
+  expect(result.getByText('Check AI status').props.modifiers).toEqual([
+    { $type: 'font', textStyle: 'body', weight: 'semibold' },
+  ]);
   expect(result.queryAllByTestId('expo-ui-icon')).toHaveLength(0);
 });
 
@@ -102,9 +157,14 @@ test('secondary renders the headline in the system secondary ink', async () => {
   );
 
   expect(result.getByText('AI responded').props.style.color).toBe('secondaryLabel');
+  expect(result.getByText('AI responded').props.modifiers).toEqual([
+    { $type: 'font', textStyle: 'body' },
+    { $type: 'foregroundStyle', style: { type: 'hierarchical', style: 'secondary' } },
+  ]);
 });
 
-test('a toggle row renders a switch instead of a value or chevron, and forwards disabled', async () => {
+test('a toggle row stays unchanged at fontScale 3.118', async () => {
+  mockFontScale(3.118);
   const onValueChange = jest.fn();
   const result = await render(
     <TestProviders>
@@ -113,6 +173,7 @@ test('a toggle row renders a switch instead of a value or chevron, and forwards 
           label="Allow notifications"
           testID="row"
           toggle={{ disabled: true, onValueChange, value: true }}
+          value="Ignored"
         />
       </NativeList>
     </TestProviders>,
@@ -122,9 +183,31 @@ test('a toggle row renders a switch instead of a value or chevron, and forwards 
   expect(toggle.props.value).toBe(true);
   expect(toggle.props.disabled).toBe(true);
   expect(result.queryAllByTestId('expo-ui-icon')).toHaveLength(0);
+  expect(result.queryByTestId('row-value-stacked')).toBeNull();
+  expect(result.queryByText('Ignored')).toBeNull();
 
   fireEvent(toggle, 'valueChange', false);
   expect(onValueChange).toHaveBeenCalledWith(false);
+});
+
+test('at fontScale 3.118 a stacked value stays before existing supporting text', async () => {
+  mockFontScale(3.118);
+
+  const result = await render(
+    <TestProviders>
+      <NativeList testID="group">
+        <NativeListRow
+          label="Language"
+          supportingText="Choose the app language"
+          testID="row"
+          value="System"
+        />
+      </NativeList>
+    </TestProviders>,
+  );
+
+  expect(result.getByTestId('row-value-stacked').props.children).toBe('System');
+  expect(result.getByText('Choose the app language')).toBeOnTheScreen();
 });
 
 test('a glyph renders the shared leading tile', async () => {
