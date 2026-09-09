@@ -282,7 +282,7 @@ test('a chosen location turns the final quiet action into the start action', asy
 });
 
 test.each(['tr', 'en'] as const)(
-  'the step 4 picker takes the app language %s and its title is never limited to one line',
+  'the step 4 picker takes the app language %s and stacks its title above the control at accessibility sizes',
   async (language) => {
     mockFontScale(3);
     const { result } = await renderOnboarding(
@@ -303,13 +303,19 @@ test.each(['tr', 'en'] as const)(
     const picker = result.getByTestId('onboarding-birth-date');
     expect(picker.props.modifiers).toEqual([
       { $type: 'environment', key: 'locale', value: language },
-      { $type: 'lineLimit', limit: undefined },
+      { $type: 'labelsHidden' },
       { $type: 'tint', color: lightTheme.colors.brandPrimary },
     ]);
     expect(picker.props.accessibilityLabel).toBe(messages[language].onboarding.birthDateTitle);
-    // The wrapped title gets a second line's height rather than being truncated.
+    // The title is kuyara's own text above a one-row host, hidden from assistive tech so
+    // the picker's name is spoken once.
     expect(StyleSheet.flatten(result.getByTestId('expo-ui-host').props.style))
-      .toMatchObject({ height: 192 });
+      .toMatchObject({ height: 96 });
+    // The step heading carries the same words, so look for the copy the picker draws.
+    const visualTitles = result.getAllByText(messages[language].onboarding.birthDateTitle, {
+      includeHiddenElements: true,
+    });
+    expect(visualTitles.some((title) => title.props.accessibilityElementsHidden === true)).toBe(true);
   },
 );
 
