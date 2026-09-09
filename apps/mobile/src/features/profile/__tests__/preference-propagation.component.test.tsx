@@ -98,6 +98,7 @@ function createProfile(): LocalProfileRecord {
     themePreference: 'light',
     onboardingCompleted: 1,
     notificationsOptIn: 0,
+    analyticsConsent: 'undecided',
     createdAt: '2026-07-30T10:00:00.000Z',
     updatedAt: '2026-07-30T10:00:00.000Z',
     deletedAt: null,

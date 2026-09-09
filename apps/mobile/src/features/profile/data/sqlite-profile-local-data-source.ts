@@ -1,4 +1,8 @@
-import type { DressStyle, Gender } from '@/features/profile/domain/profile';
+import type {
+  AnalyticsConsent,
+  DressStyle,
+  Gender,
+} from '@/features/profile/domain/profile';
 import type {
   LanguagePreference,
   ThemePreference,
@@ -23,6 +27,7 @@ type LocalProfileRow = Readonly<{
   theme_preference: string;
   onboarding_completed: number;
   notifications_opt_in: number;
+  analytics_consent: string;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -43,6 +48,7 @@ const selectProfileSql = `
     theme_preference,
     onboarding_completed,
     notifications_opt_in,
+    analytics_consent,
     created_at,
     updated_at,
     deleted_at
@@ -60,6 +66,7 @@ function mapRow(row: LocalProfileRow): LocalProfileRecord {
     themePreference: row.theme_preference,
     onboardingCompleted: row.onboarding_completed,
     notificationsOptIn: row.notifications_opt_in,
+    analyticsConsent: row.analytics_consent,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
@@ -216,6 +223,17 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
         WHERE singleton_key = 1 AND deleted_at IS NULL
       `,
       [optIn ? 1 : 0],
+    );
+  }
+
+  updateAnalyticsConsent(consent: AnalyticsConsent): Promise<LocalProfileRecord> {
+    return this.updateProfile(
+      `
+        UPDATE local_profiles
+        SET analytics_consent = ?, updated_at = ?
+        WHERE singleton_key = 1 AND deleted_at IS NULL
+      `,
+      [consent],
     );
   }
 

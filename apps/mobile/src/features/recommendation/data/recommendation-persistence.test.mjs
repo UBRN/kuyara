@@ -91,7 +91,7 @@ test('migration v5 persists a validated recommendation snapshot with lifecycle f
   const { database, repository, setNow } = await setup();
   t.after(() => database.close());
   const version = await database.getFirstAsync('PRAGMA user_version');
-  assert.equal(version.user_version, 11);
+  assert.equal(version.user_version, 12);
   const generated = generatedRecommendation();
 
   const first = await repository.saveSnapshot(profileId, {

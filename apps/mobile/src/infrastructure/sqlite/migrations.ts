@@ -10,7 +10,7 @@ type Migration = Readonly<{
   migrate: (database: SqliteExecutor) => Promise<void>;
 }>;
 
-export const latestDatabaseVersion = 11;
+export const latestDatabaseVersion = 12;
 
 const migrationV1: Migration = {
   version: 1,
@@ -343,6 +343,20 @@ const migrationV11: Migration = {
   },
 };
 
+const migrationV12: Migration = {
+  version: 12,
+  async migrate(database) {
+    // ADR 0033 section 3: the consent answer is durable profile state, and every existing
+    // install starts unanswered so the sheet is shown once before the first event.
+    await database.execAsync(`
+      ALTER TABLE local_profiles
+        ADD COLUMN analytics_consent TEXT NOT NULL DEFAULT 'undecided' CHECK (
+          analytics_consent IN ('undecided', 'granted', 'withdrawn')
+        );
+    `);
+  },
+};
+
 const migrations = [
   migrationV1,
   migrationV2,
@@ -355,6 +369,7 @@ const migrations = [
   migrationV9,
   migrationV10,
   migrationV11,
+  migrationV12,
 ] as const satisfies readonly Migration[];
 
 async function readUserVersion(database: SqliteExecutor): Promise<number> {

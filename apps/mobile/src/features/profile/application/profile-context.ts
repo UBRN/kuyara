@@ -3,6 +3,7 @@ import { createContext, use } from 'react';
 import type { LanguagePreference, ThemePreference } from '@/domain/preferences';
 import type { ProfileApplicationState } from '@/features/profile/application/profile-application-controller';
 import type {
+  AnalyticsConsent,
   DressStyle,
   Gender,
   OnboardingPreferences,
@@ -17,6 +18,7 @@ export type ProfileApplicationValue = Readonly<{
   updateLanguagePreference: (preference: LanguagePreference) => Promise<void>;
   updateThemePreference: (preference: ThemePreference) => Promise<void>;
   updateNotificationsOptIn: (optIn: boolean) => Promise<void>;
+  updateAnalyticsConsent: (consent: AnalyticsConsent) => Promise<void>;
 }>;
 
 export const ProfileApplicationContext =
