@@ -1,4 +1,5 @@
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
+import { Dimensions, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { PlaceSearchV1Data } from '@kuyara/contracts';
 
@@ -14,7 +15,10 @@ import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
+jest.mock('@expo/ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 jest.mock('@expo/ui/swift-ui', () =>
+  jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
+jest.mock('@expo/ui/swift-ui/modifiers', () =>
   jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 jest.mock('@/components/ui/native-text-field', () => {
   const { TextInput } = jest.requireActual('react-native');
@@ -50,6 +54,16 @@ const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
   insets: { top: 47, right: 0, bottom: 34, left: 0 },
 };
+
+const originalWindowDimensions = Dimensions.get('window');
+
+function mockFontScale(fontScale: number) {
+  Dimensions.set({ window: { ...originalWindowDimensions, fontScale } });
+}
+
+afterEach(() => {
+  Dimensions.set({ window: originalWindowDimensions });
+});
 
 const place = {
   id: 'place.745044',
@@ -99,11 +113,12 @@ async function renderOnboarding(
     searchPlaces: jest.fn(async (): Promise<PlaceSearchV1Data> => placeData),
     selectPlaceSearchResult: jest.fn(async () => undefined),
   },
+  language: 'en' | 'tr' = 'en',
 ) {
   return {
     onComplete,
     result: await render(
-      <LocalizationContext.Provider value={{ language: 'en', messages: messages.en }}>
+      <LocalizationContext.Provider value={{ language, messages: messages[language] }}>
         <KuyaraThemeContext.Provider value={lightTheme}>
           <SafeAreaProvider initialMetrics={initialMetrics}>
             <WeatherApplicationContext value={weather}>
@@ -265,3 +280,57 @@ test('a chosen location turns the final quiet action into the start action', asy
   }));
   await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
 });
+
+test.each(['tr', 'en'] as const)(
+  'the step 4 picker takes the app language %s and its title is never limited to one line',
+  async (language) => {
+    mockFontScale(3);
+    const { result } = await renderOnboarding(
+      'woman',
+      null,
+      'smart',
+      undefined,
+      undefined,
+      undefined,
+      language,
+    );
+
+    for (let step = 0; step < 3; step += 1) {
+      await fireEvent.press(result.getByTestId('onboarding-continue'));
+    }
+    expect(result.getByTestId('onboarding-step-4')).toBeOnTheScreen();
+
+    const picker = result.getByTestId('onboarding-birth-date');
+    expect(picker.props.modifiers).toEqual([
+      { $type: 'environment', key: 'locale', value: language },
+      { $type: 'lineLimit', limit: undefined },
+      { $type: 'tint', color: lightTheme.colors.brandPrimary },
+    ]);
+    expect(picker.props.accessibilityLabel).toBe(messages[language].onboarding.birthDateTitle);
+    // The wrapped title gets a second line's height rather than being truncated.
+    expect(StyleSheet.flatten(result.getByTestId('expo-ui-host').props.style))
+      .toMatchObject({ height: 192 });
+  },
+);
+
+test.each([
+  [1, 'row', false],
+  [3, 'column-reverse', true],
+] as const)(
+  'at fontScale %s the pinned bar lays its actions out in a %s and keeps the step scrollable',
+  async (fontScale, flexDirection, stacked) => {
+    mockFontScale(fontScale);
+    const { result } = await renderOnboarding(null, null);
+
+    const actions = within(result.getByTestId('onboarding-actions'));
+    expect(StyleSheet.flatten(result.getByTestId('onboarding-actions-row').props.style))
+      .toMatchObject({ flexDirection });
+
+    // Above the threshold the bar holds nothing but its stacked buttons; the rationale
+    // moves into the scrollable step, where it can still be read to its end.
+    const rationale = messages.en.weather.locationRationaleBody;
+    const step = within(result.getByTestId('onboarding-step-1'));
+    expect(actions.queryByText(rationale) !== null).toBe(!stacked);
+    expect(step.queryByText(rationale) !== null).toBe(stacked);
+  },
+);

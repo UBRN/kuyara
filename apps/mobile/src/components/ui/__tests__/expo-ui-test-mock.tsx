@@ -8,6 +8,8 @@ export const listStyle = (style: string) => ({ $type: 'listStyle', style });
 export const scrollContentBackground = (visible: string) => ({ $type: 'scrollContentBackground', visible });
 export const font = (params: Record<string, unknown>) => ({ $type: 'font', ...params });
 export const foregroundStyle = (style: unknown) => ({ $type: 'foregroundStyle', style });
+export const environment = (key: string, value: string) => ({ $type: 'environment', key, value });
+export const lineLimit = () => ({ $type: 'lineLimit', limit: undefined });
 
 export function RNHostView({ children }: Readonly<{ children?: ReactNode }>) {
   return <View>{children}</View>;
@@ -126,11 +128,13 @@ export function Switch({
 }
 
 export function DatePicker({
+  modifiers,
   onDateChange,
   selection,
   testID,
   title,
 }: Readonly<{
+  modifiers?: readonly Record<string, unknown>[];
   onDateChange?: (date: Date) => void;
   selection?: Date;
   testID?: string;
@@ -142,7 +146,7 @@ export function DatePicker({
       accessibilityRole="adjustable"
       accessibilityValue={{ text: selection?.toISOString() }}
       testID={testID}
-      {...{ onDateChange }}
+      {...{ modifiers, onDateChange }}
     />
   );
 }

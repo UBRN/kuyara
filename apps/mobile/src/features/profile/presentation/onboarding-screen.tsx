@@ -24,7 +24,7 @@ import type {
 import { PreferenceOption } from '@/features/profile/presentation/preference-option';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { LocationSelectionControls } from '@/features/weather/presentation/location-selection-controls';
-import { useMessages } from '@/localization/use-messages';
+import { useLocalization } from '@/localization/use-messages';
 import { useKuyaraTheme } from '@/theme/theme-context';
 import { borderWidths, radii, spacing } from '@/theme/theme';
 
@@ -57,7 +57,7 @@ export function OnboardingScreen({
   const announcedStep = useRef(false);
   const headingRef = useRef<Text>(null);
   const maximumBirthDate = useMemo(() => new Date(), []);
-  const messages = useMessages();
+  const { language, messages } = useLocalization();
   const copy = messages.onboarding;
   const preferenceCopy = messages.preferences;
   const theme = useKuyaraTheme();
@@ -123,6 +123,15 @@ export function OnboardingScreen({
       setIsSaving(false);
     }
   };
+
+  // Above the shared stacked threshold the pinned bar holds nothing but its stacked
+  // buttons, so it cannot grow over the step; the rationale moves into the scrollable
+  // content, where it can still be read to its end (ADR 0028 section 3).
+  const locationRationale = (
+    <AppText colorRole="textSecondary" variant="caption">
+      {messages.weather.locationRationaleBody}
+    </AppText>
+  );
 
   const promises = [
     ['location', copy.weatherPromise],
@@ -236,6 +245,7 @@ export function OnboardingScreen({
               </View>
             ))}
           </View>
+          {usesStackedLayout ? locationRationale : null}
         </View>
       ) : null}
 
@@ -318,6 +328,7 @@ export function OnboardingScreen({
           ) : null}
           <NativeDatePicker
             accessibilityLabel={copy.birthDateTitle}
+            language={language}
             maximumDate={maximumBirthDate}
             onChange={(value) => dispatch({ type: 'select-birth-date', value })}
             standalone
@@ -349,6 +360,7 @@ export function OnboardingScreen({
 
       <SafeAreaView
         edges={['bottom']}
+        testID="onboarding-actions"
         style={[
           styles.pinnedAction,
           {
@@ -365,12 +377,10 @@ export function OnboardingScreen({
             {copy.saveError}
           </AppText>
         ) : null}
-        {draft.step === 0 ? (
-          <AppText colorRole="textSecondary" variant="caption">
-            {messages.weather.locationRationaleBody}
-          </AppText>
-        ) : null}
-        <View style={[styles.actions, usesStackedLayout && styles.stackedActions]}>
+        {draft.step === 0 && !usesStackedLayout ? locationRationale : null}
+        <View
+          style={[styles.actions, usesStackedLayout && styles.stackedActions]}
+          testID="onboarding-actions-row">
           {draft.step > 0 ? (
             <Button
               disabled={isSaving}

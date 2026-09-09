@@ -1,7 +1,9 @@
 import { Host as UniversalHost } from '@expo/ui';
-import { tint } from '@expo/ui/swift-ui/modifiers';
-import { Platform, useWindowDimensions, View } from 'react-native';
+import { environment, lineLimit, tint } from '@expo/ui/swift-ui/modifiers';
+import { Platform, View } from 'react-native';
 
+import { useTextScaling } from '@/components/ui/use-text-scaling';
+import type { SupportedLanguage } from '@/localization/messages';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // Load SwiftUI only on iOS, as native-list.tsx does.
@@ -17,6 +19,14 @@ const NativeAndroidDatePicker: typeof import('@expo/ui/jetpack-compose')['DateTi
 
 export type NativeDatePickerProps = Readonly<{
   accessibilityLabel: string;
+  /**
+   * The app's resolved language. SwiftUI reads the device locale by default, which
+   * printed a device-formatted date inside a Turkish app; the picker follows the app
+   * instead. Callers pass what they already resolved, so this adds no second source of
+   * truth. Compose takes its locale from the Android configuration and exposes no
+   * equivalent prop, so the Android branch is unaffected.
+   */
+  language: SupportedLanguage;
   maximumDate: Date;
   onChange: (value: string) => void;
   /**
@@ -48,6 +58,7 @@ function isoCalendarDate(value: Date): string {
 
 export function NativeDatePicker({
   accessibilityLabel,
+  language,
   maximumDate,
   onChange,
   standalone = false,
@@ -55,16 +66,28 @@ export function NativeDatePicker({
   value,
 }: NativeDatePickerProps) {
   const theme = useKuyaraTheme();
-  const { fontScale } = useWindowDimensions();
+  const { fontScale, usesStackedLayout } = useTextScaling();
   const selection = calendarDate(value, maximumDate);
   const colorScheme = theme.isDark ? 'dark' : 'light';
-  const hostStyle = { height: STANDALONE_ROW_HEIGHT * Math.min(fontScale, 2) };
+  // Above the shared stacked threshold the standalone title wraps onto a second line
+  // instead of truncating, so the row reserves that line (ADR 0028 section 3).
+  const hostStyle = {
+    height: STANDALONE_ROW_HEIGHT * Math.min(fontScale, 2) * (usesStackedLayout ? 2 : 1),
+  };
 
   if (swiftUI && NativeSwiftDatePicker) {
+    // `Locale.availableIdentifiers` holds the bare `en` / `tr` identifiers, which is what
+    // `SupportedLanguage` already is; an unknown value is ignored by the native modifier.
+    // `lineLimit()` (no argument) drops the compact picker's single-line label limit so a
+    // long title wraps at the word. The list-mounted picker keeps the system's own row
+    // layout (ADR 0030), so only the standalone one relaxes it.
+    const modifiers = standalone
+      ? [environment('locale', language), lineLimit(), tint(theme.colors.brandPrimary)]
+      : [environment('locale', language)];
     const picker = (
       <NativeSwiftDatePicker
         displayedComponents={['date']}
-        modifiers={standalone ? [tint(theme.colors.brandPrimary)] : undefined}
+        modifiers={modifiers}
         onDateChange={(date) => onChange(isoCalendarDate(date))}
         range={{ end: maximumDate }}
         selection={selection}
