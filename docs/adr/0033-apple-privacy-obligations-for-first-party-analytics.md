@@ -257,9 +257,13 @@ but to no real-world identity, no account and no `localProfileId`, and kuyara co
 never attempt re-linking. PostHog's own iOS SDK manifest declares Product Interaction and
 Other Usage Data as not linked and not tracking
 (<https://github.com/PostHog/posthog-ios/blob/main/PostHog/Resources/PrivacyInfo.xcprivacy>,
-read 2026-09-09). The proposed answer is **not linked**, on the condition that the
+read 2026-09-09). The proposed answer was **not linked**, on the condition that the
 identifier is never combined with profile data, account data once accounts exist, or an
-identifier from any other system. Because the pseudonymous-identifier question is exactly
+identifier from any other system. **Amended 2026-09-09:** the maintainer decided to keep
+`dress_style` and a coarse `age_bucket` on four analytics events (milestone 8's taxonomy,
+section 3), which combines the identifier with profile data, so the questionnaire answer is
+**linked to the user** for the collected categories. The other conditions stand: no
+account, no `localProfileId`, no identifier from another system, no re-linking. Because the pseudonymous-identifier question is exactly
 where Apple's wording and privacy law can diverge, the maintainer confirms this with
 counsel before the questionnaire is filled in (section 7). If the answer becomes linked,
 nothing in the integration changes; only the questionnaire and the manifest booleans do.
@@ -298,8 +302,10 @@ Milestone 10, PostHog product analytics integration, gains these acceptance cond
    captures nothing and that the app behaves identically either way.
 2. A consent surface exists, with one question, equal accept and decline affordances,
    Turkish and English copy from localization keys, and no dependency of any feature on
-   the answer. Its placement (onboarding step or first-launch sheet) is decided in that
-   milestone with `beautiful-ui` and [ADR 0030](0030-settings-as-a-native-grouped-list.md)
+   the answer. Its placement was decided on 2026-09-09: a first-launch sheet, shown once
+   before the first event, kept as light as this section allows (one tap to accept, one
+   equally prominent tap to decline, plain copy on what is collected); its design lands in
+   that milestone with `beautiful-ui` and [ADR 0030](0030-settings-as-a-native-grouped-list.md)
    as constraints.
 3. A Settings row reads the current consent state, withdraws it, and on withdrawal calls
    `optOut()`, `reset()`, and clears the persisted `DeviceId`; a test asserts a fresh
@@ -333,10 +339,9 @@ Milestone 11, App Store privacy disclosure and privacy policy, gains these:
 
 ### 7. Open questions for the maintainer
 
-- **Linked or not linked.** Whether a random per-install identifier with no person profile
-  makes the collected categories "linked to the user" in Apple's questionnaire. Section 5
-  proposes not linked; confirm with counsel, since the same fact pattern is personal data
-  under GDPR and may be under KVKK.
+- **Linked or not linked.** Decided 2026-09-09, see the amendment in section 5: linked to
+  the user, because profile-derived properties ride on the identifier. Counsel review of
+  the GDPR and KVKK reading is still owed before submission.
 - **Lawful basis and DPA.** Whether consent or legitimate interest is the basis under
   GDPR and KVKK for kuyara's audience, and whether PostHog's DPA is signed. Apple's
   requirement is satisfied either way by the consent surface.
@@ -349,8 +354,8 @@ Milestone 11, App Store privacy disclosure and privacy policy, gains these:
 - **Gender and dress style as properties.** ADR 0023 allows coarse product properties.
   Gender is not in Apple's Sensitive Info list, but whether it enters the taxonomy at all
   is a milestone 8 decision, and if it does, whether it changes the linkage answer above.
-- **Consent placement.** Onboarding is five steps by decision; adding a sixth or using a
-  first-launch sheet is a design choice for milestone 10, not settled here.
+- **Consent placement.** Decided 2026-09-09: a first-launch sheet; onboarding stays five
+  steps. See section 6.
 
 ## Consequences
 
