@@ -6,6 +6,8 @@ import { type StyleProp, type ViewStyle, Pressable, Switch as RNSwitch, Text as 
 export const tint = (color: string) => ({ $type: 'tint', color });
 export const listStyle = (style: string) => ({ $type: 'listStyle', style });
 export const scrollContentBackground = (visible: string) => ({ $type: 'scrollContentBackground', visible });
+export const font = (params: Record<string, unknown>) => ({ $type: 'font', ...params });
+export const foregroundStyle = (style: unknown) => ({ $type: 'foregroundStyle', style });
 
 export function RNHostView({ children }: Readonly<{ children?: ReactNode }>) {
   return <View>{children}</View>;
@@ -40,11 +42,29 @@ export function Row({ children }: Readonly<{ children?: ReactNode }>) {
   return <View>{children}</View>;
 }
 
+export function Column({ children }: Readonly<{ children?: ReactNode }>) {
+  return <View>{children}</View>;
+}
+
 export function Text({
   children,
+  modifiers,
+  testID,
   textStyle,
-}: Readonly<{ children?: ReactNode; textStyle?: { color?: string } }>) {
-  return <RNText style={textStyle ? { color: textStyle.color } : undefined}>{children}</RNText>;
+}: Readonly<{
+  children?: ReactNode;
+  modifiers?: readonly Record<string, unknown>[];
+  testID?: string;
+  textStyle?: { color?: string };
+}>) {
+  return (
+    <RNText
+      {...{ modifiers }}
+      style={textStyle ? { color: textStyle.color } : undefined}
+      testID={testID}>
+      {children}
+    </RNText>
+  );
 }
 
 export function Icon({
