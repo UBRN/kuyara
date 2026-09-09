@@ -14,24 +14,24 @@ export const brandColors = Object.freeze({
 } as const);
 
 export const lightSemanticColors = Object.freeze({
-  // Soft Mist has only 1.085:1 headroom to white; moving the ground down creates
-  // a 1.395:1 surface step while the dark theme keeps its existing 1.276:1.
-  background: '#D0DDDC',
+  // Direction E carries hierarchy through garments, type and space (ADR 0021).
+  background: brandColors.softMist,
   backgroundElevated: brandColors.softMist,
   surface: '#FFFFFF',
   surfaceMuted: '#E7EEED',
   surfaceInteractive: '#DDE8E7',
   textPrimary: brandColors.deepAtmosphere,
-  textSecondary: brandColors.calmCurrent,
+  textSecondary: '#576B73',
   textOnBrand: brandColors.cloudWhite,
   brandPrimary: brandColors.deepAtmosphere,
   brandAccent: brandColors.calmCurrent,
-  borderSubtle: '#C5D5D6',
+  borderSubtle: '#CCD2D4',
+  stage: '#D7DCDD',
   borderDefined: '#5C7A83',
   borderStrong: brandColors.calmCurrent,
   focusRing: brandColors.calmCurrent,
   iconPrimary: brandColors.deepAtmosphere,
-  iconSecondary: brandColors.calmCurrent,
+  iconSecondary: '#576B73',
   // Derived semantic values keep status inks within ±0.8 of brandAccent's
   // contrast against this appearance's surface.
   successInk: '#216048',
@@ -53,16 +53,17 @@ export const darkSemanticColors = Object.freeze({
   surfaceMuted: '#183039',
   surfaceInteractive: '#21434A',
   textPrimary: brandColors.cloudWhite,
-  textSecondary: brandColors.quietSky,
+  textSecondary: '#8FA5AC',
   textOnBrand: brandColors.nightLayer,
   brandPrimary: brandColors.quietSky,
   brandAccent: brandColors.quietSky,
-  borderSubtle: '#345866',
+  borderSubtle: '#26393F',
+  stage: '#122A35',
   borderDefined: '#527E90',
   borderStrong: brandColors.quietSky,
   focusRing: brandColors.quietSky,
   iconPrimary: brandColors.cloudWhite,
-  iconSecondary: brandColors.quietSky,
+  iconSecondary: '#8FA5AC',
   // Derived semantic values keep status inks within ±0.8 of brandAccent's
   // contrast against this appearance's surface.
   successInk: '#7FD3AE',

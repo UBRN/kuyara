@@ -9,6 +9,7 @@ import {
 } from './__tests__/fixtures.ts';
 import { createTodayPresentation } from './presentation/today-presentation.ts';
 import { createKuyaraTheme } from '../../theme/theme.ts';
+import { composeGarmentBoard } from '../../components/ui/garment-board/compose-garment-board.ts';
 
 const weatherReasons = [
   'Strong wind requires wind protection.',
@@ -110,6 +111,59 @@ test('loaded mapping uses localized catalog names, slot order, positions, and fi
   );
 });
 
+function assignedGarment(slot, garmentTypeId, category) {
+  return {
+    slot,
+    layerRole: null,
+    garment: { garmentTypeId, properties: { category } },
+    eligibilityScore: 0,
+    evaluations: [],
+  };
+}
+
+test('pieces keep mid layer before outer layer even though the board paints outer before mid', () => {
+  const outfitWithMidAndOuter = {
+    optionId: 'test-outfit',
+    archetypeId: 'layered_warmth',
+    body: {
+      kind: 'one_piece',
+      onePiece: assignedGarment('one_piece', 'jumpsuit', 'one_piece'),
+    },
+    midLayer: assignedGarment('mid_layer', 'sweater', 'top'),
+    outerLayer: assignedGarment('outer_layer', 'rain_jacket', 'outerwear'),
+    footwear: assignedGarment('footwear', 'weather_boots', 'footwear'),
+    reasonCodes: [],
+  };
+  const state = {
+    ...todayScreenState,
+    snapshot: {
+      ...todayScreenState.snapshot,
+      recommendation: {
+        ...todayScreenState.snapshot.recommendation,
+        outfits: [outfitWithMidAndOuter],
+      },
+    },
+  };
+
+  const outfit = loadedPresentation(state).suggestions[0];
+
+  assert.deepEqual(outfit.pieces.map(({ slot }) => slot), [
+    'One-piece', 'Mid layer', 'Outer layer', 'Footwear',
+  ]);
+  assert.deepEqual(outfit.boardPieces.map(({ slot }) => slot), [
+    'one_piece', 'mid_layer', 'outer_layer', 'footwear',
+  ]);
+
+  const board = composeGarmentBoard(outfit.boardPieces.map((piece) => ({
+    slot: piece.slot,
+    bounds: { x: 0, y: 0, width: 1, height: 1 },
+  })));
+
+  assert.deepEqual(board.order.map(({ slot }) => slot), [
+    'one_piece', 'outer_layer', 'mid_layer', 'footwear',
+  ]);
+});
+
 test('shared weather reasons lead every outfit and per-outfit composition reasons follow', () => {
   const english = loadedPresentation();
   const turkish = loadedPresentation(todayScreenState, 'tr');
@@ -208,7 +262,10 @@ test('the freshness line reports refreshing, failure, staleness, and last update
   assert.equal(turkish.header.freshness, 'Hava durumu yenileniyor…');
 });
 
-test('the refresh action label is localized and matches the Weather screen wording', () => {
-  assert.equal(loadedPresentation().copy.refreshAction, 'Refresh weather');
-  assert.equal(loadedPresentation(todayScreenState, 'tr').copy.refreshAction, 'Hava durumunu yenile');
+test('the stage label reads temperature, condition, pieces and archetype in both languages', () => {
+  assert.match(loadedPresentation().stageAccessibilityLabel, /^\d+ degrees Celsius\. .+\. .+, .+\. .+\.$/);
+  assert.match(
+    loadedPresentation(todayScreenState, 'tr').stageAccessibilityLabel,
+    /^\d+ santigrat derece\. .+\. .+, .+\. .+\.$/,
+  );
 });

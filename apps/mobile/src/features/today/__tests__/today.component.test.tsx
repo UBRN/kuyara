@@ -1,5 +1,5 @@
 import { fireEvent, isHiddenFromAccessibility, render, within } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import {
@@ -19,14 +19,19 @@ import { WardrobeApplicationContext } from '@/features/wardrobe/application/ward
 import { resolveGarmentOwnership } from '@/features/wardrobe/domain/garment-type-ownership';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
-import { lightTheme, spacing, typography, type KuyaraTheme } from '@/theme/theme';
+import { darkTheme, lightTheme, spacing, typography, type KuyaraTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
+import { haptics } from '@/components/ui/haptics';
 
 jest.mock('expo-symbols', () => ({
   SymbolView: () => null,
 }));
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
+
+const originalDimensions = Dimensions.get('window');
+beforeEach(() => Dimensions.set({ window: { ...originalDimensions, width: 390, fontScale: 1 } }));
+afterEach(() => Dimensions.set({ window: originalDimensions }));
 
 const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
@@ -76,162 +81,108 @@ function loadedPresentation(language: 'en' | 'tr' = 'en') {
   return presentation;
 }
 
-test('loaded Today reserves overlay clearance and preserves grouped accessibility and navigation intents', async () => {
-  const onOpenSettings = jest.fn();
-  const onOpenOutfitDetail = jest.fn();
-  const presentation = loadedPresentation();
-  const result = await render(providers(
-    <TodayScreen
-      language="en"
-      onOpenOutfitDetail={onOpenOutfitDetail}
-      onOpenSettings={onOpenSettings}
-      onRefresh={() => undefined}
-      state={todayScreenState}
-    />,
-  ));
-
-  await fireEvent(result.getByTestId('today-stretchy-header'), 'layout', {
-    nativeEvent: { layout: { height: 179, width: 390, x: 0, y: 0 } },
-  });
-
-  const screenStyle = StyleSheet.flatten(
-    result.getByTestId('today-screen').props.contentContainerStyle,
-  );
-  // iOS resolves the top safe area itself, so Screen reserves only the remainder
-  // of the overlay header above the content.
-  expect(screenStyle.paddingTop).toBe(179 + spacing.xl - initialMetrics.insets.top);
-  expect(screenStyle.paddingBottom).toBe(initialMetrics.insets.bottom + spacing.md);
-  expect(result.getByTestId('today-outfit-list').children).toHaveLength(
-    presentation.suggestions.length - 1,
-  );
-  expect(StyleSheet.flatten(
-    result.getByTestId('outfit-card-outfit-1-surface').props.style,
-  )).toMatchObject(lightTheme.elevation.raised);
-  expect(StyleSheet.flatten(result.getByTestId('today-header-temperature').props.style).fontSize)
-    .toBe(typography.display.fontSize);
-  expect(StyleSheet.flatten(result.getByText('Istanbul').props.style).fontSize)
-    .toBe(typography.title.fontSize);
-  expect(result.getByText('Istanbul').props.numberOfLines).toBe(1);
-  expect(result.getByRole('header', { name: 'Today. Istanbul' })).toBeOnTheScreen();
-
-  expect(result.getAllByTestId('outfit-card-outfit-1-piece')).toHaveLength(
-    presentation.suggestions[0].pieces.length,
-  );
-  expect(result.getAllByTestId('outfit-card-outfit-1-divider', {
-    includeHiddenElements: true,
-  })).toHaveLength(presentation.suggestions[0].pieces.length - 1);
-  expect(result.getByTestId('outfit-card-outfit-1-reason')).toHaveTextContent(
-    presentation.suggestions[0].reasons.join(' '),
-  );
-  expect(isHiddenFromAccessibility(
-    result.getByTestId('today-header-weather-glyph', { includeHiddenElements: true }),
-  )).toBe(true);
-
-  const optionListStyle = StyleSheet.flatten(result.getByTestId('today-outfit-list').props.style);
-  expect(optionListStyle.flexDirection).toBe('column');
-  expect(StyleSheet.flatten(
-    result.getByTestId('outfit-card-outfit-2-surface').props.style,
-  )).toMatchObject({
-    ...lightTheme.elevation.raised,
-    backgroundColor: lightTheme.colors.surface,
-    borderColor: lightTheme.colors.borderSubtle,
-  });
-
-  await fireEvent.press(result.getByTestId(`outfit-card-${presentation.suggestions[0].id}`));
-  expect(onOpenOutfitDetail).toHaveBeenCalledWith('outfit-1');
-
-  const settingsButton = result.getByTestId('today-settings-button');
-  expect(settingsButton.props.hitSlop).toBe(7);
-  expect(30 + settingsButton.props.hitSlop * 2).toBeGreaterThanOrEqual(44);
-  await fireEvent.press(settingsButton);
-  expect(onOpenSettings).toHaveBeenCalledTimes(1);
-
-  expect(result.queryByTestId('today-weather-card')).not.toBeOnTheScreen();
-  expect(result.queryByText(messages.en.weather.attributionOpenMeteo)).not.toBeOnTheScreen();
-  expect(result.queryByText(/Sunrise|Sunset/)).not.toBeOnTheScreen();
-});
-
-test('rendered outfit copy comes from localization and never from the wardrobe free-form name', async () => {
-  const english = loadedPresentation('en');
-  const turkish = loadedPresentation('tr');
-  const englishResult = await render(providers(
-    <TodayScreen
-      language="en"
-      onOpenOutfitDetail={() => undefined}
-      onOpenSettings={() => undefined}
-      onRefresh={() => undefined}
-      state={todayScreenState}
-    />,
-  ));
-
-  for (const suggestion of english.suggestions) {
-    expect(englishResult.getByText(suggestion.title)).toBeOnTheScreen();
-  }
-  const englishPrimary = within(englishResult.getByTestId('outfit-card-outfit-1'));
-  for (const { item, slot } of english.suggestions[0].pieces) {
-    expect(englishPrimary.getByText(item)).toBeOnTheScreen();
-    expect(englishPrimary.getByText(slot)).toBeOnTheScreen();
-  }
-  for (const suggestion of english.suggestions.slice(1)) {
-    const card = englishResult.getByTestId(`outfit-card-${suggestion.id}`);
-    expect(within(card).getByText(
-      messages.en.today.otherOptionPieceCount({ count: suggestion.pieces.length }),
-    )).toBeOnTheScreen();
-    expect(card.props.accessibilityLabel).toBe(suggestion.accessibilityLabel);
-  }
-  expect(englishResult.getByTestId('outfit-card-outfit-1').props.accessibilityLabel)
-    .toContain('Rain Ready');
-  expect(englishResult.getByText(messages.en.today.emphasis.recommended)).toBeOnTheScreen();
-  expect(englishResult.queryByText(todayWardrobeItems[0].name!)).not.toBeOnTheScreen();
-
-  const turkishResult = await render(providers(
-    <TodayScreen
-      language="tr"
-      onOpenOutfitDetail={() => undefined}
-      onOpenSettings={() => undefined}
-      onRefresh={() => undefined}
-      state={todayScreenState}
-    />,
-  ));
-  for (const suggestion of turkish.suggestions) {
-    expect(turkishResult.getByText(suggestion.title)).toBeOnTheScreen();
-  }
-  const turkishPrimary = within(turkishResult.getByTestId('outfit-card-outfit-1'));
-  for (const { item, slot } of turkish.suggestions[0].pieces) {
-    expect(turkishPrimary.getByText(item)).toBeOnTheScreen();
-    expect(turkishPrimary.getByText(slot)).toBeOnTheScreen();
-  }
-  for (const suggestion of turkish.suggestions.slice(1)) {
-    expect(within(turkishResult.getByTestId(`outfit-card-${suggestion.id}`)).getByText(
-      messages.tr.today.otherOptionPieceCount({ count: suggestion.pieces.length }),
-    )).toBeOnTheScreen();
-  }
-  expect(turkishResult.getByTestId('outfit-card-outfit-1').props.accessibilityLabel)
-    .toContain('Yağmura Hazır');
-  expect(turkishResult.getByRole('header', {
-    name: 'Bugün. Konum: Istanbul.',
-  })).toBeOnTheScreen();
-});
-
-describe.each(['en', 'tr'] as const)('%s Today generation mode', (language) => {
-  test.each([
-    [aiAssistedTodayScreenState, 'generationModeAiAssisted'],
-    [todayScreenState, 'generationModeStandard'],
-  ] as const)('shows the recommendation source', async (state, messageKey) => {
+describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
+  test.each([lightTheme, darkTheme])('renders the stage, one rationale, quiet provenance and two equal alternates', async (theme) => {
+    const presentation = loadedPresentation(language);
+    const primary = presentation.suggestions[0];
+    const onOpenOutfitDetail = jest.fn();
     const result = await render(providers(
-      <TodayScreen
-        language={language}
-        onOpenOutfitDetail={() => undefined}
-        onOpenSettings={() => undefined}
-        onRefresh={() => undefined}
-        state={state}
-      />,
+      <TodayScreen language={language} onOpenOutfitDetail={onOpenOutfitDetail}
+        onRefresh={jest.fn()} state={todayScreenState} />,
+      theme, language,
     ));
-
-    expect(result.getByTestId('today-generation-mode')).toHaveTextContent(
-      messages[language].today[messageKey],
-    );
+    await fireEvent(result.getByTestId('today-content'), 'layout', {
+      nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
+    });
+    const hidden = { includeHiddenElements: true };
+    expect(StyleSheet.flatten(result.getByTestId('today-stage', hidden).props.style))
+      .toMatchObject({ backgroundColor: theme.colors.stage, borderRadius: 26, width: 358 });
+    expect(result.getByTestId('today-primary-board', hidden)).toBeOnTheScreen();
+    expect(result.getByTestId('today-archetype', hidden)).toHaveTextContent(primary.title);
+    expect(StyleSheet.flatten(result.getByTestId('today-archetype', hidden).props.style))
+      .toMatchObject(typography.title);
+    expect(result.getByTestId('today-rationale')).toHaveTextContent(primary.reasons[0]);
+    for (const reason of primary.reasons.slice(1)) {
+      expect(result.queryByText(reason)).not.toBeOnTheScreen();
+    }
+    expect(result.getByTestId('today-provenance')).toHaveTextContent(presentation.header.freshness);
+    expect(result.queryByTestId('today-generation-mode')).not.toBeOnTheScreen();
+    expect(result.queryByText(messages[language].today.generationModeStandard)).not.toBeOnTheScreen();
+    expect(result.queryByText(messages[language].today.emphasis.recommended)).not.toBeOnTheScreen();
+    const place = result.getByText('Istanbul');
+    expect(place.props.numberOfLines).toBe(1);
+    expect(StyleSheet.flatten(place.props.style)).toMatchObject({
+      ...typography.caption, color: theme.colors.textSecondary,
+    });
+    const temperature = result.getByTestId('today-header-temperature', hidden);
+    expect(StyleSheet.flatten(temperature.props.style)).toMatchObject({
+      ...typography.title, fontVariant: ['tabular-nums'], color: theme.colors.textPrimary,
+    });
+    expect(StyleSheet.flatten(result.getByTestId('today-condition', hidden).props.style))
+      .toMatchObject({ ...typography.caption, color: theme.colors.textPrimary, opacity: 0.76 });
+    expect(isHiddenFromAccessibility(result.getByTestId('today-sky', hidden))).toBe(true);
+    expect(StyleSheet.flatten(result.getByTestId('today-outfit-list').props.style))
+      .toMatchObject({ flexDirection: 'row', gap: spacing.lg });
+    expect(result.getByTestId('today-outfit-list').children).toHaveLength(2);
+    expect(result.getByRole('header', { name: messages[language].today.otherOptionsHeading }))
+      .toHaveStyle({ ...typography.bodyStrong });
+    expect(result.getByTestId('today-alternates-heading')).toHaveStyle({ borderBottomColor: theme.colors.borderSubtle });
+    expect(result.getAllByRole('button')).toHaveLength(3);
+    const button = result.getByRole('button', { name: presentation.stageAccessibilityLabel });
+    expect(button).toBeOnTheScreen();
+    await fireEvent.press(result.getByTestId('today-stage', hidden));
+    await fireEvent.press(result.getByTestId('today-archetype', hidden));
+    expect(onOpenOutfitDetail.mock.calls).toEqual([['outfit-1'], ['outfit-1']]);
+    for (const suggestion of presentation.suggestions.slice(1)) {
+      const alternate = result.getByTestId(`today-alternate-${suggestion.id}`);
+      expect(alternate.props.accessibilityLabel).toBe(suggestion.boardAccessibilityLabel);
+      expect(within(alternate).getByText(suggestion.title)).toHaveProp('numberOfLines', 1);
+      expect(result.getByTestId(`today-alternate-board-${suggestion.id}`, hidden)).toBeOnTheScreen();
+      await fireEvent.press(alternate);
+      expect(onOpenOutfitDetail).toHaveBeenLastCalledWith(suggestion.id);
+    }
+    for (const { item, slot } of primary.pieces) {
+      expect(result.queryByText(item)).not.toBeOnTheScreen();
+      expect(result.queryByText(slot)).not.toBeOnTheScreen();
+    }
+    expect(result.queryByText(todayWardrobeItems[0].name!)).not.toBeOnTheScreen();
+    expect(result.queryByTestId('today-stretchy-header')).not.toBeOnTheScreen();
+    expect(result.queryByTestId('today-settings-button')).not.toBeOnTheScreen();
+    expect(result.queryByTestId('today-refresh-button')).not.toBeOnTheScreen();
+    expect(result.getByTestId('today-screen').props.contentInsetAdjustmentBehavior).toBe('automatic');
+    const screenStyle = StyleSheet.flatten(result.getByTestId('today-screen').props.contentContainerStyle);
+    expect(screenStyle.paddingTop).toBe(0);
+    expect(screenStyle.paddingBottom).toBe(initialMetrics.insets.bottom + spacing.md);
   });
+
+  test('shows AI provenance beside freshness only when AI contributed', async () => {
+    const result = await render(providers(
+      <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
+        onRefresh={jest.fn()} state={aiAssistedTodayScreenState} />,
+      lightTheme, language,
+    ));
+    const provenance = within(result.getByTestId('today-provenance'));
+    expect(provenance.getByTestId('today-generation-mode')).toHaveTextContent(messages[language].today.generationModeAiAssisted);
+    expect(provenance.getByTestId('today-freshness')).toHaveTextContent(loadedPresentation(language).header.freshness);
+    expect(result.getByTestId('today-provenance-sparkle', { includeHiddenElements: true })).toBeOnTheScreen();
+  });
+});
+
+test.each([1.5, 1.6, 3])('font scale %s keeps weather clear of garments and stacks alternates above 1.5', async (fontScale) => {
+  Dimensions.set({ window: { ...originalDimensions, width: 390, fontScale } });
+  const result = await render(providers(
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
+  ));
+  const hidden = { includeHiddenElements: true };
+  const stage = result.getByTestId('today-stage', hidden);
+  const stacked = fontScale > 1.5;
+  expect(within(stage).queryByTestId('today-sky', hidden) !== null).toBe(!stacked);
+  expect(result.getByTestId('today-sky', hidden)).toBeOnTheScreen();
+  expect(StyleSheet.flatten(result.getByTestId('today-outfit-list').props.style).flexDirection)
+    .toBe(stacked ? 'column' : 'row');
+  if (stacked) {
+    expect(StyleSheet.flatten(result.getByTestId('today-outfit-list').props.style).gap).toBe(spacing.md);
+  }
 });
 
 test('outfit detail lists localized weather reasons alongside localized pieces', async () => {
@@ -351,7 +302,7 @@ test('Today keeps outfit ownership state and actions hidden', async () => {
       <TodayScreen
         language="en"
         onOpenOutfitDetail={() => undefined}
-        onOpenSettings={() => undefined}
+
         onRefresh={() => undefined}
         state={todayScreenState}
       />
@@ -394,13 +345,14 @@ test('an unavailable recommendation keeps header and weather while replacing sug
     <TodayScreen
       language="en"
       onOpenOutfitDetail={() => undefined}
-      onOpenSettings={() => undefined}
+
       onRefresh={() => undefined}
       state={state}
     />,
   ));
 
-  expect(result.getByTestId('today-stretchy-header')).toBeOnTheScreen();
+  expect(result.getByText('Istanbul')).toBeOnTheScreen();
+  expect(result.getByTestId('today-header-temperature', { includeHiddenElements: true })).toBeOnTheScreen();
   expect(result.queryByTestId('today-weather-card')).not.toBeOnTheScreen();
   expect(result.getByRole('alert', {
     name: `${messages.en.today.noOutfitTitle}. ${messages.en.today.noOutfitBody}`,
@@ -413,7 +365,7 @@ test('loading Today keeps its existing feedback layout without the loaded header
     <TodayScreen
       language="en"
       onOpenOutfitDetail={() => undefined}
-      onOpenSettings={() => undefined}
+
       onRefresh={() => undefined}
       state={{ kind: 'loading' }}
     />,
@@ -429,7 +381,7 @@ test('Today explains a missing active location and opens the existing location p
     <TodayScreen
       language="en"
       onOpenOutfitDetail={() => undefined}
-      onOpenSettings={() => undefined}
+
       onRefresh={() => undefined}
       state={{ kind: 'unavailable' }}
     />,
@@ -452,7 +404,7 @@ test('Today keeps the generic unavailable copy for failures with an active locat
     <TodayScreen
       language="en"
       onOpenOutfitDetail={() => undefined}
-      onOpenSettings={() => undefined}
+
       onRefresh={() => undefined}
       state={{ kind: 'unavailable' }}
     />,
@@ -476,7 +428,7 @@ test('every Today state carries the stable today-screen container id', async () 
       <TodayScreen
         language="en"
         onOpenOutfitDetail={() => undefined}
-        onOpenSettings={() => undefined}
+
         onRefresh={() => undefined}
         state={state}
       />,
@@ -493,7 +445,7 @@ describe.each(['en', 'tr'] as const)('%s Today section headings', (language: Sup
       <TodayScreen
         language={language}
         onOpenOutfitDetail={() => undefined}
-        onOpenSettings={() => undefined}
+
         onRefresh={() => undefined}
         state={todayScreenState}
       />,
@@ -501,13 +453,12 @@ describe.each(['en', 'tr'] as const)('%s Today section headings', (language: Sup
       language,
     ));
 
-    for (const heading of [
-      messages[language].today.recommendedTodayHeading,
-      messages[language].today.otherOptionsHeading,
-    ]) {
+    // The mockup's Today has one section heading, over the alternates; the primary
+    // outfit is introduced by the stage itself, not by a "Recommended today" header.
+    for (const heading of [messages[language].today.otherOptionsHeading]) {
       const element = result.getByRole('header', { name: heading });
       expect(StyleSheet.flatten(element.props.style)).toMatchObject({
-        color: lightTheme.colors.textPrimary,
+        color: lightTheme.colors.textSecondary,
         fontSize: typography.bodyStrong.fontSize,
         fontWeight: typography.bodyStrong.fontWeight,
       });
@@ -515,44 +466,40 @@ describe.each(['en', 'tr'] as const)('%s Today section headings', (language: Sup
   });
 });
 
-test('loaded Today offers both a pull-to-refresh gesture and a visible refresh control', async () => {
+test('pull-to-refresh invokes refresh with haptic feedback and preserves Screen inset ownership', async () => {
   const onRefresh = jest.fn();
+  const impact = jest.spyOn(haptics, 'impactLight').mockImplementation(() => undefined);
   const result = await render(providers(
-    <TodayScreen
-      language="en"
-      onOpenOutfitDetail={jest.fn()}
-      onOpenSettings={jest.fn()}
-      onRefresh={onRefresh}
-      state={todayScreenState}
-    />,
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={onRefresh} state={todayScreenState} />,
   ));
-
-  const button = result.getByTestId('today-refresh-button');
-  expect(button.props.accessibilityLabel).toBe('Refresh weather');
-  fireEvent.press(button);
-  expect(onRefresh).toHaveBeenCalledTimes(1);
-
   const refreshControl = result.getByTestId('today-screen').props.refreshControl;
-  expect(refreshControl).toBeTruthy();
   expect(refreshControl.props.refreshing).toBe(false);
-  expect(refreshControl.props.progressViewOffset).toBeGreaterThan(0);
-
+  expect(refreshControl.props.progressViewOffset).toBeUndefined();
   refreshControl.props.onRefresh();
-  expect(onRefresh).toHaveBeenCalledTimes(2);
+  expect(onRefresh).toHaveBeenCalledTimes(1);
+  expect(impact).toHaveBeenCalledTimes(1);
+  impact.mockRestore();
 });
 
-test('a Today refresh in flight announces itself and shows the spinner', async () => {
-  const result = await render(providers(
-    <TodayScreen
-      language="en"
-      onOpenOutfitDetail={jest.fn()}
-      onOpenSettings={jest.fn()}
-      onRefresh={jest.fn()}
-      state={{ ...todayScreenState, isRefreshing: true }}
-    />,
-  ));
-
-  const line = result.getByText('Refreshing weather…');
-  expect(line.props.accessibilityLiveRegion).toBe('polite');
+test('refreshing, failure and staleness announce freshness while retaining the last valid outfit', async () => {
+  const onOpenOutfitDetail = jest.fn();
+  const screen = (isRefreshing: boolean, refreshFailed: boolean, stale = false) => providers(
+    <TodayScreen language="en" onOpenOutfitDetail={onOpenOutfitDetail} onRefresh={jest.fn()}
+      state={{ ...todayScreenState, isRefreshing, refreshFailed,
+        snapshot: { ...todayScreenState.snapshot, freshness: stale ? 'stale' : 'fresh' } }} />,
+  );
+  const result = await render(screen(true, false));
+  expect(result.getByTestId('today-freshness')).toHaveTextContent('Refreshing weather…');
+  expect(result.getByTestId('today-freshness')).toHaveProp('accessibilityLiveRegion', 'polite');
   expect(result.getByTestId('today-screen').props.refreshControl.props.refreshing).toBe(true);
+  await result.rerender(screen(false, true));
+  expect(result.getByTestId('today-freshness')).toHaveTextContent(/Couldn't refresh/);
+  expect(result.getByTestId('today-freshness')).toHaveProp('accessibilityLiveRegion', 'polite');
+  expect(result.getByTestId('today-archetype')).toHaveTextContent('Rain Ready');
+  await fireEvent.press(result.getByTestId('today-archetype'));
+  expect(onOpenOutfitDetail).toHaveBeenCalledWith('outfit-1');
+  await result.rerender(screen(false, false, true));
+  expect(result.getByTestId('today-freshness')).toHaveProp('accessibilityLiveRegion', 'polite');
+  await result.rerender(screen(false, false));
+  expect(result.getByTestId('today-freshness')).toHaveProp('accessibilityLiveRegion', 'none');
 });
