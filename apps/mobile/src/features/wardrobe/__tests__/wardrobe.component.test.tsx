@@ -224,9 +224,10 @@ test('create and edit forms leave the top safe area to the platform instead of a
   const editContentStyle = StyleSheet.flatten(editForm.props.contentContainerStyle);
   expect(editForm.props.contentInsetAdjustmentBehavior).toBe('automatic');
   expect(editContentStyle.paddingTop).toBe(0);
+  // iOS leaves the bottom safe area and the tab bar to the automatic content inset.
   expect([createContentStyle.paddingBottom, editContentStyle.paddingBottom]).toEqual([
-    initialMetrics.insets.bottom + spacing.md,
-    initialMetrics.insets.bottom + spacing.md,
+    spacing.md,
+    spacing.md,
   ]);
 });
 
@@ -297,7 +298,7 @@ test('garment type picker groups preference-filtered options with accessible rad
     StyleSheet.flatten(
       result.getByTestId('wardrobe-garment-type-picker').props.contentContainerStyle,
     ).paddingBottom,
-  ).toBe(initialMetrics.insets.bottom + spacing.md);
+  ).toBe(spacing.md);
   await fireEvent.press(result.getByRole('radio', { name: 'T-shirt' }));
   expect(onSelect).toHaveBeenCalledWith('t_shirt');
 });
