@@ -307,7 +307,7 @@ Rate limiting also covers `POST /v1/ai/recommend` (per-IP, 10/60s). Both endpoin
 
 ## Intended future boundaries
 
-Nothing in this section is implemented. It records where two approved directions will attach so that current work does not foreclose them, and so that no agent builds them early. Both are explicitly forbidden to implement without an approved task: see [ADR 0022](adr/0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md) and [ADR 0023](adr/0023-behavioural-product-analytics-with-posthog.md).
+The Supabase direction below is not implemented. The analytics boundary's first phase landed on 2026-09-09 (see that section); its PostHog adapter, consent surface and call sites are still ahead. Both directions remain forbidden to extend without an approved task: see [ADR 0022](adr/0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md) and [ADR 0023](adr/0023-behavioural-product-analytics-with-posthog.md).
 
 ### Supabase, when accounts arrive
 
@@ -343,7 +343,9 @@ ProductAnalytics boundary        ← event taxonomy and the privacy filter live 
 PostHog adapter
 ```
 
-Feature code emits named domain events; the boundary owns the taxonomy, enforces the payload exclusion list, and is the single place a provider swap would touch. It is an outbound path with its own closed exclusion list, parallel to and independent of the [AI input privacy boundary](product-decisions.md#approved-ai-input-privacy-boundary) and the Worker logging rules, and it weakens neither.
+Feature code emits named domain events; the boundary owns the taxonomy, enforces the payload exclusion list, and is the single place a provider swap would touch.
+
+**Phase 1 landed 2026-09-09** under `apps/mobile/src/features/analytics/`. `domain/analytics-events.ts` is [the approved taxonomy](analytics-taxonomy.md) as types: twenty-three events with closed property unions and `schema_version`, plus `domain/analytics-mappers.ts`, the one place domain values become analytics values (`FailureCategory`, generation mode, refresh trigger, condition code), each mapper total so an unmapped domain value fails to compile. `domain/product-analytics.ts` is the port (`capture`, `optIn`, `withdraw`, `flush`); `application/error-episode-tracker.ts` and `retry-counter.ts` implement the taxonomy's per-session `error_shown` / `error_recovered` rule and the `attempt_number` cap as pure, tested logic; `application/product-analytics-provider.tsx` mounts the boundary as the outermost provider of the app shell and flushes buffered failures before the SDK on the background transition; `data/` holds a no-op adapter (the default until the SDK phase) and a recording test double. No feature calls the hook yet, and `rg posthog apps/mobile/src` is empty. The prerequisite the taxonomy names, a shared failure classification, is `apps/mobile/src/domain/failure-category.ts` (`offline`, `unavailable`, `rate-limited`, `unknown`); weather, recommendation and the Closet now carry a `FailureCategory` in application state instead of a private union or a boolean, and Today's unavailable state carries it through. It is an outbound path with its own closed exclusion list, parallel to and independent of the [AI input privacy boundary](product-decisions.md#approved-ai-input-privacy-boundary) and the Worker logging rules, and it weakens neither.
 
 ## Current end-to-end data flow
 
