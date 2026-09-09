@@ -133,6 +133,34 @@ test('the Closet heading shows the owned count and opens the closet with no filt
   expect(onOpenWardrobe).toHaveBeenCalledWith();
 });
 
+test.each([
+  [1, 'row', false],
+  [3.12, 'column', true],
+] as const)(
+  'the Closet heading at fontScale %s uses a %s layout without changing its accessible control',
+  async (fontScale, flexDirection, stacked) => {
+    mockFontScale(fontScale);
+    const result = await render(
+      <TestProviders items={[baseItem]}>
+        <ProfileScreen
+          activePlaceName={null}
+          onOpenWardrobe={() => undefined}
+          onOpenWeather={() => undefined}
+        />
+      </TestProviders>,
+    );
+
+    const heading = result.getByTestId('profile-closet-heading');
+    expect(StyleSheet.flatten(heading.props.style)).toMatchObject({ flexDirection });
+    expect(Boolean(result.queryByTestId('profile-closet-heading-title-row'))).toBe(stacked);
+    expect(heading.props.accessibilityLabel).toBe(
+      messages.en.profile.closetHeadingAccessibilityLabel({ count: 1 }),
+    );
+    expect(heading.props.accessibilityHint).toBe(messages.en.profile.closetHeadingHint);
+    expect(result.getByTestId('profile-closet-heading-count')).toHaveTextContent('1');
+  },
+);
+
 test('the rail renders the newest owned pieces first, each as one accessible item with a position and total', async () => {
   mockFontScale(1);
   const older = itemWithId('218f0f4d-1d45-4ae7-a8f1-796e8297d3b4', {
