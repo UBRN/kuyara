@@ -499,7 +499,7 @@ the information architecture the redesign settles, so writing it against screens
 about to change would be wasted work. The order below reflects that, not a schedule; no
 dates are assigned.
 
-8. ~~**Analytics design and event taxonomy.**~~ **Drafted and revised, 2026-09-09**, as [`docs/analytics-taxonomy.md`](analytics-taxonomy.md); see Recently Completed. Independently reviewed twice the same day (Opus, then Codex after the first revision) and revised after each; the maintainer then decided the three open questions the reviews surfaced (2026-09-09): `dress_style` and `age_bucket` stay and the install identifier is declared "linked to the user", with ADR 0033 amended; the consent surface is a first-launch sheet, one tap to accept and one equally prominent tap to decline, onboarding stays five steps; and the Closet `name` / `color_family` edit flags are kept. One question remains open (identity linking when accounts arrive). Twenty-three custom events. Awaiting the maintainer's final approval of the document as a whole. The event and property schema, reviewed as
+8. ~~**Analytics design and event taxonomy.**~~ **Drafted and revised, 2026-09-09**, as [`docs/analytics-taxonomy.md`](analytics-taxonomy.md); see Recently Completed. Independently reviewed twice the same day (Opus, then Codex after the first revision) and revised after each; the maintainer then decided the three open questions the reviews surfaced (2026-09-09): `dress_style` and `age_bucket` stay and the install identifier is declared "linked to the user", with ADR 0033 amended; the consent surface is a first-launch sheet, one tap to accept and one equally prominent tap to decline, onboarding stays five steps; and the Closet `name` / `color_family` edit flags are kept. One question remains open (identity linking when accounts arrive). Twenty-three custom events. **Approved by the maintainer on 2026-09-09 as the schema milestone 10 implements.** The event and property schema, reviewed as
    its own artifact before any integration. Covers the areas ADR 0023 enumerates, keeps
    properties structured, language-independent and low-cardinality, and encodes the
    payload exclusion list. Includes deciding whether an anonymous analytics identity is
@@ -513,8 +513,13 @@ dates are assigned.
    mechanism must exist, which the product would prefer to avoid but does not get to
    decide. Blocks item 10.
 
-10. **PostHog product analytics integration.** The `ProductAnalytics` boundary, one
-    PostHog adapter behind it, and the taxonomy's call sites. No SDK calls in features.
+10. **PostHog product analytics integration.** Approved to start 2026-09-09, in three
+    phases, each its own commit: phase 1, the shared domain failure classification the
+    taxonomy names as a prerequisite (section 5.10) and the `ProductAnalytics` boundary with
+    a no-op adapter, no SDK; phase 2, the PostHog SDK behind one adapter (Expo SDK 57
+    compatibility checked before install), `defaultOptIn: false`, the first-launch consent
+    sheet and the Settings Privacy surface with withdrawal per ADR 0033; phase 3, the
+    taxonomy's call sites. No SDK calls in features.
 
 11. **App Store privacy disclosure and privacy policy.** Update the privacy policy URL
     and the App Store Connect data-collection questionnaire to describe analytics
