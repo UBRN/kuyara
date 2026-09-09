@@ -1,5 +1,6 @@
 import { render, waitFor } from '@testing-library/react-native';
 
+import type { FailureCategory } from '@/domain/failure-category';
 import { NotificationApplicationContext, type NotificationApplicationValue } from '@/features/notifications/application/notification-context';
 import { WeatherAlertObserver } from '@/features/notifications/application/weather-alert-observer';
 import { WeatherAlertScheduler, type WeatherAlertScheduling } from '@/features/notifications/application/weather-alert-scheduler';
@@ -8,7 +9,6 @@ import type { WeatherAlertDeliveryRepository } from '@/features/notifications/da
 import { ProfileApplicationContext, type ProfileApplicationValue } from '@/features/profile/application/profile-context';
 import type { LocalProfile } from '@/features/profile/domain/profile';
 import { WeatherApplicationContext, type WeatherApplicationValue } from '@/features/weather/application/weather-application-context';
-import type { WeatherRefreshFailure } from '@/features/weather/application/weather-application-controller';
 import type { WeatherFreshness, WeatherSnapshot } from '@/features/weather/domain/weather';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
@@ -80,7 +80,7 @@ function profileApplication(notificationsOptIn: boolean): ProfileApplicationValu
 function weatherApplication(
   weatherSnapshot: WeatherSnapshot,
   freshness: WeatherFreshness,
-  refreshFailure: WeatherRefreshFailure | null,
+  refreshFailure: FailureCategory | null,
 ): WeatherApplicationValue {
   return {
     state: {
@@ -125,7 +125,7 @@ function Providers({
   permission?: NotificationPermissionState;
   language?: SupportedLanguage;
   freshness?: WeatherFreshness;
-  refreshFailure?: WeatherRefreshFailure | null;
+  refreshFailure?: FailureCategory | null;
 }>) {
   return (
     <ProfileApplicationContext.Provider value={profileApplication(notificationsOptIn)}>

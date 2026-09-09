@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
-import type { TodayScreenState } from '@/features/today/model';
+import { unavailableTodayState, type TodayScreenState } from '@/features/today/model';
 import { OutfitDetailScreen } from '@/features/today/presentation/outfit-detail-screen';
 import { useWardrobeApplication } from '@/features/wardrobe/application/wardrobe-application-context';
 import { resolveGarmentOwnership } from '@/features/wardrobe/domain/garment-type-ownership';
@@ -51,10 +51,14 @@ export default function OutfitDetailRoute() {
   } else if (
     weatherState.status === 'error' ||
     weatherState.snapshot === null ||
-    weatherState.activeLocation === null ||
-    recommendation === null
+    weatherState.activeLocation === null
   ) {
-    state = { kind: 'unavailable' };
+    // Same classification rule as the Today route; the detail surface renders neither.
+    state = unavailableTodayState(
+      weatherState.status === 'ready' ? weatherState.refreshFailure : null,
+    );
+  } else if (recommendation === null) {
+    state = unavailableTodayState(recommendationState.lastFailure);
   } else {
     state = {
       kind: 'loaded',
