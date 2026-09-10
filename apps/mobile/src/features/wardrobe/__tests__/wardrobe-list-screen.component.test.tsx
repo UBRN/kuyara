@@ -365,7 +365,10 @@ test('grid geometry follows the window width and reproduces ADR 0029 at the 393 
   expect(narrow.geometry.width * 2 + 12).toBe(343);
 });
 
-test('the grid mixes coloured silhouettes, accessory glyphs and legacy glyphs', async () => {
+// ADR 0025's 2026-09-10 amendment gave the five accessories their own silhouettes, so an
+// accessory draws like any typed garment; only a legacy entry without a type falls back
+// to the category placeholder.
+test('the grid draws coloured silhouettes for typed garments and accessories, and a glyph for legacy entries', async () => {
   const accessory = { ...ownedItem, id: 'accessory', garmentTypeId: 'beanie' as const, category: 'accessory' as const };
   const result = await render(
     <TestProviders>
@@ -374,11 +377,12 @@ test('the grid mixes coloured silhouettes, accessory glyphs and legacy glyphs', 
     </TestProviders>,
   );
   const hidden = { includeHiddenElements: true };
-  expect(result.getByTestId(`wardrobe-silhouette-${ownedItem.id}`, hidden)).toBeOnTheScreen();
-  for (const item of [accessory, legacyItem]) {
-    expect(result.getByTestId(`wardrobe-photo-placeholder-${item.id}`, hidden)).toBeOnTheScreen();
-    expect(result.queryByTestId(`wardrobe-silhouette-${item.id}`, hidden)).toBeNull();
+  for (const item of [ownedItem, accessory]) {
+    expect(result.getByTestId(`wardrobe-silhouette-${item.id}`, hidden)).toBeOnTheScreen();
+    expect(result.queryByTestId(`wardrobe-photo-placeholder-${item.id}`, hidden)).toBeNull();
   }
+  expect(result.getByTestId(`wardrobe-photo-placeholder-${legacyItem.id}`, hidden)).toBeOnTheScreen();
+  expect(result.queryByTestId(`wardrobe-silhouette-${legacyItem.id}`, hidden)).toBeNull();
 });
 
 // Milestone 10 phase 3: the route (`wardrobe-list-route.tsx`) tells the pull gesture
