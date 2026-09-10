@@ -2,7 +2,7 @@
 
 Status: Accepted (2026-09-04)
 
-Implementation: decisions 1 to 6 implemented (2026-09-09); decision 7 remains open.
+Implementation: decisions 1 to 7 implemented (decision 7 on 2026-09-10).
 
 Builds on: [ADR 0025](0025-the-garment-board-composition-rule.md), whose composition rule
 this surface reuses unchanged.
@@ -144,6 +144,15 @@ language's Law 7 rather than a duration, and item 2's "over the same interval" i
 an effects fade on a duration token that ends no later than the pieces settle. Feature code
 authors no spring parameters; design goal 7 measures the role on the Simulator under
 Reduced Motion.
+
+Implementation note, 2026-09-10: the push remains the platform's. Garment travel is an
+in-screen re-layout from the Today preset to the detail preset, not a shared-element
+transition, on the spatial role `theme.springs.spatial`. Each piece travels as a plain
+view with a native transform, because Reanimated cannot drive react-native-svg's
+`transform` or `fill` on the new architecture; the fill fades by draining a tinted copy
+of the artwork over the resting one. Verified frame by frame on the Simulator with
+Reduce Motion off (tint drains during the push, pieces settle, captions follow) and on
+(static end state from the first frame).
 
 ## Consequences
 

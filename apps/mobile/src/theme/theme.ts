@@ -259,6 +259,13 @@ export const standardMotion = Object.freeze({
 
 export type MotionTokens = Readonly<Record<keyof typeof standardMotion, number>>;
 
+export type SpringRole = Readonly<{ duration: number; dampingRatio: number }>;
+
+export const spatialSpring = Object.freeze({
+  duration: 550,
+  dampingRatio: 0.825,
+} as const satisfies SpringRole);
+
 export const reducedMotion = Object.freeze({
   immediate: 0,
   fast: 0,
@@ -283,6 +290,7 @@ export type KuyaraTheme = Readonly<{
   interaction: typeof interaction;
   elevation: ElevationTokens;
   motion: MotionTokens;
+  springs: Readonly<{ spatial: SpringRole }>;
 }>;
 
 const sharedFoundation = {
@@ -292,6 +300,7 @@ const sharedFoundation = {
   borderWidths,
   layout,
   interaction,
+  springs: Object.freeze({ spatial: spatialSpring }),
 } as const;
 
 export const lightTheme = Object.freeze({
