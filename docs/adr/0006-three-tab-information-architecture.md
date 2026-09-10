@@ -36,8 +36,9 @@ untouched; only the word changes. The internal domain name, the SQLite tables, t
 segment and the repository types remain `wardrobe` until a separate rename, so the label
 change is a localization and documentation change rather than a refactor.
 
-Implementation of that label change: not started. The English strings in
-`apps/mobile/src/localization/messages.ts` still read "Wardrobe".
+Implementation of that label change: complete (2026-09-07). Every user-visible English
+string in `apps/mobile/src/localization/messages.ts` says "Closet"; keys, tables, routes
+and test ids keep `wardrobe`.
 
 Clothing preference is the only user input that shapes recommendations. It
 remains a prominent, required onboarding step. In Settings it is the last

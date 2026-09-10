@@ -2,8 +2,13 @@
 
 Status: Accepted (2026-09-03)
 
-Implementation: not started. This records an approved design direction produced by a
-throwaway HTML spike. No production code, contract, or route was changed to reach it.
+Implementation: landed across 2026-09-07 to 2026-09-09. Today's garment board and the
+Direction E tokens (ADR 0025, 2026-09-08), the recommendation detail surface (ADR 0026,
+2026-09-09), the shell fixes (ADR 0027) and Profile, the Closet and Settings (ADR 0028
+to 0030, 2026-09-07) are shipped. Still open: section 9's horizontal hourly rail on
+Weather, the per-condition stage tint (ADR 0018's amended values) and the entry motion
+(ADR 0026 decision 7). This ADR itself records a direction produced by a throwaway HTML
+spike; no production code, contract, or route was changed to reach it.
 
 Amends: [`visual-identity.md`](../design/visual-identity.md)'s prohibition on literal
 clothing illustration, and its palette allocation guidance.

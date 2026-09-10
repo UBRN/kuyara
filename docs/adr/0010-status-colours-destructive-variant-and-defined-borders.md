@@ -2,8 +2,9 @@
 
 Status: Accepted (2026-09-02)
 
-Implementation: Planned for the follow-up milestone. This ADR changes no app
-code.
+Implementation: landed 2026-09-02 (the seven colour roles, `borderDefined` and the
+`destructive` button variant in `theme.ts` and `components/ui`). This ADR itself changed
+no app code.
 
 ## Context
 

@@ -2,9 +2,16 @@
 
 Status: Accepted (2026-09-04)
 
-Implementation: not started. No SDK is installed, no event is emitted, and no consent
-surface exists. This ADR records the decision, its privacy boundary, and the compliance
-question that must be answered before any of it is built.
+Implementation: in progress. The `ProductAnalytics` boundary, the typed event catalog
+([`analytics-taxonomy.md`](../analytics-taxonomy.md)) and the trackers landed on
+2026-09-09 with a no-op adapter; the PostHog adapter, consent surface and call sites
+follow. This ADR records the decision, its privacy boundary, and the compliance question
+that must be answered before any of it is built.
+
+Amended by [ADR 0033](0033-apple-privacy-obligations-for-first-party-analytics.md)
+(2026-09-09): the product preference in section 7 against a permanent withdrawal
+control is withdrawn, because App Store Review Guideline 5.1.1 requires consent before
+collection and an in-app way to withdraw it.
 
 Revokes: the MVP rule "no behavioral analytics" in `AGENTS.md` and in
 [`product-decisions.md`](../product-decisions.md)'s confirmed MVP decisions.

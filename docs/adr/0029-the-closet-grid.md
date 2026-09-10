@@ -2,8 +2,11 @@
 
 Status: Accepted (2026-09-07)
 
-Implementation: not started. This records an approved design produced by the 2026-09-04
-design session and corrected on 2026-09-07 against the list-row reference. No production
+Implementation: landed 2026-09-07 (the grid, filter and chips) and 2026-09-09 (section
+5's silhouette rung and colour-family fill); the segmented control's iOS tint is still
+Android-only because the installed `@expo/ui` control ignores `tintColor` on iOS. This
+records an approved design produced by the 2026-09-04 design session and corrected on
+2026-09-07 against the list-row reference. No production
 code, contract, schema or route was changed to reach it. The rendered target sheet, in
 English and Turkish, both appearances, three tile states, four screen states and three
 text sizes, is kept outside the repository; its "target, in numbers" table is the

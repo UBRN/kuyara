@@ -2,10 +2,11 @@
 
 Status: Accepted (2026-09-03)
 
-Implementation: not started. It lands with the redesign's implementation work; the
-phase numbering this ADR originally used was superseded by the goal list in
-[`current-status.md`](../current-status.md). The mount check has run, and its result is
-recorded there and below.
+Implementation: landed with the redesign's implementation work (the native Settings
+lists on 2026-09-07, the Closet's segmented control, the native date picker and text
+field on 2026-09-08). `components/ui` remains the only importer. The phase numbering
+this ADR originally used was superseded by the redesign's goal list. The mount check has
+run, and its result is recorded below.
 
 Resolves: the "generic text-input, selector, switch, modal, or feedback frameworks"
 entry on [`design-system.md`](../design/design-system.md)'s deferred list.
