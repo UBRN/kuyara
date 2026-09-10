@@ -1,6 +1,7 @@
 import { Stack, useRouter } from 'expo-router';
 
 import { Icon, IconButton } from '@/components/ui';
+import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
 import { ProfileScreen } from '@/features/profile/presentation/profile-screen';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { useMessages } from '@/localization/use-messages';
@@ -8,6 +9,7 @@ import { useMessages } from '@/localization/use-messages';
 export default function ProfileRoute() {
   const messages = useMessages();
   const router = useRouter();
+  useScreenViewed('profile');
   const { state } = useWeatherApplication();
   const activeLocation = state.status === 'ready' ? state.activeLocation : null;
   const activePlaceName = activeLocation

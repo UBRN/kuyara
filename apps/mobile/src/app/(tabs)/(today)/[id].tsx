@@ -1,6 +1,16 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback } from 'react';
 
+import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
+import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
+import { ANALYTICS_SCHEMA_VERSION } from '@/features/analytics/domain/analytics-events';
+import {
+  ageBucketProperty,
+  dressStyleProperty,
+  generationModeProperty,
+} from '@/features/analytics/domain/analytics-mappers';
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
+import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
 import { unavailableTodayState, type TodayScreenState } from '@/features/today/model';
 import { OutfitDetailScreen } from '@/features/today/presentation/outfit-detail-screen';
@@ -10,6 +20,14 @@ import { useWeatherApplication } from '@/features/weather/application/weather-ap
 import { weatherFreshness } from '@/features/weather/domain/weather';
 import { useLocalization } from '@/localization/use-messages';
 
+// The presentation layer mints this id itself, `outfit-${1-based index}`
+// (`features/today/presentation/today-presentation.ts`); it is not a domain identifier, so
+// the position for `outfit_detail_opened` is read straight back out of it.
+function outfitPositionFromSuggestionId(suggestionId: string | undefined): 1 | 2 | 3 | null {
+  const match = suggestionId?.match(/^outfit-([1-3])$/);
+  return match ? (Number(match[1]) as 1 | 2 | 3) : null;
+}
+
 export default function OutfitDetailRoute() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const { language, messages } = useLocalization();
@@ -17,6 +35,9 @@ export default function OutfitDetailRoute() {
   const { state: recommendationState } = useRecommendationApplication();
   const wardrobe = useWardrobeApplication();
   const { state: weatherState } = useWeatherApplication();
+  const { state: profileState } = useProfileApplication();
+  const { analytics, firstUses } = useProductAnalytics();
+  useScreenViewed('outfit_detail');
   const suggestionId = Array.isArray(id) ? id[0] : id;
   const recommendation = recommendationState.status === 'ready'
     ? recommendationState.snapshot?.recommendation ?? null
@@ -31,6 +52,33 @@ export default function OutfitDetailRoute() {
         ),
       )
     : {};
+
+  const dressStyle = dressStyleProperty(
+    profileState.status === 'ready' ? profileState.profile.dressStyle : null,
+  );
+  const ageBucket = ageBucketProperty(
+    profileState.status === 'ready' ? profileState.profile.birthDate : null,
+  );
+
+  // Taxonomy 5.6: fires on every focus, including a back-navigation return, which is the
+  // documented tradeoff of a generic focus hook (taxonomy section 6).
+  useFocusEffect(
+    useCallback(() => {
+      const position = outfitPositionFromSuggestionId(suggestionId);
+      if (position === null || !recommendation || recommendation.status !== 'recommended') return;
+      const outfit = recommendation.outfits[position - 1];
+      if (!outfit) return;
+      analytics.capture('outfit_detail_opened', {
+        schema_version: ANALYTICS_SCHEMA_VERSION,
+        outfit_position: position,
+        archetype: outfit.archetypeId,
+        generation_mode: generationModeProperty(recommendation.generationMode),
+        dress_style: dressStyle,
+        age_bucket: ageBucket,
+      });
+    }, [ageBucket, analytics, dressStyle, recommendation, suggestionId]),
+  );
+
   const onSetOwnership = (
     garmentTypeId: GarmentTypeId,
     next: 'owned' | 'wanted',
@@ -38,9 +86,37 @@ export default function OutfitDetailRoute() {
     if (wardrobe.state.status !== 'ready') return;
 
     const match = resolveGarmentOwnership(garmentTypeId, wardrobe.state.items);
+    // Taxonomy 5.8: the same event shape Closet itself emits, with `entry_point:
+    // 'outfit_detail'`; no shared file with the Closet feature's own capture.
     const operation = match.itemId
-      ? wardrobe.updateItem(match.itemId, { entryState: next })
-      : wardrobe.createItem({ garmentTypeId, entryState: next });
+      ? wardrobe.updateItem(match.itemId, { entryState: next }).then((item) => {
+          analytics.capture('closet_item_updated', {
+            schema_version: ANALYTICS_SCHEMA_VERSION,
+            fields_changed: ['state'],
+            garment_type_id: garmentTypeId,
+            entry_point: 'outfit_detail',
+          });
+          return item;
+        })
+      : wardrobe.createItem({ garmentTypeId, entryState: next }).then((item) => {
+          analytics.capture('closet_item_created', {
+            schema_version: ANALYTICS_SCHEMA_VERSION,
+            state: next,
+            garment_type_id: garmentTypeId,
+            has_photo: false,
+            entry_point: 'outfit_detail',
+            dress_style: dressStyle,
+            age_bucket: ageBucket,
+          });
+          void firstUses.markFirstUse('closet').then((firstUse) => {
+            if (!firstUse) return;
+            analytics.capture('feature_used_first_time', {
+              schema_version: ANALYTICS_SCHEMA_VERSION,
+              feature_name: 'closet',
+            });
+          });
+          return item;
+        });
 
     void operation.catch(() => undefined);
   };

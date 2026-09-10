@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -158,6 +158,7 @@ test('error state retries and shows no chips', async () => {
   expect(result.queryByTestId('wardrobe-category-chips')).not.toBeOnTheScreen();
   await fireEvent.press(result.getByTestId('wardrobe-retry-button'));
   expect(onRetry).toHaveBeenCalledTimes(1);
+  expect(onRetry).toHaveBeenCalledWith('retry_button');
 });
 
 test('an empty filter reuses Profile\'s empty sentence and add-a-piece action', async () => {
@@ -345,6 +346,7 @@ test('a background refresh failure shows a retryable banner without discarding t
     result.getByRole('button', { name: messages.en.wardrobe.retryAction }),
   );
   expect(onRetry).toHaveBeenCalledTimes(1);
+  expect(onRetry).toHaveBeenCalledWith('retry_button');
 });
 
 test('grid geometry follows the window width and reproduces ADR 0029 at the 393 point reference', () => {
@@ -377,4 +379,27 @@ test('the grid mixes coloured silhouettes, accessory glyphs and legacy glyphs', 
     expect(result.getByTestId(`wardrobe-photo-placeholder-${item.id}`, hidden)).toBeOnTheScreen();
     expect(result.queryByTestId(`wardrobe-silhouette-${item.id}`, hidden)).toBeNull();
   }
+});
+
+// Milestone 10 phase 3: the route (`wardrobe-list-route.tsx`) tells the pull gesture
+// apart from either retry button by this `source` argument alone, so this screen stays
+// free of analytics itself while still proving each control reports its own source.
+test('the pull gesture reports its own source, distinct from either retry button', async () => {
+  const onRetry = jest.fn();
+  const result = await render(
+    <TestProviders>
+      <WardrobeListScreen
+        onAdd={() => undefined}
+        onEdit={() => undefined}
+        onRetry={onRetry}
+        state={readyState([ownedItem])}
+      />
+    </TestProviders>,
+  );
+
+  act(() => {
+    result.getByTestId('wardrobe-list').props.onRefresh();
+  });
+  expect(onRetry).toHaveBeenCalledTimes(1);
+  expect(onRetry).toHaveBeenCalledWith('pull');
 });

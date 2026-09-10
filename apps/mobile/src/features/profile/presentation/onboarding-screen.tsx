@@ -11,9 +11,20 @@ import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppText, Button, Icon, NativeDatePicker, Screen, useTextScaling } from '@/components/ui';
+import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
+import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
+import {
+  ANALYTICS_SCHEMA_VERSION,
+  type AnalyticsEventProperties,
+} from '@/features/analytics/domain/analytics-events';
+import {
+  ageBucketProperty,
+  onboardingLocationMethodProperty,
+} from '@/features/analytics/domain/analytics-mappers';
 import {
   createOnboardingDraft,
   onboardingPreferencesFromDraft,
+  onboardingStepNames,
   reduceOnboardingDraft,
 } from '@/features/profile/application/onboarding-state';
 import type {
@@ -62,8 +73,19 @@ export function OnboardingScreen({
   const preferenceCopy = messages.preferences;
   const theme = useKuyaraTheme();
   const weatherState = useWeatherApplication().state;
-  const hasActiveLocation =
-    weatherState.status === 'ready' && weatherState.activeLocation !== null;
+  const activeLocationSource =
+    weatherState.status === 'ready' ? weatherState.activeLocation?.source ?? null : null;
+  const hasActiveLocation = activeLocationSource !== null;
+  const { analytics } = useProductAnalytics();
+  useScreenViewed('onboarding');
+
+  useEffect(() => {
+    analytics.capture('onboarding_started', {
+      schema_version: ANALYTICS_SCHEMA_VERSION,
+    });
+    // Fires once, when the welcome step first shows; not tied to `analytics`'s identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const stepTitle =
     draft.step === 0
@@ -94,11 +116,31 @@ export function OnboardingScreen({
   const goForward = () => {
     setSaveError(false);
 
-    if (draft.step === 1 && !draft.gender) {
+    const genderMissing = draft.step === 1 && !draft.gender;
+    const dressStyleMissing = draft.step === 2 && !draft.dressStyle;
+    if (genderMissing) {
       AccessibilityInfo.announceForAccessibility(copy.genderRequiredError);
     }
-    if (draft.step === 2 && !draft.dressStyle) {
+    if (dressStyleMissing) {
       AccessibilityInfo.announceForAccessibility(copy.dressStyleRequiredError);
+    }
+    // Taxonomy 5.2: only a step the user actually advances past is reported; a step the
+    // reducer blocks for a missing required value stays silent.
+    if (!genderMissing && !dressStyleMissing) {
+      const stepCompleted: AnalyticsEventProperties<'onboarding_step_completed'> = {
+        schema_version: ANALYTICS_SCHEMA_VERSION,
+        step_name: onboardingStepNames[draft.step],
+        step_index: (draft.step + 1) as 1 | 2 | 3 | 4,
+        // Only the birth date step is skippable here; the location step's own
+        // `onboarding_step_completed` is reported from `complete()`.
+        skipped: draft.step === 3 ? draft.birthDate === null : false,
+      };
+      analytics.capture(
+        'onboarding_step_completed',
+        draft.step === 2 && draft.dressStyle
+          ? { ...stepCompleted, dress_style: draft.dressStyle }
+          : stepCompleted,
+      );
     }
     dispatch({ type: 'continue' });
   };
@@ -116,6 +158,18 @@ export function OnboardingScreen({
     setSaveError(false);
     try {
       await onComplete(preferences);
+      analytics.capture('onboarding_step_completed', {
+        schema_version: ANALYTICS_SCHEMA_VERSION,
+        step_name: 'location',
+        step_index: 5,
+        skipped: !hasActiveLocation,
+      });
+      analytics.capture('onboarding_completed', {
+        schema_version: ANALYTICS_SCHEMA_VERSION,
+        dress_style: preferences.dressStyle,
+        age_bucket: ageBucketProperty(preferences.birthDate),
+        location_method: onboardingLocationMethodProperty(activeLocationSource),
+      });
     } catch {
       setSaveError(true);
       AccessibilityInfo.announceForAccessibility(copy.saveError);

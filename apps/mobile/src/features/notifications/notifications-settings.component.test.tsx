@@ -4,6 +4,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import SettingsRoute from '@/app/(tabs)/(profile)/settings';
 import NotificationsSettingsRoute from '@/app/(tabs)/(profile)/settings/notifications';
+import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
+import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
+import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
 import { NotificationApplicationProvider } from '@/features/notifications/application/notification-application-provider';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { ProfileApplicationProvider } from '@/features/profile/application/profile-application-provider';
@@ -19,12 +22,14 @@ jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests
 jest.mock('@expo/ui/swift-ui/modifiers', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 
 jest.mock('expo-router', () => ({
-  router: { back: jest.fn(), push: jest.fn() },
+  router: { back: jest.fn(), navigate: jest.fn(), push: jest.fn() },
   Stack: { Screen: () => null },
+  useFocusEffect: () => undefined,
 }));
 
 const mockRouter = jest.requireMock('expo-router').router as {
   back: jest.Mock;
+  navigate: jest.Mock;
   push: jest.Mock;
 };
 
@@ -84,7 +89,7 @@ function createGateway(permission: 'undetermined' | 'denied') {
       openApplicationSettings,
       cancelScheduledWeatherAlerts: async () => undefined,
       scheduleWeatherAlert: async () => undefined,
-      subscribeToResponses: () => () => undefined,
+      subscribeToResponses: (_listener: () => void) => () => undefined,
     },
     openApplicationSettings,
   };
@@ -131,22 +136,30 @@ function MountedNotificationRoutes({ onMount }: Readonly<{ onMount: () => void }
   return route === 'notifications' ? <NotificationsSettingsRoute /> : <SettingsRoute />;
 }
 
-function renderSettings(gateway: ReturnType<typeof createGateway>['gateway']) {
+function renderSettings(
+  gateway: ReturnType<typeof createGateway>['gateway'],
+  analytics: RecordingProductAnalytics,
+) {
   return render(
     <SafeAreaProvider initialMetrics={initialMetrics}>
       <ProfileApplicationProvider>
-        <NotificationBridge gateway={gateway}>
-          <MountedNotificationRoutes onMount={() => {}} />
-        </NotificationBridge>
+        <ProductAnalyticsProvider
+          analytics={analytics}
+          firstUseStore={new InMemoryFirstUseStore()}>
+          <NotificationBridge gateway={gateway}>
+            <MountedNotificationRoutes onMount={() => {}} />
+          </NotificationBridge>
+        </ProductAnalyticsProvider>
       </ProfileApplicationProvider>
     </SafeAreaProvider>,
   );
 }
 
-test('granting permission from the switch persists the opt-in flag', async () => {
+test('granting permission from the switch persists the opt-in flag and reports the resolved outcome', async () => {
   mockProfile = createProfile();
   const { gateway } = createGateway('undetermined');
-  const result = await renderSettings(gateway);
+  const analytics = new RecordingProductAnalytics();
+  const result = await renderSettings(gateway, analytics);
 
   await fireEvent.press(await result.findByTestId('settings-notifications-row'));
   const toggle = await result.findByTestId('settings-notifications-toggle-row-toggle');
@@ -158,12 +171,24 @@ test('granting permission from the switch persists the opt-in flag', async () =>
   await waitFor(() => expect(
     result.getByTestId('settings-notifications-toggle-row-toggle').props.value,
   ).toBe(true));
+
+  await waitFor(() => expect(analytics.names()).toEqual([
+    'setting_changed',
+    'notification_permission_resolved',
+    'feature_used_first_time',
+  ]));
+  expect(analytics.captures.map((capture) => capture.properties)).toEqual([
+    { schema_version: 1, setting_name: 'notifications_enabled', new_value: true },
+    { schema_version: 1, outcome: 'enabled' },
+    { schema_version: 1, feature_name: 'notifications' },
+  ]);
 });
 
-test('denied permission shows the hint and opens application settings', async () => {
+test('denied permission shows the hint, opens application settings, and reports a blocked outcome', async () => {
   mockProfile = createProfile();
   const { gateway, openApplicationSettings } = createGateway('denied');
-  const result = await renderSettings(gateway);
+  const analytics = new RecordingProductAnalytics();
+  const result = await renderSettings(gateway, analytics);
 
   await fireEvent.press(await result.findByTestId('settings-notifications-row'));
 
@@ -171,4 +196,41 @@ test('denied permission shows the hint and opens application settings', async ()
     .toBeOnTheScreen();
   fireEvent.press(result.getByTestId('settings-notifications-open-settings'));
   expect(openApplicationSettings).toHaveBeenCalledTimes(1);
+
+  const toggle = await result.findByTestId('settings-notifications-toggle-row-toggle');
+  await act(async () => {
+    fireEvent(toggle, 'valueChange', true);
+  });
+
+  // Blocked by the OS permission: the persisted opt-in never changes, so only the
+  // permission outcome is reported, not `setting_changed`.
+  await waitFor(() => expect(analytics.names()).toEqual(['notification_permission_resolved']));
+  expect(analytics.captures[0].properties).toEqual({
+    schema_version: 1,
+    outcome: 'blocked',
+    can_request_again: false,
+  });
+});
+
+test('a tapped notification response is reported as notification_opened and opens Today', async () => {
+  mockProfile = createProfile();
+  const { gateway } = createGateway('undetermined');
+  let respond: (() => void) | null = null;
+  const respondingGateway = {
+    ...gateway,
+    subscribeToResponses: (listener: () => void) => {
+      respond = listener;
+      return () => undefined;
+    },
+  };
+  const analytics = new RecordingProductAnalytics();
+  const result = await renderSettings(respondingGateway, analytics);
+  await result.findByTestId('settings-notifications-row');
+
+  await act(async () => {
+    respond?.();
+  });
+
+  expect(analytics.captures.map((capture) => capture.name)).toContain('notification_opened');
+  expect(mockRouter.navigate).toHaveBeenCalledWith('/');
 });

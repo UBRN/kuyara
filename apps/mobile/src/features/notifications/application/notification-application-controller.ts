@@ -8,6 +8,13 @@ export type NotificationApplicationState = Readonly<{
   isBusy: boolean;
 }>;
 
+// Taxonomy 5.13: `notification_permission_resolved`'s `outcome`, with `canRequestAgain`
+// only meaningful (and only present) when the OS permission blocked the opt-in.
+export type NotificationOptInOutcome =
+  | Readonly<{ outcome: 'enabled' }>
+  | Readonly<{ outcome: 'disabled' }>
+  | Readonly<{ outcome: 'blocked'; canRequestAgain: boolean }>;
+
 type Listener = () => void;
 
 export class NotificationApplicationController {
@@ -39,13 +46,13 @@ export class NotificationApplicationController {
     this.setState({ ...this.state, permission });
   }
 
-  async setOptIn(optIn: boolean): Promise<'enabled' | 'blocked' | 'disabled'> {
+  async setOptIn(optIn: boolean): Promise<NotificationOptInOutcome> {
     this.setState({ ...this.state, isBusy: true });
     try {
       if (!optIn) {
         await this.persistOptIn(false);
         await this.refreshPermission();
-        return 'disabled';
+        return { outcome: 'disabled' };
       }
 
       let permission = await this.gateway.getPermissionState();
@@ -56,11 +63,14 @@ export class NotificationApplicationController {
       }
 
       if (permission.kind !== 'granted') {
-        return 'blocked';
+        return {
+          outcome: 'blocked',
+          canRequestAgain: permission.kind === 'denied' ? permission.canRequestAgain : true,
+        };
       }
 
       await this.persistOptIn(true);
-      return 'enabled';
+      return { outcome: 'enabled' };
     } finally {
       this.setState({ ...this.state, isBusy: false });
     }

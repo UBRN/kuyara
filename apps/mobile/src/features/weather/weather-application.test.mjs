@@ -96,6 +96,7 @@ function createHarness({
   requestedPermission = { kind: 'granted', accuracy: 'approximate' },
   locationResult,
   snapshotReadFailureFor = null,
+  captureAnalyticsEvent,
 } = {}) {
   const currentTime = () => typeof now === 'function' ? now() : now;
   const byKey = new Map(snapshots.map((entry) => [entry.locationKey, entry]));
@@ -146,6 +147,7 @@ function createHarness({
     provider: wrappedProvider,
     deviceLocation,
     now: currentTime,
+    captureAnalyticsEvent,
   });
   return { controller, calls, repository, byKey };
 }
@@ -525,6 +527,99 @@ test('deterministic fake supports delay, failure, hourly data, and later refresh
   const second = await provider.fetchSnapshot(istanbul);
   assert.equal(second.fetchedAt, now);
   await assert.rejects(() => provider.fetchSnapshot(istanbul));
+});
+
+test('weather_refreshed reports each trigger and condition on success', async () => {
+  const istanbul = getManualLocation('sample.istanbul');
+  const captured = [];
+  const harness = createHarness({
+    active: istanbul,
+    captureAnalyticsEvent: (name, properties) => captured.push({ name, properties }),
+  });
+  await harness.controller.initialize();
+  await settle();
+  assert.deepEqual(captured, [{
+    name: 'weather_refreshed',
+    properties: {
+      schema_version: 1,
+      trigger_method: 'automatic_no_cache',
+      result: 'success',
+      condition_category: 'clear',
+    },
+  }]);
+
+  captured.length = 0;
+  await harness.controller.refresh();
+  assert.deepEqual(captured, [{
+    name: 'weather_refreshed',
+    properties: {
+      schema_version: 1,
+      trigger_method: 'manual',
+      result: 'success',
+      condition_category: 'clear',
+    },
+  }]);
+});
+
+test('weather_refreshed reports automatic_stale on foreground and location_changed on selection, and a coalesced duplicate emits once', async () => {
+  const istanbul = getManualLocation('sample.istanbul');
+  const stale = snapshotFor(istanbul, '2026-07-30T09:00:00.000Z');
+  const captured = [];
+  const harness = createHarness({
+    active: istanbul,
+    snapshots: [stale],
+    captureAnalyticsEvent: (name, properties) => captured.push({ name, properties }),
+  });
+  await harness.controller.initialize();
+  await settle();
+  assert.equal(captured.length, 1);
+  assert.equal(captured[0].properties.trigger_method, 'automatic_stale');
+
+  captured.length = 0;
+  const [first, second] = [harness.controller.refresh(), harness.controller.onForeground()];
+  await Promise.all([first, second]);
+  // The two calls coalesce into the single in-flight `refreshOnce`, so only the first
+  // caller's trigger is reported, once.
+  assert.equal(captured.length, 1);
+  assert.equal(captured[0].properties.trigger_method, 'manual');
+
+  captured.length = 0;
+  const london = getManualLocation('sample.london');
+  await harness.controller.selectManualLocation(london.catalogId);
+  await settle();
+  assert.equal(captured.length, 1);
+  assert.equal(captured[0].properties.trigger_method, 'location_changed');
+});
+
+test('weather_refreshed reports failure_no_snapshot and failure_kept_last_known', async () => {
+  const istanbul = getManualLocation('sample.istanbul');
+  const captured = [];
+  const failingHarness = createHarness({
+    active: istanbul,
+    provider: { fetchSnapshot: async () => { throw new WeatherProviderError('network'); } },
+    captureAnalyticsEvent: (name, properties) => captured.push({ name, properties }),
+  });
+  await failingHarness.controller.initialize();
+  await settle();
+  assert.deepEqual(captured, [{
+    name: 'weather_refreshed',
+    properties: { schema_version: 1, trigger_method: 'automatic_no_cache', result: 'failure_no_snapshot' },
+  }]);
+
+  const cached = snapshotFor(istanbul, '2026-07-30T09:00:00.000Z');
+  captured.length = 0;
+  const cachedHarness = createHarness({
+    active: istanbul,
+    snapshots: [cached],
+    provider: { fetchSnapshot: async () => { throw new WeatherProviderError('network'); } },
+    captureAnalyticsEvent: (name, properties) => captured.push({ name, properties }),
+  });
+  await cachedHarness.controller.initialize();
+  await settle();
+  assert.deepEqual(captured, [{
+    name: 'weather_refreshed',
+    properties: { schema_version: 1, trigger_method: 'automatic_stale', result: 'failure_kept_last_known' },
+  }]);
 });
 
 test('Expo and raw coordinate details remain isolated to the device adapter', async () => {
