@@ -27,15 +27,15 @@ This file is the mechanism. [`design-language.md`](design-language.md) is the la
 Both appearances expose the same semantic roles:
 
 - Foundations: `background`, `backgroundElevated`, `surface`, `surfaceMuted`, `surfaceInteractive`
-- Content: `textPrimary`, `textSecondary`, `textOnBrand`, `iconPrimary`, `iconSecondary`
-- Identity and interaction: `brandPrimary`, `brandAccent`, `focusRing`
+- Content: `textPrimary`, `textSecondary`, `textOnBrand`, `textOnPrimaryFill`, `iconPrimary`, `iconSecondary`
+- Identity and interaction: `brandPrimary`, `brandAccent`, `primaryFill`, `focusRing`
 - Boundaries and overlays: `borderSubtle`, `borderStrong`, `borderDefined`, `scrim`
 - Status: `successInk`, `successContainer`, `warningInk`, `warningContainer`, `dangerInk`, `dangerContainer`
 - Atmosphere: a closed seven-state set (`neutral`, `clearDay`, `veiledDay`, `fallingDay`, `clearNight`, `veiledNight`, `fallingNight`), each supplying a tonal ground for the condition-tinted stage on Today and Weather. [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md) changed the shape the atmosphere takes, from a full-width band above a stable ground to the tint of the surface the garment composition sits on, and moved the per-state values upward in luminance because the tint now sits behind ink and silhouettes rather than behind a hero number. The state set, the two-hex derivation rule and the contrast floors are unchanged. Every value is an sRGB interpolation between two approved brand hexes at a recorded ratio, and `neutral` is whatever `background` resolves to in each appearance, so every screen without an atmosphere is unchanged. See [ADR 0018](../adr/0018-the-atmospheric-condition-band.md) for the full table and its measurements.
 
 [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md) reallocates the light foundation and the supporting ink: the page ground rises to Soft Mist, which lifts `textPrimary` from 10.04:1 to 12.90:1, and supporting text becomes a derived neutral rather than Calm Current, leaving Calm Current as a selective accent. Settled 2026-09-04, this reallocation is app-wide: Profile, Closet and Settings adopt Direction E rather than keeping the white-card step. The tokens landed on 2026-09-08 with Today's garment board: light `background` is Soft Mist, `textSecondary` and `iconSecondary` are the derived neutral `#576B73` (dark `#8FA5AC`), `borderSubtle` is `#CCD2D4` (dark `#26393F`), and a new `stage` role, `#D7DCDD` light and `#122A35` dark, is the condition-tinted stage in its neutral state. The per-condition states of ADR 0018 at ADR 0021's raised luminance are not yet valued; every stage is `neutral` today.
 
-The light and dark sets are authored independently. Dark appearance is not an inversion. Light appearance uses Soft Mist `#F4F6F5` as the page foundation and the chrome plane, pure white for the remaining card surfaces (a 1.085:1 step that no longer carries separation), and Deep Atmosphere for primary content and controls. Dark appearance uses Night Layer as the page foundation, Deep Atmosphere for elevated content, Cloud White for primary content, `#8FA5AC` for secondary content, and Quiet Sky for focus and primary controls. A few restrained tonal surface and border values extend the approved palette for hierarchy; they are semantic UI values, not additional brand colors.
+The light and dark sets are authored independently. Dark appearance is not an inversion. Light appearance uses Soft Mist `#F4F6F5` as the page foundation and the chrome plane, pure white for the remaining card surfaces (a 1.085:1 step that no longer carries separation), and Deep Atmosphere for primary content and controls. Dark appearance uses Night Layer as the page foundation, Deep Atmosphere for plain surfaces, `#1F3B47` for elevated content, Cloud White for primary content, `#8FA5AC` for secondary content, and Quiet Sky for focus and native controls. Filled primary buttons use `primaryFill`: Deep Atmosphere in light and the derived `#39707A` in dark, with `textOnPrimaryFill` resolving to Cloud White in both appearances. A few restrained tonal surface and border values extend the approved palette for hierarchy; they are semantic UI values, not additional brand colors.
 
 Status roles are approved, not deferred: the condition the earlier deferral named, concrete informational, success, warning, and error presentation, was already met by six sites in the shipped app before anyone re-read it (`ai-status-section.tsx`, `wardrobe-item-form-screen.tsx`, `weather-screen.tsx`, `outfit-detail-screen.tsx`, `outfit-suggestion-card.tsx`, `today-screen.tsx`). See [ADR 0010](../adr/0010-status-colours-destructive-variant-and-defined-borders.md) and [`design-language.md`](design-language.md#law-4-one-accent-and-a-status-band). Every status ink is tuned so its contrast against its own appearance's `surface` lies within ±0.8 of `brandAccent`'s, and status UI must always communicate state through ink, glyph, and text together, never color alone.
 
@@ -47,7 +47,7 @@ Status roles are approved, not deferred: the condition the earlier deferral name
 | `warningContainer` | `#F2E6CE` | `#292010` |
 | `dangerInk` | `#9B2C2C` | `#F2A6A2` |
 | `dangerContainer` | `#F8E3E1` | `#301D1B` |
-| `borderDefined` | `#5C7A83` | `#527E90` |
+| `borderDefined` | `#5C7A83` | `#5E899A` |
 
 These are derived semantic values in the same class as the existing derived neutrals `#E7EEED`, `#DDE8E7`, `#C5D5D6`, and `#D0DDDC`. They are not new brand colors; the six approved brand hexes and the Balanced Horizon V2 master geometry are unchanged. `borderDefined` identifies interactive components (chips, outline buttons); `borderSubtle` narrows to decorative dividers inside a container, where no component is being identified.
 
@@ -59,7 +59,7 @@ Contrast was calculated with the WCAG relative-luminance formula. The measuremen
 | --- | ---: | ---: |
 | Primary text on background | 12.90:1 | 16.09:1 |
 | Secondary text on background | 6.52:1 | 10.03:1 |
-| Text on brand-primary control | 12.61:1 | 10.03:1 |
+| Primary button label on `primaryFill` | 12.61:1 | 5.01:1 |
 | Focus ring on background | 6.52:1 | 10.03:1 |
 | Primary text on the weather card | 11.51:1 | 13.80:1 |
 | Eyebrow and accent text on the weather card | 5.81:1 | 8.61:1 |
@@ -83,7 +83,7 @@ The first four rows are text pairs measured against the 4.5:1 threshold. The nex
 
 ### Elevation ladder
 
-The current allocation is [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md)'s, landed 2026-09-08. In the light appearance the page ground is Soft Mist `#F4F6F5` on every screen, `surface` is `#FFFFFF`, and separation is carried by type and space rather than a card fill step: the light card step measures 1.085:1 and `theme.test.mjs` records that value instead of enforcing a minimum. The dark ladder keeps its ordering and its 1.2:1 step, with `backgroundElevated` equal to `surface`. The floors the test enforces in both appearances: `background` has the strictly lowest luminance; `textPrimary` on `stage`, and the condition ink (`textPrimary` composited over `stage` at 0.76 alpha) on `stage`, at or above 4.5:1; `textSecondary` on `background` at or above 4.5:1. The contrast floors for text and non-text elements are unchanged.
+The current allocation is [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md)'s, landed 2026-09-08. In the light appearance the page ground is Soft Mist `#F4F6F5` on every screen, `surface` is `#FFFFFF`, and separation is carried by type and space rather than a card fill step: the light card step measures 1.085:1 and `theme.test.mjs` records that value instead of enforcing a minimum. In dark, `backgroundElevated` is the derived `#1F3B47`: 1.51:1 over the Night Layer ground and 1.18:1 over `surface`. Cloud White reads at 10.65:1 and `textSecondary` at 4.59:1 on that plane. The surface-to-elevated step stays below 1.2:1 by decision because a lighter value would push secondary text below 4.5:1. The floors the test enforces in both appearances: `background` has the strictly lowest luminance; `textPrimary` on `stage`, and the condition ink (`textPrimary` composited over `stage` at 0.76 alpha) on `stage`, at or above 4.5:1; `textSecondary` on `background` and dark `backgroundElevated` at or above 4.5:1. The contrast floors for text and non-text elements are unchanged.
 
 Light `elevation.raised` is offset `{0, 4}`, radius 12, opacity 0.1, Android elevation 3; dark `raised` and both `chrome` levels are lower-opacity because the dark surface step already carries the separation. The shadow contact contrast rule and its measured values are in [`design-language.md`](design-language.md#law-3-surfaces-confirm-they-do-not-separate).
 

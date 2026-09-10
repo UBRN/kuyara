@@ -223,11 +223,8 @@ App Store submission, not TestFlight, is blocked by:
 - **`outfit-composition.ts`'s `composeOutfits`** has no production caller; seven tests
   still exercise it. Fold them onto `composeOutfitOptions` and delete it when the
   composition changes next.
-- **Dark appearance palette limits:** `backgroundElevated` equals `surface`, so an
-  elevated card separates from the ground but not from a plain surface; and `brandPrimary`
-  equals `brandAccent`, so filled buttons and selected chips share one Quiet Sky and the
-  Closet can show three filled elements against Law 1. Fixing the second needs a distinct
-  dark role for filled buttons.
+- **Dark elevated-surface step:** `backgroundElevated` sits 1.18:1 over `surface` by
+  decision; a lighter value would drop `textSecondary` below its 4.5:1 floor.
 - **Dark atmosphere states render neutral only.** ADR 0018 caps them at Deep Atmosphere's
   luminance; every compliant variation sits only 3 to 8 RGB levels from the current
   `#122A35` stage and is imperceptible. Lifting the cap needs a separate decision.
