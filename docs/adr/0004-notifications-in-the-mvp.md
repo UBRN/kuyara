@@ -2,7 +2,9 @@
 
 Status: Accepted (2026-08-29)
 
-Implementation: N1 completed on 2026-08-29; N2 remains next; N3 remains deferred.
+Implementation: N1 completed on 2026-08-29; N2 completed on 2026-09-09 under
+[ADR 0032](0032-local-weather-alert-rules.md), which decided the thresholds this ADR left
+open; N3 remains deferred.
 
 Note (2026-09-04): two rules this ADR quotes have since changed, and neither changes its
 decision. "No behavioral analytics" was revoked by

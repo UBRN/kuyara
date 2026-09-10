@@ -2,7 +2,10 @@
 
 Status: Accepted (2026-09-03)
 
-Implementation: not started.
+Implementation: the tinted stage that replaced the band landed with Today's garment
+board on 2026-09-08 (ADR 0021, ADR 0025) at a single tint; the seven per-condition
+values at the raised luminance the amendment below calls for are not recorded or
+implemented.
 
 Amended by [ADR 0021](0021-direction-e-a-visual-first-design-language.md). Sections 2
 through 5 stand: the closed seven-state set, the derivation of every value as a blend of
