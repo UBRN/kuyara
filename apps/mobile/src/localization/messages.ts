@@ -186,6 +186,19 @@ export type AppMessages = Readonly<{
     saving: string;
     saveError: string;
   }>;
+  analytics: Readonly<{
+    consentTitle: string;
+    consentBody: string;
+    consentSettingsBody: string;
+    acceptAction: string;
+    declineAction: string;
+    privacyTitle: string;
+    shareUsageData: string;
+    toggleFooter: string;
+    identifierLabel: string;
+    identifierFooter: string;
+    privacyPolicyLabel: string;
+  }>;
   profile: Readonly<{
     title: string;
     settingsAction: string;
@@ -481,6 +494,19 @@ const en = {
     aiStatusUnsupported: 'AI status checks are not available on this build.',
     saving: 'Saving changes…',
     saveError: 'That change could not be saved. Your previous setting is still active.',
+  },
+  analytics: {
+    consentTitle: 'Help improve kuyara',
+    consentBody: 'kuyara can collect usage data: which screens open, whether a suggestion loads, and coarse settings like dress style and age range. It never includes your location, photos, closet, or name.',
+    consentSettingsBody: 'You can change this any time in Settings, under Privacy.',
+    acceptAction: 'Share usage data',
+    declineAction: "Don't share",
+    privacyTitle: 'Privacy',
+    shareUsageData: 'Share usage data',
+    toggleFooter: 'Usage data helps improve kuyara. Turning this off stops collection immediately and unlinks past data from this device.',
+    identifierLabel: 'Analytics identifier',
+    identifierFooter: 'Include this identifier when requesting deletion of your data.',
+    privacyPolicyLabel: 'Privacy policy',
   },
   profile: {
     title: 'Profile',
@@ -910,6 +936,19 @@ const tr = {
     aiStatusUnsupported: 'AI durum kontrolleri bu sürümde kullanılamıyor.',
     saving: 'Değişiklikler kaydediliyor…',
     saveError: 'Bu değişiklik kaydedilemedi. Önceki ayarınız kullanılmaya devam ediyor.',
+  },
+  analytics: {
+    consentTitle: "kuyara'yı geliştirmeye yardım et",
+    consentBody: 'kuyara kullanım verisi toplayabilir: hangi ekranların açıldığı, önerinin yüklenip yüklenmediği ve giyim tarzı ile yaş aralığı gibi kaba ayarlar. Konum, fotoğraflar, gardırop ve ad asla dahil edilmez.',
+    consentSettingsBody: "Bunu istediğin zaman Ayarlar'daki Gizlilik bölümünden değiştirebilirsin.",
+    acceptAction: 'Kullanım verisi paylaş',
+    declineAction: 'Paylaşma',
+    privacyTitle: 'Gizlilik',
+    shareUsageData: 'Kullanım verisi paylaş',
+    toggleFooter: "Kullanım verisi kuyara'yı geliştirmeye yardımcı olur. Kapatmak toplamayı hemen durdurur ve geçmiş verilerin bu cihazla bağını koparır.",
+    identifierLabel: 'Analitik kimliği',
+    identifierFooter: 'Verilerinin silinmesini isterken bu kimliği belirt.',
+    privacyPolicyLabel: 'Gizlilik politikası',
   },
   profile: {
     title: 'Profil',

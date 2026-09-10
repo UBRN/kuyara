@@ -7,5 +7,5 @@ export const noopProductAnalytics: ProductAnalytics = {
   optIn: () => Promise.resolve(),
   withdraw: () => Promise.resolve(),
   flush: () => Promise.resolve(),
-  distinctId: () => null,
+  getIdentifier: () => null,
 };

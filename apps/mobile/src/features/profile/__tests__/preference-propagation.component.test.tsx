@@ -216,6 +216,10 @@ test('live preference changes propagate localized copy and dark semantic colors 
   expect(result.getAllByTestId('expo-ui-list')).toHaveLength(1);
   expect(within(result.getByTestId('settings-primary-group')).getByTestId('settings-theme-row')).toBeOnTheScreen();
   expect(within(result.getByTestId('settings-services-group')).getByTestId('settings-ai-status-row')).toBeOnTheScreen();
+  expect(within(result.getByTestId('settings-services-group')).getByTestId('settings-privacy-row')).toBeOnTheScreen();
+  expect(result.getByTestId('settings-privacy-row-value-stacked')).toHaveTextContent(
+    messages.en.notifications.statusOff,
+  );
   expect(within(result.getByTestId('settings-about-you-group')).getByTestId('settings-gender-row')).toBeOnTheScreen();
   expect(within(result.getByTestId('settings-about-you-group')).getByTestId('settings-dress-style-row')).toBeOnTheScreen();
   expect(within(result.getByTestId('settings-about-you-group')).getByTestId('settings-birth-date-row')).toBeOnTheScreen();
@@ -226,7 +230,7 @@ test('live preference changes propagate localized copy and dark semantic colors 
     color: lightSemanticColors.textSecondary,
     fontSize: typography.bodyStrong.fontSize,
   });
-  expect(result.getAllByTestId('expo-ui-icon')).toHaveLength(7);
+  expect(result.getAllByTestId('expo-ui-icon')).toHaveLength(8);
   expect(within(result.getByTestId('expo-ui-section')).getByText('Version 1.0.0 (5)')).toHaveStyle({
     color: lightSemanticColors.textSecondary,
     fontSize: typography.caption.fontSize,
