@@ -1,5 +1,6 @@
 import { Stack, router } from 'expo-router';
 
+import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { SettingsScreen } from '@/features/profile/presentation/settings-screen';
 import { useMessages } from '@/localization/use-messages';
@@ -7,6 +8,7 @@ import { useMessages } from '@/localization/use-messages';
 export default function SettingsRoute() {
   const messages = useMessages();
   const { state } = useProfileApplication();
+  useScreenViewed('settings');
 
   if (state.status !== 'ready') {
     return null;

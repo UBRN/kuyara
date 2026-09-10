@@ -4,6 +4,8 @@ import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import PrimaryTabsRouteLayout from '@/app/(tabs)/_layout';
+import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
+import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import type { ProfileApplicationValue } from '@/features/profile/application/profile-context';
 import { ProfileApplicationContext } from '@/features/profile/application/profile-context';
 import type { LocalProfile } from '@/features/profile/domain/profile';
@@ -144,6 +146,7 @@ function TestProviders({
   onboardingCompleted?: boolean;
 }>) {
   return (
+    <ProductAnalyticsProvider firstUseStore={new InMemoryFirstUseStore()}>
     <ProfileApplicationContext.Provider
       value={createProfileApplication(onboardingCompleted)}>
       <LocalizationContext.Provider value={{ language, messages: messages[language] }}>
@@ -169,6 +172,7 @@ function TestProviders({
         </KuyaraThemeContext.Provider>
       </LocalizationContext.Provider>
     </ProfileApplicationContext.Provider>
+    </ProductAnalyticsProvider>
   );
 }
 

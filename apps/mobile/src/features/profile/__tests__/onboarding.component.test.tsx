@@ -3,6 +3,9 @@ import { Dimensions, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { PlaceSearchV1Data } from '@kuyara/contracts';
 
+import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
+import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
+import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
 import { OnboardingScreen } from '@/features/profile/presentation/onboarding-screen';
 import {
   PlaceSearchApplicationContext,
@@ -14,6 +17,9 @@ import { messages } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
+// `useScreenViewed` (via `ProductAnalyticsProvider`) needs `expo-router`'s focus effect;
+// this suite exercises step and completion analytics, not focus-driven screen views.
+jest.mock('expo-router', () => ({ useFocusEffect: () => undefined }));
 jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 jest.mock('@expo/ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 jest.mock('@expo/ui/swift-ui', () =>
@@ -114,23 +120,29 @@ async function renderOnboarding(
     selectPlaceSearchResult: jest.fn(async () => undefined),
   },
   language: 'en' | 'tr' = 'en',
+  analytics = new RecordingProductAnalytics(),
 ) {
   return {
+    analytics,
     onComplete,
     result: await render(
       <LocalizationContext.Provider value={{ language, messages: messages[language] }}>
         <KuyaraThemeContext.Provider value={lightTheme}>
           <SafeAreaProvider initialMetrics={initialMetrics}>
-            <WeatherApplicationContext value={weather}>
-              <PlaceSearchApplicationContext value={search}>
-                <OnboardingScreen
-                  initialBirthDate={initialBirthDate}
-                  initialDressStyle={initialDressStyle}
-                  initialGender={initialGender}
-                  onComplete={onComplete}
-                />
-              </PlaceSearchApplicationContext>
-            </WeatherApplicationContext>
+            <ProductAnalyticsProvider
+              analytics={analytics}
+              firstUseStore={new InMemoryFirstUseStore()}>
+              <WeatherApplicationContext value={weather}>
+                <PlaceSearchApplicationContext value={search}>
+                  <OnboardingScreen
+                    initialBirthDate={initialBirthDate}
+                    initialDressStyle={initialDressStyle}
+                    initialGender={initialGender}
+                    onComplete={onComplete}
+                  />
+                </PlaceSearchApplicationContext>
+              </WeatherApplicationContext>
+            </ProductAnalyticsProvider>
           </SafeAreaProvider>
         </KuyaraThemeContext.Provider>
       </LocalizationContext.Provider>,
@@ -141,7 +153,10 @@ async function renderOnboarding(
 }
 
 test('gender and dress style are required and a null birth date completes honestly', async () => {
-  const { onComplete, result } = await renderOnboarding(null, null);
+  const { analytics, onComplete, result } = await renderOnboarding(null, null);
+  expect(analytics.captures).toEqual([
+    { name: 'onboarding_started', properties: { schema_version: 1 }, options: undefined },
+  ]);
 
   await fireEvent.press(result.getByTestId('onboarding-continue'));
   expect(result.getByTestId('onboarding-step-2')).toBeOnTheScreen();
@@ -149,6 +164,9 @@ test('gender and dress style are required and a null birth date completes honest
   expect(result.getByTestId('onboarding-gender-error')).toHaveTextContent(
     messages.en.onboarding.genderRequiredError,
   );
+  // A blocked "continue" (no gender chosen yet) reports nothing: still just the welcome
+  // step's completion alongside the initial `onboarding_started`.
+  expect(analytics.captures).toHaveLength(2);
   await fireEvent.press(result.getByTestId('onboarding-gender-woman'));
   await fireEvent.press(result.getByTestId('onboarding-continue'));
   expect(result.getByTestId('onboarding-step-3')).toBeOnTheScreen();
@@ -176,6 +194,36 @@ test('gender and dress style are required and a null birth date completes honest
     dressStyle: 'formal',
     birthDate: null,
   }));
+
+  expect(analytics.captures.map((capture) => capture.properties)).toEqual([
+    { schema_version: 1 },
+    { schema_version: 1, step_name: 'welcome', step_index: 1, skipped: false },
+    { schema_version: 1, step_name: 'gender', step_index: 2, skipped: false },
+    {
+      schema_version: 1,
+      step_name: 'dress_style',
+      step_index: 3,
+      skipped: false,
+      dress_style: 'formal',
+    },
+    { schema_version: 1, step_name: 'birth_date', step_index: 4, skipped: true },
+    { schema_version: 1, step_name: 'location', step_index: 5, skipped: true },
+    {
+      schema_version: 1,
+      dress_style: 'formal',
+      age_bucket: 'unknown',
+      location_method: 'skipped',
+    },
+  ]);
+  expect(analytics.names()).toEqual([
+    'onboarding_started',
+    'onboarding_step_completed',
+    'onboarding_step_completed',
+    'onboarding_step_completed',
+    'onboarding_step_completed',
+    'onboarding_step_completed',
+    'onboarding_completed',
+  ]);
 });
 
 test('existing profile values prefill the reopened onboarding steps', async () => {

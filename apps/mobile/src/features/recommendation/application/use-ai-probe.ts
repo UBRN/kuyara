@@ -23,7 +23,9 @@ type Dependencies = Readonly<{
 export function useAiProbe(dependencies?: Dependencies): Readonly<{
   state: AiProbeUiState;
   isSupported: boolean;
-  check: () => void;
+  // Resolves with the settled probe state so a caller can report it (taxonomy 5.9's
+  // `ai_probe_triggered`), or `null` when the probe was unsupported or already running.
+  check: () => Promise<AiProbeUiState | null>;
 }> {
   const baseUrl = useMemo(() => {
     try {
@@ -50,14 +52,20 @@ export function useAiProbe(dependencies?: Dependencies): Readonly<{
   const isChecking = useRef(false);
   const isSupported = client !== null;
 
-  const check = useCallback(() => {
-    if (!client || isChecking.current) return;
+  const check = useCallback((): Promise<AiProbeUiState | null> => {
+    if (!client || isChecking.current) return Promise.resolve(null);
 
     isChecking.current = true;
     setState((current) => startAiProbe(current, true));
-    void client.probe()
-      .then((result) => setState(mapProbeResult(result)))
-      .catch((error: unknown) => setState(mapProbeError(error)))
+    return client.probe()
+      .then(
+        (result) => mapProbeResult(result),
+        (error: unknown) => mapProbeError(error),
+      )
+      .then((next) => {
+        setState(next);
+        return next;
+      })
       .finally(() => {
         isChecking.current = false;
       });

@@ -18,6 +18,9 @@ import {
   RecommendationApplicationContext,
   type RecommendationApplicationValue,
 } from '@/features/recommendation/application/recommendation-application-context';
+import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
+import { failureCategoryProperty } from '@/features/analytics/domain/analytics-mappers';
+import type { FailureCategory } from '@/domain/failure-category';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { LocalRecommendationRepository } from '@/features/recommendation/data/recommendation-repository';
 import { SqliteRecommendationLocalDataSource } from '@/features/recommendation/data/sqlite-recommendation-local-data-source';
@@ -64,20 +67,42 @@ export function RecommendationApplicationProvider({
 }: PropsWithChildren<{ localProfileId: string }>) {
   const { state: profileState } = useProfileApplication();
   const { state: weatherState } = useWeatherApplication();
+  const { analytics, errorEpisodes } = useProductAnalytics();
   const dayVariant = localDayVariant();
   const client = useMemo(() => createRecommendationClient(), []);
   const controller = useMemo(
     () => new RecommendationApplicationController(localProfileId, {
       loadRepository,
       client,
+      captureAnalyticsEvent: (name, properties, options) => analytics.capture(name, properties, options),
     }),
-    [client, localProfileId],
+    [analytics, client, localProfileId],
   );
   const state = useSyncExternalStore(
     controller.subscribe,
     controller.getSnapshot,
     controller.getSnapshot,
   );
+  const shownFailureRef = useRef<FailureCategory | null>(null);
+  const currentFailure = state.status === 'ready' ? state.lastFailure : null;
+
+  // Taxonomy 5.10: `error_shown`/`error_recovered` for the `recommendation` surface, gated
+  // on the failure category's own value so an unrelated re-render does not double-count.
+  useEffect(() => {
+    if (currentFailure) {
+      shownFailureRef.current = currentFailure;
+      errorEpisodes.failed({
+        surface: 'recommendation',
+        failureCategory: failureCategoryProperty(currentFailure),
+      });
+    } else if (shownFailureRef.current) {
+      errorEpisodes.recovered({
+        surface: 'recommendation',
+        failureCategory: failureCategoryProperty(shownFailureRef.current),
+      });
+      shownFailureRef.current = null;
+    }
+  }, [currentFailure, errorEpisodes]);
   const persistedSnapshot = state.status === 'ready' ? state.snapshot : null;
   const input = useMemo(() => {
     const clothingPreference = profileState.status === 'ready'

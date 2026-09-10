@@ -17,6 +17,7 @@ import { KuyaraThemeContext } from '@/theme/theme-context';
 jest.mock('expo-router', () => ({
   router: { back: jest.fn() },
   Stack: { Screen: () => null },
+  useFocusEffect: () => undefined,
 }));
 
 const mockRouter = jest.requireMock('expo-router').router as { back: jest.Mock };

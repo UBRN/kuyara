@@ -4,6 +4,11 @@ import {
   failureCategoryFromErrorKind,
   type FailureCategory,
 } from '@/domain/failure-category';
+import {
+  ANALYTICS_SCHEMA_VERSION,
+} from '@/features/analytics/domain/analytics-events';
+import { conditionCategory } from '@/features/analytics/domain/analytics-mappers';
+import type { CaptureAnalyticsEvent } from '@/features/analytics/domain/product-analytics';
 import type {
   DeviceLocationGateway,
   LocationPermissionState,
@@ -27,6 +32,14 @@ import {
   type WeatherFreshness,
   type WeatherSnapshot,
 } from '@/features/weather/domain/weather';
+
+// Taxonomy 5.4: the exact four fetch paths `refreshOnce` can be entered from. Values are
+// already the `weather_refreshed` `trigger_method` strings, so no separate mapper is needed.
+export type WeatherRefreshTrigger =
+  | 'manual'
+  | 'automatic_no_cache'
+  | 'automatic_stale'
+  | 'location_changed';
 
 export type LocationFlowState =
   | 'idle'
@@ -59,6 +72,10 @@ type Dependencies = Readonly<{
   provider: WeatherProvider;
   deviceLocation: DeviceLocationGateway;
   now: () => string;
+  // Optional: `weather_refreshed` fires on every completed attempt regardless of trigger,
+  // including a coalesced duplicate's single underlying attempt, which only `refreshOnce`
+  // can observe. A no-op default keeps existing composition and tests unchanged.
+  captureAnalyticsEvent?: CaptureAnalyticsEvent;
 }>;
 
 type Listener = () => void;
@@ -71,6 +88,7 @@ export class WeatherApplicationController {
   private readonly listeners = new Set<Listener>();
   private readonly localProfileId: string;
   private readonly dependencies: Dependencies;
+  private readonly captureAnalyticsEvent: CaptureAnalyticsEvent;
 
   constructor(
     localProfileId: string,
@@ -78,6 +96,7 @@ export class WeatherApplicationController {
   ) {
     this.localProfileId = localProfileId;
     this.dependencies = dependencies;
+    this.captureAnalyticsEvent = dependencies.captureAnalyticsEvent ?? (() => undefined);
   }
 
   getSnapshot = (): WeatherApplicationState => this.state;
@@ -172,9 +191,14 @@ export class WeatherApplicationController {
     });
   }
 
+  // The explicit user-triggered refresh: Today and Weather both call this for their pull
+  // gesture and header button, and reuse it as the retry action when a failure is shown
+  // (taxonomy 5.7 notes neither surface has a separate retry control). The caller reads the
+  // outcome back through `getSnapshot()` after this resolves, since the state it needs is
+  // committed synchronously inside `refreshOnce` before the promise settles.
   refresh(): Promise<void> {
     const active = this.state.status === 'ready' ? this.state.activeLocation : null;
-    return active ? this.refreshLocation(active) : Promise.resolve();
+    return active ? this.refreshLocation(active, 'manual') : Promise.resolve();
   }
 
   async onForeground(): Promise<void> {
@@ -184,16 +208,20 @@ export class WeatherApplicationController {
     const freshness = current.snapshot
       ? weatherFreshness(current.snapshot.fetchedAt, this.dependencies.now())
       : null;
+    const snapshot = freshness === 'invalid' ? null : current.snapshot;
     this.setReady({
       ...current,
-      snapshot: freshness === 'invalid' ? null : current.snapshot,
+      snapshot,
       freshness: freshness === 'invalid' ? null : freshness,
       permission,
       locationFlow: permission.kind === 'granted' ? 'idle' : current.locationFlow,
     });
     if (!current.activeLocation) return;
-    if (!current.snapshot || freshness !== 'fresh') {
-      await this.refreshLocation(current.activeLocation);
+    if (!snapshot || freshness !== 'fresh') {
+      await this.refreshLocation(
+        current.activeLocation,
+        snapshot ? 'automatic_stale' : 'automatic_no_cache',
+      );
     }
   }
 
@@ -214,7 +242,12 @@ export class WeatherApplicationController {
         permission, locationFlow: 'idle', isSelectingLocation: false,
         isRefreshing: false, refreshFailure: null,
       });
-      if (activeLocation && freshness !== 'fresh') void this.refreshLocation(activeLocation);
+      if (activeLocation && freshness !== 'fresh') {
+        void this.refreshLocation(
+          activeLocation,
+          snapshot ? 'automatic_stale' : 'automatic_no_cache',
+        );
+      }
     } catch {
       this.state = { status: 'error' };
       this.emit();
@@ -268,7 +301,7 @@ export class WeatherApplicationController {
         freshness: loadedFreshness === 'invalid' ? null : loadedFreshness,
         isSelectingLocation: false, isRefreshing: false, refreshFailure: null,
       });
-      if (loadedFreshness !== 'fresh') void this.refreshLocation(persisted);
+      if (loadedFreshness !== 'fresh') void this.refreshLocation(persisted, 'location_changed');
     } catch {
       this.setReady({
         ...this.requireReady(), isSelectingLocation: false, refreshFailure: 'unavailable',
@@ -276,18 +309,20 @@ export class WeatherApplicationController {
     }
   }
 
-  private refreshLocation(location: ActiveLocation): Promise<void> {
+  private refreshLocation(location: ActiveLocation, trigger: WeatherRefreshTrigger): Promise<void> {
     const existing = this.refreshes.get(location.locationKey);
     if (existing) return existing;
     if (this.state.status === 'ready' && this.state.activeLocation?.locationKey === location.locationKey) {
       this.setReady({ ...this.state, isRefreshing: true });
     }
-    const promise = this.refreshOnce(location).finally(() => this.refreshes.delete(location.locationKey));
+    const promise = this.refreshOnce(location, trigger).finally(() => this.refreshes.delete(location.locationKey));
     this.refreshes.set(location.locationKey, promise);
     return promise;
   }
 
-  private async refreshOnce(location: ActiveLocation): Promise<void> {
+  private async refreshOnce(location: ActiveLocation, trigger: WeatherRefreshTrigger): Promise<void> {
+    const isCurrent = () =>
+      this.state.status === 'ready' && this.state.activeLocation?.locationKey === location.locationKey;
     try {
       const provided = await this.dependencies.provider.fetchSnapshot(location);
       if (provided.locationKey !== location.locationKey || provided.timeZone !== location.timeZone) {
@@ -297,7 +332,7 @@ export class WeatherApplicationController {
         throw new Error('Invalid weather fetch time.');
       }
       const snapshot = await this.requireRepository().saveSnapshot(this.localProfileId, provided);
-      if (this.state.status === 'ready' && this.state.activeLocation?.locationKey === location.locationKey) {
+      if (isCurrent() && this.state.status === 'ready') {
         const freshness = weatherFreshness(snapshot.fetchedAt, this.dependencies.now());
         this.setReady({
           ...this.state, snapshot,
@@ -305,8 +340,16 @@ export class WeatherApplicationController {
           isRefreshing: false, refreshFailure: null,
         });
       }
+      // Taxonomy 5.4: fires on every completed attempt, coalesced duplicates included,
+      // regardless of whether this location is still the active one when it resolves.
+      this.captureAnalyticsEvent('weather_refreshed', {
+        schema_version: ANALYTICS_SCHEMA_VERSION,
+        trigger_method: trigger,
+        result: 'success',
+        condition_category: conditionCategory(snapshot.current.condition),
+      });
     } catch (error) {
-      if (this.state.status === 'ready' && this.state.activeLocation?.locationKey === location.locationKey) {
+      if (isCurrent() && this.state.status === 'ready') {
         this.setReady({
           ...this.state,
           isRefreshing: false,
@@ -317,7 +360,16 @@ export class WeatherApplicationController {
             : 'unavailable',
         });
       }
+      this.captureAnalyticsEvent('weather_refreshed', {
+        schema_version: ANALYTICS_SCHEMA_VERSION,
+        trigger_method: trigger,
+        result: this.hasRenderableSnapshot() ? 'failure_kept_last_known' : 'failure_no_snapshot',
+      });
     }
+  }
+
+  private hasRenderableSnapshot(): boolean {
+    return this.state.status === 'ready' && this.state.snapshot !== null;
   }
 
   private async loadMatchingSnapshot(location: ActiveLocation): Promise<WeatherSnapshot | null> {

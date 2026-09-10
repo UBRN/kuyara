@@ -1,5 +1,8 @@
 import { Stack } from 'expo-router';
 
+import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
+import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
+import { ANALYTICS_SCHEMA_VERSION } from '@/features/analytics/domain/analytics-events';
 import { useNotificationApplication } from '@/features/notifications/application/notification-context';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { NotificationsSettingsScreen } from '@/features/profile/presentation/notifications-settings-screen';
@@ -9,6 +12,8 @@ export default function NotificationsSettingsRoute() {
   const messages = useMessages();
   const { state: profileState } = useProfileApplication();
   const { state, setOptIn, openApplicationSettings } = useNotificationApplication();
+  const { analytics, firstUses } = useProductAnalytics();
+  useScreenViewed('settings_notifications');
 
   if (profileState.status !== 'ready') {
     return null;
@@ -28,7 +33,35 @@ export default function NotificationsSettingsRoute() {
         isBusy={state.isBusy}
         onOpenSystemSettings={() => void openApplicationSettings()}
         onToggle={async (optIn) => {
-          await setOptIn(optIn);
+          const result = await setOptIn(optIn);
+          // Taxonomy 5.9: `notifications_enabled` only actually changed for these two
+          // outcomes; a `blocked` opt-in leaves the persisted preference untouched.
+          if (result.outcome === 'enabled' || result.outcome === 'disabled') {
+            analytics.capture('setting_changed', {
+              schema_version: ANALYTICS_SCHEMA_VERSION,
+              setting_name: 'notifications_enabled',
+              new_value: result.outcome === 'enabled',
+            });
+          }
+          if (result.outcome === 'blocked') {
+            analytics.capture('notification_permission_resolved', {
+              schema_version: ANALYTICS_SCHEMA_VERSION,
+              outcome: 'blocked',
+              can_request_again: result.canRequestAgain,
+            });
+            return;
+          }
+          if (result.outcome !== 'enabled') return;
+          analytics.capture('notification_permission_resolved', {
+            schema_version: ANALYTICS_SCHEMA_VERSION,
+            outcome: 'enabled',
+          });
+          if (await firstUses.markFirstUse('notifications')) {
+            analytics.capture('feature_used_first_time', {
+              schema_version: ANALYTICS_SCHEMA_VERSION,
+              feature_name: 'notifications',
+            });
+          }
         }}
         optedIn={profileState.profile.notificationsOptIn}
         permission={state.permission}

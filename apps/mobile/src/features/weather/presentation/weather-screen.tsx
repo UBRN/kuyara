@@ -21,6 +21,8 @@ import {
   useTextScaling,
 } from '@/components/ui';
 import { Divider } from '@/components/ui/divider';
+import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
+import { ANALYTICS_SCHEMA_VERSION } from '@/features/analytics/domain/analytics-events';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import type { ActiveLocation } from '@/features/weather/domain/weather';
 import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
@@ -82,6 +84,7 @@ export function WeatherScreen() {
   const copy = messages.weather;
   const application = useWeatherApplication();
   const { state } = application;
+  const { analytics, firstUses, retries } = useProductAnalytics();
   useRefreshOutcomeHaptics(
     state.status === 'ready' && state.isRefreshing,
     state.status === 'ready' && state.refreshFailure !== null,
@@ -105,6 +108,45 @@ export function WeatherScreen() {
       </Screen>
     );
   }
+
+  // Taxonomy 5.7: the pull gesture and the header button both call the same `refresh()`;
+  // "weather" has no separate retry control, so a failure already on screen is the
+  // discriminator between a manual refresh and a retry after failure.
+  const handleRefresh = () => {
+    const wasFailing = state.refreshFailure !== null;
+    void application.refresh().then(() => {
+      const after = application.getSnapshot?.() ?? application.state;
+      const outcome = after.status !== 'ready'
+        ? 'failure_no_snapshot' as const
+        : after.refreshFailure === null
+          ? 'success' as const
+          : after.snapshot
+            ? 'failure_kept_last_known' as const
+            : 'failure_no_snapshot' as const;
+      if (wasFailing) {
+        analytics.capture('retry_after_failure_triggered', {
+          schema_version: ANALYTICS_SCHEMA_VERSION,
+          surface: 'weather',
+          attempt_number: retries.nextAttempt('weather'),
+          result: outcome === 'success' ? 'success' : 'failure',
+        });
+        if (outcome === 'success') retries.reset('weather');
+        return;
+      }
+      analytics.capture('manual_refresh_triggered', {
+        schema_version: ANALYTICS_SCHEMA_VERSION,
+        surface: 'weather',
+        result: outcome,
+      });
+      void firstUses.markFirstUse('manual_refresh').then((firstUse) => {
+        if (!firstUse) return;
+        analytics.capture('feature_used_first_time', {
+          schema_version: ANALYTICS_SCHEMA_VERSION,
+          feature_name: 'manual_refresh',
+        });
+      });
+    });
+  };
 
   const activeName = state.activeLocation ? locationName(state.activeLocation, copy) : copy.noLocation;
   const accuracy = state.activeLocation?.source === 'device'
@@ -149,7 +191,7 @@ export function WeatherScreen() {
           colors={[theme.colors.iconSecondary]}
           onRefresh={() => {
             haptics.impactLight();
-            void application.refresh();
+            handleRefresh();
           }}
           refreshing={state.isRefreshing}
           tintColor={theme.colors.iconSecondary}
@@ -165,7 +207,7 @@ export function WeatherScreen() {
             accessibilityState={{ busy: state.isRefreshing, disabled: state.isRefreshing }}
             disabled={state.isRefreshing}
             hitSlop={10}
-            onPress={() => void application.refresh()}
+            onPress={handleRefresh}
             style={({ pressed }) => [
               styles.refreshButton,
               { backgroundColor: theme.colors.surface },
