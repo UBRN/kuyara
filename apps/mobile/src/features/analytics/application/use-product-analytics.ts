@@ -4,12 +4,14 @@
 import { createContext, use } from 'react';
 
 import type { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
+import type { FirstUseTracker } from '@/features/analytics/application/first-use-tracker';
 import type { RetryCounter } from '@/features/analytics/application/retry-counter';
 import type { ProductAnalytics } from '@/features/analytics/domain/product-analytics';
 
 export type ProductAnalyticsValue = Readonly<{
   analytics: ProductAnalytics;
   errorEpisodes: ErrorEpisodeTracker;
+  firstUses: FirstUseTracker;
   retries: RetryCounter;
 }>;
 

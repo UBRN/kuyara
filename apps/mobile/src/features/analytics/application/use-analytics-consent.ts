@@ -12,7 +12,7 @@ export type AnalyticsConsentControls = Readonly<{
 }>;
 
 export function useAnalyticsConsent(): AnalyticsConsentControls {
-  const { analytics } = useProductAnalytics();
+  const { analytics, firstUses } = useProductAnalytics();
   const { state, updateAnalyticsConsent } = useProfileApplication();
 
   if (state.status !== 'ready') {
@@ -29,6 +29,8 @@ export function useAnalyticsConsent(): AnalyticsConsentControls {
     withdraw: async () => {
       await updateAnalyticsConsent('withdrawn');
       await analytics.withdraw();
+      // The first-use set belongs to the severed identity (taxonomy 5.11).
+      await firstUses.clear();
     },
     decline: () => updateAnalyticsConsent('withdrawn'),
   };
