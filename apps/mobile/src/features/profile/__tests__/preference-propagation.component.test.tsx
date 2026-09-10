@@ -13,6 +13,9 @@ import type {
   LanguagePreference,
   ThemePreference,
 } from '@/domain/preferences';
+import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
+import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
+import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
 import type { DressStyle, Gender } from '@/features/profile/domain/profile';
 import { ProfileApplicationProvider } from '@/features/profile/application/profile-application-provider';
 import type { LocalProfileRecord } from '@/features/profile/data/local-profile-record';
@@ -35,6 +38,7 @@ jest.mock('expo-constants', () => ({
 jest.mock('expo-router', () => ({
   router: { back: jest.fn(), push: jest.fn() },
   Stack: { Screen: () => null },
+  useFocusEffect: () => undefined,
 }));
 
 const mockRouter = jest.requireMock('expo-router').router as {
@@ -116,7 +120,11 @@ test.each([
     const result = await render(
       <SafeAreaProvider initialMetrics={initialMetrics}>
         <ProfileApplicationProvider>
-          <MountedSettingsRoutes onMount={() => undefined} />
+          <ProductAnalyticsProvider
+            analytics={new RecordingProductAnalytics()}
+            firstUseStore={new InMemoryFirstUseStore()}>
+            <MountedSettingsRoutes onMount={() => undefined} />
+          </ProductAnalyticsProvider>
         </ProfileApplicationProvider>
       </SafeAreaProvider>,
     );
@@ -194,10 +202,15 @@ function MountedSettingsRoutes({ onMount }: Readonly<{ onMount: () => void }>) {
 test('live preference changes propagate localized copy and dark semantic colors without remounting', async () => {
   mockProfile = createProfile();
   const onMount = jest.fn();
+  const analytics = new RecordingProductAnalytics();
   const result = await render(
     <SafeAreaProvider initialMetrics={initialMetrics}>
       <ProfileApplicationProvider>
-        <MountedSettingsRoutes onMount={onMount} />
+        <ProductAnalyticsProvider
+          analytics={analytics}
+          firstUseStore={new InMemoryFirstUseStore()}>
+          <MountedSettingsRoutes onMount={onMount} />
+        </ProductAnalyticsProvider>
       </ProfileApplicationProvider>
     </SafeAreaProvider>,
   );
@@ -276,14 +289,32 @@ test('live preference changes propagate localized copy and dark semantic colors 
       .backgroundColor,
   ).toBe(darkSemanticColors.background);
   expect(onMount).toHaveBeenCalledTimes(1);
+
+  await waitFor(() => expect(analytics.names()).toEqual([
+    'setting_changed',
+    'feature_used_first_time',
+    'setting_changed',
+    'feature_used_first_time',
+  ]));
+  expect(analytics.captures.map((capture) => capture.properties)).toEqual([
+    { schema_version: 1, setting_name: 'language', new_value: 'tr' },
+    { schema_version: 1, feature_name: 'language_override' },
+    { schema_version: 1, setting_name: 'appearance_theme', new_value: 'dark' },
+    { schema_version: 1, feature_name: 'appearance_override' },
+  ]);
 });
 
 test('personal preferences keep their order and birth date can be cleared to null', async () => {
   mockProfile = { ...createProfile(), birthDate: '1994-03-14' };
+  const analytics = new RecordingProductAnalytics();
   const result = await render(
     <SafeAreaProvider initialMetrics={initialMetrics}>
       <ProfileApplicationProvider>
-        <MountedSettingsRoutes onMount={() => undefined} />
+        <ProductAnalyticsProvider
+          analytics={analytics}
+          firstUseStore={new InMemoryFirstUseStore()}>
+          <MountedSettingsRoutes onMount={() => undefined} />
+        </ProductAnalyticsProvider>
       </ProfileApplicationProvider>
     </SafeAreaProvider>,
   );
@@ -315,6 +346,19 @@ test('personal preferences keep their order and birth date can be cleared to nul
   expect(await result.findByTestId('settings-birth-date')).toBeOnTheScreen();
   await fireEvent.press(result.getByTestId('settings-birth-date-clear'));
   await waitFor(() => expect(mockProfile.birthDate).toBeNull());
+
+  // Neither `gender` nor `birth_date` is an allowed analytics property value (taxonomy
+  // 5.9), so both events carry `setting_name` only; `dress_style` carries the value chosen.
+  await waitFor(() => expect(analytics.names()).toEqual([
+    'setting_changed',
+    'setting_changed',
+    'setting_changed',
+  ]));
+  expect(analytics.captures.map((capture) => capture.properties)).toEqual([
+    { schema_version: 1, setting_name: 'gender' },
+    { schema_version: 1, setting_name: 'dress_style', new_value: 'formal' },
+    { schema_version: 1, setting_name: 'birth_date' },
+  ]);
 });
 
 test('version templates omit an unavailable build without leaving empty parentheses', () => {

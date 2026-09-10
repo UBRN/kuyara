@@ -353,6 +353,10 @@ Feature code emits named domain events; the boundary owns the taxonomy, enforces
 
 **Phase 3 shared scaffolding landed 2026-09-10.** `useScreenViewed` emits the closed `screen_viewed` event on each route focus, total mappers translate active-location sources and completed AI-probe states into taxonomy values, and `firstUses.markFirstUse` serializes per-install feature adoption through an app-private JSON file that is independent of SQLite and profiles; withdrawal clears it after severing the identity, so a re-consented install reports first use again (taxonomy 5.11). With no PostHog key, development builds use a consent-aware `console.debug` adapter so Simulator sessions expose only the event name and its already-filtered properties; production keeps the no-op fallback.
 
+**Phase 3 call sites landed 2026-09-10.** Routes and application providers, not presentation components, emit the taxonomy's events: `screen_viewed` through `useScreenViewed` in every tracked route, onboarding and Settings events in the thin route files, `weather_refreshed` and `recommendation_regenerated` from the two controllers through an injected capture function with a no-op default, `error_shown` and `error_recovered` from the providers and routes that already observe a `FailureCategory`, and the Closet events from the wardrobe routes with a pure `fields_changed` helper. `age_bucket` and `dress_style` are derived at emit time by `ageBucketProperty` and `dressStyleProperty` in `analytics-mappers.ts` and are never stored. No feature file imports the SDK; the guard test and `rg` checks in `AGENTS.md` still enforce the boundary.
+
+## Current end-to-end data flow
+
 1. Mobile presentation sends user intent to application services.
 2. Application services read durable local state through repository interfaces and remote state through a Worker client.
 3. The Worker validates input, calls privileged providers, validates their output, and returns a versioned response defined in the contracts package.

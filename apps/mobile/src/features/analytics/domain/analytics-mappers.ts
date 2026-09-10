@@ -1,6 +1,8 @@
 // Domain values are mapped, not passed through (`docs/analytics-taxonomy.md` section 5.0).
 // Every map below is a total `Record` over its domain union, so a new domain value is a
 // build error here rather than a raw string on an event.
+import type { DressStyle } from '@kuyara/contracts';
+
 import type {
   ActiveLocation,
   WeatherConditionCode,
@@ -11,6 +13,7 @@ import type { RecommendationGenerationMode } from '@/features/recommendation/dom
 import type { FailureCategory } from '@/domain/failure-category';
 
 import type {
+  AgeBucket,
   AnalyticsEventProperties,
   ConditionCategory,
   CountBucket,
@@ -125,4 +128,42 @@ export function aiProbeResultProperty(
   kind: CompletedAiProbeKind,
 ): AiProbeResult {
   return aiProbeResults[kind];
+}
+
+// Taxonomy section 3: `age_bucket` is computed at emit time only, never stored. A null,
+// malformed, or future birth date reads as `unknown`; `under_18` is a distinct bucket
+// because onboarding enforces no minimum birth date, so a computed age below 18 is
+// reachable; `65_plus` collects everything from 65 up. Local calendar math, not UTC, so the
+// bucket matches what the device's own calendar would say the age is today.
+const ageBucketMaxExclusiveAges: readonly (readonly [number, AgeBucket])[] = [
+  [18, 'under_18'],
+  [25, '18_24'],
+  [35, '25_34'],
+  [45, '35_44'],
+  [55, '45_54'],
+  [65, '55_64'],
+];
+
+export function ageBucketProperty(
+  birthDate: string | null,
+  now: Date = new Date(),
+): AgeBucket {
+  const match = birthDate === null ? null : /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthDate);
+  if (!match) return 'unknown';
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hadBirthdayThisYear =
+    now.getMonth() + 1 > month || (now.getMonth() + 1 === month && now.getDate() >= day);
+  const age = now.getFullYear() - year - (hadBirthdayThisYear ? 0 : 1);
+  if (age < 0) return 'unknown';
+
+  return ageBucketMaxExclusiveAges.find(([maxExclusive]) => age < maxExclusive)?.[1] ?? '65_plus';
+}
+
+// Taxonomy section 3: a null stored dress style reads as `smart`, matching product logic, so
+// no event ever carries null.
+export function dressStyleProperty(dressStyle: DressStyle | null): DressStyle {
+  return dressStyle ?? 'smart';
 }

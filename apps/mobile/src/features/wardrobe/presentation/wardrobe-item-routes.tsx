@@ -7,8 +7,17 @@ import {
   garmentCatalog,
   getGarmentType,
 } from '@/features/catalog/domain/garment-catalog';
+import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
+import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
+import { ANALYTICS_SCHEMA_VERSION } from '@/features/analytics/domain/analytics-events';
+import {
+  ageBucketProperty,
+  dressStyleProperty,
+} from '@/features/analytics/domain/analytics-mappers';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
+import { closetFieldsChanged } from '@/features/wardrobe/application/closet-field-changes';
 import { isWardrobeRouteId } from '@/features/wardrobe/application/wardrobe-form';
+import { unchangedWardrobePhoto } from '@/features/wardrobe/application/wardrobe-photo-manager';
 import { useWardrobeApplication } from '@/features/wardrobe/application/wardrobe-application-context';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import {
@@ -134,12 +143,15 @@ export function WardrobeNewItemRoute({
     refresh,
     state,
   } = useWardrobeApplication();
+  const { analytics, firstUses } = useProductAnalytics();
+  const profileApplication = useProfileApplication();
   const router = useRouter();
   const { garmentTypeId } = useLocalSearchParams<{
     garmentTypeId?: string | string[];
   }>();
   const [isDirty, setIsDirty] = useState(false);
   const guard = useWardrobeExitGuard(isDirty, confirmation);
+  useScreenViewed('closet_item_form');
 
   if (state.status === 'loading') {
     return <WardrobeRouteStatus onBack={guard.returnToList} status="loading" />;
@@ -165,7 +177,32 @@ export function WardrobeNewItemRoute({
       mode="create"
       onBackRequested={guard.requestBack}
       onCreate={async (input, photoChange) => {
-        await createItem(input, photoChange);
+        const created = await createItem(input, photoChange);
+        if (created.garmentTypeId) {
+          const profile =
+            profileApplication.state.status === 'ready'
+              ? profileApplication.state.profile
+              : null;
+          analytics.capture('closet_item_created', {
+            schema_version: ANALYTICS_SCHEMA_VERSION,
+            state: created.entryState,
+            garment_type_id: created.garmentTypeId,
+            has_photo: created.photoRelativePath !== null,
+            entry_point: 'closet_list',
+            dress_style: dressStyleProperty(profile?.dressStyle ?? null),
+            age_bucket: ageBucketProperty(profile?.birthDate ?? null),
+          });
+          // `markFirstUse` only reports whether this is the first use; the caller
+          // decides whether to actually capture `feature_used_first_time` (taxonomy 5.11).
+          void firstUses.markFirstUse('closet').then((isFirstUse) => {
+            if (isFirstUse) {
+              analytics.capture('feature_used_first_time', {
+                schema_version: ANALYTICS_SCHEMA_VERSION,
+                feature_name: 'closet',
+              });
+            }
+          });
+        }
         guard.returnToList();
       }}
       onDiscardStagedPhoto={discardStagedPhoto}
@@ -192,6 +229,7 @@ export function WardrobeEditItemRoute({
   itemId: string | string[] | undefined;
 }>) {
   const application = useWardrobeApplication();
+  const { analytics } = useProductAnalytics();
   const router = useRouter();
   const { garmentTypeId } = useLocalSearchParams<{
     garmentTypeId?: string | string[];
@@ -204,6 +242,7 @@ export function WardrobeEditItemRoute({
   const guard = useWardrobeExitGuard(isDirty, confirmation);
   const normalizedId = typeof itemId === 'string' ? itemId : '';
   const getItem = application.getItem;
+  useScreenViewed('closet_item_form');
 
   const loadItem = async () => {
     setLoadStatus('loading');
@@ -277,7 +316,16 @@ export function WardrobeEditItemRoute({
       mode="edit"
       onBackRequested={guard.requestBack}
       onDelete={async () => {
+        // Taxonomy 5.8: `state` and `had_photo` are read from the loaded item before the
+        // soft delete, not from the (already cleared) mutation result.
+        const deletedEntryState = item.entryState;
+        const hadPhoto = item.photoRelativePath !== null;
         await application.softDeleteItem(item.id);
+        analytics.capture('closet_item_deleted', {
+          schema_version: ANALYTICS_SCHEMA_VERSION,
+          state: deletedEntryState,
+          had_photo: hadPhoto,
+        });
         guard.returnToList();
       }}
       onDiscardStagedPhoto={application.discardStagedPhoto}
@@ -297,8 +345,21 @@ export function WardrobeEditItemRoute({
       }
       onSelectPhoto={application.preparePhoto}
       onCreate={async () => undefined}
-      onUpdate={async (input, photoChange) => {
-        await application.updateItem(item.id, input, photoChange);
+      onUpdate={async (input, photoChange = unchangedWardrobePhoto) => {
+        const fieldsChanged = closetFieldsChanged(
+          item,
+          input,
+          photoChange.kind !== 'unchanged',
+        );
+        const updated = await application.updateItem(item.id, input, photoChange);
+        if (updated.garmentTypeId) {
+          analytics.capture('closet_item_updated', {
+            schema_version: ANALYTICS_SCHEMA_VERSION,
+            fields_changed: fieldsChanged,
+            garment_type_id: updated.garmentTypeId,
+            entry_point: 'closet_list',
+          });
+        }
         guard.returnToList();
       }}
       photoPreviewUri={application.resolvePhotoUri(item.photoRelativePath)}
@@ -314,6 +375,7 @@ export function WardrobeGarmentTypePickerRoute() {
     returnTo?: string | string[];
     selectedTypeId?: string | string[];
   }>();
+  useScreenViewed('closet_garment_type_picker');
 
   if (
     profileApplication.state.status !== 'ready' ||

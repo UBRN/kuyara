@@ -1,11 +1,16 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
+import { useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
+import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
+import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
 import {
   WardrobeApplicationContext,
   type WardrobeApplicationValue,
 } from '@/features/wardrobe/application/wardrobe-application-context';
+import type { WardrobeApplicationState } from '@/features/wardrobe/application/wardrobe-application-controller';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import { WardrobeListRoute } from '@/features/wardrobe/presentation/wardrobe-list-route';
 import { LocalizationContext } from '@/localization/localization-context';
@@ -54,12 +59,19 @@ jest.mock('@/components/ui/segmented-control', () => {
   return { SegmentedControl: MockSegmentedControl };
 });
 
+type FocusEffect = () => void | (() => void);
+
+let focusEffects: FocusEffect[] = [];
+const mockUseFocusEffect = jest.fn((effect: FocusEffect) => {
+  focusEffects.push(effect);
+});
+
 jest.mock('expo-router', () => {
   const push = jest.fn();
   const back = jest.fn();
 
   return {
-    useFocusEffect: () => undefined,
+    useFocusEffect: (effect: FocusEffect) => mockUseFocusEffect(effect),
     useRouter: () => ({ back, push }),
     __mockBack: back,
     __mockPush: push,
@@ -98,6 +110,19 @@ const item: WardrobeItem = {
   deletedAt: null,
 };
 
+function readyState(
+  overrides: Partial<Extract<WardrobeApplicationState, { status: 'ready' }>> = {},
+): WardrobeApplicationState {
+  return {
+    status: 'ready',
+    items: [item],
+    isRefreshing: false,
+    isMutating: false,
+    refreshFailure: null,
+    ...overrides,
+  };
+}
+
 function createApplication(items: readonly WardrobeItem[]): WardrobeApplicationValue {
   return {
     state: {
@@ -118,12 +143,53 @@ function createApplication(items: readonly WardrobeItem[]): WardrobeApplicationV
   };
 }
 
-function TestProviders({
-  application,
+// A scripted controller stand-in: `refreshOutcomes` is consumed one result per call to
+// `refresh()`, mirroring how the real controller's `refresh()` settles into a new state.
+function FakeWardrobeApplicationProvider({
   children,
-}: PropsWithChildren<{ application: WardrobeApplicationValue }>) {
+  initialState,
+  refreshOutcomes = [],
+}: PropsWithChildren<{
+  initialState: WardrobeApplicationState;
+  refreshOutcomes?: readonly WardrobeApplicationState[];
+}>) {
+  const [state, setState] = useState(initialState);
+  const [outcomes] = useState(() => [...refreshOutcomes]);
+  const value: WardrobeApplicationValue = {
+    state,
+    refresh: async () => {
+      const next = outcomes.shift();
+      if (next) {
+        setState(next);
+      }
+    },
+    getItem: async () => null,
+    preparePhoto: async () => null,
+    discardStagedPhoto: async () => undefined,
+    resolvePhotoUri: () => null,
+    createItem: async () => item,
+    updateItem: async () => item,
+    softDeleteItem: async () => item,
+  };
+
   return (
-    <WardrobeApplicationContext.Provider value={application}>
+    <WardrobeApplicationContext.Provider value={value}>
+      {children}
+    </WardrobeApplicationContext.Provider>
+  );
+}
+
+// Analytics, localization, theme and safe-area context only: the wardrobe application
+// context is supplied by each test, either a static `createApplication` fixture or the
+// stateful `FakeWardrobeApplicationProvider` below.
+function TestProviders({
+  analytics,
+  children,
+}: PropsWithChildren<{ analytics?: RecordingProductAnalytics }>) {
+  return (
+    <ProductAnalyticsProvider
+      analytics={analytics ?? new RecordingProductAnalytics()}
+      firstUseStore={new InMemoryFirstUseStore()}>
       <LocalizationContext.Provider value={{ language: 'en', messages: messages.en }}>
         <KuyaraThemeContext.Provider value={lightTheme}>
           <SafeAreaProvider initialMetrics={initialMetrics}>
@@ -131,14 +197,16 @@ function TestProviders({
           </SafeAreaProvider>
         </KuyaraThemeContext.Provider>
       </LocalizationContext.Provider>
-    </WardrobeApplicationContext.Provider>
+    </ProductAnalyticsProvider>
   );
 }
 
 async function renderRoute(items: readonly WardrobeItem[]) {
   return render(
-    <TestProviders application={createApplication(items)}>
-      <WardrobeListRoute />
+    <TestProviders>
+      <WardrobeApplicationContext.Provider value={createApplication(items)}>
+        <WardrobeListRoute />
+      </WardrobeApplicationContext.Provider>
     </TestProviders>,
   );
 }
@@ -146,6 +214,7 @@ async function renderRoute(items: readonly WardrobeItem[]) {
 beforeEach(() => {
   mockBack.mockClear();
   mockPush.mockClear();
+  focusEffects = [];
 });
 
 // The plus bar button that replaces this action lives in the route file's
@@ -172,8 +241,10 @@ test('selecting an item navigates to its absolute edit route', async () => {
 test('an initial entry state, passed by the route for ADR 0028\'s Wanted row, selects that filter on first render', async () => {
   const wantedItem = { ...item, id: '218f0f4d-1d45-4ae7-a8f1-796e8297d3b4', entryState: 'wanted' as const };
   const result = await render(
-    <TestProviders application={createApplication([item, wantedItem])}>
-      <WardrobeListRoute initialEntryState="wanted" />
+    <TestProviders>
+      <WardrobeApplicationContext.Provider value={createApplication([item, wantedItem])}>
+        <WardrobeListRoute initialEntryState="wanted" />
+      </WardrobeApplicationContext.Provider>
     </TestProviders>,
   );
 
@@ -183,4 +254,191 @@ test('an initial entry state, passed by the route for ADR 0028\'s Wanted row, se
   expect(
     result.getByTestId('wardrobe-entry-filter-segment-0').props.accessibilityState.selected,
   ).toBe(false);
+});
+
+// `useScreenViewed('closet_list')` registers its `useFocusEffect` before the route's own,
+// so index 0 is the screen view and index 1 is the route's auto-refresh-on-focus effect.
+test('one screen_viewed for closet_list fires each time the route gains focus', async () => {
+  const analytics = new RecordingProductAnalytics();
+  await render(
+    <TestProviders analytics={analytics}>
+      <WardrobeApplicationContext.Provider value={createApplication([item])}>
+        <WardrobeListRoute />
+      </WardrobeApplicationContext.Provider>
+    </TestProviders>,
+  );
+
+  expect(analytics.captures).toEqual([]);
+  await act(() => {
+    focusEffects[0]();
+  });
+  expect(analytics.captures).toEqual([
+    {
+      name: 'screen_viewed',
+      properties: { schema_version: 1, screen_name: 'closet_list' },
+      options: undefined,
+    },
+  ]);
+});
+
+test('the consent boundary drops a focused screen view before consent', async () => {
+  const analytics = new RecordingProductAnalytics('undecided');
+  await render(
+    <TestProviders analytics={analytics}>
+      <WardrobeApplicationContext.Provider value={createApplication([item])}>
+        <WardrobeListRoute />
+      </WardrobeApplicationContext.Provider>
+    </TestProviders>,
+  );
+
+  await act(() => {
+    focusEffects[0]();
+  });
+  expect(analytics.captures).toEqual([]);
+});
+
+test('the pull gesture captures a successful manual_refresh_triggered and the first-use signal', async () => {
+  const analytics = new RecordingProductAnalytics();
+  const result = await render(
+    <TestProviders analytics={analytics}>
+      <FakeWardrobeApplicationProvider
+        initialState={readyState()}
+        refreshOutcomes={[readyState()]}>
+        <WardrobeListRoute />
+      </FakeWardrobeApplicationProvider>
+    </TestProviders>,
+  );
+
+  await act(async () => {
+    result.getByTestId('wardrobe-list').props.onRefresh();
+  });
+  // `markFirstUse` resolves through the in-memory store's own promises, one microtask
+  // past the synchronous `refresh()` state transition above.
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  expect(analytics.captures).toEqual(
+    expect.arrayContaining([
+      {
+        name: 'manual_refresh_triggered',
+        properties: { schema_version: 1, surface: 'closet', result: 'success' },
+        options: undefined,
+      },
+      {
+        name: 'feature_used_first_time',
+        properties: { schema_version: 1, feature_name: 'manual_refresh' },
+        options: undefined,
+      },
+    ]),
+  );
+});
+
+test('a retry button reports failure then success across two attempts, with attempt_number increasing', async () => {
+  const analytics = new RecordingProductAnalytics();
+  const result = await render(
+    <TestProviders analytics={analytics}>
+      <FakeWardrobeApplicationProvider
+        initialState={readyState({ refreshFailure: 'unavailable' })}
+        refreshOutcomes={[
+          readyState({ refreshFailure: 'unavailable' }),
+          readyState({ refreshFailure: null }),
+        ]}>
+        <WardrobeListRoute />
+      </FakeWardrobeApplicationProvider>
+    </TestProviders>,
+  );
+
+  const retryButton = result.getByRole('button', { name: messages.en.wardrobe.retryAction });
+  await act(async () => {
+    fireEvent.press(retryButton);
+  });
+  await act(async () => {
+    fireEvent.press(retryButton);
+  });
+
+  const retryCaptures = analytics.captures.filter(
+    (capture) => capture.name === 'retry_after_failure_triggered',
+  );
+  expect(retryCaptures).toEqual([
+    {
+      name: 'retry_after_failure_triggered',
+      properties: {
+        schema_version: 1,
+        surface: 'closet',
+        attempt_number: 1,
+        result: 'failure',
+      },
+      options: undefined,
+    },
+    {
+      name: 'retry_after_failure_triggered',
+      properties: {
+        schema_version: 1,
+        surface: 'closet',
+        attempt_number: 2,
+        result: 'success',
+      },
+      options: undefined,
+    },
+  ]);
+});
+
+test('a refresh failure emits error_shown once and a later success emits error_recovered', async () => {
+  const analytics = new RecordingProductAnalytics();
+  await render(
+    <TestProviders analytics={analytics}>
+      <FakeWardrobeApplicationProvider
+        initialState={readyState()}
+        refreshOutcomes={[
+          readyState({ refreshFailure: 'unavailable' }),
+          readyState({ refreshFailure: 'unavailable' }),
+          readyState({ refreshFailure: null }),
+        ]}>
+        <WardrobeListRoute />
+      </FakeWardrobeApplicationProvider>
+    </TestProviders>,
+  );
+
+  // Three automatic focus refreshes drive the underlying failure/recovery transitions.
+  // The tracker buffers `error_shown` rather than capturing it immediately (it is only
+  // emitted alongside recovery, per taxonomy 5.10), so the two failures collapse into one
+  // `error_shown` whose `occurrence_count` reflects both.
+  await act(async () => {
+    focusEffects[1]();
+  });
+  await act(async () => {
+    focusEffects[1]();
+  });
+  await act(async () => {
+    focusEffects[1]();
+  });
+
+  expect(
+    analytics.captures.filter((capture) => capture.name === 'error_shown'),
+  ).toEqual([
+    {
+      name: 'error_shown',
+      properties: {
+        schema_version: 1,
+        surface: 'closet',
+        failure_category: 'unavailable',
+        occurrence_count: 2,
+      },
+      options: expect.anything(),
+    },
+  ]);
+  expect(
+    analytics.captures.filter((capture) => capture.name === 'error_recovered'),
+  ).toEqual([
+    {
+      name: 'error_recovered',
+      properties: {
+        schema_version: 1,
+        surface: 'closet',
+        failure_category: 'unavailable',
+      },
+      options: undefined,
+    },
+  ]);
 });

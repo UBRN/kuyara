@@ -7,6 +7,18 @@ import {
   garmentCatalog,
   getGarmentType,
 } from '@/features/catalog/domain/garment-catalog';
+import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
+import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
+import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
+import {
+  ageBucketProperty,
+  dressStyleProperty,
+} from '@/features/analytics/domain/analytics-mappers';
+import {
+  ProfileApplicationContext,
+  type ProfileApplicationValue,
+} from '@/features/profile/application/profile-context';
+import type { LocalProfile } from '@/features/profile/domain/profile';
 import {
   WardrobeApplicationContext,
   type WardrobeApplicationValue,
@@ -17,6 +29,8 @@ import type { WardrobeConfirmation } from '@/features/wardrobe/presentation/ward
 import { WardrobeItemFormScreen } from '@/features/wardrobe/presentation/wardrobe-item-form-screen';
 import { GarmentTypePickerScreen } from '@/features/wardrobe/presentation/garment-type-picker-screen';
 import {
+  WardrobeEditItemRoute,
+  WardrobeGarmentTypePickerRoute,
   WardrobeNewItemRoute,
   WardrobeRouteStatus,
 } from '@/features/wardrobe/presentation/wardrobe-item-routes';
@@ -29,12 +43,18 @@ jest.mock('expo-symbols', () => ({
   SymbolView: () => null,
 }));
 
+let mockFocusEffects: (() => void | (() => void))[] = [];
+let mockSearchParams: Record<string, string | string[] | undefined> = {};
+
 jest.mock('expo-router', () => ({
+  useFocusEffect: (effect: () => void | (() => void)) => {
+    mockFocusEffects.push(effect);
+  },
   useNavigation: () => ({
     addListener: () => () => undefined,
     dispatch: () => undefined,
   }),
-  useLocalSearchParams: () => ({}),
+  useLocalSearchParams: () => mockSearchParams,
   useRouter: () => ({
     back: () => undefined,
     dismissTo: () => undefined,
@@ -43,6 +63,52 @@ jest.mock('expo-router', () => ({
     setParams: () => undefined,
   }),
 }));
+
+const profile: LocalProfile = {
+  id: 'profile-id',
+  gender: 'woman',
+  dressStyle: 'casual',
+  birthDate: '1996-06-01',
+  clothingPreference: 'womens',
+  languagePreference: 'en',
+  themePreference: 'light',
+  onboardingCompleted: true,
+  notificationsOptIn: true,
+  analyticsConsent: 'undecided',
+  createdAt: '2026-07-01T08:00:00.000Z',
+  updatedAt: '2026-07-01T08:00:00.000Z',
+};
+
+function readyProfileApplication(
+  overrides: Partial<LocalProfile> = {},
+): ProfileApplicationValue {
+  return {
+    state: { status: 'ready', profile: { ...profile, ...overrides }, isSaving: false },
+    completeOnboarding: async () => undefined,
+    updateGender: async () => undefined,
+    updateDressStyle: async () => undefined,
+    updateBirthDate: async () => undefined,
+    updateLanguagePreference: async () => undefined,
+    updateThemePreference: async () => undefined,
+    updateNotificationsOptIn: async () => undefined,
+    updateAnalyticsConsent: async () => undefined,
+  };
+}
+
+function AnalyticsProviders({
+  analytics,
+  children,
+}: PropsWithChildren<{ analytics?: RecordingProductAnalytics }>) {
+  return (
+    <ProductAnalyticsProvider
+      analytics={analytics ?? new RecordingProductAnalytics()}
+      firstUseStore={new InMemoryFirstUseStore()}>
+      <ProfileApplicationContext.Provider value={readyProfileApplication()}>
+        {children}
+      </ProfileApplicationContext.Provider>
+    </ProductAnalyticsProvider>
+  );
+}
 
 const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
@@ -57,6 +123,11 @@ function mockFontScale(fontScale: number) {
 
 afterEach(() => {
   Dimensions.set({ window: originalWindowDimensions });
+});
+
+beforeEach(() => {
+  mockFocusEffects = [];
+  mockSearchParams = {};
 });
 
 const item: WardrobeItem = {
@@ -149,7 +220,9 @@ test('create route shows initialization status instead of the form until wardrob
     render(
       <WardrobeApplicationContext.Provider value={{ ...application, state }}>
         <TestProviders>
-          <WardrobeNewItemRoute />
+          <AnalyticsProviders>
+            <WardrobeNewItemRoute />
+          </AnalyticsProviders>
         </TestProviders>
       </WardrobeApplicationContext.Provider>,
     );
@@ -763,4 +836,248 @@ test('delete requires confirmation, reports failure, and allows retry', async ()
     confirmDelete.current?.();
   });
   await waitFor(() => expect(onDelete).toHaveBeenCalledTimes(2));
+});
+
+// Milestone 10 phase 3: `closet_item_created`/`_updated`/`_deleted`,
+// `screen_viewed('closet_item_form')` and `screen_viewed('closet_garment_type_picker')`.
+const plainItem: WardrobeItem = {
+  id: '318f0f4d-1d45-4ae7-a8f1-796e8297d3b4',
+  localProfileId: '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4',
+  name: null,
+  category: 'outerwear',
+  entryState: 'owned',
+  garmentTypeId: 'rain_jacket',
+  color: null,
+  colorFamily: null,
+  thermalLevelOverride: null,
+  waterProtectionOverride: null,
+  windProtectionOverride: null,
+  breathabilityOverride: null,
+  armCoverageOverride: null,
+  legCoverageOverride: null,
+  tractionSuitabilityOverride: null,
+  photoRelativePath: null,
+  createdAt: '2026-07-30T10:00:00.000Z',
+  updatedAt: '2026-07-30T10:05:00.000Z',
+  deletedAt: null,
+};
+
+const autoConfirmDelete: WardrobeConfirmation = (_options, onConfirm) => onConfirm();
+
+function wardrobeApplication(
+  overrides: Partial<WardrobeApplicationValue> = {},
+): WardrobeApplicationValue {
+  return {
+    state: {
+      status: 'ready',
+      items: [plainItem],
+      isRefreshing: false,
+      isMutating: false,
+      refreshFailure: null,
+    },
+    refresh: async () => undefined,
+    getItem: async () => plainItem,
+    preparePhoto: async () => null,
+    discardStagedPhoto: async () => undefined,
+    resolvePhotoUri: () => null,
+    createItem: async () => plainItem,
+    updateItem: async () => plainItem,
+    softDeleteItem: async () => plainItem,
+    ...overrides,
+  };
+}
+
+test('a successful create captures closet_item_created with profile segmentation and marks the closet feature used', async () => {
+  mockSearchParams = { garmentTypeId: 'rain_jacket' };
+  const analytics = new RecordingProductAnalytics();
+  const createdItem: WardrobeItem = { ...plainItem, entryState: 'owned' };
+  const application = wardrobeApplication({
+    createItem: jest.fn(async () => createdItem),
+  });
+
+  const result = await render(
+    <TestProviders>
+      <AnalyticsProviders analytics={analytics}>
+        <WardrobeApplicationContext.Provider value={application}>
+          <WardrobeNewItemRoute />
+        </WardrobeApplicationContext.Provider>
+      </AnalyticsProviders>
+    </TestProviders>,
+  );
+
+  await fireEvent.press(result.getByTestId('wardrobe-save-button'));
+  await waitFor(() => expect(application.createItem).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(analytics.names()).toContain('feature_used_first_time'));
+
+  expect(analytics.captures).toEqual(
+    expect.arrayContaining([
+      {
+        name: 'closet_item_created',
+        properties: {
+          schema_version: 1,
+          state: 'owned',
+          garment_type_id: 'rain_jacket',
+          has_photo: false,
+          entry_point: 'closet_list',
+          dress_style: dressStyleProperty(profile.dressStyle),
+          age_bucket: ageBucketProperty(profile.birthDate),
+        },
+        options: undefined,
+      },
+      {
+        name: 'feature_used_first_time',
+        properties: { schema_version: 1, feature_name: 'closet' },
+        options: undefined,
+      },
+    ]),
+  );
+});
+
+test('a create with no consent captures nothing', async () => {
+  mockSearchParams = { garmentTypeId: 'rain_jacket' };
+  const analytics = new RecordingProductAnalytics('undecided');
+  const application = wardrobeApplication({
+    createItem: jest.fn(async () => plainItem),
+  });
+
+  const result = await render(
+    <TestProviders>
+      <AnalyticsProviders analytics={analytics}>
+        <WardrobeApplicationContext.Provider value={application}>
+          <WardrobeNewItemRoute />
+        </WardrobeApplicationContext.Provider>
+      </AnalyticsProviders>
+    </TestProviders>,
+  );
+
+  await fireEvent.press(result.getByTestId('wardrobe-save-button'));
+  await waitFor(() => expect(application.createItem).toHaveBeenCalledTimes(1));
+  expect(analytics.captures).toEqual([]);
+});
+
+test('a successful update captures closet_item_updated with only the fields that changed', async () => {
+  mockSearchParams = {};
+  const analytics = new RecordingProductAnalytics();
+  const updated: WardrobeItem = { ...plainItem, entryState: 'wanted' };
+  const application = wardrobeApplication({
+    updateItem: jest.fn(async () => updated),
+  });
+
+  const result = await render(
+    <TestProviders>
+      <AnalyticsProviders analytics={analytics}>
+        <WardrobeApplicationContext.Provider value={application}>
+          <WardrobeEditItemRoute itemId={plainItem.id} />
+        </WardrobeApplicationContext.Provider>
+      </AnalyticsProviders>
+    </TestProviders>,
+  );
+
+  await waitFor(() => expect(result.getByTestId('wardrobe-edit-form')).toBeOnTheScreen());
+  await fireEvent.press(result.getByTestId('wardrobe-entry-state-wanted'));
+  await fireEvent.press(result.getByTestId('wardrobe-save-button'));
+  await waitFor(() => expect(application.updateItem).toHaveBeenCalledTimes(1));
+
+  expect(analytics.captures).toEqual(
+    expect.arrayContaining([
+      {
+        name: 'closet_item_updated',
+        properties: {
+          schema_version: 1,
+          fields_changed: ['state'],
+          garment_type_id: plainItem.garmentTypeId,
+          entry_point: 'closet_list',
+        },
+        options: undefined,
+      },
+    ]),
+  );
+});
+
+test('a successful delete captures closet_item_deleted with the pre-delete state and photo presence', async () => {
+  mockSearchParams = {};
+  const analytics = new RecordingProductAnalytics();
+  const deletedItem: WardrobeItem = { ...plainItem, photoRelativePath: 'wardrobe/photo.jpg' };
+  const application = wardrobeApplication({
+    getItem: async () => deletedItem,
+    softDeleteItem: jest.fn(async () => ({
+      ...deletedItem,
+      photoRelativePath: null,
+      deletedAt: '2026-09-10T00:00:00.000Z',
+    })),
+  });
+
+  const result = await render(
+    <TestProviders>
+      <AnalyticsProviders analytics={analytics}>
+        <WardrobeApplicationContext.Provider value={application}>
+          <WardrobeEditItemRoute confirmation={autoConfirmDelete} itemId={deletedItem.id} />
+        </WardrobeApplicationContext.Provider>
+      </AnalyticsProviders>
+    </TestProviders>,
+  );
+
+  await waitFor(() => expect(result.getByTestId('wardrobe-edit-form')).toBeOnTheScreen());
+  await fireEvent.press(result.getByTestId('wardrobe-delete-button'));
+  await waitFor(() => expect(application.softDeleteItem).toHaveBeenCalledTimes(1));
+
+  expect(analytics.captures).toEqual(
+    expect.arrayContaining([
+      {
+        name: 'closet_item_deleted',
+        properties: { schema_version: 1, state: 'owned', had_photo: true },
+        options: undefined,
+      },
+    ]),
+  );
+});
+
+test('one screen_viewed for closet_item_form fires on focus for the edit route', async () => {
+  mockSearchParams = {};
+  const analytics = new RecordingProductAnalytics();
+  await render(
+    <TestProviders>
+      <AnalyticsProviders analytics={analytics}>
+        <WardrobeApplicationContext.Provider value={wardrobeApplication()}>
+          <WardrobeEditItemRoute itemId={plainItem.id} />
+        </WardrobeApplicationContext.Provider>
+      </AnalyticsProviders>
+    </TestProviders>,
+  );
+
+  expect(analytics.captures).toEqual([]);
+  await act(() => {
+    mockFocusEffects[0]();
+  });
+  expect(analytics.captures).toEqual([
+    {
+      name: 'screen_viewed',
+      properties: { schema_version: 1, screen_name: 'closet_item_form' },
+      options: undefined,
+    },
+  ]);
+});
+
+test('one screen_viewed for closet_garment_type_picker fires on focus', async () => {
+  mockSearchParams = {};
+  const analytics = new RecordingProductAnalytics();
+  await render(
+    <TestProviders>
+      <AnalyticsProviders analytics={analytics}>
+        <WardrobeGarmentTypePickerRoute />
+      </AnalyticsProviders>
+    </TestProviders>,
+  );
+
+  expect(analytics.captures).toEqual([]);
+  await act(() => {
+    mockFocusEffects[0]();
+  });
+  expect(analytics.captures).toEqual([
+    {
+      name: 'screen_viewed',
+      properties: { schema_version: 1, screen_name: 'closet_garment_type_picker' },
+      options: undefined,
+    },
+  ]);
 });

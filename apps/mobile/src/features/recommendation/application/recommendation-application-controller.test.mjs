@@ -75,7 +75,7 @@ function input(temperatureCelsius = 30) {
   };
 }
 
-function createHarness({ cached = null, client, failSave = false } = {}) {
+function createHarness({ cached = null, client, failSave = false, captureAnalyticsEvent } = {}) {
   let stored = cached;
   const calls = { client: 0, saves: 0 };
   const repository = {
@@ -106,6 +106,7 @@ function createHarness({ cached = null, client, failSave = false } = {}) {
   const controller = new RecommendationApplicationController(profileId, {
     loadRepository: async () => repository,
     client: aiClient,
+    captureAnalyticsEvent,
   });
   return { controller, calls, repository, getStored: () => stored };
 }
@@ -360,4 +361,70 @@ test('a repository load failure leaves the ready state carrying an unknown failu
     isRefreshing: false,
     lastFailure: 'unknown',
   });
+});
+
+test('recommendation_regenerated reports the trigger, result and generation mode on success', async () => {
+  const captured = [];
+  const { controller } = createHarness({
+    captureAnalyticsEvent: (name, properties) => captured.push({ name, properties }),
+  });
+  await controller.initialize();
+
+  await controller.refresh('first-recommendation', input(16));
+
+  assert.deepEqual(captured, [{
+    name: 'recommendation_regenerated',
+    properties: {
+      schema_version: 1,
+      trigger_reason: 'first_recommendation',
+      result: 'success',
+      generation_mode: 'ai_assisted',
+    },
+  }]);
+});
+
+test('recommendation_regenerated omits generation_mode and reports failure_kept_last_known when a save fails with a prior snapshot', async () => {
+  const cached = Object.freeze({
+    id: 'cached-recommendation',
+    generationMode: 'deterministic-fallback',
+    recommendation: { status: 'recommended', outfits: [] },
+  });
+  const captured = [];
+  const { controller } = createHarness({
+    cached,
+    failSave: true,
+    captureAnalyticsEvent: (name, properties) => captured.push({ name, properties }),
+  });
+  await controller.initialize();
+
+  await controller.refresh('explicit', input());
+
+  assert.deepEqual(captured, [{
+    name: 'recommendation_regenerated',
+    properties: {
+      schema_version: 1,
+      trigger_reason: 'explicit_request',
+      result: 'failure_kept_last_known',
+    },
+  }]);
+});
+
+test('recommendation_regenerated reports failure_no_snapshot when a save fails with no prior snapshot', async () => {
+  const captured = [];
+  const { controller } = createHarness({
+    failSave: true,
+    captureAnalyticsEvent: (name, properties) => captured.push({ name, properties }),
+  });
+  await controller.initialize();
+
+  await controller.refresh('explicit', input());
+
+  assert.deepEqual(captured, [{
+    name: 'recommendation_regenerated',
+    properties: {
+      schema_version: 1,
+      trigger_reason: 'explicit_request',
+      result: 'failure_no_snapshot',
+    },
+  }]);
 });

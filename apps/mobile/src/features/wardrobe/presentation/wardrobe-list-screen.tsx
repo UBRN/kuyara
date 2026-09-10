@@ -32,12 +32,18 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 // (`app/(tabs)/(profile)/wardrobe/index.tsx`), exactly as Profile's chrome is set in
 // its own route file rather than here.
 
+// `source` lets the route (`wardrobe-list-route.tsx`) tell the pull gesture apart from
+// either retry button without this screen knowing anything about analytics: taxonomy
+// 5.7 routes the pull through `manual_refresh_triggered` and both retry buttons through
+// `retry_after_failure_triggered`.
+export type WardrobeRetrySource = 'pull' | 'retry_button';
+
 type WardrobeListScreenProps = Readonly<{
   state: WardrobeApplicationState;
   initialEntryState?: WardrobeEntryState;
   onAdd: () => void;
   onEdit: (id: string) => void;
-  onRetry: () => void;
+  onRetry: (source: WardrobeRetrySource) => void;
   resolvePhotoUri?: (relativePath: string | null) => string | null;
 }>;
 
@@ -152,7 +158,7 @@ export function WardrobeListScreen({
         </AppText>
         <Button
           label={copy.retryAction}
-          onPress={onRetry}
+          onPress={() => onRetry('retry_button')}
           style={styles.errorRetry}
           testID="wardrobe-retry-button"
         />
@@ -218,7 +224,7 @@ export function WardrobeListScreen({
                 variant="caption">
                 {copy.loadErrorBody}
               </AppText>
-              <Button label={copy.retryAction} onPress={onRetry} variant="secondary" />
+              <Button label={copy.retryAction} onPress={() => onRetry('retry_button')} variant="secondary" />
             </View>
           ) : null}
           {entryItems.length > 0 ? (
@@ -249,7 +255,7 @@ export function WardrobeListScreen({
       numColumns={numColumns}
       onRefresh={() => {
         setIsPulling(true);
-        onRetry();
+        onRetry('pull');
       }}
       refreshing={isPulling && isRefreshing}
       renderItem={({ item }) => (

@@ -3,8 +3,15 @@ import type { PropsWithChildren } from 'react';
 import { AccessibilityInfo } from 'react-native';
 import type { PlaceSearchV1Data } from '@kuyara/contracts';
 
+import { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
+import { FirstUseTracker } from '@/features/analytics/application/first-use-tracker';
+import { RetryCounter } from '@/features/analytics/application/retry-counter';
+import { ProductAnalyticsContext } from '@/features/analytics/application/use-product-analytics';
+import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
+import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
 import { PlaceSearchApplicationContext, WeatherApplicationContext, type WeatherApplicationValue } from '@/features/weather/application/weather-application-context';
 import { PlaceSearchError } from '@/features/weather/data/worker-place-search-data-source';
+import type { ManualLocationId } from '@/features/weather/domain/weather';
 import { WeatherLocationScreen } from '@/features/weather/presentation/weather-location-screen';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
@@ -41,16 +48,28 @@ function harness(language: SupportedLanguage = 'en') {
     selectManualLocation: jest.fn(async () => undefined), refresh: jest.fn(async () => undefined),
   } satisfies WeatherApplicationValue;
   const search = { searchPlaces: jest.fn(async (): Promise<PlaceSearchV1Data> => data), selectPlaceSearchResult: jest.fn(async () => undefined) };
+  const analytics = new RecordingProductAnalytics();
+  const productAnalytics = {
+    analytics,
+    errorEpisodes: new ErrorEpisodeTracker(
+      (name, properties, options) => analytics.capture(name, properties, options),
+      () => new Date().toISOString(),
+    ),
+    firstUses: new FirstUseTracker(new InMemoryFirstUseStore()),
+    retries: new RetryCounter(),
+  };
   function Providers({ children }: PropsWithChildren) {
     return (
       <LocalizationContext value={{ language, messages: messages[language] }}>
         <KuyaraThemeContext value={lightTheme}>
-          <WeatherApplicationContext value={weather}><PlaceSearchApplicationContext value={search}>{children}</PlaceSearchApplicationContext></WeatherApplicationContext>
+          <ProductAnalyticsContext value={productAnalytics}>
+            <WeatherApplicationContext value={weather}><PlaceSearchApplicationContext value={search}>{children}</PlaceSearchApplicationContext></WeatherApplicationContext>
+          </ProductAnalyticsContext>
         </KuyaraThemeContext>
       </LocalizationContext>
     );
   }
-  return { weather, search, Providers };
+  return { weather, search, analytics, Providers };
 }
 
 beforeEach(() => {
@@ -113,6 +132,67 @@ test.each(['tr', 'en'] as const)('%s picker announces empty and error states wit
     expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(copy.placeSearchErrors[code]);
     expect(result.queryByText(error.message)).toBeNull();
   }
+});
+
+test('selecting a searched place that changes the location captures location_changed and feature_used_first_time once', async () => {
+  const { weather, search, analytics, Providers } = harness();
+  const selected = {
+    source: 'manual' as const, catalogId: place.id as ManualLocationId, displayName: place.displayName,
+    locationKey: 'manual:place.745044',
+    coordinates: { latitudeE2: 4101, longitudeE2: 2898 }, timeZone: 'Europe/Istanbul',
+  };
+  search.selectPlaceSearchResult.mockImplementation(async () => {
+    weather.state = { ...(weather.state as Extract<WeatherApplicationValue['state'], { status: 'ready' }>), activeLocation: selected };
+  });
+  const result = await render(<Providers><WeatherLocationScreen /></Providers>);
+  await fireEvent.changeText(result.getByTestId('weather-place-search'), 'Ista'); await debounce();
+  await fireEvent.press(result.getByRole('button', { name: messages.en.weather.placeSearchResultLabel(place.displayName, place.region) }));
+
+  expect(analytics.captures.filter((c) => c.name === 'location_changed')).toEqual([{
+    name: 'location_changed',
+    properties: { schema_version: 1, method: 'manual_selection', change_context: 'weather_tab' },
+    options: undefined,
+  }]);
+  expect(analytics.captures.filter((c) => c.name === 'feature_used_first_time')).toEqual([{
+    name: 'feature_used_first_time',
+    properties: { schema_version: 1, feature_name: 'location_override' },
+    options: undefined,
+  }]);
+
+  // A second manual pick to a different place reports the change again, but the feature
+  // is already marked used and does not fire a second `feature_used_first_time`.
+  analytics.captures.length = 0;
+  search.selectPlaceSearchResult.mockImplementation(async () => {
+    weather.state = {
+      ...(weather.state as Extract<WeatherApplicationValue['state'], { status: 'ready' }>),
+      activeLocation: { ...selected, catalogId: 'place.999' as ManualLocationId, locationKey: 'manual:place.999' },
+    };
+  });
+  await fireEvent.press(result.getByRole('button', { name: messages.en.weather.placeSearchResultLabel(place.displayName, place.region) }));
+  expect(analytics.captures.some((c) => c.name === 'location_changed')).toBe(true);
+  expect(analytics.captures.some((c) => c.name === 'feature_used_first_time')).toBe(false);
+});
+
+test('selecting the device location does not report feature_used_first_time for location_override', async () => {
+  const { weather, analytics, Providers } = harness();
+  weather.beginDeviceLocationSelection.mockImplementation(async () => {
+    weather.state = {
+      ...(weather.state as Extract<WeatherApplicationValue['state'], { status: 'ready' }>),
+      activeLocation: {
+        source: 'device', accuracy: 'approximate', locationKey: 'device:4101:2898',
+        coordinates: { latitudeE2: 4101, longitudeE2: 2898 }, timeZone: 'Europe/Istanbul',
+      },
+    };
+  });
+  const result = await render(<Providers><WeatherLocationScreen /></Providers>);
+  await fireEvent.press(result.getByRole('button', { name: messages.en.weather.useCurrentLocation }));
+
+  expect(analytics.captures.filter((c) => c.name === 'location_changed')).toEqual([{
+    name: 'location_changed',
+    properties: { schema_version: 1, method: 'device', change_context: 'weather_tab' },
+    options: undefined,
+  }]);
+  expect(analytics.captures.some((c) => c.name === 'feature_used_first_time')).toBe(false);
 });
 
 test('permission rationale and permanent denial retain their existing actions on the new screen', async () => {

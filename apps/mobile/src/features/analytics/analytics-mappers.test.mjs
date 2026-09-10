@@ -5,9 +5,11 @@ import { failureCategories } from '@/domain/failure-category';
 import { weatherConditionCodes } from '@/features/weather/domain/weather';
 
 import {
+  ageBucketProperty,
   aiProbeResultProperty,
   conditionCategory,
   countBucket,
+  dressStyleProperty,
   failureCategoryProperty,
   generationModeProperty,
   locationChangedMethodProperty,
@@ -94,5 +96,48 @@ test('every completed AI probe state maps to the event vocabulary', () => {
   assert.deepEqual(
     ['ok', 'unavailable', 'rate-limited', 'error'].map(aiProbeResultProperty),
     ['ok', 'unavailable', 'rate_limited', 'error'],
+  );
+});
+
+test('a null dress style reads as smart, matching product logic', () => {
+  assert.equal(dressStyleProperty(null), 'smart');
+  assert.equal(dressStyleProperty('casual'), 'casual');
+  assert.equal(dressStyleProperty('formal'), 'formal');
+});
+
+// Local calendar math: `now` is built with the local `Date(year, monthIndex, day)`
+// constructor throughout, matching what `ageBucketProperty` compares against.
+test('no birth date, or an unparsable one, reads as unknown', () => {
+  const now = new Date(2026, 8, 10);
+  assert.equal(ageBucketProperty(null, now), 'unknown');
+  assert.equal(ageBucketProperty('not-a-date', now), 'unknown');
+  assert.equal(ageBucketProperty('2026-13-40', now), 'unknown');
+});
+
+test('a future birth date reads as unknown', () => {
+  const now = new Date(2026, 8, 10);
+  assert.equal(ageBucketProperty('2026-09-11', now), 'unknown');
+});
+
+test('age buckets, including the day before and the day of a birthday', () => {
+  const now = new Date(2026, 8, 10);
+  assert.equal(ageBucketProperty('2008-09-11', now), 'under_18'); // turns 18 tomorrow
+  assert.equal(ageBucketProperty('2008-09-10', now), '18_24'); // turns 18 today
+  assert.equal(ageBucketProperty('2010-09-11', now), 'under_18');
+  assert.equal(ageBucketProperty('2001-01-01', now), '25_34');
+  assert.equal(ageBucketProperty('1991-01-01', now), '35_44');
+  assert.equal(ageBucketProperty('1981-01-01', now), '45_54');
+  assert.equal(ageBucketProperty('1971-01-01', now), '55_64');
+  assert.equal(ageBucketProperty('1960-01-01', now), '65_plus');
+});
+
+test('a leap day birthday buckets correctly on and around itself', () => {
+  assert.equal(
+    ageBucketProperty('2008-02-29', new Date(2026, 1, 28)),
+    'under_18', // turns 18 tomorrow
+  );
+  assert.equal(
+    ageBucketProperty('2008-02-29', new Date(2026, 2, 1)),
+    '18_24', // turned 18 yesterday, in a non-leap year
   );
 });

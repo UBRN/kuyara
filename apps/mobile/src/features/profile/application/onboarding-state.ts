@@ -1,3 +1,4 @@
+import type { OnboardingStepName } from '@/features/analytics/domain/analytics-events';
 import type {
   DressStyle,
   Gender,
@@ -5,6 +6,16 @@ import type {
 } from '@/features/profile/domain/profile';
 
 export type OnboardingStep = 0 | 1 | 2 | 3 | 4;
+
+// Taxonomy 5.2: the five-step order `onboarding_step_completed`'s `step_name` reports,
+// indexed the same way `OnboardingStep` is.
+export const onboardingStepNames: readonly OnboardingStepName[] = [
+  'welcome',
+  'gender',
+  'dress_style',
+  'birth_date',
+  'location',
+];
 
 export type OnboardingDraft = Readonly<{
   step: OnboardingStep;

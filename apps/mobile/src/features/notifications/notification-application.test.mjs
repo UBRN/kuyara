@@ -33,7 +33,7 @@ test('granted permission after requesting persists opt-in', async () => {
     async (optIn) => persisted.push(optIn),
   );
 
-  assert.equal(await controller.setOptIn(true), 'enabled');
+  assert.deepEqual(await controller.setOptIn(true), { outcome: 'enabled' });
   assert.deepEqual(persisted, [true]);
   assert.deepEqual(controller.getSnapshot(), {
     permission: { kind: 'granted' },
@@ -52,7 +52,10 @@ test('denied permission after requesting does not persist opt-in', async () => {
     async (optIn) => persisted.push(optIn),
   );
 
-  assert.equal(await controller.setOptIn(true), 'blocked');
+  assert.deepEqual(
+    await controller.setOptIn(true),
+    { outcome: 'blocked', canRequestAgain: false },
+  );
   assert.deepEqual(persisted, []);
 });
 
@@ -67,7 +70,10 @@ test('permission already denied does not request or persist opt-in', async () =>
     async (optIn) => persisted.push(optIn),
   );
 
-  assert.equal(await controller.setOptIn(true), 'blocked');
+  assert.deepEqual(
+    await controller.setOptIn(true),
+    { outcome: 'blocked', canRequestAgain: false },
+  );
   assert.equal(getRequestCount(), 0);
   assert.deepEqual(persisted, []);
 });
@@ -80,7 +86,7 @@ test('opting out persists false and refreshes permission', async () => {
     async (optIn) => persisted.push(optIn),
   );
 
-  assert.equal(await controller.setOptIn(false), 'disabled');
+  assert.deepEqual(await controller.setOptIn(false), { outcome: 'disabled' });
   assert.deepEqual(persisted, [false]);
   assert.deepEqual(controller.getSnapshot(), {
     permission: { kind: 'granted' },

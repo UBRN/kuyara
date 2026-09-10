@@ -7,6 +7,8 @@ import {
   useSyncExternalStore,
 } from 'react';
 
+import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
+import { ANALYTICS_SCHEMA_VERSION } from '@/features/analytics/domain/analytics-events';
 import { NotificationApplicationController } from '@/features/notifications/application/notification-application-controller';
 import {
   NotificationApplicationContext,
@@ -67,9 +69,14 @@ export function NotificationApplicationProvider(
     return () => subscription.remove();
   }, [controller]);
 
+  const { analytics } = useProductAnalytics();
   useEffect(
-    () => gateway.subscribeToResponses(() => router.navigate('/')),
-    [gateway],
+    () => gateway.subscribeToResponses(() => {
+      // Taxonomy 5.13: a tapped local notification, with no rule or content attached.
+      analytics.capture('notification_opened', { schema_version: ANALYTICS_SCHEMA_VERSION });
+      router.navigate('/');
+    }),
+    [analytics, gateway],
   );
 
   const value = useMemo<NotificationApplicationValue>(() => ({

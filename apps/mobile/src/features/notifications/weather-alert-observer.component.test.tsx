@@ -106,7 +106,7 @@ function notificationApplication(
 ): NotificationApplicationValue {
   return {
     state: { permission, isBusy: false },
-    setOptIn: async () => 'enabled',
+    setOptIn: async () => ({ outcome: 'enabled' }),
     openApplicationSettings: async () => undefined,
     weatherAlertScheduler: scheduler,
   };

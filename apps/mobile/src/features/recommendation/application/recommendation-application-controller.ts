@@ -9,6 +9,11 @@ import {
   type FailureCategory,
 } from '@/domain/failure-category';
 import {
+  ANALYTICS_SCHEMA_VERSION,
+} from '@/features/analytics/domain/analytics-events';
+import { generationModeProperty, triggerReasonProperty } from '@/features/analytics/domain/analytics-mappers';
+import type { CaptureAnalyticsEvent } from '@/features/analytics/domain/product-analytics';
+import {
   recommendOutfits,
   type OutfitRecommendationInput,
   type OutfitRecommendationSuccess,
@@ -92,6 +97,10 @@ type AiClient = Readonly<{
 type Dependencies = Readonly<{
   loadRepository: () => Promise<RecommendationRepository>;
   client: AiClient;
+  // Optional: `recommendation_regenerated` fires on every completed attempt in `refreshOnce`,
+  // which already knows the trigger (passed into `refresh()`) and the exact outcome branch
+  // taken; a no-op default keeps existing composition and tests unchanged.
+  captureAnalyticsEvent?: CaptureAnalyticsEvent;
 }>;
 
 type Listener = () => void;
@@ -114,10 +123,12 @@ export class RecommendationApplicationController {
   private readonly listeners = new Set<Listener>();
   private readonly localProfileId: string;
   private readonly dependencies: Dependencies;
+  private readonly captureAnalyticsEvent: CaptureAnalyticsEvent;
 
   constructor(localProfileId: string, dependencies: Dependencies) {
     this.localProfileId = localProfileId;
     this.dependencies = dependencies;
+    this.captureAnalyticsEvent = dependencies.captureAnalyticsEvent ?? (() => undefined);
   }
 
   getSnapshot = (): RecommendationApplicationState => this.state;
@@ -156,7 +167,7 @@ export class RecommendationApplicationController {
 
     this.latestRequestKey = key;
     this.setRefreshing(true);
-    const refresh = this.refreshOnce(key, context, request, input).finally(() => {
+    const refresh = this.refreshOnce(key, context, request, input, trigger).finally(() => {
       this.refreshes.delete(key);
       if (this.latestRequestKey === key) this.setRefreshing(false);
     });
@@ -184,6 +195,7 @@ export class RecommendationApplicationController {
     context: RecommendationContext,
     request: AiRecommendV1Request | null,
     input: OutfitRecommendationInput,
+    trigger: RecommendationRefreshTrigger,
   ): Promise<RecommendationSnapshot | null> {
     // The deterministic fallback composes from the same catalog and effectively always
     // succeeds, so an AI failure alone is not a failure the user sees. It is still the
@@ -202,6 +214,7 @@ export class RecommendationApplicationController {
       const fallback = recommendOutfits(input);
       if (fallback.status !== 'recommended') {
         this.setLastFailure(aiFailure ?? 'unknown');
+        this.captureRegenerated(trigger, this.currentSnapshot() !== null);
         return this.currentSnapshot();
       }
       recommendation = fallback;
@@ -221,11 +234,28 @@ export class RecommendationApplicationController {
       if (this.latestRequestKey === key) {
         this.setReady({ status: 'ready', snapshot, isRefreshing: true, lastFailure: null });
       }
+      this.captureAnalyticsEvent('recommendation_regenerated', {
+        schema_version: ANALYTICS_SCHEMA_VERSION,
+        trigger_reason: triggerReasonProperty(trigger),
+        result: 'success',
+        generation_mode: generationModeProperty(snapshot.generationMode),
+      });
       return snapshot;
     } catch (error) {
       this.setLastFailure(aiFailure ?? recommendationFailureCategory(error));
+      this.captureRegenerated(trigger, this.currentSnapshot() !== null);
       return this.currentSnapshot();
     }
+  }
+
+  // Taxonomy 5.5: both failure forms omit `generation_mode`, since no newly generated
+  // result exists.
+  private captureRegenerated(trigger: RecommendationRefreshTrigger, keptLastKnown: boolean): void {
+    this.captureAnalyticsEvent('recommendation_regenerated', {
+      schema_version: ANALYTICS_SCHEMA_VERSION,
+      trigger_reason: triggerReasonProperty(trigger),
+      result: keptLastKnown ? 'failure_kept_last_known' : 'failure_no_snapshot',
+    });
   }
 
   private currentSnapshot(): RecommendationSnapshot | null {

@@ -4,6 +4,12 @@ import type { PropsWithChildren } from 'react';
 import { Dimensions, Linking, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
+import { FirstUseTracker } from '@/features/analytics/application/first-use-tracker';
+import { RetryCounter } from '@/features/analytics/application/retry-counter';
+import { ProductAnalyticsContext } from '@/features/analytics/application/use-product-analytics';
+import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
+import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
 import { WeatherApplicationContext, type WeatherApplicationValue } from '@/features/weather/application/weather-application-context';
 import { getManualLocation } from '@/features/weather/data/manual-location-catalog';
 import type { WeatherReadyState } from '@/features/weather/application/weather-application-controller';
@@ -67,17 +73,37 @@ function sampleSnapshot(sourceId = 'test') {
   };
 }
 
+function createProductAnalyticsValue() {
+  const analytics = new RecordingProductAnalytics();
+  return {
+    analytics,
+    errorEpisodes: new ErrorEpisodeTracker(
+      (name, properties, options) => analytics.capture(name, properties, options),
+      () => new Date().toISOString(),
+    ),
+    firstUses: new FirstUseTracker(new InMemoryFirstUseStore()),
+    retries: new RetryCounter(),
+  };
+}
+
 function Providers({
   children,
   language,
   value,
-}: PropsWithChildren<{ language: SupportedLanguage; value: WeatherApplicationValue }>) {
+  productAnalytics,
+}: PropsWithChildren<{
+  language: SupportedLanguage;
+  value: WeatherApplicationValue;
+  productAnalytics?: ReturnType<typeof createProductAnalyticsValue>;
+}>) {
   return (
     <LocalizationContext.Provider value={{ language, messages: messages[language] }}>
       <KuyaraThemeContext.Provider value={lightTheme}>
-        <WeatherApplicationContext.Provider value={value}>
-          <SafeAreaProvider initialMetrics={initialMetrics}>{children}</SafeAreaProvider>
-        </WeatherApplicationContext.Provider>
+        <ProductAnalyticsContext value={productAnalytics ?? createProductAnalyticsValue()}>
+          <WeatherApplicationContext.Provider value={value}>
+            <SafeAreaProvider initialMetrics={initialMetrics}>{children}</SafeAreaProvider>
+          </WeatherApplicationContext.Provider>
+        </ProductAnalyticsContext>
       </KuyaraThemeContext.Provider>
     </LocalizationContext.Provider>
   );
@@ -93,6 +119,7 @@ function createValue(state: WeatherReadyState = baseState) {
     openApplicationSettings: jest.fn(async () => undefined),
     selectManualLocation: jest.fn(async () => undefined),
     refresh: jest.fn(async () => undefined),
+    getSnapshot: undefined as (() => WeatherApplicationValue['state']) | undefined,
   } satisfies WeatherApplicationValue;
 }
 
@@ -349,6 +376,78 @@ test('Weather offers a pull-to-refresh gesture alongside the visible refresh but
 
   refreshControl.props.onRefresh();
   expect(value.refresh).toHaveBeenCalledTimes(2);
+});
+
+test('a successful manual refresh reports manual_refresh_triggered and feature_used_first_time once', async () => {
+  const readyState: WeatherReadyState = {
+    ...baseState,
+    activeLocation: getManualLocation('sample.istanbul')!,
+    snapshot: sampleSnapshot(),
+    freshness: 'fresh',
+  };
+  const value = createValue(readyState);
+  value.refresh.mockImplementation(async () => undefined);
+  value.getSnapshot = () => value.state;
+  const productAnalytics = createProductAnalyticsValue();
+  const result = await render(
+    <Providers language="en" productAnalytics={productAnalytics} value={value}>
+      <WeatherScreen />
+    </Providers>,
+  );
+
+  await fireEvent.press(result.getByTestId('weather-refresh-button'));
+
+  expect(productAnalytics.analytics.captures).toEqual([{
+    name: 'manual_refresh_triggered',
+    properties: { schema_version: 1, surface: 'weather', result: 'success' },
+    options: undefined,
+  }, {
+    name: 'feature_used_first_time',
+    properties: { schema_version: 1, feature_name: 'manual_refresh' },
+    options: undefined,
+  }]);
+
+  productAnalytics.analytics.captures.length = 0;
+  await fireEvent.press(result.getByTestId('weather-refresh-button'));
+  expect(productAnalytics.analytics.captures).toEqual([{
+    name: 'manual_refresh_triggered',
+    properties: { schema_version: 1, surface: 'weather', result: 'success' },
+    options: undefined,
+  }]);
+});
+
+test('refreshing while a failure is shown reports retry_after_failure_triggered with a growing attempt number', async () => {
+  const readyState: WeatherReadyState = {
+    ...baseState,
+    activeLocation: getManualLocation('sample.istanbul')!,
+    snapshot: null,
+    freshness: null,
+    refreshFailure: 'offline',
+  };
+  const value = createValue(readyState);
+  value.refresh.mockImplementation(async () => undefined);
+  value.getSnapshot = () => value.state;
+  const productAnalytics = createProductAnalyticsValue();
+  const result = await render(
+    <Providers language="en" productAnalytics={productAnalytics} value={value}>
+      <WeatherScreen />
+    </Providers>,
+  );
+
+  await fireEvent.press(result.getByRole('button', { name: messages.en.weather.refreshAccessibilityLabel }));
+  expect(productAnalytics.analytics.captures).toEqual([{
+    name: 'retry_after_failure_triggered',
+    properties: { schema_version: 1, surface: 'weather', attempt_number: 1, result: 'failure' },
+    options: undefined,
+  }]);
+
+  productAnalytics.analytics.captures.length = 0;
+  await fireEvent.press(result.getByRole('button', { name: messages.en.weather.refreshAccessibilityLabel }));
+  expect(productAnalytics.analytics.captures).toEqual([{
+    name: 'retry_after_failure_triggered',
+    properties: { schema_version: 1, surface: 'weather', attempt_number: 2, result: 'failure' },
+    options: undefined,
+  }]);
 });
 
 test('device location card has one composed accessible name', async () => {
