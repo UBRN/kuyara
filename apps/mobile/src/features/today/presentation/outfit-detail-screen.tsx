@@ -79,6 +79,8 @@ export function OutfitDetailScreen({
     );
   }
 
+  const stageColor = theme.atmosphere[presentation.atmosphere];
+
   // Law 8: the owned/wanted pair mirrors the wardrobe toggle, a selection change under the finger.
   const setOwnership = (garmentTypeId: GarmentTypeId, next: 'owned' | 'wanted') => {
     haptics.selection();
@@ -287,11 +289,11 @@ export function OutfitDetailScreen({
             presentation.weather.condition,
             presentation.weather.rainProbability,
           ].join(', ')}
-          style={[styles.weatherRecap, { backgroundColor: theme.colors.stage }]}
+          style={[styles.weatherRecap, { backgroundColor: stageColor }]}
           testID="outfit-detail-weather-recap">
           <AppText tabularNumbers variant="caption">{presentation.weather.temperature}</AppText>
-          <AppText colorRole="textSecondary" variant="caption">{presentation.weather.condition}</AppText>
-          <AppText colorRole="textSecondary" tabularNumbers variant="caption">
+          <AppText colorRole="textPrimary" variant="caption">{presentation.weather.condition}</AppText>
+          <AppText colorRole="textPrimary" tabularNumbers variant="caption">
             {presentation.weather.rainProbability}
           </AppText>
         </View>

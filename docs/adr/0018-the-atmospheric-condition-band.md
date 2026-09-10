@@ -3,14 +3,14 @@
 Status: Accepted (2026-09-03)
 
 Implementation: the tinted stage that replaced the band landed with Today's garment
-board on 2026-09-08 (ADR 0021, ADR 0025) at a single tint; the seven per-condition
-values at the raised luminance the amendment below calls for are not recorded or
-implemented.
+board on 2026-09-08 (ADR 0021, ADR 0025). The seven-state light appearance and the
+single neutral dark appearance landed on 2026-09-10 under the amendment below.
 
 Amended by [ADR 0021](0021-direction-e-a-visual-first-design-language.md). Sections 2
-through 5 stand: the closed seven-state set, the derivation of every value as a blend of
-two approved brand hexes, the contrast floors, the no-regression test, and the narrowing
-of the gradient prohibition. Section 1's structural conclusion does not. The atmosphere is
+through 5 established the closed seven-state set, approved-palette derivation, contrast
+floors, no-regression test, and narrowing of the gradient prohibition. The 2026-09-10
+amendment below retains those mechanisms while superseding the old neutral and value
+tables. Section 1's structural conclusion does not stand. The atmosphere is
 no longer a full-width band above a stable ground; it tints the surface the garment
 composition sits on, and the per-state values move upward in luminance because the tint
 now sits behind ink and silhouettes rather than behind a hero number. The measured reason
@@ -167,6 +167,54 @@ warning and no type error. The working prop on React Native 0.86.2 is
 never committed and has since been deleted. Any implementation of this ADR uses that
 prop. The fallback recorded here still applies if it regresses: a flat per-state colour
 using the bottom stop, which costs the two-stop reading and nothing else.
+
+## Amendment, 2026-09-10: the stage takes the condition tint
+
+ADR 0021 moved the atmosphere behind ink and silhouettes and required the values to be
+re-derived upward in luminance. This amendment supersedes section 2's old neutral value,
+section 3's two-stop tables, and section 6's gradient rendering for the stage. The closed
+state set, approved-palette derivation, contrast floors, and stillness requirement stand.
+
+### Light appearance
+
+`neutral` is the current stage `#D7DCDD`. Every other value is one sRGB blend between
+the recorded approved pair. The falling-day ratio is `0.943`; `0.939` was rejected during
+implementation because it rounds to `#98C3CE`, not the chosen and measured `#98C3CF`.
+
+| state | pair | t | hex | L | `textPrimary` | glyph at 0.70 | vs ground | levels off ground |
+| --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| `clearDay` | Quiet Sky to Cloud White | 0.549 | `#CBE1E5` | 0.7220 | 10.30:1 | 4.59:1 | 1.253:1 | 41 |
+| `veiledDay` | Calm Current to Soft Mist | 0.756 | `#C2D1D3` | 0.6177 | 8.91:1 | 4.26:1 | 1.449:1 | 50 |
+| `fallingDay` | Calm Current to Quiet Sky | 0.943 | `#98C3CF` | 0.5021 | 7.36:1 | 3.81:1 | 1.752:1 | 92 |
+| `clearNight` | Deep Atmosphere to Quiet Sky | 0.888 | `#8FB8C4` | 0.4411 | 6.55:1 | 3.56:1 | 1.970:1 | 101 |
+| `veiledNight` | Deep Atmosphere to Soft Mist | 0.645 | `#A4AFB3` | 0.4181 | 6.24:1 | 3.48:1 | 2.067:1 | 80 |
+| `fallingNight` | Deep Atmosphere to Quiet Sky | 0.758 | `#7DA4B0` | 0.3405 | 5.21:1 | 3.10:1 | 2.478:1 | 119 |
+
+Every stop keeps full `textPrimary` at or above 4.5:1, the 0.70-alpha non-text glyph
+at or above 3:1, and at least 15 RGB levels of separation from the Soft Mist page ground.
+The stage carries no supporting ink: Today's condition caption loses its old 0.76 opacity,
+and the two captions in outfit detail's weather recap use full `textPrimary`.
+
+### Dark appearance
+
+Deep Atmosphere's luminance, 0.02498, remains the ceiling so the sky never out-lightens
+the card plane. The current dark stage `#122A35` is already at 0.0204; every compliant
+state lands only 3 to 8 RGB levels from it, inside section 4's recorded imperceptible
+range. Every dark atmosphere state therefore equals the neutral stage. Lifting the cap
+requires a separate decision.
+
+### Daypart and rendering
+
+Until the contract carries daylight, daypart is the local hour of the snapshot's
+`fetchedAt` in its `timeZone`: 06:00 through 19:59 is day, and 20:00 through 05:59 is
+night. An invalid or unmapped input resolves to `neutral`.
+
+The stage renders one flat state colour. `GarmentBoard` fills its closed silhouette paths
+with that same colour so cut-outs disappear into the stage; a gradient would expose each
+path as a flat patch. This is section 6's sanctioned flat fallback and costs only the
+two-stop reading. The tint applies to Today's primary and alternate stages and to outfit
+detail's weather recap. The Weather screen, contracts, Worker, and persistence do not
+change.
 
 ## Consequences
 

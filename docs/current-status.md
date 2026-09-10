@@ -102,8 +102,6 @@ Approved design work that is decided and not built, none of it a release blocker
   measurement under Reduced Motion that depends on it.
 - ADR 0026 decision 5, the control that changes ownership on outfit detail; the
   per-garment owned/wanted button list is the interim.
-- The per-condition stage tint: ADR 0018's seven states at ADR 0021's raised luminance
-  have no recorded values, so the stage renders one tint.
 - [ADR 0017](adr/0017-a-retuned-typography-scale.md)'s retuned type scale; the shipped
   scale is still 40 / 24 / 24 / 17 / 15 / 13 / 10.5.
 - Five accessory silhouettes, wanted and not approved; accessories draw the category glyph.
@@ -230,6 +228,9 @@ App Store submission, not TestFlight, is blocked by:
   equals `brandAccent`, so filled buttons and selected chips share one Quiet Sky and the
   Closet can show three filled elements against Law 1. Fixing the second needs a distinct
   dark role for filled buttons.
+- **Dark atmosphere states render neutral only.** ADR 0018 caps them at Deep Atmosphere's
+  luminance; every compliant variation sits only 3 to 8 RGB levels from the current
+  `#122A35` stage and is imperceptible. Lifting the cap needs a separate decision.
 - **Turkish register is mixed:** the Closet form speaks formally ("Gardırobunuz",
   "seçin") while its details caption ("Dokunmazsan") and the detail ownership labels
   ("Sende var" / "İstiyorsun", approved by ADR 0026) are informal. No app-wide register

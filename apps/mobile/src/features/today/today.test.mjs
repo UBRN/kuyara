@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  nightTodayScreenState,
   todayActiveLocation,
   todayScreenState,
   todayWardrobeItems,
@@ -112,6 +113,11 @@ test('loaded mapping uses localized catalog names, slot order, positions, and fi
     ),
     true,
   );
+});
+
+test('loaded presentation derives the atmosphere from condition and snapshot-local daypart', () => {
+  assert.equal(loadedPresentation(todayScreenState).atmosphere, 'fallingDay');
+  assert.equal(loadedPresentation(nightTodayScreenState).atmosphere, 'fallingNight');
 });
 
 function assignedGarment(slot, garmentTypeId, category) {

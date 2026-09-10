@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { failureCategories } from '@/domain/failure-category';
 import {
   aiAssistedTodayScreenState,
+  nightTodayScreenState,
   todayScreenState,
   todayWardrobeItems,
 } from '@/features/today/__tests__/fixtures';
@@ -98,8 +99,9 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
       nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
     });
     const hidden = { includeHiddenElements: true };
+    const stageColor = theme.atmosphere[presentation.atmosphere];
     expect(StyleSheet.flatten(result.getByTestId('today-stage', hidden).props.style))
-      .toMatchObject({ backgroundColor: theme.colors.stage, borderRadius: 26, width: 358 });
+      .toMatchObject({ backgroundColor: stageColor, borderRadius: 26, width: 358 });
     expect(result.getByTestId('today-primary-board', hidden)).toBeOnTheScreen();
     expect(result.getByTestId('today-archetype', hidden)).toHaveTextContent(primary.title);
     expect(StyleSheet.flatten(result.getByTestId('today-archetype', hidden).props.style))
@@ -122,7 +124,9 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
       ...typography.title, fontVariant: ['tabular-nums'], color: theme.colors.textPrimary,
     });
     expect(StyleSheet.flatten(result.getByTestId('today-condition', hidden).props.style))
-      .toMatchObject({ ...typography.caption, color: theme.colors.textPrimary, opacity: 0.76 });
+      .toMatchObject({ ...typography.caption, color: theme.colors.textPrimary });
+    expect(StyleSheet.flatten(result.getByTestId('today-condition', hidden).props.style))
+      .not.toHaveProperty('opacity');
     expect(isHiddenFromAccessibility(result.getByTestId('today-sky', hidden))).toBe(true);
     expect(StyleSheet.flatten(result.getByTestId('today-outfit-list').props.style))
       .toMatchObject({ flexDirection: 'row', gap: spacing.lg });
@@ -148,7 +152,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     for (const suggestion of presentation.suggestions.slice(1)) {
       expect(
         StyleSheet.flatten(result.getByTestId(`today-alternate-stage-${suggestion.id}`, hidden).props.style),
-      ).toMatchObject({ height: tallestStage, justifyContent: 'center' });
+      ).toMatchObject({ backgroundColor: stageColor, height: tallestStage, justifyContent: 'center' });
     }
     for (const suggestion of presentation.suggestions.slice(1)) {
       const alternate = result.getByTestId(`today-alternate-${suggestion.id}`);
@@ -184,6 +188,28 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     expect(provenance.getByTestId('today-freshness')).toHaveTextContent(loadedPresentation(language).header.freshness);
     expect(result.getByTestId('today-provenance-sparkle', { includeHiddenElements: true })).toBeOnTheScreen();
   });
+});
+
+test.each([
+  ['day', todayScreenState, 'fallingDay'],
+  ['night', nightTodayScreenState, 'fallingNight'],
+] as const)('%s weather applies its atmosphere color to every Today stage', async (_, state, atmosphere) => {
+  const result = await render(providers(
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={state} />,
+  ));
+  await fireEvent(result.getByTestId('today-content'), 'layout', {
+    nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
+  });
+
+  const hidden = { includeHiddenElements: true };
+  const stageColor = lightTheme.atmosphere[atmosphere];
+  expect(StyleSheet.flatten(result.getByTestId('today-stage', hidden).props.style))
+    .toMatchObject({ backgroundColor: stageColor });
+  for (const suggestion of loadedPresentation().suggestions.slice(1)) {
+    expect(StyleSheet.flatten(
+      result.getByTestId(`today-alternate-stage-${suggestion.id}`, hidden).props.style,
+    )).toMatchObject({ backgroundColor: stageColor });
+  }
 });
 
 test.each([1.5, 1.6, 3])('font scale %s keeps weather clear of garments and stacks alternates above 1.5', async (fontScale) => {
@@ -277,7 +303,11 @@ test('outfit detail renders the detail board, in-place captions, requirement row
   expect(weatherRecap.getByText('Rain')).toBeOnTheScreen();
   expect(weatherRecap.getByText('65% chance of rain')).toBeOnTheScreen();
   expect(StyleSheet.flatten(result.getByTestId('outfit-detail-weather-recap').props.style))
-    .toMatchObject({ backgroundColor: lightTheme.colors.stage });
+    .toMatchObject({ backgroundColor: lightTheme.atmosphere[presentation.atmosphere] });
+  expect(StyleSheet.flatten(weatherRecap.getByText('Rain').props.style))
+    .toMatchObject({ color: lightTheme.colors.textPrimary });
+  expect(StyleSheet.flatten(weatherRecap.getByText('65% chance of rain').props.style))
+    .toMatchObject({ color: lightTheme.colors.textPrimary });
 });
 
 describe.each(['en', 'tr'] as const)('%s outfit detail untracked garments', (language) => {
