@@ -91,6 +91,7 @@ export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: 
     );
   }
 
+  const stageColor = theme.atmosphere[presentation.atmosphere];
   const [primary, ...alternates] = presentation.suggestions;
   const alternateWidth = usesAccessibilityLayout
     ? contentWidth
@@ -150,7 +151,7 @@ export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: 
                 style={[
                   styles.stage,
                   {
-                    backgroundColor: theme.colors.stage,
+                    backgroundColor: stageColor,
                     width: contentWidth,
                     height: measureGarmentBoardHeight(primary.boardPieces, contentWidth, 'today'),
                   },
@@ -160,6 +161,7 @@ export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: 
                   accessibilityLabel={presentation.stageAccessibilityLabel}
                   pieces={primary.boardPieces}
                   preset="today"
+                  stageColor={stageColor}
                   testID="today-primary-board"
                   width={contentWidth}
                 />
@@ -258,13 +260,14 @@ export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: 
                     importantForAccessibility="no-hide-descendants"
                     style={[
                       styles.alternateStage,
-                      { backgroundColor: theme.colors.stage, height: alternateStageHeight },
+                      { backgroundColor: stageColor, height: alternateStageHeight },
                     ]}
                     testID={`today-alternate-stage-${suggestion.id}`}>
                     <GarmentBoard
                       accessibilityLabel={suggestion.boardAccessibilityLabel}
                       pieces={suggestion.boardPieces}
                       preset="today"
+                      stageColor={stageColor}
                       testID={`today-alternate-board-${suggestion.id}`}
                       width={alternateWidth}
                     />
@@ -325,7 +328,7 @@ const styles = StyleSheet.create({
   skyText: { flex: 1, flexShrink: 1 },
   skyOverlay: { position: 'absolute', top: 18, left: 20, right: 20 },
   skyAbove: { marginBottom: spacing.md },
-  condition: { marginTop: spacing.xs, opacity: 0.76 },
+  condition: { marginTop: spacing.xs },
   weatherGlyph: { opacity: 0.7, transform: [{ scale: 31 / 36 }] },
   provenance: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.md },
   freshness: { flexShrink: 1 },
