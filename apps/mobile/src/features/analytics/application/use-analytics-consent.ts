@@ -12,7 +12,7 @@ export type AnalyticsConsentControls = Readonly<{
 }>;
 
 export function useAnalyticsConsent(): AnalyticsConsentControls {
-  const { analytics, firstUses } = useProductAnalytics();
+  const { analytics, errorEpisodes, firstUses, retries } = useProductAnalytics();
   const { state, updateAnalyticsConsent } = useProfileApplication();
 
   if (state.status !== 'ready') {
@@ -24,6 +24,10 @@ export function useAnalyticsConsent(): AnalyticsConsentControls {
     getIdentifier: () => analytics.getIdentifier(),
     grant: async (surface) => {
       await updateAnalyticsConsent('granted');
+      // Start the new, unjoinable identity with no pre-consent buffered or persisted state.
+      errorEpisodes.reset();
+      retries.reset();
+      await firstUses.clear();
       await analytics.optIn(surface);
     },
     withdraw: async () => {
@@ -31,6 +35,8 @@ export function useAnalyticsConsent(): AnalyticsConsentControls {
       await analytics.withdraw();
       // The first-use set belongs to the severed identity (taxonomy 5.11).
       await firstUses.clear();
+      errorEpisodes.reset();
+      retries.reset();
     },
     decline: () => updateAnalyticsConsent('withdrawn'),
   };

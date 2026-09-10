@@ -50,4 +50,8 @@ export class DevelopmentLoggingProductAnalytics implements ProductAnalytics {
   getIdentifier(): null {
     return null;
   }
+
+  getSessionId(): null {
+    return null;
+  }
 }

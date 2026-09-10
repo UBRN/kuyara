@@ -19,7 +19,18 @@ import { messages, type SupportedLanguage } from '@/localization/messages';
 import { lightTheme, typography } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
-jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
+jest.mock('expo-router', () => {
+  const actualReact = jest.requireActual('react');
+  return {
+    router: { push: jest.fn() },
+    Stack: { Screen: () => null },
+    useFocusEffect: (callback: () => void | (() => void)) => actualReact.useEffect(callback, [callback]),
+    useIsFocused: () => true,
+  };
+});
+
+// eslint-disable-next-line import/first
+import WeatherRoute from '@/app/(tabs)/weather';
 
 const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
@@ -109,7 +120,7 @@ function Providers({
   );
 }
 
-function createValue(state: WeatherReadyState = baseState) {
+function createValue(state: WeatherApplicationValue['state'] = baseState) {
   return {
     state,
     retry: jest.fn(async () => undefined),
@@ -448,6 +459,48 @@ test('refreshing while a failure is shown reports retry_after_failure_triggered 
     properties: { schema_version: 1, surface: 'weather', attempt_number: 2, result: 'failure' },
     options: undefined,
   }]);
+});
+
+test('the focused Weather route reports a shown failure and its recovery', async () => {
+  const productAnalytics = createProductAnalyticsValue();
+  const result = await render(
+    <Providers
+      language="en"
+      productAnalytics={productAnalytics}
+      value={createValue({ ...baseState, refreshFailure: 'offline' })}>
+      <WeatherRoute />
+    </Providers>,
+  );
+
+  await result.rerender(
+    <Providers
+      language="en"
+      productAnalytics={productAnalytics}
+      value={createValue(baseState)}>
+      <WeatherRoute />
+    </Providers>,
+  );
+
+  const errors = productAnalytics.analytics.captures.filter(
+    ({ name }) => name === 'error_shown' || name === 'error_recovered',
+  );
+  expect(errors.map(({ properties }) => properties)).toEqual([
+    { schema_version: 1, surface: 'weather', failure_category: 'offline', occurrence_count: 1 },
+    { schema_version: 1, surface: 'weather', failure_category: 'offline' },
+  ]);
+});
+
+test('leaving Weather resets its retry attempt counter', async () => {
+  const productAnalytics = createProductAnalyticsValue();
+  productAnalytics.retries.nextAttempt('weather');
+  const result = await render(
+    <Providers language="en" productAnalytics={productAnalytics} value={createValue()}>
+      <WeatherRoute />
+    </Providers>,
+  );
+
+  await result.unmount();
+  expect(productAnalytics.retries.nextAttempt('weather')).toBe(1);
 });
 
 test('device location card has one composed accessible name', async () => {

@@ -43,6 +43,9 @@ export interface ProductAnalytics {
   // the provider has not produced one yet. It is never an event property and never joined to
   // `localProfileId`.
   getIdentifier(): string | null;
+
+  // The provider session is the taxonomy's session boundary for error episodes.
+  getSessionId(): string | null;
 }
 
 export type CaptureAnalyticsEvent = ProductAnalytics['capture'];

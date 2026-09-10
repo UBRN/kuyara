@@ -201,7 +201,9 @@ export class WardrobeApplicationController {
     const previous = this.state.status === 'ready' ? this.state : null;
 
     if (previous) {
-      this.setState({ ...previous, isRefreshing: true, refreshFailure: null });
+      // Keep a shown failure present until a successful list read actually lands. Clearing
+      // it at retry start would falsely report recovery while the request is still pending.
+      this.setState({ ...previous, isRefreshing: true });
     } else {
       this.setState({ status: 'loading' });
     }

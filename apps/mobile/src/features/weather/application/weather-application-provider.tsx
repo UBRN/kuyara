@@ -9,9 +9,7 @@ import {
   type PlaceSearchApplicationValue,
   type WeatherApplicationValue,
 } from '@/features/weather/application/weather-application-context';
-import type { FailureCategory } from '@/domain/failure-category';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
-import { failureCategoryProperty } from '@/features/analytics/domain/analytics-mappers';
 import {
   resolveWorkerBaseUrl,
   WorkerBaseUrlConfigurationError,
@@ -80,14 +78,13 @@ export function WeatherApplicationProvider({
 }: PropsWithChildren<{ localProfileId: string }>) {
   const provider = useMemo(() => createWeatherProvider(), []);
   const searchPlaces = useMemo(() => createPlaceSearch(), []);
-  const { analytics, errorEpisodes } = useProductAnalytics();
+  const { analytics } = useProductAnalytics();
   const controller = useMemo(() => new WeatherApplicationController(localProfileId, {
     loadRepository, provider, deviceLocation, now,
     captureAnalyticsEvent: (name, properties, options) => analytics.capture(name, properties, options),
   }), [analytics, localProfileId, provider]);
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
   const appState = useRef<AppStateStatus>(AppState.currentState);
-  const shownFailureRef = useRef<FailureCategory | null>(null);
 
   useEffect(() => {
     void controller.initialize();
@@ -98,26 +95,6 @@ export function WeatherApplicationProvider({
     });
     return () => subscription.remove();
   }, [controller]);
-
-  // Taxonomy 5.10: `error_shown`/`error_recovered` for the `weather` surface. Gated on the
-  // failure category's own value (not the whole state object) so an unrelated re-render,
-  // such as `isRefreshing` toggling on, does not double-count an ongoing failure.
-  const currentFailure = state.status === 'ready' ? state.refreshFailure : null;
-  useEffect(() => {
-    if (currentFailure) {
-      shownFailureRef.current = currentFailure;
-      errorEpisodes.failed({
-        surface: 'weather',
-        failureCategory: failureCategoryProperty(currentFailure),
-      });
-    } else if (shownFailureRef.current) {
-      errorEpisodes.recovered({
-        surface: 'weather',
-        failureCategory: failureCategoryProperty(shownFailureRef.current),
-      });
-      shownFailureRef.current = null;
-    }
-  }, [currentFailure, errorEpisodes]);
 
   const value = useMemo<WeatherApplicationValue>(() => ({
     state,

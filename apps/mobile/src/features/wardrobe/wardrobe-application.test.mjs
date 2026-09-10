@@ -292,6 +292,38 @@ test('controller exposes retryable list failures without discarding prior items'
   assert.equal(controller.getSnapshot().refreshFailure, null);
 });
 
+test('a retry keeps the shown failure until its successful list read lands', async () => {
+  let mode = 'ready';
+  let resolveRetry;
+  const retryResult = new Promise((resolve) => {
+    resolveRetry = resolve;
+  });
+  const { repository } = createRepository({
+    async listActiveItems() {
+      if (mode === 'failure') throw new WardrobeRepositoryError('unavailable');
+      if (mode === 'pending') return retryResult;
+      return [item];
+    },
+  });
+  const controller = new WardrobeApplicationController(profileId, async () => repository);
+  await controller.initialize();
+  mode = 'failure';
+  await controller.refresh();
+
+  mode = 'pending';
+  const retry = controller.refresh();
+  assert.deepEqual(controller.getSnapshot(), {
+    status: 'ready',
+    items: [item],
+    isRefreshing: true,
+    isMutating: false,
+    refreshFailure: 'unavailable',
+  });
+  resolveRetry([item]);
+  await retry;
+  assert.equal(controller.getSnapshot().refreshFailure, null);
+});
+
 test('a confirmed write remains successful when its follow-up list read fails', async () => {
   let failList = false;
   const { repository, resolveCreate } = createRepository({

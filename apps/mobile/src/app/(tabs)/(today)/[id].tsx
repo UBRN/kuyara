@@ -1,5 +1,5 @@
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback } from 'react';
+import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useRef } from 'react';
 
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
@@ -60,24 +60,35 @@ export default function OutfitDetailRoute() {
     profileState.status === 'ready' ? profileState.profile.birthDate : null,
   );
 
-  // Taxonomy 5.6: fires on every focus, including a back-navigation return, which is the
-  // documented tradeoff of a generic focus hook (taxonomy section 6).
-  useFocusEffect(
-    useCallback(() => {
-      const position = outfitPositionFromSuggestionId(suggestionId);
-      if (position === null || !recommendation || recommendation.status !== 'recommended') return;
-      const outfit = recommendation.outfits[position - 1];
-      if (!outfit) return;
-      analytics.capture('outfit_detail_opened', {
-        schema_version: ANALYTICS_SCHEMA_VERSION,
-        outfit_position: position,
-        archetype: outfit.archetypeId,
-        generation_mode: generationModeProperty(recommendation.generationMode),
-        dress_style: dressStyle,
-        age_bucket: ageBucket,
-      });
-    }, [ageBucket, analytics, dressStyle, recommendation, suggestionId]),
-  );
+  const isFocused = useIsFocused();
+  const openedSuggestionIdRef = useRef<string | null>(null);
+  const position = outfitPositionFromSuggestionId(suggestionId);
+  const outfit = position && recommendation?.status === 'recommended'
+    ? recommendation.outfits[position - 1]
+    : null;
+
+  // One capture per suggestion opening. Recomputed recommendation/profile values update
+  // the pending payload but cannot emit the same suggestion a second time while focused.
+  useEffect(() => {
+    if (!isFocused) {
+      openedSuggestionIdRef.current = null;
+      return;
+    }
+    if (
+      !suggestionId || !position || !outfit ||
+      recommendation?.status !== 'recommended' ||
+      openedSuggestionIdRef.current === suggestionId
+    ) return;
+    openedSuggestionIdRef.current = suggestionId;
+    analytics.capture('outfit_detail_opened', {
+      schema_version: ANALYTICS_SCHEMA_VERSION,
+      outfit_position: position,
+      archetype: outfit.archetypeId,
+      generation_mode: generationModeProperty(recommendation.generationMode),
+      dress_style: dressStyle,
+      age_bucket: ageBucket,
+    });
+  }, [ageBucket, analytics, dressStyle, isFocused, outfit, position, recommendation, suggestionId]);
 
   const onSetOwnership = (
     garmentTypeId: GarmentTypeId,
