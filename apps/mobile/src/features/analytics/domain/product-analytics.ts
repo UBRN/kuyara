@@ -6,6 +6,9 @@ import type {
   AnalyticsEventProperties,
 } from '@/features/analytics/domain/analytics-events';
 
+export type AnalyticsConsentSurface =
+  AnalyticsEventProperties<'analytics_consent_granted'>['surface'];
+
 export type AnalyticsCaptureOptions = Readonly<{
   // The instant the event describes, when that is earlier than the capture call. Taxonomy
   // 5.10 requires the buffered `error_shown` to carry the instant the failure became
@@ -14,17 +17,17 @@ export type AnalyticsCaptureOptions = Readonly<{
 }>;
 
 export interface ProductAnalytics {
-  // A capture before `optIn()` is a no-op by contract: the SDK initialises with
-  // `defaultOptIn: false` and nothing may reach the network before consent (taxonomy 2).
+  // A capture before `optIn()` is a no-op by contract: no provider client exists before
+  // consent and nothing may reach the network before it (taxonomy 2, ADR 0033 section 6).
   capture<Name extends AnalyticsEventName>(
     name: Name,
     properties: AnalyticsEventProperties<Name>,
     options?: AnalyticsCaptureOptions,
   ): void;
 
-  // Called from the consent surface once the person accepts. The first event on the
-  // identity is `analytics_consent_granted`.
-  optIn(): Promise<void>;
+  // Called from a consent surface once the person accepts. The adapter opts in first and
+  // captures `analytics_consent_granted` itself, making it the first event on the identity.
+  optIn(surface: AnalyticsConsentSurface): Promise<void>;
 
   // Withdrawal severs the identity (taxonomy 2): the adapter opts out, resets, and clears
   // the separately persisted device id, so a later re-consent starts an unjoinable
@@ -39,7 +42,7 @@ export interface ProductAnalytics {
   // deletion request can name it (ADR 0033 section 4). `null` when analytics is disabled or
   // the provider has not produced one yet. It is never an event property and never joined to
   // `localProfileId`.
-  distinctId(): string | null;
+  getIdentifier(): string | null;
 }
 
 export type CaptureAnalyticsEvent = ProductAnalytics['capture'];

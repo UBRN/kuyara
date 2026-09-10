@@ -33,6 +33,7 @@ export default function SettingsRoute() {
         onOpenGender={() => router.push('/settings/gender')}
         onOpenLanguage={() => router.push('/settings/language')}
         onOpenNotifications={() => router.push('/settings/notifications')}
+        onOpenPrivacy={() => router.push('/settings/privacy')}
         profile={state.profile}
       />
     </>

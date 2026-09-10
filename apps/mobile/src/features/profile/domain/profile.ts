@@ -36,8 +36,8 @@ export const genderSchema = z.enum(['woman', 'man']);
 export type Gender = z.infer<typeof genderSchema>;
 
 // ADR 0033 section 3: consent precedes collection, so the stored default is the unanswered
-// state rather than a boolean. `withdrawn` is also the state a decline leaves behind, which
-// is why two values would not be enough: the sheet must not ask again after either answer.
+// state rather than a boolean. `withdrawn` covers both declining the first-launch sheet and
+// withdrawing in Settings, so the sheet must not ask again after either answer.
 export const analyticsConsentValues = ['undecided', 'granted', 'withdrawn'] as const;
 export const analyticsConsentSchema = z.enum(analyticsConsentValues);
 export type AnalyticsConsent = z.infer<typeof analyticsConsentSchema>;

@@ -16,6 +16,7 @@ export type SettingsScreenProps = Readonly<{
   onOpenGender: () => void;
   onOpenDressStyle: () => void;
   onOpenBirthDate: () => void;
+  onOpenPrivacy: () => void;
 }>;
 
 export function SettingsScreen({
@@ -27,6 +28,7 @@ export function SettingsScreen({
   onOpenGender,
   onOpenLanguage,
   onOpenNotifications,
+  onOpenPrivacy,
   profile,
 }: SettingsScreenProps) {
   const { language, messages } = useLocalization();
@@ -53,6 +55,9 @@ export function SettingsScreen({
     : new Intl.DateTimeFormat(language, { dateStyle: 'long' })
       .format(calendarDate(profile.birthDate));
   const notificationValue = notificationsOn
+    ? messages.notifications.statusOn
+    : messages.notifications.statusOff;
+  const analyticsValue = profile.analyticsConsent === 'granted'
     ? messages.notifications.statusOn
     : messages.notifications.statusOff;
   const version = Constants.expoConfig?.version;
@@ -91,6 +96,13 @@ export function SettingsScreen({
           label={messages.settings.aiStatusHeading}
           onPress={onOpenAiStatus}
           testID="settings-ai-status-row"
+        />
+        <NativeListRow
+          glyph={({ color, size }) => <Icon color={color} name="info" size={size} />}
+          label={messages.analytics.privacyTitle}
+          onPress={onOpenPrivacy}
+          testID="settings-privacy-row"
+          value={analyticsValue}
         />
       </NativeListSection>
 

@@ -5,7 +5,7 @@ import { resolveProductAnalyticsConfiguration } from './product-analytics-config
 
 const enabled = {
   apiKey: 'phc_publishable_key',
-  host: 'https://eu.i.posthog.com',
+  host: 'https://analytics.example.com',
   isDevelopment: false,
 };
 
@@ -13,8 +13,7 @@ test('a key and an https origin enable the provider', () => {
   assert.deepEqual(resolveProductAnalyticsConfiguration(enabled), {
     kind: 'enabled',
     apiKey: 'phc_publishable_key',
-    host: 'https://eu.i.posthog.com',
-    privacyPolicyUrl: null,
+    host: 'https://analytics.example.com',
   });
 });
 
@@ -25,21 +24,18 @@ test('a missing, blank, or hostless key leaves analytics disabled without throwi
     { ...enabled, host: undefined },
     { ...enabled, host: '' },
   ]) {
-    assert.deepEqual(resolveProductAnalyticsConfiguration(options), {
-      kind: 'disabled',
-      privacyPolicyUrl: null,
-    });
+    assert.deepEqual(resolveProductAnalyticsConfiguration(options), { kind: 'disabled' });
   }
 });
 
 test('a malformed host disables the provider instead of throwing', () => {
   for (const host of [
     'not a url',
-    'ftp://eu.i.posthog.com',
-    'https://user:pass@eu.i.posthog.com',
-    'https://eu.i.posthog.com/ingest',
-    'https://eu.i.posthog.com/?a=b',
-    'https://eu.i.posthog.com/#fragment',
+    'ftp://analytics.example.com',
+    'https://user:pass@analytics.example.com',
+    'https://analytics.example.com/ingest',
+    'https://analytics.example.com/?a=b',
+    'https://analytics.example.com/#fragment',
   ]) {
     assert.equal(
       resolveProductAnalyticsConfiguration({ ...enabled, host }).kind,
@@ -61,27 +57,4 @@ test('plaintext is accepted only in development, and the origin is kept', () => 
     resolveProductAnalyticsConfiguration({ ...enabled, host: 'http://127.0.0.1:8000' }).kind,
     'disabled',
   );
-});
-
-test('the privacy policy url keeps its path, requires https, and survives a disabled provider', () => {
-  assert.equal(
-    resolveProductAnalyticsConfiguration({
-      ...enabled,
-      privacyPolicyUrl: 'https://kuyara.app/privacy',
-    }).privacyPolicyUrl,
-    'https://kuyara.app/privacy',
-  );
-  assert.deepEqual(
-    resolveProductAnalyticsConfiguration({
-      isDevelopment: false,
-      privacyPolicyUrl: 'https://kuyara.app/privacy',
-    }),
-    { kind: 'disabled', privacyPolicyUrl: 'https://kuyara.app/privacy' },
-  );
-  for (const privacyPolicyUrl of ['http://kuyara.app/privacy', 'kuyara.app/privacy', '  ']) {
-    assert.equal(
-      resolveProductAnalyticsConfiguration({ ...enabled, privacyPolicyUrl }).privacyPolicyUrl,
-      null,
-    );
-  }
 });

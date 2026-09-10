@@ -1,6 +1,24 @@
-// Placeholder for the first-launch consent sheet (ADR 0033 section 6 item 2). The route is
-// declared in `_layout.tsx` so the presentation is settled; the surface itself lands with the
-// screen work, and nothing navigates here yet.
+import { router, Stack } from 'expo-router';
+
+import { useAnalyticsConsent } from '@/features/analytics/application/use-analytics-consent';
+import { AnalyticsConsentScreen } from '@/features/analytics/presentation/analytics-consent-screen';
+
 export default function AnalyticsConsentRoute() {
-  return null;
+  const consent = useAnalyticsConsent();
+
+  return (
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <AnalyticsConsentScreen
+        onAccept={async () => {
+          await consent.grant('first_launch_sheet');
+          router.back();
+        }}
+        onDecline={async () => {
+          await consent.decline();
+          router.back();
+        }}
+      />
+    </>
+  );
 }
