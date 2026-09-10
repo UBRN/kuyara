@@ -3,7 +3,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import AnalyticsConsentRoute from '@/app/analytics-consent';
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
+import { ConsentBufferingProductAnalytics } from '@/features/analytics/data/consent-buffering-product-analytics';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
+import type { ProductAnalytics } from '@/features/analytics/domain/product-analytics';
 import { AnalyticsConsentScreen } from '@/features/analytics/presentation/analytics-consent-screen';
 import {
   ProfileApplicationContext,
@@ -40,7 +42,7 @@ const profile = {
   updatedAt: '2026-09-09T12:00:00.000Z',
 };
 
-async function renderRoute(analytics: RecordingProductAnalytics) {
+async function renderRoute(analytics: ProductAnalytics) {
   const persisted: string[] = [];
   const application = {
     state: { status: 'ready' as const, profile, isSaving: false },
@@ -64,32 +66,47 @@ async function renderRoute(analytics: RecordingProductAnalytics) {
 
 beforeEach(() => mockRouter.back.mockClear());
 
-test('accept opts in, records the first consent event, persists, and closes', async () => {
-  const result = await renderRoute(new RecordingProductAnalytics('undecided'));
+test('accept sends the grant before replaying buffered captures, persists, and closes', async () => {
+  const inner = new RecordingProductAnalytics('undecided');
+  const analytics = new ConsentBufferingProductAnalytics(inner, 'undecided');
+  analytics.capture(
+    'screen_viewed',
+    { schema_version: 1, screen_name: 'onboarding' },
+    { timestamp: '2026-09-10T08:00:00.000Z' },
+  );
+  const result = await renderRoute(analytics);
 
   await act(async () => {
     fireEvent.press(result.rendered.getByTestId('analytics-consent-accept'));
   });
 
   await waitFor(() => expect(result.persisted).toEqual(['granted']));
-  expect(result.analytics.names()).toEqual(['analytics_consent_granted']);
-  expect(result.analytics.captures[0].properties).toEqual({
+  expect(inner.names()).toEqual(['analytics_consent_granted', 'screen_viewed']);
+  expect(inner.captures[0].properties).toEqual({
     schema_version: 1,
     surface: 'first_launch_sheet',
+  });
+  expect(inner.captures[1].options).toEqual({
+    timestamp: '2026-09-10T08:00:00.000Z',
   });
   expect(mockRouter.back).toHaveBeenCalledTimes(1);
 });
 
-test('decline persists without opting in or capturing anything', async () => {
-  const result = await renderRoute(new RecordingProductAnalytics('undecided'));
+test('decline persists and drops buffered captures without sending anything', async () => {
+  const inner = new RecordingProductAnalytics('undecided');
+  const analytics = new ConsentBufferingProductAnalytics(inner, 'undecided');
+  analytics.capture('notification_opened', { schema_version: 1 });
+  const result = await renderRoute(analytics);
 
   await act(async () => {
     fireEvent.press(result.rendered.getByTestId('analytics-consent-decline'));
   });
 
   await waitFor(() => expect(result.persisted).toEqual(['withdrawn']));
-  expect(result.analytics.optInCount).toBe(0);
-  expect(result.analytics.captures).toEqual([]);
+  expect(inner.optInCount).toBe(0);
+  expect(inner.captures).toEqual([]);
+  await analytics.optIn('settings_privacy');
+  expect(inner.names()).toEqual(['analytics_consent_granted']);
   expect(mockRouter.back).toHaveBeenCalledTimes(1);
 });
 

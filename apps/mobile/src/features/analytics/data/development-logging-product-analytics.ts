@@ -20,10 +20,13 @@ export class DevelopmentLoggingProductAnalytics implements ProductAnalytics {
   capture<Name extends AnalyticsEventName>(
     name: Name,
     properties: AnalyticsEventProperties<Name>,
-    _options?: AnalyticsCaptureOptions,
+    options?: AnalyticsCaptureOptions,
   ): void {
     if (!this.consented) return;
-    console.debug(`analytics ${name} ${JSON.stringify(properties)}`);
+    // The instant is printed when it differs from the log line's own time, so a Simulator run
+    // can show that buffered pre-consent events keep their original timestamps.
+    const suffix = options ? ` at ${options.timestamp}` : '';
+    console.debug(`analytics ${name} ${JSON.stringify(properties)}${suffix}`);
   }
 
   async optIn(surface: AnalyticsConsentSurface): Promise<void> {
@@ -32,6 +35,10 @@ export class DevelopmentLoggingProductAnalytics implements ProductAnalytics {
       schema_version: ANALYTICS_SCHEMA_VERSION,
       surface,
     });
+  }
+
+  decline(): Promise<void> {
+    return Promise.resolve();
   }
 
   async withdraw(): Promise<void> {
