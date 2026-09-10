@@ -71,8 +71,8 @@ test('Button semantic variants resolve for light and dark appearances', () => {
     const destructivePressed = resolveButtonColors(theme, 'destructive', true);
     const quietPressed = resolveButtonColors(theme, 'quiet', true);
 
-    assert.equal(primary.backgroundColor, theme.colors.brandPrimary);
-    assert.equal(primary.textColor, theme.colors.textOnBrand);
+    assert.equal(primary.backgroundColor, theme.colors.primaryFill);
+    assert.equal(primary.textColor, theme.colors.textOnPrimaryFill);
     assert.equal(secondary.backgroundColor, theme.colors.surfaceInteractive);
     assert.equal(secondary.borderColor, theme.colors.borderDefined);
     assert.equal(secondary.textColor, theme.colors.textPrimary);

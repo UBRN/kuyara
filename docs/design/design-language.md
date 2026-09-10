@@ -151,11 +151,15 @@ Reference: light `brandAccent` `#27606A` on `#FFFFFF` = **7.077**. Dark `brandAc
 | `warningContainer` | `#F2E6CE` | `#292010` |
 | `dangerInk` | `#9B2C2C` | `#F2A6A2` |
 | `dangerContainer` | `#F8E3E1` | `#301D1B` |
-| `borderDefined` | `#5C7A83` | `#527E90` |
+| `borderDefined` | `#5C7A83` | `#5E899A` |
+| `primaryFill` | `#142F3B` | `#39707A` |
+| `textOnPrimaryFill` | `#EFF4F3` | `#EFF4F3` |
 
 These are derived semantic values in the same class as the existing derived neutrals
 `#E7EEED`, `#DDE8E7`, `#C5D5D6`, `#D0DDDC`. **They are not new brand colours.** The six
 approved brand hexes and the Balanced Horizon V2 master geometry are untouched.
+Dark appearance needs `primaryFill` to keep a filled primary button distinct from the
+`brandAccent` used by selected chips; light keeps the existing Deep Atmosphere fill.
 
 ### Measured contrast, every value
 
@@ -197,7 +201,7 @@ meaning.
 | | on `surface` | on `background` | on `backgroundElevated` |
 | --- | --- | --- | --- |
 | light `#5C7A83` | 4.60 | 3.30 | 4.24 |
-| dark `#527E90` | 3.17 | 4.04 | 3.17 |
+| dark `#5E899A` | 3.68 | 4.70 | 3.11 |
 
 All six clear 3:1. Light `#5C7A83` at 4.60 on white stays visibly quieter than
 `textSecondary`'s 7.08, so it reads as a boundary and not as text.

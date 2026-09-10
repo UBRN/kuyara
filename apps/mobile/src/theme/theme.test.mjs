@@ -30,8 +30,10 @@ const requiredSemanticRoles = [
   'textPrimary',
   'textSecondary',
   'textOnBrand',
+  'textOnPrimaryFill',
   'brandPrimary',
   'brandAccent',
+  'primaryFill',
   'borderSubtle',
   'borderDefined',
   'borderStrong',
@@ -373,6 +375,29 @@ test('Direction E replaces the light card step with legible stage and supporting
     assert.ok(ratio >= 4.5, `${appearance} textSecondary on background: ${ratio.toFixed(3)}:1 >= 4.5:1`);
   }
 
+  assert.equal(lightSemanticColors.primaryFill, lightSemanticColors.brandPrimary);
+  assert.equal(lightSemanticColors.textOnPrimaryFill, lightSemanticColors.textOnBrand);
+
+  for (const [appearance, colors] of Object.entries({ light: lightSemanticColors, dark: darkSemanticColors })) {
+    const ratio = contrastOfHexOverBackground(colors.textOnPrimaryFill, colors.primaryFill);
+    assert.ok(ratio >= 4.5, `${appearance} primary button label: ${ratio.toFixed(3)}:1 >= 4.5:1`);
+  }
+
+  assert.notEqual(darkSemanticColors.primaryFill, darkSemanticColors.brandAccent);
+  assert.notEqual(darkSemanticColors.backgroundElevated, darkSemanticColors.surface);
+  assert.ok(
+    contrastOfHexOverBackground(
+      darkSemanticColors.backgroundElevated,
+      darkSemanticColors.background,
+    ) >= 1.2,
+  );
+  assert.ok(
+    contrastOfHexOverBackground(
+      darkSemanticColors.textSecondary,
+      darkSemanticColors.backgroundElevated,
+    ) >= 4.5,
+  );
+
   // The dark allocation still uses the original plane step; light muted surfaces
   // are now below the page ground and chrome equals it, so that ordering is retired.
   const colors = darkSemanticColors;
@@ -382,7 +407,7 @@ test('Direction E replaces the light card step with legible stage and supporting
   for (const role of ['surfaceInteractive', 'surfaceMuted', 'surface', 'backgroundElevated']) {
     assert.ok(background < relativeLuminance(hexToRgb(colors[role])));
   }
-  assert.ok(relativeLuminance(hexToRgb(colors.backgroundElevated)) <= relativeLuminance(hexToRgb(colors.surface)));
+  assert.ok(relativeLuminance(hexToRgb(colors.backgroundElevated)) > relativeLuminance(hexToRgb(colors.surface)));
 });
 
 test('status inks stay inside the accent contrast band and remain legible on every plane', () => {
@@ -465,7 +490,7 @@ test('elevation contact contrast pins light thresholds and the accepted dark def
   );
 
   for (const elevation of [dark.elevation.raised, dark.elevation.chrome]) {
-    // Recorded, accepted defect: dark shadows are decorative. The 1.276:1 plane step
+    // Dark shadows are decorative. The 1.51:1 elevated-plane step
     // plus the hairline separates content; no dark screen may rely on shadow alone.
     assert.equal(
       contrastRatio(

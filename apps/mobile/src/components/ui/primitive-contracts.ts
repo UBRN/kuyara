@@ -63,9 +63,9 @@ export function resolveButtonColors(
 ) {
   if (variant === 'primary') {
     return {
-      backgroundColor: theme.colors.brandPrimary,
-      borderColor: theme.colors.brandPrimary,
-      textColor: theme.colors.textOnBrand,
+      backgroundColor: theme.colors.primaryFill,
+      borderColor: theme.colors.primaryFill,
+      textColor: theme.colors.textOnPrimaryFill,
     } as const;
   }
 

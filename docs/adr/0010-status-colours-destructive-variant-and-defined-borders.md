@@ -34,6 +34,8 @@ colour values for all seven new roles.
 | `dangerContainer` | `#F8E3E1` | `#301D1B` |
 | `borderDefined` | `#5C7A83` | `#527E90` |
 
+*Amended 2026-09-10:* the dark value is lifted to `#5E899A` (3.68:1 on `surface`, 4.70:1 on `background`, 3.11:1 on the new elevated plane `#1F3B47`) so the boundary keeps 3:1 after `backgroundElevated` separated from `surface`; see `design-language.md` Law 4.
+
 ### The band rule
 
 Every status ink is tuned so its contrast against its own appearance's
