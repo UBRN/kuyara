@@ -51,9 +51,9 @@ function drawnBounds(paths) {
   };
 }
 
-test('the vocabulary contains exactly 22 garments and six category glyphs', () => {
+test('the vocabulary contains exactly 27 garments and six category glyphs', () => {
   assert.equal(Object.keys(silhouettes).filter((id) => id.startsWith('g-cat-')).length, 6);
-  assert.equal(Object.keys(silhouettes).length, 28);
+  assert.equal(Object.keys(silhouettes).length, 33);
 });
 
 test('every authored bound matches the drawn paths without stroke', () => {
@@ -62,4 +62,19 @@ test('every authored bound matches the drawn paths without stroke', () => {
     assert.equal(silhouette.viewBox, 64);
     assert.deepEqual(drawnBounds(silhouette.paths), silhouette.bounds, id);
   }
+});
+
+test('accessory silhouettes stay inside the existing accessory-scale bounds range', () => {
+  const accessoryIds = ['g-beanie', 'g-hat', 'g-scarf', 'g-gloves', 'g-umbrella'];
+  const referenceIds = ['g-sneaker', 'g-sandal', 'g-boot', 'g-cat-accessory'];
+  const referenceBounds = referenceIds.map((id) => silhouettes[id].bounds);
+  const minWidth = Math.min(...referenceBounds.map(({ width }) => width));
+  const maxWidth = Math.max(...referenceBounds.map(({ width }) => width));
+  const minHeight = Math.min(...referenceBounds.map(({ height }) => height));
+  const maxHeight = Math.max(...referenceBounds.map(({ height }) => height));
+
+  assert.deepEqual(accessoryIds.filter((id) => {
+    const { width, height } = silhouettes[id].bounds;
+    return width < minWidth || width > maxWidth || height < minHeight || height > maxHeight;
+  }), []);
 });

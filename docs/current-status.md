@@ -104,7 +104,6 @@ Approved design work that is decided and not built, none of it a release blocker
   per-garment owned/wanted button list is the interim.
 - [ADR 0017](adr/0017-a-retuned-typography-scale.md)'s retuned type scale; the shipped
   scale is still 40 / 24 / 24 / 17 / 15 / 13 / 10.5.
-- Five accessory silhouettes, wanted and not approved; accessories draw the category glyph.
 - A content container for tab screens that does not fill the viewport (see Known Issues).
 
 Provider prices and quotas are deliberately absent from this list; reverify them from

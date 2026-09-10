@@ -206,6 +206,52 @@ export const silhouettes = {
     ],
     bounds: { x: 14, y: 38, width: 38, height: 12 },
   },
+  'g-beanie': {
+    id: 'g-beanie', viewBox: 64,
+    paths: [
+      { d: 'M16 38 Q16 20 32 20 Q48 20 48 38 Z', filled: true },
+      { d: 'M14 38 L50 38 L50 46 L14 46 Z', filled: true },
+    ],
+    bounds: { x: 14, y: 20, width: 36, height: 26 },
+  },
+  'g-hat': {
+    id: 'g-hat', viewBox: 64,
+    paths: [
+      { d: 'M22 42 L22 22 Q32 14 42 22 L42 42 Z', filled: true },
+      { d: 'M12 42 Q32 38 52 42 Q32 50 12 42 Z', filled: true },
+      { d: 'M22 35 L42 35', filled: false },
+    ],
+    bounds: { x: 12, y: 18, width: 40, height: 28 },
+  },
+  'g-scarf': {
+    id: 'g-scarf', viewBox: 64,
+    paths: [
+      { d: 'M16 24 Q32 12 48 24 L44 31 Q32 22 20 31 Z', filled: true },
+      { d: 'M21 29 L30 27 L27 51 L18 51 Z', filled: true },
+      { d: 'M34 27 L43 29 L46 51 L37 51 Z', filled: true },
+      { d: 'M19 44 L28 44', filled: false },
+      { d: 'M36 44 L45 44', filled: false },
+    ],
+    bounds: { x: 16, y: 18, width: 32, height: 33 },
+  },
+  'g-gloves': {
+    id: 'g-gloves', viewBox: 64,
+    paths: [
+      { d: 'M23 51 L23 39 L16 35 L14 33 Q14 30 17 31 L25 35 L25 24 Q25 21 28 21 Q31 21 31 24 L31 31 L32 21 Q32 18 35 18 Q38 18 38 21 L38 31 L39 23 Q39 20 42 20 Q45 20 45 23 L45 33 L46 27 Q46 24 49 25 Q50 25 50 29 L49 40 Q48 47 43 51 Z', filled: true },
+      { d: 'M23 44 L47 44', filled: false },
+    ],
+    bounds: { x: 14, y: 18, width: 36, height: 33 },
+  },
+  'g-umbrella': {
+    id: 'g-umbrella', viewBox: 64,
+    paths: [
+      { d: 'M12 31 Q16 16 32 16 Q48 16 52 31 Q47 27 42 31 Q37 27 32 31 Q27 27 22 31 Q17 27 12 31 Z', filled: true },
+      { d: 'M32 16 Q24 20 22 31', filled: false },
+      { d: 'M32 16 Q40 20 42 31', filled: false },
+      { d: 'M32 16 L32 44 Q32 49 37 49 Q41 49 41 45', filled: false },
+    ],
+    bounds: { x: 12, y: 16, width: 40, height: 33 },
+  },
   'g-cat-top': {
     id: 'g-cat-top', viewBox: 64,
     paths: [

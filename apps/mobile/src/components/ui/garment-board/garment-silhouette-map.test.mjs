@@ -22,3 +22,19 @@ test('each structural category has a usable fallback glyph', () => {
     assert.equal(resolveGarmentSilhouette('__future_type', category), silhouettes[categoryGlyphIds[category]]);
   }
 });
+
+test('each accessory type resolves to its own silhouette instead of the category glyph', () => {
+  const accessoryMappings = {
+    beanie: 'g-beanie',
+    brimmed_hat: 'g-hat',
+    scarf: 'g-scarf',
+    gloves: 'g-gloves',
+    umbrella: 'g-umbrella',
+  };
+
+  for (const [garmentTypeId, silhouetteId] of Object.entries(accessoryMappings)) {
+    assert.equal(garmentSilhouetteIds[garmentTypeId], silhouetteId);
+    assert.equal(resolveGarmentSilhouette(garmentTypeId, 'accessory'), silhouettes[silhouetteId]);
+    assert.notEqual(resolveGarmentSilhouette(garmentTypeId, 'accessory'), silhouettes['g-cat-accessory']);
+  }
+});

@@ -113,6 +113,11 @@ later visual iteration rather than treated as a blocker.
 The five catalogue accessories are not drawn, because the recommendation contract has no
 accessory slot and they can never appear in an outfit. ADR 0021 already flags that gap.
 
+**Amendment, 2026-09-10.** Five per-type accessory silhouettes are added: `beanie`,
+`brimmed_hat`, `scarf`, `gloves` and `umbrella`. The vocabulary now contains 27 drawings
+covering all 32 catalogue types. The five additions are drawn on the Closet and Profile
+surfaces only, because the outfit contract still has no accessory slot.
+
 ### 7. Law 6 is amended twice
 
 **The garment board is exempt from the icon size ladder.** Law 6 binds icon size to
