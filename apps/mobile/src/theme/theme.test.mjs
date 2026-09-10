@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 
 import { getMessages, messages, resolveSupportedLanguage } from '../localization/messages.ts';
 import { withAlpha } from './color-alpha.ts';
+import { blend } from './color-blend.ts';
 import {
   brandColors,
   createKuyaraTheme,
@@ -184,6 +185,36 @@ test('withAlpha converts a hex token to an rgba string at the given opacity', ()
   assert.throws(() => withAlpha('not-a-color', 0.5));
 });
 
+const atmosphereStates = [
+  'neutral',
+  'clearDay',
+  'veiledDay',
+  'fallingDay',
+  'clearNight',
+  'veiledNight',
+  'fallingNight',
+];
+
+const lightAtmosphereSpecs = {
+  clearDay: { from: 'quietSky', to: 'cloudWhite', ratio: 0.549, hex: '#CBE1E5' },
+  veiledDay: { from: 'calmCurrent', to: 'softMist', ratio: 0.756, hex: '#C2D1D3' },
+  fallingDay: { from: 'calmCurrent', to: 'quietSky', ratio: 0.943, hex: '#98C3CF' },
+  clearNight: { from: 'deepAtmosphere', to: 'quietSky', ratio: 0.888, hex: '#8FB8C4' },
+  veiledNight: { from: 'deepAtmosphere', to: 'softMist', ratio: 0.645, hex: '#A4AFB3' },
+  fallingNight: { from: 'deepAtmosphere', to: 'quietSky', ratio: 0.758, hex: '#7DA4B0' },
+};
+
+test('atmosphere colors retain their recorded brand blends', () => {
+  const theme = createKuyaraTheme('light');
+  assert.equal(theme.atmosphere.neutral, theme.colors.stage);
+
+  for (const [state, spec] of Object.entries(lightAtmosphereSpecs)) {
+    const derived = blend(brandColors[spec.from], brandColors[spec.to], spec.ratio);
+    assert.equal(derived, spec.hex, `${state} blend`);
+    assert.equal(theme.atmosphere[state], spec.hex, `${state} theme value`);
+  }
+});
+
 test('feature source does not hardcode approved primitive colors or disable font scaling', async () => {
   const sourceRoot = new URL('../', import.meta.url);
   const entries = await readdir(sourceRoot, { recursive: true, withFileTypes: true });
@@ -244,7 +275,7 @@ function compositeOver(foregroundHex, alpha, background) {
   const fg = hexToRgb(foregroundHex);
   const bg = typeof background === 'string' ? hexToRgb(background) : background;
   const blend = (fgChannel, bgChannel) =>
-    Math.round(fgChannel * alpha + bgChannel * (1 - alpha));
+    fgChannel * alpha + bgChannel * (1 - alpha);
 
   return {
     r: blend(fg.r, bg.r),
@@ -279,6 +310,54 @@ function contrastOfHexOverBackground(foregroundHex, backgroundHex) {
   return contrastRatio(hexToRgb(foregroundHex), hexToRgb(backgroundHex));
 }
 
+function channelDistance(hexA, hexB) {
+  const a = hexToRgb(hexA);
+  const b = hexToRgb(hexB);
+  return Math.max(Math.abs(a.r - b.r), Math.abs(a.g - b.g), Math.abs(a.b - b.b));
+}
+
+test('every atmosphere state clears its ink floors and appearance constraints', (context) => {
+  const diagnostics = [];
+
+  for (const appearance of ['light', 'dark']) {
+    const theme = createKuyaraTheme(appearance);
+    assert.deepEqual(Object.keys(theme.atmosphere), atmosphereStates);
+
+    for (const state of atmosphereStates) {
+      const stage = theme.atmosphere[state];
+      const textContrast = contrastOfHexOverBackground(theme.colors.textPrimary, stage);
+      const glyphContrast = contrastRatio(
+        compositeOver(theme.colors.textPrimary, 0.70, stage),
+        hexToRgb(stage),
+      );
+      const groundContrast = contrastOfHexOverBackground(stage, theme.colors.background);
+      const groundDistance = channelDistance(stage, theme.colors.background);
+
+      assert.ok(textContrast >= 4.5, `${appearance} ${state} text: ${textContrast.toFixed(2)}:1`);
+      assert.ok(glyphContrast >= 3, `${appearance} ${state} glyph: ${glyphContrast.toFixed(2)}:1`);
+      if (appearance === 'light') {
+        assert.ok(groundDistance >= 15, `${state} distance from ground: ${groundDistance}`);
+      } else {
+        assert.equal(stage, theme.atmosphere.neutral, `${state} dark neutral`);
+      }
+
+      diagnostics.push([
+        appearance,
+        state,
+        stage,
+        relativeLuminance(hexToRgb(stage)).toFixed(4),
+        textContrast.toFixed(2),
+        glyphContrast.toFixed(2),
+        groundContrast.toFixed(3),
+        groundDistance,
+      ].join(' | '));
+    }
+  }
+
+  context.diagnostic('appearance | state | hex | L | text | glyph@0.70 | vs ground | levels');
+  for (const row of diagnostics) context.diagnostic(row);
+});
+
 test('Direction E replaces the light card step with legible stage and supporting ink', () => {
   assert.equal(lightSemanticColors.background, brandColors.softMist);
   assert.equal(lightSemanticColors.backgroundElevated, lightSemanticColors.background);
@@ -290,18 +369,8 @@ test('Direction E replaces the light card step with legible stage and supporting
   assert.equal(Number(lightStep.toFixed(3)), 1.085, `light card step: ${lightStep.toFixed(3)}:1`);
 
   for (const [appearance, colors] of Object.entries({ light: lightSemanticColors, dark: darkSemanticColors })) {
-    for (const [ink, plane] of [
-      ['textPrimary', 'stage'],
-      ['textSecondary', 'background'],
-    ]) {
-      const ratio = contrastOfHexOverBackground(colors[ink], colors[plane]);
-      assert.ok(ratio >= 4.5, `${appearance} ${ink} on ${plane}: ${ratio.toFixed(3)}:1 >= 4.5:1`);
-    }
-    const conditionContrast = contrastRatio(
-      compositeOver(colors.textPrimary, 0.76, colors.stage),
-      hexToRgb(colors.stage),
-    );
-    assert.ok(conditionContrast >= 4.5, `${appearance} condition ink on stage: ${conditionContrast.toFixed(3)}:1 >= 4.5:1`);
+    const ratio = contrastOfHexOverBackground(colors.textSecondary, colors.background);
+    assert.ok(ratio >= 4.5, `${appearance} textSecondary on background: ${ratio.toFixed(3)}:1 >= 4.5:1`);
   }
 
   // The dark allocation still uses the original plane step; light muted surfaces

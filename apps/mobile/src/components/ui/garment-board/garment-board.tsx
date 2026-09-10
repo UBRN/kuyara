@@ -37,6 +37,7 @@ type GarmentBoardProps = Readonly<{
   preset: Preset;
   accessibilityLabel: string;
   decorative?: boolean;
+  stageColor?: string;
   testID?: string;
 }>;
 
@@ -79,10 +80,12 @@ export function GarmentBoard({
   preset,
   accessibilityLabel,
   decorative = false,
+  stageColor,
   testID,
 }: GarmentBoardProps) {
   const { colors } = useKuyaraTheme();
   const result = composePieces(pieces, preset);
+  const fillColor = stageColor ?? colors.stage;
 
   return (
     <Svg
@@ -108,7 +111,7 @@ export function GarmentBoard({
               <Path
                 key={path.d}
                 d={path.d}
-                fill={path.filled ? colors.stage : 'none'}
+                fill={path.filled ? fillColor : 'none'}
                 stroke={colors.textPrimary}
                 strokeWidth={1.9}
                 vectorEffect="non-scaling-stroke"

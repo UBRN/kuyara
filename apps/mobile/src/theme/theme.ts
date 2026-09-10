@@ -2,6 +2,8 @@ import type { TextStyle, ViewStyle } from 'react-native';
 
 import type { ThemePreference } from '@/domain/preferences';
 
+import { blend } from './color-blend';
+
 export type { ThemePreference } from '@/domain/preferences';
 
 export const brandColors = Object.freeze({
@@ -46,6 +48,17 @@ export const lightSemanticColors = Object.freeze({
 export type SemanticColorRole = keyof typeof lightSemanticColors;
 export type SemanticColors = Readonly<Record<SemanticColorRole, string>>;
 
+export type AtmosphereState =
+  | 'neutral'
+  | 'clearDay'
+  | 'veiledDay'
+  | 'fallingDay'
+  | 'clearNight'
+  | 'veiledNight'
+  | 'fallingNight';
+
+type AtmosphereColors = Readonly<Record<AtmosphereState, string>>;
+
 export const darkSemanticColors = Object.freeze({
   background: brandColors.nightLayer,
   backgroundElevated: brandColors.deepAtmosphere,
@@ -74,6 +87,26 @@ export const darkSemanticColors = Object.freeze({
   dangerContainer: '#301D1B',
   scrim: 'rgba(13, 25, 30, 0.72)',
 } as const satisfies SemanticColors);
+
+const lightAtmosphere = Object.freeze({
+  neutral: lightSemanticColors.stage,
+  clearDay: blend(brandColors.quietSky, brandColors.cloudWhite, 0.549),
+  veiledDay: blend(brandColors.calmCurrent, brandColors.softMist, 0.756),
+  fallingDay: blend(brandColors.calmCurrent, brandColors.quietSky, 0.943),
+  clearNight: blend(brandColors.deepAtmosphere, brandColors.quietSky, 0.888),
+  veiledNight: blend(brandColors.deepAtmosphere, brandColors.softMist, 0.645),
+  fallingNight: blend(brandColors.deepAtmosphere, brandColors.quietSky, 0.758),
+} as const satisfies AtmosphereColors);
+
+const darkAtmosphere = Object.freeze({
+  neutral: darkSemanticColors.stage,
+  clearDay: darkSemanticColors.stage,
+  veiledDay: darkSemanticColors.stage,
+  fallingDay: darkSemanticColors.stage,
+  clearNight: darkSemanticColors.stage,
+  veiledNight: darkSemanticColors.stage,
+  fallingNight: darkSemanticColors.stage,
+} as const satisfies AtmosphereColors);
 
 export const spacing = Object.freeze({
   xs: 4,
@@ -231,6 +264,7 @@ export type KuyaraTheme = Readonly<{
   isDark: boolean;
   isReduceMotionEnabled: boolean;
   colors: SemanticColors;
+  atmosphere: AtmosphereColors;
   spacing: typeof spacing;
   typography: typeof typography;
   radii: typeof radii;
@@ -256,6 +290,7 @@ export const lightTheme = Object.freeze({
   isDark: false,
   isReduceMotionEnabled: false,
   colors: lightSemanticColors,
+  atmosphere: lightAtmosphere,
   elevation: lightElevation,
   motion: standardMotion,
 } as const satisfies KuyaraTheme);
@@ -266,6 +301,7 @@ export const darkTheme = Object.freeze({
   isDark: true,
   isReduceMotionEnabled: false,
   colors: darkSemanticColors,
+  atmosphere: darkAtmosphere,
   elevation: darkElevation,
   motion: standardMotion,
 } as const satisfies KuyaraTheme);

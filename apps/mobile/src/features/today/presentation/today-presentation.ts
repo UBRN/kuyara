@@ -15,10 +15,15 @@ import type {
   TodaySnapshot,
 } from '@/features/today/model';
 import {
+  localHourOf,
+  resolveAtmosphereState,
+} from '@/features/today/domain/atmosphere-state';
+import {
   getMessages,
   type SupportedLanguage,
   type TodayRequirementName,
 } from '@/localization/messages';
+import type { AtmosphereState } from '@/theme/theme';
 
 const DETAIL_CAPTION_GAP = 7;
 const DETAIL_CORE_CAP = 0.42;
@@ -86,6 +91,7 @@ export type LoadedOutfitPresentation = Readonly<{
 
 export type LoadedTodayPresentation = Readonly<{
   kind: 'loaded';
+  atmosphere: AtmosphereState;
   copy: Readonly<{
     title: string;
     piecesHeading: string;
@@ -297,6 +303,10 @@ function createLoadedPresentation(
 
   return {
     kind: 'loaded',
+    atmosphere: resolveAtmosphereState(
+      current.condition,
+      localHourOf(weather.fetchedAt, weather.timeZone),
+    ),
     copy: {
       title: copy.title,
       piecesHeading: copy.piecesHeading,
