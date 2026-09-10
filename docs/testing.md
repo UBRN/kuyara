@@ -2,7 +2,7 @@
 
 ## Apple Developer Program
 
-The [Apple Developer Program](../AGENTS.md#apple-developer-program) section governs release-facing validation; weather integration tests use deterministic providers and fixed raw-response fixtures rather than live external weather calls.
+The [Apple Developer Program](../AGENTS.md#release-operations) section governs release-facing validation; weather integration tests use deterministic providers and fixed raw-response fixtures rather than live external weather calls.
 
 ## Repository and configuration checks
 

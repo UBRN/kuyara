@@ -50,9 +50,11 @@ Version 4 leaves the earlier schema unchanged and adds one profile-owned active 
 
 Version 5 leaves the earlier schema unchanged and adds `recommendation_snapshots`, with one row per `local_profile_id`. Each row stores a UUID `id`, the owning profile, `weather_snapshot_id`, `location_key`, an `ai-assisted` or `deterministic-fallback` generation mode, validated context and outfit JSON, and UTC ISO-8601 creation and update timestamps. A restrictive foreign key associates the unique `local_profile_id` with `local_profiles.id`.
 
-Version 6 adds the required `notifications_opt_in` integer preference to `local_profiles`, defaulting to `0` and constrained to `0 | 1`. The current schema version is 6.
+Version 6 adds the required `notifications_opt_in` integer preference to `local_profiles`, defaulting to `0` and constrained to `0 | 1`.
 
-Approved version 7 adds an `owned | wanted` state to `wardrobe_items`, preserves every existing row, and defaults existing entries to `owned`. New entries require a catalog garment type; existing null `garment_type_id` rows remain readable, editable, and deletable as legacy records.
+Version 7 adds an `owned | wanted` `entry_state` to `wardrobe_items`, preserves every existing row, and defaults existing entries to `owned`. New entries require a catalog garment type; existing null `garment_type_id` rows remain readable, editable, and deletable as legacy records.
+
+Version 8 rebuilds `local_profiles` to convert the clothing preference into `gender` (`womens` to `woman`, `mens` to `man`) and adds a nullable ISO calendar-date `birth_date`, preserving every other column, dependent row and the onboarding flag; foreign keys are deferred and checked on the transaction connection before commit, and a failed rebuild rolls back. Version 9 adds the active location's `display_name` and backfills the sample cities. Version 10 adds the nullable checked `dress_style` and resets onboarding once so existing installs answer it. Version 11 adds the `weather_alert_deliveries` ledger for local weather alerts. Version 12 adds the profile-owned `analytics_consent` state, defaulting existing rows to `undecided` and constraining it to `undecided | granted | withdrawn`. The current schema version is 12; see [Local profile lifecycle](#local-profile-lifecycle), [Local notifications](#local-notifications), and [The analytics boundary](#the-analytics-boundary) for how the later versions are used.
 
 Future migrations must add one ordered migration object immediately after the current version. Do not edit released migrations, skip a version, or add a destructive fallback.
 
@@ -149,9 +151,11 @@ Implemented 2026-09-08: schema version 8 rebuilds `local_profiles`, converts `cl
 
 The persisted record, domain profile, and UI state are deliberately distinct. The record retains integer booleans, storage column values, and `deleted_at`; the domain exposes strict preference unions, a boolean completion value, and no deletion field; presentation receives only the controller’s domain state and actions.
 
-### Local notification foundation
+### Local notifications
 
-Schema version 6 keeps notification opt-in as device-local profile state. Settings sends intent through the notification application controller; only the Expo gateway imports `expo-notifications`, and opt-in is persisted only after permission is granted. The root provider maps notification responses to Today. N1 adds no weather-alert rules, background task, push token, Worker endpoint, or server-side state; its only scheduling action is the development-only test notification.
+Schema version 6 keeps notification opt-in as device-local profile state. Settings sends intent through the notification application controller; only the Expo gateway imports `expo-notifications`, and opt-in is persisted only after permission is granted. The root provider maps notification responses to Today.
+
+Local weather alerts ([ADR 0032](adr/0032-local-weather-alert-rules.md)) build on that foundation under `features/notifications`: a pure planner in the domain layer derives structured alert plans from the persisted forecast (precipitation onset and an 8 °C apparent-temperature swing, 60 minutes ahead, quiet hours in the device time zone, one alert per rule per location per day); a `WeatherAlertScheduler` cancels kuyara's own pending notifications, records plans in the schema version 11 `weather_alert_deliveries` ledger, schedules localized copy in the active language and prunes old rows, coalescing concurrent calls; a `WeatherAlertObserver` mounted inside the weather provider reschedules on snapshot, opt-in, permission and language changes and passes a stale snapshot through rather than cancelling. A best-effort `expo-background-task` refresh reuses the foreground weather composition and the same scheduler, and no-ops without a profile, opt-in, permission or active location. There is no push token, Worker endpoint or server-side state.
 
 ### Bootstrap and routing
 
@@ -159,9 +163,9 @@ The profile application provider opens the database, migrates it, constructs the
 
 After readiness, the root Expo Router Stack keeps `/onboarding` separate from the main application. The `(tabs)` route-group layout applies the local gate before mounting product navigation: incomplete profiles redirect to `/onboarding`, completed profiles resolve to `/`, and completed profiles cannot normally return to onboarding. Deep links to `/weather`, `/profile`, and Profile-hosted Wardrobe or Settings routes therefore pass through the same gate.
 
-The main application has three finalized destinations: Today at `/`, Weather at `/weather`, and Profile at `/profile`. Route-group names remain absent from visible paths. Today is the explicit initial route, and each tab has one nested Stack boundary. Profile owns Wardrobe, wanted records, and Settings; Settings opens from the Profile header rather than the tab bar. See [ADR 0006](adr/0006-three-tab-information-architecture.md). The tab bar itself is adopting Expo Router Native Tabs in place of Expo Router's stable JavaScript Tabs, accepting the documented alpha risk of the SDK 57 API; kuyara's three static, non-nested tabs do not hit any of its three documented limitations. See [ADR 0012](adr/0012-adopting-expo-router-native-tabs.md).
+The main application has three finalized destinations: Today at `/`, Weather at `/weather`, and Profile at `/profile`. Route-group names remain absent from visible paths. Today is the explicit initial route, and each tab has one nested Stack boundary. Profile owns Wardrobe, wanted records, and Settings; Settings opens from the Profile header rather than the tab bar. See [ADR 0006](adr/0006-three-tab-information-architecture.md). The tab bar is Expo Router Native Tabs, accepting the documented alpha risk of the SDK 57 API; kuyara's three static, non-nested tabs do not hit any of its three documented limitations. See [ADR 0012](adr/0012-adopting-expo-router-native-tabs.md).
 
-The localized tab-bar presentation is separate from route composition. Expo Router owns route state and tab events, while the bar renders semantic-theme colors, platform-specific `expo-symbols` names, visible labels, 44-point minimum targets, localized tab roles and names, and selected accessibility state. Weather and Profile route files are thin adapters over feature presentation and application boundaries. Wardrobe's dirty-form guard uses the navigator's `beforeRemove` event so header back, iOS gestures, and Android system back share the same localized discard confirmation.
+The OS draws the bar. `navigation/primary-tabs.tsx` declares the three triggers once with their localized labels, accessibility labels, test ids, platform symbol names from the frozen `iconNames` map (an outline and a filled SF Symbol per tab on iOS, one Material symbol on Android) and the `brandPrimary` tint; the native bar supplies the tab role, the selected state and its own Dynamic Type behaviour. Weather and Profile route files are thin adapters over feature presentation and application boundaries. Wardrobe's dirty-form guard uses the navigator's `beforeRemove` event so header back, iOS gestures, and Android system back share the same localized discard confirmation.
 
 The localization provider resolves a saved `system | tr | en` preference through the established device-locale fallback. The existing theme provider receives the saved `system | light | dark` preference. Neither architecture is duplicated, and both providers update when the controller publishes a successfully persisted profile.
 
@@ -174,7 +178,7 @@ weather snapshot + clothing preference + catalog version + local day seed
         ↓
 recommendOutfits use case  (features/recommendation/application)
         ↓
-deriveClothingRequirements → filter catalog candidates → garment eligibility → composeOutfits
+deriveClothingRequirements → filter catalog candidates → garment eligibility → composeOutfitOptions
         ↓
 Today screen model
         ↓
@@ -191,7 +195,7 @@ Implemented 2026-09-08 (ADR 0031): a gender change changes the derived clothing 
 
 ## Worker and contract boundaries
 
-The [Apple Developer Program](../AGENTS.md#apple-developer-program) status is canonical in `AGENTS.md`. The checked-in composition serves real weather through WeatherKit, then Open-Meteo, then the configured OpenWeather fallback; the deterministic sample provider is test-only and is never a production fallback.
+The [Apple Developer Program](../AGENTS.md#release-operations) status is canonical in `AGENTS.md`. The checked-in composition serves real weather through WeatherKit, then Open-Meteo, then the configured OpenWeather fallback; the deterministic sample provider is test-only and is never a production fallback.
 
 The Worker is the server-side boundary for weather and AI provider calls, credential protection, validation, and operational limits. Its mobile API includes weather, AI recommendation, and active-probe routes plus non-AI liveness and configuration-only AI readiness. `POST /v1/weather` accepts only normalized integer hundredth-degree coordinates and an IANA time zone; it does not accept a profile ID, location key, permission state, accuracy label, or raw native location payload.
 
@@ -203,7 +207,7 @@ The checked-in production composition is the real chain described below; the det
 
 ## Approved target composition
 
-The approved [weather provider strategy](product-decisions.md#approved-weather-provider-strategy) and [AI recommendation strategy](product-decisions.md#approved-ai-recommendation-strategy), including their rationale, are canonical in `product-decisions.md`. This section records only where those boundaries and fallbacks live and how they connect. The composition is implemented through Goals 2a, 2b, milestone 3, milestone 4 (the active AI probe and Worker rate limiting), milestone 5 (the real weather provider chain), and milestone 6 (WeatherKit at the head of the chain).
+The approved [weather provider strategy](product-decisions.md#approved-weather-provider-strategy) and [AI recommendation strategy](product-decisions.md#approved-ai-recommendation-strategy), including their rationale, are canonical in `product-decisions.md`. This section records only where those boundaries and fallbacks live and how they connect.
 
 ### Weather provider chain
 
@@ -249,11 +253,9 @@ persisted recommendation snapshot and localized presentation
 
 The request follows the canonical [AI input privacy boundary](product-decisions.md#approved-ai-input-privacy-boundary). The response carries structured data, never user-visible prose, so all Turkish and English copy stays in localization keys. A response failing either validation stage is rejected rather than repaired into a different outfit.
 
-### Goal 2a design: AI contracts and Worker orchestration
+### AI contracts and Worker orchestration
 
-Designed 2026-08-13, implemented 2026-08-14 as described below. Covers only the shared contracts and Worker side of the flow above; real provider credentials (2b), the mobile Worker client, and recommendation persistence (milestone 3) are separate Goals.
-
-This historical contract record predates ADR 0005. The current candidate source, day seed, and narrowed privacy boundary are defined by that ADR and [`product-decisions.md`](product-decisions.md#approved-catalog-only-recommendation-and-wardrobe-model).
+This contract record predates ADR 0005. The current candidate source, day seed, and narrowed privacy boundary are defined by that ADR and [`product-decisions.md`](product-decisions.md#approved-catalog-only-recommendation-and-wardrobe-model).
 
 Two details were settled during implementation. The candidate upper bound is **125**, derived from a measured worst-case serialized candidate of 494 bytes against a provider-neutral 64 KiB request-payload budget and locked by a test; it is a transport and prompt-size bound, not a token count, and assumes no model. The structural outfit invariants below live in the shared zod schema rather than in Worker code, so mobile and the Worker enforce one implementation and the Worker adds only the closed-candidate-set membership check, which is the single rule that needs the request. The per-attempt timeout is injectable, defaulting to 10 seconds, so timeout behavior is testable without real waiting.
 
@@ -360,4 +362,4 @@ Feature code emits named domain events; the boundary owns the taxonomy, enforces
 3. The Worker validates input, calls privileged providers, validates their output, and returns a versioned response defined in the contracts package.
 4. The mobile client validates the response before mapping it into domain state and preserves the last known good snapshot if refresh fails.
 
-This flow operates end to end for live weather and AI recommendations. The Worker composes WeatherKit/Open-Meteo/OpenWeather for weather and Workers AI/OpenRouter for recommendations; mobile validates and persists both response types, preserves the last valid weather snapshot, and uses the device-local deterministic outfit generator when AI is unavailable. The active AI probe and endpoint rate limits are deployed. Authentication, remote synchronization, and analytics remain unimplemented; their intended shape is in [Intended future boundaries](#intended-future-boundaries).
+This flow operates end to end for live weather and AI recommendations. The Worker composes WeatherKit/Open-Meteo/OpenWeather for weather and Workers AI/OpenRouter for recommendations; mobile validates and persists both response types, preserves the last valid weather snapshot, and uses the device-local deterministic outfit generator when AI is unavailable. The active AI probe and endpoint rate limits are deployed. Authentication and remote synchronization remain unimplemented. Analytics has its consent-gated adapter and consent events, but no feature taxonomy call sites yet; the remaining intended shape is in [Intended future boundaries](#intended-future-boundaries).

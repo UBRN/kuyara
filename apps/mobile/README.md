@@ -7,7 +7,8 @@ SQLite. It persists profile preferences, Wardrobe data, weather and recommendati
 snapshots, and the notification opt-in state. Weather comes from the Worker's
 provider chain, WeatherKit followed by Open-Meteo and OpenWeather; Today uses the
 Worker AI route when available and the device-local deterministic generator
-otherwise. Local weather alert rules are not implemented yet.
+otherwise. Local weather alerts are scheduled on the device from the persisted
+forecast; there is no server-sent push.
 
 `index.js` is the physical mobile entry that delegates to Expo Router. Keeping the entry inside the workspace package avoids resolving the app entry itself through a pnpm symlink when Metro uses the monorepo server root.
 

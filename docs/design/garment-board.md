@@ -269,6 +269,8 @@ top 40% inkier than the bottom; the magnitude of the imbalance falls, the sign f
 2. **Six structural categories cannot separate `primary_top` from `mid_layer`.** Both
    fall back to `top`, so an all-fallback board draws the same shape twice at two sizes.
 3. **The nine new silhouettes need approval**, and the `sandal` is the weakest of them.
+   (Approved with the rest of the twenty-two by ADR 0025's acceptance on 2026-09-04;
+   only the five accessory drawings remain unapproved.)
 4. **The Balanced Horizon geometry is still unrepresented on Today.** ADR 0021 records
    this as an open problem with two attempts already spent. This rule does not address
    it and deliberately leaves no room for a mark inside the stage.
