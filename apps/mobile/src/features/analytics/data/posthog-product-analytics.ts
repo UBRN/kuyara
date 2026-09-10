@@ -146,6 +146,10 @@ class PostHogProductAnalytics implements ProductAnalytics {
     });
   }
 
+  decline(): Promise<void> {
+    return Promise.resolve();
+  }
+
   async withdraw(): Promise<void> {
     await this.reconciliation;
     const client = this.client;

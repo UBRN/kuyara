@@ -24,10 +24,16 @@ export function useAnalyticsConsent(): AnalyticsConsentControls {
     getIdentifier: () => analytics.getIdentifier(),
     grant: async (surface) => {
       await updateAnalyticsConsent('granted');
-      // Start the new, unjoinable identity with no pre-consent buffered or persisted state.
-      errorEpisodes.reset();
-      retries.reset();
-      await firstUses.clear();
+      if (state.profile.analyticsConsent === 'withdrawn') {
+        // A withdrawn period has no analytics identity. Clear taxonomy 5.10 tracker state
+        // accumulated during it, and taxonomy 5.11 first uses from the severed identity,
+        // before the new identity starts.
+        errorEpisodes.reset();
+        retries.reset();
+        await firstUses.clear();
+      }
+      // For the initial undecided window, keep the onboarding session's tracker state.
+      // Resetting it would lose counts or permit a duplicate first use after buffered events.
       await analytics.optIn(surface);
     },
     withdraw: async () => {
@@ -38,6 +44,9 @@ export function useAnalyticsConsent(): AnalyticsConsentControls {
       errorEpisodes.reset();
       retries.reset();
     },
-    decline: () => updateAnalyticsConsent('withdrawn'),
+    decline: async () => {
+      await updateAnalyticsConsent('withdrawn');
+      await analytics.decline();
+    },
   };
 }

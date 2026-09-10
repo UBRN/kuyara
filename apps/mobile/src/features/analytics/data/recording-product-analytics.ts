@@ -21,6 +21,7 @@ export type RecordedCapture = Readonly<{
 export class RecordingProductAnalytics implements ProductAnalytics {
   readonly captures: RecordedCapture[] = [];
   optInCount = 0;
+  declineCount = 0;
   withdrawCount = 0;
   flushCount = 0;
   private identityGeneration = 1;
@@ -47,6 +48,11 @@ export class RecordingProductAnalytics implements ProductAnalytics {
       schema_version: ANALYTICS_SCHEMA_VERSION,
       surface,
     });
+    return Promise.resolve();
+  }
+
+  decline(): Promise<void> {
+    this.declineCount += 1;
     return Promise.resolve();
   }
 
