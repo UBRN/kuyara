@@ -1,26 +1,36 @@
 import { render } from '@testing-library/react-native';
 import { AppState, type AppStateStatus, Text } from 'react-native';
+import { useEffect } from 'react';
 
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
+import type { FirstUseTracker } from '@/features/analytics/application/first-use-tracker';
+import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
 
 const addEventListener = jest.mocked(AppState.addEventListener);
+let providedFirstUses: FirstUseTracker | null = null;
 
 beforeEach(() => {
+  providedFirstUses = null;
   addEventListener.mockClear();
   addEventListener.mockReturnValue({ remove: () => undefined });
 });
 
 function FailingChild() {
-  const { errorEpisodes } = useProductAnalytics();
+  const { errorEpisodes, firstUses } = useProductAnalytics();
+  useEffect(() => {
+    providedFirstUses = firstUses;
+  }, [firstUses]);
   errorEpisodes.failed({ surface: 'today', failureCategory: 'offline' });
   return <Text>child</Text>;
 }
 
 async function renderProvider(analytics: RecordingProductAnalytics) {
   const view = await render(
-    <ProductAnalyticsProvider analytics={analytics}>
+    <ProductAnalyticsProvider
+      analytics={analytics}
+      firstUseStore={new InMemoryFirstUseStore()}>
       <FailingChild />
     </ProductAnalyticsProvider>,
   );
@@ -37,6 +47,17 @@ test('mounting the provider captures nothing on its own', async () => {
   expect(view.getByText('child')).toBeTruthy();
   expect(analytics.captures).toEqual([]);
   expect(analytics.flushCount).toBe(0);
+});
+
+test('the provider exposes a first-use tracker that survives analytics withdrawal', async () => {
+  const analytics = new RecordingProductAnalytics();
+  await renderProvider(analytics);
+
+  expect(providedFirstUses).not.toBeNull();
+  await expect(providedFirstUses!.markFirstUse('closet')).resolves.toBe(true);
+  await analytics.withdraw();
+  await expect(providedFirstUses!.markFirstUse('closet')).resolves.toBe(false);
+  expect(analytics.names()).toEqual(['analytics_consent_withdrawn']);
 });
 
 test('the background transition emits buffered failures before flushing', async () => {

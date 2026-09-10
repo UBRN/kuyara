@@ -351,6 +351,8 @@ Feature code emits named domain events; the boundary owns the taxonomy, enforces
 
 ## Current end-to-end data flow
 
+**Phase 3 shared scaffolding landed 2026-09-10.** `useScreenViewed` emits the closed `screen_viewed` event on each route focus, total mappers translate active-location sources and completed AI-probe states into taxonomy values, and `firstUses.markFirstUse` serializes per-install feature adoption through an app-private JSON file that is independent of SQLite and profiles; withdrawal clears it after severing the identity, so a re-consented install reports first use again (taxonomy 5.11). With no PostHog key, development builds use a consent-aware `console.debug` adapter so Simulator sessions expose only the event name and its already-filtered properties; production keeps the no-op fallback.
+
 1. Mobile presentation sends user intent to application services.
 2. Application services read durable local state through repository interfaces and remote state through a Worker client.
 3. The Worker validates input, calls privileged providers, validates their output, and returns a versioned response defined in the contracts package.

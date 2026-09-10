@@ -1,12 +1,17 @@
 // Domain values are mapped, not passed through (`docs/analytics-taxonomy.md` section 5.0).
 // Every map below is a total `Record` over its domain union, so a new domain value is a
 // build error here rather than a raw string on an event.
-import type { WeatherConditionCode } from '@/features/weather/domain/weather';
+import type {
+  ActiveLocation,
+  WeatherConditionCode,
+} from '@/features/weather/domain/weather';
 import type { RecommendationRefreshTrigger } from '@/features/recommendation/application/recommendation-application-controller';
+import type { AiProbeUiState } from '@/features/recommendation/application/ai-probe-state';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import type { FailureCategory } from '@/domain/failure-category';
 
 import type {
+  AnalyticsEventProperties,
   ConditionCategory,
   CountBucket,
   FailureCategoryProperty,
@@ -52,6 +57,31 @@ const conditionCategories = {
   thunderstorm: 'storm',
 } as const satisfies Record<WeatherConditionCode, ConditionCategory>;
 
+type ActiveLocationSource = ActiveLocation['source'];
+type LocationChangedMethod =
+  AnalyticsEventProperties<'location_changed'>['method'];
+type OnboardingLocationMethod =
+  AnalyticsEventProperties<'onboarding_completed'>['location_method'];
+type AiProbeResult = AnalyticsEventProperties<'ai_probe_triggered'>['result'];
+type CompletedAiProbeKind = Exclude<AiProbeUiState['kind'], 'idle' | 'checking'>;
+
+const locationChangedMethods = {
+  device: 'device',
+  manual: 'manual_selection',
+} as const satisfies Record<ActiveLocationSource, LocationChangedMethod>;
+
+const onboardingLocationMethods = {
+  device: 'device',
+  manual: 'manual',
+} as const satisfies Record<ActiveLocationSource, OnboardingLocationMethod>;
+
+const aiProbeResults = {
+  ok: 'ok',
+  unavailable: 'unavailable',
+  'rate-limited': 'rate_limited',
+  error: 'error',
+} as const satisfies Record<CompletedAiProbeKind, AiProbeResult>;
+
 export function failureCategoryProperty(
   category: FailureCategory,
 ): FailureCategoryProperty {
@@ -77,4 +107,22 @@ export function conditionCategory(code: WeatherConditionCode): ConditionCategory
 // Taxonomy 5.7 and 5.10: one through four, five and above collapsed to `5+`.
 export function countBucket(count: number): CountBucket {
   return count >= 5 ? '5+' : (count as 1 | 2 | 3 | 4);
+}
+
+export function locationChangedMethodProperty(
+  source: ActiveLocationSource,
+): LocationChangedMethod {
+  return locationChangedMethods[source];
+}
+
+export function onboardingLocationMethodProperty(
+  source: ActiveLocationSource | null,
+): OnboardingLocationMethod {
+  return source === null ? 'skipped' : onboardingLocationMethods[source];
+}
+
+export function aiProbeResultProperty(
+  kind: CompletedAiProbeKind,
+): AiProbeResult {
+  return aiProbeResults[kind];
 }

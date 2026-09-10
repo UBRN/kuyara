@@ -5,10 +5,13 @@ import { failureCategories } from '@/domain/failure-category';
 import { weatherConditionCodes } from '@/features/weather/domain/weather';
 
 import {
+  aiProbeResultProperty,
   conditionCategory,
   countBucket,
   failureCategoryProperty,
   generationModeProperty,
+  locationChangedMethodProperty,
+  onboardingLocationMethodProperty,
   triggerReasonProperty,
 } from './domain/analytics-mappers.ts';
 
@@ -74,4 +77,22 @@ test('counts bucket into one through four and 5+', () => {
     '5+',
     '5+',
   ]);
+});
+
+test('every active location source maps to both event vocabularies', () => {
+  assert.deepEqual(
+    ['device', 'manual'].map(locationChangedMethodProperty),
+    ['device', 'manual_selection'],
+  );
+  assert.deepEqual(
+    ['device', 'manual', null].map(onboardingLocationMethodProperty),
+    ['device', 'manual', 'skipped'],
+  );
+});
+
+test('every completed AI probe state maps to the event vocabulary', () => {
+  assert.deepEqual(
+    ['ok', 'unavailable', 'rate-limited', 'error'].map(aiProbeResultProperty),
+    ['ok', 'unavailable', 'rate_limited', 'error'],
+  );
 });
