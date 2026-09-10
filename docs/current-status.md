@@ -66,9 +66,15 @@ Analytics is sequenced before the first public App Store release, so milestones 
     PostHog adapter, first-launch consent sheet and Settings Privacy surface.~~ Landed
     2026-09-09. ~~Phase 3 adds the taxonomy's feature call sites
     ([`analytics-taxonomy.md`](analytics-taxonomy.md)).~~ Landed 2026-09-10. No SDK
-    calls in features. What remains before an analytics-enabled release is outside
-    code: the PostHog project (EU region, IP capture off, retention), the DPA decision,
-    and the two public Expo variables in the EAS profiles.
+    calls in features. ~~The PostHog project and the EAS variables.~~ Configured
+    2026-09-10: PostHog Cloud EU project 270871 with client IP discard on, the GeoIP
+    transformation disabled, session replay off and twelve-month retention (ADR 0033
+    sections 4 to 6); the two public Expo variables live in the EAS `production`
+    environment and the `production` build profile loads that environment. The `preview`
+    environment carries no variables, so preview builds stay analytics-off; a build from
+    the `production` profile is analytics-on wherever it is distributed. The one item
+    still open in this milestone is the **DPA decision** with counsel (ADR 0033 section
+    7).
 11. **App Store privacy disclosure and privacy policy.** The privacy policy URL and the
     App Store Connect data-collection questionnaire must describe analytics collection,
     with the install identifier declared linked to the user (ADR 0033, amended
@@ -105,13 +111,22 @@ and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
 
 App Store submission, not TestFlight, is blocked by:
 
-- Milestone 10's PostHog project configuration and the EAS variables that enable the
-  adapter (the code is complete).
+- Milestone 10's DPA decision (the code, the PostHog project and the EAS variables are
+  complete).
 - Milestone 11: a privacy policy URL and the completed data-collection questionnaire.
 - The remaining non-code prerequisites: a support URL, screenshots and description copy.
 
 ## Recently Completed
 
+- **Milestone 10 configuration** (2026-09-10): the PostHog Cloud EU project was created
+  and configured (client IP discard on, GeoIP transformation disabled, session replay
+  off, twelve-month retention, verified through the project settings and the Data
+  pipelines list); a dev-client smoke test with the key in the gitignored `.env` showed
+  consent grant, `screen_viewed` and the SDK lifecycle events under Activity, after which
+  the `.env` lines were removed; `EXPO_PUBLIC_POSTHOG_API_KEY` and
+  `EXPO_PUBLIC_POSTHOG_HOST` were created in the EAS `production` environment and the
+  `production` build profile now declares `"environment": "production"`. ADR 0033 records
+  the verified settings. No new build was made.
 - **Milestone 10 phase 3** (2026-09-10): the taxonomy's feature call sites. Lane 0 added
   the shared scaffolding (`useScreenViewed`, the app-private first-use store cleared on
   withdrawal, the location and AI-probe mappers, a development-only logging adapter);

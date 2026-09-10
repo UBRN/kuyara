@@ -2,10 +2,14 @@
 
 Status: Accepted (2026-09-09)
 
-Implementation: not started. This ADR verifies what Apple actually requires of the
-analytics direction in [ADR 0023](0023-behavioural-product-analytics-with-posthog.md) and
-turns the open consent, revocation and deletion question into decisions and follow-up
-work. It installs nothing and designs no screen.
+Implementation: the milestone 10 code side (consent sheet, Settings Privacy surface,
+fail-closed adapter, pre-consent buffer) landed 2026-09-09 and 2026-09-10; the PostHog
+project configuration in section 6 item 6 was verified 2026-09-10. Still open: the DPA
+decision (section 7) and the milestone 11 items. This ADR verifies what Apple actually
+requires of the analytics direction in
+[ADR 0023](0023-behavioural-product-analytics-with-posthog.md) and turns the open consent,
+revocation and deletion question into decisions and follow-up work. It installs nothing
+and designs no screen.
 
 Resolves: the "open and unresolved" item in ADR 0023 section 7 and the matching entry
 under "Unresolved privacy and compliance questions" in
@@ -60,7 +64,7 @@ Against Apple's category list on that page, kuyara's planned collection maps as 
 | Usage Data: Other Usage Data | Yes, from milestone 10 | Coarse product properties that are not interactions, such as generation mode or fallback state. PostHog's own iOS manifest declares this category alongside Product Interaction. |
 | Diagnostics: Crash Data, Performance Data, Other Diagnostic Data | Yes, from milestone 12, not before | PostHog Error Tracking sends crash and exception data. It is not collected until that milestone lands, and the questionnaire is updated then. |
 | Identifiers: Device ID or User ID | Decision deferred to section 5 | The SDK's per-install random identifier is not the advertising identifier, but Apple's Device ID definition ends in "or other device-level ID". |
-| Location: Coarse Location | No, provided IP capture is off | PostHog derives `$geoip_city_name` and related properties from the request IP on its servers. Apple's Coarse Location definition covers any location "with lower resolution than a latitude and longitude with three or more decimal places". Disabling IP capture at the PostHog project level, which PostHog Cloud EU does by default, removes this category. Section 5 requires it. |
+| Location: Coarse Location | No, provided IP capture is off (and, verified 2026-09-10, the GeoIP transformation is disabled too; see section 5) | PostHog derives `$geoip_city_name` and related properties from the request IP on its servers. Apple's Coarse Location definition covers any location "with lower resolution than a latitude and longitude with three or more decimal places". Disabling IP capture at the PostHog project level, which PostHog Cloud EU does by default, removes this category. Section 5 requires it. |
 | Precise Location | No | Coordinates never enter an analytics payload under ADR 0023. |
 | Health, Sensitive Info, Contacts, User Content, Photos | No | Nothing in the taxonomy touches them. Gender and dress style are stored profile values, not sensitive-info categories in Apple's list, but see the open question in section 7. |
 
@@ -234,7 +238,10 @@ the decision is:
   (<https://posthog.com/pricing>, read 2026-09-09). The policy must state kuyara's
   retention period; the free-plan figure is the ceiling unless the maintainer sets a
   shorter project-level retention where PostHog offers one. Verify the mechanism at
-  implementation time.
+  implementation time. *Verified 2026-09-10:* the free plan offers no shorter
+  project-level event retention; the project reports a twelve-month event retention.
+  kuyara's stated retention period is therefore one year, and the privacy policy carries
+  that figure.
 
 ### 5. The analytics identifier, linkage, and the privacy manifest
 
@@ -273,7 +280,12 @@ personal data under GDPR" in PostHog's words
 (<https://posthog.com/docs/privacy/gdpr-compliance>, read 2026-09-09). The PostHog
 project is configured to discard IP addresses, which removes the Coarse Location category
 from section 1 and reduces the personal-data surface. PostHog Cloud EU does this by
-default for new projects; the setting is verified regardless of region.
+default for new projects; the setting is verified regardless of region. *Verified
+2026-09-10:* "Discard client IP data" was switched on by hand on project 270871, and the
+GeoIP transformation in Data pipelines was disabled separately, because the IP toggle
+alone does not stop the enrichment: GeoIP runs before the discard, so the `$geoip_*`
+properties would still be written to every event. Both settings, not one, keep Coarse
+Location out of the questionnaire.
 
 **Privacy manifest.** Apple asks apps to declare collected data types in
 `PrivacyInfo.xcprivacy`, and the file's `NSPrivacyTracking` and per-type booleans must
@@ -326,7 +338,13 @@ Milestone 10, PostHog product analytics integration, gains these acceptance cond
    `personProfiles` stays `identified_only`. A grep-style check guards this like the
    `@expo/ui` rule in `AGENTS.md`.
 6. The PostHog project has IP capture disabled, and the region is chosen; the DPA decision
-   from counsel is recorded before the first production event.
+   from counsel is recorded before the first production event. *Amended 2026-09-10:* the
+   project is PostHog Cloud EU project 270871 on the free plan, single project. Verified
+   through the project settings and the Data pipelines list the same day: "Discard
+   client IP data" on, the GeoIP transformation disabled (the IP toggle alone is not
+   enough, see section 5), session replay off (ADR 0023 section 9 unchanged), event
+   retention twelve months (section 4). The DPA decision is still open and remains a
+   condition of the first production event.
 7. `apps/mobile/ios/kuyara/PrivacyInfo.xcprivacy` declares Product Interaction and Other
    Usage Data with linked `false` (or `true` if section 7 resolves the other way),
    tracking `false`, purpose Analytics, and `NSPrivacyTracking` absent or `false`; the
@@ -359,8 +377,8 @@ Milestone 11, App Store privacy disclosure and privacy policy, gains these:
   when no person profile exists, or whether a deletion request would require a person
   profile to be created first. Confirm against PostHog's persons API before the privacy
   policy promises identifier-based deletion.
-- **Retention control.** Whether PostHog Cloud offers a project-level retention shorter
-  than the plan default; if not, the policy states the plan figure.
+- **Retention control.** Decided 2026-09-10: the free plan offers no shorter
+  project-level retention, so the policy states the plan figure, one year (section 4).
 - **Gender and dress style as properties.** ADR 0023 allows coarse product properties.
   Gender is not in Apple's Sensitive Info list, but whether it enters the taxonomy at all
   is a milestone 8 decision, and if it does, whether it changes the linkage answer above.
