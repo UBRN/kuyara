@@ -232,7 +232,8 @@ the decision is:
   states that deletion can be requested from the maintainer, and the Settings screen lets
   the user see and copy their analytics identifier so the request can name it. Whether
   events captured without a person profile can be deleted by identifier at all is an open
-  question in section 7.
+  question in section 7. *Amended 2026-09-10:* it cannot, through the persons API; see
+  the finding in section 7.
 - **Retention is stated, not left to the vendor's default.** PostHog Cloud keeps data one
   year on the free plan and seven years on paid plans
   (<https://posthog.com/pricing>, read 2026-09-09). The policy must state kuyara's
@@ -376,7 +377,23 @@ Milestone 11, App Store privacy disclosure and privacy policy, gains these:
 - **Deletion of anonymous events.** Whether PostHog can delete events by `distinct_id`
   when no person profile exists, or whether a deletion request would require a person
   profile to be created first. Confirm against PostHog's persons API before the privacy
-  policy promises identifier-based deletion.
+  policy promises identifier-based deletion. *Finding, 2026-09-10:* the persons API
+  cannot. Its single and bulk delete endpoints accept `distinct_ids`, but resolve them
+  to person rows first and queue one `AsyncDeletion` of type `Person` keyed by the
+  person's UUID per resolved row; an identifier with no person row resolves to nothing
+  and queues nothing (`posthog/api/person.py` and
+  `posthog/models/person/bulk_delete.py` on the `master` branch, read 2026-09-10).
+  kuyara's events are captured with `$process_person_profile` false under
+  `identified_only`, so no person row exists: project 270871 held the smoke-test events
+  of two identifiers and zero persons when queried the same day. Deleting such events
+  therefore needs one of three things, and the choice is the maintainer's before the
+  privacy policy is written: a deletion request to PostHog support outside the API
+  (unverified whether they act on a `distinct_id` without a person row); switching the
+  adapter to `personProfiles: 'always'`, which creates a person per install, makes the
+  identifier deletable and reopens ADR 0023's identity decision and its cost note
+  (PostHog prices identified events higher); or a policy that promises withdrawal and the
+  twelve-month retention window but not identifier-based deletion. Until decided, the
+  privacy policy must not promise deletion by identifier.
 - **Retention control.** Decided 2026-09-10: the free plan offers no shorter
   project-level retention, so the policy states the plan figure, one year (section 4).
 - **Gender and dress style as properties.** ADR 0023 allows coarse product properties.
