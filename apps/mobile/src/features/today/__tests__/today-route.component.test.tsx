@@ -34,6 +34,7 @@ jest.mock('expo-router', () => {
   const actualReact = jest.requireActual('react');
   return {
     useFocusEffect: (callback: () => void | (() => void)) => actualReact.useEffect(callback, [callback]),
+    useIsFocused: () => true,
     useRouter: () => ({ push: mockPush, back: mockBack }),
     useLocalSearchParams: () => mockParams,
   };
@@ -280,6 +281,24 @@ test('refreshing while Today shows stale weather and a failed attempt reports re
   expect(productAnalytics.analytics.captures.some((c) => c.name === 'manual_refresh_triggered')).toBe(false);
 });
 
+test('leaving Today resets its retry attempt counter', async () => {
+  const productAnalytics = createProductAnalytics();
+  productAnalytics.retries.nextAttempt('today');
+  const result = await render(
+    <Providers
+      productAnalytics={productAnalytics}
+      profile={profileValue()}
+      recommendation={recommendationReady()}
+      wardrobe={wardrobeValue()}
+      weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  await result.unmount();
+  expect(productAnalytics.retries.nextAttempt('today')).toBe(1);
+});
+
 test('a fully unavailable Today buffers error_shown until recovery, which emits both events', async () => {
   const productAnalytics = createProductAnalytics();
   const unavailableWeather = weatherValue({ snapshot: null, freshness: null, refreshFailure: 'offline' });
@@ -324,6 +343,39 @@ test('a fully unavailable Today buffers error_shown until recovery, which emits 
   expect(names.indexOf('error_shown')).toBeLessThan(names.indexOf('error_recovered'));
 });
 
+test('a visible recommendation failure uses only the recommendation error surface', async () => {
+  const productAnalytics = createProductAnalytics();
+  const result = await render(
+    <Providers
+      productAnalytics={productAnalytics}
+      profile={profileValue()}
+      recommendation={{ status: 'ready', snapshot: null, isRefreshing: false, lastFailure: 'unavailable' }}
+      wardrobe={wardrobeValue()}
+      weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  await result.rerender(
+    <Providers
+      productAnalytics={productAnalytics}
+      profile={profileValue()}
+      recommendation={recommendationReady()}
+      wardrobe={wardrobeValue()}
+      weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  const errors = productAnalytics.analytics.captures.filter(
+    ({ name }) => name === 'error_shown' || name === 'error_recovered',
+  );
+  expect(errors.map(({ properties }) => properties)).toEqual([
+    { schema_version: 1, surface: 'recommendation', failure_category: 'unavailable', occurrence_count: 1 },
+    { schema_version: 1, surface: 'recommendation', failure_category: 'unavailable' },
+  ]);
+});
+
 test('opening an outfit reports screen_viewed and outfit_detail_opened with its position and archetype', async () => {
   mockParams = { id: 'outfit-2' };
   const productAnalytics = createProductAnalytics();
@@ -349,6 +401,35 @@ test('opening an outfit reports screen_viewed and outfit_detail_opened with its 
     dress_style: 'formal',
     age_bucket: '35_44',
   });
+});
+
+test('recomputing a focused outfit detail does not reopen the same suggestion', async () => {
+  mockParams = { id: 'outfit-2' };
+  const productAnalytics = createProductAnalytics();
+  const result = await render(
+    <Providers
+      productAnalytics={productAnalytics}
+      profile={profileValue()}
+      recommendation={recommendationReady()}
+      wardrobe={wardrobeValue()}
+      weather={weatherValue()}>
+      <OutfitDetailRoute />
+    </Providers>,
+  );
+
+  await result.rerender(
+    <Providers
+      productAnalytics={productAnalytics}
+      profile={profileValue({ birthDate: '1990-01-01' })}
+      recommendation={recommendationReady()}
+      wardrobe={wardrobeValue()}
+      weather={weatherValue()}>
+      <OutfitDetailRoute />
+    </Providers>,
+  );
+
+  expect(productAnalytics.analytics.names().filter((name) => name === 'outfit_detail_opened'))
+    .toHaveLength(1);
 });
 
 test('setting ownership from outfit detail creates or updates the Closet entry with entry_point outfit_detail', async () => {

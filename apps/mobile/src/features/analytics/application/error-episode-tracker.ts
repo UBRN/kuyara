@@ -82,6 +82,11 @@ export class ErrorEpisodeTracker {
     if (reason === 'session_end') this.episodes.clear();
   }
 
+  // Consent boundaries discard buffered state without attributing it to either identity.
+  reset(): void {
+    this.episodes.clear();
+  }
+
   private emitShown(episode: Episode): void {
     if (episode.shownEmitted) return;
     episode.shownEmitted = true;

@@ -2,6 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { FailureCategory } from '@/domain/failure-category';
+import { useFocusedErrorEpisode } from '@/features/analytics/application/use-focused-error-episode';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import {
@@ -10,7 +11,6 @@ import {
 import {
   ageBucketProperty,
   dressStyleProperty,
-  failureCategoryProperty,
   generationModeProperty,
 } from '@/features/analytics/domain/analytics-mappers';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
@@ -27,7 +27,7 @@ export default function TodayRoute() {
   const weatherApplication = useWeatherApplication();
   const weatherState = weatherApplication.state;
   const { state: profileState } = useProfileApplication();
-  const { analytics, errorEpisodes, firstUses, retries } = useProductAnalytics();
+  const { analytics, firstUses, retries } = useProductAnalytics();
   useScreenViewed('today');
 
   const recommendation = recommendationState.status === 'ready'
@@ -35,8 +35,12 @@ export default function TodayRoute() {
     : null;
 
   let state: TodayScreenState;
+  let todayFailure: FailureCategory | null | undefined;
+  let recommendationFailure: FailureCategory | null | undefined;
   if (weatherState.status === 'loading' || recommendationState.status === 'loading') {
     state = { kind: 'loading' };
+    todayFailure = undefined;
+    recommendationFailure = undefined;
   } else if (
     weatherState.status === 'error' ||
     weatherState.snapshot === null ||
@@ -48,8 +52,14 @@ export default function TodayRoute() {
     state = unavailableTodayState(
       weatherState.status === 'ready' ? weatherState.refreshFailure : null,
     );
+    todayFailure = weatherState.status === 'ready'
+      ? weatherState.refreshFailure ?? 'unknown'
+      : 'unknown';
+    recommendationFailure = null;
   } else if (recommendation === null) {
     state = unavailableTodayState(recommendationState.lastFailure);
+    todayFailure = null;
+    recommendationFailure = recommendationState.lastFailure ?? 'unknown';
   } else {
     state = {
       kind: 'loaded',
@@ -62,25 +72,14 @@ export default function TodayRoute() {
       isRefreshing: weatherState.isRefreshing,
       refreshFailed: weatherState.refreshFailure !== null,
     };
+    todayFailure = weatherState.refreshFailure;
+    recommendationFailure = null;
   }
 
-  // Taxonomy 5.10: `error_shown`/`error_recovered` for the `today` surface, from the same
-  // classification already composed above. Gated on the category's own value so an
-  // unrelated re-render does not double-count an ongoing failure.
-  const shownFailureRef = useRef<FailureCategory | null>(null);
-  const currentFailure = state.kind === 'unavailable' ? state.failure ?? 'unknown' : null;
-  useEffect(() => {
-    if (currentFailure) {
-      shownFailureRef.current = currentFailure;
-      errorEpisodes.failed({ surface: 'today', failureCategory: failureCategoryProperty(currentFailure) });
-    } else if (shownFailureRef.current) {
-      errorEpisodes.recovered({
-        surface: 'today',
-        failureCategory: failureCategoryProperty(shownFailureRef.current),
-      });
-      shownFailureRef.current = null;
-    }
-  }, [currentFailure, errorEpisodes]);
+  // Only the focused Today route can show these failures. A weather failure belongs to
+  // the composite Today surface; a recommendation failure belongs to its distinct surface.
+  useFocusedErrorEpisode('today', todayFailure);
+  useFocusedErrorEpisode('recommendation', recommendationFailure);
 
   // Taxonomy 5.5: `recommendation_viewed`, once per focus appearance while a real
   // three-outfit recommendation is visible (an AI/fallback failure inside a `loaded` state
@@ -88,8 +87,11 @@ export default function TodayRoute() {
   const [isFocused, setIsFocused] = useState(false);
   useFocusEffect(useCallback(() => {
     setIsFocused(true);
-    return () => setIsFocused(false);
-  }, []));
+    return () => {
+      setIsFocused(false);
+      retries.reset('today');
+    };
+  }, [retries]));
   const viewedThisFocusRef = useRef(false);
   useEffect(() => {
     if (!isFocused) {

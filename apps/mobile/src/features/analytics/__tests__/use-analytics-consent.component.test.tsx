@@ -2,6 +2,8 @@ import { render } from '@testing-library/react-native';
 import { Text } from 'react-native';
 
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
+import { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
+import { RetryCounter } from '@/features/analytics/application/retry-counter';
 import {
   type AnalyticsConsentControls,
   useAnalyticsConsent,
@@ -35,10 +37,15 @@ const profile = {
 
 test('grant, withdrawal, and decline use the required operation order', async () => {
   const operations: string[] = [];
+  const resetErrors = jest.spyOn(ErrorEpisodeTracker.prototype, 'reset')
+    .mockImplementation(() => { operations.push('resetErrors'); });
+  const resetRetries = jest.spyOn(RetryCounter.prototype, 'reset')
+    .mockImplementation(() => { operations.push('resetRetries'); });
   const analytics: ProductAnalytics = {
     capture: () => undefined,
     flush: async () => undefined,
     getIdentifier: () => 'analytics-id',
+    getSessionId: () => 'session-id',
     optIn: async (surface) => { operations.push(`optIn:${surface}`); },
     withdraw: async () => { operations.push('withdraw'); },
   };
@@ -69,13 +76,20 @@ test('grant, withdrawal, and decline use the required operation order', async ()
 
   expect(operations).toEqual([
     'persist:granted',
+    'resetErrors',
+    'resetRetries',
+    'clearFirstUses',
     'optIn:first_launch_sheet',
     'persist:withdrawn',
     'withdraw',
     'clearFirstUses',
+    'resetErrors',
+    'resetRetries',
     'persist:withdrawn',
   ]);
   expect(controls.getIdentifier()).toBe('analytics-id');
+  resetErrors.mockRestore();
+  resetRetries.mockRestore();
 });
 
 test('a failed grant persistence never opts the provider in', async () => {
@@ -84,6 +98,7 @@ test('a failed grant persistence never opts the provider in', async () => {
     capture: () => undefined,
     flush: async () => undefined,
     getIdentifier: () => null,
+    getSessionId: () => null,
     optIn: async () => { operations.push('optIn'); },
     withdraw: async () => undefined,
   };

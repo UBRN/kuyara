@@ -72,6 +72,7 @@ jest.mock('expo-router', () => {
 
   return {
     useFocusEffect: (effect: FocusEffect) => mockUseFocusEffect(effect),
+    useIsFocused: () => true,
     useRouter: () => ({ back, push }),
     __mockBack: back,
     __mockPush: push,
@@ -401,9 +402,8 @@ test('a refresh failure emits error_shown once and a later success emits error_r
   );
 
   // Three automatic focus refreshes drive the underlying failure/recovery transitions.
-  // The tracker buffers `error_shown` rather than capturing it immediately (it is only
-  // emitted alongside recovery, per taxonomy 5.10), so the two failures collapse into one
-  // `error_shown` whose `occurrence_count` reflects both.
+  // The continuously visible failure is one episode; retry attempts are counted by the
+  // separate `retry_after_failure_triggered` event.
   await act(async () => {
     focusEffects[1]();
   });
@@ -423,7 +423,7 @@ test('a refresh failure emits error_shown once and a later success emits error_r
         schema_version: 1,
         surface: 'closet',
         failure_category: 'unavailable',
-        occurrence_count: 2,
+        occurrence_count: 1,
       },
       options: expect.anything(),
     },
@@ -441,4 +441,36 @@ test('a refresh failure emits error_shown once and a later success emits error_r
       options: undefined,
     },
   ]);
+});
+
+test('an initial-load retry result survives the loading render and reports recovery on success', async () => {
+  const analytics = new RecordingProductAnalytics();
+  const result = await render(
+    <TestProviders analytics={analytics}>
+      <FakeWardrobeApplicationProvider
+        initialState={{ status: 'error' }}
+        refreshOutcomes={[readyState()]}>
+        <WardrobeListRoute />
+      </FakeWardrobeApplicationProvider>
+    </TestProviders>,
+  );
+
+  await act(async () => {
+    fireEvent.press(result.getByRole('button', { name: messages.en.wardrobe.retryAction }));
+  });
+
+  expect(analytics.captures.filter(
+    ({ name }) => name === 'retry_after_failure_triggered',
+  )).toEqual([{
+    name: 'retry_after_failure_triggered',
+    properties: {
+      schema_version: 1,
+      surface: 'closet',
+      attempt_number: 1,
+      result: 'success',
+    },
+    options: undefined,
+  }]);
+  expect(analytics.names().filter((name) => name === 'error_shown' || name === 'error_recovered'))
+    .toEqual(['error_shown', 'error_recovered']);
 });
