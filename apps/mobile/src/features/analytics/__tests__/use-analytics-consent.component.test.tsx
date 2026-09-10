@@ -52,7 +52,13 @@ test('grant, withdrawal, and decline use the required operation order', async ()
 
   await render(
     <ProfileApplicationContext value={application}>
-      <ProductAnalyticsProvider analytics={analytics}>
+      <ProductAnalyticsProvider
+        analytics={analytics}
+        firstUseStore={{
+          has: async () => false,
+          markUsed: async () => undefined,
+          clear: async () => { operations.push('clearFirstUses'); },
+        }}>
         <Harness onReady={(value) => { controls = value; }} />
       </ProductAnalyticsProvider>
     </ProfileApplicationContext>,
@@ -66,6 +72,7 @@ test('grant, withdrawal, and decline use the required operation order', async ()
     'optIn:first_launch_sheet',
     'persist:withdrawn',
     'withdraw',
+    'clearFirstUses',
     'persist:withdrawn',
   ]);
   expect(controls.getIdentifier()).toBe('analytics-id');

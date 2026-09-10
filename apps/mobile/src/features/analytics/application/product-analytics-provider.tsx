@@ -2,6 +2,7 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { type PropsWithChildren, useEffect, useMemo, useRef } from 'react';
 
 import { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
+import { FirstUseTracker } from '@/features/analytics/application/first-use-tracker';
 import { RetryCounter } from '@/features/analytics/application/retry-counter';
 import {
   ProductAnalyticsContext,
@@ -11,31 +12,41 @@ import type {
   CaptureAnalyticsEvent,
   ProductAnalytics,
 } from '@/features/analytics/domain/product-analytics';
+import type { FirstUseStore } from '@/features/analytics/domain/first-use-store';
+import { ExpoFileFirstUseStore } from '@/features/analytics/data/expo-file-first-use-store';
 import { noopProductAnalytics } from '@/features/analytics/data/noop-product-analytics';
 
 const now = () => new Date().toISOString();
 
 type ProductAnalyticsProviderProps = PropsWithChildren<{
   analytics?: ProductAnalytics;
+  firstUseStore?: FirstUseStore;
 }>;
 
 export function ProductAnalyticsProvider({
   children,
   analytics = noopProductAnalytics,
+  firstUseStore,
 }: ProductAnalyticsProviderProps) {
+  const resolvedFirstUseStore = useMemo(
+    () => firstUseStore ?? new ExpoFileFirstUseStore(),
+    [firstUseStore],
+  );
   const trackers = useMemo(() => {
     const capture: CaptureAnalyticsEvent = (name, properties, options) =>
       analytics.capture(name, properties, options);
     return {
       errorEpisodes: new ErrorEpisodeTracker(capture, now),
+      firstUses: new FirstUseTracker(resolvedFirstUseStore),
       retries: new RetryCounter(),
     };
-  }, [analytics]);
+  }, [analytics, resolvedFirstUseStore]);
 
   const value = useMemo<ProductAnalyticsValue>(
     () => ({
       analytics,
       errorEpisodes: trackers.errorEpisodes,
+      firstUses: trackers.firstUses,
       retries: trackers.retries,
     }),
     [analytics, trackers],
