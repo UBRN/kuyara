@@ -295,7 +295,7 @@ export function WeatherScreen() {
                 accessible
                 accessibilityLabel={copy.currentConditionsAccessibilityLabel({
                   condition: copy.conditions[snapshot.current.condition],
-                  temperature: temperature(snapshot.current.temperatureCelsius, language),
+                  temperature: temperature(snapshot.current.temperatureCelsius, language, 0),
                   apparentTemperature: temperature(
                     snapshot.current.apparentTemperatureCelsius,
                     language,
@@ -310,8 +310,13 @@ export function WeatherScreen() {
                 ]}>
                 <View style={styles.currentConditionGroup}>
                   <View style={styles.currentConditionRow}>
-                    <AppText tabularNumbers variant="display">
-                      {temperature(snapshot.current.temperatureCelsius, language)}
+                    <AppText
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.6}
+                      numberOfLines={1}
+                      tabularNumbers
+                      variant="display">
+                      {temperature(snapshot.current.temperatureCelsius, language, 0)}
                     </AppText>
                     <AppText variant="bodyStrong">
                       {copy.conditions[snapshot.current.condition]}
@@ -502,8 +507,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.lg,
   },
+  // Stretched, not flex-start: at accessibility sizes the 56-point hero needs the whole
+  // card width to lay out on one line (ADR 0017's recorded risk).
   stackedCurrentHero: {
-    alignItems: 'flex-start',
+    alignItems: 'stretch',
     flexDirection: 'column',
   },
   currentConditionGroup: { flex: 1, flexShrink: 1, gap: spacing.xs },
