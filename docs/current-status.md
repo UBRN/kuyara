@@ -74,11 +74,15 @@ Analytics is sequenced before the first public App Store release, so milestones 
     environment carries no variables, so preview builds stay analytics-off; a build from
     the `production` profile is analytics-on wherever it is distributed. The one item
     still open in this milestone is the **DPA decision** with counsel (ADR 0033 section
-    7).
+    7); it is awaiting the maintainer's decision, not implementation work, and the
+    milestone is not closed until it is recorded.
 11. **App Store privacy disclosure and privacy policy.** The privacy policy URL and the
     App Store Connect data-collection questionnaire must describe analytics collection,
     with the install identifier declared linked to the user (ADR 0033, amended
-    2026-09-09), before any analytics-enabled release.
+    2026-09-09), before any analytics-enabled release. Both wait on the maintainer: where
+    the policy is hosted and its URL (the Settings row stays hidden while
+    `PRIVACY_POLICY_URL` is null), and the questionnaire entered in App Store Connect
+    from ADR 0033 section 1 after the maintainer's lawful-basis answer (section 7).
 12. **PostHog Error Tracking.** Source maps and release correlation are decided at
     implementation time; the same payload exclusion list applies.
 13. **Session replay evaluation.** Only after privacy masking and sampling are designed.
@@ -111,9 +115,10 @@ and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
 
 App Store submission, not TestFlight, is blocked by:
 
-- Milestone 10's DPA decision (the code, the PostHog project and the EAS variables are
-  complete).
-- Milestone 11: a privacy policy URL and the completed data-collection questionnaire.
+- Milestone 10's DPA decision, awaiting the maintainer (the code, the PostHog project
+  and the EAS variables are complete).
+- Milestone 11's privacy policy URL and the completed data-collection questionnaire, both
+  awaiting the maintainer's decisions.
 - The remaining non-code prerequisites: a support URL, screenshots and description copy.
 
 ## Recently Completed
