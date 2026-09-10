@@ -1,4 +1,3 @@
-import { Fragment } from 'react';
 import { router } from 'expo-router';
 import {
   Linking,
@@ -25,6 +24,7 @@ import { useProductAnalytics } from '@/features/analytics/application/use-produc
 import { ANALYTICS_SCHEMA_VERSION } from '@/features/analytics/domain/analytics-events';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import type { ActiveLocation } from '@/features/weather/domain/weather';
+import { HourlyRail } from '@/features/weather/presentation/hourly-rail';
 import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
 import { useLocalization } from '@/localization/use-messages';
 import { interaction, layout, radii, spacing } from '@/theme/theme';
@@ -36,11 +36,13 @@ const weatherAttributionUrls: Readonly<Record<string, string>> = {
   weatherkit: 'https://developer.apple.com/weatherkit/data-source-attribution/',
 };
 
-const PRECIPITATION_BAR_HEIGHT = 32;
-
-function temperature(value: number, language: 'en' | 'tr'): string {
+function temperature(
+  value: number,
+  language: 'en' | 'tr',
+  maximumFractionDigits: 0 | 1 = 1,
+): string {
   return `${new Intl.NumberFormat(language === 'tr' ? 'tr-TR' : 'en-US', {
-    maximumFractionDigits: 1,
+    maximumFractionDigits,
   }).format(value)}°`;
 }
 
@@ -410,72 +412,23 @@ export function WeatherScreen() {
             <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
               {copy.hourlyHeading}
             </AppText>
-            <View>
-              {snapshot.hourly.map((hour, index) => (
-                <Fragment key={hour.forecastAt}>
-                  {index > 0 ? <Divider testID="weather-hour-divider" /> : null}
-                  <View
-                    accessible
-                    accessibilityLabel={copy.hourlyForecastAccessibilityLabel({
-                      time: time(hour.forecastAt, snapshot.timeZone, language),
-                      temperature: temperature(hour.temperatureCelsius, language),
-                      condition: copy.conditions[hour.condition],
-                      precipitationProbability: hour.precipitationProbability,
-                    })}
-                    style={[
-                      styles.hourRow,
-                      usesStackedLayout && styles.stackedHourRow,
-                    ]}>
-                    <AppText
-                      style={[
-                        styles.hourTime,
-                        usesStackedLayout && styles.stackedHourTime,
-                      ]}
-                      tabularNumbers
-                      variant="bodyStrong">
-                      {time(hour.forecastAt, snapshot.timeZone, language)}
-                    </AppText>
-                    <Icon color={theme.colors.iconSecondary} name="tabWeather" size={22} />
-                    <View style={styles.precipitationGroup}>
-                      <View
-                        accessible={false}
-                        accessibilityElementsHidden
-                        importantForAccessibility="no-hide-descendants"
-                        style={[
-                          styles.precipitationBar,
-                          { backgroundColor: theme.colors.surfaceMuted },
-                        ]}
-                        testID="weather-hour-precipitation-bar">
-                        <View
-                          style={[
-                            styles.precipitationFill,
-                            {
-                              backgroundColor: theme.colors.brandAccent,
-                              height: Math.max(
-                                2,
-                                hour.precipitationProbability * PRECIPITATION_BAR_HEIGHT,
-                              ),
-                            },
-                          ]}
-                        />
-                      </View>
-                      <AppText colorRole="textSecondary" tabularNumbers variant="caption">
-                        {percentage(hour.precipitationProbability, language)}
-                      </AppText>
-                    </View>
-                    <AppText
-                      style={[
-                        styles.hourTemperature,
-                        usesStackedLayout && styles.stackedHourTemperature,
-                      ]}
-                      tabularNumbers
-                      variant="bodyStrong">
-                      {temperature(hour.temperatureCelsius, language)}
-                    </AppText>
-                  </View>
-                </Fragment>
-              ))}
-            </View>
+            <HourlyRail
+              // A rail is scanned, not read, so its temperatures are whole degrees.
+              columns={snapshot.hourly.map((hour) => ({
+                key: hour.forecastAt,
+                accessibilityLabel: copy.hourlyForecastAccessibilityLabel({
+                  time: time(hour.forecastAt, snapshot.timeZone, language),
+                  temperature: temperature(hour.temperatureCelsius, language, 0),
+                  condition: copy.conditions[hour.condition],
+                  precipitationProbability: hour.precipitationProbability,
+                }),
+                condition: hour.condition,
+                precipitation: percentage(hour.precipitationProbability, language),
+                temperature: temperature(hour.temperatureCelsius, language, 0),
+                temperatureCelsius: hour.temperatureCelsius,
+                time: time(hour.forecastAt, snapshot.timeZone, language),
+              }))}
+            />
           </Surface>
         </>
       ) : (
@@ -574,33 +527,6 @@ const styles = StyleSheet.create({
   stackedStat: { flex: 0, width: '100%' },
   attribution: { alignSelf: 'flex-start' },
   headingRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: spacing.md },
-  hourRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.md,
-    minHeight: layout.minimumTouchTarget,
-    paddingVertical: spacing.md,
-  },
-  stackedHourRow: { alignItems: 'flex-start', flexDirection: 'column' },
-  hourTime: { width: 76 },
-  stackedHourTime: { width: 'auto' },
-  precipitationGroup: {
-    alignItems: 'center',
-    flex: 1,
-    flexDirection: 'row',
-    gap: spacing.xs,
-    minWidth: 48,
-  },
-  precipitationBar: {
-    borderRadius: radii.pill,
-    height: PRECIPITATION_BAR_HEIGHT,
-    justifyContent: 'flex-end',
-    overflow: 'hidden',
-    width: 4,
-  },
-  precipitationFill: { borderRadius: radii.pill, width: '100%' },
-  hourTemperature: { minWidth: 52, textAlign: 'right' },
-  stackedHourTemperature: { textAlign: 'left' },
   staleNotice: {
     alignItems: 'center',
     borderRadius: radii.control,

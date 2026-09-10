@@ -106,7 +106,6 @@ Approved design work that is decided and not built, none of it a release blocker
   have no recorded values, so the stage renders one tint.
 - [ADR 0017](adr/0017-a-retuned-typography-scale.md)'s retuned type scale; the shipped
   scale is still 40 / 24 / 24 / 17 / 15 / 13 / 10.5.
-- ADR 0021 section 9's horizontal hourly rail on Weather.
 - Five accessory silhouettes, wanted and not approved; accessories draw the category glyph.
 - A content container for tab screens that does not fill the viewport (see Known Issues).
 
@@ -196,6 +195,14 @@ App Store submission, not TestFlight, is blocked by:
   bar, the icon set and garment artwork, the `@expo/ui` text field, picker list and date
   picker, the `weather-alerts` notification channel, and the resolved manifest after
   blocking fine-location permission.
+- **The hourly rail shows the whole local day, not the remaining hours.** Seen on the
+  Simulator on 2026-09-10 at 13:44 with WeatherKit data: the rail started at 12:00 AM
+  under the heading "Remaining hours today". The contract only requires the hours to be
+  ordered and to belong to the current local day, so either the Worker trims past hours
+  or the heading changes; neither is decided.
+- **Weather's refresh spinner can stay visible after a location change.** The screen
+  mounts with a refresh in flight, and iOS's `RefreshControl` keeps its inset until the
+  next pull; one pull-to-refresh clears it. Seen 2026-09-10, not yet fixed.
 - **WeatherKit's quota path is untested against Apple.** Apple does not document the
   status returned once the monthly allowance is exhausted; the mapping lands on a
   fallback-eligible error either way, and the daily cap has never been reached.

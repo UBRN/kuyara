@@ -47,6 +47,24 @@ export const iconNames = Object.freeze({
   bell: { ios: 'bell.fill', android: 'notifications', web: 'notifications' },
   calendar: { ios: 'calendar', android: 'calendar_today', web: 'calendar_today' },
   clothing: { ios: 'tshirt', android: 'checkroom', web: 'checkroom' },
+  // The eleven weather condition codes, filled because a forecast column reports an
+  // active condition (Law 6). Material has no drizzle or heavy-rain counterpart of the
+  // same idiom, so those take the nearest existing name.
+  conditionClear: { ios: 'sun.max.fill', android: 'wb_sunny', web: 'wb_sunny' },
+  conditionMostlyClear: { ios: 'sun.min.fill', android: 'sunny', web: 'sunny' },
+  conditionPartlyCloudy: {
+    ios: 'cloud.sun.fill', android: 'partly_cloudy_day', web: 'partly_cloudy_day',
+  },
+  conditionCloudy: { ios: 'cloud.fill', android: 'cloud', web: 'cloud' },
+  conditionFog: { ios: 'cloud.fog.fill', android: 'foggy', web: 'foggy' },
+  conditionDrizzle: { ios: 'cloud.drizzle.fill', android: 'grain', web: 'grain' },
+  conditionRain: { ios: 'cloud.rain.fill', android: 'rainy', web: 'rainy' },
+  conditionHeavyRain: { ios: 'cloud.heavyrain.fill', android: 'rainy_heavy', web: 'rainy_heavy' },
+  conditionSleet: { ios: 'cloud.sleet.fill', android: 'weather_mix', web: 'weather_mix' },
+  conditionSnow: { ios: 'cloud.snow.fill', android: 'weather_snowy', web: 'weather_snowy' },
+  conditionThunderstorm: {
+    ios: 'cloud.bolt.rain.fill', android: 'thunderstorm', web: 'thunderstorm',
+  },
 } as const satisfies Readonly<Record<string, PlatformIconNames & SymbolViewProps['name']>>);
 
 export type IconName = keyof typeof iconNames;

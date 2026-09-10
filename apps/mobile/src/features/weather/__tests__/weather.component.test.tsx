@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { fireEvent, isHiddenFromAccessibility, render, within } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { Dimensions, Linking, StyleSheet } from 'react-native';
+import { Dimensions, Linking, processColor, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
@@ -237,17 +237,13 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
     expect(result.getByRole('header', {
       name: messages[language].weather.hourlyHeading,
     })).toBeOnTheScreen();
-    expect(result.getAllByTestId('weather-hour-divider', { includeHiddenElements: true }))
-      .toHaveLength(1);
-    expect(StyleSheet.flatten(
-      result.getByTestId('weather-hour-divider', { includeHiddenElements: true }).props.style,
-    ).marginStart).toBeUndefined();
-    for (const bar of result.getAllByTestId(
-      'weather-hour-precipitation-bar',
-      { includeHiddenElements: true },
-    )) {
-      expect(isHiddenFromAccessibility(bar)).toBe(true);
-    }
+    expect(result.getAllByTestId('weather-hourly-band', { includeHiddenElements: true }))
+      .toHaveLength(2);
+    expect(result.queryByTestId('weather-hour-divider', { includeHiddenElements: true }))
+      .toBeNull();
+    expect(result.queryByTestId('weather-hour-precipitation-bar', {
+      includeHiddenElements: true,
+    })).toBeNull();
     expect(isHiddenFromAccessibility(
       result.getByTestId('weather-glyph', { includeHiddenElements: true }),
     )).toBe(true);
@@ -501,6 +497,41 @@ test('leaving Weather resets its retry attempt counter', async () => {
 
   await result.unmount();
   expect(productAnalytics.retries.nextAttempt('weather')).toBe(1);
+});
+
+test('the hourly rail scrolls horizontally and plots one accent temperature series', async () => {
+  const value = createValue({
+    ...baseState,
+    activeLocation: getManualLocation('sample.istanbul')!,
+    snapshot: sampleSnapshot(),
+    freshness: 'fresh',
+  });
+  const result = await render(
+    <Providers language="en" value={value}><WeatherScreen /></Providers>,
+  );
+
+  const rail = result.getByTestId('weather-hourly-rail');
+  expect(rail.props.horizontal).toBe(true);
+  expect(within(rail).getAllByLabelText(/precipitation$/)).toHaveLength(2);
+  expect(result.getAllByText('50%').length).toBeGreaterThan(0);
+
+  // The series is placed once the first plot band has been laid out, because its offset
+  // inside a column depends on the scaled line boxes above it.
+  const bands = result.getAllByTestId('weather-hourly-band', { includeHiddenElements: true });
+  expect(result.queryByTestId('weather-hourly-series', { includeHiddenElements: true }))
+    .toBeNull();
+  await fireEvent(bands[0], 'layout', {
+    nativeEvent: { layout: { x: 0, y: 42, width: 64, height: 64 } },
+  });
+
+  const series = result.getByTestId('weather-hourly-series', { includeHiddenElements: true });
+  expect(isHiddenFromAccessibility(series)).toBe(true);
+  expect(StyleSheet.flatten(series.props.style)).toMatchObject({ position: 'absolute', top: 42 });
+  // The rail's series is Weather's single accent instance (Law 1).
+  const line = result.getByTestId('weather-hourly-series-line', { includeHiddenElements: true });
+  // react-native-svg normalizes the stroke into a processed colour before it reaches the
+  // host element, so the accent is compared in that form.
+  expect(line.props.stroke.payload).toBe(processColor(lightTheme.colors.brandAccent));
 });
 
 test('device location card has one composed accessible name', async () => {
