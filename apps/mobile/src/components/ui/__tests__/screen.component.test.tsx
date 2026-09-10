@@ -11,11 +11,11 @@ const initialMetrics = {
   insets: { top: 59, right: 0, bottom: 34, left: 0 },
 };
 
-function renderScreen(contentContainerStyle?: { gap: number }) {
+function renderScreen(contentContainerStyle?: { gap: number }, fill?: boolean) {
   return render(
     <KuyaraThemeContext.Provider value={lightTheme}>
       <SafeAreaProvider initialMetrics={initialMetrics}>
-        <Screen contentContainerStyle={contentContainerStyle} testID="test-screen">
+        <Screen contentContainerStyle={contentContainerStyle} fill={fill} testID="test-screen">
           <Text>Content</Text>
         </Screen>
       </SafeAreaProvider>
@@ -23,8 +23,8 @@ function renderScreen(contentContainerStyle?: { gap: number }) {
   );
 }
 
-async function flattenedContentStyle(contentContainerStyle?: { gap: number }) {
-  const result = await renderScreen(contentContainerStyle);
+async function flattenedContentStyle(contentContainerStyle?: { gap: number }, fill?: boolean) {
+  const result = await renderScreen(contentContainerStyle, fill);
   return StyleSheet.flatten(result.getByTestId('test-screen').props.contentContainerStyle);
 }
 
@@ -53,4 +53,19 @@ test('on Android applies the bottom safe-area inset itself', async () => {
   } finally {
     platform.restore();
   }
+});
+
+// The scroll view's frame includes the area under the tab bar, so a container grown to
+// that frame leaves slack above the bar once short content is scrolled to its end.
+// Screens that centre or bottom-align their content opt in with `fill`.
+test('does not grow the content container to the frame unless asked to fill', async () => {
+  const contentStyle = await flattenedContentStyle();
+
+  expect(contentStyle.flexGrow).toBeUndefined();
+});
+
+test('grows the content container to the frame when the caller asks to fill', async () => {
+  const contentStyle = await flattenedContentStyle(undefined, true);
+
+  expect(contentStyle.flexGrow).toBe(1);
 });

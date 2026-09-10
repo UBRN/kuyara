@@ -182,8 +182,10 @@ already clears the bar; a 300-point probe on the Simulator showed the last eleme
 exactly 300 points above the tab bar's frame, so the automatic inset is the whole clearance
 and the safe-area term was a double count. iOS now pads `spacing.md` only, mirroring what
 `Screen` already did for the top edge; Android keeps `safeAreaInsets.bottom + spacing.md`.
-The visible gap under Today's boards is a separate `flexGrow: 1` effect recorded in
-`current-status.md`.
+The visible gap under Today's boards was a separate `flexGrow: 1` effect: `Screen` grew
+its content container to the scroll view's frame, which includes the area under the bar.
+Since 2026-09-10 the container grows only when a screen opts in with `fill` to centre or
+bottom-align short content.
 
 ### 5. Dynamic Type, verified and closed
 

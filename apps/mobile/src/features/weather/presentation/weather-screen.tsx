@@ -94,7 +94,7 @@ export function WeatherScreen() {
 
   if (state.status === 'loading') {
     return (
-      <Screen contentContainerStyle={styles.center} testID="weather-screen">
+      <Screen contentContainerStyle={styles.center} fill testID="weather-screen">
         <AppText accessibilityRole="header" variant="titleLarge">{copy.title}</AppText>
         <AppText colorRole="textSecondary">{copy.refreshing}</AppText>
       </Screen>
@@ -103,7 +103,7 @@ export function WeatherScreen() {
 
   if (state.status === 'error') {
     return (
-      <Screen contentContainerStyle={styles.center} testID="weather-screen">
+      <Screen contentContainerStyle={styles.center} fill testID="weather-screen">
         <AppText accessibilityRole="header" variant="titleLarge">{copy.loadErrorTitle}</AppText>
         <AppText colorRole="textSecondary">{copy.loadErrorBody}</AppText>
         <Button label={copy.retry} onPress={() => void application.retry()} />
@@ -466,7 +466,7 @@ export function WeatherScreen() {
 
 const styles = StyleSheet.create({
   content: { gap: spacing.md },
-  center: { flexGrow: 1, justifyContent: 'center', gap: spacing.md },
+  center: { justifyContent: 'center', gap: spacing.md },
   locationSection: { gap: spacing.md },
   currentSection: { gap: spacing.md },
   card: { gap: spacing.md, padding: spacing.lg },

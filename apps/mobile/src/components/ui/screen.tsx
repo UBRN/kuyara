@@ -14,12 +14,20 @@ export type ScreenProps = Omit<AnimatedScrollViewProps, 'contentInset'> &
      * area with no overlay.
      */
     contentTopClearance?: number;
+    /**
+     * Grow the content container to the scroll view's frame so `justifyContent` can
+     * centre or bottom-align short content. Off by default: the frame includes the
+     * area under the tab bar, so a filled container leaves slack above the bar when
+     * the content is scrolled to its end.
+     */
+    fill?: boolean;
   }>;
 
 export function Screen({
   children,
   contentContainerStyle,
   contentTopClearance,
+  fill = false,
   showsVerticalScrollIndicator = false,
   style,
   ...rest
@@ -65,7 +73,12 @@ export function Screen({
       scrollIndicatorInsets={scrollIndicatorInsets}
       showsVerticalScrollIndicator={showsVerticalScrollIndicator}
       style={[styles.screen, { backgroundColor: theme.colors.background }, style]}
-      contentContainerStyle={[styles.content, platformContentStyle, contentContainerStyle]}
+      contentContainerStyle={[
+        styles.content,
+        fill && styles.fill,
+        platformContentStyle,
+        contentContainerStyle,
+      ]}
       {...rest}>
       {children}
     </Animated.ScrollView>
@@ -77,10 +90,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    flexGrow: 1,
     width: '100%',
     maxWidth: layout.maxContentWidth,
     alignSelf: 'center',
     paddingHorizontal: spacing.lg,
+  },
+  fill: {
+    flexGrow: 1,
   },
 });

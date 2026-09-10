@@ -32,7 +32,7 @@ export function AnalyticsConsentScreen({
   };
 
   return (
-    <Screen contentContainerStyle={styles.content} testID="analytics-consent-screen">
+    <Screen contentContainerStyle={styles.content} fill testID="analytics-consent-screen">
       <View style={styles.copy}>
         <AppText accessibilityRole="header" variant="title">
           {messages.analytics.consentTitle}
