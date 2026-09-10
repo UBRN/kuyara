@@ -261,7 +261,8 @@ test('outfit detail renders the detail board, in-place captions, requirement row
     .toBeOnTheScreen();
   const hidden = { includeHiddenElements: true };
   expect(isHiddenFromAccessibility(result.getByTestId('outfit-detail-board', hidden))).toBe(true);
-  expect(result.getByTestId('outfit-detail-board', hidden)).toHaveProp('width', 358);
+  expect(StyleSheet.flatten(result.getByTestId('outfit-detail-board', hidden).props.style))
+    .toMatchObject({ width: 358 });
   const plate = result.getByTestId('outfit-detail-board-plate');
   const plateHeightBeforeCaptionMeasure = StyleSheet.flatten(plate.props.style).height;
   const firstCaption = result.getByTestId('outfit-detail-caption-jumpsuit');
@@ -272,7 +273,7 @@ test('outfit detail renders the detail board, in-place captions, requirement row
   expect(StyleSheet.flatten(result.getByTestId('outfit-detail-board-plate').props.style).height)
     .toBeGreaterThanOrEqual(firstCaptionTop + 200);
   expect(plateHeightBeforeCaptionMeasure).toBeGreaterThan(
-    result.getByTestId('outfit-detail-board', hidden).props.height,
+    StyleSheet.flatten(result.getByTestId('outfit-detail-board', hidden).props.style).height,
   );
   for (const row of presentation.suggestions[0].requirementRows) {
     expect(result.getByText(row.text)).toBeOnTheScreen();
@@ -308,6 +309,35 @@ test('outfit detail renders the detail board, in-place captions, requirement row
     .toMatchObject({ color: lightTheme.colors.textPrimary });
   expect(StyleSheet.flatten(weatherRecap.getByText('65% chance of rain').props.style))
     .toMatchObject({ color: lightTheme.colors.textPrimary });
+});
+
+test('outfit detail keeps captions visible and labelled after its board entrance settles', async () => {
+  const presentation = loadedPresentation();
+  const result = await render(providers(
+    <OutfitDetailScreen
+      backLabel={messages.en.common.back}
+      language="en"
+      onBack={() => undefined}
+      onSetOwnership={() => undefined}
+      ownershipByGarmentType={{}}
+      state={todayScreenState}
+      suggestionId="outfit-1"
+    />,
+  ));
+  await fireEvent(result.getByTestId('outfit-detail-content'), 'layout', {
+    nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
+  });
+
+  expect(StyleSheet.flatten(result.getByTestId('outfit-detail-caption-overlay').props.style))
+    .toMatchObject({ opacity: 1 });
+  for (const { garmentTypeId, item, slot } of presentation.suggestions[0].pieces) {
+    const caption = result.getByTestId(`outfit-detail-caption-${garmentTypeId}`);
+    expect(caption).toBeOnTheScreen();
+    expect(caption).toHaveProp(
+      'accessibilityLabel',
+      `${item}, ${slot}, ${messages.en.today.ownershipUntrackedLabel}`,
+    );
+  }
 });
 
 describe.each(['en', 'tr'] as const)('%s outfit detail untracked garments', (language) => {
