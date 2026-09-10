@@ -95,7 +95,10 @@ test('analytics consent defaults to undecided, persists, and rejects an unknown 
 
   assert.equal((await repository.getOrCreateProfile()).analyticsConsent, 'undecided');
   assert.equal((await repository.updateAnalyticsConsent('granted')).analyticsConsent, 'granted');
-  assert.equal((await repository.updateAnalyticsConsent('withdrawn')).analyticsConsent, 'withdrawn');
+  assert.equal(
+    (await repository.updateAnalyticsConsent('withdrawn')).analyticsConsent,
+    'withdrawn',
+  );
   await assert.rejects(
     () => repository.updateAnalyticsConsent('maybe'),
     (error) => error instanceof ProfileRepositoryError && error.code === 'invalid-data',
