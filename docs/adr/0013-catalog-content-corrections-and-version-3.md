@@ -2,7 +2,7 @@
 
 Status: Accepted (2026-09-03)
 
-Implementation: Planned.
+Implementation: landed 2026-09-03; `garmentCatalogVersion` is 3.
 
 Amends [ADR 0005](0005-catalog-only-recommendation-candidates.md) and
 [ADR 0007](0007-ai-selects-precomposed-outfits.md), whose "out of scope" lists

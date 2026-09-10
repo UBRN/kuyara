@@ -2,8 +2,12 @@
 
 Status: Accepted (2026-09-04)
 
-Implementation: the design is not implemented. Two defect fixes are **approved here and
-are sequenced ahead of** the category-glyph redraw that
+Implementation: both defect fixes landed, the selected-state signal on 2026-09-04 and
+the single-owner bottom inset on 2026-09-07 (its `safeAreaInsets.bottom` term was
+removed on iOS on 2026-09-09 as a double count). Section 5's Dynamic Type and
+touch-target questions were answered on 2026-09-09: UIKit does not scale tab bar labels,
+and each item measures 94 by 54 points. The two fixes were **approved here and sequenced
+ahead of** the category-glyph redraw that
 [ADR 0025](0025-the-garment-board-composition-rule.md) left open, because they are shell
 foundation and every screen is drawn inside them.
 

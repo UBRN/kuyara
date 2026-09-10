@@ -2,7 +2,9 @@
 
 Status: Accepted (2026-09-07)
 
-Implementation: not started. This records an approved design produced by two design
+Implementation: landed 2026-09-07 (the `ListRow` anatomy and the Profile tab) and
+2026-09-09 (section 6's silhouette rung and colour-family fill). The five accessory
+silhouettes remain unapproved. This records an approved design produced by two design
 sessions, on 2026-09-04 and 2026-09-07. No production code, contract, schema or route was
 changed to reach it. The rendered target sheet, in English and Turkish, both appearances
 and three text sizes, is kept outside the repository; its "target, in numbers" table is
@@ -34,10 +36,15 @@ list and the place.
 
 The direction chosen in plan mode on 2026-09-04, "the Closet is the subject", was drawn
 as a target sheet the same day. On 2026-09-07 a third-party settings screen was studied
-and reduced to the eight-check list-row reference recorded in
-[`current-status.md`](../current-status.md); the sheet was then measured against it,
+and reduced to an eight-check list-row reference; the sheet was then measured against it,
 failed four checks, and was corrected. The maintainer approved the corrected sheet the
-same day.
+same day. The eight checks, recorded here since the status document no longer carries
+them (2026-09-09): grouped inset rows, one group per section; a leading monochrome icon
+tile with an alpha fill from a semantic role; the separator starting at the text edge;
+a secondary trailing value then a chevron, stacking above `fontScale` 1.5; kuyara's
+sentence-case headings outside any native group; one accent fill per viewport; the
+platform's own tab bar; and motion classified as spatial (the spring role) or effects
+(a duration token). Checks 1 to 5 became the anatomy in section 2 below.
 
 ## Decision
 
