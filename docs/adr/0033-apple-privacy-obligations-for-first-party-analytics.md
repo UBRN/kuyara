@@ -297,9 +297,19 @@ Apple's list of SDKs that require a signature
 
 Milestone 10, PostHog product analytics integration, gains these acceptance conditions:
 
-1. The SDK is initialised with `defaultOptIn: false`; no event is captured before
-   `optIn()` is called from the consent surface. A component test proves that declining
-   captures nothing and that the app behaves identically either way.
+1. No event leaves the device before `optIn()` is called from the consent surface. A
+   component test proves that declining sends nothing and that the app behaves
+   identically either way. *Amended 2026-09-10 after implementation:* the SDK client is
+   not constructed at all before consent, which is how this is enforced; once consent
+   exists the client initialises opted in (`defaultOptIn: true`), because the SDK marks
+   its one-time application-installed event during initialisation and an opted-out
+   construction would lose that install signal permanently. Events captured while the
+   answer is still `undecided` (the onboarding funnel, which precedes the sheet) are held
+   in a bounded on-device buffer, sent with their original timestamps after
+   `analytics_consent_granted` on acceptance, and discarded on decline; this satisfies
+   guideline 5.1.1 (ii), whose requirement is consent before collection leaves the device.
+   The stored answer values are `undecided`, `granted` and `withdrawn`, the last covering
+   both a declined sheet and a later withdrawal.
 2. A consent surface exists, with one question, equal accept and decline affordances,
    Turkish and English copy from localization keys, and no dependency of any feature on
    the answer. Its placement was decided on 2026-09-09: a first-launch sheet, shown once

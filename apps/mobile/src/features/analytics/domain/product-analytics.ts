@@ -17,8 +17,9 @@ export type AnalyticsCaptureOptions = Readonly<{
 }>;
 
 export interface ProductAnalytics {
-  // A capture before `optIn()` is a no-op by contract: no provider client exists before
-  // consent and nothing may reach the network before it (taxonomy 2, ADR 0033 section 6).
+  // While consent is undecided, the composition-root decorator buffers captures in memory.
+  // A provider client still does not exist before `optIn()`, so nothing can leave the device
+  // before consent (taxonomy 2, ADR 0033 section 6).
   capture<Name extends AnalyticsEventName>(
     name: Name,
     properties: AnalyticsEventProperties<Name>,
@@ -28,6 +29,10 @@ export interface ProductAnalytics {
   // Called from a consent surface once the person accepts. The adapter opts in first and
   // captures `analytics_consent_granted` itself, making it the first event on the identity.
   optIn(surface: AnalyticsConsentSurface): Promise<void>;
+
+  // Records the first-launch decline locally by discarding the undecided buffer. It never
+  // delegates to a provider and therefore sends no event.
+  decline(): Promise<void>;
 
   // Withdrawal severs the identity (taxonomy 2): the adapter opts out, resets, and clears
   // the separately persisted device id, so a later re-consent starts an unjoinable

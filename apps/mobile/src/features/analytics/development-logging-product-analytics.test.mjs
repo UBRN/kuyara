@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createProductAnalytics } from './data/create-product-analytics.ts';
+import { ConsentBufferingProductAnalytics } from './data/consent-buffering-product-analytics.ts';
 import { DevelopmentLoggingProductAnalytics } from './data/development-logging-product-analytics.ts';
 import { noopProductAnalytics } from './data/noop-product-analytics.ts';
 
@@ -50,7 +51,7 @@ test('the factory uses logging only for a missing development key', (t) => {
 
   assert.ok(
     createProductAnalytics(true, 'granted')
-      instanceof DevelopmentLoggingProductAnalytics,
+      instanceof ConsentBufferingProductAnalytics,
   );
   assert.equal(createProductAnalytics(false, 'granted'), noopProductAnalytics);
 

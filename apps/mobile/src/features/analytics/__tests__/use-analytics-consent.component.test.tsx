@@ -47,6 +47,7 @@ test('grant, withdrawal, and decline use the required operation order', async ()
     getIdentifier: () => 'analytics-id',
     getSessionId: () => 'session-id',
     optIn: async (surface) => { operations.push(`optIn:${surface}`); },
+    decline: async () => { operations.push('decline'); },
     withdraw: async () => { operations.push('withdraw'); },
   };
   const application = {
@@ -76,9 +77,6 @@ test('grant, withdrawal, and decline use the required operation order', async ()
 
   expect(operations).toEqual([
     'persist:granted',
-    'resetErrors',
-    'resetRetries',
-    'clearFirstUses',
     'optIn:first_launch_sheet',
     'persist:withdrawn',
     'withdraw',
@@ -86,6 +84,7 @@ test('grant, withdrawal, and decline use the required operation order', async ()
     'resetErrors',
     'resetRetries',
     'persist:withdrawn',
+    'decline',
   ]);
   expect(controls.getIdentifier()).toBe('analytics-id');
   resetErrors.mockRestore();
@@ -100,6 +99,7 @@ test('a failed grant persistence never opts the provider in', async () => {
     getIdentifier: () => null,
     getSessionId: () => null,
     optIn: async () => { operations.push('optIn'); },
+    decline: async () => undefined,
     withdraw: async () => undefined,
   };
   const application = {
@@ -123,4 +123,57 @@ test('a failed grant persistence never opts the provider in', async () => {
     'persistence unavailable',
   );
   expect(operations).toEqual(['persist:granted']);
+});
+
+test('re-consent clears tracker state accumulated while withdrawn before opting in', async () => {
+  const operations: string[] = [];
+  const resetErrors = jest.spyOn(ErrorEpisodeTracker.prototype, 'reset')
+    .mockImplementation(() => { operations.push('resetErrors'); });
+  const resetRetries = jest.spyOn(RetryCounter.prototype, 'reset')
+    .mockImplementation(() => { operations.push('resetRetries'); });
+  const analytics: ProductAnalytics = {
+    capture: () => undefined,
+    flush: async () => undefined,
+    getIdentifier: () => null,
+    getSessionId: () => null,
+    optIn: async (surface) => { operations.push(`optIn:${surface}`); },
+    decline: async () => undefined,
+    withdraw: async () => undefined,
+  };
+  const application = {
+    state: {
+      status: 'ready' as const,
+      profile: { ...profile, analyticsConsent: 'withdrawn' as const },
+      isSaving: false,
+    },
+    updateAnalyticsConsent: async (consent: string): Promise<void> => {
+      operations.push(`persist:${consent}`);
+    },
+  } as ProfileApplicationValue;
+  let controls!: AnalyticsConsentControls;
+
+  await render(
+    <ProfileApplicationContext value={application}>
+      <ProductAnalyticsProvider
+        analytics={analytics}
+        firstUseStore={{
+          has: async () => false,
+          markUsed: async () => undefined,
+          clear: async () => { operations.push('clearFirstUses'); },
+        }}>
+        <Harness onReady={(value) => { controls = value; }} />
+      </ProductAnalyticsProvider>
+    </ProfileApplicationContext>,
+  );
+  await controls.grant('settings_privacy');
+
+  expect(operations).toEqual([
+    'persist:granted',
+    'resetErrors',
+    'resetRetries',
+    'clearFirstUses',
+    'optIn:settings_privacy',
+  ]);
+  resetErrors.mockRestore();
+  resetRetries.mockRestore();
 });

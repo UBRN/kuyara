@@ -5,6 +5,7 @@ import type { ProductAnalytics } from '@/features/analytics/domain/product-analy
 export const noopProductAnalytics: ProductAnalytics = {
   capture: () => undefined,
   optIn: () => Promise.resolve(),
+  decline: () => Promise.resolve(),
   withdraw: () => Promise.resolve(),
   flush: () => Promise.resolve(),
   getIdentifier: () => null,

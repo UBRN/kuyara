@@ -81,10 +81,14 @@ Constraints on that identity, all of them settled by ADR 0033 section 5 unless n
 - Resetting analytics data must not touch `localProfileId` or any application data, and
   clearing application data must not be required to reset analytics identity.
 
-**Consent gate.** The SDK initialises with `defaultOptIn: false`. No event defined in
-section 5 may be captured before `optIn()` is called from the consent surface, and a
-decline captures nothing at all, not even a "declined" event (see section 5.14). Nothing
-in this taxonomy overrides that gate.
+**Consent gate.** No event defined in section 5 leaves the device before `optIn()` is
+called from the consent surface; the SDK client does not exist before that call. *Amended
+2026-09-10:* while the answer is `undecided`, captures are held in a bounded on-device
+buffer and, on acceptance, sent after `analytics_consent_granted` with their original
+timestamps, so the onboarding funnel that precedes the sheet is measurable for a fresh
+install; on decline the buffer is discarded, and nothing is buffered once the answer is
+`withdrawn`. A decline sends nothing at all, not even a "declined" event (see section
+5.14). Nothing in this taxonomy overrides that gate.
 
 **Open, not decided here:** whether and how to link this anonymous identity to a future
 authenticated profile once accounts exist. See open question 1.
@@ -144,7 +148,7 @@ before it ships. An event fails review if any box is unchecked.
 - [ ] Any high-frequency signal is sampled, aggregated, or omitted per section 6, not sent
       per occurrence.
 - [ ] Every custom event carries `schema_version`.
-- [ ] The call site is unreachable before consent: nothing is captured until `optIn()`.
+- [ ] Nothing the call site captures leaves the device before `optIn()`; before the answer it is buffered, and a decline discards it.
 
 ## 5. Event list, grouped by ADR 0023 section 5's coverage areas
 
@@ -594,15 +598,15 @@ captures nothing at all.**
 
 | Event | Trigger | Properties |
 | --- | --- | --- |
-| `analytics_consent_granted` | Immediately after `optIn()` succeeds. It is the first event on the identity. | `surface` (`first_launch_sheet`\|`settings_privacy`) |
+| `analytics_consent_granted` | Immediately after `optIn()` succeeds. It is the first event sent on the identity; buffered pre-consent events follow it carrying their earlier timestamps. | `surface` (`first_launch_sheet`\|`settings_privacy`) |
 | `analytics_consent_withdrawn` | Immediately before `optOut()`, `reset()`, and the `$device_id` clear. It is the last event on the identity. | none |
 
 `surface` has two values: the consent surface is a first-launch sheet (decided 2026-09-09,
 section 8) and `settings_privacy` covers a re-consent after a withdrawal.
 
-Declining, or never answering, is not an event and cannot be one: with `defaultOptIn: false`
-nothing may be captured before `optIn()`, and guideline 5.1.1 (ii) requires decline to be as
-easy as accept and to change nothing else. The decline rate is therefore not directly
+Declining, or never answering, is not an event and cannot be one: nothing leaves the
+device before `optIn()`, a decline discards the on-device buffer, and guideline 5.1.1 (ii)
+requires decline to be as easy as accept and to change nothing else. The decline rate is therefore not directly
 measurable, and the correct proxy is grants against installs, using the SDK's
 application-installed event, which is itself only captured after consent. This is a known
 and accepted blind spot, not an oversight to be engineered around.
