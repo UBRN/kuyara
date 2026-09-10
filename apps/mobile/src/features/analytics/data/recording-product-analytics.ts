@@ -24,6 +24,7 @@ export class RecordingProductAnalytics implements ProductAnalytics {
   withdrawCount = 0;
   flushCount = 0;
   private identityGeneration = 1;
+  private sessionGeneration = 1;
   private consented: boolean;
 
   constructor(consent: AnalyticsConsent = 'granted') {
@@ -71,6 +72,14 @@ export class RecordingProductAnalytics implements ProductAnalytics {
   // where the real adapter resets the client and clears its persisted device id.
   getIdentifier(): string | null {
     return this.consented ? `recording-distinct-id-${this.identityGeneration}` : null;
+  }
+
+  getSessionId(): string | null {
+    return this.consented ? `recording-session-${this.sessionGeneration}` : null;
+  }
+
+  startNewSession(): void {
+    this.sessionGeneration += 1;
   }
 
   names(): AnalyticsEventName[] {

@@ -5,14 +5,17 @@ import { useEffect } from 'react';
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import type { FirstUseTracker } from '@/features/analytics/application/first-use-tracker';
+import type { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
 
 const addEventListener = jest.mocked(AppState.addEventListener);
 let providedFirstUses: FirstUseTracker | null = null;
+let providedErrorEpisodes: ErrorEpisodeTracker | null = null;
 
 beforeEach(() => {
   providedFirstUses = null;
+  providedErrorEpisodes = null;
   addEventListener.mockClear();
   addEventListener.mockReturnValue({ remove: () => undefined });
 });
@@ -21,7 +24,8 @@ function FailingChild() {
   const { errorEpisodes, firstUses } = useProductAnalytics();
   useEffect(() => {
     providedFirstUses = firstUses;
-  }, [firstUses]);
+    providedErrorEpisodes = errorEpisodes;
+  }, [errorEpisodes, firstUses]);
   errorEpisodes.failed({ surface: 'today', failureCategory: 'offline' });
   return <Text>child</Text>;
 }
@@ -94,4 +98,21 @@ test('a foreground transition neither flushes nor emits', async () => {
 
   expect(analytics.captures).toEqual([]);
   expect(analytics.flushCount).toBe(0);
+});
+
+test('a changed provider session flushes and clears finalised error pairs', async () => {
+  const analytics = new RecordingProductAnalytics();
+  const { background } = await renderProvider(analytics);
+  background();
+  analytics.startNewSession();
+  addEventListener.mock.calls.forEach(([, listener]) => listener('active'));
+
+  providedErrorEpisodes!.failed({ surface: 'today', failureCategory: 'offline' });
+  providedErrorEpisodes!.recovered({ surface: 'today', failureCategory: 'offline' });
+
+  expect(analytics.names()).toEqual([
+    'error_shown',
+    'error_shown',
+    'error_recovered',
+  ]);
 });

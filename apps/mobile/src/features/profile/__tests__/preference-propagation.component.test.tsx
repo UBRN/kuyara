@@ -254,6 +254,9 @@ test('live preference changes propagate localized copy and dark semantic colors 
   await fireEvent.press(result.getByTestId('settings-language-row'));
   expect(await result.findByTestId('settings-language-picker')).toBeOnTheScreen();
 
+  await fireEvent.press(result.getByTestId('settings-language-en'));
+  expect(analytics.captures).toEqual([]);
+
   await fireEvent.press(result.getByTestId('settings-language-tr'));
   await waitFor(() => {
     expect(result.getByTestId('settings-language-tr').props.accessibilityState.selected)

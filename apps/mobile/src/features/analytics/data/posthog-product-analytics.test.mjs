@@ -40,6 +40,10 @@ class FakeClient {
     return `${this.identifier}-${this.identifierGeneration}`;
   }
 
+  getSessionId() {
+    return 'session-1';
+  }
+
   async optIn() {
     this.operations.push('optIn');
     this.throwIfFailed('optIn');
@@ -83,6 +87,7 @@ test('undecided and withdrawn profiles create no client until opt-in', async () 
 
     assert.deepEqual(clients, []);
     assert.equal(analytics.getIdentifier(), null);
+    assert.equal(analytics.getSessionId(), null);
 
     await analytics.optIn('first_launch_sheet');
     assert.equal(clients.length, 1);
@@ -106,6 +111,7 @@ test('a granted profile reconciles silently and exposes the provider identifier'
   assert.deepEqual(client.operations, ['optIn']);
   assert.deepEqual(client.captures, []);
   assert.equal(analytics.getIdentifier(), 'identifier-1');
+  assert.equal(analytics.getSessionId(), 'session-1');
 });
 
 test('opt-in precedes the consent event and forwards an optional timestamp as a Date', async () => {

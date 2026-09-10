@@ -2,13 +2,12 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef } from 'react';
 
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
+import { useFocusedErrorEpisode } from '@/features/analytics/application/use-focused-error-episode';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
 import {
   ANALYTICS_SCHEMA_VERSION,
   type CountBucket,
-  type FailureCategoryProperty,
 } from '@/features/analytics/domain/analytics-events';
-import { failureCategoryProperty } from '@/features/analytics/domain/analytics-mappers';
 import { useWardrobeApplication } from '@/features/wardrobe/application/wardrobe-application-context';
 import type { WardrobeEntryState } from '@/features/wardrobe/domain/wardrobe-item';
 import {
@@ -29,16 +28,20 @@ export function WardrobeListRoute({
   initialEntryState,
 }: Readonly<{ initialEntryState?: WardrobeEntryState }> = {}) {
   const router = useRouter();
-  const { analytics, errorEpisodes, firstUses, retries } = useProductAnalytics();
+  const { analytics, firstUses, retries } = useProductAnalytics();
   const { refresh, resolvePhotoUri, state } = useWardrobeApplication();
-  const lastFailureRef = useRef<FailureCategoryProperty | null>(null);
   const pendingRetryRef = useRef<PendingRetry | null>(null);
+  const stateStatusRef = useRef(state.status);
+
+  useEffect(() => {
+    stateStatusRef.current = state.status;
+  }, [state.status]);
 
   useScreenViewed('closet_list');
 
   useFocusEffect(
     useCallback(() => {
-      if (state.status === 'ready') {
+      if (stateStatusRef.current === 'ready') {
         void refresh();
       }
       return () => {
@@ -47,25 +50,19 @@ export function WardrobeListRoute({
         retries.reset('closet');
         pendingRetryRef.current = null;
       };
-    }, [refresh, retries, state.status]),
+    }, [refresh, retries]),
+  );
+
+  useFocusedErrorEpisode(
+    'closet',
+    state.status === 'loading'
+      ? undefined
+      : state.status === 'error'
+        ? 'unknown'
+        : state.refreshFailure,
   );
 
   useEffect(() => {
-    if (state.status === 'ready') {
-      const failure = state.refreshFailure;
-      if (failure) {
-        const category = failureCategoryProperty(failure);
-        errorEpisodes.failed({ surface: 'closet', failureCategory: category });
-        lastFailureRef.current = category;
-      } else if (lastFailureRef.current) {
-        errorEpisodes.recovered({
-          surface: 'closet',
-          failureCategory: lastFailureRef.current,
-        });
-        lastFailureRef.current = null;
-      }
-    }
-
     // `loading` is a transient state between the pending action and its outcome.
     if (state.status === 'loading') {
       return;
@@ -106,7 +103,7 @@ export function WardrobeListRoute({
     if (succeeded) {
       retries.reset('closet');
     }
-  }, [analytics, errorEpisodes, firstUses, retries, state]);
+  }, [analytics, firstUses, retries, state]);
 
   const handleRetry = (source: WardrobeRetrySource) => {
     pendingRetryRef.current = {

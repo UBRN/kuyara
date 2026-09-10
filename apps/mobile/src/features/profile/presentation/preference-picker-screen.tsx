@@ -49,11 +49,11 @@ export function PreferencePickerScreen<T extends string>({
   const [hasSaveError, setHasSaveError] = useState(false);
 
   const select = async (value: T) => {
-    if (isSaving) {
+    if (isSaving || selectedValue === value) {
       return;
     }
 
-    if (selectedValue !== value) haptics.selection();
+    haptics.selection();
     setHasSaveError(false);
     try {
       await onSelect(value);

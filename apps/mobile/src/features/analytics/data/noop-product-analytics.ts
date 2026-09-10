@@ -8,4 +8,5 @@ export const noopProductAnalytics: ProductAnalytics = {
   withdraw: () => Promise.resolve(),
   flush: () => Promise.resolve(),
   getIdentifier: () => null,
+  getSessionId: () => null,
 };

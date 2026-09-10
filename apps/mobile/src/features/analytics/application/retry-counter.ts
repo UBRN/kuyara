@@ -19,7 +19,11 @@ export class RetryCounter {
   }
 
   // Called on a success or when the surface loses focus, which ends the failure episode.
-  reset(surface: RefreshSurface): void {
-    this.attempts.delete(surface);
+  reset(surface?: RefreshSurface): void {
+    if (surface) {
+      this.attempts.delete(surface);
+      return;
+    }
+    this.attempts.clear();
   }
 }

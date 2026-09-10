@@ -52,11 +52,18 @@ export function ProductAnalyticsProvider({
     [analytics, trackers],
   );
   const appState = useRef<AppStateStatus>(AppState.currentState);
+  const sessionId = useRef<string | null>(null);
 
   useEffect(() => {
+    sessionId.current = value.analytics.getSessionId();
     const subscription = AppState.addEventListener('change', (next) => {
       const wasActive = appState.current === 'active';
       appState.current = next;
+      const nextSessionId = value.analytics.getSessionId();
+      if (sessionId.current && nextSessionId && sessionId.current !== nextSessionId) {
+        value.errorEpisodes.flushAll('session_end');
+      }
+      sessionId.current = nextSessionId;
       // Taxonomy 5.10: the buffered failures are emitted before the lifecycle event the
       // provider itself sends on backgrounding, and only then is the batch flushed.
       if (!wasActive || next !== 'background') return;

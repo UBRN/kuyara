@@ -30,3 +30,12 @@ test('surfaces count independently', () => {
   assert.equal(counter.nextAttempt('weather'), 1);
   assert.equal(counter.nextAttempt('today'), 3);
 });
+
+test('a boundary reset clears every surface', () => {
+  const counter = new RetryCounter();
+  counter.nextAttempt('today');
+  counter.nextAttempt('weather');
+  counter.reset();
+  assert.equal(counter.nextAttempt('today'), 1);
+  assert.equal(counter.nextAttempt('weather'), 1);
+});

@@ -143,3 +143,20 @@ test('session end clears the buffer, so the next session starts a new episode', 
     timestamp: '2026-09-09T10:00:00.000Z',
   });
 });
+
+test('reset discards buffered and finalised pairs without capturing', () => {
+  const { tracker, captures } = createTracker([
+    '2026-09-09T09:00:00.000Z',
+    '2026-09-09T10:00:00.000Z',
+  ]);
+  tracker.failed(todayOffline);
+  tracker.reset();
+  assert.deepEqual(captures, []);
+
+  tracker.failed(todayOffline);
+  tracker.recovered(todayOffline);
+  assert.deepEqual(captures.map(({ name }) => name), [
+    'error_shown',
+    'error_recovered',
+  ]);
+});

@@ -33,6 +33,7 @@ export type PostHogClient = Pick<
   | 'capture'
   | 'flush'
   | 'getDistinctId'
+  | 'getSessionId'
   | 'optIn'
   | 'optOut'
   | 'reset'
@@ -187,6 +188,10 @@ class PostHogProductAnalytics implements ProductAnalytics {
 
   getIdentifier(): string | null {
     return this.consented ? this.client?.getDistinctId() || null : null;
+  }
+
+  getSessionId(): string | null {
+    return this.consented ? this.client?.getSessionId() || null : null;
   }
 
   private captureProviderEvent<Name extends AnalyticsEventName>(
