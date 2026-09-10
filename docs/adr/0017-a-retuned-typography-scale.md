@@ -2,7 +2,7 @@
 
 Status: Accepted (2026-09-03)
 
-Implementation: not started.
+Implementation: landed 2026-09-10 in `theme.ts`; verified on the Simulator at the default and the largest accessibility text size in Turkish and English.
 
 Amended by [ADR 0021](0021-direction-e-a-visual-first-design-language.md). The scale
 itself stands. What changed is which role is Today's hero: the spike made the garment
