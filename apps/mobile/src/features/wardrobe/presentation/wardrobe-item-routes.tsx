@@ -107,6 +107,7 @@ export function WardrobeRouteStatus({
       <Screen
         accessibilityLabel={copy.loadingLabel}
         contentContainerStyle={styles.centered}
+        fill
         testID="wardrobe-item-loading">
         <ActivityIndicator color={theme.colors.brandAccent} />
         <AppText colorRole="textSecondary">{copy.loadingLabel}</AppText>
@@ -116,7 +117,7 @@ export function WardrobeRouteStatus({
 
   const notFound = status === 'not-found';
   return (
-    <Screen contentContainerStyle={styles.centered} testID={`wardrobe-item-${status}`}>
+    <Screen contentContainerStyle={styles.centered} fill testID={`wardrobe-item-${status}`}>
       <Surface style={styles.statusCard} variant="elevated">
         <AppText accessibilityRole="header" variant="title">
           {notFound ? copy.notFoundTitle : copy.loadErrorTitle}
