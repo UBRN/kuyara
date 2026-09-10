@@ -81,6 +81,19 @@ test('Reduce Motion removes decorative duration while preserving standard timing
   assert.equal(Object.values(reducedMotion).every((duration) => duration === 0), true);
 });
 
+test('themes expose a valid spatial spring role independent of Reduce Motion', () => {
+  for (const theme of [createKuyaraTheme('light'), createKuyaraTheme('dark')]) {
+    assert.ok(theme.springs.spatial.duration > 0);
+    assert.ok(theme.springs.spatial.dampingRatio > 0);
+    assert.ok(theme.springs.spatial.dampingRatio <= 1);
+  }
+
+  assert.equal(
+    createKuyaraTheme('light', true).springs.spatial,
+    createKuyaraTheme('light').springs.spatial,
+  );
+});
+
 test('themes expose two calm, platform-complete elevation levels independent of motion', () => {
   const light = createKuyaraTheme('light');
   const dark = createKuyaraTheme('dark');
@@ -254,6 +267,24 @@ test('feature source keeps typography on theme roles instead of literal fontSize
       /\b(fontSize|lineHeight)\s*:\s*-?\d/.test(source),
       false,
       `${entry.parentPath}/${entry.name} declares a literal fontSize/lineHeight; use a theme typography role instead`,
+    );
+  }
+});
+
+test('feature source keeps spatial motion on theme roles instead of spring parameters', async () => {
+  const sourceRoot = new URL('../features/', import.meta.url);
+  const entries = await readdir(sourceRoot, { recursive: true, withFileTypes: true });
+  const sourceFiles = entries.filter(
+    (entry) => entry.isFile() && /\.(ts|tsx)$/.test(entry.name),
+  );
+
+  for (const entry of sourceFiles) {
+    const source = await readFile(`${entry.parentPath}/${entry.name}`, 'utf8');
+
+    assert.equal(
+      /\bwithSpring\s*\(|\bdampingRatio\b|\bstiffness\b/.test(source),
+      false,
+      `${entry.parentPath}/${entry.name} authors spring behavior; use a theme spring role instead`,
     );
   }
 });

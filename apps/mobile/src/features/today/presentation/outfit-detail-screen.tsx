@@ -1,5 +1,9 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  withTiming,
+} from 'react-native-reanimated';
 
 import {
   AppText,
@@ -46,6 +50,11 @@ export function OutfitDetailScreen({
   const { fontScale, usesStackedLayout } = useTextScaling();
   const [contentWidth, setContentWidth] = useState(0);
   const [captionHeights, setCaptionHeights] = useState<Readonly<Record<string, number>>>({});
+  const [piecesSettled, setPiecesSettled] = useState(theme.isReduceMotionEnabled);
+  const onPiecesSettled = useCallback(() => setPiecesSettled(true), []);
+  const captionEntranceStyle = useAnimatedStyle(() => ({
+    opacity: withTiming(piecesSettled ? 1 : 0, { duration: theme.motion.fast }),
+  }), [piecesSettled, theme.motion.fast]);
   const copy = getMessages(language).today;
   const presentation = createTodayPresentation(state, language);
   const suggestion =
@@ -204,18 +213,32 @@ export function OutfitDetailScreen({
           <GarmentBoard
             accessibilityLabel={suggestion.boardAccessibilityLabel}
             decorative
+            entrance={{
+              fromPreset: 'today',
+              fromStageColor: stageColor,
+              fromStageRadius: 26,
+              onSettled: onPiecesSettled,
+            }}
             pieces={suggestion.boardPieces}
             preset="detail"
             testID="outfit-detail-board"
             width={contentWidth}
           />
-          {usesStackedLayout ? null : captionEntries.map(renderCaption)}
+          {usesStackedLayout ? null : (
+            <Animated.View
+              style={[styles.captionOverlay, captionEntranceStyle]}
+              testID="outfit-detail-caption-overlay">
+              {captionEntries.map(renderCaption)}
+            </Animated.View>
+          )}
         </View>
 
         {usesStackedLayout ? (
-          <View style={styles.captionList} testID="outfit-detail-caption-list">
+          <Animated.View
+            style={[styles.captionList, captionEntranceStyle]}
+            testID="outfit-detail-caption-list">
             {captionEntries.map(renderCaption)}
-          </View>
+          </Animated.View>
         ) : null}
 
         <View style={styles.ownershipSummary} testID="outfit-detail-ownership-summary">
@@ -324,6 +347,13 @@ const styles = StyleSheet.create({
   caption: {
     alignItems: 'center',
     position: 'absolute',
+  },
+  captionOverlay: {
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
   },
   captionList: {
     gap: spacing.md,

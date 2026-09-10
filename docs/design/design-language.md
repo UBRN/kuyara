@@ -348,13 +348,14 @@ Today's board to the detail preset, a row expanding. Both platforms now default 
 motion to springs, SwiftUI since iOS 17 and Material 3 Expressive through its own spatial
 versus effects split, and a duration with a curve reads as mechanical beside them. A
 spatial spring role is therefore approved as a role under Law 9 and may be named ahead of
-use; its parameters are measured in the native port spike, design goal 7 in
-[`current-status.md`](../current-status.md), not guessed here, exactly as
-[ADR 0020](../adr/0020-rewriting-the-motion-law.md) handled the ambient duration. Until it
-lands, feature code authors no spring parameters and a specification says "spatial" rather
-than a number. Reduced Motion resolves spatial motion the way it resolves the durations,
-to the static end state. Navigation transitions remain the platform's, as ADR 0020 left
-them.
+use. A specification says "spatial" rather than a number. The role landed on 2026-09-10
+as `theme.springs.spatial`, duration 550 ms and damping ratio 0.825, SwiftUI's default
+spring; the values were kept after watching the detail entrance frame by frame on the
+iPhone 17 Pro Simulator, where the pieces settle in about half a second with no visible
+overshoot. Only `components/ui` consumes the role, and `theme.test.mjs` fails feature
+source that authors `withSpring`, `dampingRatio` or `stiffness`. Reduced Motion resolves
+spatial motion the way it resolves the durations, to the static end state. Navigation
+transitions remain the platform's, as ADR 0020 left them.
 
 ## Law 8: non-visual feedback
 

@@ -98,8 +98,6 @@ Analytics is sequenced before the first public App Store release, so milestones 
 
 Approved design work that is decided and not built, none of it a release blocker:
 
-- ADR 0026 decision 7, the Today-to-detail entry transition, and the spatial spring
-  measurement under Reduced Motion that depends on it.
 - ADR 0026 decision 5, the control that changes ownership on outfit detail; the
   per-garment owned/wanted button list is the interim.
 
@@ -164,6 +162,10 @@ App Store submission, not TestFlight, is blocked by:
 
 ## Known Issues and Manual Verification Gaps
 
+- **A development LogBox warning appears at launch under Reduce Motion.** Seen on the
+  Simulator on 2026-09-10 on the build before and after the detail entrance transition,
+  so it is not caused by that change; its text was not captured because Metro ran in
+  another process. Read it from the Metro console on the next Reduce Motion pass.
 - **Real VoiceOver is unverified.** The XCUITest hierarchy was checked on the Simulator
   (single labelled elements in source order; ownership buttons carry `selected`; picker
   options carry the radio role), but spoken grouping, focus order, the rotor, Today's
