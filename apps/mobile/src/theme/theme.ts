@@ -118,20 +118,25 @@ export const spacing = Object.freeze({
 } as const);
 
 export const typography = Object.freeze({
+  // ADR 0017: three separated steps above body, with negative tracking at the top so the
+  // system face reads as a hero rather than a large label.
   display: {
-    fontSize: 40,
-    lineHeight: 48,
-    fontWeight: '600',
+    fontSize: 56,
+    lineHeight: 56,
+    fontWeight: '700',
+    letterSpacing: -1.5,
   },
   titleLarge: {
-    fontSize: 24,
-    lineHeight: 30,
+    fontSize: 34,
+    lineHeight: 41,
     fontWeight: '700',
+    letterSpacing: -0.6,
   },
   title: {
-    fontSize: 24,
-    lineHeight: 32,
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: '600',
+    letterSpacing: -0.2,
   },
   eyebrow: {
     fontSize: 10.5,
