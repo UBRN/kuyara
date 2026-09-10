@@ -102,9 +102,6 @@ Approved design work that is decided and not built, none of it a release blocker
   measurement under Reduced Motion that depends on it.
 - ADR 0026 decision 5, the control that changes ownership on outfit detail; the
   per-garment owned/wanted button list is the interim.
-- [ADR 0017](adr/0017-a-retuned-typography-scale.md)'s retuned type scale; the shipped
-  scale is still 40 / 24 / 24 / 17 / 15 / 13 / 10.5.
-- A content container for tab screens that does not fill the viewport (see Known Issues).
 
 Provider prices and quotas are deliberately absent from this list; reverify them from
 official sources when each item is implemented. Server-sent push (N3) stays deferred
@@ -167,13 +164,6 @@ App Store submission, not TestFlight, is blocked by:
 
 ## Known Issues and Manual Verification Gaps
 
-- **Today's bottom gap is layout slack, not the inset.** Measured 2026-09-09: iOS's
-  automatic content inset clears the tab bar exactly, but `Screen`'s content container has
-  `flexGrow: 1` and grows to the scroll view's frame, which includes the 83 points under
-  the bar, so Today's content ends about 130 points above it. Several screens rely on that
-  fill (`justifyContent: 'center'` on Today's feedback and bootstrap states, `flex-end` in
-  onboarding) and the bar height is not knowable in JS ([ADR 0027](adr/0027-the-app-shell-and-its-three-tabs.md)
-  section 4), so a fix is a layout decision for tab screens, not an inset change.
 - **Real VoiceOver is unverified.** The XCUITest hierarchy was checked on the Simulator
   (single labelled elements in source order; ownership buttons carry `selected`; picker
   options carry the radio role), but spoken grouping, focus order, the rotor, Today's

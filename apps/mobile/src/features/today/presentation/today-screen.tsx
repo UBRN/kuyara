@@ -58,6 +58,7 @@ export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: 
       <Screen
         accessibilityLabel={presentation.accessibilityLabel}
         contentContainerStyle={styles.feedbackContent}
+        fill
         testID="today-screen">
         <Surface
           accessible

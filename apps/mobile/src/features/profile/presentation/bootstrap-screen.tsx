@@ -17,6 +17,7 @@ export function BootstrapScreen({ status }: BootstrapScreenProps) {
   return (
     <Screen
       contentContainerStyle={styles.content}
+      fill
       testID={`bootstrap-${status}-screen`}>
       <Surface
         accessibilityLiveRegion={isLoading ? 'polite' : 'assertive'}
