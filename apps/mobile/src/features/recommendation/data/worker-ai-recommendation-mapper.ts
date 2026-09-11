@@ -67,6 +67,7 @@ const recommendationContextSchema = z.object({
   dressStyle: dressStyleSchema.optional(),
   catalogVersion: z.number().int().min(1),
   dayVariant: z.number().int().min(0).max(6),
+  localDayKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   requirements: z.array(clothingRequirementSchema).max(8),
   options: z.array(aiOptionSchema).max(aiV1OptionLimit),
 }).strict().superRefine(({ options }, context) => {
@@ -171,6 +172,7 @@ function toAiOption(outfit: OutfitCandidate): AiOption {
 
 export function createRecommendationContext(
   input: OutfitRecommendationInput,
+  localDayKey?: string,
 ): RecommendationContext {
   const requirements = deriveClothingRequirements(input.snapshot);
   const candidates = listGarmentTypesForPreference(input.clothingPreference).map(
@@ -189,6 +191,7 @@ export function createRecommendationContext(
     dressStyle: input.dressStyle ?? 'smart',
     catalogVersion: garmentCatalogVersion,
     dayVariant: input.dayVariant,
+    localDayKey,
     requirements: requirements.requirements,
     options: composition.status === 'composed'
       ? composition.outfits.map(toAiOption)
@@ -224,7 +227,14 @@ export function aiRequestFromContext(
     context.requirements.length === 0 ||
     context.options.length < 3
   ) return null;
-  const parsed = aiRecommendV1RequestSchema.safeParse(context);
+  const parsed = aiRecommendV1RequestSchema.safeParse({
+    clothingPreference: context.clothingPreference,
+    dressStyle: context.dressStyle,
+    catalogVersion: context.catalogVersion,
+    dayVariant: context.dayVariant,
+    requirements: context.requirements,
+    options: context.options,
+  });
   if (!parsed.success) throw new WorkerAiRecommendationMappingError();
   return parsed.data;
 }

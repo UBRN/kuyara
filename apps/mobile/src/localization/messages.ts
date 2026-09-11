@@ -29,7 +29,6 @@ export type TodayRequirementName =
 export type TodayMessages = Readonly<{
   title: string;
   generationModeAiAssisted: string;
-  generationModeStandard: string;
   generationModeAccessibilityLabel: (label: string) => string;
   backAction: string;
   otherOptionsHeading: string;
@@ -737,7 +736,6 @@ const en = {
   today: {
     title: 'Today',
     generationModeAiAssisted: 'AI-assisted',
-    generationModeStandard: 'Standard recommendation',
     generationModeAccessibilityLabel: (label: string) =>
       `Recommendation source: ${label}`,
     backAction: 'Back to Today',
@@ -802,7 +800,7 @@ const en = {
     },
     updatedAt: (time: string) => `Updated at ${time}`,
     staleAt: (time: string) => `Last updated at ${time} · May be out of date`,
-    refreshingStatus: 'Refreshing weather…',
+    refreshingStatus: 'Refreshing today’s guidance…',
     refreshFailedAt: (time: string) => `Couldn't refresh · Showing last update from ${time}`,
     refreshAction: 'Refresh',
     apparentTemperature: (temperature: string) => `Feels like ${temperature}`,
@@ -1184,7 +1182,6 @@ const tr = {
   today: {
     title: 'Bugün',
     generationModeAiAssisted: 'AI destekli',
-    generationModeStandard: 'Standart öneri',
     generationModeAccessibilityLabel: (label: string) =>
       `Öneri kaynağı: ${label}`,
     backAction: 'Bugün’e dön',
@@ -1249,7 +1246,7 @@ const tr = {
     },
     updatedAt: (time: string) => `Son güncelleme ${time}`,
     staleAt: (time: string) => `Son güncelleme ${time} · Güncelliğini yitirmiş olabilir`,
-    refreshingStatus: 'Hava durumu yenileniyor…',
+    refreshingStatus: 'Bugünün önerileri yenileniyor…',
     refreshFailedAt: (time: string) => `Yenilenemedi · ${time} güncellemesi gösteriliyor`,
     refreshAction: 'Yenile',
     apparentTemperature: (temperature: string) => `Hissedilen ${temperature}`,
