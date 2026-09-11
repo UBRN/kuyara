@@ -1,4 +1,7 @@
 import {
+  isValidWeatherHourlyForecastWindow,
+  isWeatherHourlyForecastInWindow,
+  weatherHourlyForecastMaximumEntries,
   weatherLocalDateKey,
   type WeatherConditionCode,
 } from '@kuyara/contracts';
@@ -148,14 +151,9 @@ export function mapWeatherKitResponse(
     observedAt,
   };
   const hourly = allHourly.filter(({ forecastAt }) => (
-    weatherLocalDateKey(forecastAt, location.timeZone) === currentLocalDay
-  )).slice(0, 25);
-  if (
-    hourly.length === 0 ||
-    hourly.some(({ forecastAt }, index) => (
-      index > 0 && hourly[index - 1].forecastAt >= forecastAt
-    ))
-  ) {
+    isWeatherHourlyForecastInWindow(forecastAt, observedAt)
+  )).slice(0, weatherHourlyForecastMaximumEntries);
+  if (!isValidWeatherHourlyForecastWindow(hourly, observedAt)) {
     throw new WeatherProviderError('invalid_response');
   }
 

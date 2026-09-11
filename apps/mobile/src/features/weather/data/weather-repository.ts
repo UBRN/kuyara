@@ -1,4 +1,8 @@
-import { locationDisplayNameSchema } from '@kuyara/contracts';
+import {
+  isValidWeatherHourlyForecastWindow,
+  locationDisplayNameSchema,
+  weatherLocalDateKey,
+} from '@kuyara/contracts';
 
 import type { WeatherLocalDataSource } from '@/features/weather/data/weather-local-data-source';
 import type {
@@ -47,17 +51,6 @@ function isUtcIso(value: string): boolean {
 
 function isUuidV4(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-}
-
-function localDateKey(timestamp: string, timeZone: string): string {
-  const parts = new Intl.DateTimeFormat('en', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date(timestamp));
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${values.year}-${values.month}-${values.day}`;
 }
 
 function requireMeasurements(value: WeatherMeasurements): WeatherMeasurements {
@@ -135,11 +128,16 @@ function mapSnapshot(record: WeatherSnapshotRecord): WeatherSnapshot {
       record.hourly.length === 0
     ) throw new WeatherMappingError();
     const hourly = record.hourly.map(mapHourly);
-    const currentLocalDate = localDateKey(record.observedAt, record.timeZone);
-    for (let index = 1; index < hourly.length; index += 1) {
-      if (hourly[index - 1].forecastAt >= hourly[index].forecastAt) throw new WeatherMappingError();
-    }
-    if (hourly.some((hour) => localDateKey(hour.forecastAt, record.timeZone) !== currentLocalDate)) {
+    const currentLocalDate = weatherLocalDateKey(record.observedAt, record.timeZone);
+    const isLegacySameDaySnapshot = currentLocalDate !== null && hourly.length <= 25 &&
+      hourly.every(({ forecastAt }, index) => (
+        weatherLocalDateKey(forecastAt, record.timeZone) === currentLocalDate &&
+        (index === 0 || hourly[index - 1].forecastAt < forecastAt)
+      ));
+    if (
+      !isValidWeatherHourlyForecastWindow(hourly, record.observedAt) &&
+      !isLegacySameDaySnapshot
+    ) {
       throw new WeatherMappingError();
     }
     return {
@@ -188,16 +186,15 @@ function toRecord(
     snapshot.current.temperatureCelsius > snapshot.maximumTemperatureCelsius ||
     snapshot.hourly.length === 0
   ) throw new WeatherValidationError();
-  const currentLocalDate = localDateKey(snapshot.current.observedAt, snapshot.timeZone);
-  let previousForecastAt: string | null = null;
   for (const hour of snapshot.hourly) {
     requireMeasurements(hour);
-    if (
-      !isUtcIso(hour.forecastAt) ||
-      localDateKey(hour.forecastAt, snapshot.timeZone) !== currentLocalDate ||
-      (previousForecastAt !== null && previousForecastAt >= hour.forecastAt)
-    ) throw new WeatherValidationError();
-    previousForecastAt = hour.forecastAt;
+    if (!isUtcIso(hour.forecastAt)) throw new WeatherValidationError();
+  }
+  if (!isValidWeatherHourlyForecastWindow(
+    snapshot.hourly,
+    snapshot.current.observedAt,
+  )) {
+    throw new WeatherValidationError();
   }
   return {
     id, localProfileId, locationKey: snapshot.locationKey, timeZone: snapshot.timeZone,

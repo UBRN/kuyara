@@ -62,6 +62,32 @@ const hourlyWeatherSchema = weatherMeasurementsSchema.extend({
   forecastAt: utcTimestampSchema,
 }).strict();
 
+const hourInMilliseconds = 60 * 60 * 1000;
+export const weatherHourlyForecastMaximumEntries = 38;
+
+export function isWeatherHourlyForecastInWindow(
+  forecastAt: string,
+  observedAt: string,
+): boolean {
+  const forecastTime = Date.parse(forecastAt);
+  const observedTime = Date.parse(observedAt);
+  return Number.isFinite(forecastTime) && Number.isFinite(observedTime) &&
+    forecastTime >= observedTime - hourInMilliseconds &&
+    forecastTime <= observedTime + 36 * hourInMilliseconds;
+}
+
+export function isValidWeatherHourlyForecastWindow(
+  hourly: readonly Readonly<{ forecastAt: string }>[],
+  observedAt: string,
+): boolean {
+  if (hourly.length < 1 || hourly.length > weatherHourlyForecastMaximumEntries) return false;
+
+  return hourly.every(({ forecastAt }, index) => (
+    isWeatherHourlyForecastInWindow(forecastAt, observedAt) &&
+    (index === 0 || Date.parse(hourly[index - 1].forecastAt) < Date.parse(forecastAt))
+  ));
+}
+
 export function weatherLocalDateKey(timestamp: string, timeZone: string): string | null {
   try {
     const date = new Date(timestamp);
@@ -89,7 +115,7 @@ const weatherV1DataSchema = z.object({
   current: currentWeatherSchema,
   minimumTemperatureCelsius: z.number().finite(),
   maximumTemperatureCelsius: z.number().finite(),
-  hourly: z.array(hourlyWeatherSchema).min(1).max(25),
+  hourly: z.array(hourlyWeatherSchema).min(1).max(weatherHourlyForecastMaximumEntries),
 }).strict().superRefine((value, context) => {
   if ((value.origin.sourceId === 'sample') !== (value.origin.kind === 'sample')) {
     context.addIssue({
@@ -111,22 +137,12 @@ const weatherV1DataSchema = z.object({
     });
   }
 
-  const currentLocalDate = weatherLocalDateKey(value.current.observedAt, value.timeZone);
-  let previousForecastAt: string | null = null;
-  for (let index = 0; index < value.hourly.length; index += 1) {
-    const forecastAt = value.hourly[index].forecastAt;
-    if (
-      (previousForecastAt !== null && previousForecastAt >= forecastAt) ||
-      currentLocalDate === null ||
-      weatherLocalDateKey(forecastAt, value.timeZone) !== currentLocalDate
-    ) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Hourly forecasts must be ordered and belong to the current local day.',
-        path: ['hourly', index, 'forecastAt'],
-      });
-    }
-    previousForecastAt = forecastAt;
+  if (!isValidWeatherHourlyForecastWindow(value.hourly, value.current.observedAt)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Hourly forecasts must be ordered and fall within the current 36-hour window.',
+      path: ['hourly'],
+    });
   }
 });
 

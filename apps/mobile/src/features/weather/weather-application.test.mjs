@@ -521,7 +521,8 @@ test('deterministic fake supports delay, failure, hourly data, and later refresh
   });
   const first = await provider.fetchSnapshot(istanbul);
   assert.equal(delayed, 1);
-  assert.ok(first.hourly.length > 0);
+  assert.equal(first.hourly.length, 37);
+  assert.equal(first.hourly.at(-1).forecastAt, '2026-07-31T21:00:00.000Z');
   assert.equal(first.origin.kind, 'sample');
   now = '2026-07-30T10:05:00.000Z';
   const second = await provider.fetchSnapshot(istanbul);
