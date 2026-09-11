@@ -188,7 +188,6 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     }
     expect(result.getByTestId('today-provenance')).toHaveTextContent(presentation.header.freshness);
     expect(result.queryByTestId('today-generation-mode')).not.toBeOnTheScreen();
-    expect(result.queryByText(messages[language].today.generationModeStandard)).not.toBeOnTheScreen();
     expect(result.queryByText(messages[language].today.emphasis.recommended)).not.toBeOnTheScreen();
     const place = result.getByText('Istanbul');
     expect(place.props.numberOfLines).toBe(1);
@@ -756,7 +755,7 @@ test('refreshing, failure and staleness announce freshness while retaining the l
         snapshot: { ...todayScreenState.snapshot, freshness: stale ? 'stale' : 'fresh' } }} />,
   );
   const result = await render(screen(true, false));
-  expect(result.getByTestId('today-freshness')).toHaveTextContent('Refreshing weather…');
+  expect(result.getByTestId('today-freshness')).toHaveTextContent('Refreshing today’s guidance…');
   expect(result.getByTestId('today-freshness')).toHaveProp('accessibilityLiveRegion', 'polite');
   expect(result.getByTestId('today-screen').props.refreshControl.props.refreshing).toBe(true);
   await result.rerender(screen(false, true));
@@ -772,7 +771,7 @@ test('refreshing, failure and staleness announce freshness while retaining the l
 });
 
 describe.each(['en', 'tr'] as const)('%s Today refresh action', (language) => {
-  // Today's only refresh is the pull gesture, which a screen reader cannot perform.
+  // The visible pull gesture cannot be performed by a screen reader.
   test('exposes one localized custom action that refreshes without a visible control', async () => {
     const onRefresh = jest.fn();
     const impact = jest.spyOn(haptics, 'impactLight').mockImplementation(() => undefined);

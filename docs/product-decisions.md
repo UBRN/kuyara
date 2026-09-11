@@ -93,7 +93,7 @@ Approved 2026-08-30; rationale in [ADR 0005](adr/0005-catalog-only-recommendatio
 - Each Wardrobe entry is `owned` or `wanted`, stored locale-independently; there is no separate wishlist table, screen or tab, and neither state affects recommendations in the MVP.
 - Ownership state appears only on outfit detail, never on Today.
 - Both AI and the device-local deterministic three-outfit fallback compose from the catalog only.
-- A local day variant, the local day of year modulo 7, makes results stable within one local day and different the next day for the same weather.
+- A local day variant, the local day of year modulo 7, is the deterministic composition seed. A separate persisted local date key detects every new calendar day, including New Year's Day.
 
 ## Approved product model and API budget
 
@@ -118,7 +118,7 @@ Approved 2026-08-13; rationale, the dated pricing basis and limits in [ADR 0002]
 
 Approved 2026-08-13 and restated 2026-08-30; rationale in [ADR 0007](adr/0007-ai-selects-precomposed-outfits.md) and [ADR 0001](adr/0001-worker-ai-probe-and-rate-limiting.md).
 
-- AI returns exactly three outfit selections from the supplied precomposed options and labels each with one archetype identifier from a closed twelve-entry list. It never invents catalog entries, wardrobe items, slots, properties or identifiers.
+- AI returns exactly three outfit selections from the supplied precomposed options and labels each with one archetype identifier from a closed twelve-entry list. The shared response validation rejects duplicate option or archetype identifiers on both Worker and mobile. It never invents catalog entries, wardrobe items, slots, properties or identifiers.
 - AI is central but is not personalization. It turns already valid outfits into three that are meaningfully different from each other and do not repeat the previous day. Layering, formality consistency and mandatory weather requirements are enforced before the request; colour harmony is out of scope because the catalog describes types, which have no colour.
 - AI receives deterministic weather requirements, precomposed option identifiers and their garment properties, clothing preference, dress style, catalog version and a local day variant, nothing else; see the privacy boundary below.
 - Every AI response passes shared Zod validation and deterministic domain invariants before it is displayed or persisted. Invalid or partially invalid output is never silently repaired.
@@ -140,7 +140,7 @@ Approved 2026-08-13 and restated 2026-08-30; rationale in [ADR 0007](adr/0007-ai
 
 Rationale and the recalculated probe limits in [ADR 0001](adr/0001-worker-ai-probe-and-rate-limiting.md); the single Worker environment in [ADR 0003](adr/0003-single-worker-environment.md).
 
-- Today and Settings show only the accessible localized `ai-assisted` or `deterministic-fallback` status stored on the recommendation snapshot.
+- Today shows the accessible localized AI-assisted mark only when the stored generation mode is `ai-assisted` and shows no mark for `deterministic-fallback`; Settings shows the stored status.
 - `POST /v1/ai/probe` is distinct from liveness and configuration readiness: one bounded call to the first provider, a briefly cached sanitized `ok | unavailable` result, no provider or model details. Settings triggers it explicitly ("Check AI status") and respects Reduced Motion.
 - Recommendation and probe routes use per-IP burst limits; the probe also has a KV-backed daily cap. Kuyara limit denials return the stable `rate_limited` error; upstream quota or capacity failures follow the normal sanitized AI fallback. Missing bindings degrade permissively, so deployed bindings must remain configured.
 
@@ -165,7 +165,7 @@ Approved 2026-08-13, revised 2026-09-01 (the persisted baseline) and through [AD
 
 - The last valid recommendation snapshot is persisted on-device and rendered immediately when available.
 - AI is not called on every launch. A recommendation is generated or refreshed only when there is no persisted recommendation yet, the relevant weather snapshot is refreshed after becoming stale, the active location changes, gender changes, dress style changes, a new local calendar day starts, or the user explicitly requests a refresh. A birth date change triggers nothing.
-- That rule is enforced against the persisted recommendation snapshot's signals (weather snapshot identity, location key, gender-derived clothing preference, dress style, day variant), never against in-memory state, so a fresh install and the first location selection both count.
+- That rule is enforced against the persisted recommendation snapshot's signals (weather snapshot identity, location key, gender-derived clothing preference, dress style, and local date key), never against in-memory state, so a fresh install and the first location selection both count. The day variant remains the composition seed and part of cache identity, not the day-change detector.
 - Cache identity is weather snapshot identity, clothing preference, dress style, catalog version, and day variant. The Worker additionally caches the shared AI result under a key derived from the requirement vector without reason codes, clothing preference, dress style, catalog version and day variant, because the request contains no personal data. Gender never reaches the Worker under that name.
 - Duplicate in-flight generation requests are coalesced, and a failed refresh preserves the last valid recommendation. A successful deterministic fallback is a valid result and replaces an unavailable AI attempt.
 - Transient provider or model identity stays out of the durable domain model except as the coarse generation mode. Worker liveness, AI configuration readiness and the active probe stay distinct.
@@ -185,12 +185,12 @@ Approved 2026-08-29; design and rejected alternatives in [ADR 0004](adr/0004-not
 
 Approved 2026-08-30, revised with Direction E on 2026-09-08 and 2026-09-09.
 
-- **Pull-to-refresh refreshes weather only**, on Today and Weather. It calls the existing weather `refresh()` and never triggers recommendation generation, so the gesture cannot consume AI quota; a refreshed weather snapshot may still cause a recommendation refresh through the staleness trigger.
-- **The gesture is never the only way to refresh**, because it cannot be activated by VoiceOver or Switch Control. Weather keeps a visible refresh control below the location row. Today, whose header controls left with the garment board, exposes an accessibility custom action ("Refresh" / "Yenile") on its loaded content that calls the same refresh (decided 2026-09-09).
+- **Pull-to-refresh refreshes weather on Today and Weather.** On Today, after the weather refresh settles, the gesture explicitly regenerates the recommendation; duplicate in-flight generation remains coalesced and the last valid recommendation remains visible on failure. Spend stays bounded because the Worker serves an identical requirement vector and day variant from cache and rate-limits per client, so a pull with unchanged weather reaches no AI provider. Weather continues to refresh weather only.
+- **The gesture is never the only way to refresh**, because it cannot be activated by VoiceOver or Switch Control. Weather keeps a visible refresh control below the location row. Today, whose header controls left with the garment board, exposes an accessibility custom action ("Refresh" / "Yenile") on its loaded content that calls the same weather-then-recommendation refresh (decided 2026-09-09, revised 2026-09-12).
 - **Refresh status is announced, not only shown.** Today's freshness line is a three-state line, last updated, refreshing, or refresh failed, on a polite live region. A failed refresh preserves and labels the last valid snapshot.
 - The refresh indicator uses the resolved `iconSecondary` role; the platform refresh control owns its own reduced-motion behavior.
 - **The `Screen` primitive owns inset resolution.** It lets iOS resolve the top inset (disabling content-inset adjustment silently disables `UIRefreshControl`), exposes `contentTopClearance` for screens with an overlay header, and resolves the bottom edge itself; feature code performs no safe-area arithmetic and never sets `paddingBottom` on `Screen` ([ADR 0027](adr/0027-the-app-shell-and-its-three-tabs.md) section 4).
-- Out of scope: refreshing the recommendation from the gesture, a generic pull-to-refresh primitive, a non-scrollable screen API, and any change to the 30-minute freshness boundary or refresh coalescing.
+- Out of scope: a generic pull-to-refresh primitive, a non-scrollable screen API, and any change to the 30-minute freshness boundary or refresh coalescing.
 
 ## Approved catalog content revision and version 3
 

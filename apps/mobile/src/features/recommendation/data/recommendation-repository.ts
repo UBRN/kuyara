@@ -21,6 +21,7 @@ export type RecommendationSnapshot = Readonly<{
   clothingPreference: string;
   dressStyle: DressStyle;
   dayVariant: number | null;
+  localDayKey: string | null;
   generationMode: RecommendationGenerationMode;
   recommendation: OutfitRecommendationSuccess;
   createdAt: string;
@@ -95,6 +96,7 @@ function mapRecord(record: RecommendationSnapshotRecord): RecommendationSnapshot
       clothingPreference: context.clothingPreference,
       dressStyle: 'dressStyle' in context ? context.dressStyle ?? 'smart' : 'smart',
       dayVariant: 'dayVariant' in context ? context.dayVariant : null,
+      localDayKey: 'localDayKey' in context ? context.localDayKey ?? null : null,
       generationMode: record.generationMode,
       recommendation,
       createdAt: record.createdAt,

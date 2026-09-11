@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   RecommendationApplicationController,
+  localDayKey,
   localDayVariant,
   recommendationRefreshTrigger,
 } from './recommendation-application-controller.ts';
@@ -72,6 +73,7 @@ function input(temperatureCelsius = 30) {
     },
     clothingPreference: 'womens',
     dayVariant: 3,
+    localDayKey: '2026-08-01',
   };
 }
 
@@ -88,6 +90,10 @@ function createHarness({ cached = null, client, failSave = false, captureAnalyti
         localProfileId,
         weatherSnapshotId: value.weatherSnapshotId,
         locationKey: value.locationKey,
+        clothingPreference: value.context.clothingPreference,
+        dressStyle: value.context.dressStyle,
+        dayVariant: value.context.dayVariant,
+        localDayKey: value.context.localDayKey ?? null,
         generationMode: value.recommendation.generationMode,
         recommendation: value.recommendation,
         createdAt: cached?.createdAt ?? now,
@@ -115,6 +121,31 @@ test('local day variant is a deterministic seven-day ring', () => {
   assert.equal(localDayVariant(new Date(2026, 0, 1, 12)), 1);
   assert.equal(localDayVariant(new Date(2026, 0, 2, 12)), 2);
   assert.equal(localDayVariant(new Date(2026, 0, 8, 12)), 1);
+});
+
+test('local day key changes across New Year even when the composition seed repeats', () => {
+  const december31 = new Date(2025, 11, 31, 23, 59);
+  const january1 = new Date(2026, 0, 1, 0, 1);
+  assert.equal(localDayVariant(december31), localDayVariant(january1));
+  assert.equal(localDayKey(december31), '2025-12-31');
+  assert.equal(localDayKey(january1), '2026-01-01');
+
+  const previous = {
+    weatherSnapshotId: 'weather-one',
+    locationKey: 'location-one',
+    clothingPreference: 'womens',
+    dressStyle: 'smart',
+    dayVariant: localDayVariant(december31),
+    localDayKey: localDayKey(december31),
+  };
+  assert.equal(
+    recommendationRefreshTrigger(previous, {
+      ...previous,
+      dayVariant: localDayVariant(january1),
+      localDayKey: localDayKey(january1),
+    }, null),
+    'local-day-changed',
+  );
 });
 
 test('a missing persisted snapshot triggers the first recommendation', () => {
@@ -161,7 +192,9 @@ test('trigger selection distinguishes stale refresh from unapproved weather chan
     weatherSnapshotId: 'weather-two',
     locationKey: 'location-one',
     clothingPreference: 'womens',
+    dressStyle: 'smart',
     dayVariant: 3,
+    localDayKey: '2026-08-01',
   };
   const previous = { ...current, weatherSnapshotId: 'weather-one' };
 
@@ -179,8 +212,12 @@ test('trigger selection distinguishes stale refresh from unapproved weather chan
     'clothing-preference-changed',
   );
   assert.equal(
-    recommendationRefreshTrigger({ ...previous, dayVariant: 2 }, current, null),
+    recommendationRefreshTrigger({ ...previous, localDayKey: '2026-07-31' }, current, null),
     'local-day-changed',
+  );
+  assert.equal(
+    recommendationRefreshTrigger({ ...previous, dayVariant: 2 }, current, null),
+    null,
   );
 });
 

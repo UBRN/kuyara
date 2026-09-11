@@ -6,6 +6,7 @@ import type { RecommendationSnapshot } from '@/features/recommendation/data/reco
 export type RecommendationApplicationValue = Readonly<{
   state: RecommendationApplicationState;
   refresh: () => Promise<RecommendationSnapshot | null>;
+  reevaluateLocalDay: () => void;
 }>;
 
 export const RecommendationApplicationContext =

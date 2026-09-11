@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -124,7 +124,9 @@ function weatherValue(overrides: Partial<Extract<WeatherApplicationValue['state'
   return value;
 }
 
-function recommendationReady(): RecommendationApplicationState {
+function recommendationReady(
+  overrides: Partial<Extract<RecommendationApplicationState, { status: 'ready' }>> = {},
+): RecommendationApplicationState {
   if (todayRecommendation.status !== 'recommended') {
     throw new Error('Expected the Today fixture to contain a recommendation.');
   }
@@ -140,11 +142,13 @@ function recommendationReady(): RecommendationApplicationState {
       clothingPreference: 'womens',
       dressStyle: 'smart',
       dayVariant: 0,
+      localDayKey: '2026-08-13',
       generationMode: todayRecommendation.generationMode,
       recommendation: todayRecommendation,
       createdAt: '2026-08-13T06:00:00.000Z',
       updatedAt: '2026-08-13T06:00:00.000Z',
     },
+    ...overrides,
   };
 }
 
@@ -225,12 +229,16 @@ function Providers({
   children,
   weather,
   recommendation,
+  recommendationRefresh = jest.fn(async () => null),
+  reevaluateLocalDay = jest.fn(),
   wardrobe,
   profile,
   productAnalytics,
 }: PropsWithChildren<{
   weather: WeatherApplicationValue;
   recommendation: RecommendationApplicationState;
+  recommendationRefresh?: () => Promise<null>;
+  reevaluateLocalDay?: () => void;
   wardrobe: ReturnType<typeof wardrobeValue>;
   profile: ReturnType<typeof profileValue>;
   productAnalytics: ReturnType<typeof createProductAnalytics>;
@@ -241,7 +249,11 @@ function Providers({
         <ProductAnalyticsContext value={productAnalytics}>
           <ProfileApplicationContext value={profile}>
             <WeatherApplicationContext value={weather}>
-              <RecommendationApplicationContext value={{ state: recommendation, refresh: jest.fn(async () => null) }}>
+              <RecommendationApplicationContext value={{
+                state: recommendation,
+                refresh: recommendationRefresh,
+                reevaluateLocalDay,
+              }}>
                 <WardrobeApplicationContext value={wardrobe as never}>
                   <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 47, right: 0, bottom: 34, left: 0 } }}>
                     {children}
@@ -295,14 +307,23 @@ test('Today reports screen_viewed and recommendation_viewed once while a recomme
   });
 });
 
-test('a successful pull-to-refresh on Today reports manual_refresh_triggered, not retry', async () => {
+test('a successful pull-to-refresh regenerates after weather and reports manual refresh, not retry', async () => {
   const productAnalytics = createProductAnalytics();
-  const weather = weatherValue();
+  const order: string[] = [];
+  const weather = {
+    ...weatherValue(),
+    refresh: jest.fn(async () => { order.push('weather'); }),
+  };
+  const recommendationRefresh = jest.fn(async () => {
+    order.push('recommendation');
+    return null;
+  });
   const result = await render(
     <Providers
       productAnalytics={productAnalytics}
       profile={profileValue()}
       recommendation={recommendationReady()}
+      recommendationRefresh={recommendationRefresh}
       wardrobe={wardrobeValue()}
       weather={weather}>
       <TodayRoute />
@@ -311,10 +332,58 @@ test('a successful pull-to-refresh on Today reports manual_refresh_triggered, no
   productAnalytics.analytics.captures.length = 0;
 
   const refreshControl = result.getByTestId('today-screen').props.refreshControl;
-  await refreshControl.props.onRefresh();
+  refreshControl.props.onRefresh();
 
+  await waitFor(() => expect(recommendationRefresh).toHaveBeenCalledTimes(1));
+
+  expect(order).toEqual(['weather', 'recommendation']);
   expect(productAnalytics.analytics.captures.map((c) => c.name)).toContain('manual_refresh_triggered');
   expect(productAnalytics.analytics.captures.map((c) => c.name)).not.toContain('retry_after_failure_triggered');
+});
+
+test('focusing Today asks the recommendation provider to re-evaluate the local day', async () => {
+  const reevaluateLocalDay = jest.fn();
+  await render(
+    <Providers
+      productAnalytics={createProductAnalytics()}
+      profile={profileValue()}
+      recommendation={recommendationReady()}
+      reevaluateLocalDay={reevaluateLocalDay}
+      wardrobe={wardrobeValue()}
+      weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  expect(reevaluateLocalDay).toHaveBeenCalledTimes(1);
+});
+
+test('recommendation refresh and failure state reaches Today while the last outfit remains visible', async () => {
+  const props = {
+    productAnalytics: createProductAnalytics(),
+    profile: profileValue(),
+    wardrobe: wardrobeValue(),
+    weather: weatherValue(),
+  };
+  const result = await render(
+    <Providers {...props} recommendation={recommendationReady({ isRefreshing: true })}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  expect(result.getByTestId('today-freshness')).toHaveTextContent(
+    messages.en.today.refreshingStatus,
+  );
+  expect(result.getByTestId('today-screen').props.refreshControl.props.refreshing).toBe(true);
+  expect(result.getByTestId('today-archetype')).toBeOnTheScreen();
+
+  await result.rerender(
+    <Providers {...props} recommendation={recommendationReady({ lastFailure: 'unavailable' })}>
+      <TodayRoute />
+    </Providers>,
+  );
+  expect(result.getByTestId('today-freshness')).toHaveTextContent(/Couldn't refresh/);
+  expect(result.getByTestId('today-archetype')).toBeOnTheScreen();
 });
 
 test('refreshing while Today shows stale weather and a failed attempt reports retry_after_failure_triggered', async () => {
@@ -336,8 +405,11 @@ test('refreshing while Today shows stale weather and a failed attempt reports re
   productAnalytics.analytics.captures.length = 0;
 
   const refreshControl = result.getByTestId('today-screen').props.refreshControl;
-  await refreshControl.props.onRefresh();
+  refreshControl.props.onRefresh();
 
+  await waitFor(() => expect(
+    productAnalytics.analytics.captures.some((c) => c.name === 'retry_after_failure_triggered'),
+  ).toBe(true));
   const retry = productAnalytics.analytics.captures.find((c) => c.name === 'retry_after_failure_triggered');
   expect(retry?.properties).toEqual({
     schema_version: 1, surface: 'today', attempt_number: 1, result: 'failure',

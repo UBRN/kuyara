@@ -44,7 +44,11 @@ export type RecommendationSignals = Readonly<{
   locationKey: string;
   clothingPreference: string;
   dressStyle: DressStyle;
-  dayVariant: number | null;
+  localDayKey: string | null;
+}>;
+
+export type RecommendationApplicationInput = OutfitRecommendationInput & Readonly<{
+  localDayKey: string;
 }>;
 
 export function recommendationRefreshTrigger(
@@ -64,7 +68,7 @@ export function recommendationRefreshTrigger(
     return 'clothing-preference-changed';
   }
   if (previous.dressStyle !== current.dressStyle) return 'dress-style-changed';
-  if (previous.dayVariant !== current.dayVariant) return 'local-day-changed';
+  if (previous.localDayKey !== current.localDayKey) return 'local-day-changed';
   return null;
 }
 
@@ -114,6 +118,13 @@ export function localDayVariant(date: Date = new Date()): number {
   return dayOfYear % 7;
 }
 
+export function localDayKey(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export class RecommendationApplicationController {
   private state: RecommendationApplicationState = { status: 'loading' };
   private repository: RecommendationRepository | null = null;
@@ -147,11 +158,11 @@ export class RecommendationApplicationController {
 
   refresh(
     trigger: RecommendationRefreshTrigger,
-    input: OutfitRecommendationInput,
+    input: RecommendationApplicationInput,
   ): Promise<RecommendationSnapshot | null> {
     let context: RecommendationContext;
     try {
-      context = createRecommendationContext(input);
+      context = createRecommendationContext(input, input.localDayKey);
     } catch (error) {
       this.setLastFailure(recommendationFailureCategory(error));
       return Promise.resolve(this.currentSnapshot());
@@ -194,7 +205,7 @@ export class RecommendationApplicationController {
     key: string,
     context: RecommendationContext,
     request: AiRecommendV1Request | null,
-    input: OutfitRecommendationInput,
+    input: RecommendationApplicationInput,
     trigger: RecommendationRefreshTrigger,
   ): Promise<RecommendationSnapshot | null> {
     // The deterministic fallback composes from the same catalog and effectively always
@@ -211,13 +222,19 @@ export class RecommendationApplicationController {
       }
     }
     if (!recommendation) {
-      const fallback = recommendOutfits(input);
-      if (fallback.status !== 'recommended') {
-        this.setLastFailure(aiFailure ?? 'unknown');
+      try {
+        const fallback = recommendOutfits(input);
+        if (fallback.status !== 'recommended') {
+          this.setLastFailure(aiFailure ?? 'unknown');
+          this.captureRegenerated(trigger, this.currentSnapshot() !== null);
+          return this.currentSnapshot();
+        }
+        recommendation = fallback;
+      } catch (error) {
+        this.setLastFailure(aiFailure ?? recommendationFailureCategory(error));
         this.captureRegenerated(trigger, this.currentSnapshot() !== null);
         return this.currentSnapshot();
       }
-      recommendation = fallback;
     }
 
     if (this.latestRequestKey !== key) return this.currentSnapshot();

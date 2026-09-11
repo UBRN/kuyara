@@ -11,6 +11,7 @@ import {
   createDetailCaptionLayout,
   createTodayPresentation,
 } from './presentation/today-presentation.ts';
+import { recommendOutfits } from '../recommendation/application/recommend-outfits.ts';
 import { createKuyaraTheme } from '../../theme/theme.ts';
 import { composeGarmentBoard } from '../../components/ui/garment-board/compose-garment-board.ts';
 
@@ -239,6 +240,64 @@ test('shared weather reasons lead every outfit and per-outfit composition reason
   );
 });
 
+test('a mild clear day still gives the primary outfit a rationale', () => {
+  const mildWeather = {
+    ...todayWeatherSnapshot,
+    current: {
+      ...todayWeatherSnapshot.current,
+      temperatureCelsius: 20,
+      apparentTemperatureCelsius: 20,
+      condition: 'clear',
+      precipitationProbability: 0,
+      windSpeedMetersPerSecond: 0,
+    },
+    minimumTemperatureCelsius: 20,
+    maximumTemperatureCelsius: 20,
+    hourly: [{
+      ...todayWeatherSnapshot.hourly[0],
+      temperatureCelsius: 20,
+      apparentTemperatureCelsius: 20,
+      condition: 'clear',
+      precipitationProbability: 0,
+      windSpeedMetersPerSecond: 0,
+    }],
+  };
+  const recommendation = recommendOutfits({
+    snapshot: mildWeather,
+    clothingPreference: 'womens',
+    dayVariant: 0,
+  });
+  assert.equal(recommendation.status, 'recommended');
+  assert.deepEqual(recommendation.requirements.requirements, []);
+  assert.equal(recommendation.outfits[0].penaltyPoints, 0);
+  const presentation = loadedPresentation({
+    ...todayScreenState,
+    snapshot: { ...todayScreenState.snapshot, weather: mildWeather, recommendation },
+  });
+
+  assert.deepEqual(presentation.suggestions[0].reasons, [
+    'The daily temperature range is based on current conditions.',
+  ]);
+});
+
+test('only AI-assisted recommendations have a localized accessible generation mark', () => {
+  assert.equal(loadedPresentation().generationMode, null);
+
+  const recommendation = todayScreenState.snapshot.recommendation;
+  assert.equal(recommendation.status, 'recommended');
+  const aiAssisted = loadedPresentation({
+    ...todayScreenState,
+    snapshot: {
+      ...todayScreenState.snapshot,
+      recommendation: { ...recommendation, generationMode: 'ai-assisted' },
+    },
+  });
+  assert.deepEqual(aiAssisted.generationMode, {
+    label: 'AI-assisted',
+    accessibilityLabel: 'Recommendation source: AI-assisted',
+  });
+});
+
 test('detail reasoning groups garments by requirement and localizes trade-offs as rows', () => {
   const english = loadedPresentation();
   assert.deepEqual(english.suggestions[0].requirementRows, [
@@ -378,7 +437,7 @@ test('the freshness line reports refreshing, failure, staleness, and last update
   const base = todayScreenState;
 
   const refreshing = loadedPresentation({ ...base, isRefreshing: true, refreshFailed: true });
-  assert.equal(refreshing.header.freshness, 'Refreshing weather…');
+  assert.equal(refreshing.header.freshness, 'Refreshing today’s guidance…');
   assert.equal(refreshing.header.isRefreshing, true);
   assert.equal(refreshing.header.announceFreshness, true);
 
@@ -392,7 +451,7 @@ test('the freshness line reports refreshing, failure, staleness, and last update
   assert.equal(settled.header.announceFreshness, settled.header.isStale);
 
   const turkish = loadedPresentation({ ...base, isRefreshing: true, refreshFailed: false }, 'tr');
-  assert.equal(turkish.header.freshness, 'Hava durumu yenileniyor…');
+  assert.equal(turkish.header.freshness, 'Bugünün önerileri yenileniyor…');
 });
 
 test('the stage label reads temperature, condition, pieces and archetype in both languages', () => {

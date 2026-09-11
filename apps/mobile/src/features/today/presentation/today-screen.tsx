@@ -111,9 +111,9 @@ export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: 
 
   return (
     <Screen
-      // Today's only refresh is the pull gesture, which a screen reader cannot perform.
-      // The custom action gives VoiceOver and TalkBack the same refresh without adding a
-      // visible control; the haptic belongs to the gesture, so it stays with the gesture.
+      // The visible refresh gesture cannot be performed by a screen reader. The custom
+      // action gives VoiceOver and TalkBack the same refresh without adding a visible
+      // control; the haptic belongs to the gesture, so it stays with the gesture.
       accessibilityActions={[{ name: 'refresh', label: copy.refreshAction }]}
       alwaysBounceVertical
       onAccessibilityAction={({ nativeEvent }) => {

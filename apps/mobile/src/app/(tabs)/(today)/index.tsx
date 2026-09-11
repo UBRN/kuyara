@@ -23,7 +23,11 @@ import { useLocalization } from '@/localization/use-messages';
 export default function TodayRoute() {
   const { language } = useLocalization();
   const router = useRouter();
-  const { state: recommendationState } = useRecommendationApplication();
+  const {
+    state: recommendationState,
+    refresh: refreshRecommendation,
+    reevaluateLocalDay,
+  } = useRecommendationApplication();
   const weatherApplication = useWeatherApplication();
   const weatherState = weatherApplication.state;
   const { state: profileState } = useProfileApplication();
@@ -69,11 +73,12 @@ export default function TodayRoute() {
         freshness: weatherState.freshness,
         recommendation,
       },
-      isRefreshing: weatherState.isRefreshing,
-      refreshFailed: weatherState.refreshFailure !== null,
+      isRefreshing: weatherState.isRefreshing || recommendationState.isRefreshing,
+      refreshFailed:
+        weatherState.refreshFailure !== null || recommendationState.lastFailure !== null,
     };
     todayFailure = weatherState.refreshFailure;
-    recommendationFailure = null;
+    recommendationFailure = recommendationState.lastFailure;
   }
 
   // Only the focused Today route can show these failures. A weather failure belongs to
@@ -86,12 +91,13 @@ export default function TodayRoute() {
   // does not count).
   const [isFocused, setIsFocused] = useState(false);
   useFocusEffect(useCallback(() => {
+    reevaluateLocalDay();
     setIsFocused(true);
     return () => {
       setIsFocused(false);
       retries.reset('today');
     };
-  }, [retries]));
+  }, [reevaluateLocalDay, retries]));
   const viewedThisFocusRef = useRef(false);
   useEffect(() => {
     if (!isFocused) {
@@ -120,11 +126,12 @@ export default function TodayRoute() {
     });
   }, [analytics, isFocused, profileState, state]);
 
-  // Taxonomy 5.7: Today's only refresh is the pull gesture, which doubles as the retry
-  // action when a failure is already shown (there is no separate retry control).
+  // Taxonomy 5.7: Today's pull gesture doubles as the retry action when a failure is
+  // already shown (there is no separate retry control).
   const handleRefresh = () => {
     const wasFailing = state.kind === 'unavailable' || (state.kind === 'loaded' && state.refreshFailed);
-    void weatherApplication.refresh().then(() => {
+    void weatherApplication.refresh().then(async () => {
+      await refreshRecommendation();
       const after = weatherApplication.getSnapshot?.() ?? weatherApplication.state;
       const outcome = after.status !== 'ready'
         ? ('failure_no_snapshot' as const)
