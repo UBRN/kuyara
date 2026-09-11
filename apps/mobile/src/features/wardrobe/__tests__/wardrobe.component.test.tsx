@@ -339,6 +339,42 @@ test('create form keeps only the required picker and entry state options visible
   expect(onCreate).not.toHaveBeenCalled();
 });
 
+// A legacy entry saved before the catalog, or one whose type was removed from it, cannot be
+// saved as it stands, so the edit form says so on arrival rather than at the first Save.
+test('the edit form shows the type hint on arrival for an entry with no resolvable type', async () => {
+  const legacy = await render(
+    <TestProviders>
+      <WardrobeItemFormScreen
+        isBusy={false}
+        item={{ ...item, garmentTypeId: null }}
+        mode="edit"
+        onBackRequested={() => undefined}
+        onCreate={async () => undefined}
+        onDirtyChange={() => undefined}
+        onUpdate={async () => undefined}
+      />
+    </TestProviders>,
+  );
+  expect(legacy.getByTestId('wardrobe-type-error')).toHaveTextContent(
+    messages.en.wardrobe.typeRequiredError,
+  );
+
+  const resolvable = await render(
+    <TestProviders>
+      <WardrobeItemFormScreen
+        isBusy={false}
+        item={item}
+        mode="edit"
+        onBackRequested={() => undefined}
+        onCreate={async () => undefined}
+        onDirtyChange={() => undefined}
+        onUpdate={async () => undefined}
+      />
+    </TestProviders>,
+  );
+  expect(resolvable.queryByTestId('wardrobe-type-error')).not.toBeOnTheScreen();
+});
+
 test('garment type picker groups preference-filtered options with accessible radio state', async () => {
   const onSelect = jest.fn();
   const result = await render(

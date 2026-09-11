@@ -143,9 +143,10 @@ App Store submission, not TestFlight, is blocked by:
   Closet's `manual_refresh_triggered`, with no JS errors. A read-only Codex review the
   same morning raised one product question: because the consent sheet follows onboarding
   (decided 2026-09-09), the three onboarding events could never be captured for a fresh
-  install. Decided the same day: pre-consent captures are buffered on the device, sent
-  with their original timestamps after `analytics_consent_granted` on acceptance and
-  discarded on decline; ADR 0033 section 6 and taxonomy section 2 carry the amendment. Its seven measurement-accuracy findings (trackers reset at the consent
+  install. Decided the same day: pre-consent captures are buffered on the
+  device. **Reversed 2026-09-12:** nothing is recorded or queued before the sheet is
+  answered, so those three onboarding events are not measurable and that is accepted;
+  ADR 0033 section 6 and taxonomy section 2 carry both amendments. Its seven measurement-accuracy findings (trackers reset at the consent
   boundary, session-end finalisation, focus-bound error tracking, the Closet's false
   recovery, retry counters, duplicate `outfit_detail_opened`, no-op `setting_changed`)
   were fixed in a follow-up lane.

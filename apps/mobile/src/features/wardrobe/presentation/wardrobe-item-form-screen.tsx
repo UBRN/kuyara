@@ -120,7 +120,11 @@ export function WardrobeItemFormScreen({
   const [entryState, setEntryState] = useState<WardrobeEntryState>(
     initialEntryState,
   );
-  const [validationError, setValidationError] = useState(false);
+  // An existing item whose type was never set or no longer resolves opens invalid, so the
+  // hint is visible on arrival instead of waiting for a rejected Save.
+  const [validationError, setValidationError] = useState(
+    mode === 'edit' && validateWardrobeForm(initialValues) !== null,
+  );
   const [saveError, setSaveError] = useState(false);
   const [deleteError, setDeleteError] = useState(false);
   const [isSaving, setIsSaving] = useState(false);

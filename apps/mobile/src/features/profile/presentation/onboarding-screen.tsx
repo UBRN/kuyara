@@ -450,7 +450,7 @@ export function OnboardingScreen({
           {draft.step === totalSteps - 1 ? (
             <View style={styles.primaryAction} testID="onboarding-location-skip">
               <Button
-                label={hasActiveLocation ? copy.completeAction : messages.weather.cancel}
+                label={hasActiveLocation ? copy.completeAction : copy.locationSkipAction}
                 loading={isSaving}
                 onPress={complete}
                 style={styles.skipAction}

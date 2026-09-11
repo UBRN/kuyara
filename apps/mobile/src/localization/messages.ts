@@ -161,6 +161,7 @@ export type AppMessages = Readonly<{
     locationTitle: string;
     locationBody: string;
     completeAction: string;
+    locationSkipAction: string;
     genderRequiredError: string;
     saveError: string;
   }>;
@@ -197,6 +198,7 @@ export type AppMessages = Readonly<{
     identifierLabel: string;
     identifierFooter: string;
     privacyPolicyLabel: string;
+    statusNotAsked: string;
   }>;
   profile: Readonly<{
     title: string;
@@ -458,6 +460,7 @@ const en = {
     locationTitle: 'Set your location',
     locationBody: 'Use your device location or search for a city so kuyara can find the weather for your outfit suggestions. You can do this later.',
     completeAction: 'Start using kuyara',
+    locationSkipAction: 'Continue without a location',
     genderRequiredError: 'Choose your gender to continue.',
     saveError: 'Your choices could not be saved. Please try again.',
   },
@@ -511,6 +514,7 @@ const en = {
     identifierLabel: 'Analytics identifier',
     identifierFooter: 'You can quote this identifier in a request about your data.',
     privacyPolicyLabel: 'Privacy policy',
+    statusNotAsked: 'Not asked yet',
   },
   profile: {
     title: 'Profile',
@@ -904,6 +908,7 @@ const tr = {
     locationTitle: 'Konumunu ayarla',
     locationBody: 'kuyara’nın kombin önerileri için hava durumunu bulabilmesi adına cihaz konumunu kullan veya bir şehir ara. Bunu daha sonra da yapabilirsin.',
     completeAction: 'kuyara’yı kullanmaya başla',
+    locationSkipAction: 'Konum olmadan devam et',
     genderRequiredError: 'Devam etmek için cinsiyetinizi seçin.',
     saveError: 'Seçimleriniz kaydedilemedi. Lütfen yeniden deneyin.',
   },
@@ -957,6 +962,7 @@ const tr = {
     identifierLabel: 'Analitik kimliği',
     identifierFooter: 'Verilerinle ilgili bir talepte bu kimliği belirtebilirsin.',
     privacyPolicyLabel: 'Gizlilik politikası',
+    statusNotAsked: 'Henüz sorulmadı',
   },
   profile: {
     title: 'Profil',

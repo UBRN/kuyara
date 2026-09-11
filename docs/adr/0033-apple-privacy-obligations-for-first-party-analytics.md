@@ -3,11 +3,13 @@
 Status: Accepted (2026-09-09)
 
 Implementation: the milestone 10 code side (consent sheet, Settings Privacy surface,
-fail-closed adapter, pre-consent buffer) landed 2026-09-09 and 2026-09-10; the PostHog
+fail-closed adapter) landed 2026-09-09 and 2026-09-10; the PostHog
 project configuration in section 6 item 6 was verified 2026-09-10. Still open: the DPA
 decision (section 7) and the milestone 11 items. *Amended 2026-09-11:* milestone 11 items
 1 and 2 are done and the lawful basis is decided (section 7); the PostHog DPA was signed
-by the maintainer on 2026-09-11, which closes the milestone 10 condition. This ADR verifies what Apple actually
+by the maintainer on 2026-09-11, which closes the milestone 10 condition. *Amended
+2026-09-12:* the pre-consent buffer of section 6 item 1 was withdrawn; nothing is recorded
+before consent. This ADR verifies what Apple actually
 requires of the analytics direction in
 [ADR 0023](0023-behavioural-product-analytics-with-posthog.md) and turns the open consent,
 revocation and deletion question into decisions and follow-up work. It installs nothing
@@ -323,6 +325,10 @@ Milestone 10, PostHog product analytics integration, gains these acceptance cond
    in a bounded on-device buffer, sent with their original timestamps after
    `analytics_consent_granted` on acceptance, and discarded on decline; this satisfies
    guideline 5.1.1 (ii), whose requirement is consent before collection leaves the device.
+   *Amended 2026-09-12:* the maintainer withdrew that buffer. While the answer is
+   `undecided` captures are dropped, neither recorded nor queued, and acceptance starts
+   recording from that moment; the onboarding funnel that precedes the sheet is therefore
+   not measurable, which is accepted. The rest of this item stands.
    The stored answer values are `undecided`, `granted` and `withdrawn`, the last covering
    both a declined sheet and a later withdrawal.
 2. A consent surface exists, with one question, equal accept and decline affordances,
