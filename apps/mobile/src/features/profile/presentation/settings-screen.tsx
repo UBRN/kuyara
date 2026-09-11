@@ -59,7 +59,9 @@ export function SettingsScreen({
     : messages.notifications.statusOff;
   const analyticsValue = profile.analyticsConsent === 'granted'
     ? messages.notifications.statusOn
-    : messages.notifications.statusOff;
+    : profile.analyticsConsent === 'undecided'
+      ? messages.analytics.statusNotAsked
+      : messages.notifications.statusOff;
   const version = Constants.expoConfig?.version;
   const build = Constants.platform?.ios?.buildNumber
     ?? Constants.platform?.android?.versionCode?.toString();

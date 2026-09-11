@@ -3,7 +3,6 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import AnalyticsConsentRoute from '@/app/analytics-consent';
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
-import { ConsentBufferingProductAnalytics } from '@/features/analytics/data/consent-buffering-product-analytics';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
 import type { ProductAnalytics } from '@/features/analytics/domain/product-analytics';
 import { AnalyticsConsentScreen } from '@/features/analytics/presentation/analytics-consent-screen';
@@ -66,14 +65,14 @@ async function renderRoute(analytics: ProductAnalytics) {
 
 beforeEach(() => mockRouter.back.mockClear());
 
-test('accept sends the grant before replaying buffered captures, persists, and closes', async () => {
-  const inner = new RecordingProductAnalytics('undecided');
-  const analytics = new ConsentBufferingProductAnalytics(inner, 'undecided');
+test('captures made while the answer is undecided are dropped, and accept records only the grant', async () => {
+  const analytics = new RecordingProductAnalytics('undecided');
   analytics.capture(
     'screen_viewed',
     { schema_version: 1, screen_name: 'onboarding' },
     { timestamp: '2026-09-10T08:00:00.000Z' },
   );
+  expect(analytics.captures).toEqual([]);
   const result = await renderRoute(analytics);
 
   await act(async () => {
@@ -81,20 +80,16 @@ test('accept sends the grant before replaying buffered captures, persists, and c
   });
 
   await waitFor(() => expect(result.persisted).toEqual(['granted']));
-  expect(inner.names()).toEqual(['analytics_consent_granted', 'screen_viewed']);
-  expect(inner.captures[0].properties).toEqual({
+  expect(analytics.names()).toEqual(['analytics_consent_granted']);
+  expect(analytics.captures[0].properties).toEqual({
     schema_version: 1,
     surface: 'first_launch_sheet',
-  });
-  expect(inner.captures[1].options).toEqual({
-    timestamp: '2026-09-10T08:00:00.000Z',
   });
   expect(mockRouter.back).toHaveBeenCalledTimes(1);
 });
 
-test('decline persists and drops buffered captures without sending anything', async () => {
-  const inner = new RecordingProductAnalytics('undecided');
-  const analytics = new ConsentBufferingProductAnalytics(inner, 'undecided');
+test('decline persists without sending anything', async () => {
+  const analytics = new RecordingProductAnalytics('undecided');
   analytics.capture('notification_opened', { schema_version: 1 });
   const result = await renderRoute(analytics);
 
@@ -103,10 +98,8 @@ test('decline persists and drops buffered captures without sending anything', as
   });
 
   await waitFor(() => expect(result.persisted).toEqual(['withdrawn']));
-  expect(inner.optInCount).toBe(0);
-  expect(inner.captures).toEqual([]);
-  await analytics.optIn('settings_privacy');
-  expect(inner.names()).toEqual(['analytics_consent_granted']);
+  expect(analytics.optInCount).toBe(0);
+  expect(analytics.captures).toEqual([]);
   expect(mockRouter.back).toHaveBeenCalledTimes(1);
 });
 
