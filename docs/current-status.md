@@ -83,9 +83,9 @@ Analytics is sequenced before the first public App Store release, so milestones 
     URL, the lawful basis and the deletion wording.~~ Decided and written 2026-09-11:
     the policy and support page live in `docs/` for GitHub Pages, `PRIVACY_POLICY_URL`
     is set, consent is the lawful basis, and the policy promises withdrawal and
-    retention but not identifier-based deletion (ADR 0033 section 7). Still with the
-    maintainer: enabling Pages, and entering the questionnaire, the URLs, the copy and
-    the screenshots in App Store Connect (see Release Blockers).
+    retention but not identifier-based deletion (ADR 0033 section 7). Pages went live
+    and the questionnaire, both URLs, the subtitle and the listing copy were entered in
+    App Store Connect on 2026-09-11. Only the screenshots remain (see Release Blockers).
 12. **PostHog Error Tracking.** Source maps and release correlation are decided at
     implementation time; the same payload exclusion list applies.
 13. **Session replay evaluation.** Only after privacy masking and sampling are designed.
@@ -104,13 +104,14 @@ and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
 
 App Store submission, not TestFlight, is blocked by:
 
-- Milestone 11's last maintainer step: entering the privacy policy URL, the support URL,
-  the data-collection questionnaire answers, the store description and the screenshots
-  into App Store Connect. GitHub Pages went live on 2026-09-11 from the main branch's
-  `docs/` folder; `https://ubrn.github.io/kuyara/privacy-policy` and
-  `https://ubrn.github.io/kuyara/support` were fetched with status 200 the same day. The
-  answer sheet, the store copy and the screenshots were prepared on 2026-09-11 outside
-  the repository.
+- The App Store screenshots. Everything else in milestone 11 is done: GitHub Pages went
+  live on 2026-09-11 from the main branch's `docs/` folder (`/privacy-policy` and
+  `/support` fetched with status 200), and the questionnaire, the privacy policy and
+  support URLs, the subtitle and the listing copy were entered in App Store Connect the
+  same day. The maintainer deferred the screenshots to the end of the release path and
+  may pick a marketing-screenshot tool first; the plain Simulator captures were discarded.
+- Two component suites fail on `main` since the accessory silhouettes landed (67652d0),
+  see Known Issues. The suite must be green before submission.
 
 ## Recently Completed
 
@@ -164,6 +165,14 @@ App Store submission, not TestFlight, is blocked by:
 
 ## Known Issues and Manual Verification Gaps
 
+- **Two component suites fail on `main`.** `profile.component.test.tsx` ("the rail
+  mixes coloured silhouettes, accessory glyphs and legacy glyphs") looks for
+  `profile-rail-photo-placeholder-accessory`, and `garment-tile-artwork.component.test.tsx`
+  ("an unreadable accessory photo falls to the existing glyph") expects the pre-silhouette
+  accessory glyph. Both fail on the untouched tree since 67652d0 drew the five accessory
+  silhouettes, so `pnpm --filter @kuyara/mobile test:components` exits 1 (299 passed,
+  2 failed on 2026-09-11). Decide whether the tests or the fallback are stale before
+  fixing.
 - **A development LogBox warning appears at launch under Reduce Motion.** Seen on the
   Simulator on 2026-09-10 on the build before and after the detail entrance transition,
   so it is not caused by that change; its text was not captured because Metro ran in
