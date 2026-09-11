@@ -37,6 +37,7 @@ export type TodayMessages = Readonly<{
   reasonsHeading: string;
   ownershipOwnedAction: string;
   ownershipWantedAction: string;
+  ownershipChangeHint: string;
   ownershipOwnedLabel: string;
   ownershipWantedLabel: string;
   ownershipUntrackedLabel: string;
@@ -744,6 +745,7 @@ const en = {
     reasonsHeading: 'Why it works',
     ownershipOwnedAction: 'I own it',
     ownershipWantedAction: 'I want it',
+    ownershipChangeHint: 'Changes whether this piece is in your Closet',
     ownershipOwnedLabel: englishOwnershipStateLabels.owned,
     ownershipWantedLabel: englishOwnershipStateLabels.wanted,
     ownershipUntrackedLabel: 'Not in your Closet',
@@ -1190,6 +1192,7 @@ const tr = {
     reasonsHeading: 'Neden uygun',
     ownershipOwnedAction: 'Bende var',
     ownershipWantedAction: 'İstiyorum',
+    ownershipChangeHint: 'Bu parçanın Gardırop durumunu değiştirir',
     ownershipOwnedLabel: 'Sende var',
     ownershipWantedLabel: 'İstiyorsun',
     ownershipUntrackedLabel: 'Gardırobunda yok',

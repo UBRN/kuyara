@@ -11,7 +11,10 @@ import {
 } from '@/features/today/__tests__/fixtures';
 import { unavailableTodayState } from '@/features/today/model';
 import { OutfitDetailScreen } from '@/features/today/presentation/outfit-detail-screen';
-import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
+import {
+  createDetailCaptionLayout,
+  createTodayPresentation,
+} from '@/features/today/presentation/today-presentation';
 import { TodayScreen } from '@/features/today/presentation/today-screen';
 import {
   WeatherApplicationContext,
@@ -30,6 +33,66 @@ import { haptics } from '@/components/ui/haptics';
 jest.mock('expo-symbols', () => ({
   SymbolView: () => null,
 }));
+jest.mock('@/components/ui/native-menu', () => {
+  const React = jest.requireActual('react') as typeof import('react');
+  const {
+    Pressable,
+    Text,
+    View,
+  } = jest.requireActual('react-native') as typeof import('react-native');
+
+  return {
+    NativeMenu: ({
+      accessibilityHint,
+      accessibilityLabel,
+      children,
+      height,
+      hitSlop,
+      items,
+      onSelect,
+      testID,
+      width,
+    }: Readonly<{
+      accessibilityHint?: string;
+      accessibilityLabel: string;
+      children: React.ReactNode;
+      height: number;
+      hitSlop?: number;
+      items: readonly Readonly<{ id: string; label: string; selected?: boolean }>[];
+      onSelect: (id: string) => void;
+      testID?: string;
+      width: number;
+    }>) => {
+      const [open, setOpen] = React.useState(false);
+      return (
+        <View style={{ height, width }}>
+          <Pressable
+            accessible
+            accessibilityHint={accessibilityHint}
+            accessibilityLabel={accessibilityLabel}
+            accessibilityRole="button"
+            hitSlop={hitSlop}
+            onPress={() => setOpen(true)}
+            style={{ height, width }}
+            testID={testID}>
+            {children}
+          </Pressable>
+          {open ? items.map((item) => (
+            <Pressable
+              accessibilityRole="button"
+              key={item.id}
+              onPress={() => {
+                setOpen(false);
+                if (!item.selected) onSelect(item.id);
+              }}>
+              <Text>{item.label}</Text>
+            </Pressable>
+          )) : null}
+        </View>
+      );
+    },
+  };
+});
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 
@@ -265,9 +328,12 @@ test('outfit detail renders the detail board, in-place captions, requirement row
     .toMatchObject({ width: 358 });
   const plate = result.getByTestId('outfit-detail-board-plate');
   const plateHeightBeforeCaptionMeasure = StyleSheet.flatten(plate.props.style).height;
-  const firstCaption = result.getByTestId('outfit-detail-caption-jumpsuit');
-  const firstCaptionTop = StyleSheet.flatten(firstCaption.props.style).top;
-  await fireEvent(firstCaption, 'layout', {
+  const firstBox = layoutGarmentBoard(
+    presentation.suggestions[0].boardPieces, 358, 'detail',
+  ).boxes.find(({ garmentTypeId }) => garmentTypeId === 'jumpsuit');
+  expect(firstBox).toBeDefined();
+  const firstCaptionTop = createDetailCaptionLayout(firstBox!, 358).top;
+  await fireEvent(result.getByTestId('outfit-detail-caption-content-jumpsuit'), 'layout', {
     nativeEvent: { layout: { width: 120, height: 200, x: 0, y: 0 } },
   });
   expect(StyleSheet.flatten(result.getByTestId('outfit-detail-board-plate').props.style).height)
@@ -376,7 +442,7 @@ describe.each(['en', 'tr'] as const)('%s outfit detail untracked garments', (lan
 });
 
 describe.each(['en', 'tr'] as const)('%s outfit detail ownership', (language) => {
-  test('shows matched states, actions, selection semantics, and the owned count', async () => {
+  test('shows matched states and changes them from each caption menu', async () => {
     const onSetOwnership = jest.fn();
     const presentation = loadedPresentation(language);
     const ownershipByGarmentType = Object.fromEntries(
@@ -409,13 +475,12 @@ describe.each(['en', 'tr'] as const)('%s outfit detail ownership', (language) =>
       'accessibilityLabel',
       `${presentation.suggestions[0].pieces[1].item}, ${presentation.suggestions[0].pieces[1].slot}, ${wantedLabel}`,
     );
-
-    expect(
-      result.getByTestId('outfit-detail-ownership-weather_boots-owned').props.accessibilityState,
-    ).toMatchObject({ selected: false });
-    expect(
-      result.getByTestId('outfit-detail-ownership-weather_boots-wanted').props.accessibilityState,
-    ).toMatchObject({ selected: false });
+    for (const { garmentTypeId } of presentation.suggestions[0].pieces) {
+      const caption = result.getByTestId(`outfit-detail-caption-${garmentTypeId}`);
+      expect(caption.props.accessibilityState.selected).toBeUndefined();
+      expect(caption).toHaveProp('accessibilityHint', messages[language].today.ownershipChangeHint);
+      expect(caption).toHaveProp('accessibilityRole', 'button');
+    }
     expect(result.getByTestId('outfit-detail-ownership-summary')).toHaveTextContent(
       messages[language].today.ownershipSummary({
         owned: 1,
@@ -423,23 +488,21 @@ describe.each(['en', 'tr'] as const)('%s outfit detail ownership', (language) =>
       }),
     );
 
-    const ownedSelected = result.getByTestId('outfit-detail-ownership-jumpsuit-owned');
-    const wantedUnselected = result.getByTestId('outfit-detail-ownership-jumpsuit-wanted');
-    expect(ownedSelected.props.accessibilityState.selected).toBe(true);
-    expect(wantedUnselected.props.accessibilityState.selected).toBe(false);
-    await fireEvent.press(ownedSelected);
+    const jumpsuitCaption = result.getByTestId('outfit-detail-caption-jumpsuit');
+    await fireEvent.press(jumpsuitCaption);
+    await fireEvent.press(result.getByRole('button', { name: messages[language].today.ownershipOwnedAction }));
     expect(onSetOwnership).not.toHaveBeenCalled();
-    await fireEvent.press(wantedUnselected);
+    await fireEvent.press(jumpsuitCaption);
+    await fireEvent.press(result.getByRole('button', { name: messages[language].today.ownershipWantedAction }));
     expect(onSetOwnership).toHaveBeenCalledWith('jumpsuit', 'wanted');
 
     onSetOwnership.mockClear();
-    const ownedUnselected = result.getByTestId('outfit-detail-ownership-rain_jacket-owned');
-    const wantedSelected = result.getByTestId('outfit-detail-ownership-rain_jacket-wanted');
-    expect(ownedUnselected.props.accessibilityState.selected).toBe(false);
-    expect(wantedSelected.props.accessibilityState.selected).toBe(true);
-    await fireEvent.press(wantedSelected);
+    const rainJacketCaption = result.getByTestId('outfit-detail-caption-rain_jacket');
+    await fireEvent.press(rainJacketCaption);
+    await fireEvent.press(result.getByRole('button', { name: messages[language].today.ownershipWantedAction }));
     expect(onSetOwnership).not.toHaveBeenCalled();
-    await fireEvent.press(ownedUnselected);
+    await fireEvent.press(rainJacketCaption);
+    await fireEvent.press(result.getByRole('button', { name: messages[language].today.ownershipOwnedAction }));
     expect(onSetOwnership).toHaveBeenCalledWith('rain_jacket', 'owned');
   });
 });
@@ -756,7 +819,6 @@ describe.each(['en', 'tr'] as const)('%s outfit detail captions above 1.5', (lan
     const inline = await detail(1);
     const labels = pieces.map(({ garmentTypeId }) => {
       const caption = inline.getByTestId(`outfit-detail-caption-${garmentTypeId}`);
-      expect(StyleSheet.flatten(caption.props.style).position).toBe('absolute');
       return caption.props.accessibilityLabel;
     });
     expect(inline.queryByTestId('outfit-detail-caption-list')).toBeNull();
@@ -774,14 +836,14 @@ describe.each(['en', 'tr'] as const)('%s outfit detail captions above 1.5', (lan
     const boardOrder = board.boxes
       .map(({ garmentTypeId }) => garmentTypeId)
       .filter((id) => pieces.some((piece) => piece.garmentTypeId === id));
-    expect(within(list).getAllByTestId(/^outfit-detail-caption-/).map((row) => row.props.testID))
+    expect(within(list).getAllByRole('button').map((row) => row.props.testID))
       .toEqual(boardOrder.map((id) => `outfit-detail-caption-${id}`));
 
     for (const [index, { garmentTypeId, item, slot }] of pieces.entries()) {
       const caption = stacked.getByTestId(`outfit-detail-caption-${garmentTypeId}`);
       expect(caption.props.accessibilityLabel).toBe(labels[index]);
       expect(caption.props.accessible).toBe(true);
-      expect(StyleSheet.flatten(caption.props.style).position).toBeUndefined();
+      expect(caption.props.accessibilityHint).toBe(messages[language].today.ownershipChangeHint);
       expect(within(caption).getByText(item)).toBeOnTheScreen();
       expect(within(caption).getByText(slot)).toBeOnTheScreen();
     }
@@ -796,7 +858,7 @@ test.each([
   [1, 'row'],
   [1.5, 'row'],
   [3, 'column'],
-])('at font scale %s the detail emphasis pill and ownership pairs use a %s layout', async (fontScale, direction) => {
+])('at font scale %s the detail emphasis pill uses a %s layout and captions stay controls', async (fontScale, direction) => {
   Dimensions.set({ window: { ...originalDimensions, width: 390, fontScale } });
   const result = await render(providers(
     <OutfitDetailScreen
@@ -813,8 +875,8 @@ test.each([
   expect(result.getByText(messages.en.today.emphasis.recommended)).toBeOnTheScreen();
   expect(StyleSheet.flatten(result.getByTestId('outfit-detail-heading-group').props.style).flexDirection)
     .toBe(direction);
-  expect(StyleSheet.flatten(result.getByTestId('outfit-detail-ownership-actions-jumpsuit').props.style).flexDirection)
-    .toBe(direction);
-  expect(result.getByTestId('outfit-detail-ownership-jumpsuit-owned')).toBeOnTheScreen();
-  expect(result.getByTestId('outfit-detail-ownership-jumpsuit-wanted')).toBeOnTheScreen();
+  expect(result.getByTestId('outfit-detail-caption-jumpsuit')).toHaveProp(
+    'accessibilityRole',
+    'button',
+  );
 });

@@ -11,6 +11,7 @@ import {
   GarmentBoard,
   Icon,
   layoutGarmentBoard,
+  NativeMenu,
   Pill,
   Screen,
   haptics,
@@ -138,55 +139,80 @@ export function OutfitDetailScreen({
     const captionLayout = usesStackedLayout
       ? null
       : createDetailCaptionLayout(box, contentWidth);
+    const captionWidth = captionLayout?.width ?? contentWidth;
+    const captionHeight = captionHeights[box.slot] ?? initialCaptionHeight;
     // Centred text belongs under a centred piece; in the list the box shrinks to its
     // content and wrapped lines read from the left edge like every other list.
     const captionTextStyle = captionLayout ? styles.captionText : undefined;
 
     return (
       <View
-        accessible
-        accessibilityLabel={`${piece.item}, ${piece.slot}, ${spokenOwnership}`}
         key={box.slot}
-        onLayout={
-          captionLayout
-            ? ({ nativeEvent }) => {
-                const height = nativeEvent.layout.height;
-                if (captionHeights[box.slot] === height) return;
-                setCaptionHeights((current) => ({ ...current, [box.slot]: height }));
-              }
-            : undefined
-        }
-        style={captionLayout ? [styles.caption, captionLayout] : styles.stackedCaption}
-        testID={`outfit-detail-caption-${piece.garmentTypeId}`}>
-        <AppText style={captionTextStyle} variant="bodyStrong">
-          {piece.item}
-        </AppText>
-        <View style={styles.captionMeta}>
-          <AppText colorRole="textSecondary" style={captionTextStyle} variant="caption">
-            {piece.slot}
-          </AppText>
-          {ownershipLabel ? (
-            <View style={styles.ownershipState}>
-              <View
-                accessibilityElementsHidden
-                importantForAccessibility="no-hide-descendants"
-                style={[
-                  styles.ownershipMarker,
-                  ownership === 'owned'
-                    ? {
-                        backgroundColor: theme.colors.brandAccent,
-                        borderColor: theme.colors.brandAccent,
-                      }
-                    : { borderColor: theme.colors.brandAccent },
-                ]}
-                testID={`outfit-detail-ownership-marker-${piece.garmentTypeId}`}
-              />
-              <AppText colorRole="textSecondary" variant="caption">
-                {ownershipLabel}
+        style={captionLayout ? [styles.captionPosition, captionLayout] : undefined}>
+        <NativeMenu
+          accessibilityHint={copy.ownershipChangeHint}
+          accessibilityLabel={`${piece.item}, ${piece.slot}, ${spokenOwnership}`}
+          height={captionHeight}
+          hitSlop={spacing.sm}
+          items={[
+            {
+              id: 'owned',
+              label: copy.ownershipOwnedAction,
+              selected: ownership === 'owned',
+            },
+            {
+              id: 'wanted',
+              label: copy.ownershipWantedAction,
+              selected: ownership === 'wanted',
+            },
+          ]}
+          onSelect={(next) => {
+            if (next === 'owned' || next === 'wanted') {
+              setOwnership(piece.garmentTypeId, next);
+            }
+          }}
+          testID={`outfit-detail-caption-${piece.garmentTypeId}`}
+          width={captionWidth}>
+          <View
+            onLayout={({ nativeEvent }) => {
+              const height = nativeEvent.layout.height;
+              if (captionHeights[box.slot] === height) return;
+              setCaptionHeights((current) => ({ ...current, [box.slot]: height }));
+            }}
+            style={captionLayout ? styles.caption : styles.stackedCaption}
+            testID={`outfit-detail-caption-content-${piece.garmentTypeId}`}>
+            <AppText style={captionTextStyle} variant="bodyStrong">
+              {piece.item}
+            </AppText>
+            <View style={styles.captionMeta}>
+              <AppText colorRole="textSecondary" style={captionTextStyle} variant="caption">
+                {piece.slot}
               </AppText>
+              {ownershipLabel ? (
+                <View style={styles.ownershipState}>
+                  <View
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                    style={[
+                      styles.ownershipMarker,
+                      ownership === 'owned'
+                        ? {
+                            backgroundColor: theme.colors.brandAccent,
+                            borderColor: theme.colors.brandAccent,
+                          }
+                        : { borderColor: theme.colors.brandAccent },
+                    ]}
+                    testID={`outfit-detail-ownership-marker-${piece.garmentTypeId}`}
+                  />
+                  <AppText colorRole="textSecondary" variant="caption">
+                    {ownershipLabel}
+                  </AppText>
+                </View>
+              ) : null}
+              <Icon color={theme.colors.textSecondary} name="menuIndicator" size={16} />
             </View>
-          ) : null}
-        </View>
+          </View>
+        </NativeMenu>
       </View>
     );
   };
@@ -246,41 +272,6 @@ export function OutfitDetailScreen({
           <AppText colorRole="textSecondary" style={styles.ownershipSummaryText} variant="caption">
             {copy.ownershipSummary({ owned: ownedCount, total: suggestion.pieces.length })}
           </AppText>
-        </View>
-
-        <View style={styles.ownershipControlList}>
-          {suggestion.pieces.map(({ garmentTypeId, item }) => {
-            const owned = ownershipByGarmentType[garmentTypeId] === 'owned';
-            const wanted = ownershipByGarmentType[garmentTypeId] === 'wanted';
-
-            return (
-              <View key={garmentTypeId} style={styles.ownershipControlGroup}>
-                <AppText colorRole="textSecondary" variant="caption">{item}</AppText>
-                <View
-                  style={[styles.ownershipActions, usesStackedLayout && styles.stackedOwnershipActions]}
-                  testID={`outfit-detail-ownership-actions-${garmentTypeId}`}>
-                  <Button
-                    accessibilityLabel={`${item}, ${copy.ownershipOwnedAction}`}
-                    accessibilityState={{ selected: owned }}
-                    label={copy.ownershipOwnedAction}
-                    onPress={owned ? undefined : () => setOwnership(garmentTypeId, 'owned')}
-                    style={styles.ownershipAction}
-                    testID={`outfit-detail-ownership-${garmentTypeId}-owned`}
-                    variant={owned ? 'primary' : 'secondary'}
-                  />
-                  <Button
-                    accessibilityLabel={`${item}, ${copy.ownershipWantedAction}`}
-                    accessibilityState={{ selected: wanted }}
-                    label={copy.ownershipWantedAction}
-                    onPress={wanted ? undefined : () => setOwnership(garmentTypeId, 'wanted')}
-                    style={styles.ownershipAction}
-                    testID={`outfit-detail-ownership-${garmentTypeId}-wanted`}
-                    variant={wanted ? 'primary' : 'secondary'}
-                  />
-                </View>
-              </View>
-            );
-          })}
         </View>
 
         {suggestion.requirementRows.length > 0 ? (
@@ -346,6 +337,8 @@ const styles = StyleSheet.create({
   },
   caption: {
     alignItems: 'center',
+  },
+  captionPosition: {
     position: 'absolute',
   },
   captionOverlay: {
@@ -396,25 +389,6 @@ const styles = StyleSheet.create({
   section: {
     gap: spacing.md,
     marginTop: spacing.md,
-  },
-  ownershipControlList: {
-    gap: spacing.md,
-    marginTop: spacing.md,
-  },
-  ownershipControlGroup: {
-    gap: spacing.sm,
-  },
-  ownershipActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  // Interim until ADR 0026 decision 5's ownership control lands: the pair stacks above 1.5
-  // so Turkish labels wrap at the word instead of mid-word.
-  stackedOwnershipActions: {
-    flexDirection: 'column',
-  },
-  ownershipAction: {
-    flex: 1,
   },
   reasonList: {
     gap: spacing.sm,
