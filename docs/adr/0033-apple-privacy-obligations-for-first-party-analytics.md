@@ -6,8 +6,8 @@ Implementation: the milestone 10 code side (consent sheet, Settings Privacy surf
 fail-closed adapter, pre-consent buffer) landed 2026-09-09 and 2026-09-10; the PostHog
 project configuration in section 6 item 6 was verified 2026-09-10. Still open: the DPA
 decision (section 7) and the milestone 11 items. *Amended 2026-09-11:* milestone 11 items
-1 and 2 are done and the lawful basis is decided (section 7); the DPA signature is with
-the maintainer. This ADR verifies what Apple actually
+1 and 2 are done and the lawful basis is decided (section 7); the PostHog DPA was signed
+by the maintainer on 2026-09-11, which closes the milestone 10 condition. This ADR verifies what Apple actually
 requires of the analytics direction in
 [ADR 0023](0023-behavioural-product-analytics-with-posthog.md) and turns the open consent,
 revocation and deletion question into decisions and follow-up work. It installs nothing
@@ -385,7 +385,8 @@ Milestone 11, App Store privacy disclosure and privacy policy, gains these:
   requirement is satisfied either way by the consent surface. *Decided 2026-09-11:*
   consent is the lawful basis. The first-launch consent sheet and the Settings withdrawal
   control stay as implemented. The PostHog DPA is signed by the maintainer through the
-  PostHog interface; signature is with the maintainer.
+  PostHog interface. *Signed 2026-09-11:* the maintainer generated and signed PostHog's
+  self-serve DPA through PandaDoc; the countersigned copy is kept outside the repository.
 - **Deletion of anonymous events.** Whether PostHog can delete events by `distinct_id`
   when no person profile exists, or whether a deletion request would require a person
   profile to be created first. Confirm against PostHog's persons API before the privacy

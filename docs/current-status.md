@@ -72,10 +72,10 @@ Analytics is sequenced before the first public App Store release, so milestones 
     sections 4 to 6); the two public Expo variables live in the EAS `production`
     environment and the `production` build profile loads that environment. The `preview`
     environment carries no variables, so preview builds stay analytics-off; a build from
-    the `production` profile is analytics-on wherever it is distributed. The one item
-    still open in this milestone is the **DPA decision** with counsel (ADR 0033 section
-    7); it is awaiting the maintainer's decision, not implementation work, and the
-    milestone is not closed until it is recorded.
+    the `production` profile is analytics-on wherever it is distributed. The DPA
+    condition closed on 2026-09-11: consent is the recorded lawful basis and the
+    maintainer signed PostHog's DPA the same day (ADR 0033 section 7). The milestone is
+    complete.
 11. **App Store privacy disclosure and privacy policy.** The privacy policy URL and the
     App Store Connect data-collection questionnaire must describe analytics collection,
     with the install identifier declared linked to the user (ADR 0033, amended
@@ -104,9 +104,6 @@ and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
 
 App Store submission, not TestFlight, is blocked by:
 
-- Milestone 10's PostHog DPA signature, with the maintainer in the PostHog interface. The
-  lawful basis was decided on 2026-09-11 (consent, ADR 0033 section 7); the code, the
-  PostHog project and the EAS variables are complete.
 - Milestone 11's two maintainer steps: enabling GitHub Pages for the main branch's `docs/`
   folder, which publishes the privacy policy and support page under
   `https://ubrn.github.io/kuyara/`, and entering the privacy policy URL, the support URL,
