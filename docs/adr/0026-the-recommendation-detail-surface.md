@@ -2,7 +2,8 @@
 
 Status: Accepted (2026-09-04)
 
-Implementation: decisions 1 to 7 implemented (decision 7 on 2026-09-10).
+Implementation: decisions 1 to 7 implemented (decision 7 on 2026-09-10 and decision 5's
+control on 2026-09-11).
 
 Builds on: [ADR 0025](0025-the-garment-board-composition-rule.md), whose composition rule
 this surface reuses unchanged.
@@ -108,7 +109,20 @@ are, actions, and are not reused as state. The new Turkish pair is specified rat
 added, and lands with the screen that consumes it, because unused localization keys are
 the speculative infrastructure `AGENTS.md` forbids.
 
-The control that *changes* ownership is deliberately not designed here and remains open.
+**Amended 2026-09-11.** The caption is the ownership control. It remains one accessible
+button named with the item, slot, and spoken ownership state, and adds a localized hint
+that it changes whether the piece is in the Closet. Every caption ends with a 16 point
+menu indicator in secondary ink. Pressing it opens the platform menu with "I own it" and
+"I want it"; the current state has a checkmark, selecting it again does nothing, and a
+different selection updates the marker and word with selection haptics. The visible
+caption does not grow for the control. `hitSlop` supplies the 44 point target. Above
+`fontScale` 1.5, the caption list from decision 3's amendment uses the same control.
+
+The interim action list repeated every garment already named by the board and caption,
+then placed up to five accent fills in one viewport against Law 1. It is removed. An
+untracked garment still draws no marker and no state word while its accessible name
+speaks the untracked state; the menu indicator is present on tracked and untracked
+captions alike.
 
 ### 6. Substitutions are out of the MVP, as a product decision rather than a design gap
 
@@ -191,9 +205,13 @@ under a pair of jeans.
 
 **Adding the Turkish ownership state pair now.** Rejected as unused keys with no consumer.
 
+**Keeping the interim per-garment ownership action list.** Rejected because it stated
+every garment twice and placed up to five accent fills in one viewport against Law 1.
+The in-place caption menu preserves the state marker and word without adding another
+visual block.
+
 ## Out of scope
 
-- The control that changes ownership state.
 - Substitutions, per decision 6.
 - The garment rendering architecture, unchanged from ADR 0021 and ADR 0025.
 - Alternate outfits and how Today offers them, which is ADR 0021 section 6.
