@@ -14,6 +14,7 @@ export type WeatherApplicationValue = Readonly<{
   openApplicationSettings: () => Promise<void>;
   selectManualLocation: (id: ManualLocationId) => Promise<void>;
   refresh: () => Promise<void>;
+  revalidateFreshness: () => Promise<void>;
   // Optional: a live, non-React-timed read of the controller's state. `manual_refresh_triggered`
   // and `retry_after_failure_triggered` (taxonomy 5.7) need the outcome of an awaited `refresh()`
   // immediately, and the controller commits it synchronously before that promise settles, so a

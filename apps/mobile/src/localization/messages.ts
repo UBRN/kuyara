@@ -265,6 +265,8 @@ export type AppMessages = Readonly<{
     refresh: string;
     refreshAccessibilityLabel: string;
     refreshing: string;
+    refreshFailed: string;
+    loading: string;
     offlineTitle: string;
     offlineBody: string;
     offlineNotice: string;
@@ -574,6 +576,8 @@ const en = {
     refresh: 'Refresh',
     refreshAccessibilityLabel: 'Refresh weather',
     refreshing: 'Refreshing weather…',
+    refreshFailed: "Couldn't refresh",
+    loading: 'Loading weather…',
     offlineTitle: 'You appear to be offline',
     offlineBody: 'Connect to the internet and try loading weather again.',
     offlineNotice: 'You are offline. The last matching weather remains visible.',
@@ -1016,6 +1020,8 @@ const tr = {
     refresh: 'Yenile',
     refreshAccessibilityLabel: 'Hava durumunu yenile',
     refreshing: 'Hava durumu yenileniyor…',
+    refreshFailed: 'Yenilenemedi',
+    loading: 'Hava durumu yükleniyor…',
     offlineTitle: 'Çevrimdışı görünüyorsunuz',
     offlineBody: 'İnternete bağlanıp hava durumunu yeniden yüklemeyi deneyin.',
     offlineNotice: 'Çevrimdışısınız. Son eşleşen hava durumu gösterilmeye devam ediyor.',

@@ -192,7 +192,7 @@ export class WeatherApplicationController {
   }
 
   // The explicit user-triggered refresh: Today and Weather both call this for their pull
-  // gesture and header button, and reuse it as the retry action when a failure is shown
+  // gesture and visible control, and reuse it as the retry action when a failure is shown
   // (taxonomy 5.7 notes neither surface has a separate retry control). The caller reads the
   // outcome back through `getSnapshot()` after this resolves, since the state it needs is
   // committed synchronously inside `refreshOnce` before the promise settles.
@@ -201,10 +201,13 @@ export class WeatherApplicationController {
     return active ? this.refreshLocation(active, 'manual') : Promise.resolve();
   }
 
-  async onForeground(): Promise<void> {
+  // Freshness moves with the clock, not with a state change, so the surfaces that show it
+  // re-evaluate it when they regain focus, and foreground shares the same path. It is a
+  // bound property because a focus effect depending on it must not re-run on every state
+  // change.
+  revalidateFreshness = async (): Promise<void> => {
     if (this.state.status !== 'ready') return;
-    const permission = await this.dependencies.deviceLocation.getPermissionState();
-    const current = this.requireReady();
+    const current = this.state;
     const freshness = current.snapshot
       ? weatherFreshness(current.snapshot.fetchedAt, this.dependencies.now())
       : null;
@@ -213,16 +216,44 @@ export class WeatherApplicationController {
       ...current,
       snapshot,
       freshness: freshness === 'invalid' ? null : freshness,
+    });
+    if (!current.activeLocation || (snapshot && freshness === 'fresh')) return;
+    await this.refreshLocation(
+      current.activeLocation,
+      snapshot ? 'automatic_stale' : 'automatic_no_cache',
+    );
+  };
+
+  async onForeground(): Promise<void> {
+    if (this.state.status !== 'ready') return;
+    const permission = await this.dependencies.deviceLocation.getPermissionState();
+    const current = this.requireReady();
+    this.setReady({
+      ...current,
       permission,
       locationFlow: permission.kind === 'granted' ? 'idle' : current.locationFlow,
     });
-    if (!current.activeLocation) return;
-    if (!snapshot || freshness !== 'fresh') {
-      await this.refreshLocation(
-        current.activeLocation,
-        snapshot ? 'automatic_stale' : 'automatic_no_cache',
-      );
+
+    // A traveller's device location is only ever read when they pick it, so the city under
+    // "Current location" survives the flight. One bounded re-acquisition per foreground
+    // event corrects it; a failed lookup is silent, since the user asked for nothing here.
+    const previous = this.requireReady().activeLocation;
+    if (previous?.source === 'device' && permission.kind === 'granted') {
+      const result = await this.dependencies.deviceLocation.getCurrentLocation();
+      const active = this.requireReady().activeLocation;
+      const moved = result.kind === 'success'
+        && (result.location.locationKey !== previous.locationKey
+          || result.location.timeZone !== previous.timeZone);
+      // A selection made while the lookup ran wins over the lookup it raced.
+      const unchanged = active?.locationKey === previous.locationKey
+        && active.timeZone === previous.timeZone;
+      if (moved && unchanged) {
+        await this.selectLocation(result.location);
+        return;
+      }
     }
+
+    await this.revalidateFreshness();
   }
 
   private async initializeOnce(): Promise<void> {
@@ -283,7 +314,8 @@ export class WeatherApplicationController {
     }
 
     const current = this.requireReady();
-    const locationChanged = persisted.locationKey !== current.activeLocation?.locationKey;
+    const locationChanged = persisted.locationKey !== current.activeLocation?.locationKey
+      || persisted.timeZone !== current.activeLocation?.timeZone;
     this.setReady({
       ...current, activeLocation: persisted,
       snapshot: locationChanged ? null : current.snapshot,

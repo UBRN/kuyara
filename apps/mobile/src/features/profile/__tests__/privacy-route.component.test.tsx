@@ -45,7 +45,7 @@ const initialMetrics = {
 test('the Privacy route opens the published privacy policy URL', async () => {
   const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
   const result = await render(
-    <LocalizationContext.Provider value={{ language: 'en', messages: messages.en }}>
+    <LocalizationContext.Provider value={{ language: 'en', messages: messages.en , hour12: false }}>
       <KuyaraThemeContext.Provider value={lightTheme}>
         <SafeAreaProvider initialMetrics={initialMetrics}>
           <PrivacySettingsRoute />

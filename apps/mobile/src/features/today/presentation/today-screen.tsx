@@ -22,6 +22,7 @@ import {
 import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
+import { useLocalization } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -35,6 +36,7 @@ type TodayScreenProps = Readonly<{
 export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: TodayScreenProps) {
   const router = useRouter();
   const weatherApplication = useWeatherApplication();
+  const { hour12 } = useLocalization();
   const [now, setNow] = useState(() => Date.now());
   useFocusEffect(useCallback(() => { setNow(Date.now()); }, []));
   const presentationState =
@@ -43,7 +45,7 @@ export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: 
     weatherApplication.state.activeLocation === null
       ? { ...state, reason: 'no-active-location' as const }
       : state;
-  const presentation = createTodayPresentation(presentationState, language, now);
+  const presentation = createTodayPresentation(presentationState, language, hour12, now);
   const copy = getMessages(language).today;
   const theme = useKuyaraTheme();
   // One shared threshold (ADR 0019): the stacked layout is the same rule ListRow applies.

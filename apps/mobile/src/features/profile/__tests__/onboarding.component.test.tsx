@@ -106,6 +106,7 @@ function createWeatherApplication(
     openApplicationSettings: jest.fn(async () => undefined),
     selectManualLocation: jest.fn(async () => undefined),
     refresh: jest.fn(async () => undefined),
+    revalidateFreshness: jest.fn(async () => undefined),
   };
 }
 
@@ -126,7 +127,7 @@ async function renderOnboarding(
     analytics,
     onComplete,
     result: await render(
-      <LocalizationContext.Provider value={{ language, messages: messages[language] }}>
+      <LocalizationContext.Provider value={{ language, messages: messages[language], hour12: false }}>
         <KuyaraThemeContext.Provider value={lightTheme}>
           <SafeAreaProvider initialMetrics={initialMetrics}>
             <ProductAnalyticsProvider

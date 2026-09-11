@@ -105,6 +105,7 @@ export function WeatherApplicationProvider({
     openApplicationSettings: () => controller.openApplicationSettings(),
     selectManualLocation: (id) => controller.selectManualLocation(id),
     refresh: () => controller.refresh(),
+    revalidateFreshness: controller.revalidateFreshness,
     getSnapshot: controller.getSnapshot,
   }), [controller, state]);
 

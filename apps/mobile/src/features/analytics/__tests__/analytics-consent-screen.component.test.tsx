@@ -49,7 +49,7 @@ async function renderRoute(analytics: ProductAnalytics) {
     updateAnalyticsConsent: async (consent: string) => { persisted.push(consent); },
   } as ProfileApplicationValue;
   const rendered = await render(
-    <LocalizationContext.Provider value={{ language: 'en', messages: messages.en }}>
+    <LocalizationContext.Provider value={{ language: 'en', messages: messages.en , hour12: false }}>
       <KuyaraThemeContext.Provider value={lightTheme}>
         <SafeAreaProvider initialMetrics={initialMetrics}>
           <ProfileApplicationContext value={application}>
@@ -116,7 +116,7 @@ test('a rejected answer stays open and can be retried without an unhandled rejec
     throw new Error('persistence unavailable');
   });
   const rendered = await render(
-    <LocalizationContext.Provider value={{ language: 'en', messages: messages.en }}>
+    <LocalizationContext.Provider value={{ language: 'en', messages: messages.en , hour12: false }}>
       <KuyaraThemeContext.Provider value={lightTheme}>
         <SafeAreaProvider initialMetrics={initialMetrics}>
           <AnalyticsConsentScreen onAccept={onFailure} onDecline={onFailure} />

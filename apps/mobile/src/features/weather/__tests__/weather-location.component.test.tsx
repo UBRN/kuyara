@@ -46,6 +46,7 @@ function harness(language: SupportedLanguage = 'en') {
     confirmDeviceLocationRequest: jest.fn(async () => undefined),
     openApplicationSettings: jest.fn(async () => undefined),
     selectManualLocation: jest.fn(async () => undefined), refresh: jest.fn(async () => undefined),
+    revalidateFreshness: jest.fn(async () => undefined),
   } satisfies WeatherApplicationValue;
   const search = { searchPlaces: jest.fn(async (): Promise<PlaceSearchV1Data> => data), selectPlaceSearchResult: jest.fn(async () => undefined) };
   const analytics = new RecordingProductAnalytics();
@@ -60,7 +61,7 @@ function harness(language: SupportedLanguage = 'en') {
   };
   function Providers({ children }: PropsWithChildren) {
     return (
-      <LocalizationContext value={{ language, messages: messages[language] }}>
+      <LocalizationContext value={{ language, messages: messages[language], hour12: false }}>
         <KuyaraThemeContext value={lightTheme}>
           <ProductAnalyticsContext value={productAnalytics}>
             <WeatherApplicationContext value={weather}><PlaceSearchApplicationContext value={search}>{children}</PlaceSearchApplicationContext></WeatherApplicationContext>

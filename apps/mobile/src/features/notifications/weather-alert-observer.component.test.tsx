@@ -97,6 +97,7 @@ function weatherApplication(
     openApplicationSettings: async () => undefined,
     selectManualLocation: async () => undefined,
     refresh: async () => undefined,
+    revalidateFreshness: async () => undefined,
   };
 }
 
@@ -131,7 +132,7 @@ function Providers({
 }>) {
   return (
     <ProfileApplicationContext.Provider value={profileApplication(notificationsOptIn)}>
-      <LocalizationContext.Provider value={{ language, messages: messages[language] }}>
+      <LocalizationContext.Provider value={{ language, messages: messages[language], hour12: false }}>
         <NotificationApplicationContext.Provider value={notificationApplication(scheduler, permission)}>
           <WeatherApplicationContext.Provider
             value={weatherApplication(weatherSnapshot, freshness, refreshFailure)}

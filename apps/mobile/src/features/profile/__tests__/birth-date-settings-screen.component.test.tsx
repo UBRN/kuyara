@@ -22,7 +22,7 @@ const initialMetrics = {
 
 async function renderScreen(language: SupportedLanguage, birthDate: string | null) {
   return render(
-    <LocalizationContext.Provider value={{ language, messages: messages[language] }}>
+    <LocalizationContext.Provider value={{ language, messages: messages[language], hour12: false }}>
       <KuyaraThemeContext.Provider value={lightTheme}>
         <SafeAreaProvider initialMetrics={initialMetrics}>
           <BirthDateSettingsScreen

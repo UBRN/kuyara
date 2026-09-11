@@ -35,7 +35,7 @@ function providers(
   theme: KuyaraTheme = lightTheme,
 ) {
   return (
-    <LocalizationContext.Provider value={{ language, messages: messages[language] }}>
+    <LocalizationContext.Provider value={{ language, messages: messages[language], hour12: false }}>
       <KuyaraThemeContext.Provider value={theme}>
         <SafeAreaProvider initialMetrics={initialMetrics}>
           {children}

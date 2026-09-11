@@ -191,7 +191,7 @@ function TestProviders({
     <ProductAnalyticsProvider
       analytics={analytics ?? new RecordingProductAnalytics()}
       firstUseStore={new InMemoryFirstUseStore()}>
-      <LocalizationContext.Provider value={{ language: 'en', messages: messages.en }}>
+      <LocalizationContext.Provider value={{ language: 'en', messages: messages.en , hour12: false }}>
         <KuyaraThemeContext.Provider value={lightTheme}>
           <SafeAreaProvider initialMetrics={initialMetrics}>
             {children}

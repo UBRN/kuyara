@@ -178,7 +178,7 @@ function TestProviders({
   language = 'en',
 }: PropsWithChildren<{ dark?: boolean; language?: SupportedLanguage }>) {
   return (
-    <LocalizationContext.Provider value={{ language, messages: messages[language] }}>
+    <LocalizationContext.Provider value={{ language, messages: messages[language], hour12: false }}>
       <KuyaraThemeContext.Provider value={dark ? darkTheme : lightTheme}>
         <SafeAreaProvider initialMetrics={initialMetrics}>
           {children}

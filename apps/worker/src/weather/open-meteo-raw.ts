@@ -2,6 +2,7 @@ import {
   isValidWeatherHourlyForecastWindow,
   isWeatherHourlyForecastInWindow,
   weatherHourlyForecastMaximumEntries,
+  weatherLocalDateKey,
   type WeatherConditionCode,
 } from '@kuyara/contracts';
 import { z } from 'zod';
@@ -66,6 +67,10 @@ const dailySchema = z.object({
 });
 
 export const openMeteoResponseSchema = z.object({
+  // Requesting a non-UTC timezone makes every `time` a zone-local wall clock with no
+  // offset in the string, so the offset the response carries is what turns one back into
+  // an instant. `daily.time` stays a plain local `YYYY-MM-DD` date.
+  utc_offset_seconds: z.number().int(),
   current: currentSchema,
   hourly: hourlySchema,
   daily: dailySchema,
@@ -97,14 +102,16 @@ export function mapOpenMeteoWeatherCode(code: number): WeatherConditionCode {
   return condition;
 }
 
-function utcIso(timestamp: string): string {
+function utcIso(timestamp: string, utcOffsetSeconds = 0): string {
   const explicitZone = /(?:Z|[+-]\d{2}:\d{2})$/u.test(timestamp);
-  const date = new Date(explicitZone ? timestamp : `${timestamp}Z`);
-  if (!Number.isFinite(date.getTime())) throw new WeatherProviderError('invalid_response');
-  return date.toISOString();
+  const milliseconds = explicitZone
+    ? Date.parse(timestamp)
+    : Date.parse(`${timestamp}Z`) - utcOffsetSeconds * 1000;
+  if (!Number.isFinite(milliseconds)) throw new WeatherProviderError('invalid_response');
+  return new Date(milliseconds).toISOString();
 }
 
-function mapHourly(raw: OpenMeteoResponse['hourly']) {
+function mapHourly(raw: OpenMeteoResponse['hourly'], utcOffsetSeconds: number) {
   return raw.time.map((time, index) => ({
     temperatureCelsius: raw.temperature_2m[index],
     apparentTemperatureCelsius: raw.apparent_temperature[index],
@@ -113,7 +120,7 @@ function mapHourly(raw: OpenMeteoResponse['hourly']) {
     windSpeedMetersPerSecond: raw.wind_speed_10m[index],
     humidity: raw.relative_humidity_2m[index] / 100,
     uvIndex: raw.uv_index[index],
-    forecastAt: utcIso(time),
+    forecastAt: utcIso(time, utcOffsetSeconds),
   })).sort((left, right) => left.forecastAt.localeCompare(right.forecastAt));
 }
 
@@ -122,8 +129,8 @@ export function mapOpenMeteoResponse(
   location: ProviderLocation,
   fetchedAt: string,
 ): ProviderWeatherSnapshot {
-  const observedAt = utcIso(raw.current.time);
-  const allHourly = mapHourly(raw.hourly);
+  const observedAt = utcIso(raw.current.time, raw.utc_offset_seconds);
+  const allHourly = mapHourly(raw.hourly, raw.utc_offset_seconds);
   const nearest = allHourly.reduce((best, entry) => (
     Math.abs(Date.parse(entry.forecastAt) - Date.parse(observedAt))
       < Math.abs(Date.parse(best.forecastAt) - Date.parse(observedAt))
@@ -140,6 +147,11 @@ export function mapOpenMeteoResponse(
     uvIndex: nearest.uvIndex,
     observedAt,
   };
+  // The low and the high belong to the local day the observation falls in, which is the
+  // entry the response labels with that date, not necessarily the first one.
+  const localDate = weatherLocalDateKey(observedAt, location.timeZone);
+  const todayIndex = raw.daily.time.indexOf(localDate ?? '');
+  if (todayIndex < 0) throw new WeatherProviderError('invalid_response');
   const hourly = allHourly.filter(({ forecastAt }) => (
     isWeatherHourlyForecastInWindow(forecastAt, observedAt)
   )).slice(0, weatherHourlyForecastMaximumEntries);
@@ -154,11 +166,11 @@ export function mapOpenMeteoResponse(
     sourceId: 'open-meteo',
     current,
     minimumTemperatureCelsius: Math.min(
-      raw.daily.temperature_2m_min[0],
+      raw.daily.temperature_2m_min[todayIndex],
       current.temperatureCelsius,
     ),
     maximumTemperatureCelsius: Math.max(
-      raw.daily.temperature_2m_max[0],
+      raw.daily.temperature_2m_max[todayIndex],
       current.temperatureCelsius,
     ),
     hourly,
