@@ -181,11 +181,6 @@ App Store submission, not TestFlight, is blocked by:
   bar, the icon set and garment artwork, the `@expo/ui` text field, picker list and date
   picker, the `weather-alerts` notification channel, and the resolved manifest after
   blocking fine-location permission.
-- **The hourly rail shows the whole local day, not the remaining hours.** Seen on the
-  Simulator on 2026-09-10 at 13:44 with WeatherKit data: the rail started at 12:00 AM
-  under the heading "Remaining hours today". The contract only requires the hours to be
-  ordered and to belong to the current local day, so either the Worker trims past hours
-  or the heading changes; neither is decided.
 - **WeatherKit's quota path is untested against Apple.** Apple does not document the
   status returned once the monthly allowance is exhausted; the mapping lands on a
   fallback-eligible error either way, and the daily cap has never been reached.
