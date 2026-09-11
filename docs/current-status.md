@@ -198,11 +198,6 @@ App Store submission, not TestFlight, is blocked by:
 - **The Closet's segmented control is untinted on iOS:** the installed `@expo/ui`
   community control reads `tintColor` only on Android, so ADR 0029's `brandPrimary` tint
   is Android-only until the package exposes an iOS tint.
-- **`components/ui/stretchy-header.tsx`** is built and tested, has no shipped caller and no
-  Reduced Motion gate; wire it with a gate or delete it.
-- **`outfit-composition.ts`'s `composeOutfits`** has no production caller; seven tests
-  still exercise it. Fold them onto `composeOutfitOptions` and delete it when the
-  composition changes next.
 - **Dark elevated-surface step:** `backgroundElevated` sits 1.18:1 over `surface` by
   decision; a lighter value would drop `textSecondary` below its 4.5:1 floor.
 - **Dark atmosphere states render neutral only.** ADR 0018 caps them at Deep Atmosphere's

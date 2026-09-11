@@ -1258,19 +1258,6 @@ export function composeOutfit(
     : Object.freeze({ status: 'composed', outfit: result.outfits[0] });
 }
 
-export function composeOutfits(
-  requirements: ClothingRequirements,
-  candidates: readonly GarmentEligibilityResult[],
-): OutfitCompositionsResult {
-  const result = collectValidOutfits(requirements, candidates);
-  return result.status === 'failure'
-    ? result
-    : Object.freeze({
-        status: 'composed',
-        outfits: selectDiverseOutfits(result.outfits, 3, 0),
-      });
-}
-
 export function composeOutfitOptions(
   requirements: ClothingRequirements,
   candidates: readonly GarmentEligibilityResult[],

@@ -10,7 +10,6 @@ import { listGarmentTypesForPreference } from '../../catalog/domain/garment-cata
 import {
   composeOutfit,
   composeOutfitOptions,
-  composeOutfits,
   outfitCompositionFailureCodes,
   outfitCompositionReasonCodes,
 } from './outfit-composition.ts';
@@ -494,7 +493,7 @@ test('returns three pairwise meaningfully different outfits with the best outfit
     catalogCandidate(requirements, 'rain_jacket'),
     catalogCandidate(requirements, 'sandals'),
   ];
-  const result = composeOutfits(requirements, candidates);
+  const result = composeOutfitOptions(requirements, candidates, 0);
   const best = composeOutfit(requirements, candidates);
 
   assert.equal(result.status, 'composed');
@@ -602,7 +601,7 @@ test('returns two high-heat outfits instead of footwear-only near-duplicates', (
       composeOutfit(requirements, [top, bottom, shoes]),
     ),
   );
-  const result = composeOutfits(requirements, [...tops, bottom, ...footwear]);
+  const result = composeOutfitOptions(requirements, [...tops, bottom, ...footwear], 0);
 
   assert.equal(validCompositions.length, 8);
   assert.equal(
@@ -625,13 +624,13 @@ test('returns two high-heat outfits instead of footwear-only near-duplicates', (
 
 test('returns exactly two outfits when only two meaningful options exist', () => {
   const requirements = clothingRequirements();
-  const result = composeOutfits(requirements, [
+  const result = composeOutfitOptions(requirements, [
     catalogCandidate(requirements, 't_shirt'),
     catalogCandidate(requirements, 'shorts'),
     catalogCandidate(requirements, 'jeans'),
     catalogCandidate(requirements, 'light_jacket'),
     catalogCandidate(requirements, 'sandals'),
-  ]);
+  ], 0);
 
   assert.equal(result.status, 'composed');
   assert.equal(result.outfits.length, 2);
@@ -639,12 +638,12 @@ test('returns exactly two outfits when only two meaningful options exist', () =>
 
 test('returns exactly one outfit when only one option exists', () => {
   const requirements = clothingRequirements();
-  const result = composeOutfits(requirements, [
+  const result = composeOutfitOptions(requirements, [
     catalogCandidate(requirements, 't_shirt'),
     catalogCandidate(requirements, 'shorts'),
     catalogCandidate(requirements, 'light_jacket'),
     catalogCandidate(requirements, 'sandals'),
-  ]);
+  ], 0);
 
   assert.equal(result.status, 'composed');
   assert.equal(result.outfits.length, 1);
@@ -659,7 +658,7 @@ test('returns the same failure as composeOutfit when no composition is valid', (
   ];
 
   assert.deepEqual(
-    composeOutfits(requirements, candidates),
+    composeOutfitOptions(requirements, candidates, 0),
     composeOutfit(requirements, candidates),
   );
 });
@@ -684,7 +683,7 @@ test('returns the same outfits for a fixed candidate reordering', () => {
   ];
 
   assert.deepEqual(
-    composeOutfits(requirements, reordered),
-    composeOutfits(requirements, candidates),
+    composeOutfitOptions(requirements, reordered, 0),
+    composeOutfitOptions(requirements, candidates, 0),
   );
 });
