@@ -562,6 +562,36 @@ test('the hourly card is not rendered once every hour of the snapshot\'s day has
   expect(result.getByTestId('weather-current-card')).toBeOnTheScreen();
 });
 
+test.each([
+  ['en', 'Fri', 'Friday, 12:00 AM. 18°. Cloudy. 20% precipitation'],
+  ['tr', 'Cum', 'Cuma, saat 00:00. Sıcaklık 18°. Bulutlu. Yağış olasılığı yüzde 20.'],
+] as const)('marks the first %s column of a new local day', async (
+  language,
+  shortWeekday,
+  accessibilityLabel,
+) => {
+  const snapshot = sampleSnapshot();
+  snapshot.hourly.push({
+    ...snapshot.hourly[1],
+    forecastAt: '2026-07-30T21:00:00.000Z',
+    temperatureCelsius: 18,
+  });
+  const value = createValue({
+    ...baseState,
+    activeLocation: getManualLocation('sample.istanbul')!,
+    snapshot,
+    freshness: 'fresh',
+  });
+  clock.mockReturnValue(Date.parse('2026-07-30T10:30:00.000Z'));
+
+  const result = await render(
+    <Providers language={language} value={value}><WeatherScreen /></Providers>,
+  );
+
+  expect(result.getByText(shortWeekday)).toBeOnTheScreen();
+  expect(result.getByLabelText(accessibilityLabel)).toBeOnTheScreen();
+});
+
 test('the hourly rail scrolls horizontally and plots one accent temperature series', async () => {
   const value = createValue({
     ...baseState,

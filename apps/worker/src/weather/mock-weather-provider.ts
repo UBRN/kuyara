@@ -9,17 +9,6 @@ import type {
 
 type Dependencies = Readonly<{ now: () => string }>;
 
-function localDateKey(timestamp: string, timeZone: string): string {
-  const parts = new Intl.DateTimeFormat('en', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date(timestamp));
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${values.year}-${values.month}-${values.day}`;
-}
-
 function deterministicSeed(location: ProviderLocation): number {
   return Math.abs(location.latitudeE2 * 31 + location.longitudeE2 * 17);
 }
@@ -60,12 +49,10 @@ export class DeterministicMockWeatherProvider implements WeatherProvider {
     const current = measurements(baseTemperature, condition, seed, 0);
     const start = new Date(fetchedDate);
     start.setUTCMinutes(0, 0, 0);
-    const currentLocalDate = localDateKey(fetchedAt, location.timeZone);
     const hourly = [];
 
-    for (let offset = 0; offset < 25; offset += 1) {
+    for (let offset = 0; offset <= 36; offset += 1) {
       const forecastAt = new Date(start.getTime() + offset * 60 * 60 * 1000).toISOString();
-      if (localDateKey(forecastAt, location.timeZone) !== currentLocalDate) break;
       hourly.push({
         ...measurements(baseTemperature, condition, seed, offset),
         forecastAt,

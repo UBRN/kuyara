@@ -85,7 +85,7 @@ function adjustForQuietHours(
   return null;
 }
 
-/** Plans alerts from an already-validated snapshot with ordered, same-day hours. */
+/** Plans today's alerts from an already-validated snapshot with ordered hours. */
 export function planWeatherAlerts(input: Readonly<{
   snapshot: WeatherSnapshot;
   now: string;
@@ -97,7 +97,10 @@ export function planWeatherAlerts(input: Readonly<{
   const localDate = weatherLocalDateKey(snapshot.current.observedAt, snapshot.timeZone);
   if (localDate === null || !Number.isFinite(now)) return [];
 
-  const remainingHours = snapshot.hourly.filter(({ forecastAt }) => Date.parse(forecastAt) > now);
+  const remainingHours = snapshot.hourly.filter(({ forecastAt }) => (
+    Date.parse(forecastAt) > now &&
+    weatherLocalDateKey(forecastAt, snapshot.timeZone) === localDate
+  ));
   const plans: WeatherAlertPlan[] = [];
 
   function addPlan(

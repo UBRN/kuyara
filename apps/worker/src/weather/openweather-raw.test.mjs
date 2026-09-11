@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { weatherLocalDateKey, weatherV1SuccessSchema } from '@kuyara/contracts';
+import {
+  isValidWeatherHourlyForecastWindow,
+  weatherLocalDateKey,
+  weatherV1SuccessSchema,
+} from '@kuyara/contracts';
 
 import {
   mapOpenWeatherCondition,
@@ -97,11 +101,11 @@ test('clamps daily temperatures around the current reading', () => {
   assert.equal(snapshot.maximumTemperatureCelsius, 24.5);
 });
 
-test('keeps at most 25 ordered hourly entries from the observed local day', () => {
+test('keeps the ordered 36-hour window across local midnight', () => {
   const fixture = rawFixture();
-  const sameDay = Array.from({ length: 30 }, (_, index) => ({
+  fixture.hourly = Array.from({ length: 42 }, (_, index) => ({
     dt: unixSeconds(new Date(
-      Date.parse('2026-08-28T21:00:00.000Z') + index * 30 * 60 * 1000,
+      Date.parse('2026-08-29T07:00:00.000Z') + index * 60 * 60 * 1000,
     ).toISOString()),
     temp: 20,
     feels_like: 20,
@@ -111,28 +115,25 @@ test('keeps at most 25 ordered hourly entries from the observed local day', () =
     pop: 0.1,
     weather: [{ id: 800 }],
   }));
-  fixture.hourly = [
-    { ...sameDay[0], dt: unixSeconds('2026-08-28T20:30:00.000Z') },
-    ...sameDay,
-    { ...sameDay[0], dt: unixSeconds('2026-08-29T21:00:00.000Z') },
-  ].reverse();
+  fixture.hourly.reverse();
 
   const snapshot = mapOpenWeatherResponse(
     openWeatherResponseSchema.parse(fixture),
     location,
     fetchedAt,
   );
-  const currentDay = weatherLocalDateKey(snapshot.current.observedAt, location.timeZone);
+  const localDays = new Set(snapshot.hourly.map(({ forecastAt }) => (
+    weatherLocalDateKey(forecastAt, location.timeZone)
+  )));
 
-  assert.equal(snapshot.hourly.length, 25);
-  assert.equal(snapshot.hourly[0].forecastAt, '2026-08-28T21:00:00.000Z');
-  assert.equal(snapshot.hourly[24].forecastAt, '2026-08-29T09:00:00.000Z');
-  assert.ok(snapshot.hourly.every(({ forecastAt }) => (
-    weatherLocalDateKey(forecastAt, location.timeZone) === currentDay
-  )));
-  assert.ok(snapshot.hourly.every(({ forecastAt }, index, hourly) => (
-    index === 0 || hourly[index - 1].forecastAt < forecastAt
-  )));
+  assert.equal(snapshot.hourly.length, 37);
+  assert.equal(snapshot.hourly[0].forecastAt, '2026-08-29T09:00:00.000Z');
+  assert.equal(snapshot.hourly[36].forecastAt, '2026-08-30T21:00:00.000Z');
+  assert.equal(localDays.size, 3);
+  assert.equal(isValidWeatherHourlyForecastWindow(
+    snapshot.hourly,
+    snapshot.current.observedAt,
+  ), true);
 });
 
 test('maps every OpenWeather condition row', () => {
@@ -193,12 +194,12 @@ test('rejects empty condition arrays, daily data, and hourly data', () => {
   );
 });
 
-test('rejects duplicate or missing local-day hourly forecasts', () => {
+test('rejects duplicate or missing in-window hourly forecasts', () => {
   const duplicate = rawFixture();
   duplicate.hourly[1].dt = duplicate.hourly[0].dt;
   const wrongDay = rawFixture();
   wrongDay.hourly.forEach((entry) => {
-    entry.dt = unixSeconds('2026-08-30T09:00:00.000Z');
+    entry.dt = unixSeconds('2026-08-31T09:00:00.000Z');
   });
 
   for (const fixture of [duplicate, wrongDay]) {

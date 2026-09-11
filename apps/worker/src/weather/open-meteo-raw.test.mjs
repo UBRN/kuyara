@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { weatherLocalDateKey, weatherV1SuccessSchema } from '@kuyara/contracts';
+import {
+  isValidWeatherHourlyForecastWindow,
+  weatherLocalDateKey,
+  weatherV1SuccessSchema,
+} from '@kuyara/contracts';
 
 import {
   mapOpenMeteoResponse,
@@ -81,14 +85,11 @@ test('clamps a daily minimum above the current temperature', () => {
   assert.equal(snapshot.minimumTemperatureCelsius, 24.5);
 });
 
-test('keeps at most 25 ordered hourly entries from the observed local day', () => {
+test('keeps the ordered 36-hour window across local midnight', () => {
   const fixture = rawFixture();
-  const sameDayTimes = Array.from({ length: 30 }, (_, index) => {
-    const hour = String(Math.floor(index / 2)).padStart(2, '0');
-    const minute = index % 2 === 0 ? '00' : '30';
-    return `2026-08-29T${hour}:${minute}`;
-  });
-  const times = ['2026-08-28T20:30', ...sameDayTimes, '2026-08-29T21:00'].reverse();
+  const times = Array.from({ length: 42 }, (_, index) => new Date(
+    Date.parse('2026-08-29T07:00:00.000Z') + index * 60 * 60 * 1000,
+  ).toISOString().slice(0, 16)).reverse();
   fixture.hourly = {
     time: times,
     temperature_2m: times.map(() => 20),
@@ -105,17 +106,18 @@ test('keeps at most 25 ordered hourly entries from the observed local day', () =
     location,
     fetchedAt,
   );
-  const currentDay = weatherLocalDateKey(snapshot.current.observedAt, location.timeZone);
+  const localDays = new Set(snapshot.hourly.map(({ forecastAt }) => (
+    weatherLocalDateKey(forecastAt, location.timeZone)
+  )));
 
-  assert.equal(snapshot.hourly.length, 25);
-  assert.equal(snapshot.hourly[0].forecastAt, '2026-08-29T00:00:00.000Z');
-  assert.equal(snapshot.hourly[24].forecastAt, '2026-08-29T12:00:00.000Z');
-  assert.ok(snapshot.hourly.every(({ forecastAt }) => (
-    weatherLocalDateKey(forecastAt, location.timeZone) === currentDay
-  )));
-  assert.ok(snapshot.hourly.every(({ forecastAt }, index, hourly) => (
-    index === 0 || hourly[index - 1].forecastAt < forecastAt
-  )));
+  assert.equal(snapshot.hourly.length, 37);
+  assert.equal(snapshot.hourly[0].forecastAt, '2026-08-29T09:00:00.000Z');
+  assert.equal(snapshot.hourly[36].forecastAt, '2026-08-30T21:00:00.000Z');
+  assert.equal(localDays.size, 3);
+  assert.equal(isValidWeatherHourlyForecastWindow(
+    snapshot.hourly,
+    snapshot.current.observedAt,
+  ), true);
 });
 
 test('maps every supported WMO weather code', () => {

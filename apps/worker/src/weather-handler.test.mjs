@@ -50,6 +50,8 @@ test('returns deterministic, contract-valid sample weather without echoing locat
   assert.equal(firstResponse.headers.get('cache-control'), 'no-store');
   assert.equal(weatherV1SuccessSchema.safeParse(first).success, true);
   assert.equal(first.data.origin.kind, 'sample');
+  assert.equal(first.data.hourly.length, 37);
+  assert.equal(first.data.hourly.at(-1).forecastAt, '2026-08-02T21:00:00.000Z');
   assert.deepEqual(first, second);
   assert.equal(JSON.stringify(first).includes('latitudeE2'), false);
   assert.equal(JSON.stringify(first).includes('longitudeE2'), false);

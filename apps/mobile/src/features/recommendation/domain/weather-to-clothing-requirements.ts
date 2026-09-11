@@ -1,3 +1,5 @@
+import { weatherLocalDateKey } from '@kuyara/contracts';
+
 import type {
   Breathability,
   Coverage,
@@ -256,8 +258,15 @@ export function deriveClothingRequirements(
   snapshot: WeatherSnapshot,
 ): ClothingRequirements {
   const observedAt = Date.parse(snapshot.current.observedAt);
+  const currentLocalDate = weatherLocalDateKey(
+    snapshot.current.observedAt,
+    snapshot.timeZone,
+  );
   const relevantHourly = snapshot.hourly.filter(
-    ({ forecastAt }) => Date.parse(forecastAt) >= observedAt,
+    ({ forecastAt }) => (
+      Date.parse(forecastAt) >= observedAt &&
+      weatherLocalDateKey(forecastAt, snapshot.timeZone) === currentLocalDate
+    ),
   );
   const hasRemainingForecast = relevantHourly.some(
     ({ forecastAt }) => Date.parse(forecastAt) > observedAt,

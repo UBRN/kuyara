@@ -44,7 +44,7 @@ export class OpenMeteoWeatherProvider implements WeatherProvider {
     url.searchParams.set('daily', 'temperature_2m_min,temperature_2m_max');
     url.searchParams.set('wind_speed_unit', 'ms');
     url.searchParams.set('timezone', 'UTC');
-    url.searchParams.set('forecast_days', '2');
+    url.searchParams.set('forecast_days', '3');
 
     let response: Response;
     try {

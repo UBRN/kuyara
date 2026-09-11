@@ -33,3 +33,12 @@ test('returns everything before the day starts and nothing once it has ended', (
   assert.equal(remainingHourlyForecast(day, Date.parse('2026-07-30T08:00:00.000Z')).length, 3);
   assert.equal(remainingHourlyForecast(day, Date.parse('2026-07-30T12:00:00.000Z')).length, 0);
 });
+
+test('keeps upcoming entries after local midnight', () => {
+  const hours = [...day, hour('2026-07-31T00:00:00.000Z')];
+  assert.deepEqual(
+    remainingHourlyForecast(hours, Date.parse('2026-07-30T12:00:00.000Z'))
+      .map(({ forecastAt }) => forecastAt),
+    ['2026-07-31T00:00:00.000Z'],
+  );
+});

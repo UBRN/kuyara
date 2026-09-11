@@ -64,7 +64,6 @@ export type TodayMessages = Readonly<{
   windLabel: string;
   humidityLabel: string;
   uvIndexLabel: string;
-  rainOutlookHeading: string;
   humidityValue: (percent: number) => string;
   uvIndexValue: (value: string) => string;
   metricsAccessibilityLabel: (values: {
@@ -314,6 +313,7 @@ export type AppMessages = Readonly<{
       uvIndex: string;
     }) => string;
     hourlyForecastAccessibilityLabel: (values: {
+      day?: string;
       time: string;
       temperature: string;
       condition: string;
@@ -567,7 +567,7 @@ const en = {
     selectionFailedBody: 'That location could not be saved. Your previous location is still active.',
     openSettings: 'Open system settings',
     sampleDisclosure: 'Sample weather data — not live weather.',
-    hourlyHeading: 'Remaining hours today',
+    hourlyHeading: 'Coming hours',
     noSnapshot: 'Weather will appear once a location is selected.',
     loadErrorTitle: 'Weather could not be prepared',
     loadErrorBody: 'Your saved local data is still safe. Please try again.',
@@ -627,12 +627,13 @@ const en = {
     metricsAccessibilityLabel: ({ windSpeed, humidity, uvIndex }) =>
       `Wind ${windSpeed} m/s. ${Math.round(humidity * 100)}% humidity. UV index ${uvIndex}`,
     hourlyForecastAccessibilityLabel: ({
+      day,
       time,
       temperature,
       condition,
       precipitationProbability,
     }) =>
-      `${time}. ${temperature}. ${condition}. ` +
+      `${day ? `${day}, ` : ''}${time}. ${temperature}. ${condition}. ` +
       `${Math.round(precipitationProbability * 100)}% precipitation`,
     windValue: (speed) => `${speed} m/s`,
     humidityValue: (humidity) => `${Math.round(humidity * 100)}%`,
@@ -812,7 +813,6 @@ const en = {
     windLabel: 'Wind',
     humidityLabel: 'Humidity',
     uvIndexLabel: 'UV',
-    rainOutlookHeading: 'Rain chance today',
     humidityValue: (humidity: number) => `${Math.round(humidity * 100)}%`,
     uvIndexValue: (value: string) => value,
     metricsAccessibilityLabel: ({ windSpeed, humidityPercent, uvIndex }) =>
@@ -1010,7 +1010,7 @@ const tr = {
     selectionFailedBody: 'Bu konum kaydedilemedi. Önceki konumunuz etkin kalıyor.',
     openSettings: 'Sistem ayarlarını aç',
     sampleDisclosure: 'Örnek hava durumu verisi — canlı değildir.',
-    hourlyHeading: 'Bugünün kalan saatleri',
+    hourlyHeading: 'Önümüzdeki saatler',
     noSnapshot: 'Bir konum seçildiğinde hava durumu burada görünecek.',
     loadErrorTitle: 'Hava durumu hazırlanamadı',
     loadErrorBody: 'Kayıtlı yerel verileriniz güvende. Lütfen yeniden deneyin.',
@@ -1071,12 +1071,13 @@ const tr = {
       `Rüzgâr hızı saniyede ${windSpeed} metre. ` +
       `Nem yüzde ${Math.round(humidity * 100)}. UV endeksi ${uvIndex}.`,
     hourlyForecastAccessibilityLabel: ({
+      day,
       time,
       temperature,
       condition,
       precipitationProbability,
     }) =>
-      `Saat ${time}. Sıcaklık ${temperature}. ${condition}. ` +
+      `${day ? `${day}, saat` : 'Saat'} ${time}. Sıcaklık ${temperature}. ${condition}. ` +
       `Yağış olasılığı yüzde ${Math.round(precipitationProbability * 100)}.`,
     windValue: (speed) => `${speed} m/sn`,
     humidityValue: (humidity) => `%${Math.round(humidity * 100)}`,
@@ -1259,7 +1260,6 @@ const tr = {
     windLabel: 'Rüzgâr',
     humidityLabel: 'Nem',
     uvIndexLabel: 'UV',
-    rainOutlookHeading: 'Bugünkü yağmur olasılığı',
     humidityValue: (humidity: number) => `%${Math.round(humidity * 100)}`,
     uvIndexValue: (value: string) => value,
     metricsAccessibilityLabel: ({ windSpeed, humidityPercent, uvIndex }) =>

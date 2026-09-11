@@ -60,7 +60,7 @@ test('requests the exact Open-Meteo fields and returns a live provider snapshot'
     daily: 'temperature_2m_min,temperature_2m_max',
     wind_speed_unit: 'ms',
     timezone: 'UTC',
-    forecast_days: '2',
+    forecast_days: '3',
   });
   assert.equal(captured.init.signal, signal);
   assert.equal(snapshot.timeZone, location.timeZone);

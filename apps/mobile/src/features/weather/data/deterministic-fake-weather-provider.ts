@@ -42,31 +42,17 @@ const templates: Readonly<Record<string, Readonly<{
   },
 };
 
-function localDateKey(date: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(date);
-}
-
 function createHourly(
   fetchedAt: string,
-  timeZone: string,
   template: (typeof templates)[string],
 ): readonly HourlyWeather[] {
   const fetched = new Date(fetchedAt);
-  const day = localDateKey(fetched, timeZone);
   const start = new Date(fetched);
   start.setUTCMinutes(0, 0, 0);
   const entries: HourlyWeather[] = [];
 
-  for (let offset = 0; offset < 24; offset += 1) {
+  for (let offset = 0; offset <= 36; offset += 1) {
     const forecast = new Date(start.getTime() + offset * 60 * 60 * 1000);
-    if (localDateKey(forecast, timeZone) !== day) {
-      break;
-    }
     const warmer = Math.min(offset, 4) * 0.7;
     entries.push({
       forecastAt: forecast.toISOString(),
@@ -139,7 +125,7 @@ export class DeterministicFakeWeatherProvider implements WeatherProvider {
       },
       minimumTemperatureCelsius: template.minimum,
       maximumTemperatureCelsius: template.maximum,
-      hourly: createHourly(fetchedAt, location.timeZone, template),
+      hourly: createHourly(fetchedAt, template),
     };
   }
 }
