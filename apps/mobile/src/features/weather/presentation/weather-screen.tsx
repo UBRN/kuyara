@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import {
   Linking,
   Pressable,
@@ -26,6 +26,7 @@ import { ANALYTICS_SCHEMA_VERSION } from '@/features/analytics/domain/analytics-
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import type { ActiveLocation } from '@/features/weather/domain/weather';
 import { HourlyRail } from '@/features/weather/presentation/hourly-rail';
+import { remainingHourlyForecast } from '@/features/weather/presentation/remaining-hours';
 import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
 import { useLocalization } from '@/localization/use-messages';
 import { interaction, layout, radii, spacing } from '@/theme/theme';
@@ -93,6 +94,10 @@ export function WeatherScreen() {
   // starts while the screen is behind the location picker or freshly mounted keeps its
   // inset until the next pull (seen 2026-09-10 after a location change).
   const [pullInFlight, setPullInFlight] = useState(false);
+  // The rail's clock: read once, then again whenever the tab regains focus, so a screen
+  // left open across an hour boundary drops the ended hour on return without a timer.
+  const [now, setNow] = useState(() => Date.now());
+  useFocusEffect(useCallback(() => { setNow(Date.now()); }, []));
   useRefreshOutcomeHaptics(
     state.status === 'ready' && state.isRefreshing,
     state.status === 'ready' && state.refreshFailure !== null,
@@ -161,6 +166,7 @@ export function WeatherScreen() {
     ? (state.activeLocation.accuracy === 'full' ? copy.fullLocation : copy.approximateLocation)
     : null;
   const snapshot = state.snapshot;
+  const remainingHourly = snapshot ? remainingHourlyForecast(snapshot.hourly, now) : [];
   const failureCopy = state.refreshFailure === 'offline'
     ? {
         title: copy.offlineTitle,
@@ -418,30 +424,32 @@ export function WeatherScreen() {
             </View>
           </View>
 
-          <Surface
-            style={[styles.card, theme.elevation.raised]}
-            testID="weather-hourly-card">
-            <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
-              {copy.hourlyHeading}
-            </AppText>
-            <HourlyRail
-              // A rail is scanned, not read, so its temperatures are whole degrees.
-              columns={snapshot.hourly.map((hour) => ({
-                key: hour.forecastAt,
-                accessibilityLabel: copy.hourlyForecastAccessibilityLabel({
-                  time: time(hour.forecastAt, snapshot.timeZone, language),
+          {remainingHourly.length > 0 && (
+            <Surface
+              style={[styles.card, theme.elevation.raised]}
+              testID="weather-hourly-card">
+              <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
+                {copy.hourlyHeading}
+              </AppText>
+              <HourlyRail
+                // A rail is scanned, not read, so its temperatures are whole degrees.
+                columns={remainingHourly.map((hour) => ({
+                  key: hour.forecastAt,
+                  accessibilityLabel: copy.hourlyForecastAccessibilityLabel({
+                    time: time(hour.forecastAt, snapshot.timeZone, language),
+                    temperature: temperature(hour.temperatureCelsius, language, 0),
+                    condition: copy.conditions[hour.condition],
+                    precipitationProbability: hour.precipitationProbability,
+                  }),
+                  condition: hour.condition,
+                  precipitation: percentage(hour.precipitationProbability, language),
                   temperature: temperature(hour.temperatureCelsius, language, 0),
-                  condition: copy.conditions[hour.condition],
-                  precipitationProbability: hour.precipitationProbability,
-                }),
-                condition: hour.condition,
-                precipitation: percentage(hour.precipitationProbability, language),
-                temperature: temperature(hour.temperatureCelsius, language, 0),
-                temperatureCelsius: hour.temperatureCelsius,
-                time: time(hour.forecastAt, snapshot.timeZone, language),
-              }))}
-            />
-          </Surface>
+                  temperatureCelsius: hour.temperatureCelsius,
+                  time: time(hour.forecastAt, snapshot.timeZone, language),
+                }))}
+              />
+            </Surface>
+          )}
         </>
       ) : (
         <Surface style={styles.card} variant="muted">
