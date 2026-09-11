@@ -190,9 +190,6 @@ App Store submission, not TestFlight, is blocked by:
   under the heading "Remaining hours today". The contract only requires the hours to be
   ordered and to belong to the current local day, so either the Worker trims past hours
   or the heading changes; neither is decided.
-- **Weather's refresh spinner can stay visible after a location change.** The screen
-  mounts with a refresh in flight, and iOS's `RefreshControl` keeps its inset until the
-  next pull; one pull-to-refresh clears it. Seen 2026-09-10, not yet fixed.
 - **WeatherKit's quota path is untested against Apple.** Apple does not document the
   status returned once the monthly allowance is exhausted; the mapping lands on a
   fallback-eligible error either way, and the daily cap has never been reached.
