@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useState } from 'react';
 import {
   Linking,
   Pressable,
@@ -87,6 +88,11 @@ export function WeatherScreen() {
   const application = useWeatherApplication();
   const { state } = application;
   const { analytics, firstUses, retries } = useProductAnalytics();
+  // The control shows only a refresh the user pulled for. Binding it to the application's
+  // `isRefreshing` also turned it on programmatically, and on iOS a RefreshControl that
+  // starts while the screen is behind the location picker or freshly mounted keeps its
+  // inset until the next pull (seen 2026-09-10 after a location change).
+  const [pullInFlight, setPullInFlight] = useState(false);
   useRefreshOutcomeHaptics(
     state.status === 'ready' && state.isRefreshing,
     state.status === 'ready' && state.refreshFailure !== null,
@@ -116,7 +122,7 @@ export function WeatherScreen() {
   // discriminator between a manual refresh and a retry after failure.
   const handleRefresh = () => {
     const wasFailing = state.refreshFailure !== null;
-    void application.refresh().then(() => {
+    return application.refresh().then(() => {
       const after = application.getSnapshot?.() ?? application.state;
       const outcome = after.status !== 'ready'
         ? 'failure_no_snapshot' as const
@@ -193,9 +199,10 @@ export function WeatherScreen() {
           colors={[theme.colors.iconSecondary]}
           onRefresh={() => {
             haptics.impactLight();
-            handleRefresh();
+            setPullInFlight(true);
+            void handleRefresh().finally(() => setPullInFlight(false));
           }}
-          refreshing={state.isRefreshing}
+          refreshing={pullInFlight}
           tintColor={theme.colors.iconSecondary}
         />
       }
@@ -209,7 +216,7 @@ export function WeatherScreen() {
             accessibilityState={{ busy: state.isRefreshing, disabled: state.isRefreshing }}
             disabled={state.isRefreshing}
             hitSlop={10}
-            onPress={handleRefresh}
+            onPress={() => void handleRefresh()}
             style={({ pressed }) => [
               styles.refreshButton,
               { backgroundColor: theme.colors.surface },

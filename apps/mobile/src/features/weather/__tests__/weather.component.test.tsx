@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { fireEvent, isHiddenFromAccessibility, render, within } from '@testing-library/react-native';
+import { act, fireEvent, isHiddenFromAccessibility, render, within } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { Dimensions, Linking, processColor, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -383,6 +383,30 @@ test('Weather offers a pull-to-refresh gesture alongside the visible refresh but
 
   refreshControl.props.onRefresh();
   expect(value.refresh).toHaveBeenCalledTimes(2);
+});
+
+test('the pull control spins only for a pulled refresh, not for one already in flight at mount', async () => {
+  let finishRefresh!: (value: undefined) => void;
+  const value = createValue({
+    ...baseState,
+    activeLocation: getManualLocation('sample.istanbul')!,
+    snapshot: sampleSnapshot(),
+    freshness: 'stale',
+    isRefreshing: true,
+  });
+  value.refresh.mockImplementation(() => new Promise<undefined>((resolve) => { finishRefresh = resolve; }));
+  const result = await render(
+    <Providers language="en" value={value}><WeatherScreen /></Providers>,
+  );
+  const control = () => result.getByTestId('weather-screen').props.refreshControl;
+  // A location change starts a refresh before the screen shows; the control must not
+  // adopt it, because iOS keeps a programmatically started inset until the next pull.
+  expect(control().props.refreshing).toBe(false);
+
+  await act(async () => { control().props.onRefresh(); });
+  expect(control().props.refreshing).toBe(true);
+  await act(async () => { finishRefresh(undefined); });
+  expect(control().props.refreshing).toBe(false);
 });
 
 test('a successful manual refresh reports manual_refresh_triggered and feature_used_first_time once', async () => {
