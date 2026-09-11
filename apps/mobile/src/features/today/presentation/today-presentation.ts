@@ -18,6 +18,7 @@ import {
   localHourOf,
   resolveAtmosphereState,
 } from '@/features/today/domain/atmosphere-state';
+import { todayRainOutlookProbability } from '@/features/today/domain/today-rain-outlook';
 import {
   getMessages,
   type SupportedLanguage,
@@ -273,12 +274,14 @@ function createLoadedPresentation(
   language: SupportedLanguage,
   isRefreshing: boolean,
   refreshFailed: boolean,
+  now: number,
 ): LoadedTodayPresentation {
   const messages = getMessages(language);
   const copy = messages.today;
   const weatherCopy = messages.weather;
   const weather = snapshot.weather;
   const current = weather.current;
+  const rainProbability = todayRainOutlookProbability(weather, now);
   const time = formatTime(weather.fetchedAt, weather.timeZone, language);
   const isStale = snapshot.freshness === 'stale';
   const condition = weatherCopy.conditions[current.condition];
@@ -305,7 +308,7 @@ function createLoadedPresentation(
     kind: 'loaded',
     atmosphere: resolveAtmosphereState(
       current.condition,
-      localHourOf(weather.fetchedAt, weather.timeZone),
+      localHourOf(new Date(now).toISOString(), weather.timeZone),
     ),
     copy: {
       title: copy.title,
@@ -340,7 +343,7 @@ function createLoadedPresentation(
         formatTemperature(weather.maximumTemperatureCelsius, language),
       ),
       rainProbability: copy.rainProbability(
-        formatPercent(current.precipitationProbability, language),
+        formatPercent(rainProbability, language),
       ),
       accessibilityLabel: copy.weatherAccessibilityLabel({
         condition,
@@ -348,7 +351,7 @@ function createLoadedPresentation(
         apparent: current.apparentTemperatureCelsius,
         minimum: weather.minimumTemperatureCelsius,
         maximum: weather.maximumTemperatureCelsius,
-        rainProbability: Math.round(current.precipitationProbability * 100),
+        rainProbability: Math.round(rainProbability * 100),
       }),
     },
     generationMode,
@@ -369,6 +372,7 @@ function createLoadedPresentation(
 export function createTodayPresentation(
   state: TodayScreenState,
   language: SupportedLanguage,
+  now: number,
 ): TodayPresentation {
   const copy = getMessages(language).today;
 
@@ -406,5 +410,6 @@ export function createTodayPresentation(
     language,
     state.isRefreshing,
     state.refreshFailed,
+    now,
   );
 }

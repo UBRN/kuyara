@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import Animated, {
   useAnimatedStyle,
   withTiming,
@@ -52,12 +53,14 @@ export function OutfitDetailScreen({
   const [contentWidth, setContentWidth] = useState(0);
   const [captionHeights, setCaptionHeights] = useState<Readonly<Record<string, number>>>({});
   const [piecesSettled, setPiecesSettled] = useState(theme.isReduceMotionEnabled);
+  const [now, setNow] = useState(() => Date.now());
+  useFocusEffect(useCallback(() => { setNow(Date.now()); }, []));
   const onPiecesSettled = useCallback(() => setPiecesSettled(true), []);
   const captionEntranceStyle = useAnimatedStyle(() => ({
     opacity: withTiming(piecesSettled ? 1 : 0, { duration: theme.motion.fast }),
   }), [piecesSettled, theme.motion.fast]);
   const copy = getMessages(language).today;
-  const presentation = createTodayPresentation(state, language);
+  const presentation = createTodayPresentation(state, language, now);
   const suggestion =
     presentation.kind === 'loaded'
       ? presentation.suggestions.find(({ id }) => id === suggestionId)
