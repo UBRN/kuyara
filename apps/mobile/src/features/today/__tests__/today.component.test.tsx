@@ -5,7 +5,6 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { failureCategories } from '@/domain/failure-category';
 import {
   aiAssistedTodayScreenState,
-  nightTodayScreenState,
   todayScreenState,
   todayWardrobeItems,
 } from '@/features/today/__tests__/fixtures';
@@ -94,11 +93,25 @@ jest.mock('@/components/ui/native-menu', () => {
   };
 });
 const mockPush = jest.fn();
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
+jest.mock('expo-router', () => {
+  const React = jest.requireActual('react') as typeof import('react');
+  return {
+    useFocusEffect: (callback: () => void | (() => void)) => React.useEffect(callback, [callback]),
+    useRouter: () => ({ push: mockPush }),
+  };
+});
 
 const originalDimensions = Dimensions.get('window');
-beforeEach(() => Dimensions.set({ window: { ...originalDimensions, width: 390, fontScale: 1 } }));
-afterEach(() => Dimensions.set({ window: originalDimensions }));
+const fixtureNow = Date.parse('2026-08-13T06:30:00.000Z');
+let dateNowSpy: jest.SpiedFunction<typeof Date.now>;
+beforeEach(() => {
+  dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(fixtureNow);
+  Dimensions.set({ window: { ...originalDimensions, width: 390, fontScale: 1 } });
+});
+afterEach(() => {
+  dateNowSpy.mockRestore();
+  Dimensions.set({ window: originalDimensions });
+});
 
 const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
@@ -143,7 +156,7 @@ function providers(
 }
 
 function loadedPresentation(language: 'en' | 'tr' = 'en') {
-  const presentation = createTodayPresentation(todayScreenState, language);
+  const presentation = createTodayPresentation(todayScreenState, language, fixtureNow);
   if (presentation.kind !== 'loaded') throw new Error('Expected loaded Today presentation.');
   return presentation;
 }
@@ -254,11 +267,12 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
 });
 
 test.each([
-  ['day', todayScreenState, 'fallingDay'],
-  ['night', nightTodayScreenState, 'fallingNight'],
-] as const)('%s weather applies its atmosphere color to every Today stage', async (_, state, atmosphere) => {
+  ['day', Date.parse('2026-08-13T12:00:00.000Z'), 'fallingDay'],
+  ['night', Date.parse('2026-08-13T19:00:00.000Z'), 'fallingNight'],
+] as const)('%s weather applies its atmosphere color to every Today stage', async (_, now, atmosphere) => {
+  dateNowSpy.mockReturnValue(now);
   const result = await render(providers(
-    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={state} />,
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
   ));
   await fireEvent(result.getByTestId('today-content'), 'layout', {
     nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
