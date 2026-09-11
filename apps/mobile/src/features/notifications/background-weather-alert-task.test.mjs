@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { runBackgroundWeatherAlertTask } from './data/background-weather-alert-task.ts';
+import { weatherAlertBackgroundLeadTimeMinutes } from './domain/weather-alerts.ts';
 
 const now = '2026-09-09T09:00:00.000Z';
 const profile = {
@@ -53,13 +54,17 @@ const provided = {
   }],
 };
 
-function createHarness(overrides = {}) {
+function createHarness({ cached = null, ...overrides } = {}) {
   const calls = [];
   const saved = { id: 'snapshot-id', localProfileId: profile.id, ...provided };
   const repository = {
     getActiveLocation: async () => {
       calls.push('get-location');
       return location;
+    },
+    getSnapshot: async () => {
+      calls.push('get-cached-snapshot');
+      return cached;
     },
     saveSnapshot: async (_localProfileId, snapshot) => {
       calls.push('save-snapshot');
@@ -101,6 +106,7 @@ test('refreshes, validates, persists, and reschedules through the existing input
     'get-permission',
     'load-weather-repository',
     'get-location',
+    'get-cached-snapshot',
     'fetch-snapshot',
     'save-snapshot',
     'reschedule',
@@ -110,7 +116,34 @@ test('refreshes, validates, persists, and reschedules through the existing input
     snapshot: harness.saved,
     enabled: true,
     language: 'tr',
+    leadTimeMinutes: weatherAlertBackgroundLeadTimeMinutes,
   });
+});
+
+test('a still-fresh cached snapshot reschedules without spending a provider request', async () => {
+  const harness = createHarness({
+    cached: { id: 'cached-id', localProfileId: profile.id, ...provided },
+  });
+
+  assert.equal(await runBackgroundWeatherAlertTask(harness.dependencies), 'success');
+  assert.equal(harness.calls.includes('fetch-snapshot'), false);
+  assert.equal(harness.calls.includes('save-snapshot'), false);
+  assert.equal(harness.calls.at(-1).snapshot.id, 'cached-id');
+});
+
+test('a stale cached snapshot still refreshes from the provider', async () => {
+  const harness = createHarness({
+    cached: {
+      id: 'cached-id',
+      localProfileId: profile.id,
+      ...provided,
+      fetchedAt: '2026-09-09T08:00:00.000Z',
+    },
+  });
+
+  assert.equal(await runBackgroundWeatherAlertTask(harness.dependencies), 'success');
+  assert.equal(harness.calls.includes('fetch-snapshot'), true);
+  assert.equal(harness.calls.at(-1).snapshot.id, 'snapshot-id');
 });
 
 for (const scenario of [

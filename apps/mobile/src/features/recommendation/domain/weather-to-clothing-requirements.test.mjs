@@ -87,7 +87,7 @@ test('thermal and coverage thresholds use exact lower-bound semantics', () => {
       },
       minimumTemperatureCelsius: temperature,
       maximumTemperatureCelsius: temperature + 1,
-    }));
+    }), observedAt);
     const thermal = findRequirement(result, 'thermal');
     const arms = findRequirement(result, 'arm_coverage');
     const legs = findRequirement(result, 'leg_coverage');
@@ -119,7 +119,7 @@ test('breathability thresholds distinguish optional warmth from mandatory heat',
       },
       minimumTemperatureCelsius: temperature - 1,
       maximumTemperatureCelsius: temperature,
-    }));
+    }), observedAt);
     const breathability = findRequirement(result, 'breathability');
 
     assert.equal(breathability?.minimum ?? null, minimum, `${temperature} minimum`);
@@ -151,7 +151,7 @@ test('past daily cold does not over-insulate a warm evening with warm remaining 
         }),
       },
     ],
-  }));
+  }), observedAt);
 
   assert.equal(findRequirement(result, 'thermal'), undefined);
   assert.equal(findRequirement(result, 'arm_coverage'), undefined);
@@ -183,7 +183,7 @@ test('next-day hourly conditions do not change today\'s clothing requirements', 
         }),
       },
     ],
-  }));
+  }), observedAt);
 
   assert.deepEqual(result.requirements, []);
   assert.deepEqual(result.reasonCodes, []);
@@ -213,7 +213,7 @@ test('daily extrema are a documented fallback when no future hourly entry exists
         }),
       },
     ],
-  }));
+  }), observedAt);
 
   const thermal = findRequirement(result, 'thermal');
   assert.equal(thermal.minimum, 'high');
@@ -231,15 +231,15 @@ test('daily range reason starts at exactly eight degrees', () => {
   const narrow = deriveClothingRequirements(snapshot({
     minimumTemperatureCelsius: 16,
     maximumTemperatureCelsius: 23.999,
-  }));
+  }), observedAt);
   const wide = deriveClothingRequirements(snapshot({
     minimumTemperatureCelsius: 16,
     maximumTemperatureCelsius: 24,
-  }));
+  }), observedAt);
   const wider = deriveClothingRequirements(snapshot({
     minimumTemperatureCelsius: 16,
     maximumTemperatureCelsius: 24.001,
-  }));
+  }), observedAt);
 
   assert.equal(narrow.reasonCodes.includes('daily_range_wide'), false);
   assert.equal(wide.reasonCodes.includes('daily_range_wide'), true);
@@ -259,7 +259,7 @@ test('wind boundaries do not double-promote thermal protection', () => {
   for (const [wind, minimum, priority] of cases) {
     const result = deriveClothingRequirements(snapshot({
       current: { windSpeedMetersPerSecond: wind },
-    }));
+    }), observedAt);
     const requirement = findRequirement(result, 'wind_protection');
     assert.equal(requirement?.minimum ?? null, minimum);
     assert.equal(requirement?.priority ?? null, priority);
@@ -273,7 +273,7 @@ test('wind boundaries do not double-promote thermal protection', () => {
     },
     minimumTemperatureCelsius: 8,
     maximumTemperatureCelsius: 14,
-  }));
+  }), observedAt);
   assert.equal(findRequirement(coldAndWindy, 'thermal').minimum, 'moderate');
   assert.equal(findRequirement(coldAndWindy, 'wind_protection').priority, 'mandatory');
 });
@@ -291,7 +291,7 @@ test('precipitation probability boundaries map to optional and mandatory body pr
   for (const [probability, minimum, priority] of cases) {
     const result = deriveClothingRequirements(snapshot({
       current: { precipitationProbability: probability },
-    }));
+    }), observedAt);
     const requirement = findRequirement(result, 'water_protection', 'body');
     assert.equal(requirement?.minimum ?? null, minimum);
     assert.equal(requirement?.priority ?? null, priority);
@@ -308,7 +308,7 @@ test('every condition code has an explicit weather-protection outcome', () => {
   ]);
 
   for (const condition of weatherConditionCodes) {
-    const result = deriveClothingRequirements(snapshot({ current: { condition } }));
+    const result = deriveClothingRequirements(snapshot({ current: { condition } }), observedAt);
     const body = findRequirement(result, 'water_protection', 'body');
     const feet = findRequirement(result, 'water_protection', 'feet');
     const traction = findRequirement(result, 'traction');
@@ -354,7 +354,7 @@ test('condition signals override probability without cancelling independent need
     },
     minimumTemperatureCelsius: 28,
     maximumTemperatureCelsius: 30,
-  }));
+  }), observedAt);
   assert.equal(findRequirement(rain, 'breathability').minimum, 'high');
   const rainBody = findRequirement(rain, 'water_protection', 'body');
   assert.equal(rainBody.minimum, 'waterproof');
@@ -372,14 +372,14 @@ test('condition signals override probability without cancelling independent need
     },
     minimumTemperatureCelsius: 20,
     maximumTemperatureCelsius: 21,
-  }));
+  }), observedAt);
   assert.equal(findRequirement(snow, 'thermal'), undefined);
   assert.equal(findRequirement(snow, 'water_protection', 'feet').minimum, 'waterproof');
   assert.equal(findRequirement(snow, 'traction').priority, 'mandatory');
 
   const likelyClear = deriveClothingRequirements(snapshot({
     current: { condition: 'clear', precipitationProbability: 0.6 },
-  }));
+  }), observedAt);
   assert.equal(
     findRequirement(likelyClear, 'water_protection', 'body').minimum,
     'waterproof',
@@ -389,7 +389,7 @@ test('condition signals override probability without cancelling independent need
 test('thunderstorm output describes protection without claiming outdoor safety', () => {
   const result = deriveClothingRequirements(snapshot({
     current: { condition: 'thunderstorm' },
-  }));
+  }), observedAt);
   const serialized = JSON.stringify(result);
 
   assert.equal(serialized.includes('condition_thunderstorm'), true);
@@ -408,12 +408,12 @@ test('output is immutable, deduplicated, stably ordered, and metadata-independen
     minimumTemperatureCelsius: 7,
     maximumTemperatureCelsius: 12,
   });
-  const first = deriveClothingRequirements(input);
+  const first = deriveClothingRequirements(input, observedAt);
   const second = deriveClothingRequirements({
     ...input,
     id: '118f0f4d-1d45-4ae7-a8f1-796e8297d3b4',
     localProfileId: 'profile-two',
-  });
+  }, observedAt);
 
   assert.deepEqual(first, second);
   assert.deepEqual(
@@ -448,4 +448,24 @@ test('output is immutable, deduplicated, stably ordered, and metadata-independen
     ),
     first.reasonCodes,
   );
+});
+
+test('just after local midnight the remaining hours come from now, not from observedAt', () => {
+  // 00:20 on the new local day in Istanbul; the snapshot was still observed the day before,
+  // so reading the day from `observedAt` would drop the 01:00 hour and fall back to the
+  // daily extrema of the day that just ended.
+  const afterMidnight = '2026-08-01T21:20:00.000Z';
+  const result = deriveClothingRequirements(snapshot({
+    current: { temperatureCelsius: 20, apparentTemperatureCelsius: 20 },
+    minimumTemperatureCelsius: 13,
+    maximumTemperatureCelsius: 20,
+    hourly: [{
+      forecastAt: '2026-08-01T22:00:00.000Z',
+      ...measurements({ temperatureCelsius: 4, apparentTemperatureCelsius: 4 }),
+    }],
+    snapshotFields: { timeZone: 'Europe/Istanbul' },
+  }), afterMidnight);
+
+  assert.equal(result.reasonCodes.includes('daily_extrema_fallback'), false);
+  assert.equal(findRequirement(result, 'thermal').minimum, 'high');
 });

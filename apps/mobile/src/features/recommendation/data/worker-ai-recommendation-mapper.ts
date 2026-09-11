@@ -174,7 +174,7 @@ export function createRecommendationContext(
   input: OutfitRecommendationInput,
   localDayKey?: string,
 ): RecommendationContext {
-  const requirements = deriveClothingRequirements(input.snapshot);
+  const requirements = deriveClothingRequirements(input.snapshot, input.now);
   const candidates = listGarmentTypesForPreference(input.clothingPreference).map(
     (type) => evaluateGarmentEligibility(
       requirements,

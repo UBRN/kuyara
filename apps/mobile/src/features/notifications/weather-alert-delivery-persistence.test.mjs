@@ -89,16 +89,16 @@ test('scheduled alert deliveries upsert, retain fired rows, delete pending rows,
   );
 });
 
-function precipitationSnapshot(id, crossingAt, precipitationProbability) {
+function precipitationSnapshot(id, crossingAt, precipitationProbability, fetchedAt) {
   return {
     id,
     localProfileId: profileId,
     locationKey: 'manual:sample.istanbul',
     timeZone: 'Europe/Istanbul',
-    fetchedAt: createdAt,
+    fetchedAt,
     origin: { kind: 'sample', sourceId: 'test' },
     current: {
-      observedAt: createdAt,
+      observedAt: fetchedAt,
       temperatureCelsius: 16,
       apparentTemperatureCelsius: 16,
       condition: 'clear',
@@ -129,8 +129,11 @@ test('cancelled pending identity can be scheduled again after its former fire ti
   let now = '2026-09-09T15:00:00.000Z';
   const scheduler = new WeatherAlertScheduler(
     {
-      cancelScheduledWeatherAlerts: async () => undefined,
-      scheduleWeatherAlert: async (request) => scheduled.push(request),
+      cancelScheduledWeatherAlerts: async () => true,
+      scheduleWeatherAlert: async (request) => {
+        scheduled.push(request);
+        return true;
+      },
     },
     repository,
     () => now,
@@ -139,14 +142,14 @@ test('cancelled pending identity can be scheduled again after its former fire ti
 
   await scheduler.reschedule({
     localProfileId: profileId,
-    snapshot: precipitationSnapshot('rain-one', '2026-09-09T18:00:00.000Z', 0.8),
+    snapshot: precipitationSnapshot('rain-one', '2026-09-09T18:00:00.000Z', 0.8, now),
     enabled: true,
     language: 'en',
   });
   now = '2026-09-09T15:30:00.000Z';
   await scheduler.reschedule({
     localProfileId: profileId,
-    snapshot: precipitationSnapshot('dry', '2026-09-09T18:00:00.000Z', 0),
+    snapshot: precipitationSnapshot('dry', '2026-09-09T18:00:00.000Z', 0, now),
     enabled: true,
     language: 'en',
   });
@@ -158,7 +161,7 @@ test('cancelled pending identity can be scheduled again after its former fire ti
   now = '2026-09-09T17:30:00.000Z';
   await scheduler.reschedule({
     localProfileId: profileId,
-    snapshot: precipitationSnapshot('rain-two', '2026-09-09T19:00:00.000Z', 0.8),
+    snapshot: precipitationSnapshot('rain-two', '2026-09-09T19:00:00.000Z', 0.8, now),
     enabled: true,
     language: 'en',
   });

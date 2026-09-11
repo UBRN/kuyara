@@ -107,6 +107,10 @@ export function RecommendationApplicationProvider({
     ) return null;
     return {
       snapshot: weatherState.snapshot,
+      // The requirement engine reads the local day and the hours left in it from here, not
+      // from the snapshot's observation time. It is re-read whenever the day, the profile
+      // or the weather changes, which is every moment a recommendation is generated.
+      now: now(),
       clothingPreference,
       dressStyle: profileState.status === 'ready'
         ? profileState.profile.dressStyle ?? 'smart'
@@ -197,6 +201,7 @@ export function RecommendationApplicationProvider({
       ) return Promise.resolve(null);
       return controller.refresh('explicit', {
         snapshot: currentWeather.snapshot,
+        now: now(),
         clothingPreference,
         dressStyle: profileState.profile.dressStyle ?? 'smart',
         dayVariant: currentDay.variant,

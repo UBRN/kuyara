@@ -8,6 +8,7 @@ import {
   planWeatherAlerts,
   precipitationLikelyThreshold,
   temperatureSwingCelsius,
+  weatherAlertBackgroundLeadTimeMinutes,
   weatherAlertLeadTimeMinutes,
   weatherAlertMinimumLeadAfterQuietHoursMinutes,
 } from './weather-alerts.ts';
@@ -226,7 +227,7 @@ test('quiet-hours adjustment lands on an exact minute when a crossing includes s
   assert.equal(result[0].fireAt, '2026-09-09T07:00:00.000Z');
 });
 
-test('identity uses the snapshot local day and location, independently of quiet-hours time zone', () => {
+test('identity uses the local day of now and the location, independently of quiet-hours time zone', () => {
   const clock = '2026-09-08T22:00:00.000Z';
   const result = plan(snapshot({
     timeZone: 'Europe/Istanbul',
@@ -278,12 +279,42 @@ test('constants match the requirement engine behavioral boundaries', () => {
   for (const [offset, expected] of [[-0.001, false], [0, true], [0.001, true]]) {
     const precipitation = deriveClothingRequirements(snapshot({ hourly: [hour(crossingAt, {
       precipitationProbability: precipitationLikelyThreshold + offset,
-    })] }));
+    })] }), now);
     assert.equal(precipitation.reasonCodes.includes('precipitation_likely'), expected);
     const range = deriveClothingRequirements(snapshot({
       minimumTemperatureCelsius: 20,
       maximumTemperatureCelsius: 20 + temperatureSwingCelsius + offset,
-    }));
+    }), now);
     assert.equal(range.reasonCodes.includes('daily_range_wide'), expected);
   }
+});
+
+test('the local day is the one now falls in, not the snapshot observation day', () => {
+  const clock = '2026-09-10T00:20:00.000Z';
+  const result = plan(snapshot({
+    current: { observedAt: '2026-09-09T23:50:00.000Z', ...measurements() },
+    hourly: [
+      hour('2026-09-09T23:00:00.000Z', { condition: 'rain' }),
+      hour('2026-09-10T09:00:00.000Z', { condition: 'rain' }),
+    ],
+  }), { now: clock });
+
+  assert.deepEqual(result.map(({ id, localDate, crossingAt: at }) => ({ id, localDate, at })), [{
+    id: `precipitation_onset:${locationKey}:2026-09-10`,
+    localDate: '2026-09-10',
+    at: '2026-09-10T09:00:00.000Z',
+  }]);
+});
+
+test('a shortened lead schedules a crossing the foreground lead drops', () => {
+  const weather = snapshot({
+    hourly: [hour('2026-09-09T08:30:00.000Z', { condition: 'rain' })],
+  });
+
+  assert.deepEqual(plan(weather), []);
+  assert.deepEqual(
+    plan(weather, { leadTimeMinutes: weatherAlertBackgroundLeadTimeMinutes })
+      .map(({ fireAt }) => fireAt),
+    ['2026-09-09T08:15:00.000Z'],
+  );
 });

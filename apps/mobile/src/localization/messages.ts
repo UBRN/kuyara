@@ -221,6 +221,8 @@ export type AppMessages = Readonly<{
   notifications: Readonly<{
     title: string;
     introduction: string;
+    leadTimeHint: string;
+    quietHoursHint: string;
     toggleLabel: string;
     statusOn: string;
     statusOff: string;
@@ -529,7 +531,9 @@ const en = {
   },
   notifications: {
     title: 'Notifications',
-    introduction: 'Choose whether kuyara can send notifications on this device.',
+    introduction: 'kuyara sends weather alerts for the rest of today on this device.',
+    leadTimeHint: 'An alert arrives up to an hour before rain starts or the temperature swings sharply.',
+    quietHoursHint: 'No alert is sent between 22:00 and 07:00.',
     toggleLabel: 'Allow notifications',
     statusOn: 'On',
     statusOff: 'Off',
@@ -973,7 +977,9 @@ const tr = {
   },
   notifications: {
     title: 'Bildirimler',
-    introduction: 'kuyara bu cihazda bildirim gönderebilsin mi?',
+    introduction: 'kuyara bu cihazda, günün kalanı için hava uyarıları gönderir.',
+    leadTimeHint: 'Uyarı, yağmur başlamadan ya da sıcaklık sert değişmeden en çok bir saat önce gelir.',
+    quietHoursHint: '22:00 ile 07:00 arasında uyarı gönderilmez.',
     toggleLabel: 'Bildirimlere izin ver',
     statusOn: 'Açık',
     statusOff: 'Kapalı',

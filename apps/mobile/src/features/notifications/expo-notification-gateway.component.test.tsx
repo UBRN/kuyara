@@ -31,7 +31,7 @@ afterEach(() => {
   Object.defineProperty(Platform, 'OS', { configurable: true, value: originalPlatform });
 });
 
-test('cancellation removes only prefixed kuyara weather alerts and continues after a failure', async () => {
+test('cancellation tries every prefixed kuyara weather alert and reports the failure', async () => {
   notifications.getAllScheduledNotificationsAsync.mockResolvedValue([
     { identifier: 'foreign-alert' },
     { identifier: 'weather-alert:first' },
@@ -42,7 +42,7 @@ test('cancellation removes only prefixed kuyara weather alerts and continues aft
     .mockResolvedValueOnce(undefined);
 
   await expect(new ExpoNotificationGateway().cancelScheduledWeatherAlerts())
-    .resolves.toBeUndefined();
+    .resolves.toBe(false);
 
   expect(notifications.cancelScheduledNotificationAsync.mock.calls).toEqual([
     ['weather-alert:first'],
@@ -81,7 +81,7 @@ test('Android scheduling creates one silent default channel and uses prefixed id
   });
 });
 
-test('native scheduling failures stay inside the adapter', async () => {
+test('native scheduling failures stay inside the adapter and are reported', async () => {
   notifications.scheduleNotificationAsync.mockRejectedValue(new Error('schedule failed'));
 
   await expect(new ExpoNotificationGateway().scheduleWeatherAlert({
@@ -89,5 +89,13 @@ test('native scheduling failures stay inside the adapter', async () => {
     fireAt: '2026-09-09T12:00:00.000Z',
     title: 'Rain is on the way',
     body: 'Rain is expected around 12:00.',
-  })).resolves.toBeUndefined();
+  })).resolves.toBe(false);
+});
+
+test('a listing failure reports the cancellation as unsuccessful', async () => {
+  notifications.getAllScheduledNotificationsAsync
+    .mockRejectedValue(new Error('listing failed'));
+
+  await expect(new ExpoNotificationGateway().cancelScheduledWeatherAlerts())
+    .resolves.toBe(false);
 });

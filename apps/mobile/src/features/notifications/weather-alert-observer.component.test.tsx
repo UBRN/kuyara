@@ -1,4 +1,5 @@
 import { render, waitFor } from '@testing-library/react-native';
+import { AppState, type AppStateStatus } from 'react-native';
 
 import type { FailureCategory } from '@/domain/failure-category';
 import { NotificationApplicationContext, type NotificationApplicationValue } from '@/features/notifications/application/notification-context';
@@ -209,13 +210,13 @@ test('a refresh failure with the same cached snapshot does not cancel or resched
 });
 
 function cancellableScheduler() {
-  const cancelScheduledWeatherAlerts = jest.fn(async () => undefined);
+  const cancelScheduledWeatherAlerts = jest.fn(async () => true);
   const gateway: NotificationGateway = {
     getPermissionState: async () => ({ kind: 'granted' }),
     requestPermission: async () => ({ kind: 'granted' }),
     openApplicationSettings: async () => undefined,
     cancelScheduledWeatherAlerts,
-    scheduleWeatherAlert: async () => undefined,
+    scheduleWeatherAlert: async () => true,
     subscribeToResponses: () => () => undefined,
   };
   const repository: WeatherAlertDeliveryRepository = {
@@ -250,4 +251,25 @@ test.each([
   );
 
   await waitFor(() => expect(harness.cancelScheduledWeatherAlerts).toHaveBeenCalledTimes(1));
+});
+
+test('returning to the foreground replans, so a day that turned while away is caught', async () => {
+  const addEventListener = jest.mocked(AppState.addEventListener);
+  addEventListener.mockReturnValue({ remove: () => undefined });
+  const reschedule = jest.fn<
+    ReturnType<WeatherAlertScheduling['reschedule']>,
+    Parameters<WeatherAlertScheduling['reschedule']>
+  >(async () => undefined);
+  await render(
+    <Providers scheduler={{ reschedule }} weatherSnapshot={snapshot('snapshot-one')} />,
+  );
+  await waitFor(() => expect(reschedule).toHaveBeenCalledTimes(1));
+
+  const notify = (status: AppStateStatus) => {
+    addEventListener.mock.calls.forEach(([, listener]) => listener(status));
+  };
+  notify('background');
+  notify('active');
+
+  await waitFor(() => expect(reschedule).toHaveBeenCalledTimes(2));
 });
