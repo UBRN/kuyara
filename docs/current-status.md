@@ -104,12 +104,13 @@ and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
 
 App Store submission, not TestFlight, is blocked by:
 
-- Milestone 11's two maintainer steps: enabling GitHub Pages for the main branch's `docs/`
-  folder, which publishes the privacy policy and support page under
-  `https://ubrn.github.io/kuyara/`, and entering the privacy policy URL, the support URL,
+- Milestone 11's last maintainer step: entering the privacy policy URL, the support URL,
   the data-collection questionnaire answers, the store description and the screenshots
-  into App Store Connect. The answer sheet, the store copy and the screenshots were
-  prepared on 2026-09-11 outside the repository.
+  into App Store Connect. GitHub Pages went live on 2026-09-11 from the main branch's
+  `docs/` folder; `https://ubrn.github.io/kuyara/privacy-policy` and
+  `https://ubrn.github.io/kuyara/support` were fetched with status 200 the same day. The
+  answer sheet, the store copy and the screenshots were prepared on 2026-09-11 outside
+  the repository.
 
 ## Recently Completed
 
