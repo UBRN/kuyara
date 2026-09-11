@@ -506,7 +506,7 @@ const en = {
     shareUsageData: 'Share usage data',
     toggleFooter: 'Usage data helps improve kuyara. Turning this off stops collection immediately and unlinks past data from this device.',
     identifierLabel: 'Analytics identifier',
-    identifierFooter: 'Include this identifier when requesting deletion of your data.',
+    identifierFooter: 'You can quote this identifier in a request about your data.',
     privacyPolicyLabel: 'Privacy policy',
   },
   profile: {
@@ -949,7 +949,7 @@ const tr = {
     shareUsageData: 'Kullanım verisi paylaş',
     toggleFooter: "Kullanım verisi kuyara'yı geliştirmeye yardımcı olur. Kapatmak toplamayı hemen durdurur ve geçmiş verilerin bu cihazla bağını koparır.",
     identifierLabel: 'Analitik kimliği',
-    identifierFooter: 'Verilerinin silinmesini isterken bu kimliği belirt.',
+    identifierFooter: 'Verilerinle ilgili bir talepte bu kimliği belirtebilirsin.',
     privacyPolicyLabel: 'Gizlilik politikası',
   },
   profile: {

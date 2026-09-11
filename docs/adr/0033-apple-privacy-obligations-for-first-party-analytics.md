@@ -5,7 +5,9 @@ Status: Accepted (2026-09-09)
 Implementation: the milestone 10 code side (consent sheet, Settings Privacy surface,
 fail-closed adapter, pre-consent buffer) landed 2026-09-09 and 2026-09-10; the PostHog
 project configuration in section 6 item 6 was verified 2026-09-10. Still open: the DPA
-decision (section 7) and the milestone 11 items. This ADR verifies what Apple actually
+decision (section 7) and the milestone 11 items. *Amended 2026-09-11:* milestone 11 items
+1 and 2 are done and the lawful basis is decided (section 7); the DPA signature is with
+the maintainer. This ADR verifies what Apple actually
 requires of the analytics direction in
 [ADR 0023](0023-behavioural-product-analytics-with-posthog.md) and turns the open consent,
 revocation and deletion question into decisions and follow-up work. It installs nothing
@@ -358,9 +360,16 @@ Milestone 11, App Store privacy disclosure and privacy policy, gains these:
 1. The privacy policy states what is collected (the categories in section 1), why, that
    PostHog processes it under equal protection, the retention period, how to withdraw in
    Settings, and how to request deletion naming the identifier. Its URL goes into App
-   Store Connect and into the app.
+   Store Connect and into the app. *Done 2026-09-11:* `docs/privacy-policy.md`, English
+   and Turkish, published from the main branch's `docs/` folder through GitHub Pages at
+   <https://ubrn.github.io/kuyara/privacy-policy>; the app's `PRIVACY_POLICY_URL` carries
+   the same address and the Settings Privacy row opens it. Enabling Pages and entering the
+   URL into App Store Connect are the maintainer's.
 2. The questionnaire is filled from the Xcode privacy report and section 1, marking every
-   category as not used for tracking and with the linkage answer from section 7.
+   category as not used for tracking and with the linkage answer from section 7. *Done
+   2026-09-11:* the answer sheet was prepared from section 1 (Product Interaction and
+   Other Usage Data, each collected, linked to the user, not used for tracking, purpose
+   Analytics; no other category); entering it into App Store Connect is the maintainer's.
 3. Apple's three pages cited in sections 1 to 3 are re-read on the submission date and
    this ADR is amended if their wording changed.
 4. If accounts ship before or with analytics, account deletion also deletes analytics data
@@ -373,7 +382,10 @@ Milestone 11, App Store privacy disclosure and privacy policy, gains these:
   the GDPR and KVKK reading is still owed before submission.
 - **Lawful basis and DPA.** Whether consent or legitimate interest is the basis under
   GDPR and KVKK for kuyara's audience, and whether PostHog's DPA is signed. Apple's
-  requirement is satisfied either way by the consent surface.
+  requirement is satisfied either way by the consent surface. *Decided 2026-09-11:*
+  consent is the lawful basis. The first-launch consent sheet and the Settings withdrawal
+  control stay as implemented. The PostHog DPA is signed by the maintainer through the
+  PostHog interface; signature is with the maintainer.
 - **Deletion of anonymous events.** Whether PostHog can delete events by `distinct_id`
   when no person profile exists, or whether a deletion request would require a person
   profile to be created first. Confirm against PostHog's persons API before the privacy
@@ -393,7 +405,12 @@ Milestone 11, App Store privacy disclosure and privacy policy, gains these:
   identifier deletable and reopens ADR 0023's identity decision and its cost note
   (PostHog prices identified events higher); or a policy that promises withdrawal and the
   twelve-month retention window but not identifier-based deletion. Until decided, the
-  privacy policy must not promise deletion by identifier.
+  privacy policy must not promise deletion by identifier. *Decided 2026-09-11:* the third
+  option. The policy promises withdrawal from Settings, severance of the identifier on
+  withdrawal, and the twelve-month retention window. A deletion request may be sent to
+  the maintainer by email, and the policy states plainly that its outcome is not
+  guaranteed. The Settings identifier footer no longer promises deletion; it says the
+  identifier can be quoted in a request about the user's data.
 - **Retention control.** Decided 2026-09-10: the free plan offers no shorter
   project-level retention, so the policy states the plan figure, one year (section 4).
 - **Gender and dress style as properties.** ADR 0023 allows coarse product properties.

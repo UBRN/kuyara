@@ -104,14 +104,23 @@ and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
 
 App Store submission, not TestFlight, is blocked by:
 
-- Milestone 10's DPA decision, awaiting the maintainer (the code, the PostHog project
-  and the EAS variables are complete).
-- Milestone 11's privacy policy URL and the completed data-collection questionnaire, both
-  awaiting the maintainer's decisions.
-- The remaining non-code prerequisites: a support URL, screenshots and description copy.
+- Milestone 10's PostHog DPA signature, with the maintainer in the PostHog interface. The
+  lawful basis was decided on 2026-09-11 (consent, ADR 0033 section 7); the code, the
+  PostHog project and the EAS variables are complete.
+- Milestone 11's two maintainer steps: enabling GitHub Pages for the main branch's `docs/`
+  folder, which publishes the privacy policy and support page under
+  `https://ubrn.github.io/kuyara/`, and entering the privacy policy URL, the support URL,
+  the data-collection questionnaire answers, the store description and the screenshots
+  into App Store Connect. The answer sheet, the store copy and the screenshots were
+  prepared on 2026-09-11 outside the repository.
 
 ## Recently Completed
 
+- **Milestone 11 documents** (2026-09-11): `docs/privacy-policy.md` and `docs/support.md`,
+  English and Turkish, written from ADR 0033's findings for publication through GitHub
+  Pages; `PRIVACY_POLICY_URL` set to the published address with a route test proving the
+  Settings Privacy row opens it; the Settings identifier footer no longer promises
+  deletion. ADR 0033 section 7 records the lawful-basis and deletion decisions.
 - **Milestone 10 configuration** (2026-09-10): the PostHog Cloud EU project was created
   and configured (client IP discard on, GeoIP transformation disabled, session replay
   off, twelve-month retention, verified through the project settings and the Data
