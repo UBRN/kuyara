@@ -163,7 +163,7 @@ test('failed hourly replacement rolls back and corrupt stored data fails predict
   );
 });
 
-test('repository rejects mismatched location keys and hourly rows outside the local day', async (t) => {
+test('repository accepts a cross-day window and rejects hourly rows outside 36 hours', async (t) => {
   const { database, repository } = await setup();
   t.after(() => database.close());
   const istanbul = getManualLocation('sample.istanbul');
@@ -176,15 +176,51 @@ test('repository rejects mismatched location keys and hourly rows outside the lo
     (error) => error instanceof WeatherRepositoryError && error.code === 'invalid-input',
   );
 
+  const validSnapshot = provided(istanbul, '2026-07-30T20:00:00.000Z');
+  validSnapshot.hourly = [
+    validSnapshot.hourly[0],
+    {
+      ...validSnapshot.hourly[0],
+      forecastAt: '2026-07-31T20:00:00.000Z',
+    },
+  ];
+  const saved = await repository.saveSnapshot(profileId, validSnapshot);
+  assert.equal(saved.hourly.at(-1).forecastAt, '2026-07-31T20:00:00.000Z');
+
   const invalidSnapshot = provided(istanbul, '2026-07-30T20:00:00.000Z');
   invalidSnapshot.hourly = [{
     ...invalidSnapshot.hourly[0],
-    forecastAt: '2026-07-31T20:00:00.000Z',
+    forecastAt: '2026-08-01T08:00:00.001Z',
   }];
   await assert.rejects(
     () => repository.saveSnapshot(profileId, invalidSnapshot),
     (error) => error instanceof WeatherRepositoryError && error.code === 'invalid-input',
   );
+});
+
+test('repository still reads an ordered legacy same-day snapshot with older hours', async (t) => {
+  const { database, dataSource, repository } = await setup();
+  t.after(() => database.close());
+  const istanbul = getManualLocation('sample.istanbul');
+  await repository.setActiveLocation(profileId, istanbul);
+  await repository.saveSnapshot(
+    profileId,
+    provided(istanbul, '2026-07-30T20:00:00.000Z'),
+  );
+  const record = await dataSource.getSnapshot(profileId, istanbul.locationKey);
+  await dataSource.replaceSnapshot({
+    ...record,
+    hourly: [
+      { ...record.hourly[0], forecastAt: '2026-07-29T22:00:00.000Z' },
+      record.hourly[0],
+    ],
+  });
+
+  const reloaded = await repository.getSnapshot(profileId, istanbul.locationKey);
+  assert.deepEqual(reloaded.hourly.map(({ forecastAt }) => forecastAt), [
+    '2026-07-29T22:00:00.000Z',
+    '2026-07-30T20:00:00.000Z',
+  ]);
 });
 
 test('searched place identity and display name survive a repository reload and switching locations', async (t) => {

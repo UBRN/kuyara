@@ -166,6 +166,15 @@ test('past and exactly-now hours are excluded, and an empty remainder has no dai
   assert.equal(result[0].crossingAt, crossingAt);
 });
 
+test('next-day crossings do not schedule today\'s alerts', () => {
+  assert.deepEqual(plan(snapshot({
+    hourly: [hour('2026-09-10T01:00:00.000Z', {
+      condition: 'rain',
+      apparentTemperatureCelsius: 12,
+    })],
+  })), []);
+});
+
 test('quiet hours move to 07:00 local only with at least 30 minutes left', () => {
   for (const [timeZone, localSeven] of [
     ['UTC', '2026-09-09T07:00:00.000Z'],

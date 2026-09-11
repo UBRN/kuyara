@@ -159,6 +159,36 @@ test('past daily cold does not over-insulate a warm evening with warm remaining 
   assert.deepEqual(result.reasonCodes, ['daily_range_wide']);
 });
 
+test('next-day hourly conditions do not change today\'s clothing requirements', () => {
+  const result = deriveClothingRequirements(snapshot({
+    current: {
+      temperatureCelsius: 22,
+      apparentTemperatureCelsius: 22,
+    },
+    minimumTemperatureCelsius: 21,
+    maximumTemperatureCelsius: 23,
+    hourly: [
+      {
+        forecastAt: futureAt,
+        ...measurements({ temperatureCelsius: 21, apparentTemperatureCelsius: 21 }),
+      },
+      {
+        forecastAt: '2026-08-02T01:00:00.000Z',
+        ...measurements({
+          temperatureCelsius: 0,
+          apparentTemperatureCelsius: -4,
+          condition: 'heavy_rain',
+          precipitationProbability: 1,
+          windSpeedMetersPerSecond: 12,
+        }),
+      },
+    ],
+  }));
+
+  assert.deepEqual(result.requirements, []);
+  assert.deepEqual(result.reasonCodes, []);
+});
+
 test('daily extrema are a documented fallback when no future hourly entry exists', () => {
   const result = deriveClothingRequirements(snapshot({
     current: {

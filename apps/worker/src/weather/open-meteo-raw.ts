@@ -1,5 +1,7 @@
 import {
-  weatherLocalDateKey,
+  isValidWeatherHourlyForecastWindow,
+  isWeatherHourlyForecastInWindow,
+  weatherHourlyForecastMaximumEntries,
   type WeatherConditionCode,
 } from '@kuyara/contracts';
 import { z } from 'zod';
@@ -121,9 +123,6 @@ export function mapOpenMeteoResponse(
   fetchedAt: string,
 ): ProviderWeatherSnapshot {
   const observedAt = utcIso(raw.current.time);
-  const currentLocalDay = weatherLocalDateKey(observedAt, location.timeZone);
-  if (currentLocalDay === null) throw new WeatherProviderError('invalid_response');
-
   const allHourly = mapHourly(raw.hourly);
   const nearest = allHourly.reduce((best, entry) => (
     Math.abs(Date.parse(entry.forecastAt) - Date.parse(observedAt))
@@ -142,9 +141,11 @@ export function mapOpenMeteoResponse(
     observedAt,
   };
   const hourly = allHourly.filter(({ forecastAt }) => (
-    weatherLocalDateKey(forecastAt, location.timeZone) === currentLocalDay
-  )).slice(0, 25);
-  if (hourly.length === 0) throw new WeatherProviderError('invalid_response');
+    isWeatherHourlyForecastInWindow(forecastAt, observedAt)
+  )).slice(0, weatherHourlyForecastMaximumEntries);
+  if (!isValidWeatherHourlyForecastWindow(hourly, observedAt)) {
+    throw new WeatherProviderError('invalid_response');
+  }
 
   return {
     timeZone: location.timeZone,

@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  isValidWeatherHourlyForecastWindow,
   weatherConditionCodes,
+  weatherHourlyForecastMaximumEntries,
   weatherV1ErrorCodes,
   weatherV1ErrorSchema,
   weatherV1Path,
@@ -119,7 +121,21 @@ test('rejects inconsistent temperature ranges', () => {
   assert.equal(weatherV1SuccessSchema.safeParse(value).success, false);
 });
 
-test('rejects empty, unordered, cross-day, and oversized hourly forecasts', () => {
+test('accepts ordered hourly forecasts through the next local day inside the 36-hour window', () => {
+  const value = validSuccess();
+  value.data.hourly = [
+    { ...value.data.hourly[0], forecastAt: '2026-08-01T08:30:00.000Z' },
+    { ...value.data.hourly[0], forecastAt: '2026-08-02T21:30:00.000Z' },
+  ];
+
+  assert.equal(weatherV1SuccessSchema.safeParse(value).success, true);
+  assert.equal(isValidWeatherHourlyForecastWindow(
+    value.data.hourly,
+    value.data.current.observedAt,
+  ), true);
+});
+
+test('rejects empty, unordered, out-of-window, and oversized hourly forecasts', () => {
   const empty = validSuccess();
   empty.data.hourly = [];
   assert.equal(weatherV1SuccessSchema.safeParse(empty).success, false);
@@ -128,14 +144,23 @@ test('rejects empty, unordered, cross-day, and oversized hourly forecasts', () =
   unordered.data.hourly.reverse();
   assert.equal(weatherV1SuccessSchema.safeParse(unordered).success, false);
 
-  const crossDay = validSuccess();
-  crossDay.data.hourly[1].forecastAt = '2026-08-02T21:00:00.000Z';
-  assert.equal(weatherV1SuccessSchema.safeParse(crossDay).success, false);
+  for (const forecastAt of [
+    '2026-08-01T08:29:59.999Z',
+    '2026-08-02T21:30:00.001Z',
+  ]) {
+    const outOfWindow = validSuccess();
+    outOfWindow.data.hourly = [{ ...outOfWindow.data.hourly[0], forecastAt }];
+    assert.equal(weatherV1SuccessSchema.safeParse(outOfWindow).success, false);
+  }
 
   const oversized = validSuccess();
-  oversized.data.hourly = Array.from({ length: 26 }, (_, index) => ({
+  oversized.data.hourly = Array.from({
+    length: weatherHourlyForecastMaximumEntries + 1,
+  }, (_, index) => ({
     ...oversized.data.hourly[0],
-    forecastAt: new Date(Date.parse('2026-08-01T00:00:00.000Z') + index * 60 * 60 * 1000).toISOString(),
+    forecastAt: new Date(
+      Date.parse('2026-08-01T09:30:00.000Z') + index * 30 * 60 * 1000,
+    ).toISOString(),
   }));
   assert.equal(weatherV1SuccessSchema.safeParse(oversized).success, false);
 });

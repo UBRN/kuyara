@@ -1,3 +1,4 @@
+import { weatherLocalDateKey } from '@kuyara/contracts';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
@@ -57,6 +58,18 @@ function decimal(value: number, language: 'en' | 'tr'): string {
 function time(value: string, timeZone: string, language: 'en' | 'tr'): string {
   return new Intl.DateTimeFormat(language === 'tr' ? 'tr-TR' : 'en-US', {
     hour: '2-digit', minute: '2-digit', timeZone,
+  }).format(new Date(value));
+}
+
+function weekday(
+  value: string,
+  timeZone: string,
+  language: 'en' | 'tr',
+  length: 'short' | 'long',
+): string {
+  return new Intl.DateTimeFormat(language === 'tr' ? 'tr-TR' : 'en-US', {
+    timeZone,
+    weekday: length,
   }).format(new Date(value));
 }
 
@@ -433,20 +446,33 @@ export function WeatherScreen() {
               </AppText>
               <HourlyRail
                 // A rail is scanned, not read, so its temperatures are whole degrees.
-                columns={remainingHourly.map((hour) => ({
-                  key: hour.forecastAt,
-                  accessibilityLabel: copy.hourlyForecastAccessibilityLabel({
-                    time: time(hour.forecastAt, snapshot.timeZone, language),
+                columns={remainingHourly.map((hour, index) => {
+                  const localDate = weatherLocalDateKey(hour.forecastAt, snapshot.timeZone);
+                  const previousLocalDate = index === 0
+                    ? localDate
+                    : weatherLocalDateKey(remainingHourly[index - 1].forecastAt, snapshot.timeZone);
+                  const startsNewLocalDay = localDate !== previousLocalDate;
+                  const hourLabel = time(hour.forecastAt, snapshot.timeZone, language);
+                  return {
+                    key: hour.forecastAt,
+                    accessibilityLabel: copy.hourlyForecastAccessibilityLabel({
+                      day: startsNewLocalDay
+                        ? weekday(hour.forecastAt, snapshot.timeZone, language, 'long')
+                        : undefined,
+                      time: hourLabel,
+                      temperature: temperature(hour.temperatureCelsius, language, 0),
+                      condition: copy.conditions[hour.condition],
+                      precipitationProbability: hour.precipitationProbability,
+                    }),
+                    condition: hour.condition,
+                    precipitation: percentage(hour.precipitationProbability, language),
                     temperature: temperature(hour.temperatureCelsius, language, 0),
-                    condition: copy.conditions[hour.condition],
-                    precipitationProbability: hour.precipitationProbability,
-                  }),
-                  condition: hour.condition,
-                  precipitation: percentage(hour.precipitationProbability, language),
-                  temperature: temperature(hour.temperatureCelsius, language, 0),
-                  temperatureCelsius: hour.temperatureCelsius,
-                  time: time(hour.forecastAt, snapshot.timeZone, language),
-                }))}
+                    temperatureCelsius: hour.temperatureCelsius,
+                    time: startsNewLocalDay
+                      ? weekday(hour.forecastAt, snapshot.timeZone, language, 'short')
+                      : hourLabel,
+                  };
+                })}
               />
             </Surface>
           )}
