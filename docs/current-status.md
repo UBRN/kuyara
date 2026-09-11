@@ -110,8 +110,6 @@ App Store submission, not TestFlight, is blocked by:
   support URLs, the subtitle and the listing copy were entered in App Store Connect the
   same day. The maintainer deferred the screenshots to the end of the release path and
   may pick a marketing-screenshot tool first; the plain Simulator captures were discarded.
-- Two component suites fail on `main` since the accessory silhouettes landed (67652d0),
-  see Known Issues. The suite must be green before submission.
 
 ## Recently Completed
 
@@ -165,14 +163,6 @@ App Store submission, not TestFlight, is blocked by:
 
 ## Known Issues and Manual Verification Gaps
 
-- **Two component suites fail on `main`.** `profile.component.test.tsx` ("the rail
-  mixes coloured silhouettes, accessory glyphs and legacy glyphs") looks for
-  `profile-rail-photo-placeholder-accessory`, and `garment-tile-artwork.component.test.tsx`
-  ("an unreadable accessory photo falls to the existing glyph") expects the pre-silhouette
-  accessory glyph. Both fail on the untouched tree since 67652d0 drew the five accessory
-  silhouettes, so `pnpm --filter @kuyara/mobile test:components` exits 1 (299 passed,
-  2 failed on 2026-09-11). Decide whether the tests or the fallback are stale before
-  fixing.
 - **A development LogBox warning appears at launch under Reduce Motion.** Seen on the
   Simulator on 2026-09-10 on the build before and after the detail entrance transition,
   so it is not caused by that change; its text was not captured because Metro ran in
