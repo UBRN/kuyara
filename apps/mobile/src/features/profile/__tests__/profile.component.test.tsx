@@ -345,7 +345,10 @@ test.each(['loading', 'error'] as const)(
   },
 );
 
-test('the rail mixes coloured silhouettes, accessory glyphs and legacy glyphs', async () => {
+// ADR 0025's 2026-09-10 amendment gave the five accessories their own silhouettes, so an
+// accessory draws like any typed garment; only a legacy entry without a type falls back
+// to the category placeholder.
+test('the rail draws coloured silhouettes for typed garments and accessories, and a glyph for legacy entries', async () => {
   const accessory = itemWithId('accessory', { garmentTypeId: 'beanie', category: 'accessory' });
   const legacy = itemWithId('legacy', { garmentTypeId: null });
   const result = await render(
@@ -354,11 +357,12 @@ test('the rail mixes coloured silhouettes, accessory glyphs and legacy glyphs', 
     </TestProviders>,
   );
   const hidden = { includeHiddenElements: true };
-  expect(result.getByTestId(`profile-rail-silhouette-${baseItem.id}`, hidden)).toBeOnTheScreen();
-  for (const item of [accessory, legacy]) {
-    expect(result.getByTestId(`profile-rail-photo-placeholder-${item.id}`, hidden)).toBeOnTheScreen();
-    expect(result.queryByTestId(`profile-rail-silhouette-${item.id}`, hidden)).toBeNull();
+  for (const item of [baseItem, accessory]) {
+    expect(result.getByTestId(`profile-rail-silhouette-${item.id}`, hidden)).toBeOnTheScreen();
+    expect(result.queryByTestId(`profile-rail-photo-placeholder-${item.id}`, hidden)).toBeNull();
   }
+  expect(result.getByTestId(`profile-rail-photo-placeholder-${legacy.id}`, hidden)).toBeOnTheScreen();
+  expect(result.queryByTestId(`profile-rail-silhouette-${legacy.id}`, hidden)).toBeNull();
 });
 
 test('the rail prefers a photo, falling to the silhouette when the photo cannot load', async () => {
