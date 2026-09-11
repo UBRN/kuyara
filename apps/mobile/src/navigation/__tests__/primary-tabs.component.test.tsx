@@ -89,11 +89,14 @@ jest.mock('expo-router/unstable-native-tabs', () => {
 
 jest.mock('expo-router', () => {
   const { Text: MockText } = jest.requireActual('react-native');
+  const actualReact = jest.requireActual('react');
 
   return {
     Redirect: ({ href }: { href: string }) => (
       <MockText testID="route-redirect">{href}</MockText>
     ),
+    useFocusEffect: (callback: () => void | (() => void)) =>
+      actualReact.useEffect(callback, [callback]),
   };
 });
 
