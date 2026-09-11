@@ -1,2 +1,3 @@
-// Milestone 11 supplies the reviewed policy URL. Until then the Settings row stays hidden.
-export const PRIVACY_POLICY_URL: string | null = null;
+// Published from the main branch's docs/ folder through GitHub Pages (milestone 11).
+// The same URL goes into App Store Connect.
+export const PRIVACY_POLICY_URL = 'https://ubrn.github.io/kuyara/privacy-policy';
