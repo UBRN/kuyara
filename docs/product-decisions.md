@@ -277,6 +277,7 @@ Approved 2026-09-04, settled by [ADR 0033](adr/0033-apple-privacy-obligations-fo
 - Analytics enters the App Store Connect questionnaire as Product Interaction and Other Usage Data, with PostHog's IP capture off; the install identifier is declared linked to the user (maintainer decision, 2026-09-09).
 - Data is not sold, not used for advertising, and not intentionally shared with data brokers or unrelated third parties. A short, understandable privacy disclosure is preferred to a legalistic agreement flow.
 - These findings are verified against current official Apple documentation before implementation and again before submission; identity linking when accounts arrive remains open.
+- Consent is the lawful basis (decided 2026-09-11, ADR 0033 section 7). The privacy policy promises withdrawal from Settings, severance of the analytics identifier on withdrawal and twelve-month retention; deletion can be requested from the maintainer by email without a guaranteed outcome, because anonymous events cannot be deleted by identifier. The policy and the support page are published from the main branch's `docs/` folder through GitHub Pages under `https://ubrn.github.io/kuyara/`.
 
 ## Approved licensing posture
 
