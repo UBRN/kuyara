@@ -250,8 +250,9 @@ test('live preference changes propagate localized copy and dark semantic colors 
   expect(within(result.getByTestId('settings-primary-group')).getByTestId('settings-theme-row')).toBeOnTheScreen();
   expect(within(result.getByTestId('settings-services-group')).getByTestId('settings-ai-status-row')).toBeOnTheScreen();
   expect(within(result.getByTestId('settings-services-group')).getByTestId('settings-privacy-row')).toBeOnTheScreen();
+  // An unanswered sheet is neither On nor Off.
   expect(result.getByTestId('settings-privacy-row-value-stacked')).toHaveTextContent(
-    messages.en.notifications.statusOff,
+    messages.en.analytics.statusNotAsked,
   );
   expect(within(result.getByTestId('settings-about-you-group')).getByTestId('settings-gender-row')).toBeOnTheScreen();
   expect(within(result.getByTestId('settings-about-you-group')).getByTestId('settings-dress-style-row')).toBeOnTheScreen();

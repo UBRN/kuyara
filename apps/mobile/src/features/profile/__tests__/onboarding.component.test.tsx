@@ -323,7 +323,7 @@ test('a chosen location turns the final quiet action into the start action', asy
   for (let step = 0; step < 4; step += 1) {
     await fireEvent.press(result.getByTestId('onboarding-continue'));
   }
-  expect(result.queryByText(messages.en.weather.cancel)).not.toBeOnTheScreen();
+  expect(result.queryByText(messages.en.onboarding.locationSkipAction)).not.toBeOnTheScreen();
   await fireEvent.press(result.getByRole('button', {
     name: messages.en.onboarding.completeAction,
   }));

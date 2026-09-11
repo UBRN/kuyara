@@ -279,6 +279,27 @@ test('a wanted-only closet keeps the Wanted row and skips the rail', async () =>
   expect(onOpenWardrobe).toHaveBeenCalledWith('wanted');
 });
 
+// ADR 0028 section 1 hides the row only while nothing exists in either state, so an
+// owned-only Closet still reports its zero.
+test('an owned-only closet keeps the Wanted row at zero', async () => {
+  mockFontScale(1);
+  const onOpenWardrobe = jest.fn();
+  const result = await render(
+    <TestProviders items={[baseItem]}>
+      <ProfileScreen
+        activePlaceName={null}
+        onOpenWardrobe={onOpenWardrobe}
+        onOpenWeather={() => undefined}
+      />
+    </TestProviders>,
+  );
+
+  const wantedRow = result.getByTestId('profile-wanted-row');
+  expect(wantedRow.props.accessibilityLabel).toBe(`${messages.en.profile.wantedLabel}, 0`);
+  await fireEvent.press(wantedRow);
+  expect(onOpenWardrobe).toHaveBeenCalledWith('wanted');
+});
+
 test('the Location row shows the place at bodyStrong with an approximate caption and opens Weather', async () => {
   mockFontScale(1);
   const onOpenWeather = jest.fn();

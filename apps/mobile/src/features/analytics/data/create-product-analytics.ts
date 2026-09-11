@@ -2,7 +2,6 @@
 // selects local event logging for Simulator evidence; production stays on the no-op port, so
 // missing configuration can never send anything (ADR 0033 section 3).
 import { resolveProductAnalyticsConfiguration } from '@/config/product-analytics-config';
-import { ConsentBufferingProductAnalytics } from '@/features/analytics/data/consent-buffering-product-analytics';
 import { DevelopmentLoggingProductAnalytics } from '@/features/analytics/data/development-logging-product-analytics';
 import { noopProductAnalytics } from '@/features/analytics/data/noop-product-analytics';
 import { createPostHogProductAnalytics } from '@/features/analytics/data/posthog-product-analytics';
@@ -20,18 +19,12 @@ export function createProductAnalytics(
   });
   if (configuration.kind !== 'enabled') {
     return isDevelopment && !process.env.EXPO_PUBLIC_POSTHOG_API_KEY?.trim()
-      ? new ConsentBufferingProductAnalytics(
-          new DevelopmentLoggingProductAnalytics(consent),
-          consent,
-        )
+      ? new DevelopmentLoggingProductAnalytics(consent)
       : noopProductAnalytics;
   }
-  return new ConsentBufferingProductAnalytics(
-    createPostHogProductAnalytics({
-      apiKey: configuration.apiKey,
-      host: configuration.host,
-      consent,
-    }),
+  return createPostHogProductAnalytics({
+    apiKey: configuration.apiKey,
+    host: configuration.host,
     consent,
-  );
+  });
 }

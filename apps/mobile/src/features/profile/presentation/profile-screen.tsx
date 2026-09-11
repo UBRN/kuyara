@@ -307,7 +307,7 @@ export function ProfileScreen({
 
       <View style={styles.group}>
         <ListRowGroup testID="profile-group">
-          {hasWanted && (
+          {(hasOwned || hasWanted) && (
             <ListRow
               glyph={({ color, size }) => (
                 <Icon color={color} name="heart" size={size} />
