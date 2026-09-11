@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import {
   AppText,
@@ -35,13 +35,15 @@ type TodayScreenProps = Readonly<{
 export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: TodayScreenProps) {
   const router = useRouter();
   const weatherApplication = useWeatherApplication();
+  const [now, setNow] = useState(() => Date.now());
+  useFocusEffect(useCallback(() => { setNow(Date.now()); }, []));
   const presentationState =
     state.kind === 'unavailable' &&
     weatherApplication.state.status === 'ready' &&
     weatherApplication.state.activeLocation === null
       ? { ...state, reason: 'no-active-location' as const }
       : state;
-  const presentation = createTodayPresentation(presentationState, language);
+  const presentation = createTodayPresentation(presentationState, language, now);
   const copy = getMessages(language).today;
   const theme = useKuyaraTheme();
   // One shared threshold (ADR 0019): the stacked layout is the same rule ListRow applies.

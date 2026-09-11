@@ -139,17 +139,6 @@ export const todayScreenState = Object.freeze({
   }),
 } as const satisfies TodayScreenState);
 
-export const nightTodayScreenState = Object.freeze({
-  ...todayScreenState,
-  snapshot: Object.freeze({
-    ...todayScreenState.snapshot,
-    weather: Object.freeze({
-      ...todayWeatherSnapshot,
-      fetchedAt: '2026-08-13T21:05:00.000Z',
-    }),
-  }),
-} as const satisfies TodayScreenState);
-
 const todayRecommendation = todayScreenState.snapshot.recommendation;
 
 if (todayRecommendation.status !== 'recommended') {

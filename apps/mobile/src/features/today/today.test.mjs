@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  nightTodayScreenState,
   todayActiveLocation,
   todayScreenState,
   todayWardrobeItems,
@@ -21,9 +20,10 @@ const weatherReasons = [
   'Drizzle calls for light water protection.',
   'Rain requires water protection.',
 ];
+const fixtureNow = Date.parse('2026-08-13T06:30:00.000Z');
 
-function loadedPresentation(state = todayScreenState, language = 'en') {
-  const presentation = createTodayPresentation(state, language);
+function loadedPresentation(state = todayScreenState, language = 'en', now = fixtureNow) {
+  const presentation = createTodayPresentation(state, language, now);
   assert.equal(presentation.kind, 'loaded');
   return presentation;
 }
@@ -115,9 +115,58 @@ test('loaded mapping uses localized catalog names, slot order, positions, and fi
   );
 });
 
-test('loaded presentation derives the atmosphere from condition and snapshot-local daypart', () => {
+test('loaded presentation derives the atmosphere from the device clock, not fetch time', () => {
+  const fetchedAtThreeInTheAfternoon = {
+    ...todayScreenState,
+    snapshot: {
+      ...todayScreenState.snapshot,
+      weather: {
+        ...todayScreenState.snapshot.weather,
+        fetchedAt: '2026-08-13T12:00:00.000Z',
+      },
+    },
+  };
+
   assert.equal(loadedPresentation(todayScreenState).atmosphere, 'fallingDay');
-  assert.equal(loadedPresentation(nightTodayScreenState).atmosphere, 'fallingNight');
+  const night = loadedPresentation(
+    fetchedAtThreeInTheAfternoon,
+    'en',
+    Date.parse('2026-08-13T19:00:00.000Z'),
+  );
+  assert.equal(night.atmosphere, 'fallingNight');
+  assert.match(night.header.freshness, /15:00/);
+});
+
+test('loaded presentation gives visible and accessible weather the same rain outlook', () => {
+  const highRainLaterToday = {
+    ...todayScreenState,
+    snapshot: {
+      ...todayScreenState.snapshot,
+      weather: {
+        ...todayScreenState.snapshot.weather,
+        current: {
+          ...todayScreenState.snapshot.weather.current,
+          precipitationProbability: 0.1,
+        },
+        hourly: [
+          {
+            ...todayScreenState.snapshot.weather.hourly[0],
+            forecastAt: '2026-08-13T12:00:00.000Z',
+            precipitationProbability: 0.9,
+          },
+          {
+            ...todayScreenState.snapshot.weather.hourly[0],
+            forecastAt: '2026-08-13T22:00:00.000Z',
+            precipitationProbability: 1,
+          },
+        ],
+      },
+    },
+  };
+
+  const presentation = loadedPresentation(highRainLaterToday);
+  assert.equal(presentation.weather.rainProbability, '90% chance of rain');
+  assert.match(presentation.weather.accessibilityLabel, /90 percent chance of rain/);
 });
 
 function assignedGarment(slot, garmentTypeId, category) {
@@ -311,8 +360,8 @@ test('stale freshness and outfit copy localize in both languages', () => {
 });
 
 test('loading, unavailable, and semantic theme behavior remains explicit', () => {
-  const loading = createTodayPresentation({ kind: 'loading' }, 'en');
-  const unavailable = createTodayPresentation({ kind: 'unavailable' }, 'tr');
+  const loading = createTodayPresentation({ kind: 'loading' }, 'en', fixtureNow);
+  const unavailable = createTodayPresentation({ kind: 'unavailable' }, 'tr', fixtureNow);
   const light = createKuyaraTheme('light');
   const dark = createKuyaraTheme('dark');
   const reduced = createKuyaraTheme('light', true);
