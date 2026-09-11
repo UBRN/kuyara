@@ -96,11 +96,6 @@ Analytics is sequenced before the first public App Store release, so milestones 
     into an authenticated profile needs its own ADR; until then build no sync
     infrastructure.
 
-Approved design work that is decided and not built, none of it a release blocker:
-
-- ADR 0026 decision 5, the control that changes ownership on outfit detail; the
-  per-garment owned/wanted button list is the interim.
-
 Provider prices and quotas are deliberately absent from this list; reverify them from
 official sources when each item is implemented. Server-sent push (N3) stays deferred
 and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
@@ -199,11 +194,6 @@ App Store submission, not TestFlight, is blocked by:
   a lower-ranked source, so a green suite and a successful deploy do not prove the
   intended provider ran. Confirm `origin.sourceId` in a live response after any provider
   change.
-- **Outfit detail's ownership controls** are the heaviest element on the screen and the
-  first candidate for ADR 0026 decision 5. Four accent-filled selected buttons in one
-  viewport sit in tension with Law 1; the Turkish pair stacks above `fontScale` 1.5 as an
-  interim. An untracked garment deliberately draws no marker while its accessibility label
-  still speaks the state (decided 2026-09-09).
 - **The native location picker** marks the selected result with a localized trailing
   "Selected" value because `NativeListRow` exposes no selected trait.
 - **The Closet's segmented control is untinted on iOS:** the installed `@expo/ui`

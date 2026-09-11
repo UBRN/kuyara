@@ -26,6 +26,9 @@ export const iconNames = Object.freeze({
   settings: { ios: 'gearshape.fill', android: 'settings', web: 'settings' },
   chevronRight: { ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' },
   chevronLeft: { ios: 'chevron.left', android: 'chevron_left', web: 'chevron_left' },
+  menuIndicator: {
+    ios: 'chevron.up.chevron.down', android: 'arrow_drop_down', web: 'arrow_drop_down',
+  },
   refresh: { ios: 'arrow.clockwise', android: 'refresh', web: 'refresh' },
   location: { ios: 'mappin.and.ellipse', android: 'location_on', web: 'location_on' },
   sparkle: { ios: 'sparkles', android: 'auto_awesome', web: 'auto_awesome' },

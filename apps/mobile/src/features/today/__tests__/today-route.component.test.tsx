@@ -25,6 +25,58 @@ import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
+jest.mock('@/components/ui/native-menu', () => {
+  const React = jest.requireActual('react') as typeof import('react');
+  const {
+    Pressable,
+    Text,
+    View,
+  } = jest.requireActual('react-native') as typeof import('react-native');
+
+  return {
+    NativeMenu: ({
+      accessibilityHint,
+      accessibilityLabel,
+      children,
+      items,
+      onSelect,
+      testID,
+    }: Readonly<{
+      accessibilityHint?: string;
+      accessibilityLabel: string;
+      children: React.ReactNode;
+      items: readonly Readonly<{ id: string; label: string; selected?: boolean }>[];
+      onSelect: (id: string) => void;
+      testID?: string;
+    }>) => {
+      const [open, setOpen] = React.useState(false);
+      return (
+        <View>
+          <Pressable
+            accessible
+            accessibilityHint={accessibilityHint}
+            accessibilityLabel={accessibilityLabel}
+            accessibilityRole="button"
+            onPress={() => setOpen(true)}
+            testID={testID}>
+            {children}
+          </Pressable>
+          {open ? items.map((item) => (
+            <Pressable
+              accessibilityRole="button"
+              key={item.id}
+              onPress={() => {
+                setOpen(false);
+                if (!item.selected) onSelect(item.id);
+              }}>
+              <Text>{item.label}</Text>
+            </Pressable>
+          )) : null}
+        </View>
+      );
+    },
+  };
+});
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
@@ -107,6 +159,18 @@ function wardrobeValue(overrides: Partial<Record<string, unknown>> = {}) {
     createItem: jest.fn(async () => ({}) as WardrobeItem),
     updateItem: jest.fn(async () => ({}) as WardrobeItem),
     softDeleteItem: jest.fn(async () => ({}) as WardrobeItem),
+    ...overrides,
+  };
+}
+
+function wardrobeItem(overrides: Partial<WardrobeItem> = {}): WardrobeItem {
+  return {
+    id: 'item-one', localProfileId: 'profile-one', name: null, category: 'outerwear',
+    entryState: 'owned', garmentTypeId: 'jumpsuit', color: null, colorFamily: null,
+    thermalLevelOverride: null, waterProtectionOverride: null, windProtectionOverride: null,
+    breathabilityOverride: null, armCoverageOverride: null, legCoverageOverride: null,
+    tractionSuitabilityOverride: null, photoRelativePath: null,
+    createdAt: '2026-08-13T06:00:00.000Z', updatedAt: '2026-08-13T06:00:00.000Z', deletedAt: null,
     ...overrides,
   };
 }
@@ -432,17 +496,10 @@ test('recomputing a focused outfit detail does not reopen the same suggestion', 
     .toHaveLength(1);
 });
 
-test('setting ownership from outfit detail creates or updates the Closet entry with entry_point outfit_detail', async () => {
+test('setting ownership from outfit detail creates the Closet entry with entry_point outfit_detail', async () => {
   mockParams = { id: 'outfit-1' };
   const productAnalytics = createProductAnalytics();
-  const created: WardrobeItem = {
-    id: 'item-one', localProfileId: 'profile-one', name: null, category: 'outerwear',
-    entryState: 'owned', garmentTypeId: 'jumpsuit', color: null, colorFamily: null,
-    thermalLevelOverride: null, waterProtectionOverride: null, windProtectionOverride: null,
-    breathabilityOverride: null, armCoverageOverride: null, legCoverageOverride: null,
-    tractionSuitabilityOverride: null, photoRelativePath: null,
-    createdAt: '2026-08-13T06:00:00.000Z', updatedAt: '2026-08-13T06:00:00.000Z', deletedAt: null,
-  };
+  const created = wardrobeItem();
   const wardrobe = wardrobeValue({ createItem: jest.fn(async () => created) });
   const result = await render(
     <Providers
@@ -455,8 +512,8 @@ test('setting ownership from outfit detail creates or updates the Closet entry w
     </Providers>,
   );
 
-  const ownedButton = result.getByTestId('outfit-detail-ownership-jumpsuit-owned');
-  await fireEvent.press(ownedButton);
+  await fireEvent.press(result.getByTestId('outfit-detail-caption-jumpsuit'));
+  await fireEvent.press(result.getByRole('button', { name: messages.en.today.ownershipOwnedAction }));
 
   expect(wardrobe.createItem).toHaveBeenCalledWith({ garmentTypeId: 'jumpsuit', entryState: 'owned' });
   const createdCapture = productAnalytics.analytics.captures.find((c) => c.name === 'closet_item_created');
@@ -470,4 +527,42 @@ test('setting ownership from outfit detail creates or updates the Closet entry w
     age_bucket: 'unknown',
   });
   expect(productAnalytics.analytics.captures.some((c) => c.name === 'feature_used_first_time')).toBe(true);
+});
+
+test('setting ownership from outfit detail updates the existing Closet entry', async () => {
+  mockParams = { id: 'outfit-1' };
+  const productAnalytics = createProductAnalytics();
+  const existing = wardrobeItem({ entryState: 'wanted' });
+  const wardrobe = wardrobeValue({
+    state: {
+      status: 'ready', items: [existing], isRefreshing: false, isMutating: false,
+      refreshFailure: null,
+    },
+    updateItem: jest.fn(async () => ({ ...existing, entryState: 'owned' })),
+  });
+  const result = await render(
+    <Providers
+      productAnalytics={productAnalytics}
+      profile={profileValue()}
+      recommendation={recommendationReady()}
+      wardrobe={wardrobe}
+      weather={weatherValue()}>
+      <OutfitDetailRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(result.getByTestId('outfit-detail-caption-jumpsuit'));
+  await fireEvent.press(result.getByRole('button', { name: messages.en.today.ownershipOwnedAction }));
+
+  expect(wardrobe.updateItem).toHaveBeenCalledWith('item-one', { entryState: 'owned' });
+  expect(productAnalytics.analytics.captures).toContainEqual({
+    name: 'closet_item_updated',
+    properties: {
+      schema_version: 1,
+      fields_changed: ['state'],
+      garment_type_id: 'jumpsuit',
+      entry_point: 'outfit_detail',
+    },
+    options: undefined,
+  });
 });
