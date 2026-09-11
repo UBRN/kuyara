@@ -43,7 +43,16 @@ function mockFontScale(fontScale: number) {
   Dimensions.set({ window: { ...originalWindowDimensions, fontScale } });
 }
 
+// The sample snapshot's hours are 09:00 and 10:00 UTC on 2026-07-30; the rail keeps only
+// the hours that have not ended, so the clock sits inside the first of them by default.
+let clock: jest.SpyInstance<number, []>;
+
+beforeEach(() => {
+  clock = jest.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-07-30T09:30:00.000Z'));
+});
+
 afterEach(() => {
+  clock.mockRestore();
   Dimensions.set({ window: originalWindowDimensions });
 });
 
@@ -521,6 +530,36 @@ test('leaving Weather resets its retry attempt counter', async () => {
 
   await result.unmount();
   expect(productAnalytics.retries.nextAttempt('weather')).toBe(1);
+});
+
+test('the hourly rail drops the hours that have ended', async () => {
+  const value = createValue({
+    ...baseState,
+    activeLocation: getManualLocation('sample.istanbul')!,
+    snapshot: sampleSnapshot(),
+    freshness: 'stale',
+  });
+  const hidden = { includeHiddenElements: true };
+  clock.mockReturnValue(Date.parse('2026-07-30T10:30:00.000Z'));
+  const result = await render(<Providers language="en" value={value}><WeatherScreen /></Providers>);
+  const bands = result.getAllByTestId('weather-hourly-band', hidden);
+  expect(bands).toHaveLength(1);
+  expect(result.getByLabelText('01:00 PM. 17°. Cloudy. 20% precipitation')).toBeOnTheScreen();
+  expect(result.queryByLabelText('12:00 PM. 16°. Rain. 50% precipitation')).toBeNull();
+
+});
+
+test('the hourly card is not rendered once every hour of the snapshot\'s day has ended', async () => {
+  const value = createValue({
+    ...baseState,
+    activeLocation: getManualLocation('sample.istanbul')!,
+    snapshot: sampleSnapshot(),
+    freshness: 'stale',
+  });
+  clock.mockReturnValue(Date.parse('2026-07-30T11:00:00.000Z'));
+  const result = await render(<Providers language="en" value={value}><WeatherScreen /></Providers>);
+  expect(result.queryByTestId('weather-hourly-card', { includeHiddenElements: true })).toBeNull();
+  expect(result.getByTestId('weather-current-card')).toBeOnTheScreen();
 });
 
 test('the hourly rail scrolls horizontally and plots one accent temperature series', async () => {
