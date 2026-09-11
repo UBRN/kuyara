@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { useState } from 'react';
 
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
@@ -13,6 +14,10 @@ export default function NotificationsSettingsRoute() {
   const { state: profileState } = useProfileApplication();
   const { state, setOptIn, openApplicationSettings } = useNotificationApplication();
   const { analytics, firstUses } = useProductAnalytics();
+  // The toggle snaps back on its own when the OS refuses, which says nothing. Remembering
+  // the refusal keeps the denied footer and the Open Settings row on screen even when the
+  // permission itself stayed undetermined, as it does when the prompt is dismissed.
+  const [blocked, setBlocked] = useState(false);
   useScreenViewed('settings_notifications');
 
   if (profileState.status !== 'ready') {
@@ -30,10 +35,12 @@ export default function NotificationsSettingsRoute() {
         }}
       />
       <NotificationsSettingsScreen
+        blocked={blocked}
         isBusy={state.isBusy}
         onOpenSystemSettings={() => void openApplicationSettings()}
         onToggle={async (optIn) => {
           const result = await setOptIn(optIn);
+          setBlocked(result.outcome === 'blocked');
           // Taxonomy 5.9: `notifications_enabled` only actually changed for these two
           // outcomes; a `blocked` opt-in leaves the persisted preference untouched.
           if (result.outcome === 'enabled' || result.outcome === 'disabled') {

@@ -14,6 +14,7 @@ import type {
   ThemePreference,
 } from '@/domain/preferences';
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
+import { NotificationApplicationProvider } from '@/features/notifications/application/notification-application-provider';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
 import type { DressStyle, Gender } from '@/features/profile/domain/profile';
@@ -181,18 +182,37 @@ function MountedSettingsRoutes({ onMount }: Readonly<{ onMount: () => void }>) {
     });
   }, []);
 
-  return route === 'appearance'
-    ? <AppearanceSettingsRoute />
-    : route === 'birth-date'
-      ? <BirthDateSettingsRoute />
-      : route === 'dress-style'
-        ? <DressStyleSettingsRoute />
-      : route === 'gender'
-        ? <GenderSettingsRoute />
-    : route === 'language'
-      ? <LanguageSettingsRoute />
-      : <SettingsRoute />;
+  // The Settings root reads the OS notification permission so its Notifications row can
+  // say Off while the stored opt-in is on, which is what this provider supplies here.
+  return (
+    <NotificationApplicationProvider
+      gateway={notificationGateway}
+      notificationsOptIn
+      persistOptIn={async () => undefined}
+      weatherAlertScheduler={{ reschedule: async () => undefined }}>
+      {route === 'appearance'
+        ? <AppearanceSettingsRoute />
+        : route === 'birth-date'
+          ? <BirthDateSettingsRoute />
+          : route === 'dress-style'
+            ? <DressStyleSettingsRoute />
+            : route === 'gender'
+              ? <GenderSettingsRoute />
+              : route === 'language'
+                ? <LanguageSettingsRoute />
+                : <SettingsRoute />}
+    </NotificationApplicationProvider>
+  );
 }
+
+const notificationGateway = {
+  getPermissionState: async () => ({ kind: 'granted' }) as const,
+  requestPermission: async () => ({ kind: 'granted' }) as const,
+  openApplicationSettings: async () => undefined,
+  cancelScheduledWeatherAlerts: async () => true,
+  scheduleWeatherAlert: async () => true,
+  subscribeToResponses: () => () => undefined,
+};
 
 // ADR 0030: the root list is native, so its own header and row chrome (label, value,
 // separator, chevron) are the system's and are not asserted on here beyond the value

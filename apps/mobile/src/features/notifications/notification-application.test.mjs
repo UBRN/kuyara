@@ -14,8 +14,8 @@ function createGateway(permission, requestedPermission = permission) {
         return requestedPermission;
       },
       openApplicationSettings: async () => undefined,
-      cancelScheduledWeatherAlerts: async () => undefined,
-      scheduleWeatherAlert: async () => undefined,
+      cancelScheduledWeatherAlerts: async () => true,
+      scheduleWeatherAlert: async () => true,
       subscribeToResponses: () => () => undefined,
     },
     getRequestCount: () => requestCount,
@@ -141,7 +141,7 @@ function weatherSnapshot(id = '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4') {
   };
 }
 
-function createSchedulerHarness({ firedIds = new Set(), cancel } = {}) {
+function createSchedulerHarness({ firedIds = new Set(), cancel, schedule } = {}) {
   const events = [];
   const scheduled = [];
   const upserted = [];
@@ -149,10 +149,14 @@ function createSchedulerHarness({ firedIds = new Set(), cancel } = {}) {
   const pruned = [];
   const gateway = {
     ...createGateway({ kind: 'granted' }).gateway,
-    cancelScheduledWeatherAlerts: cancel ?? (async () => events.push('cancel')),
+    cancelScheduledWeatherAlerts: cancel ?? (async () => {
+      events.push('cancel');
+      return true;
+    }),
     scheduleWeatherAlert: async (request) => {
       events.push(`schedule:${request.identifier}`);
       scheduled.push(request);
+      return schedule ? schedule(request) : true;
     },
   };
   const repository = {
@@ -300,4 +304,48 @@ test('a concurrent reschedule waits for the active run and then runs once', asyn
   await Promise.all([first, second]);
 
   assert.equal(cancelCount, 2);
+});
+
+test('a stale snapshot leaves the existing schedule and ledger untouched', async () => {
+  const harness = createSchedulerHarness();
+
+  await harness.scheduler.reschedule({
+    ...enabledInput,
+    snapshot: { ...enabledInput.snapshot, fetchedAt: '2026-09-09T14:00:00.000Z' },
+  });
+
+  assert.deepEqual(harness.events, []);
+});
+
+test('opting out still cancels and clears pending rows from a stale snapshot', async () => {
+  const harness = createSchedulerHarness();
+
+  await harness.scheduler.reschedule({
+    ...enabledInput,
+    enabled: false,
+    snapshot: { ...enabledInput.snapshot, fetchedAt: '2026-09-09T14:00:00.000Z' },
+  });
+
+  assert.deepEqual(harness.events, ['cancel', 'delete-pending']);
+});
+
+test('a failed cancellation aborts the reschedule before the ledger is touched', async () => {
+  const harness = createSchedulerHarness({ cancel: async () => false });
+
+  await harness.scheduler.reschedule(enabledInput);
+
+  assert.deepEqual(harness.events, []);
+});
+
+test('the ledger records only the alerts the OS accepted', async () => {
+  const harness = createSchedulerHarness({
+    schedule: (request) => request.identifier.startsWith('precipitation_onset'),
+  });
+
+  await harness.scheduler.reschedule(enabledInput);
+
+  assert.deepEqual(
+    harness.upserted[0].map(({ id }) => id),
+    ['precipitation_onset:manual:sample.istanbul:2026-09-09'],
+  );
 });

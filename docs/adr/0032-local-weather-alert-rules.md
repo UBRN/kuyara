@@ -118,3 +118,36 @@ permission is granted. Turning opt-in off cancels every pending alert.
 - Multi-day alerts, provider alerts, `forecastNextHour` and WeatherKit severe-weather
   alerts (ADR 0014).
 - Server-sent push (N3).
+
+## Amendment (2026-09-12)
+
+The 2026-09-12 audit found that sections 1 to 3 and 6 were implemented against the
+snapshot rather than against the clock, and that scheduling failures were invisible. The
+decision itself is unchanged; four rules are added or made explicit, and section 3 gains
+one exception.
+
+- **The local day comes from `now`.** Section 2's `localDate` was read from the snapshot's
+  observation time. At 00:20 with a 23:50 snapshot that names the day that just ended, so
+  every remaining hour is filtered out and the alert identity is keyed to yesterday. The
+  day is now the one `now` falls in, in the snapshot's time zone, for the today filter and
+  for the identity. The same rule applies to the two other today-only consumers, the
+  clothing requirement engine and Today's rain outlook, so the codebase has one definition.
+- **Planning requires a fresh snapshot.** The planner is only given a snapshot whose
+  freshness is `fresh` under the existing 30-minute window. A stale or invalid one cancels
+  nothing and writes nothing: the previous schedule and the ledger stand until a refresh
+  brings a fresh snapshot. Opting out still cancels, whatever the snapshot's age.
+- **Shortened background lead.** Section 3's 60-minute lead is the foreground rule and
+  stays. On the background-task path, where the app is not open and the Weather tab cannot
+  be showing the hour, a crossing closer than 60 minutes is scheduled with a shortened lead
+  of 15 minutes. Quiet hours still apply, and the 30-minute post-quiet-hours budget never
+  pushes an alert later than the lead already puts it.
+- **The ledger records delivery, not intent.** The scheduling gateway reports whether the
+  OS accepted a cancellation or a schedule. A ledger row is written only for an alert the
+  OS accepted, and a failed cancel-all aborts the reschedule rather than planning over
+  alerts that are still pending.
+
+Also implemented the same day, without changing this decision: the observer replans when
+the app becomes active and when the local date changes; the background task reuses a
+cached snapshot that is still fresh instead of fetching; the task is registered on opt-in
+and unregistered on opt-out; and Settings reports notifications as on only when opt-in and
+the OS permission agree.

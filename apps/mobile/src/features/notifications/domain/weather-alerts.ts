@@ -7,6 +7,12 @@ import type {
 } from '@/features/weather/domain/weather';
 
 export const weatherAlertLeadTimeMinutes = 60;
+/**
+ * Decided 2026-09-12 and recorded as an amendment to ADR 0032: on the background path the
+ * app is not open, so a crossing closer than the foreground lead is still worth announcing
+ * with a shortened lead. Quiet hours still apply.
+ */
+export const weatherAlertBackgroundLeadTimeMinutes = 15;
 export const weatherAlertMinimumLeadAfterQuietHoursMinutes = 30;
 export const precipitationLikelyThreshold = 0.6;
 export const temperatureSwingCelsius = 8;
@@ -91,10 +97,14 @@ export function planWeatherAlerts(input: Readonly<{
   now: string;
   quietHours: QuietHours;
   deliveredAlertIds: ReadonlySet<string>;
+  leadTimeMinutes?: number;
 }>): readonly WeatherAlertPlan[] {
   const { snapshot, quietHours, deliveredAlertIds } = input;
+  const leadTimeMinutes = input.leadTimeMinutes ?? weatherAlertLeadTimeMinutes;
   const now = Date.parse(input.now);
-  const localDate = weatherLocalDateKey(snapshot.current.observedAt, snapshot.timeZone);
+  // The day is the one the user is living, not the one the snapshot was observed in: a
+  // 23:50 snapshot read at 00:20 belongs to the new day, and the alert id follows it.
+  const localDate = weatherLocalDateKey(input.now, snapshot.timeZone);
   if (localDate === null || !Number.isFinite(now)) return [];
 
   const remainingHours = snapshot.hourly.filter(({ forecastAt }) => (
@@ -110,12 +120,17 @@ export function planWeatherAlerts(input: Readonly<{
   ): void {
     const id = `${ruleId}:${snapshot.locationKey}:${localDate}`;
     const crossingAt = Date.parse(crossing.forecastAt);
-    const originalFireAt = crossingAt - weatherAlertLeadTimeMinutes * minuteMilliseconds;
+    const originalFireAt = crossingAt - leadTimeMinutes * minuteMilliseconds;
     if (deliveredAlertIds.has(id) || originalFireAt < now) return;
 
     const fireAt = adjustForQuietHours(
       originalFireAt,
-      crossingAt - weatherAlertMinimumLeadAfterQuietHoursMinutes * minuteMilliseconds,
+      // A lead shorter than the 30-minute budget leaves no room to move, so the budget
+      // never pushes an alert later than the lead already puts it.
+      Math.max(
+        originalFireAt,
+        crossingAt - weatherAlertMinimumLeadAfterQuietHoursMinutes * minuteMilliseconds,
+      ),
       quietHours,
     );
     if (fireAt === null) return;

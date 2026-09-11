@@ -5,7 +5,7 @@ import {
   planWeatherAlerts,
   type WeatherAlertPlan,
 } from '@/features/notifications/domain/weather-alerts';
-import type { WeatherSnapshot } from '@/features/weather/domain/weather';
+import { weatherFreshness, type WeatherSnapshot } from '@/features/weather/domain/weather';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 
 type RescheduleInput = Readonly<{
@@ -13,6 +13,8 @@ type RescheduleInput = Readonly<{
   snapshot: WeatherSnapshot | null;
   enabled: boolean;
   language: SupportedLanguage;
+  /** Defaults to the foreground lead of ADR 0032 section 3. */
+  leadTimeMinutes?: number;
 }>;
 
 export interface WeatherAlertScheduling {
@@ -86,32 +88,44 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
   }
 
   private async run(input: RescheduleInput): Promise<void> {
-    await this.gateway.cancelScheduledWeatherAlerts();
     const now = this.now();
+    const snapshot = input.enabled ? input.snapshot : null;
+    // A stale or invalid snapshot is hours old, so its hours and its temperature baseline
+    // are not the ones to plan from. Nothing is cancelled and nothing is written: the
+    // previous schedule stands until a refresh brings a fresh snapshot.
+    if (snapshot && weatherFreshness(snapshot.fetchedAt, now) !== 'fresh') return;
+    // A failed cancellation leaves superseded alerts pending, so re-planning over it would
+    // let them fire beside the new ones. Abort and leave the schedule and ledger as they are.
+    if (!await this.gateway.cancelScheduledWeatherAlerts()) return;
     const repository = await this.repository;
     await repository.deletePending(input.localProfileId, now);
-    if (!input.enabled || !input.snapshot) return;
+    if (!snapshot) return;
 
     const deliveredAlertIds = await repository.listFiredIds(input.localProfileId, now);
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
     const plans = planWeatherAlerts({
-      snapshot: input.snapshot,
+      snapshot,
       now,
       quietHours: { ...defaultQuietHours, timeZone },
       deliveredAlertIds,
+      leadTimeMinutes: input.leadTimeMinutes,
     });
 
+    // The ledger records what the OS accepted, not what was intended: a row for an alert
+    // that was never scheduled would suppress the identity for the rest of the day.
+    const scheduled: WeatherAlertPlan[] = [];
     for (const plan of plans) {
-      const copy = alertCopy(plan, input.snapshot.timeZone, input.language);
-      await this.gateway.scheduleWeatherAlert({
+      const copy = alertCopy(plan, snapshot.timeZone, input.language);
+      const accepted = await this.gateway.scheduleWeatherAlert({
         identifier: plan.id,
         fireAt: plan.fireAt,
         title: copy.title,
         body: copy.body,
       });
+      if (accepted) scheduled.push(plan);
     }
 
-    await repository.upsertScheduled(plans.map((plan) => ({
+    await repository.upsertScheduled(scheduled.map((plan) => ({
       id: plan.id,
       localProfileId: input.localProfileId,
       fireAt: plan.fireAt,

@@ -12,10 +12,11 @@ export function todayRainOutlookProbability(
   weather: WeatherSnapshot,
   now: number,
 ): number {
-  const currentLocalDate = weatherLocalDateKey(
-    weather.current.observedAt,
-    weather.timeZone,
-  );
+  // The local day is the one `now` falls in, not the snapshot's: just after midnight a
+  // snapshot observed yesterday must not filter out every hour of the new day.
+  const currentLocalDate = Number.isFinite(now)
+    ? weatherLocalDateKey(new Date(now).toISOString(), weather.timeZone)
+    : null;
 
   return weather.hourly.reduce((highest, hour) => {
     const forecastAt = Date.parse(hour.forecastAt);

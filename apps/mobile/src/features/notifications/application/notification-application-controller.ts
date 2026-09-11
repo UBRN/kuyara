@@ -15,6 +15,18 @@ export type NotificationOptInOutcome =
   | Readonly<{ outcome: 'disabled' }>
   | Readonly<{ outcome: 'blocked'; canRequestAgain: boolean }>;
 
+/**
+ * Notifications are only really on when the user opted in and the OS still allows them.
+ * Settings shows this, not the stored preference alone, and it is the same condition the
+ * alert scheduler plans under.
+ */
+export function notificationsAreActive(
+  optedIn: boolean,
+  permission: NotificationPermissionState,
+): boolean {
+  return optedIn && permission.kind === 'granted';
+}
+
 type Listener = () => void;
 
 export class NotificationApplicationController {

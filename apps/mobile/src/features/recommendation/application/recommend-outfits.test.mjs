@@ -90,6 +90,7 @@ function candidateKeys(result) {
 test('cold wet weather recommends immutable deterministic catalog outfits', () => {
   const weather = coldWetSnapshot();
   const result = recommendOutfits({
+    now: observedAt,
     snapshot: weather,
     clothingPreference: 'womens',
   });
@@ -97,7 +98,7 @@ test('cold wet weather recommends immutable deterministic catalog outfits', () =
   assert.equal(result.status, 'recommended');
   assert.equal(result.generationMode, 'deterministic-fallback');
   assert.equal(result.outfits.length >= 1 && result.outfits.length <= 3, true);
-  assert.deepEqual(result.requirements, deriveClothingRequirements(weather));
+  assert.deepEqual(result.requirements, deriveClothingRequirements(weather, observedAt));
   assert.equal(result.outfits.every((outfit) =>
     outfit.requirementEvaluations.every(({ requirement, status }) =>
       requirement.priority === 'optional' ||
@@ -111,6 +112,7 @@ test('cold wet weather recommends immutable deterministic catalog outfits', () =
 
 test('fallback archetypes use rule order and advance past duplicates', () => {
   const result = recommendOutfits({
+    now: observedAt,
     snapshot: coldWetSnapshot(),
     clothingPreference: 'womens',
   });
@@ -125,10 +127,12 @@ test('fallback archetypes use rule order and advance past duplicates', () => {
 test('mens recommendations exclude womens-only catalog types', () => {
   const weather = warmWetSnapshot();
   const womens = recommendOutfits({
+    now: observedAt,
     snapshot: weather,
     clothingPreference: 'womens',
   });
   const mens = recommendOutfits({
+    now: observedAt,
     snapshot: weather,
     clothingPreference: 'mens',
   });
@@ -148,6 +152,7 @@ test('mens recommendations exclude womens-only catalog types', () => {
 
 test('recommendations are deterministic across repeated calls with the same input', () => {
   const input = Object.freeze({
+    now: observedAt,
     snapshot: warmWetSnapshot(),
     clothingPreference: 'womens',
   });
@@ -161,6 +166,7 @@ test('recommendations are deterministic across repeated calls with the same inpu
 test('fallback prefers each dress style while preserving three distinct valid options', () => {
   for (const dressStyle of ['casual', 'smart', 'formal']) {
     const result = recommendOutfits({
+      now: observedAt,
       snapshot: snapshot(),
       clothingPreference: 'womens',
       dayVariant: 0,
@@ -174,7 +180,7 @@ test('fallback prefers each dress style while preserving three distinct valid op
 });
 
 test('casual and formal styles select different triples from the same conditions', () => {
-  const shared = { snapshot: snapshot(), clothingPreference: 'womens', dayVariant: 0 };
+  const shared = { snapshot: snapshot(), now: observedAt, clothingPreference: 'womens', dayVariant: 0 };
   const casual = recommendOutfits({ ...shared, dressStyle: 'casual' });
   const formal = recommendOutfits({ ...shared, dressStyle: 'formal' });
   assert.equal(casual.status, 'recommended');
@@ -191,6 +197,7 @@ test('each dress style keeps three distinct fallback outfits across catalog pref
       for (const weather of [snapshot(), coldWetSnapshot(), warmWetSnapshot()]) {
         for (let dayVariant = 0; dayVariant < 7; dayVariant += 1) {
           const result = recommendOutfits({
+            now: observedAt,
             snapshot: weather,
             clothingPreference,
             dressStyle,

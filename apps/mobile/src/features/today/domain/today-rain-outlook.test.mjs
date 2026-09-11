@@ -70,3 +70,14 @@ test('a remaining hourly entry on the next local day is ignored', () => {
 test('an empty hourly forecast falls back to current conditions', () => {
   assert.equal(todayRainOutlookProbability(weather(0.65, []), now), 0.65);
 });
+
+test('just after local midnight the new day is read from now, not from the snapshot', () => {
+  const afterMidnight = Date.parse('2026-08-13T21:20:00.000Z');
+  const yesterdayEvening = weather(0.2, [hour('2026-08-13T22:00:00.000Z', 0.9)]);
+  const snapshot = {
+    ...yesterdayEvening,
+    current: { ...yesterdayEvening.current, observedAt: '2026-08-13T20:50:00.000Z' },
+  };
+
+  assert.equal(todayRainOutlookProbability(snapshot, afterMidnight), 0.9);
+});

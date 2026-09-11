@@ -256,20 +256,20 @@ function addTraction(
  */
 export function deriveClothingRequirements(
   snapshot: WeatherSnapshot,
+  nowIso: string,
 ): ClothingRequirements {
-  const observedAt = Date.parse(snapshot.current.observedAt);
-  const currentLocalDate = weatherLocalDateKey(
-    snapshot.current.observedAt,
-    snapshot.timeZone,
-  );
+  // Both the day and the "remaining" cut come from `now`, not from `observedAt`: at 00:20
+  // a 23:50 snapshot would otherwise answer for yesterday and drop every hour left today.
+  const now = Date.parse(nowIso);
+  const currentLocalDate = weatherLocalDateKey(nowIso, snapshot.timeZone);
   const relevantHourly = snapshot.hourly.filter(
     ({ forecastAt }) => (
-      Date.parse(forecastAt) >= observedAt &&
+      Date.parse(forecastAt) >= now &&
       weatherLocalDateKey(forecastAt, snapshot.timeZone) === currentLocalDate
     ),
   );
   const hasRemainingForecast = relevantHourly.some(
-    ({ forecastAt }) => Date.parse(forecastAt) > observedAt,
+    ({ forecastAt }) => Date.parse(forecastAt) > now,
   );
   const measurements: readonly WeatherMeasurements[] = [
     snapshot.current,

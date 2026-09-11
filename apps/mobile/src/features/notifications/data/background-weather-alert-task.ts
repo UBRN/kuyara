@@ -1,4 +1,5 @@
 import type { WeatherAlertScheduling } from '@/features/notifications/application/weather-alert-scheduler';
+import { weatherAlertBackgroundLeadTimeMinutes } from '@/features/notifications/domain/weather-alerts';
 import type { NotificationPermissionState } from '@/features/notifications/data/notification-gateway';
 import type { Profile } from '@/features/profile/domain/profile';
 import type { WeatherProvider } from '@/features/weather/data/weather-provider';
@@ -32,18 +33,27 @@ export async function runBackgroundWeatherAlertTask(
     const location = await repository.getActiveLocation(profile.id);
     if (!location) return 'success';
 
-    const provided = await dependencies.provider.fetchSnapshot(location);
-    if (
-      provided.locationKey !== location.locationKey
-      || provided.timeZone !== location.timeZone
-    ) {
-      throw new Error('Mismatched weather location.');
-    }
-    if (weatherFreshness(provided.fetchedAt, dependencies.now()) === 'invalid') {
-      throw new Error('Invalid weather fetch time.');
+    // A background window that lands minutes after a foreground refresh has nothing to
+    // learn from the provider, and the request would be spend with no new data behind it.
+    const cached = await repository.getSnapshot(profile.id, location.locationKey)
+      .catch(() => null);
+    let snapshot = cached && weatherFreshness(cached.fetchedAt, dependencies.now()) === 'fresh'
+      ? cached
+      : null;
+    if (!snapshot) {
+      const provided = await dependencies.provider.fetchSnapshot(location);
+      if (
+        provided.locationKey !== location.locationKey
+        || provided.timeZone !== location.timeZone
+      ) {
+        throw new Error('Mismatched weather location.');
+      }
+      if (weatherFreshness(provided.fetchedAt, dependencies.now()) === 'invalid') {
+        throw new Error('Invalid weather fetch time.');
+      }
+      snapshot = await repository.saveSnapshot(profile.id, provided);
     }
 
-    const snapshot = await repository.saveSnapshot(profile.id, provided);
     await dependencies.reschedule({
       localProfileId: profile.id,
       snapshot,
@@ -52,6 +62,9 @@ export async function runBackgroundWeatherAlertTask(
         profile.languagePreference,
         dependencies.getDeviceLocale(),
       ),
+      // Decided 2026-09-12, an amendment to ADR 0032 section 3: the app is not open here,
+      // so a crossing closer than the foreground lead still earns a shortened warning.
+      leadTimeMinutes: weatherAlertBackgroundLeadTimeMinutes,
     });
     return 'success';
   } catch {

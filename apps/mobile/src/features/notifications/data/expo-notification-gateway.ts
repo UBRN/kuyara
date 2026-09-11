@@ -60,19 +60,23 @@ export class ExpoNotificationGateway implements NotificationGateway {
     }
   }
 
-  async cancelScheduledWeatherAlerts(): Promise<void> {
+  // A superseded alert that is still pending would fire against the newer plan, so the
+  // caller has to learn that the cancellation did not happen rather than plan over it.
+  async cancelScheduledWeatherAlerts(): Promise<boolean> {
     try {
       const requests = await Notifications.getAllScheduledNotificationsAsync();
+      let cancelled = true;
       for (const request of requests) {
         if (!request.identifier.startsWith(weatherAlertIdentifierPrefix)) continue;
         try {
           await Notifications.cancelScheduledNotificationAsync(request.identifier);
         } catch {
-          continue;
+          cancelled = false;
         }
       }
+      return cancelled;
     } catch {
-      return;
+      return false;
     }
   }
 
@@ -81,7 +85,7 @@ export class ExpoNotificationGateway implements NotificationGateway {
     fireAt: string;
     title: string;
     body: string;
-  }>): Promise<void> {
+  }>): Promise<boolean> {
     try {
       if (Platform.OS === 'android' && !this.weatherAlertChannelReady) {
         await Notifications.setNotificationChannelAsync(weatherAlertChannelId, {
@@ -101,8 +105,9 @@ export class ExpoNotificationGateway implements NotificationGateway {
           ...(Platform.OS === 'android' ? { channelId: weatherAlertChannelId } : {}),
         },
       });
+      return true;
     } catch {
-      return;
+      return false;
     }
   }
 

@@ -25,6 +25,8 @@ import type { WeatherSnapshot } from '@/features/weather/domain/weather';
 
 export type OutfitRecommendationInput = Readonly<{
   snapshot: WeatherSnapshot;
+  /** The moment the recommendation is for; decides the local day and the hours left in it. */
+  now: string;
   clothingPreference: ClothingPreference;
   dressStyle?: DressStyle;
   dayVariant: number;
@@ -158,7 +160,7 @@ export function assignFallbackArchetypes(
 export function recommendOutfits(
   input: OutfitRecommendationInput,
 ): OutfitRecommendationResult {
-  const requirements = deriveClothingRequirements(input.snapshot);
+  const requirements = deriveClothingRequirements(input.snapshot, input.now);
   const candidates = [
     ...listGarmentTypesForPreference(input.clothingPreference).map((type) =>
       evaluateGarmentEligibility(

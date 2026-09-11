@@ -74,6 +74,15 @@ TaskManager.defineTask(backgroundWeatherAlertTaskName, async ({ error }) => {
   }
 });
 
+export async function unregisterBackgroundWeatherAlertTask(): Promise<void> {
+  try {
+    if (!await TaskManager.isTaskRegisteredAsync(backgroundWeatherAlertTaskName)) return;
+    await BackgroundTask.unregisterTaskAsync(backgroundWeatherAlertTaskName);
+  } catch {
+    // SDK and platform availability failures stay inside this adapter.
+  }
+}
+
 export async function registerBackgroundWeatherAlertTask(): Promise<void> {
   try {
     const [taskManagerAvailable, status] = await Promise.all([

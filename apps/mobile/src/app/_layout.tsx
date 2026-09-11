@@ -9,7 +9,10 @@ import { ProductAnalyticsProvider } from '@/features/analytics/application/produ
 import { createProductAnalytics } from '@/features/analytics/data/create-product-analytics';
 import { NotificationApplicationProvider } from '@/features/notifications/application/notification-application-provider';
 import { WeatherAlertObserver } from '@/features/notifications/application/weather-alert-observer';
-import { registerBackgroundWeatherAlertTask } from '@/features/notifications/data/expo-background-weather-alert-task';
+import {
+  registerBackgroundWeatherAlertTask,
+  unregisterBackgroundWeatherAlertTask,
+} from '@/features/notifications/data/expo-background-weather-alert-task';
 import { ProfileApplicationProvider } from '@/features/profile/application/profile-application-provider';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import type { LocalProfile } from '@/features/profile/domain/profile';
@@ -29,6 +32,13 @@ function ReadyApplicationShell({
   updateNotificationsOptIn,
 }: ReadyApplicationShellProps) {
   const theme = useKuyaraTheme();
+  // The task only ever refreshes weather to reschedule alerts, so it costs the device a
+  // background window for nothing while the user has opted out.
+  useEffect(() => {
+    void (profile.notificationsOptIn
+      ? registerBackgroundWeatherAlertTask()
+      : unregisterBackgroundWeatherAlertTask());
+  }, [profile.notificationsOptIn]);
   const [analytics] = useState(() =>
     createProductAnalytics(__DEV__, profile.analyticsConsent));
   // Onboarding's completion and its Redirect to the tabs fire off the same profile update; a
@@ -113,10 +123,6 @@ function ThemedApplicationShell() {
 }
 
 export default function RootLayout() {
-  useEffect(() => {
-    void registerBackgroundWeatherAlertTask();
-  }, []);
-
   return (
     <ProfileApplicationProvider>
       <ThemedApplicationShell />

@@ -1,5 +1,8 @@
+import { weatherLocalDateKey } from '@kuyara/contracts';
+import { AppState } from 'react-native';
 import { useEffect, useEffectEvent } from 'react';
 
+import { notificationsAreActive } from '@/features/notifications/application/notification-application-controller';
 import { useNotificationApplication } from '@/features/notifications/application/notification-context';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
@@ -18,16 +21,21 @@ export function WeatherAlertObserver() {
     : null;
   const snapshot = weather?.snapshot ?? null;
   const snapshotId = snapshot?.id;
-  const permissionKind = notificationApplication.state.permission.kind;
+  const permission = notificationApplication.state.permission;
   const notificationsOptIn = profile?.notificationsOptIn ?? false;
   const localProfileId = profile?.id ?? null;
+  // An alert's identity is keyed to the local day, so the plan has to be redone when the
+  // day turns. The date is re-read on every render and a change re-runs the effect;
+  // becoming active, the one moment a rollover is certain to have been missed, replans too.
+  const localDate = snapshot
+    && weatherLocalDateKey(new Date().toISOString(), snapshot.timeZone);
 
   const rescheduleWeatherAlerts = useEffectEvent(() => {
     if (!localProfileId) return;
     void notificationApplication.weatherAlertScheduler.reschedule({
       localProfileId,
       snapshot,
-      enabled: notificationsOptIn && permissionKind === 'granted',
+      enabled: notificationsAreActive(notificationsOptIn, permission),
       language,
     }).catch(() => undefined);
   });
@@ -36,12 +44,22 @@ export function WeatherAlertObserver() {
     rescheduleWeatherAlerts();
   }, [
     language,
+    localDate,
     localProfileId,
     notificationApplication.weatherAlertScheduler,
     notificationsOptIn,
-    permissionKind,
+    permission.kind,
     snapshotId,
   ]);
+
+  useEffect(() => {
+    // The scheduler coalesces a burst, so a foreground that also changes the date or the
+    // permission still ends in one plan.
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next === 'active') rescheduleWeatherAlerts();
+    });
+    return () => subscription.remove();
+  }, []);
 
   return null;
 }
