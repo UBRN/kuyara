@@ -43,6 +43,7 @@ function input() {
     },
     clothingPreference: 'womens',
     dayVariant: 0,
+    localDayKey: '2026-08-01',
   };
 }
 
@@ -127,6 +128,7 @@ test('mobile request sends only dress style and preserves the candidate set acro
     assert.deepEqual(request.options, smart.options);
     assert.equal('birthDate' in request, false);
     assert.equal('birthYear' in request, false);
+    assert.equal('localDayKey' in request, false);
     assert.equal(['age', 'Band'].join('') in request, false);
   }
 });

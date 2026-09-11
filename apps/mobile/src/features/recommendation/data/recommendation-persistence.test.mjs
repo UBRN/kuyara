@@ -53,6 +53,7 @@ function recommendationInput() {
     },
     clothingPreference: 'womens',
     dayVariant: 3,
+    localDayKey: '2026-08-01',
   };
 }
 
@@ -77,7 +78,7 @@ async function setup() {
 
 function generatedRecommendation() {
   const input = recommendationInput();
-  const context = createRecommendationContext(input);
+  const context = createRecommendationContext(input, input.localDayKey);
   const recommendation = recommendOutfits(input);
   if (recommendation.status !== 'recommended') throw new Error('fixture unavailable');
   return {
@@ -113,6 +114,7 @@ test('migration v5 persists a validated recommendation snapshot with lifecycle f
   assert.equal(replaced.createdAt, firstTime);
   assert.equal(replaced.updatedAt, secondTime);
   assert.equal(replaced.generationMode, 'deterministic-fallback');
+  assert.equal(replaced.localDayKey, '2026-08-01');
   assert.equal(replaced.recommendation.outfits.length, 3);
   assert.equal(new Set(replaced.recommendation.outfits.map(
     ({ archetypeId }) => archetypeId)).size, 3);
@@ -208,6 +210,9 @@ test('persisted dress style round trips and retired contexts resolve to smart', 
   await database.runAsync('UPDATE recommendation_snapshots SET context_json = ?', [JSON.stringify(context)]);
   assert.equal((await repository.getSnapshot(profileId)).dressStyle, 'smart');
   delete context[retiredKey];
+  delete context.localDayKey;
   await database.runAsync('UPDATE recommendation_snapshots SET context_json = ?', [JSON.stringify(context)]);
-  assert.equal((await repository.getSnapshot(profileId)).dressStyle, 'smart');
+  const legacySnapshot = await repository.getSnapshot(profileId);
+  assert.equal(legacySnapshot.dressStyle, 'smart');
+  assert.equal(legacySnapshot.localDayKey, null);
 });
