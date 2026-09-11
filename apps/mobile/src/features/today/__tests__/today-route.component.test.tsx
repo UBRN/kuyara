@@ -119,6 +119,7 @@ function weatherValue(overrides: Partial<Extract<WeatherApplicationValue['state'
     openApplicationSettings: jest.fn(async () => undefined),
     selectManualLocation: jest.fn(async () => undefined),
     refresh: jest.fn(async () => undefined),
+    revalidateFreshness: jest.fn(async () => undefined),
     getSnapshot: () => value.state,
   };
   return value;
@@ -156,6 +157,7 @@ function wardrobeValue(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     state: { status: 'ready' as const, items: [] as readonly WardrobeItem[], isRefreshing: false, isMutating: false, refreshFailure: null },
     refresh: jest.fn(async () => undefined),
+    revalidateFreshness: jest.fn(async () => undefined),
     getItem: jest.fn(async () => null),
     preparePhoto: jest.fn(async () => null),
     discardStagedPhoto: jest.fn(async () => undefined),
@@ -244,7 +246,7 @@ function Providers({
   productAnalytics: ReturnType<typeof createProductAnalytics>;
 }>) {
   return (
-    <LocalizationContext value={{ language: 'en', messages: messages.en }}>
+    <LocalizationContext value={{ language: 'en', messages: messages.en , hour12: false }}>
       <KuyaraThemeContext value={lightTheme}>
         <ProductAnalyticsContext value={productAnalytics}>
           <ProfileApplicationContext value={profile}>
@@ -313,6 +315,7 @@ test('a successful pull-to-refresh regenerates after weather and reports manual 
   const weather = {
     ...weatherValue(),
     refresh: jest.fn(async () => { order.push('weather'); }),
+    revalidateFreshness: jest.fn(async () => undefined),
   };
   const recommendationRefresh = jest.fn(async () => {
     order.push('recommendation');

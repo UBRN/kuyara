@@ -26,6 +26,7 @@ import {
 import type { TodayScreenState } from '@/features/today/model';
 import type { GarmentOwnershipState } from '@/features/wardrobe/domain/garment-type-ownership';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
+import { useLocalization } from '@/localization/use-messages';
 import { borderWidths, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -49,6 +50,7 @@ export function OutfitDetailScreen({
   onSetOwnership,
 }: OutfitDetailScreenProps) {
   const theme = useKuyaraTheme();
+  const { hour12 } = useLocalization();
   const { fontScale, usesStackedLayout } = useTextScaling();
   const [contentWidth, setContentWidth] = useState(0);
   const [captionHeights, setCaptionHeights] = useState<Readonly<Record<string, number>>>({});
@@ -60,7 +62,7 @@ export function OutfitDetailScreen({
     opacity: withTiming(piecesSettled ? 1 : 0, { duration: theme.motion.fast }),
   }), [piecesSettled, theme.motion.fast]);
   const copy = getMessages(language).today;
-  const presentation = createTodayPresentation(state, language, now);
+  const presentation = createTodayPresentation(state, language, hour12, now);
   const suggestion =
     presentation.kind === 'loaded'
       ? presentation.suggestions.find(({ id }) => id === suggestionId)

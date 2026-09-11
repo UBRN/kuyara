@@ -43,7 +43,9 @@ export class OpenMeteoWeatherProvider implements WeatherProvider {
     );
     url.searchParams.set('daily', 'temperature_2m_min,temperature_2m_max');
     url.searchParams.set('wind_speed_unit', 'ms');
-    url.searchParams.set('timezone', 'UTC');
+    // The location's own zone, so `daily` is keyed by its local days rather than UTC ones:
+    // a UTC day boundary put the wrong low/high on the card for every zone off UTC.
+    url.searchParams.set('timezone', location.timeZone);
     url.searchParams.set('forecast_days', '3');
 
     let response: Response;

@@ -152,7 +152,7 @@ function TestProviders({
     <ProductAnalyticsProvider firstUseStore={new InMemoryFirstUseStore()}>
     <ProfileApplicationContext.Provider
       value={createProfileApplication(onboardingCompleted)}>
-      <LocalizationContext.Provider value={{ language, messages: messages[language] }}>
+      <LocalizationContext.Provider value={{ language, messages: messages[language], hour12: false }}>
         <KuyaraThemeContext.Provider value={lightTheme}>
           <WeatherApplicationContext.Provider value={{
             state: {
@@ -161,6 +161,7 @@ function TestProviders({
               isSelectingLocation: false, isRefreshing: false, refreshFailure: null,
             },
             retry: async () => undefined,
+            revalidateFreshness: async () => undefined,
             dismissLocationFlow: () => undefined,
             beginDeviceLocationSelection: async () => undefined,
             confirmDeviceLocationRequest: async () => undefined,

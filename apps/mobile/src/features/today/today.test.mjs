@@ -21,10 +21,17 @@ const weatherReasons = [
   'Drizzle calls for light water protection.',
   'Rain requires water protection.',
 ];
+// `pnpm --filter @kuyara/mobile test` pins the device zone to UTC; the fixture location is
+// Europe/Istanbul, so a label in UTC is the proof it followed the device and not the city.
 const fixtureNow = Date.parse('2026-08-13T06:30:00.000Z');
 
-function loadedPresentation(state = todayScreenState, language = 'en', now = fixtureNow) {
-  const presentation = createTodayPresentation(state, language, now);
+function loadedPresentation(
+  state = todayScreenState,
+  language = 'en',
+  hour12 = false,
+  now = fixtureNow,
+) {
+  const presentation = createTodayPresentation(state, language, hour12, now);
   assert.equal(presentation.kind, 'loaded');
   return presentation;
 }
@@ -132,10 +139,12 @@ test('loaded presentation derives the atmosphere from the device clock, not fetc
   const night = loadedPresentation(
     fetchedAtThreeInTheAfternoon,
     'en',
+    false,
     Date.parse('2026-08-13T19:00:00.000Z'),
   );
   assert.equal(night.atmosphere, 'fallingNight');
-  assert.match(night.header.freshness, /15:00/);
+  // 12:00 UTC is 15:00 in the location's zone; the label reports the device's.
+  assert.match(night.header.freshness, /12:00/);
 });
 
 test('loaded presentation gives visible and accessible weather the same rain outlook', () => {
@@ -398,8 +407,9 @@ test('stale freshness and outfit copy localize in both languages', () => {
   const turkish = loadedPresentation(staleState, 'tr');
 
   assert.equal(english.header.isStale, true);
-  assert.match(english.header.freshness, /09:05.*out of date/i);
-  assert.match(turkish.header.freshness, /09:05.*Güncelliğini yitirmiş olabilir/);
+  // 06:05 UTC, the device clock, where the location's zone would read 09:05.
+  assert.match(english.header.freshness, /06:05.*out of date/i);
+  assert.match(turkish.header.freshness, /06:05.*Güncelliğini yitirmiş olabilir/);
   assert.deepEqual(
     turkish.suggestions.map(({ title }) => title),
     ['Yağmura Hazır', 'Karlı Gün', 'Rüzgara Karşı'],
@@ -419,8 +429,8 @@ test('stale freshness and outfit copy localize in both languages', () => {
 });
 
 test('loading, unavailable, and semantic theme behavior remains explicit', () => {
-  const loading = createTodayPresentation({ kind: 'loading' }, 'en', fixtureNow);
-  const unavailable = createTodayPresentation({ kind: 'unavailable' }, 'tr', fixtureNow);
+  const loading = createTodayPresentation({ kind: 'loading' }, 'en', false, fixtureNow);
+  const unavailable = createTodayPresentation({ kind: 'unavailable' }, 'tr', false, fixtureNow);
   const light = createKuyaraTheme('light');
   const dark = createKuyaraTheme('dark');
   const reduced = createKuyaraTheme('light', true);
@@ -452,6 +462,17 @@ test('the freshness line reports refreshing, failure, staleness, and last update
 
   const turkish = loadedPresentation({ ...base, isRefreshing: true, refreshFailed: false }, 'tr');
   assert.equal(turkish.header.freshness, 'Bugünün önerileri yenileniyor…');
+});
+
+test('the freshness time follows the device clock setting, not the language', () => {
+  const settled = { ...todayScreenState, isRefreshing: false, refreshFailed: false };
+
+  const twentyFour = loadedPresentation(settled, 'en', false).header.freshness;
+  const twelve = loadedPresentation(settled, 'en', true).header.freshness;
+
+  assert.match(twentyFour, /\d{2}:\d{2}$/);
+  assert.match(twelve, /\d{1,2}:\d{2}\s?(am|pm)$/iu);
+  assert.match(loadedPresentation(settled, 'tr', true).header.freshness, /(ÖÖ|ÖS) \d/u);
 });
 
 test('the stage label reads temperature, condition, pieces and archetype in both languages', () => {

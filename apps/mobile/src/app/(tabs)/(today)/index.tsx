@@ -29,7 +29,8 @@ export default function TodayRoute() {
     reevaluateLocalDay,
   } = useRecommendationApplication();
   const weatherApplication = useWeatherApplication();
-  const weatherState = weatherApplication.state;
+  const { revalidateFreshness: revalidateWeatherFreshness, state: weatherState } =
+    weatherApplication;
   const { state: profileState } = useProfileApplication();
   const { analytics, firstUses, retries } = useProductAnalytics();
   useScreenViewed('today');
@@ -92,12 +93,15 @@ export default function TodayRoute() {
   const [isFocused, setIsFocused] = useState(false);
   useFocusEffect(useCallback(() => {
     reevaluateLocalDay();
+    // Today's freshness line ages with the clock, so returning to the tab re-evaluates it
+    // and starts the stale refresh the existing coalescing then shares.
+    void revalidateWeatherFreshness();
     setIsFocused(true);
     return () => {
       setIsFocused(false);
       retries.reset('today');
     };
-  }, [reevaluateLocalDay, retries]));
+  }, [reevaluateLocalDay, retries, revalidateWeatherFreshness]));
   const viewedThisFocusRef = useRef(false);
   useEffect(() => {
     if (!isFocused) {

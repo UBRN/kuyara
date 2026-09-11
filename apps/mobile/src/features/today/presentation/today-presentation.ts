@@ -155,16 +155,18 @@ function formatTemperature(value: number, language: SupportedLanguage): string {
   return `${formatNumber(value, language)}°`;
 }
 
+// The freshness line answers "how old is this?", so it is read against the viewer's own
+// clock: the device time zone, and the device's 12/24-hour setting rather than a fixed
+// 24-hour label or the application language.
 function formatTime(
   value: string,
-  timeZone: string,
   language: SupportedLanguage,
+  hour12: boolean,
 ): string {
   return new Intl.DateTimeFormat(localeTag(language), {
-    hour: '2-digit',
+    hour: hour12 ? 'numeric' : '2-digit',
     minute: '2-digit',
-    hour12: false,
-    timeZone,
+    hour12,
   }).format(new Date(value));
 }
 
@@ -272,6 +274,7 @@ function requirementNameKey(
 function createLoadedPresentation(
   snapshot: TodaySnapshot,
   language: SupportedLanguage,
+  hour12: boolean,
   isRefreshing: boolean,
   refreshFailed: boolean,
   now: number,
@@ -282,7 +285,7 @@ function createLoadedPresentation(
   const weather = snapshot.weather;
   const current = weather.current;
   const rainProbability = todayRainOutlookProbability(weather, now);
-  const time = formatTime(weather.fetchedAt, weather.timeZone, language);
+  const time = formatTime(weather.fetchedAt, language, hour12);
   const isStale = snapshot.freshness === 'stale';
   const condition = weatherCopy.conditions[current.condition];
   const weatherReasons = snapshot.recommendation.requirements.reasonCodes.map(
@@ -372,6 +375,7 @@ function createLoadedPresentation(
 export function createTodayPresentation(
   state: TodayScreenState,
   language: SupportedLanguage,
+  hour12: boolean,
   now: number,
 ): TodayPresentation {
   const copy = getMessages(language).today;
@@ -408,6 +412,7 @@ export function createTodayPresentation(
   return createLoadedPresentation(
     state.snapshot,
     language,
+    hour12,
     state.isRefreshing,
     state.refreshFailed,
     now,

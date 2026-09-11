@@ -22,10 +22,14 @@ const location = {
 };
 const fetchedAt = '2026-08-29T09:05:00.000Z';
 
+// Open-Meteo answers a `timezone=<IANA>` request in that zone's wall clock with no offset
+// in the string, so every fixture time below is Istanbul local and `utc_offset_seconds` is
+// what turns it back into the instant asserted on.
 function rawFixture() {
   return {
+    utc_offset_seconds: 10800,
     current: {
-      time: '2026-08-29T09:10',
+      time: '2026-08-29T12:10',
       temperature_2m: 24.5,
       apparent_temperature: 25.2,
       relative_humidity_2m: 82,
@@ -33,7 +37,7 @@ function rawFixture() {
       wind_speed_10m: 3.4,
     },
     hourly: {
-      time: ['2026-08-29T09:00', '2026-08-29T10:00'],
+      time: ['2026-08-29T12:00', '2026-08-29T13:00'],
       temperature_2m: [24, 25],
       apparent_temperature: [25, 26],
       relative_humidity_2m: [82, 78],
@@ -88,7 +92,7 @@ test('clamps a daily minimum above the current temperature', () => {
 test('keeps the ordered 36-hour window across local midnight', () => {
   const fixture = rawFixture();
   const times = Array.from({ length: 42 }, (_, index) => new Date(
-    Date.parse('2026-08-29T07:00:00.000Z') + index * 60 * 60 * 1000,
+    Date.parse('2026-08-29T07:00:00.000Z') + (index + 3) * 60 * 60 * 1000,
   ).toISOString().slice(0, 16)).reverse();
   fixture.hourly = {
     time: times,
@@ -118,6 +122,39 @@ test('keeps the ordered 36-hour window across local midnight', () => {
     snapshot.hourly,
     snapshot.current.observedAt,
   ), true);
+});
+
+test('takes the low and high from the local day, not the UTC day', () => {
+  // 01:10 in Istanbul is still the previous UTC day, which is where `daily[0]` sits.
+  const fixture = rawFixture();
+  fixture.current.time = '2026-08-29T01:10';
+  fixture.hourly.time = ['2026-08-29T01:00', '2026-08-29T02:00'];
+  fixture.daily = {
+    time: ['2026-08-28', '2026-08-29', '2026-08-30'],
+    temperature_2m_min: [11, 18, 19],
+    temperature_2m_max: [21, 29, 30],
+  };
+
+  const snapshot = mapOpenMeteoResponse(
+    openMeteoResponseSchema.parse(fixture),
+    location,
+    fetchedAt,
+  );
+
+  assert.equal(snapshot.current.observedAt, '2026-08-28T22:10:00.000Z');
+  assert.equal(weatherLocalDateKey(snapshot.current.observedAt, location.timeZone), '2026-08-29');
+  assert.equal(snapshot.minimumTemperatureCelsius, 18);
+  assert.equal(snapshot.maximumTemperatureCelsius, 29);
+});
+
+test('rejects a daily block without the local day', () => {
+  const fixture = rawFixture();
+  fixture.daily.time = ['2026-08-30', '2026-08-31'];
+
+  assert.throws(
+    () => mapOpenMeteoResponse(openMeteoResponseSchema.parse(fixture), location, fetchedAt),
+    (error) => error instanceof WeatherProviderError && error.kind === 'invalid_response',
+  );
 });
 
 test('maps every supported WMO weather code', () => {
