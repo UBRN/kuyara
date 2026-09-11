@@ -32,7 +32,6 @@ export {
   type SegmentedControlProps,
 } from './segmented-control';
 export { Surface, type SurfaceProps } from './surface';
-export { StretchyHeader, type StretchyHeaderProps } from './stretchy-header';
 export type { ButtonVariant, PillTone, SurfaceVariant } from './primitive-contracts';
 export { haptics, useRefreshOutcomeHaptics } from './haptics';
 export { useTextScaling, type TextScaling } from './use-text-scaling';
