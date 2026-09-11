@@ -1,6 +1,8 @@
 import { Stack, router } from 'expo-router';
 
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
+import { notificationsAreActive } from '@/features/notifications/application/notification-application-controller';
+import { useNotificationApplication } from '@/features/notifications/application/notification-context';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { SettingsScreen } from '@/features/profile/presentation/settings-screen';
 import { useMessages } from '@/localization/use-messages';
@@ -8,6 +10,7 @@ import { useMessages } from '@/localization/use-messages';
 export default function SettingsRoute() {
   const messages = useMessages();
   const { state } = useProfileApplication();
+  const { state: notificationState } = useNotificationApplication();
   useScreenViewed('settings');
 
   if (state.status !== 'ready') {
@@ -27,7 +30,10 @@ export default function SettingsRoute() {
         }}
       />
       <SettingsScreen
-        notificationsOn={state.profile.notificationsOptIn}
+        notificationsOn={notificationsAreActive(
+          state.profile.notificationsOptIn,
+          notificationState.permission,
+        )}
         onOpenAiStatus={() => router.push('/settings/ai-status')}
         onOpenAppearance={() => router.push('/settings/appearance')}
         onOpenBirthDate={() => router.push('/settings/birth-date')}

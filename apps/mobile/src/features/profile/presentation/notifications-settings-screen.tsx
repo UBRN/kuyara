@@ -5,16 +5,20 @@ import { useMessages } from '@/localization/use-messages';
 // ADR 0030 section 5: one group today, an "Allow notifications" toggle tinted
 // `brandPrimary`, plus a footer whose text changes and gains an "Open Settings" row when
 // the system permission is denied. This retires the bare RN `Switch` the shipped screen
-// used.
+// used. The toggle keeps showing the stored preference, so an opt-in the OS blocks stays
+// visible here while the Settings root row reads Off.
 export type NotificationsSettingsScreenProps = Readonly<{
   optedIn: boolean;
   permission: NotificationPermissionState;
+  /** True after an opt-in the OS refused, including a permission prompt left unanswered. */
+  blocked: boolean;
   isBusy: boolean;
   onToggle: (optIn: boolean) => Promise<void>;
   onOpenSystemSettings: () => void;
 }>;
 
 export function NotificationsSettingsScreen({
+  blocked,
   isBusy,
   onOpenSystemSettings,
   onToggle,
@@ -22,14 +26,18 @@ export function NotificationsSettingsScreen({
   permission,
 }: NotificationsSettingsScreenProps) {
   const messages = useMessages();
-  const isDenied = permission.kind === 'denied';
+  const showsDeniedHint = permission.kind === 'denied' || blocked;
 
   return (
     <NativeList testID="settings-notifications-screen">
       <NativeListSection
-        footer={isDenied
+        footer={showsDeniedHint
           ? messages.notifications.permissionDeniedHint
-          : messages.notifications.introduction}
+          : [
+            messages.notifications.introduction,
+            messages.notifications.leadTimeHint,
+            messages.notifications.quietHoursHint,
+          ].join(' ')}
         testID="settings-notifications-toggle-group">
         <NativeListRow
           label={messages.notifications.toggleLabel}
@@ -40,7 +48,7 @@ export function NotificationsSettingsScreen({
             value: optedIn,
           }}
         />
-        {isDenied ? (
+        {showsDeniedHint ? (
           <NativeListRow
             label={messages.notifications.openSettingsAction}
             onPress={onOpenSystemSettings}

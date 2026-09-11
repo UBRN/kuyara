@@ -133,6 +133,7 @@ export const todayScreenState = Object.freeze({
     freshness: 'fresh',
     recommendation: recommendOutfits({
       snapshot: todayWeatherSnapshot,
+      now: todayWeatherSnapshot.current.observedAt,
       clothingPreference: 'womens',
       dayVariant: 0,
     }),

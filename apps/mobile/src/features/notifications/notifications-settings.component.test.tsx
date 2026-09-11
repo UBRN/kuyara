@@ -8,6 +8,7 @@ import { ProductAnalyticsProvider } from '@/features/analytics/application/produ
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
 import { NotificationApplicationProvider } from '@/features/notifications/application/notification-application-provider';
+import type { NotificationGateway } from '@/features/notifications/data/notification-gateway';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { ProfileApplicationProvider } from '@/features/profile/application/profile-application-provider';
 import type { LocalProfileRecord } from '@/features/profile/data/local-profile-record';
@@ -87,8 +88,8 @@ function createGateway(permission: 'undetermined' | 'denied') {
         : { kind: 'undetermined' as const },
       requestPermission: async () => ({ kind: 'granted' as const }),
       openApplicationSettings,
-      cancelScheduledWeatherAlerts: async () => undefined,
-      scheduleWeatherAlert: async () => undefined,
+      cancelScheduledWeatherAlerts: async () => true,
+      scheduleWeatherAlert: async () => true,
       subscribeToResponses: (_listener: () => void) => () => undefined,
     },
     openApplicationSettings,
@@ -100,7 +101,7 @@ function NotificationBridge({
   gateway,
 }: Readonly<{
   children: React.ReactNode;
-  gateway: ReturnType<typeof createGateway>['gateway'];
+  gateway: NotificationGateway;
 }>) {
   const { state, updateNotificationsOptIn } = useProfileApplication();
   if (state.status !== 'ready') {
@@ -137,7 +138,7 @@ function MountedNotificationRoutes({ onMount }: Readonly<{ onMount: () => void }
 }
 
 function renderSettings(
-  gateway: ReturnType<typeof createGateway>['gateway'],
+  gateway: NotificationGateway,
   analytics: RecordingProductAnalytics,
 ) {
   return render(
@@ -233,4 +234,53 @@ test('a tapped notification response is reported as notification_opened and open
 
   expect(analytics.captures.map((capture) => capture.name)).toContain('notification_opened');
   expect(mockRouter.navigate).toHaveBeenCalledWith('/');
+});
+
+test('an opt-in the OS revoked reads Off on the Settings root row', async () => {
+  // Notifications and the analytics row are the only two rows valued from these keys, so
+  // pinning analytics consent to On makes the single Off unambiguously the alert row's.
+  mockProfile = { ...createProfile(), notificationsOptIn: 1, analyticsConsent: 'granted' };
+  const { gateway } = createGateway('denied');
+  const result = await renderSettings(gateway, new RecordingProductAnalytics());
+
+  await result.findByTestId('settings-notifications-row');
+  await waitFor(() => expect(result.getAllByText(messages.en.notifications.statusOn))
+    .toHaveLength(1));
+  expect(result.getAllByText(messages.en.notifications.statusOff)).toHaveLength(1);
+});
+
+test('the blocked sub-screen keeps the preference on the toggle beside the denied footer', async () => {
+  // ADR 0030 section 5: the toggle shows the stored preference and the footer, plus the
+  // Open Settings row, carry why it is not in force.
+  mockProfile = { ...createProfile(), notificationsOptIn: 1 };
+  const { gateway } = createGateway('denied');
+  const result = await renderSettings(gateway, new RecordingProductAnalytics());
+
+  await fireEvent.press(await result.findByTestId('settings-notifications-row'));
+
+  expect((await result.findByTestId('settings-notifications-toggle-row-toggle')).props.value)
+    .toBe(true);
+  expect(result.getByText(messages.en.notifications.permissionDeniedHint)).toBeOnTheScreen();
+  expect(result.getByTestId('settings-notifications-open-settings')).toBeOnTheScreen();
+});
+
+test('a permission prompt left unanswered still shows the denied hint on the blocked attempt', async () => {
+  mockProfile = createProfile();
+  const { gateway } = createGateway('undetermined');
+  const result = await renderSettings(
+    { ...gateway, requestPermission: async () => ({ kind: 'undetermined' as const }) },
+    new RecordingProductAnalytics(),
+  );
+
+  await fireEvent.press(await result.findByTestId('settings-notifications-row'));
+  expect(result.getByText(messages.en.notifications.introduction, { exact: false }))
+    .toBeOnTheScreen();
+
+  await act(async () => {
+    fireEvent(await result.findByTestId('settings-notifications-toggle-row-toggle'), 'valueChange', true);
+  });
+
+  await waitFor(() => expect(result.getByText(messages.en.notifications.permissionDeniedHint))
+    .toBeOnTheScreen());
+  expect(result.getByTestId('settings-notifications-open-settings')).toBeOnTheScreen();
 });

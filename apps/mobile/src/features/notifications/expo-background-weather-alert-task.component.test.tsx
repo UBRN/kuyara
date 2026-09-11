@@ -6,6 +6,7 @@ import {
   backgroundWeatherAlertMinimumIntervalMinutes,
   backgroundWeatherAlertTaskName,
   registerBackgroundWeatherAlertTask,
+  unregisterBackgroundWeatherAlertTask,
 } from '@/features/notifications/data/expo-background-weather-alert-task';
 
 jest.mock('expo-background-task', () => ({
@@ -13,6 +14,7 @@ jest.mock('expo-background-task', () => ({
   BackgroundTaskResult: { Success: 1, Failed: 2 },
   getStatusAsync: jest.fn(),
   registerTaskAsync: jest.fn(),
+  unregisterTaskAsync: jest.fn(),
 }));
 
 jest.mock('expo-task-manager', () => ({
@@ -48,6 +50,7 @@ beforeEach(() => {
     BackgroundTask.BackgroundTaskStatus.Available,
   );
   backgroundTask.registerTaskAsync.mockReset().mockResolvedValue(undefined);
+  backgroundTask.unregisterTaskAsync.mockReset().mockResolvedValue(undefined);
   taskManager.isAvailableAsync.mockReset().mockResolvedValue(true);
   taskManager.isTaskRegisteredAsync.mockReset().mockResolvedValue(false);
   runTask.mockReset().mockResolvedValue('success');
@@ -113,4 +116,23 @@ test('an SDK-reported task error fails without running the pure task', async () 
     executionInfo: { eventId: 'event-id', taskName: backgroundWeatherAlertTaskName },
   })).resolves.toBe(BackgroundTask.BackgroundTaskResult.Failed);
   expect(runTask).not.toHaveBeenCalled();
+});
+
+test('opting out unregisters the task, and an unregistered task is left alone', async () => {
+  taskManager.isTaskRegisteredAsync
+    .mockResolvedValueOnce(true)
+    .mockResolvedValueOnce(false);
+
+  await unregisterBackgroundWeatherAlertTask();
+  await unregisterBackgroundWeatherAlertTask();
+
+  expect(backgroundTask.unregisterTaskAsync).toHaveBeenCalledTimes(1);
+  expect(backgroundTask.unregisterTaskAsync)
+    .toHaveBeenCalledWith(backgroundWeatherAlertTaskName);
+});
+
+test('unregistration SDK failures stay inside the adapter', async () => {
+  taskManager.isTaskRegisteredAsync.mockRejectedValue(new Error('lookup failed'));
+
+  await expect(unregisterBackgroundWeatherAlertTask()).resolves.toBeUndefined();
 });
