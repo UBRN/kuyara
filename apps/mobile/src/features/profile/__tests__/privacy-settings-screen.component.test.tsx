@@ -30,7 +30,7 @@ async function renderScreen(
     ...overrides,
   };
   const rendered = await render(
-    <LocalizationContext.Provider value={{ language: 'en', messages: messages.en }}>
+    <LocalizationContext.Provider value={{ language: 'en', messages: messages.en , hour12: false }}>
       <KuyaraThemeContext.Provider value={lightTheme}>
         <SafeAreaProvider initialMetrics={initialMetrics}>
           <PrivacySettingsScreen {...props} />

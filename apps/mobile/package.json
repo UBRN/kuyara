@@ -61,12 +61,12 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "test": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test \"src/**/*.test.mjs\"",
+    "test": "TZ=UTC node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test \"src/**/*.test.mjs\"",
     "test:profile": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test src/infrastructure/sqlite/migrations.test.mjs src/features/profile/profile-persistence.test.mjs",
     "test:wardrobe": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test src/infrastructure/sqlite/migrations.test.mjs src/features/wardrobe/wardrobe-persistence.test.mjs src/features/wardrobe/wardrobe-photo.test.mjs src/features/wardrobe/wardrobe-application.test.mjs",
     "test:weather": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test src/infrastructure/sqlite/migrations.test.mjs src/features/weather/weather-persistence.test.mjs src/features/weather/weather-application.test.mjs src/features/weather/worker-weather-provider.test.mjs",
     "test:theme": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test src/theme/theme.test.mjs",
-    "test:components": "jest --runInBand",
+    "test:components": "TZ=UTC jest --runInBand",
     "typecheck": "tsc --noEmit"
   },
   "jest": {

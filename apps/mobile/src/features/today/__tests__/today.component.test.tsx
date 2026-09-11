@@ -143,9 +143,10 @@ function providers(
     openApplicationSettings: jest.fn(async () => undefined),
     selectManualLocation: jest.fn(async () => undefined),
     refresh: jest.fn(async () => undefined),
+    revalidateFreshness: jest.fn(async () => undefined),
   } satisfies WeatherApplicationValue;
   return (
-    <LocalizationContext value={{ language, messages: messages[language] }}>
+    <LocalizationContext value={{ language, messages: messages[language], hour12: false }}>
       <KuyaraThemeContext.Provider value={theme}>
         <SafeAreaProvider initialMetrics={initialMetrics}>
           <WeatherApplicationContext value={weather}>{children}</WeatherApplicationContext>
@@ -156,7 +157,7 @@ function providers(
 }
 
 function loadedPresentation(language: 'en' | 'tr' = 'en') {
-  const presentation = createTodayPresentation(todayScreenState, language, fixtureNow);
+  const presentation = createTodayPresentation(todayScreenState, language, false, fixtureNow);
   if (presentation.kind !== 'loaded') throw new Error('Expected loaded Today presentation.');
   return presentation;
 }

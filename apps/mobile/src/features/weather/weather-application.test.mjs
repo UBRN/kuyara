@@ -271,6 +271,104 @@ test('device selection shows rationale before requesting and accepts approximate
   assert.equal(controller.getSnapshot().snapshot.locationKey, 'device:4101:2898');
 });
 
+const travelledFrom = {
+  source: 'device', accuracy: 'approximate', locationKey: 'device:5151:-13',
+  coordinates: { latitudeE2: 5151, longitudeE2: -13 }, timeZone: 'Europe/London',
+};
+
+test('foreground re-acquires the device location and replaces it once the traveller has moved', async () => {
+  const cached = snapshotFor(travelledFrom, '2026-07-30T09:55:00.000Z');
+  const harness = createHarness({
+    active: travelledFrom,
+    snapshots: [cached],
+    permissionState: { kind: 'granted', accuracy: 'approximate' },
+  });
+  await harness.controller.initialize();
+  assert.equal(harness.calls.lookups, 0);
+
+  await harness.controller.onForeground();
+  await settle();
+
+  assert.equal(harness.calls.lookups, 1);
+  assert.equal(harness.controller.getSnapshot().activeLocation.locationKey, 'device:4101:2898');
+  assert.equal(harness.controller.getSnapshot().activeLocation.timeZone, 'Europe/Istanbul');
+  assert.equal((await harness.repository.getActiveLocation()).locationKey, 'device:4101:2898');
+  assert.equal(harness.controller.getSnapshot().snapshot.locationKey, 'device:4101:2898');
+});
+
+test('foreground keeps a fresh snapshot when the device has not moved, and stays silent when the lookup fails', async () => {
+  const stayed = {
+    source: 'device', accuracy: 'approximate', locationKey: 'device:4101:2898',
+    coordinates: { latitudeE2: 4101, longitudeE2: 2898 }, timeZone: 'Europe/Istanbul',
+  };
+  const cached = snapshotFor(stayed, '2026-07-30T09:55:00.000Z');
+  const harness = createHarness({
+    active: stayed,
+    snapshots: [cached],
+    permissionState: { kind: 'granted', accuracy: 'approximate' },
+  });
+  await harness.controller.initialize();
+
+  await harness.controller.onForeground();
+  await settle();
+
+  assert.equal(harness.calls.lookups, 1);
+  assert.equal(harness.calls.provider, 0);
+  assert.equal(harness.controller.getSnapshot().snapshot.fetchedAt, cached.fetchedAt);
+  assert.equal(harness.controller.getSnapshot().freshness, 'fresh');
+
+  const failing = createHarness({
+    active: stayed,
+    snapshots: [cached],
+    permissionState: { kind: 'granted', accuracy: 'approximate' },
+    locationResult: { kind: 'lookup-failed' },
+  });
+  await failing.controller.initialize();
+
+  await failing.controller.onForeground();
+  await settle();
+
+  assert.equal(failing.controller.getSnapshot().locationFlow, 'idle');
+  assert.equal(failing.controller.getSnapshot().activeLocation.locationKey, stayed.locationKey);
+  assert.equal(failing.controller.getSnapshot().snapshot.fetchedAt, cached.fetchedAt);
+});
+
+test('a manual location is never re-acquired on foreground', async () => {
+  const istanbul = getManualLocation('sample.istanbul');
+  const harness = createHarness({
+    active: istanbul,
+    snapshots: [snapshotFor(istanbul, '2026-07-30T09:55:00.000Z')],
+    permissionState: { kind: 'granted', accuracy: 'approximate' },
+  });
+  await harness.controller.initialize();
+
+  await harness.controller.onForeground();
+
+  assert.equal(harness.calls.lookups, 0);
+  assert.equal(harness.controller.getSnapshot().activeLocation.locationKey, istanbul.locationKey);
+});
+
+test('revalidateFreshness republishes freshness on focus and starts the stale refresh once', async () => {
+  const istanbul = getManualLocation('sample.istanbul');
+  const cached = snapshotFor(istanbul, '2026-07-30T09:45:00.000Z');
+  let now = '2026-07-30T10:00:00.000Z';
+  const harness = createHarness({ active: istanbul, snapshots: [cached], now: () => now });
+  await harness.controller.initialize();
+  assert.equal(harness.controller.getSnapshot().freshness, 'fresh');
+  assert.equal(harness.calls.provider, 0);
+
+  now = '2026-07-30T10:16:00.000Z';
+  await Promise.all([
+    harness.controller.revalidateFreshness(),
+    harness.controller.revalidateFreshness(),
+  ]);
+  await settle();
+
+  assert.equal(harness.calls.provider, 1);
+  assert.equal(harness.controller.getSnapshot().freshness, 'fresh');
+  assert.equal(harness.controller.getSnapshot().snapshot.fetchedAt, now);
+});
+
 test('fresh cache is immediate, while stale bootstrap deduplicates refresh and keeps cache on failure', async () => {
   const istanbul = getManualLocation('sample.istanbul');
   const fresh = snapshotFor(istanbul, '2026-07-30T09:45:00.000Z');

@@ -55,10 +55,35 @@ function decimal(value: number, language: 'en' | 'tr'): string {
   }).format(value);
 }
 
-function time(value: string, timeZone: string, language: 'en' | 'tr'): string {
+function time(
+  value: string,
+  timeZone: string,
+  language: 'en' | 'tr',
+  hour12: boolean,
+): string {
   return new Intl.DateTimeFormat(language === 'tr' ? 'tr-TR' : 'en-US', {
-    hour: '2-digit', minute: '2-digit', timeZone,
+    // A padded hour reads as a stopwatch in the 12-hour convention ("02:00 PM"), so the
+    // 12-hour label drops the padding the 24-hour one keeps.
+    hour: hour12 ? 'numeric' : '2-digit', minute: '2-digit', hour12, timeZone,
   }).format(new Date(value));
+}
+
+// "Last updated" answers "how old is this?", so it is read against the viewer's own clock
+// and calendar rather than the selected city's: the device time zone, and the date as
+// well as the time once the snapshot is no longer from the viewer's current local day.
+function lastUpdated(
+  value: string,
+  language: 'en' | 'tr',
+  hour12: boolean,
+  now: number,
+): string {
+  const fetched = new Date(value);
+  return new Intl.DateTimeFormat(
+    language === 'tr' ? 'tr-TR' : 'en-US',
+    fetched.toDateString() === new Date(now).toDateString()
+      ? { hour: hour12 ? 'numeric' : '2-digit', minute: '2-digit', hour12 }
+      : { dateStyle: 'short', timeStyle: 'short', hour12 },
+  ).format(fetched);
 }
 
 function weekday(
@@ -95,12 +120,12 @@ function locationName(
 }
 
 export function WeatherScreen() {
-  const { language, messages } = useLocalization();
+  const { hour12, language, messages } = useLocalization();
   const theme = useKuyaraTheme();
   const { usesStackedLayout } = useTextScaling();
   const copy = messages.weather;
   const application = useWeatherApplication();
-  const { state } = application;
+  const { revalidateFreshness, state } = application;
   const { analytics, firstUses, retries } = useProductAnalytics();
   // The control shows only a refresh the user pulled for. Binding it to the application's
   // `isRefreshing` also turned it on programmatically, and on iOS a RefreshControl that
@@ -109,8 +134,13 @@ export function WeatherScreen() {
   const [pullInFlight, setPullInFlight] = useState(false);
   // The rail's clock: read once, then again whenever the tab regains focus, so a screen
   // left open across an hour boundary drops the ended hour on return without a timer.
+  // The same return re-evaluates freshness, which otherwise only moves on init,
+  // foreground, selection and refresh, and leaves a screen left open labelled "Fresh".
   const [now, setNow] = useState(() => Date.now());
-  useFocusEffect(useCallback(() => { setNow(Date.now()); }, []));
+  useFocusEffect(useCallback(() => {
+    setNow(Date.now());
+    void revalidateFreshness();
+  }, [revalidateFreshness]));
   useRefreshOutcomeHaptics(
     state.status === 'ready' && state.isRefreshing,
     state.status === 'ready' && state.refreshFailure !== null,
@@ -120,7 +150,7 @@ export function WeatherScreen() {
     return (
       <Screen contentContainerStyle={styles.center} fill testID="weather-screen">
         <AppText accessibilityRole="header" variant="titleLarge">{copy.title}</AppText>
-        <AppText colorRole="textSecondary">{copy.refreshing}</AppText>
+        <AppText colorRole="textSecondary">{copy.loading}</AppText>
       </Screen>
     );
   }
@@ -135,7 +165,7 @@ export function WeatherScreen() {
     );
   }
 
-  // Taxonomy 5.7: the pull gesture and the header button both call the same `refresh()`;
+  // Taxonomy 5.7: the pull gesture and the visible control both call the same `refresh()`;
   // "weather" has no separate retry control, so a failure already on screen is the
   // discriminator between a manual refresh and a retry after failure.
   const handleRefresh = () => {
@@ -199,6 +229,15 @@ export function WeatherScreen() {
             notice: copy.rateLimitedNotice,
           }
         : null;
+  // The same three announced states as Today (docs/product-decisions.md): refreshing,
+  // refresh failed, or last updated, the last of which keeps Weather's fresh/stale split.
+  const freshnessStatus = state.isRefreshing
+    ? copy.refreshing
+    : state.refreshFailure !== null
+      ? copy.refreshFailed
+      : state.freshness === 'fresh'
+        ? copy.fresh
+        : copy.stale;
   const locationAccessibilityLabel = accessibilitySentence(
     activeName,
     accuracy,
@@ -250,9 +289,11 @@ export function WeatherScreen() {
           </Pressable>
         ) : undefined}
       />
-      <AppText colorRole="textSecondary">{copy.introduction}</AppText>
+      {state.activeLocation ? null : (
+        <AppText colorRole="textSecondary">{copy.introduction}</AppText>
+      )}
 
-      <View style={styles.locationSection}>
+      <View style={styles.locationSection} testID="weather-location-section">
         <Pressable
           accessibilityLabel={locationAccessibilityLabel}
           accessibilityRole="button"
@@ -432,8 +473,19 @@ export function WeatherScreen() {
               ) : null}
             </Surface>
             <View style={styles.headingRow}>
-              <AppText variant="label">{state.freshness === 'fresh' ? copy.fresh : copy.stale}</AppText>
-              <AppText colorRole="textSecondary" variant="caption">{copy.updatedAt(time(snapshot.fetchedAt, snapshot.timeZone, language))}</AppText>
+              <AppText
+                accessibilityLiveRegion={
+                  state.isRefreshing || state.refreshFailure !== null || state.freshness !== 'fresh'
+                    ? 'polite'
+                    : 'none'
+                }
+                testID="weather-freshness"
+                variant="label">
+                {freshnessStatus}
+              </AppText>
+              <AppText colorRole="textSecondary" tabularNumbers variant="caption">
+                {copy.updatedAt(lastUpdated(snapshot.fetchedAt, language, hour12, now))}
+              </AppText>
             </View>
           </View>
 
@@ -452,7 +504,7 @@ export function WeatherScreen() {
                     ? localDate
                     : weatherLocalDateKey(remainingHourly[index - 1].forecastAt, snapshot.timeZone);
                   const startsNewLocalDay = localDate !== previousLocalDate;
-                  const hourLabel = time(hour.forecastAt, snapshot.timeZone, language);
+                  const hourLabel = time(hour.forecastAt, snapshot.timeZone, language, hour12);
                   return {
                     key: hour.forecastAt,
                     accessibilityLabel: copy.hourlyForecastAccessibilityLabel({

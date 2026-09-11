@@ -91,7 +91,7 @@ export function LocationSelectionControls({
         <View style={styles.controls}>
           {header}
           <AppText accessibilityLiveRegion="polite">
-            {state.status === 'loading' ? copy.refreshing : copy.loadErrorBody}
+            {state.status === 'loading' ? copy.loading : copy.loadErrorBody}
           </AppText>
           {state.status === 'error' ? (
             <Button label={copy.retry} onPress={() => void application.retry()} />

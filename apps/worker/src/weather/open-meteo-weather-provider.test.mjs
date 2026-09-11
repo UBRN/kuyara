@@ -10,10 +10,12 @@ const location = {
   timeZone: 'Europe/Istanbul',
 };
 
+// Times are Istanbul local, the zone the provider now asks Open-Meteo to answer in.
 function rawFixture() {
   return {
+    utc_offset_seconds: 10800,
     current: {
-      time: '2026-08-29T09:50',
+      time: '2026-08-29T12:50',
       temperature_2m: 24.5,
       apparent_temperature: 25.2,
       relative_humidity_2m: 82,
@@ -21,7 +23,7 @@ function rawFixture() {
       wind_speed_10m: 3.4,
     },
     hourly: {
-      time: ['2026-08-29T09:00', '2026-08-29T10:00'],
+      time: ['2026-08-29T12:00', '2026-08-29T13:00'],
       temperature_2m: [24, 25],
       apparent_temperature: [25, 26],
       relative_humidity_2m: [82, 78],
@@ -59,7 +61,7 @@ test('requests the exact Open-Meteo fields and returns a live provider snapshot'
     hourly: 'temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,precipitation_probability,uv_index',
     daily: 'temperature_2m_min,temperature_2m_max',
     wind_speed_unit: 'ms',
-    timezone: 'UTC',
+    timezone: 'Europe/Istanbul',
     forecast_days: '3',
   });
   assert.equal(captured.init.signal, signal);

@@ -95,7 +95,7 @@ function TestProviders({
 }>) {
   return (
     <WardrobeApplicationContext.Provider value={{ ...application(items, status), ...(resolvePhotoUri ? { resolvePhotoUri } : {}) }}>
-      <LocalizationContext.Provider value={{ language: 'en', messages: messages.en }}>
+      <LocalizationContext.Provider value={{ language: 'en', messages: messages.en , hour12: false }}>
         <KuyaraThemeContext.Provider value={lightTheme}>
           <SafeAreaProvider initialMetrics={initialMetrics}>
             {children}

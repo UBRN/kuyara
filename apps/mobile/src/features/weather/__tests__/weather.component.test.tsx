@@ -32,6 +32,8 @@ jest.mock('expo-router', () => {
 // eslint-disable-next-line import/first
 import WeatherRoute from '@/app/(tabs)/weather';
 
+// "Last updated" is read in the device time zone while the rail stays in the location's.
+// `test:components` pins the device zone to UTC; the sample location is Europe/Istanbul.
 const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
   insets: { top: 47, right: 0, bottom: 34, left: 0 },
@@ -111,13 +113,15 @@ function Providers({
   language,
   value,
   productAnalytics,
+  hour12 = false,
 }: PropsWithChildren<{
   language: SupportedLanguage;
   value: WeatherApplicationValue;
   productAnalytics?: ReturnType<typeof createProductAnalyticsValue>;
+  hour12?: boolean;
 }>) {
   return (
-    <LocalizationContext.Provider value={{ language, messages: messages[language] }}>
+    <LocalizationContext.Provider value={{ language, messages: messages[language], hour12 }}>
       <KuyaraThemeContext.Provider value={lightTheme}>
         <ProductAnalyticsContext value={productAnalytics ?? createProductAnalyticsValue()}>
           <WeatherApplicationContext.Provider value={value}>
@@ -139,6 +143,7 @@ function createValue(state: WeatherApplicationValue['state'] = baseState) {
     openApplicationSettings: jest.fn(async () => undefined),
     selectManualLocation: jest.fn(async () => undefined),
     refresh: jest.fn(async () => undefined),
+    revalidateFreshness: jest.fn(async () => undefined),
     getSnapshot: undefined as (() => WeatherApplicationValue['state']) | undefined,
   } satisfies WeatherApplicationValue;
 }
@@ -204,7 +209,7 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
       <Providers language={language} value={value}><WeatherScreen /></Providers>,
     );
     const copy = messages[language].weather;
-    expect(result.getByText(copy.stale)).toBeOnTheScreen();
+    expect(result.getByTestId('weather-freshness')).toHaveTextContent(copy.refreshFailed);
     expect(result.getByText(copy.sampleDisclosure)).toBeOnTheScreen();
     expect(result.getAllByText(copy.conditions.rain).length).toBeGreaterThan(0);
     expect(result.getByLabelText(copy[noticeKey]).props.accessibilityLiveRegion).toBe('polite');
@@ -233,7 +238,7 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
       ? 'UV index 2'
       : 'UV endeksi 2')).toBeOnTheScreen();
     expect(result.getByLabelText(language === 'en'
-      ? '12:00 PM. 16°. Rain. 50% precipitation'
+      ? '12:00. 16°. Rain. 50% precipitation'
       : 'Saat 12:00. Sıcaklık 16°. Yağmurlu. Yağış olasılığı yüzde 50.')).toBeOnTheScreen();
     expect(result.getByText(language === 'en' ? '4 m/s' : '4 m/sn')).toBeOnTheScreen();
     expect(result.getByText(language === 'en' ? '70%' : '%70')).toBeOnTheScreen();
@@ -323,13 +328,121 @@ test('selected location, stale snapshot, refreshing, failure, and hourly content
     name: `${active.displayName}. ${messages.en.weather.changeLocationAction}`,
   }));
   expect(result.getByText(active.displayName)).toBeOnTheScreen();
-  expect(result.getByText(messages.en.weather.stale)).toBeOnTheScreen();
+  // Refreshing outranks the failure, which outranks staleness, as on Today.
+  expect(result.getByTestId('weather-freshness')).toHaveTextContent(messages.en.weather.refreshing);
   expect(result.getByLabelText(messages.en.weather.unavailableNotice).props.accessibilityLiveRegion).toBe('polite');
   expect(result.getAllByText(messages.en.weather.conditions.rain).length).toBeGreaterThan(0);
   expect(
     result.getByLabelText(messages.en.weather.refreshAccessibilityLabel).props.accessibilityState
       .busy,
   ).toBe(true);
+});
+
+test('the intro line gives way to the location, and the refresh control sits under it', async () => {
+  const empty = createValue();
+  const emptyResult = await render(
+    <Providers language="en" value={empty}><WeatherScreen /></Providers>,
+  );
+  expect(emptyResult.getByText(messages.en.weather.introduction)).toBeOnTheScreen();
+  expect(emptyResult.queryByTestId('weather-refresh-button')).toBeNull();
+
+  const selected = createValue({
+    ...baseState,
+    activeLocation: getManualLocation('sample.istanbul')!,
+    snapshot: sampleSnapshot(),
+    freshness: 'fresh',
+  });
+  const result = await render(
+    <Providers language="en" value={selected}><WeatherScreen /></Providers>,
+  );
+
+  expect(result.queryByText(messages.en.weather.introduction)).toBeNull();
+  expect(result.getByTestId('weather-refresh-button')).toBeOnTheScreen();
+});
+
+test('the freshness line announces only while it is not fresh', async () => {
+  const fresh = createValue({
+    ...baseState,
+    activeLocation: getManualLocation('sample.istanbul')!,
+    snapshot: sampleSnapshot(),
+    freshness: 'fresh',
+  });
+  const freshResult = await render(
+    <Providers language="en" value={fresh}><WeatherScreen /></Providers>,
+  );
+  const freshLine = freshResult.getByTestId('weather-freshness');
+  expect(freshLine).toHaveTextContent(messages.en.weather.fresh);
+  expect(freshLine.props.accessibilityLiveRegion).toBe('none');
+
+  const stale = createValue({ ...fresh.state, freshness: 'stale' } as WeatherReadyState);
+  const staleResult = await render(
+    <Providers language="en" value={stale}><WeatherScreen /></Providers>,
+  );
+  const staleLine = staleResult.getByTestId('weather-freshness');
+  expect(staleLine).toHaveTextContent(messages.en.weather.stale);
+  expect(staleLine.props.accessibilityLiveRegion).toBe('polite');
+});
+
+test('the cold load says it is loading rather than refreshing', async () => {
+  const result = await render(
+    <Providers language="en" value={createValue({ status: 'loading' })}><WeatherScreen /></Providers>,
+  );
+
+  expect(result.getByText(messages.en.weather.loading)).toBeOnTheScreen();
+  expect(result.queryByText(messages.en.weather.refreshing)).toBeNull();
+});
+
+test('returning to Weather re-evaluates freshness', async () => {
+  const value = createValue({
+    ...baseState,
+    activeLocation: getManualLocation('sample.istanbul')!,
+    snapshot: sampleSnapshot(),
+    freshness: 'fresh',
+  });
+
+  await render(<Providers language="en" value={value}><WeatherScreen /></Providers>);
+
+  expect(value.revalidateFreshness).toHaveBeenCalledTimes(1);
+});
+
+test.each([
+  [false, '12:00', 'Last updated 09:00'],
+  [true, '12:00 PM', 'Last updated 9:00 AM'],
+] as const)('hour labels follow the device clock setting (hour12: %s)', async (
+  hour12,
+  railLabel,
+  updatedLabel,
+) => {
+  const value = createValue({
+    ...baseState,
+    activeLocation: getManualLocation('sample.istanbul')!,
+    snapshot: sampleSnapshot(),
+    freshness: 'fresh',
+  });
+
+  const result = await render(
+    <Providers hour12={hour12} language="en" value={value}><WeatherScreen /></Providers>,
+  );
+
+  // The rail stays in the location's zone (09:00 UTC is 12:00 in Istanbul); the label does not.
+  expect(result.getByText(railLabel)).toBeOnTheScreen();
+  expect(result.getByText(updatedLabel.replace(/\u00a0|\u202f/gu, ' '))).toBeOnTheScreen();
+});
+
+test('an older snapshot is dated, not just timed', async () => {
+  const snapshot = { ...sampleSnapshot(), fetchedAt: '2026-07-28T21:30:00.000Z' };
+  const value = createValue({
+    ...baseState,
+    activeLocation: getManualLocation('sample.istanbul')!,
+    snapshot,
+    freshness: 'stale',
+  });
+
+  const result = await render(
+    <Providers language="en" value={value}><WeatherScreen /></Providers>,
+  );
+
+  expect(result.getByText(/7\/28\/26/)).toBeOnTheScreen();
 });
 
 test('Weather renders a searched place from its persisted display name', async () => {
@@ -544,8 +657,8 @@ test('the hourly rail drops the hours that have ended', async () => {
   const result = await render(<Providers language="en" value={value}><WeatherScreen /></Providers>);
   const bands = result.getAllByTestId('weather-hourly-band', hidden);
   expect(bands).toHaveLength(1);
-  expect(result.getByLabelText('01:00 PM. 17°. Cloudy. 20% precipitation')).toBeOnTheScreen();
-  expect(result.queryByLabelText('12:00 PM. 16°. Rain. 50% precipitation')).toBeNull();
+  expect(result.getByLabelText('13:00. 17°. Cloudy. 20% precipitation')).toBeOnTheScreen();
+  expect(result.queryByLabelText('12:00. 16°. Rain. 50% precipitation')).toBeNull();
 
 });
 
@@ -563,7 +676,7 @@ test('the hourly card is not rendered once every hour of the snapshot\'s day has
 });
 
 test.each([
-  ['en', 'Fri', 'Friday, 12:00 AM. 18°. Cloudy. 20% precipitation'],
+  ['en', 'Fri', 'Friday, 00:00. 18°. Cloudy. 20% precipitation'],
   ['tr', 'Cum', 'Cuma, saat 00:00. Sıcaklık 18°. Bulutlu. Yağış olasılığı yüzde 20.'],
 ] as const)('marks the first %s column of a new local day', async (
   language,

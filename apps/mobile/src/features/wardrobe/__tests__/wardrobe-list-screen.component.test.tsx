@@ -104,7 +104,7 @@ function TestProviders({
   language = 'en',
 }: PropsWithChildren<{ language?: SupportedLanguage }>) {
   return (
-    <LocalizationContext.Provider value={{ language, messages: messages[language] }}>
+    <LocalizationContext.Provider value={{ language, messages: messages[language], hour12: false }}>
       <KuyaraThemeContext.Provider value={lightTheme}>
         <SafeAreaProvider initialMetrics={initialMetrics}>{children}</SafeAreaProvider>
       </KuyaraThemeContext.Provider>
