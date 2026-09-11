@@ -79,13 +79,13 @@ Analytics is sequenced before the first public App Store release, so milestones 
 11. **App Store privacy disclosure and privacy policy.** The privacy policy URL and the
     App Store Connect data-collection questionnaire must describe analytics collection,
     with the install identifier declared linked to the user (ADR 0033, amended
-    2026-09-09), before any analytics-enabled release. Both wait on the maintainer: where
-    the policy is hosted and its URL (the Settings row stays hidden while
-    `PRIVACY_POLICY_URL` is null), and the questionnaire entered in App Store Connect
-    from ADR 0033 section 1 after the maintainer's lawful-basis answer (section 7). The
-    policy's deletion wording also waits on the maintainer: PostHog's persons API cannot
-    delete anonymous events by identifier (ADR 0033 section 7, finding of 2026-09-10),
-    so the policy either promises less, or the adapter's person-profile mode changes.
+    2026-09-09), before any analytics-enabled release. ~~Where the policy is hosted, its
+    URL, the lawful basis and the deletion wording.~~ Decided and written 2026-09-11:
+    the policy and support page live in `docs/` for GitHub Pages, `PRIVACY_POLICY_URL`
+    is set, consent is the lawful basis, and the policy promises withdrawal and
+    retention but not identifier-based deletion (ADR 0033 section 7). Still with the
+    maintainer: enabling Pages, and entering the questionnaire, the URLs, the copy and
+    the screenshots in App Store Connect (see Release Blockers).
 12. **PostHog Error Tracking.** Source maps and release correlation are decided at
     implementation time; the same payload exclusion list applies.
 13. **Session replay evaluation.** Only after privacy masking and sampling are designed.
