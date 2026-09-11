@@ -163,10 +163,6 @@ App Store submission, not TestFlight, is blocked by:
 
 ## Known Issues and Manual Verification Gaps
 
-- **A development LogBox warning appears at launch under Reduce Motion.** Seen on the
-  Simulator on 2026-09-10 on the build before and after the detail entrance transition,
-  so it is not caused by that change; its text was not captured because Metro ran in
-  another process. Read it from the Metro console on the next Reduce Motion pass.
 - **Real VoiceOver is unverified.** The XCUITest hierarchy was checked on the Simulator
   (single labelled elements in source order; ownership buttons carry `selected`; picker
   options carry the radio role), but spoken grouping, focus order, the rotor, Today's
