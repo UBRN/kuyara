@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -88,7 +88,12 @@ jest.mock('expo-router', () => {
   return {
     useFocusEffect: (callback: () => void | (() => void)) => actualReact.useEffect(callback, [callback]),
     useIsFocused: () => true,
-    useRouter: () => ({ push: mockPush, back: mockBack }),
+    useRouter: () => ({
+      push: mockPush,
+      back: mockBack,
+      canGoBack: () => true,
+      replace: jest.fn(),
+    }),
     useLocalSearchParams: () => mockParams,
   };
 });
@@ -342,6 +347,36 @@ test('Today marks a rendered recommendation for the consent gate once', async ()
   expect(markRecommendationShown).toHaveBeenCalledTimes(1);
 });
 
+test('the first recommendation refresh shows loading without reporting an error episode', async () => {
+  const productAnalytics = createProductAnalytics();
+  const props = {
+    productAnalytics,
+    profile: profileValue(),
+    wardrobe: wardrobeValue(),
+    weather: weatherValue(),
+  };
+  const result = await render(
+    <Providers
+      {...props}
+      recommendation={{ status: 'ready', snapshot: null, isRefreshing: true, lastFailure: null }}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  expect(result.getByTestId('today-loading-screen')).toBeOnTheScreen();
+  expect(result.queryByTestId('today-unavailable-screen')).not.toBeOnTheScreen();
+
+  await result.rerender(
+    <Providers {...props} recommendation={recommendationReady()}>
+      <TodayRoute />
+    </Providers>,
+  );
+  const errorEvents = productAnalytics.analytics.captures.filter(
+    ({ name }) => name === 'error_shown' || name === 'error_recovered',
+  );
+  expect(errorEvents).toHaveLength(0);
+});
+
 test('a successful pull-to-refresh regenerates after weather and reports manual refresh, not retry', async () => {
   const productAnalytics = createProductAnalytics();
   const order: string[] = [];
@@ -368,13 +403,77 @@ test('a successful pull-to-refresh regenerates after weather and reports manual 
   productAnalytics.analytics.captures.length = 0;
 
   const refreshControl = result.getByTestId('today-screen').props.refreshControl;
-  refreshControl.props.onRefresh();
+  await act(async () => refreshControl.props.onRefresh());
 
   await waitFor(() => expect(recommendationRefresh).toHaveBeenCalledTimes(1));
 
   expect(order).toEqual(['weather', 'recommendation']);
   expect(productAnalytics.analytics.captures.map((c) => c.name)).toContain('manual_refresh_triggered');
   expect(productAnalytics.analytics.captures.map((c) => c.name)).not.toContain('retry_after_failure_triggered');
+});
+
+test('one pull stays refreshing until weather and recommendation have both settled', async () => {
+  let resolveWeather!: () => void;
+  let resolveRecommendation!: (value: null) => void;
+  const weatherRefresh = new Promise<void>((resolve) => { resolveWeather = resolve; });
+  const recommendationRefreshPromise = new Promise<null>((resolve) => {
+    resolveRecommendation = resolve;
+  });
+  const weather = {
+    ...weatherValue(),
+    refresh: jest.fn(() => weatherRefresh),
+  };
+  const recommendationRefresh = jest.fn(() => recommendationRefreshPromise);
+  const result = await render(
+    <Providers
+      productAnalytics={createProductAnalytics()}
+      profile={profileValue()}
+      recommendation={recommendationReady()}
+      recommendationRefresh={recommendationRefresh}
+      wardrobe={wardrobeValue()}
+      weather={weather}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  await act(async () => result.getByTestId('today-screen').props.refreshControl.props.onRefresh());
+  await waitFor(() => expect(
+    result.getByTestId('today-screen').props.refreshControl.props.refreshing,
+  ).toBe(true));
+
+  await act(async () => resolveWeather());
+  await waitFor(() => expect(recommendationRefresh).toHaveBeenCalledTimes(1));
+  expect(result.getByTestId('today-screen').props.refreshControl.props.refreshing).toBe(true);
+
+  await act(async () => resolveRecommendation(null));
+  await waitFor(() => expect(
+    result.getByTestId('today-screen').props.refreshControl.props.refreshing,
+  ).toBe(false));
+});
+
+test('a failed weather refresh with the same snapshot skips recommendation regeneration', async () => {
+  const productAnalytics = createProductAnalytics();
+  const weather = weatherValue({ refreshFailure: 'offline' });
+  const recommendationRefresh = jest.fn(async () => null);
+  const result = await render(
+    <Providers
+      productAnalytics={productAnalytics}
+      profile={profileValue()}
+      recommendation={recommendationReady()}
+      recommendationRefresh={recommendationRefresh}
+      wardrobe={wardrobeValue()}
+      weather={weather}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  await act(async () => result.getByTestId('today-screen').props.refreshControl.props.onRefresh());
+  await waitFor(() => expect(
+    productAnalytics.analytics.captures.some(({ name }) => name === 'retry_after_failure_triggered'),
+  ).toBe(true));
+
+  expect(weather.refresh).toHaveBeenCalledTimes(1);
+  expect(recommendationRefresh).not.toHaveBeenCalled();
 });
 
 test('focusing Today asks the recommendation provider to re-evaluate the local day', async () => {
@@ -446,8 +545,7 @@ test('recommendation refresh and failure state reaches Today while the last outf
 test('refreshing while Today shows stale weather and a failed attempt reports retry_after_failure_triggered', async () => {
   const productAnalytics = createProductAnalytics();
   // `refreshFailed` on an otherwise-loaded state: the last attempt failed but a snapshot
-  // still renders, which is the only Today state that both shows a failure and keeps the
-  // pull-to-refresh control (the fully unavailable state has no refresh control at all).
+  // still renders, so retry must preserve the visible recommendation while it refreshes.
   const failingWeather = weatherValue({ refreshFailure: 'offline' });
   const result = await render(
     <Providers
@@ -462,7 +560,7 @@ test('refreshing while Today shows stale weather and a failed attempt reports re
   productAnalytics.analytics.captures.length = 0;
 
   const refreshControl = result.getByTestId('today-screen').props.refreshControl;
-  refreshControl.props.onRefresh();
+  await act(async () => refreshControl.props.onRefresh());
 
   await waitFor(() => expect(
     productAnalytics.analytics.captures.some((c) => c.name === 'retry_after_failure_triggered'),
