@@ -242,3 +242,26 @@ test('persisted dress style round trips and retired contexts resolve to smart', 
   assert.equal(legacySnapshot.dressStyle, 'smart');
   assert.equal(legacySnapshot.localDayKey, null);
 });
+
+// ADR 0034 section 3: migration v13 widened the generation-mode constraint and the in-memory
+// controller path already covers the new value. This joins the two halves: the third mode
+// survives a real write and read through the repository.
+test('an on-device-ai snapshot round trips through the repository', async (t) => {
+  const { database, repository } = await setup();
+  t.after(() => database.close());
+  const generated = generatedRecommendation();
+
+  const saved = await repository.saveSnapshot(profileId, {
+    weatherSnapshotId: generated.input.snapshot.id,
+    locationKey: generated.input.snapshot.locationKey,
+    context: generated.request,
+    recommendation: { ...generated.recommendation, generationMode: 'on-device-ai' },
+  });
+
+  assert.equal(saved.generationMode, 'on-device-ai');
+  assert.equal(saved.recommendation.generationMode, 'on-device-ai');
+  const read = await repository.getSnapshot(profileId);
+  assert.equal(read.generationMode, 'on-device-ai');
+  assert.equal(read.recommendation.generationMode, 'on-device-ai');
+  assert.deepEqual(read, saved);
+});

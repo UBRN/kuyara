@@ -49,19 +49,43 @@ function input() {
 
 const request = createAiRecommendationRequest(input());
 
-// Three options that differ in their body core, so the shared distinctness rule accepts them.
+// Three options that differ in their body core, so the shared distinctness rule accepts
+// them, each labelled with an archetype its own traits satisfy, so the mapper's archetype
+// precondition accepts them too. Both gates now run inside the chain.
+function archetypeFor(option, used) {
+  const candidates = [
+    option.traits.outerWaterProtective && 'rain_ready',
+    option.traits.tractionEnhanced && 'snow_day',
+    option.traits.outerThermalHigh && 'cold_shield',
+    option.traits.windResistant && 'wind_guard',
+    option.traits.hasMidLayer && option.traits.hasOuterLayer && 'layered_warmth',
+    option.traits.hasMidLayer && !option.traits.hasOuterLayer && 'in_between',
+    !option.traits.hasOuterLayer && option.traits.breathabilityHigh && 'light_and_airy',
+    option.formality === 'formal' && 'office_ready',
+    option.formality !== 'casual' && 'smart_casual',
+    option.garments.some(({ slot, garmentTypeId }) =>
+      slot === 'footwear' && garmentTypeId === 'sneakers') && 'on_the_move',
+    option.formality === 'casual' && 'weekend_relaxed',
+    'everyday_easy',
+  ].filter(Boolean);
+  return candidates.find((candidate) => !used.has(candidate));
+}
+
 function distinctPicks() {
-  const archetypes = ['everyday_easy', 'smart_casual', 'weekend_relaxed'];
+  const used = new Set();
   const chosen = [];
   for (const option of request.options) {
     const core = JSON.stringify(option.garments.filter(({ slot }) =>
       slot === 'primary_top' || slot === 'bottom' || slot === 'one_piece'));
     if (chosen.some((picked) => picked.core === core)) continue;
-    chosen.push({ core, optionId: option.optionId });
+    const archetypeId = archetypeFor(option, used);
+    if (!archetypeId) continue;
+    used.add(archetypeId);
+    chosen.push({ core, optionId: option.optionId, archetypeId });
     if (chosen.length === 3) break;
   }
   if (chosen.length !== 3) throw new Error('fixture needs three distinct body cores');
-  return chosen.map(({ optionId }, index) => ({ optionId, archetypeId: archetypes[index] }));
+  return chosen.map(({ optionId, archetypeId }) => ({ optionId, archetypeId }));
 }
 
 const picks = distinctPicks();
@@ -111,6 +135,12 @@ function fakeWorker() {
   };
 }
 
+// `recommendRouted` now answers with the mapped recommendation, so a tier is identified by
+// its generation mode and the option ids of the three outfits it produced.
+function pickedOptionIds(result) {
+  return result.outfits.map(({ optionId }) => optionId);
+}
+
 function routed(module, worker, now) {
   return new RoutedAiClient({
     onDevice: new OnDeviceAiClient({ module, timeoutMilliseconds: 50 }),
@@ -126,7 +156,7 @@ test('an available module answers on device and nothing reaches the Worker', asy
   const result = await routed(module, worker).recommendRouted(request);
 
   assert.equal(result.generationMode, 'on-device-ai');
-  assert.deepEqual(result.data, { picks });
+  assert.deepEqual(pickedOptionIds(result), picks.map(({ optionId }) => optionId));
   assert.equal(worker.calls.length, 0);
   assert.equal(module.calls.length, 1);
   assert.equal(module.calls[0].options.timeoutMs, 50);
@@ -151,7 +181,7 @@ test('an unavailable module costs no time and the Worker keeps the whole budget'
   const result = await routed(module, worker, () => 1000).recommendRouted(request);
 
   assert.equal(result.generationMode, 'ai-assisted');
-  assert.deepEqual(result.data, { picks: workerPicks });
+  assert.deepEqual(pickedOptionIds(result), workerPicks.map(({ optionId }) => optionId));
   assert.deepEqual(worker.calls, [{ timeoutMilliseconds: 20000 }]);
 });
 
@@ -193,7 +223,7 @@ for (const [name, overrides] of [
     const result = await routed(fakeModule(overrides), worker).recommendRouted(request);
 
     assert.equal(result.generationMode, 'ai-assisted');
-    assert.deepEqual(result.data, { picks: workerPicks });
+    assert.deepEqual(pickedOptionIds(result), workerPicks.map(({ optionId }) => optionId));
     assert.equal(worker.calls.length, 1);
   });
 }
@@ -212,43 +242,43 @@ test('picks that are not meaningfully different fall to the Worker', async () =>
   assert.equal(worker.calls.length, 1);
 });
 
-test('the on-device client names its own failure kinds', async () => {
-  const unavailable = new OnDeviceAiClient({
-    module: fakeModule({ getAvailability: async () => ({ status: 'unavailable' }) }),
-  });
-  await assert.rejects(
-    () => unavailable.recommend(request),
-    (error) => error instanceof OnDeviceAiError && error.kind === 'unavailable',
-  );
-
-  const invalid = new OnDeviceAiClient({
-    module: fakeModule({ selectOutfits: async () => '{"picks":[]}' }),
-  });
-  await assert.rejects(
-    () => invalid.recommend(request),
-    (error) => error instanceof OnDeviceAiError && error.kind === 'invalid-response',
-  );
-
-  const native = new OnDeviceAiClient({
-    module: fakeModule({
+test('every on-device outcome except a result is one failure to the caller', async () => {
+  const cases = [
+    ['an unavailable device', { getAvailability: async () => ({ status: 'unavailable' }) }],
+    ['an unparseable reply', { selectOutfits: async () => '{"picks":' }],
+    ['a native throw', {
       selectOutfits: async () => {
         throw new Error('boom');
       },
-    }),
-  });
-  await assert.rejects(
-    () => native.recommend(request),
-    (error) => error instanceof OnDeviceAiError && error.kind === 'native',
-  );
+    }],
+    ['a module that never settles', { selectOutfits: () => new Promise(() => undefined) }],
+  ];
 
-  const slow = new OnDeviceAiClient({
-    module: fakeModule({ selectOutfits: () => new Promise(() => undefined) }),
+  for (const [name, overrides] of cases) {
+    const client = new OnDeviceAiClient({
+      module: fakeModule(overrides),
+      timeoutMilliseconds: 10,
+    });
+    await assert.rejects(
+      () => client.recommend(request),
+      (error) => error instanceof OnDeviceAiError,
+      name,
+    );
+  }
+});
+
+// The AI status row renders a missing answer as "not available on this device", so an
+// availability read that never settles would show a wrong answer for the life of the screen.
+test('an availability read for the status row is bounded by the same budget', async () => {
+  const client = new OnDeviceAiClient({
+    module: fakeModule({ getAvailability: () => new Promise(() => undefined) }),
     timeoutMilliseconds: 10,
   });
-  await assert.rejects(
-    () => slow.recommend(request),
-    (error) => error instanceof OnDeviceAiError && error.kind === 'timeout',
-  );
+
+  assert.deepEqual(await client.getAvailability(), {
+    status: 'unavailable',
+    reason: 'unknown',
+  });
 });
 
 test('no module at all reports unavailable and routes to the Worker', async () => {
@@ -262,6 +292,78 @@ test('no module at all reports unavailable and routes to the Worker', async () =
     status: 'unavailable',
     reason: 'device_not_eligible',
   });
-  assert.deepEqual((await client.recommendRouted(request)).data, { picks: workerPicks });
+  assert.deepEqual(
+    pickedOptionIds(await client.recommendRouted(request)),
+    workerPicks.map(({ optionId }) => optionId),
+  );
   assert.equal(worker.calls.length, 1);
+});
+
+// The shared gate runs inside the on-device attempt, so an answer it rejects is an
+// on-device failure and the Worker still gets its turn with the rest of the budget. The
+// fixture is 16 degrees and clear, so nothing in it has enhanced traction and `snow_day`
+// fails the archetype precondition while the picks stay supplied and distinct.
+test('an on-device pick the shared gate rejects falls to the Worker, not to the fallback', async () => {
+  const used = new Set(picks.map(({ archetypeId }) => archetypeId));
+  assert.equal(used.has('snow_day'), false);
+  const smooth = picks.find(({ optionId }) => !request.options
+    .find((option) => option.optionId === optionId).traits.tractionEnhanced);
+  assert.notEqual(smooth, undefined);
+
+  const worker = fakeWorker();
+  const module = fakeModule({
+    selectOutfits: async () => JSON.stringify({
+      picks: picks.map((pick) => pick === smooth
+        ? { ...pick, archetypeId: 'snow_day' }
+        : pick),
+    }),
+  });
+  let clock = 1000;
+
+  const pending = routed(module, worker, () => clock).recommendRouted(request);
+  clock = 7000;
+  const result = await pending;
+
+  assert.equal(result.generationMode, 'ai-assisted');
+  assert.deepEqual(pickedOptionIds(result), workerPicks.map(({ optionId }) => optionId));
+  assert.deepEqual(worker.calls, [{ timeoutMilliseconds: 14000 }]);
+});
+
+// ADR 0034 section 2: the 6 s covers the whole on-device cost, the availability read
+// included. An availability call that never settles must not hold the recommendation past
+// the budget, and must not leave the user without even the deterministic fallback.
+test('an availability read that never settles is abandoned inside the on-device budget', async () => {
+  const worker = fakeWorker();
+  const module = fakeModule({
+    getAvailability: () => new Promise(() => undefined),
+    selectOutfits: async () => {
+      throw new Error('the module must not be asked to select');
+    },
+  });
+  let clock = 1000;
+
+  const pending = routed(module, worker, () => clock).recommendRouted(request);
+  clock = 7000;
+  const result = await pending;
+
+  assert.equal(result.generationMode, 'ai-assisted');
+  assert.deepEqual(worker.calls, [{ timeoutMilliseconds: 14000 }]);
+});
+
+// The row that tells the user what the device can do reads availability through its own
+// call, so a request that gave up waiting never writes "unavailable" to it.
+test('a timed-out request does not make the status row report unavailable', async () => {
+  let settle;
+  const module = fakeModule({
+    getAvailability: () => new Promise((resolve) => {
+      settle = () => resolve({ status: 'available' });
+    }),
+  });
+  const client = routed(module, fakeWorker());
+
+  await client.recommendRouted(request);
+  const pending = client.getAvailability();
+  settle();
+
+  assert.deepEqual(await pending, { status: 'available' });
 });
