@@ -54,7 +54,7 @@ Version 6 adds the required `notifications_opt_in` integer preference to `local_
 
 Version 7 adds an `owned | wanted` `entry_state` to `wardrobe_items`, preserves every existing row, and defaults existing entries to `owned`. New entries require a catalog garment type; existing null `garment_type_id` rows remain readable, editable, and deletable as legacy records.
 
-Version 8 rebuilds `local_profiles` to convert the clothing preference into `gender` (`womens` to `woman`, `mens` to `man`) and adds a nullable ISO calendar-date `birth_date`, preserving every other column, dependent row and the onboarding flag; the rebuild runs a `foreign_key_check` on the transaction connection before commit, and a failed rebuild rolls back. Expo opens every exclusive transaction on a fresh connection where `foreign_keys` is off, so no foreign key is enforced and no `ON DELETE CASCADE` fires inside a transaction: code that depends on a cascade deletes the dependent rows itself, as the weather data source does for hourly entries. Version 9 adds the active location's `display_name` and backfills the sample cities. Version 10 adds the nullable checked `dress_style` and resets onboarding once so existing installs answer it. Version 11 adds the `weather_alert_deliveries` ledger for local weather alerts. Version 12 adds the profile-owned `analytics_consent` state, defaulting existing rows to `undecided` and constraining it to `undecided | granted | withdrawn`. The current schema version is 12; see [Local profile lifecycle](#local-profile-lifecycle), [Local notifications](#local-notifications), and [The analytics boundary](#the-analytics-boundary) for how the later versions are used.
+Version 8 rebuilds `local_profiles` to convert the clothing preference into `gender` (`womens` to `woman`, `mens` to `man`) and adds a nullable ISO calendar-date `birth_date`, preserving every other column, dependent row and the onboarding flag; the rebuild runs a `foreign_key_check` on the transaction connection before commit, and a failed rebuild rolls back. Expo opens every exclusive transaction on a fresh connection where `foreign_keys` is off, so no foreign key is enforced and no `ON DELETE CASCADE` fires inside a transaction: code that depends on a cascade deletes the dependent rows itself, as the weather data source does for hourly entries. Version 9 adds the active location's `display_name` and backfills the sample cities. Version 10 adds the nullable checked `dress_style` and resets onboarding once so existing installs answer it. Version 11 adds the `weather_alert_deliveries` ledger for local weather alerts. Version 12 adds the profile-owned `analytics_consent` state, defaulting existing rows to `undecided` and constraining it to `undecided | granted | withdrawn`. Version 13 rebuilds `recommendation_snapshots` to widen the generation-mode check to `on-device-ai | ai-assisted | deterministic-fallback`, copying every existing row verbatim with foreign keys deferred for the copy so that an orphan already on the device cannot block bootstrap; see [ADR 0034](adr/0034-on-device-ai-selection-through-apple-foundation-models.md). The current schema version is 13; see [Local profile lifecycle](#local-profile-lifecycle), [Local notifications](#local-notifications), and [The analytics boundary](#the-analytics-boundary) for how the later versions are used.
 
 Future migrations must add one ordered migration object immediately after the current version. Do not edit released migrations, skip a version, or add a destructive fallback.
 
@@ -189,7 +189,7 @@ Today screen compositions
 semantic tokens and adaptive UI primitives
 ```
 
-`recommendOutfits` is a pure function: it reads no clock, performs no I/O, and returns the same result for the same input regardless of candidate order. Recommendation cache identity is weather snapshot identity, derived clothing preference, dress style, catalog version, and local calendar day seed. Generation occurs only after a stale weather snapshot refresh, an active-location, derived clothing-preference or dress-style change, the start of a new local day, or an explicit user request. A birth date change triggers nothing. Today reads the persisted recommendation snapshot through `RecommendationApplicationProvider`; the result is tagged `ai-assisted` when the Worker AI call succeeds and `deterministic-fallback` otherwise. Today never reads Wardrobe ownership state; outfit detail is the only recommendation surface that may show `owned` or `wanted`. No repository, provider DTO, runtime schema, persistence layer, network client, or global state container is introduced by Today itself; it consumes application providers mounted at the root.
+`recommendOutfits` is a pure function: it reads no clock, performs no I/O, and returns the same result for the same input regardless of candidate order. Recommendation cache identity is weather snapshot identity, derived clothing preference, dress style, catalog version, and local calendar day seed. Generation occurs only after a stale weather snapshot refresh, an active-location, derived clothing-preference or dress-style change, the start of a new local day, or an explicit user request. A birth date change triggers nothing. Today reads the persisted recommendation snapshot through `RecommendationApplicationProvider`; the result is tagged `on-device-ai` when the on-device tier answers, `ai-assisted` when the Worker AI call succeeds, and `deterministic-fallback` otherwise. Today never reads Wardrobe ownership state; outfit detail is the only recommendation surface that may show `owned` or `wanted`. No repository, provider DTO, runtime schema, persistence layer, network client, or global state container is introduced by Today itself; it consumes application providers mounted at the root.
 
 Implemented 2026-09-08 (ADR 0031): a gender change changes the derived clothing preference, while dress style is stored directly in the persisted recommendation context. The shared `formalityOrderByDressStyle` table in `packages/contracts` ranks all three formalities for both the Worker prompt and the deterministic fallback. Fallback ranks the same precomposed option set and selects three with distinct valid archetypes; no dress style filters the candidate set.
 
@@ -241,6 +241,11 @@ Deterministic rules bound the request, AI composes within those bounds, and vali
 mobile: deterministic requirements + preference-filtered catalog candidates + day seed
         ↓  exclude the previous local day's three option ids when at least three remain
         ↓  sanitized request: no Wardrobe data, photos, paths, profile/device IDs, or coordinates
+routed AI client on the device
+        ↓  tier 1, only when the module reports the on-device model available
+on-device Foundation Models through the local Expo module
+        ↓  shared contract validation, then deterministic domain invariants
+        ↓  every on-device failure falls to tier 2 with the remaining budget
 Worker AI route
         ↓
 ordered AI chain: Workers AI binding → OpenRouter fallback
@@ -253,6 +258,8 @@ persisted recommendation snapshot and localized presentation
 ```
 
 The request follows the canonical [AI input privacy boundary](product-decisions.md#approved-ai-input-privacy-boundary). The response carries structured data, never user-visible prose, so all Turkish and English copy stays in localization keys. A response failing either validation stage is rejected rather than repaired into a different outfit.
+
+Implemented 2026-09-13 ([ADR 0034](adr/0034-on-device-ai-selection-through-apple-foundation-models.md)): the composition boundary returns a routed client satisfying the existing `AiClient` interface, so the controller, the mapper, persistence, and the trigger rules keep their shape. It attempts the on-device tier only when the module answers `available`, spends at most 6 seconds of the single 20-second user-visible budget there, and leaves the Worker the remainder, never less than 14 seconds. An unavailable answer costs no attempt and no time, so Android, web, and ineligible iPhones behave exactly as they did before. Both AI tiers pass through the same validation gate, so an on-device answer the gate rejects is that tier's failure and the Worker still gets its turn; the deterministic device-local fallback keeps its place behind both and is reached by the controller's existing catch. `aiModelInputFromRequest` and `picksAreMeaningfullyDifferent` in `packages/contracts` are the one model-input projection and the one distinctness rule both executors use, so the field list defining what a model may see exists once; the wire contract is unchanged. The native surface is a local Expo module in Swift under `apps/mobile/modules/kuyara-on-device-ai`, declared for Apple platforms only, and `features/recommendation/data/on-device-ai-module.ts` is its only importer anywhere in the app: it exports the module or null, so application, feature, and domain code see one branch and never touch the native surface. The AI status surface reads the module's availability, which runs no inference and consumes no quota, so the bounded Worker probe stays the only probe.
 
 ### AI contracts and Worker orchestration
 
@@ -285,16 +292,17 @@ Candidate assembly and prompt acceptance must follow [ADR 0005](adr/0005-catalog
 
 ### Where each fallback lives
 
-Four distinct fallbacks operate at three boundaries. Keeping them separate is what lets any one of them fail without breaking the product.
+Five distinct fallbacks operate at three boundaries. Keeping them separate is what lets any one of them fail without breaking the product.
 
 | Fallback | Location | Trigger |
 | --- | --- | --- |
 | Next weather provider in the chain | inside the Worker | eligible upstream weather failure |
 | Last known good weather snapshot | mobile SQLite and weather repository | refresh fails after the chain is exhausted |
+| Worker AI tier | mobile routed AI client | the on-device tier is unavailable, times out, fails, or its answer is rejected by validation |
 | Next AI provider in the chain | inside the Worker | eligible AI provider failure or invalid structured output |
 | Deterministic three-outfit generation | on device | AI unavailable, over quota, or rejected by validation |
 
-The two Worker-side fallbacks are invisible to mobile, which sees one success or one sanitized failure. The two device-side fallbacks are what let the app still show weather and a recommendation with no network and no AI at all.
+The two Worker-side fallbacks are invisible to mobile, which sees one success or one sanitized failure. The routed client's hop from the on-device tier to the Worker is invisible to the rest of the app as well: both tiers return the same validated result and differ only in the recorded generation mode. The last known good weather snapshot and the deterministic three-outfit generation are what let the app still show weather and a recommendation with no network and no AI at all.
 
 ### Health, readiness, and probe distinctions
 
@@ -365,4 +373,4 @@ Feature code emits named domain events; the boundary owns the taxonomy, enforces
 3. The Worker validates input, calls privileged providers, validates their output, and returns a versioned response defined in the contracts package.
 4. The mobile client validates the response before mapping it into domain state and preserves the last known good snapshot if refresh fails.
 
-This flow operates end to end for live weather and AI recommendations. The Worker composes WeatherKit/Open-Meteo/OpenWeather for weather and Workers AI/OpenRouter for recommendations; mobile validates and persists both response types, preserves the last valid weather snapshot, and uses the device-local deterministic outfit generator when AI is unavailable. The active AI probe and endpoint rate limits are deployed. Authentication and remote synchronization remain unimplemented. Analytics has its consent-gated adapter and consent events, but no feature taxonomy call sites yet; the remaining intended shape is in [Intended future boundaries](#intended-future-boundaries).
+This flow operates end to end for live weather and AI recommendations. The Worker composes WeatherKit/Open-Meteo/OpenWeather for weather and Workers AI/OpenRouter for recommendations, and an Apple Intelligence eligible iPhone runs the AI selection step on the device before the Worker is asked at all; mobile validates and persists both response types, preserves the last valid weather snapshot, and uses the device-local deterministic outfit generator when AI is unavailable. The active AI probe and endpoint rate limits are deployed. Authentication and remote synchronization remain unimplemented. Analytics has its consent-gated adapter, its consent events, and the taxonomy's feature call sites in place; the remaining intended shape is in [Intended future boundaries](#intended-future-boundaries).
