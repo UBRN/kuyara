@@ -185,13 +185,31 @@ test('a cold morning before a hot afternoon keeps the current side mandatory', (
     breathability: 'high:optional',
   });
 
-  // Below the coverage boundary there is no conflict to resolve.
+  // Light thermal still excludes every breathable top but one, so the cold side below the
+  // coverage boundary is demoted the same way (17 °C at 08:00, 30 °C at 15:00).
   assert.deepEqual(priorities(day(12, 15, hours([[16, 29], [22, 12]]))), {
     thermal: 'light:mandatory',
     arm_coverage: 'full:optional',
     leg_coverage: 'full:optional',
+    breathability: 'high:optional',
+  });
+  assert.deepEqual(priorities(day(8, 17, hours([[9, 17], [15, 30]]))), {
+    thermal: 'light:mandatory',
+    arm_coverage: 'full:optional',
+    leg_coverage: 'full:optional',
+    breathability: 'high:optional',
+  });
+  // Hot now, light cold later: comfort is what the wearer walks out into.
+  assert.deepEqual(priorities(day(15, 30, hours([[16, 30], [22, 17]]))), {
+    thermal: 'light:optional',
+    arm_coverage: 'full:optional',
+    leg_coverage: 'full:optional',
     breathability: 'high:mandatory',
   });
+  // At or above 18 °C there is no cold side to weigh against the heat.
+  const warmAllDay = day(12, 20, hours([[16, 29], [22, 18]]));
+  assert.equal(findRequirement(warmAllDay, 'thermal'), undefined);
+  assert.equal(findRequirement(warmAllDay, 'breathability').priority, 'mandatory');
 });
 
 test('past daily cold does not over-insulate a warm evening with warm remaining hours', () => {
