@@ -1,6 +1,6 @@
 # ADR 0034: On-device AI selection through Apple Foundation Models
 
-Status: Proposed (2026-09-12)
+Status: Accepted (2026-09-13)
 
 Implementation: the shared privacy projection and the distinctness rule in `packages/contracts`, the routed
 client, the third generation mode with SQLite migration 13, the three badges, the AI status availability row
