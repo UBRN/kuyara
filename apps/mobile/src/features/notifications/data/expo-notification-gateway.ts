@@ -112,8 +112,27 @@ export class ExpoNotificationGateway implements NotificationGateway {
   }
 
   subscribeToResponses(listener: () => void): () => void {
+    // The listener runs first, while the stored response is still readable, and every
+    // delivered tap is cleared afterwards so a later subscription cannot replay it.
+    const deliverResponse = () => {
+      listener();
+      try {
+        Notifications.clearLastNotificationResponse();
+      } catch {
+        // Nothing stored to clear on this native module.
+      }
+    };
+
     try {
-      const subscription = Notifications.addNotificationResponseReceivedListener(listener);
+      const subscription = Notifications
+        .addNotificationResponseReceivedListener(deliverResponse);
+      // A tap that launched the app is emitted before any JS listener exists, so the
+      // response the native module kept is the only record of it.
+      try {
+        if (Notifications.getLastNotificationResponse()) deliverResponse();
+      } catch {
+        // No stored response to read: the warm path is unaffected.
+      }
       return () => {
         try {
           subscription.remove();

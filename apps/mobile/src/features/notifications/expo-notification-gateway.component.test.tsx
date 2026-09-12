@@ -7,6 +7,9 @@ const notifications = jest.requireMock('expo-notifications') as {
   cancelScheduledNotificationAsync: jest.Mock;
   scheduleNotificationAsync: jest.Mock;
   setNotificationChannelAsync: jest.Mock;
+  addNotificationResponseReceivedListener: jest.Mock;
+  getLastNotificationResponse: jest.Mock;
+  clearLastNotificationResponse: jest.Mock;
 };
 
 jest.mock('@/localization/device-locale', () => ({ getDeviceLocale: () => 'tr-TR' }));
@@ -18,6 +21,8 @@ jest.mock('expo-notifications', () => ({
   getPermissionsAsync: jest.fn(),
   requestPermissionsAsync: jest.fn(),
   addNotificationResponseReceivedListener: jest.fn(),
+  getLastNotificationResponse: jest.fn(),
+  clearLastNotificationResponse: jest.fn(),
   getAllScheduledNotificationsAsync: jest.fn(),
   cancelScheduledNotificationAsync: jest.fn(),
   scheduleNotificationAsync: jest.fn(),
@@ -98,4 +103,50 @@ test('a listing failure reports the cancellation as unsuccessful', async () => {
 
   await expect(new ExpoNotificationGateway().cancelScheduledWeatherAlerts())
     .resolves.toBe(false);
+});
+
+test('a tap that launched the app is delivered once and then cleared', () => {
+  // The launch response is emitted before any JS listener exists, so subscribing has to
+  // pick it up, deliver it while it is still readable, and clear it afterwards.
+  notifications.addNotificationResponseReceivedListener.mockReturnValue({ remove: () => {} });
+  notifications.getLastNotificationResponse
+    .mockReturnValueOnce({ notification: { request: { identifier: 'weather-alert:rain' } } })
+    .mockReturnValueOnce(null);
+  const gateway = new ExpoNotificationGateway();
+  const order: string[] = [];
+  notifications.clearLastNotificationResponse.mockImplementationOnce(() => order.push('clear'));
+  const listener = jest.fn(() => order.push('listener'));
+
+  gateway.subscribeToResponses(listener);
+  gateway.subscribeToResponses(listener);
+
+  expect(listener).toHaveBeenCalledTimes(1);
+  expect(order).toEqual(['listener', 'clear']);
+});
+
+test('a tap taken while the app runs is cleared, so a later subscription cannot replay it', () => {
+  notifications.addNotificationResponseReceivedListener.mockReturnValue({ remove: () => {} });
+  notifications.getLastNotificationResponse.mockReturnValue(null);
+  const listener = jest.fn();
+
+  new ExpoNotificationGateway().subscribeToResponses(listener);
+  const [delivered] = notifications.addNotificationResponseReceivedListener.mock.calls[0];
+  delivered();
+
+  expect(listener).toHaveBeenCalledTimes(1);
+  expect(notifications.clearLastNotificationResponse).toHaveBeenCalledTimes(1);
+});
+
+test('a native module without the stored response keeps the warm path working', () => {
+  notifications.addNotificationResponseReceivedListener.mockReturnValue({ remove: () => {} });
+  notifications.getLastNotificationResponse.mockImplementationOnce(() => {
+    throw new Error('unavailable');
+  });
+  const listener = jest.fn();
+
+  const unsubscribe = new ExpoNotificationGateway().subscribeToResponses(listener);
+
+  expect(notifications.addNotificationResponseReceivedListener).toHaveBeenCalledTimes(1);
+  expect(listener).not.toHaveBeenCalled();
+  expect(() => unsubscribe()).not.toThrow();
 });

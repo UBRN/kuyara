@@ -26,7 +26,10 @@ export function NotificationsSettingsScreen({
   permission,
 }: NotificationsSettingsScreenProps) {
   const messages = useMessages();
-  const showsDeniedHint = permission.kind === 'denied' || blocked;
+  // A refusal is remembered, but the permission outranks it: once the OS grants
+  // notifications the footer stops claiming they are turned off in system settings.
+  const showsDeniedHint = permission.kind === 'denied'
+    || (blocked && permission.kind !== 'granted');
 
   return (
     <NativeList testID="settings-notifications-screen">
