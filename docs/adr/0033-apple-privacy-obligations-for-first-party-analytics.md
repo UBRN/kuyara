@@ -170,8 +170,8 @@ surface follows these constraints:
 **GDPR, KVKK and similar statutes are legal questions, not Apple rules.** Consent is the
 maintainer's recorded lawful basis for kuyara's analytics, and the maintainer signed
 PostHog's self-serve DPA on 2026-09-11. PostHog hosts an EU region in Frankfurt
-(<https://posthog.com/docs/privacy>, read 2026-09-09). Counsel review of the GDPR and KVKK
-reading remains due before submission. This ADR records the product decision and Apple's
+(<https://posthog.com/docs/privacy>, read 2026-09-09). The maintainer accepts the GDPR
+and KVKK reading without counsel review. This ADR records the product decision and Apple's
 requirements, not a broader legal conclusion.
 
 PostHog's own terms impose no user-facing prompt; its documentation says "It's your
@@ -257,8 +257,8 @@ read 2026-09-09). The taxonomy keeps `dress_style` and a coarse `age_bucket` on 
 analytics events, which combines the identifier with profile data. The questionnaire
 therefore declares the collected categories **linked to the user**. The other constraints
 stand: no account, no `localProfileId`, no identifier from another system, and no
-re-linking. Because the pseudonymous-identifier question is where Apple's wording and
-privacy law can diverge, counsel review remains due before submission.
+re-linking. The pseudonymous-identifier question is where Apple's wording and privacy
+law can diverge; the maintainer accepts that risk without counsel review.
 
 **IP capture off.** IP addresses feed PostHog's geo properties and are "considered
 personal data under GDPR" in PostHog's words
@@ -347,11 +347,11 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
 4. If accounts ship before or with analytics, account deletion also deletes analytics data
    for that account, per the account-deletion page.
 
-### 7. Current privacy decisions and remaining counsel review
+### 7. Current privacy decisions
 
 - **Linkage.** The install identifier is declared linked to the user because
-  profile-derived properties ride on it. Counsel review of the GDPR and KVKK reading is
-  still owed before submission.
+  profile-derived properties ride on it. The maintainer accepts the GDPR and KVKK
+  reading without counsel review.
 - **Lawful basis and DPA.** Consent is the recorded lawful basis. The Today consent sheet
   and Settings withdrawal control stay in place. The maintainer generated and signed
   PostHog's self-serve DPA through PandaDoc on 2026-09-11; the countersigned copy is kept
@@ -381,8 +381,7 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
 - ATT remains not applicable under Apple's cited definition.
 - The App Store questionnaire answer set is known in advance: Product Interaction and
   Other Usage Data for analytics, Diagnostics categories only when Error Tracking lands,
-  no Location, no tracking, and linked to the user. Counsel review of the privacy-law
-  reading remains due before submission.
+  no Location, no tracking, and linked to the user.
 - Apple's account-deletion rule does not apply to the accountless release, but the privacy
   policy still has to describe revocation and a deletion request path, and the accounts
   milestone inherits an analytics-deletion obligation.
