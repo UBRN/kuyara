@@ -1,16 +1,8 @@
-import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Animated, {
-  cancelAnimation,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
 import { AppText, Surface } from '@/components/ui';
+import { useAmbientPulse } from '@/components/ui/use-ambient-pulse';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -18,32 +10,10 @@ type ProbeLoadingOverlayProps = Readonly<{ label: string }>;
 
 function PulseDot({ index }: Readonly<{ index: number }>) {
   const theme = useKuyaraTheme();
-  const progress = useSharedValue(theme.isReduceMotionEnabled ? 1 : 0.45);
-
-  useEffect(() => {
-    if (theme.isReduceMotionEnabled) {
-      progress.set(1);
-      return;
-    }
-
-    // An unresolved wait is ambient motion, not a transition: the dots breathe on the
-    // ambient role's calm step, the one step that depicts no weather. Each dot starts a
-    // leg later than the one before it, so the three read as one breath travelling.
-    const leg = theme.motion.ambient.calm;
-
-    progress.set(withDelay(
-      index * leg,
-      withRepeat(
-        withSequence(
-          withTiming(1, { duration: leg }),
-          withTiming(0.45, { duration: leg }),
-        ),
-        -1,
-      ),
-    ));
-
-    return () => cancelAnimation(progress);
-  }, [index, progress, theme.isReduceMotionEnabled, theme.motion.ambient.calm]);
+  // An unresolved wait is ambient motion, not a transition: the dots breathe on the
+  // ambient role's calm step. Each dot starts a leg later than the one before it, so the
+  // three read as one breath travelling.
+  const progress = useAmbientPulse(index);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: progress.get(),

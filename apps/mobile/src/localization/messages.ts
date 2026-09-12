@@ -74,6 +74,8 @@ export type TodayMessages = Readonly<{
   loadingTitle: string;
   loadingBody: string;
   loadingAccessibilityLabel: string;
+  generatingStatus: string;
+  generatingLongWaitStatus: string;
   unavailableTitle: string;
   unavailableBody: string;
   noLocationTitle: string;
@@ -846,6 +848,8 @@ const en = {
     loadingTitle: 'Preparing today’s guidance',
     loadingBody: 'Your weather summary and outfit options will appear here.',
     loadingAccessibilityLabel: 'Preparing today’s guidance. Content is loading.',
+    generatingStatus: 'Choosing today’s outfits.',
+    generatingLongWaitStatus: 'Choosing today’s outfits. This can take a little longer.',
     unavailableTitle: 'Today’s guidance is unavailable',
     unavailableBody: 'There is no saved guidance to show right now.',
     noLocationTitle: 'kuyara doesn’t know where you are yet',
@@ -1307,6 +1311,8 @@ const tr = {
     loadingTitle: 'Bugünün önerileri hazırlanıyor',
     loadingBody: 'Hava özeti ve kombin seçenekleri burada görünecek.',
     loadingAccessibilityLabel: 'Bugünün önerileri hazırlanıyor. İçerik yükleniyor.',
+    generatingStatus: 'Bugünün kombinleri seçiliyor.',
+    generatingLongWaitStatus: 'Bugünün kombinleri seçiliyor. Bu biraz daha uzun sürebilir.',
     unavailableTitle: 'Bugünün önerileri kullanılamıyor',
     unavailableBody: 'Şu anda gösterilecek kayıtlı bir öneri yok.',
     noLocationTitle: 'kuyara henüz nerede olduğunu bilmiyor',
