@@ -79,8 +79,7 @@ function mapRecord(record: RecommendationSnapshotRecord): RecommendationSnapshot
       !record.locationKey ||
       !isGenerationMode(record.generationMode) ||
       !isUtcIso(record.createdAt) ||
-      !isUtcIso(record.updatedAt) ||
-      record.createdAt > record.updatedAt
+      !isUtcIso(record.updatedAt)
     ) throw new Error();
     const context = parseRecommendationContext(JSON.parse(record.contextJson));
     const recommendation = mapStoredRecommendation(
@@ -150,6 +149,7 @@ export class LocalRecommendationRepository implements RecommendationRepository {
       );
       const existing = await this.dataSource.getSnapshot(localProfileId);
       const now = this.dependencies.now();
+      const createdAt = existing?.createdAt ?? now;
       const record: RecommendationSnapshotRecord = {
         id: existing?.id ?? this.dependencies.createId(),
         localProfileId,
@@ -158,8 +158,9 @@ export class LocalRecommendationRepository implements RecommendationRepository {
         generationMode: input.recommendation.generationMode,
         contextJson: JSON.stringify(context),
         outfitsJson: JSON.stringify(outfits),
-        createdAt: existing?.createdAt ?? now,
-        updatedAt: now,
+        createdAt,
+        // A device clock that moves backwards must not write updatedAt before createdAt.
+        updatedAt: now < createdAt ? createdAt : now,
       };
       if (!isUuidV4(record.id) || !isUtcIso(record.createdAt) || !isUtcIso(record.updatedAt)) {
         throw new RecommendationRepositoryError('invalid-input');
