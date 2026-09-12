@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { act, fireEvent, isHiddenFromAccessibility, render, within } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { Dimensions, Linking, processColor, StyleSheet } from 'react-native';
+import { AppState, Dimensions, Linking, processColor, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
@@ -407,7 +407,7 @@ test('returning to Weather re-evaluates freshness', async () => {
 
 test.each([
   [false, '12:00', 'Last updated 09:00'],
-  [true, '12:00 PM', 'Last updated 9:00 AM'],
+  [true, '12:00 pm', 'Last updated 9:00 am'],
 ] as const)('hour labels follow the device clock setting (hour12: %s)', async (
   hour12,
   railLabel,
@@ -429,7 +429,7 @@ test.each([
   expect(result.getByText(updatedLabel.replace(/\u00a0|\u202f/gu, ' '))).toBeOnTheScreen();
 });
 
-test('an older snapshot is dated, not just timed', async () => {
+test('an older English snapshot uses the same day-first date order as Today', async () => {
   const snapshot = { ...sampleSnapshot(), fetchedAt: '2026-07-28T21:30:00.000Z' };
   const value = createValue({
     ...baseState,
@@ -442,7 +442,41 @@ test('an older snapshot is dated, not just timed', async () => {
     <Providers language="en" value={value}><WeatherScreen /></Providers>,
   );
 
-  expect(result.getByText(/7\/28\/26/)).toBeOnTheScreen();
+  expect(result.getByText(/28\/07\/2026/)).toBeOnTheScreen();
+});
+
+test('foregrounding Weather advances its screen clock without a navigation refocus', async () => {
+  const value = createValue({
+    ...baseState,
+    activeLocation: getManualLocation('sample.istanbul')!,
+    snapshot: sampleSnapshot(),
+    freshness: 'stale',
+  });
+  const changeHandlers: ((state: 'active') => void)[] = [];
+  const removeListener = jest.fn();
+  const originalAddEventListener = AppState.addEventListener;
+  AppState.addEventListener = jest.fn(
+    (_event, handler) => {
+      changeHandlers.push(handler as (state: 'active') => void);
+      return { remove: removeListener };
+    },
+  ) as typeof AppState.addEventListener;
+  const result = await render(
+    <Providers language="en" value={value}><WeatherScreen /></Providers>,
+  );
+  expect(result.getByTestId('weather-hourly-card')).toBeOnTheScreen();
+  expect(changeHandlers.length).toBeGreaterThan(0);
+
+  clock.mockReturnValue(Date.parse('2026-07-31T09:30:00.000Z'));
+  await act(async () => {
+    for (const changeHandler of changeHandlers) changeHandler('active');
+  });
+
+  expect(result.queryByTestId('weather-hourly-card', { includeHiddenElements: true })).toBeNull();
+  expect(result.getByText(/30\/07\/2026/)).toBeOnTheScreen();
+  await result.unmount();
+  expect(removeListener).toHaveBeenCalled();
+  AppState.addEventListener = originalAddEventListener;
 });
 
 test('Weather renders a searched place from its persisted display name', async () => {
@@ -478,6 +512,34 @@ test.each([
     expect(Boolean(result.queryByTestId('weather-location-identity-row'))).toBe(stacked);
   },
 );
+
+test('Weather at font scale 3.1 keeps its actions, hourly heading, and last column intact', async () => {
+  mockFontScale(3.1);
+  const active = getManualLocation('sample.istanbul')!;
+  const result = await render(
+    <Providers
+      language="en"
+      value={createValue({
+        ...baseState,
+        activeLocation: active,
+        snapshot: sampleSnapshot(),
+        freshness: 'fresh',
+      })}>
+      <WeatherScreen />
+    </Providers>,
+  );
+
+  expect(result.getByText(messages.en.weather.refresh)).toHaveTextContent('Refresh');
+  expect(result.getByText(messages.en.weather.changeLocationAction)).toHaveTextContent('Change');
+  expect(result.getByText(messages.en.weather.refresh).props.numberOfLines).toBeUndefined();
+  expect(result.getByText(messages.en.weather.changeLocationAction).props.numberOfLines)
+    .toBeUndefined();
+  expect(StyleSheet.flatten(result.getByRole('header', {
+    name: messages.en.weather.hourlyHeading,
+  }).props.style)).toMatchObject({ lineHeight: typography.bodyStrong.lineHeight });
+  expect(within(result.getByTestId('weather-hourly-rail'))
+    .getByLabelText('13:00. 17°. Cloudy. 20% precipitation')).toBeOnTheScreen();
+});
 
 test('Weather offers a pull-to-refresh gesture alongside the visible refresh button', async () => {
   const value = createValue({
@@ -744,6 +806,7 @@ test('device location card has one composed accessible name', async () => {
   const location = getManualLocation('sample.istanbul')!;
   const value = createValue({
     ...baseState,
+    permission: { kind: 'granted', accuracy: 'approximate' },
     activeLocation: {
       source: 'device',
       accuracy: 'approximate',
@@ -760,4 +823,53 @@ test('device location card has one composed accessible name', async () => {
     name: `${messages.en.weather.currentLocation}. ${messages.en.weather.approximateLocation}. ${messages.en.weather.changeLocationAction}`,
   })).toBeOnTheScreen();
   expect(result.queryByRole('button', { name: messages.en.weather.changeLocationAction })).toBeNull();
+});
+
+test.each(['en', 'tr'] as const)(
+  '%s device location replaces accuracy with a last-known warning when access is off',
+  async (language) => {
+    const location = getManualLocation('sample.istanbul')!;
+    const value = createValue({
+      ...baseState,
+      permission: { kind: 'denied', canRequestAgain: false },
+      activeLocation: {
+        source: 'device',
+        accuracy: 'full',
+        coordinates: location.coordinates,
+        locationKey: 'device:4101:2898',
+        timeZone: location.timeZone,
+      },
+    });
+    const result = await render(
+      <Providers language={language} value={value}><WeatherScreen /></Providers>,
+    );
+
+    const copy = messages[language].weather;
+    expect(result.getByText(copy.locationAccessOff)).toBeOnTheScreen();
+    expect(result.queryByText(copy.fullLocation)).toBeNull();
+    expect(result.getByRole('button', {
+      name: `${copy.currentLocation}. ${copy.locationAccessOff.replace(/[.!?…]+$/u, '')}. ${copy.changeLocationAction}`,
+    })).toBeOnTheScreen();
+  },
+);
+
+test('rounded weather measurements never render negative zero', async () => {
+  const snapshot = sampleSnapshot();
+  snapshot.current.temperatureCelsius = -0.4;
+  snapshot.current.apparentTemperatureCelsius = -0.04;
+  snapshot.current.windSpeedMetersPerSecond = -0.04;
+  snapshot.minimumTemperatureCelsius = -0.04;
+  snapshot.hourly[0].temperatureCelsius = -0.4;
+  const value = createValue({
+    ...baseState,
+    activeLocation: getManualLocation('sample.istanbul')!,
+    snapshot,
+    freshness: 'fresh',
+  });
+  const result = await render(
+    <Providers language="en" value={value}><WeatherScreen /></Providers>,
+  );
+
+  expect(result.queryAllByText('-0°')).toHaveLength(0);
+  expect(result.getByText('0 m/s')).toBeOnTheScreen();
 });

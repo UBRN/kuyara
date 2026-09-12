@@ -176,7 +176,10 @@ test('a searched place persists its name and normalized identity through the exi
   };
   assert.deepEqual(await harness.repository.getActiveLocation(), expected);
   assert.deepEqual(harness.controller.getSnapshot().activeLocation, expected);
-  assert.ok(states.some((state) => state.activeLocation?.catalogId === searchedPlace.id && state.snapshot === null));
+  assert.ok(states.some((state) =>
+    state.activeLocation?.catalogId === searchedPlace.id
+    && state.snapshot?.locationKey === active.locationKey
+    && state.freshness === 'stale'));
   assert.equal(harness.controller.getSnapshot().snapshot.locationKey, expected.locationKey);
   assert.equal(harness.calls.provider, 1);
 });
@@ -294,6 +297,27 @@ test('foreground re-acquires the device location and replaces it once the travel
   assert.equal(harness.controller.getSnapshot().activeLocation.timeZone, 'Europe/Istanbul');
   assert.equal((await harness.repository.getActiveLocation()).locationKey, 'device:4101:2898');
   assert.equal(harness.controller.getSnapshot().snapshot.locationKey, 'device:4101:2898');
+});
+
+test('a moved device location keeps the previous snapshot when its refresh fails', async () => {
+  const cached = snapshotFor(travelledFrom, '2026-07-30T09:55:00.000Z');
+  const harness = createHarness({
+    active: travelledFrom,
+    snapshots: [cached],
+    permissionState: { kind: 'granted', accuracy: 'approximate' },
+    provider: { fetchSnapshot: async () => { throw new WeatherProviderError('network'); } },
+  });
+  await harness.controller.initialize();
+
+  await harness.controller.onForeground();
+  await settle();
+
+  const state = harness.controller.getSnapshot();
+  assert.equal(state.activeLocation.locationKey, 'device:4101:2898');
+  assert.equal(state.snapshot.locationKey, travelledFrom.locationKey);
+  assert.equal(state.snapshot.fetchedAt, cached.fetchedAt);
+  assert.equal(state.freshness, 'stale');
+  assert.equal(state.refreshFailure, 'offline');
 });
 
 test('foreground keeps a fresh snapshot when the device has not moved, and stays silent when the lookup fails', async () => {
@@ -427,7 +451,7 @@ test('reselecting the active location preserves its snapshot when the cache read
   assert.equal(harness.controller.getSnapshot().freshness, 'fresh');
 });
 
-test('changing location clears the previous location snapshot when the cache read fails', async () => {
+test('changing location keeps the previous location snapshot when the cache read fails', async () => {
   const istanbul = getManualLocation('sample.istanbul');
   const london = getManualLocation('sample.london');
   const harness = createHarness({
@@ -439,8 +463,37 @@ test('changing location clears the previous location snapshot when the cache rea
 
   await harness.controller.selectManualLocation('sample.london');
   assert.equal(harness.controller.getSnapshot().activeLocation.locationKey, london.locationKey);
-  assert.equal(harness.controller.getSnapshot().snapshot, null);
-  assert.equal(harness.controller.getSnapshot().freshness, null);
+  assert.equal(harness.controller.getSnapshot().snapshot.locationKey, istanbul.locationKey);
+  assert.equal(harness.controller.getSnapshot().freshness, 'stale');
+  assert.equal(harness.controller.getSnapshot().refreshFailure, 'unavailable');
+});
+
+test('a revalidation while the new location loads keeps the retained snapshot stale', async () => {
+  const istanbul = getManualLocation('sample.istanbul');
+  const london = getManualLocation('sample.london');
+  const harness = createHarness({
+    active: istanbul,
+    snapshots: [snapshotFor(istanbul, '2026-07-30T09:45:00.000Z')],
+    provider: { fetchSnapshot: async () => { throw new WeatherProviderError('network'); } },
+  });
+  await harness.controller.initialize();
+  assert.equal(harness.controller.getSnapshot().freshness, 'fresh');
+
+  await harness.controller.selectManualLocation('sample.london');
+  await settle();
+  assert.equal(harness.controller.getSnapshot().activeLocation.locationKey, london.locationKey);
+  assert.equal(harness.controller.getSnapshot().snapshot.locationKey, istanbul.locationKey);
+  assert.equal(harness.controller.getSnapshot().freshness, 'stale');
+  assert.equal(harness.calls.provider, 1);
+
+  // The retained snapshot's own timestamp is still inside the window, but it describes
+  // the previous location, so revalidating must not call London fresh and skip its fetch.
+  await harness.controller.revalidateFreshness();
+  await settle();
+  assert.equal(harness.controller.getSnapshot().snapshot.locationKey, istanbul.locationKey);
+  assert.equal(harness.controller.getSnapshot().freshness, 'stale');
+  assert.equal(harness.controller.getSnapshot().refreshFailure, 'offline');
+  assert.equal(harness.calls.provider, 2);
 });
 
 test('manual refresh bypasses freshness and an old request cannot replace a newly active location', async () => {
@@ -506,12 +559,30 @@ test('requestable and permanent denial, services failure, and Settings remain ex
   assert.equal(services.controller.getSnapshot().locationFlow, 'services-unavailable');
 });
 
-test('future or corrupt cache is not displayed and no-cache failure is explicit', async () => {
+test('a reasonably future provider timestamp is treated as fresh clock skew and persisted as received', async () => {
   const istanbul = getManualLocation('sample.istanbul');
-  const future = snapshotFor(istanbul, '2026-07-30T10:10:00.000Z');
+  // Three minutes ahead of the harness clock, inside the skew budget, so it is read as
+  // skew and stored as received instead of being rejected as an invalid timestamp.
+  const future = providedFor(istanbul, '2026-07-30T10:03:00.000Z');
   const harness = createHarness({
     active: istanbul,
-    snapshots: [future],
+    provider: { fetchSnapshot: async () => future },
+  });
+  await harness.controller.initialize();
+  await settle();
+  assert.equal(harness.controller.getSnapshot().snapshot.fetchedAt, future.fetchedAt);
+  assert.equal(harness.controller.getSnapshot().freshness, 'fresh');
+  assert.equal(harness.controller.getSnapshot().refreshFailure, null);
+  assert.equal(harness.byKey.get(istanbul.locationKey).fetchedAt, future.fetchedAt);
+  assert.equal(harness.calls.provider, 1);
+});
+
+test('an unparseable cache is not displayed and a no-cache failure is explicit', async () => {
+  const istanbul = getManualLocation('sample.istanbul');
+  const corrupt = snapshotFor(istanbul, 'not-a-timestamp');
+  const harness = createHarness({
+    active: istanbul,
+    snapshots: [corrupt],
     provider: { fetchSnapshot: async () => { throw new WeatherProviderError('network'); } },
   });
   await harness.controller.initialize();
