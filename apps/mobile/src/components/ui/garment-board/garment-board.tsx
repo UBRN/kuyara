@@ -6,6 +6,7 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withSequence,
   withSpring,
   withTiming,
   type SharedValue,
@@ -14,6 +15,7 @@ import Svg, { G, Path } from 'react-native-svg';
 
 import type { GarmentTypeId, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
+import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { composeGarmentBoard, detailPreset, todayPreset } from './compose-garment-board';
@@ -28,6 +30,16 @@ export type GarmentBoardPiece = Readonly<{
 }>;
 
 type Preset = 'today' | 'detail';
+
+// Law 7's moment: the settle is one arrival, not a pulse, so the pieces travel the
+// smallest rhythm step and spring back with the overshoot the arrival role carries.
+// The distance lives here so no feature file authors a motion value.
+const SETTLE_TRAVEL = spacing.xs;
+
+// Law 7's arrival: a hero board's pieces enter from one large rhythm step below their
+// resting position. The stage plate, its tint and the weather values belong to the
+// screen and do not move, so only the drawn pieces carry the arrival (ADR 0021).
+const RISE_TRAVEL = spacing.xl;
 
 type GarmentBoardEntrance = Readonly<{
   fromPreset: Preset;
@@ -57,6 +69,14 @@ type GarmentBoardProps = Readonly<{
   accessibilityLabel: string;
   decorative?: boolean;
   entrance?: GarmentBoardEntrance;
+  /**
+   * Law 7's arrival: the pieces rise into a still stage once, on mount. A refresh, a
+   * focus change or new data never replays it, and under Reduce Motion they are drawn
+   * at rest. Ignored while `entrance` is set: a travelling board already arrives.
+   */
+  rise?: boolean;
+  /** Law 7's moment: change it and an entering board's pieces settle once. */
+  settle?: number;
   stageColor?: string;
   testID?: string;
 }>;
@@ -143,6 +163,7 @@ function TravellingPiece({
   toBox,
   width,
   progress,
+  settleTravel,
   tintProgress,
   fromStageColor,
   toStageColor,
@@ -153,6 +174,7 @@ function TravellingPiece({
   toBox: DrawnBox;
   width: number;
   progress: SharedValue<number>;
+  settleTravel: SharedValue<number>;
   tintProgress: SharedValue<number>;
   fromStageColor: string;
   toStageColor: string;
@@ -170,7 +192,7 @@ function TravellingPiece({
     return {
       transform: [
         { translateX: travelX * remaining },
-        { translateY: travelY * remaining },
+        { translateY: travelY * remaining + SETTLE_TRAVEL * settleTravel.get() },
         { scaleX: 1 + (fromScaleX - 1) * remaining },
         { scaleY: 1 + (fromScaleY - 1) * remaining },
       ],
@@ -217,6 +239,8 @@ export function GarmentBoard({
   accessibilityLabel,
   decorative = false,
   entrance,
+  rise = false,
+  settle,
   stageColor,
   testID,
 }: GarmentBoardProps) {
@@ -226,7 +250,12 @@ export function GarmentBoard({
   const fillColor = stageColor ?? colors.stage;
   const progress = useSharedValue(0);
   const tintProgress = useSharedValue(0);
+  const settleTravel = useSharedValue(0);
+  const riseOffset = useSharedValue(rise ? RISE_TRAVEL : 0);
+  const riseOpacity = useSharedValue(rise ? 0 : 1);
+  const lastSettle = useRef(settle);
   const didStartEntrance = useRef(false);
+  const didStartRise = useRef(false);
   const didReportSettled = useRef(false);
   const onSettled = entrance?.onSettled;
 
@@ -251,7 +280,7 @@ export function GarmentBoard({
     tintProgress.set(withTiming(1, { duration: theme.motion.normal }));
     // A cancelled spring still leaves the pieces where they are; the captions must not
     // wait on a completion that will never come.
-    progress.set(withSpring(1, theme.springs.spatial, () => {
+    progress.set(withSpring(1, theme.springs.arrival, () => {
       runOnJS(reportSettled)();
     }));
   }, [
@@ -260,15 +289,60 @@ export function GarmentBoard({
     reportSettled,
     theme.isReduceMotionEnabled,
     theme.motion.normal,
-    theme.springs.spatial,
+    theme.springs.arrival,
     tintProgress,
     width,
+  ]);
+
+  // Mount only, like `Entrance`: the travel is spatial and rides the arrival role, the
+  // fade is effects motion on `motion.fast`.
+  useEffect(() => {
+    if (!rise || didStartRise.current || theme.isReduceMotionEnabled) return;
+    didStartRise.current = true;
+    riseOpacity.set(withTiming(1, { duration: theme.motion.fast }));
+    riseOffset.set(withSpring(0, theme.springs.arrival));
+  }, [
+    rise,
+    riseOffset,
+    riseOpacity,
+    theme.isReduceMotionEnabled,
+    theme.motion.fast,
+    theme.springs.arrival,
+  ]);
+
+  // Law 7's moment: one settle per completing action. The board mounts at its resting
+  // value, so a board that opens already complete stays still, and Reduce Motion
+  // renders nothing at all.
+  useEffect(() => {
+    if (settle === lastSettle.current) return;
+    lastSettle.current = settle;
+    if (theme.isReduceMotionEnabled) return;
+    // One landing rather than a pulse: the down leg is travelled on the effects
+    // duration instead of teleported, and the return carries the arrival overshoot.
+    settleTravel.set(withSequence(
+      withTiming(1, { duration: theme.motion.fast }),
+      withSpring(0, theme.springs.arrival),
+    ));
+  }, [
+    settle,
+    settleTravel,
+    theme.isReduceMotionEnabled,
+    theme.motion.fast,
+    theme.springs.arrival,
   ]);
 
   useEffect(() => () => {
     cancelAnimation(progress);
     cancelAnimation(tintProgress);
-  }, [progress, tintProgress]);
+    cancelAnimation(settleTravel);
+    cancelAnimation(riseOffset);
+    cancelAnimation(riseOpacity);
+  }, [progress, riseOffset, riseOpacity, settleTravel, tintProgress]);
+
+  const riseStyle = useAnimatedStyle(() => ({
+    opacity: riseOpacity.get(),
+    transform: [{ translateY: riseOffset.get() }],
+  }));
 
   const entranceBackgroundStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(
@@ -289,7 +363,7 @@ export function GarmentBoard({
   };
 
   if (!entrance || theme.isReduceMotionEnabled) {
-    return (
+    const board = (
       <Svg {...accessibilityProps} height={height} width={width}>
         {result.order.map((piece) => {
           const box = result.boxes.get(piece)!;
@@ -317,6 +391,12 @@ export function GarmentBoard({
         })}
       </Svg>
     );
+
+    // The wrapper carries no accessibility props, so the rise adds no node a screen
+    // reader stops on, and the stage the screen draws stays where it is.
+    return rise && !theme.isReduceMotionEnabled
+      ? <Animated.View style={riseStyle}>{board}</Animated.View>
+      : board;
   }
 
   const fromResult = composePieces(pieces, entrance.fromPreset);
@@ -340,6 +420,7 @@ export function GarmentBoard({
           key={piece.slot}
           piece={piece}
           progress={progress}
+          settleTravel={settleTravel}
           strokeColor={colors.textPrimary}
           tintProgress={tintProgress}
           toBox={result.boxes.get(piece)!}

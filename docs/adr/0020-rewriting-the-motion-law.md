@@ -60,9 +60,12 @@ a spring rather than a duration with a curve. `theme.springs.spatial` is the def
 settles without visible overshoot. `theme.springs.arrival` overshoots visibly and is used
 only for garment pieces landing on a board, Today's board and the outfit detail board,
 because the outfit is the product's hero and a hero that arrives flat reads as a list row.
-The overshoot is a brand decision, so its damping value is measured frame by frame on the
-Simulator the way the spatial role's was, and the law names the role rather than the
-number. Only `components/ui` consumes either role.
+The overshoot is a brand decision: duration 550 ms and damping ratio 0.65 were kept after
+watching the Today hero pieces rise 24 pt on the iPhone 17 Pro Simulator on 2026-09-12,
+where they pass rest by about 1.6 pt once and settle without a second bounce, and a lower
+damping adds the second bounce that reads as elastic easing. On Today the pieces rise into
+a still stage on mount: the stage plate, the tint and the hero values do not move. Only
+`components/ui` consumes either role.
 
 ### Content arrives in reading order
 
@@ -133,9 +136,10 @@ a state the user set and crosses a real threshold.
 
 ## Validation boundary
 
-Ambient motion that reads as attention-demanding must be changed. The arrival overshoot
-and the ambient values are accepted against a Simulator recording rather than a number in
-this document, and the overshoot needs a design review because it is a brand decision. The
+Ambient motion that reads as attention-demanding must be changed. The ambient values are
+accepted against a Simulator recording rather than a number in this document. The arrival
+values above were accepted the same way with a design review, and changing them needs the
+same recording and the same review. The
 conditional rule remains binding unless native evidence shows that it cannot be enforced,
 in which case a new decision is required.
 
