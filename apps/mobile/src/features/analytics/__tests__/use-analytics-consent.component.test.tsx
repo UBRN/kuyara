@@ -71,13 +71,13 @@ test('grant, withdrawal, and decline use the required operation order', async ()
       </ProductAnalyticsProvider>
     </ProfileApplicationContext>,
   );
-  await controls.grant('first_launch_sheet');
+  await controls.grant('today_sheet');
   await controls.withdraw();
   await controls.decline();
 
   expect(operations).toEqual([
     'persist:granted',
-    'optIn:first_launch_sheet',
+    'optIn:today_sheet',
     'persist:withdrawn',
     'withdraw',
     'clearFirstUses',
@@ -119,7 +119,7 @@ test('a failed grant persistence never opts the provider in', async () => {
     </ProfileApplicationContext>,
   );
 
-  await expect(controls.grant('first_launch_sheet')).rejects.toThrow(
+  await expect(controls.grant('today_sheet')).rejects.toThrow(
     'persistence unavailable',
   );
   expect(operations).toEqual(['persist:granted']);

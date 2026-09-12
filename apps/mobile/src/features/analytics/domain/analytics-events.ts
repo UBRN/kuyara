@@ -248,7 +248,7 @@ export type AnalyticsEventCatalog = {
     );
   notification_opened: AnalyticsEventBase;
   analytics_consent_granted: AnalyticsEventBase &
-    Readonly<{ surface: 'first_launch_sheet' | 'settings_privacy' }>;
+    Readonly<{ surface: 'today_sheet' | 'settings_privacy' }>;
   analytics_consent_withdrawn: AnalyticsEventBase;
 };
 

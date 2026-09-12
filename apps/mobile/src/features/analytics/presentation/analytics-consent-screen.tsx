@@ -1,9 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
-import { AppText, Button, Screen, useTextScaling } from '@/components/ui';
+import { AppText, Button, Screen } from '@/components/ui';
 import { useMessages } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
+import { useKuyaraTheme } from '@/theme/theme-context';
 
 export type AnalyticsConsentScreenProps = Readonly<{
   onAccept: () => Promise<void>;
@@ -15,8 +22,17 @@ export function AnalyticsConsentScreen({
   onDecline,
 }: AnalyticsConsentScreenProps) {
   const messages = useMessages();
-  const { usesStackedLayout } = useTextScaling();
+  const theme = useKuyaraTheme();
   const [isAnswering, setIsAnswering] = useState(false);
+  const entranceProgress = useSharedValue(0);
+  // Effects motion only: the sheet's own system transition carries the spatial move.
+  const entranceStyle = useAnimatedStyle(() => ({ opacity: entranceProgress.get() }));
+
+  useEffect(() => {
+    if (theme.isReduceMotionEnabled) return;
+    entranceProgress.set(withTiming(1, { duration: theme.motion.fast }));
+    return () => cancelAnimation(entranceProgress);
+  }, [entranceProgress, theme.isReduceMotionEnabled, theme.motion.fast]);
 
   const answer = async (operation: () => Promise<void>) => {
     if (isAnswering) return;
@@ -32,60 +48,65 @@ export function AnalyticsConsentScreen({
   };
 
   return (
-    <Screen contentContainerStyle={styles.content} fill testID="analytics-consent-screen">
-      <View style={styles.copy}>
-        <AppText accessibilityRole="header" variant="title">
-          {messages.analytics.consentTitle}
-        </AppText>
-        <AppText colorRole="textSecondary">
-          {messages.analytics.consentBody}
-        </AppText>
-        <AppText colorRole="textSecondary">
-          {messages.analytics.consentSettingsBody}
-        </AppText>
-      </View>
-      <View style={[styles.actions, usesStackedLayout && styles.actionsStacked]}>
-        <Button
-          disabled={isAnswering}
-          label={messages.analytics.acceptAction}
-          onPress={() => void answer(onAccept)}
-          style={usesStackedLayout ? styles.actionStacked : styles.action}
-          testID="analytics-consent-accept"
-          variant="secondary"
-        />
-        <Button
-          disabled={isAnswering}
-          label={messages.analytics.declineAction}
-          onPress={() => void answer(onDecline)}
-          style={usesStackedLayout ? styles.actionStacked : styles.action}
-          testID="analytics-consent-decline"
-          variant="secondary"
-        />
-      </View>
+    <Screen contentContainerStyle={styles.content} testID="analytics-consent-screen">
+      <Animated.View
+        style={[styles.entrance, !theme.isReduceMotionEnabled && entranceStyle]}
+        testID="analytics-consent-content">
+        <View style={styles.copy}>
+          <AppText accessibilityRole="header" variant="title">
+            {messages.analytics.consentTitle}
+          </AppText>
+          <View style={styles.paragraphs}>
+            <AppText colorRole="textSecondary">
+              {messages.analytics.consentBody}
+            </AppText>
+            <AppText colorRole="textSecondary">
+              {messages.analytics.consentSettingsBody}
+            </AppText>
+          </View>
+        </View>
+        <View style={styles.actions}>
+          <Button
+            disabled={isAnswering}
+            label={messages.analytics.acceptAction}
+            onPress={() => void answer(onAccept)}
+            style={styles.action}
+            testID="analytics-consent-accept"
+            variant="primary"
+          />
+          <Button
+            disabled={isAnswering}
+            label={messages.analytics.declineAction}
+            onPress={() => void answer(onDecline)}
+            style={styles.action}
+            testID="analytics-consent-decline"
+            variant="secondary"
+          />
+        </View>
+      </Animated.View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  // The sheet is an overlay: its edge-to-content inset is lg, groups sit md apart and
+  // siblings sm apart (design-language Law 2). Screen owns the bottom inset.
   content: {
-    justifyContent: 'center',
-    gap: spacing.xl,
-    paddingVertical: spacing.lg,
+    paddingTop: spacing.lg,
+  },
+  entrance: {
+    gap: spacing.md,
   },
   copy: {
     gap: spacing.md,
   },
-  actions: {
-    flexDirection: 'row',
-    gap: spacing.md,
+  paragraphs: {
+    gap: spacing.sm,
   },
-  actionsStacked: {
-    flexDirection: 'column',
+  actions: {
+    gap: spacing.sm,
   },
   action: {
-    flex: 1,
-  },
-  actionStacked: {
     width: '100%',
   },
 });
