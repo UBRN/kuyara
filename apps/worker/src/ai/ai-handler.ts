@@ -16,6 +16,7 @@ type Dependencies = Readonly<{
   providers: readonly AiProvider[];
   rateLimiter?: RateLimiter;
   attemptTimeoutMs?: number;
+  totalDeadlineMs?: number;
   maxAttempts?: number;
 }>;
 
@@ -143,10 +144,16 @@ export function createAiHandler({
   providers,
   rateLimiter,
   attemptTimeoutMs = 10_000,
+  // The whole request has to finish inside the mobile client's 20 s budget, so no
+  // attempt is started or left running past this deadline. It never adds attempts.
+  totalDeadlineMs = 19_000,
   // Covers Workers AI plus the configured three-model OpenRouter chain.
   maxAttempts = 4,
 }: Dependencies): (request: Request) => Promise<Response> {
   return async (request: Request): Promise<Response> => {
+    // The total budget covers the whole request, including the rate limiter, the body
+    // parse and the shared cache lookup, not only the provider walk.
+    const deadline = Date.now() + totalDeadlineMs;
     const url = new URL(request.url);
     if (url.pathname !== aiRecommendV1Path) return errorResponse(404, 'not_found');
     if (request.method !== 'POST') {
@@ -190,13 +197,15 @@ export function createAiHandler({
     }
 
     for (const provider of providers.slice(0, maxAttempts)) {
+      const remainingMs = deadline - Date.now();
+      if (remainingMs <= 0) break;
       const controller = new AbortController();
       let timeoutId: ReturnType<typeof setTimeout>;
       const timeout = new Promise<never>((_resolve, reject) => {
         timeoutId = setTimeout(() => {
           controller.abort();
           reject(new Error('AI provider attempt timed out.'));
-        }, attemptTimeoutMs);
+        }, Math.min(attemptTimeoutMs, remainingMs));
       });
       try {
         const output = await Promise.race([
