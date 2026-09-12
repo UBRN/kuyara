@@ -56,6 +56,7 @@ export function OutfitDetailScreen({
   const [contentWidth, setContentWidth] = useState(0);
   const [captionHeights, setCaptionHeights] = useState<Readonly<Record<string, number>>>({});
   const [piecesSettled, setPiecesSettled] = useState(theme.isReduceMotionEnabled);
+  const [completions, setCompletions] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   useFocusEffect(useCallback(() => { setNow(Date.now()); }, []));
   const onPiecesSettled = useCallback(() => setPiecesSettled(true), []);
@@ -97,15 +98,25 @@ export function OutfitDetailScreen({
 
   const stageColor = theme.atmosphere[presentation.atmosphere];
 
-  // Law 8: the owned/wanted pair mirrors the wardrobe toggle, a selection change under the finger.
-  const setOwnership = (garmentTypeId: GarmentTypeId, next: 'owned' | 'wanted') => {
-    haptics.selection();
-    onSetOwnership(garmentTypeId, next);
-  };
-
   const ownedCount = suggestion.pieces.filter(
     ({ garmentTypeId }) => ownershipByGarmentType[garmentTypeId] === 'owned',
   ).length;
+
+  // Law 8: the owned/wanted pair mirrors the wardrobe toggle, a selection change under
+  // the finger. The press that completes the outfit is the exception: it fires the
+  // success notification instead, one press and one haptic, and asks the board for
+  // Law 7's single settle. The caption menu never reports the state it already shows,
+  // so a press to `owned` always raises the count by one.
+  const setOwnership = (garmentTypeId: GarmentTypeId, next: 'owned' | 'wanted') => {
+    if (next === 'owned' && ownedCount + 1 === suggestion.pieces.length) {
+      haptics.success();
+      setCompletions((count) => count + 1);
+    } else {
+      haptics.selection();
+    }
+
+    onSetOwnership(garmentTypeId, next);
+  };
 
   const captionEntries = boardLayout.boxes.flatMap((box) => {
     const piece = suggestion.pieces.find(
@@ -253,6 +264,7 @@ export function OutfitDetailScreen({
             }}
             pieces={suggestion.boardPieces}
             preset="detail"
+            settle={completions}
             testID="outfit-detail-board"
             width={contentWidth}
           />

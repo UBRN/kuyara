@@ -522,6 +522,65 @@ describe.each(['en', 'tr'] as const)('%s outfit detail ownership', (language) =>
   });
 });
 
+test('the hero board rises into a stage that stays still', async () => {
+  const result = await render(providers(
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
+  ));
+  await fireEvent(result.getByTestId('today-content'), 'layout', {
+    nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
+  });
+  const hidden = { includeHiddenElements: true };
+
+  // Law 7: the garment pieces arrive; the stage plate they land on and the weather
+  // values drawn over it never move.
+  expect(StyleSheet.flatten(result.getByTestId('today-primary-board', hidden).parent!.props.style))
+    .toMatchObject({ opacity: 0, transform: [{ translateY: spacing.xl }] });
+  expect(StyleSheet.flatten(result.getByTestId('today-stage', hidden).props.style))
+    .not.toHaveProperty('transform');
+  expect(StyleSheet.flatten(result.getByTestId('today-sky', hidden).props.style))
+    .not.toHaveProperty('transform');
+});
+
+test('the press that completes the outfit fires success once instead of the selection haptic', async () => {
+  const selection = jest.spyOn(haptics, 'selection').mockImplementation(() => undefined);
+  const success = jest.spyOn(haptics, 'success').mockImplementation(() => undefined);
+  const { pieces } = loadedPresentation().suggestions[0];
+  const lastPiece = pieces[pieces.length - 1];
+  const detail = (ownershipByGarmentType: Readonly<Record<string, 'owned' | 'wanted'>>) => providers(
+    <OutfitDetailScreen
+      backLabel={messages.en.common.back}
+      language="en"
+      onBack={() => undefined}
+      onSetOwnership={() => undefined}
+      ownershipByGarmentType={ownershipByGarmentType}
+      state={todayScreenState}
+      suggestionId={todayOutfitId(1)}
+    />,
+  );
+  const markOwned = async (result: Awaited<ReturnType<typeof render>>, garmentTypeId: string) => {
+    await fireEvent.press(result.getByTestId(`outfit-detail-caption-${garmentTypeId}`));
+    await fireEvent.press(result.getByRole('button', { name: messages.en.today.ownershipOwnedAction }));
+  };
+
+  // Every piece but the last one is already owned, so this press completes the outfit.
+  const result = await render(detail(Object.fromEntries(
+    pieces.slice(0, -1).map(({ garmentTypeId }) => [garmentTypeId, 'owned' as const]),
+  )));
+  await markOwned(result, lastPiece.garmentTypeId);
+  expect(success).toHaveBeenCalledTimes(1);
+  expect(selection).not.toHaveBeenCalled();
+
+  // Any other ownership change stays a selection under the finger.
+  success.mockClear();
+  const partial = await render(detail({}));
+  await markOwned(partial, lastPiece.garmentTypeId);
+  expect(selection).toHaveBeenCalledTimes(1);
+  expect(success).not.toHaveBeenCalled();
+
+  selection.mockRestore();
+  success.mockRestore();
+});
+
 test('Today keeps outfit ownership state and actions hidden', async () => {
   const result = await render(providers(
     <WardrobeApplicationContext value={{
