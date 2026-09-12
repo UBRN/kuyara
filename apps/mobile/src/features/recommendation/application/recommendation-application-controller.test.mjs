@@ -8,7 +8,10 @@ import {
   recommendationRefreshTrigger,
 } from './recommendation-application-controller.ts';
 import { WorkerAiClientError } from '../data/worker-ai-client.ts';
-import { createAiRecommendationRequest } from '../data/worker-ai-recommendation-mapper.ts';
+import {
+  createAiRecommendationRequest,
+  mapWorkerAiRecommendation,
+} from '../data/worker-ai-recommendation-mapper.ts';
 
 const profileId = 'profile-one';
 const now = '2026-08-01T20:00:00.000Z';
@@ -105,10 +108,12 @@ function createHarness({ cached = null, client, failSave = false, captureAnalyti
     },
   };
   const recommend = client?.recommend ?? (async (request) => workerResponse(request));
-  // The routed client names the tier it used. A `client.recommend` override stands for the
-  // Worker tier, whose answers are `ai-assisted` exactly as before.
+  // The routed client runs the shared validation gate itself and answers with the mapped
+  // recommendation. A `client.recommend` override stands for the Worker tier, whose answers
+  // are `ai-assisted` exactly as before; a reply the gate rejects throws here, which is the
+  // AI failure the controller's catch turns into the deterministic fallback.
   const recommendRouted = client?.recommendRouted ??
-    (async (request) => ({ data: await recommend(request), generationMode: 'ai-assisted' }));
+    (async (request) => mapWorkerAiRecommendation(request, await recommend(request), 'ai-assisted'));
   const aiClient = {
     async recommendRouted(request) {
       calls.client += 1;
@@ -527,10 +532,8 @@ test('the tier the routed client used becomes the stored generation mode', async
   const captured = [];
   const { controller, calls } = createHarness({
     client: {
-      recommendRouted: async (request) => ({
-        data: workerResponse(request),
-        generationMode: 'on-device-ai',
-      }),
+      recommendRouted: async (request) =>
+        mapWorkerAiRecommendation(request, workerResponse(request), 'on-device-ai'),
     },
     captureAnalyticsEvent: (name, properties) => captured.push({ name, properties }),
   });

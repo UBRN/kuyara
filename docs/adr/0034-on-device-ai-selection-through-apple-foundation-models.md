@@ -3,9 +3,9 @@
 Status: Proposed (2026-09-12)
 
 Implementation: the shared privacy projection and the distinctness rule in `packages/contracts`, the routed
-client with its unavailable stub, the third generation mode with SQLite migration 13, the three badges and
-the AI status availability row are implemented. The native Foundation Models module is not bound yet, so
-every device still takes the Worker tier. This ADR defines the locus of the AI selection step decided
+client, the third generation mode with SQLite migration 13, the three badges, the AI status availability row
+and the local Swift Expo module under `apps/mobile/modules/kuyara-on-device-ai` are implemented and bound.
+This ADR defines the locus of the AI selection step decided
 in [ADR 0007](0007-ai-selects-precomposed-outfits.md): where the selection runs, what the
 user is told about it, and what may never move with it. It authorizes the native module,
 the routed client, the third generation mode and the shared projection described below,
@@ -138,22 +138,33 @@ bounded call, its cached sanitized result and its daily cap
 ### 6. The native surface is a local Expo module, and only the data layer touches it
 
 The Foundation Models call lives in a local Expo module in Swift under
-`apps/mobile/modules`, with an Android stub that reports unavailable so shared code has a
-single branch rather than a platform fork.
+`apps/mobile/modules/kuyara-on-device-ai`. The module is declared for Apple platforms only
+and its JavaScript entry guards on `Platform.OS`, so Android and web never load a native
+module and read as unavailable. There is no Kotlin stub: shared code still sees one branch,
+because the entry exports the module or null and the routed client treats null as an
+unavailable tier.
 
 - The Swift source is guarded by `#if canImport(FoundationModels)` and
   `#available(iOS 26, *)`, so it compiles on any Xcode 26 toolchain and reports an
   unsupported OS otherwise.
 - Guided generation constrains `optionId` to the identifiers supplied in the request and
-  `archetypeId` to the twelve archetypes of ADR 0007, both as closed enums.
+  `archetypeId` to the twelve archetypes of ADR 0007, both as closed enums built as a
+  dynamic schema per call. The archetype list cannot be imported into Swift, so it is
+  mirrored there and the two copies change together; a drift fails closed onto the Worker,
+  because the shared gate rejects an archetype the request did not allow.
 - Structured JSON goes in and structured JSON comes out. Prose never crosses the boundary
-  in either direction.
-- One session per call, non-streaming, cancelled at the timeout in section 2.
+  in either direction, and the module logs neither the input nor the output.
+- One session per call, non-streaming `respond(to:schema:)`, cancelled at the timeout in
+  section 2, which the module enforces itself as well as being told it.
+- Every on-device failure crosses the boundary as one coded error with a fixed message. The
+  caller's next step is the Worker either way, and a finer taxonomy would only risk carrying
+  model detail out of the module.
 - iOS 26.0 stays the minimum and the build stays on Xcode 26.x.
-- Only the recommendation feature's data-layer client imports the module. Feature and
-  domain code never import it, mirroring the rule that `components/ui` is the only importer
-  of `@expo/ui` ([ADR 0019](0019-adopting-expo-ui-at-the-control-layer.md)), and enforced
-  the same greppable way.
+- Only the recommendation feature's data layer imports the module, through a single file
+  that re-exports it. Application, feature and domain code never import it, mirroring the
+  rule that `components/ui` is the only importer of the native control layer
+  ([ADR 0019](0019-adopting-expo-ui-at-the-control-layer.md)), and enforced the same
+  greppable way.
 
 ### 7. One privacy projection and one distinctness rule
 
@@ -222,6 +233,22 @@ measurement is made. It is left empty rather than estimated.
 | --- | --- |
 | On-device latency p50, 24 options, five runs | not yet measured |
 | On-device latency maximum, 24 options, five runs | not yet measured |
+
+The iPhone 17 Pro Simulator on the maintainer's macOS 26.6 host does reach Foundation
+Models: `SystemLanguageModel.default.availability` answers `available` and the system loads
+the 3B instruct assets and runs the inference on the host. That is not a device measurement.
+Simulator inference runs on the Mac, not on an iPhone's neural engine, so the numbers it
+produces describe neither eligible hardware nor a released build. One complete 24-option
+round trip there took about 5.3 s, inside the 6 s budget and close to it.
+
+Other attempts on the same host failed inside a tenth of a second with a
+`LanguageModelSession.GenerationError` carrying nested underlying errors. **That failure is
+undiagnosed.** It is not attributed to the Simulator, because nothing rules out the request
+itself: a 24-value `anyOf` dynamic schema sent with `includeSchemaInPrompt` at its default
+repeats every option identifier into the same 4096-token session window the projection
+already fills, which is one candidate cause among several. Diagnosing it is an open item for
+the hardware measurement, and it is the first thing to read before the table below is
+filled in: an on-device tier that fails fast is invisible to the user but buys nothing.
 
 Automated verification covers the routed client against a fake native module (available,
 unavailable, timeout, invalid JSON, invented identifier, duplicate archetype), the shared

@@ -18,12 +18,10 @@ import type {
   RecommendationRepository,
   RecommendationSnapshot,
 } from '@/features/recommendation/data/recommendation-repository';
-import type { RoutedAiRecommendation } from '@/features/recommendation/data/routed-ai-client';
 import { WorkerAiClientError } from '@/features/recommendation/data/worker-ai-client';
 import {
   aiRequestFromContext,
   createRecommendationContext,
-  mapWorkerAiRecommendation,
   type RecommendationContext,
 } from '@/features/recommendation/data/worker-ai-recommendation-mapper';
 
@@ -94,7 +92,7 @@ function recommendationFailureCategory(error: unknown): FailureCategory {
 type AiClient = Readonly<{
   recommendRouted(
     request: AiRecommendV1Request,
-  ): Promise<RoutedAiRecommendation>;
+  ): Promise<OutfitRecommendationSuccess>;
 }>;
 
 type Dependencies = Readonly<{
@@ -231,12 +229,9 @@ export class RecommendationApplicationController {
     let aiFailure: FailureCategory | null = null;
     if (request) {
       try {
-        const routed = await this.dependencies.client.recommendRouted(request);
-        recommendation = mapWorkerAiRecommendation(
-          request,
-          routed.data,
-          routed.generationMode,
-        );
+        // The routed client runs the shared validation gate inside its own chain, so what
+        // comes back here is already a validated recommendation from whichever tier won.
+        recommendation = await this.dependencies.client.recommendRouted(request);
       } catch (error) {
         aiFailure = recommendationFailureCategory(error);
       }

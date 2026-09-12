@@ -35,6 +35,7 @@ import {
   WorkerAiClientError,
 } from '@/features/recommendation/data/worker-ai-client';
 import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
+import { onDeviceAiModule } from '@/features/recommendation/data/on-device-ai-module';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { resolveWorkerBaseUrl, WorkerBaseUrlConfigurationError } from '@/config/worker-base-url';
 import { openKuyaraDatabase } from '@/infrastructure/sqlite/expo-sqlite-database';
@@ -65,11 +66,12 @@ function createWorkerClient(): Pick<WorkerAiClient, 'recommend'> {
 }
 
 // ADR 0034 section 1: the composition boundary that builds the AI chain, on-device ahead of
-// the Worker. The native module is not bound yet, so `module` is null, every device reports
-// the on-device tier as unavailable and the request goes straight to the Worker with the
-// whole budget. Phase 3 passes the real module in here and nothing else changes.
+// the Worker. The native module arrives through the data layer, which is its only importer;
+// it is null on Android, on web and on any build without the native surface, and the routed
+// client then reads the on-device tier as unavailable and goes straight to the Worker with
+// the whole budget. The parameter stays so tests can inject a fake module.
 export function createRecommendationClient(
-  module: OnDeviceAiModule | null = null,
+  module: OnDeviceAiModule | null = onDeviceAiModule,
 ): RoutedAiClient {
   return new RoutedAiClient({
     onDevice: new OnDeviceAiClient({ module }),
