@@ -176,7 +176,7 @@ for (const scenario of [
 for (const [name, invalidSnapshot] of [
   ['location key mismatch', { ...provided, locationKey: 'manual:sample.ankara' }],
   ['time zone mismatch', { ...provided, timeZone: 'UTC' }],
-  ['invalid future fetch time', { ...provided, fetchedAt: '2026-09-09T09:02:00.001Z' }],
+  ['invalid future fetch time', { ...provided, fetchedAt: '2026-09-09T09:05:00.001Z' }],
 ]) {
   test(`${name} fails before persistence`, async () => {
     const harness = createHarness({

@@ -212,12 +212,20 @@ export class WeatherApplicationController {
       ? weatherFreshness(current.snapshot.fetchedAt, this.dependencies.now())
       : null;
     const snapshot = freshness === 'invalid' ? null : current.snapshot;
+    // A snapshot retained from a previous location is the last valid result, never a
+    // current reading of the active one: its own timestamp may still be inside the
+    // window, so freshness alone would short-circuit the new location's first refresh.
+    const describesActiveLocation = snapshot !== null
+      && snapshot.locationKey === current.activeLocation?.locationKey;
+    const resolved: WeatherFreshness | null = freshness === null || freshness === 'invalid'
+      ? null
+      : describesActiveLocation ? freshness : 'stale';
     this.setReady({
       ...current,
       snapshot,
-      freshness: freshness === 'invalid' ? null : freshness,
+      freshness: resolved,
     });
-    if (!current.activeLocation || (snapshot && freshness === 'fresh')) return;
+    if (!current.activeLocation || (snapshot && resolved === 'fresh')) return;
     await this.refreshLocation(
       current.activeLocation,
       snapshot ? 'automatic_stale' : 'automatic_no_cache',
@@ -318,8 +326,10 @@ export class WeatherApplicationController {
       || persisted.timeZone !== current.activeLocation?.timeZone;
     this.setReady({
       ...current, activeLocation: persisted,
-      snapshot: locationChanged ? null : current.snapshot,
-      freshness: locationChanged ? null : current.freshness,
+      // The previous location's weather is still the last valid result. Keep it visible,
+      // but never label it fresh while the newly selected location is being fetched.
+      snapshot: current.snapshot,
+      freshness: locationChanged && current.snapshot ? 'stale' : current.freshness,
       isRefreshing: false, refreshFailure: null,
     });
 
@@ -328,9 +338,13 @@ export class WeatherApplicationController {
       const loadedFreshness = loadedSnapshot
         ? weatherFreshness(loadedSnapshot.fetchedAt, this.dependencies.now())
         : null;
+      const ready = this.requireReady();
+      const validLoadedFreshness = loadedFreshness === 'invalid' ? null : loadedFreshness;
+      const validLoadedSnapshot = validLoadedFreshness ? loadedSnapshot : null;
       this.setReady({
-        ...this.requireReady(), snapshot: loadedFreshness === 'invalid' ? null : loadedSnapshot,
-        freshness: loadedFreshness === 'invalid' ? null : loadedFreshness,
+        ...ready,
+        snapshot: validLoadedSnapshot ?? ready.snapshot,
+        freshness: validLoadedSnapshot ? validLoadedFreshness : ready.freshness,
         isSelectingLocation: false, isRefreshing: false, refreshFailure: null,
       });
       if (loadedFreshness !== 'fresh') void this.refreshLocation(persisted, 'location_changed');
