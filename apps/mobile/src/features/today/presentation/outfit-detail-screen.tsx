@@ -9,6 +9,7 @@ import Animated, {
 import {
   AppText,
   Button,
+  Entrance,
   GarmentBoard,
   Icon,
   layoutGarmentBoard,
@@ -272,12 +273,14 @@ export function OutfitDetailScreen({
           </Animated.View>
         ) : null}
 
-        <View style={styles.ownershipSummary} testID="outfit-detail-ownership-summary">
-          <Icon color={theme.colors.brandAccent} name="info" size={16} />
-          <AppText colorRole="textSecondary" style={styles.ownershipSummaryText} variant="caption">
-            {copy.ownershipSummary({ owned: ownedCount, total: suggestion.pieces.length })}
-          </AppText>
-        </View>
+        <Entrance>
+          <View style={styles.ownershipSummary} testID="outfit-detail-ownership-summary">
+            <Icon color={theme.colors.brandAccent} name="info" size={16} />
+            <AppText colorRole="textSecondary" style={styles.ownershipSummaryText} variant="caption">
+              {copy.ownershipSummary({ owned: ownedCount, total: suggestion.pieces.length })}
+            </AppText>
+          </View>
+        </Entrance>
 
         {suggestion.requirementRows.length > 0 ? (
           <View style={styles.section}>
@@ -301,21 +304,23 @@ export function OutfitDetailScreen({
           </View>
         ) : null}
 
-        <View
-          accessible
-          accessibilityLabel={[
-            presentation.weather.temperature,
-            presentation.weather.condition,
-            presentation.weather.rainProbability,
-          ].join(', ')}
-          style={[styles.weatherRecap, { backgroundColor: stageColor }]}
-          testID="outfit-detail-weather-recap">
-          <AppText tabularNumbers variant="caption">{presentation.weather.temperature}</AppText>
-          <AppText colorRole="textPrimary" variant="caption">{presentation.weather.condition}</AppText>
-          <AppText colorRole="textPrimary" tabularNumbers variant="caption">
-            {presentation.weather.rainProbability}
-          </AppText>
-        </View>
+        <Entrance index={1}>
+          <View
+            accessible
+            accessibilityLabel={[
+              presentation.weather.temperature,
+              presentation.weather.condition,
+              presentation.weather.rainProbability,
+            ].join(', ')}
+            style={[styles.weatherRecap, { backgroundColor: stageColor }]}
+            testID="outfit-detail-weather-recap">
+            <AppText tabularNumbers variant="caption">{presentation.weather.temperature}</AppText>
+            <AppText colorRole="textPrimary" variant="caption">{presentation.weather.condition}</AppText>
+            <AppText colorRole="textPrimary" tabularNumbers variant="caption">
+              {presentation.weather.rainProbability}
+            </AppText>
+          </View>
+        </Entrance>
       </View>
     </Screen>
   );
