@@ -254,6 +254,7 @@ export type AppMessages = Readonly<{
     currentLocation: string;
     approximateLocation: string;
     fullLocation: string;
+    locationAccessOff: string;
     useCurrentLocation: string;
     changeLocationAction: string;
     locationRationaleTitle: string;
@@ -576,10 +577,11 @@ const en = {
     currentLocation: 'Current location',
     approximateLocation: 'Approximate location',
     fullLocation: 'Precise location',
+    locationAccessOff: 'Location access is off. Showing the last known place.',
     useCurrentLocation: 'Use my current location',
     changeLocationAction: 'Change',
     locationRationaleTitle: 'Use your location for weather?',
-    locationRationaleBody: 'kuyara requests location only while you use the app, for a one-time weather lookup. Approximate location is enough.',
+    locationRationaleBody: 'kuyara uses your approximate location to find the weather for your outfit suggestions while you use the app.',
     continuePermission: 'Continue',
     cancel: 'Not now',
     deniedBody: 'Location access was not granted. You can choose a sample location or try again later.',
@@ -951,7 +953,7 @@ const tr = {
   },
   settings: {
     title: 'Ayarlar',
-    aboutYouHeading: 'Hakkında',
+    aboutYouHeading: 'Hakkınızda',
     aboutYouFooter: 'Cinsiyet kataloğu belirler. Giyim tarzı hangi önerilerin önce geleceğini etkiler. Doğum tarihi isteğe bağlıdır ve önerileri değiştirmez.',
     versionLine: (version: string, build?: string | null) => build ? `Sürüm ${version} (${build})` : `Sürüm ${version}`,
     developmentBuild: 'Geliştirme derlemesi',
@@ -1031,10 +1033,11 @@ const tr = {
     currentLocation: 'Mevcut konum',
     approximateLocation: 'Yaklaşık konum',
     fullLocation: 'Kesin konum',
+    locationAccessOff: 'Konum erişimi kapalı. Son bilinen yer gösteriliyor.',
     useCurrentLocation: 'Mevcut konumumu kullan',
     changeLocationAction: 'Değiştir',
     locationRationaleTitle: 'Konumunuz hava durumu için kullanılsın mı?',
-    locationRationaleBody: 'kuyara konumu yalnızca uygulamayı kullanırken, tek seferlik hava durumu sorgusu için ister. Yaklaşık konum yeterlidir.',
+    locationRationaleBody: 'kuyara, kıyafet önerileri için hava durumunu bulmak üzere uygulamayı kullanırken yaklaşık konumunuzu kullanır.',
     continuePermission: 'Devam et',
     cancel: 'Şimdi değil',
     deniedBody: 'Konum erişimi verilmedi. Örnek bir konum seçebilir veya daha sonra yeniden deneyebilirsiniz.',

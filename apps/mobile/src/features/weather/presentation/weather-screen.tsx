@@ -1,7 +1,8 @@
 import { weatherLocalDateKey } from '@kuyara/contracts';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+  AppState,
   Linking,
   Pressable,
   RefreshControl,
@@ -31,7 +32,7 @@ import { HourlyRail } from '@/features/weather/presentation/hourly-rail';
 import { remainingHourlyForecast } from '@/features/weather/presentation/remaining-hours';
 import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
 import { useLocalization } from '@/localization/use-messages';
-import { interaction, layout, radii, spacing } from '@/theme/theme';
+import { interaction, layout, radii, spacing, typography } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 const weatherAttributionUrls: Readonly<Record<string, string>> = {
@@ -40,20 +41,32 @@ const weatherAttributionUrls: Readonly<Record<string, string>> = {
   weatherkit: 'https://developer.apple.com/weatherkit/data-source-attribution/',
 };
 
+// One English tag for every value this screen formats, the same one Today and the alert
+// copy use. A date must not change convention with the day it falls on, and the hourly
+// rail must not disagree with the last-updated line about the 12-hour convention.
+function localeTag(language: 'en' | 'tr'): 'en-GB' | 'tr-TR' {
+  return language === 'tr' ? 'tr-TR' : 'en-GB';
+}
+
+function withoutRoundedNegativeZero(value: number, maximumFractionDigits: 0 | 1): number {
+  const scale = 10 ** maximumFractionDigits;
+  return Math.round(Math.abs(value) * scale) === 0 ? 0 : value;
+}
+
 function temperature(
   value: number,
   language: 'en' | 'tr',
   maximumFractionDigits: 0 | 1 = 1,
 ): string {
-  return `${new Intl.NumberFormat(language === 'tr' ? 'tr-TR' : 'en-US', {
+  return `${new Intl.NumberFormat(localeTag(language), {
     maximumFractionDigits,
-  }).format(value)}°`;
+  }).format(withoutRoundedNegativeZero(value, maximumFractionDigits))}°`;
 }
 
 function decimal(value: number, language: 'en' | 'tr'): string {
-  return new Intl.NumberFormat(language === 'tr' ? 'tr-TR' : 'en-US', {
+  return new Intl.NumberFormat(localeTag(language), {
     maximumFractionDigits: 1,
-  }).format(value);
+  }).format(withoutRoundedNegativeZero(value, 1));
 }
 
 function time(
@@ -62,7 +75,7 @@ function time(
   language: 'en' | 'tr',
   hour12: boolean,
 ): string {
-  return new Intl.DateTimeFormat(language === 'tr' ? 'tr-TR' : 'en-US', {
+  return new Intl.DateTimeFormat(localeTag(language), {
     // A padded hour reads as a stopwatch in the 12-hour convention ("02:00 PM"), so the
     // 12-hour label drops the padding the 24-hour one keeps.
     hour: hour12 ? 'numeric' : '2-digit', minute: '2-digit', hour12, timeZone,
@@ -79,9 +92,10 @@ function lastUpdated(
   now: number,
 ): string {
   const fetched = new Date(value);
+  const isCurrentLocalDay = fetched.toDateString() === new Date(now).toDateString();
   return new Intl.DateTimeFormat(
-    language === 'tr' ? 'tr-TR' : 'en-US',
-    fetched.toDateString() === new Date(now).toDateString()
+    localeTag(language),
+    isCurrentLocalDay
       ? { hour: hour12 ? 'numeric' : '2-digit', minute: '2-digit', hour12 }
       : { dateStyle: 'short', timeStyle: 'short', hour12 },
   ).format(fetched);
@@ -93,14 +107,14 @@ function weekday(
   language: 'en' | 'tr',
   length: 'short' | 'long',
 ): string {
-  return new Intl.DateTimeFormat(language === 'tr' ? 'tr-TR' : 'en-US', {
+  return new Intl.DateTimeFormat(localeTag(language), {
     timeZone,
     weekday: length,
   }).format(new Date(value));
 }
 
 function percentage(value: number, language: 'en' | 'tr'): string {
-  return new Intl.NumberFormat(language === 'tr' ? 'tr-TR' : 'en-US', {
+  return new Intl.NumberFormat(localeTag(language), {
     maximumFractionDigits: 0,
     style: 'percent',
   }).format(value);
@@ -142,6 +156,12 @@ export function WeatherScreen() {
     setNow(Date.now());
     void revalidateFreshness();
   }, [revalidateFreshness]));
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') setNow(Date.now());
+    });
+    return () => subscription.remove();
+  }, []);
   useRefreshOutcomeHaptics(
     state.status === 'ready' && state.isRefreshing,
     state.status === 'ready' && state.refreshFailure !== null,
@@ -206,8 +226,12 @@ export function WeatherScreen() {
   };
 
   const activeName = state.activeLocation ? locationName(state.activeLocation, copy) : copy.noLocation;
-  const accuracy = state.activeLocation?.source === 'device'
-    ? (state.activeLocation.accuracy === 'full' ? copy.fullLocation : copy.approximateLocation)
+  const locationCaption = state.activeLocation?.source === 'device'
+    ? state.permission.kind !== 'granted'
+      ? copy.locationAccessOff
+      : state.activeLocation.accuracy === 'full'
+        ? copy.fullLocation
+        : copy.approximateLocation
     : null;
   const snapshot = state.snapshot;
   const remainingHourly = snapshot ? remainingHourlyForecast(snapshot.hourly, now) : [];
@@ -241,7 +265,7 @@ export function WeatherScreen() {
         : copy.stale;
   const locationAccessibilityLabel = accessibilitySentence(
     activeName,
-    accuracy,
+    locationCaption,
     copy.changeLocationAction,
   );
   const attributionLabels: Readonly<Record<string, string>> = {
@@ -315,8 +339,10 @@ export function WeatherScreen() {
                 <Icon color={theme.colors.iconSecondary} name="location" size={20} />
                 <View style={styles.locationNameGroup} testID="weather-location-name-group">
                   <AppText variant="bodyStrong">{activeName}</AppText>
-                  {accuracy ? (
-                    <AppText colorRole="textSecondary" variant="caption">{accuracy}</AppText>
+                  {locationCaption ? (
+                    <AppText colorRole="textSecondary" variant="caption">
+                      {locationCaption}
+                    </AppText>
                   ) : null}
                 </View>
               </View>
@@ -325,8 +351,10 @@ export function WeatherScreen() {
                 <Icon color={theme.colors.iconSecondary} name="location" size={20} />
                 <View style={styles.locationNameGroup} testID="weather-location-name-group">
                   <AppText variant="bodyStrong">{activeName}</AppText>
-                  {accuracy ? (
-                    <AppText colorRole="textSecondary" variant="caption">{accuracy}</AppText>
+                  {locationCaption ? (
+                    <AppText colorRole="textSecondary" variant="caption">
+                      {locationCaption}
+                    </AppText>
                   ) : null}
                 </View>
               </>
@@ -494,7 +522,11 @@ export function WeatherScreen() {
             <Surface
               style={[styles.card, theme.elevation.raised]}
               testID="weather-hourly-card">
-              <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
+              <AppText
+                accessibilityRole="header"
+                colorRole="textPrimary"
+                style={styles.hourlyHeading}
+                variant="bodyStrong">
                 {copy.hourlyHeading}
               </AppText>
               <HourlyRail
@@ -564,6 +596,7 @@ const styles = StyleSheet.create({
   locationSection: { gap: spacing.md },
   currentSection: { gap: spacing.md },
   card: { gap: spacing.md, padding: spacing.lg },
+  hourlyHeading: { lineHeight: typography.bodyStrong.lineHeight },
   disclosure: { padding: spacing.md },
   refreshButton: {
     alignSelf: 'flex-start',

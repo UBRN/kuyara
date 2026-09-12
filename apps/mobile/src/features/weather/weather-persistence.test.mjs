@@ -86,6 +86,16 @@ test('coordinates normalize before persistence, freshness has an exact 30-minute
     weatherFreshness(new Date(Date.parse(fetched) + weatherClockSkewToleranceMilliseconds + 1).toISOString(), fetched),
     'invalid',
   );
+  // Tolerated skew extends freshness by up to the tolerance, so the budget stays small:
+  // five minutes ahead reads fresh for thirty-five minutes, a whole window would be an hour.
+  assert.equal(weatherClockSkewToleranceMilliseconds, 5 * 60 * 1000);
+  assert.ok(weatherClockSkewToleranceMilliseconds < weatherFreshnessWindowMilliseconds);
+  const ahead = (minutes) =>
+    weatherFreshness(new Date(Date.parse(fetched) + minutes * 60 * 1000).toISOString(), fetched);
+  assert.equal(ahead(4), 'fresh');
+  assert.equal(ahead(5), 'fresh');
+  assert.equal(ahead(6), 'invalid');
+  assert.equal(ahead(30), 'invalid');
 });
 
 test('migration v4 enforces one active location and maps manual and device variants', async (t) => {

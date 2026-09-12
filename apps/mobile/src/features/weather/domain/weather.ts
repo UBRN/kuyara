@@ -75,12 +75,15 @@ export type WeatherSnapshot = Readonly<{
 export type WeatherFreshness = 'fresh' | 'stale';
 export const weatherFreshnessWindowMilliseconds = 30 * 60 * 1000;
 /**
- * Device clocks drift, and the Worker stamps `fetchedAt` from Cloudflare's own
- * NTP-accurate clock. A device running a few seconds slow therefore receives a
- * timestamp in its own future, which must not be read as corrupt data. Measured
- * on the iOS Simulator: roughly 30 ms ahead, enough to reject every refresh.
+ * The Worker and the device read different clocks, so a `fetchedAt` slightly in the
+ * device's future is skew rather than corrupt data; anything further ahead is invalid.
+ * Tolerated skew does extend how long a snapshot reads fresh, by up to the tolerance:
+ * nothing records when the device received the snapshot, so the window can only be
+ * measured from the stamp itself, and one stamped five minutes ahead stays fresh for
+ * thirty-five minutes after it arrived. The budget is therefore its own small value
+ * rather than the freshness window, which would have doubled that bound to an hour.
  */
-export const weatherClockSkewToleranceMilliseconds = 2 * 60 * 1000;
+export const weatherClockSkewToleranceMilliseconds = 5 * 60 * 1000;
 
 export class WeatherValidationError extends Error {
   constructor() {
