@@ -2,14 +2,11 @@
 
 Status: Accepted (2026-08-30)
 
-Implementation: Landed, with one outstanding item. The contract, Worker
+Implementation: complete, with one outstanding verification item. The contract, Worker
 validation, deterministic option construction, catalog formality, the mapper,
-and rule-based fallback archetype assignment shipped in `ade0d58`; archetype
-names became the outfit titles on Today and outfit detail in the change that
-followed. Neuron cost per call still has to be measured against a live Workers
-AI call rather than estimated.
-
-Amends [ADR 0005](0005-catalog-only-recommendation-candidates.md), section 4.
+rule-based fallback archetype assignment, and archetype titles are implemented.
+Neuron cost per call still has to be measured against a live Workers AI call
+rather than estimated.
 
 ## Context
 
@@ -19,12 +16,13 @@ outfits that are stylistically coherent and varied: color harmony, consistent
 formality, plausible layering, and no repeat of the previous day. Reading that
 job against the code exposed three facts.
 
-**The catalog has no color and no formality.** `garment-catalog.ts` describes
-garment *types*, not garments. Its fields are thermal, water, wind,
-breathability, coverage, traction, and clothing-preference applicability. The
-`colorFamily` field in `packages/contracts/src/ai-v1.ts` is therefore always
-null for catalog candidates. Color harmony cannot be expressed in the request,
-produced by the model, or verified by code.
+**The catalog had no color or formality input for the proposed AI job.**
+`garment-catalog.ts` describes garment *types*, not garments. Its weather fields
+were thermal, water, wind, breathability, coverage, traction, and
+clothing-preference applicability; `colorFamily` was always null for catalog
+candidates. Color harmony could not be expressed in the request, produced by
+the model, or verified by code. The decision adds formality as a catalog
+property but does not invent color.
 
 **The weather bucket already exists.** `weather-to-clothing-requirements.ts`
 already quantizes continuous temperature, wind, precipitation probability, and
@@ -40,9 +38,9 @@ device.
 The remaining constraint is provider size. The chain is Cloudflare Workers AI
 (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`) followed by free OpenRouter models,
 all small and free-tier, with a Workers AI free quota of 10,000 neurons per day.
-The current request carries up to 125 candidates at a measured worst case of
-65,498 bytes and asks the model to compose from raw garments, which is the part
-a small model fails at.
+The raw-garment request under consideration carried up to 125 candidates at a
+measured worst case of 65,498 bytes and asked the model to compose, which is the
+part a small model fails at.
 
 ## Decision
 
@@ -74,16 +72,18 @@ composition implementation.
 
 ### 2. Formality is a catalog property enforced before the model
 
-Each of the 30 garment types gains `formality: 'casual' | 'smart' | 'formal'`.
-The catalog version increments accordingly. An outfit's formality spread may be
+Each garment type has `formality: 'casual' | 'smart' | 'formal'`. The current
+catalog content is version 3 under
+[ADR 0013](0013-catalog-content-corrections-and-version-3.md). An outfit's formality spread may be
 at most one step, enforced while options are built, so the model never sees an
-inconsistent outfit and formality stops being an AI responsibility.
+inconsistent outfit and formality is not an AI responsibility. Dress style
+reorders formality preference and excludes nothing, as decided in
+[ADR 0031](0031-dress-style-is-the-formality-signal.md).
 
 ### 3. Color harmony leaves the AI job
 
-ADR 0005 section 4 is corrected: color harmony is removed from the AI job for
-the MVP. A garment-type catalog has no color, and writing one into it would
-invent data.
+Color harmony is outside the AI job for the MVP. A garment-type catalog has no
+color, and writing one into it would invent data.
 
 If color is wanted later, the mechanism is the archetype mechanism: a closed
 colorway vocabulary from which the model picks one identifier per outfit, with
@@ -96,7 +96,7 @@ The request contains no personal data, so one generation serves every user:
 
 ```text
 cacheKey = hash( sorted requirement vector without reasonCodes,
-                 clothingPreference, catalogVersion, dayVariant )
+                 clothingPreference, dressStyle, catalogVersion, dayVariant )
 ```
 
 `reasonCodes` are excluded because `temperature_low` and
@@ -161,13 +161,13 @@ recommendation is never withheld.
 
 ## Consequences
 
-- The model can no longer emit a structurally invalid outfit, because it no
-  longer constructs one.
+- The model cannot emit a structurally invalid outfit because it selects from
+  options rather than constructing one.
 - The request drops from a measured 65,498-byte worst case to roughly 2 KB and
   the response to a few hundred bytes. Neuron cost per call must be measured and
   recorded rather than estimated.
-- The catalog gains a field and a version increment, and every existing entry
-  needs a formality value assigned by hand.
+- The catalog carries an explicit formality field assigned by hand to every
+  entry.
 - Color harmony is absent from the MVP, so outfits are coherent in structure and
   formality but not in palette.
 - Results are shared across all users by construction, which ADR 0005 already
@@ -195,16 +195,8 @@ recommendation is never withheld.
 ## Out of scope
 
 - Colorways and any color model.
-- Expanding the 30-type catalog. Superseded by
-  [ADR 0013](0013-catalog-content-corrections-and-version-3.md) (2026-09-03),
-  which adds two types and moves the catalog to version 3.
+- Further catalog expansion or content changes, governed by
+  [ADR 0013](0013-catalog-content-corrections-and-version-3.md).
 - Wardrobe as a candidate source or a tie-breaker.
 - Replacing the OpenRouter step, which stays in the chain before the
   deterministic fallback.
-
-## Note (2026-09-03)
-
-[ADR 0015](0015-gender-and-age-band-in-the-profile.md) adds `ageBand` to the AI
-request. The band reorders preference among the precomposed formality levels
-(`casual`/`smart`/`formal`) and excludes none of them, so the candidate set,
-the three-option guarantee, and this ADR's validity guarantees are unaffected.

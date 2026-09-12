@@ -2,14 +2,10 @@
 
 Status: Accepted (2026-09-07)
 
-Implementation: landed 2026-09-07 (the `ListRow` anatomy and the Profile tab) and
-2026-09-09 (section 6's silhouette rung and colour-family fill). The five accessory
-silhouettes remain unapproved. This records an approved design produced by two design
-sessions, on 2026-09-04 and 2026-09-07. No production code, contract, schema or route was
-changed to reach it. The rendered target sheet, in English and Turkish, both appearances
-and three text sizes, is kept outside the repository; its "target, in numbers" table is
-the implementation target, and the numbers that matter are repeated here so the decision
-can be read without it.
+Implementation: complete for the `ListRow` anatomy, Profile tab, silhouette rung,
+accessory silhouettes, and colour-family fill. The rendered target
+sheet, in English and Turkish, both appearances, and three text sizes, is kept outside the
+repository; the numbers that matter are repeated here so the decision stands alone.
 
 Builds on: [ADR 0006](0006-three-tab-information-architecture.md), whose three tabs and
 Closet-inside-Profile placement are not reopened; [ADR 0019](0019-adopting-expo-ui-at-the-control-layer.md),
@@ -17,10 +13,6 @@ whose control-layer boundary this respects; [ADR 0021](0021-direction-e-a-visual
 whose Direction E it applies to the third tab; [ADR 0025](0025-the-garment-board-composition-rule.md),
 whose silhouettes the rail reuses; and [ADR 0027](0027-the-app-shell-and-its-three-tabs.md),
 whose inset rule every screen here obeys.
-
-Amends: [ADR 0015](0015-gender-and-age-band-in-the-profile.md) section 2, together with
-[ADR 0030](0030-settings-as-a-native-grouped-list.md). The amendment is recorded in ADR 0015
-itself.
 
 ## Context
 
@@ -34,17 +26,13 @@ duplicates Weather, and a status row that is Today's job and the seventh status 
 Law 9 never named. Only three facts on it are Profile's own: the Closet, the wanted
 list and the place.
 
-The direction chosen in plan mode on 2026-09-04, "the Closet is the subject", was drawn
-as a target sheet the same day. On 2026-09-07 a third-party settings screen was studied
-and reduced to an eight-check list-row reference; the sheet was then measured against it,
-failed four checks, and was corrected. The maintainer approved the corrected sheet the
-same day. The eight checks, recorded here since the status document no longer carries
-them (2026-09-09): grouped inset rows, one group per section; a leading monochrome icon
-tile with an alpha fill from a semantic role; the separator starting at the text edge;
-a secondary trailing value then a chevron, stacking above `fontScale` 1.5; kuyara's
-sentence-case headings outside any native group; one accent fill per viewport; the
-platform's own tab bar; and motion classified as spatial (the spring role) or effects
-(a duration token). Checks 1 to 5 became the anatomy in section 2 below.
+The approved direction is "the Closet is the subject." Its target sheet follows an
+eight-check list-row reference: grouped inset rows, one group per section; a leading
+monochrome icon tile with an alpha fill from a semantic role; the separator starting at
+the text edge; a secondary trailing value then a chevron, stacking above `fontScale`
+1.5; kuyara's sentence-case headings outside any native group; one accent fill per
+viewport; the platform's own tab bar; and motion classified as spatial (the spring role)
+or effects (a duration token). Checks 1 to 5 define the anatomy in section 2 below.
 
 ## Decision
 
@@ -93,16 +81,13 @@ set.
 | Leading tile | 28 × 28, radius 7, a monochrome glyph at 20 beside `body` (Law 6), glyph in `textPrimary`, fill derived through `withAlpha` from the same ink at 8% in light and 12% in dark. Never a coloured tile; that is what keeps Law 1's one accent fill per viewport |
 | Separator | starts at the text edge, 16 inset + tile + 12 gap, which is 56 at the default text size; runs to the group's right edge; `borderSubtle` |
 | Trailing value | `body` 17 in `textSecondary`, tabular when numeric, then a chevron at 20, on one line |
-| Section heading | kuyara's, when a section has one: sentence case, `bodyStrong` 17, `textSecondary`, drawn outside any group, 12 below it before the group (Law 2 `md`), 24 between groups. Amended 2026-09-07: was `textPrimary` at acceptance; the maintainer measured the byAir reference again and changed the heading ink to `textSecondary` |
+| Section heading | kuyara's, when a section has one: sentence case, `bodyStrong` 17, `textSecondary`, drawn outside any group, 12 below it before the group (Law 2 `md`), 24 between groups |
 
 The measured reference (a 393 point screen at 3x) agreed within a few points: group inset
 16 and width 361, separator 54 from the group edge, row pitch 54, sentence-case headings
-outside the group, and a centred secondary version line last. Where it differed, the
-difference is kuyara's rule rather than an oversight, with one exception the maintainer
-corrected the same day: a Night Layer ground rather than black, and one accent fill per
-viewport where the reference showed three. Section headings were first recorded as
-`textPrimary` rather than grey; amended 2026-09-07 to `textSecondary`, so this row is no
-longer one of kuyara's deliberate differences from the reference.
+outside the group, and a centred secondary version line last. Where it differs, kuyara's
+rule is deliberate: Night Layer replaces black, one accent fill per viewport replaces the
+reference's three, and section headings use `textSecondary`.
 
 ### 3. Text scaling
 
@@ -120,12 +105,11 @@ longer one of kuyara's deliberate differences from the reference.
   leave the comma on its own line. This is the platform's behaviour and is not worked
   around.
 
-### 4. Gender and birth date stay in Settings
+### 4. Personal facts stay in Settings
 
-The sheet drew a variant with two personal-fact rows after Location. It is not adopted.
-[ADR 0015](0015-gender-and-age-band-in-the-profile.md) section 7 and ADR 0006 place the
-Settings control last and unprominent; Profile is an identity screen only in the sense
-that the Closet is the user's, and it shows no personal facts.
+Gender, dress style, and birth date stay in Settings. [ADR 0015](0015-gender-and-age-band-in-the-profile.md)
+section 7 and ADR 0006 place those controls last and unprominent; Profile is an identity
+screen only in the sense that the Closet is the user's, and it shows no personal facts.
 
 ### 5. Strings
 
@@ -147,16 +131,13 @@ keyword.
 
 ### 7. Sequencing
 
-1. ADR 0027's bottom-inset fix and the English Closet label land before or with this
+1. ADR 0027's bottom-inset rule and the English Closet label are prerequisites for this
    screen.
-2. The rail ships with the photo and glyph rungs at once. The silhouette rung waits for
-   Today's board implementation, because the twenty-two drawings live only outside the
-   repository and the six shipped category glyphs were drawn 1.86× too heavy until the redraw of
-   2026-09-07 closed ADR 0025's open item.
-3. The route to the list gains an optional initial filter so the Wanted row can open on
-   the wanted state. The Profile "wanted" row's inability to do so today is a recorded
-   known issue.
-4. The seventh status site, the location status row, is deleted with the screen it sat on.
+2. The rail uses the photo, silhouette, and category-glyph fallback ladder. The
+   silhouette rung shares ADR 0025's twenty-seven garment drawings, accessories included.
+3. The route to the list accepts an optional initial filter so the Wanted row opens on
+   the wanted state.
+4. Profile has no separate location-status row; the Location row links to Weather.
 
 ## Consequences
 
@@ -170,8 +151,8 @@ keyword.
   visible rather than hidden, and it is accepted knowingly.
 - **A new dependency on the silhouette vocabulary.** The rail's middle rung and the
   colour-family fill both depend on ADR 0025's drawings entering the app.
-- **Two strings and one route change are owed with the screen**, and one known issue
-  (the Closet empty copy that contradicts ADR 0005) is retired by the empty state here.
+- **Strings and routing follow the same contract.** The empty-state copy agrees with
+  ADR 0005, and the Wanted row opens the Closet's wanted filter.
 
 ## Alternatives considered
 
@@ -182,9 +163,8 @@ names Profile as an identity screen rather than a control-layer one.
 **A Settings row instead of the gear.** Rejected: ADR 0027 keeps Settings as the header's
 bar button, and a row would make the Closet share its screen with a menu again.
 
-**Copying the reference's card fill in light.** Rejected: ADR 0021's amendment removed
-that step from the light appearance, and the hairline outline carries the group without
-reintroducing a plane.
+**Copying the reference's card fill in light.** Rejected: ADR 0021 requires no light
+card step, and the hairline outline carries the group without reintroducing a plane.
 
 **Uncapped scaling of the row controls.** Rejected by measurement; see section 3.
 

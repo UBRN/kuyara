@@ -2,7 +2,8 @@
 
 Status: Accepted (2026-09-02)
 
-Implementation: Landed as a documentation-only change alongside this ADR.
+Implementation: complete. `docs/design/design-language.md` carries the layer and
+`docs/design/design-system.md` carries the role-versus-primitive boundary.
 
 ## Context
 
@@ -63,8 +64,9 @@ The deferral rule at `design-system.md:126` gets a carve-out, quoted exactly:
 
 ## Consequences
 
-- This ADR supersedes `design-system.md:126` for role-shaped additions only.
-  Variant- and primitive-shaped additions keep the unchanged rule.
+- Role-shaped additions follow the design-language carve-out instead of the
+  `design-system.md:126` current-product-use rule. Variant- and primitive-shaped
+  additions keep that rule unchanged.
 - The deferred set resolves as follows:
 
 | deferred item | resolution |
