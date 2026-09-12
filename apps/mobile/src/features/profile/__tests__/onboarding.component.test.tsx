@@ -156,7 +156,7 @@ async function renderOnboarding(
 test('gender and dress style are required and a null birth date completes honestly', async () => {
   const { analytics, onComplete, result } = await renderOnboarding(null, null);
   expect(analytics.captures).toEqual([
-    { name: 'onboarding_started', properties: { schema_version: 1 }, options: undefined },
+    { name: 'onboarding_started', properties: { schema_version: 2 }, options: undefined },
   ]);
 
   await fireEvent.press(result.getByTestId('onboarding-continue'));
@@ -197,20 +197,20 @@ test('gender and dress style are required and a null birth date completes honest
   }));
 
   expect(analytics.captures.map((capture) => capture.properties)).toEqual([
-    { schema_version: 1 },
-    { schema_version: 1, step_name: 'welcome', step_index: 1, skipped: false },
-    { schema_version: 1, step_name: 'gender', step_index: 2, skipped: false },
+    { schema_version: 2 },
+    { schema_version: 2, step_name: 'welcome', step_index: 1, skipped: false },
+    { schema_version: 2, step_name: 'gender', step_index: 2, skipped: false },
     {
-      schema_version: 1,
+      schema_version: 2,
       step_name: 'dress_style',
       step_index: 3,
       skipped: false,
       dress_style: 'formal',
     },
-    { schema_version: 1, step_name: 'birth_date', step_index: 4, skipped: true },
-    { schema_version: 1, step_name: 'location', step_index: 5, skipped: true },
+    { schema_version: 2, step_name: 'birth_date', step_index: 4, skipped: true },
+    { schema_version: 2, step_name: 'location', step_index: 5, skipped: true },
     {
-      schema_version: 1,
+      schema_version: 2,
       dress_style: 'formal',
       age_bucket: 'unknown',
       location_method: 'skipped',

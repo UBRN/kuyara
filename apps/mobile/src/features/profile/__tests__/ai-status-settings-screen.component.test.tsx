@@ -54,6 +54,7 @@ function screen(
     aiStatus: { kind: 'idle' } as const,
     isProbeSupported: true,
     lastGenerationMode: null,
+    onDeviceAvailability: null,
     onCheckAiStatus: jest.fn(),
     ...overrides,
   };
@@ -137,4 +138,37 @@ test('shows the last recommendation generation mode as its own group', async () 
   expect(
     result.getByText(messages.en.settings.aiStatusLastAiAssisted),
   ).toBeOnTheScreen();
+});
+
+// ADR 0034 section 5: three user-visible states, read with no call and no quota. Every
+// reason other than the switch being off reads as a device that cannot choose locally.
+describe.each(['en', 'tr'] as const)('%s on-device availability row', (language) => {
+  test.each([
+    [{ status: 'available' } as const, 'aiStatusOnDeviceAvailable'],
+    [
+      { status: 'unavailable', reason: 'apple_intelligence_not_enabled' } as const,
+      'aiStatusOnDeviceDisabled',
+    ],
+    [
+      { status: 'unavailable', reason: 'device_not_eligible' } as const,
+      'aiStatusOnDeviceUnavailable',
+    ],
+    [{ status: 'unavailable', reason: 'unsupported_os' } as const, 'aiStatusOnDeviceUnavailable'],
+    [null, 'aiStatusOnDeviceUnavailable'],
+  ] as const)('reports the device state without probing', async (onDeviceAvailability, key) => {
+    const { rendered } = screen(language, { onDeviceAvailability });
+    const result = await rendered;
+
+    expect(result.getByTestId('settings-ai-status-on-device')).toBeOnTheScreen();
+    expect(result.getByText(messages[language].settings[key])).toBeOnTheScreen();
+  });
+
+  test('names the on-device tier as the last recommendation source', async () => {
+    const { rendered } = screen(language, { lastGenerationMode: 'on-device-ai' });
+    const result = await rendered;
+
+    expect(
+      result.getByText(messages[language].settings.aiStatusLastOnDeviceAi),
+    ).toBeOnTheScreen();
+  });
 });

@@ -15,23 +15,23 @@ test('the development logger prints only the event and JSON properties after con
   const analytics = new DevelopmentLoggingProductAnalytics('undecided');
 
   analytics.capture('screen_viewed', {
-    schema_version: 1,
+    schema_version: 2,
     screen_name: 'today',
   });
   await analytics.optIn('today_sheet');
   analytics.capture('screen_viewed', {
-    schema_version: 1,
+    schema_version: 2,
     screen_name: 'today',
   });
   await analytics.withdraw();
-  analytics.capture('notification_opened', { schema_version: 1 });
+  analytics.capture('notification_opened', { schema_version: 2 });
 
   assert.deepEqual(messages, [
     [
-      'analytics analytics_consent_granted {"schema_version":1,"surface":"today_sheet"}',
+      'analytics analytics_consent_granted {"schema_version":2,"surface":"today_sheet"}',
     ],
-    ['analytics screen_viewed {"schema_version":1,"screen_name":"today"}'],
-    ['analytics analytics_consent_withdrawn {"schema_version":1}'],
+    ['analytics screen_viewed {"schema_version":2,"screen_name":"today"}'],
+    ['analytics analytics_consent_withdrawn {"schema_version":2}'],
   ]);
   assert.equal(analytics.getIdentifier(), null);
 });

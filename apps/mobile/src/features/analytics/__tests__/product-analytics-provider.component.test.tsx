@@ -72,7 +72,7 @@ test('the background transition emits buffered failures before flushing', async 
 
   expect(analytics.names()).toEqual(['error_shown']);
   expect(analytics.captures[0].properties).toMatchObject({
-    schema_version: 1,
+    schema_version: 2,
     surface: 'today',
     failure_category: 'offline',
     occurrence_count: 1,

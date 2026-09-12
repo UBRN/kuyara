@@ -180,9 +180,9 @@ test('granting permission from the switch persists the opt-in flag and reports t
     'feature_used_first_time',
   ]));
   expect(analytics.captures.map((capture) => capture.properties)).toEqual([
-    { schema_version: 1, setting_name: 'notifications_enabled', new_value: true },
-    { schema_version: 1, outcome: 'enabled' },
-    { schema_version: 1, feature_name: 'notifications' },
+    { schema_version: 2, setting_name: 'notifications_enabled', new_value: true },
+    { schema_version: 2, outcome: 'enabled' },
+    { schema_version: 2, feature_name: 'notifications' },
   ]);
 });
 
@@ -208,7 +208,7 @@ test('denied permission shows the hint, opens application settings, and reports 
   // permission outcome is reported, not `setting_changed`.
   await waitFor(() => expect(analytics.names()).toEqual(['notification_permission_resolved']));
   expect(analytics.captures[0].properties).toEqual({
-    schema_version: 1,
+    schema_version: 2,
     outcome: 'blocked',
     can_request_again: false,
   });

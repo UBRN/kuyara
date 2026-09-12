@@ -10,7 +10,7 @@ type Migration = Readonly<{
   migrate: (database: SqliteExecutor) => Promise<void>;
 }>;
 
-export const latestDatabaseVersion = 12;
+export const latestDatabaseVersion = 13;
 
 const migrationV1: Migration = {
   version: 1,
@@ -361,6 +361,47 @@ const migrationV12: Migration = {
   },
 };
 
+const migrationV13: Migration = {
+  version: 13,
+  async migrate(database) {
+    // ADR 0034 section 3: the third coarse generation mode. A CHECK constraint cannot be
+    // altered, so the table is rebuilt and every existing row is copied; no released
+    // migration is edited and there is no destructive fallback.
+    // Deferred for the copy, and nothing is inspected afterwards: the rows go verbatim into
+    // an identical constraint, so the only thing a check could find is an orphan that
+    // already existed on the device, and throwing on it would leave the app unable to start
+    // (TestFlight build 3). An orphan survives the rebuild exactly as it survived the
+    // original table. SQLite clears the deferral at the end of the transaction.
+    await database.execAsync('PRAGMA defer_foreign_keys = ON;');
+    await database.execAsync(`
+      CREATE TABLE recommendation_snapshots_v13 (
+        id TEXT PRIMARY KEY NOT NULL,
+        local_profile_id TEXT NOT NULL UNIQUE,
+        weather_snapshot_id TEXT NOT NULL,
+        location_key TEXT NOT NULL,
+        generation_mode TEXT NOT NULL CHECK (
+          generation_mode IN ('on-device-ai', 'ai-assisted', 'deterministic-fallback')
+        ),
+        context_json TEXT NOT NULL,
+        outfits_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (local_profile_id) REFERENCES local_profiles(id)
+          ON UPDATE RESTRICT
+          ON DELETE RESTRICT
+      );
+      INSERT INTO recommendation_snapshots_v13 (
+        id, local_profile_id, weather_snapshot_id, location_key, generation_mode,
+        context_json, outfits_json, created_at, updated_at
+      ) SELECT id, local_profile_id, weather_snapshot_id, location_key, generation_mode,
+        context_json, outfits_json, created_at, updated_at
+      FROM recommendation_snapshots;
+      DROP TABLE recommendation_snapshots;
+      ALTER TABLE recommendation_snapshots_v13 RENAME TO recommendation_snapshots;
+    `);
+  },
+};
+
 const migrations = [
   migrationV1,
   migrationV2,
@@ -374,6 +415,7 @@ const migrations = [
   migrationV10,
   migrationV11,
   migrationV12,
+  migrationV13,
 ] as const satisfies readonly Migration[];
 
 async function readUserVersion(database: SqliteExecutor): Promise<number> {

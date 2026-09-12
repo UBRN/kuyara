@@ -197,8 +197,13 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     for (const reason of primary.reasons.slice(1)) {
       expect(result.queryByText(reason)).not.toBeOnTheScreen();
     }
-    expect(result.getByTestId('today-provenance')).toHaveTextContent(presentation.header.freshness);
-    expect(result.queryByTestId('today-generation-mode')).not.toBeOnTheScreen();
+    expect(within(result.getByTestId('today-provenance')).getByTestId('today-freshness'))
+      .toHaveTextContent(presentation.header.freshness);
+    // ADR 0034 section 4: the deterministic badge carries words with no AI mark.
+    expect(result.getByTestId('today-generation-mode'))
+      .toHaveTextContent(messages[language].today.generationModeStandard);
+    expect(result.queryByTestId('today-provenance-sparkle', { includeHiddenElements: true }))
+      .not.toBeOnTheScreen();
     expect(result.queryByText(messages[language].today.emphasis.recommended)).not.toBeOnTheScreen();
     const place = result.getByText('Istanbul');
     expect(place.props.numberOfLines).toBe(1);

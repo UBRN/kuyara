@@ -22,6 +22,9 @@ export default function AiStatusSettingsRoute() {
     recommendation?.state.status === 'ready'
       ? recommendation.state.snapshot?.recommendation.generationMode ?? null
       : null;
+  // ADR 0034 section 5: the availability the composition boundary already read once. No
+  // call is made from this screen.
+  const onDeviceAvailability = recommendation?.onDeviceAvailability ?? null;
 
   const checkAiStatus = async () => {
     const result = await check();
@@ -52,6 +55,7 @@ export default function AiStatusSettingsRoute() {
         aiStatus={aiStatus}
         isProbeSupported={isSupported}
         lastGenerationMode={lastGenerationMode}
+        onDeviceAvailability={onDeviceAvailability}
         onCheckAiStatus={() => void checkAiStatus()}
       />
     </>
