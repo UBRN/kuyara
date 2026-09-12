@@ -10,9 +10,9 @@ requirements for the analytics direction in
 [ADR 0023](0023-behavioural-product-analytics-with-posthog.md) and the resulting consent,
 revocation, deletion, and disclosure rules.
 
-Every Apple and PostHog statement below was read on 2026-09-09 from the URL cited next to
-it. Apple's pages carry no visible revision date, so a second reading before App Store
-submission is part of the follow-up in section 6, not optional.
+Every Apple, PostHog and Cloudflare statement below was read from the URL cited next to
+it, on the date recorded there. Apple's pages carry no visible revision date, so a second
+reading before App Store submission is part of the follow-up in section 6, not optional.
 
 ## Context
 
@@ -59,7 +59,7 @@ Against Apple's category list on that page, kuyara's planned collection maps as 
 | Diagnostics: Crash Data, Performance Data, Other Diagnostic Data | Yes, from milestone 12, not before | PostHog Error Tracking sends crash and exception data. It is not collected until that milestone lands, and the questionnaire is updated then. |
 | Identifiers: Device ID or User ID | Yes, from milestone 10 | The SDK's random per-install identifier is an "other device-level ID" and is declared linked to the user because profile-derived properties ride on it; see section 5. |
 | Location: Coarse Location | No | PostHog derives `$geoip_city_name` and related properties from the request IP on its servers. Apple's Coarse Location definition covers any location "with lower resolution than a latitude and longitude with three or more decimal places". IP discard and the separately disabled GeoIP transformation keep this category out; see section 5. |
-| Precise Location | No | Coordinates never enter an analytics payload under ADR 0023. |
+| Precise Location | No | Coordinates never enter an analytics payload under ADR 0023. Section 7 records why the app-wide answer is also no. |
 | Health, Sensitive Info, Contacts, User Content, Photos | No | Nothing in the taxonomy touches them. Gender and dress style are stored profile values, not sensitive-info categories in Apple's list; section 5 governs linkage. |
 
 The App Privacy Details page also requires the developer to declare, per category, whether
@@ -373,6 +373,28 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
   the reason the install identifier is declared linked.
 - **Consent placement.** The consent surface is shown once on Today after the first
   recommendation has rendered; onboarding stays five steps. See section 6.
+- **Location stays "not collected".** The questionnaire answer for Precise Location and
+  Coarse Location is "not collected" for the whole app, not only for the analytics path.
+  Apple's App Privacy Details page states that "if data is sent to your servers then
+  immediately discarded after servicing the request, you do not need to disclose this"
+  (<https://developer.apple.com/app-store/app-privacy-details/>, read 2026-09-13). Device
+  coordinates travel only inside POST request bodies to the Worker, from
+  `worker-weather-provider.ts` and `worker-place-search-data-source.ts`, never in a URL or
+  query string. The Worker uses them to service the request in real time, persists none of
+  them, and no Worker log statement prints them. Cloudflare Workers Logs, enabled by
+  `observability: { enabled: true }` in `wrangler.jsonc` with default sampling, retains
+  invocation logs for three days on the current plan and describes their content as details
+  "such as the Request, Response, and related metadata"
+  (<https://developers.cloudflare.com/workers/observability/logs/workers-logs/>, read
+  2026-09-13). Whether that capture includes the request body is not stated on the Workers
+  Logs, Logpush, or `workers_trace_events` dataset pages. That gap is an open verification
+  item, checked again before the next App Store submission, and it is not assumed in either
+  direction in the meantime.
+
+  Red lines: coordinates never enter a URL, a query string, a header, an analytics event, or
+  a log statement. If Cloudflare documents that request bodies are stored, invocation logs
+  are disabled (`invocation_logs = false`) or sampled to zero before the next submission,
+  and the questionnaire answer is re-derived before it is filed.
 
 ## Consequences
 
@@ -406,6 +428,10 @@ Apple, all read 2026-09-09:
 - Privacy manifest files: <https://developer.apple.com/documentation/bundleresources/privacy-manifest-files>
 - Describing data use in privacy manifests: <https://developer.apple.com/documentation/bundleresources/describing-data-use-in-privacy-manifests>
 - Upcoming third-party SDK requirements: <https://developer.apple.com/support/third-party-SDK-requirements/>
+
+Cloudflare, read 2026-09-13:
+
+- Workers Logs: <https://developers.cloudflare.com/workers/observability/logs/workers-logs/>
 
 PostHog, all read 2026-09-09:
 

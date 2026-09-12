@@ -85,7 +85,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow kuyara to select a wardrobe photo.",
+          "photosPermission": "kuyara uses your photo library so you can choose a Closet photo.",
           "cameraPermission": false,
           "microphonePermission": false
         }
@@ -95,8 +95,8 @@
         {
           "locationAlwaysAndWhenInUsePermission": false,
           "locationAlwaysPermission": false,
-          "locationWhenInUsePermission": "Allow kuyara to use your approximate location for a one-time weather lookup while you use the app.",
-          "motionUsagePermission": "Allow kuyara to use motion data to help estimate your approximate location for a one-time weather lookup.",
+          "locationWhenInUsePermission": "kuyara uses your approximate location to find the weather for your outfit suggestions while you use the app.",
+          "motionUsagePermission": "kuyara uses motion data to help estimate your approximate location for the weather while you use the app.",
           "isIosBackgroundLocationEnabled": false,
           "isAndroidBackgroundLocationEnabled": false,
           "isAndroidForegroundServiceEnabled": false,
