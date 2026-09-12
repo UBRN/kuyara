@@ -32,6 +32,18 @@ export function WeatherAlertObserver() {
 
   const rescheduleWeatherAlerts = useEffectEvent(() => {
     if (!localProfileId) return;
+    // ADR 0032 section 6: alerts are planned only when the opt-in and the OS permission
+    // both allow them and a snapshot has loaded, and the existing schedule is cancelled
+    // only on a known opt-out or a known denial. Every other combination (a permission not
+    // yet read or still undetermined, weather loading or failed to load) is absence of
+    // knowledge, and acting on it would drop the alerts an earlier session or the
+    // background task left pending. A ready weather state can still carry no snapshot,
+    // which plans nothing and would reach the scheduler as a cancellation.
+    const cancels = !notificationsOptIn || permission.kind === 'denied';
+    const plans = notificationsOptIn
+      && permission.kind === 'granted'
+      && snapshot !== null;
+    if (!cancels && !plans) return;
     void notificationApplication.weatherAlertScheduler.reschedule({
       localProfileId,
       snapshot,
