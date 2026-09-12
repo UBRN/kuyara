@@ -397,7 +397,7 @@ export class WardrobeApplicationController {
     ) => readonly WardrobeItem[],
   ): Promise<WardrobeItem> {
     if (this.mutationPromise) {
-      return this.mutationPromise;
+      return Promise.reject(new Error('A wardrobe change is already in progress.'));
     }
 
     const repository = this.requireRepository();

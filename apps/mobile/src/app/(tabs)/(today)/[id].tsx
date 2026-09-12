@@ -1,5 +1,5 @@
 import { useFocusEffect, useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
@@ -30,6 +30,7 @@ export default function OutfitDetailRoute() {
     useWeatherApplication();
   const { state: profileState } = useProfileApplication();
   const { analytics, firstUses } = useProductAnalytics();
+  const [ownershipError, setOwnershipError] = useState<string | null>(null);
   useScreenViewed('outfit_detail');
   const suggestionId = Array.isArray(id) ? id[0] : id;
   const recommendation = recommendationState.status === 'ready'
@@ -94,43 +95,65 @@ export default function OutfitDetailRoute() {
   const onSetOwnership = (
     garmentTypeId: GarmentTypeId,
     next: 'owned' | 'wanted',
-  ) => {
-    if (wardrobe.state.status !== 'ready') return;
+  ): boolean => {
+    if (wardrobe.state.status !== 'ready') return false;
 
-    const match = resolveGarmentOwnership(garmentTypeId, wardrobe.state.items);
+    const activeItems = wardrobe.state.items;
+    const match = resolveGarmentOwnership(garmentTypeId, activeItems);
+    if (match.state === next) return false;
+    setOwnershipError(null);
+
     // Taxonomy 5.8: the same event shape Closet itself emits, with `entry_point:
     // 'outfit_detail'`; no shared file with the Closet feature's own capture.
-    const operation = match.itemId
-      ? wardrobe.updateItem(match.itemId, { entryState: next }).then((item) => {
-          analytics.capture('closet_item_updated', {
-            schema_version: ANALYTICS_SCHEMA_VERSION,
-            fields_changed: ['state'],
-            garment_type_id: garmentTypeId,
-            entry_point: 'outfit_detail',
-          });
-          return item;
-        })
-      : wardrobe.createItem({ garmentTypeId, entryState: next }).then((item) => {
-          analytics.capture('closet_item_created', {
-            schema_version: ANALYTICS_SCHEMA_VERSION,
-            state: next,
-            garment_type_id: garmentTypeId,
-            has_photo: false,
-            entry_point: 'outfit_detail',
-            dress_style: dressStyle,
-            age_bucket: ageBucket,
-          });
-          void firstUses.markFirstUse('closet').then((firstUse) => {
-            if (!firstUse) return;
-            analytics.capture('feature_used_first_time', {
+    if (match.itemIds.length > 0) {
+      void (async () => {
+        try {
+          for (const current of activeItems) {
+            if (current.garmentTypeId !== garmentTypeId || current.entryState === next) continue;
+            const item = await wardrobe.updateItem(current.id, { entryState: next });
+            if (!item.garmentTypeId) continue;
+            analytics.capture('closet_item_updated', {
               schema_version: ANALYTICS_SCHEMA_VERSION,
-              feature_name: 'closet',
+              fields_changed: ['state'],
+              garment_type_id: item.garmentTypeId,
+              entry_point: 'outfit_detail',
             });
-          });
-          return item;
-        });
+          }
+        } catch {
+          setOwnershipError(messages.wardrobe.updateError);
+        }
+      })();
+      return true;
+    }
 
-    void operation.catch(() => undefined);
+    void wardrobe.createItem({ garmentTypeId, entryState: next }).then((item) => {
+      if (!item.garmentTypeId) return;
+      analytics.capture('closet_item_created', {
+        schema_version: ANALYTICS_SCHEMA_VERSION,
+        state: item.entryState,
+        garment_type_id: item.garmentTypeId,
+        has_photo: item.photoRelativePath !== null,
+        entry_point: 'outfit_detail',
+        dress_style: dressStyle,
+        age_bucket: ageBucket,
+      });
+      void firstUses.markFirstUse('closet').then((firstUse) => {
+        if (!firstUse) return;
+        analytics.capture('feature_used_first_time', {
+          schema_version: ANALYTICS_SCHEMA_VERSION,
+          feature_name: 'closet',
+        });
+      });
+    }).catch(() => setOwnershipError(messages.wardrobe.createError));
+    return true;
+  };
+
+  const onBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
   };
 
   let state: TodayScreenState;
@@ -172,9 +195,10 @@ export default function OutfitDetailRoute() {
     <OutfitDetailScreen
       backLabel={messages.today.backAction}
       language={language}
-      onBack={() => router.back()}
+      onBack={onBack}
       onSetOwnership={onSetOwnership}
       ownershipByGarmentType={ownershipByGarmentType}
+      ownershipError={ownershipError}
       state={state}
       suggestionId={suggestionId}
     />

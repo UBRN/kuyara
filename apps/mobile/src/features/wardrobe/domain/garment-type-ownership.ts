@@ -5,7 +5,7 @@ export type GarmentOwnershipState = 'owned' | 'wanted' | 'none';
 
 export type GarmentOwnershipMatch = Readonly<{
   state: GarmentOwnershipState;
-  itemId: string | null;
+  itemIds: readonly string[];
 }>;
 
 export function resolveGarmentOwnership(
@@ -13,17 +13,14 @@ export function resolveGarmentOwnership(
   items: readonly WardrobeItem[],
 ): GarmentOwnershipMatch {
   // The caller supplies active items, so soft-deleted rows are not filtered here.
-  const match = items
-    .filter((item) => item.garmentTypeId === garmentTypeId)
-    .sort((left, right) => {
-      if (left.entryState !== right.entryState) {
-        return left.entryState === 'owned' ? -1 : 1;
-      }
+  const matches = items.filter((item) => item.garmentTypeId === garmentTypeId);
 
-      return left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id);
-    })[0];
-
-  return match
-    ? { state: match.entryState, itemId: match.id }
-    : { state: 'none', itemId: null };
+  return {
+    state: matches.some((item) => item.entryState === 'owned')
+      ? 'owned'
+      : matches.length > 0
+        ? 'wanted'
+        : 'none',
+    itemIds: matches.map((item) => item.id),
+  };
 }

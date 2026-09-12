@@ -240,7 +240,7 @@ test('wardrobe controller loads active items and rejects invalid route IDs local
   assert.equal(calls.get, 1);
 });
 
-test('controller coalesces rapid saves and refreshes persisted items once', async () => {
+test('controller rejects a concurrent save instead of returning another operation result', async () => {
   const { calls, repository, resolveCreate } = createRepository();
   const controller = new WardrobeApplicationController(profileId, async () => repository);
   await controller.initialize();
@@ -248,7 +248,7 @@ test('controller coalesces rapid saves and refreshes persisted items once', asyn
 
   const first = controller.createItem(input);
   const second = controller.createItem(input);
-  assert.equal(first, second);
+  await assert.rejects(second, /already in progress/);
   assert.equal(calls.create, 1);
   assert.equal(controller.getSnapshot().isMutating, true);
   resolveCreate(item);
