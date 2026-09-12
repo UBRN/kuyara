@@ -149,6 +149,59 @@ test('a continental spring day still composes three outfits from the bundled cat
   }
 });
 
+test('every cold and heat pairing across the bands composes three outfits', () => {
+  // Both extremes of the remaining day are mandatory at once unless one side is demoted;
+  // the light-thermal band (12 to 18 °C) with a hot afternoon used to leave a single
+  // composable outfit (17 °C at 08:00, 30 °C at 15:00).
+  const hourAt = (hour) => `2026-04-15T${String(hour).padStart(2, '0')}:00:00.000Z`;
+  const nowTemperatures = [0, 8, 15, 22, 30];
+  const laterTemperatures = [0, 8, 15, 22, 26, 31];
+
+  for (const nowTemperature of nowTemperatures) {
+    for (const laterTemperature of laterTemperatures) {
+      const weather = snapshot({
+        current: {
+          temperatureCelsius: nowTemperature,
+          apparentTemperatureCelsius: nowTemperature,
+        },
+        snapshotFields: { fetchedAt: hourAt(8) },
+        minimumTemperatureCelsius: Math.min(nowTemperature, laterTemperature),
+        maximumTemperatureCelsius: Math.max(nowTemperature, laterTemperature),
+        hourly: [
+          {
+            forecastAt: hourAt(12),
+            ...measurements({
+              temperatureCelsius: Math.round((nowTemperature + laterTemperature) / 2),
+              apparentTemperatureCelsius: Math.round((nowTemperature + laterTemperature) / 2),
+            }),
+          },
+          {
+            forecastAt: hourAt(15),
+            ...measurements({
+              temperatureCelsius: laterTemperature,
+              apparentTemperatureCelsius: laterTemperature,
+            }),
+          },
+        ],
+      });
+      weather.current = { ...weather.current, observedAt: hourAt(8) };
+
+      for (const clothingPreference of ['womens', 'mens']) {
+        const result = recommendOutfits({
+          now: hourAt(8),
+          snapshot: weather,
+          clothingPreference,
+          dressStyle: 'smart',
+          dayVariant: 0,
+        });
+        const where = `${nowTemperature} °C now, ${laterTemperature} °C later, ${clothingPreference}`;
+        assert.equal(result.status, 'recommended', where);
+        assert.equal(result.outfits.length, 3, where);
+      }
+    }
+  }
+});
+
 test('fallback archetypes use rule order and advance past duplicates', () => {
   const result = recommendOutfits({
     now: observedAt,
