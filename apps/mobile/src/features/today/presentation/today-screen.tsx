@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 import {
   AppText,
@@ -21,6 +21,7 @@ import {
   createTodayPresentation,
   type LoadedTodayPresentation,
 } from '@/features/today/presentation/today-presentation';
+import { useForegroundClock } from '@/features/today/presentation/use-foreground-clock';
 import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity';
@@ -32,16 +33,22 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 type TodayScreenProps = Readonly<{
   state: TodayScreenState;
   language: SupportedLanguage;
+  isRefreshing?: boolean;
   onOpenOutfitDetail: (id: string) => void;
   onRefresh: () => void;
 }>;
 
-export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: TodayScreenProps) {
+export function TodayScreen({
+  state,
+  language,
+  isRefreshing = false,
+  onOpenOutfitDetail,
+  onRefresh,
+}: TodayScreenProps) {
   const router = useRouter();
   const weatherApplication = useWeatherApplication();
   const { hour12 } = useLocalization();
-  const [now, setNow] = useState(() => Date.now());
-  useFocusEffect(useCallback(() => { setNow(Date.now()); }, []));
+  const now = useForegroundClock();
   const presentationState =
     state.kind === 'unavailable' &&
     weatherApplication.state.status === 'ready' &&
@@ -59,13 +66,30 @@ export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: 
     presentation.kind === 'loaded' && presentation.header.isRefreshing,
     state.kind === 'loaded' && state.refreshFailed,
   );
+  const refreshControl = (
+    <RefreshControl
+      colors={[theme.colors.iconSecondary]}
+      onRefresh={() => {
+        haptics.impactLight();
+        onRefresh();
+      }}
+      refreshing={presentation.kind === 'loaded' ? presentation.header.isRefreshing : isRefreshing}
+      tintColor={theme.colors.iconSecondary}
+    />
+  );
 
   if (presentation.kind !== 'loaded') {
     return (
       <Screen
+        accessibilityActions={[{ name: 'refresh', label: copy.refreshAction }]}
         accessibilityLabel={presentation.accessibilityLabel}
+        alwaysBounceVertical
         contentContainerStyle={styles.feedbackContent}
         fill
+        onAccessibilityAction={({ nativeEvent }) => {
+          if (nativeEvent.actionName === 'refresh') onRefresh();
+        }}
+        refreshControl={refreshControl}
         testID="today-screen">
         <Surface
           accessible
@@ -129,17 +153,7 @@ export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: 
       onAccessibilityAction={({ nativeEvent }) => {
         if (nativeEvent.actionName === 'refresh') onRefresh();
       }}
-      refreshControl={
-        <RefreshControl
-          colors={[theme.colors.iconSecondary]}
-          onRefresh={() => {
-            haptics.impactLight();
-            onRefresh();
-          }}
-          refreshing={presentation.header.isRefreshing}
-          tintColor={theme.colors.iconSecondary}
-        />
-      }
+      refreshControl={refreshControl}
       testID="today-screen">
       <View onLayout={({ nativeEvent }) => setContentWidth(nativeEvent.layout.width)} testID="today-content">
         <View style={styles.placeRow}>
@@ -203,26 +217,33 @@ export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: 
           </View>
         )}
 
-        <View style={styles.provenance} testID="today-provenance">
+        <View
+          style={[styles.provenance, usesAccessibilityLayout && styles.stackedProvenance]}
+          testID="today-provenance">
           {presentation.generationMode ? (
             <>
-              <View testID="today-provenance-sparkle">
-                <Icon color={theme.colors.brandAccent} name="sparkle" size={12} />
+              <View style={styles.generationMode}>
+                <View testID="today-provenance-sparkle">
+                  <Icon color={theme.colors.brandAccent} name="sparkle" size={12} />
+                </View>
+                <AppText
+                  accessibilityLabel={presentation.generationMode.accessibilityLabel}
+                  colorRole="textSecondary"
+                  style={styles.generationModeLabel}
+                  testID="today-generation-mode"
+                  variant="caption">
+                  {presentation.generationMode.label}
+                </AppText>
               </View>
-              <AppText
-                accessibilityLabel={presentation.generationMode.accessibilityLabel}
-                colorRole="textSecondary"
-                testID="today-generation-mode"
-                variant="caption">
-                {presentation.generationMode.label}
-              </AppText>
-              <AppText accessibilityElementsHidden importantForAccessibility="no-hide-descendants" colorRole="textSecondary" variant="caption">·</AppText>
+              {!usesAccessibilityLayout ? (
+                <AppText accessibilityElementsHidden importantForAccessibility="no-hide-descendants" colorRole="textSecondary" variant="caption">·</AppText>
+              ) : null}
             </>
           ) : null}
           <AppText
             accessibilityLiveRegion={presentation.header.announceFreshness ? 'polite' : 'none'}
             colorRole="textSecondary"
-            style={styles.freshness}
+            style={[styles.freshness, usesAccessibilityLayout && styles.stackedFreshness]}
             tabularNumbers
             testID="today-freshness"
             variant="caption">
@@ -347,7 +368,11 @@ const styles = StyleSheet.create({
   condition: { marginTop: spacing.xs },
   weatherGlyph: { opacity: 0.7, transform: [{ scale: 31 / 36 }] },
   provenance: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.md },
+  stackedProvenance: { alignItems: 'flex-start', flexDirection: 'column' },
+  generationMode: { alignItems: 'center', flexDirection: 'row', flexShrink: 1, gap: spacing.xs },
+  generationModeLabel: { flexShrink: 1 },
   freshness: { flexShrink: 1 },
+  stackedFreshness: { width: '100%' },
   alternates: { marginTop: spacing.xl },
   alternatesHeading: { paddingBottom: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth },
   outfitList: { flexDirection: 'row', gap: spacing.lg, marginTop: spacing.md },

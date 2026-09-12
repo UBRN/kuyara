@@ -1,5 +1,5 @@
-import { fireEvent, isHiddenFromAccessibility, render, within } from '@testing-library/react-native';
-import { Dimensions, StyleSheet } from 'react-native';
+import { act, fireEvent, isHiddenFromAccessibility, render, within } from '@testing-library/react-native';
+import { AppState, Dimensions, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { failureCategories } from '@/domain/failure-category';
@@ -288,6 +288,56 @@ test.each([
       result.getByTestId(`today-alternate-stage-${suggestion.id}`, hidden).props.style,
     )).toMatchObject({ backgroundColor: stageColor });
   }
+});
+
+test('Today re-reads its clock when the app becomes active', async () => {
+  const addEventListener = jest.spyOn(AppState, 'addEventListener')
+    .mockReturnValue({ remove: () => undefined });
+  dateNowSpy.mockReturnValue(Date.parse('2026-08-13T12:00:00.000Z'));
+  const result = await render(providers(
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
+  ));
+  const hidden = { includeHiddenElements: true };
+  expect(StyleSheet.flatten(result.getByTestId('today-stage', hidden).props.style))
+    .toMatchObject({ backgroundColor: lightTheme.atmosphere.fallingDay });
+
+  dateNowSpy.mockReturnValue(Date.parse('2026-08-13T21:00:00.000Z'));
+  await act(async () => {
+    addEventListener.mock.calls.forEach(([, listener]) => listener('active'));
+  });
+
+  expect(StyleSheet.flatten(result.getByTestId('today-stage', hidden).props.style))
+    .toMatchObject({ backgroundColor: lightTheme.atmosphere.fallingNight });
+  addEventListener.mockRestore();
+});
+
+test('accessibility XXXL keeps the complete generation mode and freshness status', async () => {
+  Dimensions.set({ window: { ...originalDimensions, width: 390, fontScale: 3.1 } });
+  const presentation = createTodayPresentation(
+    aiAssistedTodayScreenState,
+    'en',
+    false,
+    fixtureNow,
+  );
+  if (presentation.kind !== 'loaded' || !presentation.generationMode) {
+    throw new Error('Expected AI-assisted Today presentation.');
+  }
+  const result = await render(providers(
+    <TodayScreen
+      language="en"
+      onOpenOutfitDetail={jest.fn()}
+      onRefresh={jest.fn()}
+      state={aiAssistedTodayScreenState}
+    />,
+  ));
+
+  const generationMode = result.getByTestId('today-generation-mode');
+  const freshness = result.getByTestId('today-freshness');
+  expect(generationMode).toHaveTextContent(presentation.generationMode.label);
+  expect(freshness).toHaveTextContent(presentation.header.freshness);
+  expect(generationMode.props.numberOfLines).toBeUndefined();
+  expect(freshness.props.numberOfLines).toBeUndefined();
+  expect(StyleSheet.flatten(freshness.props.style)).toMatchObject({ width: '100%' });
 });
 
 test.each([1.5, 1.6, 3])('font scale %s keeps weather clear of garments and stacks alternates above 1.5', async (fontScale) => {
@@ -805,6 +855,32 @@ test('pull-to-refresh invokes refresh with haptic feedback and preserves Screen 
   refreshControl.props.onRefresh();
   expect(onRefresh).toHaveBeenCalledTimes(1);
   expect(impact).toHaveBeenCalledTimes(1);
+  impact.mockRestore();
+});
+
+test('unavailable Today supports pull retry and the refresh accessibility action', async () => {
+  const onRefresh = jest.fn();
+  const impact = jest.spyOn(haptics, 'impactLight').mockImplementation(() => undefined);
+  const result = await render(providers(
+    <TodayScreen
+      isRefreshing
+      language="en"
+      onOpenOutfitDetail={jest.fn()}
+      onRefresh={onRefresh}
+      state={{ kind: 'unavailable', failure: 'offline' }}
+    />,
+  ));
+  const screen = result.getByTestId('today-screen');
+  expect(screen.props.refreshControl.props.refreshing).toBe(true);
+  screen.props.refreshControl.props.onRefresh();
+  expect(onRefresh).toHaveBeenCalledTimes(1);
+  expect(impact).toHaveBeenCalledTimes(1);
+
+  await fireEvent(screen, 'accessibilityAction', { nativeEvent: { actionName: 'refresh' } });
+  expect(onRefresh).toHaveBeenCalledTimes(2);
+  expect(screen.props.accessibilityActions).toEqual([
+    { name: 'refresh', label: messages.en.today.refreshAction },
+  ]);
   impact.mockRestore();
 });
 

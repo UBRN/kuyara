@@ -35,6 +35,7 @@ export default function TodayRoute() {
   const { state: profileState } = useProfileApplication();
   const { analytics, firstUses, retries } = useProductAnalytics();
   const { markRecommendationShown } = useAnalyticsConsentTrigger();
+  const [isPullRefreshing, setIsPullRefreshing] = useState(false);
   useScreenViewed('today');
 
   const recommendation = recommendationState.status === 'ready'
@@ -63,6 +64,10 @@ export default function TodayRoute() {
       ? weatherState.refreshFailure ?? 'unknown'
       : 'unknown';
     recommendationFailure = null;
+  } else if (recommendation === null && recommendationState.isRefreshing) {
+    state = { kind: 'loading' };
+    todayFailure = undefined;
+    recommendationFailure = undefined;
   } else if (recommendation === null) {
     state = unavailableTodayState(recommendationState.lastFailure);
     todayFailure = null;
@@ -76,7 +81,8 @@ export default function TodayRoute() {
         freshness: weatherState.freshness,
         recommendation,
       },
-      isRefreshing: weatherState.isRefreshing || recommendationState.isRefreshing,
+      isRefreshing:
+        isPullRefreshing || weatherState.isRefreshing || recommendationState.isRefreshing,
       refreshFailed:
         weatherState.refreshFailure !== null || recommendationState.lastFailure !== null,
     };
@@ -141,10 +147,23 @@ export default function TodayRoute() {
 
   // Taxonomy 5.7: Today's pull gesture doubles as the retry action when a failure is
   // already shown (there is no separate retry control).
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
+    if (isPullRefreshing) return;
     const wasFailing = state.kind === 'unavailable' || (state.kind === 'loaded' && state.refreshFailed);
-    void weatherApplication.refresh().then(async () => {
-      await refreshRecommendation();
+    const before = weatherApplication.getSnapshot?.() ?? weatherApplication.state;
+    const beforeSnapshotId = before.status === 'ready' ? before.snapshot?.id ?? null : null;
+    setIsPullRefreshing(true);
+    try {
+      await weatherApplication.refresh();
+      const afterWeather = weatherApplication.getSnapshot?.() ?? weatherApplication.state;
+      const weatherRefreshFailed =
+        afterWeather.status !== 'ready' || afterWeather.refreshFailure !== null;
+      const afterWeatherSnapshotId =
+        afterWeather.status === 'ready' ? afterWeather.snapshot?.id ?? null : null;
+      if (!(weatherRefreshFailed && afterWeatherSnapshotId === beforeSnapshotId)) {
+        await refreshRecommendation();
+      }
+
       const after = weatherApplication.getSnapshot?.() ?? weatherApplication.state;
       const outcome = after.status !== 'ready'
         ? ('failure_no_snapshot' as const)
@@ -175,12 +194,15 @@ export default function TodayRoute() {
           feature_name: 'manual_refresh',
         });
       });
-    });
+    } finally {
+      setIsPullRefreshing(false);
+    }
   };
 
   return (
     <TodayScreen
       language={language}
+      isRefreshing={isPullRefreshing}
       onOpenOutfitDetail={(id) => router.push({ pathname: '/[id]', params: { id } })}
       onRefresh={handleRefresh}
       state={state}

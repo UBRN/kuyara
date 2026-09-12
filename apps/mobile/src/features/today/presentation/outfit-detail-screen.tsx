@@ -1,6 +1,5 @@
 import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
 import Animated, {
   useAnimatedStyle,
   withTiming,
@@ -24,6 +23,7 @@ import {
   createDetailCaptionLayout,
   createTodayPresentation,
 } from '@/features/today/presentation/today-presentation';
+import { useForegroundClock } from '@/features/today/presentation/use-foreground-clock';
 import type { TodayScreenState } from '@/features/today/model';
 import type { GarmentOwnershipState } from '@/features/wardrobe/domain/garment-type-ownership';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
@@ -38,7 +38,11 @@ type OutfitDetailScreenProps = Readonly<{
   onBack: () => void;
   backLabel: string;
   ownershipByGarmentType: Readonly<Record<string, GarmentOwnershipState>>;
-  onSetOwnership: (garmentTypeId: GarmentTypeId, next: 'owned' | 'wanted') => void;
+  ownershipError?: string | null;
+  onSetOwnership: (
+    garmentTypeId: GarmentTypeId,
+    next: 'owned' | 'wanted',
+  ) => boolean | void;
 }>;
 
 export function OutfitDetailScreen({
@@ -48,6 +52,7 @@ export function OutfitDetailScreen({
   onBack,
   backLabel,
   ownershipByGarmentType,
+  ownershipError = null,
   onSetOwnership,
 }: OutfitDetailScreenProps) {
   const theme = useKuyaraTheme();
@@ -57,8 +62,7 @@ export function OutfitDetailScreen({
   const [captionHeights, setCaptionHeights] = useState<Readonly<Record<string, number>>>({});
   const [piecesSettled, setPiecesSettled] = useState(theme.isReduceMotionEnabled);
   const [completions, setCompletions] = useState(0);
-  const [now, setNow] = useState(() => Date.now());
-  useFocusEffect(useCallback(() => { setNow(Date.now()); }, []));
+  const now = useForegroundClock();
   const onPiecesSettled = useCallback(() => setPiecesSettled(true), []);
   const captionEntranceStyle = useAnimatedStyle(() => ({
     opacity: withTiming(piecesSettled ? 1 : 0, { duration: theme.motion.fast }),
@@ -86,12 +90,18 @@ export function OutfitDetailScreen({
       );
 
   if (presentation.kind !== 'loaded' || !suggestion) {
+    const missingSuggestion = presentation.kind === 'loaded';
     return (
       <Screen testID="outfit-detail-screen">
         <Button label={backLabel} onPress={onBack} variant="quiet" />
         <AppText accessibilityRole="header" variant="titleLarge">
-          {presentation.kind === 'loaded' ? presentation.copy.title : presentation.title}
+          {missingSuggestion ? copy.noOutfitTitle : presentation.title}
         </AppText>
+        {missingSuggestion ? (
+          <AppText colorRole="textSecondary" style={styles.missingSuggestionBody} variant="body">
+            {copy.noOutfitBody}
+          </AppText>
+        ) : null}
       </Screen>
     );
   }
@@ -108,6 +118,8 @@ export function OutfitDetailScreen({
   // Law 7's single settle. The caption menu never reports the state it already shows,
   // so a press to `owned` always raises the count by one.
   const setOwnership = (garmentTypeId: GarmentTypeId, next: 'owned' | 'wanted') => {
+    if (onSetOwnership(garmentTypeId, next) === false) return;
+
     if (next === 'owned' && ownedCount + 1 === suggestion.pieces.length) {
       haptics.success();
       setCompletions((count) => count + 1);
@@ -115,7 +127,6 @@ export function OutfitDetailScreen({
       haptics.selection();
     }
 
-    onSetOwnership(garmentTypeId, next);
   };
 
   const captionEntries = boardLayout.boxes.flatMap((box) => {
@@ -294,6 +305,16 @@ export function OutfitDetailScreen({
           </View>
         </Entrance>
 
+        {ownershipError ? (
+          <AppText
+            accessibilityRole="alert"
+            colorRole="dangerInk"
+            style={styles.ownershipError}
+            variant="caption">
+            {ownershipError}
+          </AppText>
+        ) : null}
+
         {suggestion.requirementRows.length > 0 ? (
           <View style={styles.section}>
             <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
@@ -341,6 +362,9 @@ export function OutfitDetailScreen({
 const styles = StyleSheet.create({
   backButton: {
     alignSelf: 'flex-start',
+  },
+  missingSuggestionBody: {
+    marginTop: spacing.sm,
   },
   headingGroup: {
     alignItems: 'center',
@@ -407,6 +431,9 @@ const styles = StyleSheet.create({
   ownershipSummaryText: {
     flex: 1,
     flexShrink: 1,
+  },
+  ownershipError: {
+    marginTop: spacing.sm,
   },
   section: {
     gap: spacing.md,
