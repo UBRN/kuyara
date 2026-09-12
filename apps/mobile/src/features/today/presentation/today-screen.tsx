@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import {
@@ -17,6 +17,7 @@ import {
   useTextScaling,
 } from '@/components/ui';
 import type { TodayScreenState } from '@/features/today/model';
+import { GarmentBoardSkeleton } from '@/features/today/presentation/garment-board-skeleton';
 import {
   createTodayPresentation,
   type LoadedTodayPresentation,
@@ -29,6 +30,10 @@ import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
 import { spacing, type AmbientIntensity } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
+
+// Law 5's escalation point. The first line stays true for the whole wait; past this the
+// user has waited long enough that saying only "still choosing" stops being informative.
+const LONG_WAIT_MS = 8_000;
 
 type TodayScreenProps = Readonly<{
   state: TodayScreenState;
@@ -62,6 +67,18 @@ export function TodayScreen({
   const { fontScale, usesStackedLayout: usesAccessibilityLayout } = useTextScaling();
   // Measure the content after Screen applies its safe-area insets and width cap.
   const [contentWidth, setContentWidth] = useState(0);
+  const isGenerating = presentation.kind === 'loading';
+  // Law 5's warning structure: the same fact, plus what is still happening, once the
+  // wait has run past the point where the first line alone stops being informative.
+  const [isLongWait, setIsLongWait] = useState(false);
+  useEffect(() => {
+    if (!isGenerating) return undefined;
+    const timer = setTimeout(() => setIsLongWait(true), LONG_WAIT_MS);
+    return () => {
+      clearTimeout(timer);
+      setIsLongWait(false);
+    };
+  }, [isGenerating]);
   useRefreshOutcomeHaptics(
     presentation.kind === 'loaded' && presentation.header.isRefreshing,
     state.kind === 'loaded' && state.refreshFailed,
@@ -77,6 +94,40 @@ export function TodayScreen({
       tintColor={theme.colors.iconSecondary}
     />
   );
+
+  if (presentation.kind === 'loading') {
+    return (
+      <Screen
+        accessibilityActions={[{ name: 'refresh', label: copy.refreshAction }]}
+        alwaysBounceVertical
+        onAccessibilityAction={({ nativeEvent }) => {
+          if (nativeEvent.actionName === 'refresh') onRefresh();
+        }}
+        refreshControl={refreshControl}
+        testID="today-screen">
+        <View
+          onLayout={({ nativeEvent }) => setContentWidth(nativeEvent.layout.width)}
+          testID="today-loading-screen">
+          {/* The plate takes its height from the placeholders it holds, the way the
+              loaded stage takes its own from the drawn pieces. */}
+          <View
+            style={[styles.stage, { backgroundColor: theme.colors.stage }]}
+            testID="today-skeleton-stage">
+            <GarmentBoardSkeleton testID="today-skeleton-board" width={contentWidth} />
+          </View>
+          {/* Law 7: the breathing placeholders are never the only signal. This line is
+              the state, and it is what a screen reader is given. */}
+          <AppText
+            accessibilityLiveRegion="polite"
+            colorRole="textSecondary"
+            style={styles.generatingStatus}
+            testID="today-generating-status">
+            {isLongWait ? copy.generatingLongWaitStatus : copy.generatingStatus}
+          </AppText>
+        </View>
+      </Screen>
+    );
+  }
 
   if (presentation.kind !== 'loaded') {
     return (
@@ -94,28 +145,21 @@ export function TodayScreen({
         <Surface
           accessible
           accessibilityLabel={presentation.accessibilityLabel}
-          accessibilityRole={presentation.kind === 'unavailable' ? 'alert' : undefined}
+          accessibilityRole="alert"
           style={styles.feedbackCard}
           testID={
-            presentation.kind === 'unavailable' && presentation.reason === 'no-active-location'
+            presentation.reason === 'no-active-location'
               ? 'today-no-location'
-              : `today-${presentation.kind}-screen`
+              : 'today-unavailable-screen'
           }
           variant="elevated">
-          {presentation.kind === 'loading' ? (
-            <ActivityIndicator
-              accessibilityLabel={presentation.accessibilityLabel}
-              color={theme.colors.iconSecondary}
-              size="large"
-            />
-          ) : null}
           <AppText accessibilityRole="header" variant="title" style={styles.centerText}>
             {presentation.title}
           </AppText>
           <AppText colorRole="textSecondary" style={styles.centerText}>
             {presentation.body}
           </AppText>
-          {presentation.kind === 'unavailable' && presentation.actionLabel ? (
+          {presentation.actionLabel ? (
             <Button label={presentation.actionLabel} onPress={() => router.push('/weather/location')} />
           ) : null}
         </Surface>
@@ -361,6 +405,7 @@ const styles = StyleSheet.create({
   outfitName: { flex: 1, flexShrink: 1 },
   disclosure: { opacity: 0.55 },
   rationale: { marginTop: spacing.sm },
+  generatingStatus: { marginTop: spacing.md },
   sky: { alignItems: 'flex-start', flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
   skyText: { flex: 1, flexShrink: 1 },
   skyOverlay: { position: 'absolute', top: 18, left: 20, right: 20 },
