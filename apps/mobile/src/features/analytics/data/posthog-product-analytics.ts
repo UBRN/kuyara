@@ -175,7 +175,14 @@ class PostHogProductAnalytics implements ProductAnalytics {
     // Core 1.52.0 flushes its persisted queue without consulting optedOut, so this still
     // sends the queued withdrawal while optOut blocks lifecycle capture during the flush.
     await attempt(() => client.flush());
-    await attempt(() => client.reset());
+    // `reset()` deliberately keeps the persisted queues, so a flush that failed offline would
+    // otherwise deliver pre-withdrawal events later under the identity being severed.
+    await attempt(() =>
+      client.setPersistedProperty('queue' as PostHogPersistedProperty, null));
+    // `reset()` nulls `opted_out` too, and `defaultOptIn: true` reads a null as opted in, so
+    // the permanent app-state listener would capture lifecycle events under the fresh device
+    // id until the app exits. Keeping the property holds the opt-out through the reset.
+    await attempt(() => client.reset(['opted_out'] as PostHogPersistedProperty[]));
     await attempt(() =>
       client.setPersistedProperty(
         'device_id' as PostHogPersistedProperty,

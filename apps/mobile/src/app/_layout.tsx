@@ -100,6 +100,9 @@ function ReadyApplicationShell({
                   <Stack.Screen
                     name="analytics-consent"
                     options={{
+                      // ADR 0033 section 3: one clear question, answered before any event
+                      // is captured. Accept and decline are the only exits.
+                      gestureEnabled: false,
                       presentation: Platform.OS === 'ios' ? 'formSheet' : 'modal',
                       ...(Platform.OS === 'ios' ? {
                         sheetAllowedDetents: 'fitToContents' as const,
