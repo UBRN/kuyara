@@ -2,43 +2,46 @@
 
 Status: Accepted (2026-09-03)
 
-Implementation: completed 2026-09-08, after the real location picker satisfied the
-dependency below.
+Implementation: complete. The onboarding location step, its decline path through live
+city search, and Today's no-location copy are implemented.
 
 ## Context
 
-A newly onboarded user currently lands on Today with no location selected, which
-means no weather, which means no recommendation. What they see is this:
+Without this decision a newly onboarded user lands on Today with no location
+selected, which means no weather, which means no recommendation. What they see
+is an empty card:
 
 > Today's guidance is unavailable
 > There is no saved guidance to show right now.
 
 That copy is true and useless. It does not say why there is nothing, and it
-offers nothing to do about it. This was observed directly on 2026-09-03 while
-repairing the end-to-end suite: the first screen of a fresh install is an empty
-card.
+offers nothing to do about it. Repairing the end-to-end suite made it visible:
+the first screen of a fresh install is an empty card.
 
-The cause is not a defect in Today. Today is correctly reporting that it has
-nothing, because nothing has asked the user where they are. Location selection
-lives on the Weather tab and is never reached during onboarding.
+The cause is not a defect in Today. Today correctly reports that it has
+nothing, because nothing has asked the user where they are. With location
+selection living only on the Weather tab, it is never reached during
+onboarding.
 
-[`product-decisions.md`](../product-decisions.md) records the rule that produced
-this: "No location prompt occurs during app bootstrap or merely by opening the
-Weather tab." That rule exists for a good reason, an unexplained permission
-sheet on first launch is hostile, and it should not be discarded. But it was
-written as a prohibition without a corresponding answer to "then when?", and the
-answer turned out to be "never, unless the user goes looking".
+[`product-decisions.md`](../product-decisions.md) records the rule that produces
+this: no location prompt occurs during app bootstrap or merely by opening the
+Weather tab. That rule exists for a good reason, an unexplained permission
+sheet on first launch is hostile, and it is not discarded. But a prohibition
+without a corresponding answer to "then when?" resolves to "never, unless the
+user goes looking".
 
 ## Decision
 
 ### 1. Onboarding asks for location, as its own explained step
 
-Onboarding gains a location step after birth year. The step explains what
-location is used for before any system permission sheet appears, which is what
-the existing rule was protecting. The rationale is not removed; it is moved to
-where the user first needs it.
+Location selection is the fifth and last onboarding step, after birth date;
+the five steps are recorded in
+[ADR 0031](0031-dress-style-is-the-formality-signal.md) section 5. The step
+explains what location is used for before any system permission sheet appears,
+which is what the existing rule protects. The rationale is not removed; it is
+moved to where the user first needs it.
 
-The recorded rule survives, narrowed to what it was actually defending:
+The recorded rule holds, narrowed to what it actually defends:
 
 - No permission request occurs during application bootstrap.
 - No permission request occurs merely by opening the Weather tab.
@@ -53,17 +56,19 @@ user out of the application permanently, and it would not survive App Store
 review.
 
 A user who declines is offered city selection in the same step. They reach a
-working application by a different route rather than a degraded one.
+working application by a different route rather than a degraded one. The step
+can also be skipped outright: onboarding is completable with no location, and
+Today's copy in decision 3 then does the pointing.
 
 ### 3. The empty state says why, and offers the way out
 
-When Today has no location it must say so plainly and link to the place where a
-location can be chosen. The current copy describes the symptom, that there is no
-saved guidance, rather than the cause, that kuyara does not know where the user
-is.
+When Today has no location it says so plainly and links to the place where a
+location can be chosen. Copy that describes the symptom, that there is no saved
+guidance, rather than the cause, that kuyara does not know where the user is, is
+not acceptable for this branch.
 
-This is a copy and affordance change, not a new state. Today already
-distinguishes its unavailable branch; it is the wording that fails.
+This is a copy and affordance decision, not a new state. Today already
+distinguishes its unavailable branch; only the wording is decided here.
 
 ### 4. Recommendations already assume every garment is available
 
@@ -74,44 +79,34 @@ not from what the user owns. Granting location therefore already produces
 recommendations drawn from the whole catalog. No change is needed, and none
 should be made in the belief that this behaviour is missing.
 
-## Dependency
+## The decline path leads to real location selection
 
-This decision cannot be implemented before the real location selection
-milestone.
+Declining permission has to lead somewhere, and that somewhere is live city
+search, the same selection the Weather tab offers. Never route the decline path
+to placeholder or sample entries: an onboarding step whose decline path leads to
+sample data puts the worst screen in the application in front of every new user
+on their first run.
 
-Declining permission has to lead somewhere, and the only somewhere available
-today is a picker offering three hardcoded entries labelled "Sample Istanbul",
-"Sample Ankara" and "Sample London". Shipping an onboarding step whose decline
-path leads there would take the worst screen in the application and put it in
-front of every new user on their first run.
-
-The ordering is therefore fixed: real location selection, then this.
-
-## Relationship to the pending interface redesign
-
-The maintainer is evaluating an interface redesign that changes information
-architecture rather than only visual treatment. Onboarding is one of the screens
-such a redesign would restructure.
+## Scope of this decision
 
 This ADR decides *what* onboarding must accomplish and *when* permission may be
-requested. It deliberately does not decide the step's layout, its copy, or
-whether it remains a discrete step rather than being folded into a redesigned
-flow. Those belong to the redesign, and settling them here would only have them
-re-settled later.
+requested. It does not decide the step's layout or its copy; the step count is
+[ADR 0031](0031-dress-style-is-the-formality-signal.md)'s.
 
 ## Consequences
 
-- Onboarding grows a fourth step, on top of the three
-  [ADR 0015](0015-gender-and-age-band-in-the-profile.md) already defines. Whether
-  four discrete steps is the right shape is a question for the redesign.
+- Location selection is the fifth and last onboarding step, after the profile
+  steps [ADR 0015](0015-gender-and-age-band-in-the-profile.md) defines; the full
+  sequence is [ADR 0031](0031-dress-style-is-the-formality-signal.md) section 5.
 - Every new user is asked for location permission during their first run. The
-  grant rate will be higher than today's, where the request is effectively
-  hidden, and some users will decline who never encountered the question before.
+  grant rate is higher than it would be with the request effectively hidden on
+  the Weather tab, and some users decline who would never have encountered the
+  question there.
 - The decline path becomes a first-class flow with its own copy, its own
   accessibility pass, and its own end-to-end coverage. It is not an error state.
-- Today's unavailable branch stops being reachable for the ordinary reason it is
-  reachable now, since a user completing onboarding will have either a device
-  location or a chosen city. It remains reachable for genuine failures.
+- Today's no-location branch is reached only by a user who skipped the location
+  step, and decision 3's copy points them to where a location can be chosen.
+  The unavailable branch remains reachable for genuine failures.
 
 ## Alternatives considered
 
@@ -128,14 +123,13 @@ and an unexplained sheet is the reason permission gets denied.
 outright. iOS does not re-ask after a denial, so this permanently locks out any
 user who declines once, and it would fail App Store review.
 
-**Ship the onboarding step now with the sample-city decline path, and improve it
-when real location selection lands.** Rejected. It would put placeholder data in
-front of every new user during the interval, which is a worse first impression
-than the current empty card.
+**Ship the onboarding step with a sample-city decline path and improve it once
+real location selection exists.** Rejected. It puts placeholder data in front of
+every new user, which is a worse first impression than an empty card.
 
 ## Out of scope
 
-- The layout and copy of the location step, which belong to the redesign.
+- The layout and copy of the location step.
 - Background location, which remains out of scope for the MVP.
 - Any change to what crosses the native adapter or reaches SQLite. Normalized
   hundredth-degree coordinates, IANA time zone, source, and accuracy remain the

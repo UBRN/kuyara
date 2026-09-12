@@ -2,15 +2,12 @@
 
 Status: Accepted (2026-09-07)
 
-Implementation: landed 2026-09-07 (the grid, filter and chips) and 2026-09-09 (section
-5's silhouette rung and colour-family fill); the segmented control's iOS tint is still
-Android-only because the installed `@expo/ui` control ignores `tintColor` on iOS. This
-records an approved design produced by the 2026-09-04 design session and corrected on
-2026-09-07 against the list-row reference. No production
-code, contract, schema or route was changed to reach it. The rendered target sheet, in
-English and Turkish, both appearances, three tile states, four screen states and three
-text sizes, is kept outside the repository; its "target, in numbers" table is the
-implementation target.
+Implementation: complete. The grid, the state filter, the category chips, section 5's
+silhouette rung and colour-family fill are implemented; the segmented control's tint
+applies on Android only, because the installed `@expo/ui` control ignores `tintColor` on
+iOS. The rendered target sheet, in English and Turkish, both appearances, three tile
+states, four screen states and three text sizes, is kept outside the repository; its
+"target, in numbers" table is the implementation target.
 
 Builds on: [ADR 0005](0005-catalog-only-recommendation-candidates.md), which the empty
 state finally agrees with; [ADR 0021](0021-direction-e-a-visual-first-design-language.md);
@@ -24,10 +21,10 @@ Design goal 5 asked how a list behaves when some entries carry a user photograph
 carry only a catalogue type, and legacy rows carry neither. It is the first place the
 silhouette's replaceability is tested against real user data rather than a catalogue.
 
-The shipped list is a vertical card list with a colour dot, a faked leading-icon button
-built from spacing arithmetic and absolute positioning, and an empty-state sentence that
-promises the Closet feeds future outfit choices, which ADR 0005 rules out. All three are
-recorded known issues; this design retires them.
+The list this grid replaces was a vertical card list with a colour dot, a faked
+leading-icon button built from spacing arithmetic and absolute positioning, and an
+empty-state sentence that promised the Closet feeds future outfit choices, which ADR 0005
+rules out. This design retires all three.
 
 ## Decision
 
@@ -37,17 +34,19 @@ The Closet is a two-column grid of the rail's tile: 174.5 × 218, radius 14, on 
 fill, gap 12, inset 16. Category and colour are carried by the picture, not by badges or
 dots. Above `fontScale` 1.5 the grid is one column of 361 × 280 tiles.
 
-Each tile draws the first rung it can, as in ADR 0028: the photo, cover-cropped; else the
-garment-type silhouette filled with the piece's colour family, fitted by its drawn bounds
-into a 60% × 61% box and centred; else the structural-category glyph. Under the tile,
+Each tile draws the first rung it can, as in ADR 0028, through the shared
+`GarmentTileArtwork`: the photo, cover-cropped; else the garment-type silhouette filled
+with the piece's colour family, fitted by its drawn bounds into a 60% × 61% box and
+centred; else the structural-category glyph. Under the tile,
 4 below, a `label` 15 name in `textPrimary`, two lines then ellipsis: the user's name for
 the piece when set, else the type, else the category. A `caption` 13 subline in
 `textSecondary` carries the type under a user name, "Type not selected" under a legacy
 row, and is otherwise absent.
 
-Accessories fall to the category glyph, because ADR 0025 drew silhouettes only for the 27
-outfit-eligible types and the board can never show an accessory. The Closet can. Five
-accessory drawings are wanted and are not approved here.
+Accessories take the silhouette rung like every other type: ADR 0025's five per-type
+accessory silhouettes are drawn on the Closet and Profile surfaces only, because the
+recommendation contract has no accessory slot and the board can never show one. The
+Closet can.
 
 Sorting is newest first, the rail's order. No sort control is added.
 
@@ -76,8 +75,8 @@ contract rather than by a per-state layout.
 
 ### 4. States
 
-- **Empty**, per filter: Profile's sentence and "Add a piece" button, reused. The shipped
-  `wardrobe.emptyBody` copy, which promised recommendation use, is retired.
+- **Empty**, per filter: Profile's sentence and "Add a piece" button, reused. The empty
+  copy never promises that the Closet feeds recommendations; ADR 0005 rules that out.
 - **Loading**: the grid's stage fills without artwork.
 - **Error**: a `dangerInk` glyph at 20, 8, a `bodyStrong` title, 4, a `body` line in
   `textSecondary`, 12, a retry button. The error state shows no chips.
@@ -86,8 +85,9 @@ contract rather than by a per-state layout.
 ### 5. The colour-family fill
 
 Approved with ADR 0028 section 6. The per-family fill table is a content table, tuned per
-appearance, and is the mapper that replaces the shipped `backgroundColor: item.colorFamily`
-coincidence. `multicolor` keeps its own treatment rather than borrowing `brandAccent`.
+appearance, and is the only mapper from colour family to fill; never pass the enum value
+itself as a colour. `multicolor` keeps its own treatment rather than borrowing
+`brandAccent`.
 
 ### 6. Rows
 
@@ -96,13 +96,13 @@ ADR 0028 section 2 unchanged.
 
 ## Consequences
 
-- **Three known issues close with the screen**: the faked leading-icon button, the
-  enum-as-CSS-colour swatch, and the ADR 0005 contradiction in the empty copy.
-- **The silhouette rung and the colour fill wait on ADR 0025's drawings entering the
-  app**, as on Profile. The photo and glyph rungs can ship first, and the grid does not
-  look broken without the middle rung; it looks like a Closet with more glyph tiles.
-- **Accessories are the one category with no drawing.** Until five are approved, an
-  accessories tile is always a glyph tile.
+- **Three things the grid rules out**: a faked leading-icon button in place of the native
+  bar button, an enum value used as a CSS colour, and empty copy that contradicts ADR 0005.
+- **The silhouette rung and the colour fill are ADR 0025's drawings**, shared with
+  Profile through `GarmentTileArtwork`. The glyph rung is reached only by legacy rows
+  with no type, so a Closet made of typed pieces has no glyph tiles.
+- **Accessory silhouettes exist for the Closet and Profile only.** They never enter an
+  outfit board; the Closet is where they are seen.
 - **The route gains an optional initial filter**, shared with ADR 0028's Wanted row.
 
 ## Alternatives considered
@@ -120,5 +120,4 @@ vary by state, and a native segmented control cannot drop segments per state gra
 
 - The add and edit form; ADR 0019 already moves it to native grouped sections.
 - The photo pipeline.
-- Accessory silhouettes, five, awaiting approval.
-- Any production code change.
+- Accessory silhouettes on Today or the detail board; ADR 0025 keeps them off the board.

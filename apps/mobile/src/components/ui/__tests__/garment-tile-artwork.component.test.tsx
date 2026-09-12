@@ -84,7 +84,7 @@ test.each([
   expect(y + (bounds.y + bounds.height / 2) * scale).toBeCloseTo(height / 2);
 });
 
-// Accessories draw their own silhouettes since ADR 0025's 2026-09-10 amendment, so only a
+// Accessories draw their own silhouettes under ADR 0025, so only a
 // legacy entry without a garment type reaches the category glyph.
 test('an unreadable legacy-entry photo falls to the category glyph, and a replacement URI can load', async () => {
   const draw = (photoUri: string) => (

@@ -2,28 +2,24 @@
 
 Status: Accepted (2026-08-30)
 
-Implementation: Landed. Catalog-only candidates, the Wardrobe entry state, and
+Implementation: complete. Catalog-only candidates, the Wardrobe entry state, and
 schema version 7 shipped; the local day variant is `localDayVariant()` in
 `recommendation-application-controller.ts`, compared by the `local-day-changed`
 trigger and carried into the Worker cache key.
 
-Amended by [ADR 0007](0007-ai-selects-precomposed-outfits.md) (2026-08-30):
-section 4's AI job becomes selection and labeling of precomposed outfits, color
-harmony is removed from the MVP, and the day seed becomes a seven-slot day
-variant.
-
-Amended by [ADR 0013](0013-catalog-content-corrections-and-version-3.md)
-(2026-09-03): the "Out of scope" line excluding catalog expansion no longer
-holds. Two garment types are added and four property values corrected at catalog
-version 3.
+The current AI job is selection and labeling of precomposed outfits, with a
+seven-slot day variant, as decided in
+[ADR 0007](0007-ai-selects-precomposed-outfits.md). The current catalog has 32
+types and four corrected property values at version 3, as decided in
+[ADR 0013](0013-catalog-content-corrections-and-version-3.md).
 
 ## Context
 
-Recommendations currently compose from two sources: the bundled garment catalog
-and active owned Wardrobe items. The catalog already contains 30 garment types,
-a version constant, clothing-preference applicability, weather-relevant
-properties, and Turkish and English localization keys. `WardrobeItem` already
-carries a nullable catalog type reference.
+The design problem was a recommendation path that composed from two sources:
+the bundled garment catalog and active owned Wardrobe items. The catalog had 30
+garment types, a version constant, clothing-preference applicability,
+weather-relevant properties, and Turkish and English localization keys.
+`WardrobeItem` already carried a nullable catalog type reference.
 
 Using the Wardrobe as a candidate source made the product's main feature depend
 on setup. A new user with an empty Wardrobe could not receive a useful
@@ -31,8 +27,8 @@ recommendation in the first minute of use. Keeping two candidate sources also
 widened the AI privacy boundary and made recommendation cache identity depend on
 personal records.
 
-The decision narrows an existing mechanism. It does not create a new catalog or
-replace the deterministic weather and garment rules.
+The catalog-only rule reuses the existing catalog and deterministic weather and
+garment rules.
 
 ## Decision
 
@@ -59,22 +55,25 @@ records; no row is discarded.
 
 ### 3. Daily variation and cache identity
 
-Recommendation input includes a local calendar day seed. Within one local day,
-the result is stable and cacheable. A new local day produces different outfits
-from the same weather.
+Recommendation input includes a `dayVariant`, defined as the local day of year
+modulo 7. Within one local day, the result is stable and cacheable. Consecutive
+local days produce different outfits from the same weather; unchanged buckets
+may recur weekly.
 
 Recommendation cache identity is weather snapshot identity, clothing
-preference, catalog version, and day seed.
+preference, dress style, catalog version, and day variant.
 
-### 4. Restated AI job and privacy boundary
+### 4. AI job and privacy boundary
 
-AI remains central, but it is not personalization. It turns deterministic
-weather requirements into three outfits that are stylistically coherent and
-varied: color harmony, consistent formality, plausible layering, and
-combinations that do not repeat the previous day.
+AI remains central, but it is not personalization. A deterministic layer
+composes at most 24 complete, valid, requirement-satisfying,
+formality-consistent outfits. AI selects exactly three supplied option
+identifiers, labels each with one closed-list archetype identifier, and does not
+compose garments or handle color harmony. The selected outfits must be varied
+and must not repeat the previous day.
 
-Its inputs are deterministic weather requirements, catalog candidate
-identifiers and properties, clothing preference, and day seed. No
+Its inputs are deterministic weather requirements, precomposed catalog options,
+clothing preference, dress style, catalog version, and day variant. No
 Wardrobe-derived data reaches the model: no owned-item source kind, overrides,
 free-form names, photos, paths, or ownership state. Profile and device
 identifiers, coordinates, secrets, complete database records, and unrelated
@@ -93,8 +92,9 @@ existing row and defaults existing entries to `owned`.
 
 - A user can receive the product's main recommendation without first building a
   Wardrobe.
-- Every user with the same clothing preference, weather, catalog version, and
-  day seed sees the same three outfits. The product is no longer personalized.
+- Every user with the same clothing preference, dress style, weather, catalog
+  version, and day variant sees the same three outfits. The product is not
+  personalized.
 - Marking a garment gives the user no visible return beyond the personal record,
   which may reduce marking over time.
 - Recommendation quality is only as good as the bundled catalog's coverage and
@@ -119,7 +119,8 @@ existing row and defaults existing entries to `owned`.
 
 ## Out of scope
 
-- Expanding or replacing the existing 30-type catalog.
+- Further catalog content or version changes, which are governed by
+  [ADR 0013](0013-catalog-content-corrections-and-version-3.md).
 - Accounts, remote sync, or server-owned Wardrobe data.
 - Using ownership as a recommendation filter.
 - A future ownership tie-breaker between equally suitable catalog candidates.

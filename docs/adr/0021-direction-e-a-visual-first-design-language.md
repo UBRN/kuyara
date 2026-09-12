@@ -2,19 +2,18 @@
 
 Status: Accepted (2026-09-03)
 
-Implementation: landed across 2026-09-07 to 2026-09-09. Today's garment board and the
-Direction E tokens (ADR 0025, 2026-09-08), the recommendation detail surface (ADR 0026,
-2026-09-09), the shell fixes (ADR 0027) and Profile, the Closet and Settings (ADR 0028
-to 0030, 2026-09-07) are shipped. Still open: section 9's horizontal hourly rail on
-Weather, the per-condition stage tint (ADR 0018's amended values) and the entry motion
-(ADR 0026 decision 7). This ADR itself records a direction produced by a throwaway HTML
-spike; no production code, contract, or route was changed to reach it.
+Implementation: Direction E is implemented on Today, recommendation detail, the app
+shell, Profile, Closet and Settings. [ADR 0018](0018-the-atmospheric-condition-band.md)
+owns the per-condition stage tint, [ADR 0025](0025-the-garment-board-composition-rule.md)
+owns the garment board, and [ADR 0026](0026-the-recommendation-detail-surface.md) owns the
+detail surface and entry motion. Section 9's horizontal hourly rail on Weather remains
+unimplemented. This ADR records a direction produced by a throwaway HTML spike.
 
-Amends: [`visual-identity.md`](../design/visual-identity.md)'s prohibition on literal
-clothing illustration, and its palette allocation guidance.
-Amends: [`design-language.md`](../design/design-language.md) Law 1, Law 3 and Law 5.
-Amends: [ADR 0017](0017-a-retuned-typography-scale.md) on which role is Today's hero.
-Amends: [ADR 0018](0018-the-atmospheric-condition-band.md) on the band's structure.
+Defines the accepted visual direction within
+[`visual-identity.md`](../design/visual-identity.md),
+[`design-language.md`](../design/design-language.md) Laws 1, 3 and 5,
+[ADR 0017](0017-a-retuned-typography-scale.md), and
+[ADR 0018](0018-the-atmospheric-condition-band.md).
 
 ## Context
 
@@ -43,9 +42,8 @@ Adopt Direction E as kuyara's design language. It is a language, not a frozen sc
 
 ### 1. Garment illustration is permitted and is the visual subject
 
-`visual-identity.md` asked for calm structure "rather than literal weather or clothing
-illustrations". The clothing half of that sentence is withdrawn. The weather half stands:
-no literal sky photography, no illustrated weather scenes.
+Simple garment illustration is permitted and is the visual subject of Today. Literal
+weather imagery remains prohibited: no sky photography and no illustrated weather scenes.
 
 For the MVP a small set of simple line silhouettes covers the common garment types.
 Complete per-type artwork is not required and is not to be built speculatively. A garment
@@ -76,23 +74,20 @@ not coordinates:
 - No anatomical or body-position diagram. No equal-size icon grid. No arbitrary scatter.
   No overlap unless it genuinely improves the composition.
 
-Today does not carry the garment names. The five-row name list of the earlier directions
-is withdrawn; a concise archetype name and one short rationale are enough on the overview.
+Today does not carry garment names or a five-row name list. A concise archetype name and
+one short rationale are enough on the overview.
 
 ### 3. The weather tints the stage rather than occupying a band
 
-[ADR 0018](0018-the-atmospheric-condition-band.md) decided "a band, not a page": a
-full-width strip above a stable ground. Direction E dissolves the strip. The condition
-tints the surface the garments lie on and puts one temperature and one condition glyph in
-that surface's corner, so the sky colours the ground under today's clothes and the two
-halves of the product become one object.
+[ADR 0018](0018-the-atmospheric-condition-band.md) defines a condition tint on the
+surface the garments lie on, with one temperature and one condition glyph in that
+surface's corner. The sky colours the ground under today's clothes and the two halves of
+the product become one object. Do not add a separate full-width atmosphere strip.
 
-The ADR's arithmetic survives intact and is what makes this legal: the seven-state closed
-set, the derivation of every value as a blend of two approved brand hexes, the contrast
-floors, and the rule that no state may make contrast worse than `neutral`. What is
-withdrawn is the structural conclusion that the atmosphere must be a discrete band. The
-per-state values move upward in luminance, because the tint now sits behind ink and
-silhouettes rather than behind a hero number.
+ADR 0018 owns the seven-state closed set, the derivation of every value as a blend of two
+approved brand hexes, the contrast floors, and the rule that no state may make contrast
+worse than `neutral`. Its values sit behind ink and silhouettes rather than behind a hero
+number.
 
 The spike measured why a shrunken band fails: below roughly 110 points of height a
 two-stop tonal field has no vertical room to be perceived and reads as a flat utility
@@ -101,42 +96,43 @@ value because ADR 0018 caps the band at the card plane's own luminance.
 
 ### 4. Contrast and colour allocation
 
-- The light page ground moves up to Soft Mist `#F4F6F5`. `textPrimary` on it measures
-  **12.90:1** against 10.04:1 on the previous `#D0DDDC`. The previous ground existed to
-  buy a 1.395:1 white-card step, and Direction E's Today has no white cards.
+- The light page ground is Soft Mist `#F4F6F5` on every screen, including Profile,
+  Closet and Settings. `textPrimary` on it measures **12.90:1**. A white surface over
+  that ground measures only 1.085:1, so separation comes from type, space and the
+  language's other devices rather than from a card fill step.
 - Supporting text is a derived neutral rather than Calm Current. Calm Current becomes an
   accent used in a small number of placements per screen, not the default supporting ink.
 - These are derived semantic values from the locked palette. No new brand colour is
   introduced and the six approved hexes are unchanged.
+- `theme.test.mjs` records the 1.085:1 light surface step but does not enforce a 1.2:1
+  minimum. Text and non-text contrast floors remain binding, as does ADR 0018's rule that
+  no atmosphere state may make contrast worse than `neutral`.
 
 ### 5. Typography supports the image
 
-[ADR 0017](0017-a-retuned-typography-scale.md)'s scale stands. What changes is which role
-is the hero. That ADR assumed the hero was a type role and named the temperature. In
-Direction E **the garment composition is Today's hero and no `display` appears on Today at
-all**; the archetype name sits at `title` scale beside it. The `display` role survives on
-Weather, where a number genuinely is the subject.
+[ADR 0017](0017-a-retuned-typography-scale.md) owns the type scale. In Direction E **the
+garment composition is Today's hero and no `display` appears on Today at all**; the
+archetype name sits at `title` scale beside it. The `display` role remains on Weather,
+where a number genuinely is the subject.
 
-### 6. Alternatives are a glimpse, not a miniature
+### 6. Alternatives use the full composition without implying rank
 
-An alternate outfit preview shows its two anchors, its name, and a restrained disclosure
-affordance. It does not render the full board in miniature, and it implies no ranking.
+An alternate preview renders the full composition at its column width with the Today
+preset. The approved target set draws it this way, and
+[the composition specification](../design/garment-board.md#9-presets-today-and-detail)'s
+section 9 argument applies: one composition family at different sizes keeps the same
+reading order across surfaces, and a Today-preset board at about 158 points still draws a
+two-anchor core near 37 points.
 The recommendation contract produces three meaningfully different options, not a ranked
-list, and the presentation must not claim otherwise.
-
-**Amendment, 2026-09-08.** An alternate preview renders the full composition at its
-column width with the Today preset, not its two anchors alone. The approved target set
-draws it so, and [ADR 0025](0025-the-garment-board-composition-rule.md) section 9's
-argument applies: one composition family at different sizes keeps the same reading order
-across surfaces, and a Today-preset board at about 158 points still draws a two-anchor
-core near 37 points. The no-ranking rule stands: two equal columns, no position labels,
-no emphasis pill.
+list: use two equal columns, no position labels, and no emphasis pill.
 
 ### 7. Progressive disclosure
 
-Garment names, layer structure, per-piece reasoning, weather reasoning and substitutions
-belong to a recommendation detail surface reached from Today. That surface is named here
-as future work and is not designed by this ADR.
+Garment names, layer structure, per-piece reasoning and weather reasoning belong to the
+recommendation detail surface reached from Today. The surface and its ownership control
+are decided in [ADR 0026](0026-the-recommendation-detail-surface.md). Per-slot
+substitutions are outside the MVP and the surface has no substitution affordance; adding
+them requires a separate product decision.
 
 ### 8. AI provenance sits with the recommendation
 
@@ -157,50 +153,21 @@ introduced to fill the space.
 Insight before measurement. The screen leads with what the conditions mean for a clothing
 decision, and raw measurements sit in one quiet row. The hourly forecast is a
 **horizontal scrollable rail**, scanned left to right, with the temperature series drawn
-behind it on the same scale. A vertically stacked hourly table is withdrawn.
+behind it on the same scale. Do not use a vertically stacked hourly table.
 
 ### 10. Motion
 
 Gentle entrance of the garment pieces, a subtle transition between suggestions, and
 weather-state glyph transitions are the sanctioned uses. All of it remains subject to
-[ADR 0020](0020-rewriting-the-motion-law.md), including its carried-forward requirement
-that motion is never the only indication of a state change, and Reduced Motion must have
-a calm static equivalent.
-
-## Amendment, 2026-09-04: the direction applies to every screen
-
-Section 4 moved the light page ground to Soft Mist on the strength of Today, which has
-no white card. That left an unanswered question about Profile, Closet and Settings,
-where white cards do exist and where the step would fall to 1.085:1.
-
-Answered: **Direction E is adopted across Profile, Closet and Settings rather than
-preserving the old card-over-ground invariant.** The light page ground is Soft Mist
-`#F4F6F5` app-wide, and those screens are designed so that separation comes from type,
-space and the language's other devices rather than from a card fill step.
-
-Consequently the M6.1 invariant recorded in
-[`design-system.md`](../design/design-system.md#elevation-ladder) is superseded:
-`theme.test.mjs`'s assertion that light `surface` clears `background` by 1.2:1 describes
-the old allocation and does not survive the ground move. It is replaced when the tokens
-land, with whatever the new allocation actually relies on; the no-regression rule that
-matters is [ADR 0018](0018-the-atmospheric-condition-band.md)'s, that no atmosphere state
-may make contrast worse than `neutral`. Text and non-text contrast floors are unchanged
-and still binding.
-
-This amendment settles scope and the invariant. It does not decide what Profile, Closet
-or Settings look like; that is design goals 4, 5 and 6 in
-[`current-status.md`](../current-status.md).
+[ADR 0020](0020-rewriting-the-motion-law.md): motion is never the only indication of a
+state change, and Reduced Motion must have a calm static equivalent.
 
 ## Consequences
 
-- **A composition rule has to be written that this ADR does not contain.** Every board in
-  the spike is hand-placed per outfit. A rule that takes a slot list and produces a
-  placement, for two-piece, one-piece and five-piece looks, is unbuilt.
-- **Equal layout boxes do not produce equal perceived size.** The spike's anchors were set
-  to the same box width and still did not read as a pair, because silhouette paths occupy
-  different proportions of their viewBox: one fills 53% of its width, another 31%.
-  Composition logic must size by drawn bounds, not container dimensions. This is recorded
-  as an implementation constraint, not solved here.
+- **The composition rule is owned by ADR 0025.** It takes a slot list to a placement for
+  two-piece, one-piece and five-piece looks, and sizes artwork by drawn bounds rather than
+  container dimensions. Equal boxes do not produce equal perceived size because one
+  silhouette can fill 53% of its viewBox while another fills 31%.
 - **The Balanced Horizon geometry is currently unrepresented on Today.** With garments as
   the subject, an abstract layer mark competes with them rather than supporting them. This
   is an open problem, not a resolved decision. Two attempts are already spent, and neither
@@ -215,13 +182,13 @@ or Settings look like; that is design goals 4, 5 and 6 in
   fallback rather than a layout defect.
 - **The accessory role is designed and unfillable.** The recommendation contract's six
   outfit slots contain no accessory, so catalogue scarves, gloves, hats and umbrellas keep
-  weather properties that nothing can read. Unchanged by this ADR and flagged for product
-  discussion.
-- **The HTML spike proves visual direction, not native correctness.** Dynamic Type,
-  Turkish and English, genuine dark mode, VoiceOver, Reduced Motion, touch targets, safe
-  areas, the bottom tab bar, contrast, silhouette legibility at small sizes, horizontal
-  scrolling on Weather, and progressive-disclosure accessibility all require validation in
-  a real Expo spike before any of this ships.
+  weather properties that nothing can read. This remains a product discussion, not a
+  rendering gap.
+- **Native validation remains the acceptance surface.** Dynamic Type, Turkish and
+  English, genuine dark mode, VoiceOver, Reduced Motion, touch targets, safe areas, the
+  bottom tab bar, contrast, silhouette legibility at small sizes, horizontal scrolling
+  on Weather, and progressive-disclosure accessibility are validated in Expo rather than
+  inferred from HTML.
 
 ## Alternatives considered
 
@@ -250,7 +217,8 @@ is an input and the outcome is deciding what to wear.
 
 - The recommendation contract, its six outfit slots, and the absence of an accessory slot.
 - The garment rendering architecture that would later swap silhouettes for artwork.
-- The recommendation detail surface, Profile, Closet and Settings designs.
+- The recommendation detail surface, owned by ADR 0026, and Profile, Closet and Settings,
+  owned by ADRs 0028 to 0030.
 - Navigation implementation. The three-tab structure is unchanged and remains
   [ADR 0006](0006-three-tab-information-architecture.md)'s.
 - Any production code change.
