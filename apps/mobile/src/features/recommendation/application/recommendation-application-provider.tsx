@@ -26,9 +26,15 @@ import { useProfileApplication } from '@/features/profile/application/profile-co
 import { LocalRecommendationRepository } from '@/features/recommendation/data/recommendation-repository';
 import { SqliteRecommendationLocalDataSource } from '@/features/recommendation/data/sqlite-recommendation-local-data-source';
 import {
+  OnDeviceAiClient,
+  type OnDeviceAiModule,
+} from '@/features/recommendation/data/on-device-ai-client';
+import { RoutedAiClient } from '@/features/recommendation/data/routed-ai-client';
+import {
   WorkerAiClient,
   WorkerAiClientError,
 } from '@/features/recommendation/data/worker-ai-client';
+import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { resolveWorkerBaseUrl, WorkerBaseUrlConfigurationError } from '@/config/worker-base-url';
 import { openKuyaraDatabase } from '@/infrastructure/sqlite/expo-sqlite-database';
@@ -41,7 +47,7 @@ function deviceLocalDay() {
   return { key: localDayKey(date), variant: localDayVariant(date) };
 }
 
-export function createRecommendationClient(): Pick<WorkerAiClient, 'recommend'> {
+function createWorkerClient(): Pick<WorkerAiClient, 'recommend'> {
   try {
     return new WorkerAiClient({
       baseUrl: resolveWorkerBaseUrl({
@@ -56,6 +62,19 @@ export function createRecommendationClient(): Pick<WorkerAiClient, 'recommend'> 
       recommend: () => Promise.reject(new WorkerAiClientError('service')),
     };
   }
+}
+
+// ADR 0034 section 1: the composition boundary that builds the AI chain, on-device ahead of
+// the Worker. The native module is not bound yet, so `module` is null, every device reports
+// the on-device tier as unavailable and the request goes straight to the Worker with the
+// whole budget. Phase 3 passes the real module in here and nothing else changes.
+export function createRecommendationClient(
+  module: OnDeviceAiModule | null = null,
+): RoutedAiClient {
+  return new RoutedAiClient({
+    onDevice: new OnDeviceAiClient({ module }),
+    worker: createWorkerClient(),
+  });
 }
 
 async function loadRepository() {
@@ -82,6 +101,8 @@ export function RecommendationApplicationProvider({
     setLocalDay((current) => current.key === next.key ? current : next);
   }, []);
   const client = useMemo(() => createRecommendationClient(), []);
+  const [onDeviceAvailability, setOnDeviceAvailability] =
+    useState<OnDeviceAiAvailability | null>(null);
   const controller = useMemo(
     () => new RecommendationApplicationController(localProfileId, {
       loadRepository,
@@ -124,6 +145,18 @@ export function RecommendationApplicationProvider({
   useEffect(() => {
     void controller.initialize();
   }, [controller]);
+
+  // ADR 0034 section 5: reading availability runs no inference and consumes no quota, so it
+  // happens once on mount and never on a user action. It feeds the AI status row only.
+  useEffect(() => {
+    let active = true;
+    void client.getAvailability().then((availability) => {
+      if (active) setOnDeviceAvailability(availability);
+    });
+    return () => {
+      active = false;
+    };
+  }, [client]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (next) => {
@@ -186,6 +219,7 @@ export function RecommendationApplicationProvider({
 
   const value = useMemo<RecommendationApplicationValue>(() => ({
     state,
+    onDeviceAvailability,
     refresh: () => {
       const currentDay = deviceLocalDay();
       setLocalDay((previous) => previous.key === currentDay.key ? previous : currentDay);
@@ -209,7 +243,15 @@ export function RecommendationApplicationProvider({
       });
     },
     reevaluateLocalDay,
-  }), [controller, profileState, reevaluateLocalDay, state, weatherApplication, weatherState]);
+  }), [
+    controller,
+    onDeviceAvailability,
+    profileState,
+    reevaluateLocalDay,
+    state,
+    weatherApplication,
+    weatherState,
+  ]);
 
   return (
     <RecommendationApplicationContext value={value}>

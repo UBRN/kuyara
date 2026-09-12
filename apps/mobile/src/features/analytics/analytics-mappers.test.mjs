@@ -16,6 +16,7 @@ import {
   onboardingLocationMethodProperty,
   triggerReasonProperty,
 } from './domain/analytics-mappers.ts';
+import { recommendationGenerationModes } from '../recommendation/domain/generation-mode.ts';
 
 test('every failure category maps to a snake_case property', () => {
   assert.deepEqual(
@@ -24,11 +25,12 @@ test('every failure category maps to a snake_case property', () => {
   );
 });
 
+// Total over the domain union: a fourth mode would be a build error here, never a raw
+// string on an event (ADR 0034 section 3).
 test('every generation mode maps to a snake_case property', () => {
-  assert.equal(generationModeProperty('ai-assisted'), 'ai_assisted');
-  assert.equal(
-    generationModeProperty('deterministic-fallback'),
-    'deterministic_fallback',
+  assert.deepEqual(
+    recommendationGenerationModes.map(generationModeProperty),
+    ['on_device_ai', 'ai_assisted', 'deterministic_fallback'],
   );
 });
 

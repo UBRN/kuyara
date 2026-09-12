@@ -105,11 +105,15 @@ function createHarness({ cached = null, client, failSave = false, captureAnalyti
     },
   };
   const recommend = client?.recommend ?? (async (request) => workerResponse(request));
+  // The routed client names the tier it used. A `client.recommend` override stands for the
+  // Worker tier, whose answers are `ai-assisted` exactly as before.
+  const recommendRouted = client?.recommendRouted ??
+    (async (request) => ({ data: await recommend(request), generationMode: 'ai-assisted' }));
   const aiClient = {
-    async recommend(...args) {
+    async recommendRouted(request) {
       calls.client += 1;
-      requests.push(args[0]);
-      return recommend(...args);
+      requests.push(request);
+      return recommendRouted(request);
     },
   };
   const controller = new RecommendationApplicationController(profileId, {
@@ -465,7 +469,7 @@ test('recommendation_regenerated reports the trigger, result and generation mode
   assert.deepEqual(captured, [{
     name: 'recommendation_regenerated',
     properties: {
-      schema_version: 1,
+      schema_version: 2,
       trigger_reason: 'first_recommendation',
       result: 'success',
       generation_mode: 'ai_assisted',
@@ -492,7 +496,7 @@ test('recommendation_regenerated omits generation_mode and reports failure_kept_
   assert.deepEqual(captured, [{
     name: 'recommendation_regenerated',
     properties: {
-      schema_version: 1,
+      schema_version: 2,
       trigger_reason: 'explicit_request',
       result: 'failure_kept_last_known',
     },
@@ -512,9 +516,31 @@ test('recommendation_regenerated reports failure_no_snapshot when a save fails w
   assert.deepEqual(captured, [{
     name: 'recommendation_regenerated',
     properties: {
-      schema_version: 1,
+      schema_version: 2,
       trigger_reason: 'explicit_request',
       result: 'failure_no_snapshot',
     },
   }]);
+});
+
+test('the tier the routed client used becomes the stored generation mode', async () => {
+  const captured = [];
+  const { controller, calls } = createHarness({
+    client: {
+      recommendRouted: async (request) => ({
+        data: workerResponse(request),
+        generationMode: 'on-device-ai',
+      }),
+    },
+    captureAnalyticsEvent: (name, properties) => captured.push({ name, properties }),
+  });
+  await controller.initialize();
+
+  const snapshot = await controller.refresh('explicit', input(16));
+
+  assert.equal(snapshot.generationMode, 'on-device-ai');
+  assert.equal(snapshot.recommendation.generationMode, 'on-device-ai');
+  assert.equal(snapshot.recommendation.outfits.length, 3);
+  assert.deepEqual(calls, { client: 1, saves: 1 });
+  assert.equal(captured[0].properties.generation_mode, 'on_device_ai');
 });

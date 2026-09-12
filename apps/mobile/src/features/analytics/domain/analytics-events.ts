@@ -11,7 +11,7 @@ import type { WardrobeEntryState } from '@/features/wardrobe/domain/wardrobe-ite
 
 // Taxonomy 5.0: incremented only when an existing event's properties change meaning or an
 // allowed value set changes, never when a new event is added.
-export const ANALYTICS_SCHEMA_VERSION = 1;
+export const ANALYTICS_SCHEMA_VERSION = 2;
 
 type AnalyticsEventBase = Readonly<{
   schema_version: typeof ANALYTICS_SCHEMA_VERSION;
@@ -43,7 +43,10 @@ export type FailureCategoryProperty =
   | 'unknown';
 
 // Taxonomy 5.0: the snake_case form of the domain's generation mode.
-export type GenerationModeProperty = 'ai_assisted' | 'deterministic_fallback';
+export type GenerationModeProperty =
+  | 'on_device_ai'
+  | 'ai_assisted'
+  | 'deterministic_fallback';
 
 // Taxonomy 5.5: the snake_case form of `RecommendationRefreshTrigger`, all seven values.
 export type TriggerReasonProperty =

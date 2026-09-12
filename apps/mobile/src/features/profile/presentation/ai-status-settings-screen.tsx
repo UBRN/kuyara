@@ -4,17 +4,20 @@ import { Icon, NativeList, NativeListSection, NativeListRow, type IconName } fro
 import { ProbeLoadingOverlay } from '@/features/profile/presentation/probe-loading-overlay';
 import type { AiProbeUiState } from '@/features/recommendation/application/use-ai-probe';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
+import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import { useLocalization } from '@/localization/use-messages';
 
-// ADR 0030 section 5: a first group with the last recommendation's coarse generation
-// mode, then a second group with the tinted "Check AI status" row, a result row when
-// there is a result (a monochrome status glyph in the shared tile, words beside it in
-// the system's secondary ink, never a status colour), and a footer. Provider and model
-// never appear here or anywhere in this surface.
+// ADR 0030 section 5 and ADR 0034 section 5: a first group with what the device reports
+// about on-device selection and the last recommendation's coarse generation mode, then a
+// second group with the tinted "Check AI status" row, a result row when there is a result
+// (a monochrome status glyph in the shared tile, words beside it in the system's secondary
+// ink, never a status colour), and a footer. Provider and model never appear here or
+// anywhere in this surface.
 export type AiStatusSettingsScreenProps = Readonly<{
   aiStatus: AiProbeUiState;
   isProbeSupported: boolean;
   lastGenerationMode: RecommendationGenerationMode | null;
+  onDeviceAvailability: OnDeviceAiAvailability | null;
   onCheckAiStatus: () => void;
 }>;
 
@@ -22,16 +25,28 @@ export function AiStatusSettingsScreen({
   aiStatus,
   isProbeSupported,
   lastGenerationMode,
+  onDeviceAvailability,
   onCheckAiStatus,
 }: AiStatusSettingsScreenProps) {
   const { language, messages } = useLocalization();
   const copy = messages.settings;
 
-  const lastGenerationModeCopy = lastGenerationMode === 'ai-assisted'
-    ? copy.aiStatusLastAiAssisted
-    : lastGenerationMode === 'deterministic-fallback'
-      ? copy.aiStatusLastStandard
-      : copy.aiStatusLastUnknown;
+  // Reading availability calls nothing, so this row is never a probe. Until the answer
+  // arrives, and for every reason other than the switch being off, the device reads as one
+  // that cannot choose locally.
+  const onDeviceCopy = onDeviceAvailability?.status === 'available'
+    ? copy.aiStatusOnDeviceAvailable
+    : onDeviceAvailability?.reason === 'apple_intelligence_not_enabled'
+      ? copy.aiStatusOnDeviceDisabled
+      : copy.aiStatusOnDeviceUnavailable;
+
+  const lastGenerationModeCopy = lastGenerationMode === 'on-device-ai'
+    ? copy.aiStatusLastOnDeviceAi
+    : lastGenerationMode === 'ai-assisted'
+      ? copy.aiStatusLastAiAssisted
+      : lastGenerationMode === 'deterministic-fallback'
+        ? copy.aiStatusLastStandard
+        : copy.aiStatusLastUnknown;
 
   const result = !isProbeSupported
     ? copy.aiStatusUnsupported
@@ -70,6 +85,10 @@ export function AiStatusSettingsScreen({
     <View style={styles.root}>
       <NativeList testID="settings-ai-status-screen">
         <NativeListSection testID="settings-ai-status-last-mode-group">
+          <NativeListRow
+            label={onDeviceCopy}
+            testID="settings-ai-status-on-device"
+          />
           <NativeListRow label={lastGenerationModeCopy} testID="settings-ai-status-last-mode" />
         </NativeListSection>
 

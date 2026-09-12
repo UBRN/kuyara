@@ -151,12 +151,12 @@ test('selecting a searched place that changes the location captures location_cha
 
   expect(analytics.captures.filter((c) => c.name === 'location_changed')).toEqual([{
     name: 'location_changed',
-    properties: { schema_version: 1, method: 'manual_selection', change_context: 'weather_tab' },
+    properties: { schema_version: 2, method: 'manual_selection', change_context: 'weather_tab' },
     options: undefined,
   }]);
   expect(analytics.captures.filter((c) => c.name === 'feature_used_first_time')).toEqual([{
     name: 'feature_used_first_time',
-    properties: { schema_version: 1, feature_name: 'location_override' },
+    properties: { schema_version: 2, feature_name: 'location_override' },
     options: undefined,
   }]);
 
@@ -190,7 +190,7 @@ test('selecting the device location does not report feature_used_first_time for 
 
   expect(analytics.captures.filter((c) => c.name === 'location_changed')).toEqual([{
     name: 'location_changed',
-    properties: { schema_version: 1, method: 'device', change_context: 'weather_tab' },
+    properties: { schema_version: 2, method: 'device', change_context: 'weather_tab' },
     options: undefined,
   }]);
   expect(analytics.captures.some((c) => c.name === 'feature_used_first_time')).toBe(false);

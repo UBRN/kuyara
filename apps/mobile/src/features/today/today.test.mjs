@@ -289,22 +289,31 @@ test('a mild clear day still gives the primary outfit a rationale', () => {
   ]);
 });
 
-test('only AI-assisted recommendations have a localized accessible generation mark', () => {
-  assert.equal(loadedPresentation().generationMode, null);
-
+// ADR 0034 section 4: one badge per stored mode, and the on-device words only when the
+// stored mode is `on-device-ai`, so the badge never advertises a tier that did not choose.
+test('every generation mode has its own localized accessible generation mark', () => {
   const recommendation = todayScreenState.snapshot.recommendation;
   assert.equal(recommendation.status, 'recommended');
-  const aiAssisted = loadedPresentation({
-    ...todayScreenState,
-    snapshot: {
-      ...todayScreenState.snapshot,
-      recommendation: { ...recommendation, generationMode: 'ai-assisted' },
-    },
-  });
-  assert.deepEqual(aiAssisted.generationMode, {
-    label: 'AI-assisted',
-    accessibilityLabel: 'Recommendation source: AI-assisted',
-  });
+
+  for (const [generationMode, label, showsAiMark] of [
+    // No icon of any kind beside the Apple word mark.
+    ['on-device-ai', 'Chosen on your device with Apple Intelligence', false],
+    ['ai-assisted', 'AI-assisted', true],
+    ['deterministic-fallback', 'Standard suggestions', false],
+  ]) {
+    const presentation = loadedPresentation({
+      ...todayScreenState,
+      snapshot: {
+        ...todayScreenState.snapshot,
+        recommendation: { ...recommendation, generationMode },
+      },
+    });
+    assert.deepEqual(presentation.generationMode, {
+      label,
+      accessibilityLabel: `Recommendation source: ${label}`,
+      showsAiMark,
+    });
+  }
 });
 
 test('detail reasoning groups garments by requirement and localizes trade-offs as rows', () => {

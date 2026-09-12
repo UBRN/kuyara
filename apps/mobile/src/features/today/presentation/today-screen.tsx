@@ -267,9 +267,11 @@ export function TodayScreen({
           {presentation.generationMode ? (
             <>
               <View style={styles.generationMode}>
-                <View testID="today-provenance-sparkle">
-                  <Icon color={theme.colors.brandAccent} name="sparkle" size={12} />
-                </View>
+                {presentation.generationMode.showsAiMark ? (
+                  <View testID="today-provenance-sparkle">
+                    <Icon color={theme.colors.brandAccent} name="sparkle" size={12} />
+                  </View>
+                ) : null}
                 <AppText
                   accessibilityLabel={presentation.generationMode.accessibilityLabel}
                   colorRole="textSecondary"

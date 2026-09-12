@@ -67,7 +67,7 @@ async function insertProfile(database, id = 'stable-profile-id') {
   );
 }
 
-test('an empty database applies versions 1 through 12 in order with the final schema', async (t) => {
+test('an empty database applies versions 1 through 13 in order with the final schema', async (t) => {
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
 
@@ -90,7 +90,7 @@ test('an empty database applies versions 1 through 12 in order with the final sc
     'PRAGMA table_info(weather_alert_deliveries)',
   );
 
-  assert.equal(latestDatabaseVersion, 12);
+  assert.equal(latestDatabaseVersion, 13);
   assert.equal(version.user_version, latestDatabaseVersion);
   assert.equal(profileTable.name, 'local_profiles');
   assert.match(profileTable.sql, /CHECK \(singleton_key = 1\)/);
@@ -177,7 +177,7 @@ test('an empty database applies versions 1 through 12 in order with the final sc
   );
 });
 
-test('an existing version 1 database upgrades through version 12 without changing profile data', async (t) => {
+test('an existing version 1 database upgrades through version 13 without changing profile data', async (t) => {
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
   await createReleasedVersionOneDatabase(database);
@@ -193,7 +193,7 @@ test('an existing version 1 database upgrades through version 12 without changin
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'wardrobe_items'",
   );
 
-  assert.equal(version.user_version, 12);
+  assert.equal(version.user_version, latestDatabaseVersion);
   assert.deepEqual(rows.map((row) => ({ ...row })), [{
     id: 'stable-profile-id',
     created_at: timestamp,
@@ -230,7 +230,7 @@ test('versions 3 through 12 preserve a released version 2 wardrobe row and are n
 
   const version = await database.getFirstAsync('PRAGMA user_version');
   const rows = await database.getAllAsync('SELECT * FROM wardrobe_items');
-  assert.equal(version.user_version, 12);
+  assert.equal(version.user_version, latestDatabaseVersion);
   assert.deepEqual(rows.map((row) => ({ ...row })), [{
     id: 'item-id',
     local_profile_id: 'stable-profile-id',
@@ -300,7 +300,7 @@ test('version 7 preserves version 6 wardrobe rows and defaults their entry state
 
   const version = await database.getFirstAsync('PRAGMA user_version');
   const rows = await database.getAllAsync('SELECT * FROM wardrobe_items ORDER BY id');
-  assert.equal(version.user_version, 12);
+  assert.equal(version.user_version, latestDatabaseVersion);
   assert.deepEqual(rows.map((row) => ({ ...row })), [
     {
       id: 'active-item', local_profile_id: 'stable-profile-id', name: 'Kazak',
@@ -609,7 +609,7 @@ test('version 4 upgrades a released version 3 database and rolls back atomically
   const tables = await database.getAllAsync(
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('active_locations', 'weather_snapshots', 'weather_hourly_entries') ORDER BY name",
   );
-  assert.equal(version.user_version, 12);
+  assert.equal(version.user_version, latestDatabaseVersion);
   assert.deepEqual(tables.map(({ name }) => name), [
     'active_locations',
     'weather_hourly_entries',
@@ -692,7 +692,7 @@ for (const [preference, gender, deletedAt] of [['womens', 'woman', null], ['mens
       analytics_consent: 'undecided',
     });
     assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM wardrobe_items') }, item);
-    assert.equal((await database.getFirstAsync('PRAGMA user_version' )).user_version, 12);
+    assert.equal((await database.getFirstAsync('PRAGMA user_version' )).user_version, latestDatabaseVersion);
     assert.equal((await database.getFirstAsync('PRAGMA foreign_keys')).foreign_keys, 1);
     assert.deepEqual(await database.getAllAsync('PRAGMA foreign_key_check'), []);
     await assert.rejects(() => database.runAsync("UPDATE wardrobe_items SET local_profile_id = 'missing'"), /FOREIGN KEY/);
@@ -833,7 +833,7 @@ for (const [id, name] of [['sample.istanbul', 'Istanbul'], ['sample.ankara', 'An
     const beforeWeather = await database.getAllAsync('SELECT * FROM weather_snapshots');
     const beforeProfile = await database.getAllAsync('SELECT * FROM local_profiles');
     await migrateDatabase(database);
-    assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 12);
+    assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
     assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM active_locations') }, { ...beforeLocation, display_name: name });
     assert.deepEqual(await database.getAllAsync('SELECT * FROM weather_snapshots'), beforeWeather);
     assert.deepEqual(
@@ -909,7 +909,7 @@ test('version 10 resets onboarding once and preserves the profile plus cached da
 
   await migrateDatabase(database);
 
-  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 12);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM local_profiles') }, {
     singleton_key: 1,
     id: 'stable-profile-id',
@@ -1014,7 +1014,7 @@ test('version 11 adds the weather alert ledger without changing existing rows', 
 
   await migrateDatabase(database);
 
-  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 12);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   assert.deepEqual(
     (await database.getAllAsync('SELECT * FROM local_profiles')).map((row) => ({ ...row })),
     profileBefore.map((row) => ({ ...row, analytics_consent: 'undecided' })),
@@ -1076,7 +1076,7 @@ test('version 12 defaults an existing profile row to undecided analytics consent
 
   await migrateDatabase(database);
 
-  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 12);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   assert.deepEqual(
     (await database.getAllAsync('SELECT * FROM local_profiles')).map((row) => ({ ...row })),
     profileBefore.map((row) => ({ ...row, analytics_consent: 'undecided' })),
@@ -1103,4 +1103,119 @@ test('version 12 defaults an existing profile row to undecided analytics consent
       .analytics_consent,
     'withdrawn',
   );
+});
+
+// ADR 0034 section 3: the widened CHECK is a table rebuild, so the test that matters is
+// that every existing snapshot row survives it byte for byte and that an unknown mode is
+// still rejected afterwards.
+async function migrateToVersionTwelve(database) {
+  const stopBeforeV13 = {
+    execAsync: database.execAsync.bind(database),
+    getFirstAsync: database.getFirstAsync.bind(database),
+    withExclusiveTransactionAsync: (task) =>
+      database.withExclusiveTransactionAsync((transaction) => task({
+        execAsync: async (sql) => {
+          if (sql.includes('recommendation_snapshots_v13')) {
+            throw new Error('stop before v13');
+          }
+          await transaction.execAsync(sql);
+        },
+        runAsync: transaction.runAsync.bind(transaction),
+        getFirstAsync: transaction.getFirstAsync.bind(transaction),
+        getAllAsync: transaction.getAllAsync.bind(transaction),
+      })),
+  };
+  await assert.rejects(() => migrateDatabase(stopBeforeV13), /stop before v13/);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 12);
+}
+
+test('version 13 widens the generation mode check and preserves every snapshot row', async (t) => {
+  const database = new NodeSqliteDatabase();
+  t.after(() => database.close());
+  await migrateToVersionTwelve(database);
+  await insertProfile(database);
+  await database.execAsync(`
+    INSERT INTO recommendation_snapshots VALUES ('recommendation', 'stable-profile-id', 'weather', 'manual:sample', 'ai-assisted', '{"a":1}', '[]', '${timestamp}', '${timestamp}');
+  `);
+  const before = (await database.getAllAsync('SELECT * FROM recommendation_snapshots'))
+    .map((row) => ({ ...row }));
+  assert.equal(before.length, 1);
+
+  await migrateDatabase(database);
+
+  const after = (await database.getAllAsync('SELECT * FROM recommendation_snapshots'))
+    .map((row) => ({ ...row }));
+  const table = await database.getFirstAsync(
+    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'recommendation_snapshots'",
+  );
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
+  assert.deepEqual(after, before);
+  assert.match(
+    table.sql,
+    /generation_mode IN \('on-device-ai', 'ai-assisted', 'deterministic-fallback'\)/,
+  );
+  assert.deepEqual(
+    (await database.getAllAsync('PRAGMA foreign_key_list(recommendation_snapshots)'))
+      .map(({ table: parent, from, to, on_update, on_delete }) =>
+        ({ parent, from, to, on_update, on_delete })),
+    [{
+      parent: 'local_profiles',
+      from: 'local_profile_id',
+      to: 'id',
+      on_update: 'RESTRICT',
+      on_delete: 'RESTRICT',
+    }],
+  );
+  assert.deepEqual(await database.getAllAsync('PRAGMA foreign_key_check'), []);
+});
+
+test('version 13 accepts the on-device mode and still rejects an unknown one', async (t) => {
+  const database = new NodeSqliteDatabase();
+  t.after(() => database.close());
+  await migrateDatabase(database);
+  await insertProfile(database);
+  await database.execAsync(`
+    INSERT INTO recommendation_snapshots VALUES ('recommendation', 'stable-profile-id', 'weather', 'manual:sample', 'deterministic-fallback', '{}', '[]', '${timestamp}', '${timestamp}');
+  `);
+
+  for (const mode of ['on-device-ai', 'ai-assisted', 'deterministic-fallback']) {
+    await database.runAsync('UPDATE recommendation_snapshots SET generation_mode = ?', [mode]);
+    assert.equal(
+      (await database.getFirstAsync('SELECT generation_mode FROM recommendation_snapshots'))
+        .generation_mode,
+      mode,
+    );
+  }
+  for (const mode of ['on_device_ai', 'apple-intelligence', '']) {
+    await assert.rejects(
+      () => database.runAsync('UPDATE recommendation_snapshots SET generation_mode = ?', [mode]),
+      /CHECK/,
+    );
+  }
+});
+
+test('version 13 carries an orphaned snapshot row through instead of refusing to start', async (t) => {
+  // A snapshot whose profile row is gone: reachable because app transactions run with
+  // foreign keys off. The rebuild must copy it, not throw, or the app cannot start.
+  const database = new NodeSqliteDatabase();
+  t.after(() => database.close());
+  await migrateToVersionTwelve(database);
+  await database.execAsync(`
+    PRAGMA foreign_keys = OFF;
+    INSERT INTO recommendation_snapshots VALUES ('orphan', 'missing-profile', 'weather', 'manual:sample', 'ai-assisted', '{}', '[]', '${timestamp}', '${timestamp}');
+    PRAGMA foreign_keys = ON;
+  `);
+  const before = (await database.getAllAsync('SELECT * FROM recommendation_snapshots'))
+    .map((row) => ({ ...row }));
+  const orphansBefore = await database.getAllAsync('PRAGMA foreign_key_check');
+  assert.equal(orphansBefore.length, 1);
+
+  await migrateDatabase(database);
+
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
+  assert.deepEqual(
+    (await database.getAllAsync('SELECT * FROM recommendation_snapshots')).map((row) => ({ ...row })),
+    before,
+  );
+  assert.deepEqual(await database.getAllAsync('PRAGMA foreign_key_check'), orphansBefore);
 });

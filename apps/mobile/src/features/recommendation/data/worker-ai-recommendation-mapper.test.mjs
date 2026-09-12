@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { picksAreMeaningfullyDifferent } from '@kuyara/contracts';
+
 import {
   createAiRecommendationRequest,
   mapWorkerAiRecommendation,
@@ -130,5 +132,50 @@ test('mobile request sends only dress style and preserves the candidate set acro
     assert.equal('birthYear' in request, false);
     assert.equal('localDayKey' in request, false);
     assert.equal(['age', 'Band'].join('') in request, false);
+  }
+});
+
+test('records the tier that produced the picks as the generation mode', () => {
+  const request = createAiRecommendationRequest(input());
+  const selected = picks(request);
+
+  assert.equal(
+    mapWorkerAiRecommendation(request, { picks: selected }, 'on-device-ai').generationMode,
+    'on-device-ai',
+  );
+  assert.equal(
+    mapWorkerAiRecommendation(request, { picks: selected }, 'ai-assisted').generationMode,
+    'ai-assisted',
+  );
+});
+
+// The deterministic composer never offers two options a user would call the same outfit, so
+// the near-duplicate has to be built. Whichever gate fires first, the answer is rejected
+// whole and never repaired into a different outfit.
+test('rejects an answer that fails the shared distinctness rule, whichever tier chose it', () => {
+  const request = createAiRecommendationRequest(input());
+  const selected = picks(request);
+  const twin = {
+    ...request.options.find(({ optionId }) => optionId === selected[0].optionId),
+    optionId: 'twin-of-first',
+  };
+  const withTwin = { ...request, options: [...request.options, twin] };
+  assert.equal(
+    picksAreMeaningfullyDifferent([
+      request.options.find(({ optionId }) => optionId === selected[0].optionId),
+      twin,
+    ]),
+    false,
+  );
+
+  for (const mode of ['on-device-ai', 'ai-assisted']) {
+    assert.throws(
+      () => mapWorkerAiRecommendation(
+        withTwin,
+        { picks: [selected[0], { ...selected[1], optionId: twin.optionId }, selected[2]] },
+        mode,
+      ),
+      (error) => error instanceof WorkerAiRecommendationMappingError,
+    );
   }
 });

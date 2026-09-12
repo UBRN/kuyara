@@ -2,7 +2,10 @@
 
 Status: Proposed (2026-09-12)
 
-Implementation: not started. This ADR defines the locus of the AI selection step decided
+Implementation: the shared privacy projection and the distinctness rule in `packages/contracts`, the routed
+client with its unavailable stub, the third generation mode with SQLite migration 13, the three badges and
+the AI status availability row are implemented. The native Foundation Models module is not bound yet, so
+every device still takes the Worker tier. This ADR defines the locus of the AI selection step decided
 in [ADR 0007](0007-ai-selects-precomposed-outfits.md): where the selection runs, what the
 user is told about it, and what may never move with it. It authorizes the native module,
 the routed client, the third generation mode and the shared projection described below,

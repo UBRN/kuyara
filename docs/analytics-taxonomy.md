@@ -161,7 +161,7 @@ surface became part of milestone 10 under ADR 0033.
 ### 5.0 Properties every event carries
 
 Every custom event sent through the `ProductAnalytics` boundary carries `schema_version`
-(integer, starting at 1). It is incremented only when an existing event's properties change
+(integer, currently 2). It is incremented only when an existing event's properties change
 meaning or an allowed value set changes, not when a new event is added. The SDK-supplied app
 version, OS version, and build number (already covered by the provider default, section 5.1)
 are not duplicated as custom properties on any event.
@@ -171,8 +171,8 @@ records twenty-four from the preceding revision; that line is corrected when thi
 is accepted.
 
 **Domain values are mapped, not passed through.** Several enums below are the `snake_case`
-form of a kebab-case domain type. `generation_mode` is `ai_assisted` / `deterministic_fallback`
-for the domain's `'ai-assisted'` / `'deterministic-fallback'`
+form of a kebab-case domain type. `generation_mode` is `on_device_ai` / `ai_assisted` / `deterministic_fallback`
+for the domain's `'on-device-ai'` / `'ai-assisted'` / `'deterministic-fallback'`
 (`features/recommendation/domain/generation-mode.ts`), and `trigger_reason` maps the seven
 values of `RecommendationRefreshTrigger` the same way. The mapping lives in the
 `ProductAnalytics` boundary, in one place, and a domain value with no mapping is a build
@@ -309,8 +309,8 @@ table in the same change.
 
 | Event | Trigger | Properties |
 | --- | --- | --- |
-| `recommendation_viewed` | Today gains focus while a recommendation is visible, once per focus appearance. | `generation_mode` (`ai_assisted`\|`deterministic_fallback`), `cache_state` (`fresh`\|`stale_shown`\|`refreshing`), `outfit_count` (`3`), `dress_style` and `age_bucket` (section 3) |
-| `recommendation_regenerated` | A recommendation generation attempt completes. | `trigger_reason` (seven values, below), `result` (`success`\|`failure_kept_last_known`\|`failure_no_snapshot`), `generation_mode` (`ai_assisted`\|`deterministic_fallback`, present only when `result` is `success`) |
+| `recommendation_viewed` | Today gains focus while a recommendation is visible, once per focus appearance. | `generation_mode` (`on_device_ai`\|`ai_assisted`\|`deterministic_fallback`), `cache_state` (`fresh`\|`stale_shown`\|`refreshing`), `outfit_count` (`3`), `dress_style` and `age_bucket` (section 3) |
+| `recommendation_regenerated` | A recommendation generation attempt completes. | `trigger_reason` (seven values, below), `result` (`success`\|`failure_kept_last_known`\|`failure_no_snapshot`), `generation_mode` (`on_device_ai`\|`ai_assisted`\|`deterministic_fallback`, present only when `result` is `success`) |
 
 `recommendation_viewed` is an impression, not a render counter. Rerenders while Today
 remains focused do not emit it again. When cache states overlap, `refreshing` takes
@@ -366,7 +366,7 @@ An analysis that sees zero `explicit_request` events is seeing the product as it
 
 | Event | Trigger | Properties |
 | --- | --- | --- |
-| `outfit_detail_opened` | The user opens one of the three outfits from Today. | `outfit_position` (`1`\|`2`\|`3`), `archetype` (one of the twelve closed archetype identifiers already defined in the AI selection contract; not restated here to avoid drift from that source of truth), `generation_mode` (`ai_assisted`\|`deterministic_fallback`), `dress_style` and `age_bucket` (section 3) |
+| `outfit_detail_opened` | The user opens one of the three outfits from Today. | `outfit_position` (`1`\|`2`\|`3`), `archetype` (one of the twelve closed archetype identifiers already defined in the AI selection contract; not restated here to avoid drift from that source of truth), `generation_mode` (`on_device_ai`\|`ai_assisted`\|`deterministic_fallback`), `dress_style` and `age_bucket` (section 3) |
 
 This is the only selection signal the current product surfaces: there is no separate
 "choose this outfit" action beyond opening its detail. If a future explicit "wearing this"

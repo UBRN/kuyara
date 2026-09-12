@@ -52,8 +52,12 @@ export class WorkerAiClient {
     this.requestTimeoutMilliseconds = dependencies.requestTimeoutMilliseconds ?? 20000;
   }
 
+  // `options.timeoutMilliseconds` is what the routed client has left of the single 20 s
+  // budget after an on-device attempt. Omitted, the instance default applies and the
+  // Worker path behaves exactly as it did before the on-device tier existed.
   async recommend(
     input: AiRecommendV1Request,
+    options?: Readonly<{ timeoutMilliseconds?: number }>,
   ): Promise<AiRecommendV1Success['data']> {
     const request = aiRecommendV1RequestSchema.safeParse(input);
     if (!request.success) throw new WorkerAiClientError('invalid-request');
@@ -61,7 +65,7 @@ export class WorkerAiClient {
     const controller = new AbortController();
     const timeout = setTimeout(
       () => controller.abort(),
-      this.requestTimeoutMilliseconds,
+      options?.timeoutMilliseconds ?? this.requestTimeoutMilliseconds,
     );
 
     try {

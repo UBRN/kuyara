@@ -10,7 +10,7 @@ import {
   weatherFreshness,
   weatherFreshnessWindowMilliseconds,
 } from './domain/weather.ts';
-import { migrateDatabase } from '../../infrastructure/sqlite/migrations.ts';
+import { latestDatabaseVersion, migrateDatabase } from '../../infrastructure/sqlite/migrations.ts';
 import { NodeSqliteDatabase } from '../../../test/node-sqlite-database.mjs';
 
 const profileId = 'profile-weather-test';
@@ -102,7 +102,7 @@ test('migration v4 enforces one active location and maps manual and device varia
   const { database, repository } = await setup();
   t.after(() => database.close());
   const version = await database.getFirstAsync('PRAGMA user_version');
-  assert.equal(version.user_version, 12);
+  assert.equal(version.user_version, latestDatabaseVersion);
 
   const istanbul = getManualLocation('sample.istanbul');
   const manual = await repository.setActiveLocation(profileId, istanbul);

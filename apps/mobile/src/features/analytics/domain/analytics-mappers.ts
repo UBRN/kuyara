@@ -30,6 +30,7 @@ const failureCategoryProperties = {
 } as const satisfies Record<FailureCategory, FailureCategoryProperty>;
 
 const generationModeProperties = {
+  'on-device-ai': 'on_device_ai',
   'ai-assisted': 'ai_assisted',
   'deterministic-fallback': 'deterministic_fallback',
 } as const satisfies Record<RecommendationGenerationMode, GenerationModeProperty>;

@@ -84,7 +84,7 @@ The workspace is a pnpm monorepo: `apps/mobile` (Expo and React Native), `apps/w
 - AI is not personalization: it picks three meaningfully different outfits that do not repeat the previous day from already valid options. Dress style reorders formality preference and excludes nothing ([ADR 0031](docs/adr/0031-dress-style-is-the-formality-signal.md)).
 - Provide a device-local deterministic three-outfit fallback that composes from the catalog only. AI failure must never prevent a recommendation.
 - Generate or refresh a recommendation only on the approved triggers recorded in [`docs/product-decisions.md`](docs/product-decisions.md#approved-recommendation-caching-refresh-and-status-behavior), never on every launch. Cache identity is weather snapshot identity, clothing preference, dress style, catalog version, and day variant. Coalesce duplicate in-flight requests and preserve the last valid recommendation when a refresh fails.
-- Record a coarse generation mode on the result, AI-assisted or deterministic fallback. Never expose provider names, model identity, or technical failures to users.
+- Record a coarse generation mode on the result: on-device AI, AI-assisted, or deterministic fallback. Never expose provider names, model identity, or technical failures to users or analytics; the single exception is the on-device badge, which names Apple Intelligence as a referential word mark with no logo or glyph. See [ADR 0034](docs/adr/0034-on-device-ai-selection-through-apple-foundation-models.md).
 
 ## Wardrobe and local files
 

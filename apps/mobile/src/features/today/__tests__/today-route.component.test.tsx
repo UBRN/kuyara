@@ -266,6 +266,7 @@ function Providers({
             <WeatherApplicationContext value={weather}>
               <RecommendationApplicationContext value={{
                 state: recommendation,
+                onDeviceAvailability: null,
                 refresh: recommendationRefresh,
                 reevaluateLocalDay,
               }}>
@@ -314,7 +315,7 @@ test('Today reports screen_viewed and recommendation_viewed once while a recomme
   expect(names.filter((name) => name === 'recommendation_viewed')).toHaveLength(1);
   const viewed = productAnalytics.analytics.captures.find((c) => c.name === 'recommendation_viewed');
   expect(viewed?.properties).toEqual({
-    schema_version: 1,
+    schema_version: 2,
     generation_mode: todayRecommendation.generationMode === 'ai-assisted' ? 'ai_assisted' : 'deterministic_fallback',
     cache_state: 'fresh',
     outfit_count: 3,
@@ -567,7 +568,7 @@ test('refreshing while Today shows stale weather and a failed attempt reports re
   ).toBe(true));
   const retry = productAnalytics.analytics.captures.find((c) => c.name === 'retry_after_failure_triggered');
   expect(retry?.properties).toEqual({
-    schema_version: 1, surface: 'today', attempt_number: 1, result: 'failure',
+    schema_version: 2, surface: 'today', attempt_number: 1, result: 'failure',
   });
   expect(productAnalytics.analytics.captures.some((c) => c.name === 'manual_refresh_triggered')).toBe(false);
 });
@@ -622,11 +623,11 @@ test('a fully unavailable Today buffers error_shown until recovery, which emits 
 
   const shown = productAnalytics.analytics.captures.find((c) => c.name === 'error_shown');
   expect(shown?.properties).toEqual({
-    schema_version: 1, surface: 'today', failure_category: 'offline', occurrence_count: 1,
+    schema_version: 2, surface: 'today', failure_category: 'offline', occurrence_count: 1,
   });
   expect(productAnalytics.analytics.captures).toContainEqual({
     name: 'error_recovered',
-    properties: { schema_version: 1, surface: 'today', failure_category: 'offline' },
+    properties: { schema_version: 2, surface: 'today', failure_category: 'offline' },
     options: undefined,
   });
   // `error_shown` is emitted before `error_recovered` for the same pair (taxonomy 5.10).
@@ -662,8 +663,8 @@ test('a visible recommendation failure uses only the recommendation error surfac
     ({ name }) => name === 'error_shown' || name === 'error_recovered',
   );
   expect(errors.map(({ properties }) => properties)).toEqual([
-    { schema_version: 1, surface: 'recommendation', failure_category: 'unavailable', occurrence_count: 1 },
-    { schema_version: 1, surface: 'recommendation', failure_category: 'unavailable' },
+    { schema_version: 2, surface: 'recommendation', failure_category: 'unavailable', occurrence_count: 1 },
+    { schema_version: 2, surface: 'recommendation', failure_category: 'unavailable' },
   ]);
 });
 
@@ -685,7 +686,7 @@ test('opening an outfit reports screen_viewed and outfit_detail_opened with its 
   expect(names.filter((name) => name === 'screen_viewed')).toHaveLength(1);
   const opened = productAnalytics.analytics.captures.find((c) => c.name === 'outfit_detail_opened');
   expect(opened?.properties).toEqual({
-    schema_version: 1,
+    schema_version: 2,
     outfit_position: 2,
     archetype: todayRecommendation.outfits[1].archetypeId,
     generation_mode: todayRecommendation.generationMode === 'ai-assisted' ? 'ai_assisted' : 'deterministic_fallback',
@@ -816,7 +817,7 @@ test('setting ownership from outfit detail creates the Closet entry with entry_p
   expect(wardrobe.createItem).toHaveBeenCalledWith({ garmentTypeId: 'jumpsuit', entryState: 'owned' });
   const createdCapture = productAnalytics.analytics.captures.find((c) => c.name === 'closet_item_created');
   expect(createdCapture?.properties).toEqual({
-    schema_version: 1,
+    schema_version: 2,
     state: 'owned',
     garment_type_id: 'jumpsuit',
     has_photo: false,
@@ -856,7 +857,7 @@ test('setting ownership from outfit detail updates the existing Closet entry', a
   expect(productAnalytics.analytics.captures).toContainEqual({
     name: 'closet_item_updated',
     properties: {
-      schema_version: 1,
+      schema_version: 2,
       fields_changed: ['state'],
       garment_type_id: 'jumpsuit',
       entry_point: 'outfit_detail',

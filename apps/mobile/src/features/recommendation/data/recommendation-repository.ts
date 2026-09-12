@@ -1,7 +1,10 @@
 import type { DressStyle } from '@kuyara/contracts';
 
 import type { OutfitRecommendationSuccess } from '@/features/recommendation/application/recommend-outfits';
-import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
+import {
+  isRecommendationGenerationMode,
+  type RecommendationGenerationMode,
+} from '@/features/recommendation/domain/generation-mode';
 import type {
   RecommendationLocalDataSource,
   RecommendationSnapshotRecord,
@@ -66,10 +69,6 @@ function isUuidV4(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
-function isGenerationMode(value: string): value is RecommendationGenerationMode {
-  return value === 'ai-assisted' || value === 'deterministic-fallback';
-}
-
 function mapRecord(record: RecommendationSnapshotRecord): RecommendationSnapshot {
   try {
     if (
@@ -77,7 +76,7 @@ function mapRecord(record: RecommendationSnapshotRecord): RecommendationSnapshot
       !record.localProfileId ||
       !record.weatherSnapshotId ||
       !record.locationKey ||
-      !isGenerationMode(record.generationMode) ||
+      !isRecommendationGenerationMode(record.generationMode) ||
       !isUtcIso(record.createdAt) ||
       !isUtcIso(record.updatedAt)
     ) throw new Error();
