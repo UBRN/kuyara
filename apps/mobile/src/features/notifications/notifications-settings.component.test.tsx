@@ -1,5 +1,6 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { useEffect, useState } from 'react';
+import { AppState } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import SettingsRoute from '@/app/(tabs)/(profile)/settings';
@@ -8,7 +9,7 @@ import { ProductAnalyticsProvider } from '@/features/analytics/application/produ
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
 import { NotificationApplicationProvider } from '@/features/notifications/application/notification-application-provider';
-import type { NotificationGateway } from '@/features/notifications/data/notification-gateway';
+import type { NotificationGateway, NotificationPermissionState } from '@/features/notifications/data/notification-gateway';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { ProfileApplicationProvider } from '@/features/profile/application/profile-application-provider';
 import type { LocalProfileRecord } from '@/features/profile/data/local-profile-record';
@@ -283,4 +284,43 @@ test('a permission prompt left unanswered still shows the denied hint on the blo
   await waitFor(() => expect(result.getByText(messages.en.notifications.permissionDeniedHint))
     .toBeOnTheScreen());
   expect(result.getByTestId('settings-notifications-open-settings')).toBeOnTheScreen();
+});
+
+test('granting permission in system settings clears the hint the refused opt-in left', async () => {
+  // The refusal is remembered so the footer survives a prompt left unanswered, but the
+  // permission read on `active` outranks it once the OS says notifications are allowed.
+  mockProfile = createProfile();
+  const addEventListener = jest.spyOn(AppState, 'addEventListener')
+    .mockReturnValue({ remove: () => undefined });
+  let permission: NotificationPermissionState = { kind: 'undetermined' };
+  const { gateway } = createGateway('undetermined');
+  const result = await renderSettings(
+    {
+      ...gateway,
+      getPermissionState: async () => permission,
+      requestPermission: async () => ({ kind: 'undetermined' as const }),
+    },
+    new RecordingProductAnalytics(),
+  );
+
+  await fireEvent.press(await result.findByTestId('settings-notifications-row'));
+  await act(async () => {
+    fireEvent(
+      await result.findByTestId('settings-notifications-toggle-row-toggle'),
+      'valueChange',
+      true,
+    );
+  });
+  await waitFor(() => expect(result.getByText(messages.en.notifications.permissionDeniedHint))
+    .toBeOnTheScreen());
+
+  permission = { kind: 'granted' };
+  await act(async () => {
+    addEventListener.mock.calls.forEach(([, listener]) => listener('active'));
+  });
+
+  await waitFor(() => expect(result.queryByText(messages.en.notifications.permissionDeniedHint))
+    .toBeNull());
+  expect(result.queryByTestId('settings-notifications-open-settings')).toBeNull();
+  addEventListener.mockRestore();
 });
