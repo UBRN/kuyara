@@ -30,12 +30,14 @@ export default function LanguageSettingsRoute() {
           setting_name: 'language',
           new_value: value,
         });
-        if (await firstUses.markFirstUse('language_override')) {
+        // A failed marker write is analytics bookkeeping, not a failed preference save.
+        void firstUses.markFirstUse('language_override').then((firstUse) => {
+          if (!firstUse) return;
           analytics.capture('feature_used_first_time', {
             schema_version: ANALYTICS_SCHEMA_VERSION,
             feature_name: 'language_override',
           });
-        }
+        });
       }}
       options={[
         { label: copy.languageSystem, testID: 'settings-language-system', value: 'system' },

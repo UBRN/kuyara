@@ -54,8 +54,8 @@ class FakeClient {
     this.throwIfFailed('optOut');
   }
 
-  reset() {
-    this.operations.push('reset');
+  reset(propertiesToKeep) {
+    this.operations.push(`reset:${(propertiesToKeep ?? []).join(',')}`);
     this.throwIfFailed('reset');
     this.identifierGeneration += 1;
   }
@@ -155,7 +155,8 @@ test('withdrawal is the last event, clears the device id, and re-consent has a f
     'capture:analytics_consent_withdrawn',
     'optOut',
     'flush',
-    'reset',
+    'persist:queue:null',
+    'reset:opted_out',
     'persist:device_id:null',
   ]);
   assert.equal(client.deviceId, null);
@@ -191,7 +192,8 @@ test('withdrawal attempts every cleanup step and rejects after failures', async 
     'capture:analytics_consent_withdrawn',
     'optOut',
     'flush',
-    'reset',
+    'persist:queue:null',
+    'reset:opted_out',
     'persist:device_id:null',
   ]);
   assert.equal(analytics.getIdentifier(), null);

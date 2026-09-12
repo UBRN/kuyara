@@ -363,9 +363,11 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
   `posthog/models/person/bulk_delete.py` on the `master` branch, read 2026-09-10). kuyara's
   events use `$process_person_profile` false under `identified_only`, so no person row
   exists. The policy therefore promises withdrawal from Settings, identity severance, and
-  twelve-month retention, but not identifier-based deletion. A user may email the
-  maintainer with the identifier about their data, and the policy states that the outcome
-  is not guaranteed.
+  twelve-month retention, but not identifier-based deletion. Withdrawal flushes the client
+  once, then drops the persisted event queue rather than keeping the client alive for a
+  later flush, so nothing recorded before withdrawal is delivered afterwards, and the SDK
+  stays opted out until the app exits. A user may email the maintainer with the identifier
+  about their data, and the policy states that the outcome is not guaranteed.
 - **Retention control.** The free plan offers no shorter project-level retention, so the
   policy states one year (section 4).
 - **Profile-derived properties.** `dress_style` and coarse `age_bucket` are the only

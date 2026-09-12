@@ -30,12 +30,14 @@ export default function AppearanceSettingsRoute() {
           setting_name: 'appearance_theme',
           new_value: value,
         });
-        if (await firstUses.markFirstUse('appearance_override')) {
+        // A failed marker write is analytics bookkeeping, not a failed preference save.
+        void firstUses.markFirstUse('appearance_override').then((firstUse) => {
+          if (!firstUse) return;
           analytics.capture('feature_used_first_time', {
             schema_version: ANALYTICS_SCHEMA_VERSION,
             feature_name: 'appearance_override',
           });
-        }
+        });
       }}
       options={[
         { label: copy.themeSystem, testID: 'settings-theme-system', value: 'system' },

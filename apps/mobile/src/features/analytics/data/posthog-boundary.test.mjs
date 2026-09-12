@@ -71,3 +71,11 @@ test('exactly one adapter imports the PostHog SDK, and it pins the privacy optio
     assert.equal(adapter.includes(option), true, `the adapter must keep ${option}`);
 }
 });
+
+// ADR 0033 section 3: accept and decline are the only exits from the consent sheet.
+// `sheetGrabberVisible: false` only hides the grabber, so the gesture option is pinned here.
+test('the consent route cannot be dismissed by a gesture', () => {
+  const layout = readFileSync(join(sourceDirectory, 'app', '_layout.tsx'), 'utf8');
+  const consentScreen = layout.slice(layout.indexOf('name="analytics-consent"'));
+  assert.match(consentScreen.slice(0, consentScreen.indexOf('/>')), /gestureEnabled: false/);
+});
