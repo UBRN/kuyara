@@ -17,6 +17,7 @@ const profileId = 'profile-weather-test';
 const firstId = '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4';
 const secondId = '118f0f4d-1d45-4ae7-a8f1-796e8297d3b4';
 const thirdId = '218f0f4d-1d45-4ae7-a8f1-796e8297d3b4';
+const fourthId = '318f0f4d-1d45-4ae7-a8f1-796e8297d3b4';
 
 async function setup() {
   const database = new NodeSqliteDatabase();
@@ -139,6 +140,42 @@ test('snapshot and hourly data round-trip, remain location-bound, and retain act
   assert.deepEqual(snapshots.map(({ location_key }) => location_key), [
     'manual:sample.istanbul', 'manual:sample.london',
   ]);
+});
+
+test('replacing and pruning snapshots removes their hourly rows without the cascade', async (t) => {
+  const { database, dataSource, repository } = await setup();
+  t.after(() => database.close());
+  const istanbul = getManualLocation('sample.istanbul');
+  const ankara = getManualLocation('sample.ankara');
+  const london = getManualLocation('sample.london');
+  await repository.setActiveLocation(profileId, istanbul);
+  await repository.saveSnapshot(profileId, provided(istanbul, '2026-07-30T10:00:00.000Z', 16));
+  const seeded = await dataSource.getSnapshot(profileId, istanbul.locationKey);
+  assert.equal(seeded.id, firstId);
+
+  // Expo opens every transaction on a fresh connection with foreign keys off, so
+  // ON DELETE CASCADE never fires on the device. Reproduce that here.
+  await database.execAsync('PRAGMA foreign_keys = OFF');
+  const replaced = await dataSource.replaceSnapshot({
+    ...seeded, id: secondId, fetchedAt: '2026-07-30T11:00:00.000Z',
+  });
+  await dataSource.replaceSnapshot({
+    ...seeded, id: thirdId, locationKey: ankara.locationKey, timeZone: ankara.timeZone,
+    fetchedAt: '2026-07-30T12:00:00.000Z',
+  });
+  await dataSource.replaceSnapshot({
+    ...seeded, id: fourthId, locationKey: london.locationKey, timeZone: london.timeZone,
+    fetchedAt: '2026-07-30T13:00:00.000Z',
+  });
+  await database.execAsync('PRAGMA foreign_keys = ON');
+
+  assert.equal(replaced.hourly.length, 1);
+  assert.deepEqual(await database.getAllAsync('PRAGMA foreign_key_check'), []);
+  const snapshots = await database.getAllAsync('SELECT id FROM weather_snapshots ORDER BY id');
+  assert.deepEqual(snapshots.map(({ id }) => id), [secondId, fourthId]);
+  const hourly = await database.getAllAsync(
+    'SELECT DISTINCT snapshot_id FROM weather_hourly_entries ORDER BY snapshot_id');
+  assert.deepEqual(hourly.map(({ snapshot_id }) => snapshot_id), [secondId, fourthId]);
 });
 
 test('failed hourly replacement rolls back and corrupt stored data fails predictably', async (t) => {

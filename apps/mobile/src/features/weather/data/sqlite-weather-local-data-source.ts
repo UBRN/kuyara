@@ -185,6 +185,14 @@ export class SqliteWeatherLocalDataSource implements WeatherLocalDataSource {
   async replaceSnapshot(record: WeatherSnapshotRecord): Promise<WeatherSnapshotRecord> {
     let result: WeatherSnapshotRecord | null = null;
     await this.database.withExclusiveTransactionAsync(async (transaction) => {
+      // Expo runs this transaction on a separate connection where foreign keys are off,
+      // so ON DELETE CASCADE never fires: remove the hourly rows explicitly.
+      await transaction.runAsync(
+        `DELETE FROM weather_hourly_entries WHERE snapshot_id IN (
+           SELECT id FROM weather_snapshots WHERE local_profile_id = ? AND location_key = ?
+         )`,
+        [record.localProfileId, record.locationKey],
+      );
       await transaction.runAsync(
         `DELETE FROM weather_snapshots WHERE local_profile_id = ? AND location_key = ?`,
         [record.localProfileId, record.locationKey],
@@ -219,8 +227,7 @@ export class SqliteWeatherLocalDataSource implements WeatherLocalDataSource {
           ],
         );
       }
-      await transaction.runAsync(
-        `DELETE FROM weather_snapshots
+      const prunedSnapshotIds = `SELECT id FROM weather_snapshots
          WHERE local_profile_id = ? AND id NOT IN (
            SELECT snapshot.id FROM weather_snapshots AS snapshot
            LEFT JOIN active_locations AS active
@@ -229,7 +236,13 @@ export class SqliteWeatherLocalDataSource implements WeatherLocalDataSource {
            ORDER BY CASE WHEN snapshot.location_key = active.location_key THEN 0 ELSE 1 END,
              snapshot.fetched_at DESC, snapshot.id ASC
            LIMIT 2
-         )`,
+         )`;
+      await transaction.runAsync(
+        `DELETE FROM weather_hourly_entries WHERE snapshot_id IN (${prunedSnapshotIds})`,
+        [record.localProfileId, record.localProfileId],
+      );
+      await transaction.runAsync(
+        `DELETE FROM weather_snapshots WHERE id IN (${prunedSnapshotIds})`,
         [record.localProfileId, record.localProfileId],
       );
       result = await readSnapshot(transaction, record.localProfileId, record.locationKey);

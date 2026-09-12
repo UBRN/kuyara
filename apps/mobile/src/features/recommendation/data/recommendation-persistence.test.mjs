@@ -121,6 +121,32 @@ test('migration v5 persists a validated recommendation snapshot with lifecycle f
   assert.deepEqual(await repository.getSnapshot(profileId), replaced);
 });
 
+test('a backwards clock still saves and reads the recommendation', async (t) => {
+  const { database, repository, setNow } = await setup();
+  t.after(() => database.close());
+  const generated = generatedRecommendation();
+  const input = {
+    weatherSnapshotId: generated.input.snapshot.id,
+    locationKey: generated.input.snapshot.locationKey,
+    context: generated.request,
+    recommendation: generated.recommendation,
+  };
+  await repository.saveSnapshot(profileId, input);
+
+  setNow('2026-08-01T09:00:00.000Z');
+  const replaced = await repository.saveSnapshot(profileId, input);
+
+  assert.equal(replaced.createdAt, firstTime);
+  assert.equal(replaced.updatedAt, firstTime);
+  assert.deepEqual(await repository.getSnapshot(profileId), replaced);
+
+  // A row written by an earlier build can already hold updatedAt before createdAt.
+  await database.runAsync(
+    `UPDATE recommendation_snapshots SET updated_at = '2026-08-01T09:00:00.000Z'`,
+  );
+  assert.equal((await repository.getSnapshot(profileId)).createdAt, firstTime);
+});
+
 test('older structured outfits without archetypes derive distinct fallback labels on read', async (t) => {
   const { database, repository } = await setup();
   t.after(() => database.close());
