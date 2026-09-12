@@ -84,6 +84,7 @@ function readyProfileApplication(
 ): ProfileApplicationValue {
   return {
     state: { status: 'ready', profile: { ...profile, ...overrides }, isSaving: false },
+    retry: async () => undefined,
     completeOnboarding: async () => undefined,
     updateGender: async () => undefined,
     updateDressStyle: async () => undefined,

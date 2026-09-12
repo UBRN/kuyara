@@ -1,24 +1,29 @@
 import { ActivityIndicator, StyleSheet } from 'react-native';
 
-import { AppText, Screen, Surface } from '@/components/ui';
+import { AppText, Button, Screen, Surface } from '@/components/ui';
+import type { ProfileBootstrapFailureReason } from '@/features/profile/application/profile-application-controller';
 import { useMessages } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
-type BootstrapScreenProps = Readonly<{
-  status: 'loading' | 'error';
-}>;
+type BootstrapScreenProps =
+  | Readonly<{ status: 'loading' }>
+  | Readonly<{
+      status: 'error';
+      reason: ProfileBootstrapFailureReason;
+      onRetry: () => void;
+    }>;
 
-export function BootstrapScreen({ status }: BootstrapScreenProps) {
+export function BootstrapScreen(props: BootstrapScreenProps) {
   const messages = useMessages();
   const theme = useKuyaraTheme();
-  const isLoading = status === 'loading';
+  const isLoading = props.status === 'loading';
 
   return (
     <Screen
       contentContainerStyle={styles.content}
       fill
-      testID={`bootstrap-${status}-screen`}>
+      testID={`bootstrap-${props.status}-screen`}>
       <Surface
         accessibilityLiveRegion={isLoading ? 'polite' : 'assertive'}
         accessibilityRole={isLoading ? undefined : 'alert'}
@@ -41,6 +46,18 @@ export function BootstrapScreen({ status }: BootstrapScreenProps) {
             ? messages.bootstrap.loadingBody
             : messages.bootstrap.errorBody}
         </AppText>
+        {props.status === 'error' ? (
+          <>
+            <AppText colorRole="textSecondary" style={styles.centered}>
+              {messages.bootstrap.errorReasonBodies[props.reason]}
+            </AppText>
+            <Button
+              label={messages.bootstrap.retryAction}
+              onPress={props.onRetry}
+              testID="bootstrap-retry"
+            />
+          </>
+        ) : null}
       </Surface>
     </Screen>
   );

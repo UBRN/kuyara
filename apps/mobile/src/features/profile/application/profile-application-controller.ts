@@ -23,12 +23,30 @@ function applicationProfile(profile: Profile): LocalProfile {
 
 export type ProfileApplicationState =
   | Readonly<{ status: 'loading' }>
-  | Readonly<{ status: 'error' }>
+  | Readonly<{ status: 'error'; reason: ProfileBootstrapFailureReason }>
   | Readonly<{
       status: 'ready';
       profile: LocalProfile;
       isSaving: boolean;
     }>;
+
+export type ProfileBootstrapFailureReason =
+  | 'database-open'
+  | 'migration'
+  | 'profile-load';
+
+export class ProfileBootstrapError extends Error {
+  readonly reason: Exclude<ProfileBootstrapFailureReason, 'profile-load'>;
+
+  constructor(
+    reason: Exclude<ProfileBootstrapFailureReason, 'profile-load'>,
+    cause: unknown,
+  ) {
+    super(cause instanceof Error ? cause.message : String(cause), { cause });
+    this.name = 'ProfileBootstrapError';
+    this.reason = reason;
+  }
+}
 
 type Listener = () => void;
 
@@ -57,6 +75,17 @@ export class ProfileApplicationController {
     }
 
     return this.initializationPromise;
+  }
+
+  retry(): Promise<void> {
+    if (this.state.status === 'loading' && this.initializationPromise) {
+      return this.initializationPromise;
+    }
+
+    this.initializationPromise = null;
+    this.repository = null;
+    this.setState({ status: 'loading' });
+    return this.initialize();
   }
 
   completeOnboarding(preferences: OnboardingPreferences): Promise<void> {
@@ -99,8 +128,21 @@ export class ProfileApplicationController {
       const profile = await repository.getOrCreateProfile();
       this.repository = repository;
       this.setState({ status: 'ready', profile: applicationProfile(profile), isSaving: false });
-    } catch {
-      this.setState({ status: 'error' });
+    } catch (error) {
+      const reason = error instanceof ProfileBootstrapError
+        ? error.reason
+        : 'profile-load';
+      const reportedError = error instanceof ProfileBootstrapError
+        ? error.cause
+        : error;
+      const name = reportedError instanceof Error ? reportedError.name : 'Error';
+      const message = reportedError instanceof Error
+        ? reportedError.message
+        : String(reportedError);
+      console.error(
+        `[profile-bootstrap] stage=${reason} error=${name.replace(/[\r\n]+/g, ' ')} message=${message.replace(/[\r\n]+/g, ' ').slice(0, 200)}`,
+      );
+      this.setState({ status: 'error', reason });
     }
   }
 

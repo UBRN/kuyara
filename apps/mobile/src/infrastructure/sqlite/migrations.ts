@@ -397,19 +397,27 @@ export async function migrateDatabase(database: SqliteDatabase): Promise<void> {
       continue;
     }
 
-    await database.withExclusiveTransactionAsync(async (transaction) => {
-      const currentVersion = await readUserVersion(transaction);
+    try {
+      await database.withExclusiveTransactionAsync(async (transaction) => {
+        const currentVersion = await readUserVersion(transaction);
 
-      if (currentVersion >= migration.version) {
-        return;
-      }
+        if (currentVersion >= migration.version) {
+          return;
+        }
 
-      if (currentVersion !== migration.version - 1) {
-        throw new Error('SQLite migrations must run in order.');
-      }
+        if (currentVersion !== migration.version - 1) {
+          throw new Error('SQLite migrations must run in order.');
+        }
 
-      await migration.migrate(transaction);
-      await transaction.execAsync(`PRAGMA user_version = ${migration.version};`);
-    });
+        await migration.migrate(transaction);
+        await transaction.execAsync(`PRAGMA user_version = ${migration.version};`);
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Migration to version ${migration.version} failed: ${message}`,
+        { cause: error },
+      );
+    }
   }
 }

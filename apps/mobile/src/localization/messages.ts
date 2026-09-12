@@ -140,6 +140,11 @@ export type AppMessages = Readonly<{
     loadingBody: string;
     errorTitle: string;
     errorBody: string;
+    errorReasonBodies: Readonly<Record<
+      'database-open' | 'migration' | 'profile-load',
+      string
+    >>;
+    retryAction: string;
   }>;
   onboarding: Readonly<{
     stepPosition: (position: number, total: number) => string;
@@ -438,7 +443,13 @@ const en = {
     loadingTitle: 'Preparing kuyara',
     loadingBody: 'Your local preferences are loading.',
     errorTitle: 'kuyara could not start',
-    errorBody: 'Your local data is still safe. Close the app and try again.',
+    errorBody: 'Your local data is still safe.',
+    errorReasonBodies: {
+      'database-open': 'The local database could not be opened.',
+      migration: 'Your local data could not be updated to this version.',
+      'profile-load': 'Your profile could not be read.',
+    },
+    retryAction: 'Try again',
   },
   onboarding: {
     stepPosition: (position: number, total: number) => `Step ${position} of ${total}`,
@@ -886,7 +897,13 @@ const tr = {
     loadingTitle: 'kuyara hazırlanıyor',
     loadingBody: 'Bu cihazdaki tercihleriniz yükleniyor.',
     errorTitle: 'kuyara başlatılamadı',
-    errorBody: 'Yerel verileriniz güvende. Uygulamayı kapatıp yeniden deneyin.',
+    errorBody: 'Yerel verileriniz güvende.',
+    errorReasonBodies: {
+      'database-open': 'Yerel veri tabanı açılamadı.',
+      migration: 'Yerel verileriniz bu sürüme güncellenemedi.',
+      'profile-load': 'Profiliniz okunamadı.',
+    },
+    retryAction: 'Yeniden dene',
   },
   onboarding: {
     stepPosition: (position: number, total: number) => `${total} adımdan ${position}. adım`,
