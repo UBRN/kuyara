@@ -5,9 +5,11 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import {
   AppText,
   Button,
+  Entrance,
   GarmentBoard,
   haptics,
   Icon,
+  PressScale,
   measureGarmentBoardHeight,
   Screen,
   Surface,
@@ -249,43 +251,44 @@ export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: 
             <View
               style={[styles.outfitList, usesAccessibilityLayout && styles.stackedOutfitList]}
               testID="today-outfit-list">
-              {alternates.map((suggestion) => (
-                <Pressable
-                  accessible
-                  accessibilityLabel={suggestion.boardAccessibilityLabel}
-                  accessibilityRole="button"
-                  key={suggestion.id}
-                  onPress={() => onOpenOutfitDetail(suggestion.id)}
-                  style={({ pressed }) => [
-                    { width: alternateWidth, opacity: pressed ? theme.interaction.pressedOpacity : 1 },
-                  ]}
-                  testID={`today-alternate-${suggestion.id}`}>
-                  <View
-                    accessibilityElementsHidden
-                    importantForAccessibility="no-hide-descendants"
-                    style={[
-                      styles.alternateStage,
-                      { backgroundColor: stageColor, height: alternateStageHeight },
+              {alternates.map((suggestion, index) => (
+                <Entrance index={index} key={suggestion.id}>
+                  <PressScale
+                    accessible
+                    accessibilityLabel={suggestion.boardAccessibilityLabel}
+                    accessibilityRole="button"
+                    onPress={() => onOpenOutfitDetail(suggestion.id)}
+                    style={({ pressed }) => [
+                      { width: alternateWidth, opacity: pressed ? theme.interaction.pressedOpacity : 1 },
                     ]}
-                    testID={`today-alternate-stage-${suggestion.id}`}>
-                    <GarmentBoard
-                      accessibilityLabel={suggestion.boardAccessibilityLabel}
-                      pieces={suggestion.boardPieces}
-                      preset="today"
-                      stageColor={stageColor}
-                      testID={`today-alternate-board-${suggestion.id}`}
-                      width={alternateWidth}
-                    />
-                  </View>
-                  <View style={styles.alternateTitleRow}>
-                    <AppText numberOfLines={1} style={styles.outfitName} variant="label">
-                      {suggestion.title}
-                    </AppText>
-                    <View style={styles.disclosure}>
-                      <Icon color={theme.colors.textPrimary} name="chevronRight" size={12} />
+                    testID={`today-alternate-${suggestion.id}`}>
+                    <View
+                      accessibilityElementsHidden
+                      importantForAccessibility="no-hide-descendants"
+                      style={[
+                        styles.alternateStage,
+                        { backgroundColor: stageColor, height: alternateStageHeight },
+                      ]}
+                      testID={`today-alternate-stage-${suggestion.id}`}>
+                      <GarmentBoard
+                        accessibilityLabel={suggestion.boardAccessibilityLabel}
+                        pieces={suggestion.boardPieces}
+                        preset="today"
+                        stageColor={stageColor}
+                        testID={`today-alternate-board-${suggestion.id}`}
+                        width={alternateWidth}
+                      />
                     </View>
-                  </View>
-                </Pressable>
+                    <View style={styles.alternateTitleRow}>
+                      <AppText numberOfLines={1} style={styles.outfitName} variant="label">
+                        {suggestion.title}
+                      </AppText>
+                      <View style={styles.disclosure}>
+                        <Icon color={theme.colors.textPrimary} name="chevronRight" size={12} />
+                      </View>
+                    </View>
+                  </PressScale>
+                </Entrance>
               ))}
             </View>
           </View>

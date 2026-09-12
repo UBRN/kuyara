@@ -81,6 +81,16 @@ test('Reduce Motion removes decorative duration while preserving standard timing
   assert.equal(Object.values(reducedMotion).every((duration) => duration === 0), true);
 });
 
+test('the stagger role steps content arrival and disappears under Reduce Motion', () => {
+  assert.ok(standardMotion.stagger > 0);
+  // A stagger is the gap between two arrivals, not an arrival: longer than the
+  // entrance it spaces would read as a queue rather than one piece of content.
+  assert.ok(standardMotion.stagger < standardMotion.fast);
+  assert.equal(reducedMotion.stagger, 0);
+  assert.equal(createKuyaraTheme('light').motion.stagger, standardMotion.stagger);
+  assert.equal(createKuyaraTheme('light', true).motion.stagger, 0);
+});
+
 test('themes expose a valid spatial spring role independent of Reduce Motion', () => {
   for (const theme of [createKuyaraTheme('light'), createKuyaraTheme('dark')]) {
     assert.ok(theme.springs.spatial.duration > 0);

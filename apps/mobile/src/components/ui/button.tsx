@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   StyleSheet,
   View,
   type PressableProps,
@@ -10,6 +9,8 @@ import {
 } from 'react-native';
 
 import { AppText } from '@/components/ui/app-text';
+import { haptics } from '@/components/ui/haptics';
+import { PressScale } from '@/components/ui/press-scale';
 import {
   createPressHandler,
   resolveButtonColors,
@@ -39,6 +40,7 @@ export function Button({
   onBlur,
   onFocus,
   onPress,
+  onPressIn,
   style,
   variant = 'primary',
   ...rest
@@ -49,7 +51,7 @@ export function Button({
   const pressHandler = createPressHandler(onPress, isUnavailable);
 
   return (
-    <Pressable
+    <PressScale
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityRole="button"
       accessibilityState={resolveInteractiveAccessibilityState(
@@ -67,6 +69,12 @@ export function Button({
         onFocus?.(event);
       }}
       onPress={pressHandler}
+      onPressIn={(event) => {
+        // Law 8: the screen's main action confirms the press itself; no other control
+        // does. The wrapper routes Android to its own feedback rather than the iOS call.
+        if (variant === 'primary') haptics.impactLight();
+        onPressIn?.(event);
+      }}
       style={({ pressed }) => {
         const colors = resolveButtonColors(theme, variant, pressed);
 
@@ -112,7 +120,7 @@ export function Button({
           </View>
         );
       }}
-    </Pressable>
+    </PressScale>
   );
 }
 

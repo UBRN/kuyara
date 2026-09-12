@@ -1,5 +1,6 @@
 export { AppText, type AppTextProps } from './app-text';
 export { Button, type ButtonProps } from './button';
+export { Entrance, type EntranceProps } from './entrance';
 export { GarmentSlotGlyph, GarmentSlotTile } from './garment-slot-glyph';
 export { Icon, iconNames, type IconName } from './icon';
 export { IconButton, type IconButtonProps } from './icon-button';
@@ -24,6 +25,7 @@ export { NativeDatePicker, type NativeDatePickerProps } from './native-date-pick
 export { NativeTextField, type NativeTextFieldProps } from './native-text-field';
 export { PhotoPlaceholder, type PhotoPlaceholderProps } from './photo-placeholder';
 export { Pill, type PillProps } from './pill';
+export { PressScale } from './press-scale';
 export { Screen, type ScreenProps } from './screen';
 export { SectionHeader, type SectionHeaderProps } from './section-header';
 export {

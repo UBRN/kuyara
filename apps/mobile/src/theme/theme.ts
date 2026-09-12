@@ -255,6 +255,10 @@ export const standardMotion = Object.freeze({
   fast: 120,
   normal: 200,
   deliberate: 320,
+  // Law 7's stagger role: the step between two pieces of content arriving in reading
+  // order. It is a delay between transitions rather than a transition, so it stays
+  // well under `fast`; content reads as one arrival instead of a queue.
+  stagger: 45,
 } as const);
 
 export type MotionTokens = Readonly<Record<keyof typeof standardMotion, number>>;
@@ -271,6 +275,7 @@ export const reducedMotion = Object.freeze({
   fast: 0,
   normal: 0,
   deliberate: 0,
+  stagger: 0,
 } as const satisfies MotionTokens);
 
 export type ThemeColorScheme = 'light' | 'dark';

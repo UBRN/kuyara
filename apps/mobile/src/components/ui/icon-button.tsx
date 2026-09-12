@@ -1,12 +1,12 @@
 import { useState, type ReactNode } from 'react';
 import {
-  Pressable,
   StyleSheet,
   type PressableProps,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
 
+import { PressScale } from '@/components/ui/press-scale';
 import {
   createPressHandler,
   resolveInteractiveAccessibilityState,
@@ -43,7 +43,7 @@ export function IconButton({
   const pressHandler = createPressHandler(onPress, disabled);
 
   return (
-    <Pressable
+    <PressScale
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
       accessibilityState={resolveInteractiveAccessibilityState(
@@ -75,7 +75,7 @@ export function IconButton({
       ]}
       {...rest}>
       {icon(theme.colors.iconPrimary)}
-    </Pressable>
+    </PressScale>
   );
 }
 
