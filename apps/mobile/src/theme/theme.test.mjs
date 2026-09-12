@@ -78,7 +78,26 @@ test('theme preference resolves explicit choices and defaults system safely', ()
 test('Reduce Motion removes decorative duration while preserving standard timing otherwise', () => {
   assert.equal(resolveMotionTokens(false), standardMotion);
   assert.equal(resolveMotionTokens(true), reducedMotion);
-  assert.equal(Object.values(reducedMotion).every((duration) => duration === 0), true);
+  assert.equal(
+    Object.values(reducedMotion)
+      .flatMap((role) => (typeof role === 'number' ? role : Object.values(role)))
+      .every((duration) => duration === 0),
+    true,
+  );
+});
+
+test('the ambient role names three tempos and stops entirely under Reduce Motion', () => {
+  const { calm, moderate, intense } = standardMotion.ambient;
+
+  assert.deepEqual(Object.keys(standardMotion.ambient), ['calm', 'moderate', 'intense']);
+  // A loop that never resolves is slower than any transition, and heavier weather moves
+  // faster: the tempo, not the drawing, is what separates drizzle from a downpour.
+  assert.ok(calm > moderate);
+  assert.ok(moderate > intense);
+  assert.ok(intense > standardMotion.deliberate);
+  assert.deepEqual(reducedMotion.ambient, { calm: 0, moderate: 0, intense: 0 });
+  assert.equal(createKuyaraTheme('light').motion.ambient.calm, calm);
+  assert.equal(createKuyaraTheme('light', true).motion.ambient.calm, 0);
 });
 
 test('the stagger role steps content arrival and disappears under Reduce Motion', () => {

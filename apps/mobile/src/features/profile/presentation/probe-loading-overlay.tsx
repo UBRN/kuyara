@@ -26,19 +26,24 @@ function PulseDot({ index }: Readonly<{ index: number }>) {
       return;
     }
 
+    // An unresolved wait is ambient motion, not a transition: the dots breathe on the
+    // ambient role's calm step, the one step that depicts no weather. Each dot starts a
+    // leg later than the one before it, so the three read as one breath travelling.
+    const leg = theme.motion.ambient.calm;
+
     progress.set(withDelay(
-      index * theme.motion.deliberate,
+      index * leg,
       withRepeat(
         withSequence(
-          withTiming(1, { duration: theme.motion.deliberate }),
-          withTiming(0.45, { duration: theme.motion.deliberate }),
+          withTiming(1, { duration: leg }),
+          withTiming(0.45, { duration: leg }),
         ),
         -1,
       ),
     ));
 
     return () => cancelAnimation(progress);
-  }, [index, progress, theme.isReduceMotionEnabled, theme.motion.deliberate]);
+  }, [index, progress, theme.isReduceMotionEnabled, theme.motion.ambient.calm]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: progress.get(),

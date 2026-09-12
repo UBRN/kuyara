@@ -11,15 +11,19 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 
+import type { AmbientIntensity } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
-const BOB_DURATION_MS = 1500;
 const BOB_OFFSET = 2;
-const DROP_DURATION_MS = 550;
-const DROP_STAGGER_MS = 350;
 const DROP_TRAVEL = 13;
+// The cloud's bob is the ambient cycle itself; the rain is derived from it so the whole
+// glyph keeps one tempo. A drop falls in 11/30 of a bob leg and the three drops are
+// offset by 7/30 of it, the ratios the 1500 ms calm step already produced at 550 ms and
+// 350 ms.
+const DROP_CYCLE_RATIO = 11 / 30;
+const DROP_STAGGER_RATIO = 7 / 30;
 
-function useBobOffset(isReduceMotionEnabled: boolean) {
+function useBobOffset(isReduceMotionEnabled: boolean, cycleMs: number) {
   const offset = useSharedValue(0);
 
   useEffect(() => {
@@ -31,20 +35,20 @@ function useBobOffset(isReduceMotionEnabled: boolean) {
     offset.set(
       withRepeat(
         withSequence(
-          withTiming(-BOB_OFFSET, { duration: BOB_DURATION_MS }),
-          withTiming(0, { duration: BOB_DURATION_MS }),
+          withTiming(-BOB_OFFSET, { duration: cycleMs }),
+          withTiming(0, { duration: cycleMs }),
         ),
         -1,
       ),
     );
 
     return () => cancelAnimation(offset);
-  }, [isReduceMotionEnabled, offset]);
+  }, [cycleMs, isReduceMotionEnabled, offset]);
 
   return offset;
 }
 
-function useDropProgress(isReduceMotionEnabled: boolean, index: number) {
+function useDropProgress(isReduceMotionEnabled: boolean, index: number, cycleMs: number) {
   const progress = useSharedValue(isReduceMotionEnabled ? 0 : 1);
 
   useEffect(() => {
@@ -55,13 +59,13 @@ function useDropProgress(isReduceMotionEnabled: boolean, index: number) {
 
     progress.set(
       withDelay(
-        DROP_STAGGER_MS * index,
-        withRepeat(withTiming(1, { duration: DROP_DURATION_MS }), -1),
+        cycleMs * DROP_STAGGER_RATIO * index,
+        withRepeat(withTiming(1, { duration: cycleMs * DROP_CYCLE_RATIO }), -1),
       ),
     );
 
     return () => cancelAnimation(progress);
-  }, [index, isReduceMotionEnabled, progress]);
+  }, [cycleMs, index, isReduceMotionEnabled, progress]);
 
   return progress;
 }
@@ -98,12 +102,16 @@ function RainDrop({
   );
 }
 
-export function WeatherGlyph({ testID = 'weather-glyph' }: Readonly<{ testID?: string }>) {
+export function WeatherGlyph({
+  intensity = 'calm',
+  testID = 'weather-glyph',
+}: Readonly<{ intensity?: AmbientIntensity; testID?: string }>) {
   const theme = useKuyaraTheme();
-  const bobOffset = useBobOffset(theme.isReduceMotionEnabled);
-  const dropProgress0 = useDropProgress(theme.isReduceMotionEnabled, 0);
-  const dropProgress1 = useDropProgress(theme.isReduceMotionEnabled, 1);
-  const dropProgress2 = useDropProgress(theme.isReduceMotionEnabled, 2);
+  const cycleMs = theme.motion.ambient[intensity];
+  const bobOffset = useBobOffset(theme.isReduceMotionEnabled, cycleMs);
+  const dropProgress0 = useDropProgress(theme.isReduceMotionEnabled, 0, cycleMs);
+  const dropProgress1 = useDropProgress(theme.isReduceMotionEnabled, 1, cycleMs);
+  const dropProgress2 = useDropProgress(theme.isReduceMotionEnabled, 2, cycleMs);
   const cloudColor = theme.colors.textPrimary;
   const dropColor = theme.colors.textPrimary;
 

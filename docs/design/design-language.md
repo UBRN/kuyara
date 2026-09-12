@@ -328,9 +328,13 @@ Three requirements are hard, not judgment calls:
 
 **Ambient motion has its own duration role**, `theme.motion.ambient`. `fast`, `normal`
 and `deliberate` all describe transitions, and a 1500 ms cloud bob is not a transition.
-The role's value follows the weather condition's intensity, a calm condition moving more
-slowly than a violent one, and it is measured rather than guessed. Ambient motion never
-runs under a hero value and stops under Reduce Motion. A duration is a role in the sense
+The role carries three tempo steps, each one leg of a loop: calm 1500 ms, moderate
+1000 ms and intense 650 ms, the calm step kept after watching the Today glyph on the
+iPhone 17 Pro Simulator on 2026-09-12. A deterministic weather-domain rule picks the step
+from the condition, a calm condition moving more slowly than a violent one. Two surfaces
+consume the role: the weather glyph on Today and Weather, and the AI status probe
+overlay, which breathes on the calm step. Ambient motion never runs under a hero value
+and all three steps resolve to 0 under Reduce Motion. A duration is a role in the sense
 of Law 9, so the role is named ahead of its second use.
 
 **Spatial and effects motion.** Motion is one of two kinds. *Effects*

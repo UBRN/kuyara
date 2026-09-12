@@ -23,9 +23,10 @@ import {
 } from '@/features/today/presentation/today-presentation';
 import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
+import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
-import { spacing } from '@/theme/theme';
+import { spacing, type AmbientIntensity } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 type TodayScreenProps = Readonly<{
@@ -99,6 +100,11 @@ export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: 
   }
 
   const stageColor = theme.atmosphere[presentation.atmosphere];
+  // The glyph draws the same rain at every tempo; only the condition's ambient step says
+  // how fast it falls.
+  const ambientIntensity = state.kind === 'loaded'
+    ? ambientIntensityOf(state.snapshot.weather.current.condition)
+    : 'calm';
   const [primary, ...alternates] = presentation.suggestions;
   const alternateWidth = usesAccessibilityLayout
     ? contentWidth
@@ -151,7 +157,7 @@ export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: 
               accessibilityRole="button"
               onPress={() => onOpenOutfitDetail(primary.id)}
               style={({ pressed }) => ({ opacity: pressed ? theme.interaction.pressedOpacity : 1 })}>
-              {usesAccessibilityLayout ? <Sky weather={presentation.weather} /> : null}
+              {usesAccessibilityLayout ? <Sky intensity={ambientIntensity} weather={presentation.weather} /> : null}
               <View
                 accessibilityElementsHidden
                 importantForAccessibility="no-hide-descendants"
@@ -173,7 +179,7 @@ export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: 
                   testID="today-primary-board"
                   width={contentWidth}
                 />
-                {!usesAccessibilityLayout ? <Sky overlay weather={presentation.weather} /> : null}
+                {!usesAccessibilityLayout ? <Sky intensity={ambientIntensity} overlay weather={presentation.weather} /> : null}
               </View>
               <View style={styles.titleRow}>
                 <AppText style={styles.outfitName} testID="today-archetype" variant="title">
@@ -193,7 +199,7 @@ export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: 
           </>
         ) : (
           <View accessible accessibilityLabel={presentation.weather.accessibilityLabel}>
-            <Sky weather={presentation.weather} />
+            <Sky intensity={ambientIntensity} weather={presentation.weather} />
           </View>
         )}
 
@@ -299,7 +305,8 @@ export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: 
   );
 }
 
-function Sky({ weather, overlay = false }: Readonly<{
+function Sky({ intensity, weather, overlay = false }: Readonly<{
+  intensity: AmbientIntensity;
   weather: LoadedTodayPresentation['weather'];
   overlay?: boolean;
 }>) {
@@ -319,7 +326,7 @@ function Sky({ weather, overlay = false }: Readonly<{
         </AppText>
       </View>
       <View style={styles.weatherGlyph}>
-        <WeatherGlyph testID="today-header-weather-glyph" />
+        <WeatherGlyph intensity={intensity} testID="today-header-weather-glyph" />
       </View>
     </View>
   );

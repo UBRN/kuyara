@@ -76,19 +76,25 @@ custom screen transitions.
 
 ### The ambient duration role
 
-None of the three durations describes ambient motion. A cloud that bobs over 1500 ms
-is not a 320 ms transition. `weather-glyph.tsx` demonstrates the consequence today: it
-hardcodes `BOB_DURATION_MS = 1500`, `DROP_DURATION_MS = 550` and
-`DROP_STAGGER_MS = 350`, bypassing `theme.motion` entirely, because the token set has
-no entry for what it is doing.
+None of the three durations describes ambient motion. A cloud that bobs over 1500 ms is
+not a 320 ms transition, so ambient motion has the duration role `theme.motion.ambient`
+rather than literals in a feature file.
 
-Ambient motion gets the duration role `theme.motion.ambient` rather than literals in a
-feature file, and the role's value follows the weather condition's intensity: a calm
-condition moves more slowly than a violent one. Its values are measured rather than
-guessed. A duration is a role in the sense of
+The role carries three tempo steps, each one leg of a loop: calm 1500 ms, moderate
+1000 ms and intense 650 ms. A deterministic rule in the weather domain picks the step
+from the condition, so the tempo follows how fast the weather is moving rather than how
+bad it is: a condition that only sits in the sky is calm, drizzle is moderate, and
+anything that actually comes down is intense. The calm step's 1500 ms was kept after
+watching the Today glyph on the iPhone 17 Pro Simulator on 2026-09-12, and the two
+faster steps shorten the same leg. The glyph derives its drop cycle and its drop stagger
+from the selected step by fixed ratios, so the cloud and the rain keep one tempo at
+every step, and the probe loading overlay breathes on the calm step, the one step that
+depicts no weather. All three steps resolve to 0 under Reduce Motion.
+
+A duration is a role in the sense of
 [ADR 0009](0009-a-design-language-layer-and-its-deferral-carve-out.md)'s carve-out, so
 it may be defined ahead of a second use. Ambient motion never runs under a screen's hero
-value and stops under Reduce Motion.
+value.
 
 ### A moment
 

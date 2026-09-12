@@ -25,6 +25,7 @@ import { Divider } from '@/components/ui/divider';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { ANALYTICS_SCHEMA_VERSION } from '@/features/analytics/domain/analytics-events';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
+import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity';
 import type { ActiveLocation } from '@/features/weather/domain/weather';
 import { HourlyRail } from '@/features/weather/presentation/hourly-rail';
 import { remainingHourlyForecast } from '@/features/weather/presentation/remaining-hours';
@@ -404,7 +405,7 @@ export function WeatherScreen() {
                 <View
                   accessibilityElementsHidden
                   importantForAccessibility="no-hide-descendants">
-                  <WeatherGlyph />
+                  <WeatherGlyph intensity={ambientIntensityOf(snapshot.current.condition)} />
                 </View>
               </View>
 
