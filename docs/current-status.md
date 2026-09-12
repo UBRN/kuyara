@@ -6,7 +6,7 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
 
 ## Current State
 
-- **Mobile:** Expo SDK 57, React Native, Expo Router and Expo SQLite (schema version 12)
+- **Mobile:** Expo SDK 57, React Native, Expo Router and Expo SQLite (schema version 13)
   provide an accountless five-step onboarding flow (welcome, gender, dress style, birth
   date, optional location); three primary tabs, Today, Weather and Profile, drawn by Expo
   Router Native Tabs, with the Closet and Settings as Profile stack destinations; private
@@ -21,20 +21,27 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   device flow or the native `/weather/location` picker over the Worker's place-search
   route. The deterministic sample provider is test-only.
 - **Recommendations:** The deterministic layer composes at most 24 valid outfits from the
-  bundled catalog (version 3); the Worker's AI chain, Workers AI then OpenRouter, selects
-  three and labels each with an archetype; mobile validates, persists and falls back to a
-  device-local deterministic generator. One budget spans the boundary: the mobile client
+  bundled catalog (version 3); the AI tier selects three and labels each with an
+  archetype, on-device Apple Foundation Models where the device reports them available and
+  otherwise the Worker's chain, Workers AI then OpenRouter; mobile validates, persists and
+  falls back to a device-local deterministic generator. One budget spans the boundary: the mobile client
   abandons the request after 20 seconds and the Worker bounds its whole AI walk with a
   19-second deadline that starts no attempt it cannot finish. Generation triggers compare
   current signals with the persisted snapshot. Today draws a breathing skeleton garment
   board under a status line while the first recommendation is generated, its pull cycle
   keeps spinning until both the weather and the recommendation refresh settle, and its
   clock re-reads on focus and on foreground. Only the coarse generation mode is exposed,
-  and Settings carries the bounded active AI probe. Where the selection runs is decided in
-  [ADR 0034](adr/0034-on-device-ai-selection-through-apple-foundation-models.md), which is
-  Proposed: its phase 1, the shared AI model-input projection and the pick distinctness
-  rule in `packages/contracts`, is implemented, and the on-device Foundation Models tier is
-  not.
+  and Settings carries the bounded active AI probe beside an on-device availability row
+  that calls no provider. Where the selection runs is decided in
+  [ADR 0034](adr/0034-on-device-ai-selection-through-apple-foundation-models.md): the
+  shared model-input projection and pick distinctness rule in `packages/contracts`, the
+  routed client, the third generation mode with SQLite migration 13, the three badges and
+  the local Swift Foundation Models module are implemented and bound, so every Apple
+  Intelligence eligible iPhone takes the on-device tier first with a 6-second budget, then
+  the Worker, then the deterministic fallback. On-device latency stays unmeasured: the
+  only observation is Simulator inference running on the Mac host, so the ADR's
+  measurement table still reads not yet measured, and no build carries the module until a
+  new binary and an EAS runtime version bump are made.
 - **Notifications:** on-device local weather alerts only ([ADR 0032](adr/0032-local-weather-alert-rules.md)):
   opt-in in Settings, deterministic precipitation-onset and temperature-swing rules, a
   delivery ledger, rescheduling on every persisted snapshot and on opt-in, permission and
