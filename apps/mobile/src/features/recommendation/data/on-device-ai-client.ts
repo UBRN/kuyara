@@ -1,8 +1,5 @@
 import {
   aiModelInputFromRequest,
-  aiRecommendV1SuccessSchema,
-  picksAreMeaningfullyDifferent,
-  type AiOption,
   type AiRecommendV1Request,
   type AiRecommendV1Success,
 } from '@kuyara/contracts';
@@ -11,7 +8,6 @@ import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on
 
 // ADR 0034 section 6: the only description of the native surface anywhere in the app.
 // Structured JSON goes in and structured JSON comes out; prose never crosses the boundary.
-// Phase 3 binds the Swift module to this interface; nothing else may import it.
 export type OnDeviceAiModule = Readonly<{
   getAvailability(): Promise<OnDeviceAiAvailability>;
   selectOutfits(
@@ -20,29 +16,28 @@ export type OnDeviceAiModule = Readonly<{
   ): Promise<string>;
 }>;
 
-export type OnDeviceAiFailureKind =
-  | 'unavailable'
-  | 'timeout'
-  | 'invalid-response'
-  | 'native';
-
+/**
+ * Every on-device outcome except a result is the same outcome to the caller: the Worker's
+ * turn. Nothing above this reads a reason, so no reason is carried.
+ */
 export class OnDeviceAiError extends Error {
-  readonly kind: OnDeviceAiFailureKind;
-
-  constructor(kind: OnDeviceAiFailureKind) {
+  constructor() {
     super('The on-device AI selection could not be completed.');
     this.name = 'OnDeviceAiError';
-    this.kind = kind;
   }
 }
 
-// ADR 0034 section 2: one attempt, no retry, 6 s of the 20 s user-visible budget.
+// ADR 0034 section 2: one attempt, no retry, 6 s of the 20 s user-visible budget. The
+// budget covers the whole on-device cost, the availability read included, so no part of the
+// tier can spend time outside it.
 export const onDeviceAiBudgetMilliseconds = 6000;
 
 type Dependencies = Readonly<{
   module: OnDeviceAiModule | null;
   timeoutMilliseconds?: number;
 }>;
+
+const unavailable: OnDeviceAiAvailability = { status: 'unavailable', reason: 'unknown' };
 
 export class OnDeviceAiClient {
   private readonly module: OnDeviceAiModule | null;
@@ -54,67 +49,61 @@ export class OnDeviceAiClient {
       dependencies.timeoutMilliseconds ?? onDeviceAiBudgetMilliseconds;
   }
 
-  // No inference, no quota, no measurable time: this is not a probe.
+  // No inference, no quota, no measurable time: this is not a probe. It is still a call into
+  // a native module, so it is bounded like every other one. A read that never settles would
+  // otherwise leave the AI status row on its pre-answer state for the life of the screen,
+  // which that screen renders as "not available on this device": a wrong answer, kept.
   async getAvailability(): Promise<OnDeviceAiAvailability> {
     if (!this.module) return { status: 'unavailable', reason: 'device_not_eligible' };
+    const module = this.module;
     try {
-      return await this.module.getAvailability();
+      return await this.withinBudget(() => module.getAvailability());
     } catch {
-      return { status: 'unavailable', reason: 'unknown' };
+      return unavailable;
     }
   }
 
   async recommend(
     request: AiRecommendV1Request,
   ): Promise<AiRecommendV1Success['data']> {
-    const availability = await this.getAvailability();
-    if (availability.status !== 'available' || !this.module) {
-      throw new OnDeviceAiError('unavailable');
-    }
-
-    const reply = await this.selectWithinBudget(this.module, request);
-    const parsed = parseReply(reply);
-    const validated = aiRecommendV1SuccessSchema.safeParse({ data: parsed });
-    if (!validated.success) throw new OnDeviceAiError('invalid-response');
-
-    // The same two gates the Worker applies before it answers: only supplied option
-    // identifiers, and three meaningfully different picks. Failing either falls to the
-    // Worker tier rather than repairing the answer into a different outfit.
-    const options = new Map(request.options.map((option) => [option.optionId, option]));
-    const picked = validated.data.data.picks.map(({ optionId }) => options.get(optionId));
-    if (!picked.every((option): option is AiOption => option !== undefined)) {
-      throw new OnDeviceAiError('invalid-response');
-    }
-    if (!picksAreMeaningfullyDifferent(picked)) {
-      throw new OnDeviceAiError('invalid-response');
-    }
-    return validated.data.data;
+    const module = this.module;
+    if (!module) throw new OnDeviceAiError();
+    // The budget starts before the availability read, so an availability call that is slow
+    // or never settles is abandoned at 6 s like any other on-device cost and the Worker
+    // still gets its 14 s floor.
+    return this.withinBudget(() => this.attempt(module, request));
   }
 
-  private async selectWithinBudget(
+  private async attempt(
     module: OnDeviceAiModule,
     request: AiRecommendV1Request,
-  ): Promise<string> {
-    // The module is told the budget and the caller enforces it too, so a module that never
-    // settles cannot hold the recommendation past its 6 s.
+  ): Promise<AiRecommendV1Success['data']> {
+    const availability = await module.getAvailability().catch(() => unavailable);
+    if (availability.status !== 'available') throw new OnDeviceAiError();
+
+    // The module is told the budget as well, so a session that never settles is cancelled
+    // natively rather than left running behind an abandoned call.
+    const reply = await module
+      .selectOutfits(JSON.stringify(aiModelInputFromRequest(request)), {
+        timeoutMs: this.timeoutMilliseconds,
+      })
+      .catch(() => {
+        throw new OnDeviceAiError();
+      });
+
+    // Deliberately unvalidated here. The shared gate the routed client runs on this value
+    // parses it with the same schema before anything else looks at it, so a second parse
+    // would only be a second place for the rules to drift.
+    return parseReply(reply) as AiRecommendV1Success['data'];
+  }
+
+  private async withinBudget<T>(work: () => Promise<T>): Promise<T> {
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
-    const timeout = new Promise<never>((_resolve, reject) => {
-      timeoutId = setTimeout(
-        () => reject(new OnDeviceAiError('timeout')),
-        this.timeoutMilliseconds,
-      );
+    const budget = new Promise<never>((_resolve, reject) => {
+      timeoutId = setTimeout(() => reject(new OnDeviceAiError()), this.timeoutMilliseconds);
     });
     try {
-      return await Promise.race([
-        module
-          .selectOutfits(JSON.stringify(aiModelInputFromRequest(request)), {
-            timeoutMs: this.timeoutMilliseconds,
-          })
-          .catch(() => {
-            throw new OnDeviceAiError('native');
-          }),
-        timeout,
-      ]);
+      return await Promise.race([work(), budget]);
     } finally {
       clearTimeout(timeoutId);
     }
@@ -125,6 +114,6 @@ function parseReply(reply: string): unknown {
   try {
     return JSON.parse(reply);
   } catch {
-    throw new OnDeviceAiError('invalid-response');
+    throw new OnDeviceAiError();
   }
 }
