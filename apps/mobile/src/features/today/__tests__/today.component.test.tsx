@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { failureCategories } from '@/domain/failure-category';
 import {
   aiAssistedTodayScreenState,
+  todayOutfitId,
   todayScreenState,
   todayWardrobeItems,
 } from '@/features/today/__tests__/fixtures';
@@ -215,7 +216,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     expect(button).toBeOnTheScreen();
     await fireEvent.press(result.getByTestId('today-stage', hidden));
     await fireEvent.press(result.getByTestId('today-archetype', hidden));
-    expect(onOpenOutfitDetail.mock.calls).toEqual([['outfit-1'], ['outfit-1']]);
+    expect(onOpenOutfitDetail.mock.calls).toEqual([[todayOutfitId(1)], [todayOutfitId(1)]]);
     // Both alternates share the taller of their two derived stage heights, so their
     // captions sit on one baseline; the shorter board is centred in its stage.
     const alternateWidth = (358 - spacing.lg) / 2;
@@ -321,7 +322,7 @@ test('outfit detail renders the detail board, in-place captions, requirement row
       onSetOwnership={() => undefined}
       ownershipByGarmentType={ownershipByGarmentType}
       state={todayScreenState}
-      suggestionId="outfit-1"
+      suggestionId={todayOutfitId(1)}
     />,
   ));
   await fireEvent(result.getByTestId('outfit-detail-content'), 'layout', {
@@ -401,7 +402,7 @@ test('outfit detail keeps captions visible and labelled after its board entrance
       onSetOwnership={() => undefined}
       ownershipByGarmentType={{}}
       state={todayScreenState}
-      suggestionId="outfit-1"
+      suggestionId={todayOutfitId(1)}
     />,
   ));
   await fireEvent(result.getByTestId('outfit-detail-content'), 'layout', {
@@ -431,7 +432,7 @@ describe.each(['en', 'tr'] as const)('%s outfit detail untracked garments', (lan
         onSetOwnership={() => undefined}
         ownershipByGarmentType={{}}
         state={todayScreenState}
-        suggestionId="outfit-1"
+        suggestionId={todayOutfitId(1)}
       />,
       lightTheme,
       language,
@@ -473,7 +474,7 @@ describe.each(['en', 'tr'] as const)('%s outfit detail ownership', (language) =>
         onSetOwnership={onSetOwnership}
         ownershipByGarmentType={ownershipByGarmentType}
         state={todayScreenState}
-        suggestionId="outfit-1"
+        suggestionId={todayOutfitId(1)}
       />,
       lightTheme,
       language,
@@ -764,7 +765,7 @@ test('refreshing, failure and staleness announce freshness while retaining the l
   expect(result.getByTestId('today-freshness')).toHaveProp('accessibilityLiveRegion', 'polite');
   expect(result.getByTestId('today-archetype')).toHaveTextContent('Rain Ready');
   await fireEvent.press(result.getByTestId('today-archetype'));
-  expect(onOpenOutfitDetail).toHaveBeenCalledWith('outfit-1');
+  expect(onOpenOutfitDetail).toHaveBeenCalledWith(todayOutfitId(1));
   await result.rerender(screen(false, false, true));
   expect(result.getByTestId('today-freshness')).toHaveProp('accessibilityLiveRegion', 'polite');
   await result.rerender(screen(false, false));
@@ -817,7 +818,7 @@ describe.each(['en', 'tr'] as const)('%s outfit detail captions above 1.5', (lan
         onSetOwnership={() => undefined}
         ownershipByGarmentType={ownershipByGarmentType}
         state={todayScreenState}
-        suggestionId="outfit-1"
+        suggestionId={todayOutfitId(1)}
       />,
       lightTheme,
       language,
@@ -882,7 +883,7 @@ test.each([
       onSetOwnership={() => undefined}
       ownershipByGarmentType={{}}
       state={todayScreenState}
-      suggestionId="outfit-1"
+      suggestionId={todayOutfitId(1)}
     />,
   ));
 

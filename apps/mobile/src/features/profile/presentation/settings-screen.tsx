@@ -134,17 +134,17 @@ export function SettingsScreen({
           value={birthDateValue}
         />
       </NativeListSection>
-      {version ? (
-        <NativeListSection footer={
-          <AppText
-            colorRole="textSecondary"
-            style={styles.version}
-            tabularNumbers
-            variant="caption">
-            {messages.settings.versionLine(version, build)}
-          </AppText>
-        } />
-      ) : null}
+      <NativeListSection footer={
+        <AppText
+          colorRole="textSecondary"
+          style={styles.version}
+          tabularNumbers
+          variant="caption">
+          {version
+            ? messages.settings.versionLine(version, build)
+            : messages.settings.developmentBuild}
+        </AppText>
+      } />
     </NativeList>
   );
 }

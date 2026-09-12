@@ -20,14 +20,6 @@ import { useWeatherApplication } from '@/features/weather/application/weather-ap
 import { weatherFreshness } from '@/features/weather/domain/weather';
 import { useLocalization } from '@/localization/use-messages';
 
-// The presentation layer mints this id itself, `outfit-${1-based index}`
-// (`features/today/presentation/today-presentation.ts`); it is not a domain identifier, so
-// the position for `outfit_detail_opened` is read straight back out of it.
-function outfitPositionFromSuggestionId(suggestionId: string | undefined): 1 | 2 | 3 | null {
-  const match = suggestionId?.match(/^outfit-([1-3])$/);
-  return match ? (Number(match[1]) as 1 | 2 | 3) : null;
-}
-
 export default function OutfitDetailRoute() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const { language, messages } = useLocalization();
@@ -63,10 +55,13 @@ export default function OutfitDetailRoute() {
 
   const isFocused = useIsFocused();
   const openedSuggestionIdRef = useRef<string | null>(null);
-  const position = outfitPositionFromSuggestionId(suggestionId);
-  const outfit = position && recommendation?.status === 'recommended'
-    ? recommendation.outfits[position - 1]
-    : null;
+  // The route is keyed by the outfit's stable option id, so a regeneration that finishes
+  // while detail is open cannot swap another outfit under the user; an outfit the current
+  // snapshot no longer offers renders the unavailable state instead.
+  const outfits = recommendation?.status === 'recommended' ? recommendation.outfits : [];
+  const outfitIndex = outfits.findIndex(({ optionId }) => optionId === suggestionId);
+  const outfit = outfits[outfitIndex] ?? null;
+  const position = outfit ? ((outfitIndex + 1) as 1 | 2 | 3) : null;
 
   useFocusEffect(useCallback(() => {
     reevaluateLocalDay();

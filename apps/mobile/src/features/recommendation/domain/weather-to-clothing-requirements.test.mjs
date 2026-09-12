@@ -127,6 +127,73 @@ test('breathability thresholds distinguish optional warmth from mandatory heat',
   }
 });
 
+test('a cold morning before a hot afternoon keeps the current side mandatory', () => {
+  const hourAt = (hour) => `2026-08-01T${String(hour).padStart(2, '0')}:00:00.000Z`;
+  const hours = (entries) => entries.map(([hour, temperature]) => ({
+    forecastAt: hourAt(hour),
+    ...measurements({
+      temperatureCelsius: temperature,
+      apparentTemperatureCelsius: temperature,
+    }),
+  }));
+  const day = (nowHour, temperature, hourly) => deriveClothingRequirements(snapshot({
+    current: { temperatureCelsius: temperature, apparentTemperatureCelsius: temperature },
+    snapshotFields: { fetchedAt: hourAt(nowHour) },
+    minimumTemperatureCelsius: 4,
+    maximumTemperatureCelsius: 29,
+    hourly,
+  }), hourAt(nowHour));
+  const priorities = (result) => Object.fromEntries(
+    ['thermal', 'arm_coverage', 'leg_coverage', 'breathability'].map((kind) => [
+      kind,
+      `${findRequirement(result, kind)?.minimum}:${findRequirement(result, kind)?.priority}`,
+    ]),
+  );
+
+  // Cold now, heat later: breathability is demoted and still explains itself.
+  const coldNow = day(7, 4, hours([[8, 4], [16, 29]]));
+  assert.deepEqual(priorities(coldNow), {
+    thermal: 'high:mandatory',
+    arm_coverage: 'full:mandatory',
+    leg_coverage: 'full:mandatory',
+    breathability: 'high:optional',
+  });
+  assert.deepEqual(
+    findRequirement(coldNow, 'breathability').reasonCodes,
+    ['temperature_high', 'apparent_temperature_high', 'daily_range_wide'],
+  );
+
+  // Heat now, cold later: insulation and the coverage that came with it are demoted.
+  assert.deepEqual(priorities(day(16, 29, hours([[17, 29], [22, 4]]))), {
+    thermal: 'high:optional',
+    arm_coverage: 'full:optional',
+    leg_coverage: 'full:optional',
+    breathability: 'high:mandatory',
+  });
+
+  // Neither is current: protection over comfort.
+  assert.deepEqual(priorities(day(12, 15, hours([[16, 29], [22, 4]]))), {
+    thermal: 'high:mandatory',
+    arm_coverage: 'full:mandatory',
+    leg_coverage: 'full:mandatory',
+    breathability: 'high:optional',
+  });
+  assert.deepEqual(priorities(day(23, 15, [])), {
+    thermal: 'high:mandatory',
+    arm_coverage: 'full:mandatory',
+    leg_coverage: 'full:mandatory',
+    breathability: 'high:optional',
+  });
+
+  // Below the coverage boundary there is no conflict to resolve.
+  assert.deepEqual(priorities(day(12, 15, hours([[16, 29], [22, 12]]))), {
+    thermal: 'light:mandatory',
+    arm_coverage: 'full:optional',
+    leg_coverage: 'full:optional',
+    breathability: 'high:mandatory',
+  });
+});
+
 test('past daily cold does not over-insulate a warm evening with warm remaining hours', () => {
   const result = deriveClothingRequirements(snapshot({
     current: {

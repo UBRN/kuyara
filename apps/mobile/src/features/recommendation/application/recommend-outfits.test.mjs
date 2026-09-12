@@ -110,6 +110,45 @@ test('cold wet weather recommends immutable deterministic catalog outfits', () =
   assert.equal(Object.isFrozen(result.outfits), true);
 });
 
+test('a continental spring day still composes three outfits from the bundled catalog', () => {
+  // 4 °C at 07:00 and 29 °C at 16:00 once demanded mandatory high thermal and mandatory
+  // high breathability at once, which no catalog garment satisfies; the current side of
+  // the day now decides which of the two stays mandatory.
+  const hourAt = (hour) => `2026-04-15T${String(hour).padStart(2, '0')}:00:00.000Z`;
+  const hourly = [[8, 4], [12, 15], [16, 29], [20, 18]].map(([hour, temperature]) => ({
+    forecastAt: hourAt(hour),
+    ...measurements({ temperatureCelsius: temperature, apparentTemperatureCelsius: temperature }),
+  }));
+  const weather = snapshot({
+    current: { temperatureCelsius: 4, apparentTemperatureCelsius: 4 },
+    snapshotFields: { fetchedAt: hourAt(7) },
+    minimumTemperatureCelsius: 4,
+    maximumTemperatureCelsius: 29,
+    hourly,
+  });
+  weather.current = { ...weather.current, observedAt: hourAt(7) };
+
+  for (const clothingPreference of ['womens', 'mens']) {
+    const result = recommendOutfits({
+      now: hourAt(7),
+      snapshot: weather,
+      clothingPreference,
+      dressStyle: 'smart',
+      dayVariant: 0,
+    });
+    assert.equal(result.status, 'recommended');
+    assert.equal(result.outfits.length, 3);
+    assert.equal(
+      result.requirements.requirements.find(({ kind }) => kind === 'thermal')?.priority,
+      'mandatory',
+    );
+    assert.equal(
+      result.requirements.requirements.find(({ kind }) => kind === 'breathability')?.priority,
+      'optional',
+    );
+  }
+});
+
 test('fallback archetypes use rule order and advance past duplicates', () => {
   const result = recommendOutfits({
     now: observedAt,
