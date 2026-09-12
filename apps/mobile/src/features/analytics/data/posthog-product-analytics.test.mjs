@@ -89,7 +89,7 @@ test('undecided and withdrawn profiles create no client until opt-in', async () 
     assert.equal(analytics.getIdentifier(), null);
     assert.equal(analytics.getSessionId(), null);
 
-    await analytics.optIn('first_launch_sheet');
+    await analytics.optIn('today_sheet');
     assert.equal(clients.length, 1);
     assert.deepEqual(clients[0].operations, [
       'optIn',
@@ -117,7 +117,7 @@ test('a granted profile reconciles silently and exposes the provider identifier'
 test('opt-in precedes the consent event and forwards an optional timestamp as a Date', async () => {
   const client = new FakeClient();
   const analytics = createPostHogProductAnalytics(options('undecided'), () => client);
-  await analytics.optIn('first_launch_sheet');
+  await analytics.optIn('today_sheet');
   analytics.capture(
     'notification_opened',
     { schema_version: 1 },
@@ -131,7 +131,7 @@ test('opt-in precedes the consent event and forwards an optional timestamp as a 
   ]);
   assert.deepEqual(client.captures[0], {
     name: 'analytics_consent_granted',
-    properties: { schema_version: 1, surface: 'first_launch_sheet' },
+    properties: { schema_version: 1, surface: 'today_sheet' },
     options: undefined,
   });
   assert.equal(client.captures[1].options.timestamp.toISOString(), '2026-09-09T12:00:00.000Z');

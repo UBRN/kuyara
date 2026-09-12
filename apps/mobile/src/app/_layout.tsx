@@ -4,7 +4,14 @@ import { StatusBar } from 'expo-status-bar';
 import { Platform } from 'react-native';
 import { useCallback, useEffect, useState } from 'react';
 
-import { AnalyticsConsentGate } from '@/features/analytics/application/analytics-consent-gate';
+import {
+  AnalyticsConsentGate,
+  isAnalyticsConsentGateEligible,
+} from '@/features/analytics/application/analytics-consent-gate';
+import {
+  AnalyticsConsentTriggerProvider,
+  useAnalyticsConsentTrigger,
+} from '@/features/analytics/application/analytics-consent-trigger';
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
 import { createProductAnalytics } from '@/features/analytics/data/create-product-analytics';
 import { NotificationApplicationProvider } from '@/features/notifications/application/notification-application-provider';
@@ -41,10 +48,8 @@ function ReadyApplicationShell({
   }, [profile.notificationsOptIn]);
   const [analytics] = useState(() =>
     createProductAnalytics(__DEV__, profile.analyticsConsent));
-  // Onboarding's completion and its Redirect to the tabs fire off the same profile update; a
-  // push made while the onboarding route is still current is lost with it. Presenting only
-  // once the tabs are current keeps the sheet on the same launch that finished onboarding.
   const pathname = usePathname();
+  const { recommendationShown } = useAnalyticsConsentTrigger();
   const presentAnalyticsConsent = useCallback(() => {
     router.push('/analytics-consent');
   }, []);
@@ -75,11 +80,12 @@ function ReadyApplicationShell({
                 <StatusBar style={theme.isDark ? 'light' : 'dark'} />
                 <AnalyticsConsentGate
                   onPresent={presentAnalyticsConsent}
-                  shouldPresent={
-                    profile.onboardingCompleted
-                    && profile.analyticsConsent === 'undecided'
-                    && pathname !== '/onboarding'
-                  }
+                  shouldPresent={isAnalyticsConsentGateEligible({
+                    analyticsConsent: profile.analyticsConsent,
+                    onboardingCompleted: profile.onboardingCompleted,
+                    pathname,
+                    recommendationShown,
+                  })}
                 />
                 <Stack
                   screenOptions={{
@@ -95,6 +101,10 @@ function ReadyApplicationShell({
                     name="analytics-consent"
                     options={{
                       presentation: Platform.OS === 'ios' ? 'formSheet' : 'modal',
+                      ...(Platform.OS === 'ios' ? {
+                        sheetAllowedDetents: 'fitToContents' as const,
+                        sheetGrabberVisible: false,
+                      } : {}),
                     }}
                   />
                 </Stack>
@@ -125,10 +135,12 @@ function ThemedApplicationShell() {
   }
 
   return (
-    <ReadyApplicationShell
-      profile={state.profile}
-      updateNotificationsOptIn={updateNotificationsOptIn}
-    />
+    <AnalyticsConsentTriggerProvider>
+      <ReadyApplicationShell
+        profile={state.profile}
+        updateNotificationsOptIn={updateNotificationsOptIn}
+      />
+    </AnalyticsConsentTriggerProvider>
   );
 }
 
