@@ -306,11 +306,8 @@ Durations are already tokenized (`immediate` 0, `fast` 120, `normal` 200, `delib
 - `normal` 200, a state change on something already on screen.
 - `deliberate` 320, reserved for a full-screen or sheet transition.
 
-**Continuous and repeating motion is permitted**, under a condition. Rewritten by
-[ADR 0020](../adr/0020-rewriting-the-motion-law.md); the earlier blanket rule was
-"nothing repeats, anywhere", which two shipped components violated and which was
-costing the product its only ambient character on the two screens where the weather is
-the subject. The rule now is:
+**Continuous and repeating motion is permitted**, under the condition set by
+[ADR 0020](../adr/0020-rewriting-the-motion-law.md):
 
 > Motion may be used where it supports the weather atmosphere, state, hierarchy,
 > feedback, or product character. It must not demand attention unnecessarily, must not
@@ -319,7 +316,7 @@ the subject. The rule now is:
 Three requirements are hard, not judgment calls:
 
 - **Motion is never the only indication of a state change.** This is an accessibility
-  requirement and it survived the rewrite unchanged.
+  requirement rather than a restraint preference.
 - **Reduced Motion is honoured.** Tokenized durations already resolve to 0; any
   ambient animation must short-circuit as `weather-glyph.tsx` and
   `probe-loading-overlay.tsx` already do.
@@ -329,28 +326,50 @@ Three requirements are hard, not judgment calls:
   measurably costs readability. ADR 0021 §10 sanctions entrance and transition motion
   for the garment pieces on that stage; what stays still is the stage itself.
 
-Ambient motion has no duration token yet: `fast`, `normal` and `deliberate` all
-describe transitions, and a 1500 ms cloud bob is not a transition.
-`weather-glyph.tsx` currently hardcodes its own durations for that reason. An ambient
-duration role is added and measured with the redesign's token work; a duration is a role in
-the sense of Law 9, so it may be defined ahead of a second use.
+**Ambient motion has its own duration role**, `theme.motion.ambient`. `fast`, `normal`
+and `deliberate` all describe transitions, and a 1500 ms cloud bob is not a transition.
+The role's value follows the weather condition's intensity, a calm condition moving more
+slowly than a violent one, and it is measured rather than guessed. Ambient motion never
+runs under a hero value and stops under Reduce Motion. A duration is a role in the sense
+of Law 9, so the role is named ahead of its second use.
 
 **Spatial and effects motion.** Motion is one of two kinds. *Effects*
 motion changes a property in place: opacity, colour, a tint draining away. The three
 duration tokens describe effects motion and are complete for it. *Spatial* motion moves
 something between positions or sizes: a garment piece entering, the pieces travelling from
-Today's board to the detail preset, a row expanding. Both platforms now default spatial
+Today's board to the detail preset, a row expanding. Both platforms default spatial
 motion to springs, SwiftUI since iOS 17 and Material 3 Expressive through its own spatial
 versus effects split, and a duration with a curve reads as mechanical beside them. A
-spatial spring role is therefore approved as a role under Law 9 and may be named ahead of
-use. A specification says "spatial" rather than a number. The role landed on 2026-09-10
-as `theme.springs.spatial`, duration 550 ms and damping ratio 0.825, SwiftUI's default
-spring; the values were kept after watching the detail entrance frame by frame on the
-iPhone 17 Pro Simulator, where the pieces settle in about half a second with no visible
-overshoot. Only `components/ui` consumes the role, and `theme.test.mjs` fails feature
+spatial spring is a role under Law 9 and may be named ahead of use. A specification says
+"spatial" rather than a number.
+
+Spatial motion has two spring roles. `theme.springs.spatial` is the default: duration
+550 ms and damping ratio 0.825, SwiftUI's default spring; the values were kept after
+watching the detail entrance frame by frame on the iPhone 17 Pro Simulator on 2026-09-10,
+where the pieces settle in about half a second with no visible overshoot.
+`theme.springs.arrival` has a visible overshoot and is used only for garment pieces
+landing on a board, Today's board and the outfit detail board, because the outfit is the
+product's hero and a hero that arrives flat reads as a list item. Its damping value is
+measured frame by frame on the Simulator the same way; the law names the role, not the
+number. Only `components/ui` consumes either role, and `theme.test.mjs` fails feature
 source that authors `withSpring`, `dampingRatio` or `stiffness`. Reduced Motion resolves
-spatial motion the way it resolves the durations, to the static end state. Navigation
-transitions remain the platform's, as ADR 0020 left them.
+spatial motion the way it resolves the durations, to the static end state.
+
+**Content arrives, navigation does not.** A screen's content enters in reading order,
+staggered by `theme.motion.stagger`, after the platform's transition has landed. The
+transition itself is the platform's: native push, native tabs, native sheets. There are
+no custom navigation transitions, because the liveliness belongs to the content arriving
+rather than to the screen swapping.
+
+**A moment is a single settle plus its haptic**, fired once per user action that
+completes something. There are no particles, characters, mascots or sounds. One site
+carries a moment today: marking the last piece of an outfit as owned on the outfit detail
+board, where the pieces settle once with the arrival spring and Law 8's success
+notification fires.
+
+**Press feedback.** A pressed surface scales to 0.97 and back with `theme.motion.fast`.
+The pressed state stays visible without motion, so the response never depends on the
+animation running.
 
 ## Law 8: non-visual feedback
 
@@ -367,11 +386,21 @@ Everywhere else, silence.
 | Pull-to-refresh threshold crossed, Today and Weather | impact light | Finger is on the glass, a physical threshold |
 | Refresh outcome, success or failure | notification success / error | The user may not be looking at the screen |
 | Selection change: tab bar, theme, language, clothing preference, wardrobe owned/wanted filter and toggle, the outfit detail owned/wanted pair | selection | State changes under the finger |
+| Primary action pressed, the `Button` primary variant | impact light | The screen's main action confirms the press itself |
+| Outfit ownership completed on the detail board, the last piece marked owned | notification success | Confirming a state the user set, a real threshold |
 | Destructive confirmation | notification warning | Not reversible |
 | Navigation, including tapping an outfit card to open detail | **none** | Ordinary navigation |
-| Ordinary buttons and chevron rows | **none** | Same |
+| Non-primary buttons, icon buttons and chevron rows | **none** | Same |
 
-Roughly six sites, not a hundred. A repeated action must not punish the hand with
+**A primary action confirms the press itself with a light impact; no other control
+does.** Primary means the `Button` primary variant, the screen's main action. Icon
+buttons, list rows, chips, the tab bar and pickers fire nothing on press; where the tab
+bar and the pickers do fire, it is the selection change above, which is a state changing
+under the finger rather than a press being acknowledged. The press that completes an
+outfit's ownership fires the success notification, not the selection feedback as well:
+one press, one haptic.
+
+Six sites, not a hundred. A repeated action must not punish the hand with
 constant vibration, which matches Apple's own guidance and this identity's existing
 avoidance of anything attention-demanding.
 
@@ -385,7 +414,8 @@ Android's own guidance calls "buzzy" and advises against: given the choice betwe
 haptics and no haptics, choose no haptics. The Android path is
 `performAndroidHapticsAsync` with the `AndroidHaptics` constants, which also respects
 the system per-app haptic setting. The wrapper branches by platform; a single call
-routed identically to both platforms is a defect.
+routed identically to both platforms is a defect. The primary-action press follows the
+same path: on Android it is the wrapper's platform feedback, never the iOS impact call.
 
 **Structure.** Feature code never imports `expo-haptics`, exactly as it never imports a
 brand primitive or a provider SDK. A single wrapper under `components/ui` consumes
@@ -486,8 +516,11 @@ without reading the rest of this document.
   feedback, or character; that it is not the only indication of a state change; that it
   stops under Reduced Motion; and that it is not under a hero value (Law 7).
 - For any motion that moves an element between positions or sizes, confirm it is
-  specified as spatial, the spring role once it lands, and not as one of the three
-  duration tokens (Law 7).
+  specified as spatial, `theme.springs.spatial` or, for garment pieces landing on a
+  board, `theme.springs.arrival`, and not as one of the three duration tokens (Law 7).
+- For content entering a screen, confirm it arrives in reading order staggered by
+  `theme.motion.stagger`, that the screen transition is the platform's, and that any
+  ambient loop takes its duration from `theme.motion.ambient` (Law 7).
 - Grep `features/` for `expo-haptics`. Zero matches: only the `components/ui` wrapper
   imports it (Law 8).
 - Grep `features/` for `@expo/ui`. Zero matches: only `components/ui` wraps it
