@@ -294,6 +294,22 @@ export function deriveClothingRequirements(
   const heatExposure = Math.max(...airTemperatures, ...apparentTemperatures);
   const wideDailyRange =
     snapshot.maximumTemperatureCelsius - snapshot.minimumTemperatureCelsius >= 8;
+  // Cold below 12 makes insulation and full coverage mandatory; heat at or above 28 makes
+  // high breathability mandatory. One day can demand both (4 °C at 07:00, 29 °C at 16:00)
+  // and no garment satisfies both, so the side the current conditions trigger stays
+  // mandatory and the side only later hours trigger becomes optional. When neither is
+  // current, protection wins over comfort: the cold side stays mandatory.
+  const currentCold = Math.min(
+    snapshot.current.temperatureCelsius,
+    snapshot.current.apparentTemperatureCelsius,
+  );
+  const currentHeat = Math.max(
+    snapshot.current.temperatureCelsius,
+    snapshot.current.apparentTemperatureCelsius,
+  );
+  const conflicting = coldExposure < 12 && heatExposure >= 28;
+  const coldDemoted = conflicting && currentHeat >= 28 && currentCold >= 12;
+  const heatDemoted = conflicting && !coldDemoted;
   const candidates: ClothingRequirement[] = [];
 
   const coldReasons = temperatureReasons(
@@ -311,22 +327,24 @@ export function deriveClothingRequirements(
       : coldExposure < 12
         ? 'moderate'
         : 'light';
+    const coveragePriority: ClothingRequirementPriority =
+      coldExposure < 12 && !coldDemoted ? 'mandatory' : 'optional';
     candidates.push({
       kind: 'thermal',
       minimum,
-      priority: 'mandatory',
+      priority: coldDemoted ? 'optional' : 'mandatory',
       reasonCodes: coldReasons,
     });
     candidates.push({
       kind: 'arm_coverage',
       minimum: 'full',
-      priority: coldExposure < 12 ? 'mandatory' : 'optional',
+      priority: coveragePriority,
       reasonCodes: coldReasons,
     });
     candidates.push({
       kind: 'leg_coverage',
       minimum: 'full',
-      priority: coldExposure < 12 ? 'mandatory' : 'optional',
+      priority: coveragePriority,
       reasonCodes: coldReasons,
     });
   }
@@ -336,7 +354,7 @@ export function deriveClothingRequirements(
     candidates.push({
       kind: 'breathability',
       minimum: highHeat ? 'high' : 'moderate',
-      priority: highHeat ? 'mandatory' : 'optional',
+      priority: highHeat && !heatDemoted ? 'mandatory' : 'optional',
       reasonCodes: temperatureReasons(
         airTemperatures,
         apparentTemperatures,

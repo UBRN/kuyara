@@ -176,6 +176,7 @@ export type AppMessages = Readonly<{
     aboutYouHeading: string;
     aboutYouFooter: string;
     versionLine: (version: string, build?: string | null) => string;
+    developmentBuild: string;
     aiStatusHeading: string;
     aiStatusIntro: string;
     aiStatusLastAiAssisted: string;
@@ -498,6 +499,7 @@ const en = {
     aboutYouHeading: 'About you',
     aboutYouFooter: 'Gender selects the catalog. Dress style shapes which suggestions come first. Birth date is optional and does not change suggestions.',
     versionLine: (version: string, build?: string | null) => build ? `Version ${version} (${build})` : `Version ${version}`,
+    developmentBuild: 'Development build',
     aiStatusHeading: 'AI status',
     aiStatusIntro: 'Check whether AI responds right now.',
     aiStatusLastAiAssisted: 'Last recommendation: AI-assisted.',
@@ -952,6 +954,7 @@ const tr = {
     aboutYouHeading: 'Hakkında',
     aboutYouFooter: 'Cinsiyet kataloğu belirler. Giyim tarzı hangi önerilerin önce geleceğini etkiler. Doğum tarihi isteğe bağlıdır ve önerileri değiştirmez.',
     versionLine: (version: string, build?: string | null) => build ? `Sürüm ${version} (${build})` : `Sürüm ${version}`,
+    developmentBuild: 'Geliştirme derlemesi',
     aiStatusHeading: 'AI durumu',
     aiStatusIntro: 'AI’nin şu anda yanıt verip vermediğini kontrol edin.',
     aiStatusLastAiAssisted: 'Son öneri: AI destekli.',

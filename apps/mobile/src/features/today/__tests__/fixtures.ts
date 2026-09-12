@@ -146,6 +146,12 @@ if (todayRecommendation.status !== 'recommended') {
   throw new Error('Expected the Today fixture to contain a recommendation.');
 }
 
+const todayOutfits = todayRecommendation.outfits;
+
+export function todayOutfitId(position: 1 | 2 | 3): string {
+  return todayOutfits[position - 1].optionId;
+}
+
 export const aiAssistedTodayScreenState = Object.freeze({
   ...todayScreenState,
   isRefreshing: false,

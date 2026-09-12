@@ -172,7 +172,7 @@ export default function TodayRoute() {
   return (
     <TodayScreen
       language={language}
-      onOpenOutfitDetail={(id) => router.push(`/${id}`)}
+      onOpenOutfitDetail={(id) => router.push({ pathname: '/[id]', params: { id } })}
       onRefresh={handleRefresh}
       state={state}
     />

@@ -1,4 +1,5 @@
 import { fireEvent, render, waitFor, within } from '@testing-library/react-native';
+import Constants from 'expo-constants';
 import { useEffect, useState } from 'react';
 import { Dimensions, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -388,4 +389,25 @@ test('personal preferences keep their order and birth date can be cleared to nul
 test('version templates omit an unavailable build without leaving empty parentheses', () => {
   expect(messages.en.settings.versionLine('1.0.0', null)).toBe('Version 1.0.0');
   expect(messages.tr.settings.versionLine('1.0.0')).toBe('Sürüm 1.0.0');
+});
+
+test('the version line stays the last root element when no version is configured', async () => {
+  const expoConfig = Constants.expoConfig;
+  Constants.expoConfig = null;
+  const result = await render(
+    <SafeAreaProvider initialMetrics={initialMetrics}>
+      <ProfileApplicationProvider>
+        <ProductAnalyticsProvider
+          analytics={new RecordingProductAnalytics()}
+          firstUseStore={new InMemoryFirstUseStore()}>
+          <MountedSettingsRoutes onMount={() => undefined} />
+        </ProductAnalyticsProvider>
+      </ProfileApplicationProvider>
+    </SafeAreaProvider>,
+  );
+
+  expect(await result.findByTestId('settings-language-row')).toBeOnTheScreen();
+  expect(within(result.getByTestId('expo-ui-section')).getByText(messages.en.settings.developmentBuild))
+    .toBeOnTheScreen();
+  Constants.expoConfig = expoConfig;
 });
