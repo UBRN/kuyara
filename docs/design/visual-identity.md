@@ -195,9 +195,9 @@ The silhouette is a slot in the composition, not an asset the composition depend
 
 ## Motion
 
-Motion must be restrained, functional, and calm. Use it for hierarchy, feedback, and state transitions, and ensure that critical information remains understandable without motion. Continuous and repeating motion is permitted where it supports the weather atmosphere, state, hierarchy, feedback, or product character, per [ADR 0020](../adr/0020-rewriting-the-motion-law.md) and [`design-language.md`](design-language.md#law-7-motion); it must never be the only indication of a state change, must not sit under a screen's hero value, and must respect Reduced Motion.
+Motion must be restrained, functional, and calm. Use it for hierarchy, feedback, and state transitions, and ensure that critical information remains understandable without motion. A screen's content arrives in reading order after the platform's own transition, which stays the platform's; the outfit is the hero, and its pieces land on the board with a visible settle. Continuous and repeating motion is permitted where it supports the weather atmosphere, state, hierarchy, feedback, or product character, per [ADR 0020](../adr/0020-rewriting-the-motion-law.md) and [`design-language.md`](design-language.md#law-7-motion), and ambient weather motion takes its pace from the condition's intensity; it must never be the only indication of a state change, must not sit under a screen's hero value, and must respect Reduced Motion.
 
-Reduce or remove motion when Reduced Motion is enabled. Avoid constant decorative animation and transitions that delay the user's decision.
+There is no mascot, no particle effect, and no sound. When Reduced Motion is enabled the interface renders the static end state. Avoid constant decorative animation and transitions that delay the user's decision.
 
 ## Accessibility acceptance requirements
 
