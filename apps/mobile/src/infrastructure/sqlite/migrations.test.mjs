@@ -755,6 +755,52 @@ test('version 8 rolls back a failed rebuild and preserves weather and recommenda
   assert.deepEqual(await database.getAllAsync('PRAGMA foreign_key_check'), []);
 });
 
+test('version 8 ignores orphaned hourly rows left by a snapshot deleted with foreign keys off', async (t) => {
+  // The maintainer's device carried 234 such rows at version 7 and TestFlight build 3 could not start.
+  const database = new NodeSqliteDatabase();
+  t.after(() => database.close());
+  await createVersionSevenDatabase(database);
+  await insertProfile(database);
+  await database.execAsync(`
+    UPDATE local_profiles SET clothing_preference = 'womens';
+    INSERT INTO active_locations VALUES ('stable-profile-id', 'manual:sample', 'manual', 'sample', 0, 0, 'UTC', NULL, '${timestamp}', '${timestamp}');
+    INSERT INTO weather_snapshots VALUES ('old', 'stable-profile-id', 'manual:sample', 'UTC', '${timestamp}', '${timestamp}', 'sample', 'test', 20, 20, 19, 21, 'clear', 0, 0, 0.5, 0);
+    INSERT INTO weather_hourly_entries VALUES ('old', '${timestamp}', 20, 20, 'clear', 0, 0, 0.5, 0);
+    PRAGMA foreign_keys = OFF;
+    DELETE FROM weather_snapshots WHERE id = 'old';
+    PRAGMA foreign_keys = ON;
+    INSERT INTO weather_snapshots VALUES ('current', 'stable-profile-id', 'manual:sample', 'UTC', '${timestamp}', '${timestamp}', 'sample', 'test', 20, 20, 19, 21, 'clear', 0, 0, 0.5, 0);
+    INSERT INTO weather_hourly_entries VALUES ('current', '${timestamp}', 21, 21, 'clear', 0, 0, 0.5, 0);
+  `);
+  const orphans = await database.getAllAsync('PRAGMA foreign_key_check');
+  assert.equal(orphans.length, 1);
+  assert.equal(orphans[0].parent, 'weather_snapshots');
+  const hourlyBefore = await database.getAllAsync('SELECT * FROM weather_hourly_entries ORDER BY snapshot_id');
+
+  await migrateDatabase(database);
+
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
+  assert.equal((await database.getFirstAsync('SELECT gender FROM local_profiles')).gender, 'woman');
+  assert.deepEqual(await database.getAllAsync('SELECT * FROM weather_hourly_entries ORDER BY snapshot_id'), hourlyBefore);
+  assert.deepEqual(await database.getAllAsync('PRAGMA foreign_key_check'), orphans);
+});
+
+test('version 8 still rejects a child row whose profile does not exist', async (t) => {
+  const database = new NodeSqliteDatabase();
+  t.after(() => database.close());
+  await createVersionSevenDatabase(database);
+  await insertProfile(database);
+  await database.execAsync(`
+    PRAGMA foreign_keys = OFF;
+    INSERT INTO wardrobe_items (id, local_profile_id, category, created_at, updated_at, entry_state) VALUES ('item', 'missing', 'top', '${timestamp}', '${timestamp}', 'owned');
+    PRAGMA foreign_keys = ON;
+  `);
+
+  await assert.rejects(() => migrateDatabase(database), /The profile migration violated foreign keys/);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 7);
+  assert.equal((await database.getFirstAsync('SELECT count(*) AS count FROM wardrobe_items')).count, 1);
+});
+
 async function createVersionEightDatabase(database) {
   const beforeV9 = {
     execAsync: database.execAsync.bind(database),

@@ -287,8 +287,12 @@ const migrationV8: Migration = {
       DROP TABLE local_profiles;
       ALTER TABLE local_profiles_v8 RENAME TO local_profiles;
     `);
-    const violations = await database.getAllAsync('PRAGMA foreign_key_check');
-    if (violations.length > 0) throw new Error('The profile migration violated foreign keys.');
+    // Only references to the rebuilt table are this migration's concern. Orphans under other
+    // parents (hourly rows whose snapshot was deleted with foreign keys off) must not block it.
+    const violations = await database.getAllAsync<{ parent: string }>('PRAGMA foreign_key_check');
+    if (violations.some((violation) => violation.parent === 'local_profiles')) {
+      throw new Error('The profile migration violated foreign keys.');
+    }
     // The rebuilt table has been checked; clear deferred references to the dropped table.
     await database.execAsync('PRAGMA defer_foreign_keys = OFF;');
   },

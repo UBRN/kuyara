@@ -164,9 +164,11 @@ App Store submission, not TestFlight, is blocked by:
 
 ## Known Issues and Manual Verification Gaps
 
-- **TestFlight build 3 bootstrap failure still needs device evidence.** Bootstrap errors are
-  now classified by stage and logged, but the cause seen on the maintainer's iPhone has not
-  yet been captured.
+- **Orphaned `weather_hourly_entries` rows accumulate on devices.** Expo's transaction
+  connection runs with foreign keys off, so replacing a weather snapshot leaves its hourly
+  rows behind instead of cascading. Migration 8's foreign-key guard is scoped to the profile
+  table so these orphans no longer block start-up (the cause of the TestFlight build 3
+  failure); the rows themselves are still not cleaned up.
 - **Real VoiceOver is unverified.** The XCUITest hierarchy was checked on the Simulator
   (single labelled elements in source order; ownership buttons carry `selected`; picker
   options carry the radio role), but spoken grouping, focus order, the rotor, Today's
