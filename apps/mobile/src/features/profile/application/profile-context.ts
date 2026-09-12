@@ -11,6 +11,7 @@ import type {
 
 export type ProfileApplicationValue = Readonly<{
   state: ProfileApplicationState;
+  retry: () => Promise<void>;
   completeOnboarding: (preferences: OnboardingPreferences) => Promise<void>;
   updateGender: (gender: Gender) => Promise<void>;
   updateDressStyle: (dressStyle: DressStyle) => Promise<void>;

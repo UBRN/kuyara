@@ -164,6 +164,9 @@ App Store submission, not TestFlight, is blocked by:
 
 ## Known Issues and Manual Verification Gaps
 
+- **TestFlight build 3 bootstrap failure still needs device evidence.** Bootstrap errors are
+  now classified by stage and logged, but the cause seen on the maintainer's iPhone has not
+  yet been captured.
 - **Real VoiceOver is unverified.** The XCUITest hierarchy was checked on the Simulator
   (single labelled elements in source order; ownership buttons carry `selected`; picker
   options carry the radio role), but spoken grouping, focus order, the rotor, Today's

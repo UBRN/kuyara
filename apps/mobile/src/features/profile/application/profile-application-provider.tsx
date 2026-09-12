@@ -7,7 +7,10 @@ import {
   useSyncExternalStore,
 } from 'react';
 
-import { ProfileApplicationController } from '@/features/profile/application/profile-application-controller';
+import {
+  ProfileApplicationController,
+  ProfileBootstrapError,
+} from '@/features/profile/application/profile-application-controller';
 import {
   ProfileApplicationContext,
   type ProfileApplicationValue,
@@ -21,8 +24,18 @@ import { LocalizationProvider } from '@/localization/localization-provider';
 import { KuyaraThemeProvider } from '@/theme/theme-provider';
 
 async function loadProfileRepository() {
-  const database = await openKuyaraDatabase();
-  await migrateDatabase(database);
+  let database;
+  try {
+    database = await openKuyaraDatabase();
+  } catch (error) {
+    throw new ProfileBootstrapError('database-open', error);
+  }
+
+  try {
+    await migrateDatabase(database);
+  } catch (error) {
+    throw new ProfileBootstrapError('migration', error);
+  }
 
   const dataSource = new SqliteProfileLocalDataSource(database, {
     createId: () => Crypto.randomUUID(),
@@ -59,6 +72,7 @@ export function ProfileApplicationProvider({ children }: PropsWithChildren) {
   const value = useMemo<ProfileApplicationValue>(
     () => ({
       state,
+      retry: () => controller.retry(),
       completeOnboarding: (preferences) =>
         controller.completeOnboarding(preferences),
       updateGender: (gender) => controller.updateGender(gender),

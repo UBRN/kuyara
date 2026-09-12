@@ -69,6 +69,7 @@ function profileApplication(notificationsOptIn: boolean): ProfileApplicationValu
       profile: { ...profile, notificationsOptIn },
       isSaving: false,
     },
+    retry: async () => undefined,
     completeOnboarding: async () => undefined,
     updateGender: async () => undefined,
     updateDressStyle: async () => undefined,
