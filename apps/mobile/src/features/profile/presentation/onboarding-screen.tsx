@@ -10,7 +10,15 @@ import {
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppText, Button, Icon, NativeDatePicker, Screen, useTextScaling } from '@/components/ui';
+import {
+  AppText,
+  Button,
+  Icon,
+  NativeDatePicker,
+  ProgressFill,
+  Screen,
+  useTextScaling,
+} from '@/components/ui';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
 import {
@@ -205,16 +213,10 @@ export function OnboardingScreen({
         accessibilityValue={{ max: totalSteps, min: 1, now: draft.step + 1 }}
         style={styles.progress}>
         {Array.from({ length: totalSteps }, (_, index) => (
-          <View
+          <ProgressFill
             key={index}
-            style={[
-              styles.progressSegment,
-              {
-                backgroundColor: index <= draft.step
-                  ? theme.colors.brandPrimary
-                  : theme.colors.borderSubtle,
-              },
-            ]}
+            progress={index <= draft.step ? 1 : 0}
+            style={styles.progressSegment}
           />
         ))}
       </View>

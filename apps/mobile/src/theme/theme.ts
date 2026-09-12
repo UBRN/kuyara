@@ -250,6 +250,12 @@ const darkElevation = Object.freeze({
   },
 } as const satisfies ElevationTokens);
 
+// Law 7's ambient role: a loop that never resolves, so its duration is not a transition
+// but a tempo. The step follows what the loop depicts, so the same drawing reads as
+// drizzle or as a downpour without changing a colour or a shape.
+export type AmbientIntensity = 'calm' | 'moderate' | 'intense';
+type AmbientMotionTokens = Readonly<Record<AmbientIntensity, number>>;
+
 export const standardMotion = Object.freeze({
   immediate: 0,
   fast: 120,
@@ -259,9 +265,16 @@ export const standardMotion = Object.freeze({
   // order. It is a delay between transitions rather than a transition, so it stays
   // well under `fast`; content reads as one arrival instead of a queue.
   stagger: 45,
+  ambient: Object.freeze({
+    calm: 1500,
+    moderate: 1000,
+    intense: 650,
+  } as const satisfies AmbientMotionTokens),
 } as const);
 
-export type MotionTokens = Readonly<Record<keyof typeof standardMotion, number>>;
+export type MotionTokens =
+  & Readonly<Record<Exclude<keyof typeof standardMotion, 'ambient'>, number>>
+  & Readonly<{ ambient: AmbientMotionTokens }>;
 
 export type SpringRole = Readonly<{ duration: number; dampingRatio: number }>;
 
@@ -285,6 +298,11 @@ export const reducedMotion = Object.freeze({
   normal: 0,
   deliberate: 0,
   stagger: 0,
+  ambient: Object.freeze({
+    calm: 0,
+    moderate: 0,
+    intense: 0,
+  } as const satisfies AmbientMotionTokens),
 } as const satisfies MotionTokens);
 
 export type ThemeColorScheme = 'light' | 'dark';
