@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   AppText,
   Button,
+  Entrance,
   Icon,
   SegmentedControl,
   useTextScaling,
@@ -258,15 +259,17 @@ export function WardrobeListScreen({
         onRetry('pull');
       }}
       refreshing={isPulling && isRefreshing}
-      renderItem={({ item }) => (
-        <WardrobeGridTile
-          geometry={geometry}
-          item={item}
-          messages={messages}
-          onPress={() => onEdit(item.id)}
-          resolvePhotoUri={resolvePhotoUri}
-          testID={`wardrobe-item-${item.id}`}
-        />
+      renderItem={({ index, item }) => (
+        <Entrance index={index}>
+          <WardrobeGridTile
+            geometry={geometry}
+            item={item}
+            messages={messages}
+            onPress={() => onEdit(item.id)}
+            resolvePhotoUri={resolvePhotoUri}
+            testID={`wardrobe-item-${item.id}`}
+          />
+        </Entrance>
       )}
       showsVerticalScrollIndicator={false}
       style={[styles.list, { backgroundColor: theme.colors.background }]}

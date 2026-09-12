@@ -1,9 +1,10 @@
 import { Children, Fragment, type ReactElement, type ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui/app-text';
 import { Icon } from '@/components/ui/icon';
 import { ListRowTile, type ListRowTileGlyph } from '@/components/ui/list-row-tile';
+import { PressScale } from '@/components/ui/press-scale';
 import {
   createPressHandler,
   resolveListRowGroupColors,
@@ -99,14 +100,14 @@ export function ListRow({
   }
 
   return (
-    <Pressable
+    <PressScale
       accessibilityLabel={accessibilityLabel ?? (value ? `${label}, ${value}` : label)}
       accessibilityRole="button"
       onPress={pressHandler}
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
       testID={testID}>
       {content}
-    </Pressable>
+    </PressScale>
   );
 }
 
