@@ -2,20 +2,18 @@
 
 Status: Accepted (2026-09-04)
 
-Implementation: the rule and both parameter presets landed on 2026-09-08 in
-`apps/mobile/src/components/ui/garment-board/`, and Today renders the Today preset; the
-detail preset waits for ADR 0026's surface. This ADR records an approved design rule
-produced by a design session. No production code, contract, or route was changed to
-reach it. The rule's
-parameters, its reference implementation and its rendered evidence are described in
+Implementation: the rule and both parameter presets live in
+`apps/mobile/src/components/ui/garment-board/`; Today and recommendation detail render
+their respective presets. The rule's parameters, reference implementation and rendered
+evidence are described in
 [`design/garment-board.md`](../design/garment-board.md); this ADR records the decision
 and its consequences.
 
-Answers: [ADR 0021](0021-direction-e-a-visual-first-design-language.md)'s first recorded
-consequence, that a rule taking a slot list to a placement was unbuilt.
+Provides the slot-list-to-placement rule required by
+[ADR 0021](0021-direction-e-a-visual-first-design-language.md).
 
-Amends: [`design-language.md`](../design/design-language.md) Law 6, in two ways stated
-in the decision below.
+Defines the garment-board boundaries in
+[`design-language.md`](../design/design-language.md) Law 6.
 
 ## Context
 
@@ -99,26 +97,23 @@ stage width, clamped away from the edges. Placing by bounding box was tried and 
 on measurement: a two-piece dress-and-sandals board then put 4.8% of its ink in the right
 half, against 23.3% under centroid placement.
 
-### 6. Nine silhouettes are added to the vocabulary
+### 6. Twenty-seven silhouettes cover the catalogue vocabulary
 
-`tank`, `tee`, `hoodie`, `puffer`, `shorts`, `leggings`, `dress`, `jumpsuit`, `sandal`,
-joining the thirteen carried from the spike. Twenty-two drawings now cover all
-**27 outfit-eligible catalogue types**, with five types sharing a drawing with another.
-`dress` and `jumpsuit` are not optional: without them a one-piece look cannot be drawn at
-all, which is why the set could not be left as ADR 0021 found it.
+The outfit-eligible set includes `tank`, `tee`, `hoodie`, `puffer`, `shorts`, `leggings`,
+`dress`, `jumpsuit` and `sandal` alongside the thirteen silhouettes established by the
+spike. Those twenty-two drawings cover all **27 outfit-eligible catalogue types**, with
+five types sharing a drawing with another. `dress` and `jumpsuit` are required because a
+one-piece look cannot otherwise be drawn.
 
 `sandal` is the weakest of the nine and is explicitly accepted as redrawable during a
 later visual iteration rather than treated as a blocker.
 
-The five catalogue accessories are not drawn, because the recommendation contract has no
-accessory slot and they can never appear in an outfit. ADR 0021 already flags that gap.
+Five per-type accessory silhouettes, `beanie`, `brimmed_hat`, `scarf`, `gloves` and
+`umbrella`, bring the vocabulary to 27 drawings covering all 32 catalogue types. They are
+drawn on the Closet and Profile surfaces only, because the recommendation contract has no
+accessory slot.
 
-**Amendment, 2026-09-10.** Five per-type accessory silhouettes are added: `beanie`,
-`brimmed_hat`, `scarf`, `gloves` and `umbrella`. The vocabulary now contains 27 drawings
-covering all 32 catalogue types. The five additions are drawn on the Closet and Profile
-surfaces only, because the outfit contract still has no accessory slot.
-
-### 7. Law 6 is amended twice
+### 7. Law 6 boundaries for board artwork
 
 **The garment board is exempt from the icon size ladder.** Law 6 binds icon size to
 adjacent text at 16/20/24/28. The board's pieces are the screen's subject, not
@@ -126,13 +121,11 @@ iconography, and are sized by this rule instead; at the five-piece metric a
 `primary_top` is drawn roughly 82 points wide on a 349-point stage. Without this
 carve-out the ladder reads as governing the hero.
 
-**The `GarmentSlotGlyph` family is extended to per-type granularity, and currently fails
-Law 6's one-idiom bullet.** The per-type silhouettes are not a third icon family; they
-are the same bundled-artwork family at finer granularity, with the six structural
-categories as its fallback tier. But that family is now measurably drawn in two idioms:
-the shipped category glyphs are far heavier than the silhouettes. This ADR records the
-failure rather than waiving the law, and the redraw is sequenced as separate follow-up
-work.
+**The `GarmentSlotGlyph` family includes per-type granularity.** The per-type silhouettes
+are not a third icon family; they are the same bundled-artwork family at finer granularity,
+with the six structural categories as its fallback tier. Both tiers use the silhouette
+idiom. The small raster class carries an optical stroke for 20-to-28-point use, while the
+large raster class uses the idiom-pure stroke above 32 points.
 
 ## Consequences
 
@@ -145,17 +138,20 @@ work.
   container-sized board. The magnitude of the imbalance falls and its sign flips: the
   rule leaves the bottom slightly inkier than the top where container sizing left the top
   40% inkier than the bottom.
-- **The six shipped structural-category glyphs must be redrawn.** In an all-fallback
-  board the two anchors' ink differs by 1.86×, and in a mixed board the fallback piece
-  visibly dominates the silhouettes around it. This is a Law 6 violation, not a
-  preference. No change to the composition rule addresses it; the rule composes the
-  category glyphs correctly and they still look wrong beside a silhouette. Done 2026-09-07: the six were redrawn in the silhouette idiom (64 viewBox, stroke 1.9, round caps and joins) by a Codex lane and accepted by the maintainer against a contact sheet; at 192 px every glyph sits inside the silhouette set's ink range and the worst pair among the six is 1.40x coverage and 1.37x box density. The repository PNGs at 24/48/72 px are exported from that geometry with an optical stroke of 3.75 / 64, about 1.4 px at 24 px, because they are displayed only at 20 to 28 points where the idiom-pure stroke renders at 0.6 pt; SF Symbols carries weight the same way at small point sizes. A second raster class, `assets/icons/garment/large/` at 72/144/216 px with the idiom-pure stroke, serves glyphs drawn above 32 points (the rail and grid tiles), because the Closet grid and the Profile rail scaled the small class three times and it blurred. The canonical SVGs, the `g-cat-*` symbols for the generator, the export script and the measurements are kept with the composition-rule material outside the repository.
+- **The six structural-category glyphs use the silhouette idiom.** Their 64-unit viewBox,
+  1.9 stroke and round caps and joins put every glyph inside the silhouette set's ink
+  range at 192 px; the worst pair among the six is 1.40× coverage and 1.37× box density.
+  Repository PNGs at 24/48/72 px use an optical stroke of 3.75/64, about 1.4 px at 24 px,
+  because the idiom-pure stroke renders at 0.6 pt at their 20-to-28-point display size.
+  `assets/icons/garment/large/` provides 72/144/216 px rasters with the idiom-pure stroke
+  for the Profile rail and Closet grid above 32 points. The canonical SVGs, `g-cat-*`
+  generator symbols, export script and measurements remain with the composition-rule
+  material outside the repository.
 - **Six structural categories cannot separate `primary_top` from `mid_layer`.** Both fall
   back to `top`, so an all-fallback board draws the same shape twice at two sizes. This is
   a gap in the fallback tier's vocabulary, and it is not fixed by redrawing the six.
-- **Today's vertical rhythm is now a function of the outfit.** Goals 2 and 3 design
-  against a stage that changes height, and the app shell's content inset has to hold for
-  the full 0.80 to 1.16 range.
+- **Today's vertical rhythm is a function of the outfit.** The app shell's content inset
+  has to hold across the full 0.80 to 1.16 stage-height range.
 - **The Balanced Horizon geometry remains unrepresented on Today.** ADR 0021 records this
   as an open problem with two attempts already spent. This rule does not solve it and
   deliberately leaves no room for an abstract mark inside the stage, which narrows the

@@ -2,13 +2,13 @@
 
 Status: Accepted (2026-09-03)
 
-Implementation: landed 2026-09-10 in `theme.ts`; verified on the Simulator at the default and the largest accessibility text size in Turkish and English.
+Implementation: the scale is implemented in `theme.ts` and verified on the Simulator at
+the default and largest accessibility text sizes in Turkish and English.
 
-Amended by [ADR 0021](0021-direction-e-a-visual-first-design-language.md). The scale
-itself stands. What changed is which role is Today's hero: the spike made the garment
-composition the hero, so Today carries no `display` at all and the archetype name sits at
-`title`. `display` survives on Weather, where the hero really is a number. The reasoning
-below for *why* the scale needed three separated steps is unaffected.
+[ADR 0021](0021-direction-e-a-visual-first-design-language.md) owns Today's visual
+hierarchy: the garment composition is the hero, Today carries no `display`, and the
+archetype name sits at `title`. `display` remains the hero role on Weather, where the
+subject is a number. This ADR owns the scale and the need for three separated steps.
 
 ## Context
 
@@ -45,19 +45,19 @@ it is a typography defect rather than a surface defect.
 
 ## Decision
 
-Retune three roles. Six roles are unchanged.
+Use the following nine roles. The top three supply the separated heading and hero steps.
 
-| role | before | after | reason |
+| role | size / line / weight | tracking | reason |
 | --- | --- | --- | --- |
-| `display` | 40 / 48 / 600 | **56 / 56 / 700, letterSpacing -1.5** | a hero value, not a large label |
-| `titleLarge` | 24 / 30 / 700 | **34 / 41 / 700, letterSpacing -0.6** | matches the iOS large title metric, so a hand-drawn heading and a native large title agree |
-| `title` | 24 / 32 / 600 | **22 / 28 / 600, letterSpacing -0.2** | stops colliding with `titleLarge` |
-| `body` | 17 / 24 / 400 | unchanged | |
-| `bodyStrong` | 17 / 24 / 600 | unchanged | |
-| `label` | 15 / 20 / 600 | unchanged | |
-| `caption` | 13 / 18 / 400 | unchanged | |
-| `eyebrow` | 10.5 / 14 / 700 | unchanged | |
-| `code` | 13 / 18 / 500 | unchanged | |
+| `display` | **56 / 56 / 700** | **-1.5** | a hero value, not a large label |
+| `titleLarge` | **34 / 41 / 700** | **-0.6** | matches the iOS large title metric, so a hand-drawn heading and a native large title agree |
+| `title` | **22 / 28 / 600** | **-0.2** | stays distinct from `titleLarge` |
+| `body` | 17 / 24 / 400 | none | |
+| `bodyStrong` | 17 / 24 / 600 | none | |
+| `label` | 15 / 20 / 600 | none | |
+| `caption` | 13 / 18 / 400 | none | |
+| `eyebrow` | 10.5 / 14 / 700 | none | |
+| `code` | 13 / 18 / 500 | none | |
 
 The resulting scale is **56 / 34 / 22 / 17 / 15 / 13 / 10.5**, with successive ratios
 of 1.65, 1.55, 1.29, 1.13, 1.15 and 1.24. The 24-to-40 gap closes, the two heading
@@ -89,19 +89,17 @@ applies and no prior product use is required.
   than incidental: `AppText` releases the authored line height above a font scale of
   1.5 so text grows instead of clipping, and Today's hero already switches to a
   stacked column at that same threshold. Both are verified at the largest
-  accessibility size, in Turkish and English, before the phase is called done.
+  accessibility size, in Turkish and English.
 - Turkish strings are longer than their English equivalents at every size, so the
   heading roles are checked in both languages rather than in English alone.
 - Nothing below `caption` 13 is introduced. Law 5's floor is unchanged.
 
-## Relationship to the visual design spike
+## Validation boundary
 
-The redesign's next step is a visual design spike that prototypes two or three
-directions on the Simulator for review. That spike may find that 56 is too large or
-that `titleLarge` wants a different value once it sits beside a real native large
-title. If it does, this ADR is amended rather than worked around. The scale's
-*shape*, two separated heading steps plus a genuine hero and negative tracking at the
-top, is the decision; the exact points are the part the spike may move.
+The scale's shape is two separated heading steps plus a genuine hero and negative
+tracking at the top. The accepted point values are verified beside the native large title
+and at the largest accessibility text size. Do not work around them in feature code; any
+future value change requires a new decision backed by native evidence.
 
 ## Alternatives considered
 

@@ -2,9 +2,8 @@
 
 Status: Accepted (2026-09-02)
 
-Implementation: landed 2026-09-02 (the seven colour roles, `borderDefined` and the
-`destructive` button variant in `theme.ts` and `components/ui`). This ADR itself changed
-no app code.
+Implementation: complete. The seven colour roles, `borderDefined`, and the
+`destructive` button variant live in `theme.ts` and `components/ui`.
 
 ## Context
 
@@ -13,16 +12,14 @@ enabling decision: it carves colour, typography, spacing, elevation, border,
 and motion roles out from the "current product use" deferral rule, so they
 may be defined ahead of any use.
 
-This ADR amends [ADR 0008](0008-expanding-the-visual-vocabulary-for-m6-1.md),
-which listed "status colors and the destructive button variant" as remaining
-deferred and explicitly out of scope. What changed since: the design language
-work in ADR 0009 established that the status-role deferral condition was
-already satisfied by six shipped sites, and produced measured, band-checked
-colour values for all seven new roles.
+Status colours and the destructive button variant are governed here rather than by
+[ADR 0008](0008-expanding-the-visual-vocabulary-for-m6-1.md), whose scope is surfaces
+and iconography. The status-role condition is satisfied by six shipped sites, and the
+design language supplies measured, band-checked colour values for all seven roles.
 
 ## Decision
 
-### The seven new roles
+### The seven roles
 
 | role | light | dark |
 | --- | --- | --- |
@@ -32,9 +29,12 @@ colour values for all seven new roles.
 | `warningContainer` | `#F2E6CE` | `#292010` |
 | `dangerInk` | `#9B2C2C` | `#F2A6A2` |
 | `dangerContainer` | `#F8E3E1` | `#301D1B` |
-| `borderDefined` | `#5C7A83` | `#527E90` |
+| `borderDefined` | `#5C7A83` | `#5E899A` |
 
-*Amended 2026-09-10:* the dark value is lifted to `#5E899A` (3.68:1 on `surface`, 4.70:1 on `background`, 3.11:1 on the new elevated plane `#1F3B47`) so the boundary keeps 3:1 after `backgroundElevated` separated from `surface`; see `design-language.md` Law 4.
+The dark `borderDefined` value measures 3.68:1 on `surface`, 4.70:1 on
+`background`, and 3.11:1 on `backgroundElevated` `#1F3B47`, so the boundary keeps
+3:1 across every plane; see
+[`design-language.md` Law 4](../design/design-language.md#law-4-one-accent-and-a-status-band).
 
 ### The band rule
 
@@ -83,7 +83,7 @@ meaning.
 | | on `surface` | on `background` | on `backgroundElevated` |
 | --- | --- | --- | --- |
 | light `#5C7A83` | 4.60 | 3.30 | 4.24 |
-| dark `#527E90` | 3.17 | 4.04 | 3.17 |
+| dark `#5E899A` | 3.68 | 4.70 | 3.11 |
 
 All six clear 3:1. Light `#5C7A83` at 4.60 on white stays visibly quieter than
 `textSecondary`'s 7.08, so it reads as a boundary and not as text.
@@ -110,10 +110,9 @@ carries `checkCircle`, `warning`, `error`, `info`. No new icon is required.
 component is being identified and 1.4.11 does not apply. Every boundary that
 identifies an interactive component moves to `borderDefined`.
 
-This closes a real current failure: the unselected Wardrobe filter chip and
-the outline button are identified only by a `#C5D5D6` border measuring
-1.515:1 on the white card. That fails WCAG 1.4.11 today, in the shipped
-product and in the mockups. `borderDefined` closes it.
+Using `#C5D5D6` for the unselected Closet filter chip or outline button would leave its
+boundary at 1.515:1 on the white card, below WCAG 1.4.11. Interactive boundaries use
+`borderDefined`.
 
 Cards keep `borderSubtle` or no border at all. A card is a container of
 legible text, not a component identified by its boundary, so 1.4.11 does not
@@ -122,22 +121,15 @@ the opposite of the identity.
 
 ## Consequences
 
-This ADR changes no app code. The following are implementation notes for the
-follow-up milestone, recorded so it does not rediscover them:
-
-- `theme.test.mjs:22-39` `requiredSemanticRoles` is a hardcoded sorted list.
-  Adding seven roles means editing it, and both appearances must gain all
-  seven.
-- `theme.test.mjs:185-203` bans any of the six brand hexes as a raw substring
-  anywhere under `apps/mobile/src/` outside `theme/`. The new values are not
-  brand hexes, so they do not trip it, but they must still live in `theme.ts`
-  and reach features only through semantic roles.
-- `theme.test.mjs:73-107` deep-equals light `elevation.raised` to an exact
-  literal. Any shadow change breaks that assertion by design.
-- The shadow contact contrast rule (design-language.md, law 3) is newly
-  testable and should become a guard in the same file.
-- `borderSubtle`'s narrowed role means auditing its current call sites and
-  moving the control boundaries to `borderDefined`.
+- `theme.test.mjs` requires all seven roles in both appearances and verifies the status
+  contrast band, container quietness, text contrast, and `borderDefined` across every
+  plane.
+- The raw-brand-hex guard keeps derived values in `theme.ts`; feature code reaches them
+  only through semantic roles.
+- The elevation contact-contrast guard and exact light `elevation.raised` assertion keep
+  shadow behavior measurable.
+- Interactive control boundaries use `borderDefined`. `borderSubtle` remains limited to
+  decorative dividers and non-identifying container boundaries.
 
 ## Alternatives considered
 

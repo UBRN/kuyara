@@ -1,287 +1,168 @@
-# ADR 0015: Gender and age band in the profile
+# ADR 0015: Gender, dress style, and birth date in the profile
 
 Status: Accepted (2026-09-03)
 
-Implementation: complete (2026-09-08). Profile storage and recommendation behavior,
-onboarding and Settings, and the one-time schema v10 onboarding reset are implemented.
-Simulator and Maestro acceptance remain with the orchestrator; see
+Implementation: complete. Profile storage and recommendation behavior, onboarding and
+Settings, and the one-time schema version 10 onboarding reset are implemented. Simulator
+and Maestro acceptance remain with the orchestrator; see
 [`current-status.md`](../current-status.md).
 
-Amended by [ADR 0028](0028-the-profile-tab-and-the-list-row-anatomy.md) and
-[ADR 0030](0030-settings-as-a-native-grouped-list.md) on 2026-09-07. The personal fact
-collected is the **birth date**, not the birth year: the stored value is `birthDate`
-(column `birth_date`, an ISO calendar date), the interface shows the locale-formatted
-date itself, and no age category is ever user-facing. The band in section 3 is still
-derived on the device, from the date's year exactly as it was from the year, and is
-still the only thing that crosses the network. Everything the band does downstream
-(sections 4 to 6) is unaffected. Section 2, 7 and 8 carry the amended wording inline.
-
-[ADR 0031](0031-dress-style-is-the-formality-signal.md) retired the age band on 2026-09-08.
+The current formality signal and age policy are decided in
+[ADR 0031](0031-dress-style-is-the-formality-signal.md): dress style orders formality,
+while birth date is optional, device-only, and absent from product logic.
 
 ## Context
 
-The profile has carried one recommendation-shaping input since the first schema:
-a clothing preference valued `womens` or `mens`. Three separate files state, in
-almost the same words, that this is deliberately not a sex or gender field:
-`AGENTS.md`, [`product-decisions.md`](../product-decisions.md), and
-[`clothing-taxonomy.md`](../clothing-taxonomy.md). No ADR derives the rule; it
-was written once and repeated, and the only recorded reasoning appears in
-[ADR 0013](0013-catalog-content-corrections-and-version-3.md), where `leggings`
-was made available to both preferences precisely because the field gates catalog
-applicability rather than identity, so one garment can belong to both without
-contradiction.
+The profile needs a user-facing identity field while the catalog needs an applicability
+vocabulary. Those are different concepts: the profile uses `woman` or `man`, while the
+catalog uses `womens` or `mens`. A single explicit mapping connects them so a garment can
+apply to both catalogs without making a statement about the garment's gender. This keeps
+the reasoning in [ADR 0013](0013-catalog-content-corrections-and-version-3.md), where
+`leggings` is available to both preferences.
 
-The maintainer asked for four changes on 2026-09-03:
+The profile also needs a direct formality signal. Age is not that signal: it is a weak
+proxy for how a person dresses, and the former cut points had no defensible basis.
+Dress style asks about clothes directly. Birth date remains useful only as an optional
+demographic fact for coarse product analytics.
 
-1. Onboarding should ask for gender directly rather than for a clothing preference.
-2. Onboarding should also ask for age, and age should shape the recommendation.
-3. The Settings control should be relabelled accordingly, with woman listed first.
-4. Onboarding should stop asking for language and appearance, which should follow
-   the device and remain changeable in Settings.
-
-The fourth is already consistent with the recorded rules and needs no decision
-here. The first two change recorded decisions, and the second also crosses the
-[approved AI input privacy boundary](../product-decisions.md#approved-ai-input-privacy-boundary),
-whose whole design is a closed list: the request schema is `.strict()`, so a
-field that is not enumerated has no representation and is rejected rather than
-filtered. Adding age to what the AI receives is therefore not an implementation
-detail. It is an amendment to that list.
-
-Nothing in the repository modelled age before this decision. There is no type,
-column, migration, contract field, or copy string for it.
+The AI request is a strict, closed schema governed by the
+[approved AI input privacy boundary](../product-decisions.md#approved-ai-input-privacy-boundary).
+Profile changes must therefore say explicitly which derived values may cross the network
+and which personal facts must remain on the device.
 
 ## Decision
 
 ### 1. The profile models gender; the catalog keeps its own vocabulary
 
-The profile field becomes `gender`, valued `woman` or `man`, required and
-prominent in onboarding. The catalog keeps `womens` and `mens` as its
-applicability vocabulary, unchanged, and a single explicit mapping converts one
-to the other.
+The profile field is `gender`, valued `woman` or `man`, required and prominent in
+onboarding. Woman is listed first. The catalog keeps `womens` and `mens` as its
+applicability vocabulary, and one explicit mapping converts profile gender to catalog
+applicability.
 
-Keeping the two vocabularies separate is the point rather than an accident. A
-garment belongs to a catalog; a person has a gender; these are different
-statements, and ADR 0013's reasoning about `leggings` only holds while the
-catalog side keeps its own words. Renaming catalog applicability to gender would
-assert that a pair of leggings has a gender, which is both wrong and would
-reopen a decision this ADR does not touch.
+Keeping the vocabularies separate is deliberate. A garment belongs to a catalog; a
+person has a gender. Do not rename catalog applicability to gender. The AI request field
+stays named `clothingPreference`, because the model needs to know which catalog supplied
+the options, not the user's gender.
 
-The AI request field stays named `clothingPreference`. What the model needs to
-know is which catalog the supplied options were drawn from, not who the user is.
+### 2. Birth date is optional and never leaves the device
 
-### 2. Birth year is optional and never leaves the device
+The profile has a nullable `birthDate`, stored as an ISO calendar date in the
+`birth_date` column. It is asked once in onboarding, may be skipped, and can be set or
+changed later in Settings through the system date picker. Wherever the personal fact is
+shown, the interface renders the locale-formatted date itself. No age category is
+user-facing.
 
-*Amended 2026-09-07: read "birth date" and `birthDate` for "birth year" and
-`birthYear` throughout this section. The date is entered with the system date picker,
-shown locale-formatted where the personal fact appears, and the band is derived from its
-year. A band is never persisted for display, never shown as a label, and never logged or
-sent to analytics; where a personal fact is shown, it is the date itself.*
+The birth date and its year never leave the device, enter a recommendation request or
+cache key, or appear in a log. No derived age value is persisted. The only permitted
+derivation is the coarse `age_bucket` computed when an approved analytics event is
+emitted; its closed values and attachment rules live in
+[`analytics-taxonomy.md`](../analytics-taxonomy.md). Gender is not an analytics property.
 
-The profile gains a nullable `birthYear`. It is asked once in onboarding, may be
-skipped, and can be set or changed later in Settings.
+### 3. No age band exists in product logic
 
-Birth year is stored on the device and is never sent anywhere. Only the band
-derived from it crosses the network. This is deliberate: the maintainer chose to
-collect a birth year rather than a band so the value does not go stale, and the
-privacy cost of that precision is contained by never transmitting it. The 2026-09-07
-amendment raises that precision to a full date for the same reason, and the same
-containment applies: the date never leaves the device.
+Do not derive, store, display, or transmit an age band for recommendations. Age does not
+filter catalog garments, order formality, enter the AI request, split the shared cache,
+invalidate a recommendation snapshot, or trigger regeneration. A birth date change
+triggers no product behavior. The analytics-only coarse bucket in section 2 is derived at
+emit time and is not product logic. This boundary is owned by
+[ADR 0031](0031-dress-style-is-the-formality-signal.md).
 
-### 3. Age bands
+### 4. Dress style orders formality and excludes nothing
 
-The band is derived from the local calendar year minus the birth year. Day and
-month are not collected, and a band does not need them.
+Dress style is the formality signal. Its three values, ordering table, shared Worker and
+device-local fallback behavior, and neutral `smart` default are decided in
+[ADR 0031](0031-dress-style-is-the-formality-signal.md). The order is always a
+permutation of `casual`, `smart`, and `formal`: it reorders the same valid precomposed
+options and excludes none, so the three-option guarantee remains intact.
 
-| Band | Age |
-| --- | --- |
-| `young` | under 30 |
-| `adult` | 30 to 59 |
-| `older` | 60 and over |
+### 5. Age metadata does not belong in the catalog
 
-A null birth year yields `adult`. That is the neutral band rather than a claim
-about the user, and it keeps every downstream rule total: no code path has to
-handle an absent band.
+Garment records describe structural category, thermal level, water resistance,
+breathability, and catalog applicability. Do not add age metadata or use age to make a
+garment or outfit unreachable. Such metadata would require a separate product decision,
+a catalog version bump, and a fresh measurement of the three-option guarantee.
 
-There is no `child` band. The maintainer's first framing included one, but the
-band is derived from a birth year and the application is for adults, so a child
-band would be written, tested, and never reached. Serving children is a separate
-product question that carries App Store age rating and children's data
-obligations, and it is out of scope here.
+### 6. The AI boundary carries dress style, not personal age data
 
-### 4. The band shifts formality preference and excludes nothing
-
-A composed outfit option carries one formality: `casual`, `smart`, or `formal`.
-The band selects a preference order over those three:
-
-| Band | Order |
-| --- | --- |
-| `young` | `casual`, `smart`, `formal` |
-| `adult` | `smart`, `casual`, `formal` |
-| `older` | `smart`, `formal`, `casual` |
-
-Each row is a permutation of all three levels, never a subset. This is the
-load-bearing property. The deterministic layer composes at most 24 complete,
-valid, requirement-satisfying, formality-consistent options, and
-[ADR 0007](0007-ai-selects-precomposed-outfits.md) then has the AI choose exactly
-three of them. Because the band only reorders preference and removes nothing, the
-candidate set is identical for every band, so the guarantee that at least three
-distinct options exist is unaffected and needs no re-measurement per band. A rule
-that filtered instead would have to re-establish that guarantee for every band in
-every weather bucket.
-
-The same table is used by the Worker's AI prompt and by the device-local
-deterministic fallback, so behaviour does not change when AI is unavailable. It
-lives in one place for that reason, and because it is the kind of value that
-gets tuned.
-
-An age-to-style mapping is a generalization. It is recorded here as a default
-preference, not as a claim about people of any age, and it is expressed as a
-reordering rather than a restriction so that no outfit becomes unreachable
-because of the user's age.
-
-### 5. What the band cannot do, given the current catalog
-
-A garment type in the bundled catalog records its structural category, thermal
-level, water resistance, breathability, and catalog applicability. It records
-nothing about age. Formality is the only style dimension a composed option
-carries.
-
-The consequence is that this decision shifts which of the same garments are
-preferred, and cannot propose materially different clothing per band. Genuinely
-age-specific garments would require age metadata on every catalog entry, a
-catalog version bump, and re-measurement of the three-option guarantee for each
-band. That was considered and rejected for this milestone; see Alternatives.
-
-### 6. The AI input privacy boundary gains one field
-
-`ageBand` is added to the AI request schema and to the approved boundary. It
-carries one of three values and no more.
-
-The field is optional in the request schema rather than required, and an
-absent band is read as `adult`. The Worker deploys independently of the
-application, so a required field would have the new Worker reject every request
-from an installed older build, silently demoting those users to the deterministic
-fallback. An absent band and a null birth year therefore resolve the same way,
-which is the rule this ADR already states rather than a second one.
-
-The band vocabulary and the formality order table live in `packages/contracts`,
-because the Worker's prompt and the device-local fallback must apply the same
-table and a second copy would drift. The derivation from birth year stays on the
-device, since the Worker never receives a birth year.
-
-The Worker's shared AI cache key gains the band as well. The cache is shared
-across users because the request contains no personal data, and a three-valued
-coarse band does not change that: it splits the key space at most threefold and
-identifies no one. The band, not the birth year, is what enters the key.
-
-The rule that a recommendation is regenerated when the clothing preference
-changes now reads as gender, and gains one condition: a change of age band. The
-trigger is the band, not the birth year. Correcting a mistyped year that leaves
-the user in the same band changes nothing the recommendation depends on, and
-should not discard a valid snapshot or spend a generation.
+The strict AI request accepts optional `dressStyle`; absence resolves to `smart` so a
+Worker deployed ahead of mobile remains compatible with older clients. The Worker prompt
+receives the formality order derived from dress style, and the shared cache key includes
+dress style. Birth date, birth year, and any age band are forbidden. The contract and
+deployment order are decided in [ADR 0031](0031-dress-style-is-the-formality-signal.md).
 
 ### 7. Onboarding and Settings
 
-Onboarding keeps three steps: welcome, gender, birth year. The language and
-appearance step is removed. Both continue to default to the device setting and
-remain changeable in Settings, which is what the localization rules already
-required; onboarding was asking for a choice the system had already made.
+Onboarding has five steps: welcome, gender, dress style, birth date, and optional location
+selection. Gender and dress style are required; birth date and location are skippable.
+Language and appearance follow the device by default and remain changeable in Settings,
+so onboarding does not ask for them.
 
-Gender stays required and prominent, which preserves
-[ADR 0006](0006-three-tab-information-architecture.md)'s rule. Its Settings
-control stays last and deliberately unprominent, with woman listed before man.
-Birth year sits beside it. *Amended 2026-09-07: the onboarding step and the Settings
-row collect the birth date with the system date picker, and neither Profile nor
-Settings shows an age category; see ADR 0030 sections 2 and 6 and ADR 0028 section 4.*
+Gender and dress style stay prominent in onboarding because they shape catalog selection
+and formality order. Settings places Gender, Dress style, and Birth date in that order in
+the final, deliberately unprominent About you group. Profile shows none of those personal
+facts. The surfaces are decided in
+[ADR 0028](0028-the-profile-tab-and-the-list-row-anatomy.md) and
+[ADR 0030](0030-settings-as-a-native-grouped-list.md); the location step is decided in
+[ADR 0016](0016-location-in-onboarding-and-an-honest-empty-state.md).
 
 ### 8. Migration and existing installations
 
-Schema version 8 rebuilds the profile table, because SQLite cannot alter a
-`CHECK` constraint in place. It renames `clothing_preference` to `gender`,
-converts `womens` to `woman` and `mens` to `man`, and adds a nullable
-`birth_year`. *Amended 2026-09-07: the column is `birth_date`, an ISO calendar date
-stored as text, nullable; the static bounds below apply to its year.*
+Schema version 8 rebuilds the profile table because SQLite cannot alter a `CHECK`
+constraint in place. It renames `clothing_preference` to `gender`, converts `womens` to
+`woman` and `mens` to `man`, and adds nullable `birth_date` as ISO calendar-date text.
+The database constrains its year to the static range 1900 to 2100; the domain validates a
+real calendar date and rejects future dates against the local calendar before writing.
 
-The column's `CHECK` constraint uses a static lower and upper bound rather than
-the current year, because SQLite requires a `CHECK` expression to be
-deterministic and a constraint written against the current year would change
-meaning as time passes and would fail to re-validate on a later table rebuild.
-The bound that has to move with the calendar, rejecting a birth year in the
-future, belongs to the domain layer, which already validates before writing.
-
-Schema version 10 sets `onboarding_completed` back to 0 after the new onboarding UI
-exists. The reset was deliberately moved out of version 8 so an installation is not
-returned to onboarding before there is a new question to answer. Existing installations
-therefore see onboarding again once, which is how they are offered the birth date they
-never had a chance to give. Their language, appearance, gender, other profile fields,
-dependent rows and cached snapshots are preserved, so onboarding opens with their
-existing answers rather than an empty form. This is the aggressive option and was
-chosen knowingly: the installed base is a small internal TestFlight group, and the
-alternative of a separate one-time prompt screen is more code for a population that
-does not need it.
-
-## What this reverses
-
-- The rule that the preference is not a sex or gender field, in `AGENTS.md`,
-  `product-decisions.md`, and `clothing-taxonomy.md`. The profile now does model
-  gender. The catalog side of that rule survives unchanged: catalog applicability
-  is still not a sex field, and ADR 0013's reasoning still holds.
-- The closed AI input list, which gains `ageBand`.
-- ADR 0006's onboarding content, which no longer includes language and
-  appearance. Its three-tab decision and its rule about the clothing control's
-  prominence are untouched.
+Schema version 10 adds nullable checked `dress_style` and resets
+`onboarding_completed` to 0 once. Existing installations therefore enter onboarding once
+to answer the new required question. Language, appearance, gender, birth date, other
+profile fields, dependent rows, and cached snapshots are preserved, so onboarding opens
+with existing answers rather than an empty form. Every reader treats a null dress style
+as `smart` until the user completes onboarding.
 
 ## Consequences
 
-- A user whose relationship to the two catalogs is not captured by two options
-  must now answer a question about themselves rather than about clothes. This is
-  a real cost of the change and is accepted rather than solved. The mechanism
-  underneath is unchanged: the answer still only selects a catalog.
-- The application now stores a piece of personal data it did not store before.
-  It stays on the device, it is optional, and deleting the application removes
-  it, consistent with the accountless MVP.
-- Recommendations become sensitive to a field the user may leave empty. The null
-  case is not an error state; it is `adult`.
-- Every existing installation is returned to onboarding once.
-- Schema version 8 carries the profile rebuild, and schema version 10 carries the
-  one-time onboarding reset. The latter also disturbs weather and recommendation
-  persistence assertions that pin the current version.
+- A user whose relationship to the two catalogs is not captured by two options must
+  answer a question about themselves rather than about clothes. This is an accepted cost;
+  the answer still only selects catalog applicability.
+- The application stores an optional personal fact. It remains on the device, and
+  deleting the application removes it in the accountless first release.
+- Recommendations depend on gender-derived clothing preference and dress style, never on
+  birth date or age.
+- Schema version 8 owns the profile rebuild; schema version 10 owns the checked dress-style
+  column and one-time onboarding reset. A schema version bump also moves the weather and
+  recommendation persistence assertions that pin the current version.
 
 ## Alternatives considered
 
-**Add age metadata to the catalog.** This is what would let the application
-propose genuinely different clothing per band rather than reordering the same
-options. It was rejected for this milestone, not permanently: it needs a
-per-garment decision across the whole catalog, a catalog version bump, and
-re-measurement of the three-option guarantee for every band in every weather
-bucket. It is a milestone of its own and it depends on this one landing first.
+**Add age metadata to the catalog.** Rejected. It would require a per-garment decision,
+a catalog version bump, and re-measurement of the three-option guarantee for every age
+group and weather bucket. Any future proposal needs a separate product decision.
 
-**Keep `clothingPreference` in code and change only the visible labels.**
-Smallest change, and rejected. The product would ask one thing while the code
-recorded another, and the next reader would have to discover the gap.
+**Keep `clothingPreference` in the profile and change only the visible labels.** Rejected.
+The product would ask one thing while the stored model recorded another.
 
-**Rename catalog applicability to gender as well.** Rejected because it asserts
-that garments have a gender, contradicts ADR 0013's reasoning, and spreads
-through the contracts package, the Worker, and the taxonomy for no gain.
+**Rename catalog applicability to gender as well.** Rejected because it asserts that
+garments have a gender, contradicts ADR 0013's reasoning, and spreads through the
+contracts package, the Worker, and the taxonomy for no gain.
 
-**Send age as a number, or send a birth year.** Rejected. The recommendation
-needs three buckets. Sending anything finer would put a more identifying value
-on the network and fragment the shared cache for no product benefit.
+**Send age as a number, a birth year, or a band to recommendation services.** Rejected.
+Dress style supplies the formality signal directly, while transmitting age would add
+personal data and fragment the shared cache without product benefit.
 
-**Let the band filter the candidate set instead of ranking it.** Rejected. It
-would make some valid outfits unreachable by age, and it would put the
-three-option guarantee at risk in exactly the weather buckets where candidates
-are already scarce.
+**Let age filter the candidate set.** Rejected. It would make valid outfits unreachable
+by age and put the three-option guarantee at risk where candidates are already scarce.
 
-**Ask age only, and derive nothing.** Rejected as it does not answer the request:
-the maintainer asked for age to change what is recommended.
+**Ask for age without deriving anything.** Rejected. Birth date is optional and retained
+only for the specifically bounded analytics use in section 2.
 
 ## Out of scope
 
-- Serving children, and everything that follows from it.
+- Serving children and the App Store rating and children's-data obligations that follow.
 - Age metadata on catalog garments.
-- Any use of gender or age beyond catalog selection and formality ordering.
-- A non-binary or unspecified gender option. The current decision is two required
-  values; revisiting that is a separate product decision.
-- Sending either value to any provider other than as the three-valued band
-  described above.
+- Any use of gender beyond catalogue applicability, and any product-logic use of birth
+  date or age.
+- A non-binary or unspecified gender option. The current decision has two required values;
+  revisiting it is a separate product decision.
+- Sending gender, birth date, birth year, or age to an AI provider. Only the derived
+  catalog `clothingPreference` and `dressStyle` cross that boundary.

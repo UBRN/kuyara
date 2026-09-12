@@ -2,31 +2,32 @@
 
 Status: Accepted (2026-09-03)
 
-Implementation: landed 2026-09-03; `garmentCatalogVersion` is 3.
+Implementation: complete; `garmentCatalogVersion` is 3.
 
-Amends [ADR 0005](0005-catalog-only-recommendation-candidates.md) and
-[ADR 0007](0007-ai-selects-precomposed-outfits.md), whose "out of scope" lists
-both exclude expanding the 30-type catalog.
+This ADR owns the current catalog content and version used by the catalog-only
+recommendation source in [ADR 0005](0005-catalog-only-recommendation-candidates.md)
+and the precomposed-outfit flow in
+[ADR 0007](0007-ai-selects-precomposed-outfits.md).
 
 ## Context
 
 [ADR 0005](0005-catalog-only-recommendation-candidates.md) made the bundled
 catalog the only candidate source and recorded the consequence plainly:
-recommendation quality is now only as good as the catalog's coverage and
+recommendation quality is only as good as the catalog's coverage and
 property accuracy. A review of the 30 types during M6.1 produced naming
 corrections, which shipped, plus property and coverage proposals, which were
 deferred because they change catalog content and so need a version decision.
 
 Three facts found while measuring that decision shape it.
 
-**The Wardrobe override escape hatch is gone.**
+**Wardrobe overrides do not affect recommendations.**
 [`clothing-taxonomy.md`](../clothing-taxonomy.md) justifies deliberately coarse
 catalog defaults by pointing at Wardrobe overrides: an unlined waterproof shell
 or a heavy sweater "can use the appropriate Wardrobe overrides rather than
 forcing another canonical type". ADR 0005 removed the Wardrobe from the
-candidate set, so an override now widens nothing a recommendation can see. The
-argument for coarseness survives for the Wardrobe as a personal record and no
-longer survives for recommendations.
+candidate set, so an override widens nothing a recommendation can see. The
+argument for coarseness applies to the Wardrobe as a personal record, not to
+recommendations.
 
 **Accessories never enter an outfit.** `outfit-composition.ts` composes only
 `top`, `bottom`, `one_piece`, `outerwear`, and `footwear`, across six slots with
@@ -55,7 +56,7 @@ Breathability is out of scope for this round and is not touched.
 ### 2. Two new garment types
 
 The catalog has two structural holes that no existing type can fill and no
-override can any longer close.
+Wardrobe override can close.
 
 - **No top with `none` arm coverage.** `dress` is the only garment with bare
   arms, and it is `womens` and `one_piece`. A `mens` hot-weather outfit cannot
@@ -93,9 +94,8 @@ outfit diversity in exchange for nothing.
 
 ### 4. Catalog version 3
 
-`garmentCatalogVersion` moves from 2 to 3 in the same change as the content
-above. All content changes share one bump; the version is not incremented per
-edit.
+`garmentCatalogVersion` is 3 for the content above. All related content changes
+share one version; the version is not incremented per edit.
 
 Bumping is not optional when content changes. `catalogVersion` is a segment of
 the Worker's shared AI cache key, and the mobile client validates an AI pick by

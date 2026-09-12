@@ -2,27 +2,23 @@
 
 Status: Accepted (2026-09-04)
 
-Implementation: decisions 1 to 7 implemented (decision 7 on 2026-09-10 and decision 5's
-control on 2026-09-11).
+Implementation: decisions 1 to 7 are implemented.
 
 Builds on: [ADR 0025](0025-the-garment-board-composition-rule.md), whose composition rule
 this surface reuses unchanged.
-Answers: [ADR 0021](0021-direction-e-a-visual-first-design-language.md) section 7, which
-named a recommendation detail surface as future work and did not design it.
+Owns the recommendation detail surface named by
+[ADR 0021](0021-direction-e-a-visual-first-design-language.md) section 7.
 
 ## Context
 
-Direction E made Today visual-first and took the garment names off it. ADR 0021 section 7
-then deferred everything it displaced: "Garment names, layer structure, per-piece
-reasoning, weather reasoning and substitutions belong to a recommendation detail surface
-reached from Today."
+Direction E makes Today visual-first and keeps garment names, layer structure, per-piece
+reasoning and weather reasoning on a recommendation detail surface reached from Today.
 
-The risk was specific. The shipped Direction D2 detail screen is a five-row list of
+The risk was specific. The evaluated Direction D2 detail screen was a five-row list of
 identical garment cards, and the redesign's first session recorded that uniformity as one
 of the causes of flatness. Adding an illustration above that same list would not fix it.
 
-Two of the five deferred items turned out not to exist in the product, which is recorded
-in the decision rather than designed around.
+The product has no per-slot substitution input, so the surface must not invent one.
 
 ## Decision
 
@@ -54,12 +50,11 @@ Two lines under each garment: its catalogue name at `bodyStrong`, then its slot 
 Captions are centred on their piece's own axis and are capped per column, wider for the
 core column than for the layer rail, so the two columns' captions cannot meet.
 
-**Amended 2026-09-09.** Goal 7's validation pass found that at the largest accessibility
-text sizes the in-place captions break by character and overlap each other and the
-footwear. Above `fontScale` 1.5, the one shared threshold ADR 0019 calls for, the captions
-therefore leave the plate and render as a single list directly under the board, in board
-order, each row the same accessible element with the same content; the plate is then
-exactly the board. At or below 1.5 this section applies unchanged.
+At or below `fontScale` 1.5, captions remain in place. Above that shared threshold, they
+render as a single list directly under the board, in board order, with each row retaining
+the same accessible element and content; the plate is then exactly the board. This avoids
+the character breaks and overlap with adjacent captions and footwear observed at the
+largest accessibility text sizes.
 
 **The slot label is used, not `layerRole`.** The slot names already carry the layer
 structure, because they read "Mid layer" and "Outer layer". `layerRole` would print
@@ -76,53 +71,38 @@ appear in several rows or in none.
 
 Composition trade-offs join the same list, marked as trade-offs rather than reasons.
 
-**This costs nothing to build.** `OutfitRequirementEvaluation.suppliedByCandidateKeys`
-already records which garment satisfies which requirement. It is not persisted and does
-not need to be: the recommendation snapshot stores only `{archetypeId, garments:[{slot,
-layerRole, candidateKey}]}` and recomposes the outfit on read, so the evaluations are
-rebuilt on every load. Per-piece reasoning requires no schema change, no migration, and no
-contract change. It is a presentation join over data the domain already produces and
-currently discards.
+`OutfitRequirementEvaluation.suppliedByCandidateKeys` records which garment satisfies
+which requirement. It is not persisted and does not need to be: the recommendation
+snapshot stores only `{archetypeId, garments:[{slot, layerRole, candidateKey}]}` and
+recomposes the outfit on read, so the evaluations are rebuilt on every load. Per-piece
+reasoning requires no schema change, migration or contract change; it is a presentation
+join over existing domain data.
 
-### 5. Ownership state appears here and only here, and needs new copy
+### 5. The caption is the ownership control, here and only here
 
-`AGENTS.md` already requires ownership state on outfit detail and nowhere else. Each
-caption carries a marker and a word, and one summary line states the count. The marker is
-a filled or hollow dot, so state is never carried by colour alone.
+`AGENTS.md` requires ownership state on outfit detail and nowhere else. Each caption is
+one accessible button named with the item, slot and spoken ownership state, with a
+localized hint that it changes whether the piece is in the Closet. It carries a filled or
+hollow marker and a word, so state never depends on colour alone, and one summary line
+states the count.
 
-**Correction, 2026-09-04**, made the same day this ADR was accepted. The original text
-here read that the product has no ownership state copy at all and that four new strings
-were needed. That was wrong, and it was wrong because the search stopped at the `today`
-namespace. English state copy already exists: `ownedLabel` "Owned" and `wantedLabel`
-"Wanted", in both the `profile` and `wardrobe` namespaces
-(`apps/mobile/src/localization/messages.ts:449,573`). The English captions reuse those and
-no new English string is owed.
+English captions reuse `ownedLabel` "Owned" and `wantedLabel` "Wanted" from the `profile`
+and `wardrobe` namespaces. Turkish captions use the single-item state pair "Sende var" /
+"İstiyorsun"; the collection labels "Sahip olduklarım" / "İstediklerim" are not valid
+under one garment. `ownershipOwnedAction` "I own it" and `ownershipWantedAction` "I want
+it" remain actions and are not reused as state.
 
-Turkish is the real gap. Its existing pair is "Sahip olduklarım" and "İstediklerim"
-(`messages.ts:835,960`), which are collection labels, "the ones I own" and "the ones I
-want". They are correct for a filter and wrong as a caption under a single garment. **One
-new Turkish pair is approved: "Sende var" / "İstiyorsun"**, matching the register of the
-existing action strings "Bende var" and "İstiyorum" rather than inventing a new one.
+Every caption ends with a 16-point menu indicator in secondary ink. Pressing it opens the
+platform menu with "I own it" and "I want it"; the current state has a checkmark,
+selecting it again does nothing, and a different selection updates the marker and word
+with selection haptics. The visible caption does not grow for the control. `hitSlop`
+supplies the 44-point target. Above `fontScale` 1.5, decision 3's caption list uses the
+same control.
 
-`ownershipOwnedAction` "I own it" and `ownershipWantedAction` "I want it" remain what they
-are, actions, and are not reused as state. The new Turkish pair is specified rather than
-added, and lands with the screen that consumes it, because unused localization keys are
-the speculative infrastructure `AGENTS.md` forbids.
-
-**Amended 2026-09-11.** The caption is the ownership control. It remains one accessible
-button named with the item, slot, and spoken ownership state, and adds a localized hint
-that it changes whether the piece is in the Closet. Every caption ends with a 16 point
-menu indicator in secondary ink. Pressing it opens the platform menu with "I own it" and
-"I want it"; the current state has a checkmark, selecting it again does nothing, and a
-different selection updates the marker and word with selection haptics. The visible
-caption does not grow for the control. `hitSlop` supplies the 44 point target. Above
-`fontScale` 1.5, the caption list from decision 3's amendment uses the same control.
-
-The interim action list repeated every garment already named by the board and caption,
-then placed up to five accent fills in one viewport against Law 1. It is removed. An
-untracked garment still draws no marker and no state word while its accessible name
-speaks the untracked state; the menu indicator is present on tracked and untracked
-captions alike.
+Do not add a separate per-garment ownership action list. It repeats every garment and can
+place up to five accent fills in one viewport against Law 1. An untracked garment draws no
+marker and no state word while its accessible name speaks the untracked state; the menu
+indicator is present on tracked and untracked captions alike.
 
 ### 6. Substitutions are out of the MVP, as a product decision rather than a design gap
 
@@ -132,9 +112,10 @@ per-slot alternative: the composer emits three whole outfits and the AI returns 
 `{optionId, archetypeId}` pairs. Designing a home for substitutions would have meant
 inventing the feature.
 
-Substitutions are therefore recorded as a future product possibility needing their own
-decision, and this surface has no substitution affordance. ADR 0021 section 7 is amended
-to that extent.
+Substitutions are a future product possibility needing their own decision, and this
+surface has no substitution affordance.
+[ADR 0021](0021-direction-e-a-visual-first-design-language.md) section 7 points to this
+decision.
 
 ### 7. The entry transition
 
@@ -142,9 +123,12 @@ The two screens hold the same objects in the same order, so the transition is a 
 rather than a cross-fade between two pictures.
 
 1. Each garment travels from its Today box to its detail box. Identity is the slot, so
-   nothing swaps places and no piece appears or disappears.
-2. The stage fades from the condition tint to the page ground over the same interval.
-3. The captions arrive after the pieces settle, so the reader never tracks moving text.
+   nothing swaps places and no piece appears or disappears. This spatial motion uses the
+   design language's spring role, never authored spring parameters in feature code.
+2. The stage fades from the condition tint to the page ground on an effects-duration
+   token that ends no later than the pieces settle.
+3. The captions arrive after the pieces settle, using the spatial spring role, so the
+   reader never tracks moving text.
 4. The reasoning section rises as the ordinary push transition.
 5. Under Reduced Motion there is no re-layout and no travel: both screens render
    statically and the push is the platform default. The tint difference remains, because
@@ -152,39 +136,31 @@ rather than a cross-fade between two pictures.
    [ADR 0020](0020-rewriting-the-motion-law.md)'s rule that motion is never the only
    indication of a state change.
 
-Amended 2026-09-07, from the goals 1 to 3 audit against the list-row checklist (check 8):
-items 1 and 3 are spatial motion, so they take the spatial spring role of the design
-language's Law 7 rather than a duration, and item 2's "over the same interval" is read as
-an effects fade on a duration token that ends no later than the pieces settle. Feature code
-authors no spring parameters; design goal 7 measures the role on the Simulator under
-Reduced Motion.
-
-Implementation note, 2026-09-10: the push remains the platform's. Garment travel is an
-in-screen re-layout from the Today preset to the detail preset, not a shared-element
-transition, on the spatial role `theme.springs.spatial`. Each piece travels as a plain
-view with a native transform, because Reanimated cannot drive react-native-svg's
-`transform` or `fill` on the new architecture; the fill fades by draining a tinted copy
-of the artwork over the resting one. Verified frame by frame on the Simulator with
-Reduce Motion off (tint drains during the push, pieces settle, captions follow) and on
-(static end state from the first frame).
+The push remains the platform's. Garment travel is an in-screen re-layout from the Today
+preset to the detail preset, not a shared-element transition, on the spatial role
+`theme.springs.spatial`. Each piece travels as a plain view with a native transform,
+because Reanimated cannot drive react-native-svg's `transform` or `fill` on the new
+architecture; the fill fades by draining a tinted copy of the artwork over the resting
+one. Simulator verification covers the animated sequence with Reduce Motion off and the
+static end state from the first frame with it on.
 
 ## Consequences
 
-- **Every item Today gave up has a home, except the one that does not exist.** Garment
-  names, layer structure, weather reasoning, per-piece reasoning, composition trade-offs,
-  ownership state, formality, the weather recap and AI provenance are all placed.
-  Substitutions are not, by decision 6.
-- **Two pieces of existing data stop being discarded**: `suppliedByCandidateKeys` and
-  `OutfitCandidate.formality`, neither of which the shipped detail screen reads.
-- **One Turkish string pair is owed** when the screen is implemented. English reuses
-  `ownedLabel` and `wantedLabel`. See the correction in decision 5.
+- **The detail surface places every supported item.** Garment names, layer structure,
+  weather reasoning, per-piece reasoning, composition trade-offs, ownership state,
+  formality, the weather recap and AI provenance are all placed. Substitutions are absent
+  by decision 6.
+- **The screen uses two existing pieces of data**: `suppliedByCandidateKeys` and
+  `OutfitCandidate.formality`.
+- **Ownership captions reuse English state labels and use a dedicated Turkish pair**,
+  "Sende var" / "İstiyorsun", as decision 5 specifies.
 - **Turkish role labels are the tightest text on the screen.** "ORTA KATMAN" wraps to two
   lines under the layer rail's caption cap. It does not collide at the default text size,
   and it is the case to check first under Dynamic Type.
-- **The detail preset is now a second consumer of ADR 0025's parameters.** A change to the
+- **The detail preset is a second consumer of ADR 0025's parameters.** A change to the
   rule's ladder or caps has to be checked against both presets, not only Today.
-- **The category-glyph redraw that ADR 0025 left open is unchanged and does not block
-  this surface.** A fallback piece on this screen is captioned like any other.
+- **A structural-category fallback is captioned like any other piece.** Its presence does
+  not change this surface's behavior.
 
 ## Alternatives considered
 
@@ -203,7 +179,8 @@ often satisfies none, so per-garment rows would either invent reasons or leave b
 **Printing `layerRole` under each piece.** Rejected on decision 3: it prints "standalone"
 under a pair of jeans.
 
-**Adding the Turkish ownership state pair now.** Rejected as unused keys with no consumer.
+**Using the Turkish collection labels as single-item captions.** Rejected because their
+grammar describes collections rather than the garment under the caption.
 
 **Keeping the interim per-garment ownership action list.** Rejected because it stated
 every garment twice and placed up to five accent fills in one viewport against Law 1.

@@ -366,7 +366,7 @@ test.each(['loading', 'error'] as const)(
   },
 );
 
-// ADR 0025's 2026-09-10 amendment gave the five accessories their own silhouettes, so an
+// ADR 0025 gives the five accessories their own silhouettes, so an
 // accessory draws like any typed garment; only a legacy entry without a type falls back
 // to the category placeholder.
 test('the rail draws coloured silhouettes for typed garments and accessories, and a glyph for legacy entries', async () => {

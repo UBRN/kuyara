@@ -109,7 +109,3 @@ mechanism is strongly preferred over adding an icon dependency.
 - Status colors and the destructive button variant.
 - Any change to the Balanced Horizon V2 master geometry or the six approved
   brand hexes.
-
-The specific icon set, glyph choices, and the garment-slot glyph approach
-were originally left open here and are now recorded above under
-Consequences.

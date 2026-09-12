@@ -19,10 +19,9 @@ the failures that keep recurring.
 
 The accepted visual direction is **Direction E**, `docs/adr/0021-direction-e-a-visual-first-design-language.md`.
 Read it before 1 to 3 for anything on Today, and before ADR 0017 or ADR 0018, both of
-which it amends: garment illustration is the visual subject, Today's hero is the
+which it constrains: garment illustration is the visual subject, Today's hero is the
 composition rather than a type role, the weather tints the surface the garments sit on
-instead of occupying its own band, and the light page ground rises to Soft Mist. None of
-it is implemented yet, so the shipped tree still shows the earlier allocation.
+instead of occupying its own band, and the light page ground rises to Soft Mist.
 
 Read 2 in full for a new screen. For a targeted change, read the laws your diff
 touches plus **How to check a screen** at the end of it.

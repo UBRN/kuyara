@@ -62,8 +62,8 @@ export async function runBackgroundWeatherAlertTask(
         profile.languagePreference,
         dependencies.getDeviceLocale(),
       ),
-      // Decided 2026-09-12, an amendment to ADR 0032 section 3: the app is not open here,
-      // so a crossing closer than the foreground lead still earns a shortened warning.
+      // ADR 0032 section 3: the app is not open here, so a crossing closer than the
+      // foreground lead still earns a shortened warning.
       leadTimeMinutes: weatherAlertBackgroundLeadTimeMinutes,
     });
     return 'success';

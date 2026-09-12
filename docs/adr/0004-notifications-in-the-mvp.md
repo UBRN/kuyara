@@ -2,25 +2,22 @@
 
 Status: Accepted (2026-08-29)
 
-Implementation: N1 completed on 2026-08-29; N2 completed on 2026-09-09 under
+Implementation: N1 and N2 are complete. N2 is governed by
 [ADR 0032](0032-local-weather-alert-rules.md), which decided the thresholds this ADR left
 open; N3 remains deferred.
 
-Note (2026-09-04): two rules this ADR quotes have since changed, and neither changes its
-decision. "No behavioral analytics" was revoked by
-[ADR 0023](0023-behavioural-product-analytics-with-posthog.md), and the local-first framing
-cited below was amended by
+Behavioural analytics is governed by
+[ADR 0023](0023-behavioural-product-analytics-with-posthog.md), and the backend direction
+is governed by
 [ADR 0022](0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md). The
-argument against server push rests on there being no account and no server-owned per-user
-store today, which is still true; N3 remains deferred and still needs its own ADR.
+argument against server push rests on the first release having no account and no
+server-owned per-user store. N3 remains deferred and still needs its own ADR.
 
 ## Context
 
-The confirmed MVP decisions excluded notifications entirely ("The MVP has no
-account, cross-device sync, behavioral analytics, or notifications"). That
-exclusion is now lifted: the product should warn a user about upcoming weather
-that changes what they need to wear, for example rain starting in the afternoon
-or a sharp temperature swing.
+The product should warn a user about upcoming weather that changes what they
+need to wear, for example rain starting in the afternoon or a sharp temperature
+swing. The first release still has no account or cross-device sync.
 
 "Reliable even when the app has not been opened for days" points at remote push:
 the Worker would hold a per-device push token, a stored location, alert
@@ -28,10 +25,9 @@ thresholds, and a schedule, and a cron trigger would fetch each device's
 forecast and send a push. That path forces three departures from recorded
 decisions:
 
-- **A server-owned per-user store.** The local-first rules make Expo SQLite the
-  source of truth and forbid an outbox, sync engine, or server revision system
-  in the MVP. There is no account. A subscription table is the first
-  server-owned user record.
+- **A server-owned per-user store.** Expo SQLite is the device-side database and
+  the MVP forbids an outbox, sync engine, or server revision system. There is no
+  account. A subscription table would be the first server-owned user record.
 - **Coordinates persisted server-side.** The weather API was designed so the
   Worker stores no coordinates; mobile sends rounded coordinates per request.
   Server-side forecast evaluation requires persisting a location per device,
@@ -84,9 +80,8 @@ location store. The decision is scoped into three milestones:
 
 ## Consequences
 
-- The "no notifications" MVP line becomes "notifications limited to on-device
-  local weather alerts, no server-sent push". `product-decisions.md`,
-  `current-status.md`, and `AGENTS.md` are updated to match.
+- The MVP is limited to on-device local weather alerts, with no server-sent
+  push.
 - No privacy regression. No new identifier is created or stored. The Worker,
   the AI input privacy boundary, and the "no coordinates persisted or logged"
   rule are untouched.
@@ -105,6 +100,7 @@ location store. The decision is scoped into three milestones:
 
 - Any Worker change, endpoint, binding, or secret.
 - Push tokens, APNs keys, Expo Push Service, EAS `projectId` wiring.
-- The N2 alert-rule thresholds themselves, which are an N2 design question.
+- Local alert-rule thresholds and behavior, which are owned by
+  [ADR 0032](0032-local-weather-alert-rules.md).
 - Android exact-alarm and notification-channel setup, which N1 does not need
   because it schedules no real notifications; N2 addresses them.

@@ -398,7 +398,7 @@ test('Direction E replaces the light card step with legible stage and supporting
   const lightStep = contrastOfHexOverBackground(
     lightSemanticColors.surface, lightSemanticColors.background,
   );
-  // ADR 0021 supersedes the 1.2:1 light card-over-ground invariant.
+  // ADR 0021 withdraws the 1.2:1 light card-over-ground invariant.
   assert.equal(Number(lightStep.toFixed(3)), 1.085, `light card step: ${lightStep.toFixed(3)}:1`);
 
   for (const [appearance, colors] of Object.entries({ light: lightSemanticColors, dark: darkSemanticColors })) {

@@ -6,28 +6,14 @@ Implementation: not started, and deliberately so. This ADR changes how the produ
 describes itself and what the current schemas must preserve. It authorizes no Supabase
 dependency, table, client, adapter, or sync code. See [Out of scope](#out-of-scope).
 
-Supersedes: the framing that kuyara *is* a local-first product, as written in
-`AGENTS.md`'s "Local-first data rules" section and repeated in
-[`product-decisions.md`](../product-decisions.md) and
-[`architecture.md`](../architecture.md).
-Narrows: [`product-decisions.md`](../product-decisions.md)'s "a remote sync adapter may
-later be implemented with either Supabase or Firebase".
-
 ## Context
 
-Every durable document in this repository describes local-first as if it were kuyara's
-identity. `AGENTS.md` gives it a section heading, and its first rule says Expo SQLite
-"is the durable on-device source of truth for user-created data. It is not a temporary
-database to be removed when remote sync is added." `product-decisions.md` says remote
-sync "may complement, but must not replace, the local store." A whole section is titled
-"Implemented local-first wardrobe persistence slice."
-
-That wording was written to defend a real and still-correct engineering rule: nothing in
-the MVP may assume a server, and no refresh failure may discard local data. But it was
-written as a product identity, and as a product identity it is wrong. The maintainer's
-actual intent, stated on 2026-09-04, is that the accountless first release is a scope
-decision, not a philosophy. The product is expected to grow accounts, cross-device
-persistence, and synchronized files.
+The local-first framing was written to defend a real and still-correct engineering rule:
+nothing in the MVP may assume a server, and no refresh failure may discard local data. As
+a product identity, however, that framing is wrong. The maintainer's intent, stated on
+2026-09-04, is that the accountless first release is a scope decision, not a philosophy.
+The product is expected to grow accounts, cross-device persistence, and synchronized
+files, with Supabase rather than Firebase as the intended backend.
 
 Leaving the wording alone has a concrete cost. A future agent reading "must not replace
 the local store" will treat a server-authoritative design as a rule violation and either
@@ -78,9 +64,8 @@ land, Supabase Postgres is the record of truth for account-backed user data. Exp
 remains the store the application reads and writes first, so the app keeps working
 offline and keeps rendering instantly, and it reconciles against the remote afterwards.
 
-This is a reversal of emphasis, not a deletion. SQLite is not removed and is not reduced
-to a throwaway cache: it is the device's working database. What changes is that it stops
-being described as the permanent, final authority for the whole product.
+SQLite is not removed and is not reduced to a throwaway cache: it is the device's working
+database. Do not describe it as the permanent, final authority for the whole product.
 
 ### 4. What the MVP owes the future
 
@@ -114,12 +99,8 @@ No account gating is implemented, designed, or scheduled by this ADR.
 
 ## Consequences
 
-- Documentation stops calling kuyara local-first as an identity. The section heading in
-  `AGENTS.md` becomes a persistence-boundary rule rather than a philosophy.
-- The historical section title "Implemented local-first wardrobe persistence slice" in
-  `product-decisions.md` is left alone: it names a slice that shipped under that
-  description, and rewriting shipped history to match a later decision is exactly what
-  this repository's documentation rules forbid.
+- Active documentation describes the accountless MVP's persistence boundary without
+  calling kuyara local-first as a product identity.
 - A future agent now has an answer to "what happens after accounts" and therefore has no
   reason to invent one.
 - The migration is still real work: promoting existing device rows into an authenticated

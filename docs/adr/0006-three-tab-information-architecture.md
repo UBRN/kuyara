@@ -1,23 +1,19 @@
-# ADR 0006: Three primary tabs, with Wardrobe and Settings inside Profile
+# ADR 0006: Three primary tabs, with Closet and Settings inside Profile
 
 Status: Accepted (2026-08-30)
 
-Implementation: Complete (milestone 6). Three tabs are live: Today at `/`,
-Weather at `/weather`, and Profile at `/profile`. Wardrobe and Settings are
+Implementation: Complete. Three tabs are live: Today at `/`, Weather at
+`/weather`, and Profile at `/profile`. Closet and Settings are
 stack destinations reached from the Profile tab; Settings opens from an icon
-in the Profile header. The wanted list is a filter on the wardrobe list
+in the Profile header. The wanted list is a filter on the Closet list
 rather than a separate screen, matching the rejected alternative below.
 
 ## Context
 
-The four-tab information architecture was previously recorded as final: Today,
-Weather, Wardrobe, and Settings. Wardrobe held a primary tab because it was the
-only user-controlled source that personalized recommendations.
-
-ADR 0005 removes Wardrobe items from the recommendation candidate set. Wardrobe
-is now a personal record, so its former reason for primary navigation placement
-no longer exists. Settings is also a utility destination rather than a daily
-primary task.
+The Closet is a personal record and does not supply recommendation candidates;
+[ADR 0005](0005-catalog-only-recommendation-candidates.md) keeps recommendations
+catalog-only. It therefore does not need the prominence of a primary tab.
+Settings is likewise a utility destination rather than a daily primary task.
 
 ## Decision
 
@@ -27,43 +23,38 @@ The main application has three primary tabs:
 - Weather at `/weather`.
 - Profile at `/profile`.
 
-Wardrobe and the wanted list live inside Profile. Settings opens from an icon in
-the Profile header and is not a tab.
+The Closet and the wanted list live inside Profile. The English user-facing label is
+**Closet** and the Turkish label is **Gardırop**. The internal domain name, SQLite tables,
+route segment, localization keys, repository types, file names, and test ids remain
+`wardrobe`; do not rename them for terminology alone. Settings opens from an icon in the
+Profile header and is not a tab.
 
-Amended 2026-09-03: the English user-facing label for that destination is **Closet**, not
-Wardrobe. Turkish is unchanged at **Gardırop**. The structure this ADR decided is
-untouched; only the word changes. The internal domain name, the SQLite tables, the route
-segment and the repository types remain `wardrobe` until a separate rename, so the label
-change is a localization and documentation change rather than a refactor.
+Gender and dress style are required, prominent onboarding inputs because they shape the
+catalogue selection and formality order. Their Settings controls live in the last,
+deliberately unprominent About you group. Birth date is optional; language and appearance
+follow the device by default and remain changeable in Settings. The profile fields are
+decided in [ADR 0031](0031-dress-style-is-the-formality-signal.md).
 
-Implementation of that label change: complete (2026-09-07). Every user-visible English
-string in `apps/mobile/src/localization/messages.ts` says "Closet"; keys, tables, routes
-and test ids keep `wardrobe`.
-
-Clothing preference is the only user input that shapes recommendations. It
-remains a prominent, required onboarding step. In Settings it is the last
-section and is deliberately not prominent.
-
-Expo Router's stable JavaScript Tabs remain the navigation implementation. The
-onboarding gate and platform-adaptive, localized, accessible tab presentation
-remain unchanged in principle.
+Expo Router Native Tabs implements the tab bar under
+[ADR 0012](0012-adopting-expo-router-native-tabs.md). The onboarding gate and
+platform-adaptive, localized, accessible tab presentation remain unchanged in principle.
 
 ## Consequences
 
-- Primary navigation is reduced from four destinations to three.
-- Wardrobe is less discoverable because it moves behind Profile. This is an
+- Primary navigation contains exactly three destinations.
+- The Closet is less discoverable because it sits behind Profile. This is an
   accepted cost of matching navigation prominence to its personal-record role.
 - Settings is less prominent but remains reachable from the Profile header.
-- Existing Wardrobe and Settings route placement, deep links, navigation tests,
-  and tab-bar expectations must change during implementation.
-- Clothing preference has different prominence by context: required in
+- Closet and Settings route placement, deep links, navigation tests, and tab-bar
+  expectations follow the Profile nesting.
+- Gender and dress style have different prominence by context: required in
   onboarding, deliberately secondary in Settings.
 
 ## Alternatives considered
 
 - **Keep the four-tab information architecture.** Rejected because it preserves
-  primary prominence for a Wardrobe that no longer shapes recommendations.
-- **Keep Settings as a tab and move only Wardrobe.** Rejected because Settings is
+  primary prominence for a Closet that does not shape recommendations.
+- **Keep Settings as a tab and move only the Closet.** Rejected because Settings is
   not a primary daily destination and Profile provides a conventional home for
   it.
 - **Add a separate wanted-list tab or screen.** Rejected because `owned | wanted`
@@ -71,17 +62,7 @@ remain unchanged in principle.
 
 ## Out of scope
 
-- Migrating from JavaScript Tabs to Native Tabs. This option is since taken up
-  separately; see [ADR 0012](0012-adopting-expo-router-native-tabs.md). The
-  three-tab architecture decided here is unchanged by that migration.
+- The native tab-bar implementation, governed by
+  [ADR 0012](0012-adopting-expo-router-native-tabs.md).
 - Redesigning visual identity, tab icons, or shared navigation primitives.
 - Changing the onboarding gate or adding account navigation.
-
-## Note (2026-09-03)
-
-[ADR 0015](0015-gender-and-age-band-in-the-profile.md) removes the onboarding
-language and appearance step; both now follow the device default and stay
-changeable in Settings. It also renames the onboarding/Settings preference from
-clothing preference to gender. This ADR's three-tab decision and its rule about
-that control's prominence (required and prominent in onboarding, last and
-unprominent in Settings) are unaffected.

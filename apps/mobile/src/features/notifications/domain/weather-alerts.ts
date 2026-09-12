@@ -8,9 +8,8 @@ import type {
 
 export const weatherAlertLeadTimeMinutes = 60;
 /**
- * Decided 2026-09-12 and recorded as an amendment to ADR 0032: on the background path the
- * app is not open, so a crossing closer than the foreground lead is still worth announcing
- * with a shortened lead. Quiet hours still apply.
+ * ADR 0032: on the background path the app is not open, so a crossing closer than the
+ * foreground lead is still worth announcing with a shortened lead. Quiet hours still apply.
  */
 export const weatherAlertBackgroundLeadTimeMinutes = 15;
 export const weatherAlertMinimumLeadAfterQuietHoursMinutes = 30;

@@ -2,20 +2,14 @@
 
 Status: Accepted (2026-09-04)
 
-Implementation: in progress. The `ProductAnalytics` boundary, the typed event catalog
-([`analytics-taxonomy.md`](../analytics-taxonomy.md)) and the trackers landed on
-2026-09-09 with a no-op adapter; the PostHog adapter, consent surface and call sites
-follow. This ADR records the decision, its privacy boundary, and the compliance question
-that must be answered before any of it is built.
+Implementation: in progress. The `ProductAnalytics` boundary, typed event catalog
+([`analytics-taxonomy.md`](../analytics-taxonomy.md)), PostHog adapter, consent surface,
+and current call sites are implemented. This ADR records the analytics direction and
+privacy boundary.
 
-Amended by [ADR 0033](0033-apple-privacy-obligations-for-first-party-analytics.md)
-(2026-09-09): the product preference in section 7 against a permanent withdrawal
-control is withdrawn, because App Store Review Guideline 5.1.1 requires consent before
-collection and an in-app way to withdraw it.
-
-Revokes: the MVP rule "no behavioral analytics" in `AGENTS.md` and in
-[`product-decisions.md`](../product-decisions.md)'s confirmed MVP decisions.
-Narrows: `AGENTS.md`'s "Do not add behavioral tracking in the MVP."
+Consent before collection and an in-app withdrawal control are required. The current
+Apple privacy obligations are decided in
+[ADR 0033](0033-apple-privacy-obligations-for-first-party-analytics.md).
 
 ## Context
 
@@ -41,8 +35,8 @@ prerequisites recorded as known issues.
 
 ### 1. Behavioural product analytics is part of the production direction
 
-Analytics is no longer excluded from the shipping product. It is planned early enough
-that the behaviour of kuyara's first real users is measurable.
+Analytics is part of the shipping product and is planned early enough that the behaviour
+of kuyara's first real users is measurable.
 
 **Sequenced before the first public App Store release** (decided 2026-09-04). This makes
 the privacy policy URL, the App Store Connect data-collection questionnaire, and the
@@ -122,8 +116,7 @@ application persistence identity with analytics identity permanently. If an anon
 analytics identity is needed, it is designed for analytics specifically, and the relevant
 Apple and privacy constraints are verified before it is implemented.
 
-The event and property schema is reviewed on its own before the PostHog integration is
-written.
+The event and property schema is reviewed on its own before PostHog integration changes.
 
 ### 7. ATT and privacy consent are different questions
 
@@ -137,22 +130,20 @@ added.
 **That is not a finding that no privacy work is required.** App Privacy disclosure, the
 App Store Connect data-collection questionnaire, a privacy policy, consent, retention and
 deletion, and consent revocation are separate obligations with their own current rules.
-They must be verified against current official Apple documentation before the analytics
-implementation, and again before App Store submission.
+They must be verified against current official Apple documentation before analytics
+changes and again before App Store submission.
 
-Current product preference, which does not settle the legal question:
+The current privacy rules are:
 
-- No permanent "Share analytics" toggle purely as a product preference.
-- No long Terms & Conditions flow unless genuinely required.
+- Consent is obtained before collection and can be withdrawn from an accessible in-app
+  control.
+- The disclosure stays short and understandable; no long Terms & Conditions flow is
+  required by this decision.
 - Analytics serves product improvement, reliability, and the maintainer's own learning.
 - Data is not sold, not used for advertising, and not intentionally shared with data
   brokers or unrelated third parties.
-
-**Open and unresolved:** whether current Apple and applicable privacy requirements oblige
-a consent, revocation, or deletion mechanism, and what form it must take. If they do, that
-requirement wins over the preference above. A short, understandable privacy disclosure is
-preferred to a legalistic agreement flow if it satisfies the verified requirement. No
-consent UX is designed by this ADR.
+- Retention, deletion, identifier linkage, and the consent implementation are governed by
+  [ADR 0033](0033-apple-privacy-obligations-for-first-party-analytics.md).
 
 ### 8. Error tracking
 
@@ -205,12 +196,9 @@ and [ADR 0002](0002-real-weather-provider-chain.md) already require for provider
 
 ## Consequences
 
-- "The MVP has no behavioural analytics" stops being true as a forward-looking rule and
-  is corrected wherever it is stated as one. Statements describing what shipped remain
-  accurate for the versions they describe.
-- App Store submission gains prerequisites: the privacy policy and the data-collection
-  questionnaire now have to describe analytics collection, and the consent question has to
-  be resolved first.
+- The MVP includes behavioural analytics behind the approved privacy and consent boundary.
+- App Store submission requires a privacy policy and data-collection questionnaire that
+  accurately describe analytics collection.
 - The redesign is upstream of the taxonomy. Screen-name and navigation events depend on
   the information architecture the redesign settles, so the taxonomy is written after it
   rather than against screens that are about to change.
@@ -221,6 +209,7 @@ and [ADR 0002](0002-real-weather-provider-chain.md) already require for provider
 
 - Installing or configuring PostHog, any SDK, or any dependency.
 - Writing event calls, the taxonomy, or the `ProductAnalytics` boundary.
-- Session replay, ATT permission, consent UI, or Terms & Conditions UI.
+- Session replay, ATT permission, or Terms & Conditions UI. The consent surface is
+  [ADR 0033](0033-apple-privacy-obligations-for-first-party-analytics.md)'s.
 - Grafana, OpenTelemetry, or any logging infrastructure.
 - Choosing the user-facing feedback mechanism.

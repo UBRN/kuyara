@@ -2,18 +2,20 @@
 
 Status: Accepted (2026-08-29)
 
-Implementation: Completed and deployed on 2026-08-29. WeatherKit remains a separate milestone.
+Implementation: complete and deployed. WeatherKit is governed by
+[ADR 0014](0014-weatherkit-at-the-head-of-the-provider-chain.md).
 
 ## Context
 
-Milestone 5 replaces the deterministic sample weather source with real
-Apple-independent providers. Before this change the Worker served
-`POST /v1/weather` from `DeterministicMockWeatherProvider` alone, and
-`docs/product-decisions.md` recorded the approved chain as "not implemented".
+The Apple-independent provider segment replaces the deterministic sample
+weather source with real providers. The prior Worker composition served
+`POST /v1/weather` from `DeterministicMockWeatherProvider` alone.
 
-The approved target chain is Open-Meteo primary, OpenWeather fallback, then the
-last valid device-local snapshot. WeatherKit is a separate milestone that will
-be inserted at the head of the same chain without changing mobile.
+Within that segment, Open-Meteo is primary and OpenWeather is the fallback;
+mobile then retains the last valid device-local snapshot. WeatherKit sits at
+the head of the complete chain under
+[ADR 0014](0014-weatherkit-at-the-head-of-the-provider-chain.md) without giving
+mobile provider knowledge.
 
 The mobile weather domain, the exact 30-minute freshness boundary, and
 last-known-good behavior were required to stay unchanged. They did.
@@ -32,14 +34,12 @@ re-derive rather than trusting these numbers later.
   asks for 14 variables across `current`, `hourly` and `daily`, so it bills at
   roughly 1.4 calls. Still far inside the daily ceiling at expected volume.
 - Free tier is **non-commercial use only**. Kuyara is free, ad-free, has no
-  subscription and no in-app purchase, and is open source, which fits the terms'
-  non-commercial examples. Recorded here as a deliberate reading, not a
-  certification. Re-check if the product ever monetizes.
-  (Amended 2026-09-04: the project is no longer open source. It is source-available
-  under the PolyForm Noncommercial License 1.0.0, which restricts commercial use
-  rather than permitting it; see [ADR 0024](0024-relicensing-to-polyform-noncommercial.md).
-  The reading above is unaffected and better supported, and the monetization caveat
-  stands.)
+  subscription and no in-app purchase, and is source-available under the
+  PolyForm Noncommercial License 1.0.0, which restricts commercial use. That
+  fits the terms' non-commercial examples; see
+  [ADR 0024](0024-relicensing-to-polyform-noncommercial.md). Recorded here as a
+  deliberate reading, not a certification. Re-check if the product ever
+  monetizes.
 - Data is CC BY 4.0 and requires the visible attribution "Weather data by
   Open-Meteo.com" linked to `https://open-meteo.com/`.
 - No SLA. The terms state uninterrupted provision is not guaranteed.
@@ -166,9 +166,9 @@ Before the secret is set, the OpenWeather account's Billing plans tab must have
 overage and would violate the repository rule against uncontrolled
 pay-as-you-go usage.
 
-**Satisfied on 2026-08-29.** The provider-side cap was lowered before OpenWeather
-was enabled, so no billable range exists above the free allowance. The fallback
-is now part of the chain.
+The provider-side cap was verified at 1,000 calls per day on 2026-08-29 before
+OpenWeather was enabled, so no billable range exists above the free allowance.
+The fallback is part of the chain.
 
 ### 8. Contract and attribution
 
@@ -186,15 +186,15 @@ credentials and internal errors do not cross. An unrecognized or legacy
 `uvIndex` and `precipitationProbability` stayed required and non-nullable. The
 alternative, relaxing them, is recorded below.
 
-### 9. The sample provider is no longer reachable in production
+### 9. The sample provider is unreachable in production
 
-`DeterministicMockWeatherProvider` was removed from the Worker's production
-composition and is now used only by tests, making the existing rule that it is
-never a production fallback true in code rather than by convention.
+The Worker's production composition excludes
+`DeterministicMockWeatherProvider`; only tests use it. It is never a production
+fallback.
 
 ## Consequences
 
-- The app now serves real live weather. `origin.kind` is `live` in production.
+- The app serves real live weather. `origin.kind` is `live` in production.
 - Open-Meteo has no SLA and no key. If it fails and no OpenWeather secret is
   configured, the chain has nothing to fall back to and the mobile app shows its
   last-known-good snapshot, which is the designed behavior.
@@ -237,6 +237,7 @@ weather calls spend no money, so a per-IP burst limiter is proportionate.
 
 ## Out of scope
 
-- WeatherKit integration (milestone 6).
+- WeatherKit provider ordering and behavior, governed by
+  [ADR 0014](0014-weatherkit-at-the-head-of-the-provider-chain.md).
 - Any long-term weather archive.
 - Remote deployment and credential provisioning; both were completed separately.

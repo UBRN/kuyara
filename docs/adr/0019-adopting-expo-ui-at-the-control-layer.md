@@ -2,25 +2,21 @@
 
 Status: Accepted (2026-09-03)
 
-Implementation: landed with the redesign's implementation work (the native Settings
-lists on 2026-09-07, the Closet's segmented control, the native date picker and text
-field on 2026-09-08). `components/ui` remains the only importer. The phase numbering
-this ADR originally used was superseded by the redesign's goal list. The mount check has
-run, and its result is recorded below.
+Implementation: complete. Native Settings lists, the Closet's segmented control, the
+native date picker, and the text field are implemented. `components/ui` remains the only
+importer, and the required mount checks are recorded below.
 
 Resolves: the "generic text-input, selector, switch, modal, or feedback frameworks"
 entry on [`design-system.md`](../design/design-system.md)'s deferred list.
 
 ## Context
 
-`@expo/ui@~57.0.8` has been a dependency since the monorepo was scaffolded
-(`9867e08`) and **has never been imported anywhere in the repository.** So has
-`expo-glass-effect@~57.0.1`.
+`@expo/ui@~57.0.8` supplies the native control layer through wrappers in
+`components/ui`. `expo-glass-effect@~57.0.1` remains unused.
 
-Meanwhile the primitive layer stops at `Surface`. There is no `Row`, `ListSection`,
-`Field`, `Segmented`, or `Sheet`, and `design-system.md` deferred exactly those under
-the "current product use rather than speculative completeness" rule. The measured
-cost of that deferral, taken from the current tree:
+Without the native control boundary, the primitive layer stops at `Surface`; it has no
+reason to duplicate `Row`, `ListSection`, `Field`, `Segmented`, or `Sheet`. The measured
+cost of hand-built feature controls was:
 
 - `wardrobe-item-form-screen.tsx` is 824 lines; `weather-screen.tsx` is 637.
 - The owned/wanted control exists three times, as `PreferenceOption`, as
@@ -94,25 +90,30 @@ without a new decision.
 - `@expo/ui` components render native views, which do not mount under the Jest
   environment. Component tests for the wrapped primitives are written against mocked
   modules, exactly as `primary-tabs.tsx`'s test was rewritten during Milestone B.
-- The mount check ran during the visual design spike. The universal components **do
-  mount** in the existing dev build, so no rebuild is required, but three findings
-  qualify the adoption: `Host matchContents` collapses to zero height inside a
-  `ScrollView` and renders nothing, an explicit height works; `Host` follows the device
-  appearance rather than kuyara's resolved theme, which `Host colorScheme` fixes; and one
-  component in the universal set terminates the app with no crash report, narrowed to the
-  `List` / `Button` import group and not isolated further. Isolating that crash is a
-  prerequisite for adopting those two components. `FieldGroup`, `ListItem` and `Switch`
-  are clear. Amended 2026-09-07: Isolated on 2026-09-07 on the iPhone 17 Pro / iOS 26.3 Simulator with five probe screens swapped into the Settings route: importing the group does not crash; `List` and `ListItem` render; `Button` with the `label` prop renders; `Button` given string children terminates the app with an `NSInternalInconsistencyException` from `RCTComponentViewFactory`, "ComponentView with componentHandle (`RawText`) not found", because Fabric has no `RawText` view to mount inside a SwiftUI host. A crash report is written after all (`kuyara-2026-09-07-175305.ips`). `ListItem` takes a plain string or an `@expo/ui` `Text` as its headline, `supportingText`, an `@expo/ui` `Text` in `trailing`, and an `RNHostView` in `leading` holding kuyara's own 28 by 28 tile with a tinted PNG glyph, which verifies list-row check 2 at runtime. A React Native `Text` placed directly in a slot does not crash but breaks the row layout; the rule is that slot content is `@expo/ui` components or an `RNHostView`, never bare React Native views or strings on `Button`. Amended 2026-09-11: a SwiftUI `Menu` whose `label` is an `RNHostView` holding a React Native caption, inside a `Host` given an explicit size, mounts, opens on tap and delivers its `Button` items on the iPhone 17 Pro / iOS 26.5 Simulator; it is the `NativeMenu` primitive behind ADR 0026 decision 5.
+- Runtime verification establishes the wrapper rules. `Host matchContents` collapses to
+  zero height inside a `ScrollView`, so the host needs an explicit height. `Host` follows
+  the device appearance unless `Host colorScheme` receives kuyara's resolved theme.
+  `List`, `ListItem`, `FieldGroup` and `Switch` render on the iPhone 17 Pro / iOS 26.3
+  Simulator. `Button` renders with its `label` prop; string children terminate the app with an
+  `NSInternalInconsistencyException` from `RCTComponentViewFactory` because Fabric has no
+  `RawText` view to mount inside a SwiftUI host. `ListItem` accepts a plain string or an
+  `@expo/ui` `Text` as its headline, `supportingText`, an `@expo/ui` `Text` in `trailing`,
+  and an `RNHostView` in `leading` containing kuyara's own 28 by 28 tile. A bare React
+  Native `Text` in a slot breaks row layout. Slot content must therefore be `@expo/ui`
+  components or an `RNHostView`, and `Button` must never receive string children. A
+  SwiftUI `Menu` whose label is an `RNHostView` containing a React Native caption, inside
+  an explicitly sized `Host`, mounts, opens, and delivers its `Button` items on the
+  iPhone 17 Pro / iOS 26.5 Simulator; it is the `NativeMenu` primitive behind ADR 0026
+  decision 5.
 - Accessibility for these controls comes from the platform, as it does for the tab
   bar. The manual matrix still runs; what changes is that the adaptation is not ours
   to implement.
 
 ## Relationship to the visual design spike
 
-The spike prototypes Today, Weather and Profile, which are not control-layer screens,
-so it does not gate this decision. It may, however, change how much of the identity
-has to survive on Settings, and if it concludes that a native grouped list is too far
-from the product's character, this ADR is amended rather than quietly ignored.
+Today, Weather, and Profile are not control-layer screens and remain outside this
+decision. Settings uses the accepted native grouped-list boundary. Any future change to
+that boundary requires an explicit decision rather than a quiet implementation exception.
 
 ## Alternatives considered
 

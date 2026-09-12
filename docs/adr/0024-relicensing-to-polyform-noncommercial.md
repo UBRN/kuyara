@@ -1,20 +1,16 @@
-# ADR 0024: Relicensing to PolyForm Noncommercial, and dropping the open-source claim
+# ADR 0024: PolyForm Noncommercial licensing and source-available description
 
 Status: Accepted (2026-09-04)
 
-Implementation: applied in this change. `LICENSE` now carries the PolyForm Noncommercial
-License 1.0.0, [`LICENSING.md`](../../LICENSING.md) records the history and the commercial
-path, and the "open-source" wording is corrected wherever it described the project.
-
-Supersedes: the MIT licensing of this repository for current and future work, and the
-description of kuyara as open source in `README.md`, `AGENTS.md`, and
-[`product-decisions.md`](../product-decisions.md).
+Implementation: complete. `LICENSE` carries the PolyForm Noncommercial License 1.0.0,
+[`LICENSING.md`](../../LICENSING.md) records the licensing history and commercial path,
+and current documentation describes the project as source-available.
 
 ## Context
 
-kuyara has been MIT licensed since the repository was created on 2026-07-25, and three
-documents describe it as an open-source application. MIT permits unrestricted commercial
-use, including selling the software, and that no longer matches the maintainer's intent.
+Earlier versions of kuyara were distributed under MIT. MIT permits unrestricted commercial
+use, including selling the software, which does not match the maintainer's intent for
+current and future versions.
 
 The intent, stated on 2026-09-04, is narrower than MIT and broader than closed source:
 the source should stay publicly readable so people can inspect and learn from it,
@@ -50,11 +46,11 @@ problem kuyara does not have, Commons Clause is a rider on another licence rathe
 licence, and Creative Commons is not intended for software. None of them was already a
 settled decision in this repository.
 
-### 2. The wording changes with the licence
+### 2. Source-available wording
 
 kuyara is described as **source-available**, not open source. "Publicly developed
-source-available application" is accurate; "open-source" is not, once commercial use is
-restricted.
+source-available application" is accurate. Do not describe kuyara as open source because
+commercial use is restricted.
 
 ### 3. Commercial use is available by separate permission
 
@@ -64,10 +60,10 @@ condition rather than a refusal.
 
 ### 4. The MIT history is not revoked
 
-Every version distributed under MIT before this change stays under MIT, and the rights
-already granted for those versions stand. A licence change is forward-looking: it governs
-this and later versions. Anyone who obtained an earlier version keeps what MIT gave them,
-including for commercial use of that version.
+Every version distributed under MIT stays under MIT, and the rights granted for those
+versions stand. The PolyForm Noncommercial licence governs current and later versions.
+Anyone who obtained an MIT version keeps what MIT gave them, including for commercial use
+of that version.
 
 This is stated plainly in `LICENSING.md` rather than left implicit, because the failure
 mode, claiming a retroactive revocation the maintainer cannot actually make, would be
@@ -75,17 +71,17 @@ both wrong and unenforceable.
 
 ## Consequences
 
-- Contributions from anyone other than the maintainer would now arrive under the new
-  terms. If outside contribution ever becomes a real possibility, a contribution policy
+- Contributions from anyone other than the maintainer arrive under the current terms. If
+  outside contribution ever becomes a real possibility, a contribution policy
   or CLA is the next decision; none is needed today.
 - The Open-Meteo free tier is noncommercial-use only, and
   [`product-decisions.md`](../product-decisions.md) records kuyara's free, ad-free,
   non-monetised nature as the reading that fits it. That reading is unaffected and, if
-  anything, better supported: the project is now noncommercially licensed as well as
+  anything, better supported: the project is noncommercially licensed as well as
   noncommercially operated. The "re-check if the product ever monetizes" caveat stands
   unchanged.
-- Nothing about the repository's visibility changes. The source stays public, and the
-  existing rule that design mockups and session notes live outside the repository is
+- The source stays public. The existing rule that design mockups and session notes live
+  outside the repository is
   unrelated to licensing and is unaffected.
 - No dependency licence obligation changes. The project's own licence does not alter what
   its dependencies require.

@@ -105,10 +105,9 @@ Why this is stricter than the mockups: see [Relationship to the mockups](#relati
   fill. The condition-tinted stage of
   [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md) is not a fourth
   plane either: it is the plane the garment composition sits on, and it carries no card,
-  no secondary copy, and no bordered control. That stage replaces the full-width
-  atmospheric band [ADR 0018](../adr/0018-the-atmospheric-condition-band.md) originally
-  specified; ADR 0018's state set, derivations and contrast floors are unchanged, only
-  the shape the atmosphere takes.
+  no secondary copy, and no bordered control. [ADR 0018](../adr/0018-the-atmospheric-condition-band.md)
+  defines the stage's closed state set, derivations, contrast floors and flat rendering.
+  Do not add a separate full-width atmosphere strip.
 - A plane change must coincide with a **change of information**. A plane is never
   introduced for decoration or for visual interest.
 - The card is identified by **radius 20 plus a 16 inset plus the fill step, together**.
@@ -246,10 +245,9 @@ outlining every card at 3:1 would read as a wireframe, the opposite of the ident
   [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md); Weather keeps it,
   because there the hero really is a number.
 - The scale is **56 / 34 / 22 / 17 / 15 / 13 / 10.5**, retuned by
-  [ADR 0017](../adr/0017-a-retuned-typography-scale.md). Before that retune `title` and
-  `titleLarge` were both 24 and nothing sat between 24 and 40, so the three emphasis
-  levels of Law 1 could not actually be expressed. `titleLarge` 34 matches the iOS
-  large title metric so a hand-drawn heading and a native large title agree.
+  [ADR 0017](../adr/0017-a-retuned-typography-scale.md), spaced so the three emphasis
+  levels of Law 1 are expressible. `titleLarge` 34 matches the iOS large title metric
+  so a hand-drawn heading and a native large title agree.
 - The three largest roles carry negative tracking (`display` -1.5, `titleLarge` -0.6,
   `title` -0.2). Without it the system face at hero sizes reads as a large label.
 - **Any number that changes without the layout changing uses tabular figures**
@@ -279,14 +277,11 @@ not panic; both are forms of demanding attention, which the identity forbids.
 
 - **Two families, and no third.** `Icon` (system symbols through `expo-symbols`) and
   `GarmentSlotGlyph` (bundled monochrome artwork). A third family requires an ADR.
-  [ADR 0025](../adr/0025-the-garment-board-composition-rule.md) extends
-  `GarmentSlotGlyph` to per-type garment silhouettes rather than adding a third family:
-  the six structural categories become that family's fallback tier. That family
-  failed the one-idiom bullet below until 2026-09-07, because the shipped category glyphs
-  were drawn far heavier than the silhouettes, measured at 1.86x the ink of a silhouette
-  anchor beside them. The six were redrawn in the silhouette idiom that day (ADR 0025's
-  consequences record the measurement and the optical raster weight for the 20 to 28
-  point display class).
+  [ADR 0025](../adr/0025-the-garment-board-composition-rule.md) defines
+  `GarmentSlotGlyph` at per-type granularity rather than as a third family: the six
+  structural categories are its fallback tier, and both tiers use the silhouette idiom.
+  ADR 0025 records the measured optical raster weight for the 20-to-28-point display
+  class and the separate large raster class.
 - **A single icon family is drawn in one idiom.** A set may not mix a platform symbol
   source with a bundled one: a set that is three-quarters one idiom and one-quarter the
   other reads as unfinished, even when the mixed-in glyphs are individually correct.
@@ -340,7 +335,7 @@ describe transitions, and a 1500 ms cloud bob is not a transition.
 duration role is added and measured with the redesign's token work; a duration is a role in
 the sense of Law 9, so it may be defined ahead of a second use.
 
-**Spatial and effects motion, decided 2026-09-07.** Motion is one of two kinds. *Effects*
+**Spatial and effects motion.** Motion is one of two kinds. *Effects*
 motion changes a property in place: opacity, colour, a tint draining away. The three
 duration tokens describe effects motion and are complete for it. *Spatial* motion moves
 something between positions or sizes: a garment piece entering, the pieces travelling from
@@ -520,21 +515,13 @@ single justification for the milestone's instruction to improve on them.
 
 Deliberate departures, each with its measured reason:
 
-1. **Ground stayed `#D0DDDC`, not the mockups' `#F4F6F5`. Superseded.** The reasoning
-   held while the light card plane was white: the mockup ground under a white card
-   measures **1.085:1** against the shipped **1.395:1**, so adopting it would have undone
-   M6 and M6.1 on the exact metric the mockups were consulted to fix.
-   [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md) §4 reverses the
-   conclusion by removing its premise: Direction E's Today has no white card, so the
-   ground is no longer bought with a card step, and raising it to Soft Mist lifts
-   `textPrimary` from 10.04:1 to 12.90:1. **The light page ground is Soft Mist
-   `#F4F6F5`.** Settled 2026-09-04 (ADR 0021's amendment): this applies to every screen,
-   Profile, Closet and Settings included, rather than being confined to Today. Those
-   screens are designed so separation comes from type, space and this language's other
-   devices, not from a card fill step, and the M6.1 invariant that light `surface` clears
-   `background` by 1.2:1 is superseded rather than defended. Text and non-text contrast
-   floors are unchanged and still binding, as is ADR 0018's rule that no atmosphere state
-   may make contrast worse than `neutral`.
+1. **The light page ground is Soft Mist `#F4F6F5` on every screen.** Profile, Closet and
+   Settings use the same ground as Today. A white surface over it measures **1.085:1**,
+   so separation comes from type, space and this language's other devices rather than a
+   card fill step; `theme.test.mjs` records the measured step without enforcing a 1.2:1
+   minimum. `textPrimary` measures 12.90:1 on the ground. Text and non-text contrast floors
+   remain binding, as does [ADR 0018](../adr/0018-the-atmospheric-condition-band.md)'s
+   rule that no atmosphere state may make contrast worse than `neutral`.
 2. **The mockup amber `#8A5A16` is retuned to `#7A4F12`.** The mockup value measures
    **4.236:1** on the shipped ground, below 4.5:1. It fails as text on the ground
    plane. It was drawn against the lighter mockup ground where it passed.

@@ -2,14 +2,9 @@
 
 Status: Accepted (2026-09-04)
 
-Implementation: both defect fixes landed, the selected-state signal on 2026-09-04 and
-the single-owner bottom inset on 2026-09-07 (its `safeAreaInsets.bottom` term was
-removed on iOS on 2026-09-09 as a double count). Section 5's Dynamic Type and
-touch-target questions were answered on 2026-09-09: UIKit does not scale tab bar labels,
-and each item measures 94 by 54 points. The two fixes were **approved here and sequenced
-ahead of** the category-glyph redraw that
-[ADR 0025](0025-the-garment-board-composition-rule.md) left open, because they are shell
-foundation and every screen is drawn inside them.
+Implementation: complete. The selected-state signals, the single-owner bottom inset and
+the Simulator measurements in section 5 are implemented; Android rendering of the bar
+remains unverified.
 
 Builds on: [ADR 0006](0006-three-tab-information-architecture.md), whose three-tab
 structure is not reopened, and [ADR 0012](0012-adopting-expo-router-native-tabs.md), whose
@@ -22,16 +17,18 @@ record a content inset that goals 4 to 6 could design against. The design questi
 much chrome the tab bar can carry before the styling-first feeling degrades.
 
 The design half was quick. The feasibility half, run as a read-only check against the
-installed packages rather than against memory, found two defects in shipped code that
-matter more than the mockup did, and both are recorded as decisions below.
+installed packages rather than against memory, found two shell defects that mattered more
+than the mockup did: the application contributed no selected-state signal of its own, and
+feature screens were overwriting the bottom inset. Decisions 3 and 4 are their
+corrections; both are shell foundation, and every screen is drawn inside them.
 
 ## Decision
 
 ### 1. Three tabs, the labels the product already ships
 
 Today, Weather and Profile, from `navigation.today`, `navigation.weather` and
-`navigation.profile` (`apps/mobile/src/localization/messages.ts:374,760`). Turkish is
-Bugün, Hava, Profil.
+`navigation.profile` in `apps/mobile/src/localization/messages.ts`. Turkish is Bugün,
+Hava, Profil.
 
 Measured at the bar's own size, the widest label is the English "Weather" at 42.5 points
 in a 124 point tab, **34% of its tab**. Label length is not a constraint at the default
@@ -50,27 +47,16 @@ which is the only place on that screen where chrome and content compete.
   on the screen, it would sit directly under the garments, and nothing the product
   currently produces needs counting. The capability exists and stays unused.
 
-### 3. The selected tab must carry two non-colour signals of its own
+### 3. The selected tab carries two non-colour signals of its own
 
-**The defect.** `iconNames` maps all three tabs to filled SF Symbols, `house.fill`,
-`sun.max.fill` and `person.fill` (`apps/mobile/src/components/ui/icon.tsx:15`), and
-`primary-tabs.tsx` passes the one symbol for both states. The icon is therefore identical
-whether or not its tab is selected.
+On iOS 26 the OS draws a **selection capsule** behind the selected item, a shape signal
+the application neither requests nor can request. It is not enough on its own: Law 6 says
+fill carries state, and the shell is the one place every screen inherits, so the
+application contributes two signals of its own, neither of them colour. Colour is not the
+only signal, so this is a Law 6 matter rather than a Law 4 one.
 
-**Corrected against the Simulator, 2026-09-04.** An earlier draft of this decision said the
-selected state carried no non-colour signal at all. That was wrong, and the run that
-verified the fix is what disproved it: on iOS 26 the OS draws a **selection capsule**
-behind the selected item, which is a shape signal and was there before this change. So the
-accurate statement is narrower and still worth fixing: **the application contributed no
-signal of its own**, and Law 6's "fill carries state" was being ignored in the one place
-every screen inherits. Colour was not the only signal, so this was a Law 6 failure rather
-than a Law 4 one.
-
-**Approved fix.** Two signals, neither of them colour:
-
-1. **Icon shape.** Outline unselected, filled selected. Law 6 already states that fill
-   carries state; the shell was simply not doing it. **On iOS only, as implemented.** The
-   installed `AndroidSymbol` union has no filled counterpart for the weather glyph, only
+1. **Icon shape.** Outline unselected, filled selected. **On iOS only.** The installed
+   `AndroidSymbol` union has no filled counterpart for the weather glyph, only
    `home_filled` exists among the three, so pairing two tabs and not the third would read
    as a bug. Android keeps one symbol per tab and lets its Material active indicator carry
    the state.
@@ -98,23 +84,19 @@ documentation gives the first one as its worked example:
 
 Two implementation constraints that are not footnotes:
 
-- **The outline variants get new `iconNames` entries; the existing three are not
-  reshaped.** `iconNames.tabWeather` has a second consumer outside the tab bar:
-  `weather-screen.tsx:465` renders `<Icon name="tabWeather">` as the glyph on each hourly
-  forecast row. That path goes through `expo-symbols`' `SymbolView`, whose `name` prop has
-  no `{ default, selected }` variant at all, so reshaping the entry in place would fail to
-  typecheck there and would mean nothing at runtime. Adding outline entries and leaving
-  `tabToday`, `tabWeather` and `tabProfile` pointing at the filled symbols keeps that call
-  site untouched.
+- **The outline variants are their own `iconNames` entries** (`tabTodayOutline`,
+  `tabWeatherOutline`, `tabProfileOutline`); `tabToday`, `tabWeather` and `tabProfile`
+  keep pointing at the filled symbols. Do not reshape the filled entries into
+  `{ default, selected }` objects: `Icon` renders through `expo-symbols`' `SymbolView`,
+  whose `name` prop has no such variant, so any consumer of a filled entry outside the
+  tab bar would fail to typecheck and the object would mean nothing at runtime.
 - **The theme has no font-weight token.** Weights are inlined per role inside `typography`
-  (`theme.ts:86`), so the selected label's weight is taken from an existing role's
+  in `theme.ts`, so the selected label's weight is taken from an existing role's
   `fontWeight` rather than from a semantic token. Introducing a weight token is a separate
   decision and is not made here.
 
-A selection capsule was drafted as the second signal and withdrawn, correctly but for the
-wrong reason. The installed package exposes no prop that draws one, so the application
-cannot ask for it. It does not need to: iOS 26 draws one itself, which the Simulator run
-confirmed.
+A selection capsule drawn by the application is not a third signal and is not wanted: the
+installed package exposes no prop that draws one, and iOS 26 draws one itself.
 
 ### 4. The bottom inset is a rule, not a number
 
@@ -129,95 +111,73 @@ automatically wrapped in a `SafeAreaView`, and the **bottom** inset is applied. 
 insets must be handled manually"
 (`expo-router/build/native-tabs/types.d.ts:552`). The project sets
 `disableAutomaticContentInsets` nowhere, so both defaults are in force, and `Screen`
-already sets `contentInsetAdjustmentBehavior="automatic"` on iOS (`screen.tsx:61`).
+sets `contentInsetAdjustmentBehavior="automatic"` on iOS
+(`apps/mobile/src/components/ui/screen.tsx`).
 
 The Android asymmetry matters: only the bottom inset is automatic there, which is exactly
 the inset this decision is about, but it means Android's other edges stay the caller's
 problem.
 
-**The defect.** `Screen` computes `safeAreaInsets.bottom + spacing.md` and applies it as
-`paddingBottom` (`apps/mobile/src/components/ui/screen.tsx:29,43,49`), but it merges the
-caller's `contentContainerStyle` **last** (`screen.tsx:65`). A `paddingBottom` supplied by
-a screen therefore *replaces* that inset instead of adding to it.
-
-**Eight screens do exactly that**, each in a `content` style object whose only other
-property is `gap: spacing.md`: Today (`today-screen.tsx:254`), Weather
-(`weather-screen.tsx:537`), Profile (`profile-screen.tsx:230`), Onboarding
-(`onboarding-screen.tsx:362`), Settings (`settings-screen.tsx:321`), the preference picker
-(`preference-picker-screen.tsx:148`) and the wardrobe form
-(`wardrobe-item-form-screen.tsx:726`) all pass `spacing['2xl']`, and the garment type
-picker (`garment-type-picker-screen.tsx:149`) passes `spacing.lg`. That eighth one is
-already recorded in `current-status.md` as a known inconsistency, without its cause being
-identified. Only the wardrobe list adds the inset back by hand
-(`wardrobe-list-screen.tsx:189`), and it is a `FlatList` rather than a `Screen`.
-
-**Two other screens are not part of this defect** and must not be swept into it. The Today
-feedback state (`today-screen.tsx:333`) and the bootstrap screen (`bootstrap-screen.tsx:49`)
-pass `paddingVertical: spacing.lg`. Yoga resolves the bottom edge by specificity, so
-`Screen`'s own `paddingBottom` still wins there and the inset survives. They are a
-readability question, not this bug.
-
-On a home-indicator device the intended clearance is 34 + 12 = 46 points and those screens
-render 32, or 16 in the garment type picker's case, so their last row sits 14 or 30 points
-further into the home indicator area than the primitive intended. Law 2 is not what is broken here: `2xl` as trailing space at the end of
-scrollable content is exactly what Law 2 permits. What is broken is that it is being spent
-as padding that overwrites an inset.
-
-**Approved fix, and the rule goals 4 to 6 design against:**
+**The rule goals 4 to 6 design against:**
 
 > A feature screen never sets `paddingBottom` on `Screen`. `Screen` owns the bottom inset.
 > Trailing space at the end of scrollable content belongs inside the content.
 
-**No test asserts `paddingBottom` for `Screen` or for any of the eight**, which is why this
-shipped unnoticed. The component tests that flatten `contentContainerStyle` assert
-`paddingTop` only. A regression test for the bottom edge does not exist and should land
-with the fix.
+How `Screen` owns it:
 
-Whether the fix is to remove the seven `paddingBottom` values or to make `Screen` merge
-them additively is an implementation decision, not this ADR's. The rule holds either way.
+- **On iOS the automatic content inset is the whole clearance.** A 300-point probe on the
+  Simulator put the last element exactly 300 points above the tab bar's frame, so `Screen`
+  pads `spacing.md` only, mirroring what it does for the top edge. Do not add
+  `safeAreaInsets.bottom` to the container on iOS; the bar is already inside the
+  automatic inset, and adding the safe-area term again double counts it.
+- **On Android `Screen` pads `safeAreaInsets.bottom + spacing.md`**, because Android has
+  no equivalent automatic inset for a scroll view's content.
+- **The content container does not grow to the scroll view's frame by default.** That
+  frame includes the area under the bar, so a `flexGrow: 1` container leaves visible
+  slack above the bar when content is scrolled to its end. The container grows only when
+  a screen opts in with `fill` to centre or bottom-align short content.
 
-*Implementation note, 2026-09-09.* `Screen` had also been adding `safeAreaInsets.bottom` to
-its own `spacing.md` on iOS, on top of the automatic content inset that this section says
-already clears the bar; a 300-point probe on the Simulator showed the last element sitting
-exactly 300 points above the tab bar's frame, so the automatic inset is the whole clearance
-and the safe-area term was a double count. iOS now pads `spacing.md` only, mirroring what
-`Screen` already did for the top edge; Android keeps `safeAreaInsets.bottom + spacing.md`.
-The visible gap under Today's boards was a separate `flexGrow: 1` effect: `Screen` grew
-its content container to the scroll view's frame, which includes the area under the bar.
-Since 2026-09-10 the container grows only when a screen opts in with `fill` to centre or
-bottom-align short content.
+Watch for the merge order: `Screen` merges the caller's `contentContainerStyle` last, so
+a `paddingBottom` supplied by a screen *replaces* the inset instead of adding to it. That
+is why the rule is a prohibition on the feature side rather than arithmetic on the
+primitive's side. `2xl` as trailing space at the end of scrollable content is exactly
+what Law 2 permits; spending it as `paddingBottom` on `Screen` is what the rule forbids.
+`paddingVertical` on a screen does not trip it, because Yoga resolves the bottom edge by
+specificity and `Screen`'s own `paddingBottom` still wins.
 
-### 5. Dynamic Type, verified and closed
+The component tests assert `Screen`'s `paddingBottom` on both platforms, so a regression
+on either edge fails a test rather than shipping unnoticed.
+
+### 5. Dynamic Type and touch targets, measured
 
 [ADR 0012](0012-adopting-expo-router-native-tabs.md) recorded that primary tab labels
-truncate at the largest accessibility text size, and required a re-check after the
-migration because label rendering moved from JS to the platform. **The repository never
-recorded the answer**, and `current-status.md` still carries the question.
+truncated at the largest accessibility text size in the hand-built bar, and required a
+re-check after the migration because label rendering moved from JS to the platform.
 
 The arithmetic makes the risk concrete: the widest label uses 34% of its tab, so it reaches
 the tab edge at about 2.9 times, and iOS accessibility sizes scale body text to roughly
-3.1 times. If the bar scales its labels, the widest one truncates at the largest size and
-only there.
+3.1 times. If the bar scaled its labels, the widest one would truncate at the largest size
+and only there.
 
-The API can express a fixed size if one is needed, because `NativeTabsLabelStyle` includes
-`fontSize`. Whether one *is* needed is native behaviour, invisible to the type
-definitions, to the JS source and to an HTML mockup.
-
-**Verified on the Simulator, 2026-09-04, and now closed.** With
-`xcrun simctl ui <udid> content_size accessibility-extra-extra-extra-large`, the page
-content scales dramatically, the Weather title fills a third of the screen and the body
-copy wraps to one or two words per line, while **the three tab labels stay at their normal
-size and do not truncate**. The tab bar is visually unchanged at the largest accessibility
-size.
+It does not. With `xcrun simctl ui <udid> content_size accessibility-extra-extra-extra-large`
+the page content scales dramatically, the Weather title fills a third of the screen and
+the body copy wraps to one or two words per line, while **the three tab labels stay at
+their normal size and do not truncate**. The tab bar is visually unchanged at the largest
+accessibility size.
 
 So UIKit does not apply Dynamic Type to tab bar labels, and the truncation ADR 0012
 recorded was a property of the hand-built bar that the migration removed. No `fontSize` is
-needed in `labelStyle`, and the arithmetic above describes a risk that cannot be reached.
+needed in `labelStyle`, although `NativeTabsLabelStyle` could express one, and the
+arithmetic above describes a risk that cannot be reached.
 
-This is the answer ADR 0012 asked for and the repository never wrote down. It also means
-the tab labels do **not** grow for a user who needs larger text, which is the platform's
-behaviour rather than ours, and is the reason the labels are not the only affordance:
-every tab also carries an icon and an `accessibilityLabel`.
+It also means the tab labels do **not** grow for a user who needs larger text, which is
+the platform's behaviour rather than ours, and is the reason the labels are not the only
+affordance: every tab also carries an icon and an `accessibilityLabel`.
+
+Each tab item measures 94 by 54 points on the Simulator, above the 44-point minimum
+target ADR 0012 required to survive the migration. The bar is OS-drawn and the component
+test mocks the native tabs module entirely, so Jest cannot supply this number; only a
+Simulator or device check can, and any re-measurement happens there.
 
 ### 6. Android gets no Liquid Glass, and does not want one
 
@@ -278,33 +238,22 @@ the tab bar remains unverified at runtime, exactly as
 [ADR 0012](0012-adopting-expo-router-native-tabs.md) and `current-status.md` already record;
 this ADR does not close that.
 
-
-### 7. Sequencing
-
-The two fixes in decisions 3 and 4 are shell foundation and come **before** the
-structural-category glyph redraw that ADR 0025 left open. Every screen is drawn inside the
-shell; no screen depends on the fallback glyphs.
-
 ## Consequences
 
-- **The acceptance criterion is met by the fix, not by the shipped code.** Three tabs and
-  correct labels in both languages were already true; two non-colour signals were not.
+- **The acceptance criterion is met by decisions 3 and 4, not by three tabs alone.** Three
+  tabs and correct labels in both languages were never in question; two non-colour
+  signals and a single-owner inset are what the shell adds.
 - **Goals 4 to 6 have their inset.** It is a rule about ownership rather than a number, and
   it is the same rule on both platforms.
-- **Two shipped defects are now recorded rather than latent.** Both were found by checking
-  the feasibility question against the installed packages, not by designing.
-- **The Dynamic Type verification is still owed** and remains an open item in
-  `current-status.md`. (Note, 2026-09-04: closed later the same day by the Simulator
-  check recorded in section 5; the sentence above describes the state when the decision
-  was written.)
-- **Neither fix breaks a test, and that is the problem.** Nothing asserts `iconNames`'
-  shape or frozenness, and nothing asserts `paddingBottom` anywhere. The only compile-time
-  surface either fix touches is `weather-screen.tsx:465`, which the chosen approach avoids.
-  Both fixes should arrive with the assertions that would have caught them.
-- **The repository still has no touch-target measurement for the tab bar.** ADR 0012
-  required the minimum target to survive the migration and recorded no number. The bar is
-  OS-drawn and the component test mocks the native tabs module entirely, so Jest cannot
-  supply one; only a Simulator or device check can.
+- **The shell comes first.** Every screen is drawn inside it, and no screen depends on the
+  category glyphs, so shell corrections are sequenced ahead of artwork work.
+- **The Dynamic Type and touch-target questions ADR 0012 left open are answered in
+  section 5**, with the numbers recorded here rather than in `current-status.md`.
+- **Both signals and the inset are asserted by tests.** The primary tabs component test
+  asserts that every tab's `sf` default differs from its selected symbol and that the
+  semibold label style is iOS-only, and the `Screen` component tests assert
+  `paddingBottom` per platform, because neither the icon shape nor the inset has a
+  compile-time surface that would catch a regression otherwise.
 
 ## Alternatives considered
 
@@ -317,13 +266,12 @@ custom bar.
 exposed, it is the OS's on iOS 26, and the platform already clears it. A hardcoded number
 would be wrong on the first device that disagreed.
 
-**Closing the Dynamic Type item on the strength of the earlier Simulator observation.**
-Rejected: it is not in the repository and was not re-verified. (Note, 2026-09-04: the item
-was then closed by a fresh Simulator check, not by that observation; see section 5.)
+**Closing the Dynamic Type item on the strength of an unrecorded Simulator observation.**
+Rejected: a finding that is not in the repository is not a finding. Section 5 records a
+fresh check with its command and its result.
 
 ## Out of scope
 
 - Navigation code. ADR 0012's decision is untouched.
 - The three-tab structure, which is ADR 0006's.
 - Profile, the Closet and Settings, which are goals 4 to 6.
-- Any production code change; the two fixes are approved here and implemented separately.
