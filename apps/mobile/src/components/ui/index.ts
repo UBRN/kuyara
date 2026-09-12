@@ -26,6 +26,7 @@ export { NativeTextField, type NativeTextFieldProps } from './native-text-field'
 export { PhotoPlaceholder, type PhotoPlaceholderProps } from './photo-placeholder';
 export { Pill, type PillProps } from './pill';
 export { PressScale } from './press-scale';
+export { ProgressFill, type ProgressFillProps } from './progress-fill';
 export { Screen, type ScreenProps } from './screen';
 export { SectionHeader, type SectionHeaderProps } from './section-header';
 export {

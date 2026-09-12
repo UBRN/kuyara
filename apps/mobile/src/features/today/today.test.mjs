@@ -440,7 +440,12 @@ test('loading, unavailable, and semantic theme behavior remains explicit', () =>
   assert.equal(unavailable.kind, 'unavailable');
   assert.match(unavailable.title, /kullanılamıyor/);
   assert.notEqual(light.colors.background, dark.colors.background);
-  assert.equal(Object.values(reduced.motion).every((duration) => duration === 0), true);
+  assert.equal(
+    Object.values(reduced.motion)
+      .flatMap((role) => (typeof role === 'number' ? role : Object.values(role)))
+      .every((duration) => duration === 0),
+    true,
+  );
 });
 
 test('the freshness line reports refreshing, failure, staleness, and last update in that precedence', () => {
