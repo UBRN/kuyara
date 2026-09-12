@@ -155,7 +155,10 @@ export default {
       rateLimiter,
     });
     // Workers AI measured 7.9-9.6s against the handler's 10s default, so the working
-    // provider was being aborted at the boundary; 20s leaves real headroom.
+    // provider was being aborted at the boundary; 20s leaves real headroom. The 19s
+    // total deadline bounds the whole request inside the phone's 20s, and this
+    // per-attempt value only binds while it is below the remaining total, which with a
+    // 19s budget it never is: every attempt gets whatever is left of the request.
     const aiHandler = createAiHandler({
       providers,
       rateLimiter: env.AI_RECOMMEND_RATE_LIMIT,

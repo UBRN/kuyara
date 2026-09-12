@@ -635,3 +635,24 @@ test('shared cache separates all dress styles and treats absence as smart', asyn
     assert.equal(calls, 3);
   } finally { restore(); }
 });
+
+test('stops the walk at the total deadline instead of starting another attempt', async () => {
+  let attempts = 0;
+  const slowProvider = {
+    generateOutfits(_body, signal) {
+      attempts += 1;
+      return new Promise((resolve) => {
+        signal.addEventListener('abort', () => resolve(validOutput()), { once: true });
+      });
+    },
+  };
+  const response = await createAiHandler({
+    providers: [slowProvider, slowProvider],
+    attemptTimeoutMs: 1_000,
+    totalDeadlineMs: 100,
+  })(request());
+
+  assert.equal(attempts, 1);
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { error: { code: 'ai_unavailable' } });
+});
