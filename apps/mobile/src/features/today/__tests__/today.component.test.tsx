@@ -15,6 +15,7 @@ import {
   createDetailCaptionLayout,
   createTodayPresentation,
 } from '@/features/today/presentation/today-presentation';
+import { PLACEHOLDER_REST } from '@/features/today/presentation/garment-board-skeleton';
 import { TodayScreen } from '@/features/today/presentation/today-screen';
 import {
   WeatherApplicationContext,
@@ -25,9 +26,17 @@ import { WardrobeApplicationContext } from '@/features/wardrobe/application/ward
 import { resolveGarmentOwnership } from '@/features/wardrobe/domain/garment-type-ownership';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
-import { darkTheme, lightTheme, spacing, typography, type KuyaraTheme } from '@/theme/theme';
+import {
+  createKuyaraTheme,
+  darkTheme,
+  lightTheme,
+  spacing,
+  typography,
+  type KuyaraTheme,
+} from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 import { layoutGarmentBoard, measureGarmentBoardHeight } from '@/components/ui';
+import { AMBIENT_PULSE_FLOOR } from '@/components/ui/use-ambient-pulse';
 import { haptics } from '@/components/ui/haptics';
 
 jest.mock('expo-symbols', () => ({
@@ -711,19 +720,119 @@ test('an unavailable recommendation keeps header and weather while replacing sug
   expect(result.queryByTestId('today-outfit-list')).not.toBeOnTheScreen();
 });
 
-test('loading Today keeps its existing feedback layout without the loaded header', async () => {
+describe.each(['en', 'tr'] as const)('%s first generation', (language: SupportedLanguage) => {
+  test('waits on a skeleton garment board whose status line, not its motion, is the state', async () => {
+    const result = await render(providers(
+      <TodayScreen
+        language={language}
+        onOpenOutfitDetail={() => undefined}
+        onRefresh={() => undefined}
+        state={{ kind: 'loading' }}
+      />,
+      lightTheme,
+      language,
+    ));
+    await fireEvent(result.getByTestId('today-loading-screen'), 'layout', {
+      nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
+    });
+    const hidden = { includeHiddenElements: true };
+
+    expect(result.getByTestId('today-loading-screen')).toBeOnTheScreen();
+    expect(result.queryByTestId('today-stretchy-header')).not.toBeOnTheScreen();
+    expect(StyleSheet.flatten(result.getByTestId('today-skeleton-stage', hidden).props.style))
+      .toMatchObject({ backgroundColor: lightTheme.colors.stage, borderRadius: 26 });
+
+    // The placeholders stand in for a hero that does not exist yet, so assistive
+    // technology is given the status line alone.
+    const board = result.getByTestId('today-skeleton-board', hidden);
+    const boardStyle = StyleSheet.flatten(board.props.style);
+    expect(boardStyle).toMatchObject({ width: 358 });
+    expect(boardStyle.height).toBeGreaterThan(0);
+    expect(isHiddenFromAccessibility(board)).toBe(true);
+    const status = result.getByTestId('today-generating-status');
+    expect(status).toHaveTextContent(messages[language].today.generatingStatus);
+    expect(status.props.accessibilityLiveRegion).toBe('polite');
+    expect(messages[language].today.generatingStatus).not.toContain('!');
+  });
+
+  test('says the wait is taking longer once it passes the threshold, and only then', async () => {
+    jest.useFakeTimers();
+    try {
+      const result = await render(providers(
+        <TodayScreen
+          language={language}
+          onOpenOutfitDetail={() => undefined}
+          onRefresh={() => undefined}
+          state={{ kind: 'loading' }}
+        />,
+        lightTheme,
+        language,
+      ));
+      const copy = messages[language].today;
+
+      await act(async () => { jest.advanceTimersByTime(7_000); });
+      expect(result.getByTestId('today-generating-status')).toHaveTextContent(copy.generatingStatus);
+
+      await act(async () => { jest.advanceTimersByTime(2_000); });
+      const status = result.getByTestId('today-generating-status');
+      expect(status).toHaveTextContent(copy.generatingLongWaitStatus);
+      expect(copy.generatingLongWaitStatus.startsWith(copy.generatingStatus)).toBe(true);
+      expect(copy.generatingLongWaitStatus).not.toContain('!');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+});
+
+test('the skeleton placeholders breathe on the ambient calm step and hold still under Reduce Motion', async () => {
+  const hidden = { includeHiddenElements: true };
+  const skeletonOpacity = async (theme: KuyaraTheme) => {
+    const result = await render(providers(
+      <TodayScreen
+        language="en"
+        onOpenOutfitDetail={() => undefined}
+        onRefresh={() => undefined}
+        state={{ kind: 'loading' }}
+      />,
+      theme,
+    ));
+    return StyleSheet.flatten(result.getByTestId('today-skeleton-board', hidden).props.style).opacity;
+  };
+
+  const breathing = await skeletonOpacity(lightTheme);
+  const still = await skeletonOpacity(createKuyaraTheme('light', true));
+
+  expect(lightTheme.motion.ambient.calm).toBeGreaterThan(0);
+  expect(createKuyaraTheme('light', true).motion.ambient.calm).toBe(0);
+  // Reduce Motion keeps the placeholders at one reduced opacity instead of animating.
+  expect(still).toBeCloseTo(PLACEHOLDER_REST);
+  expect(breathing).toBeCloseTo(AMBIENT_PULSE_FLOOR * PLACEHOLDER_REST);
+});
+
+test('accessibility XXXL keeps the whole generating status line and the skeleton board', async () => {
+  Dimensions.set({ window: { ...originalDimensions, width: 390, fontScale: 3.1 } });
   const result = await render(providers(
     <TodayScreen
       language="en"
       onOpenOutfitDetail={() => undefined}
-
       onRefresh={() => undefined}
       state={{ kind: 'loading' }}
     />,
   ));
+  await fireEvent(result.getByTestId('today-loading-screen'), 'layout', {
+    nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
+  });
 
-  expect(result.getByTestId('today-loading-screen')).toBeOnTheScreen();
-  expect(result.queryByTestId('today-stretchy-header')).not.toBeOnTheScreen();
+  const status = result.getByTestId('today-generating-status');
+  expect(status).toHaveTextContent(messages.en.today.generatingStatus);
+  expect(status.props.numberOfLines).toBeUndefined();
+  // The board is drawn, not typeset, so the largest text size never shrinks or clips it.
+  const board = StyleSheet.flatten(
+    result.getByTestId('today-skeleton-board', { includeHiddenElements: true }).props.style,
+  );
+  expect(board).toMatchObject({ width: 358 });
+  expect(board.height).toBeGreaterThan(0);
+  expect(StyleSheet.flatten(status.props.style)).toMatchObject({ marginTop: spacing.md });
 });
 
 test('Today explains a missing active location and opens the existing location picker', async () => {
