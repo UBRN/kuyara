@@ -35,12 +35,13 @@ requirement, scores the rest, and `selectDiverseOutfits` picks three that differ
 by body core or by at least two garments. It is fully deterministic and runs on
 device.
 
-The remaining constraint is provider size. The chain is Cloudflare Workers AI
+The remaining constraint is model size. The Worker chain is Cloudflare Workers AI
 (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`) followed by free OpenRouter models,
 all small and free-tier, with a Workers AI free quota of 10,000 neurons per day.
 The raw-garment request under consideration carried up to 125 candidates at a
 measured worst case of 65,498 bytes and asked the model to compose, which is the
-part a small model fails at.
+part a small model fails at. The on-device model ahead of that chain is small
+too, so the constraint holds wherever the selection runs.
 
 ## Decision
 
@@ -49,6 +50,12 @@ part a small model fails at.
 The deterministic layer produces at most **24 complete, valid,
 requirement-satisfying, formality-consistent outfits**. The model returns
 exactly three of them, each with one archetype identifier.
+
+Where that selection runs is decided in
+[ADR 0034](0034-on-device-ai-selection-through-apple-foundation-models.md): on-device
+through the approved native module when Apple Intelligence is available, otherwise
+through the Worker AI chain, otherwise the deterministic device-local fallback of
+section 7. The job below is identical on every tier, and so is the validation behind it.
 
 Request and response shape:
 
@@ -66,9 +73,10 @@ generated. Zod and the domain invariants still validate the result afterwards.
 `aiRecommendV1SuccessSchema` are replaced. The option limit is 24, which keeps
 the candidate list under 30 and the request near 2 KB.
 
-Mobile remains the owner of composition. The Worker validates membership,
-count, distinctness, and archetype preconditions. Neither side gains a second
-composition implementation.
+Mobile remains the owner of composition. The selection boundary validates
+membership, count, distinctness, and archetype preconditions, and the mobile
+mapper checks the same invariants whichever tier answered. No tier gains a
+second composition implementation.
 
 ### 2. Formality is a catalog property enforced before the model
 
@@ -113,7 +121,8 @@ is a single constant.
 
 The cache is the Cloudflare Cache API (`caches.default`). No new binding is
 added. If the measured hit rate is insufficient, KV is the next step, not the
-first one.
+first one. The shared cache is a Worker concern: an on-device selection is
+computed locally and neither consults nor populates it.
 
 ### 5. Closed archetype list
 
@@ -145,17 +154,21 @@ and creates a precondition to write for every entry.
 | Body core, single footwear, layer uniqueness | Option construction |
 | Mandatory weather requirements | Option construction |
 | Formality spread at most one step | Option construction |
-| `optionId` is in the supplied set, exactly three, distinct | Worker |
-| `archetypeId` is in the closed list and the three differ | Worker |
-| The three picks differ by body core or by at least two garments | Worker |
-| Archetype precondition holds for its outfit | Worker |
+| `optionId` is in the supplied set, exactly three, distinct | Selection boundary |
+| `archetypeId` is in the closed list and the three differ | Selection boundary |
+| The three picks differ by body core or by at least two garments | Selection boundary |
+| Archetype precondition holds for its outfit | Selection boundary |
 
-A failed check rejects the whole response and advances to the next provider.
+The selection boundary is the on-device client when the selection runs on the
+device and the Worker when it runs on the Worker; the mobile mapper enforces the
+same invariants either way.
+
+A failed check rejects the whole response and advances to the next tier.
 Partial repair remains forbidden.
 
 ### 7. Fallback assigns archetypes by rule
 
-When every provider fails, the deterministic top three ship with archetypes
+When every AI tier fails, the deterministic top three ship with archetypes
 assigned by the same preconditions, first match in a fixed order. A
 recommendation is never withheld.
 
@@ -170,11 +183,9 @@ recommendation is never withheld.
   entry.
 - Color harmony is absent from the MVP, so outfits are coherent in structure and
   formality but not in palette.
-- Results are shared across all users by construction, which ADR 0005 already
-  accepted.
+- Results of a Worker selection are shared across all users by construction,
+  which ADR 0005 already accepted. An on-device selection is computed per device.
 - Outfits recur on a seven-day cycle for an unchanged weather bucket.
-- The AI contract in `packages/contracts` breaks. Mobile and Worker change
-  together in one step.
 
 ## Alternatives considered
 
