@@ -203,6 +203,7 @@ function profileValue(profile: Partial<LocalProfile> = {}) {
   };
   return {
     state,
+    retry: jest.fn(async () => undefined),
     completeOnboarding: jest.fn(async () => undefined),
     updateGender: jest.fn(async () => undefined),
     updateDressStyle: jest.fn(async () => undefined),
@@ -359,6 +360,27 @@ test('focusing Today asks the recommendation provider to re-evaluate the local d
   );
 
   expect(reevaluateLocalDay).toHaveBeenCalledTimes(1);
+});
+
+test('focusing outfit detail re-evaluates the local day and weather freshness', async () => {
+  mockParams = { id: 'outfit-1' };
+  const reevaluateLocalDay = jest.fn();
+  const weather = weatherValue();
+
+  await render(
+    <Providers
+      productAnalytics={createProductAnalytics()}
+      profile={profileValue()}
+      recommendation={recommendationReady()}
+      reevaluateLocalDay={reevaluateLocalDay}
+      wardrobe={wardrobeValue()}
+      weather={weather}>
+      <OutfitDetailRoute />
+    </Providers>,
+  );
+
+  expect(reevaluateLocalDay).toHaveBeenCalledTimes(1);
+  expect(weather.revalidateFreshness).toHaveBeenCalledTimes(1);
 });
 
 test('recommendation refresh and failure state reaches Today while the last outfit remains visible', async () => {
