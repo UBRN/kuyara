@@ -117,8 +117,13 @@ async function buildCacheRequest(request: AiRecommendV1Request): Promise<Request
     ].join('|'))
     .sort()
     .join(',');
+  const optionKey = request.options
+    .map(({ optionId }) => optionId)
+    .sort()
+    .join(',');
   const canonical = [
     requirementKey,
+    optionKey,
     request.clothingPreference,
     request.dressStyle ?? 'smart',
     request.catalogVersion,

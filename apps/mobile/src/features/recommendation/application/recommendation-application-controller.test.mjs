@@ -8,6 +8,7 @@ import {
   recommendationRefreshTrigger,
 } from './recommendation-application-controller.ts';
 import { WorkerAiClientError } from '../data/worker-ai-client.ts';
+import { createAiRecommendationRequest } from '../data/worker-ai-recommendation-mapper.ts';
 
 const profileId = 'profile-one';
 const now = '2026-08-01T20:00:00.000Z';
@@ -80,6 +81,7 @@ function input(temperatureCelsius = 30) {
 function createHarness({ cached = null, client, failSave = false, captureAnalyticsEvent } = {}) {
   let stored = cached;
   const calls = { client: 0, saves: 0 };
+  const requests = [];
   const repository = {
     async getSnapshot() { return stored; },
     async saveSnapshot(localProfileId, value) {
@@ -106,6 +108,7 @@ function createHarness({ cached = null, client, failSave = false, captureAnalyti
   const aiClient = {
     async recommend(...args) {
       calls.client += 1;
+      requests.push(args[0]);
       return recommend(...args);
     },
   };
@@ -114,7 +117,13 @@ function createHarness({ cached = null, client, failSave = false, captureAnalyti
     client: aiClient,
     captureAnalyticsEvent,
   });
-  return { controller, calls, repository, getStored: () => stored };
+  return { controller, calls, repository, requests, getStored: () => stored };
+}
+
+async function persistedRecommendation() {
+  const { controller } = createHarness();
+  await controller.initialize();
+  return controller.refresh('first-recommendation', input(16));
 }
 
 test('local day variant is a deterministic seven-day ring', () => {
@@ -242,6 +251,50 @@ test('duplicate concurrent refreshes share one AI request and one save', async (
   assert.equal(firstResult, secondResult);
   assert.equal(calls.client, 1);
   assert.equal(calls.saves, 1);
+});
+
+test('a new-day generation excludes the persisted previous-day option ids', async () => {
+  const previous = await persistedRecommendation();
+  const previousOptionIds = previous.recommendation.outfits.map(({ optionId }) => optionId);
+  const { controller, requests } = createHarness({ cached: previous });
+  await controller.initialize();
+
+  const snapshot = await controller.refresh('local-day-changed', {
+    ...input(16),
+    dayVariant: 4,
+    localDayKey: '2026-08-02',
+  });
+
+  assert.equal(requests.length, 1);
+  assert.equal(
+    requests[0].options.some(({ optionId }) => previousOptionIds.includes(optionId)),
+    false,
+  );
+  assert.equal(
+    snapshot.recommendation.outfits.some(({ optionId }) => previousOptionIds.includes(optionId)),
+    false,
+  );
+});
+
+test('a same-day regeneration does not exclude persisted option ids', async () => {
+  const previous = await persistedRecommendation();
+  const expected = createAiRecommendationRequest(input(16));
+  const { controller, requests } = createHarness({ cached: previous });
+  await controller.initialize();
+
+  await controller.refresh('explicit', input(16));
+
+  assert.deepEqual(requests[0].options, expected.options);
+});
+
+test('a fresh install generates with the complete offered option list', async () => {
+  const expected = createAiRecommendationRequest(input(16));
+  const { controller, requests } = createHarness();
+  await controller.initialize();
+
+  await controller.refresh('first-recommendation', input(16));
+
+  assert.deepEqual(requests[0].options, expected.options);
 });
 
 test('AI client failure returns and persists a three-outfit deterministic fallback', async () => {

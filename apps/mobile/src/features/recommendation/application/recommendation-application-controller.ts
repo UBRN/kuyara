@@ -125,6 +125,18 @@ export function localDayKey(date: Date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
+function previousDayOptionIds(
+  snapshot: RecommendationSnapshot | null,
+  currentLocalDayKey: string,
+): readonly string[] {
+  if (
+    !snapshot?.localDayKey ||
+    snapshot.localDayKey === currentLocalDayKey ||
+    snapshot.recommendation.outfits.length !== 3
+  ) return [];
+  return snapshot.recommendation.outfits.map(({ optionId }) => optionId);
+}
+
 export class RecommendationApplicationController {
   private state: RecommendationApplicationState = { status: 'loading' };
   private repository: RecommendationRepository | null = null;
@@ -161,8 +173,12 @@ export class RecommendationApplicationController {
     input: RecommendationApplicationInput,
   ): Promise<RecommendationSnapshot | null> {
     let context: RecommendationContext;
+    const generationInput = {
+      ...input,
+      excludedOptionIds: previousDayOptionIds(this.currentSnapshot(), input.localDayKey),
+    };
     try {
-      context = createRecommendationContext(input, input.localDayKey);
+      context = createRecommendationContext(generationInput, input.localDayKey);
     } catch (error) {
       this.setLastFailure(recommendationFailureCategory(error));
       return Promise.resolve(this.currentSnapshot());
@@ -178,7 +194,7 @@ export class RecommendationApplicationController {
 
     this.latestRequestKey = key;
     this.setRefreshing(true);
-    const refresh = this.refreshOnce(key, context, request, input, trigger).finally(() => {
+    const refresh = this.refreshOnce(key, context, request, generationInput, trigger).finally(() => {
       this.refreshes.delete(key);
       if (this.latestRequestKey === key) this.setRefreshing(false);
     });

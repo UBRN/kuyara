@@ -31,6 +31,7 @@ import {
 } from '@/features/catalog/domain/garment-catalog';
 import {
   assignFallbackArchetypes,
+  excludeOutfitOptions,
   outfitOptionId,
   outfitMatchesArchetype,
   type OutfitRecommendationInput,
@@ -186,6 +187,9 @@ export function createRecommendationContext(
     candidates,
     input.dayVariant,
   );
+  const availableOutfits = composition.status === 'composed'
+    ? excludeOutfitOptions(composition.outfits, input.excludedOptionIds)
+    : [];
   const parsed = recommendationContextSchema.safeParse({
     clothingPreference: input.clothingPreference,
     dressStyle: input.dressStyle ?? 'smart',
@@ -193,9 +197,7 @@ export function createRecommendationContext(
     dayVariant: input.dayVariant,
     localDayKey,
     requirements: requirements.requirements,
-    options: composition.status === 'composed'
-      ? composition.outfits.map(toAiOption)
-      : [],
+    options: availableOutfits.map(toAiOption),
   });
   if (!parsed.success) throw new WorkerAiRecommendationMappingError();
   return parsed.data;
