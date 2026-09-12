@@ -270,6 +270,15 @@ export const spatialSpring = Object.freeze({
   dampingRatio: 0.825,
 } as const satisfies SpringRole);
 
+// Law 7's second spring role: garment pieces landing on a board overshoot once, because
+// the outfit is the product's hero and a hero that arrives flat reads as a list item.
+// 550 ms and 0.65 were kept after watching the Today hero pieces rise on the Simulator:
+// one visible reversal, no second bounce; only `components/ui` consumes it.
+export const arrivalSpring = Object.freeze({
+  duration: 550,
+  dampingRatio: 0.65,
+} as const satisfies SpringRole);
+
 export const reducedMotion = Object.freeze({
   immediate: 0,
   fast: 0,
@@ -295,7 +304,7 @@ export type KuyaraTheme = Readonly<{
   interaction: typeof interaction;
   elevation: ElevationTokens;
   motion: MotionTokens;
-  springs: Readonly<{ spatial: SpringRole }>;
+  springs: Readonly<{ spatial: SpringRole; arrival: SpringRole }>;
 }>;
 
 const sharedFoundation = {
@@ -305,7 +314,7 @@ const sharedFoundation = {
   borderWidths,
   layout,
   interaction,
-  springs: Object.freeze({ spatial: spatialSpring }),
+  springs: Object.freeze({ spatial: spatialSpring, arrival: arrivalSpring }),
 } as const;
 
 export const lightTheme = Object.freeze({

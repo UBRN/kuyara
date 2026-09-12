@@ -168,6 +168,7 @@ export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: 
                   accessibilityLabel={presentation.stageAccessibilityLabel}
                   pieces={primary.boardPieces}
                   preset="today"
+                  rise
                   stageColor={stageColor}
                   testID="today-primary-board"
                   width={contentWidth}
@@ -252,7 +253,7 @@ export function TodayScreen({ state, language, onOpenOutfitDetail, onRefresh }: 
               style={[styles.outfitList, usesAccessibilityLayout && styles.stackedOutfitList]}
               testID="today-outfit-list">
               {alternates.map((suggestion, index) => (
-                <Entrance index={index} key={suggestion.id}>
+                <Entrance index={index + 1} key={suggestion.id}>
                   <PressScale
                     accessible
                     accessibilityLabel={suggestion.boardAccessibilityLabel}

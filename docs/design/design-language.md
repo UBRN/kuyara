@@ -349,9 +349,13 @@ watching the detail entrance frame by frame on the iPhone 17 Pro Simulator on 20
 where the pieces settle in about half a second with no visible overshoot.
 `theme.springs.arrival` has a visible overshoot and is used only for garment pieces
 landing on a board, Today's board and the outfit detail board, because the outfit is the
-product's hero and a hero that arrives flat reads as a list item. Its damping value is
-measured frame by frame on the Simulator the same way; the law names the role, not the
-number. Only `components/ui` consumes either role, and `theme.test.mjs` fails feature
+product's hero and a hero that arrives flat reads as a list item. Its values are duration
+550 ms and damping ratio 0.65, kept after watching the Today hero pieces rise 24 pt on the
+iPhone 17 Pro Simulator on 2026-09-12, where they pass rest by about 1.6 pt once and
+settle without a second bounce; a lower damping adds a second bounce, which reads as
+elastic easing and is refused. A moment's settle travels `spacing.xs` down on
+`theme.motion.fast` and returns on the arrival spring. Only `components/ui` consumes
+either role, and `theme.test.mjs` fails feature
 source that authors `withSpring`, `dampingRatio` or `stiffness`. Reduced Motion resolves
 spatial motion the way it resolves the durations, to the static end state.
 

@@ -91,16 +91,28 @@ test('the stagger role steps content arrival and disappears under Reduce Motion'
   assert.equal(createKuyaraTheme('light', true).motion.stagger, 0);
 });
 
-test('themes expose a valid spatial spring role independent of Reduce Motion', () => {
+test('themes expose the two spring roles independent of Reduce Motion', () => {
   for (const theme of [createKuyaraTheme('light'), createKuyaraTheme('dark')]) {
-    assert.ok(theme.springs.spatial.duration > 0);
-    assert.ok(theme.springs.spatial.dampingRatio > 0);
-    assert.ok(theme.springs.spatial.dampingRatio <= 1);
+    for (const role of [theme.springs.spatial, theme.springs.arrival]) {
+      assert.ok(role.duration > 0);
+      assert.ok(role.dampingRatio > 0);
+      assert.ok(role.dampingRatio <= 1);
+    }
+
+    // Law 7: the arrival role is the one with a visible overshoot, so it damps less
+    // than the default spatial role.
+    assert.ok(theme.springs.arrival.dampingRatio < theme.springs.spatial.dampingRatio);
   }
 
+  // Reduce Motion never rewrites a spring role; the components under `components/ui`
+  // render the static end state instead, which is where the overshoot disappears.
   assert.equal(
     createKuyaraTheme('light', true).springs.spatial,
     createKuyaraTheme('light').springs.spatial,
+  );
+  assert.equal(
+    createKuyaraTheme('light', true).springs.arrival,
+    createKuyaraTheme('light').springs.arrival,
   );
 });
 
