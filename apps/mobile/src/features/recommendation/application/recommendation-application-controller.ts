@@ -1,8 +1,4 @@
-import type {
-  AiRecommendV1Request,
-  AiRecommendV1Success,
-  DressStyle,
-} from '@kuyara/contracts';
+import type { AiRecommendV1Request, DressStyle } from '@kuyara/contracts';
 
 import {
   failureCategoryFromErrorKind,
@@ -22,6 +18,7 @@ import type {
   RecommendationRepository,
   RecommendationSnapshot,
 } from '@/features/recommendation/data/recommendation-repository';
+import type { RoutedAiRecommendation } from '@/features/recommendation/data/routed-ai-client';
 import { WorkerAiClientError } from '@/features/recommendation/data/worker-ai-client';
 import {
   aiRequestFromContext,
@@ -92,10 +89,12 @@ function recommendationFailureCategory(error: unknown): FailureCategory {
     : 'unknown';
 }
 
+// The routed client of ADR 0034 section 1: it answers with the picks and with the tier that
+// produced them, named as the generation mode the snapshot stores.
 type AiClient = Readonly<{
-  recommend(
+  recommendRouted(
     request: AiRecommendV1Request,
-  ): Promise<AiRecommendV1Success['data']>;
+  ): Promise<RoutedAiRecommendation>;
 }>;
 
 type Dependencies = Readonly<{
@@ -232,7 +231,12 @@ export class RecommendationApplicationController {
     let aiFailure: FailureCategory | null = null;
     if (request) {
       try {
-        recommendation = mapWorkerAiRecommendation(request, await this.dependencies.client.recommend(request));
+        const routed = await this.dependencies.client.recommendRouted(request);
+        recommendation = mapWorkerAiRecommendation(
+          request,
+          routed.data,
+          routed.generationMode,
+        );
       } catch (error) {
         aiFailure = recommendationFailureCategory(error);
       }

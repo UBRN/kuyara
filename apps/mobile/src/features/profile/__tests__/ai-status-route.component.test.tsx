@@ -69,8 +69,8 @@ test('a completed probe reports the result and the first use', async () => {
     'feature_used_first_time',
   ]));
   expect(analytics.captures.map((capture) => capture.properties)).toEqual([
-    { schema_version: 1, result: 'ok' },
-    { schema_version: 1, feature_name: 'ai_status_probe' },
+    { schema_version: 2, result: 'ok' },
+    { schema_version: 2, feature_name: 'ai_status_probe' },
   ]);
 });
 
@@ -91,7 +91,7 @@ test('a rate-limited probe reports the mapped result without a repeat first-use 
     'ai_probe_triggered',
   ]);
   expect(analytics.captures[2].properties).toEqual({
-    schema_version: 1,
+    schema_version: 2,
     result: 'rate_limited',
   });
 });

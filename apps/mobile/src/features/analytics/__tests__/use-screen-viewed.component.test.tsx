@@ -50,7 +50,7 @@ test('captures one screen view each time the route gains focus', async () => {
   expect(analytics.captures).toEqual([
     {
       name: 'screen_viewed',
-      properties: { schema_version: 1, screen_name: 'today' },
+      properties: { schema_version: 2, screen_name: 'today' },
       options: undefined,
     },
   ]);

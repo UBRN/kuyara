@@ -10,7 +10,7 @@ import {
   createRecommendationContext,
 } from './worker-ai-recommendation-mapper.ts';
 import { recommendOutfits } from '../application/recommend-outfits.ts';
-import { migrateDatabase } from '../../../infrastructure/sqlite/migrations.ts';
+import { latestDatabaseVersion, migrateDatabase } from '../../../infrastructure/sqlite/migrations.ts';
 import { NodeSqliteDatabase } from '../../../../test/node-sqlite-database.mjs';
 
 const profileId = 'profile-recommendation-test';
@@ -92,7 +92,7 @@ test('migration v5 persists a validated recommendation snapshot with lifecycle f
   const { database, repository, setNow } = await setup();
   t.after(() => database.close());
   const version = await database.getFirstAsync('PRAGMA user_version');
-  assert.equal(version.user_version, 12);
+  assert.equal(version.user_version, latestDatabaseVersion);
   const generated = generatedRecommendation();
 
   const first = await repository.saveSnapshot(profileId, {

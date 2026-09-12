@@ -28,7 +28,10 @@ export type TodayRequirementName =
 
 export type TodayMessages = Readonly<{
   title: string;
+  // ADR 0034 section 4: one badge per generation mode, the words final, no Apple glyph.
+  generationModeOnDeviceAi: string;
   generationModeAiAssisted: string;
+  generationModeStandard: string;
   generationModeAccessibilityLabel: (label: string) => string;
   backAction: string;
   otherOptionsHeading: string;
@@ -181,6 +184,10 @@ export type AppMessages = Readonly<{
     developmentBuild: string;
     aiStatusHeading: string;
     aiStatusIntro: string;
+    aiStatusOnDeviceAvailable: string;
+    aiStatusOnDeviceUnavailable: string;
+    aiStatusOnDeviceDisabled: string;
+    aiStatusLastOnDeviceAi: string;
     aiStatusLastAiAssisted: string;
     aiStatusLastStandard: string;
     aiStatusLastUnknown: string;
@@ -505,6 +512,13 @@ const en = {
     developmentBuild: 'Development build',
     aiStatusHeading: 'AI status',
     aiStatusIntro: 'Check whether AI responds right now.',
+    aiStatusOnDeviceAvailable:
+      'kuyara can choose your outfits on this device with Apple Intelligence.',
+    aiStatusOnDeviceUnavailable:
+      'kuyara cannot choose on this device. It chooses online instead, and falls back to standard suggestions computed on the device.',
+    aiStatusOnDeviceDisabled:
+      'Apple Intelligence is off. kuyara chooses online instead, and falls back to standard suggestions computed on the device.',
+    aiStatusLastOnDeviceAi: 'Last recommendation: chosen on your device.',
     aiStatusLastAiAssisted: 'Last recommendation: AI-assisted.',
     aiStatusLastStandard: 'Last recommendation: Standard.',
     aiStatusLastUnknown: 'The last recommendation source is unknown.',
@@ -764,7 +778,9 @@ const en = {
   },
   today: {
     title: 'Today',
+    generationModeOnDeviceAi: 'Chosen on your device with Apple Intelligence',
     generationModeAiAssisted: 'AI-assisted',
+    generationModeStandard: 'Standard suggestions',
     generationModeAccessibilityLabel: (label: string) =>
       `Recommendation source: ${label}`,
     backAction: 'Back to Today',
@@ -963,6 +979,13 @@ const tr = {
     developmentBuild: 'Geliştirme derlemesi',
     aiStatusHeading: 'AI durumu',
     aiStatusIntro: 'AI’nin şu anda yanıt verip vermediğini kontrol edin.',
+    aiStatusOnDeviceAvailable:
+      'kuyara bu cihazda kombinlerini Apple Intelligence ile seçebiliyor.',
+    aiStatusOnDeviceUnavailable:
+      'kuyara bu cihazda seçemiyor. Bunun yerine çevrimiçi seçiyor, olmazsa cihazda hesaplanan standart önerilere geçiyor.',
+    aiStatusOnDeviceDisabled:
+      'Apple Intelligence kapalı. kuyara bunun yerine çevrimiçi seçiyor, olmazsa cihazda hesaplanan standart önerilere geçiyor.',
+    aiStatusLastOnDeviceAi: 'Son öneri: cihazında seçildi.',
     aiStatusLastAiAssisted: 'Son öneri: AI destekli.',
     aiStatusLastStandard: 'Son öneri: Standart.',
     aiStatusLastUnknown: 'Son önerinin kaynağı bilinmiyor.',
@@ -1226,7 +1249,9 @@ const tr = {
   },
   today: {
     title: 'Bugün',
+    generationModeOnDeviceAi: 'Apple Intelligence ile cihazında seçildi',
     generationModeAiAssisted: 'AI destekli',
+    generationModeStandard: 'Standart öneriler',
     generationModeAccessibilityLabel: (label: string) =>
       `Öneri kaynağı: ${label}`,
     backAction: 'Bugün’e dön',

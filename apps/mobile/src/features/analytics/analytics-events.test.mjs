@@ -18,7 +18,7 @@ test('the catalog defines the twenty-three custom events, once each', () => {
 });
 
 test('every event carries schema_version', () => {
-  assert.equal(ANALYTICS_SCHEMA_VERSION, 1);
+  assert.equal(ANALYTICS_SCHEMA_VERSION, 2);
   for (const name of analyticsEventNames) {
     assert.ok(
       analyticsEventPropertyKeys[name].includes('schema_version'),

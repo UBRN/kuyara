@@ -1,4 +1,5 @@
 import type { RecommendedOutfit } from '@/features/recommendation/application/recommend-outfits';
+import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import type {
   GarmentTypeId,
   StructuralCategory,
@@ -117,6 +118,10 @@ export type LoadedTodayPresentation = Readonly<{
   generationMode: Readonly<{
     label: string;
     accessibilityLabel: string;
+    // ADR 0034 section 4: no Apple logo, glyph or icon accompanies the on-device words, and
+    // a sparkle beside "Apple Intelligence" would read as exactly that glyph. The mark stays
+    // on the Worker tier alone; the other two badges carry words only.
+    showsAiMark: boolean;
   }> | null;
   stageAccessibilityLabel: string;
   suggestions: readonly LoadedOutfitPresentation[];
@@ -298,11 +303,22 @@ function createLoadedPresentation(
   const suggestions = outfits.map((outfit, index) =>
     localizeOutfit(outfit, index, outfits.length, weatherReasons, language),
   );
-  const generationMode = snapshot.recommendation.status === 'recommended' &&
-    snapshot.recommendation.generationMode === 'ai-assisted'
+  // ADR 0034 section 4: one badge per stored mode, and the on-device badge only when the
+  // stored mode is `on-device-ai`, so the words never advertise a tier that did not produce
+  // this result.
+  const generationModeLabels: Record<RecommendationGenerationMode, string> = {
+    'on-device-ai': copy.generationModeOnDeviceAi,
+    'ai-assisted': copy.generationModeAiAssisted,
+    'deterministic-fallback': copy.generationModeStandard,
+  };
+  const generationModeLabel = snapshot.recommendation.status === 'recommended'
+    ? generationModeLabels[snapshot.recommendation.generationMode]
+    : null;
+  const generationMode = generationModeLabel && snapshot.recommendation.status === 'recommended'
     ? {
-        label: copy.generationModeAiAssisted,
-        accessibilityLabel: copy.generationModeAccessibilityLabel(copy.generationModeAiAssisted),
+        label: generationModeLabel,
+        accessibilityLabel: copy.generationModeAccessibilityLabel(generationModeLabel),
+        showsAiMark: snapshot.recommendation.generationMode === 'ai-assisted',
       }
     : null;
   const primary = suggestions[0];
