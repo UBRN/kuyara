@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { ProfileApplicationController } from './application/profile-application-controller.ts';
+import {
+  ProfileApplicationController,
+  ProfileBootstrapError,
+} from './application/profile-application-controller.ts';
 import { resolveProfileHomeRoute } from './application/profile-route-gate.ts';
 import {
   LocalProfileRepository,
@@ -389,7 +392,7 @@ test('repository delegates each explicit update and sanitizes data-source errors
   );
 });
 
-test('application controller exposes loading, incomplete, completed, failure, and refreshed states', async () => {
+test('application controller exposes loading, incomplete, completed, and refreshed states', async () => {
   let profile = {
     id: 'profile-id',
     gender: null,
@@ -450,11 +453,82 @@ test('application controller exposes loading, incomplete, completed, failure, an
     },
   );
 
-  const failingController = new ProfileApplicationController(async () => {
-    throw new Error('database failed');
+});
+
+test('application controller classifies and logs each bootstrap failure stage once', async (t) => {
+  const consoleCalls = [];
+  const originalConsoleError = console.error;
+  console.error = (...args) => consoleCalls.push(args);
+  t.after(() => { console.error = originalConsoleError; });
+
+  for (const reason of ['database-open', 'migration', 'profile-load']) {
+    const originalMessage = `${reason} failed\n${'x'.repeat(210)}`;
+    const originalError = new Error(originalMessage);
+    originalError.name = 'BootstrapFailure';
+    const controller = new ProfileApplicationController(
+      reason === 'profile-load'
+        ? async () => ({
+            getOrCreateProfile: async () => { throw originalError; },
+          })
+        : async () => { throw new ProfileBootstrapError(reason, originalError); },
+    );
+
+    await controller.initialize();
+
+    assert.deepEqual(controller.getSnapshot(), { status: 'error', reason });
+    assert.deepEqual(consoleCalls.at(-1), [
+      `[profile-bootstrap] stage=${reason} error=BootstrapFailure message=${originalMessage.replace(/[\r\n]+/g, ' ').slice(0, 200)}`,
+    ]);
+  }
+
+  assert.equal(consoleCalls.length, 3);
+});
+
+test('application controller retry reaches ready and coalesces a concurrent retry', async (t) => {
+  const originalConsoleError = console.error;
+  console.error = () => undefined;
+  t.after(() => { console.error = originalConsoleError; });
+
+  let attempt = 0;
+  let releaseRetry;
+  const waitForRetry = new Promise((resolve) => { releaseRetry = resolve; });
+  const profile = {
+    id: 'profile-id',
+    gender: 'woman',
+    dressStyle: 'smart',
+    birthDate: null,
+    languagePreference: 'system',
+    themePreference: 'system',
+    onboardingCompleted: true,
+    notificationsOptIn: false,
+    analyticsConsent: 'undecided',
+    createdAt,
+    updatedAt: createdAt,
+  };
+  const controller = new ProfileApplicationController(async () => ({
+    getOrCreateProfile: async () => {
+      attempt += 1;
+      if (attempt === 1) throw new Error('profile unavailable');
+      await waitForRetry;
+      return profile;
+    },
+  }));
+
+  await controller.initialize();
+  assert.deepEqual(controller.getSnapshot(), {
+    status: 'error',
+    reason: 'profile-load',
   });
-  await failingController.initialize();
-  assert.deepEqual(failingController.getSnapshot(), { status: 'error' });
+
+  const firstRetry = controller.retry();
+  const concurrentRetry = controller.retry();
+  assert.strictEqual(firstRetry, concurrentRetry);
+  assert.deepEqual(controller.getSnapshot(), { status: 'loading' });
+  releaseRetry();
+  await firstRetry;
+
+  assert.equal(attempt, 2);
+  assert.equal(controller.getSnapshot().status, 'ready');
 });
 
 test('application controller serializes distinct concurrent updates without dropping successors', async () => {

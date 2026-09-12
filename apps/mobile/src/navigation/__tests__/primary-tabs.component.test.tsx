@@ -129,6 +129,7 @@ function createProfileApplication(onboardingCompleted: boolean): ProfileApplicat
       profile: createProfile(onboardingCompleted),
       isSaving: false,
     },
+    retry: async () => undefined,
     completeOnboarding: async () => undefined,
     updateGender: async () => undefined,
     updateDressStyle: async () => undefined,

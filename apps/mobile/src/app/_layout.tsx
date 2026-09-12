@@ -108,10 +108,20 @@ function ReadyApplicationShell({
 }
 
 function ThemedApplicationShell() {
-  const { state, updateNotificationsOptIn } = useProfileApplication();
+  const { retry, state, updateNotificationsOptIn } = useProfileApplication();
 
-  if (state.status !== 'ready') {
-    return <BootstrapScreen status={state.status} />;
+  if (state.status === 'loading') {
+    return <BootstrapScreen status="loading" />;
+  }
+
+  if (state.status === 'error') {
+    return (
+      <BootstrapScreen
+        onRetry={() => void retry()}
+        reason={state.reason}
+        status="error"
+      />
+    );
   }
 
   return (

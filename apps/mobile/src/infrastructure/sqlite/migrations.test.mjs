@@ -424,6 +424,7 @@ test('a failed migration rolls back its schema and version without deleting othe
   t.after(() => database.close());
   await database.execAsync('CREATE TABLE sentinel (value TEXT NOT NULL);');
   await database.runAsync('INSERT INTO sentinel (value) VALUES (?)', ['keep-me']);
+  const injectedError = new Error('injected migration failure');
 
   const failingDatabase = {
     execAsync: (source) => database.execAsync(source),
@@ -435,7 +436,7 @@ test('a failed migration rolls back its schema and version without deleting othe
         task({
               execAsync: async (source) => {
             if (source.includes('CREATE TABLE local_profiles')) {
-              throw new Error('injected migration failure');
+              throw injectedError;
             }
             return transaction.execAsync(source);
           },
@@ -446,7 +447,13 @@ test('a failed migration rolls back its schema and version without deleting othe
       ),
   };
 
-  await assert.rejects(() => migrateDatabase(failingDatabase), /injected migration failure/);
+  await assert.rejects(
+    () => migrateDatabase(failingDatabase),
+    (error) =>
+      error instanceof Error
+      && error.message === 'Migration to version 1 failed: injected migration failure'
+      && error.cause === injectedError,
+  );
 
   const version = await database.getFirstAsync('PRAGMA user_version');
   const sentinel = await database.getFirstAsync('SELECT value FROM sentinel');
