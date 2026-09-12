@@ -452,6 +452,32 @@ test('a request differing only in dayVariant is a shared-cache miss', async () =
   }
 });
 
+test('requests with different offered option ids use different shared-cache entries', async () => {
+  const restore = installMemoryCache();
+  try {
+    let providerCalls = 0;
+    const handle = createAiHandler({ providers: [{
+      async generateOutfits() {
+        providerCalls += 1;
+        return validOutput();
+      },
+    }] });
+    const expandedOffer = validRequestBody();
+    expandedOffer.options.push(separatesOption(
+      'option-extra',
+      'casual',
+      'blouse',
+      'skirt',
+      'sneakers',
+    ));
+    assert.equal((await handle(request())).status, 200);
+    assert.equal((await handle(request({ body: JSON.stringify(expandedOffer) }))).status, 200);
+    assert.equal(providerCalls, 2);
+  } finally {
+    restore();
+  }
+});
+
 test('cache identity sorts requirements and excludes reason codes', async () => {
   const restore = installMemoryCache();
   try {

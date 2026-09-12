@@ -30,6 +30,7 @@ export type OutfitRecommendationInput = Readonly<{
   clothingPreference: ClothingPreference;
   dressStyle?: DressStyle;
   dayVariant: number;
+  excludedOptionIds?: readonly string[];
 }>;
 
 export type OutfitRecommendationSuccess = Readonly<{
@@ -134,6 +135,16 @@ export function outfitOptionId(outfit: OutfitCandidate): string {
     : `outfit:${hashCompositionKey(candidate, 0x811c9dc5)}${hashCompositionKey(candidate, 0x9e3779b9)}`;
 }
 
+export function excludeOutfitOptions(
+  outfits: readonly OutfitCandidate[],
+  excludedOptionIds: readonly string[] = [],
+): readonly OutfitCandidate[] {
+  if (excludedOptionIds.length === 0) return outfits;
+  const excluded = new Set(excludedOptionIds);
+  const filtered = outfits.filter((outfit) => !excluded.has(outfitOptionId(outfit)));
+  return filtered.length >= 3 ? Object.freeze(filtered) : outfits;
+}
+
 export function assignFallbackArchetypes(
   outfits: readonly OutfitCandidate[],
   count: number = outfits.length,
@@ -173,6 +184,10 @@ export function recommendOutfits(
   const order: readonly FormalityLevel[] =
     formalityOrderByDressStyle[input.dressStyle ?? 'smart'];
 
+  const availableOutfits = composition.status === 'composed'
+    ? excludeOutfitOptions(composition.outfits, input.excludedOptionIds)
+    : [];
+
   return composition.status === 'failure'
     ? Object.freeze({
         status: 'unavailable',
@@ -183,8 +198,8 @@ export function recommendOutfits(
         status: 'recommended',
         generationMode: 'deterministic-fallback',
         requirements,
-        outfits: assignFallbackArchetypes([...composition.outfits].sort(
+        outfits: assignFallbackArchetypes([...availableOutfits].sort(
           (left, right) => order.indexOf(left.formality) - order.indexOf(right.formality),
-        ), Math.min(3, composition.outfits.length)),
+        ), Math.min(3, availableOutfits.length)),
       });
 }

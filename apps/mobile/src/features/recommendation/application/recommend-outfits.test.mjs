@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { deriveClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
-import { recommendOutfits } from './recommend-outfits.ts';
+import { excludeOutfitOptions, recommendOutfits } from './recommend-outfits.ts';
 
 const observedAt = '2026-08-01T18:00:00.000Z';
 const futureAt = '2026-08-01T19:00:00.000Z';
@@ -161,6 +161,40 @@ test('recommendations are deterministic across repeated calls with the same inpu
   const repeated = recommendOutfits(input);
 
   assert.deepEqual(first, repeated);
+});
+
+test('previous-day exclusions apply only when at least three options remain', () => {
+  const outfits = ['one', 'two', 'three', 'four', 'five'].map((compositionKey) => ({
+    compositionKey,
+  }));
+
+  assert.deepEqual(
+    excludeOutfitOptions(outfits, ['one', 'two']).map(({ compositionKey }) => compositionKey),
+    ['three', 'four', 'five'],
+  );
+  assert.equal(excludeOutfitOptions(outfits, ['one', 'two', 'three']), outfits);
+});
+
+test('deterministic selection never returns an excluded previous-day option', () => {
+  const shared = {
+    now: observedAt,
+    snapshot: warmWetSnapshot(),
+    clothingPreference: 'womens',
+    dressStyle: 'smart',
+    dayVariant: 0,
+  };
+  const previous = recommendOutfits(shared);
+  assert.equal(previous.status, 'recommended');
+  const excludedOptionIds = previous.outfits.map(({ optionId }) => optionId);
+
+  const next = recommendOutfits({ ...shared, excludedOptionIds });
+
+  assert.equal(next.status, 'recommended');
+  assert.equal(next.outfits.length, 3);
+  assert.equal(
+    next.outfits.some(({ optionId }) => excludedOptionIds.includes(optionId)),
+    false,
+  );
 });
 
 test('fallback prefers each dress style while preserving three distinct valid options', () => {
