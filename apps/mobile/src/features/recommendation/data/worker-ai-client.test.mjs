@@ -125,3 +125,26 @@ test('maps non-2xx, network, and timeout failures to sanitized errors', async ()
     );
   }
 });
+
+test('waits the default 20 s budget before aborting a slow Worker attempt', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let aborted = false;
+  const client = new WorkerAiClient({
+    baseUrl: 'https://worker.example',
+    fetch: (_input, init) => new Promise((_resolve, reject) => {
+      init.signal.addEventListener('abort', () => {
+        aborted = true;
+        reject(new Error('raw timeout details'));
+      });
+    }),
+  });
+
+  const pending = client.recommend(request).catch((error) => error);
+  t.mock.timers.tick(19_999);
+  await Promise.resolve();
+  assert.equal(aborted, false);
+  t.mock.timers.tick(1);
+  const error = await pending;
+  assert.equal(aborted, true);
+  assert.ok(error instanceof WorkerAiClientError && error.kind === 'network');
+});
