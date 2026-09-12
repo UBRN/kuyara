@@ -1,5 +1,5 @@
-import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useFocusEffect, useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
@@ -32,9 +32,10 @@ export default function OutfitDetailRoute() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const { language, messages } = useLocalization();
   const router = useRouter();
-  const { state: recommendationState } = useRecommendationApplication();
+  const { reevaluateLocalDay, state: recommendationState } = useRecommendationApplication();
   const wardrobe = useWardrobeApplication();
-  const { state: weatherState } = useWeatherApplication();
+  const { revalidateFreshness: revalidateWeatherFreshness, state: weatherState } =
+    useWeatherApplication();
   const { state: profileState } = useProfileApplication();
   const { analytics, firstUses } = useProductAnalytics();
   useScreenViewed('outfit_detail');
@@ -66,6 +67,11 @@ export default function OutfitDetailRoute() {
   const outfit = position && recommendation?.status === 'recommended'
     ? recommendation.outfits[position - 1]
     : null;
+
+  useFocusEffect(useCallback(() => {
+    reevaluateLocalDay();
+    void revalidateWeatherFreshness();
+  }, [reevaluateLocalDay, revalidateWeatherFreshness]));
 
   // One capture per suggestion opening. Recomputed recommendation/profile values update
   // the pending payload but cannot emit the same suggestion a second time while focused.
@@ -149,8 +155,9 @@ export default function OutfitDetailRoute() {
   } else {
     state = {
       kind: 'loaded',
-      isRefreshing: false,
-      refreshFailed: false,
+      isRefreshing: weatherState.isRefreshing || recommendationState.isRefreshing,
+      refreshFailed:
+        weatherState.refreshFailure !== null || recommendationState.lastFailure !== null,
       snapshot: {
         weather: weatherState.snapshot,
         activeLocation: weatherState.activeLocation,
