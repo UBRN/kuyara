@@ -12,27 +12,42 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   Router Native Tabs, with the Closet and Settings as Profile stack destinations; private
   Closet photos; Turkish and English; System/Light/Dark appearance; and semantic haptics
   at the six sites the design language names. The minimum supported iOS is 26.0.
-- **Weather:** Mobile preserves the last valid snapshot, refreshes data older than 30
-  minutes, and reaches providers only through the Worker. The chain is WeatherKit,
-  Open-Meteo, then OpenWeather, with bounded attempts, runtime validation, attribution,
-  rate limiting and a best-effort OpenWeather daily cap. Location comes from the foreground
+- **Weather:** Mobile preserves the last valid snapshot, keeps it visible as stale while a
+  newly selected place loads, refreshes data older than 30 minutes, treats a timestamp up to
+  five minutes in the device's future as clock skew rather than invalid data, and reaches
+  providers only through the Worker. The chain is WeatherKit, Open-Meteo, then OpenWeather,
+  with bounded attempts, runtime validation, attribution, rate limiting and a best-effort
+  OpenWeather daily cap. Location comes from the foreground
   device flow or the native `/weather/location` picker over the Worker's place-search
   route. The deterministic sample provider is test-only.
 - **Recommendations:** The deterministic layer composes at most 24 valid outfits from the
   bundled catalog (version 3); the Worker's AI chain, Workers AI then OpenRouter, selects
   three and labels each with an archetype; mobile validates, persists and falls back to a
-  device-local deterministic generator. Generation triggers compare current signals with
-  the persisted snapshot. Only the coarse generation mode is exposed, and Settings carries
-  the bounded active AI probe.
+  device-local deterministic generator. One budget spans the boundary: the mobile client
+  abandons the request after 20 seconds and the Worker bounds its whole AI walk with a
+  19-second deadline that starts no attempt it cannot finish. Generation triggers compare
+  current signals with the persisted snapshot. Today draws a breathing skeleton garment
+  board under a status line while the first recommendation is generated, its pull cycle
+  keeps spinning until both the weather and the recommendation refresh settle, and its
+  clock re-reads on focus and on foreground. Only the coarse generation mode is exposed,
+  and Settings carries the bounded active AI probe. Where the selection runs is decided in
+  [ADR 0034](adr/0034-on-device-ai-selection-through-apple-foundation-models.md), which is
+  Proposed: its phase 1, the shared AI model-input projection and the pick distinctness
+  rule in `packages/contracts`, is implemented, and the on-device Foundation Models tier is
+  not.
 - **Notifications:** on-device local weather alerts only ([ADR 0032](adr/0032-local-weather-alert-rules.md)):
   opt-in in Settings, deterministic precipitation-onset and temperature-swing rules, a
   delivery ledger, rescheduling on every persisted snapshot and on opt-in, permission and
-  language changes, and a best-effort `expo-background-task` refresh. No server, no push.
+  language changes, and a best-effort `expo-background-task` refresh. Pending alerts
+  survive a cold launch and the tap that launched the app is delivered. No server, no
+  push.
 - **Analytics:** the `ProductAnalytics` boundary, typed twenty-three-event catalog,
   error-episode and retry trackers, consent-gated PostHog adapter, Today consent
   sheet and Settings Privacy surface are implemented. Consent is profile-owned in schema
   version 12; absent configuration uses the no-op adapter (a logging adapter in
-  development). Phase 3 landed the taxonomy's feature call sites on 2026-09-10, so every
+  development). The sheet cannot be swiped away, so accepting and declining are its only
+  exits, and withdrawal clears the SDK's persisted queue and holds the opt-out through the
+  reset. Phase 3 landed the taxonomy's feature call sites on 2026-09-10, so every
   approved event is emittable except `error_shown` on the `settings` and `onboarding`
   surfaces, which have no failure classification to observe yet. See
   [ADR 0023](adr/0023-behavioural-product-analytics-with-posthog.md) and
@@ -45,7 +60,10 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   ([ADR 0028](adr/0028-the-profile-tab-and-the-list-row-anatomy.md),
   [ADR 0029](adr/0029-the-closet-grid.md), [ADR 0030](adr/0030-settings-as-a-native-grouped-list.md)),
   and the accessibility validation pass over the shipped app with its eight in-app
-  follow-ups closed.
+  follow-ups closed. Motion follows [ADR 0020](adr/0020-rewriting-the-motion-law.md): press
+  feedback on buttons, rows and Today's cards, staggered content entrances, the arrival
+  spring where garment pieces land on a board, and an ambient tempo taken from the
+  condition's intensity.
 - **Builds:** iOS is the first release target. EAS production credentials, an App Store
   Connect record (`com.ubrn.kuyara`, ASC app `6806664440`) and TestFlight internal build
   1.0.0 (2) exist, verified on a physical device against the deployed Worker. Preview and
