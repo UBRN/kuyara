@@ -3,6 +3,7 @@ import {
   aiRecommendV1RequestSchema,
   aiRecommendV1SuccessSchema,
   aiV1ErrorSchema,
+  picksAreMeaningfullyDifferent,
   type AiOption,
   type AiRecommendV1Request,
   type AiV1ErrorCode,
@@ -39,37 +40,6 @@ function errorResponse(
 
 function garmentType(option: AiOption, slot: AiOption['garments'][number]['slot']) {
   return option.garments.find((garment) => garment.slot === slot)?.garmentTypeId;
-}
-
-function hasDifferentBodyCore(left: AiOption, right: AiOption): boolean {
-  const leftOnePiece = garmentType(left, 'one_piece');
-  const rightOnePiece = garmentType(right, 'one_piece');
-  if (Boolean(leftOnePiece) !== Boolean(rightOnePiece)) return true;
-  if (leftOnePiece || rightOnePiece) return leftOnePiece !== rightOnePiece;
-  return garmentType(left, 'primary_top') !== garmentType(right, 'primary_top')
-    || garmentType(left, 'bottom') !== garmentType(right, 'bottom');
-}
-
-function isMeaningfullyDifferent(left: AiOption, right: AiOption): boolean {
-  if (hasDifferentBodyCore(left, right)) return true;
-  const leftPairs = new Set(
-    left.garments.map(({ slot, garmentTypeId }) => `${slot}|${garmentTypeId}`),
-  );
-  const rightPairs = new Set(
-    right.garments.map(({ slot, garmentTypeId }) => `${slot}|${garmentTypeId}`),
-  );
-  const leftOnly = [...leftPairs].filter((pair) => !rightPairs.has(pair)).length;
-  const rightOnly = [...rightPairs].filter((pair) => !leftPairs.has(pair)).length;
-  return leftOnly >= 2 || rightOnly >= 2;
-}
-
-function picksAreMeaningfullyDifferent(options: readonly AiOption[]): boolean {
-  for (let left = 0; left < options.length; left += 1) {
-    for (let right = left + 1; right < options.length; right += 1) {
-      if (!isMeaningfullyDifferent(options[left]!, options[right]!)) return false;
-    }
-  }
-  return true;
 }
 
 function meetsArchetypePrecondition(

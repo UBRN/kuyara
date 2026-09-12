@@ -1,6 +1,6 @@
 import {
+  aiModelInputFromRequest,
   outfitArchetypeIds,
-  formalityOrderByDressStyle,
   type AiRecommendV1Request,
 } from '@kuyara/contracts';
 
@@ -53,19 +53,8 @@ export function buildMessages(request: AiRecommendV1Request) {
     { role: 'system', content: systemContent },
     {
       role: 'user',
-      // Cache-key and validation-only fields are deliberately omitted from model input.
-      content: JSON.stringify({
-        clothingPreference: request.clothingPreference,
-        formalityOrder: formalityOrderByDressStyle[request.dressStyle ?? 'smart'],
-        options: request.options.map(({ optionId, formality, garments }) => ({
-          optionId,
-          formality,
-          garments: garments.map(({ slot, garmentTypeId }) => ({
-            slot,
-            garmentTypeId,
-          })),
-        })),
-      }),
+      // The shared projection owns which fields a model may see.
+      content: JSON.stringify(aiModelInputFromRequest(request)),
     },
   ];
 }
