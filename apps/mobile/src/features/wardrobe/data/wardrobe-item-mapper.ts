@@ -10,6 +10,7 @@ import {
   tractionSuitabilitySchema,
   waterProtectionSchema,
   windProtectionSchema,
+  type GarmentTypeId,
 } from '@/features/catalog/domain/garment-taxonomy';
 import {
   isWardrobeItemCategory,
@@ -52,6 +53,19 @@ function mapNullableEnum<Value>(value: unknown, schema: ZodType<Value>): Value |
   return mapEnum(value, schema);
 }
 
+function mapNullableGarmentTypeId(value: unknown): GarmentTypeId | null {
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value !== 'string') {
+    throw new WardrobeItemMappingError();
+  }
+
+  const result = garmentTypeIdSchema.safeParse(value);
+  return result.success ? result.data : null;
+}
+
 function isUuidV4(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value,
@@ -89,7 +103,7 @@ export function mapWardrobeItemRecord(record: WardrobeItemRecord): WardrobeItem 
   try {
     const normalizedPhotoPath = normalizeWardrobePhotoRelativePath(record.photoRelativePath);
     const entryState = mapEnum(record.entryState, wardrobeEntryStateSchema);
-    const garmentTypeId = mapNullableEnum(record.garmentTypeId, garmentTypeIdSchema);
+    const garmentTypeId = mapNullableGarmentTypeId(record.garmentTypeId);
     const colorFamily = mapNullableEnum(record.colorFamily, colorFamilySchema);
     const thermalLevelOverride = mapNullableEnum(
       record.thermalLevelOverride,
