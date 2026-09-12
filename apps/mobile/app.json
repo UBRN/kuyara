@@ -110,7 +110,10 @@
         {
           "enableBackgroundRemoteNotifications": false
         }
-      ]
+      ],
+      "expo-font",
+      "expo-image",
+      "expo-web-browser"
     ],
     "locales": {
       "en": "./src/localization/native/en.json",
