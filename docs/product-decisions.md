@@ -37,7 +37,7 @@ Approved 2026-08-30; rationale in [ADR 0006](adr/0006-three-tab-information-arch
 
 ## Today
 
-- Today renders outfits from the persisted recommendation snapshot. The active weather snapshot and the gender-derived clothing preference derive clothing requirements; bundled catalog types filtered by that preference are the only evaluated candidates; the result records `ai-assisted` when the Worker AI route succeeded and `deterministic-fallback` otherwise.
+- Today renders outfits from the persisted recommendation snapshot. The active weather snapshot and the gender-derived clothing preference derive clothing requirements; bundled catalog types filtered by that preference are the only evaluated candidates; the result records `on-device-ai` when the on-device tier answered, `ai-assisted` when the Worker AI route succeeded, and `deterministic-fallback` otherwise.
 - Today is visual-first ([ADR 0021](adr/0021-direction-e-a-visual-first-design-language.md)): the garment composition is its hero, an outfit's title is its archetype name ([ADR 0007](adr/0007-ai-selects-precomposed-outfits.md)), one short rationale sits beside it, and Today does not list the garment names. Outfits have no intent identity; the deterministic engine produces diversity, not intent.
 - Explanations are language-independent codes localized at the presentation boundary and shown on the detail surface, never as generated prose.
 - Today shows the rain chance on outfit detail and in the weather accessibility label, using the highest probability among current conditions and today's not-yet-ended hourly entries. The atmospheric tint follows the device clock rather than the weather fetch time.
@@ -127,7 +127,8 @@ Approved 2026-08-13 and restated 2026-08-30; rationale in [ADR 0007](adr/0007-ai
 - AI receives deterministic weather requirements, precomposed option identifiers and their garment properties, clothing preference, dress style, catalog version and a local day variant, nothing else; see the privacy boundary below.
 - Every AI response passes shared Zod validation and deterministic domain invariants before it is displayed or persisted. Invalid or partially invalid output is never silently repaired.
 - AI failure never prevents a recommendation: the final fallback is a device-local deterministic three-outfit generator over the same catalog-only options, and that fallback is a prerequisite for shipping AI.
-- The provider chain is a Cloudflare Workers AI binding first, then OpenRouter, then the device-local fallback. The order was set on 2026-08-19 because no evaluated free OpenRouter model returned contract-valid output while the Workers AI model did; OpenRouter stays behind it so a re-evaluation can promote it through configuration. Model choice is configuration-driven.
+- Where the selection runs is decided in [ADR 0034](adr/0034-on-device-ai-selection-through-apple-foundation-models.md): an ordered chain of on-device Apple Foundation Models when the device reports the model available, then the Worker AI chain, then the deterministic device-local fallback. The on-device tier gets at most 6 seconds of the single 20-second user-visible budget and the Worker keeps the remainder; an unavailable answer costs no attempt, so ineligible devices and Android behave exactly as they did before. The Worker tier is not a legacy path and is never removed, weakened, or made conditional on the on-device tier.
+- The provider chain inside the Worker is a Cloudflare Workers AI binding first, then OpenRouter, then the device-local fallback. The order was set on 2026-08-19 because no evaluated free OpenRouter model returned contract-valid output while the Workers AI model did; OpenRouter stays behind it so a re-evaluation can promote it through configuration. Model choice is configuration-driven.
 - AI output is structured data, not user-visible prose; all copy comes from localization keys. Provider names, internal errors, prompts, model reasoning and configuration must not be exposed in the mobile contract.
 
 ### Approved OpenRouter constraints
@@ -144,7 +145,7 @@ Approved 2026-08-13 and restated 2026-08-30; rationale in [ADR 0007](adr/0007-ai
 
 Rationale and the recalculated probe limits in [ADR 0001](adr/0001-worker-ai-probe-and-rate-limiting.md); the single Worker environment in [ADR 0003](adr/0003-single-worker-environment.md).
 
-- Today shows the accessible localized AI-assisted mark only when the stored generation mode is `ai-assisted` and shows no mark for `deterministic-fallback`; Settings shows the stored status.
+- Today shows one accessible localized badge per stored generation mode, and the on-device badge appears only when the stored mode is `on-device-ai`, so the words never advertise a tier that did not produce the result. The AI-assisted mark accompanies `ai-assisted` alone. Settings shows the stored status beside an availability row that reads the device's on-device state without calling any provider.
 - `POST /v1/ai/probe` is distinct from liveness and configuration readiness: one bounded call to the first provider, a briefly cached sanitized `ok | unavailable` result, no provider or model details. Settings triggers it explicitly ("Check AI status") and respects Reduced Motion.
 - Recommendation and probe routes use per-IP burst limits; the probe also has a KV-backed daily cap. Kuyara limit denials return the stable `rate_limited` error; upstream quota or capacity failures follow the normal sanitized AI fallback. Missing bindings degrade permissively, so deployed bindings must remain configured.
 
@@ -152,7 +153,7 @@ Rationale and the recalculated probe limits in [ADR 0001](adr/0001-worker-ai-pro
 
 Approved 2026-08-13; the current boundary includes the catalog-only narrowing in [ADR 0005](adr/0005-catalog-only-recommendation-candidates.md) and the dress-style rule in [ADR 0031](adr/0031-dress-style-is-the-formality-signal.md). The strict request schema admits only the fields below, so forbidden fields have no representation and are rejected rather than filtered. Optional `dressStyle` defaults to `smart` for previous-client compatibility; mobile always sends the stored style.
 
-AI may receive only:
+On the on-device tier the inference itself never leaves the device, and both tiers are fed from the same shared request projection in `packages/contracts`, so this boundary is inherited structurally rather than reimplemented. AI may receive only:
 
 - catalog candidate identifiers and garment types,
 - catalog structural categories, supported roles, and property evidence,
@@ -221,7 +222,7 @@ Approved 2026-09-03 and applied app-wide on 2026-09-04. Canonical in [ADR 0021](
 - Simple garment illustration is permitted and is the visual subject. The earlier prohibition on literal clothing illustration is withdrawn; the prohibition on literal weather illustration stands.
 - The weather tints the surface the garment composition sits on rather than occupying a separate full-width band.
 - Weather leads with insight rather than measurement, and its hourly forecast is a horizontal scrollable rail. The Worker sends the current local hour through 36 hours after observation; the screen drops every hour that has ended at render time, reads the clock on mount and on focus, marks the first entry of each following local day with its localized short weekday, and omits the card when no entry remains. Clothing requirements and weather alerts retain their current-local-day semantics and ignore the following day's entries.
-- AI provenance sits beside the recommendation it describes, never as footer metadata, and never in green. A deterministic recommendation gets no badge.
+- AI provenance sits beside the recommendation it describes, never as footer metadata, and never in green. Each of the three generation modes carries its own localized badge; the on-device one names Apple Intelligence as a referential word mark with no Apple logo, glyph, or icon, and kuyara stays the subject of the sentence.
 - Durable qualities: high contrast, restrained chrome, intentional negative space, visual content before explanatory text, few user-visible labels on overview surfaces, selective rather than pervasive accent colour, and typography that supports the imagery rather than carrying the identity alone.
 - Direction E applies to every surface: the light page ground is Soft Mist app-wide, there is no white-card step, and separation is carried by type and space. Text and non-text contrast floors are unchanged.
 

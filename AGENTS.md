@@ -74,6 +74,7 @@ The workspace is a pnpm monorepo: `apps/mobile` (Expo and React Native), `apps/w
 ## Weather and recommendation behavior
 
 - Reach every weather provider only through the Worker. The provider chain is a Worker composition concern; mobile depends on the provider-neutral contract. Apple WeatherKit is the primary provider at the head of the chain ahead of the Apple-independent providers, inserted rather than substituted. The deterministic sample provider is a development and test source only, never a production fallback.
+- AI selection runs on-device through the approved native module when it is available, otherwise through the Worker; feature code never imports the native module. See [ADR 0034](docs/adr/0034-on-device-ai-selection-through-apple-foundation-models.md).
 - Give each upstream provider an isolated adapter with raw-response runtime validation, explicit unit and condition mapping, timeout handling, and sanitized errors before it produces the provider-neutral model.
 - Fall back to the next provider only for eligible failures: availability, timeout, quota or rate limit, authentication or configuration, upstream failure, or invalid response. Never fall back because valid conditions are undesirable or differ between providers. Bound attempts per request and prevent retry or fallback loops.
 - Support each provider's attribution requirements. A controlled, non-secret attribution identifier may cross the mobile API; raw provider data, credentials, and internal errors must not.

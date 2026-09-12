@@ -166,9 +166,8 @@ meaning or an allowed value set changes, not when a new event is added. The SDK-
 version, OS version, and build number (already covered by the provider default, section 5.1)
 are not duplicated as custom properties on any event.
 
-**Count.** This document defines **twenty-three custom events**. `docs/current-status.md`
-records twenty-four from the preceding revision; that line is corrected when this revision
-is accepted.
+**Count.** This document defines **twenty-three custom events**, the same number
+`docs/current-status.md` records and the same number the typed catalog carries.
 
 **Domain values are mapped, not passed through.** Several enums below are the `snake_case`
 form of a kebab-case domain type. `generation_mode` is `on_device_ai` / `ai_assisted` / `deterministic_fallback`
