@@ -29,7 +29,7 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   delivery ledger, rescheduling on every persisted snapshot and on opt-in, permission and
   language changes, and a best-effort `expo-background-task` refresh. No server, no push.
 - **Analytics:** the `ProductAnalytics` boundary, typed twenty-three-event catalog,
-  error-episode and retry trackers, consent-gated PostHog adapter, first-launch consent
+  error-episode and retry trackers, consent-gated PostHog adapter, Today consent
   sheet and Settings Privacy surface are implemented. Consent is profile-owned in schema
   version 12; absent configuration uses the no-op adapter (a logging adapter in
   development). Phase 3 landed the taxonomy's feature call sites on 2026-09-10, so every
@@ -63,7 +63,7 @@ Analytics is sequenced before the first public App Store release, so milestones 
 
 10. **PostHog product analytics integration.** Phase 1 (the shared failure
     classification and boundary) landed 2026-09-09. ~~Phase 2: add the consent-gated
-    PostHog adapter, first-launch consent sheet and Settings Privacy surface.~~ Landed
+    PostHog adapter, Today consent sheet and Settings Privacy surface.~~ Landed
     2026-09-09. ~~Phase 3 adds the taxonomy's feature call sites
     ([`analytics-taxonomy.md`](analytics-taxonomy.md)).~~ Landed 2026-09-10. No SDK
     calls in features. ~~The PostHog project and the EAS variables.~~ Configured
@@ -78,8 +78,8 @@ Analytics is sequenced before the first public App Store release, so milestones 
     complete.
 11. **App Store privacy disclosure and privacy policy.** The privacy policy URL and the
     App Store Connect data-collection questionnaire must describe analytics collection,
-    with the install identifier declared linked to the user (ADR 0033, amended
-    2026-09-09), before any analytics-enabled release. ~~Where the policy is hosted, its
+    with the install identifier declared linked to the user (ADR 0033 section 5), before
+    any analytics-enabled release. ~~Where the policy is hosted, its
     URL, the lawful basis and the deletion wording.~~ Decided and written 2026-09-11:
     the policy and support page live in `docs/` for GitHub Pages, `PRIVACY_POLICY_URL`
     is set, consent is the lawful basis, and the policy promises withdrawal and
@@ -116,8 +116,9 @@ App Store submission, not TestFlight, is blocked by:
 - **Milestone 11 documents** (2026-09-11): `docs/privacy-policy.md` and `docs/support.md`,
   English and Turkish, written from ADR 0033's findings for publication through GitHub
   Pages; `PRIVACY_POLICY_URL` set to the published address with a route test proving the
-  Settings Privacy row opens it; the Settings identifier footer no longer promises
-  deletion. ADR 0033 section 7 records the lawful-basis and deletion decisions.
+  Settings Privacy row opens it; the Settings identifier footer says the identifier can
+  be quoted in a data request and does not promise deletion. ADR 0033 section 7 records
+  the lawful-basis and deletion decisions.
 - **Milestone 10 configuration** (2026-09-10): the PostHog Cloud EU project was created
   and configured (client IP discard on, GeoIP transformation disabled, session replay
   off, twelve-month retention, verified through the project settings and the Data
@@ -140,27 +141,26 @@ App Store submission, not TestFlight, is blocked by:
   suite (the primary-tabs test gained the analytics provider). Verified on the iPhone 17 Pro
   Simulator through the development logging adapter on 2026-09-10: consent granted, one
   `screen_viewed` per tab focus, `setting_changed`, `feature_used_first_time` and the
-  Closet's `manual_refresh_triggered`, with no JS errors. A read-only Codex review the
-  same morning raised one product question: because the consent sheet follows onboarding
-  (decided 2026-09-09), the three onboarding events could never be captured for a fresh
-  install. Decided the same day: pre-consent captures are buffered on the
-  device. **Reversed 2026-09-12:** nothing is recorded or queued before the sheet is
-  answered, so those three onboarding events are not measurable and that is accepted;
-  ADR 0033 section 6 and taxonomy section 2 carry both amendments. Its seven measurement-accuracy findings (trackers reset at the consent
+  Closet's `manual_refresh_triggered`, with no JS errors. Consent stays unanswered during
+  onboarding and until Today renders the first recommendation. Nothing is recorded or
+  queued before the sheet is answered, so onboarding and everything before that first
+  recommendation are not measurable; this is accepted.
+  ADR 0033 section 6 and taxonomy section 2 record the current gate. Its seven measurement-accuracy findings (trackers reset at the consent
   boundary, session-end finalisation, focus-bound error tracking, the Closet's false
   recovery, retry counters, duplicate `outfit_detail_opened`, no-op `setting_changed`)
   were fixed in a follow-up lane.
 - **Milestone 10 phase 2** (2026-09-09): added the PostHog adapter behind
   `ProductAnalytics` with fail-closed configuration and lazy client construction,
   profile-owned `undecided | granted | withdrawn` consent in SQLite schema version 12,
-  the post-onboarding consent sheet, Settings Privacy controls and SDK boundary guards.
+  the Today consent sheet, Settings Privacy controls and SDK boundary guards.
   The only phase 2 events are consent grant, consent withdrawal and allowlisted SDK
   lifecycle events after opt-in. The client is constructed only after consent and then
   initialises opted in, because the SDK marks its one-time application-installed event
   during initialisation; ADR 0033 section 6 item 1 is met by never constructing a client
   before consent rather than by the `defaultOptIn: false` flag it names. Verified on the
-  iPhone 17 Pro Simulator with Maestro on 2026-09-10: the sheet appears right after
-  onboarding, decline and withdrawal store `withdrawn`, re-consent stores `granted`.
+  iPhone 17 Pro Simulator with Maestro on 2026-09-10: decline and withdrawal store
+  `withdrawn`, re-consent stores `granted`. The Today-after-recommendation presentation
+  needs main-session Simulator verification.
 
 ## Known Issues and Manual Verification Gaps
 

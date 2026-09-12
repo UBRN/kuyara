@@ -81,11 +81,11 @@ Constraints on that identity, all of them settled by ADR 0033 section 5 unless n
 - Resetting analytics data must not touch `localProfileId` or any application data, and
   clearing application data must not be required to reset analytics identity.
 
-**Consent gate.** No event defined in section 5 leaves the device before `optIn()` is
-called from the consent surface; the SDK client does not exist before that call. *Amended
-2026-09-12:* while the answer is `undecided`, captures are dropped, not stored; recording
-starts at acceptance. This withdraws the 2026-09-10 pre-consent buffer, so the onboarding
-funnel that precedes the sheet is not measurable for a fresh install. A decline sends
+**Consent gate.** No event defined in section 5 is recorded or leaves the device before
+consent is granted; the SDK client does not exist before then. While the answer is
+`undecided`, captures are dropped rather than stored or queued, and recording starts at
+acceptance. The onboarding funnel before the consent surface is not measurable for a
+fresh install. A decline sends
 nothing at all, not even a "declined" event (see section 5.14). Nothing in this taxonomy
 overrides that gate.
 
@@ -95,12 +95,11 @@ authenticated profile once accounts exist. See open question 1.
 ## 3. Coarse age bucket and dress style: the only profile-derived properties, kept
 
 Per ADR 0031, these are the only two profile-derived values that analytics may carry.
-Attaching either value to events joined by the install identity means the identifier is
-combined with profile data, which is the condition ADR 0033 section 5 set for its proposed
-"not linked" answer. **Decided by the maintainer on 2026-09-09: both properties are kept,
-and the install identifier is therefore declared "linked to the user" in the App Privacy
-questionnaire**, with the privacy policy and ADR 0033 amended to match. The "not linked"
-answer is given up knowingly; the identifier still joins to no account, no
+Attaching either value to events joined by the install identity combines the identifier
+with profile data. **Decided by the maintainer on 2026-09-09: both properties are kept,
+and the install identifier is declared "linked to the user" in the App Privacy
+questionnaire**. The privacy policy and ADR 0033 carry the same current rule. The
+identifier still joins to no account, no
 `localProfileId` and no other system, and the exclusion list in section 4 is unchanged. No
 other profile field, including gender, is an analytics property under this taxonomy.
 
@@ -109,7 +108,7 @@ other profile field, including gender, is an analytics property under this taxon
 | `dress_style` | `casual`, `smart`, `formal` | The profile's stored dress style; a null stored value reads as `smart`, matching product logic, so no event ever carries null. |
 | `age_bucket` | `under_18`, `18_24`, `25_34`, `35_44`, `45_54`, `55_64`, `65_plus`, `unknown` | Computed at emit time from the birth year only, never sent as a date or year. `unknown` means no birth date on file and nothing else. |
 
-**`under_18` is a distinct bucket, decided 2026-09-09.** ADR 0031's standard buckets start
+**`under_18` is a distinct bucket.** ADR 0031's standard buckets start
 at 18 to 24, and onboarding enforces no minimum date (the birth-date step caps the picker
 at today and sets no lower bound), so a computed age under 18 is reachable. Folding it into
 `unknown` would silently mix "no date on file" with "a real date below the first bucket"
@@ -212,9 +211,8 @@ app used?"
 ### 5.2 Onboarding progress and abandonment
 
 Onboarding has five steps: welcome, gender, dress style, birth date (optional), location
-(optional). `AGENTS.md` and the implementation agree on five (`totalSteps = 5` in
-`features/profile/presentation/onboarding-screen.tsx`); ADR 0031 section 5 says four
-because it predates the location step and does not count welcome. Abandonment is read from
+(optional); ADR 0031 section 5, `AGENTS.md` and the implementation (`totalSteps = 5` in
+`features/profile/presentation/onboarding-screen.tsx`) agree. Abandonment is read from
 PostHog funnels between `onboarding_started` and `onboarding_completed`, not from a
 dedicated abandonment event, since there is no reliable trigger for "the user will never
 come back."
@@ -227,9 +225,9 @@ come back."
 
 `gender` is intentionally absent from every onboarding event (section 3/4).
 
-The five-value onboarding step enum is final: the consent surface is a first-launch sheet
-(decided 2026-09-09, section 8), so onboarding stays the five steps ADR 0031 records and no
-consent step is added.
+The five-value onboarding step enum is final: the consent surface is shown on Today after
+the first recommendation has rendered, so onboarding stays the five steps ADR 0031 records
+and no consent step is added.
 
 **Product questions answered.**
 
@@ -254,8 +252,8 @@ screen: the grid's tile opens the edit form directly, so `closet_item_form` cove
 new and edit routes. Adding a route means adding a value here, not inventing an ad hoc name
 at the call site.
 
-The `onboarding` screen value covers the five-step flow. The consent surface is a
-first-launch sheet (decided 2026-09-09, section 8), so `screen_name` also carries
+The `onboarding` screen value covers the five-step flow. The consent surface is shown on
+Today after the first recommendation has rendered, so `screen_name` also carries
 `analytics_consent_sheet`; like `settings_privacy` it is provisional only in the sense that
 its route lands with milestone 10.
 
@@ -472,11 +470,10 @@ case visible instead of collapsing it into a generic failure.
 | `error_shown` | A user-facing failure state renders on a surface, for the first time in this session for that `(surface, failure_category)` pair. | `surface` (`today`\|`weather`\|`recommendation`\|`closet`\|`settings`\|`onboarding`), `failure_category` (below), `occurrence_count` (`1`\|`2`\|`3`\|`4`\|`5+`, see the emission rule) | One event per `(surface, failure_category)` per session; see the rule below. |
 | `error_recovered` | A success lands on a surface that emitted `error_shown` earlier in the same session. | `surface` (same enum), `failure_category` (the pair that recovered) | Once per `(surface, failure_category)` per session; a second failure and recovery in the same session does not emit again. |
 
-**Emission rule, decided 2026-09-09.** The first draft carried a `recovered` boolean on
-`error_shown`, which cannot work: a captured event is immutable, so a flag describing
-something that happens later can never be set. Recovery is therefore its own event, joined
-to the failure by `(surface, failure_category)` within the session. `occurrence_count`
-follows the same shape: the boundary counts repeats of a pair in memory and finalises the
+**Emission rule.** Do not put a `recovered` flag on `error_shown`: a captured event is
+immutable, so a flag describing something that happens later can never be set. Recovery
+is its own event, joined to the failure by `(surface, failure_category)` within the
+session. `occurrence_count` follows the same shape: the boundary counts repeats of a pair in memory and finalises the
 count at the first of recovery, session end, or app backgrounding. The count uses the same
 closed buckets as `attempt_number`: one through four, with five and above collapsed to
 `5+`. Exactly one `error_shown` per pair per session reaches PostHog. A count that is still
@@ -597,11 +594,11 @@ captures nothing at all.**
 
 | Event | Trigger | Properties |
 | --- | --- | --- |
-| `analytics_consent_granted` | Immediately after `optIn()` succeeds. It is the first event sent on the identity, and recording starts from it. | `surface` (`first_launch_sheet`\|`settings_privacy`) |
+| `analytics_consent_granted` | Immediately after `optIn()` succeeds. It is the first event sent on the identity, and recording starts from it. | `surface` (`today_sheet`\|`settings_privacy`) |
 | `analytics_consent_withdrawn` | Immediately before `optOut()`, `reset()`, and the `$device_id` clear. It is the last event on the identity. | none |
 
-`surface` has two values: the consent surface is a first-launch sheet (decided 2026-09-09,
-section 8) and `settings_privacy` covers a re-consent after a withdrawal.
+`surface` has two values: `today_sheet` covers the consent sheet shown after the first
+recommendation has rendered and `settings_privacy` covers a re-consent after a withdrawal.
 
 Declining, or never answering, is not an event and cannot be one: nothing leaves the
 device before `optIn()`, an unanswered sheet records nothing, and guideline 5.1.1 (ii)
@@ -678,26 +675,23 @@ sections above; the three decisions taken on 2026-09-09 are recorded below the l
 
 1. **Identity linking at account creation.** Section 2 decides an anonymous identity is
    needed now, but not whether or how to link it to an authenticated profile once accounts
-   exist. ADR 0033 section 7 keeps the related "linked or not linked" question open for the
-   App Privacy questionnaire, and ADR 0022's accounts are milestone 15 work. Needs a
-   decision when Supabase Auth work starts, not before.
+   exist. ADR 0033 section 7 settles the current App Privacy linkage; linking to a future
+   account is a separate question. ADR 0022's accounts are milestone 15 work, so this needs
+   a decision when Supabase Auth work starts, not before.
 Decided 2026-09-09, by the maintainer:
 
 - **`name` and `color_family` edit flags: kept.** Section 5.8 keeps both as category flags
   on `fields_changed`, values never sent.
 - **Profile-derived properties: kept, identifier declared linked.** `dress_style` and
   `age_bucket` stay on the four events section 3 names, and the install identifier is
-  declared "linked to the user" in the App Privacy questionnaire; ADR 0033 carries the
-  matching amendment. The "not linked" option was declined.
-- **Consent surface: a first-launch sheet, as light as the rules allow.** One screen shown
-  once, before the first event, on the first launch after onboarding (and on the first
-  launch after the update that introduces analytics for existing installs). The
-  maintainer's intent is minimum friction: one short plain-language sentence on what is
-  collected and one on how to withdraw, one tap to accept. The floor that intent cannot go
-  under is ADR 0033 section 3 and App Store guideline 5.1.1: decline is one tap of equal
-  prominence, nothing about the app depends on the answer, and the copy says what is
-  collected. A sheet that hides the decline, pre-selects accept, or obscures what is
-  collected is not an option; Apple rejects it and ADR 0033 forbids it.
+  declared "linked to the user" in the App Privacy questionnaire; ADR 0033 section 5
+  carries the same linkage rule.
+- **Consent surface: the Today sheet after value is visible.** The sheet is shown once on
+  Today after the first recommendation has rendered. Accept is the primary action; decline
+  is a same-size secondary action directly beneath it. Decline stays one tap and is never
+  hidden, reduced, faded, coloured as a warning or delayed; accept is never pre-selected
+  and what is collected is never obscured. Declining changes nothing else
+  in the product, and the copy says what is collected and how to withdraw.
 
 Answered elsewhere, kept here as pointers:
 

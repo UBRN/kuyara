@@ -13,7 +13,7 @@ export default function AnalyticsConsentRoute() {
       <Stack.Screen options={{ headerShown: false }} />
       <AnalyticsConsentScreen
         onAccept={async () => {
-          await consent.grant('first_launch_sheet');
+          await consent.grant('today_sheet');
           router.back();
         }}
         onDecline={async () => {

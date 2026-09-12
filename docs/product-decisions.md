@@ -91,7 +91,7 @@ Approved 2026-08-30. Documentation may state the present fact that the MVP has n
 
 ## Approved catalog-only recommendation and Wardrobe model
 
-Approved 2026-08-30; rationale in [ADR 0005](adr/0005-catalog-only-recommendation-candidates.md), whose section 4 is amended by [ADR 0007](adr/0007-ai-selects-precomposed-outfits.md).
+Approved 2026-08-30; the catalog-only boundary is in [ADR 0005](adr/0005-catalog-only-recommendation-candidates.md), and the current AI selection, labeling and day-variant rules are in [ADR 0007](adr/0007-ai-selects-precomposed-outfits.md).
 
 - The AI option set is at most 24 outfits composed deterministically from the bundled catalog filtered by clothing preference. The Wardrobe is never a candidate source. AI may select only supplied option identifiers and must never invent outfits, catalog entries, wardrobe items, slots, properties or identifiers.
 - Each Wardrobe entry is `owned` or `wanted`, stored locale-independently; there is no separate wishlist table, screen or tab, and neither state affects recommendations in the MVP.
@@ -150,7 +150,7 @@ Rationale and the recalculated probe limits in [ADR 0001](adr/0001-worker-ai-pro
 
 ## Approved AI input privacy boundary
 
-Approved 2026-08-13, narrowed 2026-08-30, amended by ADR 0031 on 2026-09-08. The strict request schema admits only the fields below, so forbidden fields have no representation and are rejected rather than filtered. Optional `dressStyle` defaults to `smart` for previous-client compatibility; mobile always sends the stored style.
+Approved 2026-08-13; the current boundary includes the catalog-only narrowing in [ADR 0005](adr/0005-catalog-only-recommendation-candidates.md) and the dress-style rule in [ADR 0031](adr/0031-dress-style-is-the-formality-signal.md). The strict request schema admits only the fields below, so forbidden fields have no representation and are rejected rather than filtered. Optional `dressStyle` defaults to `smart` for previous-client compatibility; mobile always sends the stored style.
 
 AI may receive only:
 
@@ -182,7 +182,7 @@ Approved 2026-08-29; design and rejected alternatives in [ADR 0004](adr/0004-not
 - The MVP ships **on-device local weather alerts only**: no push token, no APNs registration, no Worker endpoint, no server-side device, token or location store, and no new identifier. The AI input privacy boundary and the "no coordinates persisted or logged" rule are untouched.
 - N1, the foundation: an OS permission flow surfaced in Settings, a `notifications_opt_in` profile preference, `expo-notifications` imported only in one adapter, and notification taps opening Today.
 - N2, the alerts: two deterministic rules over the remainder of the current local day, precipitation onset and an 8 °C apparent-temperature swing, 60 minutes ahead in the foreground, silent from 22:00 to 07:00 in the device time zone, one alert per rule per location per day, structured plans localized at scheduling time, repeat suppression through a delivery ledger, rescheduling on every app open and persisted snapshot, and a best-effort `expo-background-task` refresh when iOS grants it. The background task is a staleness reducer, not a guarantee.
-- Revised 2026-09-12 (amendment note at the end of [ADR 0032](adr/0032-local-weather-alert-rules.md)): the current local day is the day `now` falls in, in the snapshot's time zone, not the day the snapshot was observed in; alerts are planned only from a snapshot that is not stale, and a stale one leaves the existing schedule untouched until a refresh arrives; the delivery ledger records only alerts the OS accepted; and on the background path, where the app is not open, a crossing closer than 60 minutes may still be scheduled with a shortened lead of 15 minutes, still subject to quiet hours. The foreground lead stays 60 minutes.
+- [ADR 0032](adr/0032-local-weather-alert-rules.md) defines the current local day as the day `now` falls in, in the snapshot's time zone. Alerts are planned only from a fresh snapshot; a stale one leaves the existing schedule untouched until a refresh arrives. The delivery ledger records only alerts the OS accepted. On the background path, where the app is not open, a crossing closer than 60 minutes may still be scheduled with a shortened lead of 15 minutes, subject to quiet hours; the foreground lead stays 60 minutes.
 - The background task is registered while the user is opted in and unregistered when they opt out, and it reuses a cached snapshot that is still fresh instead of spending a provider request.
 - Settings shows notifications as on only when the user has opted in **and** the OS permission is granted; the Notifications surface keeps the stored preference on its toggle and explains the block in its footer.
 - N3, server-sent push, is deferred and not scheduled. It is reconsidered only if N2 proves insufficient in real use, with its own ADR covering the server-owned subscription store, the persisted-coordinate privacy posture, delivery and hard spend controls.
@@ -234,7 +234,7 @@ Approved 2026-09-04. Canonical in [ADR 0026](adr/0026-the-recommendation-detail-
 - The board sits on the page ground rather than the condition-tinted stage, because Law 3 forbids secondary copy on that stage. The weather keeps one quiet tinted recap row.
 - Reasoning is organised by weather requirement and each row names the garments that answer it.
 - Ownership state appears here and nowhere else: English reuses the existing owned and wanted labels, Turkish uses "Sende var" / "İstiyorsun", and each caption opens a two-item platform menu that changes the state and checks the current item. An untracked garment draws no marker while its accessibility label still speaks the state; the entry transition is decision 7.
-- Above `fontScale` 1.5 the captions render as a list under the board (amended 2026-09-09).
+- Above `fontScale` 1.5 the captions render as a list under the board.
 
 ## Approved Profile, Closet and Settings surfaces
 
@@ -280,8 +280,8 @@ Approved 2026-09-04. Canonical in [ADR 0023](adr/0023-behavioural-product-analyt
 Approved 2026-09-04, settled by [ADR 0033](adr/0033-apple-privacy-obligations-for-first-party-analytics.md) on 2026-09-09.
 
 - **App Tracking Transparency does not apply**: kuyara has no advertising, no IDFA, no cross-app or cross-site tracking, and no data-broker sharing. No ATT prompt is added.
-- **Consent is required anyway.** App Store Review Guideline 5.1.1 requires consent before collection and an in-app way to withdraw it even for anonymous usage data, so the earlier preference against a permanent toggle is withdrawn. Consent is a first-launch sheet, one tap to accept and one equally prominent tap to decline, before the first event; withdrawal lives on a Privacy surface under Settings, unprominent but two taps deep, with the in-app policy link. Onboarding stays five steps.
-- **Nothing is recorded before consent** (decided 2026-09-12, withdrawing the 2026-09-10 pre-consent buffer). While the sheet is unanswered nothing is recorded or queued; accepting starts recording from that moment, and declining leaves nothing to discard. The onboarding steps that precede the sheet are therefore not measurable, which is accepted.
+- **Consent is required anyway.** App Store Review Guideline 5.1.1 requires consent before collection and an in-app way to withdraw it even for anonymous usage data, so the earlier preference against a permanent toggle is withdrawn. The sheet is shown once on Today after the first recommendation has rendered. Accept is the primary action; decline is a same-size secondary action directly beneath it. Decline stays one tap and is never hidden, reduced, faded, coloured as a warning or delayed, and declining changes nothing else in the product. Withdrawal lives on a Privacy surface under Settings, unprominent but two taps deep, with the in-app policy link. Onboarding stays five steps.
+- **Nothing is recorded before consent** (decided 2026-09-12, withdrawing the 2026-09-10 pre-consent buffer). While the sheet is unanswered nothing is recorded or queued; accepting starts recording from that moment, and declining leaves nothing to discard. The onboarding steps and everything else before the first rendered recommendation are therefore not measurable, which is accepted.
 - Analytics enters the App Store Connect questionnaire as Product Interaction and Other Usage Data, with PostHog's IP capture off; the install identifier is declared linked to the user (maintainer decision, 2026-09-09).
 - Data is not sold, not used for advertising, and not intentionally shared with data brokers or unrelated third parties. A short, understandable privacy disclosure is preferred to a legalistic agreement flow.
 - These findings are verified against current official Apple documentation before implementation and again before submission; identity linking when accounts arrive remains open.
@@ -300,5 +300,5 @@ Approved 2026-09-04. Canonical in [ADR 0024](adr/0024-relicensing-to-polyform-no
 
 - Accounts, cross-device sync, an outbox, and conflict resolution require separate product and architecture decisions; their intended shape is in [Approved backend and account direction](#approved-backend-and-account-direction).
 - Owned garments may later softly influence recommendations only as a tie-breaker between equally suitable catalog candidates, never as a filter.
-- Per-slot substitutions on a recommendation are not in the MVP. No layer of the product produces one; offering them is a new feature needing its own decision ([ADR 0026](adr/0026-the-recommendation-detail-surface.md), amending [ADR 0021](adr/0021-direction-e-a-visual-first-design-language.md) section 7).
+- Per-slot substitutions on a recommendation are not in the MVP. No layer of the product produces one; offering them is a new feature needing its own decision. [ADR 0026](adr/0026-the-recommendation-detail-surface.md) owns this constraint alongside [ADR 0021](adr/0021-direction-e-a-visual-first-design-language.md) section 7.
 - Server-sent push notifications (N3) are deferred and would need their own ADR.

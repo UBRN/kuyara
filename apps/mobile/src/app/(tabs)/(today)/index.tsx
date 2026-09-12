@@ -2,6 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { FailureCategory } from '@/domain/failure-category';
+import { useAnalyticsConsentTrigger } from '@/features/analytics/application/analytics-consent-trigger';
 import { useFocusedErrorEpisode } from '@/features/analytics/application/use-focused-error-episode';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
@@ -33,6 +34,7 @@ export default function TodayRoute() {
     weatherApplication;
   const { state: profileState } = useProfileApplication();
   const { analytics, firstUses, retries } = useProductAnalytics();
+  const { markRecommendationShown } = useAnalyticsConsentTrigger();
   useScreenViewed('today');
 
   const recommendation = recommendationState.status === 'ready'
@@ -91,6 +93,8 @@ export default function TodayRoute() {
   // three-outfit recommendation is visible (an AI/fallback failure inside a `loaded` state
   // does not count).
   const [isFocused, setIsFocused] = useState(false);
+  const isRecommendationShown = state.kind === 'loaded'
+    && state.snapshot.recommendation.status === 'recommended';
   useFocusEffect(useCallback(() => {
     reevaluateLocalDay();
     // Today's freshness line ages with the clock, so returning to the tab re-evaluates it
@@ -129,6 +133,11 @@ export default function TodayRoute() {
       ),
     });
   }, [analytics, isFocused, profileState, state]);
+
+  useEffect(() => {
+    if (!isFocused || !isRecommendationShown) return;
+    markRecommendationShown();
+  }, [isFocused, isRecommendationShown, markRecommendationShown]);
 
   // Taxonomy 5.7: Today's pull gesture doubles as the retry action when a failure is
   // already shown (there is no separate retry control).

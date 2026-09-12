@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
 import { FirstUseTracker } from '@/features/analytics/application/first-use-tracker';
 import { RetryCounter } from '@/features/analytics/application/retry-counter';
+import { AnalyticsConsentTriggerContext } from '@/features/analytics/application/analytics-consent-trigger';
 import { ProductAnalyticsContext } from '@/features/analytics/application/use-product-analytics';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
@@ -237,6 +238,7 @@ function Providers({
   wardrobe,
   profile,
   productAnalytics,
+  markRecommendationShown = jest.fn(),
 }: PropsWithChildren<{
   weather: WeatherApplicationValue;
   recommendation: RecommendationApplicationState;
@@ -245,12 +247,17 @@ function Providers({
   wardrobe: ReturnType<typeof wardrobeValue>;
   profile: ReturnType<typeof profileValue>;
   productAnalytics: ReturnType<typeof createProductAnalytics>;
+  markRecommendationShown?: () => void;
 }>) {
   return (
     <LocalizationContext value={{ language: 'en', messages: messages.en , hour12: false }}>
       <KuyaraThemeContext value={lightTheme}>
         <ProductAnalyticsContext value={productAnalytics}>
-          <ProfileApplicationContext value={profile}>
+          <AnalyticsConsentTriggerContext value={{
+            recommendationShown: false,
+            markRecommendationShown,
+          }}>
+            <ProfileApplicationContext value={profile}>
             <WeatherApplicationContext value={weather}>
               <RecommendationApplicationContext value={{
                 state: recommendation,
@@ -264,7 +271,8 @@ function Providers({
                 </WardrobeApplicationContext>
               </RecommendationApplicationContext>
             </WeatherApplicationContext>
-          </ProfileApplicationContext>
+            </ProfileApplicationContext>
+          </AnalyticsConsentTriggerContext>
         </ProductAnalyticsContext>
       </KuyaraThemeContext>
     </LocalizationContext>
@@ -308,6 +316,30 @@ test('Today reports screen_viewed and recommendation_viewed once while a recomme
     dress_style: 'smart',
     age_bucket: 'unknown',
   });
+});
+
+test('Today marks a rendered recommendation for the consent gate once', async () => {
+  const markRecommendationShown = jest.fn();
+  const props = {
+    markRecommendationShown,
+    productAnalytics: createProductAnalytics(),
+    profile: profileValue({ analyticsConsent: 'undecided' }),
+    wardrobe: wardrobeValue(),
+    weather: weatherValue(),
+  };
+  const result = await render(
+    <Providers {...props} recommendation={recommendationReady()}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  expect(markRecommendationShown).toHaveBeenCalledTimes(1);
+  await result.rerender(
+    <Providers {...props} recommendation={recommendationReady({ isRefreshing: true })}>
+      <TodayRoute />
+    </Providers>,
+  );
+  expect(markRecommendationShown).toHaveBeenCalledTimes(1);
 });
 
 test('a successful pull-to-refresh regenerates after weather and reports manual refresh, not retry', async () => {

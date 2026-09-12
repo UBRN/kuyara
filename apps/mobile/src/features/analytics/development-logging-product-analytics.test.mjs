@@ -18,7 +18,7 @@ test('the development logger prints only the event and JSON properties after con
     schema_version: 1,
     screen_name: 'today',
   });
-  await analytics.optIn('first_launch_sheet');
+  await analytics.optIn('today_sheet');
   analytics.capture('screen_viewed', {
     schema_version: 1,
     screen_name: 'today',
@@ -28,7 +28,7 @@ test('the development logger prints only the event and JSON properties after con
 
   assert.deepEqual(messages, [
     [
-      'analytics analytics_consent_granted {"schema_version":1,"surface":"first_launch_sheet"}',
+      'analytics analytics_consent_granted {"schema_version":1,"surface":"today_sheet"}',
     ],
     ['analytics screen_viewed {"schema_version":1,"screen_name":"today"}'],
     ['analytics analytics_consent_withdrawn {"schema_version":1}'],

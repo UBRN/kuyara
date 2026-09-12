@@ -1,4 +1,5 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import AnalyticsConsentRoute from '@/app/analytics-consent';
@@ -12,7 +13,7 @@ import {
 } from '@/features/profile/application/profile-context';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages } from '@/localization/messages';
-import { lightTheme } from '@/theme/theme';
+import { createKuyaraTheme, lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 jest.mock('expo-router', () => ({
@@ -83,7 +84,7 @@ test('captures made while the answer is undecided are dropped, and accept record
   expect(analytics.names()).toEqual(['analytics_consent_granted']);
   expect(analytics.captures[0].properties).toEqual({
     schema_version: 1,
-    surface: 'first_launch_sheet',
+    surface: 'today_sheet',
   });
   expect(mockRouter.back).toHaveBeenCalledTimes(1);
 });
@@ -126,4 +127,50 @@ test('a rejected answer stays open and can be retried without an unhandled rejec
     .toBe(false);
   expect(mockRouter.back).not.toHaveBeenCalled();
   expect(analytics.captures).toEqual([]);
+});
+
+test('shows the exact copy and full-width actions in primary-then-secondary order', async () => {
+  const rendered = await render(
+    <LocalizationContext.Provider value={{ language: 'en', messages: messages.en, hour12: false }}>
+      <KuyaraThemeContext.Provider value={lightTheme}>
+        <SafeAreaProvider initialMetrics={initialMetrics}>
+          <AnalyticsConsentScreen onAccept={jest.fn()} onDecline={jest.fn()} />
+        </SafeAreaProvider>
+      </KuyaraThemeContext.Provider>
+    </LocalizationContext.Provider>,
+  );
+
+  expect(rendered.getByRole('header', { name: 'Help improve kuyara' })).toBeOnTheScreen();
+  expect(rendered.getByText(messages.en.analytics.consentBody)).toBeOnTheScreen();
+  const buttons = rendered.getAllByRole('button');
+  expect(buttons.map((button) => button.props.accessibilityLabel)).toEqual([
+    'Help improve',
+    'Not now',
+  ]);
+
+  const accept = rendered.getByTestId('analytics-consent-accept');
+  const decline = rendered.getByTestId('analytics-consent-decline');
+  expect(StyleSheet.flatten(accept.props.style)).toMatchObject({
+    width: '100%',
+    backgroundColor: lightTheme.colors.primaryFill,
+  });
+  expect(StyleSheet.flatten(decline.props.style)).toMatchObject({
+    width: '100%',
+    backgroundColor: lightTheme.colors.surfaceInteractive,
+  });
+});
+
+test('renders the content without an animated entrance when Reduced Motion is enabled', async () => {
+  const rendered = await render(
+    <LocalizationContext.Provider value={{ language: 'en', messages: messages.en, hour12: false }}>
+      <KuyaraThemeContext.Provider value={createKuyaraTheme('light', true)}>
+        <SafeAreaProvider initialMetrics={initialMetrics}>
+          <AnalyticsConsentScreen onAccept={jest.fn()} onDecline={jest.fn()} />
+        </SafeAreaProvider>
+      </KuyaraThemeContext.Provider>
+    </LocalizationContext.Provider>,
+  );
+
+  expect(StyleSheet.flatten(rendered.getByTestId('analytics-consent-content').props.style))
+    .toEqual({ gap: 12 });
 });
