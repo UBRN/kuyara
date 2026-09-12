@@ -294,11 +294,12 @@ export function deriveClothingRequirements(
   const heatExposure = Math.max(...airTemperatures, ...apparentTemperatures);
   const wideDailyRange =
     snapshot.maximumTemperatureCelsius - snapshot.minimumTemperatureCelsius >= 8;
-  // Cold below 12 makes insulation and full coverage mandatory; heat at or above 28 makes
-  // high breathability mandatory. One day can demand both (4 °C at 07:00, 29 °C at 16:00)
-  // and no garment satisfies both, so the side the current conditions trigger stays
-  // mandatory and the side only later hours trigger becomes optional. When neither is
-  // current, protection wins over comfort: the cold side stays mandatory.
+  // Cold below 18 makes insulation mandatory (below 12 also full coverage); heat at or
+  // above 28 makes high breathability mandatory. One day can demand both (4 °C at 07:00,
+  // 29 °C at 16:00, or 17 °C at 08:00 and 30 °C at 15:00) and no garment satisfies both,
+  // so the side the current conditions trigger stays mandatory and the side only later
+  // hours trigger becomes optional. When neither is current, protection wins over
+  // comfort: the cold side stays mandatory.
   const currentCold = Math.min(
     snapshot.current.temperatureCelsius,
     snapshot.current.apparentTemperatureCelsius,
@@ -307,8 +308,8 @@ export function deriveClothingRequirements(
     snapshot.current.temperatureCelsius,
     snapshot.current.apparentTemperatureCelsius,
   );
-  const conflicting = coldExposure < 12 && heatExposure >= 28;
-  const coldDemoted = conflicting && currentHeat >= 28 && currentCold >= 12;
+  const conflicting = coldExposure < 18 && heatExposure >= 28;
+  const coldDemoted = conflicting && currentHeat >= 28 && currentCold >= 18;
   const heatDemoted = conflicting && !coldDemoted;
   const candidates: ClothingRequirement[] = [];
 
