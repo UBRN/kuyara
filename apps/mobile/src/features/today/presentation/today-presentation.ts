@@ -241,7 +241,7 @@ function localizeOutfit(
   });
 
   return {
-    id: `outfit-${index + 1}`,
+    id: outfit.optionId,
     positionLabel: copy.optionPosition(index + 1, total),
     title,
     summary,

@@ -12,7 +12,7 @@ import { ProfileApplicationContext } from '@/features/profile/application/profil
 import type { LocalProfile } from '@/features/profile/domain/profile';
 import { RecommendationApplicationContext } from '@/features/recommendation/application/recommendation-application-context';
 import type { RecommendationApplicationState } from '@/features/recommendation/application/recommendation-application-controller';
-import { todayScreenState, todayActiveLocation } from '@/features/today/__tests__/fixtures';
+import { todayActiveLocation, todayOutfitId, todayScreenState } from '@/features/today/__tests__/fixtures';
 import { WardrobeApplicationContext } from '@/features/wardrobe/application/wardrobe-application-context';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import {
@@ -363,7 +363,7 @@ test('focusing Today asks the recommendation provider to re-evaluate the local d
 });
 
 test('focusing outfit detail re-evaluates the local day and weather freshness', async () => {
-  mockParams = { id: 'outfit-1' };
+  mockParams = { id: todayOutfitId(1) };
   const reevaluateLocalDay = jest.fn();
   const weather = weatherValue();
 
@@ -538,7 +538,7 @@ test('a visible recommendation failure uses only the recommendation error surfac
 });
 
 test('opening an outfit reports screen_viewed and outfit_detail_opened with its position and archetype', async () => {
-  mockParams = { id: 'outfit-2' };
+  mockParams = { id: todayOutfitId(2) };
   const productAnalytics = createProductAnalytics();
   await render(
     <Providers
@@ -564,8 +564,79 @@ test('opening an outfit reports screen_viewed and outfit_detail_opened with its 
   });
 });
 
+test('Today opens outfit detail by the outfit\'s stable option id', async () => {
+  const result = await render(
+    <Providers
+      productAnalytics={createProductAnalytics()}
+      profile={profileValue()}
+      recommendation={recommendationReady()}
+      wardrobe={wardrobeValue()}
+      weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(result.getByTestId('today-archetype'));
+
+  expect(mockPush).toHaveBeenCalledWith({ pathname: '/[id]', params: { id: todayOutfitId(1) } });
+});
+
+test('a regeneration finishing under an open detail keeps the same outfit or shows none, never another', async () => {
+  mockParams = { id: todayOutfitId(1) };
+  if (todayRecommendation.status !== 'recommended') throw new Error('fixture');
+  const props = {
+    productAnalytics: createProductAnalytics(),
+    profile: profileValue(),
+    wardrobe: wardrobeValue(),
+    weather: weatherValue(),
+  };
+  const result = await render(
+    <Providers {...props} recommendation={recommendationReady()}>
+      <OutfitDetailRoute />
+    </Providers>,
+  );
+  expect(result.getByRole('header', { name: messages.en.recommendation.archetypes.rain_ready }))
+    .toBeOnTheScreen();
+
+  // The same outfit at a different position is still the opened outfit.
+  const [first, second, third] = todayRecommendation.outfits;
+  const reordered = recommendationReady();
+  if (reordered.status !== 'ready' || !reordered.snapshot) throw new Error('fixture');
+  await result.rerender(
+    <Providers {...props} recommendation={{
+      ...reordered,
+      snapshot: {
+        ...reordered.snapshot,
+        recommendation: { ...todayRecommendation, outfits: [second, first, third] },
+      },
+    }}>
+      <OutfitDetailRoute />
+    </Providers>,
+  );
+  expect(result.getByRole('header', { name: messages.en.recommendation.archetypes.rain_ready }))
+    .toBeOnTheScreen();
+
+  // An outfit the new snapshot no longer offers is not replaced by whichever sits at its position.
+  await result.rerender(
+    <Providers {...props} recommendation={{
+      ...reordered,
+      snapshot: {
+        ...reordered.snapshot,
+        recommendation: { ...todayRecommendation, outfits: [second, third] },
+      },
+    }}>
+      <OutfitDetailRoute />
+    </Providers>,
+  );
+  expect(result.queryByTestId('outfit-detail-board')).not.toBeOnTheScreen();
+  expect(result.queryByRole('header', { name: messages.en.recommendation.archetypes.snow_day }))
+    .not.toBeOnTheScreen();
+  await fireEvent.press(result.getByRole('button', { name: messages.en.today.backAction }));
+  expect(mockBack).toHaveBeenCalledTimes(1);
+});
+
 test('recomputing a focused outfit detail does not reopen the same suggestion', async () => {
-  mockParams = { id: 'outfit-2' };
+  mockParams = { id: todayOutfitId(2) };
   const productAnalytics = createProductAnalytics();
   const result = await render(
     <Providers
@@ -594,7 +665,7 @@ test('recomputing a focused outfit detail does not reopen the same suggestion', 
 });
 
 test('setting ownership from outfit detail creates the Closet entry with entry_point outfit_detail', async () => {
-  mockParams = { id: 'outfit-1' };
+  mockParams = { id: todayOutfitId(1) };
   const productAnalytics = createProductAnalytics();
   const created = wardrobeItem();
   const wardrobe = wardrobeValue({ createItem: jest.fn(async () => created) });
@@ -627,7 +698,7 @@ test('setting ownership from outfit detail creates the Closet entry with entry_p
 });
 
 test('setting ownership from outfit detail updates the existing Closet entry', async () => {
-  mockParams = { id: 'outfit-1' };
+  mockParams = { id: todayOutfitId(1) };
   const productAnalytics = createProductAnalytics();
   const existing = wardrobeItem({ entryState: 'wanted' });
   const wardrobe = wardrobeValue({

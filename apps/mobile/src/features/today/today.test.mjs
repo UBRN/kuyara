@@ -88,21 +88,21 @@ test('loaded mapping uses localized catalog names, slot order, positions, and fi
     })),
     [
       {
-        id: 'outfit-1',
+        id: todayScreenState.snapshot.recommendation.outfits[0].optionId,
         positionLabel: 'Option 1 of 3',
         title: 'Rain Ready',
         summary: 'Jumpsuit + Rain jacket + Winter boots',
         emphasis: 'Recommended',
       },
       {
-        id: 'outfit-2',
+        id: todayScreenState.snapshot.recommendation.outfits[1].optionId,
         positionLabel: 'Option 2 of 3',
         title: 'Snow Day',
         summary: 'Blouse + Jeans + Rain jacket + Winter boots',
         emphasis: undefined,
       },
       {
-        id: 'outfit-3',
+        id: todayScreenState.snapshot.recommendation.outfits[2].optionId,
         positionLabel: 'Option 3 of 3',
         title: 'Wind Guard',
         summary: 'Blouse + Shorts + Rain jacket + Winter boots',
