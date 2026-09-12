@@ -521,17 +521,63 @@ test('released version 2 rows remain readable as unclassified legacy items', asy
   assert.equal(await repository.getActiveItem(profileId, itemIds[2]), null);
 });
 
-test('unknown IDs and persisted type-category mismatches fail without changing rows', async (t) => {
+test('an unknown stored type is read as unclassified without hiding valid rows or rewriting data', async (t) => {
   const { database, repository } = await createRepository(t);
   await database.runAsync(
     `
       INSERT INTO wardrobe_items (
-        id, local_profile_id, name, category, color, photo_relative_path,
-        created_at, updated_at, deleted_at, garment_type_id
-      ) VALUES (?, ?, 'Gelecek Tür', 'top', NULL, NULL, ?, ?, NULL, 'future_type')
+        id, local_profile_id, name, category, entry_state, garment_type_id,
+        color, color_family, thermal_level_override, photo_relative_path,
+        created_at, updated_at, deleted_at
+      ) VALUES (?, ?, 'Gelecek Tür', 'top', 'wanted', 'future_type',
+        'Lacivert', 'blue', 'moderate', NULL, ?, ?, NULL)
     `,
     [itemIds[2], profileId, createdAt, createdAt],
   );
+  await database.runAsync(
+    `
+      INSERT INTO wardrobe_items (
+        id, local_profile_id, name, category, garment_type_id,
+        created_at, updated_at, deleted_at
+      ) VALUES (?, ?, 'Tişört', 'top', 't_shirt', ?, ?, NULL)
+    `,
+    [itemIds[1], profileId, createdAt, createdAt],
+  );
+
+  const items = await repository.listActiveItems(profileId);
+
+  assert.equal(items.length, 2);
+  assert.deepEqual(items.find(({ id }) => id === itemIds[2]), {
+    id: itemIds[2],
+    localProfileId: profileId,
+    name: 'Gelecek Tür',
+    category: 'top',
+    entryState: 'wanted',
+    garmentTypeId: null,
+    color: 'Lacivert',
+    colorFamily: 'blue',
+    thermalLevelOverride: 'moderate',
+    waterProtectionOverride: null,
+    windProtectionOverride: null,
+    breathabilityOverride: null,
+    armCoverageOverride: null,
+    legCoverageOverride: null,
+    tractionSuitabilityOverride: null,
+    photoRelativePath: null,
+    createdAt,
+    updatedAt: createdAt,
+    deletedAt: null,
+  });
+  assert.equal(items.find(({ id }) => id === itemIds[1])?.garmentTypeId, 't_shirt');
+  const stored = await database.getFirstAsync(
+    'SELECT garment_type_id FROM wardrobe_items WHERE id = ?',
+    [itemIds[2]],
+  );
+  assert.equal(stored.garment_type_id, 'future_type');
+});
+
+test('persisted type-category mismatches fail without changing rows', async (t) => {
+  const { database, repository } = await createRepository(t);
   await database.runAsync(
     `
       INSERT INTO wardrobe_items (
@@ -543,10 +589,6 @@ test('unknown IDs and persisted type-category mismatches fail without changing r
   );
 
   await assert.rejects(
-    () => repository.getActiveItem(profileId, itemIds[2]),
-    assertRepositoryError('invalid-data'),
-  );
-  await assert.rejects(
     () => repository.getActiveItem(profileId, itemIds[1]),
     assertRepositoryError('invalid-data'),
   );
@@ -555,16 +597,11 @@ test('unknown IDs and persisted type-category mismatches fail without changing r
   );
   assert.deepEqual(rows.map((row) => ({ ...row })), [
     {
-      id: itemIds[2],
-      garment_type_id: 'future_type',
-      category: 'top',
-    },
-    {
       id: itemIds[1],
       garment_type_id: 't_shirt',
       category: 'bottom',
     },
-  ].sort((left, right) => left.id.localeCompare(right.id)));
+  ]);
 });
 
 test('catalog applicability never prevents ownership of a valid canonical type', async (t) => {

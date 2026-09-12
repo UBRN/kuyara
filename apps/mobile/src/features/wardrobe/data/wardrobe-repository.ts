@@ -202,7 +202,7 @@ function requireConsistentTaxonomyFields(
 }
 
 function requireValidPersistedTaxonomy(item: WardrobeItem): WardrobeItem {
-  if (!taxonomyFieldsAreConsistent(item)) {
+  if (item.garmentTypeId !== null && !taxonomyFieldsAreConsistent(item)) {
     throw new WardrobeItemMappingError();
   }
 
