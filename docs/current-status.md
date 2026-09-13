@@ -147,12 +147,6 @@ and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
 
 App Store submission, not TestFlight, is blocked by:
 
-- The physical-device pass on build 6. The deployed Worker runs the current main and
-  answers live with `origin.sourceId` `weatherkit` and AI-assisted picks for realistic
-  requests, and build 6 from the same main is on TestFlight. Nobody has yet run it on a
-  physical iPhone: the on-device Apple Intelligence tier and its latency, real VoiceOver,
-  background refresh, and analytics and Observe dispatch from a production build are all
-  first observed there (see Known Issues).
 - The App Store screenshots. Everything else in milestone 11 is done: GitHub Pages went
   live on 2026-09-11 from the main branch's `docs/` folder (`/privacy-policy` and
   `/support` fetched with status 200), and the questionnaire, the privacy policy and
@@ -166,6 +160,13 @@ App Store submission, not TestFlight, is blocked by:
   Observe rows (Performance Data, Other Diagnostic Data, Crash Data, and the App
   Functionality purpose on Device ID), and the rewritten `docs/privacy-policy.md` is not
   published until it is pushed to `main`.
+
+The physical-device pass on build 6 ran on 2026-09-13 on the maintainer's iPhone 14 Pro
+with no problem found. That device is not Apple Intelligence eligible, so it exercised the
+Worker tier and the fallback only; the on-device tier remains unmeasured on eligible
+hardware, as ADR 0034's verification boundary records, and the Simulator run of the same
+day landed at the 6 s budget's edge. Real VoiceOver, background refresh and production
+analytics dispatch were not separately inspected on the device (see Known Issues).
 
 ## Recently Completed
 
