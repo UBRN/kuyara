@@ -163,6 +163,22 @@ test('secondary renders the headline in the system secondary ink', async () => {
   ]);
 });
 
+test('a selected row receives the native iOS selected trait', async () => {
+  const result = await render(
+    <TestProviders>
+      <NativeList testID="group">
+        <NativeListRow label="Istanbul" selected testID="row" />
+        <NativeListRow label="Ankara" testID="other-row" />
+      </NativeList>
+    </TestProviders>,
+  );
+
+  expect(result.getByTestId('row').props.modifiers).toEqual([
+    { $type: 'accessibilityAddTraits', traits: ['isSelected'] },
+  ]);
+  expect(result.getByTestId('other-row').props.modifiers).toBeUndefined();
+});
+
 test('a toggle row stays unchanged at fontScale 3.118', async () => {
   mockFontScale(3.118);
   const onValueChange = jest.fn();

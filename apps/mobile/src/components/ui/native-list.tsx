@@ -1,5 +1,5 @@
 import { Column, Host as UniversalHost, Icon as ExpoIcon, List as UniversalList, ListItem, RNHostView, Row, Text as ExpoText } from '@expo/ui';
-import { font, foregroundStyle, listStyle, scrollContentBackground, tint } from '@expo/ui/swift-ui/modifiers';
+import { accessibilityAddTraits, font, foregroundStyle, listStyle, scrollContentBackground, tint } from '@expo/ui/swift-ui/modifiers';
 import type { ReactElement, ReactNode } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,6 +26,9 @@ const IOS_SECONDARY_TEXT_MODIFIERS = Platform.OS === 'ios'
   : undefined;
 const IOS_BODY_SEMIBOLD_FONT_MODIFIERS = Platform.OS === 'ios'
   ? [font({ textStyle: 'body', weight: 'semibold' })]
+  : undefined;
+const IOS_SELECTED_MODIFIERS = Platform.OS === 'ios'
+  ? [accessibilityAddTraits(['isSelected'])]
   : undefined;
 
 export type NativeListProps = Readonly<{ children: ReactNode; testID?: string }>;
@@ -113,6 +116,8 @@ export type NativeListRowProps = Readonly<{
   tinted?: boolean;
   /** Renders the headline in the system's secondary ink for an informational row. */
   secondary?: boolean;
+  /** Adds the native selected accessibility trait where the platform wrapper supports it. */
+  selected?: boolean;
   /** Explicit chevron control. Defaults to on for a plain navigable row. */
   chevron?: boolean;
   supportingText?: string;
@@ -128,6 +133,7 @@ export function NativeListRow({
   label,
   onPress,
   secondary = false,
+  selected = false,
   testID,
   supportingText,
   tinted = false,
@@ -208,6 +214,7 @@ export function NativeListRow({
           </RNHostView>
         ) : undefined
       }
+      modifiers={selected ? IOS_SELECTED_MODIFIERS : undefined}
       onPress={onPress}
       supportingText={resolvedSupportingText}
       testID={glyph ? undefined : testID}
