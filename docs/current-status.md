@@ -146,18 +146,6 @@ App Store submission, not TestFlight, is blocked by:
   predates the on-device prompt that states the archetype eligibility and distinctness
   rules, so a production build from the current main, uploaded to TestFlight and tested
   on a physical iPhone, replaces builds 4 and 5.
-- The Worker AI chain fix is not deployed. The configured OpenRouter free slugs had gone
-  dead upstream (two removed from the catalog, one without a strict structured-output
-  endpoint), so the deployed Worker has no fallback behind Workers AI. The working tree
-  replaces them with the three free models that answered the real prompt with valid picks
-  in a live probe (`nex-agi/nex-n2.5-mini:free`, `nvidia/nemotron-3-super-120b-a12b:free`,
-  `nex-agi/nex-n2.5-pro:free`) and logs every provider attempt's outcome as a closed
-  reason code so a dead slug shows in `wrangler tail` instead of hiding behind the
-  deterministic fallback; the chain was exercised in `wrangler dev` with Workers AI
-  forced to fail. Deploying it is a release operation for the maintainer. OpenRouter caps
-  free variants at 20 requests a minute and 50 a day for accounts with under $10 of
-  purchased credits, which the project's key is; a one-time $10 credit purchase raises the
-  daily cap to 1000 and is the only spend question left in the chain.
 - The App Store screenshots. Everything else in milestone 11 is done: GitHub Pages went
   live on 2026-09-11 from the main branch's `docs/` folder (`/privacy-policy` and
   `/support` fetched with status 200), and the questionnaire, the privacy policy and
@@ -167,6 +155,20 @@ App Store submission, not TestFlight, is blocked by:
 
 ## Recently Completed
 
+- **AI chain repair** (2026-09-13): the dead OpenRouter slugs were replaced with the
+  three free models that answer the real strict `json_schema` request
+  (`nex-agi/nex-n2.5-mini:free`, `nvidia/nemotron-3-super-120b-a12b:free`,
+  `nex-agi/nex-n2.5-pro:free`); a second Workers AI model,
+  `@cf/mistralai/mistral-small-3.1-24b-instruct` (valid picks on both test scenarios, 2 to
+  3 s, about 40 to 56 neurons), follows `llama-3.3-70b-instruct-fp8-fast`; the per-attempt
+  timeout is 7 seconds and `index.ts` no longer overrides it to 20 seconds, which had let
+  one stalled attempt consume the whole 19-second deadline so that no fallback ever ran;
+  and every attempt's outcome is logged as a closed reason code. Eight other Workers AI
+  models were evaluated against the contract gates and rejected (see
+  `product-decisions.md`). OpenRouter free variants stay capped at 20 requests a minute
+  and 50 a day for accounts with under $10 of purchased credits, which the project's key
+  is; nothing depends on that cap because the two Workers AI models answer first, and a
+  one-time $10 credit purchase (daily cap 1000) is the only spend question left.
 - **Open-item sweep** (2026-09-13): the Worker's OpenRouter chain replaced with the three
   free models that pass the real prompt, plus closed-reason logging of every AI provider
   attempt (see Release Blockers for the undeployed state); Turkish copy moved to one

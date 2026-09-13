@@ -133,12 +133,12 @@ Approved 2026-08-13 and restated 2026-08-30; rationale in [ADR 0007](adr/0007-ai
 
 ### Approved OpenRouter constraints
 
-- Use only free models or a free-model routing configuration, and never silently fall back to a paid model. Do not enable automatic credit top-up. Keep the API key only as a Worker secret with a per-key spending limit as an additional guardrail.
+- Use only free models or a free-model routing configuration, and never silently fall back to a paid model. Do not enable automatic credit top-up. Keep the API key only as a Worker secret with a per-key spending limit as an additional guardrail. A free slug enters the chain only after it has answered the real strict `json_schema` request with valid picks; the free pool is a thin last line (it is rate-capped per day and most free models stall or lack structured output), so robustness comes from the Workers AI models ahead of it and from a per-attempt timeout short enough that a stalled attempt leaves room for the next, not from adding more slugs.
 - Free models require the account setting that permits providers which may train on submitted data. This is acceptable only because the strict request schema admits no wardrobe-derived data, photos, paths, free-form names, identifiers or coordinates.
 
 ### Approved Workers AI constraints
 
-- Integrate through a Workers AI binding rather than exposing Cloudflare credentials to mobile. Select an explicitly evaluated structured-output-capable model.
+- Integrate through a Workers AI binding rather than exposing Cloudflare credentials to mobile. Configure only explicitly evaluated structured-output-capable models, each shown to return schema-valid, distinct, archetype-consistent picks for the real prompt on more than one weather scenario before it enters the chain; two such models from different families run ahead of the OpenRouter tail because Workers AI answers far more reliably than the free OpenRouter pool. Evaluated and rejected: a model that pairs two options differing in one slot, one that repeats an archetype, reasoning models that exhaust `max_tokens`, and anything slower than about five seconds.
 - Treat the free neuron allocation as a quota, not a guaranteed number of requests; on the Workers Free plan it is a hard stop rather than billable overage. Exceeding quota, capacity failure, invalid output or provider failure proceeds to the deterministic fallback.
 
 ## Generation mode, active AI probe and Worker rate limiting

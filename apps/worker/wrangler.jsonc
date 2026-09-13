@@ -17,6 +17,6 @@
   ],
   "vars": {
     "OPENROUTER_MODELS": ["nex-agi/nex-n2.5-mini:free", "nvidia/nemotron-3-super-120b-a12b:free", "nex-agi/nex-n2.5-pro:free"],
-    "WORKERS_AI_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+    "WORKERS_AI_MODELS": ["@cf/meta/llama-3.3-70b-instruct-fp8-fast", "@cf/mistralai/mistral-small-3.1-24b-instruct"]
   }
 }
