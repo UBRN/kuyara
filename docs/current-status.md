@@ -141,10 +141,16 @@ and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
 
 App Store submission, not TestFlight, is blocked by:
 
-- A Worker deploy and a new binary. The deployed Worker predates the 19-second AI deadline
-  and the shared model-input projection; redeploy it and confirm `origin.sourceId` and one
-  AI-assisted result live. Then build 5, uploaded to TestFlight and tested on a physical
-  iPhone, replaces build 4.
+- A new binary. The deployed Worker runs the current main and answers live with
+  `origin.sourceId` `weatherkit` and AI-assisted picks for realistic requests. Build 5
+  predates the on-device prompt that states the archetype eligibility and distinctness
+  rules, so a production build from the current main, uploaded to TestFlight and tested
+  on a physical iPhone, replaces builds 4 and 5.
+- The Worker AI chain has one live provider. The three OpenRouter free model slugs in the
+  Worker configuration return 404 upstream (two paywalled, one without a strict
+  structured-output endpoint), so Workers AI has no fallback behind it. Replacing them with
+  paid slugs is a spend decision that needs a hard limit; until it is taken, an AI failure
+  falls to the deterministic generator.
 - The App Store screenshots. Everything else in milestone 11 is done: GitHub Pages went
   live on 2026-09-11 from the main branch's `docs/` folder (`/privacy-policy` and
   `/support` fetched with status 200), and the questionnaire, the privacy policy and
