@@ -5,8 +5,9 @@ Status: Accepted (2026-09-09)
 Implementation: the milestone 10 consent sheet, Settings Privacy surface, fail-closed
 adapter, and PostHog project configuration are complete. Milestone 11 items 1 and 2 are
 complete, consent is the recorded lawful basis, and the maintainer signed PostHog's DPA on
-2026-09-11. Nothing is recorded or queued before consent. This ADR defines Apple's privacy
-requirements for the analytics direction in
+2026-09-11. Nothing is recorded or queued before consent. EAS Observe performance and
+diagnostic telemetry is bound to the same consent answer; its disclosure rows are in
+section 7. This ADR defines Apple's privacy requirements for the analytics direction in
 [ADR 0023](0023-behavioural-product-analytics-with-posthog.md) and the resulting consent,
 revocation, deletion, and disclosure rules.
 
@@ -56,8 +57,9 @@ Against Apple's category list on that page, kuyara's planned collection maps as 
 |---|---|---|
 | Usage Data: Product Interaction | Yes, from milestone 10 | Apple's example is "app launches, taps, clicks, scrolling information ... or other information about how the user interacts with the app". Screen, navigation, recommendation and Closet events are exactly this. |
 | Usage Data: Other Usage Data | Yes, from milestone 10 | Coarse product properties that are not interactions, such as generation mode or fallback state. PostHog's own iOS manifest declares this category alongside Product Interaction. |
-| Diagnostics: Crash Data, Performance Data, Other Diagnostic Data | Yes, from milestone 12, not before | PostHog Error Tracking sends crash and exception data. It is not collected until that milestone lands, and the questionnaire is updated then. |
-| Identifiers: Device ID or User ID | Yes, from milestone 10 | The SDK's random per-install identifier is an "other device-level ID" and is declared linked to the user because profile-derived properties ride on it; see section 5. |
+| Diagnostics: Performance Data, Other Diagnostic Data | Yes, from the EAS Observe integration | Launch, navigation and readiness timing, two coarse product-performance events, handled-error reports and a launch-window network rollup. Section 7 records what is sent. |
+| Diagnostics: Crash Data | No | PostHog Error Tracking would send crash and exception data. It is not collected until milestone 12 lands, and the questionnaire is updated then. |
+| Identifiers: Device ID or User ID | Yes, from milestone 10 | Two independent random per-install identifiers, PostHog's and Observe's `expo.eas_client.id`, each an "other device-level ID". They are never joined to each other or to `localProfileId`, and both are declared linked to the user because profile-derived properties ride on the analytics one; see section 5 and section 7. |
 | Location: Coarse Location | No | PostHog derives `$geoip_city_name` and related properties from the request IP on its servers. Apple's Coarse Location definition covers any location "with lower resolution than a latitude and longitude with three or more decimal places". IP discard and the separately disabled GeoIP transformation keep this category out; see section 5. |
 | Precise Location | No | Coordinates never enter an analytics payload under ADR 0023. Section 7 records why the app-wide answer is also no. |
 | Health, Sensitive Info, Contacts, User Content, Photos | No | Nothing in the taxonomy touches them. Gender and dress style are stored profile values, not sensitive-info categories in Apple's list; section 5 governs linkage. |
@@ -393,8 +395,97 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
   item, checked again before the next App Store submission, and it is not assumed in either
   direction in the meantime.
 
-  Red lines: coordinates never enter a URL, a query string, a header, an analytics event, or
-  a log statement. If Cloudflare documents that request bodies are stored, invocation logs
+- **EAS Observe.** Performance and diagnostic telemetry through `expo-observe` 57.0.21 is
+  separate from PostHog and carries no product behaviour. Its payloads go to Expo's endpoint
+  `https://o.expo.dev/<project-id>/v1/{metrics,logs}` as OpenTelemetry over HTTP. Dispatch
+  follows the same consent answer: `granted` dispatches, `withdrawn` and `undecided` do not,
+  and a debug build dispatches only behind an environment flag that is off by default.
+  Because `Observe.configure()` is a full replacement the native layer persists and reads at
+  dispatch time, withdrawal takes effect in the same session rather than at the next launch;
+  metrics already written to the on-device store before the change are marked as sent
+  without being dispatched, so nothing recorded before withdrawal is delivered afterwards.
+  The two user-defined events, `recommendation.generated` and `weather.refreshed`, carry
+  closed enums and integer durations only, and every route and query parameter is filtered,
+  which also replaces the resolved URL with `urlHidden`. The package itself attaches, from
+  its own source (`ios/OpenTelemetry.swift`, `toOTMetadata`): a persistent per-installation
+  UUID (`expo.eas_client.id`, from `EASClientID.uuid()` in `expo-eas-client`, stored in
+  `UserDefaults.standard` under `expo.eas-client-id`), OS name and version, device model
+  name and identifier, language tag, app identifier, version, build number, update id,
+  channel and runtime version, and the host of the slowest network request in the launch
+  window (`expo.network.requests.slowestHost`, from `expo-app-metrics`
+  `ios/Utils/MetricParamsBuilder.swift`). That rollup has no off switch in this version.
+  Neither package ships a `PrivacyInfo.xcprivacy`, so the app's own privacy manifest and
+  questionnaire must cover this collection. Expo's Observe documentation states no retention
+  period, no IP handling and no data-collection inventory (configuration page, read
+  2026-09-13), so retention is an open item to settle with Expo before submission.
+
+  App Privacy rows Observe requires, against Apple's App Privacy Details page
+  (<https://developer.apple.com/app-store/app-privacy-details/>, read 2026-09-13):
+
+  | Apple category | Applies | Apple's definition, quoted | Why |
+  |---|---|---|---|
+  | Diagnostics: Performance Data | Yes, from the Observe integration | "Such as launch time, hang rate, or energy use" | Cold and warm launch, time to first render, time to interactive and navigation timing are exactly this. |
+  | Diagnostics: Other Diagnostic Data | Yes, from the Observe integration | "Any other data collected for the purposes of measuring technical diagnostics related to the app" | The two user-defined events, the handled-error reports and the network rollup. |
+  | Identifiers: Device ID | Yes, from the Observe integration | "Such as the device's advertising identifier, or other device-level ID" | `expo.eas_client.id` is a persistent per-installation UUID on every payload. |
+  | Diagnostics: Crash Data | No | "Such as crash logs" | The unhandled-error handler records JS exceptions as diagnostic log events; iOS crash reports are not sent by this integration. Revisit with PostHog Error Tracking in milestone 12. |
+
+  The same three rows are in `apps/mobile/app.json` under `ios.privacyManifests`, copied from
+  Apple's own identifier list: `NSPrivacyCollectedDataTypePerformanceData`,
+  `NSPrivacyCollectedDataTypeOtherDiagnosticData` and `NSPrivacyCollectedDataTypeDeviceID`,
+  each linked and not tracking. Apple's purpose list has no diagnostics entry; the closest
+  match is `NSPrivacyCollectedDataTypePurposeAppFunctionality`, defined as "such as to
+  authenticate the user, enable features, prevent fraud, implement security measures, ensure
+  server up-time, minimize app crashes, improve scalability and performance, or perform
+  customer support", which is what this telemetry is for. `NSPrivacyCollectedDataTypePurposeAnalytics`
+  is defined as "using data to evaluate user behavior", which Observe deliberately does not
+  do. The Device ID row carries both purposes, because one row covers both per-install
+  identifiers: PostHog's is collected for analytics and Observe's for app functionality.
+  (`NSPrivacyCollectedDataType` and `NSPrivacyCollectedDataTypePurposes`, read 2026-09-13.)
+
+  `NSPrivacyAccessedAPITypes` is deliberately not extended for the `UserDefaults` read
+  behind `expo.eas_client.id`. Apple states that "if you use the API in your third-party
+  SDK's code, then you need to report the API in your third-party SDK's privacy manifest
+  file", and that a third-party SDK "can't rely on the privacy manifest files for apps that
+  link the third-party SDK" (Describing use of required reason API, read 2026-09-13). The
+  app's own code does not touch `UserDefaults`; `expo-eas-client`, `expo-observe` and
+  `expo-app-metrics` ship no manifest, while four other linked Expo pods (`expo-constants`,
+  `expo-task-manager`, `expo-notifications`, `expo-system-ui`) already declare
+  `NSPrivacyAccessedAPICategoryUserDefaults` with reason `CA92.1`. The missing manifests are
+  an upstream gap to raise with Expo before submission, not something the app manifest can
+  close.
+
+  `device.model.name` is not a user-chosen name on either platform: iOS reads
+  `UIDevice.current.model`, the generic model string, with a simulator suffix, so a session
+  shows "iPhone (Simulator)" rather than the user-assigned device name that iOS 16 withholds
+  without the user-assigned-device-name entitlement, which kuyara does not hold
+  (`expo-app-metrics/ios/Storage/DeviceInfo.swift`, `getDeviceModelName`, and
+  `ios/Database/SessionRow+Builder.swift`); Android reads `Build.DEVICE`, the build-time
+  industrial design name, never the user-settable device name
+  (`expo-app-metrics/android/src/main/java/expo/modules/appmetrics/AppMetadataProvider.kt`).
+
+  One limit stands: `dispatchingEnabled` gates delivery, not recording. The app's own
+  `logEvent` and `reportError` calls are gated on the consent answer at the adapter, so
+  nothing kuyara emits is written before consent, but the package's automatic unhandled-error
+  records are written from the moment `expo-app-metrics` is imported, and a flush while
+  dispatch is disabled only advances the cursor when it actually runs
+  (`expo-observe/ios/Observability.swift`, `dispatchMetrics` and `dispatchLogs`), which
+  happens on resign-active and terminate. Records made before consent in a session that is
+  never backgrounded before the grant are therefore delivered after it. The package offers no
+  way to clear them on iOS: `clearStoredEntries` is an empty no-op there
+  (`expo-app-metrics/ios/AppMetricsModule.swift`), and only Android implements it
+  (`android/.../storage/SessionManager.kt`, `clearAllData`). This is an upstream gap to raise
+  with Expo alongside the missing privacy manifests.
+
+  Linkage follows section 5: these rows are declared **linked to the user**, on the same
+  reasoning that made the analytics identifier linked. Tracking stays "no": the identifier
+  is app-scoped, is never joined to data from other companies' apps or sites, and is never
+  shared with a data broker.
+
+  Red lines: no AI provider or model identity, no prompt, no wardrobe value, no profile
+  preference, no coordinate, no place name, no `localProfileId` and no free text in an
+  Observe payload; a caught error reaches Observe only as a code and coarse attributes,
+  never with its own message. Coordinates never enter a URL, a query string, a header, an
+  analytics event, or a log statement. If Cloudflare documents that request bodies are stored, invocation logs
   are disabled (`invocation_logs = false`) or sampled to zero before the next submission,
   and the questionnaire answer is re-derived before it is filed.
 
@@ -404,8 +495,9 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
   milestone 10's definition of done because Apple requires both regardless of anonymity.
 - ATT remains not applicable under Apple's cited definition.
 - The App Store questionnaire answer set is known in advance: Product Interaction and
-  Other Usage Data for analytics, Diagnostics categories only when Error Tracking lands,
-  no Location, no tracking, and linked to the user.
+  Other Usage Data for analytics, Performance Data, Other Diagnostic Data and Device ID for
+  the EAS Observe integration, Crash Data only when Error Tracking lands, no Location, no
+  tracking, and linked to the user.
 - Apple's account-deletion rule does not apply to the accountless release, but the privacy
   policy still has to describe revocation and a deletion request path, and the accounts
   milestone inherits an analytics-deletion obligation.
@@ -424,12 +516,23 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
 Apple, all read 2026-09-09:
 
 - App Privacy Details on the App Store: <https://developer.apple.com/app-store/app-privacy-details/>
+- NSPrivacyCollectedDataType and NSPrivacyCollectedDataTypePurposes value lists, read 2026-09-13: <https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacycollecteddatatypes>
+- Describing use of required reason API, read 2026-09-13: <https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api>
 - User Privacy and Data Use: <https://developer.apple.com/app-store/user-privacy-and-data-use/>
 - App Store Review Guidelines, section 5.1 Privacy: <https://developer.apple.com/app-store/review/guidelines/#privacy>
 - Offering account deletion in your app: <https://developer.apple.com/support/offering-account-deletion-in-your-app/>
 - Privacy manifest files: <https://developer.apple.com/documentation/bundleresources/privacy-manifest-files>
 - Describing data use in privacy manifests: <https://developer.apple.com/documentation/bundleresources/describing-data-use-in-privacy-manifests>
 - Upcoming third-party SDK requirements: <https://developer.apple.com/support/third-party-SDK-requirements/>
+
+Expo, read 2026-09-13:
+
+- EAS Observe configuration: <https://docs.expo.dev/eas/observe/configuration/>
+- Source: `expo-observe@57.0.21` (`ios/OpenTelemetry.swift`, `ios/Observability.swift`,
+  `ios/ObserveModule.swift`, `src/types.ts`), `expo-app-metrics@57.0.18`
+  (`ios/Utils/MetricParamsBuilder.swift`, `src/installErrorHandler.ts`) and
+  `expo-eas-client@57.0.4` (`ios/EASClient/EASClientID.swift`), as installed in this
+  repository
 
 Cloudflare, read 2026-09-13:
 

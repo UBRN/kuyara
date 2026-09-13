@@ -98,6 +98,14 @@ jest.mock('expo-router', () => {
   };
 });
 
+// The Observe adapter resolves to its no-op binding under Jest, so the interactive mark is
+// observed here rather than through the native module.
+const mockMarkInteractive = jest.fn();
+jest.mock('@/features/analytics/data/observe-performance-telemetry', () => ({
+  ...jest.requireActual('@/features/analytics/data/observe-performance-telemetry'),
+  useObserveInteractiveMark: () => mockMarkInteractive,
+}));
+
 const todayRecommendation = todayScreenState.snapshot.recommendation;
 if (todayRecommendation.status !== 'recommended') {
   throw new Error('Expected the Today fixture to contain a recommendation.');
@@ -294,7 +302,56 @@ import OutfitDetailRoute from '@/app/(tabs)/(today)/[id]';
 beforeEach(() => {
   mockPush.mockClear();
   mockBack.mockClear();
+  mockMarkInteractive.mockClear();
   mockParams = {};
+});
+
+test('Today marks itself interactive once, with the coarse presentation kind', async () => {
+  const view = await render(
+    <Providers
+      productAnalytics={createProductAnalytics()}
+      profile={profileValue()}
+      recommendation={recommendationReady()}
+      wardrobe={wardrobeValue()}
+      weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  expect(mockMarkInteractive).toHaveBeenCalledTimes(1);
+  expect(mockMarkInteractive).toHaveBeenCalledWith({ state: 'loaded' });
+
+  // A later render, even one that changes the presentation, must not move the mark.
+  await act(async () => {
+    view.rerender(
+      <Providers
+        productAnalytics={createProductAnalytics()}
+        profile={profileValue()}
+        recommendation={recommendationReady({ isRefreshing: true })}
+        wardrobe={wardrobeValue()}
+        weather={weatherValue({ isRefreshing: true })}>
+        <TodayRoute />
+      </Providers>,
+    );
+  });
+
+  expect(mockMarkInteractive).toHaveBeenCalledTimes(1);
+});
+
+test('Today marks itself interactive on its first presentation even when that is the loading one', async () => {
+  await render(
+    <Providers
+      productAnalytics={createProductAnalytics()}
+      profile={profileValue()}
+      recommendation={{ status: 'loading' }}
+      wardrobe={wardrobeValue()}
+      weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  expect(mockMarkInteractive).toHaveBeenCalledTimes(1);
+  expect(mockMarkInteractive).toHaveBeenCalledWith({ state: 'loading' });
 });
 
 test('Today reports screen_viewed and recommendation_viewed once while a recommendation is loaded', async () => {

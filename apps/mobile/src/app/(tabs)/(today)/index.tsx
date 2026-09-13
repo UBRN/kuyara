@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FailureCategory } from '@/domain/failure-category';
 import { useAnalyticsConsentTrigger } from '@/features/analytics/application/analytics-consent-trigger';
 import { useFocusedErrorEpisode } from '@/features/analytics/application/use-focused-error-episode';
+import { useScreenInteractive } from '@/features/analytics/application/use-screen-interactive';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import {
@@ -89,6 +90,10 @@ export default function TodayRoute() {
     todayFailure = weatherState.refreshFailure;
     recommendationFailure = recommendationState.lastFailure;
   }
+
+  // Today is the first screen the shell mounts after bootstrap, so its first presentation
+  // is the moment the app is usable. The kind is coarse: loading, loaded or unavailable.
+  useScreenInteractive({ state: state.kind });
 
   // Only the focused Today route can show these failures. A weather failure belongs to
   // the composite Today surface; a recommendation failure belongs to its distinct surface.

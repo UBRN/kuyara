@@ -13,7 +13,15 @@ import {
   useAnalyticsConsentTrigger,
 } from '@/features/analytics/application/analytics-consent-trigger';
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
+import { PerformanceTelemetryContext } from '@/features/analytics/application/use-performance-telemetry';
+import { readAnalyticsConsentSync } from '@/features/analytics/data/analytics-consent-sync-source';
 import { createProductAnalytics } from '@/features/analytics/data/create-product-analytics';
+import {
+  configureObserveTelemetry,
+  observePerformanceTelemetry,
+  withObserveRoot,
+} from '@/features/analytics/data/observe-performance-telemetry';
+import { telemetryDispatchingEnabled } from '@/features/analytics/domain/performance-telemetry';
 import { NotificationApplicationProvider } from '@/features/notifications/application/notification-application-provider';
 import { WeatherAlertObserver } from '@/features/notifications/application/weather-alert-observer';
 import {
@@ -27,7 +35,19 @@ import { BootstrapScreen } from '@/features/profile/presentation/bootstrap-scree
 import { RecommendationApplicationProvider } from '@/features/recommendation/application/recommendation-application-provider';
 import { WeatherApplicationProvider } from '@/features/weather/application/weather-application-provider';
 import { WardrobeApplicationProvider } from '@/features/wardrobe/application/wardrobe-application-provider';
+import { openKuyaraDatabaseSync } from '@/infrastructure/sqlite/expo-sqlite-database';
 import { useKuyaraTheme } from '@/theme/theme-context';
+
+// Module scope, before the first render: Observe's expo-router integration has to be
+// enabled before any screen mounts, and the same call decides whether anything is
+// dispatched. The consent answer is therefore read synchronously from SQLite here. A
+// consent change inside the session re-applies the configuration through the port
+// (`setDispatching`), so withdrawal takes effect immediately rather than at the next launch.
+configureObserveTelemetry({
+  dispatchingEnabled: telemetryDispatchingEnabled(
+    readAnalyticsConsentSync(openKuyaraDatabaseSync),
+  ),
+});
 
 type ReadyApplicationShellProps = Readonly<{
   profile: LocalProfile;
@@ -147,10 +167,15 @@ function ThemedApplicationShell() {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
   return (
-    <ProfileApplicationProvider>
-      <ThemedApplicationShell />
-    </ProfileApplicationProvider>
+    <PerformanceTelemetryContext value={observePerformanceTelemetry}>
+      <ProfileApplicationProvider>
+        <ThemedApplicationShell />
+      </ProfileApplicationProvider>
+    </PerformanceTelemetryContext>
   );
 }
+
+// `ObserveRoot` marks the first render and mounts the router integration's storage provider.
+export default withObserveRoot(RootLayout);
