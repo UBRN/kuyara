@@ -56,7 +56,13 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   exits, and withdrawal clears the SDK's persisted queue and holds the opt-out through the
   reset. Phase 3 landed the taxonomy's feature call sites on 2026-09-10, so every
   approved event is emittable except `error_shown` on the `settings` and `onboarding`
-  surfaces, which have no failure classification to observe yet. See
+  surfaces, which have no failure classification to observe yet. EAS Observe landed
+  alongside it on 2026-09-13 as separate observability instrumentation: its own
+  `PerformanceTelemetry` port and single `expo-observe` adapter, launch-time configuration
+  bound to the same consent answer through a synchronous read of
+  `local_profiles.analytics_consent`, per-screen readiness marks, and the two events
+  `recommendation.generated` and `weather.refreshed`. Dispatch and the dashboard are
+  unverified: that needs a native build. See
   [ADR 0023](adr/0023-behavioural-product-analytics-with-posthog.md) and
   [ADR 0033](adr/0033-apple-privacy-obligations-for-first-party-analytics.md).
 - **Design:** Direction E ([ADR 0021](adr/0021-direction-e-a-visual-first-design-language.md))

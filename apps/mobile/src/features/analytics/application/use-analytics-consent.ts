@@ -1,5 +1,7 @@
 import type { AnalyticsConsentSurface } from '@/features/analytics/domain/product-analytics';
+import { usePerformanceTelemetry } from '@/features/analytics/application/use-performance-telemetry';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
+import { telemetryDispatchingEnabled } from '@/features/analytics/domain/performance-telemetry';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import type { AnalyticsConsent } from '@/features/profile/domain/profile';
 
@@ -13,6 +15,7 @@ export type AnalyticsConsentControls = Readonly<{
 
 export function useAnalyticsConsent(): AnalyticsConsentControls {
   const { analytics, errorEpisodes, firstUses, retries } = useProductAnalytics();
+  const telemetry = usePerformanceTelemetry();
   const { state, updateAnalyticsConsent } = useProfileApplication();
 
   if (state.status !== 'ready') {
@@ -35,9 +38,15 @@ export function useAnalyticsConsent(): AnalyticsConsentControls {
       // For the initial undecided window, keep the onboarding session's tracker state.
       // Resetting it would lose counts or permit a duplicate first use after buffered events.
       await analytics.optIn(surface);
+      telemetry.setDispatching(telemetryDispatchingEnabled('granted'));
     },
     withdraw: async () => {
       await updateAnalyticsConsent('withdrawn');
+      // Observe's configuration is a full replacement the native side persists and reads at
+      // dispatch time, so this stops dispatch in the same session rather than at the next
+      // launch. Metrics already written to the on-device store before this call are marked
+      // as sent without being dispatched.
+      telemetry.setDispatching(telemetryDispatchingEnabled('withdrawn'));
       await analytics.withdraw();
       // The first-use set belongs to the severed identity (taxonomy 5.11).
       await firstUses.clear();
@@ -46,6 +55,7 @@ export function useAnalyticsConsent(): AnalyticsConsentControls {
     },
     decline: async () => {
       await updateAnalyticsConsent('withdrawn');
+      telemetry.setDispatching(telemetryDispatchingEnabled('withdrawn'));
       await analytics.decline();
     },
   };

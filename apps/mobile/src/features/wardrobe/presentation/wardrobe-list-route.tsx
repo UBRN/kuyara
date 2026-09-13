@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { useFocusedErrorEpisode } from '@/features/analytics/application/use-focused-error-episode';
+import { useScreenInteractive } from '@/features/analytics/application/use-screen-interactive';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
 import {
   ANALYTICS_SCHEMA_VERSION,
@@ -38,6 +39,7 @@ export function WardrobeListRoute({
   }, [state.status]);
 
   useScreenViewed('closet_list');
+  useScreenInteractive(state.status === 'ready' ? { state: 'ready' } : null);
 
   useFocusEffect(
     useCallback(() => {

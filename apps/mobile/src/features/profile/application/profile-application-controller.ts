@@ -2,6 +2,7 @@ import type {
   LanguagePreference,
   ThemePreference,
 } from '@/domain/preferences';
+import { TelemetryError } from '@/features/analytics/domain/performance-telemetry';
 import type { ProfileRepository } from '@/features/profile/data/profile-repository';
 import type {
   AnalyticsConsent,
@@ -57,9 +58,17 @@ export class ProfileApplicationController {
   private updatePromise: Promise<void> | null = null;
   private readonly listeners = new Set<Listener>();
   private readonly loadRepository: () => Promise<ProfileRepository>;
+  private readonly reportError: (error: TelemetryError) => void;
 
-  constructor(loadRepository: () => Promise<ProfileRepository>) {
+  // `reportError` is optional so existing composition and tests are unchanged. The bootstrap
+  // stage is the one failure the user cannot work around and cannot report, so it is worth a
+  // diagnostic.
+  constructor(
+    loadRepository: () => Promise<ProfileRepository>,
+    reportError: (error: TelemetryError) => void = () => undefined,
+  ) {
     this.loadRepository = loadRepository;
+    this.reportError = reportError;
   }
 
   getSnapshot = (): ProfileApplicationState => this.state;
@@ -141,6 +150,11 @@ export class ProfileApplicationController {
         : String(reportedError);
       console.error(
         `[profile-bootstrap] stage=${reason} error=${name.replace(/[\r\n]+/g, ' ')} message=${message.replace(/[\r\n]+/g, ' ').slice(0, 200)}`,
+      );
+      // Only the stage and the thrown value's class name. A SQLite or migration message can
+      // quote row values, so it stays in the local console line and never leaves the device.
+      this.reportError(
+        new TelemetryError('profile.bootstrap_failed', { stage: reason, error_name: name }),
       );
       this.setState({ status: 'error', reason });
     }

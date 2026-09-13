@@ -288,6 +288,17 @@ Approved 2026-09-04, settled by [ADR 0033](adr/0033-apple-privacy-obligations-fo
 - These findings are verified against current official Apple documentation before implementation and again before submission; identity linking when accounts arrive remains open.
 - Consent is the lawful basis (decided 2026-09-11, ADR 0033 section 7). The privacy policy promises withdrawal from Settings, severance of the analytics identifier on withdrawal and twelve-month retention; deletion can be requested from the maintainer by email without a guaranteed outcome, because anonymous events cannot be deleted by identifier. The policy and the support page are published from the main branch's `docs/` folder through GitHub Pages under `https://ubrn.github.io/kuyara/`.
 
+## Approved observability instrumentation
+
+Approved 2026-09-13. Recorded in [ADR 0033](adr/0033-apple-privacy-obligations-for-first-party-analytics.md) section 7; the architecture is in [`architecture.md`](architecture.md#the-observability-boundary).
+
+- **EAS Observe is observability, not product analytics.** It measures launch, navigation and readiness timing and records handled failures. It never answers what a person did; PostHog remains the product analytics provider and the taxonomy remains its contract. There is no second analytics architecture, no second consent surface and no product-behaviour event in Observe.
+- **Dispatch follows the one consent answer already given.** `granted` dispatches; `withdrawn` and `undecided` do not, and neither does a debug build unless an environment flag is set for a verification run. The answer is read at launch and re-applied when it changes, so withdrawal stops dispatch in the same session.
+- **Two user-defined events only**, `recommendation.generated` and `weather.refreshed`, with closed enums and integer durations. Never in an Observe payload: an AI provider or model identity, a prompt, a wardrobe value, a profile preference, a coordinate, a place name, a persistent user or profile identifier, or free text. The weather attribution identifier is allowed because it is already a closed, non-secret enum in the mobile contract.
+- **Route and query parameters are filtered**, which also hides the resolved URL, so only the route pattern leaves the device.
+- **What the package itself sends** is part of the disclosure, not only what this app emits: a persistent per-installation identifier, device model and OS, app and update versions, language tag, and the host of the slowest request in the launch window. The network-request rollup has no off switch. Observe therefore adds Performance Data, Other Diagnostic Data and Device ID to the App Store Connect questionnaire before any Observe-enabled build is submitted.
+- **Cost posture.** Observe is an EAS service on the existing plan. The free EAS allowance is documented at up to 10,000 monthly active users; no automatic upgrade or pay-as-you-go overage is enabled, and sampling is available if the allowance is approached.
+
 ## Approved licensing posture
 
 Approved 2026-09-04. Canonical in [ADR 0024](adr/0024-relicensing-to-polyform-noncommercial.md); the terms are in [`LICENSE`](../LICENSE) and the summary in [`LICENSING.md`](../LICENSING.md).

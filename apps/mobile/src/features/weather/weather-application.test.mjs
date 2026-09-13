@@ -17,7 +17,10 @@ const nativeModuleMocks = new Map([
     export const Accuracy = { Low: 1 };
     export const PermissionStatus = { UNDETERMINED: 'undetermined' };
   `],
-  ['expo-sqlite', 'export async function openDatabaseAsync() { throw new Error("unused"); }'],
+  ['expo-sqlite', `
+    export async function openDatabaseAsync() { throw new Error("unused"); }
+    export function openDatabaseSync() { throw new Error("unused"); }
+  `],
   ['react-native', `
     export const AppState = { currentState: 'active', addEventListener() { return { remove() {} }; } };
     export const Linking = { openSettings() { return Promise.resolve(); } };
