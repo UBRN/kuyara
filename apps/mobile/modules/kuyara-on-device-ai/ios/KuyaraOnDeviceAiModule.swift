@@ -3,7 +3,8 @@
 // Structured JSON goes in and structured JSON comes out; prose never crosses this boundary
 // in either direction. Nothing here logs the input, the output or any part of either: a
 // recommendation request is user data and an on-device model is the reason it never leaves
-// the device. Errors are raised as coded exceptions with fixed messages.
+// the device. Errors are raised as coded exceptions whose message names one failure from a
+// closed list written here.
 
 import ExpoModulesCore
 
@@ -46,11 +47,24 @@ private let statusAvailable = "available"
 private let statusUnavailable = "unavailable"
 
 // One failure, because the JavaScript side keeps one: every on-device outcome except a
-// result sends the request to the Worker. A finer taxonomy here would name distinctions
-// nothing reads, and the reasons themselves must not carry model detail across the boundary.
+// result sends the request to the Worker. The code appended to the message is the only
+// detail that crosses, and it is a member of a closed list this file writes, never text the
+// framework or the model produced: a failure that says nothing is a failure nobody can fix.
 internal final class OnDeviceAiFailedException: Exception, @unchecked Sendable {
+  private let code: String
+
+  init(
+    _ code: String = "unknown",
+    file: String = #fileID,
+    line: UInt = #line,
+    function: String = #function
+  ) {
+    self.code = code
+    super.init(file: file, line: line, function: function)
+  }
+
   override var reason: String {
-    "On-device selection could not be completed."
+    "On-device selection could not be completed. (\(code))"
   }
 }
 
@@ -120,7 +134,10 @@ private func selectOutfits(input: String, timeoutMs: Int) async throws -> String
       let response = try await session.respond(
         to: input,
         schema: schema,
-        includeSchemaInPrompt: true,
+        // The schema already constrains `optionId` and `archetypeId` through `schema:`;
+        // echoing its 24-value `anyOf` into the prompt as well spends the 4096-token
+        // session window twice over on identifiers the decoder is bound by regardless.
+        includeSchemaInPrompt: false,
         options: GenerationOptions(sampling: .greedy)
       )
       return response.content.jsonString
@@ -193,8 +210,37 @@ private func pickSchema(optionIds: [String]) throws -> GenerationSchema {
   }
 }
 
+/// The generation failures the framework raises, as fixed lowercase codes. Nothing here is
+/// framework text: an unrecognised case is reported as unknown rather than described.
+@available(iOS 26.0, *)
+private func generationCode(_ error: LanguageModelSession.GenerationError) -> String {
+  switch error {
+  case .exceededContextWindowSize:
+    return "exceeded_context_window"
+  case .assetsUnavailable:
+    return "assets_unavailable"
+  case .guardrailViolation:
+    return "guardrail_violation"
+  case .unsupportedGuide:
+    return "unsupported_guide"
+  case .unsupportedLanguageOrLocale:
+    return "unsupported_language_or_locale"
+  case .decodingFailure:
+    return "decoding_failure"
+  case .rateLimited:
+    return "rate_limited"
+  case .concurrentRequests:
+    return "concurrent_requests"
+  case .refusal:
+    return "refusal"
+  @unknown default:
+    return "unknown"
+  }
+}
+
 /// The caller enforces the same budget on the JavaScript side. Enforcing it here too means a
 /// session that never settles is cancelled rather than left running behind an abandoned call.
+@available(iOS 26.0, *)
 private func withTimeout(
   milliseconds: Int,
   _ work: @escaping @Sendable () async throws -> String
@@ -215,6 +261,8 @@ private func withTimeout(
     }
   } catch let exception as Exception {
     throw exception
+  } catch let error as LanguageModelSession.GenerationError {
+    throw OnDeviceAiFailedException(generationCode(error))
   } catch {
     // Provider errors carry model detail; only the coded failure crosses the boundary.
     throw OnDeviceAiFailedException()

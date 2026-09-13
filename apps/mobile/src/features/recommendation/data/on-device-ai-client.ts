@@ -87,7 +87,8 @@ export class OnDeviceAiClient {
       .selectOutfits(JSON.stringify(aiModelInputFromRequest(request)), {
         timeoutMs: this.timeoutMilliseconds,
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        reportFailureReason(error);
         throw new OnDeviceAiError();
       });
 
@@ -116,4 +117,30 @@ function parseReply(reply: string): unknown {
   } catch {
     throw new OnDeviceAiError();
   }
+}
+
+// The failure codes the native module writes into its message. Only a member of this list
+// is ever read back out, so nothing the framework or the model produced can escape with it.
+const failureReasons = [
+  'exceeded_context_window',
+  'assets_unavailable',
+  'guardrail_violation',
+  'unsupported_guide',
+  'unsupported_language_or_locale',
+  'decoding_failure',
+  'rate_limited',
+  'concurrent_requests',
+  'refusal',
+] as const;
+
+/**
+ * Development only, and the only place the failure code is read: the tier's outcome above
+ * this file stays the same single failure, so nothing reaches user copy, an analytics
+ * property or the Observe event. `typeof` because the Node suites define no `__DEV__`.
+ */
+function reportFailureReason(error: unknown): void {
+  if (typeof __DEV__ === 'undefined' || !__DEV__) return;
+  const message = error instanceof Error ? error.message : '';
+  const reason = failureReasons.find((candidate) => message.includes(candidate)) ?? 'unknown';
+  console.warn(`On-device AI selection failed: ${reason}.`);
 }
