@@ -1,7 +1,9 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router/react-navigation';
 import { router, Stack, usePathname } from 'expo-router';
+import Constants from 'expo-constants';
+import * as Device from 'expo-device';
 import { StatusBar } from 'expo-status-bar';
-import { Platform } from 'react-native';
+import { Platform, Share } from 'react-native';
 import { useCallback, useEffect, useState } from 'react';
 
 import {
@@ -28,10 +30,12 @@ import {
   registerBackgroundWeatherAlertTask,
   unregisterBackgroundWeatherAlertTask,
 } from '@/features/notifications/data/expo-background-weather-alert-task';
+import type { BootstrapReport } from '@/features/profile/application/profile-application-controller';
 import { ProfileApplicationProvider } from '@/features/profile/application/profile-application-provider';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import type { LocalProfile } from '@/features/profile/domain/profile';
 import { BootstrapScreen } from '@/features/profile/presentation/bootstrap-screen';
+import { composeBootstrapReportText } from '@/features/profile/presentation/bootstrap-report-text';
 import { RecommendationApplicationProvider } from '@/features/recommendation/application/recommendation-application-provider';
 import { WeatherApplicationProvider } from '@/features/weather/application/weather-application-provider';
 import { WardrobeApplicationProvider } from '@/features/wardrobe/application/wardrobe-application-provider';
@@ -48,6 +52,23 @@ configureObserveTelemetry({
     readAnalyticsConsentSync(openKuyaraDatabaseSync),
   ),
 });
+
+// The bootstrap screen renders before the router, the database and the consent answer exist,
+// so the only channel a user has for a launch failure is the system share sheet. The text is
+// composed on the device and shown in the sheet before anything is sent; a dismissed or
+// unavailable sheet rejects and is ignored.
+function shareBootstrapReport(report: BootstrapReport): void {
+  void Share.share({
+    message: composeBootstrapReportText(report, {
+      appVersion: Constants.expoConfig?.version,
+      buildNumber: Constants.platform?.ios?.buildNumber
+        ?? Constants.platform?.android?.versionCode?.toString(),
+      osName: Device.osName,
+      osVersion: Device.osVersion,
+      modelName: Device.modelName,
+    }),
+  }).catch(() => undefined);
+}
 
 type ReadyApplicationShellProps = Readonly<{
   profile: LocalProfile;
@@ -150,8 +171,9 @@ function ThemedApplicationShell() {
   if (state.status === 'error') {
     return (
       <BootstrapScreen
+        onReportProblem={() => shareBootstrapReport(state.report)}
         onRetry={() => void retry()}
-        reason={state.reason}
+        reason={state.report.stage}
         status="error"
       />
     );

@@ -150,6 +150,7 @@ export type AppMessages = Readonly<{
       string
     >>;
     retryAction: string;
+    reportAction: string;
   }>;
   onboarding: Readonly<{
     stepPosition: (position: number, total: number) => string;
@@ -461,6 +462,7 @@ const en = {
       'profile-load': 'Your profile could not be read.',
     },
     retryAction: 'Try again',
+    reportAction: 'Report a problem',
   },
   onboarding: {
     stepPosition: (position: number, total: number) => `Step ${position} of ${total}`,
@@ -928,6 +930,7 @@ const tr = {
       'profile-load': 'Profiliniz okunamadı.',
     },
     retryAction: 'Yeniden dene',
+    reportAction: 'Sorun bildir',
   },
   onboarding: {
     stepPosition: (position: number, total: number) => `${total} adımdan ${position}. adım`,
