@@ -97,14 +97,11 @@ tags:
 - assertVisible:
     id: today-screen
 
-# Best-effort: the deterministic composition in recommendation-application-controller.ts
-# (refreshOnce) sets the 'using-standard' phase and then, with no `await` before the next
-# `setPhase('preparing-outfits')` (recommendOutfits() is synchronous), both updates land in
-# the same React batch. On this build the phase text was never observed on screen (Today
-# went straight from onboarding to the settled badge in every run), so this assertion is
-# optional and does not gate the flow. The batching lives in
-# recommendation-application-controller.ts (refreshOnce, the deterministic branch) and is
-# not something to fix from this flow.
+# The 'using-standard' phase is held for usingStandardPhaseMilliseconds (800 ms, in
+# recommendation-application-controller.ts) before the deterministic composition runs, so
+# it is readable on screen. Maestro polls the tree, and an 800 ms window can still fall
+# between two polls on a slow host, so this assertion stays optional; the Node controller
+# suite is what pins the hold.
 - extendedWaitUntil:
     visible:
       id: "today-generating-status"

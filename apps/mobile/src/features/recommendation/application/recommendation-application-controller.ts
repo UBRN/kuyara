@@ -135,7 +135,15 @@ type Dependencies = Readonly<{
   // The availability the provider already read once on mount. `null` until it resolves,
   // which the event reports as `not_attempted` rather than guessing.
   getOnDeviceAvailability?: () => OnDeviceAiAvailability | null;
+  // The deterministic composition is synchronous, so without a pause the "using standard
+  // suggestions" phase would land in the same render as the settled result and never be
+  // seen. Optional so tests can replace the wait with a resolved promise.
+  holdPhase?: (milliseconds: number) => Promise<void>;
 }>;
+
+// Long enough to be read, short enough that the deterministic three still feel immediate;
+// the AI phases have their own natural durations and need no hold.
+export const usingStandardPhaseMilliseconds = 800;
 
 type Listener = () => void;
 
@@ -178,12 +186,15 @@ export class RecommendationApplicationController {
   private readonly dependencies: Dependencies;
   private readonly captureAnalyticsEvent: CaptureAnalyticsEvent;
   private readonly telemetry: PerformanceTelemetry | null;
+  private readonly holdPhase: (milliseconds: number) => Promise<void>;
 
   constructor(localProfileId: string, dependencies: Dependencies) {
     this.localProfileId = localProfileId;
     this.dependencies = dependencies;
     this.captureAnalyticsEvent = dependencies.captureAnalyticsEvent ?? (() => undefined);
     this.telemetry = dependencies.telemetry ?? null;
+    this.holdPhase = dependencies.holdPhase
+      ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
   }
 
   getSnapshot = (): RecommendationApplicationState => this.state;
@@ -285,6 +296,7 @@ export class RecommendationApplicationController {
     if (!recommendation) {
       this.setPhase(key, 'using-standard');
       try {
+        await this.holdPhase(usingStandardPhaseMilliseconds);
         const fallback = recommendOutfits(input);
         if (fallback.status !== 'recommended') {
           this.setLastFailure(aiFailure ?? 'unknown');
