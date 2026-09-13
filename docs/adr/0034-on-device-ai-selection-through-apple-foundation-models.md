@@ -243,17 +243,22 @@ The iPhone 17 Pro Simulator on the maintainer's macOS 26.6 host does reach Found
 Models: `SystemLanguageModel.default.availability` answers `available` and the system loads
 the 3B instruct assets and runs the inference on the host. That is not a device measurement.
 Simulator inference runs on the Mac, not on an iPhone's neural engine, so the numbers it
-produces describe neither eligible hardware nor a released build. One complete 24-option
-round trip there took about 5.3 s, inside the 6 s budget and close to it.
+produces describe neither eligible hardware nor a released build. Three complete 24-option
+round trips there sat at the budget's edge: one took about 5.3 s and succeeded, and two
+were cancelled by the 6 s budget, one while the 3B assets were still loading cold (about
+4 s of the budget) and one with warm assets whose response began arriving 6 ms after the
+cancel. On this host the on-device tier therefore lands as the AI-assisted badge more often
+than the on-device badge, which says nothing about eligible hardware and is not a reason to
+move the budget before the device measurement exists.
 
-Other attempts on the same host failed inside a tenth of a second with a
-`LanguageModelSession.GenerationError` carrying nested underlying errors. **That failure is
-undiagnosed.** It is not attributed to the Simulator, because nothing rules out the request
-itself: the projection alone fills much of the 4096-token session window. The module names
-the framework's case in the error it raises, so the next run reports which one it was.
-Diagnosing it is an open item for the hardware measurement, and it is the first thing to
-read before the table below is filled in: an on-device tier that fails fast is invisible to
-the user but buys nothing.
+The Simulator's availability answer is not proof that inference can run. With Apple
+Intelligence switched off on the Mac, the Simulator still answers `available`, and every
+attempt then fails inside a tenth of a second in the input safety model, before the 3B
+model runs, with `com.apple.UnifiedAssetFramework` code 5000 (no assets for
+`com.apple.modelcatalog`) wrapped in a `LanguageModelSession.GenerationError`. The request
+shape and the schema are not involved. Before measuring anything in the Simulator, confirm
+on the host that `SystemLanguageModel.default.availability` answers `available` from a
+macOS process, and read the Simulator log for `Code=5000` when an attempt fails fast.
 
 Automated verification covers the routed client against a fake native module (available,
 unavailable, timeout, invalid JSON, invented identifier, duplicate archetype), the shared
