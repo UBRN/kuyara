@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { createAiHandler } from './ai-handler.ts';
 import { OpenRouterAiProvider } from './openrouter-ai-provider.ts';
 
 const request = {
@@ -107,4 +108,76 @@ test('rejects a null response envelope as invalid', async () => {
     provider.generateOutfits(request, new AbortController().signal),
     { message: 'OpenRouter response invalid.' },
   );
+});
+
+// OpenRouter answers an exhausted free-model allowance with an HTTP 429 whose JSON body
+// names the exceeded allowance and whose headers report the remaining quota.
+const rateLimitedBody = JSON.stringify({
+  error: { message: 'Rate limit exceeded: free-models-per-day', code: 429 },
+});
+
+const rateLimitedFetch = async () => new Response(rateLimitedBody, {
+  status: 429,
+  headers: { 'Content-Type': 'application/json', 'X-RateLimit-Remaining': '0' },
+});
+
+test('a rate-limited response fails as a provider error without the key or the provider text', async () => {
+  const apiKey = 'private-api-key';
+  const controller = new AbortController();
+  const provider = new OpenRouterAiProvider({
+    apiKey,
+    model: 'provider/model',
+    fetch: rateLimitedFetch,
+  });
+  await assert.rejects(
+    provider.generateOutfits(request, controller.signal),
+    (error) => {
+      // A provider error, not a timeout: the handler classifies it as `provider_error` and
+      // gives the next provider its turn.
+      assert.equal(controller.signal.aborted, false);
+      assert.equal(error.message, 'OpenRouter request failed.');
+      for (const forbidden of [apiKey, 'free-models-per-day', 'Rate limit', '429', 'option-1']) {
+        assert.equal(error.message.includes(forbidden), false, forbidden);
+      }
+      return true;
+    },
+  );
+});
+
+test('a rate-limited response hands the turn to the next provider and leaks nothing', async (t) => {
+  const warnings = [];
+  t.mock.method(console, 'warn', (entry) => warnings.push(entry));
+  let nextProviderCalls = 0;
+  const handler = createAiHandler({ providers: [
+    new OpenRouterAiProvider({
+      apiKey: 'private-api-key',
+      model: 'provider/rate-limited',
+      fetch: rateLimitedFetch,
+    }),
+    {
+      model: 'provider/next',
+      async generateOutfits() {
+        nextProviderCalls += 1;
+        throw new Error('the next provider also failed');
+      },
+    },
+  ] });
+  const response = await handler(new Request('http://localhost/v1/ai/recommend', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(request),
+  }));
+  const serialized = await response.text();
+
+  assert.equal(nextProviderCalls, 1);
+  assert.equal(response.status, 503);
+  assert.equal(serialized, '{"error":{"code":"ai_unavailable"}}');
+  assert.deepEqual(warnings, [
+    { event: 'ai_provider_attempt_failed', model: 'provider/rate-limited', reason: 'provider_error' },
+    { event: 'ai_provider_attempt_failed', model: 'provider/next', reason: 'provider_error' },
+  ]);
+  for (const forbidden of ['private-api-key', 'free-models-per-day', 'X-RateLimit-Remaining', 'option-1']) {
+    assert.equal(serialized.includes(forbidden), false, forbidden);
+    assert.equal(JSON.stringify(warnings).includes(forbidden), false, forbidden);
+  }
 });

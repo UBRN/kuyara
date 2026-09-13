@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "wrangler dev --env=\"\"",
     "test": "node --experimental-strip-types --test \"src/**/*.test.mjs\"",
     "typecheck": "tsc --noEmit",
-    "bundle": "wrangler deploy --dry-run --outdir dist"
+    "bundle": "wrangler deploy --dry-run --outdir dist --env=\"\""
   },
   "dependencies": {
     "@kuyara/contracts": "workspace:*",

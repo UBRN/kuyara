@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { createAiHandler } from './ai-handler.ts';
 import { WorkersAiProvider } from './workers-ai-provider.ts';
 
 const request = {
@@ -129,4 +130,73 @@ test('rejects an already-aborted signal before calling the binding', async () =>
   });
   await assert.rejects(provider.generateOutfits(request, controller.signal));
   assert.equal(calls, 0);
+});
+
+// Cloudflare surfaces an account-level Workers AI failure as a thrown binding error whose
+// message carries its own numeric code and text; the daily allocation is the 3040 family
+// and the gateway reports it as a 429. The binding takes no AbortSignal, so a quota refusal
+// arrives as an ordinary rejection rather than an abort, and the chain has to move on.
+const quotaError = new Error(
+  'AiError: 3040: Account daily Neurons limit exceeded (429 Too Many Requests)',
+);
+
+test('a quota-exhausted binding fails as a provider error carrying nothing from the request', async () => {
+  const provider = new WorkersAiProvider({
+    model: '@cf/model',
+    ai: { run: async () => { throw quotaError; } },
+  });
+  const controller = new AbortController();
+  await assert.rejects(
+    provider.generateOutfits(request, controller.signal),
+    (error) => {
+      // A provider error, not a timeout: the handler must classify it as `provider_error`
+      // and give the next provider its turn.
+      assert.equal(controller.signal.aborted, false);
+      assert.equal(error.name, 'Error');
+      const serialized = `${error.name}: ${error.message}`;
+      for (const forbidden of ['option-1', 'mens', 't_shirt', 'trousers', 'sneakers']) {
+        assert.equal(serialized.includes(forbidden), false, forbidden);
+      }
+      return true;
+    },
+  );
+});
+
+test('a quota-exhausted binding hands the turn to the next provider and leaks nothing', async (t) => {
+  const warnings = [];
+  t.mock.method(console, 'warn', (entry) => warnings.push(entry));
+  let nextProviderCalls = 0;
+  const handler = createAiHandler({ providers: [
+    new WorkersAiProvider({
+      model: '@cf/quota-exhausted',
+      ai: { run: async () => { throw quotaError; } },
+    }),
+    {
+      model: 'provider/next',
+      async generateOutfits() {
+        nextProviderCalls += 1;
+        throw new Error('the next provider also failed');
+      },
+    },
+  ] });
+  const response = await handler(new Request('http://localhost/v1/ai/recommend', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(request),
+  }));
+  const serialized = await response.text();
+
+  assert.equal(nextProviderCalls, 1);
+  assert.equal(response.status, 503);
+  assert.equal(serialized, '{"error":{"code":"ai_unavailable"}}');
+  assert.deepEqual(warnings, [
+    { event: 'ai_provider_attempt_failed', model: '@cf/quota-exhausted', reason: 'provider_error' },
+    { event: 'ai_provider_attempt_failed', model: 'provider/next', reason: 'provider_error' },
+  ]);
+  // The binding's own text stays inside the Worker: neither the response nor the log
+  // repeats it.
+  for (const forbidden of ['3040', 'Neurons', '429', 'option-1']) {
+    assert.equal(serialized.includes(forbidden), false, forbidden);
+    assert.equal(JSON.stringify(warnings).includes(forbidden), false, forbidden);
+  }
 });
