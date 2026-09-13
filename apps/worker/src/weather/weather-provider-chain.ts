@@ -20,10 +20,10 @@ export function createWeatherProviderChain(dependencies: Readonly<{
       if (signal?.aborted) throw new WeatherProviderError('timeout');
 
       let lastEligibleError: unknown;
-      for (const provider of dependencies.providers.slice(
+      for (const [attemptIndex, provider] of dependencies.providers.slice(
         0,
         dependencies.maxAttempts ?? weatherMaxAttempts,
-      )) {
+      ).entries()) {
         if (signal?.aborted) throw new WeatherProviderError('timeout');
 
         const controller = new AbortController();
@@ -42,6 +42,14 @@ export function createWeatherProviderChain(dependencies: Readonly<{
           ]);
         } catch (error) {
           if (!isFallbackEligible(error)) throw error;
+          // The chain answers 200 from a lower-ranked provider, so a dead one is invisible
+          // in the response. The attempt position is the configured chain order; the kind
+          // is the adapter's closed classification, never the upstream message.
+          console.warn({
+            event: 'weather_provider_attempt_failed',
+            attempt: attemptIndex + 1,
+            kind: (error as WeatherProviderError).kind,
+          });
           lastEligibleError = error;
         } finally {
           clearTimeout(timeoutId!);

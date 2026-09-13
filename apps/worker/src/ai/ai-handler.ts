@@ -21,6 +21,14 @@ type Dependencies = Readonly<{
   maxAttempts?: number;
 }>;
 
+type ProviderFailureReason =
+  | 'timeout'
+  | 'provider_error'
+  | 'invalid_output'
+  | 'unknown_option'
+  | 'picks_not_distinct'
+  | 'archetype_precondition';
+
 const jsonHeaders = {
   'Cache-Control': 'no-store',
   'Content-Type': 'application/json; charset=utf-8',
@@ -40,6 +48,10 @@ function errorResponse(
 
 function defaultCache(): Cache | undefined {
   return (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
+}
+
+function logProviderFailure(provider: AiProvider, reason: ProviderFailureReason): void {
+  console.warn({ event: 'ai_provider_attempt_failed', model: provider.model, reason });
 }
 
 async function buildCacheRequest(request: AiRecommendV1Request): Promise<Request> {
@@ -130,13 +142,15 @@ export function createAiHandler({
       }
     }
 
-    for (const provider of providers.slice(0, maxAttempts)) {
+    for (const [attemptIndex, provider] of providers.slice(0, maxAttempts).entries()) {
       const remainingMs = deadline - Date.now();
       if (remainingMs <= 0) break;
       const controller = new AbortController();
+      let timedOut = false;
       let timeoutId: ReturnType<typeof setTimeout>;
       const timeout = new Promise<never>((_resolve, reject) => {
         timeoutId = setTimeout(() => {
+          timedOut = true;
           controller.abort();
           reject(new Error('AI provider attempt timed out.'));
         }, Math.min(attemptTimeoutMs, remainingMs));
@@ -146,22 +160,38 @@ export function createAiHandler({
           provider.generateOutfits(requestResult.data, controller.signal),
           timeout,
         ]);
-        if (controller.signal.aborted) continue;
+        if (controller.signal.aborted) {
+          logProviderFailure(provider, 'timeout');
+          continue;
+        }
 
         const result = aiRecommendV1SuccessSchema.safeParse(output);
-        if (!result.success) continue;
+        if (!result.success) {
+          logProviderFailure(provider, 'invalid_output');
+          continue;
+        }
 
         const pickedOptions = result.data.data.picks.map(({ optionId }) =>
           options.get(optionId));
         if (!pickedOptions.every((option): option is AiOption => option !== undefined)) {
+          logProviderFailure(provider, 'unknown_option');
           continue;
         }
-        if (!picksAreMeaningfullyDifferent(pickedOptions)) continue;
+        if (!picksAreMeaningfullyDifferent(pickedOptions)) {
+          logProviderFailure(provider, 'picks_not_distinct');
+          continue;
+        }
         if (!result.data.data.picks.every(({ archetypeId }, index) =>
           meetsArchetypePrecondition(archetypeId, pickedOptions[index]!))) {
+          logProviderFailure(provider, 'archetype_precondition');
           continue;
         }
 
+        console.info({
+          event: 'ai_provider_attempt_succeeded',
+          model: provider.model,
+          attempt: attemptIndex + 1,
+        });
         const response = Response.json(result.data, { status: 200, headers: jsonHeaders });
         if (cache && cacheRequest) {
           try {
@@ -174,7 +204,7 @@ export function createAiHandler({
         }
         return response;
       } catch {
-        // Provider failures are intentionally collapsed after bounded fallback.
+        logProviderFailure(provider, timedOut ? 'timeout' : 'provider_error');
       } finally {
         clearTimeout(timeoutId!);
       }
