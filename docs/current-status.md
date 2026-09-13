@@ -172,14 +172,23 @@ and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
 ## Release Blockers
 
 Version 0.1.20260913 with build 8 was submitted for App Review on 2026-09-13 through
-`asc review submit` (submission `b125d544`, state WAITING_FOR_REVIEW); release is manual
-after approval. The EU Digital Services Act trader-status declaration was entered in App
-Store Connect on 2026-09-13 as non-trader. No item is open on the maintainer's side;
-what remains is Apple's review and the manual release after approval.
+`asc review submit` (submission `b125d544`); release is manual after approval. The EU
+Digital Services Act trader-status declaration was entered in App Store Connect on
+2026-09-13 as non-trader. On 2026-09-14 Apple answered with Guideline 2.1 Information
+Needed, the six-item questionnaire sent to accounts with a limited review history
+(physical-device recording, purpose, setup, external services, regional differences,
+regulated content); it names no defect in the binary or the metadata. The maintainer
+answers in the Resolution Center and in App Review Information Notes, attaches the
+recording, and resubmits the same build 8. What remains after that is Apple's review and
+the manual release after approval.
 
-The physical-device check of build 8 ran on 2026-09-13 at about 18:30 UTC on the
-maintainer's iPhone 14 Pro from TestFlight: Today showed the "AI assisted" badge against
-the production Worker, which is the point of the build. Build 7 on the same device had shown "Standard
+The full-flow recording Apple asked for was captured on 2026-09-14 on the maintainer's
+iPhone 14 Pro on iOS 26.6.2 from the TestFlight build 8, from app launch through
+onboarding, the location prompt, the first three-outfit recommendation, an outfit detail,
+the Weather tab, the city search and the Profile tab with the Closet and Settings; no crash
+or hang was seen. The earlier physical-device check of build 8 ran on 2026-09-13 at about
+18:30 UTC on the same iPhone 14 Pro from TestFlight: Today showed the "AI assisted" badge
+against the production Worker, which is the point of the build. Build 7 on the same device had shown "Standard
 suggestions" on every recommendation, the validation-gate defect build 8 fixes: the
 mobile validation gate rebuilt each picked option with the first valid arrangement of
 its garments instead of the offered one, so a healthy Worker answer that picked an
@@ -187,8 +196,8 @@ option with a mid layer or an optional outer layer was refused whole and the
 deterministic three were shown; the same rebuild refused 84 of 648 deterministic results
 at save time. The full flow pass on record ran on build 6 on 2026-09-13 (iPhone 14 Pro,
 no problem found); builds 7 and 8 are the first binaries that carry catalog version 4
-(jumpsuit and leggings womens-only) and the Crash Data privacy manifest row, and the
-build 8 check covered the badge, not every flow. The iPhone 14 Pro is not Apple
+(jumpsuit and leggings womens-only) and the Crash Data privacy manifest row; the 2026-09-13
+build 8 check covered the badge, and the 2026-09-14 recording covered every flow. The iPhone 14 Pro is not Apple
 Intelligence eligible, so it exercises the Worker tier and the fallback only; the
 on-device tier remains unmeasured on eligible hardware, as ADR 0034's verification
 boundary records, and the Simulator run of the same day landed at the 6 s budget's
