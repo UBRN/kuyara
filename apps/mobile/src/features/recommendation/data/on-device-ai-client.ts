@@ -27,11 +27,23 @@ export class OnDeviceAiError extends Error {
   }
 }
 
-// ADR 0034 section 2: one attempt, no retry, 6 s for the on-device tier. The budget covers
+// ADR 0034 section 2: one attempt, no retry, 8 s for the on-device tier. The budget covers
 // the whole on-device cost, the availability read included, so no part of the tier can spend
 // time outside it. It is the tier's own budget: the Worker tier behind it gets its whole
 // wait regardless of what was spent here.
-export const onDeviceAiBudgetMilliseconds = 6000;
+export const onDeviceAiBudgetMilliseconds = 8000;
+
+/**
+ * Development-only switch, documented in docs/testing.md under "AI tiers in E2E". With
+ * `EXPO_PUBLIC_KUYARA_ON_DEVICE_AI=off` a development build drops the on-device tier, which
+ * is how an automated flow reaches the Worker and the deterministic fallback deliberately.
+ * `__DEV__` is the gate and it is read first: a release build ignores the variable whatever
+ * it holds. `typeof` because the Node suites define no `__DEV__`.
+ */
+export function onDeviceAiSwitchedOff(): boolean {
+  if (typeof __DEV__ === 'undefined' || !__DEV__) return false;
+  return process.env.EXPO_PUBLIC_KUYARA_ON_DEVICE_AI === 'off';
+}
 
 type Dependencies = Readonly<{
   module: OnDeviceAiModule | null;
@@ -70,7 +82,7 @@ export class OnDeviceAiClient {
     const module = this.module;
     if (!module) throw new OnDeviceAiError();
     // The budget starts before the availability read, so an availability call that is slow
-    // or never settles is abandoned at 6 s like any other on-device cost, and the Worker
+    // or never settles is abandoned at 8 s like any other on-device cost, and the Worker
     // still gets its whole wait afterwards.
     return this.withinBudget(() => this.attempt(module, request));
   }

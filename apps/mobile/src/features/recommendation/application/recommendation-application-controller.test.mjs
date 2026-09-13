@@ -359,6 +359,37 @@ test('weather with no clothing requirements skips AI and persists the determinis
   assert.deepEqual(calls, { client: 0, saves: 1 });
 });
 
+// The pool the AI tier is offered has no margin on a hot day: the catalog composes exactly
+// three options, the smallest set `aiRequestFromContext` will build a request for. These two
+// tests hold both ends of that floor at the controller: the AI tier is still attempted, and
+// the deterministic fallback still fills three outfits when every AI tier fails.
+test('the smallest composable pool still reaches the AI client', async () => {
+  const { controller, calls, requests } = createHarness();
+  await controller.initialize();
+
+  const snapshot = await controller.refresh('explicit', input(30));
+
+  assert.equal(requests[0].options.length, 3);
+  assert.equal(calls.client, 1);
+  assert.equal(snapshot.generationMode, 'ai-assisted');
+  assert.equal(snapshot.recommendation.outfits.length, 3);
+});
+
+test('the smallest composable pool still fills three deterministic outfits when the AI tier fails', async () => {
+  const { controller, calls } = createHarness({
+    client: { recommendRouted: async () => { throw new Error('every AI tier failed'); } },
+  });
+  await controller.initialize();
+
+  const snapshot = await controller.refresh('explicit', input(30));
+
+  assert.equal(snapshot.generationMode, 'deterministic-fallback');
+  assert.equal(snapshot.recommendation.outfits.length, 3);
+  assert.equal(new Set(snapshot.recommendation.outfits.map(
+    ({ archetypeId }) => archetypeId)).size, 3);
+  assert.deepEqual(calls, { client: 1, saves: 1 });
+});
+
 test('failed refresh keeps the previous snapshot in memory and in the repository', async () => {
   const cached = Object.freeze({
     id: 'cached-recommendation',

@@ -72,19 +72,24 @@ code path as before.
 
 ### 2. The on-device tier has its own bounded budget
 
-On-device gets 6 s. There is one on-device attempt and no retry; a timed-out attempt is
+On-device gets 8 s. There is one on-device attempt and no retry; a timed-out attempt is
 abandoned and the Worker tier then runs with its own 38 s wait (the Worker's 36 s walk,
 five attempts of 7 s plus one second, and 2 s of transport), so the whole refresh is
-bounded at 44 s and the deterministic fallback is reached only after the last provider
+bounded at 46 s and the deterministic fallback is reached only after the last provider
 fails. The mobile client sends that wait minus a 1 s transport margin in a private
 validated request header; the Worker clamps it from 5 to 36 s and starts no attempt with
 less than the 5 s window needed for a measured healthy response. The on-device tier never
 eats into the Worker's wait, and the Worker's wait is never shortened because the on-device
 tier was tried.
 
-The 6 s figure is deliberately conservative because on-device latency has not been
-measured on eligible hardware (see [Verification boundary](#verification-boundary)). It is
-a ceiling on the cost of trying, not an estimate of the cost of succeeding.
+The 8 s figure is a ceiling on the cost of trying, not an estimate of the cost of
+succeeding. It is set from the only measurement that exists: complete 24-option round
+trips in the iOS 26 Simulator on the maintainer's M3 Pro host, where a request of about
+2,800 prompt tokens took 5.1 to 5.4 s warm and 6.7 s on a cold first run, which a 6 s
+ceiling cancels more often than not. That is host inference, not an iPhone's neural
+engine; on-device latency on eligible hardware is still unmeasured (see [Verification
+boundary](#verification-boundary)), and 8 s leaves the cold run inside the budget
+without letting a stalled session hold the refresh.
 
 ### 3. Generation mode gains a third coarse value
 
@@ -242,9 +247,9 @@ tier and the deterministic fallback and can prove that an ineligible device cost
 time, but it cannot measure the on-device tier.
 
 On-device latency on eligible hardware is therefore unmeasured before release. Two things
-follow: the 6 s timeout is conservative rather than tuned, and the real share of
-recommendations produced on-device is read from the generation mode after release rather
-than predicted before it.
+follow: the 8 s timeout is set from Simulator latency rather than tuned on eligible
+hardware, and the real share of recommendations produced on-device is read from the
+generation mode after release rather than predicted before it.
 
 The latency record below is filled in from five runs over a 24-option request when the
 measurement is made. It is left empty rather than estimated.
@@ -258,13 +263,13 @@ The iPhone 17 Pro Simulator on the maintainer's macOS 26.6 host does reach Found
 Models: `SystemLanguageModel.default.availability` answers `available` and the system loads
 the 3B instruct assets and runs the inference on the host. That is not a device measurement.
 Simulator inference runs on the Mac, not on an iPhone's neural engine, so the numbers it
-produces describe neither eligible hardware nor a released build. Three complete 24-option
-round trips there sat at the budget's edge: one took about 5.3 s and succeeded, and two
-were cancelled by the 6 s budget, one while the 3B assets were still loading cold (about
-4 s of the budget) and one with warm assets whose response began arriving 6 ms after the
-cancel. On this host the on-device tier therefore lands as the AI-assisted badge more often
-than the on-device badge, which says nothing about eligible hardware and is not a reason to
-move the budget before the device measurement exists.
+produces describe neither eligible hardware nor a released build. Complete 24-option
+round trips there, about 2,800 prompt tokens each, took 5.1 to 5.4 s warm and 6.7 s on a cold first run while the 3B assets loaded. At a 6 s ceiling one of
+four attempts stayed on device and the rest were cancelled a few hundred milliseconds
+short of an answer, one of them with a response that began arriving 6 ms after the
+cancel. That is the evidence the 8 s budget is set from. It says nothing about eligible
+hardware: on a device the tier may be faster or slower, and the budget is revisited from
+a device measurement, not from another host run.
 
 The Simulator's availability answer is not proof that inference can run. With Apple
 Intelligence switched off on the Mac, the Simulator still answers `available`, and every

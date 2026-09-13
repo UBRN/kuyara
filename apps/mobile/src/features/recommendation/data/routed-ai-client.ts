@@ -12,8 +12,8 @@ import { mapWorkerAiRecommendation } from '@/features/recommendation/data/worker
 
 // The Worker tier always gets its whole wait, whatever the on-device tier spent first: the
 // Worker's own deadline is 36 s (5 attempts of 7 s plus 1 s) and 2 s covers HTTP transport.
-// With the on-device tier's 6 s (`onDeviceAiBudgetMilliseconds`, ADR 0034) ahead of it the
-// whole chain waits at most 44 s, which is the refresh taking as long as a stylist answer
+// With the on-device tier's 8 s (`onDeviceAiBudgetMilliseconds`, ADR 0034) ahead of it the
+// whole chain waits at most 46 s, which is the refresh taking as long as a stylist answer
 // needs rather than a clock deciding the answer is standard.
 const workerWaitMilliseconds = 38_000;
 
