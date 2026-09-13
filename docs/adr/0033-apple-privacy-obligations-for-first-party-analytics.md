@@ -5,8 +5,8 @@ Status: Accepted (2026-09-09)
 Implementation: the milestone 10 consent sheet, Settings Privacy surface, fail-closed
 adapter, and PostHog project configuration are complete. Milestone 11 items 1 and 2 are
 complete, consent is the recorded lawful basis, and the maintainer signed PostHog's DPA on
-2026-09-11. Nothing is recorded or queued before consent. EAS Observe performance and
-diagnostic telemetry is bound to the same consent answer; its disclosure rows are in
+2026-09-11. No PostHog analytics is recorded or queued before consent. EAS Observe
+performance and diagnostic telemetry is bound to the same consent answer; its disclosure rows are in
 section 7. This ADR defines Apple's privacy requirements for the analytics direction in
 [ADR 0023](0023-behavioural-product-analytics-with-posthog.md) and the resulting consent,
 revocation, deletion, and disclosure rules.
@@ -58,7 +58,7 @@ Against Apple's category list on that page, kuyara's planned collection maps as 
 | Usage Data: Product Interaction | Yes, from milestone 10 | Apple's example is "app launches, taps, clicks, scrolling information ... or other information about how the user interacts with the app". Screen, navigation, recommendation and Closet events are exactly this. |
 | Usage Data: Other Usage Data | Yes, from milestone 10 | Coarse product properties that are not interactions, such as generation mode or fallback state. PostHog's own iOS manifest declares this category alongside Product Interaction. |
 | Diagnostics: Performance Data, Other Diagnostic Data | Yes, from the EAS Observe integration | Launch, navigation and readiness timing, two coarse product-performance events, handled-error reports and a launch-window network rollup. Section 7 records what is sent. |
-| Diagnostics: Crash Data | No | PostHog Error Tracking would send crash and exception data. It is not collected until milestone 12 lands, and the questionnaire is updated then. |
+| Diagnostics: Crash Data | Yes, from the EAS Observe integration | MetricKit crash diagnostics and unhandled JavaScript errors, with message and stack trace, are stored as log rows by `expo-app-metrics` (`ios/MetricKitSubscriber.swift`, `ios/CrashReporting/CrashReport.swift`, `ios/LogEvents/ErrorReport.swift`) and dispatched by `expo-observe` (`ios/Observability.swift`, `dispatchLogs`) when consent is granted. PostHog Error Tracking in milestone 12 would add a second crash source and must not be enabled before the questionnaire is rechecked. |
 | Identifiers: Device ID or User ID | Yes, from milestone 10 | Two independent random per-install identifiers, PostHog's and Observe's `expo.eas_client.id`, each an "other device-level ID". They are never joined to each other or to `localProfileId`, and both are declared linked to the user because profile-derived properties ride on the analytics one; see section 5 and section 7. |
 | Location: Coarse Location | No | PostHog derives `$geoip_city_name` and related properties from the request IP on its servers. Apple's Coarse Location definition covers any location "with lower resolution than a latitude and longitude with three or more decimal places". IP discard and the separately disabled GeoIP transformation keep this category out; see section 5. |
 | Precise Location | No | Coordinates never enter an analytics payload under ADR 0023. Section 7 records why the app-wide answer is also no. |
@@ -427,13 +427,14 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
   | Diagnostics: Performance Data | Yes, from the Observe integration | "Such as launch time, hang rate, or energy use" | Cold and warm launch, time to first render, time to interactive and navigation timing are exactly this. |
   | Diagnostics: Other Diagnostic Data | Yes, from the Observe integration | "Any other data collected for the purposes of measuring technical diagnostics related to the app" | The two user-defined events, the handled-error reports and the network rollup. |
   | Identifiers: Device ID | Yes, from the Observe integration | "Such as the device's advertising identifier, or other device-level ID" | `expo.eas_client.id` is a persistent per-installation UUID on every payload. |
-  | Diagnostics: Crash Data | No | "Such as crash logs" | The unhandled-error handler records JS exceptions as diagnostic log events; iOS crash reports are not sent by this integration. Revisit with PostHog Error Tracking in milestone 12. |
+  | Diagnostics: Crash Data | Yes, from the Observe integration | "Such as crash logs" | MetricKit crash diagnostics and unhandled JavaScript errors, with message and stack trace, are stored as log rows by `expo-app-metrics` (`ios/MetricKitSubscriber.swift`, `ios/CrashReporting/CrashReport.swift`, `ios/LogEvents/ErrorReport.swift`) and dispatched by `expo-observe` (`ios/Observability.swift`, `dispatchLogs`) when consent is granted. PostHog Error Tracking in milestone 12 would add a second crash source and must not be enabled before the questionnaire is rechecked. |
 
-  The same three rows are in `apps/mobile/app.json` under `ios.privacyManifests`, copied from
+  The same four rows are in `apps/mobile/app.json` under `ios.privacyManifests`, copied from
   Apple's own identifier list: `NSPrivacyCollectedDataTypePerformanceData`,
-  `NSPrivacyCollectedDataTypeOtherDiagnosticData` and `NSPrivacyCollectedDataTypeDeviceID`,
-  each linked and not tracking. Apple's purpose list has no diagnostics entry; the closest
-  match is `NSPrivacyCollectedDataTypePurposeAppFunctionality`, defined as "such as to
+  `NSPrivacyCollectedDataTypeOtherDiagnosticData`, `NSPrivacyCollectedDataTypeDeviceID` and
+  `NSPrivacyCollectedDataTypeCrashData`, each linked and not tracking. The Crash Data row
+  uses only `NSPrivacyCollectedDataTypePurposeAppFunctionality`. Apple's purpose list has no
+  diagnostics entry; the closest match is `NSPrivacyCollectedDataTypePurposeAppFunctionality`, defined as "such as to
   authenticate the user, enable features, prevent fraud, implement security measures, ensure
   server up-time, minimize app crashes, improve scalability and performance, or perform
   customer support", which is what this telemetry is for. `NSPrivacyCollectedDataTypePurposeAnalytics`
@@ -481,10 +482,28 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
   is app-scoped, is never joined to data from other companies' apps or sites, and is never
   shared with a data broker.
 
+  Errors kuyara reports itself reach Observe only as a code and coarse attributes, never
+  with the caught error's own message. The package's automatic unhandled-error and MetricKit
+  crash records carry `exception.type`, `exception.message` and `exception.stacktrace`.
+  `expo-app-metrics` 57.0.18 registers a MetricKit subscriber in
+  `ios/MetricKitSubscriber.swift`: `didReceive(_ payloads: [MXDiagnosticPayload])` turns
+  each `crashDiagnostics` entry into a `CrashReport`, then `persistCrashReport` calls
+  `storeCrashReportIfNew(sessionId:payload:log:)` to persist a log row.
+  `ios/CrashReporting/CrashReport.swift` attaches the exception message and stack trace;
+  `ios/LogEvents/ErrorReport.swift` records unhandled JavaScript errors as `js.exception`
+  events with the exception type, message and stack trace. `expo-observe`
+  `ios/Observability.swift`, `dispatchLogs`, sends every stored log row when dispatch is
+  enabled. kuyara cannot filter these records in this version, which is why the policy
+  discloses their technical text. MetricKit delivers crash diagnostics on the next launch
+  after the event on a physical device; it does not run on the Simulator.
+
   Red lines: no AI provider or model identity, no prompt, no wardrobe value, no profile
-  preference, no coordinate, no place name, no `localProfileId` and no free text in an
-  Observe payload; a caught error reaches Observe only as a code and coarse attributes,
-  never with its own message. Coordinates never enter a URL, a query string, a header, an
+  preference, no coordinate, no place name, no `localProfileId` and no free text entered by
+  the user in an Observe payload; a caught error reported by kuyara reaches Observe only as
+  a code and coarse attributes, never with its own message. No crash or unhandled-error
+  record may be suppressed or rewritten client-side to hide it; if the message content ever
+  proves to carry user data, the fix is to stop the data reaching the throwing code path,
+  not to edit telemetry. Coordinates never enter a URL, a query string, a header, an
   analytics event, or a log statement. If Cloudflare documents that request bodies are stored, invocation logs
   are disabled (`invocation_logs = false`) or sampled to zero before the next submission,
   and the questionnaire answer is re-derived before it is filed.
@@ -495,9 +514,8 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
   milestone 10's definition of done because Apple requires both regardless of anonymity.
 - ATT remains not applicable under Apple's cited definition.
 - The App Store questionnaire answer set is known in advance: Product Interaction and
-  Other Usage Data for analytics, Performance Data, Other Diagnostic Data and Device ID for
-  the EAS Observe integration, Crash Data only when Error Tracking lands, no Location, no
-  tracking, and linked to the user.
+  Other Usage Data for analytics, Performance Data, Other Diagnostic Data, Crash Data and
+  Device ID for the EAS Observe integration, no Location, no tracking, and linked to the user.
 - Apple's account-deletion rule does not apply to the accountless release, but the privacy
   policy still has to describe revocation and a deletion request path, and the accounts
   milestone inherits an analytics-deletion obligation.
@@ -530,7 +548,9 @@ Expo, read 2026-09-13:
 - EAS Observe configuration: <https://docs.expo.dev/eas/observe/configuration/>
 - Source: `expo-observe@57.0.21` (`ios/OpenTelemetry.swift`, `ios/Observability.swift`,
   `ios/ObserveModule.swift`, `src/types.ts`), `expo-app-metrics@57.0.18`
-  (`ios/Utils/MetricParamsBuilder.swift`, `src/installErrorHandler.ts`) and
+  (`ios/Utils/MetricParamsBuilder.swift`, `src/installErrorHandler.ts`,
+  `ios/MetricKitSubscriber.swift`, `ios/CrashReporting/CrashReport.swift`,
+  `ios/LogEvents/ErrorReport.swift`) and
   `expo-eas-client@57.0.4` (`ios/EASClient/EASClientID.swift`), as installed in this
   repository
 
