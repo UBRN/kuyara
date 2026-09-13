@@ -14,12 +14,14 @@ const initialMetrics = {
 };
 
 async function renderError(reason: ProfileBootstrapFailureReason) {
+  const onReportProblem = jest.fn();
   const onRetry = jest.fn();
   const rendered = await render(
     <LocalizationContext value={{ language: 'en', messages: messages.en, hour12: false }}>
       <KuyaraThemeContext value={lightTheme}>
         <SafeAreaProvider initialMetrics={initialMetrics}>
           <BootstrapScreen
+            onReportProblem={onReportProblem}
             onRetry={onRetry}
             reason={reason}
             status="error"
@@ -28,7 +30,7 @@ async function renderError(reason: ProfileBootstrapFailureReason) {
       </KuyaraThemeContext>
     </LocalizationContext>,
   );
-  return { onRetry, rendered };
+  return { onReportProblem, onRetry, rendered };
 }
 
 test.each([
@@ -36,9 +38,13 @@ test.each([
   'migration',
   'profile-load',
 ] as const)('bootstrap error renders the %s body and retries', async (reason) => {
-  const { onRetry, rendered } = await renderError(reason);
+  const { onReportProblem, onRetry, rendered } = await renderError(reason);
 
   expect(rendered.getByText(messages.en.bootstrap.errorReasonBodies[reason])).toBeTruthy();
-  fireEvent.press(rendered.getByRole('button', { name: messages.en.bootstrap.retryAction }));
+  // RNTL 14's `fireEvent` wraps an async act; two un-awaited presses overlap and leave the
+  // next render empty.
+  await fireEvent.press(rendered.getByRole('button', { name: messages.en.bootstrap.retryAction }));
   expect(onRetry).toHaveBeenCalledTimes(1);
+  await fireEvent.press(rendered.getByRole('button', { name: messages.en.bootstrap.reportAction }));
+  expect(onReportProblem).toHaveBeenCalledTimes(1);
 });

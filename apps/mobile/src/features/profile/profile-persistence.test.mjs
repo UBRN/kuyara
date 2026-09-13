@@ -457,6 +457,7 @@ test('application controller exposes loading, incomplete, completed, and refresh
 
 test('application controller classifies and logs each bootstrap failure stage once', async (t) => {
   const consoleCalls = [];
+  const telemetryCalls = [];
   const originalConsoleError = console.error;
   console.error = (...args) => consoleCalls.push(args);
   t.after(() => { console.error = originalConsoleError; });
@@ -471,17 +472,33 @@ test('application controller classifies and logs each bootstrap failure stage on
             getOrCreateProfile: async () => { throw originalError; },
           })
         : async () => { throw new ProfileBootstrapError(reason, originalError); },
+      (error) => telemetryCalls.push(error),
     );
 
     await controller.initialize();
 
-    assert.deepEqual(controller.getSnapshot(), { status: 'error', reason });
+    // The shareable report is a pure value on the state: the stage, the thrown value's class
+    // name and the same single-line, 200 character message the console line prints.
+    const expectedMessage = originalMessage.replace(/[\r\n]+/g, ' ').slice(0, 200);
+    assert.deepEqual(controller.getSnapshot(), {
+      status: 'error',
+      report: { stage: reason, errorName: 'BootstrapFailure', errorMessage: expectedMessage },
+    });
+    assert.equal(expectedMessage.length, 200);
+    assert.equal(expectedMessage.includes('\n'), false);
     assert.deepEqual(consoleCalls.at(-1), [
-      `[profile-bootstrap] stage=${reason} error=BootstrapFailure message=${originalMessage.replace(/[\r\n]+/g, ' ').slice(0, 200)}`,
+      `[profile-bootstrap] stage=${reason} error=BootstrapFailure message=${expectedMessage}`,
     ]);
+    // The error message never reaches telemetry: only the stage and the class name do.
+    assert.equal(telemetryCalls.at(-1).code, 'profile.bootstrap_failed');
+    assert.equal(
+      telemetryCalls.at(-1).message,
+      `profile.bootstrap_failed stage=${reason} error_name=BootstrapFailure`,
+    );
   }
 
   assert.equal(consoleCalls.length, 3);
+  assert.equal(telemetryCalls.length, 3);
 });
 
 test('application controller retry reaches ready and coalesces a concurrent retry', async (t) => {
@@ -515,10 +532,10 @@ test('application controller retry reaches ready and coalesces a concurrent retr
   }));
 
   await controller.initialize();
-  assert.deepEqual(controller.getSnapshot(), {
-    status: 'error',
-    reason: 'profile-load',
-  });
+  assert.deepEqual(
+    { status: controller.getSnapshot().status, stage: controller.getSnapshot().report.stage },
+    { status: 'error', stage: 'profile-load' },
+  );
 
   const firstRetry = controller.retry();
   const concurrentRetry = controller.retry();
