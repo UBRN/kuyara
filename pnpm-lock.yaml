@@ -131,6 +131,9 @@ importers:
         specifier: 3.25.76
         version: 3.25.76
     devDependencies:
+      '@posthog/cli':
+        specifier: 0.18.2
+        version: 0.18.2
       '@react-native/jest-preset':
         specifier: 0.86.2
         version: 0.86.2(@babel/core@7.29.7(supports-color@10.2.2))(react@19.2.3)(supports-color@10.2.2)
@@ -1436,6 +1439,11 @@ packages:
 
   '@poppinss/exception@1.2.3':
     resolution: {integrity: sha512-dCED+QRChTVatE9ibtoaxc+WkdzOSjYTKi/+uacHWIsfodVfpsueo3+DKpgU5Px8qXjgmXkSvhXvSCz3fnP9lw==}
+
+  '@posthog/cli@0.18.2':
+    resolution: {integrity: sha512-v5pYszcUoRbZRXjy9SZRfpz2inqvAxV6Zpx5UKgtKVHceBgUShp9DCZgpuUW7AQMpLeLjUP6GWrAOEellRZvUg==}
+    engines: {node: '>=14.14', npm: '>=6'}
+    hasBin: true
 
   '@posthog/core@1.52.0':
     resolution: {integrity: sha512-pvbdeRRpizktmo8MXZQxjAI4aFfNajwkzxbm72wKV9n2wWcnQWa4m+AqTI2zmmCSsYk7F666rRUdvYqZLjjhWg==}
@@ -7195,6 +7203,10 @@ snapshots:
       supports-color: 10.2.2
 
   '@poppinss/exception@1.2.3': {}
+
+  '@posthog/cli@0.18.2':
+    dependencies:
+      detect-libc: 2.1.2
 
   '@posthog/core@1.52.0':
     dependencies:

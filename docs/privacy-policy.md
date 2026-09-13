@@ -69,7 +69,8 @@ sent. If you accept, kuyara sends:
   crash diagnostics iOS provides. These describe the app's code, not you. They can still
   contain technical text the app was processing at that moment. iOS hands crash
   diagnostics to the app after a later launch, and they are sent with the next dispatch
-  while sharing is on.
+  while sharing is on. Unhandled JavaScript error reports and their stack traces also go
+  to kuyara's analytics provider, PostHog, in the EU under the same consent answer.
 - **Network performance.** The host name of the slowest network request during the app
   launch window.
 - **Technical details.** A random per-installation identifier created by the Expo package,
