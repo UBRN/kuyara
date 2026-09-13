@@ -57,3 +57,28 @@ test('the development line names a failure code the native module wrote', async 
     ]);
   }
 });
+
+test('the development line names the availability reason when the tier is skipped', async () => {
+  const previousDevelopment = globalThis.__DEV__;
+  const previousWarn = console.warn;
+  const lines = [];
+  globalThis.__DEV__ = true;
+  console.warn = (line) => lines.push(line);
+  try {
+    const client = new OnDeviceAiClient({
+      module: {
+        getAvailability: async () => ({ status: 'unavailable', reason: 'model_not_ready' }),
+        selectOutfits: async () => {
+          throw new Error('selectOutfits must not run when the model is unavailable');
+        },
+      },
+      timeoutMilliseconds: 50,
+    });
+    await assert.rejects(client.recommend(request), (error) => error instanceof OnDeviceAiError);
+  } finally {
+    console.warn = previousWarn;
+    if (previousDevelopment === undefined) delete globalThis.__DEV__;
+    else globalThis.__DEV__ = previousDevelopment;
+  }
+  assert.deepEqual(lines, ['On-device AI skipped: model_not_ready.']);
+});
