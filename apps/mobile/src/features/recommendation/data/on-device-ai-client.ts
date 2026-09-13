@@ -122,6 +122,7 @@ function parseReply(reply: string): unknown {
 // The failure codes the native module writes into its message. Only a member of this list
 // is ever read back out, so nothing the framework or the model produced can escape with it.
 const failureReasons = [
+  // The framework's generation errors.
   'exceeded_context_window',
   'assets_unavailable',
   'guardrail_violation',
@@ -131,6 +132,18 @@ const failureReasons = [
   'rate_limited',
   'concurrent_requests',
   'refusal',
+  // The module's own throw sites, one code each, so a failure that is none of the above
+  // names the step it happened in instead of arriving as a second kind of unknown.
+  'unavailable',
+  'unsupported_os',
+  'input_unreadable',
+  'schema_build',
+  'schema_duplicate_type',
+  'schema_duplicate_property',
+  'schema_empty_type_choices',
+  'schema_undefined_references',
+  'timeout',
+  'response_unreadable',
 ] as const;
 
 /**
@@ -141,6 +154,9 @@ const failureReasons = [
 function reportFailureReason(error: unknown): void {
   if (typeof __DEV__ === 'undefined' || !__DEV__) return;
   const message = error instanceof Error ? error.message : '';
-  const reason = failureReasons.find((candidate) => message.includes(candidate)) ?? 'unknown';
+  // The parentheses are part of the match: `unavailable` is a substring of
+  // `assets_unavailable`, and the code the module wrote is the one in brackets.
+  const reason =
+    failureReasons.find((candidate) => message.includes(`(${candidate})`)) ?? 'unknown';
   console.warn(`On-device AI selection failed: ${reason}.`);
 }
