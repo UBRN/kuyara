@@ -41,6 +41,13 @@ test('the development line names a failure code the native module wrote', async 
       'exceeded_context_window',
     ],
     ['On-device selection could not be completed. (refusal)', 'refusal'],
+    // The one pair whose codes overlap as substrings: the longer must not be read as the
+    // shorter, whichever order the list happens to be in.
+    [
+      'On-device selection could not be completed. (assets_unavailable)',
+      'assets_unavailable',
+    ],
+    ['On-device selection could not be completed. (unavailable)', 'unavailable'],
     // Anything outside the closed list is reported as unknown, so neither framework text
     // nor model output can leave the module by riding on the message.
     ['The model objected at length to the request it was given.', 'unknown'],

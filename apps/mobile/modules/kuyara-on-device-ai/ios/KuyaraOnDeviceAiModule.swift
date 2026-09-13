@@ -50,11 +50,13 @@ private let statusUnavailable = "unavailable"
 // result sends the request to the Worker. The code appended to the message is the only
 // detail that crosses, and it is a member of a closed list this file writes, never text the
 // framework or the model produced: a failure that says nothing is a failure nobody can fix.
+// The code has no default: every throw site names its own, so a failure read as `unknown`
+// means the framework raised something this file does not recognise, nothing else.
 internal final class OnDeviceAiFailedException: Exception, @unchecked Sendable {
   private let failureCode: String
 
   init(
-    _ failureCode: String = "unknown",
+    _ failureCode: String,
     file: String = #fileID,
     line: UInt = #line,
     function: String = #function
@@ -124,7 +126,7 @@ private func selectOutfits(input: String, timeoutMs: Int) async throws -> String
   #if canImport(FoundationModels)
   if #available(iOS 26.0, *) {
     guard case .available = SystemLanguageModel.default.availability else {
-      throw OnDeviceAiFailedException()
+      throw OnDeviceAiFailedException("unavailable")
     }
     let optionIds = try suppliedOptionIds(from: input)
     let schema = try pickSchema(optionIds: optionIds)
@@ -143,9 +145,9 @@ private func selectOutfits(input: String, timeoutMs: Int) async throws -> String
       return response.content.jsonString
     }
   }
-  throw OnDeviceAiFailedException()
+  throw OnDeviceAiFailedException("unsupported_os")
   #else
-  throw OnDeviceAiFailedException()
+  throw OnDeviceAiFailedException("unsupported_os")
   #endif
 }
 
@@ -158,11 +160,11 @@ private func suppliedOptionIds(from input: String) throws -> [String] {
     let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
     let options = root["options"] as? [[String: Any]]
   else {
-    throw OnDeviceAiFailedException()
+    throw OnDeviceAiFailedException("input_unreadable")
   }
   let ids = options.compactMap { $0["optionId"] as? String }
   guard !ids.isEmpty, ids.count == options.count else {
-    throw OnDeviceAiFailedException()
+    throw OnDeviceAiFailedException("input_unreadable")
   }
   return ids
 }
@@ -206,7 +208,27 @@ private func pickSchema(optionIds: [String]) throws -> GenerationSchema {
       dependencies: [optionIdSchema, archetypeIdSchema, pick]
     )
   } catch {
-    throw OnDeviceAiFailedException()
+    throw OnDeviceAiFailedException(schemaCode(error))
+  }
+}
+
+/// The schema above is built from a fixed shape and the caller's option identifiers, so a
+/// rejection here is a construction fault in this file, not a model failure. The framework's
+/// own case is named as a fixed code; its text, which quotes the schema, never crosses.
+@available(iOS 26.0, *)
+private func schemaCode(_ error: any Error) -> String {
+  guard let error = error as? GenerationSchema.SchemaError else { return "schema_build" }
+  switch error {
+  case .duplicateType:
+    return "schema_duplicate_type"
+  case .duplicateProperty:
+    return "schema_duplicate_property"
+  case .emptyTypeChoices:
+    return "schema_empty_type_choices"
+  case .undefinedReferences:
+    return "schema_undefined_references"
+  @unknown default:
+    return "schema_build"
   }
 }
 
@@ -251,10 +273,10 @@ private func withTimeout(
       group.addTask { try await work() }
       group.addTask {
         try await Task.sleep(nanoseconds: UInt64(budget) * 1_000_000)
-        throw OnDeviceAiFailedException()
+        throw OnDeviceAiFailedException("timeout")
       }
       guard let first = try await group.next() else {
-        throw OnDeviceAiFailedException()
+        throw OnDeviceAiFailedException("response_unreadable")
       }
       group.cancelAll()
       return first
@@ -264,8 +286,9 @@ private func withTimeout(
   } catch let error as LanguageModelSession.GenerationError {
     throw OnDeviceAiFailedException(generationCode(error))
   } catch {
-    // Provider errors carry model detail; only the coded failure crosses the boundary.
-    throw OnDeviceAiFailedException()
+    // Provider errors carry model detail; only the coded failure crosses the boundary. Every
+    // other throw site names itself, so this is the one failure that is genuinely unknown.
+    throw OnDeviceAiFailedException("unknown")
   }
 }
 #endif
