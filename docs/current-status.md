@@ -91,11 +91,10 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   `0.MINOR.YYYYMMDD` scheme: the leading 0 says the product is not yet declared stable,
   the middle number counts minor updates, and the trailing date stamps the update. The
   first store version is `0.1.20260913`, set in App Store Connect and in `app.json`, and
-  build 7 (uploaded and processed on 2026-09-13) carries it and is the build attached to
-  the App Store version; build 6, still versioned 1.0.0, is superseded. EAS records build
-  7 against commit ef64c26 because the version change was still uncommitted when the
-  build ran; commit cefee3b records the version string, and build 7's bundle is that
-  tree. The production profile auto-increments the build number; because
+  build 8 (built from commit 67c20ae, uploaded and processed on 2026-09-13) carries it
+  and is the build attached to the App Store version; build 7, the same version string
+  without the validation-gate fix, and build 6, still versioned 1.0.0, are superseded.
+  The production profile auto-increments the build number; because
   `runtimeVersion` follows the app version, every build of one version string shares
   one runtime and no EAS Update may be published to the production channel until the
   next binary is the only one installed. Preview and production profiles
@@ -156,24 +155,25 @@ and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
 
 ## Release Blockers
 
-Version 0.1.20260913 with build 7 was submitted for App Review on 2026-09-13 through
-`asc review submit` (submission `777a0fcb`, state WAITING_FOR_REVIEW); release is manual
-after approval. One item stayed open at submission, the maintainer's, and it can still
-surface as a review question:
+Version 0.1.20260913 with build 8 was submitted for App Review on 2026-09-13 through
+`asc review submit` (submission `b125d544`, state WAITING_FOR_REVIEW); release is manual
+after approval. The EU Digital Services Act trader-status declaration was entered in App
+Store Connect on 2026-09-13 as non-trader. One item stayed open at submission, the
+maintainer's, and it can still surface as a review question:
 
-- A physical-device pass on build 7. The only device pass on record ran on build 6 on
-  2026-09-13 (iPhone 14 Pro, no problem found), and build 7 is the first binary that
-  carries catalog version 4 (jumpsuit and leggings womens-only) and the Crash Data privacy
-  manifest row. The pass should also read the Today badge: a Release build captured for
-  the store screenshots on 2026-09-13 showed the deterministic fallback ("Standard
-  suggestions") against the production Worker while a Debug build on the same URL showed
-  the AI-assisted badge. The cause is now known and fixed in the working tree, not in
-  build 7: the mobile validation gate rebuilt each picked option with the first valid
-  arrangement of its garments instead of the offered one, so a healthy Worker answer that
-  picked an option with a mid layer or an optional outer layer was refused whole and the
-  deterministic three were shown; the same rebuild refused 84 of 648 deterministic results
-  at save time. Build 7 still carries the defect, so its badge reads "Standard suggestions"
-  whenever the answer picks such an option. The iPhone 14 Pro is not
+- A physical-device pass on build 8. The maintainer ran build 7 from TestFlight on
+  2026-09-13 (iPhone 14 Pro) and Today showed "Standard suggestions" on every
+  recommendation, which is the validation-gate defect fixed in build 8: the mobile
+  validation gate rebuilt each picked option with the first valid arrangement of its
+  garments instead of the offered one, so a healthy Worker answer that picked an option
+  with a mid layer or an optional outer layer was refused whole and the deterministic
+  three were shown; the same rebuild refused 84 of 648 deterministic results at save
+  time. The only full device pass on record ran on build 6 on 2026-09-13 (iPhone 14 Pro,
+  no problem found); builds 7 and 8 are the first binaries that carry catalog version 4
+  (jumpsuit and leggings womens-only) and the Crash Data privacy manifest row. The pass
+  on build 8 should read the Today badge against the production Worker: AI-assisted (or
+  Apple Intelligence on eligible hardware), not "Standard suggestions", once a real
+  answer is accepted. The iPhone 14 Pro is not
   Apple Intelligence eligible, so it exercises the Worker tier and the fallback only; the
   on-device tier remains unmeasured on eligible hardware, as ADR 0034's verification
   boundary records, and the Simulator run of the same day landed at the 6 s budget's
@@ -208,9 +208,9 @@ before submitting is the maintainer's call.
   switch reserved for the pending provider-name decision; the Privacy row shows no On/Off
   value. Checks: `pnpm check`, the component suite (405 tests), the design-language greps,
   and one Simulator run of a phased refresh that settled on the AI-assisted badge, with
-  the mark still under Reduce Motion. The Worker change needs
-  `cd apps/worker && npx wrangler deploy` by the maintainer and the mobile change needs a
-  new build; until then production keeps the 19-second walk and build 7 keeps the old gate.
+  the mark still under Reduce Motion. The Worker change is deployed (the 36-second walk
+  is live) and the mobile change ships in build 8, the build attached to the submitted
+  App Store version.
 - **AI chain repair** (2026-09-13): the dead OpenRouter slugs were replaced with the
   three free models that answer the real strict `json_schema` request
   (`nex-agi/nex-n2.5-mini:free`, `nvidia/nemotron-3-super-120b-a12b:free`,
