@@ -1,7 +1,0 @@
-executionPrerequisite: >-
-  Today is showing the first recommendation and the consent sheet is dismissed.
-steps:
-  - wait: 600
-  - tap: { id: today-primary-board }
-  - await: { exists: { id: outfit-detail-weather-recap }, timeout: 10000 }
-  - wait: 2500

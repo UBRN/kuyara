@@ -15,7 +15,7 @@ const config: GoldieConfig = {
   // localises the marketing copy, so each language is captured in its own
   // run: GOLDIE_CAPTURE_LOCALE=tr-TR goldie capture, then goldie frame
   // --locale tr-TR and goldie preview --locale tr-TR. Without the variable the
-  // full list applies (frame, preview, manifest, studio, verify).
+  // full list applies (frame, manifest, studio, verify).
   locales: process.env.GOLDIE_CAPTURE_LOCALE
     ? [process.env.GOLDIE_CAPTURE_LOCALE]
     : ["en-US", "tr-TR"],
@@ -52,9 +52,9 @@ const config: GoldieConfig = {
     price: "Free",
     description: {
       "en-US":
-        "kuyara reads the forecast for your location and suggests three complete outfits for the day, each explained piece by piece.\n\nKeep a closet of what you own and what you want, and see the coming hours before you head out. Free, with no ads.",
+        "kuyara reads the forecast for your location and suggests complete outfits for the day, each explained piece by piece.\n\nKeep a closet of what you own and what you want, and see the coming hours before you head out. Free, with no ads.",
       "tr-TR":
-        "kuyara bulunduğun yerin hava tahminini okur ve gün için üç tam kombin önerir; her birini parça parça açıklar.\n\nSahip olduğun ve istediğin parçaları gardırobunda tut, çıkmadan önce gelecek saatlere bak. Ücretsiz ve reklamsız.",
+        "kuyara bulunduğun yerin hava tahminini okur ve gün için eksiksiz kombinler önerir; her birini parça parça açıklar.\n\nSahip olduğun ve istediğin parçaları gardırobunda tut, çıkmadan önce gelecek saatlere bak. Ücretsiz ve reklamsız.",
     },
   },
 
@@ -69,12 +69,12 @@ const config: GoldieConfig = {
         "tr-TR": "Her gün doğru giyin",
       },
       subhead: {
-        "en-US": "Three complete outfits, picked for today's forecast.",
-        "tr-TR": "Bugünün tahminine göre üç tam kombin.",
+        "en-US": "Complete outfits, thoughtfully picked for today's forecast.",
+        "tr-TR": "Bugünün hava tahminine göre özenle seçilen kombinler.",
       },
       decorations: [{
         kind: "badge",
-        text: { "en-US": "3 outfits a day", "tr-TR": "Günde 3 kombin" },
+        text: { "en-US": "Free, no ads", "tr-TR": "Ücretsiz, reklamsız" },
         position: "top-right",
         background: "#9FC9D5",
         color: "#142F3B",
@@ -128,24 +128,9 @@ const config: GoldieConfig = {
       // Reuse the detail capture for the closing tile, without another raw PNG.
       id: "detail",
       flow: "store-02-detail",
+      layout: "classic",
       headline: { "en-US": "Ready for your day", "tr-TR": "Gününe hazır ol" },
       background: "linear-gradient(165deg, #142F3B 0%, #0D191E 100%)",
-      decorations: [{
-        kind: "badge",
-        text: { "en-US": "Free, no ads", "tr-TR": "Ücretsiz, reklamsız" },
-        position: "top-right",
-        background: "#EFF4F3",
-        color: "#142F3B",
-      }],
-    },
-    {
-      kind: "preview",
-      id: "preview",
-      segments: [
-        { id: "setup", flow: "store-preview-01-setup", holdSeconds: 1 },
-        { id: "outfit", flow: "store-preview-02-outfit", holdSeconds: 1 },
-        { id: "weather", flow: "store-preview-03-weather", holdSeconds: 2 },
-      ],
     },
   ],
 };
