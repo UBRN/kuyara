@@ -26,12 +26,12 @@ const config: GoldieConfig = {
 
   theme: {
     // Keep Calm Current copy over Soft Mist; it fails 4.5:1 on pure Quiet Sky.
-    background: "linear-gradient(180deg, #F4F6F5 0%, #F4F6F5 35%, #9FC9D5 100%)",
-    headlineColor: "#142F3B",
-    subheadColor: "#27606A",
+    background: "linear-gradient(170deg, #27606A 0%, #142F3B 55%, #0D191E 100%)",
+    headlineColor: "#EFF4F3",
+    subheadColor: "#9FC9D5",
     // Bundled DM Sans: the system stack is not resolvable by the canvas
     // renderer and its fallback lacks the Turkish glyphs (ş, ı, ğ).
-    fontFamily: '"DM Sans", -apple-system, system-ui, sans-serif',
+    fontFamily: '"Montserrat", "DM Sans", -apple-system, system-ui, sans-serif',
     copyHeightRatio: 0.24,
     deviceWidthRatio: 0.84,
     template: ["hero", "tilt", "duo", "offset", "minimal"],
@@ -63,31 +63,35 @@ const config: GoldieConfig = {
       kind: "screenshot",
       id: "today",
       flow: "store-01-today",
-      background: "linear-gradient(180deg, #9FC9D5 0%, #F4F6F5 100%)",
+      background: "linear-gradient(170deg, #27606A 0%, #142F3B 60%, #0D191E 100%)",
       headline: {
-        "en-US": "Dress for today's weather",
-        "tr-TR": "Havaya göre giyin",
+        "en-US": "Dressed right, every day",
+        "tr-TR": "Her gün doğru giyin",
+      },
+      subhead: {
+        "en-US": "Three complete outfits, picked for today's forecast.",
+        "tr-TR": "Bugünün tahminine göre üç tam kombin.",
       },
       decorations: [{
         kind: "badge",
         text: { "en-US": "3 outfits a day", "tr-TR": "Günde 3 kombin" },
         position: "top-right",
-        background: "#142F3B",
-        color: "#EFF4F3",
+        background: "#9FC9D5",
+        color: "#142F3B",
       }],
     },
     {
       kind: "screenshot",
       id: "detail",
       flow: "store-02-detail",
-      background: "#EFF4F3",
+      background: "linear-gradient(160deg, #142F3B 0%, #27606A 100%)",
       headline: {
         "en-US": "See why it works",
         "tr-TR": "Neden uyduğunu gör",
       },
       subhead: {
-        "en-US": "See how each piece meets the weather.",
-        "tr-TR": "Her parçanın havaya katkısını keşfet.",
+        "en-US": "Every piece explained against wind, rain and heat.",
+        "tr-TR": "Her parça rüzgâra, yağmura ve sıcağa göre açıklanır.",
       },
     },
     {
@@ -95,33 +99,33 @@ const config: GoldieConfig = {
       id: "weather",
       flow: "store-03-weather",
       secondScene: "today",
+      background: "linear-gradient(180deg, #0D191E 0%, #142F3B 50%, #27606A 100%)",
       headline: {
         "en-US": "Head out prepared",
         "tr-TR": "Dışarı hazırlıklı çık",
       },
       subhead: {
-        "en-US": "Check the coming hours before you go.",
-        "tr-TR": "Çıkmadan önce saatlik tahmine göz at.",
+        "en-US": "Feels-like, wind and the coming hours at a glance.",
+        "tr-TR": "Hissedilen, rüzgâr ve gelecek saatler bir bakışta.",
       },
     },
     {
       kind: "screenshot",
       id: "closet",
       flow: "store-04-closet",
-      background: "#F4F6F5",
+      background: "linear-gradient(165deg, #27606A 0%, #142F3B 45%, #0D191E 100%)",
       headline: {
-        "en-US": "Keep your Closet close",
+        "en-US": "Your closet, in your pocket",
         "tr-TR": "Gardırobun cebinde",
       },
       subhead: {
-        "en-US": "Track the pieces you own and want.",
-        "tr-TR": "Olanı ve istediğini bir arada tut.",
+        "en-US": "Keep what you own and what you want in one place.",
+        "tr-TR": "Olanı ve istediğini tek yerde tut.",
       },
     },
     {
       kind: "screenshot",
-      // Reuse the detail capture key for the fifth tile, without another raw PNG.
-      // Copy colours are global, so the deep tile uses minimal with a light badge.
+      // Reuse the detail capture for the closing tile, without another raw PNG.
       id: "detail",
       flow: "store-02-detail",
       headline: { "en-US": "Ready for your day", "tr-TR": "Gününe hazır ol" },
