@@ -79,7 +79,10 @@ export class OnDeviceAiClient {
     request: AiRecommendV1Request,
   ): Promise<AiRecommendV1Success['data']> {
     const availability = await module.getAvailability().catch(() => unavailable);
-    if (availability.status !== 'available') throw new OnDeviceAiError();
+    if (availability.status !== 'available') {
+      reportSkipped(availability.reason ?? 'unknown');
+      throw new OnDeviceAiError();
+    }
 
     // The module is told the budget as well, so a session that never settles is cancelled
     // natively rather than left running behind an abandoned call.
@@ -151,6 +154,11 @@ const failureReasons = [
  * this file stays the same single failure, so nothing reaches user copy, an analytics
  * property or the Observe event. `typeof` because the Node suites define no `__DEV__`.
  */
+function reportSkipped(reason: string): void {
+  if (typeof __DEV__ === 'undefined' || !__DEV__) return;
+  console.warn(`On-device AI skipped: ${reason}.`);
+}
+
 function reportFailureReason(error: unknown): void {
   if (typeof __DEV__ === 'undefined' || !__DEV__) return;
   const message = error instanceof Error ? error.message : '';
