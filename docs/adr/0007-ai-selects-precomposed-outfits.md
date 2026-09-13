@@ -2,11 +2,10 @@
 
 Status: Accepted (2026-08-30)
 
-Implementation: complete, with one outstanding verification item. The contract, Worker
-validation, deterministic option construction, catalog formality, the mapper,
-rule-based fallback archetype assignment, and archetype titles are implemented.
-Neuron cost per call still has to be measured against a live Workers AI call
-rather than estimated.
+Implementation: complete. The contract, Worker validation, deterministic option
+construction, catalog formality, the mapper, rule-based fallback archetype assignment,
+and archetype titles are implemented, and the neuron cost per call is measured from
+live Workers AI traffic, not estimated (see Consequences).
 
 ## Context
 
@@ -179,8 +178,12 @@ recommendation is never withheld.
 - The model cannot emit a structurally invalid outfit because it selects from
   options rather than constructing one.
 - The request drops from a measured 65,498-byte worst case to roughly 2 KB and
-  the response to a few hundred bytes. Neuron cost per call must be measured and
-  recorded rather than estimated.
+  the response to a few hundred bytes. Measured from the account's Workers AI
+  analytics over 30 August to 13 September 2026 (`aiInferenceAdaptiveGroups`,
+  `@cf/meta/llama-3.3-70b-instruct-fp8-fast`, 148 calls including the small probe
+  requests), a call costs between 41 and 85 neurons, with recent days between 48 and
+  63. The 10,000-neuron daily free allocation therefore covers roughly 120 to 200
+  Worker selections a day before the quota stop and the deterministic fallback.
 - The catalog carries an explicit formality field assigned by hand to every
   entry.
 - Color harmony is absent from the MVP, so outfits are coherent in structure and
