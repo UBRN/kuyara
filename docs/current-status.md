@@ -110,6 +110,8 @@ Noncommercial ([ADR 0024](adr/0024-relicensing-to-polyform-noncommercial.md)).
 Analytics is sequenced before the first public App Store release, so milestones 10 and
 11 are release blockers. The numbering continues the sequence the ADRs cite.
 
+<!-- markdownlint-disable MD029 -->
+
 10. **PostHog product analytics integration.** Phase 1 (the shared failure
     classification and boundary) landed 2026-09-09. ~~Phase 2: add the consent-gated
     PostHog adapter, Today consent sheet and Settings Privacy surface.~~ Landed
@@ -148,6 +150,8 @@ Analytics is sequenced before the first public App Store release, so milestones 
 15. **Supabase accounts and sync**, when product scope reaches it. Promoting device rows
     into an authenticated profile needs its own ADR; until then build no sync
     infrastructure.
+
+<!-- markdownlint-enable MD029 -->
 
 Provider prices and quotas are deliberately absent from this list; reverify them from
 official sources when each item is implemented. Server-sent push (N3) stays deferred
