@@ -21,6 +21,14 @@ dated history live in the ADR each section cites; implementation state lives in
 
 The membership is active. WeatherKit, EAS Build, iOS signing credentials and TestFlight are permitted; production release operations still need an explicit user request. The rule is canonical in [`AGENTS.md`](../AGENTS.md#release-operations).
 
+## Approved release versioning and update path
+
+Approved 2026-09-13.
+
+- The store version string follows `0.MINOR.YYYYMMDD`: the leading 0 says the product is not yet declared stable, the middle number counts minor updates, and the trailing date stamps the update. The first store version is `0.1.20260913`. The build number is auto-incremented by the EAS production profile.
+- Because `runtimeVersion` follows the app version, every build of one version string shares one update runtime. Later versions ship only through EAS Build and EAS Submit; on iOS the maintainer's remaining manual step is Submit for Review, and no EAS Update is published to the production channel until the binary that carries the target runtime is the only one installed.
+- No App Store preview video is used. Apple allows only raw in-app footage there, so a preview did not earn its place; the store listing carries framed screenshots only.
+
 ## Current scaffold
 
 The workspace layout is canonical in the [`README.md` Stack section](../README.md#stack).

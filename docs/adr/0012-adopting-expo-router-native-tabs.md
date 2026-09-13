@@ -11,11 +11,10 @@ The current tab bar is a hand-built `View` at
 `tabBar` render prop at `apps/mobile/src/navigation/primary-tabs.tsx`, with a
 background computed as `withAlpha(theme.colors.backgroundElevated, 0.92)`.
 
-Native Tabs was previously deferred, and that deferral is recorded in four
-places: `docs/architecture.md:158`, `docs/product-decisions.md:29`,
-`docs/adr/0006-three-tab-information-architecture.md:64`, and
-`docs/adr/0009-a-design-language-layer-and-its-deferral-carve-out.md:79`.
-This ADR reverses that deferral.
+Native Tabs is the tab bar. Red line: do not reintroduce a JavaScript tab bar
+in the app shell, whatever the alpha-stage limitations of the native one; the
+accessibility adaptations the system provides (Dynamic Type, VoiceOver, Liquid
+Glass) are the reason for the choice.
 
 ## Decision
 

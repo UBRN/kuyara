@@ -203,7 +203,7 @@ The Worker is the server-side boundary for weather and AI provider calls, creden
 
 The Worker route validates the request before invoking an injected provider. The provider returns a provider-neutral internal snapshot, and an explicit mapper validates and converts that model into the shared success DTO. Provider failures and invalid provider values become the same minimal `weather_unavailable` response; invalid requests, unknown routes, wrong methods, and unexpected failures have their own stable codes without localized messages, provider details, stacks, or configuration data.
 
-The checked-in production composition is the real chain described below; the deterministic local mock with its injected clock and explicit `sample` provenance is now a test double only. The route sets `Cache-Control: no-store`, does not log coordinates or request bodies, and is rate limited (see below). Worker observability is enabled, so Cloudflare retains invocation metadata for deployed requests; the Worker source contains no logging call of its own, so nothing the application chooses to write reaches those logs, and coordinates stay in the unlogged request body. Every real adapter, including WeatherKit, implements the same provider interface and keeps signing, credentials, and raw provider data entirely inside the Worker.
+The checked-in production composition is the real chain described below; the deterministic local mock with its injected clock and explicit `sample` provenance is now a test double only. The route sets `Cache-Control: no-store`, does not log coordinates or request bodies, and is rate limited (see below). Worker observability is enabled, so Cloudflare retains invocation metadata for deployed requests. The Worker's own log statements are limited to structured provider-attempt outcomes (a provider or model identifier, the attempt position and a closed reason code) in `ai-handler.ts` and `weather-provider-chain.ts`; none prints a request body, so coordinates stay in the unlogged request body. Every real adapter, including WeatherKit, implements the same provider interface and keeps signing, credentials, and raw provider data entirely inside the Worker.
 
 ## Approved target composition
 
@@ -235,7 +235,7 @@ Attribution (`origin.sourceId`) is the one controlled addition to the shared con
 
 ### Target recommendation and AI flow
 
-Deterministic rules bound the request, AI composes within those bounds, and validation gates the result twice. AI is not a personalization layer. It turns catalog-only candidates into three stylistically coherent and varied outfits with color harmony, consistent formality, plausible layering, and no previous-day repetition.
+Deterministic rules bound the request, AI composes within those bounds, and validation gates the result twice. AI is not a personalization layer. It selects three meaningfully different outfits from catalog-only candidates that are already complete, formality-consistent and plausibly layered, avoiding previous-day repetition; colour harmony is not its job, because the catalog describes types without colour ([ADR 0007](adr/0007-ai-selects-precomposed-outfits.md) section 3).
 
 ```text
 mobile: deterministic requirements + preference-filtered catalog candidates + day seed
@@ -320,7 +320,7 @@ Rate limiting also covers `POST /v1/ai/recommend` (per-IP, 10/60s). Both endpoin
 
 ## Intended future boundaries
 
-The Supabase direction below is not implemented. The analytics boundary's first two phases landed on 2026-09-09 (see that section); feature taxonomy call sites remain ahead. Both directions remain forbidden to extend without an approved task: see [ADR 0022](adr/0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md) and [ADR 0023](adr/0023-behavioural-product-analytics-with-posthog.md).
+The Supabase direction below is not implemented. The analytics boundary and its feature taxonomy call sites are implemented (see that section). Both directions remain forbidden to extend without an approved task: see [ADR 0022](adr/0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md) and [ADR 0023](adr/0023-behavioural-product-analytics-with-posthog.md).
 
 ### Supabase, when accounts arrive
 

@@ -81,9 +81,9 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   to 1.0.0 (6) exist. Build 6, EAS production build from commit d0a78fe, is the first
   binary uploaded to TestFlight with the current native runtime: the local Foundation
   Models module, migration 13, the motion package, the pre-submission sweep, EAS Observe
-  and the on-device prompt's archetype rules. It was uploaded on 2026-09-13 and awaits
-  Apple's processing and the maintainer's physical-device pass; builds 4 and 5 are
-  superseded and build 5 was never distributed. The store version string follows the
+  and the on-device prompt's archetype rules. It was uploaded on 2026-09-13 and passed
+  the maintainer's physical-device pass the same day; builds 4 and 5 are superseded and
+  build 5 was never distributed. The store version string follows the
   `0.MINOR.YYYYMMDD` scheme: the leading 0 says the product is not yet declared stable,
   the middle number counts minor updates, and the trailing date stamps the update. The
   first store version is `0.1.20260913`, set in App Store Connect and in `app.json`, and
@@ -134,8 +134,8 @@ Analytics is sequenced before the first public App Store release, so milestones 
     App Store Connect on 2026-09-11. The EAS Observe integration (2026-09-13) added
     Performance Data, Other Diagnostic Data, Crash Data and the App Functionality purpose
     on Device ID to the answer set (ADR 0033 sections 1 and 7); the privacy policy in
-    `docs/` discloses them, and the App Store Connect questionnaire and the published
-    policy must be updated before submission (see Release Blockers).
+    `docs/` discloses them, the App Store Connect questionnaire carries them, and the
+    policy is published (see Release Blockers).
 12. **PostHog Error Tracking.** Source maps and release correlation are decided at
     implementation time; the same payload exclusion list applies.
 13. **Session replay evaluation.** Only after privacy masking and sampling are designed.
@@ -152,7 +152,10 @@ and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
 
 ## Release Blockers
 
-App Store submission, not TestFlight, is blocked by two items, both the maintainer's:
+Version 0.1.20260913 with build 7 was submitted for App Review on 2026-09-13 through
+`asc review submit` (submission `777a0fcb`, state WAITING_FOR_REVIEW); release is manual
+after approval. Two items stayed open at submission, both the maintainer's, and either
+can still surface as a review question:
 
 - A physical-device pass on build 7. The only device pass on record ran on build 6 on
   2026-09-13 (iPhone 14 Pro, no problem found), and build 7 is the first binary that

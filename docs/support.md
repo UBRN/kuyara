@@ -35,10 +35,13 @@ coordinates, and never includes location in analytics. Approximate location is e
 
 **How do I delete my data?**
 Everything kuyara stores about you lives on your device; deleting the app removes it. The
-only data kept elsewhere is optional usage analytics. Switch it off in Settings under
-Privacy to stop collection and unlink past events. To request deletion of past analytics
-events, email the maintainer with the analytics identifier shown on that screen; the
-[privacy policy](privacy-policy) explains what can and cannot be deleted.
+data kept elsewhere is optional: usage analytics and performance and crash diagnostics,
+both collected only after you accept the one consent question. Switch it off in Settings
+under Privacy to stop both and unlink past analytics events. To request deletion of past
+analytics events, email the maintainer with the analytics identifier shown on that
+screen. Diagnostics carry a separate identifier the app does not show, so they cannot yet
+be deleted on request; the [privacy policy](privacy-policy) explains what can and cannot
+be deleted and how long each is kept.
 
 ---
 
@@ -75,8 +78,11 @@ yeterlidir.
 
 **Verilerimi nasıl silerim?**
 kuyara'nın senin hakkında sakladığı her şey cihazında durur; uygulamayı silmek onları da
-siler. Başka bir yerde tutulan tek veri isteğe bağlı kullanım analitiğidir. Toplamayı
-durdurmak ve geçmiş olayların bağını koparmak için Ayarlar'daki Gizlilik bölümünden
-kapat. Geçmiş analitik olaylarının silinmesini istemek için o ekranda görünen analitik
-kimliğiyle birlikte sorumluya e-posta gönder; nelerin silinip silinemeyeceğini
+siler. Başka bir yerde tutulan veriler isteğe bağlıdır: kullanım analitiği ile performans
+ve çökme tanılamaları; ikisi de yalnız tek rıza sorusunu kabul ettikten sonra toplanır.
+İkisini de durdurmak ve geçmiş analitik olaylarının bağını koparmak için Ayarlar'daki
+Gizlilik bölümünden kapat. Geçmiş analitik olaylarının silinmesini istemek için o ekranda
+görünen analitik kimliğiyle birlikte sorumluya e-posta gönder. Tanılama verisi uygulamanın
+göstermediği ayrı bir kimlik taşır, bu yüzden şimdilik istek üzerine silinemez; nelerin
+silinip silinemeyeceğini ve her birinin ne kadar tutulduğunu
 [gizlilik politikası](privacy-policy) anlatıyor.
