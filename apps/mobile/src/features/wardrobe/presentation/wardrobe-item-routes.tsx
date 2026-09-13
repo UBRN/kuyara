@@ -37,6 +37,7 @@ function useWardrobeExitGuard(
   const navigation = useNavigation();
   const router = useRouter();
   const copy = useMessages().wardrobe;
+  const theme = useKuyaraTheme();
   const allowExitRef = useRef(false);
 
   const confirmDiscard = useCallback(
@@ -48,11 +49,12 @@ function useWardrobeExitGuard(
           cancelLabel: copy.keepEditingAction,
           confirmLabel: copy.discardAction,
           destructive: true,
+          colorScheme: theme.colorScheme,
         },
         leave,
       );
     },
-    [confirmation, copy],
+    [confirmation, copy, theme.colorScheme],
   );
 
   useEffect(

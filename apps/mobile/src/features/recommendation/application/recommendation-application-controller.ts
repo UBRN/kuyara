@@ -48,6 +48,7 @@ export type RecommendationSignals = Readonly<{
   locationKey: string;
   clothingPreference: string;
   dressStyle: DressStyle;
+  catalogVersion: number | null;
   localDayKey: string | null;
 }>;
 
@@ -65,6 +66,9 @@ export function recommendationRefreshTrigger(
     staleRefreshSnapshotId !== current.weatherSnapshotId
   ) return 'stale-weather-refreshed';
   if (!previous) return 'first-recommendation';
+  if (previous.catalogVersion !== current.catalogVersion) {
+    return 'first-recommendation';
+  }
   if (previous.locationKey !== current.locationKey) {
     return 'active-location-changed';
   }
@@ -76,6 +80,16 @@ export function recommendationRefreshTrigger(
   return null;
 }
 
+// What the wait is doing right now, so Today can say it instead of showing one generic line
+// for a wait that can run to the AI chain's whole length. Coarse by construction: no provider,
+// no model, no tier that is not already a user-visible generation mode.
+export type RecommendationPhase =
+  | 'checking-on-device'
+  | 'asking-stylist'
+  | 'answer-received'
+  | 'preparing-outfits'
+  | 'using-standard';
+
 export type RecommendationApplicationState =
   | Readonly<{ status: 'loading' }>
   | Readonly<{
@@ -83,6 +97,8 @@ export type RecommendationApplicationState =
       snapshot: RecommendationSnapshot | null;
       isRefreshing: boolean;
       lastFailure: FailureCategory | null;
+      // Null whenever `isRefreshing` is false: a settled state has no phase.
+      phase: RecommendationPhase | null;
     }>;
 
 // The Worker client is the only error this feature can classify. Its kinds are
@@ -101,6 +117,7 @@ function recommendationFailureCategory(error: unknown): FailureCategory {
 type AiClient = Readonly<{
   recommendRouted(
     request: AiRecommendV1Request,
+    options?: Readonly<{ onPhase?: (phase: RecommendationPhase) => void }>,
   ): Promise<OutfitRecommendationSuccess>;
 }>;
 
@@ -221,13 +238,20 @@ export class RecommendationApplicationController {
     try {
       this.repository = await this.dependencies.loadRepository();
       const snapshot = await this.repository.getSnapshot(this.localProfileId);
-      this.setReady({ status: 'ready', snapshot, isRefreshing: false, lastFailure: null });
+      this.setReady({
+        status: 'ready',
+        snapshot,
+        isRefreshing: false,
+        lastFailure: null,
+        phase: null,
+      });
     } catch (error) {
       this.setReady({
         status: 'ready',
         snapshot: null,
         isRefreshing: false,
         lastFailure: recommendationFailureCategory(error),
+        phase: null,
       });
     }
   }
@@ -250,12 +274,16 @@ export class RecommendationApplicationController {
       try {
         // The routed client runs the shared validation gate inside its own chain, so what
         // comes back here is already a validated recommendation from whichever tier won.
-        recommendation = await this.dependencies.client.recommendRouted(request);
+        recommendation = await this.dependencies.client.recommendRouted(request, {
+          onPhase: (phase) => this.setPhase(key, phase),
+        });
+        this.setPhase(key, 'preparing-outfits');
       } catch (error) {
         aiFailure = recommendationFailureCategory(error);
       }
     }
     if (!recommendation) {
+      this.setPhase(key, 'using-standard');
       try {
         const fallback = recommendOutfits(input);
         if (fallback.status !== 'recommended') {
@@ -265,6 +293,7 @@ export class RecommendationApplicationController {
           return this.currentSnapshot();
         }
         recommendation = fallback;
+        this.setPhase(key, 'preparing-outfits');
       } catch (error) {
         const failure = aiFailure ?? recommendationFailureCategory(error);
         this.setLastFailure(failure);
@@ -286,7 +315,13 @@ export class RecommendationApplicationController {
         },
       );
       if (this.latestRequestKey === key) {
-        this.setReady({ status: 'ready', snapshot, isRefreshing: true, lastFailure: null });
+        this.setReady({
+          status: 'ready',
+          snapshot,
+          isRefreshing: true,
+          lastFailure: null,
+          phase: 'preparing-outfits',
+        });
       }
       this.captureAnalyticsEvent('recommendation_regenerated', {
         schema_version: ANALYTICS_SCHEMA_VERSION,
@@ -367,10 +402,19 @@ export class RecommendationApplicationController {
     }
   }
 
+  // A refresh starts and ends without a phase: the chain reports the first one, and a
+  // settled state carries none.
   private setRefreshing(isRefreshing: boolean): void {
     if (this.state.status === 'ready') {
-      this.setReady({ ...this.state, isRefreshing });
+      this.setReady({ ...this.state, isRefreshing, phase: null });
     }
+  }
+
+  // A superseded refresh still runs to completion, so its narration is dropped rather than
+  // allowed to describe a wait the user is no longer in.
+  private setPhase(key: string, phase: RecommendationPhase): void {
+    if (this.latestRequestKey !== key || this.state.status !== 'ready') return;
+    this.setReady({ ...this.state, phase });
   }
 
   private setReady(state: Extract<RecommendationApplicationState, { status: 'ready' }>): void {

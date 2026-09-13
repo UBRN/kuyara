@@ -149,6 +149,7 @@ function recommendationReady(
     status: 'ready',
     isRefreshing: false,
     lastFailure: null,
+    phase: null,
     snapshot: {
       id: 'recommendation-one',
       localProfileId: 'profile-one',
@@ -156,6 +157,7 @@ function recommendationReady(
       locationKey: todayScreenState.snapshot.activeLocation.locationKey,
       clothingPreference: 'womens',
       dressStyle: 'smart',
+      catalogVersion: 4,
       dayVariant: 0,
       localDayKey: '2026-08-13',
       generationMode: todayRecommendation.generationMode,
@@ -416,7 +418,7 @@ test('the first recommendation refresh shows loading without reporting an error 
   const result = await render(
     <Providers
       {...props}
-      recommendation={{ status: 'ready', snapshot: null, isRefreshing: true, lastFailure: null }}>
+      recommendation={{ status: 'ready', snapshot: null, isRefreshing: true, lastFailure: null, phase: null }}>
       <TodayRoute />
     </Providers>,
   );
@@ -698,7 +700,7 @@ test('a visible recommendation failure uses only the recommendation error surfac
     <Providers
       productAnalytics={productAnalytics}
       profile={profileValue()}
-      recommendation={{ status: 'ready', snapshot: null, isRefreshing: false, lastFailure: 'unavailable' }}
+      recommendation={{ status: 'ready', snapshot: null, isRefreshing: false, lastFailure: 'unavailable', phase: null }}
       wardrobe={wardrobeValue()}
       weather={weatherValue()}>
       <TodayRoute />

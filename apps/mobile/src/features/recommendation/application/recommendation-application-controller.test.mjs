@@ -97,6 +97,7 @@ function createHarness({ cached = null, client, failSave = false, captureAnalyti
         locationKey: value.locationKey,
         clothingPreference: value.context.clothingPreference,
         dressStyle: value.context.dressStyle,
+        catalogVersion: value.context.catalogVersion,
         dayVariant: value.context.dayVariant,
         localDayKey: value.context.localDayKey ?? null,
         generationMode: value.recommendation.generationMode,
@@ -115,10 +116,10 @@ function createHarness({ cached = null, client, failSave = false, captureAnalyti
   const recommendRouted = client?.recommendRouted ??
     (async (request) => mapWorkerAiRecommendation(request, await recommend(request), 'ai-assisted'));
   const aiClient = {
-    async recommendRouted(request) {
+    async recommendRouted(request, options) {
       calls.client += 1;
       requests.push(request);
-      return recommendRouted(request);
+      return recommendRouted(request, options);
     },
   };
   const controller = new RecommendationApplicationController(profileId, {
@@ -153,6 +154,7 @@ test('local day key changes across New Year even when the composition seed repea
     locationKey: 'location-one',
     clothingPreference: 'womens',
     dressStyle: 'smart',
+    catalogVersion: 4,
     dayVariant: localDayVariant(december31),
     localDayKey: localDayKey(december31),
   };
@@ -171,6 +173,7 @@ test('a missing persisted snapshot triggers the first recommendation', () => {
     weatherSnapshotId: 'weather-one',
     locationKey: 'location-one',
     clothingPreference: 'womens',
+    catalogVersion: 4,
     dayVariant: 3,
   };
 
@@ -185,6 +188,7 @@ test('equal persisted signals do not trigger a recommendation on reopen', () => 
     weatherSnapshotId: 'weather-one',
     locationKey: 'location-one',
     clothingPreference: 'womens',
+    catalogVersion: 4,
     dayVariant: 3,
   };
 
@@ -196,6 +200,7 @@ test('a changed persisted location triggers a recommendation', () => {
     weatherSnapshotId: 'weather-one',
     locationKey: 'location-one',
     clothingPreference: 'womens',
+    catalogVersion: 4,
     dayVariant: 3,
   };
 
@@ -211,6 +216,7 @@ test('trigger selection distinguishes stale refresh from unapproved weather chan
     locationKey: 'location-one',
     clothingPreference: 'womens',
     dressStyle: 'smart',
+    catalogVersion: 4,
     dayVariant: 3,
     localDayKey: '2026-08-01',
   };
@@ -374,6 +380,7 @@ test('a dress style change refreshes but an unchanged style preserves the snapsh
     weatherSnapshotId: 'w',
     locationKey: 'l',
     clothingPreference: 'womens',
+    catalogVersion: 4,
     dayVariant: 1,
     dressStyle: 'smart',
   };
@@ -382,6 +389,26 @@ test('a dress style change refreshes but an unchanged style preserves the snapsh
     'dress-style-changed',
   );
   assert.equal(recommendationRefreshTrigger(previous, { ...previous }, null), null);
+});
+
+test('a catalog version change refreshes and the same version preserves the snapshot', () => {
+  const current = {
+    weatherSnapshotId: 'w',
+    locationKey: 'l',
+    clothingPreference: 'womens',
+    dressStyle: 'smart',
+    catalogVersion: 4,
+    localDayKey: '2026-08-01',
+  };
+  assert.equal(
+    recommendationRefreshTrigger({ ...current, catalogVersion: 3 }, current, null),
+    'first-recommendation',
+  );
+  assert.equal(
+    recommendationRefreshTrigger({ ...current, catalogVersion: null }, current, null),
+    'first-recommendation',
+  );
+  assert.equal(recommendationRefreshTrigger(current, current, null), null);
 });
 
 test('a failed save classifies the Worker client kind and clears it on the next success', async () => {
@@ -459,6 +486,7 @@ test('a repository load failure leaves the ready state carrying an unknown failu
     snapshot: null,
     isRefreshing: false,
     lastFailure: 'unknown',
+    phase: null,
   });
 });
 
@@ -546,4 +574,106 @@ test('the tier the routed client used becomes the stored generation mode', async
   assert.equal(snapshot.recommendation.outfits.length, 3);
   assert.deepEqual(calls, { client: 1, saves: 1 });
   assert.equal(captured[0].properties.generation_mode, 'on_device_ai');
+});
+
+// Today renders the phase, so what matters is the sequence of distinct values the controller
+// emits, starting and ending at null: a settled state has no phase.
+function recordPhases(controller) {
+  const phases = [null];
+  controller.subscribe(() => {
+    const state = controller.getSnapshot();
+    const phase = state.status === 'ready' ? state.phase : null;
+    if (phases.at(-1) !== phase) phases.push(phase);
+  });
+  return phases;
+}
+
+function narratingClient(reported, outcome) {
+  return {
+    recommendRouted: async (request, options) => {
+      for (const phase of reported) options?.onPhase?.(phase);
+      if (outcome === 'fail') throw new WorkerAiClientError('service');
+      return mapWorkerAiRecommendation(request, workerResponse(request), outcome);
+    },
+  };
+}
+
+test('an on-device answer narrates its own tier and settles back to no phase', async () => {
+  const { controller } = createHarness({
+    client: narratingClient(['checking-on-device', 'answer-received'], 'on-device-ai'),
+  });
+  await controller.initialize();
+  const phases = recordPhases(controller);
+
+  await controller.refresh('first-recommendation', input(16));
+
+  assert.deepEqual(phases, [
+    null, 'checking-on-device', 'answer-received', 'preparing-outfits', null,
+  ]);
+});
+
+test('a failed on-device tier narrates the stylist before the outfits are prepared', async () => {
+  const { controller } = createHarness({
+    client: narratingClient(
+      ['checking-on-device', 'asking-stylist', 'answer-received'],
+      'ai-assisted',
+    ),
+  });
+  await controller.initialize();
+  const phases = recordPhases(controller);
+
+  await controller.refresh('first-recommendation', input(16));
+
+  assert.deepEqual(phases, [
+    null, 'checking-on-device', 'asking-stylist', 'answer-received', 'preparing-outfits', null,
+  ]);
+});
+
+// AI failure never prevents a recommendation, and the phase says so in the same words the
+// deterministic composition is described with everywhere else.
+test('every AI tier failing narrates the standard suggestions and still delivers three', async () => {
+  const { controller } = createHarness({
+    client: narratingClient(['checking-on-device', 'asking-stylist'], 'fail'),
+  });
+  await controller.initialize();
+  const phases = recordPhases(controller);
+
+  const snapshot = await controller.refresh('first-recommendation', input(16));
+
+  assert.equal(snapshot.generationMode, 'deterministic-fallback');
+  assert.equal(snapshot.recommendation.outfits.length, 3);
+  assert.deepEqual(phases, [
+    null, 'checking-on-device', 'asking-stylist', 'using-standard', 'preparing-outfits', null,
+  ]);
+});
+
+test('a superseded refresh does not flip the phase of the one the user is waiting on', async () => {
+  let supersededOnPhase;
+  let releaseSuperseded;
+  let call = 0;
+  const { controller } = createHarness({
+    client: {
+      recommendRouted: async (request, options) => {
+        call += 1;
+        if (call === 1) {
+          supersededOnPhase = options.onPhase;
+          await new Promise((resolve) => { releaseSuperseded = resolve; });
+        }
+        return mapWorkerAiRecommendation(request, workerResponse(request), 'ai-assisted');
+      },
+    },
+  });
+  await controller.initialize();
+
+  const superseded = controller.refresh('first-recommendation', input(16));
+  const latest = controller.refresh('explicit', input(24));
+  await latest;
+  assert.equal(controller.getSnapshot().phase, null);
+
+  supersededOnPhase('asking-stylist');
+
+  assert.equal(controller.getSnapshot().phase, null);
+  releaseSuperseded();
+  await superseded;
+  assert.equal(controller.getSnapshot().phase, null);
 });

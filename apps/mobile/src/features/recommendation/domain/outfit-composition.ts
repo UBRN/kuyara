@@ -149,18 +149,11 @@ export type OutfitCompositionFailure = Readonly<{
   consideredCandidateKeys: readonly string[];
 }>;
 
-export type OutfitCompositionSuccess = Readonly<{
-  status: 'composed';
-  outfit: OutfitCandidate;
-}>;
-
-export type OutfitCompositionResult =
-  | OutfitCompositionSuccess
-  | OutfitCompositionFailure;
-
 export type OutfitCompositionsSuccess = Readonly<{
   status: 'composed';
-  outfits: readonly OutfitCandidate[]; // 1, 2 or 3 entries, best first
+  // Best first: every valid arrangement from `collectValidOutfits`, at most 24 offered ones
+  // from `composeOutfitOptions`.
+  outfits: readonly OutfitCandidate[];
 }>;
 
 export type OutfitCompositionsResult =
@@ -1010,8 +1003,12 @@ function supportsRole(
   return result.garment.properties.supportedLayerRoles.includes(role);
 }
 
-/** Returns every valid composition, sorted best first, or the shared failure. */
-function collectValidOutfits(
+/**
+ * Returns every valid composition, sorted best first, or the shared failure. It assigns
+ * runtime roles but does not mutate garment data or re-evaluate garment-level requirement
+ * applicability.
+ */
+export function collectValidOutfits(
   requirements: ClothingRequirements,
   candidates: readonly GarmentEligibilityResult[],
 ): OutfitCompositionsResult {
@@ -1241,21 +1238,6 @@ function selectDiverseOutfits(
     }
   }
   return Object.freeze(selected);
-}
-
-/**
- * Composes one complete deterministic outfit from already evaluated candidates.
- * It assigns runtime roles but does not mutate garment data or re-evaluate
- * garment-level requirement applicability.
- */
-export function composeOutfit(
-  requirements: ClothingRequirements,
-  candidates: readonly GarmentEligibilityResult[],
-): OutfitCompositionResult {
-  const result = collectValidOutfits(requirements, candidates);
-  return result.status === 'failure'
-    ? result
-    : Object.freeze({ status: 'composed', outfit: result.outfits[0] });
 }
 
 export function composeOutfitOptions(

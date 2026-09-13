@@ -70,12 +70,17 @@ the mapper, persistence and the trigger rules keep their shape. The controller's
 catch still lands on the deterministic fallback, which means tier 3 is reached by the same
 code path as before.
 
-### 2. The user-visible budget does not move
+### 2. The on-device tier has its own bounded budget
 
-The single user-visible recommendation budget is 20 s. On-device gets 6 s of it and the
-Worker gets the remainder, at least 14 s, which is above the Worker chain's measured
-range. There is one on-device attempt and no retry; a timed-out attempt is abandoned and
-the Worker tier runs within the remaining budget.
+On-device gets 6 s. There is one on-device attempt and no retry; a timed-out attempt is
+abandoned and the Worker tier then runs with its own 38 s wait (the Worker's 36 s walk,
+five attempts of 7 s plus one second, and 2 s of transport), so the whole refresh is
+bounded at 44 s and the deterministic fallback is reached only after the last provider
+fails. The mobile client sends that wait minus a 1 s transport margin in a private
+validated request header; the Worker clamps it from 5 to 36 s and starts no attempt with
+less than the 5 s window needed for a measured healthy response. The on-device tier never
+eats into the Worker's wait, and the Worker's wait is never shortened because the on-device
+tier was tried.
 
 The 6 s figure is deliberately conservative because on-device latency has not been
 measured on eligible hardware (see [Verification boundary](#verification-boundary)). It is
@@ -98,8 +103,11 @@ The durable cost is explicit:
 - The analytics taxonomy gains the property value `on_device_ai` and the analytics schema
   version moves to 2.
 
-Provider and model identity stay out of the durable model, the analytics payload and the
-interface, exactly as before.
+Provider and model identity stay out of the durable model, the analytics payload, Today and
+the recommendation detail. The Settings AI status screen is the one interface that may name
+the provider and model behind the last check (section 5); that identifier crosses the mobile
+API as a controlled non-secret value, like a weather attribution identifier, and is never
+persisted with a recommendation or sent to analytics.
 
 ### 4. Three badges, three localized strings, one referential mention
 
@@ -129,10 +137,17 @@ The rules around them:
 
 ### 5. The AI status screen reports availability without calling anything
 
-The AI status surface gains a first row fed by the module's `getAvailability()` call, with
-three user-visible states: available, not available on this device, and Apple Intelligence
-is off. Reading availability performs no inference, consumes no quota and takes no
-measurable time, so it is not a probe. The active probe stays a Worker probe with its
+The AI status surface gains a first row fed by the module's `getAvailability()` call. It
+states the Apple Intelligence situation in words a user cannot misread: "compatible and
+running" when availability is `available`, "turned off" when the device is eligible but
+Apple Intelligence is disabled in Settings, and "not compatible" when the device is not
+eligible; a model that is still downloading reads as compatible and getting ready. The row
+never says "available" or "unavailable" alone, which read as a verdict on the app rather
+than on the device. Reading availability performs no inference, consumes no quota and takes
+no measurable time, so it is not a probe. Below that row the screen may show which provider
+and model answered the last Worker probe and which tier produced the last recommendation;
+this is the only place such names appear, and they are read from the probe response, not
+from the stored recommendation. The active probe stays a Worker probe with its
 bounded call, its cached sanitized result and its daily cap
 ([ADR 0001](0001-worker-ai-probe-and-rate-limiting.md)).
 
@@ -281,8 +296,9 @@ the three badges and the availability row in the component suite.
   and all duplicate a small local module.
 - `expo-app-intents` is not adopted from expo/expo main.
 - No Xcode 27 build and no higher deployment target.
-- No provider identity, model identity or model version reaches users, analytics or the
-  durable domain model.
+- No provider identity, model identity or model version reaches Today, the recommendation
+  detail, analytics or the durable domain model; the Settings AI status screen is the only
+  surface that names them.
 
 ## Siri is a separate decision
 

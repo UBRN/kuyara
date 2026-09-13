@@ -181,6 +181,7 @@ export function NativeListRow({
 
   const trailing: ReactNode = toggle ? (
     <NativeToggle
+      accessibilityLabel={label}
       disabled={toggle.disabled}
       onValueChange={toggle.onValueChange}
       testID={testID ? `${testID}-toggle` : undefined}

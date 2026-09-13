@@ -8,11 +8,19 @@ import {
 } from './garment-eligibility.ts';
 import { listGarmentTypesForPreference } from '../../catalog/domain/garment-catalog.ts';
 import {
-  composeOutfit,
+  collectValidOutfits,
   composeOutfitOptions,
   outfitCompositionFailureCodes,
   outfitCompositionReasonCodes,
 } from './outfit-composition.ts';
+
+// Most cases below are about the best arrangement, which is the first one collected.
+function composeOutfit(requirements, candidates) {
+  const result = collectValidOutfits(requirements, candidates);
+  return result.status === 'failure'
+    ? result
+    : Object.freeze({ status: 'composed', outfit: result.outfits[0] });
+}
 
 function clothingRequirements(...requirements) {
   return Object.freeze({
@@ -649,7 +657,7 @@ test('returns exactly one outfit when only one option exists', () => {
   assert.equal(result.outfits.length, 1);
 });
 
-test('returns the same failure as composeOutfit when no composition is valid', () => {
+test('returns the same failure as the collected compositions when none is valid', () => {
   const requirements = clothingRequirements(requirement('thermal', 'high'));
   const candidates = [
     catalogCandidate(requirements, 't_shirt'),
@@ -659,7 +667,7 @@ test('returns the same failure as composeOutfit when no composition is valid', (
 
   assert.deepEqual(
     composeOutfitOptions(requirements, candidates, 0),
-    composeOutfit(requirements, candidates),
+    collectValidOutfits(requirements, candidates),
   );
 });
 

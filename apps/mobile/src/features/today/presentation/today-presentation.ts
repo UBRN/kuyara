@@ -1,3 +1,4 @@
+import type { RecommendationPhase } from '@/features/recommendation/application/recommendation-application-controller';
 import type { RecommendedOutfit } from '@/features/recommendation/application/recommend-outfits';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import type {
@@ -106,6 +107,9 @@ export type LoadedTodayPresentation = Readonly<{
     isStale: boolean;
     isRefreshing: boolean;
     announceFreshness: boolean;
+    // Set only while a recommendation refresh is narrating itself, in which case
+    // `freshness` already carries that phase's copy instead of the generic line.
+    phase: RecommendationPhase | null;
   }>;
   weather: Readonly<{
     condition: string;
@@ -137,6 +141,7 @@ export type TodayPresentation =
       accessibilityLabel: string;
       reason?: 'no-active-location' | 'failure';
       actionLabel?: string;
+      phase?: RecommendationPhase | null;
     }>;
 
 function localeTag(language: SupportedLanguage): string {
@@ -283,6 +288,7 @@ function createLoadedPresentation(
   isRefreshing: boolean,
   refreshFailed: boolean,
   now: number,
+  phase: RecommendationPhase | null,
 ): LoadedTodayPresentation {
   const messages = getMessages(language);
   const copy = messages.today;
@@ -341,7 +347,9 @@ function createLoadedPresentation(
           ? snapshot.activeLocation.displayName
           : weatherCopy.currentLocation,
       freshness: isRefreshing
-        ? copy.refreshingStatus
+        ? phase
+          ? copy.phase[phase]
+          : copy.refreshingStatus
         : refreshFailed
           ? copy.refreshFailedAt(time)
           : isStale
@@ -350,6 +358,7 @@ function createLoadedPresentation(
       isStale,
       isRefreshing,
       announceFreshness: isRefreshing || refreshFailed || isStale,
+      phase: isRefreshing ? phase : null,
     },
     weather: {
       condition,
@@ -402,6 +411,7 @@ export function createTodayPresentation(
       title: copy.loadingTitle,
       body: copy.loadingBody,
       accessibilityLabel: copy.loadingAccessibilityLabel,
+      phase: state.phase ?? null,
     };
   }
 
@@ -432,5 +442,6 @@ export function createTodayPresentation(
     state.isRefreshing,
     state.refreshFailed,
     now,
+    state.phase ?? null,
   );
 }

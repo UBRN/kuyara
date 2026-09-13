@@ -8,11 +8,11 @@ import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on
 import { useLocalization } from '@/localization/use-messages';
 
 // ADR 0030 section 5 and ADR 0034 section 5: a first group with what the device reports
-// about on-device selection and the last recommendation's coarse generation mode, then a
-// second group with the tinted "Check AI status" row, a result row when there is a result
-// (a monochrome status glyph in the shared tile, words beside it in the system's secondary
-// ink, never a status colour), and a footer. Provider and model never appear here or
-// anywhere in this surface.
+// about Apple Intelligence, the provider and model that answered the last check, and the
+// last recommendation's coarse generation mode, then a second group with the tinted
+// "Check AI status" row, a result row when there is a result (a monochrome status glyph in
+// the shared tile, words beside it in the system's secondary ink, never a status colour),
+// and a footer. This screen is the only surface that may name a provider or a model.
 export type AiStatusSettingsScreenProps = Readonly<{
   aiStatus: AiProbeUiState;
   isProbeSupported: boolean;
@@ -32,13 +32,18 @@ export function AiStatusSettingsScreen({
   const copy = messages.settings;
 
   // Reading availability calls nothing, so this row is never a probe. Until the answer
-  // arrives, and for every reason other than the switch being off, the device reads as one
-  // that cannot choose locally.
+  // arrives, and for every reason other than the switch being off or the model still
+  // downloading, the device reads as one that is not compatible.
   const onDeviceCopy = onDeviceAvailability?.status === 'available'
-    ? copy.aiStatusOnDeviceAvailable
+    ? copy.aiStatusOnDeviceRunning
     : onDeviceAvailability?.reason === 'apple_intelligence_not_enabled'
-      ? copy.aiStatusOnDeviceDisabled
-      : copy.aiStatusOnDeviceUnavailable;
+      ? copy.aiStatusOnDeviceOff
+      : onDeviceAvailability?.reason === 'model_not_ready'
+        ? copy.aiStatusOnDeviceGettingReady
+        : copy.aiStatusOnDeviceIncompatible;
+
+  // Only the last successful check names anything, and the name is never stored.
+  const assistant = aiStatus.kind === 'ok' ? aiStatus.assistant : undefined;
 
   const lastGenerationModeCopy = lastGenerationMode === 'on-device-ai'
     ? copy.aiStatusLastOnDeviceAi
@@ -90,6 +95,12 @@ export function AiStatusSettingsScreen({
             testID="settings-ai-status-on-device"
           />
           <NativeListRow label={lastGenerationModeCopy} testID="settings-ai-status-last-mode" />
+          {assistant ? (
+            <NativeListRow
+              label={copy.aiStatusAssistant(assistant.providerId, assistant.model)}
+              testID="settings-ai-status-assistant-identity"
+            />
+          ) : null}
         </NativeListSection>
 
         <NativeListSection
