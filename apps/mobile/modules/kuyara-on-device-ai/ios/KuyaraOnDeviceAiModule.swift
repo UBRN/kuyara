@@ -36,9 +36,10 @@ private let allowedArchetypeIds = [
 private let instructions = [
   "Pick exactly three supplied options by optionId.",
   "Never invent an optionId.",
-  "Make the three picks meaningfully different.",
+  "Two picks are meaningfully different only when they differ in the body core (a different one_piece, or a different primary_top, or a different bottom) or in at least two slot/garmentTypeId pairs. A different formality alone is not a difference.",
+  "All three picks must be meaningfully different from each other.",
   "Prefer formalities in the supplied formalityOrder; no formality is excluded.",
-  "Give each pick one archetypeId from the allowed list.",
+  "Give each pick exactly one archetypeId, taken from that option's own eligibleArchetypeIds or the always-allowed everyday_easy. Any other archetypeId is rejected.",
   "Use three different archetypeIds.",
   "Output structured data only, with no prose.",
 ].joined(separator: "\n")

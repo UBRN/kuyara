@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { aiModelInputFromRequest, picksAreMeaningfullyDifferent } from './ai-model-input.ts';
-import { aiRecommendV1RequestSchema } from './ai-v1.ts';
+import {
+  aiModelInputFromRequest,
+  meetsArchetypePrecondition,
+  picksAreMeaningfullyDifferent,
+} from './ai-model-input.ts';
+import { aiRecommendV1RequestSchema, outfitArchetypeIds } from './ai-v1.ts';
 
 function garment(slot, garmentTypeId, layerRole = 'standalone') {
   return { slot, layerRole, garmentTypeId };
@@ -47,35 +51,35 @@ const fixtureRequest = Object.freeze({
   ],
 });
 
-// Captured from the Worker's pre-refactor inline assembly in buildMessages. The model
-// input is a serialized payload, so field order is part of the behaviour being preserved.
-const serializedBeforeRefactor = '{"clothingPreference":"womens","formalityOrder":["formal","smart","casual"],'
+// The model input is a serialized payload, so field order is part of the behaviour.
+// eligibleArchetypeIds is the one addition to the Worker's original inline assembly:
+// the caller rejects a pick whose archetype fails its precondition, so the model has
+// to be told which archetypes an option can carry.
+const serializedInput = '{"clothingPreference":"womens","formalityOrder":["formal","smart","casual"],'
   + '"options":[{"optionId":"opt-1","formality":"smart","garments":['
   + '{"slot":"primary_top","garmentTypeId":"blouse"},'
   + '{"slot":"bottom","garmentTypeId":"trousers"},'
-  + '{"slot":"footwear","garmentTypeId":"closed_shoes"}]},'
+  + '{"slot":"footwear","garmentTypeId":"closed_shoes"}],'
+  + '"eligibleArchetypeIds":["smart_casual","light_and_airy"]},'
   + '{"optionId":"opt-2","formality":"casual","garments":['
   + '{"slot":"one_piece","garmentTypeId":"dress"},'
   + '{"slot":"outer_layer","garmentTypeId":"coat"},'
-  + '{"slot":"footwear","garmentTypeId":"ankle_boots"}]}]}';
+  + '{"slot":"footwear","garmentTypeId":"ankle_boots"}],'
+  + '"eligibleArchetypeIds":["weekend_relaxed","light_and_airy"]}]}';
 
 test('a request the wire schema accepts projects to the same serialized input', () => {
   const parsed = aiRecommendV1RequestSchema.parse(fixtureRequest);
-  assert.equal(JSON.stringify(aiModelInputFromRequest(parsed)), serializedBeforeRefactor);
-});
-
-test('the serialized model input is unchanged by the move into contracts', () => {
-  assert.equal(
-    JSON.stringify(aiModelInputFromRequest(fixtureRequest)),
-    serializedBeforeRefactor,
-  );
+  assert.equal(JSON.stringify(aiModelInputFromRequest(parsed)), serializedInput);
 });
 
 test('the projection carries only the approved fields', () => {
   const input = aiModelInputFromRequest(fixtureRequest);
   assert.deepEqual(Object.keys(input), ['clothingPreference', 'formalityOrder', 'options']);
   for (const projected of input.options) {
-    assert.deepEqual(Object.keys(projected), ['optionId', 'formality', 'garments']);
+    assert.deepEqual(
+      Object.keys(projected),
+      ['optionId', 'formality', 'garments', 'eligibleArchetypeIds'],
+    );
     for (const projectedGarment of projected.garments) {
       assert.deepEqual(Object.keys(projectedGarment), ['slot', 'garmentTypeId']);
     }
@@ -83,6 +87,46 @@ test('the projection carries only the approved fields', () => {
   for (const withheld of ['requirements', 'catalogVersion', 'dayVariant', 'dressStyle', 'traits', 'layerRole']) {
     assert.equal(JSON.stringify(input).includes(withheld), false);
   }
+});
+
+// The regression: the handler rejected every reply whose archetype failed a
+// precondition the model was never shown, so a healthy provider still produced
+// ai_unavailable. The offered list and the enforced rule must be the same set.
+test('every option is offered exactly the conditional archetypes it qualifies for', () => {
+  const parsed = aiRecommendV1RequestSchema.parse(fixtureRequest);
+  const input = aiModelInputFromRequest(parsed);
+  parsed.options.forEach((option, index) => {
+    assert.deepEqual(
+      input.options[index].eligibleArchetypeIds,
+      outfitArchetypeIds.filter((id) =>
+        id !== 'everyday_easy' && meetsArchetypePrecondition(id, option)),
+    );
+  });
+});
+
+// The one archetype the projection leaves out costs bytes under every option and
+// discriminates nothing, so the prompts state it. The gate must still take it.
+test('everyday_easy is withheld from the projection and still accepted by the gate', () => {
+  const parsed = aiRecommendV1RequestSchema.parse(fixtureRequest);
+  const input = aiModelInputFromRequest(parsed);
+  parsed.options.forEach((option, index) => {
+    assert.equal(meetsArchetypePrecondition('everyday_easy', option), true);
+    assert.equal(
+      input.options[index].eligibleArchetypeIds.includes('everyday_easy'),
+      false,
+    );
+  });
+});
+
+test('no option is offered an archetype whose precondition it fails', () => {
+  const parsed = aiRecommendV1RequestSchema.parse(fixtureRequest);
+  const input = aiModelInputFromRequest(parsed);
+  parsed.options.forEach((option, index) => {
+    assert.notEqual(input.options[index].eligibleArchetypeIds.length, 0);
+    for (const archetypeId of input.options[index].eligibleArchetypeIds) {
+      assert.equal(meetsArchetypePrecondition(archetypeId, option), true);
+    }
+  });
 });
 
 test('an absent dress style projects the smart formality order', () => {

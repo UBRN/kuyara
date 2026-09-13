@@ -38,12 +38,22 @@ export function buildPickJsonSchema(options: AiRecommendV1Request['options']) {
   } as const;
 }
 
+// Every line states a rule the caller then enforces, so a reply that follows the
+// prompt passes validation. A rule the caller checks but the prompt withholds can
+// only be guessed at, and a guessed archetype fails its precondition.
 const systemContent = [
   'Pick exactly three supplied options by optionId.',
   'Never invent an optionId.',
-  'Make the three picks meaningfully different.',
-  'Prefer formalities in the supplied formalityOrder; no formality is excluded.',
-  'Give each pick one archetypeId from the allowed list.',
+  'Two picks are meaningfully different only when they differ in the'
+    + ' body core (a different one_piece, or a different primary_top, or a'
+    + ' different bottom) or in at least two slot/garmentTypeId pairs. A'
+    + ' different formality alone is not a difference.',
+  'All three picks must be meaningfully different from each other.',
+  'Prefer formalities in the supplied formalityOrder; no formality is'
+    + ' excluded.',
+  'Give each pick exactly one archetypeId, taken from that option\'s'
+    + ' own eligibleArchetypeIds or the always-allowed everyday_easy. Any'
+    + ' other archetypeId is rejected.',
   'Use three different archetypeIds.',
   'Output structured data only, with no prose.',
 ].join('\n');

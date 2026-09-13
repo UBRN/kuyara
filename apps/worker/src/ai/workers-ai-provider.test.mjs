@@ -83,6 +83,10 @@ test('prompt sends only the approved model inputs', async () => {
         { slot: 'bottom', garmentTypeId: 'trousers' },
         { slot: 'footwear', garmentTypeId: 'sneakers' },
       ],
+      // The handler rejects a pick whose archetype fails its precondition, so the
+      // approved input carries the conditional archetypes this option can be given.
+      // everyday_easy is unconditional and the prompt states it instead.
+      eligibleArchetypeIds: ['weekend_relaxed', 'light_and_airy', 'on_the_move'],
     }],
   });
   const serialized = JSON.stringify(payload);
