@@ -139,7 +139,9 @@ test('opt-in precedes the consent event and forwards an optional timestamp as a 
 
 test('withdrawal is the last event, clears the device id, and re-consent has a fresh identifier', async () => {
   const clients = [];
-  const analytics = createPostHogProductAnalytics(options('granted'), () => {
+  const beforeSendHooks = [];
+  const analytics = createPostHogProductAnalytics(options('granted'), (beforeSend) => {
+    beforeSendHooks.push(beforeSend);
     const client = new FakeClient(`identifier-${clients.length + 1}`);
     clients.push(client);
     return client;
@@ -161,9 +163,14 @@ test('withdrawal is the last event, clears the device id, and re-consent has a f
   ]);
   assert.equal(client.deviceId, null);
   assert.equal(analytics.getIdentifier(), null);
+  assert.equal(beforeSendHooks[0]({ event: '$exception', properties: {} }), null);
+  assert.equal(beforeSendHooks[0]({ event: 'Application Opened', properties: {} }), null);
 
   await analytics.optIn('settings_privacy');
   assert.equal(clients.length, 2);
+  assert.equal(beforeSendHooks.length, 2);
+  assert.notEqual(beforeSendHooks[1]({ event: '$exception', properties: {} }), null);
+  assert.notEqual(beforeSendHooks[1]({ event: 'Application Opened', properties: {} }), null);
   assert.notEqual(analytics.getIdentifier(), firstIdentifier);
   assert.deepEqual(clients[1].captures.at(-1), {
     name: 'analytics_consent_granted',

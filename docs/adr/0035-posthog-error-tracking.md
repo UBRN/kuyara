@@ -1,19 +1,16 @@
 # ADR 0035: PostHog Error Tracking
 
-Status: Proposed (2026-09-13)
+Status: Accepted (2026-09-14)
 
-Implementation: not started. This ADR decides what milestone 12 in
-[`docs/current-status.md`](../current-status.md) may build: which failures reach PostHog,
-how a Hermes stack trace is made readable, how the one consent answer governs it, what an
-exception payload may carry, what it changes in the App Store privacy answers, what it
-costs and how that cost is capped, and how it divides the ground with the EAS Observe
-integration that already collects crash data.
+This ADR defines which failures reach PostHog, how a Hermes stack trace is made readable,
+how the one consent answer governs it, what an exception payload may carry, what it changes
+in the App Store privacy answers, what it costs and how that cost is capped, and how it
+divides the ground with the EAS Observe integration that already collects crash data.
 
 Every PostHog statement below was read from the URL cited next to it on the date recorded
 there, and every SDK statement was read from the version installed in this repository
 (`posthog-react-native` 4.68.4, `@posthog/core` 1.52.0). Prices and allowances are what
-those pages said on 2026-09-13; `AGENTS.md` forbids freezing them, so the implementer
-recalculates them from the same pages before enabling anything.
+those pages said on 2026-09-14 and are rechecked before a release operation.
 
 ## Context
 
@@ -22,16 +19,14 @@ Error Tracking the preferred first candidate for automated crash and exception t
 because it correlates a failure with the product behaviour that preceded it in one system
 rather than two, and left source maps, release correlation and the payload boundary to be
 decided at implementation time. [ADR 0033](0033-apple-privacy-obligations-for-first-party-analytics.md)
-section 6 item 8 made that conditional: Error Tracking is not enabled in milestone 10, and
-when milestone 12 adds it, the Diagnostics categories and the privacy manifest are
-extended in the same change.
+section 6 item 8 made that conditional: Error Tracking was outside milestone 10, and its
+Diagnostics categories and privacy-manifest purpose had to change with the implementation.
 
-The gap this closes is real and was measured, not imagined. When the build 3 start-up
-failure shipped, the maintainer found it only by installing the TestFlight build personally. PostHog could
-not have shown it: `errorTracking.autocapture` is `false` and `exceptionSteps` disabled in
-`apps/mobile/src/features/analytics/data/posthog-product-analytics.ts`, session replay is
-off, and the only failure signal in the taxonomy is the coarse `error_shown` and
-`error_recovered` pair over six surfaces, none of them the bootstrap screen. A
+The gap is real and was measured. When the build 3 start-up failure shipped, the maintainer
+found it only by installing the TestFlight build personally. The coarse `error_shown` and
+`error_recovered` pair covers six handled-error surfaces, none of them the bootstrap screen;
+consent-gated PostHog Error Tracking now adds uncaught JavaScript exceptions and unhandled
+rejections with `exceptionSteps` and session replay still off. A
 user-initiated "Report a problem" share action now exists on the bootstrap failure screen,
 which gives a person a way to tell the maintainer what broke, but it needs the person to
 act, it produces prose in a share sheet rather than a grouped issue, and it says nothing
@@ -110,14 +105,16 @@ A Hermes stack trace without a source map is a list of byte offsets in a minifie
 Capturing exceptions and not resolving them would spend the privacy and cost budget for
 data nobody can read, so source map upload is part of the same change, not a follow-up.
 
-The mechanism, from PostHog's React Native source map documentation (read 2026-09-13):
-`posthog-cli` 0.7.8 or later, chunk id injection through the
+The mechanism, from PostHog's React Native source map documentation (read 2026-09-14):
+the pinned `@posthog/cli` 0.18.2 devDependency, chunk id injection through the
 `posthog-react-native/expo` config plugin with `getPostHogExpoConfig` in
 `metro.config.js` (Expo 50 or later), automatic upload from the Xcode and Gradle build
 phases during a native build, and `posthog-cli hermes upload --directory dist` after an
 `eas update` publish. Authentication is `POSTHOG_CLI_API_KEY` (a personal API key scoped to
-error tracking write), `POSTHOG_CLI_PROJECT_ID`, and `POSTHOG_CLI_HOST` set to the EU host,
-since the project is PostHog Cloud EU project 270871.
+`error_tracking:write` and `organization:read`), `POSTHOG_CLI_PROJECT_ID`, and
+`POSTHOG_CLI_HOST` set to the EU host, since the project is PostHog Cloud EU project 270871.
+A native build that bundles JavaScript fails if any of those variables is missing because
+the wrapper treats a failed `hermes clone` or `hermes upload` as a build failure.
 
 Three consequences follow for this repository.
 
@@ -153,19 +150,22 @@ narrower than it was.
 Mechanically this costs nothing extra, because the gate is structural rather than a rule
 someone remembers. The PostHog client is constructed only on a `granted` profile or inside
 `optIn()`. The autocapture handlers are installed by the client constructor, so while the
-answer is `undecided` or `withdrawn` there is no client and therefore no handler. Withdrawal
-runs the existing `withdraw()` path, which opts out, flushes once, drops the persisted queue,
-resets, and clears the persisted device id, after which no handler survives.
+answer is initially `undecided` or `withdrawn` there is no client and therefore no handler.
+The SDK cannot uninstall those global handlers after construction. Withdrawal records the
+withdrawal, disposes the client's `before_send` hook, opts out, flushes once, drops the persisted
+queue, resets, and clears the persisted device id. The disposed hook returns `null` for everything
+the old handlers capture, while provider opt-out is a second stop. A later grant constructs a
+fresh client with a fresh active hook.
 
 Two behaviours are decided rather than inherited:
 
-- **No pre-consent buffering of exceptions.** The composition-root decorator buffers ordinary
-  captures in memory while the answer is undecided. Exceptions are excluded from that buffer
-  and are dropped instead. A fatal exception usually ends the JavaScript runtime, so a buffer
-  would rarely survive to be flushed, and replaying a crash from before the answer under the
-  identity created by the grant is not what the person agreed to.
+- **No pre-consent buffering of exceptions.** `$exception` is outside the closed
+  `ProductAnalytics` event type, so it cannot enter that public capture path, and no SDK client or
+  autocapture handler exists while the answer is undecided. Ordinary captures are also dropped in
+  that state. Replaying a failure from before the answer under the identity created by a later
+  grant is not what the person agreed to.
 - **The privacy policy names it.** The policy already discloses crash and diagnostic data for
-  Observe. Milestone 12 extends the same paragraph to say that exception reports with stack
+  Observe. The same paragraph says that exception reports with stack
   traces also reach the analytics provider under the same answer, in the same language, with
   no new question.
 
@@ -203,24 +203,23 @@ or secret may be interpolated into an error message or a thrown value anywhere i
 if one ever is, the fix is to stop the data reaching the throwing path, not to scrub or
 suppress the report.
 
-The structural half of that is the `before_send` hook, which needs extending. The current
-`sanitizePostHogEvent` keeps any `$`-prefixed key that is not explicitly blocked, so exception
-properties would pass by default, which is the wrong default for a payload this rich. Milestone
-12 replaces that behaviour for exception events with an explicit allowlist:
+The structural half is the `before_send` hook. The general `sanitizePostHogEvent` filter keeps
+standard SDK `$` properties unless explicitly blocked, while `$exception` events take a separate
+explicit allowlist:
 
 - Allowed: `$exception_list` entries reduced to `type`, `value`, `mechanism`, and
-  `stacktrace.frames` limited to `platform`, `filename`, `function`, `module`, `lineno`,
+  `stacktrace.frames`; `mechanism` is limited to boolean `handled`, string `type`, and boolean
+  `synthetic`; frames are limited to `platform`, `filename`, `function`, `module`, `lineno`,
   `colno`, `in_app` and `chunk_id`; `$exception_level`; and the standard event properties the
   taxonomy already allows.
 - Dropped: every frame `vars`, `context_line`, `pre_context` and `post_context` on the way out;
-  `$exception_steps`; and the existing `$ip`, `$screen_name`, `$current_url`, `$referrer` and
-  `$geoip*` blocks, which stay.
+  mechanism `source`, nested variables, and every other mechanism field; `$exception_steps`;
+  and the existing `$ip`, `$screen_name`, `$current_url`, `$referrer` and `$geoip*` blocks,
+  which stay.
 
-A unit test on the hook is the acceptance evidence, feeding it a synthetic `$exception` payload
-carrying every dropped field and asserting the result. The implementer confirms that
-`before_send` actually runs for `captureException` in the installed version (the React Native
-client documents that its capture override chains to the core implementation so `before_send`
-still runs) and the test asserts it rather than trusting the comment.
+A unit test on the hook feeds it a synthetic `$exception` payload carrying every dropped field
+and asserts the exact result. A `PostHogCore` test also calls `captureException` and proves that
+the installed version sends `$exception_list` through `before_send`.
 
 ### 5. App Privacy: no new category, one new purpose, unchanged deletion
 
@@ -252,13 +251,13 @@ crash and error data among what is collected.
 
 ### 6. Price, volume and the hard ceiling
 
-From PostHog's error tracking pricing page (read 2026-09-13): 100,000 exceptions per month are
+From PostHog's error tracking pricing page (read 2026-09-14): 100,000 exceptions per month are
 free, then $0.000370 per exception from 100,000 to 325,000, $0.000140 from 325,000 to 10 million,
 and $0.000115 above that. Billing counts `$exception` events ingested and is separate from the
 1,000,000 free analytics events per month on the same free plan (posthog.com/pricing, read
-2026-09-13), so enabling this does not eat into the analytics allowance. Events dropped before
-ingestion, which is what a server-side suppression rule does, are not billed. These figures are a
-reading on one date and are recalculated from the same pages at implementation time.
+2026-09-14), so enabling this does not eat into the analytics allowance. Events dropped before
+ingestion are not billed. These figures are a reading on one date and are rechecked before a
+release operation.
 
 The volume estimate for the expected first-release audience, tens to low hundreds of installs: at
 200 installs and two sessions a day, roughly 12,000 sessions a month reach PostHog, and only the
@@ -269,23 +268,24 @@ at that install count, which no honest failure rate produces. The real risk is n
 it is a loop: an exception thrown on every render or inside a retry, which can generate thousands
 in one session on one device.
 
-The required controls follow from that, and from `AGENTS.md`'s rule that paid usage has explicit
-hard limits and no automatic top-up:
+The controls follow from that, and from `AGENTS.md`'s rule that paid usage has explicit hard
+limits and no automatic top-up:
 
 1. A per-session client cap. The app captures at most five exceptions per session and deduplicates
    by exception `type` plus the topmost in-app frame, so a render loop costs five events, not five
    thousand. This is the control that actually binds, because it acts before anything is sent.
-2. An organisation billing limit for error tracking set to zero dollars, so the free allowance is a
-   hard ceiling. PostHog stops capturing exception events for the rest of the billing period when a
-   limit is reached, and warns that data beyond it "is lost forever", which is the correct trade for
-   this project. If the billing settings refuse a zero value, the lowest amount they accept is used
-   and the number is recorded with the setting.
-3. The account owner's usage alerts at 80 and 100 percent of the free allowance stay on, so a noisy
-   release is visible before the ceiling.
-4. No automatic top-up, which PostHog does not offer, and no raising the limit during an incident
-   without a decision.
-5. A server-side suppression rule for any issue that proves noisy and uninformative, which stops
-   ingestion and therefore stops billing for it.
+2. The PostHog project has an error-tracking ingestion rate limit of 100 exceptions per 60 minutes
+   project-wide and 20 per 60 minutes per issue. Events over either limit are dropped at ingestion
+   and are never billed.
+3. The organisation is on PostHog's free plan with no payment method. On that plan PostHog bills
+   nothing: when the free allowance is reached it stops ingesting exception events for the rest of
+   the billing period, so the 100,000 free exceptions are the hard ceiling by construction. The
+   product billing limit exists only for a subscribed product; its control is not shown for an
+   unsubscribed one and its endpoint accepts no API key. If a payment method is ever added, the
+   owner sets the error-tracking billing limit to zero dollars in the Billing UI in the same change.
+4. The account owner receives PostHog's usage alert emails at 80 and 100 percent of the free
+   allowance by default; they stay on.
+5. Automatic top-up stays off. No limit is raised during an incident without a new decision.
 
 ### 7. Two collectors, split by layer, and no third
 
@@ -324,14 +324,14 @@ dropped for errors in the meantime, and no third error collector is added.
    a test proves the hook runs for an exception event.
 4. The per-session cap and deduplication of section 6 are implemented and tested.
 5. Source map upload runs in the EAS build, the credentials are EAS secrets, and one real exception
-   is confirmed resolved to readable frames in the PostHog issue view before the milestone is
-   accepted. The verification exception is thrown deliberately from a development build, never from
-   a production one.
-6. The billing limit, the alerts and any suppression rules are configured in PostHog, and the values
-   set are recorded in `docs/current-status.md`.
-7. `apps/mobile/ios/kuyara/PrivacyInfo.xcprivacy` and `apps/mobile/app.json` carry the Analytics
-   purpose on the Crash Data row, the App Store Connect answer matches, and the privacy policy names
-   crash and error data reaching the analytics provider.
+   resolves to readable frames in the PostHog issue view before an enabling build is submitted. The
+   verification exception is thrown deliberately from a development build, never from production.
+6. The project ingestion rate limits are configured in PostHog and recorded in
+   `docs/current-status.md`; the billing limit becomes a required step only when a payment method
+   exists.
+7. `apps/mobile/app.json`, the only tracked privacy-manifest source, carries the Analytics purpose
+   on the Crash Data row, the App Store Connect answer matches, and the privacy policy names crash
+   and error data reaching the analytics provider.
 8. The greppable boundary rules still hold: no PostHog SDK import outside
    `apps/mobile/src/features/analytics/data/`, and `identify()`, `alias()`, `group()` and
    `setPersonProperties()` still have no caller.
@@ -395,7 +395,7 @@ dropped for errors in the meantime, and no third error collector is added.
 
 ## Sources
 
-PostHog, all read 2026-09-13:
+PostHog, all read 2026-09-14:
 
 - Error tracking overview: <https://posthog.com/docs/error-tracking>
 - React Native installation and `errorTracking` options: <https://posthog.com/docs/error-tracking/installation/react-native>

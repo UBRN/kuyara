@@ -5,7 +5,14 @@ packages:
 overrides:
   '@unrs/resolver-binding-wasm32-wasi@1.12.2>@napi-rs/wasm-runtime': 1.1.6
 
+# posthog-react-native/expo requires @expo/config-plugins from its own package directory,
+# which pnpm's isolated layout cannot resolve; hoisting it to the root node_modules fixes
+# `expo config`, prebuild and the EAS build.
+publicHoistPattern:
+  - '@expo/config-plugins'
+
 allowBuilds:
+  '@posthog/cli': false
   esbuild: true
   unrs-resolver: true
   workerd: true

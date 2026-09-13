@@ -27,6 +27,8 @@ type BeforeSendHook = Exclude<
   readonly unknown[]
 >;
 type BeforeSendEvent = Parameters<BeforeSendHook>[0];
+type EventProperties = NonNullable<NonNullable<BeforeSendEvent>['properties']>;
+type JsonRecord = Record<string, EventProperties[string]>;
 
 export type PostHogClient = Pick<
   PostHog,
@@ -74,18 +76,150 @@ export function sanitizePostHogEvent(event: BeforeSendEvent): BeforeSendEvent {
   return { ...event, properties };
 }
 
+function isRecord(value: unknown): value is JsonRecord {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function pickProperties(record: JsonRecord, keys: readonly string[]): JsonRecord {
+  return Object.fromEntries(
+    keys.flatMap((key) => Object.hasOwn(record, key) ? [[key, record[key]]] : []),
+  );
+}
+
+function sanitizeMechanism(value: unknown): JsonRecord | undefined {
+  if (!isRecord(value)) return undefined;
+
+  const mechanism: JsonRecord = {};
+  if (typeof value.handled === 'boolean') mechanism.handled = value.handled;
+  if (typeof value.type === 'string') mechanism.type = value.type;
+  if (typeof value.synthetic === 'boolean') mechanism.synthetic = value.synthetic;
+  return mechanism;
+}
+
+function sanitizeExceptionList(value: unknown): JsonRecord[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.filter(isRecord).map((exception) => {
+    const sanitized = pickProperties(exception, ['type', 'value']);
+    const mechanism = sanitizeMechanism(exception.mechanism);
+    if (mechanism) sanitized.mechanism = mechanism;
+    const stacktrace = exception.stacktrace;
+    if (!isRecord(stacktrace) || !Array.isArray(stacktrace.frames)) return sanitized;
+
+    return {
+      ...sanitized,
+      stacktrace: {
+        frames: stacktrace.frames.filter(isRecord).map((frame) =>
+          pickProperties(frame, [
+            'platform',
+            'filename',
+            'function',
+            'module',
+            'lineno',
+            'colno',
+            'in_app',
+            'chunk_id',
+          ])),
+      },
+    };
+  });
+}
+
+function sanitizePostHogException(event: BeforeSendEvent): BeforeSendEvent {
+  const sanitized = sanitizePostHogEvent(event);
+  if (!sanitized?.properties) return sanitized;
+
+  const properties = Object.fromEntries(
+    Object.entries(sanitized.properties).filter(([key]) => !key.startsWith('$exception')),
+  );
+  if (Object.hasOwn(sanitized.properties, '$exception_level')) {
+    properties.$exception_level = sanitized.properties.$exception_level;
+  }
+  if (Object.hasOwn(sanitized.properties, '$exception_list')) {
+    properties.$exception_list = sanitizeExceptionList(
+      sanitized.properties.$exception_list,
+    );
+  }
+
+  return { ...sanitized, properties };
+}
+
+function exceptionFingerprint(event: BeforeSendEvent): string {
+  const exceptionList = event?.properties?.$exception_list;
+  const exception = Array.isArray(exceptionList) && isRecord(exceptionList[0])
+    ? exceptionList[0]
+    : undefined;
+  const stacktrace = exception && isRecord(exception.stacktrace)
+    ? exception.stacktrace
+    : undefined;
+  const frames = (stacktrace && Array.isArray(stacktrace.frames)
+    ? stacktrace.frames
+    : []).filter(isRecord);
+  // @posthog/core's parsers/index.ts:203 runs `localStack.reverse()`, so frames are oldest
+  // first. Walk backward for the topmost in-app frame, falling back to the final frame.
+  let frame = frames.at(-1);
+  for (let index = frames.length - 1; index >= 0; index -= 1) {
+    if (frames[index].in_app === true) {
+      frame = frames[index];
+      break;
+    }
+  }
+
+  return JSON.stringify([
+    exception?.type ?? null,
+    frame?.filename ?? null,
+    frame?.function ?? null,
+    frame?.lineno ?? null,
+  ]);
+}
+
+type PostHogBeforeSendController = Readonly<{
+  beforeSend: BeforeSendHook;
+  dispose: () => void;
+}>;
+
+export function createPostHogBeforeSend(): PostHogBeforeSendController {
+  let exceptionCount = 0;
+  const exceptionFingerprints = new Set<string>();
+  let disposed = false;
+
+  const beforeSend: BeforeSendHook = (event) => {
+    if (disposed) return null;
+    if (event?.event !== '$exception') return sanitizePostHogEvent(event);
+
+    const sanitized = sanitizePostHogException(event);
+    const fingerprint = exceptionFingerprint(sanitized);
+    if (exceptionFingerprints.has(fingerprint)) return null;
+    if (exceptionCount >= 5) return null;
+
+    exceptionFingerprints.add(fingerprint);
+    exceptionCount += 1;
+    return sanitized;
+  };
+
+  return {
+    beforeSend,
+    dispose: () => {
+      disposed = true;
+    },
+  };
+}
+
 // The client only exists after consent: the adapter constructs it on a granted profile or
 // inside `optIn()`, never before, which is how "nothing before consent" is enforced. At that
 // point it initialises opted in, because the SDK captures and marks its one-time
 // "Application Installed" lifecycle event during initialisation, and an opted-out
 // construction would drop that install signal for good.
-const providerOptions = (host: string): PostHogOptions => ({
+export const resolvePostHogProviderOptions = (
+  host: string,
+  beforeSend = createPostHogBeforeSend().beforeSend,
+): PostHogOptions => ({
   host,
   defaultOptIn: true,
   personProfiles: 'identified_only',
   disableGeoip: true,
   captureAppLifecycleEvents: true,
-  before_send: sanitizePostHogEvent,
+  before_send: beforeSend,
   preloadFeatureFlags: false,
   disableRemoteFeatureFlags: true,
   disableSurveys: true,
@@ -94,25 +228,38 @@ const providerOptions = (host: string): PostHogOptions => ({
   capturePushNotificationSubscriptions: false,
   capturePushNotificationOpened: false,
   errorTracking: {
-    autocapture: false,
+    autocapture: {
+      uncaughtExceptions: true,
+      unhandledRejections: true,
+    },
     exceptionSteps: { enabled: false },
   },
 });
 
-function createSdkClient(apiKey: string, host: string): PostHogClient {
+function createSdkClient(
+  apiKey: string,
+  host: string,
+  beforeSend: BeforeSendHook,
+): PostHogClient {
   // Keep the native SDK out of Node adapter tests, which always inject a fake client.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { PostHog: PostHogClientConstructor } = require('posthog-react-native') as typeof import('posthog-react-native');
-  return new PostHogClientConstructor(apiKey, providerOptions(host));
+  return new PostHogClientConstructor(
+    apiKey,
+    resolvePostHogProviderOptions(host, beforeSend),
+  );
 }
+
+type CreatePostHogClient = (beforeSend: BeforeSendHook) => PostHogClient;
 
 class PostHogProductAnalytics implements ProductAnalytics {
   private client: PostHogClient | null = null;
   private consented: boolean;
   private readonly reconciliation: Promise<void>;
-  private readonly createClient: () => PostHogClient;
+  private readonly createClient: CreatePostHogClient;
+  private disposeBeforeSend: (() => void) | null = null;
 
-  constructor(createClient: () => PostHogClient, consent: AnalyticsConsent) {
+  constructor(createClient: CreatePostHogClient, consent: AnalyticsConsent) {
     this.createClient = createClient;
     this.consented = consent === 'granted';
     if (!this.consented) {
@@ -131,6 +278,8 @@ class PostHogProductAnalytics implements ProductAnalytics {
     properties: AnalyticsEventProperties<Name>,
     options?: AnalyticsCaptureOptions,
   ): void {
+    // `$exception` is outside AnalyticsEventName, so ProductAnalytics cannot receive or buffer
+    // one; only the consent-gated SDK autocapture path can produce one.
     if (!this.consented) return;
     this.captureProviderEvent(name, properties, options);
   }
@@ -171,6 +320,8 @@ class PostHogProductAnalytics implements ProductAnalytics {
       schema_version: ANALYTICS_SCHEMA_VERSION,
     }));
     this.consented = false;
+    this.disposeBeforeSend?.();
+    this.disposeBeforeSend = null;
     await attempt(() => client.optOut());
     // Core 1.52.0 flushes its persisted queue without consulting optedOut, so this still
     // sends the queued withdrawal while optOut blocks lifecycle capture during the flush.
@@ -221,14 +372,24 @@ class PostHogProductAnalytics implements ProductAnalytics {
   }
 
   private getOrCreateClient(): PostHogClient {
-    if (!this.client) this.client = this.createClient();
+    if (!this.client) {
+      const controller = createPostHogBeforeSend();
+      try {
+        this.client = this.createClient(controller.beforeSend);
+        this.disposeBeforeSend = controller.dispose;
+      } catch (error) {
+        controller.dispose();
+        throw error;
+      }
+    }
     return this.client;
   }
 }
 
 export function createPostHogProductAnalytics(
   options: PostHogProductAnalyticsOptions,
-  createClient: () => PostHogClient = () => createSdkClient(options.apiKey, options.host),
+  createClient: CreatePostHogClient = (beforeSend) =>
+    createSdkClient(options.apiKey, options.host, beforeSend),
 ): ProductAnalytics {
   return new PostHogProductAnalytics(createClient, options.consent);
 }
