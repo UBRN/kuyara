@@ -1,8 +1,8 @@
-# ADR 0013: Catalog content corrections and catalog version 3
+# ADR 0013: Catalog content corrections and the catalog version
 
-Status: Accepted (2026-09-03)
+Status: Accepted (2026-09-13)
 
-Implementation: complete; `garmentCatalogVersion` is 3.
+Implementation: complete; `garmentCatalogVersion` is 4.
 
 This ADR owns the current catalog content and version used by the catalog-only
 recommendation source in [ADR 0005](0005-catalog-only-recommendation-candidates.md)
@@ -61,26 +61,25 @@ Wardrobe override can close.
 - **No top with `none` arm coverage.** `dress` is the only garment with bare
   arms, and it is `womens` and `one_piece`. A `mens` hot-weather outfit cannot
   go below `t_shirt`.
-- **No bottom above `light` thermal, for either preference.** The upper body
-  reaches `high` by layering; the legs cannot be warmed at all.
+- **No bottom above `light` thermal.** The upper body reaches `high` by
+  layering; the legs cannot be warmed at all.
 
 | `typeId` | Category | Roles | Thermal | Water | Wind | Breathability | Coverage | Formality | Applicability |
 |---|---|---|---|---|---|---|---|---|---|
 | `sleeveless_top` | `top` | `base`, `standalone` | `none` | — | — | `high` | arms `none` | `casual` | both |
-| `leggings` | `bottom` | `standalone` | `moderate` | — | — | `moderate` | legs `full` | `casual` | both |
+| `leggings` | `bottom` | `standalone` | `moderate` | — | — | `moderate` | legs `full` | `casual` | `womens` |
 
-`leggings` applies to both preferences because the warm-bottom hole exists for
-both, and because the repository models this as a mutable clothing preference
-rather than biological sex. It surfaces only in cold buckets, where scoring is
-weather-driven.
+`leggings` closes the warm-bottom hole for `womens` only; see section 3 for why
+it is not offered to `mens`. It surfaces only in cold buckets, where scoring is
+weather-driven. For `mens` the warmest bottom stays `trousers` and `jeans` at
+`light`, a known limit accepted in exchange for never recommending a garment the
+user would not wear.
 
 English and Turkish names are `Sleeveless top` / `Kolsuz üst` and
 `Leggings` / `Tayt`. Artwork is keyed by `structuralCategory`, not by type, so
 neither needs new artwork.
 
-### 3. `overshirt` and `jumpsuit` stay as they are
-
-Both reconsiderations are closed rather than deferred.
+### 3. `overshirt` stays a `top`; `jumpsuit` and `leggings` are `womens` only
 
 `overshirt` keeps `top` with `mid`, `outer`, and `standalone` roles.
 [`clothing-taxonomy.md`](../clothing-taxonomy.md) already records this as
@@ -88,13 +87,22 @@ deliberate, that "a multi-role type such as `overshirt` remains a `top` rather
 than being misclassified as `outerwear`", and reclassifying it changes no
 behaviour the engine exposes.
 
-`jumpsuit` keeps `womens, mens`. It is the only `one_piece` available to `mens`,
-so narrowing it would delete that body-core branch and its contribution to
-outfit diversity in exchange for nothing.
+`jumpsuit` and `leggings` contain only `womens`. Applicability answers one
+question: would a person with this clothing preference wear the piece as part
+of an everyday outfit? For `mens` a jumpsuit and leggings fail that question,
+and the product saw the cost directly when a `mens` profile received a jumpsuit
+with sandals as a rain outfit. Structural arguments do not outrank it: the
+`one_piece` branch and the warm-bottom hole are real losses for `mens`, and
+they are accepted. Every `mens` bucket still composes at least three outfits
+without them, which the composition boundary test pins.
 
-### 4. Catalog version 3
+Red line: do not widen a type to `mens` on a diversity, coverage, or
+"preference is not sex" argument alone. A widening needs the everyday-outfit
+question answered yes first.
 
-`garmentCatalogVersion` is 3 for the content above. All related content changes
+### 4. Catalog version 4
+
+`garmentCatalogVersion` is 4 for the content above. All related content changes
 share one version; the version is not incremented per edit.
 
 Bumping is not optional when content changes. `catalogVersion` is a segment of
@@ -141,8 +149,11 @@ per bump. It is the reason all content changes share one version.
 - The probe request in `apps/worker/src/ai/probe-handler.ts` hardcodes
   `catalogVersion`, and moves with the bump.
 - Inserting ids changes deterministic tie-break ordering for outfits that scored
-  equally. Version 3 already invalidates those results, so no separate
+  equally. The version bump already invalidates those results, so no separate
   transition is needed.
+- `mens` has no `one_piece` type and no bottom above `light` thermal. Both are
+  deliberate; the option count per bucket, not structural symmetry between the
+  preferences, is the invariant.
 - Lowering `trench_coat` and `rain_jacket` thermal reduces the supply of warm
   outerwear in cold, wet buckets. `insulated_jacket` remains `high` with water
   resistance, but the option count per bucket must stay at three or more, or
@@ -162,9 +173,10 @@ per bump. It is the reason all content changes share one version.
 - **Add no types, record the two holes as known limits.** Rejected: with the
   Wardrobe out of the candidate set there is nothing left to close them, and both
   holes sit at the ends of the range the product exists to cover.
-- **Restrict `leggings` to `womens`.** Rejected: the warm-bottom hole is not
-  preference-specific, and leaving `mens` unable to warm the legs preserves the
-  defect this change exists to fix.
+- **Keep `jumpsuit` and `leggings` on `mens` for coverage and diversity.**
+  Rejected: a `mens` profile was recommended a jumpsuit in use, and a piece the
+  user would not wear is a worse outcome than a narrower option set or a cold
+  bucket without a warm bottom.
 - **Reclassify `overshirt` as `outerwear`.** Rejected: it reverses a recorded
   decision for no behavioural gain.
 
