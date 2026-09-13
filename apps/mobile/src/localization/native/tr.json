@@ -1,7 +1,7 @@
 {
   "ios": {
-    "NSLocationWhenInUseUsageDescription": "kuyara, kıyafet önerileri için hava durumunu bulmak üzere uygulamayı kullanırken yaklaşık konumunuzu kullanır.",
-    "NSMotionUsageDescription": "kuyara, uygulamayı kullanırken hava durumu için yaklaşık konumunuzu tahmin etmeye yardımcı olmak üzere hareket verilerini kullanır.",
-    "NSPhotoLibraryUsageDescription": "kuyara, Gardırop fotoğrafı seçebilmeniz için fotoğraf kitaplığınızı kullanır."
+    "NSLocationWhenInUseUsageDescription": "kuyara, kıyafet önerileri için hava durumunu bulmak üzere uygulamayı kullanırken yaklaşık konumunu kullanır.",
+    "NSMotionUsageDescription": "kuyara, uygulamayı kullanırken hava durumu için yaklaşık konumunu tahmin etmeye yardımcı olmak üzere hareket verilerini kullanır.",
+    "NSPhotoLibraryUsageDescription": "kuyara, Gardırop fotoğrafı seçebilmen için fotoğraf kitaplığını kullanır."
   }
 }
