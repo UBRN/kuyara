@@ -8,6 +8,14 @@ import {
   ANALYTICS_SCHEMA_VERSION,
 } from '@/features/analytics/domain/analytics-events';
 import { generationModeProperty, triggerReasonProperty } from '@/features/analytics/domain/analytics-mappers';
+import {
+  TelemetryError,
+  type PerformanceTelemetry,
+} from '@/features/analytics/domain/performance-telemetry';
+import {
+  recommendationGeneratedAttributes,
+  telemetryFailureKind,
+} from '@/features/analytics/domain/performance-telemetry-events';
 import type { CaptureAnalyticsEvent } from '@/features/analytics/domain/product-analytics';
 import {
   recommendOutfits,
@@ -18,6 +26,7 @@ import type {
   RecommendationRepository,
   RecommendationSnapshot,
 } from '@/features/recommendation/data/recommendation-repository';
+import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import { WorkerAiClientError } from '@/features/recommendation/data/worker-ai-client';
 import {
   aiRequestFromContext,
@@ -102,6 +111,13 @@ type Dependencies = Readonly<{
   // which already knows the trigger (passed into `refresh()`) and the exact outcome branch
   // taken; a no-op default keeps existing composition and tests unchanged.
   captureAnalyticsEvent?: CaptureAnalyticsEvent;
+  // Observability, not product analytics: how long the chain took, which tier delivered and
+  // what the device reports about on-device selection. Optional, so existing composition and
+  // tests are unchanged.
+  telemetry?: PerformanceTelemetry;
+  // The availability the provider already read once on mount. `null` until it resolves,
+  // which the event reports as `not_attempted` rather than guessing.
+  getOnDeviceAvailability?: () => OnDeviceAiAvailability | null;
 }>;
 
 type Listener = () => void;
@@ -144,11 +160,13 @@ export class RecommendationApplicationController {
   private readonly localProfileId: string;
   private readonly dependencies: Dependencies;
   private readonly captureAnalyticsEvent: CaptureAnalyticsEvent;
+  private readonly telemetry: PerformanceTelemetry | null;
 
   constructor(localProfileId: string, dependencies: Dependencies) {
     this.localProfileId = localProfileId;
     this.dependencies = dependencies;
     this.captureAnalyticsEvent = dependencies.captureAnalyticsEvent ?? (() => undefined);
+    this.telemetry = dependencies.telemetry ?? null;
   }
 
   getSnapshot = (): RecommendationApplicationState => this.state;
@@ -227,6 +245,7 @@ export class RecommendationApplicationController {
     // remembered here and preferred over a later, less specific throw.
     let recommendation: OutfitRecommendationSuccess | null = null;
     let aiFailure: FailureCategory | null = null;
+    const startedAt = Date.now();
     if (request) {
       try {
         // The routed client runs the shared validation gate inside its own chain, so what
@@ -242,12 +261,15 @@ export class RecommendationApplicationController {
         if (fallback.status !== 'recommended') {
           this.setLastFailure(aiFailure ?? 'unknown');
           this.captureRegenerated(trigger, this.currentSnapshot() !== null);
+          this.reportGenerated(null, 0, aiFailure ?? 'unknown', startedAt);
           return this.currentSnapshot();
         }
         recommendation = fallback;
       } catch (error) {
-        this.setLastFailure(aiFailure ?? recommendationFailureCategory(error));
+        const failure = aiFailure ?? recommendationFailureCategory(error);
+        this.setLastFailure(failure);
         this.captureRegenerated(trigger, this.currentSnapshot() !== null);
+        this.reportGenerated(null, 0, failure, startedAt);
         return this.currentSnapshot();
       }
     }
@@ -272,11 +294,51 @@ export class RecommendationApplicationController {
         result: 'success',
         generation_mode: generationModeProperty(snapshot.generationMode),
       });
+      // An AI tier that failed while the deterministic composition delivered is not a
+      // user-visible failure, so it is carried as `failure_kind` on a completed generation
+      // rather than reported as an error.
+      this.reportGenerated(
+        snapshot.generationMode,
+        snapshot.recommendation.outfits.length,
+        aiFailure,
+        startedAt,
+      );
       return snapshot;
     } catch (error) {
-      this.setLastFailure(aiFailure ?? recommendationFailureCategory(error));
+      const failure = aiFailure ?? recommendationFailureCategory(error);
+      this.setLastFailure(failure);
       this.captureRegenerated(trigger, this.currentSnapshot() !== null);
+      this.reportGenerated(null, 0, failure, startedAt);
       return this.currentSnapshot();
+    }
+  }
+
+  // One `recommendation.generated` event per completed attempt, and an error report only
+  // when the attempt left the user without a new recommendation.
+  private reportGenerated(
+    generationMode: RecommendationSnapshot['generationMode'] | null,
+    optionCount: number,
+    failure: FailureCategory | null,
+    startedAt: number,
+  ): void {
+    const telemetry = this.telemetry;
+    if (!telemetry) return;
+    telemetry.logEvent(
+      'recommendation.generated',
+      recommendationGeneratedAttributes({
+        generationMode,
+        onDeviceAvailability: this.dependencies.getOnDeviceAvailability?.() ?? null,
+        durationMs: Date.now() - startedAt,
+        optionCount,
+        failure,
+      }),
+    );
+    if (generationMode === null && failure) {
+      telemetry.reportError(
+        new TelemetryError('recommendation.refresh_failed', {
+          failure_kind: telemetryFailureKind(failure),
+        }),
+      );
     }
   }
 

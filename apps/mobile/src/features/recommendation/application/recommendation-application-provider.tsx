@@ -21,6 +21,7 @@ import {
   RecommendationApplicationContext,
   type RecommendationApplicationValue,
 } from '@/features/recommendation/application/recommendation-application-context';
+import { usePerformanceTelemetry } from '@/features/analytics/application/use-performance-telemetry';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { LocalRecommendationRepository } from '@/features/recommendation/data/recommendation-repository';
@@ -96,6 +97,7 @@ export function RecommendationApplicationProvider({
   const weatherApplication = useWeatherApplication();
   const weatherState = weatherApplication.state;
   const { analytics } = useProductAnalytics();
+  const telemetry = usePerformanceTelemetry();
   const [localDay, setLocalDay] = useState(deviceLocalDay);
   const appState = useRef<AppStateStatus>(AppState.currentState);
   const reevaluateLocalDay = useCallback(() => {
@@ -105,13 +107,23 @@ export function RecommendationApplicationProvider({
   const client = useMemo(() => createRecommendationClient(), []);
   const [onDeviceAvailability, setOnDeviceAvailability] =
     useState<OnDeviceAiAvailability | null>(null);
+  // A stable box rather than a `useRef`, because `react-hooks/refs` rejects reading
+  // `ref.current` from anything the `useMemo` factory closes over, however the read is
+  // wrapped. It does the same job: a resolved availability does not rebuild the controller
+  // and restart the recommendation state it owns. Written where the state is written, and
+  // read only when an event is about to be recorded.
+  const [latestOnDeviceAvailability] = useState<{ value: OnDeviceAiAvailability | null }>(
+    () => ({ value: null }),
+  );
   const controller = useMemo(
     () => new RecommendationApplicationController(localProfileId, {
       loadRepository,
       client,
       captureAnalyticsEvent: (name, properties, options) => analytics.capture(name, properties, options),
+      telemetry,
+      getOnDeviceAvailability: () => latestOnDeviceAvailability.value,
     }),
-    [analytics, client, localProfileId],
+    [analytics, client, latestOnDeviceAvailability, localProfileId, telemetry],
   );
   const state = useSyncExternalStore(
     controller.subscribe,
@@ -153,12 +165,14 @@ export function RecommendationApplicationProvider({
   useEffect(() => {
     let active = true;
     void client.getAvailability().then((availability) => {
-      if (active) setOnDeviceAvailability(availability);
+      if (!active) return;
+      latestOnDeviceAvailability.value = availability;
+      setOnDeviceAvailability(availability);
     });
     return () => {
       active = false;
     };
-  }, [client]);
+  }, [client, latestOnDeviceAvailability]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (next) => {

@@ -18,3 +18,14 @@ export interface SqliteDatabase extends SqliteExecutor {
     task: (transaction: SqliteExecutor) => Promise<void>,
   ): Promise<void>;
 }
+
+/**
+ * A short-lived, read-only, synchronous handle. It exists for the one read that cannot be
+ * asynchronous: the launch-time analytics consent answer, which has to be known before the
+ * first React render because `Observe.configure()` runs at module scope. Nothing else may
+ * use it; every other access goes through the async repository path.
+ */
+export interface SqliteSyncReader {
+  getFirstSync<Row>(source: string): Row | null;
+  closeSync(): void;
+}

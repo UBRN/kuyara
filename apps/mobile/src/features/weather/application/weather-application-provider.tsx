@@ -9,6 +9,7 @@ import {
   type PlaceSearchApplicationValue,
   type WeatherApplicationValue,
 } from '@/features/weather/application/weather-application-context';
+import { usePerformanceTelemetry } from '@/features/analytics/application/use-performance-telemetry';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import {
   resolveWorkerBaseUrl,
@@ -79,10 +80,12 @@ export function WeatherApplicationProvider({
   const provider = useMemo(() => createWeatherProvider(), []);
   const searchPlaces = useMemo(() => createPlaceSearch(), []);
   const { analytics } = useProductAnalytics();
+  const telemetry = usePerformanceTelemetry();
   const controller = useMemo(() => new WeatherApplicationController(localProfileId, {
     loadRepository, provider, deviceLocation, now,
     captureAnalyticsEvent: (name, properties, options) => analytics.capture(name, properties, options),
-  }), [analytics, localProfileId, provider]);
+    telemetry,
+  }), [analytics, localProfileId, provider, telemetry]);
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
   const appState = useRef<AppStateStatus>(AppState.currentState);
 

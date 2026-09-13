@@ -1,5 +1,6 @@
 import {
   openDatabaseAsync,
+  openDatabaseSync,
   type SQLiteBindParams,
   type SQLiteDatabase,
 } from 'expo-sqlite';
@@ -9,6 +10,7 @@ import type {
   SqliteDatabase,
   SqliteExecutor,
   SqliteRunResult,
+  SqliteSyncReader,
 } from '@/infrastructure/sqlite/sqlite-database';
 
 class ExpoSqliteExecutor implements SqliteExecutor {
@@ -44,4 +46,18 @@ class ExpoSqliteDatabase extends ExpoSqliteExecutor implements SqliteDatabase {
 export async function openKuyaraDatabase(): Promise<SqliteDatabase> {
   const database = await openDatabaseAsync('kuyara.db');
   return new ExpoSqliteDatabase(database);
+}
+
+/**
+ * A separate, short-lived connection for the launch-time consent read. It opens the same
+ * file the async path opens, so on a first launch it creates the empty database the
+ * migrations then populate, and the caller closes it immediately. It never writes and never
+ * opens a transaction, so it cannot interfere with migrations or the repositories.
+ */
+export function openKuyaraDatabaseSync(): SqliteSyncReader {
+  const database = openDatabaseSync('kuyara.db');
+  return {
+    getFirstSync: <Row,>(source: string) => database.getFirstSync<Row>(source),
+    closeSync: () => database.closeSync(),
+  };
 }

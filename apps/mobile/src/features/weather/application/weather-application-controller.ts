@@ -8,6 +8,8 @@ import {
   ANALYTICS_SCHEMA_VERSION,
 } from '@/features/analytics/domain/analytics-events';
 import { conditionCategory } from '@/features/analytics/domain/analytics-mappers';
+import type { PerformanceTelemetry } from '@/features/analytics/domain/performance-telemetry';
+import { weatherRefreshedAttributes } from '@/features/analytics/domain/performance-telemetry-events';
 import type { CaptureAnalyticsEvent } from '@/features/analytics/domain/product-analytics';
 import type {
   DeviceLocationGateway,
@@ -76,6 +78,9 @@ type Dependencies = Readonly<{
   // including a coalesced duplicate's single underlying attempt, which only `refreshOnce`
   // can observe. A no-op default keeps existing composition and tests unchanged.
   captureAnalyticsEvent?: CaptureAnalyticsEvent;
+  // Observability, not product analytics: how long the Worker round trip took and which
+  // attribution source answered. Optional, so existing composition and tests are unchanged.
+  telemetry?: PerformanceTelemetry;
 }>;
 
 type Listener = () => void;
@@ -89,6 +94,7 @@ export class WeatherApplicationController {
   private readonly localProfileId: string;
   private readonly dependencies: Dependencies;
   private readonly captureAnalyticsEvent: CaptureAnalyticsEvent;
+  private readonly telemetry: PerformanceTelemetry | null;
 
   constructor(
     localProfileId: string,
@@ -97,6 +103,7 @@ export class WeatherApplicationController {
     this.localProfileId = localProfileId;
     this.dependencies = dependencies;
     this.captureAnalyticsEvent = dependencies.captureAnalyticsEvent ?? (() => undefined);
+    this.telemetry = dependencies.telemetry ?? null;
   }
 
   getSnapshot = (): WeatherApplicationState => this.state;
@@ -369,6 +376,7 @@ export class WeatherApplicationController {
   private async refreshOnce(location: ActiveLocation, trigger: WeatherRefreshTrigger): Promise<void> {
     const isCurrent = () =>
       this.state.status === 'ready' && this.state.activeLocation?.locationKey === location.locationKey;
+    const startedAt = Date.now();
     try {
       const provided = await this.dependencies.provider.fetchSnapshot(location);
       if (provided.locationKey !== location.locationKey || provided.timeZone !== location.timeZone) {
@@ -394,6 +402,14 @@ export class WeatherApplicationController {
         result: 'success',
         condition_category: conditionCategory(snapshot.current.condition),
       });
+      this.telemetry?.logEvent(
+        'weather.refreshed',
+        weatherRefreshedAttributes({
+          durationMs: Date.now() - startedAt,
+          outcome: 'success',
+          source: snapshot.origin.sourceId,
+        }),
+      );
     } catch (error) {
       if (isCurrent() && this.state.status === 'ready') {
         this.setReady({
@@ -411,6 +427,15 @@ export class WeatherApplicationController {
         trigger_method: trigger,
         result: this.hasRenderableSnapshot() ? 'failure_kept_last_known' : 'failure_no_snapshot',
       });
+      // No `source` on a failure: nothing answered, so there is no attribution to report.
+      this.telemetry?.logEvent(
+        'weather.refreshed',
+        weatherRefreshedAttributes({
+          durationMs: Date.now() - startedAt,
+          outcome: 'failure',
+          source: null,
+        }),
+      );
     }
   }
 

@@ -1,6 +1,7 @@
 import { Stack, useRouter } from 'expo-router';
 
 import { Icon, IconButton } from '@/components/ui';
+import { useScreenInteractive } from '@/features/analytics/application/use-screen-interactive';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
 import { ProfileScreen } from '@/features/profile/presentation/profile-screen';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
@@ -10,6 +11,9 @@ export default function ProfileRoute() {
   const messages = useMessages();
   const router = useRouter();
   useScreenViewed('profile');
+  // Profile renders its rows from the already-ready profile, so its content is present on
+  // the first render.
+  useScreenInteractive({ state: 'ready' });
   const { state } = useWeatherApplication();
   const activeLocation = state.status === 'ready' ? state.activeLocation : null;
   const activePlaceName = activeLocation

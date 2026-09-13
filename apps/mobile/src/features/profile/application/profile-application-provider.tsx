@@ -15,6 +15,7 @@ import {
   ProfileApplicationContext,
   type ProfileApplicationValue,
 } from '@/features/profile/application/profile-context';
+import { usePerformanceTelemetry } from '@/features/analytics/application/use-performance-telemetry';
 import { LocalProfileRepository } from '@/features/profile/data/profile-repository';
 import type { AnalyticsConsent } from '@/features/profile/domain/profile';
 import { SqliteProfileLocalDataSource } from '@/features/profile/data/sqlite-profile-local-data-source';
@@ -46,9 +47,15 @@ async function loadProfileRepository() {
 }
 
 export function ProfileApplicationProvider({ children }: PropsWithChildren) {
+  // The port is a module singleton in the composition root and the no-op elsewhere, so this
+  // identity never changes and the controller is never rebuilt.
+  const telemetry = usePerformanceTelemetry();
   const controller = useMemo(
-    () => new ProfileApplicationController(loadProfileRepository),
-    [],
+    () => new ProfileApplicationController(
+      loadProfileRepository,
+      (error) => telemetry.reportError(error),
+    ),
+    [telemetry],
   );
   const state = useSyncExternalStore(
     controller.subscribe,

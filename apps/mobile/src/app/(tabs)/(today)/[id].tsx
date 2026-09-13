@@ -2,6 +2,7 @@ import { useFocusEffect, useIsFocused, useLocalSearchParams, useRouter } from 'e
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
+import { useScreenInteractive } from '@/features/analytics/application/use-screen-interactive';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
 import { ANALYTICS_SCHEMA_VERSION } from '@/features/analytics/domain/analytics-events';
 import {
@@ -190,6 +191,8 @@ export default function OutfitDetailRoute() {
       },
     };
   }
+
+  useScreenInteractive(state.kind === 'loaded' ? { state: 'loaded' } : null);
 
   return (
     <OutfitDetailScreen
