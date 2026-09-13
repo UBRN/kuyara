@@ -115,13 +115,15 @@ be rejected by the second too.
 The chain never advances on a successful response. Valid but undesirable weather,
 or weather that differs between providers, is never a reason to fall back.
 
-Attempts are bounded by `providers.slice(0, maxAttempts)` with `maxAttempts = 2`,
-which makes a retry or fallback loop structurally impossible. There is no retry
-within a provider.
+Attempts are bounded by `providers.slice(0, maxAttempts)` with `maxAttempts = 3`
+(one per provider in the three-provider chain of
+[ADR 0014](0014-weatherkit-at-the-head-of-the-provider-chain.md)), which makes a
+retry or fallback loop structurally impossible. There is no retry within a
+provider.
 
-Per-attempt timeout is **4,000 ms**, derived rather than guessed: the mobile
+Per-attempt timeout is **3,000 ms**, derived rather than guessed: the mobile
 client aborts the whole request at 10,000 ms
-(`requestTimeoutMilliseconds` in `worker-weather-provider.ts`), so two attempts
+(`requestTimeoutMilliseconds` in `worker-weather-provider.ts`), so three attempts
 plus Worker overhead must fit inside that budget.
 
 ### 5. Rate limiting on `POST /v1/weather`
@@ -201,8 +203,7 @@ fallback.
 - The Worker takes a hard dependency on `weatherLocalDateKey` staying aligned
   with the schema invariant. They are the same function, so drift requires
   deliberately changing one.
-- Both paths are verified live as of 2026-08-29, through `wrangler dev` against
-  the real APIs. Open-Meteo served a request that satisfied
+- Both paths are verified live through `wrangler dev` against the real APIs. Open-Meteo served a request that satisfied
   `weatherV1SuccessSchema` when re-validated outside the Worker. Open-Meteo was
   then pointed at an unreachable host, and the same request came back with
   `origin.sourceId === "openweather"` and passed the same validation, so the

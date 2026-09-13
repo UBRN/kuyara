@@ -83,7 +83,7 @@ second composition implementation.
 ### 2. Formality is a catalog property enforced before the model
 
 Each garment type has `formality: 'casual' | 'smart' | 'formal'`. The current
-catalog content is version 3 under
+catalog content is version 4 under
 [ADR 0013](0013-catalog-content-corrections-and-version-3.md). An outfit's formality spread may be
 at most one step, enforced while options are built, so the model never sees an
 inconsistent outfit and formality is not an AI responsibility. Dress style

@@ -91,9 +91,9 @@ Handler order:
    `Retry-After: 60`. No provider call.
 5. `providers.length === 0` -> `{ data: { status: 'unavailable', checkedAt } }`.
 6. Otherwise call **only the first provider** in the chain (Workers AI when
-   configured), a single attempt, `attemptTimeoutMs` default **20,000 ms** (same
-   as the recommend handler, whose working provider was previously aborted at a
-   10s boundary), with an `AbortController` + timeout. The request body is a
+   configured), a single attempt, `attemptTimeoutMs` default **20,000 ms** (the
+   probe's own budget; the recommend handler runs each attempt under 7,000 ms
+   inside its 19-second deadline), with an `AbortController` + timeout. The request body is a
    fixed minimal valid `AiRecommendV1Request` (1 requirement, 2 candidates)
    defined in the worker, not derived from user data.
 7. Validate the provider output with `aiRecommendV1SuccessSchema.safeParse`.

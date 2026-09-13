@@ -12,16 +12,18 @@ with the sun in Turkic mythology.
 
 ## Status
 
-Pre-release, on TestFlight internal testing. The app fetches live weather through the
-Worker, produces three validated outfit recommendations with a device-local
-deterministic fallback, and schedules on-device local weather alerts. Apple WeatherKit
-is live in production at the head of the weather provider chain. The visual language
-(Direction E, [ADR 0021](docs/adr/0021-direction-e-a-visual-first-design-language.md))
-is implemented on every surface. The shipped app has no account, cross-device sync or
+Preparing the first App Store submission. The app fetches live weather through the
+Worker, produces three validated outfit recommendations selected on-device by Apple
+Foundation Models where available, otherwise through the Worker, always with a
+device-local deterministic fallback, and schedules on-device local weather alerts.
+Apple WeatherKit is live in production at the head of the weather provider chain. The
+visual language (Direction E,
+[ADR 0021](docs/adr/0021-direction-e-a-visual-first-design-language.md)) is
+implemented on every surface. The shipped app has no account, cross-device sync or
 server-sent push; accounts on Supabase are an approved direction with no
-implementation, and PostHog product analytics is sequenced before the first public
-release and is the active work. See [`docs/current-status.md`](docs/current-status.md)
-for the current state.
+implementation. Consent-gated PostHog product analytics and EAS Observe diagnostics are
+implemented. See [`docs/current-status.md`](docs/current-status.md) for the current
+state and the remaining release blockers.
 
 ## Stack
 
@@ -38,7 +40,8 @@ docs/               Product decisions, architecture, and design
 The root `pnpm-lock.yaml` is the only dependency lockfile, and workspace discovery is limited to `apps/*` and `packages/*`. Mobile uses managed Continuous Native Generation, so native `ios/` and `android/` directories are generated only when needed and are not committed. The app config pins iOS 26.0 as the minimum supported version (see [ADR 0011](docs/adr/0011-minimum-ios-26.md)), while the shared Expo project remains Android-compatible.
 
 The Worker serves real weather through a WeatherKit/Open-Meteo/OpenWeather chain
-and AI recommendations through ordered Workers AI/OpenRouter adapters. Weather
+and AI recommendations through ordered Workers AI/OpenRouter adapters for devices
+that cannot select on-device. Weather
 and AI routes are rate limited, the active AI probe is available from Settings,
 and preview/production mobile builds use the deployed Worker. The contracts
 package owns the provider-neutral runtime schemas.
