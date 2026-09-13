@@ -21,8 +21,9 @@ the Worker AI chain, with the deterministic device-local fallback behind it.
 
 The task shape fits an on-device model unusually well. The request is a closed set of
 identifiers with a fixed answer schema, it carries no free text, and it is small: the
-option list is bounded at 24 and the prompt stays under a thousand tokens against the
-4096-token session window Apple documents for a Foundation Models session. Guided
+option list is bounded at 24 and the model input serializes to at most 11,560 bytes
+against the 4096-token session window Apple documents for a Foundation Models session;
+the token cost of that input has not yet been measured on device. Guided
 generation constrains `optionId` to the identifiers supplied in the request and
 `archetypeId` to the twelve archetypes, which is the same structural guarantee the Worker
 response schema already provides.
