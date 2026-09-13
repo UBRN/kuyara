@@ -12,6 +12,7 @@ const forbiddenCalls = [
   ['ali', 'as('].join(''),
   ['.gro', 'up('].join(''),
   ['setPerson', 'Properties('].join(''),
+  ['capture', 'Exception('].join(''),
 ];
 
 function sourceFiles(directory) {
@@ -60,7 +61,7 @@ test('exactly one adapter imports the PostHog SDK, and it pins the privacy optio
     "personProfiles: 'identified_only'",
     'disableGeoip: true',
     'captureAppLifecycleEvents: true',
-    'before_send: sanitizePostHogEvent',
+    'before_send: beforeSend',
     'preloadFeatureFlags: false',
     'disableRemoteFeatureFlags: true',
     'disableSurveys: true',

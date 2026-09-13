@@ -67,7 +67,12 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   `recommendation.generated` and `weather.refreshed`. Dispatch and the dashboard are
   unverified: that needs a native build. See
   [ADR 0023](adr/0023-behavioural-product-analytics-with-posthog.md) and
-  [ADR 0033](adr/0033-apple-privacy-obligations-for-first-party-analytics.md).
+  [ADR 0033](adr/0033-apple-privacy-obligations-for-first-party-analytics.md). PostHog
+  Error Tracking captures only uncaught JavaScript exceptions and unhandled rejections for
+  consenting users. Its adapter allowlists exception fields, deduplicates matching failures
+  and caps each client session at five exceptions; console capture, native crashes,
+  breadcrumbs and session replay remain off. The Expo plugin, Metro chunk ids and pinned
+  `@posthog/cli` 0.18.2 wire Hermes source-map upload ([ADR 0035](adr/0035-posthog-error-tracking.md)).
 - **Design:** Direction E ([ADR 0021](adr/0021-direction-e-a-visual-first-design-language.md))
   is implemented on every surface: Today's garment board and the Direction E tokens,
   the recommendation detail surface ([ADR 0026](adr/0026-the-recommendation-detail-surface.md)
@@ -141,14 +146,14 @@ Analytics is sequenced before the first public App Store release, so milestones 
     on Device ID to the answer set (ADR 0033 sections 1 and 7); the privacy policy in
     `docs/` discloses them, the App Store Connect questionnaire carries them, and the
     policy is published (see Release Blockers).
-12. **PostHog Error Tracking.** [ADR 0035](adr/0035-posthog-error-tracking.md) (Proposed,
-    awaiting the maintainer's acceptance) decides the shape: uncaught exceptions and
-    unhandled rejections only, source maps uploaded per bundle with the CLI key held as an
-    EAS secret, the one existing consent answer with no pre-consent buffering, an explicit
-    `before_send` allowlist for exception properties, the Analytics purpose added to the
-    Crash Data privacy row, a zero-dollar error-tracking billing limit with a per-session
-    cap, and Observe keeping the native layer while PostHog owns the JavaScript layer.
-    Nothing is implemented.
+12. **PostHog Error Tracking.** [ADR 0035](adr/0035-posthog-error-tracking.md) is accepted
+    and its repository work is implemented: uncaught exceptions and unhandled rejections
+    only, the existing consent gate, a field-level `before_send` allowlist, deduplication and
+    a five-exception client-session cap, the Analytics purpose on the Crash Data row, and
+    Hermes source-map wiring through the Expo plugin, Metro helper and pinned CLI. PostHog's
+    ingestion limits are configured at 100 exceptions per 60 minutes project-wide and 20 per
+    60 minutes per issue; excess is dropped before billing. Observe retains native crashes
+    and performance while the accepted unhandled-JavaScript overlap remains.
 13. **Session replay evaluation.** Only after privacy masking and sampling are designed.
     Not approved for capture.
 14. **Operational observability evaluation.** Grafana Cloud or an OpenTelemetry stack for
@@ -203,6 +208,28 @@ on-device tier remains unmeasured on eligible hardware, as ADR 0034's verificati
 boundary records, and the Simulator run of the same day landed at the 6 s budget's
 edge. Real VoiceOver, background refresh and production analytics dispatch were not
 separately inspected on the device (see Known Issues).
+
+PostHog Error Tracking still has maintainer steps before an enabling build is submitted.
+The EAS `production` environment needs `POSTHOG_CLI_API_KEY` as a personal key scoped to
+`error_tracking:write` and `organization:read`, `POSTHOG_CLI_PROJECT_ID=270871`, and
+`POSTHOG_CLI_HOST=https://eu.posthog.com`; the project id and host are set, the key is not.
+App Store Connect's existing Crash Data answer must gain the Analytics purpose once the pending
+review of build 8 has concluded, because the answer is app-level and Apple asks that it reflect
+the version on sale; the change goes through the web session (`asc web privacy pull`, edit,
+`plan`, `apply`, `publish`) or the App Privacy page. The organisation is on the free plan
+without a payment method, so PostHog stops ingestion at the free allowance instead of
+billing; a billing limit becomes a step only if a card is added, and the owner's 80 and 100
+percent usage alert emails are on by default. A development build then needs one
+deliberately thrown verification exception resolved to readable frames in PostHog. Every
+`eas update` also needs `posthog-cli hermes upload --directory dist` after publishing.
+
+The PostHog wrapper around the "Bundle React Native code and images" phase exits before any
+CLI call when `SKIP_BUNDLING` is set, and Expo's generated phase script exports
+`SKIP_BUNDLING=1` for every Debug configuration, Simulator or device. So Debug builds
+(`expo run:ios`, the dev client) never need the CLI variables, while every Release build,
+which is every EAS production build, bundles JavaScript and fails without all three
+`POSTHOG_CLI_*` values. The plugin also sets `ENABLE_USER_SCRIPT_SANDBOXING=NO` on every
+Xcode configuration at prebuild so the upload script can read git metadata.
 
 A Simulator acceptance tour of the same JavaScript (iPhone 17 Pro, iOS 26.5, English,
 dev client on Metro against the production Worker, 2026-09-13 evening) passed all ten
