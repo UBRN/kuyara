@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { mock } from 'node:test';
 
 import { createWeatherProviders } from '../index.ts';
 import { DeterministicMockWeatherProvider } from './mock-weather-provider.ts';
@@ -11,6 +11,9 @@ import {
   weatherMaxAttempts,
 } from './weather-provider-chain.ts';
 import { WeatherProviderError } from './weather-provider-error.ts';
+
+// The chain reports every failed attempt; keep that out of the test output.
+mock.method(console, 'warn', () => {});
 
 const location = {
   latitudeE2: 4101,

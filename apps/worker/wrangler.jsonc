@@ -16,7 +16,7 @@
     { "name": "WEATHER_RATE_LIMIT", "namespace_id": "1003", "simple": { "limit": 20, "period": 60 } }
   ],
   "vars": {
-    "OPENROUTER_MODELS": ["openai/gpt-oss-20b:free", "z-ai/glm-5.2:free", "google/gemma-4-26b-a4b-it:free"],
+    "OPENROUTER_MODELS": ["nex-agi/nex-n2.5-mini:free", "nvidia/nemotron-3-super-120b-a12b:free", "nex-agi/nex-n2.5-pro:free"],
     "WORKERS_AI_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
   }
 }
