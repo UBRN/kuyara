@@ -79,10 +79,12 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   condition's intensity.
 - **Builds:** iOS is the first release target. EAS production credentials, an App Store
   Connect record (`com.ubrn.kuyara`, ASC app `6806664440`) and TestFlight internal builds up
-  to 1.0.0 (4) exist. Build 4 predates the local Foundation Models module, migration 13, the
-  motion package, the pre-submission sweep and EAS Observe. EAS production build 1.0.0 (5)
-  from commit 79b2a9f is the first binary with the current native runtime; it is built but
-  not yet uploaded to TestFlight or tested on a device. The app version stays 1.0.0 and the production profile
+  to 1.0.0 (6) exist. Build 6, EAS production build from commit d0a78fe, is the first
+  binary uploaded to TestFlight with the current native runtime: the local Foundation
+  Models module, migration 13, the motion package, the pre-submission sweep, EAS Observe
+  and the on-device prompt's archetype rules. It was uploaded on 2026-09-13 and awaits
+  Apple's processing and the maintainer's physical-device pass; builds 4 and 5 are
+  superseded and build 5 was never distributed. The app version stays 1.0.0 and the production profile
   auto-increments the build number; because `runtimeVersion` follows the app version, every
   1.0.0 build shares one runtime and no EAS Update may be published to the production
   channel until the next binary is the only one installed. Preview and production profiles
@@ -141,11 +143,12 @@ and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
 
 App Store submission, not TestFlight, is blocked by:
 
-- A new binary. The deployed Worker runs the current main and answers live with
-  `origin.sourceId` `weatherkit` and AI-assisted picks for realistic requests. Build 5
-  predates the on-device prompt that states the archetype eligibility and distinctness
-  rules, so a production build from the current main, uploaded to TestFlight and tested
-  on a physical iPhone, replaces builds 4 and 5.
+- The physical-device pass on build 6. The deployed Worker runs the current main and
+  answers live with `origin.sourceId` `weatherkit` and AI-assisted picks for realistic
+  requests, and build 6 from the same main is on TestFlight. Nobody has yet run it on a
+  physical iPhone: the on-device Apple Intelligence tier and its latency, real VoiceOver,
+  background refresh, and analytics and Observe dispatch from a production build are all
+  first observed there (see Known Issues).
 - The App Store screenshots. Everything else in milestone 11 is done: GitHub Pages went
   live on 2026-09-11 from the main branch's `docs/` folder (`/privacy-policy` and
   `/support` fetched with status 200), and the questionnaire, the privacy policy and
