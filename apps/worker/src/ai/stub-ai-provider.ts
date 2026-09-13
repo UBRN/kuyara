@@ -33,6 +33,8 @@ function validArchetypes(option: AiOption): OutfitArchetypeId[] {
 }
 
 export class DeterministicStubAiProvider implements AiProvider {
+  readonly model = 'deterministic-stub';
+
   async generateOutfits(
     request: AiRecommendV1Request,
     signal: AbortSignal,

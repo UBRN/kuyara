@@ -15,6 +15,10 @@ type Options = Readonly<{
 export class WorkersAiProvider implements AiProvider {
   readonly options: Options;
 
+  get model(): string {
+    return this.options.model;
+  }
+
   constructor(options: Options) {
     this.options = options;
   }

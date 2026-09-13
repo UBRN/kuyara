@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { mock } from 'node:test';
 
 import { aiRecommendV1SuccessSchema } from '@kuyara/contracts';
 
 import { createAiHandler } from './ai-handler.ts';
 import { DeterministicStubAiProvider } from './stub-ai-provider.ts';
+
+// The handler reports every provider attempt; keep that out of the test output.
+mock.method(console, 'warn', () => {});
+mock.method(console, 'info', () => {});
 
 const defaultTraits = {
   hasMidLayer: false,
@@ -164,6 +168,49 @@ test('falls back in order after a provider throws', async () => {
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), expected);
   assert.deepEqual(calls, ['failing', 'succeeding']);
+});
+
+test('logs closed provider failure reasons and the successful model', async (t) => {
+  const warnings = [];
+  const infos = [];
+  t.mock.method(console, 'warn', (entry) => warnings.push(entry));
+  t.mock.method(console, 'info', (entry) => infos.push(entry));
+
+  const response = await createAiHandler({ providers: [
+    {
+      model: 'provider/throws',
+      async generateOutfits() {
+        throw new Error('private provider failure');
+      },
+    },
+    {
+      model: 'provider/invalid',
+      generateOutfits: async () => ({ data: { picks: [] } }),
+    },
+    {
+      model: 'provider/succeeds',
+      generateOutfits: async () => validOutput(),
+    },
+  ] })(request());
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(warnings, [
+    {
+      event: 'ai_provider_attempt_failed',
+      model: 'provider/throws',
+      reason: 'provider_error',
+    },
+    {
+      event: 'ai_provider_attempt_failed',
+      model: 'provider/invalid',
+      reason: 'invalid_output',
+    },
+  ]);
+  assert.deepEqual(infos, [{
+    event: 'ai_provider_attempt_succeeded',
+    model: 'provider/succeeds',
+    attempt: 3,
+  }]);
 });
 
 test('rejects an unsupplied option id and tries the next provider', async () => {
