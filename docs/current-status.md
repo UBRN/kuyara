@@ -158,27 +158,26 @@ and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
 Version 0.1.20260913 with build 8 was submitted for App Review on 2026-09-13 through
 `asc review submit` (submission `b125d544`, state WAITING_FOR_REVIEW); release is manual
 after approval. The EU Digital Services Act trader-status declaration was entered in App
-Store Connect on 2026-09-13 as non-trader. One item stayed open at submission, the
-maintainer's, and it can still surface as a review question:
+Store Connect on 2026-09-13 as non-trader. No item is open on the maintainer's side;
+what remains is Apple's review and the manual release after approval.
 
-- A physical-device pass on build 8. The maintainer ran build 7 from TestFlight on
-  2026-09-13 (iPhone 14 Pro) and Today showed "Standard suggestions" on every
-  recommendation, which is the validation-gate defect fixed in build 8: the mobile
-  validation gate rebuilt each picked option with the first valid arrangement of its
-  garments instead of the offered one, so a healthy Worker answer that picked an option
-  with a mid layer or an optional outer layer was refused whole and the deterministic
-  three were shown; the same rebuild refused 84 of 648 deterministic results at save
-  time. The only full device pass on record ran on build 6 on 2026-09-13 (iPhone 14 Pro,
-  no problem found); builds 7 and 8 are the first binaries that carry catalog version 4
-  (jumpsuit and leggings womens-only) and the Crash Data privacy manifest row. The pass
-  on build 8 should read the Today badge against the production Worker: AI-assisted (or
-  Apple Intelligence on eligible hardware), not "Standard suggestions", once a real
-  answer is accepted. The iPhone 14 Pro is not
-  Apple Intelligence eligible, so it exercises the Worker tier and the fallback only; the
-  on-device tier remains unmeasured on eligible hardware, as ADR 0034's verification
-  boundary records, and the Simulator run of the same day landed at the 6 s budget's
-  edge. Real VoiceOver, background refresh and production analytics dispatch were not
-  separately inspected on the device (see Known Issues).
+The physical-device check of build 8 ran on 2026-09-13 at about 18:30 UTC on the
+maintainer's iPhone 14 Pro from TestFlight: Today showed the "AI assisted" badge against
+the production Worker, which is the point of the build. Build 7 on the same device had shown "Standard
+suggestions" on every recommendation, the validation-gate defect build 8 fixes: the
+mobile validation gate rebuilt each picked option with the first valid arrangement of
+its garments instead of the offered one, so a healthy Worker answer that picked an
+option with a mid layer or an optional outer layer was refused whole and the
+deterministic three were shown; the same rebuild refused 84 of 648 deterministic results
+at save time. The full flow pass on record ran on build 6 on 2026-09-13 (iPhone 14 Pro,
+no problem found); builds 7 and 8 are the first binaries that carry catalog version 4
+(jumpsuit and leggings womens-only) and the Crash Data privacy manifest row, and the
+build 8 check covered the badge, not every flow. The iPhone 14 Pro is not Apple
+Intelligence eligible, so it exercises the Worker tier and the fallback only; the
+on-device tier remains unmeasured on eligible hardware, as ADR 0034's verification
+boundary records, and the Simulator run of the same day landed at the 6 s budget's
+edge. Real VoiceOver, background refresh and production analytics dispatch were not
+separately inspected on the device (see Known Issues).
 
 Everything else in milestone 11 is done. App Store Connect holds the privacy policy and
 support URLs, the category, content rights, price, the build, the review information,
