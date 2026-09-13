@@ -10,6 +10,7 @@ type Options = Readonly<{
 }>;
 
 export class OpenRouterAiProvider implements AiProvider {
+  readonly id = 'openrouter' as const;
   readonly model: string;
   readonly #apiKey: string;
   readonly #fetch: typeof globalThis.fetch | undefined;

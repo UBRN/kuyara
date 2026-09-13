@@ -71,7 +71,23 @@ test('posts the validated recommendation request and returns validated data', as
   assert.equal(received.input, 'https://worker.example/v1/ai/recommend');
   assert.equal(received.init.method, 'POST');
   assert.equal(received.init.headers['content-type'], 'application/json');
+  assert.equal(received.init.headers['x-kuyara-ai-budget-ms'], '37000');
   assert.deepEqual(JSON.parse(received.init.body), request);
+});
+
+test('sends the routed client timeout minus the transport margin', async () => {
+  let receivedHeaders;
+  const client = new WorkerAiClient({
+    baseUrl: 'https://worker.example',
+    fetch: async (_input, init) => {
+      receivedHeaders = init.headers;
+      return Response.json({ data: responseData });
+    },
+  });
+
+  await client.recommend(request, { timeoutMilliseconds: 14_000 });
+
+  assert.equal(receivedHeaders['x-kuyara-ai-budget-ms'], '13000');
 });
 
 test('rejects malformed success data without repairing it', async () => {
@@ -126,7 +142,7 @@ test('maps non-2xx, network, and timeout failures to sanitized errors', async ()
   }
 });
 
-test('waits the default 20 s budget before aborting a slow Worker attempt', async (t) => {
+test('waits the default 38 s budget before aborting a slow Worker attempt', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   let aborted = false;
   const client = new WorkerAiClient({
@@ -140,7 +156,7 @@ test('waits the default 20 s budget before aborting a slow Worker attempt', asyn
   });
 
   const pending = client.recommend(request).catch((error) => error);
-  t.mock.timers.tick(19_999);
+  t.mock.timers.tick(37_999);
   await Promise.resolve();
   assert.equal(aborted, false);
   t.mock.timers.tick(1);

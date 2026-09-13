@@ -789,7 +789,10 @@ test('edit prefills values and cancels or confirms type-reset behavior', async (
     </TestProviders>,
   );
   expect(confirmation).toHaveBeenCalledWith(
-    expect.objectContaining({ title: messages.en.wardrobe.typeChangeTitle }),
+    expect.objectContaining({
+      title: messages.en.wardrobe.typeChangeTitle,
+      colorScheme: 'light',
+    }),
     expect.any(Function),
   );
   expect(result.getByTestId('wardrobe-type-picker-row')).toHaveAccessibilityValue({
@@ -863,6 +866,7 @@ test('delete requires confirmation, reports failure, and allows retry', async ()
     expect.objectContaining({
       confirmLabel: messages.en.wardrobe.confirmDeleteAction,
       destructive: true,
+      colorScheme: 'light',
     }),
     expect.any(Function),
   );

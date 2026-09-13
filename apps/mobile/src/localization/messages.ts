@@ -2,6 +2,7 @@ import type {
   OutfitCompositionReasonCode,
   OutfitSlot,
 } from '@/features/recommendation/domain/outfit-composition';
+import type { RecommendationPhase } from '@/features/recommendation/application/recommendation-application-controller';
 import type { ClothingRequirementReasonCode } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 import type {
   WeatherConditionCode as LiveWeatherConditionCode,
@@ -79,6 +80,9 @@ export type TodayMessages = Readonly<{
   loadingAccessibilityLabel: string;
   generatingStatus: string;
   generatingLongWaitStatus: string;
+  // Law 5's status tone: the fact, nothing else. No exclamation mark, no praise, and no
+  // provider or model name; "AI" is a generic word, not a name.
+  phase: Readonly<Record<RecommendationPhase, string>>;
   unavailableTitle: string;
   unavailableBody: string;
   noLocationTitle: string;
@@ -185,9 +189,11 @@ export type AppMessages = Readonly<{
     developmentBuild: string;
     aiStatusHeading: string;
     aiStatusIntro: string;
-    aiStatusOnDeviceAvailable: string;
-    aiStatusOnDeviceUnavailable: string;
-    aiStatusOnDeviceDisabled: string;
+    aiStatusOnDeviceRunning: string;
+    aiStatusOnDeviceOff: string;
+    aiStatusOnDeviceIncompatible: string;
+    aiStatusOnDeviceGettingReady: string;
+    aiStatusAssistant: (provider: string, model: string) => string;
     aiStatusLastOnDeviceAi: string;
     aiStatusLastAiAssisted: string;
     aiStatusLastStandard: string;
@@ -513,12 +519,16 @@ const en = {
     developmentBuild: 'Development build',
     aiStatusHeading: 'AI status',
     aiStatusIntro: 'Check whether AI responds right now.',
-    aiStatusOnDeviceAvailable:
-      'kuyara can choose your outfits on this device with Apple Intelligence.',
-    aiStatusOnDeviceUnavailable:
-      'kuyara cannot choose on this device. It chooses online instead, and falls back to standard suggestions computed on the device.',
-    aiStatusOnDeviceDisabled:
-      'Apple Intelligence is off. kuyara chooses online instead, and falls back to standard suggestions computed on the device.',
+    aiStatusOnDeviceRunning:
+      'Apple Intelligence: compatible and running. kuyara chooses your outfits on this device.',
+    aiStatusOnDeviceOff:
+      'Apple Intelligence: turned off. kuyara chooses online instead, and falls back to standard suggestions computed on this device.',
+    aiStatusOnDeviceIncompatible:
+      'Apple Intelligence: not compatible. kuyara chooses online instead, and falls back to standard suggestions computed on this device.',
+    aiStatusOnDeviceGettingReady:
+      'Apple Intelligence: compatible, getting ready. kuyara chooses online until the model finishes downloading.',
+    aiStatusAssistant: (provider: string, model: string) =>
+      `Answered by ${provider} (${model})`,
     aiStatusLastOnDeviceAi: 'Last recommendation: chosen on your device.',
     aiStatusLastAiAssisted: 'Last recommendation: AI-assisted.',
     aiStatusLastStandard: 'Last recommendation: Standard.',
@@ -866,6 +876,13 @@ const en = {
     loadingAccessibilityLabel: 'Preparing today’s guidance. Content is loading.',
     generatingStatus: 'Choosing today’s outfits.',
     generatingLongWaitStatus: 'Choosing today’s outfits. This can take a little longer.',
+    phase: {
+      'checking-on-device': 'Checking the on-device AI.',
+      'asking-stylist': 'Asking the AI stylist.',
+      'answer-received': 'AI answered. Checking the picks.',
+      'preparing-outfits': 'Preparing your outfits.',
+      'using-standard': 'AI did not answer. Using standard suggestions.',
+    },
     unavailableTitle: 'Today’s guidance is unavailable',
     unavailableBody: 'There is no saved guidance to show right now.',
     noLocationTitle: 'kuyara doesn’t know where you are yet',
@@ -980,12 +997,16 @@ const tr = {
     developmentBuild: 'Geliştirme derlemesi',
     aiStatusHeading: 'AI durumu',
     aiStatusIntro: 'AI’nin şu anda yanıt verip vermediğini kontrol et.',
-    aiStatusOnDeviceAvailable:
-      'kuyara bu cihazda kombinlerini Apple Intelligence ile seçebiliyor.',
-    aiStatusOnDeviceUnavailable:
-      'kuyara bu cihazda seçemiyor. Bunun yerine çevrimiçi seçiyor, olmazsa cihazda hesaplanan standart önerilere geçiyor.',
-    aiStatusOnDeviceDisabled:
-      'Apple Intelligence kapalı. kuyara bunun yerine çevrimiçi seçiyor, olmazsa cihazda hesaplanan standart önerilere geçiyor.',
+    aiStatusOnDeviceRunning:
+      'Apple Intelligence: uyumlu ve çalışıyor. kuyara kombinlerini bu cihazda seçiyor.',
+    aiStatusOnDeviceOff:
+      'Apple Intelligence: kapalı. kuyara bunun yerine çevrimiçi seçiyor, olmazsa bu cihazda hesaplanan standart önerilere geçiyor.',
+    aiStatusOnDeviceIncompatible:
+      'Apple Intelligence: uyumlu değil. kuyara bunun yerine çevrimiçi seçiyor, olmazsa bu cihazda hesaplanan standart önerilere geçiyor.',
+    aiStatusOnDeviceGettingReady:
+      'Apple Intelligence: uyumlu, hazırlanıyor. Model inmeyi bitirene kadar kuyara çevrimiçi seçiyor.',
+    aiStatusAssistant: (provider: string, model: string) =>
+      `Yanıtlayan: ${provider} (${model})`,
     aiStatusLastOnDeviceAi: 'Son öneri: cihazında seçildi.',
     aiStatusLastAiAssisted: 'Son öneri: AI destekli.',
     aiStatusLastStandard: 'Son öneri: Standart.',
@@ -1338,6 +1359,13 @@ const tr = {
     loadingAccessibilityLabel: 'Bugünün önerileri hazırlanıyor. İçerik yükleniyor.',
     generatingStatus: 'Bugünün kombinleri seçiliyor.',
     generatingLongWaitStatus: 'Bugünün kombinleri seçiliyor. Bu biraz daha uzun sürebilir.',
+    phase: {
+      'checking-on-device': 'Cihaz içi AI kontrol ediliyor.',
+      'asking-stylist': 'AI stiliste soruluyor.',
+      'answer-received': 'AI yanıt verdi. Seçimler kontrol ediliyor.',
+      'preparing-outfits': 'Kombinlerin hazırlanıyor.',
+      'using-standard': 'AI yanıt vermedi. Standart öneriler kullanılıyor.',
+    },
     unavailableTitle: 'Bugünün önerileri kullanılamıyor',
     unavailableBody: 'Şu anda gösterilecek kayıtlı bir öneri yok.',
     noLocationTitle: 'kuyara henüz nerede olduğunu bilmiyor',

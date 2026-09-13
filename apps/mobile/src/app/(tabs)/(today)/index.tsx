@@ -66,7 +66,7 @@ export default function TodayRoute() {
       : 'unknown';
     recommendationFailure = null;
   } else if (recommendation === null && recommendationState.isRefreshing) {
-    state = { kind: 'loading' };
+    state = { kind: 'loading', phase: recommendationState.phase };
     todayFailure = undefined;
     recommendationFailure = undefined;
   } else if (recommendation === null) {
@@ -86,6 +86,7 @@ export default function TodayRoute() {
         isPullRefreshing || weatherState.isRefreshing || recommendationState.isRefreshing,
       refreshFailed:
         weatherState.refreshFailure !== null || recommendationState.lastFailure !== null,
+      phase: recommendationState.phase,
     };
     todayFailure = weatherState.refreshFailure;
     recommendationFailure = recommendationState.lastFailure;

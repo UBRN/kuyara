@@ -837,7 +837,8 @@ test('accessibility XXXL keeps the whole generating status line and the skeleton
   );
   expect(board).toMatchObject({ width: 358 });
   expect(board.height).toBeGreaterThan(0);
-  expect(StyleSheet.flatten(status.props.style)).toMatchObject({ marginTop: spacing.md });
+  expect(StyleSheet.flatten(result.getByTestId('today-generating-status-row').props.style))
+    .toMatchObject({ marginTop: spacing.md });
 });
 
 test('Today explains a missing active location and opens the existing location picker', async () => {
@@ -1143,4 +1144,91 @@ test.each([
     'accessibilityRole',
     'button',
   );
+});
+
+describe.each(['en', 'tr'] as const)('%s narrated wait', (language: SupportedLanguage) => {
+  test('the loading status line says the phase and the mark beside it is not the state', async () => {
+    const result = await render(providers(
+      <TodayScreen
+        language={language}
+        onOpenOutfitDetail={() => undefined}
+        onRefresh={() => undefined}
+        state={{ kind: 'loading', phase: 'asking-stylist' }}
+      />,
+      lightTheme,
+      language,
+    ));
+    const copy = messages[language].today;
+
+    const status = result.getByTestId('today-generating-status');
+    expect(status).toHaveTextContent(copy.phase['asking-stylist']);
+    expect(status).not.toHaveTextContent(copy.generatingStatus);
+    expect(status.props.accessibilityLiveRegion).toBe('polite');
+    expect(copy.phase['asking-stylist']).not.toContain('!');
+
+    const mark = result.getByTestId('today-generating-mark', { includeHiddenElements: true });
+    expect(isHiddenFromAccessibility(mark)).toBe(true);
+  });
+
+  test('the loaded provenance row carries the phase line and the same mark while refreshing', async () => {
+    const result = await render(providers(
+      <TodayScreen
+        language={language}
+        onOpenOutfitDetail={() => undefined}
+        onRefresh={() => undefined}
+        state={{
+          ...todayScreenState,
+          isRefreshing: true,
+          refreshFailed: false,
+          phase: 'using-standard',
+        }}
+      />,
+      lightTheme,
+      language,
+    ));
+    const copy = messages[language].today;
+
+    expect(result.getByTestId('today-freshness')).toHaveTextContent(copy.phase['using-standard']);
+    expect(result.getByTestId('today-freshness').props.accessibilityLiveRegion).toBe('polite');
+    const mark = result.getByTestId('today-phase-mark', { includeHiddenElements: true });
+    expect(isHiddenFromAccessibility(mark)).toBe(true);
+  });
+});
+
+test('an unnarrated refresh keeps the generic freshness line and shows no mark', async () => {
+  const result = await render(providers(
+    <TodayScreen
+      language="en"
+      onOpenOutfitDetail={() => undefined}
+      onRefresh={() => undefined}
+      state={{ ...todayScreenState, isRefreshing: true, refreshFailed: false }}
+    />,
+  ));
+
+  expect(result.getByTestId('today-freshness'))
+    .toHaveTextContent(messages.en.today.refreshingStatus);
+  expect(result.queryByTestId('today-phase-mark', { includeHiddenElements: true }))
+    .not.toBeOnTheScreen();
+});
+
+// Law 7: the mark breathes on the ambient calm step and holds still under Reduce Motion, and
+// the line beside it is the state either way.
+test('the phase mark holds still under Reduce Motion', async () => {
+  const markOpacity = async (theme: KuyaraTheme) => {
+    const result = await render(providers(
+      <TodayScreen
+        language="en"
+        onOpenOutfitDetail={() => undefined}
+        onRefresh={() => undefined}
+        state={{ kind: 'loading', phase: 'checking-on-device' }}
+      />,
+      theme,
+    ));
+    return StyleSheet.flatten(
+      result.getByTestId('today-generating-mark', { includeHiddenElements: true }).props.style,
+    ).opacity;
+  };
+
+  expect(await markOpacity(lightTheme)).toBeCloseTo(AMBIENT_PULSE_FLOOR);
+  expect(await markOpacity(createKuyaraTheme('light', true))).toBeCloseTo(1);
 });

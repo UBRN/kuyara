@@ -91,8 +91,9 @@ without a new decision.
   environment. Component tests for the wrapped primitives are written against mocked
   modules, exactly as `primary-tabs.tsx`'s test was rewritten during Milestone B.
 - Runtime verification establishes the wrapper rules. `Host matchContents` collapses to
-  zero height inside a `ScrollView`, so the host needs an explicit height. `Host` follows
-  the device appearance unless `Host colorScheme` receives kuyara's resolved theme.
+  zero height inside a `ScrollView`, so the host needs an explicit height.
+  `KuyaraThemeProvider` applies the in-app appearance override through React Native's
+  `Appearance`, and `Host colorScheme` also receives kuyara's resolved theme.
   `List`, `ListItem`, `FieldGroup` and `Switch` render on the iPhone 17 Pro / iOS 26.3
   Simulator. `Button` renders with its `label` prop; string children terminate the app with an
   `NSInternalInconsistencyException` from `RCTComponentViewFactory` because Fabric has no

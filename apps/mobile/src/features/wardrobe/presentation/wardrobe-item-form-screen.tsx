@@ -296,6 +296,7 @@ export function WardrobeItemFormScreen({
           message: copy.typeChangeBody,
           cancelLabel: copy.keepTypeAction,
           confirmLabel: copy.changeTypeAction,
+          colorScheme: theme.colorScheme,
         },
         applySelection,
       );
@@ -303,7 +304,7 @@ export function WardrobeItemFormScreen({
     }
 
     applySelection();
-  }, [busy, confirmation, copy, updateValues, values]);
+  }, [busy, confirmation, copy, theme.colorScheme, updateValues, values]);
 
   useEffect(() => {
     if (!garmentTypeSelection) {
@@ -370,6 +371,7 @@ export function WardrobeItemFormScreen({
         cancelLabel: copy.cancelDeleteAction,
         confirmLabel: copy.confirmDeleteAction,
         destructive: true,
+        colorScheme: theme.colorScheme,
       },
       () => {
         setDeleteError(false);

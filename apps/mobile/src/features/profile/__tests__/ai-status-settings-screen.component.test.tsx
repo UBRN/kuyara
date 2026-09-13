@@ -140,21 +140,26 @@ test('shows the last recommendation generation mode as its own group', async () 
   ).toBeOnTheScreen();
 });
 
-// ADR 0034 section 5: three user-visible states, read with no call and no quota. Every
-// reason other than the switch being off reads as a device that cannot choose locally.
+// ADR 0034 section 5: the Apple Intelligence situation in plain words, read with no call
+// and no quota. Every reason other than the switch being off or the model still downloading
+// reads as a device that is not compatible.
 describe.each(['en', 'tr'] as const)('%s on-device availability row', (language) => {
   test.each([
-    [{ status: 'available' } as const, 'aiStatusOnDeviceAvailable'],
+    [{ status: 'available' } as const, 'aiStatusOnDeviceRunning'],
     [
       { status: 'unavailable', reason: 'apple_intelligence_not_enabled' } as const,
-      'aiStatusOnDeviceDisabled',
+      'aiStatusOnDeviceOff',
+    ],
+    [
+      { status: 'unavailable', reason: 'model_not_ready' } as const,
+      'aiStatusOnDeviceGettingReady',
     ],
     [
       { status: 'unavailable', reason: 'device_not_eligible' } as const,
-      'aiStatusOnDeviceUnavailable',
+      'aiStatusOnDeviceIncompatible',
     ],
-    [{ status: 'unavailable', reason: 'unsupported_os' } as const, 'aiStatusOnDeviceUnavailable'],
-    [null, 'aiStatusOnDeviceUnavailable'],
+    [{ status: 'unavailable', reason: 'unsupported_os' } as const, 'aiStatusOnDeviceIncompatible'],
+    [null, 'aiStatusOnDeviceIncompatible'],
   ] as const)('reports the device state without probing', async (onDeviceAvailability, key) => {
     const { rendered } = screen(language, { onDeviceAvailability });
     const result = await rendered;
@@ -170,5 +175,38 @@ describe.each(['en', 'tr'] as const)('%s on-device availability row', (language)
     expect(
       result.getByText(messages[language].settings.aiStatusLastOnDeviceAi),
     ).toBeOnTheScreen();
+  });
+});
+
+// ADR 0034 section 5: this screen is the only surface that names the provider and model
+// behind the last check, and it names them only while a successful check is the last one.
+describe.each(['en', 'tr'] as const)('%s assistant identity row', (language) => {
+  test('names the provider and model that answered the last check', async () => {
+    const { rendered } = screen(language, {
+      aiStatus: {
+        kind: 'ok',
+        checkedAt,
+        assistant: { providerId: 'openrouter', model: 'some/model:free' },
+      },
+    });
+    const result = await rendered;
+
+    expect(result.getByTestId('settings-ai-status-assistant-identity')).toBeOnTheScreen();
+    expect(
+      result.getByText(
+        messages[language].settings.aiStatusAssistant('openrouter', 'some/model:free'),
+      ),
+    ).toBeOnTheScreen();
+  });
+
+  test.each([
+    { kind: 'ok', checkedAt } as const,
+    { kind: 'unavailable' } as const,
+    { kind: 'idle' } as const,
+  ])('omits the row when no provider answered', async (aiStatus) => {
+    const { rendered } = screen(language, { aiStatus });
+    const result = await rendered;
+
+    expect(result.queryByTestId('settings-ai-status-assistant-identity')).not.toBeOnTheScreen();
   });
 });

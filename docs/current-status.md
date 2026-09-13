@@ -24,13 +24,17 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   bundled catalog (version 4); the AI tier selects three and labels each with an
   archetype, on-device Apple Foundation Models where the device reports them available and
   otherwise the Worker's chain, Workers AI then OpenRouter; mobile validates, persists and
-  falls back to a device-local deterministic generator. One budget spans the boundary: the mobile client
-  abandons the request after 20 seconds and the Worker bounds its whole AI walk with a
-  19-second deadline that starts no attempt it cannot finish. Generation triggers compare
+  falls back to a device-local deterministic generator. The refresh waits for a stylist answer: the
+  on-device tier gets 6 seconds, the Worker request then gets 38 seconds, and the Worker
+  bounds its whole AI walk at 36 seconds (five attempts of 7 seconds plus one second),
+  so every provider gets its turn and the deterministic fallback is reached only after
+  the last one fails; the whole wait is bounded at 44 seconds. Generation triggers compare
   current signals with the persisted snapshot. Today draws a breathing skeleton garment
-  board under a status line while the first recommendation is generated, its pull cycle
-  keeps spinning until both the weather and the recommendation refresh settle, and its
-  clock re-reads on focus and on foreground. Only the coarse generation mode is exposed,
+  board under a phase line (checking the on-device AI, asking the AI stylist, answer
+  received, preparing outfits, using standard suggestions) while a recommendation is
+  generated, the same phase line replaces the freshness caption during a refresh of a
+  shown recommendation, its pull cycle keeps spinning until both the weather and the
+  recommendation refresh settle, and its clock re-reads on focus and on foreground. Only the coarse generation mode is exposed,
   and Settings carries the bounded active AI probe beside an on-device availability row
   that calls no provider. Where the selection runs is decided in
   [ADR 0034](adr/0034-on-device-ai-selection-through-apple-foundation-models.md): the
@@ -154,8 +158,8 @@ and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
 
 Version 0.1.20260913 with build 7 was submitted for App Review on 2026-09-13 through
 `asc review submit` (submission `777a0fcb`, state WAITING_FOR_REVIEW); release is manual
-after approval. Two items stayed open at submission, both the maintainer's, and either
-can still surface as a review question:
+after approval. One item stayed open at submission, the maintainer's, and it can still
+surface as a review question:
 
 - A physical-device pass on build 7. The only device pass on record ran on build 6 on
   2026-09-13 (iPhone 14 Pro, no problem found), and build 7 is the first binary that
@@ -163,16 +167,18 @@ can still surface as a review question:
   manifest row. The pass should also read the Today badge: a Release build captured for
   the store screenshots on 2026-09-13 showed the deterministic fallback ("Standard
   suggestions") against the production Worker while a Debug build on the same URL showed
-  the AI-assisted badge, and the cause was not investigated. The iPhone 14 Pro is not
+  the AI-assisted badge. The cause is now known and fixed in the working tree, not in
+  build 7: the mobile validation gate rebuilt each picked option with the first valid
+  arrangement of its garments instead of the offered one, so a healthy Worker answer that
+  picked an option with a mid layer or an optional outer layer was refused whole and the
+  deterministic three were shown; the same rebuild refused 84 of 648 deterministic results
+  at save time. Build 7 still carries the defect, so its badge reads "Standard suggestions"
+  whenever the answer picks such an option. The iPhone 14 Pro is not
   Apple Intelligence eligible, so it exercises the Worker tier and the fallback only; the
   on-device tier remains unmeasured on eligible hardware, as ADR 0034's verification
   boundary records, and the Simulator run of the same day landed at the 6 s budget's
   edge. Real VoiceOver, background refresh and production analytics dispatch were not
   separately inspected on the device (see Known Issues).
-- The EU Digital Services Act trader-status declaration in App Store Connect (Business,
-  Compliance). Apple requires it for a new submission available in the EU, only the
-  Account Holder can enter it in the web interface, and the `asc` CLI can neither read
-  nor set it, so its state is unverified.
 
 Everything else in milestone 11 is done. App Store Connect holds the privacy policy and
 support URLs, the category, content rights, price, the build, the review information,
@@ -192,6 +198,19 @@ before submitting is the maintainer's call.
 
 ## Recently Completed
 
+- **The refresh reaches the stylist** (2026-09-13, working tree, not yet in a build or
+  deployed): the validation gate rebuilds a picked option by finding the valid arrangement
+  equal to the offer, so every option the app composes is accepted and a persisted
+  deterministic result always reloads; the Worker walks all five providers inside 36
+  seconds and the mobile client waits 38 seconds for it after the 6-second on-device tier;
+  Today shows the generation phase on a live region with a still-under-Reduce-Motion
+  ambient mark; the Settings AI status screen keeps a coarse tier label with a one-line
+  switch reserved for the pending provider-name decision; the Privacy row shows no On/Off
+  value. Checks: `pnpm check`, the component suite (405 tests), the design-language greps,
+  and one Simulator run of a phased refresh that settled on the AI-assisted badge, with
+  the mark still under Reduce Motion. The Worker change needs
+  `cd apps/worker && npx wrangler deploy` by the maintainer and the mobile change needs a
+  new build; until then production keeps the 19-second walk and build 7 keeps the old gate.
 - **AI chain repair** (2026-09-13): the dead OpenRouter slugs were replaced with the
   three free models that answer the real strict `json_schema` request
   (`nex-agi/nex-n2.5-mini:free`, `nvidia/nemotron-3-super-120b-a12b:free`,
@@ -272,9 +291,14 @@ before submitting is the maintainer's call.
 
 ## Known Issues and Manual Verification Gaps
 
+- **EAS Observe has two external open items.** The `expo-observe`, `expo-app-metrics`
+  and `expo-eas-client` packages ship no privacy manifest and do not clear pre-consent
+  unhandled-error records on iOS; this has not yet been reported to Expo. Whether to use
+  an EAS paid plan for Observe's route and event views is also undecided.
 - **Real VoiceOver is unverified.** The XCUITest hierarchy was checked on the Simulator
   (single labelled elements in source order; ownership buttons carry `selected`; picker
-  options carry the radio role), but spoken grouping, focus order, the rotor, Today's
+  options carry the radio role; on iOS the notifications switch carries its row label), but
+  spoken grouping, focus order, the rotor, Today's
   refresh accessibility custom action on the scroll container, and how VoiceOver speaks
   the location picker's selected row (its `isSelected` trait is in the XCUITest
   hierarchy) need a physical-device pass. Accessibility

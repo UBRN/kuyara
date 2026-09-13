@@ -57,11 +57,6 @@ export function SettingsScreen({
   const notificationValue = notificationsOn
     ? messages.notifications.statusOn
     : messages.notifications.statusOff;
-  const analyticsValue = profile.analyticsConsent === 'granted'
-    ? messages.notifications.statusOn
-    : profile.analyticsConsent === 'undecided'
-      ? messages.analytics.statusNotAsked
-      : messages.notifications.statusOff;
   const version = Constants.expoConfig?.version;
   const build = Constants.platform?.ios?.buildNumber
     ?? Constants.platform?.android?.versionCode?.toString();
@@ -104,7 +99,6 @@ export function SettingsScreen({
           label={messages.analytics.privacyTitle}
           onPress={onOpenPrivacy}
           testID="settings-privacy-row"
-          value={analyticsValue}
         />
       </NativeListSection>
 

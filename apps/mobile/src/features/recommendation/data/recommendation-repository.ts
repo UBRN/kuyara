@@ -23,6 +23,7 @@ export type RecommendationSnapshot = Readonly<{
   locationKey: string;
   clothingPreference: string;
   dressStyle: DressStyle;
+  catalogVersion: number | null;
   dayVariant: number | null;
   localDayKey: string | null;
   generationMode: RecommendationGenerationMode;
@@ -93,6 +94,7 @@ function mapRecord(record: RecommendationSnapshotRecord): RecommendationSnapshot
       locationKey: record.locationKey,
       clothingPreference: context.clothingPreference,
       dressStyle: 'dressStyle' in context ? context.dressStyle ?? 'smart' : 'smart',
+      catalogVersion: 'catalogVersion' in context ? context.catalogVersion : null,
       dayVariant: 'dayVariant' in context ? context.dayVariant : null,
       localDayKey: 'localDayKey' in context ? context.localDayKey ?? null : null,
       generationMode: record.generationMode,

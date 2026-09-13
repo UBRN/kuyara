@@ -45,7 +45,7 @@ import {
   type EffectiveGarmentCandidate,
 } from '@/features/recommendation/domain/garment-eligibility';
 import {
-  composeOutfit,
+  collectValidOutfits,
   composeOutfitOptions,
   type AssignedOutfitGarment,
   type OutfitCandidate,
@@ -274,11 +274,14 @@ function outfitFromOption(
       requirements,
       projectCatalogEffectiveGarment(garmentTypeId, clothingPreference),
     ));
-  const composition = composeOutfit(requirements, candidates);
-  if (composition.status !== 'composed' || !matchesOption(composition.outfit, option)) {
+  const composition = collectValidOutfits(requirements, candidates);
+  const outfit = composition.status === 'composed'
+    ? composition.outfits.find((candidate) => matchesOption(candidate, option))
+    : undefined;
+  if (!outfit) {
     throw new WorkerAiRecommendationMappingError();
   }
-  return composition.outfit;
+  return outfit;
 }
 
 function recommendedOutfit(
@@ -381,17 +384,21 @@ function storedOutfit(
       projectCatalogEffectiveGarment(typeId, context.clothingPreference),
     );
   });
-  const composition = composeOutfit(requirements, candidates);
-  if (composition.status !== 'composed') throw new WorkerAiRecommendationMappingError();
-  const actual = assignedGarments(composition.outfit).map(({ slot, layerRole, garment }) => ({
-    slot,
-    layerRole,
-    candidateKey: garment.candidateKey,
-  }));
-  if (JSON.stringify(actual) !== JSON.stringify(garments)) {
+  const composition = collectValidOutfits(requirements, candidates);
+  const outfit = composition.status === 'composed'
+    ? composition.outfits.find((candidate) => {
+        const actual = assignedGarments(candidate).map(({ slot, layerRole, garment }) => ({
+          slot,
+          layerRole,
+          candidateKey: garment.candidateKey,
+        }));
+        return JSON.stringify(actual) === JSON.stringify(garments);
+      })
+    : undefined;
+  if (!outfit) {
     throw new WorkerAiRecommendationMappingError();
   }
-  return composition.outfit;
+  return outfit;
 }
 
 export function mapStoredRecommendation(

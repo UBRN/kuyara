@@ -147,6 +147,8 @@ test('valid provider output returns ok and receives three valid probe options', 
   let capturedRequest;
   const providerName = 'SecretProvider';
   const { deps, counterState } = dependencies({ providers: [{
+    id: 'openrouter',
+    model: 'some/model:free',
     async generateOutfits(body) {
       capturedRequest = body;
       return validOutput();
@@ -158,6 +160,7 @@ test('valid provider output returns ok and receives three valid probe options', 
   assert.equal(response.status, 200);
   assert.equal(aiProbeV1SuccessSchema.safeParse(body).success, true);
   assert.equal(body.data.status, 'ok');
+  assert.deepEqual(body.data.assistant, { providerId: 'openrouter', model: 'some/model:free' });
   assert.equal(new Date(body.data.checkedAt).toISOString(), body.data.checkedAt);
   assert.equal(serialized.includes(providerName), false);
   assert.equal(serialized.includes('error'), false);
@@ -185,8 +188,10 @@ test('a structurally valid response must use only supplied probe option ids', as
   );
 });
 
-test('provider failure returns unavailable and increments the daily counter', async () => {
+test('provider failure returns unavailable and names no provider', async () => {
   const { deps, counterState } = dependencies({ providers: [{
+    id: 'openrouter',
+    model: 'some/model:free',
     async generateOutfits() {
       throw new Error('SecretProvider private error');
     },
@@ -220,6 +225,8 @@ test('cache reuses the probe result within 60 seconds and refreshes after expiry
   const { deps, counterState } = dependencies({
     now: () => new Date(currentTime),
     providers: [{
+      id: 'workers-ai',
+      model: '@cf/example/model',
       async generateOutfits() {
         providerCalls += 1;
         return validOutput();
@@ -228,6 +235,10 @@ test('cache reuses the probe result within 60 seconds and refreshes after expiry
   });
   const handle = createProbeHandler(deps);
   const firstBody = await (await handle(request())).json();
+  assert.deepEqual(firstBody.data.assistant, {
+    providerId: 'workers-ai',
+    model: '@cf/example/model',
+  });
   currentTime = new Date(new Date(fixedNow).getTime() + 59_000);
   const cachedBody = await (await handle(request())).json();
   assert.deepEqual(cachedBody, firstBody);

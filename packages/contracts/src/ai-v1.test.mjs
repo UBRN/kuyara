@@ -9,6 +9,8 @@ import {
   aiProbeV1SuccessSchema,
   aiReadyV1Path,
   aiReadyV1SuccessSchema,
+  aiRecommendV1BudgetHeader,
+  aiRecommendV1BudgetMillisecondsSchema,
   aiRecommendV1Path,
   aiRecommendV1RequestSchema,
   aiRecommendV1SuccessSchema,
@@ -79,9 +81,18 @@ function validSuccess() {
 
 test('exports the versioned AI route paths', () => {
   assert.equal(aiRecommendV1Path, '/v1/ai/recommend');
+  assert.equal(aiRecommendV1BudgetHeader, 'x-kuyara-ai-budget-ms');
   assert.equal(aiProbeV1Path, '/v1/ai/probe');
   assert.equal(healthV1Path, '/v1/health');
   assert.equal(aiReadyV1Path, '/v1/ai/ready');
+});
+
+test('accepts an optional positive integer AI request budget', () => {
+  assert.equal(aiRecommendV1BudgetMillisecondsSchema.parse(undefined), undefined);
+  assert.equal(aiRecommendV1BudgetMillisecondsSchema.parse('13000'), 13_000);
+  for (const invalid of ['13000.5', 'invalid', '0', '-1']) {
+    assert.equal(aiRecommendV1BudgetMillisecondsSchema.safeParse(invalid).success, false);
+  }
 });
 
 test('exports the closed formality and archetype vocabularies', () => {

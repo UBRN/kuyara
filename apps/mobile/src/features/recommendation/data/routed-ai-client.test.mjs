@@ -141,13 +141,16 @@ function pickedOptionIds(result) {
   return result.outfits.map(({ optionId }) => optionId);
 }
 
-function routed(module, worker, now) {
+function routed(module, worker) {
   return new RoutedAiClient({
     onDevice: new OnDeviceAiClient({ module, timeoutMilliseconds: 50 }),
     worker,
-    now,
   });
 }
+
+// The Worker's own deadline, which the routed client grants in full however long the
+// on-device tier spent first.
+const workerWait = { timeoutMilliseconds: 38000 };
 
 test('an available module answers on device and nothing reaches the Worker', async () => {
   const module = fakeModule();
@@ -168,7 +171,7 @@ test('an available module answers on device and nothing reaches the Worker', asy
   assert.doesNotMatch(module.calls[0].inputJson, /profile-one|wardrobe|localDayKey|catalogVersion/);
 });
 
-test('an unavailable module costs no time and the Worker keeps the whole budget', async () => {
+test('an unavailable module costs no time and the Worker keeps its whole wait', async () => {
   const module = fakeModule({
     getAvailability: async () => ({ status: 'unavailable', reason: 'device_not_eligible' }),
     selectOutfits: async () => {
@@ -177,26 +180,23 @@ test('an unavailable module costs no time and the Worker keeps the whole budget'
   });
   const worker = fakeWorker();
 
-  // A fixed clock: an unavailable answer spends none of the budget by construction.
-  const result = await routed(module, worker, () => 1000).recommendRouted(request);
+  const result = await routed(module, worker).recommendRouted(request);
 
   assert.equal(result.generationMode, 'ai-assisted');
   assert.deepEqual(pickedOptionIds(result), workerPicks.map(({ optionId }) => optionId));
-  assert.deepEqual(worker.calls, [{ timeoutMilliseconds: 20000 }]);
+  assert.deepEqual(worker.calls, [workerWait]);
 });
 
-test('a timed-out attempt is abandoned and the Worker gets the rest of the budget', async () => {
+// The maintainer's 2026-09-13 decision: what the on-device tier spent does not shorten the
+// Worker's turn. A refresh waits as long as a stylist answer can still be obtained.
+test('a timed-out attempt is abandoned and the Worker still gets its whole wait', async () => {
   const module = fakeModule({ selectOutfits: () => new Promise(() => undefined) });
   const worker = fakeWorker();
-  let clock = 1000;
-  const client = routed(module, worker, () => clock);
 
-  const pending = client.recommendRouted(request);
-  clock = 7000;
-  const result = await pending;
+  const result = await routed(module, worker).recommendRouted(request);
 
   assert.equal(result.generationMode, 'ai-assisted');
-  assert.deepEqual(worker.calls, [{ timeoutMilliseconds: 14000 }]);
+  assert.deepEqual(worker.calls, [workerWait]);
 });
 
 for (const [name, overrides] of [
@@ -318,15 +318,12 @@ test('an on-device pick the shared gate rejects falls to the Worker, not to the 
         : pick),
     }),
   });
-  let clock = 1000;
 
-  const pending = routed(module, worker, () => clock).recommendRouted(request);
-  clock = 7000;
-  const result = await pending;
+  const result = await routed(module, worker).recommendRouted(request);
 
   assert.equal(result.generationMode, 'ai-assisted');
   assert.deepEqual(pickedOptionIds(result), workerPicks.map(({ optionId }) => optionId));
-  assert.deepEqual(worker.calls, [{ timeoutMilliseconds: 14000 }]);
+  assert.deepEqual(worker.calls, [workerWait]);
 });
 
 // ADR 0034 section 2: the 6 s covers the whole on-device cost, the availability read
@@ -340,14 +337,11 @@ test('an availability read that never settles is abandoned inside the on-device 
       throw new Error('the module must not be asked to select');
     },
   });
-  let clock = 1000;
 
-  const pending = routed(module, worker, () => clock).recommendRouted(request);
-  clock = 7000;
-  const result = await pending;
+  const result = await routed(module, worker).recommendRouted(request);
 
   assert.equal(result.generationMode, 'ai-assisted');
-  assert.deepEqual(worker.calls, [{ timeoutMilliseconds: 14000 }]);
+  assert.deepEqual(worker.calls, [workerWait]);
 });
 
 // The row that tells the user what the device can do reads availability through its own
@@ -366,4 +360,70 @@ test('a timed-out request does not make the status row report unavailable', asyn
   settle();
 
   assert.deepEqual(await pending, { status: 'available' });
+});
+
+// Today says what the wait is doing, so the chain narrates itself. The phases are coarse by
+// construction: a tier, an answer, or the standard suggestions.
+test('the on-device tier reports its own phases and never asks the stylist', async () => {
+  const phases = [];
+
+  const result = await routed(fakeModule(), fakeWorker())
+    .recommendRouted(request, { onPhase: (phase) => phases.push(phase) });
+
+  assert.equal(result.generationMode, 'on-device-ai');
+  assert.deepEqual(phases, ['checking-on-device', 'answer-received']);
+});
+
+test('a failed on-device tier reports the stylist before the Worker call', async () => {
+  const phases = [];
+  const module = fakeModule({
+    selectOutfits: async () => {
+      throw new Error('the model session failed');
+    },
+  });
+
+  const result = await routed(module, fakeWorker())
+    .recommendRouted(request, { onPhase: (phase) => phases.push(phase) });
+
+  assert.equal(result.generationMode, 'ai-assisted');
+  assert.deepEqual(phases, ['checking-on-device', 'asking-stylist', 'answer-received']);
+});
+
+// Even with no module at all the first phase is reported: the rejection is immediate, so the
+// next phase follows in the same tick and nothing lingers on a tier that was never tried.
+test('a missing module still reports the on-device phase before the stylist', async () => {
+  const phases = [];
+  const client = new RoutedAiClient({
+    onDevice: new OnDeviceAiClient({ module: null }),
+    worker: fakeWorker(),
+  });
+
+  await client.recommendRouted(request, { onPhase: (phase) => phases.push(phase) });
+
+  assert.deepEqual(phases, ['checking-on-device', 'asking-stylist', 'answer-received']);
+});
+
+// Ordering: the routed client rejects only after the Worker rejects, so the controller's
+// catch, and with it the deterministic fallback, is reached last and never early.
+test('the routed client rejects only after the Worker has rejected', async () => {
+  const phases = [];
+  const workerReached = [];
+  const worker = {
+    calls: [],
+    async recommend() {
+      workerReached.push(phases.slice());
+      throw new Error('the Worker chain failed');
+    },
+  };
+  const module = fakeModule({
+    selectOutfits: async () => {
+      throw new Error('the model session failed');
+    },
+  });
+
+  await assert.rejects(
+    () => routed(module, worker).recommendRouted(request, { onPhase: (phase) => phases.push(phase) }),
+  );
+  assert.deepEqual(workerReached, [['checking-on-device', 'asking-stylist']]);
+  assert.deepEqual(phases, ['checking-on-device', 'asking-stylist']);
 });

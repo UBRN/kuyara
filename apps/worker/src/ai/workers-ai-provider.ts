@@ -13,6 +13,7 @@ type Options = Readonly<{
 }>;
 
 export class WorkersAiProvider implements AiProvider {
+  readonly id = 'workers-ai' as const;
   readonly options: Options;
 
   get model(): string {

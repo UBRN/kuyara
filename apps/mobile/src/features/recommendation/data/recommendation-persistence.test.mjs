@@ -114,6 +114,7 @@ test('migration v5 persists a validated recommendation snapshot with lifecycle f
   assert.equal(replaced.createdAt, firstTime);
   assert.equal(replaced.updatedAt, secondTime);
   assert.equal(replaced.generationMode, 'deterministic-fallback');
+  assert.equal(replaced.catalogVersion, 4);
   assert.equal(replaced.localDayKey, '2026-08-01');
   assert.equal(replaced.recommendation.outfits.length, 3);
   assert.equal(new Set(replaced.recommendation.outfits.map(

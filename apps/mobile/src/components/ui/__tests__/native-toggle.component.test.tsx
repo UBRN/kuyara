@@ -41,6 +41,7 @@ jest.mock('@expo/ui', () => {
 });
 
 jest.mock('@expo/ui/swift-ui/modifiers', () => ({
+  accessibilityLabel: (label: string) => ({ $type: 'accessibilityLabel', label }),
   tint: (color: string) => ({ $type: 'tint', color }),
 }));
 
@@ -52,14 +53,22 @@ test('forwards value, disabled state and the resolved brandPrimary tint modifier
   const onValueChange = jest.fn();
   const result = await render(
     <TestProviders>
-      <NativeToggle onValueChange={onValueChange} testID="toggle" value />
+      <NativeToggle
+        accessibilityLabel="Allow notifications"
+        onValueChange={onValueChange}
+        testID="toggle"
+        value
+      />
     </TestProviders>,
   );
 
   const toggle = result.getByTestId('toggle');
   expect(toggle.props.value).toBe(true);
   expect(toggle.props.disabled).toBe(false);
-  expect(toggle.props.modifiers).toEqual([{ $type: 'tint', color: lightTheme.colors.brandPrimary }]);
+  expect(toggle.props.modifiers).toEqual([
+    { $type: 'tint', color: lightTheme.colors.brandPrimary },
+    { $type: 'accessibilityLabel', label: 'Allow notifications' },
+  ]);
 
   fireEvent(toggle, 'valueChange', false);
   expect(onValueChange).toHaveBeenCalledWith(false);
@@ -68,7 +77,13 @@ test('forwards value, disabled state and the resolved brandPrimary tint modifier
 test('disables the control and forwards the resolved dark theme tint', async () => {
   const result = await render(
     <TestProviders>
-      <NativeToggle disabled onValueChange={() => {}} testID="toggle" value={false} />
+      <NativeToggle
+        accessibilityLabel="Allow notifications"
+        disabled
+        onValueChange={() => {}}
+        testID="toggle"
+        value={false}
+      />
     </TestProviders>,
   );
 

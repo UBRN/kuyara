@@ -23,6 +23,7 @@ import {
 } from '@/features/recommendation/application/recommendation-application-context';
 import { usePerformanceTelemetry } from '@/features/analytics/application/use-performance-telemetry';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
+import { garmentCatalogVersion } from '@/features/catalog/domain/garment-catalog';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { LocalRecommendationRepository } from '@/features/recommendation/data/recommendation-repository';
 import { SqliteRecommendationLocalDataSource } from '@/features/recommendation/data/sqlite-recommendation-local-data-source';
@@ -209,6 +210,7 @@ export function RecommendationApplicationProvider({
       locationKey: input.snapshot.locationKey,
       clothingPreference: input.clothingPreference,
       dressStyle: input.dressStyle ?? 'smart',
+      catalogVersion: garmentCatalogVersion,
       localDayKey: input.localDayKey,
     };
     const previous: RecommendationSignals | null = persistedSnapshot
@@ -217,6 +219,7 @@ export function RecommendationApplicationProvider({
           locationKey: persistedSnapshot.locationKey,
           clothingPreference: persistedSnapshot.clothingPreference,
           dressStyle: persistedSnapshot.dressStyle,
+          catalogVersion: persistedSnapshot.catalogVersion,
           localDayKey: persistedSnapshot.localDayKey,
         }
       : null;

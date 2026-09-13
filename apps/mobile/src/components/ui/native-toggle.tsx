@@ -1,5 +1,5 @@
 import { Switch } from '@expo/ui';
-import { tint } from '@expo/ui/swift-ui/modifiers';
+import { accessibilityLabel as nativeAccessibilityLabel, tint } from '@expo/ui/swift-ui/modifiers';
 import { Platform } from 'react-native';
 
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -15,6 +15,7 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 // `expo-glass-effect`: nothing crosses this boundary without a decision. `@expo/ui` is
 // still only imported from `components/ui`; feature code never sees it (ADR 0019 section 2).
 export type NativeToggleProps = Readonly<{
+  accessibilityLabel: string;
   value: boolean;
   onValueChange: (value: boolean) => void;
   disabled?: boolean;
@@ -22,6 +23,7 @@ export type NativeToggleProps = Readonly<{
 }>;
 
 export function NativeToggle({
+  accessibilityLabel,
   disabled = false,
   onValueChange,
   testID,
@@ -32,7 +34,12 @@ export function NativeToggle({
   return (
     <Switch
       disabled={disabled}
-      modifiers={Platform.OS === 'ios' ? [tint(theme.colors.brandPrimary)] : undefined}
+      modifiers={Platform.OS === 'ios'
+        ? [
+          tint(theme.colors.brandPrimary),
+          nativeAccessibilityLabel(accessibilityLabel),
+        ]
+        : undefined}
       onValueChange={onValueChange}
       testID={testID}
       value={value}

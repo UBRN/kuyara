@@ -1,5 +1,5 @@
 import { type PropsWithChildren, useEffect, useMemo, useState } from 'react';
-import { AccessibilityInfo } from 'react-native';
+import { AccessibilityInfo, Appearance } from 'react-native';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
@@ -20,6 +20,10 @@ export function KuyaraThemeProvider({
 }: KuyaraThemeProviderProps) {
   const systemColorScheme = useColorScheme() as SystemColorScheme;
   const [isReduceMotionEnabled, setIsReduceMotionEnabled] = useState(false);
+
+  useEffect(() => {
+    Appearance.setColorScheme(preference === 'system' ? 'unspecified' : preference);
+  }, [preference]);
 
   useEffect(() => {
     let isMounted = true;

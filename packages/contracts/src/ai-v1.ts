@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export const aiRecommendV1Path = '/v1/ai/recommend' as const;
+export const aiRecommendV1BudgetHeader = 'x-kuyara-ai-budget-ms' as const;
 export const aiProbeV1Path = '/v1/ai/probe' as const;
 export const healthV1Path = '/v1/health' as const;
 export const aiReadyV1Path = '/v1/ai/ready' as const;
@@ -290,6 +291,12 @@ export const aiRecommendV1RequestSchema = z.object({
   });
 });
 
+export const aiRecommendV1BudgetMillisecondsSchema = z.coerce
+  .number()
+  .int()
+  .positive()
+  .optional();
+
 export const aiRecommendV1SuccessSchema = z.object({
   data: z.object({
     picks: z.array(z.object({
@@ -320,10 +327,20 @@ export const aiRecommendV1SuccessSchema = z.object({
   });
 });
 
+// ADR 0034 section 5: controlled, non-secret identifiers for the provider that answered the
+// last probe, like weather's origin.sourceId. They are read by the Settings AI status screen
+// only, and never persisted with a recommendation or sent to analytics.
+export const aiProviderIds = ['workers-ai', 'openrouter', 'deterministic-stub'] as const;
+
 export const aiProbeV1SuccessSchema = z.object({
   data: z.object({
     status: z.enum(['ok', 'unavailable']),
     checkedAt: z.string().datetime(),
+    // Present only when a provider answered.
+    assistant: z.object({
+      providerId: z.enum(aiProviderIds),
+      model: z.string().min(1).max(120),
+    }).strict().optional(),
   }).strict(),
 }).strict();
 
@@ -345,6 +362,7 @@ export type AiV1ErrorCode = (typeof aiV1ErrorCodes)[number];
 export type AiRecommendV1Request = z.infer<typeof aiRecommendV1RequestSchema>;
 export type AiRecommendV1Success = z.infer<typeof aiRecommendV1SuccessSchema>;
 export type AiProbeV1Success = z.infer<typeof aiProbeV1SuccessSchema>;
+export type AiProviderId = (typeof aiProviderIds)[number];
 export type AiV1Error = z.infer<typeof aiV1ErrorSchema>;
 export type ClothingRequirement = z.infer<typeof clothingRequirementSchema>;
 export type AiOption = z.infer<typeof aiOptionSchema>;

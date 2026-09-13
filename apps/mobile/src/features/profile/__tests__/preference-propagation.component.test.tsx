@@ -251,10 +251,11 @@ test('live preference changes propagate localized copy and dark semantic colors 
   expect(within(result.getByTestId('settings-primary-group')).getByTestId('settings-theme-row')).toBeOnTheScreen();
   expect(within(result.getByTestId('settings-services-group')).getByTestId('settings-ai-status-row')).toBeOnTheScreen();
   expect(within(result.getByTestId('settings-services-group')).getByTestId('settings-privacy-row')).toBeOnTheScreen();
-  // An unanswered sheet is neither On nor Off.
-  expect(result.getByTestId('settings-privacy-row-value-stacked')).toHaveTextContent(
-    messages.en.analytics.statusNotAsked,
-  );
+  // The Privacy row is a door, not a status: it carries glyph, label and chevron and no
+  // trailing value, so an unanswered consent sheet is never reported as a setting.
+  expect(result.queryByTestId('settings-privacy-row-value-stacked')).not.toBeOnTheScreen();
+  expect(result.queryByText(messages.en.analytics.statusNotAsked)).not.toBeOnTheScreen();
+  expect(result.getByText(messages.en.analytics.privacyTitle)).toBeOnTheScreen();
   expect(within(result.getByTestId('settings-about-you-group')).getByTestId('settings-gender-row')).toBeOnTheScreen();
   expect(within(result.getByTestId('settings-about-you-group')).getByTestId('settings-dress-style-row')).toBeOnTheScreen();
   expect(within(result.getByTestId('settings-about-you-group')).getByTestId('settings-birth-date-row')).toBeOnTheScreen();

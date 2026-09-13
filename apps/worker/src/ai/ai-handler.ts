@@ -1,4 +1,6 @@
 import {
+  aiRecommendV1BudgetHeader,
+  aiRecommendV1BudgetMillisecondsSchema,
   aiRecommendV1Path,
   aiRecommendV1RequestSchema,
   aiRecommendV1SuccessSchema,
@@ -33,6 +35,26 @@ const jsonHeaders = {
   'Cache-Control': 'no-store',
   'Content-Type': 'application/json; charset=utf-8',
 } as const;
+
+// The phone transmits its own budget (37 s: its 38 s wait minus transport); this ceiling is
+// the configured deadline's, so a wrong or hostile header can never extend the walk.
+const maximumAiRequestBudgetMs = 36_000;
+// Healthy providers finish within 4.5 s; another 0.5 s covers scheduling overhead.
+const minimumUsefulAttemptMs = 5_000;
+
+function requestBudgetMs(request: Request, configuredDeadlineMs: number): number {
+  const parsed = aiRecommendV1BudgetMillisecondsSchema.safeParse(
+    request.headers.get(aiRecommendV1BudgetHeader) ?? undefined,
+  );
+  if (!parsed.success || parsed.data === undefined) {
+    return Math.min(configuredDeadlineMs, maximumAiRequestBudgetMs);
+  }
+  return Math.min(
+    configuredDeadlineMs,
+    maximumAiRequestBudgetMs,
+    Math.max(minimumUsefulAttemptMs, parsed.data),
+  );
+}
 
 function errorResponse(
   status: number,
@@ -91,20 +113,23 @@ export function createAiHandler({
   rateLimiter,
   // Every provider that answers the 2 KB request does so within 5 s (Workers AI 2 to
   // 4.5 s, OpenRouter 0.3 to 1.9 s, measured live); one that does not answer stalls
-  // indefinitely. 7 s leaves a stalled first attempt, a full second and a short third
-  // inside the 19 s deadline. Never raise this toward the deadline: one stall then eats
-  // the whole budget and the fallback chain never runs.
+  // indefinitely, so 7 s cuts it off and hands the turn to the next provider. Never raise
+  // this toward the total deadline: one stall then eats the whole budget and the fallback
+  // chain never runs.
   attemptTimeoutMs = 7_000,
-  // The whole request has to finish inside the mobile client's 20 s budget, so no
-  // attempt is started or left running past this deadline. It never adds attempts.
-  totalDeadlineMs = 19_000,
+  // 36 s = 5 × 7 s plus one second for the rate limiter, the body parse and the cache
+  // lookup, so the refresh takes as long as it needs and the deterministic fallback only
+  // follows the last provider's failure. The mobile client waits 38 s (this deadline plus
+  // transport) and sends 37 s in the header; with up to 6 s of on-device selection ahead of
+  // it, the whole user-visible wait is at most 44 s.
+  totalDeadlineMs = 36_000,
   // Five attempts cover two Workers AI models plus three OpenRouter models.
   maxAttempts = 5,
 }: Dependencies): (request: Request) => Promise<Response> {
   return async (request: Request): Promise<Response> => {
     // The total budget covers the whole request, including the rate limiter, the body
     // parse and the shared cache lookup, not only the provider walk.
-    const deadline = Date.now() + totalDeadlineMs;
+    const deadline = Date.now() + requestBudgetMs(request, totalDeadlineMs);
     const url = new URL(request.url);
     if (url.pathname !== aiRecommendV1Path) return errorResponse(404, 'not_found');
     if (request.method !== 'POST') {
@@ -149,7 +174,8 @@ export function createAiHandler({
 
     for (const [attemptIndex, provider] of providers.slice(0, maxAttempts).entries()) {
       const remainingMs = deadline - Date.now();
-      if (remainingMs <= 0) break;
+      const attemptWindowMs = Math.min(attemptTimeoutMs, remainingMs);
+      if (attemptWindowMs < Math.min(attemptTimeoutMs, minimumUsefulAttemptMs)) break;
       const controller = new AbortController();
       let timedOut = false;
       let timeoutId: ReturnType<typeof setTimeout>;
@@ -158,7 +184,7 @@ export function createAiHandler({
           timedOut = true;
           controller.abort();
           reject(new Error('AI provider attempt timed out.'));
-        }, Math.min(attemptTimeoutMs, remainingMs));
+        }, attemptWindowMs);
       });
       try {
         const output = await Promise.race([

@@ -1,6 +1,7 @@
 import {
   aiRecommendV1SuccessSchema,
   aiV1ErrorSchema,
+  type AiProbeV1Success,
   type AiRecommendV1Request,
   type AiV1ErrorCode,
 } from '@kuyara/contracts';
@@ -126,7 +127,7 @@ export function createProbeHandler({
   now = () => new Date(),
   attemptTimeoutMs = PROBE_ATTEMPT_TIMEOUT_MS,
 }: Dependencies): (request: Request) => Promise<Response> {
-  let cached: { status: 'ok' | 'unavailable'; checkedAt: string } | null = null;
+  let cached: AiProbeV1Success['data'] | null = null;
   let cachedExpiresAt = 0;
 
   return async (request: Request): Promise<Response> => {
@@ -151,8 +152,8 @@ export function createProbeHandler({
     }
 
     let status: 'ok' | 'unavailable' = 'unavailable';
-    const attempted = providers.length > 0;
-    if (attempted) {
+    const answering = providers[0];
+    if (answering) {
       const controller = new AbortController();
       let timeoutId: ReturnType<typeof setTimeout>;
       const timeout = new Promise<never>((_resolve, reject) => {
@@ -164,7 +165,7 @@ export function createProbeHandler({
 
       try {
         const output = await Promise.race([
-          providers[0]!.generateOutfits(PROBE_REQUEST, controller.signal),
+          answering.generateOutfits(PROBE_REQUEST, controller.signal),
           timeout,
         ]);
         const result = aiRecommendV1SuccessSchema.safeParse(output);
@@ -183,9 +184,13 @@ export function createProbeHandler({
     }
 
     const checkedAt = now().toISOString();
-    cached = { status, checkedAt };
+    // ADR 0034 section 5: name the provider and model that answered, and only then. Both are
+    // controlled non-secret identifiers, so nothing about the failure path changes.
+    cached = status === 'ok' && answering
+      ? { status, checkedAt, assistant: { providerId: answering.id, model: answering.model } }
+      : { status, checkedAt };
     cachedExpiresAt = now().getTime() + PROBE_CACHE_TTL_MS;
-    if (attempted) await dailyCounter.increment(dateKey);
+    if (answering) await dailyCounter.increment(dateKey);
 
     return Response.json({ data: cached }, { status: 200, headers: jsonHeaders });
   };

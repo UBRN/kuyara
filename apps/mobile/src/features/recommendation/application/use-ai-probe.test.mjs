@@ -22,6 +22,13 @@ test('maps successful probe states', () => {
   assert.deepEqual(mapProbeResult({ status: 'ok', checkedAt }), {
     kind: 'ok',
     checkedAt,
+    assistant: undefined,
+  });
+  const assistant = { providerId: 'openrouter', model: 'some/model:free' };
+  assert.deepEqual(mapProbeResult({ status: 'ok', checkedAt, assistant }), {
+    kind: 'ok',
+    checkedAt,
+    assistant,
   });
   assert.deepEqual(mapProbeResult({ status: 'unavailable', checkedAt }), {
     kind: 'unavailable',
