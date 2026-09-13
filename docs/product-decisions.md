@@ -157,6 +157,7 @@ On the on-device tier the inference itself never leaves the device, and both tie
 
 - catalog candidate identifiers and garment types,
 - catalog structural categories, supported roles, and property evidence,
+- the closed archetype identifiers each catalog option is eligible for,
 - deterministic weather and clothing requirements,
 - clothing preference,
 - dress style,

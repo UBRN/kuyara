@@ -71,7 +71,9 @@ generated. Zod and the domain invariants still validate the result afterwards.
 
 `aiV1CandidateLimit`, `aiCandidateSchema`, `aiOutfitSchema`, and
 `aiRecommendV1SuccessSchema` are replaced. The option limit is 24, which keeps
-the candidate list under 30 and the request near 2 KB.
+the candidate list under 30. The model input a full request serializes to is
+11,560 bytes at its worst case, 24 options of five garments each carrying the
+conditional archetypes it qualifies for.
 
 Mobile remains the owner of composition. The selection boundary validates
 membership, count, distinctness, and archetype preconditions, and the mobile

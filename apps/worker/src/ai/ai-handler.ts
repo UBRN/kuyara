@@ -3,11 +3,11 @@ import {
   aiRecommendV1RequestSchema,
   aiRecommendV1SuccessSchema,
   aiV1ErrorSchema,
+  meetsArchetypePrecondition,
   picksAreMeaningfullyDifferent,
   type AiOption,
   type AiRecommendV1Request,
   type AiV1ErrorCode,
-  type OutfitArchetypeId,
 } from '@kuyara/contracts';
 
 import type { AiProvider } from './ai-provider.ts';
@@ -36,42 +36,6 @@ function errorResponse(
     status,
     headers: { ...jsonHeaders, ...extraHeaders },
   });
-}
-
-function garmentType(option: AiOption, slot: AiOption['garments'][number]['slot']) {
-  return option.garments.find((garment) => garment.slot === slot)?.garmentTypeId;
-}
-
-function meetsArchetypePrecondition(
-  archetypeId: OutfitArchetypeId,
-  option: AiOption,
-): boolean {
-  switch (archetypeId) {
-    case 'everyday_easy':
-      return true;
-    case 'smart_casual':
-      return option.formality === 'smart' || option.formality === 'formal';
-    case 'office_ready':
-      return option.formality === 'formal';
-    case 'weekend_relaxed':
-      return option.formality === 'casual';
-    case 'layered_warmth':
-      return option.traits.hasMidLayer && option.traits.hasOuterLayer;
-    case 'cold_shield':
-      return option.traits.outerThermalHigh;
-    case 'rain_ready':
-      return option.traits.outerWaterProtective;
-    case 'snow_day':
-      return option.traits.tractionEnhanced;
-    case 'wind_guard':
-      return option.traits.windResistant;
-    case 'light_and_airy':
-      return !option.traits.hasOuterLayer && option.traits.breathabilityHigh;
-    case 'on_the_move':
-      return garmentType(option, 'footwear') === 'sneakers';
-    case 'in_between':
-      return option.traits.hasMidLayer && !option.traits.hasOuterLayer;
-  }
 }
 
 function defaultCache(): Cache | undefined {

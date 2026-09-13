@@ -1,8 +1,10 @@
 import {
   formalityOrderByDressStyle,
+  outfitArchetypeIds,
   type AiOption,
   type AiRecommendV1Request,
   type FormalityLevel,
+  type OutfitArchetypeId,
 } from './ai-v1.ts';
 
 type AiOptionGarment = AiOption['garments'][number];
@@ -17,29 +19,87 @@ export type AiModelInput = Readonly<{
       slot: AiOptionGarment['slot'];
       garmentTypeId: AiOptionGarment['garmentTypeId'];
     }>[];
+    eligibleArchetypeIds: readonly OutfitArchetypeId[];
   }>[];
 }>;
 
 /**
  * The only structured data a model may see. Cache-key and validation-only fields
  * (requirements, catalogVersion, dayVariant, dressStyle itself, traits, layerRole) are
- * deliberately left out. Both the Worker client and the on-device client project through
- * this one function, so the approved field list has one home.
+ * deliberately left out. Traits stay out; the archetype eligibility they decide is
+ * projected instead, because the caller rejects any pick whose archetype fails its
+ * precondition and a model that cannot see eligibility can only guess. Both the Worker
+ * client and the on-device client project through this one function, so the approved
+ * field list has one home.
  */
 export function aiModelInputFromRequest(request: AiRecommendV1Request): AiModelInput {
   return {
     clothingPreference: request.clothingPreference,
     formalityOrder: formalityOrderByDressStyle[request.dressStyle ?? 'smart'],
-    options: request.options.map(({ optionId, formality, garments }) => ({
-      optionId,
-      formality,
-      garments: garments.map(({ slot, garmentTypeId }) => ({ slot, garmentTypeId })),
+    options: request.options.map((option) => ({
+      optionId: option.optionId,
+      formality: option.formality,
+      garments: option.garments.map(({ slot, garmentTypeId }) => ({
+        slot,
+        garmentTypeId,
+      })),
+      eligibleArchetypeIds: projectedArchetypeIdsForOption(option),
     })),
   };
 }
 
 function garmentType(option: AiOption, slot: AiOptionGarment['slot']) {
   return option.garments.find((garment) => garment.slot === slot)?.garmentTypeId;
+}
+
+/**
+ * One definition of when an archetype label may be attached to an option. The caller
+ * validates every pick against this, and the projection offers the same answer to the
+ * model, so the model is asked only for labels it can actually justify.
+ */
+export function meetsArchetypePrecondition(
+  archetypeId: OutfitArchetypeId,
+  option: AiOption,
+): boolean {
+  switch (archetypeId) {
+    case 'everyday_easy':
+      return true;
+    case 'smart_casual':
+      return option.formality === 'smart' || option.formality === 'formal';
+    case 'office_ready':
+      return option.formality === 'formal';
+    case 'weekend_relaxed':
+      return option.formality === 'casual';
+    case 'layered_warmth':
+      return option.traits.hasMidLayer && option.traits.hasOuterLayer;
+    case 'cold_shield':
+      return option.traits.outerThermalHigh;
+    case 'rain_ready':
+      return option.traits.outerWaterProtective;
+    case 'snow_day':
+      return option.traits.tractionEnhanced;
+    case 'wind_guard':
+      return option.traits.windResistant;
+    case 'light_and_airy':
+      return !option.traits.hasOuterLayer && option.traits.breathabilityHigh;
+    case 'on_the_move':
+      return garmentType(option, 'footwear') === 'sneakers';
+    case 'in_between':
+      return option.traits.hasMidLayer && !option.traits.hasOuterLayer;
+  }
+}
+
+/**
+ * The conditional archetypes an option qualifies for. `everyday_easy` has no
+ * precondition, so repeating it under all 24 options would spend the on-device session
+ * window on a constant; both prompts state instead that it is always allowed. The gate
+ * still accepts it, because `meetsArchetypePrecondition` is unchanged.
+ */
+function projectedArchetypeIdsForOption(
+  option: AiOption,
+): readonly OutfitArchetypeId[] {
+  return outfitArchetypeIds.filter((archetypeId) =>
+    archetypeId !== 'everyday_easy' && meetsArchetypePrecondition(archetypeId, option));
 }
 
 function hasDifferentBodyCore(left: AiOption, right: AiOption): boolean {
