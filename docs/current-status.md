@@ -84,10 +84,16 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   Models module, migration 13, the motion package, the pre-submission sweep, EAS Observe
   and the on-device prompt's archetype rules. It was uploaded on 2026-09-13 and awaits
   Apple's processing and the maintainer's physical-device pass; builds 4 and 5 are
-  superseded and build 5 was never distributed. The app version stays 1.0.0 and the production profile
-  auto-increments the build number; because `runtimeVersion` follows the app version, every
-  1.0.0 build shares one runtime and no EAS Update may be published to the production
-  channel until the next binary is the only one installed. Preview and production profiles
+  superseded and build 5 was never distributed. The store version string follows the
+  `0.MINOR.YYYYMMDD` scheme: the leading 0 says the product is not yet declared stable,
+  the middle number counts minor updates, and the trailing date stamps the update. The
+  first store version is `0.1.20260913`, set in App Store Connect and in `app.json`, and
+  build 7 (EAS production build from commit ef64c26, uploaded and processed on
+  2026-09-13) carries it and is the build attached to the App Store version; build 6,
+  still versioned 1.0.0, is superseded. The production profile auto-increments the build number; because
+  `runtimeVersion` follows the app version, every build of one version string shares
+  one runtime and no EAS Update may be published to the production channel until the
+  next binary is the only one installed. Preview and production profiles
   use the deployed Worker. Shared code stays Android-compatible; Android validation is
   deferred.
 
@@ -145,21 +151,16 @@ and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
 
 ## Release Blockers
 
-App Store submission, not TestFlight, is blocked by:
-
-- The App Store screenshots. Everything else in milestone 11 is done: GitHub Pages went
-  live on 2026-09-11 from the main branch's `docs/` folder (`/privacy-policy` and
-  `/support` fetched with status 200), and the questionnaire, the privacy policy and
-  support URLs, the subtitle and the listing copy were entered in App Store Connect the
-  same day. The maintainer deferred the screenshots to the end of the release path and
-  may pick a marketing-screenshot tool first; the plain Simulator captures were discarded.
-- The App Privacy questionnaire and the published policy. `expo-app-metrics` stores
-  MetricKit crash diagnostics and unhandled JavaScript errors, with message and stack
-  trace, as log rows that `expo-observe` dispatches under consent, so Crash Data is
-  collected (ADR 0033 section 7). The questionnaire entered on 2026-09-11 lacks the
-  Observe rows (Performance Data, Other Diagnostic Data, Crash Data, and the App
-  Functionality purpose on Device ID), and the rewritten `docs/privacy-policy.md` is not
-  published until it is pushed to `main`.
+App Store submission, not TestFlight, is blocked by one item: uploading the new
+App Store screenshot set for en-US and tr-TR and submitting the version. Everything
+else in milestone 11 is entered in App Store Connect: the privacy policy and support
+URLs, the category, content rights, price, the build, the review information and the
+App Privacy questionnaire including the EAS Observe rows (Performance Data, Other
+Diagnostic Data, Crash Data and the App Functionality purpose on Device ID) were
+entered with the `asc` CLI on 2026-09-13, and the rewritten privacy policy is
+published from `main` (GitHub Pages, `/privacy-policy` and `/support`). No app preview
+video is used: Apple allows only raw in-app footage there, so it did not earn its
+place, and the preview sets in both localizations were emptied on 2026-09-13.
 
 The physical-device pass on build 6 ran on 2026-09-13 on the maintainer's iPhone 14 Pro
 with no problem found. That device is not Apple Intelligence eligible, so it exercised the
