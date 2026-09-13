@@ -156,9 +156,13 @@ unavailable tier.
   in either direction, and the module logs neither the input nor the output.
 - One session per call, non-streaming `respond(to:schema:)`, cancelled at the timeout in
   section 2, which the module enforces itself as well as being told it.
-- Every on-device failure crosses the boundary as one coded error with a fixed message. The
-  caller's next step is the Worker either way, and a finer taxonomy would only risk carrying
-  model detail out of the module.
+  `includeSchemaInPrompt` is off: `schema:` constrains the answer either way, so echoing the
+  24-value `anyOf` into the prompt would only spend the 4096-token session window twice on
+  the same identifiers.
+- Every on-device failure crosses the boundary as one coded error, because the caller's next
+  step is the Worker either way. Its message names the failure as one code from a closed list
+  the module itself writes, never framework or model text, and a development build logs that
+  code and nothing above reads it.
 - iOS 26.0 stays the minimum and the build stays on Xcode 26.x.
 - Only the recommendation feature's data layer imports the module, through a single file
   that re-exports it. Application, feature and domain code never import it, mirroring the
@@ -244,11 +248,11 @@ round trip there took about 5.3 s, inside the 6 s budget and close to it.
 Other attempts on the same host failed inside a tenth of a second with a
 `LanguageModelSession.GenerationError` carrying nested underlying errors. **That failure is
 undiagnosed.** It is not attributed to the Simulator, because nothing rules out the request
-itself: a 24-value `anyOf` dynamic schema sent with `includeSchemaInPrompt` at its default
-repeats every option identifier into the same 4096-token session window the projection
-already fills, which is one candidate cause among several. Diagnosing it is an open item for
-the hardware measurement, and it is the first thing to read before the table below is
-filled in: an on-device tier that fails fast is invisible to the user but buys nothing.
+itself: the projection alone fills much of the 4096-token session window. The module names
+the framework's case in the error it raises, so the next run reports which one it was.
+Diagnosing it is an open item for the hardware measurement, and it is the first thing to
+read before the table below is filled in: an on-device tier that fails fast is invisible to
+the user but buys nothing.
 
 Automated verification covers the routed client against a fake native module (available,
 unavailable, timeout, invalid JSON, invented identifier, duplicate archetype), the shared
