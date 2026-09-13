@@ -80,8 +80,9 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
 - **Builds:** iOS is the first release target. EAS production credentials, an App Store
   Connect record (`com.ubrn.kuyara`, ASC app `6806664440`) and TestFlight internal builds up
   to 1.0.0 (4) exist. Build 4 predates the local Foundation Models module, migration 13, the
-  motion package, the pre-submission sweep and EAS Observe, so no distributed binary carries
-  the current native runtime. The app version stays 1.0.0 and the production profile
+  motion package, the pre-submission sweep and EAS Observe. EAS production build 1.0.0 (5)
+  from commit 79b2a9f is the first binary with the current native runtime; it is built but
+  not yet uploaded to TestFlight or tested on a device. The app version stays 1.0.0 and the production profile
   auto-increments the build number; because `runtimeVersion` follows the app version, every
   1.0.0 build shares one runtime and no EAS Update may be published to the production
   channel until the next binary is the only one installed. Preview and production profiles
@@ -142,8 +143,8 @@ App Store submission, not TestFlight, is blocked by:
 
 - A Worker deploy and a new binary. The deployed Worker predates the 19-second AI deadline
   and the shared model-input projection; redeploy it and confirm `origin.sourceId` and one
-  AI-assisted result live. Then a production build from the current main, tested on a
-  physical iPhone, replaces build 4.
+  AI-assisted result live. Then build 5, uploaded to TestFlight and tested on a physical
+  iPhone, replaces build 4.
 - The App Store screenshots. Everything else in milestone 11 is done: GitHub Pages went
   live on 2026-09-11 from the main branch's `docs/` folder (`/privacy-policy` and
   `/support` fetched with status 200), and the questionnaire, the privacy policy and
