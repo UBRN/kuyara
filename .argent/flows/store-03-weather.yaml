@@ -1,0 +1,10 @@
+# The Weather tab: current conditions and the coming hours. Starts from the
+# onboarded state store-01-today left behind (see that flow).
+steps:
+  - launch: com.ubrn.kuyara
+  - await: { visible: { id: today-archetype }, timeout: 45000 }
+  - wait: 600
+  - tap: { id: tab-weather }
+  - await: { visible: { id: weather-refresh-button }, timeout: 10000 }
+  - wait: 1500
+  - await: { idle: true }

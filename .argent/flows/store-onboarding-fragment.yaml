@@ -1,0 +1,48 @@
+# Shared by every store-* flow. goldie reinstalls the app with cleared data
+# before each capture, so every flow has to walk the fresh-install onboarding
+# first. Selectors are test ids only: goldie captures en-US and tr-TR and the
+# visible labels differ between them.
+executionPrerequisite: >-
+  App freshly launched on the first onboarding step.
+
+steps:
+  - await: { visible: { id: onboarding-continue }, timeout: 20000 }
+  - wait: 600
+  - tap: { id: onboarding-continue }
+  - await: { visible: { id: onboarding-gender-woman } }
+  - wait: 500
+  - tap: { id: onboarding-gender-woman }
+  - wait: 400
+  - tap: { id: onboarding-continue }
+  - await: { visible: { id: onboarding-dress-style-smart } }
+  - wait: 500
+  - tap: { id: onboarding-dress-style-smart }
+  - wait: 400
+  - tap: { id: onboarding-continue }
+  - echo: Step 4 is the optional birth date. Nothing is filled in, so continue again.
+  - wait: 900
+  - tap: { id: onboarding-continue }
+  - await: { exists: { id: onboarding-location-device }, timeout: 20000 }
+  - wait: 900
+  - echo: The city field is a SwiftUI text field (id onboarding-place-search) that the flow runner's tree does not list, so it is tapped at its centre. describe places it at x 0.066-0.934, y 0.480-0.503 on the 6.9-inch device.
+  - tap: { x: 0.5, y: 0.491 }
+  - tool: keyboard
+    args: { text: Istanbul }
+  - wait: 2500
+  - echo: Return dismisses the keyboard. The SwiftUI result list only gets a tappable frame once it has room below the field.
+  - tool: keyboard
+    args: { key: enter }
+  - wait: 1500
+  - echo: The result rows are SwiftUI list rows the runner's tree does not list either. describe shows the first row (id onboarding-place-place.745044, Istanbul) at y 0.571-0.625 once the keyboard is down; tap its centre.
+  - tap: { x: 0.5, y: 0.598 }
+  - await: { idle: true }
+  - wait: 500
+  - tap: { id: onboarding-complete }
+  - await: { visible: { id: today-archetype }, timeout: 45000 }
+  - await: { hidden: { id: today-generating-status }, timeout: 30000 }
+  - echo: The analytics consent sheet follows the first recommendation. Declining keeps the capture clean and sends nothing.
+  - await: { visible: { id: analytics-consent-decline }, timeout: 15000 }
+  - wait: 600
+  - tap: { id: analytics-consent-decline }
+  - await: { hidden: { id: analytics-consent-decline } }
+  - await: { idle: true }

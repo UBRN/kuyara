@@ -1,0 +1,6 @@
+# Preview segment 1: the app opens on Today with the day's outfit. goldie
+# restarts the app before this segment; the install is already onboarded.
+steps:
+  - launch: com.ubrn.kuyara
+  - await: { visible: { id: today-archetype }, timeout: 45000 }
+  - wait: 2500

@@ -1,0 +1,12 @@
+# The recommended outfit's detail: garment board, rationale, weather recap.
+# goldie reinstalls the app once per device, before store-01-today, so this
+# flow starts from the onboarded state that flow left behind.
+steps:
+  - launch: com.ubrn.kuyara
+  - await: { visible: { id: today-archetype }, timeout: 45000 }
+  - await: { hidden: { id: today-generating-status }, timeout: 30000 }
+  - wait: 600
+  - tap: { id: today-primary-board }
+  - await: { exists: { id: outfit-detail-weather-recap }, timeout: 10000 }
+  - wait: 800
+  - await: { idle: true }

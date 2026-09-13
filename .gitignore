@@ -38,3 +38,9 @@ apps/worker/**/*.pfx
 .claude/settings.local.json
 .claude/worktrees/
 .claude/launch.json
+
+# goldie App Store asset renders
+goldie/out/
+
+# argent screen recordings written during goldie captures
+.argent/recordings/
