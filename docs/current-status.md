@@ -141,12 +141,24 @@ Analytics is sequenced before the first public App Store release, so milestones 
     on Device ID to the answer set (ADR 0033 sections 1 and 7); the privacy policy in
     `docs/` discloses them, the App Store Connect questionnaire carries them, and the
     policy is published (see Release Blockers).
-12. **PostHog Error Tracking.** Source maps and release correlation are decided at
-    implementation time; the same payload exclusion list applies.
+12. **PostHog Error Tracking.** [ADR 0035](adr/0035-posthog-error-tracking.md) (Proposed,
+    awaiting the maintainer's acceptance) decides the shape: uncaught exceptions and
+    unhandled rejections only, source maps uploaded per bundle with the CLI key held as an
+    EAS secret, the one existing consent answer with no pre-consent buffering, an explicit
+    `before_send` allowlist for exception properties, the Analytics purpose added to the
+    Crash Data privacy row, a zero-dollar error-tracking billing limit with a per-session
+    cap, and Observe keeping the native layer while PostHog owns the JavaScript layer.
+    Nothing is implemented.
 13. **Session replay evaluation.** Only after privacy masking and sampling are designed.
     Not approved for capture.
 14. **Operational observability evaluation.** Grafana Cloud or an OpenTelemetry stack for
     Worker latency, errors, provider fallbacks and quota; later than product analytics.
+    A maintainer-side options report (2026-09-13) found that the Worker logs three
+    structured events, none of which distinguishes a Workers AI quota failure from any
+    other provider error, and that `429` responses are never logged server-side. Its
+    recommendation is to add those two fields on the free Workers Logs first, keep Grafana
+    Cloud as the next step only if alerting becomes necessary, and not adopt OpenTelemetry
+    while Cloudflare's tracing is in open beta. No decision has been taken.
 15. **Supabase accounts and sync**, when product scope reaches it. Promoting device rows
     into an authenticated profile needs its own ADR; until then build no sync
     infrastructure.
@@ -296,8 +308,10 @@ before submitting is the maintainer's call.
 
 - **EAS Observe has two external open items.** The `expo-observe`, `expo-app-metrics`
   and `expo-eas-client` packages ship no privacy manifest and do not clear pre-consent
-  unhandled-error records on iOS; this has not yet been reported to Expo. Whether to use
-  an EAS paid plan for Observe's route and event views is also undecided.
+  unhandled-error records on iOS. Two issue drafts for `expo/expo` were prepared on
+  2026-09-13 after a search found no existing issue on either defect; sending them is
+  the maintainer's decision. Whether to use an EAS paid plan for Observe's route and
+  event views is also undecided; the Starter plan is the first tier that exposes them.
 - **Real VoiceOver is unverified.** The XCUITest hierarchy was checked on the Simulator
   (single labelled elements in source order; ownership buttons carry `selected`; picker
   options carry the radio role; on iOS the notifications switch carries its row label), but
@@ -317,7 +331,18 @@ before submitting is the maintainer's call.
 - **Android is unverified**, consistent with the repository's posture: the native tab
   bar, the icon set and garment artwork, the `@expo/ui` text field, picker list and date
   picker, the `weather-alerts` notification channel, and the resolved manifest after
-  blocking fine-location permission.
+  blocking fine-location permission. Android verification is deferred by the
+  maintainer's decision until an explicit go-ahead. The development Mac has no Android
+  SDK, no AVD and no `ANDROID_HOME`, so the check starts with Android Studio, an SDK
+  Platform and a Pixel AVD on API 35 or later before `expo run:android` can run. Until
+  then shared code stays Android-compatible and no iOS-only assumption enters it.
+- **OpenWeather's licence reading needs a decision.** A maintainer-side reading of
+  OpenWeather's terms of sale (2026-09-13) found that the data is licensed under ODbL and
+  CC BY-SA 4.0 covers only OpenWeather's products and services, so share-alike does not
+  reach the app; ADR 0002 records a different reasoning and is not yet corrected. The same
+  reading found that the provider attribution names no licence and that Today shows the
+  temperature and condition with no attribution at all. Which option to take (keep
+  OpenWeather and fix attribution, remove it from the chain, or a paid plan) is open.
 - **WeatherKit's quota path is untested against Apple.** Apple does not document the
   status returned once the monthly allowance is exhausted; the mapping lands on a
   fallback-eligible error either way, and the daily cap has never been reached.
