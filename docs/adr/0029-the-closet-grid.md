@@ -4,8 +4,11 @@ Status: Accepted (2026-09-07)
 
 Implementation: complete. The grid, the state filter, the category chips, section 5's
 silhouette rung and colour-family fill are implemented; the segmented control's tint
-applies on Android only, because the installed `@expo/ui` control ignores `tintColor` on
-iOS. The rendered target sheet, in English and Turkish, both appearances, three tile
+applies on Android only. The installed `@expo/ui` control ignores `tintColor` on iOS, and
+composing its SwiftUI `Picker` directly with `tint(brandPrimary)` leaves the selected
+segment in the system colours on the Simulator, because SwiftUI's tint does not reach
+`UISegmentedControl.selectedSegmentTintColor` and the package exposes no UIKit appearance
+hook. The rendered target sheet, in English and Turkish, both appearances, three tile
 states, four screen states and three text sizes, is kept outside the repository; its
 "target, in numbers" table is the implementation target.
 

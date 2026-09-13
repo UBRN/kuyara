@@ -146,11 +146,18 @@ App Store submission, not TestFlight, is blocked by:
   predates the on-device prompt that states the archetype eligibility and distinctness
   rules, so a production build from the current main, uploaded to TestFlight and tested
   on a physical iPhone, replaces builds 4 and 5.
-- The Worker AI chain has one live provider. The three OpenRouter free model slugs in the
-  Worker configuration return 404 upstream (two paywalled, one without a strict
-  structured-output endpoint), so Workers AI has no fallback behind it. Replacing them with
-  paid slugs is a spend decision that needs a hard limit; until it is taken, an AI failure
-  falls to the deterministic generator.
+- The Worker AI chain fix is not deployed. The configured OpenRouter free slugs had gone
+  dead upstream (two removed from the catalog, one without a strict structured-output
+  endpoint), so the deployed Worker has no fallback behind Workers AI. The working tree
+  replaces them with the three free models that answered the real prompt with valid picks
+  in a live probe (`nex-agi/nex-n2.5-mini:free`, `nvidia/nemotron-3-super-120b-a12b:free`,
+  `nex-agi/nex-n2.5-pro:free`) and logs every provider attempt's outcome as a closed
+  reason code so a dead slug shows in `wrangler tail` instead of hiding behind the
+  deterministic fallback; the chain was exercised in `wrangler dev` with Workers AI
+  forced to fail. Deploying it is a release operation for the maintainer. OpenRouter caps
+  free variants at 20 requests a minute and 50 a day for accounts with under $10 of
+  purchased credits, which the project's key is; a one-time $10 credit purchase raises the
+  daily cap to 1000 and is the only spend question left in the chain.
 - The App Store screenshots. Everything else in milestone 11 is done: GitHub Pages went
   live on 2026-09-11 from the main branch's `docs/` folder (`/privacy-policy` and
   `/support` fetched with status 200), and the questionnaire, the privacy policy and
@@ -160,6 +167,18 @@ App Store submission, not TestFlight, is blocked by:
 
 ## Recently Completed
 
+- **Open-item sweep** (2026-09-13): the Worker's OpenRouter chain replaced with the three
+  free models that pass the real prompt, plus closed-reason logging of every AI provider
+  attempt (see Release Blockers for the undeployed state); Turkish copy moved to one
+  informal register across 58 strings and the three iOS permission texts, recorded in
+  `product-decisions.md`; the native list row gained a `selected` prop carried by the
+  `@expo/ui` `accessibilityAddTraits(['isSelected'])` modifier, so the location picker
+  drops its trailing "Selected" text (Simulator hierarchy shows `selected: true` on the
+  chosen row only); the Workers AI neuron cost measured live and recorded in ADR 0007; ADR
+  0010's destructive label now names `textOnBrand`. The iOS segmented tint was tried
+  through SwiftUI `tint()` and reverted on Simulator evidence (see Known Issues).
+  Checks: `pnpm check`, the component suite (396 tests), the design-language greps, and
+  one Simulator tour.
 - **Milestone 11 documents** (2026-09-11): `docs/privacy-policy.md` and `docs/support.md`,
   English and Turkish, written from ADR 0033's findings for publication through GitHub
   Pages; `PRIVACY_POLICY_URL` set to the published address with a route test proving the
@@ -217,8 +236,9 @@ App Store submission, not TestFlight, is blocked by:
 - **Real VoiceOver is unverified.** The XCUITest hierarchy was checked on the Simulator
   (single labelled elements in source order; ownership buttons carry `selected`; picker
   options carry the radio role), but spoken grouping, focus order, the rotor, Today's
-  refresh accessibility custom action on the scroll container, and how a location
-  picker row reads its trailing "Selected" value need a physical-device pass. Accessibility
+  refresh accessibility custom action on the scroll container, and how VoiceOver speaks
+  the location picker's selected row (its `isSelected` trait is in the XCUITest
+  hierarchy) need a physical-device pass. Accessibility
   Inspector needs desktop control. This is the ninth goal 7 follow-up.
 - **N2's background execution cannot run on the Simulator.** Only registration safety and
   unchanged foreground behaviour were confirmed. On a physical iPhone: install a
@@ -235,26 +255,24 @@ App Store submission, not TestFlight, is blocked by:
 - **WeatherKit's quota path is untested against Apple.** Apple does not document the
   status returned once the monthly allowance is exhausted; the mapping lands on a
   fallback-eligible error either way, and the daily cap has never been reached.
-- **The provider chain hides a broken provider.** A failing adapter returns HTTP 200 from
-  a lower-ranked source, so a green suite and a successful deploy do not prove the
-  intended provider ran. Confirm `origin.sourceId` in a live response after any provider
-  change.
-- **The native location picker** marks the selected result with a localized trailing
-  "Selected" value because `NativeListRow` exposes no selected trait.
+- **The provider chain hides a broken provider in the response.** A failing adapter
+  returns HTTP 200 from a lower-ranked source, so a green suite and a successful deploy do
+  not prove the intended provider ran. Both chains now log every failed attempt to the
+  Worker's observability (`weather_provider_attempt_failed` with the attempt position and
+  the closed error kind, `ai_provider_attempt_failed` with the model and a closed reason),
+  so read `wrangler tail` and confirm `origin.sourceId` in a live response after any
+  provider change.
 - **The Closet's segmented control is untinted on iOS:** the installed `@expo/ui`
-  community control reads `tintColor` only on Android, so ADR 0029's `brandPrimary` tint
-  is Android-only until the package exposes an iOS tint.
+  community control reads `tintColor` only on Android, and composing its SwiftUI `Picker`
+  directly with `tint(brandPrimary)` was tried on the Simulator and left the selected
+  segment white in light and system grey in dark. SwiftUI's tint does not reach
+  `UISegmentedControl.selectedSegmentTintColor`, and the package exposes no UIKit
+  appearance hook, so ADR 0029's `brandPrimary` tint stays Android-only until it does.
 - **Dark elevated-surface step:** `backgroundElevated` sits 1.18:1 over `surface` by
   decision; a lighter value would drop `textSecondary` below its 4.5:1 floor.
 - **Dark atmosphere states render neutral only.** ADR 0018 caps them at Deep Atmosphere's
   luminance; every compliant variation sits only 3 to 8 RGB levels from the current
   `#122A35` stage and is imperceptible. Lifting the cap needs a separate decision.
-- **Turkish register is mixed:** the Closet form speaks formally ("Gardırobunuz",
-  "seçin") while its details caption ("Dokunmazsan") and the detail ownership labels
-  ("Sende var" / "İstiyorsun", approved by ADR 0026) are informal. No app-wide register
-  decision has been taken.
 - **[ADR 0010](adr/0010-status-colours-destructive-variant-and-defined-borders.md)** states
   the destructive button's light label as `#FFFFFF`; the implementation follows the rule
   and uses `textOnBrand` (about 7.1:1, above 4.5:1). The illustrative hex is what is off.
-- **The Workers AI neuron cost per call** has not been measured live; ADR 0007's figure is
-  an estimate.
