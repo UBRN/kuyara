@@ -15,6 +15,8 @@ import type {
 
 const catalogPreferenceByGender = { woman: 'womens', man: 'mens' } as const;
 
+const singleLine = (value: string): string => value.replace(/[\r\n]+/g, ' ');
+
 function applicationProfile(profile: Profile): LocalProfile {
   return {
     ...profile,
@@ -24,7 +26,7 @@ function applicationProfile(profile: Profile): LocalProfile {
 
 export type ProfileApplicationState =
   | Readonly<{ status: 'loading' }>
-  | Readonly<{ status: 'error'; reason: ProfileBootstrapFailureReason }>
+  | Readonly<{ status: 'error'; report: BootstrapReport }>
   | Readonly<{
       status: 'ready';
       profile: LocalProfile;
@@ -35,6 +37,16 @@ export type ProfileBootstrapFailureReason =
   | 'database-open'
   | 'migration'
   | 'profile-load';
+
+// The value the user can share from the bootstrap screen, and the value the local console
+// line prints. It is composed here because this is where the failure is classified; it holds
+// no identifier and no profile data, and the newline stripping and the 200 character cap are
+// applied once, at this boundary.
+export type BootstrapReport = Readonly<{
+  stage: ProfileBootstrapFailureReason;
+  errorName: string;
+  errorMessage: string;
+}>;
 
 export class ProfileBootstrapError extends Error {
   readonly reason: Exclude<ProfileBootstrapFailureReason, 'profile-load'>;
@@ -148,15 +160,21 @@ export class ProfileApplicationController {
       const message = reportedError instanceof Error
         ? reportedError.message
         : String(reportedError);
+      const report: BootstrapReport = {
+        stage: reason,
+        errorName: singleLine(name),
+        errorMessage: singleLine(message).slice(0, 200),
+      };
       console.error(
-        `[profile-bootstrap] stage=${reason} error=${name.replace(/[\r\n]+/g, ' ')} message=${message.replace(/[\r\n]+/g, ' ').slice(0, 200)}`,
+        `[profile-bootstrap] stage=${report.stage} error=${report.errorName} message=${report.errorMessage}`,
       );
       // Only the stage and the thrown value's class name. A SQLite or migration message can
-      // quote row values, so it stays in the local console line and never leaves the device.
+      // quote row values, so it stays on the device: in the local console line, and in the
+      // text the user reads in the share sheet before sending it.
       this.reportError(
         new TelemetryError('profile.bootstrap_failed', { stage: reason, error_name: name }),
       );
-      this.setState({ status: 'error', reason });
+      this.setState({ status: 'error', report });
     }
   }
 

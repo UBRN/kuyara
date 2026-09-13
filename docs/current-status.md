@@ -175,7 +175,10 @@ App Store submission, not TestFlight, is blocked by:
   Closet's `manual_refresh_triggered`, with no JS errors. Consent stays unanswered during
   onboarding and until Today renders the first recommendation. Nothing is recorded or
   queued before the sheet is answered, so onboarding and everything before that first
-  recommendation are not measurable; this is accepted.
+  recommendation are not measurable; this is accepted. A bootstrap failure is outside both
+  boundaries, so the bootstrap error screen carries a quiet "Report a problem" action that
+  opens the system share sheet with the build, OS, device model and failure stage the user
+  reads before sending.
   ADR 0033 section 6 and taxonomy section 2 record the current gate. Its seven measurement-accuracy findings (trackers reset at the consent
   boundary, session-end finalisation, focus-bound error tracking, the Closet's false
   recovery, retry counters, duplicate `outfit_detail_opened`, no-op `setting_changed`)

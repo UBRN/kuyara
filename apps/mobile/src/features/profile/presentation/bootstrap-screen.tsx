@@ -12,6 +12,7 @@ type BootstrapScreenProps =
       status: 'error';
       reason: ProfileBootstrapFailureReason;
       onRetry: () => void;
+      onReportProblem: () => void;
     }>;
 
 export function BootstrapScreen(props: BootstrapScreenProps) {
@@ -55,6 +56,12 @@ export function BootstrapScreen(props: BootstrapScreenProps) {
               label={messages.bootstrap.retryAction}
               onPress={props.onRetry}
               testID="bootstrap-retry"
+            />
+            <Button
+              label={messages.bootstrap.reportAction}
+              onPress={props.onReportProblem}
+              testID="bootstrap-report"
+              variant="quiet"
             />
           </>
         ) : null}

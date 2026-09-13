@@ -11,6 +11,7 @@ import {
   canOpenSettings,
   resolveProfileHomeRoute,
 } from './application/profile-route-gate.ts';
+import { composeBootstrapReportText } from './presentation/bootstrap-report-text.ts';
 import { resolveLanguagePreference } from '../../localization/language-preference.ts';
 import { messages } from '../../localization/messages.ts';
 
@@ -175,4 +176,50 @@ test('route and presentation sources preserve local gating and accessible select
   assert.doesNotMatch(routeSources, /expo-sqlite|useSQLiteContext|SELECT |UPDATE |INSERT /i);
   assert.doesNotMatch(presentationSources, /expo-sqlite|useSQLiteContext|SELECT |UPDATE |INSERT /i);
   assert.doesNotMatch(presentationSources, /biological sex|gender identity/i);
+});
+
+test('the bootstrap report text carries six language-independent lines', () => {
+  assert.equal(
+    composeBootstrapReportText(
+      { stage: 'migration', errorName: 'SQLiteError', errorMessage: 'no such column: birthDate' },
+      {
+        appVersion: '1.0.0',
+        buildNumber: '3',
+        osName: 'iOS',
+        osVersion: '26.0',
+        modelName: 'iPhone 17 Pro',
+      },
+    ),
+    [
+      'kuyara 1.0.0 (3)',
+      'iOS 26.0',
+      'iPhone 17 Pro',
+      'stage=migration',
+      'error=SQLiteError',
+      'message=no such column: birthDate',
+    ].join('\n'),
+  );
+});
+
+test('the bootstrap report text falls back to unknown for every absent build or device fact', () => {
+  assert.equal(
+    composeBootstrapReportText(
+      { stage: 'database-open', errorName: 'Error', errorMessage: 'denied' },
+      {
+        appVersion: undefined,
+        buildNumber: undefined,
+        osName: null,
+        osVersion: null,
+        modelName: null,
+      },
+    ),
+    [
+      'kuyara unknown (unknown)',
+      'unknown unknown',
+      'unknown',
+      'stage=database-open',
+      'error=Error',
+      'message=denied',
+    ].join('\n'),
+  );
 });
