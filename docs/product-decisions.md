@@ -61,7 +61,7 @@ Approved 2026-08-30. Documentation may state the present fact that the MVP has n
 - Wardrobe items are profile-owned rows with a client-generated UUID, `localProfileId`, optional name and colour, one structural category (`top`, `bottom`, `one_piece`, `outerwear`, `footwear`, `accessory`), a required catalog garment type for every new entry, a canonical colour family, seven explicit property overrides, an optional app-private photo relative path, UTC lifecycle timestamps, nullable soft-deletion time and an `owned | wanted` entry state. Legacy rows with a null type remain readable, editable and deletable; migration never infers one. A stored type id that the current catalog no longer defines is read as unclassified and must be re-typed on the next save.
 - Active reads are profile-scoped and exclude soft-deleted rows. Deletion sets `deletedAt` rather than removing the row. Update and delete cannot act through another profile ID.
 - SQLite stores only a normalized relative photo path, never a blob, absolute path, URI or traversal. Photos are resized and compressed into app-private storage and cleaned up only after the database write is confirmed.
-- The bundled garment catalog defines the canonical types, structural categories, weather-relevant defaults, localization keys and deprecation metadata specified in [`clothing-taxonomy.md`](clothing-taxonomy.md); catalog version 3 defines 32 types ([ADR 0013](adr/0013-catalog-content-corrections-and-version-3.md)). Catalog defaults stay bundled code; a pure resolver applies an item's explicit override over the current default.
+- The bundled garment catalog defines the canonical types, structural categories, weather-relevant defaults, localization keys and deprecation metadata specified in [`clothing-taxonomy.md`](clothing-taxonomy.md); catalog version 4 defines 32 types ([ADR 0013](adr/0013-catalog-content-corrections-and-version-3.md)). Catalog defaults stay bundled code; a pure resolver applies an item's explicit override over the current default.
 - Catalog applicability (`womens`/`mens`) filters recommendation candidates and new Wardrobe choices through the one gender mapping. It is not biological sex and never hides, invalidates or excludes an item already recorded. `blouse`, `skirt` and `dress` apply to `womens`; every other type applies to both.
 - Colour and the property overrides complete the personal record only; nothing in the Wardrobe affects recommendations.
 
@@ -201,12 +201,12 @@ Approved 2026-08-30, revised with Direction E on 2026-09-08 and 2026-09-09.
 - **The `Screen` primitive owns inset resolution.** It lets iOS resolve the top inset (disabling content-inset adjustment silently disables `UIRefreshControl`), exposes `contentTopClearance` for screens with an overlay header, and resolves the bottom edge itself; feature code performs no safe-area arithmetic and never sets `paddingBottom` on `Screen` ([ADR 0027](adr/0027-the-app-shell-and-its-three-tabs.md) section 4).
 - Out of scope: a generic pull-to-refresh primitive, a non-scrollable screen API, and any change to the 30-minute freshness boundary or refresh coalescing.
 
-## Approved catalog content revision and version 3
+## Approved catalog content revision and catalog version 4
 
-Approved 2026-09-03; rationale, the measured cost of the version bump and rejected alternatives in [ADR 0013](adr/0013-catalog-content-corrections-and-version-3.md).
+Approved 2026-09-13; rationale, the measured cost of the version bump and rejected alternatives in [ADR 0013](adr/0013-catalog-content-corrections-and-version-3.md).
 
 - `garmentCatalogVersion` bumps whenever catalog content changes, because a stale shared AI cache would serve picks the client then rejects and silently degrade every user to the deterministic fallback. The user-visible cost is at most one extra loading state on the first launch after the update; offline use is unaffected.
-- `overshirt` stays a `top` and `jumpsuit` stays available to both preferences; both reconsiderations are closed.
+- `overshirt` stays a `top`. `jumpsuit` and `leggings` are `womens` only: applicability answers whether a person with that clothing preference would wear the piece in an everyday outfit, and coverage or diversity arguments do not widen it.
 - Out of scope: breathability, wind and traction values, any new property axis, colour, the Wardrobe as a candidate source, and schema migrations.
 
 ## Operating assumptions

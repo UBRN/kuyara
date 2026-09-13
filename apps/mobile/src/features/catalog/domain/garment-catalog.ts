@@ -11,7 +11,7 @@ import {
 } from '@/features/catalog/domain/garment-taxonomy';
 import type { ClothingPreference } from '@/domain/preferences';
 
-export const garmentCatalogVersion = 3;
+export const garmentCatalogVersion = 4;
 
 export class GarmentCatalogValidationError extends Error {
   constructor() {
@@ -233,7 +233,7 @@ const garmentTypeDefinitions = [
     defaultArmCoverage: null,
     defaultLegCoverage: 'full',
     defaultTractionSuitability: null,
-    apparelPreferenceApplicability: bothPreferences,
+    apparelPreferenceApplicability: womensPreference,
     formality: 'casual',
   }),
   defineGarmentType({
@@ -293,7 +293,7 @@ const garmentTypeDefinitions = [
     defaultArmCoverage: 'partial',
     defaultLegCoverage: 'full',
     defaultTractionSuitability: null,
-    apparelPreferenceApplicability: bothPreferences,
+    apparelPreferenceApplicability: womensPreference,
     formality: 'smart',
   }),
   defineGarmentType({

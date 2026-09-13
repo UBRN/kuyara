@@ -202,7 +202,7 @@ Rules:
 - Applicability belongs to the canonical catalog, not a Wardrobe item.
 - Changing the profile preference never hides, invalidates, deletes, or reclassifies an owned Wardrobe item.
 - The recommendation engine uses only catalog types whose applicability contains the current clothing preference. Owned and wanted Wardrobe items are never recommendation candidates in the MVP.
-- Production applicability is settled as follows: `blouse`, `skirt`, and `dress` contain only `womens`; every other canonical type, including `jumpsuit`, contains both `womens` and `mens`.
+- Production applicability is settled as follows: `blouse`, `skirt`, `dress`, `jumpsuit`, and `leggings` contain only `womens`; every other canonical type contains both `womens` and `mens`. Applicability answers whether a person with that clothing preference would wear the piece in an everyday outfit; structural coverage arguments do not widen it ([ADR 0013](adr/0013-catalog-content-corrections-and-version-3.md)).
 
 ## Canonical MVP garment types
 
@@ -395,7 +395,7 @@ These records are **model-consistency examples**, not the final production fixtu
 | `cardigan` | `top` | `mid`, `standalone` | `moderate` | — | — | `moderate` | `upper_body`; arms `full` | — | both |
 | `overshirt` | `top` | `mid`, `outer`, `standalone` | `light` | `none` | `none` | `moderate` | `upper_body`; arms `full` | — | both |
 | `trousers` | `bottom` | `standalone` | `light` | — | — | `moderate` | `lower_body`; legs `full` | — | both |
-| `leggings` | `bottom` | `standalone` | `moderate` | — | — | `moderate` | `lower_body`; legs `full` | — | both |
+| `leggings` | `bottom` | `standalone` | `moderate` | — | — | `moderate` | `lower_body`; legs `full` | — | `womens` |
 | `shorts` | `bottom` | `standalone` | `none` | — | — | `high` | `lower_body`; legs `partial` | — | both |
 | `dress` | `one_piece` | `standalone` | `light` | — | — | `moderate` | `full_body`; arms `none`, legs `partial` | — | `womens` |
 | `insulated_jacket` | `outerwear` | `outer` | `high` | `water_resistant` | `wind_resistant` | `low` | `upper_body`; arms `full` | — | both |
@@ -411,7 +411,7 @@ These records are **model-consistency examples**, not the final production fixtu
 
 These defaults intentionally remain coarse. A mesh sneaker, heavy sweater, short-sleeved dress, unlined waterproof shell, or fashion boot can use the appropriate Wardrobe overrides rather than forcing another canonical type.
 
-That argument no longer covers recommendations. [ADR 0005](adr/0005-catalog-only-recommendation-candidates.md) removed the Wardrobe from the candidate set, so an override widens nothing a recommendation can see; it still applies to the Wardrobe as a personal record. [ADR 0013](adr/0013-catalog-content-corrections-and-version-3.md) accordingly corrected four property values and added `sleeveless_top` and `leggings` at catalog version 3.
+That argument no longer covers recommendations. [ADR 0005](adr/0005-catalog-only-recommendation-candidates.md) removed the Wardrobe from the candidate set, so an override widens nothing a recommendation can see; it still applies to the Wardrobe as a personal record. [ADR 0013](adr/0013-catalog-content-corrections-and-version-3.md) accordingly corrected four property values and added `sleeveless_top` and `leggings`; the catalog is at version 4.
 
 ## Scenario sufficiency checks
 
