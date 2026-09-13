@@ -244,7 +244,7 @@ export function TodayScreen({
                   preset="today"
                   rise
                   stageColor={stageColor}
-                  testID="today-primary-board"
+                  testID={`today-primary-board-${primary.id}`}
                   width={contentWidth}
                 />
                 {!usesAccessibilityLayout ? <Sky intensity={ambientIntensity} overlay weather={presentation.weather} /> : null}
