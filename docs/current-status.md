@@ -40,8 +40,7 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   Intelligence eligible iPhone takes the on-device tier first with a 6-second budget, then
   the Worker, then the deterministic fallback. On-device latency stays unmeasured: the
   only observation is Simulator inference running on the Mac host, so the ADR's
-  measurement table still reads not yet measured, and no build carries the module until a
-  new binary and an EAS runtime version bump are made.
+  measurement table still reads not yet measured; builds 6 and 7 carry the module.
 - **Notifications:** on-device local weather alerts only ([ADR 0032](adr/0032-local-weather-alert-rules.md)):
   opt-in in Settings, deterministic precipitation-onset and temperature-swing rules, a
   delivery ledger, rescheduling on every persisted snapshot and on opt-in, permission and
@@ -88,9 +87,11 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   `0.MINOR.YYYYMMDD` scheme: the leading 0 says the product is not yet declared stable,
   the middle number counts minor updates, and the trailing date stamps the update. The
   first store version is `0.1.20260913`, set in App Store Connect and in `app.json`, and
-  build 7 (EAS production build from commit ef64c26, uploaded and processed on
-  2026-09-13) carries it and is the build attached to the App Store version; build 6,
-  still versioned 1.0.0, is superseded. The production profile auto-increments the build number; because
+  build 7 (uploaded and processed on 2026-09-13) carries it and is the build attached to
+  the App Store version; build 6, still versioned 1.0.0, is superseded. EAS records build
+  7 against commit ef64c26 because the version change was still uncommitted when the
+  build ran; commit cefee3b records the version string, and build 7's bundle is that
+  tree. The production profile auto-increments the build number; because
   `runtimeVersion` follows the app version, every build of one version string shares
   one runtime and no EAS Update may be published to the production channel until the
   next binary is the only one installed. Preview and production profiles
@@ -151,23 +152,40 @@ and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
 
 ## Release Blockers
 
-App Store submission, not TestFlight, is blocked by one item: uploading the new
-App Store screenshot set for en-US and tr-TR and submitting the version. Everything
-else in milestone 11 is entered in App Store Connect: the privacy policy and support
-URLs, the category, content rights, price, the build, the review information and the
-App Privacy questionnaire including the EAS Observe rows (Performance Data, Other
-Diagnostic Data, Crash Data and the App Functionality purpose on Device ID) were
-entered with the `asc` CLI on 2026-09-13, and the rewritten privacy policy is
-published from `main` (GitHub Pages, `/privacy-policy` and `/support`). No app preview
-video is used: Apple allows only raw in-app footage there, so it did not earn its
-place, and the preview sets in both localizations were emptied on 2026-09-13.
+App Store submission, not TestFlight, is blocked by two items, both the maintainer's:
 
-The physical-device pass on build 6 ran on 2026-09-13 on the maintainer's iPhone 14 Pro
-with no problem found. That device is not Apple Intelligence eligible, so it exercised the
-Worker tier and the fallback only; the on-device tier remains unmeasured on eligible
-hardware, as ADR 0034's verification boundary records, and the Simulator run of the same
-day landed at the 6 s budget's edge. Real VoiceOver, background refresh and production
-analytics dispatch were not separately inspected on the device (see Known Issues).
+- A physical-device pass on build 7. The only device pass on record ran on build 6 on
+  2026-09-13 (iPhone 14 Pro, no problem found), and build 7 is the first binary that
+  carries catalog version 4 (jumpsuit and leggings womens-only) and the Crash Data privacy
+  manifest row. The pass should also read the Today badge: a Release build captured for
+  the store screenshots on 2026-09-13 showed the deterministic fallback ("Standard
+  suggestions") against the production Worker while a Debug build on the same URL showed
+  the AI-assisted badge, and the cause was not investigated. The iPhone 14 Pro is not
+  Apple Intelligence eligible, so it exercises the Worker tier and the fallback only; the
+  on-device tier remains unmeasured on eligible hardware, as ADR 0034's verification
+  boundary records, and the Simulator run of the same day landed at the 6 s budget's
+  edge. Real VoiceOver, background refresh and production analytics dispatch were not
+  separately inspected on the device (see Known Issues).
+- The EU Digital Services Act trader-status declaration in App Store Connect (Business,
+  Compliance). Apple requires it for a new submission available in the EU, only the
+  Account Holder can enter it in the web interface, and the `asc` CLI can neither read
+  nor set it, so its state is unverified.
+
+Everything else in milestone 11 is done. App Store Connect holds the privacy policy and
+support URLs, the category, content rights, price, the build, the review information,
+the App Privacy questionnaire including the EAS Observe rows (Performance Data, Other
+Diagnostic Data, Crash Data and the App Functionality purpose on Device ID), entered
+with the `asc` CLI on 2026-09-13 and published, and the ten framed screenshots (five per
+localization, `APP_IPHONE_67`) uploaded the same day; `asc validate` reports no blocking
+finding. The privacy policy and support pages are published from `main` on GitHub Pages
+(`/privacy-policy` and `/support`) with `docs/_config.yml` and a layout override, so the
+page metadata no longer inherits the GitHub repository description and the theme's
+"open source" footer is gone. No app preview video is used: Apple allows only raw
+in-app footage there, so it did not earn its place, and the preview sets in both
+localizations were emptied on 2026-09-13. The uploaded hero screenshot in both
+localizations shows a deterministic-fallback result ("Standard suggestions") whose
+archetype and reason read oddly beside a cloudy 24° forecast; whether to recapture it
+before submitting is the maintainer's call.
 
 ## Recently Completed
 
@@ -187,7 +205,7 @@ analytics dispatch were not separately inspected on the device (see Known Issues
   one-time $10 credit purchase (daily cap 1000) is the only spend question left.
 - **Open-item sweep** (2026-09-13): the Worker's OpenRouter chain replaced with the three
   free models that pass the real prompt, plus closed-reason logging of every AI provider
-  attempt (see Release Blockers for the undeployed state); Turkish copy moved to one
+  attempt, deployed on 2026-09-13; Turkish copy moved to one
   informal register across 58 strings and the three iOS permission texts, recorded in
   `product-decisions.md`; the native list row gained a `selected` prop carried by the
   `@expo/ui` `accessibilityAddTraits(['isSelected'])` modifier, so the location picker

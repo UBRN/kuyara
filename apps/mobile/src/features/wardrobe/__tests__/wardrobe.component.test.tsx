@@ -394,12 +394,14 @@ test('garment type picker groups preference-filtered options with accessible rad
     expect.arrayContaining([
       expect.objectContaining({ props: expect.objectContaining({ children: 'Top' }) }),
       expect.objectContaining({ props: expect.objectContaining({ children: 'Bottom' }) }),
-      expect.objectContaining({ props: expect.objectContaining({ children: 'One-piece' }) }),
       expect.objectContaining({ props: expect.objectContaining({ children: 'Outerwear' }) }),
       expect.objectContaining({ props: expect.objectContaining({ children: 'Footwear' }) }),
       expect.objectContaining({ props: expect.objectContaining({ children: 'Accessory' }) }),
     ]),
   );
+  // Both one-piece garments are womens-only since catalog version 4, so the mens
+  // picker has no One-piece group at all.
+  expect(result.queryByText('One-piece')).not.toBeOnTheScreen();
   expect(result.queryByRole('radio', { name: 'Blouse' })).not.toBeOnTheScreen();
   expect(result.getByRole('radio', { name: 'Rain jacket' }).props.accessibilityState).toEqual(
     expect.objectContaining({ selected: true }),
