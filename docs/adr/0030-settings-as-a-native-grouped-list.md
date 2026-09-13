@@ -105,8 +105,12 @@ recommendation behavior.
 - Haptics: selection on language, appearance, gender, and dress-style changes, the sites
   Law 8 already names; native toggles supply their own; none on navigation rows.
 - No motion of kuyara's.
-- `Host` follows the device appearance by default, so `Host colorScheme` receives the
-  app's resolved theme and keeps native controls aligned with the user's preference.
+- `KuyaraThemeProvider` applies the in-app appearance override through React Native's
+  `Appearance`, and `Host colorScheme` also receives the app's resolved theme so native
+  controls stay aligned with the user's preference. Native alerts (`Alert.alert`) do not
+  inherit that override, since their alert window is not one `Appearance.setColorScheme`
+  reaches; the wardrobe confirmation presenter passes the resolved scheme explicitly as
+  `userInterfaceStyle` so the alert renders in the user's chosen appearance.
 
 ## Consequences
 

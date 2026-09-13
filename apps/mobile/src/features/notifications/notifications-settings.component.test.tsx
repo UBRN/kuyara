@@ -238,16 +238,16 @@ test('a tapped notification response is reported as notification_opened and open
 });
 
 test('an opt-in the OS revoked reads Off on the Settings root row', async () => {
-  // Notifications and the analytics row are the only two rows valued from these keys, so
-  // pinning analytics consent to On makes the single Off unambiguously the alert row's.
+  // The alert row is the only Settings row valued from these keys, so the single Off is
+  // unambiguously its own and no On is left anywhere on the screen.
   mockProfile = { ...createProfile(), notificationsOptIn: 1, analyticsConsent: 'granted' };
   const { gateway } = createGateway('denied');
   const result = await renderSettings(gateway, new RecordingProductAnalytics());
 
   await result.findByTestId('settings-notifications-row');
-  await waitFor(() => expect(result.getAllByText(messages.en.notifications.statusOn))
+  await waitFor(() => expect(result.getAllByText(messages.en.notifications.statusOff))
     .toHaveLength(1));
-  expect(result.getAllByText(messages.en.notifications.statusOff)).toHaveLength(1);
+  expect(result.queryByText(messages.en.notifications.statusOn)).not.toBeOnTheScreen();
 });
 
 test('the blocked sub-screen keeps the preference on the toggle beside the denied footer', async () => {

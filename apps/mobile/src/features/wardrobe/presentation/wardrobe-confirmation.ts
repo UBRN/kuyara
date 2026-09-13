@@ -1,6 +1,7 @@
 import { Alert } from 'react-native';
 
 import { haptics } from '@/components/ui';
+import type { ThemeColorScheme } from '@/theme/theme';
 
 export type WardrobeConfirmationRequest = Readonly<{
   title: string;
@@ -8,6 +9,9 @@ export type WardrobeConfirmationRequest = Readonly<{
   cancelLabel: string;
   confirmLabel: string;
   destructive?: boolean;
+  // The resolved theme scheme, so the native alert renders in the appearance the
+  // in-app override applies instead of whatever the alert window inherits.
+  colorScheme: ThemeColorScheme;
 }>;
 
 export type WardrobeConfirmation = (
@@ -20,15 +24,20 @@ export const showWardrobeConfirmation: WardrobeConfirmation = (
   onConfirm,
 ) => {
   if (request.destructive) haptics.warning();
-  Alert.alert(request.title, request.message, [
-    {
-      text: request.cancelLabel,
-      style: 'cancel',
-    },
-    {
-      text: request.confirmLabel,
-      style: request.destructive ? 'destructive' : 'default',
-      onPress: onConfirm,
-    },
-  ]);
+  Alert.alert(
+    request.title,
+    request.message,
+    [
+      {
+        text: request.cancelLabel,
+        style: 'cancel',
+      },
+      {
+        text: request.confirmLabel,
+        style: request.destructive ? 'destructive' : 'default',
+        onPress: onConfirm,
+      },
+    ],
+    { userInterfaceStyle: request.colorScheme },
+  );
 };

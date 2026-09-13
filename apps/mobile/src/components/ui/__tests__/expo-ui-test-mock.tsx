@@ -4,6 +4,7 @@ import { type StyleProp, type ViewStyle, Pressable, Switch as RNSwitch, Text as 
 // Native passthroughs for both the universal and SwiftUI modules, plus modifiers.
 // Models slots and events, not native layout or accessibility bridging.
 export const tint = (color: string) => ({ $type: 'tint', color });
+export const accessibilityLabel = (label: string) => ({ $type: 'accessibilityLabel', label });
 export const accessibilityAddTraits = (traits: string[]) => ({ $type: 'accessibilityAddTraits', traits });
 export const listStyle = (style: string) => ({ $type: 'listStyle', style });
 export const scrollContentBackground = (visible: string) => ({ $type: 'scrollContentBackground', visible });
@@ -118,17 +119,28 @@ export function ListItem({
 
 export function Switch({
   disabled,
+  modifiers,
   onValueChange,
   testID,
   value,
 }: Readonly<{
   disabled?: boolean;
+  modifiers?: readonly Record<string, unknown>[];
   onValueChange?: (value: boolean) => void;
   testID?: string;
   value?: boolean;
 }>) {
+  const labelModifier = modifiers?.find((modifier) => modifier.$type === 'accessibilityLabel');
+
   return (
-    <RNSwitch disabled={disabled} onValueChange={onValueChange} testID={testID} value={value} />
+    <RNSwitch
+      accessibilityLabel={labelModifier?.label as string | undefined}
+      disabled={disabled}
+      {...{ modifiers }}
+      onValueChange={onValueChange}
+      testID={testID}
+      value={value}
+    />
   );
 }
 

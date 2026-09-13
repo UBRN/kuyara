@@ -1,4 +1,5 @@
 import type { FailureCategory } from '@/domain/failure-category';
+import type { RecommendationPhase } from '@/features/recommendation/application/recommendation-application-controller';
 import type { OutfitRecommendationResult } from '@/features/recommendation/application/recommend-outfits';
 import type {
   ActiveLocation,
@@ -15,7 +16,9 @@ export type TodaySnapshot = Readonly<{
 }>;
 
 export type TodayScreenState =
-  | Readonly<{ kind: 'loading' }>
+  // `phase` is what the recommendation controller says the wait is doing; absent or null on
+  // a wait that is not a recommendation refresh (bootstrap, a pure weather refresh).
+  | Readonly<{ kind: 'loading'; phase?: RecommendationPhase | null }>
   | Readonly<{
       kind: 'unavailable';
       reason?: 'no-active-location';
@@ -27,6 +30,7 @@ export type TodayScreenState =
       snapshot: TodaySnapshot;
       isRefreshing: boolean;
       refreshFailed: boolean;
+      phase?: RecommendationPhase | null;
     }>;
 
 export function unavailableTodayState(

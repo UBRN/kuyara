@@ -476,6 +476,69 @@ test('the freshness line reports refreshing, failure, staleness, and last update
 
   const turkish = loadedPresentation({ ...base, isRefreshing: true, refreshFailed: false }, 'tr');
   assert.equal(turkish.header.freshness, 'Bugünün önerileri yenileniyor…');
+  assert.equal(turkish.header.phase, null);
+});
+
+// The wait can now run to the length of the whole AI chain, so the freshness line says what
+// the wait is doing instead of repeating one generic sentence for the whole of it.
+test('a narrated refresh replaces the generic freshness line with the phase, in both languages', () => {
+  const base = { ...todayScreenState, isRefreshing: true, refreshFailed: false };
+  const phases = [
+    'checking-on-device',
+    'asking-stylist',
+    'answer-received',
+    'preparing-outfits',
+    'using-standard',
+  ];
+  const english = {
+    'checking-on-device': 'Checking the on-device AI.',
+    'asking-stylist': 'Asking the AI stylist.',
+    'answer-received': 'AI answered. Checking the picks.',
+    'preparing-outfits': 'Preparing your outfits.',
+    'using-standard': 'AI did not answer. Using standard suggestions.',
+  };
+  const turkish = {
+    'checking-on-device': 'Cihaz içi AI kontrol ediliyor.',
+    'asking-stylist': 'AI stiliste soruluyor.',
+    'answer-received': 'AI yanıt verdi. Seçimler kontrol ediliyor.',
+    'preparing-outfits': 'Kombinlerin hazırlanıyor.',
+    'using-standard': 'AI yanıt vermedi. Standart öneriler kullanılıyor.',
+  };
+
+  for (const phase of phases) {
+    const en = loadedPresentation({ ...base, phase });
+    const tr = loadedPresentation({ ...base, phase }, 'tr');
+
+    assert.equal(en.header.freshness, english[phase]);
+    assert.equal(tr.header.freshness, turkish[phase]);
+    assert.equal(en.header.phase, phase);
+    assert.equal(en.header.announceFreshness, true);
+    // Law 5's status tone: no exclamation mark, and no provider or model name.
+    for (const line of [english[phase], turkish[phase]]) {
+      assert.equal(line.includes('!'), false);
+      assert.doesNotMatch(line, /apple|openrouter|gemini|gpt|llama|cloudflare|workers ai/i);
+    }
+  }
+});
+
+// A phase belongs to a recommendation refresh. A settled screen, and a wait that is only the
+// weather refreshing, carry none and keep the generic line.
+test('a phase is dropped when the screen is not refreshing, and the loading wait carries it', () => {
+  const settled = loadedPresentation({
+    ...todayScreenState,
+    isRefreshing: false,
+    refreshFailed: false,
+    phase: 'asking-stylist',
+  });
+  assert.equal(settled.header.phase, null);
+  assert.match(settled.header.freshness, /^Updated at |^Last updated at /);
+
+  const unnarrated = createTodayPresentation({ kind: 'loading' }, 'en', false, fixtureNow);
+  const narrated = createTodayPresentation(
+    { kind: 'loading', phase: 'preparing-outfits' }, 'en', false, fixtureNow,
+  );
+  assert.equal(unnarrated.phase, null);
+  assert.equal(narrated.phase, 'preparing-outfits');
 });
 
 test('the freshness time follows the device clock setting, not the language', () => {

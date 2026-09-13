@@ -33,6 +33,7 @@ function validArchetypes(option: AiOption): OutfitArchetypeId[] {
 }
 
 export class DeterministicStubAiProvider implements AiProvider {
+  readonly id = 'deterministic-stub' as const;
   readonly model = 'deterministic-stub';
 
   async generateOutfits(

@@ -95,6 +95,8 @@ test('non-GET readiness returns method_not_allowed with Allow GET', async () => 
 
 test('POST AI probe routes to the probe handler', async () => {
   const response = await router({ providers: [{
+    id: 'workers-ai',
+    model: '@cf/example/model',
     generateOutfits: async () => validAiOutput(),
   }] })(new Request('http://localhost/v1/ai/probe', { method: 'POST' }));
   const body = await response.json();

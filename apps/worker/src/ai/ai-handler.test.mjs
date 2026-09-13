@@ -683,7 +683,10 @@ test('shared cache separates all dress styles and treats absence as smart', asyn
   } finally { restore(); }
 });
 
-test('stops the walk at the total deadline instead of starting another attempt', async () => {
+// Mocked timers, because the margin between the two settings is one millisecond: on the
+// real clock the rate limiter, the body parse and the cache lookup can spend it first.
+test('stops the walk when the deadline cannot fit another useful attempt', async (t) => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'] });
   let attempts = 0;
   const slowProvider = {
     generateOutfits(_body, signal) {
@@ -693,13 +696,126 @@ test('stops the walk at the total deadline instead of starting another attempt',
       });
     },
   };
-  const response = await createAiHandler({
+  const pending = createAiHandler({
     providers: [slowProvider, slowProvider],
-    attemptTimeoutMs: 1_000,
-    totalDeadlineMs: 100,
+    attemptTimeoutMs: 10,
+    totalDeadlineMs: 11,
   })(request());
+
+  while (attempts === 0) await Promise.resolve();
+  t.mock.timers.tick(10);
+  const response = await pending;
 
   assert.equal(attempts, 1);
   assert.equal(response.status, 503);
   assert.deepEqual(await response.json(), { error: { code: 'ai_unavailable' } });
+});
+
+test('uses the transmitted budget for a stalled first attempt and a healthy second', async (t) => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'] });
+  const attempts = [];
+  const handler = createAiHandler({ providers: [
+    {
+      generateOutfits(_body, signal) {
+        attempts.push('stalled');
+        return new Promise((resolve) => {
+          signal.addEventListener('abort', () => resolve(validOutput()), { once: true });
+        });
+      },
+    },
+    {
+      generateOutfits() {
+        attempts.push('healthy');
+        return new Promise((resolve) => {
+          setTimeout(() => resolve(validOutput()), 4_500);
+        });
+      },
+    },
+    {
+      generateOutfits() {
+        attempts.push('late');
+        return Promise.resolve(validOutput());
+      },
+    },
+  ] });
+  const pending = handler(request({ headers: {
+    'content-type': 'application/json',
+    'x-kuyara-ai-budget-ms': '13000',
+  } }));
+
+  while (attempts.length === 0) await Promise.resolve();
+  assert.deepEqual(attempts, ['stalled']);
+  t.mock.timers.tick(7_000);
+  while (attempts.length === 1) await Promise.resolve();
+  assert.deepEqual(attempts, ['stalled', 'healthy']);
+  t.mock.timers.tick(4_500);
+  await Promise.resolve();
+  const response = await pending;
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), validOutput());
+  assert.deepEqual(attempts, ['stalled', 'healthy']);
+});
+
+test('does not start an attempt after the transmitted deadline', async (t) => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'] });
+  let attempts = 0;
+  const stalledProvider = {
+    generateOutfits(_body, signal) {
+      attempts += 1;
+      return new Promise((resolve) => {
+        signal.addEventListener('abort', () => resolve(validOutput()), { once: true });
+      });
+    },
+  };
+  const handler = createAiHandler({ providers: [
+    stalledProvider,
+    stalledProvider,
+    { generateOutfits: async () => {
+      attempts += 1;
+      return validOutput();
+    } },
+  ] });
+  const pending = handler(request({ headers: {
+    'content-type': 'application/json',
+    'x-kuyara-ai-budget-ms': '13000',
+  } }));
+
+  while (attempts === 0) await Promise.resolve();
+  t.mock.timers.tick(7_000);
+  while (attempts === 1) await Promise.resolve();
+  t.mock.timers.tick(6_000);
+  await Promise.resolve();
+  const response = await pending;
+
+  assert.equal(response.status, 503);
+  assert.equal(attempts, 2);
+});
+
+// The maintainer's 2026-09-13 decision: the refresh takes as long as it needs as long as
+// every provider gets its turn, so the default deadline has to outlast five 7 s attempts.
+test('lets all five providers take their turn inside the default deadline', async (t) => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'] });
+  let attempts = 0;
+  const stalledProvider = {
+    generateOutfits(_body, signal) {
+      attempts += 1;
+      return new Promise((resolve) => {
+        signal.addEventListener('abort', () => resolve(validOutput()), { once: true });
+      });
+    },
+  };
+  const handler = createAiHandler({
+    providers: Array.from({ length: 5 }, () => stalledProvider),
+  });
+  const pending = handler(request());
+
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    while (attempts < attempt) await Promise.resolve();
+    t.mock.timers.tick(7_000);
+  }
+  const response = await pending;
+
+  assert.equal(attempts, 5);
+  assert.equal(response.status, 503);
 });

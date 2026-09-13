@@ -196,6 +196,7 @@ test('a toggle row stays unchanged at fontScale 3.118', async () => {
   );
 
   const toggle = result.getByTestId('row-toggle');
+  expect(toggle).toHaveAccessibleName('Allow notifications');
   expect(toggle.props.value).toBe(true);
   expect(toggle.props.disabled).toBe(true);
   expect(result.queryAllByTestId('expo-ui-icon')).toHaveLength(0);

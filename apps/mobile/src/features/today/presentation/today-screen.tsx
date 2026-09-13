@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 
 import {
@@ -16,6 +17,7 @@ import {
   useRefreshOutcomeHaptics,
   useTextScaling,
 } from '@/components/ui';
+import { useAmbientPulse } from '@/components/ui/use-ambient-pulse';
 import type { TodayScreenState } from '@/features/today/model';
 import { GarmentBoardSkeleton } from '@/features/today/presentation/garment-board-skeleton';
 import {
@@ -31,8 +33,9 @@ import { useLocalization } from '@/localization/use-messages';
 import { spacing, type AmbientIntensity } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
-// Law 5's escalation point. The first line stays true for the whole wait; past this the
-// user has waited long enough that saying only "still choosing" stops being informative.
+// Law 5's escalation point, for the generic line alone. A narrated wait says what it is
+// doing, so it never needs the escalation; past this the unnarrated line has stopped being
+// informative on its own.
 const LONG_WAIT_MS = 8_000;
 
 type TodayScreenProps = Readonly<{
@@ -115,15 +118,22 @@ export function TodayScreen({
             testID="today-skeleton-stage">
             <GarmentBoardSkeleton testID="today-skeleton-board" width={contentWidth} />
           </View>
-          {/* Law 7: the breathing placeholders are never the only signal. This line is
-              the state, and it is what a screen reader is given. */}
-          <AppText
-            accessibilityLiveRegion="polite"
-            colorRole="textSecondary"
-            style={styles.generatingStatus}
-            testID="today-generating-status">
-            {isLongWait ? copy.generatingLongWaitStatus : copy.generatingStatus}
-          </AppText>
+          {/* Law 7: the breathing placeholders and the breathing mark are never the only
+              signal. This line is the state, and it is what a screen reader is given. */}
+          <View style={styles.generatingStatus} testID="today-generating-status-row">
+            {presentation.phase ? <PhaseMark size={20} testID="today-generating-mark" /> : null}
+            <AppText
+              accessibilityLiveRegion="polite"
+              colorRole="textSecondary"
+              style={styles.generatingStatusText}
+              testID="today-generating-status">
+              {presentation.phase
+                ? copy.phase[presentation.phase]
+                : isLongWait
+                  ? copy.generatingLongWaitStatus
+                  : copy.generatingStatus}
+            </AppText>
+          </View>
         </View>
       </Screen>
     );
@@ -286,6 +296,7 @@ export function TodayScreen({
               ) : null}
             </>
           ) : null}
+          {presentation.header.phase ? <PhaseMark size={16} testID="today-phase-mark" /> : null}
           <AppText
             accessibilityLiveRegion={presentation.header.announceFreshness ? 'polite' : 'none'}
             colorRole="textSecondary"
@@ -372,6 +383,26 @@ export function TodayScreen({
   );
 }
 
+// Law 6: the existing AI mark, sized to the text it sits beside and drawn in the secondary
+// icon ink rather than the accent, because the wait is not the screen's one accent-filled
+// element. Law 7: it breathes on the ambient calm step, holds still under Reduce Motion, and
+// stays out of the accessibility tree because the adjacent line is the state.
+function PhaseMark({ size, testID }: Readonly<{ size: number; testID: string }>) {
+  const theme = useKuyaraTheme();
+  const pulse = useAmbientPulse();
+  const animatedStyle = useAnimatedStyle(() => ({ opacity: pulse.get() }));
+
+  return (
+    <Animated.View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={animatedStyle}
+      testID={testID}>
+      <Icon color={theme.colors.iconSecondary} name="sparkle" size={size} />
+    </Animated.View>
+  );
+}
+
 function Sky({ intensity, weather, overlay = false }: Readonly<{
   intensity: AmbientIntensity;
   weather: LoadedTodayPresentation['weather'];
@@ -407,7 +438,8 @@ const styles = StyleSheet.create({
   outfitName: { flex: 1, flexShrink: 1 },
   disclosure: { opacity: 0.55 },
   rationale: { marginTop: spacing.sm },
-  generatingStatus: { marginTop: spacing.md },
+  generatingStatus: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.md },
+  generatingStatusText: { flexShrink: 1 },
   sky: { alignItems: 'flex-start', flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
   skyText: { flex: 1, flexShrink: 1 },
   skyOverlay: { position: 'absolute', top: 18, left: 20, right: 20 },

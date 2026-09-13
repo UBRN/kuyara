@@ -1,4 +1,6 @@
 import {
+  aiRecommendV1BudgetHeader,
+  aiRecommendV1BudgetMillisecondsSchema,
   aiRecommendV1Path,
   aiRecommendV1RequestSchema,
   aiRecommendV1SuccessSchema,
@@ -6,6 +8,9 @@ import {
   type AiRecommendV1Request,
   type AiRecommendV1Success,
 } from '@kuyara/contracts';
+
+// Leaves one second for HTTP transport before the mobile client's abort.
+const workerTransportMarginMilliseconds = 1_000;
 
 type Fetch = (input: string, init: RequestInit) => Promise<Response>;
 
@@ -47,14 +52,16 @@ export class WorkerAiClient {
   constructor(dependencies: Dependencies) {
     this.baseUrl = dependencies.baseUrl.replace(/\/$/, '');
     this.fetch = dependencies.fetch ?? globalThis.fetch;
-    // One budget across the boundary: the Worker stops its AI walk at 19 s, so the
-    // phone must wait that long plus transport instead of aborting a working attempt.
-    this.requestTimeoutMilliseconds = dependencies.requestTimeoutMilliseconds ?? 20000;
+    // One budget across the boundary: the Worker stops its AI walk at 36 s, so the phone
+    // waits that long plus transport instead of aborting an attempt that is still working.
+    // A refresh may take as long as it needs while a stylist answer is still obtainable;
+    // standard suggestions are what a failed last provider produces, not a short clock.
+    this.requestTimeoutMilliseconds = dependencies.requestTimeoutMilliseconds ?? 38_000;
   }
 
-  // `options.timeoutMilliseconds` is what the routed client has left of the single 20 s
-  // budget after an on-device attempt. Omitted, the instance default applies and the
-  // Worker path behaves exactly as it did before the on-device tier existed.
+  // `options.timeoutMilliseconds` is the wait the routed client grants the Worker tier.
+  // Omitted, the instance default applies and the Worker path behaves exactly as it did
+  // before the on-device tier existed.
   async recommend(
     input: AiRecommendV1Request,
     options?: Readonly<{ timeoutMilliseconds?: number }>,
@@ -62,10 +69,15 @@ export class WorkerAiClient {
     const request = aiRecommendV1RequestSchema.safeParse(input);
     if (!request.success) throw new WorkerAiClientError('invalid-request');
 
+    const requestTimeoutMilliseconds =
+      options?.timeoutMilliseconds ?? this.requestTimeoutMilliseconds;
+    const workerBudget = aiRecommendV1BudgetMillisecondsSchema.safeParse(
+      requestTimeoutMilliseconds - workerTransportMarginMilliseconds,
+    );
     const controller = new AbortController();
     const timeout = setTimeout(
       () => controller.abort(),
-      options?.timeoutMilliseconds ?? this.requestTimeoutMilliseconds,
+      requestTimeoutMilliseconds,
     );
 
     try {
@@ -73,7 +85,12 @@ export class WorkerAiClient {
       try {
         response = await this.fetch(`${this.baseUrl}${aiRecommendV1Path}`, {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
+          headers: {
+            'content-type': 'application/json',
+            ...(workerBudget.success
+              ? { [aiRecommendV1BudgetHeader]: String(workerBudget.data) }
+              : {}),
+          },
           body: JSON.stringify(request.data),
           signal: controller.signal,
         });
