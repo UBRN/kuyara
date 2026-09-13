@@ -4,7 +4,7 @@ title: kuyara privacy policy
 
 # kuyara privacy policy
 
-Effective date: 2026-09-11. Türkçe metin aşağıdadır.
+Effective date: 2026-09-13. Türkçe metin aşağıdadır.
 
 kuyara is a weather and outfit recommendation app for iOS and Android. This policy
 describes what data the app sends off your device, why, and what you can do about it.
@@ -12,12 +12,12 @@ describes what data the app sends off your device, why, and what you can do abou
 ## Summary
 
 - kuyara has no account. Your profile, Closet and settings live on your device.
-- The only data kuyara keeps about how you use the app is optional usage analytics, and
-  only after you accept it on the first-launch prompt.
+- The only data kuyara keeps about how you use the app is optional usage analytics and
+  diagnostics, sent only after you accept the consent question kuyara asks after onboarding.
 - Analytics never includes your location, photos, Closet contents, name, birth date, or
   anything you type.
 - kuyara does not track you across other apps or websites, shows no ads, and sells no data.
-- You can turn analytics off at any time in Settings under Privacy.
+- You can turn analytics and diagnostics off at any time in Settings under Privacy.
 
 ## Usage analytics
 
@@ -52,12 +52,60 @@ location, not even a city, is derived from it.
 
 **Retention.** Analytics events are kept for 12 months and then deleted by PostHog.
 
-## Turning analytics off
+## Performance and diagnostics
 
-Open Settings, then Privacy, and switch off "Share usage data". Collection stops
-immediately. The app also discards the analytics identifier, so events collected before
-that moment cannot be linked to anything collected later. Turning analytics back on
-creates a new identifier.
+Performance and diagnostic data follows the same consent question kuyara asks after
+onboarding for usage analytics. It is sent only if you accept. If you decline, nothing is
+sent. If you accept, kuyara sends:
+
+- **Performance timings.** App launch and screen-navigation timing, including time to first
+  render and time to interactive.
+- **App-defined events.** That a recommendation was generated or weather was refreshed.
+  These events contain only closed category values and durations in whole milliseconds.
+- **Handled errors.** Errors kuyara reports itself contain a short error code, coarse
+  attributes and a stack trace of the app's own code, never the original error's message.
+- **Crashes and unhandled errors.** If the app crashes or hits an error it did not handle,
+  the report includes the technical error type, its message and a stack trace, plus the
+  crash diagnostics iOS provides. These describe the app's code, not you. They can still
+  contain technical text the app was processing at that moment. iOS hands crash
+  diagnostics to the app after a later launch, and they are sent with the next dispatch
+  while sharing is on.
+- **Network performance.** The host name of the slowest network request during the app
+  launch window.
+- **Technical details.** A random per-installation identifier created by the Expo package,
+  the OS name and version, generic device model name and model identifier (not the name you
+  gave your device), language, app identifier, version, build number, runtime version, and
+  update and channel identifiers. The package attaches these details to every payload. The
+  per-installation identifier is separate from the analytics identifier. The two are never
+  joined to each other or to your profile.
+
+**Why.** To find slow launches, failures and crashes and fix them. Nothing else.
+
+**Processor.** Expo receives this data at its Observe endpoint over HTTPS.
+Expo has not published a retention period for this data. This policy will be updated
+when the period is confirmed.
+
+**Never in performance and diagnostics:** your location, coordinates, or city; Closet
+contents or photos; profile preferences; AI prompts or responses; the analytics identifier
+or the app's local profile identifier.
+
+One technical limit applies. The Expo package may automatically write technical error
+records before you answer the consent question. If you accept without sending the app to
+the background in between, those records may then be delivered. Nothing is sent while your
+answer is "no".
+
+Under Apple's App Store definitions, this data is linked to you through the per-installation
+identifier. It is not used for tracking.
+
+## Turning analytics and diagnostics off
+
+Open Settings, then Privacy, and switch off "Share usage data". Sending stops
+immediately for both in the same session. Records made before the switch are not sent
+afterwards. The Expo package may keep writing error records locally, but none are sent while
+sharing is off. The app also discards the analytics identifier, so events collected before
+that moment cannot be linked to anything collected later. The diagnostics identifier stays on
+your device, but nothing further is sent with it. Turning sharing back on creates a new
+analytics identifier.
 
 ## Requesting deletion
 
@@ -72,6 +120,10 @@ deleted:
 kuyara will forward the request to PostHog and tell you what happened, but cannot
 guarantee that events without a profile can be removed early. In every case the events
 expire after 12 months.
+
+Diagnostics data carries a separate identifier that the app does not show, so kuyara cannot
+currently request deletion of it by identifier. This section will be updated when Expo's
+procedure is confirmed.
 
 ## Weather and recommendations
 
@@ -113,7 +165,7 @@ Questions and deletion requests: email the maintainer at
 
 # kuyara gizlilik politikası
 
-Yürürlük tarihi: 11 Eylül 2026.
+Yürürlük tarihi: 13 Eylül 2026.
 
 kuyara, iOS ve Android için bir hava durumu ve kıyafet önerisi uygulamasıdır. Bu metin
 uygulamanın cihazından hangi verileri gönderdiğini, neden gönderdiğini ve bu konuda ne
@@ -123,11 +175,12 @@ yapabileceğini anlatır.
 
 - kuyara'da hesap yok. Profilin, Gardırobun ve ayarların cihazında durur.
 - kuyara'nın uygulamayı nasıl kullandığına dair tuttuğu tek veri, isteğe bağlı kullanım
-  analitiğidir ve yalnızca ilk açılıştaki soruyu kabul edersen toplanır.
+  analitiği ve tanılama verisidir. Yalnızca tanışma adımlarından sonra sorulan onay sorusunu
+  kabul edersen gönderilir.
 - Analitik hiçbir zaman konumunu, fotoğraflarını, Gardırop içeriğini, adını, doğum
   tarihini ya da yazdığın bir şeyi içermez.
 - kuyara seni başka uygulamalarda veya sitelerde izlemez, reklam göstermez ve veri satmaz.
-- Analitiği istediğin zaman Ayarlar'daki Gizlilik bölümünden kapatabilirsin.
+- Analitiği ve tanılamayı istediğin zaman Ayarlar'daki Gizlilik bölümünden kapatabilirsin.
 
 ## Kullanım analitiği
 
@@ -164,12 +217,59 @@ olsa bir konum türetilmez.
 
 **Saklama.** Analitik olayları 12 ay saklanır, sonra PostHog tarafından silinir.
 
-## Analitiği kapatmak
+## Performans ve tanılama
 
-Ayarlar'ı, ardından Gizlilik'i aç ve "Kullanım verisi paylaş" seçeneğini kapat. Toplama
-hemen durur. Uygulama analitik kimliğini de siler; böylece o ana kadar toplanan olaylar
-sonrasında toplananlarla ilişkilendirilemez. Analitiği yeniden açmak yeni bir kimlik
-oluşturur.
+Performans ve tanılama verisi, kuyara'nın tanışma adımlarından sonra kullanım analitiği için
+sorduğu aynı onay sorusuna bağlıdır. Yalnızca kabul edersen gönderilir. Reddedersen hiçbir
+şey gönderilmez. Kabul edersen kuyara şunları gönderir:
+
+- **Performans süreleri.** Uygulamanın açılış ve ekranlar arası geçiş süreleri, ilk
+  görüntülemeye ve etkileşime hazır hale gelmeye kadar geçen süreler dahil.
+- **Uygulama tarafından tanımlanan olaylar.** Bir önerinin oluşturulması veya hava
+  durumunun yenilenmesi. Bu olaylar yalnızca kapalı kategori değerlerini ve tam sayı milisaniye
+  cinsinden süreleri içerir.
+- **Ele alınmış hatalar.** kuyara'nın kendisinin bildirdiği hatalar kısa bir hata kodu, kaba
+  nitelikler ve uygulamanın kendi kodunun yığın izini içerir. Asıl hatanın mesajı hiçbir
+  zaman gönderilmez.
+- **Çökmeler ve ele alınmamış hatalar.** Uygulama çökerse veya ele almadığı bir hatayla
+  karşılaşırsa rapor, teknik hata türünü, mesajını, yığın izini ve iOS'in sağladığı çökme
+  tanılama verilerini içerir. Bunlar seni değil, uygulamanın kodunu anlatır. Yine de
+  uygulamanın o anda işlediği teknik metni içerebilir. iOS çökme tanılama verilerini
+  uygulamaya sonraki bir açılışta verir; paylaşım açıkken bir sonraki gönderimle iletilir.
+- **Ağ performansı.** Uygulamanın açılış aralığındaki en yavaş ağ isteğinin gittiği
+  sunucunun adı.
+- **Teknik bilgiler.** Expo paketinin oluşturduğu rastgele kurulum kimliği, işletim
+  sisteminin adı ve sürümü, genel cihaz model adı ve model kimliği (cihazına verdiğin ad
+  değil), dil, uygulama kimliği, sürüm, derleme numarası, çalışma zamanı sürümü, güncelleme
+  ve kanal kimlikleri. Paket bu bilgileri gönderilen her veriye ekler. Kurulum kimliği
+  analitik kimliğinden ayrıdır. Bu iki kimlik birbiriyle veya profilinle asla birleştirilmez.
+
+**Neden.** Yavaş açılışları, hataları ve çökmeleri bulup düzeltmek için. Başka hiçbir amaçla kullanılmaz.
+
+**İşleyici.** Expo, bu veriyi HTTPS üzerinden Observe uç noktasında alır.
+Expo bu veri için bir saklama süresi yayınlamamıştır. Süre kesinleştiğinde
+bu politika güncellenecektir.
+
+**Performans ve tanılamaya asla girmeyenler:** konumun, koordinatların veya şehrin;
+Gardırop içeriği veya fotoğrafları; profil tercihlerin; yapay zeka istemleri veya yanıtları;
+analitik kimliği veya uygulamanın yerel profil kimliği.
+
+Bir teknik sınır vardır. Expo paketi, onay sorusunu yanıtlamadan önce teknik hata kayıtlarını
+otomatik olarak yazabilir. Arada uygulamayı arka plana göndermeden kabul edersen bu kayıtlar
+daha sonra gönderilebilir. Yanıtın "hayır" olduğu sürece hiçbir şey gönderilmez.
+
+Apple'ın App Store tanımlarına göre bu veri, kurulum kimliği üzerinden "kullanıcıyla
+ilişkili" sayılır. İzleme için kullanılmaz.
+
+## Analitiği ve tanılamayı kapatmak
+
+Ayarlar'ı, ardından Gizlilik'i aç ve "Kullanım verisi paylaş" seçeneğini kapat. Gönderim
+ikisi için de aynı oturumda hemen durur. Anahtarı kapatmadan önce oluşturulan kayıtlar daha
+sonra gönderilmez. Expo paketi hata kayıtlarını cihazında yazmaya devam edebilir, ancak
+paylaşım kapalıyken hiçbiri gönderilmez. Uygulama analitik kimliğini de siler; böylece o ana
+kadar toplanan olaylar sonrasında toplananlarla ilişkilendirilemez. Tanılama kimliği
+cihazında kalır, ancak onunla
+başka hiçbir şey gönderilmez. Paylaşımı yeniden açmak yeni bir analitik kimliği oluşturur.
 
 ## Silme talebi
 
@@ -183,6 +283,10 @@ silinmesini istersen:
 
 kuyara talebi PostHog'a iletir ve sonucu sana bildirir; ancak profilsiz olayların erken
 silinebileceğini garanti edemez. Her durumda olaylar 12 ay sonra silinir.
+
+Tanılama verisi, uygulamanın göstermediği ayrı bir kimlik taşır. Bu yüzden kuyara şu anda
+bu verinin kimlikle silinmesini talep edemez. Expo'nun yöntemi kesinleştiğinde bu bölüm
+güncellenecektir.
 
 ## Hava durumu ve öneriler
 

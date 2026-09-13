@@ -21,7 +21,7 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   device flow or the native `/weather/location` picker over the Worker's place-search
   route. The deterministic sample provider is test-only.
 - **Recommendations:** The deterministic layer composes at most 24 valid outfits from the
-  bundled catalog (version 3); the AI tier selects three and labels each with an
+  bundled catalog (version 4); the AI tier selects three and labels each with an
   archetype, on-device Apple Foundation Models where the device reports them available and
   otherwise the Worker's chain, Workers AI then OpenRouter; mobile validates, persists and
   falls back to a device-local deterministic generator. One budget spans the boundary: the mobile client
@@ -124,7 +124,11 @@ Analytics is sequenced before the first public App Store release, so milestones 
     is set, consent is the lawful basis, and the policy promises withdrawal and
     retention but not identifier-based deletion (ADR 0033 section 7). Pages went live
     and the questionnaire, both URLs, the subtitle and the listing copy were entered in
-    App Store Connect on 2026-09-11. Only the screenshots remain (see Release Blockers).
+    App Store Connect on 2026-09-11. The EAS Observe integration (2026-09-13) added
+    Performance Data, Other Diagnostic Data, Crash Data and the App Functionality purpose
+    on Device ID to the answer set (ADR 0033 sections 1 and 7); the privacy policy in
+    `docs/` discloses them, and the App Store Connect questionnaire and the published
+    policy must be updated before submission (see Release Blockers).
 12. **PostHog Error Tracking.** Source maps and release correlation are decided at
     implementation time; the same payload exclusion list applies.
 13. **Session replay evaluation.** Only after privacy masking and sampling are designed.
@@ -155,6 +159,13 @@ App Store submission, not TestFlight, is blocked by:
   support URLs, the subtitle and the listing copy were entered in App Store Connect the
   same day. The maintainer deferred the screenshots to the end of the release path and
   may pick a marketing-screenshot tool first; the plain Simulator captures were discarded.
+- The App Privacy questionnaire and the published policy. `expo-app-metrics` stores
+  MetricKit crash diagnostics and unhandled JavaScript errors, with message and stack
+  trace, as log rows that `expo-observe` dispatches under consent, so Crash Data is
+  collected (ADR 0033 section 7). The questionnaire entered on 2026-09-11 lacks the
+  Observe rows (Performance Data, Other Diagnostic Data, Crash Data, and the App
+  Functionality purpose on Device ID), and the rewritten `docs/privacy-policy.md` is not
+  published until it is pushed to `main`.
 
 ## Recently Completed
 
