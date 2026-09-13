@@ -51,20 +51,20 @@ private let statusUnavailable = "unavailable"
 // detail that crosses, and it is a member of a closed list this file writes, never text the
 // framework or the model produced: a failure that says nothing is a failure nobody can fix.
 internal final class OnDeviceAiFailedException: Exception, @unchecked Sendable {
-  private let code: String
+  private let failureCode: String
 
   init(
-    _ code: String = "unknown",
+    _ failureCode: String = "unknown",
     file: String = #fileID,
     line: UInt = #line,
     function: String = #function
   ) {
-    self.code = code
+    self.failureCode = failureCode
     super.init(file: file, line: line, function: function)
   }
 
   override var reason: String {
-    "On-device selection could not be completed. (\(code))"
+    "On-device selection could not be completed. (\(failureCode))"
   }
 }
 
