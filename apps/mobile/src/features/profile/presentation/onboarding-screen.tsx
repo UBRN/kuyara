@@ -210,7 +210,7 @@ export function OnboardingScreen({
         accessible
         accessibilityLabel={copy.stepPosition(draft.step + 1, totalSteps)}
         accessibilityRole="progressbar"
-        accessibilityValue={{ max: totalSteps, min: 1, now: draft.step + 1 }}
+        accessibilityValue={{ max: totalSteps, min: 0, now: draft.step + 1 }}
         style={styles.progress}>
         {Array.from({ length: totalSteps }, (_, index) => (
           <ProgressFill
