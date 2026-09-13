@@ -34,8 +34,9 @@ existing docs.
 
 ## Pricing basis (recalculated 2026-08, do not freeze)
 
-Provider chain: Cloudflare Workers AI binding (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`)
-→ three OpenRouter `:free` models → device-local deterministic generator.
+Provider chain: Cloudflare Workers AI binding (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`,
+then `@cf/mistralai/mistral-small-3.1-24b-instruct`) → three OpenRouter `:free` models →
+device-local deterministic generator.
 
 - **Cloudflare Workers AI, Workers Free plan:** 10,000 Neurons/day, shared
   across all models, resets 00:00 UTC. On the Free plan this is a hard stop, not

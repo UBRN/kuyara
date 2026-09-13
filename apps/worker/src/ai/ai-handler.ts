@@ -89,12 +89,17 @@ async function buildCacheRequest(request: AiRecommendV1Request): Promise<Request
 export function createAiHandler({
   providers,
   rateLimiter,
-  attemptTimeoutMs = 10_000,
+  // Every provider that answers the 2 KB request does so within 5 s (Workers AI 2 to
+  // 4.5 s, OpenRouter 0.3 to 1.9 s, measured live); one that does not answer stalls
+  // indefinitely. 7 s leaves a stalled first attempt, a full second and a short third
+  // inside the 19 s deadline. Never raise this toward the deadline: one stall then eats
+  // the whole budget and the fallback chain never runs.
+  attemptTimeoutMs = 7_000,
   // The whole request has to finish inside the mobile client's 20 s budget, so no
   // attempt is started or left running past this deadline. It never adds attempts.
   totalDeadlineMs = 19_000,
-  // Covers Workers AI plus the configured three-model OpenRouter chain.
-  maxAttempts = 4,
+  // Five attempts cover two Workers AI models plus three OpenRouter models.
+  maxAttempts = 5,
 }: Dependencies): (request: Request) => Promise<Response> {
   return async (request: Request): Promise<Response> => {
     // The total budget covers the whole request, including the rate limiter, the body
