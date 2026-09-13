@@ -189,7 +189,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     const stageColor = theme.atmosphere[presentation.atmosphere];
     expect(StyleSheet.flatten(result.getByTestId('today-stage', hidden).props.style))
       .toMatchObject({ backgroundColor: stageColor, borderRadius: 26, width: 358 });
-    expect(result.getByTestId('today-primary-board', hidden)).toBeOnTheScreen();
+    expect(result.getByTestId(`today-primary-board-${primary.id}`, hidden)).toBeOnTheScreen();
     expect(result.getByTestId('today-archetype', hidden)).toHaveTextContent(primary.title);
     expect(StyleSheet.flatten(result.getByTestId('today-archetype', hidden).props.style))
       .toMatchObject(typography.title);
@@ -597,7 +597,9 @@ test('the hero board rises into a stage that stays still', async () => {
 
   // Law 7: the garment pieces arrive; the stage plate they land on and the weather
   // values drawn over it never move.
-  expect(StyleSheet.flatten(result.getByTestId('today-primary-board', hidden).parent!.props.style))
+  expect(StyleSheet.flatten(
+    result.getByTestId(`today-primary-board-${todayOutfitId(1)}`, hidden).parent!.props.style,
+  ))
     .toMatchObject({ opacity: 0, transform: [{ translateY: spacing.xl }] });
   expect(StyleSheet.flatten(result.getByTestId('today-stage', hidden).props.style))
     .not.toHaveProperty('transform');
