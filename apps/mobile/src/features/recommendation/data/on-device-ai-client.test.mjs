@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { OnDeviceAiClient, OnDeviceAiError } from './on-device-ai-client.ts';
+import {
+  OnDeviceAiClient,
+  OnDeviceAiError,
+  onDeviceAiSwitchedOff,
+} from './on-device-ai-client.ts';
 
 // The projection is a plain field copy, so an empty option list is a whole request here.
 const request = { clothingPreference: 'womens', options: [] };
@@ -81,4 +85,32 @@ test('the development line names the availability reason when the tier is skippe
     else globalThis.__DEV__ = previousDevelopment;
   }
   assert.deepEqual(lines, ['On-device AI skipped: model_not_ready.']);
+});
+
+// The development switch docs/testing.md documents. `__DEV__` is the gate, so a release
+// build ignores the variable whatever it holds and the tier can never be switched off in
+// front of a user.
+test('the on-device tier is switched off only by a development build reading off', async () => {
+  const previousDevelopment = globalThis.__DEV__;
+  const previousValue = process.env.EXPO_PUBLIC_KUYARA_ON_DEVICE_AI;
+  try {
+    for (const [development, value, expected] of [
+      [true, 'off', true],
+      [true, 'on', false],
+      [true, undefined, false],
+      [false, 'off', false],
+      [undefined, 'off', false],
+    ]) {
+      if (development === undefined) delete globalThis.__DEV__;
+      else globalThis.__DEV__ = development;
+      if (value === undefined) delete process.env.EXPO_PUBLIC_KUYARA_ON_DEVICE_AI;
+      else process.env.EXPO_PUBLIC_KUYARA_ON_DEVICE_AI = value;
+      assert.equal(onDeviceAiSwitchedOff(), expected);
+    }
+  } finally {
+    if (previousDevelopment === undefined) delete globalThis.__DEV__;
+    else globalThis.__DEV__ = previousDevelopment;
+    if (previousValue === undefined) delete process.env.EXPO_PUBLIC_KUYARA_ON_DEVICE_AI;
+    else process.env.EXPO_PUBLIC_KUYARA_ON_DEVICE_AI = previousValue;
+  }
 });

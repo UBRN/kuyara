@@ -69,7 +69,8 @@
     "test:weather": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test src/infrastructure/sqlite/migrations.test.mjs src/features/weather/weather-persistence.test.mjs src/features/weather/weather-application.test.mjs src/features/weather/worker-weather-provider.test.mjs",
     "test:theme": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs --test src/theme/theme.test.mjs",
     "test:components": "TZ=UTC jest --runInBand",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "measure:ai-chain": "node --experimental-strip-types --import ./test/node-typescript-resolver.mjs ./scripts/measure-ai-chain.mjs"
   },
   "jest": {
     "preset": "jest-expo",

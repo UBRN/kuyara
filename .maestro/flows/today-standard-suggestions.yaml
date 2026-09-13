@@ -1,0 +1,121 @@
+appId: com.ubrn.kuyara
+name: Today falls back to the deterministic "Standard suggestions" badge
+tags:
+  - critical
+  - ios
+  - ai-fallback
+---
+# Requires the standing setup documented in docs/testing.md "AI tiers in E2E" to already be
+# running before this flow starts:
+#   pnpm --filter @kuyara/worker exec wrangler dev --env e2e --port 8788
+# and Metro started with both:
+#   EXPO_PUBLIC_KUYARA_WORKER_BASE_URL=  (empty; falls through to the http://127.0.0.1:8788
+#     development default instead of whatever apps/mobile/.env points the deployed build at)
+#   EXPO_PUBLIC_KUYARA_ON_DEVICE_AI=off
+# so the on-device tier is skipped and the only AI attempt is a Worker with empty provider
+# model lists, which answers 503 ai_unavailable at once and lets the deterministic composer
+# run. Included in the default `pnpm e2e:ios` critical set (see .maestro/config.yaml); that
+# standing setup is a precondition for the aggregate run, not something this flow starts.
+#
+# The Worker call plus the deterministic composition are fast against the no-AI `e2e`
+# environment, but the wait is still sized to the documented worst case (routed-ai-client.ts:
+# the whole chain's own budget is 46 s: 8 s on-device + 38 s Worker) plus margin, so a slower
+# CI host does not turn into a flaky timeout.
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: onboarding-step-1
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-2
+- tapOn:
+    id: onboarding-gender-woman
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-3
+- tapOn:
+    id: onboarding-dress-style-smart
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-4
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-5
+
+# Manual (searched) location, not the device location, per the Goal. The search is a real
+# call through the Worker's place-search route (Open-Meteo geocoding), so the exact result
+# set is a live external dependency; "Reykjavik" was chosen because it currently returns
+# exactly two rows ("Reykjavik, Capital Region, Iceland" and the airport), so a full-string
+# regex on the city (not the airport) is unambiguous.
+#
+# Known rendering quirk (reproduced live on this build, not fixed here): while the keyboard's QuickType strip is in front of the results, the NativeList
+# rows in apps/mobile/src/features/weather/presentation/location-selection-controls.tsx
+# (onboarding-place-results) render visually but expose zero children to the iOS
+# accessibility tree Maestro reads, so a raw tap at the visible row's coordinates lands on
+# nothing. Submitting the query (Enter) resolves it: the list repositions correctly and each
+# row gets its real `onboarding-place-<catalogId>` identifier. Do not remove the Enter step.
+- tapOn:
+    id: onboarding-place-search
+- inputText: "Reykjavik"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      text: "Reykjavik, Capital Region, Iceland"
+    timeout: 15000
+- tapOn:
+    text: "Reykjavik, Capital Region, Iceland"
+- assertVisible:
+    id: onboarding-complete
+- tapOn:
+    id: onboarding-complete
+
+# The first-recommendation analytics consent sheet (ADR 0033) is a genuine Stack.Screen push
+# (formSheet presentation), not an overlay drawn over Today: iOS excludes the presenting
+# screen's whole accessibility subtree (including `today-screen` and `today-generation-mode`)
+# from the tree Maestro reads for as long as any screen sits on top of it, however small or
+# partial it looks on screen. It cannot be asserted through. Waiting for the sheet's own
+# decline control therefore also waits for the recommendation to resolve (the sheet is gated
+# on a recommendation already being shown), and declining it is the only way to make Today's
+# own elements assertable again. Do not reorder this before the recommendation settles.
+- extendedWaitUntil:
+    visible:
+      id: "analytics-consent-decline"
+    timeout: 75000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: "analytics-consent-screen"
+    commands:
+      - tapOn:
+          id: "analytics-consent-decline"
+
+- assertVisible:
+    id: today-screen
+
+# Best-effort: the deterministic composition in recommendation-application-controller.ts
+# (refreshOnce) sets the 'using-standard' phase and then, with no `await` before the next
+# `setPhase('preparing-outfits')` (recommendOutfits() is synchronous), both updates land in
+# the same React batch. On this build the phase text was never observed on screen (Today
+# went straight from onboarding to the settled badge in every run), so this assertion is
+# optional and does not gate the flow. The batching lives in
+# recommendation-application-controller.ts (refreshOnce, the deterministic branch) and is
+# not something to fix from this flow.
+- extendedWaitUntil:
+    visible:
+      id: "today-generating-status"
+      text: ".*[Ss]tandard suggestions.*"
+    timeout: 2000
+    optional: true
+
+# The badge itself: the deterministic fallback, never an AI tier. The recommendation already
+# resolved (see above), so this should settle almost immediately.
+- extendedWaitUntil:
+    visible:
+      id: "today-generation-mode"
+      text: ".*Standard suggestions.*"
+    timeout: 10000

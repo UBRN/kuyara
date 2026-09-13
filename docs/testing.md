@@ -157,4 +157,27 @@ From the repository root:
 pnpm e2e:ios
 ```
 
-Maestro reads `.maestro/config.yaml` and executes the two local flows. Each run removes Kuyara's Simulator data because the flows launch with `clearState: true`; do not use a Simulator whose local app data must be preserved.
+Maestro reads `.maestro/config.yaml` and executes the local flows tagged for the default set (onboarding, settings, and the deterministic-fallback flow). The fallback flow needs the standing setup from [AI tiers in E2E](#ai-tiers-in-e2e) to be running first: the `e2e` Worker on port 8788 and Metro with `EXPO_PUBLIC_KUYARA_WORKER_BASE_URL` empty and `EXPO_PUBLIC_KUYARA_ON_DEVICE_AI=off`. Each run removes Kuyara's Simulator data because the flows launch with `clearState: true`; do not use a Simulator whose local app data must be preserved.
+
+## AI tiers in E2E
+
+The AI chain is three tiers (on-device, Worker, deterministic fallback), and an automated run has to be able to pick one deliberately. Two switches do that; neither adds a branch to production code.
+
+The **no-AI Worker** is the named `e2e` environment in `apps/worker/wrangler.jsonc`. It serves real weather and real place search with both provider model lists empty, so `/v1/ai/recommend` answers `503 ai_unavailable` at once and the app falls to the deterministic three. Wrangler does not inherit bindings into a named environment, so that environment repeats the AI, KV and rate-limit bindings; the empty model lists are the only difference from the deployed configuration. Run it on the port the mobile default expects:
+
+```bash
+pnpm --filter @kuyara/worker exec wrangler dev --env e2e --port 8788
+```
+
+The **on-device switch** is `EXPO_PUBLIC_KUYARA_ON_DEVICE_AI=off` (documented in `apps/mobile/.env.example`). A development build then drops the on-device tier, exactly as an ineligible device does. `__DEV__` gates it, so a release build ignores the variable.
+
+The **chain measurement** script sends the same grid the AI-selection suite uses (`apps/mobile/test/recommendation-grid.mjs`: clothing preference x dress style x weather profile, built by the functions the application itself calls), so a catalog or threshold change moves what is measured too. It sends at most `--max-calls` of them (default 10, hard cap 30) and prints status, latency, whether the shared response schema and the mobile validation gate accept each reply, and a summary. `--base-url` is required so nothing reaches the deployed Worker by accident, and `--max-calls 0` builds the grid without sending anything. With `OPENROUTER_API_KEY` in the environment it ends with the remaining free-model quota, never printing the key. The recommend contract carries no provider identifier; which provider answered is readable only from `wrangler tail` or the probe route.
+
+```bash
+pnpm --filter @kuyara/mobile measure:ai-chain --base-url http://127.0.0.1:8788 --max-calls 5
+```
+
+Two Maestro flows use these switches:
+
+- `.maestro/flows/today-standard-suggestions.yaml`: against the `e2e` Worker with the on-device switch off, "Standard suggestions" appears. It is part of the default `pnpm e2e:ios` set and passes in about 45 seconds.
+- `.maestro/flows/today-ai-recommendation.yaml`: against the real Worker with the on-device tier enabled, Today reaches an AI badge within 46 seconds and never shows "Standard suggestions". It is tagged `ai-network`, excluded from the default set because each run spends the shared free AI quota, and run explicitly with `maestro test .maestro/flows/today-ai-recommendation.yaml`. While that quota is spent (it resets at 00:00 UTC) the flow fails at the badge, and the measurement script shows 503 `ai_unavailable` on every call.

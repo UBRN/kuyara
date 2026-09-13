@@ -589,12 +589,62 @@ test('collapses exhausted providers to one exact sanitized unavailable error', a
   }
 });
 
-test('an empty provider list returns ai_unavailable', async () => {
-  await assertError(
-    await createAiHandler({ providers: [] })(request()),
-    503,
-    'ai_unavailable',
-  );
+test('an empty provider list returns ai_unavailable and caches nothing', async () => {
+  const restore = installMemoryCache();
+  try {
+    await assertError(
+      await createAiHandler({ providers: [] })(request()),
+      503,
+      'ai_unavailable',
+    );
+    let providerCalls = 0;
+    assert.equal((await createAiHandler({ providers: [{
+      async generateOutfits() {
+        providerCalls += 1;
+        return validOutput();
+      },
+    }] })(request())).status, 200);
+    // The identical request is generated, not served from a cached unavailable answer.
+    assert.equal(providerCalls, 1);
+  } finally {
+    restore();
+  }
+});
+
+// The deterministic "Standard suggestions" fallback is what the phone shows after this
+// response, so the walk must end as soon as the providers are exhausted rather than sitting
+// on the 36 s deadline. Mocked timers: the clock only moves when a timer is ticked, so an
+// elapsed time of zero proves no attempt window was ever awaited.
+test('every provider failing immediately ends the request without spending the deadline or caching', async (t) => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'] });
+  const previous = globalThis.caches;
+  const cacheWrites = [];
+  globalThis.caches = { default: {
+    async match() { return undefined; },
+    async put(cacheRequest) { cacheWrites.push(cacheRequest.url); },
+  } };
+  try {
+    let attempts = 0;
+    const startedAt = Date.now();
+    const response = await createAiHandler({ providers: Array.from({ length: 5 }, () => ({
+      model: 'provider/immediate-failure',
+      async generateOutfits() {
+        attempts += 1;
+        throw new Error('provider unavailable');
+      },
+    })) })(request());
+    const serialized = await response.text();
+
+    assert.equal(attempts, 5);
+    assert.equal(Date.now() - startedAt, 0);
+    assert.equal(response.status, 503);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.equal(serialized, '{"error":{"code":"ai_unavailable"}}');
+    assert.deepEqual(cacheWrites, []);
+  } finally {
+    if (previous === undefined) delete globalThis.caches;
+    else globalThis.caches = previous;
+  }
 });
 
 test('GET and PUT return method_not_allowed with Allow POST', async () => {

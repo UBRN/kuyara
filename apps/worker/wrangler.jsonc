@@ -18,5 +18,29 @@
   "vars": {
     "OPENROUTER_MODELS": ["nex-agi/nex-n2.5-mini:free", "nvidia/nemotron-3-super-120b-a12b:free", "nex-agi/nex-n2.5-pro:free"],
     "WORKERS_AI_MODELS": ["@cf/meta/llama-3.3-70b-instruct-fp8-fast", "@cf/mistralai/mistral-small-3.1-24b-instruct"]
+  },
+  // The local end-to-end environment of docs/testing.md, "AI tiers in E2E": real weather and
+  // real place search, no AI provider at all, so /v1/ai/recommend answers 503 ai_unavailable
+  // at once and the app lands on the deterministic three. `createAiProviders` builds a
+  // provider per configured model, so two empty lists are the whole switch and the Worker
+  // needs no test-only branch. Wrangler does not inherit bindings into a named environment,
+  // so the AI, KV and rate-limit bindings are repeated verbatim: the only difference from
+  // the top-level configuration is the two empty model lists.
+  "env": {
+    "e2e": {
+      "ai": { "binding": "AI" },
+      "kv_namespaces": [
+        { "binding": "PROBE_COUNTER", "id": "b07e2d01c9144a148992318a168174eb" }
+      ],
+      "ratelimits": [
+        { "name": "AI_PROBE_RATE_LIMIT", "namespace_id": "1001", "simple": { "limit": 3, "period": 60 } },
+        { "name": "AI_RECOMMEND_RATE_LIMIT", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
+        { "name": "WEATHER_RATE_LIMIT", "namespace_id": "1003", "simple": { "limit": 20, "period": 60 } }
+      ],
+      "vars": {
+        "OPENROUTER_MODELS": [],
+        "WORKERS_AI_MODELS": []
+      }
+    }
   }
 }

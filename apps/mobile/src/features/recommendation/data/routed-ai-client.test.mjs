@@ -3,7 +3,11 @@ import test from 'node:test';
 
 import { aiModelInputFromRequest, picksAreMeaningfullyDifferent } from '@kuyara/contracts';
 
-import { OnDeviceAiClient, OnDeviceAiError } from './on-device-ai-client.ts';
+import {
+  OnDeviceAiClient,
+  OnDeviceAiError,
+  onDeviceAiBudgetMilliseconds,
+} from './on-device-ai-client.ts';
 import { RoutedAiClient } from './routed-ai-client.ts';
 import { createAiRecommendationRequest } from './worker-ai-recommendation-mapper.ts';
 
@@ -151,6 +155,29 @@ function routed(module, worker) {
 // The Worker's own deadline, which the routed client grants in full however long the
 // on-device tier spent first.
 const workerWait = { timeoutMilliseconds: 38000 };
+
+// The two numbers the whole refresh bound is made of. The on-device budget is the tier's
+// own ceiling and the Worker's wait is a constant beside it, so spending the whole 8 s on
+// device still leaves the Worker its 38 s: 46 s in all, never 38 s minus what was spent.
+test('the default on-device budget is 8 s and the Worker wait does not move with it', async () => {
+  const module = fakeModule({
+    selectOutfits: async function selectOutfits(inputJson, options) {
+      this.calls.push({ inputJson, options });
+      throw new Error('the on-device attempt failed');
+    },
+  });
+  const worker = fakeWorker();
+
+  const result = await new RoutedAiClient({
+    onDevice: new OnDeviceAiClient({ module }),
+    worker,
+  }).recommendRouted(request);
+
+  assert.equal(onDeviceAiBudgetMilliseconds, 8000);
+  assert.equal(module.calls[0].options.timeoutMs, onDeviceAiBudgetMilliseconds);
+  assert.equal(result.generationMode, 'ai-assisted');
+  assert.deepEqual(worker.calls, [workerWait]);
+});
 
 test('an available module answers on device and nothing reaches the Worker', async () => {
   const module = fakeModule();
@@ -326,7 +353,7 @@ test('an on-device pick the shared gate rejects falls to the Worker, not to the 
   assert.deepEqual(worker.calls, [workerWait]);
 });
 
-// ADR 0034 section 2: the 6 s covers the whole on-device cost, the availability read
+// ADR 0034 section 2: the 8 s covers the whole on-device cost, the availability read
 // included. An availability call that never settles must not hold the recommendation past
 // the budget, and must not leave the user without even the deterministic fallback.
 test('an availability read that never settles is abandoned inside the on-device budget', async () => {

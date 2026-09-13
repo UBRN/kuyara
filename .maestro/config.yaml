@@ -2,3 +2,9 @@ flows:
   - flows/*.yaml
 executionOrder:
   continueOnFailure: false
+# today-ai-recommendation.yaml hits the real deployed Worker and spends its shared,
+# quota-limited free AI budget; keep it out of the default `pnpm e2e:ios` run (which reads
+# this config against the whole flows/ directory) and only run it explicitly by file path:
+#   maestro test .maestro/flows/today-ai-recommendation.yaml
+excludeTags:
+  - ai-network

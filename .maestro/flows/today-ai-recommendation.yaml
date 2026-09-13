@@ -1,0 +1,101 @@
+appId: com.ubrn.kuyara
+name: Today reaches an AI badge against the deployed Worker
+tags:
+  - ios
+  - ai-network
+---
+# Network-bound: hits the real deployed Worker in apps/mobile/.env
+# (EXPO_PUBLIC_KUYARA_WORKER_BASE_URL, left unset here so the build's own .env applies) and
+# spends its real, shared, quota-limited free-tier AI budget. Excluded from the default
+# `pnpm e2e:ios` critical set via .maestro/config.yaml's excludeTags: run it explicitly with
+#   maestro test .maestro/flows/today-ai-recommendation.yaml
+# Metro must be started with EXPO_PUBLIC_KUYARA_ON_DEVICE_AI unset (on-device tier enabled,
+# the default): do not set it to "off" for this flow.
+#
+# routed-ai-client.ts sizes the whole chain's own budget at 46 s (8 s on-device +
+# 38 s Worker); the wait below allows that plus margin. A Worker quota exhaustion answers
+# 503 before that timeout and this flow will correctly fail (never reaching an AI badge).
+# That is the expected, documented behaviour when the shared free AI quota is spent, not a
+# defect in this flow. Confirm the reason before treating a failure as anything else:
+#   pnpm --filter @kuyara/mobile measure:ai-chain --base-url <deployed Worker> --max-calls 2
+# reports 503 ai_unavailable on every call while the quota is spent (it resets at 00:00 UTC).
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: onboarding-step-1
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-2
+- tapOn:
+    id: onboarding-gender-woman
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-3
+- tapOn:
+    id: onboarding-dress-style-smart
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-4
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-5
+
+# Manual (searched) location, not the device location, per the Goal. See
+# today-standard-suggestions.yaml for the reasoning behind "Reykjavik" and the Enter-before-
+# tapping-a-result workaround for the known place-results accessibility-tree gap in
+# apps/mobile/src/features/weather/presentation/location-selection-controls.tsx.
+- tapOn:
+    id: onboarding-place-search
+- inputText: "Reykjavik"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      text: "Reykjavik, Capital Region, Iceland"
+    timeout: 15000
+- tapOn:
+    text: "Reykjavik, Capital Region, Iceland"
+- assertVisible:
+    id: onboarding-complete
+- tapOn:
+    id: onboarding-complete
+
+# The first-recommendation analytics consent sheet (ADR 0033) is a genuine Stack.Screen push
+# (formSheet presentation), not an overlay drawn over Today: iOS excludes the presenting
+# screen's whole accessibility subtree (including `today-screen` and `today-generation-mode`)
+# from the tree Maestro reads for as long as any screen sits on top of it, however small or
+# partial it looks on screen. It cannot be asserted through. Waiting for the sheet's own
+# decline control therefore also waits for the recommendation to resolve (the sheet is gated
+# on a recommendation already being shown, whichever badge it turns out to carry), and
+# declining it is the only way to make Today's own elements assertable again. The timeout
+# here carries the documented 46 s worst-case chain wait plus margin; do not reorder this
+# before the recommendation settles.
+- extendedWaitUntil:
+    visible:
+      id: "analytics-consent-decline"
+    timeout: 75000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: "analytics-consent-screen"
+    commands:
+      - tapOn:
+          id: "analytics-consent-decline"
+
+- assertVisible:
+    id: today-screen
+
+# One of the two AI badges, on-device (named as Apple Intelligence, ADR 0034) or
+# AI-assisted (the Worker tier), and never the deterministic fallback. The recommendation
+# already resolved (see above), so this should settle almost immediately; if the badge is
+# actually "Standard suggestions" (an exhausted Worker quota falling all the way through),
+# this assertion correctly fails rather than passing on the wrong tier.
+- extendedWaitUntil:
+    visible:
+      id: "today-generation-mode"
+      text: ".*(Chosen on your device with Apple Intelligence|AI-assisted).*"
+    timeout: 10000
