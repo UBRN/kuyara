@@ -4,6 +4,7 @@ import { type StyleProp, type ViewStyle, Pressable, Switch as RNSwitch, Text as 
 // Native passthroughs for both the universal and SwiftUI modules, plus modifiers.
 // Models slots and events, not native layout or accessibility bridging.
 export const tint = (color: string) => ({ $type: 'tint', color });
+export const accessibilityAddTraits = (traits: string[]) => ({ $type: 'accessibilityAddTraits', traits });
 export const listStyle = (style: string) => ({ $type: 'listStyle', style });
 export const scrollContentBackground = (visible: string) => ({ $type: 'scrollContentBackground', visible });
 export const font = (params: Record<string, unknown>) => ({ $type: 'font', ...params });
@@ -87,6 +88,7 @@ function wrapBareText(node: ReactNode): ReactNode {
 export function ListItem({
   children,
   leading,
+  modifiers,
   supportingText,
   onPress,
   testID,
@@ -95,6 +97,7 @@ export function ListItem({
   children?: ReactNode;
   supportingText?: ReactNode;
   leading?: ReactNode;
+  modifiers?: readonly Record<string, unknown>[];
   onPress?: () => void;
   testID?: string;
   trailing?: ReactNode;
@@ -102,6 +105,7 @@ export function ListItem({
   return (
     <Pressable
       accessibilityRole={onPress ? 'button' : undefined}
+      {...{ modifiers }}
       onPress={onPress}
       testID={testID}>
       {leading}
