@@ -6,6 +6,7 @@ import {
   localDayKey,
   localDayVariant,
   recommendationRefreshTrigger,
+  usingStandardPhaseMilliseconds,
 } from './recommendation-application-controller.ts';
 import { WorkerAiClientError } from '../data/worker-ai-client.ts';
 import {
@@ -81,7 +82,7 @@ function input(temperatureCelsius = 30) {
   };
 }
 
-function createHarness({ cached = null, client, failSave = false, captureAnalyticsEvent } = {}) {
+function createHarness({ cached = null, client, failSave = false, captureAnalyticsEvent, holdPhase } = {}) {
   let stored = cached;
   const calls = { client: 0, saves: 0 };
   const requests = [];
@@ -126,6 +127,7 @@ function createHarness({ cached = null, client, failSave = false, captureAnalyti
     loadRepository: async () => repository,
     client: aiClient,
     captureAnalyticsEvent,
+    holdPhase: holdPhase ?? (async () => undefined),
   });
   return { controller, calls, repository, requests, getStored: () => stored };
 }
@@ -676,6 +678,39 @@ test('every AI tier failing narrates the standard suggestions and still delivers
   assert.deepEqual(phases, [
     null, 'checking-on-device', 'asking-stylist', 'using-standard', 'preparing-outfits', null,
   ]);
+});
+
+// The deterministic composition is synchronous, so the phase is held long enough to be
+// rendered and read before the settled result replaces it.
+test('the standard suggestions phase is held on screen before the deterministic three settle', async () => {
+  const holds = [];
+  const phasesAtHold = [];
+  let controller;
+  ({ controller } = createHarness({
+    client: narratingClient(['checking-on-device', 'asking-stylist'], 'fail'),
+    holdPhase: async (milliseconds) => {
+      holds.push(milliseconds);
+      phasesAtHold.push(controller.getSnapshot().phase);
+    },
+  }));
+  await controller.initialize();
+
+  const snapshot = await controller.refresh('first-recommendation', input(16));
+
+  assert.equal(snapshot.generationMode, 'deterministic-fallback');
+  assert.deepEqual(holds, [usingStandardPhaseMilliseconds]);
+  assert.deepEqual(phasesAtHold, ['using-standard']);
+});
+
+test('an AI answer never waits on the standard suggestions hold', async () => {
+  const holds = [];
+  const { controller } = createHarness({ holdPhase: async (ms) => { holds.push(ms); } });
+  await controller.initialize();
+
+  const snapshot = await controller.refresh('first-recommendation', input(16));
+
+  assert.notEqual(snapshot.generationMode, 'deterministic-fallback');
+  assert.deepEqual(holds, []);
 });
 
 test('a superseded refresh does not flip the phase of the one the user is waiting on', async () => {
