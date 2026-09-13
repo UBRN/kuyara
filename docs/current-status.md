@@ -195,6 +195,20 @@ boundary records, and the Simulator run of the same day landed at the 6 s budget
 edge. Real VoiceOver, background refresh and production analytics dispatch were not
 separately inspected on the device (see Known Issues).
 
+A Simulator acceptance tour of the same JavaScript (iPhone 17 Pro, iOS 26.5, English,
+dev client on Metro against the production Worker, 2026-09-13 evening) passed all ten
+steps with no crash, error screen or hang: onboarding with a manual location, the first
+recommendation, the consent sheet, outfit detail, Weather, Closet add and delete,
+Settings with the notification permission and the AI status screen, regeneration after
+a dress-style change, a cold relaunch showing the persisted recommendation, and pull to
+refresh. The badge read "Standard suggestions" throughout because the production AI
+quota was exhausted that evening, so the tour is evidence for the flows, not for the AI
+tier. One product observation came out of it: in mild weather (19°, cloudy) the
+deterministic rules produce no requirement, so Today shows no rationale line and the
+detail surface shows no reasons section, exactly as ADR 0026 section 4 designs it, while
+the store description promises outfits "explained piece by piece"; whether to adjust the
+copy or the surface is an open product question, not a defect.
+
 Everything else in milestone 11 is done. App Store Connect holds the privacy policy and
 support URLs, the category, content rights, price, the build, the review information,
 the App Privacy questionnaire including the EAS Observe rows (Performance Data, Other
