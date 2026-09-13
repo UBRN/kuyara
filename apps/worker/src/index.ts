@@ -46,7 +46,7 @@ interface RateLimitBinding {
 export type Env = Readonly<{
   OPENROUTER_API_KEY?: string;
   OPENROUTER_MODELS?: readonly string[];
-  WORKERS_AI_MODEL?: string;
+  WORKERS_AI_MODELS?: readonly string[];
   AI?: WorkersAiBinding;
   // Shared by the AI probe and the namespaced weather daily cap.
   PROBE_COUNTER?: KvNamespace;
@@ -85,15 +85,16 @@ function createKvProbeDailyCounter(kv: KvNamespace): ProbeDailyCounter {
 
 export function createAiProviders(env: Env): AiProvider[] {
   const providers: AiProvider[] = [];
+  const workersAiModels = Array.isArray(env.WORKERS_AI_MODELS)
+    ? env.WORKERS_AI_MODELS
+    : [];
   const openRouterModels = Array.isArray(env.OPENROUTER_MODELS)
     ? env.OPENROUTER_MODELS
     : [];
-  if (
-    env.AI &&
-    typeof env.WORKERS_AI_MODEL === 'string' &&
-    env.WORKERS_AI_MODEL.length > 0
-  ) {
-    providers.push(new WorkersAiProvider({ ai: env.AI, model: env.WORKERS_AI_MODEL }));
+  if (env.AI) {
+    for (const model of workersAiModels) {
+      providers.push(new WorkersAiProvider({ ai: env.AI, model }));
+    }
   }
   if (typeof env.OPENROUTER_API_KEY === 'string' && env.OPENROUTER_API_KEY.length > 0) {
     for (const model of openRouterModels) {
@@ -154,15 +155,9 @@ export default {
       provider: createWeatherProviderChain({ providers: createWeatherProviders(env) }),
       rateLimiter,
     });
-    // Workers AI measured 7.9-9.6s against the handler's 10s default, so the working
-    // provider was being aborted at the boundary; 20s leaves real headroom. The 19s
-    // total deadline bounds the whole request inside the phone's 20s, and this
-    // per-attempt value only binds while it is below the remaining total, which with a
-    // 19s budget it never is: every attempt gets whatever is left of the request.
     const aiHandler = createAiHandler({
       providers,
       rateLimiter: env.AI_RECOMMEND_RATE_LIMIT,
-      attemptTimeoutMs: 20_000,
     });
     const probeHandler = createProbeHandler({
       providers,

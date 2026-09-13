@@ -408,7 +408,7 @@ test('accepts same-core picks when every pair differs by at least two garment pa
   assert.deepEqual(await response.json(), output);
 });
 
-test('limits default provider attempts to four', async () => {
+test('limits default provider attempts to five', async () => {
   let attempts = 0;
   const provider = {
     async generateOutfits() {
@@ -416,9 +416,9 @@ test('limits default provider attempts to four', async () => {
       throw new Error('provider failed');
     },
   };
-  const response = await createAiHandler({ providers: Array(5).fill(provider) })(request());
+  const response = await createAiHandler({ providers: Array(6).fill(provider) })(request());
   await assertError(response, 503, 'ai_unavailable');
-  assert.equal(attempts, 4);
+  assert.equal(attempts, 5);
 });
 
 test('stops after the first successful provider', async () => {

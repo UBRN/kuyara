@@ -35,7 +35,8 @@ by body core or by at least two garments. It is fully deterministic and runs on
 device.
 
 The remaining constraint is model size. The Worker chain is Cloudflare Workers AI
-(`@cf/meta/llama-3.3-70b-instruct-fp8-fast`) followed by free OpenRouter models,
+(`@cf/meta/llama-3.3-70b-instruct-fp8-fast`, then
+`@cf/mistralai/mistral-small-3.1-24b-instruct`) followed by free OpenRouter models,
 all small and free-tier, with a Workers AI free quota of 10,000 neurons per day.
 The raw-garment request under consideration carried up to 125 candidates at a
 measured worst case of 65,498 bytes and asked the model to compose, which is the

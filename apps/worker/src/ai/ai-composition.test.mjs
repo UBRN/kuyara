@@ -24,11 +24,12 @@ test('composes one OpenRouter provider per model in model order', () => {
   assert.deepEqual(providers.map((provider) => provider.model), models);
 });
 
-test('composes exactly one Workers AI provider without an OpenRouter key', () => {
-  const providers = createAiProviders({ AI: ai, WORKERS_AI_MODEL: '@cf/model' });
+test('composes one Workers AI provider per model in model order', () => {
+  const workersAiModels = ['@cf/model-one', '@cf/model-two'];
+  const providers = createAiProviders({ AI: ai, WORKERS_AI_MODELS: workersAiModels });
 
-  assert.equal(providers.length, 1);
-  assert.equal(providers[0] instanceof WorkersAiProvider, true);
+  assert.equal(providers.every((provider) => provider instanceof WorkersAiProvider), true);
+  assert.deepEqual(providers.map((provider) => provider.model), workersAiModels);
 });
 
 test('composes Workers AI before OpenRouter providers', () => {
@@ -36,12 +37,13 @@ test('composes Workers AI before OpenRouter providers', () => {
     OPENROUTER_API_KEY: 'key',
     OPENROUTER_MODELS: models,
     AI: ai,
-    WORKERS_AI_MODEL: '@cf/model',
+    WORKERS_AI_MODELS: ['@cf/model-one', '@cf/model-two'],
   });
 
   assert.deepEqual(
     providers.map((provider) => provider.constructor.name),
     [
+      'WorkersAiProvider',
       'WorkersAiProvider',
       'OpenRouterAiProvider',
       'OpenRouterAiProvider',
