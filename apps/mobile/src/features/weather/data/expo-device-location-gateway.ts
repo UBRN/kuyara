@@ -1,5 +1,5 @@
 import * as Location from 'expo-location';
-import { Linking } from 'react-native';
+import { Linking, Platform } from 'react-native';
 
 import type {
   DeviceLocationGateway,
@@ -8,8 +8,8 @@ import type {
 } from '@/features/weather/data/device-location-gateway';
 import {
   deviceLocationKey,
-  isValidTimeZone,
   normalizeCoordinates,
+  resolveDeviceLocationTimeZone,
   type LocationAccuracy,
 } from '@/features/weather/domain/weather';
 
@@ -67,9 +67,22 @@ export class ExpoDeviceLocationGateway implements DeviceLocationGateway {
         result.coords.latitude,
         result.coords.longitude,
       );
-      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      // Expo Location 57's Android result always sets timezone to null, so preserve the device-zone fallback there.
+      const geocodedTimeZone = Platform.OS === 'ios'
+        ? await Promise.race([
+          Location.reverseGeocodeAsync({
+            latitude: result.coords.latitude,
+            longitude: result.coords.longitude,
+          }).then(([address]) => address?.timezone ?? null),
+          new Promise<null>((resolve) => setTimeout(resolve, 3_000)),
+        ]).catch(() => null)
+        : null;
+      const timeZone = resolveDeviceLocationTimeZone(
+        geocodedTimeZone,
+        Intl.DateTimeFormat().resolvedOptions().timeZone,
+      );
 
-      if (!isValidTimeZone(timeZone)) {
+      if (timeZone === null) {
         return { kind: 'lookup-failed' };
       }
 

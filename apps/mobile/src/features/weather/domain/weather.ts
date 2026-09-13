@@ -131,6 +131,17 @@ export function isValidTimeZone(value: string): boolean {
   }
 }
 
+export function resolveDeviceLocationTimeZone(
+  geocodedTimeZone: string | null | undefined,
+  deviceTimeZone: string,
+): string | null {
+  if (geocodedTimeZone && isValidTimeZone(geocodedTimeZone)) {
+    return geocodedTimeZone;
+  }
+
+  return isValidTimeZone(deviceTimeZone) ? deviceTimeZone : null;
+}
+
 export function weatherFreshness(
   fetchedAt: string,
   now: string,

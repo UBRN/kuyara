@@ -10,6 +10,7 @@ import { DeterministicFakeWeatherProvider } from './data/deterministic-fake-weat
 import { getManualLocation } from './data/manual-location-catalog.ts';
 import { WeatherProviderError } from './data/weather-provider.ts';
 import { WorkerWeatherProvider } from './data/worker-weather-provider.ts';
+import { resolveDeviceLocationTimeZone } from './domain/weather.ts';
 
 const nativeModuleMocks = new Map([
   ['expo-crypto', 'export function randomUUID() { return "test-id"; }'],
@@ -163,6 +164,14 @@ const searchedPlace = {
   id: 'place.745044', displayName: 'İstanbul', region: 'İstanbul, Türkiye',
   latitudeE2: 4101, longitudeE2: 2898, timeZone: 'Europe/Istanbul',
 };
+
+test('device location time zone prefers valid geocoded data and falls back safely', () => {
+  assert.equal(resolveDeviceLocationTimeZone('America/Los_Angeles', 'Europe/Istanbul'), 'America/Los_Angeles');
+  assert.equal(resolveDeviceLocationTimeZone('invalid', 'Europe/Istanbul'), 'Europe/Istanbul');
+  assert.equal(resolveDeviceLocationTimeZone(null, 'UTC'), 'UTC');
+  assert.equal(resolveDeviceLocationTimeZone(undefined, 'UTC'), 'UTC');
+  assert.equal(resolveDeviceLocationTimeZone('invalid', 'also-invalid'), null);
+});
 
 test('a searched place persists its name and normalized identity through the existing selection path', async () => {
   const active = getManualLocation('sample.london');
@@ -805,7 +814,11 @@ test('Expo and raw coordinate details remain isolated to the device adapter', as
   assert.match(adapter, /expo-location/);
   assert.match(adapter, /Accuracy\.Low/);
   assert.match(adapter, /mayShowUserSettingsDialog: false/);
-  assert.doesNotMatch(`${controller}${screen}${repository}`, /expo-location|coords\.latitude|coords\.longitude/);
+  assert.match(adapter, /reverseGeocodeAsync/);
+  assert.doesNotMatch(
+    `${controller}${screen}${repository}`,
+    /expo-location|coords\.latitude|coords\.longitude|reverseGeocodeAsync/,
+  );
   assert.doesNotMatch(`${adapter}${controller}${screen}${repository}`, /console\.(log|warn|error).*coord/i);
 });
 
