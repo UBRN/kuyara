@@ -9,20 +9,23 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 // never imports `@expo/ui`; this wrapper is the only importer, exactly as `haptics.ts`
 // is the only importer of `expo-haptics`.
 //
-// The installed 57.0.8 type surface was checked before writing this (`node_modules/@expo/ui/build`):
+// The installed 57.0.18 type surface was checked before writing this (`node_modules/@expo/ui/build`):
 // the universal `Picker`'s `appearance` prop is `'wheel' | 'menu'` only, with no segmented
 // style, so this builds on `@expo/ui/community/segmented-control` instead, per the brief's
 // own fallback rule. Two verified limits of that component, read from its source rather than
 // guessed:
 // - `tintColor` is applied only on Android (`SegmentedButton.colors.activeContainerColor`);
-//   the iOS implementation never reads it, so `brandPrimary` tinting is Android/web only
-//   until `@expo/ui` exposes an iOS tint hook. Recorded as a contradiction with ADR 0029's
-//   "tinted brandPrimary" rather than silently worked around.
+//   the iOS implementation never reads it. Composing the same SwiftUI `Picker` with
+//   `pickerStyle('segmented')` directly and applying `tint(brandPrimary)` was tried on the
+//   Simulator and left the selected segment in the system white and grey: SwiftUI's tint does
+//   not reach `UISegmentedControl.selectedSegmentTintColor`, and `@expo/ui` exposes no UIKit
+//   appearance hook. So `brandPrimary` tinting is Android/web only. Recorded as a
+//   contradiction with ADR 0029's "tinted brandPrimary" rather than silently worked around.
 // - The component owns its own internal `Host` with `matchContents={{ vertical: true }}` and
 //   forwards our `style` to it; we cannot reach in and replace `matchContents`. ADR 0019's own
 //   finding ("Host matchContents collapses to zero height inside a ScrollView... an explicit
-//   height works") is the basis for the fixed `style.height` below, but this is the one
-//   `@expo/ui` behaviour in this screen that was not confirmed on a device by this lane.
+//   height works") is the basis for the fixed `style.height` below; the control itself draws
+//   at the standard 32-point segmented height inside that host.
 const CONTROL_HEIGHT = layout.minimumTouchTarget;
 
 export type SegmentedControlOption<Value extends string> = Readonly<{

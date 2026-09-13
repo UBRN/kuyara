@@ -214,15 +214,11 @@ export function LocationSelectionControls({
                         });
                       }
                 }
-                testID={`${testIDPrefix}-place-${place.id}`}
-                // ponytail: the existing native row exposes a trailing value, not a
-                // selected trait; spoken selection still needs native verification.
-                value={
+                selected={
                   state.activeLocation?.source === 'manual' &&
                   state.activeLocation.catalogId === place.id
-                    ? copy.placeSearchSelected
-                    : undefined
                 }
+                testID={`${testIDPrefix}-place-${place.id}`}
               />
             ))}
           </NativeListSection>

@@ -305,7 +305,6 @@ export type AppMessages = Readonly<{
     placeSearchPlaceholder: string;
     placeSearchLoading: string;
     placeSearchEmpty: string;
-    placeSearchSelected: string;
     placeSearchAttribution: string;
     placeSearchResultLabel: (name: string, region: string) => string;
     placeSearchErrors: Readonly<Record<'invalid-input' | 'invalid-response' | 'unavailable' | 'rate-limited', string>>;
@@ -636,7 +635,6 @@ const en = {
     placeSearchPlaceholder: 'Search for a city',
     placeSearchLoading: 'Searching for places…',
     placeSearchEmpty: 'No matching places. Try another city name.',
-    placeSearchSelected: 'Selected',
     placeSearchAttribution: 'Place data by Open-Meteo and GeoNames',
     placeSearchResultLabel: (name, region) => `${name}, ${region}`,
     placeSearchErrors: {
@@ -1104,7 +1102,6 @@ const tr = {
     placeSearchPlaceholder: 'Şehir ara',
     placeSearchLoading: 'Yerler aranıyor…',
     placeSearchEmpty: 'Eşleşen yer bulunamadı. Başka bir şehir adı dene.',
-    placeSearchSelected: 'Seçili',
     placeSearchAttribution: 'Yer verileri: Open-Meteo ve GeoNames',
     placeSearchResultLabel: (name, region) => `${name}, ${region}`,
     placeSearchErrors: {

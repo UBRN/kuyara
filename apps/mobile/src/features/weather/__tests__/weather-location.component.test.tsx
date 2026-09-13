@@ -25,8 +25,8 @@ jest.mock('@/components/ui/native-list', () => {
   return {
     NativeList: View,
     NativeListSection: ({ children, footer }: { children: React.ReactNode; footer?: string }) => <View>{children}<Text>{footer}</Text></View>,
-    NativeListRow: ({ label, value, onPress, testID }: { label: string; value?: string; onPress?: () => void; testID?: string }) => (
-      <Pressable accessibilityLabel={label} accessibilityRole="button" onPress={onPress} testID={testID}><Text>{label}</Text><Text>{value}</Text></Pressable>
+    NativeListRow: ({ label, selected, onPress, testID }: { label: string; selected?: boolean; onPress?: () => void; testID?: string }) => (
+      <Pressable accessibilityLabel={label} accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} testID={testID}><Text>{label}</Text></Pressable>
     ),
   };
 });
@@ -110,7 +110,7 @@ test('the selected place is marked and duplicate presses are disabled during per
     activeLocation: { source: 'manual', catalogId: 'place.745044', displayName: place.displayName, locationKey: 'manual:place.745044', coordinates: { latitudeE2: 4101, longitudeE2: 2898 }, timeZone: 'Europe/Istanbul' } };
   const result = await render(<Providers><WeatherLocationScreen /></Providers>);
   await fireEvent.changeText(result.getByTestId('weather-place-search'), 'Ista'); await debounce();
-  expect(result.getByText(messages.en.weather.placeSearchSelected)).toBeOnTheScreen();
+  expect(result.getByTestId('weather-place-place.745044').props.accessibilityState.selected).toBe(true);
   await fireEvent.press(result.getByTestId('weather-place-place.745044'));
   expect(search.selectPlaceSearchResult).not.toHaveBeenCalled();
 });
