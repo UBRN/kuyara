@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { OpenWeatherWeatherProvider } from './openweather-weather-provider.ts';
-import { WeatherProviderError } from './weather-provider-error.ts';
+import { isFallbackEligible, WeatherProviderError } from './weather-provider-error.ts';
 
 const location = {
   latitudeE2: 4101,
@@ -113,7 +113,7 @@ for (const [status, kind] of [
   [429, 'quota'],
   [401, 'auth'],
   [400, 'invalid_request'],
-  [404, 'invalid_request'],
+  [404, 'availability'],
   [500, 'upstream'],
 ]) {
   test(`classifies HTTP ${status} as ${kind} without leaking the key or response`, async () => {
@@ -134,6 +134,32 @@ for (const [status, kind] of [
     });
   });
 }
+
+test('a 404 for a location OpenWeather does not serve stays fallback eligible', async () => {
+  const provider = new OpenWeatherWeatherProvider({
+    apiKey: 'secret-key',
+    fetch: async () => new Response('no data for this location', { status: 404 }),
+  });
+
+  await assert.rejects(provider.fetchWeather(location), (error) => {
+    assert.equal(error.kind, 'availability');
+    assert.equal(isFallbackEligible(error), true);
+    return true;
+  });
+});
+
+test('a 400 malformed request never advances the chain', async () => {
+  const provider = new OpenWeatherWeatherProvider({
+    apiKey: 'secret-key',
+    fetch: async () => new Response('bad request', { status: 400 }),
+  });
+
+  await assert.rejects(provider.fetchWeather(location), (error) => {
+    assert.equal(error.kind, 'invalid_request');
+    assert.equal(isFallbackEligible(error), false);
+    return true;
+  });
+});
 
 test('classifies a rejected fetch as availability', async () => {
   const provider = new OpenWeatherWeatherProvider({
