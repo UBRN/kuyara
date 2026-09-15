@@ -21,3 +21,4 @@ minimumReleaseAgeExclude:
   - '@posthog/core@1.52.0'
   - '@posthog/types@1.409.4'
   - posthog-react-native@4.68.4
+  - expo-insights@57.0.18
