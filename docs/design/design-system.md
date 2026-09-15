@@ -49,7 +49,7 @@ Status roles are approved, not deferred: the condition the earlier deferral name
 | `dangerContainer` | `#F8E3E1` | `#301D1B` |
 | `borderDefined` | `#5C7A83` | `#5E899A` |
 
-These are derived semantic values in the same class as the existing derived neutrals `#E7EEED`, `#DDE8E7`, `#C5D5D6`, and `#D0DDDC`. They are not new brand colors; the six approved brand hexes and the Balanced Horizon V2 master geometry are unchanged. `borderDefined` identifies interactive components (chips, outline buttons); `borderSubtle` narrows to decorative dividers inside a container, where no component is being identified.
+These are derived semantic values in the same class as the existing derived neutrals `#E7EEED`, `#DDE8E7`, `#CCD2D4`, and `#D0DDDC`. They are not new brand colors; the six approved brand hexes and the Balanced Horizon V2 master geometry are unchanged. `borderDefined` identifies interactive components (chips, outline buttons); `borderSubtle` narrows to decorative dividers inside a container, where no component is being identified.
 
 ### Contrast evidence
 
@@ -87,7 +87,7 @@ The current allocation is [ADR 0021](../adr/0021-direction-e-a-visual-first-desi
 
 Light `elevation.raised` is offset `{0, 4}`, radius 12, opacity 0.1, Android elevation 3; dark `raised` and both `chrome` levels are lower-opacity because the dark surface step already carries the separation. The shadow contact contrast rule and its measured values are in [`design-language.md`](design-language.md#law-3-surfaces-confirm-they-do-not-separate).
 
-The allocation rationale is recorded in [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md) and in [`design-language.md`](design-language.md#the-foundational-finding): light hierarchy relies on type and space rather than an enforced 1.2:1 card step. The derived neutrals `#E7EEED`, `#DDE8E7`, `#C5D5D6` and `#D0DDDC` remain in the palette class and the six brand hexes are unchanged.
+The allocation rationale is recorded in [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md) and in [`design-language.md`](design-language.md#the-foundational-finding): light hierarchy relies on type and space rather than an enforced 1.2:1 card step. The derived neutrals `#E7EEED`, `#DDE8E7`, `#CCD2D4` and `#D0DDDC` remain in the palette class and the six brand hexes are unchanged.
 
 The `display` typography role is the one hero value per screen, **at most** one: [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md) makes Today's hero the garment composition, so Today carries no `display` at all and Weather keeps it. The role is 56pt, [ADR 0017](../adr/0017-a-retuned-typography-scale.md)'s scale.
 

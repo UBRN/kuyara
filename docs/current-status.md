@@ -427,14 +427,24 @@ before submitting is the maintainer's call.
   maintainer's decision until an explicit go-ahead. The development Mac has no Android
   SDK, no AVD and no `ANDROID_HOME`, so the check starts with Android Studio, an SDK
   Platform and a Pixel AVD on API 35 or later before `expo run:android` can run. Until
+- **One Dependabot alert stays open by decision.** `decode-uri-component` 0.2.2 reaches
+  the app only through expo-router 57's `query-string` 7.1.3, whose CommonJS `require`
+  cannot load the only patched release, 0.5.0, which is ESM-only; an override would throw
+  on the first deep-link parse. The exposure is CPU exhaustion of the app on the same
+  device through a crafted `kuyara://` query. The alert is dismissed on GitHub as
+  tolerable with this reason; re-check `pnpm why decode-uri-component` at every Expo SDK
+  upgrade.
   then shared code stays Android-compatible and no iOS-only assumption enters it.
 - OpenWeather stays in the chain: ADR 0002 now records the ODbL reading (share-alike
   reaches only a reusable dataset exported outside the organisation), and provider
   attribution with the licence name, the link and the OpenWeather logo is rendered on
   Today and the Weather screen through one component (5febd3b).
-- **WeatherKit's quota path is untested against Apple.** Apple does not document the
-  status returned once the monthly allowance is exhausted; the mapping lands on a
-  fallback-eligible error either way, and the daily cap has never been reached.
+- **WeatherKit's exhaustion status is unobserved.** Apple does not document what it
+  returns once the monthly allowance is exhausted. The adapter maps 429 to `quota`, 401
+  and 403 to `auth`, 404 to `availability` and every other non-400 status to `upstream`,
+  each unit-tested and fallback-eligible, so the chain advances whichever status Apple
+  sends; only the exact status is unobserved, and the Worker's own 8,000-a-day cap has
+  never been reached.
 - **The provider chain hides a broken provider in the response.** A failing adapter
   returns HTTP 200 from a lower-ranked source, so a green suite and a successful deploy do
   not prove the intended provider ran. Both chains now log every failed attempt to the
@@ -477,5 +487,3 @@ before submitting is the maintainer's call.
   layout to pages without a `layout:` key unless a `defaults` config is passed, and
   `docker pull` hangs on the maintainer's machine, so the official build image cannot
   run locally; the live site is the proof for header and control changes.
-- **`borderSubtle` is documented wrong.** `theme.ts` sets `#CCD2D4`; the measurement
-  tables in `docs/design/design-language.md` quote `#C5D5D6`. The code is current.

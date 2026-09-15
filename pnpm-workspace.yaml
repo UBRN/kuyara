@@ -4,6 +4,8 @@ packages:
 
 overrides:
   '@unrs/resolver-binding-wasm32-wasi@1.12.2>@napi-rs/wasm-runtime': 1.1.6
+  # xcode only calls uuid.v4(); 11.1.1 keeps a CommonJS entry and closes GHSA-w5hq-g745-h8pq.
+  'xcode>uuid': 11.1.1
 
 # posthog-react-native/expo requires @expo/config-plugins from its own package directory,
 # which pnpm's isolated layout cannot resolve; hoisting it to the root node_modules fixes
