@@ -12,7 +12,7 @@ export function WeatherAlertObserver() {
   const notificationApplication = useNotificationApplication();
   const profileApplication = useProfileApplication();
   const weatherApplication = useWeatherApplication();
-  const { language } = useLocalizationContext();
+  const { hour12, language } = useLocalizationContext();
   const profile = profileApplication.state.status === 'ready'
     ? profileApplication.state.profile
     : null;
@@ -49,12 +49,14 @@ export function WeatherAlertObserver() {
       snapshot,
       enabled: notificationsAreActive(notificationsOptIn, permission),
       language,
+      hour12,
     }).catch(() => undefined);
   });
 
   useEffect(() => {
     rescheduleWeatherAlerts();
   }, [
+    hour12,
     language,
     localDate,
     localProfileId,

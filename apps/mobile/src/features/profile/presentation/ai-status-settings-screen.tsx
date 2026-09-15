@@ -28,7 +28,7 @@ export function AiStatusSettingsScreen({
   onDeviceAvailability,
   onCheckAiStatus,
 }: AiStatusSettingsScreenProps) {
-  const { language, messages } = useLocalization();
+  const { hour12, language, messages } = useLocalization();
   const copy = messages.settings;
 
   // Reading availability calls nothing, so this row is never a probe. Until the answer
@@ -61,9 +61,11 @@ export function AiStatusSettingsScreen({
         ? copy.aiStatusChecking
         : aiStatus.kind === 'ok'
           ? copy.aiStatusResultOk(
-              new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit' }).format(
-                new Date(aiStatus.checkedAt),
-              ),
+              new Intl.DateTimeFormat(language, {
+                hour: hour12 ? 'numeric' : '2-digit',
+                minute: '2-digit',
+                hour12,
+              }).format(new Date(aiStatus.checkedAt)),
             )
           : aiStatus.kind === 'unavailable'
             ? copy.aiStatusResultUnavailable
