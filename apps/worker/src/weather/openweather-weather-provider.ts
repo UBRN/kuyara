@@ -15,7 +15,11 @@ const baseUrl = 'https://api.openweathermap.org/data/3.0/onecall';
 function httpErrorKind(status: number): WeatherProviderErrorKind {
   if (status === 429) return 'quota';
   if (status === 401) return 'auth';
-  if (status === 400 || status === 404) return 'invalid_request';
+  if (status === 400) return 'invalid_request';
+  // One Call answers 404 for an unknown path or a location it does not serve,
+  // not because the request is malformed. OpenWeather is last in the chain, so
+  // advancing costs nothing, but every adapter must classify this the same way.
+  if (status === 404) return 'availability';
   return 'upstream';
 }
 
