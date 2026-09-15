@@ -209,10 +209,10 @@ eligible hardware, as ADR 0034's verification boundary records, and the Simulato
 landed at the 6 s budget's edge. Real VoiceOver, background refresh and production
 analytics dispatch were not separately inspected on the device (see Known Issues).
 
-PostHog Error Tracking still has maintainer steps before an enabling build is submitted.
-The EAS `production` environment needs `POSTHOG_CLI_API_KEY` as a personal key scoped to
-`error_tracking:write` and `organization:read`, `POSTHOG_CLI_PROJECT_ID=270871`, and
-`POSTHOG_CLI_HOST=https://eu.posthog.com`; the project id and host are set, the key is not.
+PostHog Error Tracking has its credentials in place and one verification step left. The
+EAS `production` environment holds `POSTHOG_CLI_API_KEY` (a personal key scoped to
+`error_tracking:write` and `organization:read`, entered as a secret on 2026-09-15),
+`POSTHOG_CLI_PROJECT_ID=270871` and `POSTHOG_CLI_HOST=https://eu.posthog.com`.
 App Store Connect's Crash Data answer carries the Analytics purpose beside App Functionality
 since 2026-09-15, added and published through the `asc web privacy` pull, plan, apply and
 publish flow with one created row and nothing deleted, matching the privacy manifest in
