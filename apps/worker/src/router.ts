@@ -11,7 +11,15 @@ import {
   type AiV1ErrorCode,
 } from '@kuyara/contracts';
 
-type Handler = (request: Request) => Promise<Response>;
+/**
+ * The structural subset of the runtime's `ExecutionContext` the handlers use. Always call
+ * `ctx.waitUntil(...)` on the object: a destructured `waitUntil` loses `this` and throws
+ * "Illegal invocation" in workerd.
+ */
+export type ExecutionContext = Readonly<{
+  waitUntil(promise: Promise<unknown>): void;
+}>;
+export type Handler = (request: Request, ctx: ExecutionContext) => Promise<Response>;
 type Dependencies = Readonly<{
   weatherHandler: Handler;
   placeSearchHandler: Handler;
@@ -44,12 +52,12 @@ export function createRouter({
   probeHandler,
   aiReady,
 }: Dependencies): Handler {
-  return async (request: Request): Promise<Response> => {
+  return async (request: Request, ctx: ExecutionContext): Promise<Response> => {
     const pathname = new URL(request.url).pathname;
-    if (pathname === placeSearchV1Path) return placeSearchHandler(request);
-    if (pathname === weatherV1Path) return weatherHandler(request);
-    if (pathname === aiRecommendV1Path) return aiHandler(request);
-    if (pathname === aiProbeV1Path) return probeHandler(request);
+    if (pathname === placeSearchV1Path) return placeSearchHandler(request, ctx);
+    if (pathname === weatherV1Path) return weatherHandler(request, ctx);
+    if (pathname === aiRecommendV1Path) return aiHandler(request, ctx);
+    if (pathname === aiProbeV1Path) return probeHandler(request, ctx);
 
     if (pathname === healthV1Path) {
       if (request.method !== 'GET') {

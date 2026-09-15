@@ -42,19 +42,20 @@ function cappedProvider({ provider, counter, dailyLimit = openWeatherDailyCallLi
   });
 }
 
+// The counter increments before the wrapped provider is called, and the increment is the
+// gate: the new count decides whether the attempt goes ahead.
 test('increments the UTC daily counter before calling a provider under the limit', async () => {
   const keys = [];
-  let increments = 0;
   let providerCalls = 0;
   const provider = cappedProvider({
+    dailyLimit: 2,
     counter: {
-      get: async (key) => { keys.push(key); return 0; },
-      increment: async (key) => { keys.push(key); increments += 1; },
+      increment: async (key) => { keys.push(key); return 2; },
     },
     provider: {
       fetchWeather: async () => {
         providerCalls += 1;
-        assert.equal(increments, 1);
+        assert.deepEqual(keys, ['weather:openweather:2026-08-29']);
         return snapshot;
       },
     },
@@ -62,20 +63,28 @@ test('increments the UTC daily counter before calling a provider under the limit
 
   assert.strictEqual(await provider.fetchWeather(location), snapshot);
   assert.equal(providerCalls, 1);
-  assert.deepEqual(keys, [
-    'weather:openweather:2026-08-29',
-    'weather:openweather:2026-08-29',
-  ]);
+  assert.deepEqual(keys, ['weather:openweather:2026-08-29']);
 });
 
-test('rejects quota without incrementing or calling the provider at the limit', async () => {
+test('the attempt whose increment lands exactly on the limit still goes ahead', async () => {
+  let providerCalls = 0;
+  const provider = cappedProvider({
+    dailyLimit: openWeatherDailyCallLimit,
+    counter: { increment: async () => openWeatherDailyCallLimit },
+    provider: { fetchWeather: async () => { providerCalls += 1; return snapshot; } },
+  });
+
+  assert.strictEqual(await provider.fetchWeather(location), snapshot);
+  assert.equal(providerCalls, 1);
+});
+
+test('rejects quota without calling the provider once the increment passes the limit', async () => {
   let increments = 0;
   let providerCalls = 0;
   const provider = cappedProvider({
-    dailyLimit: 1,
+    dailyLimit: openWeatherDailyCallLimit,
     counter: {
-      get: async () => 1,
-      increment: async () => { increments += 1; },
+      increment: async () => { increments += 1; return openWeatherDailyCallLimit + 1; },
     },
     provider: { fetchWeather: async () => { providerCalls += 1; return snapshot; } },
   });
@@ -84,18 +93,15 @@ test('rejects quota without incrementing or calling the provider at the limit', 
     provider.fetchWeather(location),
     (error) => error instanceof WeatherProviderError && error.kind === 'quota',
   );
-  assert.equal(increments, 0);
+  assert.equal(increments, 1);
   assert.equal(providerCalls, 0);
 });
 
-test('increments the counter even when the provider fails', async () => {
+test('a failed provider call still counts one attempt against the cap', async () => {
   const failure = new WeatherProviderError('upstream');
   let increments = 0;
   const provider = cappedProvider({
-    counter: {
-      get: async () => 0,
-      increment: async () => { increments += 1; },
-    },
+    counter: { increment: async () => { increments += 1; return 1; } },
     provider: { fetchWeather: async () => { throw failure; } },
   });
 
@@ -103,18 +109,22 @@ test('increments the counter even when the provider fails', async () => {
   assert.equal(increments, 1);
 });
 
-test('allows the provider call when the counter read fails', async () => {
+// The counter is the gate. When it cannot answer, the capped provider is never reached
+// uncounted: the failure is an availability error the chain advances past.
+test('a counter failure advances the chain without calling the provider', async () => {
   let providerCalls = 0;
   const provider = cappedProvider({
     counter: {
-      get: async () => { throw new Error('KV unavailable'); },
-      increment: async () => {},
+      increment: async () => { throw new Error('Durable Object unavailable'); },
     },
     provider: {
       fetchWeather: async () => { providerCalls += 1; return snapshot; },
     },
   });
 
-  assert.strictEqual(await provider.fetchWeather(location), snapshot);
-  assert.equal(providerCalls, 1);
+  await assert.rejects(
+    provider.fetchWeather(location),
+    (error) => error instanceof WeatherProviderError && error.kind === 'availability',
+  );
+  assert.equal(providerCalls, 0);
 });

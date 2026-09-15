@@ -94,8 +94,12 @@ test('invalid requests and wrong routes or methods never call upstream', async (
   assert.equal((await handle(new Request('https://worker.test/v1/places/search', { method: 'POST', body: '{}' }))).status, 400);
   assert.equal(calls, 0);
 });
-test('production composition routes place search and fails closed without a limiter', async (t) => {
+// Without WEATHER_RATE_LIMIT the route is composed offline (see `buildRouter`): every
+// request, whatever its method, answers 503 places_unavailable and no provider is reached.
+test('production composition takes place search offline without a limiter', async (t) => {
   t.mock.method(console, 'warn', () => {});
-  assert.equal((await worker.fetch(request(), {})).status, 429);
-  assert.equal((await worker.fetch(request(query, '/v1/places/search', 'GET'), {})).status, 405);
+  const offline = await worker.fetch(request(), {}, { waitUntil() {} });
+  assert.equal(offline.status, 503);
+  assert.deepEqual(await offline.json(), { error: { code: 'places_unavailable' } });
+  assert.equal((await worker.fetch(request(query, '/v1/places/search', 'GET'), {}, { waitUntil() {} })).status, 503);
 });
