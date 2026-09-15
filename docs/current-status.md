@@ -397,9 +397,12 @@ before submitting is the maintainer's call.
 
 ## Known Issues and Manual Verification Gaps
 
-- **Expo retention is unknown.** Expo publishes no retention period for EAS Observe, EAS
-  Insights or the EAS Update check, which all receive the same install identifier. Both
-  privacy policies say so rather than naming a period.
+- **Expo retention is known only for Observe.** Expo's pricing page lists 90 days of data
+  retention for EAS Observe on every plan; no period is published for the EAS Insights
+  launch event or the EAS Update check, which receive the same install identifier. Both
+  privacy policies still say Expo has published no period for the Observe data; naming
+  90 days there is the maintainer's call, because the source is a pricing table rather
+  than a privacy document.
 - **EAS Observe has two external open items.** The `expo-observe`, `expo-app-metrics`
   and `expo-eas-client` packages ship no privacy manifest and do not clear pre-consent
   unhandled-error records on iOS. Two issue drafts for `expo/expo` were prepared on
