@@ -51,8 +51,9 @@ device-local deterministic generator.
   projection: system rules plus the projected body come to about 1,500
   characters, roughly 400 input tokens at four characters per token (about 540
   if the `response_format` schema is also billed as input). Output is capped by
-  `PROBE_MAX_TOKENS` at 256 tokens. At the ceiling that is about 11 Neurons of
-  input plus 52 of output, roughly **65 Neurons**, so the probe alone would
+  `PROBE_MAX_TOKENS` at 256 tokens. At the ceiling that is about 14 Neurons of
+  input plus 52 of output, **67 Neurons**, the figure the recommendation
+  handler reserves as `PROBE_DAILY_LIMIT` times 67, so the probe alone would
   exhaust the daily pool in about 150 calls; a typical reply of some 200
   characters costs closer to 20. Real `POST /v1/ai/recommend` traffic draws from
   the same pool.
@@ -96,10 +97,15 @@ Handler order:
 3. Cache check: the module-scope body with a 60-second TTL
    measured against `now()`. Fresh -> return the cached body, no provider call,
    no counter increment.
-4. Daily counter: `dailyCounter` holds the count for key `probe:YYYY-MM-DD` (UTC
-   date from `now()`). At or above **30** -> `429 rate_limited`,
-   `Retry-After: 60`. No provider call.
-5. `providers.length === 0` -> `{ data: { status: 'unavailable', checkedAt } }`.
+4. `providers.length === 0` -> `{ data: { status: 'unavailable', checkedAt } }`.
+   No counter increment: without a provider there is nothing to count.
+5. Daily counter: `dailyCounter.increment('probe:YYYY-MM-DD')` (UTC date from
+   `now()`) adds one counted attempt atomically and returns the new count. The
+   increment is the gate and runs before the attempt. A count above **30** ->
+   `429 rate_limited`, `Retry-After: 60`, no provider call; the 30th attempt of
+   the day still runs. A counter that cannot be reached -> `503 ai_unavailable`,
+   logged as `ai_daily_counter_unavailable`, no provider call and no cached
+   result.
 6. Otherwise call **only the first provider** in the chain (Workers AI when
    configured), a single attempt, `attemptTimeoutMs` default **20,000 ms** (the
    probe's own budget; the recommend handler runs each attempt under 7,000 ms
@@ -110,9 +116,12 @@ Handler order:
    require every pick to name one of the canned options. Both hold ->
    `status: 'ok'`. Either fails, the provider throws, or the attempt times out
    -> `status: 'unavailable'`.
-8. Store that body in the module cache. Increment the daily
-   counter via `dailyCounter.increment(...)`; the counter keeps only the current
-   date key. Cache hits and rate-limit rejections never increment.
+8. Store that body in the module cache. A failed, invalid, or timed-out attempt
+   has already spent its counted attempt; cache hits, burst rejections, counter
+   rejections and the no-provider answer never increment. A failed attempt is
+   logged as `ai_probe_attempt_failed` with the model and a closed reason
+   (`timeout`, `provider_error`, `quota_exceeded`, `rate_limited`,
+   `invalid_output`, `unknown_option`), never with upstream text.
 9. Respond `200` with `{ data: { status, checkedAt } }`, carrying `assistant`
    when a provider answered.
 
@@ -121,10 +130,9 @@ provider and model that answered, the single surface for those identifiers
 ([ADR 0034](0034-on-device-ai-selection-through-apple-foundation-models.md)
 section 5). No upstream status code or error text ever appears in the response.
 
-`ponytail:` the probe reads the count before its attempt and increments after
-it, so probes in flight at the same moment can each pass the 30/day check and
-the day ends a few calls over the cap. Acceptable for a soft abuse guard; the
-increment itself is atomic inside the Durable Object.
+The daily counter is a Durable Object whose input gate serialises requests, so
+the increment-then-compare is atomic and concurrent probes cannot under-count
+against the 30/day cap.
 
 ### 2. Rate limiting for `POST /v1/ai/recommend`
 
