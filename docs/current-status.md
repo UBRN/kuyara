@@ -415,13 +415,10 @@ before submitting is the maintainer's call.
   SDK, no AVD and no `ANDROID_HOME`, so the check starts with Android Studio, an SDK
   Platform and a Pixel AVD on API 35 or later before `expo run:android` can run. Until
   then shared code stays Android-compatible and no iOS-only assumption enters it.
-- **OpenWeather's licence reading needs a decision.** A maintainer-side reading of
-  OpenWeather's terms of sale (2026-09-13) found that the data is licensed under ODbL and
-  CC BY-SA 4.0 covers only OpenWeather's products and services, so share-alike does not
-  reach the app; ADR 0002 records a different reasoning and is not yet corrected. The same
-  reading found that the provider attribution names no licence and that Today shows the
-  temperature and condition with no attribution at all. Which option to take (keep
-  OpenWeather and fix attribution, remove it from the chain, or a paid plan) is open.
+- OpenWeather stays in the chain: ADR 0002 now records the ODbL reading (share-alike
+  reaches only a reusable dataset exported outside the organisation), and provider
+  attribution with the licence name, the link and the OpenWeather logo is rendered on
+  Today and the Weather screen through one component (5febd3b).
 - **WeatherKit's quota path is untested against Apple.** Apple does not document the
   status returned once the monthly allowance is exhausted; the mapping lands on a
   fallback-eligible error either way, and the daily cap has never been reached.
