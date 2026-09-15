@@ -9,10 +9,10 @@ dated history live in the ADR each section cites; implementation state lives in
 - kuyara is a publicly developed, source-available weather and outfit recommendation app for iOS and Android. It is licensed under the PolyForm Noncommercial License 1.0.0 and is deliberately not described as open source; see [Approved licensing posture](#approved-licensing-posture) and [ADR 0024](adr/0024-relicensing-to-polyform-noncommercial.md).
 - The first release is optimized for iOS while shared code remains Android-compatible.
 - Turkish and English are supported from the beginning. The device language and system theme are the defaults, with language and theme overrides available in Settings. Turkish copy addresses the user in the informal second person ("sen": bare imperatives such as "Seç" and "Dene", possessives such as "Gardırobun"), the register ADR 0026's ownership labels set; the greeting "hoş geldiniz" stays as an idiom. Documents such as the privacy policy keep their own register.
-- The first release has no account and no cross-device sync. Notifications are limited to on-device local weather alerts with no server-sent push; see [Approved notifications scope](#approved-notifications-scope), [ADR 0004](adr/0004-notifications-in-the-mvp.md) and [ADR 0032](adr/0032-local-weather-alert-rules.md).
+- The first release ships without sign-in and without cross-device sync. Notifications are limited to on-device local weather alerts with no server-sent push; see [Approved notifications scope](#approved-notifications-scope), [ADR 0004](adr/0004-notifications-in-the-mvp.md) and [ADR 0032](adr/0032-local-weather-alert-rules.md).
 - Behavioural product analytics is part of the production direction, with PostHog as the provider and the first public release as its deadline (revoking the earlier "no analytics in the MVP" rule on 2026-09-04). See [Approved analytics direction](#approved-analytics-direction), [ADR 0023](adr/0023-behavioural-product-analytics-with-posthog.md) and [ADR 0033](adr/0033-apple-privacy-obligations-for-first-party-analytics.md).
 - kuyara is free and ad-free, with no subscription and no in-app purchase. Paid provider usage is maintainer-funded and bounded.
-- Expo SQLite is the durable device-side database for user-created data and the store the app reads and writes first. kuyara is not fundamentally a local-first product: the accountless first release is a scope decision, and Supabase Auth, PostgreSQL and Storage are the intended long-term backend. See [Approved backend and account direction](#approved-backend-and-account-direction) and [ADR 0022](adr/0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md).
+- Expo SQLite is the durable device-side database for user-created data and the store the app reads and writes first. kuyara is not fundamentally a local-first product: shipping the first release without sign-in is a scope decision, and Supabase Auth, PostgreSQL and Storage are the intended long-term backend. See [Approved backend and account direction](#approved-backend-and-account-direction) and [ADR 0022](adr/0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md).
 - Weather providers are accessed only through the Worker behind a provider-neutral contract. Weather constraints are deterministic; AI selects three of at most 24 deterministically precomposed catalog outfits filtered by clothing preference and must have a device-local catalog-only deterministic fallback.
 - The Wardrobe (user-facing: the Closet) is a personal record of garments marked `owned` or `wanted`, not a recommendation input. Wardrobe photos are optional, remain on-device in the MVP, and are not sent to AI.
 - The profile stores required `gender` (`woman`/`man`) and `dressStyle` (`casual`/`smart`/`formal`) plus an optional device-only `birthDate`. Gender selects the catalogue through one mapping. Dress style reorders formality and excludes nothing. Birth date drives no product logic, and neither it nor its year enters recommendation requests. See [ADR 0031](adr/0031-dress-style-is-the-formality-signal.md).
@@ -53,7 +53,7 @@ Approved 2026-08-30; rationale in [ADR 0006](adr/0006-three-tab-information-arch
 - Today never reads ownership state and never waits for Wardrobe data; outfit detail alone may show `owned` or `wanted`.
 - Outfit detail is keyed by the outfit's stable option id, never by its position. A regeneration that finishes while detail is open keeps showing the same outfit if the new snapshot still offers it and otherwise shows the unavailable state with a way back to Today; it never swaps in the outfit that now sits at that position.
 - Today renders loading while weather is loading, and an unavailable state that names a missing active location and links to the location picker, distinct from genuine failures.
-- Today has no account, sync or analytics call site of its own. It is the destination for notification-response deep links.
+- Today has no sync, account or analytics call site of its own. It is the destination for notification-response deep links.
 
 ## Local profile, onboarding and Settings
 
@@ -63,7 +63,7 @@ Approved 2026-08-30; rationale in [ADR 0006](adr/0006-three-tab-information-arch
 
 ## Approved account copy boundary
 
-Approved 2026-08-30. Documentation may state the present fact that the MVP has no account. User-facing copy must not promise that there will never be an account or that everything stays on the device, because accounts are planned.
+Approved 2026-08-30. Documentation may state the present fact that the first release ships without sign-in. User-facing copy must not promise that there will never be an account or that everything stays on the device, because accounts are planned.
 
 ## Wardrobe persistence and taxonomy
 
@@ -276,7 +276,7 @@ Approved 2026-09-04. Canonical in [ADR 0022](adr/0022-supabase-is-the-intended-b
 - The long-term backend is Supabase: **Auth** for accounts, **PostgreSQL** for durable account-backed data, and **Storage** for synchronized files, with Closet photos the first candidate. Once accounts land, Postgres is authoritative for account-backed data and Expo SQLite is the device-side working store the app reads and writes first, then reconciles.
 - Firebase is not the planned production backend; any evaluation stays an isolated prototype, never a second production backend beside Supabase.
 - Current persistence must stay migration-friendly without implementing sync: client UUIDs, `localProfileId`, ordered migrations, lifecycle fields, separated model families with explicit mappers, repository interfaces, and UI that imports neither `expo-sqlite` nor a future Supabase SDK. Still forbidden without a further decision: sync engine, outbox, conflict resolution, server revision system, Supabase tables or Auth or Storage, remote repository implementations, and placeholder sync abstractions.
-- Accounts must earn themselves. Basic weather and general outfit recommendations stay usable without one; the Closet is the strongest candidate for an account-required feature. No account gating is implemented or scheduled.
+- Accounts must earn themselves. Basic weather and general outfit recommendations stay usable without one; the Closet is the strongest candidate for an account-required feature. Account gating is not implemented or scheduled.
 
 ## Approved analytics direction
 

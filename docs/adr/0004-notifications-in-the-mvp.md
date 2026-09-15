@@ -10,14 +10,14 @@ Behavioural analytics is governed by
 [ADR 0023](0023-behavioural-product-analytics-with-posthog.md), and the backend direction
 is governed by
 [ADR 0022](0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md). The
-argument against server push rests on the first release having no account and no
-server-owned per-user store. N3 remains deferred and still needs its own ADR.
+argument against server push rests on the first release shipping without sign-in and
+without a server-owned per-user store. N3 remains deferred and still needs its own ADR.
 
 ## Context
 
 The product should warn a user about upcoming weather that changes what they
 need to wear, for example rain starting in the afternoon or a sharp temperature
-swing. The first release still has no account or cross-device sync.
+swing. The first release still ships without sign-in or cross-device sync.
 
 "Reliable even when the app has not been opened for days" points at remote push:
 the Worker would hold a per-device push token, a stored location, alert

@@ -126,7 +126,7 @@ as `smart` until the user completes onboarding.
   answer a question about themselves rather than about clothes. This is an accepted cost;
   the answer still only selects catalog applicability.
 - The application stores an optional personal fact. It remains on the device, and
-  deleting the application removes it in the accountless first release.
+  deleting the application removes it in the first release.
 - Recommendations depend on gender-derived clothing preference and dress style, never on
   birth date or age.
 - Schema version 8 owns the profile rebuild; schema version 10 owns the checked dress-style

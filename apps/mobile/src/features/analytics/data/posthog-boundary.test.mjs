@@ -27,7 +27,7 @@ function sourceFiles(directory) {
 const sources = sourceFiles(sourceDirectory);
 
 // ADR 0033 section 6 item 5 and taxonomy 2: no person profile is ever created in the
-// accountless release, so these four SDK methods must have no caller. This is the greppable
+// first release, so these four SDK methods must have no caller. This is the greppable
 // guard the ADR asks for, in the same spirit as the `@expo/ui` rule in `AGENTS.md`.
 test('production source never calls provider identity APIs', () => {
   for (const path of sources) {

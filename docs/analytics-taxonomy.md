@@ -63,7 +63,7 @@ Constraints on that identity, all of them settled by ADR 0033 section 5 unless n
   (the excluded category in ADR 0023 section 6), because it is an install-scoped random
   value with no hardware or vendor identifier behind it.
 - `personProfiles` keeps its `identified_only` default, and `identify()`, `alias()`,
-  `group()` and `setPersonProperties()` have no caller in the accountless release. Every
+  `group()` and `setPersonProperties()` have no caller in the first release. Every
   event is therefore an anonymous event with no person profile. **Consequence for this
   taxonomy: there are no person properties.** Anything the analysis needs to segment by
   must be attached to the event itself, which is why section 3 states exactly which events
@@ -99,9 +99,8 @@ Attaching either value to events joined by the install identity combines the ide
 with profile data. **Decided by the maintainer on 2026-09-09: both properties are kept,
 and the install identifier is declared "linked to the user" in the App Privacy
 questionnaire**. The privacy policy and ADR 0033 carry the same current rule. The
-identifier still joins to no account, no
-`localProfileId` and no other system, and the exclusion list in section 4 is unchanged. No
-other profile field, including gender, is an analytics property under this taxonomy.
+identifier still joins to nothing: not an account, not a `localProfileId` and not
+another system, and the exclusion list in section 4 is unchanged. No other profile field, including gender, is an analytics property under this taxonomy.
 
 | Property | Allowed values | Derivation rule |
 | --- | --- | --- |

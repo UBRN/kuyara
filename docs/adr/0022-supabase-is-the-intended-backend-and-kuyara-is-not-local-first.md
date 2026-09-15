@@ -11,9 +11,9 @@ dependency, table, client, adapter, or sync code. See [Out of scope](#out-of-sco
 The local-first framing was written to defend a real and still-correct engineering rule:
 nothing in the MVP may assume a server, and no refresh failure may discard local data. As
 a product identity, however, that framing is wrong. The maintainer's intent, stated on
-2026-09-04, is that the accountless first release is a scope decision, not a philosophy.
-The product is expected to grow accounts, cross-device persistence, and synchronized
-files, with Supabase rather than Firebase as the intended backend.
+2026-09-04, is that shipping the first release without sign-in is a scope decision, not a
+philosophy. The product is expected to grow accounts, cross-device persistence, and
+synchronized files, with Supabase rather than Firebase as the intended backend.
 
 Leaving the wording alone has a concrete cost. A future agent reading "must not replace
 the local store" will treat a server-authoritative design as a rule violation and either
@@ -88,18 +88,18 @@ the current schema and boundaries, and must be preserved:
 
 Recorded as product direction, not as behavior to build now:
 
-- Basic weather and general outfit recommendations should stay usable without an account
-  unless a later product decision changes that.
+- Basic weather and general outfit recommendations should stay usable for a signed-out
+  user unless a later product decision changes that.
 - Richer personalization is the natural account-backed tier.
 - The Closet is the strongest candidate for an account-required feature, because backup,
   cross-device persistence, and synchronized photos are the things a user actually loses
   today when they change phones.
 
-No account gating is implemented, designed, or scheduled by this ADR.
+Account gating is not implemented, designed, or scheduled by this ADR.
 
 ## Consequences
 
-- Active documentation describes the accountless MVP's persistence boundary without
+- Active documentation describes the first release's persistence boundary without
   calling kuyara local-first as a product identity.
 - A future agent now has an answer to "what happens after accounts" and therefore has no
   reason to invent one.

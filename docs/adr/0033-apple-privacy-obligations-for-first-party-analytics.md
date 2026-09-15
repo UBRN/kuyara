@@ -25,8 +25,9 @@ explicit that this is not a finding that no privacy work is required. What Apple
 of App Privacy disclosure, consent, retention, deletion and revocation was left to be
 verified against current official documentation.
 
-kuyara has no account, no advertising, no in-app purchase, and the analytics payload
-exclusion list in ADR 0023 already forbids exact coordinates, photos, free-form text, AI
+kuyara ships without sign-in, carries no advertising and no in-app purchase, and the
+analytics payload exclusion list in ADR 0023 already forbids exact coordinates, photos,
+free-form text, AI
 prompts, raw provider data, complete rows, credentials and any persistent device
 fingerprint. The only identifier the analytics path could carry is one the SDK generates
 for itself. `localProfileId` is not available to it.
@@ -192,13 +193,13 @@ are "easily accessible", the accessibility rules in `AGENTS.md` forbid controls 
 hard to reach or unlabeled, and a reviewer who cannot find the control in two taps has
 grounds to reject. Two taps from Settings, a clear label, no dark pattern.
 
-### 4. Deletion and revocation for an accountless app
+### 4. Deletion and revocation before accounts exist
 
 Apple's account-deletion requirement does not apply. The support page states it applies to
 apps that "support account creation", and Guideline 5.1.1 (v) conditions it on the same:
 "If your app supports account creation, you must also offer account deletion within the
 app" (<https://developer.apple.com/support/offering-account-deletion-in-your-app/>, read
-2026-09-09). kuyara has no account in the first release. This changes when
+2026-09-09). The first release ships without sign-in. This changes when
 [ADR 0022](0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md)'s
 accounts arrive: account deletion will then have to delete analytics data associated with
 the account too, since Apple expects "all data associated with their account" to go.
@@ -241,7 +242,7 @@ The SDK creates one unconditionally: a random `uuidv7()` per install, stored in 
 storage, with no hardware or vendor identifier behind it. That is acceptable under the
 ADR 0023 exclusion list, which forbids a fingerprint of the physical device, not a random
 per-install value. No additional identity is designed. `identify()`, `alias()`, `group()`
-and `setPersonProperties()` are not called in the accountless release, and the core
+and `setPersonProperties()` are not called in the first release, and the core
 `personProfiles` option keeps its `identified_only` default, so events stay anonymous
 events with no person profile; PostHog documents that "for identified events we create a
 person profile for the user, whereas for anonymous events we do not"
@@ -251,15 +252,15 @@ person profile for the user, whereas for anonymous events we do not"
 specific privacy protections are put in place before collection to de-identify or
 anonymize it", and adds that data defined as personal data under privacy law "are
 considered linked to the user". A random install identifier joins events to each other
-but to no real-world identity, no account and no `localProfileId`, and kuyara commits to
+but not to a real-world identity, an account or a `localProfileId`, and kuyara commits to
 never attempt re-linking. PostHog's own iOS SDK manifest declares Product Interaction and
 Other Usage Data as not linked and not tracking
 (<https://github.com/PostHog/posthog-ios/blob/main/PostHog/Resources/PrivacyInfo.xcprivacy>,
 read 2026-09-09). The taxonomy keeps `dress_style` and a coarse `age_bucket` on four
 analytics events, which combines the identifier with profile data. The questionnaire
 therefore declares the collected categories **linked to the user**. The other constraints
-stand: no account, no `localProfileId`, no identifier from another system, and no
-re-linking. The pseudonymous-identifier question is where Apple's wording and privacy
+stand: no link to an account, no `localProfileId`, no identifier from another system,
+and no re-linking. The pseudonymous-identifier question is where Apple's wording and privacy
 law can diverge; the maintainer accepts that risk without counsel review.
 
 **IP capture off.** IP addresses feed PostHog's geo properties and are "considered
@@ -516,7 +517,7 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
 - The App Store questionnaire answer set is known in advance: Product Interaction and
   Other Usage Data for analytics, Performance Data, Other Diagnostic Data, Crash Data and
   Device ID for the EAS Observe integration, no Location, no tracking, and linked to the user.
-- Apple's account-deletion rule does not apply to the accountless release, but the privacy
+- Apple's account-deletion rule does not apply to the first release, but the privacy
   policy still has to describe revocation and a deletion request path, and the accounts
   milestone inherits an analytics-deletion obligation.
 - The analytics identity question from ADR 0023 is closed: the SDK's random per-install

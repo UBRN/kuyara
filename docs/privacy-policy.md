@@ -11,7 +11,7 @@ describes what data the app sends off your device, why, and what you can do abou
 
 ## Summary
 
-- kuyara has no account. Your profile, Closet and settings live on your device.
+- kuyara does not ask you to sign in. Your profile, Closet and settings live on your device.
 - The only data kuyara keeps about how you use the app is optional usage analytics and
   diagnostics, sent only after you accept the consent question kuyara asks after onboarding.
 - Analytics never includes your location, photos, Closet contents, name, birth date, or
@@ -148,7 +148,7 @@ calls weather and AI providers. This is a live request, not a record of you:
 
 ## Accounts
 
-kuyara currently has no account and no cross-device sync. Accounts are planned for a
+kuyara does not offer sign-in or cross-device sync today. Accounts are planned for a
 later version. When they arrive, this policy will be updated before they launch, and
 account deletion will cover any analytics data associated with the account.
 
@@ -174,7 +174,7 @@ yapabileceğini anlatır.
 
 ## Özet
 
-- kuyara'da hesap yok. Profilin, Gardırobun ve ayarların cihazında durur.
+- kuyara senden oturum açmanı istemiyor. Profilin, Gardırobun ve ayarların cihazında durur.
 - kuyara'nın uygulamayı nasıl kullandığına dair tuttuğu tek veri, isteğe bağlı kullanım
   analitiği ve tanılama verisidir. Yalnızca tanışma adımlarından sonra sorulan onay sorusunu
   kabul edersen gönderilir.
@@ -313,9 +313,9 @@ istektir, senin hakkında tutulan bir kayıt değildir:
 
 ## Hesaplar
 
-kuyara'da şu anda hesap ve cihazlar arası eşitleme yok. Hesaplar ileriki bir sürüm için
-planlanıyor. Geldiklerinde bu politika onlar yayınlanmadan önce güncellenecek ve hesap
-silme, hesapla ilişkili analitik verisini de kapsayacak.
+kuyara'da şu anda oturum açma ve cihazlar arası eşitleme bulunmuyor. Hesaplar ileriki bir
+sürüm için planlanıyor. Geldiklerinde bu politika onlar yayınlanmadan önce güncellenecek
+ve hesap silme, hesapla ilişkili analitik verisini de kapsayacak.
 
 ## Değişiklikler
 
