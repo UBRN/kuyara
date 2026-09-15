@@ -124,10 +124,15 @@ test('probe success schema accepts both statuses and rejects malformed payloads'
     { data: { status: 'unknown', checkedAt } },
     { data: { status: 'ok', checkedAt: 'not-a-datetime' } },
     { data: { status: 'ok' } },
+  ]) {
+    assert.equal(aiProbeV1SuccessSchema.safeParse(payload).success, false);
+  }
+  // Unknown keys are stripped, not rejected: a deployed Worker may add one.
+  for (const payload of [
     { data: { status: 'ok', checkedAt, unexpected: true } },
     { data: { status: 'ok', checkedAt }, unexpected: true },
   ]) {
-    assert.equal(aiProbeV1SuccessSchema.safeParse(payload).success, false);
+    assert.deepEqual(aiProbeV1SuccessSchema.parse(payload), { data: { status: 'ok', checkedAt } });
   }
 });
 
@@ -148,7 +153,7 @@ test('accepts a valid option request and exactly three distinct picks', () => {
   assert.equal(aiRecommendV1SuccessSchema.safeParse(validSuccess()).success, true);
 });
 
-test('strict request, option, garment, traits, pick, and response objects reject extra keys', () => {
+test('strict request, option, garment and traits objects reject extra keys', () => {
   const requestWithExtra = { ...validRequest(), unexpected: true };
   assert.equal(aiRecommendV1RequestSchema.safeParse(requestWithExtra).success, false);
 
@@ -162,14 +167,17 @@ test('strict request, option, garment, traits, pick, and response objects reject
   const optionWithExtraTrait = option('extra-trait');
   optionWithExtraTrait.traits.unexpected = true;
   assert.equal(aiOptionSchema.safeParse(optionWithExtraTrait).success, false);
+});
 
+test('the recommend response is a tolerant reader and strips extra keys', () => {
   const successWithExtraPick = validSuccess();
   successWithExtraPick.data.picks[0].unexpected = true;
-  assert.equal(aiRecommendV1SuccessSchema.safeParse(successWithExtraPick).success, false);
+  assert.deepEqual(aiRecommendV1SuccessSchema.parse(successWithExtraPick), validSuccess());
 
-  assert.equal(aiRecommendV1SuccessSchema.safeParse({
-    ...validSuccess(), unexpected: true,
-  }).success, false);
+  assert.deepEqual(
+    aiRecommendV1SuccessSchema.parse({ ...validSuccess(), unexpected: true }),
+    validSuccess(),
+  );
 });
 
 test('rejects every privacy-forbidden request or option field', () => {

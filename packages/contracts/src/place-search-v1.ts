@@ -24,15 +24,15 @@ export const placeSearchResultSchema = z.object({
   latitudeE2: weatherV1RequestSchema.shape.latitudeE2,
   longitudeE2: weatherV1RequestSchema.shape.longitudeE2,
   timeZone: ianaTimeZoneSchema.nullable(),
-}).strict();
+});
 
 export const placeSearchV1SuccessSchema = z.object({
   data: z.object({
     places: z.array(placeSearchResultSchema).max(placeSearchMaxResults),
     // Controlled attribution identifiers, as in weather's origin.sourceId.
     attribution: z.tuple([z.literal('open-meteo'), z.literal('geonames')]),
-  }).strict(),
-}).strict();
+  }),
+});
 
 export const placeSearchV1ErrorSchema = z.object({
   error: z.object({
@@ -40,8 +40,8 @@ export const placeSearchV1ErrorSchema = z.object({
       'invalid_request', 'not_found', 'method_not_allowed',
       'places_unavailable', 'internal_error', 'rate_limited',
     ]),
-  }).strict(),
-}).strict();
+  }),
+});
 
 export type PlaceSearchV1Request = z.infer<typeof placeSearchV1RequestSchema>;
 export type PlaceSearchResult = z.infer<typeof placeSearchResultSchema>;

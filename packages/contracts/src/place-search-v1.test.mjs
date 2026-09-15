@@ -21,14 +21,16 @@ test('place response accepts empty results and optional provider time zone as nu
   assert.equal(placeSearchV1SuccessSchema.safeParse({ data: { ...success.data, places: [{ ...place, timeZone: null }] } }).success, true);
 });
 test('place response rejects invalid coordinates, ids, names, time zones and raw fields', () => {
-  for (const patch of [{ id: 'place.0' }, { id: 'place.-1' }, { latitudeE2: 3841.2 }, { longitudeE2: 18001 }, { displayName: ' ' }, { region: '' }, { timeZone: 'Bad/Zone' }, { population: 10 }]) {
+  for (const patch of [{ id: 'place.0' }, { id: 'place.-1' }, { latitudeE2: 3841.2 }, { longitudeE2: 18001 }, { displayName: ' ' }, { region: '' }, { timeZone: 'Bad/Zone' }]) {
     assert.equal(placeSearchV1SuccessSchema.safeParse({ data: { ...success.data, places: [{ ...place, ...patch }] } }).success, false);
   }
+  // A raw provider field is stripped, not rejected: the response schema is a tolerant reader.
+  assert.deepEqual(placeSearchV1SuccessSchema.parse({ data: { ...success.data, places: [{ ...place, population: 10 }] } }), { data: { ...success.data, places: [place] } });
   assert.equal(placeSearchV1SuccessSchema.safeParse({ data: { ...success.data, places: Array(6).fill(place) } }).success, false);
 });
 test('manual ids use a bounded shape and errors expose only a stable code', () => {
   for (const id of ['sample.istanbul', 'sample.ankara', 'sample.london', 'place.311046']) assert.equal(manualLocationIdSchema.safeParse(id).success, true);
   for (const id of ['', 'private free text', 'place.01', 'place.1.5', 'place.12345678901234567', 'sample.', 'place.1\n']) assert.equal(manualLocationIdSchema.safeParse(id).success, false);
   assert.deepEqual(placeSearchV1ErrorSchema.parse({ error: { code: 'places_unavailable' } }), { error: { code: 'places_unavailable' } });
-  assert.equal(placeSearchV1ErrorSchema.safeParse({ error: { code: 'places_unavailable', message: 'private query' } }).success, false);
+  assert.deepEqual(placeSearchV1ErrorSchema.parse({ error: { code: 'places_unavailable', message: 'private query' } }), { error: { code: 'places_unavailable' } });
 });

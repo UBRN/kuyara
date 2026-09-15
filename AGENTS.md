@@ -46,6 +46,7 @@ The workspace is a pnpm monorepo: `apps/mobile` (Expo and React Native), `apps/w
 ## Architecture boundaries
 
 - Organize mobile code feature-first while keeping presentation, domain/application, and data responsibilities distinct.
+- A feature imports another feature only through that feature's domain or application layer. Do not add a new import into another feature's data or presentation code; wire persistence and screens together in composition code such as the route files, and keep business rules inside the feature that owns them.
 - Keep business rules out of React components and route files.
 - Components render state and emit user intent; use cases/services coordinate domain behavior; repositories abstract persistence and external data.
 - UI and domain code must not import SQLite, Supabase, Firebase, WeatherKit, Cloudflare, or provider-specific SDKs directly.
@@ -101,6 +102,7 @@ The workspace is a pnpm monorepo: `apps/mobile` (Expo and React Native), `apps/w
 - Keep the Worker focused on protecting credentials, calling weather and AI providers, validating inputs/outputs, enforcing rate and spend limits, and exposing a versioned mobile API.
 - Store credentials as Cloudflare Worker secrets. Never commit them, expose them through public Expo environment variables, bundle them in the mobile app, or log them. Keep privileged signing and provider authentication server-side; provider credentials never reach mobile.
 - Put shared request and response schemas in `packages/contracts` when both mobile and Worker use them.
+- Mobile reads Worker responses tolerantly: response schemas in `packages/contracts` strip unknown keys, so a published Worker may add a response field and installed binaries accept it. Adding an enum member (a provider `sourceId`, a condition code, an error code) still breaks installed binaries until a named unknown branch exists; treat that as a breaking change. Request schemas stay strict; the Worker owns them.
 - Treat every network and AI response as untrusted until runtime validation succeeds.
 - Return stable, minimal error shapes; do not leak provider responses, tokens, stack traces, or internal configuration.
 - Send AI only the minimum sanitized structured data defined by the [approved AI input privacy boundary](docs/product-decisions.md#approved-ai-input-privacy-boundary). Never send wardrobe-derived data, photos, paths, free-form names, profile or device identifiers, birth date or birth year, or coordinates.
