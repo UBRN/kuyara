@@ -249,48 +249,72 @@ test('shared weather reasons lead every outfit and per-outfit composition reason
   );
 });
 
-test('a mild clear day still gives the primary outfit a rationale', () => {
-  const mildWeather = {
-    ...todayWeatherSnapshot,
-    current: {
-      ...todayWeatherSnapshot.current,
-      temperatureCelsius: 20,
-      apparentTemperatureCelsius: 20,
-      condition: 'clear',
-      precipitationProbability: 0,
-      windSpeedMetersPerSecond: 0,
-    },
-    minimumTemperatureCelsius: 20,
-    maximumTemperatureCelsius: 20,
-    hourly: [{
-      ...todayWeatherSnapshot.hourly[0],
-      temperatureCelsius: 20,
-      apparentTemperatureCelsius: 20,
-      condition: 'clear',
-      precipitationProbability: 0,
-      windSpeedMetersPerSecond: 0,
-    }],
-  };
+// A day whose measurements ask for nothing: no clothing requirement is derived, so the
+// only reason codes left are the two that do not come from a requirement.
+const mildMeasurements = {
+  temperatureCelsius: 20,
+  apparentTemperatureCelsius: 20,
+  condition: 'clear',
+  precipitationProbability: 0,
+  windSpeedMetersPerSecond: 0,
+};
+const mildWeather = {
+  ...todayWeatherSnapshot,
+  current: { ...todayWeatherSnapshot.current, ...mildMeasurements },
+  minimumTemperatureCelsius: 20,
+  maximumTemperatureCelsius: 20,
+  hourly: [{ ...todayWeatherSnapshot.hourly[0], ...mildMeasurements }],
+};
+
+function mildPresentation(weather, now, language = 'en') {
   const recommendation = recommendOutfits({
-    snapshot: mildWeather,
+    snapshot: weather,
+    now,
     clothingPreference: 'womens',
     dayVariant: 0,
   });
   assert.equal(recommendation.status, 'recommended');
   assert.deepEqual(recommendation.requirements.requirements, []);
-  assert.equal(recommendation.outfits[0].penaltyPoints, 0);
-  const presentation = loadedPresentation({
-    ...todayScreenState,
-    snapshot: { ...todayScreenState.snapshot, weather: mildWeather, recommendation },
-  });
 
+  return {
+    recommendation,
+    presentation: loadedPresentation({
+      ...todayScreenState,
+      snapshot: { ...todayScreenState.snapshot, weather, recommendation },
+    }, language),
+  };
+}
+
+test('a mild clear day still gives the primary outfit a rationale', () => {
+  const { recommendation, presentation } = mildPresentation(mildWeather, undefined);
+
+  assert.equal(recommendation.outfits[0].penaltyPoints, 0);
   assert.deepEqual(presentation.suggestions[0].reasons, [
     'The daily temperature range is based on current conditions.',
   ]);
 });
 
-// ADR 0034 section 4: one badge per stored mode, and the on-device words only when the
-// stored mode is `on-device-ai`, so the badge never advertises a tier that did not choose.
+test('a mild day with a live forecast falls back to the deterministic status sentence', () => {
+  // A forecast hour still ahead of `now` removes the daily-extrema fallback reason, which
+  // is the last sentence a mild day produces, so the rationale line would render empty.
+  const liveForecast = {
+    ...mildWeather,
+    hourly: [{ ...mildWeather.hourly[0], forecastAt: '2026-08-13T07:00:00.000Z' }],
+  };
+  const now = todayWeatherSnapshot.current.observedAt;
+  const { recommendation, presentation } = mildPresentation(liveForecast, now);
+
+  assert.deepEqual(recommendation.requirements.reasonCodes, []);
+  assert.deepEqual(recommendation.outfits[0].reasonCodes, []);
+  assert.deepEqual(presentation.suggestions[0].reasons, [
+    'Nothing in today’s weather asks for special protection.',
+  ]);
+  assert.deepEqual(
+    mildPresentation(liveForecast, now, 'tr').presentation.suggestions[0].reasons,
+    ['Bugünkü hava özel bir koruma istemiyor.'],
+  );
+});
+
 test('every generation mode has its own localized accessible generation mark', () => {
   const recommendation = todayScreenState.snapshot.recommendation;
   assert.equal(recommendation.status, 'recommended');
