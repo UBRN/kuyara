@@ -11,7 +11,7 @@ concrete, checkable rules.
 
 The six approved brand hexes and the Balanced Horizon V2 master geometry are unchanged
 and remain locked. Every new value introduced below is a derived semantic value, in the
-same class as the existing derived neutrals `#E7EEED`, `#DDE8E7`, `#C5D5D6`, and
+same class as the existing derived neutrals `#E7EEED`, `#DDE8E7`, `#CCD2D4`, and
 `#D0DDDC`. Nothing here is a new brand colour, a new geometry, or a new visual metaphor.
 
 ### The foundational finding
@@ -21,7 +21,7 @@ The light appearance has no contrast headroom left for depth. Measured:
 | depth cue available to a light card | measured | 3:1 non-text threshold |
 | --- | --- | --- |
 | fill step, card `#FFFFFF` over ground `#D0DDDC` | 1.395:1 | fails |
-| hairline, `borderSubtle` `#C5D5D6` on the white card | 1.515:1 | fails |
+| hairline, `borderSubtle` `#CCD2D4` on the white card | 1.529:1 | fails |
 | shadow contact, `elevation.raised` opacity 0.10 over the ground | 1.218:1 | fails |
 
 Three successive milestones attacked flatness through surfaces and moved the
@@ -229,7 +229,7 @@ confirming Alert stays the platform's, as today.
 component is being identified and 1.4.11 does not apply. Every boundary that identifies
 an interactive component moves to `borderDefined`. This closes a real current failure:
 an unselected Wardrobe filter chip and an outline button are identified only by a
-`#C5D5D6` border measuring **1.515:1** on the white card. That fails [WCAG
+`#CCD2D4` border measuring **1.529:1** on the white card. That fails [WCAG
 1.4.11](https://www.w3.org/WAI/WCAG21/Understanding/non-text-contrast.html) today, in
 the shipped product and in the mockups.
 

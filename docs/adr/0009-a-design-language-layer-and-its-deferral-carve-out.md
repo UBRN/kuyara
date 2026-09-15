@@ -12,7 +12,7 @@ The light appearance has no contrast headroom left for depth. Measured:
 | depth cue available to a light card | measured | 3:1 non-text threshold |
 | --- | --- | --- |
 | fill step, card `#FFFFFF` over ground `#D0DDDC` | 1.395:1 | fails |
-| hairline, `borderSubtle` `#C5D5D6` on the white card | 1.515:1 | fails |
+| hairline, `borderSubtle` `#CCD2D4` on the white card | 1.529:1 | fails |
 | shadow contact, `elevation.raised` opacity 0.10 over the ground | 1.218:1 | fails |
 
 Three successive milestones attacked flatness through surfaces and moved the
