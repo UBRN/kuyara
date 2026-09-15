@@ -6,6 +6,7 @@
     <meta name="apple-itunes-app" content="app-id=6806664440">
 
 {% seo %}
+    {% include theme-head.html %}
     {% include head-custom.html %}
     {% include lang-head.html %}
     <link rel="stylesheet" href="{{ "/assets/css/landing.css?v=" | append: site.github.build_revision | relative_url }}">
@@ -13,7 +14,8 @@
   </head>
   <body class="ku-landing">
     <header class="ku-header">
-      <div class="ku-shell">
+      <div class="ku-shell ku-controls">
+        {% include theme-switcher.html %}
         {% include lang-switcher.html %}
       </div>
     </header>
