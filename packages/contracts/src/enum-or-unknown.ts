@@ -10,13 +10,11 @@ import { z } from 'zod';
 // consumer of a condition is exhaustive over the closed list (icons, copy, the clothing
 // rules, the SQLite CHECK constraints), and the Worker maps every upstream code onto that
 // list itself, so a new condition member is a binary change on both sides.
-export const unknownEnumMember = 'unknown' as const;
-
 export function enumOrUnknown<const Values extends readonly [string, ...string[]]>(
   values: Values,
 ) {
   return z.union([
     z.enum(values),
-    z.string().min(1).max(32).regex(/^[a-z0-9_-]+$/).transform(() => unknownEnumMember),
+    z.string().min(1).max(32).regex(/^[a-z0-9_-]+$/).transform(() => 'unknown' as const),
   ]);
 }
