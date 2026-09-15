@@ -35,9 +35,9 @@ which skews toward small independent US and EU apps, puts the excluded share
 nearer 8 to 10%.
 
 The cost is materially lower than those figures suggest for this app
-specifically, because kuyara has **no public App Store release**: build
-1.0.0 (2) is on TestFlight internal testing only. There is no installed base
-to drop.
+specifically, because the floor was in place before the first App Store
+release: 0.1.20260913 shipped with a 26.0 deployment target, so no installed
+user was dropped and the installed base is iOS 26 and later by construction.
 
 ### What it buys
 
@@ -61,9 +61,8 @@ Nothing in app code breaks. A repo-wide search for `Platform.Version`,
 returned zero matches; the only `Platform.select` uses
 (`apps/mobile/src/components/ui/app-text.tsx:33`,
 `apps/mobile/src/components/ui/screen.tsx:40`) branch on platform, not OS
-version, so there is no dead guard to remove. A fresh native build is
-required before the change takes effect, and the existing TestFlight build
-stays valid for whoever installed it until a resubmission.
+version, so there is no dead guard to remove. The change needs a fresh native
+build, which every App Store build since the first has carried.
 
 Apple's separate requirement, unchanged by this: since 2026-04-28 all new App
 Store Connect uploads must be built with Xcode 26 and the iOS 26 SDK. That is

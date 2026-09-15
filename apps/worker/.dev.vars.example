@@ -1,0 +1,9 @@
+# Local secrets for `wrangler dev`. Copy to `.dev.vars` (git-ignored) and fill in.
+# Production values are Cloudflare Worker secrets and never enter the repository.
+OPENROUTER_API_KEY=
+OPENWEATHER_API_KEY=
+WEATHERKIT_TEAM_ID=
+WEATHERKIT_SERVICE_ID=
+WEATHERKIT_KEY_ID=
+# The literal contents of Apple's .p8 file, quoted as one value (ADR 0014 section 2).
+WEATHERKIT_PRIVATE_KEY=
