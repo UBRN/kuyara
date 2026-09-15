@@ -12,10 +12,12 @@ with the sun in Turkic mythology.
 
 ## Status
 
-Preparing the first App Store submission. The app fetches live weather through the
-Worker, produces three validated outfit recommendations selected on-device by Apple
-Foundation Models where available, otherwise through the Worker, always with a
-device-local deterministic fallback, and schedules on-device local weather alerts.
+kuyara 0.1.20260913 is on the App Store since 2026-09-15
+(<https://apps.apple.com/app/kuyara/id6806664440>, iOS 26 and later). The app fetches
+live weather through the Worker, produces three validated outfit recommendations
+selected on-device by Apple Foundation Models where available, otherwise through the
+Worker, always with a device-local deterministic fallback, and schedules on-device local
+weather alerts.
 Apple WeatherKit is live in production at the head of the weather provider chain. The
 visual language (Direction E,
 [ADR 0021](docs/adr/0021-direction-e-a-visual-first-design-language.md)) is

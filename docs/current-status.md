@@ -145,7 +145,7 @@ Analytics is sequenced before the first public App Store release, so milestones 
     Performance Data, Other Diagnostic Data, Crash Data and the App Functionality purpose
     on Device ID to the answer set (ADR 0033 sections 1 and 7); the privacy policy in
     `docs/` discloses them, the App Store Connect questionnaire carries them, and the
-    policy is published (see Release Blockers).
+    policy is published (see Release State).
 12. **PostHog Error Tracking.** [ADR 0035](adr/0035-posthog-error-tracking.md) is accepted
     and its repository work is implemented: uncaught exceptions and unhandled rejections
     only, the existing consent gate, a field-level `before_send` allowlist, deduplication and
@@ -174,47 +174,47 @@ Provider prices and quotas are deliberately absent from this list; reverify them
 official sources when each item is implemented. Server-sent push (N3) stays deferred
 and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
 
-## Release Blockers
+## Release State
 
-Version 0.1.20260913 with build 8 was submitted for App Review on 2026-09-13 through
-`asc review submit` (submission `b125d544`); release is manual after approval. The EU
-Digital Services Act trader-status declaration was entered in App Store Connect on
-2026-09-13 as non-trader. On 2026-09-14 Apple answered with Guideline 2.1 Information
-Needed, the six-item questionnaire sent to accounts with a limited review history
-(physical-device recording, purpose, setup, external services, regional differences,
-regulated content); it names no defect in the binary or the metadata. The maintainer
-answers in the Resolution Center and in App Review Information Notes, attaches the
-recording, and resubmits the same build 8. What remains after that is Apple's review and
-the manual release after approval.
+Version 0.1.20260913 with build 8 (built from commit 67c20ae) has been on sale in every
+territory since 2026-09-15, 09:14 UTC, at <https://apps.apple.com/app/kuyara/id6806664440>.
+Apple approved submission `b125d544` on 2026-09-15; the Guideline 2.1 Information Needed
+questionnaire of 2026-09-14 (the six-item set sent to accounts with a limited review
+history: physical-device recording, purpose, setup, external services, regional
+differences, regulated content) was answered in the Resolution Center with the iPhone 14
+Pro full-flow recording and named no defect in the binary or the metadata. Automatic
+release was selected, so the version went on sale with the approval. The store primary
+language was switched from Turkish to `en-US` with `asc app-setup info set` the same day
+and Turkish remains a localization (see `product-decisions.md`); the EU Digital Services
+Act trader-status declaration was entered on 2026-09-13 as non-trader. Same-day
+post-release checks: PostHog receives consented build 8 events, including a first
+non-maintainer install that granted consent on 2026-09-15, and EAS Observe reports a
+0.52 s median cold launch and 0.22 s startup TTI for build 8, in line with build 6.
 
-The full-flow recording Apple asked for was captured on 2026-09-14 on the maintainer's
-iPhone 14 Pro on iOS 26.6.2 from the TestFlight build 8, from app launch through
-onboarding, the location prompt, the first three-outfit recommendation, an outfit detail,
-the Weather tab, the city search and the Profile tab with the Closet and Settings; no crash
-or hang was seen. The earlier physical-device check of build 8 ran on 2026-09-13 at about
-18:30 UTC on the same iPhone 14 Pro from TestFlight: Today showed the "AI assisted" badge
-against the production Worker, which is the point of the build. Build 7 on the same device had shown "Standard
-suggestions" on every recommendation, the validation-gate defect build 8 fixes: the
-mobile validation gate rebuilt each picked option with the first valid arrangement of
-its garments instead of the offered one, so a healthy Worker answer that picked an
-option with a mid layer or an optional outer layer was refused whole and the
-deterministic three were shown; the same rebuild refused 84 of 648 deterministic results
-at save time. The full flow pass on record ran on build 6 on 2026-09-13 (iPhone 14 Pro,
-no problem found); builds 7 and 8 are the first binaries that carry catalog version 4
-(jumpsuit and leggings womens-only) and the Crash Data privacy manifest row; the 2026-09-13
-build 8 check covered the badge, and the 2026-09-14 recording covered every flow. The iPhone 14 Pro is not Apple
-Intelligence eligible, so it exercises the Worker tier and the fallback only; the
-on-device tier remains unmeasured on eligible hardware, as ADR 0034's verification
-boundary records, and the Simulator run of the same day landed at the 6 s budget's
-edge. Real VoiceOver, background refresh and production analytics dispatch were not
-separately inspected on the device (see Known Issues).
+The evidence behind the release: the full-flow recording Apple asked for was captured on
+2026-09-14 on the maintainer's iPhone 14 Pro on iOS 26.6.2 from the TestFlight build 8,
+from app launch through onboarding, the location prompt, the first three-outfit
+recommendation, an outfit detail, the Weather tab, the city search and the Profile tab
+with the Closet and Settings; no crash or hang was seen. The earlier physical-device
+check of build 8 (2026-09-13, same device) showed the "AI assisted" badge against the
+production Worker, which is the point of the build: build 7 had shown "Standard
+suggestions" on every recommendation because the mobile validation gate rebuilt each
+picked option with the first valid arrangement of its garments instead of the offered
+one, refusing healthy Worker answers that picked a mid layer or an optional outer layer,
+and refusing 84 of 648 deterministic results at save time. Builds 7 and 8 are the first
+binaries with catalog version 4 (jumpsuit and leggings womens-only) and the Crash Data
+privacy manifest row. The iPhone 14 Pro is not Apple Intelligence eligible, so it
+exercises the Worker tier and the fallback only; the on-device tier remains unmeasured on
+eligible hardware, as ADR 0034's verification boundary records, and the Simulator run
+landed at the 6 s budget's edge. Real VoiceOver, background refresh and production
+analytics dispatch were not separately inspected on the device (see Known Issues).
 
 PostHog Error Tracking still has maintainer steps before an enabling build is submitted.
 The EAS `production` environment needs `POSTHOG_CLI_API_KEY` as a personal key scoped to
 `error_tracking:write` and `organization:read`, `POSTHOG_CLI_PROJECT_ID=270871`, and
 `POSTHOG_CLI_HOST=https://eu.posthog.com`; the project id and host are set, the key is not.
-App Store Connect's existing Crash Data answer must gain the Analytics purpose once the pending
-review of build 8 has concluded, because the answer is app-level and Apple asks that it reflect
+App Store Connect's existing Crash Data answer must gain the Analytics purpose now that
+0.1.20260913 is on sale, because the answer is app-level and Apple asks that it reflect
 the version on sale; the change goes through the web session (`asc web privacy pull`, edit,
 `plan`, `apply`, `publish`) or the App Privacy page. The organisation is on the free plan
 without a payment method, so PostHog stops ingestion at the free allowance instead of
