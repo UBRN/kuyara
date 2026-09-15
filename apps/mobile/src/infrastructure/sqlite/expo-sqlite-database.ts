@@ -14,7 +14,11 @@ import type {
 } from '@/infrastructure/sqlite/sqlite-database';
 
 class ExpoSqliteExecutor implements SqliteExecutor {
-  constructor(protected readonly database: SQLiteDatabase) {}
+  protected readonly database: SQLiteDatabase;
+
+  constructor(database: SQLiteDatabase) {
+    this.database = database;
+  }
 
   execAsync(source: string): Promise<void> {
     return this.database.execAsync(source);
@@ -43,9 +47,36 @@ class ExpoSqliteDatabase extends ExpoSqliteExecutor implements SqliteDatabase {
   }
 }
 
-export async function openKuyaraDatabase(): Promise<SqliteDatabase> {
+let connection: Promise<SqliteDatabase> | null = null;
+
+async function openConnection(): Promise<SqliteDatabase> {
   const database = await openDatabaseAsync('kuyara.db');
+  // expo-sqlite sets no busy_timeout and builds sqlite3 without SQLITE_DEFAULT_BUSY_TIMEOUT,
+  // so every connection starts at 0 and the first lock conflict fails instead of waiting.
+  // Five seconds is far longer than any statement here needs and still well inside the ten
+  // seconds the app already waits for weather, so a real deadlock surfaces as an error
+  // rather than a hung launch. It covers this connection only, the one every read and write
+  // outside a transaction uses; `withExclusiveTransactionAsync` opens each body on its own
+  // connection (`useNewConnection: true`), which keeps the default of 0.
+  await database.execAsync('PRAGMA busy_timeout = 5000;');
   return new ExpoSqliteDatabase(database);
+}
+
+/**
+ * Six composition roots open the database independently. expo-sqlite already hands them one
+ * shared native connection, but each call used to wrap it in a new object, so the migration
+ * memo in `migrateDatabase` had nothing stable to key on. Memoizing the open promise gives
+ * all of them the same handle. A failed open is not cached: the next caller retries.
+ */
+export function openKuyaraDatabase(): Promise<SqliteDatabase> {
+  if (!connection) {
+    connection = openConnection().catch((error: unknown) => {
+      connection = null;
+      throw error;
+    });
+  }
+
+  return connection;
 }
 
 /**
