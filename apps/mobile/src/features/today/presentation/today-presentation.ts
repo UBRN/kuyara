@@ -118,6 +118,11 @@ export type LoadedTodayPresentation = Readonly<{
     range: string;
     rainProbability: string;
     accessibilityLabel: string;
+    // The provider-neutral identifier of whoever answered, carried so Today can show the
+    // same attribution the Weather screen shows (ADR 0002 section 8). It is not display
+    // text: `WeatherAttribution` maps it to a localized line, a link and, for OpenWeather,
+    // the logo, and renders nothing for `sample` or an unrecognized identifier.
+    sourceId: string;
   }>;
   generationMode: Readonly<{
     label: string;
@@ -388,6 +393,7 @@ function createLoadedPresentation(
         maximum: weather.maximumTemperatureCelsius,
         rainProbability: Math.round(rainProbability * 100),
       }),
+      sourceId: weather.origin.sourceId,
     },
     generationMode,
     stageAccessibilityLabel: primary ? copy.stageAccessibilityLabel({

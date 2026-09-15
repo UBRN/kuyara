@@ -3,7 +3,6 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   AppState,
-  Linking,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -30,16 +29,11 @@ import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity'
 import type { ActiveLocation } from '@/features/weather/domain/weather';
 import { HourlyRail } from '@/features/weather/presentation/hourly-rail';
 import { remainingHourlyForecast } from '@/features/weather/presentation/remaining-hours';
+import { WeatherAttribution } from '@/features/weather/presentation/weather-attribution';
 import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
 import { useLocalization } from '@/localization/use-messages';
 import { interaction, layout, radii, spacing, typography } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
-
-const weatherAttributionUrls: Readonly<Record<string, string>> = {
-  'open-meteo': 'https://open-meteo.com/',
-  openweather: 'https://openweathermap.org/',
-  weatherkit: 'https://developer.apple.com/weatherkit/data-source-attribution/',
-};
 
 // One English tag for every value this screen formats, the same one Today and the alert
 // copy use. A date must not change convention with the day it falls on, and the hourly
@@ -268,12 +262,6 @@ export function WeatherScreen() {
     locationCaption,
     copy.changeLocationAction,
   );
-  const attributionLabels: Readonly<Record<string, string>> = {
-    'open-meteo': copy.attributionOpenMeteo,
-    openweather: copy.attributionOpenWeather,
-    weatherkit: copy.attributionAppleWeather,
-  };
-  const attributionLabel = attributionLabels[snapshot?.origin.sourceId ?? ''] ?? null;
   return (
     <Screen
       contentContainerStyle={styles.content}
@@ -487,19 +475,7 @@ export function WeatherScreen() {
                 ))}
               </View>
 
-              {attributionLabel ? (
-                <Pressable
-                  accessibilityRole="link"
-                  hitSlop={13}
-                  onPress={() => {
-                    void Linking.openURL(weatherAttributionUrls[snapshot.origin.sourceId]);
-                  }}
-                  style={styles.attribution}>
-                  <AppText colorRole="textSecondary" variant="caption">
-                    {attributionLabel}
-                  </AppText>
-                </Pressable>
-              ) : null}
+              <WeatherAttribution sourceId={snapshot.origin.sourceId} />
             </Surface>
             <View style={styles.headingRow}>
               <AppText
@@ -659,7 +635,6 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   stackedStat: { flex: 0, width: '100%' },
-  attribution: { alignSelf: 'flex-start' },
   headingRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: spacing.md },
   staleNotice: {
     alignItems: 'center',
