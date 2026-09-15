@@ -3,6 +3,11 @@
  * callers already use (`probe:YYYY-MM-DD`, `weather:weatherkit:YYYY-MM-DD`, ...). Distinct
  * counters therefore never serialise through one object.
  *
+ * Invariant: every key in one object carries the same caller prefix and ends in one UTC
+ * `YYYY-MM-DD`, so the keys sort lexically by date and "older" is `stored < key`. The sweep
+ * in `/increment` relies on it; a caller that mixed prefixes in one object would have its
+ * later-sorting prefix swept by the other one's new day.
+ *
  * Nothing here imports `cloudflare:workers`: the Node test runner cannot resolve that
  * scheme and `index.test.mjs` imports `index.ts`, which re-exports this class for wrangler.
  * The runtime shapes below are the structural subset the counter uses, so a Map-backed fake
@@ -66,11 +71,13 @@ export class DailyCounter {
       if (!key) return json({ error: 'missing_key' }, 400);
       const count = ((await this.#storage.get<number>(key)) ?? 0) + 1;
       await this.#storage.put(key, count);
-      // Old date keys must not pile up: the first increment of a new key drops the others,
-      // so the sweep runs once a day per object.
+      // Old date keys must not pile up: the first increment of a new key drops the older
+      // ones, so the sweep runs once a day per object. Only keys sorting before this one
+      // go: a request that computed yesterday's key just before UTC midnight can arrive
+      // after today's first increment, and its `count === 1` must not reset today's count.
       if (count === 1) {
         for (const stored of (await this.#storage.list()).keys()) {
-          if (stored !== key) await this.#storage.delete(stored);
+          if (stored < key) await this.#storage.delete(stored);
         }
       }
       return json({ count });

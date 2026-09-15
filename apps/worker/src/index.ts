@@ -13,16 +13,12 @@ import { createPlaceSearchHandler } from './places/place-search-handler.ts';
 import { WORKERS_AI_DAILY_ATTEMPT_LIMIT, createAiHandler } from './ai/ai-handler.ts';
 import type { AiProvider } from './ai/ai-provider.ts';
 import { OpenRouterAiProvider } from './ai/openrouter-ai-provider.ts';
-import { createProbeHandler, type ProbeDailyCounter } from './ai/probe-handler.ts';
+import { createProbeHandler } from './ai/probe-handler.ts';
 import {
   WorkersAiProvider,
   type WorkersAiBinding,
 } from './ai/workers-ai-provider.ts';
-import {
-  createDurableDailyCounter,
-  type DailyCounterNamespace,
-  type DurableDailyCounter,
-} from './daily-counter.ts';
+import { createDurableDailyCounter, type DailyCounterNamespace } from './daily-counter.ts';
 import { createRouter, type ExecutionContext, type Handler } from './router.ts';
 import { createWeatherHandler } from './weather-handler.ts';
 import {
@@ -78,15 +74,6 @@ const jsonHeaders = {
 function offlineRoute(route: string, binding: string, body: unknown): Handler {
   console.warn({ event: 'route_binding_missing', route, binding });
   return async () => Response.json(body, { status: 503, headers: jsonHeaders });
-}
-
-// The probe reads first and increments after its attempt; its `increment` returns nothing,
-// and `Promise<number>` is not assignable to `Promise<void>`, so the count is dropped here.
-function probeDailyCounter(counter: DurableDailyCounter): ProbeDailyCounter {
-  return {
-    get: counter.get,
-    increment: async (dateKey) => { await counter.increment(dateKey); },
-  };
 }
 
 const weatherUnavailable = weatherV1ErrorSchema.parse({ error: { code: 'weather_unavailable' } });
@@ -195,7 +182,7 @@ export function buildRouter(env: Env): Handler {
       : createProbeHandler({
         providers,
         rateLimiter: env.AI_PROBE_RATE_LIMIT,
-        dailyCounter: probeDailyCounter(createDurableDailyCounter(env.DAILY_COUNTERS, 'probe')),
+        dailyCounter: createDurableDailyCounter(env.DAILY_COUNTERS, 'probe'),
       });
   return createRouter({
     weatherHandler,
@@ -207,22 +194,47 @@ export function buildRouter(env: Env): Handler {
 }
 
 /**
- * Composition is isolate-scoped, not request-scoped. `env` is stable for the life of an
- * isolate (a named environment such as `e2e` runs in its own isolate with its own `env`),
- * so the first one seen is the only one there is. Composing inside `fetch` instead made
- * every per-isolate cache dead: the probe's 60 s result cache never outlived a request, and
- * the WeatherKit token provider re-imported the PKCS8 key and signed a fresh ES256 JWT on
+ * Composition is isolate-scoped, not request-scoped. Composing inside `fetch` made every
+ * per-isolate cache dead: the probe's 60 s result cache never outlived a request, and the
+ * WeatherKit token provider re-imported the PKCS8 key and signed a fresh ES256 JWT on
  * every `/v1/weather` call. Nothing request-scoped may be captured here: what the memo
  * holds is a CryptoKey promise, strings, plain config, the Durable Object namespace binding
  * (the stub is resolved per call, because a stub is bound to the request that created it)
  * and handler closures, and the handlers take the `Request` and the `ExecutionContext` as
  * arguments.
+ *
+ * The memo is keyed on the configuration the composition reads, not on the first `env`
+ * seen: Cloudflare documents that a deploy which changes only bindings (a rotated secret,
+ * an edited var) may reuse running isolates, so a memo that never looks at `env` again
+ * would keep signing with the old key, or keep a route offline after its binding was
+ * added, until the isolate recycled. Comparing a few strings per request is far cheaper
+ * than what the memo saves.
  */
-let router: Handler | undefined;
+function compositionKey(env: Env): string {
+  return JSON.stringify([
+    env.OPENROUTER_API_KEY,
+    env.OPENROUTER_MODELS,
+    env.WORKERS_AI_MODELS,
+    env.OPENWEATHER_API_KEY,
+    env.WEATHERKIT_TEAM_ID,
+    env.WEATHERKIT_SERVICE_ID,
+    env.WEATHERKIT_KEY_ID,
+    env.WEATHERKIT_PRIVATE_KEY,
+    // Binding presence decides which routes go offline and which providers are composed.
+    Boolean(env.AI),
+    Boolean(env.DAILY_COUNTERS),
+    Boolean(env.AI_PROBE_RATE_LIMIT),
+    Boolean(env.AI_RECOMMEND_RATE_LIMIT),
+    Boolean(env.WEATHER_RATE_LIMIT),
+  ]);
+}
+
+let composed: { key: string; router: Handler } | undefined;
 
 export default {
   fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    router ??= buildRouter(env);
-    return router(request, ctx);
+    const key = compositionKey(env);
+    if (composed?.key !== key) composed = { key, router: buildRouter(env) };
+    return composed.router(request, ctx);
   },
 };
