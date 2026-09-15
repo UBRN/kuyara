@@ -454,9 +454,10 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
   window (`expo.network.requests.slowestHost`, from `expo-app-metrics`
   `ios/Utils/MetricParamsBuilder.swift`). That rollup has no off switch in this version.
   Neither package ships a `PrivacyInfo.xcprivacy`, so the app's own privacy manifest and
-  questionnaire must cover this collection. Expo's Observe documentation states no retention
-  period, no IP handling and no data-collection inventory (configuration page, read
-  2026-09-13), so retention is an open item to settle with Expo before submission.
+  questionnaire must cover this collection. Expo's pricing page lists 90 days of data
+  retention for Observe on every plan (<https://expo.dev/pricing>); the Observe
+  configuration documentation states no IP handling and no data-collection inventory, so
+  those two stay open items with Expo.
 
   App Privacy rows Observe requires, against Apple's App Privacy Details page
   (<https://developer.apple.com/app-store/app-privacy-details/>, read 2026-09-15):
@@ -567,8 +568,9 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
   `CONTENT_APPEARED`) are local log lines in this version, not network calls
   (`ios/Insights.swift`, `ios/InsightsAppDelegateSubscriber.swift`,
   `android/.../insights/Insights.kt`,
-  `android/.../insights/ExpoInsightsApplicationLifecycle.kt`). Retention joins the Observe
-  retention question as one open item with Expo rather than three.
+  `android/.../insights/ExpoInsightsApplicationLifecycle.kt`). Expo publishes no
+  retention period for the Insights event or the Update check; whether Observe's 90-day
+  figure covers them is unknown, so their retention is one open item with Expo.
 
   App Privacy consequences: no new manifest row. The `APP_LAUNCH` event is an app launch,
   which is Apple's own first example under Product Interaction, already declared with the
