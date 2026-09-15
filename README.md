@@ -21,8 +21,8 @@ weather alerts.
 Apple WeatherKit is live in production at the head of the weather provider chain. The
 visual language (Direction E,
 [ADR 0021](docs/adr/0021-direction-e-a-visual-first-design-language.md)) is
-implemented on every surface. The shipped app has no account, cross-device sync or
-server-sent push; accounts on Supabase are an approved direction with no
+implemented on every surface. The shipped app has neither sign-in nor cross-device sync
+nor server-sent push; accounts on Supabase are an approved direction with no
 implementation. Consent-gated PostHog product analytics and EAS Observe diagnostics are
 implemented. See [`docs/current-status.md`](docs/current-status.md) for the current
 state and the remaining release blockers.
