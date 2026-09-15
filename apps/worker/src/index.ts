@@ -147,34 +147,50 @@ export function createWeatherProviders(env: Env): readonly WeatherProvider[] {
   return providers;
 }
 
+function buildRouter(env: Env): (request: Request) => Promise<Response> {
+  const providers = createAiProviders(env);
+  const weatherHandler = createWeatherHandler({
+    provider: createWeatherProviderChain({ providers: createWeatherProviders(env) }),
+    rateLimiter: env.WEATHER_RATE_LIMIT ?? permissiveRateLimiter,
+  });
+  const aiHandler = createAiHandler({
+    providers,
+    rateLimiter: env.AI_RECOMMEND_RATE_LIMIT,
+  });
+  const probeHandler = createProbeHandler({
+    providers,
+    rateLimiter: env.AI_PROBE_RATE_LIMIT ?? permissiveRateLimiter,
+    dailyCounter: env.PROBE_COUNTER
+      ? createKvProbeDailyCounter(env.PROBE_COUNTER)
+      : permissiveProbeDailyCounter,
+  });
+  return createRouter({
+    weatherHandler,
+    placeSearchHandler: createPlaceSearchHandler({
+      provider: new OpenMeteoPlaceProvider(),
+      rateLimiter: env.WEATHER_RATE_LIMIT ?? { limit: async () => ({ success: false }) },
+    }),
+    aiHandler,
+    probeHandler,
+    aiReady: providers.length > 0,
+  });
+}
+
+/**
+ * Composition is isolate-scoped, not request-scoped. `env` is stable for the life of an
+ * isolate (a named environment such as `e2e` runs in its own isolate with its own `env`),
+ * so the first one seen is the only one there is. Composing inside `fetch` instead made
+ * every per-isolate cache dead: the probe's 60 s result cache never outlived a request, and
+ * the WeatherKit token provider re-imported the PKCS8 key and signed a fresh ES256 JWT on
+ * every `/v1/weather` call. Nothing request-scoped may be captured here: what the memo
+ * holds is a CryptoKey promise, strings, plain config and handler closures, and the handlers
+ * take the `Request` as an argument.
+ */
+let router: ((request: Request) => Promise<Response>) | undefined;
+
 export default {
   fetch(request: Request, env: Env): Promise<Response> {
-    const providers = createAiProviders(env);
-    const rateLimiter = env.WEATHER_RATE_LIMIT ?? permissiveRateLimiter;
-    const weatherHandler = createWeatherHandler({
-      provider: createWeatherProviderChain({ providers: createWeatherProviders(env) }),
-      rateLimiter,
-    });
-    const aiHandler = createAiHandler({
-      providers,
-      rateLimiter: env.AI_RECOMMEND_RATE_LIMIT,
-    });
-    const probeHandler = createProbeHandler({
-      providers,
-      rateLimiter: env.AI_PROBE_RATE_LIMIT ?? permissiveRateLimiter,
-      dailyCounter: env.PROBE_COUNTER
-        ? createKvProbeDailyCounter(env.PROBE_COUNTER)
-        : permissiveProbeDailyCounter,
-    });
-    return createRouter({
-      weatherHandler,
-      placeSearchHandler: createPlaceSearchHandler({
-        provider: new OpenMeteoPlaceProvider(),
-        rateLimiter: env.WEATHER_RATE_LIMIT ?? { limit: async () => ({ success: false }) },
-      }),
-      aiHandler,
-      probeHandler,
-      aiReady: providers.length > 0,
-    })(request);
+    router ??= buildRouter(env);
+    return router(request);
   },
 };
