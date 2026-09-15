@@ -9,7 +9,7 @@ import {
   todayScreenState,
   todayWardrobeItems,
 } from '@/features/today/__tests__/fixtures';
-import { unavailableTodayState } from '@/features/today/model';
+import { unavailableTodayState, type TodayScreenState } from '@/features/today/model';
 import { OutfitDetailScreen } from '@/features/today/presentation/outfit-detail-screen';
 import {
   createDetailCaptionLayout,
@@ -1233,4 +1233,73 @@ test('the phase mark holds still under Reduce Motion', async () => {
 
   expect(await markOpacity(lightTheme)).toBeCloseTo(AMBIENT_PULSE_FLOOR);
   expect(await markOpacity(createKuyaraTheme('light', true))).toBeCloseTo(1);
+});
+
+// ADR 0002 section 8: every surface that shows temperature or condition names its
+// provider, so Today carries the same attribution the Weather screen does.
+describe.each(['en', 'tr'] as const)('%s Today attribution', (language: SupportedLanguage) => {
+  function stateFromSource(sourceId: string) {
+    return {
+      ...todayScreenState,
+      snapshot: {
+        ...todayScreenState.snapshot,
+        weather: {
+          ...todayScreenState.snapshot.weather,
+          origin: { kind: 'live', sourceId },
+        },
+      },
+    } as TodayScreenState;
+  }
+
+  test.each([
+    ['openweather', messages[language].weather.attributionOpenWeather, true],
+    ['weatherkit', messages[language].weather.attributionAppleWeather, false],
+  ] as const)('names %s beneath the last section', async (sourceId, label, showsLogo) => {
+    const result = await render(providers(
+      <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
+        onRefresh={jest.fn()} state={stateFromSource(sourceId)} />,
+      lightTheme, language,
+    ));
+
+    const attribution = within(result.getByTestId('today-attribution'));
+    expect(attribution.getByText(label)).toBeOnTheScreen();
+    expect(result.getByRole('link', { name: label })).toBeOnTheScreen();
+    const logo = result.queryByTestId('weather-attribution-logo', {
+      includeHiddenElements: true,
+    });
+    if (showsLogo) {
+      expect(logo).toBeOnTheScreen();
+    } else {
+      expect(logo).toBeNull();
+    }
+  });
+
+  test('keeps the attribution on a stale snapshot and drops it for the sample source', async () => {
+    const stale = {
+      ...todayScreenState,
+      snapshot: {
+        ...todayScreenState.snapshot,
+        freshness: 'stale',
+        weather: {
+          ...todayScreenState.snapshot.weather,
+          origin: { kind: 'live', sourceId: 'openweather' },
+        },
+      },
+    } as TodayScreenState;
+    const staleResult = await render(providers(
+      <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
+        onRefresh={jest.fn()} state={stale} />,
+      lightTheme, language,
+    ));
+    expect(staleResult.getByText(messages[language].weather.attributionOpenWeather))
+      .toBeOnTheScreen();
+
+    const sampleResult = await render(providers(
+      <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
+        onRefresh={jest.fn()} state={todayScreenState} />,
+      lightTheme, language,
+    ));
+    expect(sampleResult.queryByRole('link')).toBeNull();
+    expect(sampleResult.getByTestId('today-attribution').children).toHaveLength(0);
+  });
 });

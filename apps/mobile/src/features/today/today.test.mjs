@@ -583,3 +583,27 @@ test('the stage label reads temperature, condition, pieces and archetype in both
     /^\d+ santigrat derece\. .+\. .+, .+\. .+\.$/,
   );
 });
+
+// ADR 0002 section 8: Today shows the attribution of whoever answered, so the presentation
+// carries the snapshot's provider-neutral identifier rather than the screen reaching past
+// it into the raw snapshot. It stays an identifier: no display text is derived here.
+test('the presentation carries the weather snapshot source identifier verbatim', () => {
+  const withSource = (sourceId) => ({
+    ...todayScreenState,
+    snapshot: {
+      ...todayScreenState.snapshot,
+      weather: {
+        ...todayWeatherSnapshot,
+        origin: { kind: 'live', sourceId },
+      },
+    },
+  });
+
+  assert.equal(loadedPresentation().weather.sourceId, todayWeatherSnapshot.origin.sourceId);
+  assert.equal(loadedPresentation(withSource('openweather')).weather.sourceId, 'openweather');
+  assert.equal(loadedPresentation(withSource('weatherkit')).weather.sourceId, 'weatherkit');
+  assert.equal(
+    loadedPresentation(withSource('openweather'), 'tr').weather.sourceId,
+    'openweather',
+  );
+});

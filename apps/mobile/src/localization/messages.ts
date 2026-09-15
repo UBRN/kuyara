@@ -307,6 +307,7 @@ export type AppMessages = Readonly<{
     attributionOpenMeteo: string;
     attributionOpenWeather: string;
     attributionAppleWeather: string;
+    attributionHint: (host: string) => string;
     placeSearchTitle: string;
     placeSearchLabel: string;
     placeSearchPlaceholder: string;
@@ -638,9 +639,10 @@ const en = {
     rateLimitedTitle: 'Weather updates are paused for a moment',
     rateLimitedBody: 'Too many weather requests right now. Please try again shortly.',
     rateLimitedNotice: 'Weather updates are paused for a moment. The last matching weather remains visible.',
-    attributionOpenMeteo: 'Weather data by Open-Meteo.com',
-    attributionOpenWeather: 'Weather data by OpenWeather',
+    attributionOpenMeteo: 'Weather data by Open-Meteo.com (CC BY 4.0)',
+    attributionOpenWeather: 'Weather data provided by OpenWeather (ODbL)',
     attributionAppleWeather: 'Weather data by Apple Weather',
+    attributionHint: (host) => `Opens ${host}`,
     placeSearchTitle: 'Location',
     placeSearchLabel: 'Search for a city',
     placeSearchPlaceholder: 'Search for a city',
@@ -1117,9 +1119,10 @@ const tr = {
     rateLimitedTitle: 'Hava durumu güncellemeleri kısa süreliğine durduruldu',
     rateLimitedBody: 'Şu anda çok fazla hava durumu isteği var. Lütfen kısa süre sonra yeniden dene.',
     rateLimitedNotice: 'Hava durumu güncellemeleri kısa süreliğine durduruldu. Son eşleşen hava durumu gösterilmeye devam ediyor.',
-    attributionOpenMeteo: 'Hava durumu verisi: Open-Meteo.com',
-    attributionOpenWeather: 'Hava durumu verisi: OpenWeather',
+    attributionOpenMeteo: 'Hava durumu verisi: Open-Meteo.com (CC BY 4.0)',
+    attributionOpenWeather: 'Hava durumu verisi: OpenWeather (ODbL)',
     attributionAppleWeather: 'Hava durumu verisi: Apple Weather',
+    attributionHint: (host) => `${host} adresini açar`,
     placeSearchTitle: 'Konum',
     placeSearchLabel: 'Şehir ara',
     placeSearchPlaceholder: 'Şehir ara',
