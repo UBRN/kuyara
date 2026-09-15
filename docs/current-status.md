@@ -281,9 +281,10 @@ Diagnostic Data, Crash Data and the App Functionality purpose on Device ID), ent
 with the `asc` CLI on 2026-09-13 and published, and the ten framed screenshots (five per
 localization, `APP_IPHONE_67`) uploaded the same day; `asc validate` reports no blocking
 finding. The privacy policy and support pages are published from `main` on GitHub Pages
-(`/privacy-policy` and `/support`) with `docs/_config.yml` and a layout override, so the
-page metadata no longer inherits the GitHub repository description and the theme's
-"open source" footer is gone. No app preview video is used: Apple allows only raw
+in English (`/privacy-policy` and `/support`) and Turkish (`/tr/privacy-policy` and
+`/tr/support`) with `docs/_config.yml` and a layout override that carries the language
+switcher, so the page metadata no longer inherits the GitHub repository description and
+the theme's "open source" footer is gone. No app preview video is used: Apple allows only raw
 in-app footage there, so it did not earn its place, and the preview sets in both
 localizations were emptied on 2026-09-13. The uploaded hero screenshot in both
 localizations shows a deterministic-fallback result ("Standard suggestions") whose
@@ -331,9 +332,9 @@ before submitting is the maintainer's call.
   through SwiftUI `tint()` and reverted on Simulator evidence (see Known Issues).
   Checks: `pnpm check`, the component suite (396 tests), the design-language greps, and
   one Simulator tour.
-- **Milestone 11 documents** (2026-09-11): `docs/privacy-policy.md` and `docs/support.md`,
-  English and Turkish, written from ADR 0033's findings for publication through GitHub
-  Pages; `PRIVACY_POLICY_URL` set to the published address with a route test proving the
+- **Milestone 11 documents** (2026-09-11): `docs/privacy-policy.md` and `docs/support.md`
+  in English with `docs/tr/privacy-policy.md` and `docs/tr/support.md` in Turkish, written
+  from ADR 0033's findings for publication through GitHub Pages; `PRIVACY_POLICY_URL` set to the published address with a route test proving the
   Settings Privacy row opens it; the Settings identifier footer says the identifier can
   be quoted in a data request and does not promise deletion. ADR 0033 section 7 records
   the lawful-basis and deletion decisions.

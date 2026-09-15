@@ -335,10 +335,11 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
 1. The privacy policy states what is collected (the categories in section 1), why, that
    PostHog processes it under equal protection, the retention period, how to withdraw in
    Settings, and how to request deletion naming the identifier. Its URL goes into App
-   Store Connect and into the app. `docs/privacy-policy.md` provides English and Turkish
-   versions published from the main branch's `docs/` folder through GitHub Pages at
-   <https://ubrn.github.io/kuyara/privacy-policy>; the app's `PRIVACY_POLICY_URL` carries
-   the same address and the Settings Privacy row opens it. The URL is live and entered in
+   Store Connect and into the app. `docs/privacy-policy.md` and `docs/tr/privacy-policy.md`
+   provide the English and Turkish versions published from the main branch's `docs/` folder
+   through GitHub Pages at <https://ubrn.github.io/kuyara/privacy-policy> and
+   <https://ubrn.github.io/kuyara/tr/privacy-policy>; the app's `PRIVACY_POLICY_URL` carries
+   the English address and the Settings Privacy row opens it. The URL is live and entered in
    App Store Connect.
 2. The questionnaire is filled from the Xcode privacy report and section 1, marking every
    category as not used for tracking and with the linkage answer from section 7. The answer
