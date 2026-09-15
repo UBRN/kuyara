@@ -45,7 +45,7 @@ The Worker serves real weather through a WeatherKit/Open-Meteo/OpenWeather chain
 and AI recommendations through ordered Workers AI/OpenRouter adapters for devices
 that cannot select on-device. Weather
 and AI routes are rate limited, the active AI probe is available from Settings,
-and preview/production mobile builds use the deployed Worker. The contracts
+and production mobile builds use the deployed Worker. The contracts
 package owns the provider-neutral runtime schemas.
 
 ## Getting started
