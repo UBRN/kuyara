@@ -138,7 +138,13 @@ Analytics is sequenced before the first public App Store release, so milestones 
     Performance Data, Other Diagnostic Data, Crash Data and the App Functionality purpose
     on Device ID to the answer set (ADR 0033 sections 1 and 7); the privacy policy in
     `docs/` discloses them, the App Store Connect questionnaire carries them, and the
-    policy is published (see Release State).
+    policy is published (see Release State). `expo-insights` is installed and the
+    `expo-updates` launch check is documented: both send the EAS install identifier to Expo
+    outside the consent gate, the launch event on every cold start and the update check on
+    every launch, both privacy policies disclose them, and
+    neither adds a privacy-manifest row or a questionnaire answer (ADR 0033 sections 3 and
+    7). The questionnaire answer set is re-derived against ADR 0033 section 7 before the next
+    submission, and `expo-insights` sends nothing until the next native build.
 12. **PostHog Error Tracking.** [ADR 0035](adr/0035-posthog-error-tracking.md) is accepted
     and its repository work is implemented: uncaught exceptions and unhandled rejections
     only, the existing consent gate, a field-level `before_send` allowlist, deduplication and
@@ -389,6 +395,9 @@ before submitting is the maintainer's call.
 
 ## Known Issues and Manual Verification Gaps
 
+- **Expo retention is unknown.** Expo publishes no retention period for EAS Observe, EAS
+  Insights or the EAS Update check, which all receive the same install identifier. Both
+  privacy policies say so rather than naming a period.
 - **EAS Observe has two external open items.** The `expo-observe`, `expo-app-metrics`
   and `expo-eas-client` packages ship no privacy manifest and do not clear pre-consent
   unhandled-error records on iOS. Two issue drafts for `expo/expo` were prepared on

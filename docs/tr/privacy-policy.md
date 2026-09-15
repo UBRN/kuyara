@@ -6,7 +6,7 @@ ref: privacy-policy
 
 # kuyara gizlilik politikası
 
-Yürürlük tarihi: 13 Eylül 2026.
+Yürürlük tarihi: 15 Eylül 2026.
 
 kuyara, iOS ve Android için bir hava durumu ve kıyafet önerisi uygulamasıdır. Bu metin
 uygulamanın cihazından hangi verileri gönderdiğini, neden gönderdiğini ve bu konuda ne
@@ -15,9 +15,11 @@ yapabileceğini anlatır.
 ## Özet
 
 - kuyara senden oturum açmanı istemiyor. Profilin, Gardırobun ve ayarların cihazında durur.
-- kuyara'nın uygulamayı nasıl kullandığına dair tuttuğu tek veri, isteğe bağlı kullanım
-  analitiği ve tanılama verisidir. Yalnızca tanışma adımlarından sonra sorulan onay sorusunu
-  kabul edersen gönderilir.
+- Kullanım analitiği ve tanılama verisi isteğe bağlıdır. Yalnızca tanışma adımlarından
+  sonra sorulan onay sorusunu kabul edersen gönderilir.
+- kuyara'nın geliştirildiği araç seti olan Expo'nun yaptığı iki istek, bu yanıttan önce ve
+  yanıttan bağımsız olarak her açılışta gerçekleşir. Bu istekler rastgele bir kurulum kimliği
+  ile uygulamaya ve cihaza dair sürüm bilgileri taşır; kuyara'ya girdiğin hiçbir şeyi taşımaz.
 - Analitik hiçbir zaman konumunu, fotoğraflarını, Gardırop içeriğini, adını, doğum
   tarihini ya da yazdığın bir şeyi içermez.
 - kuyara seni başka uygulamalarda veya sitelerde izlemez, reklam göstermez ve veri satmaz.
@@ -77,6 +79,8 @@ sorduğu aynı onay sorusuna bağlıdır. Yalnızca kabul edersen gönderilir. R
   tanılama verilerini içerir. Bunlar seni değil, uygulamanın kodunu anlatır. Yine de
   uygulamanın o anda işlediği teknik metni içerebilir. iOS çökme tanılama verilerini
   uygulamaya sonraki bir açılışta verir; paylaşım açıkken bir sonraki gönderimle iletilir.
+  Ele alınmamış JavaScript hatalarının raporları ve yığın izleri, aynı onay yanıtı kapsamında
+  kuyara'nın analitik sağlayıcısı PostHog'a da, AB bölgesine gider.
 - **Ağ performansı.** Uygulamanın açılış aralığındaki en yavaş ağ isteğinin gittiği
   sunucunun adı.
 - **Teknik bilgiler.** Expo paketinin oluşturduğu rastgele kurulum kimliği, işletim
@@ -102,6 +106,40 @@ daha sonra gönderilebilir. Yanıtın "hayır" olduğu sürece hiçbir şey gön
 Apple'ın App Store tanımlarına göre bu veri, kurulum kimliği üzerinden "kullanıcıyla
 ilişkili" sayılır. İzleme için kullanılmaz.
 
+## Expo açılış istekleri
+
+kuyara Expo ile geliştirildi ve Expo'nun kendi paketlerinden ikisi uygulama her
+başladığında bir istek gönderiyor. Bu istekler, onay yanıtın okunabilmesinden önce
+uygulamanın yerel kodunda çalışır. Bu nedenle ikisi de Ayarlar'daki Gizlilik anahtarının
+kapsamına girmez. Açılış sayımı uygulama içinden kapatılamaz. Güncelleme kontrolü ise
+kuyara'nın güncellemeleri iletme yolu olduğu için açık tutuluyor.
+
+- **Açılış sayımı.** Uygulama her sıfırdan başlatıldığında Expo Insights'a,
+  `https://i.expo.dev` adresine bir istek. Bir kurulum kimliği, kuyara'nın Expo proje
+  kimliği, uygulama sürümü, platform ve işletim sistemi sürümü taşır.
+- **Güncelleme kontrolü.** Her açılışta Expo Updates'e, `https://u.expo.dev` adresine,
+  uygulamanın daha yeni bir sürümü olup olmadığını soran bir istek. Aynı kurulum kimliğini
+  bir istek başlığında, platform ve uygulamanın çalışma zamanı sürümüyle birlikte taşır.
+  Önceki açılışta uygulama ele alamadığı bir şekilde çöktüyse, güncelleme kontrolü o çökmenin
+  teknik hata metnini de taşır. Bu metin uygulamanın kodunu anlatır, ancak uygulamanın o anda
+  işlediği teknik metni içerebilir.
+
+Kurulum kimliği, yukarıdaki Performans ve tanılama bölümünde anlatılan rastgele kurulum
+değerinin aynısıdır.
+
+**Bu isteklere asla girmeyenler:** konumun, koordinatların veya şehrin; Gardırop içeriği
+veya fotoğrafları; profil tercihlerin; adın, doğum tarihin veya cinsiyetin; yazdığın hiçbir
+şey; analitik kimliği; uygulamanın yerel profil kimliği.
+
+**Neden.** Yayınlanan her sürüm için kurulum ve açılış sayılarını görmek ve uygulama
+güncellemelerini iletmek için.
+
+**İşleyici.** Expo her iki isteği de HTTPS üzerinden alır. Expo bu veri için bir saklama
+süresi yayınlamamıştır. Süre kesinleştiğinde bu politika güncellenecektir.
+
+kuyara'yı cihazından silmek kurulum kimliğini de siler; yeni bir kurulum yeni bir kimlik
+oluşturur; ancak bir cihaz yedeği geri yüklenirse eski kimlik geri gelebilir.
+
 ## Analitiği ve tanılamayı kapatmak
 
 Ayarlar'ı, ardından Gizlilik'i aç ve "Kullanım verisi paylaş" seçeneğini kapat. Gönderim
@@ -110,7 +148,8 @@ sonra gönderilmez. Expo paketi hata kayıtlarını cihazında yazmaya devam ede
 paylaşım kapalıyken hiçbiri gönderilmez. Uygulama analitik kimliğini de siler; böylece o ana
 kadar toplanan olaylar sonrasında toplananlarla ilişkilendirilemez. Tanılama kimliği
 cihazında kalır, ancak onunla
-başka hiçbir şey gönderilmez. Paylaşımı yeniden açmak yeni bir analitik kimliği oluşturur.
+başka hiçbir şey gönderilmez. Paylaşımı yeniden açmak yeni bir analitik kimliği oluşturur. Yukarıda
+anlatılan iki Expo açılış isteği bu anahtarın kapsamında değildir ve her durumda devam eder.
 
 ## Silme talebi
 
@@ -125,8 +164,8 @@ silinmesini istersen:
 kuyara talebi PostHog'a iletir ve sonucu sana bildirir; ancak profilsiz olayların erken
 silinebileceğini garanti edemez. Her durumda olaylar 12 ay sonra silinir.
 
-Tanılama verisi, uygulamanın göstermediği ayrı bir kimlik taşır. Bu yüzden kuyara şu anda
-bu verinin kimlikle silinmesini talep edemez. Expo'nun yöntemi kesinleştiğinde bu bölüm
+Tanılama verisi ve iki Expo açılış isteği, uygulamanın göstermediği ayrı bir kimlik taşır.
+Bu yüzden kuyara şu anda bu verinin kimlikle silinmesini talep edemez. Expo'nun yöntemi kesinleştiğinde bu bölüm
 güncellenecektir.
 
 ## Hava durumu ve öneriler

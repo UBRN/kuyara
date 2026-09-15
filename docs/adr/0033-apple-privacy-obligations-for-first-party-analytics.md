@@ -7,7 +7,8 @@ adapter, and PostHog project configuration are complete. Milestone 11 items 1 an
 complete, consent is the recorded lawful basis, and the maintainer signed PostHog's DPA on
 2026-09-11. No PostHog analytics is recorded or queued before consent. EAS Observe
 performance and diagnostic telemetry is bound to the same consent answer; its disclosure rows are in
-section 7. This ADR defines Apple's privacy requirements for the analytics direction in
+section 7. Two Expo launch-time requests sit outside that consent answer; section 3 states the
+exception and section 7 inventories them. This ADR defines Apple's privacy requirements for the analytics direction in
 [ADR 0023](0023-behavioural-product-analytics-with-posthog.md) and the resulting consent,
 revocation, deletion, and disclosure rules.
 
@@ -169,6 +170,41 @@ surface follows these constraints:
   beside the privacy policy link the same guideline requires in the app.
 - Copy from localization keys, Turkish and English, and the same copy discipline as the
   rest of Settings.
+
+**Two Expo launch-time requests fall outside this gate.** `expo-insights` dispatches from
+native code at module registration, before any JavaScript consent state can be read, and
+exposes no runtime API, config-plugin option or environment variable the app could gate: it is
+enabled by being installed and disabled only by being removed. `expo-updates` dispatches its
+launch check from native code on the same schedule; `updates.checkAutomatically: NEVER` would
+suppress it, and is deliberately not set, because the check is how EAS Update delivers updates
+at all.
+
+- `expo-insights` sends one `APP_LAUNCH` event per cold start to
+  `https://i.expo.dev/v1/c/<projectId>`, a GET carrying `event_name`, `eas_client_id`,
+  `project_id`, `app_version`, `platform` and `os_version` in the query string.
+- `expo-updates` sends the update check to `https://u.expo.dev/<projectId>` on every launch,
+  carrying the same install identifier in an `EAS-Client-ID` request header beside the
+  platform, protocol, environment, runtime-version and error headers.
+  `updates.checkAutomatically` is unset in `app.json`, and its documented default is `ON_LOAD`.
+
+Both carry the EAS install identifier, the random per-installation UUID `expo-eas-client`
+stores in native preferences and shares across EAS client libraries, so both flows report the
+same value as EAS Observe. Neither carries coordinates, wardrobe data, photos, profile
+preferences, an advertising identifier or `localProfileId`. The update check carries one
+free-text field, `Expo-Fatal-Error`, which is the previous launch's serialised fatal error,
+sent once and then deleted from the device. Neither is product-behaviour analytics in the
+[ADR 0023](0023-behavioural-product-analytics-with-posthog.md) sense: there is no call site,
+no taxonomy entry and no event property, and nothing passes the `ProductAnalytics` boundary. They are disclosed as Analytics and App Functionality data
+respectively, and inventoried in section 7.
+
+This is a deliberate exception to the consent-before-collection rule above, accepted by the
+maintainer. The controls that remain are disclosure in the privacy policy and the App Privacy
+declaration: the user cannot withdraw from either request inside the app, the Settings control
+does not claim to cover them, and deleting the app removes the identifier. `expo-insights` is
+installed because a free app with no sign-in and no store-independent install signal has no
+other way to see aggregate install and launch counts per store version. Red line: if App
+Review objects to the ungated launch event, the only lever is removing `expo-insights`, and
+that is the fallback.
 
 **GDPR, KVKK and similar statutes are legal questions, not Apple rules.** Consent is the
 maintainer's recorded lawful basis for kuyara's analytics, and the maintainer signed
@@ -345,7 +381,8 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
    category as not used for tracking and with the linkage answer from section 7. The answer
    sheet uses section 1 (Product Interaction and
    Other Usage Data, each collected, linked to the user, not used for tracking, purpose
-   Analytics; no other category), and the same answers are entered in App Store Connect.
+   Analytics) together with the diagnostics, Crash Data and Device ID rows in section 7, and
+   the same answers are entered in App Store Connect.
 3. Apple's three pages cited in sections 1 to 3 are re-read on the submission date, and
    any changed obligations are reflected in the current decision and supporting documents.
 4. If accounts ship before or with analytics, account deletion also deletes analytics data
@@ -435,14 +472,15 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
   Apple's own identifier list: `NSPrivacyCollectedDataTypePerformanceData`,
   `NSPrivacyCollectedDataTypeOtherDiagnosticData`, `NSPrivacyCollectedDataTypeDeviceID` and
   `NSPrivacyCollectedDataTypeCrashData`, each linked and not tracking. The Crash Data row
-  uses only `NSPrivacyCollectedDataTypePurposeAppFunctionality`. Apple's purpose list has no
+  carries both purposes. Apple's purpose list has no
   diagnostics entry; the closest match is `NSPrivacyCollectedDataTypePurposeAppFunctionality`, defined as "such as to
   authenticate the user, enable features, prevent fraud, implement security measures, ensure
   server up-time, minimize app crashes, improve scalability and performance, or perform
   customer support", which is what this telemetry is for. `NSPrivacyCollectedDataTypePurposeAnalytics`
   is defined as "using data to evaluate user behavior", which Observe deliberately does not
   do. The Device ID row carries both purposes, because one row covers both per-install
-  identifiers: PostHog's is collected for analytics and Observe's for app functionality.
+  identifiers: PostHog's is collected for analytics, and the EAS install identifier is collected
+  for app functionality by Observe and the update check and for analytics by Insights.
   (`NSPrivacyCollectedDataType` and `NSPrivacyCollectedDataTypePurposes`, read 2026-09-13.)
 
   `NSPrivacyAccessedAPITypes` is deliberately not extended for the `UserDefaults` read
@@ -510,6 +548,38 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
   are disabled (`invocation_logs = false`) or sampled to zero before the next submission,
   and the questionnaire answer is re-derived before it is filed.
 
+- **Expo launch-time requests, outside the consent gate.** Two native Expo modules dispatch
+  on launch before consent can be read: `expo-insights` cannot be gated at all, and the
+  `expo-updates` check is not gated by choice. Section 3 states the exception and the reason.
+  Both carry the same EAS install identifier the Observe rows above declare, so it is declared
+  for three EAS endpoints and is still one identifier. Expo adds two facts about its lifetime: it is "stable across app launches, app updates, and EAS
+  Updates", and it "changes when the app's data is cleared or when the app is reinstalled,
+  although a backup restore (including Android Auto Backup on reinstall) can carry the previous
+  ID over" (<https://docs.expo.dev/eas/observe/reference/client-id/>, read 2026-09-15).
+
+  | Flow | Recipient and endpoint | Fields sent | Purpose | Identifier | Consent | Retention |
+  |---|---|---|---|---|---|---|
+  | `expo-insights` app launch | Expo, `https://i.expo.dev/v1/c/<projectId>`, GET with query string | `event_name` (`APP_LAUNCH`), `eas_client_id`, `project_id`, `app_version` (`CFBundleShortVersionString` on iOS, `versionName` on Android), `platform` (`iOS`, `android`), `os_version` (system version string on iOS, API level on Android) | Aggregate install and launch counts per platform and store version, shown in the EAS Insights App usage tab | EAS install identifier | Cannot be gated; dispatched from native `OnCreate` on every cold start | Not stated by Expo, so unknown |
+  | `expo-updates` update check | Expo, `https://u.expo.dev/<projectId>`, GET manifest request | `EAS-Client-ID`, `Expo-Platform`, `Expo-Protocol-Version`, `Expo-API-Version`, `Expo-Updates-Environment`, `Expo-Runtime-Version`, `Expo-JSON-Error`, `Accept` headers, and `Expo-Fatal-Error` (the previous launch's fatal error text, truncated to 1024 characters, only after a fatal error); no body | Deliver EAS Update manifests, and Expo aggregates the same requests into the App usage view | EAS install identifier | Not gated by choice; `updates.checkAutomatically` is unset and defaults to `ON_LOAD` | Not stated by Expo, so unknown |
+
+  The PostHog analytics identifier reaches neither flow. The other five `expo-insights`
+  markers (`PROCESS_START`, `RUN_JS_BUNDLE_START`, `RUN_JS_BUNDLE_END`, `APP_STARTUP_END`,
+  `CONTENT_APPEARED`) are local log lines in this version, not network calls
+  (`ios/Insights.swift`, `ios/InsightsAppDelegateSubscriber.swift`,
+  `android/.../insights/Insights.kt`,
+  `android/.../insights/ExpoInsightsApplicationLifecycle.kt`). Retention joins the Observe
+  retention question as one open item with Expo rather than three.
+
+  App Privacy consequences: no new manifest row. The `APP_LAUNCH` event is an app launch,
+  which is Apple's own first example under Product Interaction, already declared with the
+  Analytics purpose. The update check serves update delivery, which is App Functionality, and
+  Expo also aggregates it into the App usage view, which is an analytics use; no manifest
+  consequence follows either way, because the Device ID row already carries both purposes. The
+  `Expo-Fatal-Error` header is covered by the existing Crash Data row under
+  `ios.privacyManifests`, which carries both purposes. `apps/mobile/app.json` is therefore
+  unchanged, and the App Store Connect questionnaire needs no new answer before the next
+  submission.
+
 ## Consequences
 
 - A consent prompt before collection and a withdrawal control in Settings are part of
@@ -518,6 +588,8 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
 - The App Store questionnaire answer set is known in advance: Product Interaction and
   Other Usage Data for analytics, Performance Data, Other Diagnostic Data, Crash Data and
   Device ID for the EAS Observe integration, no Location, no tracking, and linked to the user.
+  The two Expo launch-time requests add no category: they fall inside the Product
+  Interaction, Device ID and App Functionality answers already filed.
 - Apple's account-deletion rule does not apply to the first release, but the privacy
   policy still has to describe revocation and a deletion request path, and the accounts
   milestone inherits an analytics-deletion obligation.
@@ -545,9 +617,11 @@ Apple, all read 2026-09-09:
 - Describing data use in privacy manifests: <https://developer.apple.com/documentation/bundleresources/describing-data-use-in-privacy-manifests>
 - Upcoming third-party SDK requirements: <https://developer.apple.com/support/third-party-SDK-requirements/>
 
-Expo, read 2026-09-13:
+Expo:
 
-- EAS Observe configuration: <https://docs.expo.dev/eas/observe/configuration/>
+- EAS Observe configuration, read 2026-09-13: <https://docs.expo.dev/eas/observe/configuration/>
+- EAS Observe client ID, read 2026-09-15: <https://docs.expo.dev/eas/observe/reference/client-id/>
+- EAS Insights App usage, read 2026-09-15: <https://docs.expo.dev/eas-insights/app-usage/>
 - Source: `expo-observe@57.0.21` (`ios/OpenTelemetry.swift`, `ios/Observability.swift`,
   `ios/ObserveModule.swift`, `src/types.ts`), `expo-app-metrics@57.0.18`
   (`ios/Utils/MetricParamsBuilder.swift`, `src/installErrorHandler.ts`,
@@ -555,6 +629,12 @@ Expo, read 2026-09-13:
   `ios/LogEvents/ErrorReport.swift`) and
   `expo-eas-client@57.0.4` (`ios/EASClient/EASClientID.swift`), as installed in this
   repository
+- Source, read 2026-09-15: `expo-insights@57.0.18` (`ios/InsightsModule.swift`,
+  `ios/Insights.swift`, `android/src/main/java/expo/modules/insights/ExpoInsightsModule.kt`,
+  `build/index.js`), `expo-updates@57.0.22`
+  (`ios/EXUpdates/AppLoader/FileDownloader.swift`, `setHTTPHeaderFields`) and
+  `@expo/config-types` (`updates.checkAutomatically`, "`ON_LOAD` (default value)"), as
+  installed in this repository
 
 Cloudflare, read 2026-09-13:
 

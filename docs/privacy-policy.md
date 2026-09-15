@@ -6,7 +6,7 @@ ref: privacy-policy
 
 # kuyara privacy policy
 
-Effective date: 2026-09-13.
+Effective date: 2026-09-15.
 
 kuyara is a weather and outfit recommendation app for iOS and Android. This policy
 describes what data the app sends off your device, why, and what you can do about it.
@@ -14,8 +14,11 @@ describes what data the app sends off your device, why, and what you can do abou
 ## Summary
 
 - kuyara does not ask you to sign in. Your profile, Closet and settings live on your device.
-- The only data kuyara keeps about how you use the app is optional usage analytics and
-  diagnostics, sent only after you accept the consent question kuyara asks after onboarding.
+- Usage analytics and diagnostics are optional and sent only after you accept the consent
+  question kuyara asks after onboarding.
+- Two requests made by Expo, the toolkit kuyara is built with, happen every time the app
+  starts, before and regardless of that answer. They carry a random installation identifier
+  and version details about the app and the device, never anything you enter in kuyara.
 - Analytics never includes your location, photos, Closet contents, name, birth date, or
   anything you type.
 - kuyara does not track you across other apps or websites, shows no ads, and sells no data.
@@ -100,6 +103,38 @@ answer is "no".
 Under Apple's App Store definitions, this data is linked to you through the per-installation
 identifier. It is not used for tracking.
 
+## Expo launch requests
+
+kuyara is built with Expo, and two of Expo's own packages send a request every time the app
+starts. They run in the app's native code before your consent answer can be read, so neither is
+covered by the Privacy switch in Settings. The launch count cannot be turned off inside the
+app. The update check is kept on because it is how kuyara delivers updates.
+
+- **Launch count.** One request to Expo Insights, `https://i.expo.dev`, each time the app
+  starts cold. It carries an installation identifier, kuyara's Expo project identifier, the
+  app version, the platform and the operating system version.
+- **Update check.** One request to Expo Updates, `https://u.expo.dev`, on each launch, asking
+  whether a newer version of the app is available. It carries the same installation identifier
+  in a request header, along with the platform and the app's runtime version. If the app
+  crashed in a way it could not handle on the previous launch, the update check also carries
+  the technical error text from that crash. It describes the app's code, but can contain
+  technical text the app was processing.
+
+The installation identifier is the same random per-installation value described under
+Performance and diagnostics above.
+
+**Never in these requests:** your location, coordinates, or city; Closet contents or photos;
+profile preferences; your name, birth date or gender; anything you type; the analytics
+identifier; the app's local profile identifier.
+
+**Why.** To count installs and launches per released version, and to deliver app updates.
+
+**Processor.** Expo receives both requests over HTTPS. Expo has not published a retention
+period for this data. This policy will be updated when the period is confirmed.
+
+Deleting kuyara from your device removes the installation identifier; a fresh install creates
+a new one, unless a device backup restores the old value.
+
 ## Turning analytics and diagnostics off
 
 Open Settings, then Privacy, and switch off "Share usage data". Sending stops
@@ -108,7 +143,8 @@ afterwards. The Expo package may keep writing error records locally, but none ar
 sharing is off. The app also discards the analytics identifier, so events collected before
 that moment cannot be linked to anything collected later. The diagnostics identifier stays on
 your device, but nothing further is sent with it. Turning sharing back on creates a new
-analytics identifier.
+analytics identifier. The two Expo launch requests described above are not part of
+this switch and continue either way.
 
 ## Requesting deletion
 
@@ -124,8 +160,8 @@ kuyara will forward the request to PostHog and tell you what happened, but canno
 guarantee that events without a profile can be removed early. In every case the events
 expire after 12 months.
 
-Diagnostics data carries a separate identifier that the app does not show, so kuyara cannot
-currently request deletion of it by identifier. This section will be updated when Expo's
+Diagnostics data and the two Expo launch requests carry a separate identifier that the app
+does not show, so kuyara cannot currently request deletion of that data by identifier. This section will be updated when Expo's
 procedure is confirmed.
 
 ## Weather and recommendations
