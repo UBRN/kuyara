@@ -143,7 +143,7 @@ export type Formality = z.infer<typeof formalitySchema>;
 export type GarmentTypeNameKey =
   `catalog.garment_type.${GarmentTypeId}.name`;
 
-export const garmentTypeSchema = z.object({
+export const garmentTypeSchema = z.strictObject({
   typeId: garmentTypeIdSchema,
   structuralCategory: structuralCategorySchema,
   nameKey: z.string().regex(
@@ -165,17 +165,17 @@ export const garmentTypeSchema = z.object({
   status: garmentTypeStatusSchema,
   replacedByTypeId: garmentTypeIdSchema.nullable(),
   formality: formalitySchema,
-}).strict();
+});
 
 type ParsedGarmentType = z.infer<typeof garmentTypeSchema>;
 export type GarmentType = Readonly<
   Omit<ParsedGarmentType, 'nameKey'> & Readonly<{ nameKey: GarmentTypeNameKey }>
 >;
 
-export const garmentCatalogManifestSchema = z.object({
+export const garmentCatalogManifestSchema = z.strictObject({
   catalogVersion: z.number().int().positive(),
   garmentTypes: z.array(garmentTypeSchema).readonly(),
-}).strict();
+});
 
 type ParsedGarmentCatalogManifest = z.infer<typeof garmentCatalogManifestSchema>;
 export type GarmentCatalogManifest = Readonly<

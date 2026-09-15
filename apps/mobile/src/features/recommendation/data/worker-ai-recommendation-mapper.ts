@@ -67,7 +67,7 @@ export class WorkerAiRecommendationMappingError extends Error {
   }
 }
 
-const recommendationContextSchema = z.object({
+const recommendationContextSchema = z.strictObject({
   clothingPreference: z.enum(clothingPreferences),
   dressStyle: dressStyleSchema.optional(),
   catalogVersion: z.number().int().min(1),
@@ -75,12 +75,12 @@ const recommendationContextSchema = z.object({
   localDayKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   requirements: z.array(clothingRequirementSchema).max(8),
   options: z.array(aiOptionSchema).max(aiV1OptionLimit),
-}).strict().superRefine(({ options }, context) => {
+}).superRefine(({ options }, context) => {
   const seen = new Set<string>();
   options.forEach(({ optionId }, index) => {
     if (seen.has(optionId)) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'Option ids must be unique.',
         path: ['options', index, 'optionId'],
       });
@@ -89,12 +89,12 @@ const recommendationContextSchema = z.object({
   });
 });
 
-const legacyCandidateSchema = z.object({
+const legacyCandidateSchema = z.strictObject({
   candidateKey: z.string().regex(/^[A-Za-z0-9:_-]{1,64}$/),
   source: z.enum(['catalog', 'wardrobe']),
   garmentTypeId: z.enum(garmentTypeIds),
   colorFamily: z.enum(colorFamilies).nullable(),
-  properties: z.object({
+  properties: z.strictObject({
     category: z.enum(structuralCategories),
     bodyRegion: z.enum(bodyRegions).nullable(),
     supportedLayerRoles: z.array(z.enum(layerRoles)).max(4),
@@ -105,14 +105,14 @@ const legacyCandidateSchema = z.object({
     armCoverage: z.enum(coverageLevels).nullable(),
     legCoverage: z.enum(coverageLevels).nullable(),
     tractionSuitability: z.enum(tractionSuitabilities).nullable(),
-  }).strict(),
-}).strict();
+  }),
+});
 
-const legacyRecommendationContextSchema = z.object({
+const legacyRecommendationContextSchema = z.strictObject({
   clothingPreference: z.enum(clothingPreferences),
   requirements: z.array(clothingRequirementSchema).max(8),
   candidates: z.array(legacyCandidateSchema).min(1).max(125),
-}).strict();
+});
 
 export type RecommendationContext =
   | z.infer<typeof recommendationContextSchema>
@@ -335,16 +335,16 @@ export function mapWorkerAiRecommendation(
   });
 }
 
-const storedGarmentSchema = z.object({
+const storedGarmentSchema = z.strictObject({
   slot: z.enum(['primary_top', 'bottom', 'one_piece', 'mid_layer', 'outer_layer', 'footwear']),
   layerRole: z.enum(layerRoles).nullable(),
   candidateKey: z.string().regex(/^[A-Za-z0-9:_-]{1,64}$/),
-}).strict();
+});
 const legacyStoredOutfitsSchema = z.array(z.array(storedGarmentSchema).min(2).max(5)).min(1).max(3);
-const storedOutfitsSchema = z.array(z.object({
+const storedOutfitsSchema = z.array(z.strictObject({
   archetypeId: z.enum(outfitArchetypeIds),
   garments: z.array(storedGarmentSchema).min(2).max(5),
-}).strict()).min(1).max(3);
+})).min(1).max(3);
 
 type StoredGarment = z.infer<typeof storedGarmentSchema>;
 

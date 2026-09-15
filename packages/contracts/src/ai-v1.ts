@@ -164,55 +164,55 @@ const requirementBase = {
 } as const;
 
 export const clothingRequirementSchema = z.discriminatedUnion('kind', [
-  z.object({
+  z.strictObject({
     ...requirementBase,
     kind: z.literal('thermal'),
     minimum: z.enum(['light', 'moderate', 'high']),
-  }).strict(),
-  z.object({
+  }),
+  z.strictObject({
     ...requirementBase,
     kind: z.literal('breathability'),
     minimum: z.enum(breathabilityLevels),
-  }).strict(),
-  z.object({
+  }),
+  z.strictObject({
     ...requirementBase,
     kind: z.literal('arm_coverage'),
     minimum: z.enum(['partial', 'full']),
-  }).strict(),
-  z.object({
+  }),
+  z.strictObject({
     ...requirementBase,
     kind: z.literal('leg_coverage'),
     minimum: z.enum(['partial', 'full']),
-  }).strict(),
-  z.object({
+  }),
+  z.strictObject({
     ...requirementBase,
     kind: z.literal('water_protection'),
     minimum: z.enum(['water_resistant', 'waterproof']),
     target: z.enum(['body', 'feet']),
-  }).strict(),
-  z.object({
+  }),
+  z.strictObject({
     ...requirementBase,
     kind: z.literal('wind_protection'),
     minimum: z.enum(['wind_resistant']),
-  }).strict(),
-  z.object({
+  }),
+  z.strictObject({
     ...requirementBase,
     kind: z.literal('traction'),
     minimum: z.enum(['enhanced']),
-  }).strict(),
+  }),
 ]);
 
-const aiOptionGarmentSchema = z.object({
+const aiOptionGarmentSchema = z.strictObject({
   slot: z.enum(outfitSlots),
   layerRole: z.enum(layerRoles).nullable(),
   garmentTypeId: z.enum(garmentTypeIds),
-}).strict();
+});
 
-export const aiOptionSchema = z.object({
+export const aiOptionSchema = z.strictObject({
   optionId: optionIdSchema,
   formality: z.enum(formalityLevels),
   garments: z.array(aiOptionGarmentSchema).min(2).max(5),
-  traits: z.object({
+  traits: z.strictObject({
     hasMidLayer: z.boolean(),
     hasOuterLayer: z.boolean(),
     outerThermalHigh: z.boolean(),
@@ -220,13 +220,13 @@ export const aiOptionSchema = z.object({
     windResistant: z.boolean(),
     tractionEnhanced: z.boolean(),
     breathabilityHigh: z.boolean(),
-  }).strict(),
-}).strict().superRefine(({ garments }, context) => {
+  }),
+}).superRefine(({ garments }, context) => {
   const slots = new Set<(typeof outfitSlots)[number]>();
   garments.forEach(({ slot }, index) => {
     if (slots.has(slot)) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'Slots must be unique within an option.',
         path: ['garments', index, 'slot'],
       });
@@ -238,7 +238,7 @@ export const aiOptionSchema = z.object({
     garments.filter((garment) => garment.slot === slot).length;
   if (slotCount('footwear') !== 1) {
     context.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: 'custom',
       message: 'An option must contain exactly one footwear slot.',
       path: ['garments'],
     });
@@ -252,7 +252,7 @@ export const aiOptionSchema = z.object({
     : onePieceCount === 0 && primaryTopCount === 1 && bottomCount === 1;
   if (!hasValidBodyCore) {
     context.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: 'custom',
       message: 'An option must contain exactly one complete body core.',
       path: ['garments'],
     });
@@ -261,7 +261,7 @@ export const aiOptionSchema = z.object({
   for (const slot of ['mid_layer', 'outer_layer'] as const) {
     if (slotCount(slot) > 1) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: `An option may contain at most one ${slot}.`,
         path: ['garments'],
       });
@@ -269,7 +269,7 @@ export const aiOptionSchema = z.object({
   }
 });
 
-export const aiRecommendV1RequestSchema = z.object({
+export const aiRecommendV1RequestSchema = z.strictObject({
   clothingPreference: z.enum(clothingPreferences),
   dressStyle: dressStyleSchema.optional(),
   catalogVersion: z.number().int().min(1),
@@ -277,12 +277,12 @@ export const aiRecommendV1RequestSchema = z.object({
   // Requirements are cache-key inputs and never reach the model.
   requirements: z.array(clothingRequirementSchema).min(1).max(8),
   options: z.array(aiOptionSchema).min(1).max(aiV1OptionLimit),
-}).strict().superRefine(({ options }, context) => {
+}).superRefine(({ options }, context) => {
   const seen = new Set<string>();
   options.forEach(({ optionId }, index) => {
     if (seen.has(optionId)) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'Option ids must be unique.',
         path: ['options', index, 'optionId'],
       });
@@ -310,14 +310,14 @@ export const aiRecommendV1SuccessSchema = z.object({
   data.picks.forEach(({ optionId, archetypeId }, index) => {
     if (optionIds.has(optionId)) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'Picked option ids must be unique.',
         path: ['data', 'picks', index, 'optionId'],
       });
     }
     if (archetypeIds.has(archetypeId)) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'Picked archetype ids must be unique.',
         path: ['data', 'picks', index, 'archetypeId'],
       });
@@ -335,7 +335,7 @@ export const aiProviderIds = ['workers-ai', 'openrouter', 'deterministic-stub'] 
 export const aiProbeV1SuccessSchema = z.object({
   data: z.object({
     status: z.enum(['ok', 'unavailable']),
-    checkedAt: z.string().datetime(),
+    checkedAt: z.iso.datetime(),
     // Present only when a provider answered.
     assistant: z.object({
       providerId: z.enum(aiProviderIds),

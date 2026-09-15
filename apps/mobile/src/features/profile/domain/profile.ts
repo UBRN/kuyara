@@ -42,7 +42,7 @@ export const analyticsConsentValues = ['undecided', 'granted', 'withdrawn'] as c
 export const analyticsConsentSchema = z.enum(analyticsConsentValues);
 export type AnalyticsConsent = z.infer<typeof analyticsConsentSchema>;
 
-const birthDateSchema = z.string().date().refine((value) => {
+const birthDateSchema = z.iso.date().refine((value) => {
   const year = Number(value.slice(0, 4));
   return year >= 1900 && year <= 2100;
 }).nullable();

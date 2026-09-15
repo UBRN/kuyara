@@ -14,14 +14,14 @@ import type {
 } from './weather-provider.ts';
 import { WeatherProviderError } from './weather-provider-error.ts';
 
-const percentageSchema = z.number().finite().min(0).max(100);
-const nonNegativeSchema = z.number().finite().min(0);
+const percentageSchema = z.number().min(0).max(100);
+const nonNegativeSchema = z.number().min(0);
 const weatherCodeSchema = z.number().int();
 
 const currentSchema = z.object({
   time: z.string().min(1),
-  temperature_2m: z.number().finite(),
-  apparent_temperature: z.number().finite(),
+  temperature_2m: z.number(),
+  apparent_temperature: z.number(),
   relative_humidity_2m: percentageSchema,
   weather_code: weatherCodeSchema,
   wind_speed_10m: nonNegativeSchema,
@@ -29,8 +29,8 @@ const currentSchema = z.object({
 
 const hourlySchema = z.object({
   time: z.array(z.string().min(1)).min(1),
-  temperature_2m: z.array(z.number().finite()).min(1),
-  apparent_temperature: z.array(z.number().finite()).min(1),
+  temperature_2m: z.array(z.number()).min(1),
+  apparent_temperature: z.array(z.number()).min(1),
   relative_humidity_2m: z.array(percentageSchema).min(1),
   weather_code: z.array(weatherCodeSchema).min(1),
   wind_speed_10m: z.array(nonNegativeSchema).min(1),
@@ -41,7 +41,7 @@ const hourlySchema = z.object({
   for (const [key, values] of Object.entries(value)) {
     if (values.length !== length) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'Hourly arrays must have equal lengths.',
         path: [key],
       });
@@ -51,14 +51,14 @@ const hourlySchema = z.object({
 
 const dailySchema = z.object({
   time: z.array(z.string().min(1)).min(1),
-  temperature_2m_min: z.array(z.number().finite()).min(1),
-  temperature_2m_max: z.array(z.number().finite()).min(1),
+  temperature_2m_min: z.array(z.number()).min(1),
+  temperature_2m_max: z.array(z.number()).min(1),
 }).superRefine((value, context) => {
   const length = value.time.length;
   for (const [key, values] of Object.entries(value)) {
     if (values.length !== length) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'Daily arrays must have equal lengths.',
         path: [key],
       });
