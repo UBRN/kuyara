@@ -136,18 +136,34 @@ weather it returned is undesirable or differs from another provider's.
 ### 5. Quota control reuses the existing daily cap
 
 `createDailyCappedWeatherProvider` wraps WeatherKit with a **8,000 call per UTC
-day** limit under `weather:weatherkit:YYYY-MM-DD` in the existing
-`PROBE_COUNTER` KV binding. The figure is derived, not chosen: 500,000 per month
+day** limit under `weather:weatherkit:YYYY-MM-DD` in the `DAILY_COUNTERS`
+Durable Object binding. The figure is derived, not chosen: 500,000 per month
 over a 31-day month is roughly 16,129 per day, and the cap is half of that,
 matching the convention ADR 0002 §6 set for OpenWeather.
 
-The same honest limits apply as there. KV read-then-write is not atomic and a
-counter failure fails open, so the cap is defense in depth rather than a
-guarantee. Unlike OpenWeather, there is nothing behind it to protect against,
-because Apple has no overage billing at all; the cap exists to satisfy the
-repository's explicit-limit rule and to keep a runaway client from consuming a
-month of allowance in a day. When it trips, the `quota` error is
-fallback-eligible and the chain drops to Open-Meteo.
+The counter is a Durable Object (`apps/worker/src/daily-counter.ts`): one
+object per counter name, `weather:weatherkit` here, holding the day keys, so
+the two weather caps, the AI probe and the Workers AI attempt budget
+(`ai:workers-ai`) never serialise through one object. The increment is atomic
+because the object's input gate holds every other request while one request's
+storage operations are in flight;
+the object is SQLite-backed, the only Durable Object storage on the Workers Free
+plan. The gate increments before the attempt and the returned count decides
+whether WeatherKit is called at all, so a failed WeatherKit call still counts,
+which is what Apple counts too. When the cap trips, the `quota` error is
+fallback-eligible and the chain drops to Open-Meteo. When the counter itself
+cannot answer, the wrapper throws an `availability` error and the chain
+advances the same way: WeatherKit is never called uncounted, and without the
+binding the capped providers are not composed at all. Unlike OpenWeather, there
+is nothing behind the cap to protect against, because Apple has no overage
+billing at all; the cap exists to satisfy the repository's explicit-limit rule
+and to keep a runaway client from consuming a month of allowance in a day.
+
+Red line: do not move the counter back to Workers KV. KV Free allows 1,000
+writes per day and one write per second to the same key, so a KV counter keyed
+by day stops counting after the first ~1,000 weather requests and cannot keep up
+above one request per second on any plan; its read-then-write is not atomic
+either.
 
 A new month-keyed counter matching Apple's actual billing period was rejected:
 it would put a second counter beside an existing one to express a limit the

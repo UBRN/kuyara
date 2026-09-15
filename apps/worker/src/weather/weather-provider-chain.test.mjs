@@ -156,9 +156,16 @@ test('rejects an already-aborted outer signal without calling a provider', async
   assert.equal(providerCalls, 0);
 });
 
+// The capped providers are composed only with the DAILY_COUNTERS binding; a stub namespace
+// whose object always answers is enough to see them composed.
+const dailyCounters = {
+  idFromName: (name) => name,
+  get: () => ({ fetch: async () => Response.json({ count: 1 }) }),
+};
+
 test('production weather composition never includes the deterministic mock', () => {
-  const withoutKey = createWeatherProviders({});
-  const withKey = createWeatherProviders({ OPENWEATHER_API_KEY: 'key' });
+  const withoutKey = createWeatherProviders({ DAILY_COUNTERS: dailyCounters });
+  const withKey = createWeatherProviders({ DAILY_COUNTERS: dailyCounters, OPENWEATHER_API_KEY: 'key' });
 
   assert.equal(withoutKey.length, 1);
   assert.equal(withoutKey[0] instanceof OpenMeteoWeatherProvider, true);
@@ -176,18 +183,35 @@ test('WeatherKit heads the chain only when all four credentials are set', () => 
     WEATHERKIT_PRIVATE_KEY: '-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----',
   };
 
-  const full = createWeatherProviders({ ...credentials, OPENWEATHER_API_KEY: 'key' });
+  const full = createWeatherProviders({
+    ...credentials,
+    DAILY_COUNTERS: dailyCounters,
+    OPENWEATHER_API_KEY: 'key',
+  });
   assert.equal(full.length, 3);
   // The cap wrapper hides the instance, so the head is identified by what it displaced.
   assert.equal(full[1] instanceof OpenMeteoWeatherProvider, true);
 
   for (const missing of Object.keys(credentials)) {
-    const partial = { ...credentials };
+    const partial = { ...credentials, DAILY_COUNTERS: dailyCounters };
     delete partial[missing];
     const providers = createWeatherProviders(partial);
     assert.equal(providers.length, 1);
     assert.equal(providers[0] instanceof OpenMeteoWeatherProvider, true);
   }
+});
+
+test('without DAILY_COUNTERS only the uncapped Open-Meteo is composed', (t) => {
+  t.mock.method(console, 'warn', () => {});
+  const providers = createWeatherProviders({
+    WEATHERKIT_TEAM_ID: 'TEAM123456',
+    WEATHERKIT_SERVICE_ID: 'com.example.weatherkit-client',
+    WEATHERKIT_KEY_ID: 'KEY1234567',
+    WEATHERKIT_PRIVATE_KEY: '-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----',
+    OPENWEATHER_API_KEY: 'key',
+  });
+  assert.equal(providers.length, 1);
+  assert.equal(providers[0] instanceof OpenMeteoWeatherProvider, true);
 });
 
 test('advances past a WeatherKit 404 and returns the next provider result', async () => {

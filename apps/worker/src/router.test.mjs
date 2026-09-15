@@ -16,8 +16,14 @@ const weatherBody = {
   timeZone: 'Europe/Istanbul',
 };
 
+// A fake `ExecutionContext`; the router only forwards it to the handlers.
+function fakeContext() {
+  const pending = [];
+  return { pending, waitUntil(promise) { pending.push(promise); } };
+}
+
 function router({ aiReady = true, providers = [] } = {}) {
-  return createRouter({
+  const route = createRouter({
     placeSearchHandler: async () => Response.json({ data: { places: [], attribution: ['open-meteo', 'geonames'] } }),
     weatherHandler: createWeatherHandler({
       provider: new DeterministicMockWeatherProvider({ now: () => fixedNow }),
@@ -31,6 +37,7 @@ function router({ aiReady = true, providers = [] } = {}) {
     }),
     aiReady,
   });
+  return (request, ctx = fakeContext()) => route(request, ctx);
 }
 
 function validAiOutput() {
@@ -138,4 +145,24 @@ test('weather POST still succeeds and weather GET still owns its 405 response', 
   const methodResponse = await handle(new Request('http://localhost/v1/weather'));
   assert.equal(methodResponse.headers.get('allow'), 'POST');
   await assertJson(methodResponse, 405, { error: { code: 'method_not_allowed' } });
+});
+
+test('the router forwards the execution context to every route handler', async () => {
+  const seen = [];
+  const handler = (name) => async (_request, ctx) => {
+    seen.push([name, ctx]);
+    return new Response(null, { status: 204 });
+  };
+  const route = createRouter({
+    placeSearchHandler: handler('places'),
+    weatherHandler: handler('weather'),
+    aiHandler: handler('ai'),
+    probeHandler: handler('probe'),
+    aiReady: true,
+  });
+  const ctx = fakeContext();
+  for (const path of ['/v1/places/search', '/v1/weather', '/v1/ai/recommend', '/v1/ai/probe']) {
+    await route(new Request(`http://localhost${path}`, { method: 'POST' }), ctx);
+  }
+  assert.deepEqual(seen, [['places', ctx], ['weather', ctx], ['ai', ctx], ['probe', ctx]]);
 });

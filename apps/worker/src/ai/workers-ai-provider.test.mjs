@@ -222,16 +222,24 @@ test('a caller-supplied token budget narrows max_tokens; a recommendation keeps 
   assert.deepEqual(budgets, [256, 2048]);
 });
 
-test('a quota-exhausted binding hands the turn to the next provider and leaks nothing', async (t) => {
+// The Neuron pool is account-level, so a spent Workers AI binding skips the remaining
+// Workers AI models, which can only fail the same way, and hands the turn to OpenRouter.
+test('a quota-exhausted binding skips the other Workers AI model and leaks nothing', async (t) => {
   const warnings = [];
   t.mock.method(console, 'warn', (entry) => warnings.push(entry));
+  let secondBindingCalls = 0;
   let nextProviderCalls = 0;
   const handler = createAiHandler({ providers: [
     new WorkersAiProvider({
       model: '@cf/quota-exhausted',
       ai: { run: async () => { throw quotaError; } },
     }),
+    new WorkersAiProvider({
+      model: '@cf/second',
+      ai: { run: async () => { secondBindingCalls += 1; throw quotaError; } },
+    }),
     {
+      id: 'openrouter',
       model: 'provider/next',
       async generateOutfits() {
         nextProviderCalls += 1;
@@ -243,14 +251,16 @@ test('a quota-exhausted binding hands the turn to the next provider and leaks no
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(request),
-  }));
+  }), { waitUntil() {} });
   const serialized = await response.text();
 
+  assert.equal(secondBindingCalls, 0);
   assert.equal(nextProviderCalls, 1);
   assert.equal(response.status, 503);
   assert.equal(serialized, '{"error":{"code":"ai_unavailable"}}');
   assert.deepEqual(warnings, [
     { event: 'ai_provider_attempt_failed', model: '@cf/quota-exhausted', reason: 'quota_exceeded' },
+    { event: 'ai_workers_ai_quota_exhausted', model: '@cf/quota-exhausted' },
     { event: 'ai_provider_attempt_failed', model: 'provider/next', reason: 'provider_error' },
   ]);
   // The binding's own text stays inside the Worker: neither the response nor the log

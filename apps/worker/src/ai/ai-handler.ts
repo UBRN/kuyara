@@ -12,16 +12,58 @@ import {
   type AiV1ErrorCode,
 } from '@kuyara/contracts';
 
+import type { ExecutionContext } from '../router.ts';
 import { AiProviderError, type AiProvider } from './ai-provider.ts';
-import type { RateLimiter } from './probe-handler.ts';
+import { PROBE_DAILY_LIMIT, type RateLimiter } from './probe-handler.ts';
+
+/** Adds one counted attempt under `dateKey` atomically and returns the new count. */
+export interface AiDailyCounter {
+  increment(dateKey: string): Promise<number>;
+}
 
 type Dependencies = Readonly<{
   providers: readonly AiProvider[];
   rateLimiter?: RateLimiter;
+  /**
+   * Optional in the type so the unit tests can leave it out; the composition in `index.ts`
+   * always supplies both, and a missing counter binding takes the route offline there.
+   */
+  dailyCounter?: AiDailyCounter;
+  dailyLimit?: number;
+  now?: () => Date;
   attemptTimeoutMs?: number;
   totalDeadlineMs?: number;
   maxAttempts?: number;
 }>;
+
+/**
+ * The number of Workers AI attempts per UTC day, derived from the ADR 0001 figures (Workers
+ * Free: 10,000 Neurons per day; 26,668 Neurons per 1M input tokens and 204,805 per 1M
+ * output tokens; tokens approximated as characters / 4):
+ *
+ * - Pool left for recommendations: 10,000 minus the probe's reserve of
+ *   `PROBE_DAILY_LIMIT` (30) calls at ~135 Neurons each = 10,000 - 4,050 = 5,950.
+ * - Input per attempt: the largest prompt `buildMessages` and `buildPickJsonSchema`
+ *   produce over the 42-cell recommendation grid is 11,583 characters (10,374 of messages,
+ *   1,209 of response schema) for 24 options; rounded up to 12,000 characters = 3,000
+ *   tokens = 3,000 x 26,668 / 1,000,000 = 80.0 Neurons.
+ * - Output per attempt: the largest schema-shaped reply (three picks with the longest
+ *   option id and the longest archetype id) is 354 characters pretty-printed = 89 tokens;
+ *   rounded up to 128 tokens = 128 x 204,805 / 1,000,000 = 26.2 Neurons.
+ * - Per attempt: 80.0 + 26.2 = 106.2, rounded up to 107 Neurons.
+ * - Limit: floor(5,950 / 107) = floor(55.6) = 55 attempts.
+ *
+ * 55 attempts x 107 Neurons = 5,885, which with the probe reserve stays under the 10,000
+ * pool. Two caveats: the output estimate assumes a schema-shaped reply, while
+ * `recommendationMaxTokens` in workers-ai-provider.ts allows 2,048 output tokens, so a
+ * non-conforming reply can cost up to ~419 Neurons; and the ADR 0001 rates are the first
+ * model's, the second model (mistral-small-3.1-24b) has a higher input rate, so the limit
+ * is conservative only for the first model. Recalculate when the prompt, the model list or
+ * the pricing changes. OpenRouter attempts spend no Neurons and are not counted.
+ */
+export const WORKERS_AI_DAILY_ATTEMPT_LIMIT = Math.floor(
+  (10_000 - PROBE_DAILY_LIMIT * 135) / 107,
+);
 
 type ProviderFailureReason =
   | 'timeout'
@@ -81,7 +123,9 @@ function logProviderFailure(provider: AiProvider, reason: ProviderFailureReason)
 /**
  * A spent provider quota and an upstream 429 both used to read as `provider_error`, so the
  * 2026-09-13 outage had to be proved from Cloudflare's own counters. The reason now names
- * them. Eligibility is unchanged: every failure still hands the turn to the next provider.
+ * them. Every failure still hands the turn to the next provider; the one addition is that
+ * a Workers AI `quota_exceeded` marks the shared Neuron pool spent, so the remaining
+ * Workers AI providers are skipped and the walk continues with OpenRouter.
  */
 function attemptFailureReason(error: unknown, timedOut: boolean): ProviderFailureReason {
   if (timedOut) return 'timeout';
@@ -124,6 +168,9 @@ async function buildCacheRequest(request: AiRecommendV1Request): Promise<Request
 export function createAiHandler({
   providers,
   rateLimiter,
+  dailyCounter,
+  dailyLimit,
+  now = () => new Date(),
   // Every provider that answers the 2 KB request does so within 5 s (Workers AI 2 to
   // 4.5 s, OpenRouter 0.3 to 1.9 s, measured live); one that does not answer stalls
   // indefinitely, so 7 s cuts it off and hands the turn to the next provider. Never raise
@@ -138,8 +185,8 @@ export function createAiHandler({
   totalDeadlineMs = 36_000,
   // Five attempts cover two Workers AI models plus three OpenRouter models.
   maxAttempts = 5,
-}: Dependencies): (request: Request) => Promise<Response> {
-  return async (request: Request): Promise<Response> => {
+}: Dependencies): (request: Request, ctx: ExecutionContext) => Promise<Response> {
+  return async (request: Request, ctx: ExecutionContext): Promise<Response> => {
     // The total budget covers the whole request, including the rate limiter, the body
     // parse and the shared cache lookup, not only the provider walk.
     const deadline = Date.now() + requestBudgetMs(request, totalDeadlineMs);
@@ -190,7 +237,42 @@ export function createAiHandler({
       }
     }
 
+    // The daily budget gates Workers AI attempts, not the route: every Workers AI provider
+    // is reached only through a counted, awaited increment, OpenRouter attempts are never
+    // counted, and a cache hit above never reaches this walk. Each skip is logged once per
+    // request, and a skipped provider consumes none of the deadline.
+    let workersAiPoolSpent = false;
+    let budgetLogged = false;
+    let counterLogged = false;
     for (const [attemptIndex, provider] of providers.slice(0, maxAttempts).entries()) {
+      if (provider.id === 'workers-ai') {
+        if (workersAiPoolSpent) continue;
+        if (dailyCounter && dailyLimit !== undefined) {
+          const dateKey = `ai:workers-ai:${now().toISOString().slice(0, 10)}`;
+          let count: number;
+          try {
+            count = await dailyCounter.increment(dateKey);
+          } catch {
+            if (!counterLogged) {
+              console.warn({ event: 'ai_daily_counter_unavailable', route: aiRecommendV1Path });
+              counterLogged = true;
+            }
+            continue;
+          }
+          if (count > dailyLimit) {
+            if (!budgetLogged) {
+              console.warn({
+                event: 'ai_daily_budget_exhausted',
+                route: aiRecommendV1Path,
+                count,
+                limit: dailyLimit,
+              });
+              budgetLogged = true;
+            }
+            continue;
+          }
+        }
+      }
       const remainingMs = deadline - Date.now();
       const attemptWindowMs = Math.min(attemptTimeoutMs, remainingMs);
       if (attemptWindowMs < Math.min(attemptTimeoutMs, minimumUsefulAttemptMs)) break;
@@ -243,17 +325,24 @@ export function createAiHandler({
         });
         const response = Response.json(result.data, { status: 200, headers: jsonHeaders });
         if (cache && cacheRequest) {
-          try {
-            const cached = response.clone();
-            cached.headers.set('Cache-Control', 'public, max-age=2592000');
-            await cache.put(cacheRequest, cached);
-          } catch {
-            // Shared cache failures must not fail a validated response.
-          }
+          // The write outlives the response instead of delaying it. Shared cache failures
+          // must not fail a validated response, so the promise handed over never rejects.
+          const cached = response.clone();
+          cached.headers.set('Cache-Control', 'public, max-age=2592000');
+          ctx.waitUntil(cache.put(cacheRequest, cached).catch(() => {}));
         }
         return response;
       } catch (error) {
-        logProviderFailure(provider, attemptFailureReason(error, timedOut));
+        const reason = attemptFailureReason(error, timedOut);
+        logProviderFailure(provider, reason);
+        // Every Workers AI model draws on the one account-level Neuron pool, so once it is
+        // spent the remaining Workers AI attempts can only fail the same way and are
+        // skipped; the walk goes on with OpenRouter. An OpenRouter quota refusal is per
+        // model and still advances as before.
+        if (reason === 'quota_exceeded' && provider.id === 'workers-ai' && !workersAiPoolSpent) {
+          console.warn({ event: 'ai_workers_ai_quota_exhausted', model: provider.model });
+          workersAiPoolSpent = true;
+        }
       } finally {
         clearTimeout(timeoutId!);
       }

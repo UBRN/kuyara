@@ -20,9 +20,11 @@ workaround: redeclare the whole binding list under `env.development` before
 deploying.
 
 Milestone 5 made the trap worse rather than better. `WEATHER_RATE_LIMIT` joined
-the list, and `POST /v1/weather` now depends on the `PROBE_COUNTER` KV namespace
-for the OpenWeather daily cap. Silently losing those bindings degrades the
-weather endpoint to permissive limiting against a real, keyed upstream provider.
+the list, and `POST /v1/weather` depends on the `DAILY_COUNTERS` Durable Object
+binding for the WeatherKit and OpenWeather daily caps. A route that spends
+provider quota answers 503 when a binding it needs is missing (`buildRouter` in
+`apps/worker/src/index.ts`), so a deployment that silently lost those bindings
+would take weather, place search and AI offline rather than run them unlimited.
 
 The real-provider credential was already attached to the top-level deployment,
 not the named environment.

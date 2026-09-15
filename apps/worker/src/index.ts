@@ -1,19 +1,29 @@
+import {
+  aiProbeV1Path,
+  aiRecommendV1Path,
+  aiV1ErrorSchema,
+  placeSearchV1ErrorSchema,
+  placeSearchV1Path,
+  weatherV1ErrorSchema,
+  weatherV1Path,
+} from '@kuyara/contracts';
+
 import { OpenMeteoPlaceProvider } from './places/open-meteo-place-provider.ts';
 import { createPlaceSearchHandler } from './places/place-search-handler.ts';
-import { createAiHandler } from './ai/ai-handler.ts';
+import { WORKERS_AI_DAILY_ATTEMPT_LIMIT, createAiHandler } from './ai/ai-handler.ts';
 import type { AiProvider } from './ai/ai-provider.ts';
 import { OpenRouterAiProvider } from './ai/openrouter-ai-provider.ts';
-import {
-  createProbeHandler,
-  PROBE_COUNTER_TTL_SECONDS,
-  type ProbeDailyCounter,
-  type RateLimiter,
-} from './ai/probe-handler.ts';
+import { createProbeHandler, type ProbeDailyCounter } from './ai/probe-handler.ts';
 import {
   WorkersAiProvider,
   type WorkersAiBinding,
 } from './ai/workers-ai-provider.ts';
-import { createRouter } from './router.ts';
+import {
+  createDurableDailyCounter,
+  type DailyCounterNamespace,
+  type DurableDailyCounter,
+} from './daily-counter.ts';
+import { createRouter, type ExecutionContext, type Handler } from './router.ts';
 import { createWeatherHandler } from './weather-handler.ts';
 import {
   createDailyCappedWeatherProvider,
@@ -30,14 +40,8 @@ import {
 } from './weather/weatherkit-token.ts';
 import { WeatherKitWeatherProvider } from './weather/weatherkit-weather-provider.ts';
 
-interface KvNamespace {
-  get(key: string): Promise<string | null>;
-  put(
-    key: string,
-    value: string,
-    options?: { expirationTtl?: number },
-  ): Promise<void>;
-}
+// Wrangler resolves the Durable Object class from the main module's exports.
+export { DailyCounter } from './daily-counter.ts';
 
 interface RateLimitBinding {
   limit(input: { key: string }): Promise<{ success: boolean }>;
@@ -48,8 +52,9 @@ export type Env = Readonly<{
   OPENROUTER_MODELS?: readonly string[];
   WORKERS_AI_MODELS?: readonly string[];
   AI?: WorkersAiBinding;
-  // Shared by the AI probe and the namespaced weather daily cap.
-  PROBE_COUNTER?: KvNamespace;
+  // One Durable Object per counter name: the AI probe, the Workers AI attempt budget and
+  // the two capped weather providers each get their own object (see daily-counter.ts).
+  DAILY_COUNTERS?: DailyCounterNamespace;
   AI_PROBE_RATE_LIMIT?: RateLimitBinding;
   AI_RECOMMEND_RATE_LIMIT?: RateLimitBinding;
   OPENWEATHER_API_KEY?: string;
@@ -60,28 +65,33 @@ export type Env = Readonly<{
   WEATHER_RATE_LIMIT?: RateLimitBinding;
 }>;
 
-const permissiveRateLimiter: RateLimiter = {
-  limit: async () => ({ success: true }),
-};
-const permissiveProbeDailyCounter: ProbeDailyCounter = {
-  get: async () => 0,
-  increment: async () => {},
-};
+const jsonHeaders = {
+  'Cache-Control': 'no-store',
+  'Content-Type': 'application/json; charset=utf-8',
+} as const;
 
-function createKvProbeDailyCounter(kv: KvNamespace): ProbeDailyCounter {
-  const get = async (dateKey: string): Promise<number> => {
-    const count = Number.parseInt(await kv.get(dateKey) ?? '', 10);
-    return Number.isNaN(count) ? 0 : count;
-  };
+/**
+ * One policy for every route that spends provider quota: when its rate limiter or its daily
+ * counter binding is missing, the route answers 503 with its own unavailable code instead
+ * of running unlimited or uncounted. Logged once per composition, not per request.
+ */
+function offlineRoute(route: string, binding: string, body: unknown): Handler {
+  console.warn({ event: 'route_binding_missing', route, binding });
+  return async () => Response.json(body, { status: 503, headers: jsonHeaders });
+}
+
+// The probe reads first and increments after its attempt; its `increment` returns nothing,
+// and `Promise<number>` is not assignable to `Promise<void>`, so the count is dropped here.
+function probeDailyCounter(counter: DurableDailyCounter): ProbeDailyCounter {
   return {
-    get,
-    increment: async (dateKey) => {
-      await kv.put(dateKey, String((await get(dateKey)) + 1), {
-        expirationTtl: PROBE_COUNTER_TTL_SECONDS,
-      });
-    },
+    get: counter.get,
+    increment: async (dateKey) => { await counter.increment(dateKey); },
   };
 }
+
+const weatherUnavailable = weatherV1ErrorSchema.parse({ error: { code: 'weather_unavailable' } });
+const placesUnavailable = placeSearchV1ErrorSchema.parse({ error: { code: 'places_unavailable' } });
+const aiUnavailable = aiV1ErrorSchema.parse({ error: { code: 'ai_unavailable' } });
 
 export function createAiProviders(env: Env): AiProvider[] {
   const providers: AiProvider[] = [];
@@ -116,17 +126,25 @@ function weatherKitCredentials(env: Env): WeatherKitCredentials | null {
   return { teamId, serviceId, keyId, privateKeyPem };
 }
 
+/**
+ * The capped providers exist only with the counter binding: without it WeatherKit and
+ * OpenWeather are never composed, so neither is ever called uncounted, and the uncapped
+ * Open-Meteo serves alone.
+ */
 export function createWeatherProviders(env: Env): readonly WeatherProvider[] {
   const providers: WeatherProvider[] = [new OpenMeteoWeatherProvider()];
+  const counters = env.DAILY_COUNTERS;
+  if (!counters) {
+    console.warn({ event: 'route_binding_missing', route: weatherV1Path, binding: 'DAILY_COUNTERS' });
+    return providers;
+  }
   const weatherKit = weatherKitCredentials(env);
   if (weatherKit) {
     providers.unshift(createDailyCappedWeatherProvider({
       provider: new WeatherKitWeatherProvider({
         token: createWeatherKitTokenProvider(weatherKit),
       }),
-      counter: env.PROBE_COUNTER
-        ? createKvProbeDailyCounter(env.PROBE_COUNTER)
-        : permissiveProbeDailyCounter,
+      counter: createDurableDailyCounter(counters, 'weather:weatherkit'),
       dailyLimit: weatherKitDailyCallLimit,
       sourceSlug: 'weatherkit',
     }));
@@ -137,9 +155,7 @@ export function createWeatherProviders(env: Env): readonly WeatherProvider[] {
   ) {
     providers.push(createDailyCappedWeatherProvider({
       provider: new OpenWeatherWeatherProvider({ apiKey: env.OPENWEATHER_API_KEY }),
-      counter: env.PROBE_COUNTER
-        ? createKvProbeDailyCounter(env.PROBE_COUNTER)
-        : permissiveProbeDailyCounter,
+      counter: createDurableDailyCounter(counters, 'weather:openweather'),
       dailyLimit: openWeatherDailyCallLimit,
       sourceSlug: 'openweather',
     }));
@@ -147,29 +163,43 @@ export function createWeatherProviders(env: Env): readonly WeatherProvider[] {
   return providers;
 }
 
-function buildRouter(env: Env): (request: Request) => Promise<Response> {
+export function buildRouter(env: Env): Handler {
   const providers = createAiProviders(env);
-  const weatherHandler = createWeatherHandler({
-    provider: createWeatherProviderChain({ providers: createWeatherProviders(env) }),
-    rateLimiter: env.WEATHER_RATE_LIMIT ?? permissiveRateLimiter,
-  });
-  const aiHandler = createAiHandler({
-    providers,
-    rateLimiter: env.AI_RECOMMEND_RATE_LIMIT,
-  });
-  const probeHandler = createProbeHandler({
-    providers,
-    rateLimiter: env.AI_PROBE_RATE_LIMIT ?? permissiveRateLimiter,
-    dailyCounter: env.PROBE_COUNTER
-      ? createKvProbeDailyCounter(env.PROBE_COUNTER)
-      : permissiveProbeDailyCounter,
-  });
+  const weatherHandler = env.WEATHER_RATE_LIMIT
+    ? createWeatherHandler({
+      provider: createWeatherProviderChain({ providers: createWeatherProviders(env) }),
+      rateLimiter: env.WEATHER_RATE_LIMIT,
+    })
+    : offlineRoute(weatherV1Path, 'WEATHER_RATE_LIMIT', weatherUnavailable);
+  // Place search shares weather's per-IP budget, so it shares weather's binding.
+  const placeSearchHandler = env.WEATHER_RATE_LIMIT
+    ? createPlaceSearchHandler({
+      provider: new OpenMeteoPlaceProvider(),
+      rateLimiter: env.WEATHER_RATE_LIMIT,
+    })
+    : offlineRoute(placeSearchV1Path, 'WEATHER_RATE_LIMIT', placesUnavailable);
+  const aiHandler = !env.AI_RECOMMEND_RATE_LIMIT
+    ? offlineRoute(aiRecommendV1Path, 'AI_RECOMMEND_RATE_LIMIT', aiUnavailable)
+    : !env.DAILY_COUNTERS
+      ? offlineRoute(aiRecommendV1Path, 'DAILY_COUNTERS', aiUnavailable)
+      : createAiHandler({
+        providers,
+        rateLimiter: env.AI_RECOMMEND_RATE_LIMIT,
+        dailyCounter: createDurableDailyCounter(env.DAILY_COUNTERS, 'ai:workers-ai'),
+        dailyLimit: WORKERS_AI_DAILY_ATTEMPT_LIMIT,
+      });
+  const probeHandler = !env.AI_PROBE_RATE_LIMIT
+    ? offlineRoute(aiProbeV1Path, 'AI_PROBE_RATE_LIMIT', aiUnavailable)
+    : !env.DAILY_COUNTERS
+      ? offlineRoute(aiProbeV1Path, 'DAILY_COUNTERS', aiUnavailable)
+      : createProbeHandler({
+        providers,
+        rateLimiter: env.AI_PROBE_RATE_LIMIT,
+        dailyCounter: probeDailyCounter(createDurableDailyCounter(env.DAILY_COUNTERS, 'probe')),
+      });
   return createRouter({
     weatherHandler,
-    placeSearchHandler: createPlaceSearchHandler({
-      provider: new OpenMeteoPlaceProvider(),
-      rateLimiter: env.WEATHER_RATE_LIMIT ?? { limit: async () => ({ success: false }) },
-    }),
+    placeSearchHandler,
     aiHandler,
     probeHandler,
     aiReady: providers.length > 0,
@@ -183,14 +213,16 @@ function buildRouter(env: Env): (request: Request) => Promise<Response> {
  * every per-isolate cache dead: the probe's 60 s result cache never outlived a request, and
  * the WeatherKit token provider re-imported the PKCS8 key and signed a fresh ES256 JWT on
  * every `/v1/weather` call. Nothing request-scoped may be captured here: what the memo
- * holds is a CryptoKey promise, strings, plain config and handler closures, and the handlers
- * take the `Request` as an argument.
+ * holds is a CryptoKey promise, strings, plain config, the Durable Object namespace binding
+ * (the stub is resolved per call, because a stub is bound to the request that created it)
+ * and handler closures, and the handlers take the `Request` and the `ExecutionContext` as
+ * arguments.
  */
-let router: ((request: Request) => Promise<Response>) | undefined;
+let router: Handler | undefined;
 
 export default {
-  fetch(request: Request, env: Env): Promise<Response> {
+  fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     router ??= buildRouter(env);
-    return router(request);
+    return router(request, ctx);
   },
 };
