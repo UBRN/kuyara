@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { placeSearchV1ErrorCodes } from '@kuyara/contracts';
 import worker from '../index.ts';
 import { OpenMeteoPlaceProvider, PlaceSearchProviderError } from './open-meteo-place-provider.ts';
 import { createPlaceSearchHandler } from './place-search-handler.ts';
@@ -93,6 +94,21 @@ test('invalid requests and wrong routes or methods never call upstream', async (
   assert.equal((await handle(new Request('https://worker.test/v1/places/search', { method: 'POST', body: '{', headers: { 'content-type': 'application/json' } }))).status, 400);
   assert.equal((await handle(new Request('https://worker.test/v1/places/search', { method: 'POST', body: '{}' }))).status, 400);
   assert.equal(calls, 0);
+});
+test('every error body the place route emits carries a code from the closed list, never unknown', async () => {
+  const handle = setup(async () => Response.json({ error: true }), { limit: async () => ({ success: false }) });
+  const responses = [
+    await handle(request({ ...query, limit: 6 })),
+    await handle(request(query, '/wrong')),
+    await handle(request(query, '/v1/places/search', 'GET')),
+    await handle(request()),
+    await setup(async () => Response.json({ error: true }))(request()),
+  ];
+  for (const response of responses) {
+    assert.ok(response.status >= 400, String(response.status));
+    const { error } = await response.json();
+    assert.ok(placeSearchV1ErrorCodes.includes(error.code), `unlisted error code ${error.code}`);
+  }
 });
 // Without WEATHER_RATE_LIMIT the route is composed offline (see `buildRouter`): every
 // request, whatever its method, answers 503 places_unavailable and no provider is reached.
