@@ -303,6 +303,23 @@ Validate before submitting and expect zero blocking issues. `asc review submit` 
 version in `WAITING_FOR_REVIEW` and does not change the release type, so automatic release
 after approval stays selected and the store build replaces the TestFlight build in place.
 
+### JavaScript-only fix for the live version
+
+A fix that touches no native code, no dependency, no config plugin and nothing under
+`apps/mobile/modules` can reach the live version without a store build. `runtimeVersion`
+follows `expo.version`, so the update reaches only installs of the version string in
+`apps/mobile/app.json`; do not bump the version for it, and do not use this path when a newer
+version with the same fix is already in review, because that version is a different runtime.
+From `apps/mobile`, with a clean committed tree and green checks:
+
+```bash
+eas update --channel production --message "..."
+posthog-cli hermes upload --directory dist
+```
+
+Confirm the target with `eas update:list --branch production`. A native change never goes this
+way: it bumps the date stamp and takes the build-and-submit steps above.
+
 ### Development build on the physical iPhone
 
 Register the phone once for internal distribution (the command takes no flags), then build and
