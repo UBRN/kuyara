@@ -51,6 +51,7 @@ export type TodayMessages = Readonly<{
   requirementTradeoffRow: (values: { requirement: string; garments: readonly string[] }) => string;
   requirementReasons: Readonly<Record<ClothingRequirementReasonCode, string>>;
   compositionReasons: Readonly<Record<OutfitCompositionReasonCode, string>>;
+  mildWeatherRationale: string;
   emphasis: Readonly<{ recommended: string }>;
   updatedAt: (time: string) => string;
   staleAt: (time: string) => string;
@@ -850,6 +851,7 @@ const en = {
       thermal_over_protection: 'This outfit is warmer than required.',
       unnecessary_water_protection: 'This outfit includes more water protection than required.',
     },
+    mildWeatherRationale: 'Nothing in today’s weather asks for special protection.',
     emphasis: {
       recommended: 'Recommended',
     },
@@ -1332,6 +1334,7 @@ const tr = {
       thermal_over_protection: 'Bu kombin gerekenden daha sıcak.',
       unnecessary_water_protection: 'Bu kombin gerekenden daha fazla su koruması içeriyor.',
     },
+    mildWeatherRationale: 'Bugünkü hava özel bir koruma istemiyor.',
     emphasis: {
       recommended: 'Önerilen',
     },

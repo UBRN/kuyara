@@ -247,6 +247,7 @@ Approved 2026-09-04. Canonical in [ADR 0026](adr/0026-the-recommendation-detail-
 - Its board is [ADR 0025](adr/0025-the-garment-board-composition-rule.md)'s composition rule run with a second parameter set, so Today and detail share one composition and the transition between them moves the pieces.
 - The board sits on the page ground rather than the condition-tinted stage, because Law 3 forbids secondary copy on that stage. The weather keeps one quiet tinted recap row.
 - Reasoning is organised by weather requirement and each row names the garments that answer it.
+- When no weather requirement fires (a mild, calm, dry day inside the comfort band) and no other reason code applies, Today's rationale line shows one deterministic status sentence (`today.mildWeatherRationale`) instead of rendering empty; the detail reasons section stays requirement-only and is hidden. The store description promises to show why each piece is there "when the weather asks for it", not for every outfit. Decided 2026-09-15.
 - Ownership state appears here and nowhere else: English reuses the existing owned and wanted labels, Turkish uses "Sende var" / "İstiyorsun", and each caption opens a two-item platform menu that changes the state and checks the current item. An untracked garment draws no marker while its accessibility label still speaks the state; the entry transition is decision 7.
 - Above `fontScale` 1.5 the captions render as a list under the board.
 
