@@ -444,3 +444,29 @@ before submitting is the maintainer's call.
 - **Dark atmosphere states render neutral only.** ADR 0018 caps them at Deep Atmosphere's
   luminance; every compliant variation sits only 3 to 8 RGB levels from the current
   `#122A35` stage and is imperceptible. Lifting the cap needs a separate decision.
+- **The Pages site ignores Reduce Motion by decision.** Since 2026-09-15 the website at
+  `docs/` animates regardless of the OS setting and offers a System/Light/Dark selector
+  stored in the browser; only `product-decisions.md` records the carve-out, while
+  `docs/design/visual-identity.md` still states the app's unqualified Reduced Motion rule.
+  With JavaScript off the selector is absent and the site follows the system scheme; a
+  Turkish-language browser is redirected from `/` to `/tr/` on first visit by the
+  language-memory script.
+- **Landing page gaps.** No favicon, apple-touch-icon or Open Graph image exists, so
+  every page 404s on `/favicon.ico`; the landing `<title>` appends the site description
+  ("for iOS and Android") while the page says iPhone; the Smart App Banner is untested
+  on a real device; Firefox was never run (the `@supports` gate gives it the finished
+  page); the garment path data is copied from `silhouettes.ts` and drifts if that file
+  changes; the stage is a 2.6:1 row outside ADR 0025's in-app range and bands use `2xl`
+  as padding, both web-only choices with no design document behind them.
+- **Dark theme limits on the Primer pages.** Rouge ships no dark syntax palette, so code
+  blocks are monochrome in dark; `.markdown-body img` loses its white backing; the theme
+  control's styles are emitted before Primer's stylesheet, so a future Primer rule could
+  win a specificity tie; the 400 ms theme cross-fade sets `transition` with `!important`
+  on every element for its duration; the indicator and cross-fade use `linear` because
+  the tokens carry durations and no easing.
+- **A local Jekyll build differs from Pages.** The local `github-pages` build applies no
+  layout to pages without a `layout:` key unless a `defaults` config is passed, and
+  `docker pull` hangs on the maintainer's machine, so the official build image cannot
+  run locally; the live site is the proof for header and control changes.
+- **`borderSubtle` is documented wrong.** `theme.ts` sets `#CCD2D4`; the measurement
+  tables in `docs/design/design-language.md` quote `#C5D5D6`. The code is current.
