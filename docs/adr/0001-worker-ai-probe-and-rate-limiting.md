@@ -80,10 +80,10 @@ calls on the rejection paths.
 Handler order:
 
 1. Method gate: non-`POST` -> `405 method_not_allowed`, `Allow: POST`.
-2. Per-IP burst limit (`rateLimiter.limit({ key })`, `key` =
+2. Per-IP burst limit (`rateLimiter.limit({ key })`, `key` = `probe:` plus
    `request.headers.get('cf-connecting-ip') ?? 'unknown'`). Denied ->
    `429 rate_limited`, `Retry-After: 60`. No provider call.
-3. Cache check: module-scope `{ status, checkedAt }` with a 60-second TTL
+3. Cache check: the module-scope body with a 60-second TTL
    measured against `now()`. Fresh -> return the cached body, no provider call,
    no counter increment.
 4. Daily counter: `dailyCounter` holds the count for key `probe:YYYY-MM-DD` (UTC
@@ -93,19 +93,23 @@ Handler order:
 6. Otherwise call **only the first provider** in the chain (Workers AI when
    configured), a single attempt, `attemptTimeoutMs` default **20,000 ms** (the
    probe's own budget; the recommend handler runs each attempt under 7,000 ms
-   inside its 19-second deadline), with an `AbortController` + timeout. The request body is a
-   fixed minimal valid `AiRecommendV1Request` (1 requirement, 2 candidates)
+   inside its 36-second deadline), with an `AbortController` + timeout. The request body is a
+   fixed minimal valid `AiRecommendV1Request` (1 requirement, 3 options)
    defined in the worker, not derived from user data.
-7. Validate the provider output with `aiRecommendV1SuccessSchema.safeParse`.
-   Parse succeeds -> `status: 'ok'`. Parse fails, provider throws, or the
-   attempt times out -> `status: 'unavailable'`.
-8. Store `{ status, checkedAt }` in the module cache. Increment the daily
+7. Validate the provider output with `aiRecommendV1SuccessSchema.safeParse` and
+   require every pick to name one of the canned options. Both hold ->
+   `status: 'ok'`. Either fails, the provider throws, or the attempt times out
+   -> `status: 'unavailable'`.
+8. Store that body in the module cache. Increment the daily
    counter via `dailyCounter.increment(...)` with a 48-hour TTL. Cache hits and
    rate-limit rejections never increment.
-9. Respond `200` with `{ data: { status, checkedAt } }`.
+9. Respond `200` with `{ data: { status, checkedAt } }`, carrying `assistant`
+   when a provider answered.
 
-`checkedAt` is a UTC ISO 8601 string from `now()`. No provider name, model
-identifier, upstream status code, or error text ever appears in the response.
+`checkedAt` is a UTC ISO 8601 string from `now()`. A successful probe names the
+provider and model that answered, the single surface for those identifiers
+([ADR 0034](0034-on-device-ai-selection-through-apple-foundation-models.md)
+section 5). No upstream status code or error text ever appears in the response.
 
 `ponytail:` the daily counter does a KV get-then-put, so concurrent probes can
 under-count against the 30/day cap. Acceptable for a soft abuse guard. Upgrade
@@ -153,6 +157,11 @@ export const aiProbeV1SuccessSchema = z.object({
   data: z.object({
     status: z.enum(['ok', 'unavailable']),
     checkedAt: z.string().datetime(),
+    // Present only when a provider answered.
+    assistant: z.object({
+      providerId: z.enum(aiProviderIds),
+      model: z.string().min(1).max(120),
+    }).strict().optional(),
   }).strict(),
 }).strict();
 
