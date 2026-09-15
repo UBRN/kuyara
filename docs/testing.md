@@ -247,11 +247,12 @@ Expo dashboard.
 Linking the GitHub repository to the EAS project is not required here. That link exists
 for the GitHub event triggers, and `eas workflow:run` works without it ([Get started with
 EAS Workflows](https://docs.expo.dev/eas/workflows/get-started/#automate-workflows-with-github-events)).
-The one-time setup the workflow does need is an App Store Connect API key held by EAS, so
-the submit job can authenticate with Apple non-interactively: run
-`eas credentials --platform ios`, choose the `production` profile, then **App Store
-Connect: Manage your API Key** and **Set up your project to use an API Key for EAS
-Submit** ([Automate with EAS
+The one setup the workflow needs is an App Store Connect API key held by EAS, so the
+submit job can authenticate with Apple non-interactively. The account already holds one:
+`eas submit --non-interactive` uploaded build 9 without a prompt. If it ever has to be
+recreated, run `eas credentials --platform ios`, choose the `production` profile, then
+**App Store Connect: Manage your API Key** and **Set up your project to use an API Key for
+EAS Submit** ([Automate with EAS
 Workflows](https://docs.expo.dev/submit/ios/#automate-with-eas-workflows)).
 
 The workflow replaces those two commands and nothing else. The Preconditions above still

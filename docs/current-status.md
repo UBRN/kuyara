@@ -185,20 +185,25 @@ non-maintainer install that granted consent on 2026-09-15, and EAS Observe repor
 0.52 s median cold launch and 0.22 s startup TTI for build 8, in line with build 6.
 
 The next store version record, 0.1.20260915, exists in App Store Connect in the
-Prepare for Submission state with no build attached. Its only difference from the live
-listing is the final line of the English and Turkish descriptions, which no longer
-mentions creating an account, because the live version's description cannot be edited
-while it is on sale; the correction reaches the store with the next build submission.
+Prepare for Submission state. Its only difference from the live listing is the final line
+of the English and Turkish descriptions, which no longer mentions creating an account,
+because the live version's description cannot be edited while it is on sale. Build 9
+(commit e4c9350, EAS build 7e305161) carries that version; it was built and uploaded to
+App Store Connect on 2026-09-15 with `eas build` and a non-interactive `eas submit`, and is
+processing for TestFlight. The TestFlight pass on the phone, attaching the build to the
+version and Submit for Review are still to do.
 
 Continuous integration and the iOS release workflow now exist in the repository.
 `.github/workflows/ci.yml` installs from the lockfile and runs Expo Doctor, `pnpm check`
 and the mobile component suite on every push to `main` and every pull request, and
 `apps/mobile/.eas/workflows/release-ios.yml` builds the production iOS binary and submits
 it with the `production` submit profile, started only by `eas workflow:run` (see
-[Release path](testing.md#release-path)). Neither has run yet. The release workflow needs
-an App Store Connect API key stored with EAS for non-interactive submission if the
-account does not already hold one, and the version bump, the TestFlight pass on the phone
-and Submit for Review stay the maintainer's manual steps exactly as they are today.
+[Release path](testing.md#release-path)). CI is green on `main`; its first run failed
+until the git-ignored Expo typed-route types were generated on the runner. The release
+workflow has not run yet, but the App Store Connect API key it needs is already held by
+EAS, proven by the non-interactive submit of build 9. The version bump, the TestFlight pass
+on the phone and Submit for Review stay the maintainer's manual steps exactly as they are
+today.
 
 The evidence behind the release: the full-flow recording Apple asked for was captured on
 2026-09-14 on the maintainer's iPhone 14 Pro on iOS 26.6.2 from the TestFlight build 8,
