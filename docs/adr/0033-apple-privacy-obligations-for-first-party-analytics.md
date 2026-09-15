@@ -46,7 +46,7 @@ for how the anonymous identifier is produced.
 Apple defines collection as transmitting data off the device "in a way that allows you
 and/or your third-party partners to access it for a period longer than what is necessary
 to service the transmitted request in real time" (App Privacy Details,
-<https://developer.apple.com/app-store/app-privacy-details/>, read 2026-09-09).
+<https://developer.apple.com/app-store/app-privacy-details/>, read 2026-09-15).
 Analytics events sent to PostHog Cloud and stored there are collection under that
 definition. The developer must disclose the practices of "third-party partners", which
 the page defines to include "analytics tools", so PostHog's behaviour is kuyara's to
@@ -82,7 +82,7 @@ build reaches the App Store.
 ### 2. App Tracking Transparency does not apply
 
 Apple's definition, verbatim from User Privacy and Data Use
-(<https://developer.apple.com/app-store/user-privacy-and-data-use/>, read 2026-09-09):
+(<https://developer.apple.com/app-store/user-privacy-and-data-use/>, read 2026-09-15):
 
 > Tracking refers to the act of linking user or device data collected from your app with
 > user or device data collected from other companies' apps, websites, or offline
@@ -120,7 +120,7 @@ recorded product decisions contemplates.
 ### 3. A consent prompt and a withdrawal control are required by Apple
 
 App Store Review Guideline 5.1.1 (ii) Permission
-(<https://developer.apple.com/app-store/review/guidelines/#privacy>, read 2026-09-09):
+(<https://developer.apple.com/app-store/review/guidelines/#privacy>, read 2026-09-15):
 
 > Apps that collect user or usage data must secure user consent for the collection, even if
 > such data is considered to be anonymous at the time of or immediately following
@@ -383,7 +383,7 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
   Coarse Location is "not collected" for the whole app, not only for the analytics path.
   Apple's App Privacy Details page states that "if data is sent to your servers then
   immediately discarded after servicing the request, you do not need to disclose this"
-  (<https://developer.apple.com/app-store/app-privacy-details/>, read 2026-09-13). Device
+  (<https://developer.apple.com/app-store/app-privacy-details/>, read 2026-09-15). Device
   coordinates travel only inside POST request bodies to the Worker, from
   `worker-weather-provider.ts` and `worker-place-search-data-source.ts`, never in a URL or
   query string. The Worker uses them to service the request in real time, persists none of
@@ -422,7 +422,7 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
   2026-09-13), so retention is an open item to settle with Expo before submission.
 
   App Privacy rows Observe requires, against Apple's App Privacy Details page
-  (<https://developer.apple.com/app-store/app-privacy-details/>, read 2026-09-13):
+  (<https://developer.apple.com/app-store/app-privacy-details/>, read 2026-09-15):
 
   | Apple category | Applies | Apple's definition, quoted | Why |
   |---|---|---|---|
@@ -535,11 +535,11 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
 
 Apple, all read 2026-09-09:
 
-- App Privacy Details on the App Store: <https://developer.apple.com/app-store/app-privacy-details/>
+- App Privacy Details on the App Store, read 2026-09-15: <https://developer.apple.com/app-store/app-privacy-details/>
 - NSPrivacyCollectedDataType and NSPrivacyCollectedDataTypePurposes value lists, read 2026-09-13: <https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacycollecteddatatypes>
 - Describing use of required reason API, read 2026-09-13: <https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api>
-- User Privacy and Data Use: <https://developer.apple.com/app-store/user-privacy-and-data-use/>
-- App Store Review Guidelines, section 5.1 Privacy: <https://developer.apple.com/app-store/review/guidelines/#privacy>
+- User Privacy and Data Use, read 2026-09-15: <https://developer.apple.com/app-store/user-privacy-and-data-use/>
+- App Store Review Guidelines, section 5.1 Privacy, read 2026-09-15: <https://developer.apple.com/app-store/review/guidelines/#privacy>
 - Offering account deletion in your app: <https://developer.apple.com/support/offering-account-deletion-in-your-app/>
 - Privacy manifest files: <https://developer.apple.com/documentation/bundleresources/privacy-manifest-files>
 - Describing data use in privacy manifests: <https://developer.apple.com/documentation/bundleresources/describing-data-use-in-privacy-manifests>

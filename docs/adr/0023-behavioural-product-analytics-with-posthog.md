@@ -2,7 +2,7 @@
 
 Status: Accepted (2026-09-04)
 
-Implementation: in progress. The `ProductAnalytics` boundary, typed event catalog
+Implementation: complete. The `ProductAnalytics` boundary, typed event catalog
 ([`analytics-taxonomy.md`](../analytics-taxonomy.md)), PostHog adapter, consent surface,
 and current call sites are implemented. This ADR records the analytics direction and
 privacy boundary.
