@@ -1,0 +1,53 @@
+# Dependabot keeps the pnpm workspace and the workflow actions current.
+# Expo SDK versions are deliberately out of scope: `expo install --check` owns them.
+version: 2
+
+updates:
+  - package-ecosystem: "npm"
+    directories:
+      - "/"
+      - "/apps/mobile"
+      - "/apps/worker"
+      - "/packages/contracts"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+    # Let a release settle before it is proposed.
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+    groups:
+      development-dependencies:
+        applies-to: version-updates
+        dependency-type: "development"
+      patch-and-minor:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # The installed Expo SDK dictates these versions.
+      - dependency-name: "expo"
+      - dependency-name: "expo-*"
+      - dependency-name: "@expo/*"
+      - dependency-name: "react-native"
+      - dependency-name: "react-native-*"
+      - dependency-name: "@react-native/*"
+      - dependency-name: "@react-native-community/*"
+      - dependency-name: "babel-preset-expo"
+      - dependency-name: "jest-expo"
+      - dependency-name: "eslint-config-expo"
+      # React and its type package move with the SDK on majors only.
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"

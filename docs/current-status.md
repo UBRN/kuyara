@@ -202,7 +202,11 @@ and the mobile component suite on every push to `main` and every pull request, a
 `apps/mobile/.eas/workflows/release-ios.yml` builds the production iOS binary and submits
 it with the `production` submit profile, started only by `eas workflow:run` (see
 [Release path](testing.md#release-path)). CI is green on `main`; its first run failed
-until the git-ignored Expo typed-route types were generated on the runner. The release
+until the git-ignored Expo typed-route types were generated on the runner. Since
+2026-09-15 the repository also has Dependabot version updates with the Expo SDK excluded,
+a dependency-review job on pull requests, Dependabot alerts and security updates, secret
+scanning with push protection and CodeQL default setup, whose first scan passed with no
+alert (see [testing.md](testing.md)). The release
 workflow has not run yet, but the App Store Connect API key it needs is already held by
 EAS, proven by the non-interactive submit of build 9. The version bump, the TestFlight pass
 on the phone and Submit for Review stay the maintainer's manual steps exactly as they are

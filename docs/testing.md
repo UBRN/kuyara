@@ -36,6 +36,19 @@ pnpm dlx expo-doctor@latest
 
 CI runs the same command on every push to `main` and every pull request.
 
+CI also guards the dependency and secret surface. `.github/dependabot.yml` proposes weekly
+npm updates for the four workspace directories, grouped into one development and one
+patch-and-minor pull request after a seven-day cooldown (fourteen for majors), and monthly
+GitHub Actions updates; the Expo SDK packages (`expo`, `expo-*`, `@expo/*`, `react-native`,
+`react-native-*`, `@react-native/*`, `jest-expo`, `eslint-config-expo`, `babel-preset-expo`)
+and React majors are excluded because `npx expo install --check` owns those versions. A
+`dependency-review` job in `ci.yml` fails a pull request that adds a dependency with a
+known high or critical vulnerability. On the repository itself Dependabot alerts,
+Dependabot security updates, secret scanning with push protection and CodeQL default setup
+(JavaScript and TypeScript, weekly) are switched on; all four are free for a public
+repository and none can deploy or spend. Branch rulesets and a manually triggered Worker
+deploy workflow are deliberately not set up yet.
+
 Verify the Worker bundle without deployment:
 
 ```bash
