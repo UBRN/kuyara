@@ -16,6 +16,7 @@ type BackgroundWeatherAlertTaskDependencies = Readonly<{
   getNotificationPermission: () => Promise<NotificationPermissionState>;
   reschedule: WeatherAlertScheduling['reschedule'];
   getDeviceLocale: () => string;
+  getDeviceHour12: (deviceLocale: string) => boolean;
   now: () => string;
 }>;
 
@@ -54,14 +55,13 @@ export async function runBackgroundWeatherAlertTask(
       snapshot = await repository.saveSnapshot(profile.id, provided);
     }
 
+    const deviceLocale = dependencies.getDeviceLocale();
     await dependencies.reschedule({
       localProfileId: profile.id,
       snapshot,
       enabled: true,
-      language: resolveLanguagePreference(
-        profile.languagePreference,
-        dependencies.getDeviceLocale(),
-      ),
+      language: resolveLanguagePreference(profile.languagePreference, deviceLocale),
+      hour12: dependencies.getDeviceHour12(deviceLocale),
       // ADR 0032 section 3: the app is not open here, so a crossing closer than the
       // foreground lead still earns a shortened warning.
       leadTimeMinutes: weatherAlertBackgroundLeadTimeMinutes,

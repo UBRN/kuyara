@@ -573,8 +573,8 @@ test('an unknown stored type is read as unclassified without hiding valid rows o
   assert.equal(stored.garment_type_id, 'future_type');
 });
 
-test('persisted type-category mismatches fail without changing rows', async (t) => {
-  const { database, repository } = await createRepository(t);
+test('a persisted type-category mismatch stays readable and deletable without changing rows', async (t) => {
+  const { database, repository, setTime } = await createRepository(t);
   await database.runAsync(
     `
       INSERT INTO wardrobe_items (
@@ -584,21 +584,158 @@ test('persisted type-category mismatches fail without changing rows', async (t) 
     `,
     [itemIds[1], profileId, createdAt, createdAt],
   );
+  const valid = await repository.createItem({
+    localProfileId: profileId,
+    category: 'top',
+    garmentTypeId: 'sweater',
+    name: 'Kazak',
+  });
 
+  // The mismatch no longer takes the whole list down, and it is handed back exactly as
+  // stored: neither hidden nor quietly rewritten into a different garment.
+  const items = await repository.listActiveItems(profileId);
+  assert.deepEqual(
+    items.map(({ id, garmentTypeId, category }) => ({ id, garmentTypeId, category })).sort(
+      (left, right) => left.id.localeCompare(right.id),
+    ),
+    [
+      { id: itemIds[0], garmentTypeId: 'sweater', category: 'top' },
+      { id: itemIds[1], garmentTypeId: 't_shirt', category: 'bottom' },
+    ],
+  );
+  assert.equal(valid.id, itemIds[0]);
+
+  const mismatched = await repository.getActiveItem(profileId, itemIds[1]);
+  assert.equal(mismatched.garmentTypeId, 't_shirt');
+  assert.equal(mismatched.category, 'bottom');
+  assert.equal(resolveEffectiveGarment(mismatched).status, 'invalid-data');
+
+  // Saving a change that leaves the mismatch in place is still refused by the write
+  // invariant, so the app never writes an inconsistent row back.
   await assert.rejects(
-    () => repository.getActiveItem(profileId, itemIds[1]),
-    assertRepositoryError('invalid-data'),
+    () => repository.updateItem({
+      id: itemIds[1],
+      localProfileId: profileId,
+      name: 'Yeni ad',
+    }),
+    assertRepositoryError('invalid-input'),
   );
   const rows = await database.getAllAsync(
-    'SELECT id, garment_type_id, category FROM wardrobe_items ORDER BY id',
+    'SELECT id, name, garment_type_id, category FROM wardrobe_items WHERE id = ?',
+    [itemIds[1]],
   );
   assert.deepEqual(rows.map((row) => ({ ...row })), [
     {
       id: itemIds[1],
+      name: 'Yanlış Kategori',
       garment_type_id: 't_shirt',
       category: 'bottom',
     },
   ]);
+
+  // Choosing a garment type resolves the mismatch through the normal edit path: the
+  // category follows the selected type, and only then is the row rewritten.
+  setTime(updatedAt);
+  const repaired = await repository.updateItem({
+    id: itemIds[1],
+    localProfileId: profileId,
+    garmentTypeId: 't_shirt',
+  });
+  assert.equal(repaired.category, 'top');
+  assert.equal(resolveEffectiveGarment(repaired).status, 'resolved');
+
+  const deleted = await repository.softDeleteItem(profileId, itemIds[1]);
+  assert.equal(deleted.deletedAt, updatedAt);
+  assert.equal(await repository.getActiveItem(profileId, itemIds[1]), null);
+});
+
+test('one unreadable row never blanks the list of everything else', async (t) => {
+  const { database, repository } = await createRepository(t);
+  // The two rows a sibling session hand-seeded into the Simulator database on
+  // 2026-09-12: garment type ids the catalog has never defined, next to real rows.
+  const seededIds = [
+    'a1b2c3d4-0002-4ae7-a8f1-796e8297d3b4',
+    'a1b2c3d4-0003-4ae7-a8f1-796e8297d3b4',
+  ];
+  const legacyId = 'a1b2c3d4-0004-4ae7-a8f1-796e8297d3b4';
+  await database.runAsync(
+    `
+      INSERT INTO wardrobe_items (
+        id, local_profile_id, name, category, garment_type_id,
+        created_at, updated_at, deleted_at
+      ) VALUES (?, ?, 'Tişört', 'top', 'womens.tops.tshirt', ?, ?, NULL)
+    `,
+    [seededIds[0], profileId, createdAt, createdAt],
+  );
+  await database.runAsync(
+    `
+      INSERT INTO wardrobe_items (
+        id, local_profile_id, name, category, garment_type_id,
+        created_at, updated_at, deleted_at
+      ) VALUES (?, ?, 'Yağmurluk', 'outerwear', 'womens.outerwear.raincoat', ?, ?, NULL)
+    `,
+    [seededIds[1], profileId, createdAt, createdAt],
+  );
+  // A released version 2 row: no garment type id at all, still readable as legacy.
+  await database.runAsync(
+    `
+      INSERT INTO wardrobe_items (
+        id, local_profile_id, name, category, created_at, updated_at, deleted_at
+      ) VALUES (?, ?, 'Eski Kazak', 'top', ?, ?, NULL)
+    `,
+    [legacyId, profileId, createdAt, createdAt],
+  );
+  // A type the catalog knows, stored under the wrong structural category.
+  await database.runAsync(
+    `
+      INSERT INTO wardrobe_items (
+        id, local_profile_id, name, category, garment_type_id,
+        created_at, updated_at, deleted_at
+      ) VALUES (?, ?, 'Yanlış Kategori', 'bottom', 't_shirt', ?, ?, NULL)
+    `,
+    [itemIds[1], profileId, createdAt, createdAt],
+  );
+  const valid = await repository.createItem({
+    localProfileId: profileId,
+    category: 'top',
+    garmentTypeId: 'sweater',
+    name: 'Kazak',
+  });
+
+  const items = await repository.listActiveItems(profileId);
+
+  assert.equal(items.length, 5);
+  assert.equal(
+    items.find(({ id }) => id === valid.id)?.garmentTypeId,
+    'sweater',
+  );
+  // An unknown stored type reads as unclassified, the same shape a legacy row has.
+  for (const id of [...seededIds, legacyId]) {
+    assert.equal(items.find((item) => item.id === id)?.garmentTypeId, null);
+  }
+  assert.equal(
+    items.find(({ id }) => id === legacyId)?.category,
+    'top',
+  );
+  assert.equal(
+    items.find(({ id }) => id === itemIds[1])?.garmentTypeId,
+    't_shirt',
+  );
+
+  // Nothing on disk was rewritten by reading.
+  const rows = await database.getAllAsync(
+    'SELECT id, garment_type_id FROM wardrobe_items ORDER BY id',
+  );
+  assert.deepEqual(
+    rows.map((row) => ({ ...row })),
+    [
+      { id: seededIds[0], garment_type_id: 'womens.tops.tshirt' },
+      { id: seededIds[1], garment_type_id: 'womens.outerwear.raincoat' },
+      { id: legacyId, garment_type_id: null },
+      { id: itemIds[0], garment_type_id: 'sweater' },
+      { id: itemIds[1], garment_type_id: 't_shirt' },
+    ].sort((left, right) => left.id.localeCompare(right.id)),
+  );
 });
 
 test('catalog applicability never prevents ownership of a valid canonical type', async (t) => {

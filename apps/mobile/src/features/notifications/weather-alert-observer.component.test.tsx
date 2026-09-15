@@ -122,6 +122,7 @@ function Providers({
   notificationsOptIn = true,
   permission = { kind: 'granted' },
   language = 'en',
+  hour12 = false,
   freshness = 'fresh',
   refreshFailure = null,
   weatherStatus = 'ready',
@@ -131,13 +132,14 @@ function Providers({
   notificationsOptIn?: boolean;
   permission?: NotificationPermissionState;
   language?: SupportedLanguage;
+  hour12?: boolean;
   freshness?: WeatherFreshness;
   refreshFailure?: FailureCategory | null;
   weatherStatus?: 'loading' | 'ready' | 'error';
 }>) {
   return (
     <ProfileApplicationContext.Provider value={profileApplication(notificationsOptIn)}>
-      <LocalizationContext.Provider value={{ language, messages: messages[language], hour12: false }}>
+      <LocalizationContext.Provider value={{ language, messages: messages[language], hour12 }}>
         <NotificationApplicationContext.Provider value={notificationApplication(scheduler, permission)}>
           <WeatherApplicationContext.Provider
             value={weatherApplication(
@@ -170,6 +172,29 @@ test('a fresh snapshot id change triggers exactly one additional reschedule', as
 
   await waitFor(() => expect(reschedule).toHaveBeenCalledTimes(2));
   expect(reschedule.mock.calls[1]?.[0].snapshot?.id).toBe('snapshot-two');
+});
+
+// The clock setting decides how the crossing reads in the notification body, so a change
+// to it has to re-plan the schedule the same way a language change does.
+test("the device's clock setting reaches the scheduler and re-plans when it changes", async () => {
+  const reschedule = jest.fn<
+    ReturnType<WeatherAlertScheduling['reschedule']>,
+    Parameters<WeatherAlertScheduling['reschedule']>
+  >(async () => undefined);
+  const scheduler: WeatherAlertScheduling = { reschedule };
+  const weatherSnapshot = snapshot('snapshot-one');
+  const result = await render(
+    <Providers scheduler={scheduler} weatherSnapshot={weatherSnapshot} />,
+  );
+  await waitFor(() => expect(reschedule).toHaveBeenCalledTimes(1));
+  expect(reschedule.mock.calls[0]?.[0].hour12).toBe(false);
+
+  result.rerender(
+    <Providers hour12 scheduler={scheduler} weatherSnapshot={weatherSnapshot} />,
+  );
+
+  await waitFor(() => expect(reschedule).toHaveBeenCalledTimes(2));
+  expect(reschedule.mock.calls[1]?.[0].hour12).toBe(true);
 });
 
 test('a stale snapshot still reschedules weather alerts with the cached snapshot', async () => {

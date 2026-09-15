@@ -24,6 +24,8 @@ jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests
 jest.mock('@expo/ui/swift-ui/modifiers', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 
 const checkedAt = '2026-08-29T12:34:00.000Z';
+// 18:05 UTC reads as "18:05" on a 24-hour device and "6:05 PM" on a 12-hour one.
+const eveningCheckedAt = '2026-08-29T18:05:00.000Z';
 const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
   insets: { top: 47, right: 0, bottom: 34, left: 0 },
@@ -33,9 +35,10 @@ function providers(
   children: React.ReactNode,
   language: SupportedLanguage,
   theme: KuyaraTheme = lightTheme,
+  hour12 = false,
 ) {
   return (
-    <LocalizationContext.Provider value={{ language, messages: messages[language], hour12: false }}>
+    <LocalizationContext.Provider value={{ language, messages: messages[language], hour12 }}>
       <KuyaraThemeContext.Provider value={theme}>
         <SafeAreaProvider initialMetrics={initialMetrics}>
           {children}
@@ -49,6 +52,7 @@ function screen(
   language: SupportedLanguage,
   overrides: Partial<React.ComponentProps<typeof AiStatusSettingsScreen>> = {},
   theme: KuyaraTheme = lightTheme,
+  hour12 = false,
 ) {
   const props = {
     aiStatus: { kind: 'idle' } as const,
@@ -61,7 +65,9 @@ function screen(
 
   return {
     onCheckAiStatus: props.onCheckAiStatus,
-    rendered: render(providers(<AiStatusSettingsScreen {...props} />, language, theme)),
+    rendered: render(
+      providers(<AiStatusSettingsScreen {...props} />, language, theme, hour12),
+    ),
   };
 }
 
@@ -97,6 +103,24 @@ describe.each(['en', 'tr'] as const)('%s AI status settings screen', (language) 
     expect(
       result.getByText(language === 'en' ? /^AI responded at .+/ : /^AI saat .+ yanıt verdi\.$/),
     ).toBeOnTheScreen();
+  });
+
+  // The check time is a clock reading, so it wears the device's own 12/24-hour setting
+  // rather than a fixed one; TZ=UTC keeps the expected strings deterministic.
+  test.each([
+    [false, '18:05'],
+    [true, '6:05'],
+  ] as const)('formats the checked time for hour12 %s', async (hour12, expected) => {
+    const { rendered } = screen(
+      language,
+      { aiStatus: { kind: 'ok', checkedAt: eveningCheckedAt } },
+      lightTheme,
+      hour12,
+    );
+    const result = await rendered;
+
+    expect(result.getByText(new RegExp(expected))).toBeOnTheScreen();
+    expect(result.queryByText(new RegExp(hour12 ? '18:05' : '6:05'))).toBeNull();
   });
 
   test('disables unsupported checks and announces build availability', async () => {

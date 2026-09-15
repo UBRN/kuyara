@@ -201,14 +201,6 @@ function requireConsistentTaxonomyFields(
   return fields;
 }
 
-function requireValidPersistedTaxonomy(item: WardrobeItem): WardrobeItem {
-  if (item.garmentTypeId !== null && !taxonomyFieldsAreConsistent(item)) {
-    throw new WardrobeItemMappingError();
-  }
-
-  return item;
-}
-
 function mutableFieldsFromCreate(input: CreateWardrobeItemInput): MutableWardrobeFields {
   const garmentTypeId = requireEnum(input.garmentTypeId, garmentTypeIdSchema);
   const type = getGarmentType(garmentTypeId);
@@ -544,7 +536,17 @@ export class LocalWardrobeRepository implements WardrobeRepository {
     localProfileId: string,
     includeDeleted: boolean,
   ): WardrobeItem {
-    const item = requireValidPersistedTaxonomy(mapWardrobeItemRecord(record));
+    // Reads never re-judge a stored row's taxonomy. `requireConsistentTaxonomyFields`
+    // guards every write, so the app cannot produce a row whose garment type and
+    // structural category disagree; one that exists anyway (a hand-seeded row, a garment
+    // type the catalog later moved to another category) is handed back exactly as stored.
+    // Rejecting it here failed the whole `listActiveItems` read and blanked the Closet for
+    // every other item. Repairing it here would change the user's garment behind their
+    // back, so the row keeps its stored values: the Closet renders it, the detail screen
+    // opens it, deleting it works, and saving it is still refused by the write invariant
+    // until the user picks a garment type that resolves. Domain code that needs a coherent
+    // garment asks `resolveEffectiveGarment`, which still reports `invalid-data`.
+    const item = mapWardrobeItemRecord(record);
 
     if (
       item.localProfileId !== localProfileId ||
