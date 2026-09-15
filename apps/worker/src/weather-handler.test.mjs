@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { weatherV1ErrorSchema, weatherV1SuccessSchema } from '@kuyara/contracts';
+import { weatherV1ErrorCodes, weatherV1ErrorSchema, weatherV1SuccessSchema } from '@kuyara/contracts';
 
 import { createWeatherHandler } from './weather-handler.ts';
 import { DeterministicMockWeatherProvider } from './weather/mock-weather-provider.ts';
@@ -37,6 +37,9 @@ async function assertError(response, status, code) {
   const body = await response.json();
   assert.deepEqual(body, { error: { code } });
   assert.equal(weatherV1ErrorSchema.safeParse(body).success, true);
+  // The schema also reads a code it does not know as 'unknown' for older binaries; every
+  // code the Worker emits must be a member of the closed list, never that reader value.
+  assert.ok(weatherV1ErrorCodes.includes(body.error.code), `unlisted error code ${body.error.code}`);
 }
 
 test('returns deterministic, contract-valid sample weather without echoing location data', async () => {

@@ -89,9 +89,18 @@ test('rejects a live kind sourced from the sample provider', () => {
   assert.equal(weatherV1SuccessSchema.safeParse(value).success, false);
 });
 
-test('rejects an unknown source id', () => {
+test('reads an unknown live source id as the named unknown member', () => {
   const value = validSuccess();
   value.data.origin = { kind: 'live', sourceId: 'weatherapi' };
+  assert.deepEqual(
+    weatherV1SuccessSchema.parse(value).data.origin,
+    { kind: 'live', sourceId: 'unknown' },
+  );
+});
+
+test('rejects an unknown source id under sample provenance', () => {
+  const value = validSuccess();
+  value.data.origin = { kind: 'sample', sourceId: 'weatherapi' };
   assert.equal(weatherV1SuccessSchema.safeParse(value).success, false);
 });
 

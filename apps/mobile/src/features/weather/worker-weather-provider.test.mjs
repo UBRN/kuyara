@@ -80,6 +80,20 @@ test('carries through a live provider sourceId instead of hard-coding it', async
   assert.deepEqual(snapshot.origin, { kind: 'live', sourceId: 'open-meteo' });
 });
 
+test('reads a provider this binary does not know as the named unknown member and keeps its data', async () => {
+  const provider = new WorkerWeatherProvider({
+    baseUrl: 'http://127.0.0.1:8788',
+    fetch: async () => jsonResponse({
+      data: { ...successBody.data, origin: { kind: 'live', sourceId: 'met-norway' } },
+    }),
+  });
+
+  const snapshot = await provider.fetchSnapshot(location);
+
+  assert.deepEqual(snapshot.origin, { kind: 'live', sourceId: 'unknown' });
+  assert.equal(snapshot.current.temperatureCelsius, measurements.temperatureCelsius);
+});
+
 test('classifies stable API errors as service failures before exposing their code', async () => {
   const provider = new WorkerWeatherProvider({
     baseUrl: 'http://127.0.0.1:8788',
@@ -91,6 +105,34 @@ test('classifies stable API errors as service failures before exposing their cod
     (error) => error instanceof WorkerWeatherProviderError
       && error.kind === 'service'
       && error.code === 'weather_unavailable',
+  );
+});
+
+test('classifies an error code this binary does not know as a service failure with the unknown code', async () => {
+  const provider = new WorkerWeatherProvider({
+    baseUrl: 'http://127.0.0.1:8788',
+    fetch: async () => jsonResponse({ error: { code: 'upstream_degraded' } }, { status: 503 }),
+  });
+
+  await assert.rejects(
+    () => provider.fetchSnapshot(location),
+    (error) => error instanceof WorkerWeatherProviderError
+      && error.kind === 'service'
+      && error.code === 'unknown',
+  );
+});
+
+test('classifies a 429 with an error code this binary does not know as rate-limited', async () => {
+  const provider = new WorkerWeatherProvider({
+    baseUrl: 'http://127.0.0.1:8788',
+    fetch: async () => jsonResponse({ error: { code: 'burst_limited' } }, { status: 429 }),
+  });
+
+  await assert.rejects(
+    () => provider.fetchSnapshot(location),
+    (error) => error instanceof WorkerWeatherProviderError
+      && error.kind === 'rate-limited'
+      && error.code === 'unknown',
   );
 });
 
@@ -111,7 +153,8 @@ test('classifies a rate_limited response as a distinct rate-limited failure kind
 test('classifies malformed success, malformed error, and mismatched time zone responses', async () => {
   const cases = [
     async () => jsonResponse({ data: { ...successBody.data, hourly: [] } }),
-    async () => jsonResponse({ error: { code: 'provider_secret' } }, { status: 503 }),
+    async () => jsonResponse({ error: { code: 42 } }, { status: 503 }),
+    async () => jsonResponse({ error: { message: 'provider secret' } }, { status: 503 }),
     async () => jsonResponse({
       data: { ...successBody.data, timeZone: 'Europe/London' },
     }),

@@ -32,6 +32,8 @@ test('search sanitizes transport, timeout, rate limit and malformed response fai
     [async (_url, { signal }) => new Promise((_, reject) => signal.addEventListener('abort', () => reject(new Error('private timeout')))), 'unavailable'],
     [async () => Response.json({ error: { code: 'rate_limited' } }, { status: 429 }), 'rate-limited'],
     [async () => Response.json({ error: { code: 'places_unavailable' } }, { status: 503 }), 'unavailable'],
+    [async () => Response.json({ error: { code: 'upstream_degraded' } }, { status: 503 }), 'unavailable'],
+    [async () => Response.json({ error: { code: 'burst_limited' } }, { status: 429 }), 'rate-limited'],
     [async () => Response.json({ error: { message: 'private' } }, { status: 503 }), 'invalid-response'],
     [async () => new Response('not json'), 'invalid-response'],
     [async () => Response.json({ data: { ...data, places: [{ ...data.places[0], latitudeE2: 1.1 }] } }), 'invalid-response'],

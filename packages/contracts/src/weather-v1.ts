@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { enumOrUnknown } from './enum-or-unknown.ts';
+
 export const weatherV1Path = '/v1/weather' as const;
 
 export const weatherConditionCodes = [
@@ -110,7 +112,9 @@ const weatherV1DataSchema = z.object({
   fetchedAt: utcTimestampSchema,
   origin: z.object({
     kind: z.enum(['sample', 'live']),
-    sourceId: z.enum(weatherSourceIds),
+    // Tolerant on purpose: a provider the binary does not know reads as 'unknown' and its
+    // data still renders; the attribution line decides what to say about 'unknown'.
+    sourceId: enumOrUnknown(weatherSourceIds),
   }),
   current: currentWeatherSchema,
   minimumTemperatureCelsius: z.number(),
@@ -152,7 +156,7 @@ export const weatherV1SuccessSchema = z.object({
 
 export const weatherV1ErrorSchema = z.object({
   error: z.object({
-    code: z.enum(weatherV1ErrorCodes),
+    code: enumOrUnknown(weatherV1ErrorCodes),
   }),
 });
 

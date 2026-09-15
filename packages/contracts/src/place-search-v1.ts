@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { enumOrUnknown } from './enum-or-unknown.ts';
 import { ianaTimeZoneSchema, weatherV1RequestSchema } from './weather-v1.ts';
 
 export const placeSearchV1Path = '/v1/places/search' as const;
@@ -34,16 +35,19 @@ export const placeSearchV1SuccessSchema = z.object({
   }),
 });
 
+export const placeSearchV1ErrorCodes = [
+  'invalid_request', 'not_found', 'method_not_allowed',
+  'places_unavailable', 'internal_error', 'rate_limited',
+] as const;
+
 export const placeSearchV1ErrorSchema = z.object({
   error: z.object({
-    code: z.enum([
-      'invalid_request', 'not_found', 'method_not_allowed',
-      'places_unavailable', 'internal_error', 'rate_limited',
-    ]),
+    code: enumOrUnknown(placeSearchV1ErrorCodes),
   }),
 });
 
 export type PlaceSearchV1Request = z.infer<typeof placeSearchV1RequestSchema>;
 export type PlaceSearchResult = z.infer<typeof placeSearchResultSchema>;
 export type PlaceSearchV1Data = z.infer<typeof placeSearchV1SuccessSchema>['data'];
-export type PlaceSearchV1ErrorCode = z.infer<typeof placeSearchV1ErrorSchema>['error']['code'];
+// The closed list the Worker emits; the schema above additionally reads 'unknown'.
+export type PlaceSearchV1ErrorCode = (typeof placeSearchV1ErrorCodes)[number];

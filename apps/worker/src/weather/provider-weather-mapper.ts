@@ -1,4 +1,5 @@
 import {
+  weatherSourceIds,
   weatherV1SuccessSchema,
   type WeatherV1Success,
 } from '@kuyara/contracts';
@@ -29,6 +30,10 @@ export function mapProviderWeatherToApi(
     });
 
     if (!result.success) throw new InvalidProviderWeatherError();
+    // The shared schema reads an unlisted source id as 'unknown' so installed binaries survive a
+    // new provider; the Worker itself must never emit one, so the runtime gate stays closed here.
+    const knownSourceIds: readonly string[] = weatherSourceIds;
+    if (!knownSourceIds.includes(result.data.data.origin.sourceId)) throw new InvalidProviderWeatherError();
     return result.data;
   } catch (error) {
     if (error instanceof InvalidProviderWeatherError) throw error;

@@ -49,7 +49,8 @@ export class WorkerPlaceSearchDataSource {
       if (!response.ok) {
         const error = placeSearchV1ErrorSchema.safeParse(body);
         if (!error.success) throw new PlaceSearchError('invalid-response');
-        throw new PlaceSearchError(error.data.error.code === 'rate_limited' ? 'rate-limited' : 'unavailable');
+        const rateLimited = response.status === 429 || error.data.error.code === 'rate_limited';
+        throw new PlaceSearchError(rateLimited ? 'rate-limited' : 'unavailable');
       }
       const result = placeSearchV1SuccessSchema.safeParse(body);
       if (!result.success || result.data.data.places.length > request.data.limit) {

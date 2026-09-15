@@ -2,6 +2,8 @@
 // values are decided. Every value is a closed enum or an integer; nothing here is free text,
 // a provider name, a model identity, a prompt, a coordinate, a place name, a wardrobe value
 // or an identifier (ADR 0034's red line and the taxonomy's exclusion checklist).
+import { weatherSourceIds } from '@kuyara/contracts';
+
 import type { FailureCategory } from '@/domain/failure-category';
 import type { TelemetryAttributes } from '@/features/analytics/domain/performance-telemetry';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
@@ -107,12 +109,16 @@ export type WeatherRefreshedInput = Readonly<{
   source: string | null;
 }>;
 
+// Anything outside the contract's list (a development fake, a future provider read by an older
+// binary) reaches Observe as 'unknown', so the attribute stays a closed set.
+const knownSourceIds: readonly string[] = weatherSourceIds;
+
 export function weatherRefreshedAttributes(
   input: WeatherRefreshedInput,
 ): TelemetryAttributes {
   return {
     duration_ms: durationAttribute(input.durationMs),
     outcome: input.outcome,
-    ...(input.source ? { source: input.source } : {}),
+    ...(input.source ? { source: knownSourceIds.includes(input.source) ? input.source : 'unknown' } : {}),
   };
 }
