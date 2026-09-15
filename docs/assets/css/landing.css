@@ -9,7 +9,7 @@
  *          There are no cards-with-shadows here; a plane is a plane.
  *   Law 7  the finished, un-animated page is the page. Scroll motion is an
  *          enhancement layered on top of a document that is already complete,
- *          which is what Firefox and every Reduce Motion reader gets.
+ *          which is what an engine without scroll-driven animations gets.
  *
  * ADR 0018 binds the stage: the condition tint colours the bounded plane the
  * garments sit on, never a full-width strip, and only primary text or icons may
@@ -288,145 +288,143 @@ body.ku-landing {
 }
 
 /* ------------------------------------------------------- the enhancement layer
-   Gated twice. `@supports` keeps Firefox on the finished page; the reduced
-   motion query keeps every reader who asked for less motion on the same page.
-   One fallback path, not two, which is why the two queries are nested.
+   Gated once, on capability alone. `@supports` keeps an engine without
+   scroll-driven animations on the finished page; that is the only fallback
+   path. The page animates for every reader, whatever the operating system's
+   Reduce Motion setting says.
    Transform and opacity only, so the work stays on the compositor thread. */
 
 @supports (animation-timeline: view()) {
-  @media (prefers-reduced-motion: no-preference) {
-    /* The timeline is named on the track, which never moves. The pinned child
-       reads it by ancestor lookup, the only lookup direction that exists. */
-    .ku-track {
-      view-timeline-name: --ku-stage-scene;
-      view-timeline-axis: block;
-      min-height: 300vh;
-    }
+  /* The timeline is named on the track, which never moves. The pinned child
+     reads it by ancestor lookup, the only lookup direction that exists. */
+  .ku-track {
+    view-timeline-name: --ku-stage-scene;
+    view-timeline-axis: block;
+    min-height: 300vh;
+  }
 
-    .ku-pin {
-      position: sticky;
-      top: 0;
-      display: grid;
-      min-height: 100svh;
-      align-content: center;
-    }
+  .ku-pin {
+    position: sticky;
+    top: 0;
+    display: grid;
+    min-height: 100svh;
+    align-content: center;
+  }
 
-    /* Stacked in one grid cell. Only the tinted plane cross-dissolves; the
-       captions cut, because two texts blended at 50 percent is unreadable and
-       reads as a rendering fault rather than a transition. The three boards sit
-       on the same three slot centres, so a dissolve swaps a garment in place. */
-    .ku-pin > .ku-state {
-      grid-area: 1 / 1;
-      margin-top: 0;
-      padding-block: var(--ku-space-md);
-    }
+  /* Stacked in one grid cell. Only the tinted plane cross-dissolves; the
+     captions cut, because two texts blended at 50 percent is unreadable and
+     reads as a rendering fault rather than a transition. The three boards sit
+     on the same three slot centres, so a dissolve swaps a garment in place. */
+  .ku-pin > .ku-state {
+    grid-area: 1 / 1;
+    margin-top: 0;
+    padding-block: var(--ku-space-md);
+  }
 
-    /* `contain` is exactly the window in which a track taller than the viewport
-       covers the scrollport, which is exactly the window in which the stage is
-       pinned: progress 0 pins, progress 1 unpins. The first plane never
-       animates, so there is always one opaque layer underneath. */
-    .ku-state--veiled .ku-stage,
-    .ku-state--falling .ku-stage {
-      animation: ku-cross linear both;
-      animation-timeline: --ku-stage-scene; /* must follow the shorthand */
-    }
+  /* `contain` is exactly the window in which a track taller than the viewport
+     covers the scrollport, which is exactly the window in which the stage is
+     pinned: progress 0 pins, progress 1 unpins. The first plane never
+     animates, so there is always one opaque layer underneath. */
+  .ku-state--veiled .ku-stage,
+  .ku-state--falling .ku-stage {
+    animation: ku-cross linear both;
+    animation-timeline: --ku-stage-scene; /* must follow the shorthand */
+  }
 
-    .ku-state--veiled .ku-stage {
-      animation-range: contain 26% contain 36%;
-    }
+  .ku-state--veiled .ku-stage {
+    animation-range: contain 26% contain 36%;
+  }
 
-    .ku-state--falling .ku-stage {
-      animation-range: contain 60% contain 70%;
-    }
+  .ku-state--falling .ku-stage {
+    animation-range: contain 60% contain 70%;
+  }
 
-    @keyframes ku-cross {
-      from {
-        opacity: 0;
-      }
-      to {
-        opacity: 1;
-      }
+  @keyframes ku-cross {
+    from {
+      opacity: 0;
     }
-
-    /* The two cuts land at 31% and 65%, the midpoint of each dissolve, so only
-       one caption is ever painted. `step-end` holds each keyframe's value for
-       the whole interval, and `both` holds the end values outside the range. */
-    .ku-state__caption {
-      animation-timing-function: step-end;
-      animation-fill-mode: both;
-      animation-timeline: --ku-stage-scene;
+    to {
+      opacity: 1;
     }
+  }
 
-    .ku-state--clear .ku-state__caption {
-      animation-name: ku-cut-out;
-      animation-range: contain 30% contain 31%;
+  /* The two cuts land at 31% and 65%, the midpoint of each dissolve, so only
+     one caption is ever painted. `step-end` holds each keyframe's value for
+     the whole interval, and `both` holds the end values outside the range. */
+  .ku-state__caption {
+    animation-timing-function: step-end;
+    animation-fill-mode: both;
+    animation-timeline: --ku-stage-scene;
+  }
+
+  .ku-state--clear .ku-state__caption {
+    animation-name: ku-cut-out;
+    animation-range: contain 30% contain 31%;
+  }
+
+  .ku-state--veiled .ku-state__caption {
+    animation-name: ku-cut-mid;
+    animation-range: contain 0% contain 65%; /* 47.69% of 65% is the 31% cut */
+  }
+
+  .ku-state--falling .ku-state__caption {
+    animation-name: ku-cut-in;
+    animation-range: contain 64% contain 65%;
+  }
+
+  @keyframes ku-cut-out {
+    from {
+      opacity: 1;
     }
-
-    .ku-state--veiled .ku-state__caption {
-      animation-name: ku-cut-mid;
-      animation-range: contain 0% contain 65%; /* 47.69% of 65% is the 31% cut */
+    to {
+      opacity: 0;
     }
+  }
 
-    .ku-state--falling .ku-state__caption {
-      animation-name: ku-cut-in;
-      animation-range: contain 64% contain 65%;
+  @keyframes ku-cut-in {
+    from {
+      opacity: 0;
     }
-
-    @keyframes ku-cut-out {
-      from {
-        opacity: 1;
-      }
-      to {
-        opacity: 0;
-      }
+    to {
+      opacity: 1;
     }
+  }
 
-    @keyframes ku-cut-in {
-      from {
-        opacity: 0;
-      }
-      to {
-        opacity: 1;
-      }
+  @keyframes ku-cut-mid {
+    0% {
+      opacity: 0;
     }
-
-    @keyframes ku-cut-mid {
-      0% {
-        opacity: 0;
-      }
-      47.69% {
-        opacity: 1;
-      }
-      100% {
-        opacity: 0;
-      }
+    47.69% {
+      opacity: 1;
     }
-
-    /* Content arrives in reading order (Law 7). Nothing translates under a hero
-       value and nothing loops, so no ambient motion sits behind large type. */
-    .ku-rise {
-      animation: ku-rise linear both;
-      animation-timeline: view();
-      animation-range: entry 10% entry 70%;
+    100% {
+      opacity: 0;
     }
+  }
 
-    @keyframes ku-rise {
-      from {
-        opacity: 0;
-        transform: translateY(2vh);
-      }
-      to {
-        opacity: 1;
-        transform: none;
-      }
+  /* Content arrives in reading order (Law 7). Nothing translates under a hero
+     value and nothing loops, so no ambient motion sits behind large type. */
+  .ku-rise {
+    animation: ku-rise linear both;
+    animation-timeline: view();
+    animation-range: entry 10% entry 70%;
+  }
+
+  @keyframes ku-rise {
+    from {
+      opacity: 0;
+      transform: translateY(2vh);
+    }
+    to {
+      opacity: 1;
+      transform: none;
     }
   }
 }
 
 /* --------------------------------------------- the Firefox reveal, JS-applied
-   landing.js adds `ku-js-reveal` only where the CSS path is absent and the
-   reader has not asked for less motion, so these rules never hide content on a
-   page whose script did not run. */
+   landing.js adds `ku-js-reveal` only where the CSS path is absent, so these
+   rules never hide content on a page whose script did not run. */
 
 .ku-js-reveal .ku-rise {
   opacity: 0;

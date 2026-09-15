@@ -13,8 +13,10 @@
  * selectors. The palette itself lives in assets/css/tokens.css, which
  * _includes/head-custom.html links on every page; nothing here invents a value.
  *
- * The block is written once as a mixin and emitted twice, so adding an explicit
- * theme choice later costs a control and an attribute, not a second palette.
+ * The block is written once as a mixin and emitted twice: once for the system
+ * appearance and once for an explicit dark choice. The system emission carries
+ * the same :not([data-theme="light"]) guard as tokens.css, so a reader who
+ * forces Light keeps the light rendering under a dark operating system.
  */
 
 @mixin kuyara-dark {
@@ -85,7 +87,9 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  @include kuyara-dark;
+  :root:not([data-theme="light"]) {
+    @include kuyara-dark;
+  }
 }
 
 :root[data-theme="dark"] {
