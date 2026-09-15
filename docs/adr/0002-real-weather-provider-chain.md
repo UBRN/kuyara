@@ -56,8 +56,17 @@ re-derive rather than trusting these numbers later.
 - Therefore a true zero-billing hard stop requires manually lowering "Calls per
   day" in the Billing plans tab to **1,000 or less**, so no numeric room exists
   between the free allowance and the cap. See the operational requirement below.
-- Data is ODbL and requires visible attribution to OpenWeather. Share-alike
-  applies only to redistributing a derived dataset, which Kuyara does not do.
+- Data is ODbL on every self-service plan. Share-alike reaches a reusable
+  dataset made available outside the organisation; Kuyara never builds one. It
+  requests a location's current conditions, shows them, keeps the last valid
+  snapshot on the device, and builds no archive, so nothing leaves the app that
+  could be a database under the licence.
+- Attribution is obligatory on these plans and has three parts, all of which the
+  app shows together: the sentence "Weather data provided by OpenWeather", a
+  hyperlink to `https://openweathermap.org/`, and the OpenWeather logo from the
+  library the provider publishes for that purpose. The bundled files are that
+  library's Master and Negative lockups, unmodified, so the light and the dark
+  appearance each get the variant OpenWeather drew for it.
 - 429 covers both the per-minute rate limit and daily cap exhaustion; the API
   does not distinguish them. No `Retry-After` header is documented.
 
@@ -175,15 +184,28 @@ The fallback is part of the chain.
 ### 8. Contract and attribution
 
 `packages/contracts/src/weather-v1.ts` gained exactly two things: a required
-`origin.sourceId` (`sample | open-meteo | openweather`) with a cross-field
-invariant that `sourceId === 'sample'` if and only if `kind === 'sample'`, and a
-`rate_limited` error code.
+`origin.sourceId` with a cross-field invariant that `sourceId === 'sample'` if and
+only if `kind === 'sample'`, and a `rate_limited` error code. The identifier's
+values are `sample`, `open-meteo`, `openweather` and `weatherkit`.
 
 Attribution crosses the API as this controlled, non-secret identifier only. The
-mobile app maps it to localized attribution text and a link, so no user-visible
-string and no provider-authored text crosses the boundary. Raw provider data,
-credentials and internal errors do not cross. An unrecognized or legacy
-`sourceId` renders no attribution rather than failing.
+mobile app maps it to localized attribution text, a link and, for OpenWeather, the
+bundled logo, so no user-visible string and no provider-authored text crosses the
+boundary. Raw provider data, credentials and internal errors do not cross.
+
+**Attribution is rendered wherever weather data is displayed**, which today means
+Today and the Weather screen, through one presentational component
+(`features/weather/presentation/weather-attribution.tsx`). It shows the attribution
+of whichever provider answered, follows the snapshot rather than the refresh, and
+therefore stays visible on a cached or stale snapshot. Its text comes from
+localization keys in Turkish and English, one key per provider; the identifier is
+never printed. An unrecognized or legacy `sourceId`, `sample` included, renders no
+attribution rather than failing or naming a provider that did not answer.
+
+**Red line: attribution is never dropped from a surface that shows temperature or
+condition.** A new weather surface renders the component; it is not an optional
+decoration, and moving weather onto a screen without it breaks the licence terms of
+all three providers at once.
 
 `uvIndex` and `precipitationProbability` stayed required and non-nullable. The
 alternative, relaxing them, is recorded below.
