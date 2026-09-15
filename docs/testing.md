@@ -219,6 +219,43 @@ eas submit --profile production --platform ios --latest
 `eas submit` reads `submit.production.ios.ascAppId` from `eas.json`, so no app identifier is
 passed on the command line.
 
+### Workflow
+
+`apps/mobile/.eas/workflows/release-ios.yml` runs the same two steps on EAS
+infrastructure: a production iOS build, then a submit against the same
+`submit.production` profile. It declares no `push` or `pull_request` trigger, so it never
+starts on its own. Run it from `apps/mobile`, where both `eas.json` and the `.eas`
+directory live:
+
+```bash
+eas workflow:validate .eas/workflows/release-ios.yml
+eas workflow:run .eas/workflows/release-ios.yml
+```
+
+`workflow:validate` checks the file against the EAS schema and against the build and
+submit profiles in `eas.json`. A started run is followed with `eas workflow:status`,
+`eas workflow:logs` and `eas workflow:runs`, and on the project's workflows page in the
+Expo dashboard.
+
+Linking the GitHub repository to the EAS project is not required here. That link exists
+for the GitHub event triggers, and `eas workflow:run` works without it ([Get started with
+EAS Workflows](https://docs.expo.dev/eas/workflows/get-started/#automate-workflows-with-github-events)).
+The one-time setup the workflow does need is an App Store Connect API key held by EAS, so
+the submit job can authenticate with Apple non-interactively: run
+`eas credentials --platform ios`, choose the `production` profile, then **App Store
+Connect: Manage your API Key** and **Set up your project to use an API Key for EAS
+Submit** ([Automate with EAS
+Workflows](https://docs.expo.dev/submit/ios/#automate-with-eas-workflows)).
+
+The workflow replaces those two commands and nothing else. The Preconditions above still
+come first, in the same order: the `expo.version` bump in `apps/mobile/app.json`, green
+`pnpm check` and component tests, and the Worker deploy when a contract or a route
+changed. The TestFlight pass on the phone and Submit for Review in App Store Connect stay
+manual after the run finishes. The run happens on EAS infrastructure and draws on the
+account's EAS plan: the build job is billed like any other EAS build, and the remaining
+job time comes out of the plan's CI/CD minutes. Check the current allowances on
+<https://expo.dev/pricing> rather than assuming them.
+
 ### TestFlight pass on the phone
 
 Both profiles ship the same bundle id `com.ubrn.kuyara`, so the TestFlight build replaces the
