@@ -238,11 +238,14 @@ Settings with the notification permission and the AI status screen, regeneration
 a dress-style change, a cold relaunch showing the persisted recommendation, and pull to
 refresh. The badge read "Standard suggestions" throughout because the production AI
 quota was exhausted that evening, so the tour is evidence for the flows, not for the AI
-tier. One product observation came out of it: in mild weather (19°, cloudy) the
-deterministic rules produce no requirement, so Today shows no rationale line and the
-detail surface shows no reasons section, exactly as ADR 0026 section 4 designs it, while
-the store description promises outfits "explained piece by piece"; whether to adjust the
-copy or the surface is an open product question, not a defect.
+tier. One product observation came out of it and was settled on 2026-09-15: in mild weather
+(19°, cloudy) the deterministic rules produce no requirement, so Today's rationale line
+rendered empty and the detail surface showed no reasons section while the store
+description promised outfits "explained piece by piece". Today now shows one deterministic
+status sentence when no requirement fires, the detail reasons section stays
+requirement-only as ADR 0026 section 4 designs it, and the store description promises
+reasons "when the weather asks for it" (see `product-decisions.md`); the App Store text
+itself changes with the next submitted version.
 
 Everything else in milestone 11 is done. App Store Connect holds the privacy policy and
 support URLs, the category, content rights, price, the build, the review information,

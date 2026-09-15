@@ -52,9 +52,9 @@ const config: GoldieConfig = {
     price: "Free",
     description: {
       "en-US":
-        "kuyara reads the forecast for your location and suggests complete outfits for the day, each explained piece by piece.\n\nKeep a closet of what you own and what you want, and see the coming hours before you head out. Free, with no ads.",
+        "kuyara reads the forecast for your location and suggests complete outfits for the day, and shows why each piece is there when the weather asks for it.\n\nKeep a closet of what you own and what you want, and see the coming hours before you head out. Free, with no ads.",
       "tr-TR":
-        "kuyara bulunduğun yerin hava tahminini okur ve gün için eksiksiz kombinler önerir; her birini parça parça açıklar.\n\nSahip olduğun ve istediğin parçaları gardırobunda tut, çıkmadan önce gelecek saatlere bak. Ücretsiz ve reklamsız.",
+        "kuyara bulunduğun yerin hava tahminini okur ve gün için eksiksiz kombinler önerir; hava gerektirdiğinde her parçanın nedenini gösterir.\n\nSahip olduğun ve istediğin parçaları gardırobunda tut, çıkmadan önce gelecek saatlere bak. Ücretsiz ve reklamsız.",
     },
   },
 

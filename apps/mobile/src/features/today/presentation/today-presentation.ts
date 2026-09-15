@@ -220,10 +220,17 @@ function localizeOutfit(
   }));
   const title = messages.recommendation.archetypes[outfit.archetypeId];
   const summary = pieces.map(({ item }) => item).join(' + ');
-  const reasons = [
+  const composedReasons = [
     ...weatherReasons,
     ...outfit.reasonCodes.map((reason) => copy.compositionReasons[reason]),
   ];
+  // Today prints `reasons[0]` as its rationale line. A mild day derives no clothing
+  // requirement and therefore no reason code, which would leave that line blank, so one
+  // deterministic status sentence stands in. Any real reason, the daily-range one
+  // included, keeps its place and suppresses it.
+  const reasons = composedReasons.length > 0
+    ? composedReasons
+    : [copy.mildWeatherRationale];
   const pieceNamesByCandidateKey = new Map(
     assigned.map(({ garment }, assignedIndex) => [garment.candidateKey, pieces[assignedIndex].item]),
   );
