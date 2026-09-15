@@ -48,9 +48,9 @@ environment, not any particular value of these three settings.
 
 The alternative, redeclaring every binding under `env.development`, was rejected.
 It keeps two copies of the binding list that must be edited together forever,
-and the failure mode of forgetting is silent. There is one deployment target and
-no production environment yet, so a second environment bought a different Worker
-name and nothing else.
+and the failure mode of forgetting is silent. There is one deployment target, the
+top-level configuration that serves the App Store app, so a second environment
+bought a different Worker name and nothing else.
 
 ## Consequences
 
@@ -59,8 +59,9 @@ name and nothing else.
   from configuration, so deployment topology does not enter domain code.
 - Provider credential values remain external. Binding declarations and the
   deploy target share the top-level configuration with no `--env` qualifier.
-- When a real production environment is needed, it gets its own ADR and, if it is
-  a named environment, a complete binding block written knowing this trap.
+- A second deployed environment is not planned. If one is ever needed it gets its
+  own ADR and, if it is a named environment, a complete binding block written
+  knowing this trap.
 
 ## Out of scope
 

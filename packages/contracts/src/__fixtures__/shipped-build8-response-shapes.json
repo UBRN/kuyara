@@ -1,0 +1,511 @@
+{
+  "weather-v1:weatherV1SuccessSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "data": {
+        "type": "object",
+        "properties": {
+          "timeZone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "fetchedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "origin": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "sample",
+                  "live"
+                ]
+              },
+              "sourceId": {
+                "type": "string",
+                "enum": [
+                  "sample",
+                  "open-meteo",
+                  "openweather",
+                  "weatherkit"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "sourceId"
+            ]
+          },
+          "current": {
+            "type": "object",
+            "properties": {
+              "temperatureCelsius": {
+                "type": "number"
+              },
+              "apparentTemperatureCelsius": {
+                "type": "number"
+              },
+              "condition": {
+                "type": "string",
+                "enum": [
+                  "clear",
+                  "mostly_clear",
+                  "partly_cloudy",
+                  "cloudy",
+                  "fog",
+                  "drizzle",
+                  "rain",
+                  "heavy_rain",
+                  "sleet",
+                  "snow",
+                  "thunderstorm"
+                ]
+              },
+              "precipitationProbability": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "windSpeedMetersPerSecond": {
+                "type": "number",
+                "minimum": 0
+              },
+              "humidity": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "uvIndex": {
+                "type": "number",
+                "minimum": 0
+              },
+              "observedAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              }
+            },
+            "required": [
+              "temperatureCelsius",
+              "apparentTemperatureCelsius",
+              "condition",
+              "precipitationProbability",
+              "windSpeedMetersPerSecond",
+              "humidity",
+              "uvIndex",
+              "observedAt"
+            ]
+          },
+          "minimumTemperatureCelsius": {
+            "type": "number"
+          },
+          "maximumTemperatureCelsius": {
+            "type": "number"
+          },
+          "hourly": {
+            "minItems": 1,
+            "maxItems": 38,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "temperatureCelsius": {
+                  "type": "number"
+                },
+                "apparentTemperatureCelsius": {
+                  "type": "number"
+                },
+                "condition": {
+                  "type": "string",
+                  "enum": [
+                    "clear",
+                    "mostly_clear",
+                    "partly_cloudy",
+                    "cloudy",
+                    "fog",
+                    "drizzle",
+                    "rain",
+                    "heavy_rain",
+                    "sleet",
+                    "snow",
+                    "thunderstorm"
+                  ]
+                },
+                "precipitationProbability": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "windSpeedMetersPerSecond": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "humidity": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "uvIndex": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "forecastAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                }
+              },
+              "required": [
+                "temperatureCelsius",
+                "apparentTemperatureCelsius",
+                "condition",
+                "precipitationProbability",
+                "windSpeedMetersPerSecond",
+                "humidity",
+                "uvIndex",
+                "forecastAt"
+              ]
+            }
+          }
+        },
+        "required": [
+          "timeZone",
+          "fetchedAt",
+          "origin",
+          "current",
+          "minimumTemperatureCelsius",
+          "maximumTemperatureCelsius",
+          "hourly"
+        ]
+      }
+    },
+    "required": [
+      "data"
+    ]
+  },
+  "weather-v1:weatherV1ErrorSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "invalid_request",
+              "not_found",
+              "method_not_allowed",
+              "weather_unavailable",
+              "internal_error",
+              "rate_limited"
+            ]
+          }
+        },
+        "required": [
+          "code"
+        ]
+      }
+    },
+    "required": [
+      "error"
+    ]
+  },
+  "ai-v1:aiRecommendV1SuccessSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "data": {
+        "type": "object",
+        "properties": {
+          "picks": {
+            "minItems": 3,
+            "maxItems": 3,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "optionId": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9:_-]{1,32}$"
+                },
+                "archetypeId": {
+                  "type": "string",
+                  "enum": [
+                    "everyday_easy",
+                    "smart_casual",
+                    "office_ready",
+                    "weekend_relaxed",
+                    "layered_warmth",
+                    "cold_shield",
+                    "rain_ready",
+                    "snow_day",
+                    "wind_guard",
+                    "light_and_airy",
+                    "on_the_move",
+                    "in_between"
+                  ]
+                }
+              },
+              "required": [
+                "optionId",
+                "archetypeId"
+              ]
+            }
+          }
+        },
+        "required": [
+          "picks"
+        ]
+      }
+    },
+    "required": [
+      "data"
+    ]
+  },
+  "ai-v1:aiProbeV1SuccessSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "data": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "unavailable"
+            ]
+          },
+          "checkedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "assistant": {
+            "type": "object",
+            "properties": {
+              "providerId": {
+                "type": "string",
+                "enum": [
+                  "workers-ai",
+                  "openrouter",
+                  "deterministic-stub"
+                ]
+              },
+              "model": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              }
+            },
+            "required": [
+              "providerId",
+              "model"
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "checkedAt"
+        ]
+      }
+    },
+    "required": [
+      "data"
+    ]
+  },
+  "ai-v1:healthV1SuccessSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "data": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      }
+    },
+    "required": [
+      "data"
+    ]
+  },
+  "ai-v1:aiReadyV1SuccessSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "data": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "not_configured"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      }
+    },
+    "required": [
+      "data"
+    ]
+  },
+  "ai-v1:aiV1ErrorSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "invalid_request",
+              "not_found",
+              "method_not_allowed",
+              "ai_unavailable",
+              "internal_error",
+              "rate_limited"
+            ]
+          }
+        },
+        "required": [
+          "code"
+        ]
+      }
+    },
+    "required": [
+      "error"
+    ]
+  },
+  "place-search-v1:placeSearchV1SuccessSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "data": {
+        "type": "object",
+        "properties": {
+          "places": {
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^place\\.[1-9][0-9]{0,15}(?![\\s\\S])"
+                },
+                "displayName": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "region": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 400
+                },
+                "latitudeE2": {
+                  "type": "integer",
+                  "minimum": -9000,
+                  "maximum": 9000
+                },
+                "longitudeE2": {
+                  "type": "integer",
+                  "minimum": -18000,
+                  "maximum": 18000
+                },
+                "timeZone": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "displayName",
+                "region",
+                "latitudeE2",
+                "longitudeE2",
+                "timeZone"
+              ]
+            }
+          },
+          "attribution": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string",
+                "const": "open-meteo"
+              },
+              {
+                "type": "string",
+                "const": "geonames"
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "required": [
+          "places",
+          "attribution"
+        ]
+      }
+    },
+    "required": [
+      "data"
+    ]
+  },
+  "place-search-v1:placeSearchV1ErrorSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "invalid_request",
+              "not_found",
+              "method_not_allowed",
+              "places_unavailable",
+              "internal_error",
+              "rate_limited"
+            ]
+          }
+        },
+        "required": [
+          "code"
+        ]
+      }
+    },
+    "required": [
+      "error"
+    ]
+  }
+}

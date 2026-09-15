@@ -61,6 +61,11 @@ Start the local Worker when runtime verification is needed, then stop it after t
 pnpm --filter @kuyara/worker dev --port 8788
 ```
 
+`wrangler dev` reads the git-ignored `apps/worker/.dev.vars`; the secret names are listed in
+`apps/worker/.dev.vars.example`. Without the four `WEATHERKIT_*` entries the local chain
+starts at Open-Meteo, so a local run proves nothing about the WeatherKit adapter or its
+signer; add them when the weather head or `weatherkit-token.ts` changed.
+
 Start the mobile development server from the repository root with:
 
 ```bash
@@ -223,9 +228,14 @@ This section is the command sequence only.
   pnpm --filter @kuyara/worker exec wrangler deploy --env=""
   ```
 
-  The deployed Worker must stay compatible with the binary store users already have. Add fields
-  and routes; never remove or rename a field or route that a shipped version reads until no
-  installed version needs it.
+  The deployed Worker must stay compatible with the binary store users already have. Binaries
+  built before commit 8e949ec (build 8, commit 67c20ae, live; build 9, commit e4c9350, in App
+  Review) carry `.strict()` response schemas and reject any unknown response key at any level.
+  While one of them is installed every `/v1` response shape is frozen at every level: a changed
+  shape ships on a new route and the old route keeps its exact shape. The shipped-shape test in
+  `packages/contracts` enforces this offline. Once a binary built from 8e949ec or later is the
+  oldest installed version, adding a field becomes safe; removing, renaming or retyping a field
+  or route a shipped version reads never is, until no installed version needs it.
 
 ### Build and submit
 

@@ -65,7 +65,7 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   bound to the same consent answer through a synchronous read of
   `local_profiles.analytics_consent`, per-screen readiness marks, and the two events
   `recommendation.generated` and `weather.refreshed`. Dispatch and the dashboard are
-  unverified: that needs a native build. See
+  verified against build 8: Observe reports its launch metrics (see Release State). See
   [ADR 0023](adr/0023-behavioural-product-analytics-with-posthog.md) and
   [ADR 0033](adr/0033-apple-privacy-obligations-for-first-party-analytics.md). PostHog
   Error Tracking captures only uncaught JavaScript exceptions and unhandled rejections for
@@ -85,16 +85,13 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   feedback on buttons, rows and Today's cards, staggered content entrances, the arrival
   spring where garment pieces land on a board, and an ambient tempo taken from the
   condition's intensity.
-- **Builds:** iOS is the first release target. EAS production credentials, an App Store
-  Connect record (`com.ubrn.kuyara`, ASC app `6806664440`) and TestFlight internal builds up
-  to 1.0.0 (6) exist. Build 6, EAS production build from commit d0a78fe, is the first
-  binary uploaded to TestFlight with the current native runtime: the local Foundation
-  Models module, migration 13, the motion package, the pre-submission sweep, EAS Observe
-  and the on-device prompt's archetype rules. It was uploaded on 2026-09-13 and passed
-  the maintainer's physical-device pass the same day; builds 4 and 5 are superseded and
-  build 5 was never distributed. Build 8 carries the App Store version (see Release
-  State below); builds 6 and 7 are superseded, and the production profile points at the
-  deployed Worker. The version scheme and the EAS Update rule are in [Approved release
+- **Builds:** iOS is the first release target. EAS production credentials and an App Store
+  Connect record (`com.ubrn.kuyara`, ASC app `6806664440`) exist. Build 8 carries the
+  version on sale and build 9 the version waiting for review (see Release State below);
+  the `production` profile points at the deployed Worker, and the `development` profile
+  is the physical-iPhone path ([Development build on the physical
+  iPhone](testing.md#development-build-on-the-physical-iphone)). The version scheme and
+  the EAS Update rule are in [Approved release
   versioning and update path](product-decisions.md#approved-release-versioning-and-update-path),
   and the commands are in [Release path](testing.md#release-path). Shared code stays
   Android-compatible; Android validation is deferred.
@@ -105,8 +102,8 @@ Noncommercial ([ADR 0024](adr/0024-relicensing-to-polyform-noncommercial.md)).
 
 ## Active Work and Next Approved Work
 
-Analytics is sequenced before the first public App Store release, so milestones 10 and
-11 are release blockers. The numbering continues the sequence the ADRs cite.
+Milestones 10 and 11 shipped with the first App Store release; what remains of milestone
+11 is stated inside it. The numbering continues the sequence the ADRs cite.
 
 <!-- markdownlint-disable MD029 -->
 
@@ -121,7 +118,12 @@ Analytics is sequenced before the first public App Store release, so milestones 
     sections 4 to 6); the two public Expo variables live in the EAS `production`
     environment and the `production` build profile loads that environment. A build from
     the `production` profile is analytics-on wherever it is distributed; the
-    `development` profile loads no EAS environment and carries no PostHog key. The DPA
+    `development` profile loads no EAS environment and carries no PostHog key. The
+    project's "Filter out internal and test users" setting is meant to exclude Simulator
+    traffic by the `$is_emulator` event property and the maintainer's current install id
+    (shown under Settings, Privacy on the phone); the maintainer applies that in PostHog
+    and replaces the id after every consent cycle or reinstall, and Observe has no
+    equivalent filter. The DPA
     condition closed on 2026-09-11: consent is the recorded lawful basis and the
     maintainer signed PostHog's DPA the same day (ADR 0033 section 7). The milestone is
     complete.
@@ -414,7 +416,9 @@ before submitting is the maintainer's call.
   Inspector needs desktop control. This is the ninth goal 7 follow-up.
 - **N2's background execution cannot run on the Simulator.** Only registration safety and
   unchanged foreground behaviour were confirmed. On a physical iPhone: install a
-  TestFlight or dev-client build, enable Background App Refresh, open the app once so
+  development build ([Development build on the physical
+  iPhone](testing.md#development-build-on-the-physical-iphone)), enable Background App
+  Refresh, open the app once so
   `registerBackgroundWeatherAlertTask` runs, then either attach Xcode and evaluate
   `e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"com.expo.modules.backgroundtask.processing"]`
   in LLDB (debug builds only) or wait for a real system window. Confirm a fresh snapshot

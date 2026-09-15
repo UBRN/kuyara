@@ -36,7 +36,9 @@ Worker origins are intentionally distinct:
 The production EAS profile provides the deployed HTTPS origin. Development
 keeps the platform-specific local defaults unless
 `EXPO_PUBLIC_KUYARA_WORKER_BASE_URL` overrides them; a physical device can use a
-reachable LAN origin through the same variable. The deployed Worker is
+reachable LAN origin through the same variable (see [Development build on the
+physical iPhone](../../docs/testing.md#development-build-on-the-physical-iphone)).
+The deployed Worker is
 unauthenticated but rate limited, so do not treat its public origin as a secret or
 put credentials in the mobile environment.
 

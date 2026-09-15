@@ -246,10 +246,10 @@ The available iPhone 14 Pro is not Apple Intelligence eligible. It exercises the
 tier and the deterministic fallback and can prove that an ineligible device costs no extra
 time, but it cannot measure the on-device tier.
 
-On-device latency on eligible hardware is therefore unmeasured before release. Two things
-follow: the 8 s timeout is set from Simulator latency rather than tuned on eligible
-hardware, and the real share of recommendations produced on-device is read from the
-generation mode after release rather than predicted before it.
+On-device latency on eligible hardware is therefore unmeasured. Two things follow: the
+8 s timeout is set from Simulator latency rather than tuned on eligible hardware, and the
+real share of recommendations produced on-device is read from the generation mode in
+production rather than predicted.
 
 The latency record below is filled in from five runs over a 24-option request when the
 measurement is made. It is left empty rather than estimated.

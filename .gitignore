@@ -16,6 +16,7 @@ apps/mobile/android/
 .wrangler/
 .dev.vars
 .dev.vars.*
+!.dev.vars.example
 
 # Worker private keys and credential bundles
 AuthKey_*.p8
