@@ -1,0 +1,99 @@
+{%- comment -%}
+Everything the bilingual pairing needs in <head>: the hreflang alternates, the
+language switcher's styling and the language-memory script. Self-contained, so
+any layout can include it. The switcher styling is written against the kuyara
+tokens in assets/css/tokens.css rather than theme utility classes, so it reads
+correctly in both appearances and on a layout that does not load the theme CSS.
+{%- endcomment -%}
+{% assign translations = "" | split: "" %}
+{% if page.ref %}
+  {% assign translations = site.pages | where: "ref", page.ref | sort: "lang" %}
+{% endif %}
+{% if translations.size > 1 %}
+{% for translation in translations %}
+<link rel="alternate" hreflang="{{ translation.lang }}" href="{{ translation.url | absolute_url }}">
+{% if translation.lang == "en" %}<link rel="alternate" hreflang="x-default" href="{{ translation.url | absolute_url }}">{% endif %}
+{% endfor %}
+<style>
+  .lang-switcher {
+    text-align: right;
+    margin-bottom: var(--ku-space-xl, 24px);
+  }
+  .lang-switcher details { display: inline-block; position: relative; }
+  .lang-switcher summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 0 8px;
+    cursor: pointer;
+    color: var(--ku-text-secondary, #576B73);
+    list-style: none;
+  }
+  .lang-switcher summary::-webkit-details-marker { display: none; }
+  .lang-switcher details[open] > summary::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 80;
+  }
+  .lang-switcher ul {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 100;
+    min-width: 100%;
+    margin: 4px 0 0;
+    padding: 4px 0;
+    list-style: none;
+    text-align: left;
+    background-color: var(--ku-surface, #FFFFFF);
+    border: 1px solid var(--ku-border-defined, #5C7A83);
+    border-radius: var(--ku-radius-compact, 8px);
+  }
+  .lang-switcher a {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 16px;
+    color: var(--ku-text-primary, #142F3B);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .lang-switcher a:hover { background-color: var(--ku-surface-muted, #E7EEED); }
+  .lang-switcher summary:focus-visible,
+  .lang-switcher a:focus-visible {
+    outline: 2px solid var(--ku-focus-ring, #27606A);
+    outline-offset: -2px;
+  }
+</style>
+<script>
+  (function () {
+    var remember = function (action) {
+      try { return action(window.localStorage); } catch (error) { return null; }
+    };
+    document.addEventListener("click", function (event) {
+      var link = event.target.closest && event.target.closest(".lang-switcher a");
+      if (link) {
+        remember(function (storage) { storage.setItem("kuyara-lang", link.getAttribute("hreflang")); });
+      }
+    });
+    var alternate = function (lang) {
+      var link = document.querySelector('link[rel="alternate"][hreflang="' + lang + '"]');
+      return link ? link.href : null;
+    };
+    var current = {{ page.lang | jsonify }};
+    var chosen = remember(function (storage) { return storage.getItem("kuyara-lang"); });
+    var target = null;
+    if (chosen) {
+      if (chosen !== current) { target = alternate(chosen); }
+    } else if (current === "en" && (navigator.language || "").toLowerCase().indexOf("tr") === 0) {
+      target = alternate("tr");
+    }
+    if (target && target !== window.location.href) { window.location.replace(target); }
+  })();
+</script>
+{% endif %}

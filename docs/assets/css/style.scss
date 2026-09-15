@@ -1,0 +1,93 @@
+---
+---
+
+@import "jekyll-theme-primer";
+
+/*
+ * Dark appearance for the Primer theme.
+ *
+ * jekyll-theme-primer 0.6.0 pins the pre-token Primer packages, so its colours
+ * are hardcoded hex literals with no custom properties and no dark support.
+ * This file leaves the light rendering byte-identical and adds one dark block
+ * that maps kuyara's own dark palette onto the theme's colour-bearing
+ * selectors. The palette itself lives in assets/css/tokens.css, which
+ * _includes/head-custom.html links on every page; nothing here invents a value.
+ *
+ * The block is written once as a mixin and emitted twice, so adding an explicit
+ * theme choice later costs a control and an attribute, not a second palette.
+ */
+
+@mixin kuyara-dark {
+  body {
+    color: var(--ku-text-primary);
+    background-color: var(--ku-background);
+  }
+
+  a { color: var(--ku-brand-accent); }
+
+  hr { border-bottom-color: var(--ku-border-subtle); }
+
+  /* Rouge ships one light-tuned syntax palette and no dark counterpart: its
+     keyword and operator tokens are literally #000000 and the rest sit between
+     1.9:1 and 2.7:1 on a dark code ground. Authoring a dark syntax palette
+     would mean inventing colours, which is a design decision, so dark code is
+     monochrome at 12.4:1 instead. The attribute selector matches the token
+     classes' specificity, and the diff and error tokens lose their light
+     backplates with it. */
+  .highlight { background-color: var(--ku-surface-muted); }
+
+  .highlight [class] {
+    color: var(--ku-text-primary);
+    background-color: transparent;
+  }
+
+  .markdown-body {
+    h1,
+    h2 { border-bottom-color: var(--ku-border-subtle); }
+
+    h6 { color: var(--ku-text-secondary); }
+
+    hr { background-color: var(--ku-border-subtle); }
+
+    blockquote {
+      color: var(--ku-text-secondary);
+      border-left-color: var(--ku-border-defined);
+    }
+
+    code,
+    tt { background-color: var(--ku-surface-muted); }
+
+    pre,
+    .highlight pre { background-color: var(--ku-surface-muted); }
+
+    table th,
+    table td { border-color: var(--ku-border-defined); }
+
+    table tr {
+      background-color: var(--ku-background);
+      border-top-color: var(--ku-border-defined);
+    }
+
+    table tr:nth-child(2n) { background-color: var(--ku-surface-muted); }
+
+    /* The light theme backs images with white so transparent artwork reads.
+       On a dark ground that is a white plate, so the image sits on the page. */
+    img { background-color: transparent; }
+
+    kbd {
+      color: var(--ku-text-primary);
+      background-color: var(--ku-surface-muted);
+      border-color: var(--ku-border-defined);
+      border-bottom-color: var(--ku-border-defined);
+      box-shadow: inset 0 -1px 0 var(--ku-border-defined);
+    }
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  @include kuyara-dark;
+}
+
+:root[data-theme="dark"] {
+  @include kuyara-dark;
+}
