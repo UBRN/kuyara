@@ -3,13 +3,34 @@ import test, { mock } from 'node:test';
 
 import { aiRecommendV1SuccessSchema } from '@kuyara/contracts';
 
-import { createAiHandler } from './ai-handler.ts';
+import {
+  WORKERS_AI_DAILY_ATTEMPT_LIMIT,
+  createAiHandler as createAiHandlerWithContext,
+} from './ai-handler.ts';
 import { AiProviderError } from './ai-provider.ts';
 import { DeterministicStubAiProvider } from './stub-ai-provider.ts';
 
 // The handler reports every provider attempt; keep that out of the test output.
 mock.method(console, 'warn', () => {});
 mock.method(console, 'info', () => {});
+
+// A fake `ExecutionContext` collecting what the handler hands to `waitUntil`.
+function fakeContext() {
+  const pending = [];
+  return { pending, waitUntil(promise) { pending.push(promise); } };
+}
+
+// Most tests do not care about the context: they get a fresh one per call and, as the
+// runtime does before the isolate is reused, the work handed to `waitUntil` is settled
+// before the response is returned, so a later request sees the cache write.
+function createAiHandler(dependencies) {
+  const handle = createAiHandlerWithContext(dependencies);
+  return async (request, ctx = fakeContext()) => {
+    const response = await handle(request, ctx);
+    await Promise.allSettled(ctx.pending ?? []);
+    return response;
+  };
+}
 
 const defaultTraits = {
   hasMidLayer: false,
@@ -916,4 +937,218 @@ test('lets all five providers take their turn inside the default deadline', asyn
 
   assert.equal(attempts, 5);
   assert.equal(response.status, 503);
+});
+
+test('a successful answer hands the shared-cache write to waitUntil instead of awaiting it', async () => {
+  const previous = globalThis.caches;
+  let putResolve;
+  let putCalls = 0;
+  globalThis.caches = { default: {
+    async match() { return undefined; },
+    put() {
+      putCalls += 1;
+      return new Promise((resolve) => { putResolve = resolve; });
+    },
+  } };
+  try {
+    const ctx = fakeContext();
+    const response = await createAiHandlerWithContext({
+      providers: [{ generateOutfits: async () => validOutput() }],
+    })(request(), ctx);
+    assert.equal(response.status, 200);
+    assert.equal(putCalls, 1);
+    assert.equal(ctx.pending.length, 1, 'the cache write is handed to waitUntil');
+    // The response returned while the write was still pending; settle it now.
+    putResolve();
+    await ctx.pending[0];
+  } finally {
+    if (previous === undefined) delete globalThis.caches;
+    else globalThis.caches = previous;
+  }
+});
+
+test('a failing cache write handed to waitUntil is caught and does not reject', async () => {
+  const previous = globalThis.caches;
+  globalThis.caches = { default: {
+    async match() { return undefined; },
+    async put() { throw new Error('cache write failed'); },
+  } };
+  try {
+    const ctx = fakeContext();
+    const response = await createAiHandlerWithContext({
+      providers: [{ generateOutfits: async () => validOutput() }],
+    })(request(), ctx);
+    assert.equal(response.status, 200);
+    assert.equal(ctx.pending.length, 1);
+    await ctx.pending[0];
+  } finally {
+    if (previous === undefined) delete globalThis.caches;
+    else globalThis.caches = previous;
+  }
+});
+
+function dailyCounter(counts) {
+  const keys = [];
+  return {
+    keys,
+    async increment(key) {
+      keys.push(key);
+      const next = counts.shift();
+      if (next instanceof Error) throw next;
+      return next;
+    },
+  };
+}
+
+const LIMIT = WORKERS_AI_DAILY_ATTEMPT_LIMIT;
+const fixedNow = () => new Date('2026-09-15T10:00:00.000Z');
+
+function workersAi(model, calls, answer = validOutput) {
+  return {
+    id: 'workers-ai',
+    model,
+    async generateOutfits() {
+      calls.push(model);
+      const output = answer();
+      if (output instanceof Error) throw output;
+      return output;
+    },
+  };
+}
+
+function openRouter(model, calls, answer = validOutput) {
+  return { ...workersAi(model, calls, answer), id: 'openrouter' };
+}
+
+test('the daily attempt budget is derived from the ADR 0001 figures', () => {
+  assert.equal(WORKERS_AI_DAILY_ATTEMPT_LIMIT, 55);
+});
+
+test('a Workers AI attempt whose increment lands exactly on the limit still runs', async () => {
+  const calls = [];
+  const counter = dailyCounter([LIMIT]);
+  const response = await createAiHandler({
+    providers: [workersAi('@cf/first', calls), openRouter('router/free', calls)],
+    dailyCounter: counter,
+    dailyLimit: LIMIT,
+    now: fixedNow,
+  })(request());
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls, ['@cf/first']);
+  assert.deepEqual(counter.keys, ['ai:workers-ai:2026-09-15']);
+});
+
+test('past the daily limit every Workers AI provider is skipped and OpenRouter answers', async (t) => {
+  const warnings = [];
+  t.mock.method(console, 'warn', (entry) => warnings.push(entry));
+  const calls = [];
+  const counter = dailyCounter([LIMIT + 1, LIMIT + 2]);
+  const response = await createAiHandler({
+    providers: [
+      workersAi('@cf/first', calls),
+      workersAi('@cf/second', calls),
+      openRouter('router/free', calls),
+    ],
+    dailyCounter: counter,
+    dailyLimit: LIMIT,
+    now: fixedNow,
+  })(request());
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), validOutput());
+  assert.deepEqual(calls, ['router/free']);
+  // Both Workers AI providers were counted, neither was called, and the skip is logged once.
+  assert.equal(counter.keys.length, 2);
+  assert.deepEqual(warnings, [{
+    event: 'ai_daily_budget_exhausted',
+    route: '/v1/ai/recommend',
+    count: LIMIT + 1,
+    limit: LIMIT,
+  }]);
+});
+
+test('OpenRouter attempts never increment the Workers AI counter', async () => {
+  const calls = [];
+  const counter = dailyCounter([1]);
+  const response = await createAiHandler({
+    providers: [openRouter('router/first', calls, () => new Error('down')), openRouter('router/second', calls)],
+    dailyCounter: counter,
+    dailyLimit: LIMIT,
+  })(request());
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls, ['router/first', 'router/second']);
+  assert.deepEqual(counter.keys, []);
+});
+
+test('a shared-cache hit never increments the counter', async () => {
+  const restore = installMemoryCache();
+  try {
+    const calls = [];
+    const counter = dailyCounter([1, 2]);
+    const handle = createAiHandler({
+      providers: [workersAi('@cf/first', calls)],
+      dailyCounter: counter,
+      dailyLimit: LIMIT,
+    });
+    assert.equal((await handle(request())).status, 200);
+    assert.equal((await handle(request())).status, 200);
+    assert.deepEqual(calls, ['@cf/first']);
+    assert.equal(counter.keys.length, 1);
+  } finally {
+    restore();
+  }
+});
+
+test('a counter failure skips Workers AI without an uncounted call and OpenRouter answers', async (t) => {
+  const warnings = [];
+  t.mock.method(console, 'warn', (entry) => warnings.push(entry));
+  const calls = [];
+  const response = await createAiHandler({
+    providers: [
+      workersAi('@cf/first', calls),
+      workersAi('@cf/second', calls),
+      openRouter('router/free', calls),
+    ],
+    dailyCounter: dailyCounter([new Error('Durable Object unavailable'), new Error('still down')]),
+    dailyLimit: LIMIT,
+  })(request());
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls, ['router/free']);
+  assert.deepEqual(warnings, [{
+    event: 'ai_daily_counter_unavailable',
+    route: '/v1/ai/recommend',
+  }]);
+});
+
+test('a Workers AI quota refusal skips the remaining Workers AI providers and OpenRouter answers', async (t) => {
+  const warnings = [];
+  t.mock.method(console, 'warn', (entry) => warnings.push(entry));
+  const calls = [];
+  const refusal = () => new AiProviderError('quota_exceeded');
+  const counter = dailyCounter([1, 2, 3]);
+  const response = await createAiHandler({
+    providers: [
+      workersAi('@cf/first', calls, refusal),
+      workersAi('@cf/second', calls),
+      openRouter('router/free', calls),
+    ],
+    dailyCounter: counter,
+    dailyLimit: LIMIT,
+  })(request());
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), validOutput());
+  assert.deepEqual(calls, ['@cf/first', 'router/free']);
+  // The skipped Workers AI provider is not counted either: no attempt, no increment.
+  assert.equal(counter.keys.length, 1);
+  assert.deepEqual(warnings, [
+    { event: 'ai_provider_attempt_failed', model: '@cf/first', reason: 'quota_exceeded' },
+    { event: 'ai_workers_ai_quota_exhausted', model: '@cf/first' },
+  ]);
+
+  calls.length = 0;
+  const spentOpenRouter = await createAiHandler({ providers: [
+    openRouter('router/spent', calls, refusal),
+    openRouter('router/free', calls),
+  ] })(request());
+  assert.equal(spentOpenRouter.status, 200);
+  assert.deepEqual(calls, ['router/spent', 'router/free']);
 });
