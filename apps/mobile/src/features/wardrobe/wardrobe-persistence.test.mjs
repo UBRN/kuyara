@@ -6,11 +6,8 @@ import './wardrobe-application.test.mjs';
 import {
   garmentCatalog,
   garmentCatalogVersion,
-  GarmentCatalogValidationError,
   getGarmentType,
   listGarmentTypesForPreference,
-  validateGarmentCatalog,
-  validateGarmentCatalogLocalization,
 } from '../catalog/domain/garment-catalog.ts';
 import {
   apparelPreferenceApplicabilitySchema,
@@ -18,7 +15,6 @@ import {
   bodyRegionSchema,
   breathabilityLevels,
   breathabilitySchema,
-  catalogLocalizationKeys,
   colorFamilies,
   colorFamilySchema,
   coverageLevels,
@@ -41,7 +37,6 @@ import {
   windProtections,
   windProtectionSchema,
 } from '../catalog/domain/garment-taxonomy.ts';
-import { catalogMessages } from '../catalog/localization/catalog-messages.ts';
 import {
   mapWardrobeCategoryFromRecord,
   mapWardrobeCategoryToRecord,
@@ -196,86 +191,6 @@ test('canonical catalog is complete, immutable, versioned, and uses approved app
   assert.deepEqual(
     listGarmentTypesForPreference('womens').map(({ typeId }) => typeId),
     [...garmentTypeIds],
-  );
-});
-
-test('catalog validation rejects duplicates, invalid shapes, and replacement cycles', () => {
-  const duplicate = structuredClone(garmentCatalog);
-  duplicate.garmentTypes[1] = { ...duplicate.garmentTypes[0] };
-  assert.throws(
-    () => validateGarmentCatalog(duplicate),
-    GarmentCatalogValidationError,
-  );
-
-  const invalidShape = structuredClone(garmentCatalog);
-  invalidShape.garmentTypes[0] = {
-    ...invalidShape.garmentTypes[0],
-    supportedLayerRoles: ['base', 'base'],
-  };
-  assert.throws(
-    () => validateGarmentCatalog(invalidShape),
-    GarmentCatalogValidationError,
-  );
-
-  const categoryMismatch = structuredClone(garmentCatalog);
-  categoryMismatch.garmentTypes[0] = {
-    ...categoryMismatch.garmentTypes[0],
-    structuralCategory: 'bottom',
-  };
-  assert.throws(
-    () => validateGarmentCatalog(categoryMismatch),
-    GarmentCatalogValidationError,
-  );
-
-  const validDeprecation = structuredClone(garmentCatalog);
-  validDeprecation.garmentTypes[0] = {
-    ...validDeprecation.garmentTypes[0],
-    status: 'deprecated',
-    replacedByTypeId: 'long_sleeve_t_shirt',
-  };
-  assert.doesNotThrow(() => validateGarmentCatalog(validDeprecation));
-
-  const cycle = structuredClone(validDeprecation);
-  cycle.garmentTypes[1] = {
-    ...cycle.garmentTypes[1],
-    status: 'deprecated',
-    replacedByTypeId: 't_shirt',
-  };
-  assert.throws(
-    () => validateGarmentCatalog(cycle),
-    GarmentCatalogValidationError,
-  );
-});
-
-test('catalog validation requires arm coverage for upper-body types', () => {
-  const missingArmCoverage = structuredClone(garmentCatalog);
-  missingArmCoverage.garmentTypes[0] = {
-    ...missingArmCoverage.garmentTypes[0],
-    defaultArmCoverage: null,
-  };
-  assert.throws(
-    () => validateGarmentCatalog(missingArmCoverage),
-    GarmentCatalogValidationError,
-  );
-});
-
-test('every catalog localization key is unique and present in English and Turkish', () => {
-  assert.equal(
-    new Set(catalogLocalizationKeys).size,
-    catalogLocalizationKeys.length,
-  );
-  assert.doesNotThrow(() =>
-    validateGarmentCatalogLocalization(garmentCatalog, catalogMessages),
-  );
-
-  const missingTurkish = {
-    en: catalogMessages.en,
-    tr: { ...catalogMessages.tr },
-  };
-  delete missingTurkish.tr['catalog.garment_type.t_shirt.name'];
-  assert.throws(
-    () => validateGarmentCatalogLocalization(garmentCatalog, missingTurkish),
-    GarmentCatalogValidationError,
   );
 });
 

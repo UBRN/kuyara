@@ -8,7 +8,10 @@ import {
   validateGarmentCatalog,
   validateGarmentCatalogLocalization,
 } from './domain/garment-catalog.ts';
-import { garmentTypeIds } from './domain/garment-taxonomy.ts';
+import {
+  catalogLocalizationKeys,
+  garmentTypeIds,
+} from './domain/garment-taxonomy.ts';
 import { catalogMessages } from './localization/catalog-messages.ts';
 
 function cloneCatalog() {
@@ -21,11 +24,14 @@ function indexOfType(manifest, typeId) {
   return index;
 }
 
-function withType(typeId, patch) {
-  const manifest = cloneCatalog();
+function patchType(manifest, typeId, patch) {
   const index = indexOfType(manifest, typeId);
   manifest.garmentTypes[index] = { ...manifest.garmentTypes[index], ...patch };
   return manifest;
+}
+
+function withType(typeId, patch) {
+  return patchType(cloneCatalog(), typeId, patch);
 }
 
 function assertRejected(manifest, because) {
@@ -54,6 +60,10 @@ test('identity: unknown ids, extra fields, a missing type and a drifted version 
   missingType.garmentTypes.splice(indexOfType(missingType, 'scarf'), 1);
   assertRejected(missingType, 'a taxonomy id without a definition');
 
+  const duplicatedType = cloneCatalog();
+  duplicatedType.garmentTypes[1] = { ...duplicatedType.garmentTypes[0] };
+  assertRejected(duplicatedType, 'one id defined twice');
+
   const driftedVersion = cloneCatalog();
   driftedVersion.catalogVersion = garmentCatalogVersion + 1;
   assertRejected(driftedVersion, 'a manifest version the code does not ship');
@@ -61,10 +71,12 @@ test('identity: unknown ids, extra fields, a missing type and a drifted version 
 
 test('category: the body region has to match the structural category', () => {
   assertRejected(withType('t_shirt', { bodyRegion: 'feet' }), 'a top worn on the feet');
+  assertRejected(withType('t_shirt', { structuralCategory: 'bottom' }), 'an upper-body type filed as a bottom');
   assertRejected(withType('umbrella', { bodyRegion: 'head' }), 'a carried accessory given a body region');
 });
 
 test('coverage: arm and leg coverage follow the body region', () => {
+  assertRejected(withType('t_shirt', { defaultArmCoverage: null }), 'an upper-body type without arm coverage');
   assertRejected(withType('trousers', { defaultArmCoverage: 'full' }), 'arm coverage on a lower-body type');
   assertRejected(withType('dress', { defaultLegCoverage: null }), 'a full-body type without leg coverage');
 });
@@ -77,6 +89,7 @@ test('coverage: thermal level and breathability follow the body region too', () 
 test('layering and traction: layer roles and traction belong to the right categories', () => {
   assertRejected(withType('sneakers', { supportedLayerRoles: ['base'] }), 'footwear given a layer role');
   assertRejected(withType('t_shirt', { supportedLayerRoles: [] }), 'a layerable type with no layer role');
+  assertRejected(withType('t_shirt', { supportedLayerRoles: ['base', 'base'] }), 'a repeated layer role');
   assertRejected(withType('sneakers', { defaultTractionSuitability: null }), 'footwear without traction');
   assertRejected(withType('t_shirt', { defaultTractionSuitability: 'everyday' }), 'traction on a top');
 });
@@ -110,11 +123,18 @@ test('deprecation: the replacement graph stays acyclic and same-category', () =>
     withType('t_shirt', { status: 'deprecated', replacedByTypeId: 'trousers' }),
     'a replacement in another structural category',
   );
-  assert.doesNotThrow(() =>
-    validateGarmentCatalog(
-      withType('t_shirt', { status: 'deprecated', replacedByTypeId: 'long_sleeve_t_shirt' }),
-    ),
-  );
+
+  const validDeprecation = withType('t_shirt', {
+    status: 'deprecated',
+    replacedByTypeId: 'long_sleeve_t_shirt',
+  });
+  assert.doesNotThrow(() => validateGarmentCatalog(validDeprecation));
+
+  const twoStepCycle = patchType(structuredClone(validDeprecation), 'long_sleeve_t_shirt', {
+    status: 'deprecated',
+    replacedByTypeId: 't_shirt',
+  });
+  assertRejected(twoStepCycle, 'two types replacing each other');
 });
 
 test('every garment type id is named in both Turkish and English', () => {
@@ -128,7 +148,24 @@ test('every garment type id is named in both Turkish and English', () => {
   }
 });
 
-test('localization validation rejects a blank translation', () => {
+test('every catalog localization key is unique and the shipped messages satisfy the validator', () => {
+  assert.equal(new Set(catalogLocalizationKeys).size, catalogLocalizationKeys.length);
+  assert.doesNotThrow(() =>
+    validateGarmentCatalogLocalization(garmentCatalog, catalogMessages),
+  );
+});
+
+test('localization validation rejects a missing or blank translation', () => {
+  const missingTurkish = {
+    en: catalogMessages.en,
+    tr: { ...catalogMessages.tr },
+  };
+  delete missingTurkish.tr['catalog.garment_type.t_shirt.name'];
+  assert.throws(
+    () => validateGarmentCatalogLocalization(garmentCatalog, missingTurkish),
+    GarmentCatalogValidationError,
+  );
+
   const blankTurkish = {
     en: catalogMessages.en,
     tr: { ...catalogMessages.tr, 'catalog.garment_type.scarf.name': '   ' },

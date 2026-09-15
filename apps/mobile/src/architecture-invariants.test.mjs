@@ -2,13 +2,17 @@
 // automated guard for them: it walks `apps/mobile/src` itself instead of shelling out, so the
 // rules hold in CI without depending on ripgrep being installed.
 //
-// Scope note: only static specifiers are inspected — `import ... from '<spec>'`,
-// `export ... from '<spec>'`, side-effect `import '<spec>'`, and `require('<spec>')`. Dynamic
-// `import('<spec>')` is deliberately out of scope because nothing in the app reaches any of the
-// guarded modules that way today; if that ever changes, extend `specifiersIn` rather than
-// loosening a rule. Test files (`*.test.*`, which also covers `*.component.test.*`) are skipped
-// for every rule: component tests legitimately call `jest.mock('@expo/ui/...')` and friends, and
-// AGENTS.md itself writes the Observe check as `--glob '!*.test.*'`.
+// Scope note: every literal specifier is inspected: `import ... from '<spec>'`,
+// `export ... from '<spec>'`, side-effect `import '<spec>'`, `require('<spec>')`, and
+// `import('<spec>')` in both its forms, the dynamic `await import('<spec>')` and the type-level
+// `typeof import('<spec>')`. A type-only reference counts: `import type { X } from '<spec>'`
+// already does, the `rg` invariants in AGENTS.md match the text either way, and the adapters
+// name their SDK through `typeof import(...)` today. Test files (`*.test.*`, which also covers
+// `*.component.test.*`) are skipped for every rule: component tests legitimately call
+// `jest.mock('@expo/ui/...')` and friends, and AGENTS.md itself writes the Observe check as
+// `--glob '!*.test.*'`. Non-test helpers under `__tests__/` stay in scope, exactly as they do
+// for those `rg` commands; a shared mock of a guarded package belongs next to the wrapper it
+// stands in for (`components/ui/__tests__/expo-ui-test-mock.tsx`), not under a feature.
 
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -54,10 +58,12 @@ const specifierPatterns = [
   /\bfrom\s*['"]([^'"]+)['"]/g,
   // side-effect `import '…'`
   /\bimport\s*['"]([^'"]+)['"]/g,
+  // dynamic `import('…')` and type-level `typeof import('…')`
+  /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
   /\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
 ];
 
-/** Static import specifiers in one file, with the 1-based line they appear on. */
+/** Literal import specifiers in one file, with the 1-based line they appear on. */
 function specifiersIn(relativePath) {
   const lines = readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n');
   const found = [];
@@ -141,8 +147,11 @@ const rules = [
       'AGENTS.md, "Architecture boundaries": "UI and domain code must not import SQLite, Supabase, '
       + 'Firebase, WeatherKit, Cloudflare, or provider-specific SDKs directly", and "Local data and '
       + 'future-sync rules": "Access SQLite only through repository interfaces and local data '
-      + 'sources." The provider SDK is opened once in infrastructure/sqlite/; everything else takes '
-      + 'the database handle from there.',
+      + 'sources." AGENTS.md alone would also read as permitting a feature\'s local data source to '
+      + 'import the SDK; docs/architecture.md pins the narrower reading: "Only the infrastructure '
+      + 'adapter imports `expo-sqlite`." The SDK is opened once in infrastructure/sqlite/ and '
+      + 'everything else takes the `SqliteDatabase` handle from there. Widening this allowance is '
+      + 'an architecture decision to record in docs/architecture.md first, not a test fix.',
   },
 ];
 
@@ -189,5 +198,20 @@ test('the walker actually reads the tree it is asked to guard', () => {
     specifiersIn('features/analytics/data/posthog-product-analytics.ts')
       .some(({ specifier }) => specifier === 'posthog-react-native'),
     'the specifier reader must find the PostHog adapter\'s own import',
+  );
+});
+
+test('the specifier reader sees `typeof import(…)`, the form the adapters name their SDK through', () => {
+  // The Observe adapter refers to its SDK type-only via `typeof import('expo-observe')`. Locate
+  // that line from the file itself so the check does not rot when the file moves around.
+  const relativePath = 'features/analytics/data/observe-performance-telemetry.ts';
+  const lines = readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n');
+  const typeofImportLine = lines.findIndex((line) => line.includes("typeof import('expo-observe')")) + 1;
+  assert.ok(typeofImportLine > 0, `expected a typeof import('expo-observe') in ${relativePath}`);
+
+  const found = specifiersIn(relativePath);
+  assert.ok(
+    found.some(({ specifier, line }) => specifier === 'expo-observe' && line === typeofImportLine),
+    `expected the reader to report expo-observe on line ${typeofImportLine}, got ${JSON.stringify(found)}`,
   );
 });
