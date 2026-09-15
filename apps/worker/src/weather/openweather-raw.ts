@@ -13,7 +13,7 @@ import type {
 } from './weather-provider.ts';
 import { WeatherProviderError } from './weather-provider-error.ts';
 
-const finiteNumberSchema = z.number().finite();
+const finiteNumberSchema = z.number();
 const nonNegativeSchema = finiteNumberSchema.min(0);
 const percentageSchema = finiteNumberSchema.min(0).max(100);
 const probabilitySchema = finiteNumberSchema.min(0).max(1);

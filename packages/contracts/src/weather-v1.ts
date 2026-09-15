@@ -27,7 +27,7 @@ export const weatherV1ErrorCodes = [
 
 export const weatherSourceIds = ['sample', 'open-meteo', 'openweather', 'weatherkit'] as const;
 
-const utcTimestampSchema = z.string().datetime({ offset: false });
+const utcTimestampSchema = z.iso.datetime({ offset: false });
 
 export const ianaTimeZoneSchema = z.string().trim().min(1).max(100).refine((value) => {
   try {
@@ -38,20 +38,20 @@ export const ianaTimeZoneSchema = z.string().trim().min(1).max(100).refine((valu
   }
 }, 'Invalid IANA time zone.');
 
-export const weatherV1RequestSchema = z.object({
+export const weatherV1RequestSchema = z.strictObject({
   latitudeE2: z.number().int().min(-9000).max(9000),
   longitudeE2: z.number().int().min(-18000).max(18000),
   timeZone: ianaTimeZoneSchema,
-}).strict();
+});
 
 const weatherMeasurementsSchema = z.object({
-  temperatureCelsius: z.number().finite(),
-  apparentTemperatureCelsius: z.number().finite(),
+  temperatureCelsius: z.number(),
+  apparentTemperatureCelsius: z.number(),
   condition: z.enum(weatherConditionCodes),
-  precipitationProbability: z.number().finite().min(0).max(1),
-  windSpeedMetersPerSecond: z.number().finite().min(0),
-  humidity: z.number().finite().min(0).max(1),
-  uvIndex: z.number().finite().min(0),
+  precipitationProbability: z.number().min(0).max(1),
+  windSpeedMetersPerSecond: z.number().min(0),
+  humidity: z.number().min(0).max(1),
+  uvIndex: z.number().min(0),
 });
 
 const currentWeatherSchema = weatherMeasurementsSchema.extend({
@@ -113,13 +113,13 @@ const weatherV1DataSchema = z.object({
     sourceId: z.enum(weatherSourceIds),
   }),
   current: currentWeatherSchema,
-  minimumTemperatureCelsius: z.number().finite(),
-  maximumTemperatureCelsius: z.number().finite(),
+  minimumTemperatureCelsius: z.number(),
+  maximumTemperatureCelsius: z.number(),
   hourly: z.array(hourlyWeatherSchema).min(1).max(weatherHourlyForecastMaximumEntries),
 }).superRefine((value, context) => {
   if ((value.origin.sourceId === 'sample') !== (value.origin.kind === 'sample')) {
     context.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: 'custom',
       message: 'origin.sourceId must be "sample" if and only if origin.kind is "sample".',
       path: ['origin', 'sourceId'],
     });
@@ -131,7 +131,7 @@ const weatherV1DataSchema = z.object({
     value.current.temperatureCelsius > value.maximumTemperatureCelsius
   ) {
     context.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: 'custom',
       message: 'Current and minimum/maximum temperatures are inconsistent.',
       path: ['minimumTemperatureCelsius'],
     });
@@ -139,7 +139,7 @@ const weatherV1DataSchema = z.object({
 
   if (!isValidWeatherHourlyForecastWindow(value.hourly, value.current.observedAt)) {
     context.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: 'custom',
       message: 'Hourly forecasts must be ordered and fall within the current 36-hour window.',
       path: ['hourly'],
     });
