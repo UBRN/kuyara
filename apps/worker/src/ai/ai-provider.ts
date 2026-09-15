@@ -6,8 +6,11 @@ import type { AiProviderId, AiRecommendV1Request } from '@kuyara/contracts';
  * log why an attempt failed; it must never place raw provider payloads,
  * credentials, or upstream error text into the thrown error.
  *
- * These kinds change the log reason only. Every provider failure, classified or
- * not, remains fallback-eligible exactly as before.
+ * `quota_exceeded` is an allocation the account has spent (the Workers AI daily Neuron
+ * pool, OpenRouter credits); `rate_limited` is a refusal of this one attempt (a burst or
+ * request cap, or an upstream out of capacity). Every provider failure, classified or
+ * not, remains fallback-eligible exactly as before; the one consumer that acts on a kind
+ * is the handler's Workers AI pool-spent skip, which fires on `quota_exceeded` only.
  */
 export const aiProviderErrorKinds = ['quota_exceeded', 'rate_limited'] as const;
 

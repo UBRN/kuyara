@@ -169,6 +169,39 @@ test('returns a contract-valid pick response using supplied option ids', async (
   assert.equal(body.data.picks.every(({ optionId }) => optionIds.has(optionId)), true);
 });
 
+// The response schemas are tolerant readers: a stray key the model adds at any level is
+// stripped by the gate rather than turned into `invalid_output`, and what reaches the wire
+// and the shared cache is the parsed `result.data`, never the raw reply.
+test('strips stray model-reply keys before the wire and the cache', async (t) => {
+  const restoreCache = installMemoryCache();
+  t.after(restoreCache);
+  const warnings = [];
+  t.mock.method(console, 'warn', (entry) => warnings.push(entry));
+  let calls = 0;
+  const handler = createAiHandler({ providers: [{
+    id: 'openrouter',
+    model: 'stub',
+    async generateOutfits() {
+      calls += 1;
+      const reply = validOutput();
+      reply.unexpected = 1;
+      reply.data.unexpected = 1;
+      reply.data.picks[0].unexpected = 1;
+      return reply;
+    },
+  }] });
+
+  const first = await handler(request());
+  assert.equal(first.status, 200);
+  assert.deepEqual(await first.json(), validOutput());
+  assert.equal(JSON.stringify(warnings).includes('invalid_output'), false);
+
+  const second = await handler(request());
+  assert.equal(second.status, 200);
+  assert.deepEqual(await second.json(), validOutput());
+  assert.equal(calls, 1, 'the second identical request is served from the shared cache');
+});
+
 test('falls back in order after a provider throws', async () => {
   const calls = [];
   const expected = validOutput();
@@ -1020,8 +1053,8 @@ function openRouter(model, calls, answer = validOutput) {
   return { ...workersAi(model, calls, answer), id: 'openrouter' };
 }
 
-test('the daily attempt budget is derived from the ADR 0001 figures', () => {
-  assert.equal(WORKERS_AI_DAILY_ATTEMPT_LIMIT, 55);
+test('the daily attempt budget is derived from the Workers AI pricing figures', () => {
+  assert.equal(WORKERS_AI_DAILY_ATTEMPT_LIMIT, 66);
 });
 
 test('a Workers AI attempt whose increment lands exactly on the limit still runs', async () => {
@@ -1056,8 +1089,9 @@ test('past the daily limit every Workers AI provider is skipped and OpenRouter a
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), validOutput());
   assert.deepEqual(calls, ['router/free']);
-  // Both Workers AI providers were counted, neither was called, and the skip is logged once.
-  assert.equal(counter.keys.length, 2);
+  // One increment answers over the limit; the second Workers AI provider is skipped without
+  // another increment, neither is called, and the skip is logged once.
+  assert.equal(counter.keys.length, 1);
   assert.deepEqual(warnings, [{
     event: 'ai_daily_budget_exhausted',
     route: '/v1/ai/recommend',

@@ -50,7 +50,7 @@ test('POST /increment returns the new count and persists it', async () => {
   assert.equal(storage.map.get('probe:2026-09-15'), 2);
 });
 
-test('incrementing a new date key deletes every other stored key', async () => {
+test('incrementing a new date key deletes every older stored key', async () => {
   const { counter, storage } = counterObject({
     'probe:2026-09-13': 30,
     'probe:2026-09-14': 12,
@@ -60,6 +60,26 @@ test('incrementing a new date key deletes every other stored key', async () => {
     body: { count: 1 },
   });
   assert.deepEqual([...storage.map.entries()], [['probe:2026-09-15', 1]]);
+});
+
+// A request that computed yesterday's date key just before UTC midnight may reach the
+// object after today's first increment. Its increment recreates yesterday's key at 1 and
+// must not take today's count with it; the next new day sweeps both.
+test('a straggler incrementing an older key does not delete the newer one', async () => {
+  const { counter, storage } = counterObject();
+  await call(counter, 'POST', '/increment?key=probe:2026-09-15');
+  await call(counter, 'POST', '/increment?key=probe:2026-09-15');
+  assert.deepEqual(await call(counter, 'POST', '/increment?key=probe:2026-09-14'), {
+    status: 200,
+    body: { count: 1 },
+  });
+  assert.equal(storage.map.get('probe:2026-09-15'), 2);
+  assert.equal(storage.map.get('probe:2026-09-14'), 1);
+  assert.deepEqual(await call(counter, 'POST', '/increment?key=probe:2026-09-16'), {
+    status: 200,
+    body: { count: 1 },
+  });
+  assert.deepEqual([...storage.map.entries()], [['probe:2026-09-16', 1]]);
 });
 
 test('rejects a missing key, an unknown path and a wrong method', async () => {
