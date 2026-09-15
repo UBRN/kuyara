@@ -190,6 +190,16 @@ listing is the final line of the English and Turkish descriptions, which no long
 mentions creating an account, because the live version's description cannot be edited
 while it is on sale; the correction reaches the store with the next build submission.
 
+Continuous integration and the iOS release workflow now exist in the repository.
+`.github/workflows/ci.yml` installs from the lockfile and runs `pnpm check` and the
+mobile component suite on every push to `main` and every pull request, and
+`apps/mobile/.eas/workflows/release-ios.yml` builds the production iOS binary and submits
+it with the `production` submit profile, started only by `eas workflow:run` (see
+[Release path](testing.md#release-path)). Neither has run yet. The release workflow needs
+an App Store Connect API key stored with EAS for non-interactive submission if the
+account does not already hold one, and the version bump, the TestFlight pass on the phone
+and Submit for Review stay the maintainer's manual steps exactly as they are today.
+
 The evidence behind the release: the full-flow recording Apple asked for was captured on
 2026-09-14 on the maintainer's iPhone 14 Pro on iOS 26.6.2 from the TestFlight build 8,
 from app launch through onboarding, the location prompt, the first three-outfit
