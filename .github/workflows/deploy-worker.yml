@@ -1,0 +1,85 @@
+name: Deploy Worker
+
+# Manual only. The Worker is deployed from this workflow or from a maintainer's
+# `wrangler deploy`; nothing deploys on push. Every third-party action is pinned to a
+# full commit SHA with its release tag in the trailing comment.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: >-
+          Wrangler environment. "production" is the top-level configuration of
+          apps/worker/wrangler.jsonc (the kuyara-worker Worker). "e2e" is the local
+          end-to-end environment of docs/testing.md; deploying it creates a separate
+          kuyara-worker-e2e Worker on the same account and is not part of any
+          documented flow.
+        type: choice
+        required: true
+        default: production
+        options:
+          - production
+          - e2e
+
+# One deploy at a time; a second run waits instead of cancelling the first.
+concurrency:
+  group: worker-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Test, bundle and deploy the Worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # The GitHub environment holds CLOUDFLARE_API_TOKEN (secret) and
+    # CLOUDFLARE_ACCOUNT_ID (variable) and carries any protection rules. Both
+    # Wrangler environments deploy through this one GitHub environment on purpose:
+    # the token and the approval gate are the same either way.
+    environment: production
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # No version input: the pnpm version comes from the packageManager field
+      # in the root package.json.
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck the Worker
+        run: pnpm --filter @kuyara/worker typecheck
+
+      - name: Test the Worker
+        run: pnpm --filter @kuyara/worker test
+
+      # `wrangler deploy --dry-run` against the top-level configuration: the bundle
+      # must build before anything reaches Cloudflare. The same source bundles for
+      # both Wrangler environments, so one dry run gates both.
+      - name: Bundle the Worker
+        run: pnpm --filter @kuyara/worker bundle
+
+      # The action runs `pnpm exec wrangler` inside apps/worker, so it uses the
+      # wrangler version pinned in the lockfile; no wranglerVersion input on purpose.
+      # packageManager is explicit because the action looks for a lockfile in
+      # workingDirectory and the pnpm lockfile lives at the repository root.
+      # The action splits `command` itself (no shell), so `--env=""` reaches wrangler
+      # as `--env=` exactly like the package scripts and selects the top-level
+      # configuration; a named environment is passed through as `--env=<name>`.
+      - name: Deploy with Wrangler
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/worker
+          packageManager: pnpm
+          command: deploy --env="${{ inputs.environment != 'production' && inputs.environment || '' }}"
