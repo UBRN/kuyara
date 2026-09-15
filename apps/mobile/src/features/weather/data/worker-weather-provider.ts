@@ -3,7 +3,7 @@ import {
   weatherV1Path,
   weatherV1RequestSchema,
   weatherV1SuccessSchema,
-  type WeatherV1ErrorCode,
+  type WeatherV1Error,
 } from '@kuyara/contracts';
 
 import { mapWorkerWeatherToProvidedSnapshot } from '@/features/weather/data/worker-weather-mapper';
@@ -24,10 +24,14 @@ type Dependencies = Readonly<{
   requestTimeoutMilliseconds?: number;
 }>;
 
-export class WorkerWeatherProviderError extends WeatherProviderError {
-  readonly code: WeatherV1ErrorCode | null;
+// The code as the response schema reads it, which is the closed Worker list plus the
+// named 'unknown' for a code this binary does not know.
+type ReadErrorCode = WeatherV1Error['error']['code'];
 
-  constructor(kind: WeatherProviderFailureKind, code: WeatherV1ErrorCode | null = null) {
+export class WorkerWeatherProviderError extends WeatherProviderError {
+  readonly code: ReadErrorCode | null;
+
+  constructor(kind: WeatherProviderFailureKind, code: ReadErrorCode | null = null) {
     super(kind);
     this.name = 'WorkerWeatherProviderError';
     this.code = code;

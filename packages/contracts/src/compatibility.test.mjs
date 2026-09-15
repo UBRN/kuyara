@@ -270,18 +270,30 @@ for (const [name, schemaName, payload, path] of responseLevels) {
   });
 }
 
-// --- Unknown enum members: recorded current behaviour, not a defect ----------------------
+// --- Unknown enum members: the named unknown branch, and the one enum kept closed ------
 //
-// A response schema tolerates an unknown FIELD but not an unknown enum MEMBER. A fourth
-// provider sourceId, a new weather condition code or a new error code still rejects the whole
-// payload on every installed binary, so adding one is a breaking change that has to wait for
-// the next release. The named-unknown branch that would soften this (an `unknown` member each
-// side maps deliberately) is an open product decision, not a todo for this file.
+// A response schema tolerates an unknown FIELD, and for two enums an unknown MEMBER: a
+// provider sourceId and an error code the binary does not know read as the literal
+// 'unknown', so a published Worker may add a provider or an error code ahead of the next
+// binary. Only an identifier-shaped string maps there; a missing key or a number is still a
+// broken payload. The weather condition code stays closed on purpose: every mobile consumer
+// is exhaustive over it and the Worker maps every upstream code onto the list itself, so a
+// new condition member is a binary change on both sides (see enum-or-unknown.ts).
 
-test('an unknown origin.sourceId still rejects the whole weather payload', () => {
+test('an unknown origin.sourceId reads as the named unknown member', () => {
   const payload = build8WeatherSuccess();
   payload.data.origin.sourceId = 'met-norway';
-  assert.equal(weatherV1SuccessSchema.safeParse(payload).success, false);
+  const result = weatherV1SuccessSchema.safeParse(payload);
+  assert.equal(result.success, true);
+  assert.equal(result.data.data.origin.sourceId, 'unknown');
+});
+
+test('a missing, numeric or free-text origin.sourceId still rejects the weather payload', () => {
+  for (const sourceId of [undefined, 42, '', 'Met Norway', 'x'.repeat(33)]) {
+    const payload = build8WeatherSuccess();
+    payload.data.origin.sourceId = sourceId;
+    assert.equal(weatherV1SuccessSchema.safeParse(payload).success, false, String(sourceId));
+  }
 });
 
 test('an unknown current.condition still rejects the whole weather payload', () => {
@@ -290,10 +302,25 @@ test('an unknown current.condition still rejects the whole weather payload', () 
   assert.equal(weatherV1SuccessSchema.safeParse(payload).success, false);
 });
 
-test('an unknown error.code still rejects the whole weather error payload', () => {
-  const payload = build8WeatherError();
-  payload.error.code = 'upstream_degraded';
-  assert.equal(weatherV1ErrorSchema.safeParse(payload).success, false);
+test('an unknown error.code reads as the named unknown member', () => {
+  const weather = build8WeatherError();
+  weather.error.code = 'upstream_degraded';
+  assert.deepEqual(weatherV1ErrorSchema.parse(weather), { error: { code: 'unknown' } });
+
+  const places = build8PlaceSearchError();
+  places.error.code = 'upstream_degraded';
+  assert.deepEqual(placeSearchV1ErrorSchema.parse(places), { error: { code: 'unknown' } });
+});
+
+test('a missing or numeric error.code still rejects the error payload', () => {
+  for (const code of [undefined, 42, '']) {
+    const weather = build8WeatherError();
+    weather.error.code = code;
+    assert.equal(weatherV1ErrorSchema.safeParse(weather).success, false, String(code));
+    const places = build8PlaceSearchError();
+    places.error.code = code;
+    assert.equal(placeSearchV1ErrorSchema.safeParse(places).success, false, String(code));
+  }
 });
 
 // --- Request schemas stay strict ----------------------------------------------------------
