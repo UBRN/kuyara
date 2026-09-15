@@ -191,6 +191,12 @@ post-release checks: PostHog receives consented build 8 events, including a firs
 non-maintainer install that granted consent on 2026-09-15, and EAS Observe reports a
 0.52 s median cold launch and 0.22 s startup TTI for build 8, in line with build 6.
 
+The next store version record, 0.1.20260915, exists in App Store Connect in the
+Prepare for Submission state with no build attached. Its only difference from the live
+listing is the final line of the English and Turkish descriptions, which no longer
+mentions creating an account, because the live version's description cannot be edited
+while it is on sale; the correction reaches the store with the next build submission.
+
 The evidence behind the release: the full-flow recording Apple asked for was captured on
 2026-09-14 on the maintainer's iPhone 14 Pro on iOS 26.6.2 from the TestFlight build 8,
 from app launch through onboarding, the location prompt, the first three-outfit
