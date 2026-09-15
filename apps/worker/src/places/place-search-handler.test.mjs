@@ -4,7 +4,7 @@ import worker from '../index.ts';
 import { OpenMeteoPlaceProvider, PlaceSearchProviderError } from './open-meteo-place-provider.ts';
 import { createPlaceSearchHandler } from './place-search-handler.ts';
 
-const query = { query: 'İzmir', limit: 5, language: 'tr' };
+const query = { query: 'Ankara', limit: 5, language: 'tr' };
 const raw = { results: [{ id: 311046, name: 'İzmir', admin1: 'İzmir', country: 'Türkiye', latitude: 38.41273, longitude: 27.13838, timezone: 'Europe/Istanbul', population: 2500603 }] };
 const request = (body = query, path = '/v1/places/search', method = 'POST') => new Request(`https://worker.test${path}`, {
   method, headers: { 'content-type': 'application/json', 'cf-connecting-ip': '192.0.2.1' },
@@ -19,7 +19,7 @@ test('search maps upstream fields, coarse coordinates and attribution with one b
   const handle = setup(async (url, init) => {
     calls++;
     assert.equal(url.origin, 'https://geocoding-api.open-meteo.com');
-    assert.deepEqual(Object.fromEntries(url.searchParams), { name: 'İzmir', count: '5', language: 'tr', format: 'json' });
+    assert.deepEqual(Object.fromEntries(url.searchParams), { name: 'Ankara', count: '5', language: 'tr', format: 'json' });
     // 'manual', not 'error': workerd rejects 'error' before any network call (found live, 2026-09-08).
     assert.equal(init.redirect, 'manual');
     return Response.json(raw);

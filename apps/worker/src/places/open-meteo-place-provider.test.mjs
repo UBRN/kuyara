@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { OpenMeteoPlaceProvider, PlaceSearchProviderError } from './open-meteo-place-provider.ts';
+import { OpenMeteoPlaceProvider, PlaceSearchProviderError, dotlessSpellings } from './open-meteo-place-provider.ts';
 
-const query = { query: 'İzmir', limit: 5, language: 'tr' };
+const query = { query: 'Ankara', limit: 5, language: 'tr' };
 const place = (id, name, latitude) => ({ id, name, admin1: name, country: 'Türkiye', latitude, longitude: 27.13838, timezone: 'Europe/Istanbul' });
 const provider = (body) => new OpenMeteoPlaceProvider({ fetch: async () => Response.json(body), timeoutMs: 50 });
 // Keep the dropped-entry warning out of the test output and return what it was called with.
@@ -61,4 +61,66 @@ test('a fully valid response is mapped unchanged and an over-long one is still r
   }]);
   assert.deepEqual(warnings, []);
   await assert.rejects(() => provider({ results: Array(6).fill(place(1, 'İzmir', 38.41)) }).search(query), PlaceSearchProviderError);
+});
+
+test('dotless spellings substitute only lowercase i, one position at a time, then all, capped at three', () => {
+  assert.deepEqual(dotlessSpellings('Kadikoy'), ['Kadıkoy']);
+  assert.deepEqual(dotlessSpellings('Diyarbakir'), ['Dıyarbakir', 'Diyarbakır', 'Dıyarbakır']);
+  assert.deepEqual(dotlessSpellings('Kirikkale'), ['Kırikkale', 'Kirıkkale', 'Kırıkkale']);
+  assert.equal(dotlessSpellings('Bilecik Osmaneli').length, 3);
+  // Open-Meteo already folds uppercase I ("ISTANBUL", "IZMIR" resolve), a query that already
+  // carries an ı was typed on a Turkish keyboard, and a query without i has nothing to retry.
+  assert.deepEqual(dotlessSpellings('ISTANBUL'), []);
+  assert.deepEqual(dotlessSpellings('Kadıköy'), []);
+  assert.deepEqual(dotlessSpellings('London'), []);
+});
+
+// A fetch stub that answers by the `name` it was asked for and records every call.
+function spellingProvider(answers, { throwOn } = {}) {
+  const calls = [];
+  const fetch = async (url, init) => {
+    const name = new URL(url).searchParams.get('name');
+    calls.push({ name, signal: init.signal });
+    if (name === throwOn) throw new Error('upstream');
+    return Response.json({ results: answers[name] ?? [] });
+  };
+  return { calls, provider: new OpenMeteoPlaceProvider({ fetch, timeoutMs: 50 }) };
+}
+const ascii = { query: 'Bagcilar', limit: 2, language: 'en' };
+
+test('an empty typed answer triggers exactly one extra call when the first spelling fills the limit', async () => {
+  const { calls, provider } = spellingProvider({ Bagcılar: [place(1, 'Bağcılar', 41.03), place(2, 'Bağcılar', 37.7), place(3, 'Bağcılar', 38.1)] });
+  const result = await provider.search(ascii);
+  assert.deepEqual(calls.map((call) => call.name), ['Bagcilar', 'Bagcılar']);
+  assert.equal(calls[1].signal, calls[0].signal);
+  assert.deepEqual(result.places.map((entry) => entry.id), ['place.1', 'place.2']);
+});
+
+test('a full typed answer triggers no spelling retry', async () => {
+  const { calls, provider } = spellingProvider({ Bagcilar: [place(1, 'A', 41), place(2, 'B', 40)] });
+  const result = await provider.search(ascii);
+  assert.deepEqual(calls.map((call) => call.name), ['Bagcilar']);
+  assert.deepEqual(result.places.map((entry) => entry.id), ['place.1', 'place.2']);
+});
+
+test('spelling retries append unseen ids after the typed answer, in order, and stop at the limit', async () => {
+  const { calls, provider } = spellingProvider(
+    { Diyarbakir: [place(9, 'Airport', 37.9)], Dıyarbakir: [place(9, 'Airport', 37.9)], Diyarbakır: [place(5, 'Diyarbakır', 37.91), place(6, 'Other', 38)] },
+  );
+  const result = await provider.search({ query: 'Diyarbakir', limit: 2, language: 'en' });
+  assert.deepEqual(calls.map((call) => call.name), ['Diyarbakir', 'Dıyarbakir', 'Diyarbakır']);
+  assert.deepEqual(result.places.map((entry) => entry.id), ['place.9', 'place.5']);
+});
+
+test('a spelling retry that throws still returns the typed answer', async () => {
+  const { calls, provider } = spellingProvider({ Diyarbakir: [place(9, 'Airport', 37.9)] }, { throwOn: 'Dıyarbakir' });
+  const result = await provider.search({ query: 'Diyarbakir', limit: 5, language: 'en' });
+  assert.deepEqual(calls.map((call) => call.name), ['Diyarbakir', 'Dıyarbakir']);
+  assert.deepEqual(result.places.map((entry) => entry.id), ['place.9']);
+});
+
+test('a typed query that fails still fails, whatever a spelling would have answered', async () => {
+  const { calls, provider } = spellingProvider({ Bagcılar: [place(1, 'Bağcılar', 41.03)] }, { throwOn: 'Bagcilar' });
+  await assert.rejects(() => provider.search(ascii), PlaceSearchProviderError);
+  assert.deepEqual(calls.map((call) => call.name), ['Bagcilar']);
 });
