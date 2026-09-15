@@ -156,16 +156,27 @@ weather calls spend no money, so that machinery is not justified.
 
 `createDailyCappedWeatherProvider` refuses to call OpenWeather once
 **500 calls** are recorded for the current UTC day, deliberately half the free
-1,000/day allowance. The counter reuses the existing `PROBE_COUNTER` KV binding
-under `weather:openweather:YYYY-MM-DD` keys. The count is incremented **before**
-the upstream call, because upstream quota is consumed by the attempt itself; a
-persistently failing provider must still spend budget.
+1,000/day allowance.
 
-**This cap is defense in depth, not a guarantee.** Cloudflare KV read-then-write
-is not atomic, and a counter failure deliberately fails open so a KV outage
-cannot take weather down. Concurrent requests or an unavailable KV can therefore
-exceed 500. The authoritative protection against billing is the provider-side
-cap in the operational requirement below, not this counter.
+The counter is the `weather:openweather` Durable Object of the `DAILY_COUNTERS`
+binding (`apps/worker/src/daily-counter.ts`), one object per counter name and
+SQLite-backed, the only Durable Object storage on the Workers Free plan. The
+increment is atomic because the object's input gate holds every other request
+while one request's storage operations are in flight. The gate increments before
+the attempt and the returned count decides whether OpenWeather is called at all,
+so a failed OpenWeather call still counts. When the cap trips, the `quota` error
+is fallback-eligible and the chain advances. When the counter itself cannot
+answer, the wrapper throws an `availability` error and the chain advances the
+same way: OpenWeather is never called uncounted, and without the binding the
+capped providers are not composed at all. The provider-side cap in the
+operational requirement remains the authoritative protection against billing;
+this cap is the Worker's own hard limit in front of it.
+
+Red line: do not move the counter back to Workers KV. KV Free allows 1,000
+writes per day and one write per second to the same key, so a KV counter keyed
+by day stops counting after the first ~1,000 weather requests and cannot keep up
+above one request per second on any plan; its read-then-write is not atomic
+either.
 
 ### 7. Operational requirement before OpenWeather is enabled
 
