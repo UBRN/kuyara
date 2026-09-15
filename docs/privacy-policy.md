@@ -146,7 +146,9 @@ calls weather and AI providers. This is a live request, not a record of you:
 - **On the device.** Your profile, Closet entries and photos, cached weather, and weather
   alert schedules are stored in the app's private storage on your device. Closet photos
   are not uploaded. Weather alerts are scheduled locally; no push token or device
-  registration is sent anywhere.
+  registration is sent anywhere. This on-device data, the app's local database and any
+  Closet photos, is included in your own device backup, such as an iCloud backup, under
+  your own backup settings; that backup is yours and the maintainer never receives it.
 
 ## Accounts
 

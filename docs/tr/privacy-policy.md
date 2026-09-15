@@ -149,7 +149,10 @@ istektir, senin hakkında tutulan bir kayıt değildir:
 - **Cihazda.** Profilin, Gardırop kayıtların ve fotoğrafların, önbelleğe alınmış hava
   durumu ve hava uyarısı planları uygulamanın cihazındaki özel alanında saklanır.
   Gardırop fotoğrafları yüklenmez. Hava uyarıları cihazda planlanır; hiçbir yere push
-  jetonu veya cihaz kaydı gönderilmez.
+  jetonu veya cihaz kaydı gönderilmez. Cihazdaki bu veriler, yani uygulamanın yerel
+  veritabanı ve varsa Gardırop fotoğrafların, kendi yedekleme ayarlarına göre cihaz
+  yedeğine (örneğin iCloud yedeğine) dahil olur; o yedek sana aittir ve sorumluya hiçbir
+  zaman ulaşmaz.
 
 ## Hesaplar
 
