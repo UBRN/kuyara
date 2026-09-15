@@ -28,6 +28,7 @@ Approved 2026-09-13.
 - The store version string follows `0.MINOR.YYYYMMDD`: the leading 0 says the product is not yet declared stable, the middle number counts minor updates, and the trailing date stamps the update. The first store version is `0.1.20260913`. The build number is auto-incremented by the EAS production profile.
 - Because `runtimeVersion` follows the app version, every build of one version string shares one update runtime. Later versions ship only through EAS Build and EAS Submit; on iOS the maintainer's remaining manual step is Submit for Review, and no EAS Update is published to the production channel until the binary that carries the target runtime is the only one installed.
 - No App Store preview video is used. Apple allows only raw in-app footage there, so a preview did not earn its place; the store listing carries framed screenshots only.
+- The App Store primary language is `en-US`, with Turkish as a localization (switched 2026-09-15, after the first version was approved, since Apple lets a language become primary only once App Review has approved it). Apple shows the primary-language listing on every storefront whose language has no localization, and the app resolves every non-Turkish device language to English, so the listing and the app now fall back the same way; with Turkish as primary, a visitor in Hungary saw a Turkish listing for an English app.
 
 ## Current scaffold
 
