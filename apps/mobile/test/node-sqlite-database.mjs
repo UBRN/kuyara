@@ -9,8 +9,10 @@ function bindStatement(statement, params) {
 }
 
 export class NodeSqliteDatabase {
-  constructor() {
-    this.database = new DatabaseSync(':memory:');
+  // A second wrapper over the same connection stands in for a second caller that
+  // `migrateDatabase` does not recognise, so the idempotency tests still re-run the chain.
+  constructor(database = new DatabaseSync(':memory:')) {
+    this.database = database;
   }
 
   async execAsync(source) {
@@ -41,6 +43,12 @@ export class NodeSqliteDatabase {
   }
 
   async withExclusiveTransactionAsync(task) {
+    // expo opens each transaction body on a fresh connection with `useNewConnection: true`,
+    // where foreign keys are off. `node:sqlite` starts them on and runs BEGIN on this one
+    // connection, so turn them off around the body or the double is the inverse of
+    // production. The pragma is a no-op once a transaction is open, hence before BEGIN.
+    const previous = this.database.prepare('PRAGMA foreign_keys').get().foreign_keys;
+    this.database.exec('PRAGMA foreign_keys = OFF');
     this.database.exec('BEGIN EXCLUSIVE');
     try {
       await task(this);
@@ -48,6 +56,8 @@ export class NodeSqliteDatabase {
     } catch (error) {
       this.database.exec('ROLLBACK');
       throw error;
+    } finally {
+      this.database.exec(`PRAGMA foreign_keys = ${previous ? 'ON' : 'OFF'}`);
     }
   }
 

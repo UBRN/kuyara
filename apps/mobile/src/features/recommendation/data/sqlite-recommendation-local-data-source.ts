@@ -40,7 +40,9 @@ export class SqliteRecommendationLocalDataSource implements RecommendationLocalD
 
   async getSnapshot(localProfileId: string): Promise<RecommendationSnapshotRecord | null> {
     const row = await this.database.getFirstAsync<RecommendationSnapshotRow>(
-      `SELECT * FROM recommendation_snapshots WHERE local_profile_id = ?`,
+      `SELECT id, local_profile_id, weather_snapshot_id, location_key, generation_mode,
+         context_json, outfits_json, created_at, updated_at
+       FROM recommendation_snapshots WHERE local_profile_id = ?`,
       [localProfileId],
     );
     return row ? mapRow(row) : null;
@@ -76,7 +78,9 @@ export class SqliteRecommendationLocalDataSource implements RecommendationLocalD
         ],
       );
       const row = await transaction.getFirstAsync<RecommendationSnapshotRow>(
-        `SELECT * FROM recommendation_snapshots WHERE local_profile_id = ?`,
+        `SELECT id, local_profile_id, weather_snapshot_id, location_key, generation_mode,
+           context_json, outfits_json, created_at, updated_at
+         FROM recommendation_snapshots WHERE local_profile_id = ?`,
         [record.localProfileId],
       );
       result = row ? mapRow(row) : null;

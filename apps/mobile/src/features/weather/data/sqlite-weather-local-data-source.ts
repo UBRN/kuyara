@@ -91,7 +91,9 @@ async function readLocation(
   localProfileId: string,
 ): Promise<ActiveLocationRecord | null> {
   const row = await database.getFirstAsync<ActiveLocationRow>(
-    `SELECT * FROM active_locations WHERE local_profile_id = ?`,
+    `SELECT local_profile_id, location_key, source, manual_catalog_id, display_name,
+       latitude_e2, longitude_e2, time_zone, device_accuracy, created_at, updated_at
+     FROM active_locations WHERE local_profile_id = ?`,
     [localProfileId],
   );
   return row ? mapLocation(row) : null;
@@ -103,7 +105,11 @@ async function readSnapshot(
   locationKey: string,
 ): Promise<WeatherSnapshotRecord | null> {
   const row = await database.getFirstAsync<SnapshotRow>(
-    `SELECT * FROM weather_snapshots WHERE local_profile_id = ? AND location_key = ?`,
+    `SELECT id, local_profile_id, location_key, time_zone, fetched_at, observed_at,
+       origin_kind, source_id, temperature_c, apparent_temperature_c,
+       minimum_temperature_c, maximum_temperature_c, condition_code,
+       precipitation_probability, wind_speed_mps, humidity, uv_index
+     FROM weather_snapshots WHERE local_profile_id = ? AND location_key = ?`,
     [localProfileId, locationKey],
   );
   if (!row) {
