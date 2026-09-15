@@ -218,10 +218,19 @@ eligible hardware, as ADR 0034's verification boundary records, and the Simulato
 landed at the 6 s budget's edge. Real VoiceOver, background refresh and production
 analytics dispatch were not separately inspected on the device (see Known Issues).
 
-PostHog Error Tracking has its credentials in place and one verification step left. The
-EAS `production` environment holds `POSTHOG_CLI_API_KEY` (a personal key scoped to
-`error_tracking:write` and `organization:read`, entered as a secret on 2026-09-15),
-`POSTHOG_CLI_PROJECT_ID=270871` and `POSTHOG_CLI_HOST=https://eu.posthog.com`.
+PostHog Error Tracking is verified end to end. The EAS `production` environment holds
+`POSTHOG_CLI_API_KEY` (a personal key scoped to `error_tracking:write` and
+`organization:read`, entered as a secret on 2026-09-15), `POSTHOG_CLI_PROJECT_ID=270871`
+and `POSTHOG_CLI_HOST=https://eu.posthog.com`. On 2026-09-15 an EAS Release Simulator build
+of the same JavaScript with a temporary, uncommitted unhandled rejection fired three seconds
+after consent produced one `$exception` event and one issue in PostHog whose top frame
+resolved to `/apps/mobile/src/app/analytics-consent.tsx` line 18, so the Hermes source map
+upload from the Xcode bundle phase works. The event only arrived after the PostHog project
+setting "Enable exception autocapture" (`autocapture_exceptions_opt_in`) was switched on:
+the SDK reads that flag from the remote config at client creation and it overrides the local
+`errorTracking.autocapture` option, so a project with the setting off captures nothing. A
+Debug or Metro build cannot serve as this proof because Expo's serializer emits no debug id
+in development and the frames never match an uploaded map.
 App Store Connect's Crash Data answer carries the Analytics purpose beside App Functionality
 since 2026-09-15, added and published through the `asc web privacy` pull, plan, apply and
 publish flow with one created row and nothing deleted, matching the privacy manifest in
