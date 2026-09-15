@@ -107,3 +107,34 @@ test('classifies malformed private keys as auth without leaking key data', async
     return true;
   });
 });
+
+test('re-imports the key on the next call after a failed import', async () => {
+  const { value } = await credentials();
+  const realImportKey = globalThis.crypto.subtle.importKey;
+  let importKeyCalls = 0;
+  globalThis.crypto.subtle.importKey = function importKey(...args) {
+    importKeyCalls += 1;
+    if (importKeyCalls === 1) return Promise.reject(new Error('transient import failure'));
+    return realImportKey.apply(this, args);
+  };
+
+  try {
+    const tokenProvider = createWeatherKitTokenProvider(value);
+
+    await assert.rejects(tokenProvider(), (error) => {
+      assert.ok(error instanceof WeatherProviderError);
+      assert.equal(error.kind, 'auth');
+      return true;
+    });
+    const token = await tokenProvider();
+
+    assert.equal(token.split('.').length, 3);
+    assert.equal(
+      importKeyCalls,
+      2,
+      'a rejected import must not stay memoised; the next call must import the key again',
+    );
+  } finally {
+    globalThis.crypto.subtle.importKey = realImportKey;
+  }
+});

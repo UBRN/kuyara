@@ -145,8 +145,37 @@ test('a rate-limited response fails as a classified rate-limit error without the
   );
 });
 
+// https://openrouter.ai/docs/api-reference/errors: 402 is the account or key out of credits.
+// The handler's pool-spent skip is Workers AI only, so this changes the log reason and
+// nothing about the walk.
+test('an out-of-credits response fails as a classified quota error without the key or the provider text', async () => {
+  const apiKey = 'private-api-key';
+  const body = JSON.stringify({
+    error: { message: 'This request requires more credits', code: 402 },
+  });
+  const provider = new OpenRouterAiProvider({
+    apiKey,
+    model: 'provider/model',
+    fetch: async () => new Response(body, {
+      status: 402,
+      headers: { 'Content-Type': 'application/json' },
+    }),
+  });
+  await assert.rejects(
+    provider.generateOutfits(request, new AbortController().signal),
+    (error) => {
+      assert.equal(error.name, 'AiProviderError');
+      assert.equal(error.kind, 'quota_exceeded');
+      for (const forbidden of [apiKey, 'credits', '402', 'option-1']) {
+        assert.equal(error.message.includes(forbidden), false, forbidden);
+      }
+      return true;
+    },
+  );
+});
+
 test('other non-2xx responses stay unclassified provider failures', async () => {
-  for (const status of [401, 402, 500, 503]) {
+  for (const status of [401, 403, 500, 503]) {
     const provider = new OpenRouterAiProvider({
       apiKey: 'secret-key',
       model: 'provider/model',

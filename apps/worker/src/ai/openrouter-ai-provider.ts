@@ -60,8 +60,11 @@ export class OpenRouterAiProvider implements AiProvider {
         }),
       },
     );
-    // An exhausted free-model allowance and a burst refusal arrive alike, as a 429 with
-    // the detail in a body this adapter never reads; classify it so the log names it.
+    // https://openrouter.ai/docs/api-reference/errors: a 402 means the account or key has
+    // insufficient credits (the balance or a per-key credit cap is spent), and the free
+    // model's per-minute and per-day request caps arrive like a burst refusal, as a 429,
+    // with the detail in a body this adapter never reads. Classified so the log names it.
+    if (response.status === 402) throw new AiProviderError('quota_exceeded');
     if (response.status === 429) throw new AiProviderError('rate_limited');
     if (!response.ok) throw new Error('OpenRouter request failed.');
 

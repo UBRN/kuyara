@@ -72,6 +72,9 @@ export function createWeatherKitTokenProvider(
       cached = { token, expiresAt };
       return token;
     } catch {
+      // A rejected import must not stay memoised for the isolate's life; drop it so the
+      // next call imports the key again instead of replaying the same rejection.
+      key = undefined;
       throw new WeatherProviderError('auth');
     }
   };

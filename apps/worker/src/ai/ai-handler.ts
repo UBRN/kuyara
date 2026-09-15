@@ -37,32 +37,37 @@ type Dependencies = Readonly<{
 }>;
 
 /**
- * The number of Workers AI attempts per UTC day, derived from the ADR 0001 figures (Workers
- * Free: 10,000 Neurons per day; 26,668 Neurons per 1M input tokens and 204,805 per 1M
- * output tokens; tokens approximated as characters / 4):
+ * The number of Workers AI attempts per UTC day, sized so that the attempts plus the probe
+ * reserve stay inside the Workers Free pool. Figures from
+ * https://developers.cloudflare.com/workers-ai/platform/pricing/ (recalculate there when
+ * the prompt, the model list or the pricing changes):
  *
- * - Pool left for recommendations: 10,000 minus the probe's reserve of
- *   `PROBE_DAILY_LIMIT` (30) calls at ~135 Neurons each = 10,000 - 4,050 = 5,950.
+ * - Pool: 10,000 Neurons per day, shared across models, resets 00:00 UTC.
+ * - Rates: `@cf/meta/llama-3.3-70b-instruct-fp8-fast` 26,668 Neurons per 1M input tokens
+ *   and 204,805 per 1M output tokens; `@cf/mistralai/mistral-small-3.1-24b-instruct`
+ *   31,876 in and 50,488 out.
+ * - Probe reserve: the probe always calls the first provider (llama) with a 2,144-character
+ *   prompt, about 536 tokens at four characters per token, and `PROBE_MAX_TOKENS` (256)
+ *   of output: 14.3 + 52.4 = 66.7, rounded up to 67 Neurons; `PROBE_DAILY_LIMIT` (30)
+ *   calls reserve 2,010.
  * - Input per attempt: the largest prompt `buildMessages` and `buildPickJsonSchema`
- *   produce over the 42-cell recommendation grid is 11,583 characters (10,374 of messages,
- *   1,209 of response schema) for 24 options; rounded up to 12,000 characters = 3,000
- *   tokens = 3,000 x 26,668 / 1,000,000 = 80.0 Neurons.
- * - Output per attempt: the largest schema-shaped reply (three picks with the longest
- *   option id and the longest archetype id) is 354 characters pretty-printed = 89 tokens;
- *   rounded up to 128 tokens = 128 x 204,805 / 1,000,000 = 26.2 Neurons.
- * - Per attempt: 80.0 + 26.2 = 106.2, rounded up to 107 Neurons.
- * - Limit: floor(5,950 / 107) = floor(55.6) = 55 attempts.
+ *   produce over the recommendation grid is 11,583 characters (messages plus response
+ *   schema, 24 options), about 2,896 tokens at four characters per token, rounded up to
+ *   3,000.
+ * - Output per attempt: `recommendationMaxTokens` in workers-ai-provider.ts caps the reply
+ *   at 192 tokens, so a runaway or prose reply cannot cost more than a valid one's ceiling.
+ * - Worst attempt: llama at 3,000 in and 192 out is 80.0 + 39.3 = 119.3, rounded up to 120
+ *   Neurons; mistral at the same sizes is 95.6 + 9.7 = 105.3, so llama is the worst case
+ *   and the limit holds for either model.
+ * - Limit: floor((10,000 - 2,010) / 120) = floor(66.6) = 66 attempts.
  *
- * 55 attempts x 107 Neurons = 5,885, which with the probe reserve stays under the 10,000
- * pool. Two caveats: the output estimate assumes a schema-shaped reply, while
- * `recommendationMaxTokens` in workers-ai-provider.ts allows 2,048 output tokens, so a
- * non-conforming reply can cost up to ~419 Neurons; and the ADR 0001 rates are the first
- * model's, the second model (mistral-small-3.1-24b) has a higher input rate, so the limit
- * is conservative only for the first model. Recalculate when the prompt, the model list or
- * the pricing changes. OpenRouter attempts spend no Neurons and are not counted.
+ * 66 x 120 + 2,010 = 9,930 < 10,000. The token figures are characters over four; the
+ * provider's `ai_provider_usage` log carries the binding's own `prompt_tokens` and
+ * `completion_tokens` per successful call and is the measured check on that assumption.
+ * OpenRouter attempts spend no Neurons and are not counted.
  */
 export const WORKERS_AI_DAILY_ATTEMPT_LIMIT = Math.floor(
-  (10_000 - PROBE_DAILY_LIMIT * 135) / 107,
+  (10_000 - PROBE_DAILY_LIMIT * 67) / 120,
 );
 
 type ProviderFailureReason =
@@ -239,10 +244,12 @@ export function createAiHandler({
 
     // The daily budget gates Workers AI attempts, not the route: every Workers AI provider
     // is reached only through a counted, awaited increment, OpenRouter attempts are never
-    // counted, and a cache hit above never reaches this walk. Each skip is logged once per
-    // request, and a skipped provider consumes none of the deadline.
+    // counted, and a cache hit above never reaches this walk. An increment that answers
+    // over the limit marks the pool spent for this request, so the remaining Workers AI
+    // providers are skipped without another increment; a counter failure skips only that
+    // provider, and the next Workers AI provider retries the counter once. Each skip is
+    // logged once per request, and a skipped provider consumes none of the deadline.
     let workersAiPoolSpent = false;
-    let budgetLogged = false;
     let counterLogged = false;
     for (const [attemptIndex, provider] of providers.slice(0, maxAttempts).entries()) {
       if (provider.id === 'workers-ai') {
@@ -260,15 +267,13 @@ export function createAiHandler({
             continue;
           }
           if (count > dailyLimit) {
-            if (!budgetLogged) {
-              console.warn({
-                event: 'ai_daily_budget_exhausted',
-                route: aiRecommendV1Path,
-                count,
-                limit: dailyLimit,
-              });
-              budgetLogged = true;
-            }
+            console.warn({
+              event: 'ai_daily_budget_exhausted',
+              route: aiRecommendV1Path,
+              count,
+              limit: dailyLimit,
+            });
+            workersAiPoolSpent = true;
             continue;
           }
         }

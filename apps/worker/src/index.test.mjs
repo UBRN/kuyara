@@ -8,10 +8,10 @@ import worker, { buildRouter } from './index.ts';
 // of the test output.
 mock.method(console, 'warn', () => {});
 
-// The memo the worker keeps is per isolate and keyed on the first `env` it sees, so the
-// default-export tests use exactly one `env`: a second, different `env` would be ignored
-// and the assertion would be measuring the wrong isolate. The composition tests further
-// down call `buildRouter` directly, once per `env`.
+// The memo the worker keeps is per isolate and keyed on the configuration it reads, so
+// the default-export tests below share one `env`: a second `env` with the same values is
+// served by the same composition, and one with different values recomposes (the last test
+// proves both). The composition tests further down call `buildRouter` directly.
 
 async function weatherKitPrivateKeyPem() {
   const keyPair = await crypto.subtle.generateKey(
@@ -271,4 +271,50 @@ test('a fully bound environment reaches every handler', async (t) => {
   assert.equal((await route(probeRequest(), fakeContext())).status, 200);
   assert.equal((await route(new Request('https://worker.test/v1/ai/ready'), fakeContext())).status, 200);
   assert.deepEqual(warnings.filter(({ event }) => event === 'route_binding_missing'), []);
+});
+
+// Cloudflare documents that a deploy changing only bindings (a rotated secret, an edited
+// var) may reuse running isolates, so the memo must follow the configuration, not the
+// first `env` object. The same run also locks the production chain order offline:
+// WeatherKit at the head, then Open-Meteo, then OpenWeather, so a provider silently
+// dropped from the composition shows up here rather than only in a live tail.
+test('a changed configuration recomposes and the weather chain runs WeatherKit, Open-Meteo, OpenWeather', async () => {
+  const realFetch = globalThis.fetch;
+  const realImportKey = globalThis.crypto.subtle.importKey;
+  const upstreamHosts = [];
+  let importKeyCalls = 0;
+  globalThis.fetch = async (input) => {
+    upstreamHosts.push(new URL(input instanceof Request ? input.url : input).host);
+    throw new Error('network disabled in tests');
+  };
+  globalThis.crypto.subtle.importKey = function importKey(...args) {
+    importKeyCalls += 1;
+    return realImportKey.apply(this, args);
+  };
+  try {
+    // Compose with `env` (a no-op if an earlier test already did), then the same values in
+    // a new object: the composition, and its imported key, is reused.
+    assert.equal((await worker.fetch(weatherRequest(), env, fakeContext())).status, 503);
+    const importsAfterBaseline = importKeyCalls;
+    upstreamHosts.length = 0;
+    assert.equal((await worker.fetch(weatherRequest(), { ...env }, fakeContext())).status, 503);
+    assert.equal(importKeyCalls, importsAfterBaseline, 'an env with unchanged values must not recompose');
+    assert.deepEqual(upstreamHosts, ['weatherkit.apple.com', 'api.open-meteo.com']);
+
+    // An OpenWeather key added to the configuration: recomposed once, the chain now ends
+    // with OpenWeather, and a further request with the same values reuses that second
+    // composition.
+    upstreamHosts.length = 0;
+    const rotated = { ...env, OPENWEATHER_API_KEY: 'rotated-key' };
+    assert.equal((await worker.fetch(weatherRequest(), rotated, fakeContext())).status, 503);
+    assert.equal((await worker.fetch(weatherRequest(), { ...rotated }, fakeContext())).status, 503);
+    assert.equal(importKeyCalls, importsAfterBaseline + 1, 'a changed configuration must recompose exactly once');
+    assert.deepEqual(upstreamHosts, [
+      'weatherkit.apple.com', 'api.open-meteo.com', 'api.openweathermap.org',
+      'weatherkit.apple.com', 'api.open-meteo.com', 'api.openweathermap.org',
+    ]);
+  } finally {
+    globalThis.fetch = realFetch;
+    globalThis.crypto.subtle.importKey = realImportKey;
+  }
 });

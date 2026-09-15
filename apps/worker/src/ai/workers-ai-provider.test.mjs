@@ -53,7 +53,7 @@ test('passes a per-request pick schema to the binding and unwraps its response',
   const pickProperties = captured.input.response_format.json_schema
     .properties.data.properties.picks.items.properties;
   assert.equal(captured.model, '@cf/model');
-  assert.equal(captured.input.max_tokens, 2048);
+  assert.equal(captured.input.max_tokens, 192);
   assert.equal(captured.input.response_format.type, 'json_schema');
   assert.deepEqual(pickProperties.optionId.enum, ['option-1']);
   assert.equal(pickProperties.archetypeId.enum.length, 12);
@@ -133,11 +133,17 @@ test('rejects an already-aborted signal before calling the binding', async () =>
 });
 
 // Cloudflare surfaces an account-level Workers AI failure as a thrown binding error whose
-// message carries its own numeric code and text; the daily allocation is the 3040 family
-// and the gateway reports it as a 429. The binding takes no AbortSignal, so a quota refusal
-// arrives as an ordinary rejection rather than an abort, and the chain has to move on.
-const quotaError = new Error(
-  'AiError: 3040: Account daily Neurons limit exceeded (429 Too Many Requests)',
+// message the runtime formats as `${internalCode}: ${description}`; the spent daily
+// allocation is code 3036 "Account limited", served as a 429
+// (https://developers.cloudflare.com/workers-ai/platform/errors/). The binding takes no
+// AbortSignal, so a quota refusal arrives as an ordinary rejection rather than an abort,
+// and the chain has to move on.
+const quotaError = Object.assign(
+  new Error(
+    '3036: You have used up your daily free allocation of 10,000 neurons. '
+    + "Please upgrade to Cloudflare's Workers Paid plan if you would like to continue usage.",
+  ),
+  { name: 'Account limited' },
 );
 
 test('a quota-exhausted binding fails as a classified quota error carrying nothing from the request or the binding', async () => {
@@ -157,7 +163,7 @@ test('a quota-exhausted binding fails as a classified quota error carrying nothi
       const serialized = `${error.name}: ${error.message}`;
       for (const forbidden of [
         'option-1', 'mens', 't_shirt', 'trousers', 'sneakers',
-        '3040', 'Neurons', '429',
+        '3036', 'neurons', 'Workers Paid', '429',
       ]) {
         assert.equal(serialized.includes(forbidden), false, forbidden);
       }
@@ -166,13 +172,19 @@ test('a quota-exhausted binding fails as a classified quota error carrying nothi
   );
 });
 
+// The codes are the closed set on https://developers.cloudflare.com/workers-ai/platform/errors/:
+// 3036 "Account limited" is the spent daily allocation; 3040 "Out of capacity" is a data
+// center refusal of one attempt, so it must never read as quota, which would make the
+// handler skip the other Workers AI models. 4006 is a GraphQL analytics code, not a binding
+// code, and matches nothing.
 test('binding failures are classified by their own code and text, and nothing else is', async () => {
   const cases = [
-    ['AiError: 3040: Account daily Neurons limit exceeded (429 Too Many Requests)', 'quota_exceeded'],
-    ['AiError: 4006: Account limit reached', 'quota_exceeded'],
-    ['InferenceUpstreamError: Neurons exhausted for this account', 'quota_exceeded'],
-    ['AiError: 3036: Too Many Requests', 'rate_limited'],
+    ['3036: You have used up your daily free allocation of 10,000 neurons.', 'quota_exceeded'],
+    ['InferenceUpstreamError: 3036: Account limited', 'quota_exceeded'],
+    ['Neurons exhausted for this account', 'quota_exceeded'],
+    ['3040: No more data centers to forward the request to', 'rate_limited'],
     ['429: rate limit reached for this model', 'rate_limited'],
+    ['Too Many Requests', 'rate_limited'],
   ];
   for (const [message, kind] of cases) {
     const provider = new WorkersAiProvider({
@@ -190,19 +202,58 @@ test('binding failures are classified by their own code and text, and nothing el
   }
 
   // An ordinary upstream failure stays unclassified, so the handler still logs
-  // `provider_error` for it.
-  const unclassified = new WorkersAiProvider({
-    model: '@cf/model',
-    ai: { run: async () => { throw new Error('AiInternalError: 5006: upstream unavailable'); } },
-  });
-  await assert.rejects(
-    unclassified.generateOutfits(request, new AbortController().signal),
-    (error) => {
-      assert.equal(error.name, 'Error');
-      assert.equal(error.kind, undefined);
-      return true;
-    },
-  );
+  // `provider_error` for it; a timeout code (3007) and the analytics-only 4006 are not
+  // binding quota codes and stay unclassified too.
+  for (const message of [
+    'AiInternalError: 5006: upstream unavailable',
+    '3007: Request timeout',
+    '4006: Account limit reached',
+  ]) {
+    const unclassified = new WorkersAiProvider({
+      model: '@cf/model',
+      ai: { run: async () => { throw new Error(message); } },
+    });
+    await assert.rejects(
+      unclassified.generateOutfits(request, new AbortController().signal),
+      (error) => {
+        assert.equal(error.name, 'Error', message);
+        assert.equal(error.kind, undefined, message);
+        return true;
+      },
+    );
+  }
+});
+
+// A capacity refusal of one attempt leaves the other Workers AI models their turn: the
+// handler's pool-spent skip fires only on `quota_exceeded`.
+test('an out-of-capacity binding is not read as a spent quota and the next Workers AI model still runs', async (t) => {
+  const warnings = [];
+  t.mock.method(console, 'warn', (entry) => warnings.push(entry));
+  let secondBindingCalls = 0;
+  const capacityError = new Error('3040: No more data centers to forward the request to');
+  const handler = createAiHandler({ providers: [
+    new WorkersAiProvider({
+      model: '@cf/out-of-capacity',
+      ai: { run: async () => { throw capacityError; } },
+    }),
+    new WorkersAiProvider({
+      model: '@cf/second',
+      ai: { run: async () => { secondBindingCalls += 1; throw capacityError; } },
+    }),
+  ] });
+  const response = await handler(new Request('http://localhost/v1/ai/recommend', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(request),
+  }), { waitUntil() {} });
+
+  assert.equal(secondBindingCalls, 1);
+  assert.equal(response.status, 503);
+  assert.deepEqual(warnings, [
+    { event: 'ai_provider_attempt_failed', model: '@cf/out-of-capacity', reason: 'rate_limited' },
+    { event: 'ai_provider_attempt_failed', model: '@cf/second', reason: 'rate_limited' },
+  ]);
+  assert.equal(JSON.stringify(warnings).includes('3040'), false);
 });
 
 test('a caller-supplied token budget narrows max_tokens; a recommendation keeps the full one', async () => {
@@ -219,7 +270,50 @@ test('a caller-supplied token budget narrows max_tokens; a recommendation keeps 
   const signal = new AbortController().signal;
   await provider.generateOutfits(request, signal, { maxTokens: 256 });
   await provider.generateOutfits(request, signal);
-  assert.deepEqual(budgets, [256, 2048]);
+  assert.deepEqual(budgets, [256, 192]);
+});
+
+// The binding's synchronous output documents a `usage` object; its two token counts are
+// the measured replacement for the chars/4 estimate behind WORKERS_AI_DAILY_ATTEMPT_LIMIT.
+test('logs the binding-reported token usage as integers and nothing else', async (t) => {
+  const infos = [];
+  t.mock.method(console, 'info', (entry) => infos.push(entry));
+  const provider = new WorkersAiProvider({
+    model: '@cf/model',
+    ai: {
+      run: async () => ({
+        response: { data: { picks: [] } },
+        usage: { prompt_tokens: 2896.4, completion_tokens: 96, total_tokens: 2992 },
+      }),
+    },
+  });
+  await provider.generateOutfits(request, new AbortController().signal);
+  assert.deepEqual(infos, [{
+    event: 'ai_provider_usage',
+    model: '@cf/model',
+    promptTokens: 2896,
+    completionTokens: 96,
+  }]);
+});
+
+test('a missing or malformed usage object logs nothing and does not fail the call', async (t) => {
+  const infos = [];
+  t.mock.method(console, 'info', (entry) => infos.push(entry));
+  for (const usage of [
+    undefined,
+    null,
+    'usage',
+    { prompt_tokens: '2896', completion_tokens: 96 },
+    { prompt_tokens: 2896 },
+    { prompt_tokens: Number.NaN, completion_tokens: 96 },
+  ]) {
+    const provider = new WorkersAiProvider({
+      model: '@cf/model',
+      ai: { run: async () => ({ response: {}, usage }) },
+    });
+    await provider.generateOutfits(request, new AbortController().signal);
+  }
+  assert.deepEqual(infos, []);
 });
 
 // The Neuron pool is account-level, so a spent Workers AI binding skips the remaining
@@ -265,7 +359,7 @@ test('a quota-exhausted binding skips the other Workers AI model and leaks nothi
   ]);
   // The binding's own text stays inside the Worker: neither the response nor the log
   // repeats it.
-  for (const forbidden of ['3040', 'Neurons', '429', 'option-1']) {
+  for (const forbidden of ['3036', 'neurons', 'Workers Paid', '429', 'option-1']) {
     assert.equal(serialized.includes(forbidden), false, forbidden);
     assert.equal(JSON.stringify(warnings).includes(forbidden), false, forbidden);
   }
