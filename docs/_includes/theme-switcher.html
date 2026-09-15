@@ -1,0 +1,97 @@
+{%- comment -%}
+The appearance selector: System, Light and Dark as one radio group, because the
+three are mutually exclusive and a radio group is what tells a screen reader so
+and what earns arrow-key movement. Its styling, and the script that applies the
+stored choice before the page paints, live in theme-head.html, which the layout
+must include in <head>.
+
+Each option carries its own depiction: a sun, a crescent moon, and a circle
+split into a light and a dark half for the system choice. The label beside the
+icon is the text; below 640px it collapses out of sight but stays readable to
+assistive technology.
+{%- endcomment -%}
+{% assign theme_labels = site.themes[page.lang] | default: site.themes.en %}
+<div class="ku-theme" role="radiogroup" aria-label="{{ theme_labels.label }}">
+  <span class="ku-theme__thumb" aria-hidden="true"></span>
+  <button class="ku-theme__option" type="button" role="radio" aria-checked="true" tabindex="0" data-choice="system">
+    <svg class="ku-theme__icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true" focusable="false">
+      <circle cx="8" cy="8" r="5.9"/>
+      <path d="M8 2.1a5.9 5.9 0 0 0 0 11.8Z" fill="currentColor" stroke="none"/>
+    </svg>
+    <span class="ku-theme__label">{{ theme_labels.system }}</span>
+  </button>
+  <button class="ku-theme__option" type="button" role="radio" aria-checked="false" tabindex="-1" data-choice="light">
+    <svg class="ku-theme__icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true" focusable="false">
+      <circle cx="8" cy="8" r="3.1"/>
+      <path d="M8 1.1v1.5M8 13.4v1.5M1.1 8h1.5M13.4 8h1.5M3.15 3.15l1.06 1.06M11.79 11.79l1.06 1.06M12.85 3.15l-1.06 1.06M4.21 11.79l-1.06 1.06"/>
+    </svg>
+    <span class="ku-theme__label">{{ theme_labels.light }}</span>
+  </button>
+  <button class="ku-theme__option" type="button" role="radio" aria-checked="false" tabindex="-1" data-choice="dark">
+    <svg class="ku-theme__icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M13.6 9.9A6.1 6.1 0 0 1 6.1 2.4 5.9 5.9 0 1 0 13.6 9.9Z"/>
+    </svg>
+    <span class="ku-theme__label">{{ theme_labels.dark }}</span>
+  </button>
+</div>
+<script>
+  (function () {
+    var root = document.documentElement;
+    var host = document.querySelector(".ku-theme");
+    if (!host) { return; }
+    var options = Array.prototype.slice.call(host.querySelectorAll(".ku-theme__option"));
+    var timer = null;
+
+    var current = function () { return root.getAttribute("data-theme-choice") || "system"; };
+
+    var mark = function () {
+      var choice = current();
+      options.forEach(function (option) {
+        var selected = option.getAttribute("data-choice") === choice;
+        option.setAttribute("aria-checked", selected ? "true" : "false");
+        option.tabIndex = selected ? 0 : -1;
+      });
+    };
+
+    var choose = function (choice) {
+      if (choice === current()) { return; }
+      try {
+        if (choice === "system") {
+          window.localStorage.removeItem("kuyara-theme");
+        } else {
+          window.localStorage.setItem("kuyara-theme", choice);
+        }
+      } catch (error) { /* storage denied: the choice still holds for this page */ }
+      root.setAttribute("data-theme-choice", choice);
+      if (choice === "system") {
+        root.removeAttribute("data-theme");
+      } else {
+        root.setAttribute("data-theme", choice);
+      }
+      root.classList.add("ku-theme-shift");
+      window.clearTimeout(timer);
+      timer = window.setTimeout(function () {
+        root.classList.remove("ku-theme-shift");
+      }, 400); /* one deliberate beat plus a margin, so the class outlives the fade */
+      mark();
+    };
+
+    options.forEach(function (option, index) {
+      option.addEventListener("click", function () {
+        choose(option.getAttribute("data-choice"));
+      });
+      option.addEventListener("keydown", function (event) {
+        var step;
+        if (event.key === "ArrowRight" || event.key === "ArrowDown") { step = 1; }
+        else if (event.key === "ArrowLeft" || event.key === "ArrowUp") { step = -1; }
+        else { return; }
+        event.preventDefault();
+        var next = options[(index + step + options.length) % options.length];
+        next.focus();
+        choose(next.getAttribute("data-choice"));
+      });
+    });
+
+    mark();
+  })();
+</script>

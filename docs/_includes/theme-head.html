@@ -1,0 +1,144 @@
+{%- comment -%}
+Everything the appearance selector needs in <head>: the stored choice applied to
+<html> before the page paints, and the control's styling. Self-contained, so any
+layout can include it, and it belongs ahead of every stylesheet link so the
+attribute is set before the first style computation and no page paints in the
+wrong appearance. The styling is written against the kuyara tokens in
+assets/css/tokens.css rather than theme utility classes, so it reads correctly
+in all three appearances and on a layout that does not load the theme CSS.
+
+Two attributes, one choice. `data-theme-choice` is always present once the
+script has run and carries `system`, `light` or `dark`; the control and its
+sliding indicator read it. `data-theme` carries `light` or `dark` only when the
+choice overrides the operating system, which is the hook tokens.css and
+style.scss key their forced palettes off.
+
+The website animates always and does not consult the operating system's Reduce
+Motion setting, a maintainer decision recorded in product-decisions.md. There is
+no reduced-motion branch here.
+{%- endcomment -%}
+<script>
+  (function () {
+    var root = document.documentElement;
+    var choice = "system";
+    try {
+      var stored = window.localStorage.getItem("kuyara-theme");
+      if (stored === "light" || stored === "dark") { choice = stored; }
+    } catch (error) { /* storage denied: the system appearance stands */ }
+    root.setAttribute("data-theme-choice", choice);
+    if (choice === "system") {
+      root.removeAttribute("data-theme");
+    } else {
+      root.setAttribute("data-theme", choice);
+    }
+  })();
+</script>
+<style>
+  /* The one top-right row both controls sit in. The appearance selector leads,
+     the language menu follows, and neither wraps: below 640px the selector's
+     labels collapse to their icons so the pair fits a 375px viewport. */
+  .ku-controls {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--ku-space-sm, 8px);
+    margin-bottom: var(--ku-space-xl, 24px);
+  }
+  .ku-header .ku-controls { margin-bottom: 0; }
+  .ku-controls .lang-switcher { margin-bottom: 0; }
+
+  /* Three equal columns, so the indicator travels exactly one column width per
+     step and needs no measurement in script. Hidden until the head script has
+     proved scripting is on: without it the control cannot read, write or apply
+     a choice, and an inert control is worse than none. */
+  .ku-theme {
+    position: relative;
+    display: none;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: 3px;
+    background-color: var(--ku-surface-muted, #E7EEED);
+    /* Defined rather than subtle: the control's own ground sits about 1.1:1
+       against the page in both appearances, so the boundary is what says a
+       control is there. Same token the language menu's surface uses. */
+    border: var(--ku-border-width-subtle, 1px) solid var(--ku-border-defined, #5C7A83);
+    border-radius: var(--ku-radius-pill, 999px);
+  }
+
+  :root[data-theme-choice] .ku-theme { display: grid; }
+  :root[data-theme-choice="light"] .ku-theme { --ku-theme-index: 1; }
+  :root[data-theme-choice="dark"] .ku-theme { --ku-theme-index: 2; }
+
+  .ku-theme__thumb {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 3px;
+    width: calc((100% - 6px) / 3);
+    background-color: var(--ku-surface, #FFFFFF);
+    border: var(--ku-border-width-subtle, 1px) solid var(--ku-border-defined, #5C7A83);
+    border-radius: var(--ku-radius-pill, 999px);
+    transform: translateX(calc(var(--ku-theme-index, 0) * 100%));
+    transition: transform var(--ku-motion-normal, 200ms) linear;
+  }
+
+  .ku-theme__option {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--ku-space-xs, 4px);
+    min-height: var(--ku-touch-target, 44px);
+    min-width: var(--ku-touch-target, 44px);
+    padding: 0 var(--ku-space-md, 12px);
+    font-family: inherit;
+    font-size: 15px;
+    line-height: 20px;
+    font-weight: 600;
+    color: var(--ku-text-secondary, #576B73);
+    white-space: nowrap;
+    background: none;
+    border: 0;
+    border-radius: var(--ku-radius-pill, 999px);
+    cursor: pointer;
+    appearance: none;
+  }
+
+  .ku-theme__option[aria-checked="true"] { color: var(--ku-text-primary, #142F3B); }
+
+  .ku-theme .ku-theme__option:focus-visible {
+    outline: var(--ku-border-width-strong, 2px) solid var(--ku-focus-ring, #27606A);
+    outline-offset: -2px;
+  }
+
+  .ku-theme__icon { flex: none; }
+
+  @media (max-width: 640px) {
+    .ku-theme__option { padding: 0; }
+    /* Collapsed, not removed: the name stays in the accessibility tree. */
+    .ku-theme__label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      padding: 0;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+      border: 0;
+    }
+  }
+
+  /* The cross-fade. Applied to <html> for one deliberate beat around a change
+     so the page's colours interpolate instead of snapping, then removed so
+     every other interaction stays instant. The indicator is excluded: its own
+     transform transition owns that movement. */
+  :root.ku-theme-shift,
+  :root.ku-theme-shift *:not(.ku-theme__thumb) {
+    transition:
+      background-color var(--ku-motion-deliberate, 320ms) linear,
+      color var(--ku-motion-deliberate, 320ms) linear,
+      border-color var(--ku-motion-deliberate, 320ms) linear,
+      fill var(--ku-motion-deliberate, 320ms) linear !important;
+  }
+</style>

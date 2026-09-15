@@ -4,3 +4,14 @@ lang: en-US
 languages:
   en: English
   tr: Türkçe
+themes:
+  en:
+    label: Appearance
+    system: System
+    light: Light
+    dark: Dark
+  tr:
+    label: Görünüm
+    system: Sistem
+    light: Açık
+    dark: Koyu

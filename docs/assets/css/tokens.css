@@ -72,7 +72,9 @@
   --ku-ambient-intense: 650ms;
 }
 
-/* Semantic roles, dark. The guard lets a future explicit light choice win. */
+/* Semantic roles, dark. The guard is what lets an explicit light choice win:
+   the light set above stays in force under a dark operating system because this
+   block steps aside rather than because it is re-declared. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --ku-background: #0D191E;
@@ -118,16 +120,13 @@
   --ku-stage-falling-night: var(--ku-stage);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  :root {
-    --ku-motion-fast: 0ms;
-    --ku-motion-normal: 0ms;
-    --ku-motion-deliberate: 0ms;
-    --ku-motion-stagger: 0ms;
-    --ku-ambient-calm: 0ms;
-    --ku-ambient-moderate: 0ms;
-    --ku-ambient-intense: 0ms;
-  }
+/* An explicit light choice. The values are already on :root, so the only thing
+   this hook owes is the appearance the browser paints its own furniture in;
+   the dark block above declines to apply to it. The website has no
+   reduced-motion branch: it animates whatever the operating system prefers, a
+   maintainer decision recorded in product-decisions.md. */
+:root[data-theme="light"] {
+  color-scheme: light;
 }
 
 /*
