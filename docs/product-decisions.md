@@ -89,7 +89,7 @@ Approved 2026-08-30. Documentation may state the present fact that the first rel
 ## Worker weather contract
 
 - `POST /v1/weather` accepts only normalized integer hundredth-degree coordinates and an IANA time zone. Profile IDs, location keys, permission data, accuracy labels and raw coordinates are not part of the API.
-- Shared strict Zod schemas define the request, the provider-neutral success data with established condition codes and invariants, and minimal stable error codes. The response identifies data as `sample` or `live` plus a controlled `origin.sourceId` attribution identifier; raw provider structures stay internal.
+- Shared Zod schemas define the request, the provider-neutral success data with established condition codes and invariants, and minimal stable error codes; only the request schema is strict, while the success and error schemas strip unknown keys. The response identifies data as `sample` or `live` plus a controlled `origin.sourceId` attribution identifier; raw provider structures stay internal.
 - The Worker validates before provider access, maps through an explicit API mapper, and sanitizes every failure. Responses expose no provider details, stacks, secrets or configuration.
 - Mobile validates every Worker body with the shared contracts before use. Local development defaults to the loopback or emulator host; the production EAS profile provides the deployed HTTPS origin.
 
@@ -157,7 +157,7 @@ Rationale and the recalculated probe limits in [ADR 0001](adr/0001-worker-ai-pro
 
 - Today shows one accessible localized badge per stored generation mode, and the on-device badge appears only when the stored mode is `on-device-ai`, so the words never advertise a tier that did not produce the result. The AI-assisted mark accompanies `ai-assisted` alone. Settings shows the stored status beside an availability row that reads the device's on-device state without calling any provider.
 - `POST /v1/ai/probe` is distinct from liveness and configuration readiness: one bounded call to the first provider and a briefly cached sanitized `ok | unavailable` result. A successful result also carries the controlled, non-secret identifier and configured model slug of the provider that answered, read only by the Settings AI status screen. Settings triggers the probe explicitly ("Check AI status") and respects Reduced Motion.
-- Recommendation and probe routes use per-IP burst limits; the probe also has a KV-backed daily cap. Kuyara limit denials return the stable `rate_limited` error; upstream quota or capacity failures follow the normal sanitized AI fallback. Missing bindings degrade permissively, so deployed bindings must remain configured.
+- Recommendation and probe routes use per-IP burst limits; the probe also has a Durable Object-backed daily cap. Kuyara limit denials return the stable `rate_limited` error; upstream quota or capacity failures follow the normal sanitized AI fallback. Missing bindings degrade permissively, so deployed bindings must remain configured.
 
 ## Approved AI input privacy boundary
 

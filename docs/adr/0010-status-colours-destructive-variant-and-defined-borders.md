@@ -110,8 +110,8 @@ carries `checkCircle`, `warning`, `error`, `info`. No new icon is required.
 component is being identified and 1.4.11 does not apply. Every boundary that
 identifies an interactive component moves to `borderDefined`.
 
-Using `#C5D5D6` for the unselected Closet filter chip or outline button would leave its
-boundary at 1.515:1 on the white card, below WCAG 1.4.11. Interactive boundaries use
+Using `#CCD2D4` for the unselected Closet filter chip or outline button would leave its
+boundary at 1.529:1 on the white card, below WCAG 1.4.11. Interactive boundaries use
 `borderDefined`.
 
 Cards keep `borderSubtle` or no border at all. A card is a container of
@@ -157,5 +157,5 @@ the opposite of the identity.
 - Any change to the six approved brand hexes or the Balanced Horizon V2
   master geometry. Both are unchanged. The seven roles above are derived
   semantic values in the same class as the existing derived neutrals
-  `#E7EEED`, `#DDE8E7`, `#C5D5D6`, `#D0DDDC`.
+  `#E7EEED`, `#DDE8E7`, `#CCD2D4`, `#D0DDDC`.
 - Any change to app code in this ADR.
