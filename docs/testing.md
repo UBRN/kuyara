@@ -272,9 +272,23 @@ in-place replacement is the real migration test. Install from TestFlight, then c
 onboarding does not reappear, the Closet still lists its rows with their photos, Today renders
 the cached snapshot before any refresh, and the Settings AI status screen answers.
 
-Then, in App Store Connect, create the version with the same string if it does not exist,
-attach the build and Submit for Review. That step stays manual; automatic release after
-approval is selected, and the store build replaces the TestFlight build in place.
+App Store Connect is the one part of the release EAS does not do. It runs on the maintainer's
+Mac with the `asc` CLI against the `kuyara` profile. Read the ids first with
+`asc status --app 6806664440` for the version id and the build id, and
+`asc localizations list --version "VERSION_ID"` for the `en-US` and `tr` localization ids, then:
+
+```bash
+asc versions attach-build --version-id "VERSION_ID" --build-id "BUILD_ID"
+asc localizations update --id "LOCALIZATION_ID" --whats-new "..."
+asc validate --app 6806664440 --version "VERSION" --platform IOS --output table
+asc review submit --app 6806664440 --version-id "VERSION_ID" --build-id "BUILD_ID" --platform IOS --dry-run
+asc review submit --app 6806664440 --version-id "VERSION_ID" --build-id "BUILD_ID" --platform IOS --confirm
+```
+
+Run `asc localizations update` once per locale; an update version needs release notes in both.
+Validate before submitting and expect zero blocking issues. `asc review submit` leaves the
+version in `WAITING_FOR_REVIEW` and does not change the release type, so automatic release
+after approval stays selected and the store build replaces the TestFlight build in place.
 
 ### Development build on the physical iPhone
 
