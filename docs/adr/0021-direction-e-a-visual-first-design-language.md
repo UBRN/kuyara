@@ -6,8 +6,8 @@ Implementation: Direction E is implemented on Today, recommendation detail, the 
 shell, Profile, Closet and Settings. [ADR 0018](0018-the-atmospheric-condition-band.md)
 owns the per-condition stage tint, [ADR 0025](0025-the-garment-board-composition-rule.md)
 owns the garment board, and [ADR 0026](0026-the-recommendation-detail-surface.md) owns the
-detail surface and entry motion. Section 9's horizontal hourly rail on Weather remains
-unimplemented. This ADR records a direction produced by a throwaway HTML spike.
+detail surface and entry motion. Weather carries section 9's horizontal hourly rail.
+This ADR records a direction produced by a throwaway HTML spike.
 
 Defines the accepted visual direction within
 [`visual-identity.md`](../design/visual-identity.md),

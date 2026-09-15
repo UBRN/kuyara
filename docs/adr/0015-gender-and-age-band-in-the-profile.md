@@ -3,8 +3,7 @@
 Status: Accepted (2026-09-03)
 
 Implementation: complete. Profile storage and recommendation behavior, onboarding and
-Settings, and the one-time schema version 10 onboarding reset are implemented. Simulator
-and Maestro acceptance remain with the orchestrator; see
+Settings, and the one-time schema version 10 onboarding reset are implemented; see
 [`current-status.md`](../current-status.md).
 
 The current formality signal and age policy are decided in

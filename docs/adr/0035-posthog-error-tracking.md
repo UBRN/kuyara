@@ -2,6 +2,13 @@
 
 Status: Accepted (2026-09-14)
 
+Implementation: complete. The consent-gated `errorTracking.autocapture` options, the
+field-level `before_send` allowlist, the deduplication and five-exception session cap, the
+Analytics purpose on the Crash Data row in `apps/mobile/app.json`, and the Hermes
+source-map upload through the Expo plugin, the Metro chunk ids and the pinned CLI are
+implemented, and one real exception resolves to readable frames in the PostHog issue view;
+see [`current-status.md`](../current-status.md).
+
 This ADR defines which failures reach PostHog, how a Hermes stack trace is made readable,
 how the one consent answer governs it, what an exception payload may carry, what it changes
 in the App Store privacy answers, what it costs and how that cost is capped, and how it
@@ -312,7 +319,7 @@ global handler, which is worse than the duplication. If Expo adds a switch, Obse
 error capture is turned off in the same change and PostHog owns that layer alone. Neither system is
 dropped for errors in the meantime, and no third error collector is added.
 
-### 8. Acceptance conditions for milestone 12
+### 8. The conditions the integration holds to
 
 1. `errorTracking.autocapture` is `{ uncaughtExceptions: true, unhandledRejections: true }` with
    `console` absent or empty and `nativeCrashes` absent; `exceptionSteps` stays
@@ -323,9 +330,9 @@ dropped for errors in the meantime, and no third error collector is added.
 3. The extended `before_send` allowlist is in place with the unit test described in section 4, and
    a test proves the hook runs for an exception event.
 4. The per-session cap and deduplication of section 6 are implemented and tested.
-5. Source map upload runs in the EAS build, the credentials are EAS secrets, and one real exception
-   resolves to readable frames in the PostHog issue view before an enabling build is submitted. The
-   verification exception is thrown deliberately from a development build, never from production.
+5. Source map upload runs in the EAS build, the credentials are EAS secrets, and a real exception
+   resolves to readable frames in the PostHog issue view. A verification exception is thrown
+   deliberately for that check, never from production.
 6. The project ingestion rate limits are configured in PostHog and recorded in
    `docs/current-status.md`; the billing limit becomes a required step only when a payment method
    exists.
@@ -335,7 +342,7 @@ dropped for errors in the meantime, and no third error collector is added.
 8. The greppable boundary rules still hold: no PostHog SDK import outside
    `apps/mobile/src/features/analytics/data/`, and `identify()`, `alias()`, `group()` and
    `setPersonProperties()` still have no caller.
-9. PostHog's pricing and error tracking pages are re-read on the implementation date and the figures
+9. PostHog's pricing and error tracking pages are re-read before a release operation and the figures
    in section 6 are corrected in place if they moved.
 
 ## Consequences

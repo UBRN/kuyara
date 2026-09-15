@@ -245,9 +245,8 @@ publish flow with one created row and nothing deleted, matching the privacy mani
 `apps/mobile/app.json`. The organisation is on the free plan
 without a payment method, so PostHog stops ingestion at the free allowance instead of
 billing; a billing limit becomes a step only if a card is added, and the owner's 80 and 100
-percent usage alert emails are on by default. A development build then needs one
-deliberately thrown verification exception resolved to readable frames in PostHog. Every
-`eas update` also needs `posthog-cli hermes upload --directory dist` after publishing.
+percent usage alert emails are on by default. Every `eas update` also needs
+`posthog-cli hermes upload --directory dist` after publishing.
 
 The PostHog wrapper around the "Bundle React Native code and images" phase exits before any
 CLI call when `SKIP_BUNDLING` is set, and Expo's generated phase script exports
@@ -444,6 +443,3 @@ before submitting is the maintainer's call.
 - **Dark atmosphere states render neutral only.** ADR 0018 caps them at Deep Atmosphere's
   luminance; every compliant variation sits only 3 to 8 RGB levels from the current
   `#122A35` stage and is imperceptible. Lifting the cap needs a separate decision.
-- **[ADR 0010](adr/0010-status-colours-destructive-variant-and-defined-borders.md)** states
-  the destructive button's light label as `#FFFFFF`; the implementation follows the rule
-  and uses `textOnBrand` (about 7.1:1, above 4.5:1). The illustrative hex is what is off.

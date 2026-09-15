@@ -2,7 +2,7 @@
 
 Status: Accepted (2026-09-08)
 
-Implementation: complete; Simulator and Maestro acceptance remain with the orchestrator.
+Implementation: complete.
 
 This ADR owns the current formality and age policy for the profile described in
 [ADR 0015](0015-gender-and-age-band-in-the-profile.md). Dress style shapes
