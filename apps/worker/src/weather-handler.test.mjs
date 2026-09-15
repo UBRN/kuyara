@@ -125,8 +125,10 @@ test('validates provider output before returning it', async () => {
   await assertError(await malformedHandler(request()), 503, 'weather_unavailable');
 });
 
-test('returns rate_limited with Retry-After when the limiter denies the request', async () => {
+test('returns rate_limited with Retry-After when the limiter denies the request', async (t) => {
   let providerCalls = 0;
+  const warnings = [];
+  t.mock.method(console, 'warn', (entry) => warnings.push(entry));
   const handler = createWeatherHandler({
     provider: { fetchWeather: async () => { providerCalls += 1; return null; } },
     rateLimiter: { limit: async ({ key }) => {
@@ -144,9 +146,18 @@ test('returns rate_limited with Retry-After when the limiter denies the request'
   assert.equal(response.headers.get('retry-after'), '60');
   await assertError(response, 429, 'rate_limited');
   assert.equal(providerCalls, 0);
+  // Every 429 the Worker returns is logged with the limiter that tripped, and with no
+  // caller IP or coordinates.
+  assert.deepEqual(warnings, [{
+    event: 'rate_limited',
+    route: '/v1/weather',
+    limiter: 'weather_burst',
+  }]);
+  assert.equal(JSON.stringify(warnings).includes('203.0.113.7'), false);
 });
 
-test('checks the rate limit before parsing a malformed body', async () => {
+test('checks the rate limit before parsing a malformed body', async (t) => {
+  t.mock.method(console, 'warn', () => {});
   const handler = createWeatherHandler({
     provider: { fetchWeather: async () => null },
     rateLimiter: { limit: async () => ({ success: false }) },

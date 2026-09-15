@@ -11,6 +11,7 @@ import {
   weatherMaxAttempts,
 } from './weather-provider-chain.ts';
 import { WeatherProviderError } from './weather-provider-error.ts';
+import { WeatherKitWeatherProvider } from './weatherkit-weather-provider.ts';
 
 // The chain reports every failed attempt; keep that out of the test output.
 mock.method(console, 'warn', () => {});
@@ -187,4 +188,46 @@ test('WeatherKit heads the chain only when all four credentials are set', () => 
     assert.equal(providers.length, 1);
     assert.equal(providers[0] instanceof OpenMeteoWeatherProvider, true);
   }
+});
+
+test('advances past a WeatherKit 404 and returns the next provider result', async () => {
+  const weatherKit = new WeatherKitWeatherProvider({
+    token: async () => 'token',
+    fetch: async () => new Response('no data for this location', { status: 404 }),
+  });
+  let nextCalls = 0;
+  const chain = createWeatherProviderChain({ providers: [
+    weatherKit,
+    { fetchWeather: async () => { nextCalls += 1; return snapshot; } },
+    { fetchWeather: async () => { throw new Error('third provider must not run'); } },
+  ] });
+
+  assert.strictEqual(await chain.fetchWeather(location), snapshot);
+  assert.equal(nextCalls, 1);
+});
+
+test('a WeatherKit 404 is answered by one call per provider, never a retry loop', async () => {
+  let weatherKitCalls = 0;
+  const weatherKit = new WeatherKitWeatherProvider({
+    token: async () => 'token',
+    fetch: async () => {
+      weatherKitCalls += 1;
+      return new Response('no data for this location', { status: 404 });
+    },
+  });
+  let secondCalls = 0;
+  const chain = createWeatherProviderChain({ providers: [
+    weatherKit,
+    { fetchWeather: async () => {
+      secondCalls += 1;
+      throw new WeatherProviderError('upstream');
+    } },
+  ] });
+
+  await assert.rejects(
+    chain.fetchWeather(location),
+    (error) => error instanceof WeatherProviderError && error.kind === 'upstream',
+  );
+  assert.equal(weatherKitCalls, 1);
+  assert.equal(secondCalls, 1);
 });
