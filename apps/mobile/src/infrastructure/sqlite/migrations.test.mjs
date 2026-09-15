@@ -1195,8 +1195,11 @@ test('version 13 accepts the on-device mode and still rejects an unknown one', a
 });
 
 test('version 13 carries an orphaned snapshot row through instead of refusing to start', async (t) => {
-  // A snapshot whose profile row is gone: reachable because app transactions run with
-  // foreign keys off. The rebuild must copy it, not throw, or the app cannot start.
+  // A snapshot whose profile row is gone: never produced by app code (nothing deletes a
+  // profile) and now unreachable with foreign keys enforced on every connection, so it is
+  // seeded with enforcement off. The rebuild must copy it, not throw, or the app cannot
+  // start. Under enforcement the copy bumps the deferred counter and the implicit DELETE of
+  // the old table lowers it, so COMMIT sees zero and the orphan is carried through.
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
   await migrateToVersionTwelve(database);

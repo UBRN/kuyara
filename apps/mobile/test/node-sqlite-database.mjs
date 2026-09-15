@@ -43,21 +43,13 @@ export class NodeSqliteDatabase {
   }
 
   async withExclusiveTransactionAsync(task) {
-    // expo opens each transaction body on a fresh connection with `useNewConnection: true`,
-    // where foreign keys are off. `node:sqlite` starts them on and runs BEGIN on this one
-    // connection, so turn them off around the body or the double is the inverse of
-    // production. The pragma is a no-op once a transaction is open, hence before BEGIN.
-    const previous = this.database.prepare('PRAGMA foreign_keys').get().foreign_keys;
-    this.database.exec('PRAGMA foreign_keys = OFF');
-    this.database.exec('BEGIN EXCLUSIVE');
+    this.database.exec('BEGIN IMMEDIATE');
     try {
       await task(this);
       this.database.exec('COMMIT');
     } catch (error) {
       this.database.exec('ROLLBACK');
       throw error;
-    } finally {
-      this.database.exec(`PRAGMA foreign_keys = ${previous ? 'ON' : 'OFF'}`);
     }
   }
 
