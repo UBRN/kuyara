@@ -4,6 +4,7 @@ import test, { mock } from 'node:test';
 import { aiRecommendV1SuccessSchema } from '@kuyara/contracts';
 
 import { createAiHandler } from './ai-handler.ts';
+import { AiProviderError } from './ai-provider.ts';
 import { DeterministicStubAiProvider } from './stub-ai-provider.ts';
 
 // The handler reports every provider attempt; keep that out of the test output.
@@ -656,9 +657,11 @@ test('GET and PUT return method_not_allowed with Allow POST', async () => {
   }
 });
 
-test('rate limiter denial returns rate_limited without calling a provider', async () => {
+test('rate limiter denial returns rate_limited without calling a provider', async (t) => {
   let providerCalls = 0;
   const keys = [];
+  const warnings = [];
+  t.mock.method(console, 'warn', (entry) => warnings.push(entry));
   const response = await createAiHandler({
     providers: [{
       async generateOutfits() {
@@ -680,6 +683,51 @@ test('rate limiter denial returns rate_limited without calling a provider', asyn
   await assertError(response, 429, 'rate_limited');
   assert.deepEqual(keys, ['recommend:203.0.113.20']);
   assert.equal(providerCalls, 0);
+  // A client rate-limit storm used to be invisible: the Worker returned 429 and logged
+  // nothing. The IP that tripped it still never reaches the log.
+  assert.deepEqual(warnings, [{
+    event: 'rate_limited',
+    route: '/v1/ai/recommend',
+    limiter: 'ai_recommend_burst',
+  }]);
+  assert.equal(JSON.stringify(warnings).includes('203.0.113.20'), false);
+});
+
+test('a quota or rate-limit refusal logs its own reason and still falls through', async (t) => {
+  const warnings = [];
+  t.mock.method(console, 'warn', (entry) => warnings.push(entry));
+  const refusal = (kind) => async () => { throw new AiProviderError(kind); };
+  const response = await createAiHandler({ providers: [
+    { model: 'provider/spent', generateOutfits: refusal('quota_exceeded') },
+    { model: 'provider/throttled', generateOutfits: refusal('rate_limited') },
+    { model: 'provider/succeeds', generateOutfits: async () => validOutput() },
+  ] })(request());
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), validOutput());
+  assert.deepEqual(warnings, [
+    { event: 'ai_provider_attempt_failed', model: 'provider/spent', reason: 'quota_exceeded' },
+    { event: 'ai_provider_attempt_failed', model: 'provider/throttled', reason: 'rate_limited' },
+  ]);
+});
+
+test('a timed-out attempt is a timeout even when the provider raises a classified failure', async (t) => {
+  const warnings = [];
+  t.mock.method(console, 'warn', (entry) => warnings.push(entry));
+  const response = await createAiHandler({
+    attemptTimeoutMs: 20,
+    providers: [{
+      model: 'provider/stalls',
+      generateOutfits: async () => new Promise((_resolve, reject) => {
+        setTimeout(() => reject(new AiProviderError('quota_exceeded')), 60);
+      }),
+    }],
+  })(request());
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(warnings, [
+    { event: 'ai_provider_attempt_failed', model: 'provider/stalls', reason: 'timeout' },
+  ]);
 });
 
 test('rate limiter approval preserves recommendation behavior', async () => {

@@ -1,7 +1,14 @@
 import type { AiRecommendV1Request } from '@kuyara/contracts';
 
 import { buildMessages, buildPickJsonSchema } from './ai-prompt.ts';
-import type { AiProvider } from './ai-provider.ts';
+import {
+  AiProviderError,
+  type AiGenerateOptions,
+  type AiProvider,
+} from './ai-provider.ts';
+
+/** The ceiling a full recommendation answers under; a caller may ask for less. */
+const recommendationMaxTokens = 2048;
 
 type Options = Readonly<{
   apiKey: string;
@@ -24,6 +31,7 @@ export class OpenRouterAiProvider implements AiProvider {
   async generateOutfits(
     request: AiRecommendV1Request,
     signal: AbortSignal,
+    options?: AiGenerateOptions,
   ): Promise<unknown> {
     const messages = buildMessages(request);
     const responseSchema = buildPickJsonSchema(request.options);
@@ -38,7 +46,7 @@ export class OpenRouterAiProvider implements AiProvider {
         signal,
         body: JSON.stringify({
           model: this.model,
-          max_tokens: 2048,
+          max_tokens: options?.maxTokens ?? recommendationMaxTokens,
           messages,
           response_format: {
             type: 'json_schema',
@@ -52,6 +60,9 @@ export class OpenRouterAiProvider implements AiProvider {
         }),
       },
     );
+    // An exhausted free-model allowance and a burst refusal arrive alike, as a 429 with
+    // the detail in a body this adapter never reads; classify it so the log names it.
+    if (response.status === 429) throw new AiProviderError('rate_limited');
     if (!response.ok) throw new Error('OpenRouter request failed.');
 
     const body = await response.json() as {

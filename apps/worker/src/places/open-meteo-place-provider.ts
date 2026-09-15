@@ -18,8 +18,12 @@ const rawPlaceSchema = z.object({
   longitude: z.number().finite().min(-180).max(180),
   timezone: ianaTimeZoneSchema.optional(),
 }).refine((place) => Boolean(place.admin1 || place.country || place.country_code));
+// The envelope is deliberately loose about entry shape: each entry is validated on its own below,
+// so one malformed result no longer drops the whole answer. The bounds that are a contract concern
+// (at most `placeSearchMaxResults` entries, and a body that is neither results nor a timing field
+// is not an answer at all) stay here.
 const rawResponseSchema = z.object({
-  results: z.array(rawPlaceSchema).max(placeSearchMaxResults).optional(),
+  results: z.array(z.unknown()).max(placeSearchMaxResults).optional(),
   generationtime_ms: z.number().finite().nonnegative().optional(),
 }).refine((body) => body.results !== undefined || body.generationtime_ms !== undefined);
 
@@ -57,7 +61,20 @@ export class OpenMeteoPlaceProvider {
       const response = await this.fetch(url, { signal: controller.signal, redirect: 'manual' });
       if (!response.ok) throw new PlaceSearchProviderError();
       const raw = rawResponseSchema.parse(await response.json());
-      const places = (raw.results ?? []).map((place) => ({
+      const entries = raw.results ?? [];
+      const valid = entries.flatMap((entry) => {
+        const result = rawPlaceSchema.safeParse(entry);
+        return result.success ? [result.data] : [];
+      });
+      if (valid.length < entries.length) {
+        // Counts only: never the query, the coordinates or the entry itself.
+        console.warn({ event: 'place_result_dropped', dropped: entries.length - valid.length, kept: valid.length });
+      }
+      // An absent or empty `results` is a valid no-hit answer, but entries that are all unreadable
+      // are an invalid provider response, not "no results": the provider did answer with something
+      // we could not read, so it fails the same way a parse failure does.
+      if (entries.length > 0 && valid.length === 0) throw new PlaceSearchProviderError();
+      const places = valid.map((place) => ({
         id: `place.${place.id}`,
         displayName: place.name,
         region: [...new Set([place.admin1, place.country ?? place.country_code].filter(Boolean))].join(', '),

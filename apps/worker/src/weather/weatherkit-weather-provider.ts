@@ -16,7 +16,12 @@ const baseUrl = 'https://weatherkit.apple.com/api/v1/weather';
 function httpErrorKind(status: number): WeatherProviderErrorKind {
   if (status === 429) return 'quota';
   if (status === 401 || status === 403) return 'auth';
-  if (status === 400 || status === 404) return 'invalid_request';
+  if (status === 400) return 'invalid_request';
+  // WeatherKit answers 404 when it holds no data for the coordinate or for a
+  // requested dataset, not because the request is malformed. That is an
+  // availability failure of this provider for this location, so the chain must
+  // advance to a provider that does cover it. Only 400 stays ineligible.
+  if (status === 404) return 'availability';
   return 'upstream';
 }
 

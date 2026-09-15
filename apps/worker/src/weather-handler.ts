@@ -48,6 +48,7 @@ export function createWeatherHandler(
     const { success } = await dependencies.rateLimiter?.limit({ key: `weather:${ip}` })
       ?? { success: true };
     if (!success) {
+      console.warn({ event: 'rate_limited', route: weatherV1Path, limiter: 'weather_burst' });
       return errorResponse(429, 'rate_limited', { 'Retry-After': '60' });
     }
     if (request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') {

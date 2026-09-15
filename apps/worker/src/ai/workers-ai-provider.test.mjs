@@ -140,7 +140,7 @@ const quotaError = new Error(
   'AiError: 3040: Account daily Neurons limit exceeded (429 Too Many Requests)',
 );
 
-test('a quota-exhausted binding fails as a provider error carrying nothing from the request', async () => {
+test('a quota-exhausted binding fails as a classified quota error carrying nothing from the request or the binding', async () => {
   const provider = new WorkersAiProvider({
     model: '@cf/model',
     ai: { run: async () => { throw quotaError; } },
@@ -149,17 +149,77 @@ test('a quota-exhausted binding fails as a provider error carrying nothing from 
   await assert.rejects(
     provider.generateOutfits(request, controller.signal),
     (error) => {
-      // A provider error, not a timeout: the handler must classify it as `provider_error`
-      // and give the next provider its turn.
+      // A quota refusal, not a timeout: the handler logs `quota_exceeded` and still gives
+      // the next provider its turn.
       assert.equal(controller.signal.aborted, false);
-      assert.equal(error.name, 'Error');
+      assert.equal(error.name, 'AiProviderError');
+      assert.equal(error.kind, 'quota_exceeded');
       const serialized = `${error.name}: ${error.message}`;
-      for (const forbidden of ['option-1', 'mens', 't_shirt', 'trousers', 'sneakers']) {
+      for (const forbidden of [
+        'option-1', 'mens', 't_shirt', 'trousers', 'sneakers',
+        '3040', 'Neurons', '429',
+      ]) {
         assert.equal(serialized.includes(forbidden), false, forbidden);
       }
       return true;
     },
   );
+});
+
+test('binding failures are classified by their own code and text, and nothing else is', async () => {
+  const cases = [
+    ['AiError: 3040: Account daily Neurons limit exceeded (429 Too Many Requests)', 'quota_exceeded'],
+    ['AiError: 4006: Account limit reached', 'quota_exceeded'],
+    ['InferenceUpstreamError: Neurons exhausted for this account', 'quota_exceeded'],
+    ['AiError: 3036: Too Many Requests', 'rate_limited'],
+    ['429: rate limit reached for this model', 'rate_limited'],
+  ];
+  for (const [message, kind] of cases) {
+    const provider = new WorkersAiProvider({
+      model: '@cf/model',
+      ai: { run: async () => { throw new Error(message); } },
+    });
+    await assert.rejects(
+      provider.generateOutfits(request, new AbortController().signal),
+      (error) => {
+        assert.equal(error.name, 'AiProviderError', message);
+        assert.equal(error.kind, kind, message);
+        return true;
+      },
+    );
+  }
+
+  // An ordinary upstream failure stays unclassified, so the handler still logs
+  // `provider_error` for it.
+  const unclassified = new WorkersAiProvider({
+    model: '@cf/model',
+    ai: { run: async () => { throw new Error('AiInternalError: 5006: upstream unavailable'); } },
+  });
+  await assert.rejects(
+    unclassified.generateOutfits(request, new AbortController().signal),
+    (error) => {
+      assert.equal(error.name, 'Error');
+      assert.equal(error.kind, undefined);
+      return true;
+    },
+  );
+});
+
+test('a caller-supplied token budget narrows max_tokens; a recommendation keeps the full one', async () => {
+  const budgets = [];
+  const provider = new WorkersAiProvider({
+    model: '@cf/model',
+    ai: {
+      async run(_model, input) {
+        budgets.push(input.max_tokens);
+        return { response: {} };
+      },
+    },
+  });
+  const signal = new AbortController().signal;
+  await provider.generateOutfits(request, signal, { maxTokens: 256 });
+  await provider.generateOutfits(request, signal);
+  assert.deepEqual(budgets, [256, 2048]);
 });
 
 test('a quota-exhausted binding hands the turn to the next provider and leaks nothing', async (t) => {
@@ -190,7 +250,7 @@ test('a quota-exhausted binding hands the turn to the next provider and leaks no
   assert.equal(response.status, 503);
   assert.equal(serialized, '{"error":{"code":"ai_unavailable"}}');
   assert.deepEqual(warnings, [
-    { event: 'ai_provider_attempt_failed', model: '@cf/quota-exhausted', reason: 'provider_error' },
+    { event: 'ai_provider_attempt_failed', model: '@cf/quota-exhausted', reason: 'quota_exceeded' },
     { event: 'ai_provider_attempt_failed', model: 'provider/next', reason: 'provider_error' },
   ]);
   // The binding's own text stays inside the Worker: neither the response nor the log
