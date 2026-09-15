@@ -181,3 +181,80 @@ Two Maestro flows use these switches:
 
 - `.maestro/flows/today-standard-suggestions.yaml`: against the `e2e` Worker with the on-device switch off, "Standard suggestions" appears. It is part of the default `pnpm e2e:ios` set and passes in about 45 seconds.
 - `.maestro/flows/today-ai-recommendation.yaml`: against the real Worker with the on-device tier enabled, Today reaches an AI badge within 46 seconds and never shows "Standard suggestions". It is tagged `ai-network`, excluded from the default set because each run spends the shared free AI quota, and run explicitly with `maestro test .maestro/flows/today-ai-recommendation.yaml`. While that quota is spent (it resets at 00:00 UTC) the flow fails at the badge, and the measurement script shows 503 `ai_unavailable` on every call.
+
+## Release path
+
+The version scheme, the Submit for Review step and the EAS Update rule are recorded in
+[Approved release versioning and update path](product-decisions.md#approved-release-versioning-and-update-path).
+This section is the command sequence only.
+
+### Preconditions
+
+- The worktree is clean and holds only the changes being released.
+- `pnpm check` and `pnpm --filter @kuyara/mobile test:components` are green.
+- `expo.version` in `apps/mobile/app.json` is bumped to the next `0.MINOR.YYYYMMDD` string.
+  Never edit a build number: `eas.json`
+  sets `appVersionSource: "remote"` and the production profile auto-increments it on EAS.
+- If `packages/contracts` or a Worker route changed, deploy the Worker before submitting the
+  app. The deployed Worker is the top-level configuration; the named `e2e` environment is
+  local-only and never deployed ([ADR 0003](adr/0003-single-worker-environment.md)):
+
+  ```bash
+  pnpm --filter @kuyara/worker exec wrangler deploy --env=""
+  ```
+
+  The deployed Worker must stay compatible with the binary store users already have. Add fields
+  and routes; never remove or rename a field or route that a shipped version reads until no
+  installed version needs it.
+
+### Build and submit
+
+Run both from `apps/mobile`, where `eas.json` lives:
+
+```bash
+eas build --profile production --platform ios
+eas submit --profile production --platform ios --latest
+```
+
+`eas submit` reads `submit.production.ios.ascAppId` from `eas.json`, so no app identifier is
+passed on the command line.
+
+### TestFlight pass on the phone
+
+Both profiles ship the same bundle id `com.ubrn.kuyara`, so the TestFlight build replaces the
+installed store build in place and keeps its SQLite database. Do not delete the app first: the
+in-place replacement is the real migration test. Install from TestFlight, then check that
+onboarding does not reappear, the Closet still lists its rows with their photos, Today renders
+the cached snapshot before any refresh, and the Settings AI status screen answers.
+
+Then, in App Store Connect, create the version with the same string if it does not exist,
+attach the build and Submit for Review. That step stays manual; automatic release after
+approval is selected, and the store build replaces the TestFlight build in place.
+
+### Development build on the physical iPhone
+
+Register the phone once for internal distribution (the command takes no flags), then build and
+install from the EAS link, both from `apps/mobile`:
+
+```bash
+eas device:create
+eas build --profile development --platform ios
+```
+
+This build also replaces the store build in place and keeps its data.
+
+The `development` profile sets no Worker URL, so `apps/mobile/src/config/worker-base-url.ts`
+falls back to `http://127.0.0.1:8788`, which on a phone is the phone. To reach a Worker running
+on the Mac, set `EXPO_PUBLIC_KUYARA_WORKER_BASE_URL` in `apps/mobile/.env` to the Mac's LAN
+origin (origin only, no path, query or fragment; a development build accepts `http`), restart
+Metro so the new value is bundled, and bind Wrangler to every interface:
+
+```bash
+pnpm --filter @kuyara/worker dev --ip 0.0.0.0 --port 8788
+```
+
+### Quota
+
+Any build pointed at the deployed Worker, a development build included, spends the same shared
+AI quota and cache as store users. Use the switches in [AI tiers in E2E](#ai-tiers-in-e2e) to
+avoid it.

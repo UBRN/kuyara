@@ -10,13 +10,6 @@
       "distribution": "internal",
       "channel": "development"
     },
-    "preview": {
-      "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_KUYARA_WORKER_BASE_URL": "https://kuyara-worker.ubarin08.workers.dev"
-      },
-      "channel": "preview"
-    },
     "production": {
       "environment": "production",
       "autoIncrement": true,
