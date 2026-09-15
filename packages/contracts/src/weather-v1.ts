@@ -52,15 +52,15 @@ const weatherMeasurementsSchema = z.object({
   windSpeedMetersPerSecond: z.number().finite().min(0),
   humidity: z.number().finite().min(0).max(1),
   uvIndex: z.number().finite().min(0),
-}).strict();
+});
 
 const currentWeatherSchema = weatherMeasurementsSchema.extend({
   observedAt: utcTimestampSchema,
-}).strict();
+});
 
 const hourlyWeatherSchema = weatherMeasurementsSchema.extend({
   forecastAt: utcTimestampSchema,
-}).strict();
+});
 
 const hourInMilliseconds = 60 * 60 * 1000;
 export const weatherHourlyForecastMaximumEntries = 38;
@@ -111,12 +111,12 @@ const weatherV1DataSchema = z.object({
   origin: z.object({
     kind: z.enum(['sample', 'live']),
     sourceId: z.enum(weatherSourceIds),
-  }).strict(),
+  }),
   current: currentWeatherSchema,
   minimumTemperatureCelsius: z.number().finite(),
   maximumTemperatureCelsius: z.number().finite(),
   hourly: z.array(hourlyWeatherSchema).min(1).max(weatherHourlyForecastMaximumEntries),
-}).strict().superRefine((value, context) => {
+}).superRefine((value, context) => {
   if ((value.origin.sourceId === 'sample') !== (value.origin.kind === 'sample')) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
@@ -148,13 +148,13 @@ const weatherV1DataSchema = z.object({
 
 export const weatherV1SuccessSchema = z.object({
   data: weatherV1DataSchema,
-}).strict();
+});
 
 export const weatherV1ErrorSchema = z.object({
   error: z.object({
     code: z.enum(weatherV1ErrorCodes),
-  }).strict(),
-}).strict();
+  }),
+});
 
 export type WeatherConditionCode = (typeof weatherConditionCodes)[number];
 export type WeatherSourceId = (typeof weatherSourceIds)[number];
