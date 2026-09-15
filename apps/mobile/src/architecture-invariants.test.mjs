@@ -1,0 +1,193 @@
+// AGENTS.md states several import boundaries as greppable `rg` invariants. This file is the
+// automated guard for them: it walks `apps/mobile/src` itself instead of shelling out, so the
+// rules hold in CI without depending on ripgrep being installed.
+//
+// Scope note: only static specifiers are inspected — `import ... from '<spec>'`,
+// `export ... from '<spec>'`, side-effect `import '<spec>'`, and `require('<spec>')`. Dynamic
+// `import('<spec>')` is deliberately out of scope because nothing in the app reaches any of the
+// guarded modules that way today; if that ever changes, extend `specifiersIn` rather than
+// loosening a rule. Test files (`*.test.*`, which also covers `*.component.test.*`) are skipped
+// for every rule: component tests legitimately call `jest.mock('@expo/ui/...')` and friends, and
+// AGENTS.md itself writes the Observe check as `--glob '!*.test.*'`.
+
+import assert from 'node:assert/strict';
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import test from 'node:test';
+
+const sourceRoot = import.meta.dirname;
+const repoRelativeRoot = 'apps/mobile/src';
+
+const sourceExtensions = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
+const skippedDirectories = new Set(['node_modules', '.expo', '.expo-shared', 'dist', 'build']);
+
+/** Every non-test source file under `src`, as paths relative to `src` in posix form. */
+function sourceFiles(directory = sourceRoot, relative = '') {
+  const found = [];
+
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const entryRelative = relative ? `${relative}/${entry.name}` : entry.name;
+
+    if (entry.isDirectory()) {
+      if (skippedDirectories.has(entry.name)) {
+        continue;
+      }
+      found.push(...sourceFiles(path.join(directory, entry.name), entryRelative));
+      continue;
+    }
+
+    if (!entry.isFile() || !sourceExtensions.has(path.extname(entry.name))) {
+      continue;
+    }
+    if (entry.name.includes('.test.')) {
+      continue;
+    }
+
+    found.push(entryRelative);
+  }
+
+  return found;
+}
+
+const specifierPatterns = [
+  // `import x from '…'`, `import type { x } from '…'`, `export { x } from '…'`
+  /\bfrom\s*['"]([^'"]+)['"]/g,
+  // side-effect `import '…'`
+  /\bimport\s*['"]([^'"]+)['"]/g,
+  /\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+];
+
+/** Static import specifiers in one file, with the 1-based line they appear on. */
+function specifiersIn(relativePath) {
+  const lines = readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n');
+  const found = [];
+
+  lines.forEach((line, index) => {
+    for (const pattern of specifierPatterns) {
+      pattern.lastIndex = 0;
+      let match = pattern.exec(line);
+      while (match !== null) {
+        found.push({ specifier: match[1], line: index + 1 });
+        match = pattern.exec(line);
+      }
+    }
+  });
+
+  return found;
+}
+
+/** Matches a package specifier and its subpaths (`@expo/ui` and `@expo/ui/swift-ui`). */
+const packageMatcher = (packageName) => (specifier) =>
+  specifier === packageName || specifier.startsWith(`${packageName}/`);
+
+/** Matches a workspace-local module by path tail, however it is reached relatively. */
+const modulePathMatcher = (moduleTail) => (specifier) =>
+  specifier.endsWith(moduleTail) || specifier.includes(`${moduleTail}/`);
+
+const inDirectory = (relativePath, directory) => relativePath.startsWith(directory);
+
+const rules = [
+  {
+    name: 'components/ui is the only importer of @expo/ui and expo-haptics',
+    matches: (specifier) => packageMatcher('@expo/ui')(specifier) || packageMatcher('expo-haptics')(specifier),
+    forbiddenDirectories: ['features/'],
+    allowedDirectories: null,
+    ruleText:
+      'AGENTS.md, "UI and visual identity": "Feature code never imports `@expo/ui` or `expo-haptics`. '
+      + '`components/ui` wraps both and is the only importer; `rg \"@expo/ui|expo-haptics\" '
+      + 'apps/mobile/src/features` must return nothing." Native controls are wrapped once so the '
+      + 'control layer stays replaceable (ADR 0019). Wrap the control in `components/ui` and import '
+      + 'that wrapper from the feature instead.',
+  },
+  {
+    name: 'the Foundation Models module has exactly one importer',
+    matches: modulePathMatcher('modules/kuyara-on-device-ai'),
+    forbiddenDirectories: null,
+    allowedDirectories: ['features/recommendation/data/'],
+    ruleText:
+      'AGENTS.md, "UI and visual identity": "The local Foundation Models Expo module has exactly one '
+      + 'importer. `rg \"modules/kuyara-on-device-ai\" apps/mobile/src` must return only files under '
+      + '`apps/mobile/src/features/recommendation/data/`" (ADR 0034). Feature code never imports the '
+      + 'native module; it goes through the recommendation data adapter.',
+  },
+  {
+    name: 'expo-observe has a single PerformanceTelemetry adapter',
+    matches: packageMatcher('expo-observe'),
+    forbiddenDirectories: null,
+    allowedDirectories: ['features/analytics/data/'],
+    ruleText:
+      'AGENTS.md, "Product and scope": EAS Observe "reaches Observe only through the project-owned '
+      + '`PerformanceTelemetry` boundary; `rg \"expo-observe\" apps/mobile/src --glob \'!*.test.*\'` '
+      + 'must return only its single adapter." (ADR 0033 section 7). Observe is observability, not '
+      + 'product analytics: route the call through the adapter under features/analytics/data/.',
+  },
+  {
+    name: 'posthog-react-native has a single ProductAnalytics adapter',
+    matches: packageMatcher('posthog-react-native'),
+    forbiddenDirectories: null,
+    allowedDirectories: ['features/analytics/data/'],
+    ruleText:
+      'AGENTS.md, "Product and scope": analytics "reaches PostHog only through the project-owned '
+      + '`ProductAnalytics` boundary and the reviewed event taxonomy; do not add provider SDK calls '
+      + 'in features or emit events outside an approved task." (ADR 0023). Emit through the '
+      + 'ProductAnalytics boundary under features/analytics/data/, never the provider SDK.',
+  },
+  {
+    name: 'expo-sqlite is opened in one place under infrastructure/sqlite',
+    matches: packageMatcher('expo-sqlite'),
+    forbiddenDirectories: null,
+    allowedDirectories: ['infrastructure/sqlite/'],
+    ruleText:
+      'AGENTS.md, "Architecture boundaries": "UI and domain code must not import SQLite, Supabase, '
+      + 'Firebase, WeatherKit, Cloudflare, or provider-specific SDKs directly", and "Local data and '
+      + 'future-sync rules": "Access SQLite only through repository interfaces and local data '
+      + 'sources." The provider SDK is opened once in infrastructure/sqlite/; everything else takes '
+      + 'the database handle from there.',
+  },
+];
+
+const violationsFor = (rule) => {
+  const violations = [];
+
+  for (const relativePath of sourceFiles()) {
+    const allowed = rule.allowedDirectories === null
+      ? !rule.forbiddenDirectories.some((directory) => inDirectory(relativePath, directory))
+      : rule.allowedDirectories.some((directory) => inDirectory(relativePath, directory));
+
+    if (allowed) {
+      continue;
+    }
+
+    for (const { specifier, line } of specifiersIn(relativePath)) {
+      if (rule.matches(specifier)) {
+        violations.push(`${repoRelativeRoot}/${relativePath}:${line} imports '${specifier}'`);
+      }
+    }
+  }
+
+  return violations;
+};
+
+for (const rule of rules) {
+  test(rule.name, () => {
+    const violations = violationsFor(rule);
+
+    assert.deepEqual(
+      violations,
+      [],
+      `${rule.ruleText}\n\nThese imports break that rule:\n${violations.map((line) => `  - ${line}`).join('\n')}`,
+    );
+  });
+}
+
+test('the walker actually reads the tree it is asked to guard', () => {
+  // A silent empty walk would make every rule above pass vacuously.
+  const files = sourceFiles();
+  assert.ok(files.length > 100, `expected the source tree under ${repoRelativeRoot}, found ${files.length} files`);
+  assert.ok(files.some((file) => file.includes('.test.')) === false, 'test files must be excluded');
+  assert.ok(
+    specifiersIn('features/analytics/data/posthog-product-analytics.ts')
+      .some(({ specifier }) => specifier === 'posthog-react-native'),
+    'the specifier reader must find the PostHog adapter\'s own import',
+  );
+});
