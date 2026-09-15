@@ -13,6 +13,8 @@
 // `--glob '!*.test.*'`. Non-test helpers under `__tests__/` stay in scope, exactly as they do
 // for those `rg` commands; a shared mock of a guarded package belongs next to the wrapper it
 // stands in for (`components/ui/__tests__/expo-ui-test-mock.tsx`), not under a feature.
+// The sixth rule (cross-feature imports) is the only one that exempts `import type` statements, and
+// its allowlist of pre-existing violations only shrinks: a stale entry fails the test.
 
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -188,6 +190,84 @@ for (const rule of rules) {
     );
   });
 }
+
+/** Line numbers of the `from '…'` clauses that belong to an `import type …` statement. */
+function typeOnlyImportLines(relativePath) {
+  const source = readFileSync(path.join(sourceRoot, relativePath), 'utf8');
+  const lines = new Set();
+  for (const match of source.matchAll(/^[ \t]*import\s+type\b[^;]*?\bfrom\s*['"][^'"]+['"]/gm)) {
+    lines.add(source.slice(0, match.index + match[0].length).split('\n').length);
+  }
+  return lines;
+}
+
+/** `features/<name>/<layer>/…` for a specifier resolved from the importing file, else null. */
+function featureModuleOf(relativePath, specifier) {
+  const resolved = specifier.startsWith('@/')
+    ? specifier.slice(2)
+    : specifier.startsWith('.')
+      ? path.posix.normalize(path.posix.join(path.posix.dirname(relativePath), specifier))
+      : null;
+  const match = resolved?.match(/^features\/([^/]+)\/([^/]+)\//);
+  return match ? { feature: match[1], layer: match[2], module: resolved } : null;
+}
+
+const featureOf = (relativePath) => relativePath.match(/^features\/([^/]+)\//)?.[1] ?? null;
+
+// Each entry is one runtime import that AGENTS.md line 49 forbids and that predates the rule.
+// Remove the entry when its fix lands; a stale entry fails the test.
+const crossFeatureInternalImportAllowlist = [
+  // Background task composes the profile repository by hand; export a loadProfileRepository() from profile/application.
+  ['features/notifications/data/expo-background-weather-alert-task.ts', 'features/profile/data/profile-repository'],
+  // Same composition; goes away with the factory above.
+  ['features/notifications/data/expo-background-weather-alert-task.ts', 'features/profile/data/sqlite-profile-local-data-source'],
+  // Background task duplicates weather/application's unexported loadRepository(); export and reuse it.
+  ['features/notifications/data/expo-background-weather-alert-task.ts', 'features/weather/data/weather-repository'],
+  // Same composition; goes away with the weather factory.
+  ['features/notifications/data/expo-background-weather-alert-task.ts', 'features/weather/data/sqlite-weather-local-data-source'],
+  // Onboarding renders weather's location controls; pass them in from app/onboarding.tsx as a slot.
+  ['features/profile/presentation/onboarding-screen.tsx', 'features/weather/presentation/location-selection-controls'],
+  // Today shows the weather provider attribution; slot it from app/(tabs)/(today)/index.tsx or move the component.
+  ['features/today/presentation/today-screen.tsx', 'features/weather/presentation/weather-attribution'],
+  // WeatherGlyph depends on theme only and is misfiled under today/; move it to components/ui.
+  ['features/weather/presentation/weather-screen.tsx', 'features/today/presentation/weather-glyph'],
+].map(([importer, module]) => `${importer} -> ${module}`);
+
+test('a feature reaches another feature only through its domain or application layer', () => {
+  const ruleText =
+    'AGENTS.md, "Architecture boundaries": "A feature reaches another feature only through that '
+    + 'feature\'s domain or application layer; an `import type` of an interface is the one exception. '
+    + 'Composition code (the route files under `app/`, each feature\'s application provider, and the '
+    + 'background task entry) may import a feature\'s data and presentation modules; feature code may '
+    + 'not." Reach the other feature through its application context, hook or exported factory, move a '
+    + 'shared primitive to components/ui, or wire the pieces together in the route file.';
+  const seen = new Set();
+  const violations = [];
+
+  for (const relativePath of sourceFiles()) {
+    const importer = featureOf(relativePath);
+    if (importer === null) continue;
+    const typeOnly = typeOnlyImportLines(relativePath);
+
+    for (const { specifier, line } of specifiersIn(relativePath)) {
+      const target = featureModuleOf(relativePath, specifier);
+      if (target === null || target.feature === importer) continue;
+      if (target.layer !== 'data' && target.layer !== 'presentation') continue;
+      if (typeOnly.has(line)) continue;
+
+      const key = `${relativePath} -> ${target.module}`;
+      if (crossFeatureInternalImportAllowlist.includes(key)) {
+        seen.add(key);
+        continue;
+      }
+      violations.push(`${repoRelativeRoot}/${relativePath}:${line} imports '${specifier}'`);
+    }
+  }
+
+  assert.deepEqual(violations, [], `${ruleText}\n\nThese imports break that rule:\n${violations.map((v) => `  - ${v}`).join('\n')}`);
+  const stale = crossFeatureInternalImportAllowlist.filter((key) => !seen.has(key));
+  assert.deepEqual(stale, [], `These allowlist entries no longer match an import; remove them so the list only shrinks:\n${stale.map((v) => `  - ${v}`).join('\n')}`);
+});
 
 test('the walker actually reads the tree it is asked to guard', () => {
   // A silent empty walk would make every rule above pass vacuously.
