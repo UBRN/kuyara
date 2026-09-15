@@ -32,7 +32,11 @@ The operator chose (2026-08-29) to add rate limiting now, in Milestone 4,
 covering both AI endpoints, and to record the decision in this ADR plus the
 existing docs.
 
-## Pricing basis (recalculated 2026-08, do not freeze)
+## Pricing basis (current estimate, do not freeze)
+
+Source: <https://developers.cloudflare.com/workers-ai/platform/pricing/>. The
+figures below are the current estimate and are recalculated from that page
+during implementation, never treated as fixed.
 
 Provider chain: Cloudflare Workers AI binding (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`,
 then `@cf/mistralai/mistral-small-3.1-24b-instruct`) → three OpenRouter `:free` models →
@@ -40,12 +44,18 @@ device-local deterministic generator.
 
 - **Cloudflare Workers AI, Workers Free plan:** 10,000 Neurons/day, shared
   across all models, resets 00:00 UTC. On the Free plan this is a hard stop, not
-  billable overage. The model in use costs roughly 26,668 Neurons per 1M input
-  tokens and 204,805 Neurons per 1M output tokens.
-- **One probe call** against that model with a small canned request (~500 input
-  tokens, ~600 output tokens) is roughly **135 Neurons**. So the probe alone
-  would exhaust the daily pool in ~74 calls, and real `POST /v1/ai/recommend`
-  traffic draws from the same pool.
+  billable overage. The head model, `@cf/meta/llama-3.3-70b-instruct-fp8-fast`,
+  is listed at 26,668 Neurons per 1M input tokens and 204,805 Neurons per 1M
+  output tokens.
+- **One probe call** sends the canned request through the shared model-input
+  projection: system rules plus the projected body come to about 1,500
+  characters, roughly 400 input tokens at four characters per token (about 540
+  if the `response_format` schema is also billed as input). Output is capped by
+  `PROBE_MAX_TOKENS` at 256 tokens. At the ceiling that is about 11 Neurons of
+  input plus 52 of output, roughly **65 Neurons**, so the probe alone would
+  exhaust the daily pool in about 150 calls; a typical reply of some 200
+  characters costs closer to 20. Real `POST /v1/ai/recommend` traffic draws from
+  the same pool.
 - **OpenRouter `:free` models:** 50 requests/day if under $10 of credits ever
   purchased, 1,000/day after a one-time $10 purchase; 20 requests/minute on
   `:free` variants regardless of credit. `:free` variants are not billed, so the
@@ -101,8 +111,8 @@ Handler order:
    `status: 'ok'`. Either fails, the provider throws, or the attempt times out
    -> `status: 'unavailable'`.
 8. Store that body in the module cache. Increment the daily
-   counter via `dailyCounter.increment(...)` with a 48-hour TTL. Cache hits and
-   rate-limit rejections never increment.
+   counter via `dailyCounter.increment(...)`; the counter keeps only the current
+   date key. Cache hits and rate-limit rejections never increment.
 9. Respond `200` with `{ data: { status, checkedAt } }`, carrying `assistant`
    when a provider answered.
 
@@ -111,9 +121,10 @@ provider and model that answered, the single surface for those identifiers
 ([ADR 0034](0034-on-device-ai-selection-through-apple-foundation-models.md)
 section 5). No upstream status code or error text ever appears in the response.
 
-`ponytail:` the daily counter does a KV get-then-put, so concurrent probes can
-under-count against the 30/day cap. Acceptable for a soft abuse guard. Upgrade
-path: a Durable Object counter if abuse is observed.
+`ponytail:` the probe reads the count before its attempt and increments after
+it, so probes in flight at the same moment can each pass the 30/day check and
+the day ends a few calls over the cap. Acceptable for a soft abuse guard; the
+increment itself is atomic inside the Durable Object.
 
 ### 2. Rate limiting for `POST /v1/ai/recommend`
 
@@ -125,28 +136,32 @@ the binding) the check is skipped so current behavior and tests are unchanged.
 ### 3. Cloudflare bindings (`apps/worker/wrangler.jsonc`)
 
 ```jsonc
-"kv_namespaces": [
-  { "binding": "PROBE_COUNTER", "id": "<placeholder-until-provisioned>" }
-],
+"durable_objects": {
+  "bindings": [{ "name": "DAILY_COUNTERS", "class_name": "DailyCounter" }]
+},
+"migrations": [{ "tag": "v1", "new_sqlite_classes": ["DailyCounter"] }],
 "ratelimits": [
   { "name": "AI_PROBE_RATE_LIMIT",     "namespace_id": "1001", "simple": { "limit": 3,  "period": 60 } },
   { "name": "AI_RECOMMEND_RATE_LIMIT", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } }
 ]
 ```
 
-`Env` in `apps/worker/src/index.ts` gains optional `PROBE_COUNTER?`,
-`AI_PROBE_RATE_LIMIT?`, `AI_RECOMMEND_RATE_LIMIT?`. Composition in `fetch` wires:
+The snippet lists the bindings this decision adds; the weather limiter that
+shares the `ratelimits` block belongs to
+[ADR 0002](0002-real-weather-provider-chain.md). `Env` in
+`apps/worker/src/index.ts` gains optional `DAILY_COUNTERS?`,
+`AI_PROBE_RATE_LIMIT?`, `AI_RECOMMEND_RATE_LIMIT?`. Composition wires:
 
 - the probe's `rateLimiter` from `AI_PROBE_RATE_LIMIT`,
 - the recommend handler's `rateLimiter` from `AI_RECOMMEND_RATE_LIMIT`,
-- the probe's `dailyCounter` as a thin adapter over `PROBE_COUNTER` (`get` parses
-  the stored integer, `increment` writes `count + 1` with `expirationTtl:
-  172800`).
+- the probe's `dailyCounter` as the `probe` counter of `DAILY_COUNTERS`
+  (`apps/worker/src/daily-counter.ts`): one Durable Object per counter name,
+  holding the date keys, incrementing atomically, and dropping older date keys
+  on the first increment of a new day.
 
-The real KV namespace id and rate-limit provisioning are an operational step at
-deploy time, out of scope for the code change. `wrangler deploy --dry-run` (the
-`pnpm check` bundle step) does not contact the API and must still pass; if the
-placeholder id breaks the dry run, the lane reports it rather than guessing.
+Rate-limit provisioning is an operational step at deploy time, out of scope for
+the code change. `wrangler deploy --dry-run` (the `pnpm check` bundle step) does
+not contact the API and must still pass.
 
 ### 4. Shared contract (`packages/contracts/src/ai-v1.ts`)
 
@@ -230,8 +245,9 @@ precedent, plus a localized "Checking AI status…" line.
 - The probe passes the provider its own `max_tokens` ceiling
   (`PROBE_MAX_TOKENS`), sized for the three `optionId`/`archetypeId` pairs it
   validates and nothing more, so an uncached probe cannot cost a
-  recommendation's worth of output. At 30/day the probe's share stays well under
-  the daily Neuron pool, leaving room for real traffic.
+  recommendation's worth of output. At 30/day and the 256-token ceiling the
+  probe's share is at most about 1,950 Neurons, under a fifth of the daily
+  pool, leaving room for real traffic.
 - Rate-limit counters are per-colo and eventually consistent, so the effective
   global ceiling is somewhat higher than the configured numbers. This is
   acceptable for an abuse guard; it is not an accounting system.
@@ -247,8 +263,11 @@ precedent, plus a localized "Checking AI status…" line.
 - **Burst limiter only, no daily counter.** Rejected: a sustained caller at the
   per-minute ceiling drains the Neuron pool in minutes; the 60s window cannot
   see a daily budget.
-- **Durable Object counter instead of KV.** Rejected for now: heavier to operate
-  for a soft guard. It is the named upgrade path if abuse appears.
+- **A Workers KV daily counter.** Rejected: KV Free allows 1,000 writes per day
+  and one write per second to the same key, and its read-then-write is not
+  atomic. Red line: do not move the counter back to KV; the Durable Object is the
+  one counter behind every daily cap
+  ([ADR 0002](0002-real-weather-provider-chain.md)).
 - **A lightweight `ping` method on `AiProvider` instead of a canned full
   request.** Rejected: adds a method to every adapter for marginal savings; a
   small canned `AiRecommendV1Request` reuses the exact success validation.
