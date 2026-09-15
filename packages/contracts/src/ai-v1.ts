@@ -302,9 +302,9 @@ export const aiRecommendV1SuccessSchema = z.object({
     picks: z.array(z.object({
       optionId: optionIdSchema,
       archetypeId: z.enum(outfitArchetypeIds),
-    }).strict()).length(3),
-  }).strict(),
-}).strict().superRefine(({ data }, context) => {
+    })).length(3),
+  }),
+}).superRefine(({ data }, context) => {
   const optionIds = new Set<string>();
   const archetypeIds = new Set<(typeof outfitArchetypeIds)[number]>();
   data.picks.forEach(({ optionId, archetypeId }, index) => {
@@ -340,23 +340,23 @@ export const aiProbeV1SuccessSchema = z.object({
     assistant: z.object({
       providerId: z.enum(aiProviderIds),
       model: z.string().min(1).max(120),
-    }).strict().optional(),
-  }).strict(),
-}).strict();
+    }).optional(),
+  }),
+});
 
 export const aiV1ErrorSchema = z.object({
   error: z.object({
     code: z.enum(aiV1ErrorCodes),
-  }).strict(),
-}).strict();
+  }),
+});
 
 export const healthV1SuccessSchema = z.object({
-  data: z.object({ status: z.literal('ok') }).strict(),
-}).strict();
+  data: z.object({ status: z.literal('ok') }),
+});
 
 export const aiReadyV1SuccessSchema = z.object({
-  data: z.object({ status: z.enum(['ready', 'not_configured']) }).strict(),
-}).strict();
+  data: z.object({ status: z.enum(['ready', 'not_configured']) }),
+});
 
 export type AiV1ErrorCode = (typeof aiV1ErrorCodes)[number];
 export type AiRecommendV1Request = z.infer<typeof aiRecommendV1RequestSchema>;

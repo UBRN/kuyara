@@ -165,13 +165,15 @@ test('rejects empty, unordered, out-of-window, and oversized hourly forecasts', 
   assert.equal(weatherV1SuccessSchema.safeParse(oversized).success, false);
 });
 
-test('accepts every stable minimal error code and rejects extra detail', () => {
+test('accepts every stable minimal error code and strips extra detail', () => {
   for (const code of weatherV1ErrorCodes) {
     assert.equal(weatherV1ErrorSchema.safeParse({ error: { code } }).success, true);
   }
-  assert.equal(weatherV1ErrorSchema.safeParse({
+  // The response schema is a tolerant reader, so unwanted detail is stripped rather than
+  // rejected: it still never reaches the domain. See compatibility.test.mjs.
+  assert.deepEqual(weatherV1ErrorSchema.parse({
     error: { code: 'internal_error', stack: 'private' },
-  }).success, false);
+  }), { error: { code: 'internal_error' } });
 });
 
 test('includes rate_limited among the stable error codes', () => {
