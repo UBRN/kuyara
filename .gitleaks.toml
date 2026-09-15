@@ -1,0 +1,17 @@
+# gitleaks configuration shared by the local pre-commit hook and the secret-scan
+# workflow. Extends the default rules; entries below only remove known false
+# positives. Requires gitleaks >= 8.25.0 for the [[allowlists]] table.
+title = "kuyara"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "The WeatherKit token test generates a throwaway P-256 key at runtime; the PEM header lines are source text, not a stored key."
+targetRules = ["private-key"]
+paths = ['''^apps/worker/src/weather/weatherkit-token\.test\.mjs$''']
+
+[[allowlists]]
+description = "A PostHog project token (phc_) is a public, write-only client key by design; it ships inside the app bundle."
+targetRules = ["generic-api-key"]
+regexes = ['''^phc_[A-Za-z0-9]+$''']
