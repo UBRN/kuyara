@@ -121,7 +121,7 @@ const rateLimitedFetch = async () => new Response(rateLimitedBody, {
   headers: { 'Content-Type': 'application/json', 'X-RateLimit-Remaining': '0' },
 });
 
-test('a rate-limited response fails as a provider error without the key or the provider text', async () => {
+test('a rate-limited response fails as a classified rate-limit error without the key or the provider text', async () => {
   const apiKey = 'private-api-key';
   const controller = new AbortController();
   const provider = new OpenRouterAiProvider({
@@ -132,16 +132,53 @@ test('a rate-limited response fails as a provider error without the key or the p
   await assert.rejects(
     provider.generateOutfits(request, controller.signal),
     (error) => {
-      // A provider error, not a timeout: the handler classifies it as `provider_error` and
+      // A rate-limit refusal, not a timeout: the handler logs `rate_limited` and still
       // gives the next provider its turn.
       assert.equal(controller.signal.aborted, false);
-      assert.equal(error.message, 'OpenRouter request failed.');
+      assert.equal(error.name, 'AiProviderError');
+      assert.equal(error.kind, 'rate_limited');
       for (const forbidden of [apiKey, 'free-models-per-day', 'Rate limit', '429', 'option-1']) {
         assert.equal(error.message.includes(forbidden), false, forbidden);
       }
       return true;
     },
   );
+});
+
+test('other non-2xx responses stay unclassified provider failures', async () => {
+  for (const status of [401, 402, 500, 503]) {
+    const provider = new OpenRouterAiProvider({
+      apiKey: 'secret-key',
+      model: 'provider/model',
+      fetch: async () => new Response('private', { status }),
+    });
+    await assert.rejects(
+      provider.generateOutfits(request, new AbortController().signal),
+      (error) => {
+        assert.equal(error.message, 'OpenRouter request failed.');
+        assert.equal(error.kind, undefined, String(status));
+        return true;
+      },
+    );
+  }
+});
+
+test('a caller-supplied token budget narrows max_tokens; a recommendation keeps the full one', async () => {
+  const budgets = [];
+  const provider = new OpenRouterAiProvider({
+    apiKey: 'secret-key',
+    model: 'provider/model',
+    fetch: async (_url, init) => {
+      budgets.push(JSON.parse(init.body).max_tokens);
+      return Response.json({
+        choices: [{ message: { content: JSON.stringify({ data: { picks: [] } }) } }],
+      });
+    },
+  });
+  const signal = new AbortController().signal;
+  await provider.generateOutfits(request, signal, { maxTokens: 256 });
+  await provider.generateOutfits(request, signal);
+  assert.deepEqual(budgets, [256, 2048]);
 });
 
 test('a rate-limited response hands the turn to the next provider and leaks nothing', async (t) => {
@@ -173,7 +210,7 @@ test('a rate-limited response hands the turn to the next provider and leaks noth
   assert.equal(response.status, 503);
   assert.equal(serialized, '{"error":{"code":"ai_unavailable"}}');
   assert.deepEqual(warnings, [
-    { event: 'ai_provider_attempt_failed', model: 'provider/rate-limited', reason: 'provider_error' },
+    { event: 'ai_provider_attempt_failed', model: 'provider/rate-limited', reason: 'rate_limited' },
     { event: 'ai_provider_attempt_failed', model: 'provider/next', reason: 'provider_error' },
   ]);
   for (const forbidden of ['private-api-key', 'free-models-per-day', 'X-RateLimit-Remaining', 'option-1']) {

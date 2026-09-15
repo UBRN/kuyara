@@ -218,10 +218,11 @@ precedent, plus a localized "Checking AI status…" line.
 
 - Provider work is bounded by per-IP burst controls and the probe's daily cap.
   OpenRouter configuration remains free-model-only.
-- The probe costs roughly one recommendation's worth of quota per uncached call.
-  At 30/day that is about 4,000 Neurons, under half the daily pool, leaving room
-  for real traffic. `ponytail:` a probe-specific lower `max_tokens` on the
-  adapter would cut this; deferred.
+- The probe passes the provider its own `max_tokens` ceiling
+  (`PROBE_MAX_TOKENS`), sized for the three `optionId`/`archetypeId` pairs it
+  validates and nothing more, so an uncached probe cannot cost a
+  recommendation's worth of output. At 30/day the probe's share stays well under
+  the daily Neuron pool, leaving room for real traffic.
 - Rate-limit counters are per-colo and eventually consistent, so the effective
   global ceiling is somewhat higher than the configured numbers. This is
   acceptable for an abuse guard; it is not an accounting system.
@@ -251,5 +252,4 @@ precedent, plus a localized "Checking AI status…" line.
 
 - Remote deployment and provisioning were separate operational work and were
   completed later on 2026-08-29.
-- Probe-specific `max_tokens` tuning on the provider adapters.
 - Any change to the recommendation refresh/coalescing logic.

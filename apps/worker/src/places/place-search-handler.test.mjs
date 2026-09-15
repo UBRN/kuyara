@@ -62,7 +62,9 @@ test('invalid upstream payloads and upstream HTTP errors are sanitized', async (
   const response = await setup(async () => new Response('not json'))(request());
   assert.equal(response.status, 503);
 });
-test('rate limits and limiter outages stop upstream calls', async () => {
+test('rate limits and limiter outages stop upstream calls', async (t) => {
+  const warnings = [];
+  t.mock.method(console, 'warn', (entry) => warnings.push(entry));
   for (const limit of [async () => ({ success: false }), async () => { throw new Error('private'); }]) {
     let calls = 0;
     const response = await setup(async () => { calls++; return Response.json(raw); }, { limit })(request());
@@ -70,6 +72,15 @@ test('rate limits and limiter outages stop upstream calls', async () => {
     if (response.status === 429) assert.equal(response.headers.get('retry-after'), '60');
     assert.equal(calls, 0);
   }
+  // Only the denial is logged, never the limiter outage (it answers 503) and never the
+  // caller IP or the query text.
+  assert.deepEqual(warnings, [{
+    event: 'rate_limited',
+    route: '/v1/places/search',
+    limiter: 'weather_burst',
+  }]);
+  assert.equal(JSON.stringify(warnings).includes('192.0.2.1'), false);
+  assert.equal(JSON.stringify(warnings).includes('İzmir'), false);
 });
 test('invalid requests and wrong routes or methods never call upstream', async () => {
   let calls = 0;
@@ -83,7 +94,8 @@ test('invalid requests and wrong routes or methods never call upstream', async (
   assert.equal((await handle(new Request('https://worker.test/v1/places/search', { method: 'POST', body: '{}' }))).status, 400);
   assert.equal(calls, 0);
 });
-test('production composition routes place search and fails closed without a limiter', async () => {
+test('production composition routes place search and fails closed without a limiter', async (t) => {
+  t.mock.method(console, 'warn', () => {});
   assert.equal((await worker.fetch(request(), {})).status, 429);
   assert.equal((await worker.fetch(request(query, '/v1/places/search', 'GET'), {})).status, 405);
 });

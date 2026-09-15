@@ -12,7 +12,7 @@ import {
   type AiV1ErrorCode,
 } from '@kuyara/contracts';
 
-import type { AiProvider } from './ai-provider.ts';
+import { AiProviderError, type AiProvider } from './ai-provider.ts';
 import type { RateLimiter } from './probe-handler.ts';
 
 type Dependencies = Readonly<{
@@ -26,6 +26,8 @@ type Dependencies = Readonly<{
 type ProviderFailureReason =
   | 'timeout'
   | 'provider_error'
+  | 'quota_exceeded'
+  | 'rate_limited'
   | 'invalid_output'
   | 'unknown_option'
   | 'picks_not_distinct'
@@ -74,6 +76,17 @@ function defaultCache(): Cache | undefined {
 
 function logProviderFailure(provider: AiProvider, reason: ProviderFailureReason): void {
   console.warn({ event: 'ai_provider_attempt_failed', model: provider.model, reason });
+}
+
+/**
+ * A spent provider quota and an upstream 429 both used to read as `provider_error`, so the
+ * 2026-09-13 outage had to be proved from Cloudflare's own counters. The reason now names
+ * them. Eligibility is unchanged: every failure still hands the turn to the next provider.
+ */
+function attemptFailureReason(error: unknown, timedOut: boolean): ProviderFailureReason {
+  if (timedOut) return 'timeout';
+  if (error instanceof AiProviderError) return error.kind;
+  return 'provider_error';
 }
 
 async function buildCacheRequest(request: AiRecommendV1Request): Promise<Request> {
@@ -139,6 +152,11 @@ export function createAiHandler({
       const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
       const { success } = await rateLimiter.limit({ key: `recommend:${ip}` });
       if (!success) {
+        console.warn({
+          event: 'rate_limited',
+          route: aiRecommendV1Path,
+          limiter: 'ai_recommend_burst',
+        });
         return errorResponse(429, 'rate_limited', { 'Retry-After': '60' });
       }
     }
@@ -234,8 +252,8 @@ export function createAiHandler({
           }
         }
         return response;
-      } catch {
-        logProviderFailure(provider, timedOut ? 'timeout' : 'provider_error');
+      } catch (error) {
+        logProviderFailure(provider, attemptFailureReason(error, timedOut));
       } finally {
         clearTimeout(timeoutId!);
       }

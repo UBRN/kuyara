@@ -9,6 +9,7 @@ import {
 import {
   createProbeHandler,
   PROBE_DAILY_LIMIT,
+  PROBE_MAX_TOKENS,
 } from './probe-handler.ts';
 
 const fixedNow = '2026-08-29T12:34:56.000Z';
@@ -89,9 +90,11 @@ test('non-POST methods return 405 without calling a provider', async () => {
   assert.equal(providerCalls, 0);
 });
 
-test('rate limiter denial returns 429 without calling a provider', async () => {
+test('rate limiter denial returns 429 without calling a provider', async (t) => {
   let providerCalls = 0;
   const keys = [];
+  const warnings = [];
+  t.mock.method(console, 'warn', (entry) => warnings.push(entry));
   const { deps } = dependencies({
     providers: [{
       async generateOutfits() {
@@ -111,10 +114,18 @@ test('rate limiter denial returns 429 without calling a provider', async () => {
   await assertJson(response, 429, { error: { code: 'rate_limited' } });
   assert.deepEqual(keys, ['probe:203.0.113.10']);
   assert.equal(providerCalls, 0);
+  assert.deepEqual(warnings, [{
+    event: 'rate_limited',
+    route: '/v1/ai/probe',
+    limiter: 'ai_probe_burst',
+  }]);
+  assert.equal(JSON.stringify(warnings).includes('203.0.113.10'), false);
 });
 
-test('daily limit returns 429 without calling a provider', async () => {
+test('daily limit returns 429 without calling a provider', async (t) => {
   let providerCalls = 0;
+  const warnings = [];
+  t.mock.method(console, 'warn', (entry) => warnings.push(entry));
   const dateKey = 'probe:2026-08-29';
   const counterState = createCounter([[dateKey, PROBE_DAILY_LIMIT]]);
   const { deps } = dependencies({
@@ -131,6 +142,12 @@ test('daily limit returns 429 without calling a provider', async () => {
   await assertJson(response, 429, { error: { code: 'rate_limited' } });
   assert.deepEqual(counterState.getKeys, [dateKey]);
   assert.equal(providerCalls, 0);
+  // The daily cap and the burst limiter both answer 429; the log says which one tripped.
+  assert.deepEqual(warnings, [{
+    event: 'rate_limited',
+    route: '/v1/ai/probe',
+    limiter: 'ai_probe_daily',
+  }]);
 });
 
 test('no providers returns unavailable without incrementing the daily counter', async () => {
@@ -173,6 +190,25 @@ test('valid provider output returns ok and receives three valid probe options', 
   );
   assert.deepEqual(counterState.getKeys, ['probe:2026-08-29']);
   assert.deepEqual(counterState.incrementKeys, ['probe:2026-08-29']);
+});
+
+test('the probe asks for a far smaller token budget than a recommendation', async () => {
+  const budgets = [];
+  const { deps } = dependencies({ providers: [{
+    id: 'openrouter',
+    model: 'some/model:free',
+    async generateOutfits(_body, _signal, options) {
+      budgets.push(options?.maxTokens);
+      return validOutput();
+    },
+  }] });
+  const response = await createProbeHandler(deps)(request());
+  assert.equal((await response.json()).data.status, 'ok');
+  assert.deepEqual(budgets, [PROBE_MAX_TOKENS]);
+  // Small enough to matter against the shared pool, large enough for the three pairs the
+  // probe validates.
+  assert.equal(PROBE_MAX_TOKENS, 256);
+  assert.ok(PROBE_MAX_TOKENS > JSON.stringify(validOutput()).length / 3);
 });
 
 test('a structurally valid response must use only supplied probe option ids', async () => {

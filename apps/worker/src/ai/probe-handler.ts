@@ -1,4 +1,5 @@
 import {
+  aiProbeV1Path,
   aiRecommendV1SuccessSchema,
   aiV1ErrorSchema,
   type AiProbeV1Success,
@@ -12,6 +13,11 @@ export const PROBE_CACHE_TTL_MS = 60_000;
 export const PROBE_DAILY_LIMIT = 30;
 export const PROBE_ATTEMPT_TIMEOUT_MS = 20_000;
 export const PROBE_COUNTER_TTL_SECONDS = 172_800;
+// The probe validates one thing: three `{ optionId, archetypeId }` pairs drawn from the
+// three canned options, roughly 200 characters of JSON. 256 tokens is more than twice the
+// longest such reply, so the answer the probe checks still fits, while a probe can no
+// longer spend a recommendation's worth of the shared pool.
+export const PROBE_MAX_TOKENS = 256;
 
 export interface RateLimiter {
   limit(input: { key: string }): Promise<{ success: boolean }>;
@@ -138,6 +144,7 @@ export function createProbeHandler({
     const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
     const { success } = await rateLimiter.limit({ key: `probe:${ip}` });
     if (!success) {
+      console.warn({ event: 'rate_limited', route: aiProbeV1Path, limiter: 'ai_probe_burst' });
       return errorResponse(429, 'rate_limited', { 'Retry-After': '60' });
     }
 
@@ -148,6 +155,7 @@ export function createProbeHandler({
     const dateKey = `probe:${now().toISOString().slice(0, 10)}`;
     const count = await dailyCounter.get(dateKey);
     if (count >= PROBE_DAILY_LIMIT) {
+      console.warn({ event: 'rate_limited', route: aiProbeV1Path, limiter: 'ai_probe_daily' });
       return errorResponse(429, 'rate_limited', { 'Retry-After': '60' });
     }
 
@@ -165,7 +173,9 @@ export function createProbeHandler({
 
       try {
         const output = await Promise.race([
-          answering.generateOutfits(PROBE_REQUEST, controller.signal),
+          answering.generateOutfits(PROBE_REQUEST, controller.signal, {
+            maxTokens: PROBE_MAX_TOKENS,
+          }),
           timeout,
         ]);
         const result = aiRecommendV1SuccessSchema.safeParse(output);
