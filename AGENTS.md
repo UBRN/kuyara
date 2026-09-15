@@ -46,7 +46,7 @@ The workspace is a pnpm monorepo: `apps/mobile` (Expo and React Native), `apps/w
 ## Architecture boundaries
 
 - Organize mobile code feature-first while keeping presentation, domain/application, and data responsibilities distinct.
-- A feature imports another feature only through that feature's domain or application layer. Do not add a new import into another feature's data or presentation code; wire persistence and screens together in composition code such as the route files, and keep business rules inside the feature that owns them.
+- A feature reaches another feature only through that feature's domain or application layer; an `import type` of an interface is the one exception. Composition code (the route files under `app/`, each feature's application provider, and the background task entry) may import a feature's data and presentation modules; feature code may not. `apps/mobile/src/architecture-invariants.test.mjs` lists the remaining cross-feature data and presentation imports with their planned fix, so that list only shrinks.
 - Keep business rules out of React components and route files.
 - Components render state and emit user intent; use cases/services coordinate domain behavior; repositories abstract persistence and external data.
 - UI and domain code must not import SQLite, Supabase, Firebase, WeatherKit, Cloudflare, or provider-specific SDKs directly.
