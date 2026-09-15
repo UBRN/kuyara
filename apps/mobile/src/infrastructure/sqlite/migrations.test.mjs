@@ -226,7 +226,7 @@ test('versions 3 through 12 preserve a released version 2 wardrobe row and are n
   );
 
   await migrateDatabase(database);
-  await migrateDatabase(database);
+  await migrateDatabase(new NodeSqliteDatabase(database.database));
 
   const version = await database.getFirstAsync('PRAGMA user_version');
   const rows = await database.getAllAsync('SELECT * FROM wardrobe_items');
@@ -696,7 +696,7 @@ for (const [preference, gender, deletedAt] of [['womens', 'woman', null], ['mens
     assert.equal((await database.getFirstAsync('PRAGMA foreign_keys')).foreign_keys, 1);
     assert.deepEqual(await database.getAllAsync('PRAGMA foreign_key_check'), []);
     await assert.rejects(() => database.runAsync("UPDATE wardrobe_items SET local_profile_id = 'missing'"), /FOREIGN KEY/);
-    await migrateDatabase(database);
+    await migrateDatabase(new NodeSqliteDatabase(database.database));
     assert.equal((await database.getFirstAsync('SELECT gender FROM local_profiles')).gender, gender);
   });
 }
@@ -843,7 +843,7 @@ for (const [id, name] of [['sample.istanbul', 'Istanbul'], ['sample.ankara', 'An
     );
     assert.deepEqual(await database.getAllAsync('PRAGMA foreign_key_check'), []);
     await database.runAsync("UPDATE active_locations SET display_name = 'Custom name'");
-    await migrateDatabase(database);
+    await migrateDatabase(new NodeSqliteDatabase(database.database));
     assert.equal((await database.getFirstAsync('SELECT display_name FROM active_locations')).display_name, 'Custom name');
   });
 }
@@ -1218,4 +1218,46 @@ test('version 13 carries an orphaned snapshot row through instead of refusing to
     before,
   );
   assert.deepEqual(await database.getAllAsync('PRAGMA foreign_key_check'), orphansBefore);
+});
+
+test('two concurrent callers run the migration set once', async (t) => {
+  const database = new NodeSqliteDatabase();
+  t.after(() => database.close());
+  let transactions = 0;
+  const startTransaction = database.withExclusiveTransactionAsync.bind(database);
+  database.withExclusiveTransactionAsync = (task) => {
+    transactions += 1;
+    return startTransaction(task);
+  };
+
+  await Promise.all([migrateDatabase(database), migrateDatabase(database)]);
+
+  assert.equal(transactions, latestDatabaseVersion);
+  assert.equal(
+    (await database.getFirstAsync('PRAGMA user_version')).user_version,
+    latestDatabaseVersion,
+  );
+});
+
+test('a failed migration is not cached, so the next caller retries', async (t) => {
+  const database = new NodeSqliteDatabase();
+  t.after(() => database.close());
+  const readVersion = database.getFirstAsync.bind(database);
+  let failNextVersionRead = true;
+  database.getFirstAsync = async (source, params = []) => {
+    if (failNextVersionRead && source === 'PRAGMA user_version') {
+      failNextVersionRead = false;
+      throw new Error('the database is locked');
+    }
+    return readVersion(source, params);
+  };
+
+  await assert.rejects(() => migrateDatabase(database), /the database is locked/);
+
+  await migrateDatabase(database);
+
+  assert.equal(
+    (await database.getFirstAsync('PRAGMA user_version')).user_version,
+    latestDatabaseVersion,
+  );
 });

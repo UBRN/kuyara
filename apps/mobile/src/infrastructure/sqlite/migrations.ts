@@ -12,6 +12,12 @@ type Migration = Readonly<{
 
 export const latestDatabaseVersion = 13;
 
+// Every FOREIGN KEY declared below is documentation, not a runtime guarantee.
+// `withExclusiveTransactionAsync` opens each transaction body on a fresh connection with
+// `useNewConnection: true`, where foreign keys are off, so RESTRICT and CASCADE never fire
+// for application writes; only the weather data source compensates by hand, deleting the
+// hourly rows itself (`sqlite-weather-local-data-source.ts`, `replaceSnapshot`).
+
 const migrationV1: Migration = {
   version: 1,
   async migrate(database) {
@@ -40,6 +46,8 @@ const migrationV1: Migration = {
 const migrationV2: Migration = {
   version: 2,
   async migrate(database) {
+    // The FOREIGN KEY below is documentation, not a runtime guarantee: application
+    // transactions run on a fresh connection with foreign keys off (see the note above the migrations).
     await database.execAsync(`
       CREATE TABLE IF NOT EXISTS wardrobe_items (
         id TEXT PRIMARY KEY NOT NULL,
@@ -119,6 +127,8 @@ const migrationV3: Migration = {
 const migrationV4: Migration = {
   version: 4,
   async migrate(database) {
+    // The FOREIGN KEY below is documentation, not a runtime guarantee: application
+    // transactions run on a fresh connection with foreign keys off (see the note above the migrations).
     await database.execAsync(`
       CREATE TABLE IF NOT EXISTS active_locations (
         local_profile_id TEXT PRIMARY KEY NOT NULL,
@@ -144,6 +154,8 @@ const migrationV4: Migration = {
       );
     `);
 
+    // The FOREIGN KEY below is documentation, not a runtime guarantee: application
+    // transactions run on a fresh connection with foreign keys off (see the note above the migrations).
     await database.execAsync(`
       CREATE TABLE IF NOT EXISTS weather_snapshots (
         id TEXT PRIMARY KEY NOT NULL,
@@ -176,6 +188,8 @@ const migrationV4: Migration = {
       );
     `);
 
+    // The FOREIGN KEY below is documentation, not a runtime guarantee: application
+    // transactions run on a fresh connection with foreign keys off (see the note above the migrations).
     await database.execAsync(`
       CREATE TABLE IF NOT EXISTS weather_hourly_entries (
         snapshot_id TEXT NOT NULL,
@@ -209,6 +223,8 @@ const migrationV4: Migration = {
 const migrationV5: Migration = {
   version: 5,
   async migrate(database) {
+    // The FOREIGN KEY below is documentation, not a runtime guarantee: application
+    // transactions run on a fresh connection with foreign keys off (see the note above the migrations).
     await database.execAsync(`
       CREATE TABLE IF NOT EXISTS recommendation_snapshots (
         id TEXT PRIMARY KEY NOT NULL,
@@ -331,6 +347,8 @@ const migrationV10: Migration = {
 const migrationV11: Migration = {
   version: 11,
   async migrate(database) {
+    // The FOREIGN KEY below is documentation, not a runtime guarantee: application
+    // transactions run on a fresh connection with foreign keys off (see the note above the migrations).
     await database.execAsync(`
       CREATE TABLE weather_alert_deliveries (
         id TEXT PRIMARY KEY NOT NULL,
@@ -373,6 +391,8 @@ const migrationV13: Migration = {
     // (TestFlight build 3). An orphan survives the rebuild exactly as it survived the
     // original table. SQLite clears the deferral at the end of the transaction.
     await database.execAsync('PRAGMA defer_foreign_keys = ON;');
+    // The FOREIGN KEY below is documentation, not a runtime guarantee: application
+    // transactions run on a fresh connection with foreign keys off (see the note above the migrations).
     await database.execAsync(`
       CREATE TABLE recommendation_snapshots_v13 (
         id TEXT PRIMARY KEY NOT NULL,
@@ -428,7 +448,34 @@ async function readUserVersion(database: SqliteExecutor): Promise<number> {
   return row.user_version;
 }
 
-export async function migrateDatabase(database: SqliteDatabase): Promise<void> {
+const migrationRuns = new WeakMap<SqliteDatabase, Promise<void>>();
+
+/**
+ * One migration run per database handle. Six composition roots call this on the one
+ * connection `openKuyaraDatabase` memoizes; without the memo they all read
+ * `user_version = 0` on a clean install and race for the same `BEGIN EXCLUSIVE`, each on its
+ * own transaction connection whose `busy_timeout` is 0. The in-transaction version re-check
+ * keeps the result correct, but the loser still surfaces SQLITE_BUSY as a bootstrap error.
+ *
+ * A failed run is not cached: the entry is dropped so the next caller retries.
+ */
+export function migrateDatabase(database: SqliteDatabase): Promise<void> {
+  const started = migrationRuns.get(database);
+
+  if (started) {
+    return started;
+  }
+
+  const run = runMigrations(database).catch((error: unknown) => {
+    migrationRuns.delete(database);
+    throw error;
+  });
+  migrationRuns.set(database, run);
+
+  return run;
+}
+
+async function runMigrations(database: SqliteDatabase): Promise<void> {
   await database.execAsync('PRAGMA journal_mode = WAL;');
   await database.execAsync('PRAGMA foreign_keys = ON;');
 
