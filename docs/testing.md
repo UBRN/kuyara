@@ -34,6 +34,8 @@ Run Expo Doctor from `apps/mobile`:
 pnpm dlx expo-doctor@latest
 ```
 
+CI runs the same command on every push to `main` and every pull request.
+
 Verify the Worker bundle without deployment:
 
 ```bash
@@ -194,7 +196,8 @@ This section is the command sequence only.
 
 ### Preconditions
 
-- The worktree is clean and holds only the changes being released.
+- The worktree is clean, holds only the changes being released, and they are committed:
+  `eas.json` sets `cli.requireCommit: true`, so `eas build` refuses an uncommitted tree.
 - `pnpm check` and `pnpm --filter @kuyara/mobile test:components` are green.
 - `expo.version` in `apps/mobile/app.json` is bumped to the next `0.MINOR.YYYYMMDD` string.
   Never edit a build number: `eas.json`
