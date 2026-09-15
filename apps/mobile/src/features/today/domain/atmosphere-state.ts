@@ -33,6 +33,11 @@ const atmosphereByDaypart = {
   Record<'day' | 'night', Readonly<Record<'clear' | 'veiled' | 'falling', AtmosphereState>>>
 >;
 
+/**
+ * The number this returns is read as an hour of the day, not shown to anyone, so the fixed
+ * 'en' locale and h23 cycle are the point: the device's 12-hour setting would fold the
+ * evening back onto the morning and send the daypart to night at noon.
+ */
 export function localHourOf(fetchedAt: string, timeZone: string): number | null {
   const timestamp = Date.parse(fetchedAt);
   if (!Number.isFinite(timestamp)) return null;

@@ -13,6 +13,8 @@ type RescheduleInput = Readonly<{
   snapshot: WeatherSnapshot | null;
   enabled: boolean;
   language: SupportedLanguage;
+  /** The device's 12/24-hour clock setting, which the user sets apart from the language. */
+  hour12: boolean;
   /** Defaults to the foreground lead of ADR 0032 section 3. */
   leadTimeMinutes?: number;
 }>;
@@ -23,12 +25,19 @@ export interface WeatherAlertScheduling {
 
 const deliveryRetentionMilliseconds = 3 * 24 * 60 * 60 * 1000;
 
-function crossingTime(plan: WeatherAlertPlan, timeZone: string, language: SupportedLanguage) {
+// The notification reads on the lock screen beside the system clock, so the crossing wears
+// the clock the device is set to rather than a fixed 24-hour one.
+function crossingTime(
+  plan: WeatherAlertPlan,
+  timeZone: string,
+  language: SupportedLanguage,
+  hour12: boolean,
+) {
   return new Intl.DateTimeFormat(language === 'tr' ? 'tr-TR' : 'en-GB', {
     timeZone,
-    hour: '2-digit',
+    hour: hour12 ? 'numeric' : '2-digit',
     minute: '2-digit',
-    hourCycle: 'h23',
+    hour12,
   }).format(new Date(plan.crossingAt));
 }
 
@@ -36,9 +45,10 @@ function alertCopy(
   plan: WeatherAlertPlan,
   timeZone: string,
   language: SupportedLanguage,
+  hour12: boolean,
 ): Readonly<{ title: string; body: string }> {
   const copy = messages[language].notifications.alerts;
-  const time = crossingTime(plan, timeZone, language);
+  const time = crossingTime(plan, timeZone, language, hour12);
   if (plan.detail.kind === 'precipitation') {
     return plan.detail.form === 'snow'
       ? { title: copy.snowTitle, body: copy.snowBody(time) }
@@ -115,7 +125,7 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
     // that was never scheduled would suppress the identity for the rest of the day.
     const scheduled: WeatherAlertPlan[] = [];
     for (const plan of plans) {
-      const copy = alertCopy(plan, snapshot.timeZone, input.language);
+      const copy = alertCopy(plan, snapshot.timeZone, input.language, input.hour12);
       const accepted = await this.gateway.scheduleWeatherAlert({
         identifier: plan.id,
         fireAt: plan.fireAt,

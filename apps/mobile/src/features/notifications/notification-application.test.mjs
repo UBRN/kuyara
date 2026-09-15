@@ -192,6 +192,7 @@ const enabledInput = {
   snapshot: weatherSnapshot(),
   enabled: true,
   language: 'en',
+  hour12: false,
 };
 
 test('weather alerts cancel before planning, schedule localized copy, persist, and prune', async () => {
@@ -263,6 +264,42 @@ test('weather alert copy follows the active Turkish language', async () => {
       title: 'Hava daha soğuk hissedilecek',
       body: 'Saat 21:00 civarında hissedilen sıcaklık 6°C olacak. Yanına daha sıcak tutan bir kat al.',
     },
+  ]);
+});
+
+// ADR 0032 copy is a localized sentence with the crossing interpolated into it, so only
+// the time changes with the device clock: the 24-hour device reads 18:00 and the 12-hour
+// device reads the same instant as 6:00 pm.
+test('weather alert copy follows the device 12-hour clock setting', async () => {
+  const harness = createSchedulerHarness();
+
+  await harness.scheduler.reschedule({ ...enabledInput, hour12: true });
+
+  assert.deepEqual(harness.scheduled.map(({ title, body }) => ({ title, body })), [
+    {
+      title: 'Rain is on the way',
+      body: 'Rain is expected around 6:00 pm. Take something waterproof with you.',
+    },
+    {
+      title: 'It will feel colder',
+      body: 'Around 6:00 pm, it will feel like 6°C. Take a warmer layer with you.',
+    },
+  ]);
+});
+
+test('Turkish weather alert copy follows the device 12-hour clock setting', async () => {
+  const harness = createSchedulerHarness();
+
+  await harness.scheduler.reschedule({
+    ...enabledInput,
+    snapshot: { ...enabledInput.snapshot, timeZone: 'Europe/Istanbul' },
+    language: 'tr',
+    hour12: true,
+  });
+
+  assert.deepEqual(harness.scheduled.map(({ body }) => body), [
+    'Saat ÖS 9:00 civarında yağmur bekleniyor. Yanına su geçirmez bir parça al.',
+    'Saat ÖS 9:00 civarında hissedilen sıcaklık 6°C olacak. Yanına daha sıcak tutan bir kat al.',
   ]);
 });
 

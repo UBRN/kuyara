@@ -92,6 +92,7 @@ function createHarness({ cached = null, ...overrides } = {}) {
       calls.push(input);
     },
     getDeviceLocale: () => 'tr-TR',
+    getDeviceHour12: () => false,
     now: () => now,
     ...overrides,
   };
@@ -116,8 +117,25 @@ test('refreshes, validates, persists, and reschedules through the existing input
     snapshot: harness.saved,
     enabled: true,
     language: 'tr',
+    hour12: false,
     leadTimeMinutes: weatherAlertBackgroundLeadTimeMinutes,
   });
+});
+
+// The background path has no React tree to read the clock setting from, so it resolves
+// the device's 12/24-hour preference from the same locale the language is resolved with.
+test("the device's 12-hour setting reaches the schedule beside the resolved locale", async () => {
+  const locales = [];
+  const harness = createHarness({
+    getDeviceHour12: (deviceLocale) => {
+      locales.push(deviceLocale);
+      return true;
+    },
+  });
+
+  assert.equal(await runBackgroundWeatherAlertTask(harness.dependencies), 'success');
+  assert.deepEqual(locales, ['tr-TR']);
+  assert.equal(harness.calls.at(-1).hour12, true);
 });
 
 test('a still-fresh cached snapshot reschedules without spending a provider request', async () => {

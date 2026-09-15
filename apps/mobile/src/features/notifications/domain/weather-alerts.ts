@@ -63,6 +63,9 @@ function adjustForQuietHours(
   const end = quietHours.end.hour * 60 + quietHours.end.minute;
   if (start === end) return fireAt;
 
+  // Quiet hours are compared as minutes past midnight, so this formatter is arithmetic and
+  // never copy: the fixed 'en' locale and h23 cycle keep the hour a 0-23 number whatever
+  // the device's 12/24-hour setting says.
   const formatter = new Intl.DateTimeFormat('en', {
     timeZone: quietHours.timeZone,
     hour: '2-digit',
