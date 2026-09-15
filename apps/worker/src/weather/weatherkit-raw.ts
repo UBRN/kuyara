@@ -14,12 +14,12 @@ import type {
 } from './weather-provider.ts';
 import { WeatherProviderError } from './weather-provider-error.ts';
 
-const finiteNumberSchema = z.number().finite();
+const finiteNumberSchema = z.number();
 const nonNegativeSchema = finiteNumberSchema.min(0);
 const probabilitySchema = finiteNumberSchema.min(0).max(1);
-const timestampSchema = z.string().datetime({ offset: true });
+const timestampSchema = z.iso.datetime({ offset: true });
 
-const currentWeatherSchema = z.object({
+const currentWeatherSchema = z.looseObject({
   asOf: timestampSchema,
   conditionCode: z.string().min(1),
   humidity: probabilitySchema,
@@ -27,9 +27,9 @@ const currentWeatherSchema = z.object({
   temperatureApparent: finiteNumberSchema,
   uvIndex: z.number().int().min(0),
   windSpeed: nonNegativeSchema,
-}).passthrough();
+});
 
-const hourlyWeatherSchema = z.object({
+const hourlyWeatherSchema = z.looseObject({
   forecastStart: timestampSchema,
   conditionCode: z.string().min(1),
   humidity: probabilitySchema,
@@ -38,23 +38,23 @@ const hourlyWeatherSchema = z.object({
   temperatureApparent: finiteNumberSchema,
   uvIndex: z.number().int().min(0),
   windSpeed: nonNegativeSchema,
-}).passthrough();
+});
 
-const dailyWeatherSchema = z.object({
+const dailyWeatherSchema = z.looseObject({
   forecastStart: timestampSchema,
   temperatureMax: finiteNumberSchema,
   temperatureMin: finiteNumberSchema,
-}).passthrough();
+});
 
-export const weatherKitResponseSchema = z.object({
+export const weatherKitResponseSchema = z.looseObject({
   currentWeather: currentWeatherSchema,
-  forecastHourly: z.object({
+  forecastHourly: z.looseObject({
     hours: z.array(hourlyWeatherSchema).min(1),
-  }).passthrough(),
-  forecastDaily: z.object({
+  }),
+  forecastDaily: z.looseObject({
     days: z.array(dailyWeatherSchema).min(1),
-  }).passthrough(),
-}).passthrough();
+  }),
+});
 
 export type WeatherKitResponse = z.infer<typeof weatherKitResponseSchema>;
 

@@ -11,11 +11,11 @@ export const manualLocationIdSchema = z.union([
 ]);
 export const locationDisplayNameSchema = z.string().trim().min(1).max(200);
 
-export const placeSearchV1RequestSchema = z.object({
+export const placeSearchV1RequestSchema = z.strictObject({
   query: z.string().trim().min(2).max(100),
   limit: z.number().int().min(1).max(placeSearchMaxResults),
   language: z.enum(['tr', 'en']),
-}).strict();
+});
 
 export const placeSearchResultSchema = z.object({
   id: placeIdSchema,
