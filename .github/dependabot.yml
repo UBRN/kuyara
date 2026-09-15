@@ -39,12 +39,23 @@ updates:
       - dependency-name: "babel-preset-expo"
       - dependency-name: "jest-expo"
       - dependency-name: "eslint-config-expo"
-      # React and its type package move with the SDK on majors only.
+      # react and react-dom are pinned exactly by the SDK's bundledNativeModules;
+      # the Expo Doctor gate rejects any other version, so no update type applies.
       - dependency-name: "react"
-        update-types: ["version-update:semver-major"]
       - dependency-name: "react-dom"
-        update-types: ["version-update:semver-major"]
+      # The type package moves with the SDK on majors only.
       - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major"]
+      # Toolchain majors are separate, documented migrations, not weekly bumps:
+      # jest-expo 57 depends on jest 29 internals and @typescript-eslint/parser
+      # bounds the TypeScript major.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "jest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/jest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint"
         update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
