@@ -48,3 +48,9 @@ Every commit in this repository is authored by the maintainer; there are no thir
 contributions, no `Co-authored-by` trailers, and no outside pull requests. That is what
 made the relicensing possible without contributor consent. See
 [ADR 0024](docs/adr/0024-relicensing-to-polyform-noncommercial.md).
+
+## Third-party artwork
+
+The App Store badge files under `docs/assets/img/badges/` are Apple's marketing artwork,
+used unmodified under Apple's App Store Marketing Artwork License Agreement. They are not
+covered by the PolyForm licence above.
