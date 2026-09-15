@@ -1,0 +1,194 @@
+/*
+ * kuyara web tokens.
+ * Derived verbatim from apps/mobile/src/theme/theme.ts (semantic roles, space,
+ * radius, border, motion) and docs/adr/0017-a-retuned-typography-scale.md (the
+ * type scale). Points map to CSS pixels 1:1. Do not author new values here:
+ * a new colour, size or motion style is a design decision, not a styling choice.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* Locked brand hexes. Reference only, and the stage blends (ADR 0018). */
+  --ku-brand-deep-atmosphere: #142F3B;
+  --ku-brand-calm-current: #27606A;
+  --ku-brand-quiet-sky: #9FC9D5;
+  --ku-brand-soft-mist: #F4F6F5;
+  --ku-brand-night-layer: #0D191E;
+  --ku-brand-cloud-white: #EFF4F3;
+
+  /* Semantic roles, light. */
+  --ku-background: #F4F6F5;
+  --ku-surface: #FFFFFF;
+  --ku-surface-muted: #E7EEED;
+  --ku-stage: #D7DCDD;
+  --ku-text-primary: #142F3B;
+  --ku-text-secondary: #576B73;
+  --ku-brand-accent: #27606A;
+  --ku-primary-fill: #142F3B;
+  --ku-text-on-fill: #EFF4F3;
+  --ku-border-subtle: #CCD2D4;
+  --ku-border-defined: #5C7A83;
+  --ku-focus-ring: #27606A;
+
+  /* Atmosphere states, light only. All seven collapse to the neutral stage in
+     dark by decision (ADR 0018 section 3), so dark never animates a tint. */
+  --ku-stage-clear-day: #CBE1E5;
+  --ku-stage-veiled-day: #C2D1D3;
+  --ku-stage-falling-day: #98C3CF;
+  --ku-stage-clear-night: #8FB8C4;
+  --ku-stage-veiled-night: #A4AFB3;
+  --ku-stage-falling-night: #7DA4B0;
+
+  /* Space. Each step has exactly one job (design-language.md Law 2). */
+  --ku-space-xs: 4px;   /* a label to its value */
+  --ku-space-sm: 8px;   /* siblings in one group */
+  --ku-space-md: 12px;  /* the default: between groups and sections */
+  --ku-space-lg: 16px;  /* container inset */
+  --ku-space-xl: 24px;  /* once per page, hero block to body */
+  --ku-space-2xl: 32px; /* trailing space only */
+
+  --ku-radius-compact: 8px;
+  --ku-radius-control: 12px;
+  --ku-radius-card: 20px;
+  --ku-radius-sheet: 28px;
+  --ku-radius-pill: 999px;
+
+  --ku-border-width-subtle: 1px;
+  --ku-border-width-strong: 2px;
+  --ku-touch-target: 44px;
+  --ku-max-content-width: 800px;
+
+  --ku-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --ku-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --ku-motion-fast: 120ms;
+  --ku-motion-normal: 200ms;
+  --ku-motion-deliberate: 320ms;
+  --ku-motion-stagger: 45ms;
+  --ku-ambient-calm: 1500ms;
+  --ku-ambient-moderate: 1000ms;
+  --ku-ambient-intense: 650ms;
+}
+
+/* Semantic roles, dark. The guard lets a future explicit light choice win. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ku-background: #0D191E;
+    --ku-surface: #142F3B;
+    --ku-surface-muted: #183039;
+    --ku-stage: #122A35;
+    --ku-text-primary: #EFF4F3;
+    --ku-text-secondary: #8FA5AC;
+    --ku-brand-accent: #9FC9D5;
+    --ku-primary-fill: #39707A;
+    --ku-text-on-fill: #EFF4F3;
+    --ku-border-subtle: #26393F;
+    --ku-border-defined: #5E899A;
+    --ku-focus-ring: #9FC9D5;
+    --ku-stage-clear-day: var(--ku-stage);
+    --ku-stage-veiled-day: var(--ku-stage);
+    --ku-stage-falling-day: var(--ku-stage);
+    --ku-stage-clear-night: var(--ku-stage);
+    --ku-stage-veiled-night: var(--ku-stage);
+    --ku-stage-falling-night: var(--ku-stage);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ku-background: #0D191E;
+  --ku-surface: #142F3B;
+  --ku-surface-muted: #183039;
+  --ku-stage: #122A35;
+  --ku-text-primary: #EFF4F3;
+  --ku-text-secondary: #8FA5AC;
+  --ku-brand-accent: #9FC9D5;
+  --ku-primary-fill: #39707A;
+  --ku-text-on-fill: #EFF4F3;
+  --ku-border-subtle: #26393F;
+  --ku-border-defined: #5E899A;
+  --ku-focus-ring: #9FC9D5;
+  --ku-stage-clear-day: var(--ku-stage);
+  --ku-stage-veiled-day: var(--ku-stage);
+  --ku-stage-falling-day: var(--ku-stage);
+  --ku-stage-clear-night: var(--ku-stage);
+  --ku-stage-veiled-night: var(--ku-stage);
+  --ku-stage-falling-night: var(--ku-stage);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ku-motion-fast: 0ms;
+    --ku-motion-normal: 0ms;
+    --ku-motion-deliberate: 0ms;
+    --ku-motion-stagger: 0ms;
+    --ku-ambient-calm: 0ms;
+    --ku-ambient-moderate: 0ms;
+    --ku-ambient-intense: 0ms;
+  }
+}
+
+/*
+ * The type scale, as classes. Each role is three or four coupled properties;
+ * splitting them into single variables invites a page to author its own size,
+ * which the design system forbids. Sentence case everywhere. Nothing below
+ * caption 13px except eyebrow, and nothing above display 56px.
+ */
+.ku-display {
+  font-size: 56px;
+  line-height: 56px;
+  font-weight: 700;
+  letter-spacing: -1.5px;
+}
+
+.ku-title-large {
+  font-size: 34px;
+  line-height: 41px;
+  font-weight: 700;
+  letter-spacing: -0.6px;
+}
+
+.ku-title {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+.ku-body {
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.ku-body-strong {
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.ku-label {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.ku-caption {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.ku-eyebrow {
+  font-size: 10.5px;
+  line-height: 14px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
