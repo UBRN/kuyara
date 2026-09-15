@@ -191,8 +191,8 @@ export class SqliteWeatherLocalDataSource implements WeatherLocalDataSource {
   async replaceSnapshot(record: WeatherSnapshotRecord): Promise<WeatherSnapshotRecord> {
     let result: WeatherSnapshotRecord | null = null;
     await this.database.withExclusiveTransactionAsync(async (transaction) => {
-      // Expo runs this transaction on a separate connection where foreign keys are off,
-      // so ON DELETE CASCADE never fires: remove the hourly rows explicitly.
+      // This explicit delete owns the removal of the hourly rows; the wrapper enforces foreign
+      // keys on the transaction connection, so ON DELETE CASCADE now fires as well and finds none.
       await transaction.runAsync(
         `DELETE FROM weather_hourly_entries WHERE snapshot_id IN (
            SELECT id FROM weather_snapshots WHERE local_profile_id = ? AND location_key = ?

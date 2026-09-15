@@ -163,8 +163,9 @@ test('replacing and pruning snapshots removes their hourly rows without the casc
   const seeded = await dataSource.getSnapshot(profileId, istanbul.locationKey);
   assert.equal(seeded.id, firstId);
 
-  // Expo opens every transaction on a fresh connection with foreign keys off, so
-  // ON DELETE CASCADE never fires on the device. Reproduce that here.
+  // The device enforces foreign keys on every transaction connection, so the cascade fires
+  // there too. Switch it off here so the explicit delete in `replaceSnapshot` is proven to
+  // own the hourly-row removal on its own.
   await database.execAsync('PRAGMA foreign_keys = OFF');
   const replaced = await dataSource.replaceSnapshot({
     ...seeded, id: secondId, fetchedAt: '2026-07-30T11:00:00.000Z',

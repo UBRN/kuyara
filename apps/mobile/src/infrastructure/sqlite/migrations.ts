@@ -12,11 +12,27 @@ type Migration = Readonly<{
 
 export const latestDatabaseVersion = 13;
 
-// Every FOREIGN KEY declared below is documentation, not a runtime guarantee.
-// `withExclusiveTransactionAsync` opens each transaction body on a fresh connection with
-// `useNewConnection: true`, where foreign keys are off, so RESTRICT and CASCADE never fire
-// for application writes; only the weather data source compensates by hand, deleting the
-// hourly rows itself (`sqlite-weather-local-data-source.ts`, `replaceSnapshot`).
+// Foreign keys are enforced on every connection: `migrateDatabase` turns them on for the
+// shared connection below, and the transaction wrapper in `expo-sqlite-database.ts` turns
+// them on for each transaction connection before `BEGIN IMMEDIATE`. Every RESTRICT and
+// CASCADE declared here therefore fires for migrations and for application writes.
+//
+// Red lines for future migrations:
+// - A table rebuild must copy the v8/v13 recipe: `PRAGMA defer_foreign_keys = ON` before the
+//   copy, a `foreign_key_check` scoped to the rebuilt table, and `PRAGMA defer_foreign_keys =
+//   OFF` after that check when the rebuilt table is a parent. `DROP TABLE` of a parent runs
+//   an implicit DELETE that, under enforcement, bumps the deferred violation counter; the
+//   rename that follows makes the rows consistent again but the counter stays, so COMMIT
+//   fails unless the OFF pragma resets it. The pragma documentation cautions that this reset
+//   also lets a real violation commit, which is why the scoped check comes first
+//   (https://www.sqlite.org/pragma.html#pragma_defer_foreign_keys). Without the ON pragma a
+//   copied orphan fails at its INSERT and a dropped parent fails at DROP, and a released
+//   migration cannot be edited.
+// - Never add `INSERT OR REPLACE`, a DELETE on `local_profiles`, or a new DELETE on
+//   `weather_snapshots` without re-reading the FK graph: under enforcement REPLACE deletes the
+//   conflicting row first, which RESTRICT refuses for a profile with child rows and which
+//   cascades the hourly rows away for a snapshot. The weather data source's existing snapshot
+//   deletes are safe because they remove the hourly rows first.
 
 const migrationV1: Migration = {
   version: 1,
@@ -46,8 +62,6 @@ const migrationV1: Migration = {
 const migrationV2: Migration = {
   version: 2,
   async migrate(database) {
-    // The FOREIGN KEY below is documentation, not a runtime guarantee: application
-    // transactions run on a fresh connection with foreign keys off (see the note above the migrations).
     await database.execAsync(`
       CREATE TABLE IF NOT EXISTS wardrobe_items (
         id TEXT PRIMARY KEY NOT NULL,
@@ -127,8 +141,6 @@ const migrationV3: Migration = {
 const migrationV4: Migration = {
   version: 4,
   async migrate(database) {
-    // The FOREIGN KEY below is documentation, not a runtime guarantee: application
-    // transactions run on a fresh connection with foreign keys off (see the note above the migrations).
     await database.execAsync(`
       CREATE TABLE IF NOT EXISTS active_locations (
         local_profile_id TEXT PRIMARY KEY NOT NULL,
@@ -154,8 +166,6 @@ const migrationV4: Migration = {
       );
     `);
 
-    // The FOREIGN KEY below is documentation, not a runtime guarantee: application
-    // transactions run on a fresh connection with foreign keys off (see the note above the migrations).
     await database.execAsync(`
       CREATE TABLE IF NOT EXISTS weather_snapshots (
         id TEXT PRIMARY KEY NOT NULL,
@@ -188,8 +198,6 @@ const migrationV4: Migration = {
       );
     `);
 
-    // The FOREIGN KEY below is documentation, not a runtime guarantee: application
-    // transactions run on a fresh connection with foreign keys off (see the note above the migrations).
     await database.execAsync(`
       CREATE TABLE IF NOT EXISTS weather_hourly_entries (
         snapshot_id TEXT NOT NULL,
@@ -223,8 +231,6 @@ const migrationV4: Migration = {
 const migrationV5: Migration = {
   version: 5,
   async migrate(database) {
-    // The FOREIGN KEY below is documentation, not a runtime guarantee: application
-    // transactions run on a fresh connection with foreign keys off (see the note above the migrations).
     await database.execAsync(`
       CREATE TABLE IF NOT EXISTS recommendation_snapshots (
         id TEXT PRIMARY KEY NOT NULL,
@@ -271,7 +277,8 @@ const migrationV7: Migration = {
 const migrationV8: Migration = {
   version: 8,
   async migrate(database) {
-    // Defer on the transaction connection: Expo opens a separate connection for it.
+    // Defer: `DROP TABLE local_profiles` below runs an implicit DELETE that RESTRICT would
+    // refuse at once while child rows exist; deferred, it only bumps the violation counter.
     await database.execAsync('PRAGMA defer_foreign_keys = ON;');
     await database.execAsync(`
       CREATE TABLE local_profiles_v8 (
@@ -304,12 +311,14 @@ const migrationV8: Migration = {
       ALTER TABLE local_profiles_v8 RENAME TO local_profiles;
     `);
     // Only references to the rebuilt table are this migration's concern. Orphans under other
-    // parents (hourly rows whose snapshot was deleted with foreign keys off) must not block it.
+    // parents (hourly rows whose snapshot was deleted while the cascade was off, builds 2 and 3)
+    // must not block it.
     const violations = await database.getAllAsync<{ parent: string }>('PRAGMA foreign_key_check');
     if (violations.some((violation) => violation.parent === 'local_profiles')) {
       throw new Error('The profile migration violated foreign keys.');
     }
-    // The rebuilt table has been checked; clear deferred references to the dropped table.
+    // The rebuilt table has been checked; reset the counter the dropped table's implicit DELETE
+    // bumped, or COMMIT fails. This reset must follow the check (see the note above).
     await database.execAsync('PRAGMA defer_foreign_keys = OFF;');
   },
 };
@@ -347,8 +356,6 @@ const migrationV10: Migration = {
 const migrationV11: Migration = {
   version: 11,
   async migrate(database) {
-    // The FOREIGN KEY below is documentation, not a runtime guarantee: application
-    // transactions run on a fresh connection with foreign keys off (see the note above the migrations).
     await database.execAsync(`
       CREATE TABLE weather_alert_deliveries (
         id TEXT PRIMARY KEY NOT NULL,
@@ -389,10 +396,10 @@ const migrationV13: Migration = {
     // an identical constraint, so the only thing a check could find is an orphan that
     // already existed on the device, and throwing on it would leave the app unable to start
     // (TestFlight build 3). An orphan survives the rebuild exactly as it survived the
-    // original table. SQLite clears the deferral at the end of the transaction.
+    // original table: copying it bumps the deferred counter, the implicit DELETE of the old
+    // table lowers it again, and COMMIT sees zero. No parent is dropped here, so no reset is
+    // needed; SQLite clears the deferral at the end of the transaction.
     await database.execAsync('PRAGMA defer_foreign_keys = ON;');
-    // The FOREIGN KEY below is documentation, not a runtime guarantee: application
-    // transactions run on a fresh connection with foreign keys off (see the note above the migrations).
     await database.execAsync(`
       CREATE TABLE recommendation_snapshots_v13 (
         id TEXT PRIMARY KEY NOT NULL,
@@ -453,9 +460,12 @@ const migrationRuns = new WeakMap<SqliteDatabase, Promise<void>>();
 /**
  * One migration run per database handle. Six composition roots call this on the one
  * connection `openKuyaraDatabase` memoizes; without the memo they all read
- * `user_version = 0` on a clean install and race for the same `BEGIN EXCLUSIVE`, each on its
- * own transaction connection whose `busy_timeout` is 0. The in-transaction version re-check
- * keeps the result correct, but the loser still surfaces SQLITE_BUSY as a bootstrap error.
+ * `user_version = 0` on a clean install and race the same migration, each on its own
+ * transaction connection. On the device that was a deferred `BEGIN` with `busy_timeout` 0
+ * (`BEGIN EXCLUSIVE` was only the test double), so the loser failed on its first write with
+ * SQLITE_BUSY and surfaced it as a bootstrap error; the in-transaction version re-check kept
+ * the result correct, not the error. This memo is the fix. The wrapper now also issues
+ * `BEGIN IMMEDIATE` behind a busy timeout, so any remaining contention waits instead.
  *
  * A failed run is not cached: the entry is dropped so the next caller retries.
  */
