@@ -1,6 +1,7 @@
 {
   "cli": {
     "version": ">= 23.0.0",
+    "requireCommit": true,
     "appVersionSource": "remote",
     "promptToConfigurePushNotifications": false
   },
@@ -8,12 +9,21 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "node": "24.21.0",
+      "pnpm": "11.18.0",
+      "env": {
+        "EAS_USE_CACHE": "1"
+      },
       "channel": "development"
     },
     "production": {
       "environment": "production",
       "autoIncrement": true,
+      "node": "24.21.0",
+      "pnpm": "11.18.0",
+      "uploadSourceMaps": true,
       "env": {
+        "EAS_USE_CACHE": "1",
         "EXPO_PUBLIC_KUYARA_WORKER_BASE_URL": "https://kuyara-worker.ubarin08.workers.dev"
       },
       "channel": "production"

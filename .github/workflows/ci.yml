@@ -40,6 +40,11 @@ jobs:
       - name: Generate Expo types
         run: pnpm --filter @kuyara/mobile exec expo customize tsconfig.json
 
+      # expo-doctor is not a workspace dependency, so it runs through dlx.
+      - name: Expo Doctor
+        run: pnpm dlx expo-doctor@latest
+        working-directory: apps/mobile
+
       - name: Lint, typecheck, test and bundle the Worker
         run: pnpm check
 

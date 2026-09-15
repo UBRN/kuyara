@@ -191,8 +191,8 @@ mentions creating an account, because the live version's description cannot be e
 while it is on sale; the correction reaches the store with the next build submission.
 
 Continuous integration and the iOS release workflow now exist in the repository.
-`.github/workflows/ci.yml` installs from the lockfile and runs `pnpm check` and the
-mobile component suite on every push to `main` and every pull request, and
+`.github/workflows/ci.yml` installs from the lockfile and runs Expo Doctor, `pnpm check`
+and the mobile component suite on every push to `main` and every pull request, and
 `apps/mobile/.eas/workflows/release-ios.yml` builds the production iOS binary and submits
 it with the `production` submit profile, started only by `eas workflow:run` (see
 [Release path](testing.md#release-path)). Neither has run yet. The release workflow needs
