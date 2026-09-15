@@ -92,19 +92,12 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   Models module, migration 13, the motion package, the pre-submission sweep, EAS Observe
   and the on-device prompt's archetype rules. It was uploaded on 2026-09-13 and passed
   the maintainer's physical-device pass the same day; builds 4 and 5 are superseded and
-  build 5 was never distributed. The store version string follows the
-  `0.MINOR.YYYYMMDD` scheme: the leading 0 says the product is not yet declared stable,
-  the middle number counts minor updates, and the trailing date stamps the update. The
-  first store version is `0.1.20260913`, set in App Store Connect and in `app.json`, and
-  build 8 (built from commit 67c20ae, uploaded and processed on 2026-09-13) carries it
-  and is the build attached to the App Store version; build 7, the same version string
-  without the validation-gate fix, and build 6, still versioned 1.0.0, are superseded.
-  The production profile auto-increments the build number; because
-  `runtimeVersion` follows the app version, every build of one version string shares
-  one runtime and no EAS Update may be published to the production channel until the
-  next binary is the only one installed. Preview and production profiles
-  use the deployed Worker. Shared code stays Android-compatible; Android validation is
-  deferred.
+  build 5 was never distributed. Build 8 carries the App Store version (see Release
+  State below); builds 6 and 7 are superseded, and the production profile points at the
+  deployed Worker. The version scheme and the EAS Update rule are in [Approved release
+  versioning and update path](product-decisions.md#approved-release-versioning-and-update-path),
+  and the commands are in [Release path](testing.md#release-path). Shared code stays
+  Android-compatible; Android validation is deferred.
 
 The shipped app has neither sign-in nor cross-device sync nor server-sent push. Supabase is the intended backend ([ADR 0022](adr/0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md))
 with nothing implemented, and the project is source-available under PolyForm
@@ -126,9 +119,9 @@ Analytics is sequenced before the first public App Store release, so milestones 
     2026-09-10: PostHog Cloud EU project 270871 with client IP discard on, the GeoIP
     transformation disabled, session replay off and twelve-month retention (ADR 0033
     sections 4 to 6); the two public Expo variables live in the EAS `production`
-    environment and the `production` build profile loads that environment. The `preview`
-    environment carries no variables, so preview builds stay analytics-off; a build from
-    the `production` profile is analytics-on wherever it is distributed. The DPA
+    environment and the `production` build profile loads that environment. A build from
+    the `production` profile is analytics-on wherever it is distributed; the
+    `development` profile loads no EAS environment and carries no PostHog key. The DPA
     condition closed on 2026-09-11: consent is the recorded lawful basis and the
     maintainer signed PostHog's DPA the same day (ADR 0033 section 7). The milestone is
     complete.

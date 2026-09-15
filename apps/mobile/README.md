@@ -31,9 +31,9 @@ Worker origins are intentionally distinct:
 | --- | --- | --- |
 | iOS Simulator and web | `http://127.0.0.1:8788` | Built-in development default |
 | Android emulator | `http://10.0.2.2:8788` | Built-in development default |
-| Preview and production builds | HTTPS deployed Worker | Set in `eas.json` |
+| Production builds | HTTPS deployed Worker | Set in `eas.json` |
 
-Preview and production EAS profiles provide the deployed HTTPS origin. Development
+The production EAS profile provides the deployed HTTPS origin. Development
 keeps the platform-specific local defaults unless
 `EXPO_PUBLIC_KUYARA_WORKER_BASE_URL` overrides them; a physical device can use a
 reachable LAN origin through the same variable. The deployed Worker is

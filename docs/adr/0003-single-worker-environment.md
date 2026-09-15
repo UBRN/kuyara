@@ -1,4 +1,4 @@
-# ADR 0003: A single Worker environment, no named environments
+# ADR 0003: A single deployed Worker environment
 
 Status: Accepted (2026-08-29)
 
@@ -29,9 +29,11 @@ not the named environment.
 
 ## Decision
 
-`env.development` is removed. The Worker has exactly one environment: the
-top-level configuration, deployed with a plain `wrangler deploy` and no `--env`
-flag.
+`env.development` is removed. The Worker has exactly one deployed environment:
+the top-level configuration, deployed with a plain `wrangler deploy` and no
+`--env` flag. The only named environment, `e2e`, is local-only: it copies every
+top-level binding, empties the AI model lists so `wrangler dev --env e2e` serves
+the no-AI E2E tier, and is never deployed.
 
 `workers_dev: true`, `preview_urls: false` and `observability: { enabled: false }`
 move to the top level unchanged, so the deployment behavior those settings

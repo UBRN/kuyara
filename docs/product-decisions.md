@@ -90,7 +90,7 @@ Approved 2026-08-30. Documentation may state the present fact that the first rel
 - `POST /v1/weather` accepts only normalized integer hundredth-degree coordinates and an IANA time zone. Profile IDs, location keys, permission data, accuracy labels and raw coordinates are not part of the API.
 - Shared strict Zod schemas define the request, the provider-neutral success data with established condition codes and invariants, and minimal stable error codes. The response identifies data as `sample` or `live` plus a controlled `origin.sourceId` attribution identifier; raw provider structures stay internal.
 - The Worker validates before provider access, maps through an explicit API mapper, and sanitizes every failure. Responses expose no provider details, stacks, secrets or configuration.
-- Mobile validates every Worker body with the shared contracts before use. Local development defaults to the loopback or emulator host; preview and production EAS profiles provide the deployed HTTPS origin.
+- Mobile validates every Worker body with the shared contracts before use. Local development defaults to the loopback or emulator host; the production EAS profile provides the deployed HTTPS origin.
 
 ## Deterministic requirements, eligibility and composition
 
