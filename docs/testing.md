@@ -12,7 +12,11 @@ Run commands from the repository root unless a different directory is stated. Th
 pnpm check
 ```
 
-Run focused repository checks with `pnpm run lint`, `pnpm run typecheck`, or `pnpm test`. The mobile Jest component suite is separate from `pnpm check`:
+Run focused repository checks with `pnpm run lint`, `pnpm run typecheck`, or `pnpm test`. The mobile
+typecheck depends on the git-ignored `expo-env.d.ts` and `.expo/types/router.d.ts`, which `expo start`
+writes; on a fresh checkout with no dev server run, generate them first with
+`pnpm --filter @kuyara/mobile exec expo customize tsconfig.json`, which is what CI does. The mobile Jest
+component suite is separate from `pnpm check`:
 
 ```bash
 pnpm --filter @kuyara/mobile test:components

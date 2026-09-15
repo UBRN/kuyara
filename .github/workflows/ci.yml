@@ -34,6 +34,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Typed routes: `expo start` normally writes the git-ignored expo-env.d.ts and
+      # .expo/types/router.d.ts that the mobile typecheck depends on. On a fresh
+      # checkout they do not exist, so generate them the way the Expo docs prescribe.
+      - name: Generate Expo types
+        run: pnpm --filter @kuyara/mobile exec expo customize tsconfig.json
+
       - name: Lint, typecheck, test and bundle the Worker
         run: pnpm check
 
