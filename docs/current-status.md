@@ -7,7 +7,7 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
 ## Current State
 
 - **Mobile:** Expo SDK 57, React Native, Expo Router and Expo SQLite (schema version 13)
-  provide an accountless five-step onboarding flow (welcome, gender, dress style, birth
+  provide a five-step onboarding flow (welcome, gender, dress style, birth
   date, optional location); three primary tabs, Today, Weather and Profile, drawn by Expo
   Router Native Tabs, with the Closet and Settings as Profile stack destinations; private
   Closet photos; Turkish and English; System/Light/Dark appearance; and semantic haptics
@@ -106,7 +106,7 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   use the deployed Worker. Shared code stays Android-compatible; Android validation is
   deferred.
 
-The shipped app has no account, cross-device sync or server-sent push. Supabase is the intended backend ([ADR 0022](adr/0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md))
+The shipped app has neither sign-in nor cross-device sync nor server-sent push. Supabase is the intended backend ([ADR 0022](adr/0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md))
 with nothing implemented, and the project is source-available under PolyForm
 Noncommercial ([ADR 0024](adr/0024-relicensing-to-polyform-noncommercial.md)).
 
@@ -213,10 +213,10 @@ PostHog Error Tracking still has maintainer steps before an enabling build is su
 The EAS `production` environment needs `POSTHOG_CLI_API_KEY` as a personal key scoped to
 `error_tracking:write` and `organization:read`, `POSTHOG_CLI_PROJECT_ID=270871`, and
 `POSTHOG_CLI_HOST=https://eu.posthog.com`; the project id and host are set, the key is not.
-App Store Connect's existing Crash Data answer must gain the Analytics purpose now that
-0.1.20260913 is on sale, because the answer is app-level and Apple asks that it reflect
-the version on sale; the change goes through the web session (`asc web privacy pull`, edit,
-`plan`, `apply`, `publish`) or the App Privacy page. The organisation is on the free plan
+App Store Connect's Crash Data answer carries the Analytics purpose beside App Functionality
+since 2026-09-15, added and published through the `asc web privacy` pull, plan, apply and
+publish flow with one created row and nothing deleted, matching the privacy manifest in
+`apps/mobile/app.json`. The organisation is on the free plan
 without a payment method, so PostHog stops ingestion at the free allowance instead of
 billing; a billing limit becomes a step only if a card is added, and the owner's 80 and 100
 percent usage alert emails are on by default. A development build then needs one
