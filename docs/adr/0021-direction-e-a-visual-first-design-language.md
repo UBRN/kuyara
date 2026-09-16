@@ -71,8 +71,9 @@ not coordinates:
   the board because a shoe is large.
 - The composition is compact and asymmetric, and pieces sit on a small number of shared
   axes rather than each having its own.
-- No anatomical or body-position diagram. No equal-size icon grid. No arbitrary scatter.
-  No overlap unless it genuinely improves the composition.
+- No anatomical or body-position diagram, and no dressed avatar, mannequin or character
+  wearing the outfit: the pieces lie on the stage, not on a body. No equal-size icon grid.
+  No arbitrary scatter. No overlap unless it genuinely improves the composition.
 
 Today does not carry garment names or a five-row name list. A concise archetype name and
 one short rationale are enough on the overview.
@@ -151,9 +152,11 @@ introduced to fill the space.
 ### 9. Weather keeps its accepted direction
 
 Insight before measurement. The screen leads with what the conditions mean for a clothing
-decision, and raw measurements sit in one quiet row. The hourly forecast is a
-**horizontal scrollable rail**, scanned left to right, with the temperature series drawn
-behind it on the same scale. Do not use a vertically stacked hourly table.
+decision, and raw measurements sit in one quiet row. The first block after the title is
+the current-conditions card with the display temperature, and the location control sits
+below it. The hourly forecast is a **horizontal scrollable rail**, scanned left to right,
+with the temperature series drawn behind it on the same scale. Do not use a vertically
+stacked hourly table.
 
 ### 10. Motion
 
