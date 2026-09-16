@@ -1,12 +1,9 @@
-import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet } from 'react-native';
 
 import { AppText, Button, Screen, Surface } from '@/components/ui';
-import {
-  garmentCatalog,
-  getGarmentType,
-} from '@/features/catalog/domain/garment-catalog';
+import type { ClothingPreference } from '@/domain/preferences';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
 import { ANALYTICS_SCHEMA_VERSION } from '@/features/analytics/domain/analytics-events';
@@ -25,10 +22,19 @@ import {
   type WardrobeConfirmation,
 } from '@/features/wardrobe/presentation/wardrobe-confirmation';
 import { WardrobeItemFormScreen } from '@/features/wardrobe/presentation/wardrobe-item-form-screen';
-import { GarmentTypePickerScreen } from '@/features/wardrobe/presentation/garment-type-picker-screen';
 import { useMessages } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
+
+// The type sheet lives inside the form, so the form needs the profile's clothing
+// preference; the deleted picker route used to read it for itself.
+function clothingPreferenceOf(
+  profileApplication: ReturnType<typeof useProfileApplication>,
+): ClothingPreference | null {
+  return profileApplication.state.status === 'ready'
+    ? profileApplication.state.profile.clothingPreference
+    : null;
+}
 
 function useWardrobeExitGuard(
   isDirty: boolean,
@@ -74,17 +80,6 @@ function useWardrobeExitGuard(
   );
 
   return {
-    requestBack: () => {
-      if (!isDirty) {
-        router.back();
-        return;
-      }
-
-      confirmDiscard(() => {
-        allowExitRef.current = true;
-        router.back();
-      });
-    },
     returnToList: () => {
       allowExitRef.current = true;
       router.replace('../');
@@ -148,10 +143,6 @@ export function WardrobeNewItemRoute({
   } = useWardrobeApplication();
   const { analytics, firstUses } = useProductAnalytics();
   const profileApplication = useProfileApplication();
-  const router = useRouter();
-  const { garmentTypeId } = useLocalSearchParams<{
-    garmentTypeId?: string | string[];
-  }>();
   const [isDirty, setIsDirty] = useState(false);
   const guard = useWardrobeExitGuard(isDirty, confirmation);
   useScreenViewed('closet_item_form');
@@ -172,13 +163,10 @@ export function WardrobeNewItemRoute({
 
   return (
     <WardrobeItemFormScreen
+      clothingPreference={clothingPreferenceOf(profileApplication)}
       confirmation={confirmation}
-      garmentTypeSelection={
-        typeof garmentTypeId === 'string' ? getGarmentType(garmentTypeId) : null
-      }
       isBusy={state.isMutating}
       mode="create"
-      onBackRequested={guard.requestBack}
       onCreate={async (input, photoChange) => {
         const created = await createItem(input, photoChange);
         if (created.garmentTypeId) {
@@ -210,15 +198,6 @@ export function WardrobeNewItemRoute({
       }}
       onDiscardStagedPhoto={discardStagedPhoto}
       onDirtyChange={setIsDirty}
-      onGarmentTypeSelectionHandled={() =>
-        router.setParams({ garmentTypeId: undefined })
-      }
-      onOpenGarmentTypePicker={(selectedTypeId) =>
-        router.push({
-          pathname: '/wardrobe/garment-type',
-          params: { returnTo: 'new', selectedTypeId: selectedTypeId ?? '' },
-        })
-      }
       onSelectPhoto={preparePhoto}
     />
   );
@@ -233,10 +212,8 @@ export function WardrobeEditItemRoute({
 }>) {
   const application = useWardrobeApplication();
   const { analytics } = useProductAnalytics();
+  const profileApplication = useProfileApplication();
   const router = useRouter();
-  const { garmentTypeId } = useLocalSearchParams<{
-    garmentTypeId?: string | string[];
-  }>();
   const [item, setItem] = useState<WardrobeItem | null>(null);
   const [loadStatus, setLoadStatus] = useState<'loading' | 'error' | 'ready'>(
     'loading',
@@ -308,16 +285,13 @@ export function WardrobeEditItemRoute({
 
   return (
     <WardrobeItemFormScreen
+      clothingPreference={clothingPreferenceOf(profileApplication)}
       confirmation={confirmation}
-      garmentTypeSelection={
-        typeof garmentTypeId === 'string' ? getGarmentType(garmentTypeId) : null
-      }
       isBusy={
         application.state.status === 'ready' && application.state.isMutating
       }
       item={item}
       mode="edit"
-      onBackRequested={guard.requestBack}
       onDelete={async () => {
         // Taxonomy 5.8: `state` and `had_photo` are read from the loaded item before the
         // soft delete, not from the (already cleared) mutation result.
@@ -333,19 +307,6 @@ export function WardrobeEditItemRoute({
       }}
       onDiscardStagedPhoto={application.discardStagedPhoto}
       onDirtyChange={setIsDirty}
-      onGarmentTypeSelectionHandled={() =>
-        router.setParams({ garmentTypeId: undefined })
-      }
-      onOpenGarmentTypePicker={(selectedTypeId) =>
-        router.push({
-          pathname: '/wardrobe/garment-type',
-          params: {
-            itemId: item.id,
-            returnTo: 'edit',
-            selectedTypeId: selectedTypeId ?? '',
-          },
-        })
-      }
       onSelectPhoto={application.preparePhoto}
       onCreate={async () => undefined}
       onUpdate={async (input, photoChange = unchangedWardrobePhoto) => {
@@ -366,52 +327,6 @@ export function WardrobeEditItemRoute({
         guard.returnToList();
       }}
       photoPreviewUri={application.resolvePhotoUri(item.photoRelativePath)}
-    />
-  );
-}
-
-export function WardrobeGarmentTypePickerRoute() {
-  const profileApplication = useProfileApplication();
-  const router = useRouter();
-  const { itemId, returnTo, selectedTypeId } = useLocalSearchParams<{
-    itemId?: string | string[];
-    returnTo?: string | string[];
-    selectedTypeId?: string | string[];
-  }>();
-  useScreenViewed('closet_garment_type_picker');
-
-  if (
-    profileApplication.state.status !== 'ready' ||
-    !profileApplication.state.profile.clothingPreference
-  ) {
-    return null;
-  }
-
-  const selection =
-    typeof selectedTypeId === 'string' && getGarmentType(selectedTypeId)
-      ? selectedTypeId
-      : null;
-
-  return (
-    <GarmentTypePickerScreen
-      clothingPreference={profileApplication.state.profile.clothingPreference}
-      garmentTypes={garmentCatalog.garmentTypes}
-      onBack={() => router.back()}
-      onSelect={(nextTypeId) => {
-        if (returnTo === 'edit' && isWardrobeRouteId(itemId)) {
-          router.dismissTo({
-            pathname: '/wardrobe/[id]',
-            params: { garmentTypeId: nextTypeId, id: itemId },
-          });
-          return;
-        }
-
-        router.dismissTo({
-          pathname: '/wardrobe/new',
-          params: { garmentTypeId: nextTypeId },
-        });
-      }}
-      selectedTypeId={selection}
     />
   );
 }

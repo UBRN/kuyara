@@ -241,7 +241,7 @@ to keep coverage of "every screen" proportionate in event count.
 
 | Event | Trigger | Properties |
 | --- | --- | --- |
-| `screen_viewed` | A tracked screen gains focus. | `screen_name`: `onboarding`, `today`, `outfit_detail`, `weather`, `weather_location`, `profile`, `closet_list`, `closet_item_form`, `closet_garment_type_picker`, `settings`, `settings_appearance`, `settings_language`, `settings_notifications`, `settings_gender`, `settings_dress_style`, `settings_birth_date`, `settings_ai_status`, `settings_privacy`, `analytics_consent_sheet` |
+| `screen_viewed` | A tracked screen gains focus. | `screen_name`: `onboarding`, `today`, `outfit_detail`, `weather`, `weather_location`, `profile`, `closet_list`, `closet_item_form`, `settings`, `settings_appearance`, `settings_language`, `settings_notifications`, `settings_gender`, `settings_dress_style`, `settings_birth_date`, `settings_ai_status`, `settings_privacy`, `analytics_consent_sheet` |
 
 The implemented values mirror routes that exist, except `settings_privacy`, which is the
 required milestone 10 Privacy surface and remains provisional until that route is added.
@@ -685,8 +685,9 @@ Decided 2026-09-09, by the maintainer:
   declared "linked to the user" in the App Privacy questionnaire; ADR 0033 section 5
   carries the same linkage rule.
 - **Consent surface: the Today sheet after value is visible.** The sheet is shown once on
-  Today after the first recommendation has rendered. Accept is the primary action; decline
-  is a same-size secondary action directly beneath it. Decline stays one tap and is never
+  Today, from the second app session onwards, after the first recommendation of that session
+  has rendered; the first session is never interrupted by it. Accept is the primary action;
+  decline is a same-size secondary action directly beneath it. Decline stays one tap and is never
   hidden, reduced, faded, coloured as a warning or delayed; accept is never pre-selected
   and what is collected is never obscured. Declining changes nothing else
   in the product, and the copy says what is collected and how to withdraw.

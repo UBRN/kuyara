@@ -1,16 +1,17 @@
 import { SymbolView } from 'expo-symbols';
-import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { AppText } from '@/components/ui';
 import { borderWidths, interaction, layout, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
+// Law 6's ladder: the mark sits beside a `bodyStrong` 17 label, so it is 20, not 24.
+const MARK_SIZE = 20;
+
 type WardrobeOptionProps = Readonly<{
   label: string;
   selected: boolean;
   disabled?: boolean;
-  leading?: ReactNode;
   onPress: () => void;
   testID?: string;
 }>;
@@ -18,7 +19,6 @@ type WardrobeOptionProps = Readonly<{
 export function WardrobeOption({
   disabled = false,
   label,
-  leading,
   onPress,
   selected,
   testID,
@@ -50,14 +50,6 @@ export function WardrobeOption({
           disabled && styles.disabled,
         ];
       }}>
-      {leading ? (
-        <View
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-          style={styles.fixedAdornment}>
-          {leading}
-        </View>
-      ) : null}
       <AppText
         colorRole={selected ? 'textOnBrand' : 'textPrimary'}
         style={styles.label}
@@ -76,7 +68,7 @@ export function WardrobeOption({
             android: selected ? 'check_circle' : 'radio_button_unchecked',
             web: selected ? 'check_circle' : 'radio_button_unchecked',
           }}
-          size={24}
+          size={MARK_SIZE}
           tintColor={
             selected ? theme.colors.textOnBrand : theme.colors.iconSecondary
           }
@@ -102,13 +94,10 @@ const styles = StyleSheet.create({
     flex: 1,
     flexShrink: 1,
   },
-  fixedAdornment: {
-    flexShrink: 0,
-  },
   mark: {
     flexShrink: 0,
-    height: 24,
-    width: 24,
+    height: MARK_SIZE,
+    width: MARK_SIZE,
   },
   pressed: {
     opacity: interaction.pressedOpacity,

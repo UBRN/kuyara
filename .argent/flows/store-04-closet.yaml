@@ -1,7 +1,8 @@
 # The Closet grid with three owned pieces. A fresh install has none, so the
-# flow adds blouse, cardigan and jeans through the form. Choosing a type pops
-# the picker on its own; the save button sits below the fold, so each form is
-# swiped up before the tap.
+# flow adds blouse, cardigan and jeans through the form. The type row opens a
+# bottom sheet over the form and tapping a tile dismisses it; the tiles are
+# grouped by a category chip rail, so jeans needs the Bottoms chip first. The
+# save button sits below the fold, so each form is swiped up before the tap.
 # Starts from the onboarded state store-01-today left behind (see that flow).
 steps:
   - launch: com.ubrn.kuyara
@@ -40,9 +41,8 @@ steps:
   - await: { visible: { id: wardrobe-type-picker-row }, timeout: 10000 }
   - tap: { id: wardrobe-type-picker-row }
   - await: { visible: { id: wardrobe-type-blouse }, timeout: 10000 }
-  - echo: Jeans sit in the Bottom section below the fold of the type picker; one swipe brings it up.
-  - tool: gesture-swipe
-    args: { fromX: 0.5, fromY: 0.8, toX: 0.5, toY: 0.3, durationMs: 600 }
+  - echo: Jeans is a Bottom, so the sheet's category rail moves the grid to it.
+  - tap: { id: wardrobe-type-category-bottom }
   - await: { visible: { id: wardrobe-type-jeans }, timeout: 10000 }
   - tap: { id: wardrobe-type-jeans }
   - await: { visible: { id: wardrobe-entry-state-owned }, timeout: 10000 }

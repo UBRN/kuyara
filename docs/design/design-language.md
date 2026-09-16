@@ -60,6 +60,8 @@ A screen shows **at most three emphasis levels**, and **exactly one** hero.
 - **At most one accent-filled element per viewport.** If two things are filled with
   `brandAccent` at once, one of them is wrong. This matches the convention that [only
   one high-emphasis button belongs in a given context](https://polaris.shopify.com/components/page-actions).
+  The viewport under a presented sheet is the sheet; the scrim removes the page behind it
+  from the accent count.
 - The hero must be what the user opened the screen to get. A heading is never the hero.
   **The hero is not always a type role.** [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md)
   makes the garment composition Today's hero, and Today therefore carries no `display` at
@@ -107,7 +109,9 @@ Why this is stricter than the mockups: see [Relationship to the mockups](#relati
   plane either: it is the plane the garment composition sits on, and it carries no card,
   no secondary copy, and no bordered control. [ADR 0018](../adr/0018-the-atmospheric-condition-band.md)
   defines the stage's closed state set, derivations, contrast floors and flat rendering.
-  Do not add a separate full-width atmosphere strip.
+  Do not add a separate full-width atmosphere strip. A presented sheet is the chrome
+  plane: its fill is the ground of what it contains, and the page under its scrim is not
+  counted.
 - A plane change must coincide with a **change of information**. A plane is never
   introduced for decoration or for visual interest.
 - The card is identified by **radius 20 plus a 16 inset plus the fill step, together**.
