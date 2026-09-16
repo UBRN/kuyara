@@ -183,6 +183,16 @@ export function WardrobeListScreen({
       ? entryItems
       : entryItems.filter((item) => item.category === effectiveCategory);
 
+  // The empty sentence is scoped to the segment that is empty. "Owned or wanted" is only
+  // true when both lists are empty; on the Owned segment beside a populated wanted list
+  // it states a falsehood.
+  const emptyBody =
+    state.items.length === 0
+      ? copy.bothEmpty
+      : entryState === 'owned'
+        ? copy.ownedEmpty
+        : copy.wantedEmpty;
+
   const segmentOptions: readonly SegmentedControlOption<WardrobeEntryState>[] = [
     { label: copy.ownedLabel, value: 'owned' },
     { label: copy.wantedLabel, value: 'wanted' },
@@ -199,7 +209,7 @@ export function WardrobeListScreen({
       keyExtractor={(item) => item.id}
       ListEmptyComponent={
         <View style={styles.empty} testID="wardrobe-empty">
-          <AppText colorRole="textSecondary">{messages.profile.wardrobeEmpty}</AppText>
+          <AppText colorRole="textSecondary">{emptyBody}</AppText>
           <Button
             label={messages.profile.addPieceAction}
             onPress={onAdd}

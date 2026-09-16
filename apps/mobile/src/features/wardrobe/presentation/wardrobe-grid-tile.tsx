@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { AppText, GarmentTileArtwork } from '@/components/ui';
+import { AppText, GarmentTileArtwork, useTextScaling } from '@/components/ui';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import type { AppMessages } from '@/localization/messages';
@@ -58,6 +58,9 @@ export function WardrobeGridTile({
   testID,
 }: WardrobeGridTileProps) {
   const theme = useKuyaraTheme();
+  // A long Turkish name needs a third line once the layout stacks; below that the
+  // two-line cap keeps the grid's rows aligned (ADR 0028 section 3's threshold).
+  const { usesStackedLayout } = useTextScaling();
   const photoUri = resolvePhotoUri(item.photoRelativePath);
   const { subline, title } = resolveTileCopy(item, messages);
   const accessibilityLabel = [title, subline].filter(Boolean).join('. ');
@@ -89,7 +92,10 @@ export function WardrobeGridTile({
           placeholderTestID={`wardrobe-photo-placeholder-${item.id}`}
         />
       </View>
-      <AppText numberOfLines={2} style={{ width: geometry.width }} variant="label">
+      <AppText
+        numberOfLines={usesStackedLayout ? 3 : 2}
+        style={{ width: geometry.width }}
+        variant="label">
         {title}
       </AppText>
       {subline ? (
