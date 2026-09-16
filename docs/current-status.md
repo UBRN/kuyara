@@ -286,9 +286,8 @@ steps with no crash, error screen or hang: onboarding with a manual location, th
 recommendation, the consent sheet, outfit detail, Weather, Closet add and delete,
 Settings with the notification permission and the AI status screen, regeneration after
 a dress-style change, a cold relaunch showing the persisted recommendation, and pull to
-refresh. The badge read "Standard suggestions" throughout, which is the badge's
-rule: it appears only when every AI tier failed or was unavailable, and that evening the
-production AI quota was exhausted. The tour is evidence for the flows, not for the AI
+refresh. No generation-mode badge appeared, which is what a deterministic
+result looks like at rest, and that evening the production AI quota was exhausted. The tour is evidence for the flows, not for the AI
 tier. The weather no longer decides whether a tier is tried at all: a day that derives no
 clothing requirement reaches the AI tiers like any other, and the composed pool is what
 decides whether there is anything to choose from. One product observation came out of it and was settled on 2026-09-15: in mild weather
@@ -313,8 +312,8 @@ switcher, so the page metadata no longer inherits the GitHub repository descript
 the theme's "open source" footer is gone. No app preview video is used: Apple allows only raw
 in-app footage there, so it did not earn its place, and the preview sets in both
 localizations were emptied on 2026-09-13. The uploaded hero screenshot in both
-localizations shows a deterministic-fallback result ("Standard suggestions") whose
-archetype and reason read oddly beside a cloudy 24° forecast; whether to recapture it
+localizations shows a deterministic-fallback result, captured while that mode still
+carried a badge, whose archetype and reason read oddly beside a cloudy 24° forecast; whether to recapture it
 before submitting is the maintainer's call.
 
 ## Recently Completed

@@ -202,9 +202,9 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     }
     expect(within(result.getByTestId('today-provenance')).getByTestId('today-freshness'))
       .toHaveTextContent(presentation.header.freshness);
-    // ADR 0034 section 4: the deterministic badge carries words with no AI mark.
-    expect(result.getByTestId('today-generation-mode'))
-      .toHaveTextContent(messages[language].today.generationModeStandard);
+    // ADR 0034 section 4: a settled deterministic result carries no badge at all, so the
+    // provenance line holds nothing but the freshness stamp.
+    expect(result.queryByTestId('today-generation-mode')).not.toBeOnTheScreen();
     expect(result.queryByTestId('today-provenance-sparkle', { includeHiddenElements: true }))
       .not.toBeOnTheScreen();
     expect(result.queryByText(messages[language].today.emphasis.recommended)).not.toBeOnTheScreen();
@@ -224,7 +224,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
       .not.toHaveProperty('opacity');
     expect(isHiddenFromAccessibility(result.getByTestId('today-sky', hidden))).toBe(true);
     expect(StyleSheet.flatten(result.getByTestId('today-outfit-list').props.style))
-      .toMatchObject({ flexDirection: 'row', gap: spacing.lg });
+      .toMatchObject({ flexDirection: 'row', gap: spacing.md });
     expect(result.getByTestId('today-outfit-list').children).toHaveLength(2);
     expect(result.getByRole('header', { name: messages[language].today.otherOptionsHeading }))
       .toHaveStyle({ ...typography.bodyStrong });
@@ -237,7 +237,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     expect(onOpenOutfitDetail.mock.calls).toEqual([[todayOutfitId(1)], [todayOutfitId(1)]]);
     // Both alternates share the taller of their two derived stage heights, so their
     // captions sit on one baseline; the shorter board is centred in its stage.
-    const alternateWidth = (358 - spacing.lg) / 2;
+    const alternateWidth = (358 - spacing.md) / 2;
     const tallestStage = Math.max(
       ...presentation.suggestions
         .slice(1)

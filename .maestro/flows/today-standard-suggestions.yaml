@@ -1,5 +1,5 @@
 appId: com.ubrn.kuyara
-name: Today falls back to the deterministic "Standard suggestions" badge
+name: Today falls back to the deterministic recommendation and badges nothing
 tags:
   - critical
   - ios
@@ -109,10 +109,14 @@ tags:
     timeout: 2000
     optional: true
 
-# The badge itself: the deterministic fallback, never an AI tier. The recommendation already
-# resolved (see above), so this should settle almost immediately.
+# The deterministic fallback carries no badge at rest (ADR 0034 section 4), so the settled
+# observable is an outfit whose provenance line holds nothing but the freshness stamp: the
+# archetype is on screen and `today-generation-mode` does not exist. Either AI tier would
+# have put a badge there. The recommendation already resolved (see above), so this should
+# settle almost immediately.
 - extendedWaitUntil:
     visible:
-      id: "today-generation-mode"
-      text: ".*Standard suggestions.*"
+      id: "today-archetype"
     timeout: 10000
+- assertNotVisible:
+    id: "today-generation-mode"

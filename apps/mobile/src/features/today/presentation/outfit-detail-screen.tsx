@@ -365,8 +365,12 @@ export function OutfitDetailScreen({
             <View style={styles.reasonList}>
               {suggestion.requirementRows.map((row) => (
                 <View key={row.id} style={styles.reasonRow}>
+                  {/* Law 1's accent budget: a satisfied requirement is a bullet beside its
+                      sentence, not a status site, so it carries the secondary icon ink and
+                      leaves the viewport's one accent fill to the ownership markers. A
+                      tradeoff is a real status and keeps Law 4's ink, glyph and text. */}
                   <Icon
-                    color={row.kind === 'tradeoff' ? theme.colors.warningInk : theme.colors.brandAccent}
+                    color={row.kind === 'tradeoff' ? theme.colors.warningInk : theme.colors.iconSecondary}
                     name={row.kind === 'tradeoff' ? 'warning' : 'checkCircle'}
                     size={20}
                   />

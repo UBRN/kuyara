@@ -223,8 +223,8 @@ pnpm --filter @kuyara/mobile measure:ai-chain --base-url http://127.0.0.1:8788 -
 
 Two Maestro flows use these switches:
 
-- `.maestro/flows/today-standard-suggestions.yaml`: against the `e2e` Worker with the on-device switch off, "Standard suggestions" appears. It is part of the default `pnpm e2e:ios` set and passes in about 45 seconds.
-- `.maestro/flows/today-ai-recommendation.yaml`: against the real Worker with the on-device tier enabled, Today reaches an AI badge within 46 seconds and never shows "Standard suggestions". It is tagged `ai-network`, excluded from the default set because each run spends the shared free AI quota, and run explicitly with `maestro test .maestro/flows/today-ai-recommendation.yaml`. While that quota is spent (it resets at 00:00 UTC) the flow fails at the badge, and the measurement script shows 503 `ai_unavailable` on every call.
+- `.maestro/flows/today-standard-suggestions.yaml`: against the `e2e` Worker with the on-device switch off, Today settles on an outfit and shows no generation-mode badge, which is what the deterministic fallback looks like at rest. It is part of the default `pnpm e2e:ios` set and passes in about 45 seconds.
+- `.maestro/flows/today-ai-recommendation.yaml`: against the real Worker with the on-device tier enabled, Today reaches an AI badge within 46 seconds. It is tagged `ai-network`, excluded from the default set because each run spends the shared free AI quota, and run explicitly with `maestro test .maestro/flows/today-ai-recommendation.yaml`. While that quota is spent (it resets at 00:00 UTC) the flow fails at the badge, and the measurement script shows 503 `ai_unavailable` on every call.
 
 ## Release path
 

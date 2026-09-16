@@ -13,10 +13,12 @@ export type HourlyRailMetrics = Readonly<{
   /** The card inset the rail's content is padded by on both sides. */
   inset: number;
   bandHeight: number;
-  /** The temperature label's line box. It sits above its point, so the band keeps room for it. */
+  /**
+   * The temperature label's line box. The label straddles its own point, so the band keeps
+   * half a line box clear at each end and the series passes behind the numbers rather than
+   * under them (ADR 0021 section 9).
+   */
   labelHeight: number;
-  /** The gap between a label's bottom edge and its point. */
-  labelGap: number;
 }>;
 
 export type HourlyRailLayout = Readonly<{
@@ -28,15 +30,15 @@ export type HourlyRailLayout = Readonly<{
 
 export function layoutHourlyRail(
   temperatures: readonly number[],
-  { bandHeight, columnGap, columnWidth, inset, labelGap, labelHeight }: HourlyRailMetrics,
+  { bandHeight, columnGap, columnWidth, inset, labelHeight }: HourlyRailMetrics,
 ): HourlyRailLayout {
   const columns = temperatures.length;
   const contentWidth =
     inset * 2 + columns * columnWidth + Math.max(0, columns - 1) * columnGap;
-  // The highest point still leaves room for its label above it; the lowest point keeps the
-  // stroke inside the band.
-  const top = labelHeight + labelGap;
-  const bottom = bandHeight - labelGap;
+  // Each label is centred on its own point, so the extreme points keep half a line box
+  // inside the band and no label is clipped at either end.
+  const top = labelHeight / 2;
+  const bottom = bandHeight - labelHeight / 2;
   const minimum = Math.min(...temperatures);
   const maximum = Math.max(...temperatures);
   // A flat series has no range to map, so it sits on the band's centre line rather than

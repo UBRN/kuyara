@@ -41,7 +41,7 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 // informative on its own.
 const LONG_WAIT_MS = 8_000;
 // Law 6: a caption-sized mark, the same 16 the ownership and menu glyphs use.
-const ACCESSORY_BADGE_SIZE = 16;
+const CAPTION_GLYPH_SIZE = 16;
 
 type TodayScreenProps = Readonly<{
   state: TodayScreenState;
@@ -72,7 +72,7 @@ export function TodayScreen({
   const copy = getMessages(language).today;
   const theme = useKuyaraTheme();
   // One shared threshold (ADR 0019): the stacked layout is the same rule ListRow applies.
-  const { fontScale, usesStackedLayout: usesAccessibilityLayout } = useTextScaling();
+  const { usesStackedLayout: usesAccessibilityLayout } = useTextScaling();
   // Measure the content after Screen applies its safe-area insets and width cap.
   const [contentWidth, setContentWidth] = useState(0);
   const isGenerating = presentation.kind === 'loading';
@@ -205,9 +205,10 @@ export function TodayScreen({
     ? ambientIntensityOf(state.snapshot.weather.current.condition)
     : 'calm';
   const [primary, ...alternates] = presentation.suggestions;
+  // The two tiles share the row's own gap, so the width follows `styles.outfitList`.
   const alternateWidth = usesAccessibilityLayout
     ? contentWidth
-    : Math.max(0, (contentWidth - spacing.lg) / 2);
+    : Math.max(0, (contentWidth - spacing.md) / 2);
   // Each board's stage height is derived from its own pieces, so two alternates side by
   // side would end at different heights and their captions would sit on different
   // baselines. The alternates share the taller stage and centre their board in it.
@@ -281,7 +282,7 @@ export function TodayScreen({
             </Pressable>
             <AppText
               colorRole="textSecondary"
-              style={[styles.rationale, { maxWidth: theme.typography.body.fontSize * fontScale * 31 * 0.5 }]}
+              style={styles.rationale}
               testID="today-rationale">
               {primary.reasons[0]}
             </AppText>
@@ -301,7 +302,7 @@ export function TodayScreen({
               <View style={styles.generationMode}>
                 {presentation.generationMode.showsAiMark ? (
                   <View testID="today-provenance-sparkle">
-                    <Icon color={theme.colors.brandAccent} name="sparkle" size={12} />
+                    <Icon color={theme.colors.brandAccent} name="sparkle" size={CAPTION_GLYPH_SIZE} />
                   </View>
                 ) : null}
                 <AppText
@@ -438,15 +439,15 @@ function AccessoryBadges({
         <GarmentTileArtwork
           category={accessory.category}
           colorFamily={null}
-          glyphSize={ACCESSORY_BADGE_SIZE}
-          height={ACCESSORY_BADGE_SIZE}
+          glyphSize={CAPTION_GLYPH_SIZE}
+          height={CAPTION_GLYPH_SIZE}
           key={accessory.accessorySlot}
           photoTestID={`today-accessory-photo-${accessory.garmentTypeId}`}
           photoUri={null}
           placeholderTestID={`today-accessory-glyph-${accessory.garmentTypeId}`}
           silhouetteTestID={`today-accessory-${accessory.garmentTypeId}`}
           garmentTypeId={accessory.garmentTypeId}
-          width={ACCESSORY_BADGE_SIZE}
+          width={CAPTION_GLYPH_SIZE}
         />
       ))}
     </View>
@@ -525,8 +526,8 @@ const styles = StyleSheet.create({
   freshness: { flexShrink: 1 },
   stackedFreshness: { width: '100%' },
   alternates: { marginTop: spacing.xl },
-  alternatesHeading: { paddingBottom: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth },
-  outfitList: { flexDirection: 'row', gap: spacing.lg, marginTop: spacing.md },
+  alternatesHeading: { paddingBottom: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth },
+  outfitList: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
   stackedOutfitList: { flexDirection: 'column', gap: spacing.md },
   alternateStage: { borderRadius: 14, justifyContent: 'center', overflow: 'hidden' },
   alternateTitleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },

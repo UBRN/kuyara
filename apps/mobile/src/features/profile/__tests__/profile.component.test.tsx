@@ -110,7 +110,7 @@ function itemWithId(id: string, overrides: Partial<WardrobeItem> = {}): Wardrobe
   return { ...baseItem, id, ...overrides };
 }
 
-test('the Closet heading shows the owned count and opens the closet with no filter', async () => {
+test('the Closet heading counts both entry states and opens the closet with no filter', async () => {
   mockFontScale(1);
   const onOpenWardrobe = jest.fn();
   const result = await render(
@@ -128,7 +128,8 @@ test('the Closet heading shows the owned count and opens the closet with no filt
     </TestProviders>,
   );
 
-  expect(result.getByTestId('profile-closet-heading-count')).toHaveTextContent('2');
+  // Two owned plus one wanted: the heading counts the Closet, not one of its states.
+  expect(result.getByTestId('profile-closet-heading-count')).toHaveTextContent('3');
   await fireEvent.press(result.getByTestId('profile-closet-heading'));
   expect(onOpenWardrobe).toHaveBeenCalledWith();
 });
@@ -258,7 +259,7 @@ test('the empty Closet shows the sentence and the Add a piece action, and hides 
   expect(onOpenWardrobe).toHaveBeenCalledWith();
 });
 
-test('a wanted-only closet keeps the Wanted row and skips the rail', async () => {
+test('a wanted-only closet counts its pieces and falls back to the wanted rail', async () => {
   mockFontScale(1);
   const onOpenWardrobe = jest.fn();
   const result = await render(
@@ -271,7 +272,10 @@ test('a wanted-only closet keeps the Wanted row and skips the rail', async () =>
     </TestProviders>,
   );
 
-  expect(result.queryByTestId('profile-rail')).toBeNull();
+  // The empty state needs both lists empty, so a wanted-only Closet keeps a rail and a
+  // count rather than reading zero beside nothing at all.
+  expect(result.getByTestId('profile-rail')).toBeOnTheScreen();
+  expect(result.getByTestId('profile-closet-heading-count')).toHaveTextContent('1');
   expect(result.queryByText(messages.en.profile.wardrobeEmpty)).toBeNull();
   const wantedRow = result.getByTestId('profile-wanted-row');
   expect(wantedRow.props.accessibilityLabel).toBe(`${messages.en.profile.wantedLabel}, 1`);

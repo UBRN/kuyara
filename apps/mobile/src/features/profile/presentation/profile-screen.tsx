@@ -236,12 +236,17 @@ export function ProfileScreen({
   const hasOwned = ownedItems.length > 0;
   const hasWanted = wantedItems.length > 0;
   const isFullyEmpty = isReady && !hasOwned && !hasWanted;
+  // The heading counts the whole Closet, both states, because the empty state is the one
+  // that needs both lists empty. A wanted-only Closet used to read "0" beside no rail at
+  // all; it now counts its pieces and the rail falls back to what it holds.
+  const closetCount = ownedItems.length + wantedItems.length;
+  const railItems = hasOwned ? ownedItems : wantedItems;
 
   return (
     <Screen contentContainerStyle={styles.content} testID="profile-screen">
       <Pressable
         accessibilityHint={copy.closetHeadingHint}
-        accessibilityLabel={copy.closetHeadingAccessibilityLabel({ count: ownedItems.length })}
+        accessibilityLabel={copy.closetHeadingAccessibilityLabel({ count: closetCount })}
         accessibilityRole="button"
         onPress={() => onOpenWardrobe()}
         style={({ pressed }) => [
@@ -264,7 +269,7 @@ export function ProfileScreen({
                 tabularNumbers
                 testID="profile-closet-heading-count"
                 variant="body">
-                {ownedItems.length}
+                {closetCount}
               </AppText>
             ) : null}
           </>
@@ -279,7 +284,7 @@ export function ProfileScreen({
                 tabularNumbers
                 testID="profile-closet-heading-count"
                 variant="body">
-                {ownedItems.length}
+                {closetCount}
               </AppText>
             ) : null}
             <Icon color={theme.colors.iconSecondary} name="chevronRight" size={20} />
@@ -300,14 +305,14 @@ export function ProfileScreen({
             testID="profile-add-piece-button"
           />
         </View>
-      ) : hasOwned ? (
+      ) : (
         <ClosetRail
-          items={ownedItems}
+          items={railItems}
           onOpenWardrobe={() => onOpenWardrobe()}
           resolvePhotoUri={resolvePhotoUri}
           scale={railScale}
         />
-      ) : null}
+      )}
 
       <View style={styles.group}>
         <ListRowGroup testID="profile-group">

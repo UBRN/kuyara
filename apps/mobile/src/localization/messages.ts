@@ -32,7 +32,6 @@ export type TodayMessages = Readonly<{
   // ADR 0034 section 4: one badge per generation mode, the words final, no Apple glyph.
   generationModeOnDeviceAi: string;
   generationModeAiAssisted: string;
-  generationModeStandard: string;
   generationModeAccessibilityLabel: (label: string) => string;
   backAction: string;
   otherOptionsHeading: string;
@@ -186,6 +185,8 @@ export type AppMessages = Readonly<{
   preferences: PreferenceMessages;
   settings: Readonly<{
     title: string;
+    generalHeading: string;
+    statusHeading: string;
     aboutYouHeading: string;
     aboutYouFooter: string;
     versionLine: (version: string, build?: string | null) => string;
@@ -509,6 +510,8 @@ const en = {
   },
   settings: {
     title: 'Settings',
+    generalHeading: 'General',
+    statusHeading: 'Status and permissions',
     aboutYouHeading: 'About you',
     aboutYouFooter: 'Gender selects the catalog. Dress style shapes which suggestions come first. Birth date is optional and does not change suggestions.',
     versionLine: (version: string, build?: string | null) => build ? `Version ${version} (${build})` : `Version ${version}`,
@@ -776,7 +779,6 @@ const en = {
     title: 'Today',
     generationModeOnDeviceAi: 'Chosen on your device with Apple Intelligence',
     generationModeAiAssisted: 'AI-assisted',
-    generationModeStandard: 'Standard suggestions',
     generationModeAccessibilityLabel: (label: string) =>
       `Recommendation source: ${label}`,
     backAction: 'Back to Today',
@@ -987,6 +989,8 @@ const tr = {
   },
   settings: {
     title: 'Ayarlar',
+    generalHeading: 'Genel',
+    statusHeading: 'Durum ve izinler',
     aboutYouHeading: 'Senin hakkında',
     aboutYouFooter: 'Cinsiyet kataloğu belirler. Giyim tarzı hangi önerilerin önce geleceğini etkiler. Doğum tarihi isteğe bağlıdır ve önerileri değiştirmez.',
     versionLine: (version: string, build?: string | null) => build ? `Sürüm ${version} (${build})` : `Sürüm ${version}`,
@@ -1258,7 +1262,6 @@ const tr = {
     title: 'Bugün',
     generationModeOnDeviceAi: 'Apple Intelligence ile cihazında seçildi',
     generationModeAiAssisted: 'AI destekli',
-    generationModeStandard: 'Standart öneriler',
     generationModeAccessibilityLabel: (label: string) =>
       `Öneri kaynağı: ${label}`,
     backAction: 'Bugün’e dön',

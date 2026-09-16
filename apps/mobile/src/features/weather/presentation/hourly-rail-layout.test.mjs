@@ -8,14 +8,13 @@ const metrics = {
   columnGap: 8,
   columnWidth: 64,
   inset: 16,
-  labelGap: 4,
   labelHeight: 24,
 };
 
-// The highest point leaves its label's box and gap above it; the lowest keeps the stroke
-// inside the band.
-const top = metrics.labelHeight + metrics.labelGap;
-const bottom = metrics.bandHeight - metrics.labelGap;
+// Every label straddles its own point, so both extremes keep half a line box inside the
+// band and the series passes behind the numbers.
+const top = metrics.labelHeight / 2;
+const bottom = metrics.bandHeight - metrics.labelHeight / 2;
 const centre = (top + bottom) / 2;
 
 test('a single hour draws no polyline and centres its label', () => {
