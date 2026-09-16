@@ -38,6 +38,8 @@ export type TodayMessages = Readonly<{
   otherOptionsHeading: string;
   piecesHeading: string;
   reasonsHeading: string;
+  finishingTouchesHeading: string;
+  finishingTouchesAccessibilityLabel: (items: readonly string[]) => string;
   ownershipOwnedAction: string;
   ownershipWantedAction: string;
   ownershipChangeHint: string;
@@ -781,6 +783,9 @@ const en = {
     otherOptionsHeading: 'Other options',
     piecesHeading: 'Wear',
     reasonsHeading: 'Why it works',
+    finishingTouchesHeading: 'Finishing touches',
+    finishingTouchesAccessibilityLabel: (items) =>
+      `Finishing touches: ${items.join(', ')}.`,
     ownershipOwnedAction: 'I own it',
     ownershipWantedAction: 'I want it',
     ownershipChangeHint: 'Changes whether this piece is in your Closet',
@@ -798,6 +803,10 @@ const en = {
       mid_layer: 'Mid layer',
       outer_layer: 'Outer layer',
       footwear: 'Footwear',
+      head: 'Head',
+      neck: 'Neck',
+      hands: 'Hands',
+      handheld: 'Carry',
     },
     requirementNames: {
       thermal: 'Warmth',
@@ -1256,6 +1265,9 @@ const tr = {
     otherOptionsHeading: 'Diğer seçenekler',
     piecesHeading: 'Parçalar',
     reasonsHeading: 'Neden uygun',
+    finishingTouchesHeading: 'Son dokunuşlar',
+    finishingTouchesAccessibilityLabel: (items) =>
+      `Son dokunuşlar: ${items.join(', ')}.`,
     ownershipOwnedAction: 'Bende var',
     ownershipWantedAction: 'İstiyorum',
     ownershipChangeHint: 'Bu parçanın Gardırop durumunu değiştirir',
@@ -1273,6 +1285,10 @@ const tr = {
       mid_layer: 'Orta katman',
       outer_layer: 'Dış katman',
       footwear: 'Ayakkabı',
+      head: 'Baş',
+      neck: 'Boyun',
+      hands: 'Eller',
+      handheld: 'Yanına al',
     },
     requirementNames: {
       thermal: 'Sıcaklık koruması',

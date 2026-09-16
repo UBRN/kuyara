@@ -3,8 +3,9 @@
 Status: Accepted (2026-09-03)
 
 Implementation: complete. Native Settings lists, the Closet's segmented control, the
-native date picker, and the text field are implemented. `components/ui` remains the only
-importer, and the required mount checks are recorded below.
+native date picker, the text field, and the bottom sheet behind the garment-type picker
+are implemented. `components/ui` remains the only importer, and the required mount checks
+are recorded below.
 
 Resolves: the "generic text-input, selector, switch, modal, or feedback frameworks"
 entry on [`design-system.md`](../design/design-system.md)'s deferred list.
@@ -38,10 +39,16 @@ recorded for the status colours.
 
 ### 1. Adopt @expo/ui for the control layer
 
-Settings, the preference pickers, the garment-type picker, the wardrobe item form,
-and Weather's location selection are rebuilt on `@expo/ui` universal components. The
-deferred entry is resolved by using a dependency that is already installed rather than
-by writing the primitives it names.
+Settings, the preference pickers, and Weather's location selection are rebuilt on
+`@expo/ui` universal components. The deferred entry is resolved by using a dependency
+that is already installed rather than by writing the primitives it names.
+
+Two Closet surfaces take a narrower share of that decision. The garment-type picker is a
+bottom sheet presented over the item form, and its only `@expo/ui` use is the
+`NativeSheet` primitive that presents it: the sheet chrome is the platform's, and
+everything inside it, the category rail and the grid of garment tiles, is kuyara's own.
+The item form is built from kuyara primitives throughout, because its rows carry garment
+artwork and validation copy that a native list row has no slot for.
 
 ### 2. Feature code never imports it
 
@@ -103,8 +110,10 @@ without a new decision.
 - Three toggle components collapse to one, two segmented controls to one, two
   disclosures to one, and the six copies of the large-text stacking branch to one
   shared hook.
-- The wardrobe form and the Weather location block shrink substantially. Line count is
-  not the goal; a single idiom for a repeated control is.
+- The Weather location block shrinks substantially. Line count is not the goal; a single
+  idiom for a repeated control is. The Closet item form keeps its own controls and shrinks
+  instead by losing the pushed garment-type route, the search-parameter round trip that
+  carried a selection back to it, and the effect that applied one.
 - `@expo/ui` components render native views, which do not mount under the Jest
   environment. Component tests for the wrapped primitives are written against mocked
   modules, exactly as `primary-tabs.tsx`'s test was rewritten during Milestone B.

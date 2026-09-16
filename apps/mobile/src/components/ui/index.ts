@@ -20,6 +20,7 @@ export {
   type NativeMenuItem,
   type NativeMenuProps,
 } from './native-menu';
+export { NativeSheet, type NativeSheetProps } from './native-sheet';
 export { NativeToggle, type NativeToggleProps } from './native-toggle';
 export { NativeDatePicker, type NativeDatePickerProps } from './native-date-picker';
 export { NativeTextField, type NativeTextFieldProps } from './native-text-field';
@@ -48,3 +49,7 @@ export {
 } from './garment-board/garment-board';
 
 export { GarmentTileArtwork } from './garment-board/garment-tile-artwork';
+
+// ADR 0028 section 6 and ADR 0029 section 5: approved content colour for the Profile
+// rail, the Closet grid, and the form's colour-family swatches. Never a theme role.
+export { colorFamilyFills } from './garment-board/color-family-fill';

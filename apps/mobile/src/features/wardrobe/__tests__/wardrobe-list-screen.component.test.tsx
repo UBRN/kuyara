@@ -161,7 +161,7 @@ test('error state retries and shows no chips', async () => {
   expect(onRetry).toHaveBeenCalledWith('retry_button');
 });
 
-test('an empty filter reuses Profile\'s empty sentence and add-a-piece action', async () => {
+test('a closet with nothing in either state says so, and offers the add action', async () => {
   const onAdd = jest.fn();
   const result = await render(
     <TestProviders>
@@ -174,7 +174,7 @@ test('an empty filter reuses Profile\'s empty sentence and add-a-piece action', 
     </TestProviders>,
   );
 
-  expect(result.getByText(messages.en.profile.wardrobeEmpty)).toBeOnTheScreen();
+  expect(result.getByText(messages.en.wardrobe.bothEmpty)).toBeOnTheScreen();
   await fireEvent.press(
     result.getByRole('button', { name: messages.en.profile.addPieceAction }),
   );
@@ -196,6 +196,25 @@ test('the wanted segment shows its own empty state when only owned items exist',
 
   expect(result.getByTestId('wardrobe-empty')).toBeOnTheScreen();
   expect(result.queryByTestId(`wardrobe-item-${ownedItem.id}`)).not.toBeOnTheScreen();
+  // The sentence is scoped to the empty segment: "owned or wanted" would be false here.
+  expect(result.getByText(messages.en.wardrobe.wantedEmpty)).toBeOnTheScreen();
+  expect(result.queryByText(messages.en.wardrobe.bothEmpty)).not.toBeOnTheScreen();
+});
+
+test('the owned segment says only the owned list is empty when a wanted item exists', async () => {
+  const result = await render(
+    <TestProviders>
+      <WardrobeListScreen
+        onAdd={() => undefined}
+        onEdit={() => undefined}
+        onRetry={() => undefined}
+        state={readyState([wantedItem])}
+      />
+    </TestProviders>,
+  );
+
+  expect(result.getByText(messages.en.wardrobe.ownedEmpty)).toBeOnTheScreen();
+  expect(result.queryByText(messages.en.wardrobe.bothEmpty)).not.toBeOnTheScreen();
 });
 
 test('a named item shows its own name and the type as the subline', async () => {

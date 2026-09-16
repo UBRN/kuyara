@@ -84,7 +84,7 @@ test('supported override controls derive from catalog defaults', () => {
     ['waterProtectionOverride'],
   );
   assert.deepEqual(listSupportedWardrobeOverrides(null), []);
-  assert.equal(garmentCatalog.garmentTypes.length, 32);
+  assert.equal(garmentCatalog.garmentTypes.length, 49);
 });
 
 test('edit values preserve overrides until type changes, then reset to new defaults', () => {
@@ -144,8 +144,8 @@ test('English and Turkish wardrobe copy has matching complete keys', () => {
     Object.keys(messages.tr.wardrobe).sort(),
   );
   assert.deepEqual(
-    Object.keys(messages.en.wardrobe.attributeLabels).sort(),
-    Object.keys(messages.tr.wardrobe.attributeLabels).sort(),
+    Object.keys(messages.en.wardrobe.categoryFilterLabels).sort(),
+    Object.keys(messages.tr.wardrobe.categoryFilterLabels).sort(),
   );
   for (const language of ['en', 'tr']) {
     const copy = messages[language].wardrobe;
@@ -158,7 +158,7 @@ test('English and Turkish wardrobe copy has matching complete keys', () => {
 
 test('wardrobe routes remain thin, virtualized, and free of SQLite or SQL access', async () => {
   const source = async (path) => readFile(new URL(path, import.meta.url), 'utf8');
-  const [indexRoute, newRoute, editRoute, form, list, routeComposition] =
+  const [indexRoute, newRoute, editRoute, form, list, routeComposition, typeSheet] =
     await Promise.all([
       source('../../app/(tabs)/(profile)/wardrobe/index.tsx'),
       source('../../app/(tabs)/(profile)/wardrobe/new.tsx'),
@@ -166,9 +166,10 @@ test('wardrobe routes remain thin, virtualized, and free of SQLite or SQL access
       source('./presentation/wardrobe-item-form-screen.tsx'),
       source('./presentation/wardrobe-list-screen.tsx'),
       source('./presentation/wardrobe-item-routes.tsx'),
+      source('./presentation/garment-type-sheet.tsx'),
     ]);
   const routeSources = `${indexRoute}\n${newRoute}\n${editRoute}`;
-  const presentationSources = `${form}\n${list}\n${routeComposition}`;
+  const presentationSources = `${form}\n${list}\n${routeComposition}\n${typeSheet}`;
 
   const persistenceAccess = /expo-sqlite|\bSELECT\s+.+\s+FROM\b|\bINSERT\s+INTO\b|\bUPDATE\s+wardrobe_items\b/i;
   assert.doesNotMatch(routeSources, persistenceAccess);
@@ -179,8 +180,13 @@ test('wardrobe routes remain thin, virtualized, and free of SQLite or SQL access
   assert.match(list, /<FlatList/);
   assert.match(routeComposition, /beforeRemove/);
   assert.match(routeComposition, /discardTitle/);
-  assert.match(routeComposition, /garmentCatalog\.garmentTypes/);
-  assert.doesNotMatch(routeComposition, /listGarmentTypesForPreference/);
+  // The type sheet opens over the form instead of on a route of its own, so it is the
+  // one that reads the catalogue and filters it by clothing preference; the route
+  // composition now carries neither, and passes the preference down instead.
+  assert.doesNotMatch(routeComposition, /garmentCatalog|listGarmentTypesForPreference/);
+  assert.match(routeComposition, /clothingPreference/);
+  assert.match(typeSheet, /garmentCatalog\.garmentTypes/);
+  assert.match(typeSheet, /listGarmentTypesForPreference/);
   assert.match(form, /accessibilityRole="radio"|<WardrobeOption/);
   assert.match(form, /accessibilityRole="alert"/);
 });
