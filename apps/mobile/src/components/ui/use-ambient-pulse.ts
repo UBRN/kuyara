@@ -16,10 +16,12 @@ export const AMBIENT_PULSE_FLOOR = 0.45;
 
 /**
  * Law 7's ambient role. An unresolved wait is not a transition, so it breathes on the
- * calm step, the one step that depicts no weather, and resolves to a still value under
- * Reduce Motion. `index` starts a consumer one leg after the one before it, so several
- * of them read as one breath travelling. A consumer that wants a quieter breath scales
- * the returned value rather than changing the range.
+ * moderate step: one leg up and one leg down make a 2000 ms breath, the cycle band Ding
+ * and Kyung (Journal of Consumer Research 2026) measured as the shortest perceived wait,
+ * where the calm step's 3000 ms breath reads slower than it is. It resolves to a still
+ * value under Reduce Motion. `index` starts a consumer one leg after the one before it,
+ * so several of them read as one breath travelling. A consumer that wants a quieter
+ * breath scales the returned value rather than changing the range.
  */
 export function useAmbientPulse(index = 0): SharedValue<number> {
   const theme = useKuyaraTheme();
@@ -31,7 +33,7 @@ export function useAmbientPulse(index = 0): SharedValue<number> {
       return;
     }
 
-    const leg = theme.motion.ambient.calm;
+    const leg = theme.motion.ambient.moderate;
 
     progress.set(withDelay(
       index * leg,
@@ -45,7 +47,7 @@ export function useAmbientPulse(index = 0): SharedValue<number> {
     ));
 
     return () => cancelAnimation(progress);
-  }, [index, progress, theme.isReduceMotionEnabled, theme.motion.ambient.calm]);
+  }, [index, progress, theme.isReduceMotionEnabled, theme.motion.ambient.moderate]);
 
   return progress;
 }

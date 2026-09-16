@@ -262,6 +262,66 @@ export function WeatherScreen() {
     locationCaption,
     copy.changeLocationAction,
   );
+  // The location control sits below the current conditions once a snapshot exists
+  // (ADR 0021 section 9), and stays the first block while there is nothing to show.
+  const locationSection = (
+    <View style={styles.locationSection} testID="weather-location-section">
+      <Pressable
+        accessibilityLabel={locationAccessibilityLabel}
+        accessibilityRole="button"
+        hitSlop={10}
+        onPress={() => router.push('/weather/location')}
+        style={({ pressed }) => pressed && styles.pressed}
+        testID="weather-change-location-button">
+        <Surface
+          pointerEvents="none"
+          style={[
+            styles.locationCard,
+            usesStackedLayout && styles.stackedLocationCard,
+            theme.elevation.raised,
+          ]}
+          testID="weather-location-card">
+          {usesStackedLayout ? (
+            <View style={styles.locationIdentityRow} testID="weather-location-identity-row">
+              <Icon color={theme.colors.iconSecondary} name="location" size={20} />
+              <View style={styles.locationNameGroup} testID="weather-location-name-group">
+                <AppText variant="bodyStrong">{activeName}</AppText>
+                {locationCaption ? (
+                  <AppText colorRole="textSecondary" variant="caption">
+                    {locationCaption}
+                  </AppText>
+                ) : null}
+              </View>
+            </View>
+          ) : (
+            <>
+              <Icon color={theme.colors.iconSecondary} name="location" size={20} />
+              <View style={styles.locationNameGroup} testID="weather-location-name-group">
+                <AppText variant="bodyStrong">{activeName}</AppText>
+                {locationCaption ? (
+                  <AppText colorRole="textSecondary" variant="caption">
+                    {locationCaption}
+                  </AppText>
+                ) : null}
+              </View>
+            </>
+          )}
+          <View
+            style={[
+              styles.locationAffordance,
+              usesStackedLayout && styles.stackedLocationAffordance,
+            ]}
+            testID="weather-location-affordance">
+            <AppText colorRole="textSecondary" variant="label">
+              {copy.changeLocationAction}
+            </AppText>
+            <Icon color={theme.colors.iconSecondary} name="chevronRight" size={15} />
+          </View>
+        </Surface>
+      </Pressable>
+
+    </View>
+  );
   return (
     <Screen
       contentContainerStyle={styles.content}
@@ -306,71 +366,16 @@ export function WeatherScreen() {
         <AppText colorRole="textSecondary">{copy.introduction}</AppText>
       )}
 
-      <View style={styles.locationSection} testID="weather-location-section">
-        <Pressable
-          accessibilityLabel={locationAccessibilityLabel}
-          accessibilityRole="button"
-          hitSlop={10}
-          onPress={() => router.push('/weather/location')}
-          style={({ pressed }) => pressed && styles.pressed}
-          testID="weather-change-location-button">
-          <Surface
-            pointerEvents="none"
-            style={[
-              styles.locationCard,
-              usesStackedLayout && styles.stackedLocationCard,
-              theme.elevation.raised,
-            ]}
-            testID="weather-location-card">
-            {usesStackedLayout ? (
-              <View style={styles.locationIdentityRow} testID="weather-location-identity-row">
-                <Icon color={theme.colors.iconSecondary} name="location" size={20} />
-                <View style={styles.locationNameGroup} testID="weather-location-name-group">
-                  <AppText variant="bodyStrong">{activeName}</AppText>
-                  {locationCaption ? (
-                    <AppText colorRole="textSecondary" variant="caption">
-                      {locationCaption}
-                    </AppText>
-                  ) : null}
-                </View>
-              </View>
-            ) : (
-              <>
-                <Icon color={theme.colors.iconSecondary} name="location" size={20} />
-                <View style={styles.locationNameGroup} testID="weather-location-name-group">
-                  <AppText variant="bodyStrong">{activeName}</AppText>
-                  {locationCaption ? (
-                    <AppText colorRole="textSecondary" variant="caption">
-                      {locationCaption}
-                    </AppText>
-                  ) : null}
-                </View>
-              </>
-            )}
-            <View
-              style={[
-                styles.locationAffordance,
-                usesStackedLayout && styles.stackedLocationAffordance,
-              ]}
-              testID="weather-location-affordance">
-              <AppText colorRole="textSecondary" variant="label">
-                {copy.changeLocationAction}
-              </AppText>
-              <Icon color={theme.colors.iconSecondary} name="chevronRight" size={15} />
-            </View>
-          </Surface>
-        </Pressable>
-
-      </View>
-
-      {snapshot?.origin.kind === 'sample' ? (
-        <Surface accessibilityLiveRegion="polite" style={styles.disclosure} variant="muted">
-          <AppText variant="bodyStrong">{copy.sampleDisclosure}</AppText>
-        </Surface>
-      ) : null}
+      {snapshot ? null : locationSection}
 
       {snapshot ? (
         <>
+          {snapshot.origin.kind === 'sample' ? (
+            <Surface accessibilityLiveRegion="polite" style={styles.disclosure} variant="muted">
+              <AppText variant="bodyStrong">{copy.sampleDisclosure}</AppText>
+            </Surface>
+          ) : null}
+
           <View style={styles.currentSection}>
             <Surface
               style={[styles.card, theme.elevation.raised]}
@@ -493,6 +498,8 @@ export function WeatherScreen() {
               </AppText>
             </View>
           </View>
+
+          {locationSection}
 
           {remainingHourly.length > 0 && (
             <Surface

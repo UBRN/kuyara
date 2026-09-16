@@ -661,7 +661,7 @@ const en = {
     placeServicesUnavailableBody: 'Location services are unavailable or turned off. Search for a city or try again after enabling them.',
     fresh: 'Fresh',
     stale: 'May be out of date',
-    updatedAt: (time) => `Last updated ${time}`,
+    updatedAt: (time) => `Last updated at ${time}`,
     feelsLike: (temperature) => `Feels like ${temperature}`,
     range: (minimum, maximum) => `Low ${minimum} · High ${maximum}`,
     precipitation: (probability) => `${Math.round(probability * 100)}% precipitation`,
@@ -857,7 +857,7 @@ const en = {
     emphasis: {
       recommended: 'Recommended',
     },
-    updatedAt: (time: string) => `Updated at ${time}`,
+    updatedAt: (time: string) => `Last updated at ${time}`,
     staleAt: (time: string) => `Last updated at ${time} · May be out of date`,
     refreshingStatus: 'Refreshing today’s guidance…',
     refreshFailedAt: (time: string) => `Couldn't refresh · Showing last update from ${time}`,

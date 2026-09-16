@@ -360,6 +360,49 @@ test('the intro line gives way to the location, and the refresh control sits und
   expect(result.getByTestId('weather-refresh-button')).toBeOnTheScreen();
 });
 
+test('the current conditions lead and the location control follows once a snapshot exists', async () => {
+  const value = createValue({
+    ...baseState,
+    activeLocation: getManualLocation('sample.istanbul')!,
+    snapshot: sampleSnapshot(),
+    freshness: 'fresh',
+  });
+  const result = await render(
+    <Providers language="en" value={value}><WeatherScreen /></Providers>,
+  );
+
+  // Queries return elements in tree order, so the block order is the array order.
+  const blocks = result
+    .getAllByTestId(/^weather-(current-card|location-section|hourly-card)$/)
+    .map((element) => element.props.testID);
+  expect(blocks).toEqual(['weather-current-card', 'weather-location-section', 'weather-hourly-card']);
+  expect(result.getByText(/^Last updated at /)).toBeOnTheScreen();
+});
+
+test('without a snapshot the location control stays the first block after the title', async () => {
+  const value = createValue({
+    ...baseState,
+    activeLocation: getManualLocation('sample.istanbul')!,
+    snapshot: null,
+    freshness: null,
+    refreshFailure: 'offline',
+  });
+  const result = await render(
+    <Providers language="en" value={value}><WeatherScreen /></Providers>,
+  );
+
+  expect(result.queryByTestId('weather-current-card')).toBeNull();
+  expect(result.queryByText(messages.en.weather.introduction)).toBeNull();
+  // Text queries return nodes in tree order: the location control's action label comes first.
+  const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const texts = result
+    .getAllByText(new RegExp(
+      `^(${escape(messages.en.weather.changeLocationAction)}|${escape(messages.en.weather.offlineBody)})$`,
+    ))
+    .map((element) => element.props.children);
+  expect(texts).toEqual([messages.en.weather.changeLocationAction, messages.en.weather.offlineBody]);
+});
+
 test('the freshness line announces only while it is not fresh', async () => {
   const fresh = createValue({
     ...baseState,
@@ -406,8 +449,8 @@ test('returning to Weather re-evaluates freshness', async () => {
 });
 
 test.each([
-  [false, '12:00', 'Last updated 09:00'],
-  [true, '12:00 pm', 'Last updated 9:00 am'],
+  [false, '12:00', 'Last updated at 09:00'],
+  [true, '12:00 pm', 'Last updated at 9:00 am'],
 ] as const)('hour labels follow the device clock setting (hour12: %s)', async (
   hour12,
   railLabel,

@@ -47,6 +47,11 @@ which is the only place on that screen where chrome and content compete.
   on the screen, it would sit directly under the garments, and nothing the product
   currently produces needs counting. The capability exists and stays unused.
 
+The bar does not minimise on scroll either. `minimizeBehavior` stays unset on
+`NativeTabs`, and `onScrollDown` or `onScrollUp` is not to be set: Apple's tab bar guidance
+reserves minimising for a bar with an attached accessory, like the MiniPlayer in Music,
+and kuyara's bar carries none.
+
 ### 3. The selected tab carries two non-colour signals of its own
 
 On iOS 26 the OS draws a **selection capsule** behind the selected item, a shape signal
@@ -98,6 +103,24 @@ Two implementation constraints that are not footnotes:
 A selection capsule drawn by the application is not a third signal and is not wanted: the
 installed package exposes no prop that draws one, and iOS 26 draws one itself.
 
+**The colour signal is `brandPrimary`, measured against what shows through the glass.**
+The bar's tint is `theme.colors.brandPrimary` and nothing else is set on the bar: no
+background, no blur effect, so on iOS the OS draws Liquid Glass over whatever content
+scrolls beneath it, and on Today that can be the condition-tinted stage. Apple's Branding
+guidance names "an icon for the selected tab in a tab bar" as a legitimate place for the
+accent colour, and its Color guidance asks an app with colourful content to prefer a
+monochromatic bar "or choose an accent color with sufficient visual differentiation". The
+tint was measured against all seven atmosphere tones and the page background in both
+appearances, taking the unblurred tone as the backdrop because blur does not move a
+region's average colour and the glass lightens over light content and darkens over dark
+content, which widens these pairs rather than narrowing them. The weakest pair is the
+light `fallingNight` stage at 5.21:1 (CIEDE2000 42.5); the dark appearance has one stage
+tone, at 8.37:1. Every pair clears the 3:1 non-text floor, so the tint stays. The
+differentiation is lightness, not hue: tint and stage share the brand's hue family by
+design, and the light tint is dark over a light stage while the dark tint is light over a
+dark stage, the same direction as the monochromatic default Apple describes. The
+`tab-tint-separation` test holds the 3:1 floor for every pair.
+
 ### 4. The bottom inset is a rule, not a number
 
 **The tab bar's height is not knowable from this codebase.** The installed expo-router
@@ -147,6 +170,15 @@ specificity and `Screen`'s own `paddingBottom` still wins.
 
 The component tests assert `Screen`'s `paddingBottom` on both platforms, so a regression
 on either edge fails a test rather than shipping unnoticed.
+
+**No tab screen floats a header over its content, so none configures a scroll edge
+effect.** Apple's scroll-views guidance reserves the effect for a scroll view behind
+floating interface elements. Today and Weather draw their headings as the first children
+of `Screen`'s scroll content (`today-screen.tsx`'s place row, `weather-screen.tsx`'s
+`SectionHeader`), nothing in the tab screens uses `stickyHeaderIndices` or positions a
+header absolutely over the scroll view, and Profile's header is the native large title the
+OS draws (`headerShown: true` in `app/(tabs)/(profile)/profile.tsx`, ADR 0028), which
+carries the platform's own edge treatment.
 
 ### 5. Dynamic Type and touch targets, measured
 
