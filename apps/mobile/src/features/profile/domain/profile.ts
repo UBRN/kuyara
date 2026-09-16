@@ -16,6 +16,8 @@ export type Profile = Readonly<{
   themePreference: ThemePreference;
   onboardingCompleted: boolean;
   notificationsOptIn: boolean;
+  /** ADR 0004: the contextual alert offer on Today was made, and is never made again. */
+  weatherAlertOfferShown: boolean;
   analyticsConsent: AnalyticsConsent;
   createdAt: string;
   updatedAt: string;

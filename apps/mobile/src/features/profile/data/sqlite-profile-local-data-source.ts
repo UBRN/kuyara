@@ -27,6 +27,7 @@ type LocalProfileRow = Readonly<{
   theme_preference: string;
   onboarding_completed: number;
   notifications_opt_in: number;
+  weather_alert_offer_shown: number;
   analytics_consent: string;
   created_at: string;
   updated_at: string;
@@ -48,6 +49,7 @@ const selectProfileSql = `
     theme_preference,
     onboarding_completed,
     notifications_opt_in,
+    weather_alert_offer_shown,
     analytics_consent,
     created_at,
     updated_at,
@@ -66,6 +68,7 @@ function mapRow(row: LocalProfileRow): LocalProfileRecord {
     themePreference: row.theme_preference,
     onboardingCompleted: row.onboarding_completed,
     notificationsOptIn: row.notifications_opt_in,
+    weatherAlertOfferShown: row.weather_alert_offer_shown,
     analyticsConsent: row.analytics_consent,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -223,6 +226,17 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
         WHERE singleton_key = 1 AND deleted_at IS NULL
       `,
       [optIn ? 1 : 0],
+    );
+  }
+
+  markWeatherAlertOfferShown(): Promise<LocalProfileRecord> {
+    return this.updateProfile(
+      `
+        UPDATE local_profiles
+        SET weather_alert_offer_shown = 1, updated_at = ?
+        WHERE singleton_key = 1 AND deleted_at IS NULL
+      `,
+      [],
     );
   }
 

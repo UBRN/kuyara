@@ -24,6 +24,7 @@ export interface ProfileLocalDataSource {
   updateLanguagePreference(preference: LanguagePreference): Promise<LocalProfileRecord>;
   updateThemePreference(preference: ThemePreference): Promise<LocalProfileRecord>;
   updateNotificationsOptIn(optIn: boolean): Promise<LocalProfileRecord>;
+  markWeatherAlertOfferShown(): Promise<LocalProfileRecord>;
   updateAnalyticsConsent(consent: AnalyticsConsent): Promise<LocalProfileRecord>;
 }
 

@@ -28,6 +28,7 @@ const createRecord = (overrides = {}) => ({
   themePreference: 'system',
   onboardingCompleted: 0,
   notificationsOptIn: 0,
+  weatherAlertOfferShown: 0,
   analyticsConsent: 'undecided',
   createdAt,
   updatedAt: createdAt,
@@ -90,6 +91,27 @@ test('notification opt-in defaults off and persists across a new repository', as
     }),
   );
   assert.equal((await relaunchedRepository.getOrCreateProfile()).notificationsOptIn, true);
+});
+
+// ADR 0004: Today's contextual alert offer is made once. The flag only ever moves from 0
+// to 1, and it has to survive a relaunch or the offer would come back.
+test('the weather alert offer flag defaults off, marks once, and survives a relaunch', async (t) => {
+  const { database, dataSource } = await createLocalDataSource(t);
+  const repository = new LocalProfileRepository(dataSource);
+
+  assert.equal((await repository.getOrCreateProfile()).weatherAlertOfferShown, false);
+  assert.equal((await repository.markWeatherAlertOfferShown()).weatherAlertOfferShown, true);
+  assert.equal((await repository.markWeatherAlertOfferShown()).weatherAlertOfferShown, true);
+
+  const relaunchedRepository = new LocalProfileRepository(
+    new SqliteProfileLocalDataSource(database, {
+      createId: () => 'unused',
+      now: () => updatedAt,
+    }),
+  );
+  const relaunched = await relaunchedRepository.getOrCreateProfile();
+  assert.equal(relaunched.weatherAlertOfferShown, true);
+  assert.equal(relaunched.notificationsOptIn, false);
 });
 
 test('analytics consent defaults to undecided, persists, and rejects an unknown value', async (t) => {

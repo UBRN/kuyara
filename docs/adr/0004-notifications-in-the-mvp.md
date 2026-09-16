@@ -56,10 +56,21 @@ being alerted about weather changing within the hour.
 
 Notifications enter the MVP as **on-device local weather alerts only**. No push
 token, no APNs registration, no Worker endpoint, no server-side device or
-location store. The decision is scoped into three milestones:
+location store.
+
+The opt-in is offered in two places and nowhere else. The Settings Notifications
+surface holds it permanently, and Today makes one contextual offer at a moment an
+alert would have fired under [ADR 0032](0032-local-weather-alert-rules.md)'s
+rules, so the person is asked where the value is visible rather than three taps
+into Settings. That offer is made once for the life of the install: accepting it
+or dismissing it sets a durable `weather_alert_offer_shown` flag on
+`local_profiles`, and a person who says no is never asked again. No other screen
+asks, and nothing asks on a schedule.
+
+The decision is scoped into three milestones:
 
 - **N1, mobile notification foundation.** The `expo-notifications` config
-  plugin; an OS permission flow surfaced in Settings; a `notifications_opt_in`
+  plugin; the OS permission flow behind the opt-in; a `notifications_opt_in`
   preference on `local_profiles` (schema version 6), following the existing
   language and theme preference pattern; a notification-response deep-link
   observer in the root layout; and a development-only "send test notification"

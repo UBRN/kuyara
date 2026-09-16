@@ -24,6 +24,7 @@ const profile: LocalProfile = {
   themePreference: 'light',
   onboardingCompleted: true,
   notificationsOptIn: true,
+  weatherAlertOfferShown: false,
   analyticsConsent: 'undecided',
   createdAt: '2026-09-09T08:00:00.000Z',
   updatedAt: '2026-09-09T08:00:00.000Z',
@@ -77,6 +78,7 @@ function profileApplication(notificationsOptIn: boolean): ProfileApplicationValu
     updateLanguagePreference: async () => undefined,
     updateThemePreference: async () => undefined,
     updateNotificationsOptIn: async () => undefined,
+    markWeatherAlertOfferShown: async () => undefined,
     updateAnalyticsConsent: async () => undefined,
   };
 }

@@ -67,7 +67,7 @@ async function insertProfile(database, id = 'stable-profile-id') {
   );
 }
 
-test('an empty database applies versions 1 through 13 in order with the final schema', async (t) => {
+test('an empty database applies versions 1 through 14 in order with the final schema', async (t) => {
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
 
@@ -90,7 +90,7 @@ test('an empty database applies versions 1 through 13 in order with the final sc
     'PRAGMA table_info(weather_alert_deliveries)',
   );
 
-  assert.equal(latestDatabaseVersion, 13);
+  assert.equal(latestDatabaseVersion, 14);
   assert.equal(version.user_version, latestDatabaseVersion);
   assert.equal(profileTable.name, 'local_profiles');
   assert.match(profileTable.sql, /CHECK \(singleton_key = 1\)/);
@@ -110,7 +110,17 @@ test('an empty database applies versions 1 through 13 in order with the final sc
       'birth_date',
       'dress_style',
       'analytics_consent',
+      'weather_alert_offer_shown',
     ],
+  );
+  assert.match(profileTable.sql, /weather_alert_offer_shown IN \(0, 1\)/);
+  assert.equal(
+    profileColumns.find(({ name }) => name === 'weather_alert_offer_shown').dflt_value,
+    '0',
+  );
+  assert.equal(
+    profileColumns.find(({ name }) => name === 'weather_alert_offer_shown').notnull,
+    1,
   );
   assert.match(profileTable.sql, /analytics_consent IN \('undecided', 'granted', 'withdrawn'\)/);
   assert.equal(
@@ -177,7 +187,7 @@ test('an empty database applies versions 1 through 13 in order with the final sc
   );
 });
 
-test('an existing version 1 database upgrades through version 13 without changing profile data', async (t) => {
+test('an existing version 1 database upgrades through version 14 without changing profile data', async (t) => {
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
   await createReleasedVersionOneDatabase(database);
@@ -187,7 +197,8 @@ test('an existing version 1 database upgrades through version 13 without changin
 
   const version = await database.getFirstAsync('PRAGMA user_version');
   const rows = await database.getAllAsync(
-    'SELECT id, created_at, notifications_opt_in, analytics_consent FROM local_profiles',
+    `SELECT id, created_at, notifications_opt_in, analytics_consent,
+     weather_alert_offer_shown FROM local_profiles`,
   );
   const wardrobeTable = await database.getFirstAsync(
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'wardrobe_items'",
@@ -199,8 +210,19 @@ test('an existing version 1 database upgrades through version 13 without changin
     created_at: timestamp,
     notifications_opt_in: 0,
     analytics_consent: 'undecided',
+    weather_alert_offer_shown: 0,
   }]);
   assert.equal(wardrobeTable.name, 'wardrobe_items');
+  // ADR 0004: the contextual offer is answered once, so only 0 and 1 are storable and the
+  // answer is never absent.
+  await assert.rejects(
+    () => database.runAsync('UPDATE local_profiles SET weather_alert_offer_shown = 2'),
+    /CHECK/,
+  );
+  await assert.rejects(
+    () => database.runAsync('UPDATE local_profiles SET weather_alert_offer_shown = NULL'),
+    /NOT NULL/,
+  );
 });
 
 test('versions 3 through 12 preserve a released version 2 wardrobe row and are not reapplied', async (t) => {
@@ -690,6 +712,7 @@ for (const [preference, gender, deletedAt] of [['womens', 'woman', null], ['mens
       dress_style: null,
       onboarding_completed: 0,
       analytics_consent: 'undecided',
+      weather_alert_offer_shown: 0,
     });
     assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM wardrobe_items') }, item);
     assert.equal((await database.getFirstAsync('PRAGMA user_version' )).user_version, latestDatabaseVersion);
@@ -839,7 +862,12 @@ for (const [id, name] of [['sample.istanbul', 'Istanbul'], ['sample.ankara', 'An
     assert.deepEqual(
       (await database.getAllAsync('SELECT * FROM local_profiles'))
         .map((row) => ({ ...row })),
-      beforeProfile.map((row) => ({ ...row, dress_style: null, analytics_consent: 'undecided' })),
+      beforeProfile.map((row) => ({
+        ...row,
+        dress_style: null,
+        analytics_consent: 'undecided',
+        weather_alert_offer_shown: 0,
+      })),
     );
     assert.deepEqual(await database.getAllAsync('PRAGMA foreign_key_check'), []);
     await database.runAsync("UPDATE active_locations SET display_name = 'Custom name'");
@@ -924,6 +952,7 @@ test('version 10 resets onboarding once and preserves the profile plus cached da
     birth_date: '1994-03-14',
     dress_style: null,
     analytics_consent: 'undecided',
+    weather_alert_offer_shown: 0,
   });
   for (const dressStyle of ['casual', 'smart', 'formal', null]) {
     await database.runAsync('UPDATE local_profiles SET dress_style = ?', [dressStyle]);
@@ -1017,7 +1046,11 @@ test('version 11 adds the weather alert ledger without changing existing rows', 
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   assert.deepEqual(
     (await database.getAllAsync('SELECT * FROM local_profiles')).map((row) => ({ ...row })),
-    profileBefore.map((row) => ({ ...row, analytics_consent: 'undecided' })),
+    profileBefore.map((row) => ({
+      ...row,
+      analytics_consent: 'undecided',
+      weather_alert_offer_shown: 0,
+    })),
   );
   assert.deepEqual(await database.getAllAsync('SELECT * FROM wardrobe_items'), wardrobeBefore);
   assert.deepEqual(
@@ -1079,7 +1112,11 @@ test('version 12 defaults an existing profile row to undecided analytics consent
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
   assert.deepEqual(
     (await database.getAllAsync('SELECT * FROM local_profiles')).map((row) => ({ ...row })),
-    profileBefore.map((row) => ({ ...row, analytics_consent: 'undecided' })),
+    profileBefore.map((row) => ({
+      ...row,
+      analytics_consent: 'undecided',
+      weather_alert_offer_shown: 0,
+    })),
   );
   for (const consent of ['undecided', 'granted', 'withdrawn']) {
     await database.runAsync('UPDATE local_profiles SET analytics_consent = ?', [consent]);

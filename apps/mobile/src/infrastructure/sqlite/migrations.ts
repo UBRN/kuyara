@@ -10,7 +10,7 @@ type Migration = Readonly<{
   migrate: (database: SqliteExecutor) => Promise<void>;
 }>;
 
-export const latestDatabaseVersion = 13;
+export const latestDatabaseVersion = 14;
 
 // Foreign keys are enforced on every connection: `migrateDatabase` turns them on for the
 // shared connection below, and the transaction wrapper in `expo-sqlite-database.ts` turns
@@ -429,6 +429,21 @@ const migrationV13: Migration = {
   },
 };
 
+const migrationV14: Migration = {
+  version: 14,
+  async migrate(database) {
+    // ADR 0004: the contextual weather-alert offer on Today is made once and never again,
+    // whether it was accepted or dismissed, so the answer is durable profile state. Every
+    // existing install starts un-offered.
+    await database.execAsync(`
+      ALTER TABLE local_profiles
+        ADD COLUMN weather_alert_offer_shown INTEGER NOT NULL DEFAULT 0 CHECK (
+          weather_alert_offer_shown IN (0, 1)
+        );
+    `);
+  },
+};
+
 const migrations = [
   migrationV1,
   migrationV2,
@@ -443,6 +458,7 @@ const migrations = [
   migrationV11,
   migrationV12,
   migrationV13,
+  migrationV14,
 ] as const satisfies readonly Migration[];
 
 async function readUserVersion(database: SqliteExecutor): Promise<number> {

@@ -139,6 +139,10 @@ export class ProfileApplicationController {
     return this.updateProfile((repository) => repository.updateNotificationsOptIn(optIn));
   }
 
+  markWeatherAlertOfferShown(): Promise<void> {
+    return this.updateProfile((repository) => repository.markWeatherAlertOfferShown());
+  }
+
   updateAnalyticsConsent(consent: AnalyticsConsent): Promise<void> {
     return this.updateProfile((repository) => repository.updateAnalyticsConsent(consent));
   }
