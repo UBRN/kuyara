@@ -15,6 +15,8 @@ import {
   dressStyleProperty,
   generationModeProperty,
 } from '@/features/analytics/domain/analytics-mappers';
+import { useNotificationApplication } from '@/features/notifications/application/notification-context';
+import { useWeatherAlertOffer } from '@/features/notifications/application/use-weather-alert-offer';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
 import { unavailableTodayState, type TodayScreenState } from '@/features/today/model';
@@ -36,6 +38,12 @@ export default function TodayRoute() {
   const { state: profileState } = useProfileApplication();
   const { analytics, firstUses, retries } = useProductAnalytics();
   const { markRecommendationShown } = useAnalyticsConsentTrigger();
+  // ADR 0004: the one contextual offer. The rule, the durable flag and the opt-in flow all
+  // live behind the hook, so the route only hands Today a decided offer and its actions. The
+  // flow already emits `setting_changed` and `notification_permission_resolved`; a dismissal
+  // is not an event.
+  const { acceptOffer, dismissOffer, offer } = useWeatherAlertOffer();
+  const { openApplicationSettings } = useNotificationApplication();
   const [isPullRefreshing, setIsPullRefreshing] = useState(false);
   useScreenViewed('today');
 
@@ -207,6 +215,12 @@ export default function TodayRoute() {
 
   return (
     <TodayScreen
+      alertOffer={offer.kind === 'offer' ? {
+        ruleId: offer.ruleId,
+        onAccept: acceptOffer,
+        onDismiss: () => void dismissOffer(),
+        onOpenSystemSettings: () => void openApplicationSettings(),
+      } : null}
       language={language}
       isRefreshing={isPullRefreshing}
       onOpenOutfitDetail={(id) => router.push({ pathname: '/[id]', params: { id } })}

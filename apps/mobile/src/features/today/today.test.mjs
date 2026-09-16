@@ -556,6 +556,35 @@ test('stale freshness and outfit copy localize in both languages', () => {
   assert.equal(turkish.weather.condition, 'Yağmurlu');
 });
 
+test('a device location shows its locality name, and the generic copy without one', () => {
+  const deviceLocation = {
+    source: 'device',
+    accuracy: 'full',
+    locationKey: 'device:4101:2898',
+    coordinates: todayActiveLocation.coordinates,
+    timeZone: todayActiveLocation.timeZone,
+  };
+  const named = (displayName) => ({
+    ...todayScreenState,
+    snapshot: {
+      ...todayScreenState.snapshot,
+      activeLocation: { ...deviceLocation, displayName },
+    },
+  });
+
+  assert.equal(loadedPresentation(named('Kadıköy')).header.location, 'Kadıköy');
+  assert.equal(loadedPresentation(named('Kadıköy'), 'tr').header.location, 'Kadıköy');
+  assert.equal(loadedPresentation(named(null)).header.location, 'Current location');
+  assert.equal(loadedPresentation(named(null), 'tr').header.location, 'Mevcut konum');
+  assert.equal(
+    loadedPresentation({
+      ...todayScreenState,
+      snapshot: { ...todayScreenState.snapshot, activeLocation: deviceLocation },
+    }).header.location,
+    'Current location',
+  );
+});
+
 test('loading, unavailable, and semantic theme behavior remains explicit', () => {
   const loading = createTodayPresentation({ kind: 'loading' }, 'en', false, fixtureNow);
   const unavailable = createTodayPresentation({ kind: 'unavailable' }, 'tr', false, fixtureNow);

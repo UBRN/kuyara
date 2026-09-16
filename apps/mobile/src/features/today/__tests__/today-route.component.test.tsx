@@ -9,6 +9,11 @@ import { AnalyticsConsentTriggerContext } from '@/features/analytics/application
 import { ProductAnalyticsContext } from '@/features/analytics/application/use-product-analytics';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
+import {
+  NotificationApplicationContext,
+  type NotificationApplicationValue,
+} from '@/features/notifications/application/notification-context';
+import type { WeatherAlertOffer } from '@/features/notifications/domain/weather-alert-offer';
 import { ProfileApplicationContext } from '@/features/profile/application/profile-context';
 import type { LocalProfile } from '@/features/profile/domain/profile';
 import { RecommendationApplicationContext } from '@/features/recommendation/application/recommendation-application-context';
@@ -100,6 +105,19 @@ jest.mock('expo-router', () => {
 
 // The Observe adapter resolves to its no-op binding under Jest, so the interactive mark is
 // observed here rather than through the native module.
+// The offer's own rule is tested in `weather-alert-offer.test.mjs`; what the route owns is
+// handing the decided offer to Today and wiring its two actions.
+const mockAcceptOffer = jest.fn(async () => ({ outcome: 'enabled' } as const));
+const mockDismissOffer = jest.fn(async () => undefined);
+let mockOffer: WeatherAlertOffer = { kind: 'none' };
+jest.mock('@/features/notifications/application/use-weather-alert-offer', () => ({
+  useWeatherAlertOffer: () => ({
+    offer: mockOffer,
+    acceptOffer: mockAcceptOffer,
+    dismissOffer: mockDismissOffer,
+  }),
+}));
+
 const mockMarkInteractive = jest.fn();
 jest.mock('@/features/analytics/data/observe-performance-telemetry', () => ({
   ...jest.requireActual('@/features/analytics/data/observe-performance-telemetry'),
@@ -233,6 +251,20 @@ function profileValue(profile: Partial<LocalProfile> = {}) {
   };
 }
 
+const mockOpenApplicationSettings = jest.fn(async () => undefined);
+function notificationValue(): NotificationApplicationValue {
+  return {
+    state: {
+      permission: { kind: 'undetermined' },
+      optedIn: false,
+      isBusy: false,
+    },
+    setOptIn: jest.fn(async () => ({ outcome: 'enabled' as const })),
+    openApplicationSettings: mockOpenApplicationSettings,
+    weatherAlertScheduler: { reschedule: jest.fn(async () => undefined) },
+  } as unknown as NotificationApplicationValue;
+}
+
 function createProductAnalytics() {
   const analytics = new RecordingProductAnalytics();
   return {
@@ -275,6 +307,7 @@ function Providers({
             markRecommendationShown,
           }}>
             <ProfileApplicationContext value={profile}>
+            <NotificationApplicationContext value={notificationValue()}>
             <WeatherApplicationContext value={weather}>
               <RecommendationApplicationContext value={{
                 state: recommendation,
@@ -289,6 +322,7 @@ function Providers({
                 </WardrobeApplicationContext>
               </RecommendationApplicationContext>
             </WeatherApplicationContext>
+            </NotificationApplicationContext>
             </ProfileApplicationContext>
           </AnalyticsConsentTriggerContext>
         </ProductAnalyticsContext>
@@ -307,7 +341,63 @@ beforeEach(() => {
   mockPush.mockClear();
   mockBack.mockClear();
   mockMarkInteractive.mockClear();
+  mockAcceptOffer.mockClear();
+  mockDismissOffer.mockClear();
+  mockOffer = { kind: 'none' };
   mockParams = {};
+});
+
+test('Today offers the alert opt-in once, and each action answers the offer', async () => {
+  mockOffer = { kind: 'offer', ruleId: 'precipitation_onset' };
+  const render1 = await render(
+    <Providers
+      productAnalytics={createProductAnalytics()}
+      profile={profileValue()}
+      recommendation={recommendationReady()}
+      wardrobe={wardrobeValue()}
+      weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  expect(render1.getByTestId('today-alert-offer-message'))
+    .toHaveTextContent(messages.en.notifications.offer.sentences.precipitation_onset);
+  await act(async () => {
+    fireEvent.press(render1.getByTestId('today-alert-offer-accept'));
+  });
+  expect(mockAcceptOffer).toHaveBeenCalledTimes(1);
+  expect(mockDismissOffer).not.toHaveBeenCalled();
+
+  mockOffer = { kind: 'offer', ruleId: 'temperature_swing' };
+  const render2 = await render(
+    <Providers
+      productAnalytics={createProductAnalytics()}
+      profile={profileValue()}
+      recommendation={recommendationReady()}
+      wardrobe={wardrobeValue()}
+      weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+  await act(async () => {
+    fireEvent.press(render2.getByTestId('today-alert-offer-dismiss'));
+  });
+  expect(mockDismissOffer).toHaveBeenCalledTimes(1);
+});
+
+test('Today shows no alert offer when no alert would have fired', async () => {
+  const result = await render(
+    <Providers
+      productAnalytics={createProductAnalytics()}
+      profile={profileValue()}
+      recommendation={recommendationReady()}
+      wardrobe={wardrobeValue()}
+      weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  expect(result.queryByTestId('today-alert-offer')).toBeNull();
 });
 
 test('Today marks itself interactive once, with the coarse presentation kind', async () => {

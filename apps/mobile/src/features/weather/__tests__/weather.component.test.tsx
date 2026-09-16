@@ -915,6 +915,30 @@ test('device location card has one composed accessible name', async () => {
   expect(result.queryByRole('button', { name: messages.en.weather.changeLocationAction })).toBeNull();
 });
 
+test('a named device location shows the locality and keeps its accuracy caption', async () => {
+  const location = getManualLocation('sample.istanbul')!;
+  const value = createValue({
+    ...baseState,
+    permission: { kind: 'granted', accuracy: 'approximate' },
+    activeLocation: {
+      source: 'device',
+      accuracy: 'approximate',
+      coordinates: location.coordinates,
+      displayName: 'Kadıköy',
+      locationKey: 'device:4101:2898',
+      timeZone: location.timeZone,
+    },
+  });
+  const result = await render(
+    <Providers language="en" value={value}><WeatherScreen /></Providers>,
+  );
+
+  expect(result.getByRole('button', {
+    name: `Kadıköy. ${messages.en.weather.approximateLocation}. ${messages.en.weather.changeLocationAction}`,
+  })).toBeOnTheScreen();
+  expect(result.queryByText(messages.en.weather.currentLocation)).toBeNull();
+});
+
 test.each(['en', 'tr'] as const)(
   '%s device location replaces accuracy with a last-known warning when access is off',
   async (language) => {
