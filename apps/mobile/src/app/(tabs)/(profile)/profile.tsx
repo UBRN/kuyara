@@ -17,10 +17,10 @@ export default function ProfileRoute() {
   useScreenInteractive({ state: 'ready' });
   const { state } = useWeatherApplication();
   const activeLocation = state.status === 'ready' ? state.activeLocation : null;
+  // A device fix names its locality when the reverse geocode resolved one; the caption
+  // below still says how the place was resolved.
   const activePlaceName = activeLocation
-    ? activeLocation.source === 'manual'
-      ? activeLocation.displayName
-      : messages.weather.currentLocation
+    ? activeLocation.displayName ?? messages.weather.currentLocation
     : null;
   // Weather and Profile answer "how was this place resolved?" from the same rule, so a
   // searched city is never captioned as an approximate device fix.

@@ -47,7 +47,8 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   only observation is Simulator inference running on the Mac host, so the ADR's
   measurement table still reads not yet measured; builds 6 and 7 carry the module.
 - **Notifications:** on-device local weather alerts only ([ADR 0032](adr/0032-local-weather-alert-rules.md)):
-  opt-in in Settings, deterministic precipitation-onset and temperature-swing rules, a
+  opt-in in Settings and ADR 0004's one contextual offer on Today, shown when a rule would
+  have fired and never shown again, deterministic precipitation-onset and temperature-swing rules, a
   delivery ledger, rescheduling on every persisted snapshot and on opt-in, permission and
   language changes, and a best-effort `expo-background-task` refresh. Pending alerts
   survive a cold launch and the tap that launched the app is delivered. No server, no

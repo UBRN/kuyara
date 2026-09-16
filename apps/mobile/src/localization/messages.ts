@@ -4,6 +4,7 @@ import type {
 } from '@/features/recommendation/domain/outfit-composition';
 import type { RecommendationPhase } from '@/features/recommendation/application/recommendation-application-controller';
 import type { ClothingRequirementReasonCode } from '@/features/recommendation/domain/weather-to-clothing-requirements';
+import type { WeatherAlertRuleId } from '@/features/notifications/domain/weather-alerts';
 import type {
   WeatherConditionCode as LiveWeatherConditionCode,
 } from '@/features/weather/domain/weather';
@@ -256,6 +257,12 @@ export type AppMessages = Readonly<{
     statusOff: string;
     permissionDeniedHint: string;
     openSettingsAction: string;
+    /** ADR 0004's one contextual offer on Today: one sentence per rule that would have fired. */
+    offer: Readonly<{
+      sentences: Readonly<Record<WeatherAlertRuleId, string>>;
+      acceptAction: string;
+      dismissAction: string;
+    }>;
     alerts: Readonly<{
       rainTitle: string;
       rainBody: (time: string) => string;
@@ -583,6 +590,14 @@ const en = {
     statusOff: 'Off',
     permissionDeniedHint: 'Notifications are turned off in system settings.',
     openSettingsAction: 'Open Settings',
+    offer: {
+      sentences: {
+        precipitation_onset: 'kuyara could have warned you before rain or snow started today.',
+        temperature_swing: 'kuyara could have warned you before today\u2019s sharp temperature change.',
+      },
+      acceptAction: 'Turn on alerts',
+      dismissAction: 'Not now',
+    },
     alerts: {
       rainTitle: 'Rain is on the way',
       rainBody: (time) => `Rain is expected around ${time}. Take something waterproof with you.`,
@@ -1062,6 +1077,14 @@ const tr = {
     statusOff: 'Kapalı',
     permissionDeniedHint: 'Bildirimler sistem ayarlarında kapalı.',
     openSettingsAction: 'Ayarları Aç',
+    offer: {
+      sentences: {
+        precipitation_onset: 'kuyara bugün yağış başlamadan seni uyarabilirdi.',
+        temperature_swing: 'kuyara bugün sıcaklık sert değişmeden seni uyarabilirdi.',
+      },
+      acceptAction: 'Uyarıları aç',
+      dismissAction: 'Şimdi değil',
+    },
     alerts: {
       rainTitle: 'Yağmur geliyor',
       rainBody: (time) => `Saat ${time} civarında yağmur bekleniyor. Yanına su geçirmez bir parça al.`,

@@ -19,7 +19,7 @@ import {
   createTodayPresentation,
 } from '@/features/today/presentation/today-presentation';
 import { PLACEHOLDER_REST } from '@/features/today/presentation/garment-board-skeleton';
-import { TodayScreen } from '@/features/today/presentation/today-screen';
+import { TodayScreen, type TodayAlertOffer } from '@/features/today/presentation/today-screen';
 import {
   WeatherApplicationContext,
   type WeatherApplicationValue,
@@ -1445,5 +1445,103 @@ describe('finishing touches', () => {
     expect(
       boardPieces.suggestions[0].boardPieces.some(({ category }) => category === 'accessory'),
     ).toBe(false);
+  });
+});
+
+describe('the contextual weather-alert offer', () => {
+  function offerProps(overrides: Partial<TodayAlertOffer> = {}): TodayAlertOffer {
+    return {
+      ruleId: 'precipitation_onset',
+      onAccept: jest.fn(async () => ({ outcome: 'enabled' } as const)),
+      onDismiss: jest.fn(),
+      onOpenSystemSettings: jest.fn(),
+      ...overrides,
+    };
+  }
+
+  test.each(['en', 'tr'] as const)('%s names the rule that would have fired and offers both actions', async (language) => {
+    const copy = messages[language].notifications;
+    const result = await render(providers(
+      <TodayScreen
+        alertOffer={offerProps({ ruleId: 'temperature_swing' })}
+        language={language}
+        onOpenOutfitDetail={jest.fn()}
+        onRefresh={jest.fn()}
+        state={todayScreenState}
+      />,
+      lightTheme, language,
+    ));
+
+    expect(result.getByTestId('today-alert-offer-message'))
+      .toHaveTextContent(copy.offer.sentences.temperature_swing);
+    const accept = result.getByTestId('today-alert-offer-accept');
+    const dismiss = result.getByTestId('today-alert-offer-dismiss');
+    expect(within(accept).getByText(copy.offer.acceptAction)).toHaveStyle({
+      ...typography.label, color: lightTheme.colors.brandAccent,
+    });
+    expect(within(dismiss).getByText(copy.offer.dismissAction)).toHaveStyle({
+      ...typography.label, color: lightTheme.colors.textSecondary,
+    });
+    // Both actions are buttons the hand can hit; neither is an accent fill.
+    for (const action of [accept, dismiss]) {
+      expect(action.props.accessibilityRole).toBe('button');
+      expect(StyleSheet.flatten(action.props.style)).toMatchObject({ minHeight: 44 });
+    }
+    expect(StyleSheet.flatten(result.getByTestId('today-alert-offer').props.style))
+      .toMatchObject({ backgroundColor: lightTheme.colors.surfaceMuted });
+  });
+
+  test('renders nothing when no alert would have fired', async () => {
+    const result = await render(providers(
+      <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
+    ));
+
+    expect(result.queryByTestId('today-alert-offer')).toBeNull();
+  });
+
+  test('accepting runs the opt-in flow and leaves the row behind', async () => {
+    const offer = offerProps();
+    const result = await render(providers(
+      <TodayScreen alertOffer={offer} language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
+    ));
+
+    await fireEvent.press(result.getByTestId('today-alert-offer-accept'));
+    expect(offer.onAccept).toHaveBeenCalledTimes(1);
+    expect(offer.onDismiss).not.toHaveBeenCalled();
+    expect(result.queryByTestId('today-alert-offer')).toBeNull();
+  });
+
+  test('dismissing marks the offer spent and leaves the row behind', async () => {
+    const offer = offerProps();
+    const result = await render(providers(
+      <TodayScreen alertOffer={offer} language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
+    ));
+
+    await fireEvent.press(result.getByTestId('today-alert-offer-dismiss'));
+    expect(offer.onDismiss).toHaveBeenCalledTimes(1);
+    expect(offer.onAccept).not.toHaveBeenCalled();
+    expect(result.queryByTestId('today-alert-offer')).toBeNull();
+  });
+
+  // The offer is spent before the OS answers, so a refusal arrives after the prop is gone.
+  test('a refused permission keeps the row and reuses the Settings copy and its way out', async () => {
+    const offer = offerProps({
+      onAccept: jest.fn(async () => ({ outcome: 'blocked', canRequestAgain: false } as const)),
+    });
+    const result = await render(providers(
+      <TodayScreen alertOffer={offer} language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
+    ));
+
+    await fireEvent.press(result.getByTestId('today-alert-offer-accept'));
+    await result.rerender(providers(
+      <TodayScreen alertOffer={null} language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
+    ));
+
+    expect(result.getByTestId('today-alert-offer-message'))
+      .toHaveTextContent(messages.en.notifications.permissionDeniedHint);
+    await fireEvent.press(result.getByTestId('today-alert-offer-accept'));
+    expect(offer.onOpenSystemSettings).toHaveBeenCalledTimes(1);
+    await fireEvent.press(result.getByTestId('today-alert-offer-dismiss'));
+    expect(result.queryByTestId('today-alert-offer')).toBeNull();
   });
 });
