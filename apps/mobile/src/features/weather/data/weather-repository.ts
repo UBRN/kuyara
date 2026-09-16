@@ -12,6 +12,7 @@ import type {
 } from '@/features/weather/data/weather-records';
 import type { ProvidedWeatherSnapshot } from '@/features/weather/data/weather-provider';
 import {
+  deviceLocationDisplayName,
   deviceLocationKey,
   isValidTimeZone,
   isManualLocationId,
@@ -89,11 +90,18 @@ function mapLocation(record: ActiveLocationRecord): ActiveLocation {
     return { ...common, source: 'manual', catalogId, displayName: locationDisplayNameSchema.parse(record.displayName) };
   }
   if (
-    record.source === 'device' && record.manualCatalogId === null && record.displayName === null &&
+    record.source === 'device' && record.manualCatalogId === null &&
     (record.deviceAccuracy === 'approximate' || record.deviceAccuracy === 'full')
   ) {
     if (record.locationKey !== deviceLocationKey(common.coordinates)) throw new WeatherMappingError();
-    return { ...common, source: 'device', accuracy: record.deviceAccuracy };
+    return {
+      ...common,
+      source: 'device',
+      accuracy: record.deviceAccuracy,
+      // A stored name is normalized exactly as it was resolved; the column's own check keeps a
+      // blank or oversized one out of the row in the first place.
+      displayName: deviceLocationDisplayName(record.displayName, null),
+    };
   }
   throw new WeatherMappingError();
 }
@@ -241,6 +249,10 @@ export class LocalWeatherRepository implements WeatherRepository {
         !isManualLocationId(location.catalogId) || !locationDisplayNameSchema.safeParse(location.displayName).success
       )) throw new WeatherValidationError();
       if (
+        location.source === 'device' && location.displayName != null &&
+        !locationDisplayNameSchema.safeParse(location.displayName).success
+      ) throw new WeatherValidationError();
+      if (
         !Number.isInteger(location.coordinates.latitudeE2) || Math.abs(location.coordinates.latitudeE2) > 9000 ||
         !Number.isInteger(location.coordinates.longitudeE2) || Math.abs(location.coordinates.longitudeE2) > 18000
       ) throw new WeatherValidationError();
@@ -256,7 +268,7 @@ export class LocalWeatherRepository implements WeatherRepository {
         locationKey: location.locationKey,
         source: location.source,
         manualCatalogId: location.source === 'manual' ? location.catalogId : null,
-        displayName: location.source === 'manual' ? locationDisplayNameSchema.parse(location.displayName) : null,
+        displayName: location.displayName == null ? null : locationDisplayNameSchema.parse(location.displayName),
         latitudeE2: location.coordinates.latitudeE2,
         longitudeE2: location.coordinates.longitudeE2,
         timeZone: location.timeZone,

@@ -259,10 +259,14 @@ export class WeatherApplicationController {
       const moved = result.kind === 'success'
         && (result.location.locationKey !== previous.locationKey
           || result.location.timeZone !== previous.timeZone);
+      // The same coordinates can still resolve a name the stored location does not carry, either
+      // because it was stored before the name existed or because that geocode came back empty.
+      const renamed = result.kind === 'success'
+        && (result.location.displayName ?? null) !== (previous.displayName ?? null);
       // A selection made while the lookup ran wins over the lookup it raced.
       const unchanged = active?.locationKey === previous.locationKey
         && active.timeZone === previous.timeZone;
-      if (moved && unchanged) {
+      if ((moved || renamed) && unchanged) {
         await this.selectLocation(result.location);
         return;
       }
