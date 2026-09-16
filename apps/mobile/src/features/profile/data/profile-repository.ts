@@ -31,6 +31,7 @@ export interface ProfileRepository {
   updateLanguagePreference(preference: LanguagePreference): Promise<Profile>;
   updateThemePreference(preference: ThemePreference): Promise<Profile>;
   updateNotificationsOptIn(optIn: boolean): Promise<Profile>;
+  markWeatherAlertOfferShown(): Promise<Profile>;
   updateAnalyticsConsent(consent: AnalyticsConsent): Promise<Profile>;
 }
 
@@ -60,6 +61,8 @@ function mapRecord(record: LocalProfileRecord): Profile {
     record.onboardingCompleted === 0 || record.onboardingCompleted === 1;
   const hasValidNotificationsOptIn =
     record.notificationsOptIn === 0 || record.notificationsOptIn === 1;
+  const hasValidOfferShown =
+    record.weatherAlertOfferShown === 0 || record.weatherAlertOfferShown === 1;
   const hasValidAnalyticsConsent =
     analyticsConsentSchema.safeParse(record.analyticsConsent).success;
   const completedWithoutPreference =
@@ -75,6 +78,7 @@ function mapRecord(record: LocalProfileRecord): Profile {
     !isThemePreference(record.themePreference) ||
     !hasValidCompletion ||
     !hasValidNotificationsOptIn ||
+    !hasValidOfferShown ||
     !hasValidAnalyticsConsent ||
     completedWithoutPreference ||
     !isUtcIsoTimestamp(record.createdAt) ||
@@ -93,6 +97,7 @@ function mapRecord(record: LocalProfileRecord): Profile {
     themePreference: record.themePreference,
     onboardingCompleted: record.onboardingCompleted === 1,
     notificationsOptIn: record.notificationsOptIn === 1,
+    weatherAlertOfferShown: record.weatherAlertOfferShown === 1,
     analyticsConsent: analyticsConsentSchema.parse(record.analyticsConsent),
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
@@ -155,6 +160,10 @@ export class LocalProfileRepository implements ProfileRepository {
 
   updateNotificationsOptIn(optIn: boolean): Promise<Profile> {
     return this.execute(() => this.dataSource.updateNotificationsOptIn(optIn));
+  }
+
+  markWeatherAlertOfferShown(): Promise<Profile> {
+    return this.execute(() => this.dataSource.markWeatherAlertOfferShown());
   }
 
   updateAnalyticsConsent(consent: AnalyticsConsent): Promise<Profile> {
