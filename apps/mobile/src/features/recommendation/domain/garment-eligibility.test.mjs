@@ -356,8 +356,18 @@ test('lifecycle, invalid data, unavailable catalog, and accessories fail explici
     ),
     projectCatalogEffectiveGarment('umbrella', 'womens'),
   );
-  assert.equal(umbrella.status, 'ineligible');
-  assert.deepEqual(umbrella.reasonCodes, ['unsupported_category']);
+  assert.equal(umbrella.status, 'eligible');
+  assert.equal(
+    umbrella.evaluations.find(({ requirement: { kind } }) => kind === 'water_protection')
+      ?.status,
+    'met',
+  );
+
+  const dryUmbrella = evaluateGarmentEligibility(
+    clothingRequirements(),
+    projectCatalogEffectiveGarment('umbrella', 'womens'),
+  );
+  assert.deepEqual(dryUmbrella.reasonCodes, ['no_applicable_requirements']);
 });
 
 test('deprecated catalog candidates are unavailable while deprecated owned garments resolve', () => {
