@@ -97,21 +97,22 @@ stage width, clamped away from the edges. Placing by bounding box was tried and 
 on measurement: a two-piece dress-and-sandals board then put 4.8% of its ink in the right
 half, against 23.3% under centroid placement.
 
-### 6. Twenty-seven silhouettes cover the catalogue vocabulary
+### 6. Thirty-three silhouettes cover the catalogue vocabulary
 
 The outfit-eligible set includes `tank`, `tee`, `hoodie`, `puffer`, `shorts`, `leggings`,
 `dress`, `jumpsuit` and `sandal` alongside the thirteen silhouettes established by the
-spike. Those twenty-two drawings cover all **27 outfit-eligible catalogue types**, with
-five types sharing a drawing with another. `dress` and `jumpsuit` are required because a
-one-piece look cannot otherwise be drawn.
+spike, and `parka`, `blazer`, `vest` and `flat` for the enlarged catalogue. Those
+twenty-six drawings cover all **41 outfit-eligible catalogue types**, with fifteen types
+sharing a drawing with another. `dress` and `jumpsuit` are required because a one-piece
+look cannot otherwise be drawn.
 
 `sandal` is the weakest of the nine and is explicitly accepted as redrawable during a
 later visual iteration rather than treated as a blocker.
 
-Five per-type accessory silhouettes, `beanie`, `brimmed_hat`, `scarf`, `gloves` and
-`umbrella`, bring the vocabulary to 27 drawings covering all 32 catalogue types. They are
-drawn on the Closet and Profile surfaces only, because the recommendation contract has no
-accessory slot.
+Seven per-type accessory silhouettes, `beanie`, `brimmed_hat`, `cap`, `balaclava`,
+`scarf`, `gloves` and `umbrella`, bring the vocabulary to 33 drawings covering all 49
+catalogue types. They are drawn on the Closet and Profile surfaces only, because the
+recommendation contract has no accessory slot.
 
 ### 7. Law 6 boundaries for board artwork
 
@@ -176,7 +177,7 @@ if native validation disagrees.
 
 **Keep hand-placing boards.** The status quo. Rejected because it does not survive
 contact with the composer: it produces one outfit's coordinates, and the composer emits
-five shapes of slot list from a 27-type catalogue.
+five shapes of slot list from a 41-type catalogue.
 
 ## Out of scope
 

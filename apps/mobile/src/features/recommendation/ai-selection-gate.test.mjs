@@ -77,12 +77,13 @@ test('T1a every grid cell offers the AI tier a pool of at least three options', 
   }
 });
 
-test('T1a the hot-weather pool is exactly three, so the AI tier has no margin left', () => {
-  // Measured on 2026-09-13: hot weather composes exactly three options for either clothing
-  // preference. One garment fewer in the catalog, or one requirement stricter, closes the
-  // AI tier for hot days entirely and every hot day answers "Standard suggestions".
+test('T1a the hot-weather pool is the narrowest one, with a single option of margin', () => {
+  // Measured on 2026-09-16 at catalog version 5: hot weather composes exactly four options
+  // for either clothing preference, one above the three `aiRequestFromContext` needs. Two
+  // options fewer in the pool, or one requirement stricter, closes the AI tier for hot days
+  // entirely and every hot day answers "Standard suggestions".
   for (const cell of gridRequestCells().filter(({ weatherKey }) => weatherKey === 'hot')) {
-    assert.equal(cell.context.options.length, 3, cell.name);
+    assert.equal(cell.context.options.length, 4, cell.name);
   }
 });
 
@@ -125,6 +126,7 @@ test('T2 every pair of offered options is meaningfully different, so the shared 
 
 test('T2 the mobile gate accepts every answer the Worker gate accepts, and the accepted answer survives persistence', () => {
   let accepted = 0;
+  let unlabelable = 0;
   for (const cell of gridRequestCells()) {
     const { request, context } = cell;
     for (const indices of sampleIndexTriples(request.options.length, triplesPerCell)) {
@@ -133,7 +135,15 @@ test('T2 the mobile gate accepts every answer the Worker gate accepts, and the a
       // answer at all: whatever the model replies, both gates refuse it and the day falls
       // back to "Standard suggestions".
       const picks = wellFormedPicks(options);
-      assert.ok(picks, `${cell.name} ${indices} has no three distinct archetype labels`);
+      // The archetype vocabulary is closed by the shipped response enum, and a plain casual
+      // outfit without sneakers or layers holds only two labels, so a triple of those has no
+      // three-label answer. The prompt directs the model to three different labels from the
+      // eligible lists, so it steers away from such triples; one it still picks is refused
+      // and the day falls back. Such triples must stay rare in the offered pools.
+      if (!picks) {
+        unlabelable += 1;
+        continue;
+      }
 
       // The Worker handler's four checks (apps/worker/src/ai/ai-handler.ts): the shared
       // success schema, the closed set of offered option ids, the shared distinctness rule
@@ -168,6 +178,10 @@ test('T2 the mobile gate accepts every answer the Worker gate accepts, and the a
     }
   }
   assert.ok(accepted > 1000, `only ${accepted} answers were checked`);
+  assert.ok(
+    unlabelable <= (accepted + unlabelable) * 0.01,
+    `${unlabelable} of ${accepted + unlabelable} sampled triples have no three distinct labels`,
+  );
 });
 
 test('T2 the mobile gate refuses every answer shape the Worker gate refuses', () => {

@@ -1,4 +1,6 @@
 // ADR 0025's approved silhouettes and category fallback vocabulary.
+// g-blazer, g-parka, g-vest, g-cap, g-flat and g-balaclava are drawn ahead of their
+// catalog mapping.
 // Bounds exclude stroke; silhouettes.test.mjs recomputes them from these paths.
 export type Silhouette = Readonly<{
   id: string;
@@ -88,6 +90,17 @@ export const silhouettes = {
     ],
     bounds: { x: 14, y: 15, width: 36, height: 34 },
   },
+  'g-blazer': {
+    id: 'g-blazer', viewBox: 64,
+    paths: [
+      { d: 'M23 15 L14 20 L18 40 L25 39 L24 52 L40 52 L39 39 L46 40 L50 20 L41 15 Z', filled: true },
+      { d: 'M23 15 L26 21 L23 23 L32 33', filled: false },
+      { d: 'M41 15 L38 21 L41 23 L32 33', filled: false },
+      { d: 'M32 33 L32 52', filled: false },
+      { d: 'M35 37 L36 37', filled: false },
+    ],
+    bounds: { x: 14, y: 15, width: 36, height: 37 },
+  },
   'g-puffer': {
     id: 'g-puffer', viewBox: 64,
     paths: [
@@ -98,6 +111,27 @@ export const silhouettes = {
       { d: 'M18 39 L46 39', filled: false },
     ],
     bounds: { x: 13, y: 15, width: 38, height: 36 },
+  },
+  'g-parka': {
+    id: 'g-parka', viewBox: 64,
+    paths: [
+      { d: 'M23 20 Q25 13 32 13 Q39 13 41 20 Z', filled: true },
+      { d: 'M24 20 L13 25 L17 45 L24 44 L23 55 L41 55 L40 44 L47 45 L51 25 L40 20 Z', filled: true },
+      { d: 'M32 20 L32 55', filled: false },
+      { d: 'M25 50 L39 50', filled: false },
+    ],
+    bounds: { x: 13, y: 13, width: 38, height: 42 },
+  },
+  'g-vest': {
+    id: 'g-vest', viewBox: 64,
+    paths: [
+      { d: 'M25 15 L17 20 L20 32 L23 31 L23 51 L41 51 L41 31 L44 32 L47 20 L39 15 Z', filled: true },
+      { d: 'M25 15 L32 24 L39 15', filled: false },
+      { d: 'M32 24 L32 51', filled: false },
+      { d: 'M25 34 L39 34', filled: false },
+      { d: 'M25 43 L39 43', filled: false },
+    ],
+    bounds: { x: 17, y: 15, width: 30, height: 36 },
   },
   'g-trench': {
     id: 'g-trench', viewBox: 64,
@@ -197,6 +231,15 @@ export const silhouettes = {
     ],
     bounds: { x: 13, y: 34, width: 37, height: 16 },
   },
+  'g-flat': {
+    id: 'g-flat', viewBox: 64,
+    paths: [
+      { d: 'M14 48 L14 42 Q14 38 20 37 L31 36 L45 41 Q50 42 50 48 Z', filled: true },
+      { d: 'M27 33 L32 37 L37 33 L37 40 L32 37 L27 40 Z', filled: true },
+      { d: 'M16 45 L48 45', filled: false },
+    ],
+    bounds: { x: 14, y: 33, width: 36, height: 15 },
+  },
   'g-sandal': {
     id: 'g-sandal', viewBox: 64,
     paths: [
@@ -222,6 +265,23 @@ export const silhouettes = {
       { d: 'M22 35 L42 35', filled: false },
     ],
     bounds: { x: 12, y: 18, width: 40, height: 28 },
+  },
+  'g-cap': {
+    id: 'g-cap', viewBox: 64,
+    paths: [
+      { d: 'M13 43 Q13 23 26 23 Q39 23 39 43 Z', filled: true },
+      { d: 'M38 43 Q50 44 52 48 Q44 48 36 46 Z', filled: true },
+      { d: 'M26 23 Q22 32 23 43', filled: false },
+    ],
+    bounds: { x: 13, y: 23, width: 39, height: 25 },
+  },
+  'g-balaclava': {
+    id: 'g-balaclava', viewBox: 64,
+    paths: [
+      { d: 'M16 28 Q16 14 32 14 Q48 14 48 28 Q48 36 42 38 L44 47 L20 47 L22 38 Q16 36 16 28 Z', filled: true },
+      { d: 'M23 30 Q23 25 32 25 Q41 25 41 30 Q41 35 32 35 Q23 35 23 30 Z', filled: false },
+    ],
+    bounds: { x: 16, y: 14, width: 32, height: 33 },
   },
   'g-scarf': {
     id: 'g-scarf', viewBox: 64,

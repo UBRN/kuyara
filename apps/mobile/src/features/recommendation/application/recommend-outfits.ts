@@ -112,7 +112,7 @@ export function outfitMatchesArchetype(
       return outfit.outerLayer === null &&
         primary.garment.properties.breathability === 'high';
     case 'office_ready':
-      return outfit.formality === 'formal';
+      return outfit.formality === 'smart' || outfit.formality === 'formal';
     case 'smart_casual':
       return outfit.formality === 'smart' || outfit.formality === 'formal';
     case 'on_the_move':

@@ -8,7 +8,7 @@ import type { AiProvider } from './ai-provider.ts';
 
 function validArchetypes(option: AiOption): OutfitArchetypeId[] {
   const archetypes: OutfitArchetypeId[] = [];
-  if (option.formality === 'formal') archetypes.push('office_ready');
+  if (option.formality !== 'casual') archetypes.push('office_ready');
   if (option.formality !== 'casual') archetypes.push('smart_casual');
   if (option.formality === 'casual') archetypes.push('weekend_relaxed');
   if (option.traits.hasMidLayer && option.traits.hasOuterLayer) {

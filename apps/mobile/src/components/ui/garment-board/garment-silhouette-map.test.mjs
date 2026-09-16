@@ -8,7 +8,7 @@ import { silhouettes } from './silhouettes.ts';
 
 test('every outfit-eligible catalog type resolves to an existing silhouette', () => {
   const eligible = garmentTypeIds.filter((id) => getGarmentType(id).structuralCategory !== 'accessory');
-  assert.equal(eligible.length, 27);
+  assert.equal(eligible.length, 41);
   for (const id of eligible) {
     assert.ok(garmentSilhouetteIds[id], id);
     assert.ok(silhouettes[garmentSilhouetteIds[id]], id);
@@ -27,7 +27,10 @@ test('each accessory type resolves to its own silhouette instead of the category
   const accessoryMappings = {
     beanie: 'g-beanie',
     brimmed_hat: 'g-hat',
+    cap: 'g-cap',
+    balaclava: 'g-balaclava',
     scarf: 'g-scarf',
+    neck_gaiter: 'g-scarf',
     gloves: 'g-gloves',
     umbrella: 'g-umbrella',
   };

@@ -71,7 +71,7 @@ function archetypeCandidates(option) {
     option.traits.hasMidLayer && option.traits.hasOuterLayer && 'layered_warmth',
     option.traits.hasMidLayer && !option.traits.hasOuterLayer && 'in_between',
     !option.traits.hasOuterLayer && option.traits.breathabilityHigh && 'light_and_airy',
-    option.formality === 'formal' && 'office_ready',
+    option.formality !== 'casual' && 'office_ready',
     option.formality !== 'casual' && 'smart_casual',
     option.garments.some(({ slot, garmentTypeId }) =>
       slot === 'footwear' && garmentTypeId === 'sneakers') && 'on_the_move',
@@ -105,7 +105,7 @@ test('different day variants rotate distinct deterministic option sets for ident
   const next = createAiRecommendationRequest({ ...input(), dayVariant: 1 });
 
   assert.deepEqual(first, repeated);
-  assert.equal(first.catalogVersion, 4);
+  assert.equal(first.catalogVersion, 5);
   assert.equal(first.dayVariant, 0);
   assert.equal(first.options.length > 3 && first.options.length <= 24, true);
   assert.notDeepEqual(
@@ -294,12 +294,14 @@ test('every deterministic recommendation round-trips through the stored mapper',
 });
 
 // The two live Worker answers that the first valid arrangement rejected on 2026-09-13: the
-// mid layer was dropped, and the overshirt was promoted to a standalone primary top.
+// mid layer was dropped, and the mid layer was promoted to a standalone primary top. Read at
+// 4 degrees because the offered set now keeps one arrangement per body core, so a mid layer
+// only reaches it where the cold makes it the best arrangement its body core has.
 test('rebuilds an offered option with its mid layer instead of the simpler arrangement', () => {
-  const request = createAiRecommendationRequest(input({ temperatureCelsius: 24 }));
+  const request = createAiRecommendationRequest(input({ temperatureCelsius: 4 }));
   const signatures = [
-    'primary_top:blouse:base bottom:shorts:standalone mid_layer:overshirt:mid footwear:sneakers:null',
-    'primary_top:sleeveless_top:base bottom:shorts:standalone mid_layer:overshirt:mid footwear:sneakers:null',
+    'primary_top:blouse:base bottom:long_skirt:standalone mid_layer:cardigan:mid footwear:ankle_boots:null',
+    'primary_top:polo_shirt:base bottom:long_skirt:standalone mid_layer:cardigan:mid footwear:ankle_boots:null',
   ];
 
   for (const signature of signatures) {
@@ -312,7 +314,7 @@ test('rebuilds an offered option with its mid layer instead of the simpler arran
     });
 
     assert.equal(result.outfits[0].optionId, option.optionId);
-    assert.equal(result.outfits[0].midLayer.garment.garmentTypeId, 'overshirt');
+    assert.equal(result.outfits[0].midLayer.garment.garmentTypeId, 'cardigan');
     assert.equal(
       result.outfits[0].body.primaryTop.garment.garmentTypeId,
       option.garments[0].garmentTypeId,

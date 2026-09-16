@@ -173,7 +173,10 @@ test('canonical catalog is complete, immutable, versioned, and uses approved app
     true,
   );
 
-  const womensOnly = new Set(['blouse', 'skirt', 'dress', 'jumpsuit', 'leggings']);
+  const womensOnly = new Set([
+    'blouse', 'skirt', 'long_skirt', 'dress', 'jumpsuit', 'knit_dress', 'leggings',
+    'ballet_flats',
+  ]);
   for (const type of garmentCatalog.garmentTypes) {
     assert.deepEqual(
       [...type.apparelPreferenceApplicability],
@@ -185,7 +188,7 @@ test('canonical catalog is complete, immutable, versioned, and uses approved app
   assert.deepEqual(
     listGarmentTypesForPreference('mens').map(({ typeId }) => typeId),
     garmentTypeIds.filter(
-      (typeId) => !['blouse', 'skirt', 'dress', 'jumpsuit', 'leggings'].includes(typeId),
+      (typeId) => !womensOnly.has(typeId),
     ),
   );
   assert.deepEqual(

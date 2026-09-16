@@ -29,7 +29,7 @@ function workerResponse(request) {
         option.traits.hasMidLayer && option.traits.hasOuterLayer && 'layered_warmth',
         option.traits.hasMidLayer && !option.traits.hasOuterLayer && 'in_between',
         !option.traits.hasOuterLayer && option.traits.breathabilityHigh && 'light_and_airy',
-        option.formality === 'formal' && 'office_ready',
+        option.formality !== 'casual' && 'office_ready',
         option.formality !== 'casual' && 'smart_casual',
         option.garments.some(({ slot, garmentTypeId }) =>
           slot === 'footwear' && garmentTypeId === 'sneakers') && 'on_the_move',
@@ -372,17 +372,17 @@ test('weather with no clothing requirements skips AI and persists the determinis
   assert.deepEqual(calls, { client: 0, saves: 1 });
 });
 
-// The pool the AI tier is offered has no margin on a hot day: the catalog composes exactly
-// three options, the smallest set `aiRequestFromContext` will build a request for. These two
-// tests hold both ends of that floor at the controller: the AI tier is still attempted, and
-// the deterministic fallback still fills three outfits when every AI tier fails.
+// The pool the AI tier is offered is narrowest on a hot day: the catalog composes four
+// options, one above the three `aiRequestFromContext` needs. These two tests hold both ends
+// of that floor at the controller: the AI tier is still attempted, and the deterministic
+// fallback still fills three outfits when every AI tier fails.
 test('the smallest composable pool still reaches the AI client', async () => {
   const { controller, calls, requests } = createHarness();
   await controller.initialize();
 
   const snapshot = await controller.refresh('explicit', input(30));
 
-  assert.equal(requests[0].options.length, 3);
+  assert.equal(requests[0].options.length, 4);
   assert.equal(calls.client, 1);
   assert.equal(snapshot.generationMode, 'ai-assisted');
   assert.equal(snapshot.recommendation.outfits.length, 3);

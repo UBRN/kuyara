@@ -172,22 +172,27 @@ Every value, in stage-width units unless marked otherwise.
 
 ## 8. The silhouette set
 
-Twenty-two drawings, one 64×64 viewBox each, stroke 1.9 non-scaling, filled with the
+Twenty-six drawings, one 64×64 viewBox each, stroke 1.9 non-scaling, filled with the
 stage's own fill so a garment reads as a pale solid with a drawn edge. They cover all
-**27 outfit-eligible catalogue types**; five types share a drawing with another
-(`blouse` and `overshirt` with `shirt`, `sweatshirt` with `sweater`, `coat` with
-`trench_coat`, `weather_boots` with `ankle_boots`). ADR 0021 already records the
-blouse-and-shirt collision as a cost of the MVP vocabulary rather than a layout defect.
+**41 outfit-eligible catalogue types**; fifteen types share a drawing with another
+(`blouse`, `overshirt` with `shirt`; `sweatshirt`, `fleece`, `turtleneck` with `sweater`;
+`polo_shirt` with `t_shirt`; `long_skirt` with `skirt`; `track_pants` with `trousers`;
+`knit_dress` with `dress`; `coat` with `trench_coat`; `bomber_jacket`, `leather_jacket`
+with `light_jacket`; `weather_boots`, `rain_boots` with `ankle_boots`; `loafers` with
+`closed_shoes`). ADR 0021 already records the blouse-and-shirt collision as a cost of the
+MVP vocabulary rather than a layout defect.
 
-Thirteen are carried unchanged from the Direction E spike. **Nine are new and need
-approval** before they enter the vocabulary, per `AGENTS.md`: `tank`, `tee`, `hoodie`,
-`puffer`, `shorts`, `leggings`, `dress`, `jumpsuit`, `sandal`. Without `dress` and
-`jumpsuit` a one-piece look cannot be drawn at all, which is why the set could not be
-left as it was.
+Thirteen are carried unchanged from the Direction E spike. Nine entered with the MVP
+vocabulary: `tank`, `tee`, `hoodie`, `puffer`, `shorts`, `leggings`, `dress`, `jumpsuit`,
+`sandal`. Without `dress` and `jumpsuit` a one-piece look cannot be drawn at all, which is
+why the set could not be left as it was. Four cover the enlarged catalogue: `parka`,
+`blazer`, `vest`, `flat`.
 
-The five catalogue accessories (`beanie`, `brimmed_hat`, `scarf`, `gloves`, `umbrella`)
-are not drawn, because the recommendation contract has no accessory slot and they can
-never appear in an outfit. ADR 0021 already flags that for product discussion.
+The eight catalogue accessories (`beanie`, `brimmed_hat`, `cap`, `balaclava`, `scarf`,
+`neck_gaiter`, `gloves`, `umbrella`) carry seven further drawings, `neck_gaiter` sharing
+`scarf`'s. They are drawn on the Closet and Profile surfaces only, never on an outfit
+board, because the recommendation contract has no accessory slot. ADR 0021 already flags
+that for product discussion.
 
 **Fallback.** A garment with no silhouette falls back to its structural category and is
 composed by the identical rule, with its drawn bounds measured from the artwork's alpha

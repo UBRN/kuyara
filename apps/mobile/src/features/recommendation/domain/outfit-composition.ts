@@ -245,6 +245,33 @@ function cloneRequirement(requirement: ClothingRequirement): ClothingRequirement
   }) as ClothingRequirement;
 }
 
+/**
+ * A day derives a handful of requirements and then evaluates each of them against every
+ * draft, so the copy each evaluation carries is cut once per requirement, not once per
+ * draft. The copies are frozen and nothing mutates one.
+ */
+const requirementCopies = new WeakMap<
+  ClothingRequirement,
+  Readonly<{
+    requirement: ClothingRequirement;
+    reasonCodes: readonly ClothingRequirementReasonCode[];
+  }>
+>();
+
+function copyOf(requirement: ClothingRequirement) {
+  const cached = requirementCopies.get(requirement);
+  if (cached) {
+    return cached;
+  }
+
+  const copy = Object.freeze({
+    requirement: cloneRequirement(requirement),
+    reasonCodes: Object.freeze([...requirement.reasonCodes]),
+  });
+  requirementCopies.set(requirement, copy);
+  return copy;
+}
+
 function cloneEvaluation(
   evaluation: GarmentRequirementEvaluation,
 ): GarmentRequirementEvaluation {
@@ -269,17 +296,47 @@ function cloneGarment(
   });
 }
 
+/**
+ * The frozen copies of a candidate's garment and evaluations, cut once per candidate rather
+ * than once per draft. A mild day drafts tens of thousands of outfits from the same few
+ * dozen candidates, and cloning each candidate's garment and its evaluations again for every
+ * draft was the composer's largest single cost. Every copy is deeply frozen and nothing
+ * mutates one, so the drafts share them.
+ */
+const assignedParts = new WeakMap<
+  EligibleGarmentResult,
+  Readonly<{
+    garment: EffectiveGarmentCandidate;
+    evaluations: readonly GarmentRequirementEvaluation[];
+  }>
+>();
+
+function partsFor(result: EligibleGarmentResult) {
+  const cached = assignedParts.get(result);
+  if (cached) {
+    return cached;
+  }
+
+  const parts = Object.freeze({
+    garment: cloneGarment(result.garment),
+    evaluations: Object.freeze(result.evaluations.map(cloneEvaluation)),
+  });
+  assignedParts.set(result, parts);
+  return parts;
+}
+
 function assignedGarment(
   result: EligibleGarmentResult,
   slot: OutfitSlot,
   layerRole: LayerRole | null,
 ): AssignedOutfitGarment {
+  const { garment, evaluations } = partsFor(result);
   return Object.freeze({
     slot,
     layerRole,
-    garment: cloneGarment(result.garment),
+    garment,
     eligibilityScore: result.score,
-    evaluations: Object.freeze(result.evaluations.map(cloneEvaluation)),
+    evaluations,
   });
 }
 
@@ -303,16 +360,64 @@ function findEvaluation(
   ) ?? null;
 }
 
-function bodyResults(draft: DraftComposition): readonly EligibleGarmentResult[] {
-  const core = draft.body.kind === 'separates'
-    ? [draft.body.primaryTop, draft.body.bottom]
-    : [draft.body.onePiece];
+/**
+ * Everything a draft wears above the shoes, shared by the drafts that differ only in them.
+ * `aggregateProperties`, `candidateKeys`, `compositionKey` and every requirement evaluation
+ * ask for this list, and the enumeration pairs one body, mid and outer with every eligible
+ * shoe, so `collectValidOutfits` builds it once per body-and-layers triple and hands the
+ * same frozen list to each of that triple's drafts.
+ */
+const bodyResultsByDraft = new WeakMap<
+  DraftComposition,
+  readonly EligibleGarmentResult[]
+>();
+
+function bodySideResults(
+  body: BodyCore,
+  midLayer: EligibleGarmentResult | null,
+  outerLayer: EligibleGarmentResult | null,
+): readonly EligibleGarmentResult[] {
+  const core = body.kind === 'separates'
+    ? [body.primaryTop, body.bottom]
+    : [body.onePiece];
 
   return Object.freeze([
     ...core,
-    ...(draft.midLayer ? [draft.midLayer] : []),
-    ...(draft.outerLayer ? [draft.outerLayer] : []),
+    ...(midLayer ? [midLayer] : []),
+    ...(outerLayer ? [outerLayer] : []),
   ]);
+}
+
+function bodyResults(draft: DraftComposition): readonly EligibleGarmentResult[] {
+  const cached = bodyResultsByDraft.get(draft);
+  if (cached) {
+    return cached;
+  }
+
+  const results = bodySideResults(draft.body, draft.midLayer, draft.outerLayer);
+  bodyResultsByDraft.set(draft, results);
+  return results;
+}
+
+// Only the breathability branch names the body's candidate keys, so the sorted list is cut
+// lazily and once per triple, not for every requirement of every draft.
+const bodyKeysByResults = new WeakMap<
+  readonly EligibleGarmentResult[],
+  readonly string[]
+>();
+
+function bodyCandidateKeys(draft: DraftComposition): readonly string[] {
+  const results = bodyResults(draft);
+  const cached = bodyKeysByResults.get(results);
+  if (cached) {
+    return cached;
+  }
+
+  const keys = Object.freeze(
+    results.map(({ candidateKey }) => candidateKey).sort(compareStrings),
+  );
+  bodyKeysByResults.set(results, keys);
+  return keys;
 }
 
 function coreAndMidResults(
@@ -445,9 +550,6 @@ function evaluateRequirement(
   requirements: ClothingRequirements,
 ): OutfitRequirementEvaluation {
   const body = bodyResults(draft);
-  const bodyKeys = Object.freeze(
-    body.map(({ candidateKey }) => candidateKey).sort(compareStrings),
-  );
   let contribution = 0;
   let observedContribution = 0;
   let missing = false;
@@ -479,7 +581,7 @@ function evaluateRequirement(
         : percentage(breathabilityStrength[bodyValue], required);
       contribution = observedContribution;
       missing = bodyValue === null;
-      suppliedByCandidateKeys = bodyKeys;
+      suppliedByCandidateKeys = bodyCandidateKeys(draft);
 
       if (
         requirement.priority === 'mandatory' &&
@@ -583,14 +685,15 @@ function evaluateRequirement(
   }
 
   status = evaluationStatus(contribution, missing);
+  const copy = copyOf(requirement);
   return Object.freeze({
-    requirement: cloneRequirement(requirement),
+    requirement: copy.requirement,
     status,
     contribution,
     observedContribution,
     suppliedByCandidateKeys,
     tradeoffCandidateKeys,
-    reasonCodes: Object.freeze([...requirement.reasonCodes]),
+    reasonCodes: copy.reasonCodes,
   });
 }
 
@@ -826,24 +929,40 @@ function evaluateDraft(
   });
 }
 
-function isValid(candidate: OutfitCandidate): boolean {
-  const formalities = [
-    ...(candidate.body.kind === 'separates'
-      ? [candidate.body.primaryTop, candidate.body.bottom]
-      : [candidate.body.onePiece]),
-    candidate.midLayer,
-    candidate.outerLayer,
-    candidate.footwear,
-  ].flatMap((assigned) => {
-    const formality = assigned && getGarmentType(assigned.garment.garmentTypeId)?.formality;
-    return formality ? [formality] : [];
-  });
-  const formalityRanks = formalities.map((formality) =>
-    formalityOrder.indexOf(formality));
+/**
+ * Half of validity, and the half that reads only the draft: every garment's formality has
+ * to sit inside one step of the ladder. It is checked before the draft is scored, because a
+ * catalogue that spans three formality levels drafts far more mixed outfits than consistent
+ * ones and scoring one costs orders of magnitude more than this. `collectValidOutfits`
+ * keeps the rejected drafts so a day that composes nothing still reports the same evidence.
+ */
+function hasConsistentFormality(draft: DraftComposition): boolean {
+  let lowest = Number.MAX_SAFE_INTEGER;
+  let highest = -1;
+  for (const result of bodyResults(draft)) {
+    const rank = formalityRankOf(result);
+    if (rank < 0) {
+      return false;
+    }
+    lowest = Math.min(lowest, rank);
+    highest = Math.max(highest, rank);
+  }
 
-  return formalityRanks.length === candidate.candidateKeys.length &&
-    Math.max(...formalityRanks) - Math.min(...formalityRanks) <= 1 &&
-    candidate.requirementEvaluations.every(
+  const footwearRank = formalityRankOf(draft.footwear);
+  if (footwearRank < 0) {
+    return false;
+  }
+
+  return Math.max(highest, footwearRank) - Math.min(lowest, footwearRank) <= 1;
+}
+
+function formalityRankOf(result: EligibleGarmentResult): number {
+  const formality = getGarmentType(result.garment.garmentTypeId)?.formality;
+  return formality ? formalityOrder.indexOf(formality) : -1;
+}
+
+function isValid(candidate: OutfitCandidate): boolean {
+  return candidate.requirementEvaluations.every(
     ({ requirement, status }) =>
       requirement.priority === 'optional' ||
       status === 'met' ||
@@ -875,32 +994,56 @@ function slotScoreVector(candidate: OutfitCandidate): readonly number[] {
       ]);
 }
 
-function compareOutfits(left: OutfitCandidate, right: OutfitCandidate): number {
-  const scoreOrder = right.score - left.score;
+/**
+ * The comparator's own inputs, read once per outfit instead of once per comparison. A mild
+ * day composes tens of thousands of valid outfits, so the sort asks for these hundreds of
+ * thousands of times; `slotScoreVector` allocated and froze an array on every one of them.
+ */
+type OutfitSortKey = Readonly<{
+  outfit: OutfitCandidate;
+  layers: number;
+  slotScores: readonly number[];
+}>;
+
+function outfitSortKey(outfit: OutfitCandidate): OutfitSortKey {
+  return {
+    outfit,
+    layers: optionalLayerCount(outfit),
+    slotScores: slotScoreVector(outfit),
+  };
+}
+
+function compareOutfitSortKeys(left: OutfitSortKey, right: OutfitSortKey): number {
+  const scoreOrder = right.outfit.score - left.outfit.score;
   if (scoreOrder !== 0) {
     return scoreOrder;
   }
-  const penaltyOrder = left.penaltyPoints - right.penaltyPoints;
+  const penaltyOrder = left.outfit.penaltyPoints - right.outfit.penaltyPoints;
   if (penaltyOrder !== 0) {
     return penaltyOrder;
   }
-  const layerOrder = optionalLayerCount(left) - optionalLayerCount(right);
+  const layerOrder = left.layers - right.layers;
   if (layerOrder !== 0) {
     return layerOrder;
   }
 
-  if (left.body.kind === right.body.kind) {
-    const leftScores = slotScoreVector(left);
-    const rightScores = slotScoreVector(right);
-    for (let index = 0; index < leftScores.length; index += 1) {
-      const groupOrder = rightScores[index] - leftScores[index];
+  if (left.outfit.body.kind === right.outfit.body.kind) {
+    for (let index = 0; index < left.slotScores.length; index += 1) {
+      const groupOrder = right.slotScores[index]! - left.slotScores[index]!;
       if (groupOrder !== 0) {
         return groupOrder;
       }
     }
   }
 
-  return compareStrings(left.compositionKey, right.compositionKey);
+  return compareStrings(left.outfit.compositionKey, right.outfit.compositionKey);
+}
+
+function sortedOutfits(outfits: readonly OutfitCandidate[]): OutfitCandidate[] {
+  return outfits
+    .map(outfitSortKey)
+    .sort(compareOutfitSortKeys)
+    .map(({ outfit }) => outfit);
 }
 
 function hasDuplicateCandidate(draft: DraftComposition): boolean {
@@ -1106,6 +1249,8 @@ export function collectValidOutfits(
   }
 
   const evaluated: OutfitCandidate[] = [];
+  // Scored only when nothing composes, so the failure evidence covers every draft.
+  const mixedFormality: DraftComposition[] = [];
   const midOptions: readonly (EligibleGarmentResult | null)[] = [
     null,
     ...midLayers,
@@ -1118,6 +1263,7 @@ export function collectValidOutfits(
   for (const body of bodyCores) {
     for (const midLayer of midOptions) {
       for (const outerLayer of outerOptions) {
+        const bodySide = bodySideResults(body, midLayer, outerLayer);
         for (const footwearCandidate of footwear) {
           const draft = Object.freeze({
             body,
@@ -1125,15 +1271,21 @@ export function collectValidOutfits(
             outerLayer,
             footwear: footwearCandidate,
           });
-          if (!hasDuplicateCandidate(draft)) {
+          bodyResultsByDraft.set(draft, bodySide);
+          if (hasDuplicateCandidate(draft)) {
+            continue;
+          }
+          if (hasConsistentFormality(draft)) {
             evaluated.push(evaluateDraft(draft, requirements));
+          } else {
+            mixedFormality.push(draft);
           }
         }
       }
     }
   }
 
-  const valid = evaluated.filter(isValid).sort(compareOutfits);
+  const valid = sortedOutfits(evaluated.filter(isValid));
   if (valid.length > 0) {
     return Object.freeze({
       status: 'composed',
@@ -1141,7 +1293,10 @@ export function collectValidOutfits(
     });
   }
 
-  const evidence = bestEvidence(mandatoryRequirements, evaluated);
+  const evidence = bestEvidence(mandatoryRequirements, [
+    ...evaluated,
+    ...mixedFormality.map((draft) => evaluateDraft(draft, requirements)),
+  ]);
   const unmet = mandatoryRequirements.filter((requirement) => {
     const best = evidence.find(
       ({ requirement: candidate }) =>
@@ -1221,15 +1376,103 @@ function meaningfullyDifferent(
     hasTwoCandidateKeysAbsentFrom(right, left);
 }
 
+function bodyCoreKey(outfit: OutfitCandidate): string {
+  return outfit.body.kind === 'one_piece'
+    ? `one_piece|${outfit.body.onePiece.garment.candidateKey}`
+    : `separates|${outfit.body.primaryTop.garment.candidateKey}` +
+      `|${outfit.body.bottom.garment.candidateKey}`;
+}
+
+function rotated<Value>(
+  values: readonly Value[],
+  startOffset: number,
+): readonly Value[] {
+  if (values.length === 0) {
+    return values;
+  }
+
+  const offset = ((startOffset % values.length) + values.length) % values.length;
+  return offset === 0
+    ? values
+    : [...values.slice(offset), ...values.slice(0, offset)];
+}
+
+/** One entry from each group in turn, groups keeping their own order. */
+function interleaved<Value>(
+  groups: readonly (readonly Value[])[],
+): readonly Value[] {
+  const merged: Value[] = [];
+  const longest = groups.reduce((length, group) => Math.max(length, group.length), 0);
+  for (let index = 0; index < longest; index += 1) {
+    for (const group of groups) {
+      const entry = group[index];
+      if (entry !== undefined) {
+        merged.push(entry);
+      }
+    }
+  }
+
+  return merged;
+}
+
+function groupedInOrder<Value>(
+  values: readonly Value[],
+  keyOf: (value: Value) => string,
+): readonly (readonly Value[])[] {
+  const groups = new Map<string, Value[]>();
+  for (const value of values) {
+    const key = keyOf(value);
+    const group = groups.get(key);
+    if (group) {
+      group.push(value);
+    } else {
+      groups.set(key, [value]);
+    }
+  }
+
+  return [...groups.values()];
+}
+
+/**
+ * The order the 24 offered options are taken in. Score order alone lets one garment sweep
+ * the pool: two shoes in the same thermal band both fit, the better-scoring one wins every
+ * arrangement, and the formality levels and body cores behind it never reach the offer. So
+ * the score-sorted list is read as two nested round-robins. The outer one takes one outfit
+ * from each formality in turn, along the ladder, so every formality that composed anything
+ * keeps a share of the 24 and a dress style that prefers one of them always has something
+ * to prefer. The inner one takes one outfit per distinct body core in turn, so an outfit
+ * that only swaps a shoe or a layer waits behind every different body. The ladder is fixed
+ * rather than the request's own preference, because dress style reorders what is offered
+ * and excludes nothing (ADR 0031): the offered set stays the same for all three styles, and
+ * the preference is applied afterwards, when the three shown outfits are chosen.
+ * `startOffset` still seeds the choice, rotating each formality's own list rather than the
+ * flat one, so a day variant cannot spend a whole formality's share.
+ */
+function orderForOffer(
+  outfits: readonly OutfitCandidate[],
+  startOffset: number,
+): readonly OutfitCandidate[] {
+  return interleaved(
+    formalityOrder.map((formality) =>
+      interleaved(
+        groupedInOrder(
+          rotated(
+            outfits.filter((outfit) => outfit.formality === formality),
+            startOffset,
+          ),
+          bodyCoreKey,
+        ),
+      ),
+    ),
+  );
+}
+
 function selectDiverseOutfits(
   outfits: readonly OutfitCandidate[],
   count: number,
-  startOffset: number,
 ): readonly OutfitCandidate[] {
   const selected: OutfitCandidate[] = [];
-  const offset = outfits.length === 0 ? 0 : startOffset % outfits.length;
-  const rotated = [...outfits.slice(offset), ...outfits.slice(0, offset)];
-  for (const outfit of rotated) {
+  for (const outfit of outfits) {
     if (selected.every((candidate) => meaningfullyDifferent(outfit, candidate))) {
       selected.push(outfit);
     }
@@ -1250,6 +1493,9 @@ export function composeOutfitOptions(
     ? result
     : Object.freeze({
         status: 'composed',
-        outfits: selectDiverseOutfits(result.outfits, 24, startOffset),
+        outfits: selectDiverseOutfits(
+          orderForOffer(result.outfits, startOffset),
+          24,
+        ),
       });
 }
