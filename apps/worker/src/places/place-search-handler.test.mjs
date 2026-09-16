@@ -24,7 +24,7 @@ test('search maps upstream fields, coarse coordinates and attribution with one b
     // 'manual', not 'error': workerd rejects 'error' before any network call (found live, 2026-09-08).
     assert.equal(init.redirect, 'manual');
     return Response.json(raw);
-  }, { limit: async ({ key }) => { assert.equal(key, 'weather:192.0.2.1'); return { success: true }; } });
+  }, { limit: async ({ key }) => { assert.equal(key, 'places:192.0.2.1'); return { success: true }; } });
   const result = await handle(request());
   assert.equal(result.status, 200);
   assert.equal(result.headers.get('cache-control'), 'no-store');
@@ -78,7 +78,7 @@ test('rate limits and limiter outages stop upstream calls', async (t) => {
   assert.deepEqual(warnings, [{
     event: 'rate_limited',
     route: '/v1/places/search',
-    limiter: 'weather_burst',
+    limiter: 'places_burst',
   }]);
   assert.equal(JSON.stringify(warnings).includes('192.0.2.1'), false);
   assert.equal(JSON.stringify(warnings).includes('İzmir'), false);
@@ -110,7 +110,7 @@ test('every error body the place route emits carries a code from the closed list
     assert.ok(placeSearchV1ErrorCodes.includes(error.code), `unlisted error code ${error.code}`);
   }
 });
-// Without WEATHER_RATE_LIMIT the route is composed offline (see `buildRouter`): every
+// Without PLACE_SEARCH_RATE_LIMIT the route is composed offline (see `buildRouter`): every
 // request, whatever its method, answers 503 places_unavailable and no provider is reached.
 test('production composition takes place search offline without a limiter', async (t) => {
   t.mock.method(console, 'warn', () => {});
@@ -118,4 +118,20 @@ test('production composition takes place search offline without a limiter', asyn
   assert.equal(offline.status, 503);
   assert.deepEqual(await offline.json(), { error: { code: 'places_unavailable' } });
   assert.equal((await worker.fetch(request(query, '/v1/places/search', 'GET'), {}, { waitUntil() {} })).status, 503);
+});
+
+// The budget is the route's own: the composed route asks PLACE_SEARCH_RATE_LIMIT and never
+// weather's, and its denial is the same stable shape the weather route returns.
+test('the composed route is limited by its own binding alone', async (t) => {
+  t.mock.method(console, 'warn', () => {});
+  const asked = [];
+  const limiter = (name, success) => ({ limit: async ({ key }) => { asked.push([name, key]); return { success }; } });
+  const denied = await worker.fetch(request(), {
+    WEATHER_RATE_LIMIT: limiter('weather', true),
+    PLACE_SEARCH_RATE_LIMIT: limiter('places', false),
+  }, { waitUntil() {} });
+  assert.equal(denied.status, 429);
+  assert.equal(denied.headers.get('retry-after'), '60');
+  assert.deepEqual(await denied.json(), { error: { code: 'rate_limited' } });
+  assert.deepEqual(asked, [['places', 'places:192.0.2.1']]);
 });

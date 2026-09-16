@@ -71,6 +71,7 @@ const boundEnv = {
   AI_PROBE_RATE_LIMIT: openLimiter,
   AI_RECOMMEND_RATE_LIMIT: openLimiter,
   WEATHER_RATE_LIMIT: openLimiter,
+  PLACE_SEARCH_RATE_LIMIT: openLimiter,
 };
 
 const env = {
@@ -205,17 +206,21 @@ async function assertOffline(response, code) {
 
 // Every route that spends provider quota goes offline, with its own code, when a binding it
 // needs is missing; the binding-free routes are unaffected.
-test('a missing WEATHER_RATE_LIMIT takes weather and place search offline', async (t) => {
+test('each route rate limiter takes only its own route offline', async (t) => {
   const warnings = [];
   t.mock.method(console, 'warn', (entry) => warnings.push(entry));
-  const { WEATHER_RATE_LIMIT: _omitted, ...withoutLimiter } = boundEnv;
-  const route = buildRouter(withoutLimiter);
+  const { WEATHER_RATE_LIMIT: _omitted, ...withoutWeather } = boundEnv;
+  const route = buildRouter(withoutWeather);
   await assertOffline(await route(weatherRequest(), fakeContext()), 'weather_unavailable');
-  await assertOffline(await route(placeSearchRequest(), fakeContext()), 'places_unavailable');
   assert.equal((await route(new Request('https://worker.test/v1/health'), fakeContext())).status, 200);
+  const { PLACE_SEARCH_RATE_LIMIT: _places, ...withoutPlaces } = boundEnv;
+  await assertOffline(
+    await buildRouter(withoutPlaces)(placeSearchRequest(), fakeContext()),
+    'places_unavailable',
+  );
   assert.deepEqual(warnings, [
     { event: 'route_binding_missing', route: '/v1/weather', binding: 'WEATHER_RATE_LIMIT' },
-    { event: 'route_binding_missing', route: '/v1/places/search', binding: 'WEATHER_RATE_LIMIT' },
+    { event: 'route_binding_missing', route: '/v1/places/search', binding: 'PLACE_SEARCH_RATE_LIMIT' },
   ]);
 });
 

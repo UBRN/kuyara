@@ -19,7 +19,8 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   with bounded attempts, runtime validation, attribution, rate limiting and a best-effort
   OpenWeather daily cap. Location comes from the foreground
   device flow or the native `/weather/location` picker over the Worker's place-search
-  route. The deterministic sample provider is test-only.
+  route, which carries its own per-IP rate limit so typed searches and weather refreshes
+  cannot exhaust each other. The deterministic sample provider is test-only.
 - **Recommendations:** The deterministic layer composes at most 24 valid outfits from the
   bundled catalog (version 4); the AI tier selects three and labels each with an
   archetype, on-device Apple Foundation Models where the device reports them available and

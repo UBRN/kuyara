@@ -27,14 +27,14 @@ export function createPlaceSearchHandler({ provider, rateLimiter }: Dependencies
     if (new URL(request.url).pathname !== placeSearchV1Path) return error(404, 'not_found');
     if (request.method !== 'POST') return error(405, 'method_not_allowed', { Allow: 'POST' });
     try {
-      // Share weather's per-IP budget; never use query text as a limiter key.
+      // Place search has its own per-IP budget, so typed keystrokes and weather refreshes
+      // cannot exhaust each other. Never use query text as a limiter key.
       const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
-      if (!(await rateLimiter.limit({ key: `weather:${ip}` })).success) {
-        // The limiter is weather's, so the log names weather's, not a second budget.
+      if (!(await rateLimiter.limit({ key: `places:${ip}` })).success) {
         console.warn({
           event: 'rate_limited',
           route: placeSearchV1Path,
-          limiter: 'weather_burst',
+          limiter: 'places_burst',
         });
         return error(429, 'rate_limited', { 'Retry-After': '60' });
       }
