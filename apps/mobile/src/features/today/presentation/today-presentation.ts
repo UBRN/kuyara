@@ -1,4 +1,10 @@
-import type { RecommendationPhase } from '@/features/recommendation/application/recommendation-application-controller';
+import type { DayKind } from '@kuyara/contracts';
+
+import {
+  localDayKind,
+  type RecommendationPhase,
+} from '@/features/recommendation/application/recommendation-application-controller';
+import { archetypeLabel } from '@/features/recommendation/localization/recommendation-messages';
 import type { RecommendedOutfit } from '@/features/recommendation/application/recommend-outfits';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import type {
@@ -207,6 +213,7 @@ function localizeOutfit(
   total: number,
   weatherReasons: readonly string[],
   language: SupportedLanguage,
+  dayKind: DayKind,
 ): LoadedOutfitPresentation {
   const messages = getMessages(language);
   const copy = messages.today;
@@ -223,7 +230,7 @@ function localizeOutfit(
     category: garment.properties.category,
     garmentTypeId: garment.garmentTypeId,
   }));
-  const title = messages.recommendation.archetypes[outfit.archetypeId];
+  const title = archetypeLabel(messages.recommendation, outfit.archetypeId, dayKind);
   const summary = pieces.map(({ item }) => item).join(' + ');
   const composedReasons = [
     ...weatherReasons,
@@ -318,8 +325,11 @@ function createLoadedPresentation(
     snapshot.recommendation.status === 'recommended'
       ? snapshot.recommendation.outfits
       : [];
+  // The label follows the day the user is reading it on, so a stored weekend result does not
+  // say "Weekend Relaxed" on the Monday after.
+  const dayKind = localDayKind(new Date(now));
   const suggestions = outfits.map((outfit, index) =>
-    localizeOutfit(outfit, index, outfits.length, weatherReasons, language),
+    localizeOutfit(outfit, index, outfits.length, weatherReasons, language, dayKind),
   );
   // ADR 0034 section 4: one badge per stored mode, and the on-device badge only when the
   // stored mode is `on-device-ai`, so the words never advertise a tier that did not produce

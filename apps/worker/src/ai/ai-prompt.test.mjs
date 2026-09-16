@@ -57,6 +57,7 @@ test('prompt states the rules the handler enforces on a reply', () => {
   assert.match(messages[0].content, /eligibleArchetypeIds/);
   assert.match(messages[0].content, /meaningfully different/i);
   assert.match(messages[0].content, /formality alone is not a difference/i);
+  assert.match(messages[0].content, /dayKind/);
 
   const [projected] = JSON.parse(messages[1].content).options;
   assert.deepEqual(

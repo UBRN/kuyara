@@ -171,7 +171,8 @@ On the on-device tier the inference itself never leaves the device, and both tie
 - deterministic weather and clothing requirements,
 - clothing preference,
 - dress style,
-- a local calendar day seed.
+- a local calendar day seed,
+- whether that local day is a weekday or a weekend.
 
 AI must not receive Wardrobe-derived data of any kind, including source kinds, overrides, photos, photo paths or URIs, free-form names, or ownership state. It also must not receive `localProfileId`, profile or device identifiers, exact coordinates, raw location payloads, secrets, complete internal database records, birth date or birth year, or unrelated personal data.
 

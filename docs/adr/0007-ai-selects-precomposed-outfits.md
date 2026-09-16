@@ -136,7 +136,7 @@ identifier, never text, so all user-visible copy stays in localization keys.
 | `everyday_easy` | Günlük Rahat | Easy Everyday | none |
 | `smart_casual` | Şık Günlük | Smart Casual | formality at least `smart` |
 | `office_ready` | Ofise Uygun | Office Ready | formality `formal` |
-| `weekend_relaxed` | Hafta Sonu | Weekend Relaxed | formality `casual` |
+| `weekend_relaxed` | Hafta Sonu (weekday: Rahat Gün) | Weekend Relaxed (weekday: Relaxed) | formality `casual` and the day is not a weekday |
 | `layered_warmth` | Katmanlı Sıcaklık | Layered Warmth | mid layer and outer layer both present |
 | `cold_shield` | Soğuğa Karşı | Cold Shield | outer layer thermal `high` |
 | `rain_ready` | Yağmura Hazır | Rain Ready | water-protective outer layer |
@@ -148,6 +148,16 @@ identifier, never text, so all user-visible copy stays in localization keys.
 
 Twelve is deliberate. A longer list lowers selection quality in a small model
 and creates a precondition to write for every entry.
+
+`weekend_relaxed` is the one archetype whose precondition reads the calendar. The
+request carries an optional `dayKind` of `weekday` or `weekend`, derived on the
+device from its own local date; the seven-day `dayVariant` is a composition
+rotation seed and says nothing about the weekday. A request without `dayKind`
+leaves the archetype eligible, so a client that predates the field keeps its
+behaviour. On a weekday the archetype is offered to neither executor and accepted
+from neither, and a casual outfit takes `everyday_easy` instead. The identifier is
+locale-independent and never changes; only the words follow the day the result is
+read on, so a weekend result read on the Monday after says Relaxed.
 
 ### 6. Verification split
 

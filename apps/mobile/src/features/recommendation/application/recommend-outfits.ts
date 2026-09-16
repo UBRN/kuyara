@@ -1,5 +1,6 @@
 import {
   formalityOrderByDressStyle,
+  type DayKind,
   type DressStyle,
   type FormalityLevel,
   type OutfitArchetypeId,
@@ -30,6 +31,8 @@ export type OutfitRecommendationInput = Readonly<{
   clothingPreference: ClothingPreference;
   dressStyle?: DressStyle;
   dayVariant: number;
+  /** Absent keeps the day-blind behaviour, where `weekend_relaxed` fits any casual outfit. */
+  dayKind?: DayKind;
   excludedOptionIds?: readonly string[];
 }>;
 
@@ -84,6 +87,7 @@ function assignedGarments(outfit: OutfitCandidate) {
 export function outfitMatchesArchetype(
   outfit: OutfitCandidate,
   archetypeId: OutfitArchetypeId,
+  dayKind?: DayKind,
 ): boolean {
   const primary = outfit.body.kind === 'separates'
     ? outfit.body.primaryTop
@@ -114,7 +118,9 @@ export function outfitMatchesArchetype(
     case 'on_the_move':
       return outfit.footwear.garment.garmentTypeId === 'sneakers';
     case 'weekend_relaxed':
-      return outfit.formality === 'casual';
+      // Mirrors `meetsArchetypePrecondition` in packages/contracts: on a weekday a casual
+      // outfit falls through the order to `everyday_easy` instead.
+      return outfit.formality === 'casual' && dayKind !== 'weekday';
     case 'everyday_easy':
       return true;
   }
@@ -148,12 +154,14 @@ export function excludeOutfitOptions(
 export function assignFallbackArchetypes(
   outfits: readonly OutfitCandidate[],
   count: number = outfits.length,
+  dayKind?: DayKind,
 ): readonly RecommendedOutfit[] {
   const used = new Set<OutfitArchetypeId>();
   const selected: RecommendedOutfit[] = [];
   for (const outfit of outfits) {
     const archetypeId = fallbackArchetypeOrder.find(
-      (candidate) => !used.has(candidate) && outfitMatchesArchetype(outfit, candidate),
+      (candidate) => !used.has(candidate)
+        && outfitMatchesArchetype(outfit, candidate, dayKind),
     );
     if (!archetypeId) continue;
     used.add(archetypeId);
@@ -198,8 +206,12 @@ export function recommendOutfits(
         status: 'recommended',
         generationMode: 'deterministic-fallback',
         requirements,
-        outfits: assignFallbackArchetypes([...availableOutfits].sort(
-          (left, right) => order.indexOf(left.formality) - order.indexOf(right.formality),
-        ), Math.min(3, availableOutfits.length)),
+        outfits: assignFallbackArchetypes(
+          [...availableOutfits].sort(
+            (left, right) => order.indexOf(left.formality) - order.indexOf(right.formality),
+          ),
+          Math.min(3, availableOutfits.length),
+          input.dayKind,
+        ),
       });
 }

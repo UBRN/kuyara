@@ -244,6 +244,53 @@ test('persisted dress style round trips and retired contexts resolve to smart', 
   assert.equal(legacySnapshot.localDayKey, null);
 });
 
+// The stored gate reads the day the result was generated for, not today, so a weekend
+// result is still readable on the Monday after. A row written before the field parses as
+// day-blind and keeps its label too.
+test('a weekend recommendation survives a read on a later day', async (t) => {
+  const { database, repository } = await setup();
+  t.after(() => database.close());
+  // A mild casual day is where `weekend_relaxed` reaches the top of the fallback order.
+  const base = recommendationInput();
+  const warm = (reading) => ({
+    ...reading, temperatureCelsius: 22, apparentTemperatureCelsius: 22,
+  });
+  const input = {
+    ...base,
+    dressStyle: 'casual',
+    dayKind: 'weekend',
+    snapshot: {
+      ...base.snapshot,
+      current: warm(base.snapshot.current),
+      hourly: base.snapshot.hourly.map(warm),
+      minimumTemperatureCelsius: 22,
+      maximumTemperatureCelsius: 23,
+    },
+  };
+  const context = createRecommendationContext(input, input.localDayKey);
+  const recommendation = recommendOutfits(input);
+  assert.equal(recommendation.status, 'recommended');
+  const isWeekendRelaxed = ({ archetypeId }) => archetypeId === 'weekend_relaxed';
+  assert.ok(recommendation.outfits.some(isWeekendRelaxed));
+  await repository.saveSnapshot(profileId, {
+    weatherSnapshotId: input.snapshot.id,
+    locationKey: input.snapshot.locationKey,
+    context,
+    recommendation,
+  });
+  assert.ok((await repository.getSnapshot(profileId)).recommendation.outfits.some(isWeekendRelaxed));
+
+  const row = await database.getFirstAsync('SELECT context_json FROM recommendation_snapshots');
+  const stored = JSON.parse(row.context_json);
+  assert.equal(stored.dayKind, 'weekend');
+  delete stored.dayKind;
+  await database.runAsync(
+    'UPDATE recommendation_snapshots SET context_json = ?',
+    [JSON.stringify(stored)],
+  );
+  assert.ok((await repository.getSnapshot(profileId)).recommendation.outfits.some(isWeekendRelaxed));
+});
+
 // ADR 0034 section 3: migration v13 widened the generation-mode constraint and the in-memory
 // controller path already covers the new value. This joins the two halves: the third mode
 // survives a real write and read through the repository.

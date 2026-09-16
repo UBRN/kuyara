@@ -13,6 +13,7 @@ import {
 import {
   RecommendationApplicationController,
   localDayKey,
+  localDayKind,
   localDayVariant,
   recommendationRefreshTrigger,
   type RecommendationSignals,
@@ -47,7 +48,11 @@ const now = () => new Date().toISOString();
 
 function deviceLocalDay() {
   const date = new Date();
-  return { key: localDayKey(date), variant: localDayVariant(date) };
+  return {
+    key: localDayKey(date),
+    variant: localDayVariant(date),
+    kind: localDayKind(date),
+  };
 }
 
 function createWorkerClient(): Pick<WorkerAiClient, 'recommend'> {
@@ -152,6 +157,7 @@ export function RecommendationApplicationProvider({
         ? profileState.profile.dressStyle ?? 'smart'
         : 'smart',
       dayVariant: localDay.variant,
+      dayKind: localDay.kind,
       localDayKey: localDay.key,
     };
   }, [localDay, profileState, weatherState]);
@@ -258,6 +264,7 @@ export function RecommendationApplicationProvider({
         clothingPreference,
         dressStyle: profileState.profile.dressStyle ?? 'smart',
         dayVariant: currentDay.variant,
+        dayKind: currentDay.kind,
         localDayKey: currentDay.key,
       });
     },

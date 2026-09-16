@@ -9,6 +9,7 @@ import {
   clothingRequirementSchema,
   colorFamilies,
   coverageLevels,
+  dayKindSchema,
   dressStyleSchema,
   garmentTypeIds,
   layerRoles,
@@ -72,6 +73,8 @@ const recommendationContextSchema = z.strictObject({
   dressStyle: dressStyleSchema.optional(),
   catalogVersion: z.number().int().min(1),
   dayVariant: z.number().int().min(0).max(6),
+  // Optional, so a row persisted before the weekday rule still parses and keeps its label.
+  dayKind: dayKindSchema.optional(),
   localDayKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   requirements: z.array(clothingRequirementSchema).max(8),
   options: z.array(aiOptionSchema).max(aiV1OptionLimit),
@@ -199,6 +202,7 @@ export function createRecommendationContext(
     dressStyle: input.dressStyle ?? 'smart',
     catalogVersion: garmentCatalogVersion,
     dayVariant: input.dayVariant,
+    dayKind: input.dayKind,
     localDayKey,
     requirements: requirements.requirements,
     options: availableOutfits.map(toAiOption),
@@ -238,6 +242,7 @@ export function aiRequestFromContext(
     dressStyle: context.dressStyle,
     catalogVersion: context.catalogVersion,
     dayVariant: context.dayVariant,
+    dayKind: context.dayKind,
     requirements: context.requirements,
     options: context.options,
   });
@@ -322,7 +327,7 @@ export function mapWorkerAiRecommendation(
       option,
       request.clothingPreference,
     );
-    if (!outfitMatchesArchetype(outfit, archetypeId)) {
+    if (!outfitMatchesArchetype(outfit, archetypeId, request.dayKind)) {
       throw new WorkerAiRecommendationMappingError();
     }
     return recommendedOutfit(outfit, archetypeId);
@@ -407,11 +412,14 @@ export function mapStoredRecommendation(
   generationMode: RecommendationGenerationMode,
 ): OutfitRecommendationSuccess {
   const requirements = domainRequirements(context);
+  // The day the result was generated for, not today: a weekend result stays readable on the
+  // Monday after, and a row written before this field parses as day-blind.
+  const dayKind = 'options' in context ? context.dayKind : undefined;
   const current = storedOutfitsSchema.safeParse(value);
   if (current.success) {
     const outfits = current.data.map(({ archetypeId, garments }) => {
       const outfit = storedOutfit(context, requirements, garments);
-      if (!outfitMatchesArchetype(outfit, archetypeId)) {
+      if (!outfitMatchesArchetype(outfit, archetypeId, dayKind)) {
         throw new WorkerAiRecommendationMappingError();
       }
       return recommendedOutfit(outfit, archetypeId);
@@ -432,7 +440,7 @@ export function mapStoredRecommendation(
     status: 'recommended',
     generationMode,
     requirements,
-    outfits: assignFallbackArchetypes(outfits),
+    outfits: assignFallbackArchetypes(outfits, outfits.length, dayKind),
   });
 }
 

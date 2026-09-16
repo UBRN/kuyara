@@ -204,6 +204,11 @@ Version 0.1.20260916 is being prepared from commit c4e9b8f. Its build number is 
 EAS, which auto-increments it from the remote version source; the commands are in
 [Release path](testing.md#release-path).
 
+The AI recommendation request carries an optional `dayKind` of `weekday` or `weekend`. The
+request schema is strict and Worker-owned, so the Worker must be deployed with that field
+before a binary that sends it ships; against an older deployment the route answers
+`400 invalid_request` and mobile falls back to the deterministic three.
+
 Continuous integration and the iOS release workflow now exist in the repository.
 `.github/workflows/ci.yml` installs from the lockfile and runs Expo Doctor, `pnpm check`
 and the mobile component suite on every push to `main` and every pull request, and

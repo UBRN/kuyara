@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   RecommendationApplicationController,
   localDayKey,
+  localDayKind,
   localDayVariant,
   recommendationRefreshTrigger,
   usingStandardPhaseMilliseconds,
@@ -142,6 +143,16 @@ test('local day variant is a deterministic seven-day ring', () => {
   assert.equal(localDayVariant(new Date(2026, 0, 1, 12)), 1);
   assert.equal(localDayVariant(new Date(2026, 0, 2, 12)), 2);
   assert.equal(localDayVariant(new Date(2026, 0, 8, 12)), 1);
+});
+
+// The seven-day ring is a rotation seed, not a weekday: only this reads the calendar.
+test('local day kind names Saturday and Sunday the weekend', () => {
+  // 2026-09-14 is a Monday.
+  const kinds = [14, 15, 16, 17, 18, 19, 20].map((day) =>
+    localDayKind(new Date(2026, 8, day, 12)));
+  assert.deepEqual(kinds, [
+    'weekday', 'weekday', 'weekday', 'weekday', 'weekday', 'weekend', 'weekend',
+  ]);
 });
 
 test('local day key changes across New Year even when the composition seed repeats', () => {

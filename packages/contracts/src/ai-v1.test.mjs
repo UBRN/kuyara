@@ -243,6 +243,20 @@ test('request validates catalog version and seven-slot day variant bounds', () =
   }).success, true);
 });
 
+test('request takes an optional day kind and rejects any other value', () => {
+  assert.equal(aiRecommendV1RequestSchema.safeParse(validRequest()).success, true);
+  for (const dayKind of ['weekday', 'weekend']) {
+    assert.equal(aiRecommendV1RequestSchema.safeParse({
+      ...validRequest(), dayKind,
+    }).success, true);
+  }
+  for (const dayKind of ['holiday', '', 1, null]) {
+    assert.equal(aiRecommendV1RequestSchema.safeParse({
+      ...validRequest(), dayKind,
+    }).success, false, String(dayKind));
+  }
+});
+
 test('options reject duplicate slots and require exactly one footwear slot', () => {
   assert.equal(aiOptionSchema.safeParse(option('duplicate-slot', {
     garments: [
