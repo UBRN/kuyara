@@ -128,7 +128,9 @@ function locationName(
   location: ActiveLocation,
   copy: ReturnType<typeof useLocalization>['messages']['weather'],
 ): string {
-  return location.source === 'manual' ? location.displayName : copy.currentLocation;
+  // Both members of the union carry `displayName`; a device fix has one only when the
+  // reverse geocode resolved a locality, and without one the generic copy still answers.
+  return location.displayName ?? copy.currentLocation;
 }
 
 export function WeatherScreen() {

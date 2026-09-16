@@ -422,10 +422,9 @@ function createLoadedPresentation(
       otherOptionsHeading: copy.otherOptionsHeading,
     },
     header: {
-      location:
-        snapshot.activeLocation.source === 'manual'
-          ? snapshot.activeLocation.displayName
-          : weatherCopy.currentLocation,
+      // A device fix names its locality when the reverse geocode resolved one, and falls
+      // back to the generic copy when it did not.
+      location: snapshot.activeLocation.displayName ?? weatherCopy.currentLocation,
       freshness: isRefreshing
         ? phase
           ? copy.phase[phase]

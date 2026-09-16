@@ -19,6 +19,8 @@ import {
   useTextScaling,
 } from '@/components/ui';
 import { useAmbientPulse } from '@/components/ui/use-ambient-pulse';
+import type { NotificationOptInOutcome } from '@/features/notifications/application/notification-application-controller';
+import type { WeatherAlertRuleId } from '@/features/notifications/domain/weather-alerts';
 import type { TodayScreenState } from '@/features/today/model';
 import { GarmentBoardSkeleton } from '@/features/today/presentation/garment-board-skeleton';
 import {
@@ -33,7 +35,7 @@ import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity'
 import { WeatherAttribution } from '@/features/weather/presentation/weather-attribution';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
-import { spacing, type AmbientIntensity } from '@/theme/theme';
+import { layout, spacing, type AmbientIntensity } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // Law 5's escalation point, for the generic line alone. A narrated wait says what it is
@@ -43,10 +45,24 @@ const LONG_WAIT_MS = 8_000;
 // Law 6: a caption-sized mark, the same 16 the ownership and menu glyphs use.
 const CAPTION_GLYPH_SIZE = 16;
 
+/**
+ * ADR 0004's one contextual offer, handed down already decided: the route owns the rule, and
+ * Today only renders it and reports which action the user took. Absent when no alert would
+ * have fired today, when the offer was already made, or when the user is already opted in.
+ */
+export type TodayAlertOffer = Readonly<{
+  ruleId: WeatherAlertRuleId;
+  /** The Settings opt-in flow, OS permission prompt included. */
+  onAccept: () => Promise<NotificationOptInOutcome>;
+  onDismiss: () => void;
+  onOpenSystemSettings: () => void;
+}>;
+
 type TodayScreenProps = Readonly<{
   state: TodayScreenState;
   language: SupportedLanguage;
   isRefreshing?: boolean;
+  alertOffer?: TodayAlertOffer | null;
   onOpenOutfitDetail: (id: string) => void;
   onRefresh: () => void;
 }>;
@@ -55,6 +71,7 @@ export function TodayScreen({
   state,
   language,
   isRefreshing = false,
+  alertOffer = null,
   onOpenOutfitDetail,
   onRefresh,
 }: TodayScreenProps) {
@@ -79,6 +96,27 @@ export function TodayScreen({
   // Law 5's warning structure: the same fact, plus what is still happening, once the
   // wait has run past the point where the first line alone stops being informative.
   const [isLongWait, setIsLongWait] = useState(false);
+  // Either action ends the offer here rather than waiting for the durable flag to come back
+  // through the prop. Accepting spends it whatever the OS answers, so a refusal arrives after
+  // the prop is already gone, and the refused offer is kept to explain itself.
+  const [offerAnswered, setOfferAnswered] = useState(false);
+  const [blockedOffer, setBlockedOffer] = useState<TodayAlertOffer | null>(null);
+  const offerToRender = blockedOffer ?? (offerAnswered ? null : alertOffer);
+  const answerOffer = async () => {
+    if (blockedOffer) {
+      blockedOffer.onOpenSystemSettings();
+      return;
+    }
+    if (!alertOffer) return;
+    const result = await alertOffer.onAccept();
+    if (result.outcome === 'blocked') setBlockedOffer(alertOffer);
+    else setOfferAnswered(true);
+  };
+  const dismissOffer = () => {
+    setOfferAnswered(true);
+    if (blockedOffer) setBlockedOffer(null);
+    else alertOffer?.onDismiss();
+  };
   useEffect(() => {
     if (!isGenerating) return undefined;
     const timer = setTimeout(() => setIsLongWait(true), LONG_WAIT_MS);
@@ -347,6 +385,16 @@ export function TodayScreen({
           </Surface>
         ) : null}
 
+        {offerToRender ? (
+          <WeatherAlertOfferRow
+            blocked={blockedOffer !== null}
+            language={language}
+            onAccept={answerOffer}
+            onDismiss={dismissOffer}
+            ruleId={offerToRender.ruleId}
+          />
+        ) : null}
+
         {alternates.length > 0 ? (
           <View style={styles.alternates}>
             <View
@@ -413,6 +461,81 @@ export function TodayScreen({
         </View>
       </View>
     </Screen>
+  );
+}
+
+/**
+ * ADR 0004's contextual offer, as a quiet row on the ground plane rather than a card on a
+ * card (Law 3). It carries no accent fill (Law 1): the primary action is accent ink and the
+ * secondary is the secondary ink, both at the same size, the way the consent sheet's pair is.
+ * It never animates, and either action ends it.
+ */
+function WeatherAlertOfferRow({
+  blocked,
+  language,
+  onAccept,
+  onDismiss,
+  ruleId,
+}: Readonly<{
+  blocked: boolean;
+  language: SupportedLanguage;
+  onAccept: () => Promise<void>;
+  onDismiss: () => void;
+  ruleId: WeatherAlertRuleId;
+}>) {
+  const theme = useKuyaraTheme();
+  const { usesStackedLayout } = useTextScaling();
+  const copy = getMessages(language).notifications;
+  const [isAnswering, setIsAnswering] = useState(false);
+  // A refused permission is explained with the Settings surface's own copy and its own way
+  // out, rather than with a second wording of the same fact.
+  const message = blocked ? copy.permissionDeniedHint : copy.offer.sentences[ruleId];
+  const acceptLabel = blocked ? copy.openSettingsAction : copy.offer.acceptAction;
+  const accept = async () => {
+    setIsAnswering(true);
+    try {
+      await onAccept();
+    } finally {
+      setIsAnswering(false);
+    }
+  };
+
+  return (
+    <Surface style={styles.alertOffer} testID="today-alert-offer" variant="muted">
+      <View style={styles.alertOfferMessage}>
+        <Icon color={theme.colors.iconSecondary} name="bell" size={20} />
+        <AppText
+          accessible
+          accessibilityRole="text"
+          style={styles.alertOfferText}
+          testID="today-alert-offer-message">
+          {message}
+        </AppText>
+      </View>
+      <View style={[styles.alertOfferActions, usesStackedLayout && styles.stackedAlertOfferActions]}>
+        <Pressable
+          accessibilityRole="button"
+          disabled={isAnswering}
+          onPress={() => void accept()}
+          style={({ pressed }) => [
+            styles.alertOfferAction,
+            { opacity: pressed ? theme.interaction.pressedOpacity : 1 },
+          ]}
+          testID="today-alert-offer-accept">
+          <AppText colorRole="brandAccent" variant="label">{acceptLabel}</AppText>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onDismiss}
+          style={({ pressed }) => [
+            styles.alertOfferAction,
+            { opacity: pressed ? theme.interaction.pressedOpacity : 1 },
+          ]}
+          testID="today-alert-offer-dismiss">
+          <AppText colorRole="textSecondary" variant="label">{copy.offer.dismissAction}</AppText>
+        </Pressable>
+      </View>
+    </Surface>
   );
 }
 
@@ -525,6 +648,12 @@ const styles = StyleSheet.create({
   generationModeLabel: { flexShrink: 1 },
   freshness: { flexShrink: 1 },
   stackedFreshness: { width: '100%' },
+  alertOffer: { gap: spacing.md, marginTop: spacing.md, padding: spacing.lg },
+  alertOfferMessage: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.sm },
+  alertOfferText: { flex: 1, flexShrink: 1 },
+  alertOfferActions: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },
+  stackedAlertOfferActions: { alignItems: 'flex-start', flexDirection: 'column', gap: spacing.sm },
+  alertOfferAction: { justifyContent: 'center', minHeight: layout.minimumTouchTarget },
   alternates: { marginTop: spacing.xl },
   alternatesHeading: { paddingBottom: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth },
   outfitList: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
