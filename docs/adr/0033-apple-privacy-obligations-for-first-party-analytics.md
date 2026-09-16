@@ -342,8 +342,11 @@ Milestone 10, PostHog product analytics integration, has these acceptance condit
    The stored answer values are `undecided`, `granted` and `withdrawn`, the last covering
    both a declined sheet and a later withdrawal.
 2. A consent surface exists, with one question and Turkish and English copy from
-   localization keys. It is shown once on Today after the first recommendation has
-   rendered. Accept is the primary action; decline is a same-size secondary action directly
+   localization keys. It is shown once on Today, from the second app session onwards,
+   after the first recommendation of that session has rendered. The first session is never
+   interrupted by it. A session is one app process, counted on the device outside the
+   analytics identity, so nothing about the launch is recorded or sent while the answer is
+   `undecided`. Accept is the primary action; decline is a same-size secondary action directly
    beneath it. Decline stays one tap and is never hidden, reduced, faded, coloured as a
    warning or delayed. Declining changes nothing else in the product.
 3. A Settings row reads the current consent state, withdraws it, and on withdrawal calls

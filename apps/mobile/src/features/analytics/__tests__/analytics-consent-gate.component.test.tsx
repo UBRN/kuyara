@@ -51,6 +51,7 @@ test('eligibility requires an undecided completed profile, a shown recommendatio
     onboardingCompleted: true,
     pathname: '/',
     recommendationShown: true,
+    sessionIndex: 2,
   };
 
   expect(isAnalyticsConsentGateEligible(eligible)).toBe(true);
@@ -59,4 +60,25 @@ test('eligibility requires an undecided completed profile, a shown recommendatio
   expect(isAnalyticsConsentGateEligible({ ...eligible, recommendationShown: false })).toBe(false);
   expect(isAnalyticsConsentGateEligible({ ...eligible, onboardingCompleted: false })).toBe(false);
   expect(isAnalyticsConsentGateEligible({ ...eligible, analyticsConsent: 'granted' })).toBe(false);
+});
+
+// ADR 0033 section 6: the first session belongs to the first recommendation.
+test('the question is never asked in the first session and is asked from the second', () => {
+  const eligible = {
+    analyticsConsent: 'undecided' as const,
+    onboardingCompleted: true,
+    pathname: '/',
+    recommendationShown: true,
+    sessionIndex: 1,
+  };
+
+  expect(isAnalyticsConsentGateEligible(eligible)).toBe(false);
+  expect(isAnalyticsConsentGateEligible({ ...eligible, sessionIndex: 2 })).toBe(true);
+  expect(isAnalyticsConsentGateEligible({ ...eligible, sessionIndex: 5 })).toBe(true);
+  // The second session still waits for that session's first recommendation.
+  expect(isAnalyticsConsentGateEligible({
+    ...eligible,
+    recommendationShown: false,
+    sessionIndex: 2,
+  })).toBe(false);
 });

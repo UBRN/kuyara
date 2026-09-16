@@ -18,6 +18,7 @@ import { ProductAnalyticsProvider } from '@/features/analytics/application/produ
 import { PerformanceTelemetryContext } from '@/features/analytics/application/use-performance-telemetry';
 import { readAnalyticsConsentSync } from '@/features/analytics/data/analytics-consent-sync-source';
 import { createProductAnalytics } from '@/features/analytics/data/create-product-analytics';
+import { countLaunchedSession } from '@/features/analytics/data/expo-file-session-counter';
 import {
   configureObserveTelemetry,
   observePerformanceTelemetry,
@@ -52,6 +53,10 @@ configureObserveTelemetry({
     readAnalyticsConsentSync(openKuyaraDatabaseSync),
   ),
 });
+
+// A session is one app process, so the launch is counted here, once, before the first render.
+// ADR 0033 section 6: the consent sheet is asked for from the second session onwards.
+const sessionIndex = countLaunchedSession();
 
 // The bootstrap screen renders before the router, the database and the consent answer exist,
 // so the only channel a user has for a launch failure is the system share sheet. The text is
@@ -126,6 +131,7 @@ function ReadyApplicationShell({
                     onboardingCompleted: profile.onboardingCompleted,
                     pathname,
                     recommendationShown,
+                    sessionIndex,
                   })}
                 />
                 <Stack

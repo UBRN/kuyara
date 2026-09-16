@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 
+import { sessionMayAskForConsent } from '@/features/analytics/domain/analytics-session';
 import type { AnalyticsConsent } from '@/features/profile/domain/profile';
 
 const PRESENT_DELAY_MS = 1_500;
@@ -9,6 +10,7 @@ export type AnalyticsConsentGateEligibility = Readonly<{
   onboardingCompleted: boolean;
   pathname: string;
   recommendationShown: boolean;
+  sessionIndex: number;
 }>;
 
 export function isAnalyticsConsentGateEligible({
@@ -16,9 +18,11 @@ export function isAnalyticsConsentGateEligible({
   onboardingCompleted,
   pathname,
   recommendationShown,
+  sessionIndex,
 }: AnalyticsConsentGateEligibility): boolean {
   return onboardingCompleted
     && analyticsConsent === 'undecided'
+    && sessionMayAskForConsent(sessionIndex)
     && recommendationShown
     && pathname === '/';
 }

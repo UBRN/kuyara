@@ -91,7 +91,6 @@ export type ScreenName =
   | 'profile'
   | 'closet_list'
   | 'closet_item_form'
-  | 'closet_garment_type_picker'
   | 'settings'
   | 'settings_appearance'
   | 'settings_language'
