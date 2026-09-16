@@ -51,6 +51,8 @@ const systemContent = [
   'All three picks must be meaningfully different from each other.',
   'Prefer formalities in the supplied formalityOrder; no formality is'
     + ' excluded.',
+  'dayKind, when present, says whether today is a weekday or a weekend;'
+    + ' prefer picks that suit it.',
   'Give each pick exactly one archetypeId, taken from that option\'s'
     + ' own eligibleArchetypeIds or the always-allowed everyday_easy. Any'
     + ' other archetypeId is rejected.',

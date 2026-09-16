@@ -1,4 +1,4 @@
-import type { AiRecommendV1Request, DressStyle } from '@kuyara/contracts';
+import type { AiRecommendV1Request, DayKind, DressStyle } from '@kuyara/contracts';
 
 import {
   failureCategoryFromErrorKind,
@@ -154,6 +154,13 @@ export function localDayVariant(date: Date = new Date()): number {
       (24 * 60 * 60 * 1000),
   );
   return dayOfYear % 7;
+}
+
+// Saturday and Sunday are the weekend; everything else is a weekday. Read from the device's
+// own local date, so a traveller's day matches the day they are dressing for.
+export function localDayKind(date: Date = new Date()): DayKind {
+  const weekday = date.getDay();
+  return weekday === 0 || weekday === 6 ? 'weekend' : 'weekday';
 }
 
 export function localDayKey(date: Date = new Date()): string {

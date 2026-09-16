@@ -129,6 +129,29 @@ test('no option is offered an archetype whose precondition it fails', () => {
   });
 });
 
+// The regression this closes: nothing in the pipeline knew the weekday, so a Tuesday could
+// be labelled Weekend Relaxed.
+test('a weekday withholds weekend_relaxed from the projection and from the gate', () => {
+  const weekday = aiRecommendV1RequestSchema.parse({ ...fixtureRequest, dayKind: 'weekday' });
+  const input = aiModelInputFromRequest(weekday);
+  assert.equal(input.dayKind, 'weekday');
+  for (const projected of input.options) {
+    assert.equal(projected.eligibleArchetypeIds.includes('weekend_relaxed'), false);
+  }
+  const casual = weekday.options[1];
+  assert.equal(meetsArchetypePrecondition('weekend_relaxed', casual, 'weekday'), false);
+  assert.equal(meetsArchetypePrecondition('weekend_relaxed', casual, 'weekend'), true);
+  assert.equal(meetsArchetypePrecondition('weekend_relaxed', casual), true);
+  assert.equal(meetsArchetypePrecondition('everyday_easy', casual, 'weekday'), true);
+});
+
+test('an absent day kind is left out of the projection', () => {
+  assert.equal(
+    JSON.stringify(aiModelInputFromRequest(fixtureRequest)).includes('dayKind'),
+    false,
+  );
+});
+
 test('an absent dress style projects the smart formality order', () => {
   const { dressStyle: _dropped, ...withoutDressStyle } = fixtureRequest;
   assert.deepEqual(

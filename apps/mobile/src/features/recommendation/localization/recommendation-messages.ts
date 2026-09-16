@@ -1,7 +1,11 @@
-import type { OutfitArchetypeId } from '@kuyara/contracts';
+import type { DayKind, OutfitArchetypeId } from '@kuyara/contracts';
 
 export type RecommendationMessages = Readonly<{
   archetypes: Readonly<Record<OutfitArchetypeId, string>>;
+  // `weekend_relaxed` is only offered on a weekend now, but a result generated on a weekday
+  // before that rule, or by a Worker that predates it, can still carry the identifier. The
+  // identifier stays what it is; only the words follow the day being shown.
+  weekdayRelaxed: string;
 }>;
 
 const en: RecommendationMessages = {
@@ -19,6 +23,7 @@ const en: RecommendationMessages = {
     on_the_move: 'On the Move',
     in_between: 'In-Between',
   },
+  weekdayRelaxed: 'Relaxed',
 };
 
 const tr: RecommendationMessages = {
@@ -36,7 +41,19 @@ const tr: RecommendationMessages = {
     on_the_move: 'Hareketli Gün',
     in_between: 'Değişken Hava',
   },
+  weekdayRelaxed: 'Rahat Gün',
 };
+
+/** The words for an archetype on the day it is being read. */
+export function archetypeLabel(
+  messages: RecommendationMessages,
+  archetypeId: OutfitArchetypeId,
+  dayKind: DayKind,
+): string {
+  return archetypeId === 'weekend_relaxed' && dayKind === 'weekday'
+    ? messages.weekdayRelaxed
+    : messages.archetypes[archetypeId];
+}
 
 export const recommendationMessages: Readonly<{
   en: RecommendationMessages;
