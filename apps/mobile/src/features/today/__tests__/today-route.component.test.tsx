@@ -210,6 +210,7 @@ function profileValue(profile: Partial<LocalProfile> = {}) {
       themePreference: 'system' as const,
       onboardingCompleted: true,
       notificationsOptIn: false,
+      weatherAlertOfferShown: false,
       analyticsConsent: 'granted' as const,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
@@ -227,6 +228,7 @@ function profileValue(profile: Partial<LocalProfile> = {}) {
     updateLanguagePreference: jest.fn(async () => undefined),
     updateThemePreference: jest.fn(async () => undefined),
     updateNotificationsOptIn: jest.fn(async () => undefined),
+    markWeatherAlertOfferShown: jest.fn(async () => undefined),
     updateAnalyticsConsent: jest.fn(async () => undefined),
   };
 }
