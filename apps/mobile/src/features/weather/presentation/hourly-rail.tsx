@@ -4,7 +4,7 @@ import Svg, { Polyline } from 'react-native-svg';
 
 import { AppText, Icon, useTextScaling, type IconName } from '@/components/ui';
 import type { WeatherConditionCode } from '@/features/weather/domain/weather';
-import { spacing } from '@/theme/theme';
+import { radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { layoutHourlyRail } from './hourly-rail-layout';
@@ -32,7 +32,7 @@ const COLUMN_WIDTH = 64;
 const BAND_HEIGHT = 72;
 const MAXIMUM_BAND_HEIGHT = 160;
 // `bodyStrong`'s line box. Feature code may not name the typography metric here (the
-// greppable Law 5 check), so the band reserves it above the highest point by number.
+// greppable Law 5 check), so the band reserves half of it at each end by number.
 const TEMPERATURE_LABEL_HEIGHT = 24;
 
 export type HourlyRailColumn = Readonly<{
@@ -65,7 +65,6 @@ export function HourlyRail({ columns }: Readonly<{ columns: readonly HourlyRailC
       columnGap: spacing.sm,
       columnWidth,
       inset: spacing.lg,
-      labelGap: spacing.xs,
       labelHeight,
     },
   );
@@ -117,12 +116,19 @@ export function HourlyRail({ columns }: Readonly<{ columns: readonly HourlyRailC
                 onLayout={index === 0 ? handleBandLayout : undefined}
                 style={[styles.band, { height: bandHeight }]}
                 testID="weather-hourly-band">
+                {/* The series passes behind the rail (ADR 0021 section 9), so each number
+                    knocks the stroke out with the card's own fill rather than letting it
+                    cross the digits. The label is drawn after the series, so it is on top. */}
                 <AppText
                   style={[
                     styles.temperature,
-                    { top: points[index].y - spacing.xs - labelHeight },
+                    {
+                      backgroundColor: theme.colors.surface,
+                      top: points[index].y - labelHeight / 2,
+                    },
                   ]}
                   tabularNumbers
+                  testID="weather-hourly-temperature"
                   variant="bodyStrong">
                   {column.temperature}
                 </AppText>
@@ -150,7 +156,14 @@ const styles = StyleSheet.create({
   },
   column: { alignItems: 'center', gap: spacing.xs },
   // The band's only child is absolutely positioned, so without this the centred column
-  // collapses it to zero width and the label has nothing to centre in.
-  band: { alignSelf: 'stretch' },
-  temperature: { left: 0, position: 'absolute', right: 0, textAlign: 'center' },
+  // collapses it to zero width and the label has nothing to centre in. `alignItems`
+  // centres the label, which now takes its own width instead of the column's, so its
+  // knockout hugs the digits rather than covering the whole column.
+  band: { alignItems: 'center', alignSelf: 'stretch' },
+  temperature: {
+    borderRadius: radii.compact,
+    paddingHorizontal: spacing.xs,
+    position: 'absolute',
+    textAlign: 'center',
+  },
 });

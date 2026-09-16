@@ -63,7 +63,9 @@ export function SettingsScreen({
 
   return (
     <NativeList testID="settings-screen">
-      <NativeListSection testID="settings-primary-group">
+      <NativeListSection
+        heading={messages.settings.generalHeading}
+        testID="settings-primary-group">
         <NativeListRow
           glyph={({ color, size }) => <Icon color={color} name="language" size={size} />}
           label={copy.languageTitle}
@@ -80,7 +82,9 @@ export function SettingsScreen({
         />
       </NativeListSection>
 
-      <NativeListSection testID="settings-services-group">
+      <NativeListSection
+        heading={messages.settings.statusHeading}
+        testID="settings-services-group">
         <NativeListRow
           glyph={({ color, size }) => <Icon color={color} name="bell" size={size} />}
           label={messages.notifications.title}

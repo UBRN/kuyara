@@ -14,6 +14,8 @@ import {
   Button,
   haptics,
   Icon,
+  ListRow,
+  ListRowGroup,
   Pill,
   Screen,
   SectionHeader,
@@ -265,62 +267,20 @@ export function WeatherScreen() {
   // (ADR 0021 section 9), and stays the first block while there is nothing to show.
   const locationSection = (
     <View style={styles.locationSection} testID="weather-location-section">
-      <Pressable
-        accessibilityLabel={locationAccessibilityLabel}
-        accessibilityRole="button"
-        hitSlop={10}
-        onPress={() => router.push('/weather/location')}
-        style={({ pressed }) => pressed && styles.pressed}
-        testID="weather-change-location-button">
-        <Surface
-          pointerEvents="none"
-          style={[
-            styles.locationCard,
-            usesStackedLayout && styles.stackedLocationCard,
-            theme.elevation.raised,
-          ]}
-          testID="weather-location-card">
-          {usesStackedLayout ? (
-            <View style={styles.locationIdentityRow} testID="weather-location-identity-row">
-              <Icon color={theme.colors.iconSecondary} name="location" size={20} />
-              <View style={styles.locationNameGroup} testID="weather-location-name-group">
-                <AppText variant="bodyStrong">{activeName}</AppText>
-                {locationCaption ? (
-                  <AppText colorRole="textSecondary" variant="caption">
-                    {locationCaption}
-                  </AppText>
-                ) : null}
-              </View>
-            </View>
-          ) : (
-            <>
-              <Icon color={theme.colors.iconSecondary} name="location" size={20} />
-              <View style={styles.locationNameGroup} testID="weather-location-name-group">
-                <AppText variant="bodyStrong">{activeName}</AppText>
-                {locationCaption ? (
-                  <AppText colorRole="textSecondary" variant="caption">
-                    {locationCaption}
-                  </AppText>
-                ) : null}
-              </View>
-            </>
-          )}
-          <View
-            style={[
-              styles.locationAffordance,
-              usesStackedLayout && styles.stackedLocationAffordance,
-            ]}
-            testID="weather-location-affordance">
-            <AppText colorRole="textSecondary" variant="label">
-              {copy.changeLocationAction}
-            </AppText>
-            <Icon color={theme.colors.iconSecondary} name="chevronRight" size={15} />
-          </View>
-        </Surface>
-      </Pressable>
-
+      <ListRowGroup testID="weather-location-card">
+        <ListRow
+          accessibilityLabel={locationAccessibilityLabel}
+          glyph={({ color, size }) => <Icon color={color} name="location" size={size} />}
+          label={activeName}
+          labelWeight="bodyStrong"
+          onPress={() => router.push('/weather/location')}
+          supportingText={locationCaption ?? undefined}
+          testID="weather-change-location-button"
+        />
+      </ListRowGroup>
     </View>
   );
+
   return (
     <Screen
       contentContainerStyle={styles.content}
@@ -593,37 +553,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: layout.minimumTouchTarget,
   },
-  locationCard: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.md,
-    minHeight: layout.minimumTouchTarget,
-    padding: spacing.lg,
-  },
-  stackedLocationCard: {
-    alignItems: 'stretch',
-    flexDirection: 'column',
-  },
-  locationIdentityRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  locationNameGroup: { flex: 1, flexShrink: 1, gap: spacing.xs / 2 },
-  locationAffordance: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    flexShrink: 0,
-    gap: spacing.xs,
-  },
-  stackedLocationAffordance: {
-    alignSelf: 'stretch',
-  },
   pressed: { opacity: interaction.pressedOpacity },
   currentHero: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   // Stretched, not flex-start: at accessibility sizes the 56-point hero needs the whole
   // card width to lay out on one line (ADR 0017's recorded risk).
