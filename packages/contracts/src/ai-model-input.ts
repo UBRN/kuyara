@@ -71,7 +71,9 @@ export function meetsArchetypePrecondition(
     case 'smart_casual':
       return option.formality === 'smart' || option.formality === 'formal';
     case 'office_ready':
-      return option.formality === 'formal';
+      // A plain smart outfit would otherwise hold only two labels, so three plain smart
+      // picks could never be labelled distinctly.
+      return option.formality === 'smart' || option.formality === 'formal';
     case 'weekend_relaxed':
       // A weekday is never relaxed in the weekend sense. An absent dayKind leaves the
       // archetype eligible, so a caller that sends none keeps the day-blind behaviour.

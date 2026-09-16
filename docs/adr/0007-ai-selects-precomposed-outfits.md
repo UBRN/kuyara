@@ -135,7 +135,7 @@ identifier, never text, so all user-visible copy stays in localization keys.
 |---|---|---|---|
 | `everyday_easy` | Günlük Rahat | Easy Everyday | none |
 | `smart_casual` | Şık Günlük | Smart Casual | formality at least `smart` |
-| `office_ready` | Ofise Uygun | Office Ready | formality `formal` |
+| `office_ready` | Ofise Uygun | Office Ready | formality `smart` or `formal` |
 | `weekend_relaxed` | Hafta Sonu (weekday: Rahat Gün) | Weekend Relaxed (weekday: Relaxed) | formality `casual` and the day is not a weekday |
 | `layered_warmth` | Katmanlı Sıcaklık | Layered Warmth | mid layer and outer layer both present |
 | `cold_shield` | Soğuğa Karşı | Cold Shield | outer layer thermal `high` |

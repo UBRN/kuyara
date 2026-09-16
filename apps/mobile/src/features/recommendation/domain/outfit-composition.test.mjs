@@ -13,6 +13,7 @@ import {
   outfitCompositionFailureCodes,
   outfitCompositionReasonCodes,
 } from './outfit-composition.ts';
+import { deriveClothingRequirements } from './weather-to-clothing-requirements.ts';
 
 // Most cases below are about the best arrangement, which is the first one collected.
 function composeOutfit(requirements, candidates) {
@@ -694,4 +695,60 @@ test('returns the same outfits for a fixed candidate reordering', () => {
     composeOutfitOptions(requirements, reordered, 0),
     composeOutfitOptions(requirements, candidates, 0),
   );
+});
+
+// Catalog version 5 put several garments in the same thermal band, and score order alone
+// then let the single best-scoring shoe and the single best-scoring formality fill all 24
+// offered options: a formal dress style saw no formal outfit at all on a mild day. The offer
+// is now taken one outfit per formality and one per body core in turn.
+test('the offered options keep every composable formality and more than one shoe', () => {
+  const observedAt = '2026-08-01T12:00:00.000Z';
+  const offeredAt = (temperatureCelsius) => {
+    const measurements = Object.freeze({
+      temperatureCelsius,
+      apparentTemperatureCelsius: temperatureCelsius,
+      condition: 'clear',
+      precipitationProbability: 0,
+      windSpeedMetersPerSecond: 0,
+      humidity: 0.5,
+      uvIndex: 0,
+    });
+    const requirements = deriveClothingRequirements(
+      Object.freeze({
+        id: '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4',
+        localProfileId: 'profile-one',
+        locationKey: 'manual:sample.istanbul',
+        timeZone: 'UTC',
+        fetchedAt: observedAt,
+        origin: Object.freeze({ kind: 'sample', sourceId: 'composition-test' }),
+        current: Object.freeze({ observedAt, ...measurements }),
+        minimumTemperatureCelsius: temperatureCelsius,
+        maximumTemperatureCelsius: temperatureCelsius + 1,
+        hourly: Object.freeze([
+          Object.freeze({ forecastAt: '2026-08-01T13:00:00.000Z', ...measurements }),
+        ]),
+      }),
+      observedAt,
+    );
+    const result = composeOutfitOptions(
+      requirements,
+      listGarmentTypesForPreference('womens').map(({ typeId }) =>
+        catalogCandidate(requirements, typeId, 'womens')),
+      0,
+    );
+    assert.equal(result.status, 'composed', `${temperatureCelsius} C composed nothing`);
+    return result.outfits;
+  };
+
+  const mild = offeredAt(20);
+  assert.equal(
+    mild.some(({ formality }) => formality === 'formal'),
+    true,
+    'a mild day offers no formal option, so a formal dress style has none to prefer',
+  );
+
+  const shoes = new Set(
+    offeredAt(24).map(({ footwear }) => footwear.garment.garmentTypeId),
+  );
+  assert.equal(shoes.size >= 2, true, `a warm day offers only ${[...shoes].join(', ')}`);
 });
