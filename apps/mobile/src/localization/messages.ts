@@ -371,9 +371,13 @@ export type AppMessages = Readonly<{
     // stay for the type picker and the tile subline.
     categoryFilterAll: string;
     categoryFilterLabels: Readonly<Record<StructuralCategory, string>>;
+    // The Closet's empty sentence is segment-scoped: on the Owned segment it must not
+    // claim the wanted list is empty too.
+    ownedEmpty: string;
+    wantedEmpty: string;
+    bothEmpty: string;
     newTitle: string;
     editTitle: string;
-    backAction: string;
     nameLabel: string;
     nameDescription: string;
     namePlaceholder: string;
@@ -399,18 +403,6 @@ export type AppMessages = Readonly<{
     colorTitle: string;
     colorDescription: string;
     colorUnspecified: string;
-    attributesTitle: string;
-    attributesDescription: string;
-    attributeDefault: (value: string) => string;
-    attributeLabels: Readonly<{
-      thermalLevelOverride: string;
-      waterProtectionOverride: string;
-      windProtectionOverride: string;
-      breathabilityOverride: string;
-      armCoverageOverride: string;
-      legCoverageOverride: string;
-      tractionSuitabilityOverride: string;
-    }>;
     saveAction: string;
     savingLabel: string;
     createError: string;
@@ -721,9 +713,11 @@ const en = {
       footwear: 'Shoes',
       accessory: 'Accessories',
     },
+    ownedEmpty: 'You have not added any owned items yet.',
+    wantedEmpty: 'You have not added any wanted items yet.',
+    bothEmpty: 'You have not added any owned or wanted items yet.',
     newTitle: 'Add closet item',
     editTitle: 'Edit closet item',
-    backAction: 'Back to closet',
     nameLabel: 'Item name',
     nameDescription: 'Optional. Use a name that helps you recognize this item.',
     namePlaceholder: 'For example, everyday rain jacket',
@@ -746,23 +740,10 @@ const en = {
     typeAccessibilityLabel: (value: string) => `Clothing type, required: ${value}`,
     typeRequiredError: 'Choose a clothing type before saving.',
     detailsTitle: 'Details',
-    detailsCaption: 'Optional. Catalog defaults are used if you leave these alone.',
+    detailsCaption: 'Optional. The color family for this item.',
     colorTitle: 'Color family',
     colorDescription: 'Optional. Choose the item’s main color family.',
-    colorUnspecified: 'Not specified',
-    attributesTitle: 'Item properties',
-    attributesDescription:
-      'Keep the catalog default or choose a value that better describes this item.',
-    attributeDefault: (value: string) => `Catalog default: ${value}`,
-    attributeLabels: {
-      thermalLevelOverride: 'Insulation',
-      waterProtectionOverride: 'Water protection',
-      windProtectionOverride: 'Wind protection',
-      breathabilityOverride: 'Breathability',
-      armCoverageOverride: 'Arm coverage',
-      legCoverageOverride: 'Leg coverage',
-      tractionSuitabilityOverride: 'Traction',
-    },
+    colorUnspecified: 'Any',
     saveAction: 'Save item',
     savingLabel: 'Saving item…',
     createError: 'This item could not be added. Your entries are still here; please try again.',
@@ -807,7 +788,9 @@ const en = {
     ownershipWantedLabel: englishOwnershipStateLabels.wanted,
     ownershipUntrackedLabel: 'Not in your Closet',
     ownershipSummary: ({ owned, total }) =>
-      `You own ${owned} of ${total} ${total === 1 ? 'piece' : 'pieces'}.`,
+      owned === 0
+        ? 'You don’t own any of these pieces yet. Tap a piece to mark it owned or wanted.'
+        : `You own ${owned} of ${total} ${total === 1 ? 'piece' : 'pieces'}.`,
     slots: {
       primary_top: 'Top',
       bottom: 'Bottom',
@@ -1205,9 +1188,11 @@ const tr = {
       footwear: 'Ayakkabılar',
       accessory: 'Aksesuarlar',
     },
+    ownedEmpty: 'Henüz sahip olduğun bir parça eklemedin.',
+    wantedEmpty: 'Henüz istediğin bir parça eklemedin.',
+    bothEmpty: 'Henüz sahip olduğun veya istediğin bir parça eklemedin.',
     newTitle: 'Gardırop parçası ekle',
     editTitle: 'Gardırop parçasını düzenle',
-    backAction: 'Gardıroba dön',
     nameLabel: 'Parça adı',
     nameDescription: 'İsteğe bağlı. Bu parçayı tanımana yardımcı olacak bir ad kullan.',
     namePlaceholder: 'Örneğin günlük yağmurluk',
@@ -1230,23 +1215,10 @@ const tr = {
     typeAccessibilityLabel: (value: string) => `Giyim türü, zorunlu: ${value}`,
     typeRequiredError: 'Kaydetmeden önce bir giyim türü seç.',
     detailsTitle: 'Ayrıntılar',
-    detailsCaption: 'İsteğe bağlı. Dokunmazsan katalog değerleri kullanılır.',
+    detailsCaption: 'İsteğe bağlı. Bu parçanın renk ailesi.',
     colorTitle: 'Renk ailesi',
     colorDescription: 'İsteğe bağlı. Parçanın ana renk ailesini seç.',
     colorUnspecified: 'Belirtilmedi',
-    attributesTitle: 'Parça özellikleri',
-    attributesDescription:
-      'Katalog varsayılanını kullan veya bu parçayı daha iyi anlatan bir değer seç.',
-    attributeDefault: (value: string) => `Katalog varsayılanı: ${value}`,
-    attributeLabels: {
-      thermalLevelOverride: 'Yalıtım',
-      waterProtectionOverride: 'Su koruması',
-      windProtectionOverride: 'Rüzgâr koruması',
-      breathabilityOverride: 'Nefes alabilirlik',
-      armCoverageOverride: 'Kol kapatma',
-      legCoverageOverride: 'Bacak kapatma',
-      tractionSuitabilityOverride: 'Tutuş',
-    },
     saveAction: 'Parçayı kaydet',
     savingLabel: 'Parça kaydediliyor…',
     createError: 'Bu parça eklenemedi. Girdilerin hâlâ burada; lütfen yeniden dene.',
@@ -1291,7 +1263,9 @@ const tr = {
     ownershipWantedLabel: 'İstiyorsun',
     ownershipUntrackedLabel: 'Gardırobunda yok',
     ownershipSummary: ({ owned, total }) =>
-      `Bu kombindeki ${total} parçadan ${owned} tanesi sende var.`,
+      owned === 0
+        ? 'Bu parçaların hiçbiri henüz sende yok. Bir parçaya dokunup sende var ya da istiyorsun olarak işaretle.'
+        : `Bu kombindeki ${total} parçadan ${owned} tanesi sende var.`,
     slots: {
       primary_top: 'Üst',
       bottom: 'Alt',
