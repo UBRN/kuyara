@@ -361,15 +361,30 @@ test('an unknown response option id falls back deterministically', async () => {
   assert.deepEqual(calls, { client: 1, saves: 1 });
 });
 
-test('weather with no clothing requirements skips AI and persists the deterministic fallback', async () => {
+// A mild day derives no clothing requirement, and it reaches the AI tiers like every other
+// day: the composed pool decides whether there is anything to choose from, not the weather.
+test('weather with no clothing requirements still reaches the AI client', async () => {
   const { controller, calls } = createHarness();
+  await controller.initialize();
+
+  const snapshot = await controller.refresh('explicit', input(20));
+
+  assert.equal(snapshot.generationMode, 'ai-assisted');
+  assert.equal(snapshot.recommendation.outfits.length, 3);
+  assert.deepEqual(calls, { client: 1, saves: 1 });
+});
+
+test('a mild day falls back to the deterministic three when every AI tier fails', async () => {
+  const { controller, calls } = createHarness({
+    client: { recommendRouted: async () => { throw new Error('every AI tier failed'); } },
+  });
   await controller.initialize();
 
   const snapshot = await controller.refresh('explicit', input(20));
 
   assert.equal(snapshot.generationMode, 'deterministic-fallback');
   assert.equal(snapshot.recommendation.outfits.length, 3);
-  assert.deepEqual(calls, { client: 0, saves: 1 });
+  assert.deepEqual(calls, { client: 1, saves: 1 });
 });
 
 // The pool the AI tier is offered is narrowest on a hot day: the catalog composes four

@@ -8,6 +8,7 @@ import {
   Button,
   Entrance,
   GarmentBoard,
+  GarmentTileArtwork,
   haptics,
   Icon,
   PressScale,
@@ -22,6 +23,7 @@ import type { TodayScreenState } from '@/features/today/model';
 import { GarmentBoardSkeleton } from '@/features/today/presentation/garment-board-skeleton';
 import {
   createTodayPresentation,
+  type LoadedOutfitPresentation,
   type LoadedTodayPresentation,
 } from '@/features/today/presentation/today-presentation';
 import { useForegroundClock } from '@/features/today/presentation/use-foreground-clock';
@@ -38,6 +40,8 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 // doing, so it never needs the escalation; past this the unnarrated line has stopped being
 // informative on its own.
 const LONG_WAIT_MS = 8_000;
+// Law 6: a caption-sized mark, the same 16 the ownership and menu glyphs use.
+const ACCESSORY_BADGE_SIZE = 16;
 
 type TodayScreenProps = Readonly<{
   state: TodayScreenState;
@@ -281,6 +285,7 @@ export function TodayScreen({
               testID="today-rationale">
               {primary.reasons[0]}
             </AppText>
+            <AccessoryBadges suggestion={primary} />
           </>
         ) : (
           <View accessible accessibilityLabel={presentation.weather.accessibilityLabel}>
@@ -410,6 +415,44 @@ export function TodayScreen({
   );
 }
 
+/**
+ * The accessories the outfit finishes with, as silhouettes at Law 6's caption icon size.
+ * They are one accessible element that reads the names, never an accent and never animated,
+ * because they answer a question the card has already answered in words. A day that asks for
+ * no accessory renders nothing at all.
+ */
+function AccessoryBadges({
+  suggestion,
+}: Readonly<{ suggestion: LoadedOutfitPresentation }>) {
+  if (suggestion.accessories.length === 0) {
+    return null;
+  }
+
+  return (
+    <View
+      accessible
+      accessibilityLabel={suggestion.accessoriesAccessibilityLabel}
+      style={styles.accessoryBadges}
+      testID="today-accessory-badges">
+      {suggestion.accessories.map((accessory) => (
+        <GarmentTileArtwork
+          category={accessory.category}
+          colorFamily={null}
+          glyphSize={ACCESSORY_BADGE_SIZE}
+          height={ACCESSORY_BADGE_SIZE}
+          key={accessory.accessorySlot}
+          photoTestID={`today-accessory-photo-${accessory.garmentTypeId}`}
+          photoUri={null}
+          placeholderTestID={`today-accessory-glyph-${accessory.garmentTypeId}`}
+          silhouetteTestID={`today-accessory-${accessory.garmentTypeId}`}
+          garmentTypeId={accessory.garmentTypeId}
+          width={ACCESSORY_BADGE_SIZE}
+        />
+      ))}
+    </View>
+  );
+}
+
 // Law 6: the existing AI mark, sized to the text it sits beside and drawn in the secondary
 // icon ink rather than the accent, because the wait is not the screen's one accent-filled
 // element. Law 7: it breathes on the ambient calm step, holds still under Reduce Motion, and
@@ -465,6 +508,7 @@ const styles = StyleSheet.create({
   outfitName: { flex: 1, flexShrink: 1 },
   disclosure: { opacity: 0.55 },
   rationale: { marginTop: spacing.sm },
+  accessoryBadges: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.sm },
   loadingIntro: { gap: spacing.xs, marginBottom: spacing.md },
   generatingStatus: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.md },
   generatingStatusText: { flexShrink: 1 },

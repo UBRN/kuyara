@@ -51,6 +51,16 @@ The deterministic layer produces at most **24 complete, valid,
 requirement-satisfying, formality-consistent outfits**. The model returns
 exactly three of them, each with one archetype identifier.
 
+An option is six body slots and four optional accessory slots. The body is a core
+that is either `primary_top` plus `bottom` or a lone `one_piece`, an optional
+`mid_layer`, an optional `outer_layer`, and a mandatory `footwear`; that is what is
+composed and scored. `head`, `neck`, `hands` and `handheld` are not composed. One
+accessory per slot is attached to each finished outfit, decided by the derived
+requirements and that outfit's own formality, so an option carries between two and
+nine garments. Accessories travel to the model as ordinary garments and are excluded
+from the distinctness rule of section 6's table, because they follow from the outfit rather
+than distinguish it.
+
 Where that selection runs is decided in
 [ADR 0034](0034-on-device-ai-selection-through-apple-foundation-models.md): on-device
 through the approved native module when Apple Intelligence is available, otherwise
@@ -72,8 +82,9 @@ generated. Zod and the domain invariants still validate the result afterwards.
 `aiV1CandidateLimit`, `aiCandidateSchema`, `aiOutfitSchema`, and
 `aiRecommendV1SuccessSchema` are replaced. The option limit is 24, which keeps
 the candidate list under 30. The model input a full request serializes to is
-11,560 bytes at its worst case, 24 options of five garments each carrying the
-conditional archetypes it qualifies for.
+11,560 bytes at 24 options of five garments each carrying the conditional archetypes
+it qualifies for, and about half as much again on a cold day, whose options also carry
+their accessories.
 
 Mobile remains the owner of composition. The selection boundary validates
 membership, count, distinctness, and archetype preconditions, and the mobile
@@ -168,7 +179,7 @@ read on, so a weekend result read on the Monday after says Relaxed.
 | Formality spread at most one step | Option construction |
 | `optionId` is in the supplied set, exactly three, distinct | Selection boundary |
 | `archetypeId` is in the closed list and the three differ | Selection boundary |
-| The three picks differ by body core or by at least two garments | Selection boundary |
+| The three picks differ by body core or by at least two body garments | Selection boundary |
 | Archetype precondition holds for its outfit | Selection boundary |
 
 The selection boundary is the on-device client when the selection runs on the

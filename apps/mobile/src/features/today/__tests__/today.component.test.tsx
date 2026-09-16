@@ -4,7 +4,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { failureCategories } from '@/domain/failure-category';
 import {
+  accessoryFreeTodayScreenState,
   aiAssistedTodayScreenState,
+  coldTodayScreenState,
+  firstOutfitId,
   todayOutfitId,
   todayScreenState,
   todayWardrobeItems,
@@ -1347,5 +1350,100 @@ describe.each(['en', 'tr'] as const)('%s Today attribution', (language: Supporte
     ));
     expect(sampleResult.queryByRole('link')).toBeNull();
     expect(sampleResult.getByTestId('today-attribution').children).toHaveLength(0);
+  });
+});
+
+// Goal B: the accessories the outfit finishes with. The garment board does not draw them
+// (ADR 0025), so Today carries them as caption-sized silhouette badges and the detail as a
+// "Finishing touches" row. Both disappear on a day that asks for none.
+describe('finishing touches', () => {
+  function accessoryNames(state: typeof coldTodayScreenState, language: 'en' | 'tr' = 'en') {
+    const presentation = createTodayPresentation(state, language, false, fixtureNow);
+    if (presentation.kind !== 'loaded') throw new Error('Expected a loaded presentation.');
+    return presentation.suggestions[0].accessories;
+  }
+
+  test('a cold rainy day badges every accessory under the Today card', async () => {
+    const accessories = accessoryNames(coldTodayScreenState);
+    expect(accessories.map(({ accessorySlot }) => accessorySlot))
+      .toEqual(['head', 'neck', 'hands', 'handheld']);
+
+    const result = await render(providers(
+      <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+        state={coldTodayScreenState} />,
+    ));
+    await fireEvent(result.getByTestId('today-content'), 'layout', {
+      nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
+    });
+
+    const badges = result.getByTestId('today-accessory-badges');
+    expect(badges.props.accessibilityLabel).toBe(
+      messages.en.today.finishingTouchesAccessibilityLabel(
+        accessories.map(({ item }) => item),
+      ),
+    );
+    for (const accessory of accessories) {
+      expect(within(badges).getByTestId(
+        `today-accessory-${accessory.garmentTypeId}`,
+        { includeHiddenElements: true },
+      )).toBeOnTheScreen();
+    }
+  });
+
+  test('a day that asks for no accessory renders no badge row and no detail section', async () => {
+    expect(accessoryNames(accessoryFreeTodayScreenState)).toEqual([]);
+
+    const today = await render(providers(
+      <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+        state={accessoryFreeTodayScreenState} />,
+    ));
+    expect(today.queryByTestId('today-accessory-badges')).toBeNull();
+
+    const detail = await render(providers(
+      <OutfitDetailScreen
+        backLabel={messages.en.common.back}
+        language="en"
+        onBack={() => undefined}
+        onSetOwnership={() => undefined}
+        ownershipByGarmentType={{}}
+        state={accessoryFreeTodayScreenState}
+        suggestionId={firstOutfitId(accessoryFreeTodayScreenState)}
+      />,
+    ));
+    expect(detail.queryByTestId('outfit-detail-finishing-touches')).toBeNull();
+  });
+
+  test.each(['en', 'tr'] as const)('%s outfit detail lists each accessory with its name and slot', async (language) => {
+    const accessories = accessoryNames(coldTodayScreenState, language);
+    const result = await render(providers(
+      <OutfitDetailScreen
+        backLabel={messages[language].common.back}
+        language={language}
+        onBack={() => undefined}
+        onSetOwnership={() => undefined}
+        ownershipByGarmentType={{}}
+        state={coldTodayScreenState}
+        suggestionId={firstOutfitId(coldTodayScreenState)}
+      />,
+      lightTheme, language,
+    ));
+    await fireEvent(result.getByTestId('outfit-detail-content'), 'layout', {
+      nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
+    });
+
+    expect(result.getByRole('header', {
+      name: messages[language].today.finishingTouchesHeading,
+    })).toBeOnTheScreen();
+    for (const accessory of accessories) {
+      const row = result.getByTestId(`outfit-detail-accessory-${accessory.garmentTypeId}`);
+      expect(row.props.accessibilityLabel).toBe(`${accessory.item}, ${accessory.slot}`);
+      expect(within(row).getByText(accessory.item)).toBeOnTheScreen();
+    }
+    // The board is the six body slots and nothing else.
+    const boardPieces = createTodayPresentation(coldTodayScreenState, language, false, fixtureNow);
+    if (boardPieces.kind !== 'loaded') throw new Error('Expected a loaded presentation.');
+    expect(
+      boardPieces.suggestions[0].boardPieces.some(({ category }) => category === 'accessory'),
+    ).toBe(false);
   });
 });

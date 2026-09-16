@@ -752,3 +752,158 @@ test('the offered options keep every composable formality and more than one shoe
   );
   assert.equal(shoes.size >= 2, true, `a warm day offers only ${[...shoes].join(', ')}`);
 });
+
+// Part 1 of Goal B: accessories are attached to a finished outfit, never composed into it.
+// The five profiles below are the ones the recommendation grid already uses, read here for
+// what each of them finishes with rather than for what it composes.
+function offeredForWeather(measurements, overrides = {}) {
+  const observedAt = '2026-08-01T12:00:00.000Z';
+  const full = Object.freeze({ humidity: 0.5, uvIndex: 0, ...measurements });
+  const requirements = deriveClothingRequirements(
+    Object.freeze({
+      id: '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4',
+      localProfileId: 'profile-one',
+      locationKey: 'manual:sample.istanbul',
+      timeZone: 'UTC',
+      fetchedAt: observedAt,
+      origin: Object.freeze({ kind: 'sample', sourceId: 'composition-test' }),
+      current: Object.freeze({ observedAt, ...full }),
+      minimumTemperatureCelsius: full.temperatureCelsius - 1,
+      maximumTemperatureCelsius: full.temperatureCelsius + 1,
+      hourly: Object.freeze([
+        Object.freeze({ forecastAt: '2026-08-01T13:00:00.000Z', ...full }),
+      ]),
+      ...overrides,
+    }),
+    observedAt,
+  );
+  const result = composeOutfitOptions(
+    requirements,
+    listGarmentTypesForPreference('womens').map(({ typeId }) =>
+      catalogCandidate(requirements, typeId, 'womens')),
+    0,
+  );
+  assert.equal(result.status, 'composed', 'the profile composed nothing');
+  return result.outfits;
+}
+
+function accessoryTypes(outfit) {
+  return Object.fromEntries(
+    ['head', 'neck', 'hands', 'handheld'].flatMap((slot) => {
+      const accessory = outfit.accessories[slot];
+      return accessory ? [[slot, accessory.garment.garmentTypeId]] : [];
+    }),
+  );
+}
+
+const clearDay = (temperatureCelsius) => ({
+  temperatureCelsius,
+  apparentTemperatureCelsius: temperatureCelsius,
+  condition: 'clear',
+  precipitationProbability: 0,
+  windSpeedMetersPerSecond: 0,
+});
+
+test('a mild and a hot day finish with no accessory at all', () => {
+  for (const temperatureCelsius of [20, 32]) {
+    for (const outfit of offeredForWeather(clearDay(temperatureCelsius))) {
+      assert.deepEqual(
+        accessoryTypes(outfit),
+        {},
+        `${temperatureCelsius} C attached an accessory nobody asked for`,
+      );
+      // No accessory, no accessory segment: the key an accessory-free day writes is the
+      // key it wrote before the four slots existed.
+      assert.equal(
+        outfit.compositionKey.split('|').length,
+        outfit.body.kind === 'separates' ? 6 : 5,
+        outfit.compositionKey,
+      );
+    }
+  }
+});
+
+test('a cold day covers head, neck and hands, and each slot holds exactly one garment', () => {
+  const offered = offeredForWeather(clearDay(2));
+  const byFormality = new Map();
+  for (const outfit of offered) {
+    for (const slot of ['head', 'neck', 'hands', 'handheld']) {
+      const accessory = outfit.accessories[slot];
+      if (accessory) {
+        assert.equal(accessory.slot, slot);
+        assert.equal(accessory.layerRole, null);
+        assert.equal(accessory.garment.properties.category, 'accessory');
+      }
+    }
+    assert.equal(outfit.accessories.handheld, null, 'a dry day carries nothing');
+    byFormality.set(outfit.formality, accessoryTypes(outfit));
+  }
+
+  assert.deepEqual(byFormality.get('casual'), {
+    head: 'balaclava',
+    neck: 'neck_gaiter',
+    hands: 'gloves',
+  });
+  // Formality consistency: a smart or formal outfit finishes with the smart hat and scarf,
+  // and the one garment its slot offers reaches every outfit whatever the formality.
+  for (const formality of ['smart', 'formal']) {
+    const chosen = byFormality.get(formality);
+    if (!chosen) continue;
+    assert.deepEqual(chosen, {
+      head: 'brimmed_hat',
+      neck: 'scarf',
+      hands: 'gloves',
+    });
+  }
+});
+
+test('a cold rainy day carries an umbrella and a mild rainy day carries one without covering anything', () => {
+  const rain = (temperatureCelsius) => ({
+    temperatureCelsius,
+    apparentTemperatureCelsius: temperatureCelsius,
+    condition: 'rain',
+    precipitationProbability: 0.75,
+    windSpeedMetersPerSecond: 4,
+  });
+
+  for (const outfit of offeredForWeather(rain(5))) {
+    assert.equal(outfit.accessories.handheld?.garment.garmentTypeId, 'umbrella');
+    assert.notEqual(outfit.accessories.head, null);
+  }
+  for (const outfit of offeredForWeather(rain(19))) {
+    assert.equal(outfit.accessories.handheld?.garment.garmentTypeId, 'umbrella');
+    assert.equal(outfit.accessories.head, null);
+    assert.equal(outfit.accessories.neck, null);
+    assert.equal(outfit.accessories.hands, null);
+  }
+});
+
+test('accessories reach the composition key and never the body slots or the distinctness rule', () => {
+  const cold = offeredForWeather(clearDay(2));
+  const [first] = cold;
+  assert.equal(
+    first.compositionKey.endsWith('|catalog:balaclava|catalog:neck_gaiter|catalog:gloves|-'),
+    true,
+    first.compositionKey,
+  );
+  // The six body slots never see an accessory, whatever the day asked for.
+  for (const outfit of cold) {
+    const body = [
+      ...(outfit.body.kind === 'separates'
+        ? [outfit.body.primaryTop, outfit.body.bottom]
+        : [outfit.body.onePiece]),
+      outfit.midLayer,
+      outfit.outerLayer,
+      outfit.footwear,
+    ].filter((garment) => garment !== null);
+    assert.equal(
+      body.some(({ garment }) => garment.properties.category === 'accessory'),
+      false,
+    );
+    assert.equal(
+      outfit.candidateKeys.some((key) => key.endsWith(':gloves')),
+      false,
+      'an accessory reached the keys distinctness counts',
+    );
+  }
+});

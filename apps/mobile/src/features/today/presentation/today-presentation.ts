@@ -16,7 +16,9 @@ import type {
   StructuralCategory,
 } from '@/features/catalog/domain/garment-taxonomy';
 import {
+  accessoryOutfitSlots,
   outfitSlots,
+  type AccessoryOutfitSlot,
   type OutfitRequirementEvaluation,
   type OutfitSlot,
   type AssignedOutfitGarment,
@@ -82,6 +84,15 @@ type LocalizedOutfitPiece = Readonly<{
   garmentTypeId: GarmentTypeId;
 }>;
 
+/**
+ * The accessories the outfit finishes with. The garment board never draws them (ADR 0025),
+ * so they reach the screen as their own list: badges under the Today card and a row on the
+ * detail. Empty on every day that asks for none.
+ */
+export type LocalizedOutfitAccessory = LocalizedOutfitPiece & Readonly<{
+  accessorySlot: AccessoryOutfitSlot;
+}>;
+
 export type LocalizedRequirementRow = Readonly<{
   id: string;
   kind: 'reason' | 'tradeoff';
@@ -97,6 +108,8 @@ export type LoadedOutfitPresentation = Readonly<{
   pieces: readonly LocalizedOutfitPiece[];
   boardPieces: readonly Readonly<{ slot: OutfitSlot; garmentTypeId: GarmentTypeId; category: StructuralCategory }>[];
   boardAccessibilityLabel: string;
+  accessories: readonly LocalizedOutfitAccessory[];
+  accessoriesAccessibilityLabel: string;
   reasons: readonly string[];
   requirementRows: readonly LocalizedRequirementRow[];
   accessibilityLabel: string;
@@ -109,6 +122,7 @@ export type LoadedTodayPresentation = Readonly<{
     title: string;
     piecesHeading: string;
     reasonsHeading: string;
+    finishingTouchesHeading: string;
     otherOptionsHeading: string;
   }>;
   header: Readonly<{
@@ -234,6 +248,20 @@ function localizeOutfit(
     category: garment.properties.category,
     garmentTypeId: garment.garmentTypeId,
   }));
+  const accessories = accessoryOutfitSlots.flatMap((accessorySlot) => {
+    const accessory = outfit.accessories[accessorySlot];
+    return accessory
+      ? [{
+          accessorySlot,
+          slot: copy.slots[accessorySlot],
+          item: messages.catalog[
+            `catalog.garment_type.${accessory.garment.garmentTypeId}.name`
+          ],
+          category: accessory.garment.properties.category,
+          garmentTypeId: accessory.garment.garmentTypeId,
+        } satisfies LocalizedOutfitAccessory]
+      : [];
+  });
   const title = archetypeLabel(messages.recommendation, outfit.archetypeId, dayKind);
   const summary = pieces.map(({ item }) => item).join(' + ');
   const composedReasons = [
@@ -282,6 +310,10 @@ function localizeOutfit(
     pieces,
     boardPieces,
     boardAccessibilityLabel: copy.boardAccessibilityLabel({ archetype: title, pieces: pieces.map(({ item }) => item) }),
+    accessories,
+    accessoriesAccessibilityLabel: accessories.length > 0
+      ? copy.finishingTouchesAccessibilityLabel(accessories.map(({ item }) => item))
+      : '',
     reasons,
     requirementRows,
     accessibilityLabel: copy.outfitAccessibilityLabel({
@@ -384,6 +416,7 @@ function createLoadedPresentation(
       title: copy.title,
       piecesHeading: copy.piecesHeading,
       reasonsHeading: copy.reasonsHeading,
+      finishingTouchesHeading: copy.finishingTouchesHeading,
       otherOptionsHeading: copy.otherOptionsHeading,
     },
     header: {

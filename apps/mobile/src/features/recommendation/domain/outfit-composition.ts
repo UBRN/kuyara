@@ -16,10 +16,14 @@ import {
   type GarmentEligibilityResult,
   type GarmentRequirementEvaluation,
 } from '@/features/recommendation/domain/garment-eligibility';
-import type {
-  ClothingRequirement,
-  ClothingRequirementReasonCode,
-  ClothingRequirements,
+import {
+  bodyClothingRequirements,
+  type BodyClothingRequirement,
+  type BodyClothingRequirements,
+  type ClothingRequirement,
+  type ClothingRequirementReasonCode,
+  type ClothingRequirements,
+  type ExtremityCoverRequirement,
 } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 
 export const outfitSlots = Object.freeze([
@@ -29,9 +33,32 @@ export const outfitSlots = Object.freeze([
   'mid_layer',
   'outer_layer',
   'footwear',
+  'head',
+  'neck',
+  'hands',
+  'handheld',
 ] as const);
 
 export type OutfitSlot = (typeof outfitSlots)[number];
+
+/**
+ * The four slots an outfit may finish with. They are not composed: the six body slots are
+ * arranged first, and one accessory per slot is attached to the finished outfit from the
+ * weather requirements and that outfit's own formality. So they never make one option
+ * different from another, and the garment board (ADR 0025) does not draw them.
+ */
+export const accessoryOutfitSlots = Object.freeze([
+  'head',
+  'neck',
+  'hands',
+  'handheld',
+] as const);
+
+export type AccessoryOutfitSlot = (typeof accessoryOutfitSlots)[number];
+
+export type OutfitAccessories = Readonly<
+  Record<AccessoryOutfitSlot, AssignedOutfitGarment | null>
+>;
 
 export const outfitCompositionReasonCodes = Object.freeze([
   'breathability_protection_tradeoff',
@@ -100,7 +127,7 @@ export type OutfitAggregateProperties = Readonly<{
 }>;
 
 export type OutfitRequirementEvaluation = Readonly<{
-  requirement: ClothingRequirement;
+  requirement: BodyClothingRequirement;
   status: 'met' | 'shortfall' | 'missing' | 'tradeoff';
   contribution: number;
   observedContribution: number;
@@ -120,6 +147,7 @@ export type OutfitCandidate = Readonly<{
   midLayer: AssignedOutfitGarment | null;
   outerLayer: AssignedOutfitGarment | null;
   footwear: AssignedOutfitGarment;
+  accessories: OutfitAccessories;
   aggregates: OutfitAggregateProperties;
   requirementEvaluations: readonly OutfitRequirementEvaluation[];
   score: number;
@@ -133,7 +161,7 @@ export type OutfitCandidate = Readonly<{
 }>;
 
 export type OutfitRequirementBestEvidence = Readonly<{
-  requirement: ClothingRequirement;
+  requirement: BodyClothingRequirement;
   bestContribution: number;
   bestObservedContribution: number;
   compositionKey: string | null;
@@ -144,7 +172,7 @@ export type OutfitCompositionFailure = Readonly<{
   status: 'failure';
   reasonCodes: readonly OutfitCompositionFailureCode[];
   missingSlots: readonly OutfitSlot[];
-  unmetRequirements: readonly ClothingRequirement[];
+  unmetRequirements: readonly BodyClothingRequirement[];
   bestObservedEvidence: readonly OutfitRequirementBestEvidence[];
   consideredCandidateKeys: readonly string[];
 }>;
@@ -199,6 +227,22 @@ const reasonOrder = new Map(
 );
 const slotOrder = new Map(outfitSlots.map((slot, index) => [slot, index]));
 const formalityOrder = Object.freeze(['casual', 'smart', 'formal'] as const);
+// The body region an accessory has to cover to fill each slot. A carried piece covers no
+// region at all, which is what makes the umbrella a `handheld` and nothing else.
+const accessoryRegionBySlot: Readonly<
+  Record<AccessoryOutfitSlot, ExtremityCoverRequirement['target'] | null>
+> = Object.freeze({
+  head: 'head',
+  neck: 'neck',
+  hands: 'hands',
+  handheld: null,
+});
+const noAccessories: OutfitAccessories = Object.freeze({
+  head: null,
+  neck: null,
+  hands: null,
+  handheld: null,
+});
 
 function compareStrings(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -238,11 +282,13 @@ function orderedSlots(values: Iterable<OutfitSlot>): readonly OutfitSlot[] {
   );
 }
 
-function cloneRequirement(requirement: ClothingRequirement): ClothingRequirement {
+function cloneRequirement<Requirement extends ClothingRequirement>(
+  requirement: Requirement,
+): Requirement {
   return Object.freeze({
     ...requirement,
     reasonCodes: Object.freeze([...requirement.reasonCodes]),
-  }) as ClothingRequirement;
+  }) as Requirement;
 }
 
 /**
@@ -251,14 +297,14 @@ function cloneRequirement(requirement: ClothingRequirement): ClothingRequirement
  * draft. The copies are frozen and nothing mutates one.
  */
 const requirementCopies = new WeakMap<
-  ClothingRequirement,
+  BodyClothingRequirement,
   Readonly<{
-    requirement: ClothingRequirement;
+    requirement: BodyClothingRequirement;
     reasonCodes: readonly ClothingRequirementReasonCode[];
   }>
 >();
 
-function copyOf(requirement: ClothingRequirement) {
+function copyOf(requirement: BodyClothingRequirement) {
   const cached = requirementCopies.get(requirement);
   if (cached) {
     return cached;
@@ -341,14 +387,15 @@ function assignedGarment(
 }
 
 function requirementKey(requirement: ClothingRequirement): string {
-  return requirement.kind === 'water_protection'
+  return requirement.kind === 'water_protection' ||
+      requirement.kind === 'extremity_cover'
     ? `${requirement.kind}:${requirement.target}`
     : requirement.kind;
 }
 
 function findEvaluation(
   result: EligibleGarmentResult | null,
-  requirement: ClothingRequirement,
+  requirement: BodyClothingRequirement,
 ): GarmentRequirementEvaluation | null {
   if (!result) {
     return null;
@@ -526,7 +573,7 @@ function evaluationStatus(
 
 function mandatoryProtectiveOuter(
   draft: DraftComposition,
-  requirements: ClothingRequirements,
+  requirements: BodyClothingRequirements,
 ): boolean {
   if (!draft.outerLayer) {
     return false;
@@ -544,10 +591,10 @@ function mandatoryProtectiveOuter(
 }
 
 function evaluateRequirement(
-  requirement: ClothingRequirement,
+  requirement: BodyClothingRequirement,
   draft: DraftComposition,
   aggregates: OutfitAggregateProperties,
-  requirements: ClothingRequirements,
+  requirements: BodyClothingRequirements,
 ): OutfitRequirementEvaluation {
   const body = bodyResults(draft);
   let contribution = 0;
@@ -698,7 +745,7 @@ function evaluateRequirement(
 }
 
 function thermalOverProtectionPenalty(
-  requirements: ClothingRequirements,
+  requirements: BodyClothingRequirements,
   bodyStrength: number,
 ): number {
   const requirement = requirements.requirements.find(
@@ -713,7 +760,7 @@ function thermalOverProtectionPenalty(
 }
 
 function unnecessaryWaterProtectionPenalty(
-  requirements: ClothingRequirements,
+  requirements: BodyClothingRequirements,
   aggregates: OutfitAggregateProperties,
 ): number {
   const hasBreathability = requirements.requirements.some(
@@ -739,7 +786,7 @@ function unnecessaryWaterProtectionPenalty(
 }
 
 function breathabilityTradeoffPenalty(
-  requirements: ClothingRequirements,
+  requirements: BodyClothingRequirements,
   draft: DraftComposition,
   evaluations: readonly OutfitRequirementEvaluation[],
 ): number {
@@ -813,7 +860,7 @@ function candidateKeys(draft: DraftComposition): readonly string[] {
 
 function evaluateDraft(
   draft: DraftComposition,
-  requirements: ClothingRequirements,
+  requirements: BodyClothingRequirements,
 ): OutfitCandidate {
   const aggregates = aggregateProperties(draft);
   const requirementEvaluations = Object.freeze(
@@ -916,6 +963,7 @@ function evaluateDraft(
     midLayer,
     outerLayer,
     footwear: assignedGarment(draft.footwear, 'footwear', null),
+    accessories: noAccessories,
     aggregates,
     requirementEvaluations,
     score: Math.max(scoreBeforePenalties - penaltyPoints, 0),
@@ -1055,7 +1103,7 @@ function hasDuplicateCandidate(draft: DraftComposition): boolean {
 }
 
 function failureCodeForRequirement(
-  requirement: ClothingRequirement,
+  requirement: BodyClothingRequirement,
 ): OutfitCompositionFailureCode {
   switch (requirement.kind) {
     case 'thermal':
@@ -1078,7 +1126,7 @@ function failureCodeForRequirement(
 }
 
 function bestEvidence(
-  requirements: readonly ClothingRequirement[],
+  requirements: readonly BodyClothingRequirement[],
   candidates: readonly OutfitCandidate[],
 ): readonly OutfitRequirementBestEvidence[] {
   return Object.freeze(requirements.map((requirement) => {
@@ -1122,7 +1170,7 @@ function bestEvidence(
 function failureResult(
   reasonCodes: Iterable<OutfitCompositionFailureCode>,
   missingSlots: Iterable<OutfitSlot>,
-  unmetRequirements: readonly ClothingRequirement[],
+  unmetRequirements: readonly BodyClothingRequirement[],
   evidence: readonly OutfitRequirementBestEvidence[],
   consideredCandidateKeys: readonly string[],
 ): OutfitCompositionFailure {
@@ -1147,14 +1195,145 @@ function supportsRole(
 }
 
 /**
- * Returns every valid composition, sorted best first, or the shared failure. It assigns
- * runtime roles but does not mutate garment data or re-evaluate garment-level requirement
- * applicability.
+ * The accessories a day offers at all: eligible, structurally an accessory, and answering
+ * at least one requirement the day actually derived. On a day that asks nothing of the head,
+ * the neck, the hands or the rain this is empty and no outfit finishes with anything.
  */
-export function collectValidOutfits(
-  requirements: ClothingRequirements,
+function offeredAccessories(
+  candidates: readonly EligibleGarmentResult[],
+): readonly EligibleGarmentResult[] {
+  return candidates.filter(
+    (candidate) =>
+      candidate.garment.properties.category === 'accessory' &&
+      candidate.evaluations.some(({ status }) => status !== 'not_applicable'),
+  );
+}
+
+function formalityDistance(
+  result: EligibleGarmentResult,
+  outfitRank: number,
+): number {
+  const rank = formalityRankOf(result);
+  return rank < 0 ? Number.MAX_SAFE_INTEGER : Math.abs(rank - outfitRank);
+}
+
+/**
+ * One accessory for one slot, or none. The slot's own region decides who may fill it, the
+ * formality closest to the outfit's decides which of them does, and the eligibility order
+ * breaks the tie, so the strongest answer to what the day asked wins. Where a region offers
+ * a single garment the formality step never excludes it: gloves and the umbrella belong to
+ * a casual outfit exactly as much as to a formal one.
+ */
+function accessoryForSlot(
+  accessories: readonly EligibleGarmentResult[],
+  slot: AccessoryOutfitSlot,
+  formality: Formality,
+): AssignedOutfitGarment | null {
+  const region = accessoryRegionBySlot[slot];
+  const offered = accessories.filter(
+    ({ garment }) => garment.properties.bodyRegion === region,
+  );
+  if (offered.length === 0) {
+    return null;
+  }
+
+  const outfitRank = formalityOrder.indexOf(formality);
+  const chosen = offered.reduce((best, candidate) => {
+    const order = formalityDistance(candidate, outfitRank) -
+      formalityDistance(best, outfitRank);
+    return order < 0 ||
+        (order === 0 && compareGarmentEligibilityResults(candidate, best) < 0)
+      ? candidate
+      : best;
+  });
+
+  return assignedGarment(chosen, slot, null);
+}
+
+/**
+ * Nothing but its formality distinguishes one composed outfit's accessories from another's,
+ * so the day's answer is decided once for each of the three formalities instead of once for
+ * each of the tens of thousands of outfits a mild day composes.
+ */
+function accessorySetsByFormality(
+  candidates: readonly EligibleGarmentResult[],
+): ReadonlyMap<Formality, OutfitAccessories> {
+  const sets = new Map<Formality, OutfitAccessories>();
+  const accessories = offeredAccessories(candidates);
+  if (accessories.length === 0) {
+    return sets;
+  }
+
+  for (const formality of formalityOrder) {
+    const chosen = Object.freeze(
+      Object.fromEntries(
+        accessoryOutfitSlots.map((slot) => [
+          slot,
+          accessoryForSlot(accessories, slot, formality),
+        ]),
+      ),
+    ) as OutfitAccessories;
+    if (accessoryOutfitSlots.some((slot) => chosen[slot] !== null)) {
+      sets.set(formality, chosen);
+    }
+  }
+
+  return sets;
+}
+
+function accessoryCompositionKey(accessories: OutfitAccessories): string {
+  return accessoryOutfitSlots
+    .map((slot) => accessories[slot]?.garment.candidateKey ?? '-')
+    .join('|');
+}
+
+/**
+ * Attachment, once per composed outfit and after the sort, so the order the six body slots
+ * earned is the order the offer sees. A day that offers no accessory hands its outfits back
+ * untouched, and only then does the composition key stay what it was.
+ */
+function withAccessories(
+  outfits: readonly OutfitCandidate[],
+  sets: ReadonlyMap<Formality, OutfitAccessories>,
+): readonly OutfitCandidate[] {
+  if (sets.size === 0) {
+    return outfits;
+  }
+
+  return outfits.map((outfit) => {
+    const accessories = sets.get(outfit.formality);
+    return accessories
+      ? Object.freeze({
+          ...outfit,
+          accessories,
+          compositionKey:
+            `${outfit.compositionKey}|${accessoryCompositionKey(accessories)}`,
+        })
+      : outfit;
+  });
+}
+
+type ComposedDrafts =
+  | OutfitCompositionFailure
+  | Readonly<{
+      status: 'composed';
+      outfits: readonly OutfitCandidate[];
+      accessorySets: ReadonlyMap<Formality, OutfitAccessories>;
+    }>;
+
+/**
+ * Every valid composition of the six body slots, sorted best first, or the shared failure,
+ * with the day's accessory answer beside it but not yet attached. It assigns runtime roles
+ * but does not mutate garment data or re-evaluate garment-level requirement applicability.
+ */
+function composeValidOutfits(
+  allRequirements: ClothingRequirements,
   candidates: readonly GarmentEligibilityResult[],
-): OutfitCompositionsResult {
+): ComposedDrafts {
+  // The extremity requirements are left out here on purpose: no top, bottom, layer or shoe
+  // covers a head, so counting them would lower every outfit's score by the same amount and
+  // say nothing. They decide the accessories attached at the end instead.
+  const requirements = bodyClothingRequirements(allRequirements);
   const consideredCandidateKeys = Object.freeze(
     candidates.map(({ candidateKey }) => candidateKey).sort(compareStrings),
   );
@@ -1290,6 +1469,7 @@ export function collectValidOutfits(
     return Object.freeze({
       status: 'composed',
       outfits: Object.freeze(valid),
+      accessorySets: accessorySetsByFormality(eligible),
     });
   }
 
@@ -1483,19 +1663,43 @@ function selectDiverseOutfits(
   return Object.freeze(selected);
 }
 
+/**
+ * Every valid composition, sorted best first, each finished with the day's accessories.
+ * The mapper rebuilds one stored or AI-chosen option through here, so what it hands back
+ * has to carry the accessories that option was written with.
+ */
+export function collectValidOutfits(
+  requirements: ClothingRequirements,
+  candidates: readonly GarmentEligibilityResult[],
+): OutfitCompositionsResult {
+  const result = composeValidOutfits(requirements, candidates);
+  return result.status === 'failure'
+    ? result
+    : Object.freeze({
+        status: 'composed',
+        outfits: Object.freeze(
+          withAccessories(result.outfits, result.accessorySets),
+        ),
+      });
+}
+
 export function composeOutfitOptions(
   requirements: ClothingRequirements,
   candidates: readonly GarmentEligibilityResult[],
   startOffset: number,
 ): OutfitCompositionsResult {
-  const result = collectValidOutfits(requirements, candidates);
+  const result = composeValidOutfits(requirements, candidates);
+  // Accessories are attached to the offered outfits and to nothing else. The order above
+  // them reads score, formality, body core and candidate keys, none of which an accessory
+  // touches, so a cold day pays for 24 attachments rather than for its tens of thousands
+  // of valid arrangements.
   return result.status === 'failure'
     ? result
     : Object.freeze({
         status: 'composed',
-        outfits: selectDiverseOutfits(
-          orderForOffer(result.outfits, startOffset),
-          24,
-        ),
+        outfits: Object.freeze(withAccessories(
+          selectDiverseOutfits(orderForOffer(result.outfits, startOffset), 24),
+          result.accessorySets,
+        )),
       });
 }

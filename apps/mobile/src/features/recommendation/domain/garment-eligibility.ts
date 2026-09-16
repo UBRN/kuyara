@@ -54,7 +54,6 @@ export const garmentEligibilityReasonCodes = Object.freeze([
   'wardrobe_garment_deleted',
   'wardrobe_garment_legacy',
   'wardrobe_garment_invalid',
-  'unsupported_category',
   'mandatory_body_water_shortfall',
   'mandatory_feet_water_shortfall',
   'mandatory_wind_shortfall',
@@ -287,6 +286,11 @@ function isRequirementApplicable(
     case 'thermal':
     case 'breathability':
       return properties.category !== 'accessory';
+    case 'extremity_cover':
+      return (
+        properties.category === 'accessory' &&
+        properties.bodyRegion === requirement.target
+      );
     case 'arm_coverage':
       return (
         properties.category === 'top' ||
@@ -299,9 +303,12 @@ function isRequirementApplicable(
         properties.category === 'one_piece'
       );
     case 'water_protection':
+      // A carried accessory has no body region and answers the body's water requirement
+      // beside the outer layer; with no rain to keep off, nothing asks for it at all.
       return requirement.target === 'body'
-        ? properties.category === 'outerwear' &&
-            properties.supportedLayerRoles.includes('outer')
+        ? (properties.category === 'outerwear' &&
+            properties.supportedLayerRoles.includes('outer')) ||
+          (properties.category === 'accessory' && properties.bodyRegion === null)
         : properties.category === 'footwear';
     case 'wind_protection':
       return (
@@ -319,6 +326,7 @@ function actualValueForRequirement(
 ): GarmentRequirementEvaluation['actualValue'] {
   switch (requirement.kind) {
     case 'thermal':
+    case 'extremity_cover':
       return properties.thermalLevel;
     case 'breathability':
       return properties.breathability;
@@ -341,6 +349,7 @@ function strengthForRequirement(
 ): number {
   switch (requirement.kind) {
     case 'thermal':
+    case 'extremity_cover':
       return thermalStrength[value as ThermalLevel];
     case 'breathability':
       return breathabilityStrength[value as Breathability];
@@ -380,6 +389,7 @@ function hardFailureReason(
     case 'breathability':
     case 'arm_coverage':
     case 'leg_coverage':
+    case 'extremity_cover':
       return null;
   }
 }
@@ -503,13 +513,10 @@ export function evaluateGarmentEligibility(
     ]);
   }
 
+  // Accessories are evaluated like every other garment. They never enter the six body
+  // slots, which filter by structural category; composition attaches them afterwards, and
+  // only where a requirement asks for the region they cover.
   const { garment } = projection;
-  if (garment.properties.category === 'accessory') {
-    return ineligibleResult(garment.candidateKey, garment, [], [
-      'unsupported_category',
-    ]);
-  }
-
   const evaluations = Object.freeze(
     requirements.requirements.map((requirement) =>
       evaluateRequirement(requirement, garment.properties),

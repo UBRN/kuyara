@@ -1,4 +1,5 @@
 import {
+  accessoryOutfitSlots,
   formalityOrderByDressStyle,
   outfitArchetypeIds,
   type AiOption,
@@ -121,14 +122,25 @@ function hasDifferentBodyCore(left: AiOption, right: AiOption): boolean {
     || garmentType(left, 'bottom') !== garmentType(right, 'bottom');
 }
 
+const accessorySlots = new Set<string>(accessoryOutfitSlots);
+
+/**
+ * The slot/garment pairs distinctness counts. Accessories are left out: they follow from the
+ * weather and the outfit's formality alone, so two options that differ only in a shoe would
+ * otherwise look three pairs apart the moment that shoe moved them to another formality.
+ */
+function countedPairs(option: AiOption): Set<string> {
+  return new Set(
+    option.garments
+      .filter(({ slot }) => !accessorySlots.has(slot))
+      .map(({ slot, garmentTypeId }) => `${slot}|${garmentTypeId}`),
+  );
+}
+
 function isMeaningfullyDifferent(left: AiOption, right: AiOption): boolean {
   if (hasDifferentBodyCore(left, right)) return true;
-  const leftPairs = new Set(
-    left.garments.map(({ slot, garmentTypeId }) => `${slot}|${garmentTypeId}`),
-  );
-  const rightPairs = new Set(
-    right.garments.map(({ slot, garmentTypeId }) => `${slot}|${garmentTypeId}`),
-  );
+  const leftPairs = countedPairs(left);
+  const rightPairs = countedPairs(right);
   const leftOnly = [...leftPairs].filter((pair) => !rightPairs.has(pair)).length;
   const rightOnly = [...rightPairs].filter((pair) => !leftPairs.has(pair)).length;
   return leftOnly >= 2 || rightOnly >= 2;
@@ -136,7 +148,7 @@ function isMeaningfullyDifferent(left: AiOption, right: AiOption): boolean {
 
 /**
  * One definition of "meaningfully different": every pair of picks differs in the body
- * core, or in at least two slot/garment pairs.
+ * core, or in at least two slot/garment pairs, accessory slots excluded.
  */
 export function picksAreMeaningfullyDifferent(options: readonly AiOption[]): boolean {
   for (let left = 0; left < options.length; left += 1) {

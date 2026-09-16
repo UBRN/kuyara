@@ -503,7 +503,8 @@ test('output is immutable, deduplicated, stably ordered, and metadata-independen
   assert.deepEqual(first, second);
   assert.deepEqual(
     first.requirements.map((requirement) =>
-      requirement.kind === 'water_protection'
+      requirement.kind === 'water_protection' ||
+        requirement.kind === 'extremity_cover'
         ? `${requirement.kind}:${requirement.target}`
         : requirement.kind,
     ),
@@ -514,10 +515,15 @@ test('output is immutable, deduplicated, stably ordered, and metadata-independen
       'wind_protection',
       'water_protection:body',
       'water_protection:feet',
+      'extremity_cover:head',
+      'extremity_cover:neck',
+      'extremity_cover:hands',
     ],
   );
   assert.equal(new Set(first.requirements.map((item) =>
-    item.kind === 'water_protection' ? `${item.kind}:${item.target}` : item.kind,
+    item.kind === 'water_protection' || item.kind === 'extremity_cover'
+      ? `${item.kind}:${item.target}`
+      : item.kind,
   )).size, first.requirements.length);
   assert.equal(Object.isFrozen(first), true);
   assert.equal(Object.isFrozen(first.requirements), true);

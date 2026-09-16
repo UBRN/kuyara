@@ -10,6 +10,7 @@ import {
   Button,
   Entrance,
   GarmentBoard,
+  GarmentTileArtwork,
   Icon,
   layoutGarmentBoard,
   NativeMenu,
@@ -30,6 +31,10 @@ import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
 import { borderWidths, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
+
+// The detail draws its pieces at board scale; an accessory is not on the board, so it reads
+// at the row scale the reason rows already use.
+const ACCESSORY_ARTWORK_SIZE = 28;
 
 type OutfitDetailScreenProps = Readonly<{
   state: TodayScreenState;
@@ -315,6 +320,43 @@ export function OutfitDetailScreen({
           </AppText>
         ) : null}
 
+        {suggestion.accessories.length > 0 ? (
+          <View style={styles.section} testID="outfit-detail-finishing-touches">
+            <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
+              {presentation.copy.finishingTouchesHeading}
+            </AppText>
+            <View style={styles.accessoryList}>
+              {suggestion.accessories.map((accessory) => (
+                <View
+                  accessible
+                  accessibilityLabel={`${accessory.item}, ${accessory.slot}`}
+                  key={accessory.accessorySlot}
+                  style={styles.accessoryRow}
+                  testID={`outfit-detail-accessory-${accessory.garmentTypeId}`}>
+                  <GarmentTileArtwork
+                    category={accessory.category}
+                    colorFamily={null}
+                    garmentTypeId={accessory.garmentTypeId}
+                    glyphSize={ACCESSORY_ARTWORK_SIZE}
+                    height={ACCESSORY_ARTWORK_SIZE}
+                    photoTestID={`outfit-detail-accessory-photo-${accessory.garmentTypeId}`}
+                    photoUri={null}
+                    placeholderTestID={`outfit-detail-accessory-glyph-${accessory.garmentTypeId}`}
+                    silhouetteTestID={`outfit-detail-accessory-silhouette-${accessory.garmentTypeId}`}
+                    width={ACCESSORY_ARTWORK_SIZE}
+                  />
+                  <View style={styles.accessoryText}>
+                    <AppText variant="bodyStrong">{accessory.item}</AppText>
+                    <AppText colorRole="textSecondary" variant="caption">
+                      {accessory.slot}
+                    </AppText>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
         {suggestion.requirementRows.length > 0 ? (
           <View style={styles.section}>
             <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
@@ -441,6 +483,18 @@ const styles = StyleSheet.create({
   },
   reasonList: {
     gap: spacing.sm,
+  },
+  accessoryList: {
+    gap: spacing.sm,
+  },
+  accessoryRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  accessoryText: {
+    flex: 1,
+    flexShrink: 1,
   },
   reasonRow: {
     alignItems: 'flex-start',

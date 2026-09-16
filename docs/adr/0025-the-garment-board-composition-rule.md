@@ -33,6 +33,12 @@ The recommendation composer emits five shapes of slot list, and no others: a bod
 that is either `primary_top` plus `bottom` or a lone `one_piece`, an optional
 `mid_layer`, an optional `outer_layer`, and a mandatory `footwear`. Two pieces to five.
 
+The board draws those five and nothing else. An outfit may also be finished with a hat, a
+scarf, gloves or an umbrella; the geometry here is fixed to the body, and a sixth anchor
+for a piece that hangs off none of the others would reopen every measurement below. Those
+accessories appear as their own row on the recommendation detail and as caption-sized
+badges under the Today card instead.
+
 ## Decision
 
 Adopt the composition rule specified in

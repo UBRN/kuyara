@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { picksAreMeaningfullyDifferent } from '@kuyara/contracts';
+import { accessoryOutfitSlots, picksAreMeaningfullyDifferent } from '@kuyara/contracts';
 
 import {
   aiRequestFromContext,
@@ -231,8 +231,11 @@ const gridScenarios = [-3, 8, 16, 24, 31].flatMap((temperatureCelsius) =>
   return { scenarioInput, context, request: aiRequestFromContext(context) };
 });
 
+// The arrangement of the six body slots. Accessories are left out: they follow from the
+// weather and the option's formality, so they say nothing about how it was arranged.
 function optionSignature(option) {
   return option.garments
+    .filter(({ slot }) => !accessoryOutfitSlots.includes(slot))
     .map(({ slot, garmentTypeId, layerRole }) => `${slot}:${garmentTypeId}:${layerRole}`)
     .join(' ');
 }
@@ -352,4 +355,58 @@ test('rejects an option that moves a garment into a slot it cannot occupy', () =
     () => mapWorkerAiRecommendation({ ...request, options: [misplaced, ...rest] }, { picks: selected }),
     (error) => error instanceof WorkerAiRecommendationMappingError,
   );
+});
+
+// Accessories travel with the option as ordinary garments and come back attached, so the
+// round trip has to be read on a day that has them and on a day that has none.
+test('accessories survive the option and the stored round trip', () => {
+  const cold = createAiRecommendationRequest(input({ temperatureCelsius: -3 }));
+  const mild = createAiRecommendationRequest(input({ temperatureCelsius: 24 }));
+
+  const carried = cold.options.map((option) =>
+    option.garments.filter(({ slot }) => accessoryOutfitSlots.includes(slot)));
+  assert.equal(carried.every((garments) => garments.length > 0), true);
+  assert.equal(
+    carried.every((garments) => garments.every(({ layerRole }) => layerRole === null)),
+    true,
+  );
+  assert.equal(
+    mild.options.every((option) =>
+      option.garments.every(({ slot }) => !accessoryOutfitSlots.includes(slot))),
+    true,
+  );
+
+  const selected = picks(cold);
+  const result = mapWorkerAiRecommendation(cold, { picks: selected });
+  const attached = result.outfits.map(({ accessories }) =>
+    accessoryOutfitSlots.flatMap((slot) =>
+      accessories[slot] ? [accessories[slot].garment.garmentTypeId] : []));
+  assert.equal(attached.every((slots) => slots.length > 0), true);
+
+  const restored = mapStoredRecommendation(
+    createRecommendationContext(input({ temperatureCelsius: -3 }), '2026-08-01'),
+    toStoredRecommendationOutfits(result),
+    'ai-assisted',
+  );
+  assert.deepEqual(
+    restored.outfits.map(({ accessories }) =>
+      accessoryOutfitSlots.flatMap((slot) =>
+        accessories[slot] ? [accessories[slot].garment.garmentTypeId] : [])),
+    attached,
+  );
+  assert.deepEqual(
+    restored.outfits.map(({ optionId }) => optionId),
+    result.outfits.map(({ optionId }) => optionId),
+  );
+});
+
+// Part 2 of Goal B: a day that derives no requirement is an AI day like any other.
+test('a day with no clothing requirement still builds an AI request', () => {
+  const context = createRecommendationContext(input({ temperatureCelsius: 20 }), '2026-08-01');
+  assert.deepEqual(context.requirements, []);
+
+  const request = aiRequestFromContext(context);
+  assert.notEqual(request, null);
+  assert.deepEqual(request.requirements, []);
+  assert.equal(request.options.length >= 3, true);
 });

@@ -36,7 +36,7 @@ private let allowedArchetypeIds = [
 private let instructions = [
   "Pick exactly three supplied options by optionId.",
   "Never invent an optionId.",
-  "Two picks are meaningfully different only when they differ in the body core (a different one_piece, or a different primary_top, or a different bottom) or in at least two slot/garmentTypeId pairs. A different formality alone is not a difference.",
+  "Two picks are meaningfully different only when they differ in the body core (a different one_piece, or a different primary_top, or a different bottom) or in at least two slot/garmentTypeId pairs, not counting the head, neck, hands and handheld slots. A different formality alone is not a difference.",
   "All three picks must be meaningfully different from each other.",
   "Prefer formalities in the supplied formalityOrder; no formality is excluded.",
   "dayKind, when present, says whether today is a weekday or a weekend; prefer picks that suit it.",

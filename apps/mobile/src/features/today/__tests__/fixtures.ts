@@ -164,3 +164,57 @@ export const aiAssistedTodayScreenState = Object.freeze({
     }),
   }),
 } as const satisfies TodayScreenState);
+
+// Goal B: two more days, read for what the outfit finishes with rather than for what it is.
+// A freezing rainy day fills all four accessory slots; a warm clear one fills none.
+function dayAt(
+  temperatureCelsius: number,
+  condition: WeatherSnapshot['current']['condition'],
+  precipitationProbability: number,
+): WeatherSnapshot {
+  const measurements = Object.freeze({
+    temperatureCelsius,
+    apparentTemperatureCelsius: temperatureCelsius,
+    condition,
+    precipitationProbability,
+    windSpeedMetersPerSecond: 3,
+    humidity: 0.6,
+    uvIndex: 1,
+  });
+
+  return Object.freeze({
+    ...todayWeatherSnapshot,
+    current: Object.freeze({ observedAt: '2026-08-13T06:00:00.000Z', ...measurements }),
+    minimumTemperatureCelsius: temperatureCelsius - 1,
+    maximumTemperatureCelsius: temperatureCelsius + 1,
+    hourly: Object.freeze([
+      Object.freeze({ forecastAt: '2026-08-13T07:00:00.000Z', ...measurements }),
+    ]),
+  });
+}
+
+function stateFor(weather: WeatherSnapshot): TodayScreenState {
+  return Object.freeze({
+    ...todayScreenState,
+    snapshot: Object.freeze({
+      ...todayScreenState.snapshot,
+      weather,
+      recommendation: recommendOutfits({
+        snapshot: weather,
+        now: weather.current.observedAt,
+        clothingPreference: 'womens',
+        dayVariant: 0,
+      }),
+    }),
+  });
+}
+
+export const coldTodayScreenState = stateFor(dayAt(2, 'rain', 0.7));
+export const accessoryFreeTodayScreenState = stateFor(dayAt(24, 'clear', 0));
+
+export function firstOutfitId(state: TodayScreenState): string {
+  if (state.kind !== 'loaded' || state.snapshot.recommendation.status !== 'recommended') {
+    throw new Error('Expected a loaded recommendation fixture.');
+  }
+  return state.snapshot.recommendation.outfits[0].optionId;
+}

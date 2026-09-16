@@ -107,7 +107,9 @@ test('T1b a pool below three options offers no AI request at all', () => {
     );
   }
   assert.notEqual(aiRequestFromContext({ ...context, options: context.options.slice(0, 3) }), null);
-  assert.equal(aiRequestFromContext({ ...context, requirements: [] }), null);
+  // A day that derives no requirement at all is still an AI day: the pool decides, the
+  // weather does not.
+  assert.notEqual(aiRequestFromContext({ ...context, requirements: [] }), null);
 });
 
 test('T2 every pair of offered options is meaningfully different, so the shared distinctness rule never splits the two gates', () => {

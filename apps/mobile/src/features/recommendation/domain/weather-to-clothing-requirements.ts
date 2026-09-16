@@ -72,6 +72,23 @@ export type TractionRequirement = RequirementBase<
   Exclude<TractionSuitability, 'everyday'>
 > & Readonly<{ kind: 'traction' }>;
 
+export const extremityCoverTargets = Object.freeze([
+  'head',
+  'neck',
+  'hands',
+] as const);
+
+export type ExtremityCoverTarget = (typeof extremityCoverTargets)[number];
+
+/**
+ * Warmth over one extremity. No top, bottom, one-piece, outer layer or shoe carries the
+ * head, the neck or the hands, so this is the one requirement the six body slots never
+ * answer: only an accessory does, and only after the outfit is composed.
+ */
+export type ExtremityCoverRequirement = RequirementBase<
+  Exclude<ThermalLevel, 'none'>
+> & Readonly<{ kind: 'extremity_cover'; target: ExtremityCoverTarget }>;
+
 export type ClothingRequirement =
   | ThermalRequirement
   | BreathabilityRequirement
@@ -79,12 +96,45 @@ export type ClothingRequirement =
   | LegCoverageRequirement
   | WaterProtectionRequirement
   | WindProtectionRequirement
-  | TractionRequirement;
+  | TractionRequirement
+  | ExtremityCoverRequirement;
+
+/** Everything the six body slots are composed and scored against. */
+export type BodyClothingRequirement = Exclude<
+  ClothingRequirement,
+  ExtremityCoverRequirement
+>;
 
 export type ClothingRequirements = Readonly<{
   requirements: readonly ClothingRequirement[];
   reasonCodes: readonly ClothingRequirementReasonCode[];
 }>;
+
+export type BodyClothingRequirements = Readonly<{
+  requirements: readonly BodyClothingRequirement[];
+  reasonCodes: readonly ClothingRequirementReasonCode[];
+}>;
+
+function isBodyRequirement(
+  requirement: ClothingRequirement,
+): requirement is BodyClothingRequirement {
+  return requirement.kind !== 'extremity_cover';
+}
+
+/**
+ * The same set without the accessory-only requirements. Composition reads this, so an
+ * extremity nobody can cover with a coat never lowers an outfit's score or invalidates it.
+ */
+export function bodyClothingRequirements(
+  requirements: ClothingRequirements,
+): BodyClothingRequirements {
+  return Object.freeze({
+    requirements: Object.freeze(
+      requirements.requirements.filter(isBodyRequirement),
+    ),
+    reasonCodes: requirements.reasonCodes,
+  });
+}
 
 const reasonOrder = new Map(
   clothingRequirementReasonCodes.map((code, index) => [code, index]),
@@ -99,6 +149,9 @@ const requirementOrder: Readonly<Record<string, number>> = Object.freeze({
   'water_protection:body': 5,
   'water_protection:feet': 6,
   traction: 7,
+  'extremity_cover:head': 8,
+  'extremity_cover:neck': 9,
+  'extremity_cover:hands': 10,
 });
 
 const thermalStrength: Readonly<Record<Exclude<ThermalLevel, 'none'>, number>> =
@@ -124,7 +177,8 @@ function orderedReasonCodes(
 }
 
 function requirementKey(requirement: ClothingRequirement): string {
-  return requirement.kind === 'water_protection'
+  return requirement.kind === 'water_protection' ||
+      requirement.kind === 'extremity_cover'
     ? `${requirement.kind}:${requirement.target}`
     : requirement.kind;
 }
@@ -132,6 +186,7 @@ function requirementKey(requirement: ClothingRequirement): string {
 function requirementStrength(requirement: ClothingRequirement): number {
   switch (requirement.kind) {
     case 'thermal':
+    case 'extremity_cover':
       return thermalStrength[requirement.minimum];
     case 'breathability':
       return breathabilityStrength[requirement.minimum];
@@ -348,6 +403,22 @@ export function deriveClothingRequirements(
       priority: coveragePriority,
       reasonCodes: coldReasons,
     });
+  }
+
+  // Below 12 the head, the neck and the hands are worth covering, which is the boundary
+  // that already makes full arm and leg coverage mandatory. These three stay optional
+  // whatever the temperature: no accessory is ever the reason an outfit does not compose,
+  // and a day whose cold side is demoted by current heat asks for none of them.
+  if (coldExposure < 12 && !coldDemoted) {
+    for (const target of extremityCoverTargets) {
+      candidates.push({
+        kind: 'extremity_cover',
+        target,
+        minimum: coldExposure < 5 ? 'high' : 'moderate',
+        priority: 'optional',
+        reasonCodes: coldReasons,
+      });
+    }
   }
 
   if (heatExposure >= 24) {

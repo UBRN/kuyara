@@ -225,3 +225,40 @@ test('one repeated pair in a trio fails the whole set', () => {
   );
   assert.equal(picksAreMeaningfullyDifferent([]), true);
 });
+
+// Accessories follow from the weather and the option's formality alone, so two options that
+// differ in one shoe would otherwise look three pairs apart the moment that shoe moved them
+// to another formality and changed the hat and the scarf with it.
+test('accessories never make two picks different', () => {
+  const casual = [
+    garment('head', 'beanie', null),
+    garment('neck', 'neck_gaiter', null),
+  ];
+  const smart = [
+    garment('head', 'brimmed_hat', null),
+    garment('neck', 'scarf', null),
+  ];
+
+  assert.equal(
+    picksAreMeaningfullyDifferent([
+      topAndBottom('t_shirt', 'jeans', casual),
+      topAndBottom('t_shirt', 'jeans', smart),
+    ]),
+    false,
+  );
+  assert.equal(
+    picksAreMeaningfullyDifferent([
+      topAndBottom('t_shirt', 'jeans', [garment('mid_layer', 'cardigan', 'mid'), ...casual]),
+      topAndBottom('t_shirt', 'jeans', [garment('mid_layer', 'sweater', 'mid'), ...smart]),
+    ]),
+    false,
+  );
+  // The body still decides: two differing body garments are two differing body garments.
+  assert.equal(
+    picksAreMeaningfullyDifferent([
+      topAndBottom('t_shirt', 'jeans', casual),
+      topAndBottom('t_shirt', 'trousers', [garment('outer_layer', 'coat', 'outer'), ...smart]),
+    ]),
+    true,
+  );
+});
