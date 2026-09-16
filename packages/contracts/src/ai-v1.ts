@@ -118,6 +118,12 @@ export const formalityLevels = ['casual', 'smart', 'formal'] as const;
 export const dressStyles = ['casual', 'smart', 'formal'] as const;
 export const dressStyleSchema = z.enum(dressStyles);
 export type DressStyle = (typeof dressStyles)[number];
+// Whether the day the recommendation is for is a working day or a weekend day. The client
+// derives it from the device's local date; the Worker only reads it.
+export const dayKinds = ['weekday', 'weekend'] as const;
+export const dayKindSchema = z.enum(dayKinds);
+export type DayKind = (typeof dayKinds)[number];
+
 export const formalityOrderByDressStyle = Object.freeze({
   casual: Object.freeze(['casual', 'smart', 'formal'] as const),
   smart: Object.freeze(['smart', 'casual', 'formal'] as const),
@@ -274,6 +280,9 @@ export const aiRecommendV1RequestSchema = z.strictObject({
   dressStyle: dressStyleSchema.optional(),
   catalogVersion: z.number().int().min(1),
   dayVariant: z.number().int().min(0).max(6),
+  // Optional so a binary that predates it keeps the day-blind behaviour, where
+  // `weekend_relaxed` is eligible for every casual option.
+  dayKind: dayKindSchema.optional(),
   // Requirements are cache-key inputs and never reach the model.
   requirements: z.array(clothingRequirementSchema).min(1).max(8),
   options: z.array(aiOptionSchema).min(1).max(aiV1OptionLimit),

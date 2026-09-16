@@ -216,6 +216,29 @@ test('fallback archetypes use rule order and advance past duplicates', () => {
   );
 });
 
+// The bug: nothing in the pipeline knew the weekday, so a Tuesday could be labelled
+// Weekend Relaxed. A weekday now drops that rung and the casual outfit takes the next one.
+test('a weekday drops weekend_relaxed from the fallback order', () => {
+  const input = {
+    now: observedAt,
+    snapshot: snapshot(),
+    clothingPreference: 'womens',
+    dressStyle: 'casual',
+    dayVariant: 0,
+  };
+  const dayBlind = recommendOutfits(input);
+  assert.equal(dayBlind.outfits[0].archetypeId, 'weekend_relaxed');
+  assert.equal(recommendOutfits({ ...input, dayKind: 'weekend' }).outfits[0].archetypeId, 'weekend_relaxed');
+
+  const weekday = recommendOutfits({ ...input, dayKind: 'weekday' });
+  assert.equal(weekday.outfits.length, 3);
+  assert.equal(weekday.outfits[0].archetypeId, 'everyday_easy');
+  assert.equal(
+    weekday.outfits.some(({ archetypeId }) => archetypeId === 'weekend_relaxed'),
+    false,
+  );
+});
+
 test('mens recommendations exclude womens-only catalog types', () => {
   const weather = warmWetSnapshot();
   const womens = recommendOutfits({
@@ -322,17 +345,28 @@ test('each dress style keeps three distinct fallback outfits across catalog pref
     for (const dressStyle of ['casual', 'smart', 'formal']) {
       for (const weather of [snapshot(), coldWetSnapshot(), warmWetSnapshot()]) {
         for (let dayVariant = 0; dayVariant < 7; dayVariant += 1) {
-          const result = recommendOutfits({
-            now: observedAt,
-            snapshot: weather,
-            clothingPreference,
-            dressStyle,
-            dayVariant,
-          });
-          assert.equal(result.status, 'recommended');
-          assert.equal(result.outfits.length, 3);
-          assert.equal(new Set(result.outfits.map(({ optionId }) => optionId)).size, 3);
-          assert.equal(new Set(result.outfits.map(({ archetypeId }) => archetypeId)).size, 3);
+          // A weekday takes `weekend_relaxed` out of the order, so the three-outfit
+          // invariant is proved with the field absent and with either value.
+          for (const dayKind of [undefined, 'weekday', 'weekend']) {
+            const result = recommendOutfits({
+              now: observedAt,
+              snapshot: weather,
+              clothingPreference,
+              dressStyle,
+              dayVariant,
+              dayKind,
+            });
+            assert.equal(result.status, 'recommended');
+            assert.equal(result.outfits.length, 3);
+            assert.equal(new Set(result.outfits.map(({ optionId }) => optionId)).size, 3);
+            assert.equal(new Set(result.outfits.map(({ archetypeId }) => archetypeId)).size, 3);
+            if (dayKind === 'weekday') {
+              assert.equal(
+                result.outfits.some(({ archetypeId }) => archetypeId === 'weekend_relaxed'),
+                false,
+              );
+            }
+          }
         }
       }
     }

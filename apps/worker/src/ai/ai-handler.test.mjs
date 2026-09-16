@@ -320,6 +320,37 @@ test('rejects an archetype whose own option fails its precondition', async () =>
   assert.deepEqual(await response.json(), validOutput());
 });
 
+// A weekday is not a weekend, and nothing upstream knew that until the request carried it.
+test('a weekday rejects a weekend_relaxed pick that any other day accepts', async () => {
+  const weekday = JSON.stringify({ ...validRequestBody(), dayKind: 'weekday' });
+  await assertError(
+    await createAiHandler({
+      providers: [{ generateOutfits: async () => validOutput() }],
+    })(request({ body: weekday })),
+    503,
+    'ai_unavailable',
+  );
+
+  const relabelled = validOutput();
+  relabelled.data.picks[0].archetypeId = 'everyday_easy';
+  assert.equal(
+    (await createAiHandler({
+      providers: [{ generateOutfits: async () => relabelled }],
+    })(request({ body: weekday }))).status,
+    200,
+  );
+
+  const weekend = JSON.stringify({ ...validRequestBody(), dayKind: 'weekend' });
+  for (const options of [{}, { body: weekend }]) {
+    assert.equal(
+      (await createAiHandler({
+        providers: [{ generateOutfits: async () => validOutput() }],
+      })(request(options))).status,
+      200,
+    );
+  }
+});
+
 test('accepts every archetype when its option satisfies the precondition', async () => {
   const cases = [
     ['everyday_easy', validRequestBody().options[0]],
@@ -548,6 +579,25 @@ test('a request differing only in dayVariant is a shared-cache miss', async () =
     nextDay.dayVariant = 1;
     assert.equal((await handle(request())).status, 200);
     assert.equal((await handle(request({ body: JSON.stringify(nextDay) }))).status, 200);
+    assert.equal(providerCalls, 2);
+  } finally {
+    restore();
+  }
+});
+
+test('a request differing only in dayKind is a shared-cache miss', async () => {
+  const restore = installMemoryCache();
+  try {
+    let providerCalls = 0;
+    const handle = createAiHandler({ providers: [{
+      async generateOutfits() {
+        providerCalls += 1;
+        return validOutput();
+      },
+    }] });
+    const weekend = JSON.stringify({ ...validRequestBody(), dayKind: 'weekend' });
+    assert.equal((await handle(request())).status, 200);
+    assert.equal((await handle(request({ body: weekend }))).status, 200);
     assert.equal(providerCalls, 2);
   } finally {
     restore();

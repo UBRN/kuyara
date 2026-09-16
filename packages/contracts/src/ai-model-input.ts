@@ -3,6 +3,7 @@ import {
   outfitArchetypeIds,
   type AiOption,
   type AiRecommendV1Request,
+  type DayKind,
   type FormalityLevel,
   type OutfitArchetypeId,
 } from './ai-v1.ts';
@@ -12,6 +13,7 @@ type AiOptionGarment = AiOption['garments'][number];
 export type AiModelInput = Readonly<{
   clothingPreference: AiRecommendV1Request['clothingPreference'];
   formalityOrder: readonly FormalityLevel[];
+  dayKind?: DayKind;
   options: readonly Readonly<{
     optionId: AiOption['optionId'];
     formality: AiOption['formality'];
@@ -36,6 +38,7 @@ export function aiModelInputFromRequest(request: AiRecommendV1Request): AiModelI
   return {
     clothingPreference: request.clothingPreference,
     formalityOrder: formalityOrderByDressStyle[request.dressStyle ?? 'smart'],
+    ...(request.dayKind ? { dayKind: request.dayKind } : {}),
     options: request.options.map((option) => ({
       optionId: option.optionId,
       formality: option.formality,
@@ -43,7 +46,7 @@ export function aiModelInputFromRequest(request: AiRecommendV1Request): AiModelI
         slot,
         garmentTypeId,
       })),
-      eligibleArchetypeIds: projectedArchetypeIdsForOption(option),
+      eligibleArchetypeIds: projectedArchetypeIdsForOption(option, request.dayKind),
     })),
   };
 }
@@ -60,6 +63,7 @@ function garmentType(option: AiOption, slot: AiOptionGarment['slot']) {
 export function meetsArchetypePrecondition(
   archetypeId: OutfitArchetypeId,
   option: AiOption,
+  dayKind?: DayKind,
 ): boolean {
   switch (archetypeId) {
     case 'everyday_easy':
@@ -69,7 +73,9 @@ export function meetsArchetypePrecondition(
     case 'office_ready':
       return option.formality === 'formal';
     case 'weekend_relaxed':
-      return option.formality === 'casual';
+      // A weekday is never relaxed in the weekend sense. An absent dayKind leaves the
+      // archetype eligible, so a caller that sends none keeps the day-blind behaviour.
+      return option.formality === 'casual' && dayKind !== 'weekday';
     case 'layered_warmth':
       return option.traits.hasMidLayer && option.traits.hasOuterLayer;
     case 'cold_shield':
@@ -93,13 +99,15 @@ export function meetsArchetypePrecondition(
  * The conditional archetypes an option qualifies for. `everyday_easy` has no
  * precondition, so repeating it under all 24 options would spend the on-device session
  * window on a constant; both prompts state instead that it is always allowed. The gate
- * still accepts it, because `meetsArchetypePrecondition` is unchanged.
+ * still accepts it, because its precondition holds for every option on every day.
  */
 function projectedArchetypeIdsForOption(
   option: AiOption,
+  dayKind?: DayKind,
 ): readonly OutfitArchetypeId[] {
   return outfitArchetypeIds.filter((archetypeId) =>
-    archetypeId !== 'everyday_easy' && meetsArchetypePrecondition(archetypeId, option));
+    archetypeId !== 'everyday_easy'
+    && meetsArchetypePrecondition(archetypeId, option, dayKind));
 }
 
 function hasDifferentBodyCore(left: AiOption, right: AiOption): boolean {

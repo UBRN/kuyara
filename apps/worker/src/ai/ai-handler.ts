@@ -159,6 +159,7 @@ async function buildCacheRequest(request: AiRecommendV1Request): Promise<Request
     request.dressStyle ?? 'smart',
     request.catalogVersion,
     request.dayVariant,
+    request.dayKind ?? 'unknown',
   ].join('\n');
   const digest = await crypto.subtle.digest(
     'SHA-256',
@@ -318,7 +319,11 @@ export function createAiHandler({
           continue;
         }
         if (!result.data.data.picks.every(({ archetypeId }, index) =>
-          meetsArchetypePrecondition(archetypeId, pickedOptions[index]!))) {
+          meetsArchetypePrecondition(
+            archetypeId,
+            pickedOptions[index]!,
+            requestResult.data.dayKind,
+          ))) {
           logProviderFailure(provider, 'archetype_precondition');
           continue;
         }
