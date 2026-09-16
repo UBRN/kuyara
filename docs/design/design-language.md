@@ -130,7 +130,13 @@ Why this is stricter than the mockups: see [Relationship to the mockups](#relati
 
 ## Law 4: one accent, and a status band
 
-**One accent.** `brandAccent` is the only non-neutral hue in ordinary UI.
+**One accent.** `brandAccent` is the only non-neutral hue in ordinary UI. Law 4
+governs kuyara-drawn surfaces; system-drawn controls, the native lists, pickers and
+switches, carry the system's colour on both platforms, which on Android 12 and later is
+the device's dynamic Material You colour, as
+[ADR 0019](../adr/0019-adopting-expo-ui-at-the-control-layer.md) decides. The one
+system control that takes an application colour is the tab bar, whose selected tint is
+`brandPrimary`, the single control use of brand colour Apple's branding guidance names.
 
 **Status colours are approved and enter as a band, not as free hues.** Every status
 ink is tuned so its contrast against its own appearance's `surface` lies within **±0.8**
@@ -217,6 +223,15 @@ pattern of pairing a specific colour with a specific
 icon](https://carbondesignsystem.com/patterns/status-indicator-pattern/). `iconNames`
 already carries `checkCircle`, `warning`, `error`, `info`. No new icon is required.
 
+kuyara reads neither iOS Increase Contrast (`isDarkerSystemColorsEnabled`) nor
+Differentiate Without Color: every text role clears 4.5:1 and every defined border
+3:1 by default, so the [higher-contrast scheme the HIG asks for only when the default
+falls short](https://developer.apple.com/design/human-interface-guidelines/accessibility)
+is not owed, and ink + glyph + text already leaves nothing for the second setting to
+change. The system-drawn controls of ADR 0019 adapt to both on their own, and
+Differentiate Without Color is not exposed to JavaScript by React Native or any
+installed Expo module, so reacting to it would mean a native module with no caller.
+
 ### Destructive variant, approved
 
 Filled destructive button: fill `dangerInk`, label the appearance's on-brand colour.
@@ -271,7 +286,9 @@ copy will be written for the first time:
 | error | what happened + what to do | "Giysi türü seçilmedi. Listeden bir tür seç." | apologies, "Oops", blame |
 
 No exclamation marks anywhere in status copy. The interface does not celebrate and does
-not panic; both are forms of demanding attention, which the identity forbids.
+not panic; both are forms of demanding attention, which the identity forbids. Freshness
+copy has one structure on every surface, English "Last updated at {time}" and Turkish
+"Son güncelleme {time}", and a screen never rewords it.
 
 ## Law 6: iconography character
 
@@ -319,7 +336,9 @@ Three requirements are hard, not judgment calls:
   requirement rather than a restraint preference.
 - **Reduced Motion is honoured.** Tokenized durations already resolve to 0; any
   ambient animation must short-circuit as `weather-glyph.tsx` and
-  `probe-loading-overlay.tsx` already do.
+  `probe-loading-overlay.tsx` already do. The response is a stop, not a slower loop,
+  and the OS setting is the only pause mechanism: there is no in-app motion toggle, for
+  the reason Law 8 gives for haptics, and ADR 0020 records the standards reading.
 - **Nothing moves under a screen's hero value.** The condition-tinted stage of
   [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md) is deliberately
   still, because continuous movement beneath large text is where ambient motion
@@ -331,11 +350,15 @@ and `deliberate` all describe transitions, and a 1500 ms cloud bob is not a tran
 The role carries three tempo steps, each one leg of a loop: calm 1500 ms, moderate
 1000 ms and intense 650 ms, the calm step kept after watching the Today glyph on the
 iPhone 17 Pro Simulator on 2026-09-12. A deterministic weather-domain rule picks the step
-from the condition, a calm condition moving more slowly than a violent one. Two surfaces
-consume the role: the weather glyph on Today and Weather, and the AI status probe
-overlay, which breathes on the calm step. Ambient motion never runs under a hero value
-and all three steps resolve to 0 under Reduce Motion. A duration is a role in the sense
-of Law 9, so the role is named ahead of its second use.
+from the condition, a calm condition moving more slowly than a violent one. Two kinds of
+surface consume the role: the weather glyph on Today and Weather, and the wait surfaces
+(Today's board skeleton, Today's loading line, the AI status probe overlay), which
+breathe on the moderate step, a full breath of 2000 ms, because that is the cycle band
+Ding and Kyung (Journal of Consumer Research 2026,
+<https://academic.oup.com/jcr/advance-article/doi/10.1093/jcr/ucaf037/8165440>) measured
+as the shortest perceived wait. Ambient motion never runs under a hero value and all
+three steps resolve to 0 under Reduce Motion. A duration is a role in the sense of Law
+9, so the role is named ahead of its second use.
 
 **Spatial and effects motion.** Motion is one of two kinds. *Effects*
 motion changes a property in place: opacity, colour, a tint draining away. The three
@@ -406,7 +429,11 @@ buttons, list rows, chips, the tab bar and pickers fire nothing on press; where 
 bar and the pickers do fire, it is the selection change above, which is a state changing
 under the finger rather than a press being acknowledged. The press that completes an
 outfit's ownership fires the success notification, not the selection feedback as well:
-one press, one haptic.
+one press, one haptic. Gordon and Zhai (CHI 2019,
+<https://doi.org/10.1145/3290605.3300603>) measured no speed or accuracy gain from
+haptic confirmation on a tap and a clear gain from haptics at a drag boundary crossing,
+so the threshold sites rest on a measured result and the primary press on subjective
+preference alone; a second press-confirmation site is not argued in on performance.
 
 Six sites, not a hundred. A repeated action must not punish the hand with
 constant vibration, which matches Apple's own guidance and this identity's existing
@@ -436,7 +463,11 @@ truth for the same state. Recorded tension, so this can be revisited on evidence
 Microsoft's Xbox Accessibility Guideline 110 argues for an in-app toggle and intensity
 control, because haptics can be bothersome, distracting, or even painful for users with
 sensory processing disorders or chronic pain. The OS setting is judged to cover this,
-since a user for whom haptics are aversive will have disabled them system-wide.
+since a user for whom haptics are aversive will have disabled them system-wide. The
+[WCAG 3.0 Working Draft](https://www.w3.org/TR/wcag-3.0/)'s Developing requirement
+"Haptic stimulation adjustable" (haptic feedback can be reduced or turned off) points
+the same way, and the question is reopened if that requirement reaches the draft's
+Refining status.
 
 ## Law 9: the deferral carve-out
 

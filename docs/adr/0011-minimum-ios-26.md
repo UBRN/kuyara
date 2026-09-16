@@ -66,7 +66,11 @@ build, which every App Store build since the first has carried.
 
 Apple's separate requirement, unchanged by this: since 2026-04-28 all new App
 Store Connect uploads must be built with Xcode 26 and the iOS 26 SDK. That is
-a build SDK requirement and never forced the deployment target.
+a build SDK requirement and never forced the deployment target. The deployment target
+and the SDK the app is built with are independent settings: the target is this ADR's
+decision, while the build SDK follows the Xcode that the installed Expo SDK supports and
+Apple's own upload requirement, which moves on Apple's schedule (the iOS 27 SDK from
+April 2027) without reopening this decision.
 
 ### Garment icons stay bundled artwork
 

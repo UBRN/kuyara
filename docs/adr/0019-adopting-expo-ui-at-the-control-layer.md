@@ -69,6 +69,22 @@ Profile and onboarding, where the atmosphere band, the typography scale and the
 three-band composition do the work. Concentrating identity there and letting the
 system own the controls is the shape the redesign chose anyway.
 
+On Android the system's colour is the device's own colour. When `Host` receives no
+`seedColor`, `@expo/ui` resolves the wallpaper-derived Material You scheme on Android 12
+and later, and kuyara passes none, so the native controls carry the device's dynamic
+colour, which may not match `brandAccent`. That is the Android form of this decision
+and it is chosen, not accidental: the system's colour stays on native controls on both
+platforms, and Law 4's one accent governs kuyara-drawn surfaces. Two red lines follow.
+Do not pass `seedColor` to force the brand onto system controls, because that overrides
+the user's own device choice. Do not draw JS replicas of native controls to get the
+brand colour back. Neither line is crossed today: the community segmented control
+resolves on Android to Compose's `SingleChoiceSegmentedButtonRow` (its vendored JS
+drawing is the web fallback only), where the wrapper's `tintColor` becomes the selected
+segment's container colour under [ADR 0029](0029-the-closet-grid.md)'s rule, and the
+three React Native `ActivityIndicator`s are the platform's own `ProgressBar`, not
+`@expo/ui`'s Expressive `LoadingIndicator`; neither changes without an Android runtime
+to look at.
+
 ### 4. expo-glass-effect stays unused
 
 [ADR 0012](0012-adopting-expo-router-native-tabs.md) rejected hand-built glass and
@@ -78,10 +94,12 @@ without a new decision.
 
 ## Consequences
 
-- Android gains real Material 3 controls from the same source, which is the closest
-  this repository has come to satisfying `AGENTS.md`'s Material 3 requirement. It
-  remains **unverified**: there is still no Android verification path here, and no
-  report may claim otherwise.
+- Android gains real Material 3 Expressive controls from the same source. `@expo/ui`'s
+  Android module pins `androidx.compose.material3:material3:1.5.0-alpha17` in its
+  `build.gradle`, an alpha on the release path, and its `HostView.kt` wraps every child
+  in `MaterialExpressiveTheme` under the experimental Expressive API. These facts come
+  from reading the installed module; no Android build or emulator run exists in this
+  repository, and no report may claim runtime verification on Android.
 - Three toggle components collapse to one, two segmented controls to one, two
   disclosures to one, and the six copies of the large-text stacking branch to one
   shared hook.

@@ -214,7 +214,11 @@ until the git-ignored Expo typed-route types were generated on the runner. Since
 2026-09-15 the repository also has Dependabot version updates with the Expo SDK excluded,
 a dependency-review job on pull requests, Dependabot alerts and security updates, secret
 scanning with push protection and CodeQL default setup, whose first scan passed with no
-alert (see [testing.md](testing.md)). The release
+alert (see [testing.md](testing.md)). Every third-party action in every workflow is pinned
+to a full commit SHA, `.github/workflows/secret-scan.yml` runs gitleaks over the pushed and
+proposed commits, and `.github/workflows/deploy-worker.yml` can deploy the Worker only from
+a manual dispatch; it has never run because its `production` environment still lacks the
+`CLOUDFLARE_API_TOKEN` secret and the `CLOUDFLARE_ACCOUNT_ID` variable. The release
 workflow has not run yet, but the App Store Connect API key it needs is already held by
 EAS, proven by the non-interactive submit of build 9. The version bump, the TestFlight pass
 on the phone and Submit for Review stay the maintainer's manual steps exactly as they are
@@ -409,6 +413,13 @@ before submitting is the maintainer's call.
   2026-09-13 after a search found no existing issue on either defect; sending them is
   the maintainer's decision. Whether to use an EAS paid plan for Observe's route and
   event views is also undecided; the Starter plan is the first tier that exposes them.
+- **Apple's iOS 27 SDK build requirement lands in April 2027.** Apple's news item of
+  2026-09-09 states that starting April 2027, apps uploaded to App Store Connect must be
+  built with the iOS 27 and iPadOS 27 SDK or later
+  (<https://developer.apple.com/news/?id=k1mtkt1k>). This is a build-SDK requirement,
+  separate from the 26.0 deployment target of ADR 0011, which does not change. The Expo
+  SDK release that builds against the iOS 27 SDK is not yet identified; every upload from
+  April 2027 depends on it, so the SDK upgrade has to be scheduled before then.
 - **Real VoiceOver is unverified.** The XCUITest hierarchy was checked on the Simulator
   (single labelled elements in source order; ownership buttons carry `selected`; picker
   options carry the radio role; on iOS the notifications switch carries its row label), but
@@ -427,13 +438,6 @@ before submitting is the maintainer's call.
   in LLDB (debug builds only) or wait for a real system window. Confirm a fresh snapshot
   and rescheduled alerts through persistence, not console output; the task swallows its
   own errors by design.
-- **Android is unverified**, consistent with the repository's posture: the native tab
-  bar, the icon set and garment artwork, the `@expo/ui` text field, picker list and date
-  picker, the `weather-alerts` notification channel, and the resolved manifest after
-  blocking fine-location permission. Android verification is deferred by the
-  maintainer's decision until an explicit go-ahead. The development Mac has no Android
-  SDK, no AVD and no `ANDROID_HOME`, so the check starts with Android Studio, an SDK
-  Platform and a Pixel AVD on API 35 or later before `expo run:android` can run. Until
 - **One Dependabot alert stays open by decision.** `decode-uri-component` 0.2.2 reaches
   the app only through expo-router 57's `query-string` 7.1.3, whose CommonJS `require`
   cannot load the only patched release, 0.5.0, which is ESM-only; an override would throw
@@ -441,6 +445,13 @@ before submitting is the maintainer's call.
   device through a crafted `kuyara://` query. The alert is dismissed on GitHub as
   tolerable with this reason; re-check `pnpm why decode-uri-component` at every Expo SDK
   upgrade.
+- **Android is unverified**, consistent with the repository's posture: the native tab
+  bar, the icon set and garment artwork, the `@expo/ui` text field, picker list and date
+  picker, the `weather-alerts` notification channel, and the resolved manifest after
+  blocking fine-location permission. Android verification is deferred by the
+  maintainer's decision until an explicit go-ahead. The development Mac has no Android
+  SDK, no AVD and no `ANDROID_HOME`, so the check starts with Android Studio, an SDK
+  Platform and a Pixel AVD on API 35 or later before `expo run:android` can run. Until
   then shared code stays Android-compatible and no iOS-only assumption enters it.
 - OpenWeather stays in the chain: ADR 0002 now records the ODbL reading (share-alike
   reaches only a reusable dataset exported outside the organisation), and provider
@@ -472,27 +483,45 @@ before submitting is the maintainer's call.
 - **Dark atmosphere states render neutral only.** ADR 0018 caps them at Deep Atmosphere's
   luminance; every compliant variation sits only 3 to 8 RGB levels from the current
   `#122A35` stage and is imperceptible. Lifting the cap needs a separate decision.
-- **The Pages site ignores Reduce Motion by decision.** Since 2026-09-15 the website at
-  `docs/` animates regardless of the OS setting and offers a System/Light/Dark selector
-  stored in the browser; only `product-decisions.md` records the carve-out, while
-  `docs/design/visual-identity.md` still states the app's unqualified Reduced Motion rule.
-  With JavaScript off the selector is absent and the site follows the system scheme; a
-  Turkish-language browser is redirected from `/` to `/tr/` on first visit by the
-  language-memory script.
-- **Landing page gaps.** No favicon, apple-touch-icon or Open Graph image exists, so
-  every page 404s on `/favicon.ico`; the landing `<title>` appends the site description
-  ("for iOS and Android") while the page says iPhone; the Smart App Banner is untested
-  on a real device; Firefox was never run (the `@supports` gate gives it the finished
-  page); the garment path data is copied from `silhouettes.ts` and drifts if that file
-  changes; the stage is a 2.6:1 row outside ADR 0025's in-app range and bands use `2xl`
-  as padding, both web-only choices with no design document behind them.
-- **Dark theme limits on the Primer pages.** Rouge ships no dark syntax palette, so code
-  blocks are monochrome in dark; `.markdown-body img` loses its white backing; the theme
-  control's styles are emitted before Primer's stylesheet, so a future Primer rule could
-  win a specificity tie; the 400 ms theme cross-fade sets `transition` with `!important`
-  on every element for its duration; the indicator and cross-fade use `linear` because
-  the tokens carry durations and no easing.
-- **A local Jekyll build differs from Pages.** The local `github-pages` build applies no
-  layout to pages without a `layout:` key unless a `defaults` config is passed, and
-  `docker pull` hangs on the maintainer's machine, so the official build image cannot
-  run locally; the live site is the proof for header and control changes.
+- **The Pages site ignores Reduce Motion by decision.** The website at `docs/` animates
+  regardless of the OS setting and offers a System/Light/Dark selector stored in the
+  browser; the carve-out is recorded in `product-decisions.md` and qualified in
+  `docs/design/visual-identity.md`. With JavaScript off the selector is absent and the
+  site follows the system scheme; a Turkish-language browser is redirected from `/` to
+  `/tr/` on first visit by the language-memory script.
+- **Landing page limits.** The landing `<title>` is the bare name in both languages (the
+  Primer pages keep "Page | kuyara"); a descriptive browser title would be new bilingual
+  copy. The Smart App Banner meta matches Apple's documented format and App Store id,
+  but whether it renders can only be shown in Safari on a physical iPhone or iPad on
+  iOS 26 with the App Store; the Simulator never shows it. Firefox 155 takes the
+  finished page through the `@supports` gate and the IntersectionObserver reveal at
+  1280 and 400 px in both languages; keyboard operation of the controls in Firefox is
+  unverified. The garment path data is copied from `silhouettes.ts`;
+  `landing-boards.test.mjs` in the mobile suite fails when the copy and the vocabulary
+  disagree. The 2.6:1 stage row and the `2xl` band padding are web-only choices recorded
+  under "Web presence" in `docs/design/visual-identity.md`, together with the favicon and
+  Open Graph compositions. The favicon, apple-touch-icon and Open Graph image are served
+  from `docs/` and wired through `<link>` tags and a `defaults` image key; a client that
+  ignores them and fetches the origin root `https://ubrn.github.io/favicon.ico` still
+  gets the user site's 404, which this repository cannot serve.
+- **Dark theme limits on the Primer pages.** Dark code uses a three-tone palette from the
+  semantic text tokens (primary, the accent for literals, secondary for comments and
+  output); names that Rouge's light palette distinguishes stay primary because no fourth
+  token reaches 4.5:1, and diff and error backplates are transparent because no token
+  names a red or a green. `.markdown-body img` sits on the page ground in dark, as
+  GitHub renders it. The theme control's styles precede Primer's stylesheet by design:
+  every rule is class-scoped and the shipped Primer 0.6.0 reaches those elements only
+  through element selectors, so specificity settles each conflict. The theme cross-fade
+  sets a colour-only `transition` with `!important` on every element for 400 ms, and
+  both it and the indicator use `linear` because the tokens carry durations and no
+  easing; an easing token derived from the app's Reanimated default is proposed, not
+  decided.
+- **A local Jekyll build differs from Pages only in `<head>`.** Pages builds with
+  `github-pages` 232 (Jekyll 3.10.0, jekyll-seo-tag 2.8.0, Ruby 3.3.4); the maintainer's
+  Ruby 4 resolves only 223 (Jekyll 3.9.0, jekyll-seo-tag 2.7.1), so a local build lacks
+  the `og:type` meta and differs in the generator and SEO-tag version lines while every
+  page body matches the live site. Jekyll loads the `github-pages` plugin set only when a
+  `Gemfile` sits in the process working directory, so a build started from another
+  directory renders pages without layouts and copies front-matter-less Markdown raw;
+  `docker pull` hangs on the maintainer's machine, so the official build image cannot run
+  locally. The recipe is in `docs/testing.md`.

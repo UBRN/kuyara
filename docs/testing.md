@@ -46,8 +46,26 @@ and React majors are excluded because `npx expo install --check` owns those vers
 known high or critical vulnerability. On the repository itself Dependabot alerts,
 Dependabot security updates, secret scanning with push protection and CodeQL default setup
 (JavaScript and TypeScript, weekly) are switched on; all four are free for a public
-repository and none can deploy or spend. Branch rulesets and a manually triggered Worker
-deploy workflow are deliberately not set up yet.
+repository and none can deploy or spend. Branch rulesets are deliberately not set up yet.
+
+`.github/workflows/secret-scan.yml` runs gitleaks 8.30.1 over the pushed or proposed
+commits on every push to `main` and every pull request, and over the whole history when
+dispatched by hand. It reads `.gitleaks.toml`, the same configuration the local pre-commit
+hook uses, so a commit made with `--no-verify` or without gitleaks installed is still
+scanned. That configuration extends the default rules and allowlists two known false
+positives: the PEM header lines in `apps/worker/src/weather/weatherkit-token.test.mjs`,
+which belong to a throwaway P-256 key the test generates at runtime, and the PostHog
+`phc_` project token, a public write-only client key that ships inside the app bundle.
+Every third-party action in every workflow is pinned to a full commit SHA with its release
+tag in a trailing comment, so Dependabot's `github-actions` ecosystem bumps both together.
+
+`.github/workflows/deploy-worker.yml` is the only workflow that can deploy the Worker, and
+it starts only from a manual `workflow_dispatch` that picks the `production` or `e2e`
+Wrangler environment; nothing deploys on push and one deploy runs at a time. It installs
+from the lockfile, typechecks and tests the Worker, bundles it with a dry-run
+`wrangler deploy`, then deploys through the GitHub `production` environment. That
+environment needs the secret `CLOUDFLARE_API_TOKEN` and the variable
+`CLOUDFLARE_ACCOUNT_ID`; neither exists yet, so the workflow has never run.
 
 Verify the Worker bundle without deployment:
 
@@ -146,7 +164,7 @@ Weather tests execute migration version 4 and its rollback, validate location/sn
 
 Recommendation suites cover deterministic requirements, garment evaluation, composition, diversity, approved refresh triggers, coalescing, AI validation/fallback, and migration version 5 snapshot persistence. Today tests cover real domain-shaped recommendations and the coarse generation-mode indicator; Settings tests cover sanitized probe states and Reduced Motion. Notification tests cover the adapter/application boundary, permission and opt-in behavior, and localized accessible Settings states.
 
-Presentation tests should focus on pure onboarding/route decisions, localization completeness, accessibility contracts, navigation intents, and source boundaries. Simulator verification remains required for genuine persistence across termination/relaunch, complete navigation behavior, native accessibility output, Dynamic Type, appearances, Reduced Motion, and visual regressions.
+Presentation tests should focus on pure onboarding/route decisions, localization completeness, accessibility contracts, navigation intents, and source boundaries. Simulator verification remains required for genuine persistence across termination/relaunch, complete navigation behavior, native accessibility output, Dynamic Type, appearances, Reduced Motion, and visual regressions. The Reduced Motion tour must include the three OS-owned surfaces the app's own Reduce Motion gate does not reach: the native tab switch, the analytics consent form sheet presentation, and the pull-to-refresh control.
 
 ## Local iOS end-to-end flows
 
@@ -357,3 +375,22 @@ pnpm --filter @kuyara/worker dev --ip 0.0.0.0 --port 8788
 Any build pointed at the deployed Worker, a development build included, spends the same shared
 AI quota and cache as store users. Use the switches in [AI tiers in E2E](#ai-tiers-in-e2e) to
 avoid it.
+
+## Building the Pages site locally
+
+The site under `docs/` is built by GitHub Pages with the `github-pages` gem (versions at
+https://pages.github.com/versions.json). To build it locally, keep a scratch directory outside
+the repository holding a `Gemfile` with `gem "github-pages", group: :jekyll_plugins` (on Ruby 4
+add `csv`, `base64`, `bigdecimal`, `logger`, `ostruct` and `webrick`, and pass `RUBYOPT=-r<shim>`
+where the shim stubs `tainted?`, `taint` and `untaint`), run `bundle install`, then build a copy
+of `docs/` with the scratch directory as the working directory:
+
+```bash
+cd <scratch> && LC_ALL=en_US.UTF-8 PAGES_REPO_NWO=ubrn/kuyara bundle exec jekyll build --source <copy-of-docs> --destination <out>
+```
+
+Jekyll loads the `github-pages` plugins only when a `Gemfile` exists in the working directory;
+started elsewhere it renders pages without layouts. Append `url: https://ubrn.github.io` and
+`baseurl: /kuyara` to the copied `_config.yml` to reproduce live URLs. Ruby 4 resolves
+`github-pages` 223, so the local `<head>` lags Pages (no `og:type`, older generator and SEO-tag
+lines); page bodies match.

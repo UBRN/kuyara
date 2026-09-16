@@ -7,14 +7,22 @@ description: Use when kuyara UI work touches shared code that must stay buildabl
 
 ## Current honest state
 
+The control layer on Android is Material 3 Expressive, established by reading the
+installed module, not by running it: `@expo/ui`'s Android `build.gradle` pins
+`androidx.compose.material3:material3:1.5.0-alpha17`, its `HostView.kt` wraps every
+child in `MaterialExpressiveTheme`, and with no `seedColor` on `Host` (kuyara passes
+none; `rg seedColor apps/mobile/src` is empty) the controls take the device's dynamic
+Material You colour on Android 12 and later. That colour ownership is a decision, not an
+accident; ADR 0019 records it and its red lines (no `seedColor`, no JS replicas).
+
 Android source compatibility is preserved. **Android build, emulator, and visual
-refinement are unverified and deferred** (`docs/design/design-system.md`, Implemented
+refinement remain unexercised and deferred** (`docs/design/design-system.md`, Implemented
 and deferred). No Android validation command exists in this repository and none should
 be invented.
 
-Consequence for reporting: never write that something is verified on Android. Say the
-shared code is Android-compatible by inspection, and that runtime verification is
-outstanding.
+Consequence for reporting: never write that something is verified on Android at
+runtime. Say the shared code is Android-compatible by inspection, and that runtime
+verification is outstanding.
 
 ## What this skill is actually for
 
