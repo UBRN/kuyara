@@ -88,8 +88,11 @@ anything that actually comes down is intense. The calm step's 1500 ms was kept a
 watching the Today glyph on the iPhone 17 Pro Simulator on 2026-09-12, and the two
 faster steps shorten the same leg. The glyph derives its drop cycle and its drop stagger
 from the selected step by fixed ratios, so the cloud and the rain keep one tempo at
-every step, and the probe loading overlay breathes on the calm step, the one step that
-depicts no weather. All three steps resolve to 0 under Reduce Motion.
+every step. An unresolved wait (Today's board skeleton, Today's loading line, the AI
+status probe overlay) breathes on the moderate step, a full breath of 2000 ms, because
+that is the cycle band Ding and Kyung (Journal of Consumer Research 2026,
+<https://academic.oup.com/jcr/advance-article/doi/10.1093/jcr/ucaf037/8165440>) measured
+as the shortest perceived wait. All three steps resolve to 0 under Reduce Motion.
 
 A duration is a role in the sense of
 [ADR 0009](0009-a-design-language-layer-and-its-deferral-carve-out.md)'s carve-out, so
@@ -123,6 +126,21 @@ a state the user set and crosses a real threshold.
 - Motion as the sole carrier of a state change.
 - Motion that delays the user's decision, which `visual-identity.md` prohibits
   independently.
+- An in-app motion toggle, or a Reduce Motion response that slows ambient motion rather
+  than stopping it. The OS setting is the pause mechanism
+  [WCAG 2.2 SC 2.2.2](https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide.html)
+  asks for, which its glossary lets the platform provide and Apple's
+  [Reduced Motion label criteria](https://developer.apple.com/help/app-store-connect/manage-app-accessibility/reduced-motion-evaluation-criteria)
+  accept for ongoing motion; a loop that merely slows under the setting forfeits that
+  reading, and the reading is revisited if the WCAG 3.0 draft's "No visual motion"
+  requirement reaches its Refining status.
+- A content-detached grey-block wait surface. The board skeleton keeps ADR 0025's boxes
+  and the garment silhouettes because the wait already knows where the pieces will sit;
+  Viget's 2017 test (136 participants, a web page,
+  <https://www.viget.com/articles/a-bone-to-pick-with-skeleton-screens/>) measured a
+  grey-block skeleton as the slowest-feeling and least satisfying of skeleton, spinner
+  and blank, and no measurement ranks the silhouettes, so they stand on the composition
+  rule alone.
 
 ## Consequences
 
