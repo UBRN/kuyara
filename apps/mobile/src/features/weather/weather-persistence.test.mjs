@@ -5,6 +5,7 @@ import { getManualLocation } from './data/manual-location-catalog.ts';
 import { LocalWeatherRepository, WeatherRepositoryError } from './data/weather-repository.ts';
 import { SqliteWeatherLocalDataSource } from './data/sqlite-weather-local-data-source.ts';
 import {
+  deviceLocationDisplayName,
   normalizeCoordinates,
   weatherClockSkewToleranceMilliseconds,
   weatherFreshness,
@@ -120,6 +121,44 @@ test('migration v4 enforces one active location and maps manual and device varia
     `INSERT INTO active_locations VALUES (?, 'bad', 'device', 'sample.istanbul', 0, 0, 'UTC', NULL, ?, ?, NULL)`,
     [profileId, '2026-07-30T10:00:00.000Z', '2026-07-30T10:00:00.000Z'],
   ));
+});
+
+test('the device location carries the geocode locality, persists it, and stays valid without one', async (t) => {
+  assert.equal(deviceLocationDisplayName('  Kadıköy  ', 'İstanbul'), 'Kadıköy');
+  assert.equal(deviceLocationDisplayName(null, 'İstanbul'), 'İstanbul');
+  assert.equal(deviceLocationDisplayName(null, null), null);
+  assert.equal(deviceLocationDisplayName('   ', undefined), null);
+  assert.equal(deviceLocationDisplayName('x'.repeat(201), null), null);
+
+  const { database, repository } = await setup();
+  t.after(() => database.close());
+  const device = {
+    source: 'device', accuracy: 'full', locationKey: 'device:4101:2898',
+    coordinates: { latitudeE2: 4101, longitudeE2: 2898 }, timeZone: 'Europe/Istanbul',
+    displayName: 'Kadıköy',
+  };
+  assert.deepEqual(await repository.setActiveLocation(profileId, device), device);
+  const [row] = await database.getAllAsync('SELECT display_name FROM active_locations');
+  assert.equal(row.display_name, 'Kadıköy');
+  const reloaded = new LocalWeatherRepository(new SqliteWeatherLocalDataSource(database), {
+    createId: () => secondId, now: () => '2026-07-30T11:00:00.000Z',
+  });
+  assert.deepEqual(await reloaded.getActiveLocation(profileId), device);
+
+  // A lookup that resolved no name, and a row written before names existed, both read back as null.
+  assert.deepEqual(
+    await reloaded.setActiveLocation(profileId, { ...device, displayName: null }),
+    { ...device, displayName: null },
+  );
+  await database.runAsync('UPDATE active_locations SET display_name = NULL');
+  assert.deepEqual(await reloaded.getActiveLocation(profileId), { ...device, displayName: null });
+
+  await assert.rejects(
+    () => reloaded.setActiveLocation(profileId, { ...device, displayName: ' ' }),
+    (error) => error.code === 'invalid-input',
+  );
+  // Migration 9's check is the second guard: a blank name cannot reach a row at all.
+  await assert.rejects(() => database.runAsync("UPDATE active_locations SET display_name = ' '"));
 });
 
 test('snapshot and hourly data round-trip, remain location-bound, and retain active plus one previous', async (t) => {

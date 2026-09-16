@@ -1,4 +1,4 @@
-import { manualLocationIdSchema } from '@kuyara/contracts';
+import { locationDisplayNameSchema, manualLocationIdSchema } from '@kuyara/contracts';
 
 export const weatherConditionCodes = [
   'clear',
@@ -42,6 +42,13 @@ export type ManualActiveLocation = LocationBase & Readonly<{
 export type DeviceActiveLocation = LocationBase & Readonly<{
   source: 'device';
   accuracy: LocationAccuracy;
+  /**
+   * The locality the reverse geocode resolved for these coordinates, or null when it resolved
+   * none. It is a place name only: never a street, never coordinates rendered as text. Optional
+   * so a row stored before the name existed stays valid, and so both members of the union can be
+   * read through `location.displayName`.
+   */
+  displayName?: string | null;
 }>;
 
 export type ActiveLocation = ManualActiveLocation | DeviceActiveLocation;
@@ -112,6 +119,19 @@ export function normalizeCoordinates(
     latitudeE2: normalizeZero(Math.round(latitude * 100)),
     longitudeE2: normalizeZero(Math.round(longitude * 100)),
   };
+}
+
+/**
+ * The name a reverse geocode resolved for the device's coordinates: the town it falls in, or
+ * the subregion around it when the town is unknown. A street or an empty value resolves to no
+ * name at all, which reads as "current location" rather than as a wrong place.
+ */
+export function deviceLocationDisplayName(
+  city: string | null | undefined,
+  subregion: string | null | undefined,
+): string | null {
+  const parsed = locationDisplayNameSchema.safeParse(city ?? subregion);
+  return parsed.success ? parsed.data : null;
 }
 
 export function deviceLocationKey(coordinates: NormalizedCoordinates): string {

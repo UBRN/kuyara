@@ -1,5 +1,5 @@
 import * as Location from 'expo-location';
-import { Linking, Platform } from 'react-native';
+import { Linking } from 'react-native';
 
 import type {
   DeviceLocationGateway,
@@ -7,6 +7,7 @@ import type {
   LocationPermissionState,
 } from '@/features/weather/data/device-location-gateway';
 import {
+  deviceLocationDisplayName,
   deviceLocationKey,
   normalizeCoordinates,
   resolveDeviceLocationTimeZone,
@@ -67,18 +68,17 @@ export class ExpoDeviceLocationGateway implements DeviceLocationGateway {
         result.coords.latitude,
         result.coords.longitude,
       );
-      // Expo Location 57's Android result always sets timezone to null, so preserve the device-zone fallback there.
-      const geocodedTimeZone = Platform.OS === 'ios'
-        ? await Promise.race([
-          Location.reverseGeocodeAsync({
-            latitude: result.coords.latitude,
-            longitude: result.coords.longitude,
-          }).then(([address]) => address?.timezone ?? null),
-          new Promise<null>((resolve) => setTimeout(resolve, 3_000)),
-        ]).catch(() => null)
-        : null;
+      // The raw address never leaves this adapter: only its time zone and its locality name do.
+      const address = await Promise.race([
+        Location.reverseGeocodeAsync({
+          latitude: result.coords.latitude,
+          longitude: result.coords.longitude,
+        }).then(([first]) => first ?? null),
+        new Promise<null>((resolve) => setTimeout(resolve, 3_000)),
+      ]).catch(() => null);
+      // Expo Location 57's Android result always sets timezone to null, so the device zone carries it there.
       const timeZone = resolveDeviceLocationTimeZone(
-        geocodedTimeZone,
+        address?.timezone ?? null,
         Intl.DateTimeFormat().resolvedOptions().timeZone,
       );
 
@@ -94,6 +94,7 @@ export class ExpoDeviceLocationGateway implements DeviceLocationGateway {
           coordinates,
           locationKey: deviceLocationKey(coordinates),
           timeZone,
+          displayName: deviceLocationDisplayName(address?.city, address?.subregion),
         },
       };
     } catch {
