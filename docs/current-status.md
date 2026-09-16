@@ -201,7 +201,9 @@ of the English and Turkish descriptions, which no longer mentions creating an ac
 maintainer installed build 9 from TestFlight over the installed store build on the phone
 before the submission: the upgrade kept the existing data and onboarding did not reappear.
 
-Version 0.1.20260916 is being prepared from commit c4e9b8f. Its build number is issued by
+Version 0.1.20260916 is being prepared from commit c4e9b8f; its App Store Connect version record
+(`ed843aea`, Prepare for Submission) exists with the listing copied from 0.1.20260915 and its own
+release notes in both locales. Its build number is issued by
 EAS, which auto-increments it from the remote version source; the commands are in
 [Release path](testing.md#release-path).
 
@@ -284,9 +286,12 @@ steps with no crash, error screen or hang: onboarding with a manual location, th
 recommendation, the consent sheet, outfit detail, Weather, Closet add and delete,
 Settings with the notification permission and the AI status screen, regeneration after
 a dress-style change, a cold relaunch showing the persisted recommendation, and pull to
-refresh. The badge read "Standard suggestions" throughout because the production AI
-quota was exhausted that evening, so the tour is evidence for the flows, not for the AI
-tier. One product observation came out of it and was settled on 2026-09-15: in mild weather
+refresh. The badge read "Standard suggestions" throughout, which is the badge's
+rule: it appears only when every AI tier failed or was unavailable, and that evening the
+production AI quota was exhausted. The tour is evidence for the flows, not for the AI
+tier. The weather no longer decides whether a tier is tried at all: a day that derives no
+clothing requirement reaches the AI tiers like any other, and the composed pool is what
+decides whether there is anything to choose from. One product observation came out of it and was settled on 2026-09-15: in mild weather
 (19°, cloudy) the deterministic rules produce no requirement, so Today's rationale line
 rendered empty and the detail surface showed no reasons section while the store
 description promised outfits "explained piece by piece". Today now shows one deterministic

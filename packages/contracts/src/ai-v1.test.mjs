@@ -305,7 +305,87 @@ test('options require one exclusive body core and accept one-piece with footwear
   })).success, false);
 });
 
-test('options enforce two-to-five garments and at most one mid and outer layer', () => {
+test('an option carries up to four accessories, one per slot, each without a layer role', () => {
+  const finished = option('finished', {
+    garments: [
+      garment('primary_top', 'sweater', 'base'),
+      garment('bottom', 'trousers'),
+      garment('outer_layer', 'coat', 'outer'),
+      garment('footwear', 'ankle_boots', null),
+      garment('head', 'beanie', null),
+      garment('neck', 'scarf', null),
+      garment('hands', 'gloves', null),
+      garment('handheld', 'umbrella', null),
+    ],
+  });
+  assert.equal(aiOptionSchema.safeParse(finished).success, true);
+
+  // Uniqueness is what bounds each accessory slot to one garment.
+  assert.equal(aiOptionSchema.safeParse(option('two-hats', {
+    garments: [
+      ...finished.garments,
+      garment('head', 'cap', null),
+    ],
+  })).success, false);
+
+  assert.equal(aiOptionSchema.safeParse(option('layered-hat', {
+    garments: [
+      ...finished.garments.slice(0, 4),
+      garment('head', 'beanie', 'outer'),
+    ],
+  })).success, false);
+
+  assert.equal(aiOptionSchema.safeParse(option('ten-garments', {
+    garments: [
+      garment('primary_top', 'sweater', 'base'),
+      garment('bottom', 'trousers'),
+      garment('mid_layer', 'cardigan', 'mid'),
+      garment('outer_layer', 'coat', 'outer'),
+      garment('footwear', 'ankle_boots', null),
+      garment('footwear', 'rain_boots', null),
+      garment('head', 'beanie', null),
+      garment('neck', 'scarf', null),
+      garment('hands', 'gloves', null),
+      garment('handheld', 'umbrella', null),
+    ],
+  })).success, false);
+});
+
+test('a request carries an empty requirement set and every extremity cover', () => {
+  // A mild day derives no requirement and reaches the AI tiers like any other day.
+  assert.equal(aiRecommendV1RequestSchema.safeParse({
+    ...validRequest(), requirements: [],
+  }).success, true);
+
+  const base = { priority: 'optional', reasonCodes };
+  const eleven = [
+    { ...base, kind: 'thermal', minimum: 'high' },
+    { ...base, kind: 'breathability', minimum: 'high' },
+    { ...base, kind: 'arm_coverage', minimum: 'full' },
+    { ...base, kind: 'leg_coverage', minimum: 'full' },
+    { ...base, kind: 'water_protection', minimum: 'waterproof', target: 'body' },
+    { ...base, kind: 'water_protection', minimum: 'waterproof', target: 'feet' },
+    { ...base, kind: 'wind_protection', minimum: 'wind_resistant' },
+    { ...base, kind: 'traction', minimum: 'enhanced' },
+    { ...base, kind: 'extremity_cover', minimum: 'high', target: 'head' },
+    { ...base, kind: 'extremity_cover', minimum: 'high', target: 'neck' },
+    { ...base, kind: 'extremity_cover', minimum: 'moderate', target: 'hands' },
+  ];
+  assert.equal(aiRecommendV1RequestSchema.safeParse({
+    ...validRequest(), requirements: eleven,
+  }).success, true);
+  assert.equal(aiRecommendV1RequestSchema.safeParse({
+    ...validRequest(), requirements: [...eleven, eleven[0]],
+  }).success, false);
+  assert.equal(clothingRequirementSchema.safeParse({
+    ...base, kind: 'extremity_cover', minimum: 'high', target: 'feet',
+  }).success, false);
+  assert.equal(clothingRequirementSchema.safeParse({
+    ...base, kind: 'extremity_cover', minimum: 'none', target: 'head',
+  }).success, false);
+});
+
+test('options enforce the garment bounds and at most one mid and outer layer', () => {
   assert.equal(aiOptionSchema.safeParse(option('too-many', {
     garments: [
       garment('primary_top', 't_shirt'),

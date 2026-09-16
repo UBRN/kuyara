@@ -46,8 +46,10 @@ import {
   type EffectiveGarmentCandidate,
 } from '@/features/recommendation/domain/garment-eligibility';
 import {
+  accessoryOutfitSlots,
   collectValidOutfits,
   composeOutfitOptions,
+  outfitSlots,
   type AssignedOutfitGarment,
   type OutfitCandidate,
 } from '@/features/recommendation/domain/outfit-composition';
@@ -76,7 +78,7 @@ const recommendationContextSchema = z.strictObject({
   // Optional, so a row persisted before the weekday rule still parses and keeps its label.
   dayKind: dayKindSchema.optional(),
   localDayKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  requirements: z.array(clothingRequirementSchema).max(8),
+  requirements: z.array(clothingRequirementSchema).max(11),
   options: z.array(aiOptionSchema).max(aiV1OptionLimit),
 }).superRefine(({ options }, context) => {
   const seen = new Set<string>();
@@ -145,6 +147,21 @@ function assignedGarments(outfit: OutfitCandidate): readonly AssignedOutfitGarme
   ].filter((garment): garment is AssignedOutfitGarment => garment !== null);
 }
 
+/**
+ * Everything the option carries, the accessories after the six body slots and always in the
+ * same slot order, because the round trip back from an option compares this list verbatim.
+ * The traits above read the body alone: no accessory decides an archetype.
+ */
+function outfitGarments(outfit: OutfitCandidate): readonly AssignedOutfitGarment[] {
+  return [
+    ...assignedGarments(outfit),
+    ...accessoryOutfitSlots.flatMap((slot) => {
+      const accessory = outfit.accessories[slot];
+      return accessory ? [accessory] : [];
+    }),
+  ];
+}
+
 function toAiOption(outfit: OutfitCandidate): AiOption {
   const garments = assignedGarments(outfit);
   const outer = outfit.outerLayer?.garment.properties;
@@ -154,7 +171,7 @@ function toAiOption(outfit: OutfitCandidate): AiOption {
   const parsed = aiOptionSchema.safeParse({
     optionId: outfitOptionId(outfit),
     formality: outfit.formality,
-    garments: garments.map(({ slot, layerRole, garment }) => ({
+    garments: outfitGarments(outfit).map(({ slot, layerRole, garment }) => ({
       slot,
       layerRole,
       garmentTypeId: garment.garmentTypeId,
@@ -232,11 +249,9 @@ export function parseRecommendationContext(value: unknown): RecommendationContex
 export function aiRequestFromContext(
   context: RecommendationContext,
 ): AiRecommendV1Request | null {
-  if (
-    !('options' in context) ||
-    context.requirements.length === 0 ||
-    context.options.length < 3
-  ) return null;
+  // A mild day derives no requirement and still reaches the AI tiers: the pool of composed
+  // options is what decides whether there is anything to choose from, not the weather.
+  if (!('options' in context) || context.options.length < 3) return null;
   const parsed = aiRecommendV1RequestSchema.safeParse({
     clothingPreference: context.clothingPreference,
     dressStyle: context.dressStyle,
@@ -341,14 +356,17 @@ export function mapWorkerAiRecommendation(
 }
 
 const storedGarmentSchema = z.strictObject({
-  slot: z.enum(['primary_top', 'bottom', 'one_piece', 'mid_layer', 'outer_layer', 'footwear']),
+  slot: z.enum(outfitSlots),
   layerRole: z.enum(layerRoles).nullable(),
   candidateKey: z.string().regex(/^[A-Za-z0-9:_-]{1,64}$/),
 });
-const legacyStoredOutfitsSchema = z.array(z.array(storedGarmentSchema).min(2).max(5)).min(1).max(3);
+// A row written before the accessory slots carries five garments at most; one written after
+// carries up to nine. Both parse, and neither needs a migration: the stored garments are
+// candidate keys, and the composition they name is rebuilt from the same catalog.
+const legacyStoredOutfitsSchema = z.array(z.array(storedGarmentSchema).min(2).max(9)).min(1).max(3);
 const storedOutfitsSchema = z.array(z.strictObject({
   archetypeId: z.enum(outfitArchetypeIds),
-  garments: z.array(storedGarmentSchema).min(2).max(5),
+  garments: z.array(storedGarmentSchema).min(2).max(9),
 })).min(1).max(3);
 
 type StoredGarment = z.infer<typeof storedGarmentSchema>;
@@ -392,7 +410,7 @@ function storedOutfit(
   const composition = collectValidOutfits(requirements, candidates);
   const outfit = composition.status === 'composed'
     ? composition.outfits.find((candidate) => {
-        const actual = assignedGarments(candidate).map(({ slot, layerRole, garment }) => ({
+        const actual = outfitGarments(candidate).map(({ slot, layerRole, garment }) => ({
           slot,
           layerRole,
           candidateKey: garment.candidateKey,
@@ -449,7 +467,7 @@ export function toStoredRecommendationOutfits(
 ) {
   const stored = recommendation.outfits.map((outfit) => ({
     archetypeId: outfit.archetypeId,
-    garments: assignedGarments(outfit).map(({ slot, layerRole, garment }) => ({
+    garments: outfitGarments(outfit).map(({ slot, layerRole, garment }) => ({
       slot,
       layerRole,
       candidateKey: garment.candidateKey,

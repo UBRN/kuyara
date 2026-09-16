@@ -200,6 +200,7 @@ test('pieces keep mid layer before outer layer even though the board paints oute
     midLayer: assignedGarment('mid_layer', 'sweater', 'top'),
     outerLayer: assignedGarment('outer_layer', 'rain_jacket', 'outerwear'),
     footwear: assignedGarment('footwear', 'weather_boots', 'footwear'),
+    accessories: { head: null, neck: null, hands: null, handheld: null },
     requirementEvaluations: [],
     reasonCodes: [],
   };

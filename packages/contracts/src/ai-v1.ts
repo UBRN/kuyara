@@ -129,6 +129,20 @@ export const outfitSlots = [
   'mid_layer',
   'outer_layer',
   'footwear',
+  'head',
+  'neck',
+  'hands',
+  'handheld',
+] as const;
+
+// The four optional slots an outfit may finish with. They are chosen deterministically from
+// the weather requirements and the outfit's own formality, so they never distinguish two
+// options: the distinctness rule below and in `ai-model-input.ts` skips them.
+export const accessoryOutfitSlots = [
+  'head',
+  'neck',
+  'hands',
+  'handheld',
 ] as const;
 
 export const formalityLevels = ['casual', 'smart', 'formal'] as const;
@@ -223,6 +237,15 @@ export const clothingRequirementSchema = z.discriminatedUnion('kind', [
     kind: z.literal('traction'),
     minimum: z.enum(['enhanced']),
   }),
+  // The only requirement the six body slots never answer: it asks for warmth over one
+  // extremity, and only an accessory carries that region. It is a cache-key input like the
+  // others, so a day that asks for a beanie caches apart from one that does not.
+  z.strictObject({
+    ...requirementBase,
+    kind: z.literal('extremity_cover'),
+    minimum: z.enum(['light', 'moderate', 'high']),
+    target: z.enum(['head', 'neck', 'hands']),
+  }),
 ]);
 
 const aiOptionGarmentSchema = z.strictObject({
@@ -234,7 +257,8 @@ const aiOptionGarmentSchema = z.strictObject({
 export const aiOptionSchema = z.strictObject({
   optionId: optionIdSchema,
   formality: z.enum(formalityLevels),
-  garments: z.array(aiOptionGarmentSchema).min(2).max(5),
+  // Five body garments at most, plus the four optional accessory slots.
+  garments: z.array(aiOptionGarmentSchema).min(2).max(9),
   traits: z.strictObject({
     hasMidLayer: z.boolean(),
     hasOuterLayer: z.boolean(),
@@ -245,13 +269,23 @@ export const aiOptionSchema = z.strictObject({
     breathabilityHigh: z.boolean(),
   }),
 }).superRefine(({ garments }, context) => {
+  // Uniqueness is what bounds each accessory slot to one garment; the four need no rule of
+  // their own. An accessory carries no layer role, because it layers over nothing.
+  const accessorySlots = new Set<string>(accessoryOutfitSlots);
   const slots = new Set<(typeof outfitSlots)[number]>();
-  garments.forEach(({ slot }, index) => {
+  garments.forEach(({ slot, layerRole }, index) => {
     if (slots.has(slot)) {
       context.addIssue({
         code: 'custom',
         message: 'Slots must be unique within an option.',
         path: ['garments', index, 'slot'],
+      });
+    }
+    if (accessorySlots.has(slot) && layerRole !== null) {
+      context.addIssue({
+        code: 'custom',
+        message: 'An accessory slot carries no layer role.',
+        path: ['garments', index, 'layerRole'],
       });
     }
     slots.add(slot);
@@ -300,8 +334,11 @@ export const aiRecommendV1RequestSchema = z.strictObject({
   // Optional so a binary that predates it keeps the day-blind behaviour, where
   // `weekend_relaxed` is eligible for every casual option.
   dayKind: dayKindSchema.optional(),
-  // Requirements are cache-key inputs and never reach the model.
-  requirements: z.array(clothingRequirementSchema).min(1).max(8),
+  // Requirements are cache-key inputs and never reach the model. A mild day derives none,
+  // and it reaches the AI tiers like any other day, so the array may be empty. Eleven is the
+  // full set: eight body requirements plus one extremity cover for each of head, neck and
+  // hands.
+  requirements: z.array(clothingRequirementSchema).max(11),
   options: z.array(aiOptionSchema).min(1).max(aiV1OptionLimit),
 }).superRefine(({ options }, context) => {
   const seen = new Set<string>();
