@@ -31,17 +31,54 @@
 
   /* Rouge ships one light-tuned syntax palette and no dark counterpart: its
      keyword and operator tokens are literally #000000 and the rest sit between
-     1.9:1 and 2.7:1 on a dark code ground. Authoring a dark syntax palette
-     would mean inventing colours, which is a design decision, so dark code is
-     monochrome at 12.4:1 instead. The attribute selector matches the token
-     classes' specificity, and the diff and error tokens lose their light
-     backplates with it. */
+     1.2:1 and 3.3:1 on a dark code ground. The dark palette is built from the
+     three semantic text roles that stay readable on the muted surface, and
+     from nothing else: primary (12.4:1) for keywords, operators and names,
+     the accent (7.8:1) for string, number, symbol and regex literals, and
+     secondary (5.4:1) for comments, prompts, program output and whitespace.
+     Rouge's own weights and italics stay. The attribute selector matches the
+     token classes' specificity and resets every token first; the diff and
+     error tokens lose their light backplates with it, because no token names
+     a red or a green. */
   .highlight { background-color: var(--ku-surface-muted); }
 
   .highlight [class] {
     color: var(--ku-text-primary);
     background-color: transparent;
   }
+
+  .highlight .c,
+  .highlight .c1,
+  .highlight .cd,
+  .highlight .cm,
+  .highlight .cp,
+  .highlight .cs,
+  .highlight .gh,
+  .highlight .go,
+  .highlight .gp,
+  .highlight .gu,
+  .highlight .w { color: var(--ku-text-secondary); }
+
+  .highlight .s,
+  .highlight .s1,
+  .highlight .s2,
+  .highlight .sb,
+  .highlight .sc,
+  .highlight .sd,
+  .highlight .se,
+  .highlight .sh,
+  .highlight .si,
+  .highlight .sx,
+  .highlight .sr,
+  .highlight .ss,
+  .highlight .m,
+  .highlight .mb,
+  .highlight .mf,
+  .highlight .mh,
+  .highlight .mi,
+  .highlight .mo,
+  .highlight .mx,
+  .highlight .il { color: var(--ku-brand-accent); }
 
   .markdown-body {
     h1,

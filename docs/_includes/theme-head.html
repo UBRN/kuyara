@@ -3,7 +3,11 @@ Everything the appearance selector needs in <head>: the stored choice applied to
 <html> before the page paints, and the control's styling. Self-contained, so any
 layout can include it, and it belongs ahead of every stylesheet link so the
 attribute is set before the first style computation and no page paints in the
-wrong appearance. The styling is written against the kuyara tokens in
+wrong appearance. Sitting ahead of the theme stylesheet costs nothing: every
+rule below is class-scoped, and the shipped Primer (jekyll-theme-primer 0.6.0)
+reaches these elements only through element selectors or `.markdown-body`
+descendants, so each conflict is settled by specificity, never by source order.
+The styling is written against the kuyara tokens in
 assets/css/tokens.css rather than theme utility classes, so it reads correctly
 in all three appearances and on a layout that does not load the theme CSS.
 

@@ -15,3 +15,11 @@ themes:
     system: Sistem
     light: Açık
     dark: Koyu
+defaults:
+  - scope:
+      path: ""
+    values:
+      image:
+        path: /assets/img/og-image.png
+        width: 1200
+        height: 630
