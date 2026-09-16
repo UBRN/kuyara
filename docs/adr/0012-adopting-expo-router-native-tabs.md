@@ -73,7 +73,10 @@ unverified item, consistent with the repo's existing Android posture.
 
 - **Hand-built glass with `expo-glass-effect`.** Rejected: the app would own
   Reduce Transparency adaptation itself, and there is no first-party
-  guidance for that pattern.
+  guidance for that pattern. Any glass the app draws for itself would also
+  have to match the user's Clear or Tinted choice for Liquid Glass (Settings
+  > Display & Brightness on iOS 26, locked while Reduce Transparency or
+  Increase Contrast is on), which the system-drawn bar follows on its own.
 - **Defer glass entirely.** Rejected by the owner; this is the deferral
   being reversed by this ADR.
 
