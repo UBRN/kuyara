@@ -11,6 +11,11 @@ export const garmentSilhouetteIds: Partial<Record<GarmentTypeId, SilhouetteId>> 
   sneakers: 'g-sneaker', closed_shoes: 'g-dressshoe', ankle_boots: 'g-boot',
   weather_boots: 'g-boot', sandals: 'g-sandal', sleeveless_top: 'g-tank', beanie: 'g-beanie',
   brimmed_hat: 'g-hat', scarf: 'g-scarf', gloves: 'g-gloves', umbrella: 'g-umbrella',
+  fleece: 'g-sweater', turtleneck: 'g-sweater', polo_shirt: 'g-tee', long_skirt: 'g-skirt',
+  track_pants: 'g-trousers', knit_dress: 'g-dress', parka: 'g-parka', blazer: 'g-blazer',
+  puffer_vest: 'g-vest', bomber_jacket: 'g-jacket', leather_jacket: 'g-jacket',
+  loafers: 'g-dressshoe', ballet_flats: 'g-flat', rain_boots: 'g-boot',
+  cap: 'g-cap', balaclava: 'g-balaclava', neck_gaiter: 'g-scarf',
 };
 
 export const categoryGlyphIds = {

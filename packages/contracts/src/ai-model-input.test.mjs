@@ -60,7 +60,7 @@ const serializedInput = '{"clothingPreference":"womens","formalityOrder":["forma
   + '{"slot":"primary_top","garmentTypeId":"blouse"},'
   + '{"slot":"bottom","garmentTypeId":"trousers"},'
   + '{"slot":"footwear","garmentTypeId":"closed_shoes"}],'
-  + '"eligibleArchetypeIds":["smart_casual","light_and_airy"]},'
+  + '"eligibleArchetypeIds":["smart_casual","office_ready","light_and_airy"]},'
   + '{"optionId":"opt-2","formality":"casual","garments":['
   + '{"slot":"one_piece","garmentTypeId":"dress"},'
   + '{"slot":"outer_layer","garmentTypeId":"coat"},'

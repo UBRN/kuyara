@@ -202,7 +202,7 @@ Rules:
 - Applicability belongs to the canonical catalog, not a Wardrobe item.
 - Changing the profile preference never hides, invalidates, deletes, or reclassifies an owned Wardrobe item.
 - The recommendation engine uses only catalog types whose applicability contains the current clothing preference. Owned and wanted Wardrobe items are never recommendation candidates in the MVP.
-- Production applicability is settled as follows: `blouse`, `skirt`, `dress`, `jumpsuit`, and `leggings` contain only `womens`; every other canonical type contains both `womens` and `mens`. Applicability answers whether a person with that clothing preference would wear the piece in an everyday outfit; structural coverage arguments do not widen it ([ADR 0013](adr/0013-catalog-content-corrections-and-version-3.md)).
+- Production applicability is settled as follows: `blouse`, `skirt`, `long_skirt`, `dress`, `jumpsuit`, `knit_dress`, `leggings` and `ballet_flats` contain only `womens`; every other canonical type contains both `womens` and `mens`. Applicability answers whether a person with that clothing preference would wear the piece in an everyday outfit; structural coverage arguments do not widen it ([ADR 0013](adr/0013-catalog-content-corrections-and-version-3.md)).
 
 ## Canonical MVP garment types
 
@@ -222,26 +222,43 @@ The English and Turkish labels below are localization copy, not identity. They m
 | `top` | `sweater` | Sweater | Kazak |
 | `top` | `cardigan` | Cardigan | Hırka |
 | `top` | `overshirt` | Overshirt | Gömlek ceket |
+| `top` | `fleece` | Fleece | Polar |
+| `top` | `turtleneck` | Turtleneck | Balıkçı yaka |
+| `top` | `polo_shirt` | Polo shirt | Polo tişört |
 | `bottom` | `trousers` | Trousers | Pantolon |
 | `bottom` | `jeans` | Jeans | Jean |
 | `bottom` | `leggings` | Leggings | Tayt |
 | `bottom` | `shorts` | Shorts | Şort |
 | `bottom` | `skirt` | Skirt | Etek |
+| `bottom` | `long_skirt` | Long skirt | Uzun etek |
+| `bottom` | `track_pants` | Track pants | Eşofman altı |
 | `one_piece` | `dress` | Dress | Elbise |
 | `one_piece` | `jumpsuit` | Jumpsuit | Tulum |
+| `one_piece` | `knit_dress` | Knit dress | Triko elbise |
 | `outerwear` | `light_jacket` | Light jacket | Hafif ceket |
 | `outerwear` | `trench_coat` | Trench coat | Trençkot |
 | `outerwear` | `rain_jacket` | Rain jacket | Yağmurluk |
 | `outerwear` | `insulated_jacket` | Insulated jacket | Yalıtımlı mont |
 | `outerwear` | `coat` | Coat | Kaban |
+| `outerwear` | `parka` | Parka | Parka |
+| `outerwear` | `blazer` | Blazer | Blazer |
+| `outerwear` | `puffer_vest` | Puffer vest | Şişme yelek |
+| `outerwear` | `bomber_jacket` | Bomber jacket | Bomber ceket |
+| `outerwear` | `leather_jacket` | Leather jacket | Deri ceket |
 | `footwear` | `sneakers` | Sneakers | Spor ayakkabı |
 | `footwear` | `closed_shoes` | Closed shoes | Kapalı ayakkabı |
 | `footwear` | `ankle_boots` | Ankle boots | Bilek botu |
 | `footwear` | `weather_boots` | Weather boots | Hava koşullarına uygun bot |
 | `footwear` | `sandals` | Sandals | Sandalet |
+| `footwear` | `loafers` | Loafers | Loafer |
+| `footwear` | `ballet_flats` | Ballet flats | Babet |
+| `footwear` | `rain_boots` | Rain boots | Yağmur botu |
 | `accessory` | `beanie` | Beanie | Bere |
 | `accessory` | `brimmed_hat` | Brimmed hat | Kenarlı şapka |
+| `accessory` | `cap` | Cap | Kep |
+| `accessory` | `balaclava` | Balaclava | Kar maskesi |
 | `accessory` | `scarf` | Scarf | Atkı |
+| `accessory` | `neck_gaiter` | Neck warmer | Boyunluk |
 | `accessory` | `gloves` | Gloves | Eldiven |
 | `accessory` | `umbrella` | Umbrella | Şemsiye |
 
@@ -409,7 +426,9 @@ These records are **model-consistency examples**, not the final production fixtu
 | `brimmed_hat` | `accessory` | — | `none` | — | — | `high` | `head` | — | both |
 | `umbrella` | `accessory` | — | — | `waterproof` | — | — | — | — | both |
 
-These defaults intentionally remain coarse. A mesh sneaker, heavy sweater, short-sleeved dress, unlined waterproof shell, or fashion boot can use the appropriate Wardrobe overrides rather than forcing another canonical type.
+These defaults intentionally remain coarse. A mesh sneaker, heavy sweater, short-sleeved dress, unlined waterproof shell, or fashion boot is carried by its catalog type rather than by forcing another canonical type.
+
+The seven override columns remain stored fields, and the effective garment view still resolves a stored override over the current default, but the item form does not expose them: a Wardrobe entry records a type, an optional name, an optional colour family and an optional photo. Existing stored overrides stay readable and survive an edit and save; nothing in the product writes a new one.
 
 That argument no longer covers recommendations. [ADR 0005](adr/0005-catalog-only-recommendation-candidates.md) removed the Wardrobe from the candidate set, so an override widens nothing a recommendation can see; it still applies to the Wardrobe as a personal record. [ADR 0013](adr/0013-catalog-content-corrections-and-version-3.md) accordingly corrected four property values and added `sleeveless_top` and `leggings`; the catalog is at version 4.
 

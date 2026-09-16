@@ -51,9 +51,12 @@ function drawnBounds(paths) {
   };
 }
 
-test('the vocabulary contains exactly 27 garments and six category glyphs', () => {
+// ADR 0025's 27 cover the catalog; g-blazer, g-parka, g-vest, g-cap, g-flat and
+// g-balaclava are drawn ahead of the catalog mapping that will use them, so the garment
+// count is 33.
+test('the vocabulary contains exactly 33 garments and six category glyphs', () => {
   assert.equal(Object.keys(silhouettes).filter((id) => id.startsWith('g-cat-')).length, 6);
-  assert.equal(Object.keys(silhouettes).length, 33);
+  assert.equal(Object.keys(silhouettes).length, 39);
 });
 
 test('every authored bound matches the drawn paths without stroke', () => {
@@ -65,7 +68,7 @@ test('every authored bound matches the drawn paths without stroke', () => {
 });
 
 test('accessory silhouettes stay inside the existing accessory-scale bounds range', () => {
-  const accessoryIds = ['g-beanie', 'g-hat', 'g-scarf', 'g-gloves', 'g-umbrella'];
+  const accessoryIds = ['g-beanie', 'g-hat', 'g-cap', 'g-balaclava', 'g-scarf', 'g-gloves', 'g-umbrella'];
   const referenceIds = ['g-sneaker', 'g-sandal', 'g-boot', 'g-cat-accessory'];
   const referenceBounds = referenceIds.map((id) => silhouettes[id].bounds);
   const minWidth = Math.min(...referenceBounds.map(({ width }) => width));
