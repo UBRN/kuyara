@@ -5,6 +5,7 @@ import { useScreenInteractive } from '@/features/analytics/application/use-scree
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
 import { ProfileScreen } from '@/features/profile/presentation/profile-screen';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
+import { locationCaptionKey } from '@/features/weather/domain/location-caption';
 import { useMessages } from '@/localization/use-messages';
 
 export default function ProfileRoute() {
@@ -21,6 +22,12 @@ export default function ProfileRoute() {
       ? activeLocation.displayName
       : messages.weather.currentLocation
     : null;
+  // Weather and Profile answer "how was this place resolved?" from the same rule, so a
+  // searched city is never captioned as an approximate device fix.
+  const captionKey = locationCaptionKey(
+    activeLocation,
+    state.status === 'ready' && state.permission.kind === 'granted',
+  );
 
   return (
     <>
@@ -46,6 +53,7 @@ export default function ProfileRoute() {
       />
       <ProfileScreen
         activePlaceName={activePlaceName}
+        locationCaption={captionKey ? messages.weather[captionKey] : null}
         onOpenWardrobe={(filter) =>
           router.push(filter ? { params: { filter }, pathname: '/wardrobe' } : '/wardrobe')
         }

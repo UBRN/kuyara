@@ -16,7 +16,7 @@ import type { WeatherReadyState } from '@/features/weather/application/weather-a
 import { WeatherScreen } from '@/features/weather/presentation/weather-screen';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
-import { lightTheme, typography } from '@/theme/theme';
+import { layout, lightTheme, typography } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 jest.mock('expo-router', () => {
@@ -600,7 +600,12 @@ test('Weather offers a pull-to-refresh gesture alongside the visible refresh but
   const button = result.getByTestId('weather-refresh-button');
   expect(button.props.accessibilityLabel).toBe(messages.en.weather.refreshAccessibilityLabel);
   expect(result.getByText(messages.en.weather.refresh)).toBeOnTheScreen();
-  expect(button.props.hitSlop).toBe(10);
+  // The control carries the 44-point target in its own box rather than in a hitSlop the
+  // layout cannot see; the Pill inside keeps its size and sits centred.
+  expect(StyleSheet.flatten(button.props.style)).toMatchObject({
+    justifyContent: 'center',
+    minHeight: layout.minimumTouchTarget,
+  });
   fireEvent.press(button);
   expect(value.refresh).toHaveBeenCalledTimes(1);
 
@@ -843,6 +848,41 @@ test('the hourly rail scrolls horizontally and plots one accent temperature seri
   // react-native-svg normalizes the stroke into a processed colour before it reaches the
   // host element, so the accent is compared in that form.
   expect(line.props.stroke.payload).toBe(processColor(lightTheme.colors.brandAccent));
+});
+
+test('the UV stat is omitted at zero and wind and humidity keep their places', async () => {
+  const copy = messages.en.weather;
+  const night = sampleSnapshot();
+  const value = createValue({
+    ...baseState,
+    activeLocation: getManualLocation('sample.istanbul')!,
+    snapshot: { ...night, current: { ...night.current, uvIndex: 0 } },
+    freshness: 'fresh',
+  });
+  const result = await render(
+    <Providers language="en" value={value}><WeatherScreen /></Providers>,
+  );
+
+  // The stat captions are `eyebrow`, which renders uppercase, so the labels are matched
+  // case-insensitively rather than against the localized casing.
+  const label = (text: string) => new RegExp(`^${text}$`, 'i');
+  expect(result.queryByText(label(copy.uvIndexLabel))).toBeNull();
+  expect(result.getByText(label(copy.windLabel))).toBeOnTheScreen();
+  expect(result.getByText(label(copy.humidityLabel))).toBeOnTheScreen();
+
+  const day = await render(
+    <Providers
+      language="en"
+      value={createValue({
+        ...baseState,
+        activeLocation: getManualLocation('sample.istanbul')!,
+        snapshot: night,
+        freshness: 'fresh',
+      })}>
+      <WeatherScreen />
+    </Providers>,
+  );
+  expect(day.getByText(label(copy.uvIndexLabel))).toBeOnTheScreen();
 });
 
 test('device location card has one composed accessible name', async () => {

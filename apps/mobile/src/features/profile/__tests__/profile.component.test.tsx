@@ -300,13 +300,14 @@ test('an owned-only closet keeps the Wanted row at zero', async () => {
   expect(onOpenWardrobe).toHaveBeenCalledWith('wanted');
 });
 
-test('the Location row shows the place at bodyStrong with an approximate caption and opens Weather', async () => {
+test('the Location row shows the place at bodyStrong with the resolved caption and opens Weather', async () => {
   mockFontScale(1);
   const onOpenWeather = jest.fn();
   const result = await render(
     <TestProviders items={[baseItem]}>
       <ProfileScreen
         activePlaceName="Istanbul"
+        locationCaption={messages.en.weather.approximateLocation}
         onOpenWardrobe={() => undefined}
         onOpenWeather={onOpenWeather}
       />
@@ -321,6 +322,26 @@ test('the Location row shows the place at bodyStrong with an approximate caption
   expect(result.getByText(messages.en.weather.approximateLocation)).toBeOnTheScreen();
   await fireEvent.press(row);
   expect(onOpenWeather).toHaveBeenCalledTimes(1);
+});
+
+// A city the user searched for is neither a precise nor an approximate device fix, so the
+// weather feature answers with no caption and the row must show none.
+test('the Location row shows no accuracy caption for a place that has none', async () => {
+  mockFontScale(1);
+  const result = await render(
+    <TestProviders items={[baseItem]}>
+      <ProfileScreen
+        activePlaceName="Istanbul"
+        locationCaption={null}
+        onOpenWardrobe={() => undefined}
+        onOpenWeather={() => undefined}
+      />
+    </TestProviders>,
+  );
+
+  expect(result.getByTestId('profile-location-row').props.accessibilityLabel).toBe('Istanbul');
+  expect(result.queryByText(messages.en.weather.approximateLocation)).toBeNull();
+  expect(result.queryByText(messages.en.weather.fullLocation)).toBeNull();
 });
 
 test('the Location row falls back to the unset label with no approximate caption', async () => {

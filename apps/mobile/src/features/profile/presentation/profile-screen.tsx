@@ -37,6 +37,9 @@ const RAIL_SCALE_MAXIMUM = 2;
 
 type ProfileScreenProps = Readonly<{
   activePlaceName: string | null;
+  /** How the active place was resolved, or null when that question has no answer (a
+   * manually chosen city). The weather feature's `locationCaptionKey` decides it. */
+  locationCaption?: string | null;
   onOpenWardrobe: (filter?: 'wanted') => void;
   onOpenWeather: () => void;
 }>;
@@ -212,6 +215,7 @@ function ClosetRail({
 
 export function ProfileScreen({
   activePlaceName,
+  locationCaption = null,
   onOpenWardrobe,
   onOpenWeather,
 }: ProfileScreenProps) {
@@ -323,7 +327,7 @@ export function ProfileScreen({
           <ListRow
             accessibilityLabel={
               activePlaceName
-                ? [activePlaceName, messages.weather.approximateLocation].join(', ')
+                ? [activePlaceName, locationCaption].filter(Boolean).join(', ')
                 : copy.locationUnset
             }
             glyph={({ color, size }) => (
@@ -333,7 +337,7 @@ export function ProfileScreen({
             label={activePlaceName ?? copy.locationUnset}
             labelWeight="bodyStrong"
             onPress={onOpenWeather}
-            supportingText={activePlaceName ? messages.weather.approximateLocation : undefined}
+            supportingText={locationCaption ?? undefined}
             testID="profile-location-row"
           />
         </ListRowGroup>

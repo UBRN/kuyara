@@ -26,6 +26,7 @@ import { useProductAnalytics } from '@/features/analytics/application/use-produc
 import { ANALYTICS_SCHEMA_VERSION } from '@/features/analytics/domain/analytics-events';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity';
+import { locationCaptionKey } from '@/features/weather/domain/location-caption';
 import type { ActiveLocation } from '@/features/weather/domain/weather';
 import { HourlyRail } from '@/features/weather/presentation/hourly-rail';
 import { remainingHourlyForecast } from '@/features/weather/presentation/remaining-hours';
@@ -220,13 +221,11 @@ export function WeatherScreen() {
   };
 
   const activeName = state.activeLocation ? locationName(state.activeLocation, copy) : copy.noLocation;
-  const locationCaption = state.activeLocation?.source === 'device'
-    ? state.permission.kind !== 'granted'
-      ? copy.locationAccessOff
-      : state.activeLocation.accuracy === 'full'
-        ? copy.fullLocation
-        : copy.approximateLocation
-    : null;
+  const captionKey = locationCaptionKey(
+    state.activeLocation,
+    state.permission.kind === 'granted',
+  );
+  const locationCaption = captionKey ? copy[captionKey] : null;
   const snapshot = state.snapshot;
   const remainingHourly = snapshot ? remainingHourlyForecast(snapshot.hourly, now) : [];
   const failureCopy = state.refreshFailure === 'offline'
@@ -346,7 +345,6 @@ export function WeatherScreen() {
             accessibilityRole="button"
             accessibilityState={{ busy: state.isRefreshing, disabled: state.isRefreshing }}
             disabled={state.isRefreshing}
-            hitSlop={10}
             onPress={() => void handleRefresh()}
             style={({ pressed }) => [
               styles.refreshButton,
@@ -462,7 +460,12 @@ export function WeatherScreen() {
                     label: copy.uvIndexLabel,
                     value: decimal(snapshot.current.uvIndex, language),
                   },
-                ] as const).map((stat) => (
+                ] as const)
+                  // A UV index of 0 is every night and every overcast winter day: the row
+                  // would read as a measurement when it is the absence of one. Wind and
+                  // humidity keep their places.
+                  .filter(({ icon }) => icon !== 'uv' || snapshot.current.uvIndex > 0)
+                  .map((stat) => (
                   <View
                     accessible
                     accessibilityLabel={stat.accessibilityLabel}
@@ -581,9 +584,14 @@ const styles = StyleSheet.create({
   card: { gap: spacing.md, padding: spacing.lg },
   hourlyHeading: { lineHeight: typography.bodyStrong.lineHeight },
   disclosure: { padding: spacing.md },
+  // The Pill is shorter than 44, so the pressable carries the touch target the way
+  // IconButton and ListRow do rather than borrowing it from a hitSlop the layout cannot
+  // see. The Pill keeps its own size and sits centred in it.
   refreshButton: {
     alignSelf: 'flex-start',
     borderRadius: radii.pill,
+    justifyContent: 'center',
+    minHeight: layout.minimumTouchTarget,
   },
   locationCard: {
     alignItems: 'center',

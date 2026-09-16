@@ -91,21 +91,21 @@ test('loaded mapping uses localized catalog names, slot order, positions, and fi
         id: todayScreenState.snapshot.recommendation.outfits[0].optionId,
         positionLabel: 'Option 1 of 3',
         title: 'Rain Ready',
-        summary: 'Jumpsuit + Rain jacket + Winter boots',
+        summary: 'Jumpsuit + Rain jacket + Rain boots',
         emphasis: 'Recommended',
       },
       {
         id: todayScreenState.snapshot.recommendation.outfits[1].optionId,
         positionLabel: 'Option 2 of 3',
         title: 'Snow Day',
-        summary: 'Blouse + Jeans + Rain jacket + Winter boots',
+        summary: 'Blouse + Jeans + Rain jacket + Rain boots',
         emphasis: undefined,
       },
       {
         id: todayScreenState.snapshot.recommendation.outfits[2].optionId,
         positionLabel: 'Option 3 of 3',
         title: 'Wind Guard',
-        summary: 'Blouse + Shorts + Rain jacket + Winter boots',
+        summary: 'Blouse + Long skirt + Rain jacket + Rain boots',
         emphasis: undefined,
       },
     ],
@@ -113,7 +113,7 @@ test('loaded mapping uses localized catalog names, slot order, positions, and fi
   assert.deepEqual(english.suggestions[0].pieces, [
     { slot: 'One-piece', item: 'Jumpsuit', category: 'one_piece', garmentTypeId: 'jumpsuit' },
     { slot: 'Outer layer', item: 'Rain jacket', category: 'outerwear', garmentTypeId: 'rain_jacket' },
-    { slot: 'Footwear', item: 'Winter boots', category: 'footwear', garmentTypeId: 'weather_boots' },
+    { slot: 'Footwear', item: 'Rain boots', category: 'footwear', garmentTypeId: 'rain_boots' },
   ]);
   assert.equal(
     english.suggestions.every(({ reasons }) =>
@@ -241,12 +241,104 @@ test('shared weather reasons lead every outfit and per-outfit composition reason
   assert.deepEqual(english.suggestions[1].reasons, weatherReasons);
   assert.equal(
     english.suggestions[0].accessibilityLabel,
-    'Option 1 of 3. Rain Ready. One-piece: Jumpsuit. Outer layer: Rain jacket. Footwear: Winter boots. Why it works: Strong wind requires wind protection. Likely precipitation requires water protection. Drizzle calls for light water protection. Rain requires water protection.',
+    'Option 1 of 3. Rain Ready. One-piece: Jumpsuit. Outer layer: Rain jacket. Footwear: Rain boots. Why it works: Strong wind requires wind protection. Likely precipitation requires water protection. Drizzle calls for light water protection. Rain requires water protection.',
   );
   assert.equal(
     turkish.suggestions[0].accessibilityLabel,
-    '3 seçenekten birincisi. Yağmura Hazır. Tek parça: Tulum. Dış katman: Yağmurluk. Ayakkabı: Kışlık bot. Bu kombin şu nedenlerle uygun: Kuvvetli rüzgâr, rüzgâr koruması gerektiriyor. Beklenen yağış su koruması gerektiriyor. Çiseleme hafif su koruması gerektiriyor. Yağmur su koruması gerektiriyor.',
+    '3 seçenekten birincisi. Yağmura Hazır. Tek parça: Tulum. Dış katman: Yağmurluk. Ayakkabı: Yağmur botu. Bu kombin şu nedenlerle uygun: Kuvvetli rüzgâr, rüzgâr koruması gerektiriyor. Beklenen yağış su koruması gerektiriyor. Çiseleme hafif su koruması gerektiriyor. Yağmur su koruması gerektiriyor.',
   );
+});
+
+test('a mandatory requirement explains the outfit before an optional one', () => {
+  // Warm enough to prefer breathability (optional below 28) and windy enough to require
+  // wind protection (mandatory at 8 m/s). The derivation lists temperature first, which
+  // would explain a wind-led outfit by the heat.
+  const measurements = {
+    temperatureCelsius: 25,
+    apparentTemperatureCelsius: 26,
+    condition: 'clear',
+    precipitationProbability: 0,
+    windSpeedMetersPerSecond: 9,
+  };
+  const weather = {
+    ...todayWeatherSnapshot,
+    current: { ...todayWeatherSnapshot.current, ...measurements },
+    minimumTemperatureCelsius: 24,
+    maximumTemperatureCelsius: 26,
+    hourly: [{
+      ...todayWeatherSnapshot.hourly[0],
+      ...measurements,
+      forecastAt: '2026-08-13T07:00:00.000Z',
+    }],
+  };
+  const recommendation = recommendOutfits({
+    snapshot: weather,
+    now: todayWeatherSnapshot.current.observedAt,
+    clothingPreference: 'womens',
+    dayVariant: 0,
+  });
+  assert.equal(recommendation.status, 'recommended');
+  assert.deepEqual(recommendation.requirements.reasonCodes, [
+    'temperature_high',
+    'apparent_temperature_high',
+    'wind_strong',
+  ]);
+
+  const presentation = loadedPresentation({
+    ...todayScreenState,
+    snapshot: { ...todayScreenState.snapshot, weather, recommendation },
+  });
+
+  // The mandatory reason leads; the two optional ones keep the derivation's order behind it.
+  assert.deepEqual(presentation.suggestions[0].reasons.slice(0, 3), [
+    'Strong wind requires wind protection.',
+    'High temperatures require breathable clothing.',
+    'It feels hot enough to require breathable clothing.',
+  ]);
+});
+
+test('the unavailable branch offers a retry and says when the cause is being offline', () => {
+  const generic = createTodayPresentation({ kind: 'unavailable' }, 'en', false, fixtureNow);
+  const rateLimited = createTodayPresentation(
+    { kind: 'unavailable', failure: 'rate-limited' },
+    'en',
+    false,
+    fixtureNow,
+  );
+  const offline = createTodayPresentation(
+    { kind: 'unavailable', failure: 'offline' },
+    'en',
+    false,
+    fixtureNow,
+  );
+  const offlineTurkish = createTodayPresentation(
+    { kind: 'unavailable', failure: 'offline' },
+    'tr',
+    false,
+    fixtureNow,
+  );
+  const noLocation = createTodayPresentation(
+    { kind: 'unavailable', reason: 'no-active-location' },
+    'en',
+    false,
+    fixtureNow,
+  );
+
+  assert.equal(generic.actionLabel, 'Refresh');
+  assert.equal(generic.title, 'Today’s guidance is unavailable');
+  assert.equal(rateLimited.title, 'Today’s guidance is unavailable');
+  assert.equal(rateLimited.actionLabel, 'Refresh');
+  assert.equal(offline.title, 'You appear to be offline');
+  assert.equal(offline.body, 'Connect to the internet and try loading weather again.');
+  assert.equal(
+    offline.accessibilityLabel,
+    'You appear to be offline. Connect to the internet and try loading weather again.',
+  );
+  assert.equal(offline.actionLabel, 'Refresh');
+  assert.equal(offlineTurkish.title, 'Çevrimdışı görünüyorsun');
+  assert.equal(offlineTurkish.actionLabel, 'Yenile');
+  // The missing-location branch keeps its own action: it opens the picker, not a retry.
+  assert.equal(noLocation.actionLabel, 'Choose a location');
 });
 
 // A day whose measurements ask for nothing: no clothing requirement is derived, so the
@@ -356,7 +448,7 @@ test('detail reasoning groups garments by requirement and localizes trade-offs a
     {
       id: 'footwear_water_protection',
       kind: 'reason',
-      text: 'Footwear water protection: Winter boots.',
+      text: 'Footwear water protection: Rain boots.',
     },
   ]);
 
@@ -450,9 +542,9 @@ test('stale freshness and outfit copy localize in both languages', () => {
   assert.deepEqual(
     turkish.suggestions.map(({ summary }) => summary),
     [
-      'Tulum + Yağmurluk + Kışlık bot',
-      'Bluz + Kot pantolon + Yağmurluk + Kışlık bot',
-      'Bluz + Şort + Yağmurluk + Kışlık bot',
+      'Tulum + Yağmurluk + Yağmur botu',
+      'Bluz + Kot pantolon + Yağmurluk + Yağmur botu',
+      'Bluz + Uzun etek + Yağmurluk + Yağmur botu',
     ],
   );
   assert.equal(english.header.location, 'Istanbul');

@@ -8,6 +8,10 @@ import { archetypeLabel } from '@/features/recommendation/localization/recommend
 import type { RecommendedOutfit } from '@/features/recommendation/application/recommend-outfits';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import type {
+  ClothingRequirementReasonCode,
+  ClothingRequirements,
+} from '@/features/recommendation/domain/weather-to-clothing-requirements';
+import type {
   GarmentTypeId,
   StructuralCategory,
 } from '@/features/catalog/domain/garment-taxonomy';
@@ -300,6 +304,25 @@ function requirementNameKey(
     : 'footwear_water_protection';
 }
 
+// Today prints `reasons[0]` as the primary outfit's rationale. The derivation orders its
+// reason codes by the weather value they came from, so an optional requirement's sentence
+// can lead and explain the outfit by something it was not composed to answer. A mandatory
+// requirement's reason comes first; inside each group the derivation's own order stands.
+function reasonCodesByPriority(
+  requirements: ClothingRequirements,
+): readonly ClothingRequirementReasonCode[] {
+  const mandatory = new Set(
+    requirements.requirements
+      .filter(({ priority }) => priority === 'mandatory')
+      .flatMap(({ reasonCodes }) => reasonCodes),
+  );
+
+  return [
+    ...requirements.reasonCodes.filter((code) => mandatory.has(code)),
+    ...requirements.reasonCodes.filter((code) => !mandatory.has(code)),
+  ];
+}
+
 function createLoadedPresentation(
   snapshot: TodaySnapshot,
   language: SupportedLanguage,
@@ -318,9 +341,9 @@ function createLoadedPresentation(
   const time = formatTime(weather.fetchedAt, language, hour12);
   const isStale = snapshot.freshness === 'stale';
   const condition = weatherCopy.conditions[current.condition];
-  const weatherReasons = snapshot.recommendation.requirements.reasonCodes.map(
-    (reason) => copy.requirementReasons[reason],
-  );
+  const weatherReasons = reasonCodesByPriority(
+    snapshot.recommendation.requirements,
+  ).map((reason) => copy.requirementReasons[reason]);
   const outfits =
     snapshot.recommendation.status === 'recommended'
       ? snapshot.recommendation.outfits
@@ -426,7 +449,8 @@ export function createTodayPresentation(
   hour12: boolean,
   now: number,
 ): TodayPresentation {
-  const copy = getMessages(language).today;
+  const messages = getMessages(language);
+  const copy = messages.today;
 
   if (state.kind === 'loading') {
     return {
@@ -449,12 +473,20 @@ export function createTodayPresentation(
         accessibilityLabel: `${copy.noLocationTitle}. ${copy.noLocationBody}`,
       };
     }
+    // A dead end otherwise: the screen states the failure and offers nothing to do about
+    // it. Being offline is the one category the user can act on differently, so it keeps
+    // the same words Weather already uses for it rather than the generic line.
+    const failureCopy = state.failure === 'offline'
+      ? { title: messages.weather.offlineTitle, body: messages.weather.offlineBody }
+      : { title: copy.unavailableTitle, body: copy.unavailableBody };
+
     return {
       kind: 'unavailable',
       reason: 'failure',
-      title: copy.unavailableTitle,
-      body: copy.unavailableBody,
-      accessibilityLabel: `${copy.unavailableTitle}. ${copy.unavailableBody}`,
+      title: failureCopy.title,
+      body: failureCopy.body,
+      actionLabel: copy.refreshAction,
+      accessibilityLabel: `${failureCopy.title}. ${failureCopy.body}`,
     };
   }
 

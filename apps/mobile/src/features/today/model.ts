@@ -22,7 +22,8 @@ export type TodayScreenState =
   | Readonly<{
       kind: 'unavailable';
       reason?: 'no-active-location';
-      // Carried for the analytics classification only; the Today surface never renders it.
+      // Carries the analytics classification, and the one cause the user can act on
+      // differently: `offline` states that instead of the generic unavailable line.
       failure?: FailureCategory;
     }>
   | Readonly<{
