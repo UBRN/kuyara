@@ -112,6 +112,15 @@ export function TodayScreen({
         <View
           onLayout={({ nativeEvent }) => setContentWidth(nativeEvent.layout.width)}
           testID="today-loading-screen">
+          {/* The wait says what is being prepared. Without it the first run is a breathing
+              placeholder and one status line, and the mapper's own title and body had no
+              reader on this screen. */}
+          <View style={styles.loadingIntro} testID="today-loading-intro">
+            <AppText accessibilityRole="header" variant="title">
+              {presentation.title}
+            </AppText>
+            <AppText colorRole="textSecondary">{presentation.body}</AppText>
+          </View>
           {/* The plate takes its height from the placeholders it holds, the way the
               loaded stage takes its own from the drawn pieces. */}
           <View
@@ -171,7 +180,14 @@ export function TodayScreen({
             {presentation.body}
           </AppText>
           {presentation.actionLabel ? (
-            <Button label={presentation.actionLabel} onPress={() => router.push('/weather/location')} />
+            <Button
+              label={presentation.actionLabel}
+              onPress={
+                presentation.reason === 'no-active-location'
+                  ? () => router.push('/weather/location')
+                  : onRefresh
+              }
+            />
           ) : null}
         </Surface>
       </Screen>
@@ -213,7 +229,7 @@ export function TodayScreen({
       <View onLayout={({ nativeEvent }) => setContentWidth(nativeEvent.layout.width)} testID="today-content">
         <View style={styles.placeRow}>
           <Icon name="location" color={theme.colors.iconSecondary} size={13} />
-          <AppText colorRole="textSecondary" numberOfLines={1} style={styles.location} variant="caption">
+          <AppText colorRole="textSecondary" numberOfLines={2} style={styles.location} variant="caption">
             {presentation.header.location}
           </AppText>
         </View>
@@ -366,7 +382,7 @@ export function TodayScreen({
                       />
                     </View>
                     <View style={styles.alternateTitleRow}>
-                      <AppText numberOfLines={1} style={styles.outfitName} variant="label">
+                      <AppText numberOfLines={2} style={styles.outfitName} variant="label">
                         {suggestion.title}
                       </AppText>
                       <View style={styles.disclosure}>
@@ -449,6 +465,7 @@ const styles = StyleSheet.create({
   outfitName: { flex: 1, flexShrink: 1 },
   disclosure: { opacity: 0.55 },
   rationale: { marginTop: spacing.sm },
+  loadingIntro: { gap: spacing.xs, marginBottom: spacing.md },
   generatingStatus: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.md },
   generatingStatusText: { flexShrink: 1 },
   sky: { alignItems: 'flex-start', flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },

@@ -206,7 +206,8 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
       .not.toBeOnTheScreen();
     expect(result.queryByText(messages[language].today.emphasis.recommended)).not.toBeOnTheScreen();
     const place = result.getByText('Istanbul');
-    expect(place.props.numberOfLines).toBe(1);
+    // A long place name and a long archetype wrap instead of clipping at large text sizes.
+    expect(place.props.numberOfLines).toBe(2);
     expect(StyleSheet.flatten(place.props.style)).toMatchObject({
       ...typography.caption, color: theme.colors.textSecondary,
     });
@@ -248,7 +249,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     for (const suggestion of presentation.suggestions.slice(1)) {
       const alternate = result.getByTestId(`today-alternate-${suggestion.id}`);
       expect(alternate.props.accessibilityLabel).toBe(suggestion.boardAccessibilityLabel);
-      expect(within(alternate).getByText(suggestion.title)).toHaveProp('numberOfLines', 1);
+      expect(within(alternate).getByText(suggestion.title)).toHaveProp('numberOfLines', 2);
       expect(result.getByTestId(`today-alternate-board-${suggestion.id}`, hidden)).toBeOnTheScreen();
       await fireEvent.press(alternate);
       expect(onOpenOutfitDetail).toHaveBeenLastCalledWith(suggestion.id);
@@ -376,7 +377,7 @@ test('outfit detail renders the detail board, in-place captions, requirement row
   const ownershipByGarmentType: Record<string, 'owned' | 'wanted'> = {
     jumpsuit: 'owned' as const,
     rain_jacket: 'wanted' as const,
-    weather_boots: 'owned' as const,
+    rain_boots: 'owned' as const,
   };
   const result = await render(providers(
     <OutfitDetailScreen
@@ -514,9 +515,13 @@ describe.each(['en', 'tr'] as const)('%s outfit detail untracked garments', (lan
         { includeHiddenElements: true },
       )).toBeNull();
     }
-    expect(result.getByTestId('outfit-detail-ownership-summary')).toHaveTextContent(
+    const summary = result.getByTestId('outfit-detail-ownership-summary');
+    expect(summary).toHaveTextContent(
       copy.ownershipSummary({ owned: 0, total: presentation.suggestions[0].pieces.length }),
     );
+    // Nothing marked yet is an invitation, not a tally: the zero state carries no count
+    // at all and says where the two states are set.
+    expect(summary).toHaveTextContent(/^\D+$/);
   });
 });
 
@@ -746,6 +751,11 @@ describe.each(['en', 'tr'] as const)('%s first generation', (language: Supported
 
     expect(result.getByTestId('today-loading-screen')).toBeOnTheScreen();
     expect(result.queryByTestId('today-stretchy-header')).not.toBeOnTheScreen();
+    // The wait says what is being prepared, above the placeholders.
+    const intro = within(result.getByTestId('today-loading-intro'));
+    expect(intro.getByRole('header', { name: messages[language].today.loadingTitle }))
+      .toBeOnTheScreen();
+    expect(intro.getByText(messages[language].today.loadingBody)).toBeOnTheScreen();
     expect(StyleSheet.flatten(result.getByTestId('today-skeleton-stage', hidden).props.style))
       .toMatchObject({ backgroundColor: lightTheme.colors.stage, borderRadius: 26 });
 
@@ -891,10 +901,12 @@ test('Today keeps the generic unavailable copy for failures with an active locat
   expect(result.queryByTestId('today-no-location')).not.toBeOnTheScreen();
 });
 
-// The route composes the cause into the state for the analytics classification only.
-// Today must render the same screen and the same copy whichever cause it carries.
-test('a classified unavailable state renders exactly the same screen as an unclassified one', async () => {
+// The route composes the cause into the state. Being offline is the one cause the user can
+// act on differently and says so; every other cause keeps the generic copy, and all of them
+// reach the same screen with the same retry.
+test('a classified unavailable state keeps the generic copy unless the cause is being offline', async () => {
   for (const failure of failureCategories) {
+    const offline = failure === 'offline';
     const result = await render(providers(
       <TodayScreen
         language="en"
@@ -906,10 +918,37 @@ test('a classified unavailable state renders exactly the same screen as an uncla
     ));
 
     expect(result.getByTestId('today-unavailable-screen')).toBeOnTheScreen();
-    expect(result.getByText(messages.en.today.unavailableTitle)).toBeOnTheScreen();
-    expect(result.getByText(messages.en.today.unavailableBody)).toBeOnTheScreen();
+    expect(result.getByText(
+      offline ? messages.en.weather.offlineTitle : messages.en.today.unavailableTitle,
+    )).toBeOnTheScreen();
+    expect(result.getByText(
+      offline ? messages.en.weather.offlineBody : messages.en.today.unavailableBody,
+    )).toBeOnTheScreen();
+    expect(
+      result.getByRole('button', { name: messages.en.today.refreshAction }),
+    ).toBeOnTheScreen();
     expect(result.queryByTestId('today-no-location')).not.toBeOnTheScreen();
   }
+});
+
+// Without it the failure screen is a dead end: it states the failure and offers nothing.
+test('the unavailable retry refreshes in place instead of opening the location picker', async () => {
+  mockPush.mockClear();
+  const onRefresh = jest.fn();
+  const result = await render(providers(
+    <TodayScreen
+      language="en"
+      onOpenOutfitDetail={() => undefined}
+      onRefresh={onRefresh}
+      state={{ kind: 'unavailable', failure: 'unavailable' }}
+    />,
+  ));
+
+  await fireEvent.press(
+    result.getByRole('button', { name: messages.en.today.refreshAction }),
+  );
+  expect(onRefresh).toHaveBeenCalledTimes(1);
+  expect(mockPush).not.toHaveBeenCalled();
 });
 
 test('the route composition omits the cause when there is none to report', () => {
