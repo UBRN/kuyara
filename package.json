@@ -8,7 +8,7 @@
   },
   "scripts": {
     "e2e:ios": "env JAVA_HOME=\"$(brew --prefix openjdk)/libexec/openjdk.jdk/Contents/Home\" maestro test .maestro",
-    "lint": "pnpm --filter @kuyara/mobile lint",
+    "lint": "pnpm --filter @kuyara/mobile lint && apps/mobile/node_modules/.bin/eslint apps/worker/src packages/contracts/src",
     "typecheck": "pnpm --recursive --if-present typecheck",
     "test": "pnpm --recursive --if-present test",
     "check": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm --filter @kuyara/worker bundle"

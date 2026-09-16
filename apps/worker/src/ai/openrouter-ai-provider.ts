@@ -69,7 +69,7 @@ export class OpenRouterAiProvider implements AiProvider {
     if (!response.ok) throw new Error('OpenRouter request failed.');
 
     const body = await response.json() as {
-      choices?: Array<{ message?: { content?: unknown } }>;
+      choices?: { message?: { content?: unknown } }[];
     } | null;
     const content = body?.choices?.[0]?.message?.content;
     if (typeof content !== 'string') throw new Error('OpenRouter response invalid.');
