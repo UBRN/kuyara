@@ -232,12 +232,14 @@ This section is the command sequence only.
 
 ### Preconditions
 
-- The worktree is clean, holds only the changes being released, and they are committed:
-  `eas.json` sets `cli.requireCommit: true`, so `eas build` refuses an uncommitted tree.
+- The version bump and the changes being released are committed, and the worktree holds
+  nothing else: `eas.json` sets `cli.requireCommit: true`, so the build runs against the
+  committed tree and an uncommitted bump would carry the old version string into the binary.
 - `pnpm check` and `pnpm --filter @kuyara/mobile test:components` are green.
-- `expo.version` in `apps/mobile/app.json` is bumped to the next `0.MINOR.YYYYMMDD` string.
-  Never edit a build number: `eas.json`
-  sets `appVersionSource: "remote"` and the production profile auto-increments it on EAS.
+- `expo.version` in `apps/mobile/app.json` is bumped to the next `0.MINOR.YYYYMMDD` string,
+  and `version` in `apps/mobile/package.json` is set to the same string. Never edit a build
+  number: `eas.json` sets `appVersionSource: "remote"` and the production profile
+  auto-increments it on EAS.
 - If `packages/contracts` or a Worker route changed, deploy the Worker before submitting the
   app. The deployed Worker is the top-level configuration; the named `e2e` environment is
   local-only and never deployed ([ADR 0003](adr/0003-single-worker-environment.md)):
@@ -247,8 +249,8 @@ This section is the command sequence only.
   ```
 
   The deployed Worker must stay compatible with the binary store users already have. Binaries
-  built before commit 8e949ec (build 8, commit 67c20ae, live; build 9, commit e4c9350, in App
-  Review) carry `.strict()` response schemas and reject any unknown response key at any level.
+  built before commit 8e949ec (build 8, commit 67c20ae, and build 9, commit e4c9350, both
+  released) carry `.strict()` response schemas and reject any unknown response key at any level.
   While one of them is installed every `/v1` response shape is frozen at every level: a changed
   shape ships on a new route and the old route keeps its exact shape. The shipped-shape test in
   `packages/contracts` enforces this offline. Once a binary built from 8e949ec or later is the
@@ -257,23 +259,11 @@ This section is the command sequence only.
 
 ### Build and submit
 
-Run both from `apps/mobile`, where `eas.json` lives:
-
-```bash
-eas build --profile production --platform ios
-eas submit --profile production --platform ios --latest
-```
-
-`eas submit` reads `submit.production.ios.ascAppId` from `eas.json`, so no app identifier is
-passed on the command line.
-
-### Workflow
-
-`apps/mobile/.eas/workflows/release-ios.yml` runs the same two steps on EAS
-infrastructure: a production iOS build, then a submit against the same
-`submit.production` profile. It declares no `push` or `pull_request` trigger, so it never
-starts on its own. Run it from `apps/mobile`, where both `eas.json` and the `.eas`
-directory live:
+`apps/mobile/.eas/workflows/release-ios.yml` is the build and upload path: a production iOS
+build, then a submit against the `submit.production` profile, both on EAS infrastructure. It
+replaces separate `eas build` and `eas submit` commands. It declares no `push` or
+`pull_request` trigger, so it never starts on its own. Run it from `apps/mobile`, where both
+`eas.json` and the `.eas` directory live:
 
 ```bash
 eas workflow:validate .eas/workflows/release-ios.yml
@@ -281,9 +271,13 @@ eas workflow:run .eas/workflows/release-ios.yml
 ```
 
 `workflow:validate` checks the file against the EAS schema and against the build and
-submit profiles in `eas.json`. A started run is followed with `eas workflow:status`,
+submit profiles in `eas.json`. `eas workflow:run FILE` uploads the local project directory,
+so the bump has to be committed before the run and no `--ref` is passed. The submit job
+reads `submit.production.ios.ascAppId` from `eas.json`, so no app identifier is passed on
+the command line. A started run is followed with `eas workflow:status`,
 `eas workflow:logs` and `eas workflow:runs`, and on the project's workflows page in the
-Expo dashboard.
+Expo dashboard. If the submit job fails the build survives, and the upload alone is retried
+with `eas submit --profile production --platform ios --latest`.
 
 Linking the GitHub repository to the EAS project is not required here. That link exists
 for the GitHub event triggers, and `eas workflow:run` works without it ([Get started with
@@ -296,11 +290,11 @@ recreated, run `eas credentials --platform ios`, choose the `production` profile
 EAS Submit** ([Automate with EAS
 Workflows](https://docs.expo.dev/submit/ios/#automate-with-eas-workflows)).
 
-The workflow replaces those two commands and nothing else. The Preconditions above still
-come first, in the same order: the `expo.version` bump in `apps/mobile/app.json`, green
-`pnpm check` and component tests, and the Worker deploy when a contract or a route
-changed. The TestFlight pass on the phone and Submit for Review in App Store Connect stay
-manual after the run finishes. The run happens on EAS infrastructure and draws on the
+The workflow builds and uploads, and does nothing else. The Preconditions above still come
+first, in the same order: the committed `expo.version` bump in `apps/mobile/app.json`, green
+`pnpm check` and component tests, and the Worker deploy when a contract or a route changed.
+The TestFlight pass on the phone and the App Store Connect record steps below stay manual
+after the run finishes. The run happens on EAS infrastructure and draws on the
 account's EAS plan: the build job is billed like any other EAS build, and the remaining
 job time comes out of the plan's CI/CD minutes. Check the current allowances on
 <https://expo.dev/pricing> rather than assuming them.
@@ -313,23 +307,31 @@ in-place replacement is the real migration test. Install from TestFlight, then c
 onboarding does not reappear, the Closet still lists its rows with their photos, Today renders
 the cached snapshot before any refresh, and the Settings AI status screen answers.
 
-App Store Connect is the one part of the release EAS does not do. It runs on the maintainer's
-Mac with the `asc` CLI against the `kuyara` profile. Read the ids first with
-`asc status --app 6806664440` for the version id and the build id, and
-`asc localizations list --version "VERSION_ID"` for the `en-US` and `tr` localization ids, then:
+### App Store Connect record
+
+The App Store Connect record is the one part of the release EAS does not do: creating the
+version record, attaching a build to it, the per-locale release notes and the review
+submission are ASC API calls, not build artefacts. The `asc` CLI is used for these record
+steps only, never to build or upload; it runs on the maintainer's Mac against the `kuyara`
+profile. Create the version record first, copying the metadata forward from the version
+before it, then read the ids with `asc status --app 6806664440` for the version id and the
+build id and `asc localizations list --version "VERSION_ID"` for the `en-US` and `tr`
+localization ids:
 
 ```bash
+asc versions create --app 6806664440 --version "VERSION" --platform IOS --copy-metadata-from "PREVIOUS_VERSION"
 asc versions attach-build --version-id "VERSION_ID" --build-id "BUILD_ID"
 asc localizations update --id "LOCALIZATION_ID" --whats-new "..."
-asc validate --app 6806664440 --version "VERSION" --platform IOS --output table
+asc review doctor
 asc review submit --app 6806664440 --version-id "VERSION_ID" --build-id "BUILD_ID" --platform IOS --dry-run
 asc review submit --app 6806664440 --version-id "VERSION_ID" --build-id "BUILD_ID" --platform IOS --confirm
 ```
 
-Run `asc localizations update` once per locale; an update version needs release notes in both.
-Validate before submitting and expect zero blocking issues. `asc review submit` leaves the
-version in `WAITING_FOR_REVIEW` and does not change the release type, so automatic release
-after approval stays selected and the store build replaces the TestFlight build in place.
+Run `asc localizations update` once per locale, `en-US` first and then `tr`; an update
+version needs release notes in both. `asc review doctor` must report no blocking check
+before the submission. `asc review submit` leaves the version in `WAITING_FOR_REVIEW` and
+does not change the release type, so automatic release after approval stays selected and the
+store build replaces the TestFlight build in place.
 
 ### JavaScript-only fix for the live version
 

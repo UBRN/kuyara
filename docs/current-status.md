@@ -86,8 +86,8 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   spring where garment pieces land on a board, and an ambient tempo taken from the
   condition's intensity.
 - **Builds:** iOS is the first release target. EAS production credentials and an App Store
-  Connect record (`com.ubrn.kuyara`, ASC app `6806664440`) exist. Build 8 carries the
-  version on sale and build 9 the version waiting for review (see Release State below);
+  Connect record (`com.ubrn.kuyara`, ASC app `6806664440`) exist. Build 9 carries the
+  version on sale and the next version is being prepared (see Release State below);
   the `production` profile points at the deployed Worker, and the `development` profile
   is the physical-iPhone path ([Development build on the physical
   iPhone](testing.md#development-build-on-the-physical-iphone)). The version scheme and
@@ -177,8 +177,8 @@ and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
 
 ## Release State
 
-Version 0.1.20260913 with build 8 (built from commit 67c20ae) has been on sale in every
-territory since 2026-09-15, 09:14 UTC, at <https://apps.apple.com/app/kuyara/id6806664440>.
+Version 0.1.20260913 with build 8 (built from commit 67c20ae) went on sale in every
+territory on 2026-09-15 at 09:14 UTC, at <https://apps.apple.com/app/kuyara/id6806664440>.
 Apple approved submission `b125d544` on 2026-09-15; the Guideline 2.1 Information Needed
 questionnaire of 2026-09-14 (the six-item set sent to accounts with a limited review
 history: physical-device recording, purpose, setup, external services, regional
@@ -192,17 +192,17 @@ post-release checks: PostHog receives consented build 8 events, including a firs
 non-maintainer install that granted consent on 2026-09-15, and EAS Observe reports a
 0.52 s median cold launch and 0.22 s startup TTI for build 8, in line with build 6.
 
-The next store version record, 0.1.20260915, is in App Store Connect in the Waiting for
-Review state. Its only listing difference from the live version is the final line of the
-English and Turkish descriptions, which no longer mentions creating an account, because the
-live version's description cannot be edited while it is on sale. Build 9 (commit e4c9350,
-EAS build 7e305161) carries that version; it was built and uploaded to App Store Connect on
-2026-09-15 with `eas build` and a non-interactive `eas submit`. The maintainer installed it
-from TestFlight over the installed store build on the phone on 2026-09-15: the upgrade kept
-the existing data and onboarding did not reappear. Build 9 was then attached to the version,
-release notes were written for en-US and tr, and the version was submitted for review on
-2026-09-15. App Store Connect reports it as Waiting for Review with no blocking issues, and
-automatic release after approval stays selected.
+Version 0.1.20260915 with build 9 (commit e4c9350, EAS build 7e305161) was approved and
+released on 2026-09-15 at 21:26 UTC and is the version on sale; App Store Connect reports it
+as Ready for Distribution with no blocking issues, no submission in flight, and phased
+release configured. Its only listing difference from the version before it is the final line
+of the English and Turkish descriptions, which no longer mentions creating an account. The
+maintainer installed build 9 from TestFlight over the installed store build on the phone
+before the submission: the upgrade kept the existing data and onboarding did not reappear.
+
+Version 0.1.20260916 is being prepared from commit c4e9b8f. Its build number is issued by
+EAS, which auto-increments it from the remote version source; the commands are in
+[Release path](testing.md#release-path).
 
 Continuous integration and the iOS release workflow now exist in the repository.
 `.github/workflows/ci.yml` installs from the lockfile and runs Expo Doctor, `pnpm check`
