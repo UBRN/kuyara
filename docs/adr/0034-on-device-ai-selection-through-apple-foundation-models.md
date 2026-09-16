@@ -3,7 +3,7 @@
 Status: Accepted (2026-09-13)
 
 Implementation: the shared privacy projection and the distinctness rule in `packages/contracts`, the routed
-client, the third generation mode with SQLite migration 13, the three badges, the AI status availability row
+client, the third generation mode with SQLite migration 13, the two AI badges, the AI status availability row
 and the local Swift Expo module under `apps/mobile/modules/kuyara-on-device-ai` are implemented and bound.
 This ADR defines the locus of the AI selection step decided
 in [ADR 0007](0007-ai-selects-precomposed-outfits.md): where the selection runs, what the
@@ -114,25 +114,30 @@ the provider and model behind the last check (section 5); that identifier crosse
 API as a controlled non-secret value, like a weather attribution identifier, and is never
 persisted with a recommendation or sent to analytics.
 
-### 4. Three badges, three localized strings, one referential mention
+### 4. Two badges, one referential mention, and nothing at rest for the third mode
 
-Today and the AI status surface show a badge for each of the three modes. The strings are
-final and reach the interface through localization keys like every other string:
+Today badges the two AI modes. The strings are final and reach the interface through
+localization keys like every other string:
 
 | Generation mode | English | Turkish |
 | --- | --- | --- |
 | `on-device-ai` | Chosen on your device with Apple Intelligence | Apple Intelligence ile cihazında seçildi |
 | `ai-assisted` | AI-assisted | AI destekli |
-| `deterministic-fallback` | Standard suggestions | Standart öneriler |
 
 The rules around them:
 
 - The on-device badge appears only when the stored generation mode is `on-device-ai`. A
   badge shown for any other mode would advertise a capability that did not produce the
   result, which App Store Review Guideline 2.3.1(a) treats as misleading marketing.
+- A settled `deterministic-fallback` result carries no badge at all. The absence of the
+  mark is the signal, and a redundant "Standard" badge is not introduced to fill the
+  space ([ADR 0021](0021-direction-e-a-visual-first-design-language.md) section 8). The
+  phase line shown while a recommendation is being produced is a different surface and
+  still narrates the deterministic fallback as it runs.
 - No Apple logo, glyph or icon accompanies the words. Apple's guidelines for third parties
   permit a word mark in a referential phrase such as "with", and permit no Apple-owned
-  graphic symbol.
+  graphic symbol. The `ai-assisted` badge keeps the accent spark glyph ADR 0021 section 8
+  sanctions, which is why that glyph never accompanies the on-device words.
 - kuyara stays the subject of the sentence on the AI status screen, and the Apple word
   mark stays less prominent than the product name.
 - The copy never claims personalisation. AI picks three meaningfully different outfits
@@ -284,7 +289,7 @@ Automated verification covers the routed client against a fake native module (av
 unavailable, timeout, invalid JSON, invented identifier, duplicate archetype), the shared
 projection and distinctness rule against the Worker's existing expectations, migration v13
 row preservation and its rejection of an unknown mode, analytics property totality, and
-the three badges and the availability row in the component suite.
+the two AI badges, the badgeless deterministic state and the availability row in the component suite.
 
 ## Red lines
 

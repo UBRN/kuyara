@@ -91,9 +91,9 @@ tags:
 
 # One of the two AI badges, on-device (named as Apple Intelligence, ADR 0034) or
 # AI-assisted (the Worker tier), and never the deterministic fallback. The recommendation
-# already resolved (see above), so this should settle almost immediately; if the badge is
-# actually "Standard suggestions" (an exhausted Worker quota falling all the way through),
-# this assertion correctly fails rather than passing on the wrong tier.
+# already resolved (see above), so this should settle almost immediately; if the run fell
+# all the way through to the deterministic fallback (an exhausted Worker quota) there is no
+# badge at all, so this assertion correctly fails rather than passing on the wrong tier.
 - extendedWaitUntil:
     visible:
       id: "today-generation-mode"

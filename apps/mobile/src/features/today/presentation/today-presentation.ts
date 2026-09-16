@@ -386,13 +386,15 @@ function createLoadedPresentation(
   const suggestions = outfits.map((outfit, index) =>
     localizeOutfit(outfit, index, outfits.length, weatherReasons, language, dayKind),
   );
-  // ADR 0034 section 4: one badge per stored mode, and the on-device badge only when the
-  // stored mode is `on-device-ai`, so the words never advertise a tier that did not produce
-  // this result.
-  const generationModeLabels: Record<RecommendationGenerationMode, string> = {
+  // ADR 0034 section 4: the on-device badge appears only when the stored mode is
+  // `on-device-ai`, so the words never advertise a tier that did not produce this result,
+  // and a settled deterministic result carries no badge at all, because the absence of the
+  // mark is the signal (ADR 0021 section 8). The phase line during generation is separate
+  // and still narrates the deterministic fallback while it runs.
+  const generationModeLabels: Record<RecommendationGenerationMode, string | null> = {
     'on-device-ai': copy.generationModeOnDeviceAi,
     'ai-assisted': copy.generationModeAiAssisted,
-    'deterministic-fallback': copy.generationModeStandard,
+    'deterministic-fallback': null,
   };
   const generationModeLabel = snapshot.recommendation.status === 'recommended'
     ? generationModeLabels[snapshot.recommendation.generationMode]

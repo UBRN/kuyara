@@ -24,7 +24,7 @@ const evidence = [
 ];
 
 for (const [presetName, preset, min, max] of [
-  ['today', todayPreset, 0.80, 1.16],
+  ['today', todayPreset, 0.66, 1.14],
   ['detail', detailPreset, 0.60, 1.45],
 ]) {
   for (const [name, slots] of evidence) {

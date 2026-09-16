@@ -16,7 +16,7 @@ import type { WeatherReadyState } from '@/features/weather/application/weather-a
 import { WeatherScreen } from '@/features/weather/presentation/weather-screen';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
-import { layout, lightTheme, typography } from '@/theme/theme';
+import { layout, lightTheme, spacing, typography } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 jest.mock('expo-router', () => {
@@ -159,8 +159,9 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
     const locationButton = result.getByRole('button', {
       name: `${copy.noLocation} ${copy.changeLocationAction}`,
     });
-    expect(locationButton.props.hitSlop).toBe(10);
-    expect(24 + locationButton.props.hitSlop * 2).toBeGreaterThanOrEqual(44);
+    // ADR 0028's row anatomy carries the 44 target itself, the way Profile's does.
+    expect(StyleSheet.flatten(locationButton.props.style))
+      .toMatchObject({ minHeight: layout.minimumTouchTarget, paddingVertical: spacing.md });
     await fireEvent.press(locationButton);
     expect(router.push).toHaveBeenCalledWith('/weather/location');
     expect(result.queryByRole('radiogroup')).toBeNull();
@@ -390,17 +391,16 @@ test('without a snapshot the location control stays the first block after the ti
   const result = await render(
     <Providers language="en" value={value}><WeatherScreen /></Providers>,
   );
+  const placeName = getManualLocation('sample.istanbul')!.displayName;
 
   expect(result.queryByTestId('weather-current-card')).toBeNull();
   expect(result.queryByText(messages.en.weather.introduction)).toBeNull();
-  // Text queries return nodes in tree order: the location control's action label comes first.
+  // Text queries return nodes in tree order: the location row's own label comes first.
   const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const texts = result
-    .getAllByText(new RegExp(
-      `^(${escape(messages.en.weather.changeLocationAction)}|${escape(messages.en.weather.offlineBody)})$`,
-    ))
+    .getAllByText(new RegExp(`^(${escape(placeName)}|${escape(messages.en.weather.offlineBody)})$`))
     .map((element) => element.props.children);
-  expect(texts).toEqual([messages.en.weather.changeLocationAction, messages.en.weather.offlineBody]);
+  expect(texts).toEqual([placeName, messages.en.weather.offlineBody]);
 });
 
 test('the freshness line announces only while it is not fresh', async () => {
@@ -532,12 +532,11 @@ test('Weather renders a searched place from its persisted display name', async (
   expect(result.getByText('İstanbul')).toBeOnTheScreen();
 });
 
-test.each([
-  [1, 'row', false],
-  [3.12, 'column', true],
-] as const)(
-  'Weather at fontScale %s uses a %s location-card layout that remains word-wrappable',
-  async (fontScale, flexDirection, stacked) => {
+// ADR 0028: Weather's location control is the shared list row Profile draws, so the row's
+// own primitive owns the text scaling and this screen only has to hand it the place.
+test.each([[1], [3.12]] as const)(
+  'Weather at fontScale %s draws the location as the shared list row',
+  async (fontScale) => {
     mockFontScale(fontScale);
     const active = getManualLocation('sample.istanbul')!;
     const result = await render(
@@ -546,13 +545,15 @@ test.each([
       </Providers>,
     );
 
-    expect(StyleSheet.flatten(result.getByTestId('weather-location-card').props.style))
-      .toMatchObject({ flexDirection });
-    expect(StyleSheet.flatten(result.getByTestId('weather-location-name-group').props.style))
-      .toMatchObject({ flex: 1, flexShrink: 1 });
-    expect(StyleSheet.flatten(result.getByTestId('weather-location-affordance').props.style))
-      .toMatchObject(stacked ? { alignSelf: 'stretch' } : { flexShrink: 0 });
-    expect(Boolean(result.queryByTestId('weather-location-identity-row'))).toBe(stacked);
+    const row = result.getByTestId('weather-change-location-button');
+    expect(StyleSheet.flatten(row.props.style)).toMatchObject({
+      flexDirection: 'row',
+      minHeight: layout.minimumTouchTarget,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+    });
+    expect(result.getByTestId('weather-change-location-button-tile')).toBeOnTheScreen();
+    expect(within(row).getByText(active.displayName)).toBeOnTheScreen();
   },
 );
 
@@ -573,10 +574,8 @@ test('Weather at font scale 3.1 keeps its actions, hourly heading, and last colu
   );
 
   expect(result.getByText(messages.en.weather.refresh)).toHaveTextContent('Refresh');
-  expect(result.getByText(messages.en.weather.changeLocationAction)).toHaveTextContent('Change');
   expect(result.getByText(messages.en.weather.refresh).props.numberOfLines).toBeUndefined();
-  expect(result.getByText(messages.en.weather.changeLocationAction).props.numberOfLines)
-    .toBeUndefined();
+  expect(result.getByTestId('weather-change-location-button')).toBeOnTheScreen();
   expect(StyleSheet.flatten(result.getByRole('header', {
     name: messages.en.weather.hourlyHeading,
   }).props.style)).toMatchObject({ lineHeight: typography.bodyStrong.lineHeight });
@@ -848,6 +847,14 @@ test('the hourly rail scrolls horizontally and plots one accent temperature seri
   // react-native-svg normalizes the stroke into a processed colour before it reaches the
   // host element, so the accent is compared in that form.
   expect(line.props.stroke.payload).toBe(processColor(lightTheme.colors.brandAccent));
+  // The series runs behind the rail, so each number knocks the stroke out with the card's
+  // own fill instead of letting it cross the digits.
+  const label = result.getAllByTestId('weather-hourly-temperature', { includeHiddenElements: true })[0];
+  expect(StyleSheet.flatten(label.props.style)).toMatchObject({
+    backgroundColor: lightTheme.colors.surface,
+    paddingHorizontal: spacing.xs,
+    position: 'absolute',
+  });
 });
 
 test('the UV stat is omitted at zero and wind and humidity keep their places', async () => {
