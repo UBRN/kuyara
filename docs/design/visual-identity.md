@@ -179,6 +179,15 @@ The approved MVP splash direction is:
 
 The splash screen should establish continuity without delaying the user's decision or presenting a second marketing experience.
 
+## Web presence
+
+The public site published from `docs/` is a brand export in the same sense as the icon and the splash, not a product surface. It consumes the six approved brand hexes and the app's semantic tokens through `docs/assets/css/tokens.css`, one point to one CSS pixel, and the silhouettes, the stage tint and the type scale on it are the app's. Four choices are web-only and are stated here so the site can be checked against something; none of them changes a rule for the app.
+
+- **The Open Graph image** (`docs/assets/img/og-image.png`, 1200 by 630) is the landing hero's lockup as a raster: the master symbol, paths unmodified, filled Calm Current on a Soft Mist ground, with the lowercase name set beneath it in the display role of the type scale, coloured Deep Atmosphere, in the site's sans stack (the raster is set in Helvetica Neue). It is the name in type, not a wordmark; the custom wordmark that may be approved separately does not exist, and the text-free rule binds the app icon only.
+- **The favicon** (`docs/assets/img/favicon.svg` and its 16 and 32 pixel rasters) is a fourth symbol export with its own role. It keeps the app icon's navy-to-petrol background and Cloud White symbol with the master paths unmodified, and scales the symbol 1.3 times about the frame's centre, so the symbol spans about three quarters of the frame's width where the app icon spans three fifths. At 16 pixels the icon's proportion closes the gap system into one shape; the larger proportion keeps three pieces readable. The app icon, the touch icon and the splash symbol keep their own proportions.
+- **The landing boards are a row, not an ADR 0025 composition.** Each board places a top, a bottom and footwear side by side in one 160 by 53 unit frame, every silhouette at its authored 64-unit scale, on a stage about 2.6 times wider than it is tall and capped at 452 CSS pixels wide. The ladder, the placement families and the 0.80 to 1.16 stage-height range of [ADR 0025](../adr/0025-the-garment-board-composition-rule.md) govern the app's Today and detail boards. The site's scroll scene needs three boards whose slots share the same three centres, so a dissolve swaps one garment in place; a stage whose height varies with the outfit cannot do that.
+- **A landing band is a screen for Law 2.** Each `.ku-band` and the footer carry the `2xl` step as padding on both edges, doubled from 720 CSS pixels up, so that step serves as each band's trailing space rather than as a gap between two pieces of content inside one band. The step's app meaning in [`design-language.md`](design-language.md#law-2-the-rhythm) is unchanged.
+
 ## In-app icons and illustration
 
 The app icon and interface icons are separate systems. Prefer platform-native icon systems where they clearly express the required action or concept. Reserve custom icons for kuyara-specific concepts that platform libraries cannot represent well.
@@ -197,7 +206,7 @@ The silhouette is a slot in the composition, not an asset the composition depend
 
 Motion must be restrained, functional, and calm. Use it for hierarchy, feedback, and state transitions, and ensure that critical information remains understandable without motion. A screen's content arrives in reading order after the platform's own transition, which stays the platform's; the outfit is the hero, and its pieces land on the board with a visible settle. Continuous and repeating motion is permitted where it supports the weather atmosphere, state, hierarchy, feedback, or product character, per [ADR 0020](../adr/0020-rewriting-the-motion-law.md) and [`design-language.md`](design-language.md#law-7-motion), and ambient weather motion takes its pace from the condition's intensity; it must never be the only indication of a state change, must not sit under a screen's hero value, and must respect Reduced Motion.
 
-There is no mascot, no particle effect, and no sound. When Reduced Motion is enabled the interface renders the static end state. Avoid constant decorative animation and transitions that delay the user's decision.
+There is no mascot, no particle effect, and no sound. When Reduced Motion is enabled the interface renders the static end state. The website is the one carve-out: it animates regardless of the operating system's Reduce Motion setting, a maintainer decision recorded in [`product-decisions.md`](../product-decisions.md#approved-privacy-and-consent-posture-for-analytics) that binds the site alone. Avoid constant decorative animation and transitions that delay the user's decision.
 
 ## Accessibility acceptance requirements
 
