@@ -59,6 +59,7 @@ export type Env = Readonly<{
   WEATHERKIT_KEY_ID?: string;
   WEATHERKIT_PRIVATE_KEY?: string;
   WEATHER_RATE_LIMIT?: RateLimitBinding;
+  PLACE_SEARCH_RATE_LIMIT?: RateLimitBinding;
 }>;
 
 const jsonHeaders = {
@@ -158,13 +159,14 @@ export function buildRouter(env: Env): Handler {
       rateLimiter: env.WEATHER_RATE_LIMIT,
     })
     : offlineRoute(weatherV1Path, 'WEATHER_RATE_LIMIT', weatherUnavailable);
-  // Place search shares weather's per-IP budget, so it shares weather's binding.
-  const placeSearchHandler = env.WEATHER_RATE_LIMIT
+  // Place search has its own binding: sharing weather's let a burst of typed keystrokes
+  // exhaust the weather refresh budget, and the reverse.
+  const placeSearchHandler = env.PLACE_SEARCH_RATE_LIMIT
     ? createPlaceSearchHandler({
       provider: new OpenMeteoPlaceProvider(),
-      rateLimiter: env.WEATHER_RATE_LIMIT,
+      rateLimiter: env.PLACE_SEARCH_RATE_LIMIT,
     })
-    : offlineRoute(placeSearchV1Path, 'WEATHER_RATE_LIMIT', placesUnavailable);
+    : offlineRoute(placeSearchV1Path, 'PLACE_SEARCH_RATE_LIMIT', placesUnavailable);
   const aiHandler = !env.AI_RECOMMEND_RATE_LIMIT
     ? offlineRoute(aiRecommendV1Path, 'AI_RECOMMEND_RATE_LIMIT', aiUnavailable)
     : !env.DAILY_COUNTERS
@@ -226,6 +228,7 @@ function compositionKey(env: Env): string {
     Boolean(env.AI_PROBE_RATE_LIMIT),
     Boolean(env.AI_RECOMMEND_RATE_LIMIT),
     Boolean(env.WEATHER_RATE_LIMIT),
+    Boolean(env.PLACE_SEARCH_RATE_LIMIT),
   ]);
 }
 

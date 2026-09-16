@@ -21,7 +21,11 @@
   "ratelimits": [
     { "name": "AI_PROBE_RATE_LIMIT", "namespace_id": "1001", "simple": { "limit": 3, "period": 60 } },
     { "name": "AI_RECOMMEND_RATE_LIMIT", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
-    { "name": "WEATHER_RATE_LIMIT", "namespace_id": "1003", "simple": { "limit": 20, "period": 60 } }
+    { "name": "WEATHER_RATE_LIMIT", "namespace_id": "1003", "simple": { "limit": 20, "period": 60 } },
+    // Its own budget, so typed searches and weather refreshes cannot exhaust each other.
+    // 30/60s is derived in docs/architecture.md from the picker's debounce, the at most four
+    // upstream calls a search costs, and Open-Meteo's free ceiling.
+    { "name": "PLACE_SEARCH_RATE_LIMIT", "namespace_id": "1004", "simple": { "limit": 30, "period": 60 } }
   ],
   "vars": {
     "OPENROUTER_MODELS": ["nex-agi/nex-n2.5-mini:free", "nvidia/nemotron-3-super-120b-a12b:free", "nex-agi/nex-n2.5-pro:free"],
@@ -47,7 +51,8 @@
       "ratelimits": [
         { "name": "AI_PROBE_RATE_LIMIT", "namespace_id": "2001", "simple": { "limit": 3, "period": 60 } },
         { "name": "AI_RECOMMEND_RATE_LIMIT", "namespace_id": "2002", "simple": { "limit": 10, "period": 60 } },
-        { "name": "WEATHER_RATE_LIMIT", "namespace_id": "2003", "simple": { "limit": 20, "period": 60 } }
+        { "name": "WEATHER_RATE_LIMIT", "namespace_id": "2003", "simple": { "limit": 20, "period": 60 } },
+        { "name": "PLACE_SEARCH_RATE_LIMIT", "namespace_id": "2004", "simple": { "limit": 30, "period": 60 } }
       ],
       "vars": {
         "OPENROUTER_MODELS": [],
