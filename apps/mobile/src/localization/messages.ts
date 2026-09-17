@@ -200,6 +200,7 @@ export type AppMessages = Readonly<{
     developmentBuild: string;
     aiStatusHeading: string;
     aiStatusIntro: string;
+    aiStatusProvenanceFooter: string;
     aiStatusOnDeviceRunning: string;
     aiStatusOnDeviceOff: string;
     aiStatusOnDeviceIncompatible: string;
@@ -272,7 +273,6 @@ export type AppMessages = Readonly<{
       acceptAction: string;
       dismissAction: string;
     }>;
-    alerts: Readonly<{
     /**
      * ADR 0004's second notification kind. Each body is one complete localized text read at
      * 07:00 on the morning it describes, never assembled from fragments.
@@ -290,6 +290,7 @@ export type AppMessages = Readonly<{
       cloudyBody: (values: MorningTemperatures) => string;
       wetBody: (values: MorningTemperatures) => string;
     }>;
+    alerts: Readonly<{
       rainTitle: string;
       rainBody: (time: string) => string;
       snowTitle: string;
@@ -551,6 +552,7 @@ const en = {
     developmentBuild: 'Development build',
     aiStatusHeading: 'AI status',
     aiStatusIntro: 'Check whether AI responds right now.',
+    aiStatusProvenanceFooter: 'Today shows a small badge when AI chose the outfit, and nothing when the standard suggestions did.',
     aiStatusOnDeviceRunning:
       'Apple Intelligence: compatible and running. kuyara chooses your outfits on this device.',
     aiStatusOnDeviceOff:
@@ -620,13 +622,11 @@ const en = {
       sentences: {
         precipitation_onset: 'kuyara could have warned you before rain or snow started today.',
         temperature_swing: 'kuyara could have warned you before today\u2019s sharp temperature change.',
+        morning_briefing: 'kuyara can send a morning briefing at 07:00 and a weather alert before the weather changes during the day.',
       },
       acceptAction: 'Turn on notifications',
-        morning_briefing: 'kuyara can send a morning briefing at 07:00 and a weather alert before the weather changes during the day.',
       dismissAction: 'Not now',
     },
-    alerts: {
-      rainTitle: 'Rain is on the way',
     morningBriefing: {
       toggleLabel: 'Morning briefing',
       hint: 'A single notification at 07:00 with the morning\u2019s weather, when tomorrow morning is already in the forecast.',
@@ -641,6 +641,8 @@ const en = {
         ? `A wet morning at ${low}\u00b0C. Your outfit for today is waiting in kuyara.`
         : `A wet morning between ${low}\u00b0C and ${high}\u00b0C. Your outfit for today is waiting in kuyara.`),
     },
+    alerts: {
+      rainTitle: 'Rain is on the way',
       rainBody: (time) => `Rain is expected around ${time}. Take something waterproof with you.`,
       snowTitle: 'Snow is on the way',
       snowBody: (time) => `Snow is expected around ${time}. Take a warm, waterproof layer with you.`,
@@ -833,7 +835,7 @@ const en = {
   },
   today: {
     title: 'Today',
-    generationModeOnDeviceAi: 'Chosen on your device with Apple Intelligence',
+    generationModeOnDeviceAi: 'Chosen on your device',
     generationModeAiAssisted: 'AI-assisted',
     generationModeAccessibilityLabel: (label: string) =>
       `Recommendation source: ${label}`,
@@ -1054,6 +1056,7 @@ const tr = {
     developmentBuild: 'Geliştirme derlemesi',
     aiStatusHeading: 'AI durumu',
     aiStatusIntro: 'AI’nin şu anda yanıt verip vermediğini kontrol et.',
+    aiStatusProvenanceFooter: 'Kombini AI seçtiyse Bugün’de küçük bir rozet görünür, standart öneriler seçtiyse hiçbir şey görünmez.',
     aiStatusOnDeviceRunning:
       'Apple Intelligence: uyumlu ve çalışıyor. kuyara kombinlerini bu cihazda seçiyor.',
     aiStatusOnDeviceOff:
@@ -1123,14 +1126,11 @@ const tr = {
       sentences: {
         precipitation_onset: 'kuyara bugün yağış başlamadan seni uyarabilirdi.',
         temperature_swing: 'kuyara bugün sıcaklık sert değişmeden seni uyarabilirdi.',
+        morning_briefing: 'kuyara sabah 07.00\u2019de bir brifing, gün içinde hava değişmeden de bir uyarı gönderebilir.',
       },
       acceptAction: 'Bildirimleri aç',
       dismissAction: 'Şimdi değil',
-        morning_briefing: 'kuyara sabah 07.00\u2019de bir brifing, gün içinde hava değişmeden de bir uyarı gönderebilir.',
     },
-    alerts: {
-      rainTitle: 'Yağmur geliyor',
-      rainBody: (time) => `Saat ${time} civarında yağmur bekleniyor. Yanına su geçirmez bir parça al.`,
     morningBriefing: {
       toggleLabel: 'Sabah brifingi',
       hint: 'Yarın sabah tahminde yer aldığında, 07.00\u2019de sabahın havasını anlatan tek bir bildirim.',
@@ -1145,6 +1145,9 @@ const tr = {
         ? `Yağışlı bir sabah, ${low}\u00b0C. Bugünün kombini kuyara\u2019da seni bekliyor.`
         : `Yağışlı bir sabah, ${low}\u00b0C ile ${high}\u00b0C arası. Bugünün kombini kuyara\u2019da seni bekliyor.`),
     },
+    alerts: {
+      rainTitle: 'Yağmur geliyor',
+      rainBody: (time) => `Saat ${time} civarında yağmur bekleniyor. Yanına su geçirmez bir parça al.`,
       snowTitle: 'Kar geliyor',
       snowBody: (time) => `Saat ${time} civarında kar bekleniyor. Yanına sıcak tutan, su geçirmez bir kat al.`,
       dropTitle: 'Hava daha soğuk hissedilecek',
@@ -1340,7 +1343,7 @@ const tr = {
   },
   today: {
     title: 'Bugün',
-    generationModeOnDeviceAi: 'Apple Intelligence ile cihazında seçildi',
+    generationModeOnDeviceAi: 'Cihazında seçildi',
     generationModeAiAssisted: 'AI destekli',
     generationModeAccessibilityLabel: (label: string) =>
       `Öneri kaynağı: ${label}`,

@@ -409,7 +409,7 @@ test('a mild day with a live forecast falls back to the deterministic status sen
 });
 
 // ADR 0034 section 4: the two AI modes badge themselves, the deterministic one badges
-// nothing at rest, and the Apple word mark carries no icon of any kind.
+// nothing at rest, neither badge carries a glyph, and neither names a provider.
 test('only the AI generation modes carry a localized accessible generation mark', () => {
   const recommendation = todayScreenState.snapshot.recommendation;
   assert.equal(recommendation.status, 'recommended');
@@ -421,14 +421,13 @@ test('only the AI generation modes carry a localized accessible generation mark'
     },
   }).generationMode;
 
-  for (const [generationMode, label, showsAiMark] of [
-    ['on-device-ai', 'Chosen on your device with Apple Intelligence', false],
-    ['ai-assisted', 'AI-assisted', true],
+  for (const [generationMode, label] of [
+    ['on-device-ai', 'Chosen on your device'],
+    ['ai-assisted', 'AI-assisted'],
   ]) {
     assert.deepEqual(markOf(generationMode), {
       label,
       accessibilityLabel: `Recommendation source: ${label}`,
-      showsAiMark,
     });
   }
 

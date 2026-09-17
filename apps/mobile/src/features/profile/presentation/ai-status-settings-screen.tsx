@@ -9,7 +9,8 @@ import { useLocalization } from '@/localization/use-messages';
 
 // ADR 0030 section 5 and ADR 0034 section 5: a first group with what the device reports
 // about Apple Intelligence, the provider and model that answered the last check, and the
-// last recommendation's coarse generation mode, then a second group with the tinted
+// last recommendation's coarse generation mode under a footer that explains the badge Today
+// shows (the badge itself carries words only, so its explanation lives here), then a second group with the tinted
 // "Check AI status" row, a result row when there is a result (a monochrome status glyph in
 // the shared tile, words beside it in the system's secondary ink, never a status colour),
 // and a footer. This screen is the only surface that may name a provider or a model.
@@ -91,7 +92,9 @@ export function AiStatusSettingsScreen({
   return (
     <View style={styles.root}>
       <NativeList testID="settings-ai-status-screen">
-        <NativeListSection testID="settings-ai-status-last-mode-group">
+        <NativeListSection
+          footer={copy.aiStatusProvenanceFooter}
+          testID="settings-ai-status-last-mode-group">
           <NativeListRow
             label={onDeviceCopy}
             testID="settings-ai-status-on-device"

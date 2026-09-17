@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 
 import {
@@ -13,6 +13,7 @@ import {
   Icon,
   PressScale,
   measureGarmentBoardHeight,
+  Pill,
   Screen,
   Surface,
   useRefreshOutcomeHaptics,
@@ -42,8 +43,6 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 // doing, so it never needs the escalation; past this the unnarrated line has stopped being
 // informative on its own.
 const LONG_WAIT_MS = 8_000;
-// Law 6: a caption-sized mark, the same 16 the ownership and menu glyphs use.
-const CAPTION_GLYPH_SIZE = 16;
 // Law 6's standalone step, and the size the recommendation detail already draws an accessory
 // at. The artwork fills about 60 percent of its box, so a caption-sized badge would put the
 // garment at roughly 9.6 points with a fixed 1.9 point stroke: the ribs, fingers and folds
@@ -337,13 +336,22 @@ export function TodayScreen({
                 </View>
               </View>
             </Pressable>
+            {/* The badge sits on the page ground, never inside the Pressable and never over
+                the tinted stage, where the badge ink falls to 2.622:1 on `fallingNight`. It is
+                not touchable, carries no glyph, and says only where the outfit came from. */}
+            {presentation.generationMode ? (
+              <ProvenanceBadge
+                accessibilityLabel={presentation.generationMode.accessibilityLabel}
+                label={presentation.generationMode.label}
+              />
+            ) : null}
             <AppText
               colorRole="textSecondary"
               style={styles.rationale}
               testID="today-rationale">
               {primary.reasons[0]}
             </AppText>
-            <AccessoryBadges suggestion={primary} />
+            <AccessoryBadges caption={presentation.copy.finishingTouchesHeading} suggestion={primary} />
           </>
         ) : (
           <View accessible accessibilityLabel={presentation.weather.accessibilityLabel}>
@@ -354,28 +362,6 @@ export function TodayScreen({
         <View
           style={[styles.provenance, usesAccessibilityLayout && styles.stackedProvenance]}
           testID="today-provenance">
-          {presentation.generationMode ? (
-            <>
-              <View style={styles.generationMode}>
-                {presentation.generationMode.showsAiMark ? (
-                  <View testID="today-provenance-sparkle">
-                    <Icon color={theme.colors.brandAccent} name="sparkle" size={CAPTION_GLYPH_SIZE} />
-                  </View>
-                ) : null}
-                <AppText
-                  accessibilityLabel={presentation.generationMode.accessibilityLabel}
-                  colorRole="textSecondary"
-                  style={styles.generationModeLabel}
-                  testID="today-generation-mode"
-                  variant="caption">
-                  {presentation.generationMode.label}
-                </AppText>
-              </View>
-              {!usesAccessibilityLayout ? (
-                <AppText accessibilityElementsHidden importantForAccessibility="no-hide-descendants" colorRole="textSecondary" variant="caption">·</AppText>
-              ) : null}
-            </>
-          ) : null}
           {presentation.header.phase ? <PhaseMark size={16} testID="today-phase-mark" /> : null}
           <AppText
             accessibilityLiveRegion={presentation.header.announceFreshness ? 'polite' : 'none'}
@@ -440,16 +426,15 @@ export function TodayScreen({
                     <View
                       accessibilityElementsHidden
                       importantForAccessibility="no-hide-descendants"
-                      style={[
-                        styles.alternateStage,
-                        { backgroundColor: stageColor, height: alternateStageHeight },
-                      ]}
+                      style={[styles.alternateStage, { height: alternateStageHeight }]}
                       testID={`today-alternate-stage-${suggestion.id}`}>
+                      {/* The alternates stand on the page ground and take the neutral stage
+                          fill, so the screen carries one chromatic event: the primary
+                          composition. A plate tinted with its own fill would read 1.0:1. */}
                       <GarmentBoard
                         accessibilityLabel={suggestion.boardAccessibilityLabel}
                         pieces={suggestion.boardPieces}
                         preset="today"
-                        stageColor={stageColor}
                         testID={`today-alternate-board-${suggestion.id}`}
                         width={alternateWidth}
                       />
@@ -569,14 +554,48 @@ function WeatherAlertOfferRow({
 }
 
 /**
+ * The provenance badge: one controlled-role Pill under the outfit name, on the page ground.
+ * Law 7: it arrives as a state change of something already on screen, so it takes the
+ * `normal` duration and moves nothing but opacity, whether it mounts with a cached answer or
+ * replaces the phase line when a live answer lands. The words and the colour carry the
+ * signal; the fade is never the only one, and under Reduce Motion it rests at full opacity.
+ */
+function ProvenanceBadge({
+  accessibilityLabel,
+  label,
+}: Readonly<{ accessibilityLabel: string; label: string }>) {
+  const theme = useKuyaraTheme();
+  const opacity = useSharedValue<number>(theme.isReduceMotionEnabled ? 1 : 0);
+
+  useEffect(() => {
+    opacity.set(withTiming(1, { duration: theme.motion.normal }));
+  }, [opacity, theme.motion.normal]);
+
+  const arrivalStyle = useAnimatedStyle(() => ({ opacity: opacity.get() }));
+
+  return (
+    <View
+      accessible
+      accessibilityLabel={accessibilityLabel}
+      style={styles.provenanceBadge}
+      testID="today-provenance-badge">
+      <Animated.View style={arrivalStyle}>
+        <Pill label={label} testID="today-generation-mode" tone="provenance" />
+      </Animated.View>
+    </View>
+  );
+}
+
+/**
  * The accessories the outfit finishes with, as silhouettes at Law 6's standalone mark size.
  * They are one accessible element that reads the names, never an accent and never animated,
  * because they answer a question the card has already answered in words. A day that asks for
  * no accessory renders nothing at all.
  */
 function AccessoryBadges({
+  caption,
   suggestion,
-}: Readonly<{ suggestion: LoadedOutfitPresentation }>) {
+}: Readonly<{ caption: string; suggestion: LoadedOutfitPresentation }>) {
   if (suggestion.accessories.length === 0) {
     return null;
   }
@@ -602,14 +621,21 @@ function AccessoryBadges({
           width={ACCESSORY_BADGE_SIZE}
         />
       ))}
+      {/* Law 6: the silhouettes alone say what they are to nobody who has not learned them,
+          so the row names itself. The accessible label already opens with the same words. */}
+      <AppText colorRole="textSecondary" style={styles.accessoryCaption} variant="caption">
+        {caption}
+      </AppText>
     </View>
   );
 }
 
-// Law 6: the existing AI mark, sized to the text it sits beside and drawn in the secondary
-// icon ink rather than the accent, because the wait is not the screen's one accent-filled
-// element. Law 7: it breathes on the ambient calm step, holds still under Reduce Motion, and
-// stays out of the accessibility tree because the adjacent line is the state.
+// Law 6: a waiting mark, sized to the text it sits beside and drawn in the secondary icon
+// ink rather than the accent, because the wait is not the screen's one accent-filled
+// element. It is a clock rather than a sparkle: `visual-identity.md` refuses the AI-sparkle
+// convention, and the pulsing mark is where that convention was most visible. Law 7: it
+// breathes on the ambient calm step, holds still under Reduce Motion, and stays out of the
+// accessibility tree because the adjacent line is the state.
 function PhaseMark({ size, testID }: Readonly<{ size: number; testID: string }>) {
   const theme = useKuyaraTheme();
   const pulse = useAmbientPulse();
@@ -621,7 +647,7 @@ function PhaseMark({ size, testID }: Readonly<{ size: number; testID: string }>)
       importantForAccessibility="no-hide-descendants"
       style={animatedStyle}
       testID={testID}>
-      <Icon color={theme.colors.iconSecondary} name="sparkle" size={size} />
+      <Icon color={theme.colors.iconSecondary} name="clock" size={size} />
     </Animated.View>
   );
 }
@@ -647,7 +673,12 @@ function Sky({ intensity, weather, overlay = false }: Readonly<{
         </AppText>
       </View>
       <View style={styles.weatherGlyph}>
-        <WeatherGlyph intensity={intensity} testID="today-header-weather-glyph" />
+        <WeatherGlyph
+          condition={weather.conditionCode}
+          intensity={intensity}
+          localHour={weather.localHour}
+          testID="today-header-weather-glyph"
+        />
       </View>
     </View>
   );
@@ -660,8 +691,10 @@ const styles = StyleSheet.create({
   titleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg },
   outfitName: { flex: 1, flexShrink: 1 },
   disclosure: { opacity: 0.55 },
+  provenanceBadge: { marginTop: spacing.xs },
   rationale: { marginTop: spacing.sm },
-  accessoryBadges: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.sm },
+  accessoryBadges: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm },
+  accessoryCaption: { flexShrink: 1, marginLeft: spacing.xs },
   loadingIntro: { gap: spacing.xs, marginBottom: spacing.md },
   generatingStatus: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.md },
   generatingStatusText: { flexShrink: 1 },
@@ -673,8 +706,6 @@ const styles = StyleSheet.create({
   weatherGlyph: { transform: [{ scale: 31 / 36 }] },
   provenance: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.md },
   stackedProvenance: { alignItems: 'flex-start', flexDirection: 'column' },
-  generationMode: { alignItems: 'center', flexDirection: 'row', flexShrink: 1, gap: spacing.xs },
-  generationModeLabel: { flexShrink: 1 },
   freshness: { flexShrink: 1 },
   stackedFreshness: { width: '100%' },
   alertOffer: { gap: spacing.md, marginTop: spacing.md, padding: spacing.lg },

@@ -1,7 +1,7 @@
 import { Column, Host as UniversalHost, Icon as ExpoIcon, List as UniversalList, ListItem, RNHostView, Row, Text as ExpoText } from '@expo/ui';
 import { accessibilityAddTraits, font, foregroundStyle, listStyle, scrollContentBackground, tint } from '@expo/ui/swift-ui/modifiers';
 import type { ReactElement, ReactNode } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/ui/app-text';
@@ -70,9 +70,20 @@ export type NativeListSectionProps = Readonly<{
 }>;
 
 export function NativeListSection({ children, footer, heading, testID }: NativeListSectionProps) {
+  // `RNHostView matchContents` sizes the host to the intrinsic width its React Native child
+  // asks for, and an unconstrained line of text asks for as much as it needs, so at the
+  // largest accessibility size the heading ran past the list and was clipped. The list fills
+  // the window, so the heading is given that width less one gutter: it now wraps inside the
+  // host and the host reports the wrapped height back to the section.
+  const { width } = useWindowDimensions();
   const header = heading ? (
     <RNHostView matchContents>
-      <AppText accessibilityRole="header" colorRole="textSecondary" style={styles.heading} variant="bodyStrong">
+      <AppText
+        accessibilityRole="header"
+        colorRole="textSecondary"
+        style={[styles.heading, { width: Math.max(0, width - spacing.lg) }]}
+        testID={testID ? `${testID}-heading` : undefined}
+        variant="bodyStrong">
         {heading}
       </AppText>
     </RNHostView>

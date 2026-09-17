@@ -46,6 +46,8 @@ const requiredSemanticRoles = [
   'warningContainer',
   'dangerInk',
   'dangerContainer',
+  'provenanceInk',
+  'provenanceContainer',
   'scrim',
 ];
 
@@ -516,11 +518,14 @@ test('Direction E replaces the light card step with legible stage and supporting
   assert.ok(relativeLuminance(hexToRgb(colors.backgroundElevated)) > relativeLuminance(hexToRgb(colors.surface)));
 });
 
-test('status inks stay inside the accent contrast band and remain legible on every plane', () => {
+test('controlled role inks stay inside the accent contrast band and remain legible on every plane', () => {
+  // Law 4's band holds every controlled role pair, not only the three status verdicts:
+  // `provenance` records where a recommendation came from and enters on the same terms.
   const statusRoles = [
     ['successInk', 'successContainer'],
     ['warningInk', 'warningContainer'],
     ['dangerInk', 'dangerContainer'],
+    ['provenanceInk', 'provenanceContainer'],
   ];
 
   for (const semanticColors of [lightSemanticColors, darkSemanticColors]) {

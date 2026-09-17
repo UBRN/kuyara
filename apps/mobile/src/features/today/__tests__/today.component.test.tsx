@@ -1,4 +1,5 @@
 import { act, fireEvent, isHiddenFromAccessibility, render, waitFor, within } from '@testing-library/react-native';
+import { SymbolView } from 'expo-symbols';
 import { AppState, Dimensions, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -202,11 +203,10 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     }
     expect(within(result.getByTestId('today-provenance')).getByTestId('today-freshness'))
       .toHaveTextContent(presentation.header.freshness);
-    // ADR 0034 section 4: a settled deterministic result carries no badge at all, so the
-    // provenance line holds nothing but the freshness stamp.
+    // ADR 0034 section 4: a settled deterministic result carries no badge at all, and no
+    // space is held for one, so the provenance line holds nothing but the freshness stamp.
+    expect(result.queryByTestId('today-provenance-badge')).not.toBeOnTheScreen();
     expect(result.queryByTestId('today-generation-mode')).not.toBeOnTheScreen();
-    expect(result.queryByTestId('today-provenance-sparkle', { includeHiddenElements: true }))
-      .not.toBeOnTheScreen();
     expect(result.queryByText(messages[language].today.emphasis.recommended)).not.toBeOnTheScreen();
     const place = result.getByText('Istanbul');
     // A long place name and a long archetype wrap instead of clipping at large text sizes.
@@ -245,9 +245,13 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     );
     expect(tallestStage).toBeGreaterThan(0);
     for (const suggestion of presentation.suggestions.slice(1)) {
-      expect(
-        StyleSheet.flatten(result.getByTestId(`today-alternate-stage-${suggestion.id}`, hidden).props.style),
-      ).toMatchObject({ backgroundColor: stageColor, height: tallestStage, justifyContent: 'center' });
+      // The alternates keep the shared height and the centred board, and leave the tint:
+      // one chromatic event per screen, and the primary composition is it.
+      const style = StyleSheet.flatten(
+        result.getByTestId(`today-alternate-stage-${suggestion.id}`, hidden).props.style,
+      );
+      expect(style).toMatchObject({ height: tallestStage, justifyContent: 'center' });
+      expect(style.backgroundColor).toBeUndefined();
     }
     for (const suggestion of presentation.suggestions.slice(1)) {
       const alternate = result.getByTestId(`today-alternate-${suggestion.id}`);
@@ -272,16 +276,51 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     expect(screenStyle.paddingBottom).toBe(spacing.md);
   });
 
-  test('shows AI provenance beside freshness only when AI contributed', async () => {
+  test.each([lightTheme, darkTheme])('badges AI provenance under the outfit name, off the tinted stage', async (theme) => {
     const result = await render(providers(
       <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
         onRefresh={jest.fn()} state={aiAssistedTodayScreenState} />,
-      lightTheme, language,
+      theme, language,
     ));
-    const provenance = within(result.getByTestId('today-provenance'));
-    expect(provenance.getByTestId('today-generation-mode')).toHaveTextContent(messages[language].today.generationModeAiAssisted);
-    expect(provenance.getByTestId('today-freshness')).toHaveTextContent(loadedPresentation(language).header.freshness);
-    expect(result.getByTestId('today-provenance-sparkle', { includeHiddenElements: true })).toBeOnTheScreen();
+    await fireEvent(result.getByTestId('today-content'), 'layout', {
+      nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
+    });
+    const hidden = { includeHiddenElements: true };
+    const badge = result.getByTestId('today-provenance-badge');
+    const pill = result.getByTestId('today-generation-mode');
+    expect(pill).toHaveTextContent(messages[language].today.generationModeAiAssisted);
+    expect(badge.props.accessibilityLabel).toBe(
+      messages[language].today.generationModeAccessibilityLabel(
+        messages[language].today.generationModeAiAssisted,
+      ),
+    );
+    // The badge is a record, not a control: no second pressable inside the navigating one.
+    expect(badge.props.accessibilityRole).toBeUndefined();
+    expect(badge.props.onStartShouldSetResponder).toBeUndefined();
+    // The badge carries the controlled role, never the accent, and never a glyph.
+    expect(StyleSheet.flatten(pill.props.style)).toMatchObject({
+      backgroundColor: theme.colors.provenanceContainer,
+      borderColor: theme.colors.provenanceContainer,
+    });
+    expect(StyleSheet.flatten(pill.props.style).backgroundColor)
+      .not.toBe(theme.colors.brandAccent);
+    expect(within(pill).getAllByText(messages[language].today.generationModeAiAssisted))
+      .toHaveLength(1);
+    expect(within(pill).queryByTestId('today-provenance-sparkle', hidden)).toBeNull();
+    // `provenanceInk` clears its band on the page ground only: it is never a child of the
+    // tinted stage or of the board that stands on it.
+    const primaryBoard = result.getByTestId(
+      `today-primary-board-${loadedPresentation(language).suggestions[0].id}`,
+      hidden,
+    );
+    expect(within(primaryBoard).queryByTestId('today-provenance-badge', hidden)).toBeNull();
+    expect(within(result.getByTestId('today-stage', hidden))
+      .queryByTestId('today-provenance-badge', hidden)).toBeNull();
+    // The freshness stamp stays where it was, alone on its own line.
+    expect(within(result.getByTestId('today-provenance')).getByTestId('today-freshness'))
+      .toHaveTextContent(loadedPresentation(language).header.freshness);
+    expect(within(result.getByTestId('today-provenance'))
+      .queryByTestId('today-generation-mode')).toBeNull();
   });
 });
 
@@ -301,11 +340,52 @@ test.each([
   const stageColor = lightTheme.atmosphere[atmosphere];
   expect(StyleSheet.flatten(result.getByTestId('today-stage', hidden).props.style))
     .toMatchObject({ backgroundColor: stageColor });
+  // Only the primary composition is tinted: the alternates stand on the page ground so the
+  // screen carries a single chromatic event.
   for (const suggestion of loadedPresentation().suggestions.slice(1)) {
     expect(StyleSheet.flatten(
       result.getByTestId(`today-alternate-stage-${suggestion.id}`, hidden).props.style,
-    )).toMatchObject({ backgroundColor: stageColor });
+    ).backgroundColor).toBeUndefined();
   }
+});
+
+// Law 4's content encoding: the corner glyph resolves its own condition ink from the raw
+// condition code and the place's clock, the same call the Weather screen makes. Until the
+// presentation carried those two fields the call fell through to `neutral`, so Today showed
+// no condition colour and no tempo at all while the ink family was already shipped.
+test.each([
+  ['a rainy', todayScreenState, 'rain'],
+  ['a clear', accessoryFreeTodayScreenState, 'clearDay'],
+] as const)('%s Today draws its corner glyph in the condition ink, not the neutral one', async (
+  _label,
+  state,
+  ink,
+) => {
+  const symbols = SymbolView as unknown as jest.Mock;
+  symbols.mockClear();
+  const result = await render(providers(
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={state} />,
+  ));
+
+  const hidden = { includeHiddenElements: true };
+  expect(result.getByTestId('today-header-weather-glyph', hidden)).toBeOnTheScreen();
+  const tints = symbols.mock.calls.map(([props]) => (props as { tintColor: string }).tintColor);
+  expect(tints).toContain(lightTheme.condition[ink]);
+  expect(lightTheme.condition[ink]).not.toBe(lightTheme.condition.neutral);
+});
+
+// A clear sky does not move (ADR 0020), so the clear glyph sits at its rest offset.
+test('a clear Today leaves its corner glyph at rest', async () => {
+  const result = await render(providers(
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+      state={accessoryFreeTodayScreenState} />,
+  ));
+
+  const glyph = result.getByTestId('today-header-weather-glyph', { includeHiddenElements: true });
+  const animated = glyph.children[0];
+  if (typeof animated === 'string') throw new Error('Expected the animated glyph wrapper.');
+  expect(StyleSheet.flatten(animated.props.style))
+    .toMatchObject({ transform: [{ translateY: 0 }] });
 });
 
 test('Today re-reads its clock when the app becomes active', async () => {
@@ -1388,6 +1468,10 @@ describe('finishing touches', () => {
         { includeHiddenElements: true },
       )).toBeOnTheScreen();
     }
+    // Law 6: the row names itself in the same words its accessible label opens with, rather
+    // than leaving four silhouettes to be recognised unaided.
+    expect(within(badges).getByText(messages.en.today.finishingTouchesHeading))
+      .toBeOnTheScreen();
   });
 
   test('a day that asks for no accessory renders no badge row and no detail section', async () => {

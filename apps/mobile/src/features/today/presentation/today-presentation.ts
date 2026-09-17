@@ -147,14 +147,17 @@ export type LoadedTodayPresentation = Readonly<{
     // text: `WeatherAttribution` maps it to a localized line, a link and, for OpenWeather,
     // the logo, and renders nothing for `sample` or an unrecognized identifier.
     sourceId: string;
+    // The raw provider-neutral condition code and the local hour at the place, carried so
+    // the corner glyph can resolve its own condition ink and tempo. Neither is display
+    // text: the visible condition name stays `condition`.
+    conditionCode: string;
+    localHour: number | null;
   }>;
+  // ADR 0034 section 4: neither badge carries a glyph, so the presentation carries words
+  // only and the screen draws one controlled badge for both AI modes.
   generationMode: Readonly<{
     label: string;
     accessibilityLabel: string;
-    // ADR 0034 section 4: no Apple logo, glyph or icon accompanies the on-device words, and
-    // a sparkle beside "Apple Intelligence" would read as exactly that glyph. The mark stays
-    // on the Worker tier alone; the other two badges carry words only.
-    showsAiMark: boolean;
   }> | null;
   stageAccessibilityLabel: string;
   suggestions: readonly LoadedOutfitPresentation[];
@@ -403,17 +406,16 @@ function createLoadedPresentation(
     ? {
         label: generationModeLabel,
         accessibilityLabel: copy.generationModeAccessibilityLabel(generationModeLabel),
-        showsAiMark: snapshot.recommendation.generationMode === 'ai-assisted',
       }
     : null;
   const primary = suggestions[0];
+  // One reading of the place's clock feeds both the stage tint and the corner glyph, so the
+  // two can never disagree about whether it is day or night there.
+  const localHour = localHourOf(new Date(now).toISOString(), weather.timeZone);
 
   return {
     kind: 'loaded',
-    atmosphere: resolveAtmosphereState(
-      current.condition,
-      localHourOf(new Date(now).toISOString(), weather.timeZone),
-    ),
+    atmosphere: resolveAtmosphereState(current.condition, localHour),
     copy: {
       title: copy.title,
       piecesHeading: copy.piecesHeading,
@@ -461,6 +463,8 @@ function createLoadedPresentation(
         rainProbability: Math.round(rainProbability * 100),
       }),
       sourceId: weather.origin.sourceId,
+      conditionCode: current.condition,
+      localHour,
     },
     generationMode,
     stageAccessibilityLabel: primary ? copy.stageAccessibilityLabel({

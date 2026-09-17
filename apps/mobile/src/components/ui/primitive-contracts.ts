@@ -11,7 +11,7 @@ import {
 
 export type SurfaceVariant = 'default' | 'muted' | 'elevated' | 'interactive';
 export type ButtonVariant = 'primary' | 'secondary' | 'quiet' | 'destructive';
-export type PillTone = 'accent-filled' | 'bordered';
+export type PillTone = 'accent-filled' | 'bordered' | 'provenance';
 
 // ADR 0028 section 2, the list-row anatomy: a 28-point tile with a 20-point glyph and a
 // 7-point radius (a quarter of the tile) at the default text size, scaling together by
@@ -98,6 +98,16 @@ export function resolvePillColors(theme: KuyaraTheme, tone: PillTone) {
       backgroundColor: theme.colors.brandAccent,
       borderColor: theme.colors.brandAccent,
       textColorRole: 'textOnBrand',
+    } as const;
+  }
+
+  // Law 4's controlled role band: the container is the border too, so the badge reads as one
+  // quiet block rather than an outlined chip competing with the accent budget.
+  if (tone === 'provenance') {
+    return {
+      backgroundColor: theme.colors.provenanceContainer,
+      borderColor: theme.colors.provenanceContainer,
+      textColorRole: 'provenanceInk',
     } as const;
   }
 

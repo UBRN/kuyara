@@ -114,15 +114,19 @@ the provider and model behind the last check (section 5); that identifier crosse
 API as a controlled non-secret value, like a weather attribution identifier, and is never
 persisted with a recommendation or sent to analytics.
 
-### 4. Two badges, one referential mention, and nothing at rest for the third mode
+### 4. Two badges, no provider name, and nothing at rest for the third mode
 
 Today badges the two AI modes. The strings are final and reach the interface through
 localization keys like every other string:
 
 | Generation mode | English | Turkish |
 | --- | --- | --- |
-| `on-device-ai` | Chosen on your device with Apple Intelligence | Apple Intelligence ile cihazında seçildi |
+| `on-device-ai` | Chosen on your device | Cihazında seçildi |
 | `ai-assisted` | AI-assisted | AI destekli |
+
+Neither string names a provider. What the badge says is where the work happened, which is
+the fact a user can act on; which system did it is technical identity and belongs on the
+Settings AI status screen (section 5).
 
 The rules around them:
 
@@ -134,12 +138,21 @@ The rules around them:
   space ([ADR 0021](0021-direction-e-a-visual-first-design-language.md) section 8). The
   phase line shown while a recommendation is being produced is a different surface and
   still narrates the deterministic fallback as it runs.
-- No Apple logo, glyph or icon accompanies the words. Apple's guidelines for third parties
-  permit a word mark in a referential phrase such as "with", and permit no Apple-owned
-  graphic symbol. The `ai-assisted` badge keeps the accent spark glyph ADR 0021 section 8
-  sanctions, which is why that glyph never accompanies the on-device words.
-- kuyara stays the subject of the sentence on the AI status screen, and the Apple word
-  mark stays less prominent than the product name.
+- Neither badge carries a glyph. The on-device badge takes none, and the Worker badge takes
+  none either: a spark beside either one is the AI-assistant convention
+  [`visual-identity.md`](../design/visual-identity.md) refuses, and the badge is already one
+  controlled colour block with one word in it
+  ([ADR 0021](0021-direction-e-a-visual-first-design-language.md) section 8).
+- The Apple Intelligence word mark appears in one place in the application: the three status
+  sentences on the Settings AI status screen (section 5), which AGENTS.md pins. Apple's
+  guidelines for third parties allow the word mark only inside one of their referential
+  patterns, "for use with", "for", "compatible with" and "runs on", never as part of the
+  product name, never in a logo lock-up, and never with an Apple-owned graphic symbol; the
+  mark must stay less prominent than kuyara's own name, and kuyara stays the subject of the
+  sentence. Whether a third party may draw the `apple.intelligence` SF Symbol is an open
+  question on Apple's own developer forum with no answer from Apple, so kuyara draws no
+  Apple symbol at all. This wording is read against Apple's current published text once
+  more before each submission.
 - The copy never claims personalisation. AI picks three meaningfully different outfits
   from already valid options; it does not learn the user
   ([ADR 0031](0031-dress-style-is-the-formality-signal.md)).

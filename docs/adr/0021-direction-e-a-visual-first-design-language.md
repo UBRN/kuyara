@@ -137,11 +137,14 @@ them requires a separate product decision.
 
 ### 8. AI provenance sits with the recommendation
 
-Provenance belongs next to the thing it describes, not in a page footer. When AI
-materially contributed the interface may show a restrained treatment, for example a small
-spark glyph in the brand accent beside "AI-assisted", with freshness in the same quiet
-metadata line. Provenance stays secondary to the outfit, the outfit name, and the
-rationale.
+Provenance belongs next to the thing it describes, not in a page footer. When AI materially
+contributed, the interface shows a single small badge in the controlled `provenance` role
+directly under the outfit name, carrying words only. It carries no glyph: the spark is the
+AI-assistant convention [`visual-identity.md`](../design/visual-identity.md) refuses, and a
+badge that draws one is that convention whichever role fills it. The badge is a record, not
+a control: it is not touchable, it never stands on the tinted stage, and what it means is
+explained on the Settings AI status screen. Freshness keeps its own quiet metadata line.
+Provenance stays secondary to the outfit, the outfit name, and the rationale.
 
 **Green is not used to mean AI.** Green carries success semantics in this palette
 ([ADR 0010](0010-status-colours-destructive-variant-and-defined-borders.md)) and an AI
