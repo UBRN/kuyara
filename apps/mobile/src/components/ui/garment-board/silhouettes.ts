@@ -1,6 +1,4 @@
 // ADR 0025's approved silhouettes and category fallback vocabulary.
-// g-blazer, g-parka, g-vest, g-cap, g-flat and g-balaclava are drawn ahead of their
-// catalog mapping.
 // Bounds exclude stroke; silhouettes.test.mjs recomputes them from these paths.
 export type Silhouette = Readonly<{
   id: string;

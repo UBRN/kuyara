@@ -24,7 +24,7 @@ import {
   createDetailCaptionLayout,
   createTodayPresentation,
 } from '@/features/today/presentation/today-presentation';
-import { useForegroundClock } from '@/features/today/presentation/use-foreground-clock';
+import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import type { TodayScreenState } from '@/features/today/model';
 import type { GarmentOwnershipState } from '@/features/wardrobe/domain/garment-type-ownership';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
@@ -33,7 +33,10 @@ import { borderWidths, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // The detail draws its pieces at board scale; an accessory is not on the board, so it reads
-// at the row scale the reason rows already use.
+// at Law 6's standalone mark step. The artwork fills about 60 percent of its box, so 28
+// draws roughly 17 points of garment: enough for the silhouettes to stay apart from each
+// other. It is deliberately larger than the 20 point reason-row icons, which are glyphs
+// sized to the body line they sit beside rather than drawings that have to be recognised.
 const ACCESSORY_ARTWORK_SIZE = 28;
 
 type OutfitDetailScreenProps = Readonly<{
@@ -329,7 +332,10 @@ export function OutfitDetailScreen({
               {suggestion.accessories.map((accessory) => (
                 <View
                   accessible
-                  accessibilityLabel={`${accessory.item}, ${accessory.slot}`}
+                  accessibilityLabel={copy.finishingTouchesRowAccessibilityLabel({
+                    item: accessory.item,
+                    slot: accessory.slot,
+                  })}
                   key={accessory.accessorySlot}
                   style={styles.accessoryRow}
                   testID={`outfit-detail-accessory-${accessory.garmentTypeId}`}>
