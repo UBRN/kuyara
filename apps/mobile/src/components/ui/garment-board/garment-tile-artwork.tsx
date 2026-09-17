@@ -7,8 +7,14 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { GarmentSlotGlyph } from '../garment-slot-glyph';
 import { colorFamilyFills } from './color-family-fill';
+import { resolveGarmentRenderFills } from './garment-render-fills';
 import { garmentSilhouetteIds } from './garment-silhouette-map';
 import { silhouettes, type Silhouette } from './silhouettes';
+
+// A tile draws one garment rather than an outfit, so it has no slot of its own. It asks
+// for the one slot that is neither the deeper `footwear` neutral nor, with an empty option
+// id, ever an accent: a personal record is never coloured by a guess.
+const TILE_SLOT = 'primary_top';
 
 function GarmentTileSilhouette({
   silhouette,
@@ -25,7 +31,17 @@ function GarmentTileSilhouette({
 }>) {
   const { colors, colorScheme } = useKuyaraTheme();
   const gradientId = `garment-fill-${useId()}`;
-  const fill = colorFamily === null ? colors.stage : colorFamilyFills[colorScheme][colorFamily];
+  // `multicolor` is the one family a single fill cannot carry, so it keeps its two stops
+  // here; everything else takes the recorded colour or the neutral base of the page ground.
+  const fill = colorFamily === 'multicolor'
+    ? colorFamilyFills[colorScheme].multicolor
+    : resolveGarmentRenderFills({
+      optionId: '',
+      pieces: [{ slot: TILE_SLOT, colorFamily }],
+      plane: colors.background,
+      colors,
+      colorScheme,
+    }).get(TILE_SLOT)!;
   const gradient = typeof fill !== 'string';
   const { bounds } = silhouette;
   const scale = Math.min(width * 0.6 / bounds.width, height * 0.61 / bounds.height);

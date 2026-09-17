@@ -3,6 +3,7 @@ import type { PropsWithChildren } from 'react';
 import { processColor, StyleSheet } from 'react-native';
 
 import { GarmentBoard, measureGarmentBoardHeight, type GarmentBoardPiece } from '@/components/ui/garment-board/garment-board';
+import { resolveGarmentRenderFills } from '@/components/ui/garment-board/garment-render-fills';
 import { silhouettes } from '@/components/ui/garment-board/silhouettes';
 import { blend } from '@/theme/color-blend';
 import { createKuyaraTheme, lightTheme, spacing } from '@/theme/theme';
@@ -27,11 +28,15 @@ const pieces: readonly GarmentBoardPiece[] = [
   { slot: 'footwear', garmentTypeId: 'sandals', category: 'footwear' },
 ];
 
-function dressFills(result: Awaited<ReturnType<typeof render>>) {
-  const filledPath = silhouettes['g-dress'].paths.find((path) => path.filled)!;
+function fillsOf(result: Awaited<ReturnType<typeof render>>, silhouetteId: 'g-dress' | 'g-sandal') {
+  const filledPath = silhouettes[silhouetteId].paths.find((path) => path.filled)!;
   return result.container
     .queryAll((node) => node.props.d === filledPath.d)
     .map((node) => node.props.fill);
+}
+
+function dressFills(result: Awaited<ReturnType<typeof render>>) {
+  return fillsOf(result, 'g-dress');
 }
 
 test('the board is one accessible image and its measured height matches its SVG', async () => {
@@ -88,6 +93,36 @@ test('a tinted stage gives static and travelling artwork the same derived target
       payload: processColor(blend(fromStageColor, lightTheme.colors.textPrimary, 0.13)),
     },
   ]);
+});
+
+test('an option id colours one piece of the board that is the screen\u2019s subject', async () => {
+  const plane = lightTheme.atmosphere.clearDay;
+  const expected = resolveGarmentRenderFills({
+    optionId: 'outfit-a',
+    pieces: pieces.map(({ slot }) => ({ slot, colorFamily: null })),
+    plane,
+    colors: lightTheme.colors,
+    colorScheme: 'light',
+  });
+  const neutral = blend(plane, lightTheme.colors.textPrimary, 0.13);
+  const result = await render(
+    <GarmentBoard
+      accessibilityLabel="Dress, sandals"
+      optionId="outfit-a"
+      pieces={pieces}
+      preset="today"
+      stageColor={plane}
+      width={349}
+    />,
+    { wrapper: LightTheme },
+  );
+
+  // The dress takes the accent and the sandals the deeper neutral, so the board reads as
+  // one answer with one colour in it rather than as three equal panels.
+  expect(dressFills(result)).toEqual([{ type: 0, payload: processColor(expected.get('one_piece')) }]);
+  expect(fillsOf(result, 'g-sandal')).toEqual([{ type: 0, payload: processColor(expected.get('footwear')) }]);
+  expect(expected.get('one_piece')).not.toBe(neutral);
+  expect(expected.get('footwear')).not.toBe(neutral);
 });
 
 const risingBoard = (
