@@ -30,10 +30,13 @@ export default function SettingsRoute() {
     <>
       {/* ADR 0030 section 5, the same pattern profile.tsx and wardrobe/index.tsx use: a
           native inline title is chrome the OS owns, so it is set here rather than
-          hand-drawn in SettingsScreen. The back button to Profile is the platform's
-          default, unset here. */}
+          hand-drawn in SettingsScreen. The back title is set explicitly because this is
+          the screen the language changes on: react-native-screens refreshes a screen's
+          native title only while it is on top, so a blank back title would resolve from
+          the Profile item's stale, pre-switch title until Profile is shown again. */}
       <Stack.Screen
         options={{
+          headerBackTitle: messages.profile.title,
           headerShown: true,
           headerTitle: messages.settings.title,
         }}
