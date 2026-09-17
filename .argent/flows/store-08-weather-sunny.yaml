@@ -1,6 +1,5 @@
-# The Weather tab on the wet day the onboarding city (Crewe) gives: current
-# conditions and the coming hours. Starts from the
-# onboarded state store-01-today left behind (see that flow).
+# The Weather tab on the clear day store-07-today-plain switched to (Fes).
+# Starts from the state that flow left behind.
 steps:
   - launch: com.ubrn.kuyara
   - echo: goldie's launch restarts the app on Today; the Today tab tap is a no-op there and a safeguard when a runner only foregrounds it.

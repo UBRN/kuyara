@@ -1,0 +1,22 @@
+# Settings with the Appearance picker open. The rows are SwiftUI list rows
+# (NativePickerRow wraps a SwiftUI Menu with an inline Picker) that the flow
+# runner's tree does not list, so the row is tapped at its centre; describe
+# on the 6.9-inch device gives the coordinates quoted below. Starts from the
+# onboarded state store-01-today left behind (see that flow).
+steps:
+  - launch: com.ubrn.kuyara
+  - echo: goldie's launch restarts the app on Today; the Today tab tap is a no-op there and a safeguard when a runner only foregrounds it.
+  - tap: { id: tab-today }
+  - await: { visible: { id: today-archetype }, timeout: 45000 }
+  - wait: 600
+  - tap: { id: tab-profile }
+  - echo: The Profile tab keeps the screen the previous flow pushed (Closet list, Settings); reselecting the tab pops its stack to the Profile root.
+  - tap: { id: tab-profile }
+  - await: { visible: { id: profile-settings-button }, timeout: 10000 }
+  - tap: { id: profile-settings-button }
+  - await: { exists: { id: settings-screen }, timeout: 10000 }
+  - wait: 900
+  - echo: The Appearance row is the second row of the first group. describe places it at y 0.222-0.276 on the 6.9-inch device; tap its centre to open the system picker menu (System, Light, Dark) over the list.
+  - tap: { x: 0.5, y: 0.249 }
+  - wait: 1200
+  - await: { idle: true }

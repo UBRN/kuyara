@@ -26,21 +26,30 @@ steps:
   - wait: 900
   - echo: The city field is a SwiftUI text field (id onboarding-place-search) that the flow runner's tree does not list, so it is tapped at its centre. describe places it at x 0.066-0.934, y 0.480-0.503 on the 6.9-inch device.
   - tap: { x: 0.5, y: 0.491 }
-  - tool: keyboard
-    args: { text: Istanbul }
+  - echo: Crewe (England) is the onboarding city, the wet fixture of the strip (drizzle in its coming hours on 2026-09-17), so Today carries the provenance badge and Weather shows a wet rail. The clear frames switch to Fes inside their own flow later.
+  - echo: Hardware keyboard events and paste never reach the SwiftUI field (measured on two devices, 2026-09-17), so the city is spelled by tapping the software keyboard's keys. The en-US device shows QWERTY and the tr-TR device Turkish-Q, whose key widths differ, so both cities use only letters whose key rectangles overlap on both layouts (q w e r t a s d f g z x c v) and the coordinates below sit inside that overlap on the 6.9-inch device.
+  - tap: { x: 0.367, y: 0.84 }
+  - wait: 250
+  - tap: { x: 0.322, y: 0.721 }
+  - wait: 250
+  - tap: { x: 0.231, y: 0.721 }
+  - wait: 250
+  - tap: { x: 0.141, y: 0.721 }
+  - wait: 250
+  - tap: { x: 0.231, y: 0.721 }
+  - wait: 250
   - wait: 2500
-  - echo: Return dismisses the keyboard. The SwiftUI result list only gets a tappable frame once it has room below the field.
-  - tool: keyboard
-    args: { key: enter }
+  - echo: The result list needs room below the field, so the keyboard is dismissed with its own search key (bottom right).
+  - tap: { x: 0.871, y: 0.897 }
   - wait: 1500
-  - echo: The result rows are SwiftUI list rows the runner's tree does not list either. describe shows the first row (id onboarding-place-place.745044, Istanbul) at y 0.571-0.625 once the keyboard is down; tap its centre.
+  - echo: The result rows are SwiftUI list rows the runner's tree does not list either. describe shows the first row (id onboarding-place-place.2652179, Crewe, England, United Kingdom) at y 0.571-0.625 once the keyboard is down; tap its centre.
   - tap: { x: 0.5, y: 0.598 }
   - await: { idle: true }
   - wait: 500
   - tap: { id: onboarding-complete }
   - await: { visible: { id: today-archetype }, timeout: 45000 }
   - await: { hidden: { id: today-generating-status }, timeout: 30000 }
-  - echo: The analytics consent sheet follows the first recommendation. Declining keeps the capture clean and sends nothing.
+  - echo: The analytics consent sheet follows the first recommendation in a goldie run (its reinstall plus the flow's launch count as the second session). Declining keeps the capture clean and sends nothing, and it is never asked again.
   - await: { visible: { id: analytics-consent-decline }, timeout: 15000 }
   - wait: 600
   - tap: { id: analytics-consent-decline }

@@ -1,7 +1,9 @@
 import type { GoldieConfig } from "/opt/homebrew/lib/node_modules/goldie/dist/config";
 
 // App Store assets for kuyara. Scene flows live in ../.argent/flows and are
-// prefixed store-. Output renders into goldie/out (gitignored).
+// prefixed store-. Output renders into goldie/out (gitignored). The scenes
+// run in this order on one clean install, so a flow may depend on the state
+// the flows before it left behind (see the comments in each flow).
 const APP_ROOT = "/Users/utkubarin/Developer/kuyara";
 
 const config: GoldieConfig = {
@@ -34,7 +36,9 @@ const config: GoldieConfig = {
     fontFamily: '"Montserrat", "DM Sans", -apple-system, system-ui, sans-serif',
     copyHeightRatio: 0.24,
     deviceWidthRatio: 0.84,
-    template: ["hero", "tilt", "duo", "offset", "minimal"],
+    // One layout per tile in store order: the five-scene rhythm of the first
+    // strip, then the three added tiles, closing on the minimal breather.
+    template: ["hero", "tilt", "duo", "offset", "tilt-right", "copy-below", "classic", "minimal"],
     layout: "classic",
   },
 
@@ -125,11 +129,51 @@ const config: GoldieConfig = {
     },
     {
       kind: "screenshot",
-      // Reuse the detail capture for the closing tile, without another raw PNG.
-      id: "detail",
-      flow: "store-02-detail",
-      layout: "classic",
-      headline: { "en-US": "Ready for your day", "tr-TR": "Gününe hazır ol" },
+      id: "settings",
+      flow: "store-05-settings",
+      background: "linear-gradient(160deg, #142F3B 0%, #27606A 100%)",
+      headline: {
+        "en-US": "Make it yours",
+        "tr-TR": "Kendine göre ayarla",
+      },
+      subhead: {
+        "en-US": "Language, look and style, picked right on the row.",
+        "tr-TR": "Dil, görünüm ve tarz, satırın üstünde seçilir.",
+      },
+    },
+    {
+      kind: "screenshot",
+      id: "notifications",
+      flow: "store-06-notifications",
+      background: "linear-gradient(170deg, #27606A 0%, #142F3B 60%, #0D191E 100%)",
+      headline: {
+        "en-US": "Ready before you wake",
+        "tr-TR": "Sen uyanmadan hazır",
+      },
+      subhead: {
+        "en-US": "A 7am briefing, and a heads-up before the weather turns.",
+        "tr-TR": "Sabah 07.00 brifingi ve hava dönmeden bir uyarı.",
+      },
+    },
+    {
+      kind: "screenshot",
+      id: "today-plain",
+      flow: "store-07-today-plain",
+      background: "linear-gradient(180deg, #0D191E 0%, #142F3B 50%, #27606A 100%)",
+      headline: {
+        "en-US": "Every day has an answer",
+        "tr-TR": "Her günün bir cevabı var",
+      },
+      subhead: {
+        "en-US": "Mild days too: an outfit that fits, with no fuss.",
+        "tr-TR": "Ilık günlerde de: uğraşmadan, yakışan bir kombin.",
+      },
+    },
+    {
+      kind: "screenshot",
+      // The closing breather: the clear-day Weather tab with no copy.
+      id: "weather-sunny",
+      flow: "store-08-weather-sunny",
       background: "linear-gradient(165deg, #142F3B 0%, #0D191E 100%)",
     },
   ],

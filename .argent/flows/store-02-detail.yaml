@@ -3,10 +3,14 @@
 # flow starts from the onboarded state that flow left behind.
 steps:
   - launch: com.ubrn.kuyara
+  - echo: goldie's launch restarts the app on Today; the Today tab tap is a no-op there and a safeguard when a runner only foregrounds it.
+  - tap: { id: tab-today }
   - await: { visible: { id: today-archetype }, timeout: 45000 }
   - await: { hidden: { id: today-generating-status }, timeout: 30000 }
   - wait: 600
-  - tap: { id: today-primary-board }
-  - await: { exists: { id: outfit-detail-weather-recap }, timeout: 10000 }
-  - wait: 800
+  - echo: The primary board's test id carries the outfit hash (today-primary-board-outfit:...), so it is tapped at its centre; describe places the board at y 0.096-0.450 on the 6.9-inch device.
+  - tap: { x: 0.5, y: 0.27 }
+  - echo: The weather recap sits below the fold and the detail's own container ids are plain views the tree does not list, so the detail is confirmed by Today's archetype leaving the tree once the detail covers it.
+  - await: { hidden: { id: today-archetype }, timeout: 10000 }
+  - wait: 1500
   - await: { idle: true }

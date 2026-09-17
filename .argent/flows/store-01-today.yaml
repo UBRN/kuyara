@@ -1,9 +1,14 @@
-# Today with the first recommendation for Istanbul. goldie reinstalls the app
+# Today with the first recommendation for Crewe, the wet fixture, so the
+# provenance badge shows. goldie reinstalls the app
 # with cleared data once per device, right before this flow, so this is the
 # only store flow that walks onboarding; the later scenes and the preview
 # segments start from the state it leaves behind.
 steps:
   - launch: com.ubrn.kuyara
   - run: store-onboarding-fragment.yaml
+  - echo: ADR 0004's one contextual weather-alert offer sits under the outfit on the first Today when the day's forecast would fire an alert rule (drizzle within the hour in Crewe on 2026-09-17). It is dismissed so the hero shows the outfit alone; on a day without a rule the offer never appears and this step has to go.
+  - await: { visible: { id: today-alert-offer-dismiss }, timeout: 10000 }
+  - tap: { id: today-alert-offer-dismiss }
+  - await: { hidden: { id: today-alert-offer-dismiss } }
   - wait: 800
   - await: { idle: true }

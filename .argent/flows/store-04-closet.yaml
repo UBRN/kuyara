@@ -1,13 +1,18 @@
 # The Closet grid with three owned pieces. A fresh install has none, so the
-# flow adds blouse, cardigan and jeans through the form. The type row opens a
-# bottom sheet over the form and tapping a tile dismisses it; the tiles are
-# grouped by a category chip rail, so jeans needs the Bottoms chip first. The
+# flow adds a T-shirt, a shirt and jeans through the form. The type row opens
+# a half-height sheet over the form and tapping a tile dismisses it; the tiles
+# are grouped by a category chip rail, so jeans needs the Bottoms chip first.
+# Only the first two rows of a category are on screen in the half sheet, so the
+# picks are tiles from those rows (blouse and cardigan sit further down). The
 # save button sits below the fold, so each form is swiped up before the tap.
 # Starts from the onboarded state store-01-today left behind (see that flow).
 steps:
   - launch: com.ubrn.kuyara
+  - echo: goldie's launch restarts the app on Today; the Today tab tap is a no-op there and a safeguard when a runner only foregrounds it.
+  - tap: { id: tab-today }
   - await: { visible: { id: today-archetype }, timeout: 45000 }
   - wait: 600
+  - tap: { id: tab-profile }
   - tap: { id: tab-profile }
   - await: { visible: { id: profile-add-piece-button }, timeout: 10000 }
   - tap: { id: profile-add-piece-button }
@@ -16,11 +21,13 @@ steps:
 
   - await: { visible: { id: wardrobe-type-picker-row }, timeout: 10000 }
   - tap: { id: wardrobe-type-picker-row }
-  - await: { visible: { id: wardrobe-type-blouse }, timeout: 10000 }
-  - tap: { id: wardrobe-type-blouse }
+  - await: { visible: { id: wardrobe-type-t_shirt }, timeout: 10000 }
+  - tap: { id: wardrobe-type-t_shirt }
   - await: { visible: { id: wardrobe-entry-state-owned }, timeout: 10000 }
+  - wait: 900
   - tool: gesture-swipe
-    args: { fromX: 0.5, fromY: 0.75, toX: 0.5, toY: 0.25, durationMs: 600 }
+    args: { fromX: 0.5, fromY: 0.8, toX: 0.5, toY: 0.2, durationMs: 600 }
+  - wait: 800
   - await: { visible: { id: wardrobe-save-button }, timeout: 10000 }
   - tap: { id: wardrobe-save-button }
   - await: { visible: { id: wardrobe-add-button }, timeout: 10000 }
@@ -28,11 +35,13 @@ steps:
   - tap: { id: wardrobe-add-button }
   - await: { visible: { id: wardrobe-type-picker-row }, timeout: 10000 }
   - tap: { id: wardrobe-type-picker-row }
-  - await: { visible: { id: wardrobe-type-cardigan }, timeout: 10000 }
-  - tap: { id: wardrobe-type-cardigan }
+  - await: { visible: { id: wardrobe-type-shirt }, timeout: 10000 }
+  - tap: { id: wardrobe-type-shirt }
   - await: { visible: { id: wardrobe-entry-state-owned }, timeout: 10000 }
+  - wait: 900
   - tool: gesture-swipe
-    args: { fromX: 0.5, fromY: 0.75, toX: 0.5, toY: 0.25, durationMs: 600 }
+    args: { fromX: 0.5, fromY: 0.8, toX: 0.5, toY: 0.2, durationMs: 600 }
+  - wait: 800
   - await: { visible: { id: wardrobe-save-button }, timeout: 10000 }
   - tap: { id: wardrobe-save-button }
   - await: { visible: { id: wardrobe-add-button }, timeout: 10000 }
@@ -40,14 +49,16 @@ steps:
   - tap: { id: wardrobe-add-button }
   - await: { visible: { id: wardrobe-type-picker-row }, timeout: 10000 }
   - tap: { id: wardrobe-type-picker-row }
-  - await: { visible: { id: wardrobe-type-blouse }, timeout: 10000 }
+  - await: { visible: { id: wardrobe-type-t_shirt }, timeout: 10000 }
   - echo: Jeans is a Bottom, so the sheet's category rail moves the grid to it.
   - tap: { id: wardrobe-type-category-bottom }
   - await: { visible: { id: wardrobe-type-jeans }, timeout: 10000 }
   - tap: { id: wardrobe-type-jeans }
   - await: { visible: { id: wardrobe-entry-state-owned }, timeout: 10000 }
+  - wait: 900
   - tool: gesture-swipe
-    args: { fromX: 0.5, fromY: 0.75, toX: 0.5, toY: 0.25, durationMs: 600 }
+    args: { fromX: 0.5, fromY: 0.8, toX: 0.5, toY: 0.2, durationMs: 600 }
+  - wait: 800
   - await: { visible: { id: wardrobe-save-button }, timeout: 10000 }
   - tap: { id: wardrobe-save-button }
   - await: { visible: { id: wardrobe-add-button }, timeout: 10000 }

@@ -1,0 +1,36 @@
+# The Notifications screen with both opt-ins on: the weather alert and the
+# morning briefing. goldie's clean install resets the permission, so the
+# first toggle raises the system permission alert, answered with Allow. The
+# rows are SwiftUI list rows with SwiftUI switches: the runner's tree does not
+# list them and a tap does not flip a switch, so each switch is flipped with a
+# short swipe at its centre (coordinates from describe on the 6.9-inch device).
+# Starts from the onboarded state store-01-today left behind (see that flow).
+steps:
+  - launch: com.ubrn.kuyara
+  - echo: goldie's launch restarts the app on Today; the Today tab tap is a no-op there and a safeguard when a runner only foregrounds it.
+  - tap: { id: tab-today }
+  - await: { visible: { id: today-archetype }, timeout: 45000 }
+  - wait: 600
+  - tap: { id: tab-profile }
+  - echo: The Profile tab keeps the screen the previous flow pushed (Closet list, Settings); reselecting the tab pops its stack to the Profile root.
+  - tap: { id: tab-profile }
+  - await: { visible: { id: profile-settings-button }, timeout: 10000 }
+  - tap: { id: profile-settings-button }
+  - await: { exists: { id: settings-screen }, timeout: 10000 }
+  - wait: 900
+  - echo: The Notifications row is the first row of the second group, at y 0.341-0.402 per describe; tap its centre.
+  - tap: { x: 0.5, y: 0.371 }
+  - await: { exists: { id: settings-notifications-screen }, timeout: 10000 }
+  - wait: 900
+  - echo: The weather alert switch (id settings-notifications-toggle-row-toggle) sits at the right edge of the first row, x 0.770-0.909, y 0.174-0.203; swipe it right to turn it on.
+  - tool: gesture-swipe
+    args: { fromX: 0.8, fromY: 0.188, toX: 0.9, toY: 0.188, durationMs: 250 }
+  - wait: 1500
+  - echo: The system permission alert follows the first opt-in. Allow is the right button of the alert, at x 0.509-0.827, y 0.560-0.610; tap its centre.
+  - tap: { x: 0.668, y: 0.585 }
+  - wait: 1500
+  - echo: The morning briefing switch (id settings-morning-briefing-toggle-row-toggle) is the only row of the second group, y 0.334-0.363; swipe it right to turn it on.
+  - tool: gesture-swipe
+    args: { fromX: 0.8, fromY: 0.349, toX: 0.9, toY: 0.349, durationMs: 250 }
+  - wait: 1500
+  - await: { idle: true }

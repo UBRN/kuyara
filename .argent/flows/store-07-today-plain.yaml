@@ -1,0 +1,43 @@
+# Today on a warm, clear day. (Measured 2026-09-17: AI is asked on mild days too, so this Today also carries the AI-assisted badge; a badgeless deterministic Today only occurs when AI fails.)
+# The location is switched from Crewe to Fes inside this flow, through
+# the Weather tab's location screen, because simctl location overrides do not
+# move a manually chosen place. The city field and the result rows are SwiftUI
+# controls the runner's tree does not list, so they are tapped at their centres
+# (coordinates from describe on the 6.9-inch device; the location screen has a
+# header, so they differ from the onboarding fragment's). Starts from the
+# onboarded state store-01-today left behind (see that flow).
+steps:
+  - launch: com.ubrn.kuyara
+  - echo: goldie's launch restarts the app on Today; the Today tab tap is a no-op there and a safeguard when a runner only foregrounds it.
+  - tap: { id: tab-today }
+  - await: { visible: { id: today-archetype }, timeout: 45000 }
+  - wait: 600
+  - tap: { id: tab-weather }
+  - await: { visible: { id: weather-change-location-button }, timeout: 10000 }
+  - wait: 600
+  - tap: { id: weather-change-location-button }
+  - await: { exists: { id: weather-location-controls }, timeout: 10000 }
+  - wait: 900
+  - echo: The city field (id weather-place-search) sits under the device-location card; describe places it at y 0.245-0.268. Tap its centre.
+  - tap: { x: 0.5, y: 0.256 }
+  - wait: 1000
+  - echo: The city is spelled by tapping the software keyboard's keys, using only letters whose key rectangles overlap on QWERTY and Turkish-Q (see store-onboarding-fragment). Fes (Morocco) is the clear, warm fixture.
+  - tap: { x: 0.367, y: 0.78 }
+  - wait: 250
+  - tap: { x: 0.231, y: 0.721 }
+  - wait: 250
+  - tap: { x: 0.186, y: 0.84 }
+  - wait: 250
+  - wait: 2500
+  - echo: The result list shows above the keyboard on this screen. describe places the first row (Fes, Fes-Meknes, Morocco) at y 0.336-0.390; tap its centre.
+  - tap: { x: 0.5, y: 0.363 }
+  - wait: 1500
+  - echo: Selecting a place stays on the location screen; the header back control (id BackButton, x 0.045-0.312, y 0.065-0.111) returns to Weather.
+  - tap: { x: 0.178, y: 0.088 }
+  - await: { visible: { id: weather-refresh-button }, timeout: 10000 }
+  - wait: 600
+  - tap: { id: tab-today }
+  - await: { visible: { id: today-archetype }, timeout: 45000 }
+  - await: { hidden: { id: today-generating-status }, timeout: 30000 }
+  - wait: 800
+  - await: { idle: true }
