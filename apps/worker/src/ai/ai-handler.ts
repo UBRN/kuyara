@@ -52,23 +52,24 @@ type Dependencies = Readonly<{
  *   of output: 14.3 + 52.4 = 66.7, rounded up to 67 Neurons; `PROBE_DAILY_LIMIT` (30)
  *   calls reserve 2,010.
  * - Input per attempt: the largest prompt `buildMessages` and `buildPickJsonSchema`
- *   produce over the recommendation grid is 17,723 characters (messages plus response
- *   schema, 24 options), about 4,431 tokens at four characters per token, rounded up to
- *   4,500.
+ *   produce over the recommendation grid is 17,424 characters (messages plus response
+ *   schema, 24 options), about 4,356 tokens at four characters per token, rounded up to
+ *   4,400. The budget test in ai-handler.test.mjs measures that prompt and derives the
+ *   limit below from it, so the constant and the prompt stay in step.
  * - Output per attempt: `recommendationMaxTokens` in workers-ai-provider.ts caps the reply
  *   at 192 tokens, so a runaway or prose reply cannot cost more than a valid one's ceiling.
- * - Worst attempt: llama at 4,500 in and 192 out is 120.0 + 39.3 = 159.3, rounded up to 160
- *   Neurons; mistral at the same sizes is 143.4 + 9.7 = 153.1, so llama is the worst case
+ * - Worst attempt: llama at 4,400 in and 192 out is 117.3 + 39.3 = 156.7, rounded up to 157
+ *   Neurons; mistral at the same sizes is 140.3 + 9.7 = 150.0, so llama is the worst case
  *   and the limit holds for either model.
- * - Limit: floor((10,000 - 2,010) / 160) = floor(49.9) = 49 attempts.
+ * - Limit: floor((10,000 - 2,010) / 157) = floor(50.9) = 50 attempts.
  *
- * 49 x 160 + 2,010 = 9,850 < 10,000. The token figures are characters over four; the
+ * 50 x 157 + 2,010 = 9,860 < 10,000. The token figures are characters over four; the
  * provider's `ai_provider_usage` log carries the binding's own `prompt_tokens` and
  * `completion_tokens` per successful call and is the measured check on that assumption.
  * OpenRouter attempts spend no Neurons and are not counted.
  */
 export const WORKERS_AI_DAILY_ATTEMPT_LIMIT = Math.floor(
-  (10_000 - PROBE_DAILY_LIMIT * 67) / 160,
+  (10_000 - PROBE_DAILY_LIMIT * 67) / 157,
 );
 
 type ProviderFailureReason =
