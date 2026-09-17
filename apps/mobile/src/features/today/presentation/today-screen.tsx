@@ -318,6 +318,12 @@ export function TodayScreen({
                 testID="today-stage">
                 <GarmentBoard
                   accessibilityLabel={presentation.stageAccessibilityLabel}
+                  // ADR 0021 section 10's transition between suggestions: the key is the
+                  // option identity, so a new recommendation re-mounts the board and the
+                  // pieces rise once more, while a refresh that returns the same outfit
+                  // leaves it still. The rise is never the only signal; the archetype, the
+                  // rationale and the freshness line all change with it.
+                  key={primary.id}
                   // Today's subject is the primary composition, so it is the one board that
                   // carries a coloured piece; the alternates below stay neutral.
                   optionId={primary.id}
@@ -394,13 +400,15 @@ export function TodayScreen({
         ) : null}
 
         {offerToRender ? (
-          <WeatherAlertOfferRow
-            blocked={blockedOffer !== null}
-            language={language}
-            onAccept={answerOffer}
-            onDismiss={dismissOffer}
-            ruleId={offerToRender.ruleId}
-          />
+          <Entrance>
+            <WeatherAlertOfferRow
+              blocked={blockedOffer !== null}
+              language={language}
+              onAccept={answerOffer}
+              onDismiss={dismissOffer}
+              ruleId={offerToRender.ruleId}
+            />
+          </Entrance>
         ) : null}
 
         {alternates.length > 0 ? (
@@ -475,7 +483,8 @@ export function TodayScreen({
  * ADR 0004's contextual offer, as a quiet row on the ground plane rather than a card on a
  * card (Law 3). It carries no accent fill (Law 1): the primary action is accent ink and the
  * secondary is the secondary ink, both at the same size, the way the consent sheet's pair is.
- * It never animates, and either action ends it.
+ * Law 7's "content arrives": the row fades and travels one rhythm unit into place on the
+ * screen it appears on, and either action ends it. It carries no exit motion.
  */
 function WeatherAlertOfferRow({
   blocked,
@@ -637,8 +646,8 @@ function AccessoryBadges({
 // ink rather than the accent, because the wait is not the screen's one accent-filled
 // element. It is a clock rather than a sparkle: `visual-identity.md` refuses the AI-sparkle
 // convention, and the pulsing mark is where that convention was most visible. Law 7: it
-// breathes on the ambient calm step, holds still under Reduce Motion, and stays out of the
-// accessibility tree because the adjacent line is the state.
+// breathes on the ambient moderate step, holds still under Reduce Motion, and stays out
+// of the accessibility tree because the adjacent line is the state.
 function PhaseMark({ size, testID }: Readonly<{ size: number; testID: string }>) {
   const theme = useKuyaraTheme();
   const pulse = useAmbientPulse();
