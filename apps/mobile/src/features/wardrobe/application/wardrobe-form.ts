@@ -23,10 +23,12 @@ import {
   type WaterProtection,
   type WindProtection,
 } from '@/features/catalog/domain/garment-taxonomy';
-import type {
-  CreateWardrobeItemInput,
-  UpdateWardrobeItemInput,
-  WardrobeItem,
+import {
+  wardrobeEntryStateSchema,
+  type CreateWardrobeItemInput,
+  type UpdateWardrobeItemInput,
+  type WardrobeEntryState,
+  type WardrobeItem,
 } from '@/features/wardrobe/domain/wardrobe-item';
 
 export type WardrobeFormValues = Readonly<{
@@ -314,4 +316,15 @@ export function isWardrobeRouteId(value: unknown): value is string {
       value,
     )
   );
+}
+
+// The Closet list carries its segment into the add flow and back through a route param.
+// A param is an untrusted string, and the stored enum is locale-independent, so it is
+// validated against the same schema the record uses and anything else is dropped rather
+// than repaired: the caller then falls back to its own default.
+export function parseWardrobeEntryStateParam(
+  value: unknown,
+): WardrobeEntryState | undefined {
+  const parsed = wardrobeEntryStateSchema.safeParse(value);
+  return parsed.success ? parsed.data : undefined;
 }

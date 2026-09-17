@@ -7,6 +7,7 @@ import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import {
   WardrobeListScreen,
   resolveGridGeometry,
+  tileEntranceIndex,
 } from '@/features/wardrobe/presentation/wardrobe-list-screen';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
@@ -402,6 +403,75 @@ test('the grid draws coloured silhouettes for typed garments and accessories, an
   }
   expect(result.getByTestId(`wardrobe-photo-placeholder-${legacyItem.id}`, hidden)).toBeOnTheScreen();
   expect(result.queryByTestId(`wardrobe-silhouette-${legacyItem.id}`, hidden)).toBeNull();
+});
+
+// Law 7: opening the Closet is an arrival, so the whole grid enters in reading order;
+// returning from a save is not, so only the item that was just saved does. The tile's own
+// presence in the list is the indication either way, never the motion alone.
+test('every tile arrives on a plain open, and only the saved one after an add', () => {
+  expect(tileEntranceIndex('a', 0, null)).toBe(0);
+  expect(tileEntranceIndex('b', 3, undefined)).toBe(3);
+
+  // The list orders newest first, so the saved item is the first tile; it still arrives
+  // at the head of the stagger rather than inheriting its neighbours' delay.
+  expect(tileEntranceIndex('b', 0, 'b')).toBe(0);
+  expect(tileEntranceIndex('a', 1, 'b')).toBeNull();
+  // A saved id the list no longer holds leaves every tile at rest rather than replaying
+  // the whole grid.
+  expect(tileEntranceIndex('a', 0, 'gone')).toBeNull();
+});
+
+test('the segment follows the route, so a return from the add flow reselects it', async () => {
+  const result = await render(
+    <TestProviders>
+      <WardrobeListScreen
+        initialEntryState="owned"
+        onAdd={() => undefined}
+        onEdit={() => undefined}
+        onRetry={() => undefined}
+        state={readyState([ownedItem, wantedItem])}
+      />
+    </TestProviders>,
+  );
+
+  expect(result.getByTestId(`wardrobe-item-${ownedItem.id}`)).toBeOnTheScreen();
+
+  // The add flow returns to `/wardrobe` with the segment the item joined. Whether the
+  // navigator remounts this screen or keeps it, the new prop has to win.
+  await result.rerender(
+    <TestProviders>
+      <WardrobeListScreen
+        initialEntryState="wanted"
+        onAdd={() => undefined}
+        onEdit={() => undefined}
+        onRetry={() => undefined}
+        savedItemId={wantedItem.id}
+        state={readyState([ownedItem, wantedItem])}
+      />
+    </TestProviders>,
+  );
+
+  expect(result.getByTestId(`wardrobe-item-${wantedItem.id}`)).toBeOnTheScreen();
+  expect(result.queryByTestId(`wardrobe-item-${ownedItem.id}`)).not.toBeOnTheScreen();
+});
+
+test('switching the segment reports it, so the route can carry it into the add flow', async () => {
+  const onEntryStateChange = jest.fn();
+  const result = await render(
+    <TestProviders>
+      <WardrobeListScreen
+        onAdd={() => undefined}
+        onEdit={() => undefined}
+        onEntryStateChange={onEntryStateChange}
+        onRetry={() => undefined}
+        state={readyState([ownedItem, wantedItem])}
+      />
+    </TestProviders>,
+  );
+
+  await fireEvent.press(result.getByTestId('wardrobe-entry-filter-segment-1'));
+  expect(onEntryStateChange).toHaveBeenCalledWith('wanted');
+  expect(result.getByTestId(`wardrobe-item-${wantedItem.id}`)).toBeOnTheScreen();
 });
 
 // Milestone 10 phase 3: the route (`wardrobe-list-route.tsx`) tells the pull gesture

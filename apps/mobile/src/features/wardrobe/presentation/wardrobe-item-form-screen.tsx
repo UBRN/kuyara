@@ -64,6 +64,11 @@ type WardrobeItemFormScreenProps = Readonly<{
   item?: WardrobeItem;
   /** Filters the type sheet's catalogue; `null` until the profile resolves one. */
   clothingPreference?: ClothingPreference | null;
+  /**
+   * Where a new item lands: the Closet list's own segment, so a piece added from Wanted
+   * is filed as wanted. An existing item's stored state always wins over it.
+   */
+  defaultEntryState?: WardrobeEntryState;
   isBusy: boolean;
   confirmation?: WardrobeConfirmation;
   photoPreviewUri?: string | null;
@@ -157,6 +162,7 @@ function ColorSwatch({
 export function WardrobeItemFormScreen({
   clothingPreference = null,
   confirmation = showWardrobeConfirmation,
+  defaultEntryState = 'owned',
   isBusy,
   item,
   mode,
@@ -178,7 +184,7 @@ export function WardrobeItemFormScreen({
   const typeRowOpacity = useSharedValue<number>(1);
   const typeRowStyle = useAnimatedStyle(() => ({ opacity: typeRowOpacity.get() }));
   const initialValues = useMemo(() => createWardrobeFormValues(item), [item]);
-  const initialEntryState = item?.entryState ?? 'owned';
+  const initialEntryState = item?.entryState ?? defaultEntryState;
   const [values, setValues] = useState(initialValues);
   const [entryState, setEntryState] = useState<WardrobeEntryState>(
     initialEntryState,
@@ -494,9 +500,13 @@ export function WardrobeItemFormScreen({
                   {selectedTypeLabel ?? copy.typeChoosePrompt}
                 </AppText>
               </Animated.View>
-              <AppText colorRole="textSecondary" variant="caption">
-                {copy.typeDescription}
-              </AppText>
+              {selectedTypeLabel ? null : (
+                // An instruction beside a filled answer reads as "you are not done", so
+                // the hint leaves once the row carries a type.
+                <AppText colorRole="textSecondary" variant="caption">
+                  {copy.typeDescription}
+                </AppText>
+              )}
             </View>
             <Icon color={theme.colors.iconSecondary} name="chevronRight" size={20} />
           </Pressable>
