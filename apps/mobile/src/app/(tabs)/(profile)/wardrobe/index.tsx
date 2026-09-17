@@ -1,17 +1,22 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 
 import { Icon, IconButton } from '@/components/ui';
-import type { WardrobeEntryState } from '@/features/wardrobe/domain/wardrobe-item';
+import {
+  isWardrobeRouteId,
+  parseWardrobeEntryStateParam,
+} from '@/features/wardrobe/application/wardrobe-form';
 import { WardrobeListRoute } from '@/features/wardrobe/presentation/wardrobe-list-route';
 import { useMessages } from '@/localization/use-messages';
 
 export default function WardrobeRoute() {
-  // ADR 0028 section 7 item 3, shared with ADR 0029: an optional initial filter so
-  // Profile's Wanted row can open the Closet list on the wanted state instead of the
-  // default owned one.
-  const { filter } = useLocalSearchParams<{ filter?: string }>();
-  const initialEntryState: WardrobeEntryState | undefined =
-    filter === 'wanted' || filter === 'owned' ? filter : undefined;
+  // ADR 0028 section 7 item 3, shared with ADR 0029: the filter so Profile's Wanted row
+  // can open the Closet list on the wanted state instead of the default owned one. The
+  // list keeps this param current as the user switches segments, so the plus button below
+  // and the add flow both start from the list the user is looking at. `added` names the
+  // item the add flow has just saved, so only that tile arrives on the way back.
+  const { added, filter } = useLocalSearchParams<{ added?: string; filter?: string }>();
+  const initialEntryState = parseWardrobeEntryStateParam(filter) ?? 'owned';
+  const savedItemId = isWardrobeRouteId(added) ? added : null;
   const messages = useMessages();
   const router = useRouter();
 
@@ -28,7 +33,12 @@ export default function WardrobeRoute() {
               accessibilityHint={messages.wardrobe.addHint}
               accessibilityLabel={messages.wardrobe.addAction}
               icon={(color) => <Icon color={color} name="plus" size={20} />}
-              onPress={() => router.push('/wardrobe/new')}
+              onPress={() =>
+                router.push({
+                  params: { filter: initialEntryState },
+                  pathname: '/wardrobe/new',
+                })
+              }
               variant="quiet"
               testID="wardrobe-add-button"
             />
@@ -37,7 +47,7 @@ export default function WardrobeRoute() {
           headerTitle: messages.wardrobe.title,
         }}
       />
-      <WardrobeListRoute initialEntryState={initialEntryState} />
+      <WardrobeListRoute initialEntryState={initialEntryState} savedItemId={savedItemId} />
     </>
   );
 }

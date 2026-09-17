@@ -16,7 +16,10 @@ import { closetFieldsChanged } from '@/features/wardrobe/application/closet-fiel
 import { isWardrobeRouteId } from '@/features/wardrobe/application/wardrobe-form';
 import { unchangedWardrobePhoto } from '@/features/wardrobe/application/wardrobe-photo-manager';
 import { useWardrobeApplication } from '@/features/wardrobe/application/wardrobe-application-context';
-import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
+import type {
+  WardrobeEntryState,
+  WardrobeItem,
+} from '@/features/wardrobe/domain/wardrobe-item';
 import {
   showWardrobeConfirmation,
   type WardrobeConfirmation,
@@ -80,9 +83,12 @@ function useWardrobeExitGuard(
   );
 
   return {
-    returnToList: () => {
+    // The Closet list reads its segment, and the tile it should let arrive, from the
+    // route, so an exit that finished something says which list it finished it in. A
+    // cancelled edit pops instead of replacing, and keeps the list it left untouched.
+    returnToList: (params?: Readonly<Record<string, string>>) => {
       allowExitRef.current = true;
-      router.replace('../');
+      router.replace(params ? { params, pathname: '/wardrobe' } : '../');
     },
   };
 }
@@ -133,7 +139,12 @@ export function WardrobeRouteStatus({
 
 export function WardrobeNewItemRoute({
   confirmation = showWardrobeConfirmation,
-}: Readonly<{ confirmation?: WardrobeConfirmation }>) {
+  defaultEntryState,
+}: Readonly<{
+  confirmation?: WardrobeConfirmation;
+  /** The Closet list's current segment; the form falls back to owned without it. */
+  defaultEntryState?: WardrobeEntryState;
+}>) {
   const {
     createItem,
     discardStagedPhoto,
@@ -165,6 +176,7 @@ export function WardrobeNewItemRoute({
     <WardrobeItemFormScreen
       clothingPreference={clothingPreferenceOf(profileApplication)}
       confirmation={confirmation}
+      defaultEntryState={defaultEntryState}
       isBusy={state.isMutating}
       mode="create"
       onCreate={async (input, photoChange) => {
@@ -194,7 +206,7 @@ export function WardrobeNewItemRoute({
             }
           });
         }
-        guard.returnToList();
+        guard.returnToList({ added: created.id, filter: created.entryState });
       }}
       onDiscardStagedPhoto={discardStagedPhoto}
       onDirtyChange={setIsDirty}
@@ -303,7 +315,7 @@ export function WardrobeEditItemRoute({
           state: deletedEntryState,
           had_photo: hadPhoto,
         });
-        guard.returnToList();
+        guard.returnToList({ filter: deletedEntryState });
       }}
       onDiscardStagedPhoto={application.discardStagedPhoto}
       onDirtyChange={setIsDirty}
@@ -324,7 +336,7 @@ export function WardrobeEditItemRoute({
             entry_point: 'closet_list',
           });
         }
-        guard.returnToList();
+        guard.returnToList({ filter: updated.entryState });
       }}
       photoPreviewUri={application.resolvePhotoUri(item.photoRelativePath)}
     />
