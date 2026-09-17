@@ -91,7 +91,7 @@ test('loaded mapping uses localized catalog names, slot order, positions, and fi
         id: todayScreenState.snapshot.recommendation.outfits[0].optionId,
         positionLabel: 'Option 1 of 3',
         title: 'Rain Ready',
-        summary: 'Jumpsuit + Rain jacket + Rain boots',
+        summary: 'T-shirt + Skirt + Rain jacket + Rain boots',
         emphasis: 'Recommended',
       },
       {
@@ -105,13 +105,14 @@ test('loaded mapping uses localized catalog names, slot order, positions, and fi
         id: todayScreenState.snapshot.recommendation.outfits[2].optionId,
         positionLabel: 'Option 3 of 3',
         title: 'Wind Guard',
-        summary: 'Blouse + Long skirt + Rain jacket + Rain boots',
+        summary: 'Blouse + Skirt + Rain jacket + Rain boots',
         emphasis: undefined,
       },
     ],
   );
   assert.deepEqual(english.suggestions[0].pieces, [
-    { slot: 'One-piece', item: 'Jumpsuit', category: 'one_piece', garmentTypeId: 'jumpsuit' },
+    { slot: 'Top', item: 'T-shirt', category: 'top', garmentTypeId: 't_shirt' },
+    { slot: 'Bottom', item: 'Skirt', category: 'bottom', garmentTypeId: 'skirt' },
     { slot: 'Outer layer', item: 'Rain jacket', category: 'outerwear', garmentTypeId: 'rain_jacket' },
     { slot: 'Footwear', item: 'Rain boots', category: 'footwear', garmentTypeId: 'rain_boots' },
   ]);
@@ -242,11 +243,11 @@ test('shared weather reasons lead every outfit and per-outfit composition reason
   assert.deepEqual(english.suggestions[1].reasons, weatherReasons);
   assert.equal(
     english.suggestions[0].accessibilityLabel,
-    'Option 1 of 3. Rain Ready. One-piece: Jumpsuit. Outer layer: Rain jacket. Footwear: Rain boots. Why it works: Strong wind requires wind protection. Likely precipitation requires water protection. Drizzle calls for light water protection. Rain requires water protection.',
+    'Option 1 of 3. Rain Ready. Top: T-shirt. Bottom: Skirt. Outer layer: Rain jacket. Footwear: Rain boots. Why it works: Strong wind requires wind protection. Likely precipitation requires water protection. Drizzle calls for light water protection. Rain requires water protection.',
   );
   assert.equal(
     turkish.suggestions[0].accessibilityLabel,
-    '3 seçenekten birincisi. Yağmura Hazır. Tek parça: Tulum. Dış katman: Yağmurluk. Ayakkabı: Yağmur botu. Bu kombin şu nedenlerle uygun: Kuvvetli rüzgâr, rüzgâr koruması gerektiriyor. Beklenen yağış su koruması gerektiriyor. Çiseleme hafif su koruması gerektiriyor. Yağmur su koruması gerektiriyor.',
+    '3 seçenekten birincisi. Yağmura Hazır. Üst: Tişört. Alt: Etek. Dış katman: Yağmurluk. Ayakkabı: Yağmur botu. Bu kombin şu nedenlerle uygun: Kuvvetli rüzgâr, rüzgâr koruması gerektiriyor. Beklenen yağış su koruması gerektiriyor. Çiseleme hafif su koruması gerektiriyor. Yağmur su koruması gerektiriyor.',
   );
 });
 
@@ -559,9 +560,9 @@ test('stale freshness and outfit copy localize in both languages', () => {
   assert.deepEqual(
     turkish.suggestions.map(({ summary }) => summary),
     [
-      'Tulum + Yağmurluk + Yağmur botu',
+      'Tişört + Etek + Yağmurluk + Yağmur botu',
       'Bluz + Kot pantolon + Yağmurluk + Yağmur botu',
-      'Bluz + Uzun etek + Yağmurluk + Yağmur botu',
+      'Bluz + Etek + Yağmurluk + Yağmur botu',
     ],
   );
   assert.equal(english.header.location, 'Istanbul');

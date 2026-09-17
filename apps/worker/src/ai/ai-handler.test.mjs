@@ -1138,7 +1138,7 @@ test('the daily attempt budget covers the largest prompt in the shared grid', as
 
   // The grid sends a dayKind, as the app does, so `weekend_relaxed` leaves the eligible
   // lists of a weekday and the largest prompt is a little shorter than the day-blind one.
-  assert.equal(promptCharacters, 17_651);
+  assert.equal(promptCharacters, 17_650);
   const inputTokens = Math.ceil(promptCharacters / 4 / 100) * 100;
   const attemptNeurons = Math.ceil(
     (inputTokens * 26_668 + 192 * 204_805) / 1_000_000,
