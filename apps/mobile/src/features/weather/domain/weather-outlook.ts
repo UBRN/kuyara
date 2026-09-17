@@ -2,6 +2,7 @@ import { weatherLocalDateKey } from '@kuyara/contracts';
 
 import type { WeatherSnapshot } from '@/features/weather/domain/weather';
 import {
+  isWetCondition,
   isWetMeasurement,
   temperatureSwingCelsius,
 } from '@/features/weather/domain/weather-thresholds';
@@ -51,9 +52,13 @@ export function findWeatherOutlook(input: Readonly<{
   ));
 
   const isWetNow = isWetMeasurement(snapshot.current);
-  const precipitationCrossing = remainingHours.find(
-    (hour) => isWetMeasurement(hour) !== isWetNow,
-  );
+  // Easing claims precipitation is falling right now and will stop, and only the condition
+  // code can establish the present tense. A likely-enough probability over a dry condition is
+  // a forecast, which is the onset sentence's job; a day that is merely likely to be wet has
+  // no precipitation transition to name, so the temperature or steady line takes the slot.
+  const precipitationCrossing = isWetNow && !isWetCondition(snapshot.current.condition)
+    ? undefined
+    : remainingHours.find((hour) => isWetMeasurement(hour) !== isWetNow);
 
   const fromApparentCelsius = snapshot.current.apparentTemperatureCelsius;
   const temperatureCrossing = remainingHours.find(({ apparentTemperatureCelsius }) =>
