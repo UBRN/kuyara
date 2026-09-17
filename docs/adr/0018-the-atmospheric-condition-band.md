@@ -41,10 +41,12 @@ sit on the page ground, not on the hero.
 ### 1. The atmosphere is a stage, not a page
 
 The condition tints the surface the garment composition sits on and places one
-temperature and one condition glyph in its corner. Only `textPrimary` and
-`iconPrimary` are permitted on the stage; no supporting copy, bordered control or card
-sits on it. The page ground remains stable, and the stage adds no fourth plane under Law
-3 of [`design-language.md`](../design/design-language.md).
+temperature and one condition glyph in its corner. Only `textPrimary`, `iconPrimary`
+and the resolved `condition.*` ink are permitted on the stage. The condition ink is
+measured against every atmosphere state its own condition family can produce and
+against `neutral`, clearing 3:1 on each. No supporting copy, bordered control or card
+sits on the stage. The page ground remains stable, and the stage adds no fourth plane
+under Law 3 of [`design-language.md`](../design/design-language.md).
 
 Do not reintroduce a full-width condition strip. Below roughly 110 points of height a
 two-stop tonal field has no vertical room to be perceived, and in the dark appearance a
@@ -88,24 +90,37 @@ a separate decision.
 
 ### 4. Measured, every state
 
-Light values are measured against `textPrimary` `#142F3B` and the non-text glyph at 0.70
-alpha.
+Light atmosphere values remain measured against `textPrimary` `#142F3B`.
 
-| state | L | `textPrimary` | glyph at 0.70 | vs ground | levels off ground |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| `clearDay` | 0.7220 | 10.30:1 | 4.59:1 | 1.253:1 | 41 |
-| `veiledDay` | 0.6177 | 8.91:1 | 4.26:1 | 1.449:1 | 50 |
-| `fallingDay` | 0.5021 | 7.36:1 | 3.81:1 | 1.752:1 | 92 |
-| `clearNight` | 0.4411 | 6.55:1 | 3.56:1 | 1.970:1 | 101 |
-| `veiledNight` | 0.4181 | 6.24:1 | 3.48:1 | 2.067:1 | 80 |
-| `fallingNight` | 0.3405 | 5.21:1 | 3.10:1 | 2.478:1 | 119 |
+| state | L | `textPrimary` | vs ground | levels off ground |
+| --- | ---: | ---: | ---: | ---: |
+| `clearDay` | 0.7220 | 10.30:1 | 1.253:1 | 41 |
+| `veiledDay` | 0.6177 | 8.91:1 | 1.449:1 | 50 |
+| `fallingDay` | 0.5021 | 7.36:1 | 1.752:1 | 92 |
+| `clearNight` | 0.4411 | 6.55:1 | 1.970:1 | 101 |
+| `veiledNight` | 0.4181 | 6.24:1 | 2.067:1 | 80 |
+| `fallingNight` | 0.3405 | 5.21:1 | 2.478:1 | 119 |
 
-Every light state keeps full `textPrimary` at or above 4.5:1, the 0.70-alpha non-text
-glyph at or above 3:1, and at least 15 RGB levels of separation from the Soft Mist page
-ground. Clearing the contrast floors is not enough: values within roughly 8 levels of the
-ground are imperceptible on-device, so future values must also be checked for perceptible
-separation on a device. The stage carries no supporting ink; Today's condition caption
-and both captions in outfit detail's weather recap use full `textPrimary`.
+The non-text glyph now renders at full opacity in its resolved condition ink. The 0.70
+alpha composite is withdrawn: the ink's own value carries the intended quietness, and
+alpha would invalidate every measurement in this table.
+
+| condition group | light ink | allowed light planes | worst ratio | neutral ratio |
+| --- | --- | --- | ---: | ---: |
+| clear day | `#8F5A0E` | `clearDay` | 4.246:1 | 4.172:1 |
+| clear night | `#31456F` | `clearNight` | 4.441:1 | 6.860:1 |
+| overcast | `#3E545C` | `veiledDay`, `veiledNight` | 3.563:1 | 5.774:1 |
+| fog | `#3E545C` | `veiledDay`, `veiledNight` | 3.563:1 | 5.774:1 |
+| rain | `#17536E` | `fallingDay`, `fallingNight` | 3.125:1 | 6.071:1 |
+| snow | `#1B4E63` | `fallingDay`, `fallingNight` | 3.371:1 | 6.549:1 |
+| storm | `#253A4C` | `fallingDay`, `fallingNight` | 4.367:1 | 8.484:1 |
+| neutral | `textPrimary` | `neutral` | 10.117:1 | 10.117:1 |
+
+In the dark appearance every atmosphere state equals `#122A35`. The worst condition
+ink ratio on that stage is 7.153:1 for fog; the worst on the Weather card surface is
+6.718:1. Every group clears the 3:1 non-text floor in both appearances. The stage carries
+no supporting ink; Today's condition caption and the weather recap captions continue to
+use full `textPrimary`.
 
 ### 5. The gradient permission is narrow
 

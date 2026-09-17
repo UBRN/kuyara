@@ -34,6 +34,7 @@ import { HourlyRail } from '@/features/weather/presentation/hourly-rail';
 import { remainingHourlyForecast } from '@/features/weather/presentation/remaining-hours';
 import { WeatherAttribution } from '@/features/weather/presentation/weather-attribution';
 import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
+import { localHourOf } from '@/features/today/domain/atmosphere-state';
 import { useLocalization } from '@/localization/use-messages';
 import { interaction, layout, radii, spacing, typography } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -372,21 +373,22 @@ export function WeatherScreen() {
                     </AppText>
                   </View>
                   <AppText colorRole="textSecondary" variant="caption">
-                    {copy.feelsLike(
+                    {`${copy.feelsLike(
                       temperature(snapshot.current.apparentTemperatureCelsius, language),
-                    )}
-                  </AppText>
-                  <AppText colorRole="textSecondary" variant="caption">
-                    {`${copy.range(
+                    )} · ${copy.range(
                       temperature(snapshot.minimumTemperatureCelsius, language),
                       temperature(snapshot.maximumTemperatureCelsius, language),
-                    )} · ${copy.precipitation(snapshot.current.precipitationProbability)}`}
+                    )}`}
                   </AppText>
                 </View>
                 <View
                   accessibilityElementsHidden
                   importantForAccessibility="no-hide-descendants">
-                  <WeatherGlyph intensity={ambientIntensityOf(snapshot.current.condition)} />
+                  <WeatherGlyph
+                    condition={snapshot.current.condition}
+                    intensity={ambientIntensityOf(snapshot.current.condition)}
+                    localHour={localHourOf(snapshot.fetchedAt, snapshot.timeZone)}
+                  />
                 </View>
               </View>
 
@@ -498,6 +500,7 @@ export function WeatherScreen() {
                       precipitationProbability: hour.precipitationProbability,
                     }),
                     condition: hour.condition,
+                    localHour: localHourOf(hour.forecastAt, snapshot.timeZone),
                     precipitation: percentage(hour.precipitationProbability, language),
                     temperature: temperature(hour.temperatureCelsius, language, 0),
                     temperatureCelsius: hour.temperatureCelsius,

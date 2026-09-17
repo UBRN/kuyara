@@ -7,7 +7,7 @@ export type AmbientIntensity = 'calm' | 'moderate' | 'intense';
 
 // The ambient tempo of a condition: how fast the weather itself is moving, not how bad
 // it is. Anything that only sits in the sky is calm; drizzle falls slowly; everything
-// that actually comes down falls fast. The map is total over the condition vocabulary,
+// that actually comes down falls fast, except snow, which drifts. The map is total over the condition vocabulary,
 // so a new condition is a type error rather than a silent calm.
 const intensityByCondition = {
   clear: 'calm',
@@ -19,7 +19,7 @@ const intensityByCondition = {
   rain: 'intense',
   heavy_rain: 'intense',
   sleet: 'intense',
-  snow: 'intense',
+  snow: 'moderate',
   thunderstorm: 'intense',
 } as const satisfies Readonly<Record<WeatherConditionCode, AmbientIntensity>>;
 
