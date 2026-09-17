@@ -305,15 +305,24 @@ test('a new-day generation excludes the persisted previous-day option ids', asyn
   );
 });
 
-test('a same-day regeneration does not exclude persisted option ids', async () => {
+test('a same-day regeneration excludes the three options already on screen', async () => {
   const previous = await persistedRecommendation();
-  const expected = createAiRecommendationRequest(input(16));
+  const shownOptionIds = previous.recommendation.outfits.map(({ optionId }) => optionId);
+  const unfiltered = createAiRecommendationRequest(input(16));
   const { controller, requests } = createHarness({ cached: previous });
   await controller.initialize();
 
-  await controller.refresh('explicit', input(16));
+  const snapshot = await controller.refresh('explicit', input(16));
 
-  assert.deepEqual(requests[0].options, expected.options);
+  assert.equal(
+    requests[0].options.some(({ optionId }) => shownOptionIds.includes(optionId)),
+    false,
+  );
+  assert.equal(requests[0].options.length, unfiltered.options.length - 3);
+  assert.equal(
+    snapshot.recommendation.outfits.some(({ optionId }) => shownOptionIds.includes(optionId)),
+    false,
+  );
 });
 
 test('a fresh install generates with the complete offered option list', async () => {

@@ -173,16 +173,15 @@ export function localDayKey(date: Date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
-function previousDayOptionIds(
-  snapshot: RecommendationSnapshot | null,
-  currentLocalDayKey: string,
-): readonly string[] {
-  if (
-    !snapshot?.localDayKey ||
-    snapshot.localDayKey === currentLocalDayKey ||
-    snapshot.recommendation.outfits.length !== 3
-  ) return [];
-  return snapshot.recommendation.outfits.map(({ optionId }) => optionId);
+/**
+ * The three options the persisted snapshot is showing, whatever day it was written on. Every
+ * regeneration, a new local day or an explicit refresh on the same one, offers something
+ * other than what is on screen. `excludeOutfitOptions` drops the exclusion when it would
+ * leave fewer than three options, so a narrow pool repeats rather than running out.
+ */
+function shownOptionIds(snapshot: RecommendationSnapshot | null): readonly string[] {
+  const outfits = snapshot?.recommendation.outfits;
+  return outfits?.length === 3 ? outfits.map(({ optionId }) => optionId) : [];
 }
 
 export class RecommendationApplicationController {
@@ -228,7 +227,7 @@ export class RecommendationApplicationController {
     let context: RecommendationContext;
     const generationInput = {
       ...input,
-      excludedOptionIds: previousDayOptionIds(this.currentSnapshot(), input.localDayKey),
+      excludedOptionIds: shownOptionIds(this.currentSnapshot()),
     };
     try {
       context = createRecommendationContext(generationInput, input.localDayKey);
