@@ -390,6 +390,16 @@ export type AppMessages = Readonly<{
     windLabel: string;
     humidityLabel: string;
     uvIndexLabel: string;
+    /** One key per outlook state: a sentence is never built from translated fragments. */
+    outlook: Readonly<{
+      rainStarting: (time: string) => string;
+      snowStarting: (time: string) => string;
+      rainEasing: (time: string) => string;
+      snowEasing: (time: string) => string;
+      temperatureDrop: (values: { time: string; degrees: string }) => string;
+      temperatureRise: (values: { time: string; degrees: string }) => string;
+      steady: string;
+    }>;
     conditions: Readonly<Record<LiveWeatherConditionCode, string>>;
   }>;
   wardrobe: Readonly<{
@@ -750,6 +760,15 @@ const en = {
     windLabel: 'Wind',
     humidityLabel: 'Humidity',
     uvIndexLabel: 'UV',
+    outlook: {
+      rainStarting: (time) => `Rain starts around ${time}`,
+      snowStarting: (time) => `Snow starts around ${time}`,
+      rainEasing: (time) => `Rain eases around ${time}`,
+      snowEasing: (time) => `Snow eases around ${time}`,
+      temperatureDrop: ({ time, degrees }) => `It drops ${degrees} around ${time}`,
+      temperatureRise: ({ time, degrees }) => `It rises ${degrees} around ${time}`,
+      steady: 'No notable change for the rest of today',
+    },
     conditions: {
       clear: 'Clear', mostly_clear: 'Mostly clear', partly_cloudy: 'Partly cloudy',
       cloudy: 'Cloudy', fog: 'Fog', drizzle: 'Drizzle', rain: 'Rain',
@@ -1255,6 +1274,15 @@ const tr = {
     windLabel: 'Rüzgâr',
     humidityLabel: 'Nem',
     uvIndexLabel: 'UV',
+    outlook: {
+      rainStarting: (time) => `Yağmur ${time} civarında başlıyor`,
+      snowStarting: (time) => `Kar ${time} civarında başlıyor`,
+      rainEasing: (time) => `Yağmur ${time} civarında hafifliyor`,
+      snowEasing: (time) => `Kar ${time} civarında hafifliyor`,
+      temperatureDrop: ({ time, degrees }) => `Saat ${time} civarında ${degrees} düşüyor`,
+      temperatureRise: ({ time, degrees }) => `Saat ${time} civarında ${degrees} yükseliyor`,
+      steady: 'Bugünün kalanında belirgin bir değişiklik yok',
+    },
     conditions: {
       clear: 'Açık', mostly_clear: 'Çoğunlukla açık', partly_cloudy: 'Parçalı bulutlu',
       cloudy: 'Bulutlu', fog: 'Sisli', drizzle: 'Çiseleme', rain: 'Yağmurlu',

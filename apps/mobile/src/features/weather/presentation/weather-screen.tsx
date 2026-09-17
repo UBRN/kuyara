@@ -30,6 +30,7 @@ import { useWeatherApplication } from '@/features/weather/application/weather-ap
 import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity';
 import { locationCaptionKey } from '@/features/weather/domain/location-caption';
 import type { ActiveLocation } from '@/features/weather/domain/weather';
+import { findWeatherOutlook, type WeatherOutlook } from '@/features/weather/domain/weather-outlook';
 import { HourlyRail } from '@/features/weather/presentation/hourly-rail';
 import { remainingHourlyForecast } from '@/features/weather/presentation/remaining-hours';
 import { WeatherAttribution } from '@/features/weather/presentation/weather-attribution';
@@ -123,6 +124,38 @@ function accessibilitySentence(...parts: readonly (string | null)[]): string {
     .filter((part): part is string => Boolean(part))
     .map((part) => part.replace(/[.!?…]+$/u, ''))
     .join('. ');
+}
+
+// ADR 0021 section 9's meaning line. The outlook module carries a closed `kind` and raw
+// numbers only, so the sentence is chosen here from one key per state and never assembled
+// from translated fragments; rounding and the clock convention are this screen's own.
+function outlookSentence(
+  outlook: WeatherOutlook,
+  copy: ReturnType<typeof useLocalization>['messages']['weather'],
+  timeZone: string,
+  language: 'en' | 'tr',
+  hour12: boolean,
+): string {
+  if (outlook.kind === 'steady') return copy.outlook.steady;
+  const at = time(outlook.atHour, timeZone, language, hour12);
+  if (outlook.kind === 'temperature_change') {
+    const values = {
+      time: at,
+      degrees: temperature(
+        Math.abs(outlook.toApparentCelsius - outlook.fromApparentCelsius),
+        language,
+        0,
+      ),
+    };
+    return outlook.direction === 'drop'
+      ? copy.outlook.temperatureDrop(values)
+      : copy.outlook.temperatureRise(values);
+  }
+  const starting = outlook.kind === 'precipitation_onset';
+  if (outlook.form === 'snow') {
+    return starting ? copy.outlook.snowStarting(at) : copy.outlook.snowEasing(at);
+  }
+  return starting ? copy.outlook.rainStarting(at) : copy.outlook.rainEasing(at);
 }
 
 function locationName(
@@ -233,6 +266,9 @@ export function WeatherScreen() {
   const locationCaption = captionKey ? copy[captionKey] : null;
   const snapshot = state.snapshot;
   const remainingHourly = snapshot ? remainingHourlyForecast(snapshot.hourly, now) : [];
+  const outlook = snapshot
+    ? findWeatherOutlook({ snapshot, now: new Date(now).toISOString() })
+    : null;
   const failureCopy = state.refreshFailure === 'offline'
     ? {
         title: copy.offlineTitle,
@@ -391,6 +427,16 @@ export function WeatherScreen() {
                   />
                 </View>
               </View>
+
+              {outlook ? (
+                <AppText
+                  colorRole="textPrimary"
+                  tabularNumbers
+                  testID="weather-outlook"
+                  variant="body">
+                  {outlookSentence(outlook, copy, snapshot.timeZone, language, hour12)}
+                </AppText>
+              ) : null}
 
               <Divider testID="weather-current-divider" />
 

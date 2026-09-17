@@ -12,12 +12,14 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   Router Native Tabs, with the Closet and Settings as Profile stack destinations; private
   Closet photos; Turkish and English; System/Light/Dark appearance; and semantic haptics
   at the six sites the design language names. The minimum supported iOS is 26.0.
-- **Weather:** Mobile preserves the last valid snapshot, keeps it visible as stale while a
-  newly selected place loads, refreshes data older than 30 minutes, treats a timestamp up to
-  five minutes in the device's future as clock skew rather than invalid data, and reaches
-  providers only through the Worker. The chain is WeatherKit, Open-Meteo, then OpenWeather,
-  with bounded attempts, runtime validation, attribution, rate limiting and a best-effort
-  OpenWeather daily cap. Location comes from the foreground
+- **Weather:** The current-conditions card leads with the day's one remaining
+  decision-changing transition, precipitation starting or easing or an apparent-temperature
+  swing, before the measurements below the divider. Mobile preserves the last valid snapshot,
+  keeps it visible as stale while a newly selected place loads, refreshes data older than 30
+  minutes, treats a timestamp up to five minutes in the device's future as clock skew rather
+  than invalid data, and reaches providers only through the Worker. The chain is WeatherKit,
+  Open-Meteo, then OpenWeather, with bounded attempts, runtime validation, attribution, rate
+  limiting and a best-effort OpenWeather daily cap. Location comes from the foreground
   device flow or the native `/weather/location` picker over the Worker's place-search
   route, which carries its own per-IP rate limit so typed searches and weather refreshes
   cannot exhaust each other. The deterministic sample provider is test-only.
