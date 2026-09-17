@@ -756,7 +756,7 @@ test('the offered options keep every composable formality and more than one shoe
 // Part 1 of Goal B: accessories are attached to a finished outfit, never composed into it.
 // The five profiles below are the ones the recommendation grid already uses, read here for
 // what each of them finishes with rather than for what it composes.
-function offeredForWeather(measurements, overrides = {}) {
+function composableForWeather(measurements, overrides = {}, preference = 'womens') {
   const observedAt = '2026-08-01T12:00:00.000Z';
   const full = Object.freeze({ humidity: 0.5, uvIndex: 0, ...measurements });
   const requirements = deriveClothingRequirements(
@@ -777,12 +777,16 @@ function offeredForWeather(measurements, overrides = {}) {
     }),
     observedAt,
   );
-  const result = composeOutfitOptions(
+  return {
     requirements,
-    listGarmentTypesForPreference('womens').map(({ typeId }) =>
-      catalogCandidate(requirements, typeId, 'womens')),
-    0,
-  );
+    candidates: listGarmentTypesForPreference(preference).map(({ typeId }) =>
+      catalogCandidate(requirements, typeId, preference)),
+  };
+}
+
+function offeredForWeather(measurements, overrides = {}, preference = 'womens') {
+  const { requirements, candidates } = composableForWeather(measurements, overrides, preference);
+  const result = composeOutfitOptions(requirements, candidates, 0);
   assert.equal(result.status, 'composed', 'the profile composed nothing');
   return result.outfits;
 }
@@ -906,4 +910,73 @@ test('accessories reach the composition key and never the body slots or the dist
       'an accessory reached the keys distinctness counts',
     );
   }
+});
+
+// A day that requires no layer scored every arrangement alike, and the comparator then read
+// layer count ascending: every body core led with its bare variant, and the pool, being one
+// outfit per core, carried no layer at all. Every second core now leads with its best
+// layered arrangement.
+function layerCount(outfit) {
+  return Number(outfit.midLayer !== null) + Number(outfit.outerLayer !== null);
+}
+
+function bodyCoreOf(outfit) {
+  return outfit.body.kind === 'one_piece'
+    ? `one_piece|${outfit.body.onePiece.garment.candidateKey}`
+    : `separates|${outfit.body.primaryTop.garment.candidateKey}` +
+      `|${outfit.body.bottom.garment.candidateKey}`;
+}
+
+test('a day that asks for no layer still offers layered options, each from its own body core', () => {
+  for (const preference of ['womens', 'mens']) {
+    // 20 °C derives no thermal requirement at all; 26 °C derives optional breathability only.
+    for (const temperatureCelsius of [20, 26]) {
+      const where = `${temperatureCelsius} °C ${preference}`;
+      const offered = offeredForWeather(clearDay(temperatureCelsius), {}, preference);
+      const layered = offered.filter((outfit) => layerCount(outfit) > 0);
+      assert.equal(offered.length, 24, where);
+      assert.ok(layered.length >= 8, `${where} offered ${layered.length} layered options`);
+      assert.equal(
+        new Set(layered.map(bodyCoreOf)).size,
+        layered.length,
+        `${where} repeated a body core among its layered options`,
+      );
+    }
+  }
+});
+
+test('a cold rainy day composes no bare arrangement, so the alternating core moves nothing', () => {
+  const coldRain = {
+    temperatureCelsius: 6,
+    apparentTemperatureCelsius: 4,
+    condition: 'rain',
+    precipitationProbability: 0.75,
+    windSpeedMetersPerSecond: 6,
+  };
+  for (const preference of ['womens', 'mens']) {
+    const { requirements, candidates } = composableForWeather(coldRain, {}, preference);
+    const valid = collectValidOutfits(requirements, candidates);
+    assert.equal(valid.status, 'composed', preference);
+    // Every member of every body core group already layers, so the first layered member of
+    // a group is its head and the offer is exactly what it was before the rule.
+    assert.equal(valid.outfits.every((outfit) => layerCount(outfit) > 0), true, preference);
+    assert.equal(offeredForWeather(coldRain, {}, preference).length, 24, preference);
+  }
+});
+
+test('a hot day composes no layered arrangement, so the pool stays at four', () => {
+  for (const preference of ['womens', 'mens']) {
+    const { requirements, candidates } = composableForWeather(clearDay(32), {}, preference);
+    const valid = collectValidOutfits(requirements, candidates);
+    assert.equal(valid.status, 'composed', preference);
+    // No group holds a layered member, so the rule finds nothing to move.
+    assert.equal(valid.outfits.some((outfit) => layerCount(outfit) > 0), false, preference);
+    assert.equal(offeredForWeather(clearDay(32), {}, preference).length, 4, preference);
+  }
+});
+
+test('the offered order repeats exactly for the same input', () => {
+  const keys = () =>
+    offeredForWeather(clearDay(20)).map(({ compositionKey }) => compositionKey);
+  assert.deepEqual(keys(), keys());
 });

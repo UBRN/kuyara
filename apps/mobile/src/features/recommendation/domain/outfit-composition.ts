@@ -1614,6 +1614,22 @@ function groupedInOrder<Value>(
 }
 
 /**
+ * Every second body core leads with its best layered arrangement. A group whose head already
+ * layers, or that composed none, is left alone, and the rest of a group keeps its order.
+ */
+function layeredHeadOnAlternateGroups(
+  groups: readonly (readonly OutfitCandidate[])[],
+): readonly (readonly OutfitCandidate[])[] {
+  return groups.map((group, index) => {
+    if (index % 2 === 0) return group;
+    const layered = group.findIndex((outfit) => optionalLayerCount(outfit) > 0);
+    return layered <= 0
+      ? group
+      : [group[layered]!, ...group.slice(0, layered), ...group.slice(layered + 1)];
+  });
+}
+
+/**
  * The order the 24 offered options are taken in. Score order alone lets one garment sweep
  * the pool: two shoes in the same thermal band both fit, the better-scoring one wins every
  * arrangement, and the formality levels and body cores behind it never reach the offer. So
@@ -1627,6 +1643,14 @@ function groupedInOrder<Value>(
  * the preference is applied afterwards, when the three shown outfits are chosen.
  * `startOffset` still seeds the choice, rotating each formality's own list rather than the
  * flat one, so a day variant cannot spend a whole formality's share.
+ *
+ * Inside the inner round-robin every second body core is offered with its best layered
+ * arrangement in front. A day that requires no layer scores every arrangement alike and the
+ * comparator then reads layer count ascending, so each body core led with its bare variant
+ * and the pool, being one outfit per core, carried no layer at all. Alternating keeps both
+ * readings of the day: half the offer wears what the weather demands, half wears a layer it
+ * merely allows, and the group's own score order decides which layer that is, so a light
+ * cardigan comes forward where a parka does not.
  */
 function orderForOffer(
   outfits: readonly OutfitCandidate[],
@@ -1635,12 +1659,14 @@ function orderForOffer(
   return interleaved(
     formalityOrder.map((formality) =>
       interleaved(
-        groupedInOrder(
-          rotated(
-            outfits.filter((outfit) => outfit.formality === formality),
-            startOffset,
+        layeredHeadOnAlternateGroups(
+          groupedInOrder(
+            rotated(
+              outfits.filter((outfit) => outfit.formality === formality),
+              startOffset,
+            ),
+            bodyCoreKey,
           ),
-          bodyCoreKey,
         ),
       ),
     ),

@@ -285,7 +285,7 @@ test('recommendations are deterministic across repeated calls with the same inpu
   assert.deepEqual(first, repeated);
 });
 
-test('previous-day exclusions apply only when at least three options remain', () => {
+test('exclusions apply only when at least three options remain', () => {
   const outfits = ['one', 'two', 'three', 'four', 'five'].map((compositionKey) => ({
     compositionKey,
   }));
@@ -297,7 +297,7 @@ test('previous-day exclusions apply only when at least three options remain', ()
   assert.equal(excludeOutfitOptions(outfits, ['one', 'two', 'three']), outfits);
 });
 
-test('deterministic selection never returns an excluded previous-day option', () => {
+test('deterministic selection never returns an excluded option', () => {
   const shared = {
     now: observedAt,
     snapshot: warmWetSnapshot(),
@@ -317,6 +317,53 @@ test('deterministic selection never returns an excluded previous-day option', ()
     next.outfits.some(({ optionId }) => excludedOptionIds.includes(optionId)),
     false,
   );
+});
+
+test('a narrow pool keeps the three shown options rather than running out', () => {
+  const shared = {
+    now: observedAt,
+    snapshot: snapshot({ current: { temperatureCelsius: 32, apparentTemperatureCelsius: 32 } }),
+    clothingPreference: 'womens',
+    dressStyle: 'smart',
+    dayVariant: 0,
+  };
+  const shown = recommendOutfits(shared);
+  assert.equal(shown.status, 'recommended');
+  const excludedOptionIds = shown.outfits.map(({ optionId }) => optionId);
+
+  // A hot day composes four options, so removing three would leave one. The exclusion is
+  // dropped whole and the day repeats rather than falling back to fewer than three outfits.
+  const next = recommendOutfits({ ...shared, excludedOptionIds });
+
+  assert.equal(next.status, 'recommended');
+  assert.deepEqual(next.outfits.map(({ optionId }) => optionId), excludedOptionIds);
+});
+
+// A day with no thermal requirement once offered no layered arrangement at all, so the three
+// shown outfits could not carry one either.
+test('a mild day shows at least one layered outfit in every dress style', () => {
+  for (const clothingPreference of ['womens', 'mens']) {
+    for (const dressStyle of ['casual', 'smart', 'formal']) {
+      for (const temperatureCelsius of [20, 26]) {
+        const result = recommendOutfits({
+          now: observedAt,
+          snapshot: snapshot({
+            current: { temperatureCelsius, apparentTemperatureCelsius: temperatureCelsius },
+          }),
+          clothingPreference,
+          dressStyle,
+          dayVariant: 0,
+        });
+        const where = `${temperatureCelsius} °C ${clothingPreference} ${dressStyle}`;
+        assert.equal(result.status, 'recommended', where);
+        assert.equal(
+          result.outfits.some((outfit) => outfit.midLayer !== null || outfit.outerLayer !== null),
+          true,
+          `${where} showed no layered outfit`,
+        );
+      }
+    }
+  }
 });
 
 test('fallback prefers each dress style while preserving three distinct valid options', () => {

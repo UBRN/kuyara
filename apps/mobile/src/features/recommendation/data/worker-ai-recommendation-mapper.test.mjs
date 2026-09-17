@@ -299,13 +299,13 @@ test('every deterministic recommendation round-trips through the stored mapper',
 
 // The two live Worker answers that the first valid arrangement rejected on 2026-09-13: the
 // mid layer was dropped, and the mid layer was promoted to a standalone primary top. Read at
-// 4 degrees because the offered set now keeps one arrangement per body core, so a mid layer
-// only reaches it where the cold makes it the best arrangement its body core has.
+// 4 degrees, where the cold makes a mid layer the best arrangement its body core has, so the
+// offer carries these signatures without the alternate-core layering rule choosing them.
 test('rebuilds an offered option with its mid layer instead of the simpler arrangement', () => {
   const request = createAiRecommendationRequest(input({ temperatureCelsius: 4 }));
   const signatures = [
     'primary_top:blouse:base bottom:long_skirt:standalone mid_layer:cardigan:mid footwear:ankle_boots:null',
-    'primary_top:polo_shirt:base bottom:long_skirt:standalone mid_layer:cardigan:mid footwear:ankle_boots:null',
+    'primary_top:blouse:base bottom:trousers:standalone mid_layer:cardigan:mid footwear:ankle_boots:null',
   ];
 
   for (const signature of signatures) {

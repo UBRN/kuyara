@@ -51,6 +51,11 @@ The deterministic layer produces at most **24 complete, valid,
 requirement-satisfying, formality-consistent outfits**. The model returns
 exactly three of them, each with one archetype identifier.
 
+Which 24 are offered is decided by order rather than by score alone: the
+score-sorted arrangements are taken one per formality and one per body core in
+turn, and every second body core is offered with its best layered arrangement in
+front, so a day that requires no layer still offers layered options.
+
 An option is six body slots and four optional accessory slots. The body is a core
 that is either `primary_top` plus `bottom` or a lone `one_piece`, an optional
 `mid_layer`, an optional `outer_layer`, and a mandatory `footwear`; that is what is
@@ -212,7 +217,11 @@ recommendation is never withheld.
   formality but not in palette.
 - Results of a Worker selection are shared across all users by construction,
   which ADR 0005 already accepted. An on-device selection is computed per device.
-- Outfits recur on a seven-day cycle for an unchanged weather bucket.
+- Outfits recur on a seven-day cycle for an unchanged weather bucket. Within a
+  day, a regeneration excludes the three outfits on screen, so an explicit
+  refresh answers with different ones; where excluding them would leave fewer
+  than three candidates, as hot weather's four options do, the exclusion is
+  dropped whole and the same three return.
 
 ## Alternatives considered
 
