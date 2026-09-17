@@ -1,10 +1,10 @@
 import type { DayKind } from '@kuyara/contracts';
 
 import {
+  archetypeLabel,
   localDayKind,
   type RecommendationPhase,
 } from '@/features/recommendation/application/recommendation-application-controller';
-import { archetypeLabel } from '@/features/recommendation/localization/recommendation-messages';
 import type { RecommendedOutfit } from '@/features/recommendation/application/recommend-outfits';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import type {
