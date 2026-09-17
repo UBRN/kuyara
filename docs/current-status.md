@@ -202,7 +202,7 @@ of the English and Turkish descriptions, which no longer mentions creating an ac
 maintainer installed build 9 from TestFlight over the installed store build on the phone
 before the submission: the upgrade kept the existing data and onboarding did not reappear.
 
-Version 0.1.20260916 is being prepared from commit c4e9b8f; its App Store Connect version record
+Version 0.1.20260916 is being prepared from commit 7e0114c; its App Store Connect version record
 (`ed843aea`, Prepare for Submission) exists with the listing copied from 0.1.20260915 and its own
 release notes in both locales. Its build number is issued by
 EAS, which auto-increments it from the remote version source; the commands are in
