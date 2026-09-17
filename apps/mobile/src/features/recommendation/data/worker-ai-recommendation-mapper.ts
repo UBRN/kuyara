@@ -33,6 +33,7 @@ import {
 } from '@/features/catalog/domain/garment-catalog';
 import {
   assignFallbackArchetypes,
+  fallbackArchetypeOrderFor,
   excludeOutfitOptions,
   outfitOptionId,
   outfitMatchesArchetype,
@@ -458,7 +459,12 @@ export function mapStoredRecommendation(
     status: 'recommended',
     generationMode,
     requirements,
-    outfits: assignFallbackArchetypes(outfits, undefined, dayKind),
+    outfits: assignFallbackArchetypes(
+      outfits,
+      undefined,
+      dayKind,
+      fallbackArchetypeOrderFor(requirements),
+    ),
   });
 }
 

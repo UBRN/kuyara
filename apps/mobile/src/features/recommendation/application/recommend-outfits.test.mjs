@@ -222,6 +222,41 @@ test('fallback archetypes use rule order and advance past duplicates', () => {
   );
 });
 
+// The bug: snow makes a waterproof outer layer mandatory, so every outfit on a -1 °C snow
+// day matched `rain_ready` first and Today labelled a snow outfit "Rain Ready". A snow or
+// sleet day now leads with `snow_day` and never hands out the rain label.
+test('a snow or sleet day leads with snow_day and never labels rain_ready', () => {
+  for (const condition of ['snow', 'sleet']) {
+    for (const clothingPreference of ['womens', 'mens']) {
+      for (const dressStyle of ['casual', 'smart', 'formal']) {
+        const result = recommendOutfits({
+          now: observedAt,
+          snapshot: snapshot({
+            current: {
+              temperatureCelsius: -1,
+              apparentTemperatureCelsius: -4,
+              condition,
+              precipitationProbability: 0.9,
+              windSpeedMetersPerSecond: 4,
+            },
+            minimumTemperatureCelsius: -3,
+            maximumTemperatureCelsius: 1,
+          }),
+          clothingPreference,
+          dressStyle,
+          dayVariant: 0,
+        });
+        const where = `${condition}, ${clothingPreference}, ${dressStyle}`;
+        assert.equal(result.status, 'recommended', where);
+        const archetypeIds = result.outfits.map(({ archetypeId }) => archetypeId);
+        assert.equal(archetypeIds.length, 3, where);
+        assert.equal(archetypeIds[0], 'snow_day', where);
+        assert.equal(archetypeIds.includes('rain_ready'), false, where);
+      }
+    }
+  }
+});
+
 // The bug: nothing in the pipeline knew the weekday, so a Tuesday could be labelled
 // Weekend Relaxed. A weekday now drops that rung and the casual outfit takes `on_the_move`,
 // the rung below it.
