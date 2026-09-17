@@ -727,7 +727,91 @@ test('requests with different offered option ids use different shared-cache entr
   }
 });
 
-test('cache identity sorts requirements and excludes reason codes', async () => {
+// The canonical string the Worker hashed before the day facts and the gate version joined
+// the key, so a test can leave an entry exactly where an older deploy left one.
+async function preGateCacheUrl(body) {
+  const canonical = [
+    body.requirements
+      .map(({ kind, priority, minimum, target }) => [kind, priority, minimum, target ?? ''].join('|'))
+      .sort().join(','),
+    body.options.map(({ optionId }) => optionId).sort().join(','),
+    body.clothingPreference,
+    body.dressStyle ?? 'smart',
+    body.catalogVersion,
+    body.dayVariant,
+    body.dayKind ?? 'unknown',
+  ].join('\n');
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
+  const hash = [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `https://kuyara.internal/v1/ai/recommend/${hash}`;
+}
+
+// Two requirement sets can project identically into the key and still describe different
+// days, because the day is read from the reason codes the projection drops. Rain and snow
+// ask for the same waterproof shell; only one of them may be labelled `snow_day`.
+test('requests whose reason codes change the day use different shared-cache entries', async () => {
+  const restore = installMemoryCache();
+  try {
+    let providerCalls = 0;
+    const handle = createAiHandler({ providers: [{
+      async generateOutfits() {
+        providerCalls += 1;
+        return validOutput();
+      },
+    }] });
+    const rainy = validRequestBody();
+    rainy.requirements.push({
+      kind: 'water_protection',
+      minimum: 'waterproof',
+      priority: 'mandatory',
+      target: 'body',
+      reasonCodes: ['condition_rain'],
+    });
+    const snowy = structuredClone(rainy);
+    snowy.requirements[1].reasonCodes = ['condition_snow'];
+    assert.equal((await handle(request({ body: JSON.stringify(rainy) }))).status, 200);
+    assert.equal((await handle(request({ body: JSON.stringify(snowy) }))).status, 200);
+    assert.equal(providerCalls, 2, 'a wet day and a frozen day are separate entries');
+  } finally {
+    restore();
+  }
+});
+
+// An answer chosen by an older gate keeps its day-blind labels for the whole thirty day
+// TTL, and the client's own gate rejects them. The gate version in the key retires it.
+test('an entry left under the pre-gate cache key is a miss', async () => {
+  const restore = installMemoryCache();
+  try {
+    let providerCalls = 0;
+    const handle = createAiHandler({ providers: [{
+      async generateOutfits() {
+        providerCalls += 1;
+        return validOutput();
+      },
+    }] });
+    const body = validRequestBody();
+    const stale = { data: { picks: [
+      { optionId: 'option-casual', archetypeId: 'rain_ready' },
+      { optionId: 'option-smart', archetypeId: 'smart_casual' },
+      { optionId: 'option-formal', archetypeId: 'office_ready' },
+    ] } };
+    await globalThis.caches.default.put(
+      new Request(await preGateCacheUrl(body)),
+      new Response(JSON.stringify(stale), {
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+    const response = await handle(request({ body: JSON.stringify(body) }));
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), validOutput());
+    assert.equal(providerCalls, 1, 'the stale entry is not served');
+  } finally {
+    restore();
+  }
+});
+
+test('cache identity sorts requirements and excludes reason codes that leave the day unchanged', async () => {
   const restore = installMemoryCache();
   try {
     let providerCalls = 0;
