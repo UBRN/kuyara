@@ -386,6 +386,76 @@ test('the current conditions lead and the location control follows once a snapsh
   expect(result.getByText(/^Last updated at /)).toBeOnTheScreen();
 });
 
+test('the meaning of the day leads the measurements inside the current card', async () => {
+  for (const language of ['en', 'tr'] as const) {
+    const value = createValue({
+      ...baseState,
+      activeLocation: getManualLocation('sample.istanbul')!,
+      snapshot: sampleSnapshot(),
+      freshness: 'fresh',
+    });
+    const result = await render(
+      <Providers language={language} value={value}><WeatherScreen /></Providers>,
+    );
+
+    // It is raining at 09:30Z and the 10:00Z hour is cloudy, so the rain eases at 13:00
+    // Istanbul time. The hero, then the meaning, then the measurements after the divider.
+    const currentCard = result.getByTestId('weather-current-card');
+    expect(within(currentCard).getByTestId('weather-outlook')).toHaveTextContent(
+      language === 'en' ? 'Rain eases around 13:00' : 'Yağmur 13:00 civarında hafifliyor',
+    );
+    expect(within(currentCard)
+      .getAllByTestId(/^weather-(outlook|current-divider)$/, { includeHiddenElements: true })
+      .map((element) => element.props.testID))
+      .toEqual(['weather-outlook', 'weather-current-divider']);
+    await result.unmount();
+  }
+});
+
+test('a rest of day that changes nothing says so, and a day almost over says nothing', async () => {
+  const steady = sampleSnapshot();
+  const clear = {
+    temperatureCelsius: 16, apparentTemperatureCelsius: 15, condition: 'clear' as const,
+    precipitationProbability: 0, windSpeedMetersPerSecond: 4, humidity: 0.7, uvIndex: 2,
+  };
+  const withHours = (hours: readonly string[]) => ({
+    ...steady,
+    current: { observedAt: steady.current.observedAt, ...clear },
+    hourly: hours.map((forecastAt) => ({ forecastAt, ...clear })),
+  });
+
+  const result = await render(
+    <Providers
+      language="en"
+      value={createValue({
+        ...baseState,
+        activeLocation: getManualLocation('sample.istanbul')!,
+        snapshot: withHours(['2026-07-30T10:00:00.000Z', '2026-07-30T11:00:00.000Z']),
+        freshness: 'fresh',
+      })}>
+      <WeatherScreen />
+    </Providers>,
+  );
+  expect(result.getByTestId('weather-outlook'))
+    .toHaveTextContent(messages.en.weather.outlook.steady);
+  await result.unmount();
+
+  // One hour left is too little of a day for "no notable change" to be worth a line.
+  const lateEvening = await render(
+    <Providers
+      language="en"
+      value={createValue({
+        ...baseState,
+        activeLocation: getManualLocation('sample.istanbul')!,
+        snapshot: withHours(['2026-07-30T10:00:00.000Z']),
+        freshness: 'fresh',
+      })}>
+      <WeatherScreen />
+    </Providers>,
+  );
+  expect(lateEvening.queryByTestId('weather-outlook')).toBeNull();
+});
+
 test('without a snapshot the location control stays the first block after the title', async () => {
   const value = createValue({
     ...baseState,

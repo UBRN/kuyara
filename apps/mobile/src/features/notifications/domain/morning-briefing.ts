@@ -1,14 +1,12 @@
 import { weatherLocalDateKey } from '@kuyara/contracts';
 
-import {
-  defaultQuietHours,
-  isWetMeasurement,
-} from '@/features/notifications/domain/weather-alerts';
+import { defaultQuietHours } from '@/features/notifications/domain/weather-alerts';
 import type {
   HourlyWeather,
   WeatherConditionCode,
   WeatherSnapshot,
 } from '@/features/weather/domain/weather';
+import { isWetMeasurement } from '@/features/weather/domain/weather-thresholds';
 
 /**
  * ADR 0004: the second notification kind. The briefing is the one notification that arrives
