@@ -134,6 +134,14 @@ Why this is stricter than the mockups: see [Relationship to the mockups](#relati
     the ground plane and must never be the only separator. This matches [Ant Design's
     reasoning that an object close to the ground carries no shadow](https://ant.design/docs/spec/shadow),
     because the shadow overlaps completely with the object itself.
+- **Second measurable token, separately named: the garment fill step.** A garment fill
+  steps **>= 1.20:1** off the plane it is drawn on and the outline over that fill clears
+  **>= 3.0:1**, measured on all seven light atmosphere states and the dark stage. This is
+  not the shadow threshold, and it is not the surface step
+  [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md) section 4 declines
+  to bound. It holds for the neutral base, for the deeper `footwear` neutral and for the
+  one luminance-matched accent alike, and the two page grounds the detail plate and the
+  Today alternates stand on are measured with them.
 
 ## Law 4: one accent, and a controlled role band
 
@@ -149,6 +157,17 @@ Ordinary UI excludes the condition glyph and the hourly rail's condition icons, 
 take the `condition.*` family because their hue is a data encoding chosen by the weather
 rather than an emphasis chosen by the product. The family is consumed nowhere else,
 never by text, a filled control, a border or chrome, and never through alpha.
+
+Garment render fills are the second such encoding and are not emphasis either, so they do
+not spend the accent budget. They carry their own ceiling instead: a board draws at most a
+neutral base, a deeper neutral for `footwear` and **one** luminance-matched accent, and only
+the board that is the subject of the screen may carry that accent, so Today's alternates and
+the detail's recap stay neutral. The hue is a deterministic function of the option identifier
+and is stored nowhere. It reaches no text, control, border or chrome, it is never composited
+through alpha, and it is never the only signal: the outline, the garment name and the
+accessibility label say the same thing without it. A colour the owner recorded always wins
+over a derived one, and a piece with no recorded colour stays neutral rather than being
+guessed at.
 
 **Controlled roles are approved and enter as a band, not as free hues.** Every controlled
 ink is tuned so its contrast against its own appearance's `surface` lies within **±0.8**

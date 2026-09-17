@@ -178,8 +178,8 @@ Every value, in stage-width units unless marked otherwise.
 
 ## 8. The silhouette set
 
-Twenty-six drawings, one 64×64 viewBox each, stroke 1.9 non-scaling, filled with the
-stage's own fill so a garment reads as a pale solid with a drawn edge. They cover all
+Twenty-six drawings, one 64×64 viewBox each, stroke 1.9 non-scaling, filled with a value
+derived from the plane it sits on so a garment reads as a pale solid with a drawn edge. They cover all
 **41 outfit-eligible catalogue types**; fifteen types share a drawing with another
 (`blouse`, `overshirt` with `shirt`; `sweatshirt`, `fleece`, `turtleneck` with `sweater`;
 `polo_shirt` with `t_shirt`; `long_skirt` with `skirt`; `track_pants` with `trousers`;

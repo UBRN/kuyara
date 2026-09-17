@@ -124,7 +124,8 @@ and is not settled here.
 
 Filling a garment-type silhouette with the piece's colour family, a muted tint tuned per
 appearance, is approved by the sheet approval. It is content colour, not an interface
-token, and it applies to the Profile rail and the Closet grid and to nothing else. Its
+token, and it applies to the Profile rail and the Closet grid and to the garment board as
+the source of its hue anchors. Its
 per-family fill table doubles as the mapper that the shipped list lacks, where a stored
 enum currently reaches a style by the coincidence that every family name is a CSS colour
 keyword.

@@ -2,7 +2,7 @@ import type { ColorFamily } from '@/features/catalog/domain/garment-taxonomy';
 import type { ThemeColorScheme } from '@/theme/theme';
 
 // Approved content colour: ADR 0028 section 6 and ADR 0029 section 5.
-// Profile rail and Closet grid only; never a semantic theme role or board fill.
+// Never a semantic theme role. The board uses these values as hue anchors, not as fills.
 export const colorFamilyFills = {
   light: {
     black: '#5F686C', white: '#FFFFFF', gray: '#B7BEC0', brown: '#B08A6A',

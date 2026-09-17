@@ -3,6 +3,7 @@ import { processColor } from 'react-native';
 
 import { GarmentTileArtwork } from '@/components/ui/garment-board/garment-tile-artwork';
 import { silhouettes } from '@/components/ui/garment-board/silhouettes';
+import { blend } from '@/theme/color-blend';
 import { darkTheme, lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
@@ -25,7 +26,7 @@ function paths(result: Awaited<ReturnType<typeof render>>) {
   return result.container.queryAll((node) => node.props.d === silhouettes['g-tee'].paths[0].d);
 }
 
-test.each([lightTheme, darkTheme])('null colour uses stage and blue uses content fill in $colorScheme', async (theme) => {
+test.each([lightTheme, darkTheme])('null colour uses the page ground\u2019s neutral and blue uses the content fill in $colorScheme', async (theme) => {
   const result = await render(
     <KuyaraThemeContext.Provider value={theme}><GarmentTileArtwork {...props} /></KuyaraThemeContext.Provider>,
   );
@@ -34,7 +35,12 @@ test.each([lightTheme, darkTheme])('null colour uses stage and blue uses content
   expect(artwork).toHaveProp('importantForAccessibility', 'no-hide-descendants');
   expect(result.queryAllByRole('image')).toHaveLength(0);
   const path = paths(result)[0];
-  expect(path.props.fill).toEqual({ type: 0, payload: processColor(theme.colors.stage) });
+  // A record the owner left colourless is drawn in the neutral derived from the page
+  // ground, never guessed at. In the light appearance that is `stage` to the pixel.
+  expect(path.props.fill).toEqual({
+    type: 0,
+    payload: processColor(blend(theme.colors.background, theme.colors.textPrimary, 0.13)),
+  });
   expect(path.props.stroke).toEqual({ type: 0, payload: processColor(theme.colors.textPrimary) });
   const bounds = silhouettes['g-tee'].bounds;
   const scale = Math.min(136 * 0.6 / bounds.width, 170 * 0.61 / bounds.height);
