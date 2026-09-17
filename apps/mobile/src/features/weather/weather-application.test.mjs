@@ -369,6 +369,59 @@ test('foreground keeps a fresh snapshot when the device has not moved, and stays
   assert.equal(failing.controller.getSnapshot().snapshot.fetchedAt, cached.fetchedAt);
 });
 
+test('foreground keeps the stored locality name when reverse geocoding returns no name', async () => {
+  const stayed = {
+    source: 'device', accuracy: 'approximate', locationKey: 'device:4101:2898',
+    displayName: 'Kadikoy', coordinates: { latitudeE2: 4101, longitudeE2: 2898 },
+    timeZone: 'Europe/Istanbul',
+  };
+  const cached = snapshotFor(stayed, '2026-07-30T09:55:00.000Z');
+  const harness = createHarness({
+    active: stayed,
+    snapshots: [cached],
+    permissionState: { kind: 'granted', accuracy: 'approximate' },
+    locationResult: { kind: 'success', location: { ...stayed, displayName: null } },
+  });
+  await harness.controller.initialize();
+  let writes = 0;
+  harness.repository.setActiveLocation = async () => { writes += 1; };
+  const states = [];
+  harness.controller.subscribe(() => states.push(harness.controller.getSnapshot()));
+
+  await harness.controller.onForeground();
+
+  assert.equal((await harness.repository.getActiveLocation()).displayName, 'Kadikoy');
+  assert.equal(harness.controller.getSnapshot().activeLocation.displayName, 'Kadikoy');
+  assert.equal(writes, 0);
+  assert.ok(states.every((state) => !state.isSelectingLocation));
+});
+
+test('foreground re-persists a different resolved locality name without invalidating the cached snapshot', async () => {
+  const stayed = {
+    source: 'device', accuracy: 'approximate', locationKey: 'device:4101:2898',
+    displayName: 'Kadikoy', coordinates: { latitudeE2: 4101, longitudeE2: 2898 },
+    timeZone: 'Europe/Istanbul',
+  };
+  const cached = snapshotFor(stayed, '2026-07-30T09:55:00.000Z');
+  const harness = createHarness({
+    active: stayed,
+    snapshots: [cached],
+    permissionState: { kind: 'granted', accuracy: 'approximate' },
+    locationResult: {
+      kind: 'success',
+      location: { ...stayed, displayName: 'Istanbul' },
+    },
+  });
+  await harness.controller.initialize();
+
+  await harness.controller.onForeground();
+
+  assert.equal((await harness.repository.getActiveLocation()).displayName, 'Istanbul');
+  assert.equal(harness.controller.getSnapshot().activeLocation.displayName, 'Istanbul');
+  assert.equal(harness.controller.getSnapshot().snapshot, cached);
+  assert.equal(harness.calls.provider, 0);
+});
+
 test('a manual location is never re-acquired on foreground', async () => {
   const istanbul = getManualLocation('sample.istanbul');
   const harness = createHarness({

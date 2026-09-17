@@ -99,6 +99,14 @@ export function GarmentTypeSheet({
     onDismiss();
   };
 
+  // Law 7, the other half of the same rule: the staggered entrance belongs to the sheet's
+  // first fill, where the tiles are arriving content. Once a chip has filtered them, every
+  // tile is a fresh mount, so an entrance per tile would replay a 12 point spatial travel
+  // on every category change, which is the slide the cross-fade exists to avoid. `category`
+  // is null until the first chip is tapped and is reset when the sheet is dismissed, so a
+  // reopened sheet enters again.
+  const isFirstFill = category === null;
+
   // Law 7: a filter change is effects motion on `normal`, never a slide. The chip's own
   // fill changes with no animation, so motion is never the only signal, and under Reduce
   // Motion `motion.normal` is 0 and the grid swaps instantly.
@@ -145,8 +153,8 @@ export function GarmentTypeSheet({
             }
             accessibilityRole="radiogroup"
             style={[styles.grid, gridStyle]}>
-            {visibleTypes.map((garmentType, index) => (
-              <Entrance index={index} key={garmentType.typeId}>
+            {visibleTypes.map((garmentType, index) => {
+              const tile = (
                 <GarmentTypeTile
                   garmentType={garmentType}
                   label={messages.catalog[garmentType.nameKey]}
@@ -154,8 +162,15 @@ export function GarmentTypeSheet({
                   selected={garmentType.typeId === selectedTypeId}
                   size={tileSize}
                 />
-              </Entrance>
-            ))}
+              );
+              return isFirstFill ? (
+                <Entrance index={index} key={garmentType.typeId}>
+                  {tile}
+                </Entrance>
+              ) : (
+                <View key={garmentType.typeId}>{tile}</View>
+              );
+            })}
           </Animated.View>
         </ScrollView>
       </View>

@@ -28,7 +28,7 @@ import {
   type LoadedOutfitPresentation,
   type LoadedTodayPresentation,
 } from '@/features/today/presentation/today-presentation';
-import { useForegroundClock } from '@/features/today/presentation/use-foreground-clock';
+import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity';
@@ -44,6 +44,12 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 const LONG_WAIT_MS = 8_000;
 // Law 6: a caption-sized mark, the same 16 the ownership and menu glyphs use.
 const CAPTION_GLYPH_SIZE = 16;
+// Law 6's standalone step, and the size the recommendation detail already draws an accessory
+// at. The artwork fills about 60 percent of its box, so a caption-sized badge would put the
+// garment at roughly 9.6 points with a fixed 1.9 point stroke: the ribs, fingers and folds
+// that tell the accessory silhouettes apart disappear. This row carries no adjacent text, so
+// it is a standalone mark rather than a caption glyph and does not share that constant.
+const ACCESSORY_BADGE_SIZE = 28;
 
 /**
  * ADR 0004's one contextual offer, handed down already decided: the route owns the rule, and
@@ -54,7 +60,7 @@ export type TodayAlertOffer = Readonly<{
   ruleId: WeatherAlertRuleId;
   /** The Settings opt-in flow, OS permission prompt included. */
   onAccept: () => Promise<NotificationOptInOutcome>;
-  onDismiss: () => void;
+  onDismiss: () => Promise<void>;
   onOpenSystemSettings: () => void;
 }>;
 
@@ -108,14 +114,27 @@ export function TodayScreen({
       return;
     }
     if (!alertOffer) return;
-    const result = await alertOffer.onAccept();
-    if (result.outcome === 'blocked') setBlockedOffer(alertOffer);
-    else setOfferAnswered(true);
+    try {
+      const result = await alertOffer.onAccept();
+      if (result.outcome === 'blocked') setBlockedOffer(alertOffer);
+      else setOfferAnswered(true);
+    } catch {
+      // The durable flag did not commit, so the once-only offer must remain answerable.
+    }
   };
-  const dismissOffer = () => {
-    setOfferAnswered(true);
-    if (blockedOffer) setBlockedOffer(null);
-    else alertOffer?.onDismiss();
+  const dismissOffer = async () => {
+    if (blockedOffer) {
+      setOfferAnswered(true);
+      setBlockedOffer(null);
+      return;
+    }
+    if (!alertOffer) return;
+    try {
+      await alertOffer.onDismiss();
+      setOfferAnswered(true);
+    } catch {
+      // Keep the row visible when the durable once-only flag could not be written.
+    }
   };
   useEffect(() => {
     if (!isGenerating) return undefined;
@@ -480,11 +499,11 @@ function WeatherAlertOfferRow({
   blocked: boolean;
   language: SupportedLanguage;
   onAccept: () => Promise<void>;
-  onDismiss: () => void;
+  onDismiss: () => Promise<void>;
   ruleId: WeatherAlertRuleId;
 }>) {
   const theme = useKuyaraTheme();
-  const { usesStackedLayout } = useTextScaling();
+  const { controlScale, usesStackedLayout } = useTextScaling();
   const copy = getMessages(language).notifications;
   const [isAnswering, setIsAnswering] = useState(false);
   // A refused permission is explained with the Settings surface's own copy and its own way
@@ -499,13 +518,22 @@ function WeatherAlertOfferRow({
       setIsAnswering(false);
     }
   };
+  const dismiss = async () => {
+    setIsAnswering(true);
+    try {
+      await onDismiss();
+    } finally {
+      setIsAnswering(false);
+    }
+  };
 
   return (
     <Surface style={styles.alertOffer} testID="today-alert-offer" variant="muted">
       <View style={styles.alertOfferMessage}>
-        <Icon color={theme.colors.iconSecondary} name="bell" size={20} />
+        <Icon color={theme.colors.iconSecondary} name="bell" size={20 * controlScale} />
         <AppText
           accessible
+          accessibilityLiveRegion={blocked ? 'polite' : 'none'}
           accessibilityRole="text"
           style={styles.alertOfferText}
           testID="today-alert-offer-message">
@@ -526,7 +554,8 @@ function WeatherAlertOfferRow({
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          onPress={onDismiss}
+          disabled={isAnswering}
+          onPress={() => void dismiss()}
           style={({ pressed }) => [
             styles.alertOfferAction,
             { opacity: pressed ? theme.interaction.pressedOpacity : 1 },
@@ -540,7 +569,7 @@ function WeatherAlertOfferRow({
 }
 
 /**
- * The accessories the outfit finishes with, as silhouettes at Law 6's caption icon size.
+ * The accessories the outfit finishes with, as silhouettes at Law 6's standalone mark size.
  * They are one accessible element that reads the names, never an accent and never animated,
  * because they answer a question the card has already answered in words. A day that asks for
  * no accessory renders nothing at all.
@@ -562,15 +591,15 @@ function AccessoryBadges({
         <GarmentTileArtwork
           category={accessory.category}
           colorFamily={null}
-          glyphSize={CAPTION_GLYPH_SIZE}
-          height={CAPTION_GLYPH_SIZE}
+          glyphSize={ACCESSORY_BADGE_SIZE}
+          height={ACCESSORY_BADGE_SIZE}
           key={accessory.accessorySlot}
           photoTestID={`today-accessory-photo-${accessory.garmentTypeId}`}
           photoUri={null}
           placeholderTestID={`today-accessory-glyph-${accessory.garmentTypeId}`}
           silhouetteTestID={`today-accessory-${accessory.garmentTypeId}`}
           garmentTypeId={accessory.garmentTypeId}
-          width={CAPTION_GLYPH_SIZE}
+          width={ACCESSORY_BADGE_SIZE}
         />
       ))}
     </View>

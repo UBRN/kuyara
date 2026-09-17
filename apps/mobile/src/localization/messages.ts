@@ -30,7 +30,7 @@ export type TodayRequirementName =
 
 export type TodayMessages = Readonly<{
   title: string;
-  // ADR 0034 section 4: one badge per generation mode, the words final, no Apple glyph.
+  // ADR 0034 section 4: the two AI modes have badges, the words final, no Apple glyph.
   generationModeOnDeviceAi: string;
   generationModeAiAssisted: string;
   generationModeAccessibilityLabel: (label: string) => string;
@@ -40,6 +40,9 @@ export type TodayMessages = Readonly<{
   reasonsHeading: string;
   finishingTouchesHeading: string;
   finishingTouchesAccessibilityLabel: (items: readonly string[]) => string;
+  finishingTouchesRowAccessibilityLabel: (
+    parts: Readonly<{ item: string; slot: string }>,
+  ) => string;
   ownershipOwnedAction: string;
   ownershipWantedAction: string;
   ownershipChangeHint: string;
@@ -803,6 +806,7 @@ const en = {
     finishingTouchesHeading: 'Finishing touches',
     finishingTouchesAccessibilityLabel: (items) =>
       `Finishing touches: ${items.join(', ')}.`,
+    finishingTouchesRowAccessibilityLabel: ({ item, slot }) => `${item}, ${slot}`,
     ownershipOwnedAction: 'I own it',
     ownershipWantedAction: 'I want it',
     ownershipChangeHint: 'Changes whether this piece is in your Closet',
@@ -1254,7 +1258,7 @@ const tr = {
     detailsCaption: 'İsteğe bağlı. Bu parçanın renk ailesi.',
     colorTitle: 'Renk ailesi',
     colorDescription: 'İsteğe bağlı. Parçanın ana renk ailesini seç.',
-    colorUnspecified: 'Belirtilmedi',
+    colorUnspecified: 'Fark etmez',
     saveAction: 'Parçayı kaydet',
     savingLabel: 'Parça kaydediliyor…',
     createError: 'Bu parça eklenemedi. Girdilerin hâlâ burada; lütfen yeniden dene.',
@@ -1294,6 +1298,7 @@ const tr = {
     finishingTouchesHeading: 'Son dokunuşlar',
     finishingTouchesAccessibilityLabel: (items) =>
       `Son dokunuşlar: ${items.join(', ')}.`,
+    finishingTouchesRowAccessibilityLabel: ({ item, slot }) => `${item}, ${slot}`,
     ownershipOwnedAction: 'Bende var',
     ownershipWantedAction: 'İstiyorum',
     ownershipChangeHint: 'Bu parçanın Gardırop durumunu değiştirir',

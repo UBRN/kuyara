@@ -8,6 +8,9 @@ import {
 } from '@/features/notifications/domain/weather-alert-offer';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
+import { useForegroundClock } from '@/hooks/use-foreground-clock';
+
+const OFFER_CLOCK_TICK_MS = 60_000;
 
 export type WeatherAlertOfferApplication = Readonly<{
   offer: WeatherAlertOffer;
@@ -26,6 +29,7 @@ export function useWeatherAlertOffer(): WeatherAlertOfferApplication {
   const notificationApplication = useNotificationApplication();
   const profileApplication = useProfileApplication();
   const weatherApplication = useWeatherApplication();
+  const now = useForegroundClock(OFFER_CLOCK_TICK_MS);
 
   const profile = profileApplication.state.status === 'ready'
     ? profileApplication.state.profile
@@ -42,10 +46,10 @@ export function useWeatherAlertOffer(): WeatherAlertOfferApplication {
       optedIn,
       alreadyOffered,
       snapshot,
-      now: new Date().toISOString(),
+      now: new Date(now).toISOString(),
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
     }),
-    [alreadyOffered, optedIn, snapshot],
+    [alreadyOffered, now, optedIn, snapshot],
   );
 
   // Already stable, and already exactly what dismissing the offer does.

@@ -854,8 +854,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: SWATCH_SIZE / 2,
     borderWidth: borderWidths.strong,
-    height: SWATCH_SIZE,
     justifyContent: 'center',
+    // The round swatches beside it are fixed because they hold no text; this one holds a
+    // word, so the touch target is a floor and the chip grows with the text size instead
+    // of clipping it on Android or spilling over the swatches on iOS.
+    minHeight: SWATCH_SIZE,
     paddingHorizontal: spacing.md,
   },
   detailsCard: {
