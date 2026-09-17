@@ -108,6 +108,7 @@ function createProfile(): LocalProfileRecord {
     onboardingCompleted: 1,
     notificationsOptIn: 0,
     weatherAlertOfferShown: 0,
+    morningBriefingOptIn: 0,
     analyticsConsent: 'undecided',
     createdAt: '2026-07-30T10:00:00.000Z',
     updatedAt: '2026-07-30T10:00:00.000Z',
@@ -239,10 +240,10 @@ test('live preference changes propagate localized copy and dark semantic colors 
     'feature_used_first_time',
   ]));
   expect(analytics.captures.map((capture) => capture.properties)).toEqual([
-    { schema_version: 2, setting_name: 'language', new_value: 'tr' },
-    { schema_version: 2, feature_name: 'language_override' },
-    { schema_version: 2, setting_name: 'appearance_theme', new_value: 'dark' },
-    { schema_version: 2, feature_name: 'appearance_override' },
+    { schema_version: 3, setting_name: 'language', new_value: 'tr' },
+    { schema_version: 3, feature_name: 'language_override' },
+    { schema_version: 3, setting_name: 'appearance_theme', new_value: 'dark' },
+    { schema_version: 3, feature_name: 'appearance_override' },
   ]);
 });
 
@@ -291,9 +292,9 @@ test('personal preferences keep their order and birth date can be cleared to nul
     'setting_changed',
   ]));
   expect(analytics.captures.map((capture) => capture.properties)).toEqual([
-    { schema_version: 2, setting_name: 'gender' },
-    { schema_version: 2, setting_name: 'dress_style', new_value: 'formal' },
-    { schema_version: 2, setting_name: 'birth_date' },
+    { schema_version: 3, setting_name: 'gender' },
+    { schema_version: 3, setting_name: 'dress_style', new_value: 'formal' },
+    { schema_version: 3, setting_name: 'birth_date' },
   ]);
 });
 

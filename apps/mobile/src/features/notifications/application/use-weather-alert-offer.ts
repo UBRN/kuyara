@@ -14,7 +14,10 @@ const OFFER_CLOCK_TICK_MS = 60_000;
 
 export type WeatherAlertOfferApplication = Readonly<{
   offer: WeatherAlertOffer;
-  /** Runs the Settings opt-in flow, OS permission prompt included, and closes the offer. */
+  /**
+   * Runs the Settings opt-in flow, OS permission prompt included, turns both notification
+   * kinds on, and closes the offer.
+   */
   acceptOffer: () => Promise<NotificationOptInOutcome>;
   /** Closes the offer without opting in. It is never made again. */
   dismissOffer: () => Promise<void>;
@@ -53,13 +56,20 @@ export function useWeatherAlertOffer(): WeatherAlertOfferApplication {
   );
 
   // Already stable, and already exactly what dismissing the offer does.
-  const { markWeatherAlertOfferShown: dismissOffer } = profileApplication;
+  const {
+    markWeatherAlertOfferShown: dismissOffer,
+    updateMorningBriefingOptIn,
+  } = profileApplication;
   const acceptOffer = useCallback(async () => {
     // Marked first: the offer is spent whatever the OS answers, so a denied permission
     // cannot turn the one offer into a recurring prompt.
     await dismissOffer();
-    return notificationApplication.setOptIn(true);
-  }, [dismissOffer, notificationApplication]);
+    const result = await notificationApplication.setOptIn(true);
+    // ADR 0004: accepting turns both kinds on, whichever of them the offer named. The
+    // permission is already granted here, so the briefing only needs its stored answer.
+    if (result.outcome === 'enabled') await updateMorningBriefingOptIn(true);
+    return result;
+  }, [dismissOffer, notificationApplication, updateMorningBriefingOptIn]);
 
   return { offer, acceptOffer, dismissOffer };
 }

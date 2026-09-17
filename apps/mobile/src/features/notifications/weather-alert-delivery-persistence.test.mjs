@@ -143,14 +143,16 @@ test('cancelled pending identity can be scheduled again after its former fire ti
   await scheduler.reschedule({
     localProfileId: profileId,
     snapshot: precipitationSnapshot('rain-one', '2026-09-09T18:00:00.000Z', 0.8, now),
-    enabled: true,
+    weatherAlertsEnabled: true,
+    morningBriefingEnabled: false,
     language: 'en',
   });
   now = '2026-09-09T15:30:00.000Z';
   await scheduler.reschedule({
     localProfileId: profileId,
     snapshot: precipitationSnapshot('dry', '2026-09-09T18:00:00.000Z', 0, now),
-    enabled: true,
+    weatherAlertsEnabled: true,
+    morningBriefingEnabled: false,
     language: 'en',
   });
   assert.deepEqual(await database.getAllAsync(
@@ -162,7 +164,8 @@ test('cancelled pending identity can be scheduled again after its former fire ti
   await scheduler.reschedule({
     localProfileId: profileId,
     snapshot: precipitationSnapshot('rain-two', '2026-09-09T19:00:00.000Z', 0.8, now),
-    enabled: true,
+    weatherAlertsEnabled: true,
+    morningBriefingEnabled: false,
     language: 'en',
   });
 

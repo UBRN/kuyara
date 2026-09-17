@@ -23,6 +23,7 @@ export function WeatherAlertObserver() {
   const snapshotId = snapshot?.id;
   const permission = notificationApplication.state.permission;
   const notificationsOptIn = profile?.notificationsOptIn ?? false;
+  const morningBriefingOptIn = profile?.morningBriefingOptIn ?? false;
   const localProfileId = profile?.id ?? null;
   // An alert's identity is keyed to the local day, so the plan has to be redone when the
   // day turns. The date is re-read on every render and a change re-runs the effect;
@@ -39,15 +40,19 @@ export function WeatherAlertObserver() {
     // knowledge, and acting on it would drop the alerts an earlier session or the
     // background task left pending. A ready weather state can still carry no snapshot,
     // which plans nothing and would reach the scheduler as a cancellation.
-    const cancels = !notificationsOptIn || permission.kind === 'denied';
-    const plans = notificationsOptIn
+    // ADR 0004: the two kinds have their own opt-ins, so either one on is a reason to plan
+    // and both off is the opt-out that cancels.
+    const anyOptIn = notificationsOptIn || morningBriefingOptIn;
+    const cancels = !anyOptIn || permission.kind === 'denied';
+    const plans = anyOptIn
       && permission.kind === 'granted'
       && snapshot !== null;
     if (!cancels && !plans) return;
     void notificationApplication.weatherAlertScheduler.reschedule({
       localProfileId,
       snapshot,
-      enabled: notificationsAreActive(notificationsOptIn, permission),
+      weatherAlertsEnabled: notificationsAreActive(notificationsOptIn, permission),
+      morningBriefingEnabled: notificationsAreActive(morningBriefingOptIn, permission),
       language,
       hour12,
     }).catch(() => undefined);
@@ -60,6 +65,7 @@ export function WeatherAlertObserver() {
     language,
     localDate,
     localProfileId,
+    morningBriefingOptIn,
     notificationApplication.weatherAlertScheduler,
     notificationsOptIn,
     permission.kind,

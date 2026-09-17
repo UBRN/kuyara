@@ -1,5 +1,10 @@
 import type { NotificationGateway } from '@/features/notifications/data/notification-gateway';
+import type { WeatherAlertDeliveryRecord } from '@/features/notifications/data/weather-alert-delivery-record';
 import type { WeatherAlertDeliveryRepository } from '@/features/notifications/data/weather-alert-delivery-repository';
+import {
+  planMorningBriefing,
+  type MorningBriefingPlan,
+} from '@/features/notifications/domain/morning-briefing';
 import {
   defaultQuietHours,
   planWeatherAlerts,
@@ -11,7 +16,10 @@ import { messages, type SupportedLanguage } from '@/localization/messages';
 type RescheduleInput = Readonly<{
   localProfileId: string;
   snapshot: WeatherSnapshot | null;
-  enabled: boolean;
+  /** ADR 0032 section 6: opted in to weather alerts and allowed by the OS. */
+  weatherAlertsEnabled: boolean;
+  /** ADR 0004: the morning briefing's own opt-in, and the same OS permission. */
+  morningBriefingEnabled: boolean;
   language: SupportedLanguage;
   /** The device's 12/24-hour clock setting, which the user sets apart from the language. */
   hour12: boolean;
@@ -39,6 +47,28 @@ function crossingTime(
     minute: '2-digit',
     hour12,
   }).format(new Date(plan.crossingAt));
+}
+
+function briefingCopy(
+  plan: MorningBriefingPlan,
+  language: SupportedLanguage,
+): Readonly<{ title: string; body: string }> {
+  const copy = messages[language].notifications.morningBriefing;
+  const { condition, precipitationLikely } = plan.content;
+  // The same locale pair `crossingTime` uses, so a below-zero morning reads with the
+  // locale's own minus sign. The copy owns the unit and the single-value form; a one-hour
+  // morning window has one temperature and must not read as a range of it to itself.
+  const format = new Intl.NumberFormat(language === 'tr' ? 'tr-TR' : 'en-GB', {
+    maximumFractionDigits: 0,
+  });
+  const temperatures = {
+    low: format.format(Math.round(plan.content.minimumTemperatureCelsius)),
+    high: format.format(Math.round(plan.content.maximumTemperatureCelsius)),
+  };
+  if (precipitationLikely) return { title: copy.title, body: copy.wetBody(temperatures) };
+  return ['clear', 'mostly_clear'].includes(condition)
+    ? { title: copy.title, body: copy.clearBody(temperatures) }
+    : { title: copy.title, body: copy.cloudyBody(temperatures) };
 }
 
 function alertCopy(
@@ -99,7 +129,8 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
 
   private async run(input: RescheduleInput): Promise<void> {
     const now = this.now();
-    const snapshot = input.enabled ? input.snapshot : null;
+    const anyKindEnabled = input.weatherAlertsEnabled || input.morningBriefingEnabled;
+    const snapshot = anyKindEnabled ? input.snapshot : null;
     // A stale or invalid snapshot is hours old, so its hours and its temperature baseline
     // are not the ones to plan from. Nothing is cancelled and nothing is written: the
     // previous schedule stands until a refresh brings a fresh snapshot.
@@ -113,34 +144,48 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
 
     const deliveredAlertIds = await repository.listFiredIds(input.localProfileId, now);
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-    const plans = planWeatherAlerts({
-      snapshot,
-      now,
-      quietHours: { ...defaultQuietHours, timeZone },
-      deliveredAlertIds,
-      leadTimeMinutes: input.leadTimeMinutes,
-    });
+    const plans = input.weatherAlertsEnabled
+      ? planWeatherAlerts({
+        snapshot,
+        now,
+        quietHours: { ...defaultQuietHours, timeZone },
+        deliveredAlertIds,
+        leadTimeMinutes: input.leadTimeMinutes,
+      })
+      : [];
+    const briefing = input.morningBriefingEnabled
+      ? planMorningBriefing({ snapshot, now, deliveredIds: deliveredAlertIds })
+      : null;
 
-    // The ledger records what the OS accepted, not what was intended: a row for an alert
-    // that was never scheduled would suppress the identity for the rest of the day.
-    const scheduled: WeatherAlertPlan[] = [];
-    for (const plan of plans) {
-      const copy = alertCopy(plan, snapshot.timeZone, input.language, input.hour12);
+    // The ledger records what the OS accepted, not what was intended: a row for a
+    // notification that was never scheduled would suppress the identity for the rest of
+    // the day.
+    const scheduled: WeatherAlertDeliveryRecord[] = [];
+    const schedule = async (
+      plan: WeatherAlertPlan | MorningBriefingPlan,
+      copy: Readonly<{ title: string; body: string }>,
+    ) => {
       const accepted = await this.gateway.scheduleWeatherAlert({
         identifier: plan.id,
         fireAt: plan.fireAt,
         title: copy.title,
         body: copy.body,
       });
-      if (accepted) scheduled.push(plan);
-    }
+      if (!accepted) return;
+      scheduled.push({
+        id: plan.id,
+        localProfileId: input.localProfileId,
+        fireAt: plan.fireAt,
+        createdAt: now,
+      });
+    };
 
-    await repository.upsertScheduled(scheduled.map((plan) => ({
-      id: plan.id,
-      localProfileId: input.localProfileId,
-      fireAt: plan.fireAt,
-      createdAt: now,
-    })));
+    for (const plan of plans) {
+      await schedule(plan, alertCopy(plan, snapshot.timeZone, input.language, input.hour12));
+    }
+    if (briefing) await schedule(briefing, briefingCopy(briefing, input.language));
+
+    await repository.upsertScheduled(scheduled);
     await repository.pruneBefore(
       input.localProfileId,
       new Date(Date.parse(now) - deliveryRetentionMilliseconds).toISOString(),

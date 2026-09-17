@@ -18,6 +18,8 @@ export type Profile = Readonly<{
   notificationsOptIn: boolean;
   /** ADR 0004: the contextual alert offer on Today was made, and is never made again. */
   weatherAlertOfferShown: boolean;
+  /** ADR 0004: the morning briefing, the second notification kind, has its own opt-in. */
+  morningBriefingOptIn: boolean;
   analyticsConsent: AnalyticsConsent;
   createdAt: string;
   updatedAt: string;

@@ -67,25 +67,45 @@ export class NotificationApplicationController {
         return { outcome: 'disabled' };
       }
 
-      let permission = await this.gateway.getPermissionState();
-      this.setState({ ...this.state, permission });
-      if (permission.kind === 'undetermined') {
-        permission = await this.gateway.requestPermission();
-        this.setState({ ...this.state, permission });
-      }
-
-      if (permission.kind !== 'granted') {
-        return {
-          outcome: 'blocked',
-          canRequestAgain: permission.kind === 'denied' ? permission.canRequestAgain : true,
-        };
-      }
+      const outcome = await this.resolvePermission();
+      if (outcome.outcome !== 'enabled') return outcome;
 
       await this.persistOptIn(true);
       return { outcome: 'enabled' };
     } finally {
       this.setState({ ...this.state, isBusy: false });
     }
+  }
+
+  /**
+   * ADR 0004: the morning briefing is a second opt-in behind the same single OS permission,
+   * and it is stored on the profile rather than here, so its row asks for the permission
+   * and nothing else.
+   */
+  async requestPermission(): Promise<NotificationOptInOutcome> {
+    this.setState({ ...this.state, isBusy: true });
+    try {
+      return await this.resolvePermission();
+    } finally {
+      this.setState({ ...this.state, isBusy: false });
+    }
+  }
+
+  private async resolvePermission(): Promise<NotificationOptInOutcome> {
+    let permission = await this.gateway.getPermissionState();
+    this.setState({ ...this.state, permission });
+    if (permission.kind === 'undetermined') {
+      permission = await this.gateway.requestPermission();
+      this.setState({ ...this.state, permission });
+    }
+
+    if (permission.kind !== 'granted') {
+      return {
+        outcome: 'blocked',
+        canRequestAgain: permission.kind === 'denied' ? permission.canRequestAgain : true,
+      };
+    }
+    return { outcome: 'enabled' };
   }
 
   private setState(state: NotificationApplicationState): void {

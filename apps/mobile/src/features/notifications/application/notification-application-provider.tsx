@@ -71,9 +71,13 @@ export function NotificationApplicationProvider(
 
   const { analytics } = useProductAnalytics();
   useEffect(
-    () => gateway.subscribeToResponses(() => {
-      // Taxonomy 5.13: a tapped local notification, with no rule or content attached.
-      analytics.capture('notification_opened', { schema_version: ANALYTICS_SCHEMA_VERSION });
+    () => gateway.subscribeToResponses((kind) => {
+      // Taxonomy 5.13: a tapped local notification, named by kind only, with no rule,
+      // time or content attached.
+      analytics.capture('notification_opened', {
+        schema_version: ANALYTICS_SCHEMA_VERSION,
+        kind,
+      });
       router.navigate('/');
     }),
     [analytics, gateway],
@@ -82,6 +86,7 @@ export function NotificationApplicationProvider(
   const value = useMemo<NotificationApplicationValue>(() => ({
     state,
     setOptIn: (optIn) => controller.setOptIn(optIn),
+    requestPermission: () => controller.requestPermission(),
     openApplicationSettings: () => gateway.openApplicationSettings(),
     weatherAlertScheduler,
   }), [controller, gateway, state, weatherAlertScheduler]);

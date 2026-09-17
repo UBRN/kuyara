@@ -3,6 +3,12 @@ export type NotificationPermissionState =
   | Readonly<{ kind: 'granted' }>
   | Readonly<{ kind: 'denied'; canRequestAgain: boolean }>;
 
+/**
+ * The two kinds kuyara schedules (ADR 0004). The gateway reads the kind back off the
+ * notification's own identifier, which is the only thing a tapped response carries.
+ */
+export type NotificationKind = 'weather_alert' | 'morning_briefing';
+
 export interface NotificationGateway {
   getPermissionState(): Promise<NotificationPermissionState>;
   requestPermission(): Promise<NotificationPermissionState>;
@@ -17,5 +23,5 @@ export interface NotificationGateway {
     body: string;
   }>): Promise<boolean>;
   /** Returns an unsubscribe function. Fires when the user taps a notification. */
-  subscribeToResponses(listener: () => void): () => void;
+  subscribeToResponses(listener: (kind: NotificationKind) => void): () => void;
 }

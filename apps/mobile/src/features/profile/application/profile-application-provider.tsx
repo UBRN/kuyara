@@ -71,6 +71,10 @@ export function ProfileApplicationProvider({ children }: PropsWithChildren) {
     (optIn: boolean) => controller.updateNotificationsOptIn(optIn),
     [controller],
   );
+  const updateMorningBriefingOptIn = useCallback(
+    (optIn: boolean) => controller.updateMorningBriefingOptIn(optIn),
+    [controller],
+  );
   const markWeatherAlertOfferShown = useCallback(
     () => controller.markWeatherAlertOfferShown(),
     [controller],
@@ -94,6 +98,7 @@ export function ProfileApplicationProvider({ children }: PropsWithChildren) {
       updateThemePreference: (preference) =>
         controller.updateThemePreference(preference),
       updateNotificationsOptIn,
+      updateMorningBriefingOptIn,
       markWeatherAlertOfferShown,
       updateAnalyticsConsent,
     }),
@@ -102,6 +107,7 @@ export function ProfileApplicationProvider({ children }: PropsWithChildren) {
       markWeatherAlertOfferShown,
       state,
       updateAnalyticsConsent,
+      updateMorningBriefingOptIn,
       updateNotificationsOptIn,
     ],
   );

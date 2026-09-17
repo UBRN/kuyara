@@ -667,11 +667,11 @@ test('a successful manual refresh reports manual_refresh_triggered and feature_u
 
   expect(productAnalytics.analytics.captures).toEqual([{
     name: 'manual_refresh_triggered',
-    properties: { schema_version: 2, surface: 'weather', result: 'success' },
+    properties: { schema_version: 3, surface: 'weather', result: 'success' },
     options: undefined,
   }, {
     name: 'feature_used_first_time',
-    properties: { schema_version: 2, feature_name: 'manual_refresh' },
+    properties: { schema_version: 3, feature_name: 'manual_refresh' },
     options: undefined,
   }]);
 
@@ -679,7 +679,7 @@ test('a successful manual refresh reports manual_refresh_triggered and feature_u
   await fireEvent.press(result.getByTestId('weather-refresh-button'));
   expect(productAnalytics.analytics.captures).toEqual([{
     name: 'manual_refresh_triggered',
-    properties: { schema_version: 2, surface: 'weather', result: 'success' },
+    properties: { schema_version: 3, surface: 'weather', result: 'success' },
     options: undefined,
   }]);
 });
@@ -705,7 +705,7 @@ test('refreshing while a failure is shown reports retry_after_failure_triggered 
   await fireEvent.press(result.getByRole('button', { name: messages.en.weather.refreshAccessibilityLabel }));
   expect(productAnalytics.analytics.captures).toEqual([{
     name: 'retry_after_failure_triggered',
-    properties: { schema_version: 2, surface: 'weather', attempt_number: 1, result: 'failure' },
+    properties: { schema_version: 3, surface: 'weather', attempt_number: 1, result: 'failure' },
     options: undefined,
   }]);
 
@@ -713,7 +713,7 @@ test('refreshing while a failure is shown reports retry_after_failure_triggered 
   await fireEvent.press(result.getByRole('button', { name: messages.en.weather.refreshAccessibilityLabel }));
   expect(productAnalytics.analytics.captures).toEqual([{
     name: 'retry_after_failure_triggered',
-    properties: { schema_version: 2, surface: 'weather', attempt_number: 2, result: 'failure' },
+    properties: { schema_version: 3, surface: 'weather', attempt_number: 2, result: 'failure' },
     options: undefined,
   }]);
 });
@@ -742,8 +742,8 @@ test('the focused Weather route reports a shown failure and its recovery', async
     ({ name }) => name === 'error_shown' || name === 'error_recovered',
   );
   expect(errors.map(({ properties }) => properties)).toEqual([
-    { schema_version: 2, surface: 'weather', failure_category: 'offline', occurrence_count: 1 },
-    { schema_version: 2, surface: 'weather', failure_category: 'offline' },
+    { schema_version: 3, surface: 'weather', failure_category: 'offline', occurrence_count: 1 },
+    { schema_version: 3, surface: 'weather', failure_category: 'offline' },
   ]);
 });
 

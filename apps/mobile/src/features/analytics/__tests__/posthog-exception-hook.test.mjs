@@ -11,7 +11,7 @@ function exceptionEvent(line = 12) {
   return {
     event: '$exception',
     properties: {
-      schema_version: 2,
+      schema_version: 3,
       unapproved_custom: 'drop me',
       '$lib': 'posthog-react-native',
       '$ip': '203.0.113.1',
@@ -82,7 +82,7 @@ test('exception payloads keep only the explicit allowlist', () => {
   assert.deepEqual(beforeSend(exceptionEvent()), {
     event: '$exception',
     properties: {
-      schema_version: 2,
+      schema_version: 3,
       '$lib': 'posthog-react-native',
       '$geoip_disable': true,
       '$exception_level': 'error',

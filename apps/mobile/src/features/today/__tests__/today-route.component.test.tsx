@@ -229,6 +229,7 @@ function profileValue(profile: Partial<LocalProfile> = {}) {
       onboardingCompleted: true,
       notificationsOptIn: false,
       weatherAlertOfferShown: false,
+      morningBriefingOptIn: false,
       analyticsConsent: 'granted' as const,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
@@ -246,6 +247,7 @@ function profileValue(profile: Partial<LocalProfile> = {}) {
     updateLanguagePreference: jest.fn(async () => undefined),
     updateThemePreference: jest.fn(async () => undefined),
     updateNotificationsOptIn: jest.fn(async () => undefined),
+    updateMorningBriefingOptIn: jest.fn(async () => undefined),
     markWeatherAlertOfferShown: jest.fn(async () => undefined),
     updateAnalyticsConsent: jest.fn(async () => undefined),
   };
@@ -260,6 +262,7 @@ function notificationValue(): NotificationApplicationValue {
       isBusy: false,
     },
     setOptIn: jest.fn(async () => ({ outcome: 'enabled' as const })),
+    requestPermission: jest.fn(async () => ({ outcome: 'enabled' as const })),
     openApplicationSettings: mockOpenApplicationSettings,
     weatherAlertScheduler: { reschedule: jest.fn(async () => undefined) },
   } as unknown as NotificationApplicationValue;
@@ -349,9 +352,10 @@ beforeEach(() => {
 
 test('Today offers the alert opt-in once, and each action answers the offer', async () => {
   mockOffer = { kind: 'offer', ruleId: 'precipitation_onset' };
+  const acceptAnalytics = createProductAnalytics();
   const render1 = await render(
     <Providers
-      productAnalytics={createProductAnalytics()}
+      productAnalytics={acceptAnalytics}
       profile={profileValue()}
       recommendation={recommendationReady()}
       wardrobe={wardrobeValue()}
@@ -367,11 +371,35 @@ test('Today offers the alert opt-in once, and each action answers the offer', as
   });
   expect(mockAcceptOffer).toHaveBeenCalledTimes(1);
   expect(mockDismissOffer).not.toHaveBeenCalled();
+  // Taxonomy 5.13: how the offer was answered and which reason it named, nothing else,
+  // followed by exactly the events the Settings Notifications route reports for the same
+  // opt-in. Accepting turns both kinds on, so both preferences really changed.
+  await waitFor(() => expect(acceptAnalytics.analytics.names()
+    .filter((name) => name !== 'screen_viewed' && name !== 'recommendation_viewed'))
+    .toEqual([
+      'weather_alert_offer_resolved',
+      'notification_permission_resolved',
+      'setting_changed',
+      'setting_changed',
+      'feature_used_first_time',
+    ]));
+  expect(acceptAnalytics.analytics.captures
+    .filter(({ name }) => name !== 'screen_viewed' && name !== 'recommendation_viewed')
+    .map(({ properties }) => properties)).toEqual([
+    { schema_version: 3, outcome: 'accepted', kind: 'precipitation_onset' },
+    { schema_version: 3, outcome: 'enabled' },
+    { schema_version: 3, setting_name: 'notifications_enabled', new_value: true },
+    { schema_version: 3, setting_name: 'morning_briefing_enabled', new_value: true },
+    { schema_version: 3, feature_name: 'notifications' },
+  ]);
+  // ADR 0004: an accepted offer ends on the Notifications surface, where both kinds are on.
+  expect(mockPush).toHaveBeenCalledWith('/settings/notifications');
 
-  mockOffer = { kind: 'offer', ruleId: 'temperature_swing' };
+  mockOffer = { kind: 'offer', ruleId: 'morning_briefing' };
+  const dismissAnalytics = createProductAnalytics();
   const render2 = await render(
     <Providers
-      productAnalytics={createProductAnalytics()}
+      productAnalytics={dismissAnalytics}
       profile={profileValue()}
       recommendation={recommendationReady()}
       wardrobe={wardrobeValue()}
@@ -383,6 +411,11 @@ test('Today offers the alert opt-in once, and each action answers the offer', as
     fireEvent.press(render2.getByTestId('today-alert-offer-dismiss'));
   });
   expect(mockDismissOffer).toHaveBeenCalledTimes(1);
+  expect(dismissAnalytics.analytics.captures
+    .filter(({ name }) => name === 'weather_alert_offer_resolved')
+    .map(({ properties }) => properties)).toEqual([
+    { schema_version: 3, outcome: 'dismissed', kind: 'morning_briefing' },
+  ]);
 });
 
 test('Today shows no alert offer when no alert would have fired', async () => {
@@ -466,7 +499,7 @@ test('Today reports screen_viewed and recommendation_viewed once while a recomme
   expect(names.filter((name) => name === 'recommendation_viewed')).toHaveLength(1);
   const viewed = productAnalytics.analytics.captures.find((c) => c.name === 'recommendation_viewed');
   expect(viewed?.properties).toEqual({
-    schema_version: 2,
+    schema_version: 3,
     generation_mode: todayRecommendation.generationMode === 'ai-assisted' ? 'ai_assisted' : 'deterministic_fallback',
     cache_state: 'fresh',
     outfit_count: 3,
@@ -719,7 +752,7 @@ test('refreshing while Today shows stale weather and a failed attempt reports re
   ).toBe(true));
   const retry = productAnalytics.analytics.captures.find((c) => c.name === 'retry_after_failure_triggered');
   expect(retry?.properties).toEqual({
-    schema_version: 2, surface: 'today', attempt_number: 1, result: 'failure',
+    schema_version: 3, surface: 'today', attempt_number: 1, result: 'failure',
   });
   expect(productAnalytics.analytics.captures.some((c) => c.name === 'manual_refresh_triggered')).toBe(false);
 });
@@ -774,11 +807,11 @@ test('a fully unavailable Today buffers error_shown until recovery, which emits 
 
   const shown = productAnalytics.analytics.captures.find((c) => c.name === 'error_shown');
   expect(shown?.properties).toEqual({
-    schema_version: 2, surface: 'today', failure_category: 'offline', occurrence_count: 1,
+    schema_version: 3, surface: 'today', failure_category: 'offline', occurrence_count: 1,
   });
   expect(productAnalytics.analytics.captures).toContainEqual({
     name: 'error_recovered',
-    properties: { schema_version: 2, surface: 'today', failure_category: 'offline' },
+    properties: { schema_version: 3, surface: 'today', failure_category: 'offline' },
     options: undefined,
   });
   // `error_shown` is emitted before `error_recovered` for the same pair (taxonomy 5.10).
@@ -814,8 +847,8 @@ test('a visible recommendation failure uses only the recommendation error surfac
     ({ name }) => name === 'error_shown' || name === 'error_recovered',
   );
   expect(errors.map(({ properties }) => properties)).toEqual([
-    { schema_version: 2, surface: 'recommendation', failure_category: 'unavailable', occurrence_count: 1 },
-    { schema_version: 2, surface: 'recommendation', failure_category: 'unavailable' },
+    { schema_version: 3, surface: 'recommendation', failure_category: 'unavailable', occurrence_count: 1 },
+    { schema_version: 3, surface: 'recommendation', failure_category: 'unavailable' },
   ]);
 });
 
@@ -837,7 +870,7 @@ test('opening an outfit reports screen_viewed and outfit_detail_opened with its 
   expect(names.filter((name) => name === 'screen_viewed')).toHaveLength(1);
   const opened = productAnalytics.analytics.captures.find((c) => c.name === 'outfit_detail_opened');
   expect(opened?.properties).toEqual({
-    schema_version: 2,
+    schema_version: 3,
     outfit_position: 2,
     archetype: todayRecommendation.outfits[1].archetypeId,
     generation_mode: todayRecommendation.generationMode === 'ai-assisted' ? 'ai_assisted' : 'deterministic_fallback',
@@ -968,7 +1001,7 @@ test('setting ownership from outfit detail creates the Closet entry with entry_p
   expect(wardrobe.createItem).toHaveBeenCalledWith({ garmentTypeId: 'jumpsuit', entryState: 'owned' });
   const createdCapture = productAnalytics.analytics.captures.find((c) => c.name === 'closet_item_created');
   expect(createdCapture?.properties).toEqual({
-    schema_version: 2,
+    schema_version: 3,
     state: 'owned',
     garment_type_id: 'jumpsuit',
     has_photo: false,
@@ -1008,11 +1041,37 @@ test('setting ownership from outfit detail updates the existing Closet entry', a
   expect(productAnalytics.analytics.captures).toContainEqual({
     name: 'closet_item_updated',
     properties: {
-      schema_version: 2,
+      schema_version: 3,
       fields_changed: ['state'],
       garment_type_id: 'jumpsuit',
       entry_point: 'outfit_detail',
     },
     options: undefined,
   });
+});
+
+test('accepting the offer with the briefing already on records only the alert preference change', async () => {
+  mockOffer = { kind: 'offer', ruleId: 'precipitation_onset' };
+  const productAnalytics = createProductAnalytics();
+  const screen = await render(
+    <Providers
+      productAnalytics={productAnalytics}
+      profile={profileValue({ morningBriefingOptIn: true })}
+      recommendation={recommendationReady()}
+      wardrobe={wardrobeValue()}
+      weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('today-alert-offer-accept'));
+  });
+  // Taxonomy 5.9: `setting_changed` only for a preference that really changed.
+  await waitFor(() => expect(productAnalytics.analytics.captures
+    .filter(({ name }) => name === 'setting_changed')
+    .map(({ properties }) => properties)).toEqual([
+    { schema_version: 3, setting_name: 'notifications_enabled', new_value: true },
+  ]));
+  expect(mockPush).toHaveBeenCalledWith('/settings/notifications');
 });
