@@ -272,6 +272,7 @@ Normalization decisions:
 - Generic “casual shoe” is normalized to `closed_shoes`; loafer, derby, and similar style names do not need separate MVP weather behavior.
 - Generic boots are split into `ankle_boots` and `weather_boots` because wet/cold protection and traction are decision-relevant. Marketing text such as “waterproof ankle boot” is represented by type plus properties, never as a type ID.
 - `umbrella` is a carried `accessory`, not a garment, but keeping it in the same catalog allows complete rain-ready recommendations without changing the six established categories.
+- `cap` is a Closet type that no recommendation offers. The only requirement that reaches a head accessory is `extremity_cover:head`, derived below 12 °C, where `cap`'s `none` thermal default loses the head slot to `beanie`, `brimmed_hat`, and `balaclava`, and no sun or UV requirement exists to ask for it in warm weather.
 
 New types may be appended without changing existing records. The engine must handle an unrecognized future type through validated catalog loading or a safe unsupported-type failure, never by silently mapping it to a different ID.
 
