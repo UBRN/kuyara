@@ -1,6 +1,8 @@
 import { Stack, router } from 'expo-router';
 
+import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
+import { ANALYTICS_SCHEMA_VERSION } from '@/features/analytics/domain/analytics-events';
 import { notificationsAreActive } from '@/features/notifications/application/notification-application-controller';
 import { useNotificationApplication } from '@/features/notifications/application/notification-context';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
@@ -9,8 +11,15 @@ import { useMessages } from '@/localization/use-messages';
 
 export default function SettingsRoute() {
   const messages = useMessages();
-  const { state } = useProfileApplication();
+  const {
+    state,
+    updateDressStyle,
+    updateGender,
+    updateLanguagePreference,
+    updateThemePreference,
+  } = useProfileApplication();
   const { state: notificationState } = useNotificationApplication();
+  const { analytics, firstUses } = useProductAnalytics();
   useScreenViewed('settings');
 
   if (state.status !== 'ready') {
@@ -30,16 +39,58 @@ export default function SettingsRoute() {
         }}
       />
       <SettingsScreen
+        isSaving={state.isSaving}
         notificationsOn={notificationsAreActive(
           state.profile.notificationsOptIn,
           notificationState.permission,
         )}
+        onAppearanceChange={async (value) => {
+          await updateThemePreference(value);
+          analytics.capture('setting_changed', {
+            schema_version: ANALYTICS_SCHEMA_VERSION,
+            setting_name: 'appearance_theme',
+            new_value: value,
+          });
+          void firstUses.markFirstUse('appearance_override').then((firstUse) => {
+            if (!firstUse) return;
+            analytics.capture('feature_used_first_time', {
+              schema_version: ANALYTICS_SCHEMA_VERSION,
+              feature_name: 'appearance_override',
+            });
+          });
+        }}
+        onDressStyleChange={async (value) => {
+          await updateDressStyle(value);
+          analytics.capture('setting_changed', {
+            schema_version: ANALYTICS_SCHEMA_VERSION,
+            setting_name: 'dress_style',
+            new_value: value,
+          });
+        }}
+        onGenderChange={async (value) => {
+          await updateGender(value);
+          analytics.capture('setting_changed', {
+            schema_version: ANALYTICS_SCHEMA_VERSION,
+            setting_name: 'gender',
+          });
+        }}
+        onLanguageChange={async (value) => {
+          await updateLanguagePreference(value);
+          analytics.capture('setting_changed', {
+            schema_version: ANALYTICS_SCHEMA_VERSION,
+            setting_name: 'language',
+            new_value: value,
+          });
+          void firstUses.markFirstUse('language_override').then((firstUse) => {
+            if (!firstUse) return;
+            analytics.capture('feature_used_first_time', {
+              schema_version: ANALYTICS_SCHEMA_VERSION,
+              feature_name: 'language_override',
+            });
+          });
+        }}
         onOpenAiStatus={() => router.push('/settings/ai-status')}
-        onOpenAppearance={() => router.push('/settings/appearance')}
         onOpenBirthDate={() => router.push('/settings/birth-date')}
-        onOpenDressStyle={() => router.push('/settings/dress-style')}
-        onOpenGender={() => router.push('/settings/gender')}
-        onOpenLanguage={() => router.push('/settings/language')}
         onOpenNotifications={() => router.push('/settings/notifications')}
         onOpenPrivacy={() => router.push('/settings/privacy')}
         profile={state.profile}

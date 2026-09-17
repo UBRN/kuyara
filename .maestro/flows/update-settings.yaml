@@ -37,57 +37,34 @@ tags:
 - assertVisible:
     id: settings-screen
 
-# Language and appearance are value rows that push their own picker screen.
-# Selection does not pop the picker, so each one is entered and left explicitly
-# through the picker's own back control. A swipe-back gesture pops the whole
-# Profile stack rather than one screen, and the control's accessibility label is
-# localized, so this flow depends on its test id instead.
-- tapOn:
-    id: settings-language-row
-- assertVisible:
-    id: settings-language-picker
-- tapOn:
-    id: settings-language-tr
-- assertVisible:
-    id: settings-language-tr
-    selected: true
-- tapOn:
-    id: settings-picker-back
-- assertVisible:
-    id: settings-screen
+# Language, appearance, gender and dress style are native menu-style Picker rows. The choices
+# are system menu entries: they carry no test id and are reachable only by their visible text.
+# Selection happens in place, so nothing is pushed and nothing has to be popped afterwards.
+#
+# The row itself exposes no test id either — the SwiftUI section's identifier is what reaches the
+# accessibility tree, so `settings-language-row` and its siblings never appear there. Each row is
+# a single button whose accessibility text is "<label>, <current value>", the way the plain rows
+# beside it read "Bildirimler, Kapalı", so that one string both opens the row and asserts its
+# saved value, and the tap lands on the row's own centre.
+#
+# "Türkçe" is spelled identically in both message tables, so this first selection lands whatever
+# language the device starts the app in; every step after it reads the Turkish copy it produces.
+- tapOn: "(Dil|Language), (Sistem|System)"
+- tapOn: "Türkçe"
+- assertVisible: "Dil, Türkçe"
 
-- tapOn:
-    id: settings-theme-row
-- assertVisible:
-    id: settings-appearance-picker
-- tapOn:
-    id: settings-theme-dark
-- assertVisible:
-    id: settings-theme-dark
-    selected: true
-- tapOn:
-    id: settings-picker-back
-- assertVisible:
-    id: settings-screen
+- tapOn: "Görünüm, Sistem"
+- tapOn: "Koyu"
+- assertVisible: "Görünüm, Koyu"
 
-# Gender sits in the final About you group, so it needs a scroll and opens its own picker.
+# Gender sits in the final About you group, so it needs a scroll before its menu can open.
 - scrollUntilVisible:
     element:
-      id: settings-gender-row
+      text: "Cinsiyet, .*"
     direction: DOWN
-- tapOn:
-    id: settings-gender-row
-- assertVisible:
-    id: settings-gender-picker
-- tapOn:
-    id: settings-gender-man
-- assertVisible:
-    id: settings-gender-man
-    selected: true
-- tapOn:
-    id: settings-picker-back
-- assertVisible:
-    id: settings-screen
+- tapOn: "Cinsiyet, Kadın"
+- tapOn: "Erkek"
+- assertVisible: "Cinsiyet, Erkek"
 
 - launchApp
 - tapOn:
@@ -97,30 +74,13 @@ tags:
 - assertVisible:
     id: settings-screen
 
-# The two picker rows sit at the top of Settings, so they are checked before the
-# scroll that brings gender into view and pushes them off screen.
-- tapOn:
-    id: settings-language-row
-- assertVisible:
-    id: settings-language-tr
-    selected: true
-- tapOn:
-    id: settings-picker-back
-- tapOn:
-    id: settings-theme-row
-- assertVisible:
-    id: settings-theme-dark
-    selected: true
-- tapOn:
-    id: settings-picker-back
+# The two general rows sit at the top of Settings, so they are checked before the scroll that
+# brings gender into view and pushes them off screen. Each row renders its own saved value, so
+# the value text is the assertion; no picker has to be opened to read it back.
+- assertVisible: "Dil, Türkçe"
+- assertVisible: "Görünüm, Koyu"
 - scrollUntilVisible:
     element:
-      id: settings-gender-row
+      text: "Cinsiyet, .*"
     direction: DOWN
-- tapOn:
-    id: settings-gender-row
-- assertVisible:
-    id: settings-gender-man
-    selected: true
-- tapOn:
-    id: settings-picker-back
+- assertVisible: "Cinsiyet, Erkek"
