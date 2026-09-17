@@ -30,10 +30,18 @@ export type TodayRequirementName =
 
 export type TodayMessages = Readonly<{
   title: string;
-  // ADR 0034 section 4: the two AI modes have badges, the words final, no Apple glyph.
+  // ADR 0034 section 4: the two AI modes have badges, the words final, no Apple glyph. The
+  // on-device badge carries the Apple Intelligence word mark inside a referential phrase;
+  // the spoken label makes kuyara the subject the badge alone cannot show.
   generationModeOnDeviceAi: string;
   generationModeAiAssisted: string;
-  generationModeAccessibilityLabel: (label: string) => string;
+  generationModeOnDeviceAiAccessibilityLabel: string;
+  generationModeAiAssistedAccessibilityLabel: string;
+  // The recommendation detail says in one plain sentence where the outfit was chosen, in
+  // all three modes. It names no provider, no model and no failure.
+  generationSourceOnDeviceAi: string;
+  generationSourceAiAssisted: string;
+  generationSourceDeterministic: string;
   backAction: string;
   otherOptionsHeading: string;
   piecesHeading: string;
@@ -562,7 +570,7 @@ const en = {
     developmentBuild: 'Development build',
     aiStatusHeading: 'AI status',
     aiStatusIntro: 'Check whether AI responds right now.',
-    aiStatusProvenanceFooter: 'Today shows a small badge when AI chose the outfit, and nothing when the standard suggestions did.',
+    aiStatusProvenanceFooter: 'Today shows a small badge when AI chose the outfit, and nothing when the standard suggestions did. Apple Intelligence is a trademark of Apple Inc.',
     aiStatusOnDeviceRunning:
       'Apple Intelligence: compatible and running. kuyara chooses your outfits on this device.',
     aiStatusOnDeviceOff:
@@ -854,10 +862,15 @@ const en = {
   },
   today: {
     title: 'Today',
-    generationModeOnDeviceAi: 'Chosen on your device',
-    generationModeAiAssisted: 'AI-assisted',
-    generationModeAccessibilityLabel: (label: string) =>
-      `Recommendation source: ${label}`,
+    generationModeOnDeviceAi: 'Chosen with Apple Intelligence',
+    generationModeAiAssisted: 'Chosen with AI',
+    generationModeOnDeviceAiAccessibilityLabel:
+      'Recommendation source: kuyara chose this outfit with Apple Intelligence',
+    generationModeAiAssistedAccessibilityLabel:
+      'Recommendation source: kuyara chose this outfit with AI',
+    generationSourceOnDeviceAi: 'kuyara chose this outfit on your device with Apple Intelligence.',
+    generationSourceAiAssisted: 'kuyara chose this outfit with online AI.',
+    generationSourceDeterministic: 'AI was not used. kuyara computed this outfit on your device.',
     backAction: 'Back to Today',
     otherOptionsHeading: 'Other options',
     piecesHeading: 'Wear',
@@ -1075,7 +1088,7 @@ const tr = {
     developmentBuild: 'Geliştirme derlemesi',
     aiStatusHeading: 'AI durumu',
     aiStatusIntro: 'AI’nin şu anda yanıt verip vermediğini kontrol et.',
-    aiStatusProvenanceFooter: 'Kombini AI seçtiyse Bugün’de küçük bir rozet görünür, standart öneriler seçtiyse hiçbir şey görünmez.',
+    aiStatusProvenanceFooter: 'Kombini AI seçtiyse Bugün’de küçük bir rozet görünür, standart öneriler seçtiyse hiçbir şey görünmez. Apple Intelligence, Apple Inc.’in ticari markasıdır.',
     aiStatusOnDeviceRunning:
       'Apple Intelligence: uyumlu ve çalışıyor. kuyara kombinlerini bu cihazda seçiyor.',
     aiStatusOnDeviceOff:
@@ -1371,10 +1384,15 @@ const tr = {
   },
   today: {
     title: 'Bugün',
-    generationModeOnDeviceAi: 'Cihazında seçildi',
-    generationModeAiAssisted: 'AI destekli',
-    generationModeAccessibilityLabel: (label: string) =>
-      `Öneri kaynağı: ${label}`,
+    generationModeOnDeviceAi: 'Apple Intelligence ile seçildi',
+    generationModeAiAssisted: 'AI ile seçildi',
+    generationModeOnDeviceAiAccessibilityLabel:
+      'Öneri kaynağı: kuyara bu kombini Apple Intelligence ile seçti',
+    generationModeAiAssistedAccessibilityLabel:
+      'Öneri kaynağı: kuyara bu kombini AI ile seçti',
+    generationSourceOnDeviceAi: 'Bu kombini kuyara, cihazında Apple Intelligence ile seçti.',
+    generationSourceAiAssisted: 'Bu kombini kuyara çevrimiçi AI ile seçti.',
+    generationSourceDeterministic: 'AI kullanılmadı, bu kombini kuyara cihazında hesapladı.',
     backAction: 'Bugün’e dön',
     otherOptionsHeading: 'Diğer seçenekler',
     piecesHeading: 'Parçalar',

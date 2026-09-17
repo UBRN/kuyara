@@ -409,29 +409,44 @@ test('a mild day with a live forecast falls back to the deterministic status sen
 });
 
 // ADR 0034 section 4: the two AI modes badge themselves, the deterministic one badges
-// nothing at rest, neither badge carries a glyph, and neither names a provider.
+// nothing at rest, neither badge carries a glyph, and neither names a provider. The detail's
+// source sentence is present in all three modes, and kuyara is its subject.
 test('only the AI generation modes carry a localized accessible generation mark', () => {
   const recommendation = todayScreenState.snapshot.recommendation;
   assert.equal(recommendation.status, 'recommended');
-  const markOf = (generationMode) => loadedPresentation({
+  const presentationOf = (generationMode) => loadedPresentation({
     ...todayScreenState,
     snapshot: {
       ...todayScreenState.snapshot,
       recommendation: { ...recommendation, generationMode },
     },
-  }).generationMode;
+  });
 
-  for (const [generationMode, label] of [
-    ['on-device-ai', 'Chosen on your device'],
-    ['ai-assisted', 'AI-assisted'],
+  for (const [generationMode, label, accessibilityLabel, source] of [
+    [
+      'on-device-ai',
+      'Chosen with Apple Intelligence',
+      'Recommendation source: kuyara chose this outfit with Apple Intelligence',
+      'kuyara chose this outfit on your device with Apple Intelligence.',
+    ],
+    [
+      'ai-assisted',
+      'Chosen with AI',
+      'Recommendation source: kuyara chose this outfit with AI',
+      'kuyara chose this outfit with online AI.',
+    ],
   ]) {
-    assert.deepEqual(markOf(generationMode), {
-      label,
-      accessibilityLabel: `Recommendation source: ${label}`,
-    });
+    const presentation = presentationOf(generationMode);
+    assert.deepEqual(presentation.generationMode, { label, accessibilityLabel });
+    assert.equal(presentation.generationSource, source);
   }
 
-  assert.equal(markOf('deterministic-fallback'), null);
+  const deterministic = presentationOf('deterministic-fallback');
+  assert.equal(deterministic.generationMode, null);
+  assert.equal(
+    deterministic.generationSource,
+    'AI was not used. kuyara computed this outfit on your device.',
+  );
 });
 
 test('detail reasoning groups garments by requirement and localizes trade-offs as rows', () => {

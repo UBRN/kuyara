@@ -200,6 +200,24 @@ function loadedPresentation(language: 'en' | 'tr' = 'en') {
   return presentation;
 }
 
+// The badge and the detail's source sentence are the only things the stored mode changes,
+// so every mode is one spread of the shared fixture.
+function stateWithGenerationMode(
+  generationMode: 'on-device-ai' | 'ai-assisted' | 'deterministic-fallback',
+): TodayScreenState {
+  const { recommendation } = todayScreenState.snapshot;
+  if (recommendation.status !== 'recommended') {
+    throw new Error('Expected the Today fixture to carry a recommendation.');
+  }
+  return {
+    ...todayScreenState,
+    snapshot: {
+      ...todayScreenState.snapshot,
+      recommendation: { ...recommendation, generationMode },
+    },
+  };
+}
+
 describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
   test.each([lightTheme, darkTheme])('renders the stage, one rationale, quiet provenance and two equal alternates', async (theme) => {
     const presentation = loadedPresentation(language);
@@ -314,9 +332,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     const pill = result.getByTestId('today-generation-mode');
     expect(pill).toHaveTextContent(messages[language].today.generationModeAiAssisted);
     expect(badge.props.accessibilityLabel).toBe(
-      messages[language].today.generationModeAccessibilityLabel(
-        messages[language].today.generationModeAiAssisted,
-      ),
+      messages[language].today.generationModeAiAssistedAccessibilityLabel,
     );
     // The badge is a record, not a control: no second pressable inside the navigating one.
     expect(badge.props.accessibilityRole).toBeUndefined();
@@ -345,6 +361,23 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
       .toHaveTextContent(loadedPresentation(language).header.freshness);
     expect(within(result.getByTestId('today-provenance'))
       .queryByTestId('today-generation-mode')).toBeNull();
+  });
+
+  // ADR 0034 section 4: the on-device badge is the one place the Apple Intelligence word
+  // mark appears outside Settings, inside a referential phrase and with no Apple symbol.
+  // The badge alone cannot show kuyara as the subject, so the spoken label carries it.
+  test('the on-device badge names Apple Intelligence and speaks kuyara as the subject', async () => {
+    const result = await render(providers(
+      <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
+        onRefresh={jest.fn()}
+        state={stateWithGenerationMode('on-device-ai')} />,
+      lightTheme, language,
+    ));
+
+    const pill = result.getByTestId('today-generation-mode');
+    expect(pill).toHaveTextContent(messages[language].today.generationModeOnDeviceAi);
+    expect(result.getByTestId('today-provenance-badge').props.accessibilityLabel)
+      .toBe(messages[language].today.generationModeOnDeviceAiAccessibilityLabel);
   });
 });
 
@@ -1281,6 +1314,33 @@ describe.each(['en', 'tr'] as const)('%s Today refresh action', (language) => {
     await fireEvent(screen, 'accessibilityAction', { nativeEvent: { actionName: 'magicTap' } });
     expect(onRefresh).toHaveBeenCalledTimes(1);
     impact.mockRestore();
+  });
+});
+
+// ADR 0034 section 4: Today leaves a deterministic result unmarked, so the detail is where
+// the generation source is said in words, in all three modes, naming no provider and no model.
+describe.each(['en', 'tr'] as const)('%s outfit detail generation source', (language) => {
+  test.each([
+    ['on-device-ai', 'generationSourceOnDeviceAi'],
+    ['ai-assisted', 'generationSourceAiAssisted'],
+    ['deterministic-fallback', 'generationSourceDeterministic'],
+  ] as const)('%s reads its own sentence', async (generationMode, key) => {
+    const result = await render(providers(
+      <OutfitDetailScreen
+        backLabel={messages[language].common.back}
+        language={language}
+        onBack={() => undefined}
+        onSetOwnership={() => undefined}
+        ownershipByGarmentType={{}}
+        state={stateWithGenerationMode(generationMode)}
+        suggestionId={todayOutfitId(1)}
+      />,
+      lightTheme,
+      language,
+    ));
+
+    expect(result.getByTestId('outfit-detail-generation-source'))
+      .toHaveTextContent(messages[language].today[key]);
   });
 });
 
