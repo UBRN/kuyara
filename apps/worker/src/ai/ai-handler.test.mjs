@@ -1305,14 +1305,12 @@ test('the daily attempt budget covers the largest prompt in the shared grid', as
   const derivedLimit = Math.floor(
     (10_000 - PROBE_DAILY_LIMIT * 67) / attemptNeurons,
   );
-  // The constant keeps the documented 160-Neuron worst case, which the 4,500-token estimate
-  // gives, so a shorter prompt leaves it one attempt below what the pool now affords: the
-  // budget is covered, which is what this test is for. Raising it to the re-derived figure
-  // is an owner spend decision with its own review, outside this Goal.
-  assert.ok(
-    WORKERS_AI_DAILY_ATTEMPT_LIMIT <= derivedLimit,
-    `${WORKERS_AI_DAILY_ATTEMPT_LIMIT} attempts exceed the ${derivedLimit} the pool affords`,
-  );
+  // The constant is derived from this same prompt, so the two must agree exactly: the
+  // comment above `WORKERS_AI_DAILY_ATTEMPT_LIMIT` carries the 4,400-token, 157-Neuron
+  // worst case this test measures. A prompt that grows past the token step raises the
+  // Neuron cost, and the constant follows it only through an owner spend decision with
+  // its own review.
+  assert.equal(WORKERS_AI_DAILY_ATTEMPT_LIMIT, derivedLimit);
 });
 
 test('a Workers AI attempt whose increment lands exactly on the limit still runs', async () => {
