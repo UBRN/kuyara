@@ -10,6 +10,12 @@ export type RecommendationApplicationValue = Readonly<{
   // null until that answer arrives. No inference, no quota, no provider or model identity.
   onDeviceAvailability: OnDeviceAiAvailability | null;
   refresh: () => Promise<RecommendationSnapshot | null>;
+  /**
+   * Today's "show another outfit" action: it regenerates the recommendation and leaves
+   * weather alone. Whether this one reaches the AI chain or composes from the validated
+   * pool is decided behind this call; the caller neither knows nor shows it.
+   */
+  regenerate: () => Promise<RecommendationSnapshot | null>;
   reevaluateLocalDay: () => void;
 }>;
 

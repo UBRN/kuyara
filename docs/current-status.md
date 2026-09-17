@@ -32,7 +32,12 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   bounds its whole AI walk at 36 seconds (five attempts of 7 seconds plus one second),
   so every provider gets its turn and the deterministic fallback is reached only after
   the last one fails; the whole wait is bounded at 44 seconds. Generation triggers compare
-  current signals with the persisted snapshot. Today draws a breathing skeleton garment
+  current signals with the persisted snapshot. Today also carries a **show another outfit**
+  action that regenerates the recommendation alone, leaving weather to the pull gesture: the
+  first five taps of a local day reach the AI chain, and after that the same tap composes the
+  next valid three from the already-composed pool without an AI request. The allowance lives
+  in one policy module with a small app-private JSON counter, so it needed no migration, and
+  the button is always enabled: no provider, quota or remaining count is ever shown. Today draws a breathing skeleton garment
   board under a phase line (checking the on-device AI, asking the AI stylist, answer
   received, preparing outfits, using standard suggestions) while a recommendation is
   generated, the same phase line replaces the freshness caption during a refresh of a

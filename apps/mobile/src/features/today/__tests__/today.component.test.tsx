@@ -34,6 +34,7 @@ import { messages, type SupportedLanguage } from '@/localization/messages';
 import {
   createKuyaraTheme,
   darkTheme,
+  layout,
   lightTheme,
   spacing,
   typography,
@@ -225,7 +226,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     const onOpenOutfitDetail = jest.fn();
     const result = await render(providers(
       <TodayScreen language={language} onOpenOutfitDetail={onOpenOutfitDetail}
-        onRefresh={jest.fn()} state={todayScreenState} />,
+        onRefresh={jest.fn()} onRegenerate={jest.fn()} state={todayScreenState} />,
       theme, language,
     ));
     await fireEvent(result.getByTestId('today-content'), 'layout', {
@@ -271,7 +272,8 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     expect(result.getByRole('header', { name: messages[language].today.otherOptionsHeading }))
       .toHaveStyle({ ...typography.bodyStrong });
     expect(result.getByTestId('today-alternates-heading')).toHaveStyle({ borderBottomColor: theme.colors.borderSubtle });
-    expect(result.getAllByRole('button')).toHaveLength(3);
+    // The outfit and its two alternates, plus the "show another outfit" action.
+    expect(result.getAllByRole('button')).toHaveLength(4);
     const button = result.getByRole('button', { name: presentation.stageAccessibilityLabel });
     expect(button).toBeOnTheScreen();
     await fireEvent.press(result.getByTestId('today-stage', hidden));
@@ -321,7 +323,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
   test.each([lightTheme, darkTheme])('badges AI provenance under the outfit name, off the tinted stage', async (theme) => {
     const result = await render(providers(
       <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
-        onRefresh={jest.fn()} state={aiAssistedTodayScreenState} />,
+        onRefresh={jest.fn()} onRegenerate={jest.fn()} state={aiAssistedTodayScreenState} />,
       theme, language,
     ));
     await fireEvent(result.getByTestId('today-content'), 'layout', {
@@ -369,7 +371,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
   test('the on-device badge names Apple Intelligence and speaks kuyara as the subject', async () => {
     const result = await render(providers(
       <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
-        onRefresh={jest.fn()}
+        onRefresh={jest.fn()} onRegenerate={jest.fn()}
         state={stateWithGenerationMode('on-device-ai')} />,
       lightTheme, language,
     ));
@@ -387,7 +389,8 @@ test.each([
 ] as const)('%s weather applies its atmosphere color to every Today stage', async (_, now, atmosphere) => {
   dateNowSpy.mockReturnValue(now);
   const result = await render(providers(
-    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+    onRegenerate={jest.fn()} state={todayScreenState} />,
   ));
   await fireEvent(result.getByTestId('today-content'), 'layout', {
     nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
@@ -408,7 +411,8 @@ test.each([
 
 test('only the primary board is coloured: the alternates stay on two neutrals', async () => {
   const result = await render(providers(
-    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+    onRegenerate={jest.fn()} state={todayScreenState} />,
   ));
   await fireEvent(result.getByTestId('today-content'), 'layout', {
     nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
@@ -459,7 +463,8 @@ test.each([
   const symbols = SymbolView as unknown as jest.Mock;
   symbols.mockClear();
   const result = await render(providers(
-    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={state} />,
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+    onRegenerate={jest.fn()} state={state} />,
   ));
 
   const hidden = { includeHiddenElements: true };
@@ -473,6 +478,7 @@ test.each([
 test('a clear Today leaves its corner glyph at rest', async () => {
   const result = await render(providers(
     <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+    onRegenerate={jest.fn()}
       state={accessoryFreeTodayScreenState} />,
   ));
 
@@ -488,7 +494,8 @@ test('Today re-reads its clock when the app becomes active', async () => {
     .mockReturnValue({ remove: () => undefined });
   dateNowSpy.mockReturnValue(Date.parse('2026-08-13T12:00:00.000Z'));
   const result = await render(providers(
-    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+    onRegenerate={jest.fn()} state={todayScreenState} />,
   ));
   const hidden = { includeHiddenElements: true };
   expect(StyleSheet.flatten(result.getByTestId('today-stage', hidden).props.style))
@@ -519,7 +526,7 @@ test('accessibility XXXL keeps the complete generation mode and freshness status
     <TodayScreen
       language="en"
       onOpenOutfitDetail={jest.fn()}
-      onRefresh={jest.fn()}
+      onRefresh={jest.fn()} onRegenerate={jest.fn()}
       state={aiAssistedTodayScreenState}
     />,
   ));
@@ -536,7 +543,8 @@ test('accessibility XXXL keeps the complete generation mode and freshness status
 test.each([1.5, 1.6, 3])('font scale %s keeps weather clear of garments and stacks alternates above 1.5', async (fontScale) => {
   Dimensions.set({ window: { ...originalDimensions, width: 390, fontScale } });
   const result = await render(providers(
-    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+    onRegenerate={jest.fn()} state={todayScreenState} />,
   ));
   const hidden = { includeHiddenElements: true };
   const stage = result.getByTestId('today-stage', hidden);
@@ -771,7 +779,8 @@ describe.each(['en', 'tr'] as const)('%s outfit detail ownership', (language) =>
 
 test('the hero board rises into a stage that stays still', async () => {
   const result = await render(providers(
-    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+    onRegenerate={jest.fn()} state={todayScreenState} />,
   ));
   await fireEvent(result.getByTestId('today-content'), 'layout', {
     nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
@@ -811,7 +820,8 @@ test('a new suggestion re-mounts the hero board, and the same one back leaves it
     },
   };
   const screen = (state: TodayScreenState) => providers(
-    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={state} />,
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+    onRegenerate={jest.fn()} state={state} />,
   );
   const heroMounts = () => mockBoardMounts.filter((id) => id.startsWith('today-primary-board-'));
 
@@ -893,7 +903,7 @@ test('Today keeps outfit ownership state and actions hidden', async () => {
         language="en"
         onOpenOutfitDetail={() => undefined}
 
-        onRefresh={() => undefined}
+        onRefresh={() => undefined} onRegenerate={jest.fn()}
         state={todayScreenState}
       />
     </WardrobeApplicationContext>,
@@ -936,7 +946,7 @@ test('an unavailable recommendation keeps header and weather while replacing sug
       language="en"
       onOpenOutfitDetail={() => undefined}
 
-      onRefresh={() => undefined}
+      onRefresh={() => undefined} onRegenerate={jest.fn()}
       state={state}
     />,
   ));
@@ -956,7 +966,7 @@ describe.each(['en', 'tr'] as const)('%s first generation', (language: Supported
       <TodayScreen
         language={language}
         onOpenOutfitDetail={() => undefined}
-        onRefresh={() => undefined}
+        onRefresh={() => undefined} onRegenerate={jest.fn()}
         state={{ kind: 'loading' }}
       />,
       lightTheme,
@@ -997,7 +1007,7 @@ describe.each(['en', 'tr'] as const)('%s first generation', (language: Supported
         <TodayScreen
           language={language}
           onOpenOutfitDetail={() => undefined}
-          onRefresh={() => undefined}
+          onRefresh={() => undefined} onRegenerate={jest.fn()}
           state={{ kind: 'loading' }}
         />,
         lightTheme,
@@ -1027,7 +1037,7 @@ test('the skeleton placeholders breathe on the ambient moderate step and hold st
       <TodayScreen
         language="en"
         onOpenOutfitDetail={() => undefined}
-        onRefresh={() => undefined}
+        onRefresh={() => undefined} onRegenerate={jest.fn()}
         state={{ kind: 'loading' }}
       />,
       theme,
@@ -1057,7 +1067,7 @@ test('accessibility XXXL keeps the whole generating status line and the skeleton
     <TodayScreen
       language="en"
       onOpenOutfitDetail={() => undefined}
-      onRefresh={() => undefined}
+      onRefresh={() => undefined} onRegenerate={jest.fn()}
       state={{ kind: 'loading' }}
     />,
   ));
@@ -1085,7 +1095,7 @@ test('Today explains a missing active location and opens the existing location p
       language="en"
       onOpenOutfitDetail={() => undefined}
 
-      onRefresh={() => undefined}
+      onRefresh={() => undefined} onRegenerate={jest.fn()}
       state={{ kind: 'unavailable' }}
     />,
     lightTheme,
@@ -1108,7 +1118,7 @@ test('Today keeps the generic unavailable copy for failures with an active locat
       language="en"
       onOpenOutfitDetail={() => undefined}
 
-      onRefresh={() => undefined}
+      onRefresh={() => undefined} onRegenerate={jest.fn()}
       state={{ kind: 'unavailable' }}
     />,
   ));
@@ -1130,7 +1140,7 @@ test('a classified unavailable state keeps the generic copy unless the cause is 
         language="en"
         onOpenOutfitDetail={() => undefined}
 
-        onRefresh={() => undefined}
+        onRefresh={() => undefined} onRegenerate={jest.fn()}
         state={{ kind: 'unavailable', failure }}
       />,
     ));
@@ -1157,7 +1167,7 @@ test('the unavailable retry refreshes in place instead of opening the location p
     <TodayScreen
       language="en"
       onOpenOutfitDetail={() => undefined}
-      onRefresh={onRefresh}
+      onRefresh={onRefresh} onRegenerate={jest.fn()}
       state={{ kind: 'unavailable', failure: 'unavailable' }}
     />,
   ));
@@ -1187,7 +1197,7 @@ test('every Today state carries the stable today-screen container id', async () 
         language="en"
         onOpenOutfitDetail={() => undefined}
 
-        onRefresh={() => undefined}
+        onRefresh={() => undefined} onRegenerate={jest.fn()}
         state={state}
       />,
     ));
@@ -1204,7 +1214,7 @@ describe.each(['en', 'tr'] as const)('%s Today section headings', (language: Sup
         language={language}
         onOpenOutfitDetail={() => undefined}
 
-        onRefresh={() => undefined}
+        onRefresh={() => undefined} onRegenerate={jest.fn()}
         state={todayScreenState}
       />,
       lightTheme,
@@ -1228,7 +1238,8 @@ test('pull-to-refresh invokes refresh with haptic feedback and preserves Screen 
   const onRefresh = jest.fn();
   const impact = jest.spyOn(haptics, 'impactLight').mockImplementation(() => undefined);
   const result = await render(providers(
-    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={onRefresh} state={todayScreenState} />,
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={onRefresh}
+    onRegenerate={jest.fn()} state={todayScreenState} />,
   ));
   const refreshControl = result.getByTestId('today-screen').props.refreshControl;
   expect(refreshControl.props.refreshing).toBe(false);
@@ -1247,7 +1258,7 @@ test('unavailable Today supports pull retry and the refresh accessibility action
       isRefreshing
       language="en"
       onOpenOutfitDetail={jest.fn()}
-      onRefresh={onRefresh}
+      onRefresh={onRefresh} onRegenerate={jest.fn()}
       state={{ kind: 'unavailable', failure: 'offline' }}
     />,
   ));
@@ -1269,6 +1280,7 @@ test('refreshing, failure and staleness announce freshness while retaining the l
   const onOpenOutfitDetail = jest.fn();
   const screen = (isRefreshing: boolean, refreshFailed: boolean, stale = false) => providers(
     <TodayScreen language="en" onOpenOutfitDetail={onOpenOutfitDetail} onRefresh={jest.fn()}
+    onRegenerate={jest.fn()}
       state={{ ...todayScreenState, isRefreshing, refreshFailed,
         snapshot: { ...todayScreenState.snapshot, freshness: stale ? 'stale' : 'fresh' } }} />,
   );
@@ -1295,6 +1307,7 @@ describe.each(['en', 'tr'] as const)('%s Today refresh action', (language) => {
     const impact = jest.spyOn(haptics, 'impactLight').mockImplementation(() => undefined);
     const result = await render(providers(
       <TodayScreen language={language} onOpenOutfitDetail={jest.fn()} onRefresh={onRefresh}
+      onRegenerate={jest.fn()}
         state={todayScreenState} />,
       lightTheme,
       language,
@@ -1445,7 +1458,7 @@ describe.each(['en', 'tr'] as const)('%s narrated wait', (language: SupportedLan
       <TodayScreen
         language={language}
         onOpenOutfitDetail={() => undefined}
-        onRefresh={() => undefined}
+        onRefresh={() => undefined} onRegenerate={jest.fn()}
         state={{ kind: 'loading', phase: 'asking-stylist' }}
       />,
       lightTheme,
@@ -1468,7 +1481,7 @@ describe.each(['en', 'tr'] as const)('%s narrated wait', (language: SupportedLan
       <TodayScreen
         language={language}
         onOpenOutfitDetail={() => undefined}
-        onRefresh={() => undefined}
+        onRefresh={() => undefined} onRegenerate={jest.fn()}
         state={{
           ...todayScreenState,
           isRefreshing: true,
@@ -1493,7 +1506,7 @@ test('an unnarrated refresh keeps the generic freshness line and shows no mark',
     <TodayScreen
       language="en"
       onOpenOutfitDetail={() => undefined}
-      onRefresh={() => undefined}
+      onRefresh={() => undefined} onRegenerate={jest.fn()}
       state={{ ...todayScreenState, isRefreshing: true, refreshFailed: false }}
     />,
   ));
@@ -1512,7 +1525,7 @@ test('the phase mark holds still under Reduce Motion', async () => {
       <TodayScreen
         language="en"
         onOpenOutfitDetail={() => undefined}
-        onRefresh={() => undefined}
+        onRefresh={() => undefined} onRegenerate={jest.fn()}
         state={{ kind: 'loading', phase: 'checking-on-device' }}
       />,
       theme,
@@ -1548,7 +1561,7 @@ describe.each(['en', 'tr'] as const)('%s Today attribution', (language: Supporte
   ] as const)('names %s beneath the last section', async (sourceId, label, showsLogo) => {
     const result = await render(providers(
       <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
-        onRefresh={jest.fn()} state={stateFromSource(sourceId)} />,
+        onRefresh={jest.fn()} onRegenerate={jest.fn()} state={stateFromSource(sourceId)} />,
       lightTheme, language,
     ));
 
@@ -1579,7 +1592,7 @@ describe.each(['en', 'tr'] as const)('%s Today attribution', (language: Supporte
     } as TodayScreenState;
     const staleResult = await render(providers(
       <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
-        onRefresh={jest.fn()} state={stale} />,
+        onRefresh={jest.fn()} onRegenerate={jest.fn()} state={stale} />,
       lightTheme, language,
     ));
     expect(staleResult.getByText(messages[language].weather.attributionOpenWeather))
@@ -1587,7 +1600,7 @@ describe.each(['en', 'tr'] as const)('%s Today attribution', (language: Supporte
 
     const sampleResult = await render(providers(
       <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
-        onRefresh={jest.fn()} state={todayScreenState} />,
+        onRefresh={jest.fn()} onRegenerate={jest.fn()} state={todayScreenState} />,
       lightTheme, language,
     ));
     expect(sampleResult.queryByRole('link')).toBeNull();
@@ -1612,6 +1625,7 @@ describe('finishing touches', () => {
 
     const result = await render(providers(
       <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+      onRegenerate={jest.fn()}
         state={coldTodayScreenState} />,
     ));
     await fireEvent(result.getByTestId('today-content'), 'layout', {
@@ -1641,6 +1655,7 @@ describe('finishing touches', () => {
 
     const today = await render(providers(
       <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+      onRegenerate={jest.fn()}
         state={accessoryFreeTodayScreenState} />,
     ));
     expect(today.queryByTestId('today-accessory-badges')).toBeNull();
@@ -1712,7 +1727,7 @@ describe('the contextual weather-alert offer', () => {
         alertOffer={offerProps({ ruleId: 'temperature_swing' })}
         language={language}
         onOpenOutfitDetail={jest.fn()}
-        onRefresh={jest.fn()}
+        onRefresh={jest.fn()} onRegenerate={jest.fn()}
         state={todayScreenState}
       />,
       lightTheme, language,
@@ -1745,7 +1760,8 @@ describe('the contextual weather-alert offer', () => {
     symbolView.mockClear();
 
     await render(providers(
-      <TodayScreen alertOffer={offerProps()} language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
+      <TodayScreen alertOffer={offerProps()} language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+      onRegenerate={jest.fn()} state={todayScreenState} />,
     ));
 
     const bell = symbolView.mock.calls.find(([props]) =>
@@ -1757,7 +1773,8 @@ describe('the contextual weather-alert offer', () => {
 
   test('the offer arrives rather than appearing mid-screen', async () => {
     const result = await render(providers(
-      <TodayScreen alertOffer={offerProps()} language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
+      <TodayScreen alertOffer={offerProps()} language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+      onRegenerate={jest.fn()} state={todayScreenState} />,
     ));
 
     // Law 7's "content arrives": `Entrance` fades the row in and travels it one rhythm
@@ -1769,7 +1786,8 @@ describe('the contextual weather-alert offer', () => {
 
   test('renders nothing when no alert would have fired', async () => {
     const result = await render(providers(
-      <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
+      <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+      onRegenerate={jest.fn()} state={todayScreenState} />,
     ));
 
     expect(result.queryByTestId('today-alert-offer')).toBeNull();
@@ -1778,7 +1796,8 @@ describe('the contextual weather-alert offer', () => {
   test('accepting runs the opt-in flow and leaves the row behind', async () => {
     const offer = offerProps();
     const result = await render(providers(
-      <TodayScreen alertOffer={offer} language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
+      <TodayScreen alertOffer={offer} language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+      onRegenerate={jest.fn()} state={todayScreenState} />,
     ));
 
     await fireEvent.press(result.getByTestId('today-alert-offer-accept'));
@@ -1790,7 +1809,8 @@ describe('the contextual weather-alert offer', () => {
   test('dismissing marks the offer spent and leaves the row behind', async () => {
     const offer = offerProps();
     const result = await render(providers(
-      <TodayScreen alertOffer={offer} language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
+      <TodayScreen alertOffer={offer} language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+      onRegenerate={jest.fn()} state={todayScreenState} />,
     ));
 
     await fireEvent.press(result.getByTestId('today-alert-offer-dismiss'));
@@ -1806,7 +1826,8 @@ describe('the contextual weather-alert offer', () => {
       }),
     });
     const result = await render(providers(
-      <TodayScreen alertOffer={offer} language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
+      <TodayScreen alertOffer={offer} language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+      onRegenerate={jest.fn()} state={todayScreenState} />,
     ));
 
     await fireEvent.press(result.getByTestId('today-alert-offer-dismiss'));
@@ -1828,7 +1849,8 @@ describe('the contextual weather-alert offer', () => {
       onAccept: jest.fn(() => pendingAccept),
     });
     const result = await render(providers(
-      <TodayScreen alertOffer={offer} language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
+      <TodayScreen alertOffer={offer} language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+      onRegenerate={jest.fn()} state={todayScreenState} />,
     ));
 
     await fireEvent.press(result.getByTestId('today-alert-offer-accept'));
@@ -1849,5 +1871,37 @@ describe('the contextual weather-alert offer', () => {
     expect(offer.onOpenSystemSettings).toHaveBeenCalledTimes(1);
     await fireEvent.press(result.getByTestId('today-alert-offer-dismiss'));
     expect(result.queryByTestId('today-alert-offer')).toBeNull();
+  });
+});
+
+// The "show another outfit" action. It is always enabled, because past the daily AI
+// allowance the same tap still composes a new valid three from the already-composed pool, so
+// there is no state in which the screen would have to explain a disabled control.
+describe.each(['en', 'tr'] as const)('%s regenerate action', (language) => {
+  test('reads from the localized key, keeps a full touch target and stays enabled', async () => {
+    const onRegenerate = jest.fn();
+    const onRefresh = jest.fn();
+    const result = await render(providers(
+      <TodayScreen
+        language={language}
+        onOpenOutfitDetail={jest.fn()}
+        onRefresh={onRefresh} onRegenerate={onRegenerate}
+        state={todayScreenState}
+      />,
+      lightTheme,
+      language,
+    ));
+
+    const action = result.getByTestId('today-regenerate');
+    expect(action).toHaveTextContent(messages[language].today.regenerateAction);
+    expect(action.props.accessibilityRole).toBe('button');
+    expect(action.props.accessibilityState?.disabled).toBeFalsy();
+    expect(StyleSheet.flatten(action.props.style))
+      .toMatchObject({ minHeight: layout.minimumTouchTarget });
+
+    await fireEvent.press(action);
+    expect(onRegenerate).toHaveBeenCalledTimes(1);
+    // It regenerates the recommendation only; the pull gesture still owns weather.
+    expect(onRefresh).not.toHaveBeenCalled();
   });
 });

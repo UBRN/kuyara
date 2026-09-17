@@ -42,6 +42,9 @@ export type TodayMessages = Readonly<{
   generationSourceOnDeviceAi: string;
   generationSourceAiAssisted: string;
   generationSourceDeterministic: string;
+  // Today's "show another outfit" action. It names no provider, no quota and no
+  // remaining count, and it is the same words whichever path answers the tap.
+  regenerateAction: string;
   backAction: string;
   otherOptionsHeading: string;
   piecesHeading: string;
@@ -871,6 +874,7 @@ const en = {
     generationSourceOnDeviceAi: 'kuyara chose this outfit on your device with Apple Intelligence.',
     generationSourceAiAssisted: 'kuyara chose this outfit with online AI.',
     generationSourceDeterministic: 'AI was not used. kuyara computed this outfit on your device.',
+    regenerateAction: 'Show another outfit',
     backAction: 'Back to Today',
     otherOptionsHeading: 'Other options',
     piecesHeading: 'Wear',
@@ -1393,6 +1397,7 @@ const tr = {
     generationSourceOnDeviceAi: 'Bu kombini kuyara, cihazında Apple Intelligence ile seçti.',
     generationSourceAiAssisted: 'Bu kombini kuyara çevrimiçi AI ile seçti.',
     generationSourceDeterministic: 'AI kullanılmadı, bu kombini kuyara cihazında hesapladı.',
+    regenerateAction: 'Başka kombin göster',
     backAction: 'Bugün’e dön',
     otherOptionsHeading: 'Diğer seçenekler',
     piecesHeading: 'Parçalar',

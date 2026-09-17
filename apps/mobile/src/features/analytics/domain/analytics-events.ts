@@ -57,7 +57,7 @@ export type GenerationModeProperty =
   | 'ai_assisted'
   | 'deterministic_fallback';
 
-// Taxonomy 5.5: the snake_case form of `RecommendationRefreshTrigger`, all seven values.
+// Taxonomy 5.5: the snake_case form of `RecommendationRefreshTrigger`, all eight values.
 export type TriggerReasonProperty =
   | 'first_recommendation'
   | 'stale_weather_refresh'
@@ -65,7 +65,8 @@ export type TriggerReasonProperty =
   | 'clothing_preference_changed'
   | 'dress_style_changed'
   | 'new_calendar_day'
-  | 'explicit_request';
+  | 'explicit_request'
+  | 'regenerate';
 
 // Taxonomy 5.4: a total bucketing of the eleven-code condition vocabulary.
 export type ConditionCategory =
@@ -186,10 +187,17 @@ export type AnalyticsEventCatalog = {
       outfit_count: 3;
     }>;
   // Taxonomy 5.5: both failure forms omit `generation_mode`; no new result exists.
+  // `regeneration_source` qualifies a success of the `regenerate` trigger alone: where that
+  // tap's three came from, the AI chain or the already-composed pool. Never a provider, a
+  // model, a quota or a remaining allowance.
   recommendation_regenerated: AnalyticsEventBase &
     Readonly<{ trigger_reason: TriggerReasonProperty }> &
     (
-      | Readonly<{ result: 'success'; generation_mode: GenerationModeProperty }>
+      | Readonly<{
+          result: 'success';
+          generation_mode: GenerationModeProperty;
+          regeneration_source?: 'ai' | 'pool';
+        }>
       | Readonly<{ result: 'failure_kept_last_known' | 'failure_no_snapshot' }>
     );
   outfit_detail_opened: AnalyticsEventBase &
@@ -346,6 +354,7 @@ export const analyticsEventPropertyKeys = {
     'trigger_reason',
     'result',
     'generation_mode',
+    'regeneration_source',
   ],
   outfit_detail_opened: [
     'schema_version',

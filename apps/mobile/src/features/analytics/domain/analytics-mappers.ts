@@ -43,6 +43,7 @@ const triggerReasonProperties = {
   'dress-style-changed': 'dress_style_changed',
   'local-day-changed': 'new_calendar_day',
   explicit: 'explicit_request',
+  regenerate: 'regenerate',
 } as const satisfies Record<RecommendationRefreshTrigger, TriggerReasonProperty>;
 
 // Taxonomy 5.4: the bucketing of the provider-neutral condition vocabulary, never a raw
