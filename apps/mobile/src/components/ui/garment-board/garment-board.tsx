@@ -15,6 +15,7 @@ import Svg, { G, Path } from 'react-native-svg';
 
 import type { GarmentTypeId, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
+import { blend } from '@/theme/color-blend';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -247,7 +248,9 @@ export function GarmentBoard({
   const theme = useKuyaraTheme();
   const { colors } = theme;
   const result = composePieces(pieces, preset);
-  const fillColor = stageColor ?? colors.stage;
+  const fillColor = stageColor === undefined
+    ? colors.stage
+    : blend(stageColor, colors.textPrimary, 0.13);
   const progress = useSharedValue(0);
   const tintProgress = useSharedValue(0);
   const settleTravel = useSharedValue(0);
@@ -416,7 +419,7 @@ export function GarmentBoard({
       {result.order.map((piece) => (
         <TravellingPiece
           fromBox={fromBoxes.get(piece.slot) ?? result.boxes.get(piece)!}
-          fromStageColor={entrance.fromStageColor}
+          fromStageColor={blend(entrance.fromStageColor, colors.textPrimary, 0.13)}
           key={piece.slot}
           piece={piece}
           progress={progress}
@@ -424,7 +427,7 @@ export function GarmentBoard({
           strokeColor={colors.textPrimary}
           tintProgress={tintProgress}
           toBox={result.boxes.get(piece)!}
-          toStageColor={colors.stage}
+          toStageColor={fillColor}
           width={width}
         />
       ))}

@@ -1,8 +1,10 @@
 import { render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { StyleSheet } from 'react-native';
+import { processColor, StyleSheet } from 'react-native';
 
 import { GarmentBoard, measureGarmentBoardHeight, type GarmentBoardPiece } from '@/components/ui/garment-board/garment-board';
+import { silhouettes } from '@/components/ui/garment-board/silhouettes';
+import { blend } from '@/theme/color-blend';
 import { createKuyaraTheme, lightTheme, spacing } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
@@ -25,6 +27,13 @@ const pieces: readonly GarmentBoardPiece[] = [
   { slot: 'footwear', garmentTypeId: 'sandals', category: 'footwear' },
 ];
 
+function dressFills(result: Awaited<ReturnType<typeof render>>) {
+  const filledPath = silhouettes['g-dress'].paths.find((path) => path.filled)!;
+  return result.container
+    .queryAll((node) => node.props.d === filledPath.d)
+    .map((node) => node.props.fill);
+}
+
 test('the board is one accessible image and its measured height matches its SVG', async () => {
   const result = await render(<GarmentBoard pieces={pieces} width={349} preset="today" accessibilityLabel="Dress, sandals" testID="board" />, { wrapper: LightTheme });
   const board = result.getByRole('image', { name: 'Dress, sandals' });
@@ -38,6 +47,47 @@ test('detail uses the same pieces with its own measured height', async () => {
   const result = await render(<GarmentBoard pieces={pieces} width={349} preset="detail" accessibilityLabel="Dress, sandals" />, { wrapper: LightTheme });
   expect(result.getByRole('image')).toHaveProp('height', measureGarmentBoardHeight(pieces, 349, 'detail'));
   expect(measureGarmentBoardHeight(pieces, 349, 'detail')).not.toBe(measureGarmentBoardHeight(pieces, 349, 'today'));
+  expect(dressFills(result)).toEqual([
+    { type: 0, payload: processColor(lightTheme.colors.stage) },
+  ]);
+});
+
+test('a tinted stage gives static and travelling artwork the same derived target fill', async () => {
+  const stageColor = lightTheme.atmosphere.clearDay;
+  const targetFill = blend(stageColor, lightTheme.colors.textPrimary, 0.13);
+  const staticResult = await render(
+    <GarmentBoard
+      accessibilityLabel="Dress, sandals"
+      pieces={pieces}
+      preset="today"
+      stageColor={stageColor}
+      width={349}
+    />,
+    { wrapper: LightTheme },
+  );
+  expect(dressFills(staticResult)).toEqual([
+    { type: 0, payload: processColor(targetFill) },
+  ]);
+
+  const fromStageColor = lightTheme.atmosphere.fallingDay;
+  const travellingResult = await render(
+    <GarmentBoard
+      accessibilityLabel="Dress, sandals"
+      entrance={{ fromPreset: 'today', fromStageColor, fromStageRadius: 26 }}
+      pieces={pieces}
+      preset="today"
+      stageColor={stageColor}
+      width={349}
+    />,
+    { wrapper: LightTheme },
+  );
+  expect(dressFills(travellingResult)).toEqual([
+    { type: 0, payload: processColor(targetFill) },
+    {
+      type: 0,
+      payload: processColor(blend(fromStageColor, lightTheme.colors.textPrimary, 0.13)),
+    },
+  ]);
 });
 
 const risingBoard = (
