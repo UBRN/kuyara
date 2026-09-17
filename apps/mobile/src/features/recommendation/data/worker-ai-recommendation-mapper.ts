@@ -458,7 +458,7 @@ export function mapStoredRecommendation(
     status: 'recommended',
     generationMode,
     requirements,
-    outfits: assignFallbackArchetypes(outfits, outfits.length, dayKind),
+    outfits: assignFallbackArchetypes(outfits, undefined, dayKind),
   });
 }
 
