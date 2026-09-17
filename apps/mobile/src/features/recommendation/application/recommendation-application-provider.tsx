@@ -26,6 +26,7 @@ import { usePerformanceTelemetry } from '@/features/analytics/application/use-pe
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { garmentCatalogVersion } from '@/features/catalog/domain/garment-catalog';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
+import { ExpoFileAiRegenerationBudget } from '@/features/recommendation/data/expo-file-ai-regeneration-budget';
 import { LocalRecommendationRepository } from '@/features/recommendation/data/recommendation-repository';
 import { SqliteRecommendationLocalDataSource } from '@/features/recommendation/data/sqlite-recommendation-local-data-source';
 import {
@@ -39,6 +40,7 @@ import {
 } from '@/features/recommendation/data/worker-ai-client';
 import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import { onDeviceAiModule } from '@/features/recommendation/data/on-device-ai-module';
+import { regenerationMode } from '@/features/recommendation/domain/regeneration-policy';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { resolveWorkerBaseUrl, WorkerBaseUrlConfigurationError } from '@/config/worker-base-url';
 import { openKuyaraDatabase } from '@/infrastructure/sqlite/expo-sqlite-database';
@@ -121,6 +123,10 @@ export function RecommendationApplicationProvider({
   const [latestOnDeviceAvailability] = useState<{ value: OnDeviceAiAvailability | null }>(
     () => ({ value: null }),
   );
+  // The daily tally of AI regenerations. Only the composition layer sees it: the controller
+  // reports the attempt, the policy answers whether the next one may reach a provider, and
+  // neither the domain nor any screen reads the number.
+  const budget = useMemo(() => new ExpoFileAiRegenerationBudget(), []);
   const controller = useMemo(
     () => new RecommendationApplicationController(localProfileId, {
       loadRepository,
@@ -128,8 +134,11 @@ export function RecommendationApplicationProvider({
       captureAnalyticsEvent: (name, properties, options) => analytics.capture(name, properties, options),
       telemetry,
       getOnDeviceAvailability: () => latestOnDeviceAvailability.value,
+      onAiAttempt: (trigger, dayKey) => {
+        if (trigger === 'regenerate') void budget.record(dayKey);
+      },
     }),
-    [analytics, client, latestOnDeviceAvailability, localProfileId, telemetry],
+    [analytics, budget, client, latestOnDeviceAvailability, localProfileId, telemetry],
   );
   const state = useSyncExternalStore(
     controller.subscribe,
@@ -242,41 +251,59 @@ export function RecommendationApplicationProvider({
     if (trigger) void controller.refresh(trigger, input);
   }, [controller, input, persistedSnapshot, state.status]);
 
+  // The generation input as of this moment, re-read from the live weather and profile rather
+  // than from the render that bound the handler. `null` when there is nothing to compose for.
+  const currentInput = useCallback(() => {
+    const currentDay = deviceLocalDay();
+    setLocalDay((previous) => previous.key === currentDay.key ? previous : currentDay);
+    const currentWeather = weatherApplication.getSnapshot?.() ?? weatherState;
+    const clothingPreference = profileState.status === 'ready'
+      ? profileState.profile.clothingPreference
+      : null;
+    if (
+      currentWeather.status !== 'ready' ||
+      !currentWeather.snapshot ||
+      profileState.status !== 'ready' ||
+      !clothingPreference
+    ) return null;
+    return {
+      snapshot: currentWeather.snapshot,
+      now: now(),
+      clothingPreference,
+      dressStyle: profileState.profile.dressStyle ?? 'smart',
+      dayVariant: currentDay.variant,
+      dayKind: currentDay.kind,
+      localDayKey: currentDay.key,
+    };
+  }, [profileState, weatherApplication, weatherState]);
+
   const value = useMemo<RecommendationApplicationValue>(() => ({
     state,
     onDeviceAvailability,
     refresh: () => {
-      const currentDay = deviceLocalDay();
-      setLocalDay((previous) => previous.key === currentDay.key ? previous : currentDay);
-      const currentWeather = weatherApplication.getSnapshot?.() ?? weatherState;
-      const clothingPreference = profileState.status === 'ready'
-        ? profileState.profile.clothingPreference
-        : null;
-      if (
-        currentWeather.status !== 'ready' ||
-        !currentWeather.snapshot ||
-        profileState.status !== 'ready' ||
-        !clothingPreference
-      ) return Promise.resolve(null);
-      return controller.refresh('explicit', {
-        snapshot: currentWeather.snapshot,
-        now: now(),
-        clothingPreference,
-        dressStyle: profileState.profile.dressStyle ?? 'smart',
-        dayVariant: currentDay.variant,
-        dayKind: currentDay.kind,
-        localDayKey: currentDay.key,
+      const generationInput = currentInput();
+      return generationInput
+        ? controller.refresh('explicit', generationInput)
+        : Promise.resolve(null);
+    },
+    regenerate: async () => {
+      const generationInput = currentInput();
+      if (!generationInput) return null;
+      // The allowance is read here and nowhere else. Past it the tap still produces a new
+      // valid three from the already-composed pool, so the action never turns itself off.
+      const used = await budget.usedToday(generationInput.localDayKey);
+      return controller.refresh('regenerate', generationInput, {
+        allowAi: regenerationMode(used) === 'ai',
       });
     },
     reevaluateLocalDay,
   }), [
+    budget,
     controller,
+    currentInput,
     onDeviceAvailability,
-    profileState,
     reevaluateLocalDay,
     state,
-    weatherApplication,
-    weatherState,
   ]);
 
   return (
