@@ -216,13 +216,14 @@ test('fallback archetypes use rule order and advance past duplicates', () => {
   });
 
   assert.equal(result.status, 'recommended');
-  // The day is -2 C at its coldest, so the thermal ladder's top rung asks every outfit for a
-  // coat and the third label is `cold_shield`, the rung above `wind_guard` in the same fixed
-  // order. What the case is about is unchanged: the order is read from the top and a label
-  // already handed out is skipped.
+  // The day is -2 C at its coldest and what falls on it is heavy rain, so the thermal
+  // ladder's top rung asks every outfit for a coat and `snow_day` is not this day's label to
+  // hand out: the second and third are `cold_shield` and `wind_guard`, the next two rungs of
+  // the same fixed order. What the case is about is unchanged: the order is read from the
+  // top and a label already handed out is skipped.
   assert.deepEqual(
     result.outfits.map(({ archetypeId }) => archetypeId),
-    ['rain_ready', 'snow_day', 'cold_shield'],
+    ['rain_ready', 'cold_shield', 'wind_guard'],
   );
 });
 

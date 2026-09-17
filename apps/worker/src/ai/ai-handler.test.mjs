@@ -321,6 +321,67 @@ test('rejects an archetype whose own option fails its precondition', async () =>
   assert.deepEqual(await response.json(), validOutput());
 });
 
+// The weather half of the same rule: a label the day contradicts is refused however well the
+// garment justifies it, so the gate stays as narrow as the eligibility lists the prompt
+// offers and the two ends of the chain refuse the same answers.
+test('the day decides rain_ready and snow_day, and the chain moves on to the honest label', async () => {
+  const shellOption = {
+    optionId: 'option-casual',
+    formality: 'casual',
+    garments: [
+      { slot: 'primary_top', layerRole: 'standalone', garmentTypeId: 't_shirt' },
+      { slot: 'bottom', layerRole: 'standalone', garmentTypeId: 'trousers' },
+      { slot: 'outer_layer', layerRole: 'outer', garmentTypeId: 'rain_jacket' },
+      { slot: 'footwear', layerRole: null, garmentTypeId: 'weather_boots' },
+    ],
+    traits: {
+      ...defaultTraits,
+      hasOuterLayer: true,
+      outerWaterProtective: true,
+      tractionEnhanced: true,
+    },
+  };
+  const bodyFor = (reasonCode) => JSON.stringify({
+    ...validRequestBody(),
+    requirements: [
+      {
+        kind: 'water_protection',
+        target: 'body',
+        minimum: 'waterproof',
+        priority: 'mandatory',
+        reasonCodes: [reasonCode],
+      },
+      {
+        kind: 'traction',
+        minimum: 'enhanced',
+        priority: 'mandatory',
+        reasonCodes: [reasonCode],
+      },
+    ],
+    options: [shellOption, ...validRequestBody().options.slice(1)],
+  });
+  const labelled = (archetypeId) => {
+    const output = validOutput();
+    output.data.picks[0].archetypeId = archetypeId;
+    return output;
+  };
+
+  for (const [reasonCode, refused, accepted] of [
+    ['condition_snow', 'rain_ready', 'snow_day'],
+    ['condition_rain', 'snow_day', 'rain_ready'],
+  ]) {
+    const attempts = [];
+    const response = await createAiHandler({ providers: [
+      { model: 'first', generateOutfits: async () => { attempts.push(refused); return labelled(refused); } },
+      { model: 'second', generateOutfits: async () => { attempts.push(accepted); return labelled(accepted); } },
+    ] })(request({ body: bodyFor(reasonCode) }));
+
+    assert.equal(response.status, 200, reasonCode);
+    assert.deepEqual(await response.json(), labelled(accepted), reasonCode);
+    assert.deepEqual(attempts, [refused, accepted], reasonCode);
+  }
+});
+
 // A weekday is not a weekend, and nothing upstream knew that until the request carried it.
 test('a weekday rejects a weekend_relaxed pick that any other day accepts', async () => {
   const weekday = JSON.stringify({ ...validRequestBody(), dayKind: 'weekday' });
@@ -376,6 +437,15 @@ test('a legacy request rejects office_ready on smart while a day-aware request a
 });
 
 test('accepts every archetype when its option satisfies the precondition', async () => {
+  // The three weather archetypes need the day as well as the garment, so their cases carry
+  // the requirements the day derives; the rest run on the fixture's own mild day.
+  const dayOf = (reasonCode) => [{
+    kind: 'water_protection',
+    target: 'body',
+    minimum: 'waterproof',
+    priority: 'mandatory',
+    reasonCodes: [reasonCode],
+  }];
   const cases = [
     ['everyday_easy', validRequestBody().options[0]],
     ['smart_casual', validRequestBody().options[1]],
@@ -392,11 +462,11 @@ test('accepts every archetype when its option satisfies the precondition', async
     ['rain_ready', separatesOption(
       'rain', 'casual', 't_shirt', 'trousers', 'closed_shoes',
       { outerWaterProtective: true },
-    )],
+    ), dayOf('condition_rain')],
     ['snow_day', separatesOption(
       'snow', 'casual', 't_shirt', 'trousers', 'weather_boots',
       { tractionEnhanced: true },
-    )],
+    ), dayOf('condition_snow')],
     ['wind_guard', separatesOption(
       'wind', 'casual', 't_shirt', 'trousers', 'closed_shoes',
       { windResistant: true },
@@ -411,8 +481,9 @@ test('accepts every archetype when its option satisfies the precondition', async
       { hasMidLayer: true },
     )],
   ];
-  for (const [archetypeId, testedOption] of cases) {
+  for (const [archetypeId, testedOption, dayRequirements] of cases) {
     const body = validRequestBody();
+    if (dayRequirements) body.requirements = dayRequirements;
     const optionUnderTest = { ...structuredClone(testedOption), optionId: `tested-${archetypeId}` };
     const formalSupport = onePieceOption(
       'support-formal', 'formal', 'jumpsuit', 'ankle_boots',
@@ -506,10 +577,12 @@ test('accepts same-core picks when every pair differs by at least two garment pa
       ],
     },
   ];
+  // The case is distinctness, not labels: the fixture's day has nothing falling on it, so
+  // the third option's rain jacket is labelled by what it is rather than by the shell.
   const output = { data: { picks: [
     { optionId: 'same-core-1', archetypeId: 'everyday_easy' },
     { optionId: 'same-core-2', archetypeId: 'in_between' },
-    { optionId: 'same-core-3', archetypeId: 'rain_ready' },
+    { optionId: 'same-core-3', archetypeId: 'weekend_relaxed' },
   ] } };
   const response = await createAiHandler({
     providers: [{ generateOutfits: async () => output }],
@@ -1137,8 +1210,10 @@ test('the daily attempt budget covers the largest prompt in the shared grid', as
       + JSON.stringify(buildPickJsonSchema(body.options)).length));
 
   // The grid sends a dayKind, as the app does, so `weekend_relaxed` leaves the eligible
-  // lists of a weekday and the largest prompt is a little shorter than the day-blind one.
-  assert.equal(promptCharacters, 17_736);
+  // lists of a weekday, and it sends the day's requirements, so the three weather archetypes
+  // leave the lists of the days that contradict them: the largest prompt is shorter than
+  // either the day-blind or the day-kind-only one.
+  assert.equal(promptCharacters, 17_424);
   const inputTokens = Math.ceil(promptCharacters / 4 / 100) * 100;
   const attemptNeurons = Math.ceil(
     (inputTokens * 26_668 + 192 * 204_805) / 1_000_000,
@@ -1146,7 +1221,14 @@ test('the daily attempt budget covers the largest prompt in the shared grid', as
   const derivedLimit = Math.floor(
     (10_000 - PROBE_DAILY_LIMIT * 67) / attemptNeurons,
   );
-  assert.equal(WORKERS_AI_DAILY_ATTEMPT_LIMIT, derivedLimit);
+  // The constant keeps the documented 160-Neuron worst case, which the 4,500-token estimate
+  // gives, so a shorter prompt leaves it one attempt below what the pool now affords: the
+  // budget is covered, which is what this test is for. Raising it to the re-derived figure
+  // is an owner spend decision with its own review, outside this Goal.
+  assert.ok(
+    WORKERS_AI_DAILY_ATTEMPT_LIMIT <= derivedLimit,
+    `${WORKERS_AI_DAILY_ATTEMPT_LIMIT} attempts exceed the ${derivedLimit} the pool affords`,
+  );
 });
 
 test('a Workers AI attempt whose increment lands exactly on the limit still runs', async () => {

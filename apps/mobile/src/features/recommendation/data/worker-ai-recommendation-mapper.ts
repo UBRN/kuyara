@@ -1,6 +1,7 @@
 import {
   aiOptionSchema,
   aiRecommendV1RequestSchema,
+  archetypeDayFromRequirements,
   aiRecommendV1SuccessSchema,
   aiV1OptionLimit,
   bodyRegions,
@@ -33,7 +34,6 @@ import {
 } from '@/features/catalog/domain/garment-catalog';
 import {
   assignFallbackArchetypes,
-  fallbackArchetypeOrderFor,
   excludeOutfitOptions,
   outfitOptionId,
   outfitMatchesArchetype,
@@ -327,6 +327,7 @@ export function mapWorkerAiRecommendation(
   const validated = aiRecommendV1SuccessSchema.safeParse({ data });
   if (!validated.success) throw new WorkerAiRecommendationMappingError();
   const requirements = domainRequirements(request);
+  const day = archetypeDayFromRequirements(requirements.requirements);
   const options = new Map(request.options.map((option) => [option.optionId, option]));
   const picked = validated.data.data.picks.map(({ optionId }) => options.get(optionId));
   if (!picked.every((option): option is AiOption => option !== undefined)) {
@@ -343,7 +344,7 @@ export function mapWorkerAiRecommendation(
       option,
       request.clothingPreference,
     );
-    if (!outfitMatchesArchetype(outfit, archetypeId, request.dayKind)) {
+    if (!outfitMatchesArchetype(outfit, archetypeId, request.dayKind, day)) {
       throw new WorkerAiRecommendationMappingError();
     }
     return recommendedOutfit(outfit, archetypeId);
@@ -432,13 +433,15 @@ export function mapStoredRecommendation(
 ): OutfitRecommendationSuccess {
   const requirements = domainRequirements(context);
   // The day the result was generated for, not today: a weekend result stays readable on the
-  // Monday after, and a row written before this field parses as day-blind.
+  // Monday after, and a row written before this field parses as day-blind. The weather side
+  // of the day comes from the stored context's own requirements for the same reason.
   const dayKind = 'options' in context ? context.dayKind : undefined;
+  const day = archetypeDayFromRequirements(requirements.requirements);
   const current = storedOutfitsSchema.safeParse(value);
   if (current.success) {
     const outfits = current.data.map(({ archetypeId, garments }) => {
       const outfit = storedOutfit(context, requirements, garments);
-      if (!outfitMatchesArchetype(outfit, archetypeId, dayKind)) {
+      if (!outfitMatchesArchetype(outfit, archetypeId, dayKind, day)) {
         throw new WorkerAiRecommendationMappingError();
       }
       return recommendedOutfit(outfit, archetypeId);
@@ -459,12 +462,7 @@ export function mapStoredRecommendation(
     status: 'recommended',
     generationMode,
     requirements,
-    outfits: assignFallbackArchetypes(
-      outfits,
-      undefined,
-      dayKind,
-      fallbackArchetypeOrderFor(requirements),
-    ),
+    outfits: assignFallbackArchetypes(outfits, requirements, undefined, dayKind),
   });
 }
 

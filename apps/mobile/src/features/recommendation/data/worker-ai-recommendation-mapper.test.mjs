@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { accessoryOutfitSlots, picksAreMeaningfullyDifferent } from '@kuyara/contracts';
+import {
+  accessoryOutfitSlots,
+  archetypeDayFromRequirements,
+  picksAreMeaningfullyDifferent,
+} from '@kuyara/contracts';
 
 import {
   aiRequestFromContext,
@@ -61,16 +65,20 @@ function input({
   };
 }
 
-// The archetypes `outfitMatchesArchetype` accepts for an option, most specific first.
-function archetypeCandidates(option) {
+// The archetypes `outfitMatchesArchetype` accepts for an option on a given day, most
+// specific first. The three weather labels are the day's to withhold: a waterproof shell is
+// no rain answer where nothing falls, a rain boot no snow answer outside snow and sleet, and
+// nothing is airy on a day asking for insulation.
+function archetypeCandidates(option, day) {
   return [
-    option.traits.outerWaterProtective && 'rain_ready',
-    option.traits.tractionEnhanced && 'snow_day',
+    day.wet && option.traits.outerWaterProtective && 'rain_ready',
+    day.frozen && option.traits.tractionEnhanced && 'snow_day',
     option.traits.outerThermalHigh && 'cold_shield',
     option.traits.windResistant && 'wind_guard',
     option.traits.hasMidLayer && option.traits.hasOuterLayer && 'layered_warmth',
     option.traits.hasMidLayer && !option.traits.hasOuterLayer && 'in_between',
-    !option.traits.hasOuterLayer && option.traits.breathabilityHigh && 'light_and_airy',
+    !day.cold && !option.traits.hasOuterLayer && option.traits.breathabilityHigh
+      && 'light_and_airy',
     // This request sends no dayKind, so office_ready holds for formal outfits only.
     option.formality === 'formal' && 'office_ready',
     option.formality !== 'casual' && 'smart_casual',
@@ -82,11 +90,12 @@ function archetypeCandidates(option) {
 }
 
 /** Picks for the given options, one distinct accepted archetype each, or null if impossible. */
-function picksFor(options) {
+function picksFor(options, day) {
   const used = new Set();
   const selected = [];
   for (const option of options) {
-    const archetypeId = archetypeCandidates(option).find((candidate) => !used.has(candidate));
+    const archetypeId = archetypeCandidates(option, day)
+      .find((candidate) => !used.has(candidate));
     if (!archetypeId) return null;
     used.add(archetypeId);
     selected.push({ optionId: option.optionId, archetypeId });
@@ -95,7 +104,10 @@ function picksFor(options) {
 }
 
 function picks(request) {
-  const selected = picksFor(request.options.slice(0, 3));
+  const selected = picksFor(
+    request.options.slice(0, 3),
+    archetypeDayFromRequirements(request.requirements),
+  );
   if (!selected) throw new Error('fixture needs three distinct archetypes');
   return selected;
 }
@@ -255,7 +267,7 @@ test('every offered option rebuilds into the outfit it describes, across the wea
     if (!request) continue;
     for (let index = 0; index < request.options.length; index += 3) {
       const picked = triple(request.options, index);
-      const selected = picksFor(picked);
+      const selected = picksFor(picked, archetypeDayFromRequirements(request.requirements));
       if (!selected || !picksAreMeaningfullyDifferent(picked)) continue;
       const result = mapWorkerAiRecommendation(request, { picks: selected });
 
@@ -320,7 +332,10 @@ test('rebuilds an offered option with its mid layer instead of the simpler arran
     assert.notEqual(index, -1, `the composer no longer offers ${signature}`);
     const option = request.options[index];
     const result = mapWorkerAiRecommendation(request, {
-      picks: picksFor(triple(request.options, index)),
+      picks: picksFor(
+        triple(request.options, index),
+        archetypeDayFromRequirements(request.requirements),
+      ),
     });
 
     assert.equal(result.outfits[0].optionId, option.optionId);

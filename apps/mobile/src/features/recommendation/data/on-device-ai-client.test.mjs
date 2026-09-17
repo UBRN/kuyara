@@ -7,8 +7,9 @@ import {
   onDeviceAiSwitchedOff,
 } from './on-device-ai-client.ts';
 
-// The projection is a plain field copy, so an empty option list is a whole request here.
-const request = { clothingPreference: 'womens', options: [] };
+// The projection copies fields and reads the day out of the requirements, so an empty
+// option list and an empty requirement list are a whole request here.
+const request = { clothingPreference: 'womens', options: [], requirements: [] };
 
 async function developmentWarningsFor(nativeMessage) {
   const previousDevelopment = globalThis.__DEV__;

@@ -1,5 +1,8 @@
 import {
+  archetypeDayFromRequirements,
+  dayBlindArchetypeDay,
   formalityOrderByDressStyle,
+  type ArchetypeDay,
   type DayKind,
   type DressStyle,
   type FormalityLevel,
@@ -86,7 +89,7 @@ const frozenFallbackArchetypeOrder = Object.freeze([
   ),
 ] as const satisfies readonly OutfitArchetypeId[]);
 
-export function fallbackArchetypeOrderFor(
+function fallbackArchetypeOrderFor(
   requirements: ClothingRequirements,
 ): readonly OutfitArchetypeId[] {
   return requirements.reasonCodes.some(
@@ -111,16 +114,24 @@ export function outfitMatchesArchetype(
   outfit: OutfitCandidate,
   archetypeId: OutfitArchetypeId,
   dayKind?: DayKind,
+  day: ArchetypeDay = dayBlindArchetypeDay,
 ): boolean {
   const primary = outfit.body.kind === 'separates'
     ? outfit.body.primaryTop
     : outfit.body.onePiece;
   switch (archetypeId) {
     case 'rain_ready':
-      return outfit.outerLayer?.garment.properties.waterProtection === 'water_resistant' ||
-        outfit.outerLayer?.garment.properties.waterProtection === 'waterproof';
+      // A waterproof shell is a rain answer only where rain is what falls. On a dry day it
+      // is the day's only high-thermal outer layer, and on a frozen one it is the snow
+      // shell; neither is a rain label.
+      return day.wet && (
+        outfit.outerLayer?.garment.properties.waterProtection === 'water_resistant' ||
+        outfit.outerLayer?.garment.properties.waterProtection === 'waterproof');
     case 'snow_day':
-      return outfit.footwear.garment.properties.tractionSuitability === 'enhanced';
+      // Enhanced traction answers snow and sleet. Rain boots on a rainy day carry it too,
+      // which is how every wet day used to read as a frozen one.
+      return day.frozen &&
+        outfit.footwear.garment.properties.tractionSuitability === 'enhanced';
     case 'cold_shield':
       return outfit.outerLayer?.garment.properties.thermalLevel === 'high';
     case 'wind_guard':
@@ -132,7 +143,8 @@ export function outfitMatchesArchetype(
     case 'in_between':
       return outfit.midLayer !== null && outfit.outerLayer === null;
     case 'light_and_airy':
-      return outfit.outerLayer === null &&
+      // Breathable and shell-free is airy only where the day is not asking for insulation.
+      return !day.cold && outfit.outerLayer === null &&
         primary.garment.properties.breathability === 'high';
     case 'office_ready':
       // Builds 8 and 9 accept this label only for formal outfits and send no dayKind.
@@ -181,18 +193,25 @@ export function excludeOutfitOptions(
   return filtered.length >= 3 ? Object.freeze(filtered) : outfits;
 }
 
+/**
+ * The day is read once here and handed to every label decision: the order it labels in and
+ * the labels themselves both come from the same requirements, so a day can never be snowy
+ * for the order and dry for the predicate.
+ */
 export function assignFallbackArchetypes(
   outfits: readonly OutfitCandidate[],
+  requirements: ClothingRequirements,
   count: number = outfits.length,
   dayKind?: DayKind,
-  order: readonly OutfitArchetypeId[] = fallbackArchetypeOrder,
 ): readonly RecommendedOutfit[] {
+  const order = fallbackArchetypeOrderFor(requirements);
+  const day = archetypeDayFromRequirements(requirements.requirements);
   const used = new Set<OutfitArchetypeId>();
   const selected: RecommendedOutfit[] = [];
   for (const outfit of outfits) {
     const archetypeId = order.find(
       (candidate) => !used.has(candidate)
-        && outfitMatchesArchetype(outfit, candidate, dayKind),
+        && outfitMatchesArchetype(outfit, candidate, dayKind, day),
     );
     if (!archetypeId) continue;
     used.add(archetypeId);
@@ -241,9 +260,9 @@ export function recommendOutfits(
           [...availableOutfits].sort(
             (left, right) => order.indexOf(left.formality) - order.indexOf(right.formality),
           ),
+          requirements,
           Math.min(3, availableOutfits.length),
           input.dayKind,
-          fallbackArchetypeOrderFor(requirements),
         ),
       });
 }

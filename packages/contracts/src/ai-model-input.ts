@@ -11,6 +11,65 @@ import {
 
 type AiOptionGarment = AiOption['garments'][number];
 
+/**
+ * The three facts about the weather an archetype label can contradict: `rain_ready` on a
+ * day with nothing falling, `snow_day` on a day with no snow, `light_and_airy` on a day
+ * that asks for insulation. Both archetype twins read them, and both read them from the
+ * requirements the request already carries, so no request field and no enum member moves.
+ */
+export type ArchetypeDay = Readonly<{
+  frozen: boolean;
+  wet: boolean;
+  cold: boolean;
+}>;
+
+/**
+ * What an absent day means: no fact contradicts any label, which is the day-blind behaviour
+ * of every caller that passes none, builds 8 and 9 included.
+ */
+export const dayBlindArchetypeDay: ArchetypeDay = Object.freeze({
+  frozen: true,
+  wet: true,
+  cold: false,
+});
+
+const wetReasonCodes = Object.freeze([
+  'precipitation_possible',
+  'precipitation_likely',
+  'condition_drizzle',
+  'condition_rain',
+  'condition_heavy_rain',
+  'condition_thunderstorm',
+]);
+
+/**
+ * Reads the day out of the derived clothing requirements, the one weather description both
+ * the request and the device already hold. Structural on purpose: the Worker passes the
+ * parsed request's requirements and the app passes its own domain ones.
+ */
+export function archetypeDayFromRequirements(
+  requirements: readonly Readonly<{
+    kind: string;
+    minimum?: string;
+    priority: string;
+    reasonCodes: readonly string[];
+  }>[],
+): ArchetypeDay {
+  const reasonCodes = new Set(requirements.flatMap(({ reasonCodes: codes }) => codes));
+  // Sleet and snow are the frozen days. They make a waterproof shell mandatory like rain
+  // does, which is why a frozen day is not a wet one: what is falling is not rain.
+  const frozen = reasonCodes.has('condition_snow') || reasonCodes.has('condition_sleet');
+  return Object.freeze({
+    frozen,
+    wet: !frozen && wetReasonCodes.some((code) => reasonCodes.has(code)),
+    // The thermal rung the day opens at 12 C, where full coverage turns mandatory too. A
+    // day whose cold side is demoted by current heat asks for nothing and stays airy.
+    cold: requirements.some(({ kind, minimum, priority }) =>
+      kind === 'thermal' && priority === 'mandatory'
+      && (minimum === 'moderate' || minimum === 'high')),
+  });
+}
+
 export type AiModelInput = Readonly<{
   clothingPreference: AiRecommendV1Request['clothingPreference'];
   formalityOrder: readonly FormalityLevel[];
@@ -36,6 +95,7 @@ export type AiModelInput = Readonly<{
  * field list has one home.
  */
 export function aiModelInputFromRequest(request: AiRecommendV1Request): AiModelInput {
+  const day = archetypeDayFromRequirements(request.requirements);
   return {
     clothingPreference: request.clothingPreference,
     formalityOrder: formalityOrderByDressStyle[request.dressStyle ?? 'smart'],
@@ -47,7 +107,7 @@ export function aiModelInputFromRequest(request: AiRecommendV1Request): AiModelI
         slot,
         garmentTypeId,
       })),
-      eligibleArchetypeIds: projectedArchetypeIdsForOption(option, request.dayKind),
+      eligibleArchetypeIds: projectedArchetypeIdsForOption(option, request.dayKind, day),
     })),
   };
 }
@@ -65,6 +125,7 @@ export function meetsArchetypePrecondition(
   archetypeId: OutfitArchetypeId,
   option: AiOption,
   dayKind?: DayKind,
+  day: ArchetypeDay = dayBlindArchetypeDay,
 ): boolean {
   switch (archetypeId) {
     case 'everyday_easy':
@@ -85,13 +146,19 @@ export function meetsArchetypePrecondition(
     case 'cold_shield':
       return option.traits.outerThermalHigh;
     case 'rain_ready':
-      return option.traits.outerWaterProtective;
+      // A waterproof shell is a rain answer only where rain is what falls. On a dry day it
+      // is the day's only high-thermal outer layer, and on a frozen one it is the snow
+      // shell; neither is a rain label.
+      return option.traits.outerWaterProtective && day.wet;
     case 'snow_day':
-      return option.traits.tractionEnhanced;
+      // Enhanced traction answers snow and sleet. Rain boots on a rainy day carry it too,
+      // which is how every wet day used to read as a frozen one.
+      return option.traits.tractionEnhanced && day.frozen;
     case 'wind_guard':
       return option.traits.windResistant;
     case 'light_and_airy':
-      return !option.traits.hasOuterLayer && option.traits.breathabilityHigh;
+      // Breathable and shell-free is airy only where the day is not asking for insulation.
+      return !option.traits.hasOuterLayer && option.traits.breathabilityHigh && !day.cold;
     case 'on_the_move':
       // Builds 8 and 9 accept this label only for sneakers and send no dayKind. Its
       // presence identifies a newer caller whose matching gate also accepts any casual
@@ -111,11 +178,12 @@ export function meetsArchetypePrecondition(
  */
 function projectedArchetypeIdsForOption(
   option: AiOption,
-  dayKind?: DayKind,
+  dayKind: DayKind | undefined,
+  day: ArchetypeDay,
 ): readonly OutfitArchetypeId[] {
   return outfitArchetypeIds.filter((archetypeId) =>
     archetypeId !== 'everyday_easy'
-    && meetsArchetypePrecondition(archetypeId, option, dayKind));
+    && meetsArchetypePrecondition(archetypeId, option, dayKind, day));
 }
 
 function hasDifferentBodyCore(left: AiOption, right: AiOption): boolean {

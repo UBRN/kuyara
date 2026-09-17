@@ -69,9 +69,11 @@ test('test input is frozen, domain-shaped, and recommended through the real appl
   assert.equal(Object.isFrozen(todayWardrobeItems[0]), true);
   assert.equal(todayScreenState.snapshot.recommendation.status, 'recommended');
   assert.equal(todayScreenState.snapshot.recommendation.outfits.length, 3);
+  // A 20 C rainy day: the rain label is its own, the snow label is not, and the rain boot
+  // that used to carry `snow_day` here leaves the third outfit on the next rung.
   assert.deepEqual(
     todayScreenState.snapshot.recommendation.outfits.map(({ archetypeId }) => archetypeId),
-    ['rain_ready', 'snow_day', 'wind_guard'],
+    ['rain_ready', 'wind_guard', 'weekend_relaxed'],
   );
 });
 
@@ -97,14 +99,14 @@ test('loaded mapping uses localized catalog names, slot order, positions, and fi
       {
         id: todayScreenState.snapshot.recommendation.outfits[1].optionId,
         positionLabel: 'Option 2 of 3',
-        title: 'Snow Day',
+        title: 'Wind Guard',
         summary: 'Blouse + Jeans + Rain jacket + Rain boots',
         emphasis: undefined,
       },
       {
         id: todayScreenState.snapshot.recommendation.outfits[2].optionId,
         positionLabel: 'Option 3 of 3',
-        title: 'Wind Guard',
+        title: 'Relaxed',
         summary: 'Blouse + Skirt + Rain jacket + Rain boots',
         emphasis: undefined,
       },
@@ -555,7 +557,7 @@ test('stale freshness and outfit copy localize in both languages', () => {
   assert.match(turkish.header.freshness, /06:05.*Güncelliğini yitirmiş olabilir/);
   assert.deepEqual(
     turkish.suggestions.map(({ title }) => title),
-    ['Yağmura Hazır', 'Karlı Gün', 'Rüzgara Karşı'],
+    ['Yağmura Hazır', 'Rüzgara Karşı', 'Rahat Gün'],
   );
   assert.deepEqual(
     turkish.suggestions.map(({ summary }) => summary),
