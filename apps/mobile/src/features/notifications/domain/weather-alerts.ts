@@ -1,10 +1,10 @@
 import { weatherLocalDateKey } from '@kuyara/contracts';
 
-import type {
-  HourlyWeather,
-  WeatherMeasurements,
-  WeatherSnapshot,
-} from '@/features/weather/domain/weather';
+import type { HourlyWeather, WeatherSnapshot } from '@/features/weather/domain/weather';
+import {
+  isWetMeasurement,
+  temperatureSwingCelsius,
+} from '@/features/weather/domain/weather-thresholds';
 
 export const weatherAlertLeadTimeMinutes = 60;
 /**
@@ -13,8 +13,6 @@ export const weatherAlertLeadTimeMinutes = 60;
  */
 export const weatherAlertBackgroundLeadTimeMinutes = 15;
 export const weatherAlertMinimumLeadAfterQuietHoursMinutes = 30;
-export const precipitationLikelyThreshold = 0.6;
-export const temperatureSwingCelsius = 8;
 
 export type WeatherAlertRuleId = 'precipitation_onset' | 'temperature_swing';
 export type LocalClockTime = Readonly<{ hour: number; minute: number }>;
@@ -47,12 +45,6 @@ export type WeatherAlertPlan = Readonly<{
 }>;
 
 const minuteMilliseconds = 60 * 1000;
-
-export function isWetMeasurement(measurement: WeatherMeasurements): boolean {
-  return measurement.precipitationProbability >= precipitationLikelyThreshold
-    || ['drizzle', 'rain', 'heavy_rain', 'sleet', 'snow', 'thunderstorm']
-      .includes(measurement.condition);
-}
 
 function adjustForQuietHours(
   fireAt: number,

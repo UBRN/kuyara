@@ -4,10 +4,12 @@ import test from 'node:test';
 import { deriveClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 import { weatherConditionCodes } from '@/features/weather/domain/weather';
 import {
-  defaultQuietHours,
-  planWeatherAlerts,
   precipitationLikelyThreshold,
   temperatureSwingCelsius,
+} from '@/features/weather/domain/weather-thresholds';
+import {
+  defaultQuietHours,
+  planWeatherAlerts,
   weatherAlertBackgroundLeadTimeMinutes,
   weatherAlertLeadTimeMinutes,
   weatherAlertMinimumLeadAfterQuietHoursMinutes,
