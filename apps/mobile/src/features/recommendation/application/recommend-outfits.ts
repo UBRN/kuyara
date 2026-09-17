@@ -73,6 +73,29 @@ const fallbackArchetypeOrder = Object.freeze([
   'everyday_easy',
 ] as const satisfies readonly OutfitArchetypeId[]);
 
+/**
+ * The order a snow or sleet day labels in. Snow makes a waterproof outer layer mandatory, so
+ * every outfit it composes matched `rain_ready` first and a frozen day read as rain; the
+ * snow label leads instead and the rain label leaves the day's order, since the precipitation
+ * it names is not what is falling.
+ */
+const frozenFallbackArchetypeOrder = Object.freeze([
+  'snow_day',
+  ...fallbackArchetypeOrder.filter(
+    (archetypeId) => archetypeId !== 'snow_day' && archetypeId !== 'rain_ready',
+  ),
+] as const satisfies readonly OutfitArchetypeId[]);
+
+export function fallbackArchetypeOrderFor(
+  requirements: ClothingRequirements,
+): readonly OutfitArchetypeId[] {
+  return requirements.reasonCodes.some(
+    (code) => code === 'condition_snow' || code === 'condition_sleet',
+  )
+    ? frozenFallbackArchetypeOrder
+    : fallbackArchetypeOrder;
+}
+
 function assignedGarments(outfit: OutfitCandidate) {
   return [
     ...(outfit.body.kind === 'separates'
@@ -162,11 +185,12 @@ export function assignFallbackArchetypes(
   outfits: readonly OutfitCandidate[],
   count: number = outfits.length,
   dayKind?: DayKind,
+  order: readonly OutfitArchetypeId[] = fallbackArchetypeOrder,
 ): readonly RecommendedOutfit[] {
   const used = new Set<OutfitArchetypeId>();
   const selected: RecommendedOutfit[] = [];
   for (const outfit of outfits) {
-    const archetypeId = fallbackArchetypeOrder.find(
+    const archetypeId = order.find(
       (candidate) => !used.has(candidate)
         && outfitMatchesArchetype(outfit, candidate, dayKind),
     );
@@ -219,6 +243,7 @@ export function recommendOutfits(
           ),
           Math.min(3, availableOutfits.length),
           input.dayKind,
+          fallbackArchetypeOrderFor(requirements),
         ),
       });
 }
