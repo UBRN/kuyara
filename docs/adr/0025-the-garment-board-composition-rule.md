@@ -85,7 +85,7 @@ one line.
 A one-piece look and a five-piece look cannot fill the same box. A dress tall enough to
 span a two-anchor core would be drawn 0.55 of the stage width, which no width cap allows,
 so a fixed stage yields either a squashed one-piece or an empty band. The stage height is
-therefore insets plus the composition's envelope, clamped to 0.80 to 1.16 times the stage
+therefore insets plus the composition's envelope, clamped to 0.66 to 1.14 times the stage
 width.
 
 This is accepted **for now, and is the rule's most reversible part**. It means Today's
@@ -117,8 +117,8 @@ later visual iteration rather than treated as a blocker.
 
 Seven per-type accessory silhouettes, `beanie`, `brimmed_hat`, `cap`, `balaclava`,
 `scarf`, `gloves` and `umbrella`, bring the vocabulary to 33 drawings covering all 49
-catalogue types. They are drawn on the Closet and Profile surfaces only, because the
-recommendation contract has no accessory slot.
+catalogue types. They are drawn on the Closet and Profile surfaces, the recommendation
+detail and Today badges. The garment board itself does not draw them.
 
 ### 7. Law 6 boundaries for board artwork
 
@@ -158,7 +158,7 @@ large raster class uses the idiom-pure stroke above 32 points.
   back to `top`, so an all-fallback board draws the same shape twice at two sizes. This is
   a gap in the fallback tier's vocabulary, and it is not fixed by redrawing the six.
 - **Today's vertical rhythm is a function of the outfit.** The app shell's content inset
-  has to hold across the full 0.80 to 1.16 stage-height range.
+  has to hold across the full 0.66 to 1.14 stage-height range.
 - **The Balanced Horizon geometry remains unrepresented on Today.** ADR 0021 records this
   as an open problem with two attempts already spent. This rule does not solve it and
   deliberately leaves no room for an abstract mark inside the stage, which narrows the
