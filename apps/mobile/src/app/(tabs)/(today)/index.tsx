@@ -218,7 +218,7 @@ export default function TodayRoute() {
       alertOffer={offer.kind === 'offer' ? {
         ruleId: offer.ruleId,
         onAccept: acceptOffer,
-        onDismiss: () => void dismissOffer(),
+        onDismiss: dismissOffer,
         onOpenSystemSettings: () => void openApplicationSettings(),
       } : null}
       language={language}

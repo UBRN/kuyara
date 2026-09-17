@@ -1,4 +1,4 @@
-import { act, fireEvent, isHiddenFromAccessibility, render, within } from '@testing-library/react-native';
+import { act, fireEvent, isHiddenFromAccessibility, render, waitFor, within } from '@testing-library/react-native';
 import { AppState, Dimensions, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -43,7 +43,7 @@ import { AMBIENT_PULSE_FLOOR } from '@/components/ui/use-ambient-pulse';
 import { haptics } from '@/components/ui/haptics';
 
 jest.mock('expo-symbols', () => ({
-  SymbolView: () => null,
+  SymbolView: jest.fn(() => null),
 }));
 jest.mock('@/components/ui/native-menu', () => {
   const React = jest.requireActual('react') as typeof import('react');
@@ -1453,7 +1453,7 @@ describe('the contextual weather-alert offer', () => {
     return {
       ruleId: 'precipitation_onset',
       onAccept: jest.fn(async () => ({ outcome: 'enabled' } as const)),
-      onDismiss: jest.fn(),
+      onDismiss: jest.fn(async () => undefined),
       onOpenSystemSettings: jest.fn(),
       ...overrides,
     };
@@ -1491,6 +1491,24 @@ describe('the contextual weather-alert offer', () => {
       .toMatchObject({ backgroundColor: lightTheme.colors.surfaceMuted });
   });
 
+  test('scales the bell with the shared capped control scale', async () => {
+    Dimensions.set({ window: { ...originalDimensions, width: 390, fontScale: 2 } });
+    const symbolView = jest.mocked(
+      (jest.requireMock('expo-symbols') as typeof import('expo-symbols')).SymbolView,
+    );
+    symbolView.mockClear();
+
+    await render(providers(
+      <TodayScreen alertOffer={offerProps()} language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
+    ));
+
+    const bell = symbolView.mock.calls.find(([props]) =>
+      typeof props.name === 'object' && props.name !== null && 'ios' in props.name
+        && props.name.ios === 'bell.fill',
+    );
+    expect(bell?.[0].size).toBe(30);
+  });
+
   test('renders nothing when no alert would have fired', async () => {
     const result = await render(providers(
       <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
@@ -1523,22 +1541,52 @@ describe('the contextual weather-alert offer', () => {
     expect(result.queryByTestId('today-alert-offer')).toBeNull();
   });
 
-  // The offer is spent before the OS answers, so a refusal arrives after the prop is gone.
-  test('a refused permission keeps the row and reuses the Settings copy and its way out', async () => {
+  test('a failed durable write leaves the offer visible and answerable', async () => {
     const offer = offerProps({
-      onAccept: jest.fn(async () => ({ outcome: 'blocked', canRequestAgain: false } as const)),
+      onDismiss: jest.fn(async () => {
+        throw new Error('profile write failed');
+      }),
+    });
+    const result = await render(providers(
+      <TodayScreen alertOffer={offer} language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
+    ));
+
+    await fireEvent.press(result.getByTestId('today-alert-offer-dismiss'));
+
+    expect(result.getByTestId('today-alert-offer')).toBeOnTheScreen();
+    await waitFor(() => {
+      expect(result.getByTestId('today-alert-offer-dismiss').props.accessibilityState)
+        .toMatchObject({ disabled: false });
+    });
+  });
+
+  // The offer is spent before the OS answers, so a refusal arrives after the prop is gone.
+  test('a pending refusal disables both actions, then announces the Settings copy', async () => {
+    let resolveAccept!: (result: Awaited<ReturnType<TodayAlertOffer['onAccept']>>) => void;
+    const pendingAccept = new Promise<Awaited<ReturnType<TodayAlertOffer['onAccept']>>>((resolve) => {
+      resolveAccept = resolve;
+    });
+    const offer = offerProps({
+      onAccept: jest.fn(() => pendingAccept),
     });
     const result = await render(providers(
       <TodayScreen alertOffer={offer} language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
     ));
 
     await fireEvent.press(result.getByTestId('today-alert-offer-accept'));
-    await result.rerender(providers(
-      <TodayScreen alertOffer={null} language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
-    ));
+    expect(result.getByTestId('today-alert-offer-accept').props.accessibilityState)
+      .toMatchObject({ disabled: true });
+    expect(result.getByTestId('today-alert-offer-dismiss').props.accessibilityState)
+      .toMatchObject({ disabled: true });
+    await fireEvent.press(result.getByTestId('today-alert-offer-dismiss'));
+    expect(offer.onDismiss).not.toHaveBeenCalled();
+    await act(async () => {
+      resolveAccept({ outcome: 'blocked', canRequestAgain: false });
+    });
 
-    expect(result.getByTestId('today-alert-offer-message'))
-      .toHaveTextContent(messages.en.notifications.permissionDeniedHint);
+    const deniedMessage = result.getByTestId('today-alert-offer-message');
+    expect(deniedMessage).toHaveTextContent(messages.en.notifications.permissionDeniedHint);
+    expect(deniedMessage.props.accessibilityLiveRegion).toBe('polite');
     await fireEvent.press(result.getByTestId('today-alert-offer-accept'));
     expect(offer.onOpenSystemSettings).toHaveBeenCalledTimes(1);
     await fireEvent.press(result.getByTestId('today-alert-offer-dismiss'));
