@@ -156,12 +156,19 @@ test('Pill tones resolve distinct semantic colors in both appearances', () => {
     const theme = createKuyaraTheme(scheme);
     const filled = resolvePillColors(theme, 'accent-filled');
     const bordered = resolvePillColors(theme, 'bordered');
+    const provenance = resolvePillColors(theme, 'provenance');
 
     assert.equal(filled.backgroundColor, theme.colors.brandAccent);
     assert.equal(filled.textColorRole, 'textOnBrand');
     assert.equal(bordered.backgroundColor, 'transparent');
     assert.equal(bordered.borderColor, theme.colors.borderSubtle);
     assert.equal(bordered.textColorRole, 'textPrimary');
+    // The provenance tone spends no accent: container and border are the same controlled
+    // role, so the badge never counts against Law 1's one accent-filled element.
+    assert.equal(provenance.backgroundColor, theme.colors.provenanceContainer);
+    assert.equal(provenance.borderColor, theme.colors.provenanceContainer);
+    assert.equal(provenance.textColorRole, 'provenanceInk');
+    assert.notEqual(provenance.backgroundColor, theme.colors.brandAccent);
   }
 });
 

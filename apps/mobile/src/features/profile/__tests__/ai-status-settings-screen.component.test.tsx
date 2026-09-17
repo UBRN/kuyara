@@ -82,6 +82,16 @@ describe.each(['en', 'tr'] as const)('%s AI status settings screen', (language) 
     expect(onCheckAiStatus).toHaveBeenCalledTimes(1);
   });
 
+  // ADR 0034 section 4: the Today badge carries words only and no explanation of its own,
+  // so the sentence that says what it means lives here, as the group's footer.
+  test('explains the Today provenance badge in the generation mode group footer', async () => {
+    const { rendered } = screen(language);
+    const result = await rendered;
+
+    expect(result.getByText(messages[language].settings.aiStatusProvenanceFooter))
+      .toBeOnTheScreen();
+  });
+
   test.each([
     [{ kind: 'unavailable' }, 'aiStatusResultUnavailable'],
     [{ kind: 'rate-limited' }, 'aiStatusResultRateLimited'],

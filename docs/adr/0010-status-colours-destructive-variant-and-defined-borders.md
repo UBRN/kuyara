@@ -34,7 +34,7 @@ design language supplies measured, band-checked colour values for all seven role
 The dark `borderDefined` value measures 3.68:1 on `surface`, 4.70:1 on
 `background`, and 3.11:1 on `backgroundElevated` `#1F3B47`, so the boundary keeps
 3:1 across every plane; see
-[`design-language.md` Law 4](../design/design-language.md#law-4-one-accent-and-a-status-band).
+[`design-language.md` Law 4](../design/design-language.md#law-4-one-accent-and-a-controlled-role-band).
 
 ### The band rule
 
