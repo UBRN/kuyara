@@ -6,6 +6,7 @@ import {
   morningBriefingLocalHour,
   planMorningBriefing,
 } from './morning-briefing.ts';
+import { messages } from '../../../localization/messages.ts';
 import { defaultQuietHours } from './weather-alerts.ts';
 
 const now = '2026-09-09T15:00:00.000Z';
@@ -161,4 +162,25 @@ test('a clock past the window\u2019s last day leaves no morning to plan', () => 
   // The hours above belong to 2026-09-10, so from that day onward the day after it has
   // none and there is nothing to project.
   assert.equal(plan({ now: '2026-09-10T07:30:00.000Z' }), null);
+});
+
+test('the briefing copy names the hour the briefing is planned for', () => {
+  // The two sentences that promise a time are the only copy the hour reaches, and nothing
+  // else ties them to it: a moved quiet-hours end would leave them promising 07:00 while
+  // the notification arrived at another hour.
+  const stampedHour = String(morningBriefingLocalHour).padStart(2, '0');
+
+  for (const [language, separator] of Object.entries({ en: ':', tr: '.' })) {
+    const { morningBriefing, offer } = messages[language].notifications;
+    const stamp = `${stampedHour}${separator}00`;
+
+    assert.ok(
+      offer.sentences.morning_briefing.includes(stamp),
+      `${language} offer sentence does not name ${stamp}`,
+    );
+    assert.ok(
+      morningBriefing.hint.includes(stamp),
+      `${language} briefing hint does not name ${stamp}`,
+    );
+  }
 });
