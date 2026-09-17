@@ -51,23 +51,23 @@ type Dependencies = Readonly<{
  *   of output: 14.3 + 52.4 = 66.7, rounded up to 67 Neurons; `PROBE_DAILY_LIMIT` (30)
  *   calls reserve 2,010.
  * - Input per attempt: the largest prompt `buildMessages` and `buildPickJsonSchema`
- *   produce over the recommendation grid is 11,583 characters (messages plus response
- *   schema, 24 options), about 2,896 tokens at four characters per token, rounded up to
- *   3,000.
+ *   produce over the recommendation grid is 17,723 characters (messages plus response
+ *   schema, 24 options), about 4,431 tokens at four characters per token, rounded up to
+ *   4,500.
  * - Output per attempt: `recommendationMaxTokens` in workers-ai-provider.ts caps the reply
  *   at 192 tokens, so a runaway or prose reply cannot cost more than a valid one's ceiling.
- * - Worst attempt: llama at 3,000 in and 192 out is 80.0 + 39.3 = 119.3, rounded up to 120
- *   Neurons; mistral at the same sizes is 95.6 + 9.7 = 105.3, so llama is the worst case
+ * - Worst attempt: llama at 4,500 in and 192 out is 120.0 + 39.3 = 159.3, rounded up to 160
+ *   Neurons; mistral at the same sizes is 143.4 + 9.7 = 153.1, so llama is the worst case
  *   and the limit holds for either model.
- * - Limit: floor((10,000 - 2,010) / 120) = floor(66.6) = 66 attempts.
+ * - Limit: floor((10,000 - 2,010) / 160) = floor(49.9) = 49 attempts.
  *
- * 66 x 120 + 2,010 = 9,930 < 10,000. The token figures are characters over four; the
+ * 49 x 160 + 2,010 = 9,850 < 10,000. The token figures are characters over four; the
  * provider's `ai_provider_usage` log carries the binding's own `prompt_tokens` and
  * `completion_tokens` per successful call and is the measured check on that assumption.
  * OpenRouter attempts spend no Neurons and are not counted.
  */
 export const WORKERS_AI_DAILY_ATTEMPT_LIMIT = Math.floor(
-  (10_000 - PROBE_DAILY_LIMIT * 67) / 120,
+  (10_000 - PROBE_DAILY_LIMIT * 67) / 160,
 );
 
 type ProviderFailureReason =

@@ -71,7 +71,8 @@ function archetypeCandidates(option) {
     option.traits.hasMidLayer && option.traits.hasOuterLayer && 'layered_warmth',
     option.traits.hasMidLayer && !option.traits.hasOuterLayer && 'in_between',
     !option.traits.hasOuterLayer && option.traits.breathabilityHigh && 'light_and_airy',
-    option.formality !== 'casual' && 'office_ready',
+    // This request sends no dayKind, so office_ready holds for formal outfits only.
+    option.formality === 'formal' && 'office_ready',
     option.formality !== 'casual' && 'smart_casual',
     option.garments.some(({ slot, garmentTypeId }) =>
       slot === 'footwear' && garmentTypeId === 'sneakers') && 'on_the_move',

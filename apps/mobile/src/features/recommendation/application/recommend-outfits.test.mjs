@@ -1,8 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { outfitArchetypeIds } from '@kuyara/contracts';
+
 import { deriveClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
-import { excludeOutfitOptions, recommendOutfits } from './recommend-outfits.ts';
+import {
+  excludeOutfitOptions,
+  outfitMatchesArchetype,
+  recommendOutfits,
+} from './recommend-outfits.ts';
 
 const observedAt = '2026-08-01T18:00:00.000Z';
 const futureAt = '2026-08-01T19:00:00.000Z';
@@ -217,7 +223,8 @@ test('fallback archetypes use rule order and advance past duplicates', () => {
 });
 
 // The bug: nothing in the pipeline knew the weekday, so a Tuesday could be labelled
-// Weekend Relaxed. A weekday now drops that rung and the casual outfit takes the next one.
+// Weekend Relaxed. A weekday now drops that rung and the casual outfit takes `on_the_move`,
+// the rung below it.
 test('a weekday drops weekend_relaxed from the fallback order', () => {
   const input = {
     now: observedAt,
@@ -232,7 +239,7 @@ test('a weekday drops weekend_relaxed from the fallback order', () => {
 
   const weekday = recommendOutfits({ ...input, dayKind: 'weekday' });
   assert.equal(weekday.outfits.length, 3);
-  assert.equal(weekday.outfits[0].archetypeId, 'everyday_easy');
+  assert.equal(weekday.outfits[0].archetypeId, 'on_the_move');
   assert.equal(
     weekday.outfits.some(({ archetypeId }) => archetypeId === 'weekend_relaxed'),
     false,
@@ -369,6 +376,109 @@ test('each dress style keeps three distinct fallback outfits across catalog pref
           }
         }
       }
+    }
+  }
+});
+
+// FX1. A hot dry weekday offered four options, all casual and all in sandals, so only
+// `light_and_airy` and `everyday_easy` were assignable and `assignFallbackArchetypes`
+// threw where the deterministic tier must always answer.
+//
+// The grid spans the bands that decide the pool: the three heat bands above 27 °C, the two
+// wind bands the window covers (none below 5 m/s, optional below 8; at 8 the requirement
+// turns mandatory, a wind-resistant garment joins the pool and `wind_guard` is assignable
+// again), both catalog preferences, every day variant and every dress style. A dry
+// condition adds no requirement of its own, so one stands for clear, cloudy and fog.
+function hotDryWeekdayCases() {
+  const cases = [];
+  for (const temperatureCelsius of [28, 30, 33]) {
+    for (const windSpeedMetersPerSecond of [0, 7.9]) {
+      for (const clothingPreference of ['womens', 'mens']) {
+        for (let dayVariant = 0; dayVariant < 7; dayVariant += 1) {
+          for (const dressStyle of ['casual', 'smart', 'formal']) {
+            cases.push({
+              where: `${temperatureCelsius} °C, wind ${windSpeedMetersPerSecond}, ${clothingPreference} ${dressStyle}, variant ${dayVariant}`,
+              input: {
+                now: observedAt,
+                snapshot: snapshot({
+                  current: {
+                    temperatureCelsius,
+                    apparentTemperatureCelsius: temperatureCelsius,
+                    windSpeedMetersPerSecond,
+                  },
+                }),
+                clothingPreference,
+                dressStyle,
+                dayVariant,
+                dayKind: 'weekday',
+              },
+            });
+          }
+        }
+      }
+    }
+  }
+  return cases;
+}
+
+// One walk of the grid; every hot dry weekday assertion below reads these results.
+let hotDryWeekdays;
+function hotDryWeekdayResults() {
+  hotDryWeekdays ??= hotDryWeekdayCases().map((entry) => ({
+    ...entry,
+    result: recommendOutfits(entry.input),
+  }));
+  return hotDryWeekdays;
+}
+
+test('T1 a hot dry weekday still recommends three distinctly labelled outfits', () => {
+  for (const { where, result } of hotDryWeekdayResults()) {
+    assert.equal(result.status, 'recommended', where);
+    assert.equal(result.outfits.length, 3, where);
+    assert.equal(new Set(result.outfits.map(({ archetypeId }) => archetypeId)).size, 3, where);
+  }
+});
+
+test('T2 no weekday fallback outfit is labelled weekend_relaxed', () => {
+  const weekdayResults = [
+    ...hotDryWeekdayResults(),
+    ...[coldWetSnapshot(), warmWetSnapshot()].map((weather, index) => ({
+      where: `wet ${index}`,
+      result: recommendOutfits({
+        now: observedAt,
+        snapshot: weather,
+        clothingPreference: 'womens',
+        dressStyle: 'casual',
+        dayVariant: 0,
+        dayKind: 'weekday',
+      }),
+    })),
+  ];
+  for (const { where, result } of weekdayResults) {
+    assert.equal(
+      result.outfits.some(({ archetypeId }) => archetypeId === 'weekend_relaxed'),
+      false,
+      where,
+    );
+  }
+});
+
+test('T3 every assigned archetype reads back under the same dayKind, so a stored row survives', () => {
+  for (const { where, input, result } of hotDryWeekdayResults()) {
+    for (const outfit of result.outfits) {
+      assert.equal(
+        outfitMatchesArchetype(outfit, outfit.archetypeId, input.dayKind),
+        true,
+        `${where}: ${outfit.archetypeId} would not read back`,
+      );
+    }
+  }
+});
+
+test('T4 every assigned archetype is a member of the closed twelve', () => {
+  for (const { where, result } of hotDryWeekdayResults()) {
+    for (const { archetypeId } of result.outfits) {
+      assert.equal(outfitArchetypeIds.includes(archetypeId), true, `${where}: ${archetypeId}`);
     }
   }
 });

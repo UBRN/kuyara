@@ -8,7 +8,8 @@ import {
   createAiHandler as createAiHandlerWithContext,
 } from './ai-handler.ts';
 import { AiProviderError } from './ai-provider.ts';
-import { DeterministicStubAiProvider } from './stub-ai-provider.ts';
+import { buildMessages, buildPickJsonSchema } from './ai-prompt.ts';
+import { PROBE_DAILY_LIMIT } from './probe-handler.ts';
 
 // The handler reports every provider attempt; keep that out of the test output.
 mock.method(console, 'warn', () => {});
@@ -159,7 +160,7 @@ function installMemoryCache() {
 
 test('returns a contract-valid pick response using supplied option ids', async () => {
   const response = await createAiHandler({
-    providers: [new DeterministicStubAiProvider()],
+    providers: [{ generateOutfits: async () => validOutput() }],
   })(request());
   const body = await response.json();
   const optionIds = new Set(validRequestBody().options.map(({ optionId }) => optionId));
@@ -346,6 +347,29 @@ test('a weekday rejects a weekend_relaxed pick that any other day accepts', asyn
       (await createAiHandler({
         providers: [{ generateOutfits: async () => validOutput() }],
       })(request(options))).status,
+      200,
+    );
+  }
+});
+
+test('a legacy request rejects office_ready on smart while a day-aware request accepts it', async () => {
+  const output = validOutput();
+  output.data.picks = [
+    { optionId: 'option-casual', archetypeId: 'on_the_move' },
+    { optionId: 'option-smart', archetypeId: 'office_ready' },
+    { optionId: 'option-formal', archetypeId: 'everyday_easy' },
+  ];
+  const provider = { generateOutfits: async () => output };
+
+  await assertError(
+    await createAiHandler({ providers: [provider] })(request()),
+    503,
+    'ai_unavailable',
+  );
+  for (const dayKind of ['weekday', 'weekend']) {
+    const body = JSON.stringify({ ...validRequestBody(), dayKind });
+    assert.equal(
+      (await createAiHandler({ providers: [provider] })(request({ body }))).status,
       200,
     );
   }
@@ -853,7 +877,7 @@ test('rate limiter approval preserves recommendation behavior', async () => {
 test('wrong content type, malformed JSON, and schema violations return invalid_request', async () => {
   const handler = createAiHandler({ providers: [] });
   assert.equal((await createAiHandler({
-    providers: [new DeterministicStubAiProvider()],
+    providers: [{ generateOutfits: async () => validOutput() }],
   })(request({
     headers: { 'content-type': 'application/json; charset=utf-8' },
   }))).status, 200);
@@ -1103,8 +1127,26 @@ function openRouter(model, calls, answer = validOutput) {
   return { ...workersAi(model, calls, answer), id: 'openrouter' };
 }
 
-test('the daily attempt budget is derived from the Workers AI pricing figures', () => {
-  assert.equal(WORKERS_AI_DAILY_ATTEMPT_LIMIT, 66);
+test('the daily attempt budget covers the largest prompt in the shared grid', async () => {
+  await import('../../../mobile/test/node-typescript-resolver.mjs');
+  const { gridRequestCells } = await import('../../../mobile/test/recommendation-grid.mjs');
+  const promptCharacters = Math.max(...gridRequestCells()
+    .filter(({ request: body }) => body !== null)
+    .map(({ request: body }) =>
+      JSON.stringify(buildMessages(body)).length
+      + JSON.stringify(buildPickJsonSchema(body.options)).length));
+
+  // The grid sends a dayKind, as the app does, so `weekend_relaxed` leaves the eligible
+  // lists of a weekday and the largest prompt is a little shorter than the day-blind one.
+  assert.equal(promptCharacters, 17_651);
+  const inputTokens = Math.ceil(promptCharacters / 4 / 100) * 100;
+  const attemptNeurons = Math.ceil(
+    (inputTokens * 26_668 + 192 * 204_805) / 1_000_000,
+  );
+  const derivedLimit = Math.floor(
+    (10_000 - PROBE_DAILY_LIMIT * 67) / attemptNeurons,
+  );
+  assert.equal(WORKERS_AI_DAILY_ATTEMPT_LIMIT, derivedLimit);
 });
 
 test('a Workers AI attempt whose increment lands exactly on the limit still runs', async () => {

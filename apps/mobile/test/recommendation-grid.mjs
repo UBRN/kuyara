@@ -16,9 +16,10 @@ import {
   createRecommendationContext,
 } from '@/features/recommendation/data/worker-ai-recommendation-mapper';
 
-const gridNow = '2026-09-13T12:00:00.000Z';
-const gridLocalDayKey = '2026-09-13';
+const gridNow = '2026-09-14T12:00:00.000Z';
+const gridLocalDayKey = '2026-09-14';
 const gridDayVariant = 0;
+const gridDayKind = 'weekday';
 const clothingPreferences = ['womens', 'mens'];
 const dressStyles = ['casual', 'smart', 'formal'];
 
@@ -107,8 +108,8 @@ function weatherSnapshot(weatherKey) {
     maximumTemperatureCelsius:
       profile.maximumTemperatureCelsius ?? profile.temperatureCelsius + 2,
     hourly: [
-      { forecastAt: '2026-09-13T13:00:00.000Z', ...measurements },
-      { forecastAt: '2026-09-13T15:00:00.000Z', ...measurements },
+      { forecastAt: '2026-09-14T13:00:00.000Z', ...measurements },
+      { forecastAt: '2026-09-14T15:00:00.000Z', ...measurements },
     ],
   });
 }
@@ -120,6 +121,10 @@ export function gridRecommendationInput(weatherKey, clothingPreference, dressSty
     clothingPreference,
     dressStyle,
     dayVariant: gridDayVariant,
+    // The application always sends a day kind, so the grid models a day-aware caller.
+    // A weekday is the common case and the one that withholds `weekend_relaxed`; the
+    // grid's day is the Monday that matches it.
+    dayKind: gridDayKind,
     localDayKey: gridLocalDayKey,
   };
 }

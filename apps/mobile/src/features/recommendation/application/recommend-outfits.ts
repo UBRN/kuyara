@@ -68,8 +68,8 @@ const fallbackArchetypeOrder = Object.freeze([
   'light_and_airy',
   'office_ready',
   'smart_casual',
-  'on_the_move',
   'weekend_relaxed',
+  'on_the_move',
   'everyday_easy',
 ] as const satisfies readonly OutfitArchetypeId[]);
 
@@ -112,14 +112,21 @@ export function outfitMatchesArchetype(
       return outfit.outerLayer === null &&
         primary.garment.properties.breathability === 'high';
     case 'office_ready':
-      return outfit.formality === 'smart' || outfit.formality === 'formal';
+      // Builds 8 and 9 accept this label only for formal outfits and send no dayKind.
+      // Its presence identifies a newer caller whose matching gate also accepts smart.
+      return outfit.formality === 'formal'
+        || (outfit.formality === 'smart' && dayKind !== undefined);
     case 'smart_casual':
       return outfit.formality === 'smart' || outfit.formality === 'formal';
     case 'on_the_move':
-      return outfit.footwear.garment.garmentTypeId === 'sneakers';
+      // Builds 8 and 9 accept this label only for sneakers and send no dayKind. Its
+      // presence identifies a newer caller whose matching gate also accepts any casual
+      // outfit, which a hot dry day needs: its pool is casual in sandals throughout.
+      return outfit.footwear.garment.garmentTypeId === 'sneakers'
+        || (outfit.formality === 'casual' && dayKind !== undefined);
     case 'weekend_relaxed':
       // Mirrors `meetsArchetypePrecondition` in packages/contracts: on a weekday a casual
-      // outfit falls through the order to `everyday_easy` instead.
+      // outfit falls through the order to `on_the_move`, the rung below it, instead.
       return outfit.formality === 'casual' && dayKind !== 'weekday';
     case 'everyday_easy':
       return true;

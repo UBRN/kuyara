@@ -281,13 +281,22 @@ test('a weekend recommendation survives a read on a later day', async (t) => {
   assert.ok((await repository.getSnapshot(profileId)).recommendation.outfits.some(isWeekendRelaxed));
 
   const row = await database.getFirstAsync('SELECT context_json FROM recommendation_snapshots');
-  const stored = JSON.parse(row.context_json);
-  assert.equal(stored.dayKind, 'weekend');
-  delete stored.dayKind;
-  await database.runAsync(
-    'UPDATE recommendation_snapshots SET context_json = ?',
-    [JSON.stringify(stored)],
-  );
+  assert.equal(JSON.parse(row.context_json).dayKind, 'weekend');
+
+  // The pre-dayKind row carries the labels the legacy rule allowed (`office_ready` on
+  // formal only, `on_the_move` with sneakers only), which is what a day-blind generation
+  // produces, because a build that sent no day kind also assigned no day-aware label.
+  const legacyInput = { ...input, dayKind: undefined };
+  const legacyRecommendation = recommendOutfits(legacyInput);
+  assert.ok(legacyRecommendation.outfits.some(isWeekendRelaxed));
+  await repository.saveSnapshot(profileId, {
+    weatherSnapshotId: input.snapshot.id,
+    locationKey: input.snapshot.locationKey,
+    context: createRecommendationContext(legacyInput, input.localDayKey),
+    recommendation: legacyRecommendation,
+  });
+  const legacyRow = await database.getFirstAsync('SELECT context_json FROM recommendation_snapshots');
+  assert.equal('dayKind' in JSON.parse(legacyRow.context_json), false);
   assert.ok((await repository.getSnapshot(profileId)).recommendation.outfits.some(isWeekendRelaxed));
 });
 

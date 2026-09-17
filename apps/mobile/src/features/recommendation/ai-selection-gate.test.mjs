@@ -41,10 +41,10 @@ const triplesPerCell = 150;
  * one its own option qualifies for. Null when no such labelling exists, which no model can
  * repair: whatever it answers for that triple, both gates refuse it.
  */
-function wellFormedPicks(options) {
+function wellFormedPicks(options, dayKind) {
   const eligible = options.map((option) =>
     outfitArchetypeIds.filter((archetypeId) =>
-      meetsArchetypePrecondition(archetypeId, option)));
+      meetsArchetypePrecondition(archetypeId, option, dayKind)));
   for (const first of eligible[0]) {
     for (const second of eligible[1]) {
       if (second === first) continue;
@@ -136,7 +136,7 @@ test('T2 the mobile gate accepts every answer the Worker gate accepts, and the a
       // A triple whose three options share fewer than three archetype labels has no valid
       // answer at all: whatever the model replies, both gates refuse it and the day falls
       // back to "Standard suggestions".
-      const picks = wellFormedPicks(options);
+      const picks = wellFormedPicks(options, request.dayKind);
       // The archetype vocabulary is closed by the shipped response enum, and a plain casual
       // outfit without sneakers or layers holds only two labels, so a triple of those has no
       // three-label answer. The prompt directs the model to three different labels from the
@@ -190,7 +190,7 @@ test('T2 the mobile gate refuses every answer shape the Worker gate refuses', ()
   for (const cell of gridRequestCells()) {
     const { request } = cell;
     const options = request.options.slice(0, 3);
-    const picks = wellFormedPicks(options);
+    const picks = wellFormedPicks(options, request.dayKind);
     const refused = [
       ['an option id that was never offered',
         [{ ...picks[0], optionId: 'not-offered' }, picks[1], picks[2]]],
@@ -199,7 +199,7 @@ test('T2 the mobile gate refuses every answer shape the Worker gate refuses', ()
       ['two picks instead of three', [picks[0], picks[1]]],
     ];
     const failingArchetype = outfitArchetypeIds.find((candidate) =>
-      !meetsArchetypePrecondition(candidate, options[0]) &&
+      !meetsArchetypePrecondition(candidate, options[0], request.dayKind) &&
       !picks.some(({ archetypeId }) => archetypeId === candidate));
     if (failingArchetype) {
       refused.push(['an archetype its own option does not qualify for',
@@ -212,6 +212,7 @@ test('T2 the mobile gate refuses every answer shape the Worker gate refuses', ()
           invalid.every(({ optionId, archetypeId }) => meetsArchetypePrecondition(
             archetypeId,
             request.options.find((option) => option.optionId === optionId),
+            request.dayKind,
           )),
         false,
         `${cell.name}: the Worker would accept ${reason}`,
