@@ -70,6 +70,8 @@ type TodayScreenProps = Readonly<{
   alertOffer?: TodayAlertOffer | null;
   onOpenOutfitDetail: (id: string) => void;
   onRefresh: () => void;
+  /** Regenerates the recommendation only. The pull gesture still refreshes weather too. */
+  onRegenerate: () => void;
 }>;
 
 export function TodayScreen({
@@ -79,6 +81,7 @@ export function TodayScreen({
   alertOffer = null,
   onOpenOutfitDetail,
   onRefresh,
+  onRegenerate,
 }: TodayScreenProps) {
   const router = useRouter();
   const weatherApplication = useWeatherApplication();
@@ -465,6 +468,21 @@ export function TodayScreen({
           </View>
         ) : null}
 
+        {/* One quiet line, the calm of the offer row's actions: no accent fill and no
+            second card (Law 1, Law 3). It is always enabled, because past the daily AI
+            allowance the same tap still composes a new valid three from the pool. It never
+            says where the outfits come from, how many are left, or who chose them. */}
+        <PressScale
+          accessibilityRole="button"
+          onPress={onRegenerate}
+          style={({ pressed }) => [
+            styles.regenerate,
+            { opacity: pressed ? theme.interaction.pressedOpacity : 1 },
+          ]}
+          testID="today-regenerate">
+          <AppText colorRole="textSecondary" variant="label">{copy.regenerateAction}</AppText>
+        </PressScale>
+
         {/* ADR 0002 section 8: attribution belongs on every surface that shows weather, so
             it follows the snapshot rather than the refresh, and a cached or stale snapshot
             still names whoever produced it. */}
@@ -732,6 +750,7 @@ const styles = StyleSheet.create({
   stackedOutfitList: { flexDirection: 'column', gap: spacing.md },
   alternateStage: { borderRadius: 14, justifyContent: 'center', overflow: 'hidden' },
   alternateTitleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  regenerate: { justifyContent: 'center', marginTop: spacing.md, minHeight: layout.minimumTouchTarget },
   attribution: { marginTop: spacing.md },
   feedbackContent: { alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.lg },
   feedbackCard: { alignItems: 'center', gap: spacing.md, maxWidth: 520, padding: spacing.lg, width: '100%' },

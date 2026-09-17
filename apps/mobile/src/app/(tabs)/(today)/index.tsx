@@ -30,6 +30,7 @@ export default function TodayRoute() {
   const {
     state: recommendationState,
     refresh: refreshRecommendation,
+    regenerate: regenerateRecommendation,
     reevaluateLocalDay,
   } = useRecommendationApplication();
   const weatherApplication = useWeatherApplication();
@@ -282,6 +283,7 @@ export default function TodayRoute() {
       isRefreshing={isPullRefreshing}
       onOpenOutfitDetail={(id) => router.push({ pathname: '/[id]', params: { id } })}
       onRefresh={handleRefresh}
+      onRegenerate={() => void regenerateRecommendation()}
       state={state}
     />
   );

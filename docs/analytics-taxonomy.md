@@ -173,7 +173,7 @@ are not duplicated as custom properties on any event.
 **Domain values are mapped, not passed through.** Several enums below are the `snake_case`
 form of a kebab-case domain type. `generation_mode` is `on_device_ai` / `ai_assisted` / `deterministic_fallback`
 for the domain's `'on-device-ai'` / `'ai-assisted'` / `'deterministic-fallback'`
-(`features/recommendation/domain/generation-mode.ts`), and `trigger_reason` maps the seven
+(`features/recommendation/domain/generation-mode.ts`), and `trigger_reason` maps the eight
 values of `RecommendationRefreshTrigger` the same way. The mapping lives in the
 `ProductAnalytics` boundary, in one place, and a domain value with no mapping is a build
 error rather than a passed-through string.
@@ -310,7 +310,7 @@ table in the same change.
 | Event | Trigger | Properties |
 | --- | --- | --- |
 | `recommendation_viewed` | Today gains focus while a recommendation is visible, once per focus appearance. | `generation_mode` (`on_device_ai`\|`ai_assisted`\|`deterministic_fallback`), `cache_state` (`fresh`\|`stale_shown`\|`refreshing`), `outfit_count` (`3`), `dress_style` and `age_bucket` (section 3) |
-| `recommendation_regenerated` | A recommendation generation attempt completes. | `trigger_reason` (seven values, below), `result` (`success`\|`failure_kept_last_known`\|`failure_no_snapshot`), `generation_mode` (`on_device_ai`\|`ai_assisted`\|`deterministic_fallback`, present only when `result` is `success`) |
+| `recommendation_regenerated` | A recommendation generation attempt completes. | `trigger_reason` (eight values, below), `result` (`success`\|`failure_kept_last_known`\|`failure_no_snapshot`), `generation_mode` (`on_device_ai`\|`ai_assisted`\|`deterministic_fallback`, present only when `result` is `success`), `regeneration_source` (`ai`\|`pool`, present only when `result` is `success` and `trigger_reason` is `regenerate`) |
 
 `recommendation_viewed` is an impression, not a render counter. Rerenders while Today
 remains focused do not emit it again. When cache states overlap, `refreshing` takes
@@ -323,13 +323,16 @@ integer. Any other count is invalid and does not emit `recommendation_viewed`
 For `recommendation_regenerated`, `success` means a new snapshot was saved and returned.
 If the attempt returns the unchanged snapshot, the result is `failure_kept_last_known`; if
 it returns `null`, the result is `failure_no_snapshot`. Both failure forms omit
-`generation_mode`, because no newly generated result exists. The controller's fallback,
+`generation_mode`, because no newly generated result exists. `regeneration_source` qualifies a success of the `regenerate` trigger alone, and says
+whether that tap reached the AI chain (`ai`) or composed the next three from the already
+validated pool (`pool`). It never carries a provider, a model, a quota or a remaining
+allowance, and no other trigger carries it. The controller's fallback,
 unchanged-snapshot, and null paths are at
 `apps/mobile/src/features/recommendation/application/recommendation-application-controller.ts:159-192`.
 
 `trigger_reason` is the `snake_case` mapping of `RecommendationRefreshTrigger`
 (`features/recommendation/application/recommendation-application-controller.ts`), which has
-seven values, not the five the first draft listed:
+eight values, not the five the first draft listed:
 
 | `trigger_reason` | Domain value |
 | --- | --- |
@@ -340,6 +343,7 @@ seven values, not the five the first draft listed:
 | `dress_style_changed` | `dress-style-changed` |
 | `new_calendar_day` | `local-day-changed` |
 | `explicit_request` | `explicit` |
+| `regenerate` | `regenerate` |
 
 Two of these are absent from the five triggers `AGENTS.md` lists: the first generation
 after install, and a dress-style change (which ADR 0031 made a recommendation input). The

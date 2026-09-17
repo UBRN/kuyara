@@ -44,7 +44,10 @@ export type RecommendationRefreshTrigger =
   | 'clothing-preference-changed'
   | 'dress-style-changed'
   | 'local-day-changed'
-  | 'explicit';
+  | 'explicit'
+  // Today's "show another outfit" action. It regenerates the recommendation only and never
+  // touches weather, which is what separates it from the pull gesture's 'explicit'.
+  | 'regenerate';
 
 export type RecommendationSignals = Readonly<{
   weatherSnapshotId: string;
@@ -142,6 +145,11 @@ type Dependencies = Readonly<{
   // suggestions" phase would land in the same render as the settled result and never be
   // seen. Optional so tests can replace the wait with a resolved promise.
   holdPhase?: (milliseconds: number) => Promise<void>;
+  // Called once, before the AI chain is entered, for an attempt that really reaches a
+  // provider. A chain that then fails into the deterministic three has still spent the
+  // attempt; a refresh whose pool was too narrow to ask never gets here. The composition
+  // boundary decides which triggers it counts and where it keeps the tally.
+  onAiAttempt?: (trigger: RecommendationRefreshTrigger, dayKey: string) => void;
 }>;
 
 // Long enough to be read, short enough that the deterministic three still feel immediate;
@@ -220,9 +228,16 @@ export class RecommendationApplicationController {
     return this.initializationPromise;
   }
 
+  /**
+   * `allowAi: false` is the only difference the pool path needs: the request is not built, so
+   * `refreshOnce` takes the deterministic branch it already had, with the same exclusion, the
+   * same narrated wait and the same persistence. Its default keeps the other triggers as they
+   * were.
+   */
   refresh(
     trigger: RecommendationRefreshTrigger,
     input: RecommendationApplicationInput,
+    options?: Readonly<{ allowAi?: boolean }>,
   ): Promise<RecommendationSnapshot | null> {
     let context: RecommendationContext;
     const generationInput = {
@@ -235,7 +250,7 @@ export class RecommendationApplicationController {
       this.setLastFailure(recommendationFailureCategory(error));
       return Promise.resolve(this.currentSnapshot());
     }
-    const request = aiRequestFromContext(context);
+    const request = options?.allowAi === false ? null : aiRequestFromContext(context);
     const key = JSON.stringify({
       weatherSnapshotId: input.snapshot.id,
       locationKey: input.snapshot.locationKey,
@@ -291,6 +306,7 @@ export class RecommendationApplicationController {
     let aiFailure: FailureCategory | null = null;
     const startedAt = Date.now();
     if (request) {
+      this.dependencies.onAiAttempt?.(trigger, input.localDayKey);
       try {
         // The routed client runs the shared validation gate inside its own chain, so what
         // comes back here is already a validated recommendation from whichever tier won.
@@ -349,6 +365,12 @@ export class RecommendationApplicationController {
         trigger_reason: triggerReasonProperty(trigger),
         result: 'success',
         generation_mode: generationModeProperty(snapshot.generationMode),
+        // Taxonomy 5.5: only the explicit "show another outfit" action carries it, and it
+        // says whether that tap reached the AI chain or composed from the pool alone. It
+        // names no provider and reports no remaining allowance.
+        ...(trigger === 'regenerate'
+          ? { regeneration_source: request ? ('ai' as const) : ('pool' as const) }
+          : {}),
       });
       // An AI tier that failed while the deterministic composition delivered is not a
       // user-visible failure, so it is carried as `failure_kind` on a completed generation

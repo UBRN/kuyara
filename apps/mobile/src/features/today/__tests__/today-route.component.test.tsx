@@ -286,6 +286,7 @@ function Providers({
   weather,
   recommendation,
   recommendationRefresh = jest.fn(async () => null),
+  recommendationRegenerate = jest.fn(async () => null),
   reevaluateLocalDay = jest.fn(),
   wardrobe,
   profile,
@@ -295,6 +296,7 @@ function Providers({
   weather: WeatherApplicationValue;
   recommendation: RecommendationApplicationState;
   recommendationRefresh?: () => Promise<null>;
+  recommendationRegenerate?: () => Promise<null>;
   reevaluateLocalDay?: () => void;
   wardrobe: ReturnType<typeof wardrobeValue>;
   profile: ReturnType<typeof profileValue>;
@@ -316,6 +318,7 @@ function Providers({
                 state: recommendation,
                 onDeviceAvailability: null,
                 refresh: recommendationRefresh,
+                regenerate: recommendationRegenerate,
                 reevaluateLocalDay,
               }}>
                 <WardrobeApplicationContext value={wardrobe as never}>
