@@ -5,6 +5,7 @@ import {
   aiRecommendV1RequestSchema,
   aiRecommendV1SuccessSchema,
   aiV1ErrorSchema,
+  archetypeDayFromRequirements,
   meetsArchetypePrecondition,
   picksAreMeaningfullyDifferent,
   type AiOption,
@@ -323,6 +324,7 @@ export function createAiHandler({
             archetypeId,
             pickedOptions[index]!,
             requestResult.data.dayKind,
+            archetypeDayFromRequirements(requestResult.data.requirements),
           ))) {
           logProviderFailure(provider, 'archetype_precondition');
           continue;

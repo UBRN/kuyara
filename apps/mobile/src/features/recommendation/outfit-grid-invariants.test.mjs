@@ -20,7 +20,6 @@ import { listGarmentTypesForPreference, getGarmentType } from '@/features/catalo
 
 import {
   assignFallbackArchetypes,
-  fallbackArchetypeOrderFor,
   recommendOutfits,
 } from './application/recommend-outfits.ts';
 import {
@@ -108,9 +107,9 @@ function shownTrio(cell, dressStyle, dayKind) {
     [...outfits].sort(
       (left, right) => order.indexOf(left.formality) - order.indexOf(right.formality),
     ),
+    cell.requirements,
     Math.min(3, outfits.length),
     dayKind,
-    fallbackArchetypeOrderFor(cell.requirements),
   );
 }
 
@@ -358,23 +357,22 @@ test('T7 an 8 C day composes no sandal at all', () => {
   }
 });
 
-test('T5 archetype labels contradict the day no more often than they already do', () => {
+test('T5 no archetype label contradicts the day it labels', () => {
   // A2/B8's definition: `snow_day` on a day that is not snowing, `rain_ready` on a dry or a
-  // snowy day, `light_and_airy` at or below 10 C. A2 counted 430 of 1512; main f5d28e2 is
-  // at 232 after the snow-day ordering fix, G1 left 228 and G2 leaves 240. The 12 it added
-  // are all `rain_ready` on the dry -5 and 0 C cells: the ladder's top rung asks those days
-  // for a coat, the casual bucket's only high-thermal outer layers are the parka and the
-  // insulated jacket, both water protective, and the predicate reads the garment without the
-  // day. G3 owns this counter and drives it to 0 by giving the archetype predicates the day,
-  // which removes this rise by construction; the ceiling here only stops a reordering from
-  // making the labels worse on the way.
+  // snowy day, `light_and_airy` at or below 10 C. A2 counted 430 of 1512; main f5d28e2 was
+  // at 232 after the snow-day ordering fix, G1 left 228 and G2 left 240, because the
+  // predicates read the garment and never the day: a waterproof shell was a rain answer on a
+  // dry freezing day and a rain boot was a snow answer in the rain. G3 gives both archetype
+  // twins the day, read from the requirements the request already carries, so the count is 0
+  // by construction rather than by a ceiling, and this assertion is an equality.
   const contradictions = shownOutfits().filter(({ cell, outfit }) =>
     (outfit.archetypeId === 'snow_day' && cell.precipitationName !== 'snow') ||
     (outfit.archetypeId === 'rain_ready' && cell.precipitationName !== 'rain') ||
     (outfit.archetypeId === 'light_and_airy' && cell.temperature <= 10));
 
-  assert.ok(
-    contradictions.length <= 240,
+  assert.equal(
+    contradictions.length,
+    0,
     `${contradictions.length} shown outfits carry a label the day contradicts`,
   );
 });

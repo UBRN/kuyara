@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  archetypeDayFromRequirements,
   meetsArchetypePrecondition,
   outfitArchetypeIds,
   picksAreMeaningfullyDifferent,
@@ -39,12 +40,14 @@ const triplesPerCell = 150;
 /**
  * The answer a compliant model gives for one triple: three distinct archetype labels, each
  * one its own option qualifies for. Null when no such labelling exists, which no model can
- * repair: whatever it answers for that triple, both gates refuse it.
+ * repair: whatever it answers for that triple, both gates refuse it. The day comes from the
+ * request's own requirements, the same way the prompt's eligibility lists are projected, so
+ * these are the labels the model is actually offered.
  */
-function wellFormedPicks(options, dayKind) {
+function wellFormedPicks(options, dayKind, day) {
   const eligible = options.map((option) =>
     outfitArchetypeIds.filter((archetypeId) =>
-      meetsArchetypePrecondition(archetypeId, option, dayKind)));
+      meetsArchetypePrecondition(archetypeId, option, dayKind, day)));
   for (const first of eligible[0]) {
     for (const second of eligible[1]) {
       if (second === first) continue;
@@ -136,7 +139,9 @@ test('T2 the mobile gate accepts every answer the Worker gate accepts, and the a
       // A triple whose three options share fewer than three archetype labels has no valid
       // answer at all: whatever the model replies, both gates refuse it and the day falls
       // back to "Standard suggestions".
-      const picks = wellFormedPicks(options, request.dayKind);
+      const picks = wellFormedPicks(
+        options, request.dayKind, archetypeDayFromRequirements(request.requirements),
+      );
       // The archetype vocabulary is closed by the shipped response enum, and a plain casual
       // outfit without sneakers or layers holds only two labels, so a triple of those has no
       // three-label answer. The prompt directs the model to three different labels from the
@@ -151,7 +156,9 @@ test('T2 the mobile gate accepts every answer the Worker gate accepts, and the a
       // success schema, the closed set of offered option ids, the shared distinctness rule
       // and the shared archetype precondition. The schema and the two rules live in
       // packages/contracts and are called here directly; the option ids are offered by
-      // construction.
+      // construction. The handler reads the day out of the request's requirements before it
+      // checks the precondition, exactly as this does, so the labels checked here are the
+      // ones the prompt's eligibility lists offer and the two gates refuse the same answers.
       assert.equal(aiRecommendV1SuccessSchema.safeParse({ data: { picks } }).success, true);
       assert.equal(picksAreMeaningfullyDifferent(options), true);
 
@@ -190,7 +197,9 @@ test('T2 the mobile gate refuses every answer shape the Worker gate refuses', ()
   for (const cell of gridRequestCells()) {
     const { request } = cell;
     const options = request.options.slice(0, 3);
-    const picks = wellFormedPicks(options, request.dayKind);
+    const picks = wellFormedPicks(
+      options, request.dayKind, archetypeDayFromRequirements(request.requirements),
+    );
     const refused = [
       ['an option id that was never offered',
         [{ ...picks[0], optionId: 'not-offered' }, picks[1], picks[2]]],
@@ -226,21 +235,48 @@ test('T2 the mobile gate refuses every answer shape the Worker gate refuses', ()
   }
 });
 
-test('T3 outfitMatchesArchetype (application/recommend-outfits.ts) equals meetsArchetypePrecondition (contracts ai-model-input.ts)', () => {
+test('T3 outfitMatchesArchetype (application/recommend-outfits.ts) equals meetsArchetypePrecondition (contracts ai-model-input.ts), day-blind and day-aware', () => {
+  // A4/B5: the two twins used to be compared without a day, so the `office_ready` and
+  // `on_the_move` branches that only differ when a `dayKind` is present, and the three
+  // weather branches that only differ when the day is, could drift unseen. Every caller
+  // shape is compared here instead: the day-blind one builds 8 and 9 are, a caller that
+  // sends only the day kind, and the day-aware one this app is on both day kinds.
+  const smartCells = new Map(gridRequestCells()
+    .filter(({ dressStyle }) => dressStyle === 'smart')
+    .map((cell) => [`${cell.clothingPreference}/${cell.weatherKey}`, cell]));
   let comparisons = 0;
   for (const cell of gridOutfitCells()) {
+    const day = archetypeDayFromRequirements(smartCells.get(cell.name).context.requirements);
+    const callers = [
+      ['day-blind', undefined, undefined],
+      ['weekday without the weather', 'weekday', undefined],
+      ['weekday', 'weekday', day],
+      ['weekend', 'weekend', day],
+    ];
     const options = new Map(cell.options.map((option) => [option.optionId, option]));
     assert.equal(cell.outfits.length, cell.options.length, cell.name);
     for (const outfit of cell.outfits) {
       const option = options.get(outfitOptionId(outfit));
       assert.ok(option, `${cell.name} composed an outfit the request does not offer`);
       for (const archetypeId of outfitArchetypeIds) {
-        assert.equal(
-          outfitMatchesArchetype(outfit, archetypeId),
-          meetsArchetypePrecondition(archetypeId, option),
-          `${cell.name} ${option.optionId} ${archetypeId}`,
-        );
-        comparisons += 1;
+        for (const [caller, dayKind, dayFacts] of callers) {
+          assert.equal(
+            outfitMatchesArchetype(outfit, archetypeId, dayKind, dayFacts),
+            meetsArchetypePrecondition(archetypeId, option, dayKind, dayFacts),
+            `${cell.name} ${option.optionId} ${archetypeId} ${caller}`,
+          );
+          comparisons += 1;
+        }
+        // The subset rule the deploy order rests on: at one day kind, knowing the day only
+        // ever withdraws a label. An installed build validates the Worker's picks with the
+        // day-blind predicate, so a narrower offer never hands it a pick it refuses.
+        for (const dayKind of [undefined, 'weekday', 'weekend']) {
+          assert.ok(
+            !meetsArchetypePrecondition(archetypeId, option, dayKind, day)
+            || meetsArchetypePrecondition(archetypeId, option, dayKind),
+            `${cell.name} ${option.optionId} ${archetypeId} widened when the day was read`,
+          );
+        }
       }
     }
   }
