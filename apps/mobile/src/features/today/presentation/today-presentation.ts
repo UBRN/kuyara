@@ -159,6 +159,9 @@ export type LoadedTodayPresentation = Readonly<{
     label: string;
     accessibilityLabel: string;
   }> | null;
+  // The detail surface's one plain sentence, present in all three modes and null only while
+  // no recommendation is settled.
+  generationSource: string | null;
   stageAccessibilityLabel: string;
   suggestions: readonly LoadedOutfitPresentation[];
   noOutfit: Readonly<{ title: string; body: string }> | null;
@@ -394,20 +397,32 @@ function createLoadedPresentation(
   // and a settled deterministic result carries no badge at all, because the absence of the
   // mark is the signal (ADR 0021 section 8). The phase line during generation is separate
   // and still narrates the deterministic fallback while it runs.
-  const generationModeLabels: Record<RecommendationGenerationMode, string | null> = {
-    'on-device-ai': copy.generationModeOnDeviceAi,
-    'ai-assisted': copy.generationModeAiAssisted,
+  const generationModeBadges: Record<
+    RecommendationGenerationMode,
+    Readonly<{ label: string; accessibilityLabel: string }> | null
+  > = {
+    'on-device-ai': {
+      label: copy.generationModeOnDeviceAi,
+      accessibilityLabel: copy.generationModeOnDeviceAiAccessibilityLabel,
+    },
+    'ai-assisted': {
+      label: copy.generationModeAiAssisted,
+      accessibilityLabel: copy.generationModeAiAssistedAccessibilityLabel,
+    },
     'deterministic-fallback': null,
   };
-  const generationModeLabel = snapshot.recommendation.status === 'recommended'
-    ? generationModeLabels[snapshot.recommendation.generationMode]
+  // The detail surface has room for the whole sentence, so it says where the outfit was
+  // chosen in all three modes, including the one Today deliberately leaves unmarked.
+  const generationSources: Record<RecommendationGenerationMode, string> = {
+    'on-device-ai': copy.generationSourceOnDeviceAi,
+    'ai-assisted': copy.generationSourceAiAssisted,
+    'deterministic-fallback': copy.generationSourceDeterministic,
+  };
+  const settledMode = snapshot.recommendation.status === 'recommended'
+    ? snapshot.recommendation.generationMode
     : null;
-  const generationMode = generationModeLabel && snapshot.recommendation.status === 'recommended'
-    ? {
-        label: generationModeLabel,
-        accessibilityLabel: copy.generationModeAccessibilityLabel(generationModeLabel),
-      }
-    : null;
+  const generationMode = settledMode ? generationModeBadges[settledMode] : null;
+  const generationSource = settledMode ? generationSources[settledMode] : null;
   const primary = suggestions[0];
   // One reading of the place's clock feeds both the stage tint and the corner glyph, so the
   // two can never disagree about whether it is day or night there.
@@ -467,6 +482,7 @@ function createLoadedPresentation(
       localHour,
     },
     generationMode,
+    generationSource,
     stageAccessibilityLabel: primary ? copy.stageAccessibilityLabel({
       temperature: formatNumber(current.temperatureCelsius, language),
       condition,

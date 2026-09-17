@@ -393,6 +393,19 @@ export function OutfitDetailScreen({
           </View>
         ) : null}
 
+        {/* ADR 0034 section 4: where the outfit was chosen is metadata, so it reads last,
+            after the reasons and before the weather recap, as one plain sentence on the
+            page ground. No card, no glyph, no accent, no pill, and no provider name. */}
+        {presentation.generationSource ? (
+          <AppText
+            colorRole="textSecondary"
+            style={styles.generationSource}
+            testID="outfit-detail-generation-source"
+            variant="caption">
+            {presentation.generationSource}
+          </AppText>
+        ) : null}
+
         <Entrance index={1}>
           <View
             accessible
@@ -421,6 +434,9 @@ const styles = StyleSheet.create({
   },
   missingSuggestionBody: {
     marginTop: spacing.sm,
+  },
+  generationSource: {
+    marginTop: spacing.md,
   },
   headingGroup: {
     alignItems: 'center',
