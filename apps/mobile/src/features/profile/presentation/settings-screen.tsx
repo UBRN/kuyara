@@ -1,55 +1,64 @@
 import Constants from 'expo-constants';
+import { useState } from 'react';
 import { StyleSheet } from 'react-native';
 
-import { AppText, Icon, NativeList, NativeListSection, NativeListRow } from '@/components/ui';
-import type { LocalProfile } from '@/features/profile/domain/profile';
+import {
+  AppText,
+  Icon,
+  iconNames,
+  NativeList,
+  NativeListSection,
+  NativeListRow,
+  NativePickerRow,
+} from '@/components/ui';
+import type { LanguagePreference, ThemePreference } from '@/domain/preferences';
+import type { DressStyle, Gender, LocalProfile } from '@/features/profile/domain/profile';
 import { useLocalization } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
 
 export type SettingsScreenProps = Readonly<{
   profile: LocalProfile;
   notificationsOn: boolean;
-  onOpenLanguage: () => void;
-  onOpenAppearance: () => void;
+  isSaving: boolean;
+  onLanguageChange: (value: LanguagePreference) => Promise<void>;
+  onAppearanceChange: (value: ThemePreference) => Promise<void>;
   onOpenNotifications: () => void;
   onOpenAiStatus: () => void;
-  onOpenGender: () => void;
-  onOpenDressStyle: () => void;
+  onGenderChange: (value: Gender) => Promise<void>;
+  onDressStyleChange: (value: DressStyle) => Promise<void>;
   onOpenBirthDate: () => void;
   onOpenPrivacy: () => void;
 }>;
 
 export function SettingsScreen({
+  isSaving,
   notificationsOn,
+  onAppearanceChange,
+  onDressStyleChange,
+  onGenderChange,
+  onLanguageChange,
   onOpenAiStatus,
-  onOpenAppearance,
   onOpenBirthDate,
-  onOpenDressStyle,
-  onOpenGender,
-  onOpenLanguage,
   onOpenNotifications,
   onOpenPrivacy,
   profile,
 }: SettingsScreenProps) {
   const { language, messages } = useLocalization();
   const copy = messages.preferences;
+  const [saveErrorGroup, setSaveErrorGroup] = useState<'general' | 'about-you' | null>(null);
 
-  const languageValue = profile.languagePreference === 'system'
-    ? copy.languageSystem
-    : profile.languagePreference === 'tr'
-      ? copy.languageTurkish
-      : copy.languageEnglish;
-  const themeValue = profile.themePreference === 'system'
-    ? copy.themeSystem
-    : profile.themePreference === 'light'
-      ? copy.themeLight
-      : copy.themeDark;
-  const genderValue = profile.gender === 'man' ? copy.genderMan : copy.genderWoman;
-  const dressStyleValue = profile.dressStyle === 'casual'
-    ? copy.dressStyleCasual
-    : profile.dressStyle === 'formal'
-      ? copy.dressStyleFormal
-      : copy.dressStyleSmart;
+  const savePreference = async (
+    group: 'general' | 'about-you',
+    save: () => Promise<void>,
+  ) => {
+    setSaveErrorGroup(null);
+    try {
+      await save();
+    } catch {
+      setSaveErrorGroup(group);
+    }
+  };
+
   const birthDateValue = profile.birthDate === null
     ? messages.onboarding.birthDateNotSet
     : new Intl.DateTimeFormat(language, { dateStyle: 'long' })
@@ -64,21 +73,40 @@ export function SettingsScreen({
   return (
     <NativeList testID="settings-screen">
       <NativeListSection
+        footer={saveErrorGroup === 'general' ? messages.settings.saveError : undefined}
         heading={messages.settings.generalHeading}
         testID="settings-primary-group">
-        <NativeListRow
-          glyph={({ color, size }) => <Icon color={color} name="language" size={size} />}
+        <NativePickerRow
+          disabled={isSaving}
           label={copy.languageTitle}
-          onPress={onOpenLanguage}
+          onSelectionChange={(value) => savePreference(
+            'general',
+            () => onLanguageChange(value),
+          )}
+          options={[
+            { label: copy.languageSystem, value: 'system' },
+            { label: copy.languageTurkish, value: 'tr' },
+            { label: copy.languageEnglish, value: 'en' },
+          ]}
+          selection={profile.languagePreference}
+          systemImage={iconNames.language.ios}
           testID="settings-language-row"
-          value={languageValue}
         />
-        <NativeListRow
-          glyph={({ color, size }) => <Icon color={color} name="theme" size={size} />}
+        <NativePickerRow
+          disabled={isSaving}
           label={copy.themeTitle}
-          onPress={onOpenAppearance}
+          onSelectionChange={(value) => savePreference(
+            'general',
+            () => onAppearanceChange(value),
+          )}
+          options={[
+            { label: copy.themeSystem, value: 'system' },
+            { label: copy.themeLight, value: 'light' },
+            { label: copy.themeDark, value: 'dark' },
+          ]}
+          selection={profile.themePreference}
+          systemImage={iconNames.theme.ios}
           testID="settings-theme-row"
-          value={themeValue}
         />
       </NativeListSection>
 
@@ -108,21 +136,40 @@ export function SettingsScreen({
 
       <NativeListSection
         heading={messages.settings.aboutYouHeading}
-        footer={messages.settings.aboutYouFooter}
+        footer={saveErrorGroup === 'about-you'
+          ? messages.settings.saveError
+          : messages.settings.aboutYouFooter}
         testID="settings-about-you-group">
-        <NativeListRow
-          glyph={({ color, size }) => <Icon color={color} name="tabProfileOutline" size={size} />}
+        <NativePickerRow
+          disabled={isSaving}
           label={copy.genderTitle}
-          onPress={onOpenGender}
+          onSelectionChange={(value) => savePreference(
+            'about-you',
+            () => onGenderChange(value),
+          )}
+          options={[
+            { label: copy.genderWoman, value: 'woman' },
+            { label: copy.genderMan, value: 'man' },
+          ]}
+          selection={profile.gender ?? 'woman'}
+          systemImage={iconNames.tabProfileOutline.ios}
           testID="settings-gender-row"
-          value={genderValue}
         />
-        <NativeListRow
-          glyph={({ color, size }) => <Icon color={color} name="clothing" size={size} />}
+        <NativePickerRow
+          disabled={isSaving}
           label={copy.dressStyleTitle}
-          onPress={onOpenDressStyle}
+          onSelectionChange={(value) => savePreference(
+            'about-you',
+            () => onDressStyleChange(value),
+          )}
+          options={[
+            { label: copy.dressStyleCasual, value: 'casual' },
+            { label: copy.dressStyleSmart, value: 'smart' },
+            { label: copy.dressStyleFormal, value: 'formal' },
+          ]}
+          selection={profile.dressStyle ?? 'smart'}
+          systemImage={iconNames.clothing.ios}
           testID="settings-dress-style-row"
-          value={dressStyleValue}
         />
         <NativeListRow
           glyph={({ color, size }) => <Icon color={color} name="calendar" size={size} />}

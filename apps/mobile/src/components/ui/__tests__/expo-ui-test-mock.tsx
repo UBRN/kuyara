@@ -1,18 +1,24 @@
-import type { ReactNode } from 'react';
+import { Children, isValidElement, type ReactNode } from 'react';
 import { type StyleProp, type ViewStyle, Pressable, Switch as RNSwitch, Text as RNText, View } from 'react-native';
 
 // Native passthroughs for both the universal and SwiftUI modules, plus modifiers.
 // Models slots and events, not native layout or accessibility bridging.
 export const tint = (color: string) => ({ $type: 'tint', color });
 export const accessibilityLabel = (label: string) => ({ $type: 'accessibilityLabel', label });
+export const accessibilityValue = (value: string) => ({ $type: 'accessibilityValue', value });
 export const accessibilityAddTraits = (traits: string[]) => ({ $type: 'accessibilityAddTraits', traits });
 export const listStyle = (style: string) => ({ $type: 'listStyle', style });
 export const scrollContentBackground = (visible: string) => ({ $type: 'scrollContentBackground', visible });
 export const font = (params: Record<string, unknown>) => ({ $type: 'font', ...params });
 export const foregroundStyle = (style: unknown) => ({ $type: 'foregroundStyle', style });
+export const frame = (params: Record<string, unknown>) => ({ $type: 'frame', ...params });
 export const environment = (key: string, value: string) => ({ $type: 'environment', key, value });
 export const lineLimit = () => ({ $type: 'lineLimit', limit: undefined });
 export const labelsHidden = () => ({ $type: 'labelsHidden' });
+export const disabled = (value = true) => ({ $type: 'disabled', disabled: value });
+export const menuIndicator = (visibility: string) => ({ $type: 'menuIndicator', visibility });
+export const pickerStyle = (style: string) => ({ $type: 'pickerStyle', style });
+export const tag = (value: string | number) => ({ $type: 'tag', tag: value });
 
 export function RNHostView({ children }: Readonly<{ children?: ReactNode }>) {
   return <View>{children}</View>;
@@ -49,6 +55,55 @@ export function Row({ children }: Readonly<{ children?: ReactNode }>) {
 
 export function Column({ children }: Readonly<{ children?: ReactNode }>) {
   return <View>{children}</View>;
+}
+
+type StackProps = Readonly<{
+  alignment?: string;
+  children?: ReactNode;
+  modifiers?: readonly Record<string, unknown>[];
+  spacing?: number;
+  testID?: string;
+}>;
+
+export function HStack({ alignment, children, modifiers, spacing, testID }: StackProps) {
+  return (
+    <View
+      testID={testID ?? 'expo-ui-hstack'}
+      {...{ alignment, modifiers, spacing }}>
+      {children}
+    </View>
+  );
+}
+
+export function VStack({ alignment, children, modifiers, spacing, testID }: StackProps) {
+  return (
+    <View
+      testID={testID ?? 'expo-ui-vstack'}
+      {...{ alignment, modifiers, spacing }}>
+      {children}
+    </View>
+  );
+}
+
+export function Spacer({ modifiers, testID }: Readonly<{
+  modifiers?: readonly Record<string, unknown>[];
+  testID?: string;
+}>) {
+  return <View testID={testID ?? 'expo-ui-spacer'} {...{ modifiers }} />;
+}
+
+export function Image({ modifiers, systemName, testID }: Readonly<{
+  modifiers?: readonly Record<string, unknown>[];
+  systemName?: string;
+  testID?: string;
+}>) {
+  return (
+    <View
+      accessibilityLabel={systemName}
+      testID={testID ?? 'expo-ui-image'}
+      {...{ modifiers, systemName }}
+    />
+  );
 }
 
 export function Text({
@@ -141,6 +196,77 @@ export function Switch({
       testID={testID}
       value={value}
     />
+  );
+}
+
+export function Menu({ children, label, modifiers, testID }: Readonly<{
+  children?: ReactNode;
+  label?: ReactNode;
+  modifiers?: readonly Record<string, unknown>[];
+  testID?: string;
+}>) {
+  const labelModifier = modifiers?.find((modifier) => modifier.$type === 'accessibilityLabel');
+  const valueModifier = modifiers?.find((modifier) => modifier.$type === 'accessibilityValue');
+
+  return (
+    <Pressable
+      accessibilityLabel={labelModifier?.label as string | undefined}
+      accessibilityRole="button"
+      accessibilityState={{
+        disabled: modifiers?.some((modifier) => modifier.$type === 'disabled'),
+      }}
+      accessibilityValue={{ text: valueModifier?.value as string | undefined }}
+      testID={testID ?? 'expo-ui-menu'}
+      {...{ label, modifiers }}>
+      {label}
+      {children}
+    </Pressable>
+  );
+}
+
+export function Picker({
+  children,
+  label,
+  modifiers,
+  onSelectionChange,
+  selection,
+  systemImage,
+  testID,
+}: Readonly<{
+  children?: ReactNode;
+  label?: string;
+  modifiers?: readonly Record<string, unknown>[];
+  onSelectionChange?: (value: string) => void;
+  selection?: string;
+  systemImage?: string;
+  testID?: string;
+}>) {
+  const options = Children.toArray(children).flatMap((child) => {
+    if (!isValidElement<{ children?: ReactNode; modifiers?: readonly Record<string, unknown>[] }>(child)) {
+      return [];
+    }
+    const value = child.props.modifiers?.find((modifier) => modifier.$type === 'tag')?.tag;
+    return typeof value === 'string'
+      ? [{ label: child.props.children, value }]
+      : [];
+  });
+  const selectedLabel = options.find((option) => option.value === selection)?.label;
+  const hidesLabel = modifiers?.some((modifier) => modifier.$type === 'labelsHidden');
+
+  return (
+    <Pressable
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      accessibilityState={{
+        disabled: modifiers?.some((modifier) => modifier.$type === 'disabled'),
+      }}
+      accessibilityValue={{ text: typeof selectedLabel === 'string' ? selectedLabel : undefined }}
+      {...{ modifiers, onSelectionChange, options, selection, systemImage }}
+      testID={testID ?? 'expo-ui-picker'}>
+      {!hidesLabel && systemImage ? <View accessibilityLabel={systemImage} testID="expo-ui-icon" /> : null}
+      {!hidesLabel && label ? <RNText>{label}</RNText> : null}
+      {!hidesLabel && typeof selectedLabel === 'string' ? <RNText>{selectedLabel}</RNText> : null}
+    </Pressable>
   );
 }
 

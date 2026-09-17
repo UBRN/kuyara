@@ -2,11 +2,11 @@
 
 Status: Accepted (2026-09-07)
 
-Implementation: complete. `NativeList`, `NativeListSection`, `NativeListRow`, the Settings
-root, and value stacking above `fontScale` 1.5 are implemented. The rendered target sheet,
-in English and Turkish, both appearances, the pushed surfaces, denied and unset states,
-and three text sizes, is kept outside the repository; the numbers that matter are repeated
-here so the decision stands alone.
+Implementation: complete. `NativeList`, `NativeListSection`, `NativeListRow`,
+`NativePickerRow`, the Settings root, and value stacking above `fontScale` 1.5 are
+implemented. The rendered target sheet, in English and Turkish, both appearances, the
+remaining pushed surfaces, denied and unset states, and three text sizes, is kept outside
+the repository; the numbers that matter are repeated here so the decision stands alone.
 
 Builds on: [ADR 0015](0015-gender-and-age-band-in-the-profile.md), whose Settings
 placement of personal facts it keeps; [ADR 0019](0019-adopting-expo-ui-at-the-control-layer.md),
@@ -51,14 +51,17 @@ The intro sentence and the dev-only test row are removed.
 
 ### 3. The rows take ADR 0028's anatomy
 
-Every root row carries the shared leading tile: 28 × 28, radius 7, a monochrome glyph at
-20 in the system label ink, fill from that ink at 8% in light and 12% in dark. The
-separator starts 56 from the group edge. The trailing value is the system's secondary
-before the chevron, and above `fontScale` 1.5 it stacks under the label. The leading tile
-is kuyara's own React Native view hosted inside the native row, so it keeps ADR 0028
-section 3's capped control scale exactly as the Profile rows do. Only the system-drawn
-text, chevron, and separator use the system's Dynamic Type scaling. Value stacking uses
-the same shared hook as the Profile rows.
+Every root row except the four preference Picker rows carries the shared leading tile:
+28 × 28, radius 7, a monochrome glyph at 20 in the system label ink, fill from that ink
+at 8% in light and 12% in dark. Language, Appearance, Gender, and Dress style instead use
+their existing SF Symbol through the Picker's `systemImage`, because the Picker label must
+remain a plain string and cannot host the tile. The separator starts 56 from the group
+edge. The trailing value is the system's secondary before the chevron, and above
+`fontScale` 1.5 it stacks under the label. The leading tile is kuyara's own React Native
+view hosted inside the native row, so it keeps ADR 0028 section 3's capped control scale
+exactly as the Profile rows do. Only the system-drawn text, chevron, and separator use the
+system's Dynamic Type scaling. Value stacking uses the same shared hook as the Profile
+rows.
 
 Section headings are kuyara's: sentence case, `bodyStrong` 17, `textSecondary`, drawn
 outside the native group with 12 below before the group and 24 between groups. SwiftUI's
@@ -73,10 +76,11 @@ and "Sürüm {version} ({build})", never assembled from fragments. The build num
 EAS-managed and absent from `app.json`; the implementation reads the version and iOS
 build number from `expo-constants` and omits unavailable build data cleanly.
 
-### 5. Pushed surfaces
+### 5. Remaining pushed surfaces
 
-Each opens with a native inline title, a back button labelled "Settings", and grouped
-content that can accept additional sections.
+Notifications, AI status, Privacy, and Birth date open with a native inline title, a back
+button labelled "Settings", and grouped content that can accept additional sections. The
+four preference Pickers stay on the root list and open the system menu in place.
 
 - **Notifications**: an "Allow notifications" toggle in the system's own control, tinted
   `brandPrimary`, with a footer. When the system permission is denied the footer text
@@ -146,6 +150,4 @@ platform's.
 
 ## Out of scope
 
-- The pushed pickers themselves; nothing about them is kuyara's.
 - Android verification.
-- Any production code change.

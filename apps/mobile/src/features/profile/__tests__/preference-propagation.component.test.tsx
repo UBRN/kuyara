@@ -1,15 +1,11 @@
 import { fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import Constants from 'expo-constants';
 import { useEffect, useState } from 'react';
-import { Dimensions, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import SettingsRoute from '@/app/(tabs)/(profile)/settings';
-import AppearanceSettingsRoute from '@/app/(tabs)/(profile)/settings/appearance';
 import BirthDateSettingsRoute from '@/app/(tabs)/(profile)/settings/birth-date';
-import DressStyleSettingsRoute from '@/app/(tabs)/(profile)/settings/dress-style';
-import GenderSettingsRoute from '@/app/(tabs)/(profile)/settings/gender';
-import LanguageSettingsRoute from '@/app/(tabs)/(profile)/settings/language';
 import type {
   LanguagePreference,
   ThemePreference,
@@ -57,22 +53,35 @@ jest.mock('@/infrastructure/sqlite/migrations', () => ({
 }));
 
 let mockProfile = createProfile();
+let mockUpdateFailure: 'appearance' | 'dress-style' | 'gender' | 'language' | null = null;
 
 jest.mock('@/features/profile/data/sqlite-profile-local-data-source', () => ({
   SqliteProfileLocalDataSource: class {
     getOrCreateProfile = async () => mockProfile;
 
-    updateLanguagePreference = async (languagePreference: LanguagePreference) =>
-      (mockProfile = { ...mockProfile, languagePreference });
+    updateLanguagePreference = async (languagePreference: LanguagePreference) => {
+      if (mockUpdateFailure === 'language') throw new Error('save failed');
+      mockProfile = { ...mockProfile, languagePreference };
+      return mockProfile;
+    };
 
-    updateThemePreference = async (themePreference: ThemePreference) =>
-      (mockProfile = { ...mockProfile, themePreference });
+    updateThemePreference = async (themePreference: ThemePreference) => {
+      if (mockUpdateFailure === 'appearance') throw new Error('save failed');
+      mockProfile = { ...mockProfile, themePreference };
+      return mockProfile;
+    };
 
-    updateGender = async (gender: Gender) =>
-      (mockProfile = { ...mockProfile, gender });
+    updateGender = async (gender: Gender) => {
+      if (mockUpdateFailure === 'gender') throw new Error('save failed');
+      mockProfile = { ...mockProfile, gender };
+      return mockProfile;
+    };
 
-    updateDressStyle = async (dressStyle: DressStyle) =>
-      (mockProfile = { ...mockProfile, dressStyle });
+    updateDressStyle = async (dressStyle: DressStyle) => {
+      if (mockUpdateFailure === 'dress-style') throw new Error('save failed');
+      mockProfile = { ...mockProfile, dressStyle };
+      return mockProfile;
+    };
 
     updateBirthDate = async (birthDate: string | null) =>
       (mockProfile = { ...mockProfile, birthDate });
@@ -84,14 +93,8 @@ const initialMetrics = {
   insets: { top: 47, right: 0, bottom: 34, left: 0 },
 };
 
-const originalWindowDimensions = Dimensions.get('window');
-
-function mockFontScale(fontScale: number) {
-  Dimensions.set({ window: { ...originalWindowDimensions, fontScale } });
-}
-
 afterEach(() => {
-  Dimensions.set({ window: originalWindowDimensions });
+  mockUpdateFailure = null;
 });
 
 function createProfile(): LocalProfileRecord {
@@ -112,73 +115,14 @@ function createProfile(): LocalProfileRecord {
   };
 }
 
-test.each([
-  [1, 'row'],
-  [3.12, 'column'],
-] as const)(
-  'the preference picker header at fontScale %s uses a %s layout and keeps measured clearance',
-  async (fontScale, flexDirection) => {
-    mockFontScale(fontScale);
-    mockProfile = createProfile();
-    const result = await render(
-      <SafeAreaProvider initialMetrics={initialMetrics}>
-        <ProfileApplicationProvider>
-          <ProductAnalyticsProvider
-            analytics={new RecordingProductAnalytics()}
-            firstUseStore={new InMemoryFirstUseStore()}>
-            <MountedSettingsRoutes onMount={() => undefined} />
-          </ProductAnalyticsProvider>
-        </ProfileApplicationProvider>
-      </SafeAreaProvider>,
-    );
-
-    await result.findByTestId('settings-gender-row');
-    await fireEvent.press(result.getByTestId('settings-gender-row'));
-    expect(await result.findByTestId('settings-gender-picker')).toBeOnTheScreen();
-    expect(StyleSheet.flatten(result.getByTestId('settings-picker-header-content').props.style))
-      .toMatchObject({ flexDirection });
-    expect(result.getByRole('header', { name: messages.en.preferences.genderTitle }))
-      .toBeOnTheScreen();
-
-    const option = result.getByTestId('settings-gender-woman');
-    expect(option.props.accessibilityRole).toBe('radio');
-    expect(option.props.accessibilityState.selected).toBe(true);
-    expect(StyleSheet.flatten(result.getByTestId('settings-gender-woman-label').props.style))
-      .toMatchObject({ flex: 1, flexShrink: 1 });
-    expect(StyleSheet.flatten(result.getByTestId(
-      'settings-gender-woman-mark',
-      { includeHiddenElements: true },
-    ).props.style)).toMatchObject({ flexShrink: 0, width: 24 });
-
-    fireEvent(result.getByTestId('settings-picker-header'), 'layout', {
-      nativeEvent: { layout: { height: 120 } },
-    });
-    await waitFor(() => {
-      expect(
-        StyleSheet.flatten(
-          result.getByTestId('settings-gender-picker').props.contentContainerStyle,
-        ).paddingTop,
-      ).toBe(97);
-    });
-  },
-);
-
 function MountedSettingsRoutes({ onMount }: Readonly<{ onMount: () => void }>) {
-  const [route, setRoute] = useState<'appearance' | 'birth-date' | 'dress-style' | 'gender' | 'language' | 'settings'>('settings');
+  const [route, setRoute] = useState<'birth-date' | 'settings'>('settings');
 
   useEffect(onMount, [onMount]);
   useEffect(() => {
     mockRouter.back.mockImplementation(() => setRoute('settings'));
     mockRouter.push.mockImplementation((path: string) => {
-      if (path === '/settings/appearance') {
-        setRoute('appearance');
-      } else if (path === '/settings/language') {
-        setRoute('language');
-      } else if (path === '/settings/gender') {
-        setRoute('gender');
-      } else if (path === '/settings/dress-style') {
-        setRoute('dress-style');
-      } else if (path === '/settings/birth-date') {
+      if (path === '/settings/birth-date') {
         setRoute('birth-date');
       }
     });
@@ -192,17 +136,7 @@ function MountedSettingsRoutes({ onMount }: Readonly<{ onMount: () => void }>) {
       notificationsOptIn
       persistOptIn={async () => undefined}
       weatherAlertScheduler={{ reschedule: async () => undefined }}>
-      {route === 'appearance'
-        ? <AppearanceSettingsRoute />
-        : route === 'birth-date'
-          ? <BirthDateSettingsRoute />
-          : route === 'dress-style'
-            ? <DressStyleSettingsRoute />
-            : route === 'gender'
-              ? <GenderSettingsRoute />
-              : route === 'language'
-                ? <LanguageSettingsRoute />
-                : <SettingsRoute />}
+      {route === 'birth-date' ? <BirthDateSettingsRoute /> : <SettingsRoute />}
     </NotificationApplicationProvider>
   );
 }
@@ -216,11 +150,8 @@ const notificationGateway = {
   subscribeToResponses: () => () => undefined,
 };
 
-// ADR 0030: the root list is native, so its own header and row chrome (label, value,
-// separator, chevron) are the system's and are not asserted on here beyond the value
-// text kuyara supplies. The pushed picker screens (`settings-language-picker`,
-// `settings-appearance-picker`) are unchanged by ADR 0030 and keep their own
-// kuyara-drawn header, which this test still exercises through it.
+// ADR 0030: the root list and the four preference pickers are native. These tests assert
+// the strings and selected tags kuyara supplies, while the system owns row and menu chrome.
 test('live preference changes propagate localized copy and dark semantic colors without remounting', async () => {
   mockProfile = createProfile();
   const onMount = jest.fn();
@@ -260,6 +191,10 @@ test('live preference changes propagate localized copy and dark semantic colors 
   expect(within(result.getByTestId('settings-about-you-group')).getByTestId('settings-gender-row')).toBeOnTheScreen();
   expect(within(result.getByTestId('settings-about-you-group')).getByTestId('settings-dress-style-row')).toBeOnTheScreen();
   expect(within(result.getByTestId('settings-about-you-group')).getByTestId('settings-birth-date-row')).toBeOnTheScreen();
+  expect(within(result.getByTestId('settings-language-row')).getByTestId('expo-ui-picker').props.selection).toBe('en');
+  expect(within(result.getByTestId('settings-theme-row')).getByTestId('expo-ui-picker').props.selection).toBe('light');
+  expect(within(result.getByTestId('settings-gender-row')).getByTestId('expo-ui-picker').props.selection).toBe('woman');
+  expect(within(result.getByTestId('settings-dress-style-row')).getByTestId('expo-ui-picker').props.selection).toBe('smart');
   expect(result.getByText(messages.en.preferences.genderWoman)).toBeOnTheScreen();
   expect(result.getByText(messages.en.preferences.dressStyleSmart)).toBeOnTheScreen();
   expect(result.getByText(messages.en.onboarding.birthDateNotSet)).toBeOnTheScreen();
@@ -267,7 +202,7 @@ test('live preference changes propagate localized copy and dark semantic colors 
     color: lightSemanticColors.textSecondary,
     fontSize: typography.bodyStrong.fontSize,
   });
-  expect(result.getAllByTestId('expo-ui-icon')).toHaveLength(8);
+  expect(result.getAllByTestId('expo-ui-icon')).toHaveLength(4);
   expect(within(result.getByTestId('expo-ui-section')).getByText('Version 1.0.0 (5)')).toHaveStyle({
     color: lightSemanticColors.textSecondary,
     fontSize: typography.caption.fontSize,
@@ -275,46 +210,26 @@ test('live preference changes propagate localized copy and dark semantic colors 
     fontVariant: ['tabular-nums'],
   });
   expect(result.getByText(messages.en.preferences.languageEnglish)).toBeOnTheScreen();
-  await fireEvent.press(result.getByTestId('settings-language-row'));
-  expect(await result.findByTestId('settings-language-picker')).toBeOnTheScreen();
-
-  await fireEvent.press(result.getByTestId('settings-language-en'));
+  await fireEvent(within(result.getByTestId('settings-language-row')).getByTestId('expo-ui-picker'), 'selectionChange', 'en');
   expect(analytics.captures).toEqual([]);
 
-  await fireEvent.press(result.getByTestId('settings-language-tr'));
+  await fireEvent(within(result.getByTestId('settings-language-row')).getByTestId('expo-ui-picker'), 'selectionChange', 'tr');
   await waitFor(() => {
-    expect(result.getByTestId('settings-language-tr').props.accessibilityState.selected)
-      .toBe(true);
+    expect(within(result.getByTestId('settings-language-row')).getByTestId('expo-ui-picker').props.selection).toBe('tr');
   });
-
-  await fireEvent.press(result.getByRole('button', { name: messages.tr.common.back }));
+  expect(mockProfile.languagePreference).toBe('tr');
   expect(await result.findByText(messages.tr.preferences.languageTurkish)).toBeOnTheScreen();
   expect(result.getByText('Sürüm 1.0.0 (5)')).toBeOnTheScreen();
-  await fireEvent.press(result.getByTestId('settings-language-row'));
-  expect(result.getByTestId('settings-language-tr').props.accessibilityState.selected).toBe(true);
-  await fireEvent.press(result.getByRole('button', { name: messages.tr.common.back }));
 
   expect(result.getByText(messages.tr.preferences.themeLight)).toBeOnTheScreen();
-  await fireEvent.press(result.getByTestId('settings-theme-row'));
+  await fireEvent(within(result.getByTestId('settings-theme-row')).getByTestId('expo-ui-picker'), 'selectionChange', 'dark');
 
   await waitFor(() => {
     expect(
-      result.getByTestId('settings-theme-dark').props.accessibilityState.disabled,
-    ).toBe(false);
-  });
-  await fireEvent.press(result.getByTestId('settings-theme-dark'));
-
-  await waitFor(() => {
-    expect(
-      StyleSheet.flatten(result.getByTestId('settings-appearance-picker').props.style)
+      StyleSheet.flatten(result.getByTestId('settings-screen').props.style)
         .backgroundColor,
     ).toBe(darkSemanticColors.background);
   });
-  await fireEvent.press(result.getByRole('button', { name: messages.tr.common.back }));
-  expect(
-    StyleSheet.flatten(result.getByTestId('settings-screen').props.style)
-      .backgroundColor,
-  ).toBe(darkSemanticColors.background);
   expect(onMount).toHaveBeenCalledTimes(1);
 
   await waitFor(() => expect(analytics.names()).toEqual([
@@ -348,25 +263,19 @@ test('personal preferences keep their order and birth date can be cleared to nul
 
   await result.findByTestId('settings-gender-row');
   expect(result.getByText(new Intl.DateTimeFormat('en', { dateStyle: 'long' }).format(new Date(1994, 2, 14)))).toBeOnTheScreen();
-  await fireEvent.press(result.getByTestId('settings-gender-row'));
-  expect(await result.findByTestId('settings-gender-picker')).toBeOnTheScreen();
-  expect(result.getAllByRole('radio').map((option) => option.props.accessibilityLabel)).toEqual([
-    messages.en.preferences.genderWoman,
-    messages.en.preferences.genderMan,
+  expect(within(result.getByTestId('settings-gender-row')).getByTestId('expo-ui-picker').props.options).toEqual([
+    { label: messages.en.preferences.genderWoman, value: 'woman' },
+    { label: messages.en.preferences.genderMan, value: 'man' },
   ]);
-  await fireEvent.press(result.getByTestId('settings-gender-man'));
-  await fireEvent.press(result.getByTestId('settings-picker-back'));
+  await fireEvent(within(result.getByTestId('settings-gender-row')).getByTestId('expo-ui-picker'), 'selectionChange', 'man');
   expect(await result.findByText(messages.en.preferences.genderMan)).toBeOnTheScreen();
 
-  await fireEvent.press(result.getByTestId('settings-dress-style-row'));
-  expect(await result.findByTestId('settings-dress-style-picker')).toBeOnTheScreen();
-  expect(result.getAllByRole('radio').map((option) => option.props.accessibilityLabel)).toEqual([
-    messages.en.preferences.dressStyleCasual,
-    messages.en.preferences.dressStyleSmart,
-    messages.en.preferences.dressStyleFormal,
+  expect(within(result.getByTestId('settings-dress-style-row')).getByTestId('expo-ui-picker').props.options).toEqual([
+    { label: messages.en.preferences.dressStyleCasual, value: 'casual' },
+    { label: messages.en.preferences.dressStyleSmart, value: 'smart' },
+    { label: messages.en.preferences.dressStyleFormal, value: 'formal' },
   ]);
-  await fireEvent.press(result.getByTestId('settings-dress-style-formal'));
-  await fireEvent.press(result.getByTestId('settings-picker-back'));
+  await fireEvent(within(result.getByTestId('settings-dress-style-row')).getByTestId('expo-ui-picker'), 'selectionChange', 'formal');
   expect(await result.findByText(messages.en.preferences.dressStyleFormal)).toBeOnTheScreen();
 
   await fireEvent.press(result.getByTestId('settings-birth-date-row'));
@@ -386,6 +295,46 @@ test('personal preferences keep their order and birth date can be cleared to nul
     { schema_version: 2, setting_name: 'dress_style', new_value: 'formal' },
     { schema_version: 2, setting_name: 'birth_date' },
   ]);
+});
+
+test('preference save errors replace the footer for the affected Settings group', async () => {
+  mockProfile = createProfile();
+  const result = await render(
+    <SafeAreaProvider initialMetrics={initialMetrics}>
+      <ProfileApplicationProvider>
+        <ProductAnalyticsProvider
+          analytics={new RecordingProductAnalytics()}
+          firstUseStore={new InMemoryFirstUseStore()}>
+          <MountedSettingsRoutes onMount={() => undefined} />
+        </ProductAnalyticsProvider>
+      </ProfileApplicationProvider>
+    </SafeAreaProvider>,
+  );
+
+  await result.findByTestId('settings-language-row');
+  mockUpdateFailure = 'appearance';
+  await fireEvent(within(result.getByTestId('settings-theme-row')).getByTestId('expo-ui-picker'), 'selectionChange', 'dark');
+
+  await waitFor(() => {
+    expect(within(result.getByTestId('settings-primary-group'))
+      .getByText(messages.en.settings.saveError)).toBeOnTheScreen();
+  });
+  expect(within(result.getByTestId('settings-about-you-group'))
+    .getByText(messages.en.settings.aboutYouFooter)).toBeOnTheScreen();
+  expect(within(result.getByTestId('settings-theme-row')).getByTestId('expo-ui-picker').props.selection).toBe('light');
+
+  mockUpdateFailure = 'gender';
+  await fireEvent(within(result.getByTestId('settings-gender-row')).getByTestId('expo-ui-picker'), 'selectionChange', 'man');
+
+  await waitFor(() => {
+    expect(within(result.getByTestId('settings-about-you-group'))
+      .getByText(messages.en.settings.saveError)).toBeOnTheScreen();
+  });
+  expect(within(result.getByTestId('settings-primary-group'))
+    .queryByText(messages.en.settings.saveError)).toBeNull();
+  expect(within(result.getByTestId('settings-about-you-group'))
+    .queryByText(messages.en.settings.aboutYouFooter)).toBeNull();
+  expect(within(result.getByTestId('settings-gender-row')).getByTestId('expo-ui-picker').props.selection).toBe('woman');
 });
 
 test('version templates omit an unavailable build without leaving empty parentheses', () => {
