@@ -983,6 +983,8 @@ test('an unavailable recommendation keeps header and weather while replacing sug
     name: `${messages.en.today.noOutfitTitle}. ${messages.en.today.noOutfitBody}`,
   })).toBeOnTheScreen();
   expect(result.queryByTestId('today-outfit-list')).not.toBeOnTheScreen();
+  // A day with nothing to show cannot offer to show another of it.
+  expect(result.queryByTestId('today-regenerate')).not.toBeOnTheScreen();
 });
 
 describe.each(['en', 'tr'] as const)('%s first generation', (language: SupportedLanguage) => {
