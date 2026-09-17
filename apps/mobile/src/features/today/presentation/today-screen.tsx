@@ -471,17 +471,20 @@ export function TodayScreen({
         {/* One quiet line, the calm of the offer row's actions: no accent fill and no
             second card (Law 1, Law 3). It is always enabled, because past the daily AI
             allowance the same tap still composes a new valid three from the pool. It never
-            says where the outfits come from, how many are left, or who chose them. */}
-        <PressScale
-          accessibilityRole="button"
-          onPress={onRegenerate}
-          style={({ pressed }) => [
-            styles.regenerate,
-            { opacity: pressed ? theme.interaction.pressedOpacity : 1 },
-          ]}
-          testID="today-regenerate">
-          <AppText colorRole="textSecondary" variant="label">{copy.regenerateAction}</AppText>
-        </PressScale>
+            says where the outfits come from, how many are left, or who chose them. A day
+            that has no outfit has none to show another of, so the line is absent there. */}
+        {primary ? (
+          <PressScale
+            accessibilityRole="button"
+            onPress={onRegenerate}
+            style={({ pressed }) => [
+              styles.regenerate,
+              { opacity: pressed ? theme.interaction.pressedOpacity : 1 },
+            ]}
+            testID="today-regenerate">
+            <AppText colorRole="textSecondary" variant="label">{copy.regenerateAction}</AppText>
+          </PressScale>
+        ) : null}
 
         {/* ADR 0002 section 8: attribution belongs on every surface that shows weather, so
             it follows the snapshot rather than the refresh, and a cached or stale snapshot

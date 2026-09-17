@@ -14,11 +14,16 @@ export class ExpoFileAiRegenerationBudget implements AiRegenerationBudget {
     return new File(Paths.document, ...directorySegments, fileName);
   }
 
+  /**
+   * Never rejects. Both callers fire this without awaiting it, so a rejection would only
+   * surface as an unhandled promise warning. An unreadable or malformed file reads as zero,
+   * the same answer a file naming another day already gives.
+   */
   async usedToday(dayKey: string): Promise<number> {
-    const file = this.file();
-    if (!file.exists) return 0;
-
     try {
+      const file = this.file();
+      if (!file.exists) return 0;
+
       const parsed: unknown = JSON.parse(await file.text());
       if (typeof parsed !== 'object' || parsed === null) return 0;
       const record = parsed as Readonly<{ dayKey?: unknown; count?: unknown }>;
@@ -31,12 +36,20 @@ export class ExpoFileAiRegenerationBudget implements AiRegenerationBudget {
     }
   }
 
+  /**
+   * Never rejects either. A lost count only means one more AI regeneration is allowed today,
+   * which is the safe direction for a counter that exists to bound spend, not to bill.
+   */
   async record(dayKey: string): Promise<void> {
     const count = (await this.usedToday(dayKey)) + 1;
-    new Directory(Paths.document, ...directorySegments).create({
-      idempotent: true,
-      intermediates: true,
-    });
-    this.file().write(JSON.stringify({ dayKey, count }));
+    try {
+      new Directory(Paths.document, ...directorySegments).create({
+        idempotent: true,
+        intermediates: true,
+      });
+      this.file().write(JSON.stringify({ dayKey, count }));
+    } catch {
+      // The budget stays where it was; the next tap simply gets one more allowance.
+    }
   }
 }
