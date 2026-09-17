@@ -421,16 +421,21 @@ export function deriveClothingRequirements(
     }
   }
 
-  if (heatExposure >= 24) {
+  // Three rungs on the hot side where there were two. The outside guidance puts shorts at
+  // 23 and a single short sleeve at 25 (A3 section 3: Fit The Forecast 22-26 with shorts
+  // from 23, raksul 25); 28 stays the rung that makes breathability mandatory. The two
+  // lower rungs only reorder the offer, because a day the body can dress for is never a day
+  // the wardrobe fails to dress for.
+  if (heatExposure >= 23) {
     const highHeat = heatExposure >= 28;
     candidates.push({
       kind: 'breathability',
-      minimum: highHeat ? 'high' : 'moderate',
+      minimum: heatExposure >= 25 ? 'high' : 'moderate',
       priority: highHeat && !heatDemoted ? 'mandatory' : 'optional',
       reasonCodes: temperatureReasons(
         airTemperatures,
         apparentTemperatures,
-        24,
+        23,
         'high',
         wideDailyRange,
         usesDailyExtremaFallback,

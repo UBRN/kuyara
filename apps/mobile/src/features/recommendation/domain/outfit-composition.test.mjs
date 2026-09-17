@@ -23,6 +23,19 @@ function composeOutfit(requirements, candidates) {
     : Object.freeze({ status: 'composed', outfit: result.outfits[0] });
 }
 
+// Two cases below are about what a full arrangement carries, and the day's best answer is
+// not always the one that wears every candidate: a parka alone already answers the coat rung,
+// so the arrangement that also wears the sweater sits behind it on layer count.
+function composeLayeredOutfit(requirements, candidates) {
+  const result = collectValidOutfits(requirements, candidates);
+  if (result.status === 'failure') return result;
+  const outfit = result.outfits.find(
+    (candidate) => candidate.midLayer !== null && candidate.outerLayer !== null,
+  );
+  assert.ok(outfit, 'no arrangement carried both a mid and an outer layer');
+  return Object.freeze({ status: 'composed', outfit });
+}
+
 function clothingRequirements(...requirements) {
   return Object.freeze({
     requirements: Object.freeze(requirements),
@@ -136,11 +149,11 @@ test('one-piece replaces separates and may add one mid and one outer layer', () 
       reasonCodes: Object.freeze(['condition_rain']),
     }),
   );
-  const result = composeOutfit(requirements, [
+  const result = composeLayeredOutfit(requirements, [
     catalogCandidate(requirements, 'jumpsuit'),
     catalogCandidate(requirements, 'sweater'),
-    catalogCandidate(requirements, 'rain_jacket'),
-    catalogCandidate(requirements, 'sandals'),
+    catalogCandidate(requirements, 'parka'),
+    catalogCandidate(requirements, 'weather_boots'),
   ]);
 
   assert.equal(result.status, 'composed');
@@ -148,7 +161,7 @@ test('one-piece replaces separates and may add one mid and one outer layer', () 
   assert.equal(result.outfit.body.onePiece.layerRole, 'standalone');
   assert.equal(result.outfit.midLayer.layerRole, 'mid');
   assert.equal(result.outfit.outerLayer.layerRole, 'outer');
-  assert.equal(result.outfit.aggregates.thermal.bodyStrength, 3);
+  assert.equal(result.outfit.aggregates.thermal.bodyStrength, 6);
   assert.equal(evaluation(result, 'thermal').status, 'met');
   assert.equal(evaluation(result, 'water_protection', 'body').status, 'met');
   assert.equal(new Set(result.outfit.candidateKeys).size,
@@ -161,14 +174,15 @@ test('collectively aggregates thermal and coverage while retaining footwear evid
     requirement('arm_coverage', 'full'),
     requirement('leg_coverage', 'full'),
   );
-  const result = composeOutfit(requirements, [
+  const result = composeLayeredOutfit(requirements, [
     catalogCandidate(requirements, 'jumpsuit'),
     catalogCandidate(requirements, 'sweater'),
+    catalogCandidate(requirements, 'parka'),
     catalogCandidate(requirements, 'weather_boots'),
   ]);
 
   assert.equal(result.status, 'composed');
-  assert.equal(result.outfit.aggregates.thermal.bodyStrength, 3);
+  assert.equal(result.outfit.aggregates.thermal.bodyStrength, 6);
   assert.equal(result.outfit.aggregates.thermal.footwear, 'high');
   assert.equal(result.outfit.aggregates.armCoverage, 'full');
   assert.equal(result.outfit.aggregates.legCoverage, 'full');
@@ -964,8 +978,12 @@ test('a day that asks for no layer still offers layered options, each from its o
       const layered = offered.filter((outfit) => layerCount(outfit) > 0);
       assert.equal(offered.length, 24, where);
       assert.ok(layered.length >= 8, `${where} offered ${layered.length} layered options`);
+      // One body core per formality, not one per offer: the layer decides an outfit's
+      // formality, so the same core reaches the offer twice when two layers put it in two
+      // formalities, which is how 26 C offers a long skirt under a blazer and under a
+      // bomber jacket. Inside one formality's share a core still leads once.
       assert.equal(
-        new Set(layered.map(bodyCoreOf)).size,
+        new Set(layered.map((outfit) => `${outfit.formality}|${bodyCoreOf(outfit)}`)).size,
         layered.length,
         `${where} repeated a body core among its layered options`,
       );

@@ -80,7 +80,7 @@ function weatherSnapshot(temperature, precipitation, windSpeed) {
 }
 
 /** One cell's requirements and its offered pool, composed once and read by all six trios. */
-function composeCell(temperature, precipitation, windSpeed, clothingPreference) {
+function composeCell(temperature, precipitation, windSpeed, clothingPreference, dayVariant = 0) {
   const snapshot = weatherSnapshot(temperature, precipitation, windSpeed);
   const requirements = deriveClothingRequirements(snapshot, gridNow);
   const composition = composeOutfitOptions(
@@ -90,7 +90,7 @@ function composeCell(temperature, precipitation, windSpeed, clothingPreference) 
         requirements,
         projectCatalogEffectiveGarment(type.typeId, clothingPreference),
       )),
-    0,
+    dayVariant,
   );
   return { snapshot, requirements, composition };
 }
@@ -232,9 +232,13 @@ test('T1 every shown outfit is valid, formality-consistent and shown once in its
 
 test('T2 the shown outfits are built from everyday garments often enough', () => {
   // Mean share of everyday garments per shown outfit. A2 measured 37% over the whole grid on
-  // 065cd22 and this Goal asked for 50%; the two ordering rules G1 owns carry it from 39.9%
-  // on main f5d28e2 to 43.9% and no further, so the total is floored where the reordering
-  // left it and G2 re-measures it once the thermal ladder changes which outfits are valid.
+  // 065cd22 and this Goal asked for 50%; the two ordering rules G1 owns carried it from 39.9%
+  // on main f5d28e2 to 43.9%, and G2's thermal ladder left it at 40.3%. The ladder's top rung
+  // puts a mandatory fourth garment on every freezing outfit, and A2's everyday set holds one
+  // high-thermal outer layer, the coat, which is formal: a casual or a wet freezing day has
+  // to wear a parka or an insulated jacket instead, neither of them in the set. Closing that
+  // needs a commonness field on the catalog (A3 recommendation 1), which is a separate Goal,
+  // so the floors below hold what G2 measured rather than what G1 left.
   //
   // Split by precipitation, because the three classes have different ceilings. A rain or a
   // snow day makes a waterproof outer layer mandatory, and the only waterproof outer layers
@@ -254,10 +258,10 @@ test('T2 the shown outfits are built from everyday garments often enough', () =>
   const inClass = (precipitationName) =>
     shown.filter(({ cell }) => cell.precipitationName === precipitationName);
 
-  // Measured after G1 on the 84-cell grid: dry 54.8% of 648, rain 30.6% of 648,
-  // snow 51.4% of 216, total 43.9% of 1512.
-  assert.ok(shareOf(shown) >= 0.43, `total share fell to ${(100 * shareOf(shown)).toFixed(1)}%`);
-  for (const [precipitationName, floor] of [['dry', 0.5], ['rain', 0.3], ['snow', 0.51]]) {
+  // Measured after G2 on the 84-cell grid: dry 53.3% of 648, rain 27.2% of 648,
+  // snow 40.3% of 216, total 40.3% of 1512. After G1 they were 54.8, 30.6, 51.4 and 43.9.
+  assert.ok(shareOf(shown) >= 0.40, `total share fell to ${(100 * shareOf(shown)).toFixed(1)}%`);
+  for (const [precipitationName, floor] of [['dry', 0.5], ['rain', 0.27], ['snow', 0.4]]) {
     const share = shareOf(inClass(precipitationName));
     assert.ok(
       share >= floor,
@@ -288,9 +292,14 @@ test('T3 sneakers reach the shown trio on mild dry days', () => {
 
 test('T4 the answer keeps changing as the temperature does', () => {
   // A2/B2: over a 45 C span the engine gave 5 different answers. Measured here on main
-  // f5d28e2: 6, and 5 after G1, because the reordering merged two neighbouring bands. G2
-  // owns this counter and takes it to 8 or more by putting real steps in the thermal
-  // ladder; G1 only promises not to fall below what it leaves behind.
+  // f5d28e2: 6, and 5 after G1, because the reordering merged two neighbouring bands. G2's
+  // thermal ladder leaves 6, and they are real steps rather than neighbours that happen to
+  // differ: the answer changes at 5, 12, 18, 25 and 28 C. Six is what this vocabulary reaches
+  // on a calm dry day, because the answer can only change where the derived requirement set
+  // changes, and that set comes from a request schema shipped binaries read strictly: three
+  // thermal rungs and three breathability rungs. The Goal asked for 8. The next one would be
+  // A3 section 3's 18-23 band, which needs a new requirement reason in packages/contracts
+  // plus its copy and a Worker deploy, recorded as an owner decision outside this Goal.
   const answers = new Set();
   for (let temperature = -10; temperature <= 35; temperature += 1) {
     const cell = composeCell(temperature, precipitations.dry, 2, 'womens');
@@ -300,22 +309,72 @@ test('T4 the answer keeps changing as the temperature does', () => {
       : 'unavailable');
   }
 
-  assert.ok(answers.size >= 5, `only ${answers.size} distinct answers over -10..35 C`);
+  assert.ok(answers.size >= 6, `only ${answers.size} distinct answers over -10..35 C`);
+});
+
+test('T6 a freezing day is never answered without a coat', () => {
+  // A2/B1: not one of the 1512 shown outfits carried a parka, a coat or an insulated jacket,
+  // because thermal sufficiency added every body garment's warmth together and a cardigan
+  // over jeans reached "high". The ladder reads the stack instead, and its top rung names a
+  // garment: the outer layer itself has to carry `high`. The rung is the one the outside
+  // guidance opens at freezing (A3 section 3: raksul writes a coat from 0 C down, Fit The
+  // Forecast three mandatory layers from -6 C down), and the engine derives it below 5 C, so
+  // the -5 and 0 C cells of every precipitation class are asserted together: 24 cells, 432
+  // shown outfits, measured 0 of 432 before G2 and 432 of 432 after.
+  const freezing = shownOutfits().filter(({ cell }) => cell.temperature <= 0);
+  assert.equal(freezing.length, 432);
+
+  for (const { cell, outfit } of freezing) {
+    assert.equal(
+      outfit.outerLayer?.garment.properties.thermalLevel ?? null,
+      'high',
+      `${cell.name} showed ${garmentTypeIds(outfit).join('+')} on a freezing day`,
+    );
+  }
+});
+
+test('T7 an 8 C day composes no sandal at all', () => {
+  // A2's fifth-worst outfit: `knit_dress + sandals` at 8 C, where the sandal scored 0 and was
+  // still eligible, because the thermal requirement was answered by the body alone and one
+  // garment covers the feet with nothing layered over it. The ladder asks the feet for one
+  // rung below the body's, so a shoe with no warmth in it cannot answer a day that asks for
+  // any. 8 C is not one of the grid's temperatures, so this is its own cell, read at both
+  // clothing preferences and all five day variants: the whole offered pool, not just the
+  // shown three.
+  for (const clothingPreference of clothingPreferences) {
+    for (let dayVariant = 0; dayVariant < 5; dayVariant += 1) {
+      const { composition } = composeCell(
+        8, precipitations.dry, 2, clothingPreference, dayVariant,
+      );
+      assert.equal(composition.status, 'composed');
+      const sandals = composition.outfits.filter((outfit) =>
+        outfit.footwear.garment.garmentTypeId === 'sandals');
+      assert.equal(
+        sandals.length,
+        0,
+        `8 C ${clothingPreference} variant ${dayVariant} offered ${sandals.length} sandals`,
+      );
+    }
+  }
 });
 
 test('T5 archetype labels contradict the day no more often than they already do', () => {
   // A2/B8's definition: `snow_day` on a day that is not snowing, `rain_ready` on a dry or a
   // snowy day, `light_and_airy` at or below 10 C. A2 counted 430 of 1512; main f5d28e2 is
-  // at 232 after the snow-day ordering fix, and G1 leaves 228. G3 owns this counter and
-  // drives it to 0 by giving the archetype predicates the day; the ceiling here only stops
-  // a reordering from making the labels worse on the way.
+  // at 232 after the snow-day ordering fix, G1 left 228 and G2 leaves 240. The 12 it added
+  // are all `rain_ready` on the dry -5 and 0 C cells: the ladder's top rung asks those days
+  // for a coat, the casual bucket's only high-thermal outer layers are the parka and the
+  // insulated jacket, both water protective, and the predicate reads the garment without the
+  // day. G3 owns this counter and drives it to 0 by giving the archetype predicates the day,
+  // which removes this rise by construction; the ceiling here only stops a reordering from
+  // making the labels worse on the way.
   const contradictions = shownOutfits().filter(({ cell, outfit }) =>
     (outfit.archetypeId === 'snow_day' && cell.precipitationName !== 'snow') ||
     (outfit.archetypeId === 'rain_ready' && cell.precipitationName !== 'rain') ||
     (outfit.archetypeId === 'light_and_airy' && cell.temperature <= 10));
 
   assert.ok(
-    contradictions.length <= 228,
+    contradictions.length <= 240,
     `${contradictions.length} shown outfits carry a label the day contradicts`,
   );
 });

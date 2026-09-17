@@ -24,6 +24,7 @@ import {
   type ClothingRequirementReasonCode,
   type ClothingRequirements,
   type ExtremityCoverRequirement,
+  type ThermalRequirement,
 } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 
 export const outfitSlots = Object.freeze([
@@ -519,16 +520,35 @@ function effectiveThermalLevel(strength: number): ThermalLevel {
         : 'high';
 }
 
+function thermalStrengthOf(result: EligibleGarmentResult | null): number {
+  const level = result?.garment.properties.thermalLevel ?? null;
+  return level === null ? 0 : thermalStrength[level];
+}
+
+/**
+ * The ladder the day's thermal requirement is read against: the layer against the skin, the
+ * mid layer and the outer layer. The bottom is warmth the outfit carries, which is why the
+ * over-protection penalty still counts it, but it is not a rung of the stack that keeps the
+ * day out. Reading the plain sum let a cardigan over jeans reach "high", so the grid of
+ * 2026-09-17 answered -5 C without a coat in all 1512 of its outfits and gave the same
+ * answer at -10 C as at +3 C (A2/B1 and A2/B2).
+ */
+function thermalLadderStrength(draft: DraftComposition): number {
+  const core = draft.body.kind === 'separates'
+    ? draft.body.primaryTop
+    : draft.body.onePiece;
+  return thermalStrengthOf(core) +
+    thermalStrengthOf(draft.midLayer) +
+    thermalStrengthOf(draft.outerLayer);
+}
+
 function aggregateProperties(
   draft: DraftComposition,
 ): OutfitAggregateProperties {
   const body = bodyResults(draft);
   const coreAndMid = coreAndMidResults(draft);
   const bodyStrength = body.reduce(
-    (sum, { garment }) =>
-      sum + (garment.properties.thermalLevel === null
-        ? 0
-        : thermalStrength[garment.properties.thermalLevel]),
+    (sum, result) => sum + thermalStrengthOf(result),
     0,
   );
 
@@ -562,6 +582,38 @@ function aggregateProperties(
 
 function percentage(actual: number, required: number): number {
   return Math.round(Math.min(actual / required, 1) * 100);
+}
+
+/**
+ * The top rung of the ladder names a garment, not an amount. "High" is what the outside
+ * guidance calls a winter coat (A3 section 3: raksul writes a coat from 0 C down, Fit The
+ * Forecast three mandatory layers from -6 C down), and a stack of knitwear under nothing is
+ * not that coat, however much warmth it adds up to. The two lower rungs are answered by any
+ * arrangement, so this reads 100 for them.
+ */
+function shellPercentage(
+  minimum: ThermalRequirement['minimum'],
+  outerLayer: EligibleGarmentResult | null,
+): number {
+  return minimum === 'high'
+    ? percentage(thermalStrengthOf(outerLayer), thermalStrength.high)
+    : 100;
+}
+
+/**
+ * One garment covers the feet and nothing layers over it, so a shoe with no warmth in it is
+ * a hole in the day's insulation that no coat closes: A2's fifth-worst outfit is a sandal on
+ * an 8 C day. The feet are asked for one rung less than the body, which leaves a sneaker
+ * answering a 10 C day and a boot answering a freezing one.
+ */
+function footwearThermalPercentage(
+  required: number,
+  footwear: ThermalLevel | null,
+): number {
+  const target = required - 1;
+  return target <= 0
+    ? 100
+    : percentage(footwear === null ? 0 : thermalStrength[footwear], target);
 }
 
 function evaluationStatus(
@@ -607,7 +659,11 @@ function evaluateRequirement(
   switch (requirement.kind) {
     case 'thermal': {
       const required = thermalStrength[requirement.minimum];
-      contribution = percentage(aggregates.thermal.bodyStrength, required);
+      contribution = Math.min(
+        percentage(thermalLadderStrength(draft), required),
+        shellPercentage(requirement.minimum, draft.outerLayer),
+        footwearThermalPercentage(required, aggregates.thermal.footwear),
+      );
       observedContribution = contribution;
       suppliedByCandidateKeys = Object.freeze(
         body
@@ -746,6 +802,7 @@ function evaluateRequirement(
 
 function thermalOverProtectionPenalty(
   requirements: BodyClothingRequirements,
+  draft: DraftComposition,
   bodyStrength: number,
 ): number {
   const requirement = requirements.requirements.find(
@@ -756,7 +813,19 @@ function thermalOverProtectionPenalty(
     return bodyStrength <= 1 ? 0 : bodyStrength === 2 ? 10 : 20;
   }
 
-  return Math.max(bodyStrength - thermalStrength[requirement.minimum], 0) * 5;
+  // Warmth the day did not ask for, counted in the two places it can sit. The stack over the
+  // torso is what the day's rung names, and the top rung charges nothing for it: a day cold
+  // enough to name a coat is dressed by layering, and charging that overshoot is what kept
+  // the coat out of the offer, where at -5 C a parka took 15 points for being a parka and
+  // finished behind the same outfit without one (A2/K2). The bottom is named by no rung, so
+  // it keeps the one layer legs are dressed in whatever the day, and thermal legwear on top
+  // of that is charged at every rung.
+  const ladder = thermalLadderStrength(draft);
+  const stack = requirement.minimum === 'high'
+    ? 0
+    : Math.max(ladder - thermalStrength[requirement.minimum], 0);
+  const bottom = Math.max(bodyStrength - ladder - thermalStrength.light, 0);
+  return (stack + bottom) * 5;
 }
 
 /**
@@ -882,6 +951,7 @@ function evaluateDraft(
     : Math.round(weightedTotal / totalWeight);
   const thermalOverProtection = thermalOverProtectionPenalty(
     requirements,
+    draft,
     aggregates.thermal.bodyStrength,
   );
   const unnecessaryWaterProtection = unnecessaryWaterProtectionPenalty(

@@ -303,12 +303,15 @@ test('every deterministic recommendation round-trips through the stored mapper',
 // offer carries these signatures without the alternate-core layering rule choosing them.
 test('rebuilds an offered option with its mid layer instead of the simpler arrangement', () => {
   const request = createAiRecommendationRequest(input({ temperatureCelsius: 4 }));
+  // Both arrangements are re-read from the offer whenever the offer order changes, and they
+  // now carry the coat the thermal ladder's top rung asks 4 degrees for. What they have to
+  // keep is the shape: a mid layer whose bare arrangement is valid too, so rebuilding from
+  // the garment list alone could drop it or promote it to the primary top.
   const signatures = [
-    'primary_top:blouse:base bottom:long_skirt:standalone mid_layer:cardigan:mid footwear:ankle_boots:null',
-    // The second arrangement is re-read from the offer whenever the offer order changes.
-    // What it has to keep is the shape: a mid layer whose bare arrangement is valid too, so
-    // rebuilding from the garment list alone could drop it or promote it to the primary top.
-    'primary_top:sweatshirt:standalone bottom:long_skirt:standalone mid_layer:overshirt:mid footwear:ankle_boots:null',
+    'primary_top:turtleneck:base bottom:long_skirt:standalone mid_layer:cardigan:mid' +
+      ' outer_layer:coat:outer footwear:ankle_boots:null',
+    'primary_top:overshirt:standalone bottom:jeans:standalone mid_layer:sweater:mid' +
+      ' outer_layer:insulated_jacket:outer footwear:ankle_boots:null',
   ];
 
   for (const signature of signatures) {
