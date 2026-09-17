@@ -45,7 +45,9 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   routed client, the third generation mode with SQLite migration 13, the two AI badges and
   the local Swift Foundation Models module are implemented and bound, so every Apple
   Intelligence eligible iPhone takes the on-device tier first with a 6-second budget, then
-  the Worker, then the deterministic fallback. On-device latency stays unmeasured: the
+  the Worker, then the deterministic fallback. The on-device badge names Apple Intelligence
+  as a referential word mark, the other says only AI, and the recommendation detail carries
+  one plain generation source sentence in all three modes. On-device latency stays unmeasured: the
   only observation is Simulator inference running on the Mac host, so the ADR's
   measurement table still reads not yet measured; builds 6 and 7 carry the module.
 - **Notifications:** on-device local notifications only, in two kinds behind one OS
