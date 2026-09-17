@@ -60,7 +60,7 @@ const serializedInput = '{"clothingPreference":"womens","formalityOrder":["forma
   + '{"slot":"primary_top","garmentTypeId":"blouse"},'
   + '{"slot":"bottom","garmentTypeId":"trousers"},'
   + '{"slot":"footwear","garmentTypeId":"closed_shoes"}],'
-  + '"eligibleArchetypeIds":["smart_casual","office_ready","light_and_airy"]},'
+  + '"eligibleArchetypeIds":["smart_casual","light_and_airy"]},'
   + '{"optionId":"opt-2","formality":"casual","garments":['
   + '{"slot":"one_piece","garmentTypeId":"dress"},'
   + '{"slot":"outer_layer","garmentTypeId":"coat"},'
@@ -143,6 +143,40 @@ test('a weekday withholds weekend_relaxed from the projection and from the gate'
   assert.equal(meetsArchetypePrecondition('weekend_relaxed', casual, 'weekend'), true);
   assert.equal(meetsArchetypePrecondition('weekend_relaxed', casual), true);
   assert.equal(meetsArchetypePrecondition('everyday_easy', casual, 'weekday'), true);
+});
+
+test('office_ready admits smart only for callers that send a day kind', () => {
+  const parsed = aiRecommendV1RequestSchema.parse(fixtureRequest);
+  const smart = parsed.options[0];
+  const formal = { ...smart, formality: 'formal' };
+
+  assert.equal(meetsArchetypePrecondition('office_ready', smart), false);
+  assert.equal(meetsArchetypePrecondition('office_ready', smart, 'weekday'), true);
+  assert.equal(meetsArchetypePrecondition('office_ready', smart, 'weekend'), true);
+  assert.equal(meetsArchetypePrecondition('office_ready', formal), true);
+  assert.equal(
+    aiModelInputFromRequest({ ...parsed, dayKind: 'weekday' })
+      .options[0].eligibleArchetypeIds.includes('office_ready'),
+    true,
+  );
+});
+
+test('on_the_move admits any casual outfit only for callers that send a day kind', () => {
+  const parsed = aiRecommendV1RequestSchema.parse(fixtureRequest);
+  const smart = parsed.options[0];
+  const casual = parsed.options[1];
+
+  // Without a day kind the two widened archetypes stay where builds 8 and 9 left them:
+  // office_ready formal only, on_the_move sneakers only, and this option wears boots.
+  assert.equal(meetsArchetypePrecondition('office_ready', smart), false);
+  assert.equal(meetsArchetypePrecondition('on_the_move', casual), false);
+  assert.equal(meetsArchetypePrecondition('office_ready', smart, 'weekday'), true);
+  assert.equal(meetsArchetypePrecondition('on_the_move', casual, 'weekday'), true);
+  assert.equal(
+    aiModelInputFromRequest({ ...parsed, dayKind: 'weekday' })
+      .options[1].eligibleArchetypeIds.includes('on_the_move'),
+    true,
+  );
 });
 
 test('an absent day kind is left out of the projection', () => {

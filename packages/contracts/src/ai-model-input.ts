@@ -72,9 +72,10 @@ export function meetsArchetypePrecondition(
     case 'smart_casual':
       return option.formality === 'smart' || option.formality === 'formal';
     case 'office_ready':
-      // A plain smart outfit would otherwise hold only two labels, so three plain smart
-      // picks could never be labelled distinctly.
-      return option.formality === 'smart' || option.formality === 'formal';
+      // Builds 8 and 9 accept this label only for formal outfits and send no dayKind.
+      // Its presence identifies a newer caller whose matching gate also accepts smart.
+      return option.formality === 'formal'
+        || (option.formality === 'smart' && dayKind !== undefined);
     case 'weekend_relaxed':
       // A weekday is never relaxed in the weekend sense. An absent dayKind leaves the
       // archetype eligible, so a caller that sends none keeps the day-blind behaviour.
@@ -92,7 +93,11 @@ export function meetsArchetypePrecondition(
     case 'light_and_airy':
       return !option.traits.hasOuterLayer && option.traits.breathabilityHigh;
     case 'on_the_move':
-      return garmentType(option, 'footwear') === 'sneakers';
+      // Builds 8 and 9 accept this label only for sneakers and send no dayKind. Its
+      // presence identifies a newer caller whose matching gate also accepts any casual
+      // outfit, which a hot dry day needs: its pool is casual in sandals throughout.
+      return garmentType(option, 'footwear') === 'sneakers'
+        || (option.formality === 'casual' && dayKind !== undefined);
     case 'in_between':
       return option.traits.hasMidLayer && !option.traits.hasOuterLayer;
   }
