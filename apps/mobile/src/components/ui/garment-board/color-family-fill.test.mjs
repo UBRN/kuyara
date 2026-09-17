@@ -2,7 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { colorFamilies } from '../../../features/catalog/domain/garment-taxonomy.ts';
-import { darkSemanticColors, lightSemanticColors } from '../../../theme/theme.ts';
+import { blend } from '../../../theme/color-blend.ts';
+import {
+  darkSemanticColors,
+  darkTheme,
+  lightSemanticColors,
+  lightTheme,
+} from '../../../theme/theme.ts';
 import { colorFamilyFills } from './color-family-fill.ts';
 
 // Same sRGB linearization and contrast calculation as theme.test.mjs.
@@ -18,6 +24,40 @@ function contrast(a, b) {
   const values = [luminance(a), luminance(b)];
   return (Math.max(...values) + 0.05) / (Math.min(...values) + 0.05);
 }
+
+test('garment board fills step off every Today stage without weakening the outline', (context) => {
+  const stages = [
+    ...Object.entries(lightTheme.atmosphere).map(([state, stage]) => ({
+      appearance: 'light',
+      state,
+      stage,
+      stroke: lightTheme.colors.textPrimary,
+    })),
+    {
+      appearance: 'dark',
+      state: 'neutral',
+      stage: darkTheme.atmosphere.neutral,
+      stroke: darkTheme.colors.textPrimary,
+    },
+  ];
+
+  for (const { appearance, state, stage, stroke } of stages) {
+    const fill = blend(stage, stroke, 0.13);
+    const fillToStage = contrast(fill, stage);
+    const strokeToFill = contrast(stroke, fill);
+
+    assert.ok(fillToStage >= 1.2, `${appearance} ${state} fill/stage ${fillToStage.toFixed(3)}:1`);
+    assert.ok(strokeToFill >= 3, `${appearance} ${state} stroke/fill ${strokeToFill.toFixed(3)}:1`);
+    context.diagnostic([
+      appearance,
+      state,
+      stage,
+      fill,
+      fillToStage.toFixed(3),
+      strokeToFill.toFixed(3),
+    ].join(' | '));
+  }
+});
 
 for (const [appearance, colors] of Object.entries({ light: lightSemanticColors, dark: darkSemanticColors })) {
   const fills = colorFamilyFills[appearance];
