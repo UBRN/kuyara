@@ -759,17 +759,15 @@ function thermalOverProtectionPenalty(
   return Math.max(bodyStrength - thermalStrength[requirement.minimum], 0) * 5;
 }
 
+/**
+ * Water protection the day never asked for costs a little, on every day. The penalty used to
+ * apply only once the day was warm enough to ask for breathability, so a 12 °C dry day, which
+ * asks for neither, offered three outfits in rain jackets.
+ */
 function unnecessaryWaterProtectionPenalty(
   requirements: BodyClothingRequirements,
   aggregates: OutfitAggregateProperties,
 ): number {
-  const hasBreathability = requirements.requirements.some(
-    ({ kind }) => kind === 'breathability',
-  );
-  if (!hasBreathability) {
-    return 0;
-  }
-
   const hasBodyWater = requirements.requirements.some(
     (requirement) =>
       requirement.kind === 'water_protection' && requirement.target === 'body',

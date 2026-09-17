@@ -435,9 +435,15 @@ test('outfit over-insulation penalty is bounded and does not count footwear warm
   assert.equal(result.outfit.aggregates.thermal.bodyStrength, 3);
   assert.equal(result.outfit.aggregates.thermal.footwear, 'high');
   assert.equal(result.outfit.penaltyBreakdown.thermalOverProtection, 20);
-  assert.equal(result.outfit.penaltyPoints, 20);
-  assert.equal(result.outfit.score, 30);
-  assert.deepEqual(result.outfit.reasonCodes, ['thermal_over_protection']);
+  // The only high-warmth boot in the catalog is also waterproof, and a day that asked for
+  // no water protection now charges that on its own line, so the total carries both.
+  assert.equal(result.outfit.penaltyBreakdown.unnecessaryWaterProtection, 10);
+  assert.equal(result.outfit.penaltyPoints, 30);
+  assert.equal(result.outfit.score, 20);
+  assert.deepEqual(result.outfit.reasonCodes, [
+    'thermal_over_protection',
+    'unnecessary_water_protection',
+  ]);
   assert.equal(new Set(outfitCompositionReasonCodes).size,
     outfitCompositionReasonCodes.length);
   assert.equal(new Set(outfitCompositionFailureCodes).size,
@@ -751,6 +757,28 @@ test('the offered options keep every composable formality and more than one shoe
     offeredAt(24).map(({ footwear }) => footwear.garment.garmentTypeId),
   );
   assert.equal(shoes.size >= 2, true, `a warm day offers only ${[...shoes].join(', ')}`);
+});
+
+// The bug: the unnecessary-water-protection penalty applied only once the day asked for
+// breathability, so a 12 °C dry day, which asks for neither water protection nor
+// breathability, composed half its offer in rain jackets and a casual dress style presented
+// three of them. The three a dress style presents are the first three of its formality.
+test('a cool dry day does not present its casual three in rain jackets', () => {
+  for (const preference of ['womens', 'mens']) {
+    const casual = offeredForWeather(clearDay(12), {}, preference)
+      .filter(({ formality }) => formality === 'casual')
+      .slice(0, 3);
+    assert.equal(casual.length, 3, preference);
+    const dry = casual.filter(
+      ({ outerLayer }) =>
+        outerLayer === null || outerLayer.garment.properties.waterProtection === 'none',
+    );
+    assert.equal(
+      dry.length >= 2,
+      true,
+      `${preference}: ${casual.map(({ outerLayer }) => outerLayer?.garment.garmentTypeId ?? 'none').join(', ')}`,
+    );
+  }
 });
 
 // Part 1 of Goal B: accessories are attached to a finished outfit, never composed into it.
