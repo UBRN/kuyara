@@ -19,6 +19,7 @@ import type { LocalProfile } from '@/features/profile/domain/profile';
 import { RecommendationApplicationContext } from '@/features/recommendation/application/recommendation-application-context';
 import type { RecommendationApplicationState } from '@/features/recommendation/application/recommendation-application-controller';
 import { todayActiveLocation, todayOutfitId, todayScreenState } from '@/features/today/__tests__/fixtures';
+import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { WardrobeApplicationContext } from '@/features/wardrobe/application/wardrobe-application-context';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import {
@@ -125,6 +126,15 @@ jest.mock('@/features/analytics/data/observe-performance-telemetry', () => ({
 }));
 
 const todayRecommendation = todayScreenState.snapshot.recommendation;
+
+// The garment the first offered outfit leads with, read from the presentation the detail
+// screen renders rather than written down, so a change in the engine's offer order moves the
+// caption lookups and the Closet entry they create with it.
+const firstDetailGarmentTypeId = (() => {
+  const presentation = createTodayPresentation(todayScreenState, 'en', false, Date.now());
+  if (presentation.kind !== 'loaded') throw new Error('Expected loaded Today presentation.');
+  return presentation.suggestions[0].pieces[0].garmentTypeId;
+})();
 if (todayRecommendation.status !== 'recommended') {
   throw new Error('Expected the Today fixture to contain a recommendation.');
 }
@@ -206,7 +216,7 @@ function wardrobeValue(overrides: Partial<Record<string, unknown>> = {}) {
 function wardrobeItem(overrides: Partial<WardrobeItem> = {}): WardrobeItem {
   return {
     id: 'item-one', localProfileId: 'profile-one', name: null, category: 'outerwear',
-    entryState: 'owned', garmentTypeId: 'jumpsuit', color: null, colorFamily: null,
+    entryState: 'owned', garmentTypeId: firstDetailGarmentTypeId, color: null, colorFamily: null,
     thermalLevelOverride: null, waterProtectionOverride: null, windProtectionOverride: null,
     breathabilityOverride: null, armCoverageOverride: null, legCoverageOverride: null,
     tractionSuitabilityOverride: null, photoRelativePath: null,
@@ -998,15 +1008,16 @@ test('setting ownership from outfit detail creates the Closet entry with entry_p
     </Providers>,
   );
 
-  await fireEvent.press(result.getByTestId('outfit-detail-caption-jumpsuit'));
+  await fireEvent.press(result.getByTestId(`outfit-detail-caption-${firstDetailGarmentTypeId}`));
   await fireEvent.press(result.getByRole('button', { name: messages.en.today.ownershipOwnedAction }));
 
-  expect(wardrobe.createItem).toHaveBeenCalledWith({ garmentTypeId: 'jumpsuit', entryState: 'owned' });
+  expect(wardrobe.createItem)
+    .toHaveBeenCalledWith({ garmentTypeId: firstDetailGarmentTypeId, entryState: 'owned' });
   const createdCapture = productAnalytics.analytics.captures.find((c) => c.name === 'closet_item_created');
   expect(createdCapture?.properties).toEqual({
     schema_version: 3,
     state: 'owned',
-    garment_type_id: 'jumpsuit',
+    garment_type_id: firstDetailGarmentTypeId,
     has_photo: false,
     entry_point: 'outfit_detail',
     dress_style: 'smart',
@@ -1037,7 +1048,7 @@ test('setting ownership from outfit detail updates the existing Closet entry', a
     </Providers>,
   );
 
-  await fireEvent.press(result.getByTestId('outfit-detail-caption-jumpsuit'));
+  await fireEvent.press(result.getByTestId(`outfit-detail-caption-${firstDetailGarmentTypeId}`));
   await fireEvent.press(result.getByRole('button', { name: messages.en.today.ownershipOwnedAction }));
 
   expect(wardrobe.updateItem).toHaveBeenCalledWith('item-one', { entryState: 'owned' });
@@ -1046,7 +1057,7 @@ test('setting ownership from outfit detail updates the existing Closet entry', a
     properties: {
       schema_version: 3,
       fields_changed: ['state'],
-      garment_type_id: 'jumpsuit',
+      garment_type_id: firstDetailGarmentTypeId,
       entry_point: 'outfit_detail',
     },
     options: undefined,

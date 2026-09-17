@@ -1049,13 +1049,27 @@ type OutfitSortKey = Readonly<{
   outfit: OutfitCandidate;
   layers: number;
   slotScores: readonly number[];
+  digest: number;
 }>;
+
+/**
+ * A stable 32-bit FNV-1a digest of a composition key, read once per outfit like the rest of
+ * the sort key rather than once per comparison.
+ */
+function compositionKeyDigest(key: string): number {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < key.length; index += 1) {
+    hash = Math.imul(hash ^ key.charCodeAt(index), 0x01000193);
+  }
+  return hash >>> 0;
+}
 
 function outfitSortKey(outfit: OutfitCandidate): OutfitSortKey {
   return {
     outfit,
     layers: optionalLayerCount(outfit),
     slotScores: slotScoreVector(outfit),
+    digest: compositionKeyDigest(outfit.compositionKey),
   };
 }
 
@@ -1082,7 +1096,16 @@ function compareOutfitSortKeys(left: OutfitSortKey, right: OutfitSortKey): numbe
     }
   }
 
-  return compareStrings(left.outfit.compositionKey, right.outfit.compositionKey);
+  // Last resort, and the one place where nothing about the day separates two arrangements.
+  // Comparing the keys themselves made the alphabet decide: `catalog:loafers` beat
+  // `catalog:sneakers` in every arrangement they both fit, so one shoe led every body core
+  // and sneakers reached 6 of the 1512 shown outfits the grid measures. The digest keeps the
+  // order deterministic and total while taking the garment's name out of it, and the key
+  // itself settles the rare collision so the comparator stays a strict weak ordering.
+  const digestOrder = left.digest - right.digest;
+  return digestOrder !== 0
+    ? digestOrder
+    : compareStrings(left.outfit.compositionKey, right.outfit.compositionKey);
 }
 
 function sortedOutfits(outfits: readonly OutfitCandidate[]): OutfitCandidate[] {
@@ -1611,19 +1634,45 @@ function groupedInOrder<Value>(
   return [...groups.values()];
 }
 
+/** The layers an arrangement wears, so two body cores can be told to lead with different ones. */
+function layerKey(outfit: OutfitCandidate): string {
+  return `${outfit.midLayer?.garment.candidateKey ?? '-'}` +
+    `|${outfit.outerLayer?.garment.candidateKey ?? '-'}`;
+}
+
 /**
- * Every second body core leads with its best layered arrangement. A group whose head already
- * layers, or that composed none, is left alone, and the rest of a group keeps its order.
+ * Every second body core leads with its best layered arrangement. A group that composed none
+ * is left alone, and the rest of a group keeps its order.
+ *
+ * Which of the best-scoring layered arrangements leads is a tie-break. The rule used to take
+ * the first one in score order, so body core after body core led with the same jacket and the
+ * 2026-09-17 grid showed three identical outer layers in 380 of its 396 layered trios. An
+ * arrangement wearing a layer no earlier group led with is taken instead, but only from among
+ * those that share the group's best layered score: promoting a lower-scoring one pulled a
+ * water-resistant coat onto dry days and cost more in wrong archetype labels than it bought
+ * in variety, so the day's own judgement of the layer still decides what is offered.
  */
 function layeredHeadOnAlternateGroups(
   groups: readonly (readonly OutfitCandidate[])[],
 ): readonly (readonly OutfitCandidate[])[] {
+  const led = new Set<string>();
   return groups.map((group, index) => {
-    if (index % 2 === 0) return group;
-    const layered = group.findIndex((outfit) => optionalLayerCount(outfit) > 0);
-    return layered <= 0
+    const best = group.findIndex((outfit) => optionalLayerCount(outfit) > 0);
+    if (best < 0) return group;
+    if (index % 2 === 0) {
+      if (best === 0) led.add(layerKey(group[0]!));
+      return group;
+    }
+
+    const unseen = group.findIndex((outfit) =>
+      optionalLayerCount(outfit) > 0 &&
+      outfit.score === group[best]!.score &&
+      !led.has(layerKey(outfit)));
+    const head = unseen >= 0 ? unseen : best;
+    led.add(layerKey(group[head]!));
+    return head === 0
       ? group
-      : [group[layered]!, ...group.slice(0, layered), ...group.slice(layered + 1)];
+      : [group[head]!, ...group.slice(0, head), ...group.slice(head + 1)];
   });
 }
 

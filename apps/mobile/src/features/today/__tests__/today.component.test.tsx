@@ -28,7 +28,10 @@ import {
 } from '@/features/weather/application/weather-application-context';
 import type { ActiveLocation } from '@/features/weather/domain/weather';
 import { WardrobeApplicationContext } from '@/features/wardrobe/application/wardrobe-application-context';
-import { resolveGarmentOwnership } from '@/features/wardrobe/domain/garment-type-ownership';
+import {
+  resolveGarmentOwnership,
+  type GarmentOwnershipState,
+} from '@/features/wardrobe/domain/garment-type-ownership';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 import {
@@ -560,11 +563,18 @@ test.each([1.5, 1.6, 3])('font scale %s keeps weather clear of garments and stac
 
 test('outfit detail renders the detail board, in-place captions, requirement rows, ownership states, and weather recap', async () => {
   const presentation = loadedPresentation();
-  const ownershipByGarmentType: Record<string, 'owned' | 'wanted'> = {
-    jumpsuit: 'owned' as const,
-    rain_jacket: 'wanted' as const,
-    rain_boots: 'owned' as const,
-  };
+  // Which garments the outfit wears follows the engine's offer order, so both the piece the
+  // board lookups name and the states the captions show are read from the presentation
+  // instead of written down. Alternating keeps an owned and a wanted caption on any offer.
+  const [firstPiece] = presentation.suggestions[0].pieces;
+  const ownershipByGarmentType: Record<string, GarmentOwnershipState> = Object.fromEntries(
+    presentation.suggestions[0].pieces.map(({ garmentTypeId }, index) => [
+      garmentTypeId,
+      index % 2 === 0 ? 'owned' : 'wanted',
+    ]),
+  );
+  const ownedPieceCount = presentation.suggestions[0].pieces
+    .filter(({ garmentTypeId }) => ownershipByGarmentType[garmentTypeId] === 'owned').length;
   const result = await render(providers(
     <OutfitDetailScreen
       backLabel={messages.en.common.back}
@@ -596,12 +606,16 @@ test('outfit detail renders the detail board, in-place captions, requirement row
   const plateHeightBeforeCaptionMeasure = StyleSheet.flatten(plate.props.style).height;
   const firstBox = layoutGarmentBoard(
     presentation.suggestions[0].boardPieces, 358, 'detail',
-  ).boxes.find(({ garmentTypeId }) => garmentTypeId === 'jumpsuit');
+  ).boxes.find(({ garmentTypeId }) => garmentTypeId === firstPiece.garmentTypeId);
   expect(firstBox).toBeDefined();
   const firstCaptionTop = createDetailCaptionLayout(firstBox!, 358).top;
-  await fireEvent(result.getByTestId('outfit-detail-caption-content-jumpsuit'), 'layout', {
-    nativeEvent: { layout: { width: 120, height: 200, x: 0, y: 0 } },
-  });
+  await fireEvent(
+    result.getByTestId(`outfit-detail-caption-content-${firstPiece.garmentTypeId}`),
+    'layout',
+    {
+      nativeEvent: { layout: { width: 120, height: 200, x: 0, y: 0 } },
+    },
+  );
   expect(StyleSheet.flatten(result.getByTestId('outfit-detail-board-plate').props.style).height)
     .toBeGreaterThanOrEqual(firstCaptionTop + 200);
   expect(plateHeightBeforeCaptionMeasure).toBeGreaterThan(
@@ -629,7 +643,10 @@ test('outfit detail renders the detail board, in-place captions, requirement row
     expect(within(caption).getByText(stateLabel)).toBeOnTheScreen();
   }
   expect(result.getByTestId('outfit-detail-ownership-summary')).toHaveTextContent(
-    messages.en.today.ownershipSummary({ owned: 2, total: presentation.suggestions[0].pieces.length }),
+    messages.en.today.ownershipSummary({
+      owned: ownedPieceCount,
+      total: presentation.suggestions[0].pieces.length,
+    }),
   );
   const weatherRecap = within(result.getByTestId('outfit-detail-weather-recap'));
   expect(weatherRecap.getByText('20°')).toBeOnTheScreen();
@@ -715,12 +732,20 @@ describe.each(['en', 'tr'] as const)('%s outfit detail ownership', (language) =>
   test('shows matched states and changes them from each caption menu', async () => {
     const onSetOwnership = jest.fn();
     const presentation = loadedPresentation(language);
-    const ownershipByGarmentType = Object.fromEntries(
-      presentation.suggestions[0].pieces.map(({ garmentTypeId }) => [
-        garmentTypeId,
-        resolveGarmentOwnership(garmentTypeId, todayWardrobeItems).state,
-      ]),
-    );
+    const [ownedPiece, wantedPiece] = presentation.suggestions[0].pieces;
+    // The wardrobe fixture's own entries no longer meet the first offered outfit, so the two
+    // states are set on this outfit's first two pieces and the resolver still supplies the
+    // rest. Which garments those are follows the offer order and is never written down.
+    const ownershipByGarmentType: Record<string, GarmentOwnershipState> = {
+      ...Object.fromEntries(
+        presentation.suggestions[0].pieces.map(({ garmentTypeId }) => [
+          garmentTypeId,
+          resolveGarmentOwnership(garmentTypeId, todayWardrobeItems).state,
+        ]),
+      ),
+      [ownedPiece.garmentTypeId]: 'owned',
+      [wantedPiece.garmentTypeId]: 'wanted',
+    };
     const result = await render(providers(
       <OutfitDetailScreen
         backLabel={messages[language].common.back}
@@ -737,13 +762,13 @@ describe.each(['en', 'tr'] as const)('%s outfit detail ownership', (language) =>
 
     const ownedLabel = messages[language].today.ownershipOwnedLabel;
     const wantedLabel = messages[language].today.ownershipWantedLabel;
-    expect(result.getByTestId('outfit-detail-caption-jumpsuit')).toHaveProp(
+    expect(result.getByTestId(`outfit-detail-caption-${ownedPiece.garmentTypeId}`)).toHaveProp(
       'accessibilityLabel',
-      `${presentation.suggestions[0].pieces[0].item}, ${presentation.suggestions[0].pieces[0].slot}, ${ownedLabel}`,
+      `${ownedPiece.item}, ${ownedPiece.slot}, ${ownedLabel}`,
     );
-    expect(result.getByTestId('outfit-detail-caption-rain_jacket')).toHaveProp(
+    expect(result.getByTestId(`outfit-detail-caption-${wantedPiece.garmentTypeId}`)).toHaveProp(
       'accessibilityLabel',
-      `${presentation.suggestions[0].pieces[1].item}, ${presentation.suggestions[0].pieces[1].slot}, ${wantedLabel}`,
+      `${wantedPiece.item}, ${wantedPiece.slot}, ${wantedLabel}`,
     );
     for (const { garmentTypeId } of presentation.suggestions[0].pieces) {
       const caption = result.getByTestId(`outfit-detail-caption-${garmentTypeId}`);
@@ -758,22 +783,22 @@ describe.each(['en', 'tr'] as const)('%s outfit detail ownership', (language) =>
       }),
     );
 
-    const jumpsuitCaption = result.getByTestId('outfit-detail-caption-jumpsuit');
-    await fireEvent.press(jumpsuitCaption);
+    const ownedCaption = result.getByTestId(`outfit-detail-caption-${ownedPiece.garmentTypeId}`);
+    await fireEvent.press(ownedCaption);
     await fireEvent.press(result.getByRole('button', { name: messages[language].today.ownershipOwnedAction }));
     expect(onSetOwnership).not.toHaveBeenCalled();
-    await fireEvent.press(jumpsuitCaption);
+    await fireEvent.press(ownedCaption);
     await fireEvent.press(result.getByRole('button', { name: messages[language].today.ownershipWantedAction }));
-    expect(onSetOwnership).toHaveBeenCalledWith('jumpsuit', 'wanted');
+    expect(onSetOwnership).toHaveBeenCalledWith(ownedPiece.garmentTypeId, 'wanted');
 
     onSetOwnership.mockClear();
-    const rainJacketCaption = result.getByTestId('outfit-detail-caption-rain_jacket');
-    await fireEvent.press(rainJacketCaption);
+    const wantedCaption = result.getByTestId(`outfit-detail-caption-${wantedPiece.garmentTypeId}`);
+    await fireEvent.press(wantedCaption);
     await fireEvent.press(result.getByRole('button', { name: messages[language].today.ownershipWantedAction }));
     expect(onSetOwnership).not.toHaveBeenCalled();
-    await fireEvent.press(rainJacketCaption);
+    await fireEvent.press(wantedCaption);
     await fireEvent.press(result.getByRole('button', { name: messages[language].today.ownershipOwnedAction }));
-    expect(onSetOwnership).toHaveBeenCalledWith('rain_jacket', 'owned');
+    expect(onSetOwnership).toHaveBeenCalledWith(wantedPiece.garmentTypeId, 'owned');
   });
 });
 
@@ -1360,8 +1385,9 @@ describe.each(['en', 'tr'] as const)('%s outfit detail generation source', (lang
 // Goal 7 found the in-place captions breaking by character and overlapping the shoe at
 // the largest accessibility sizes. Above 1.5 they leave the plate as one list under it.
 describe.each(['en', 'tr'] as const)('%s outfit detail captions above 1.5', (language) => {
+  const [markedPiece] = loadedPresentation(language).suggestions[0].pieces;
   const ownershipByGarmentType: Record<string, 'owned' | 'wanted'> = {
-    jumpsuit: 'owned',
+    [markedPiece.garmentTypeId]: 'owned',
     rain_jacket: 'wanted',
   };
   const detail = async (fontScale: number) => {
@@ -1419,7 +1445,8 @@ describe.each(['en', 'tr'] as const)('%s outfit detail captions above 1.5', (lan
       expect(within(caption).getByText(slot)).toBeOnTheScreen();
     }
     expect(stacked.getByTestId(
-      'outfit-detail-ownership-marker-jumpsuit', { includeHiddenElements: true },
+      `outfit-detail-ownership-marker-${markedPiece.garmentTypeId}`,
+      { includeHiddenElements: true },
     )).toBeOnTheScreen();
     expect(StyleSheet.flatten(list.props.style)).toMatchObject({ gap: spacing.md });
   });
@@ -1446,10 +1473,9 @@ test.each([
   expect(result.getByText(messages.en.today.emphasis.recommended)).toBeOnTheScreen();
   expect(StyleSheet.flatten(result.getByTestId('outfit-detail-heading-group').props.style).flexDirection)
     .toBe(direction);
-  expect(result.getByTestId('outfit-detail-caption-jumpsuit')).toHaveProp(
-    'accessibilityRole',
-    'button',
-  );
+  expect(result.getByTestId(
+    `outfit-detail-caption-${loadedPresentation().suggestions[0].pieces[0].garmentTypeId}`,
+  )).toHaveProp('accessibilityRole', 'button');
 });
 
 describe.each(['en', 'tr'] as const)('%s narrated wait', (language: SupportedLanguage) => {

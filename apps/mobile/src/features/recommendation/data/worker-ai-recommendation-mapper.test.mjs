@@ -305,7 +305,10 @@ test('rebuilds an offered option with its mid layer instead of the simpler arran
   const request = createAiRecommendationRequest(input({ temperatureCelsius: 4 }));
   const signatures = [
     'primary_top:blouse:base bottom:long_skirt:standalone mid_layer:cardigan:mid footwear:ankle_boots:null',
-    'primary_top:blouse:base bottom:trousers:standalone mid_layer:cardigan:mid footwear:ankle_boots:null',
+    // The second arrangement is re-read from the offer whenever the offer order changes.
+    // What it has to keep is the shape: a mid layer whose bare arrangement is valid too, so
+    // rebuilding from the garment list alone could drop it or promote it to the primary top.
+    'primary_top:sweatshirt:standalone bottom:long_skirt:standalone mid_layer:overshirt:mid footwear:ankle_boots:null',
   ];
 
   for (const signature of signatures) {
@@ -318,7 +321,10 @@ test('rebuilds an offered option with its mid layer instead of the simpler arran
     });
 
     assert.equal(result.outfits[0].optionId, option.optionId);
-    assert.equal(result.outfits[0].midLayer.garment.garmentTypeId, 'cardigan');
+    assert.equal(
+      result.outfits[0].midLayer.garment.garmentTypeId,
+      option.garments.find(({ slot }) => slot === 'mid_layer').garmentTypeId,
+    );
     assert.equal(
       result.outfits[0].body.primaryTop.garment.garmentTypeId,
       option.garments[0].garmentTypeId,
