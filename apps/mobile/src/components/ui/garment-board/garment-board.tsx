@@ -15,11 +15,11 @@ import Svg, { G, Path } from 'react-native-svg';
 
 import type { GarmentTypeId, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
-import { blend } from '@/theme/color-blend';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { composeGarmentBoard, detailPreset, todayPreset } from './compose-garment-board';
+import { resolveGarmentRenderFills } from './garment-render-fills';
 import { resolveGarmentSilhouette } from './garment-silhouette-map';
 
 export { composeGarmentBoard } from './compose-garment-board';
@@ -78,6 +78,13 @@ type GarmentBoardProps = Readonly<{
   rise?: boolean;
   /** Law 7's moment: change it and an entering board's pieces settle once. */
   settle?: number;
+  /**
+   * The option this board draws. It is the only seed of the one coloured piece, so the
+   * same outfit is the same colour wherever it is drawn. Left out, the board stays
+   * neutral: that is how the alternates keep the screen to one answer.
+   */
+  optionId?: string;
+  /** The plane the board stands on. Left out, it stands on the page ground. */
   stageColor?: string;
   testID?: string;
 }>;
@@ -166,8 +173,8 @@ function TravellingPiece({
   progress,
   settleTravel,
   tintProgress,
-  fromStageColor,
-  toStageColor,
+  fromFill,
+  toFill,
   strokeColor,
 }: Readonly<{
   piece: ComposedPiece;
@@ -177,8 +184,8 @@ function TravellingPiece({
   progress: SharedValue<number>;
   settleTravel: SharedValue<number>;
   tintProgress: SharedValue<number>;
-  fromStageColor: string;
-  toStageColor: string;
+  fromFill: string;
+  toFill: string;
   strokeColor: string;
 }>) {
   const boxWidth = toBox.w * width;
@@ -210,7 +217,7 @@ function TravellingPiece({
         travelStyle,
       ]}>
       <PieceArtwork
-        fillColor={toStageColor}
+        fillColor={toFill}
         height={boxHeight}
         piece={piece}
         strokeColor={strokeColor}
@@ -218,7 +225,7 @@ function TravellingPiece({
       />
       <Animated.View style={[StyleSheet.absoluteFill, tintStyle]}>
         <PieceArtwork
-          fillColor={fromStageColor}
+          fillColor={fromFill}
           height={boxHeight}
           piece={piece}
           strokeColor={strokeColor}
@@ -242,15 +249,23 @@ export function GarmentBoard({
   entrance,
   rise = false,
   settle,
+  optionId = '',
   stageColor,
   testID,
 }: GarmentBoardProps) {
   const theme = useKuyaraTheme();
-  const { colors } = theme;
+  const { colors, colorScheme } = theme;
   const result = composePieces(pieces, preset);
-  const fillColor = stageColor === undefined
-    ? colors.stage
-    : blend(stageColor, colors.textPrimary, 0.13);
+  // A board carries no colour of its own: every fill is derived from the plane it stands
+  // on, and the board's own pieces never carry a recorded colour family.
+  const renderPieces = result.order.map(({ slot }) => ({ slot, colorFamily: null }));
+  const fills = resolveGarmentRenderFills({
+    optionId,
+    pieces: renderPieces,
+    plane: stageColor ?? colors.background,
+    colors,
+    colorScheme,
+  });
   const progress = useSharedValue(0);
   const tintProgress = useSharedValue(0);
   const settleTravel = useSharedValue(0);
@@ -381,7 +396,7 @@ export function GarmentBoard({
                 <Path
                   key={path.d}
                   d={path.d}
-                  fill={path.filled ? fillColor : 'none'}
+                  fill={path.filled ? fills.get(piece.slot)! : 'none'}
                   stroke={colors.textPrimary}
                   strokeWidth={1.9}
                   vectorEffect="non-scaling-stroke"
@@ -407,6 +422,15 @@ export function GarmentBoard({
     piece.slot,
     fromResult.boxes.get(piece)!,
   ]));
+  // The pieces fly from the plane they were drawn on, so the coloured piece keeps its
+  // colour across the move instead of arriving in it.
+  const fromFills = resolveGarmentRenderFills({
+    optionId,
+    pieces: renderPieces,
+    plane: entrance.fromStageColor,
+    colors,
+    colorScheme,
+  });
 
   return (
     <Animated.View
@@ -419,7 +443,7 @@ export function GarmentBoard({
       {result.order.map((piece) => (
         <TravellingPiece
           fromBox={fromBoxes.get(piece.slot) ?? result.boxes.get(piece)!}
-          fromStageColor={blend(entrance.fromStageColor, colors.textPrimary, 0.13)}
+          fromFill={fromFills.get(piece.slot)!}
           key={piece.slot}
           piece={piece}
           progress={progress}
@@ -427,7 +451,7 @@ export function GarmentBoard({
           strokeColor={colors.textPrimary}
           tintProgress={tintProgress}
           toBox={result.boxes.get(piece)!}
-          toStageColor={fillColor}
+          toFill={fills.get(piece.slot)!}
           width={width}
         />
       ))}

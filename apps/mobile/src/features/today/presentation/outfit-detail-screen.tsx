@@ -281,6 +281,10 @@ export function OutfitDetailScreen({
               fromStageRadius: 26,
               onSettled: onPiecesSettled,
             }}
+            // The opened outfit is this screen's subject, so it carries the same coloured
+            // piece it carried on Today. The plate stands on the page ground, so the board
+            // derives its fills from `background` rather than from the stage tint.
+            optionId={suggestion.id}
             pieces={suggestion.boardPieces}
             preset="detail"
             settle={completions}

@@ -318,6 +318,9 @@ export function TodayScreen({
                 testID="today-stage">
                 <GarmentBoard
                   accessibilityLabel={presentation.stageAccessibilityLabel}
+                  // Today's subject is the primary composition, so it is the one board that
+                  // carries a coloured piece; the alternates below stay neutral.
+                  optionId={primary.id}
                   pieces={primary.boardPieces}
                   preset="today"
                   rise

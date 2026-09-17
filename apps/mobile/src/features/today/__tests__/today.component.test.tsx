@@ -1,8 +1,9 @@
 import { act, fireEvent, isHiddenFromAccessibility, render, waitFor, within } from '@testing-library/react-native';
 import { SymbolView } from 'expo-symbols';
-import { AppState, Dimensions, StyleSheet } from 'react-native';
+import { AppState, Dimensions, processColor, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { resolveGarmentRenderFills } from '@/components/ui/garment-board/garment-render-fills';
 import { failureCategories } from '@/domain/failure-category';
 import {
   accessoryFreeTodayScreenState,
@@ -346,6 +347,44 @@ test.each([
     expect(StyleSheet.flatten(
       result.getByTestId(`today-alternate-stage-${suggestion.id}`, hidden).props.style,
     ).backgroundColor).toBeUndefined();
+  }
+});
+
+test('only the primary board is coloured: the alternates stay on two neutrals', async () => {
+  const result = await render(providers(
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
+  ));
+  await fireEvent(result.getByTestId('today-content'), 'layout', {
+    nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
+  });
+
+  const hidden = { includeHiddenElements: true };
+  const presentation = loadedPresentation();
+  const [primary, ...alternates] = presentation.suggestions;
+  const drawnFills = (testID: string) => new Set(
+    result.getByTestId(testID, hidden)
+      .queryAll((node) => typeof node.props.d === 'string' && node.props.fill != null)
+      .map((node) => JSON.stringify(node.props.fill)),
+  );
+  const resolvedFills = (suggestion: typeof primary, optionId: string, plane: string) => new Set(
+    [...resolveGarmentRenderFills({
+      optionId,
+      pieces: suggestion.boardPieces.map(({ slot }) => ({ slot, colorFamily: null })),
+      plane,
+      colors: lightTheme.colors,
+      colorScheme: 'light',
+    }).values()].map((fill) => JSON.stringify({ type: 0, payload: processColor(fill) })),
+  );
+
+  expect(drawnFills(`today-primary-board-${primary.id}`))
+    .toEqual(resolvedFills(primary, primary.id, lightTheme.atmosphere[presentation.atmosphere]));
+  for (const suggestion of alternates) {
+    // Law 4's per-surface ceiling: an alternate is drawn on the page ground with the
+    // neutral base and the deeper footwear neutral only, so the screen offers one answer
+    // rather than three.
+    const fills = drawnFills(`today-alternate-board-${suggestion.id}`);
+    expect(fills.size).toBeLessThanOrEqual(2);
+    expect(fills).toEqual(resolvedFills(suggestion, '', lightTheme.colors.background));
   }
 });
 
