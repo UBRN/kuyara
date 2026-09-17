@@ -64,6 +64,7 @@ The central visual idea is **layers and harmony**. It connects:
 - Several inputs becoming one simple recommendation
 
 Visual work should communicate this idea through calm structure, relationships, and rhythm rather than literal weather illustration.
+A single condition symbol at icon scale is not an illustration. What stays prohibited is a scene: a horizon, stacked depth layers, parallax, or a full-bleed sky.
 
 The clothing half of that restriction was withdrawn by [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md). Simple garment illustration is now part of the language and is the visual subject of Today: the user should see the outfit before reading it. The weather half stands, and there is no literal sky photography or illustrated weather scene.
 
@@ -114,6 +115,7 @@ The permanent editable repository master is:
 Deep Atmosphere and Calm Current form the main navy-to-petrol identity. Quiet Sky is an accent, not a dominant technology blue. Soft Mist, Night Layer, and Cloud White provide calm light and dark foundations without relying on pure black or harsh white.
 
 Neon cyan, glow, glassy gradients, rainbow gradients, and highly saturated technology colors are prohibited. Feature UI consumes the existing semantic tokens and must not scatter hardcoded brand values through components.
+The `condition.*` family is not an exception: every value is a flat opaque fill at or below the approved `warningInk` saturation class, with no glow, no gradient and no second stop.
 
 This prohibition was narrowed once, by [ADR 0018](../adr/0018-the-atmospheric-condition-band.md). A **two-stop tonal interpolation between two approved palette values** is permitted where the ground carries the current weather on Today and Weather. [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md) later moved that ground from a full-width band at the top of the screen to the tint of the surface the garment composition sits on; the permission and its bounds are unchanged, only the shape. Every other gradient remains prohibited, glass, glow, rainbow and saturated technology gradients included, and the permitted band is bounded by recorded contrast measurements rather than by taste. The narrowing exists because a whole-page weather tint was measured to be arithmetically unavailable in the light appearance: the usable ground band there is nine of 255 grey levels, squeezed between the card above it and secondary text and control borders below it.
 
@@ -204,9 +206,9 @@ The silhouette is a slot in the composition, not an asset the composition depend
 
 ## Motion
 
-Motion must be restrained, functional, and calm. Use it for hierarchy, feedback, and state transitions, and ensure that critical information remains understandable without motion. A screen's content arrives in reading order after the platform's own transition, which stays the platform's; the outfit is the hero, and its pieces land on the board with a visible settle. Continuous and repeating motion is permitted where it supports the weather atmosphere, state, hierarchy, feedback, or product character, per [ADR 0020](../adr/0020-rewriting-the-motion-law.md) and [`design-language.md`](design-language.md#law-7-motion), and ambient weather motion takes its pace from the condition's intensity; it must never be the only indication of a state change, must not sit under a screen's hero value, and must respect Reduced Motion.
+Motion must be restrained, functional, and calm. Use it for hierarchy, feedback, and state transitions, and ensure that critical information remains understandable without motion. A screen's content arrives in reading order after the platform's own transition, which stays the platform's; the outfit is the hero, and its pieces land on the board with a visible settle. Continuous and repeating motion is permitted where it supports the weather atmosphere, state, hierarchy, feedback, or product character, per [ADR 0020](../adr/0020-rewriting-the-motion-law.md) and [`design-language.md`](design-language.md#law-7-motion), and ambient weather motion takes its pace from the condition's intensity; it must never be the only indication of a state change and must not sit under a screen's hero value.
 
-There is no mascot, no particle effect, and no sound. When Reduced Motion is enabled the interface renders the static end state. The website is the one carve-out: it animates regardless of the operating system's Reduce Motion setting, a maintainer decision recorded in [`product-decisions.md`](../product-decisions.md#approved-privacy-and-consent-posture-for-analytics) that binds the site alone. Avoid constant decorative animation and transitions that delay the user's decision.
+There is no mascot, no particle effect, and no sound. Reduce Motion is neither a design constraint nor a verification gate; the OS setting is honoured where the code already honours it, per [ADR 0020](../adr/0020-rewriting-the-motion-law.md). The website animates regardless of that setting, a maintainer decision recorded in [`product-decisions.md`](../product-decisions.md#approved-privacy-and-consent-posture-for-analytics). Avoid constant decorative animation and transitions that delay the user's decision.
 
 ## Accessibility acceptance requirements
 
@@ -216,9 +218,8 @@ UI work is not complete until it considers:
 - Meaningful screen-reader semantics and logical focus order
 - Sufficient contrast in light and dark themes
 - Adequate touch-target sizes
-- Reduced Motion behavior
 - Information that does not depend on color alone
 - Turkish and English content and layout behavior
 - Small-size icon legibility
 
-These are product requirements, kept in routine development by the automated checks in `AGENTS.md`. The granular manual pass with a screen reader, Reduced Motion, and the largest text settings is risk-based rather than routine; `AGENTS.md` names the cases that call for it.
+These are product requirements, kept in routine development by the automated checks in `AGENTS.md`. The granular manual pass with a screen reader and the largest text settings is risk-based rather than routine; `AGENTS.md` names the cases that call for it.

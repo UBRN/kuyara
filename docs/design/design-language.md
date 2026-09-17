@@ -142,6 +142,11 @@ the device's dynamic Material You colour, as
 system control that takes an application colour is the tab bar, whose selected tint is
 `brandPrimary`, the single control use of brand colour Apple's branding guidance names.
 
+Ordinary UI excludes the condition glyph and the hourly rail's condition icons, which
+take the `condition.*` family because their hue is a data encoding chosen by the weather
+rather than an emphasis chosen by the product. The family is consumed nowhere else,
+never by text, a filled control, a border or chrome, and never through alpha.
+
 **Status colours are approved and enter as a band, not as free hues.** Every status
 ink is tuned so its contrast against its own appearance's `surface` lies within **±0.8**
 of `brandAccent`'s. That is the rule that keeps a calm interface from becoming a
@@ -219,6 +224,19 @@ All six clear 3:1. Light `#5C7A83` at 4.60 on white stays visibly quieter than
 
 Info is `brandAccent`. A fourth hue would give the least urgent message its own voice.
 Decided, not deferred.
+
+### Condition colour is content data
+
+The eight `condition.*` roles are a closed content encoding, not a fourth status family
+and not an accent. They may colour only the Weather hero glyph, the hourly rail's
+condition icons and the same condition glyph when it appears on Today's atmosphere
+stage. Every value is flat and opaque. No consumer may apply `withAlpha`, an opacity
+style, a gradient, glow or second colour stop.
+
+Each condition keeps a distinct system-symbol shape and a localized written name or
+accessible name, so colour is never its only signal. The page ground, typography,
+controls, borders, navigation and chrome remain neutral. A new condition code must join
+the pure resolver and its exhaustive test before it can render.
 
 ### Colour is never the signal
 
@@ -321,7 +339,7 @@ copy has one structure on every surface, English "Last updated at {time}" and Tu
 ## Law 7: motion
 
 Durations are already tokenized (`immediate` 0, `fast` 120, `normal` 200, `deliberate`
-320, all 0 under Reduce Motion). The language adds which one to use:
+320). The language adds which one to use:
 
 - `fast` 120, content entering, press feedback.
 - `normal` 200, a state change on something already on screen.
@@ -332,22 +350,23 @@ Durations are already tokenized (`immediate` 0, `fast` 120, `normal` 200, `delib
 
 > Motion may be used where it supports the weather atmosphere, state, hierarchy,
 > feedback, or product character. It must not demand attention unnecessarily, must not
-> harm performance or readability, and must respect Reduced Motion.
+> harm performance or readability.
 
-Three requirements are hard, not judgment calls:
+Two requirements are hard, not judgment calls:
 
 - **Motion is never the only indication of a state change.** This is an accessibility
   requirement rather than a restraint preference.
-- **Reduced Motion is honoured.** Tokenized durations already resolve to 0; any
-  ambient animation must short-circuit as `weather-glyph.tsx` and
-  `probe-loading-overlay.tsx` already do. The response is a stop, not a slower loop,
-  and the OS setting is the only pause mechanism: there is no in-app motion toggle, for
-  the reason Law 8 gives for haptics, and ADR 0020 records the standards reading.
 - **Nothing moves under a screen's hero value.** The condition-tinted stage of
   [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md) is deliberately
   still, because continuous movement beneath large text is where ambient motion
   measurably costs readability. ADR 0021 §10 sanctions entrance and transition motion
   for the garment pieces on that stage; what stays still is the stage itself.
+  The rule is geometric: an ambient glyph's animated bounding box must not intersect
+  the hero value's line box and must not sit directly beneath it inside the stage. A
+  glyph beside the hero on the same row is permitted.
+
+The OS Reduce Motion setting is honoured where the motion tokens already resolve to
+zero, and it is neither a design constraint nor a verification step.
 
 **Ambient motion has its own duration role**, `theme.motion.ambient`. `fast`, `normal`
 and `deliberate` all describe transitions, and a 1500 ms cloud bob is not a transition.
@@ -360,9 +379,8 @@ surface consume the role: the weather glyph on Today and Weather, and the wait s
 breathe on the moderate step, a full breath of 2000 ms, because that is the cycle band
 Ding and Kyung (Journal of Consumer Research 2026,
 <https://academic.oup.com/jcr/advance-article/doi/10.1093/jcr/ucaf037/8165440>) measured
-as the shortest perceived wait. Ambient motion never runs under a hero value and all
-three steps resolve to 0 under Reduce Motion. A duration is a role in the sense of Law
-9, so the role is named ahead of its second use.
+as the shortest perceived wait. Ambient motion never runs under a hero value. A duration
+is a role in the sense of Law 9, so the role is named ahead of its second use.
 
 **Spatial and effects motion.** Motion is one of two kinds. *Effects*
 motion changes a property in place: opacity, colour, a tint draining away. The three
@@ -387,8 +405,7 @@ settle without a second bounce; a lower damping adds a second bounce, which read
 elastic easing and is refused. A moment's settle travels `spacing.xs` down on
 `theme.motion.fast` and returns on the arrival spring. Only `components/ui` consumes
 either role, and `theme.test.mjs` fails feature
-source that authors `withSpring`, `dampingRatio` or `stiffness`. Reduced Motion resolves
-spatial motion the way it resolves the durations, to the static end state.
+source that authors `withSpring`, `dampingRatio` or `stiffness`.
 
 **Content arrives, navigation does not.** A screen's content enters in reading order,
 staggered by `theme.motion.stagger`, after the platform's transition has landed. The
@@ -556,8 +573,8 @@ without reading the rest of this document.
 - Confirm icon size matches its adjacent text size (16/caption, 20/body, 24/title, 28+
   standalone) (Law 6).
 - For any repeating animation, confirm it supports atmosphere, state, hierarchy,
-  feedback, or character; that it is not the only indication of a state change; that it
-  stops under Reduced Motion; and that it is not under a hero value (Law 7).
+  feedback, or character; that it is not the only indication of a state change; and that
+  it is not under a hero value (Law 7).
 - For any motion that moves an element between positions or sizes, confirm it is
   specified as spatial, `theme.springs.spatial` or, for garment pieces landing on a
   board, `theme.springs.arrival`, and not as one of the three duration tokens (Law 7).

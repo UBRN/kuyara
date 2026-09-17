@@ -2,29 +2,13 @@ import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Polyline } from 'react-native-svg';
 
-import { AppText, Icon, useTextScaling, type IconName } from '@/components/ui';
+import { AppText, Icon, useTextScaling } from '@/components/ui';
+import { resolveConditionStyle } from '@/features/today/domain/condition-style';
 import type { WeatherConditionCode } from '@/features/weather/domain/weather';
 import { radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { layoutHourlyRail } from './hourly-rail-layout';
-
-// Law 6: the condition glyphs join the existing system-symbol family rather than adding a
-// third one. The record is exhaustive over the domain's condition codes, so a new code
-// fails typecheck here instead of rendering a blank column.
-const conditionIcons: Readonly<Record<WeatherConditionCode, IconName>> = {
-  clear: 'conditionClear',
-  mostly_clear: 'conditionMostlyClear',
-  partly_cloudy: 'conditionPartlyCloudy',
-  cloudy: 'conditionCloudy',
-  fog: 'conditionFog',
-  drizzle: 'conditionDrizzle',
-  rain: 'conditionRain',
-  heavy_rain: 'conditionHeavyRain',
-  sleet: 'conditionSleet',
-  snow: 'conditionSnow',
-  thunderstorm: 'conditionThunderstorm',
-};
 
 // A column is a fixed width so the series can pass through the label centres; it is wide
 // enough for the widest supported time caption ("12:00 PM") and grows with Dynamic Type.
@@ -40,6 +24,7 @@ export type HourlyRailColumn = Readonly<{
   accessibilityLabel: string;
   time: string;
   condition: WeatherConditionCode;
+  localHour: number | null;
   temperature: string;
   temperatureCelsius: number;
   precipitation: string;
@@ -98,46 +83,49 @@ export function HourlyRail({ columns }: Readonly<{ columns: readonly HourlyRailC
           </Svg>
         ) : null}
         <View style={styles.columns}>
-          {columns.map((column, index) => (
-            <View
-              accessible
-              accessibilityLabel={column.accessibilityLabel}
-              key={column.key}
-              style={[styles.column, { width: columnWidth }]}>
-              <AppText colorRole="textSecondary" tabularNumbers variant="caption">
-                {column.time}
-              </AppText>
-              <Icon
-                color={theme.colors.iconSecondary}
-                name={conditionIcons[column.condition]}
-                size={20 * controlScale}
-              />
+          {columns.map((column, index) => {
+            const conditionStyle = resolveConditionStyle(column.condition, column.localHour);
+            return (
               <View
-                onLayout={index === 0 ? handleBandLayout : undefined}
-                style={[styles.band, { height: bandHeight }]}
-                testID="weather-hourly-band">
-                {/* The series passes behind the rail (ADR 0021 section 9), so each number
-                    knocks the stroke out with the card's own fill rather than letting it
-                    cross the digits. The label is drawn after the series, so it is on top. */}
-                <AppText
-                  style={[
-                    styles.temperature,
-                    {
-                      backgroundColor: theme.colors.surface,
-                      top: points[index].y - labelHeight / 2,
-                    },
-                  ]}
-                  tabularNumbers
-                  testID="weather-hourly-temperature"
-                  variant="bodyStrong">
-                  {column.temperature}
+                accessible
+                accessibilityLabel={column.accessibilityLabel}
+                key={column.key}
+                style={[styles.column, { width: columnWidth }]}>
+                <AppText colorRole="textSecondary" tabularNumbers variant="caption">
+                  {column.time}
+                </AppText>
+                <Icon
+                  color={theme.condition[conditionStyle.ink]}
+                  name={conditionStyle.shape}
+                  size={20 * controlScale}
+                />
+                <View
+                  onLayout={index === 0 ? handleBandLayout : undefined}
+                  style={[styles.band, { height: bandHeight }]}
+                  testID="weather-hourly-band">
+                  {/* The series passes behind the rail (ADR 0021 section 9), so each number
+                      knocks the stroke out with the card's own fill rather than letting it
+                      cross the digits. The label is drawn after the series, so it is on top. */}
+                  <AppText
+                    style={[
+                      styles.temperature,
+                      {
+                        backgroundColor: theme.colors.surface,
+                        top: points[index].y - labelHeight / 2,
+                      },
+                    ]}
+                    tabularNumbers
+                    testID="weather-hourly-temperature"
+                    variant="bodyStrong">
+                    {column.temperature}
+                  </AppText>
+                </View>
+                <AppText colorRole="textSecondary" tabularNumbers variant="caption">
+                  {column.precipitation}
                 </AppText>
               </View>
-              <AppText colorRole="textSecondary" tabularNumbers variant="caption">
-                {column.precipitation}
-              </AppText>
-            </View>
-          ))}
+            );
+          })}
         </View>
       </View>
     </ScrollView>

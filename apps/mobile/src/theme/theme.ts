@@ -61,6 +61,18 @@ export type AtmosphereState =
 
 type AtmosphereColors = Readonly<Record<AtmosphereState, string>>;
 
+export type ConditionInkRole =
+  | 'clearDay'
+  | 'clearNight'
+  | 'overcast'
+  | 'fog'
+  | 'rain'
+  | 'snow'
+  | 'storm'
+  | 'neutral';
+
+type ConditionColors = Readonly<Record<ConditionInkRole, string>>;
+
 export const darkSemanticColors = Object.freeze({
   background: brandColors.nightLayer,
   backgroundElevated: blend(brandColors.deepAtmosphere, brandColors.quietSky, 0.08),
@@ -112,6 +124,28 @@ const darkAtmosphere = Object.freeze({
   veiledNight: darkSemanticColors.stage,
   fallingNight: darkSemanticColors.stage,
 } as const satisfies AtmosphereColors);
+
+const lightCondition = Object.freeze({
+  clearDay: '#8F5A0E',
+  clearNight: '#31456F',
+  overcast: '#3E545C',
+  fog: '#3E545C',
+  rain: '#17536E',
+  snow: '#1B4E63',
+  storm: '#253A4C',
+  neutral: lightSemanticColors.textPrimary,
+} as const satisfies ConditionColors);
+
+const darkCondition = Object.freeze({
+  clearDay: '#F0C177',
+  clearNight: '#B3BEE4',
+  overcast: '#B6C6CC',
+  fog: '#A8B6BB',
+  rain: '#8CC0DB',
+  snow: '#D6E8F0',
+  storm: '#C6D2DE',
+  neutral: darkSemanticColors.textPrimary,
+} as const satisfies ConditionColors);
 
 export const spacing = Object.freeze({
   xs: 4,
@@ -314,6 +348,7 @@ export type KuyaraTheme = Readonly<{
   isReduceMotionEnabled: boolean;
   colors: SemanticColors;
   atmosphere: AtmosphereColors;
+  condition: ConditionColors;
   spacing: typeof spacing;
   typography: typeof typography;
   radii: typeof radii;
@@ -342,6 +377,7 @@ export const lightTheme = Object.freeze({
   isReduceMotionEnabled: false,
   colors: lightSemanticColors,
   atmosphere: lightAtmosphere,
+  condition: lightCondition,
   elevation: lightElevation,
   motion: standardMotion,
 } as const satisfies KuyaraTheme);
@@ -353,6 +389,7 @@ export const darkTheme = Object.freeze({
   isReduceMotionEnabled: false,
   colors: darkSemanticColors,
   atmosphere: darkAtmosphere,
+  condition: darkCondition,
   elevation: darkElevation,
   motion: standardMotion,
 } as const satisfies KuyaraTheme);

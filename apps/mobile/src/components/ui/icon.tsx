@@ -54,6 +54,7 @@ export const iconNames = Object.freeze({
   // active condition (Law 6). Material has no drizzle or heavy-rain counterpart of the
   // same idiom, so those take the nearest existing name.
   conditionClear: { ios: 'sun.max.fill', android: 'wb_sunny', web: 'wb_sunny' },
+  conditionClearNight: { ios: 'moon.stars.fill', android: 'nights_stay', web: 'nights_stay' },
   conditionMostlyClear: { ios: 'sun.min.fill', android: 'sunny', web: 'sunny' },
   conditionPartlyCloudy: {
     ios: 'cloud.sun.fill', android: 'partly_cloudy_day', web: 'partly_cloudy_day',

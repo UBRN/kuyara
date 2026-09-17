@@ -400,15 +400,10 @@ test('every atmosphere state clears its ink floors and appearance constraints', 
     for (const state of atmosphereStates) {
       const stage = theme.atmosphere[state];
       const textContrast = contrastOfHexOverBackground(theme.colors.textPrimary, stage);
-      const glyphContrast = contrastRatio(
-        compositeOver(theme.colors.textPrimary, 0.70, stage),
-        hexToRgb(stage),
-      );
       const groundContrast = contrastOfHexOverBackground(stage, theme.colors.background);
       const groundDistance = channelDistance(stage, theme.colors.background);
 
       assert.ok(textContrast >= 4.5, `${appearance} ${state} text: ${textContrast.toFixed(2)}:1`);
-      assert.ok(glyphContrast >= 3, `${appearance} ${state} glyph: ${glyphContrast.toFixed(2)}:1`);
       if (appearance === 'light') {
         assert.ok(groundDistance >= 15, `${state} distance from ground: ${groundDistance}`);
       } else {
@@ -421,14 +416,53 @@ test('every atmosphere state clears its ink floors and appearance constraints', 
         stage,
         relativeLuminance(hexToRgb(stage)).toFixed(4),
         textContrast.toFixed(2),
-        glyphContrast.toFixed(2),
         groundContrast.toFixed(3),
         groundDistance,
       ].join(' | '));
     }
   }
 
-  context.diagnostic('appearance | state | hex | L | text | glyph@0.70 | vs ground | levels');
+  context.diagnostic('appearance | state | hex | L | text | vs ground | levels');
+  for (const row of diagnostics) context.diagnostic(row);
+});
+
+const conditionPlanes = {
+  clearDay: ['clearDay', 'neutral'],
+  clearNight: ['clearNight', 'neutral'],
+  overcast: ['veiledDay', 'veiledNight', 'neutral'],
+  fog: ['veiledDay', 'veiledNight', 'neutral'],
+  rain: ['fallingDay', 'fallingNight', 'neutral'],
+  snow: ['fallingDay', 'fallingNight', 'neutral'],
+  storm: ['fallingDay', 'fallingNight', 'neutral'],
+  neutral: ['neutral'],
+};
+
+test('condition inks clear non-text contrast on every permissible plane', (context) => {
+  const diagnostics = [];
+
+  for (const appearance of ['light', 'dark']) {
+    const theme = createKuyaraTheme(appearance);
+    assert.deepEqual(Object.keys(theme.condition), Object.keys(conditionPlanes));
+    assert.equal(theme.condition.neutral, theme.colors.textPrimary);
+
+    for (const [group, atmospherePlanes] of Object.entries(conditionPlanes)) {
+      const planes = [
+        ...atmospherePlanes.map((plane) => [plane, theme.atmosphere[plane]]),
+        ['surface', theme.colors.surface],
+      ];
+
+      for (const [plane, background] of planes) {
+        const ratio = contrastOfHexOverBackground(theme.condition[group], background);
+        assert.ok(
+          ratio >= 3,
+          `${appearance} ${group} on ${plane}: ${ratio.toFixed(3)}:1`,
+        );
+        diagnostics.push(`${appearance} | ${group} | ${plane} | ${ratio.toFixed(3)}`);
+      }
+    }
+  }
+
+  context.diagnostic('appearance | condition group | plane | contrast');
   for (const row of diagnostics) context.diagnostic(row);
 });
 

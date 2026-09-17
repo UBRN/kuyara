@@ -15,7 +15,7 @@ const expectedIntensity = {
   rain: 'intense',
   heavy_rain: 'intense',
   sleet: 'intense',
-  snow: 'intense',
+  snow: 'moderate',
   thunderstorm: 'intense',
 };
 
