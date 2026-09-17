@@ -101,12 +101,16 @@ test('thermal and coverage thresholds use exact lower-bound semantics', () => {
   }
 });
 
+// Three rungs, from A3 section 3 of 2026-09-17: Fit The Forecast puts shorts at 23 and
+// raksul a single short sleeve at 25, and 28 is where kuyara already made breathability
+// mandatory. The two lower rungs reorder the offer and compose nothing away.
 test('breathability thresholds distinguish optional warmth from mandatory heat', () => {
   const cases = [
-    [23.999, null, null],
-    [24, 'moderate', 'optional'],
-    [24.001, 'moderate', 'optional'],
-    [27.999, 'moderate', 'optional'],
+    [22.999, null, null],
+    [23, 'moderate', 'optional'],
+    [24.999, 'moderate', 'optional'],
+    [25, 'high', 'optional'],
+    [27.999, 'high', 'optional'],
     [28, 'high', 'mandatory'],
     [28.001, 'high', 'mandatory'],
   ];
