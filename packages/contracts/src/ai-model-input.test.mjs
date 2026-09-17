@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   aiModelInputFromRequest,
+  archetypeDayFromRequirements,
   meetsArchetypePrecondition,
   picksAreMeaningfullyDifferent,
 } from './ai-model-input.ts';
@@ -54,18 +55,19 @@ const fixtureRequest = Object.freeze({
 // The model input is a serialized payload, so field order is part of the behaviour.
 // eligibleArchetypeIds is the one addition to the Worker's original inline assembly:
 // the caller rejects a pick whose archetype fails its precondition, so the model has
-// to be told which archetypes an option can carry.
+// to be told which archetypes an option can carry. The fixture's day asks for moderate
+// insulation, so neither option is offered `light_and_airy` on it.
 const serializedInput = '{"clothingPreference":"womens","formalityOrder":["formal","smart","casual"],'
   + '"options":[{"optionId":"opt-1","formality":"smart","garments":['
   + '{"slot":"primary_top","garmentTypeId":"blouse"},'
   + '{"slot":"bottom","garmentTypeId":"trousers"},'
   + '{"slot":"footwear","garmentTypeId":"closed_shoes"}],'
-  + '"eligibleArchetypeIds":["smart_casual","light_and_airy"]},'
+  + '"eligibleArchetypeIds":["smart_casual"]},'
   + '{"optionId":"opt-2","formality":"casual","garments":['
   + '{"slot":"one_piece","garmentTypeId":"dress"},'
   + '{"slot":"outer_layer","garmentTypeId":"coat"},'
   + '{"slot":"footwear","garmentTypeId":"ankle_boots"}],'
-  + '"eligibleArchetypeIds":["weekend_relaxed","light_and_airy"]}]}';
+  + '"eligibleArchetypeIds":["weekend_relaxed"]}]}';
 
 test('a request the wire schema accepts projects to the same serialized input', () => {
   const parsed = aiRecommendV1RequestSchema.parse(fixtureRequest);
@@ -95,11 +97,12 @@ test('the projection carries only the approved fields', () => {
 test('every option is offered exactly the conditional archetypes it qualifies for', () => {
   const parsed = aiRecommendV1RequestSchema.parse(fixtureRequest);
   const input = aiModelInputFromRequest(parsed);
+  const day = archetypeDayFromRequirements(parsed.requirements);
   parsed.options.forEach((option, index) => {
     assert.deepEqual(
       input.options[index].eligibleArchetypeIds,
       outfitArchetypeIds.filter((id) =>
-        id !== 'everyday_easy' && meetsArchetypePrecondition(id, option)),
+        id !== 'everyday_easy' && meetsArchetypePrecondition(id, option, undefined, day)),
     );
   });
 });
@@ -123,8 +126,9 @@ test('no option is offered an archetype whose precondition it fails', () => {
   const input = aiModelInputFromRequest(parsed);
   parsed.options.forEach((option, index) => {
     assert.notEqual(input.options[index].eligibleArchetypeIds.length, 0);
+    const day = archetypeDayFromRequirements(parsed.requirements);
     for (const archetypeId of input.options[index].eligibleArchetypeIds) {
-      assert.equal(meetsArchetypePrecondition(archetypeId, option), true);
+      assert.equal(meetsArchetypePrecondition(archetypeId, option, undefined, day), true);
     }
   });
 });
@@ -144,6 +148,66 @@ test('a weekday withholds weekend_relaxed from the projection and from the gate'
   assert.equal(meetsArchetypePrecondition('weekend_relaxed', casual), true);
   assert.equal(meetsArchetypePrecondition('everyday_easy', casual, 'weekday'), true);
 });
+
+// The regression this closes: the three weather archetypes read the garment and never the
+// day, so a waterproof shell was Rain Ready on a dry freezing day, a rain boot was Snow Day
+// in the rain, and a breathable outfit was Light and Airy at 5 C.
+test('the three weather archetypes are withheld on a day that contradicts them', () => {
+  const wearing = {
+    ...option('opt-3', [
+      garment('primary_top', 'blouse', 'base'),
+      garment('bottom', 'trousers'),
+      garment('outer_layer', 'rain_jacket', 'outer'),
+      garment('footwear', 'weather_boots', null),
+    ]),
+    traits: {
+      ...traits,
+      hasOuterLayer: true,
+      outerWaterProtective: true,
+      tractionEnhanced: true,
+    },
+  };
+  const requirementsFor = (kind, minimum, reasonCodes) =>
+    [{ kind, minimum, priority: 'mandatory', reasonCodes }];
+  const days = {
+    dry: archetypeDayFromRequirements([]),
+    rain: archetypeDayFromRequirements(
+      requirementsFor('water_protection', 'waterproof', ['condition_rain']),
+    ),
+    snow: archetypeDayFromRequirements(
+      requirementsFor('traction', 'enhanced', ['condition_snow']),
+    ),
+    cold: archetypeDayFromRequirements(
+      requirementsFor('thermal', 'moderate', ['temperature_low']),
+    ),
+  };
+
+  assert.deepEqual(days.rain, { frozen: false, wet: true, cold: false });
+  assert.deepEqual(days.snow, { frozen: true, wet: false, cold: false });
+  assert.deepEqual(days.dry, { frozen: false, wet: false, cold: false });
+
+  assert.equal(meetsArchetypePrecondition('rain_ready', wearing, undefined, days.rain), true);
+  assert.equal(meetsArchetypePrecondition('rain_ready', wearing, undefined, days.dry), false);
+  assert.equal(meetsArchetypePrecondition('rain_ready', wearing, undefined, days.snow), false);
+  assert.equal(meetsArchetypePrecondition('snow_day', wearing, undefined, days.snow), true);
+  assert.equal(meetsArchetypePrecondition('snow_day', wearing, undefined, days.rain), false);
+  assert.equal(meetsArchetypePrecondition('snow_day', wearing, undefined, days.dry), false);
+
+  // An option with no shell, so the airy branch is about the day alone.
+  const airy = parsedFixtureOption();
+  assert.equal(meetsArchetypePrecondition('light_and_airy', airy, undefined, days.dry), true);
+  assert.equal(meetsArchetypePrecondition('light_and_airy', airy, undefined, days.cold), false);
+
+  // A caller that passes no day keeps the day-blind answer builds 8 and 9 expect, which is
+  // also why knowing the day can only ever withdraw a label, never add one.
+  assert.equal(meetsArchetypePrecondition('rain_ready', wearing), true);
+  assert.equal(meetsArchetypePrecondition('snow_day', wearing), true);
+  assert.equal(meetsArchetypePrecondition('light_and_airy', airy), true);
+});
+
+function parsedFixtureOption() {
+  return aiRecommendV1RequestSchema.parse(fixtureRequest).options[0];
+}
 
 test('office_ready admits smart only for callers that send a day kind', () => {
   const parsed = aiRecommendV1RequestSchema.parse(fixtureRequest);

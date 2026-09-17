@@ -11,7 +11,8 @@ test('prompt supplies the shared formality preference without personal facts', (
     ['formal', ['formal', 'smart', 'casual']],
     [undefined, ['smart', 'casual', 'formal']],
   ]) {
-    const messages = buildMessages({ clothingPreference: 'womens', options: [], dressStyle,
+    const messages = buildMessages({ clothingPreference: 'womens', options: [],
+      requirements: [], dressStyle,
       birthDate: '1960-01-01', birthYear: 1960, gender: 'woman' });
     assert.deepEqual(JSON.parse(messages[1].content), {
       clothingPreference: 'womens', options: [], formalityOrder: order,
@@ -90,13 +91,14 @@ function swiftInstructions() {
 }
 
 test('the on-device prompt states the same rules as the Worker prompt', () => {
-  const worker = buildMessages({ clothingPreference: 'mens', options: [] })[0]
+  const worker = buildMessages({ clothingPreference: 'mens', options: [], requirements: [] })[0]
     .content.split('\n');
   assert.deepEqual(swiftInstructions(), worker);
 });
 
 test('both prompts name the eligibility field and the unconditional archetype', () => {
-  for (const rules of [swiftInstructions(), buildMessages({ clothingPreference: 'mens', options: [] })[0].content.split('\n')]) {
+  const worker = buildMessages({ clothingPreference: 'mens', options: [], requirements: [] });
+  for (const rules of [swiftInstructions(), worker[0].content.split('\n')]) {
     const joined = rules.join('\n');
     assert.match(joined, /eligibleArchetypeIds/);
     assert.match(joined, /always-allowed everyday_easy/);
