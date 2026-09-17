@@ -88,6 +88,7 @@ const profile: LocalProfile = {
   onboardingCompleted: true,
   notificationsOptIn: true,
   weatherAlertOfferShown: false,
+  morningBriefingOptIn: false,
   analyticsConsent: 'undecided',
   createdAt: '2026-07-01T08:00:00.000Z',
   updatedAt: '2026-07-01T08:00:00.000Z',
@@ -106,6 +107,7 @@ function readyProfileApplication(
     updateLanguagePreference: async () => undefined,
     updateThemePreference: async () => undefined,
     updateNotificationsOptIn: async () => undefined,
+    updateMorningBriefingOptIn: async () => undefined,
     markWeatherAlertOfferShown: async () => undefined,
     updateAnalyticsConsent: async () => undefined,
   };
@@ -966,7 +968,7 @@ test('a successful create captures closet_item_created with profile segmentation
       {
         name: 'closet_item_created',
         properties: {
-          schema_version: 2,
+          schema_version: 3,
           state: 'owned',
           garment_type_id: 'rain_jacket',
           has_photo: false,
@@ -978,7 +980,7 @@ test('a successful create captures closet_item_created with profile segmentation
       },
       {
         name: 'feature_used_first_time',
-        properties: { schema_version: 2, feature_name: 'closet' },
+        properties: { schema_version: 3, feature_name: 'closet' },
         options: undefined,
       },
     ]),
@@ -1035,7 +1037,7 @@ test('a successful update captures closet_item_updated with only the fields that
       {
         name: 'closet_item_updated',
         properties: {
-          schema_version: 2,
+          schema_version: 3,
           fields_changed: ['state'],
           garment_type_id: plainItem.garmentTypeId,
           entry_point: 'closet_list',
@@ -1077,7 +1079,7 @@ test('a successful delete captures closet_item_deleted with the pre-delete state
     expect.arrayContaining([
       {
         name: 'closet_item_deleted',
-        properties: { schema_version: 2, state: 'owned', had_photo: true },
+        properties: { schema_version: 3, state: 'owned', had_photo: true },
         options: undefined,
       },
     ]),
@@ -1104,7 +1106,7 @@ test('one screen_viewed for closet_item_form fires on focus for the edit route',
   expect(analytics.captures).toEqual([
     {
       name: 'screen_viewed',
-      properties: { schema_version: 2, screen_name: 'closet_item_form' },
+      properties: { schema_version: 3, screen_name: 'closet_item_form' },
       options: undefined,
     },
   ]);

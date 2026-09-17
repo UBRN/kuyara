@@ -54,16 +54,38 @@ being alerted about weather changing within the hour.
 
 ## Decision
 
-Notifications enter the MVP as **on-device local weather alerts only**. No push
+Notifications enter the MVP as **on-device local notifications only**. No push
 token, no APNs registration, no Worker endpoint, no server-side device or
 location store.
 
+There are **two notification kinds**, each with its own opt-in behind the single OS
+permission. The weather alert is the rule-driven one ADR 0032 owns. The **morning
+briefing** is one notification a day at 07:00 local, carrying the morning's own
+temperature range, its condition and whether precipitation is likely, plus the fact that
+the day's outfit is ready. It composes nothing: no recommendation is generated for
+tomorrow, the approved recommendation triggers and cache identity are untouched, and
+tapping the briefing opens Today, where the outfit is produced by those ordinary
+triggers. The briefing's opt-in is `morning_briefing_opt_in` on `local_profiles` (schema
+version 15), and its row is the second group on the Settings Notifications surface, where
+either kind can be turned off in one tap.
+
+The briefing is scheduled only from a snapshot that is fresh under the existing 30-minute
+window and whose hourly array actually reaches tomorrow's 07:00 hour in the snapshot's
+time zone. When it does not, no briefing is planned and nothing is shown: the content is
+never invented. Its identity is `morning_briefing:<localDate>` in the existing
+`weather_alert_deliveries` ledger, which is what bounds it to one a day.
+
 The opt-in is offered in two places and nowhere else. The Settings Notifications
-surface holds it permanently, and Today makes one contextual offer at a moment an
-alert would have fired under [ADR 0032](0032-local-weather-alert-rules.md)'s
-rules, so the person is asked where the value is visible rather than three taps
-into Settings. That offer is made once for the life of the install: accepting it
-or dismissing it sets a durable `weather_alert_offer_shown` flag on
+surface holds it permanently, and Today makes one contextual offer at a moment a
+notification would have been sent: an alert would have fired under
+[ADR 0032](0032-local-weather-alert-rules.md)'s rules, **or** the morning briefing would
+have been scheduled. Because a briefing is scheduled every day, the offer arrives on the
+first fresh open rather than waiting for a rare rule crossing, and the person is asked
+where the value is visible rather than three taps into Settings. The offer names both
+kinds in one sentence, with an accept action and a dismiss action of the same size and no
+accent fill; accepting turns both kinds on and lands on the Notifications surface, where
+each can be turned off immediately. That offer is made once for the life of the install:
+accepting it or dismissing it sets a durable `weather_alert_offer_shown` flag on
 `local_profiles`, and a person who says no is never asked again. No other screen
 asks, and nothing asks on a schedule.
 
@@ -91,8 +113,14 @@ The decision is scoped into three milestones:
 
 ## Consequences
 
-- The MVP is limited to on-device local weather alerts, with no server-sent
-  push.
+- The MVP is limited to on-device local notifications, with no server-sent push.
+- The briefing depends on the hourly window reaching tomorrow morning, which the
+  36-hour contract normally gives but a short provider response can withhold. A day it
+  cannot cover is a silent day, not a fabricated one.
+- The briefing's fire time is 07:00 in the snapshot's time zone, the end of quiet hours
+  there. [ADR 0032](0032-local-weather-alert-rules.md) section 4 records that quiet hours
+  are read in the device's time zone, so the two can disagree while the person is
+  travelling.
 - No privacy regression. No new identifier is created or stored. The Worker,
   the AI input privacy boundary, and the "no coordinates persisted or logged"
   rule are untouched.

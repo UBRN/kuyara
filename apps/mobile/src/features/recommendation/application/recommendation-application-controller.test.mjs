@@ -562,7 +562,7 @@ test('recommendation_regenerated reports the trigger, result and generation mode
   assert.deepEqual(captured, [{
     name: 'recommendation_regenerated',
     properties: {
-      schema_version: 2,
+      schema_version: 3,
       trigger_reason: 'first_recommendation',
       result: 'success',
       generation_mode: 'ai_assisted',
@@ -589,7 +589,7 @@ test('recommendation_regenerated omits generation_mode and reports failure_kept_
   assert.deepEqual(captured, [{
     name: 'recommendation_regenerated',
     properties: {
-      schema_version: 2,
+      schema_version: 3,
       trigger_reason: 'explicit_request',
       result: 'failure_kept_last_known',
     },
@@ -609,7 +609,7 @@ test('recommendation_regenerated reports failure_no_snapshot when a save fails w
   assert.deepEqual(captured, [{
     name: 'recommendation_regenerated',
     properties: {
-      schema_version: 2,
+      schema_version: 3,
       trigger_reason: 'explicit_request',
       result: 'failure_no_snapshot',
     },

@@ -4,7 +4,7 @@ import type {
 } from '@/features/recommendation/domain/outfit-composition';
 import type { RecommendationPhase } from '@/features/recommendation/application/recommendation-application-controller';
 import type { ClothingRequirementReasonCode } from '@/features/recommendation/domain/weather-to-clothing-requirements';
-import type { WeatherAlertRuleId } from '@/features/notifications/domain/weather-alerts';
+import type { WeatherAlertOfferReason } from '@/features/notifications/domain/weather-alert-offer';
 import type {
   WeatherConditionCode as LiveWeatherConditionCode,
 } from '@/features/weather/domain/weather';
@@ -136,6 +136,9 @@ export type PreferenceMessages = Readonly<{
   themeDark: string;
 }>;
 
+/** A morning's low and high, already formatted; equal values read as one temperature. */
+export type MorningTemperatures = Readonly<{ low: string; high: string }>;
+
 export type AppMessages = Readonly<{
   catalog: CatalogMessages;
   recommendation: RecommendationMessages;
@@ -260,13 +263,33 @@ export type AppMessages = Readonly<{
     statusOff: string;
     permissionDeniedHint: string;
     openSettingsAction: string;
-    /** ADR 0004's one contextual offer on Today: one sentence per rule that would have fired. */
+    /**
+     * ADR 0004's one contextual offer on Today: one sentence per reason it can be made,
+     * whether a rule would have fired or the morning briefing would have been scheduled.
+     */
     offer: Readonly<{
-      sentences: Readonly<Record<WeatherAlertRuleId, string>>;
+      sentences: Readonly<Record<WeatherAlertOfferReason, string>>;
       acceptAction: string;
       dismissAction: string;
     }>;
     alerts: Readonly<{
+    /**
+     * ADR 0004's second notification kind. Each body is one complete localized text read at
+     * 07:00 on the morning it describes, never assembled from fragments.
+     */
+    morningBriefing: Readonly<{
+      toggleLabel: string;
+      hint: string;
+      title: string;
+      /**
+       * `low` and `high` arrive already formatted for the language's locale, as the alert
+       * bodies' temperatures do; the unit, the range dash and the single-value form belong
+       * to the copy.
+       */
+      clearBody: (values: MorningTemperatures) => string;
+      cloudyBody: (values: MorningTemperatures) => string;
+      wetBody: (values: MorningTemperatures) => string;
+    }>;
       rainTitle: string;
       rainBody: (time: string) => string;
       snowTitle: string;
@@ -598,11 +621,26 @@ const en = {
         precipitation_onset: 'kuyara could have warned you before rain or snow started today.',
         temperature_swing: 'kuyara could have warned you before today\u2019s sharp temperature change.',
       },
-      acceptAction: 'Turn on alerts',
+      acceptAction: 'Turn on notifications',
+        morning_briefing: 'kuyara can send a morning briefing at 07:00 and a weather alert before the weather changes during the day.',
       dismissAction: 'Not now',
     },
     alerts: {
       rainTitle: 'Rain is on the way',
+    morningBriefing: {
+      toggleLabel: 'Morning briefing',
+      hint: 'A single notification at 07:00 with the morning\u2019s weather, when tomorrow morning is already in the forecast.',
+      title: 'Good morning',
+      clearBody: ({ low, high }) => (low === high
+        ? `A clear morning at ${low}\u00b0C. Your outfit for today is waiting in kuyara.`
+        : `A clear morning between ${low}\u00b0C and ${high}\u00b0C. Your outfit for today is waiting in kuyara.`),
+      cloudyBody: ({ low, high }) => (low === high
+        ? `A cloudy morning at ${low}\u00b0C. Your outfit for today is waiting in kuyara.`
+        : `A cloudy morning between ${low}\u00b0C and ${high}\u00b0C. Your outfit for today is waiting in kuyara.`),
+      wetBody: ({ low, high }) => (low === high
+        ? `A wet morning at ${low}\u00b0C. Your outfit for today is waiting in kuyara.`
+        : `A wet morning between ${low}\u00b0C and ${high}\u00b0C. Your outfit for today is waiting in kuyara.`),
+    },
       rainBody: (time) => `Rain is expected around ${time}. Take something waterproof with you.`,
       snowTitle: 'Snow is on the way',
       snowBody: (time) => `Snow is expected around ${time}. Take a warm, waterproof layer with you.`,
@@ -1086,12 +1124,27 @@ const tr = {
         precipitation_onset: 'kuyara bugün yağış başlamadan seni uyarabilirdi.',
         temperature_swing: 'kuyara bugün sıcaklık sert değişmeden seni uyarabilirdi.',
       },
-      acceptAction: 'Uyarıları aç',
+      acceptAction: 'Bildirimleri aç',
       dismissAction: 'Şimdi değil',
+        morning_briefing: 'kuyara sabah 07.00\u2019de bir brifing, gün içinde hava değişmeden de bir uyarı gönderebilir.',
     },
     alerts: {
       rainTitle: 'Yağmur geliyor',
       rainBody: (time) => `Saat ${time} civarında yağmur bekleniyor. Yanına su geçirmez bir parça al.`,
+    morningBriefing: {
+      toggleLabel: 'Sabah brifingi',
+      hint: 'Yarın sabah tahminde yer aldığında, 07.00\u2019de sabahın havasını anlatan tek bir bildirim.',
+      title: 'Günaydın',
+      clearBody: ({ low, high }) => (low === high
+        ? `Açık bir sabah, ${low}\u00b0C. Bugünün kombini kuyara\u2019da seni bekliyor.`
+        : `Açık bir sabah, ${low}\u00b0C ile ${high}\u00b0C arası. Bugünün kombini kuyara\u2019da seni bekliyor.`),
+      cloudyBody: ({ low, high }) => (low === high
+        ? `Bulutlu bir sabah, ${low}\u00b0C. Bugünün kombini kuyara\u2019da seni bekliyor.`
+        : `Bulutlu bir sabah, ${low}\u00b0C ile ${high}\u00b0C arası. Bugünün kombini kuyara\u2019da seni bekliyor.`),
+      wetBody: ({ low, high }) => (low === high
+        ? `Yağışlı bir sabah, ${low}\u00b0C. Bugünün kombini kuyara\u2019da seni bekliyor.`
+        : `Yağışlı bir sabah, ${low}\u00b0C ile ${high}\u00b0C arası. Bugünün kombini kuyara\u2019da seni bekliyor.`),
+    },
       snowTitle: 'Kar geliyor',
       snowBody: (time) => `Saat ${time} civarında kar bekleniyor. Yanına sıcak tutan, su geçirmez bir kat al.`,
       dropTitle: 'Hava daha soğuk hissedilecek',

@@ -190,7 +190,8 @@ function createSchedulerHarness({ firedIds = new Set(), cancel, schedule } = {})
 const enabledInput = {
   localProfileId: 'profile-id',
   snapshot: weatherSnapshot(),
-  enabled: true,
+  weatherAlertsEnabled: true,
+  morningBriefingEnabled: false,
   language: 'en',
   hour12: false,
 };
@@ -226,6 +227,145 @@ test('weather alerts cancel before planning, schedule localized copy, persist, a
     now: '2026-09-09T15:00:00.000Z',
   }]);
   assert.equal(harness.pruned[0], '2026-09-06T15:00:00.000Z');
+});
+
+// ADR 0004: the briefing goes through the same gateway and the same ledger, and its own
+// opt-in decides it: alerts off and briefing on still schedules exactly one notification.
+test('the morning briefing is scheduled beside the alerts, on its own opt-in', async () => {
+  const withTomorrow = {
+    ...weatherSnapshot(),
+    hourly: [
+      ...weatherSnapshot().hourly,
+      {
+        forecastAt: '2026-09-10T07:00:00.000Z',
+        temperatureCelsius: 11,
+        apparentTemperatureCelsius: 10,
+        condition: 'cloudy',
+        precipitationProbability: 0,
+        windSpeedMetersPerSecond: 2,
+        humidity: 0.6,
+        uvIndex: 0,
+      },
+    ],
+  };
+  const both = createSchedulerHarness();
+  await both.scheduler.reschedule({
+    ...enabledInput,
+    snapshot: withTomorrow,
+    morningBriefingEnabled: true,
+  });
+
+  assert.deepEqual(both.scheduled.map(({ identifier }) => identifier), [
+    'precipitation_onset:manual:sample.istanbul:2026-09-09',
+    'temperature_swing:manual:sample.istanbul:2026-09-09',
+    'morning_briefing:2026-09-10',
+  ]);
+  assert.deepEqual(both.scheduled.at(-1), {
+    identifier: 'morning_briefing:2026-09-10',
+    fireAt: '2026-09-10T07:00:00.000Z',
+    title: 'Good morning',
+    body: 'A cloudy morning at 11\u00b0C. Your outfit for today is waiting in kuyara.',
+  });
+  assert.deepEqual(both.upserted[0].map(({ id }) => id), [
+    'precipitation_onset:manual:sample.istanbul:2026-09-09',
+    'temperature_swing:manual:sample.istanbul:2026-09-09',
+    'morning_briefing:2026-09-10',
+  ]);
+
+  const briefingOnly = createSchedulerHarness();
+  await briefingOnly.scheduler.reschedule({
+    ...enabledInput,
+    snapshot: {
+      ...withTomorrow,
+      hourly: [
+        ...withTomorrow.hourly,
+        {
+          forecastAt: '2026-09-10T10:00:00.000Z',
+          temperatureCelsius: 17.4,
+          apparentTemperatureCelsius: 17,
+          condition: 'clear',
+          precipitationProbability: 0,
+          windSpeedMetersPerSecond: 2,
+          humidity: 0.4,
+          uvIndex: 2,
+        },
+      ],
+    },
+    weatherAlertsEnabled: false,
+    morningBriefingEnabled: true,
+  });
+
+  assert.deepEqual(
+    briefingOnly.scheduled.map(({ identifier }) => identifier),
+    ['morning_briefing:2026-09-10'],
+  );
+  // A morning with more than one hour reads as a rounded range.
+  assert.equal(
+    briefingOnly.scheduled[0].body,
+    'A cloudy morning between 11\u00b0C and 17\u00b0C. Your outfit for today is waiting in kuyara.',
+  );
+});
+
+// The alert bodies already format their temperature for the active language; the briefing
+// reads the same way, through the same locale pair, so the sign and the digits are the
+// locale's rather than the template's.
+test('the briefing formats its temperatures for the active language', async () => {
+  const freezing = {
+    ...weatherSnapshot(),
+    hourly: [{
+      forecastAt: '2026-09-10T07:00:00.000Z',
+      temperatureCelsius: -4,
+      apparentTemperatureCelsius: -6,
+      condition: 'clear',
+      precipitationProbability: 0,
+      windSpeedMetersPerSecond: 2,
+      humidity: 0.6,
+      uvIndex: 0,
+    }],
+  };
+  const turkish = createSchedulerHarness();
+
+  await turkish.scheduler.reschedule({
+    ...enabledInput,
+    snapshot: freezing,
+    weatherAlertsEnabled: false,
+    morningBriefingEnabled: true,
+    language: 'tr',
+  });
+
+  assert.equal(
+    turkish.scheduled[0].body,
+    'Açık bir sabah, -4\u00b0C. Bugünün kombini kuyara\u2019da seni bekliyor.',
+  );
+  assert.equal(turkish.scheduled[0].title, 'Günaydın');
+});
+
+test('a briefing the ledger already recorded for that day is not scheduled again', async () => {
+  const harness = createSchedulerHarness({
+    firedIds: new Set(['morning_briefing:2026-09-10']),
+  });
+
+  await harness.scheduler.reschedule({
+    ...enabledInput,
+    snapshot: {
+      ...weatherSnapshot(),
+      hourly: [{
+        forecastAt: '2026-09-10T07:00:00.000Z',
+        temperatureCelsius: 11,
+        apparentTemperatureCelsius: 10,
+        condition: 'cloudy',
+        precipitationProbability: 0,
+        windSpeedMetersPerSecond: 2,
+        humidity: 0.6,
+        uvIndex: 0,
+      }],
+    },
+    weatherAlertsEnabled: false,
+    morningBriefingEnabled: true,
+  });
+
+  assert.deepEqual(harness.scheduled, []);
+  assert.deepEqual(harness.upserted[0], []);
 });
 
 test('weather alerts suppress identities whose ledger fire time has passed', async () => {
@@ -306,7 +446,7 @@ test('Turkish weather alert copy follows the device 12-hour clock setting', asyn
 test('disabled weather alerts cancel and delete pending ledger rows without reading or upserting', async () => {
   const harness = createSchedulerHarness();
 
-  await harness.scheduler.reschedule({ ...enabledInput, enabled: false });
+  await harness.scheduler.reschedule({ ...enabledInput, weatherAlertsEnabled: false });
 
   assert.deepEqual(harness.events, ['cancel', 'delete-pending']);
 });
@@ -330,10 +470,11 @@ test('a concurrent reschedule waits for the active run and then runs once', asyn
     },
   });
 
-  const first = harness.scheduler.reschedule({ ...enabledInput, enabled: false });
+  const first = harness.scheduler.reschedule({ ...enabledInput, weatherAlertsEnabled: false });
   const second = harness.scheduler.reschedule({
     ...enabledInput,
-    enabled: false,
+    weatherAlertsEnabled: false,
+    morningBriefingEnabled: false,
     language: 'tr',
   });
   assert.equal(cancelCount, 1);
@@ -359,7 +500,8 @@ test('opting out still cancels and clears pending rows from a stale snapshot', a
 
   await harness.scheduler.reschedule({
     ...enabledInput,
-    enabled: false,
+    weatherAlertsEnabled: false,
+    morningBriefingEnabled: false,
     snapshot: { ...enabledInput.snapshot, fetchedAt: '2026-09-09T14:00:00.000Z' },
   });
 

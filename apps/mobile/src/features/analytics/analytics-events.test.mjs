@@ -8,9 +8,9 @@ import {
 } from './domain/analytics-events.ts';
 
 // docs/analytics-taxonomy.md section 5.0.
-test('the catalog defines the twenty-three custom events, once each', () => {
-  assert.equal(analyticsEventNames.length, 23);
-  assert.equal(new Set(analyticsEventNames).size, 23);
+test('the catalog defines the twenty-four custom events, once each', () => {
+  assert.equal(analyticsEventNames.length, 24);
+  assert.equal(new Set(analyticsEventNames).size, 24);
   assert.deepEqual(
     [...analyticsEventNames].sort(),
     Object.keys(analyticsEventPropertyKeys).sort(),
@@ -18,7 +18,7 @@ test('the catalog defines the twenty-three custom events, once each', () => {
 });
 
 test('every event carries schema_version', () => {
-  assert.equal(ANALYTICS_SCHEMA_VERSION, 2);
+  assert.equal(ANALYTICS_SCHEMA_VERSION, 3);
   for (const name of analyticsEventNames) {
     assert.ok(
       analyticsEventPropertyKeys[name].includes('schema_version'),

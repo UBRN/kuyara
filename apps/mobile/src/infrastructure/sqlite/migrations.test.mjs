@@ -67,7 +67,7 @@ async function insertProfile(database, id = 'stable-profile-id') {
   );
 }
 
-test('an empty database applies versions 1 through 14 in order with the final schema', async (t) => {
+test('an empty database applies versions 1 through 15 in order with the final schema', async (t) => {
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
 
@@ -90,7 +90,7 @@ test('an empty database applies versions 1 through 14 in order with the final sc
     'PRAGMA table_info(weather_alert_deliveries)',
   );
 
-  assert.equal(latestDatabaseVersion, 14);
+  assert.equal(latestDatabaseVersion, 15);
   assert.equal(version.user_version, latestDatabaseVersion);
   assert.equal(profileTable.name, 'local_profiles');
   assert.match(profileTable.sql, /CHECK \(singleton_key = 1\)/);
@@ -111,9 +111,19 @@ test('an empty database applies versions 1 through 14 in order with the final sc
       'dress_style',
       'analytics_consent',
       'weather_alert_offer_shown',
+      'morning_briefing_opt_in',
     ],
   );
   assert.match(profileTable.sql, /weather_alert_offer_shown IN \(0, 1\)/);
+  assert.match(profileTable.sql, /morning_briefing_opt_in IN \(0, 1\)/);
+  assert.equal(
+    profileColumns.find(({ name }) => name === 'morning_briefing_opt_in').dflt_value,
+    '0',
+  );
+  assert.equal(
+    profileColumns.find(({ name }) => name === 'morning_briefing_opt_in').notnull,
+    1,
+  );
   assert.equal(
     profileColumns.find(({ name }) => name === 'weather_alert_offer_shown').dflt_value,
     '0',
@@ -187,7 +197,7 @@ test('an empty database applies versions 1 through 14 in order with the final sc
   );
 });
 
-test('an existing version 1 database upgrades through version 14 without changing profile data', async (t) => {
+test('an existing version 1 database upgrades through version 15 without changing profile data', async (t) => {
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
   await createReleasedVersionOneDatabase(database);
@@ -198,7 +208,7 @@ test('an existing version 1 database upgrades through version 14 without changin
   const version = await database.getFirstAsync('PRAGMA user_version');
   const rows = await database.getAllAsync(
     `SELECT id, created_at, notifications_opt_in, analytics_consent,
-     weather_alert_offer_shown FROM local_profiles`,
+     weather_alert_offer_shown, morning_briefing_opt_in FROM local_profiles`,
   );
   const wardrobeTable = await database.getFirstAsync(
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'wardrobe_items'",
@@ -211,6 +221,7 @@ test('an existing version 1 database upgrades through version 14 without changin
     notifications_opt_in: 0,
     analytics_consent: 'undecided',
     weather_alert_offer_shown: 0,
+    morning_briefing_opt_in: 0,
   }]);
   assert.equal(wardrobeTable.name, 'wardrobe_items');
   // ADR 0004: the contextual offer is answered once, so only 0 and 1 are storable and the
@@ -221,6 +232,16 @@ test('an existing version 1 database upgrades through version 14 without changin
   );
   await assert.rejects(
     () => database.runAsync('UPDATE local_profiles SET weather_alert_offer_shown = NULL'),
+    /NOT NULL/,
+  );
+  // ADR 0004: the morning briefing's opt-in is answered the same way, and version 15 leaves
+  // every existing row opted out rather than assuming consent.
+  await assert.rejects(
+    () => database.runAsync('UPDATE local_profiles SET morning_briefing_opt_in = 2'),
+    /CHECK/,
+  );
+  await assert.rejects(
+    () => database.runAsync('UPDATE local_profiles SET morning_briefing_opt_in = NULL'),
     /NOT NULL/,
   );
 });
@@ -713,6 +734,7 @@ for (const [preference, gender, deletedAt] of [['womens', 'woman', null], ['mens
       onboarding_completed: 0,
       analytics_consent: 'undecided',
       weather_alert_offer_shown: 0,
+      morning_briefing_opt_in: 0,
     });
     assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM wardrobe_items') }, item);
     assert.equal((await database.getFirstAsync('PRAGMA user_version' )).user_version, latestDatabaseVersion);
@@ -867,6 +889,7 @@ for (const [id, name] of [['sample.istanbul', 'Istanbul'], ['sample.ankara', 'An
         dress_style: null,
         analytics_consent: 'undecided',
         weather_alert_offer_shown: 0,
+      morning_briefing_opt_in: 0,
       })),
     );
     assert.deepEqual(await database.getAllAsync('PRAGMA foreign_key_check'), []);
@@ -953,6 +976,7 @@ test('version 10 resets onboarding once and preserves the profile plus cached da
     dress_style: null,
     analytics_consent: 'undecided',
     weather_alert_offer_shown: 0,
+    morning_briefing_opt_in: 0,
   });
   for (const dressStyle of ['casual', 'smart', 'formal', null]) {
     await database.runAsync('UPDATE local_profiles SET dress_style = ?', [dressStyle]);
@@ -1050,6 +1074,7 @@ test('version 11 adds the weather alert ledger without changing existing rows', 
       ...row,
       analytics_consent: 'undecided',
       weather_alert_offer_shown: 0,
+      morning_briefing_opt_in: 0,
     })),
   );
   assert.deepEqual(await database.getAllAsync('SELECT * FROM wardrobe_items'), wardrobeBefore);
@@ -1116,6 +1141,7 @@ test('version 12 defaults an existing profile row to undecided analytics consent
       ...row,
       analytics_consent: 'undecided',
       weather_alert_offer_shown: 0,
+      morning_briefing_opt_in: 0,
     })),
   );
   for (const consent of ['undecided', 'granted', 'withdrawn']) {
@@ -1139,6 +1165,77 @@ test('version 12 defaults an existing profile row to undecided analytics consent
     (await database.getFirstAsync('SELECT analytics_consent FROM local_profiles'))
       .analytics_consent,
     'withdrawn',
+  );
+});
+
+// ADR 0004: version 15 adds the morning briefing's own opt-in. It is additive, so the only
+// thing worth asserting is that a real version 14 install crosses it untouched: the profile
+// row keeps every value it had, the new column reads 0, the delivery ledger is intact and
+// no foreign key is left dangling.
+test('version 15 adds the briefing opt-in without disturbing a version 14 install', async (t) => {
+  const database = new NodeSqliteDatabase();
+  t.after(() => database.close());
+  const stopBeforeV15 = {
+    execAsync: database.execAsync.bind(database),
+    getFirstAsync: database.getFirstAsync.bind(database),
+    withExclusiveTransactionAsync: (task) =>
+      database.withExclusiveTransactionAsync((transaction) => task({
+        execAsync: async (sql) => {
+          if (sql.includes('ADD COLUMN morning_briefing_opt_in')) {
+            throw new Error('stop before v15');
+          }
+          await transaction.execAsync(sql);
+        },
+        runAsync: transaction.runAsync.bind(transaction),
+        getFirstAsync: transaction.getFirstAsync.bind(transaction),
+        getAllAsync: transaction.getAllAsync.bind(transaction),
+      })),
+  };
+  await assert.rejects(() => migrateDatabase(stopBeforeV15), /stop before v15/);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 14);
+
+  await insertProfile(database);
+  await database.runAsync(
+    `UPDATE local_profiles SET gender = 'woman', dress_style = 'smart', birth_date = '1994-03-14',
+     language_preference = 'tr', theme_preference = 'dark', onboarding_completed = 1,
+     notifications_opt_in = 1, weather_alert_offer_shown = 1, analytics_consent = 'granted'`,
+  );
+  await database.runAsync(
+    `INSERT INTO weather_alert_deliveries (id, local_profile_id, fire_at, created_at)
+     VALUES ('precipitation_onset:manual:sample.istanbul:2026-09-09', 'stable-profile-id', ?, ?)`,
+    [timestamp, timestamp],
+  );
+  const profileBefore = (await database.getAllAsync('SELECT * FROM local_profiles'))
+    .map((row) => ({ ...row }));
+  const deliveriesBefore = (await database.getAllAsync('SELECT * FROM weather_alert_deliveries'))
+    .map((row) => ({ ...row }));
+  assert.equal('morning_briefing_opt_in' in profileBefore[0], false);
+
+  await migrateDatabase(database);
+
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 15);
+  assert.equal(latestDatabaseVersion, 15);
+  assert.deepEqual(
+    (await database.getAllAsync('SELECT * FROM local_profiles')).map((row) => ({ ...row })),
+    profileBefore.map((row) => ({ ...row, morning_briefing_opt_in: 0 })),
+  );
+  assert.deepEqual(
+    (await database.getAllAsync('SELECT * FROM weather_alert_deliveries')).map((row) => ({ ...row })),
+    deliveriesBefore,
+  );
+  assert.deepEqual(await database.getAllAsync('PRAGMA foreign_key_check'), []);
+  // The flag is answerable both ways afterwards, and only both ways.
+  await database.runAsync('UPDATE local_profiles SET morning_briefing_opt_in = 1');
+  assert.equal(
+    (await database.getFirstAsync('SELECT morning_briefing_opt_in FROM local_profiles'))
+      .morning_briefing_opt_in,
+    1,
+  );
+  await migrateDatabase(new NodeSqliteDatabase(database.database));
+  assert.equal(
+    (await database.getFirstAsync('SELECT morning_briefing_opt_in FROM local_profiles'))
+      .morning_briefing_opt_in,
+    1,
   );
 });
 

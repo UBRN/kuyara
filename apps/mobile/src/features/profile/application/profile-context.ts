@@ -19,6 +19,7 @@ export type ProfileApplicationValue = Readonly<{
   updateLanguagePreference: (preference: LanguagePreference) => Promise<void>;
   updateThemePreference: (preference: ThemePreference) => Promise<void>;
   updateNotificationsOptIn: (optIn: boolean) => Promise<void>;
+  updateMorningBriefingOptIn: (optIn: boolean) => Promise<void>;
   markWeatherAlertOfferShown: () => Promise<void>;
   updateAnalyticsConsent: (consent: AnalyticsConsent) => Promise<void>;
 }>;

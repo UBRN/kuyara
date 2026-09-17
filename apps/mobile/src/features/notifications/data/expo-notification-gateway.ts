@@ -3,13 +3,24 @@ import { Linking, Platform } from 'react-native';
 
 import type {
   NotificationGateway,
+  NotificationKind,
   NotificationPermissionState,
 } from '@/features/notifications/data/notification-gateway';
 import { getDeviceLocale } from '@/localization/device-locale';
 import { getMessages } from '@/localization/messages';
 
+// Every kuyara notification carries this prefix, so cancel-all still covers alerts a
+// previous build scheduled. The morning briefing lives inside the same namespace, one
+// segment deeper, and that segment is how a tapped response names its kind.
 const weatherAlertIdentifierPrefix = 'weather-alert:';
+const morningBriefingIdentifierPrefix = `${weatherAlertIdentifierPrefix}morning_briefing:`;
 const weatherAlertChannelId = 'weather-alerts';
+
+function notificationKind(identifier: string): NotificationKind {
+  return identifier.startsWith(morningBriefingIdentifierPrefix)
+    ? 'morning_briefing'
+    : 'weather_alert';
+}
 
 try {
   Notifications.setNotificationHandler({
@@ -111,11 +122,11 @@ export class ExpoNotificationGateway implements NotificationGateway {
     }
   }
 
-  subscribeToResponses(listener: () => void): () => void {
+  subscribeToResponses(listener: (kind: NotificationKind) => void): () => void {
     // The listener runs first, while the stored response is still readable, and every
     // delivered tap is cleared afterwards so a later subscription cannot replay it.
-    const deliverResponse = () => {
-      listener();
+    const deliverResponse = (response: Notifications.NotificationResponse) => {
+      listener(notificationKind(response.notification.request.identifier));
       try {
         Notifications.clearLastNotificationResponse();
       } catch {
@@ -129,7 +140,8 @@ export class ExpoNotificationGateway implements NotificationGateway {
       // A tap that launched the app is emitted before any JS listener exists, so the
       // response the native module kept is the only record of it.
       try {
-        if (Notifications.getLastNotificationResponse()) deliverResponse();
+        const last = Notifications.getLastNotificationResponse();
+        if (last) deliverResponse(last);
       } catch {
         // No stored response to read: the warm path is unaffected.
       }

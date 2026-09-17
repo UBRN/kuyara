@@ -20,7 +20,7 @@ import {
 } from '@/components/ui';
 import { useAmbientPulse } from '@/components/ui/use-ambient-pulse';
 import type { NotificationOptInOutcome } from '@/features/notifications/application/notification-application-controller';
-import type { WeatherAlertRuleId } from '@/features/notifications/domain/weather-alerts';
+import type { WeatherAlertOfferReason } from '@/features/notifications/domain/weather-alert-offer';
 import type { TodayScreenState } from '@/features/today/model';
 import { GarmentBoardSkeleton } from '@/features/today/presentation/garment-board-skeleton';
 import {
@@ -57,7 +57,7 @@ const ACCESSORY_BADGE_SIZE = 28;
  * have fired today, when the offer was already made, or when the user is already opted in.
  */
 export type TodayAlertOffer = Readonly<{
-  ruleId: WeatherAlertRuleId;
+  ruleId: WeatherAlertOfferReason;
   /** The Settings opt-in flow, OS permission prompt included. */
   onAccept: () => Promise<NotificationOptInOutcome>;
   onDismiss: () => Promise<void>;
@@ -500,7 +500,7 @@ function WeatherAlertOfferRow({
   language: SupportedLanguage;
   onAccept: () => Promise<void>;
   onDismiss: () => Promise<void>;
-  ruleId: WeatherAlertRuleId;
+  ruleId: WeatherAlertOfferReason;
 }>) {
   const theme = useKuyaraTheme();
   const { controlScale, usesStackedLayout } = useTextScaling();

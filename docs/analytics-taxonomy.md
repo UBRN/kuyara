@@ -160,12 +160,14 @@ surface became part of milestone 10 under ADR 0033.
 ### 5.0 Properties every event carries
 
 Every custom event sent through the `ProductAnalytics` boundary carries `schema_version`
-(integer, currently 2). It is incremented only when an existing event's properties change
-meaning or an allowed value set changes, not when a new event is added. The SDK-supplied app
+(integer, currently 3). It is incremented only when an existing event's properties change
+meaning or an allowed value set changes, not when a new event is added. Version 3 is the
+notification work: `setting_name` gained `morning_briefing_enabled` and `notification_opened`
+gained a required `kind`. The SDK-supplied app
 version, OS version, and build number (already covered by the provider default, section 5.1)
 are not duplicated as custom properties on any event.
 
-**Count.** This document defines **twenty-three custom events**, the same number
+**Count.** This document defines **twenty-four custom events**, the same number
 `docs/current-status.md` records and the same number the typed catalog carries.
 
 **Domain values are mapped, not passed through.** Several enums below are the `snake_case`
@@ -442,7 +444,7 @@ Closet screen views are covered by `screen_viewed` (5.3), not a separate event.
 
 | Event | Trigger | Properties |
 | --- | --- | --- |
-| `setting_changed` | Any Settings value changes. | `setting_name` (`appearance_theme`\|`language`\|`notifications_enabled`\|`dress_style`\|`gender`\|`birth_date`), `new_value` (present only for `appearance_theme`: `system`\|`light`\|`dark`; `language`: `system`\|`tr`\|`en`; `notifications_enabled`: boolean; `dress_style`: section 3; absent for `gender` and `birth_date`, since neither value is an allowed analytics property) |
+| `setting_changed` | Any Settings value changes. | `setting_name` (`appearance_theme`\|`language`\|`notifications_enabled`\|`morning_briefing_enabled`\|`dress_style`\|`gender`\|`birth_date`), `new_value` (present only for `appearance_theme`: `system`\|`light`\|`dark`; `language`: `system`\|`tr`\|`en`; `notifications_enabled` and `morning_briefing_enabled`: boolean; `dress_style`: section 3; absent for `gender` and `birth_date`, since neither value is an allowed analytics property) |
 | `ai_probe_triggered` | The user triggers the AI status probe on the Settings AI status screen. | `result` (`ok`\|`unavailable`\|`rate_limited`\|`error`) |
 
 `ai_probe_triggered` lost two properties the code cannot supply. `probe_type` is gone
@@ -544,25 +546,30 @@ feature it measures. Revisit this section when Supabase Auth work is scheduled.
 
 ### 5.13 Notifications
 
-Local weather alerts shipped under ADR 0032 after ADR 0023 was written, so this area is not
-in its list. Permission resolution and an alert response are observable today; successful
-scheduling, deduplication, and delivery are not.
+Local notifications shipped under ADR 0032 and ADR 0004 after ADR 0023 was written, so this
+area is not in its list. Permission resolution, how the one contextual offer was answered,
+and a notification response are observable today; successful scheduling, deduplication, and
+delivery are not.
 
 | Event | Trigger | Properties | Sampling / aggregation |
 | --- | --- | --- | --- |
-| `notification_permission_resolved` | The user turns the notifications setting on and the permission question resolves. | `outcome` (`enabled`\|`blocked`), `can_request_again` (boolean, present only when `outcome` is `blocked`) | none, user-paced |
-| `notification_opened` | The app receives a response indicating that the user tapped a local notification. | none | none |
+| `notification_permission_resolved` | The user turns a notification setting on and the permission question resolves. | `outcome` (`enabled`\|`blocked`), `can_request_again` (boolean, present only when `outcome` is `blocked`) | none, user-paced |
+| `notification_opened` | The app receives a response indicating that the user tapped a local notification. | `kind` (`weather_alert`\|`morning_briefing`) | none |
+| `weather_alert_offer_resolved` | The user answers ADR 0004's one contextual offer on Today. | `outcome` (`accepted`\|`dismissed`), `kind` (`precipitation_onset`\|`temperature_swing`\|`morning_briefing`) | none, once per install |
 
 `outcome` is the controller's own return value (`'enabled'` | `'blocked'` | `'disabled'`,
 in `features/notifications/application/notification-application-controller.ts`).
-`disabled`, the user turning the setting off, is already `setting_changed` with
-`notifications_enabled` (5.9) and is not duplicated here.
+`disabled`, the user turning a setting off, is already `setting_changed` with
+`notifications_enabled` or `morning_briefing_enabled` (5.9) and is not duplicated here.
 
-`notification_opened` has no `alert_rule` property because the gateway's response
-subscription takes a listener with no payload
-(`apps/mobile/src/features/notifications/data/notification-gateway.ts:30-31`), so the app
-knows only that a notification was tapped. Widening the listener is a code change, not a
-taxonomy claim.
+`notification_opened` names the kind and nothing else: it carries no rule, no time, no
+weather and no content. The kind is read back off the notification's own identifier inside
+the Expo adapter, which is the only thing a tapped response carries.
+
+`weather_alert_offer_resolved.kind` is the reason the offer was made, which is the rule
+that would have fired or `morning_briefing` when the briefing would have been scheduled.
+It says why the person was asked, never what the weather was. The offer is made once for
+the life of the install, so the event is emitted at most once per install.
 
 **There is no scheduled event.** The Expo gateway catches and discards scheduling errors
 (`apps/mobile/src/features/notifications/data/expo-notification-gateway.ts:79-106`), so the
@@ -580,9 +587,12 @@ volume is not estimated from the app today.
 
 **Product questions answered.**
 
-- `notification_permission_resolved`: how many people who want alerts are blocked by the
-  OS permission?
-- `notification_opened`: do alerts bring people back into the app?
+- `notification_permission_resolved`: how many people who want notifications are blocked
+  by the OS permission?
+- `notification_opened`: do notifications bring people back into the app, and which kind
+  does?
+- `weather_alert_offer_resolved`: is the one contextual offer accepted or dismissed, and
+  does the reason it names change the answer?
 
 ### 5.14 Consent
 

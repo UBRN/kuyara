@@ -117,6 +117,7 @@ function createProfile(onboardingCompleted: boolean): LocalProfile {
     onboardingCompleted,
     notificationsOptIn: false,
     weatherAlertOfferShown: false,
+    morningBriefingOptIn: false,
     analyticsConsent: 'undecided',
     createdAt: '2026-07-30T10:00:00.000Z',
     updatedAt: '2026-07-30T10:00:00.000Z',
@@ -138,6 +139,7 @@ function createProfileApplication(onboardingCompleted: boolean): ProfileApplicat
     updateLanguagePreference: async () => undefined,
     updateThemePreference: async () => undefined,
     updateNotificationsOptIn: async () => undefined,
+    updateMorningBriefingOptIn: async () => undefined,
     markWeatherAlertOfferShown: async () => undefined,
     updateAnalyticsConsent: async () => undefined,
   };

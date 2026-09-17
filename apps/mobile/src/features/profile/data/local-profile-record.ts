@@ -8,6 +8,7 @@ export type LocalProfileRecord = Readonly<{
   onboardingCompleted: number;
   notificationsOptIn: number;
   weatherAlertOfferShown: number;
+  morningBriefingOptIn: number;
   analyticsConsent: string;
   createdAt: string;
   updatedAt: string;

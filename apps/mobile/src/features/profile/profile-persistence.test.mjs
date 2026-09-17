@@ -29,6 +29,7 @@ const createRecord = (overrides = {}) => ({
   onboardingCompleted: 0,
   notificationsOptIn: 0,
   weatherAlertOfferShown: 0,
+  morningBriefingOptIn: 0,
   analyticsConsent: 'undecided',
   createdAt,
   updatedAt: createdAt,
@@ -91,6 +92,30 @@ test('notification opt-in defaults off and persists across a new repository', as
     }),
   );
   assert.equal((await relaunchedRepository.getOrCreateProfile()).notificationsOptIn, true);
+});
+
+// ADR 0004: the morning briefing is the second notification kind, with its own opt-in that
+// moves both ways independently of the weather alert one.
+test('the morning briefing opt-in defaults off, persists, and is independent', async (t) => {
+  const { database, dataSource } = await createLocalDataSource(t);
+  const repository = new LocalProfileRepository(dataSource);
+
+  assert.equal((await repository.getOrCreateProfile()).morningBriefingOptIn, false);
+  const enabled = await repository.updateMorningBriefingOptIn(true);
+  assert.equal(enabled.morningBriefingOptIn, true);
+  assert.equal(enabled.notificationsOptIn, false);
+  assert.equal((await repository.updateMorningBriefingOptIn(false)).morningBriefingOptIn, false);
+  await repository.updateMorningBriefingOptIn(true);
+
+  const relaunchedRepository = new LocalProfileRepository(
+    new SqliteProfileLocalDataSource(database, {
+      createId: () => 'unused',
+      now: () => updatedAt,
+    }),
+  );
+  const relaunched = await relaunchedRepository.getOrCreateProfile();
+  assert.equal(relaunched.morningBriefingOptIn, true);
+  assert.equal(relaunched.notificationsOptIn, false);
 });
 
 // ADR 0004: Today's contextual alert offer is made once. The flag only ever moves from 0
@@ -361,6 +386,16 @@ test('repository maps persistence values and rejects invalid stored enums predic
   });
   await assert.rejects(
     () => invalidNotificationsRepository.getOrCreateProfile(),
+    (error) =>
+      error instanceof ProfileRepositoryError &&
+      error.code === 'invalid-data',
+  );
+
+  const invalidBriefingRepository = new LocalProfileRepository({
+    getOrCreateProfile: async () => createRecord({ morningBriefingOptIn: 2 }),
+  });
+  await assert.rejects(
+    () => invalidBriefingRepository.getOrCreateProfile(),
     (error) =>
       error instanceof ProfileRepositoryError &&
       error.code === 'invalid-data',

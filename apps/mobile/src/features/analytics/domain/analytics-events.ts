@@ -1,4 +1,4 @@
-// The typed catalog of the twenty-three custom events in `docs/analytics-taxonomy.md`
+// The typed catalog of the twenty-four custom events in `docs/analytics-taxonomy.md`
 // section 5. Every enum here is closed: a new value is added to the taxonomy first, in the
 // same change that adds it to the code it is derived from, and it bumps the schema version.
 // Nothing in this module talks to a provider; it is the contract the `ProductAnalytics`
@@ -11,7 +11,7 @@ import type { WardrobeEntryState } from '@/features/wardrobe/domain/wardrobe-ite
 
 // Taxonomy 5.0: incremented only when an existing event's properties change meaning or an
 // allowed value set changes, never when a new event is added.
-export const ANALYTICS_SCHEMA_VERSION = 2;
+export const ANALYTICS_SCHEMA_VERSION = 3;
 
 type AnalyticsEventBase = Readonly<{
   schema_version: typeof ANALYTICS_SCHEMA_VERSION;
@@ -34,6 +34,15 @@ type ProfileSegmentation = Readonly<{
   dress_style: DressStyle;
   age_bucket: AgeBucket;
 }>;
+
+// Taxonomy 5.13: the two notification kinds ADR 0004 schedules, and the three reasons its
+// one contextual offer can name. Both are closed here rather than imported: the notification
+// domain spells them identically, so a value it adds or renames fails at the call site.
+export type NotificationKindProperty = 'weather_alert' | 'morning_briefing';
+export type WeatherAlertOfferKindProperty =
+  | 'precipitation_onset'
+  | 'temperature_swing'
+  | 'morning_briefing';
 
 // Taxonomy 5.10: the snake_case form of the shared domain `FailureCategory`.
 export type FailureCategoryProperty =
@@ -227,6 +236,7 @@ export type AnalyticsEventCatalog = {
       | Readonly<{ setting_name: 'appearance_theme'; new_value: ThemePreference }>
       | Readonly<{ setting_name: 'language'; new_value: LanguagePreference }>
       | Readonly<{ setting_name: 'notifications_enabled'; new_value: boolean }>
+      | Readonly<{ setting_name: 'morning_briefing_enabled'; new_value: boolean }>
       | Readonly<{ setting_name: 'dress_style'; new_value: DressStyle }>
       | Readonly<{ setting_name: 'gender' | 'birth_date' }>
     );
@@ -248,7 +258,12 @@ export type AnalyticsEventCatalog = {
       | Readonly<{ outcome: 'enabled' }>
       | Readonly<{ outcome: 'blocked'; can_request_again: boolean }>
     );
-  notification_opened: AnalyticsEventBase;
+  // Taxonomy 5.13: which of the two kinds was tapped, and nothing else about it.
+  notification_opened: AnalyticsEventBase & Readonly<{ kind: NotificationKindProperty }>;
+  // Taxonomy 5.13: ADR 0004's one contextual offer, answered. `kind` names the reason the
+  // offer was made, never the weather behind it.
+  weather_alert_offer_resolved: AnalyticsEventBase &
+    Readonly<{ outcome: 'accepted' | 'dismissed'; kind: WeatherAlertOfferKindProperty }>;
   analytics_consent_granted: AnalyticsEventBase &
     Readonly<{ surface: 'today_sheet' | 'settings_privacy' }>;
   analytics_consent_withdrawn: AnalyticsEventBase;
@@ -284,6 +299,7 @@ export const analyticsEventNames = [
   'feature_used_first_time',
   'notification_permission_resolved',
   'notification_opened',
+  'weather_alert_offer_resolved',
   'analytics_consent_granted',
   'analytics_consent_withdrawn',
 ] as const satisfies readonly AnalyticsEventName[];
@@ -377,7 +393,8 @@ export const analyticsEventPropertyKeys = {
     'outcome',
     'can_request_again',
   ],
-  notification_opened: ['schema_version'],
+  notification_opened: ['schema_version', 'kind'],
+  weather_alert_offer_resolved: ['schema_version', 'outcome', 'kind'],
   analytics_consent_granted: ['schema_version', 'surface'],
   analytics_consent_withdrawn: ['schema_version'],
 } as const satisfies {

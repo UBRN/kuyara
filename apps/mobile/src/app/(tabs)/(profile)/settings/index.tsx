@@ -41,7 +41,9 @@ export default function SettingsRoute() {
       <SettingsScreen
         isSaving={state.isSaving}
         notificationsOn={notificationsAreActive(
-          state.profile.notificationsOptIn,
+          // ADR 0004: the row stands for the Notifications surface, which now holds two
+          // kinds, so either one being in force reads as On.
+          state.profile.notificationsOptIn || state.profile.morningBriefingOptIn,
           notificationState.permission,
         )}
         onAppearanceChange={async (value) => {

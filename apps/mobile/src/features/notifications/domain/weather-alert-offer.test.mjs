@@ -62,8 +62,37 @@ test('an alert that would have fired today is offered, by its rule', () => {
   );
 });
 
-test('a day with no crossing offers nothing', () => {
+test('a day with no crossing and no reachable morning offers nothing', () => {
   assert.deepEqual(offerState({ snapshot: snapshot() }), { kind: 'none' });
+});
+
+// ADR 0004: the briefing is planned every day, so the offer stops waiting for a rare rule
+// crossing and arrives on the first fresh open whose window reaches tomorrow morning.
+test('a snapshot that reaches tomorrow morning offers the briefing', () => {
+  const withTomorrow = snapshot({
+    hourly: [
+      { forecastAt: crossingAt, ...measurements() },
+      { forecastAt: '2026-09-10T07:00:00.000Z', ...measurements() },
+    ],
+  });
+
+  assert.deepEqual(
+    offerState({ snapshot: withTomorrow }),
+    { kind: 'offer', ruleId: 'morning_briefing' },
+  );
+  // An alert is about the next few hours, so a day that has both is named by the alert.
+  assert.deepEqual(
+    offerState({
+      snapshot: {
+        ...withTomorrow,
+        hourly: [
+          { forecastAt: crossingAt, ...measurements({ precipitationProbability: 0.6 }) },
+          { forecastAt: '2026-09-10T07:00:00.000Z', ...measurements() },
+        ],
+      },
+    }),
+    { kind: 'offer', ruleId: 'precipitation_onset' },
+  );
 });
 
 test('nothing is offered to someone already opted in, or already offered', () => {

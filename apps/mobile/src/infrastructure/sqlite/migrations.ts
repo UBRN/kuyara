@@ -10,7 +10,7 @@ type Migration = Readonly<{
   migrate: (database: SqliteExecutor) => Promise<void>;
 }>;
 
-export const latestDatabaseVersion = 14;
+export const latestDatabaseVersion = 15;
 
 // Foreign keys are enforced on every connection: `migrateDatabase` turns them on for the
 // shared connection below, and the transaction wrapper in `expo-sqlite-database.ts` turns
@@ -444,6 +444,21 @@ const migrationV14: Migration = {
   },
 };
 
+const migrationV15: Migration = {
+  version: 15,
+  async migrate(database) {
+    // ADR 0004: the morning briefing is the second notification kind and carries its own
+    // opt-in, following the `notifications_opt_in` pattern. Additive; every existing
+    // install starts with the briefing off.
+    await database.execAsync(`
+      ALTER TABLE local_profiles
+        ADD COLUMN morning_briefing_opt_in INTEGER NOT NULL DEFAULT 0 CHECK (
+          morning_briefing_opt_in IN (0, 1)
+        );
+    `);
+  },
+};
+
 const migrations = [
   migrationV1,
   migrationV2,
@@ -459,6 +474,7 @@ const migrations = [
   migrationV12,
   migrationV13,
   migrationV14,
+  migrationV15,
 ] as const satisfies readonly Migration[];
 
 async function readUserVersion(database: SqliteExecutor): Promise<number> {

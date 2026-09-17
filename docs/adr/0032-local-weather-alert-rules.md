@@ -27,11 +27,11 @@ swing", and left the rules to this decision.
 
 Three facts from the repository shape the rules:
 
-- The weather contract's `hourly` array holds at most 25 entries and every entry must
-  belong to the current local day of the snapshot's time zone
-  (`packages/contracts/src/weather-v1.ts`). The "next 24 to 48 hours" ADR 0004 imagined
-  are not available without a Worker and provider-adapter change. N2 therefore alerts on
-  the remainder of today, and that limitation is accepted here rather than solved.
+- The weather contract's `hourly` array holds at most 38 entries, spanning the hour
+  before the observation to 36 hours after it
+  (`packages/contracts/src/weather-v1.ts`). The rules below read only the remainder of the
+  current local day, which is a rule choice rather than a contract limit: an alert is
+  about a change the person is walking into today.
 - The deterministic requirement engine already draws the product's weather lines:
   precipitation is "likely" at probability 0.6 and "possible" at 0.3, a daily range of
   8 °C is "wide", and cold, heat and wind have their own steps
@@ -87,9 +87,15 @@ Quiet hours are 22:00 to 07:00 by default, evaluated in the time zone the caller
 (the device's, since quiet hours are about the person, not the place). A fire time inside
 quiet hours moves to the end of quiet hours when that still leaves at least 30 minutes
 before the crossing; otherwise the alert is dropped for the day. No control exists for
-quiet hours in this phase; ADR 0030's Notifications surface is laid out so a second group
-can be added underneath without moving anything, and that group is where a control would
-go, designed separately.
+quiet hours.
+
+The second group ADR 0030's Notifications surface left room for underneath is now the
+morning briefing's own opt-in ([ADR 0004](0004-notifications-in-the-mvp.md)), added
+without moving the alert group. The briefing fires at the hour quiet hours end, so it can
+never fall inside them and no adjustment applies to it. Its hour is read in the snapshot's
+time zone while quiet hours are read in the device's, so the two can disagree while the
+person is travelling; that is a known and accepted limit, not a case the planner corrects. A quiet-hours control, if one is
+ever wanted, would be designed separately and would take a group of its own.
 
 ### 5. Content
 
@@ -104,8 +110,10 @@ and no identifier.
 Alerts are planned only when the profile's `notificationsOptIn` is true and the OS
 permission is granted, and only from a snapshot that is fresh under the existing 30-minute
 window. A stale or invalid snapshot cancels nothing and writes nothing; the existing
-schedule and ledger remain until a fresh snapshot arrives. Turning opt-in off cancels every
-pending alert regardless of snapshot age.
+schedule and ledger remain until a fresh snapshot arrives. The two kinds gate
+independently: the scheduler runs while either opt-in is on, and each kind is planned only
+under its own. Turning both off cancels every pending notification regardless of snapshot
+age.
 
 - **Phase 1, domain.** `features/notifications/domain/weather-alerts.ts` contains the
   planner, its types and constants, with boundary tests in the style of the requirement
@@ -123,9 +131,9 @@ pending alert regardless of snapshot age.
 
 ## Consequences
 
-- Alerts cover today only until the weather contract carries tomorrow's hours. That
-  change is a separate decision, because it touches every provider adapter and the
-  Worker cache.
+- Alerts cover today only. The contract already carries tomorrow's early hours, and the
+  morning briefing reads them; widening the alert rules themselves to a second day would
+  be a separate decision about what is worth interrupting someone for.
 - The thresholds are shared numbers, not shared code: the alert module restates 0.6 and
   8 °C as its own named constants and a test pins them to the requirement engine's values
   so the two cannot drift silently.

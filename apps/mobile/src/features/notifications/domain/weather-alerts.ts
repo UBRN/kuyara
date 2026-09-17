@@ -48,7 +48,7 @@ export type WeatherAlertPlan = Readonly<{
 
 const minuteMilliseconds = 60 * 1000;
 
-function isWet(measurement: WeatherMeasurements): boolean {
+export function isWetMeasurement(measurement: WeatherMeasurements): boolean {
   return measurement.precipitationProbability >= precipitationLikelyThreshold
     || ['drizzle', 'rain', 'heavy_rain', 'sleet', 'snow', 'thunderstorm']
       .includes(measurement.condition);
@@ -148,8 +148,8 @@ export function planWeatherAlerts(input: Readonly<{
     }));
   }
 
-  const precipitationCrossing = remainingHours.find(isWet);
-  if (!isWet(snapshot.current) && precipitationCrossing) {
+  const precipitationCrossing = remainingHours.find(isWetMeasurement);
+  if (!isWetMeasurement(snapshot.current) && precipitationCrossing) {
     addPlan('precipitation_onset', precipitationCrossing, {
       kind: 'precipitation',
       form: ['sleet', 'snow'].includes(precipitationCrossing.condition) ? 'snow' : 'rain',

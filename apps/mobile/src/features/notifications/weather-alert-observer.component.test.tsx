@@ -25,6 +25,7 @@ const profile: LocalProfile = {
   onboardingCompleted: true,
   notificationsOptIn: true,
   weatherAlertOfferShown: false,
+  morningBriefingOptIn: false,
   analyticsConsent: 'undecided',
   createdAt: '2026-09-09T08:00:00.000Z',
   updatedAt: '2026-09-09T08:00:00.000Z',
@@ -78,6 +79,7 @@ function profileApplication(notificationsOptIn: boolean): ProfileApplicationValu
     updateLanguagePreference: async () => undefined,
     updateThemePreference: async () => undefined,
     updateNotificationsOptIn: async () => undefined,
+    updateMorningBriefingOptIn: async () => undefined,
     markWeatherAlertOfferShown: async () => undefined,
     updateAnalyticsConsent: async () => undefined,
   };
@@ -113,6 +115,7 @@ function notificationApplication(
   return {
     state: { permission, isBusy: false },
     setOptIn: async () => ({ outcome: 'enabled' }),
+    requestPermission: async () => ({ outcome: 'enabled' as const }),
     openApplicationSettings: async () => undefined,
     weatherAlertScheduler: scheduler,
   };
