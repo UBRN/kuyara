@@ -41,9 +41,13 @@ export type WardrobeRetrySource = 'pull' | 'retry_button';
 
 type WardrobeListScreenProps = Readonly<{
   state: WardrobeApplicationState;
+  /** The segment to show; the route owns it, so it survives the add flow. */
   initialEntryState?: WardrobeEntryState;
+  /** The item the add flow has just saved, so only that tile arrives. */
+  savedItemId?: string | null;
   onAdd: () => void;
   onEdit: (id: string) => void;
+  onEntryStateChange?: (entryState: WardrobeEntryState) => void;
   onRetry: (source: WardrobeRetrySource) => void;
   resolvePhotoUri?: (relativePath: string | null) => string | null;
 }>;
@@ -72,13 +76,33 @@ const LOADING_TILE_COUNT = 6;
 
 type CategoryFilter = StructuralCategory | 'all';
 
+/**
+ * Law 7, "content arrives": opening the Closet is an arrival, so every tile enters in
+ * reading order. Returning from a save is not; the grid is already known and only the
+ * saved item is news, so it alone enters and the rest are drawn at rest. Motion is not
+ * the only indication either way, since the item's own presence in the list is.
+ *
+ * Returns the tile's place in the stagger, or `null` when it must be drawn at rest.
+ */
+export function tileEntranceIndex(
+  itemId: string,
+  index: number,
+  savedItemId: string | null | undefined,
+): number | null {
+  if (!savedItemId) {
+    return index;
+  }
+  return itemId === savedItemId ? 0 : null;
+}
 
 export function WardrobeListScreen({
   initialEntryState = 'owned',
   onAdd,
   onEdit,
+  onEntryStateChange = () => undefined,
   onRetry,
   resolvePhotoUri = () => null,
+  savedItemId = null,
   state,
 }: WardrobeListScreenProps) {
   const insets = useSafeAreaInsets();
@@ -88,6 +112,19 @@ export function WardrobeListScreen({
   const { width: windowWidth } = useWindowDimensions();
   const copy = messages.wardrobe;
   const [entryState, setEntryState] = useState<WardrobeEntryState>(initialEntryState);
+  // Read once, at the mount the add flow returned to. Later it must not change: a tile
+  // already on screen would swap its wrapper and remount for nothing, and a screen that
+  // was never torn down needs no help anyway, since the saved item is the only tile
+  // mounting and the ones around it have long since entered.
+  const [arrivingItemId] = useState<string | null>(savedItemId);
+  const [routeEntryState, setRouteEntryState] = useState<WardrobeEntryState>(initialEntryState);
+  if (routeEntryState !== initialEntryState) {
+    // The route owns the segment, so a return from the add flow reselects it whether or
+    // not the navigator remounted this screen. Derived during render, like the pull reset
+    // below, rather than through an effect that would render the wrong segment first.
+    setRouteEntryState(initialEntryState);
+    setEntryState(initialEntryState);
+  }
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>('all');
   // The refresh control shows only for a pull. The route also refreshes on focus, and a
   // `refreshing` flag that flips during that background refresh leaves the native control
@@ -220,7 +257,10 @@ export function WardrobeListScreen({
       ListHeaderComponent={
         <View style={styles.listHeader}>
           <SegmentedControl
-            onChange={setEntryState}
+            onChange={(next) => {
+              setEntryState(next);
+              onEntryStateChange(next);
+            }}
             options={segmentOptions}
             testID="wardrobe-entry-filter"
             value={entryState}
@@ -269,8 +309,9 @@ export function WardrobeListScreen({
         onRetry('pull');
       }}
       refreshing={isPulling && isRefreshing}
-      renderItem={({ index, item }) => (
-        <Entrance index={index}>
+      renderItem={({ index, item }) => {
+        const entranceIndex = tileEntranceIndex(item.id, index, arrivingItemId);
+        const tile = (
           <WardrobeGridTile
             geometry={geometry}
             item={item}
@@ -279,8 +320,13 @@ export function WardrobeListScreen({
             resolvePhotoUri={resolvePhotoUri}
             testID={`wardrobe-item-${item.id}`}
           />
-        </Entrance>
-      )}
+        );
+        return entranceIndex === null ? (
+          <View>{tile}</View>
+        ) : (
+          <Entrance index={entranceIndex}>{tile}</Entrance>
+        );
+      }}
       showsVerticalScrollIndicator={false}
       style={[styles.list, { backgroundColor: theme.colors.background }]}
       testID="wardrobe-list"

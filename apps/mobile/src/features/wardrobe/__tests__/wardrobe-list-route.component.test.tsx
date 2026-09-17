@@ -69,19 +69,26 @@ const mockUseFocusEffect = jest.fn((effect: FocusEffect) => {
 jest.mock('expo-router', () => {
   const push = jest.fn();
   const back = jest.fn();
+  const setParams = jest.fn();
 
   return {
     useFocusEffect: (effect: FocusEffect) => mockUseFocusEffect(effect),
     useIsFocused: () => true,
-    useRouter: () => ({ back, push }),
+    useRouter: () => ({ back, push, setParams }),
     __mockBack: back,
     __mockPush: push,
+    __mockSetParams: setParams,
   };
 });
 
-const { __mockBack: mockBack, __mockPush: mockPush } = jest.requireMock('expo-router') as {
+const {
+  __mockBack: mockBack,
+  __mockPush: mockPush,
+  __mockSetParams: mockSetParams,
+} = jest.requireMock('expo-router') as {
   __mockBack: jest.Mock;
   __mockPush: jest.Mock;
+  __mockSetParams: jest.Mock;
 };
 
 const initialMetrics = {
@@ -215,6 +222,7 @@ async function renderRoute(items: readonly WardrobeItem[]) {
 beforeEach(() => {
   mockBack.mockClear();
   mockPush.mockClear();
+  mockSetParams.mockClear();
   focusEffects = [];
 });
 
@@ -222,10 +230,21 @@ beforeEach(() => {
 // `Stack.Screen` `headerRight`, not in `WardrobeListRoute`'s own tree, exactly as
 // `profile.tsx`'s settings gear is untested at the route level; only the empty state's
 // own "Add a piece" button is this component's to test.
-test('the empty state add action navigates to the absolute new-item route', async () => {
+test('the empty state add action navigates to the absolute new-item route, carrying the current segment', async () => {
   const result = await renderRoute([]);
   await fireEvent.press(result.getByTestId('wardrobe-empty-add-button'));
-  expect(mockPush).toHaveBeenLastCalledWith('/wardrobe/new');
+  expect(mockPush).toHaveBeenLastCalledWith({
+    params: { filter: 'owned' },
+    pathname: '/wardrobe/new',
+  });
+});
+
+// The segment is the route's, not this screen's: the plus bar button lives in the route
+// file and reads the same param, so a piece added from Wanted is filed as wanted.
+test('switching the segment writes it back to the route', async () => {
+  const result = await renderRoute([item]);
+  await fireEvent.press(result.getByTestId('wardrobe-entry-filter-segment-1'));
+  expect(mockSetParams).toHaveBeenCalledWith({ filter: 'wanted' });
 });
 
 test('selecting an item navigates to its absolute edit route', async () => {

@@ -27,7 +27,11 @@ type PendingRetry = Readonly<{
 
 export function WardrobeListRoute({
   initialEntryState,
-}: Readonly<{ initialEntryState?: WardrobeEntryState }> = {}) {
+  savedItemId,
+}: Readonly<{
+  initialEntryState?: WardrobeEntryState;
+  savedItemId?: string | null;
+}> = {}) {
   const router = useRouter();
   const { analytics, firstUses, retries } = useProductAnalytics();
   const { refresh, resolvePhotoUri, state } = useWardrobeApplication();
@@ -118,10 +122,20 @@ export function WardrobeListRoute({
   return (
     <WardrobeListScreen
       initialEntryState={initialEntryState}
-      onAdd={() => router.push('/wardrobe/new')}
+      // The segment lives on the route, so the plus bar button in the route file reads
+      // the same value this add action sends, and the form defaults to the list the user
+      // is actually looking at.
+      onAdd={() =>
+        router.push({
+          params: { filter: initialEntryState ?? 'owned' },
+          pathname: '/wardrobe/new',
+        })
+      }
       onEdit={(id) => router.push(`/wardrobe/${id}`)}
+      onEntryStateChange={(entryState) => router.setParams({ filter: entryState })}
       onRetry={handleRetry}
       resolvePhotoUri={resolvePhotoUri}
+      savedItemId={savedItemId}
       state={state}
     />
   );

@@ -126,8 +126,11 @@ export function GarmentTypeSheet({
         <AppText accessibilityRole="header" style={styles.inset} variant="title">
           {messages.wardrobe.typeTitle}
         </AppText>
+        {/* The rail is scope, not the value being chosen: the radio group is the type
+            grid below it (ADR 0029 section 2, where state is the control and category is
+            scope). A group around the chips too would have VoiceOver announce two nested
+            radio groups for one choice. The chips keep their own radio semantics. */}
         <ScrollView
-          accessibilityRole="radiogroup"
           contentContainerStyle={[styles.inset, styles.rail]}
           horizontal
           showsHorizontalScrollIndicator={false}

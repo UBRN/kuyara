@@ -5,11 +5,13 @@
 //
 // The list is every dynamic segment and every query parameter the app can put into a URL:
 // outfit option ids, wardrobe item ids, catalog garment type ids, the Closet ownership
-// filter and the picker's return target. Place search never becomes a route parameter; the
+// filter, the id of the item the Closet add flow has just saved, and the picker's return
+// target. Place search never becomes a route parameter; the
 // Weather location screen holds its query in component state. A `telemetry-route-params`
 // test scans `src/app` and the `useLocalSearchParams` call sites and fails when a new
 // parameter appears without being listed here.
 export const telemetryFilteredRouteParams = [
+  'added',
   'filter',
   'garmentTypeId',
   'id',

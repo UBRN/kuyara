@@ -57,6 +57,7 @@ jest.mock('@expo/ui/community/bottom-sheet', () => {
 
 let mockFocusEffects: (() => void | (() => void))[] = [];
 let mockSearchParams: Record<string, string | string[] | undefined> = {};
+let mockReplace = jest.fn();
 
 jest.mock('expo-router', () => ({
   useFocusEffect: (effect: () => void | (() => void)) => {
@@ -71,7 +72,7 @@ jest.mock('expo-router', () => ({
     back: () => undefined,
     dismissTo: () => undefined,
     push: () => undefined,
-    replace: () => undefined,
+    replace: (...args: unknown[]) => mockReplace(...args),
     setParams: () => undefined,
   }),
 }));
@@ -1107,4 +1108,51 @@ test('one screen_viewed for closet_item_form fires on focus for the edit route',
       options: undefined,
     },
   ]);
+});
+
+test('a piece added from the Wanted list is filed as wanted and returns to that list, naming the saved tile', async () => {
+  mockSearchParams = {};
+  mockReplace = jest.fn();
+  const created: WardrobeItem = { ...plainItem, entryState: 'wanted' };
+  const application = wardrobeApplication({ createItem: jest.fn(async () => created) });
+
+  const result = await render(
+    <TestProviders>
+      <AnalyticsProviders>
+        <WardrobeApplicationContext.Provider value={application}>
+          <WardrobeNewItemRoute defaultEntryState="wanted" />
+        </WardrobeApplicationContext.Provider>
+      </AnalyticsProviders>
+    </TestProviders>,
+  );
+
+  // The one field whose default was silently wrong: the form opens on the list the user
+  // pressed plus from, not on owned.
+  expect(
+    result.getByTestId('wardrobe-entry-state-wanted').props.accessibilityState.selected,
+  ).toBe(true);
+
+  await chooseType(result, 'outerwear', 'rain_jacket');
+  await fireEvent.press(result.getByTestId('wardrobe-save-button'));
+  await waitFor(() => expect(application.createItem).toHaveBeenCalledTimes(1));
+  expect(application.createItem).toHaveBeenCalledWith(
+    expect.objectContaining({ entryState: 'wanted' }),
+    undefined,
+  );
+  // Back to the list the item actually joined, with the saved tile named so it alone
+  // arrives there.
+  await waitFor(() =>
+    expect(mockReplace).toHaveBeenCalledWith({
+      params: { added: created.id, filter: 'wanted' },
+      pathname: '/wardrobe',
+    }),
+  );
+});
+
+test('the type hint leaves once the row carries a type', async () => {
+  const result = await render(<CreateForm />);
+
+  expect(result.getByText(messages.en.wardrobe.typeDescription)).toBeOnTheScreen();
+  await chooseType(result, 'outerwear', 'rain_jacket');
+  expect(result.queryByText(messages.en.wardrobe.typeDescription)).not.toBeOnTheScreen();
 });
