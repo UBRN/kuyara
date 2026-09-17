@@ -1,5 +1,6 @@
-import { act, fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
+import { StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { WardrobeApplicationState } from '@/features/wardrobe/application/wardrobe-application-controller';
@@ -267,6 +268,37 @@ test('selecting a tile emits the edit intent', async () => {
 
   await fireEvent.press(result.getByTestId(`wardrobe-item-${ownedItem.id}`));
   expect(onEdit).toHaveBeenCalledWith(ownedItem.id);
+});
+
+test('a held tile dims while it is pressed and returns when the finger leaves', async () => {
+  const result = await render(
+    <TestProviders>
+      <WardrobeListScreen
+        onAdd={() => undefined}
+        onEdit={() => undefined}
+        onRetry={() => undefined}
+        state={readyState([ownedItem])}
+      />
+    </TestProviders>,
+  );
+
+  // Law 7's press feedback. The scale rides a shared value, which the Reanimated test mock
+  // rebuilds on every render, so the visible half of the response is what is read here:
+  // the tile dims, and motion is never the only indication that it is held.
+  const tile = result.getByTestId(`wardrobe-item-${ownedItem.id}`);
+  expect(StyleSheet.flatten(tile.props.style).opacity).toBe(1);
+
+  fireEvent(tile, 'pressIn');
+  await waitFor(() => {
+    expect(StyleSheet.flatten(result.getByTestId(`wardrobe-item-${ownedItem.id}`).props.style).opacity)
+      .toBe(lightTheme.interaction.pressedOpacity);
+  });
+
+  fireEvent(tile, 'pressOut');
+  await waitFor(() => {
+    expect(StyleSheet.flatten(result.getByTestId(`wardrobe-item-${ownedItem.id}`).props.style).opacity)
+      .toBe(1);
+  });
 });
 
 test('a photo tile falls back to the silhouette after a load failure', async () => {

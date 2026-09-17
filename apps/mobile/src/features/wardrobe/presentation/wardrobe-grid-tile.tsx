@@ -1,6 +1,6 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { AppText, GarmentTileArtwork, useTextScaling } from '@/components/ui';
+import { AppText, GarmentTileArtwork, PressScale, useTextScaling } from '@/components/ui';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import type { AppMessages } from '@/localization/messages';
@@ -67,11 +67,17 @@ export function WardrobeGridTile({
   const glyphSize = Math.min(geometry.width, geometry.height) * GLYPH_SIZE_RATIO;
 
   return (
-    <Pressable
+    // Law 7's press feedback: the tile dims and scales back on `motion.fast`, the same
+    // response Today's alternates give. The opacity is the visible state and the scale
+    // rides on top of it, so motion is never the only indication that the tile is held.
+    <PressScale
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
       onPress={onPress}
-      style={styles.wrapper}
+      style={({ pressed }) => [
+        styles.wrapper,
+        { opacity: pressed ? theme.interaction.pressedOpacity : 1 },
+      ]}
       testID={testID}>
       <View
         style={[
@@ -107,7 +113,7 @@ export function WardrobeGridTile({
           {subline}
         </AppText>
       ) : null}
-    </Pressable>
+    </PressScale>
   );
 }
 

@@ -47,6 +47,29 @@ import { haptics } from '@/components/ui/haptics';
 jest.mock('expo-symbols', () => ({
   SymbolView: jest.fn(() => null),
 }));
+// ADR 0021 section 10's transition between suggestions is a re-mount, and a mount leaves
+// no trace in the rendered tree: the Reanimated test mock rebuilds shared values on every
+// render, so the rise cannot be read from the wrapper's style either. This probe records
+// one line per board mount and renders the real board with its own props untouched.
+const mockBoardMounts: string[] = [];
+jest.mock('@/components/ui/garment-board/garment-board', () => {
+  const React = jest.requireActual('react') as typeof import('react');
+  const actual = jest.requireActual(
+    '@/components/ui/garment-board/garment-board',
+  ) as typeof import('@/components/ui/garment-board/garment-board');
+
+  return {
+    ...actual,
+    GarmentBoard: (props: Parameters<typeof actual.GarmentBoard>[0]) => {
+      const mountedAs = React.useRef(props.testID);
+      React.useEffect(() => {
+        mockBoardMounts.push(String(mountedAs.current));
+      }, []);
+
+      return React.createElement(actual.GarmentBoard, props);
+    },
+  };
+});
 jest.mock('@/components/ui/native-menu', () => {
   const React = jest.requireActual('react') as typeof import('react');
   const {
@@ -732,6 +755,46 @@ test('the hero board rises into a stage that stays still', async () => {
     .not.toHaveProperty('transform');
   expect(StyleSheet.flatten(result.getByTestId('today-sky', hidden).props.style))
     .not.toHaveProperty('transform');
+});
+
+test('a new suggestion re-mounts the hero board, and the same one back leaves it still', async () => {
+  const { recommendation } = todayScreenState.snapshot;
+  if (recommendation.status !== 'recommended') {
+    throw new Error('Expected the Today fixture to contain a recommendation.');
+  }
+  // One dimension changes: the primary option's identity. The alternates keep their own
+  // keys, so anything that mounts a second time did so because the primary key changed.
+  const renewed: TodayScreenState = {
+    ...todayScreenState,
+    snapshot: {
+      ...todayScreenState.snapshot,
+      recommendation: {
+        ...recommendation,
+        outfits: [
+          { ...recommendation.outfits[0], optionId: 'renewed-outfit' },
+          ...recommendation.outfits.slice(1),
+        ],
+      },
+    },
+  };
+  const screen = (state: TodayScreenState) => providers(
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={state} />,
+  );
+  const heroMounts = () => mockBoardMounts.filter((id) => id.startsWith('today-primary-board-'));
+
+  mockBoardMounts.length = 0;
+  const result = await render(screen(todayScreenState));
+  expect(heroMounts()).toEqual([`today-primary-board-${todayOutfitId(1)}`]);
+
+  // A refresh that returns the same outfit must not replay the rise.
+  await result.rerender(screen(todayScreenState));
+  expect(heroMounts()).toEqual([`today-primary-board-${todayOutfitId(1)}`]);
+
+  await result.rerender(screen(renewed));
+  expect(heroMounts()).toEqual([
+    `today-primary-board-${todayOutfitId(1)}`,
+    'today-primary-board-renewed-outfit',
+  ]);
 });
 
 test('the press that completes the outfit fires success once instead of the selection haptic', async () => {
@@ -1630,6 +1693,18 @@ describe('the contextual weather-alert offer', () => {
         && props.name.ios === 'bell.fill',
     );
     expect(bell?.[0].size).toBe(30);
+  });
+
+  test('the offer arrives rather than appearing mid-screen', async () => {
+    const result = await render(providers(
+      <TodayScreen alertOffer={offerProps()} language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={todayScreenState} />,
+    ));
+
+    // Law 7's "content arrives": `Entrance` fades the row in and travels it one rhythm
+    // unit into place. The Reanimated test mock rebuilds shared values on every render,
+    // so the wrapper is read at the state the entrance starts from.
+    expect(StyleSheet.flatten(result.getByTestId('today-alert-offer').parent!.props.style))
+      .toMatchObject({ opacity: 0, transform: [{ translateY: spacing.md }] });
   });
 
   test('renders nothing when no alert would have fired', async () => {
