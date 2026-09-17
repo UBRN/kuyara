@@ -139,6 +139,16 @@ function attemptFailureReason(error: unknown, timedOut: boolean): ProviderFailur
   return 'provider_error';
 }
 
+/**
+ * The version of the selection gate whose answers may be served from the shared cache.
+ * Bump it whenever `meetsArchetypePrecondition`, the archetype projection sent to the
+ * model, or the day derivation changes, so every entry an older gate wrote misses and is
+ * regenerated instead of being handed to a client whose own gate would reject it. The
+ * thirty day TTL makes this the only way those entries retire. Version 2 is the day-aware
+ * gate: version 1 labelled a dry day `rain_ready` and a mild one `snow_day`.
+ */
+const AI_GATE_VERSION = 2;
+
 async function buildCacheRequest(request: AiRecommendV1Request): Promise<Request> {
   const requirementKey = request.requirements
     .map((requirement) => [
@@ -153,6 +163,10 @@ async function buildCacheRequest(request: AiRecommendV1Request): Promise<Request
     .map(({ optionId }) => optionId)
     .sort()
     .join(',');
+  // The gate reads the day from the reason codes, which the requirement projection above
+  // drops, so the key carries the same three facts derived through the same function: two
+  // days that the gate judges differently can never share one entry.
+  const day = archetypeDayFromRequirements(request.requirements);
   const canonical = [
     requirementKey,
     optionKey,
@@ -161,6 +175,10 @@ async function buildCacheRequest(request: AiRecommendV1Request): Promise<Request
     request.catalogVersion,
     request.dayVariant,
     request.dayKind ?? 'unknown',
+    `frozen:${day.frozen}`,
+    `wet:${day.wet}`,
+    `cold:${day.cold}`,
+    `gate:${AI_GATE_VERSION}`,
   ].join('\n');
   const digest = await crypto.subtle.digest(
     'SHA-256',
