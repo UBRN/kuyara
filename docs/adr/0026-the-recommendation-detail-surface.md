@@ -130,19 +130,17 @@ rather than a cross-fade between two pictures.
 3. The captions arrive after the pieces settle, using the spatial spring role, so the
    reader never tracks moving text.
 4. The reasoning section rises as the ordinary push transition.
-5. Under Reduced Motion there is no re-layout and no travel: both screens render
-   statically and the push is the platform default. The tint difference remains, because
-   it carries meaning rather than motion. This satisfies
-   [ADR 0020](0020-rewriting-the-motion-law.md)'s rule that motion is never the only
-   indication of a state change.
+5. When the OS Reduce Motion setting is on, the motion tokens resolve to zero, so there
+   is no re-layout and no travel: both screens render statically and the push is the
+   platform default. The tint difference remains either way, because it carries meaning
+   rather than motion.
 
 The push remains the platform's. Garment travel is an in-screen re-layout from the Today
 preset to the detail preset, not a shared-element transition, on the spatial role
 `theme.springs.spatial`. Each piece travels as a plain view with a native transform,
 because Reanimated cannot drive react-native-svg's `transform` or `fill` on the new
 architecture; the fill fades by draining a tinted copy of the artwork over the resting
-one. Simulator verification covers the animated sequence with Reduce Motion off and the
-static end state from the first frame with it on.
+one. Simulator verification covers the animated sequence.
 
 ## Consequences
 

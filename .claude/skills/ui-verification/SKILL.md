@@ -1,6 +1,6 @@
 ---
 name: ui-verification
-description: Use when finishing a kuyara UI change to run the exact repository checks and the greppable design-language checks, and to decide whether the manual accessibility pass applies. The manual pass (VoiceOver, focus order, Reduced Motion, largest text size) is risk-based, not routine. Trigger on "verify the UI", "run the checks", "accessibility check", "a11y", or before a commit that touches apps/mobile presentation code.
+description: Use when finishing a kuyara UI change to run the exact repository checks and the greppable design-language checks, and to decide whether the manual accessibility pass applies. The manual pass (VoiceOver, focus order, largest text size) is risk-based, not routine. Trigger on "verify the UI", "run the checks", "accessibility check", "a11y", or before a commit that touches apps/mobile presentation code.
 ---
 
 # UI verification gate
@@ -11,7 +11,6 @@ run. Section 3 is the manual pass, and it is **not** routine. It runs only when:
 
 - the task directly changes accessibility behavior (labels, roles, focus order,
   announcements, hit areas, colour-only signals);
-- motion or animation behavior changes and Reduced Motion is affected;
 - the work is the dedicated accessibility and polish milestone;
 - the user asks for it.
 
@@ -22,7 +21,7 @@ deferred to that milestone; spreading it across every task is drift, not diligen
 
 Run the **How to check a screen** list at the end of `docs/design/design-language.md`.
 Every item is decidable from a screenshot, a grep, or a computed contrast value. The
-four that catch the most:
+five that catch the most:
 
 ```bash
 rg "spacing\.xl|spacing\['2xl'\]" apps/mobile/src/features
@@ -53,6 +52,14 @@ Must be empty. That is the exact rule `theme.test.mjs` enforces: a **literal** n
 Reading a value off a role (`typography.body.fontSize`) is allowed and does occur, so
 grepping the bare property names raises false alarms.
 
+```bash
+rg "withRepeat" apps/mobile/src --glob '!*.test.*'
+```
+
+Only `weather-glyph.tsx` and `use-ambient-pulse.ts`, each short-circuiting on
+`theme.isReduceMotionEnabled`. That is the one Reduce Motion rule left; there is no
+Reduce Motion tour and no Reduce Motion design constraint (ADR 0020).
+
 ## 2. Automated checks
 
 ```bash
@@ -78,7 +85,7 @@ consolidated pass at the end.
 
 ## 3. The manual pass (risk-based, see the top of this file)
 
-When one of the four cases applies, pick the axes the change can plausibly break, not
+When one of the three cases applies, pick the axes the change can plausibly break, not
 the whole grid. When none applies, skip this section without listing its axes.
 
 | Axis | What fails here |
@@ -87,7 +94,6 @@ the whole grid. When none applies, skip this section without listing its axes.
 | Light **and** dark | Contrast, and separators that only existed as a shadow (dark shadow contact is 1.000:1) |
 | Larger text settings | Fixed line heights clipping, rows colliding, native tab labels (they do not scale, expected) |
 | Screen reader | Missing labels, decorative icons still in the tree, focus order not following source order |
-| Reduced Motion | Any ambient or repeating motion that does not short-circuit (repeating motion is permitted, ADR 0020, stopping here is not optional); press feedback must stay immediate |
 | Touch targets | 44 points of actual area, reached by painted size or `hitSlop` |
 | Colour alone | Every status needs ink **and** glyph **and** text |
 

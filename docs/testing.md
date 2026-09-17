@@ -166,7 +166,7 @@ Weather tests execute migration version 4 and its rollback, validate location/sn
 
 Recommendation suites cover deterministic requirements, garment evaluation, composition, diversity, approved refresh triggers, coalescing, AI validation/fallback, and migration version 5 snapshot persistence. Today tests cover real domain-shaped recommendations and the coarse generation-mode indicator; Settings tests cover sanitized probe states and Reduced Motion. Notification tests cover the adapter/application boundary, permission and opt-in behavior, and localized accessible Settings states.
 
-Presentation tests should focus on pure onboarding/route decisions, localization completeness, accessibility contracts, navigation intents, and source boundaries. Simulator verification remains required for genuine persistence across termination/relaunch, complete navigation behavior, native accessibility output, Dynamic Type, appearances, Reduced Motion, and visual regressions. The Reduced Motion tour must include the three OS-owned surfaces the app's own Reduce Motion gate does not reach: the native tab switch, the analytics consent form sheet presentation, and the pull-to-refresh control.
+Presentation tests should focus on pure onboarding/route decisions, localization completeness, accessibility contracts, navigation intents, and source boundaries. Simulator verification remains required for genuine persistence across termination/relaunch, complete navigation behavior, native accessibility output, Dynamic Type, appearances, and visual regressions.
 
 ## Local iOS end-to-end flows
 
