@@ -82,7 +82,7 @@ test('undecided and withdrawn profiles create no client until opt-in', async () 
       return client;
     });
 
-    analytics.capture('notification_opened', { schema_version: 2 });
+    analytics.capture('notification_opened', { schema_version: 3 });
     await analytics.flush();
 
     assert.deepEqual(clients, []);
@@ -120,7 +120,7 @@ test('opt-in precedes the consent event and forwards an optional timestamp as a 
   await analytics.optIn('today_sheet');
   analytics.capture(
     'notification_opened',
-    { schema_version: 2 },
+    { schema_version: 3 },
     { timestamp: '2026-09-09T12:00:00.000Z' },
   );
 
@@ -131,7 +131,7 @@ test('opt-in precedes the consent event and forwards an optional timestamp as a 
   ]);
   assert.deepEqual(client.captures[0], {
     name: 'analytics_consent_granted',
-    properties: { schema_version: 2, surface: 'today_sheet' },
+    properties: { schema_version: 3, surface: 'today_sheet' },
     options: undefined,
   });
   assert.equal(client.captures[1].options.timestamp.toISOString(), '2026-09-09T12:00:00.000Z');
@@ -174,7 +174,7 @@ test('withdrawal is the last event, clears the device id, and re-consent has a f
   assert.notEqual(analytics.getIdentifier(), firstIdentifier);
   assert.deepEqual(clients[1].captures.at(-1), {
     name: 'analytics_consent_granted',
-    properties: { schema_version: 2, surface: 'settings_privacy' },
+    properties: { schema_version: 3, surface: 'settings_privacy' },
     options: undefined,
   });
 });
@@ -215,7 +215,7 @@ test('the before-send filter removes lifecycle URLs and non-allowlisted properti
     properties: {
       url: 'kuyara://profile/private-path',
       previous_version: '1.0.0',
-      schema_version: 2,
+      schema_version: 3,
       '$lib': 'posthog-react-native',
       '$ip': '203.0.113.1',
       '$geoip_country_code': 'TR',
@@ -229,7 +229,7 @@ test('the before-send filter removes lifecycle URLs and non-allowlisted properti
   assert.deepEqual(sanitizePostHogEvent(original), {
     event: 'Application Opened',
     properties: {
-      schema_version: 2,
+      schema_version: 3,
       '$lib': 'posthog-react-native',
       '$geoip_disable': true,
     },

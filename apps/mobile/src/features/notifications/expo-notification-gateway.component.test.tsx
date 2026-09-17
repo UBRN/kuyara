@@ -121,7 +121,29 @@ test('a tap that launched the app is delivered once and then cleared', () => {
   gateway.subscribeToResponses(listener);
 
   expect(listener).toHaveBeenCalledTimes(1);
+  expect(listener).toHaveBeenCalledWith('weather_alert');
   expect(order).toEqual(['listener', 'clear']);
+});
+
+// ADR 0004: a tapped response carries only its identifier, so the kind is read back off the
+// one segment the briefing adds to the shared namespace.
+test('a tapped notification is named by its kind', () => {
+  notifications.addNotificationResponseReceivedListener.mockReturnValue({ remove: () => {} });
+  notifications.getLastNotificationResponse.mockReturnValue(null);
+  const listener = jest.fn();
+
+  new ExpoNotificationGateway().subscribeToResponses(listener);
+  const [delivered] = notifications.addNotificationResponseReceivedListener.mock.calls[0];
+  delivered({
+    notification: { request: { identifier: 'weather-alert:morning_briefing:2026-09-10' } },
+  });
+  delivered({
+    notification: {
+      request: { identifier: 'weather-alert:precipitation_onset:manual:x:2026-09-09' },
+    },
+  });
+
+  expect(listener.mock.calls).toEqual([['morning_briefing'], ['weather_alert']]);
 });
 
 test('a tap taken while the app runs is cleared, so a later subscription cannot replay it', () => {
@@ -131,7 +153,7 @@ test('a tap taken while the app runs is cleared, so a later subscription cannot 
 
   new ExpoNotificationGateway().subscribeToResponses(listener);
   const [delivered] = notifications.addNotificationResponseReceivedListener.mock.calls[0];
-  delivered();
+  delivered({ notification: { request: { identifier: 'weather-alert:rain' } } });
 
   expect(listener).toHaveBeenCalledTimes(1);
   expect(notifications.clearLastNotificationResponse).toHaveBeenCalledTimes(1);

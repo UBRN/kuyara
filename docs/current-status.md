@@ -46,14 +46,21 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   the Worker, then the deterministic fallback. On-device latency stays unmeasured: the
   only observation is Simulator inference running on the Mac host, so the ADR's
   measurement table still reads not yet measured; builds 6 and 7 carry the module.
-- **Notifications:** on-device local weather alerts only ([ADR 0032](adr/0032-local-weather-alert-rules.md)):
-  opt-in in Settings and ADR 0004's one contextual offer on Today, shown when a rule would
-  have fired and never shown again, deterministic precipitation-onset and temperature-swing rules, a
-  delivery ledger, rescheduling on every persisted snapshot and on opt-in, permission and
-  language changes, and a best-effort `expo-background-task` refresh. Pending alerts
-  survive a cold launch and the tap that launched the app is delivered. No server, no
-  push.
-- **Analytics:** the `ProductAnalytics` boundary, typed twenty-three-event catalog,
+- **Notifications:** on-device local notifications only, in two kinds behind one OS
+  permission ([ADR 0004](adr/0004-notifications-in-the-mvp.md),
+  [ADR 0032](adr/0032-local-weather-alert-rules.md)): the deterministic
+  precipitation-onset and temperature-swing weather alerts, and a morning briefing at
+  07:00 local projected from tomorrow's own morning hours. Each has its own opt-in, its
+  own row on the Settings Notifications surface, and its own schema-version-15 profile
+  flag; they share the delivery ledger, the rescheduling on every persisted snapshot and
+  on opt-in, permission and language changes, and the best-effort `expo-background-task`
+  refresh. The briefing is planned only from a fresh snapshot whose hourly window reaches
+  tomorrow's 07:00 hour and is silently skipped otherwise; it composes no recommendation.
+  ADR 0004's one contextual offer on Today now appears when either kind would have been
+  sent, is never shown again, and on acceptance turns both kinds on and opens the
+  Notifications surface. Pending notifications survive a cold launch and the tap that
+  launched the app is delivered. No server, no push.
+- **Analytics:** the `ProductAnalytics` boundary, typed twenty-four-event catalog,
   error-episode and retry trackers, consent-gated PostHog adapter, Today consent
   sheet and Settings Privacy surface are implemented. Consent is profile-owned in schema
   version 12; absent configuration uses the no-op adapter (a logging adapter in

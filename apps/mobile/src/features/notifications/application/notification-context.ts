@@ -9,6 +9,8 @@ import type { WeatherAlertScheduling } from '@/features/notifications/applicatio
 export type NotificationApplicationValue = Readonly<{
   state: NotificationApplicationState;
   setOptIn: (optIn: boolean) => Promise<NotificationOptInOutcome>;
+  /** Resolves the one OS permission without persisting either kind's opt-in. */
+  requestPermission: () => Promise<NotificationOptInOutcome>;
   openApplicationSettings: () => Promise<void>;
   weatherAlertScheduler: WeatherAlertScheduling;
 }>;

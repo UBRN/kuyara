@@ -14,6 +14,7 @@ const profile = {
   themePreference: 'system',
   onboardingCompleted: true,
   notificationsOptIn: true,
+  morningBriefingOptIn: false,
   createdAt: '2026-09-09T08:00:00.000Z',
   updatedAt: '2026-09-09T08:00:00.000Z',
 };
@@ -115,11 +116,28 @@ test('refreshes, validates, persists, and reschedules through the existing input
   assert.deepEqual(harness.calls.at(-1), {
     localProfileId: profile.id,
     snapshot: harness.saved,
-    enabled: true,
+    weatherAlertsEnabled: true,
+    morningBriefingEnabled: false,
     language: 'tr',
     hour12: false,
     leadTimeMinutes: weatherAlertBackgroundLeadTimeMinutes,
   });
+});
+
+// ADR 0004: the morning briefing has its own opt-in, so the briefing alone is reason enough
+// to refresh and reschedule, and it reaches the scheduler as its own flag.
+test('the morning briefing opt-in alone still refreshes and reschedules', async () => {
+  const harness = createHarness({
+    loadProfile: async () => ({
+      ...profile,
+      notificationsOptIn: false,
+      morningBriefingOptIn: true,
+    }),
+  });
+
+  assert.equal(await runBackgroundWeatherAlertTask(harness.dependencies), 'success');
+  assert.equal(harness.calls.at(-1).weatherAlertsEnabled, false);
+  assert.equal(harness.calls.at(-1).morningBriefingEnabled, true);
 });
 
 // The background path has no React tree to read the clock setting from, so it resolves
@@ -168,7 +186,13 @@ for (const scenario of [
   { name: 'missing profile', overrides: { loadProfile: async () => null } },
   {
     name: 'notifications opt-out',
-    overrides: { loadProfile: async () => ({ ...profile, notificationsOptIn: false }) },
+    overrides: {
+      loadProfile: async () => ({
+        ...profile,
+        notificationsOptIn: false,
+        morningBriefingOptIn: false,
+      }),
+    },
   },
   {
     name: 'notification permission not granted',

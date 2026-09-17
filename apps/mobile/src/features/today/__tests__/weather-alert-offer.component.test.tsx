@@ -57,6 +57,7 @@ const offerSnapshot = Object.freeze({
 function profileApplication(
   weatherAlertOfferShown: boolean,
   markWeatherAlertOfferShown: () => Promise<void>,
+  updateMorningBriefingOptIn: (optIn: boolean) => Promise<void> = jest.fn(async () => undefined),
 ): ProfileApplicationValue {
   const profile = {
     id: 'profile-one',
@@ -68,6 +69,7 @@ function profileApplication(
     onboardingCompleted: true,
     notificationsOptIn: false,
     weatherAlertOfferShown,
+    morningBriefingOptIn: false,
     analyticsConsent: 'undecided',
     createdAt: fetchedAt,
     updatedAt: fetchedAt,
@@ -84,6 +86,7 @@ function profileApplication(
     updateLanguagePreference: jest.fn(async () => undefined),
     updateThemePreference: jest.fn(async () => undefined),
     updateNotificationsOptIn: jest.fn(async () => undefined),
+    updateMorningBriefingOptIn,
     markWeatherAlertOfferShown,
     updateAnalyticsConsent: jest.fn(async () => undefined),
   };
@@ -126,6 +129,7 @@ function notificationApplication(
   return {
     state: { permission: { kind: 'undetermined' }, isBusy: false },
     setOptIn,
+    requestPermission: jest.fn(async () => ({ outcome: 'enabled' as const })),
     openApplicationSettings: jest.fn(async () => undefined),
     weatherAlertScheduler: { reschedule: jest.fn(async () => undefined) },
   };
@@ -216,4 +220,44 @@ test('persists the once-only flag before the OS request and a denial stays spent
   const coldStart = await renderHook(() => useWeatherAlertOffer(), { wrapper: providers });
   expect(coldStart.result.current.offer).toEqual({ kind: 'none' });
   await coldStart.unmount();
+});
+
+// ADR 0004: accepting turns both notification kinds on, whichever one the offer named, and a
+// refused permission turns neither on.
+test('accepting the offer opts into the briefing too, and a refusal opts into neither', async () => {
+  const updateMorningBriefingOptIn = jest.fn(async () => undefined);
+  const granted = wrapper({
+    notification: () => notificationApplication(
+      jest.fn(async () => ({ outcome: 'enabled' } as const)),
+    ),
+    profile: () => profileApplication(
+      false,
+      jest.fn(async () => undefined),
+      updateMorningBriefingOptIn,
+    ),
+  });
+  const hook = await renderHook(() => useWeatherAlertOffer(), { wrapper: granted });
+
+  await act(async () => {
+    await hook.result.current.acceptOffer();
+  });
+
+  expect(updateMorningBriefingOptIn.mock.calls).toEqual([[true]]);
+  await hook.unmount();
+
+  const refusedBriefing = jest.fn(async () => undefined);
+  const refused = wrapper({
+    notification: () => notificationApplication(
+      jest.fn(async () => ({ outcome: 'blocked', canRequestAgain: false } as const)),
+    ),
+    profile: () => profileApplication(false, jest.fn(async () => undefined), refusedBriefing),
+  });
+  const blocked = await renderHook(() => useWeatherAlertOffer(), { wrapper: refused });
+
+  await act(async () => {
+    await blocked.result.current.acceptOffer();
+  });
+
+  expect(refusedBriefing).not.toHaveBeenCalled();
+  await blocked.unmount();
 });

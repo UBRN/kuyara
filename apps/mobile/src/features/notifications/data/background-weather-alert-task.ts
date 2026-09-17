@@ -25,7 +25,8 @@ export async function runBackgroundWeatherAlertTask(
 ): Promise<BackgroundWeatherAlertTaskOutcome> {
   try {
     const profile = await dependencies.loadProfile();
-    if (!profile?.notificationsOptIn) return 'success';
+    // ADR 0004: either notification kind being on is a reason to refresh and reschedule.
+    if (!profile?.notificationsOptIn && !profile?.morningBriefingOptIn) return 'success';
 
     const permission = await dependencies.getNotificationPermission();
     if (permission.kind !== 'granted') return 'success';
@@ -59,7 +60,8 @@ export async function runBackgroundWeatherAlertTask(
     await dependencies.reschedule({
       localProfileId: profile.id,
       snapshot,
-      enabled: true,
+      weatherAlertsEnabled: profile.notificationsOptIn,
+      morningBriefingEnabled: profile.morningBriefingOptIn,
       language: resolveLanguagePreference(profile.languagePreference, deviceLocale),
       hour12: dependencies.getDeviceHour12(deviceLocale),
       // ADR 0032 section 3: the app is not open here, so a crossing closer than the

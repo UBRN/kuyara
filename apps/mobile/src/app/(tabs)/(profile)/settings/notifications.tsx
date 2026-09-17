@@ -11,8 +11,9 @@ import { useMessages } from '@/localization/use-messages';
 
 export default function NotificationsSettingsRoute() {
   const messages = useMessages();
-  const { state: profileState } = useProfileApplication();
-  const { state, setOptIn, openApplicationSettings } = useNotificationApplication();
+  const { state: profileState, updateMorningBriefingOptIn } = useProfileApplication();
+  const { state, setOptIn, requestPermission, openApplicationSettings } =
+    useNotificationApplication();
   const { analytics, firstUses } = useProductAnalytics();
   // The toggle snaps back on its own when the OS refuses, which says nothing. Remembering
   // the refusal keeps the denied footer and the Open Settings row on screen even when the
@@ -70,6 +71,49 @@ export default function NotificationsSettingsRoute() {
             });
           }
         }}
+        onToggleMorningBriefing={async (optIn) => {
+          // ADR 0004: the briefing's opt-in is its own, behind the same single OS
+          // permission, so turning it on asks for the permission and nothing else.
+          if (!optIn) {
+            await updateMorningBriefingOptIn(false);
+            analytics.capture('setting_changed', {
+              schema_version: ANALYTICS_SCHEMA_VERSION,
+              setting_name: 'morning_briefing_enabled',
+              new_value: false,
+            });
+            return;
+          }
+          const result = await requestPermission();
+          setBlocked(result.outcome === 'blocked');
+          if (result.outcome === 'blocked') {
+            analytics.capture('notification_permission_resolved', {
+              schema_version: ANALYTICS_SCHEMA_VERSION,
+              outcome: 'blocked',
+              can_request_again: result.canRequestAgain,
+            });
+            return;
+          }
+          if (result.outcome !== 'enabled') return;
+          await updateMorningBriefingOptIn(true);
+          analytics.capture('setting_changed', {
+            schema_version: ANALYTICS_SCHEMA_VERSION,
+            setting_name: 'morning_briefing_enabled',
+            new_value: true,
+          });
+          analytics.capture('notification_permission_resolved', {
+            schema_version: ANALYTICS_SCHEMA_VERSION,
+            outcome: 'enabled',
+          });
+          // The first use is "notifications", not a per-kind feature: either toggle
+          // reaching a granted permission is the same first use.
+          if (await firstUses.markFirstUse('notifications')) {
+            analytics.capture('feature_used_first_time', {
+              schema_version: ANALYTICS_SCHEMA_VERSION,
+              feature_name: 'notifications',
+            });
+          }
+        }}
+        morningBriefingOptedIn={profileState.profile.morningBriefingOptIn}
         optedIn={profileState.profile.notificationsOptIn}
         permission={state.permission}
       />

@@ -295,7 +295,7 @@ test('one screen_viewed for closet_list fires each time the route gains focus', 
   expect(analytics.captures).toEqual([
     {
       name: 'screen_viewed',
-      properties: { schema_version: 2, screen_name: 'closet_list' },
+      properties: { schema_version: 3, screen_name: 'closet_list' },
       options: undefined,
     },
   ]);
@@ -342,12 +342,12 @@ test('the pull gesture captures a successful manual_refresh_triggered and the fi
     expect.arrayContaining([
       {
         name: 'manual_refresh_triggered',
-        properties: { schema_version: 2, surface: 'closet', result: 'success' },
+        properties: { schema_version: 3, surface: 'closet', result: 'success' },
         options: undefined,
       },
       {
         name: 'feature_used_first_time',
-        properties: { schema_version: 2, feature_name: 'manual_refresh' },
+        properties: { schema_version: 3, feature_name: 'manual_refresh' },
         options: undefined,
       },
     ]),
@@ -384,7 +384,7 @@ test('a retry button reports failure then success across two attempts, with atte
     {
       name: 'retry_after_failure_triggered',
       properties: {
-        schema_version: 2,
+        schema_version: 3,
         surface: 'closet',
         attempt_number: 1,
         result: 'failure',
@@ -394,7 +394,7 @@ test('a retry button reports failure then success across two attempts, with atte
     {
       name: 'retry_after_failure_triggered',
       properties: {
-        schema_version: 2,
+        schema_version: 3,
         surface: 'closet',
         attempt_number: 2,
         result: 'success',
@@ -439,7 +439,7 @@ test('a refresh failure emits error_shown once and a later success emits error_r
     {
       name: 'error_shown',
       properties: {
-        schema_version: 2,
+        schema_version: 3,
         surface: 'closet',
         failure_category: 'unavailable',
         occurrence_count: 1,
@@ -453,7 +453,7 @@ test('a refresh failure emits error_shown once and a later success emits error_r
     {
       name: 'error_recovered',
       properties: {
-        schema_version: 2,
+        schema_version: 3,
         surface: 'closet',
         failure_category: 'unavailable',
       },
@@ -483,7 +483,7 @@ test('an initial-load retry result survives the loading render and reports recov
   )).toEqual([{
     name: 'retry_after_failure_triggered',
     properties: {
-      schema_version: 2,
+      schema_version: 3,
       surface: 'closet',
       attempt_number: 1,
       result: 'success',

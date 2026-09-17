@@ -85,13 +85,14 @@ function ReadyApplicationShell({
   updateNotificationsOptIn,
 }: ReadyApplicationShellProps) {
   const theme = useKuyaraTheme();
-  // The task only ever refreshes weather to reschedule alerts, so it costs the device a
-  // background window for nothing while the user has opted out.
+  // The task only ever refreshes weather to reschedule notifications, so it costs the
+  // device a background window for nothing while both kinds are off (ADR 0004).
+  const wantsBackgroundRefresh = profile.notificationsOptIn || profile.morningBriefingOptIn;
   useEffect(() => {
-    void (profile.notificationsOptIn
+    void (wantsBackgroundRefresh
       ? registerBackgroundWeatherAlertTask()
       : unregisterBackgroundWeatherAlertTask());
-  }, [profile.notificationsOptIn]);
+  }, [wantsBackgroundRefresh]);
   const [analytics] = useState(() =>
     createProductAnalytics(__DEV__, profile.analyticsConsent));
   const pathname = usePathname();
