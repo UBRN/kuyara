@@ -1,6 +1,6 @@
-import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type ViewStyle } from 'react-native';
 
-import { AppText, Icon } from '@/components/ui';
+import { AppText, Icon, PressScale } from '@/components/ui';
 import { borderWidths, interaction, layout, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -13,6 +13,15 @@ type PreferenceOptionProps = Readonly<{
   layout?: 'stacked' | 'row';
 }>;
 
+// Onboarding's option row. ADR 0019 names onboarding a surface where kuyara's identity
+// lives, so the row stays kuyara-drawn rather than becoming a system control.
+//
+// Selection is a `brandAccent` ring plus a filled `checkCircle`, never an accent fill:
+// step 2 already spends the viewport's single accent fill on Continue, and in dark
+// `brandPrimary` and `brandAccent` are the same hex, so a filled option put three fills of
+// one hue where `design-language.md:60` allows one. `design-language.md:315` carries the
+// state on the glyph instead, which is the idiom `garment-type-tile.tsx` already ships.
+// The ring is drawn at the same width in both states, so selecting never moves the row.
 export function PreferenceOption({
   disabled = false,
   label,
@@ -23,31 +32,29 @@ export function PreferenceOption({
 }: PreferenceOptionProps) {
   const theme = useKuyaraTheme();
   const isRow = optionLayout === 'row';
+  const surfaceStyle: ViewStyle = {
+    backgroundColor: theme.colors.surface,
+    borderColor: selected ? theme.colors.brandAccent : theme.colors.borderDefined,
+  };
 
+  // `design-language.md:405-407`: the press scales to 0.97 with `motion.fast`, and the
+  // opacity keeps the pressed state visible when that motion is suppressed.
   return (
-    <Pressable
+    <PressScale
       accessibilityLabel={label}
       accessibilityRole="radio"
       accessibilityState={{ disabled, selected }}
       disabled={disabled}
       onPress={onPress}
       testID={testID}
-      style={({ pressed }) => {
-        const selectedStyle: ViewStyle = {
-          backgroundColor: selected ? theme.colors.brandAccent : theme.colors.surface,
-          borderColor: selected ? theme.colors.brandAccent : theme.colors.borderDefined,
-        };
-
-        return [
-          styles.option,
-          isRow && styles.rowOption,
-          selectedStyle,
-          pressed && !disabled && styles.pressed,
-          disabled && styles.disabled,
-        ];
-      }}>
+      style={({ pressed }) => [
+        styles.option,
+        isRow && styles.rowOption,
+        surfaceStyle,
+        pressed && !disabled && styles.pressed,
+        disabled && styles.disabled,
+      ]}>
       <AppText
-        colorRole={selected ? 'textOnBrand' : 'textPrimary'}
         style={[styles.label, isRow && styles.rowLabel]}
         testID={testID ? `${testID}-label` : undefined}
         variant="bodyStrong">
@@ -59,12 +66,12 @@ export function PreferenceOption({
         style={styles.mark}
         testID={testID ? `${testID}-mark` : undefined}>
         <Icon
-          color={selected ? theme.colors.textOnBrand : theme.colors.iconSecondary}
+          color={selected ? theme.colors.brandAccent : theme.colors.iconSecondary}
           name={selected ? 'checkCircle' : 'circle'}
           size={24}
         />
       </View>
-    </Pressable>
+    </PressScale>
   );
 }
 
