@@ -29,11 +29,11 @@ candidate set, so an override widens nothing a recommendation can see. The
 argument for coarseness applies to the Wardrobe as a personal record, not to
 recommendations.
 
-**Accessories never enter an outfit.** `outfit-composition.ts` composes only
-`top`, `bottom`, `one_piece`, `outerwear`, and `footwear`, across six slots with
-no accessory slot. The five accessory types are catalog records used by the
-Wardrobe picker; their weather properties are read by nothing in the
-recommendation path.
+**Accessories finish an outfit without occupying body composition.**
+`outfit-composition.ts` composes six body slots, then may attach at most one
+accessory in each of `head`, `neck`, `hands` and `handheld` according to the
+derived requirements and the outfit's formality. An accessory never occupies a
+body slot and never decides validity, score, archetype or distinctness.
 
 **Thermal is an additive budget, not a maximum.** Body thermal is summed across
 garments and compared against the requirement's strength, and exceeding it draws
@@ -49,7 +49,7 @@ wins slots it should not and inflates penalties elsewhere.
 | `blouse` | `defaultThermalLevel` | `light` | `none` | Arms are `partial`; at `light` it sat level with `long_sleeve_t_shirt`, whose arms are `full`. |
 | `trench_coat` | `defaultThermalLevel` | `moderate` | `light` | An unlined water-resistant shell. At `moderate` it competed with `coat` for cold buckets while carrying no insulation. |
 | `rain_jacket` | `defaultThermalLevel` | `light` | `none` | A waterproof shell has no insulation. At `none` the engine correctly requires a mid layer for cold rain instead of counting the shell as warmth. |
-| `gloves` | `defaultWaterProtection` | `water_resistant` | `none` | A generic glove is not water resistant. Accessories never enter an outfit, so this changes no behaviour; it corrects the record. |
+| `gloves` | `defaultWaterProtection` | `water_resistant` | `none` | A generic glove is not water resistant. The property is read when accessory candidates are evaluated, so the correction keeps a generic glove from claiming water protection. |
 
 Breathability is out of scope for this round and is not touched.
 

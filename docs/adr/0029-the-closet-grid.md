@@ -46,10 +46,9 @@ the piece when set, else the type, else the category. A `caption` 13 subline in
 `textSecondary` carries the type under a user name, "Type not selected" under a legacy
 row, and is otherwise absent.
 
-Accessories take the silhouette rung like every other type: ADR 0025's five per-type
-accessory silhouettes are drawn on the Closet and Profile surfaces only, because the
-recommendation contract has no accessory slot and the board can never show one. The
-Closet can.
+Accessories take the silhouette rung like every other type: ADR 0025's seven per-type
+accessory silhouettes are available here. The garment board's fixed geometry does not
+draw accessories; the Closet can.
 
 Sorting is newest first, the rail's order. No sort control is added.
 

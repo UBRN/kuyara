@@ -22,7 +22,7 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   route, which carries its own per-IP rate limit so typed searches and weather refreshes
   cannot exhaust each other. The deterministic sample provider is test-only.
 - **Recommendations:** The deterministic layer composes at most 24 valid outfits from the
-  bundled catalog (version 4); the AI tier selects three and labels each with an
+  bundled catalog (version 5); the AI tier selects three and labels each with an
   archetype, on-device Apple Foundation Models where the device reports them available and
   otherwise the Worker's chain, Workers AI then OpenRouter; mobile validates, persists and
   falls back to a device-local deterministic generator. The refresh waits for a stylist answer: the
@@ -40,7 +40,7 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   that calls no provider. Where the selection runs is decided in
   [ADR 0034](adr/0034-on-device-ai-selection-through-apple-foundation-models.md): the
   shared model-input projection and pick distinctness rule in `packages/contracts`, the
-  routed client, the third generation mode with SQLite migration 13, the three badges and
+  routed client, the third generation mode with SQLite migration 13, the two AI badges and
   the local Swift Foundation Models module are implemented and bound, so every Apple
   Intelligence eligible iPhone takes the on-device tier first with a 6-second budget, then
   the Worker, then the deterministic fallback. On-device latency stays unmeasured: the
@@ -208,10 +208,13 @@ release notes in both locales. Its build number is issued by
 EAS, which auto-increments it from the remote version source; the commands are in
 [Release path](testing.md#release-path).
 
-The AI recommendation request carries an optional `dayKind` of `weekday` or `weekend`. The
-request schema is strict and Worker-owned, so the Worker must be deployed with that field
-before a binary that sends it ships; against an older deployment the route answers
-`400 invalid_request` and mobile falls back to the deterministic three.
+The strict, Worker-owned AI recommendation request changed in five ways: it carries an
+optional `dayKind` of `weekday` or `weekend`, recognises 20 new garment type ids, allows the
+four optional accessory outfit slots `head`, `neck`, `hands` and `handheld`, raises each
+option's `garments` maximum from 5 to 9, and admits the `extremity_cover` requirement kind.
+The Worker must be deployed with all five request changes before a binary that can send them
+ships; against an older deployment the route answers `400 invalid_request` and mobile falls
+back to the deterministic three.
 
 Continuous integration and the iOS release workflow now exist in the repository.
 `.github/workflows/ci.yml` installs from the lockfile and runs Expo Doctor, `pnpm check`

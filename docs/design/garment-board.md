@@ -196,9 +196,8 @@ why the set could not be left as it was. Four cover the enlarged catalogue: `par
 
 The eight catalogue accessories (`beanie`, `brimmed_hat`, `cap`, `balaclava`, `scarf`,
 `neck_gaiter`, `gloves`, `umbrella`) carry seven further drawings, `neck_gaiter` sharing
-`scarf`'s. They are drawn on the Closet and Profile surfaces only, never on an outfit
-board, because the recommendation contract has no accessory slot. ADR 0021 already flags
-that for product discussion.
+`scarf`'s. They appear on the Closet and Profile surfaces, the recommendation detail and
+Today badges. The garment board's fixed geometry does not draw them.
 
 **Fallback.** A garment with no silhouette falls back to its structural category and is
 composed by the identical rule, with its drawn bounds measured from the artwork's alpha
