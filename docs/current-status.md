@@ -202,11 +202,15 @@ of the English and Turkish descriptions, which no longer mentions creating an ac
 maintainer installed build 9 from TestFlight over the installed store build on the phone
 before the submission: the upgrade kept the existing data and onboarding did not reappear.
 
-Version 0.1.20260916 is being prepared from commit 7e0114c; its App Store Connect version record
-(`ed843aea`, Prepare for Submission) exists with the listing copied from 0.1.20260915 and its own
-release notes in both locales. Its build number is issued by
-EAS, which auto-increments it from the remote version source; the commands are in
-[Release path](testing.md#release-path).
+Version 0.1.20260916 with build 11 (commit dfb1f42, EAS build dede366e) was submitted for
+review on 2026-09-17 at 10:25 UTC as submission `7ae3525e`, attached to the App Store Connect
+version record `ed843aea` with its What's New in both locales; phased release stays configured.
+Build 10 from the same version never reached App Store Connect: its PostHog source-map phase
+failed because the production profile also set `uploadSourceMaps`, which the profile no longer
+does (see the release preconditions in [Release path](testing.md#release-path)). The Worker was
+deployed the same morning ahead of the build, so the deployed request schema accepts the new
+`dayKind`, accessory slots and empty requirement set. The build number is issued by EAS, which
+auto-increments it from the remote version source.
 
 The strict, Worker-owned AI recommendation request changed in five ways: it carries an
 optional `dayKind` of `weekday` or `weekend`, recognises 20 new garment type ids, allows the
