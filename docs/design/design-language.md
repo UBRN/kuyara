@@ -57,11 +57,14 @@ A screen shows **at most three emphasis levels**, and **exactly one** hero.
 - `eyebrow` is **not** an emphasis level. It is a data caption, uppercase and tracked,
   and is allowed only on a numeric stat caption. At most 3 per screen (the wind /
   humidity / UV row is the canonical and currently only legal use).
-- **At most one accent-filled element per viewport.** If two things are filled with
-  `brandAccent` at once, one of them is wrong. This matches the convention that [only
-  one high-emphasis button belongs in a given context](https://polaris.shopify.com/components/page-actions).
-  The viewport under a presented sheet is the sheet; the scrim removes the page behind it
-  from the accent count.
+- **At most one accent-filled element per viewport, counting `brandAccent` and any
+  controlled role container.** If two things are filled with `brandAccent`, or one is and a
+  `provenanceContainer` badge sits beside it, one of them is wrong. This matches the
+  convention that [only one high-emphasis button belongs in a given
+  context](https://polaris.shopify.com/components/page-actions). Content encodings, the
+  `condition.*` inks and the garment render fills, are not emphasis: they are bounded by
+  their own per-surface rules and never enter this count. The viewport under a presented
+  sheet is the sheet; the scrim removes the page behind it from the accent count.
 - The hero must be what the user opened the screen to get. A heading is never the hero.
   **The hero is not always a type role.** [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md)
   makes the garment composition Today's hero, and Today therefore carries no `display` at
@@ -132,7 +135,7 @@ Why this is stricter than the mockups: see [Relationship to the mockups](#relati
     reasoning that an object close to the ground carries no shadow](https://ant.design/docs/spec/shadow),
     because the shadow overlaps completely with the object itself.
 
-## Law 4: one accent, and a status band
+## Law 4: one accent, and a controlled role band
 
 **One accent.** `brandAccent` is the only non-neutral hue in ordinary UI. Law 4
 governs kuyara-drawn surfaces; system-drawn controls, the native lists, pickers and
@@ -147,10 +150,16 @@ take the `condition.*` family because their hue is a data encoding chosen by the
 rather than an emphasis chosen by the product. The family is consumed nowhere else,
 never by text, a filled control, a border or chrome, and never through alpha.
 
-**Status colours are approved and enter as a band, not as free hues.** Every status
+**Controlled roles are approved and enter as a band, not as free hues.** Every controlled
 ink is tuned so its contrast against its own appearance's `surface` lies within **±0.8**
-of `brandAccent`'s. That is the rule that keeps a calm interface from becoming a
-traffic light, and it is checkable with a number.
+of `brandAccent`'s, and its container sits at 1.23:1 light and 1.14:1 dark against the same
+plane. That is the rule that keeps a calm interface from becoming a traffic light, and it is
+checkable with a number. Three of the four pairs are status verdicts; the fourth,
+`provenance`, is not a verdict at all. It records where a recommendation came from, so it
+enters the band on the same terms and is spent on exactly one element: the badge Today draws
+under the outfit name ([ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md)
+section 8). It is never text ink, a control fill, a border or chrome, and it never stands on
+the tinted stage, where `provenanceInk` falls to 2.622:1 on `fallingNight`.
 
 Reference: light `brandAccent` `#27606A` on `#FFFFFF` = **7.077**. Dark `brandAccent`
 `#9FC9D5` on `#142F3B` = **7.862**.
@@ -165,6 +174,8 @@ Reference: light `brandAccent` `#27606A` on `#FFFFFF` = **7.077**. Dark `brandAc
 | `warningContainer` | `#F2E6CE` | `#292010` |
 | `dangerInk` | `#9B2C2C` | `#F2A6A2` |
 | `dangerContainer` | `#F8E3E1` | `#301D1B` |
+| `provenanceInk` | `#57518F` | `#C3BDEE` |
+| `provenanceContainer` | `#E9E6F6` | `#2C1A38` |
 | `borderDefined` | `#5C7A83` | `#5E899A` |
 | `primaryFill` | `#142F3B` | `#39707A` |
 | `textOnPrimaryFill` | `#EFF4F3` | `#EFF4F3` |

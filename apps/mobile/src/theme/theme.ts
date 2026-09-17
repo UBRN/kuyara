@@ -44,6 +44,10 @@ export const lightSemanticColors = Object.freeze({
   warningContainer: '#F2E6CE',
   dangerInk: '#9B2C2C',
   dangerContainer: '#F8E3E1',
+  // The provenance pair joins the same band: it records where a recommendation came from,
+  // so it is a controlled role rather than an accent or a status verdict.
+  provenanceInk: '#57518F',
+  provenanceContainer: '#E9E6F6',
   scrim: 'rgba(13, 25, 30, 0.48)',
 } as const);
 
@@ -102,6 +106,8 @@ export const darkSemanticColors = Object.freeze({
   warningContainer: '#292010',
   dangerInk: '#F2A6A2',
   dangerContainer: '#301D1B',
+  provenanceInk: '#C3BDEE',
+  provenanceContainer: '#2C1A38',
   scrim: 'rgba(13, 25, 30, 0.72)',
 } as const satisfies SemanticColors);
 

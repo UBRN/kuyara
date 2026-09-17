@@ -197,7 +197,7 @@ export function OnboardingScreen({
 
   const promises = [
     ['location', copy.weatherPromise],
-    ['sparkle', copy.outfitsPromise],
+    ['clothing', copy.outfitsPromise],
     ['heart', copy.wardrobePromise],
   ] as const;
 

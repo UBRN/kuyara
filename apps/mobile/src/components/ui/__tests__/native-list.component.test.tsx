@@ -1,6 +1,6 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { Dimensions, View as RNView } from 'react-native';
+import { Dimensions, StyleSheet, View as RNView } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import {
@@ -268,4 +268,27 @@ test('sections share one full-height themed host and one inset grouped list', as
   });
   expect(result.getByText('Catalog selection')).toBeOnTheScreen();
   expect(result.getByText('Choose a catalog')).toBeOnTheScreen();
+});
+
+// `RNHostView matchContents` sizes the host to whatever width its child asks for, so an
+// unconstrained heading ran past the list and clipped at the largest accessibility size.
+// The heading now owns the list width less one gutter and wraps inside it.
+test('a section heading is bound to the list width so it wraps instead of clipping', async () => {
+  const result = await render(
+    <TestProviders>
+      <NativeList>
+        <NativeListSection
+          heading="Recommendation source and Apple Intelligence status"
+          testID="group">
+          <NativeListRow label="Language" />
+        </NativeListSection>
+      </NativeList>
+    </TestProviders>,
+  );
+
+  const heading = result.getByTestId('group-heading');
+  const style = StyleSheet.flatten(heading.props.style);
+  expect(style.width).toBe(Dimensions.get('window').width - 16);
+  expect(style.paddingLeft).toBe(16);
+  expect(heading.props.numberOfLines).toBeUndefined();
 });
