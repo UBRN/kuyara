@@ -430,7 +430,7 @@ These defaults intentionally remain coarse. A mesh sneaker, heavy sweater, short
 
 The seven override columns remain stored fields, and the effective garment view still resolves a stored override over the current default, but the item form does not expose them: a Wardrobe entry records a type, an optional name, an optional colour family and an optional photo. Existing stored overrides stay readable and survive an edit and save; nothing in the product writes a new one.
 
-That argument no longer covers recommendations. [ADR 0005](adr/0005-catalog-only-recommendation-candidates.md) removed the Wardrobe from the candidate set, so an override widens nothing a recommendation can see; it still applies to the Wardrobe as a personal record. [ADR 0013](adr/0013-catalog-content-corrections-and-version-3.md) accordingly corrected four property values and added `sleeveless_top` and `leggings`; the catalog is at version 4.
+That argument no longer covers recommendations. [ADR 0005](adr/0005-catalog-only-recommendation-candidates.md) removed the Wardrobe from the candidate set, so an override widens nothing a recommendation can see; it still applies to the Wardrobe as a personal record. [ADR 0013](adr/0013-catalog-content-corrections-and-version-3.md) accordingly corrected four property values and added `sleeveless_top` and `leggings`; the catalog is at version 5.
 
 ## Scenario sufficiency checks
 
