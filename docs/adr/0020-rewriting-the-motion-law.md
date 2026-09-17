@@ -17,8 +17,8 @@ A blanket prohibition on repetition conflicts with two accepted components:
 
 - `features/today/presentation/weather-glyph.tsx` loops a cloud bob and a rain drop
   fall with `withRepeat`. It renders on Today and Weather.
-- `features/profile/presentation/probe-loading-overlay.tsx` pulses its dots with
-  `withRepeat`.
+- `features/profile/presentation/probe-loading-overlay.tsx` pulses its dots on the shared
+  ambient hook, `components/ui/use-ambient-pulse.ts`, which owns the `withRepeat` loop.
 
 Both short-circuit on `theme.isReduceMotionEnabled`, so the accessibility requirement is
 not in question. The design language needs to permit their useful ambient character while
@@ -40,18 +40,27 @@ maintainer's own terms:
 > Continuous or repeating motion is not prohibited. Motion may be used where it
 > supports the weather atmosphere, state, hierarchy, feedback, or product character.
 > It must not demand attention unnecessarily, must not harm performance or
-> readability, and must respect Reduced Motion.
+> readability.
 
 Three requirements are binding.
 
 1. **Motion is never the only indication of a state change.** This is an accessibility
    requirement rather than a restraint preference.
-2. **Reduced Motion is honoured.** Tokenised durations already resolve to 0 under
-   Reduce Motion, and any ambient animation must short-circuit as the two existing
-   ones do.
+2. **An indefinite loop stops under Reduce Motion.** The two `withRepeat` loops,
+   `weather-glyph.tsx` and `use-ambient-pulse.ts`, short-circuit on
+   `theme.isReduceMotionEnabled`, and `rg "withRepeat" apps/mobile/src --glob '!*.test.*'`
+   returns those two files and nothing else. This is the product's only Reduce Motion
+   obligation. Reduce Motion is not a design constraint, not an input to a design
+   decision and not an acceptance gate: there is no manual Reduce Motion tour, no
+   Simulator pass with the setting on, and no "renders the static end state" acceptance
+   criterion. The reduce-motion branches already in the code stay, and the automated
+   tests that cover them stay with them; new branches are not asked for.
 3. **Use the duration assignments by role.** `fast` 120 for content entering and press
    feedback, `normal` 200 for a state change on something already on screen,
    `deliberate` 320 for a full-screen or sheet transition.
+
+kuyara declares no accessibility support on App Store Connect, and the Reduced Motion row
+is not declared there.
 
 ### Two spring roles
 
@@ -126,14 +135,11 @@ a state the user set and crosses a real threshold.
 - Motion as the sole carrier of a state change.
 - Motion that delays the user's decision, which `visual-identity.md` prohibits
   independently.
-- An in-app motion toggle, or a Reduce Motion response that slows ambient motion rather
-  than stopping it. The OS setting is the pause mechanism
+- An in-app motion toggle, or a Reduce Motion response that slows an indefinite loop
+  rather than stopping it. The OS setting is the pause mechanism
   [WCAG 2.2 SC 2.2.2](https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide.html)
-  asks for, which its glossary lets the platform provide and Apple's
-  [Reduced Motion label criteria](https://developer.apple.com/help/app-store-connect/manage-app-accessibility/reduced-motion-evaluation-criteria)
-  accept for ongoing motion; a loop that merely slows under the setting forfeits that
-  reading, and the reading is revisited if the WCAG 3.0 draft's "No visual motion"
-  requirement reaches its Refining status.
+  asks for, which its glossary lets the platform provide; a loop that merely slows under
+  the setting forfeits that reading.
 - A content-detached grey-block wait surface. The board skeleton keeps ADR 0025's boxes
   and the garment silhouettes because the wait already knows where the pieces will sit;
   Viget's 2017 test (136 participants, a web page,
@@ -148,9 +154,9 @@ a state the user set and crosses a real threshold.
   conditional rule, and their durations belong on the ambient role.
 - `design-language.md`'s Law 7 and its "How to check a screen" list require reviewers to
   confirm that any repeating animation
-  supports atmosphere, state, hierarchy, feedback, or character; that it is not the
-  only indication of a state change; and that it stops under Reduced Motion. The list
-  also asks where a screen's content arrival and its spring role come from.
+  supports atmosphere, state, hierarchy, feedback, or character, and that it is not the
+  only indication of a state change. The list also asks where a screen's content arrival
+  and its spring role come from.
 - The check is weaker as an audit, because "supports product character" is a judgment
   where "nothing repeats" was a grep. That is the accepted cost, so the three requirements
   in the Decision remain hard boundaries rather than part of that judgment.

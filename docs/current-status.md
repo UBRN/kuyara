@@ -503,7 +503,7 @@ before submitting is the maintainer's call.
   `#122A35` stage and is imperceptible. Lifting the cap needs a separate decision.
 - **The Pages site ignores Reduce Motion by decision.** The website at `docs/` animates
   regardless of the OS setting and offers a System/Light/Dark selector stored in the
-  browser; the carve-out is recorded in `product-decisions.md` and qualified in
+  browser; the decision is recorded in `product-decisions.md` and qualified in
   `docs/design/visual-identity.md`. With JavaScript off the selector is absent and the
   site follows the system scheme; a Turkish-language browser is redirected from `/` to
   `/tr/` on first visit by the language-memory script.
