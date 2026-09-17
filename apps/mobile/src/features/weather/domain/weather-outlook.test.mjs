@@ -98,6 +98,37 @@ test('probability alone crosses the wetness boundary, as it does for the alert r
   assert.equal(wet.atHour, '2026-09-09T10:00:00.000Z');
 });
 
+test('a likely but not falling now eases nothing; a wet condition still does', () => {
+  const dryHours = [
+    hour('2026-09-09T10:00:00.000Z'),
+    hour('2026-09-09T11:00:00.000Z'),
+  ];
+
+  // Probability alone makes the current hour wet for the alert rules, but the screen reads
+  // "Cloudy" above the line, so "rain eases at 11:00" would contradict it.
+  const likely = find(snapshot({
+    current: {
+      observedAt: now,
+      ...measurements({ condition: 'cloudy', precipitationProbability: 0.7 }),
+    },
+    hourly: dryHours,
+  }));
+  assert.deepEqual(likely, { kind: 'steady' });
+
+  const falling = find(snapshot({
+    current: {
+      observedAt: now,
+      ...measurements({ condition: 'rain', precipitationProbability: 0.7 }),
+    },
+    hourly: dryHours,
+  }));
+  assert.deepEqual(falling, {
+    kind: 'precipitation_easing',
+    form: 'rain',
+    atHour: '2026-09-09T10:00:00.000Z',
+  });
+});
+
 test('an apparent swing at or above the threshold is a temperature change with its direction', () => {
   const drop = find(snapshot({
     hourly: [

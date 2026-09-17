@@ -155,6 +155,22 @@ const rules = [
       + 'everything else takes the `SqliteDatabase` handle from there. Widening this allowance is '
       + 'an architecture decision to record in docs/architecture.md first, not a test fix.',
   },
+  {
+    name: 'the garment fill tables and the accent resolver stay behind the board renderer',
+    matches: (specifier) =>
+      modulePathMatcher('garment-board/garment-render-fills')(specifier)
+      || modulePathMatcher('garment-board/color-family-fill')(specifier),
+    forbiddenDirectories: null,
+    allowedDirectories: ['components/ui/garment-board/', 'components/ui/index.ts'],
+    ruleText:
+      'docs/design/design-system.md, "Implemented and deferred": the colour-family fills are '
+      + '"approved content colour for the rail and grid only (ADR 0028 section 6 and ADR 0029 '
+      + 'section 5), not semantic theme roles", and "Today and detail boards derive their fills '
+      + 'from the plane they sit on". The resolver that turns a plane and an option id into fills '
+      + 'is the board renderer\'s own business: it stays under components/ui/garment-board/, and a '
+      + 'feature that needs an approved content colour takes `colorFamilyFills` from the '
+      + '`components/ui` barrel instead of reaching into the module.',
+  },
 ];
 
 const violationsFor = (rule) => {
@@ -190,6 +206,32 @@ for (const rule of rules) {
     );
   });
 }
+
+// docs/design/design-system.md, "Implemented and deferred": a board carries "at most one
+// luminance-matched accent on the board that is the subject of the screen". `optionId` is the
+// prop that asks `GarmentBoard` for that accent, so passing it is the greppable form of the
+// rule: only the two subject boards may, and the Today alternates, the Closet grid and the
+// Profile rail stay neutral. A third caller is a design decision, not a test fix.
+const subjectBoardFiles = [
+  'features/today/presentation/outfit-detail-screen.tsx',
+  'features/today/presentation/today-screen.tsx',
+];
+
+test('only the subject boards ask GarmentBoard for a coloured piece', () => {
+  const callers = sourceFiles().filter((relativePath) => (
+    [...readFileSync(path.join(sourceRoot, relativePath), 'utf8')
+      .matchAll(/<GarmentBoard\b[\s\S]*?\/>/g)]
+      .some(([element]) => element.includes('optionId='))
+  ));
+
+  assert.deepEqual(
+    callers.sort(),
+    subjectBoardFiles,
+    'Today and detail boards carry "at most one luminance-matched accent on the board that is '
+    + 'the subject of the screen" (docs/design/design-system.md). Render the board without '
+    + '`optionId` so it stays neutral, or take the accent to the design documents first.',
+  );
+});
 
 /** Line numbers of the `from '…'` clauses that belong to an `import type …` statement. */
 function typeOnlyImportLines(relativePath) {
