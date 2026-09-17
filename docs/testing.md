@@ -238,6 +238,11 @@ This section is the command sequence only.
   nothing else: `eas.json` sets `cli.requireCommit: true`, so the build runs against the
   committed tree and an uncommitted bump would carry the old version string into the binary.
 - `pnpm check` and `pnpm --filter @kuyara/mobile test:components` are green.
+- The production profile must not set `uploadSourceMaps`. EAS's own upload pre-sets
+  `SOURCEMAP_FILE` to its `observe-source-maps` directory, the PostHog build phase then
+  composes the map there and looks for it under `DERIVED_FILE_DIR`, and the build fails with
+  "No hermes sourcemaps with a chunk id found". PostHog's upload ([ADR 0035](adr/0035-posthog-error-tracking.md))
+  is the one source-map channel.
 - `expo.version` in `apps/mobile/app.json` is bumped to the next `0.MINOR.YYYYMMDD` string,
   and `version` in `apps/mobile/package.json` is set to the same string. Never edit a build
   number: `eas.json` sets `appVersionSource: "remote"` and the production profile
