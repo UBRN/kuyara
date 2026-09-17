@@ -244,6 +244,12 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
     expect(result.getByText(language === 'en' ? '4 m/s' : '4 m/sn')).toBeOnTheScreen();
     expect(result.getByText(language === 'en' ? '70%' : '%70')).toBeOnTheScreen();
     const currentCard = result.getByTestId('weather-current-card');
+    expect(within(currentCard).getByText(language === 'en'
+      ? 'Feels like 15° · Low 12° · High 19°'
+      : 'Hissedilen 15° · En düşük 12° · En yüksek 19°')).toBeOnTheScreen();
+    expect(within(currentCard).queryByText(
+      messages[language].weather.precipitation(0.5),
+    )).toBeNull();
     expect(StyleSheet.flatten(currentCard.props.style)).toMatchObject(lightTheme.elevation.raised);
     expect(StyleSheet.flatten(within(currentCard).getByText('16°').props.style).fontSize)
       .toBe(typography.display.fontSize);

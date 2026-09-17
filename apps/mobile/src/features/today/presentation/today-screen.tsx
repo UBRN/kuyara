@@ -670,7 +670,7 @@ const styles = StyleSheet.create({
   skyOverlay: { position: 'absolute', top: 18, left: 20, right: 20 },
   skyAbove: { marginBottom: spacing.md },
   condition: { marginTop: spacing.xs },
-  weatherGlyph: { opacity: 0.7, transform: [{ scale: 31 / 36 }] },
+  weatherGlyph: { transform: [{ scale: 31 / 36 }] },
   provenance: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.md },
   stackedProvenance: { alignItems: 'flex-start', flexDirection: 'column' },
   generationMode: { alignItems: 'center', flexDirection: 'row', flexShrink: 1, gap: spacing.xs },
