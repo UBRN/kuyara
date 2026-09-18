@@ -1,6 +1,7 @@
 import {
   isValidWeatherHourlyForecastWindow,
   isWeatherHourlyForecastInWindow,
+  weatherDailyForecastMaximumEntries,
   weatherHourlyForecastMaximumEntries,
   weatherLocalDateKey,
   type WeatherConditionCode,
@@ -8,6 +9,7 @@ import {
 import { z } from 'zod';
 
 import type {
+  ProviderDailyForecast,
   ProviderLocation,
   ProviderWeatherMeasurements,
   ProviderWeatherSnapshot,
@@ -49,10 +51,16 @@ const hourlySchema = z.object({
   }
 });
 
+// Open-Meteo answers `null` for a daily variable past its own horizon, so the three variables
+// this Goal added are nullable per entry; the mapper stops at the first day it cannot describe
+// instead of guessing one.
 const dailySchema = z.object({
   time: z.array(z.string().min(1)).min(1),
   temperature_2m_min: z.array(z.number()).min(1),
   temperature_2m_max: z.array(z.number()).min(1),
+  weather_code: z.array(weatherCodeSchema.nullable()).min(1),
+  precipitation_probability_max: z.array(percentageSchema.nullable()).min(1),
+  precipitation_sum: z.array(nonNegativeSchema.nullable()).min(1),
 }).superRefine((value, context) => {
   const length = value.time.length;
   for (const [key, values] of Object.entries(value)) {
@@ -159,20 +167,48 @@ export function mapOpenMeteoResponse(
     throw new WeatherProviderError('invalid_response');
   }
 
+  const minimumTemperatureCelsius = Math.min(
+    raw.daily.temperature_2m_min[todayIndex],
+    current.temperatureCelsius,
+  );
+  const maximumTemperatureCelsius = Math.max(
+    raw.daily.temperature_2m_max[todayIndex],
+    current.temperatureCelsius,
+  );
+  const daily: ProviderDailyForecast[] = [];
+  for (
+    let index = todayIndex;
+    index < raw.daily.time.length && daily.length < weatherDailyForecastMaximumEntries;
+    index += 1
+  ) {
+    const weatherCode = raw.daily.weather_code[index];
+    const probability = raw.daily.precipitation_probability_max[index];
+    if (weatherCode === null || probability === null) break;
+    daily.push({
+      dateKey: raw.daily.time[index],
+      condition: mapOpenMeteoWeatherCode(weatherCode),
+      // Today's row is the card's own low and high, clamped around the current reading, so the
+      // two never contradict each other on screen.
+      minimumTemperatureCelsius: index === todayIndex
+        ? minimumTemperatureCelsius
+        : raw.daily.temperature_2m_min[index],
+      maximumTemperatureCelsius: index === todayIndex
+        ? maximumTemperatureCelsius
+        : raw.daily.temperature_2m_max[index],
+      precipitationProbability: probability / 100,
+      precipitationMillimetres: raw.daily.precipitation_sum[index],
+    });
+  }
+
   return {
     timeZone: location.timeZone,
     fetchedAt: utcIso(fetchedAt),
     provenance: 'live',
     sourceId: 'open-meteo',
     current,
-    minimumTemperatureCelsius: Math.min(
-      raw.daily.temperature_2m_min[todayIndex],
-      current.temperatureCelsius,
-    ),
-    maximumTemperatureCelsius: Math.max(
-      raw.daily.temperature_2m_max[todayIndex],
-      current.temperatureCelsius,
-    ),
+    minimumTemperatureCelsius,
+    maximumTemperatureCelsius,
     hourly,
+    daily,
   };
 }

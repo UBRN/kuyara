@@ -36,8 +36,11 @@ function rawFixture() {
     forecastDaily: {
       days: [{
         forecastStart: '2026-09-03T00:00:00+03:00',
+        conditionCode: 'rain',
+        precipitationChance: 0.6,
         temperatureMax: 29,
         temperatureMin: 18,
+        precipitationAmount: 4.2,
       }],
     },
   };

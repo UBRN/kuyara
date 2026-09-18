@@ -3,8 +3,10 @@ import test from 'node:test';
 
 import {
   isValidWeatherHourlyForecastWindow,
+  weatherDailyForecastMaximumEntries,
   weatherLocalDateKey,
   weatherV1SuccessSchema,
+  weatherV2SuccessSchema,
 } from '@kuyara/contracts';
 
 import {
@@ -12,7 +14,10 @@ import {
   mapOpenWeatherResponse,
   openWeatherResponseSchema,
 } from './openweather-raw.ts';
-import { mapProviderWeatherToApi } from './provider-weather-mapper.ts';
+import {
+  mapProviderWeatherToApi,
+  mapProviderWeatherToApiV2,
+} from './provider-weather-mapper.ts';
 import { WeatherProviderError } from './weather-provider-error.ts';
 
 const location = {
@@ -62,10 +67,22 @@ function rawFixture() {
         weather: [{ id: 801 }],
       },
     ],
-    daily: [{
-      dt: unixSeconds('2026-08-29T00:00:00.000Z'),
-      temp: { min: 18, max: 29, day: 25 },
-    }],
+    daily: [
+      {
+        // One Call stamps a daily entry at local midday.
+        dt: unixSeconds('2026-08-29T09:00:00.000Z'),
+        temp: { min: 18, max: 29, day: 25 },
+        pop: 0.6,
+        rain: 4.2,
+        weather: [{ id: 500 }],
+      },
+      {
+        dt: unixSeconds('2026-08-30T09:00:00.000Z'),
+        temp: { min: 19, max: 30, day: 26 },
+        pop: 0,
+        weather: [{ id: 800 }],
+      },
+    ],
   };
 }
 
@@ -99,6 +116,8 @@ test('clamps daily temperatures around the current reading', () => {
 
   assert.equal(snapshot.minimumTemperatureCelsius, 24.5);
   assert.equal(snapshot.maximumTemperatureCelsius, 24.5);
+  assert.equal(snapshot.daily[0].minimumTemperatureCelsius, snapshot.minimumTemperatureCelsius);
+  assert.equal(snapshot.daily[0].maximumTemperatureCelsius, snapshot.maximumTemperatureCelsius);
 });
 
 test('keeps the ordered 36-hour window across local midnight', () => {
@@ -134,6 +153,130 @@ test('keeps the ordered 36-hour window across local midnight', () => {
     snapshot.hourly,
     snapshot.current.observedAt,
   ), true);
+});
+
+test('maps the daily block from the observed local day', () => {
+  const snapshot = mapOpenWeatherResponse(
+    openWeatherResponseSchema.parse(rawFixture()),
+    location,
+    fetchedAt,
+  );
+
+  assert.deepEqual(snapshot.daily, [
+    {
+      dateKey: '2026-08-29',
+      condition: 'rain',
+      minimumTemperatureCelsius: 18,
+      maximumTemperatureCelsius: 29,
+      precipitationProbability: 0.6,
+      precipitationMillimetres: 4.2,
+    },
+    {
+      dateKey: '2026-08-30',
+      condition: 'clear',
+      minimumTemperatureCelsius: 19,
+      maximumTemperatureCelsius: 30,
+      precipitationProbability: 0,
+      // One Call omits `rain` on a dry day, and the adapter never substitutes a zero.
+      precipitationMillimetres: null,
+    },
+  ]);
+});
+
+test('reads both rain and snow millimetres, and null only when neither fell', () => {
+  const fixture = rawFixture();
+  fixture.daily[1].snow = 12;
+  const both = rawFixture();
+  both.daily[1].rain = 1.5;
+  both.daily[1].snow = 3;
+
+  assert.equal(
+    mapOpenWeatherResponse(openWeatherResponseSchema.parse(fixture), location, fetchedAt)
+      .daily[1].precipitationMillimetres,
+    12,
+  );
+  // A mixed day reports both keys; the row states the day's total water, not one phase of it.
+  assert.equal(
+    mapOpenWeatherResponse(openWeatherResponseSchema.parse(both), location, fetchedAt)
+      .daily[1].precipitationMillimetres,
+    4.5,
+  );
+});
+
+test('a day beyond the seven the block uses cannot fail the response', () => {
+  const fixture = rawFixture();
+  fixture.daily = Array.from({ length: 8 }, (_, index) => ({
+    dt: unixSeconds(new Date(
+      Date.parse('2026-08-29T09:00:00.000Z') + index * 24 * 60 * 60 * 1000,
+    ).toISOString()),
+    temp: { min: 18, max: 29 },
+    pop: 0.6,
+    weather: [{ id: 500 }],
+  }));
+  delete fixture.daily[7].pop;
+  delete fixture.daily[7].weather;
+
+  const snapshot = mapOpenWeatherResponse(
+    openWeatherResponseSchema.parse(fixture),
+    location,
+    fetchedAt,
+  );
+
+  assert.equal(snapshot.daily.length, weatherDailyForecastMaximumEntries);
+});
+
+test('rejects a used day whose chance or condition One Call withheld', () => {
+  const missingPop = rawFixture();
+  delete missingPop.daily[1].pop;
+  const missingWeather = rawFixture();
+  delete missingWeather.daily[1].weather;
+
+  for (const fixture of [missingPop, missingWeather]) {
+    assert.throws(
+      () => mapOpenWeatherResponse(
+        openWeatherResponseSchema.parse(fixture),
+        location,
+        fetchedAt,
+      ),
+      (error) => error instanceof WeatherProviderError && error.kind === 'invalid_response',
+    );
+  }
+});
+
+test('orders the days, drops the earlier ones and stops at the contract ceiling', () => {
+  const fixture = rawFixture();
+  fixture.daily = Array.from({ length: 9 }, (_, index) => ({
+    dt: unixSeconds(new Date(
+      Date.parse('2026-08-28T09:00:00.000Z') + index * 24 * 60 * 60 * 1000,
+    ).toISOString()),
+    temp: { min: 18, max: 29 },
+    pop: 0.6,
+    weather: [{ id: 500 }],
+  })).reverse();
+
+  const snapshot = mapOpenWeatherResponse(
+    openWeatherResponseSchema.parse(fixture),
+    location,
+    fetchedAt,
+  );
+
+  assert.equal(snapshot.daily.length, weatherDailyForecastMaximumEntries);
+  assert.equal(snapshot.daily[0].dateKey, '2026-08-29');
+  assert.equal(snapshot.daily.at(-1).dateKey, '2026-09-04');
+});
+
+test('rejects a daily block without the observed local day', () => {
+  const fixture = rawFixture();
+  fixture.daily = [fixture.daily[1]];
+
+  assert.throws(
+    () => mapOpenWeatherResponse(
+      openWeatherResponseSchema.parse(fixture),
+      location,
+      fetchedAt,
+    ),
+    (error) => error instanceof WeatherProviderError && error.kind === 'invalid_response',
+  );
 });
 
 test('maps every OpenWeather condition row', () => {
@@ -221,6 +364,10 @@ test('maps a realistic response through the shared weather contract', () => {
     fetchedAt,
   );
   const data = mapProviderWeatherToApi(snapshot).data;
+  const dataV2 = mapProviderWeatherToApiV2(snapshot).data;
 
   assert.equal(weatherV1SuccessSchema.safeParse({ data }).success, true);
+  assert.equal('daily' in data, false);
+  assert.equal(weatherV2SuccessSchema.safeParse({ data: dataV2 }).success, true);
+  assert.equal(dataV2.daily.length, 2);
 });

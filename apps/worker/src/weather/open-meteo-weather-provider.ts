@@ -1,5 +1,7 @@
+import { weatherDailyForecastMaximumEntries } from '@kuyara/contracts';
+
 import { mapOpenMeteoResponse, openMeteoResponseSchema } from './open-meteo-raw.ts';
-import { mapProviderWeatherToApi } from './provider-weather-mapper.ts';
+import { mapProviderWeatherToApiV2 } from './provider-weather-mapper.ts';
 import type {
   ProviderLocation,
   ProviderWeatherSnapshot,
@@ -41,12 +43,19 @@ export class OpenMeteoWeatherProvider implements WeatherProvider {
       'hourly',
       'temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,precipitation_probability,uv_index',
     );
-    url.searchParams.set('daily', 'temperature_2m_min,temperature_2m_max');
+    url.searchParams.set(
+      'daily',
+      'temperature_2m_min,temperature_2m_max,weather_code,precipitation_probability_max,precipitation_sum',
+    );
     url.searchParams.set('wind_speed_unit', 'ms');
+    // Pinned like the wind unit: the contract says millimetres, so an upstream default change
+    // must not turn the daily amount into inches.
+    url.searchParams.set('precipitation_unit', 'mm');
     // The location's own zone, so `daily` is keyed by its local days rather than UTC ones:
     // a UTC day boundary put the wrong low/high on the card for every zone off UTC.
     url.searchParams.set('timezone', location.timeZone);
-    url.searchParams.set('forecast_days', '3');
+    // Today plus six, the contract's ceiling for the daily block. Still one call.
+    url.searchParams.set('forecast_days', String(weatherDailyForecastMaximumEntries));
 
     let response: Response;
     try {
@@ -67,7 +76,9 @@ export class OpenMeteoWeatherProvider implements WeatherProvider {
 
     try {
       const snapshot = mapOpenMeteoResponse(parsed.data, location, new Date().toISOString());
-      mapProviderWeatherToApi(snapshot);
+      // The self-check runs the richer v2 shape: a daily block this adapter cannot fill
+      // fails the attempt here, so the chain moves on instead of serving a hollow /v2.
+      mapProviderWeatherToApiV2(snapshot);
       return snapshot;
     } catch {
       throw new WeatherProviderError('invalid_response');

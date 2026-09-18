@@ -1,6 +1,12 @@
-import { weatherConditionCodes, type WeatherConditionCode } from '@kuyara/contracts';
+import {
+  weatherConditionCodes,
+  weatherDailyForecastMaximumEntries,
+  weatherLocalDateKey,
+  type WeatherConditionCode,
+} from '@kuyara/contracts';
 
 import type {
+  ProviderDailyForecast,
   ProviderLocation,
   ProviderWeatherMeasurements,
   ProviderWeatherSnapshot,
@@ -59,6 +65,29 @@ export class DeterministicMockWeatherProvider implements WeatherProvider {
       });
     }
 
+    const daily: ProviderDailyForecast[] = [];
+    for (let offset = 0; offset < weatherDailyForecastMaximumEntries; offset += 1) {
+      const dateKey = weatherLocalDateKey(
+        new Date(fetchedDate.getTime() + offset * 24 * 60 * 60 * 1000).toISOString(),
+        location.timeZone,
+      );
+      if (dateKey === null) break;
+      // One condition per sample day, and the same day's measurements are derived from it, so a
+      // wet sample row never carries a dry chance.
+      const dayCondition = weatherConditionCodes[(seed + offset) % weatherConditionCodes.length];
+      const day = measurements(baseTemperature, dayCondition, seed, offset);
+      daily.push({
+        dateKey,
+        condition: dayCondition,
+        minimumTemperatureCelsius: offset === 0 ? baseTemperature - 4 : day.temperatureCelsius - 4,
+        maximumTemperatureCelsius: offset === 0 ? baseTemperature + 4 : day.temperatureCelsius + 4,
+        precipitationProbability: day.precipitationProbability,
+        // Every other sample day withholds the amount, so the screens that read this provider
+        // see both the millimetre row and the chance-only row.
+        precipitationMillimetres: offset % 2 === 0 ? (seed % 40) / 10 : null,
+      });
+    }
+
     return {
       timeZone: location.timeZone,
       fetchedAt,
@@ -68,6 +97,7 @@ export class DeterministicMockWeatherProvider implements WeatherProvider {
       minimumTemperatureCelsius: baseTemperature - 4,
       maximumTemperatureCelsius: baseTemperature + 4,
       hourly,
+      daily,
     };
   }
 }

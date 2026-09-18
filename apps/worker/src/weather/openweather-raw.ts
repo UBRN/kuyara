@@ -1,12 +1,15 @@
 import {
   isValidWeatherHourlyForecastWindow,
   isWeatherHourlyForecastInWindow,
+  weatherDailyForecastMaximumEntries,
   weatherHourlyForecastMaximumEntries,
+  weatherLocalDateKey,
   type WeatherConditionCode,
 } from '@kuyara/contracts';
 import { z } from 'zod';
 
 import type {
+  ProviderDailyForecast,
   ProviderLocation,
   ProviderWeatherMeasurements,
   ProviderWeatherSnapshot,
@@ -41,11 +44,20 @@ const hourlySchema = z.object({
   weather: conditionsSchema,
 });
 
+// One Call answers with more days than the daily block uses, so everything the block reads is
+// optional here and required in the mapper for the used days alone: one malformed day beyond
+// the window must not fail the whole response. `rain` and `snow` are millimetres and One Call
+// omits whichever did not fall.
 const dailySchema = z.object({
+  dt: finiteNumberSchema.optional(),
   temp: z.object({
     min: finiteNumberSchema,
     max: finiteNumberSchema,
   }),
+  pop: probabilitySchema.optional(),
+  rain: nonNegativeSchema.optional(),
+  snow: nonNegativeSchema.optional(),
+  weather: conditionsSchema.optional(),
 });
 
 export const openWeatherResponseSchema = z.object({
@@ -93,6 +105,22 @@ function isoTimestamp(timestamp: string): string {
   return date.toISOString();
 }
 
+// Both keys absent is a day with no precipitation reported at all, which stays null rather
+// than becoming a zero the provider never sent; either key present is a real measurement.
+function precipitationMillimetres(
+  rain: number | undefined,
+  snow: number | undefined,
+): number | null {
+  if (rain === undefined && snow === undefined) return null;
+  return (rain ?? 0) + (snow ?? 0);
+}
+
+function localDateKey(timestamp: string, timeZone: string): string {
+  const dateKey = weatherLocalDateKey(timestamp, timeZone);
+  if (dateKey === null) throw new WeatherProviderError('invalid_response');
+  return dateKey;
+}
+
 function mapHourly(raw: OpenWeatherResponse['hourly']) {
   return raw.map((entry) => ({
     temperatureCelsius: entry.temp,
@@ -136,14 +164,52 @@ export function mapOpenWeatherResponse(
     throw new WeatherProviderError('invalid_response');
   }
 
+  // One Call stamps each daily entry at local midday, so its local date key is the day it
+  // describes. The card's low and high come from the same entry the daily block starts on.
+  const days = raw.daily
+    .flatMap((day) => (day.dt === undefined
+      ? []
+      : [{ day, dateKey: localDateKey(unixSecondsToIso(day.dt), location.timeZone) }]))
+    .sort((left, right) => left.dateKey.localeCompare(right.dateKey));
+  const currentLocalDay = localDateKey(observedAt, location.timeZone);
+  const todayIndex = days.findIndex(({ dateKey }) => dateKey === currentLocalDay);
+  if (todayIndex < 0) throw new WeatherProviderError('invalid_response');
+
+  const minimumTemperatureCelsius = Math.min(
+    days[todayIndex].day.temp.min,
+    current.temperatureCelsius,
+  );
+  const maximumTemperatureCelsius = Math.max(
+    days[todayIndex].day.temp.max,
+    current.temperatureCelsius,
+  );
+  const daily: ProviderDailyForecast[] = days
+    .slice(todayIndex, todayIndex + weatherDailyForecastMaximumEntries)
+    .map(({ day, dateKey }, index) => {
+      if (day.pop === undefined || day.weather === undefined) {
+        throw new WeatherProviderError('invalid_response');
+      }
+      return {
+        dateKey,
+        condition: mapOpenWeatherCondition(day.weather[0].id),
+        // Today's row is the card's own low and high, clamped around the current reading, so the
+        // two never contradict each other on screen.
+        minimumTemperatureCelsius: index === 0 ? minimumTemperatureCelsius : day.temp.min,
+        maximumTemperatureCelsius: index === 0 ? maximumTemperatureCelsius : day.temp.max,
+        precipitationProbability: day.pop,
+        precipitationMillimetres: precipitationMillimetres(day.rain, day.snow),
+      };
+    });
+
   return {
     timeZone: location.timeZone,
     fetchedAt: isoTimestamp(fetchedAt),
     provenance: 'live',
     sourceId: 'openweather',
     current,
-    minimumTemperatureCelsius: Math.min(raw.daily[0].temp.min, current.temperatureCelsius),
-    maximumTemperatureCelsius: Math.max(raw.daily[0].temp.max, current.temperatureCelsius),
+    minimumTemperatureCelsius,
+    maximumTemperatureCelsius,
     hourly,
+    daily,
   };
 }

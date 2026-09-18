@@ -36,6 +36,9 @@ function rawFixture() {
       time: ['2026-08-29', '2026-08-30'],
       temperature_2m_min: [18, 19],
       temperature_2m_max: [29, 30],
+      weather_code: [61, 0],
+      precipitation_probability_max: [60, 0],
+      precipitation_sum: [4.2, null],
     },
   };
 }
@@ -54,15 +57,18 @@ test('requests the exact Open-Meteo fields and returns a live provider snapshot'
   const url = new URL(captured.url);
 
   assert.equal(url.origin + url.pathname, 'https://api.open-meteo.com/v1/forecast');
+  // The contract says millimetres; the unit is pinned rather than left to the upstream default.
+  assert.ok(url.search.includes('precipitation_unit=mm'), url.search);
   assert.deepEqual(Object.fromEntries(url.searchParams), {
     latitude: '41.01',
     longitude: '28.98',
     current: 'temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m',
     hourly: 'temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,precipitation_probability,uv_index',
-    daily: 'temperature_2m_min,temperature_2m_max',
+    daily: 'temperature_2m_min,temperature_2m_max,weather_code,precipitation_probability_max,precipitation_sum',
     wind_speed_unit: 'ms',
+    precipitation_unit: 'mm',
     timezone: 'Europe/Istanbul',
-    forecast_days: '3',
+    forecast_days: '7',
   });
   assert.equal(captured.init.signal, signal);
   assert.equal(snapshot.timeZone, location.timeZone);

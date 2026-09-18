@@ -16,6 +16,17 @@ export type ProviderWeatherMeasurements = Readonly<{
   uvIndex: number;
 }>;
 
+export type ProviderDailyForecast = Readonly<{
+  dateKey: string;
+  condition: WeatherConditionCode;
+  minimumTemperatureCelsius: number;
+  maximumTemperatureCelsius: number;
+  precipitationProbability: number;
+  // null when the upstream response carries no amount for that day. An adapter never
+  // substitutes a number it was not given.
+  precipitationMillimetres: number | null;
+}>;
+
 export type ProviderWeatherSnapshot = Readonly<{
   timeZone: string;
   fetchedAt: string;
@@ -25,6 +36,8 @@ export type ProviderWeatherSnapshot = Readonly<{
   minimumTemperatureCelsius: number;
   maximumTemperatureCelsius: number;
   hourly: readonly (ProviderWeatherMeasurements & Readonly<{ forecastAt: string }>)[];
+  // Ordered, starting on the observation's local day. /v1 never carries it; /v2 does.
+  daily: readonly ProviderDailyForecast[];
 }>;
 
 export interface WeatherProvider {

@@ -96,8 +96,8 @@ function probeRequest() {
   });
 }
 
-function weatherRequest() {
-  return new Request('https://worker.test/v1/weather', {
+function weatherRequest(path = '/v1/weather') {
+  return new Request(`https://worker.test${path}`, {
     method: 'POST',
     headers: {
       'cf-connecting-ip': '203.0.113.10',
@@ -212,6 +212,8 @@ test('each route rate limiter takes only its own route offline', async (t) => {
   const { WEATHER_RATE_LIMIT: _omitted, ...withoutWeather } = boundEnv;
   const route = buildRouter(withoutWeather);
   await assertOffline(await route(weatherRequest(), fakeContext()), 'weather_unavailable');
+  // One handler serves both weather routes, so the binding gate covers /v2 as well.
+  await assertOffline(await route(weatherRequest('/v2/weather'), fakeContext()), 'weather_unavailable');
   assert.equal((await route(new Request('https://worker.test/v1/health'), fakeContext())).status, 200);
   const { PLACE_SEARCH_RATE_LIMIT: _places, ...withoutPlaces } = boundEnv;
   await assertOffline(

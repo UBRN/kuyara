@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { aiProbeV1SuccessSchema, weatherV1SuccessSchema } from '@kuyara/contracts';
+import {
+  aiProbeV1SuccessSchema,
+  weatherV1SuccessSchema,
+  weatherV2SuccessSchema,
+} from '@kuyara/contracts';
 
 import { createAiHandler } from './ai/ai-handler.ts';
 import { createProbeHandler } from './ai/probe-handler.ts';
@@ -147,6 +151,24 @@ test('weather POST still succeeds and weather GET still owns its 405 response', 
   await assertJson(methodResponse, 405, { error: { code: 'method_not_allowed' } });
 });
 
+test('the weather route is served at both versions by the same handler', async () => {
+  const handle = router();
+  const response = await handle(new Request('http://localhost/v2/weather', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(weatherBody),
+  }));
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(weatherV2SuccessSchema.safeParse(body).success, true);
+  assert.equal(body.data.daily.length, 7);
+
+  const methodResponse = await handle(new Request('http://localhost/v2/weather'));
+  assert.equal(methodResponse.headers.get('allow'), 'POST');
+  await assertJson(methodResponse, 405, { error: { code: 'method_not_allowed' } });
+});
+
 test('the router forwards the execution context to every route handler', async () => {
   const seen = [];
   const handler = (name) => async (_request, ctx) => {
@@ -161,8 +183,11 @@ test('the router forwards the execution context to every route handler', async (
     aiReady: true,
   });
   const ctx = fakeContext();
-  for (const path of ['/v1/places/search', '/v1/weather', '/v1/ai/recommend', '/v1/ai/probe']) {
+  const paths = ['/v1/places/search', '/v1/weather', '/v2/weather', '/v1/ai/recommend', '/v1/ai/probe'];
+  for (const path of paths) {
     await route(new Request(`http://localhost${path}`, { method: 'POST' }), ctx);
   }
-  assert.deepEqual(seen, [['places', ctx], ['weather', ctx], ['ai', ctx], ['probe', ctx]]);
+  assert.deepEqual(seen, [
+    ['places', ctx], ['weather', ctx], ['weather', ctx], ['ai', ctx], ['probe', ctx],
+  ]);
 });

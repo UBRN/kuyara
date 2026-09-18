@@ -7,6 +7,7 @@ import {
   healthV1Path,
   healthV1SuccessSchema,
   weatherV1Path,
+  weatherV2Path,
   placeSearchV1Path,
   type AiV1ErrorCode,
 } from '@kuyara/contracts';
@@ -55,7 +56,9 @@ export function createRouter({
   return async (request: Request, ctx: ExecutionContext): Promise<Response> => {
     const pathname = new URL(request.url).pathname;
     if (pathname === placeSearchV1Path) return placeSearchHandler(request, ctx);
-    if (pathname === weatherV1Path) return weatherHandler(request, ctx);
+    if (pathname === weatherV1Path || pathname === weatherV2Path) {
+      return weatherHandler(request, ctx);
+    }
     if (pathname === aiRecommendV1Path) return aiHandler(request, ctx);
     if (pathname === aiProbeV1Path) return probeHandler(request, ctx);
 
