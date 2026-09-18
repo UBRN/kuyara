@@ -993,7 +993,7 @@ const en = {
     requirementTradeoffRow: ({ requirement, garments }) =>
       `Trade-off (${requirement}): ${garments.join(', ')}.`,
     requirementReasons: {
-      temperature_low: 'Low temperatures require insulation.',
+      temperature_low: 'The temperature calls for warmth.',
       apparent_temperature_low: 'It feels cold enough to require insulation.',
       temperature_high: 'High temperatures require breathable clothing.',
       apparent_temperature_high: 'It feels hot enough to require breathable clothing.',
@@ -1012,7 +1012,7 @@ const en = {
     },
     compositionReasons: {
       breathability_protection_tradeoff: 'Protection is prioritized over breathability.',
-      thermal_over_protection: 'This outfit is warmer than required.',
+      thermal_over_protection: 'This outfit carries more warmth than the day calls for.',
       unnecessary_water_protection: 'This outfit includes more water protection than required.',
     },
     mildWeatherRationale: 'Nothing in the weather ahead asks for special protection.',
@@ -1584,7 +1584,7 @@ const tr = {
     requirementTradeoffRow: ({ requirement, garments }) =>
       `Denge (${requirement}): ${garments.join(', ')}.`,
     requirementReasons: {
-      temperature_low: 'Düşük sıcaklıklar yalıtım gerektiriyor.',
+      temperature_low: 'Hava daha sıcak giyinmeyi gerektiriyor.',
       apparent_temperature_low: 'Hissedilen sıcaklık yalıtım gerektirecek kadar düşük.',
       temperature_high: 'Yüksek sıcaklıklar nefes alabilen giysiler gerektiriyor.',
       apparent_temperature_high: 'Hissedilen sıcaklık nefes alabilen giysiler gerektirecek kadar yüksek.',
@@ -1603,7 +1603,7 @@ const tr = {
     },
     compositionReasons: {
       breathability_protection_tradeoff: 'Koruma, nefes alabilirliğe göre önceliklendirildi.',
-      thermal_over_protection: 'Bu kombin gerekenden daha sıcak.',
+      thermal_over_protection: 'Bu kombin günün gerektirdiğinden daha sıcak tutuyor.',
       unnecessary_water_protection: 'Bu kombin gerekenden daha fazla su koruması içeriyor.',
     },
     mildWeatherRationale: 'Havada özel bir koruma isteyen bir şey yok.',

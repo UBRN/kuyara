@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { outfitArchetypeIds } from '@kuyara/contracts';
 
+import { messages } from '@/localization/messages';
 import { deriveClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 import {
   excludeOutfitOptions,
@@ -153,6 +154,140 @@ test('a continental spring day still composes three outfits from the bundled cat
       'optional',
     );
   }
+});
+
+test('the rationale grid keeps band-neutral reasons across boundary temperatures', () => {
+  const temperatureLowEn = 'The temperature calls for warmth.';
+  const temperatureLowTr = 'Hava daha sıcak giyinmeyi gerektiriyor.';
+
+  for (const temperatureCelsius of [12, 13]) {
+    const result = recommendOutfits({
+      now: observedAt,
+      snapshot: snapshot({
+        current: {
+          temperatureCelsius,
+          apparentTemperatureCelsius: temperatureCelsius,
+        },
+        minimumTemperatureCelsius: temperatureCelsius,
+        maximumTemperatureCelsius: temperatureCelsius + 1,
+      }),
+      clothingPreference: 'womens',
+      dressStyle: 'smart',
+      dayVariant: 0,
+    });
+
+    assert.equal(result.status, 'recommended');
+    assert.deepEqual(result.requirements.reasonCodes, [
+      'temperature_low',
+      'apparent_temperature_low',
+    ]);
+    assert.equal(
+      messages.en.today.requirementReasons.temperature_low,
+      temperatureLowEn,
+    );
+    assert.equal(
+      messages.tr.today.requirementReasons.temperature_low,
+      temperatureLowTr,
+    );
+  }
+
+  const veryColdDay = recommendOutfits({
+    now: observedAt,
+    snapshot: snapshot({
+      current: {
+        temperatureCelsius: -5,
+        apparentTemperatureCelsius: -5,
+      },
+      minimumTemperatureCelsius: -5,
+      maximumTemperatureCelsius: -4,
+    }),
+    clothingPreference: 'womens',
+    dressStyle: 'smart',
+    dayVariant: 0,
+  });
+
+  assert.equal(veryColdDay.status, 'recommended');
+  assert.ok(veryColdDay.requirements.reasonCodes.includes('temperature_low'));
+  assert.equal(
+    messages.en.today.requirementReasons.temperature_low,
+    temperatureLowEn,
+  );
+  assert.equal(
+    messages.tr.today.requirementReasons.temperature_low,
+    temperatureLowTr,
+  );
+
+  const moderateDay = recommendOutfits({
+    now: observedAt,
+    snapshot: snapshot({
+      current: {
+        temperatureCelsius: 8,
+        apparentTemperatureCelsius: 8,
+      },
+      minimumTemperatureCelsius: 8,
+      maximumTemperatureCelsius: 9,
+    }),
+    clothingPreference: 'womens',
+    dressStyle: 'smart',
+    dayVariant: 0,
+    dayKind: 'weekday',
+  });
+
+  assert.equal(moderateDay.status, 'recommended');
+  assert.equal(
+    moderateDay.requirements.requirements.find(
+      ({ kind }) => kind === 'thermal',
+    )?.minimum,
+    'moderate',
+  );
+  assert.ok(
+    moderateDay.outfits.some(({ reasonCodes }) =>
+      reasonCodes.includes('thermal_over_protection'),
+    ),
+  );
+  assert.equal(
+    messages.en.today.compositionReasons.thermal_over_protection,
+    'This outfit carries more warmth than the day calls for.',
+  );
+  assert.equal(
+    messages.tr.today.compositionReasons.thermal_over_protection,
+    'Bu kombin günün gerektirdiğinden daha sıcak tutuyor.',
+  );
+
+  const mildDay = recommendOutfits({
+    now: observedAt,
+    snapshot: snapshot({
+      current: {
+        temperatureCelsius: 20.7,
+        apparentTemperatureCelsius: 20.7,
+      },
+      minimumTemperatureCelsius: 20.7,
+      maximumTemperatureCelsius: 21.7,
+    }),
+    clothingPreference: 'womens',
+    dressStyle: 'smart',
+    dayVariant: 0,
+    dayKind: 'weekday',
+  });
+
+  assert.equal(mildDay.status, 'recommended');
+  assert.deepEqual(mildDay.requirements.reasonCodes, []);
+  const windGuard = mildDay.outfits.find(({ archetypeId }) => archetypeId === 'wind_guard');
+  assert.ok(windGuard);
+  assert.deepEqual(
+    windGuard.reasonCodes.map(
+      (reason) => messages.en.today.compositionReasons[reason],
+    ),
+    ['This outfit carries more warmth than the day calls for.'],
+  );
+  assert.equal(
+    messages.en.today.compositionReasons.thermal_over_protection,
+    'This outfit carries more warmth than the day calls for.',
+  );
+  assert.equal(
+    messages.tr.today.compositionReasons.thermal_over_protection,
+    'Bu kombin günün gerektirdiğinden daha sıcak tutuyor.',
+  );
 });
 
 test('every cold and heat pairing across the bands composes three outfits', () => {
