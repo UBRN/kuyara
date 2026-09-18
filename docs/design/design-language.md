@@ -257,16 +257,30 @@ Decided, not deferred.
 
 ### Condition colour is content data
 
-The eight `condition.*` roles are a closed content encoding, not a fourth status family
-and not an accent. They may colour only the Weather hero glyph, the hourly rail's
-condition icons and the same condition glyph when it appears on Today's atmosphere
-stage. Every value is flat and opaque. No consumer may apply `withAlpha`, an opacity
-style, a gradient, glow or second colour stop.
+The fifteen `condition.*` roles are a closed content encoding, not a fourth status family
+and not an accent. Fourteen of them carry a condition: one per code, and a second one
+after sunset for the three codes that show the sky itself, `clear`, `mostly_clear` and
+`partly_cloudy`. The fifteenth, `neutral`, is what an unreadable condition or an
+unreadable clock resolves to. They may colour only the Weather hero glyph, the hourly
+rail's condition icons, the daily outlook rows' condition glyphs and the same condition
+glyph when it appears on Today's atmosphere stage. Every value is flat and opaque. No
+consumer may apply `withAlpha`, an opacity style, a gradient, glow or second colour stop.
 
 Each condition keeps a distinct system-symbol shape and a localized written name or
-accessible name, so colour is never its only signal. The page ground, typography,
-controls, borders, navigation and chrome remain neutral. A new condition code must join
-the pure resolver and its exhaustive test before it can render.
+accessible name, so colour is never its only signal. Fog reads green rather than grey so
+it can never be read as cloud, and snow is the least saturated of the falling family so it
+can never be read as rain. The page ground, typography, controls, borders, navigation and
+chrome remain neutral.
+
+Day and night come from the place's own sunrise and sunset, computed on the device from
+its coordinates and the instant in question, never from a fixed pair of clock hours. One
+reading of that daypart feeds the atmosphere stage and the condition glyph together, which
+is what lets `theme.test.mjs` measure each ink only against the planes its own condition
+and daypart can put behind it. A polar day, a polar night or a snapshot with no
+coordinates falls back to the old 06:00 to 20:00 window rather than to no answer at all.
+
+A new condition code must join the pure resolver and its exhaustive test, and bring its own
+ink and its own shape with an iOS and an Android name, before it can render.
 
 ### Colour is never the signal
 

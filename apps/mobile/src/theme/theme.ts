@@ -65,14 +65,26 @@ export type AtmosphereState =
 
 type AtmosphereColors = Readonly<Record<AtmosphereState, string>>;
 
+/**
+ * One ink per condition, and a second one after sunset for the three conditions that show
+ * the sky itself. They are a closed content encoding, derived like `warningInk` is: no new
+ * brand colour, and never an accent.
+ */
 export type ConditionInkRole =
   | 'clearDay'
+  | 'mostlyClearDay'
   | 'clearNight'
-  | 'overcast'
+  | 'mostlyClearNight'
+  | 'partlyCloudyDay'
+  | 'partlyCloudyNight'
+  | 'cloudy'
   | 'fog'
+  | 'drizzle'
   | 'rain'
+  | 'heavyRain'
+  | 'sleet'
   | 'snow'
-  | 'storm'
+  | 'thunderstorm'
   | 'neutral';
 
 type ConditionColors = Readonly<Record<ConditionInkRole, string>>;
@@ -131,25 +143,42 @@ const darkAtmosphere = Object.freeze({
   fallingNight: darkSemanticColors.stage,
 } as const satisfies AtmosphereColors);
 
+// Fog reads green rather than grey so it can never be mistaken for cloud, and snow is the
+// least saturated of the falling family so it can never be mistaken for rain. Every value
+// clears 3:1 on the atmosphere planes its own condition can put behind it, and on surface.
 const lightCondition = Object.freeze({
-  clearDay: '#8F5A0E',
-  clearNight: '#31456F',
-  overcast: '#3E545C',
-  fog: '#3E545C',
-  rain: '#17536E',
-  snow: '#1B4E63',
-  storm: '#253A4C',
+  clearDay: '#90650E',
+  mostlyClearDay: '#AE5713',
+  clearNight: '#434F89',
+  mostlyClearNight: '#59419F',
+  partlyCloudyDay: '#206F6C',
+  partlyCloudyNight: '#743974',
+  cloudy: '#315272',
+  fog: '#2A5546',
+  drizzle: '#134853',
+  rain: '#12466E',
+  heavyRain: '#1A3F89',
+  sleet: '#3F3597',
+  snow: '#2D4653',
+  thunderstorm: '#5B2D7B',
   neutral: lightSemanticColors.textPrimary,
 } as const satisfies ConditionColors);
 
 const darkCondition = Object.freeze({
-  clearDay: '#F0C177',
-  clearNight: '#B3BEE4',
-  overcast: '#B6C6CC',
-  fog: '#A8B6BB',
-  rain: '#8CC0DB',
-  snow: '#D6E8F0',
-  storm: '#C6D2DE',
+  clearDay: '#D3A445',
+  mostlyClearDay: '#DC9C6A',
+  clearNight: '#A3ABD2',
+  mostlyClearNight: '#B2A4DA',
+  partlyCloudyDay: '#4DCBC7',
+  partlyCloudyNight: '#CE9CCE',
+  cloudy: '#8DADCE',
+  fog: '#6FB89E',
+  drizzle: '#45BCD3',
+  rain: '#77B2DF',
+  heavyRain: '#8FACE5',
+  sleet: '#AAA4DF',
+  snow: '#8BAFC1',
+  thunderstorm: '#C29EDB',
   neutral: darkSemanticColors.textPrimary,
 } as const satisfies ConditionColors);
 

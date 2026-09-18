@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, View, type LayoutChangeEvent } from 'react-nati
 import Svg, { Polyline } from 'react-native-svg';
 
 import { AppText, Icon, useTextScaling } from '@/components/ui';
+import type { Daypart } from '@/features/today/domain/atmosphere-state';
 import { resolveConditionStyle } from '@/features/today/domain/condition-style';
 import type { WeatherConditionCode } from '@/features/weather/domain/weather';
 import { radii, spacing } from '@/theme/theme';
@@ -24,10 +25,11 @@ export type HourlyRailColumn = Readonly<{
   accessibilityLabel: string;
   time: string;
   condition: WeatherConditionCode;
-  localHour: number | null;
+  daypart: Daypart | null;
   temperature: string;
   temperatureCelsius: number;
   precipitation: string;
+  precipitationProbability: number;
 }>;
 
 export function HourlyRail({ columns }: Readonly<{ columns: readonly HourlyRailColumn[] }>) {
@@ -84,7 +86,7 @@ export function HourlyRail({ columns }: Readonly<{ columns: readonly HourlyRailC
         ) : null}
         <View style={styles.columns}>
           {columns.map((column, index) => {
-            const conditionStyle = resolveConditionStyle(column.condition, column.localHour);
+            const conditionStyle = resolveConditionStyle(column.condition, column.daypart);
             return (
               <View
                 accessible
@@ -120,9 +122,22 @@ export function HourlyRail({ columns }: Readonly<{ columns: readonly HourlyRailC
                     {column.temperature}
                   </AppText>
                 </View>
-                <AppText colorRole="textSecondary" tabularNumbers variant="caption">
-                  {column.precipitation}
-                </AppText>
+                {/* A dry hour says nothing rather than saying zero: a rail of "0%" under
+                    every column is noise the eye has to read past to find the hours that
+                    do carry rain. The column's own accessibility label states the chance
+                    either way, so nothing is lost to a screen reader. */}
+                {column.precipitationProbability > 0 ? (
+                  <View style={styles.chance}>
+                    <Icon
+                      color={theme.colors.iconSecondary}
+                      name="precipitationChance"
+                      size={16 * controlScale}
+                    />
+                    <AppText colorRole="textSecondary" tabularNumbers variant="caption">
+                      {column.precipitation}
+                    </AppText>
+                  </View>
+                ) : null}
               </View>
             );
           })}
@@ -143,6 +158,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   column: { alignItems: 'center', gap: spacing.xs },
+  chance: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
   // The band's only child is absolutely positioned, so without this the centred column
   // collapses it to zero width and the label has nothing to centre in. `alignItems`
   // centres the label, which now takes its own width instead of the column's, so its
