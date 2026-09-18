@@ -227,8 +227,8 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
       <Providers language={language} value={value}><WeatherScreen /></Providers>,
     );
     expect(result.getByLabelText(language === 'en'
-      ? 'Rain. 16°. Feels like 15°. Low 12° · High 19°. 50% precipitation'
-      : 'Yağmurlu. Sıcaklık 16°. Hissedilen sıcaklık 15°. En düşük 12°, en yüksek 19°. Yağış olasılığı yüzde 50.')).toBeOnTheScreen();
+      ? 'Rain. 16.0°. Feels like 15.0°. Low 12.0° · High 19.0°. 50% precipitation'
+      : 'Yağmurlu. Sıcaklık 16,0°. Hissedilen sıcaklık 15,0°. En düşük 12,0°, en yüksek 19,0°. Yağış olasılığı yüzde 50.')).toBeOnTheScreen();
     expect(result.getByLabelText(language === 'en'
       ? 'Wind 4 m/s'
       : 'Rüzgâr 4 m/sn')).toBeOnTheScreen();
@@ -239,19 +239,19 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
       ? 'UV index 2'
       : 'UV endeksi 2')).toBeOnTheScreen();
     expect(result.getByLabelText(language === 'en'
-      ? '12:00. 16°. Rain. 50% precipitation'
-      : 'Saat 12:00. Sıcaklık 16°. Yağmurlu. Yağış olasılığı yüzde 50.')).toBeOnTheScreen();
+      ? '12:00. 16.0°. Rain. 50% precipitation'
+      : 'Saat 12:00. Sıcaklık 16,0°. Yağmurlu. Yağış olasılığı yüzde 50.')).toBeOnTheScreen();
     expect(result.getByText(language === 'en' ? '4 m/s' : '4 m/sn')).toBeOnTheScreen();
     expect(result.getByText(language === 'en' ? '70%' : '%70')).toBeOnTheScreen();
     const currentCard = result.getByTestId('weather-current-card');
     expect(within(currentCard).getByText(language === 'en'
-      ? 'Feels like 15° · Low 12° · High 19°'
-      : 'Hissedilen 15° · En düşük 12° · En yüksek 19°')).toBeOnTheScreen();
+      ? 'Feels like 15.0° · Low 12.0° · High 19.0°'
+      : 'Hissedilen 15,0° · En düşük 12,0° · En yüksek 19,0°')).toBeOnTheScreen();
     expect(within(currentCard).queryByText(
       messages[language].weather.precipitation(0.5),
     )).toBeNull();
     expect(StyleSheet.flatten(currentCard.props.style)).toMatchObject(lightTheme.elevation.raised);
-    expect(StyleSheet.flatten(within(currentCard).getByText('16°').props.style).fontSize)
+    expect(StyleSheet.flatten(within(currentCard).getByText(language === 'en' ? '16.0°' : '16,0°').props.style).fontSize)
       .toBe(typography.display.fontSize);
     expect(StyleSheet.flatten(result.getByTestId('weather-hourly-card').props.style))
       .toMatchObject(lightTheme.elevation.raised);
@@ -656,7 +656,7 @@ test('Weather at font scale 3.1 keeps its actions, hourly heading, and last colu
     name: messages.en.weather.hourlyHeading,
   }).props.style)).toMatchObject({ lineHeight: typography.bodyStrong.lineHeight });
   expect(within(result.getByTestId('weather-hourly-rail'))
-    .getByLabelText('13:00. 17°. Cloudy. 20% precipitation')).toBeOnTheScreen();
+    .getByLabelText('13:00. 17.0°. Cloudy. 20% precipitation')).toBeOnTheScreen();
 });
 
 test('Weather offers a pull-to-refresh gesture alongside the visible refresh button', async () => {
@@ -842,8 +842,8 @@ test('the hourly rail drops the hours that have ended', async () => {
   const result = await render(<Providers language="en" value={value}><WeatherScreen /></Providers>);
   const bands = result.getAllByTestId('weather-hourly-band', hidden);
   expect(bands).toHaveLength(1);
-  expect(result.getByLabelText('13:00. 17°. Cloudy. 20% precipitation')).toBeOnTheScreen();
-  expect(result.queryByLabelText('12:00. 16°. Rain. 50% precipitation')).toBeNull();
+  expect(result.getByLabelText('13:00. 17.0°. Cloudy. 20% precipitation')).toBeOnTheScreen();
+  expect(result.queryByLabelText('12:00. 16.0°. Rain. 50% precipitation')).toBeNull();
 
 });
 
@@ -862,7 +862,7 @@ test('a dry hour drops the chance from the rail but never from its label', async
 
   expect(rail.getByText('50%')).toBeOnTheScreen();
   expect(rail.queryByText('0%')).toBeNull();
-  expect(result.getByLabelText('13:00. 17°. Cloudy. 0% precipitation')).toBeOnTheScreen();
+  expect(result.getByLabelText('13:00. 17.0°. Cloudy. 0% precipitation')).toBeOnTheScreen();
 });
 
 test('the hourly card is not rendered once every hour of the snapshot\'s day has ended', async () => {
@@ -879,8 +879,8 @@ test('the hourly card is not rendered once every hour of the snapshot\'s day has
 });
 
 test.each([
-  ['en', 'Fri', 'Friday, 00:00. 18°. Cloudy. 20% precipitation'],
-  ['tr', 'Cum', 'Cuma, saat 00:00. Sıcaklık 18°. Bulutlu. Yağış olasılığı yüzde 20.'],
+  ['en', 'Fri', 'Friday, 00:00. 18.0°. Cloudy. 20% precipitation'],
+  ['tr', 'Cum', 'Cuma, saat 00:00. Sıcaklık 18,0°. Bulutlu. Yağış olasılığı yüzde 20.'],
 ] as const)('marks the first %s column of a new local day', async (
   language,
   shortWeekday,
@@ -1078,6 +1078,8 @@ test('rounded weather measurements never render negative zero', async () => {
     <Providers language="en" value={value}><WeatherScreen /></Providers>,
   );
 
-  expect(result.queryAllByText('-0°')).toHaveLength(0);
+  // -0.4 is genuinely below zero and keeps its sign; -0.04 is not and must not borrow one.
+  expect(result.queryAllByText('-0.0°')).toHaveLength(0);
+  expect(result.getAllByText('-0.4°').length).toBeGreaterThan(0);
   expect(result.getByText('0 m/s')).toBeOnTheScreen();
 });

@@ -39,6 +39,11 @@ import {
   type SupportedLanguage,
   type TodayRequirementName,
 } from '@/localization/messages';
+import {
+  formatTemperature,
+  formatTemperatureValue,
+  localeTag,
+} from '@/presentation/format-temperature';
 import type { AtmosphereState } from '@/theme/theme';
 
 const DETAIL_CAPTION_GAP = 7;
@@ -180,25 +185,11 @@ export type TodayPresentation =
       phase?: RecommendationPhase | null;
     }>;
 
-function localeTag(language: SupportedLanguage): string {
-  return language === 'tr' ? 'tr-TR' : 'en-GB';
-}
-
-function formatNumber(value: number, language: SupportedLanguage): string {
-  return new Intl.NumberFormat(localeTag(language), {
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
 function formatPercent(ratio: number, language: SupportedLanguage): string {
   return new Intl.NumberFormat(localeTag(language), {
     style: 'percent',
     maximumFractionDigits: 0,
   }).format(ratio);
-}
-
-function formatTemperature(value: number, language: SupportedLanguage): string {
-  return `${formatNumber(value, language)}°`;
 }
 
 // The freshness line answers "how old is this?", so it is read against the viewer's own
@@ -476,10 +467,10 @@ function createLoadedPresentation(
       ),
       accessibilityLabel: copy.weatherAccessibilityLabel({
         condition,
-        current: current.temperatureCelsius,
-        apparent: current.apparentTemperatureCelsius,
-        minimum: weather.minimumTemperatureCelsius,
-        maximum: weather.maximumTemperatureCelsius,
+        current: formatTemperatureValue(current.temperatureCelsius, language),
+        apparent: formatTemperatureValue(current.apparentTemperatureCelsius, language),
+        minimum: formatTemperatureValue(weather.minimumTemperatureCelsius, language),
+        maximum: formatTemperatureValue(weather.maximumTemperatureCelsius, language),
         rainProbability: Math.round(rainProbability * 100),
       }),
       sourceId: weather.origin.sourceId,
@@ -489,7 +480,7 @@ function createLoadedPresentation(
     generationMode,
     generationSource,
     stageAccessibilityLabel: primary ? copy.stageAccessibilityLabel({
-      temperature: formatNumber(current.temperatureCelsius, language),
+      temperature: formatTemperatureValue(current.temperatureCelsius, language),
       condition,
       pieces: primary.pieces.map(({ item }) => item),
       archetype: primary.title,

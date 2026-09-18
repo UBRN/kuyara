@@ -37,35 +37,15 @@ import { WeatherAttribution } from '@/features/weather/presentation/weather-attr
 import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
 import { resolveDaypart } from '@/features/today/domain/atmosphere-state';
 import { useLocalization } from '@/localization/use-messages';
+import { formatTemperature, localeTag } from '@/presentation/format-temperature';
 import { interaction, layout, radii, spacing, typography } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
-
-// One English tag for every value this screen formats, the same one Today and the alert
-// copy use. A date must not change convention with the day it falls on, and the hourly
-// rail must not disagree with the last-updated line about the 12-hour convention.
-function localeTag(language: 'en' | 'tr'): 'en-GB' | 'tr-TR' {
-  return language === 'tr' ? 'tr-TR' : 'en-GB';
-}
-
-function withoutRoundedNegativeZero(value: number, maximumFractionDigits: 0 | 1): number {
-  const scale = 10 ** maximumFractionDigits;
-  return Math.round(Math.abs(value) * scale) === 0 ? 0 : value;
-}
-
-function temperature(
-  value: number,
-  language: 'en' | 'tr',
-  maximumFractionDigits: 0 | 1 = 1,
-): string {
-  return `${new Intl.NumberFormat(localeTag(language), {
-    maximumFractionDigits,
-  }).format(withoutRoundedNegativeZero(value, maximumFractionDigits))}°`;
-}
 
 function decimal(value: number, language: 'en' | 'tr'): string {
   return new Intl.NumberFormat(localeTag(language), {
     maximumFractionDigits: 1,
-  }).format(withoutRoundedNegativeZero(value, 1));
+    // A wind that rounds away to nothing must not read as blowing backwards.
+  }).format(Math.round(Math.abs(value) * 10) === 0 ? 0 : value);
 }
 
 function time(
@@ -141,10 +121,9 @@ function outlookSentence(
   if (outlook.kind === 'temperature_change') {
     const values = {
       time: at,
-      degrees: temperature(
+      degrees: formatTemperature(
         Math.abs(outlook.toApparentCelsius - outlook.fromApparentCelsius),
         language,
-        0,
       ),
     };
     return outlook.direction === 'drop'
@@ -381,13 +360,13 @@ export function WeatherScreen() {
                 accessible
                 accessibilityLabel={copy.currentConditionsAccessibilityLabel({
                   condition: copy.conditions[snapshot.current.condition],
-                  temperature: temperature(snapshot.current.temperatureCelsius, language, 0),
-                  apparentTemperature: temperature(
+                  temperature: formatTemperature(snapshot.current.temperatureCelsius, language),
+                  apparentTemperature: formatTemperature(
                     snapshot.current.apparentTemperatureCelsius,
                     language,
                   ),
-                  minimumTemperature: temperature(snapshot.minimumTemperatureCelsius, language),
-                  maximumTemperature: temperature(snapshot.maximumTemperatureCelsius, language),
+                  minimumTemperature: formatTemperature(snapshot.minimumTemperatureCelsius, language),
+                  maximumTemperature: formatTemperature(snapshot.maximumTemperatureCelsius, language),
                   precipitationProbability: snapshot.current.precipitationProbability,
                 })}
                 style={[
@@ -402,7 +381,7 @@ export function WeatherScreen() {
                       numberOfLines={1}
                       tabularNumbers
                       variant="display">
-                      {temperature(snapshot.current.temperatureCelsius, language, 0)}
+                      {formatTemperature(snapshot.current.temperatureCelsius, language)}
                     </AppText>
                     <AppText variant="bodyStrong">
                       {copy.conditions[snapshot.current.condition]}
@@ -410,10 +389,10 @@ export function WeatherScreen() {
                   </View>
                   <AppText colorRole="textSecondary" variant="caption">
                     {`${copy.feelsLike(
-                      temperature(snapshot.current.apparentTemperatureCelsius, language),
+                      formatTemperature(snapshot.current.apparentTemperatureCelsius, language),
                     )} · ${copy.range(
-                      temperature(snapshot.minimumTemperatureCelsius, language),
-                      temperature(snapshot.maximumTemperatureCelsius, language),
+                      formatTemperature(snapshot.minimumTemperatureCelsius, language),
+                      formatTemperature(snapshot.maximumTemperatureCelsius, language),
                     )}`}
                   </AppText>
                 </View>
@@ -530,7 +509,6 @@ export function WeatherScreen() {
                 {copy.hourlyHeading}
               </AppText>
               <HourlyRail
-                // A rail is scanned, not read, so its temperatures are whole degrees.
                 columns={remainingHourly.map((hour, index) => {
                   const localDate = weatherLocalDateKey(hour.forecastAt, snapshot.timeZone);
                   const previousLocalDate = index === 0
@@ -545,7 +523,7 @@ export function WeatherScreen() {
                         ? weekday(hour.forecastAt, snapshot.timeZone, language, 'long')
                         : undefined,
                       time: hourLabel,
-                      temperature: temperature(hour.temperatureCelsius, language, 0),
+                      temperature: formatTemperature(hour.temperatureCelsius, language),
                       condition: copy.conditions[hour.condition],
                       precipitationProbability: hour.precipitationProbability,
                     }),
@@ -557,7 +535,7 @@ export function WeatherScreen() {
                     ),
                     precipitationProbability: hour.precipitationProbability,
                     precipitation: percentage(hour.precipitationProbability, language),
-                    temperature: temperature(hour.temperatureCelsius, language, 0),
+                    temperature: formatTemperature(hour.temperatureCelsius, language),
                     temperatureCelsius: hour.temperatureCelsius,
                     time: startsNewLocalDay
                       ? weekday(hour.forecastAt, snapshot.timeZone, language, 'short')
