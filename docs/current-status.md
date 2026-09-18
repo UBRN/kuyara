@@ -187,12 +187,14 @@ Milestones 10 and 11 shipped with the first App Store release; what remains of m
     Not approved for capture.
 14. **Operational observability evaluation.** Grafana Cloud or an OpenTelemetry stack for
     Worker latency, errors, provider fallbacks and quota; later than product analytics.
-    A maintainer-side options report (2026-09-13) found that the Worker logs three
-    structured events, none of which distinguishes a Workers AI quota failure from any
-    other provider error, and that `429` responses are never logged server-side. Its
-    recommendation is to add those two fields on the free Workers Logs first, keep Grafana
-    Cloud as the next step only if alerting becomes necessary, and not adopt OpenTelemetry
-    while Cloudflare's tracing is in open beta. No decision has been taken.
+    The Worker's structured logs already carry the distinctions an options report of
+    2026-09-13 asked for: every failed AI attempt logs a classified `reason` that separates
+    `quota_exceeded`, `rate_limited` and `provider_error`, the spent Workers AI pool and the
+    exhausted daily budget log their own events, and every `429` the AI, weather and probe
+    routes return is logged as a `rate_limited` event with its limiter; only a numeric HTTP
+    status field is absent. The remaining recommendation is to keep the free Workers Logs,
+    take Grafana Cloud only if alerting becomes necessary, and not adopt OpenTelemetry while
+    Cloudflare's tracing is in open beta. No decision has been taken.
 15. **Supabase accounts and sync**, when product scope reaches it. Promoting device rows
     into an authenticated profile needs its own ADR; until then build no sync
     infrastructure.
