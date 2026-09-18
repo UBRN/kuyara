@@ -13,6 +13,9 @@ import { layoutHourlyRail } from './hourly-rail-layout';
 
 // A column is a fixed width so the series can pass through the label centres; it is wide
 // enough for the widest supported time caption ("12:00 PM") and grows with Dynamic Type.
+// The widest temperature a column can carry is six glyphs ("-12,0°"), measured at 61.1 pt
+// inside a 63.9 pt column at the default text size and 191.4 pt inside 229.1 pt at the
+// largest accessibility size, so 64 still holds and the knockout never meets its neighbour.
 const COLUMN_WIDTH = 64;
 const BAND_HEIGHT = 72;
 const MAXIMUM_BAND_HEIGHT = 160;
