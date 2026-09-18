@@ -33,6 +33,7 @@ export const iconNames = Object.freeze({
   location: { ios: 'mappin.and.ellipse', android: 'location_on', web: 'location_on' },
   sparkle: { ios: 'sparkles', android: 'auto_awesome', web: 'auto_awesome' },
   info: { ios: 'info.circle.fill', android: 'info', web: 'info' },
+  help: { ios: 'questionmark.circle.fill', android: 'help', web: 'help' },
   warning: { ios: 'exclamationmark.triangle.fill', android: 'warning', web: 'warning' },
   clock: { ios: 'clock.fill', android: 'schedule', web: 'schedule' },
   check: { ios: 'checkmark', android: 'check', web: 'check' },

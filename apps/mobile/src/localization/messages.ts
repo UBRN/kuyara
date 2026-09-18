@@ -245,6 +245,7 @@ export type AppMessages = Readonly<{
     aboutYouFooter: string;
     versionLine: (version: string, build?: string | null) => string;
     developmentBuild: string;
+    supportRow: string;
     aiStatusHeading: string;
     aiStatusIntro: string;
     aiStatusProvenanceFooter: string;
@@ -625,6 +626,7 @@ const en = {
     aboutYouFooter: 'Gender selects the catalog. Dress style shapes which suggestions come first. Birth date is optional and does not change suggestions.',
     versionLine: (version: string, build?: string | null) => build ? `Version ${version} (${build})` : `Version ${version}`,
     developmentBuild: 'Development build',
+    supportRow: 'Help and feedback',
     aiStatusHeading: 'AI status',
     aiStatusIntro: 'Check whether AI responds right now.',
     aiStatusProvenanceFooter: 'Today shows a small badge when AI chose the outfit, and nothing when the standard suggestions did. Apple Intelligence is a trademark of Apple Inc.',
@@ -1211,6 +1213,7 @@ const tr = {
     aboutYouFooter: 'Cinsiyet kataloğu belirler. Giyim tarzı hangi önerilerin önce geleceğini etkiler. Doğum tarihi isteğe bağlıdır ve önerileri değiştirmez.',
     versionLine: (version: string, build?: string | null) => build ? `Sürüm ${version} (${build})` : `Sürüm ${version}`,
     developmentBuild: 'Geliştirme derlemesi',
+    supportRow: 'Yardım ve geri bildirim',
     aiStatusHeading: 'AI durumu',
     aiStatusIntro: 'AI’nin şu anda yanıt verip vermediğini kontrol et.',
     aiStatusProvenanceFooter: 'Kombini AI seçtiyse Bugün’de küçük bir rozet görünür, standart öneriler seçtiyse hiçbir şey görünmez. Apple Intelligence, Apple Inc.’in ticari markasıdır.',
