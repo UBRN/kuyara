@@ -2,7 +2,7 @@
   "expo": {
     "name": "kuyara",
     "slug": "kuyara",
-    "version": "0.1.20260918",
+    "version": "0.1.20260919",
     "orientation": "portrait",
     "icon": "./assets/icons/kuyara-icon.png",
     "scheme": "kuyara",
