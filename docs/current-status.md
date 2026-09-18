@@ -6,7 +6,7 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
 
 ## Current State
 
-- **Mobile:** Expo SDK 57, React Native, Expo Router and Expo SQLite (schema version 15)
+- **Mobile:** Expo SDK 57, React Native, Expo Router and Expo SQLite (schema version 16)
   provide a five-step onboarding flow (welcome, gender, dress style, birth
   date, optional location); three primary tabs, Today, Weather and Profile, drawn by Expo
   Router Native Tabs, with the Closet and Settings as Profile stack destinations; private
@@ -14,7 +14,14 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   at the six sites the design language names. The minimum supported iOS is 26.0.
 - **Weather:** The current-conditions card leads with the day's one remaining
   decision-changing transition, precipitation starting or easing or an apparent-temperature
-  swing, before the measurements below the divider. Mobile preserves the last valid snapshot,
+  swing, before the measurements below the divider. Below the hourly rail a five-day
+  outlook gives each day its condition glyph, the measured precipitation beside its chance
+  (the chance alone when no amount was reported, and nothing when the day carries neither),
+  its low and high, and a rail positioned against the week's own range with a mark for the
+  current temperature on today's row. Mobile reads it from the Worker's `/v2/weather`
+  route and keeps it in the schema version 16 snapshot column, so a refresh failure leaves
+  the last valid outlook on screen and a snapshot stored by an earlier build simply shows
+  no outlook section. Mobile preserves the last valid snapshot,
   keeps it visible as stale while a newly selected place loads, refreshes data older than 30
   minutes, treats a timestamp up to five minutes in the device's future as clock skew rather
   than invalid data, and reaches providers only through the Worker. The chain is WeatherKit,

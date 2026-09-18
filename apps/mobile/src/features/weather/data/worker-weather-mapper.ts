@@ -1,4 +1,4 @@
-import type { WeatherV1Data } from '@kuyara/contracts';
+import type { WeatherV2Data } from '@kuyara/contracts';
 
 import type { ProvidedWeatherSnapshot } from '@/features/weather/data/weather-provider';
 import type { ActiveLocation } from '@/features/weather/domain/weather';
@@ -12,7 +12,7 @@ export class WorkerWeatherMappingError extends Error {
 
 export function mapWorkerWeatherToProvidedSnapshot(
   location: ActiveLocation,
-  data: WeatherV1Data,
+  data: WeatherV2Data,
 ): ProvidedWeatherSnapshot {
   if (data.timeZone !== location.timeZone) throw new WorkerWeatherMappingError();
 
@@ -28,5 +28,6 @@ export function mapWorkerWeatherToProvidedSnapshot(
     minimumTemperatureCelsius: data.minimumTemperatureCelsius,
     maximumTemperatureCelsius: data.maximumTemperatureCelsius,
     hourly: data.hourly,
+    daily: data.daily,
   };
 }

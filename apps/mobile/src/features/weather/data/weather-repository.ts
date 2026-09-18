@@ -19,6 +19,7 @@ import {
   isWeatherConditionCode,
   manualLocationKey,
   type ActiveLocation,
+  type DailyWeather,
   type HourlyWeather,
   type WeatherMeasurements,
   type WeatherSnapshot,
@@ -66,6 +67,60 @@ function requireMeasurements(value: WeatherMeasurements): WeatherMeasurements {
     !Number.isFinite(value.uvIndex) || value.uvIndex < 0
   ) throw new WeatherValidationError();
   return value;
+}
+
+const localDateKeyPattern = /^\d{4}-\d{2}-\d{2}$/u;
+
+/**
+ * One outlook day, checked field by field. It guards both directions, because the same
+ * shape crosses the boundary both times: an entry arriving from the Worker and an entry
+ * read back out of the column are equally untrusted.
+ */
+function requireDailyEntry(value: unknown): DailyWeather {
+  if (typeof value !== 'object' || value === null) throw new WeatherValidationError();
+  const entry = value as Partial<Record<keyof DailyWeather, unknown>>;
+  const { dateKey, condition, precipitationMillimetres: millimetres } = entry;
+  const minimum = entry.minimumTemperatureCelsius;
+  const maximum = entry.maximumTemperatureCelsius;
+  const probability = entry.precipitationProbability;
+  if (
+    typeof dateKey !== 'string' || !localDateKeyPattern.test(dateKey) ||
+    typeof condition !== 'string' || !isWeatherConditionCode(condition) ||
+    typeof minimum !== 'number' || !Number.isFinite(minimum) ||
+    typeof maximum !== 'number' || !Number.isFinite(maximum) || minimum > maximum ||
+    typeof probability !== 'number' || !Number.isFinite(probability) ||
+    probability < 0 || probability > 1 ||
+    (millimetres !== null && (
+      typeof millimetres !== 'number' || !Number.isFinite(millimetres) || millimetres < 0
+    ))
+  ) throw new WeatherValidationError();
+  return {
+    dateKey,
+    condition,
+    minimumTemperatureCelsius: minimum,
+    maximumTemperatureCelsius: maximum,
+    precipitationProbability: probability,
+    precipitationMillimetres: millimetres,
+  };
+}
+
+/**
+ * The outlook is an additive display block, so a column this build cannot read costs the
+ * section and nothing else: the snapshot the screen needs to render at all still comes
+ * back. That is also what makes a row written before the column existed, which holds null,
+ * read as no outlook rather than as a corrupt snapshot.
+ */
+function mapDaily(dailyJson: string | null): readonly DailyWeather[] | undefined {
+  if (dailyJson === null) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(dailyJson);
+    if (!Array.isArray(parsed) || parsed.length === 0) return undefined;
+    // One bad entry drops the whole outlook: a week missing its Thursday is a claim about
+    // the week that nothing on the row would tell the reader is short.
+    return parsed.map(requireDailyEntry);
+  } catch {
+    return undefined;
+  }
 }
 
 function mapLocation(record: ActiveLocationRecord): ActiveLocation {
@@ -136,6 +191,7 @@ function mapSnapshot(record: WeatherSnapshotRecord): WeatherSnapshot {
       record.hourly.length === 0
     ) throw new WeatherMappingError();
     const hourly = record.hourly.map(mapHourly);
+    const daily = mapDaily(record.dailyJson);
     const currentLocalDate = weatherLocalDateKey(record.observedAt, record.timeZone);
     const isLegacySameDaySnapshot = currentLocalDate !== null && hourly.length <= 25 &&
       hourly.every(({ forecastAt }, index) => (
@@ -168,6 +224,7 @@ function mapSnapshot(record: WeatherSnapshotRecord): WeatherSnapshot {
       minimumTemperatureCelsius: record.minimumTemperatureCelsius,
       maximumTemperatureCelsius: record.maximumTemperatureCelsius,
       hourly,
+      ...(daily === undefined ? {} : { daily }),
     };
   } catch (error) {
     if (error instanceof WeatherMappingError) throw error;
@@ -204,6 +261,9 @@ function toRecord(
   )) {
     throw new WeatherValidationError();
   }
+  const daily = snapshot.daily === undefined || snapshot.daily.length === 0
+    ? undefined
+    : snapshot.daily.map(requireDailyEntry);
   return {
     id, localProfileId, locationKey: snapshot.locationKey, timeZone: snapshot.timeZone,
     fetchedAt: snapshot.fetchedAt, observedAt: snapshot.current.observedAt,
@@ -217,6 +277,9 @@ function toRecord(
     windSpeedMetersPerSecond: snapshot.current.windSpeedMetersPerSecond,
     humidity: snapshot.current.humidity, uvIndex: snapshot.current.uvIndex,
     hourly: snapshot.hourly.map((hour) => ({ ...hour })),
+    // A source that served no outlook writes null rather than an empty document, so the
+    // column says "no outlook" in exactly one way whatever wrote the row.
+    dailyJson: daily === undefined ? null : JSON.stringify(daily),
   };
 }
 

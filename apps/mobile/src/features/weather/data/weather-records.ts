@@ -42,4 +42,11 @@ export type WeatherSnapshotRecord = Readonly<{
   humidity: number;
   uvIndex: number;
   hourly: readonly HourlyWeatherRecord[];
+  /**
+   * The outlook as it sits in its column: one JSON document, or null for a row written
+   * before the column existed. It is read whole and never queried by field, so it travels
+   * with its snapshot the way `context_json` and `outfits_json` travel with a
+   * recommendation, and the repository owns both the parse and the validation.
+   */
+  dailyJson: string | null;
 }>;

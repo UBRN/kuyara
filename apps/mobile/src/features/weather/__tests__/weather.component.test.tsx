@@ -936,7 +936,8 @@ test('the hourly rail scrolls horizontally and plots one accent temperature seri
   const series = result.getByTestId('weather-hourly-series', { includeHiddenElements: true });
   expect(isHiddenFromAccessibility(series)).toBe(true);
   expect(StyleSheet.flatten(series.props.style)).toMatchObject({ position: 'absolute', top: 42 });
-  // The rail's series is Weather's single accent instance (Law 1).
+  // The series is Weather's accent-coloured temperature encoding; the daily rails below
+  // draw the same quantity in the same hue and count with it, not against it (Law 1).
   const line = result.getByTestId('weather-hourly-series-line', { includeHiddenElements: true });
   // react-native-svg normalizes the stroke into a processed colour before it reaches the
   // host element, so the accent is compared in that form.
@@ -1082,4 +1083,187 @@ test('rounded weather measurements never render negative zero', async () => {
   expect(result.queryAllByText('-0.0°')).toHaveLength(0);
   expect(result.getAllByText('-0.4°').length).toBeGreaterThan(0);
   expect(result.getByText('0 m/s')).toBeOnTheScreen();
+});
+
+// The outlook's own day is the local calendar day of the snapshot, 30 July in Istanbul, and
+// the sixth entry proves the contract's extra room never reaches the screen.
+const sampleDaily = [
+  {
+    dateKey: '2026-07-30', condition: 'rain' as const,
+    minimumTemperatureCelsius: 12, maximumTemperatureCelsius: 19,
+    precipitationProbability: 0.5, precipitationMillimetres: 1.4,
+  },
+  {
+    dateKey: '2026-07-31', condition: 'cloudy' as const,
+    minimumTemperatureCelsius: 14, maximumTemperatureCelsius: 22,
+    precipitationProbability: 0.2, precipitationMillimetres: null,
+  },
+  {
+    dateKey: '2026-08-01', condition: 'clear' as const,
+    minimumTemperatureCelsius: 18, maximumTemperatureCelsius: 27,
+    precipitationProbability: 0, precipitationMillimetres: null,
+  },
+  {
+    dateKey: '2026-08-02', condition: 'partly_cloudy' as const,
+    minimumTemperatureCelsius: 17, maximumTemperatureCelsius: 25,
+    // Under half a millimetre: the amount is dropped rather than rounded to "0 mm".
+    precipitationProbability: 0.1, precipitationMillimetres: 0.4,
+  },
+  {
+    dateKey: '2026-08-03', condition: 'thunderstorm' as const,
+    minimumTemperatureCelsius: 15, maximumTemperatureCelsius: 20,
+    precipitationProbability: 0.8, precipitationMillimetres: 12,
+  },
+  {
+    dateKey: '2026-08-04', condition: 'snow' as const,
+    minimumTemperatureCelsius: -3, maximumTemperatureCelsius: 1,
+    precipitationProbability: 0.9, precipitationMillimetres: 4,
+  },
+];
+
+function dailyValue() {
+  return createValue({
+    ...baseState,
+    activeLocation: getManualLocation('sample.istanbul')!,
+    snapshot: { ...sampleSnapshot(), daily: sampleDaily },
+    freshness: 'fresh',
+  });
+}
+
+test.each([
+  [
+    'en',
+    ['Thu', 'Fri', 'Sat', 'Sun', 'Mon'],
+    '1 mm · 50%',
+    '20%',
+    '10%',
+    'Today, Thursday. Rain. Low 12.0° · High 19.0°. Now 16.0°. 1 mm, 50% precipitation',
+    'Saturday. Clear. Low 18.0° · High 27.0°. 0% precipitation',
+  ],
+  [
+    'tr',
+    ['Per', 'Cum', 'Cmt', 'Paz', 'Pzt'],
+    '1 mm · %50',
+    '%20',
+    '%10',
+    'Bugün, Perşembe. Yağmurlu. En düşük 12,0°, en yüksek 19,0°. Şu an 16,0°. 1 milimetre yağış. Yağış olasılığı yüzde 50.',
+    'Cumartesi. Açık. En düşük 18,0°, en yüksek 27,0°. Yağış olasılığı yüzde 0.',
+  ],
+] as const)('draws five %s outlook days with a full label on every row', async (
+  language,
+  weekdays,
+  amountAndChance,
+  chanceAlone,
+  subMillimetreChance,
+  todayLabel,
+  dryDayLabel,
+) => {
+  const result = await render(
+    <Providers language={language} value={dailyValue()}><WeatherScreen /></Providers>,
+  );
+  const card = within(result.getByTestId('weather-daily-card'));
+
+  expect(result.getByRole('header', { name: messages[language].weather.dailyHeading }))
+    .toBeOnTheScreen();
+  expect(card.getAllByTestId('weather-daily-row')).toHaveLength(5);
+  for (const day of weekdays) expect(card.getByText(day)).toBeOnTheScreen();
+  // The sixth day the contract allows is never drawn, and neither is its snow.
+  expect(card.queryByText('Tue')).toBeNull();
+  expect(card.queryByText('Sal')).toBeNull();
+
+  expect(card.getByText(amountAndChance)).toBeOnTheScreen();
+  expect(card.getByText(chanceAlone)).toBeOnTheScreen();
+  // Monday measured 0.4 mm, which rounds to nothing: its chance is shown alone.
+  expect(card.getByText(subMillimetreChance)).toBeOnTheScreen();
+  // A day with neither an amount nor a chance shows nothing at all, and its label still
+  // states the chance, so the empty cell costs a screen reader nothing.
+  expect(within(card.getAllByTestId('weather-daily-row')[2]).queryByText(/%/)).toBeNull();
+  // Today is named in words and the rail's mark is stated as a number, so neither the
+  // 3 point dot nor the row's position is the only thing that says which day this is.
+  expect(result.getByLabelText(todayLabel)).toBeOnTheScreen();
+  expect(result.getByLabelText(dryDayLabel)).toBeOnTheScreen();
+});
+
+test('one rail carries the current temperature, and only on today\'s row', async () => {
+  const result = await render(
+    <Providers language="en" value={dailyValue()}><WeatherScreen /></Providers>,
+  );
+  const card = within(result.getByTestId('weather-daily-card'));
+
+  expect(card.getAllByTestId('weather-daily-rail', { includeHiddenElements: true }))
+    .toHaveLength(5);
+  const fills = card.getAllByTestId('weather-daily-rail-fill', { includeHiddenElements: true });
+  expect(fills).toHaveLength(5);
+  // The week runs 12 to 27, so Thursday's 12 to 19 starts at the cold end and covers the
+  // first 47 per cent of it; every rail is positioned against that same range.
+  expect(StyleSheet.flatten(fills[0].props.style)).toMatchObject({
+    backgroundColor: lightTheme.colors.brandAccent,
+    left: '0%',
+    width: `${(19 - 12) / (27 - 12) * 100}%`,
+  });
+  const markers = card.getAllByTestId('weather-daily-rail-marker', { includeHiddenElements: true });
+  expect(markers).toHaveLength(1);
+});
+
+test('above fontScale 1.5 the outlook range stacks under its day', async () => {
+  mockFontScale(1.6);
+  const result = await render(
+    <Providers language="en" value={dailyValue()}><WeatherScreen /></Providers>,
+  );
+
+  const row = result.getAllByTestId('weather-daily-row')[0];
+  expect(StyleSheet.flatten(row.props.style)).toMatchObject({ flexDirection: 'column' });
+  // The rail survives the stack rather than being squeezed out between two numbers.
+  expect(result.getAllByTestId('weather-daily-rail', { includeHiddenElements: true }))
+    .toHaveLength(5);
+});
+
+test('a snapshot held across midnight drops the day that has ended', async () => {
+  // One local day past the first entry: an offline device opening after midnight still
+  // holds Thursday's snapshot, and Thursday is over.
+  mockFontScale(1);
+  clock.mockReturnValue(Date.parse('2026-07-31T09:30:00.000Z'));
+  const result = await render(
+    <Providers language="en" value={dailyValue()}><WeatherScreen /></Providers>,
+  );
+  const card = within(result.getByTestId('weather-daily-card'));
+
+  // Still five rows, and Thursday is not one of them: the sixth contract day takes the
+  // freed place rather than the card going short.
+  expect(card.getAllByTestId('weather-daily-row')).toHaveLength(5);
+  expect(card.queryByText('Thu')).toBeNull();
+  expect(card.getByText('Fri')).toBeOnTheScreen();
+  expect(card.getByText('Tue')).toBeOnTheScreen();
+  // The mark and the word move with the day instead of disappearing with Thursday.
+  expect(card.getAllByTestId('weather-daily-rail-marker', { includeHiddenElements: true }))
+    .toHaveLength(1);
+  expect(result.getByLabelText(
+    'Today, Friday. Cloudy. Low 14.0° · High 22.0°. Now 16.0°. 20% precipitation',
+  )).toBeOnTheScreen();
+});
+
+test('an outlook whose every day has ended renders no section', async () => {
+  mockFontScale(1);
+  clock.mockReturnValue(Date.parse('2026-08-10T09:30:00.000Z'));
+  const result = await render(
+    <Providers language="en" value={dailyValue()}><WeatherScreen /></Providers>,
+  );
+
+  expect(result.queryByTestId('weather-daily-card', { includeHiddenElements: true })).toBeNull();
+});
+
+test('a snapshot that carries no outlook renders no daily section at all', async () => {
+  const value = createValue({
+    ...baseState,
+    activeLocation: getManualLocation('sample.istanbul')!,
+    snapshot: sampleSnapshot(),
+    freshness: 'fresh',
+  });
+  const result = await render(
+    <Providers language="en" value={value}><WeatherScreen /></Providers>,
+  );
+
+  expect(result.queryByTestId('weather-daily-card', { includeHiddenElements: true })).toBeNull();
+  expect(result.queryByText(messages.en.weather.dailyHeading)).toBeNull();
+  expect(result.getByTestId('weather-hourly-card')).toBeOnTheScreen();
 });

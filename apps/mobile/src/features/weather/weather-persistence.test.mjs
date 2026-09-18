@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import {
+  weatherDailyForecastMaximumEntries,
+  weatherV2SuccessSchema,
+} from '@kuyara/contracts';
+
 import { getManualLocation } from './data/manual-location-catalog.ts';
+import { mapWorkerWeatherToProvidedSnapshot } from './data/worker-weather-mapper.ts';
 import { LocalWeatherRepository, WeatherRepositoryError } from './data/weather-repository.ts';
 import { SqliteWeatherLocalDataSource } from './data/sqlite-weather-local-data-source.ts';
 import {
@@ -344,4 +350,163 @@ test('invalid manual ids, names and coordinates fail before writing and corrupt 
   await assert.rejects(() => repository.getActiveLocation(profileId), (error) => error.code === 'invalid-data');
   await database.runAsync("UPDATE active_locations SET manual_catalog_id = 'place.1', location_key = 'manual:place.1', display_name = NULL");
   await assert.rejects(() => repository.getActiveLocation(profileId), (error) => error.code === 'invalid-data');
+});
+
+const outlook = [
+  {
+    dateKey: '2026-07-30',
+    condition: 'rain',
+    minimumTemperatureCelsius: 12,
+    maximumTemperatureCelsius: 19,
+    precipitationProbability: 0.5,
+    precipitationMillimetres: 1.4,
+  },
+  {
+    dateKey: '2026-07-31',
+    condition: 'cloudy',
+    minimumTemperatureCelsius: 14,
+    maximumTemperatureCelsius: 22,
+    precipitationProbability: 0,
+    precipitationMillimetres: null,
+  },
+];
+
+test('the daily outlook round-trips through its column and a row without one still reads', async (t) => {
+  const { database, dataSource, repository } = await setup();
+  t.after(() => database.close());
+  const istanbul = getManualLocation('sample.istanbul');
+  await repository.setActiveLocation(profileId, istanbul);
+
+  // A Worker payload's outlook survives the domain, the column and the read back unchanged,
+  // including the null amount, which must never come back as a zero.
+  const saved = await repository.saveSnapshot(profileId, {
+    ...provided(istanbul, '2026-07-30T10:00:00.000Z', 16),
+    daily: outlook,
+  });
+  assert.deepEqual(saved.daily, outlook);
+  assert.deepEqual(
+    (await repository.getSnapshot(profileId, istanbul.locationKey)).daily,
+    outlook,
+  );
+  const record = await dataSource.getSnapshot(profileId, istanbul.locationKey);
+  assert.deepEqual(JSON.parse(record.dailyJson), outlook);
+
+  // A provider that served no outlook writes null rather than an empty document, so the
+  // column says "no outlook" in one way only.
+  await repository.saveSnapshot(profileId, provided(istanbul, '2026-07-30T11:00:00.000Z', 16));
+  assert.equal(
+    (await database.getFirstAsync('SELECT daily_json FROM weather_snapshots')).daily_json,
+    null,
+  );
+  const withoutOutlook = await repository.getSnapshot(profileId, istanbul.locationKey);
+  assert.equal(withoutOutlook.daily, undefined);
+  assert.equal(withoutOutlook.current.temperatureCelsius, 16);
+  assert.equal(withoutOutlook.hourly.length, 1);
+});
+
+test('an unreadable outlook column costs the section and never the snapshot', async (t) => {
+  const { database, repository } = await setup();
+  t.after(() => database.close());
+  const istanbul = getManualLocation('sample.istanbul');
+  await repository.setActiveLocation(profileId, istanbul);
+  await repository.saveSnapshot(profileId, {
+    ...provided(istanbul, '2026-07-30T10:00:00.000Z', 16),
+    daily: outlook,
+  });
+
+  for (const stored of [
+    'not json at all',
+    '{}',
+    '[]',
+    // A code this build does not know, a reversed range, a chance out of range, an amount
+    // below zero, and a date that is not a local calendar day.
+    JSON.stringify([{ ...outlook[0], condition: 'hail' }]),
+    JSON.stringify([{ ...outlook[0], minimumTemperatureCelsius: 30 }]),
+    JSON.stringify([{ ...outlook[0], precipitationProbability: 1.5 }]),
+    JSON.stringify([{ ...outlook[0], precipitationMillimetres: -1 }]),
+    JSON.stringify([{ ...outlook[0], dateKey: '2026-07-30T00:00:00.000Z' }]),
+    // One bad entry drops the whole outlook rather than a week that is quietly short.
+    JSON.stringify([outlook[0], { ...outlook[1], precipitationProbability: null }]),
+  ]) {
+    await database.runAsync('UPDATE weather_snapshots SET daily_json = ?', [stored]);
+    const snapshot = await repository.getSnapshot(profileId, istanbul.locationKey);
+    assert.equal(snapshot.daily, undefined, stored);
+    assert.equal(snapshot.current.temperatureCelsius, 16, stored);
+  }
+});
+
+test('an outlook the provider could not have produced is refused before it is stored', async (t) => {
+  const { database, repository } = await setup();
+  t.after(() => database.close());
+  const istanbul = getManualLocation('sample.istanbul');
+  await repository.setActiveLocation(profileId, istanbul);
+
+  for (const daily of [
+    [{ ...outlook[0], condition: 'hail' }],
+    [{ ...outlook[0], maximumTemperatureCelsius: 5 }],
+    [{ ...outlook[0], precipitationProbability: -0.1 }],
+    [{ ...outlook[0], dateKey: '30-07-2026' }],
+  ]) {
+    await assert.rejects(
+      () => repository.saveSnapshot(profileId, {
+        ...provided(istanbul, '2026-07-30T10:00:00.000Z', 16),
+        daily,
+      }),
+      (error) => error instanceof WeatherRepositoryError && error.code === 'invalid-input',
+    );
+  }
+  assert.deepEqual(await database.getAllAsync('SELECT id FROM weather_snapshots'), []);
+});
+
+test('a contracts v2 payload survives the schema, the mapper and the repository unchanged', async (t) => {
+  const { database, repository } = await setup();
+  t.after(() => database.close());
+  const istanbul = getManualLocation('sample.istanbul');
+  await repository.setActiveLocation(profileId, istanbul);
+
+  // The schema and the repository hold two separate rule sets over the same shape. If they
+  // ever disagree, every refresh dies as `invalid-input` and the user sees only "couldn't
+  // refresh", so a payload the Worker is allowed to send has to reach the column intact.
+  const observedAt = '2026-07-30T10:00:00.000Z';
+  const measurements = {
+    temperatureCelsius: 16,
+    apparentTemperatureCelsius: 15,
+    condition: 'rain',
+    precipitationProbability: 0.5,
+    windSpeedMetersPerSecond: 4,
+    humidity: 0.7,
+    uvIndex: 2,
+  };
+  const body = weatherV2SuccessSchema.parse({
+    data: {
+      timeZone: istanbul.timeZone,
+      fetchedAt: observedAt,
+      origin: { kind: 'live', sourceId: 'weatherkit' },
+      current: { observedAt, ...measurements },
+      minimumTemperatureCelsius: 12,
+      maximumTemperatureCelsius: 19,
+      hourly: [{ forecastAt: observedAt, ...measurements }],
+      // The contract's own edges: its ceiling of entries, a zero chance, a zero amount,
+      // a null amount and a day whose low equals its high.
+      daily: [
+        { dateKey: '2026-07-30', condition: 'rain', minimumTemperatureCelsius: 12, maximumTemperatureCelsius: 19, precipitationProbability: 1, precipitationMillimetres: 24 },
+        { dateKey: '2026-07-31', condition: 'clear', minimumTemperatureCelsius: 14, maximumTemperatureCelsius: 22, precipitationProbability: 0, precipitationMillimetres: 0 },
+        { dateKey: '2026-08-01', condition: 'snow', minimumTemperatureCelsius: -3, maximumTemperatureCelsius: -3, precipitationProbability: 0.9, precipitationMillimetres: null },
+        { dateKey: '2026-08-02', condition: 'fog', minimumTemperatureCelsius: 15, maximumTemperatureCelsius: 20, precipitationProbability: 0.05, precipitationMillimetres: null },
+        { dateKey: '2026-08-03', condition: 'sleet', minimumTemperatureCelsius: 1, maximumTemperatureCelsius: 4, precipitationProbability: 0.6, precipitationMillimetres: 3.5 },
+        { dateKey: '2026-08-04', condition: 'drizzle', minimumTemperatureCelsius: 11, maximumTemperatureCelsius: 17, precipitationProbability: 0.3, precipitationMillimetres: 0.2 },
+        { dateKey: '2026-08-05', condition: 'thunderstorm', minimumTemperatureCelsius: 16, maximumTemperatureCelsius: 25, precipitationProbability: 0.75, precipitationMillimetres: 9 },
+      ],
+    },
+  });
+  assert.equal(body.data.daily.length, weatherDailyForecastMaximumEntries);
+
+  const provided = mapWorkerWeatherToProvidedSnapshot(istanbul, body.data);
+  const saved = await repository.saveSnapshot(profileId, provided);
+
+  assert.deepEqual(saved.daily, body.data.daily);
+  assert.deepEqual(
+    (await repository.getSnapshot(profileId, istanbul.locationKey)).daily,
+    body.data.daily,
+  );
 });
