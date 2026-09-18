@@ -31,15 +31,17 @@ export type TodayRequirementName =
 /**
  * The day-insight line's states, one key per whole sentence. A sky that holds all day takes
  * its temperature modifier by selecting a different key rather than by gaining a clause, and
- * every sentence that names the day it describes has a night twin for a dressing day that
- * runs past midnight. Nothing here is ever assembled from translated fragments.
+ * every sentence that names the day it describes has an evening twin for the dressing day
+ * that begins at 18:00 and runs past midnight. The evening word is the one the person reads
+ * while the sun may still be up, so no sentence says night where the sky says day. Nothing
+ * here is ever assembled from translated fragments.
  */
-type DayInsightSky = `${'clear' | 'cloudy' | 'foggy'}_${'day' | 'night'}`;
+type DayInsightSky = `${'clear' | 'cloudy' | 'foggy'}_${'day' | 'evening'}`;
 
 export type TodayDayInsightKey =
   | DayInsightSky
   | `${DayInsightSky}_${'hot' | 'veryHot' | 'chilly' | 'freezing'}`
-  | `${'rain' | 'snow'}_${'day' | 'night'}`
+  | `${'rain' | 'snow'}_${'day' | 'evening'}`
   | 'windy'
   | 'veryWindy';
 
@@ -460,8 +462,8 @@ export type AppMessages = Readonly<{
       temperatureDrop: (values: { time: string; degrees: string }) => string;
       temperatureRise: (values: { time: string; degrees: string }) => string;
       steady: string;
-      /** The same sentence for a dressing day that runs past midnight. */
-      steadyTonight: string;
+      /** The same sentence for the evening window, which may begin before sunset. */
+      steadyEvening: string;
     }>;
     conditions: Readonly<Record<LiveWeatherConditionCode, string>>;
   }>;
@@ -847,7 +849,7 @@ const en = {
       temperatureDrop: ({ time, degrees }) => `It drops ${degrees} around ${time}`,
       temperatureRise: ({ time, degrees }) => `It rises ${degrees} around ${time}`,
       steady: 'No notable change for the rest of today',
-      steadyTonight: 'No notable change for the rest of tonight',
+      steadyEvening: 'No notable change for the rest of the evening',
     },
     conditions: {
       clear: 'Clear', mostly_clear: 'Mostly clear', partly_cloudy: 'Partly cloudy',
@@ -1011,7 +1013,7 @@ const en = {
       thermal_over_protection: 'This outfit is warmer than required.',
       unnecessary_water_protection: 'This outfit includes more water protection than required.',
     },
-    mildWeatherRationale: 'Nothing in today’s weather asks for special protection.',
+    mildWeatherRationale: 'Nothing in the weather ahead asks for special protection.',
     dayInsight: {
       sentences: {
       clear_day: 'Sunny all day.',
@@ -1019,35 +1021,35 @@ const en = {
       clear_day_veryHot: 'Sunny all day but very hot.',
       clear_day_chilly: 'Sunny all day and chilly.',
       clear_day_freezing: 'Sunny all day but freezing.',
-      clear_night: 'Clear all night.',
-      clear_night_hot: 'Clear all night and hot.',
-      clear_night_veryHot: 'Clear all night but very hot.',
-      clear_night_chilly: 'Clear all night and chilly.',
-      clear_night_freezing: 'Clear all night but freezing.',
+      clear_evening: 'Clear all evening.',
+      clear_evening_hot: 'Clear all evening and hot.',
+      clear_evening_veryHot: 'Clear all evening but very hot.',
+      clear_evening_chilly: 'Clear all evening and chilly.',
+      clear_evening_freezing: 'Clear all evening but freezing.',
       cloudy_day: 'Cloudy all day.',
       cloudy_day_hot: 'Cloudy all day and hot.',
       cloudy_day_veryHot: 'Cloudy all day but very hot.',
       cloudy_day_chilly: 'Cloudy all day and chilly.',
       cloudy_day_freezing: 'Cloudy all day but freezing.',
-      cloudy_night: 'Cloudy all night.',
-      cloudy_night_hot: 'Cloudy all night and hot.',
-      cloudy_night_veryHot: 'Cloudy all night but very hot.',
-      cloudy_night_chilly: 'Cloudy all night and chilly.',
-      cloudy_night_freezing: 'Cloudy all night but freezing.',
+      cloudy_evening: 'Cloudy all evening.',
+      cloudy_evening_hot: 'Cloudy all evening and hot.',
+      cloudy_evening_veryHot: 'Cloudy all evening but very hot.',
+      cloudy_evening_chilly: 'Cloudy all evening and chilly.',
+      cloudy_evening_freezing: 'Cloudy all evening but freezing.',
       foggy_day: 'Foggy all day.',
       foggy_day_hot: 'Foggy all day and hot.',
       foggy_day_veryHot: 'Foggy all day but very hot.',
       foggy_day_chilly: 'Foggy all day and chilly.',
       foggy_day_freezing: 'Foggy all day but freezing.',
-      foggy_night: 'Foggy all night.',
-      foggy_night_hot: 'Foggy all night and hot.',
-      foggy_night_veryHot: 'Foggy all night but very hot.',
-      foggy_night_chilly: 'Foggy all night and chilly.',
-      foggy_night_freezing: 'Foggy all night but freezing.',
+      foggy_evening: 'Foggy all evening.',
+      foggy_evening_hot: 'Foggy all evening and hot.',
+      foggy_evening_veryHot: 'Foggy all evening but very hot.',
+      foggy_evening_chilly: 'Foggy all evening and chilly.',
+      foggy_evening_freezing: 'Foggy all evening but freezing.',
       rain_day: 'Rainy all day.',
-      rain_night: 'Rainy all night.',
+      rain_evening: 'Rainy all evening.',
       snow_day: 'Snowy all day.',
-      snow_night: 'Snowy all night.',
+      snow_evening: 'Snowy all evening.',
       windy: 'It stays windy.',
       veryWindy: 'It stays very windy.',
       },
@@ -1434,7 +1436,7 @@ const tr = {
       temperatureDrop: ({ time, degrees }) => `Saat ${time} civarında ${degrees} düşüyor`,
       temperatureRise: ({ time, degrees }) => `Saat ${time} civarında ${degrees} yükseliyor`,
       steady: 'Bugünün kalanında belirgin bir değişiklik yok',
-      steadyTonight: 'Gecenin kalanında belirgin bir değişiklik yok',
+      steadyEvening: 'Akşamın kalanında belirgin bir değişiklik yok',
     },
     conditions: {
       clear: 'Açık', mostly_clear: 'Çoğunlukla açık', partly_cloudy: 'Parçalı bulutlu',
@@ -1601,7 +1603,7 @@ const tr = {
       thermal_over_protection: 'Bu kombin gerekenden daha sıcak.',
       unnecessary_water_protection: 'Bu kombin gerekenden daha fazla su koruması içeriyor.',
     },
-    mildWeatherRationale: 'Bugünkü hava özel bir koruma istemiyor.',
+    mildWeatherRationale: 'Havada özel bir koruma isteyen bir şey yok.',
     dayInsight: {
       sentences: {
       clear_day: 'Gün boyu güneşli.',
@@ -1609,35 +1611,35 @@ const tr = {
       clear_day_veryHot: 'Gün boyu güneşli ama çok sıcak.',
       clear_day_chilly: 'Gün boyu güneşli ve serin.',
       clear_day_freezing: 'Gün boyu güneşli ama dondurucu.',
-      clear_night: 'Gece boyu açık.',
-      clear_night_hot: 'Gece boyu açık ve sıcak.',
-      clear_night_veryHot: 'Gece boyu açık ama çok sıcak.',
-      clear_night_chilly: 'Gece boyu açık ve serin.',
-      clear_night_freezing: 'Gece boyu açık ama dondurucu.',
+      clear_evening: 'Akşam boyu açık.',
+      clear_evening_hot: 'Akşam boyu açık ve sıcak.',
+      clear_evening_veryHot: 'Akşam boyu açık ama çok sıcak.',
+      clear_evening_chilly: 'Akşam boyu açık ve serin.',
+      clear_evening_freezing: 'Akşam boyu açık ama dondurucu.',
       cloudy_day: 'Gün boyu bulutlu.',
       cloudy_day_hot: 'Gün boyu bulutlu ve sıcak.',
       cloudy_day_veryHot: 'Gün boyu bulutlu ama çok sıcak.',
       cloudy_day_chilly: 'Gün boyu bulutlu ve serin.',
       cloudy_day_freezing: 'Gün boyu bulutlu ama dondurucu.',
-      cloudy_night: 'Gece boyu bulutlu.',
-      cloudy_night_hot: 'Gece boyu bulutlu ve sıcak.',
-      cloudy_night_veryHot: 'Gece boyu bulutlu ama çok sıcak.',
-      cloudy_night_chilly: 'Gece boyu bulutlu ve serin.',
-      cloudy_night_freezing: 'Gece boyu bulutlu ama dondurucu.',
+      cloudy_evening: 'Akşam boyu bulutlu.',
+      cloudy_evening_hot: 'Akşam boyu bulutlu ve sıcak.',
+      cloudy_evening_veryHot: 'Akşam boyu bulutlu ama çok sıcak.',
+      cloudy_evening_chilly: 'Akşam boyu bulutlu ve serin.',
+      cloudy_evening_freezing: 'Akşam boyu bulutlu ama dondurucu.',
       foggy_day: 'Gün boyu sisli.',
       foggy_day_hot: 'Gün boyu sisli ve sıcak.',
       foggy_day_veryHot: 'Gün boyu sisli ama çok sıcak.',
       foggy_day_chilly: 'Gün boyu sisli ve serin.',
       foggy_day_freezing: 'Gün boyu sisli ama dondurucu.',
-      foggy_night: 'Gece boyu sisli.',
-      foggy_night_hot: 'Gece boyu sisli ve sıcak.',
-      foggy_night_veryHot: 'Gece boyu sisli ama çok sıcak.',
-      foggy_night_chilly: 'Gece boyu sisli ve serin.',
-      foggy_night_freezing: 'Gece boyu sisli ama dondurucu.',
+      foggy_evening: 'Akşam boyu sisli.',
+      foggy_evening_hot: 'Akşam boyu sisli ve sıcak.',
+      foggy_evening_veryHot: 'Akşam boyu sisli ama çok sıcak.',
+      foggy_evening_chilly: 'Akşam boyu sisli ve serin.',
+      foggy_evening_freezing: 'Akşam boyu sisli ama dondurucu.',
       rain_day: 'Gün boyu yağmurlu.',
-      rain_night: 'Gece boyu yağmurlu.',
+      rain_evening: 'Akşam boyu yağmurlu.',
       snow_day: 'Gün boyu karlı.',
-      snow_night: 'Gece boyu karlı.',
+      snow_evening: 'Akşam boyu karlı.',
       windy: 'Rüzgâr sürüyor.',
       veryWindy: 'Kuvvetli rüzgâr sürüyor.',
       },

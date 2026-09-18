@@ -121,10 +121,12 @@ function outlookSentence(
   hour12: boolean,
 ): string {
   // The dressing day is what "the rest of" means: before 18:00 local it is the rest of the
-  // calendar day, and from 18:00 it runs to 04:00, which is a night rather than a day. The
-  // period selects a whole sentence; nothing is assembled from a translated fragment.
+  // calendar day, and from 18:00 it runs to 04:00, which the copy calls the evening. The
+  // boundary is a clock hour while the glyph beside it follows the real sun, so the word has
+  // to hold with the sun still up. The period selects a whole sentence; nothing is assembled
+  // from a translated fragment.
   if (outlook.kind === 'steady') {
-    return outlook.period === 'evening' ? copy.outlook.steadyTonight : copy.outlook.steady;
+    return outlook.period === 'evening' ? copy.outlook.steadyEvening : copy.outlook.steady;
   }
   const at = time(outlook.atHour, timeZone, language, hour12);
   if (outlook.kind === 'temperature_change') {

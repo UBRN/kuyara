@@ -327,7 +327,11 @@ export function deriveClothingRequirements(
   // person is walking into instead of stopping at a midnight nobody changes clothes at.
   const now = Date.parse(nowIso);
   const dayWindow = wardrobeDayWindow(nowIso, snapshot.timeZone);
-  const windowEnd = dayWindow ? Date.parse(dayWindow.end) : Number.NaN;
+  // A zone `Intl` refuses leaves no window, and a requirement set built from the current
+  // measurement alone would be a silent narrowing rather than a stated one. Every hour the
+  // snapshot still has ahead is the honest pool there: wider than the dressing day, never
+  // emptier than it.
+  const windowEnd = dayWindow ? Date.parse(dayWindow.end) : Number.POSITIVE_INFINITY;
   const relevantHourly = snapshot.hourly.filter(
     ({ forecastAt }) => {
       const forecast = Date.parse(forecastAt);
