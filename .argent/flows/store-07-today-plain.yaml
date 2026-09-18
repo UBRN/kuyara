@@ -39,5 +39,8 @@ steps:
   - tap: { id: tab-today }
   - await: { visible: { id: today-archetype }, timeout: 45000 }
   - await: { hidden: { id: today-generating-status }, timeout: 30000 }
+  - echo: Today renders the previous city's outfit first and only then starts the regeneration the new place triggered, so one hidden check can pass before the status has appeared at all and the frame catches "Asking the AI stylist" over a stale outfit (measured 2026-09-18, en-US). The status is waited out a second time after a settle.
+  - wait: 2500
+  - await: { hidden: { id: today-generating-status }, timeout: 30000 }
   - wait: 800
   - await: { idle: true }
