@@ -238,6 +238,23 @@ deployed the same morning ahead of the build, so the deployed request schema acc
 `dayKind`, accessory slots and empty requirement set. The build number is issued by EAS, which
 auto-increments it from the remote version source.
 
+Version 0.1.20260916 with build 11 was approved and went on sale on 2026-09-18 and is the version
+on sale. Build 12 (version 0.1.20260918, EAS build ac37aaeb, commit ae5c5ee) was uploaded and
+processed but never submitted: the owner held it so the Weather work could ship in the same
+binary. Version 0.1.20260919 with build 13 (commit 798605a, EAS build 25ec7173) was submitted
+for review on 2026-09-18 at 20:43 UTC as submission `6039308f`, attached to the App Store
+Connect version record `729cdddd` with its What's New in both locales and the screenshot set
+shot on 2026-09-18; phased release stays configured. It carries the recommendation engine
+backbone (the thermal ladder, day-aware archetype labels, the engine grid suite), the daily AI
+regeneration allowance behind "Show another outfit", the Apple Intelligence badge, and the
+Weather work: the `/v2/weather` daily forecast read through migration 16, condition glyphs in
+fourteen inks with the day and night taken from the place's own sunrise and sunset, one decimal
+on every temperature, the dressing day that plans to 04:00 once the evening has begun, the Today
+day-insight sentence and the five-day section. The Worker was deployed ahead of the build with
+the `/v2/weather` route, the day-aware selection gate and its cache key version, and the daily
+attempt limit of 50 derived from the current largest prompt; `/v1/weather` and every shipped
+shape are unchanged, so builds 8, 9 and 11 keep working against it.
+
 The strict, Worker-owned AI recommendation request changed in five ways: it carries an
 optional `dayKind` of `weekday` or `weekend`, recognises 20 new garment type ids, allows the
 four optional accessory outfit slots `head`, `neck`, `hands` and `handheld`, raises each
