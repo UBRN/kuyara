@@ -73,7 +73,6 @@ test('precipitation onset starts at probability 0.6, not 0.59', () => {
     id: `precipitation_onset:${locationKey}:2026-09-09`,
     ruleId: 'precipitation_onset',
     locationKey,
-    localDate: '2026-09-09',
     crossingAt,
     fireAt: '2026-09-09T09:00:00.000Z',
     detail: { kind: 'precipitation', form: 'rain' },
@@ -204,7 +203,9 @@ test('quiet windows include the start, exclude the end, and handle evening hours
     ['2026-09-09T20:00:00.000Z', null],
     ['2026-09-09T05:00:00.000Z', '2026-09-09T04:00:00.000Z'],
   ]) {
-    const clock = '2026-09-09T00:00:00.000Z';
+    // 05:00 local, inside the day period, so all three crossings are in the same window
+    // and the only thing under test is where the quiet hours put the fire time.
+    const clock = '2026-09-09T02:00:00.000Z';
     const result = plan(snapshot({
       timeZone: 'Europe/Istanbul',
       current: { observedAt: clock, ...measurements() },
@@ -229,15 +230,15 @@ test('quiet-hours adjustment lands on an exact minute when a crossing includes s
   assert.equal(result[0].fireAt, '2026-09-09T07:00:00.000Z');
 });
 
-test('identity uses the local day of now and the location, independently of quiet-hours time zone', () => {
+test('identity uses the dressing day of now and the location, independently of quiet-hours time zone', () => {
+  // 01:00 local in Istanbul: the evening that began on the 8th, not a new day of its own.
   const clock = '2026-09-08T22:00:00.000Z';
   const result = plan(snapshot({
     timeZone: 'Europe/Istanbul',
     current: { observedAt: clock, ...measurements() },
     hourly: [hour('2026-09-08T23:30:00.000Z', { condition: 'rain' })],
   }), { now: clock, quietHours: { ...defaultQuietHours, timeZone: 'Pacific/Honolulu' } });
-  assert.equal(result[0].localDate, '2026-09-09');
-  assert.equal(result[0].id, `precipitation_onset:${locationKey}:2026-09-09`);
+  assert.equal(result[0].id, `precipitation_onset:${locationKey}:2026-09-08:evening`);
 });
 
 test('delivered identities suppress only the matching rule, location and local date', () => {
@@ -291,21 +292,57 @@ test('constants match the requirement engine behavioral boundaries', () => {
   }
 });
 
-test('the local day is the one now falls in, not the snapshot observation day', () => {
+test('the dressing day is the one now falls in, not the snapshot observation day', () => {
+  // 00:20, so the evening of the 9th is still under way: the 02:00 crossing belongs to it
+  // and the 09:00 hour belongs to the dressing day that starts at 04:00.
   const clock = '2026-09-10T00:20:00.000Z';
   const result = plan(snapshot({
     current: { observedAt: '2026-09-09T23:50:00.000Z', ...measurements() },
     hourly: [
       hour('2026-09-09T23:00:00.000Z', { condition: 'rain' }),
+      hour('2026-09-10T02:00:00.000Z', { condition: 'rain' }),
       hour('2026-09-10T09:00:00.000Z', { condition: 'rain' }),
     ],
-  }), { now: clock });
+  }), {
+    now: clock,
+    // Narrow quiet hours: the default 22:00 to 07:00 would drop an overnight alert, which
+    // is a quiet-hours rule and not the window rule under test here.
+    quietHours: { start: { hour: 3, minute: 0 }, end: { hour: 3, minute: 30 }, timeZone: 'UTC' },
+  });
 
-  assert.deepEqual(result.map(({ id, localDate, crossingAt: at }) => ({ id, localDate, at })), [{
-    id: `precipitation_onset:${locationKey}:2026-09-10`,
-    localDate: '2026-09-10',
-    at: '2026-09-10T09:00:00.000Z',
+  assert.deepEqual(result.map(({ id, crossingAt: at }) => ({ id, at })), [{
+    id: `precipitation_onset:${locationKey}:2026-09-09:evening`,
+    at: '2026-09-10T02:00:00.000Z',
   }]);
+});
+
+test('an overnight crossing is plannable in the evening and fires once for that window', () => {
+  // 19:00 local. A 02:00 temperature drop could not be planned at all while the window
+  // stopped at midnight; now it can, under an id no calendar day can reach.
+  const evening = '2026-09-09T19:00:00.000Z';
+  const overnight = snapshot({
+    current: { observedAt: evening, ...measurements({ apparentTemperatureCelsius: 20 }) },
+    hourly: [hour('2026-09-10T02:00:00.000Z', { apparentTemperatureCelsius: 10 })],
+  });
+  const eveningId = `temperature_swing:${locationKey}:2026-09-09:evening`;
+  const result = plan(overnight, {
+    now: evening,
+    quietHours: { start: { hour: 3, minute: 0 }, end: { hour: 3, minute: 30 }, timeZone: 'UTC' },
+  });
+
+  assert.deepEqual(result.map(({ id, crossingAt: at }) => ({ id, at })), [{
+    id: eveningId,
+    at: '2026-09-10T02:00:00.000Z',
+  }]);
+  // The next calendar day's id for the same rule and location is a different string, so the
+  // evening plan cannot suppress it and it cannot suppress the evening plan.
+  assert.notEqual(eveningId, `temperature_swing:${locationKey}:2026-09-10`);
+  // Seen again an hour later, the ledger suppresses it.
+  assert.deepEqual(plan(overnight, {
+    now: '2026-09-09T20:00:00.000Z',
+    deliveredAlertIds: new Set([eveningId]),
+    quietHours: { start: { hour: 3, minute: 0 }, end: { hour: 3, minute: 30 }, timeZone: 'UTC' },
+  }), []);
 });
 
 test('a shortened lead schedules a crossing the foreground lead drops', () => {

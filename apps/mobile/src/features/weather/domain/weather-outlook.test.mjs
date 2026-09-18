@@ -113,7 +113,7 @@ test('a likely but not falling now eases nothing; a wet condition still does', (
     },
     hourly: dryHours,
   }));
-  assert.deepEqual(likely, { kind: 'steady' });
+  assert.deepEqual(likely, { kind: 'steady', period: 'day' });
 
   const falling = find(snapshot({
     current: {
@@ -183,22 +183,52 @@ test('the earliest transition wins and a tie goes to precipitation', () => {
   assert.equal(tied.atHour, '2026-09-09T10:00:00.000Z');
 });
 
-test('hours already past and hours belonging to another local day are outside the window', () => {
+test('hours already past and hours past the window end are both outside it', () => {
   const result = find(snapshot({
     hourly: [
       hour('2026-09-09T07:00:00.000Z', { condition: 'rain' }),
       hour('2026-09-09T09:00:00.000Z'),
       hour('2026-09-09T10:00:00.000Z'),
-      // 22:00Z is 01:00 the next day in Istanbul.
+      // 22:00Z is 01:00 the next day in Istanbul, past the day period's midnight end.
       hour('2026-09-09T22:00:00.000Z', { condition: 'rain' }),
     ],
   }));
-  assert.deepEqual(result, { kind: 'steady' });
+  assert.deepEqual(result, { kind: 'steady', period: 'day' });
+});
+
+test('an evening line reads the night it runs into and says so', () => {
+  // 19:00 local in Istanbul. The window now reaches 04:00, so the 01:00 hour is a
+  // transition the line has to name instead of an hour belonging to someone else's day.
+  const evening = '2026-09-09T16:00:00.000Z';
+  const result = find(snapshot({
+    hourly: [
+      hour('2026-09-09T18:00:00.000Z'),
+      hour('2026-09-09T22:00:00.000Z', { condition: 'rain' }),
+    ],
+  }), evening);
+  assert.deepEqual(result, {
+    kind: 'precipitation_onset',
+    form: 'rain',
+    atHour: '2026-09-09T22:00:00.000Z',
+  });
+});
+
+test('the steady line survives an evening that used to have too few hours left', () => {
+  // 22:30 local: the calendar day has one hour left and drew no line, while the dressing
+  // day still has five and the period is what tells the screen to say tonight.
+  const lateEvening = '2026-09-09T19:30:00.000Z';
+  assert.deepEqual(find(snapshot({
+    hourly: [
+      hour('2026-09-09T20:00:00.000Z'),
+      hour('2026-09-09T22:00:00.000Z'),
+      hour('2026-09-10T00:00:00.000Z'),
+    ],
+  }), lateEvening), { kind: 'steady', period: 'evening' });
 });
 
 test('two remaining hours without a transition are steady, fewer draw no line at all', () => {
   const hourly = [hour('2026-09-09T09:00:00.000Z'), hour('2026-09-09T10:00:00.000Z')];
-  assert.deepEqual(find(snapshot({ hourly })), { kind: 'steady' });
+  assert.deepEqual(find(snapshot({ hourly })), { kind: 'steady', period: 'day' });
   assert.equal(find(snapshot({ hourly: hourly.slice(0, 1) })), null);
   assert.equal(find(snapshot({ hourly: [] })), null);
 });

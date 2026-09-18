@@ -1,5 +1,3 @@
-import { weatherLocalDateKey } from '@kuyara/contracts';
-
 import type {
   Breathability,
   Coverage,
@@ -12,6 +10,7 @@ import type {
   WeatherMeasurements,
   WeatherSnapshot,
 } from '@/features/weather/domain/weather';
+import { wardrobeDayWindow } from '@/features/weather/domain/wardrobe-day';
 
 export const clothingRequirementReasonCodes = Object.freeze([
   'temperature_low',
@@ -19,6 +18,10 @@ export const clothingRequirementReasonCodes = Object.freeze([
   'temperature_high',
   'apparent_temperature_high',
   'daily_range_wide',
+  // No longer produced: the dressing-day window supplies its own extremes and never the
+  // provider's calendar minimum and maximum. The member stays because recommendations
+  // persisted before that change still carry it, and because the shared request enum in
+  // `packages/contracts` lists it for binaries that are already installed.
   'daily_extrema_fallback',
   'wind_elevated',
   'wind_strong',
@@ -249,7 +252,6 @@ function temperatureReasons(
   boundary: number,
   direction: 'low' | 'high',
   wideDailyRange: boolean,
-  usesDailyExtremaFallback: boolean,
 ): readonly ClothingRequirementReasonCode[] {
   const compare = direction === 'low'
     ? (value: number) => value < boundary
@@ -268,9 +270,6 @@ function temperatureReasons(
   }
   if (wideDailyRange) {
     reasons.push('daily_range_wide');
-  }
-  if (usesDailyExtremaFallback) {
-    reasons.push('daily_extrema_fallback');
   }
 
   return orderedReasonCodes(reasons);
@@ -313,40 +312,39 @@ export function deriveClothingRequirements(
   snapshot: WeatherSnapshot,
   nowIso: string,
 ): ClothingRequirements {
-  // Both the day and the "remaining" cut come from `now`, not from `observedAt`: at 00:20
-  // a 23:50 snapshot would otherwise answer for yesterday and drop every hour left today.
+  // Both the window and the "remaining" cut come from `now`, not from `observedAt`: at 00:20
+  // a 23:50 snapshot would otherwise answer for yesterday and drop every hour left ahead.
+  // The window is the dressing day, so an evening open reaches the hours of the night the
+  // person is walking into instead of stopping at a midnight nobody changes clothes at.
   const now = Date.parse(nowIso);
-  const currentLocalDate = weatherLocalDateKey(nowIso, snapshot.timeZone);
+  const dayWindow = wardrobeDayWindow(nowIso, snapshot.timeZone);
+  const windowEnd = dayWindow ? Date.parse(dayWindow.end) : Number.NaN;
   const relevantHourly = snapshot.hourly.filter(
-    ({ forecastAt }) => (
-      Date.parse(forecastAt) >= now &&
-      weatherLocalDateKey(forecastAt, snapshot.timeZone) === currentLocalDate
-    ),
-  );
-  const hasRemainingForecast = relevantHourly.some(
-    ({ forecastAt }) => Date.parse(forecastAt) > now,
+    ({ forecastAt }) => {
+      const forecast = Date.parse(forecastAt);
+      return forecast >= now && forecast < windowEnd;
+    },
   );
   const measurements: readonly WeatherMeasurements[] = [
     snapshot.current,
     ...relevantHourly,
   ];
+  // The extremes are the window's own, never the provider's daily minimum and maximum: those
+  // describe the observation's calendar day, so at 23:40 they answer with this morning's low
+  // and after midnight they answer for a day that has ended. A window with no hour in it
+  // contributes nothing rather than a guess, and the current measurement stands alone.
   const airTemperatures = measurements.map(({ temperatureCelsius }) =>
     temperatureCelsius,
   );
   const apparentTemperatures = measurements.map(
     ({ apparentTemperatureCelsius }) => apparentTemperatureCelsius,
   );
-  const usesDailyExtremaFallback = !hasRemainingForecast;
-
-  if (usesDailyExtremaFallback) {
-    airTemperatures.push(
-      snapshot.minimumTemperatureCelsius,
-      snapshot.maximumTemperatureCelsius,
-    );
-  }
 
   const coldExposure = Math.min(...airTemperatures, ...apparentTemperatures);
   const heatExposure = Math.max(...airTemperatures, ...apparentTemperatures);
+  // Deliberately the provider's calendar day and not the window: `daily_range_wide` is a
+  // statement about how far the date's own spread reaches, and rebasing it on the window
+  // would silently change the meaning of a reason code that is already shipped.
   const wideDailyRange =
     snapshot.maximumTemperatureCelsius - snapshot.minimumTemperatureCelsius >= 8;
   // Cold below 18 makes insulation mandatory (below 12 also full coverage); heat at or
@@ -374,7 +372,6 @@ export function deriveClothingRequirements(
     18,
     'low',
     wideDailyRange,
-    usesDailyExtremaFallback,
   );
 
   if (coldExposure < 18) {
@@ -438,7 +435,6 @@ export function deriveClothingRequirements(
         23,
         'high',
         wideDailyRange,
-        usesDailyExtremaFallback,
       ),
     });
   }
@@ -562,9 +558,6 @@ export function deriveClothingRequirements(
 
   if (wideDailyRange) {
     globalReasonCodes.push('daily_range_wide');
-  }
-  if (usesDailyExtremaFallback) {
-    globalReasonCodes.push('daily_extrema_fallback');
   }
 
   return Object.freeze({

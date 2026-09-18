@@ -412,6 +412,8 @@ export type AppMessages = Readonly<{
       temperatureDrop: (values: { time: string; degrees: string }) => string;
       temperatureRise: (values: { time: string; degrees: string }) => string;
       steady: string;
+      /** The same sentence for a dressing day that runs past midnight. */
+      steadyTonight: string;
     }>;
     conditions: Readonly<Record<LiveWeatherConditionCode, string>>;
   }>;
@@ -633,7 +635,7 @@ const en = {
   },
   notifications: {
     title: 'Notifications',
-    introduction: 'kuyara sends weather alerts for the rest of today on this device.',
+    introduction: 'kuyara sends weather alerts for the hours ahead on this device.',
     leadTimeHint: 'An alert arrives up to an hour before rain starts or the temperature swings sharply.',
     quietHoursHint: 'No alert is sent between 22:00 and 07:00.',
     toggleLabel: 'Allow notifications',
@@ -781,6 +783,7 @@ const en = {
       temperatureDrop: ({ time, degrees }) => `It drops ${degrees} around ${time}`,
       temperatureRise: ({ time, degrees }) => `It rises ${degrees} around ${time}`,
       steady: 'No notable change for the rest of today',
+      steadyTonight: 'No notable change for the rest of tonight',
     },
     conditions: {
       clear: 'Clear', mostly_clear: 'Mostly clear', partly_cloudy: 'Partly cloudy',
@@ -1152,7 +1155,7 @@ const tr = {
   },
   notifications: {
     title: 'Bildirimler',
-    introduction: 'kuyara bu cihazda, günün kalanı için hava uyarıları gönderir.',
+    introduction: 'kuyara bu cihazda, önündeki saatler için hava uyarıları gönderir.',
     leadTimeHint: 'Uyarı, yağmur başlamadan ya da sıcaklık sert değişmeden en çok bir saat önce gelir.',
     quietHoursHint: '22:00 ile 07:00 arasında uyarı gönderilmez.',
     toggleLabel: 'Bildirimlere izin ver',
@@ -1301,6 +1304,7 @@ const tr = {
       temperatureDrop: ({ time, degrees }) => `Saat ${time} civarında ${degrees} düşüyor`,
       temperatureRise: ({ time, degrees }) => `Saat ${time} civarında ${degrees} yükseliyor`,
       steady: 'Bugünün kalanında belirgin bir değişiklik yok',
+      steadyTonight: 'Gecenin kalanında belirgin bir değişiklik yok',
     },
     conditions: {
       clear: 'Açık', mostly_clear: 'Çoğunlukla açık', partly_cloudy: 'Parçalı bulutlu',

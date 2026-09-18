@@ -78,7 +78,9 @@ const recommendationContextSchema = z.strictObject({
   dayVariant: z.number().int().min(0).max(6),
   // Optional, so a row persisted before the weekday rule still parses and keeps its label.
   dayKind: dayKindSchema.optional(),
-  localDayKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  // The dressing-day key: a bare local date, or that date plus `:evening` for the hours
+  // from 18:00 through 04:00. A row written before the evening window still parses.
+  localDayKey: z.string().regex(/^\d{4}-\d{2}-\d{2}(:evening)?$/).optional(),
   requirements: z.array(clothingRequirementSchema).max(11),
   options: z.array(aiOptionSchema).max(aiV1OptionLimit),
 }).superRefine(({ options }, context) => {

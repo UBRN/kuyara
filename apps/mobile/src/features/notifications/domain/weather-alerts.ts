@@ -1,6 +1,5 @@
-import { weatherLocalDateKey } from '@kuyara/contracts';
-
 import type { HourlyWeather, WeatherSnapshot } from '@/features/weather/domain/weather';
+import { wardrobeDayWindow } from '@/features/weather/domain/wardrobe-day';
 import {
   isWetMeasurement,
   temperatureSwingCelsius,
@@ -31,7 +30,6 @@ export type WeatherAlertPlan = Readonly<{
   id: string;
   ruleId: WeatherAlertRuleId;
   locationKey: string;
-  localDate: string;
   crossingAt: string;
   fireAt: string;
   detail:
@@ -85,7 +83,7 @@ function adjustForQuietHours(
   return null;
 }
 
-/** Plans today's alerts from an already-validated snapshot with ordered hours. */
+/** Plans the dressing day's alerts from an already-validated snapshot with ordered hours. */
 export function planWeatherAlerts(input: Readonly<{
   snapshot: WeatherSnapshot;
   now: string;
@@ -97,14 +95,17 @@ export function planWeatherAlerts(input: Readonly<{
   const leadTimeMinutes = input.leadTimeMinutes ?? weatherAlertLeadTimeMinutes;
   const now = Date.parse(input.now);
   // The day is the one the user is living, not the one the snapshot was observed in: a
-  // 23:50 snapshot read at 00:20 belongs to the new day, and the alert id follows it.
-  const localDate = weatherLocalDateKey(input.now, snapshot.timeZone);
-  if (localDate === null || !Number.isFinite(now)) return [];
+  // 23:50 snapshot read at 00:20 belongs to the evening still under way, and the alert id
+  // follows it. A 02:00 crossing is now plannable at 19:00, which a calendar day forbade.
+  const dayWindow = wardrobeDayWindow(input.now, snapshot.timeZone);
+  if (dayWindow === null || !Number.isFinite(now)) return [];
 
-  const remainingHours = snapshot.hourly.filter(({ forecastAt }) => (
-    Date.parse(forecastAt) > now &&
-    weatherLocalDateKey(forecastAt, snapshot.timeZone) === localDate
-  ));
+  const windowEnd = Date.parse(dayWindow.end);
+  const windowKey = dayWindow.key;
+  const remainingHours = snapshot.hourly.filter(({ forecastAt }) => {
+    const forecast = Date.parse(forecastAt);
+    return forecast > now && forecast < windowEnd;
+  });
   const plans: WeatherAlertPlan[] = [];
 
   function addPlan(
@@ -112,7 +113,10 @@ export function planWeatherAlerts(input: Readonly<{
     crossing: HourlyWeather,
     detail: WeatherAlertPlan['detail'],
   ): void {
-    const id = `${ruleId}:${snapshot.locationKey}:${localDate}`;
+    // One alert per rule per location per dressing-day window. A day-period key is the bare
+    // local date, byte-identical to every id already in the delivery ledger, so nothing that
+    // has fired re-fires after the update; the evening keeps a namespace of its own.
+    const id = `${ruleId}:${snapshot.locationKey}:${windowKey}`;
     const crossingAt = Date.parse(crossing.forecastAt);
     const originalFireAt = crossingAt - leadTimeMinutes * minuteMilliseconds;
     if (deliveredAlertIds.has(id) || originalFireAt < now) return;
@@ -133,7 +137,6 @@ export function planWeatherAlerts(input: Readonly<{
       id,
       ruleId,
       locationKey: snapshot.locationKey,
-      localDate: localDate!,
       crossingAt: new Date(crossingAt).toISOString(),
       fireAt: new Date(fireAt).toISOString(),
       detail: Object.freeze(detail),

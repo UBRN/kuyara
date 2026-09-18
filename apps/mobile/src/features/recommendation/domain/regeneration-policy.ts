@@ -18,9 +18,10 @@ export function regenerationMode(
 }
 
 /**
- * How many AI regenerations the local day has already spent. The day key is the controller's
- * own `localDayKey`, so there is no second clock: a key that is not today's reads as zero and
- * nothing has to be swept.
+ * How many AI regenerations the day has already spent. The day key is the calendar date of
+ * the controller's own dressing-day key, so there is no second clock and the evening shares
+ * the allowance of the date it began on: a key that is not today's reads as zero and nothing
+ * has to be swept.
  */
 export interface AiRegenerationBudget {
   usedToday(dayKey: string): Promise<number>;
