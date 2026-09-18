@@ -423,6 +423,63 @@ test('a window with no hour of its own follows the current measurement alone', (
   assert.deepEqual(result.reasonCodes, ['daily_range_wide']);
 });
 
+test('a time zone Intl refuses keeps every hour still ahead in the pool', () => {
+  // `wardrobeDayWindow` answers null for a zone it cannot read, and a pool of one stale
+  // measurement would be a silent narrowing. Without a window every hour the snapshot
+  // still has ahead counts, including the 2 C hour a valid zone would leave outside.
+  const hourly = [
+    {
+      forecastAt: '2026-08-01T17:00:00.000Z',
+      ...measurements({ temperatureCelsius: 30, apparentTemperatureCelsius: 30 }),
+    },
+    {
+      forecastAt: '2026-08-03T00:00:00.000Z',
+      ...measurements({ temperatureCelsius: 2, apparentTemperatureCelsius: 2 }),
+    },
+  ];
+  const broken = deriveClothingRequirements(snapshot({
+    snapshotFields: { timeZone: 'Not/AZone' },
+    hourly,
+  }), observedAt);
+
+  assert.equal(findRequirement(broken, 'thermal')?.minimum, 'high');
+  assert.equal(findRequirement(broken, 'arm_coverage')?.priority, 'mandatory');
+  // The hour before `now` stays out of the pool whatever the zone does, so nothing here
+  // asks for breathability at 30 C.
+  assert.equal(findRequirement(broken, 'breathability'), undefined);
+
+  // The same snapshot in a zone Intl accepts stops at the window's 04:00 end, which is
+  // what makes the fallback above visible rather than incidental.
+  const readable = deriveClothingRequirements(snapshot({ hourly }), observedAt);
+  assert.equal(findRequirement(readable, 'thermal'), undefined);
+});
+
+test('a snapshot forty hours old composes from the current measurement alone', () => {
+  // The hourly series reaches 36 hours past the observation, so the dressing-day window
+  // empties only on a device that has been offline into a second day. There is no daily
+  // extrema fallback behind it any more: the date's own 4 C low stays out of the pool.
+  const hourly = Array.from({ length: 37 }, (_, hour) => ({
+    forecastAt: new Date(Date.parse(observedAt) + hour * 3_600_000).toISOString(),
+    ...measurements({ temperatureCelsius: 4, apparentTemperatureCelsius: 4 }),
+  }));
+  const fields = {
+    current: { temperatureCelsius: 22, apparentTemperatureCelsius: 22 },
+    minimumTemperatureCelsius: 4,
+    maximumTemperatureCelsius: 23,
+    hourly,
+  };
+  const now = new Date(Date.parse(observedAt) + 40 * 3_600_000).toISOString();
+
+  const stale = deriveClothingRequirements(snapshot(fields), now);
+  const currentOnly = deriveClothingRequirements(snapshot({ ...fields, hourly: [] }), now);
+
+  assert.deepEqual(stale, currentOnly);
+  assert.equal(findRequirement(stale, 'thermal'), undefined);
+  // The date's spread is still the date's, so the reason code survives without a thermal
+  // floor under it.
+  assert.deepEqual(stale.reasonCodes, ['daily_range_wide']);
+});
+
 test('daily range reason starts at exactly eight degrees', () => {
   const narrow = deriveClothingRequirements(snapshot({
     minimumTemperatureCelsius: 16,

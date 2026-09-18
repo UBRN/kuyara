@@ -49,7 +49,10 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   received, preparing outfits, using standard suggestions) while a recommendation is
   generated, the same phase line replaces the freshness caption during a refresh of a
   shown recommendation, its pull cycle keeps spinning until both the weather and the
-  recommendation refresh settle, and its clock re-reads on focus and on foreground. Only the coarse generation mode is exposed,
+  recommendation refresh settle, and its clock re-reads on focus and on foreground. Under the
+  rationale it says one deterministic sentence about the rest of the dressing day or
+  nothing, calling the hours from 18:00 the evening rather than the night, and every
+  temperature it prints carries one decimal in the reader's own separator. Only the coarse generation mode is exposed,
   and Settings carries the bounded active AI probe beside an on-device availability row
   that calls no provider. Where the selection runs is decided in
   [ADR 0034](adr/0034-on-device-ai-selection-through-apple-foundation-models.md): the

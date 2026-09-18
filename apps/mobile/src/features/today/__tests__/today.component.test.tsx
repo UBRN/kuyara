@@ -2007,6 +2007,47 @@ describe.each(['en', 'tr'] as const)('%s Today day insight', (language) => {
     expect(line.props.accessibilityLabel).toBeUndefined();
   });
 
+  // The dressing day's evening starts at a clock hour, the glyph beside it follows the real
+  // sun, and in an Istanbul June those two disagree for nearly three hours. The sentence and
+  // the stage have to name the same sky, so the copy says evening rather than night.
+  test('says evening, not night, while the sun is still up after 18:00', async () => {
+    dateNowSpy.mockReturnValue(Date.parse('2026-06-21T16:00:00.000Z'));
+    const hourly: HourlyWeather[] = [];
+    // 19:00 through 03:00 in Europe/Istanbul on the longest day of the year, the whole of
+    // the evening window; sunset is 20:44 local, so its first hours are drawn in daylight.
+    for (let localHour = 19; localHour <= 27; localHour += 1) {
+      hourly.push({
+        forecastAt: new Date(Date.UTC(2026, 5, 21, localHour - 3)).toISOString(),
+        ...insightHour,
+      });
+    }
+    const state: TodayScreenState = {
+      ...todayScreenState,
+      snapshot: {
+        ...todayScreenState.snapshot,
+        weather: {
+          ...todayScreenState.snapshot.weather,
+          current: { ...todayScreenState.snapshot.weather.current, ...insightHour,
+            observedAt: '2026-06-21T16:00:00.000Z' },
+          hourly,
+        },
+      },
+    };
+
+    const result = await render(providers(
+      <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
+        onRefresh={jest.fn()} onRegenerate={jest.fn()} state={state} />,
+      lightTheme, language,
+    ));
+
+    const hidden = { includeHiddenElements: true };
+    expect(StyleSheet.flatten(result.getByTestId('today-stage', hidden).props.style))
+      .toMatchObject({ backgroundColor: lightTheme.atmosphere.clearDay });
+    const line = result.getByTestId('today-day-insight');
+    expect(line).toHaveTextContent(copy.sentences.clear_evening);
+    expect(line).not.toHaveTextContent(language === 'en' ? /night/i : /gece/i);
+  });
+
   test('draws no line at all on a day with nothing to say', async () => {
     const result = await render(providers(
       <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
