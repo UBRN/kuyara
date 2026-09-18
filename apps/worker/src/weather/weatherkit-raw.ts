@@ -1,6 +1,7 @@
 import {
   isValidWeatherHourlyForecastWindow,
   isWeatherHourlyForecastInWindow,
+  weatherDailyForecastMaximumEntries,
   weatherHourlyForecastMaximumEntries,
   weatherLocalDateKey,
   type WeatherConditionCode,
@@ -8,6 +9,7 @@ import {
 import { z } from 'zod';
 
 import type {
+  ProviderDailyForecast,
   ProviderLocation,
   ProviderWeatherMeasurements,
   ProviderWeatherSnapshot,
@@ -40,10 +42,18 @@ const hourlyWeatherSchema = z.looseObject({
   windSpeed: nonNegativeSchema,
 });
 
+// Apple documents `conditionCode`, `precipitationChance` and `precipitationAmount` as required
+// on DayWeatherConditions and the amount in millimetres, but it answers with more days than the
+// daily block uses. They are optional here and required in the mapper for the used days alone:
+// one malformed day beyond the window must never fail the whole response, because WeatherKit is
+// the head of the chain and its loss is silent, costs a counted call and would take /v1 with it.
 const dailyWeatherSchema = z.looseObject({
   forecastStart: timestampSchema,
   temperatureMax: finiteNumberSchema,
   temperatureMin: finiteNumberSchema,
+  conditionCode: z.string().min(1).optional(),
+  precipitationChance: probabilitySchema.optional(),
+  precipitationAmount: nonNegativeSchema.optional(),
 });
 
 export const weatherKitResponseSchema = z.looseObject({
@@ -111,6 +121,12 @@ function isoTimestamp(timestamp: string): string {
   return date.toISOString();
 }
 
+function localDateKey(timestamp: string, timeZone: string): string {
+  const dateKey = weatherLocalDateKey(timestamp, timeZone);
+  if (dateKey === null) throw new WeatherProviderError('invalid_response');
+  return dateKey;
+}
+
 function mapHourly(raw: WeatherKitResponse['forecastHourly']['hours']) {
   return raw.map((entry) => ({
     temperatureCelsius: entry.temperature,
@@ -130,8 +146,7 @@ export function mapWeatherKitResponse(
   fetchedAt: string,
 ): ProviderWeatherSnapshot {
   const observedAt = isoTimestamp(raw.currentWeather.asOf);
-  const currentLocalDay = weatherLocalDateKey(observedAt, location.timeZone);
-  if (currentLocalDay === null) throw new WeatherProviderError('invalid_response');
+  const currentLocalDay = localDateKey(observedAt, location.timeZone);
 
   const allHourly = mapHourly(raw.forecastHourly.hours);
   const nearest = allHourly.reduce((best, entry) => (
@@ -157,10 +172,37 @@ export function mapWeatherKitResponse(
     throw new WeatherProviderError('invalid_response');
   }
 
-  const daily = raw.forecastDaily.days.find(({ forecastStart }) => (
-    weatherLocalDateKey(isoTimestamp(forecastStart), location.timeZone) === currentLocalDay
-  ));
-  if (daily === undefined) throw new WeatherProviderError('invalid_response');
+  const days = raw.forecastDaily.days
+    .map((day) => ({ day, dateKey: localDateKey(isoTimestamp(day.forecastStart), location.timeZone) }))
+    .sort((left, right) => left.dateKey.localeCompare(right.dateKey));
+  const todayIndex = days.findIndex(({ dateKey }) => dateKey === currentLocalDay);
+  if (todayIndex < 0) throw new WeatherProviderError('invalid_response');
+
+  const minimumTemperatureCelsius = Math.min(
+    days[todayIndex].day.temperatureMin,
+    current.temperatureCelsius,
+  );
+  const maximumTemperatureCelsius = Math.max(
+    days[todayIndex].day.temperatureMax,
+    current.temperatureCelsius,
+  );
+  const daily: ProviderDailyForecast[] = days
+    .slice(todayIndex, todayIndex + weatherDailyForecastMaximumEntries)
+    .map(({ day, dateKey }, index) => {
+      if (day.conditionCode === undefined || day.precipitationChance === undefined) {
+        throw new WeatherProviderError('invalid_response');
+      }
+      return {
+        dateKey,
+        condition: mapWeatherKitCondition(day.conditionCode),
+        // Today's row is the card's own low and high, clamped around the current reading, so the
+        // two never contradict each other on screen.
+        minimumTemperatureCelsius: index === 0 ? minimumTemperatureCelsius : day.temperatureMin,
+        maximumTemperatureCelsius: index === 0 ? maximumTemperatureCelsius : day.temperatureMax,
+        precipitationProbability: day.precipitationChance,
+        precipitationMillimetres: day.precipitationAmount ?? null,
+      };
+    });
 
   return {
     timeZone: location.timeZone,
@@ -168,8 +210,9 @@ export function mapWeatherKitResponse(
     provenance: 'live',
     sourceId: 'weatherkit',
     current,
-    minimumTemperatureCelsius: Math.min(daily.temperatureMin, current.temperatureCelsius),
-    maximumTemperatureCelsius: Math.max(daily.temperatureMax, current.temperatureCelsius),
+    minimumTemperatureCelsius,
+    maximumTemperatureCelsius,
     hourly,
+    daily,
   };
 }
