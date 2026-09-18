@@ -539,8 +539,10 @@ test('an unavailable recommendation keeps the loaded weather presentation and ex
     title: 'Kombin bulunamadı',
     body: 'Bu koşullar için eksiksiz bir kombin önerilemiyor.',
   });
-  assert.equal(english.weather.temperature, '20°');
-  assert.equal(turkish.weather.temperature, '20°');
+  // One decimal in both, and the reader's own separator: the point in English, the
+  // comma in Turkish.
+  assert.equal(english.weather.temperature, '20.0°');
+  assert.equal(turkish.weather.temperature, '20,0°');
 });
 
 test('stale freshness and outfit copy localize in both languages', () => {
@@ -718,10 +720,10 @@ test('the freshness time follows the device clock setting, not the language', ()
 });
 
 test('the stage label reads temperature, condition, pieces and archetype in both languages', () => {
-  assert.match(loadedPresentation().stageAccessibilityLabel, /^\d+ degrees Celsius\. .+\. .+, .+\. .+\.$/);
+  assert.match(loadedPresentation().stageAccessibilityLabel, /^-?\d+\.\d degrees Celsius\. .+\. .+, .+\. .+\.$/);
   assert.match(
     loadedPresentation(todayScreenState, 'tr').stageAccessibilityLabel,
-    /^\d+ santigrat derece\. .+\. .+, .+\. .+\.$/,
+    /^-?\d+,\d santigrat derece\. .+\. .+, .+\. .+\.$/,
   );
 });
 

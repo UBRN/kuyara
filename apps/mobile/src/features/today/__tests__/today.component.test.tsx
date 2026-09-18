@@ -649,7 +649,7 @@ test('outfit detail renders the detail board, in-place captions, requirement row
     }),
   );
   const weatherRecap = within(result.getByTestId('outfit-detail-weather-recap'));
-  expect(weatherRecap.getByText('20°')).toBeOnTheScreen();
+  expect(weatherRecap.getByText('20.0°')).toBeOnTheScreen();
   expect(weatherRecap.getByText('Rain')).toBeOnTheScreen();
   expect(weatherRecap.getByText('65% chance of rain')).toBeOnTheScreen();
   expect(StyleSheet.flatten(result.getByTestId('outfit-detail-weather-recap').props.style))

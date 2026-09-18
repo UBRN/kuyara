@@ -109,10 +109,12 @@ export type TodayMessages = Readonly<{
   noOutfitBody: string;
   weatherAccessibilityLabel: (values: {
     condition: string;
-    current: number;
-    apparent: number;
-    minimum: number;
-    maximum: number;
+    // The three temperatures arrive already formatted, so the spoken number is the one
+    // the eye sees, separator and all, rather than a raw float read in a fixed locale.
+    current: string;
+    apparent: string;
+    minimum: string;
+    maximum: string;
     rainProbability: number;
   }) => string;
   boardAccessibilityLabel: (values: { archetype: string; pieces: readonly string[] }) => string;
