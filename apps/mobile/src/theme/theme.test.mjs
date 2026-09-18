@@ -428,14 +428,24 @@ test('every atmosphere state clears its ink floors and appearance constraints', 
   for (const row of diagnostics) context.diagnostic(row);
 });
 
+// Each ink may only be drawn over the atmosphere its own condition and daypart produce, so
+// a day ink is never measured against a night plane. The stage and the glyph read one
+// daypart between them, which is what keeps that pairing true at runtime.
 const conditionPlanes = {
   clearDay: ['clearDay', 'neutral'],
+  mostlyClearDay: ['clearDay', 'neutral'],
   clearNight: ['clearNight', 'neutral'],
-  overcast: ['veiledDay', 'veiledNight', 'neutral'],
+  mostlyClearNight: ['clearNight', 'neutral'],
+  partlyCloudyDay: ['veiledDay', 'neutral'],
+  partlyCloudyNight: ['veiledNight', 'neutral'],
+  cloudy: ['veiledDay', 'veiledNight', 'neutral'],
   fog: ['veiledDay', 'veiledNight', 'neutral'],
+  drizzle: ['fallingDay', 'fallingNight', 'neutral'],
   rain: ['fallingDay', 'fallingNight', 'neutral'],
+  heavyRain: ['fallingDay', 'fallingNight', 'neutral'],
+  sleet: ['fallingDay', 'fallingNight', 'neutral'],
   snow: ['fallingDay', 'fallingNight', 'neutral'],
-  storm: ['fallingDay', 'fallingNight', 'neutral'],
+  thunderstorm: ['fallingDay', 'fallingNight', 'neutral'],
   neutral: ['neutral'],
 };
 

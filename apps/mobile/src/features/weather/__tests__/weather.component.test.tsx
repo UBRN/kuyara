@@ -847,6 +847,24 @@ test('the hourly rail drops the hours that have ended', async () => {
 
 });
 
+test('a dry hour drops the chance from the rail but never from its label', async () => {
+  const snapshot = sampleSnapshot();
+  snapshot.hourly[1] = { ...snapshot.hourly[1], precipitationProbability: 0 };
+  const value = createValue({
+    ...baseState,
+    activeLocation: getManualLocation('sample.istanbul')!,
+    snapshot,
+    freshness: 'fresh',
+  });
+  clock.mockReturnValue(Date.parse('2026-07-30T09:10:00.000Z'));
+  const result = await render(<Providers language="en" value={value}><WeatherScreen /></Providers>);
+  const rail = within(result.getByTestId('weather-hourly-rail'));
+
+  expect(rail.getByText('50%')).toBeOnTheScreen();
+  expect(rail.queryByText('0%')).toBeNull();
+  expect(result.getByLabelText('13:00. 17°. Cloudy. 0% precipitation')).toBeOnTheScreen();
+});
+
 test('the hourly card is not rendered once every hour of the snapshot\'s day has ended', async () => {
   const value = createValue({
     ...baseState,

@@ -29,8 +29,9 @@ import type {
   TodaySnapshot,
 } from '@/features/today/model';
 import {
-  localHourOf,
   resolveAtmosphereState,
+  resolveDaypart,
+  type Daypart,
 } from '@/features/today/domain/atmosphere-state';
 import { todayRainOutlookProbability } from '@/features/today/domain/today-rain-outlook';
 import {
@@ -147,11 +148,11 @@ export type LoadedTodayPresentation = Readonly<{
     // text: `WeatherAttribution` maps it to a localized line, a link and, for OpenWeather,
     // the logo, and renders nothing for `sample` or an unrecognized identifier.
     sourceId: string;
-    // The raw provider-neutral condition code and the local hour at the place, carried so
-    // the corner glyph can resolve its own condition ink and tempo. Neither is display
-    // text: the visible condition name stays `condition`.
+    // The raw provider-neutral condition code and whether the sun is up at the place,
+    // carried so the corner glyph can resolve its own condition ink and tempo. Neither is
+    // display text: the visible condition name stays `condition`.
     conditionCode: string;
-    localHour: number | null;
+    daypart: Daypart | null;
   }>;
   // ADR 0034 section 4: neither badge carries a glyph, so the presentation carries words
   // only and the screen draws one controlled badge for both AI modes.
@@ -424,13 +425,17 @@ function createLoadedPresentation(
   const generationMode = settledMode ? generationModeBadges[settledMode] : null;
   const generationSource = settledMode ? generationSources[settledMode] : null;
   const primary = suggestions[0];
-  // One reading of the place's clock feeds both the stage tint and the corner glyph, so the
-  // two can never disagree about whether it is day or night there.
-  const localHour = localHourOf(new Date(now).toISOString(), weather.timeZone);
+  // One reading of the place's own sunrise and sunset feeds both the stage tint and the
+  // corner glyph, so the two can never disagree about whether it is day or night there.
+  const daypart = resolveDaypart(
+    new Date(now).toISOString(),
+    weather.timeZone,
+    snapshot.activeLocation.coordinates,
+  );
 
   return {
     kind: 'loaded',
-    atmosphere: resolveAtmosphereState(current.condition, localHour),
+    atmosphere: resolveAtmosphereState(current.condition, daypart),
     copy: {
       title: copy.title,
       piecesHeading: copy.piecesHeading,
@@ -479,7 +484,7 @@ function createLoadedPresentation(
       }),
       sourceId: weather.origin.sourceId,
       conditionCode: current.condition,
-      localHour,
+      daypart,
     },
     generationMode,
     generationSource,

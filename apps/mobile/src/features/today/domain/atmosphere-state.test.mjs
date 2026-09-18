@@ -26,26 +26,21 @@ test('every weather condition resolves in both dayparts', () => {
 
   for (const condition of weatherConditionCodes) {
     const family = familyByCondition[condition];
-    assert.equal(resolveAtmosphereState(condition, 6), `${family}Day`);
-    assert.equal(resolveAtmosphereState(condition, 20), `${family}Night`);
+    assert.equal(resolveAtmosphereState(condition, 'day'), `${family}Day`);
+    assert.equal(resolveAtmosphereState(condition, 'night'), `${family}Night`);
   }
 });
 
-test('day begins at 06:00 and night begins at 20:00 in the snapshot time zone', () => {
+test('the local hour still reads the snapshot time zone on a 24-hour clock', () => {
   assert.equal(localHourOf('2026-08-13T03:00:00.000Z', 'Europe/Istanbul'), 6);
   assert.equal(localHourOf('2026-08-13T16:59:59.000Z', 'Europe/Istanbul'), 19);
   assert.equal(localHourOf('2026-08-13T17:00:00.000Z', 'Europe/Istanbul'), 20);
-  assert.equal(resolveAtmosphereState('clear', 5), 'clearNight');
-  assert.equal(resolveAtmosphereState('clear', 6), 'clearDay');
-  assert.equal(resolveAtmosphereState('clear', 19), 'clearDay');
-  assert.equal(resolveAtmosphereState('clear', 20), 'clearNight');
 });
 
 test('unknown or invalid inputs resolve safely to neutral', () => {
-  assert.equal(resolveAtmosphereState('future_condition', 12), 'neutral');
-  assert.equal(resolveAtmosphereState('toString', 12), 'neutral');
+  assert.equal(resolveAtmosphereState('future_condition', 'day'), 'neutral');
+  assert.equal(resolveAtmosphereState('toString', 'day'), 'neutral');
   assert.equal(resolveAtmosphereState('rain', null), 'neutral');
-  assert.equal(resolveAtmosphereState('rain', 24), 'neutral');
   assert.equal(localHourOf('not-a-timestamp', 'Europe/Istanbul'), null);
   assert.equal(localHourOf('2026-08-13T03:00:00.000Z', 'Not/AZone'), null);
 });
