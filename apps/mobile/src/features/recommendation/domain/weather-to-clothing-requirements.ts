@@ -11,6 +11,15 @@ import type {
   WeatherSnapshot,
 } from '@/features/weather/domain/weather';
 import { wardrobeDayWindow } from '@/features/weather/domain/wardrobe-day';
+import {
+  chillyCelsius,
+  freezingCelsius,
+  hotCelsius,
+  precipitationLikelyThreshold,
+  veryHotCelsius,
+  veryWindyMetersPerSecond,
+  windyMetersPerSecond,
+} from '@/features/weather/domain/weather-thresholds';
 
 export const clothingRequirementReasonCodes = Object.freeze([
   'temperature_low',
@@ -361,21 +370,23 @@ export function deriveClothingRequirements(
     snapshot.current.temperatureCelsius,
     snapshot.current.apparentTemperatureCelsius,
   );
-  const conflicting = coldExposure < 18 && heatExposure >= 28;
-  const coldDemoted = conflicting && currentHeat >= 28 && currentCold >= 18;
+  const conflicting = coldExposure < chillyCelsius && heatExposure >= veryHotCelsius;
+  const coldDemoted = conflicting
+    && currentHeat >= veryHotCelsius
+    && currentCold >= chillyCelsius;
   const heatDemoted = conflicting && !coldDemoted;
   const candidates: ClothingRequirement[] = [];
 
   const coldReasons = temperatureReasons(
     airTemperatures,
     apparentTemperatures,
-    18,
+    chillyCelsius,
     'low',
     wideDailyRange,
   );
 
-  if (coldExposure < 18) {
-    const minimum: ThermalRequirement['minimum'] = coldExposure < 5
+  if (coldExposure < chillyCelsius) {
+    const minimum: ThermalRequirement['minimum'] = coldExposure < freezingCelsius
       ? 'high'
       : coldExposure < 12
         ? 'moderate'
@@ -411,7 +422,7 @@ export function deriveClothingRequirements(
       candidates.push({
         kind: 'extremity_cover',
         target,
-        minimum: coldExposure < 5 ? 'high' : 'moderate',
+        minimum: coldExposure < freezingCelsius ? 'high' : 'moderate',
         priority: 'optional',
         reasonCodes: coldReasons,
       });
@@ -423,8 +434,8 @@ export function deriveClothingRequirements(
   // from 23, raksul 25); 28 stays the rung that makes breathability mandatory. The two
   // lower rungs only reorder the offer, because a day the body can dress for is never a day
   // the wardrobe fails to dress for.
-  if (heatExposure >= 23) {
-    const highHeat = heatExposure >= 28;
+  if (heatExposure >= hotCelsius) {
+    const highHeat = heatExposure >= veryHotCelsius;
     candidates.push({
       kind: 'breathability',
       minimum: heatExposure >= 25 ? 'high' : 'moderate',
@@ -432,7 +443,7 @@ export function deriveClothingRequirements(
       reasonCodes: temperatureReasons(
         airTemperatures,
         apparentTemperatures,
-        23,
+        hotCelsius,
         'high',
         wideDailyRange,
       ),
@@ -444,8 +455,8 @@ export function deriveClothingRequirements(
       windSpeedMetersPerSecond,
     ),
   );
-  if (maximumWind >= 5) {
-    const strongWind = maximumWind >= 8;
+  if (maximumWind >= windyMetersPerSecond) {
+    const strongWind = maximumWind >= veryWindyMetersPerSecond;
     candidates.push({
       kind: 'wind_protection',
       minimum: 'wind_resistant',
@@ -459,7 +470,7 @@ export function deriveClothingRequirements(
       precipitationProbability,
     ),
   );
-  if (maximumPrecipitationProbability >= 0.6) {
+  if (maximumPrecipitationProbability >= precipitationLikelyThreshold) {
     addWaterProtection(
       candidates,
       'body',
