@@ -32,6 +32,12 @@ export type SolarEvents = Readonly<{
   sunsetMs: number;
 }>;
 
+/**
+ * A crossing, or which polar case holds instead. The two are told apart because they are
+ * opposite daylight: one `null` for both is what draws a moon over a midnight sun.
+ */
+export type SolarDay = SolarEvents | 'polar_day' | 'polar_night';
+
 function toRadians(degrees: number): number {
   return (degrees * Math.PI) / 180;
 }
@@ -82,8 +88,9 @@ function solarPositionOf(julianCentury: number): Readonly<{
 }
 
 /**
- * The sunrise and sunset instants of the solar day that contains `instantMs`, or `null`
- * when the sun does not cross the horizon there that day: a polar day or a polar night.
+ * The sunrise and sunset instants of the solar day that contains `instantMs`, or which of
+ * the two polar cases holds when the sun does not cross the horizon there that day, or
+ * `null` when the inputs are unusable.
  *
  * The day is bounded by the place's own solar midnight rather than by its civil date, so
  * the pair always brackets the instant it was asked about even where a political time zone
@@ -93,7 +100,7 @@ export function solarEventsOf(
   latitudeDegrees: number,
   longitudeDegrees: number,
   instantMs: number,
-): SolarEvents | null {
+): SolarDay | null {
   if (
     !Number.isFinite(latitudeDegrees)
     || !Number.isFinite(longitudeDegrees)
@@ -118,7 +125,12 @@ export function solarEventsOf(
   const cosHourAngle = Math.cos(toRadians(SUNRISE_ZENITH_DEGREES))
     / (Math.cos(latitude) * Math.cos(declination))
     - Math.tan(latitude) * Math.tan(declination);
-  if (!Number.isFinite(cosHourAngle) || cosHourAngle > 1 || cosHourAngle < -1) return null;
+  if (!Number.isFinite(cosHourAngle)) return null;
+  // The hour angle is the half-day the sun spends above the horizon. Past 1 there is no
+  // such half-day and the sun stays down all day; below -1 it never reaches the horizon on
+  // the way down and stays up all day.
+  if (cosHourAngle > 1) return 'polar_night';
+  if (cosHourAngle < -1) return 'polar_day';
 
   const hourAngleDegrees = toDegrees(Math.acos(cosHourAngle));
   const solarNoonMinutes = SOLAR_NOON_MINUTES

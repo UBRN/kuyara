@@ -395,11 +395,11 @@ test('a mild day falls back to the deterministic status sentence', () => {
   assert.deepEqual(recommendation.requirements.reasonCodes, []);
   assert.deepEqual(recommendation.outfits[0].reasonCodes, []);
   assert.deepEqual(presentation.suggestions[0].reasons, [
-    'Nothing in today’s weather asks for special protection.',
+    'Nothing in the weather ahead asks for special protection.',
   ]);
   assert.deepEqual(
     mildPresentation(liveForecast, now, 'tr').presentation.suggestions[0].reasons,
-    ['Bugünkü hava özel bir koruma istemiyor.'],
+    ['Havada özel bir koruma isteyen bir şey yok.'],
   );
 });
 

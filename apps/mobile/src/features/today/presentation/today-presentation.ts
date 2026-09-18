@@ -239,6 +239,8 @@ const dayInsightSkyKeys = {
  * The one whole sentence for an insight. A modifier and a period each select a different key
  * rather than adding a clause, so no sentence is ever assembled from translated fragments,
  * and every hour arrives as one token the screen's own time helper has already formatted.
+ * The period names itself: the dressing day's second half is the evening, which begins at
+ * 18:00 whatever the sun is doing, so the sentence never says night over a lit sky.
  */
 function dayInsightSentence(
   insight: DayInsight,
@@ -247,9 +249,7 @@ function dayInsightSentence(
 ): string | null {
   switch (insight.kind) {
     case 'wet_all_day':
-      return copy.sentences[
-        `${insight.form}_${insight.period === 'evening' ? 'night' : 'day'}`
-      ];
+      return copy.sentences[`${insight.form}_${insight.period}`];
     case 'wet_window': {
       const snow = insight.form === 'snow';
       const from = insight.fromHour === null ? null : at(insight.fromHour);
@@ -271,7 +271,7 @@ function dayInsightSentence(
     case 'windy':
       return copy.sentences[insight.level === 'very_windy' ? 'veryWindy' : 'windy'];
     default: {
-      const sky = `${dayInsightSkyKeys[insight.kind]}_${insight.period === 'evening' ? 'night' : 'day'}` as const;
+      const sky = `${dayInsightSkyKeys[insight.kind]}_${insight.period}` as const;
       return insight.modifier === null
         ? copy.sentences[sky]
         : copy.sentences[`${sky}_${dayInsightModifierKeys[insight.modifier.level]}`];

@@ -456,6 +456,54 @@ test('a rest of day that changes nothing says so, and a day almost over says not
   expect(lateEvening.queryByTestId('weather-outlook')).toBeNull();
 });
 
+// Owner decision of 18 September 2026: every temperature the app prints carries one decimal
+// in the reader's own separator, and a swing is printed by the same formatter. This pins the
+// sentence so the difference is never quietly rounded back to a whole degree.
+test('a temperature swing is spelled with the one decimal every temperature carries', async () => {
+  const base = sampleSnapshot();
+  const clear = {
+    condition: 'clear' as const, precipitationProbability: 0,
+    windSpeedMetersPerSecond: 4, humidity: 0.7, uvIndex: 2,
+  };
+  const snapshot = {
+    ...base,
+    current: {
+      observedAt: base.current.observedAt,
+      temperatureCelsius: 16, apparentTemperatureCelsius: 15, ...clear,
+    },
+    hourly: [
+      {
+        forecastAt: '2026-07-30T10:00:00.000Z',
+        temperatureCelsius: 7, apparentTemperatureCelsius: 6.6, ...clear,
+      },
+      {
+        forecastAt: '2026-07-30T11:00:00.000Z',
+        temperatureCelsius: 7, apparentTemperatureCelsius: 6.6, ...clear,
+      },
+    ],
+  };
+
+  for (const [language, sentence] of [
+    ['en', 'It drops 8.4\u00b0 around 13:00'],
+    ['tr', 'Saat 13:00 civar\u0131nda 8,4\u00b0 d\u00fc\u015f\u00fcyor'],
+  ] as const) {
+    const result = await render(
+      <Providers
+        language={language}
+        value={createValue({
+          ...baseState,
+          activeLocation: getManualLocation('sample.istanbul')!,
+          snapshot,
+          freshness: 'fresh',
+        })}>
+        <WeatherScreen />
+      </Providers>,
+    );
+    expect(result.getByTestId('weather-outlook')).toHaveTextContent(sentence);
+    await result.unmount();
+  }
+});
+
 test('without a snapshot the location control stays the first block after the title', async () => {
   const value = createValue({
     ...baseState,

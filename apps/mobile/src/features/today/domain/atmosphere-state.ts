@@ -87,13 +87,15 @@ export function resolveDaypart(
       coordinates.longitudeE2 / 100,
       instantMs,
     );
+    if (events === 'polar_day') return 'day';
+    if (events === 'polar_night') return 'night';
     if (events) {
       return instantMs >= events.sunriseMs && instantMs < events.sunsetMs ? 'day' : 'night';
     }
   }
 
-  // The window the app used before it could compute a horizon, kept for the cases where
-  // it still cannot: no coordinates, a polar day, or a polar night.
+  // The window the app used before it could compute a horizon, kept for the one case where
+  // it still cannot: a place with no coordinates.
   return localHour >= 6 && localHour < 20 ? 'day' : 'night';
 }
 

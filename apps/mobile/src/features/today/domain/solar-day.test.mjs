@@ -103,13 +103,13 @@ test('the pair always belongs to the solar day that contains the instant', () =>
   }
 });
 
-test('a polar day and a polar night resolve to no crossing at all', () => {
+test('a polar day and a polar night are told apart rather than sharing one answer', () => {
   const longyearbyen = [78.22, 15.65];
 
-  assert.equal(solarEventsOf(...longyearbyen, Date.parse('2026-12-21T12:00:00Z')), null);
-  assert.equal(solarEventsOf(...longyearbyen, Date.parse('2026-06-21T12:00:00Z')), null);
-  // The same place in September still has a sunrise, so the null is the sun's doing and
-  // not the latitude's.
+  assert.equal(solarEventsOf(...longyearbyen, Date.parse('2026-12-21T12:00:00Z')), 'polar_night');
+  assert.equal(solarEventsOf(...longyearbyen, Date.parse('2026-06-21T12:00:00Z')), 'polar_day');
+  // The same place in September still has a sunrise, so the polar answers are the sun's
+  // doing and not the latitude's.
   assert.ok(solarEventsOf(...longyearbyen, Date.parse('2026-09-18T12:00:00Z')));
 });
 

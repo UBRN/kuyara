@@ -122,20 +122,20 @@ test('the daypart follows the place, not a fixed window', () => {
   assert.equal(daypartAt('22:30'), 'night');
 });
 
-test('the fixed window still answers when the sun cannot', () => {
-  const longyearbyen = { latitudeE2: 7822, longitudeE2: 1565 };
-  const atMidwinter = (local) => resolveDaypart(
-    `2026-12-21T${local}:00+01:00`,
-    'Arctic/Longyearbyen',
-    longyearbyen,
-  );
+test('a polar day is day at midnight and a polar night is night at noon', () => {
+  // Tromso, well inside the Arctic circle: the sun does not set in June and does not rise
+  // in December. Neither case has a horizon crossing to read, and the clock hour is the
+  // one thing that must not decide it.
+  const tromso = { latitudeE2: 6965, longitudeE2: 1896 };
 
-  // A polar night has no sunrise to read, so the window decides and the screen keeps a
-  // daypart rather than falling to the neutral ink.
-  assert.equal(atMidwinter('12:00'), 'day');
-  assert.equal(atMidwinter('23:00'), 'night');
+  assert.equal(resolveDaypart('2026-06-21T22:00:00+02:00', 'Europe/Oslo', tromso), 'day');
+  assert.equal(resolveDaypart('2026-06-21T02:00:00+02:00', 'Europe/Oslo', tromso), 'day');
+  assert.equal(resolveDaypart('2026-12-21T12:00:00+01:00', 'Europe/Oslo', tromso), 'night');
+  assert.equal(resolveDaypart('2026-12-21T23:00:00+01:00', 'Europe/Oslo', tromso), 'night');
+});
 
-  // The same fallback covers a snapshot stored before coordinates were kept beside it.
+test('the fixed window still answers when there are no coordinates to read', () => {
+  // A snapshot stored before coordinates were kept beside it is the one case left.
   assert.equal(resolveDaypart('2026-09-18T12:00:00+03:00', 'Europe/Istanbul', null), 'day');
   assert.equal(resolveDaypart('2026-09-18T23:00:00+03:00', 'Europe/Istanbul', undefined), 'night');
 });

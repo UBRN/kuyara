@@ -25,9 +25,11 @@ export function WeatherAlertObserver() {
   const notificationsOptIn = profile?.notificationsOptIn ?? false;
   const morningBriefingOptIn = profile?.morningBriefingOptIn ?? false;
   const localProfileId = profile?.id ?? null;
-  // An alert's identity is keyed to the local day, so the plan has to be redone when the
-  // day turns. The date is re-read on every render and a change re-runs the effect;
-  // becoming active, the one moment a rollover is certain to have been missed, replans too.
+  // An alert's identity is keyed to the dressing-day window, so the plan has to be redone
+  // when that window turns. The local date is the cheap half of the trigger: it is re-read
+  // on every render and a change re-runs the effect. The window's own 18:00 and 04:00 turns
+  // are not date changes, so they are caught by becoming active or by the next render
+  // rather than by a timer, which is the consequence ADR 0032 records.
   const localDate = snapshot
     && weatherLocalDateKey(new Date().toISOString(), snapshot.timeZone);
 
