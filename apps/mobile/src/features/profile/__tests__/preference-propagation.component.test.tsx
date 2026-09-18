@@ -1,7 +1,7 @@
 import { fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import Constants from 'expo-constants';
 import { useEffect, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { Linking, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import SettingsRoute from '@/app/(tabs)/(profile)/settings';
@@ -153,10 +153,11 @@ const notificationGateway = {
 
 // ADR 0030: the root list and the four preference pickers are native. These tests assert
 // the strings and selected tags kuyara supplies, while the system owns row and menu chrome.
-test('live preference changes propagate localized copy and dark semantic colors without remounting', async () => {
+test('live preferences and support propagate localized behavior without remounting', async () => {
   mockProfile = createProfile();
   const onMount = jest.fn();
   const analytics = new RecordingProductAnalytics();
+  const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
   const result = await render(
     <SafeAreaProvider initialMetrics={initialMetrics}>
       <ProfileApplicationProvider>
@@ -189,6 +190,9 @@ test('live preference changes propagate localized copy and dark semantic colors 
   expect(result.queryByTestId('settings-privacy-row-value-stacked')).not.toBeOnTheScreen();
   expect(result.queryByText(messages.en.analytics.statusNotAsked)).not.toBeOnTheScreen();
   expect(result.getByText(messages.en.analytics.privacyTitle)).toBeOnTheScreen();
+  expect(result.getByText('Help and feedback')).toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('settings-support-row'));
+  expect(openURL).toHaveBeenLastCalledWith('https://ubrn.github.io/kuyara/support');
   expect(within(result.getByTestId('settings-about-you-group')).getByTestId('settings-gender-row')).toBeOnTheScreen();
   expect(within(result.getByTestId('settings-about-you-group')).getByTestId('settings-dress-style-row')).toBeOnTheScreen();
   expect(within(result.getByTestId('settings-about-you-group')).getByTestId('settings-birth-date-row')).toBeOnTheScreen();
@@ -203,7 +207,7 @@ test('live preference changes propagate localized copy and dark semantic colors 
     color: lightSemanticColors.textSecondary,
     fontSize: typography.bodyStrong.fontSize,
   });
-  expect(result.getAllByTestId('expo-ui-icon')).toHaveLength(4);
+  expect(result.getAllByTestId('expo-ui-icon')).toHaveLength(5);
   expect(within(result.getByTestId('expo-ui-section')).getByText('Version 1.0.0 (5)')).toHaveStyle({
     color: lightSemanticColors.textSecondary,
     fontSize: typography.caption.fontSize,
@@ -220,6 +224,9 @@ test('live preference changes propagate localized copy and dark semantic colors 
   });
   expect(mockProfile.languagePreference).toBe('tr');
   expect(await result.findByText(messages.tr.preferences.languageTurkish)).toBeOnTheScreen();
+  expect(result.getByText('Yardım ve geri bildirim')).toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('settings-support-row'));
+  expect(openURL).toHaveBeenLastCalledWith('https://ubrn.github.io/kuyara/tr/support');
   expect(result.getByText('Sürüm 1.0.0 (5)')).toBeOnTheScreen();
 
   expect(result.getByText(messages.tr.preferences.themeLight)).toBeOnTheScreen();
@@ -245,6 +252,7 @@ test('live preference changes propagate localized copy and dark semantic colors 
     { schema_version: 3, setting_name: 'appearance_theme', new_value: 'dark' },
     { schema_version: 3, feature_name: 'appearance_override' },
   ]);
+  openURL.mockRestore();
 });
 
 test('personal preferences keep their order and birth date can be cleared to null', async () => {

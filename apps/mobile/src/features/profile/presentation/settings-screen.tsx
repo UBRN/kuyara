@@ -28,6 +28,7 @@ export type SettingsScreenProps = Readonly<{
   onDressStyleChange: (value: DressStyle) => Promise<void>;
   onOpenBirthDate: () => void;
   onOpenPrivacy: () => void;
+  onOpenSupport: () => void;
 }>;
 
 export function SettingsScreen({
@@ -41,6 +42,7 @@ export function SettingsScreen({
   onOpenBirthDate,
   onOpenNotifications,
   onOpenPrivacy,
+  onOpenSupport,
   profile,
 }: SettingsScreenProps) {
   const { language, messages } = useLocalization();
@@ -131,6 +133,12 @@ export function SettingsScreen({
           label={messages.analytics.privacyTitle}
           onPress={onOpenPrivacy}
           testID="settings-privacy-row"
+        />
+        <NativeListRow
+          glyph={({ color, size }) => <Icon color={color} name="help" size={size} />}
+          label={messages.settings.supportRow}
+          onPress={onOpenSupport}
+          testID="settings-support-row"
         />
       </NativeListSection>
 

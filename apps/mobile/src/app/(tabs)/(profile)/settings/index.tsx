@@ -1,16 +1,18 @@
 import { Stack, router } from 'expo-router';
+import { Linking } from 'react-native';
 
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
 import { ANALYTICS_SCHEMA_VERSION } from '@/features/analytics/domain/analytics-events';
+import { SUPPORT_URL } from '@/features/analytics/domain/privacy-policy';
 import { notificationsAreActive } from '@/features/notifications/application/notification-application-controller';
 import { useNotificationApplication } from '@/features/notifications/application/notification-context';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { SettingsScreen } from '@/features/profile/presentation/settings-screen';
-import { useMessages } from '@/localization/use-messages';
+import { useLocalization } from '@/localization/use-messages';
 
 export default function SettingsRoute() {
-  const messages = useMessages();
+  const { language, messages } = useLocalization();
   const {
     state,
     updateDressStyle,
@@ -98,6 +100,9 @@ export default function SettingsRoute() {
         onOpenBirthDate={() => router.push('/settings/birth-date')}
         onOpenNotifications={() => router.push('/settings/notifications')}
         onOpenPrivacy={() => router.push('/settings/privacy')}
+        onOpenSupport={() => {
+          void Linking.openURL(SUPPORT_URL[language]);
+        }}
         profile={state.profile}
       />
     </>
