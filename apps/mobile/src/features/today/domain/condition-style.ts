@@ -1,3 +1,4 @@
+import type { Daypart } from '@/features/today/domain/atmosphere-state';
 import {
   isWeatherConditionCode,
   type WeatherConditionCode,
@@ -8,7 +9,9 @@ export type ConditionGlyphShape =
   | 'conditionClear'
   | 'conditionClearNight'
   | 'conditionMostlyClear'
+  | 'conditionMostlyClearNight'
   | 'conditionPartlyCloudy'
+  | 'conditionPartlyCloudyNight'
   | 'conditionCloudy'
   | 'conditionFog'
   | 'conditionDrizzle'
@@ -23,20 +26,36 @@ export type ConditionStyle = Readonly<{
   shape: ConditionGlyphShape;
 }>;
 
-const styleByCondition = {
-  mostly_clear: { ink: 'overcast', shape: 'conditionMostlyClear' },
-  partly_cloudy: { ink: 'overcast', shape: 'conditionPartlyCloudy' },
-  cloudy: { ink: 'overcast', shape: 'conditionCloudy' },
+/**
+ * The shape and ink each condition wears while the sun is up. Every code is here; the
+ * three that can show the sky itself are overridden below after sunset.
+ */
+const dayStyleByCondition = {
+  clear: { ink: 'clearDay', shape: 'conditionClear' },
+  mostly_clear: { ink: 'mostlyClearDay', shape: 'conditionMostlyClear' },
+  partly_cloudy: { ink: 'partlyCloudyDay', shape: 'conditionPartlyCloudy' },
+  cloudy: { ink: 'cloudy', shape: 'conditionCloudy' },
   fog: { ink: 'fog', shape: 'conditionFog' },
-  drizzle: { ink: 'rain', shape: 'conditionDrizzle' },
+  drizzle: { ink: 'drizzle', shape: 'conditionDrizzle' },
   rain: { ink: 'rain', shape: 'conditionRain' },
-  heavy_rain: { ink: 'rain', shape: 'conditionHeavyRain' },
-  sleet: { ink: 'snow', shape: 'conditionSleet' },
+  heavy_rain: { ink: 'heavyRain', shape: 'conditionHeavyRain' },
+  sleet: { ink: 'sleet', shape: 'conditionSleet' },
   snow: { ink: 'snow', shape: 'conditionSnow' },
-  thunderstorm: { ink: 'storm', shape: 'conditionThunderstorm' },
-} as const satisfies Readonly<
-  Record<Exclude<WeatherConditionCode, 'clear'>, ConditionStyle>
->;
+  thunderstorm: { ink: 'thunderstorm', shape: 'conditionThunderstorm' },
+} as const satisfies Readonly<Record<WeatherConditionCode, ConditionStyle>>;
+
+/**
+ * Only the three conditions that can show the sky itself change after sunset. A cloud, a
+ * fog bank or a rain shower looks the same at either hour, so giving it a second form
+ * would encode nothing and only add a symbol to keep in step across two platforms.
+ */
+const nightStyleByCondition: Readonly<
+  Partial<Record<WeatherConditionCode, ConditionStyle>>
+> = {
+  clear: { ink: 'clearNight', shape: 'conditionClearNight' },
+  mostly_clear: { ink: 'mostlyClearNight', shape: 'conditionMostlyClearNight' },
+  partly_cloudy: { ink: 'partlyCloudyNight', shape: 'conditionPartlyCloudyNight' },
+};
 
 const neutralStyle = Object.freeze({
   ink: 'neutral',
@@ -45,23 +64,10 @@ const neutralStyle = Object.freeze({
 
 export function resolveConditionStyle(
   condition: string,
-  localHour: number | null,
+  daypart: Daypart | null,
 ): ConditionStyle {
-  if (
-    !isWeatherConditionCode(condition)
-    || localHour === null
-    || !Number.isInteger(localHour)
-    || localHour < 0
-    || localHour > 23
-  ) {
-    return neutralStyle;
-  }
+  if (!isWeatherConditionCode(condition) || daypart === null) return neutralStyle;
 
-  if (condition === 'clear') {
-    return localHour >= 6 && localHour < 20
-      ? { ink: 'clearDay', shape: 'conditionClear' }
-      : { ink: 'clearNight', shape: 'conditionClearNight' };
-  }
-
-  return styleByCondition[condition];
+  const night = daypart === 'night' ? nightStyleByCondition[condition] : undefined;
+  return night ?? dayStyleByCondition[condition];
 }

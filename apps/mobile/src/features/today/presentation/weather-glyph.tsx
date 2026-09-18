@@ -10,6 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { Icon } from '@/components/ui';
+import type { Daypart } from '@/features/today/domain/atmosphere-state';
 import { resolveConditionStyle } from '@/features/today/domain/condition-style';
 import type { AmbientIntensity } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -45,17 +46,17 @@ function useBobOffset(enabled: boolean, cycleMs: number) {
 
 export function WeatherGlyph({
   condition = 'unknown',
+  daypart = null,
   intensity = 'calm',
-  localHour = null,
   testID = 'weather-glyph',
 }: Readonly<{
   condition?: string;
+  daypart?: Daypart | null;
   intensity?: AmbientIntensity;
-  localHour?: number | null;
   testID?: string;
 }>) {
   const theme = useKuyaraTheme();
-  const conditionStyle = resolveConditionStyle(condition, localHour);
+  const conditionStyle = resolveConditionStyle(condition, daypart);
   const isClear = conditionStyle.ink === 'clearDay' || conditionStyle.ink === 'clearNight';
   const offset = useBobOffset(
     !theme.isReduceMotionEnabled && !isClear && conditionStyle.ink !== 'neutral',

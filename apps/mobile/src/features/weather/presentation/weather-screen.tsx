@@ -35,7 +35,7 @@ import { HourlyRail } from '@/features/weather/presentation/hourly-rail';
 import { remainingHourlyForecast } from '@/features/weather/presentation/remaining-hours';
 import { WeatherAttribution } from '@/features/weather/presentation/weather-attribution';
 import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
-import { localHourOf } from '@/features/today/domain/atmosphere-state';
+import { resolveDaypart } from '@/features/today/domain/atmosphere-state';
 import { useLocalization } from '@/localization/use-messages';
 import { interaction, layout, radii, spacing, typography } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -423,7 +423,11 @@ export function WeatherScreen() {
                   <WeatherGlyph
                     condition={snapshot.current.condition}
                     intensity={ambientIntensityOf(snapshot.current.condition)}
-                    localHour={localHourOf(snapshot.fetchedAt, snapshot.timeZone)}
+                    daypart={resolveDaypart(
+                      new Date(now).toISOString(),
+                      snapshot.timeZone,
+                      state.activeLocation?.coordinates,
+                    )}
                   />
                 </View>
               </View>
@@ -546,7 +550,12 @@ export function WeatherScreen() {
                       precipitationProbability: hour.precipitationProbability,
                     }),
                     condition: hour.condition,
-                    localHour: localHourOf(hour.forecastAt, snapshot.timeZone),
+                    daypart: resolveDaypart(
+                      hour.forecastAt,
+                      snapshot.timeZone,
+                      state.activeLocation?.coordinates,
+                    ),
+                    precipitationProbability: hour.precipitationProbability,
                     precipitation: percentage(hour.precipitationProbability, language),
                     temperature: temperature(hour.temperatureCelsius, language, 0),
                     temperatureCelsius: hour.temperatureCelsius,

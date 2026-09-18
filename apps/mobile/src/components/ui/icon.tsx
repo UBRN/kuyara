@@ -50,14 +50,20 @@ export const iconNames = Object.freeze({
   bell: { ios: 'bell.fill', android: 'notifications', web: 'notifications' },
   calendar: { ios: 'calendar', android: 'calendar_today', web: 'calendar_today' },
   clothing: { ios: 'tshirt', android: 'checkroom', web: 'checkroom' },
+  precipitationChance: { ios: 'drop.fill', android: 'water_drop', web: 'water_drop' },
   // The eleven weather condition codes, filled because a forecast column reports an
   // active condition (Law 6). Material has no drizzle or heavy-rain counterpart of the
-  // same idiom, so those take the nearest existing name.
+  // same idiom, so those take the nearest existing name. The three conditions that show
+  // the sky itself carry a second, night form; the rest look the same at either hour.
   conditionClear: { ios: 'sun.max.fill', android: 'wb_sunny', web: 'wb_sunny' },
   conditionClearNight: { ios: 'moon.stars.fill', android: 'nights_stay', web: 'nights_stay' },
   conditionMostlyClear: { ios: 'sun.min.fill', android: 'sunny', web: 'sunny' },
+  conditionMostlyClearNight: { ios: 'moon.fill', android: 'bedtime', web: 'bedtime' },
   conditionPartlyCloudy: {
     ios: 'cloud.sun.fill', android: 'partly_cloudy_day', web: 'partly_cloudy_day',
+  },
+  conditionPartlyCloudyNight: {
+    ios: 'cloud.moon.fill', android: 'partly_cloudy_night', web: 'partly_cloudy_night',
   },
   conditionCloudy: { ios: 'cloud.fill', android: 'cloud', web: 'cloud' },
   conditionFog: { ios: 'cloud.fog.fill', android: 'foggy', web: 'foggy' },

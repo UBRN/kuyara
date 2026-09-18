@@ -708,8 +708,8 @@ function Sky({ intensity, weather, overlay = false }: Readonly<{
       <View style={styles.weatherGlyph}>
         <WeatherGlyph
           condition={weather.conditionCode}
+          daypart={weather.daypart}
           intensity={intensity}
-          localHour={weather.localHour}
           testID="today-header-weather-glyph"
         />
       </View>

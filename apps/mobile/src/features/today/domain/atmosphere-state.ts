@@ -1,8 +1,17 @@
 import {
   isWeatherConditionCode,
+  type NormalizedCoordinates,
   type WeatherConditionCode,
 } from '@/features/weather/domain/weather';
 import type { AtmosphereState } from '@/theme/theme';
+
+import { solarEventsOf } from './solar-day';
+
+/**
+ * Whether the sun is up at a place at an instant. One reading of it feeds the stage tint
+ * and the condition glyph together, so the two can never disagree.
+ */
+export type Daypart = 'day' | 'night';
 
 const conditionFamilies = {
   clear: 'clear',
@@ -55,19 +64,44 @@ export function localHourOf(fetchedAt: string, timeZone: string): number | null 
   }
 }
 
-export function resolveAtmosphereState(
-  condition: string,
-  localHour: number | null,
-): AtmosphereState {
-  if (
-    !isWeatherConditionCode(condition)
-    || localHour === null
-    || !Number.isInteger(localHour)
-  ) {
-    return 'neutral';
+/**
+ * The daypart at a place at an instant, from the sun's own crossing of the horizon rather
+ * than from a fixed pair of clock hours. Coordinates are stored to two decimals, which is
+ * about a kilometre and a few seconds of sunrise: far inside what a glyph can say.
+ *
+ * Returns `null` only when the instant or the time zone is unreadable, which is the same
+ * answer the two resolvers below already treat as "draw the neutral thing".
+ */
+export function resolveDaypart(
+  atIso: string,
+  timeZone: string,
+  coordinates: NormalizedCoordinates | null | undefined,
+): Daypart | null {
+  const localHour = localHourOf(atIso, timeZone);
+  if (localHour === null) return null;
+
+  if (coordinates) {
+    const instantMs = Date.parse(atIso);
+    const events = solarEventsOf(
+      coordinates.latitudeE2 / 100,
+      coordinates.longitudeE2 / 100,
+      instantMs,
+    );
+    if (events) {
+      return instantMs >= events.sunriseMs && instantMs < events.sunsetMs ? 'day' : 'night';
+    }
   }
 
-  if (localHour < 0 || localHour > 23) return 'neutral';
-  const family = conditionFamilies[condition];
-  return atmosphereByDaypart[localHour >= 6 && localHour < 20 ? 'day' : 'night'][family];
+  // The window the app used before it could compute a horizon, kept for the cases where
+  // it still cannot: no coordinates, a polar day, or a polar night.
+  return localHour >= 6 && localHour < 20 ? 'day' : 'night';
+}
+
+export function resolveAtmosphereState(
+  condition: string,
+  daypart: Daypart | null,
+): AtmosphereState {
+  if (!isWeatherConditionCode(condition) || daypart === null) return 'neutral';
+
+  return atmosphereByDaypart[daypart][conditionFamilies[condition]];
 }
