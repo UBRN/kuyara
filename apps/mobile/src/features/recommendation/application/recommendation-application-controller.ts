@@ -33,6 +33,7 @@ import {
   createRecommendationContext,
   type RecommendationContext,
 } from '@/features/recommendation/data/worker-ai-recommendation-mapper';
+import { wardrobeDayKey } from '@/features/weather/domain/wardrobe-day';
 
 // Today reads the archetype label, and a feature reaches this one only through its application layer.
 export { archetypeLabel } from '@/features/recommendation/localization/recommendation-messages';
@@ -174,11 +175,19 @@ export function localDayKind(date: Date = new Date()): DayKind {
   return weekday === 0 || weekday === 6 ? 'weekend' : 'weekday';
 }
 
+/**
+ * The dressing day the device clock is in: the bare local date until 18:00, and that date
+ * plus `:evening` from 18:00 through 04:00 the next morning. It keeps its name, its type and
+ * its place in the signals, so the existing `local-day-changed` trigger now fires at 04:00
+ * and at 18:00 instead of at midnight, and a key written by an older build still matches.
+ */
 export function localDayKey(date: Date = new Date()): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return wardrobeDayKey({
+    year: date.getFullYear(),
+    month: date.getMonth() + 1,
+    day: date.getDate(),
+    hour: date.getHours(),
+  });
 }
 
 /**
