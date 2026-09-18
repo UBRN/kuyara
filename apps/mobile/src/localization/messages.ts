@@ -28,6 +28,21 @@ export type TodayRequirementName =
   | 'wind_protection'
   | 'traction';
 
+/**
+ * The day-insight line's states, one key per whole sentence. A sky that holds all day takes
+ * its temperature modifier by selecting a different key rather than by gaining a clause, and
+ * every sentence that names the day it describes has a night twin for a dressing day that
+ * runs past midnight. Nothing here is ever assembled from translated fragments.
+ */
+type DayInsightSky = `${'clear' | 'cloudy' | 'foggy'}_${'day' | 'night'}`;
+
+export type TodayDayInsightKey =
+  | DayInsightSky
+  | `${DayInsightSky}_${'hot' | 'veryHot' | 'chilly' | 'freezing'}`
+  | `${'rain' | 'snow'}_${'day' | 'night'}`
+  | 'windy'
+  | 'veryWindy';
+
 export type TodayMessages = Readonly<{
   title: string;
   // ADR 0034 section 4: the two AI modes have badges, the words final, no Apple glyph. The
@@ -68,6 +83,23 @@ export type TodayMessages = Readonly<{
   requirementReasons: Readonly<Record<ClothingRequirementReasonCode, string>>;
   compositionReasons: Readonly<Record<OutfitCompositionReasonCode, string>>;
   mildWeatherRationale: string;
+  /**
+   * The one sentence under the rationale saying what the day itself does. The hour-carrying
+   * states take an already-formatted time token, never a translated fragment.
+   */
+  dayInsight: Readonly<{
+    sentences: Readonly<Record<TodayDayInsightKey, string>>;
+    rainFromUntil: (values: { from: string; until: string }) => string;
+    rainFrom: (from: string) => string;
+    rainUntil: (until: string) => string;
+    snowFromUntil: (values: { from: string; until: string }) => string;
+    snowFrom: (from: string) => string;
+    snowUntil: (until: string) => string;
+    hot: (time: string) => string;
+    veryHot: (time: string) => string;
+    chilly: (time: string) => string;
+    freezing: (time: string) => string;
+  }>;
   emphasis: Readonly<{ recommended: string }>;
   updatedAt: (time: string) => string;
   staleAt: (time: string) => string;
@@ -397,6 +429,17 @@ export type AppMessages = Readonly<{
       temperature: string;
       condition: string;
       precipitationProbability: number;
+    }) => string;
+    dailyHeading: string;
+    /** A measured amount beside its chance, both already formatted for the locale. */
+    dailyPrecipitationValue: (millimetres: string, probability: string) => string;
+    dailyForecastAccessibilityLabel: (values: {
+      day: string;
+      condition: string;
+      minimumTemperature: string;
+      maximumTemperature: string;
+      precipitationProbability: number;
+      precipitationMillimetres?: string;
     }) => string;
     windValue: (speed: string) => string;
     humidityValue: (humidity: number) => string;
@@ -770,6 +813,19 @@ const en = {
     }) =>
       `${day ? `${day}, ` : ''}${time}. ${temperature}. ${condition}. ` +
       `${Math.round(precipitationProbability * 100)}% precipitation`,
+    dailyHeading: 'Coming days',
+    dailyPrecipitationValue: (millimetres, probability) => `${millimetres} mm · ${probability}`,
+    dailyForecastAccessibilityLabel: ({
+      day,
+      condition,
+      minimumTemperature,
+      maximumTemperature,
+      precipitationProbability,
+      precipitationMillimetres,
+    }) =>
+      `${day}. ${condition}. Low ${minimumTemperature} · High ${maximumTemperature}. ` +
+      `${precipitationMillimetres ? `${precipitationMillimetres} mm, ` : ''}` +
+      `${Math.round(precipitationProbability * 100)}% precipitation`,
     windValue: (speed) => `${speed} m/s`,
     humidityValue: (humidity) => `${Math.round(humidity * 100)}%`,
     windLabel: 'Wind',
@@ -948,6 +1004,56 @@ const en = {
       unnecessary_water_protection: 'This outfit includes more water protection than required.',
     },
     mildWeatherRationale: 'Nothing in today’s weather asks for special protection.',
+    dayInsight: {
+      sentences: {
+      clear_day: 'Sunny all day.',
+      clear_day_hot: 'Sunny all day and hot.',
+      clear_day_veryHot: 'Sunny all day but very hot.',
+      clear_day_chilly: 'Sunny all day and chilly.',
+      clear_day_freezing: 'Sunny all day but freezing.',
+      clear_night: 'Clear all night.',
+      clear_night_hot: 'Clear all night and hot.',
+      clear_night_veryHot: 'Clear all night but very hot.',
+      clear_night_chilly: 'Clear all night and chilly.',
+      clear_night_freezing: 'Clear all night but freezing.',
+      cloudy_day: 'Cloudy all day.',
+      cloudy_day_hot: 'Cloudy all day and hot.',
+      cloudy_day_veryHot: 'Cloudy all day but very hot.',
+      cloudy_day_chilly: 'Cloudy all day and chilly.',
+      cloudy_day_freezing: 'Cloudy all day but freezing.',
+      cloudy_night: 'Cloudy all night.',
+      cloudy_night_hot: 'Cloudy all night and hot.',
+      cloudy_night_veryHot: 'Cloudy all night but very hot.',
+      cloudy_night_chilly: 'Cloudy all night and chilly.',
+      cloudy_night_freezing: 'Cloudy all night but freezing.',
+      foggy_day: 'Foggy all day.',
+      foggy_day_hot: 'Foggy all day and hot.',
+      foggy_day_veryHot: 'Foggy all day but very hot.',
+      foggy_day_chilly: 'Foggy all day and chilly.',
+      foggy_day_freezing: 'Foggy all day but freezing.',
+      foggy_night: 'Foggy all night.',
+      foggy_night_hot: 'Foggy all night and hot.',
+      foggy_night_veryHot: 'Foggy all night but very hot.',
+      foggy_night_chilly: 'Foggy all night and chilly.',
+      foggy_night_freezing: 'Foggy all night but freezing.',
+      rain_day: 'Rainy all day.',
+      rain_night: 'Rainy all night.',
+      snow_day: 'Snowy all day.',
+      snow_night: 'Snowy all night.',
+      windy: 'It stays windy.',
+      veryWindy: 'It stays very windy.',
+      },
+      rainFromUntil: ({ from, until }) => `Rain from ${from}, easing around ${until}.`,
+      rainFrom: (from: string) => `Rain from ${from} onward.`,
+      rainUntil: (until: string) => `Rain easing around ${until}.`,
+      snowFromUntil: ({ from, until }) => `Snow from ${from}, easing around ${until}.`,
+      snowFrom: (from: string) => `Snow from ${from} onward.`,
+      snowUntil: (until: string) => `Snow easing around ${until}.`,
+      hot: (time: string) => `It gets hot around ${time}.`,
+      veryHot: (time: string) => `It gets very hot around ${time}.`,
+      chilly: (time: string) => `It turns chilly around ${time}.`,
+      freezing: (time: string) => `It turns freezing around ${time}.`,
+    },
     emphasis: {
       recommended: 'Recommended',
     },
@@ -1291,6 +1397,19 @@ const tr = {
     }) =>
       `${day ? `${day}, saat` : 'Saat'} ${time}. Sıcaklık ${temperature}. ${condition}. ` +
       `Yağış olasılığı yüzde ${Math.round(precipitationProbability * 100)}.`,
+    dailyHeading: 'Önümüzdeki günler',
+    dailyPrecipitationValue: (millimetres, probability) => `${millimetres} mm · ${probability}`,
+    dailyForecastAccessibilityLabel: ({
+      day,
+      condition,
+      minimumTemperature,
+      maximumTemperature,
+      precipitationProbability,
+      precipitationMillimetres,
+    }) =>
+      `${day}. ${condition}. En düşük ${minimumTemperature}, en yüksek ${maximumTemperature}. ` +
+      `${precipitationMillimetres ? `${precipitationMillimetres} milimetre yağış. ` : ''}` +
+      `Yağış olasılığı yüzde ${Math.round(precipitationProbability * 100)}.`,
     windValue: (speed) => `${speed} m/sn`,
     humidityValue: (humidity) => `%${Math.round(humidity * 100)}`,
     windLabel: 'Rüzgâr',
@@ -1472,6 +1591,58 @@ const tr = {
       unnecessary_water_protection: 'Bu kombin gerekenden daha fazla su koruması içeriyor.',
     },
     mildWeatherRationale: 'Bugünkü hava özel bir koruma istemiyor.',
+    dayInsight: {
+      sentences: {
+      clear_day: 'Gün boyu güneşli.',
+      clear_day_hot: 'Gün boyu güneşli ve sıcak.',
+      clear_day_veryHot: 'Gün boyu güneşli ama çok sıcak.',
+      clear_day_chilly: 'Gün boyu güneşli ve serin.',
+      clear_day_freezing: 'Gün boyu güneşli ama dondurucu.',
+      clear_night: 'Gece boyu açık.',
+      clear_night_hot: 'Gece boyu açık ve sıcak.',
+      clear_night_veryHot: 'Gece boyu açık ama çok sıcak.',
+      clear_night_chilly: 'Gece boyu açık ve serin.',
+      clear_night_freezing: 'Gece boyu açık ama dondurucu.',
+      cloudy_day: 'Gün boyu bulutlu.',
+      cloudy_day_hot: 'Gün boyu bulutlu ve sıcak.',
+      cloudy_day_veryHot: 'Gün boyu bulutlu ama çok sıcak.',
+      cloudy_day_chilly: 'Gün boyu bulutlu ve serin.',
+      cloudy_day_freezing: 'Gün boyu bulutlu ama dondurucu.',
+      cloudy_night: 'Gece boyu bulutlu.',
+      cloudy_night_hot: 'Gece boyu bulutlu ve sıcak.',
+      cloudy_night_veryHot: 'Gece boyu bulutlu ama çok sıcak.',
+      cloudy_night_chilly: 'Gece boyu bulutlu ve serin.',
+      cloudy_night_freezing: 'Gece boyu bulutlu ama dondurucu.',
+      foggy_day: 'Gün boyu sisli.',
+      foggy_day_hot: 'Gün boyu sisli ve sıcak.',
+      foggy_day_veryHot: 'Gün boyu sisli ama çok sıcak.',
+      foggy_day_chilly: 'Gün boyu sisli ve serin.',
+      foggy_day_freezing: 'Gün boyu sisli ama dondurucu.',
+      foggy_night: 'Gece boyu sisli.',
+      foggy_night_hot: 'Gece boyu sisli ve sıcak.',
+      foggy_night_veryHot: 'Gece boyu sisli ama çok sıcak.',
+      foggy_night_chilly: 'Gece boyu sisli ve serin.',
+      foggy_night_freezing: 'Gece boyu sisli ama dondurucu.',
+      rain_day: 'Gün boyu yağmurlu.',
+      rain_night: 'Gece boyu yağmurlu.',
+      snow_day: 'Gün boyu karlı.',
+      snow_night: 'Gece boyu karlı.',
+      windy: 'Rüzgâr sürüyor.',
+      veryWindy: 'Kuvvetli rüzgâr sürüyor.',
+      },
+      rainFromUntil: ({ from, until }) =>
+        `Yağmur ${from} civarında başlıyor, ${until} civarında hafifliyor.`,
+      rainFrom: (from: string) => `Yağmur ${from} civarında başlıyor.`,
+      rainUntil: (until: string) => `Yağmur ${until} civarında hafifliyor.`,
+      snowFromUntil: ({ from, until }) =>
+        `Kar ${from} civarında başlıyor, ${until} civarında hafifliyor.`,
+      snowFrom: (from: string) => `Kar ${from} civarında başlıyor.`,
+      snowUntil: (until: string) => `Kar ${until} civarında hafifliyor.`,
+      hot: (time: string) => `Saat ${time} civarında hava ısınıyor.`,
+      veryHot: (time: string) => `Saat ${time} civarında hava iyice ısınıyor.`,
+      chilly: (time: string) => `Saat ${time} civarında hava serinliyor.`,
+      freezing: (time: string) => `Saat ${time} civarında hava buz gibi oluyor.`,
+    },
     emphasis: {
       recommended: 'Önerilen',
     },

@@ -26,7 +26,7 @@ import {
   WeatherApplicationContext,
   type WeatherApplicationValue,
 } from '@/features/weather/application/weather-application-context';
-import type { ActiveLocation } from '@/features/weather/domain/weather';
+import type { ActiveLocation, HourlyWeather } from '@/features/weather/domain/weather';
 import { WardrobeApplicationContext } from '@/features/wardrobe/application/wardrobe-application-context';
 import {
   resolveGarmentOwnership,
@@ -1931,5 +1931,91 @@ describe.each(['en', 'tr'] as const)('%s regenerate action', (language) => {
     expect(onRegenerate).toHaveBeenCalledTimes(1);
     // It regenerates the recommendation only; the pull gesture still owns weather.
     expect(onRefresh).not.toHaveBeenCalled();
+  });
+});
+
+// The day-insight line: one deterministic sentence under the rationale saying what the rest
+// of the dressing day does. The shared fixture's snapshot stops four hours in, which is not a
+// day anyone can describe, so these rows carry a snapshot that reaches local midnight.
+const insightHour = {
+  temperatureCelsius: 20,
+  apparentTemperatureCelsius: 20,
+  condition: 'clear',
+  precipitationProbability: 0,
+  windSpeedMetersPerSecond: 0,
+  humidity: 0.5,
+  uvIndex: 0,
+} as const;
+
+function insightState(
+  overridesByLocalHour: Readonly<Record<number, Partial<HourlyWeather>>> = {},
+): TodayScreenState {
+  const hourly: HourlyWeather[] = [];
+  // 10:00 through 23:00 in Europe/Istanbul, the hours the fixture clock still has ahead of it.
+  for (let localHour = 10; localHour <= 23; localHour += 1) {
+    hourly.push({
+      forecastAt: new Date(Date.UTC(2026, 7, 13, localHour - 3)).toISOString(),
+      ...insightHour,
+      ...overridesByLocalHour[localHour],
+    });
+  }
+  return {
+    ...todayScreenState,
+    snapshot: {
+      ...todayScreenState.snapshot,
+      weather: { ...todayScreenState.snapshot.weather, hourly },
+    },
+  };
+}
+
+const rainHour: Partial<HourlyWeather> = { condition: 'rain' };
+
+describe.each(['en', 'tr'] as const)('%s Today day insight', (language) => {
+  const copy = messages[language].today.dayInsight;
+
+  test.each([
+    [
+      'a sunny day with a very hot hour',
+      insightState({ 15: { apparentTemperatureCelsius: 29 } }),
+      copy.sentences.clear_day_veryHot,
+    ],
+    [
+      'rain arriving at 11:00 and over by 16:00',
+      insightState({ 11: rainHour, 12: rainHour, 13: rainHour, 14: rainHour, 15: rainHour }),
+      copy.rainFromUntil({ from: '11:00', until: '16:00' }),
+    ],
+    [
+      'a day wet in every remaining hour',
+      insightState(Object.fromEntries(
+        Array.from({ length: 14 }, (_, index) => [index + 10, rainHour]),
+      )),
+      copy.sentences.rain_day,
+    ],
+  ])('says %s in one whole sentence', async (_, state, sentence) => {
+    const result = await render(providers(
+      <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
+        onRefresh={jest.fn()} onRegenerate={jest.fn()} state={state} />,
+      lightTheme, language,
+    ));
+
+    const line = result.getByTestId('today-day-insight');
+    expect(line).toHaveTextContent(sentence);
+    // A support line, not an anchor: caption in the secondary ink, under the rationale.
+    expect(StyleSheet.flatten(line.props.style))
+      .toMatchObject({ ...typography.caption, color: lightTheme.colors.textSecondary });
+    // The sentence is its own label; the stage keeps the only weather label on the screen.
+    expect(line.props.accessibilityLabel).toBeUndefined();
+  });
+
+  test('draws no line at all on a day with nothing to say', async () => {
+    const result = await render(providers(
+      <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
+        onRefresh={jest.fn()} onRegenerate={jest.fn()}
+        state={insightState({ 15: { condition: 'cloudy' } })} />,
+      lightTheme, language,
+    ));
+
+    expect(result.queryByTestId('today-day-insight')).toBeNull();
+    expect(result.getByTestId('today-rationale')).toBeOnTheScreen();
   });
 });

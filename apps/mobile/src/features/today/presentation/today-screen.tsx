@@ -363,6 +363,19 @@ export function TodayScreen({
               testID="today-rationale">
               {primary.reasons[0]}
             </AppText>
+            {/* A second support line under the first, never a second anchor (Law 1): the
+                rationale says why this outfit, this says what the day does, and reading them
+                in that order keeps the outfit the subject. It is ordinary text in the reading
+                order, so the sentence is its own label and the stage keeps the one it has. */}
+            {presentation.dayInsight ? (
+              <AppText
+                colorRole="textSecondary"
+                style={styles.dayInsight}
+                testID="today-day-insight"
+                variant="caption">
+                {presentation.dayInsight}
+              </AppText>
+            ) : null}
             <AccessoryBadges caption={presentation.copy.finishingTouchesHeading} suggestion={primary} />
           </>
         ) : (
@@ -726,6 +739,7 @@ const styles = StyleSheet.create({
   disclosure: { opacity: 0.55 },
   provenanceBadge: { marginTop: spacing.xs },
   rationale: { marginTop: spacing.sm },
+  dayInsight: { marginTop: spacing.xs },
   accessoryBadges: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm },
   accessoryCaption: { flexShrink: 1, marginLeft: spacing.xs },
   loadingIntro: { gap: spacing.xs, marginBottom: spacing.md },

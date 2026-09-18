@@ -35,8 +35,14 @@ import {
 } from '@/features/today/domain/atmosphere-state';
 import { todayRainOutlookProbability } from '@/features/today/domain/today-rain-outlook';
 import {
+  findDayInsight,
+  type DayInsight,
+  type DayInsightModifier,
+} from '@/features/weather/domain/day-insight';
+import {
   getMessages,
   type SupportedLanguage,
+  type TodayMessages,
   type TodayRequirementName,
 } from '@/localization/messages';
 import {
@@ -168,6 +174,11 @@ export type LoadedTodayPresentation = Readonly<{
   // The detail surface's one plain sentence, present in all three modes and null only while
   // no recommendation is settled.
   generationSource: string | null;
+  /**
+   * The support line under the rationale: what the rest of the dressing day does, or null on
+   * a day with nothing worth saying, which draws no line and leaves no gap.
+   */
+  dayInsight: string | null;
   stageAccessibilityLabel: string;
   suggestions: readonly LoadedOutfitPresentation[];
   noOutfit: Readonly<{ title: string; body: string }> | null;
@@ -199,12 +210,73 @@ function formatTime(
   value: string,
   language: SupportedLanguage,
   hour12: boolean,
+  // The freshness line is read against the viewer's own clock and passes none; an hour that
+  // belongs to the forecast passes the place's zone, so the sentence and the rail agree.
+  timeZone?: string,
 ): string {
   return new Intl.DateTimeFormat(localeTag(language), {
     hour: hour12 ? 'numeric' : '2-digit',
     minute: '2-digit',
     hour12,
+    timeZone,
   }).format(new Date(value));
+}
+
+const dayInsightModifierKeys = {
+  hot: 'hot',
+  very_hot: 'veryHot',
+  chilly: 'chilly',
+  freezing: 'freezing',
+} as const satisfies Record<DayInsightModifier['level'], string>;
+
+const dayInsightSkyKeys = {
+  clear_all_day: 'clear',
+  cloudy_all_day: 'cloudy',
+  foggy_all_day: 'foggy',
+} as const;
+
+/**
+ * The one whole sentence for an insight. A modifier and a period each select a different key
+ * rather than adding a clause, so no sentence is ever assembled from translated fragments,
+ * and every hour arrives as one token the screen's own time helper has already formatted.
+ */
+function dayInsightSentence(
+  insight: DayInsight,
+  copy: TodayMessages['dayInsight'],
+  at: (value: string) => string,
+): string | null {
+  switch (insight.kind) {
+    case 'wet_all_day':
+      return copy.sentences[
+        `${insight.form}_${insight.period === 'evening' ? 'night' : 'day'}`
+      ];
+    case 'wet_window': {
+      const snow = insight.form === 'snow';
+      const from = insight.fromHour === null ? null : at(insight.fromHour);
+      const until = insight.untilHour === null ? null : at(insight.untilHour);
+      if (from !== null && until !== null) {
+        return snow ? copy.snowFromUntil({ from, until }) : copy.rainFromUntil({ from, until });
+      }
+      if (from !== null) return snow ? copy.snowFrom(from) : copy.rainFrom(from);
+      if (until !== null) return snow ? copy.snowUntil(until) : copy.rainUntil(until);
+      // Unreachable: a run with neither end is the all-day shape above.
+      return null;
+    }
+    case 'heat':
+      return insight.level === 'very_hot' ? copy.veryHot(at(insight.atHour)) : copy.hot(at(insight.atHour));
+    case 'cold':
+      return insight.level === 'freezing'
+        ? copy.freezing(at(insight.atHour))
+        : copy.chilly(at(insight.atHour));
+    case 'windy':
+      return copy.sentences[insight.level === 'very_windy' ? 'veryWindy' : 'windy'];
+    default: {
+      const sky = `${dayInsightSkyKeys[insight.kind]}_${insight.period === 'evening' ? 'night' : 'day'}` as const;
+      return insight.modifier === null
+        ? copy.sentences[sky]
+        : copy.sentences[`${sky}_${dayInsightModifierKeys[insight.modifier.level]}`];
+    }
+  }
 }
 
 function assignedGarments(outfit: OutfitCandidate): readonly AssignedOutfitGarment[] {
@@ -369,6 +441,12 @@ function createLoadedPresentation(
   const current = weather.current;
   const rainProbability = todayRainOutlookProbability(weather, now);
   const time = formatTime(weather.fetchedAt, language, hour12);
+  const insight = findDayInsight({ snapshot: weather, now: new Date(now).toISOString() });
+  const dayInsight = insight === null ? null : dayInsightSentence(
+    insight,
+    copy.dayInsight,
+    (value) => formatTime(value, language, hour12, weather.timeZone),
+  );
   const isStale = snapshot.freshness === 'stale';
   const condition = weatherCopy.conditions[current.condition];
   const weatherReasons = reasonCodesByPriority(
@@ -479,6 +557,7 @@ function createLoadedPresentation(
     },
     generationMode,
     generationSource,
+    dayInsight,
     stageAccessibilityLabel: primary ? copy.stageAccessibilityLabel({
       temperature: formatTemperatureValue(current.temperatureCelsius, language),
       condition,
