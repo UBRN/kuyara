@@ -345,8 +345,8 @@ test('the unavailable branch offers a retry and says when the cause is being off
   assert.equal(noLocation.actionLabel, 'Choose a location');
 });
 
-// A day whose measurements ask for nothing: no clothing requirement is derived, so the
-// only reason codes left are the two that do not come from a requirement.
+// A day whose measurements ask for nothing: no clothing requirement is derived, and the
+// rationale falls through to the sentence that says exactly that.
 const mildMeasurements = {
   temperatureCelsius: 20,
   apparentTemperatureCelsius: 20,
@@ -381,18 +381,9 @@ function mildPresentation(weather, now, language = 'en') {
   };
 }
 
-test('a mild clear day still gives the primary outfit a rationale', () => {
-  const { recommendation, presentation } = mildPresentation(mildWeather, undefined);
-
-  assert.equal(recommendation.outfits[0].penaltyPoints, 0);
-  assert.deepEqual(presentation.suggestions[0].reasons, [
-    'The daily temperature range is based on current conditions.',
-  ]);
-});
-
-test('a mild day with a live forecast falls back to the deterministic status sentence', () => {
-  // A forecast hour still ahead of `now` removes the daily-extrema fallback reason, which
-  // is the last sentence a mild day produces, so the rationale line would render empty.
+test('a mild day falls back to the deterministic status sentence', () => {
+  // A mild day derives no requirement and therefore no reason code, so the rationale line
+  // would render empty without the sentence that names the absence.
   const liveForecast = {
     ...mildWeather,
     hourly: [{ ...mildWeather.hourly[0], forecastAt: '2026-08-13T07:00:00.000Z' }],
@@ -400,6 +391,7 @@ test('a mild day with a live forecast falls back to the deterministic status sen
   const now = todayWeatherSnapshot.current.observedAt;
   const { recommendation, presentation } = mildPresentation(liveForecast, now);
 
+  assert.equal(recommendation.outfits[0].penaltyPoints, 0);
   assert.deepEqual(recommendation.requirements.reasonCodes, []);
   assert.deepEqual(recommendation.outfits[0].reasonCodes, []);
   assert.deepEqual(presentation.suggestions[0].reasons, [

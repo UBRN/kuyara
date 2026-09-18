@@ -1,4 +1,4 @@
-# ADR 0032: Local weather alerts fire on two deterministic rules over today's forecast
+# ADR 0032: Local weather alerts fire on two deterministic rules over the dressing day's forecast
 
 Status: Accepted (2026-09-09)
 
@@ -30,8 +30,8 @@ Three facts from the repository shape the rules:
 - The weather contract's `hourly` array holds at most 38 entries, spanning the hour
   before the observation to 36 hours after it
   (`packages/contracts/src/weather-v1.ts`). The rules below read only the remainder of the
-  current local day, which is a rule choice rather than a contract limit: an alert is
-  about a change the person is walking into today.
+  current dressing day, which is a rule choice rather than a contract limit: an alert is
+  about a change the person is walking into before they next get dressed.
 - The deterministic requirement engine already draws the product's weather lines:
   precipitation is "likely" at probability 0.6 and "possible" at 0.3, a daily range of
   8 °C is "wide", and cold, heat and wind have their own steps
@@ -43,21 +43,27 @@ Three facts from the repository shape the rules:
 
 ## Decision
 
-### 1. Two rules, one alert each per location and local day
+### 1. Two rules, one alert each per location and dressing-day window
 
-The planner evaluates the snapshot's hourly entries that lie after `now` and belong to
-the day `now` falls in, in the snapshot's time zone. This same current-local-day rule is
-used by the clothing requirement engine and Today's rain outlook.
+The planner evaluates the snapshot's hourly entries that lie after `now` and inside the
+dressing-day window `now` falls in, in the snapshot's time zone: from now to the next local
+midnight before 18:00 local, and from now to 04:00 the next morning once the evening has
+begun, with an open between midnight and 04:00 still belonging to that evening. The window
+comes from `wardrobeDayWindow` in the weather domain, the one place the boundary exists,
+and the clothing requirement engine, the Weather meaning line and Today's rain outlook read
+the same function. An overnight crossing is therefore announceable from the evening before,
+which a calendar day made impossible.
 
 - **Precipitation onset.** Fires when the current measurement is dry (probability below
   0.6 and a condition outside drizzle, rain, heavy rain, sleet, snow, thunderstorm) and a
-  later hour of today is wet (probability at or above 0.6, or a wet condition). The
+  later hour of the window is wet (probability at or above 0.6, or a wet condition). The
   crossing is the first wet hour. The alert carries `form: 'rain' | 'snow'`; sleet and
   snow are snow, everything else is rain.
 - **Temperature swing.** Fires when a later hour's apparent temperature differs from the
   current apparent temperature by at least 8 °C. The crossing is the first such hour and
   the alert carries the direction, `drop` or `rise`, and both apparent temperatures. One
-  swing alert per day; if the day has both a drop and a rise, the earlier crossing wins.
+  swing alert per window; if the window has both a drop and a rise, the earlier crossing
+  wins.
 
 Wind is deliberately not a rule: wind changes what outerwear is, which the outfit already
 covers, and it does not announce itself at an hour the way rain does. UV, humidity and
@@ -65,12 +71,16 @@ condition-only changes are not rules either.
 
 ### 2. Identity and repeat suppression
 
-An alert's identity is `<ruleId>:<locationKey>:<localDate>`, where `localDate` is the day
-`now` falls in, in the snapshot's time zone. Each identity fires at most once. Rescheduling
-cancels every pending kuyara alert and re-plans from the fresh snapshot, so a pending alert
-may move or disappear as the forecast changes; an identity that has already fired is handed
-to the planner as delivered and is never re-planned that day. Changing the active location
-starts a new identity space, so a user who switches cities can be alerted for the new one.
+An alert's identity is `<ruleId>:<locationKey>:<windowKey>`, where `windowKey` is the bare
+local date for the day period and that date plus `:evening` for the evening window, in the
+snapshot's time zone. The asymmetry is deliberate: a day-period identity is byte-identical
+to every identity already in the ledger, so nothing re-fires on the first launch after the
+dressing day was introduced, and the evening gets a namespace no calendar day can reach.
+Each identity fires at most once. Rescheduling cancels every pending kuyara alert and
+re-plans from the fresh snapshot, so a pending alert may move or disappear as the forecast
+changes; an identity that has already fired is handed to the planner as delivered and is
+never re-planned inside that window. Changing the active location starts a new identity
+space, so a user who switches cities can be alerted for the new one.
 
 ### 3. Lead time
 
@@ -86,7 +96,7 @@ than the applicable lead. Both lead times are named constants in the domain modu
 Quiet hours are 22:00 to 07:00 by default, evaluated in the time zone the caller supplies
 (the device's, since quiet hours are about the person, not the place). A fire time inside
 quiet hours moves to the end of quiet hours when that still leaves at least 30 minutes
-before the crossing; otherwise the alert is dropped for the day. No control exists for
+before the crossing; otherwise the alert is dropped for that window. No control exists for
 quiet hours.
 
 The second group ADR 0030's Notifications surface left room for underneath is now the
@@ -131,9 +141,14 @@ age.
 
 ## Consequences
 
-- Alerts cover today only. The contract already carries tomorrow's early hours, and the
-  morning briefing reads them; widening the alert rules themselves to a second day would
-  be a separate decision about what is worth interrupting someone for.
+- Alerts cover the dressing day only. The contract carries further hours still, and the
+  morning briefing reads tomorrow's 07:00 to 11:00; widening the alert rules themselves
+  beyond the window would be a separate decision about what is worth interrupting someone
+  for. An open between midnight and 04:00 sees only the hours left in that night, and the
+  next window is planned on the first pass after 04:00.
+- A rule can fire twice in one calendar date, once in the day window and once in the
+  evening one. That is the price of giving the evening its own namespace, and it matches
+  what the alert is for: the evening is a second occasion to get dressed.
 - The thresholds are shared numbers, not shared code: the alert module restates 0.6 and
   8 °C as its own named constants and a test pins them to the requirement engine's values
   so the two cannot drift silently.
@@ -141,7 +156,8 @@ age.
   alert for that crossing. A background task may still schedule it with the shortened
   lead when quiet-hours rules permit.
 - Nothing here changes the Worker, the privacy boundary or any persisted coordinate.
-- The observer replans when the app becomes active and when the local date changes.
+- The observer replans when the app becomes active and when the local date changes. The
+  18:00 and 04:00 boundaries are picked up by the first of those, not by a timer.
 - Settings reports notifications as on only when opt-in and OS permission agree.
 
 ## Out of scope

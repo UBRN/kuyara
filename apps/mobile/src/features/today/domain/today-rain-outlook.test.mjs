@@ -61,17 +61,30 @@ test('an hourly entry that has ended is ignored', () => {
   ]), now), 0.2);
 });
 
-test('a remaining hourly entry on the next local day is ignored', () => {
+test('an hourly entry past the window end is ignored', () => {
+  // 09:30 local is a day-period open, so the window ends at midnight and 01:00 is outside.
   assert.equal(todayRainOutlookProbability(weather(0.2, [
     hour('2026-08-13T22:00:00.000Z', 0.9),
   ]), now), 0.2);
+});
+
+test('an evening open reads the rain the night ahead is bringing', () => {
+  // 19:30 local. The dressing day now reaches 04:00, so the 01:00 hour counts while the
+  // 05:00 hour, which is past the window end, still does not.
+  const evening = Date.parse('2026-08-13T16:30:00.000Z');
+  assert.equal(todayRainOutlookProbability(weather(0.2, [
+    hour('2026-08-13T22:00:00.000Z', 0.9),
+  ]), evening), 0.9);
+  assert.equal(todayRainOutlookProbability(weather(0.2, [
+    hour('2026-08-14T02:00:00.000Z', 0.9),
+  ]), evening), 0.2);
 });
 
 test('an empty hourly forecast falls back to current conditions', () => {
   assert.equal(todayRainOutlookProbability(weather(0.65, []), now), 0.65);
 });
 
-test('just after local midnight the new day is read from now, not from the snapshot', () => {
+test('just after local midnight the window is read from now, not from the snapshot', () => {
   const afterMidnight = Date.parse('2026-08-13T21:20:00.000Z');
   const yesterdayEvening = weather(0.2, [hour('2026-08-13T22:00:00.000Z', 0.9)]);
   const snapshot = {

@@ -1,6 +1,8 @@
-import { weatherLocalDateKey } from '@kuyara/contracts';
-
 import type { WeatherSnapshot } from '@/features/weather/domain/weather';
+import {
+  wardrobeDayWindow,
+  type WardrobeDayPeriod,
+} from '@/features/weather/domain/wardrobe-day';
 import {
   isWetCondition,
   isWetMeasurement,
@@ -26,30 +28,36 @@ export type WeatherOutlook =
     fromApparentCelsius: number;
     toApparentCelsius: number;
   }>
-  | Readonly<{ kind: 'steady' }>;
+  // The period is what lets the screen say "the rest of today" or "the rest of tonight"
+  // without a second reading of the clock, and it is the only thing steady has to carry.
+  | Readonly<{ kind: 'steady'; period: WardrobeDayPeriod }>;
 
 /**
- * Two hours of the local day left is the least that makes "no notable change" worth saying;
- * half an hour before midnight the sentence is true and worthless, so no line is drawn.
+ * Two hours of the dressing day left is the least that makes "no notable change" worth
+ * saying; half an hour before the window closes the sentence is true and worthless, so no
+ * line is drawn. Counting hours of the window rather than of the calendar day is why the
+ * line survives an evening that runs past midnight.
  */
 const steadyMinimumRemainingHours = 2;
 
-/** Finds today's one decision-changing transition in an already-validated snapshot. */
+/** Finds the one decision-changing transition ahead in an already-validated snapshot. */
 export function findWeatherOutlook(input: Readonly<{
   snapshot: WeatherSnapshot;
   now: string;
 }>): WeatherOutlook | null {
   const { snapshot } = input;
   const now = Date.parse(input.now);
-  const localDate = weatherLocalDateKey(input.now, snapshot.timeZone);
-  if (localDate === null || !Number.isFinite(now)) return null;
+  const dayWindow = wardrobeDayWindow(input.now, snapshot.timeZone);
+  if (dayWindow === null || !Number.isFinite(now)) return null;
 
-  // The alert planner's window exactly: the hours of the day the person is living that have
-  // not happened yet. The rail shows the next 36 hours; this line is about today's decision.
-  const remainingHours = snapshot.hourly.filter(({ forecastAt }) => (
-    Date.parse(forecastAt) > now
-    && weatherLocalDateKey(forecastAt, snapshot.timeZone) === localDate
-  ));
+  // The alert planner's window exactly: the hours of the dressing day the person is living
+  // that have not happened yet. The rail shows the next 36 hours; this line is about the
+  // decision they are making now.
+  const windowEnd = Date.parse(dayWindow.end);
+  const remainingHours = snapshot.hourly.filter(({ forecastAt }) => {
+    const forecast = Date.parse(forecastAt);
+    return forecast > now && forecast < windowEnd;
+  });
 
   const isWetNow = isWetMeasurement(snapshot.current);
   // Easing claims precipitation is falling right now and will stop, and only the condition
@@ -92,5 +100,7 @@ export function findWeatherOutlook(input: Readonly<{
     };
   }
 
-  return remainingHours.length >= steadyMinimumRemainingHours ? { kind: 'steady' } : null;
+  return remainingHours.length >= steadyMinimumRemainingHours
+    ? { kind: 'steady', period: dayWindow.period }
+    : null;
 }

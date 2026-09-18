@@ -182,13 +182,6 @@ test('a cold morning before a hot afternoon keeps the current side mandatory', (
     leg_coverage: 'full:mandatory',
     breathability: 'high:optional',
   });
-  assert.deepEqual(priorities(day(23, 15, [])), {
-    thermal: 'high:mandatory',
-    arm_coverage: 'full:mandatory',
-    leg_coverage: 'full:mandatory',
-    breathability: 'high:optional',
-  });
-
   // Light thermal still excludes every breathable top but one, so the cold side below the
   // coverage boundary is demoted the same way (17 °C at 08:00, 30 °C at 15:00).
   assert.deepEqual(priorities(day(12, 15, hours([[16, 29], [22, 12]]))), {
@@ -248,7 +241,7 @@ test('past daily cold does not over-insulate a warm evening with warm remaining 
   assert.deepEqual(result.reasonCodes, ['daily_range_wide']);
 });
 
-test('next-day hourly conditions do not change today\'s clothing requirements', () => {
+test('an open before 18:00 local ignores every hour after the local midnight', () => {
   const result = deriveClothingRequirements(snapshot({
     current: {
       temperatureCelsius: 22,
@@ -256,9 +249,10 @@ test('next-day hourly conditions do not change today\'s clothing requirements', 
     },
     minimumTemperatureCelsius: 21,
     maximumTemperatureCelsius: 23,
+    snapshotFields: { fetchedAt: '2026-08-01T09:00:00.000Z' },
     hourly: [
       {
-        forecastAt: futureAt,
+        forecastAt: '2026-08-01T10:00:00.000Z',
         ...measurements({ temperatureCelsius: 21, apparentTemperatureCelsius: 21 }),
       },
       {
@@ -272,13 +266,129 @@ test('next-day hourly conditions do not change today\'s clothing requirements', 
         }),
       },
     ],
-  }), observedAt);
+  }), '2026-08-01T09:00:00.000Z');
 
   assert.deepEqual(result.requirements, []);
   assert.deepEqual(result.reasonCodes, []);
 });
 
-test('daily extrema are a documented fallback when no future hourly entry exists', () => {
+test('an open at or after 18:00 local dresses for the night it runs into', () => {
+  // The same snapshot read at 19:00: the dressing day now ends at 04:00, so the 01:00 hour
+  // is the night the person is walking into rather than a different calendar day.
+  const overnight = {
+    forecastAt: '2026-08-02T01:00:00.000Z',
+    ...measurements({
+      temperatureCelsius: 0,
+      apparentTemperatureCelsius: -4,
+      condition: 'heavy_rain',
+      precipitationProbability: 1,
+      windSpeedMetersPerSecond: 12,
+    }),
+  };
+  const evening = snapshot({
+    current: { temperatureCelsius: 22, apparentTemperatureCelsius: 22 },
+    minimumTemperatureCelsius: 21,
+    maximumTemperatureCelsius: 23,
+    snapshotFields: { fetchedAt: '2026-08-01T19:00:00.000Z' },
+    hourly: [
+      {
+        forecastAt: '2026-08-01T20:00:00.000Z',
+        ...measurements({ temperatureCelsius: 18, apparentTemperatureCelsius: 18 }),
+      },
+      overnight,
+      // 05:00 local is past the 04:00 end and stays outside the window.
+      {
+        forecastAt: '2026-08-02T05:00:00.000Z',
+        ...measurements({ temperatureCelsius: 35, apparentTemperatureCelsius: 35 }),
+      },
+    ],
+  });
+  const result = deriveClothingRequirements(evening, '2026-08-01T19:00:00.000Z');
+
+  assert.equal(findRequirement(result, 'thermal').minimum, 'high');
+  assert.equal(findRequirement(result, 'water_protection').minimum, 'waterproof');
+  assert.equal(findRequirement(result, 'wind_protection').priority, 'mandatory');
+  // The 05:00 hour sits past the window's end, and a 35 degree hour inside it would have
+  // demanded breathability; its absence is the proof that the window closed at 04:00.
+  assert.equal(findRequirement(result, 'breathability'), undefined);
+});
+
+test('an open after midnight stays inside the evening that has not ended', () => {
+  // 01:30 local. The dressing day is still the one that began the evening before, so the
+  // 03:00 hour counts and the 09:00 hour of the new morning does not.
+  const result = deriveClothingRequirements(snapshot({
+    current: { temperatureCelsius: 16, apparentTemperatureCelsius: 16 },
+    minimumTemperatureCelsius: 15,
+    maximumTemperatureCelsius: 17,
+    snapshotFields: { fetchedAt: '2026-08-02T01:30:00.000Z' },
+    hourly: [
+      {
+        forecastAt: '2026-08-02T03:00:00.000Z',
+        ...measurements({ temperatureCelsius: 3, apparentTemperatureCelsius: 3 }),
+      },
+      {
+        forecastAt: '2026-08-02T09:00:00.000Z',
+        ...measurements({ temperatureCelsius: 30, apparentTemperatureCelsius: 30 }),
+      },
+    ],
+  }), '2026-08-02T01:30:00.000Z');
+
+  assert.equal(findRequirement(result, 'thermal').minimum, 'high');
+  assert.equal(findRequirement(result, 'breathability'), undefined);
+});
+
+test('every open between 04:00 and 17:59 composes exactly what the calendar day composed', () => {
+  // The byte-identity guarantee for morning and afternoon opens: the window selects the
+  // same hours the local-day filter selected, and the provider's daily extrema never reach
+  // the pool. A hot overnight hour and an absurd daily range are both invisible here.
+  const hourAt = (day, hour) =>
+    `2026-08-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:00:00.000Z`;
+  const reading = (day, hour, temperature) => ({
+    forecastAt: hourAt(day, hour),
+    ...measurements({
+      temperatureCelsius: temperature,
+      apparentTemperatureCelsius: temperature,
+      windSpeedMetersPerSecond: temperature < 10 ? 9 : 2,
+      precipitationProbability: temperature < 10 ? 0.7 : 0.1,
+      condition: temperature < 10 ? 'rain' : 'clear',
+    }),
+  });
+  const localDayHours = [
+    reading(1, 2, 14), reading(1, 6, 11), reading(1, 10, 19),
+    reading(1, 15, 26), reading(1, 20, 16), reading(1, 23, 9),
+  ];
+  const overnight = [reading(2, 1, 31), reading(2, 3, 33), reading(2, 8, 2)];
+
+  for (const nowHour of [4, 5, 9, 12, 17]) {
+    const now = hourAt(1, nowHour);
+    const fields = {
+      current: { temperatureCelsius: 20, apparentTemperatureCelsius: 20 },
+      snapshotFields: { fetchedAt: now },
+    };
+    const calendarDay = deriveClothingRequirements(snapshot({
+      ...fields,
+      minimumTemperatureCelsius: 11,
+      maximumTemperatureCelsius: 26,
+      hourly: localDayHours,
+    }), now);
+    const dressingDay = deriveClothingRequirements(snapshot({
+      ...fields,
+      // A far wider provider range and three overnight hours: neither may move the result.
+      // Both ranges are wide, so `daily_range_wide` fires either way and the only thing the
+      // numbers could still change is the temperature pool, which they must not reach.
+      minimumTemperatureCelsius: -20,
+      maximumTemperatureCelsius: 45,
+      hourly: [...localDayHours, ...overnight],
+    }), now);
+
+    assert.deepEqual(dressingDay, calendarDay, `${nowHour}:00 local`);
+  }
+});
+
+test('a window with no hour of its own follows the current measurement alone', () => {
+  // 23:00 local with every hour already past. The provider's daily minimum and maximum
+  // describe the calendar day the snapshot was observed in, so reading them here dressed
+  // the wearer for this morning's low; the window contributes nothing instead.
   const result = deriveClothingRequirements(snapshot({
     current: {
       temperatureCelsius: 22,
@@ -286,6 +396,7 @@ test('daily extrema are a documented fallback when no future hourly entry exists
     },
     minimumTemperatureCelsius: 4,
     maximumTemperatureCelsius: 23,
+    snapshotFields: { fetchedAt: '2026-08-01T23:00:00.000Z' },
     hourly: [
       {
         forecastAt: '2026-08-01T17:00:00.000Z',
@@ -295,25 +406,21 @@ test('daily extrema are a documented fallback when no future hourly entry exists
         }),
       },
       {
-        forecastAt: observedAt,
+        forecastAt: '2026-08-01T22:00:00.000Z',
         ...measurements({
           temperatureCelsius: 22,
           apparentTemperatureCelsius: 22,
         }),
       },
     ],
-  }), observedAt);
+  }), '2026-08-01T23:00:00.000Z');
 
-  const thermal = findRequirement(result, 'thermal');
-  assert.equal(thermal.minimum, 'high');
-  assert.equal(thermal.priority, 'mandatory');
-  assert.deepEqual(thermal.reasonCodes, [
-    'temperature_low',
-    'daily_range_wide',
-    'daily_extrema_fallback',
-  ]);
-  assert.equal(findRequirement(result, 'arm_coverage').priority, 'mandatory');
-  assert.equal(findRequirement(result, 'leg_coverage').priority, 'mandatory');
+  assert.equal(findRequirement(result, 'thermal'), undefined);
+  assert.equal(findRequirement(result, 'arm_coverage'), undefined);
+  assert.equal(findRequirement(result, 'leg_coverage'), undefined);
+  // The calendar day's spread is still wide, and still says so: `daily_range_wide` is a
+  // statement about the date, not about the window.
+  assert.deepEqual(result.reasonCodes, ['daily_range_wide']);
 });
 
 test('daily range reason starts at exactly eight degrees', () => {

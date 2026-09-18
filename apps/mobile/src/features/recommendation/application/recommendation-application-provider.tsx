@@ -48,6 +48,15 @@ import { migrateDatabase } from '@/infrastructure/sqlite/migrations';
 
 const now = () => new Date().toISOString();
 
+/**
+ * The allowance is five regenerations per day, and the dressing day is what a day means
+ * here: the evening and the hours after midnight that belong to it keep counting against
+ * the date the evening began on, so an 18:00 boundary does not hand out a second five.
+ */
+function budgetDayKey(dressingDayKey: string): string {
+  return dressingDayKey.replace(':evening', '');
+}
+
 function deviceLocalDay() {
   const date = new Date();
   return {
@@ -135,7 +144,7 @@ export function RecommendationApplicationProvider({
       telemetry,
       getOnDeviceAvailability: () => latestOnDeviceAvailability.value,
       onAiAttempt: (trigger, dayKey) => {
-        if (trigger === 'regenerate') void budget.record(dayKey);
+        if (trigger === 'regenerate') void budget.record(budgetDayKey(dayKey));
       },
     }),
     [analytics, budget, client, latestOnDeviceAvailability, localProfileId, telemetry],
@@ -291,7 +300,7 @@ export function RecommendationApplicationProvider({
       if (!generationInput) return null;
       // The allowance is read here and nowhere else. Past it the tap still produces a new
       // valid three from the already-composed pool, so the action never turns itself off.
-      const used = await budget.usedToday(generationInput.localDayKey);
+      const used = await budget.usedToday(budgetDayKey(generationInput.localDayKey));
       return controller.refresh('regenerate', generationInput, {
         allowAi: regenerationMode(used) === 'ai',
       });
