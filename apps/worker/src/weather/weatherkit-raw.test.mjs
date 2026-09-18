@@ -3,11 +3,16 @@ import test from 'node:test';
 
 import {
   isValidWeatherHourlyForecastWindow,
+  weatherDailyForecastMaximumEntries,
   weatherLocalDateKey,
   weatherV1SuccessSchema,
+  weatherV2SuccessSchema,
 } from '@kuyara/contracts';
 
-import { mapProviderWeatherToApi } from './provider-weather-mapper.ts';
+import {
+  mapProviderWeatherToApi,
+  mapProviderWeatherToApiV2,
+} from './provider-weather-mapper.ts';
 import { WeatherProviderError } from './weather-provider-error.ts';
 import {
   mapWeatherKitCondition,
@@ -32,6 +37,19 @@ function hourlyEntry(forecastStart, overrides = {}) {
     temperatureApparent: 25,
     uvIndex: 5,
     windSpeed: 10.8,
+    ...overrides,
+  };
+}
+
+function dailyEntry(forecastStart, overrides = {}) {
+  return {
+    forecastStart,
+    conditionCode: 'rain',
+    precipitationChance: 0.6,
+    temperatureMax: 29,
+    temperatureMin: 18,
+    precipitationAmount: 4.2,
+    extraAppleField: 'ignored',
     ...overrides,
   };
 }
@@ -64,12 +82,15 @@ function rawFixture() {
       extraAppleField: 'ignored',
     },
     forecastDaily: {
-      days: [{
-        forecastStart: '2026-09-03T00:00:00+03:00',
-        temperatureMax: 29,
-        temperatureMin: 18,
-        extraAppleField: 'ignored',
-      }],
+      days: [
+        dailyEntry('2026-09-03T00:00:00+03:00'),
+        dailyEntry('2026-09-04T00:00:00+03:00', {
+          conditionCode: 'clear',
+          precipitationChance: 0,
+          temperatureMax: 31,
+          temperatureMin: 19,
+        }),
+      ],
       extraAppleField: 'ignored',
     },
     extraAppleField: 'ignored',
@@ -141,6 +162,8 @@ test('clamps daily temperature bounds around the current reading', () => {
 
   assert.equal(snapshot.minimumTemperatureCelsius, 24.5);
   assert.equal(snapshot.maximumTemperatureCelsius, 24.5);
+  assert.equal(snapshot.daily[0].minimumTemperatureCelsius, snapshot.minimumTemperatureCelsius);
+  assert.equal(snapshot.daily[0].maximumTemperatureCelsius, snapshot.maximumTemperatureCelsius);
 });
 
 test('maps every documented WeatherKit condition code', () => {
@@ -197,6 +220,116 @@ test('rejects an unmapped WeatherKit condition code', () => {
   );
 });
 
+test('maps the daily block from the observed local day', () => {
+  const snapshot = mapWeatherKitResponse(
+    weatherKitResponseSchema.parse(rawFixture()),
+    location,
+    fetchedAt,
+  );
+
+  assert.deepEqual(snapshot.daily, [
+    {
+      dateKey: '2026-09-03',
+      condition: 'rain',
+      minimumTemperatureCelsius: 18,
+      maximumTemperatureCelsius: 29,
+      precipitationProbability: 0.6,
+      precipitationMillimetres: 4.2,
+    },
+    {
+      dateKey: '2026-09-04',
+      condition: 'clear',
+      minimumTemperatureCelsius: 19,
+      maximumTemperatureCelsius: 31,
+      precipitationProbability: 0,
+      precipitationMillimetres: 4.2,
+    },
+  ]);
+});
+
+test('carries null millimetres when WeatherKit omits the amount, and never invents one', () => {
+  const fixture = rawFixture();
+  delete fixture.forecastDaily.days[0].precipitationAmount;
+
+  const snapshot = mapWeatherKitResponse(
+    weatherKitResponseSchema.parse(fixture),
+    location,
+    fetchedAt,
+  );
+
+  assert.equal(snapshot.daily[0].precipitationMillimetres, null);
+});
+
+test('orders the days and stops at the contract ceiling', () => {
+  const fixture = rawFixture();
+  fixture.forecastDaily.days = Array.from({ length: 10 }, (_, index) => dailyEntry(
+    `2026-09-${String(3 + index).padStart(2, '0')}T00:00:00+03:00`,
+  )).reverse();
+
+  const snapshot = mapWeatherKitResponse(
+    weatherKitResponseSchema.parse(fixture),
+    location,
+    fetchedAt,
+  );
+
+  assert.equal(snapshot.daily.length, weatherDailyForecastMaximumEntries);
+  assert.deepEqual(snapshot.daily.map(({ dateKey }) => dateKey), [
+    '2026-09-03', '2026-09-04', '2026-09-05', '2026-09-06',
+    '2026-09-07', '2026-09-08', '2026-09-09',
+  ]);
+});
+
+test('drops the days before the observed local day', () => {
+  const fixture = rawFixture();
+  fixture.forecastDaily.days.unshift(dailyEntry('2026-09-02T00:00:00+03:00'));
+
+  const snapshot = mapWeatherKitResponse(
+    weatherKitResponseSchema.parse(fixture),
+    location,
+    fetchedAt,
+  );
+
+  assert.equal(snapshot.daily[0].dateKey, '2026-09-03');
+});
+
+test('a day beyond the seven the block uses cannot fail the response', () => {
+  // Apple answers with ten or eleven days. WeatherKit is the head of the chain and its loss is
+  // silent, so a malformed eleventh day must not take the whole response, /v1 included, with it.
+  const fixture = rawFixture();
+  fixture.forecastDaily.days = Array.from({ length: 11 }, (_, index) => dailyEntry(
+    new Date(Date.parse('2026-09-03T00:00:00+03:00') + index * 24 * 60 * 60 * 1000).toISOString(),
+  ));
+  delete fixture.forecastDaily.days[10].precipitationChance;
+  delete fixture.forecastDaily.days[10].conditionCode;
+
+  const snapshot = mapWeatherKitResponse(
+    weatherKitResponseSchema.parse(fixture),
+    location,
+    fetchedAt,
+  );
+
+  assert.equal(snapshot.daily.length, weatherDailyForecastMaximumEntries);
+  assert.equal(snapshot.daily[0].dateKey, '2026-09-03');
+});
+
+test('rejects a used day whose condition or chance WeatherKit withheld', () => {
+  const missingChance = rawFixture();
+  delete missingChance.forecastDaily.days[1].precipitationChance;
+  const missingCondition = rawFixture();
+  delete missingCondition.forecastDaily.days[1].conditionCode;
+
+  for (const fixture of [missingChance, missingCondition]) {
+    assert.throws(
+      () => mapWeatherKitResponse(
+        weatherKitResponseSchema.parse(fixture),
+        location,
+        fetchedAt,
+      ),
+      (error) => error instanceof WeatherProviderError && error.kind === 'invalid_response',
+    );
+  }
+});
+
 test('rejects empty hourly and daily forecasts', () => {
   const emptyHourly = rawFixture();
   emptyHourly.forecastHourly.hours = [];
@@ -242,6 +375,10 @@ test('maps a realistic response through the shared weather contract', () => {
     fetchedAt,
   );
   const data = mapProviderWeatherToApi(snapshot).data;
+  const dataV2 = mapProviderWeatherToApiV2(snapshot).data;
 
   assert.equal(weatherV1SuccessSchema.safeParse({ data }).success, true);
+  assert.equal('daily' in data, false);
+  assert.equal(weatherV2SuccessSchema.safeParse({ data: dataV2 }).success, true);
+  assert.equal(dataV2.daily.length, 2);
 });

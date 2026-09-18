@@ -3,8 +3,10 @@ import test from 'node:test';
 
 import {
   isValidWeatherHourlyForecastWindow,
+  weatherDailyForecastMaximumEntries,
   weatherLocalDateKey,
   weatherV1SuccessSchema,
+  weatherV2SuccessSchema,
 } from '@kuyara/contracts';
 
 import {
@@ -12,7 +14,10 @@ import {
   mapOpenMeteoWeatherCode,
   openMeteoResponseSchema,
 } from './open-meteo-raw.ts';
-import { mapProviderWeatherToApi } from './provider-weather-mapper.ts';
+import {
+  mapProviderWeatherToApi,
+  mapProviderWeatherToApiV2,
+} from './provider-weather-mapper.ts';
 import { WeatherProviderError } from './weather-provider-error.ts';
 
 const location = {
@@ -50,6 +55,9 @@ function rawFixture() {
       time: ['2026-08-29', '2026-08-30'],
       temperature_2m_min: [18, 19],
       temperature_2m_max: [29, 30],
+      weather_code: [61, 0],
+      precipitation_probability_max: [60, 0],
+      precipitation_sum: [4.2, null],
     },
   };
 }
@@ -74,6 +82,7 @@ test('clamps a daily maximum below the current temperature', () => {
   );
 
   assert.equal(snapshot.maximumTemperatureCelsius, 24.5);
+  assert.equal(snapshot.daily[0].maximumTemperatureCelsius, snapshot.maximumTemperatureCelsius);
 });
 
 test('clamps a daily minimum above the current temperature', () => {
@@ -87,6 +96,7 @@ test('clamps a daily minimum above the current temperature', () => {
   );
 
   assert.equal(snapshot.minimumTemperatureCelsius, 24.5);
+  assert.equal(snapshot.daily[0].minimumTemperatureCelsius, snapshot.minimumTemperatureCelsius);
 });
 
 test('keeps the ordered 36-hour window across local midnight', () => {
@@ -133,6 +143,9 @@ test('takes the low and high from the local day, not the UTC day', () => {
     time: ['2026-08-28', '2026-08-29', '2026-08-30'],
     temperature_2m_min: [11, 18, 19],
     temperature_2m_max: [21, 29, 30],
+    weather_code: [3, 61, 0],
+    precipitation_probability_max: [10, 60, 0],
+    precipitation_sum: [0, 4.2, null],
   };
 
   const snapshot = mapOpenMeteoResponse(
@@ -145,6 +158,76 @@ test('takes the low and high from the local day, not the UTC day', () => {
   assert.equal(weatherLocalDateKey(snapshot.current.observedAt, location.timeZone), '2026-08-29');
   assert.equal(snapshot.minimumTemperatureCelsius, 18);
   assert.equal(snapshot.maximumTemperatureCelsius, 29);
+});
+
+test('maps the daily block from the local day, with null for a missing amount', () => {
+  const snapshot = mapOpenMeteoResponse(
+    openMeteoResponseSchema.parse(rawFixture()),
+    location,
+    fetchedAt,
+  );
+
+  assert.deepEqual(snapshot.daily, [
+    {
+      dateKey: '2026-08-29',
+      condition: 'rain',
+      minimumTemperatureCelsius: 18,
+      maximumTemperatureCelsius: 29,
+      precipitationProbability: 0.6,
+      precipitationMillimetres: 4.2,
+    },
+    {
+      dateKey: '2026-08-30',
+      condition: 'clear',
+      minimumTemperatureCelsius: 19,
+      maximumTemperatureCelsius: 30,
+      precipitationProbability: 0,
+      precipitationMillimetres: null,
+    },
+  ]);
+});
+
+test('drops the earlier days and stops at the contract ceiling', () => {
+  const fixture = rawFixture();
+  const days = Array.from({ length: 9 }, (_, index) => new Date(
+    Date.parse('2026-08-28T00:00:00.000Z') + index * 24 * 60 * 60 * 1000,
+  ).toISOString().slice(0, 10));
+  fixture.daily = {
+    time: days,
+    temperature_2m_min: days.map(() => 18),
+    temperature_2m_max: days.map(() => 29),
+    weather_code: days.map(() => 61),
+    precipitation_probability_max: days.map(() => 60),
+    precipitation_sum: days.map(() => 4.2),
+  };
+
+  const snapshot = mapOpenMeteoResponse(
+    openMeteoResponseSchema.parse(fixture),
+    location,
+    fetchedAt,
+  );
+
+  assert.equal(snapshot.daily.length, weatherDailyForecastMaximumEntries);
+  assert.equal(snapshot.daily[0].dateKey, '2026-08-29');
+  assert.equal(snapshot.daily.at(-1).dateKey, '2026-09-04');
+});
+
+test('stops at the first day Open-Meteo cannot describe instead of inventing one', () => {
+  const missingCode = rawFixture();
+  missingCode.daily.weather_code[1] = null;
+  const missingChance = rawFixture();
+  missingChance.daily.precipitation_probability_max[1] = null;
+
+  for (const fixture of [missingCode, missingChance]) {
+    const snapshot = mapOpenMeteoResponse(
+      openMeteoResponseSchema.parse(fixture),
+      location,
+      fetchedAt,
+    );
+
+    assert.equal(snapshot.daily.length, 1);
+    assert.equal(snapshot.daily[0].dateKey, '2026-08-29');
+  }
 });
 
 test('rejects a daily block without the local day', () => {
@@ -212,6 +295,10 @@ test('maps a realistic response through the shared weather contract', () => {
     fetchedAt,
   );
   const data = mapProviderWeatherToApi(snapshot).data;
+  const dataV2 = mapProviderWeatherToApiV2(snapshot).data;
 
   assert.equal(weatherV1SuccessSchema.safeParse({ data }).success, true);
+  assert.equal('daily' in data, false);
+  assert.equal(weatherV2SuccessSchema.safeParse({ data: dataV2 }).success, true);
+  assert.equal(dataV2.daily.length, 2);
 });

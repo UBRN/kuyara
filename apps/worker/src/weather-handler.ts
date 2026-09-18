@@ -2,10 +2,15 @@ import {
   weatherV1ErrorSchema,
   weatherV1Path,
   weatherV1RequestSchema,
+  weatherV2Path,
   type WeatherV1ErrorCode,
 } from '@kuyara/contracts';
 
-import { InvalidProviderWeatherError, mapProviderWeatherToApi } from './weather/provider-weather-mapper.ts';
+import {
+  InvalidProviderWeatherError,
+  mapProviderWeatherToApi,
+  mapProviderWeatherToApiV2,
+} from './weather/provider-weather-mapper.ts';
 import type { WeatherProvider } from './weather/weather-provider.ts';
 import { WeatherProviderError } from './weather/weather-provider-error.ts';
 
@@ -22,6 +27,18 @@ const jsonHeaders = {
   'Cache-Control': 'no-store',
   'Content-Type': 'application/json; charset=utf-8',
 } as const;
+
+/**
+ * Both weather routes, one handler: same strict request, same rate-limit key and the same
+ * provider chain and daily counters, so /v2 can never spend quota /v1 does not. The only
+ * difference is which response schema the provider snapshot is mapped through, and the v1
+ * schema has no `daily` key, so its body stays exactly what the installed binaries parse.
+ */
+function responseMapper(pathname: string) {
+  if (pathname === weatherV1Path) return mapProviderWeatherToApi;
+  if (pathname === weatherV2Path) return mapProviderWeatherToApiV2;
+  return undefined;
+}
 
 function errorResponse(
   status: number,
@@ -40,7 +57,8 @@ export function createWeatherHandler(
 ): (request: Request) => Promise<Response> {
   return async (request: Request): Promise<Response> => {
     const url = new URL(request.url);
-    if (url.pathname !== weatherV1Path) return errorResponse(404, 'not_found');
+    const mapResponse = responseMapper(url.pathname);
+    if (mapResponse === undefined) return errorResponse(404, 'not_found');
     if (request.method !== 'POST') {
       return errorResponse(405, 'method_not_allowed', { Allow: 'POST' });
     }
@@ -48,7 +66,7 @@ export function createWeatherHandler(
     const { success } = await dependencies.rateLimiter?.limit({ key: `weather:${ip}` })
       ?? { success: true };
     if (!success) {
-      console.warn({ event: 'rate_limited', route: weatherV1Path, limiter: 'weather_burst' });
+      console.warn({ event: 'rate_limited', route: url.pathname, limiter: 'weather_burst' });
       return errorResponse(429, 'rate_limited', { 'Retry-After': '60' });
     }
     if (request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') {
@@ -76,7 +94,7 @@ export function createWeatherHandler(
     }
 
     try {
-      const response = mapProviderWeatherToApi(providerSnapshot);
+      const response = mapResponse(providerSnapshot);
       return Response.json(response, { status: 200, headers: jsonHeaders });
     } catch (error) {
       if (error instanceof InvalidProviderWeatherError) {

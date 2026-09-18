@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { weatherV1ErrorCodes, weatherV1ErrorSchema, weatherV1SuccessSchema } from '@kuyara/contracts';
+import {
+  weatherV1ErrorCodes,
+  weatherV1ErrorSchema,
+  weatherV1SuccessSchema,
+  weatherV2SuccessSchema,
+} from '@kuyara/contracts';
 
 import { createWeatherHandler } from './weather-handler.ts';
 import { DeterministicMockWeatherProvider } from './weather/mock-weather-provider.ts';
@@ -60,6 +65,57 @@ test('returns deterministic, contract-valid sample weather without echoing locat
   assert.equal(JSON.stringify(first).includes('longitudeE2'), false);
 });
 
+test('serves the daily block on /v2 and the byte-identical old body on /v1', async () => {
+  const handler = mockHandler();
+  const v1 = await (await handler(request('/v1/weather'))).json();
+  const v2Response = await handler(request('/v2/weather'));
+  const v2 = await v2Response.json();
+
+  assert.equal(v2Response.status, 200);
+  assert.equal(v2Response.headers.get('cache-control'), 'no-store');
+  assert.equal(weatherV2SuccessSchema.safeParse(v2).success, true);
+  // The installed strict binaries reject an unknown key, so the daily block exists on /v2 only
+  // and the rest of the payload is the same object /v1 has always sent.
+  assert.equal('daily' in v1.data, false);
+  const { daily, ...withoutDaily } = v2.data;
+  assert.deepEqual(withoutDaily, v1.data);
+  assert.equal(daily.length, 7);
+  assert.equal(daily[0].dateKey, '2026-08-01');
+  assert.equal(daily[0].minimumTemperatureCelsius, v2.data.minimumTemperatureCelsius);
+  assert.equal(daily[0].maximumTemperatureCelsius, v2.data.maximumTemperatureCelsius);
+  // The sample rows are a test double the Simulator and the E2E flows read, so a wet sample day
+  // never states a dry chance and the amount is present on some days and null on others.
+  const wet = ['drizzle', 'rain', 'heavy_rain', 'sleet', 'snow', 'thunderstorm'];
+  for (const day of daily) {
+    if (wet.includes(day.condition)) assert.ok(day.precipitationProbability > 0, day.condition);
+  }
+  assert.ok(daily.some(({ precipitationMillimetres }) => precipitationMillimetres === null));
+  assert.ok(daily.some(({ precipitationMillimetres }) => precipitationMillimetres !== null));
+  assert.equal(weatherV1SuccessSchema.safeParse({ data: withoutDaily }).success, true);
+});
+
+test('both weather routes share one rate-limit key and one provider call', async () => {
+  const keys = [];
+  let providerCalls = 0;
+  const provider = new DeterministicMockWeatherProvider({ now: () => fixedNow });
+  const handler = createWeatherHandler({
+    provider: { fetchWeather: async (location) => {
+      providerCalls += 1;
+      return provider.fetchWeather(location);
+    } },
+    rateLimiter: { limit: async ({ key }) => {
+      keys.push(key);
+      return { success: true };
+    } },
+  });
+
+  await handler(request('/v1/weather'));
+  await handler(request('/v2/weather'));
+
+  assert.deepEqual(keys, ['weather:unknown', 'weather:unknown']);
+  assert.equal(providerCalls, 2);
+});
+
 test('maps malformed JSON, schema failures, and missing JSON content type to invalid_request', async () => {
   const handler = mockHandler();
   assert.equal((await handler(request('/v1/weather', {
@@ -83,6 +139,7 @@ test('maps wrong methods and routes to stable errors', async () => {
   assert.equal(methodResponse.headers.get('allow'), 'POST');
   await assertError(methodResponse, 405, 'method_not_allowed');
   await assertError(await handler(request('/v1/unknown')), 404, 'not_found');
+  await assertError(await handler(request('/v3/weather')), 404, 'not_found');
 });
 
 test('maps provider failures to weather_unavailable without leaking failure detail', async () => {

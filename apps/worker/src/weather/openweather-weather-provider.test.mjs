@@ -48,7 +48,13 @@ function rawFixture() {
         weather: [{ id: 801 }],
       },
     ],
-    daily: [{ temp: { min: 18, max: 29 } }],
+    daily: [{
+      dt: unixSeconds('2026-08-29T09:00:00.000Z'),
+      temp: { min: 18, max: 29 },
+      pop: 0.6,
+      rain: 4.2,
+      weather: [{ id: 500 }],
+    }],
   };
 }
 
@@ -107,6 +113,8 @@ test('ignores the provider time zone and clamps both daily temperature bounds', 
   assert.equal(snapshot.timeZone, 'Europe/Istanbul');
   assert.equal(snapshot.minimumTemperatureCelsius, 24.5);
   assert.equal(snapshot.maximumTemperatureCelsius, 24.5);
+  assert.equal(snapshot.daily[0].minimumTemperatureCelsius, snapshot.minimumTemperatureCelsius);
+  assert.equal(snapshot.daily[0].maximumTemperatureCelsius, snapshot.maximumTemperatureCelsius);
 });
 
 for (const [status, kind] of [

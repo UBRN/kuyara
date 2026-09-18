@@ -1,4 +1,4 @@
-import { mapProviderWeatherToApi } from './provider-weather-mapper.ts';
+import { mapProviderWeatherToApiV2 } from './provider-weather-mapper.ts';
 import type {
   ProviderLocation,
   ProviderWeatherSnapshot,
@@ -70,7 +70,9 @@ export class WeatherKitWeatherProvider implements WeatherProvider {
 
     try {
       const snapshot = mapWeatherKitResponse(parsed.data, location, new Date().toISOString());
-      mapProviderWeatherToApi(snapshot);
+      // The self-check runs the richer v2 shape: a daily block this adapter cannot fill
+      // fails the attempt here, so the chain moves on instead of serving a hollow /v2.
+      mapProviderWeatherToApiV2(snapshot);
       return snapshot;
     } catch {
       throw new WeatherProviderError('invalid_response');
