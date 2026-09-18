@@ -1,8 +1,8 @@
 import {
   weatherV1ErrorSchema,
-  weatherV1Path,
   weatherV1RequestSchema,
-  weatherV1SuccessSchema,
+  weatherV2Path,
+  weatherV2SuccessSchema,
   type WeatherV1Error,
 } from '@kuyara/contracts';
 
@@ -69,7 +69,7 @@ export class WorkerWeatherProvider implements WeatherProvider {
     try {
       let response: Response;
       try {
-        response = await this.fetch(`${this.baseUrl}${weatherV1Path}`, {
+        response = await this.fetch(`${this.baseUrl}${weatherV2Path}`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify(request),
@@ -89,7 +89,9 @@ export class WorkerWeatherProvider implements WeatherProvider {
         throw new WorkerWeatherProviderError(kind, error.data.error.code);
       }
 
-      const success = weatherV1SuccessSchema.safeParse(body);
+      // The v2 success schema is v1's plus `daily`, and it strips unknown keys the same
+      // way, so a Worker that adds a response field later still parses here.
+      const success = weatherV2SuccessSchema.safeParse(body);
       if (!success.success) throw new WorkerWeatherProviderError('invalid-response');
 
       try {

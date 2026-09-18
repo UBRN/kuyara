@@ -63,7 +63,10 @@ A screen shows **at most three emphasis levels**, and **exactly one** hero.
   convention that [only one high-emphasis button belongs in a given
   context](https://polaris.shopify.com/components/page-actions). Content encodings, the
   `condition.*` inks and the garment render fills, are not emphasis: they are bounded by
-  their own per-surface rules and never enter this count. The viewport under a presented
+  their own per-surface rules and never enter this count. Quantitative data marks are the
+  same: the hourly card's temperature series and the daily outlook rows' temperature rails
+  draw one quantity in one hue, so they are one encoding rather than accent fills, however
+  many rows the viewport holds. The viewport under a presented
   sheet is the sheet; the scrim removes the page behind it from the accent count.
 - The hero must be what the user opened the screen to get. A heading is never the hero.
   **The hero is not always a type role.** [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md)
@@ -583,7 +586,9 @@ without reading the rest of this document.
 - Count the emphasis levels on the screen. At most 3, exactly 1 hero (Law 1).
 - Count `eyebrow` instances. At most 3, and each one sits on a numeric stat caption
   (Law 1).
-- Count elements filled with `brandAccent` in the current viewport. At most 1 (Law 1).
+- Count elements filled with `brandAccent` in the current viewport. At most 1 (Law 1);
+  the condition inks, the garment fills and the temperature marks are content encodings
+  and do not enter the count.
 - Grep the screen file for `spacing.xl`. At most one occurrence, and only between the
   hero block and the body (Law 2).
 - Grep the screen file for `spacing['2xl']`. Only at the trailing edge of scrollable

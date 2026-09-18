@@ -44,6 +44,7 @@ type SnapshotRow = Readonly<{
   wind_speed_mps: number;
   humidity: number;
   uv_index: number;
+  daily_json: string | null;
 }>;
 
 type HourlyRow = Readonly<{
@@ -108,7 +109,7 @@ async function readSnapshot(
     `SELECT id, local_profile_id, location_key, time_zone, fetched_at, observed_at,
        origin_kind, source_id, temperature_c, apparent_temperature_c,
        minimum_temperature_c, maximum_temperature_c, condition_code,
-       precipitation_probability, wind_speed_mps, humidity, uv_index
+       precipitation_probability, wind_speed_mps, humidity, uv_index, daily_json
      FROM weather_snapshots WHERE local_profile_id = ? AND location_key = ?`,
     [localProfileId, locationKey],
   );
@@ -140,6 +141,7 @@ async function readSnapshot(
     humidity: row.humidity,
     uvIndex: row.uv_index,
     hourly: hourly.map(mapHourly),
+    dailyJson: row.daily_json,
   };
 }
 
@@ -208,8 +210,8 @@ export class SqliteWeatherLocalDataSource implements WeatherLocalDataSource {
           id, local_profile_id, location_key, time_zone, fetched_at, observed_at,
           origin_kind, source_id, temperature_c, apparent_temperature_c,
           minimum_temperature_c, maximum_temperature_c, condition_code,
-          precipitation_probability, wind_speed_mps, humidity, uv_index
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          precipitation_probability, wind_speed_mps, humidity, uv_index, daily_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           record.id, record.localProfileId, record.locationKey, record.timeZone,
           record.fetchedAt, record.observedAt, record.originKind, record.sourceId,
@@ -217,6 +219,7 @@ export class SqliteWeatherLocalDataSource implements WeatherLocalDataSource {
           record.minimumTemperatureCelsius, record.maximumTemperatureCelsius,
           record.condition, record.precipitationProbability,
           record.windSpeedMetersPerSecond, record.humidity, record.uvIndex,
+          record.dailyJson,
         ],
       );
       for (const hourly of record.hourly) {

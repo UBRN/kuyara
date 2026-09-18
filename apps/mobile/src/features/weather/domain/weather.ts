@@ -66,6 +66,22 @@ export type WeatherMeasurements = Readonly<{
 export type CurrentWeather = WeatherMeasurements & Readonly<{ observedAt: string }>;
 export type HourlyWeather = WeatherMeasurements & Readonly<{ forecastAt: string }>;
 
+/**
+ * One day of the outlook, keyed by its own local calendar date rather than by an instant:
+ * a day is what the place's calendar calls a day, and rendering it means formatting that
+ * date, never an hour inside it. `precipitationMillimetres` is null when the provider
+ * reported no amount, which is not the same as reporting none: the row then shows the
+ * chance alone rather than a fabricated zero.
+ */
+export type DailyWeather = Readonly<{
+  dateKey: string;
+  condition: WeatherConditionCode;
+  minimumTemperatureCelsius: number;
+  maximumTemperatureCelsius: number;
+  precipitationProbability: number;
+  precipitationMillimetres: number | null;
+}>;
+
 export type WeatherSnapshot = Readonly<{
   id: string;
   localProfileId: string;
@@ -77,6 +93,12 @@ export type WeatherSnapshot = Readonly<{
   minimumTemperatureCelsius: number;
   maximumTemperatureCelsius: number;
   hourly: readonly HourlyWeather[];
+  /**
+   * Absent, not empty, when this snapshot carries no outlook: a row persisted before the
+   * daily forecast existed, or a source that supplied none. The section simply does not
+   * appear, and the rest of the snapshot is untouched.
+   */
+  daily?: readonly DailyWeather[];
 }>;
 
 export type WeatherFreshness = 'fresh' | 'stale';

@@ -67,7 +67,7 @@ async function insertProfile(database, id = 'stable-profile-id') {
   );
 }
 
-test('an empty database applies versions 1 through 15 in order with the final schema', async (t) => {
+test('an empty database applies versions 1 through 16 in order with the final schema', async (t) => {
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
 
@@ -90,7 +90,7 @@ test('an empty database applies versions 1 through 15 in order with the final sc
     'PRAGMA table_info(weather_alert_deliveries)',
   );
 
-  assert.equal(latestDatabaseVersion, 15);
+  assert.equal(latestDatabaseVersion, 16);
   assert.equal(version.user_version, latestDatabaseVersion);
   assert.equal(profileTable.name, 'local_profiles');
   assert.match(profileTable.sql, /CHECK \(singleton_key = 1\)/);
@@ -197,7 +197,7 @@ test('an empty database applies versions 1 through 15 in order with the final sc
   );
 });
 
-test('an existing version 1 database upgrades through version 15 without changing profile data', async (t) => {
+test('an existing version 1 database upgrades through version 16 without changing profile data', async (t) => {
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
   await createReleasedVersionOneDatabase(database);
@@ -796,7 +796,13 @@ test('version 8 rolls back a failed rebuild and preserves weather and recommenda
   const after = await Promise.all(tables.slice(1).map((table) => database.getAllAsync(`SELECT * FROM ${table}`)));
   assert.deepEqual(after[0].map(({ display_name, ...row }) => row), before[1].map((row) => ({ ...row })));
   assert.equal(after[0][0].display_name, null);
-  assert.deepEqual(after.slice(1), before.slice(2));
+  assert.deepEqual(
+    after.slice(1).map((rows) => rows.map((row) => ({ ...row }))),
+    [
+      before[2].map((row) => ({ ...row, daily_json: null })),
+      ...before.slice(3).map((rows) => rows.map((row) => ({ ...row }))),
+    ],
+  );
   assert.deepEqual(await database.getAllAsync('PRAGMA foreign_key_check'), []);
 });
 
@@ -880,7 +886,10 @@ for (const [id, name] of [['sample.istanbul', 'Istanbul'], ['sample.ankara', 'An
     await migrateDatabase(database);
     assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
     assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM active_locations') }, { ...beforeLocation, display_name: name });
-    assert.deepEqual(await database.getAllAsync('SELECT * FROM weather_snapshots'), beforeWeather);
+    assert.deepEqual(
+      (await database.getAllAsync('SELECT * FROM weather_snapshots')).map((row) => ({ ...row })),
+      beforeWeather.map((row) => ({ ...row, daily_json: null })),
+    );
     assert.deepEqual(
       (await database.getAllAsync('SELECT * FROM local_profiles'))
         .map((row) => ({ ...row })),
@@ -990,8 +999,11 @@ test('version 10 resets onboarding once and preserves the profile plus cached da
     /CHECK/,
   );
   assert.deepEqual(
-    await Promise.all(cachedTables.map((table) => database.getAllAsync(`SELECT * FROM ${table}`))),
-    cachedBefore,
+    (await Promise.all(cachedTables.map((table) => database.getAllAsync(`SELECT * FROM ${table}`))))
+      .map((rows) => rows.map((row) => ({ ...row }))),
+    cachedBefore.map((rows, index) => rows.map((row) => (
+      cachedTables[index] === 'weather_snapshots' ? { ...row, daily_json: null } : { ...row }
+    ))),
   );
   await migrateDatabase(database);
   assert.equal((await database.getFirstAsync('SELECT onboarding_completed FROM local_profiles')).onboarding_completed, 0);
@@ -1213,8 +1225,8 @@ test('version 15 adds the briefing opt-in without disturbing a version 14 instal
 
   await migrateDatabase(database);
 
-  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 15);
-  assert.equal(latestDatabaseVersion, 15);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
+  assert.equal(latestDatabaseVersion, 16);
   assert.deepEqual(
     (await database.getAllAsync('SELECT * FROM local_profiles')).map((row) => ({ ...row })),
     profileBefore.map((row) => ({ ...row, morning_briefing_opt_in: 0 })),
@@ -1396,5 +1408,80 @@ test('a failed migration is not cached, so the next caller retries', async (t) =
   assert.equal(
     (await database.getFirstAsync('PRAGMA user_version')).user_version,
     latestDatabaseVersion,
+  );
+});
+
+// Version 16 adds the daily outlook's own column to `weather_snapshots`. It is additive and
+// nullable, so what matters is that a real version 15 install crosses it with its cached
+// weather intact and reads as carrying no outlook until the next refresh writes one.
+test('version 16 adds the daily outlook column without disturbing a version 15 install', async (t) => {
+  const database = new NodeSqliteDatabase();
+  t.after(() => database.close());
+  const stopBeforeV16 = {
+    execAsync: database.execAsync.bind(database),
+    getFirstAsync: database.getFirstAsync.bind(database),
+    withExclusiveTransactionAsync: (task) =>
+      database.withExclusiveTransactionAsync((transaction) => task({
+        execAsync: async (sql) => {
+          if (sql.includes('ADD COLUMN daily_json')) {
+            throw new Error('stop before v16');
+          }
+          await transaction.execAsync(sql);
+        },
+        runAsync: transaction.runAsync.bind(transaction),
+        getFirstAsync: transaction.getFirstAsync.bind(transaction),
+        getAllAsync: transaction.getAllAsync.bind(transaction),
+      })),
+  };
+  await assert.rejects(() => migrateDatabase(stopBeforeV16), /stop before v16/);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 15);
+
+  await insertProfile(database);
+  await database.execAsync(`
+    INSERT INTO active_locations VALUES ('stable-profile-id', 'manual:sample.istanbul', 'manual', 'sample.istanbul', 4101, 2898, 'Europe/Istanbul', NULL, '${timestamp}', '${timestamp}', 'Istanbul');
+    INSERT INTO weather_snapshots VALUES ('weather', 'stable-profile-id', 'manual:sample.istanbul', 'Europe/Istanbul', '${timestamp}', '${timestamp}', 'sample', 'test', 20, 20, 19, 21, 'clear', 0, 0, 0.5, 0);
+    INSERT INTO weather_hourly_entries VALUES ('weather', '${timestamp}', 20, 20, 'clear', 0, 0, 0.5, 0);
+  `);
+  const snapshotsBefore = (await database.getAllAsync('SELECT * FROM weather_snapshots'))
+    .map((row) => ({ ...row }));
+  const hourlyBefore = (await database.getAllAsync('SELECT * FROM weather_hourly_entries'))
+    .map((row) => ({ ...row }));
+  assert.equal('daily_json' in snapshotsBefore[0], false);
+
+  await migrateDatabase(database);
+
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 16);
+  assert.equal(latestDatabaseVersion, 16);
+  assert.deepEqual(
+    (await database.getAllAsync('SELECT * FROM weather_snapshots')).map((row) => ({ ...row })),
+    snapshotsBefore.map((row) => ({ ...row, daily_json: null })),
+  );
+  assert.deepEqual(
+    (await database.getAllAsync('SELECT * FROM weather_hourly_entries')).map((row) => ({ ...row })),
+    hourlyBefore,
+  );
+  assert.deepEqual(await database.getAllAsync('PRAGMA foreign_key_check'), []);
+
+  const dailyColumn = (await database.getAllAsync('PRAGMA table_info(weather_snapshots)'))
+    .find(({ name }) => name === 'daily_json');
+  assert.deepEqual(
+    { type: dailyColumn.type, notnull: dailyColumn.notnull, dflt_value: dailyColumn.dflt_value },
+    { type: 'TEXT', notnull: 0, dflt_value: null },
+  );
+
+  // The column holds a document afterwards, and a second run of the migration leaves it be.
+  const outlook = JSON.stringify([{
+    dateKey: '2026-09-18',
+    condition: 'clear',
+    minimumTemperatureCelsius: 19,
+    maximumTemperatureCelsius: 21,
+    precipitationProbability: 0.1,
+    precipitationMillimetres: null,
+  }]);
+  await database.runAsync('UPDATE weather_snapshots SET daily_json = ?', [outlook]);
+  await migrateDatabase(new NodeSqliteDatabase(database.database));
+  assert.equal(
+    (await database.getFirstAsync('SELECT daily_json FROM weather_snapshots')).daily_json,
+    outlook,
   );
 });

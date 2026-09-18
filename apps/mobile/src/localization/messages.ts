@@ -440,6 +440,11 @@ export type AppMessages = Readonly<{
       maximumTemperature: string;
       precipitationProbability: number;
       precipitationMillimetres?: string;
+      /**
+       * Set on today's row only. It both names the day as today, which nothing else in
+       * the row says out loud, and states the temperature the rail's mark stands for.
+       */
+      currentTemperature?: string;
     }) => string;
     windValue: (speed: string) => string;
     humidityValue: (humidity: number) => string;
@@ -822,8 +827,11 @@ const en = {
       maximumTemperature,
       precipitationProbability,
       precipitationMillimetres,
+      currentTemperature,
     }) =>
-      `${day}. ${condition}. Low ${minimumTemperature} · High ${maximumTemperature}. ` +
+      `${currentTemperature ? `Today, ${day}` : day}. ${condition}. ` +
+      `Low ${minimumTemperature} · High ${maximumTemperature}. ` +
+      `${currentTemperature ? `Now ${currentTemperature}. ` : ''}` +
       `${precipitationMillimetres ? `${precipitationMillimetres} mm, ` : ''}` +
       `${Math.round(precipitationProbability * 100)}% precipitation`,
     windValue: (speed) => `${speed} m/s`,
@@ -1406,8 +1414,11 @@ const tr = {
       maximumTemperature,
       precipitationProbability,
       precipitationMillimetres,
+      currentTemperature,
     }) =>
-      `${day}. ${condition}. En düşük ${minimumTemperature}, en yüksek ${maximumTemperature}. ` +
+      `${currentTemperature ? `Bugün, ${day}` : day}. ${condition}. ` +
+      `En düşük ${minimumTemperature}, en yüksek ${maximumTemperature}. ` +
+      `${currentTemperature ? `Şu an ${currentTemperature}. ` : ''}` +
       `${precipitationMillimetres ? `${precipitationMillimetres} milimetre yağış. ` : ''}` +
       `Yağış olasılığı yüzde ${Math.round(precipitationProbability * 100)}.`,
     windValue: (speed) => `${speed} m/sn`,
