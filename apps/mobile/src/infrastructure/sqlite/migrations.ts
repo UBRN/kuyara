@@ -10,7 +10,7 @@ type Migration = Readonly<{
   migrate: (database: SqliteExecutor) => Promise<void>;
 }>;
 
-export const latestDatabaseVersion = 15;
+export const latestDatabaseVersion = 16;
 
 // Foreign keys are enforced on every connection: `migrateDatabase` turns them on for the
 // shared connection below, and the transaction wrapper in `expo-sqlite-database.ts` turns
@@ -459,6 +459,21 @@ const migrationV15: Migration = {
   },
 };
 
+const migrationV16: Migration = {
+  version: 16,
+  async migrate(database) {
+    // The /v2 daily outlook is a display block: read whole, never queried by field, and
+    // replaced entirely on every refresh. It therefore travels inside its snapshot row as
+    // one JSON document, the way `context_json` and `outfits_json` travel with a
+    // recommendation, rather than as a second child table with its own cascade and its own
+    // line in the prune. Nullable with no default: every row written before this build keeps
+    // its weather and carries no outlook until the next refresh writes one.
+    await database.execAsync(`
+      ALTER TABLE weather_snapshots ADD COLUMN daily_json TEXT;
+    `);
+  },
+};
+
 const migrations = [
   migrationV1,
   migrationV2,
@@ -475,6 +490,7 @@ const migrations = [
   migrationV13,
   migrationV14,
   migrationV15,
+  migrationV16,
 ] as const satisfies readonly Migration[];
 
 async function readUserVersion(database: SqliteExecutor): Promise<number> {

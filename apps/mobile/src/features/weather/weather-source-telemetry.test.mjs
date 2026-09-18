@@ -37,6 +37,16 @@ function providerAnswering(sourceId) {
         minimumTemperatureCelsius: 12,
         maximumTemperatureCelsius: 19,
         hourly: [{ forecastAt: fetchedAt, ...measurements }],
+        // The /v2 response the provider reads; the outlook plays no part in attribution
+        // but a response without it is not a response this provider accepts.
+        daily: [{
+          dateKey: '2026-09-13',
+          condition: 'rain',
+          minimumTemperatureCelsius: 12,
+          maximumTemperatureCelsius: 19,
+          precipitationProbability: 0.55,
+          precipitationMillimetres: null,
+        }],
       },
     }),
   });

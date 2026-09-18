@@ -31,6 +31,10 @@ import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity'
 import { locationCaptionKey } from '@/features/weather/domain/location-caption';
 import type { ActiveLocation } from '@/features/weather/domain/weather';
 import { findWeatherOutlook, type WeatherOutlook } from '@/features/weather/domain/weather-outlook';
+import {
+  DailyOutlook,
+  type DailyOutlookRow,
+} from '@/features/weather/presentation/daily-outlook';
 import { HourlyRail } from '@/features/weather/presentation/hourly-rail';
 import { remainingHourlyForecast } from '@/features/weather/presentation/remaining-hours';
 import { WeatherAttribution } from '@/features/weather/presentation/weather-attribution';
@@ -141,6 +145,10 @@ function outlookSentence(
   }
   return starting ? copy.outlook.rainStarting(at) : copy.outlook.rainEasing(at);
 }
+
+// Five of the seven the contract allows, so a seventh day would be a mobile change and
+// not another route (packages/contracts/src/weather-v2.ts).
+const dailyOutlookDayCount = 5;
 
 function locationName(
   location: ActiveLocation,
@@ -253,6 +261,65 @@ export function WeatherScreen() {
   const outlook = snapshot
     ? findWeatherOutlook({ snapshot, now: new Date(now).toISOString() })
     : null;
+  // The viewer's own local day, read once: it both drops the days that have already
+  // ended and marks the row the current temperature belongs to.
+  const localDayKey = snapshot
+    ? weatherLocalDateKey(new Date(now).toISOString(), snapshot.timeZone)
+    : null;
+  // Filtered at render time for the same reason the hourly rail is (remaining-hours.ts):
+  // a snapshot kept across midnight, which is exactly what an offline device has, would
+  // otherwise open on yesterday and lose the today mark with it. Date keys are
+  // `YYYY-MM-DD`, so a string compare is a date compare. Five of the contract's seven
+  // survive it, the owner's count: five fit without scrolling even at the largest
+  // accessibility size, and the sixth is where confidence starts to fall.
+  const dailyRows: readonly DailyOutlookRow[] = snapshot?.daily === undefined
+    ? []
+    : snapshot.daily
+      .filter((day) => localDayKey === null || day.dateKey >= localDayKey)
+      .slice(0, dailyOutlookDayCount).map((day) => {
+      // A `dateKey` is a calendar date, not an instant: it is read in UTC so a place west
+      // of Greenwich cannot have its Thursday rendered as a Wednesday.
+      const date = `${day.dateKey}T00:00:00.000Z`;
+      const chance = percentage(day.precipitationProbability, language);
+      // Whole millimetres: a day's total is a coarse figure, and a decimal in a row this
+      // narrow costs the rail more width than the tenth is worth. Anything under half a
+      // millimetre shows its chance alone rather than rounding down to a "0 mm" that would
+      // read as a measurement of nothing.
+      const amount = day.precipitationMillimetres !== null
+        && Math.round(day.precipitationMillimetres) >= 1
+        ? decimal(Math.round(day.precipitationMillimetres), language)
+        : null;
+      // Today's row is the only one carrying a current temperature, so the same value
+      // names the day and states what the rail's mark stands for: a screen reader learns
+      // which row is today, and the mark stops being the graphic's secret.
+      const currentCelsius = day.dateKey === localDayKey
+        ? snapshot.current.temperatureCelsius
+        : null;
+      return {
+        key: day.dateKey,
+        accessibilityLabel: copy.dailyForecastAccessibilityLabel({
+          day: weekday(date, 'UTC', language, 'long'),
+          condition: copy.conditions[day.condition],
+          minimumTemperature: formatTemperature(day.minimumTemperatureCelsius, language),
+          maximumTemperature: formatTemperature(day.maximumTemperatureCelsius, language),
+          precipitationProbability: day.precipitationProbability,
+          precipitationMillimetres: amount ?? undefined,
+          currentTemperature: currentCelsius === null
+            ? undefined
+            : formatTemperature(currentCelsius, language),
+        }),
+        condition: day.condition,
+        currentCelsius,
+        maximum: formatTemperature(day.maximumTemperatureCelsius, language),
+        maximumCelsius: day.maximumTemperatureCelsius,
+        minimum: formatTemperature(day.minimumTemperatureCelsius, language),
+        minimumCelsius: day.minimumTemperatureCelsius,
+        precipitation: amount !== null
+          ? copy.dailyPrecipitationValue(amount, chance)
+          : day.precipitationProbability > 0 ? chance : null,
+        weekday: weekday(date, 'UTC', language, 'short'),
+      };
+    });
   const failureCopy = state.refreshFailure === 'offline'
     ? {
         title: copy.offlineTitle,
@@ -509,7 +576,7 @@ export function WeatherScreen() {
               <AppText
                 accessibilityRole="header"
                 colorRole="textPrimary"
-                style={styles.hourlyHeading}
+                style={styles.sectionHeading}
                 variant="bodyStrong">
                 {copy.hourlyHeading}
               </AppText>
@@ -550,6 +617,21 @@ export function WeatherScreen() {
               />
             </Surface>
           )}
+
+          {dailyRows.length > 0 && (
+            <Surface
+              style={[styles.card, theme.elevation.raised]}
+              testID="weather-daily-card">
+              <AppText
+                accessibilityRole="header"
+                colorRole="textPrimary"
+                style={styles.sectionHeading}
+                variant="bodyStrong">
+                {copy.dailyHeading}
+              </AppText>
+              <DailyOutlook rows={dailyRows} />
+            </Surface>
+          )}
         </>
       ) : (
         <Surface style={styles.card} variant="muted">
@@ -585,7 +667,7 @@ const styles = StyleSheet.create({
   locationSection: { gap: spacing.md },
   currentSection: { gap: spacing.md },
   card: { gap: spacing.md, padding: spacing.lg },
-  hourlyHeading: { lineHeight: typography.bodyStrong.lineHeight },
+  sectionHeading: { lineHeight: typography.bodyStrong.lineHeight },
   disclosure: { padding: spacing.md },
   // The Pill is shorter than 44, so the pressable carries the touch target the way
   // IconButton and ListRow do rather than borrowing it from a hitSlop the layout cannot

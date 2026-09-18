@@ -19,6 +19,26 @@ const measurements = {
   humidity: 0.72,
   uvIndex: 3,
 };
+// The first entry is the local day of the observation and carries the snapshot's own low
+// and high, which is what `weatherV2SuccessSchema` refuses a response without.
+const daily = [
+  {
+    dateKey: '2026-08-01',
+    condition: 'rain',
+    minimumTemperatureCelsius: 12,
+    maximumTemperatureCelsius: 19,
+    precipitationProbability: 0.55,
+    precipitationMillimetres: 1.4,
+  },
+  {
+    dateKey: '2026-08-02',
+    condition: 'cloudy',
+    minimumTemperatureCelsius: 14,
+    maximumTemperatureCelsius: 22,
+    precipitationProbability: 0.1,
+    precipitationMillimetres: null,
+  },
+];
 const successBody = {
   data: {
     timeZone: location.timeZone,
@@ -28,6 +48,7 @@ const successBody = {
     minimumTemperatureCelsius: 12,
     maximumTemperatureCelsius: 19,
     hourly: [{ forecastAt: fetchedAt, ...measurements }],
+    daily,
   },
 };
 
@@ -47,7 +68,7 @@ test('posts only the shared location request and restores local identity while m
 
   const snapshot = await provider.fetchSnapshot(location);
 
-  assert.equal(request.input, 'http://127.0.0.1:8788/v1/weather');
+  assert.equal(request.input, 'http://127.0.0.1:8788/v2/weather');
   assert.equal(request.init.method, 'POST');
   assert.equal(request.init.headers['content-type'], 'application/json');
   assert.deepEqual(JSON.parse(request.init.body), {
@@ -65,6 +86,37 @@ test('posts only the shared location request and restores local identity while m
   });
   assert.deepEqual(snapshot.current, successBody.data.current);
   assert.deepEqual(snapshot.hourly, successBody.data.hourly);
+  // The outlook crosses whole, including the null amount a dry day carries.
+  assert.deepEqual(snapshot.daily, daily);
+});
+
+test('refuses a response with no daily outlook rather than rendering a v1 payload', async () => {
+  const provider = new WorkerWeatherProvider({
+    baseUrl: 'http://127.0.0.1:8788',
+    fetch: async () => {
+      const { daily: _daily, ...data } = successBody.data;
+      return jsonResponse({ data });
+    },
+  });
+
+  await assert.rejects(
+    () => provider.fetchSnapshot(location),
+    (error) => error instanceof WorkerWeatherProviderError && error.kind === 'invalid-response',
+  );
+});
+
+test('keeps a response that adds a key this binary does not know', async () => {
+  const provider = new WorkerWeatherProvider({
+    baseUrl: 'http://127.0.0.1:8788',
+    fetch: async () => jsonResponse({
+      data: { ...successBody.data, pressureHectopascals: 1013 },
+    }),
+  });
+
+  const snapshot = await provider.fetchSnapshot(location);
+
+  assert.deepEqual(snapshot.daily, daily);
+  assert.equal('pressureHectopascals' in snapshot, false);
 });
 
 test('carries through a live provider sourceId instead of hard-coding it', async () => {

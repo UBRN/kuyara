@@ -1,6 +1,7 @@
 import type {
   ActiveLocation,
   CurrentWeather,
+  DailyWeather,
   HourlyWeather,
 } from '@/features/weather/domain/weather';
 
@@ -13,6 +14,8 @@ export type ProvidedWeatherSnapshot = Readonly<{
   minimumTemperatureCelsius: number;
   maximumTemperatureCelsius: number;
   hourly: readonly HourlyWeather[];
+  /** Absent when the source served no outlook, never an empty array standing in for one. */
+  daily?: readonly DailyWeather[];
 }>;
 
 export type WeatherProviderFailureKind =
