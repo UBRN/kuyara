@@ -86,12 +86,19 @@ correctly in both appearances and on a layout that does not load the theme CSS.
       return link ? link.href : null;
     };
     var current = {{ page.lang | jsonify }};
-    var chosen = remember(function (storage) { return storage.getItem("kuyara-lang"); });
+    var requested = new URLSearchParams(window.location.search).get("lang");
+    var explicit = requested === "en" || requested === "tr" ? requested : null;
+    var chosen = explicit || remember(function (storage) { return storage.getItem("kuyara-lang"); });
     var target = null;
     if (chosen) {
       if (chosen !== current) { target = alternate(chosen); }
     } else if (current === "en" && (navigator.language || "").toLowerCase().indexOf("tr") === 0) {
       target = alternate("tr");
+    }
+    if (target && explicit) {
+      var destination = new URL(target);
+      destination.searchParams.set("lang", explicit);
+      target = destination.href;
     }
     if (target && target !== window.location.href) { window.location.replace(target); }
   })();
