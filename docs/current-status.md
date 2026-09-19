@@ -213,9 +213,6 @@ and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
 - **App Store Connect:** Version record
   `729cdddd-cd75-4d6d-aa62-6eb2f311d374` is `READY_FOR_DISTRIBUTION`, review
   `6039308f-ace6-4821-bd42-9f132c5ae933` is `COMPLETE`, and no submission is in flight.
-  The aggregate status reports phased release configured, but the direct phased-release
-  relationship is empty and the version relationship is null. Preserve the approved phased
-  release preference, but do not claim an active rollout until that state is reconciled.
 - **Privacy and listing:** The public App Store privacy page returned HTTP 200 on
   2026-09-20. Its linked analytics `Device ID`, `Product Interaction`, `Other Usage Data`
   and `Crash Data`, plus the functionality `Device ID`, `Crash Data`, `Performance Data`
@@ -228,14 +225,32 @@ and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
   candidate. The frozen install and `expo install --check` passed. `pnpm check` passed with
   826 mobile, 101 contracts, and 256 Worker Node tests plus lint, TypeScript, and Worker
   bundle checks; the component suite passed with 51 suites and 534 tests. The native build
-  succeeded and generated the expected `Info.plist`; the Simulator flow tour is still in
-  progress. CI at the initial `2e199927f792929a0c0a18690508b74d702e30c8` baseline was green.
+  succeeded with version `0.1.20260920` in `Info.plist`. The iPhone 17 Pro Simulator on
+  iOS 26.5 rendered Today, Weather and Settings, and opened the published support pages in
+  the app's selected English or Turkish despite conflicting browser language preferences.
   The independent accumulated binary-diff review and the focused review of the support
-  language fix found no release blocker. The candidate has not been submitted.
+  language fix found no release blocker. GitHub CI, secret scanning and CodeQL passed for
+  candidate commit `9b427ed`; Pages also deployed that commit. EAS
+  workflow `01a0bbad-38de-7643-afae-f8d2943dc483` completed both the production build
+  and App Store Connect upload for build 14 (`6ef15f23-4a65-4c3d-8467-b6aab046a36d`).
+  Apple processed build `42d5dea4-f393-4875-be4c-f93298f4f41d` as `VALID`; it is attached
+  to the version and available to the internal `Team (Expo)` TestFlight group as
+  `IN_BETA_TESTING`, with English and Turkish test notes.
+  Version record `efb0b7f0-0486-44b0-bd4c-b1213b2d54d2` is `PREPARE_FOR_SUBMISSION`,
+  with both release notes and 16 screenshots. Release is `AFTER_APPROVAL` with phased
+  release configured as `INACTIVE`, ready to start when Apple releases the version.
+  `asc validate --check-urls` and `asc review doctor` report zero blocking findings, and
+  the review dry-run returns `wouldSubmit: true`. The public store privacy answers match
+  ADR 0033; API-only checks cannot inspect web-only regulatory declarations. Submission
+  is waiting for the required physical in-place TestFlight upgrade check. The candidate
+  has not been submitted.
 - **Release evidence:** App Store Connect currently holds eight screenshots per locale,
   16 total. The first English and Turkish hero assets inspected from the live records show
   `Crewe 13° / Rain Ready / Chosen with AI` and `14° / Yağmura Hazır / AI ile seçildi`.
-  The in-place physical TestFlight upgrade remains mandatory before release.
+  The in-place physical TestFlight upgrade remains mandatory before submission: install
+  build 14 over the store app without deleting it, verify onboarding does not recur, Closet
+  rows and photos survive, Today first renders the cached snapshot, and Settings AI status
+  answers. The paired iPhone was unavailable during this run, so owner evidence is pending.
 - **Compatibility:** Builds 8 and 9 were built before `8e949ec` and use strict `/v1`
   response schemas. Keep every `/v1` response shape frozen while either remains installed;
   this candidate makes no Worker or contract change.
@@ -334,9 +349,6 @@ and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
 
 ## Known Issues and Manual Verification Gaps
 
-- **Support language verification:** The candidate passes an explicit language to the support
-  page so browser preferences cannot override the app's choice. Node and component regression
-  checks pass; the published-page Simulator check remains pending until the Pages update.
 - **Expo retention is known only for Observe.** Both privacy policies attribute Observe's
   90-day retention to [Expo's pricing page](https://expo.dev/pricing). No period is published
   for the EAS Insights launch event or the EAS Update check, which receive the same install
