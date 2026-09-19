@@ -115,8 +115,8 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   spring where garment pieces land on a board, and an ambient tempo taken from the
   condition's intensity.
 - **Builds:** iOS is the first release target. EAS production credentials and an App Store
-  Connect record (`com.ubrn.kuyara`, ASC app `6806664440`) exist. Build 9 carries the
-  version on sale and the next version is being prepared (see Release State below);
+  Connect record (`com.ubrn.kuyara`, ASC app `6806664440`) exist. Build 13 carries the
+  version ready for distribution, with no submission in flight (see Release State below);
   the `production` profile points at the deployed Worker, and the `development` profile
   is the physical-iPhone path ([Development build on the physical
   iPhone](testing.md#development-build-on-the-physical-iphone)). The version scheme and
@@ -186,16 +186,15 @@ Milestones 10 and 11 shipped with the first App Store release; what remains of m
     and performance while the accepted unhandled-JavaScript overlap remains.
 13. **Session replay evaluation.** Only after privacy masking and sampling are designed.
     Not approved for capture.
-14. **Operational observability evaluation.** Grafana Cloud or an OpenTelemetry stack for
-    Worker latency, errors, provider fallbacks and quota; later than product analytics.
+14. **Operational observability: existing Workers Logs.** Keep the free Cloudflare Workers
+    Logs for Worker latency, errors, provider fallbacks and quota.
     The Worker's structured logs already carry the distinctions an options report of
     2026-09-13 asked for: every failed AI attempt logs a classified `reason` that separates
     `quota_exceeded`, `rate_limited` and `provider_error`, the spent Workers AI pool and the
     exhausted daily budget log their own events, and every `429` the AI, weather and probe
     routes return is logged as a `rate_limited` event with its limiter; only a numeric HTTP
-    status field is absent. The remaining recommendation is to keep the free Workers Logs,
-    take Grafana Cloud only if alerting becomes necessary, and not adopt OpenTelemetry while
-    Cloudflare's tracing is in open beta. No decision has been taken.
+    status field is absent. Grafana and OpenTelemetry are deferred until a concrete alerting
+    need justifies evaluating them under the existing spending controls.
 15. **Supabase accounts and sync**, when product scope reaches it. Promoting device rows
     into an authenticated profile needs its own ADR; until then build no sync
     infrastructure.
@@ -224,10 +223,8 @@ non-maintainer install that granted consent on 2026-09-15, and EAS Observe repor
 0.52 s median cold launch and 0.22 s startup TTI for build 8, in line with build 6.
 
 Version 0.1.20260915 with build 9 (commit e4c9350, EAS build 7e305161) was approved and
-released on 2026-09-15 at 21:26 UTC and is the version on sale; App Store Connect reports it
-as Ready for Distribution with no blocking issues, no submission in flight, and phased
-release configured. Its only listing difference from the version before it is the final line
-of the English and Turkish descriptions, which no longer mentions creating an account. The
+released on 2026-09-15 at 21:26 UTC. Its only listing difference from the version before it
+is the final line of the English and Turkish descriptions, which no longer mentions creating an account. The
 maintainer installed build 9 from TestFlight over the installed store build on the phone
 before the submission: the upgrade kept the existing data and onboarding did not reappear.
 
@@ -241,13 +238,15 @@ deployed the same morning ahead of the build, so the deployed request schema acc
 `dayKind`, accessory slots and empty requirement set. The build number is issued by EAS, which
 auto-increments it from the remote version source.
 
-Version 0.1.20260916 with build 11 was approved and went on sale on 2026-09-18 and is the version
-on sale. Build 12 (version 0.1.20260918, EAS build ac37aaeb, commit ae5c5ee) was uploaded and
+Version 0.1.20260916 with build 11 was approved and went on sale on 2026-09-18.
+Build 12 (version 0.1.20260918, EAS build ac37aaeb, commit ae5c5ee) was uploaded and
 processed but never submitted: the owner held it so the Weather work could ship in the same
 binary. Version 0.1.20260919 with build 13 (commit 798605a, EAS build 25ec7173) was submitted
 for review on 2026-09-18 at 20:43 UTC as submission `6039308f`, attached to the App Store
 Connect version record `729cdddd` with its What's New in both locales and the screenshot set
-shot on 2026-09-18; phased release stays configured. It carries the recommendation engine
+shot on 2026-09-18. App Store Connect now reports version 0.1.20260919 as
+`READY_FOR_DISTRIBUTION`, submission `6039308f` as complete, no submission in flight and
+no blocking issues; phased release stays configured. It carries the recommendation engine
 backbone (the thermal ladder, day-aware archetype labels, the engine grid suite), the daily AI
 regeneration allowance behind "Show another outfit", the Apple Intelligence badge, and the
 Weather work: the `/v2/weather` daily forecast read through migration 16, condition glyphs in
@@ -301,7 +300,7 @@ binaries with catalog version 4 (jumpsuit and leggings womens-only) and the Cras
 privacy manifest row. The iPhone 14 Pro is not Apple Intelligence eligible, so it
 exercises the Worker tier and the fallback only; the on-device tier remains unmeasured on
 eligible hardware, as ADR 0034's verification boundary records, and the Simulator run's
-5.1 to 6.7 s is not device evidence. Real VoiceOver, background refresh and production
+5.1 to 6.7 s is not device evidence. Background refresh and production
 analytics dispatch were not separately inspected on the device (see Known Issues).
 
 PostHog Error Tracking is verified end to end. The EAS `production` environment holds
@@ -465,20 +464,17 @@ before submitting is the maintainer's call.
 
 ## Known Issues and Manual Verification Gaps
 
-- **Expo retention is known only for Observe.** Expo's pricing page lists 90 days of data
-  retention for EAS Observe on every plan; no period is published for the EAS Insights
-  launch event or the EAS Update check, which receive the same install identifier. Both
-  privacy policies still say Expo has published no period for the Observe data; naming
-  90 days there is the maintainer's call, because the source is a pricing table rather
-  than a privacy document.
+- **Expo retention is known only for Observe.** Both privacy policies attribute Observe's
+  90-day retention to [Expo's pricing page](https://expo.dev/pricing). No period is published
+  for the EAS Insights launch event or the EAS Update check, which receive the same install
+  identifier; their retention remains an external open item.
 - **EAS Observe has two external open items.** The `expo-observe`, `expo-app-metrics`
   and `expo-eas-client` packages ship no privacy manifest, reported as
   [expo/expo#50372](https://github.com/expo/expo/issues/50372), and do not clear
   pre-consent unhandled-error records on iOS, reported as
   [expo/expo#50373](https://github.com/expo/expo/issues/50373) for `clearStoredEntries`.
-  The reproduction is at <https://github.com/UBRN/expo-observe-privacy-repro>. Whether
-  to use an EAS paid plan for Observe's route and
-  event views is also undecided; the Starter plan is the first tier that exposes them.
+  The reproduction is at <https://github.com/UBRN/expo-observe-privacy-repro>. Observe stays
+  within the existing free scope; paid route and event dashboards are deferred.
 - **Apple's iOS 27 SDK build requirement lands in April 2027.** Apple's news item of
   2026-09-09 states that starting April 2027, apps uploaded to App Store Connect must be
   built with the iOS 27 and iPadOS 27 SDK or later
@@ -486,14 +482,9 @@ before submitting is the maintainer's call.
   separate from the 26.0 deployment target of ADR 0011, which does not change. The Expo
   SDK release that builds against the iOS 27 SDK is not yet identified; every upload from
   April 2027 depends on it, so the SDK upgrade has to be scheduled before then.
-- **Real VoiceOver is unverified.** The XCUITest hierarchy was checked on the Simulator
-  (single labelled elements in source order; ownership buttons carry `selected`; picker
-  options carry the radio role; on iOS the notifications switch carries its row label), but
-  spoken grouping, focus order, the rotor, Today's
-  refresh accessibility custom action on the scroll container, and how VoiceOver speaks
-  the location picker's selected row (its `isSelected` trait is in the XCUITest
-  hierarchy) need a physical-device pass. Accessibility
-  Inspector needs desktop control. This is the ninth goal 7 follow-up.
+- **Apple Intelligence device verification is deferred.** No eligible physical device is
+  available. The iPhone 14 Pro exercises the Worker and deterministic fallback tiers only;
+  no on-device AI latency or success is claimed from its runs.
 - **N2's background execution cannot run on the Simulator.** Only registration safety and
   unchanged foreground behaviour were confirmed. On a physical iPhone: install a
   development build ([Development build on the physical
