@@ -353,18 +353,20 @@ Workflows](https://docs.expo.dev/submit/ios/#automate-with-eas-workflows)).
 The workflow builds and uploads, and does nothing else. The Preconditions above still come
 first, in the same order: the committed `expo.version` bump in `apps/mobile/app.json`, green
 `pnpm check` and component tests, and the Worker deploy when a contract or a route changed.
-The App Store Connect record steps below and any needed physical TestFlight check stay
-manual after the run finishes. The run happens on EAS infrastructure and draws on the
-account's EAS plan: the build job is billed like any other EAS build, and the remaining
+After the run finishes, the App Store Connect record steps below are completed
+under the standing iOS release authorization in the contributor rules. Once the required checks,
+independent review and Simulator verification pass, submit without another approval or
+a TestFlight confirmation. The run happens on EAS infrastructure and draws on
+the account's EAS plan: the build job is billed like any other EAS build, and the remaining
 job time comes out of the plan's CI/CD minutes. Check the current allowances on
 <https://expo.dev/pricing> rather than assuming them.
 
 ### TestFlight pass on the phone
 
-The iOS Simulator is the default release verification environment. A physical check is
-required only for a specific changed behavior the Simulator cannot exercise, or when the
-release needs one. A routine release does not require a separate phone tour or a
-connected phone. Record a TestFlight update reported with no apparent issues
+The iOS Simulator is the default release verification environment. Require a physical
+check only when a specific changed behavior cannot be verified there and that evidence is
+necessary to accept the release.
+A routine release does not require a separate phone tour or a connected phone. Record a TestFlight update reported with no apparent issues
 as that evidence; do not request the same confirmation again. Migration changes still
 require the upgrade and realistic-database replay checks in the contributor rules.
 
