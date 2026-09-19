@@ -6,7 +6,7 @@ ref: privacy-policy
 
 # kuyara gizlilik politikası
 
-Yürürlük tarihi: 15 Eylül 2026.
+Yürürlük tarihi: 19 Eylül 2026.
 
 kuyara, iOS ve Android için bir hava durumu ve kıyafet önerisi uygulamasıdır. Bu metin
 uygulamanın cihazından hangi verileri gönderdiğini, neden gönderdiğini ve bu konuda ne
@@ -92,8 +92,8 @@ sorduğu aynı onay sorusuna bağlıdır. Yalnızca kabul edersen gönderilir. R
 **Neden.** Yavaş açılışları, hataları ve çökmeleri bulup düzeltmek için. Başka hiçbir amaçla kullanılmaz.
 
 **İşleyici.** Expo, bu veriyi HTTPS üzerinden Observe uç noktasında alır.
-Expo bu veri için bir saklama süresi yayınlamamıştır. Süre kesinleştiğinde
-bu politika güncellenecektir.
+[Expo'nun yayımladığı fiyatlandırma bilgilerine göre](https://expo.dev/pricing),
+Observe bu verileri 90 gün saklar.
 
 **Performans ve tanılamaya asla girmeyenler:** konumun, koordinatların veya şehrin;
 Gardırop içeriği veya fotoğrafları; profil tercihlerin; yapay zeka istemleri veya yanıtları;
