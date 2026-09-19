@@ -16,7 +16,8 @@ kuyara is a publicly developed, source-available weather and outfit recommendati
 ## Release operations
 
 - The Apple Developer Program membership is active. WeatherKit, EAS Build, iOS signing credentials, and TestFlight are permitted work.
-- Being permitted is not pre-authorization. App Store Connect submission, TestFlight distribution, deploys, and other production release operations require an explicit user request per the Working rules.
+- The maintainer gives standing authorization to complete the iOS release path for approved work: production build, upload, TestFlight distribution, and App Store Connect submission. Once the required automated checks, independent review, and affected Simulator verification pass with no unresolved release blocker, proceed without another approval or a maintainer TestFlight confirmation. Preserve the configured release and phased-release preferences.
+- Physical testing is exceptional: require it only when a specific changed behavior cannot be verified in the Simulator and its evidence is necessary to accept the release. Routine releases proceed on automated and Simulator evidence. Production operations outside this iOS release path retain the explicit user-request requirement.
 
 ## Working principles
 
@@ -30,7 +31,7 @@ kuyara is a publicly developed, source-available weather and outfit recommendati
 - Inspect the repository, applicable `AGENTS.md` files, and `git status` before editing.
 - Preserve unrelated user changes. Do not revert or overwrite work you did not create.
 - Prefer the smallest coherent change that satisfies the request and existing architecture.
-- Do not create branches or worktrees, commit, push, publish, deploy, or mutate external systems unless the user explicitly requests it.
+- Do not create branches or worktrees, commit, push, publish, deploy, or mutate external systems unless the user explicitly requests it or the Release operations section grants standing authorization for that operation.
 - Do not add or upgrade dependencies without explaining the need and checking compatibility with the installed Expo SDK.
 - Never invent commands, paths, scripts, environment variables, API shapes, or completed verification.
 - If a requested change conflicts with these rules or a recorded decision, stop and explain the conflict.
