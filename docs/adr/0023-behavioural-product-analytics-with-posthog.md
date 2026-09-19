@@ -147,11 +147,11 @@ The current privacy rules are:
 
 ### 8. Error tracking
 
-Automated crash, exception, and error tracking is planned. **PostHog Error Tracking is the
-preferred first candidate**, because it correlates failures with the product behaviour
-that preceded them in one system rather than two.
+Automated JavaScript error tracking uses **PostHog Error Tracking** under
+[ADR 0035](0035-posthog-error-tracking.md), correlating failures with the product behaviour
+that preceded them. Observe retains native crash and performance reporting.
 
-Source maps and release correlation are considered during implementation. Error metadata
+Source maps and release correlation follow ADR 0035. Error metadata
 carries no secrets, user content, exact locations, Closet contents, or AI prompts; the
 same exclusion list in section 6 applies.
 
@@ -180,8 +180,9 @@ PostHog                        Grafana / observability stack
 → user journeys                → quota and rate-limit health
 ```
 
-Grafana Cloud or another OpenTelemetry-compatible stack may be evaluated later, preferring
-a usable free tier and spending controls. Nothing is added now.
+The existing Cloudflare Workers Logs provide operational monitoring. Grafana Cloud and
+OpenTelemetry are deferred until a concrete alerting need justifies evaluating them,
+preferring a usable free tier and spending controls. Nothing is added now.
 
 ### 11. Cost posture
 

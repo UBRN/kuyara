@@ -6,7 +6,7 @@ ref: privacy-policy
 
 # kuyara privacy policy
 
-Effective date: 2026-09-15.
+Effective date: 2026-09-19.
 
 kuyara is a weather and outfit recommendation app for iOS and Android. This policy
 describes what data the app sends off your device, why, and what you can do about it.
@@ -88,8 +88,8 @@ sent. If you accept, kuyara sends:
 **Why.** To find slow launches, failures and crashes and fix them. Nothing else.
 
 **Processor.** Expo receives this data at its Observe endpoint over HTTPS.
-Expo has not published a retention period for this data. This policy will be updated
-when the period is confirmed.
+According to [Expo's published pricing information](https://expo.dev/pricing),
+Observe retains this data for 90 days.
 
 **Never in performance and diagnostics:** your location, coordinates, or city; Closet
 contents or photos; profile preferences; AI prompts or responses; the analytics identifier

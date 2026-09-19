@@ -191,7 +191,7 @@ state change, and Reduced Motion must have a calm static equivalent.
   weather properties that nothing can read. This remains a product discussion, not a
   rendering gap.
 - **Native validation remains the acceptance surface.** Dynamic Type, Turkish and
-  English, genuine dark mode, VoiceOver, Reduced Motion, touch targets, safe areas, the
+  English, genuine dark mode, touch targets, safe areas, the
   bottom tab bar, contrast, silhouette legibility at small sizes, horizontal scrolling
   on Weather, and progressive-disclosure accessibility are validated in Expo rather than
   inferred from HTML.

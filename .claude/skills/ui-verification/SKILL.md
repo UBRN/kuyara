@@ -1,6 +1,6 @@
 ---
 name: ui-verification
-description: Use when finishing a kuyara UI change to run the exact repository checks and the greppable design-language checks, and to decide whether the manual accessibility pass applies. The manual pass (VoiceOver, focus order, largest text size) is risk-based, not routine. Trigger on "verify the UI", "run the checks", "accessibility check", "a11y", or before a commit that touches apps/mobile presentation code.
+description: Use when finishing a kuyara UI change to run the exact repository checks and the greppable design-language checks, and to decide whether the manual accessibility pass applies. The manual pass (focus order, largest text size) is risk-based, not routine. Trigger on "verify the UI", "run the checks", "accessibility check", "a11y", or before a commit that touches apps/mobile presentation code.
 ---
 
 # UI verification gate
@@ -14,8 +14,7 @@ run. Section 3 is the manual pass, and it is **not** routine. It runs only when:
 - the work is the dedicated accessibility and polish milestone;
 - the user asks for it.
 
-A new screen alone does not trigger it. Dedicated screen-reader verification was already
-deferred to that milestone; spreading it across every task is drift, not diligence.
+A new screen alone does not trigger it. Follow `AGENTS.md` for excluded checks.
 
 ## 1. Greppable design-language checks
 
@@ -93,7 +92,7 @@ the whole grid. When none applies, skip this section without listing its axes.
 | Turkish **and** English | Longer Turkish strings wrapping, truncating, or breaking a row's height |
 | Light **and** dark | Contrast, and separators that only existed as a shadow (dark shadow contact is 1.000:1) |
 | Larger text settings | Fixed line heights clipping, rows colliding, native tab labels (they do not scale, expected) |
-| Screen reader | Missing labels, decorative icons still in the tree, focus order not following source order |
+| Accessibility hierarchy | Missing labels, decorative icons still in the tree, focus order not following source order |
 | Touch targets | 44 points of actual area, reached by painted size or `hitSlop` |
 | Colour alone | Every status needs ink **and** glyph **and** text |
 

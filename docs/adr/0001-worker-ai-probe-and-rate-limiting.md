@@ -259,9 +259,8 @@ precedent, plus a localized "Checking AI status…" line.
 - Rate-limit counters are per-colo and eventually consistent, so the effective
   global ceiling is somewhat higher than the configured numbers. This is
   acceptable for an abuse guard; it is not an accounting system.
-- A new animated component enters the app, so Milestone 4 verification adds a
-  focused reduced-motion and VoiceOver check on that component and the Settings
-  probe flow.
+- The animated component and the Settings probe flow follow the automated
+  accessibility checks and affected Simulator pass in `AGENTS.md`.
 
 ## Alternatives considered
 
