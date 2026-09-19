@@ -484,7 +484,7 @@ test('a temperature swing is spelled with the one decimal every temperature carr
   };
 
   for (const [language, sentence] of [
-    ['en', 'It drops 8.4\u00b0 around 13:00'],
+    ['en', 'Down 8.4\u00b0 by 13:00'],
     ['tr', 'Saat 13:00 civar\u0131nda 8,4\u00b0 d\u00fc\u015f\u00fcyor'],
   ] as const) {
     const result = await render(
