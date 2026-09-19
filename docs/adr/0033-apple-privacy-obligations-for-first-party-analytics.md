@@ -171,6 +171,18 @@ surface follows these constraints:
 - Copy from localization keys, Turkish and English, and the same copy discipline as the
   rest of Settings.
 
+**Session replay is not covered by the existing grant.**
+[ADR 0023 section 9](0023-behavioural-product-analytics-with-posthog.md#9-session-replay-stays-disabled)
+concludes the evaluation with replay disabled on both platforms. Apple's
+[Review Guidelines](https://developer.apple.com/app-store/review/guidelines/),
+2.5.14 (read 2026-09-20), require explicit consent and a clear indication of recording.
+The present disclosure does not ask to record screens. No prompt, stored consent value,
+privacy-policy claim or collection category changes while replay stays off. Any separately
+authorized implementation must resolve recording permission and the indicator against
+this ADR's one-answer design, verify native queue disposal on withdrawal, and re-derive
+App Privacy from its actual payload before capture. The current event-queue cleanup is
+not evidence that an optional native replay queue would also be cleared.
+
 **Two Expo launch-time requests fall outside this gate.** `expo-insights` dispatches from
 native code at module registration, before any JavaScript consent state can be read, and
 exposes no runtime API, config-plugin option or environment variable the app could gate: it is
