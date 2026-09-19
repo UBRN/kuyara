@@ -20,14 +20,9 @@ kuyara is a publicly developed, source-available weather and outfit recommendati
 
 ## Working principles
 
-- The release path comes first. Classify every task as a release blocker, user-evidence work, or maintenance, and say which.
-- An accepted decision is not reopened without new evidence. A completed and accepted topic is not reviewed again without new risk or new evidence.
-- Group small related fixes under one Goal. Every Goal carries a stop boundary, and a completed Goal returns to the release path without inventing follow-up work.
 - Do not start unmeasured polish. Do not add speculative infrastructure.
-- The default agent count is zero. Delegate only independent, clearly bounded work whose handoff cost is earned by its risk, uncertainty, or output volume.
-- The executor's own checks plus the main session's acceptance are the default. An agent report, a READY line, or a green exit is evidence for acceptance, not acceptance.
 - A second, independent read-only review is required only where a mistake cannot be withdrawn by the next update: a migration that runs on user devices, native code or native configuration that ships inside a binary, a request or response shape or enum member an installed binary reads, a credential or paid-spend limit, and a consent or data-collection surface. It runs once on the completed Goal diff, never per commit, and never on a documentation-only change.
-- Outside that list the main session's acceptance stands alone; a second review opens only when the owner asks. Before a binary is submitted, the accumulated diff since the last released build gets exactly one independent read of its changed behaviour, whatever its subject.
+- Before a binary is submitted, the accumulated diff since the last released build gets exactly one independent read of its changed behaviour, whatever its subject.
 - Every accepted review finding lands as a test or a greppable check, or is recorded as rejected with its reason; a defect class caught twice by reading is a missing test.
 
 ## Working rules
@@ -36,7 +31,6 @@ kuyara is a publicly developed, source-available weather and outfit recommendati
 - Preserve unrelated user changes. Do not revert or overwrite work you did not create.
 - Prefer the smallest coherent change that satisfies the request and existing architecture.
 - Do not create branches or worktrees, commit, push, publish, deploy, or mutate external systems unless the user explicitly requests it.
-- An explicitly started implementation Goal is committed and pushed with a normal non-force push as soon as the main session has accepted its final diff and the required checks and gates for its risk class have passed; no further approval is asked. The commit stages only the Goal's own files by explicit path (`git add <file>`), never `git add -A`, `git stash`, or a whole-tree checkout, so other sessions' in-flight changes in the same checkout are left untouched and do not block the commit. Pull before pushing; if the remote advanced, pull with fast-forward only and push again. Do not commit when checks fail or scope is unclear; never force-push, rebase, create a branch or worktree, tag, PR, release, or deploy under this permission.
 - Do not add or upgrade dependencies without explaining the need and checking compatibility with the installed Expo SDK.
 - Never invent commands, paths, scripts, environment variables, API shapes, or completed verification.
 - If a requested change conflicts with these rules or a recorded decision, stop and explain the conflict.
@@ -169,7 +163,7 @@ The workspace is a pnpm monorepo: `apps/mobile` (Expo and React Native), `apps/w
 - Record confirmed product decisions in `docs/product-decisions.md`, architecture and data flow in `docs/architecture.md`, and consequential or hard-to-reverse choices as ADRs. Update the relevant document when behavior or a durable decision changes.
 - Do not create archive, cleanup-report, meta-policy, spec, or plan documents in the repository.
 - Keep this file concise and focused on rules that apply repeatedly. Put explanations and historical context in `docs/`.
-- This file is the single instruction source for every coding agent, whichever runtime runs it. `CLAUDE.md` only imports it; do not duplicate these rules into another agent-instruction file or into a skill. Skills in `.agents/skills/` and `.claude/skills/` are workflow and pointers, not a second rule source.
+- This file is the single instruction source for every coding agent, whichever runtime runs it. `CLAUDE.md` only imports it; do not duplicate these rules into another agent-instruction file or into a skill. Skills in `.agents/skills/` and `.claude/skills/` are workflow and pointers, not a second rule source. Operator process for this checkout lives in the gitignored `AGENTS.local.md`, which `CLAUDE.local.md` imports and `.codex/config.toml` points at; it never overrides this file.
 - Repository documents and ADRs outrank any external memory or vault note.
 
 ## Code review rules
@@ -186,12 +180,5 @@ The workspace is a pnpm monorepo: `apps/mobile` (Expo and React Native), `apps/w
 
 ## Efficient execution and validation
 
-- Use risk-proportionate validation. Protect correctness, safety, and architectural consistency before token savings.
-- Read only files relevant to the current task. Do not perform repository-wide scans unless necessary, and do not reread unchanged documentation without a task-specific reason. Batch related inspections and keep exploratory output bounded.
-- Do not repeat a successful check unless the implementation changed afterward. During implementation, run only the smallest relevant checks and one consolidated validation pass at the end when proportionate to risk.
-- Run the smallest relevant check while implementing and one consolidated pass per tree state: if a lane ran `pnpm check` and nothing changed after it, no one runs it again, and a documentation-only lane runs `git diff --check` and the affected greps instead. Domain logic changes require focused unit tests; UI changes require focused component tests and the automated accessibility checks. Do not run Android validation unless Android code or shared native configuration changed.
-- A green check is not evidence for a runtime it never ran. Native or native-config changes need one device or Simulator build, a new Worker adapter or binding needs one `wrangler dev` request, a migration needs an upgrade test from the last released version plus one replay against a realistic device database, and a user-visible UI change needs one Simulator pass. For a change outside the irreversible surfaces the Simulator pass runs after the commit, not before it: the accepted diff is committed and pushed, the Simulator pass follows, and a finding lands as a small follow-up commit. For a change on an irreversible surface the review and the runtime evidence come before the commit.
-- Before delivering a change, review it for over-engineering: reinvented standard library, unneeded dependencies, speculative abstractions, and dead flexibility. Remove what the task does not need.
-- A delegated task states its files in scope, invariants, and its acceptance check up front, in commands that run offline against the already installed workspace. Install from the lockfile before handing work to a sandboxed executor, and do not give it any step that needs network access, the iOS Simulator, or a long-running local server; keep `pnpm e2e:ios` and the Worker dev server with the main session and give the executor `pnpm check` or a filtered test command instead.
-- Architecture and integration stay with the main session, and delegated output is accepted only against the scoped diff and the repository checks.
-- Keep final reports focused on changes, validation, risks, and next state.
+- One consolidated `pnpm check` per tree state; a documentation-only change runs `git diff --check` and the affected greps instead. Domain logic changes need focused unit tests; UI changes need focused component tests and the automated accessibility checks. Do not run Android validation unless Android code or shared native configuration changed.
+- A green check is not evidence for a runtime it never ran. Native or native-config changes need one device or Simulator build, a new Worker adapter or binding needs one `wrangler dev` request, a migration needs an upgrade test from the last released version plus one replay against a realistic device database, and a user-visible UI change needs one Simulator pass.

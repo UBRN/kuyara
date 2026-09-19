@@ -39,6 +39,8 @@ apps/worker/**/*.pfx
 .claude/settings.local.json
 .claude/worktrees/
 .claude/launch.json
+CLAUDE.local.md
+AGENTS.local.md
 
 # goldie App Store asset renders
 goldie/out/
