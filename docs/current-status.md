@@ -485,8 +485,18 @@ before submitting is the maintainer's call.
 - **Apple Intelligence device verification is deferred.** No eligible physical device is
   available. The iPhone 14 Pro exercises the Worker and deterministic fallback tiers only;
   no on-device AI latency or success is claimed from its runs.
-- **N2's background execution cannot run on the Simulator.** Only registration safety and
-  unchanged foreground behaviour were confirmed. On a physical iPhone: install a
+- **N2's background execution and notification delivery remain unverified on a device.**
+  The focused notification checks pass: 72 Node tests and 41 component tests. On the
+  iPhone 14 Pro running iOS 27, both notification opt-ins and Background App Refresh are
+  enabled. Build 13 records the morning briefing for 07:00 Türkiye time in SQLite, and
+  the database passes `quick_check`. This proves the app's accepted scheduling record,
+  not the OS's pending request or actual delivery. The physical background trigger could
+  not be exercised: the local Xcode 27 Debug binary stops before JavaScript at UIKit's
+  scene-lifecycle check; a development-signed copy of production build 13 (iOS 26.5 SDK)
+  launches, but LLDB cannot resolve the Objective-C system calls needed to inspect or
+  trigger the task on this iOS 27 device. No cache timestamp was altered, and no background
+  refresh is claimed. A compatible device/debugger environment is needed to finish.
+  The Simulator cannot execute this task. On a supported physical-device setup, install a
   development build ([Development build on the physical
   iPhone](testing.md#development-build-on-the-physical-iphone)), enable Background App
   Refresh, open the app once so
