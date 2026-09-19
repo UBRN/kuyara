@@ -192,7 +192,7 @@ test('live preferences and support propagate localized behavior without remounti
   expect(result.getByText(messages.en.analytics.privacyTitle)).toBeOnTheScreen();
   expect(result.getByText('Help and feedback')).toBeOnTheScreen();
   await fireEvent.press(result.getByTestId('settings-support-row'));
-  expect(openURL).toHaveBeenLastCalledWith('https://ubrn.github.io/kuyara/support');
+  expect(openURL).toHaveBeenLastCalledWith('https://ubrn.github.io/kuyara/support?lang=en');
   expect(within(result.getByTestId('settings-about-you-group')).getByTestId('settings-gender-row')).toBeOnTheScreen();
   expect(within(result.getByTestId('settings-about-you-group')).getByTestId('settings-dress-style-row')).toBeOnTheScreen();
   expect(within(result.getByTestId('settings-about-you-group')).getByTestId('settings-birth-date-row')).toBeOnTheScreen();
@@ -226,7 +226,7 @@ test('live preferences and support propagate localized behavior without remounti
   expect(await result.findByText(messages.tr.preferences.languageTurkish)).toBeOnTheScreen();
   expect(result.getByText('Yardım ve geri bildirim')).toBeOnTheScreen();
   await fireEvent.press(result.getByTestId('settings-support-row'));
-  expect(openURL).toHaveBeenLastCalledWith('https://ubrn.github.io/kuyara/tr/support');
+  expect(openURL).toHaveBeenLastCalledWith('https://ubrn.github.io/kuyara/tr/support?lang=tr');
   expect(result.getByText('Sürüm 1.0.0 (5)')).toBeOnTheScreen();
 
   expect(result.getByText(messages.tr.preferences.themeLight)).toBeOnTheScreen();
