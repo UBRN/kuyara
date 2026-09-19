@@ -357,19 +357,25 @@ Workflows](https://docs.expo.dev/submit/ios/#automate-with-eas-workflows)).
 The workflow builds and uploads, and does nothing else. The Preconditions above still come
 first, in the same order: the committed `expo.version` bump in `apps/mobile/app.json`, green
 `pnpm check` and component tests, and the Worker deploy when a contract or a route changed.
-The TestFlight pass on the phone and the App Store Connect record steps below stay manual
-after the run finishes. The run happens on EAS infrastructure and draws on the
+The App Store Connect record steps below and any needed physical TestFlight check stay
+manual after the run finishes. The run happens on EAS infrastructure and draws on the
 account's EAS plan: the build job is billed like any other EAS build, and the remaining
 job time comes out of the plan's CI/CD minutes. Check the current allowances on
 <https://expo.dev/pricing> rather than assuming them.
 
 ### TestFlight pass on the phone
 
-Both profiles ship the same bundle id `com.ubrn.kuyara`, so the TestFlight build replaces the
-installed store build in place and keeps its SQLite database. Do not delete the app first: the
-in-place replacement is the real migration test. Install from TestFlight, then check that
-onboarding does not reappear, the Closet still lists its rows with their photos, Today renders
-the cached snapshot before any refresh, and the Settings AI status screen answers.
+The iOS Simulator is the default release verification environment. A physical check is
+required only for a specific changed behavior the Simulator cannot exercise, or when the
+maintainer asks for one. A routine release does not require a separate phone tour or a
+connected phone. Record a maintainer-reported TestFlight update with no apparent issues
+as that evidence; do not request the same confirmation again. Migration changes still
+require the upgrade and realistic-database replay checks in `AGENTS.md`.
+
+When an in-place phone upgrade is checked, TestFlight and the store app share
+`com.ubrn.kuyara`, so install over the existing app without deleting it. Check that
+onboarding does not reappear, the Closet still lists its rows with their photos, Today
+renders the cached snapshot before any refresh, and the Settings AI status screen answers.
 
 ### App Store Connect record
 

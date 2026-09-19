@@ -212,7 +212,7 @@ and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
   `798605a505d4e0979df030a47712e04611e03d20`.
 - **App Store Connect:** Version record
   `729cdddd-cd75-4d6d-aa62-6eb2f311d374` is `READY_FOR_DISTRIBUTION`, review
-  `6039308f-ace6-4821-bd42-9f132c5ae933` is `COMPLETE`, and no submission is in flight.
+  `6039308f-ace6-4821-bd42-9f132c5ae933` is `COMPLETE`.
 - **Privacy and listing:** The public App Store privacy page returned HTTP 200 on
   2026-09-20. Its linked analytics `Device ID`, `Product Interaction`, `Other Usage Data`
   and `Crash Data`, plus the functionality `Device ID`, `Crash Data`, `Performance Data`
@@ -236,21 +236,21 @@ and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
   Apple processed build `42d5dea4-f393-4875-be4c-f93298f4f41d` as `VALID`; it is attached
   to the version and available to the internal `Team (Expo)` TestFlight group as
   `IN_BETA_TESTING`, with English and Turkish test notes.
-  Version record `efb0b7f0-0486-44b0-bd4c-b1213b2d54d2` is `PREPARE_FOR_SUBMISSION`,
+  Version record `efb0b7f0-0486-44b0-bd4c-b1213b2d54d2` is `WAITING_FOR_REVIEW`,
   with both release notes and 16 screenshots. Release is `AFTER_APPROVAL` with phased
   release configured as `INACTIVE`, ready to start when Apple releases the version.
   `asc validate --check-urls` and `asc review doctor` report zero blocking findings, and
   the review dry-run returns `wouldSubmit: true`. The public store privacy answers match
-  ADR 0033; API-only checks cannot inspect web-only regulatory declarations. Submission
-  is waiting for the required physical in-place TestFlight upgrade check. The candidate
-  has not been submitted.
+  ADR 0033; API-only checks cannot inspect web-only regulatory declarations. Review
+  submission `582511a3-dd49-45af-a2f6-57fb5fc8c7d7` was submitted at
+  `2026-09-19T22:16:18.533Z` and is `WAITING_FOR_REVIEW`, with no blocking issues.
+  Apple approval and release are pending.
 - **Release evidence:** App Store Connect currently holds eight screenshots per locale,
   16 total. The first English and Turkish hero assets inspected from the live records show
   `Crewe 13° / Rain Ready / Chosen with AI` and `14° / Yağmura Hazır / AI ile seçildi`.
-  The in-place physical TestFlight upgrade remains mandatory before submission: install
-  build 14 over the store app without deleting it, verify onboarding does not recur, Closet
-  rows and photos survive, Today first renders the cached snapshot, and Settings AI status
-  answers. The paired iPhone was unavailable during this run, so owner evidence is pending.
+  The maintainer confirmed updating the phone through TestFlight to build 14 and seeing
+  no apparent issue, and explicitly requested submission. This is owner-reported evidence,
+  not a separate agent-run physical-device tour.
 - **Compatibility:** Builds 8 and 9 were built before `8e949ec` and use strict `/v1`
   response schemas. Keep every `/v1` response shape frozen while either remains installed;
   this candidate makes no Worker or contract change.
