@@ -60,6 +60,7 @@ Approved 2026-08-30; rationale in [ADR 0006](adr/0006-three-tab-information-arch
 ## Local profile, onboarding and Settings
 
 - Expo SQLite is the durable source of truth for one device-local profile, created with one Expo Crypto UUID v4 that is never regenerated, shown or logged. Ordered migrations run at bootstrap before any route content is shown.
+- Until the local profile is ready, including while migrations run and the profile has not loaded, the bootstrap card and every pre-profile surface use the device language mapped to a supported app language through the same resolution as the system-language preference. A stored language preference applies only after the profile is ready.
 - Completing onboarding atomically stores gender, dress style, birth date and completion state. Language and appearance default to system and are untouched by onboarding.
 - Settings persists language, appearance, gender, dress style and birth date immediately; successful changes update the visible UI without a reload. The About you group stays last and unprominent.
 
@@ -339,6 +340,7 @@ Approved 2026-09-04. Canonical in [ADR 0024](adr/0024-relicensing-to-polyform-no
 
 ## Future possibilities, not MVP commitments
 
+- Gamification stays a future product area. Streaks, streak-break warnings, penalties, loss framing and fake urgency are red lines and never ship. Positive surprise badges derived from verifiable real events may be considered later; this is not implementation authority.
 - Accounts, cross-device sync, an outbox, and conflict resolution require separate product and architecture decisions; their intended shape is in [Approved backend and account direction](#approved-backend-and-account-direction).
 - Owned garments may later softly influence recommendations only as a tie-breaker between equally suitable catalog candidates, never as a filter.
 - Per-slot substitutions on a recommendation are not in the MVP. No layer of the product produces one; offering them is a new feature needing its own decision. [ADR 0026](adr/0026-the-recommendation-detail-surface.md) owns this constraint alongside [ADR 0021](adr/0021-direction-e-a-visual-first-design-language.md) section 7.

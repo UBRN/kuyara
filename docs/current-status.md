@@ -35,10 +35,10 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   archetype, on-device Apple Foundation Models where the device reports them available and
   otherwise the Worker's chain, Workers AI then OpenRouter; mobile validates, persists and
   falls back to a device-local deterministic generator. The refresh waits for a stylist answer: the
-  on-device tier gets 6 seconds, the Worker request then gets 38 seconds, and the Worker
+  on-device tier gets 8 seconds, the Worker request then gets 38 seconds, and the Worker
   bounds its whole AI walk at 36 seconds (five attempts of 7 seconds plus one second),
   so every provider gets its turn and the deterministic fallback is reached only after
-  the last one fails; the whole wait is bounded at 44 seconds. Generation triggers compare
+  the last one fails; the whole wait is bounded at 46 seconds. Generation triggers compare
   current signals with the persisted snapshot. Today also carries a **show another outfit**
   action that regenerates the recommendation alone, leaving weather to the pull gesture: the
   first five taps of a local day reach the AI chain, and after that the same tap composes the
@@ -59,12 +59,13 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   shared model-input projection and pick distinctness rule in `packages/contracts`, the
   routed client, the third generation mode with SQLite migration 13, the two AI badges and
   the local Swift Foundation Models module are implemented and bound, so every Apple
-  Intelligence eligible iPhone takes the on-device tier first with a 6-second budget, then
+  Intelligence eligible iPhone takes the on-device tier first with an 8-second budget, then
   the Worker, then the deterministic fallback. The on-device badge names Apple Intelligence
   as a referential word mark, the other says only AI, and the recommendation detail carries
-  one plain generation source sentence in all three modes. On-device latency stays unmeasured: the
-  only observation is Simulator inference running on the Mac host, so the ADR's
-  measurement table still reads not yet measured; builds 6 and 7 carry the module.
+  one plain generation source sentence in all three modes. On-device latency is not measured
+  on eligible physical hardware; the one observation is a Simulator run on an M3 Pro host
+  (5.1 to 5.4 s warm, 6.7 s cold), recorded in ADR 0034, and a Simulator number does not
+  stand in for a device measurement. Builds 6 and 7 carry the module.
 - **Notifications:** on-device local notifications only, in two kinds behind one OS
   permission ([ADR 0004](adr/0004-notifications-in-the-mvp.md),
   [ADR 0032](adr/0032-local-weather-alert-rules.md)): the deterministic
@@ -299,8 +300,8 @@ and refusing 84 of 648 deterministic results at save time. Builds 7 and 8 are th
 binaries with catalog version 4 (jumpsuit and leggings womens-only) and the Crash Data
 privacy manifest row. The iPhone 14 Pro is not Apple Intelligence eligible, so it
 exercises the Worker tier and the fallback only; the on-device tier remains unmeasured on
-eligible hardware, as ADR 0034's verification boundary records, and the Simulator run
-landed at the 6 s budget's edge. Real VoiceOver, background refresh and production
+eligible hardware, as ADR 0034's verification boundary records, and the Simulator run's
+5.1 to 6.7 s is not device evidence. Real VoiceOver, background refresh and production
 analytics dispatch were not separately inspected on the device (see Known Issues).
 
 PostHog Error Tracking is verified end to end. The EAS `production` environment holds
@@ -375,13 +376,13 @@ before submitting is the maintainer's call.
   deployed): the validation gate rebuilds a picked option by finding the valid arrangement
   equal to the offer, so every option the app composes is accepted and a persisted
   deterministic result always reloads; the Worker walks all five providers inside 36
-  seconds and the mobile client waits 38 seconds for it after the 6-second on-device tier;
+  seconds and the mobile client waits 38 seconds for it after the 8-second on-device tier;
   Today shows the generation phase on a live region with a still-under-Reduce-Motion
   ambient mark; the Settings AI status screen keeps a coarse tier label with a one-line
   switch reserved for the pending provider-name decision; the Privacy row shows no On/Off
   value. Checks: `pnpm check`, the component suite (405 tests), the design-language greps,
   and one Simulator run of a phased refresh that settled on the AI-assisted badge, with
-  the mark still under Reduce Motion. The Worker change is deployed (the 36-second walk
+  the mark still under Reduce Motion. The Worker change is deployed (the 36 s walk
   is live) and the mobile change ships in build 8, the build attached to the submitted
   App Store version.
 - **AI chain repair** (2026-09-13): the dead OpenRouter slugs were replaced with the
@@ -471,10 +472,12 @@ before submitting is the maintainer's call.
   90 days there is the maintainer's call, because the source is a pricing table rather
   than a privacy document.
 - **EAS Observe has two external open items.** The `expo-observe`, `expo-app-metrics`
-  and `expo-eas-client` packages ship no privacy manifest and do not clear pre-consent
-  unhandled-error records on iOS. Two issue drafts for `expo/expo` were prepared on
-  2026-09-13 after a search found no existing issue on either defect; sending them is
-  the maintainer's decision. Whether to use an EAS paid plan for Observe's route and
+  and `expo-eas-client` packages ship no privacy manifest, reported as
+  [expo/expo#50372](https://github.com/expo/expo/issues/50372), and do not clear
+  pre-consent unhandled-error records on iOS, reported as
+  [expo/expo#50373](https://github.com/expo/expo/issues/50373) for `clearStoredEntries`.
+  The reproduction is at <https://github.com/UBRN/expo-observe-privacy-repro>. Whether
+  to use an EAS paid plan for Observe's route and
   event views is also undecided; the Starter plan is the first tier that exposes them.
 - **Apple's iOS 27 SDK build requirement lands in April 2027.** Apple's news item of
   2026-09-09 states that starting April 2027, apps uploaded to App Store Connect must be
