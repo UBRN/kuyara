@@ -138,6 +138,10 @@ The workspace is a pnpm monorepo: `apps/mobile` (Expo and React Native), `apps/w
 
 ## Testing and verification
 
+- The iOS Simulator is the default mobile verification environment. Codex runs the affected
+  screens and collects screenshots and debug logs itself. A physical-device check is optional
+  only for a specific behavior the Simulator cannot exercise; state the evidence limit and ask
+  for device access only when that behavior must be verified. Do not block routine work on it.
 - Test behavior and boundaries, not implementation details or coverage percentages alone.
 - Give the deterministic recommendation engine thorough unit coverage, including boundary weather values and fallback behavior.
 - Test SQLite migrations, repositories, mapper round trips, soft deletion, and local-file cleanup.

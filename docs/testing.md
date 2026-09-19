@@ -1,5 +1,12 @@
 # kuyara testing conventions
 
+The iOS Simulator is the default for mobile verification. Codex runs the relevant screens
+and captures screenshots and debug logs itself. Use a physical iPhone only for a specific
+question the Simulator cannot answer, such as actual `BGTaskScheduler` execution or
+on-device Apple Intelligence performance. State the unverified behavior when the device is
+unavailable; it does not block routine Simulator checks. Simulator AI latency is not a
+measurement of physical-iPhone latency.
+
 ## Apple Developer Program
 
 The [Apple Developer Program](../AGENTS.md#release-operations) section governs release-facing validation; weather integration tests use deterministic providers and fixed raw-response fixtures rather than live external weather calls.
@@ -95,8 +102,58 @@ pnpm --filter @kuyara/mobile start
 For a local iOS Simulator smoke test, start Metro and stop it with Ctrl+C after verification:
 
 ```bash
-pnpm --filter @kuyara/mobile exec expo start --ios --port 8082
+pnpm --filter @kuyara/mobile exec expo start --ios --port 8081
 ```
+
+### Codex Simulator control and debugging
+
+Codex and Claude Code share Argent through the Goldie plugin, plus XcodeBuildMCP and
+Maestro. No additional MCP registration is needed. Start with the user-scoped
+`argent-ios-simulator-setup`, `argent-device-interact`, and `argent-metro-debugger` skills.
+Select an iOS Simulator UDID explicitly; skip `kind: device`. Reuse the existing debug
+build and Metro when their configuration matches the test, and preserve Simulator data.
+
+- Read screens with Argent `describe` and `screenshot`; inspect React with
+  `debugger-component-tree`. Use returned targets and verify the destination after an action.
+  `tapped: true` is only an input acknowledgement, not proof of navigation.
+- Use `run-sequence` and `await-ui-element` for known transitions instead of repeated
+  screenshots or fixed sleeps. If input is acknowledged but the screen does not change,
+  inspect the target and try one independent input path instead of repeating the gesture.
+- With Xcode 27, the visible Simulator window belongs to **Device Hub**
+  (`com.apple.dt.Devices`). Codex computer use can select that app, read its accessibility
+  tree, click controls, scroll and type. This is the working fallback when Argent or Maestro
+  touch injection does not change the screen. Its coordinates are window coordinates,
+  not Argent's normalized device coordinates. Discover the window and targets afresh.
+- Attach `debugger-connect` to the Simulator UDID and the actual Metro port. Use
+  `debugger-evaluate` for bounded runtime checks and `debugger-log-registry` for the console
+  file, then search only the relevant log lines. Capture starts at connection; it does not
+  reconstruct earlier JavaScript logs. Keep build and Metro terminal output separately.
+- For native hierarchy and network diagnostics, inspect `native-devtools-status` first;
+  restart the app once when it reports `stale_process`. Native system logs are separate:
+  `xcrun simctl spawn <UDID> log show --last 5m --style compact --predicate 'process == "kuyara"'`.
+  Use `log stream` for a live capture. Native logs may redact private fields.
+
+For local debugging with Apple Intelligence enabled and no cloud AI inference, use the
+existing `e2e` Worker from [AI tiers in E2E](#ai-tiers-in-e2e) on port 8788 and start Metro:
+
+```bash
+env -u EXPO_PUBLIC_KUYARA_ON_DEVICE_AI \
+  EXPO_PUBLIC_KUYARA_WORKER_BASE_URL=http://127.0.0.1:8788 \
+  pnpm --filter @kuyara/mobile exec expo start --port 8081 --localhost
+```
+
+Weather and place search still use real providers. A debug build without `expo-dev-client`
+uses `RCTBundleURLProvider`; an `expo-development-client` URL does not switch its Metro
+port. After replacing a mismatched Metro session, wait until its port is free, start the
+correct server and relaunch the app. Do not carry the fallback test's `ON_DEVICE_AI=off`
+into a Foundation Models test.
+
+An Apple Silicon Mac with Apple Intelligence ready can execute Foundation Models for the
+Simulator. Verify an actual synthetic `selectOutfits` response through the existing native
+module, not just `getAvailability`. This establishes functional inference, not iPhone
+latency or battery behavior; see [ADR 0034](adr/0034-on-device-ai-selection-through-apple-foundation-models.md).
+Jev is an optional text classification tool, not a Simulator, screenshot reader or debugger.
+It is not needed for the control loop; its data boundary stays in the user-scoped Jev MCP guide.
 
 ## Shared contract and Worker tests
 
@@ -358,6 +415,9 @@ Confirm the target with `eas update:list --branch production`. A native change n
 way: it bumps the date stamp and takes the build-and-submit steps above.
 
 ### Development build on the physical iPhone
+
+This optional path is for a concrete device-only verification question. Routine mobile
+checks use the iOS Simulator above.
 
 Register the phone once for internal distribution (the command takes no flags), then build and
 install from the EAS link, both from `apps/mobile`:

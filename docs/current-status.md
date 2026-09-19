@@ -495,8 +495,9 @@ before submitting is the maintainer's call.
   scene-lifecycle check; a development-signed copy of production build 13 (iOS 26.5 SDK)
   launches, but LLDB cannot resolve the Objective-C system calls needed to inspect or
   trigger the task on this iOS 27 device. No cache timestamp was altered, and no background
-  refresh is claimed. A compatible device/debugger environment is needed to finish.
-  The Simulator cannot execute this task. On a supported physical-device setup, install a
+  refresh is claimed. This physical-device gap does not block routine Simulator verification;
+  a compatible device/debugger environment is needed only to verify background execution.
+  The Simulator cannot execute this task. For that optional check, install a
   development build ([Development build on the physical
   iPhone](testing.md#development-build-on-the-physical-iphone)), enable Background App
   Refresh, open the app once so
