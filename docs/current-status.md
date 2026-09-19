@@ -207,183 +207,53 @@ and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
 
 ## Release State
 
-Version 0.1.20260913 with build 8 (built from commit 67c20ae) went on sale in every
-territory on 2026-09-15 at 09:14 UTC, at <https://apps.apple.com/app/kuyara/id6806664440>.
-Apple approved submission `b125d544` on 2026-09-15; the Guideline 2.1 Information Needed
-questionnaire of 2026-09-14 (the six-item set sent to accounts with a limited review
-history: physical-device recording, purpose, setup, external services, regional
-differences, regulated content) was answered in the Resolution Center with the iPhone 14
-Pro full-flow recording and named no defect in the binary or the metadata. Automatic
-release was selected, so the version went on sale with the approval. The store primary
-language was switched from Turkish to `en-US` with `asc app-setup info set` the same day
-and Turkish remains a localization (see `product-decisions.md`); the EU Digital Services
-Act trader-status declaration was entered on 2026-09-13 as non-trader. Same-day
-post-release checks: PostHog receives consented build 8 events, including a first
-non-maintainer install that granted consent on 2026-09-15, and EAS Observe reports a
-0.52 s median cold launch and 0.22 s startup TTI for build 8, in line with build 6.
-
-Version 0.1.20260915 with build 9 (commit e4c9350, EAS build 7e305161) was approved and
-released on 2026-09-15 at 21:26 UTC. Its only listing difference from the version before it
-is the final line of the English and Turkish descriptions, which no longer mentions creating an account. The
-maintainer installed build 9 from TestFlight over the installed store build on the phone
-before the submission: the upgrade kept the existing data and onboarding did not reappear.
-
-Version 0.1.20260916 with build 11 (commit dfb1f42, EAS build dede366e) was submitted for
-review on 2026-09-17 at 10:25 UTC as submission `7ae3525e`, attached to the App Store Connect
-version record `ed843aea` with its What's New in both locales; phased release stays configured.
-Build 10 from the same version never reached App Store Connect: its PostHog source-map phase
-failed because the production profile also set `uploadSourceMaps`, which the profile no longer
-does (see the release preconditions in [Release path](testing.md#release-path)). The Worker was
-deployed the same morning ahead of the build, so the deployed request schema accepts the new
-`dayKind`, accessory slots and empty requirement set. The build number is issued by EAS, which
-auto-increments it from the remote version source.
-
-Version 0.1.20260916 with build 11 was approved and went on sale on 2026-09-18.
-Build 12 (version 0.1.20260918, EAS build ac37aaeb, commit ae5c5ee) was uploaded and
-processed but never submitted: the owner held it so the Weather work could ship in the same
-binary. Version 0.1.20260919 with build 13 (commit 798605a, EAS build 25ec7173) was submitted
-for review on 2026-09-18 at 20:43 UTC as submission `6039308f`, attached to the App Store
-Connect version record `729cdddd` with its What's New in both locales and the screenshot set
-shot on 2026-09-18. App Store Connect now reports version 0.1.20260919 as
-`READY_FOR_DISTRIBUTION`, submission `6039308f` as complete, no submission in flight and
-no blocking issues; phased release stays configured. It carries the recommendation engine
-backbone (the thermal ladder, day-aware archetype labels, the engine grid suite), the daily AI
-regeneration allowance behind "Show another outfit", the Apple Intelligence badge, and the
-Weather work: the `/v2/weather` daily forecast read through migration 16, condition glyphs in
-fourteen inks with the day and night taken from the place's own sunrise and sunset, one decimal
-on every temperature, the dressing day that plans to 04:00 once the evening has begun, the Today
-day-insight sentence and the five-day section. The Worker was deployed ahead of the build with
-the `/v2/weather` route, the day-aware selection gate and its cache key version, and the daily
-attempt limit of 50 derived from the current largest prompt; `/v1/weather` and every shipped
-shape are unchanged, so builds 8, 9 and 11 keep working against it.
-
-The strict, Worker-owned AI recommendation request changed in five ways: it carries an
-optional `dayKind` of `weekday` or `weekend`, recognises 20 new garment type ids, allows the
-four optional accessory outfit slots `head`, `neck`, `hands` and `handheld`, raises each
-option's `garments` maximum from 5 to 9, and admits the `extremity_cover` requirement kind.
-The Worker must be deployed with all five request changes before a binary that can send them
-ships; against an older deployment the route answers `400 invalid_request` and mobile falls
-back to the deterministic three.
-
-Continuous integration and the iOS release workflow now exist in the repository.
-`.github/workflows/ci.yml` installs from the lockfile and runs Expo Doctor, `pnpm check`
-and the mobile component suite on every push to `main` and every pull request, and
-`apps/mobile/.eas/workflows/release-ios.yml` builds the production iOS binary and submits
-it with the `production` submit profile, started only by `eas workflow:run` (see
-[Release path](testing.md#release-path)). CI is green on `main`; its first run failed
-until the git-ignored Expo typed-route types were generated on the runner. Since
-2026-09-15 the repository also has Dependabot version updates with the Expo SDK excluded,
-a dependency-review job on pull requests, Dependabot alerts and security updates, secret
-scanning with push protection and CodeQL default setup, whose first scan passed with no
-alert (see [testing.md](testing.md)). Every third-party action in every workflow is pinned
-to a full commit SHA, `.github/workflows/secret-scan.yml` runs gitleaks over the pushed and
-proposed commits, and `.github/workflows/deploy-worker.yml` can deploy the Worker only from
-a manual dispatch; it has never run because its `production` environment still lacks the
-`CLOUDFLARE_API_TOKEN` secret and the `CLOUDFLARE_ACCOUNT_ID` variable. The release
-workflow has not run yet, but the App Store Connect API key it needs is already held by
-EAS, proven by the non-interactive submit of build 9. The version bump, the TestFlight pass
-on the phone and Submit for Review stay the maintainer's manual steps exactly as they are
-today.
-
-The evidence behind the release: the full-flow recording Apple asked for was captured on
-2026-09-14 on the maintainer's iPhone 14 Pro on iOS 26.6.2 from the TestFlight build 8,
-from app launch through onboarding, the location prompt, the first three-outfit
-recommendation, an outfit detail, the Weather tab, the city search and the Profile tab
-with the Closet and Settings; no crash or hang was seen. The earlier physical-device
-check of build 8 (2026-09-13, same device) showed the "AI assisted" badge against the
-production Worker, which is the point of the build: build 7 had shown "Standard
-suggestions" on every recommendation because the mobile validation gate rebuilt each
-picked option with the first valid arrangement of its garments instead of the offered
-one, refusing healthy Worker answers that picked a mid layer or an optional outer layer,
-and refusing 84 of 648 deterministic results at save time. Builds 7 and 8 are the first
-binaries with catalog version 4 (jumpsuit and leggings womens-only) and the Crash Data
-privacy manifest row. The iPhone 14 Pro is not Apple Intelligence eligible, so it
-exercises the Worker tier and the fallback only; the on-device tier remains unmeasured on
-eligible hardware, as ADR 0034's verification boundary records, and the Simulator run's
-5.1 to 6.7 s is not device evidence. Background refresh and production
-analytics dispatch were not separately inspected on the device (see Known Issues).
-
-PostHog Error Tracking is verified end to end. The EAS `production` environment holds
-`POSTHOG_CLI_API_KEY` (a personal key scoped to `error_tracking:write` and
-`organization:read`, entered as a secret on 2026-09-15), `POSTHOG_CLI_PROJECT_ID=270871`
-and `POSTHOG_CLI_HOST=https://eu.posthog.com`. On 2026-09-15 an EAS Release Simulator build
-of the same JavaScript with a temporary, uncommitted unhandled rejection fired three seconds
-after consent produced one `$exception` event and one issue in PostHog whose top frame
-resolved to `/apps/mobile/src/app/analytics-consent.tsx` line 18, so the Hermes source map
-upload from the Xcode bundle phase works. The event only arrived after the PostHog project
-setting "Enable exception autocapture" (`autocapture_exceptions_opt_in`) was switched on:
-the SDK reads that flag from the remote config at client creation and it overrides the local
-`errorTracking.autocapture` option, so a project with the setting off captures nothing. A
-Debug or Metro build cannot serve as this proof because Expo's serializer emits no debug id
-in development and the frames never match an uploaded map.
-App Store Connect's Crash Data answer carries the Analytics purpose beside App Functionality
-since 2026-09-15, added and published through the `asc web privacy` pull, plan, apply and
-publish flow with one created row and nothing deleted, matching the privacy manifest in
-`apps/mobile/app.json`. The organisation is on the free plan
-without a payment method, so PostHog stops ingestion at the free allowance instead of
-billing; a billing limit becomes a step only if a card is added, and the owner's 80 and 100
-percent usage alert emails are on by default. Every `eas update` also needs
-`posthog-cli hermes upload --directory dist` after publishing.
-
-The PostHog wrapper around the "Bundle React Native code and images" phase exits before any
-CLI call when `SKIP_BUNDLING` is set, and Expo's generated phase script exports
-`SKIP_BUNDLING=1` for every Debug configuration, Simulator or device. So Debug builds
-(`expo run:ios`, the dev client) never need the CLI variables, while every Release build,
-which is every EAS production build, bundles JavaScript and fails without all three
-`POSTHOG_CLI_*` values. The plugin also sets `ENABLE_USER_SCRIPT_SANDBOXING=NO` on every
-Xcode configuration at prebuild so the upload script can read git metadata.
-
-A Simulator acceptance tour of the same JavaScript (iPhone 17 Pro, iOS 26.5, English,
-dev client on Metro against the production Worker, 2026-09-13 evening) passed all ten
-steps with no crash, error screen or hang: onboarding with a manual location, the first
-recommendation, the consent sheet, outfit detail, Weather, Closet add and delete,
-Settings with the notification permission and the AI status screen, regeneration after
-a dress-style change, a cold relaunch showing the persisted recommendation, and pull to
-refresh. No generation-mode badge appeared, which is what a deterministic
-result looks like at rest, and that evening the production AI quota was exhausted. The tour is evidence for the flows, not for the AI
-tier. The weather no longer decides whether a tier is tried at all: a day that derives no
-clothing requirement reaches the AI tiers like any other, and the composed pool is what
-decides whether there is anything to choose from. One product observation came out of it and was settled on 2026-09-15: in mild weather
-(19°, cloudy) the deterministic rules produce no requirement, so Today's rationale line
-rendered empty and the detail surface showed no reasons section while the store
-description promised outfits "explained piece by piece". Today now shows one deterministic
-status sentence when no requirement fires, the detail reasons section stays
-requirement-only as ADR 0026 section 4 designs it, and the store description promises
-reasons "when the weather asks for it" (see `product-decisions.md`); the App Store text
-itself changes with the next submitted version.
-
-Everything else in milestone 11 is done. App Store Connect holds the privacy policy and
-support URLs, the category, content rights, price, the build, the review information,
-the App Privacy questionnaire including the EAS Observe rows (Performance Data, Other
-Diagnostic Data, Crash Data and the App Functionality purpose on Device ID), entered
-with the `asc` CLI on 2026-09-13 and published, and the ten framed screenshots (five per
-localization, `APP_IPHONE_67`) uploaded the same day; `asc validate` reports no blocking
-finding. The privacy policy and support pages are published from `main` on GitHub Pages
-in English (`/privacy-policy` and `/support`) and Turkish (`/tr/privacy-policy` and
-`/tr/support`) with `docs/_config.yml` and a layout override that carries the language
-switcher, so the page metadata no longer inherits the GitHub repository description and
-the theme's "open source" footer is gone. No app preview video is used: Apple allows only raw
-in-app footage there, so it did not earn its place, and the preview sets in both
-localizations were emptied on 2026-09-13. The uploaded hero screenshot in both
-localizations shows a deterministic-fallback result, captured while that mode still
-carried a badge, whose archetype and reason read oddly beside a cloudy 24° forecast; whether to recapture it
-before submitting is the maintainer's call.
+- **Last released build:** Version `0.1.20260919`, build 13, EAS build
+  `25ec7173-99fd-4b67-ac0d-de8cb99a4dfe`, was built from commit
+  `798605a505d4e0979df030a47712e04611e03d20`.
+- **App Store Connect:** Version record
+  `729cdddd-cd75-4d6d-aa62-6eb2f311d374` is `READY_FOR_DISTRIBUTION`, review
+  `6039308f-ace6-4821-bd42-9f132c5ae933` is `COMPLETE`, and no submission is in flight.
+  The aggregate status reports phased release configured, but the direct phased-release
+  relationship is empty and the version relationship is null. Preserve the approved phased
+  release preference, but do not claim an active rollout until that state is reconciled.
+- **Privacy and listing:** The public App Store privacy page returned HTTP 200 on
+  2026-09-20. Its linked analytics `Device ID`, `Product Interaction`, `Other Usage Data`
+  and `Crash Data`, plus the functionality `Device ID`, `Crash Data`, `Performance Data`
+  and `Other Diagnostic Data`, match [ADR 0033](adr/0033-apple-privacy-obligations-for-first-party-analytics.md).
+  The English and Turkish support URLs also returned HTTP 200. Apple's three privacy pages
+  were re-read on the same date; no obligation changed.
+- **Current candidate:** The target version is `0.1.20260920`. Its approved scope is the
+  help and feedback row, localized copy, and Expo SDK 57 patch compatibility. It changes no
+  Worker route, shared contract, or migration, so no Worker deployment is required for this
+  candidate. The frozen install and `expo install --check` passed. `pnpm check` passed with
+  826 mobile, 101 contracts, and 256 Worker Node tests plus lint, TypeScript, and Worker
+  bundle checks; the component suite passed with 51 suites and 534 tests. The native build
+  succeeded and generated the expected `Info.plist`; the Simulator flow tour is still in
+  progress. CI at the initial `2e199927f792929a0c0a18690508b74d702e30c8` baseline was green.
+  The independent accumulated binary-diff review and the focused review of the support
+  language fix found no release blocker. The candidate has not been submitted.
+- **Release evidence:** App Store Connect currently holds eight screenshots per locale,
+  16 total. The first English and Turkish hero assets inspected from the live records show
+  `Crewe 13° / Rain Ready / Chosen with AI` and `14° / Yağmura Hazır / AI ile seçildi`.
+  The in-place physical TestFlight upgrade remains mandatory before release.
+- **Compatibility:** Builds 8 and 9 were built before `8e949ec` and use strict `/v1`
+  response schemas. Keep every `/v1` response shape frozen while either remains installed;
+  this candidate makes no Worker or contract change.
 
 ## Recently Completed
 
-- **The refresh reaches the stylist** (2026-09-13, working tree, not yet in a build or
-  deployed): the validation gate rebuilds a picked option by finding the valid arrangement
-  equal to the offer, so every option the app composes is accepted and a persisted
+- **The refresh reaches the stylist:** the validation gate rebuilds a picked option by
+  finding the valid arrangement equal to the offer, so every option the app composes is
+  accepted and a persisted
   deterministic result always reloads; the Worker walks all five providers inside 36
   seconds and the mobile client waits 38 seconds for it after the 8-second on-device tier;
   Today shows the generation phase on a live region with a still-under-Reduce-Motion
-  ambient mark; the Settings AI status screen keeps a coarse tier label with a one-line
-  switch reserved for the pending provider-name decision; the Privacy row shows no On/Off
-  value. Checks: `pnpm check`, the component suite (405 tests), the design-language greps,
-  and one Simulator run of a phased refresh that settled on the AI-assisted badge, with
+  ambient mark; the Settings AI status screen keeps a coarse tier label; the Privacy row
+  shows no On/Off value. Checks: `pnpm check`, the component suite (405 tests), the
+  design-language greps, and one Simulator run of a phased refresh that settled on the
+  AI-assisted badge, with
   the mark still under Reduce Motion. The Worker change is deployed (the 36 s walk
-  is live) and the mobile change ships in build 8, the build attached to the submitted
-  App Store version.
+  is live) and the mobile change ships in build 8 and later binaries.
 - **AI chain repair** (2026-09-13): the dead OpenRouter slugs were replaced with the
   three free models that answer the real strict `json_schema` request
   (`nex-agi/nex-n2.5-mini:free`, `nvidia/nemotron-3-super-120b-a12b:free`,
@@ -464,6 +334,9 @@ before submitting is the maintainer's call.
 
 ## Known Issues and Manual Verification Gaps
 
+- **Support language verification:** The candidate passes an explicit language to the support
+  page so browser preferences cannot override the app's choice. Node and component regression
+  checks pass; the published-page Simulator check remains pending until the Pages update.
 - **Expo retention is known only for Observe.** Both privacy policies attribute Observe's
   90-day retention to [Expo's pricing page](https://expo.dev/pricing). No period is published
   for the EAS Insights launch event or the EAS Update check, which receive the same install

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { runInNewContext } from 'node:vm';
 
 import {
   createOnboardingDraft,
@@ -88,6 +89,55 @@ test('language preference follows the device only in system mode', () => {
   assert.equal(resolveLanguagePreference('system', 'en-US'), 'en');
   assert.equal(resolveLanguagePreference('tr', 'en-US'), 'tr');
   assert.equal(resolveLanguagePreference('en', 'tr-TR'), 'en');
+});
+
+test('site honors an explicit app language for this visit without changing website preference', async () => {
+  const head = await readFile(new URL('../../../../../docs/_includes/lang-head.html', import.meta.url), 'utf8');
+  const script = head.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(script);
+  const enUrl = 'https://ubrn.github.io/kuyara/support';
+  const trUrl = 'https://ubrn.github.io/kuyara/tr/support';
+
+  function visit(current, url, saved, device) {
+    let redirect = null;
+    let remembered = saved;
+    let onClick;
+    runInNewContext(script.replace('{{ page.lang | jsonify }}', JSON.stringify(current)), {
+      URL,
+      URLSearchParams,
+      document: {
+        addEventListener: (_, listener) => { onClick = listener; },
+        querySelector: (selector) => selector.includes('hreflang="en"')
+          ? { href: enUrl }
+          : selector.includes('hreflang="tr"') ? { href: trUrl } : null,
+      },
+      navigator: { language: device },
+      window: {
+        location: { href: url, search: new URL(url).search, replace: (target) => { redirect = target; } },
+        localStorage: {
+          getItem: () => remembered,
+          setItem: (_, value) => { remembered = value; },
+        },
+      },
+    });
+    return { redirect, get remembered() { return remembered; }, onClick };
+  }
+
+  const englishFromApp = visit('en', `${enUrl}?lang=en`, 'tr', 'tr-TR');
+  assert.equal(englishFromApp.redirect, null);
+  assert.equal(englishFromApp.remembered, 'tr');
+  assert.equal(visit('tr', `${trUrl}?lang=tr`, 'en', 'en-US').redirect, null);
+  const redirected = visit('tr', `${trUrl}?lang=en`, 'tr', 'tr-TR').redirect;
+  assert.equal(redirected, `${enUrl}?lang=en`);
+  assert.equal(visit('en', redirected, 'tr', 'tr-TR').redirect, null);
+  assert.equal(visit('en', `${enUrl}?lang=fr`, 'tr', 'en-US').redirect, trUrl);
+  assert.equal(visit('en', enUrl, null, 'tr-TR').redirect, trUrl);
+  assert.equal(visit('en', enUrl, 'en', 'tr-TR').redirect, null);
+
+  const website = visit('en', `${enUrl}?lang=en`, 'en', 'en-US');
+  website.onClick({ target: { closest: () => ({ getAttribute: () => 'tr' }) } });
+  assert.equal(website.remembered, 'tr');
+  assert.equal(visit('tr', trUrl, website.remembered, 'en-US').redirect, null);
 });
 
 test('incomplete and completed profiles resolve to the correct local route gate', () => {
