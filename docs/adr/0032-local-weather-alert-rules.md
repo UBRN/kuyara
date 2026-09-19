@@ -4,7 +4,8 @@ Status: Accepted (2026-09-09)
 
 Implementation: phases 1 to 3 are complete, code-reviewed, and verified on the Simulator
 for foreground behavior and background-task registration safety. Actual background
-execution still needs a physical-device check the Simulator cannot give (see Known Issues).
+execution remains unverified because the Simulator cannot run it; a physical-device check
+is optional when that specific behavior must be verified (see Known Issues).
 For phase 3, `expo-background-task` and its required peer `expo-task-manager` are pinned
 `~57.0.16` (checked against the npm registry 2026-09-09), aligned with the installed
 `expo@~57.0.9` (SDK 57), and follow the existing `~57.0.x` Expo package pattern. The first
@@ -136,8 +137,8 @@ age.
   failed cancel-all aborts the reschedule. The Simulator verifies the foreground path.
 - **Phase 3, background refresh.** `expo-background-task` reruns the refresh and reschedule when iOS
   grants a window. It reuses a cached snapshot that is still fresh instead of fetching,
-  registers on opt-in, and unregisters on opt-out. Needs one physical-device check; the
-  Simulator cannot run it.
+  registers on opt-in, and unregisters on opt-out. The Simulator cannot run the task;
+  physical-device verification is optional for its actual execution.
 
 ## Consequences
 

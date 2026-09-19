@@ -129,7 +129,8 @@ The decision is scoped into three milestones:
   altogether if the user swipes the app away in the app switcher. This is an
   accepted limitation, and the reason N3 stays on the table.
 - `expo-background-task` background execution is unavailable on the iOS
-  Simulator, so N2's background path needs one physical-device verification.
+  Simulator. A physical-device check is optional when actual background execution needs
+  verification; the Simulator's foreground evidence does not establish that behavior.
 - N1 is independently shippable and was completed without weather-alert logic.
 - Continuous Native Generation applies the `expo-notifications` plugin during
   builds. Its iOS notification entitlement is accepted, while remote background
