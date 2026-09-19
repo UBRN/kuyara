@@ -159,13 +159,126 @@ A user-submitted "Report a problem" flow is a separate future product feature. I
 later use PostHog's feedback or survey capabilities or something else; nothing is chosen
 here.
 
-### 9. Session replay is an evaluation item
+### 9. Session replay stays disabled
 
-Session replay is neither rejected nor approved for production capture. Before it could be
-enabled: privacy masking is designed first, Closet photos and other personal surfaces are
-never captured unmasked, sampling is chosen to bound volume and cost, the consent and
-privacy implications are verified, and the free-tier impact is understood. Unrestricted
-100% capture is not approved.
+**The evaluation is complete: do not enable production session replay on either
+platform.** A safe implementation has not been demonstrated for kuyara's native UI
+and consent lifecycle. This is not a claim that PostHog cannot support safe replay;
+it is a decision that SDK capabilities alone do not satisfy this app's data boundary.
+Existing structured events and Error Tracking remain the evidence channels.
+
+| Control | Current decision |
+|---|---|
+| Screens and fields | No screen, field, image, touch stream or replay metadata is recorded on iOS or Android. No masking implementation is claimed. |
+| Start event | None. Neither `error_shown`, `$exception`, `screen_viewed`, consent grant nor app launch starts replay. No pre-consent or pre-trigger recording buffer. |
+| Sampling | 0% of sessions, enforced by `enableSessionReplay: false` and the absent native replay plugin, not by sampling alone. |
+| Retention | No replay is created or retained locally or remotely. This is not a configured vendor zero-day retention period. Existing analytics event retention is unchanged. |
+| Consent and withdrawal | Existing analytics consent grants no replay permission. Decline, withdrawal and later re-consent all leave replay disabled; no additional prompt or toggle is introduced. |
+| Cost | $0 incremental replay spend and zero replay ingestion. No paid subscription, card, automatic top-up or limit change is authorized. |
+
+#### Evidence and limits
+
+Sources below were checked on 2026-09-20 against repository code and official
+documentation. Native replay masking, queue disposal and live billing settings remain
+unverified. This decision authorizes no SDK installation, recording or production change.
+
+- **The existing gate is for events.** `resolvePostHogProviderOptions` in
+  `apps/mobile/src/features/analytics/data/posthog-product-analytics.ts` disables replay.
+  Its `before_send` filters event properties and exceptions; it does not mask native
+  screenshots. `withdraw()` clears the JavaScript event queue and rotates identity.
+  Neither that code nor its tests prove native replay queue deletion. The installed
+  `posthog-react-native` is 4.68.4; the optional native replay plugin is absent.
+- **React Native replay is screenshot capture on both platforms**, not the native SDKs'
+  optional wireframe mode ([mobile recording modes](https://posthog.com/docs/session-replay/mobile)).
+  Screenshots are a new outbound data surface; the exception-report allowance in ADR 0035
+  does not authorize image content. Masking must prevent prohibited content from entering
+  the outbound recording, not merely conceal it in the dashboard.
+- **Masking depends on the resolved native implementation.** PostHog documents default
+  text/image masking, `PostHogMaskView`, and native SwiftUI/Compose modifiers. It warns
+  about Xcode 26 SwiftUI rendering and about unmasking a parent overriding child masks
+  ([privacy controls](https://posthog.com/docs/session-replay/privacy)). The merged
+  [iOS Fabric masking fix](https://github.com/PostHog/posthog-ios/pull/777) documents
+  rendered text and SVG escaping earlier masks. Its existence is not proof of kuyara's
+  resolved binary or of `@expo/ui` Host, native sheet and picker coverage. The app uses
+  both SwiftUI and Compose controls, and neither platform has replay runtime evidence.
+  Do not replace accessible labels with masking tokens; use the dedicated masking wrapper
+  if a future implementation is authorized.
+- **Defaults also open nonvisual paths.** The
+  [React Native installation guide](https://posthog.com/docs/session-replay/installation/react-native)
+  documents Android Logcat capture and iOS network telemetry enabled by default. Any
+  future candidate must explicitly disable both, retain text/image/sandboxed-view masks,
+  and keep route parameters, local paths, identifiers and free text out of replay metadata.
+- **An error trigger does not recover the preceding mobile journey.** RN event triggers
+  match event names only, require SDK 4.52.0+, and start at the event with no mobile
+  pre-buffer. Thus `error_shown` cannot be restricted to Today by a property filter,
+  and `$exception` does not supply a pre-crash movie. Sampling is session-based, supported
+  from RN 4.37.0, with local configuration taking precedence over remote configuration
+  ([recording rules](https://posthog.com/docs/session-replay/how-to-control-which-sessions-you-record),
+  [RN configuration](https://posthog.com/docs/session-replay/installation/react-native)).
+- **Mobile has its own allowance.** The
+  [replay pricing page](https://posthog.com/session-replay/pricing) lists 2,500 free mobile
+  recordings/month, then $0.0100 per recording in the first paid tier, separately from
+  5,000 free web recordings. A sample percentage reduces expected volume but cannot
+  guarantee a monthly cap; no nonzero sample is approved.
+- **Replay retention is separate from event retention.** Free replay retention is up to
+  30 days, not the analytics project's twelve months. A changed retention setting applies
+  only to new recordings; expiry and manual deletion are not immediate
+  ([recording retention](https://posthog.com/docs/session-replay/recording-retention)).
+  No exact deletion deadline or automatic deletion on consent withdrawal is established.
+- **Alerts are not spending controls.** PostHog documents per-product billing limits and
+  dropping excess replays ([billing FAQ](https://posthog.com/docs/billing/common-questions)).
+  The free plan requires no card ([pricing](https://posthog.com/pricing)); ADR 0035 records
+  kuyara's no-card free account, but the live billing state was not rechecked here.
+  An exact $0 paid-plan limit and zero overshoot have not been verified. Any later
+  proposal must verify the no-card free stop or an equally hard $0 control before enabling
+  ingestion; sampling and usage emails cannot substitute for it.
+
+#### Boundaries a later proposal must prove
+
+These are reopening conditions, not permission to install or capture. No nonzero sample,
+start event or retention setting is approved. A later proposal must name those values
+and the concrete product question before implementation is authorized.
+
+| Surface | Required exclusion or masking before any future capture |
+|---|---|
+| Onboarding and consent | Exclude the entire flow, including gender, dress style, birth date, location and the consent sheet. |
+| Profile, Closet list/create/edit/detail | Exclude the entire screen, including Profile's Closet preview rail, owned/wanted state and counts, photos, garment names/colours, file paths and place labels. |
+| Settings and child screens | Exclude the entire screen, especially birth date, preferences, Privacy's analytics identifier and AI-status provider/model details. |
+| Location search and native overlays | Exclude typed query, search results, selected place, permission dialogs, keyboard, photo picker, share sheet and in-app browser. Stop before presentation; navigation callbacks after a frame is drawn are insufficient. |
+| Today and Weather | Only candidates for a later bounded trial. Mask all rendered text and inputs, every image/SVG/garment board, place labels, weather values and contextual captions; retain at most proven content-free layout and interactions. |
+| Outfit detail, errors, unknown/new routes | Exclude by default. Detail exposes ownership; error and bootstrap/share surfaces may contain diagnostic text. No automatic resume from a sensitive screen. |
+
+Apple's [Review Guidelines](https://developer.apple.com/app-store/review/guidelines/)
+2.5.14 require explicit consent and a clear recording indication; 5.1.1 requires an
+accessible withdrawal path and retention/deletion disclosure. The existing English and
+Turkish `analytics.consentBody` never asks to record screens and promises to exclude
+location, photos, Closet and name. A future proposal must reconcile explicit replay
+permission, re-consent for existing grants and a visible recording indicator with
+ADR 0033's one-answer design; it cannot silently widen an existing `granted` value or
+invent a second consent surface. Withdrawal must stop capture immediately, discard
+unsent native frames including offline queues, prevent later upload after restart or
+re-consent, and sever replay identity. Already uploaded data needs an explicit retention
+and deletion policy; the existing anonymous-event deletion limitation is not proof about
+replay deletion. Re-derive [App Privacy disclosures](https://developer.apple.com/app-store/app-privacy-details/)
+from the actual proposed payload before collecting it.
+
+Acceptance of any later implementation requires synthetic-data tests on iOS and Android
+covering the actual resolved SDK/native versions, RN Fabric, SwiftUI/Compose Hosts,
+route transitions, modals, text scaling and both languages. Inspect decoded outbound
+payloads and replay frames, including recognisable synthetic images and text canaries;
+absence of strings alone cannot prove screenshot redaction. Exercise undecided, decline,
+grant, offline withdrawal, restart and re-consent, native queue removal, sampling across
+session rollover, trigger timing, retention and provider-side spend enforcement. Verify
+that remote configuration cannot bypass local consent/exclusions. Native masking that
+cannot be proved fails closed on that platform. Obtain the required independent review
+of the completed implementation diff. These tests require a separately authorized test
+integration; none ran in this documentation-only evaluation.
+
+The present decision is verified by the existing boundary guard for
+`enableSessionReplay: false`, dependency inspection and document consistency checks.
+Confidence is high that keeping replay off preserves the current boundary; safety of a
+nonzero replay implementation remains unverified. Implementation, a recording trial and
+production enablement each require explicit authorization beyond this evaluation.
 
 ### 10. Grafana is operational observability, not product analytics
 
@@ -210,7 +323,7 @@ and [ADR 0002](0002-real-weather-provider-chain.md) already require for provider
 
 - Installing or configuring PostHog, any SDK, or any dependency.
 - Writing event calls, the taxonomy, or the `ProductAnalytics` boundary.
-- Session replay, ATT permission, or Terms & Conditions UI. The consent surface is
+- Session replay implementation or capture, ATT permission, or Terms & Conditions UI. The consent surface is
   [ADR 0033](0033-apple-privacy-obligations-for-first-party-analytics.md)'s.
 - Grafana, OpenTelemetry, or any logging infrastructure.
 - Choosing the user-facing feedback mechanism.
