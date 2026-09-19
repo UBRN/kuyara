@@ -23,16 +23,22 @@ minimumReleaseAgeExclude:
   - '@posthog/core@1.52.0'
   - '@posthog/types@1.409.4'
   - posthog-react-native@4.68.4
-  - expo-insights@57.0.18
-  - '@expo/cli@57.0.25'
+  - expo-insights@57.0.18 || 57.0.19
+  - '@expo/cli@57.0.25 || 57.0.26'
   - '@expo/router-server@57.0.10'
   - babel-preset-expo@57.0.12
-  - expo@57.0.23
-  - expo-app-metrics@57.0.19
-  - expo-background-task@57.0.18
-  - expo-image-manipulator@57.0.18
-  - expo-image-picker@57.0.18
-  - expo-location@57.0.18
-  - expo-notifications@57.0.19
-  - expo-observe@57.0.22
-  - expo-task-manager@57.0.18
+  - expo@57.0.23 || 57.0.24
+  - expo-app-metrics@57.0.19 || 57.0.20
+  - expo-background-task@57.0.18 || 57.0.19
+  - expo-image-manipulator@57.0.18 || 57.0.19
+  - expo-image-picker@57.0.18 || 57.0.19
+  - expo-location@57.0.18 || 57.0.19
+  - expo-notifications@57.0.19 || 57.0.20
+  - expo-observe@57.0.22 || 57.0.23
+  - expo-task-manager@57.0.18 || 57.0.19
+  - expo-asset@57.0.18
+  - expo-constants@57.0.19
+  - '@expo/metro-runtime@57.0.16'
+  - '@expo/ui@57.0.19'
+  - expo-router@57.0.22
+  - expo-updates@57.0.23
