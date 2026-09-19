@@ -184,8 +184,13 @@ Milestones 10 and 11 shipped with the first App Store release; what remains of m
     ingestion limits are configured at 100 exceptions per 60 minutes project-wide and 20 per
     60 minutes per issue; excess is dropped before billing. Observe retains native crashes
     and performance while the accepted unhandled-JavaScript overlap remains.
-13. **Session replay evaluation.** Only after privacy masking and sampling are designed.
-    Not approved for capture.
+13. **Session replay evaluation complete: keep capture disabled on iOS and Android.**
+    [ADR 0023 section 9](adr/0023-behavioural-product-analytics-with-posthog.md#9-session-replay-stays-disabled)
+    records the masking exclusions, native verification gaps, consent requirements and
+    mobile-specific pricing/retention evidence. The current decision is no recorded
+    screen, no start event, 0% sampling, no retained replay and $0 incremental spend.
+    Existing analytics consent does not authorize replay. No SDK or production setting
+    changed; implementation or a recording trial needs separate explicit authorization.
 14. **Operational observability: existing Workers Logs.** Keep the free Cloudflare Workers
     Logs for Worker latency, errors, provider fallbacks and quota.
     The Worker's structured logs already carry the distinctions an options report of
