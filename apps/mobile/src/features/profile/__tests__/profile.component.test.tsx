@@ -261,6 +261,46 @@ test('the empty Closet shows the sentence and the Add a piece action, and hides 
   expect(onOpenWardrobe).toHaveBeenCalledWith();
 });
 
+test('the Turkish empty Closet wraps its text within the window at fontScale 3.1', async () => {
+  mockFontScale(3.1);
+  const result = await render(
+    <TestProviders items={[]} language="tr">
+      <ProfileScreen displayName="Utku" onOpenWardrobe={() => undefined} />
+    </TestProviders>,
+  );
+
+  const windowWidth = Dimensions.get('window').width;
+  const screenContentStyle = StyleSheet.flatten(
+    result.getByTestId('profile-screen').props.contentContainerStyle,
+  );
+  expect(Dimensions.get('window').fontScale).toBe(3.1);
+  expect(screenContentStyle?.width).toBe('100%');
+
+  const heading = result.getByTestId('profile-closet-heading');
+  const headingStyle = StyleSheet.flatten(heading.props.style);
+  expect(headingStyle?.flexDirection).toBe('column');
+  expect(headingStyle?.height).toBeUndefined();
+  expect(result.getByTestId('profile-closet-heading-title-row')).toBeOnTheScreen();
+
+  const textNodes = [
+    result.getByText(messages.tr.profile.wardrobeTitleNamed('Utku')),
+    result.getByTestId('profile-closet-heading-count'),
+    result.getByText(messages.tr.profile.wardrobeEmpty),
+    result.getByText(messages.tr.profile.addPieceAction, { includeHiddenElements: true }),
+  ];
+
+  for (const node of textNodes) {
+    const style = StyleSheet.flatten(node.props.style);
+    expect(node.props.numberOfLines).not.toBe(1);
+    expect(style).toMatchObject({ flexShrink: 1, maxWidth: '100%', minWidth: 0 });
+    if (typeof style?.width === 'number') {
+      expect(style.width).toBeLessThanOrEqual(windowWidth);
+    }
+  }
+
+  expect(result.getByTestId('profile-closet-heading-count')).toHaveTextContent('0');
+});
+
 test('a wanted-only closet counts its pieces and falls back to the wanted rail', async () => {
   mockFontScale(1);
   const onOpenWardrobe = jest.fn();
