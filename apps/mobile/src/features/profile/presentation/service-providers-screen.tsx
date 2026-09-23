@@ -33,13 +33,15 @@ export function ServiceProvidersScreen({
   // Reading availability calls nothing, so this row is never a probe. Until the answer
   // arrives, and for every reason other than the switch being off or the model still
   // downloading, the device reads as one that is not compatible.
-  const onDeviceCopy = onDeviceAvailability?.status === 'available'
-    ? copy.aiStatusOnDeviceRunning
-    : onDeviceAvailability?.reason === 'apple_intelligence_not_enabled'
-      ? copy.aiStatusOnDeviceOff
-      : onDeviceAvailability?.reason === 'model_not_ready'
-        ? copy.aiStatusOnDeviceGettingReady
-        : copy.aiStatusOnDeviceIncompatible;
+  const onDeviceCopy = (
+    onDeviceAvailability?.status === 'available'
+      ? copy.aiStatusOnDeviceRunning
+      : onDeviceAvailability?.reason === 'apple_intelligence_not_enabled'
+        ? copy.aiStatusOnDeviceOff
+        : onDeviceAvailability?.reason === 'model_not_ready'
+          ? copy.aiStatusOnDeviceGettingReady
+          : copy.aiStatusOnDeviceIncompatible
+  ).replace('Apple Intelligence', 'Apple\u00A0Intelligence');
   const statusSymbol: IconName = onDeviceAvailability?.status === 'available' ||
     onDeviceAvailability?.reason === 'model_not_ready'
     ? 'statusRunning'

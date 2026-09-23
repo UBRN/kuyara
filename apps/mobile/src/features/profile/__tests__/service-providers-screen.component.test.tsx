@@ -1,6 +1,6 @@
 import { fireEvent, isHiddenFromAccessibility, render } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { View } from 'react-native';
+import { Dimensions, View } from 'react-native';
 
 import { ServiceProvidersScreen } from '@/features/profile/presentation/service-providers-screen';
 import { LocalizationContext } from '@/localization/localization-context';
@@ -31,6 +31,15 @@ const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
   insets: { top: 47, right: 0, bottom: 34, left: 0 },
 };
+const originalWindowDimensions = Dimensions.get('window');
+
+function mockFontScale(fontScale: number) {
+  Dimensions.set({ window: { ...originalWindowDimensions, fontScale } });
+}
+
+afterEach(() => {
+  Dimensions.set({ window: originalWindowDimensions });
+});
 
 function providers(
   children: React.ReactNode,
@@ -202,6 +211,20 @@ test('shows the weather attribution or the no-snapshot sentence', async () => {
 // and no quota. Every reason other than the switch being off or the model still downloading
 // reads as a device that is not compatible.
 describe.each(['en', 'tr'] as const)('%s on-device availability row', (language) => {
+  test('keeps the Apple Intelligence mark together at fontScale 3.1', async () => {
+    mockFontScale(3.1);
+    const { rendered } = screen(language, { onDeviceAvailability: { status: 'available' } });
+    const result = await rendered;
+    const expectedCopy = messages[language].settings.aiStatusOnDeviceRunning.replace(
+      'Apple Intelligence',
+      'Apple\u00A0Intelligence',
+    );
+    const renderedCopy = result.getByText(expectedCopy);
+
+    expect(Dimensions.get('window').fontScale).toBe(3.1);
+    expect(renderedCopy.props.children).toBe(expectedCopy);
+  });
+
   test.each([
     [{ status: 'available' } as const, 'aiStatusOnDeviceRunning', 'statusRunning'],
     [
