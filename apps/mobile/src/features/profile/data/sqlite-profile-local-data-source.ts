@@ -3,6 +3,7 @@ import type {
   DressStyle,
   Gender,
 } from '@/features/profile/domain/profile';
+import { namePromptVersion } from '@/features/profile/domain/profile';
 import type {
   LanguagePreference,
   ThemePreference,
@@ -23,6 +24,8 @@ type LocalProfileRow = Readonly<{
   gender: string | null;
   dress_style: string | null;
   birth_date: string | null;
+  display_name: string | null;
+  name_prompt_version: number;
   language_preference: string;
   theme_preference: string;
   onboarding_completed: number;
@@ -46,6 +49,8 @@ const selectProfileSql = `
     gender,
     dress_style,
     birth_date,
+    display_name,
+    name_prompt_version,
     language_preference,
     theme_preference,
     onboarding_completed,
@@ -66,6 +71,8 @@ function mapRow(row: LocalProfileRow): LocalProfileRecord {
     gender: row.gender,
     dressStyle: row.dress_style,
     birthDate: row.birth_date,
+    displayName: row.display_name,
+    namePromptVersion: row.name_prompt_version,
     languagePreference: row.language_preference,
     themePreference: row.theme_preference,
     onboardingCompleted: row.onboarding_completed,
@@ -160,6 +167,8 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
           gender = ?,
           dress_style = ?,
           birth_date = ?,
+          display_name = ?,
+          name_prompt_version = ?,
           onboarding_completed = 1,
           updated_at = ?
         WHERE singleton_key = 1 AND deleted_at IS NULL
@@ -168,6 +177,8 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
         preferences.gender,
         preferences.dressStyle,
         preferences.birthDate,
+        preferences.displayName ?? null,
+        namePromptVersion,
       ],
     );
   }
@@ -196,6 +207,14 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
       `UPDATE local_profiles SET birth_date = ?, updated_at = ?
        WHERE singleton_key = 1 AND deleted_at IS NULL`,
       [birthDate],
+    );
+  }
+
+  updateDisplayName(displayName: string | null): Promise<LocalProfileRecord> {
+    return this.updateProfile(
+      `UPDATE local_profiles SET display_name = ?, name_prompt_version = ?, updated_at = ?
+       WHERE singleton_key = 1 AND deleted_at IS NULL`,
+      [displayName, namePromptVersion],
     );
   }
 

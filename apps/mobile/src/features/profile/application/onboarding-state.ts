@@ -5,12 +5,13 @@ import type {
   OnboardingPreferences,
 } from '@/features/profile/domain/profile';
 
-export type OnboardingStep = 0 | 1 | 2 | 3 | 4;
+export type OnboardingStep = 0 | 1 | 2 | 3 | 4 | 5;
 
-// Taxonomy 5.2: the five-step order `onboarding_step_completed`'s `step_name` reports,
-// indexed the same way `OnboardingStep` is.
-export const onboardingStepNames: readonly OnboardingStepName[] = [
+// The existing analytics taxonomy has five steps. The optional name step has no event
+// until that taxonomy is deliberately revised, and its value is never an event property.
+export const onboardingStepNames: readonly (OnboardingStepName | null)[] = [
   'welcome',
+  null,
   'gender',
   'dress_style',
   'birth_date',
@@ -19,6 +20,7 @@ export const onboardingStepNames: readonly OnboardingStepName[] = [
 
 export type OnboardingDraft = Readonly<{
   step: OnboardingStep;
+  displayName: string | null;
   gender: Gender | null;
   dressStyle: DressStyle | null;
   birthDate: string | null;
@@ -30,9 +32,11 @@ export type OnboardingAction =
   | Readonly<{ type: 'back' }>
   | Readonly<{ type: 'select-gender'; value: Gender }>
   | Readonly<{ type: 'select-dress-style'; value: DressStyle }>
-  | Readonly<{ type: 'select-birth-date'; value: string | null }>;
+  | Readonly<{ type: 'select-birth-date'; value: string | null }>
+  | Readonly<{ type: 'set-display-name'; value: string | null }>;
 
 export function createOnboardingDraft(values: {
+  displayName?: string | null;
   gender: Gender | null;
   dressStyle: DressStyle | null;
   birthDate: string | null;
@@ -40,6 +44,7 @@ export function createOnboardingDraft(values: {
   return {
     step: 0,
     hasValidationError: false,
+    displayName: null,
     ...values,
   };
 }
@@ -50,15 +55,15 @@ export function reduceOnboardingDraft(
 ): OnboardingDraft {
   switch (action.type) {
     case 'continue':
-      if (state.step === 1 && !state.gender) {
+      if (state.step === 2 && !state.gender) {
         return { ...state, hasValidationError: true };
       }
-      if (state.step === 2 && !state.dressStyle) {
+      if (state.step === 3 && !state.dressStyle) {
         return { ...state, hasValidationError: true };
       }
       return {
         ...state,
-        step: Math.min(state.step + 1, 4) as OnboardingStep,
+        step: Math.min(state.step + 1, 5) as OnboardingStep,
         hasValidationError: false,
       };
     case 'back':
@@ -81,6 +86,8 @@ export function reduceOnboardingDraft(
       };
     case 'select-birth-date':
       return { ...state, birthDate: action.value };
+    case 'set-display-name':
+      return { ...state, displayName: action.value };
   }
 }
 
@@ -92,6 +99,7 @@ export function onboardingPreferencesFromDraft(
   }
 
   return {
+    displayName: state.displayName,
     gender: state.gender,
     dressStyle: state.dressStyle,
     birthDate: state.birthDate,

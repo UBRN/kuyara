@@ -26,7 +26,7 @@ const profile = (onboardingCompleted) => ({
   updatedAt: '2026-07-30T10:00:00.000Z',
 });
 
-test('onboarding requires gender and dress style before optional birth date and location steps', () => {
+test('onboarding asks the optional name before required gender and dress style', () => {
   let draft = createOnboardingDraft({
     gender: null,
     dressStyle: null,
@@ -36,26 +36,28 @@ test('onboarding requires gender and dress style before optional birth date and 
   draft = reduceOnboardingDraft(draft, { type: 'continue' });
   assert.equal(draft.step, 1);
   draft = reduceOnboardingDraft(draft, { type: 'continue' });
-  assert.equal(draft.step, 1);
+  assert.equal(draft.step, 2);
+  draft = reduceOnboardingDraft(draft, { type: 'continue' });
+  assert.equal(draft.step, 2);
   assert.equal(draft.hasValidationError, true);
   assert.equal(onboardingPreferencesFromDraft(draft), null);
 
   draft = reduceOnboardingDraft(draft, { type: 'select-gender', value: 'woman' });
   assert.equal(draft.hasValidationError, false);
   draft = reduceOnboardingDraft(draft, { type: 'continue' });
-  assert.equal(draft.step, 2);
+  assert.equal(draft.step, 3);
   draft = reduceOnboardingDraft(draft, { type: 'continue' });
-  assert.equal(draft.step, 2);
+  assert.equal(draft.step, 3);
   assert.equal(draft.hasValidationError, true);
   draft = reduceOnboardingDraft(draft, { type: 'select-dress-style', value: 'smart' });
   draft = reduceOnboardingDraft(draft, { type: 'continue' });
-  assert.equal(draft.step, 3);
-  draft = reduceOnboardingDraft(draft, { type: 'continue' });
   assert.equal(draft.step, 4);
   draft = reduceOnboardingDraft(draft, { type: 'continue' });
-  assert.equal(draft.step, 4);
+  assert.equal(draft.step, 5);
+  draft = reduceOnboardingDraft(draft, { type: 'continue' });
+  assert.equal(draft.step, 5);
   draft = reduceOnboardingDraft(draft, { type: 'back' });
-  assert.equal(draft.step, 3);
+  assert.equal(draft.step, 4);
 });
 
 test('onboarding keeps personal choices independent and reviewable', () => {
@@ -69,15 +71,17 @@ test('onboarding keeps personal choices independent and reviewable', () => {
   draft = reduceOnboardingDraft(draft, { type: 'select-birth-date', value: '1994-03-14' });
 
   assert.deepEqual(onboardingPreferencesFromDraft(draft), {
+    displayName: null,
     gender: 'man',
     dressStyle: 'formal',
     birthDate: '1994-03-14',
   });
-  draft = reduceOnboardingDraft({ ...draft, step: 4 }, { type: 'back' });
-  assert.equal(draft.step, 3);
+  draft = reduceOnboardingDraft({ ...draft, step: 5 }, { type: 'back' });
+  assert.equal(draft.step, 4);
   assert.equal(draft.gender, 'man');
   draft = reduceOnboardingDraft(draft, { type: 'select-birth-date', value: null });
   assert.deepEqual(onboardingPreferencesFromDraft(draft), {
+    displayName: null,
     gender: 'man',
     dressStyle: 'formal',
     birthDate: null,

@@ -93,6 +93,7 @@ export function ProfileApplicationProvider({ children }: PropsWithChildren) {
       updateGender: (gender) => controller.updateGender(gender),
       updateDressStyle: (dressStyle) => controller.updateDressStyle(dressStyle),
       updateBirthDate: (birthDate) => controller.updateBirthDate(birthDate),
+      updateDisplayName: (displayName) => controller.updateDisplayName(displayName),
       updateLanguagePreference: (preference) =>
         controller.updateLanguagePreference(preference),
       updateThemePreference: (preference) =>

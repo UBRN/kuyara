@@ -10,6 +10,7 @@ import type {
 import type { LocalProfileRecord } from '@/features/profile/data/local-profile-record';
 
 export type PersistedOnboardingPreferences = Readonly<{
+  displayName?: string | null;
   gender: Gender;
   dressStyle: DressStyle;
   birthDate: string | null;
@@ -21,6 +22,7 @@ export interface ProfileLocalDataSource {
   updateGender(preference: Gender): Promise<LocalProfileRecord>;
   updateDressStyle(dressStyle: DressStyle): Promise<LocalProfileRecord>;
   updateBirthDate(birthDate: string | null): Promise<LocalProfileRecord>;
+  updateDisplayName(displayName: string | null): Promise<LocalProfileRecord>;
   updateLanguagePreference(preference: LanguagePreference): Promise<LocalProfileRecord>;
   updateThemePreference(preference: ThemePreference): Promise<LocalProfileRecord>;
   updateNotificationsOptIn(optIn: boolean): Promise<LocalProfileRecord>;

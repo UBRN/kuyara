@@ -56,6 +56,23 @@ test('recommendation.generated produces only declared keys, in every branch', ()
   assert.deepEqual([...produced].sort(), [...declared].sort());
 });
 
+test('telemetry builders exclude display name and free-text profile fields', () => {
+  const attributes = recommendationGeneratedAttributes({
+    generationMode: 'ai-assisted', onDeviceAvailability: null, durationMs: 12,
+    optionCount: 3, failure: null, displayName: 'Utku', profileNote: 'private profile note',
+  });
+  const weather = weatherRefreshedAttributes({
+    durationMs: 12, outcome: 'success', source: null,
+    displayName: 'Utku', profileNote: 'private profile note',
+  });
+  for (const output of [attributes, weather]) {
+    const serialized = JSON.stringify(output);
+    for (const excluded of ['displayName', 'profileNote', 'Utku', 'private profile note']) {
+      assert.equal(serialized.includes(excluded), false);
+    }
+  }
+});
+
 test('recommendation.generated reports the deepest tier reached and the coarse availability', () => {
   assert.deepEqual(
     recommendationGeneratedAttributes({

@@ -125,6 +125,10 @@ export class ProfileApplicationController {
     return this.updateProfile((repository) => repository.updateBirthDate(birthDate));
   }
 
+  updateDisplayName(displayName: string | null): Promise<void> {
+    return this.updateProfile((repository) => repository.updateDisplayName(displayName));
+  }
+
   updateLanguagePreference(preference: LanguagePreference): Promise<void> {
     return this.updateProfile((repository) =>
       repository.updateLanguagePreference(preference),
