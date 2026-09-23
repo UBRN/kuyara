@@ -183,9 +183,10 @@ Resolved in favour of the narrow reading of "the mobile weather domain":
 - `packages/contracts/src/weather-v1.ts` gains `'weatherkit'` in
   `weatherSourceIds`. That is the whole contract change; the cross-field
   invariant tying `sourceId === 'sample'` to `kind === 'sample'` is unaffected.
-- The Weather screen gains one attribution entry, labelled "Weather data by
-  Apple Weather" from a localization key in both languages, linking to
-  `https://developer.apple.com/weatherkit/data-source-attribution/`.
+- Settings > Service providers shows the official Apple Weather combined mark for
+  the last valid WeatherKit snapshot, linking to
+  `https://weatherkit.apple.com/legal-attribution.html`. A localized "Weather data
+  by Apple Weather" sentence remains visible while the mark loads or if it fails.
 
 The weather domain model, the 30-minute freshness boundary, last-known-good
 behaviour, the SQLite schema and every mapper are untouched. This is exactly the
@@ -193,12 +194,12 @@ mechanism ADR 0002 §8 built for: a controlled, non-secret identifier crosses th
 API and the client owns all user-visible text. No provider-authored string, no
 raw data and no credential crosses the boundary.
 
-The REST API also exposes `GET /api/v1/attribution/{language}`, returning light,
-dark and square Apple Weather logo assets at 1x/2x/3x as partial URLs to be
-appended to `https://weatherkit.apple.com`. Bundling that logo is the stronger
-form of the trademark display and is recorded as the upgrade path, deliberately
-not taken here: it is an extra request, three new image assets per appearance and
-a contrast check in both themes, for a requirement the text form already meets.
+The public WeatherKit attribution endpoint returns light and dark marks at
+1x/2x/3x as paths relative to `https://weatherkit.apple.com`. The mobile data
+layer validates the response and chooses the resolved appearance and pixel ratio.
+It bounds the request to five seconds, memoizes it for the app session, and uses
+the localized sentence if the request or image fails. No credential or weather
+payload is sent with the mark request.
 
 ### 7. What the adapter does not do
 
@@ -227,8 +228,9 @@ it disproved.
 - With the secrets set, Apple becomes the primary source and `origin.sourceId`
   reads `weatherkit`; without them nothing changes.
 - Every provider now has 3,000 ms rather than 4,000 ms per attempt.
-- The Weather screen shows Apple attribution whenever Apple served the data, and
-  still shows nothing for an unrecognized source.
+- Service providers keeps Apple attribution reachable for the last valid snapshot,
+  including a cached or stale snapshot, and shows no invented provider for an
+  unrecognized source. Today and Weather carry no attribution.
 - Apple's documentation gaps were carried as risk rather than as assumption.
   One of the three has since been resolved against the live service and the
   assumption was wrong: `conditionCode` is PascalCase, not the Swift enum's
@@ -300,5 +302,5 @@ single-provider chain removes the fallback the last two milestones built.
 
 - Any live verification, which requires credentials the maintainer must create.
 - Weather alerts, `forecastNextHour`, and milestone N2.
-- The bundled Apple Weather logo asset and the `/api/v1/attribution` endpoint.
+- A bundled Apple Weather logo asset and a Worker attribution endpoint.
 - Any change to the mobile weather domain model, schema, or freshness rules.

@@ -1,7 +1,7 @@
 import { fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import Constants from 'expo-constants';
 import { useEffect, useState } from 'react';
-import { Linking, StyleSheet } from 'react-native';
+import { Linking, Share, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import SettingsRoute from '@/app/(tabs)/(profile)/settings';
@@ -176,26 +176,43 @@ test('live preferences and support propagate localized behavior without remounti
       .backgroundColor,
   ).toBe(lightSemanticColors.background);
 
-  const sections = result.getAllByTestId(/^(settings-(primary|services|about-you)-group|expo-ui-section)$/);
+  const sections = result.getAllByTestId(/^(settings-(appearance|notifications|profile|help|about)-group|expo-ui-section)$/);
   expect(sections.map((section) => section.props.testID)).toEqual([
-    'settings-primary-group', 'settings-services-group', 'settings-about-you-group', 'expo-ui-section',
+    'settings-appearance-group', 'settings-notifications-group', 'settings-profile-group',
+    'settings-help-group', 'settings-about-group', 'expo-ui-section',
   ]);
   expect(result.getAllByTestId('expo-ui-host')).toHaveLength(1);
   expect(result.getAllByTestId('expo-ui-list')).toHaveLength(1);
-  expect(within(result.getByTestId('settings-primary-group')).getByTestId('settings-theme-row')).toBeOnTheScreen();
-  expect(within(result.getByTestId('settings-services-group')).getByTestId('settings-ai-status-row')).toBeOnTheScreen();
-  expect(within(result.getByTestId('settings-services-group')).getByTestId('settings-privacy-row')).toBeOnTheScreen();
+  expect(within(result.getByTestId('settings-appearance-group')).getByTestId('settings-theme-row')).toBeOnTheScreen();
+  expect(within(result.getByTestId('settings-about-group')).getByTestId('settings-service-providers-row')).toBeOnTheScreen();
+  expect(within(result.getByTestId('settings-about-group')).getByTestId('settings-privacy-row')).toBeOnTheScreen();
   // The Privacy row is a door, not a status: it carries glyph, label and chevron and no
   // trailing value, so an unanswered consent sheet is never reported as a setting.
   expect(result.queryByTestId('settings-privacy-row-value-stacked')).not.toBeOnTheScreen();
   expect(result.queryByText(messages.en.analytics.statusNotAsked)).not.toBeOnTheScreen();
   expect(result.getByText(messages.en.analytics.privacyTitle)).toBeOnTheScreen();
-  expect(result.getByText('Help and feedback')).toBeOnTheScreen();
+  expect(result.getByText(messages.en.settings.supportRow)).toBeOnTheScreen();
   await fireEvent.press(result.getByTestId('settings-support-row'));
   expect(openURL).toHaveBeenLastCalledWith('https://ubrn.github.io/kuyara/support?lang=en');
-  expect(within(result.getByTestId('settings-about-you-group')).getByTestId('settings-gender-row')).toBeOnTheScreen();
-  expect(within(result.getByTestId('settings-about-you-group')).getByTestId('settings-dress-style-row')).toBeOnTheScreen();
-  expect(within(result.getByTestId('settings-about-you-group')).getByTestId('settings-birth-date-row')).toBeOnTheScreen();
+  const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: Share.sharedAction });
+  await fireEvent.press(result.getByTestId('settings-share-row'));
+  expect(share).toHaveBeenLastCalledWith({
+    message: messages.en.settings.shareText,
+    url: 'https://apps.apple.com/app/kuyara/id6806664440',
+  });
+  await fireEvent.press(result.getByTestId('settings-rate-row'));
+  expect(openURL).toHaveBeenLastCalledWith('https://apps.apple.com/app/kuyara/id6806664440?action=write-review');
+  const ratingStars = result.getAllByTestId('expo-ui-image')
+    .filter((image) => image.props.systemName === 'star.fill');
+  expect(ratingStars).toHaveLength(5);
+  expect(ratingStars.every((star) => star.props.modifiers.some(
+    (modifier: { $type: string }) => modifier.$type === 'accessibilityHidden',
+  ))).toBe(true);
+  await fireEvent.press(result.getByTestId('settings-licence-row'));
+  expect(openURL).toHaveBeenLastCalledWith('https://polyformproject.org/licenses/noncommercial/1.0.0');
+  expect(within(result.getByTestId('settings-profile-group')).getByTestId('settings-gender-row')).toBeOnTheScreen();
+  expect(within(result.getByTestId('settings-profile-group')).getByTestId('settings-dress-style-row')).toBeOnTheScreen();
+  expect(within(result.getByTestId('settings-profile-group')).getByTestId('settings-birth-date-row')).toBeOnTheScreen();
   expect(within(result.getByTestId('settings-language-row')).getByTestId('expo-ui-picker').props.selection).toBe('en');
   expect(within(result.getByTestId('settings-theme-row')).getByTestId('expo-ui-picker').props.selection).toBe('light');
   expect(within(result.getByTestId('settings-gender-row')).getByTestId('expo-ui-picker').props.selection).toBe('woman');
@@ -203,11 +220,19 @@ test('live preferences and support propagate localized behavior without remounti
   expect(result.getByText(messages.en.preferences.genderWoman)).toBeOnTheScreen();
   expect(result.getByText(messages.en.preferences.dressStyleSmart)).toBeOnTheScreen();
   expect(result.getByText(messages.en.onboarding.birthDateNotSet)).toBeOnTheScreen();
-  expect(result.getByRole('header', { name: 'About you' })).toHaveStyle({
+  expect(result.getByRole('header', { name: messages.en.settings.profileHeading })).toHaveStyle({
     color: lightSemanticColors.textSecondary,
     fontSize: typography.bodyStrong.fontSize,
   });
-  expect(result.getAllByTestId('expo-ui-icon')).toHaveLength(5);
+  expect(result.getAllByTestId('expo-ui-icon').length).toBeGreaterThanOrEqual(5);
+  expect(result.getByTestId('settings-brand-name')).toHaveStyle({
+    color: lightSemanticColors.brandPrimary,
+    fontSize: typography.display.fontSize,
+  });
+  expect(result.getByTestId('settings-brand-name').props).toMatchObject({
+    adjustsFontSizeToFit: true,
+    numberOfLines: 1,
+  });
   expect(within(result.getByTestId('expo-ui-section')).getByText('Version 1.0.0 (5)')).toHaveStyle({
     color: lightSemanticColors.textSecondary,
     fontSize: typography.caption.fontSize,
@@ -224,7 +249,7 @@ test('live preferences and support propagate localized behavior without remounti
   });
   expect(mockProfile.languagePreference).toBe('tr');
   expect(await result.findByText(messages.tr.preferences.languageTurkish)).toBeOnTheScreen();
-  expect(result.getByText('Yardım ve geri bildirim')).toBeOnTheScreen();
+  expect(result.getByText(messages.tr.settings.supportRow)).toBeOnTheScreen();
   await fireEvent.press(result.getByTestId('settings-support-row'));
   expect(openURL).toHaveBeenLastCalledWith('https://ubrn.github.io/kuyara/tr/support?lang=tr');
   expect(result.getByText('Sürüm 1.0.0 (5)')).toBeOnTheScreen();
@@ -325,24 +350,22 @@ test('preference save errors replace the footer for the affected Settings group'
   await fireEvent(within(result.getByTestId('settings-theme-row')).getByTestId('expo-ui-picker'), 'selectionChange', 'dark');
 
   await waitFor(() => {
-    expect(within(result.getByTestId('settings-primary-group'))
+    expect(within(result.getByTestId('settings-appearance-group'))
       .getByText(messages.en.settings.saveError)).toBeOnTheScreen();
   });
-  expect(within(result.getByTestId('settings-about-you-group'))
-    .getByText(messages.en.settings.aboutYouFooter)).toBeOnTheScreen();
+  expect(within(result.getByTestId('settings-profile-group'))
+    .queryByText(messages.en.settings.saveError)).toBeNull();
   expect(within(result.getByTestId('settings-theme-row')).getByTestId('expo-ui-picker').props.selection).toBe('light');
 
   mockUpdateFailure = 'gender';
   await fireEvent(within(result.getByTestId('settings-gender-row')).getByTestId('expo-ui-picker'), 'selectionChange', 'man');
 
   await waitFor(() => {
-    expect(within(result.getByTestId('settings-about-you-group'))
+    expect(within(result.getByTestId('settings-profile-group'))
       .getByText(messages.en.settings.saveError)).toBeOnTheScreen();
   });
-  expect(within(result.getByTestId('settings-primary-group'))
+  expect(within(result.getByTestId('settings-appearance-group'))
     .queryByText(messages.en.settings.saveError)).toBeNull();
-  expect(within(result.getByTestId('settings-about-you-group'))
-    .queryByText(messages.en.settings.aboutYouFooter)).toBeNull();
   expect(within(result.getByTestId('settings-gender-row')).getByTestId('expo-ui-picker').props.selection).toBe('woman');
 });
 

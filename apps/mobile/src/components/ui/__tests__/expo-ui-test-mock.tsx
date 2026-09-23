@@ -7,6 +7,7 @@ export const tint = (color: string) => ({ $type: 'tint', color });
 export const accessibilityLabel = (label: string) => ({ $type: 'accessibilityLabel', label });
 export const accessibilityValue = (value: string) => ({ $type: 'accessibilityValue', value });
 export const accessibilityAddTraits = (traits: string[]) => ({ $type: 'accessibilityAddTraits', traits });
+export const accessibilityHidden = (hidden = true) => ({ $type: 'accessibilityHidden', hidden });
 export const listStyle = (style: string) => ({ $type: 'listStyle', style });
 export const scrollContentBackground = (visible: string) => ({ $type: 'scrollContentBackground', visible });
 export const font = (params: Record<string, unknown>) => ({ $type: 'font', ...params });

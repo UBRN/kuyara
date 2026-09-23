@@ -197,8 +197,9 @@ only if `kind === 'sample'`, and a `rate_limited` error code. The identifier's
 values are `sample`, `open-meteo`, `openweather` and `weatherkit`.
 
 Attribution crosses the API as this controlled, non-secret identifier only. The
-mobile app maps it to localized attribution text, a link and, for OpenWeather, the
-bundled logo, so no user-visible string and no provider-authored text crosses the
+mobile app maps it to localized attribution text and a link, plus the official
+Apple Weather mark or bundled OpenWeather logo when applicable. No provider-authored
+weather text crosses the
 boundary. Raw provider data, credentials and internal errors do not cross.
 
 Attribution for the provider behind the last valid snapshot is always reachable from

@@ -1,11 +1,11 @@
 import { Column, Host as UniversalHost, Icon as ExpoIcon, List as UniversalList, ListItem, RNHostView, Row, Text as ExpoText } from '@expo/ui';
-import { accessibilityAddTraits, font, foregroundStyle, listStyle, scrollContentBackground, tint } from '@expo/ui/swift-ui/modifiers';
+import { accessibilityAddTraits, accessibilityHidden, font, foregroundStyle, listStyle, scrollContentBackground, tint } from '@expo/ui/swift-ui/modifiers';
 import type { ReactElement, ReactNode } from 'react';
 import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/ui/app-text';
-import { Icon } from '@/components/ui/icon';
+import { Icon, type IconName } from '@/components/ui/icon';
 import { ListRowTile, type ListRowTileGlyph } from '@/components/ui/list-row-tile';
 import { NativeToggle } from '@/components/ui/native-toggle';
 import { useTextScaling } from '@/components/ui/use-text-scaling';
@@ -110,6 +110,14 @@ const styles = StyleSheet.create({
   heading: { paddingLeft: spacing.lg },
 });
 
+/** Hosts a React Native content row inside a native grouped section. */
+export function NativeListContentRow({ children, testID }: Readonly<{ children: ReactNode; testID?: string }>) {
+  const { width } = useWindowDimensions();
+  return <ListItem leading={
+    <RNHostView matchContents><View style={{ maxWidth: Math.max(0, width - spacing.lg * 4) }}>{children}</View></RNHostView>
+  } testID={testID} />;
+}
+
 export type NativeListRowToggle = Readonly<{
   value: boolean;
   onValueChange: (value: boolean) => void;
@@ -121,6 +129,10 @@ export type NativeListRowProps = Readonly<{
   label: string;
   /** A trailing value shown in the system's secondary ink, before the chevron. */
   value?: string;
+  /** Decorative status symbol beside the row's words. */
+  trailingSymbol?: Readonly<{ name: IconName; color: string }>;
+  /** Five decorative filled stars before the chevron. */
+  ratingStars?: boolean;
   /** The shared 28-point leading tile (ADR 0028 section 2). Omitted rows have none. */
   glyph?: ListRowTileGlyph;
   /** Renders the headline in `brandPrimary` for an action row (ADR 0030 section 7). */
@@ -143,12 +155,14 @@ export function NativeListRow({
   glyph,
   label,
   onPress,
+  ratingStars = false,
   secondary = false,
   selected = false,
   testID,
   supportingText,
   tinted = false,
   toggle,
+  trailingSymbol,
   value,
 }: NativeListRowProps) {
   const theme = useKuyaraTheme();
@@ -198,12 +212,42 @@ export function NativeListRow({
       testID={testID ? `${testID}-toggle` : undefined}
       value={toggle.value}
     />
-  ) : (!stacksValue && value !== undefined) || showChevron ? (
+  ) : (!stacksValue && value !== undefined) || showChevron || ratingStars || trailingSymbol ? (
     <Row alignment="center" spacing={4}>
       {!stacksValue && value !== undefined ? (
         <ExpoText modifiers={IOS_SECONDARY_TEXT_MODIFIERS} textStyle={{ color: SYSTEM_SECONDARY_LABEL }}>
           {value}
         </ExpoText>
+      ) : null}
+      {ratingStars ? (
+        swiftUI ? (
+          <Row alignment="center" spacing={2}>
+            {Array.from({ length: 5 }, (_, index) => (
+              <swiftUI.Image
+                color="secondaryLabel"
+                key={index}
+                modifiers={[accessibilityHidden()]}
+                systemName="star.fill"
+                size={16}
+              />
+            ))}
+          </Row>
+        ) : (
+          <RNHostView matchContents>
+            <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: 'row' }}>
+              {Array.from({ length: 5 }, (_, index) => (
+                <Icon color={theme.colors.textSecondary} key={index} name="star" size={16} />
+              ))}
+            </View>
+          </RNHostView>
+        )
+      ) : null}
+      {trailingSymbol ? (
+        <RNHostView matchContents>
+          <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" testID={testID ? `${testID}-status-symbol` : undefined}>
+            <Icon color={trailingSymbol.color} name={trailingSymbol.name} size={20} />
+          </View>
+        </RNHostView>
       ) : null}
       {showChevron ? (
         Platform.OS === 'ios' ? (

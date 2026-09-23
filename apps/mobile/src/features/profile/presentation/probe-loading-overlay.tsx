@@ -41,7 +41,7 @@ export function ProbeLoadingOverlay({ label }: ProbeLoadingOverlayProps) {
       accessibilityLiveRegion="assertive"
       accessibilityViewIsModal
       style={styles.overlay}
-      testID="settings-ai-status-overlay">
+      testID="settings-service-providers-overlay">
       <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.colors.scrim }]} />
       <Surface style={styles.card} variant="elevated">
         <View

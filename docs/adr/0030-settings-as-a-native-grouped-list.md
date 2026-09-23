@@ -13,8 +13,8 @@ inherits where the value is kuyara's to set. Dress style and the age boundary ar
 
 The design boundary separates what ADR 0019 hands to the platform from what keeps
 kuyara's identity, because native grouped lists render in system colours. The reference
-is a settings screen with two kuyara-owned elements: sentence-case section headings
-outside the native group and a version line as the screen's last element.
+is a settings screen with sentence-case section headings outside the native
+group and a centred brand name above the version line as the last element.
 
 ## Decision
 
@@ -23,7 +23,7 @@ outside the native group and a version line as the screen's last element.
 The root is a native inset grouped list in the system's colours over kuyara's ground,
 with the list's own scroll-content background hidden. Kuyara owns the large title colour,
 the tint, the ground, the status inks, the section headings, the leading tiles and the
-version line. Inside a cell, nothing is kuyara's: label, secondary value, separator,
+brand and version footer. Inside a cell, nothing is kuyara's: label, secondary value, separator,
 chevron, toggle and picker are the system's. This makes the system-colour trade visible
 rather than hidden. The installed `@expo/ui` 57.0.8 SwiftUI API exposes
 `listStyle('insetGrouped')` and `scrollContentBackground('hidden')`; the wrapper uses both
@@ -38,7 +38,7 @@ and keeps kuyara's ground visible, as verified on the iPhone 17 Pro / iOS 26.3 S
 5. **About:** Service providers, Privacy and Licence.
 6. The centred version and build footer.
 
-Native inset groups and ADR 0028's row anatomy stay. Inside native cells the system owns typography and colour; app-owned `kuyara` emphasis belongs in the screen title, using the display role and Deep Atmosphere in light or Quiet Sky in dark. The name is not a custom wordmark.
+Native inset groups and ADR 0028's row anatomy stay. Inside native cells the system owns typography and colour; the app-owned `kuyara` footer uses the display role and Deep Atmosphere in light or Quiet Sky in dark. It fits on one line at the largest accessibility text size. The name is not a custom wordmark.
 
 Share kuyara opens the platform share sheet with the App Store link on iOS or Play link on Android and short localized text in the sharer's voice. Rate kuyara opens the store review page directly (`?action=write-review` on iOS, `market://details?id=` on Android), and its row shows five filled stars. No in-app review request is used. **Risk accepted:** the star treatment trades against Apple 5.6.1 and Google in-app review guidance on steering.
 
@@ -62,8 +62,9 @@ uppercase header never appears. Each of the five root groups carries its sentenc
 
 ### 4. The version line
 
-The last root content element, after the About group: centred, `caption` 13 in
-`textSecondary`, tabular figures, followed by the trailing `spacing['2xl']`. It is
+The last root content element, after the About group: a centred `kuyara` name in
+the display role and brand colour, then the version line in `caption` 13,
+`textSecondary`, tabular figures, followed by trailing `spacing['2xl']`. It is
 produced from one localized template key with placeholders, "Version {version} ({build})"
 and "Sürüm {version} ({build})", never assembled from fragments. The build number is
 EAS-managed and absent from `app.json`; the implementation reads the version and iOS

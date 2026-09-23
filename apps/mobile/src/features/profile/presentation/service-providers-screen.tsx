@@ -1,35 +1,33 @@
+import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { Icon, NativeList, NativeListSection, NativeListRow, type IconName } from '@/components/ui';
+import { AppText, Icon, NativeList, NativeListSection, NativeListRow, NativeListContentRow, type IconName } from '@/components/ui';
 import { ProbeLoadingOverlay } from '@/features/profile/presentation/probe-loading-overlay';
 import type { AiProbeUiState } from '@/features/recommendation/application/use-ai-probe';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
 import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import { useLocalization } from '@/localization/use-messages';
+import { useKuyaraTheme } from '@/theme/theme-context';
 
-// ADR 0030 section 5 and ADR 0034 section 5: a first group with what the device reports
-// about Apple Intelligence, the provider and model that answered the last check, and the
-// last recommendation's coarse generation mode under a footer that explains the badge Today
-// shows (the badge itself carries words only, so its explanation lives here), then a second group with the tinted
-// "Check AI status" row, a result row when there is a result (a monochrome status glyph in
-// the shared tile, words beside it in the system's secondary ink, never a status colour),
-// and a footer. This screen is the only surface that may name a provider or a model.
-export type AiStatusSettingsScreenProps = Readonly<{
+export type ServiceProvidersScreenProps = Readonly<{
   aiStatus: AiProbeUiState;
   isProbeSupported: boolean;
   lastGenerationMode: RecommendationGenerationMode | null;
   onDeviceAvailability: OnDeviceAiAvailability | null;
   onCheckAiStatus: () => void;
+  weatherAttribution: ReactNode;
 }>;
 
-export function AiStatusSettingsScreen({
+export function ServiceProvidersScreen({
   aiStatus,
   isProbeSupported,
   lastGenerationMode,
   onDeviceAvailability,
   onCheckAiStatus,
-}: AiStatusSettingsScreenProps) {
+  weatherAttribution,
+}: ServiceProvidersScreenProps) {
   const { hour12, language, messages } = useLocalization();
+  const theme = useKuyaraTheme();
   const copy = messages.settings;
 
   // Reading availability calls nothing, so this row is never a probe. Until the answer
@@ -42,6 +40,15 @@ export function AiStatusSettingsScreen({
       : onDeviceAvailability?.reason === 'model_not_ready'
         ? copy.aiStatusOnDeviceGettingReady
         : copy.aiStatusOnDeviceIncompatible;
+  const statusSymbol: IconName = onDeviceAvailability?.status === 'available' ||
+    onDeviceAvailability?.reason === 'model_not_ready'
+    ? 'statusRunning'
+    : onDeviceAvailability?.reason === 'apple_intelligence_not_enabled'
+      ? 'statusOff'
+      : 'statusUnavailable';
+  const statusColor = statusSymbol === 'statusRunning'
+    ? theme.colors.successInk
+    : statusSymbol === 'statusOff' ? theme.colors.warningInk : theme.colors.textSecondary;
 
   // Only the last successful check names anything, and the name is never stored.
   const assistant = aiStatus.kind === 'ok' ? aiStatus.assistant : undefined;
@@ -91,30 +98,33 @@ export function AiStatusSettingsScreen({
 
   return (
     <View style={styles.root}>
-      <NativeList testID="settings-ai-status-screen">
+      <NativeList testID="settings-service-providers-screen">
         <NativeListSection
           footer={copy.aiStatusProvenanceFooter}
-          testID="settings-ai-status-last-mode-group">
+          heading={copy.artificialIntelligenceHeading}
+          testID="settings-service-providers-ai-group">
           <NativeListRow
+            glyph={({ color, size }) => <Icon color={color} name="appleIntelligence" size={size} />}
             label={onDeviceCopy}
-            testID="settings-ai-status-on-device"
+            testID="settings-service-providers-on-device"
+            trailingSymbol={{ name: statusSymbol, color: statusColor }}
           />
-          <NativeListRow label={lastGenerationModeCopy} testID="settings-ai-status-last-mode" />
+          <NativeListRow label={lastGenerationModeCopy} testID="settings-service-providers-last-mode" />
           {assistant ? (
             <NativeListRow
               label={copy.aiStatusAssistant(assistant.providerId, assistant.model)}
-              testID="settings-ai-status-assistant-identity"
+              testID="settings-service-providers-assistant-identity"
             />
           ) : null}
         </NativeListSection>
 
         <NativeListSection
           footer={copy.aiStatusIntro}
-          testID="settings-ai-status-check-group">
+          testID="settings-service-providers-check-group">
           <NativeListRow
             label={copy.aiStatusCheckAction}
             onPress={canCheck ? onCheckAiStatus : undefined}
-            testID="settings-ai-status-check"
+            testID="settings-service-providers-check"
             tinted={canCheck}
           />
           {resultRow ? (
@@ -122,9 +132,17 @@ export function AiStatusSettingsScreen({
               glyph={({ color, size }) => <Icon color={color} name={resultRow.icon} size={size} />}
               label={resultRow.text}
               secondary
-              testID="settings-ai-status-result"
+              testID="settings-service-providers-result"
             />
           ) : null}
+        </NativeListSection>
+        <NativeListSection
+          footer={copy.weatherFooter}
+          heading={copy.weatherDataHeading}
+          testID="settings-service-providers-weather-group">
+          <NativeListContentRow testID="settings-service-providers-weather-source">
+            {weatherAttribution ?? <AppText variant="body">{copy.weatherNoSnapshot}</AppText>}
+          </NativeListContentRow>
         </NativeListSection>
       </NativeList>
       {aiStatus.kind === 'checking' ? (

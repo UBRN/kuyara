@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import {
   AppText,
@@ -23,12 +23,16 @@ export type SettingsScreenProps = Readonly<{
   onLanguageChange: (value: LanguagePreference) => Promise<void>;
   onAppearanceChange: (value: ThemePreference) => Promise<void>;
   onOpenNotifications: () => void;
-  onOpenAiStatus: () => void;
+  onOpenServiceProviders: () => void;
   onGenderChange: (value: Gender) => Promise<void>;
   onDressStyleChange: (value: DressStyle) => Promise<void>;
   onOpenBirthDate: () => void;
   onOpenPrivacy: () => void;
   onOpenSupport: () => void;
+  onShare: () => void;
+  onRate: () => void;
+  onOpenLicence: () => void;
+  showRate: boolean;
 }>;
 
 export function SettingsScreen({
@@ -38,19 +42,24 @@ export function SettingsScreen({
   onDressStyleChange,
   onGenderChange,
   onLanguageChange,
-  onOpenAiStatus,
+  onOpenServiceProviders,
   onOpenBirthDate,
   onOpenNotifications,
   onOpenPrivacy,
   onOpenSupport,
+  onShare,
+  onRate,
+  onOpenLicence,
+  showRate,
   profile,
 }: SettingsScreenProps) {
   const { language, messages } = useLocalization();
+  const { width } = useWindowDimensions();
   const copy = messages.preferences;
-  const [saveErrorGroup, setSaveErrorGroup] = useState<'general' | 'about-you' | null>(null);
+  const [saveErrorGroup, setSaveErrorGroup] = useState<'appearance' | 'profile' | null>(null);
 
   const savePreference = async (
-    group: 'general' | 'about-you',
+    group: 'appearance' | 'profile',
     save: () => Promise<void>,
   ) => {
     setSaveErrorGroup(null);
@@ -75,14 +84,14 @@ export function SettingsScreen({
   return (
     <NativeList testID="settings-screen">
       <NativeListSection
-        footer={saveErrorGroup === 'general' ? messages.settings.saveError : undefined}
-        heading={messages.settings.generalHeading}
-        testID="settings-primary-group">
+        footer={saveErrorGroup === 'appearance' ? messages.settings.saveError : undefined}
+        heading={messages.settings.appearanceHeading}
+        testID="settings-appearance-group">
         <NativePickerRow
           disabled={isSaving}
           label={copy.languageTitle}
           onSelectionChange={(value) => savePreference(
-            'general',
+            'appearance',
             () => onLanguageChange(value),
           )}
           options={[
@@ -96,9 +105,9 @@ export function SettingsScreen({
         />
         <NativePickerRow
           disabled={isSaving}
-          label={copy.themeTitle}
+          label={messages.settings.themeRow}
           onSelectionChange={(value) => savePreference(
-            'general',
+            'appearance',
             () => onAppearanceChange(value),
           )}
           options={[
@@ -113,8 +122,8 @@ export function SettingsScreen({
       </NativeListSection>
 
       <NativeListSection
-        heading={messages.settings.statusHeading}
-        testID="settings-services-group">
+        heading={messages.settings.notificationsHeading}
+        testID="settings-notifications-group">
         <NativeListRow
           glyph={({ color, size }) => <Icon color={color} name="bell" size={size} />}
           label={messages.notifications.title}
@@ -122,37 +131,17 @@ export function SettingsScreen({
           testID="settings-notifications-row"
           value={notificationValue}
         />
-        <NativeListRow
-          glyph={({ color, size }) => <Icon color={color} name="sparkle" size={size} />}
-          label={messages.settings.aiStatusHeading}
-          onPress={onOpenAiStatus}
-          testID="settings-ai-status-row"
-        />
-        <NativeListRow
-          glyph={({ color, size }) => <Icon color={color} name="info" size={size} />}
-          label={messages.analytics.privacyTitle}
-          onPress={onOpenPrivacy}
-          testID="settings-privacy-row"
-        />
-        <NativeListRow
-          glyph={({ color, size }) => <Icon color={color} name="help" size={size} />}
-          label={messages.settings.supportRow}
-          onPress={onOpenSupport}
-          testID="settings-support-row"
-        />
       </NativeListSection>
 
       <NativeListSection
-        heading={messages.settings.aboutYouHeading}
-        footer={saveErrorGroup === 'about-you'
-          ? messages.settings.saveError
-          : messages.settings.aboutYouFooter}
-        testID="settings-about-you-group">
+        heading={messages.settings.profileHeading}
+        footer={saveErrorGroup === 'profile' ? messages.settings.saveError : undefined}
+        testID="settings-profile-group">
         <NativePickerRow
           disabled={isSaving}
           label={copy.genderTitle}
           onSelectionChange={(value) => savePreference(
-            'about-you',
+            'profile',
             () => onGenderChange(value),
           )}
           options={[
@@ -167,7 +156,7 @@ export function SettingsScreen({
           disabled={isSaving}
           label={copy.dressStyleTitle}
           onSelectionChange={(value) => savePreference(
-            'about-you',
+            'profile',
             () => onDressStyleChange(value),
           )}
           options={[
@@ -187,27 +176,70 @@ export function SettingsScreen({
           value={birthDateValue}
         />
       </NativeListSection>
+      <NativeListSection heading={messages.settings.helpHeading} testID="settings-help-group">
+        <NativeListRow
+          glyph={({ color, size }) => <Icon color={color} name="help" size={size} />}
+          label={messages.settings.supportRow}
+          onPress={onOpenSupport}
+          testID="settings-support-row"
+        />
+        <NativeListRow
+          glyph={({ color, size }) => <Icon color={color} name="share" size={size} />}
+          label={messages.settings.shareRow}
+          onPress={onShare}
+          testID="settings-share-row"
+        />
+        {showRate ? (
+          <NativeListRow
+            glyph={({ color, size }) => <Icon color={color} name="star" size={size} />}
+            label={messages.settings.rateRow}
+            onPress={onRate}
+            ratingStars
+            testID="settings-rate-row"
+          />
+        ) : null}
+      </NativeListSection>
+      <NativeListSection heading={messages.settings.aboutHeading} testID="settings-about-group">
+        <NativeListRow
+          glyph={({ color, size }) => <Icon color={color} name="sparkle" size={size} />}
+          label={messages.settings.serviceProvidersHeading}
+          onPress={onOpenServiceProviders}
+          testID="settings-service-providers-row"
+        />
+        <NativeListRow
+          glyph={({ color, size }) => <Icon color={color} name="info" size={size} />}
+          label={messages.analytics.privacyTitle}
+          onPress={onOpenPrivacy}
+          testID="settings-privacy-row"
+        />
+        <NativeListRow
+          glyph={({ color, size }) => <Icon color={color} name="document" size={size} />}
+          label={messages.settings.licenceRow}
+          onPress={onOpenLicence}
+          testID="settings-licence-row"
+        />
+      </NativeListSection>
       <NativeListSection footer={
-        <AppText
-          colorRole="textSecondary"
-          style={styles.version}
-          tabularNumbers
-          variant="caption">
-          {version
-            ? messages.settings.versionLine(version, build)
-            : messages.settings.developmentBuild}
-        </AppText>
+        <View style={[styles.footer, { width: Math.max(0, width - spacing.lg * 4) }]}>
+          <AppText colorRole="brandPrimary" fitSingleLine style={styles.name} testID="settings-brand-name" variant="display">
+            kuyara
+          </AppText>
+          <AppText colorRole="textSecondary" style={styles.version} tabularNumbers testID="settings-version" variant="caption">
+            {version ? messages.settings.versionLine(version, build) : messages.settings.developmentBuild}
+          </AppText>
+        </View>
       } />
     </NativeList>
   );
 }
 
 const styles = StyleSheet.create({
-  version: {
-    textAlign: 'center',
+  footer: {
+    alignItems: 'center',
     paddingBottom: spacing['2xl'],
-    width: '100%',
   },
+  name: { textAlign: 'center' },
+  version: { textAlign: 'center' },
 });
 
 function calendarDate(value: string): Date {

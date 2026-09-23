@@ -1,11 +1,12 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import AiStatusSettingsRoute from '@/app/(tabs)/(profile)/settings/ai-status';
+import ServiceProvidersRoute from '@/app/(tabs)/(profile)/settings/service-providers';
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
 import type { AiProbeUiState } from '@/features/recommendation/application/ai-probe-state';
+import { WeatherApplicationContext, type WeatherApplicationValue } from '@/features/weather/application/weather-application-context';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
@@ -16,6 +17,9 @@ jest.mock('@expo/ui', () => jest.requireActual('@/components/ui/__tests__/expo-u
 jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 jest.mock('@expo/ui/swift-ui/modifiers', () =>
   jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
+jest.mock('@/features/weather/data/apple-weather-mark', () => ({
+  appleWeatherMarkUrl: jest.fn(async () => 'https://weatherkit.apple.com/mark.png'),
+}));
 
 jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
@@ -37,7 +41,10 @@ const initialMetrics = {
   insets: { top: 47, right: 0, bottom: 34, left: 0 },
 };
 
-async function renderRoute(analytics: RecordingProductAnalytics) {
+async function renderRoute(analytics: RecordingProductAnalytics, sourceId?: string) {
+  const weather = sourceId ? {
+    state: { status: 'ready', snapshot: { origin: { sourceId } } },
+  } as unknown as WeatherApplicationValue : null;
   return render(
     <LocalizationContext.Provider value={{ language: 'en', messages: messages.en , hour12: false }}>
       <KuyaraThemeContext.Provider value={lightTheme}>
@@ -45,13 +52,34 @@ async function renderRoute(analytics: RecordingProductAnalytics) {
           <ProductAnalyticsProvider
             analytics={analytics}
             firstUseStore={new InMemoryFirstUseStore()}>
-            <AiStatusSettingsRoute />
+            <WeatherApplicationContext.Provider value={weather}>
+              <ServiceProvidersRoute />
+            </WeatherApplicationContext.Provider>
           </ProductAnalyticsProvider>
         </SafeAreaProvider>
       </KuyaraThemeContext.Provider>
     </LocalizationContext.Provider>,
   );
 }
+
+test.each([
+  ['open-meteo', 'attributionOpenMeteo'],
+  ['openweather', 'attributionOpenWeather'],
+  ['weatherkit', 'attributionAppleWeather'],
+] as const)('attributes the stored %s snapshot', async (sourceId, copyKey) => {
+  mockCheck = jest.fn(async () => null);
+  const result = await renderRoute(new RecordingProductAnalytics(), sourceId);
+  expect(result.getByRole('link', { name: messages.en.weather[copyKey] }))
+    .toBeOnTheScreen();
+  expect(result.queryByText(messages.en.settings.weatherNoSnapshot)).toBeNull();
+});
+
+test('does not invent an attribution for an unknown snapshot source', async () => {
+  mockCheck = jest.fn(async () => null);
+  const result = await renderRoute(new RecordingProductAnalytics(), 'sample');
+  expect(result.getByText(messages.en.settings.weatherNoSnapshot)).toBeOnTheScreen();
+  expect(result.queryByRole('link')).toBeNull();
+});
 
 test('a completed probe reports the result and the first use', async () => {
   mockCheck = jest.fn(
@@ -62,7 +90,7 @@ test('a completed probe reports the result and the first use', async () => {
   const analytics = new RecordingProductAnalytics();
   const result = await renderRoute(analytics);
 
-  await fireEvent.press(result.getByTestId('settings-ai-status-check'));
+  await fireEvent.press(result.getByTestId('settings-service-providers-check'));
 
   await waitFor(() => expect(analytics.names()).toEqual([
     'ai_probe_triggered',
@@ -79,10 +107,10 @@ test('a rate-limited probe reports the mapped result without a repeat first-use 
   const analytics = new RecordingProductAnalytics();
   const result = await renderRoute(analytics);
 
-  await fireEvent.press(result.getByTestId('settings-ai-status-check'));
+  await fireEvent.press(result.getByTestId('settings-service-providers-check'));
   await waitFor(() => expect(analytics.captures).toHaveLength(2));
 
-  await fireEvent.press(result.getByTestId('settings-ai-status-check'));
+  await fireEvent.press(result.getByTestId('settings-service-providers-check'));
   await waitFor(() => expect(analytics.captures).toHaveLength(3));
 
   expect(analytics.names()).toEqual([

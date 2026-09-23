@@ -43,7 +43,8 @@ test('AppText preserves scaling, heading props, and normal Text props', async ()
   assert.match(appTextSource, /useTextScaling\(\)/);
   assert.match(appTextSource, /usesStackedLayout/);
   assert.match(appTextSource, /\.\.\.rest/);
-  assert.doesNotMatch(appTextSource, /numberOfLines=/);
+  assert.match(appTextSource, /numberOfLines=\{fitSingleLine \? 1 : rest\.numberOfLines\}/);
+  assert.match(appTextSource, /adjustsFontSizeToFit=\{fitSingleLine \? true : rest\.adjustsFontSizeToFit\}/);
 });
 
 test('Button invokes enabled presses and blocks disabled or loading presses', () => {
