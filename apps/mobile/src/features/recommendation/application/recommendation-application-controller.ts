@@ -65,6 +65,7 @@ export type RecommendationSignals = Readonly<{
 
 export type RecommendationApplicationInput = OutfitRecommendationInput & Readonly<{
   localDayKey: string;
+  locale?: 'tr' | 'en';
 }>;
 
 export function recommendationRefreshTrigger(
@@ -129,7 +130,7 @@ function recommendationFailureCategory(error: unknown): FailureCategory {
 type AiClient = Readonly<{
   recommendRouted(
     request: AiRecommendV1Request,
-    options?: Readonly<{ onPhase?: (phase: RecommendationPhase) => void }>,
+    options?: Readonly<{ onPhase?: (phase: RecommendationPhase) => void; locale?: 'tr' | 'en' }>,
   ): Promise<OutfitRecommendationSuccess>;
 }>;
 
@@ -368,6 +369,7 @@ export class RecommendationApplicationController {
         // comes back here is already a validated recommendation from whichever tier won.
         recommendation = await this.dependencies.client.recommendRouted(request, {
           onPhase: (phase) => this.setPhase(key, phase),
+          locale: input.locale ?? 'en',
         });
         this.setPhase(key, 'preparing-outfits');
       } catch (error) {
@@ -403,7 +405,10 @@ export class RecommendationApplicationController {
         {
           weatherSnapshotId: input.snapshot.id,
           locationKey: input.snapshot.locationKey,
-          context,
+          context: recommendation.insightSentence && recommendation.insightLocale
+            ? { ...context, insightSentence: recommendation.insightSentence,
+              insightLocale: recommendation.insightLocale }
+            : context,
           recommendation,
         },
       );

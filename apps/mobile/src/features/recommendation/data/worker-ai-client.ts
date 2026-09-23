@@ -1,12 +1,13 @@
 import {
   aiRecommendV1BudgetHeader,
   aiRecommendV1BudgetMillisecondsSchema,
-  aiRecommendV1Path,
-  aiRecommendV1RequestSchema,
   aiRecommendV1SuccessSchema,
+  aiRecommendV2Path,
+  aiRecommendV2RequestSchema,
+  aiRecommendV2SuccessSchema,
   aiV1ErrorSchema,
   type AiRecommendV1Request,
-  type AiRecommendV1Success,
+  type AiRecommendV2Success,
 } from '@kuyara/contracts';
 
 // Leaves one second for HTTP transport before the mobile client's abort.
@@ -64,9 +65,9 @@ export class WorkerAiClient {
   // before the on-device tier existed.
   async recommend(
     input: AiRecommendV1Request,
-    options?: Readonly<{ timeoutMilliseconds?: number }>,
-  ): Promise<AiRecommendV1Success['data']> {
-    const request = aiRecommendV1RequestSchema.safeParse(input);
+    options?: Readonly<{ timeoutMilliseconds?: number; locale?: 'tr' | 'en' }>,
+  ): Promise<AiRecommendV2Success['data']> {
+    const request = aiRecommendV2RequestSchema.safeParse({ ...input, locale: options?.locale ?? 'en' });
     if (!request.success) throw new WorkerAiClientError('invalid-request');
 
     const requestTimeoutMilliseconds =
@@ -83,7 +84,7 @@ export class WorkerAiClient {
     try {
       let response: Response;
       try {
-        response = await this.fetch(`${this.baseUrl}${aiRecommendV1Path}`, {
+        response = await this.fetch(`${this.baseUrl}${aiRecommendV2Path}`, {
           method: 'POST',
           headers: {
             'content-type': 'application/json',
@@ -106,9 +107,13 @@ export class WorkerAiClient {
         throw new WorkerAiClientError('service');
       }
 
-      const success = aiRecommendV1SuccessSchema.safeParse(body);
-      if (!success.success) throw new WorkerAiClientError('invalid-response');
-      return success.data.data;
+      const success = aiRecommendV2SuccessSchema.safeParse(body);
+      if (success.success) return success.data.data;
+      // A bad optional sentence loses only the prose. The pick gate is still the
+      // shared v1 schema; a malformed pick fails both readers.
+      const picks = aiRecommendV1SuccessSchema.safeParse(body);
+      if (!picks.success) throw new WorkerAiClientError('invalid-response');
+      return picks.data.data;
     } finally {
       clearTimeout(timeout);
     }

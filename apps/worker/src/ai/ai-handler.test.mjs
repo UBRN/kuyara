@@ -170,6 +170,104 @@ test('returns a contract-valid pick response using supplied option ids', async (
   assert.equal(body.data.picks.every(({ optionId }) => optionIds.has(optionId)), true);
 });
 
+test('v2 emits only valid optional prose and v1 remains shape-frozen', async () => {
+  const handler = createAiHandler({ providers: [{
+    generateOutfits: async () => ({ data: {
+      ...validOutput().data, insightSentence: ' A clear day suits this outfit. ',
+    } }),
+  }] });
+  const v1 = await handler(request());
+  const v2 = await handler(request({ path: '/v2/ai/recommend', body: JSON.stringify({
+    ...validRequestBody(), locale: 'en',
+  }) }));
+  assert.deepEqual(await v1.json(), validOutput());
+  assert.deepEqual(await v2.json(), { data: {
+    ...validOutput().data, insightSentence: 'A clear day suits this outfit.',
+  } });
+  await assertError(await handler(request({ path: '/v2/ai/recommend' })), 400, 'invalid_request');
+});
+
+test('invalid or absent v2 prose does not fail valid picks', async () => {
+  for (const sentence of ['Two sentences. Another.', 'x'.repeat(91), undefined]) {
+    const handler = createAiHandler({ providers: [{
+      generateOutfits: async () => ({ data: {
+        ...validOutput().data, ...(sentence === undefined ? {} : { insightSentence: sentence }),
+      } }),
+    }] });
+    const response = await handler(request({ path: '/v2/ai/recommend', body: JSON.stringify({
+      ...validRequestBody(), locale: 'tr',
+    }) }));
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), validOutput());
+  }
+});
+
+test('v2 logs only a coarse insight outcome after valid picks', async (t) => {
+  const infos = [];
+  t.mock.method(console, 'info', (entry) => infos.push(entry));
+  for (const [sentence, outcome] of [
+    ['A clear day suits this outfit.', 'accepted'],
+    ['Two sentences. Another.', 'invalid'],
+    [undefined, 'absent'],
+    [42, 'absent'],
+  ]) {
+    infos.length = 0;
+    const handler = createAiHandler({ providers: [{
+      id: 'openrouter', model: 'stub',
+      generateOutfits: async () => ({ data: {
+        ...validOutput().data,
+        ...(sentence === undefined ? {} : { insightSentence: sentence }),
+      } }),
+    }] });
+    const response = await handler(request({ path: '/v2/ai/recommend', body: JSON.stringify({
+      ...validRequestBody(), locale: 'en',
+    }) }));
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), outcome === 'accepted'
+      ? { data: { ...validOutput().data, insightSentence: sentence } } : validOutput());
+    assert.deepEqual(infos.filter(({ event }) => event === 'ai_insight_sentence'), [{
+      event: 'ai_insight_sentence', outcome, provider: 'openrouter', model: 'stub',
+    }]);
+  }
+});
+
+test('v1 and v2 never share a cached response', async () => {
+  const restore = installMemoryCache();
+  try {
+    let attempts = 0;
+    const handler = createAiHandler({ providers: [{ generateOutfits: async () => {
+      attempts += 1;
+      return { data: { ...validOutput().data, insightSentence: 'A clear day suits this outfit.' } };
+    } }] });
+    const v2Body = JSON.stringify({ ...validRequestBody(), locale: 'en' });
+    await handler(request());
+    await handler(request({ path: '/v2/ai/recommend', body: v2Body }));
+    await handler(request({ path: '/v2/ai/recommend', body: v2Body }));
+    assert.equal(attempts, 2);
+  } finally { restore(); }
+});
+
+test('v2 cache separates locale and closed aesthetics', async () => {
+  const restore = installMemoryCache();
+  try {
+    let attempts = 0;
+    const handler = createAiHandler({ providers: [{ generateOutfits: async () => {
+      attempts += 1;
+      return validOutput();
+    } }] });
+    for (const fields of [
+      { locale: 'en' }, { locale: 'tr' },
+      { locale: 'tr', styleAesthetics: ['classic'] },
+      { locale: 'tr', styleAesthetics: ['classic'] },
+    ]) {
+      await handler(request({ path: '/v2/ai/recommend', body: JSON.stringify({
+        ...validRequestBody(), ...fields,
+      }) }));
+    }
+    assert.equal(attempts, 3);
+  } finally { restore(); }
+});
+
 // The response schemas are tolerant readers: a stray key the model adds at any level is
 // stripped by the gate rather than turned into `invalid_output`, and what reaches the wire
 // and the shared cache is the parsed `result.data`, never the raw reply.
@@ -1290,15 +1388,16 @@ test('the daily attempt budget covers the largest prompt in the shared grid', as
   const promptCharacters = Math.max(...gridRequestCells()
     .filter(({ request: body }) => body !== null)
     .map(({ request: body }) =>
-      JSON.stringify(buildMessages(body)).length
-      + JSON.stringify(buildPickJsonSchema(body.options)).length));
+      JSON.stringify(buildMessages({ ...body, locale: 'en' })).length
+      + JSON.stringify(buildPickJsonSchema(body.options, true)).length));
 
   // The grid sends a dayKind, as the app does, so `weekend_relaxed` leaves the eligible
   // lists of a weekday, and it sends the day's requirements, so the three weather archetypes
   // leave the lists of the days that contradict them: the largest prompt is shorter than
   // either the day-blind or the day-kind-only one.
-  assert.equal(promptCharacters, 17_424);
+  assert.equal(promptCharacters, 17_599);
   const inputTokens = Math.ceil(promptCharacters / 4 / 100) * 100;
+  assert.equal(inputTokens, 4_400);
   const attemptNeurons = Math.ceil(
     (inputTokens * 26_668 + 192 * 204_805) / 1_000_000,
   );

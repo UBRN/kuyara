@@ -4,12 +4,17 @@ import {
   aiRecommendV1Path,
   aiRecommendV1RequestSchema,
   aiRecommendV1SuccessSchema,
+  aiRecommendV2Path,
+  aiRecommendV2RequestSchema,
+  aiRecommendV2SuccessSchema,
+  insightSentenceSchema,
   aiV1ErrorSchema,
   archetypeDayFromRequirements,
   meetsArchetypePrecondition,
   picksAreMeaningfullyDifferent,
   type AiOption,
   type AiRecommendV1Request,
+  type AiRecommendV2Request,
   type AiV1ErrorCode,
 } from '@kuyara/contracts';
 
@@ -52,9 +57,9 @@ type Dependencies = Readonly<{
  *   of output: 14.3 + 52.4 = 66.7, rounded up to 67 Neurons; `PROBE_DAILY_LIMIT` (30)
  *   calls reserve 2,010.
  * - Input per attempt: the largest prompt `buildMessages` and `buildPickJsonSchema`
- *   produce over the recommendation grid is 17,424 characters (messages plus response
- *   schema, 24 options), about 4,356 tokens at four characters per token, rounded up to
- *   4,400. The budget test in ai-handler.test.mjs measures that prompt and derives the
+ *   produce over the v2 recommendation grid is 17,599 characters (messages plus response
+ *   schema, 24 options), rounded to 4,400 tokens at four characters per token. The budget test in
+ *   ai-handler.test.mjs measures that prompt and derives the
  *   limit below from it, so the constant and the prompt stay in step.
  * - Output per attempt: `recommendationMaxTokens` in workers-ai-provider.ts caps the reply
  *   at 192 tokens, so a runaway or prose reply cannot cost more than a valid one's ceiling.
@@ -150,7 +155,10 @@ function attemptFailureReason(error: unknown, timedOut: boolean): ProviderFailur
  */
 const AI_GATE_VERSION = 2;
 
-async function buildCacheRequest(request: AiRecommendV1Request): Promise<Request> {
+async function buildCacheRequest(
+  request: AiRecommendV1Request | AiRecommendV2Request,
+  route: string,
+): Promise<Request> {
   const requirementKey = request.requirements
     .map((requirement) => [
       requirement.kind,
@@ -180,6 +188,11 @@ async function buildCacheRequest(request: AiRecommendV1Request): Promise<Request
     `wet:${day.wet}`,
     `cold:${day.cold}`,
     `gate:${AI_GATE_VERSION}`,
+    // Leave v1's canonical identity byte-for-byte intact for installed builds.
+    ...(route === aiRecommendV2Path && 'locale' in request
+      ? [route, request.locale,
+          'styleAesthetics' in request ? request.styleAesthetics?.join(',') ?? 'none' : 'none']
+      : []),
   ].join('\n');
   const digest = await crypto.subtle.digest(
     'SHA-256',
@@ -188,7 +201,7 @@ async function buildCacheRequest(request: AiRecommendV1Request): Promise<Request
   const hash = [...new Uint8Array(digest)]
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');
-  return new Request(`https://kuyara.internal/v1/ai/recommend/${hash}`);
+  return new Request(`https://kuyara.internal${route}/${hash}`);
 }
 
 export function createAiHandler({
@@ -217,7 +230,8 @@ export function createAiHandler({
     // parse and the shared cache lookup, not only the provider walk.
     const deadline = Date.now() + requestBudgetMs(request, totalDeadlineMs);
     const url = new URL(request.url);
-    if (url.pathname !== aiRecommendV1Path) return errorResponse(404, 'not_found');
+    const isV2 = url.pathname === aiRecommendV2Path;
+    if (!isV2 && url.pathname !== aiRecommendV1Path) return errorResponse(404, 'not_found');
     if (request.method !== 'POST') {
       return errorResponse(405, 'method_not_allowed', { Allow: 'POST' });
     }
@@ -227,7 +241,7 @@ export function createAiHandler({
       if (!success) {
         console.warn({
           event: 'rate_limited',
-          route: aiRecommendV1Path,
+          route: url.pathname,
           limiter: 'ai_recommend_burst',
         });
         return errorResponse(429, 'rate_limited', { 'Retry-After': '60' });
@@ -243,7 +257,9 @@ export function createAiHandler({
     } catch {
       return errorResponse(400, 'invalid_request');
     }
-    const requestResult = aiRecommendV1RequestSchema.safeParse(body);
+    const requestResult = isV2
+      ? aiRecommendV2RequestSchema.safeParse(body)
+      : aiRecommendV1RequestSchema.safeParse(body);
     if (!requestResult.success) return errorResponse(400, 'invalid_request');
 
     const options = new Map(
@@ -253,7 +269,7 @@ export function createAiHandler({
     let cacheRequest: Request | undefined;
     if (cache) {
       try {
-        cacheRequest = await buildCacheRequest(requestResult.data);
+        cacheRequest = await buildCacheRequest(requestResult.data, url.pathname);
         const cached = await cache.match(cacheRequest);
         if (cached) {
           return new Response(cached.body, { status: 200, headers: jsonHeaders });
@@ -282,7 +298,7 @@ export function createAiHandler({
             count = await dailyCounter.increment(dateKey);
           } catch {
             if (!counterLogged) {
-              console.warn({ event: 'ai_daily_counter_unavailable', route: aiRecommendV1Path });
+              console.warn({ event: 'ai_daily_counter_unavailable', route: url.pathname });
               counterLogged = true;
             }
             continue;
@@ -290,7 +306,7 @@ export function createAiHandler({
           if (count > dailyLimit) {
             console.warn({
               event: 'ai_daily_budget_exhausted',
-              route: aiRecommendV1Path,
+              route: url.pathname,
               count,
               limit: dailyLimit,
             });
@@ -322,6 +338,8 @@ export function createAiHandler({
           continue;
         }
 
+        // The optional prose never participates in the pick gate. A malformed sentence
+        // is dropped alone after the same v1 pick validation and deterministic checks.
         const result = aiRecommendV1SuccessSchema.safeParse(output);
         if (!result.success) {
           logProviderFailure(provider, 'invalid_output');
@@ -354,7 +372,29 @@ export function createAiHandler({
           model: provider.model,
           attempt: attemptIndex + 1,
         });
-        const response = Response.json(result.data, { status: 200, headers: jsonHeaders });
+        const rawSentence = isV2 && output && typeof output === 'object'
+          && 'data' in output && output.data && typeof output.data === 'object'
+          && 'insightSentence' in output.data
+          ? output.data.insightSentence : undefined;
+        const sentence = typeof rawSentence === 'string' ? rawSentence.trim() : undefined;
+        const acceptedSentence = insightSentenceSchema.safeParse(sentence);
+        const responseBody = isV2
+          ? aiRecommendV2SuccessSchema.parse({ data: {
+              picks: result.data.data.picks,
+              ...(acceptedSentence.success ? { insightSentence: acceptedSentence.data } : {}),
+            } })
+          : result.data;
+        if (isV2) {
+          const outcome = sentence === undefined ? 'absent'
+            : acceptedSentence.success ? 'accepted' : 'invalid';
+          console.info({
+            event: 'ai_insight_sentence',
+            outcome,
+            provider: provider.id,
+            model: provider.model,
+          });
+        }
+        const response = Response.json(responseBody, { status: 200, headers: jsonHeaders });
         if (cache && cacheRequest) {
           // The write outlives the response instead of delaying it. Shared cache failures
           // must not fail a validated response, so the promise handed over never rejects.

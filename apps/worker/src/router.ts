@@ -3,6 +3,7 @@ import {
   aiReadyV1Path,
   aiReadyV1SuccessSchema,
   aiRecommendV1Path,
+  aiRecommendV2Path,
   aiV1ErrorSchema,
   healthV1Path,
   healthV1SuccessSchema,
@@ -59,7 +60,9 @@ export function createRouter({
     if (pathname === weatherV1Path || pathname === weatherV2Path) {
       return weatherHandler(request, ctx);
     }
-    if (pathname === aiRecommendV1Path) return aiHandler(request, ctx);
+    if (pathname === aiRecommendV1Path || pathname === aiRecommendV2Path) {
+      return aiHandler(request, ctx);
+    }
     if (pathname === aiProbeV1Path) return probeHandler(request, ctx);
 
     if (pathname === healthV1Path) {
