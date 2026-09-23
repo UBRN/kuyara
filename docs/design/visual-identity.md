@@ -82,7 +82,7 @@ It must not:
 
 ## Approved master symbol
 
-The approved symbol is **Balanced Horizon — V2: Unified Gap System**, developed from the Purposeful Asymmetry direction. Its three related layers resolve into one calm, coordinated structure.
+The approved symbol is **Balanced Horizon V2: Unified Gap System**, developed from the Purposeful Asymmetry direction. Its three related layers resolve into one calm, coordinated structure.
 
 The geometry has these approved properties:
 
@@ -130,6 +130,7 @@ The palette was further extended with derived semantic status values, success, w
 - Application UI uses platform-appropriate system fonts. The semantic type scale and its retuning are recorded in [`design-system.md`](design-system.md) and [ADR 0017](../adr/0017-a-retuned-typography-scale.md).
 - No custom application font is required for the MVP.
 - A custom lowercase `kuyara` wordmark may be developed and approved separately.
+- In app-owned text, every `kuyara` name uses the display role and brand colour: Deep Atmosphere in light, Quiet Sky in dark. Native Settings cells keep system styling, so that screen puts the emphasis in its title. This is typographic treatment, not a wordmark, and applies on iOS and Android.
 - The app icon must not contain text, initials, or a hidden `k`.
 - Typography must support Turkish characters, text scaling, accessibility settings, and platform-native behavior.
 

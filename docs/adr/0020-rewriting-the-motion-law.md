@@ -1,13 +1,5 @@
 # ADR 0020: Rewriting the motion law
 
-Status: Accepted (2026-09-03)
-
-Implementation: the conditional rule, the duration assignments and the spatial spring role
-live in the design language and `theme.ts`. The arrival spring, the stagger role, the
-ambient duration role and the moment are named here and take their measured values on the
-Simulator as the surfaces that use them land. The work sequence lives in
-[`current-status.md`](../current-status.md).
-
 Defines: [`design-language.md`](../design/design-language.md) Law 7, and the
 primary-action clause and the ownership site in Law 8.
 
@@ -20,9 +12,8 @@ A blanket prohibition on repetition conflicts with two accepted components:
 - `features/profile/presentation/probe-loading-overlay.tsx` pulses its dots on the shared
   ambient hook, `components/ui/use-ambient-pulse.ts`, which owns the `withRepeat` loop.
 
-Both short-circuit on `theme.isReduceMotionEnabled`, so the accessibility requirement is
-not in question. The design language needs to permit their useful ambient character while
-retaining enforceable safety boundaries.
+The design language permits their useful ambient character while retaining
+enforceable readability and performance boundaries.
 
 An absolute is easier to audit, but in this case it would delete the product's only piece
 of ambient character on the two screens where weather is the subject without addressing a
@@ -42,25 +33,18 @@ maintainer's own terms:
 > It must not demand attention unnecessarily, must not harm performance or
 > readability.
 
-Three requirements are binding.
+Two requirements are binding.
 
 1. **Motion is never the only indication of a state change.** This is an accessibility
    requirement rather than a restraint preference.
-2. **An indefinite loop stops under Reduce Motion.** The two `withRepeat` loops,
-   `weather-glyph.tsx` and `use-ambient-pulse.ts`, short-circuit on
-   `theme.isReduceMotionEnabled`, and `rg "withRepeat" apps/mobile/src --glob '!*.test.*'`
-   returns those two files and nothing else. This is the product's only Reduce Motion
-   obligation. Reduce Motion is not a design constraint, not an input to a design
-   decision and not an acceptance gate: there is no manual Reduce Motion tour, no
-   Simulator pass with the setting on, and no "renders the static end state" acceptance
-   criterion. The reduce-motion branches already in the code stay, and the automated
-   tests that cover them stay with them; new branches are not asked for.
-3. **Use the duration assignments by role.** `fast` 120 for content entering and press
+2. **Use the duration assignments by role.** `fast` 120 for content entering and press
    feedback, `normal` 200 for a state change on something already on screen,
    `deliberate` 320 for a full-screen or sheet transition.
 
-kuyara declares no accessibility support on App Store Connect, and the Reduced Motion row
-is not declared there.
+kuyara does not claim the Reduced Motion accessibility label. **Risk accepted:** the two
+indefinite `withRepeat` sites and the loading animation keep playing under the OS
+setting, trading against Apple's Reduce Motion guidance and the pause mechanism
+described in WCAG 2.2.2. Motion remains paired with words for state.
 
 ### Two spring roles
 
@@ -101,7 +85,7 @@ every step. An unresolved wait (Today's board skeleton, Today's loading line, th
 status probe overlay) breathes on the moderate step, a full breath of 2000 ms, because
 that is the cycle band Ding and Kyung (Journal of Consumer Research 2026,
 <https://academic.oup.com/jcr/advance-article/doi/10.1093/jcr/ucaf037/8165440>) measured
-as the shortest perceived wait. All three steps resolve to 0 under Reduce Motion.
+as the shortest perceived wait.
 
 A duration is a role in the sense of
 [ADR 0009](0009-a-design-language-layer-and-its-deferral-carve-out.md)'s carve-out, so
@@ -135,11 +119,7 @@ a state the user set and crosses a real threshold.
 - Motion as the sole carrier of a state change.
 - Motion that delays the user's decision, which `visual-identity.md` prohibits
   independently.
-- An in-app motion toggle, or a Reduce Motion response that slows an indefinite loop
-  rather than stopping it. The OS setting is the pause mechanism
-  [WCAG 2.2 SC 2.2.2](https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide.html)
-  asks for, which its glossary lets the platform provide; a loop that merely slows under
-  the setting forfeits that reading.
+- An in-app motion toggle.
 - A content-detached grey-block wait surface. The board skeleton keeps ADR 0025's boxes
   and the garment silhouettes because the wait already knows where the pieces will sit;
   Viget's 2017 test (136 participants, a web page,
@@ -147,6 +127,15 @@ a state the user set and crosses a real threshold.
   grey-block skeleton as the slowest-feeling and least satisfying of skeleton, spinner
   and blank, and no measurement ranks the silhouettes, so they stand on the composition
   rule alone.
+
+The first recommendation of a dressing day uses a full-screen loading overlay whose
+garment-board skeleton fills piece by piece. A line rotates every two seconds among
+day insights, phase status and teaching tips, without provider names. Completion holds
+a green "All set" state for 0.8 seconds. After ten seconds the user can open a
+system alert to skip the wait; the red dim skip is secondary to the blue filled
+keep-waiting default, and the AI walk continues to its 46-second bound. Background
+refreshes retain the current outfit and inline phase. No mannequin, avatar or mascot
+enters the overlay.
 
 ## Consequences
 
@@ -175,10 +164,8 @@ in which case a new decision is required.
 
 ## Alternatives considered
 
-**Keep the ban and delete both animations.** Rejected by
-the maintainer: the rule was removing product character to satisfy a sentence, and both
-components already respected Reduced Motion, which is the part that actually protects
-users.
+**Keep the ban and delete both animations.** Rejected by the maintainer: the rule
+removes product character to satisfy a sentence.
 
 **Keep the ban and grant the weather glyph a named exception.** Rejected: an absolute
 with a carve-out for the one case that violates it is not an absolute, and the next

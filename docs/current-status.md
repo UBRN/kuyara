@@ -129,86 +129,9 @@ The shipped app has neither sign-in nor cross-device sync nor server-sent push. 
 with nothing implemented, and the project is source-available under PolyForm
 Noncommercial ([ADR 0024](adr/0024-relicensing-to-polyform-noncommercial.md)).
 
-## Active Work and Next Approved Work
+## Active Work
 
-Milestones 10 and 11 shipped with the first App Store release; what remains of milestone
-11 is stated inside it. The numbering continues the sequence the ADRs cite.
-
-<!-- markdownlint-disable MD029 -->
-
-10. **PostHog product analytics integration.** Phase 1 (the shared failure
-    classification and boundary) landed 2026-09-09. ~~Phase 2: add the consent-gated
-    PostHog adapter, Today consent sheet and Settings Privacy surface.~~ Landed
-    2026-09-09. ~~Phase 3 adds the taxonomy's feature call sites
-    ([`analytics-taxonomy.md`](analytics-taxonomy.md)).~~ Landed 2026-09-10. No SDK
-    calls in features. ~~The PostHog project and the EAS variables.~~ Configured
-    2026-09-10: PostHog Cloud EU project 270871 with client IP discard on, the GeoIP
-    transformation disabled, session replay off and twelve-month retention (ADR 0033
-    sections 4 to 6); the two public Expo variables live in the EAS `production`
-    environment and the `production` build profile loads that environment. A build from
-    the `production` profile is analytics-on wherever it is distributed; the
-    `development` profile loads no EAS environment and carries no PostHog key. The
-    project's "Filter out internal and test users" setting is meant to exclude Simulator
-    traffic by the `$is_emulator` event property and the maintainer's current install id
-    (shown under Settings, Privacy on the phone); the maintainer applies that in PostHog
-    and replaces the id after every consent cycle or reinstall, and Observe has no
-    equivalent filter. The DPA
-    condition closed on 2026-09-11: consent is the recorded lawful basis and the
-    maintainer signed PostHog's DPA the same day (ADR 0033 section 7). The milestone is
-    complete.
-11. **App Store privacy disclosure and privacy policy.** The privacy policy URL and the
-    App Store Connect data-collection questionnaire must describe analytics collection,
-    with the install identifier declared linked to the user (ADR 0033 section 5), before
-    any analytics-enabled release. ~~Where the policy is hosted, its
-    URL, the lawful basis and the deletion wording.~~ Decided and written 2026-09-11:
-    the policy and support page live in `docs/` for GitHub Pages, `PRIVACY_POLICY_URL`
-    is set, consent is the lawful basis, and the policy promises withdrawal and
-    retention but not identifier-based deletion (ADR 0033 section 7). Pages went live
-    and the questionnaire, both URLs, the subtitle and the listing copy were entered in
-    App Store Connect on 2026-09-11. The EAS Observe integration (2026-09-13) added
-    Performance Data, Other Diagnostic Data, Crash Data and the App Functionality purpose
-    on Device ID to the answer set (ADR 0033 sections 1 and 7); the privacy policy in
-    `docs/` discloses them, the App Store Connect questionnaire carries them, and the
-    policy is published (see Release State). `expo-insights` is installed and the
-    `expo-updates` launch check is documented: both send the EAS install identifier to Expo
-    outside the consent gate, the launch event on every cold start and the update check on
-    every launch, both privacy policies disclose them, and
-    neither adds a privacy-manifest row or a questionnaire answer (ADR 0033 sections 3 and
-    7). The questionnaire answer set is re-derived against ADR 0033 section 7 before the next
-    submission, and `expo-insights` sends nothing until the next native build.
-12. **PostHog Error Tracking.** [ADR 0035](adr/0035-posthog-error-tracking.md) is accepted
-    and its repository work is implemented: uncaught exceptions and unhandled rejections
-    only, the existing consent gate, a field-level `before_send` allowlist, deduplication and
-    a five-exception client-session cap, the Analytics purpose on the Crash Data row, and
-    Hermes source-map wiring through the Expo plugin, Metro helper and pinned CLI. PostHog's
-    ingestion limits are configured at 100 exceptions per 60 minutes project-wide and 20 per
-    60 minutes per issue; excess is dropped before billing. Observe retains native crashes
-    and performance while the accepted unhandled-JavaScript overlap remains.
-13. **Session replay evaluation complete: keep capture disabled on iOS and Android.**
-    [ADR 0023 section 9](adr/0023-behavioural-product-analytics-with-posthog.md#9-session-replay-stays-disabled)
-    records the masking exclusions, native verification gaps, consent requirements and
-    mobile-specific pricing/retention evidence. The current decision is no recorded
-    screen, no start event, 0% sampling, no retained replay and $0 incremental spend.
-    Existing analytics consent does not authorize replay. No SDK or production setting
-    changed; implementation or a recording trial needs separate explicit authorization.
-14. **Operational observability: existing Workers Logs.** Keep the free Cloudflare Workers
-    Logs for Worker latency, errors, provider fallbacks and quota.
-    The Worker's structured logs already carry the distinctions an options report of
-    2026-09-13 asked for: every failed AI attempt logs a classified `reason` that separates
-    `quota_exceeded`, `rate_limited` and `provider_error`, the spent Workers AI pool and the
-    exhausted daily budget log their own events, and every `429` the AI, weather and probe
-    routes return is logged as a `rate_limited` event with its limiter; only a numeric HTTP
-    status field is absent. Grafana and OpenTelemetry are deferred until a concrete alerting
-    need justifies evaluating them under the existing spending controls.
-15. **Supabase accounts and sync**, when product scope reaches it. Promoting device rows
-    into an authenticated profile needs its own ADR; until then build no sync
-    infrastructure.
-
-<!-- markdownlint-enable MD029 -->
-
-Provider prices and quotas are deliberately absent from this list; reverify them from
-official sources when each item is implemented. Server-sent push (N3) stays deferred
-and needs its own ADR ([ADR 0004](adr/0004-notifications-in-the-mvp.md)).
+The approved phase order, active work and remaining open items are in [the roadmap](roadmap.md). This file records current implementation and release evidence.
 
 ## Release State
 
