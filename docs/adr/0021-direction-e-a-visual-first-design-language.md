@@ -1,14 +1,5 @@
 # ADR 0021: Direction E, a visual-first design language
 
-Status: Accepted (2026-09-03)
-
-Implementation: Direction E is implemented on Today, recommendation detail, the app
-shell, Profile, Closet and Settings. [ADR 0018](0018-the-atmospheric-condition-band.md)
-owns the per-condition stage tint, [ADR 0025](0025-the-garment-board-composition-rule.md)
-owns the garment board, and [ADR 0026](0026-the-recommendation-detail-surface.md) owns the
-detail surface and entry motion. Weather carries section 9's horizontal hourly rail.
-This ADR records a direction produced by a throwaway HTML spike.
-
 Defines the accepted visual direction within
 [`visual-identity.md`](../design/visual-identity.md),
 [`design-language.md`](../design/design-language.md) Laws 1, 3 and 5,
@@ -75,8 +66,10 @@ not coordinates:
   wearing the outfit: the pieces lie on the stage, not on a body. No equal-size icon grid.
   No arbitrary scatter. No overlap unless it genuinely improves the composition.
 
-Today does not carry garment names or a five-row name list. A concise archetype name and
-one short rationale are enough on the overview.
+Today does not carry garment names or a five-row name list. Its one-line title gives
+Today, localized weekday and date, time, temperature in the device locale's unit, and
+condition; a small archetype label sits below. The card does not repeat that weather
+line. Two primary-ink body insight sentences replace the overview rationale.
 
 ### 3. The weather tints the stage rather than occupying a band
 
@@ -113,7 +106,9 @@ value because ADR 0018 caps the band at the card plane's own luminance.
 
 [ADR 0017](0017-a-retuned-typography-scale.md) owns the type scale. In Direction E **the
 garment composition is Today's hero and no `display` appears on Today at all**; the
-archetype name sits at `title` scale beside it. The `display` role remains on Weather,
+one-line Today title uses `title` with weight 700, while the archetype becomes a small
+label below. Supporting insights use `body` and `textPrimary`; only metadata such as
+last updated uses `textSecondary`. The `display` role remains on Weather,
 where a number genuinely is the subject.
 
 ### 6. Alternatives use the full composition without implying rank
@@ -131,20 +126,20 @@ list: use two equal columns, no position labels, and no emphasis pill.
 
 Garment names, layer structure, per-piece reasoning and weather reasoning belong to the
 recommendation detail surface reached from Today. The surface and its ownership control
-are decided in [ADR 0026](0026-the-recommendation-detail-surface.md). Per-slot
-substitutions are outside the MVP and the surface has no substitution affordance; adding
-them requires a separate product decision.
+are decided in [ADR 0026](0026-the-recommendation-detail-surface.md). Manual catalog-piece
+swaps live on detail outside the recommendation engine, with a quiet warning when the
+engine's rules would reject the look.
 
 ### 8. AI provenance sits with the recommendation
 
 Provenance belongs next to the thing it describes, not in a page footer. When AI materially
-contributed, the interface shows a single small badge in the controlled `provenance` role
-directly under the outfit name, carrying words only. It carries no glyph: the spark is the
+contributed, the interface shows a prominent filled badge in the controlled `provenance` role
+directly under Today's title, carrying words only. It carries no glyph: the spark is the
 AI-assistant convention [`visual-identity.md`](../design/visual-identity.md) refuses, and a
 badge that draws one is that convention whichever role fills it. The badge is a record, not
 a control: it is not touchable, it never stands on the tinted stage, and what it means is
-explained on the Settings AI status screen. Freshness keeps its own quiet metadata line.
-Provenance stays secondary to the outfit, the outfit name, and the rationale.
+explained on Settings > Service providers. Freshness keeps its own quiet metadata line.
+The reader first sees that AI chose the look, then reads the insight.
 
 **Green is not used to mean AI.** Green carries success semantics in this palette
 ([ADR 0010](0010-status-colours-destructive-variant-and-defined-borders.md)) and an AI
@@ -164,9 +159,10 @@ stacked hourly table.
 ### 10. Motion
 
 Gentle entrance of the garment pieces, a subtle transition between suggestions, and
-weather-state glyph transitions are the sanctioned uses. All of it remains subject to
-[ADR 0020](0020-rewriting-the-motion-law.md): motion is never the only indication of a
-state change, and Reduced Motion must have a calm static equivalent.
+weather-state glyph transitions are the sanctioned uses. The first recommendation of
+a dressing day fills a garment-board skeleton in a full-screen overlay without a
+mannequin, avatar or mascot. [ADR 0020](0020-rewriting-the-motion-law.md) requires
+words to carry state alongside motion.
 
 ## Consequences
 
