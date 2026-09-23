@@ -23,7 +23,7 @@ export const lightSemanticColors = Object.freeze({
   surfaceMuted: '#E7EEED',
   surfaceInteractive: '#DDE8E7',
   textPrimary: brandColors.deepAtmosphere,
-  textSecondary: '#576B73',
+  textSecondary: '#2F4650',
   textOnBrand: brandColors.cloudWhite,
   textOnPrimaryFill: brandColors.cloudWhite,
   brandPrimary: brandColors.deepAtmosphere,
@@ -35,7 +35,7 @@ export const lightSemanticColors = Object.freeze({
   borderStrong: brandColors.calmCurrent,
   focusRing: brandColors.calmCurrent,
   iconPrimary: brandColors.deepAtmosphere,
-  iconSecondary: '#576B73',
+  iconSecondary: '#2F4650',
   // Derived semantic values keep status inks within ±0.8 of brandAccent's
   // contrast against this appearance's surface.
   successInk: '#216048',
@@ -96,7 +96,7 @@ export const darkSemanticColors = Object.freeze({
   surfaceMuted: '#183039',
   surfaceInteractive: '#21434A',
   textPrimary: brandColors.cloudWhite,
-  textSecondary: '#8FA5AC',
+  textSecondary: '#B0C0C5',
   textOnBrand: brandColors.nightLayer,
   textOnPrimaryFill: brandColors.cloudWhite,
   brandPrimary: brandColors.quietSky,
@@ -109,7 +109,7 @@ export const darkSemanticColors = Object.freeze({
   borderStrong: brandColors.quietSky,
   focusRing: brandColors.quietSky,
   iconPrimary: brandColors.cloudWhite,
-  iconSecondary: '#8FA5AC',
+  iconSecondary: '#B0C0C5',
   // Derived semantic values keep status inks within ±0.8 of brandAccent's
   // contrast against this appearance's surface.
   successInk: '#7FD3AE',
