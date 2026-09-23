@@ -101,7 +101,7 @@ The durable cost is explicit:
   version moves to 2.
 
 Provider and model identity stay out of the durable model, the analytics payload, Today and
-the recommendation detail. The Settings AI status screen is the one interface that may name
+the recommendation detail. The Settings Service providers screen is the one interface that may name
 the provider and model behind the last check (section 5); that identifier crosses the mobile
 API as a controlled non-secret value, like a weather attribution identifier, and is never
 persisted with a recommendation or sent to analytics.
@@ -134,7 +134,7 @@ modes, in plain words after the reasons and before the weather recap:
 
 No string names a provider or a model. What they say is where the outfit was chosen, which
 is the fact a user can act on; the provider and model behind the last check are technical
-identity and belong on the Settings AI status screen (section 5).
+identity and belong on the Settings Service providers screen (section 5).
 
 The rules around them:
 
@@ -304,13 +304,14 @@ the two AI badges, the badgeless deterministic state and the availability row in
 - AI output is structured data. The one user-visible prose field is a device-validated insight sentence with a deterministic localized fallback; other visible copy comes from localization keys.
 - The Worker AI chain and the deterministic device-local fallback are never removed,
   weakened or made conditional on the on-device tier.
+- [ADR 0039](0039-ai-v2-route-and-the-validated-insight-sentence.md) owns the versioned Worker response carrying that optional sentence.
 - No third-party Apple Intelligence package: not `@react-native-ai/apple`, not
   `react-native-apple-llm`, not `expo-apple-intelligence`, not `expo-ai-kit`. All are beta
   and all duplicate a small local module.
 - `expo-app-intents` is not adopted from expo/expo main.
 - No Xcode 27 build and no higher deployment target.
 - No provider identity, model identity or model version reaches Today, the recommendation
-  detail, analytics or the durable domain model; the Settings AI status screen is the only
+  detail, analytics or the durable domain model; the Settings Service providers screen is the only
   surface that names them.
 
 ## Siri is a separate decision

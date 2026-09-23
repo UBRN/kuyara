@@ -77,6 +77,7 @@ installed binary strictly reads this v1 body; the v1 response stays byte-shape
 compatible. The device validates the sentence separately and falls back to line 1.
 
 `aiV1CandidateLimit`, `aiCandidateSchema`, `aiOutfitSchema`, and
+[ADR 0039](0039-ai-v2-route-and-the-validated-insight-sentence.md) defines that successor route and its validation.
 `aiRecommendV1SuccessSchema` are replaced. The option limit is 24, which keeps
 the candidate list under 30. The model input a full request serializes to is
 11,560 bytes at 24 options of five garments each carrying the conditional archetypes

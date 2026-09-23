@@ -90,8 +90,8 @@ colour, `textOnBrand`. Light `textOnBrand` on `#9B2C2C` is about 7.1. Dark `#0D1
 `#F2A6A2` = 9.15. The confirming Alert stays the platform's, as today.
 The danger role may also mark a quality-reducing, non-destructive choice. In the daily
 formality alert, "Continue without choosing" is red and dim while the recommended
-"Choose a style" action is the blue filled default. **Risk accepted:** this extends
-danger beyond destructive actions, and the words and emphasis must explain the choice.
+"Choose a style" action is the blue filled default. This extends danger beyond
+destructive actions, so the words and emphasis must explain the choice.
 
 ### No info colour
 
