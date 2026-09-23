@@ -180,6 +180,17 @@ test('the recommend response is a tolerant reader and strips extra keys', () => 
   );
 });
 
+test('the frozen v1 contract excludes v2 request fields and strips its response field', () => {
+  for (const field of ['styleAesthetics', 'locale']) {
+    assert.equal(aiRecommendV1RequestSchema.safeParse({
+      ...validRequest(), [field]: field === 'locale' ? 'en' : ['classic'],
+    }).success, false);
+  }
+  const response = validSuccess();
+  response.data.insightSentence = 'A clear day suits this outfit.';
+  assert.deepEqual(aiRecommendV1SuccessSchema.parse(response), validSuccess());
+});
+
 test('rejects every privacy-forbidden request or option field', () => {
   for (const field of ['localProfileId', 'deviceId', 'latitude', 'longitude']) {
     assert.equal(aiRecommendV1RequestSchema.safeParse({

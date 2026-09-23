@@ -68,11 +68,32 @@ test('posts the validated recommendation request and returns validated data', as
   const result = await client.recommend(request);
 
   assert.deepEqual(result, responseData);
-  assert.equal(received.input, 'https://worker.example/v1/ai/recommend');
+  assert.equal(received.input, 'https://worker.example/v2/ai/recommend');
   assert.equal(received.init.method, 'POST');
   assert.equal(received.init.headers['content-type'], 'application/json');
   assert.equal(received.init.headers['x-kuyara-ai-budget-ms'], '37000');
-  assert.deepEqual(JSON.parse(received.init.body), request);
+  assert.deepEqual(JSON.parse(received.init.body), { ...request, locale: 'en' });
+});
+
+test('sends the application locale and preserves optional v2 prose', async () => {
+  let sent;
+  const client = new WorkerAiClient({
+    baseUrl: 'https://worker.example',
+    fetch: async (_input, init) => {
+      sent = JSON.parse(init.body);
+      return Response.json({ data: { ...responseData, insightSentence: 'Bu gün için uygun.' } });
+    },
+  });
+  const data = await client.recommend(request, { locale: 'tr' });
+  assert.equal(sent.locale, 'tr');
+  assert.equal('styleAesthetics' in sent, false);
+  assert.equal(data.insightSentence, 'Bu gün için uygun.');
+});
+
+test('drops a malformed optional sentence while retaining valid picks', async () => {
+  const client = new WorkerAiClient({ baseUrl: 'https://worker.example', fetch: async () =>
+    Response.json({ data: { ...responseData, insightSentence: 'Two sentences. Another.' } }) });
+  assert.deepEqual(await client.recommend(request), responseData);
 });
 
 test('sends the routed client timeout minus the transport margin', async () => {

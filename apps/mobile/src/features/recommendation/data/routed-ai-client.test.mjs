@@ -155,7 +155,7 @@ function routed(module, worker) {
 
 // The Worker's own deadline, which the routed client grants in full however long the
 // on-device tier spent first.
-const workerWait = { timeoutMilliseconds: 38000 };
+const workerWait = { timeoutMilliseconds: 38000, locale: 'en' };
 
 // The two numbers the whole refresh bound is made of. The on-device budget is the tier's
 // own ceiling and the Worker's wait is a constant beside it, so spending the whole 8 s on

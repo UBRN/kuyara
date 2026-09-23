@@ -42,6 +42,8 @@ export type OutfitRecommendationInput = Readonly<{
 
 export type OutfitRecommendationSuccess = Readonly<{
   status: 'recommended';
+  insightSentence?: string;
+  insightLocale?: 'tr' | 'en';
   generationMode: RecommendationGenerationMode;
   requirements: ClothingRequirements;
   outfits: readonly RecommendedOutfit[];

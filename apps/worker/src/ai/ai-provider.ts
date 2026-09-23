@@ -1,4 +1,4 @@
-import type { AiProviderId, AiRecommendV1Request } from '@kuyara/contracts';
+import type { AiProviderId, AiRecommendV1Request, AiRecommendV2Request } from '@kuyara/contracts';
 
 /**
  * Failure classification shared by every AI provider adapter, mirroring
@@ -37,7 +37,7 @@ export interface AiProvider {
   readonly id: AiProviderId;
   readonly model: string;
   generateOutfits(
-    request: AiRecommendV1Request,
+    request: AiRecommendV1Request | AiRecommendV2Request,
     signal: AbortSignal,
     options?: AiGenerateOptions,
   ): Promise<unknown>;

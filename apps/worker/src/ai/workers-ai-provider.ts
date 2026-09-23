@@ -88,7 +88,7 @@ export class WorkersAiProvider implements AiProvider {
   ): Promise<unknown> {
     signal.throwIfAborted();
     const messages = buildMessages(request);
-    const responseSchema = buildPickJsonSchema(request.options);
+    const responseSchema = buildPickJsonSchema(request.options, 'locale' in request);
     let result: unknown;
     try {
       // ponytail: binding takes no AbortSignal; the handler's per-attempt race bounds it.

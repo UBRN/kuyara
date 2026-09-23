@@ -1,6 +1,7 @@
 import type {
   AiRecommendV1Request,
   AiRecommendV1Success,
+  AiRecommendV2Success,
 } from '@kuyara/contracts';
 
 import type { RecommendationPhase } from '@/features/recommendation/application/recommendation-application-controller';
@@ -23,13 +24,14 @@ export type AiRecommendationValidator = (
   request: AiRecommendV1Request,
   data: AiRecommendV1Success['data'],
   generationMode: AiGenerationMode,
+  insight?: Readonly<{ locale: 'tr' | 'en' }>,
 ) => OutfitRecommendationSuccess;
 
 type WorkerClient = Readonly<{
   recommend(
     request: AiRecommendV1Request,
-    options?: Readonly<{ timeoutMilliseconds?: number }>,
-  ): Promise<AiRecommendV1Success['data']>;
+    options?: Readonly<{ timeoutMilliseconds?: number; locale?: 'tr' | 'en' }>,
+  ): Promise<AiRecommendV2Success['data']>;
 }>;
 
 type Dependencies = Readonly<{
@@ -66,7 +68,7 @@ export class RoutedAiClient {
 
   async recommendRouted(
     request: AiRecommendV1Request,
-    options?: Readonly<{ onPhase?: (phase: RecommendationPhase) => void }>,
+    options?: Readonly<{ onPhase?: (phase: RecommendationPhase) => void; locale?: 'tr' | 'en' }>,
   ): Promise<OutfitRecommendationSuccess> {
     const onPhase = options?.onPhase;
     try {
@@ -85,8 +87,9 @@ export class RoutedAiClient {
     onPhase?.('asking-stylist');
     const data = await this.worker.recommend(request, {
       timeoutMilliseconds: workerWaitMilliseconds,
+      locale: options?.locale ?? 'en',
     });
     onPhase?.('answer-received');
-    return this.validate(request, data, 'ai-assisted');
+    return this.validate(request, data, 'ai-assisted', { locale: options?.locale ?? 'en' });
   }
 }

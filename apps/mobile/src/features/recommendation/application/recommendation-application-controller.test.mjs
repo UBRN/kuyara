@@ -587,12 +587,18 @@ test('a repository load failure leaves the ready state carrying an unknown failu
 
 test('recommendation_regenerated reports the trigger, result and generation mode on success', async () => {
   const captured = [];
-  const { controller } = createHarness({
+  const { controller, getStored } = createHarness({
     captureAnalyticsEvent: (name, properties) => captured.push({ name, properties }),
+    client: { recommendRouted: async (request) => mapWorkerAiRecommendation(request, {
+      ...workerResponse(request), insightSentence: 'The outfit suits the day.',
+    }, 'ai-assisted', { locale: 'en' }) },
   });
   await controller.initialize();
 
   await controller.refresh('first-recommendation', input(16));
+
+  assert.equal(getStored().recommendation.insightSentence, 'The outfit suits the day.');
+  assert.equal(getStored().recommendation.insightLocale, 'en');
 
   assert.deepEqual(captured, [{
     name: 'recommendation_regenerated',

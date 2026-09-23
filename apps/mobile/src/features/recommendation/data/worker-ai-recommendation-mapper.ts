@@ -3,6 +3,7 @@ import {
   aiRecommendV1RequestSchema,
   archetypeDayFromRequirements,
   aiRecommendV1SuccessSchema,
+  insightSentenceSchema,
   aiV1OptionLimit,
   bodyRegions,
   breathabilityLevels,
@@ -23,7 +24,7 @@ import {
   windProtections,
   type AiOption,
   type AiRecommendV1Request,
-  type AiRecommendV1Success,
+  type AiRecommendV2Success,
   type OutfitArchetypeId,
 } from '@kuyara/contracts';
 import { z } from 'zod';
@@ -60,6 +61,7 @@ import type {
   AiGenerationMode,
   RecommendationGenerationMode,
 } from '@/features/recommendation/domain/generation-mode';
+import { validateInsightSentence } from '@/features/recommendation/domain/insight-sentence';
 
 export class WorkerAiRecommendationMappingError extends Error {
   constructor() {
@@ -80,7 +82,15 @@ const recommendationContextSchema = z.strictObject({
   localDayKey: z.string().regex(/^\d{4}-\d{2}-\d{2}(:evening)?$/).optional(),
   requirements: z.array(clothingRequirementSchema).max(11),
   options: z.array(aiOptionSchema).max(aiV1OptionLimit),
-}).superRefine(({ options }, context) => {
+  insightSentence: insightSentenceSchema.optional(),
+  insightLocale: z.enum(['tr', 'en']).optional(),
+}).superRefine(({ options, insightSentence, insightLocale }, context) => {
+  if (Boolean(insightSentence) !== Boolean(insightLocale)) {
+    context.addIssue({
+      code: 'custom', message: 'Insight sentence and locale must be stored together.',
+      path: ['insightLocale'],
+    });
+  }
   const seen = new Set<string>();
   options.forEach(({ optionId }, index) => {
     if (seen.has(optionId)) {
@@ -322,8 +332,9 @@ function recommendedOutfit(
 // executor produced the picks, and an answer that fails any of them is rejected whole.
 export function mapWorkerAiRecommendation(
   request: AiRecommendV1Request,
-  data: AiRecommendV1Success['data'],
+  data: AiRecommendV2Success['data'],
   generationMode: AiGenerationMode = 'ai-assisted',
+  insight?: Readonly<{ locale: 'tr' | 'en' }>,
 ): OutfitRecommendationSuccess {
   const validated = aiRecommendV1SuccessSchema.safeParse({ data });
   if (!validated.success) throw new WorkerAiRecommendationMappingError();
@@ -350,9 +361,16 @@ export function mapWorkerAiRecommendation(
     }
     return recommendedOutfit(outfit, archetypeId);
   });
+  const sentence = generationMode === 'ai-assisted' && insight
+    ? validateInsightSentence({
+        sentence: data.insightSentence,
+        locale: insight.locale,
+      })
+    : null;
   return Object.freeze({
     status: 'recommended',
     generationMode,
+    ...(sentence && insight ? { insightSentence: sentence, insightLocale: insight.locale } : {}),
     requirements,
     outfits: Object.freeze(outfits),
   });
@@ -450,6 +468,8 @@ export function mapStoredRecommendation(
     return Object.freeze({
       status: 'recommended',
       generationMode,
+      ...('insightSentence' in context && context.insightSentence
+        ? { insightSentence: context.insightSentence, insightLocale: context.insightLocale } : {}),
       requirements,
       outfits: Object.freeze(outfits),
     });
