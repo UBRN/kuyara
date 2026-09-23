@@ -104,7 +104,7 @@ another system, and the exclusion list in section 4 is unchanged. No other profi
 
 | Property | Allowed values | Derivation rule |
 | --- | --- | --- |
-| `dress_style` | `casual`, `smart`, `formal` | The profile's stored dress style; a null stored value reads as `smart`, matching product logic, so no event ever carries null. |
+| `dress_style` | `casual`, `smart`, `formal` | The dressing day's resolved formality, falling back to the profile default; a null stored default reads as `smart`. It stays one scalar. Style aesthetics are not measured. |
 | `age_bucket` | `under_18`, `18_24`, `25_34`, `35_44`, `45_54`, `55_64`, `65_plus`, `unknown` | Computed at emit time from the birth year only, never sent as a date or year. `unknown` means no birth date on file and nothing else. |
 
 **`under_18` is a distinct bucket.** ADR 0031's standard buckets start
@@ -131,7 +131,7 @@ before it ships. An event fails review if any box is unchecked.
 
 - [ ] No exact latitude or longitude, and no place name entered as free text.
 - [ ] No Closet photo, image content, or file path.
-- [ ] No free-form user text (garment names, colors, notes, search input).
+- [ ] No free-form user text (display name, garment names, colors, notes, search input).
 - [ ] No full AI prompt and no full AI model response.
 - [ ] No raw WeatherKit or other provider response.
 - [ ] No secret, token, or credential.
@@ -160,15 +160,16 @@ surface became part of milestone 10 under ADR 0033.
 ### 5.0 Properties every event carries
 
 Every custom event sent through the `ProductAnalytics` boundary carries `schema_version`
-(integer, currently 3). It is incremented only when an existing event's properties change
-meaning or an allowed value set changes, not when a new event is added. Version 3 is the
+(integer, 4 when `outfit_worn_logged` ships). It is incremented when an existing event's properties change
+meaning or an allowed value set changes; the history event also takes the approved
+version bump. Version 3 is the
 notification work: `setting_name` gained `morning_briefing_enabled` and `notification_opened`
 gained a required `kind`. The SDK-supplied app
 version, OS version, and build number (already covered by the provider default, section 5.1)
 are not duplicated as custom properties on any event.
 
-**Count.** This document defines **twenty-four custom events**, the same number
-`docs/current-status.md` records and the same number the typed catalog carries.
+**Count.** This document defines **twenty-five custom events**. The implemented typed
+catalog and `docs/current-status.md` retain twenty-four until the history Goal ships.
 
 **Domain values are mapped, not passed through.** Several enums below are the `snake_case`
 form of a kebab-case domain type. `generation_mode` is `on_device_ai` / `ai_assisted` / `deterministic_fallback`
@@ -371,10 +372,11 @@ An analysis that sees zero `explicit_request` events is seeing the product as it
 | Event | Trigger | Properties |
 | --- | --- | --- |
 | `outfit_detail_opened` | The user opens one of the three outfits from Today. | `outfit_position` (`1`\|`2`\|`3`), `archetype` (one of the twelve closed archetype identifiers already defined in the AI selection contract; not restated here to avoid drift from that source of truth), `generation_mode` (`on_device_ai`\|`ai_assisted`\|`deterministic_fallback`), `dress_style` and `age_bucket` (section 3) |
+| `outfit_worn_logged` | The user confirms or overwrites "Wore this today" on outfit detail. | `action` (`created`\|`overwritten`) only; no outfit, garment, photo or day identity |
 
-This is the only selection signal the current product surfaces: there is no separate
-"choose this outfit" action beyond opening its detail. If a future explicit "wearing this"
-action ships, it gets its own event rather than overloading this one.
+Opening detail is an impression of interest; `outfit_worn_logged` alone records a
+confirmed wear action. The latter is closed and carries no garment identity, free text,
+image content or history row ID. Its addition ships with the schema-version bump above.
 
 **Product questions answered.**
 

@@ -1,9 +1,5 @@
 # ADR 0031: Dress style is the formality signal, and birth date is a demographic fact
 
-Status: Accepted (2026-09-08)
-
-Implementation: complete.
-
 This ADR owns the current formality and age policy for the profile described in
 [ADR 0015](0015-gender-and-age-band-in-the-profile.md). Dress style shapes
 recommendations. Birth date is optional and device-only, and only an approved coarse
@@ -31,18 +27,11 @@ most a bounded demographic bucket.
 
 ## Decision
 
-### 1. The profile has required `dressStyle`
+### 1. Persistent formality, aesthetics and optional name
 
-`dressStyle` is one of `casual`, `smart`, or `formal`, the three formality levels the
-catalogue already carries. It is a required onboarding step after gender and is
-changeable in Settings' About you group. Storage uses nullable checked
-`dress_style TEXT` so migration and reopened onboarding have a state to occupy. Every
-reader treats null as `smart`, the neutral middle, so no product path handles an absent
-value.
+`dressStyle` remains required as one of `casual`, `smart` or `formal`, the profile's persistent default formality. Onboarding asks after gender, and Settings > Profile can change it. A null stored value reads as `smart` for migration compatibility. Copy asks how the user usually dresses and explains that suggestions lean that way first and exclude nothing.
 
-The question is about the user's clothes, not the user. Copy asks "How do you usually
-dress?" and explains that suggestions lean that way first and exclude nothing. Options
-reuse the product's formality vocabulary: Casual, Smart, Formal; Günlük, Şık, Resmî.
+The profile also stores up to three `styleAesthetics` chosen from `minimal`, `classic`, `sporty`, `streetwear`, `relaxed`. They reorder already-valid options as a soft tie-break and never exclude. The optional `displayName` is 2 to 30 characters, asked after welcome with "Not now" and editable in Settings. It remains device-only and outside AI, analytics, telemetry and providers; [ADR 0036](0036-display-name-and-one-time-prompt-gate.md) owns its one-time prompt.
 
 ### 2. Dress style selects the formality order
 
@@ -58,17 +47,11 @@ no per-style re-measurement. The table lives in `packages/contracts` as
 `formalityOrderByDressStyle`, because the Worker prompt and device-local fallback must
 apply the same rule. Do not introduce age-band schemas or age-band formality tables.
 
-### 3. The AI input boundary carries `dressStyle`
+### 3. The day's resolved formality and sorted aesthetics cross the AI boundary
 
-The strict request schema accepts optional `dressStyle` so a Worker deployed ahead of
-mobile remains compatible with older clients. An absent value resolves to `smart`. The
-Worker prompt receives only the formality order derived from it. The shared cache key
-includes dress style; it is one of three low-cardinality values and identifies no one.
+A daily answer overrides `dressStyle` for its dressing-day key only and uses the same three-value permutation table in section 2. An unanswered day resolves to the persistent default, unless the user explicitly chooses to continue without a choice. The strict request keeps `dressStyle` optional for older clients and defaults an absent value to `smart`. Aesthetics cross only as a closed sorted identifier list; they add one low-cardinality field to the Worker cache key and are applied by the deterministic fallback too.
 
-The recommendation regenerates when dress style changes. Persisted recommendation
-context carries dress style, and a legacy snapshot without that field reads as `smart`.
-Birth date, birth year, and derived age values never enter the request or cache key and
-never trigger recommendation generation.
+Recommendation context carries the day's resolved formality and aesthetics. Changing the profile default, the aesthetic choices or the day's answer regenerates the recommendation. Birth date, birth year, display name and derived age never enter the request or cache key and never trigger generation. [ADR 0037](0037-daily-formality-and-style-aesthetics.md) owns the sheet, chip row and plan-tomorrow interaction.
 
 ### 4. Birth date is a demographic fact only
 
@@ -82,20 +65,13 @@ null. The attachment rules live in [`analytics-taxonomy.md`](../analytics-taxono
 The date, the year, and the user's gender never appear in analytics, logs, AI requests,
 or other network payloads. No bucket is stored. Do not derive an age band anywhere else.
 
-### 5. Onboarding has five steps
+### 5. Onboarding and Settings
 
-Welcome, gender, dress style, birth date, and optional location selection. Gender and
-dress style are required; birth date and location are skippable. The location step is
-governed by [ADR 0016](0016-location-in-onboarding-and-an-honest-empty-state.md).
-Settings' About you group has three rows in order: Gender, Dress style, Birth date. Its
-footer explains what each fact is for.
+Onboarding asks welcome, optional display name, required gender, required dress style, optional birth date and optional location. The location step remains governed by [ADR 0016](0016-location-in-onboarding-and-an-honest-empty-state.md). Settings > Profile edits name, gender, dress style, style aesthetics and birth date. Its birth-date helper footer is removed.
 
 ### 6. Schema
 
-Schema version 10 adds nullable checked `dress_style` and resets onboarding once so
-existing installations answer the required question. The same migration preserves all
-existing profile values and dependent data. A null value reads as `smart` until
-onboarding is completed.
+Schema version 10's nullable checked `dress_style` remains the existing default field. Migration 17 adds the optional display name, versioned name prompt gate, style aesthetics and daily-style preference columns while preserving all rows. Daily answers are keyed by dressing day. No age-band schema or formality enum is added. Migration 17 needs the independent review and device-database replay required for a user-device migration.
 
 ## Consequences
 
@@ -104,8 +80,7 @@ onboarding is completed.
 - A direct style question adds one onboarding step. This is accepted because it is the
   signal the recommendation needs and asks about clothes rather than using a proxy about
   the person.
-- The three formality words appear in onboarding and Settings. They already belong to the
-  product's recommendation-detail vocabulary, so no separate style vocabulary is needed.
+- The three formality values remain the only wire values; daily copy can be more expressive without changing the enum.
 - Research on age and dress is thin. The decision does not claim a universal age effect;
   it relies on the user's own answer rather than an unsupported proxy.
 

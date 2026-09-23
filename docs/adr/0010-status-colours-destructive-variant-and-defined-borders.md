@@ -1,10 +1,5 @@
 # ADR 0010: Status colours, destructive variant, and defined borders
 
-Status: Accepted (2026-09-02)
-
-Implementation: complete. The seven colour roles, `borderDefined`, and the
-`destructive` button variant live in `theme.ts` and `components/ui`.
-
 ## Context
 
 [ADR 0009](0009-a-design-language-layer-and-its-deferral-carve-out.md) is the
@@ -93,6 +88,10 @@ All six clear 3:1. Light `#5C7A83` at 4.60 on white stays visibly quieter than
 Filled destructive button: fill `dangerInk`, label the appearance's on-brand
 colour, `textOnBrand`. Light `textOnBrand` on `#9B2C2C` is about 7.1. Dark `#0D191E` on
 `#F2A6A2` = 9.15. The confirming Alert stays the platform's, as today.
+The danger role may also mark a quality-reducing, non-destructive choice. In the daily
+formality alert, "Continue without choosing" is red and dim while the recommended
+"Choose a style" action is the blue filled default. **Risk accepted:** this extends
+danger beyond destructive actions, and the words and emphasis must explain the choice.
 
 ### No info colour
 

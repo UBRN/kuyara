@@ -1,12 +1,5 @@
 # ADR 0007: AI selects and labels precomposed outfits
 
-Status: Accepted (2026-08-30)
-
-Implementation: complete. The contract, Worker validation, deterministic option
-construction, catalog formality, the mapper, rule-based fallback archetype assignment,
-and archetype titles are implemented, and the neuron cost per call is measured from
-live Workers AI traffic, not estimated (see Consequences).
-
 ## Context
 
 ADR 0005 narrowed the recommendation candidate set to the bundled catalog and
@@ -15,13 +8,9 @@ outfits that are stylistically coherent and varied: color harmony, consistent
 formality, plausible layering, and no repeat of the previous day. Reading that
 job against the code exposed three facts.
 
-**The catalog had no color or formality input for the proposed AI job.**
-`garment-catalog.ts` describes garment *types*, not garments. Its weather fields
-were thermal, water, wind, breathability, coverage, traction, and
-clothing-preference applicability; `colorFamily` was always null for catalog
-candidates. Color harmony could not be expressed in the request, produced by
-the model, or verified by code. The decision adds formality as a catalog
-property but does not invent color.
+**The catalog describes types rather than personal garments.** Formality is an
+explicit type property. A closed suggested colorway can guide quick-add without
+making an owned item's colour or palette harmony an AI input.
 
 **The weather bucket already exists.** `weather-to-clothing-requirements.ts`
 already quantizes continuous temperature, wind, precipitation probability, and
@@ -83,6 +72,9 @@ response: { data: { picks: [ { optionId, archetypeId } x3 ] } }
 The response JSON schema builds the `optionId` enum from the identifiers
 supplied in that request, so a structurally invalid or invented outfit cannot be
 generated. Zod and the domain invariants still validate the result afterwards.
+The optional `insightSentence` belongs to a versioned successor response while any
+installed binary strictly reads this v1 body; the v1 response stays byte-shape
+compatible. The device validates the sentence separately and falls back to line 1.
 
 `aiV1CandidateLimit`, `aiCandidateSchema`, `aiOutfitSchema`, and
 `aiRecommendV1SuccessSchema` are replaced. The option limit is 24, which keeps
@@ -106,15 +98,13 @@ inconsistent outfit and formality is not an AI responsibility. Dress style
 reorders formality preference and excludes nothing, as decided in
 [ADR 0031](0031-dress-style-is-the-formality-signal.md).
 
-### 3. Color harmony leaves the AI job
+### 3. Closed colorways stay outside AI input
 
-Color harmony is outside the AI job for the MVP. A garment-type catalog has no
-color, and writing one into it would invent data.
-
-If color is wanted later, the mechanism is the archetype mechanism: a closed
-colorway vocabulary from which the model picks one identifier per outfit, with
-the interface rendering the palette. That keeps output structured and the
-catalog clean. It is not in the MVP.
+The catalog supplies a closed colorway per garment type or outfit palette, and the
+outfit-detail quick-add sheet preselects its suggested colour. The catalog version
+changes with this content so cached recommendations regenerate. A garment type alone
+has no user-owned colour. Colour is not sent to AI without a separate privacy and
+contract decision; the model still selects supplied option and archetype identifiers.
 
 ### 4. Shared result cache and day variant
 
@@ -145,7 +135,8 @@ computed locally and neither consults nor populates it.
 ### 5. Closed archetype list
 
 Titles come from a closed list of twelve archetypes. The model selects an
-identifier, never text, so all user-visible copy stays in localization keys.
+identifier, never title text, so titles stay in localization keys. The validated
+insight sentence is the one visible prose exception.
 
 | Archetype id | Turkish | English | Code precondition |
 |---|---|---|---|
@@ -191,13 +182,19 @@ read on, so a weekend result read on the Monday after says Relaxed.
 | `archetypeId` is in the closed list and the three differ | Selection boundary |
 | The three picks differ by body core or by at least two body garments | Selection boundary |
 | Archetype precondition holds for its outfit | Selection boundary |
+| Optional `insightSentence` is one sentence, at most 90 characters, in the reader's language; every number matches the snapshot and no banned content appears | Device validation, with deterministic line-1 fallback |
 
 The selection boundary is the on-device client when the selection runs on the
 device and the Worker when it runs on the Worker; the mobile mapper enforces the
 same invariants either way.
 
-A failed check rejects the whole response and advances to the next tier.
+A failed outfit check rejects the whole response and advances to the next tier.
 Partial repair remains forbidden.
+
+The optional insight sentence is the one exception to localization-key-only visible
+copy. Its failure falls back to the deterministic whole-sentence day insight, while
+invalid outfit picks still reject the entire selection. The AI input boundary remains
+the existing sanitized weather snapshot projection.
 
 ### 7. Fallback assigns archetypes by rule
 
@@ -218,8 +215,7 @@ recommendation is never withheld.
   Worker selections a day before the quota stop and the deterministic fallback.
 - The catalog carries an explicit formality field assigned by hand to every
   entry.
-- Color harmony is absent from the MVP, so outfits are coherent in structure and
-  formality but not in palette.
+- A closed suggested colorway can preselect quick-add colour without widening AI input.
 - Results of a Worker selection are shared across all users by construction,
   which ADR 0005 already accepted. An on-device selection is computed per device.
 - Outfits recur on a seven-day cycle for an unchanged weather bucket. Within a
@@ -233,8 +229,8 @@ recommendation is never withheld.
 - **Let the model compose from raw candidates.** Rejected because it is the
   failure mode of small models, requires the full 65 KB request, and pushes
   every structural invariant into post-hoc validation and retries.
-- **Add `colorFamily` to catalog entries.** Rejected because a garment type has
-  no color and the value would be fabricated.
+- **Send catalog colorways to AI.** Rejected without a separate privacy and contract
+  decision; a suggested quick-add colour does not need model input.
 - **Raw local day seed in the cache key.** Rejected because it ties quota
   consumption to daily bucket count under a 10,000-neuron free quota.
 - **A new explicit weather bucket model.** Rejected because the requirement
@@ -246,7 +242,7 @@ recommendation is never withheld.
 
 ## Out of scope
 
-- Colorways and any color model.
+- Sending colour to AI without a separate privacy and contract decision.
 - Further catalog expansion or content changes, governed by
   [ADR 0013](0013-catalog-content-corrections-and-version-3.md).
 - Wardrobe as a candidate source or a tie-breaker.

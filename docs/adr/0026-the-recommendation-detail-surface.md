@@ -1,9 +1,5 @@
 # ADR 0026: The recommendation detail surface
 
-Status: Accepted (2026-09-04)
-
-Implementation: decisions 1 to 7 are implemented.
-
 Builds on: [ADR 0025](0025-the-garment-board-composition-rule.md), whose composition rule
 this surface reuses unchanged.
 Owns the recommendation detail surface named by
@@ -18,7 +14,8 @@ The risk was specific. The evaluated Direction D2 detail screen was a five-row l
 identical garment cards, and the redesign's first session recorded that uniformity as one
 of the causes of flatness. Adding an illustration above that same list would not fix it.
 
-The product has no per-slot substitution input, so the surface must not invent one.
+The recommendation engine has no per-slot substitution input. Manual swapping is a
+separate interaction over catalog pieces and never changes the engine's candidates.
 
 ## Decision
 
@@ -104,18 +101,20 @@ place up to five accent fills in one viewport against Law 1. An untracked garmen
 marker and no state word while its accessible name speaks the untracked state; the menu
 indicator is present on tracked and untracked captions alike.
 
-### 6. Substitutions are out of the MVP, as a product decision rather than a design gap
+### 6. Manual swaps sit outside recommendation selection
 
-ADR 0021 listed substitutions among the things detail would carry. Nothing in
-`packages/contracts/src/ai-v1.ts`, the domain, or the persisted snapshot produces a
-per-slot alternative: the composer emits three whole outfits and the AI returns only
-`{optionId, archetypeId}` pairs. Designing a home for substitutions would have meant
-inventing the feature.
+Detail permits a reader to swap any piece for another catalog piece. Closet items do
+not become candidates. The whole look rerenders on the garment board. The manual
+combination is not blocked when weather or composition rules would reject it; a quiet
+"Unusual for this weather" note explains the departure. Nothing is saved until the
+reader chooses "Wore this today". **Risk accepted:** manual mode can present a look
+the deterministic recommendation engine would reject.
 
-Substitutions are a future product possibility needing their own decision, and this
-surface has no substitution affordance.
-[ADR 0021](0021-direction-e-a-visual-first-design-language.md) section 7 points to this
-decision.
+The owned/wanted quick-add sheet also offers the existing closed `colorFamily` picker.
+"I own this" uses a plain hanger and text, becoming hanger plus a small checkmark
+after saving; "I want this" uses an outline heart and text, becoming a filled heart
+after saving. These are SF Symbols, never emoji. A closed catalog colorway can later
+preselect the colour without making it an AI input.
 
 ### 7. The entry transition
 
@@ -146,8 +145,8 @@ one. Simulator verification covers the animated sequence.
 
 - **The detail surface places every supported item.** Garment names, layer structure,
   weather reasoning, per-piece reasoning, composition trade-offs, ownership state,
-  formality, the weather recap and AI provenance are all placed. Substitutions are absent
-  by decision 6.
+  formality, the weather recap and AI provenance are all placed. Manual swaps are
+  explicitly outside engine selection by decision 6.
 - **The screen uses two existing pieces of data**: `suppliedByCandidateKeys` and
   `OutfitCandidate.formality`.
 - **Ownership captions reuse English state labels and use a dedicated Turkish pair**,
@@ -187,7 +186,7 @@ visual block.
 
 ## Out of scope
 
-- Substitutions, per decision 6.
+- Engine-generated per-slot substitutions, per decision 6.
 - The garment rendering architecture, unchanged from ADR 0021 and ADR 0025.
 - Alternate outfits and how Today offers them, which is ADR 0021 section 6.
 - Any production code change.

@@ -1,12 +1,5 @@
 # ADR 0028: The Profile tab and the list-row anatomy
 
-Status: Accepted (2026-09-07)
-
-Implementation: complete for the `ListRow` anatomy, Profile tab, silhouette rung,
-accessory silhouettes, and colour-family fill. The rendered target
-sheet, in English and Turkish, both appearances, and three text sizes, is kept outside the
-repository; the numbers that matter are repeated here so the decision stands alone.
-
 Builds on: [ADR 0006](0006-three-tab-information-architecture.md), whose three tabs and
 Closet-inside-Profile placement are not reopened; [ADR 0019](0019-adopting-expo-ui-at-the-control-layer.md),
 whose control-layer boundary this respects; [ADR 0021](0021-direction-e-a-visual-first-design-language.md),
@@ -23,8 +16,8 @@ The shipped Profile is an inventory dashboard for a record that
 [ADR 0005](0005-catalog-only-recommendation-candidates.md) removed from recommendations:
 an owned count as a 40 point hero, a category grid of zeros, a location card that
 duplicates Weather, and a status row that is Today's job and the seventh status site
-Law 9 never named. Only three facts on it are Profile's own: the Closet, the wanted
-list and the place.
+Law 9 never named. Profile's own subject is the Closet, its wanted items and the
+reader's recorded outfit history; Weather owns the place.
 
 The approved direction is "the Closet is the subject." Its target sheet follows an
 eight-check list-row reference: grouped inset rows, one group per section; a leading
@@ -53,15 +46,15 @@ Top to bottom, the populated screen is:
    `textSecondary`, or the user's own name for the piece in `textPrimary`.
 4. `spacing.xl` 24, the one permitted `xl` on the screen.
 5. One inset group holding a **Wanted** row (heart tile, count, chevron; opens the list on
-   the wanted filter) and a **Location** row (pin tile, the place at `bodyStrong`, an
-   "Approximate location" caption, chevron; opens Weather).
+   the wanted filter) and a **History** row (calendar/list of outfits worn, with optional
+   mirror photos). Location selection lives only on Weather.
 6. A trailing `spacing['2xl']` 32 inside the content. `Screen` owns the inset
    (ADR 0027 section 4).
 
-The empty Closet shows the heading, one sentence at `body` in `textSecondary`, an
+The empty Closet shows the heading, one sentence at `body` in `textSecondary`, and an
 "Add a piece" / "Parça ekle" button (the screen's only accent fill, present only in this
-state), then the Location row alone in its group. The Wanted row is hidden while nothing
-exists in either state and returns the moment something does.
+state). The Wanted row is hidden while nothing exists in either state. History appears
+when a worn outfit has been recorded.
 
 There are no cards. The planes are ground and chrome plus the tile stage. Emphasis levels
 are three: the rail; `title` and `bodyStrong`; `body` and `caption`. No `display`, no
@@ -101,15 +94,16 @@ reference's three, and section headings use `textSecondary`.
 - Above `fontScale` 1.5 the trailing value stacks under the label and the chevron stays on
   the label line, through the one shared hook ADR 0019 calls for.
 - A single word wider than the label column still breaks by character at the largest
-  sizes, exactly as the native list breaks "Notifications"; a place name with a comma can
-  leave the comma on its own line. This is the platform's behaviour and is not worked
+  sizes, exactly as the native list breaks "Notifications"; a long trailing value with
+  a comma can leave the comma on its own line. This is the platform's behaviour and is not worked
   around.
 
 ### 4. Personal facts stay in Settings
 
-Gender, dress style, and birth date stay in Settings. [ADR 0015](0015-gender-and-age-band-in-the-profile.md)
-section 7 and ADR 0006 place those controls last and unprominent; Profile is an identity
-screen only in the sense that the Closet is the user's, and it shows no personal facts.
+Display name, gender, dress style, style aesthetics and birth date are edited in Settings.
+An optional name personalizes the Closet heading as "{name}'s Closet" or "Gardırop · {name}".
+The heading uses the existing copy when no name is stored. No other personal facts are
+shown on Profile; Turkish adds no possessive suffix to a name.
 
 ### 5. Strings
 
@@ -138,12 +132,12 @@ keyword.
    silhouette rung shares ADR 0025's twenty-seven garment drawings, accessories included.
 3. The route to the list accepts an optional initial filter so the Wanted row opens on
    the wanted state.
-4. Profile has no separate location-status row; the Location row links to Weather.
+4. Profile has no location row or location-status row; selection lives on Weather.
 
 ## Consequences
 
-- **Profile stops competing with Weather and Today.** The location card and the status
-  row leave; the place is one row that links to Weather.
+- **Profile stops competing with Weather and Today.** The location card, location row
+  and status row leave; Weather owns location selection.
 - **One row primitive, three screens.** The anatomy in section 2 is the contract for
   goals 5 and 6 and for any later list. ADR 0019 measured what happens when the same
   control is written three times; this is the reason it is written here once.

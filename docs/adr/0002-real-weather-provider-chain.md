@@ -1,10 +1,5 @@
 # ADR 0002: Real weather provider chain
 
-Status: Accepted (2026-08-29)
-
-Implementation: complete and deployed. WeatherKit is governed by
-[ADR 0014](0014-weatherkit-at-the-head-of-the-provider-chain.md).
-
 ## Context
 
 The Apple-independent provider segment replaces the deterministic sample
@@ -204,19 +199,17 @@ mobile app maps it to localized attribution text, a link and, for OpenWeather, t
 bundled logo, so no user-visible string and no provider-authored text crosses the
 boundary. Raw provider data, credentials and internal errors do not cross.
 
-**Attribution is rendered wherever weather data is displayed**, which today means
-Today and the Weather screen, through one presentational component
-(`features/weather/presentation/weather-attribution.tsx`). It shows the attribution
-of whichever provider answered, follows the snapshot rather than the refresh, and
-therefore stays visible on a cached or stale snapshot. Its text comes from
-localization keys in Turkish and English, one key per provider; the identifier is
-never printed. An unrecognized or legacy `sourceId`, `sample` included, renders no
-attribution rather than failing or naming a provider that did not answer.
+Attribution for the provider behind the last valid snapshot is always reachable from
+Settings > Service providers, including when that snapshot is cached or stale. Today
+and Weather show no attribution. The controlled identifier maps to localized text,
+link, Apple Weather mark or OpenWeather logo there; raw provider text never crosses.
+An unrecognized or sample identifier renders no invented attribution.
 
-**Red line: attribution is never dropped from a surface that shows temperature or
-condition.** A new weather surface renders the component; it is not an optional
-decoration, and moving weather onto a screen without it breaks the licence terms of
-all three providers at once.
+**Risk accepted:** Apple WeatherKit requires its mark and legal link where weather
+data is shown, Open-Meteo CC BY requires visible attribution, and OpenWeather ODbL
+requires visible attribution including its logo. Settings-only placement trades
+against those requirements. **Red line:** the Service providers destination remains
+reachable wherever the app presents weather, including while offline.
 
 `uvIndex` and `precipitationProbability` stayed required and non-nullable. The
 alternative, relaxing them, is recorded below.

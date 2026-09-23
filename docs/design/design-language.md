@@ -71,7 +71,9 @@ A screen shows **at most three emphasis levels**, and **exactly one** hero.
 - The hero must be what the user opened the screen to get. A heading is never the hero.
   **The hero is not always a type role.** [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md)
   makes the garment composition Today's hero, and Today therefore carries no `display` at
-  all; the archetype name sits at `title` beside the image. Where the answer to the
+  all; its one-line header uses `title` at weight 700, with a small archetype label below
+  and two `body` insight lines in `textPrimary`. Only metadata such as last updated uses
+  `textSecondary`. Where the answer to the
   screen's question is a value, the hero is still that value, as the temperature is on
   Weather. Where the answer is a picture, the picture is the hero and the type steps down
   to support it.
@@ -178,9 +180,9 @@ of `brandAccent`'s, and its container sits at 1.23:1 light and 1.14:1 dark again
 plane. That is the rule that keeps a calm interface from becoming a traffic light, and it is
 checkable with a number. Three of the four pairs are status verdicts; the fourth,
 `provenance`, is not a verdict at all. It records where a recommendation came from, so it
-enters the band on the same terms and is spent on exactly one element: the badge Today draws
-under the outfit name ([ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md)
-section 8). It is never text ink, a control fill, a border or chrome, and it never stands on
+enters the band on the same terms and is spent on exactly one element: the prominent
+filled badge Today draws directly below its title ([ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md)
+section 8). It is never a control fill, a border or chrome, and it never stands on
 the tinted stage, where `provenanceInk` falls to 2.622:1 on `fallingNight`.
 
 Reference: light `brandAccent` `#27606A` on `#FFFFFF` = **7.077**. Dark `brandAccent`

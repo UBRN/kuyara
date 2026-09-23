@@ -1,15 +1,7 @@
 # ADR 0034: On-device AI selection through Apple Foundation Models
 
-Status: Accepted (2026-09-13)
-
-Implementation: the shared privacy projection and the distinctness rule in `packages/contracts`, the routed
-client, the third generation mode with SQLite migration 13, the two AI badges, the AI status availability row
-and the local Swift Expo module under `apps/mobile/modules/kuyara-on-device-ai` are implemented and bound.
-This ADR defines the locus of the AI selection step decided
-in [ADR 0007](0007-ai-selects-precomposed-outfits.md): where the selection runs, what the
-user is told about it, and what may never move with it. It authorizes the native module,
-the routed client, the third generation mode and the shared projection described below,
-and nothing else.
+This ADR defines where the selection of [ADR 0007](0007-ai-selects-precomposed-outfits.md)
+runs, what the user is told about it, and what data may cross its boundaries.
 
 ## Context
 
@@ -116,7 +108,7 @@ persisted with a recommendation or sent to analytics.
 
 ### 4. Two badges, one source sentence, and no provider name
 
-Today badges the two AI modes and leaves the third unmarked. The strings are final and reach
+Today gives the two AI modes a prominent filled badge directly below the title and leaves the third unmarked. The strings are final and reach
 the interface through localization keys like every other string:
 
 | Generation mode | English | Turkish |
@@ -160,48 +152,17 @@ The rules around them:
   [`visual-identity.md`](../design/visual-identity.md) refuses, and the badge is already one
   controlled colour block with one word in it
   ([ADR 0021](0021-direction-e-a-visual-first-design-language.md) section 8).
-- The Apple Intelligence word mark appears in four places and no others: the on-device
-  badge, its spoken label, the on-device source sentence on the recommendation detail, and
-  the Settings AI status screen, whose three status sentences state the situation and whose
-  footer carries the attribution "Apple Intelligence is a trademark of Apple Inc." Apple's
-  [guidelines for third parties](https://www.apple.com/legal/intellectual-property/guidelinesfor3rdparties.html)
-  (read 2026-09-18) allow the word mark inside a referential phrase, "such as 'runs on,'
-  'for use with,' 'for,' or 'compatible with'", on five conditions: the mark is not part of
-  the product name, the reference fits one of those patterns, the mark is less prominent
-  than the product name, the product really is compatible, and nothing suggests Apple's
-  endorsement or sponsorship. The same page forbids the Apple logo and every Apple-owned
-  graphic symbol, forbids translating, transliterating or abbreviating the mark, and keeps
-  the trademark symbol out of material distributed outside the United States, so no TM or
-  registered sign appears in the interface. "Chosen with Apple Intelligence" is that
-  referential pattern; kuyara is the subject in the spoken label and in the detail sentence,
-  where the badge alone cannot show it. The
-  [Apple Style Guide](https://support.apple.com/en-us/guide/applestyleguide/welcome/web)
-  (June 2026, page 23, read 2026-09-18) writes the mark out in full, "Don't abbreviate as
-  AI", and models the same construction, "With Apple Intelligence, you can ...", so the
-  mark is never shortened to AI and the Worker badge's "AI" never stands for it. Whether a
-  third party may draw the `apple.intelligence` SF Symbol is an open question on Apple's own
-  developer forum with no answer from Apple, so kuyara draws no Apple symbol at all. This
-  wording is read against Apple's current published text once more before each submission.
+- The Apple Intelligence word mark appears only in the on-device badge and its spoken label, the detail source sentence, and the Settings Service providers status and footer. It stays referential, untranslated and unabbreviated, with no trademark sign under [Apple's third-party trademark guidance](https://www.apple.com/legal/intellectual-property/guidelinesfor3rdparties.html). The Settings Artificial intelligence section alone may draw the `apple.intelligence` SF Symbol beside an explicit status in words and a status colour plus shape. No badge uses a glyph. **Risk accepted:** Apple has not publicly answered whether third parties may draw that SF Symbol; this one use trades against the uncertainty while never making the symbol the only status carrier. Apple trademark guidance remains a submission check.
 - The copy never claims personalisation. AI picks three meaningfully different outfits
   from already valid options; it does not learn the user
   ([ADR 0031](0031-dress-style-is-the-formality-signal.md)).
 - The copy names no model and no version.
 
-### 5. The AI status screen reports availability without calling anything
+### 5. Service providers reports AI and weather status
 
-The AI status surface gains a first row fed by the module's `getAvailability()` call. It
-states the Apple Intelligence situation in words a user cannot misread: "compatible and
-running" when availability is `available`, "turned off" when the device is eligible but
-Apple Intelligence is disabled in Settings, and "not compatible" when the device is not
-eligible; a model that is still downloading reads as compatible and getting ready. The row
-never says "available" or "unavailable" alone, which read as a verdict on the app rather
-than on the device. Reading availability performs no inference, consumes no quota and takes
-no measurable time, so it is not a probe. Below that row the screen may show which provider
-and model answered the last Worker probe and which tier produced the last recommendation;
-this is the only place such names appear, and they are read from the probe response, not
-from the stored recommendation. The active probe stays a Worker probe with its
-bounded call, its cached sanitized result and its daily cap
-([ADR 0001](0001-worker-ai-probe-and-rate-limiting.md)).
+Settings > Service providers has two grouped sections. Artificial intelligence first reads the module's `getAvailability()` without inference or quota use. It pairs the `apple.intelligence` SF Symbol with words, status colour and shape: green `checkmark.circle` for "compatible and running", yellow `pause.circle` for "turned off", and grey `xmark.circle` for "not compatible"; downloading remains a compatible, getting-ready state. The second row says "Last recommendation: on this device / cloud / standard". A short secondary explanation and the bounded active Worker probe follow. The controlled last-check provider and model ID may appear here alone, never in Today, detail, analytics or persistence.
+
+Weather data names the provider behind the last valid snapshot and shows its full attribution, including marks, text, links and the OpenWeather logo as applicable. This is the only weather-attribution surface. The active AI probe retains its quota, cache and rate-limit bounds from ADR 0001.
 
 ### 6. The native surface is a local Expo module, and only the data layer touches it
 
@@ -340,7 +301,7 @@ the two AI badges, the badgeless deterministic state and the availability row in
   twelve archetype identifiers.
 - Invalid or partially invalid output is rejected whole. It is never repaired into a
   different outfit.
-- AI output is structured data. User-visible copy comes from localization keys.
+- AI output is structured data. The one user-visible prose field is a device-validated insight sentence with a deterministic localized fallback; other visible copy comes from localization keys.
 - The Worker AI chain and the deterministic device-local fallback are never removed,
   weakened or made conditional on the on-device tier.
 - No third-party Apple Intelligence package: not `@react-native-ai/apple`, not

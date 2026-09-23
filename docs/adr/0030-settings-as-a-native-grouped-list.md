@@ -1,13 +1,5 @@
 # ADR 0030: Settings as a native grouped list
 
-Status: Accepted (2026-09-07)
-
-Implementation: complete. `NativeList`, `NativeListSection`, `NativeListRow`,
-`NativePickerRow`, the Settings root, and value stacking above `fontScale` 1.5 are
-implemented. The rendered target sheet, in English and Turkish, both appearances, the
-remaining pushed surfaces, denied and unset states, and three text sizes, is kept outside
-the repository; the numbers that matter are repeated here so the decision stands alone.
-
 Builds on: [ADR 0015](0015-gender-and-age-band-in-the-profile.md), whose Settings
 placement of personal facts it keeps; [ADR 0019](0019-adopting-expo-ui-at-the-control-layer.md),
 whose boundary this screen is the first full exercise of; and
@@ -37,17 +29,16 @@ and keeps kuyara's ground visible, as verified on the iPhone 17 Pro / iOS 26.3 S
 
 ### 2. Root groups, in order
 
-1. Language, Appearance; each a value row ("System" / "Sistem") opening a native picker
-   with a checkmark.
-2. Notifications, a value row ("On" / "Off"); AI status, a plain row; and Privacy, a
-   consent-state value row. Each opens its own surface. The Privacy surface is governed by
-   [ADR 0033](0033-apple-privacy-obligations-for-first-party-analytics.md).
-3. **About you** / **Hakkında**, last and unprominent per ADR 0015 section 7: Gender,
-   Dress style, then Birth date. The group footer explains that gender selects the
-   catalogue, dress style orders formality, and birth date is optional and does not change
-   suggestions. Save errors become this footer's text.
+1. **Appearance:** Language and theme, each a value row opening the native picker.
+2. **Notifications:** the notification preference and its pushed surface.
+3. **Profile:** display name, gender, dress style, style aesthetics and birth date. The `aboutYouFooter` helper text under birth date is removed. This foundation permits an Account group above Profile when optional accounts arrive.
+4. **Help:** Support, Share kuyara and Rate kuyara.
+5. **About:** Service providers, Privacy and Licence.
+6. The centred version and build footer.
 
-The intro sentence and the dev-only test row are removed.
+Native inset groups and ADR 0028's row anatomy stay. Inside native cells the system owns typography and colour; app-owned `kuyara` emphasis belongs in the screen title, using the display role and Deep Atmosphere in light or Quiet Sky in dark. The name is not a custom wordmark.
+
+Share kuyara opens the platform share sheet with the App Store link on iOS or Play link on Android and short localized text in the sharer's voice. Rate kuyara opens the store review page directly (`?action=write-review` on iOS, `market://details?id=` on Android), and its row shows five filled stars. No in-app review request is used. **Risk accepted:** the star treatment trades against Apple 5.6.1 and Google in-app review guidance on steering.
 
 ### 3. The rows take ADR 0028's anatomy
 
@@ -65,11 +56,11 @@ rows.
 
 Section headings are kuyara's: sentence case, `bodyStrong` 17, `textSecondary`, drawn
 outside the native group with 12 below before the group and 24 between groups. SwiftUI's
-uppercase header never appears. Only About you carries a heading.
+uppercase header never appears. Each of the five root groups carries its sentence-case heading.
 
 ### 4. The version line
 
-The last root content element, after the About you footer: centred, `caption` 13 in
+The last root content element, after the About group: centred, `caption` 13 in
 `textSecondary`, tabular figures, followed by the trailing `spacing['2xl']`. It is
 produced from one localized template key with placeholders, "Version {version} ({build})"
 and "Sürüm {version} ({build})", never assembled from fragments. The build number is
@@ -78,25 +69,15 @@ build number from `expo-constants` and omits unavailable build data cleanly.
 
 ### 5. Remaining pushed surfaces
 
-Notifications, AI status, Privacy, and Birth date open with a native inline title, a back
-button labelled "Settings", and grouped content that can accept additional sections. The
-four preference Pickers stay on the root list and open the system menu in place.
+Notifications, Service providers, Privacy and Birth date use native inline titles, back buttons and grouped content. The preference Pickers remain on the root list.
 
-- **Notifications**: an "Allow notifications" toggle in the system's own control, tinted
-  `brandPrimary`, with a footer. When the system permission is denied the footer text
-  changes and an "Open Settings" row is added. This retires the bare `Switch`.
-- **AI status**: a first group with the last recommendation's coarse generation mode; a
-  second group with the tinted "Check AI status" row, the result row (a monochrome status
-  glyph at 20 in the shared tile, words beside it in system secondary), and a footer.
-  Provider and model do not appear. The sheet drew a variant that shows them; it is not
-  the target, because AGENTS.md, `product-decisions.md`, `architecture.md` and the probe
-  contract forbid exposing provider or model identity. Nothing here changes that rule.
-- **Privacy**: analytics consent state and withdrawal live on the native grouped-list
-  surface decided in ADR 0033. This ADR supplies the list anatomy, not the privacy policy.
+- **Notifications:** preferences use system controls, with denied-permission explanation and a way into system Settings.
+- **Service providers:** the Artificial intelligence section first shows the `apple.intelligence` SF Symbol and status in words, a status colour and shape: green `checkmark.circle` for compatible and running, yellow `pause.circle` for turned off, grey `xmark.circle` for not compatible. Its second row reads "Last recommendation: on this device / cloud / standard". A short explanation and the bounded active-probe row follow. The Weather data section names the provider behind the last valid snapshot and carries its full mark, text, link and OpenWeather logo as applicable. Only this surface may show the controlled, non-secret last-check provider and model ID. **Risk accepted:** Apple has not publicly answered whether a third party may show `apple.intelligence`; the Apple Intelligence word mark stays referential and is never the only status signal.
+- **Privacy:** analytics consent and withdrawal use the native grouped surface decided in ADR 0033.
 
 ### 6. Birth date
 
-The About you group's third row shows the birth date itself, locale-formatted
+The Profile group's birth-date row shows the birth date itself, locale-formatted
 ("14 March 1994" / "14 Mart 1994"), "Not set" / "Ayarlanmadı" when null, and opens the
 system date picker. No age category is shown anywhere, and changing the date triggers no
 recommendation behavior.
@@ -121,7 +102,7 @@ recommendation behavior.
 - **The trade is explicit.** A white system group sits on Soft Mist in light; Profile's
   kuyara-drawn group beside it is a hairline outline. Both are recorded, and the
   difference is the boundary, not a defect.
-- **The bare untinted `Switch` and absent version line are absent.** Settings uses the
+- **The root uses native controls and a localized version line.** Settings uses the
   native wrapper and renders the localized version line.
 - **Runtime isolation defines safe native slots.** Importing `List` and `Button` does not
   crash; `List` and `ListItem` render; `Button` with the `label` prop renders. String
@@ -146,7 +127,7 @@ render in the system's ink and metrics, and the list-row reference shows
 that a sentence-case heading outside the group reads as the product's rather than the
 platform's.
 
-**Provider and model in the probe result.** Not adopted; see section 5.
+**Provider and model outside Service providers.** Rejected; section 5 keeps technical identity on that one surface.
 
 ## Out of scope
 
