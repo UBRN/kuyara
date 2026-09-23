@@ -69,7 +69,7 @@ Approved 2026-08-30; rationale in [ADR 0006](adr/0006-three-tab-information-arch
 
 ## Approved account copy boundary
 
-Approved 2026-08-30. Documentation may state the present fact that the first release ships without sign-in. User-facing copy must not promise that there will never be an account or that everything stays on the device, because accounts are planned.
+Approved 2026-08-30. Documentation may state the present fact that the first release ships without sign-in. User-facing copy must not promise that there will never be an account or that everything stays on the device, because accounts are planned. User-facing copy also never states where any data is kept, in either direction: no "stays on your device", "never sent anywhere" or "device-only" sentence in onboarding, prompts, Settings or helper text. Only the privacy policy and the analytics consent text carry storage and transfer wording, because it is legally required there.
 
 ## Wardrobe persistence and taxonomy
 
