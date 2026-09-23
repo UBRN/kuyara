@@ -72,6 +72,8 @@ function createProfile(): LocalProfileRecord {
     gender: 'woman',
     dressStyle: 'smart',
     birthDate: null,
+    displayName: null,
+    namePromptVersion: 0,
     languagePreference: 'en',
     themePreference: 'light',
     onboardingCompleted: 1,

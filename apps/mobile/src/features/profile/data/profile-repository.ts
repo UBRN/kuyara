@@ -15,6 +15,7 @@ import {
   dressStyleSchema,
   isStoredBirthDate,
   isValidBirthDate,
+  normalizeDisplayName,
   type AnalyticsConsent,
   type Gender,
   type DressStyle,
@@ -28,6 +29,7 @@ export interface ProfileRepository {
   updateGender(preference: Gender): Promise<Profile>;
   updateDressStyle(dressStyle: DressStyle): Promise<Profile>;
   updateBirthDate(birthDate: string | null): Promise<Profile>;
+  updateDisplayName(displayName: string | null): Promise<Profile>;
   updateLanguagePreference(preference: LanguagePreference): Promise<Profile>;
   updateThemePreference(preference: ThemePreference): Promise<Profile>;
   updateNotificationsOptIn(optIn: boolean): Promise<Profile>;
@@ -47,6 +49,11 @@ export class ProfileRepositoryError extends Error {
 }
 
 class ProfileMappingError extends Error {}
+
+function validatedDisplayName(value: string | null): string | null {
+  try { return normalizeDisplayName(value); }
+  catch { throw new ProfileMappingError(); }
+}
 
 function isUtcIsoTimestamp(value: string): boolean {
   const parsed = Date.parse(value);
@@ -68,6 +75,10 @@ function mapRecord(record: LocalProfileRecord): Profile {
     record.morningBriefingOptIn === 0 || record.morningBriefingOptIn === 1;
   const hasValidAnalyticsConsent =
     analyticsConsentSchema.safeParse(record.analyticsConsent).success;
+  const hasValidDisplayName = (() => {
+    try { return normalizeDisplayName(record.displayName) === record.displayName; }
+    catch { return false; }
+  })();
   const completedWithoutPreference =
     record.onboardingCompleted === 1 &&
     (record.gender === null || record.dressStyle === null);
@@ -84,6 +95,9 @@ function mapRecord(record: LocalProfileRecord): Profile {
     !hasValidOfferShown ||
     !hasValidMorningBriefingOptIn ||
     !hasValidAnalyticsConsent ||
+    !hasValidDisplayName ||
+    !Number.isInteger(record.namePromptVersion) ||
+    record.namePromptVersion < 0 ||
     completedWithoutPreference ||
     !isUtcIsoTimestamp(record.createdAt) ||
     !isUtcIsoTimestamp(record.updatedAt) ||
@@ -97,6 +111,8 @@ function mapRecord(record: LocalProfileRecord): Profile {
     gender: record.gender === null ? null : genderSchema.parse(record.gender),
     dressStyle: record.dressStyle === null ? null : dressStyleSchema.parse(record.dressStyle),
     birthDate: record.birthDate,
+    displayName: record.displayName,
+    namePromptVersion: record.namePromptVersion,
     languagePreference: record.languagePreference,
     themePreference: record.themePreference,
     onboardingCompleted: record.onboardingCompleted === 1,
@@ -130,7 +146,10 @@ export class LocalProfileRepository implements ProfileRepository {
         !dressStyleSchema.safeParse(preferences.dressStyle).success ||
         !isValidBirthDate(preferences.birthDate, this.now())
       ) throw new ProfileMappingError();
-      return this.dataSource.completeOnboarding(preferences);
+      return this.dataSource.completeOnboarding({
+        ...preferences,
+        displayName: validatedDisplayName(preferences.displayName ?? null),
+      });
     });
   }
 
@@ -153,6 +172,10 @@ export class LocalProfileRepository implements ProfileRepository {
       if (!isValidBirthDate(birthDate, this.now())) throw new ProfileMappingError();
       return this.dataSource.updateBirthDate(birthDate);
     });
+  }
+
+  updateDisplayName(displayName: string | null): Promise<Profile> {
+    return this.execute(() => this.dataSource.updateDisplayName(validatedDisplayName(displayName)));
   }
 
   updateLanguagePreference(preference: LanguagePreference): Promise<Profile> {

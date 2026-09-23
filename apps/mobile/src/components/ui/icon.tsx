@@ -39,6 +39,7 @@ export const iconNames = Object.freeze({
   statusRunning: { ios: 'checkmark.circle', android: 'check_circle', web: 'check_circle' },
   statusOff: { ios: 'pause.circle', android: 'pause_circle', web: 'pause_circle' },
   statusUnavailable: { ios: 'xmark.circle', android: 'cancel', web: 'cancel' },
+  clearCircleFilled: { ios: 'xmark.circle.fill', android: 'cancel', web: 'cancel' },
   info: { ios: 'info.circle.fill', android: 'info', web: 'info' },
   help: { ios: 'questionmark.circle.fill', android: 'help', web: 'help' },
   warning: { ios: 'exclamationmark.triangle.fill', android: 'warning', web: 'warning' },

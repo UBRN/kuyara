@@ -10,7 +10,7 @@ type Migration = Readonly<{
   migrate: (database: SqliteExecutor) => Promise<void>;
 }>;
 
-export const latestDatabaseVersion = 16;
+export const latestDatabaseVersion = 17;
 
 // Foreign keys are enforced on every connection: `migrateDatabase` turns them on for the
 // shared connection below, and the transaction wrapper in `expo-sqlite-database.ts` turns
@@ -474,6 +474,17 @@ const migrationV16: Migration = {
   },
 };
 
+const migrationV17: Migration = {
+  version: 17,
+  async migrate(database) {
+    await database.execAsync(`ALTER TABLE local_profiles ADD COLUMN display_name TEXT NULL;`);
+    await database.execAsync(`
+      ALTER TABLE local_profiles
+        ADD COLUMN name_prompt_version INTEGER NOT NULL DEFAULT 0;
+    `);
+  },
+};
+
 const migrations = [
   migrationV1,
   migrationV2,
@@ -491,6 +502,7 @@ const migrations = [
   migrationV14,
   migrationV15,
   migrationV16,
+  migrationV17,
 ] as const satisfies readonly Migration[];
 
 async function readUserVersion(database: SqliteExecutor): Promise<number> {

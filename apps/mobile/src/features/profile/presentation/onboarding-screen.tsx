@@ -40,6 +40,8 @@ import type {
   Gender,
   OnboardingPreferences,
 } from '@/features/profile/domain/profile';
+import { displayNameIssue } from '@/features/profile/domain/profile';
+import { NameInput } from '@/features/profile/presentation/name-input';
 import { PreferenceOption } from '@/features/profile/presentation/preference-option';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { LocationSelectionControls } from '@/features/weather/presentation/location-selection-controls';
@@ -51,13 +53,15 @@ type OnboardingScreenProps = Readonly<{
   initialGender: Gender | null;
   initialDressStyle: DressStyle | null;
   initialBirthDate: string | null;
+  initialDisplayName?: string | null;
   onComplete: (preferences: OnboardingPreferences) => Promise<void>;
 }>;
 
-const totalSteps = 5;
+const totalSteps = 6;
 
 export function OnboardingScreen({
   initialBirthDate,
+  initialDisplayName = null,
   initialDressStyle,
   initialGender,
   onComplete,
@@ -65,6 +69,7 @@ export function OnboardingScreen({
   const [draft, dispatch] = useReducer(
     reduceOnboardingDraft,
     createOnboardingDraft({
+      displayName: initialDisplayName,
       gender: initialGender,
       dressStyle: initialDressStyle,
       birthDate: initialBirthDate,
@@ -84,6 +89,8 @@ export function OnboardingScreen({
   const activeLocationSource =
     weatherState.status === 'ready' ? weatherState.activeLocation?.source ?? null : null;
   const hasActiveLocation = activeLocationSource !== null;
+  const hasValidName = Boolean(draft.displayName?.trim())
+    && !displayNameIssue(draft.displayName ?? '');
   const { analytics } = useProductAnalytics();
   useScreenViewed('onboarding');
 
@@ -99,11 +106,13 @@ export function OnboardingScreen({
     draft.step === 0
       ? copy.welcomeTitle
       : draft.step === 1
-        ? copy.genderTitle
+        ? copy.nameTitle
         : draft.step === 2
-          ? copy.dressStyleTitle
+          ? copy.genderTitle
           : draft.step === 3
-            ? copy.birthDateTitle
+            ? copy.dressStyleTitle
+            : draft.step === 4
+              ? copy.birthDateTitle
             : copy.locationTitle;
 
   useEffect(() => {
@@ -124,8 +133,10 @@ export function OnboardingScreen({
   const goForward = () => {
     setSaveError(false);
 
-    const genderMissing = draft.step === 1 && !draft.gender;
-    const dressStyleMissing = draft.step === 2 && !draft.dressStyle;
+    const nameInvalid = draft.step === 1 && !hasValidName;
+    if (nameInvalid) return;
+    const genderMissing = draft.step === 2 && !draft.gender;
+    const dressStyleMissing = draft.step === 3 && !draft.dressStyle;
     if (genderMissing) {
       AccessibilityInfo.announceForAccessibility(copy.genderRequiredError);
     }
@@ -134,18 +145,19 @@ export function OnboardingScreen({
     }
     // Taxonomy 5.2: only a step the user actually advances past is reported; a step the
     // reducer blocks for a missing required value stays silent.
-    if (!genderMissing && !dressStyleMissing) {
+    const stepName = onboardingStepNames[draft.step];
+    if (!genderMissing && !dressStyleMissing && stepName) {
       const stepCompleted: AnalyticsEventProperties<'onboarding_step_completed'> = {
         schema_version: ANALYTICS_SCHEMA_VERSION,
-        step_name: onboardingStepNames[draft.step],
-        step_index: (draft.step + 1) as 1 | 2 | 3 | 4,
+        step_name: stepName,
+        step_index: (draft.step === 0 ? 1 : draft.step) as 1 | 2 | 3 | 4,
         // Only the birth date step is skippable here; the location step's own
         // `onboarding_step_completed` is reported from `complete()`.
-        skipped: draft.step === 3 ? draft.birthDate === null : false,
+        skipped: draft.step === 4 ? draft.birthDate === null : false,
       };
       analytics.capture(
         'onboarding_step_completed',
-        draft.step === 2 && draft.dressStyle
+        draft.step === 3 && draft.dressStyle
           ? { ...stepCompleted, dress_style: draft.dressStyle }
           : stepCompleted,
       );
@@ -251,11 +263,13 @@ export function OnboardingScreen({
         {draft.step === 0
           ? copy.welcomeBody
           : draft.step === 1
-            ? copy.genderBody
+            ? copy.nameBody
             : draft.step === 2
-              ? copy.dressStyleBody
+              ? copy.genderBody
               : draft.step === 3
-                ? copy.birthDateBody
+                ? copy.dressStyleBody
+                : draft.step === 4
+                  ? copy.birthDateBody
                 : copy.locationBody}
       </AppText>
     </View>
@@ -265,11 +279,11 @@ export function OnboardingScreen({
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={[styles.screen, { backgroundColor: theme.colors.background }]}>
-      {draft.step === 4 ? (
+      {draft.step === 5 ? (
         <SafeAreaView edges={['top']} style={styles.screen}>
           <LocationSelectionControls
             header={heading}
-            testID="onboarding-step-5"
+            testID="onboarding-step-6"
             testIDPrefix="onboarding"
           />
         </SafeAreaView>
@@ -306,6 +320,14 @@ export function OnboardingScreen({
       ) : null}
 
       {draft.step === 1 ? (
+        <NameInput
+          onChangeText={(value) => dispatch({ type: 'set-display-name', value })}
+          testID="onboarding-name"
+          value={draft.displayName ?? ''}
+        />
+      ) : null}
+
+      {draft.step === 2 ? (
         <View style={styles.section} accessibilityLabel={preferenceCopy.genderTitle}>
           <View style={styles.options}>
             <PreferenceOption
@@ -337,7 +359,7 @@ export function OnboardingScreen({
         </View>
       ) : null}
 
-      {draft.step === 2 ? (
+      {draft.step === 3 ? (
         <View style={styles.section} accessibilityLabel={preferenceCopy.dressStyleTitle}>
           <View style={styles.options} accessibilityRole="radiogroup">
             <PreferenceOption
@@ -377,7 +399,7 @@ export function OnboardingScreen({
         </View>
       ) : null}
 
-      {draft.step === 3 ? (
+      {draft.step === 4 ? (
         <View style={styles.section}>
           {draft.birthDate === null ? (
             <AppText colorRole="textSecondary">{copy.birthDateNotSet}</AppText>
@@ -424,7 +446,7 @@ export function OnboardingScreen({
             borderColor: theme.colors.borderSubtle,
           },
         ]}>
-        {draft.step === 4 && saveError ? (
+        {draft.step === 5 && saveError ? (
           <AppText
             accessibilityLiveRegion="assertive"
             accessibilityRole="alert"
@@ -458,6 +480,24 @@ export function OnboardingScreen({
                 style={styles.skipAction}
                 testID="onboarding-complete"
                 variant="quiet"
+              />
+            </View>
+          ) : draft.step === 1 ? (
+            <View style={styles.nameActions}>
+              <Button
+                label={copy.nameNotNow}
+                onPress={() => {
+                  dispatch({ type: 'set-display-name', value: null });
+                  dispatch({ type: 'continue' });
+                }}
+                testID="onboarding-name-skip"
+                variant="quiet"
+              />
+              <Button
+                disabled={!hasValidName}
+                label={messages.common.continue}
+                onPress={goForward}
+                testID="onboarding-continue"
               />
             </View>
           ) : (
@@ -526,6 +566,7 @@ const styles = StyleSheet.create({
   primaryAction: {
     flexGrow: 1,
   },
+  nameActions: { flex: 1, gap: spacing.sm },
   skipAction: {
     width: '100%',
   },

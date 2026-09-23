@@ -214,6 +214,8 @@ test('the before-send filter removes lifecycle URLs and non-allowlisted properti
     event: 'Application Opened',
     properties: {
       url: 'kuyara://profile/private-path',
+      displayName: 'Utku',
+      profileNote: 'private profile note',
       previous_version: '1.0.0',
       schema_version: 3,
       '$lib': 'posthog-react-native',

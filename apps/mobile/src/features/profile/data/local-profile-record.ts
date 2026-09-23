@@ -3,6 +3,8 @@ export type LocalProfileRecord = Readonly<{
   gender: string | null;
   dressStyle: string | null;
   birthDate: string | null;
+  displayName: string | null;
+  namePromptVersion: number;
   languagePreference: string;
   themePreference: string;
   onboardingCompleted: number;

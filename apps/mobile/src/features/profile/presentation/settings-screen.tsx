@@ -13,6 +13,7 @@ import {
 } from '@/components/ui';
 import type { LanguagePreference, ThemePreference } from '@/domain/preferences';
 import type { DressStyle, Gender, LocalProfile } from '@/features/profile/domain/profile';
+import { NameSheet } from '@/features/profile/presentation/name-sheet';
 import { useLocalization } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
 
@@ -27,6 +28,7 @@ export type SettingsScreenProps = Readonly<{
   onGenderChange: (value: Gender) => Promise<void>;
   onDressStyleChange: (value: DressStyle) => Promise<void>;
   onOpenBirthDate: () => void;
+  onNameChange: (value: string | null) => Promise<void>;
   onOpenPrivacy: () => void;
   onOpenSupport: () => void;
   onShare: () => void;
@@ -44,6 +46,7 @@ export function SettingsScreen({
   onLanguageChange,
   onOpenServiceProviders,
   onOpenBirthDate,
+  onNameChange,
   onOpenNotifications,
   onOpenPrivacy,
   onOpenSupport,
@@ -57,6 +60,7 @@ export function SettingsScreen({
   const { width } = useWindowDimensions();
   const copy = messages.preferences;
   const [saveErrorGroup, setSaveErrorGroup] = useState<'appearance' | 'profile' | null>(null);
+  const [nameEditorOpen, setNameEditorOpen] = useState(false);
 
   const savePreference = async (
     group: 'appearance' | 'profile',
@@ -82,6 +86,7 @@ export function SettingsScreen({
     ?? Constants.platform?.android?.versionCode?.toString();
 
   return (
+    <>
     <NativeList testID="settings-screen">
       <NativeListSection
         footer={saveErrorGroup === 'appearance' ? messages.settings.saveError : undefined}
@@ -137,6 +142,13 @@ export function SettingsScreen({
         heading={messages.settings.profileHeading}
         footer={saveErrorGroup === 'profile' ? messages.settings.saveError : undefined}
         testID="settings-profile-group">
+        <NativeListRow
+          glyph={({ color, size }) => <Icon color={color} name="tabProfileOutline" size={size} />}
+          label={messages.profile.nameLabel}
+          onPress={() => setNameEditorOpen(true)}
+          testID="settings-name-row"
+          value={profile.displayName ?? undefined}
+        />
         <NativePickerRow
           disabled={isSaving}
           label={copy.genderTitle}
@@ -230,6 +242,17 @@ export function SettingsScreen({
         </View>
       } />
     </NativeList>
+    <NameSheet
+      initialName={profile.displayName}
+      mode="edit"
+      onDismiss={() => setNameEditorOpen(false)}
+      onSave={async (name) => {
+        await onNameChange(name);
+        setNameEditorOpen(false);
+      }}
+      visible={nameEditorOpen}
+    />
+    </>
   );
 }
 

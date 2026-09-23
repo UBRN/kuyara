@@ -36,12 +36,8 @@ const RAIL_SCALE_THRESHOLD = 1.5;
 const RAIL_SCALE_MAXIMUM = 2;
 
 type ProfileScreenProps = Readonly<{
-  activePlaceName: string | null;
-  /** How the active place was resolved, or null when that question has no answer (a
-   * manually chosen city). The weather feature's `locationCaptionKey` decides it. */
-  locationCaption?: string | null;
+  displayName?: string | null;
   onOpenWardrobe: (filter?: 'wanted') => void;
-  onOpenWeather: () => void;
 }>;
 
 function resolveRailScale(fontScale: number): number {
@@ -214,10 +210,8 @@ function ClosetRail({
 }
 
 export function ProfileScreen({
-  activePlaceName,
-  locationCaption = null,
+  displayName = null,
   onOpenWardrobe,
-  onOpenWeather,
 }: ProfileScreenProps) {
   const messages = useMessages();
   const copy = messages.profile;
@@ -246,7 +240,9 @@ export function ProfileScreen({
     <Screen contentContainerStyle={styles.content} testID="profile-screen">
       <Pressable
         accessibilityHint={copy.closetHeadingHint}
-        accessibilityLabel={copy.closetHeadingAccessibilityLabel({ count: closetCount })}
+        accessibilityLabel={displayName
+          ? copy.closetHeadingNamedAccessibilityLabel({ name: displayName, count: closetCount })
+          : copy.closetHeadingAccessibilityLabel({ count: closetCount })}
         accessibilityRole="button"
         onPress={() => onOpenWardrobe()}
         style={({ pressed }) => [
@@ -259,7 +255,7 @@ export function ProfileScreen({
           <>
             <View style={styles.closetHeadingTitleRow} testID="profile-closet-heading-title-row">
               <AppText style={styles.closetHeadingTitle} variant="title">
-                {copy.wardrobeTitle}
+                {displayName ? copy.wardrobeTitleNamed(displayName) : copy.wardrobeTitle}
               </AppText>
               <Icon color={theme.colors.iconSecondary} name="chevronRight" size={20} />
             </View>
@@ -276,7 +272,7 @@ export function ProfileScreen({
         ) : (
           <>
             <AppText style={styles.closetHeadingTitle} variant="title">
-              {copy.wardrobeTitle}
+              {displayName ? copy.wardrobeTitleNamed(displayName) : copy.wardrobeTitle}
             </AppText>
             {isReady ? (
               <AppText
@@ -330,20 +326,10 @@ export function ProfileScreen({
             />
           )}
           <ListRow
-            accessibilityLabel={
-              activePlaceName
-                ? [activePlaceName, locationCaption].filter(Boolean).join(', ')
-                : copy.locationUnset
-            }
-            glyph={({ color, size }) => (
-              <Icon color={color} name="location" size={size} />
-            )}
-            key="location"
-            label={activePlaceName ?? copy.locationUnset}
-            labelWeight="bodyStrong"
-            onPress={onOpenWeather}
-            supportingText={locationCaption ?? undefined}
-            testID="profile-location-row"
+            glyph={({ color, size }) => <Icon color={color} name="calendar" size={size} />}
+            key="history"
+            label={copy.historyLabel}
+            testID="profile-history-row"
           />
         </ListRowGroup>
       </View>

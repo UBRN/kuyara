@@ -18,6 +18,8 @@ import {
 import { useNotificationApplication } from '@/features/notifications/application/notification-context';
 import { useWeatherAlertOffer } from '@/features/notifications/application/use-weather-alert-offer';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
+import { namePromptVersion } from '@/features/profile/domain/profile';
+import { NameSheet } from '@/features/profile/presentation/name-sheet';
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
 import { unavailableTodayState, type TodayScreenState } from '@/features/today/model';
 import { TodayScreen } from '@/features/today/presentation/today-screen';
@@ -36,7 +38,12 @@ export default function TodayRoute() {
   const weatherApplication = useWeatherApplication();
   const { revalidateFreshness: revalidateWeatherFreshness, state: weatherState } =
     weatherApplication;
-  const { state: profileState } = useProfileApplication();
+  const { state: profileState, updateDisplayName } = useProfileApplication();
+  const [namePromptDismissed, setNamePromptDismissed] = useState(false);
+  const showNamePrompt = profileState.status === 'ready'
+    && profileState.profile.onboardingCompleted
+    && !namePromptDismissed
+    && profileState.profile.namePromptVersion < namePromptVersion;
   const { analytics, firstUses, retries } = useProductAnalytics();
   const { markRecommendationShown } = useAnalyticsConsentTrigger();
   // ADR 0004: the one contextual offer. The reason, the durable flag and the opt-in flow all
@@ -157,9 +164,9 @@ export default function TodayRoute() {
   }, [analytics, isFocused, profileState, state]);
 
   useEffect(() => {
-    if (!isFocused || !isRecommendationShown) return;
+    if (!isFocused || !isRecommendationShown || showNamePrompt) return;
     markRecommendationShown();
-  }, [isFocused, isRecommendationShown, markRecommendationShown]);
+  }, [isFocused, isRecommendationShown, markRecommendationShown, showNamePrompt]);
 
   // Taxonomy 5.7: Today's pull gesture doubles as the retry action when a failure is
   // already shown (there is no separate retry control).
@@ -216,6 +223,7 @@ export default function TodayRoute() {
   };
 
   return (
+    <>
     <TodayScreen
       alertOffer={offer.kind === 'offer' ? {
         ruleId: offer.ruleId,
@@ -280,11 +288,25 @@ export default function TodayRoute() {
         onOpenSystemSettings: () => void openApplicationSettings(),
       } : null}
       language={language}
+      displayName={profileState.status === 'ready' ? profileState.profile.displayName : null}
       isRefreshing={isPullRefreshing}
       onOpenOutfitDetail={(id) => router.push({ pathname: '/[id]', params: { id } })}
       onRefresh={handleRefresh}
       onRegenerate={() => void regenerateRecommendation()}
       state={state}
     />
+    <NameSheet
+      initialName={null}
+      mode="prompt"
+      onDismiss={() => {
+        setNamePromptDismissed(true);
+        return updateDisplayName(
+          profileState.status === 'ready' ? profileState.profile.displayName : null,
+        );
+      }}
+      onSave={updateDisplayName}
+      visible={showNamePrompt}
+    />
+    </>
   );
 }

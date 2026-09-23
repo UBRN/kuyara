@@ -66,6 +66,7 @@ export type TodayAlertOffer = Readonly<{
 type TodayScreenProps = Readonly<{
   state: TodayScreenState;
   language: SupportedLanguage;
+  displayName?: string | null;
   isRefreshing?: boolean;
   alertOffer?: TodayAlertOffer | null;
   onOpenOutfitDetail: (id: string) => void;
@@ -77,6 +78,7 @@ type TodayScreenProps = Readonly<{
 export function TodayScreen({
   state,
   language,
+  displayName = null,
   isRefreshing = false,
   alertOffer = null,
   onOpenOutfitDetail,
@@ -301,6 +303,11 @@ export function TodayScreen({
           </AppText>
         </View>
 
+        {displayName ? (
+          <AppText colorRole="textSecondary" testID="today-greeting" variant="bodyStrong">
+            {copy.greetingNamed(displayName)}
+          </AppText>
+        ) : null}
         <AppText accessibilityRole="header" style={styles.todayTitle} tabularNumbers testID="today-title" variant="title">
           {presentation.title}
         </AppText>
