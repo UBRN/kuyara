@@ -7,7 +7,7 @@ The [product decisions](product-decisions.md) and [ADRs](adr/) define the approv
 | Phase | Scope | Status |
 | --- | --- | --- |
 | 1. Today | Header, AI badge, two insights, alternatives, outfit action and attribution placement | Planned |
-| 2. Settings and store rows | Root order, Service providers, sharing, rating and brand emphasis | Implementation in review |
+| 2. Settings and store rows | Root order, Service providers, sharing, rating and brand emphasis | Implemented and Simulator verified |
 | 3. Name and profile cleanup | Optional name, one-time prompt, location removal and the phase's migration | Planned |
 | 4. Daily style and loading | Aesthetics, morning sheet, formality chips, loading and plan tomorrow | Planned |
 | 5. Colour and history | Quick-add colour, outfit history, mirror photo and the phase's migration | Planned |
