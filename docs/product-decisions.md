@@ -19,7 +19,7 @@ dated history live in the ADR each section cites; implementation state lives in
 
 ## Apple Developer Program
 
-The membership is active. WeatherKit, EAS Build, iOS signing credentials and TestFlight are permitted; production release operations still need an explicit user request. The rule is canonical in [`AGENTS.md`](../AGENTS.md#release-operations).
+The membership is active. WeatherKit, EAS Build, iOS signing credentials and TestFlight are permitted. Approved iOS release operations follow the standing authorization in `AGENTS.md`; production operations outside that path require an explicit user request. The rule is canonical in [`AGENTS.md`](../AGENTS.md#release-operations).
 
 ## Approved release versioning and update path
 
