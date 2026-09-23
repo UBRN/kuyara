@@ -1,5 +1,7 @@
 # ADR 0034: On-device AI selection through Apple Foundation Models
 
+Status: Accepted (2026-09-13)
+
 This ADR defines where the selection of [ADR 0007](0007-ai-selects-precomposed-outfits.md)
 runs, what the user is told about it, and what data may cross its boundaries.
 
@@ -302,9 +304,9 @@ the two AI badges, the badgeless deterministic state and the availability row in
 - Invalid or partially invalid output is rejected whole. It is never repaired into a
   different outfit.
 - AI output is structured data. The one user-visible prose field is a device-validated insight sentence with a deterministic localized fallback; other visible copy comes from localization keys.
+- [ADR 0039](0039-ai-v2-route-and-the-validated-insight-sentence.md) owns the versioned Worker response carrying that optional sentence.
 - The Worker AI chain and the deterministic device-local fallback are never removed,
   weakened or made conditional on the on-device tier.
-- [ADR 0039](0039-ai-v2-route-and-the-validated-insight-sentence.md) owns the versioned Worker response carrying that optional sentence.
 - No third-party Apple Intelligence package: not `@react-native-ai/apple`, not
   `react-native-apple-llm`, not `expo-apple-intelligence`, not `expo-ai-kit`. All are beta
   and all duplicate a small local module.

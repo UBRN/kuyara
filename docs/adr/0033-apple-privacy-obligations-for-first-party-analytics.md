@@ -373,8 +373,11 @@ Milestone 10, PostHog product analytics integration, has these acceptance condit
 6. The single PostHog project is Cloud EU project 270871 on the free plan. "Discard client
    IP data" is on, the GeoIP transformation is disabled (the IP toggle alone is not enough;
    see section 5), session replay is off (ADR 0023 section 9), and event retention is twelve
-   months (section 4). Consent is the recorded lawful basis, and the maintainer signed the
-   DPA on 2026-09-11.
+   months (section 4). "Filter out internal and test users" excludes Simulator traffic by
+   `$is_emulator` and the maintainer's current install id shown under Settings > Privacy;
+   the maintainer replaces that id after each consent cycle or reinstall. Observe has no
+   equivalent filter. Consent is the recorded lawful basis, and the maintainer signed
+   the DPA on 2026-09-11.
 7. `apps/mobile/ios/kuyara/PrivacyInfo.xcprivacy` declares Product Interaction and Other
    Usage Data with linked `true`,
    tracking `false`, purpose Analytics, and `NSPrivacyTracking` absent or `false`; the

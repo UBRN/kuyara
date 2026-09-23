@@ -1,5 +1,7 @@
 # ADR 0010: Status colours, destructive variant, and defined borders
 
+Status: Accepted (2026-09-02)
+
 ## Context
 
 [ADR 0009](0009-a-design-language-layer-and-its-deferral-carve-out.md) is the
