@@ -297,9 +297,13 @@ The approved phase order, active work and remaining open items are in [the roadm
   2026-09-09 states that starting April 2027, apps uploaded to App Store Connect must be
   built with the iOS 27 and iPadOS 27 SDK or later
   (<https://developer.apple.com/news/?id=k1mtkt1k>). This is a build-SDK requirement,
-  separate from the 26.0 deployment target of ADR 0011, which does not change. The Expo
-  SDK release that builds against the iOS 27 SDK is not yet identified; every upload from
-  April 2027 depends on it, so the SDK upgrade has to be scheduled before then.
+  separate from the 26.0 deployment target of ADR 0011, which does not change. The one
+  launch-blocking consequence, the scene-based life cycle, is adopted through the config
+  plugin of [ADR 0040](adr/0040-ios-scene-based-life-cycle.md): on 2026-09-23 a local Xcode
+  27 Debug build launched on the iOS 27.0 Simulator, loaded JavaScript from Metro and
+  delivered a cold-start URL; universal links and a route-level cold-start assertion are not
+  yet exercised at runtime. Production builds still use the EAS `sdk-57` image; the image
+  that builds with Xcode 27 is chosen for the first upload that needs it, before April 2027.
 - **Apple Intelligence device verification is deferred.** No eligible physical device is
   available. The iPhone 14 Pro exercises the Worker and deterministic fallback tiers only;
   no on-device AI latency or success is claimed from its runs.
@@ -309,10 +313,10 @@ The approved phase order, active work and remaining open items are in [the roadm
   enabled. Build 13 records the morning briefing for 07:00 Türkiye time in SQLite, and
   the database passes `quick_check`. This proves the app's accepted scheduling record,
   not the OS's pending request or actual delivery. The physical background trigger could
-  not be exercised: the local Xcode 27 Debug binary stops before JavaScript at UIKit's
-  scene-lifecycle check; a development-signed copy of production build 13 (iOS 26.5 SDK)
-  launches, but LLDB cannot resolve the Objective-C system calls needed to inspect or
-  trigger the task on this iOS 27 device. No cache timestamp was altered, and no background
+  not be exercised: LLDB cannot resolve the Objective-C system calls needed to inspect or
+  trigger the task on this iOS 27 device (a local Xcode 27 Debug binary launches since
+  [ADR 0040](adr/0040-ios-scene-based-life-cycle.md), so the earlier scene-lifecycle stop no
+  longer applies). No cache timestamp was altered, and no background
   refresh is claimed. This physical-device gap does not block routine Simulator verification;
   a compatible device/debugger environment is needed only to verify background execution.
   The Simulator cannot execute this task. For that optional check, install a
