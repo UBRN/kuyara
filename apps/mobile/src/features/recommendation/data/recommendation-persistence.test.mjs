@@ -244,6 +244,33 @@ test('persisted dress style round trips and retired contexts resolve to smart', 
   assert.equal(legacySnapshot.localDayKey, null);
 });
 
+test('optional validated insight round trips in context_json and old rows still load', async (t) => {
+  const { database, repository } = await setup();
+  t.after(() => database.close());
+  const generated = generatedRecommendation();
+  const context = { ...generated.request, insightSentence: 'The outfit suits the day.',
+    insightLocale: 'en' };
+  await repository.saveSnapshot(profileId, {
+    weatherSnapshotId: generated.input.snapshot.id,
+    locationKey: generated.input.snapshot.locationKey,
+    context,
+    recommendation: { ...generated.recommendation, generationMode: 'ai-assisted' },
+  });
+  const row = await database.getFirstAsync('SELECT context_json FROM recommendation_snapshots');
+  assert.equal(JSON.parse(row.context_json).insightSentence, context.insightSentence);
+  assert.equal(JSON.parse(row.context_json).insightLocale, 'en');
+  assert.equal((await repository.getSnapshot(profileId)).recommendation.insightSentence,
+    context.insightSentence);
+  assert.equal((await repository.getSnapshot(profileId)).recommendation.insightLocale, 'en');
+  const oldContext = JSON.parse(row.context_json);
+  delete oldContext.insightSentence;
+  delete oldContext.insightLocale;
+  await database.runAsync('UPDATE recommendation_snapshots SET context_json = ?',
+    [JSON.stringify(oldContext)]);
+  assert.equal((await repository.getSnapshot(profileId)).recommendation.insightSentence, undefined);
+  assert.equal((await repository.getSnapshot(profileId)).recommendation.insightLocale, undefined);
+});
+
 // The stored gate reads the day the result was generated for, not today, so a weekend
 // result is still readable on the Monday after. A row written before the field parses as
 // day-blind and keeps its label too.

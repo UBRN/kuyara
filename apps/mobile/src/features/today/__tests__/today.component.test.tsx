@@ -1974,6 +1974,40 @@ const rainHour: Partial<HourlyWeather> = { condition: 'rain' };
 describe.each(['en', 'tr'] as const)('%s Today day insight', (language) => {
   const copy = messages[language].today.dayInsight;
 
+  test('uses accepted persisted prose for the first line and otherwise keeps the deterministic line', async () => {
+    const base = insightState();
+    if (base.kind !== 'loaded' || base.snapshot.recommendation.status !== 'recommended') {
+      throw new Error('loaded recommendation fixture required');
+    }
+    const sentence = language === 'tr' ? 'Bu kıyafet güne uygun.' : 'The outfit suits the day.';
+    const withSentence: TodayScreenState = {
+      ...base,
+      snapshot: { ...base.snapshot, recommendation: {
+        ...base.snapshot.recommendation, insightSentence: sentence, insightLocale: language,
+      } },
+    };
+    const withResult = await render(providers(
+      <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
+        onRefresh={jest.fn()} onRegenerate={jest.fn()} state={withSentence} />,
+      lightTheme, language,
+    ));
+    expect(withResult.getByTestId('today-day-insight')).toHaveTextContent(sentence);
+    await withResult.rerender(providers(
+      <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
+        onRefresh={jest.fn()} onRegenerate={jest.fn()} state={base} />,
+      lightTheme, language,
+    ));
+    expect(withResult.getByTestId('today-day-insight')).toHaveTextContent(copy.sentences.clear_day);
+    const otherLanguage = language === 'en' ? 'tr' : 'en';
+    await withResult.rerender(providers(
+      <TodayScreen language={otherLanguage} onOpenOutfitDetail={jest.fn()}
+        onRefresh={jest.fn()} onRegenerate={jest.fn()} state={withSentence} />,
+      lightTheme, otherLanguage,
+    ));
+    expect(withResult.getByTestId('today-day-insight'))
+      .toHaveTextContent(messages[otherLanguage].today.dayInsight.sentences.clear_day);
+  });
+
   test.each([
     [
       'a sunny day with a very hot hour',

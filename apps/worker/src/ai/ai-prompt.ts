@@ -2,9 +2,10 @@ import {
   aiModelInputFromRequest,
   outfitArchetypeIds,
   type AiRecommendV1Request,
+  type AiRecommendV2Request,
 } from '@kuyara/contracts';
 
-export function buildPickJsonSchema(options: AiRecommendV1Request['options']) {
+export function buildPickJsonSchema(options: AiRecommendV1Request['options'], v2 = false) {
   return {
     type: 'object',
     additionalProperties: false,
@@ -13,8 +14,9 @@ export function buildPickJsonSchema(options: AiRecommendV1Request['options']) {
       data: {
         type: 'object',
         additionalProperties: false,
-        required: ['picks'],
+        required: v2 ? ['insightSentence', 'picks'] : ['picks'],
         properties: {
+          ...(v2 ? { insightSentence: { type: 'string', maxLength: 90 } } : {}),
           picks: {
             type: 'array',
             minItems: 3,
@@ -61,9 +63,14 @@ const systemContent = [
   'Output structured data only, with no prose.',
 ].join('\n');
 
-export function buildMessages(request: AiRecommendV1Request) {
+export function buildMessages(request: AiRecommendV1Request | AiRecommendV2Request) {
+  const v2Instruction = 'locale' in request
+    ? `insightSentence: ${request.locale === 'tr' ? 'Turkish' : 'English'} only; weather/outfit sentence <=90 chars; no numbers/times/degrees/brands/models/AI/URLs/emoji`
+    : null;
   return [
-    { role: 'system', content: systemContent },
+    { role: 'system', content: v2Instruction
+      ? `${systemContent.replace('Output structured data only, with no prose.', 'Output structured data only.')}\n${v2Instruction}`
+      : systemContent },
     {
       role: 'user',
       // The shared projection owns which fields a model may see.

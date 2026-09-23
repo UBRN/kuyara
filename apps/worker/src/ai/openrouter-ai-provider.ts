@@ -34,7 +34,7 @@ export class OpenRouterAiProvider implements AiProvider {
     options?: AiGenerateOptions,
   ): Promise<unknown> {
     const messages = buildMessages(request);
-    const responseSchema = buildPickJsonSchema(request.options);
+    const responseSchema = buildPickJsonSchema(request.options, 'locale' in request);
     const response = await (this.#fetch ?? globalThis.fetch)(
       'https://openrouter.ai/api/v1/chat/completions',
       {

@@ -463,11 +463,16 @@ function createLoadedPresentation(
   const rainProbability = todayRainOutlookProbability(weather, now);
   const time = formatTime(weather.fetchedAt, language, hour12);
   const insight = findDayInsight({ snapshot: weather, now: new Date(now).toISOString() });
-  const dayInsight = insight === null ? null : dayInsightSentence(
+  const deterministicDayInsight = insight === null ? null : dayInsightSentence(
     insight,
     copy.dayInsight,
     (value) => formatTime(value, language, hour12, weather.timeZone),
   );
+  const acceptedInsight = snapshot.recommendation.status === 'recommended'
+    && snapshot.recommendation.insightLocale === language
+    ? snapshot.recommendation.insightSentence
+    : null;
+  const dayInsight = acceptedInsight ?? deterministicDayInsight;
   const window = findDayWindow({ snapshot: weather, now: new Date(now).toISOString(), firstInsight: insight });
   const dayWindow = window === null ? null : dayWindowSentence(
     window,

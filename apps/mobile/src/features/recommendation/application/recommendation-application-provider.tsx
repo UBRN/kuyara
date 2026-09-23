@@ -45,6 +45,7 @@ import { useWeatherApplication } from '@/features/weather/application/weather-ap
 import { resolveWorkerBaseUrl, WorkerBaseUrlConfigurationError } from '@/config/worker-base-url';
 import { openKuyaraDatabase } from '@/infrastructure/sqlite/expo-sqlite-database';
 import { migrateDatabase } from '@/infrastructure/sqlite/migrations';
+import { useLocalization } from '@/localization/use-messages';
 
 const now = () => new Date().toISOString();
 
@@ -111,6 +112,7 @@ export function RecommendationApplicationProvider({
   localProfileId,
 }: PropsWithChildren<{ localProfileId: string }>) {
   const { state: profileState } = useProfileApplication();
+  const { language } = useLocalization();
   const weatherApplication = useWeatherApplication();
   const weatherState = weatherApplication.state;
   const { analytics } = useProductAnalytics();
@@ -177,8 +179,9 @@ export function RecommendationApplicationProvider({
       dayVariant: localDay.variant,
       dayKind: localDay.kind,
       localDayKey: localDay.key,
+      locale: language,
     };
-  }, [localDay, profileState, weatherState]);
+  }, [language, localDay, profileState, weatherState]);
   const staleRefreshSnapshotId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -283,8 +286,9 @@ export function RecommendationApplicationProvider({
       dayVariant: currentDay.variant,
       dayKind: currentDay.kind,
       localDayKey: currentDay.key,
+      locale: language,
     };
-  }, [profileState, weatherApplication, weatherState]);
+  }, [language, profileState, weatherApplication, weatherState]);
 
   const value = useMemo<RecommendationApplicationValue>(() => ({
     state,

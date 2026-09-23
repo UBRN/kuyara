@@ -13,6 +13,7 @@ import {
   createRecommendationContext,
   mapStoredRecommendation,
   mapWorkerAiRecommendation,
+  parseRecommendationContext,
   toStoredRecommendationOutfits,
   WorkerAiRecommendationMappingError,
 } from './worker-ai-recommendation-mapper.ts';
@@ -143,6 +144,40 @@ test('maps each validated pick to its locally composed outfit and archetype', ()
     result.outfits.map(({ archetypeId }) => archetypeId),
     selected.map(({ archetypeId }) => archetypeId),
   );
+});
+
+test('validates optional prose without altering valid outfit picks', () => {
+  const request = createAiRecommendationRequest(input());
+  const selected = picks(request);
+  const accepted = mapWorkerAiRecommendation(request, {
+    picks: selected, insightSentence: 'The outfit suits the day.',
+  }, 'ai-assisted', { locale: 'en' });
+  assert.equal(accepted.insightSentence, 'The outfit suits the day.');
+  assert.equal(accepted.insightLocale, 'en');
+  const rejected = mapWorkerAiRecommendation(request, {
+    picks: selected, insightSentence: 'The AI outfit suits the day.',
+  }, 'ai-assisted', { locale: 'en' });
+  assert.equal(rejected.insightSentence, undefined);
+  assert.equal(rejected.insightLocale, undefined);
+  assert.deepEqual(rejected.outfits, accepted.outfits);
+  assert.equal(mapWorkerAiRecommendation(request, {
+    picks: selected, insightSentence: 'The day is 21,2 degrees.',
+  }, 'ai-assisted', { locale: 'en' }).insightSentence, undefined);
+  assert.equal(mapWorkerAiRecommendation(request, {
+    picks: selected, insightSentence: 'The outfit suits the day.',
+  }, 'on-device-ai', { locale: 'en' }).insightSentence, undefined);
+});
+
+test('stored context requires sentence and locale together while older rows parse', () => {
+  const context = createRecommendationContext(input());
+  const sentence = 'The outfit suits the day.';
+  assert.equal(parseRecommendationContext(context).insightSentence, undefined);
+  assert.equal(parseRecommendationContext({ ...context, insightSentence: sentence,
+    insightLocale: 'en' }).insightLocale, 'en');
+  assert.throws(() => parseRecommendationContext({ ...context, insightSentence: sentence }),
+    WorkerAiRecommendationMappingError);
+  assert.throws(() => parseRecommendationContext({ ...context, insightLocale: 'en' }),
+    WorkerAiRecommendationMappingError);
 });
 
 test('rejects a response pick whose option id was not supplied', () => {

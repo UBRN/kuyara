@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
-import { buildMessages } from './ai-prompt.ts';
+import { buildMessages, buildPickJsonSchema } from './ai-prompt.ts';
 
 test('prompt supplies the shared formality preference without personal facts', () => {
   for (const [dressStyle, order] of [
@@ -22,6 +22,24 @@ test('prompt supplies the shared formality preference without personal facts', (
     }
     assert.match(messages[0].content, /prefer/i);
   }
+});
+
+test('v2 alone asks for one locale-specific insight without changing model input', () => {
+  const base = { clothingPreference: 'womens', options: [], requirements: [] };
+  const v1 = buildMessages(base);
+  for (const [locale, language] of [['tr', 'Turkish'], ['en', 'English']]) {
+    const v2 = buildMessages({ ...base, locale });
+    assert.equal(v1[1].content, v2[1].content);
+    assert.ok(v2[0].content.includes(`insightSentence: ${language} only`));
+    assert.match(v2[0].content, /no numbers\/times\/degrees/);
+    assert.equal(v2[0].content.includes('with no prose'), false);
+  }
+  assert.equal(v1[0].content.includes('insightSentence'), false);
+  const v2Schema = buildPickJsonSchema([], true).properties.data;
+  assert.deepEqual(v2Schema.properties.insightSentence, { type: 'string', maxLength: 90 });
+  assert.deepEqual(v2Schema.required, ['insightSentence', 'picks']);
+  assert.deepEqual(buildPickJsonSchema([]).properties.data.required, ['picks']);
+  assert.equal('insightSentence' in buildPickJsonSchema([]).properties.data.properties, false);
 });
 
 // The 503 regression: every reply was rejected for an archetype precondition the
