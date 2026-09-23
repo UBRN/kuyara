@@ -15,6 +15,7 @@ export type AppTextProps = TextProps & {
   variant?: TypographyRole;
   colorRole?: SemanticColorRole;
   tabularNumbers?: boolean;
+  fitSingleLine?: boolean;
 };
 
 export const AppText = forwardRef<Text, AppTextProps>(function AppText(
@@ -22,6 +23,7 @@ export const AppText = forwardRef<Text, AppTextProps>(function AppText(
     allowFontScaling = true,
     children,
     colorRole = 'textPrimary',
+    fitSingleLine = false,
     style,
     tabularNumbers = false,
     variant = 'body',
@@ -46,7 +48,10 @@ export const AppText = forwardRef<Text, AppTextProps>(function AppText(
         tabularNumbers && { fontVariant: ['tabular-nums'] },
         style,
       ]}
-      {...rest}>
+      {...rest}
+      adjustsFontSizeToFit={fitSingleLine ? true : rest.adjustsFontSizeToFit}
+      minimumFontScale={fitSingleLine ? 0.4 : rest.minimumFontScale}
+      numberOfLines={fitSingleLine ? 1 : rest.numberOfLines}>
       {uppercasesContent(variant) && typeof children === 'string'
         ? children.toLocaleUpperCase(language === 'tr' ? 'tr-TR' : 'en-GB')
         : children}

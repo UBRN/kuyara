@@ -253,14 +253,24 @@ export type AppMessages = Readonly<{
   preferences: PreferenceMessages;
   settings: Readonly<{
     title: string;
-    generalHeading: string;
-    statusHeading: string;
-    aboutYouHeading: string;
-    aboutYouFooter: string;
+    appearanceHeading: string;
+    notificationsHeading: string;
+    profileHeading: string;
+    helpHeading: string;
+    aboutHeading: string;
+    themeRow: string;
     versionLine: (version: string, build?: string | null) => string;
     developmentBuild: string;
     supportRow: string;
-    aiStatusHeading: string;
+    shareRow: string;
+    shareText: string;
+    rateRow: string;
+    licenceRow: string;
+    serviceProvidersHeading: string;
+    artificialIntelligenceHeading: string;
+    weatherDataHeading: string;
+    weatherNoSnapshot: string;
+    weatherFooter: string;
     aiStatusIntro: string;
     aiStatusProvenanceFooter: string;
     aiStatusOnDeviceRunning: string;
@@ -634,29 +644,35 @@ const en = {
   },
   settings: {
     title: 'Settings',
-    generalHeading: 'General',
-    statusHeading: 'Status and permissions',
-    aboutYouHeading: 'About you',
-    aboutYouFooter: 'Gender selects the catalog. Dress style shapes which suggestions come first. Birth date is optional and does not change suggestions.',
+    appearanceHeading: 'Appearance',
+    notificationsHeading: 'Notifications',
+    profileHeading: 'Profile',
+    helpHeading: 'Help',
+    aboutHeading: 'About',
+    themeRow: 'Theme',
     versionLine: (version: string, build?: string | null) => build ? `Version ${version} (${build})` : `Version ${version}`,
     developmentBuild: 'Development build',
-    supportRow: 'Help and feedback',
-    aiStatusHeading: 'AI status',
-    aiStatusIntro: 'Check whether AI responds right now.',
-    aiStatusProvenanceFooter: 'Today shows a small badge when AI chose the outfit, and nothing when the standard suggestions did. Apple Intelligence is a trademark of Apple Inc.',
-    aiStatusOnDeviceRunning:
-      'Apple Intelligence: compatible and running. kuyara chooses your outfits on this device.',
-    aiStatusOnDeviceOff:
-      'Apple Intelligence: turned off. kuyara chooses online instead, and falls back to standard suggestions computed on this device.',
-    aiStatusOnDeviceIncompatible:
-      'Apple Intelligence: not compatible. kuyara chooses online instead, and falls back to standard suggestions computed on this device.',
-    aiStatusOnDeviceGettingReady:
-      'Apple Intelligence: compatible, getting ready. kuyara chooses online until the model finishes downloading.',
+    supportRow: 'Support',
+    shareRow: 'Share kuyara',
+    shareText: 'I use kuyara to decide what to wear each day. Take a look.',
+    rateRow: 'Rate kuyara',
+    licenceRow: 'Licence',
+    serviceProvidersHeading: 'Service providers',
+    artificialIntelligenceHeading: 'Artificial intelligence',
+    weatherDataHeading: 'Weather data',
+    weatherNoSnapshot: 'No valid weather snapshot is saved yet. Provider attribution will appear after the first successful weather update.',
+    weatherFooter: 'Attribution stays available here for the last valid weather snapshot.',
+    aiStatusIntro: 'This active check uses the bounded online probe.',
+    aiStatusProvenanceFooter: 'Apple Intelligence is checked on this device. When it cannot choose, kuyara tries an online service before standard suggestions. Apple Intelligence is a trademark of Apple Inc.',
+    aiStatusOnDeviceRunning: 'Apple Intelligence is compatible and running.',
+    aiStatusOnDeviceOff: 'Apple Intelligence is turned off.',
+    aiStatusOnDeviceIncompatible: 'Apple Intelligence is not compatible with this device.',
+    aiStatusOnDeviceGettingReady: 'Apple Intelligence is compatible and getting ready.',
     aiStatusAssistant: (provider: string, model: string) =>
       `Answered by ${provider} (${model})`,
-    aiStatusLastOnDeviceAi: 'Last recommendation: chosen on your device.',
-    aiStatusLastAiAssisted: 'Last recommendation: AI-assisted.',
-    aiStatusLastStandard: 'Last recommendation: Standard.',
+    aiStatusLastOnDeviceAi: 'The last recommendation was chosen on this device.',
+    aiStatusLastAiAssisted: 'The last recommendation was chosen in the cloud.',
+    aiStatusLastStandard: 'The last recommendation used standard suggestions.',
     aiStatusLastUnknown: 'The last recommendation source is unknown.',
     aiStatusCheckAction: 'Check AI status',
     aiStatusChecking: 'Checking AI status…',
@@ -1247,29 +1263,35 @@ const tr = {
   },
   settings: {
     title: 'Ayarlar',
-    generalHeading: 'Genel',
-    statusHeading: 'Durum ve izinler',
-    aboutYouHeading: 'Senin hakkında',
-    aboutYouFooter: 'Cinsiyet kataloğu belirler. Giyim tarzı hangi önerilerin önce geleceğini etkiler. Doğum tarihi isteğe bağlıdır ve önerileri değiştirmez.',
+    appearanceHeading: 'Görünüm',
+    notificationsHeading: 'Bildirimler',
+    profileHeading: 'Profil',
+    helpHeading: 'Yardım',
+    aboutHeading: 'Hakkında',
+    themeRow: 'Tema',
     versionLine: (version: string, build?: string | null) => build ? `Sürüm ${version} (${build})` : `Sürüm ${version}`,
     developmentBuild: 'Geliştirme derlemesi',
-    supportRow: 'Yardım ve geri bildirim',
-    aiStatusHeading: 'AI durumu',
-    aiStatusIntro: 'AI’nin şu anda yanıt verip vermediğini kontrol et.',
-    aiStatusProvenanceFooter: 'Kombini AI seçtiyse Bugün’de küçük bir rozet görünür, standart öneriler seçtiyse hiçbir şey görünmez. Apple Intelligence, Apple Inc.’in ticari markasıdır.',
-    aiStatusOnDeviceRunning:
-      'Apple Intelligence: uyumlu ve çalışıyor. kuyara kombinlerini bu cihazda seçiyor.',
-    aiStatusOnDeviceOff:
-      'Apple Intelligence: kapalı. kuyara bunun yerine çevrimiçi seçiyor, olmazsa bu cihazda hesaplanan standart önerilere geçiyor.',
-    aiStatusOnDeviceIncompatible:
-      'Apple Intelligence: uyumlu değil. kuyara bunun yerine çevrimiçi seçiyor, olmazsa bu cihazda hesaplanan standart önerilere geçiyor.',
-    aiStatusOnDeviceGettingReady:
-      'Apple Intelligence: uyumlu, hazırlanıyor. Model inmeyi bitirene kadar kuyara çevrimiçi seçiyor.',
+    supportRow: 'Destek',
+    shareRow: 'kuyara paylaş',
+    shareText: 'Günlük kombinimi seçerken kuyara bana yardımcı oluyor. Sen de göz at.',
+    rateRow: 'kuyara değerlendir',
+    licenceRow: 'Lisans',
+    serviceProvidersHeading: 'Servis sağlayıcıları',
+    artificialIntelligenceHeading: 'Yapay zekâ',
+    weatherDataHeading: 'Hava durumu verisi',
+    weatherNoSnapshot: 'Henüz geçerli hava durumu verisi kaydedilmedi. İlk başarılı güncellemeden sonra sağlayıcı atfı burada görünecek.',
+    weatherFooter: 'Kayıtlı son geçerli hava durumu verisinin atfına buradan ulaşabilirsin.',
+    aiStatusIntro: 'Bu etkin kontrol sınırlı çevrimiçi sorguyu kullanır.',
+    aiStatusProvenanceFooter: 'Apple Intelligence bu cihazda kontrol edilir. Seçim yapamadığında kuyara standart önerilerden önce çevrimiçi servisi dener. Apple Intelligence, Apple Inc.’in ticari markasıdır.',
+    aiStatusOnDeviceRunning: 'Apple Intelligence uyumlu ve çalışıyor.',
+    aiStatusOnDeviceOff: 'Apple Intelligence kapalı.',
+    aiStatusOnDeviceIncompatible: 'Apple Intelligence bu cihazla uyumlu değil.',
+    aiStatusOnDeviceGettingReady: 'Apple Intelligence uyumlu ve hazırlanıyor.',
     aiStatusAssistant: (provider: string, model: string) =>
       `Yanıtlayan: ${provider} (${model})`,
-    aiStatusLastOnDeviceAi: 'Son öneri: cihazında seçildi.',
-    aiStatusLastAiAssisted: 'Son öneri: AI destekli.',
-    aiStatusLastStandard: 'Son öneri: Standart.',
+    aiStatusLastOnDeviceAi: 'Son öneri bu cihazda seçildi.',
+    aiStatusLastAiAssisted: 'Son öneri bulutta seçildi.',
+    aiStatusLastStandard: 'Son öneri standart önerilerle oluşturuldu.',
     aiStatusLastUnknown: 'Son önerinin kaynağı bilinmiyor.',
     aiStatusCheckAction: 'AI durumunu kontrol et',
     aiStatusChecking: 'AI durumu kontrol ediliyor…',

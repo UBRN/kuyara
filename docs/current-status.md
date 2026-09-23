@@ -190,6 +190,14 @@ The approved phase order, active work and remaining open items are in [the roadm
 
 ## Recently Completed
 
+- **Settings and provider attribution:** the root presents Appearance, Notifications,
+  Profile, Help and About in order, followed by the centred kuyara name and version.
+  Help opens the platform share sheet, direct store review and PolyForm licence;
+  About opens Service providers, which combines device AI status, the bounded probe
+  and the last valid weather snapshot's provider attribution. Today and Weather no
+  longer draw attribution. The Apple Weather mark loads from the public attribution
+  endpoint with a localized text fallback. Simulator verification remains open.
+
 - **The refresh reaches the stylist:** the validation gate rebuilds a picked option by
   finding the valid arrangement equal to the offer, so every option the app composes is
   accepted and a persisted

@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { act, fireEvent, isHiddenFromAccessibility, render, within } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { AppState, Dimensions, Linking, processColor, StyleSheet } from 'react-native';
+import { AppState, Dimensions, processColor, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
@@ -270,20 +270,8 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
     )).toBe(true);
   });
 
-  test.each([
-    ['open-meteo', 'attributionOpenMeteo', 'https://open-meteo.com/'],
-    ['openweather', 'attributionOpenWeather', 'https://openweathermap.org/'],
-    [
-      'weatherkit',
-      'attributionAppleWeather',
-      'https://developer.apple.com/weatherkit/data-source-attribution/',
-    ],
-  ] as const)('shows an accessible %s attribution link that opens its licence URL', async (
-    sourceId,
-    copyKey,
-    url,
-  ) => {
-    const openUrl = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+  test.each(['open-meteo', 'openweather', 'weatherkit'] as const)(
+    'omits %s attribution from Weather', async (sourceId) => {
     const value = createValue({
       ...baseState,
       activeLocation: getManualLocation('sample.istanbul')!,
@@ -293,12 +281,9 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
     const result = await render(
       <Providers language={language} value={value}><WeatherScreen /></Providers>,
     );
-    const copy = messages[language].weather;
-    const link = result.getByRole('link', { name: copy[copyKey] });
-    expect(link).toBeOnTheScreen();
-    await fireEvent.press(link);
-    expect(openUrl).toHaveBeenCalledWith(url);
-    openUrl.mockRestore();
+    expect(result.queryByText(messages[language].weather.attributionOpenMeteo)).toBeNull();
+    expect(result.queryByText(messages[language].weather.attributionOpenWeather)).toBeNull();
+    expect(result.queryByText(messages[language].weather.attributionAppleWeather)).toBeNull();
   });
 
   test.each(['sample', 'kuyara-worker-weather-v1', 'unknown-source'])(

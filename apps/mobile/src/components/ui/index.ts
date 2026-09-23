@@ -10,6 +10,7 @@ export {
   NativeList,
   NativeListSection,
   NativeListRow,
+  NativeListContentRow,
   type NativeListProps,
   type NativeListSectionProps,
   type NativeListRowProps,

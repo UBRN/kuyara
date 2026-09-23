@@ -5,15 +5,18 @@ import { useProductAnalytics } from '@/features/analytics/application/use-produc
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
 import { ANALYTICS_SCHEMA_VERSION } from '@/features/analytics/domain/analytics-events';
 import { aiProbeResultProperty } from '@/features/analytics/domain/analytics-mappers';
-import { AiStatusSettingsScreen } from '@/features/profile/presentation/ai-status-settings-screen';
+import { ServiceProvidersScreen } from '@/features/profile/presentation/service-providers-screen';
 import { RecommendationApplicationContext } from '@/features/recommendation/application/recommendation-application-context';
 import { useAiProbe } from '@/features/recommendation/application/use-ai-probe';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
+import { WeatherApplicationContext } from '@/features/weather/application/weather-application-context';
+import { WeatherAttribution } from '@/features/weather/presentation/weather-attribution';
 import { useMessages } from '@/localization/use-messages';
 
-export default function AiStatusSettingsRoute() {
+export default function ServiceProvidersRoute() {
   const messages = useMessages();
   const recommendation = use(RecommendationApplicationContext);
+  const weather = use(WeatherApplicationContext);
   const { check, isSupported, state: aiStatus } = useAiProbe();
   const { analytics, firstUses } = useProductAnalytics();
   useScreenViewed('settings_ai_status');
@@ -25,6 +28,12 @@ export default function AiStatusSettingsRoute() {
   // ADR 0034 section 5: the availability the composition boundary already read once. No
   // call is made from this screen.
   const onDeviceAvailability = recommendation?.onDeviceAvailability ?? null;
+  const sourceId = weather?.state.status === 'ready'
+    ? weather.state.snapshot?.origin.sourceId
+    : null;
+  const weatherAttribution = sourceId === 'weatherkit' || sourceId === 'open-meteo' || sourceId === 'openweather'
+    ? <WeatherAttribution sourceId={sourceId} />
+    : null;
 
   const checkAiStatus = async () => {
     const result = await check();
@@ -48,15 +57,16 @@ export default function AiStatusSettingsRoute() {
       <Stack.Screen
         options={{
           headerShown: true,
-          headerTitle: messages.settings.aiStatusHeading,
+          headerTitle: messages.settings.serviceProvidersHeading,
         }}
       />
-      <AiStatusSettingsScreen
+      <ServiceProvidersScreen
         aiStatus={aiStatus}
         isProbeSupported={isSupported}
         lastGenerationMode={lastGenerationMode}
         onDeviceAvailability={onDeviceAvailability}
         onCheckAiStatus={() => void checkAiStatus()}
+        weatherAttribution={weatherAttribution}
       />
     </>
   );

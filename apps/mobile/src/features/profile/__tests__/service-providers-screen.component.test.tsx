@@ -1,7 +1,8 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, isHiddenFromAccessibility, render } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { View } from 'react-native';
 
-import { AiStatusSettingsScreen } from '@/features/profile/presentation/ai-status-settings-screen';
+import { ServiceProvidersScreen } from '@/features/profile/presentation/service-providers-screen';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 import {
@@ -50,7 +51,7 @@ function providers(
 
 function screen(
   language: SupportedLanguage,
-  overrides: Partial<React.ComponentProps<typeof AiStatusSettingsScreen>> = {},
+  overrides: Partial<React.ComponentProps<typeof ServiceProvidersScreen>> = {},
   theme: KuyaraTheme = lightTheme,
   hour12 = false,
 ) {
@@ -60,35 +61,36 @@ function screen(
     lastGenerationMode: null,
     onDeviceAvailability: null,
     onCheckAiStatus: jest.fn(),
+    weatherAttribution: null,
     ...overrides,
   };
 
   return {
     onCheckAiStatus: props.onCheckAiStatus,
     rendered: render(
-      providers(<AiStatusSettingsScreen {...props} />, language, theme, hour12),
+      providers(<ServiceProvidersScreen {...props} />, language, theme, hour12),
     ),
   };
 }
 
-describe.each(['en', 'tr'] as const)('%s AI status settings screen', (language) => {
+describe.each(['en', 'tr'] as const)('%s Service providers screen', (language) => {
   test('renders the localized action and sends the check intent', async () => {
     const { onCheckAiStatus, rendered } = screen(language);
     const result = await rendered;
-    const row = result.getByTestId('settings-ai-status-check');
+    const row = result.getByTestId('settings-service-providers-check');
 
     expect(result.getByText(messages[language].settings.aiStatusCheckAction)).toBeOnTheScreen();
     await fireEvent.press(row);
     expect(onCheckAiStatus).toHaveBeenCalledTimes(1);
   });
 
-  // ADR 0034 section 4: the Today badge carries words only and no explanation of its own,
-  // so the sentence that says what it means lives here, as the group's footer.
-  test('explains the Today provenance badge in the generation mode group footer', async () => {
+  test('shows the AI explanation and trademark in one native footer', async () => {
     const { rendered } = screen(language);
     const result = await rendered;
 
     expect(result.getByText(messages[language].settings.aiStatusProvenanceFooter))
+      .toBeOnTheScreen();
+    expect(result.getByRole('header', { name: messages[language].settings.artificialIntelligenceHeading }))
       .toBeOnTheScreen();
   });
 
@@ -100,7 +102,7 @@ describe.each(['en', 'tr'] as const)('%s AI status settings screen', (language) 
     const { rendered } = screen(language, { aiStatus });
     const result = await rendered;
 
-    expect(result.getByTestId('settings-ai-status-result')).toBeOnTheScreen();
+    expect(result.getByTestId('settings-service-providers-result')).toBeOnTheScreen();
     expect(result.getByText(messages[language].settings[messageKey])).toBeOnTheScreen();
   });
 
@@ -137,7 +139,7 @@ describe.each(['en', 'tr'] as const)('%s AI status settings screen', (language) 
     const { rendered } = screen(language, { isProbeSupported: false });
     const result = await rendered;
 
-    expect(result.getByTestId('settings-ai-status-check').props.onPress).toBeUndefined();
+    expect(result.getByTestId('settings-service-providers-check').props.onPress).toBeUndefined();
     expect(
       result.getByText(messages[language].settings.aiStatusUnsupported),
     ).toBeOnTheScreen();
@@ -146,7 +148,7 @@ describe.each(['en', 'tr'] as const)('%s AI status settings screen', (language) 
   test('shows the checking overlay while a check is in flight', async () => {
     const { rendered } = screen(language, { aiStatus: { kind: 'checking' } });
     const result = await rendered;
-    const overlay = result.getByTestId('settings-ai-status-overlay');
+    const overlay = result.getByTestId('settings-service-providers-overlay');
 
     expect(overlay.props.accessibilityLabel).toBe(messages[language].settings.aiStatusChecking);
     expect(overlay.props.accessibilityLiveRegion).toBe('assertive');
@@ -159,19 +161,41 @@ test('checking overlay renders with standard and reduced motion', async () => {
     const { rendered } = screen('en', { aiStatus: { kind: 'checking' } }, theme);
     const result = await rendered;
 
-    expect(result.getByTestId('settings-ai-status-overlay')).toBeOnTheScreen();
+    expect(result.getByTestId('settings-service-providers-overlay')).toBeOnTheScreen();
     await result.unmount();
   }
 });
 
-test('shows the last recommendation generation mode as its own group', async () => {
+test('shows the last recommendation generation mode', async () => {
   const { rendered } = screen('en', { lastGenerationMode: 'ai-assisted' });
   const result = await rendered;
 
-  expect(result.getByTestId('settings-ai-status-last-mode')).toBeOnTheScreen();
+  expect(result.getByTestId('settings-service-providers-last-mode')).toBeOnTheScreen();
   expect(
     result.getByText(messages.en.settings.aiStatusLastAiAssisted),
   ).toBeOnTheScreen();
+});
+
+test.each(['on-device-ai', 'ai-assisted', 'deterministic-fallback'] as const)(
+  'shows the complete %s recommendation sentence', async (lastGenerationMode) => {
+    const { rendered } = screen('en', { lastGenerationMode });
+    const result = await rendered;
+    const key = lastGenerationMode === 'on-device-ai' ? 'aiStatusLastOnDeviceAi'
+      : lastGenerationMode === 'ai-assisted' ? 'aiStatusLastAiAssisted' : 'aiStatusLastStandard';
+    expect(result.getByText(messages.en.settings[key])).toBeOnTheScreen();
+  },
+);
+
+test('shows the weather attribution or the no-snapshot sentence', async () => {
+  const { rendered } = screen('en');
+  const result = await rendered;
+  expect(result.getByText(messages.en.settings.weatherNoSnapshot)).toBeOnTheScreen();
+  expect(result.getByRole('header', { name: messages.en.settings.weatherDataHeading })).toBeOnTheScreen();
+  const withAttribution = await screen('en', {
+    weatherAttribution: <View testID="provider-attribution" />,
+  }).rendered;
+  expect(withAttribution.getByTestId('provider-attribution')).toBeOnTheScreen();
+  expect(withAttribution.queryByText(messages.en.settings.weatherNoSnapshot)).toBeNull();
 });
 
 // ADR 0034 section 5: the Apple Intelligence situation in plain words, read with no call
@@ -179,27 +203,30 @@ test('shows the last recommendation generation mode as its own group', async () 
 // reads as a device that is not compatible.
 describe.each(['en', 'tr'] as const)('%s on-device availability row', (language) => {
   test.each([
-    [{ status: 'available' } as const, 'aiStatusOnDeviceRunning'],
+    [{ status: 'available' } as const, 'aiStatusOnDeviceRunning', 'statusRunning'],
     [
       { status: 'unavailable', reason: 'apple_intelligence_not_enabled' } as const,
-      'aiStatusOnDeviceOff',
+      'aiStatusOnDeviceOff', 'statusOff',
     ],
     [
       { status: 'unavailable', reason: 'model_not_ready' } as const,
-      'aiStatusOnDeviceGettingReady',
+      'aiStatusOnDeviceGettingReady', 'statusRunning',
     ],
     [
       { status: 'unavailable', reason: 'device_not_eligible' } as const,
-      'aiStatusOnDeviceIncompatible',
+      'aiStatusOnDeviceIncompatible', 'statusUnavailable',
     ],
-    [{ status: 'unavailable', reason: 'unsupported_os' } as const, 'aiStatusOnDeviceIncompatible'],
-    [null, 'aiStatusOnDeviceIncompatible'],
-  ] as const)('reports the device state without probing', async (onDeviceAvailability, key) => {
+    [{ status: 'unavailable', reason: 'unsupported_os' } as const, 'aiStatusOnDeviceIncompatible', 'statusUnavailable'],
+    [null, 'aiStatusOnDeviceIncompatible', 'statusUnavailable'],
+  ] as const)('reports the device state with a decorative status symbol', async (onDeviceAvailability, key, symbol) => {
     const { rendered } = screen(language, { onDeviceAvailability });
     const result = await rendered;
 
-    expect(result.getByTestId('settings-ai-status-on-device')).toBeOnTheScreen();
+    expect(result.getByTestId('settings-service-providers-on-device')).toBeOnTheScreen();
     expect(result.getByText(messages[language].settings[key])).toBeOnTheScreen();
+    const status = result.getByTestId('settings-service-providers-on-device-status-symbol', { includeHiddenElements: true });
+    expect(isHiddenFromAccessibility(status)).toBe(true);
+    expect(status.props.children.props.name).toBe(symbol);
   });
 
   test('names the on-device tier as the last recommendation source', async () => {
@@ -225,7 +252,7 @@ describe.each(['en', 'tr'] as const)('%s assistant identity row', (language) => 
     });
     const result = await rendered;
 
-    expect(result.getByTestId('settings-ai-status-assistant-identity')).toBeOnTheScreen();
+    expect(result.getByTestId('settings-service-providers-assistant-identity')).toBeOnTheScreen();
     expect(
       result.getByText(
         messages[language].settings.aiStatusAssistant('openrouter', 'some/model:free'),
@@ -241,6 +268,6 @@ describe.each(['en', 'tr'] as const)('%s assistant identity row', (language) => 
     const { rendered } = screen(language, { aiStatus });
     const result = await rendered;
 
-    expect(result.queryByTestId('settings-ai-status-assistant-identity')).not.toBeOnTheScreen();
+    expect(result.queryByTestId('settings-service-providers-assistant-identity')).not.toBeOnTheScreen();
   });
 });
