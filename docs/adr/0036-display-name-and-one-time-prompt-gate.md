@@ -18,6 +18,7 @@ Today greets a named user with "Welcome back, {name}" / "Tekrar hoş geldin, {na
 - Tests at the AI request builder, analytics boundary and telemetry boundary reject `displayName` and every other free-text profile field in their output.
 - The prompt never blocks use. Skipping it is a complete answer for that version.
 - Turkish copy never adds a possessive suffix to the user's name.
+- The invitation, the existing-user sheet and the Settings editor say only that the name is optional and can be added or changed later in Settings; no sentence states where the name is kept or that it is never sent.
 - The name migration preserves every existing profile and dependent row; it needs an independent read-only review and a realistic device-database upgrade replay before shipping.
 
 ## Consequences
