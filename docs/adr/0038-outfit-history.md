@@ -6,22 +6,22 @@ A recommendation is not evidence that the user wore it. Recording a chosen outfi
 
 ## Decision
 
-"Wore this today" on outfit detail records one outfit per dressing-day key, overwritable by the user. A Profile History row below Closet opens a calendar and list with optional mirror photos. A photo uses the existing Wardrobe import, resize, compression and database-first cleanup pipeline, under its own managed `kuyara/history/photos/` path segment. It remains on the device and in the device backup and is never sent to AI, providers, analytics or telemetry. Migration 18 adds `outfit_history` with a stable client UUID, `localProfileId`, `createdAt`, `updatedAt` and nullable `deletedAt`, plus the day key, outfit reference and optional relative photo path. Repeat avoidance derives from the last N dressing days; choose N at implementation, with seven days as the default.
+"Wore this today" on outfit detail records one outfit per bare-date dressing-day key, overwritable only by that action. The evening can replace the morning record when the user chooses it; a chip answer alone does not. A Profile History row below Closet opens a calendar and list with optional mirror photos. A photo reuses the Wardrobe import, resize, compression, staging and database-first cleanup pipeline under its own managed `kuyara/history/photos/` document segment. The stored path is relative. Missing or corrupt files do not break the list. Photos remain on the device and in device backup.
 
-Analytics may emit only the closed `outfit_worn_logged` event with a schema-version bump, no garment or outfit identity and no photo data.
+The Phase 5 migration creates `outfit_history`: `id TEXT` is a client UUID v4 primary key, `local_profile_id TEXT NOT NULL` is a profile foreign key, `day_key TEXT NOT NULL` is the bare date, `outfit_json TEXT NOT NULL` holds catalog garment ids by slot, archetype id, resolved formality and source (`recommended | manual`), `photo_path TEXT` is nullable, `worn_at`, `created_at` and `updated_at` are required, `deleted_at TEXT` is nullable, and `(local_profile_id, day_key)` is unique. Migration numbers are assigned in ship order. Manual mix-and-match writes source `manual` only through "Wore this today"; its temporary swaps do not enter the recommendation cache.
+
+Before AI selection, composition reads the last seven history rows and excludes candidate outfits whose garment-id set equals a worn set. Seven is a domain constant. If fewer than three candidates remain, it relaxes exclusion oldest first until three are available. History rows never enter the AI request, Worker, analytics or telemetry; the AI input boundary stays unchanged.
+
+Analytics may emit only the closed `outfit_worn_logged` event with a schema-version bump, no garment or outfit identity and at most a boolean `has_photo`.
 
 ## Red lines
 
 - History is evidence of a user action, never inferred from seeing a recommendation.
 - No streak, streak-break warning, penalty, loss framing or fake urgency.
-- The photo never joins the recommendation candidate set or AI input.
+- History and photos never join the AI input. Closet items remain outside recommendation candidates.
 - Missing or corrupt photos do not break the history list, and file deletion follows a confirmed database write.
-- Migration 18 preserves existing rows and receives the device-migration review and replay before shipping.
-
-## Risk accepted
-
-Device backup includes mirror photos even before accounts exist. This is accepted as part of the local photo record; later account photo backup requires its own sync and consent design.
+- The history migration preserves existing rows and receives the device-migration review and replay before shipping.
 
 ## Consequences
 
-The user can correct a day's record by overwriting it. History supports repeat avoidance without changing the catalog-only recommendation boundary. A future account can link the row through `localProfileId` without an outbox or sync engine now.
+Device backup includes mirror photos before accounts exist; later account photo backup requires its own sync and consent design. The user can correct a day's record by overwriting it. History supports repeat avoidance without changing the catalog-only recommendation boundary. A future account can link the row through `localProfileId` without an outbox or sync engine now.
