@@ -1,5 +1,7 @@
 # ADR 0031: Dress style is the formality signal, and birth date is a demographic fact
 
+Status: Accepted (2026-09-08)
+
 This ADR owns the current formality and age policy for the profile described in
 [ADR 0015](0015-gender-and-age-band-in-the-profile.md). Dress style shapes
 recommendations. Birth date is optional and device-only, and only an approved coarse

@@ -1,5 +1,7 @@
 # ADR 0026: The recommendation detail surface
 
+Status: Accepted (2026-09-04)
+
 Builds on: [ADR 0025](0025-the-garment-board-composition-rule.md), whose composition rule
 this surface reuses unchanged.
 Owns the recommendation detail surface named by

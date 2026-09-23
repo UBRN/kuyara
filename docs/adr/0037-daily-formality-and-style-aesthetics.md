@@ -1,5 +1,7 @@
 # ADR 0037: Daily formality and style aesthetics
 
+Status: Accepted (2026-09-23)
+
 ## Context
 
 A persistent dress-style default cannot express how someone wants to dress on a particular day. Aesthetic taste can order already-valid catalog looks without becoming a hard filter or a new personal-data category in analytics.
@@ -19,9 +21,9 @@ Dismissing through "Continue without choosing" presents a system alert. Its blue
 - Aesthetics and daily formality never turn valid candidates into invalid ones or introduce an occasion or age proxy.
 - No new wire formality enum or free-form taste text is introduced.
 - The evening key never prompts a second time merely because the clock reached 18:00.
+- No second day clock or durable "sheet shown" flag is introduced; the row's presence is the gate.
 - The chosen morning look is not erased from outfit history by a later chip answer.
 
-- No second day clock or durable "sheet shown" flag is introduced; the row's presence is the gate.
 ## Risk accepted
 
 - Chip changes do not count against the five daily AI regenerations. The extra provider quota exposure is accepted and remains under Worker limits.

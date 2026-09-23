@@ -1,5 +1,7 @@
 # ADR 0021: Direction E, a visual-first design language
 
+Status: Accepted (2026-09-03)
+
 Defines the accepted visual direction within
 [`visual-identity.md`](../design/visual-identity.md),
 [`design-language.md`](../design/design-language.md) Laws 1, 3 and 5,

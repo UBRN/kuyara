@@ -1,5 +1,7 @@
 # ADR 0002: Real weather provider chain
 
+Status: Accepted (2026-08-29)
+
 ## Context
 
 The Apple-independent provider segment replaces the deterministic sample
