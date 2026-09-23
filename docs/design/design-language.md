@@ -414,8 +414,8 @@ Two requirements are hard, not judgment calls:
   the hero value's line box and must not sit directly beneath it inside the stage. A
   glyph beside the hero on the same row is permitted.
 
-The OS Reduce Motion setting is honoured where the motion tokens already resolve to
-zero, and it is neither a design constraint nor a verification step.
+Motion tokens and ambient loops do not read the OS Reduce Motion setting. The app makes
+no Reduced Motion support claim.
 
 **Ambient motion has its own duration role**, `theme.motion.ambient`. `fast`, `normal`
 and `deliberate` all describe transitions, and a 1500 ms cloud bob is not a transition.
@@ -424,7 +424,7 @@ The role carries three tempo steps, each one leg of a loop: calm 1500 ms, modera
 iPhone 17 Pro Simulator on 2026-09-12. A deterministic weather-domain rule picks the step
 from the condition, a calm condition moving more slowly than a violent one. Two kinds of
 surface consume the role: the weather glyph on Today and Weather, and the wait surfaces
-(Today's board skeleton, Today's loading line, the AI status probe overlay), which
+(Today's board skeleton, Today's loading line, the Service providers probe overlay), which
 breathe on the moderate step, a full breath of 2000 ms, because that is the cycle band
 Ding and Kyung (Journal of Consumer Research 2026,
 <https://academic.oup.com/jcr/advance-article/doi/10.1093/jcr/ucaf037/8165440>) measured

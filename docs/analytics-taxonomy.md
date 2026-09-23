@@ -451,10 +451,10 @@ Closet screen views are covered by `screen_viewed` (5.3), not a separate event.
 | Event | Trigger | Properties |
 | --- | --- | --- |
 | `setting_changed` | Any Settings value changes. | `setting_name` (`appearance_theme`\|`language`\|`notifications_enabled`\|`morning_briefing_enabled`\|`dress_style`\|`gender`\|`birth_date`), `new_value` (present only for `appearance_theme`: `system`\|`light`\|`dark`; `language`: `system`\|`tr`\|`en`; `notifications_enabled` and `morning_briefing_enabled`: boolean; `dress_style`: section 3; absent for `gender` and `birth_date`, since neither value is an allowed analytics property) |
-| `ai_probe_triggered` | The user triggers the AI status probe on the Settings AI status screen. | `result` (`ok`\|`unavailable`\|`rate_limited`\|`error`) |
+| `ai_probe_triggered` | The user triggers the AI status probe on Settings > Service providers. | `result` (`ok`\|`unavailable`\|`rate_limited`\|`error`) |
 
 `ai_probe_triggered` lost two properties the code cannot supply. `probe_type` is gone
-because there is exactly one user-triggerable probe: the AI status screen's single check
+because there is exactly one user-triggerable probe: Service providers' single check
 action (`features/recommendation/application/use-ai-probe.ts`). Configuration readiness is
 not a probe, it is a local boolean computed from whether a Worker base URL is configured,
 and it fires no request and no event. `cached` is gone because the Worker's probe response
@@ -467,7 +467,7 @@ case visible instead of collapsing it into a generic failure.
 **Product questions answered.**
 
 - `setting_changed`: which settings do people actually change?
-- `ai_probe_triggered`: how often do people manually check AI status, and what do they see?
+- `ai_probe_triggered`: how often do people manually check AI status in Service providers, and what do they see?
 
 ### 5.10 Failure and recovery behaviour
 

@@ -53,8 +53,8 @@ Top to bottom, the populated screen is:
 
 The empty Closet shows the heading, one sentence at `body` in `textSecondary`, and an
 "Add a piece" / "Parça ekle" button (the screen's only accent fill, present only in this
-state). The Wanted row is hidden while nothing exists in either state. History appears
-when a worn outfit has been recorded.
+state). The Wanted row is hidden while nothing exists in either state. The History row
+sits in the group under Closet.
 
 There are no cards. The planes are ground and chrome plus the tile stage. Emphasis levels
 are three: the rail; `title` and `bodyStrong`; `body` and `caption`. No `display`, no
