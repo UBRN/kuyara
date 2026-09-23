@@ -69,8 +69,8 @@ not coordinates:
   No arbitrary scatter. No overlap unless it genuinely improves the composition.
 
 Today does not carry garment names or a five-row name list. Its one-line title gives
-Today, localized weekday and date, time, temperature in the device locale's unit, and
-condition; a small archetype label sits below. The card does not repeat that weather
+Today, localized weekday and date, temperature in the device locale's unit, and
+condition (the clock time is not part of it, so the four segments fit one line); a small archetype label sits below. The card does not repeat that weather
 line. Two primary-ink body insight sentences replace the overview rationale.
 
 ### 3. The weather tints the stage rather than occupying a band

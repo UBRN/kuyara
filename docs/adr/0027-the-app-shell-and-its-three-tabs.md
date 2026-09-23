@@ -31,7 +31,7 @@ Today, Weather and Profile, from `navigation.today`, `navigation.weather` and
 Hava, Profil.
 
 Within the Today tab, the one-line content title combines Today, the localized weekday
-and date, clock time, locale-derived temperature unit and condition. The archetype is
+and date, locale-derived temperature and condition; the clock time is not part of it. The archetype is
 a small label below it; the card no longer repeats time, temperature or condition
 above the garment board. The tab label itself remains simply Today / Bugün.
 
