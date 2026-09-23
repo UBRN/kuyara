@@ -155,11 +155,6 @@ export type LoadedTodayPresentation = Readonly<{
     range: string;
     rainProbability: string;
     accessibilityLabel: string;
-    // The provider-neutral identifier of whoever answered, carried so Today can show the
-    // same attribution the Weather screen shows (ADR 0002 section 8). It is not display
-    // text: `WeatherAttribution` maps it to a localized line, a link and, for OpenWeather,
-    // the logo, and renders nothing for `sample` or an unrecognized identifier.
-    sourceId: string;
     // The raw provider-neutral condition code and whether the sun is up at the place,
     // carried so the corner glyph can resolve its own condition ink and tempo. Neither is
     // display text: the visible condition name stays `condition`.
@@ -592,7 +587,6 @@ function createLoadedPresentation(
         maximum: formatTemperatureValue(weather.maximumTemperatureCelsius, language),
         rainProbability: Math.round(rainProbability * 100),
       }),
-      sourceId: weather.origin.sourceId,
       conditionCode: current.condition,
       daypart,
     },

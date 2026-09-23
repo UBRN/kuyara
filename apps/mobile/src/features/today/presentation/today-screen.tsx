@@ -34,7 +34,6 @@ import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity';
-import { WeatherAttribution } from '@/features/weather/presentation/weather-attribution';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
 import { layout, spacing, type AmbientIntensity } from '@/theme/theme';
@@ -490,15 +489,6 @@ export function TodayScreen({
           </View>
         ) : null}
 
-        {/* ADR 0002 section 8: attribution belongs on every surface that shows weather, so
-            it follows the snapshot rather than the refresh, and a cached or stale snapshot
-            still names whoever produced it. */}
-        <View style={styles.attribution} testID="today-attribution">
-          <WeatherAttribution
-            sourceId={presentation.weather.sourceId}
-            testID="today-attribution-link"
-          />
-        </View>
       </View>
     </Screen>
   );
@@ -750,7 +740,6 @@ const styles = StyleSheet.create({
   alternateTitleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   regenerate: { justifyContent: 'center', marginTop: spacing.md, minHeight: layout.minimumTouchTarget },
   regenerateGroup: { gap: spacing.xs },
-  attribution: { marginTop: spacing.md },
   feedbackContent: { alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.lg },
   feedbackCard: { alignItems: 'center', gap: spacing.md, maxWidth: 520, padding: spacing.lg, width: '100%' },
   centerText: { textAlign: 'center' },

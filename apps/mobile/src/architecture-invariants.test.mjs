@@ -270,7 +270,6 @@ const crossFeatureInternalImportAllowlist = [
   // Onboarding renders weather's location controls; pass them in from app/onboarding.tsx as a slot.
   ['features/profile/presentation/onboarding-screen.tsx', 'features/weather/presentation/location-selection-controls'],
   // Today shows the weather provider attribution; slot it from app/(tabs)/(today)/index.tsx or move the component.
-  ['features/today/presentation/today-screen.tsx', 'features/weather/presentation/weather-attribution'],
   // WeatherGlyph depends on theme only and is misfiled under today/; move it to components/ui.
   ['features/weather/presentation/weather-screen.tsx', 'features/today/presentation/weather-glyph'],
 ].map(([importer, module]) => `${importer} -> ${module}`);

@@ -1,4 +1,4 @@
-import { fireEvent, isHiddenFromAccessibility, render } from '@testing-library/react-native';
+import { fireEvent, isHiddenFromAccessibility, render, waitFor } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { Linking } from 'react-native';
 
@@ -10,6 +10,9 @@ import { KuyaraThemeContext } from '@/theme/theme-context';
 
 const masterLogo = require('../../../../assets/attribution/openweather-master.png');
 const negativeLogo = require('../../../../assets/attribution/openweather-negative.png');
+jest.mock('@/features/weather/data/apple-weather-mark', () => ({
+  appleWeatherMarkUrl: jest.fn(async () => 'https://weatherkit.apple.com/mark.png'),
+}));
 
 function Providers({
   children,
@@ -32,8 +35,8 @@ describe.each(['en', 'tr'] as const)('%s weather attribution', (language) => {
     [
       'weatherkit',
       copy.attributionAppleWeather,
-      'https://developer.apple.com/weatherkit/data-source-attribution/',
-      'developer.apple.com',
+      'https://weatherkit.apple.com/legal-attribution.html',
+      'weatherkit.apple.com',
     ],
   ])('names %s in one caption link that opens its attribution page', async (
     sourceId,
@@ -49,7 +52,7 @@ describe.each(['en', 'tr'] as const)('%s weather attribution', (language) => {
     const link = result.getByRole('link', { name: label });
     expect(link).toBeOnTheScreen();
     expect(link.props.accessibilityHint).toBe(copy.attributionHint(host));
-    expect(result.getByText(label)).toBeOnTheScreen();
+    if (sourceId !== 'weatherkit') expect(result.getByText(label)).toBeOnTheScreen();
     await fireEvent.press(link);
     expect(openUrl).toHaveBeenCalledWith(url);
     openUrl.mockRestore();
@@ -73,13 +76,25 @@ describe.each(['en', 'tr'] as const)('%s weather attribution', (language) => {
     },
   );
 
-  test.each(['open-meteo', 'weatherkit'])('draws no logo for %s', async (sourceId) => {
+  test('draws no logo for Open-Meteo', async () => {
     const result = await render(
-      <Providers language={language}><WeatherAttribution sourceId={sourceId} /></Providers>,
+      <Providers language={language}><WeatherAttribution sourceId="open-meteo" /></Providers>,
     );
 
     expect(result.queryByTestId('weather-attribution-logo', { includeHiddenElements: true }))
       .toBeNull();
+  });
+
+  test('shows the Apple text fallback until its combined mark loads', async () => {
+    const result = await render(
+      <Providers language={language}><WeatherAttribution sourceId="weatherkit" /></Providers>,
+    );
+    expect(result.getByText(copy.attributionAppleWeather)).toBeOnTheScreen();
+    const mark = await result.findByTestId('weather-attribution-apple-mark', { includeHiddenElements: true });
+    fireEvent(mark, 'load');
+    await waitFor(() => expect(result.queryByText(copy.attributionAppleWeather)).toBeNull());
+    await fireEvent(mark, 'error');
+    await waitFor(() => expect(result.getByText(copy.attributionAppleWeather)).toBeOnTheScreen());
   });
 
   // ADR 0002 section 8: an unrecognized or legacy identifier names no provider at all.

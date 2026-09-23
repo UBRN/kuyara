@@ -1,5 +1,6 @@
 import { Stack, router } from 'expo-router';
-import { Linking } from 'react-native';
+import Constants from 'expo-constants';
+import { Linking, Platform, Share } from 'react-native';
 
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
@@ -9,6 +10,7 @@ import { notificationsAreActive } from '@/features/notifications/application/not
 import { useNotificationApplication } from '@/features/notifications/application/notification-context';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { SettingsScreen } from '@/features/profile/presentation/settings-screen';
+import { IOS_REVIEW_URL, IOS_STORE_URL, LICENCE_URL, androidStoreLinks } from '@/features/profile/presentation/store-links';
 import { useLocalization } from '@/localization/use-messages';
 
 export default function SettingsRoute() {
@@ -22,6 +24,7 @@ export default function SettingsRoute() {
   } = useProfileApplication();
   const { state: notificationState } = useNotificationApplication();
   const { analytics, firstUses } = useProductAnalytics();
+  const androidPackage = Constants.expoConfig?.android?.package;
   useScreenViewed('settings');
 
   if (state.status !== 'ready') {
@@ -96,14 +99,30 @@ export default function SettingsRoute() {
             });
           });
         }}
-        onOpenAiStatus={() => router.push('/settings/ai-status')}
+        onOpenServiceProviders={() => router.push('/settings/service-providers')}
         onOpenBirthDate={() => router.push('/settings/birth-date')}
         onOpenNotifications={() => router.push('/settings/notifications')}
         onOpenPrivacy={() => router.push('/settings/privacy')}
         onOpenSupport={() => {
           void Linking.openURL(SUPPORT_URL[language]);
         }}
+        onOpenLicence={() => { void Linking.openURL(LICENCE_URL); }}
+        onRate={() => {
+          const url = Platform.OS === 'ios'
+            ? IOS_REVIEW_URL
+            : androidPackage ? androidStoreLinks(androidPackage).review : null;
+          if (url) void Linking.openURL(url);
+        }}
+        onShare={() => {
+          const sentence = messages.settings.shareText;
+          void Share.share(Platform.OS === 'ios'
+            ? { message: sentence, url: IOS_STORE_URL }
+            : { message: androidPackage
+              ? `${sentence} ${androidStoreLinks(androidPackage).share}`
+              : sentence });
+        }}
         profile={state.profile}
+        showRate={Platform.OS === 'ios' || Boolean(androidPackage)}
       />
     </>
   );
