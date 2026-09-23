@@ -1,5 +1,7 @@
 # ADR 0020: Rewriting the motion law
 
+Status: Accepted (2026-09-03)
+
 Defines: [`design-language.md`](../design/design-language.md) Law 7, and the
 primary-action clause and the ownership site in Law 8.
 

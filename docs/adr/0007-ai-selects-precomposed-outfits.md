@@ -1,5 +1,7 @@
 # ADR 0007: AI selects and labels precomposed outfits
 
+Status: Accepted (2026-08-30)
+
 ## Context
 
 ADR 0005 narrowed the recommendation candidate set to the bundled catalog and
@@ -75,9 +77,9 @@ generated. Zod and the domain invariants still validate the result afterwards.
 The optional `insightSentence` belongs to a versioned successor response while any
 installed binary strictly reads this v1 body; the v1 response stays byte-shape
 compatible. The device validates the sentence separately and falls back to line 1.
+[ADR 0039](0039-ai-v2-route-and-the-validated-insight-sentence.md) defines that successor route and its validation.
 
 `aiV1CandidateLimit`, `aiCandidateSchema`, `aiOutfitSchema`, and
-[ADR 0039](0039-ai-v2-route-and-the-validated-insight-sentence.md) defines that successor route and its validation.
 `aiRecommendV1SuccessSchema` are replaced. The option limit is 24, which keeps
 the candidate list under 30. The model input a full request serializes to is
 11,560 bytes at 24 options of five garments each carrying the conditional archetypes

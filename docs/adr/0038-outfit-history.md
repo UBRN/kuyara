@@ -1,5 +1,7 @@
 # ADR 0038: Outfit history
 
+Status: Accepted (2026-09-23)
+
 ## Context
 
 A recommendation is not evidence that the user wore it. Recording a chosen outfit creates a truthful memory for the reader and a bounded basis for repeat avoidance. Streaks and gamified penalties do not belong in kuyara.

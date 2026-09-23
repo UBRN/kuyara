@@ -1,5 +1,7 @@
 # ADR 0036: Display name and one-time prompt gate
 
+Status: Accepted (2026-09-23)
+
 ## Context
 
 A personal greeting and Closet heading need an optional name. Existing installations must receive the invitation without repeating it on every launch. A walkthrough also needs a once-per-version invitation after its design is settled.
@@ -13,9 +15,9 @@ Today greets a named user with "Welcome back, {name}" / "Tekrar hoş geldin, {na
 ## Red lines
 
 - The name never enters AI requests, analytics, telemetry, providers or logs.
+- Tests at the AI request builder, analytics boundary and telemetry boundary reject `displayName` and every other free-text profile field in their output.
 - The prompt never blocks use. Skipping it is a complete answer for that version.
 - Turkish copy never adds a possessive suffix to the user's name.
-- Tests at the AI request builder, analytics boundary and telemetry boundary reject `displayName` and every other free-text profile field in their output.
 - The name migration preserves every existing profile and dependent row; it needs an independent read-only review and a realistic device-database upgrade replay before shipping.
 
 ## Consequences

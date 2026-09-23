@@ -1,5 +1,7 @@
 # ADR 0030: Settings as a native grouped list
 
+Status: Accepted (2026-09-07)
+
 Builds on: [ADR 0015](0015-gender-and-age-band-in-the-profile.md), whose Settings
 placement of personal facts it keeps; [ADR 0019](0019-adopting-expo-ui-at-the-control-layer.md),
 whose boundary this screen is the first full exercise of; and

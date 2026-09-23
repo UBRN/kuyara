@@ -1,5 +1,7 @@
 # ADR 0028: The Profile tab and the list-row anatomy
 
+Status: Accepted (2026-09-07)
+
 Builds on: [ADR 0006](0006-three-tab-information-architecture.md), whose three tabs and
 Closet-inside-Profile placement are not reopened; [ADR 0019](0019-adopting-expo-ui-at-the-control-layer.md),
 whose control-layer boundary this respects; [ADR 0021](0021-direction-e-a-visual-first-design-language.md),
