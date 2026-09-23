@@ -19,6 +19,7 @@ import {
   composeOutfitOptions,
   type OutfitCandidate,
   type OutfitCompositionFailure,
+  type OutfitCompositionsResult,
 } from '@/features/recommendation/domain/outfit-composition';
 import {
   deriveClothingRequirements,
@@ -193,6 +194,20 @@ export function excludeOutfitOptions(
   return filtered.length >= 3 ? Object.freeze(filtered) : outfits;
 }
 
+export function composeOutfitPool(
+  requirements: ClothingRequirements,
+  clothingPreference: ClothingPreference,
+  dayVariant: number,
+): OutfitCompositionsResult {
+  const candidates = listGarmentTypesForPreference(clothingPreference).map((type) =>
+    evaluateGarmentEligibility(
+      requirements,
+      projectCatalogEffectiveGarment(type.typeId, clothingPreference),
+    ),
+  );
+  return composeOutfitOptions(requirements, candidates, dayVariant);
+}
+
 /**
  * The day is read once here and handed to every label decision: the order it labels in and
  * the labels themselves both come from the same requirements, so a day can never be snowy
@@ -230,15 +245,7 @@ export function recommendOutfits(
   input: OutfitRecommendationInput,
 ): OutfitRecommendationResult {
   const requirements = deriveClothingRequirements(input.snapshot, input.now);
-  const candidates = [
-    ...listGarmentTypesForPreference(input.clothingPreference).map((type) =>
-      evaluateGarmentEligibility(
-        requirements,
-        projectCatalogEffectiveGarment(type.typeId, input.clothingPreference),
-      ),
-    ),
-  ];
-  const composition = composeOutfitOptions(requirements, candidates, input.dayVariant);
+  const composition = composeOutfitPool(requirements, input.clothingPreference, input.dayVariant);
   const order: readonly FormalityLevel[] =
     formalityOrderByDressStyle[input.dressStyle ?? 'smart'];
 

@@ -1,5 +1,6 @@
 import type { AiRecommendV1Request, DayKind, DressStyle } from '@kuyara/contracts';
 
+import { isClothingPreference } from '@/domain/preferences';
 import {
   failureCategoryFromErrorKind,
   type FailureCategory,
@@ -17,7 +18,10 @@ import {
   telemetryFailureKind,
 } from '@/features/analytics/domain/performance-telemetry-events';
 import type { CaptureAnalyticsEvent } from '@/features/analytics/domain/product-analytics';
+import { garmentCatalogVersion } from '@/features/catalog/domain/garment-catalog';
 import {
+  composeOutfitPool,
+  outfitOptionId,
   recommendOutfits,
   type OutfitRecommendationInput,
   type OutfitRecommendationSuccess,
@@ -30,7 +34,7 @@ import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on
 import { WorkerAiClientError } from '@/features/recommendation/data/worker-ai-client';
 import {
   aiRequestFromContext,
-  createRecommendationContext,
+  createRecommendationContextWithPool,
   type RecommendationContext,
 } from '@/features/recommendation/data/worker-ai-recommendation-mapper';
 import { wardrobeDayKey } from '@/features/weather/domain/wardrobe-day';
@@ -106,6 +110,7 @@ export type RecommendationApplicationState =
       lastFailure: FailureCategory | null;
       // Null whenever `isRefreshing` is false: a settled state has no phase.
       phase: RecommendationPhase | null;
+      exhausted: boolean;
     }>;
 
 // The Worker client is the only error this feature can classify. Its kinds are
@@ -201,6 +206,40 @@ function shownOptionIds(snapshot: RecommendationSnapshot | null): readonly strin
   return outfits?.length === 3 ? outfits.map(({ optionId }) => optionId) : [];
 }
 
+export function recommendationPoolExhausted(
+  poolOptionIds: readonly string[] | null,
+  snapshot: RecommendationSnapshot | null,
+): boolean {
+  if (!poolOptionIds || poolOptionIds.length === 0 || !snapshot) return false;
+  const shown = new Set(shownOptionIds(snapshot));
+  return shown.size === 3 && poolOptionIds.every((id) => shown.has(id));
+}
+
+// A persisted recommendation carries the exact requirements and composition seed, so a
+// fresh controller can recover the full pool without a weather request or a new generation.
+function storedPoolOptionIds(snapshot: RecommendationSnapshot | null): readonly string[] | null {
+  const preference = snapshot?.clothingPreference;
+  if (
+    !snapshot ||
+    !isClothingPreference(preference) ||
+    snapshot.dayVariant === null ||
+    snapshot.catalogVersion !== garmentCatalogVersion
+  ) return null;
+  try {
+    const composition = composeOutfitPool(
+      snapshot.recommendation.requirements,
+      preference,
+      snapshot.dayVariant,
+    );
+    return composition.status === 'composed'
+      ? composition.outfits.map(outfitOptionId)
+      : null;
+  } catch {
+    // Pool reconstruction is derived UI state and must not discard a valid saved outfit.
+    return null;
+  }
+}
+
 export class RecommendationApplicationController {
   private state: RecommendationApplicationState = { status: 'loading' };
   private repository: RecommendationRepository | null = null;
@@ -213,6 +252,7 @@ export class RecommendationApplicationController {
   private readonly captureAnalyticsEvent: CaptureAnalyticsEvent;
   private readonly telemetry: PerformanceTelemetry | null;
   private readonly holdPhase: (milliseconds: number) => Promise<void>;
+  private poolOptionIds: readonly string[] | null = null;
 
   constructor(localProfileId: string, dependencies: Dependencies) {
     this.localProfileId = localProfileId;
@@ -249,12 +289,15 @@ export class RecommendationApplicationController {
     options?: Readonly<{ allowAi?: boolean }>,
   ): Promise<RecommendationSnapshot | null> {
     let context: RecommendationContext;
+    let poolOptionIds: readonly string[];
     const generationInput = {
       ...input,
       excludedOptionIds: shownOptionIds(this.currentSnapshot()),
     };
     try {
-      context = createRecommendationContext(generationInput, input.localDayKey);
+      ({ context, poolOptionIds } = createRecommendationContextWithPool(
+        generationInput, input.localDayKey,
+      ));
     } catch (error) {
       this.setLastFailure(recommendationFailureCategory(error));
       return Promise.resolve(this.currentSnapshot());
@@ -270,7 +313,7 @@ export class RecommendationApplicationController {
 
     this.latestRequestKey = key;
     this.setRefreshing(true);
-    const refresh = this.refreshOnce(key, context, request, generationInput, trigger).finally(() => {
+    const refresh = this.refreshOnce(key, context, request, generationInput, trigger, poolOptionIds).finally(() => {
       this.refreshes.delete(key);
       if (this.latestRequestKey === key) this.setRefreshing(false);
     });
@@ -282,12 +325,14 @@ export class RecommendationApplicationController {
     try {
       this.repository = await this.dependencies.loadRepository();
       const snapshot = await this.repository.getSnapshot(this.localProfileId);
+      this.poolOptionIds = storedPoolOptionIds(snapshot);
       this.setReady({
         status: 'ready',
         snapshot,
         isRefreshing: false,
         lastFailure: null,
         phase: null,
+        exhausted: recommendationPoolExhausted(this.poolOptionIds, snapshot),
       });
     } catch (error) {
       this.setReady({
@@ -296,6 +341,7 @@ export class RecommendationApplicationController {
         isRefreshing: false,
         lastFailure: recommendationFailureCategory(error),
         phase: null,
+        exhausted: false,
       });
     }
   }
@@ -306,6 +352,7 @@ export class RecommendationApplicationController {
     request: AiRecommendV1Request | null,
     input: RecommendationApplicationInput,
     trigger: RecommendationRefreshTrigger,
+    poolOptionIds: readonly string[],
   ): Promise<RecommendationSnapshot | null> {
     // The deterministic fallback composes from the same catalog and effectively always
     // succeeds, so an AI failure alone is not a failure the user sees. It is still the
@@ -361,12 +408,14 @@ export class RecommendationApplicationController {
         },
       );
       if (this.latestRequestKey === key) {
+        this.poolOptionIds = poolOptionIds;
         this.setReady({
           status: 'ready',
           snapshot,
           isRefreshing: true,
           lastFailure: null,
           phase: 'preparing-outfits',
+          exhausted: recommendationPoolExhausted(this.poolOptionIds, snapshot),
         });
       }
       this.captureAnalyticsEvent('recommendation_regenerated', {

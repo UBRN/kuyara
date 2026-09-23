@@ -62,6 +62,7 @@ export type TodayMessages = Readonly<{
   // Today's "show another outfit" action. It names no provider, no quota and no
   // remaining count, and it is the same words whichever path answers the tap.
   regenerateAction: string;
+  regenerateCaption: string;
   backAction: string;
   otherOptionsHeading: string;
   piecesHeading: string;
@@ -101,6 +102,19 @@ export type TodayMessages = Readonly<{
     veryHot: (time: string) => string;
     chilly: (time: string) => string;
     freezing: (time: string) => string;
+  }>;
+  dayWindow: Readonly<{
+    rain: (from: string | null, until: string | null) => string;
+    snow: (from: string | null, until: string | null) => string;
+    wind: (from: string | null, until: string | null) => string;
+    veryWindy: (from: string | null, until: string | null) => string;
+    staysHot: (time: string) => string;
+    staysVeryHot: (time: string) => string;
+    staysCold: (time: string) => string;
+    staysFreezing: (time: string) => string;
+    coolsTo: (time: string, temperature: string) => string;
+    warmsTo: (time: string, temperature: string) => string;
+    lowest: (time: string, temperature: string) => string;
   }>;
   emphasis: Readonly<{ recommended: string }>;
   updatedAt: (time: string) => string;
@@ -948,8 +962,9 @@ const en = {
     generationSourceAiAssisted: 'kuyara chose this outfit with online AI.',
     generationSourceDeterministic: 'AI was not used. kuyara computed this outfit on your device.',
     regenerateAction: 'Show another outfit',
+    regenerateCaption: 'See a different outfit for the same day.',
     backAction: 'Back to Today',
-    otherOptionsHeading: 'Other options',
+    otherOptionsHeading: 'Alternative outfits',
     piecesHeading: 'Wear',
     reasonsHeading: 'Why it works',
     finishingTouchesHeading: 'Finishing touches',
@@ -1065,6 +1080,31 @@ const en = {
       veryHot: (time: string) => `It gets very hot around ${time}.`,
       chilly: (time: string) => `It turns chilly around ${time}.`,
       freezing: (time: string) => `It turns freezing around ${time}.`,
+    },
+    dayWindow: {
+      rain: (from, until) => from && until
+        ? `Rain is expected between ${from} and ${until}.`
+        : from ? `Rain is expected after ${from}.` : until
+          ? `Rain is expected until ${until}.` : 'Rain is expected for the remaining hours.',
+      snow: (from, until) => from && until
+        ? `Snow is expected between ${from} and ${until}.`
+        : from ? `Snow is expected after ${from}.` : until
+          ? `Snow is expected until ${until}.` : 'Snow is expected for the remaining hours.',
+      wind: (from, until) => from && until
+        ? `Windy between ${from} and ${until}.`
+        : from ? `Windy after ${from}.` : until
+          ? `Windy until ${until}.` : 'Windy for the remaining hours.',
+      veryWindy: (from, until) => from && until
+        ? `Very windy between ${from} and ${until}.`
+        : from ? `Very windy after ${from}.` : until
+          ? `Very windy until ${until}.` : 'Very windy for the remaining hours.',
+      staysHot: (time) => `It stays hot after ${time}.`,
+      staysVeryHot: (time) => `It stays very hot after ${time}.`,
+      staysCold: (time) => `It stays cold after ${time}.`,
+      staysFreezing: (time) => `It stays freezing after ${time}.`,
+      coolsTo: (time, temperature) => `It cools to ${temperature} by ${time}.`,
+      warmsTo: (time, temperature) => `It warms to ${temperature} by ${time}.`,
+      lowest: (time, temperature) => `Lowest around ${time}, near ${temperature}.`,
     },
     emphasis: {
       recommended: 'Recommended',
@@ -1539,8 +1579,9 @@ const tr = {
     generationSourceAiAssisted: 'Bu kombini kuyara çevrimiçi AI ile seçti.',
     generationSourceDeterministic: 'AI kullanılmadı, bu kombini kuyara cihazında hesapladı.',
     regenerateAction: 'Başka kombin göster',
+    regenerateCaption: 'Aynı gün için farklı bir kombin gör.',
     backAction: 'Bugün’e dön',
-    otherOptionsHeading: 'Diğer seçenekler',
+    otherOptionsHeading: 'Alternatif kombinler',
     piecesHeading: 'Parçalar',
     reasonsHeading: 'Neden uygun',
     finishingTouchesHeading: 'Son dokunuşlar',
@@ -1658,6 +1699,31 @@ const tr = {
       veryHot: (time: string) => `Saat ${time} civarında hava iyice ısınıyor.`,
       chilly: (time: string) => `Saat ${time} civarında hava serinliyor.`,
       freezing: (time: string) => `Saat ${time} civarında hava buz gibi oluyor.`,
+    },
+    dayWindow: {
+      rain: (from, until) => from && until
+        ? `${from} ile ${until} arasında yağmur bekleniyor.`
+        : from ? `Saat ${from} sonrasında yağmur bekleniyor.` : until
+          ? `Saat ${until} civarına kadar yağmur bekleniyor.` : 'Kalan saatlerde yağmur bekleniyor.',
+      snow: (from, until) => from && until
+        ? `${from} ile ${until} arasında kar bekleniyor.`
+        : from ? `Saat ${from} sonrasında kar bekleniyor.` : until
+          ? `Saat ${until} civarına kadar kar bekleniyor.` : 'Kalan saatlerde kar bekleniyor.',
+      wind: (from, until) => from && until
+        ? `${from} ile ${until} arasında hava rüzgârlı olacak.`
+        : from ? `Saat ${from} sonrasında hava rüzgârlı olacak.` : until
+          ? `Saat ${until} civarına kadar rüzgâr sürecek.` : 'Kalan saatlerde hava rüzgârlı olacak.',
+      veryWindy: (from, until) => from && until
+        ? `${from} ile ${until} arasında kuvvetli rüzgâr var.`
+        : from ? `Saat ${from} sonrasında kuvvetli rüzgâr var.` : until
+          ? `Saat ${until} civarına kadar kuvvetli rüzgâr var.` : 'Kalan saatlerde kuvvetli rüzgâr var.',
+      staysHot: (time) => `Saat ${time} sonrasında hava sıcak kalacak.`,
+      staysVeryHot: (time) => `Saat ${time} sonrasında hava çok sıcak kalacak.`,
+      staysCold: (time) => `Saat ${time} sonrasında hava soğuk kalacak.`,
+      staysFreezing: (time) => `Saat ${time} sonrasında dondurucu soğuk sürecek.`,
+      coolsTo: (time, temperature) => `Hava ${time} civarında ${temperature} seviyesine inecek.`,
+      warmsTo: (time, temperature) => `Hava ${time} civarında ${temperature} seviyesine çıkacak.`,
+      lowest: (time, temperature) => `En düşük ${time} civarında, ${temperature} dolayında.`,
     },
     emphasis: {
       recommended: 'Önerilen',

@@ -7,6 +7,7 @@ import {
   localDayKind,
   localDayVariant,
   recommendationRefreshTrigger,
+  recommendationPoolExhausted,
   usingStandardPhaseMilliseconds,
 } from './recommendation-application-controller.ts';
 import { WorkerAiClientError } from '../data/worker-ai-client.ts';
@@ -139,6 +140,15 @@ async function persistedRecommendation() {
   await controller.initialize();
   return controller.refresh('first-recommendation', input(16));
 }
+
+test('exhaustion compares the complete pool with the current shown set', async () => {
+  const snapshot = await persistedRecommendation();
+  const ids = snapshot.recommendation.outfits.map(({ optionId }) => optionId);
+  assert.equal(recommendationPoolExhausted(ids, snapshot), true);
+  assert.equal(recommendationPoolExhausted([...ids, 'unseen-valid-option'], snapshot), false);
+  assert.equal(recommendationPoolExhausted(null, snapshot), false);
+  assert.equal(recommendationPoolExhausted(ids, null), false);
+});
 
 test('local day variant is a deterministic seven-day ring', () => {
   assert.equal(localDayVariant(new Date(2026, 0, 1, 12)), 1);
@@ -418,6 +428,14 @@ test('the smallest composable pool still reaches the AI client', async () => {
   assert.equal(calls.client, 1);
   assert.equal(snapshot.generationMode, 'ai-assisted');
   assert.equal(snapshot.recommendation.outfits.length, 3);
+  assert.equal(controller.getSnapshot().exhausted, false);
+
+  await controller.refresh('regenerate', input(30));
+  assert.equal(requests[1].options.length, 4);
+
+  const restored = createHarness({ cached: snapshot });
+  await restored.controller.initialize();
+  assert.equal(restored.controller.getSnapshot().exhausted, false);
 });
 
 test('the smallest composable pool still fills three deterministic outfits when the AI tier fails', async () => {
@@ -563,6 +581,7 @@ test('a repository load failure leaves the ready state carrying an unknown failu
     isRefreshing: false,
     lastFailure: 'unknown',
     phase: null,
+    exhausted: false,
   });
 });
 

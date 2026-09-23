@@ -28,12 +28,10 @@ import {
 } from '@kuyara/contracts';
 import { z } from 'zod';
 
-import {
-  garmentCatalogVersion,
-  listGarmentTypesForPreference,
-} from '@/features/catalog/domain/garment-catalog';
+import { garmentCatalogVersion } from '@/features/catalog/domain/garment-catalog';
 import {
   assignFallbackArchetypes,
+  composeOutfitPool,
   excludeOutfitOptions,
   outfitOptionId,
   outfitMatchesArchetype,
@@ -49,7 +47,6 @@ import {
 import {
   accessoryOutfitSlots,
   collectValidOutfits,
-  composeOutfitOptions,
   outfitSlots,
   type AssignedOutfitGarment,
   type OutfitCandidate,
@@ -202,18 +199,15 @@ export function createRecommendationContext(
   input: OutfitRecommendationInput,
   localDayKey?: string,
 ): RecommendationContext {
+  return createRecommendationContextWithPool(input, localDayKey).context;
+}
+
+export function createRecommendationContextWithPool(
+  input: OutfitRecommendationInput,
+  localDayKey?: string,
+): Readonly<{ context: RecommendationContext; poolOptionIds: readonly string[] }> {
   const requirements = deriveClothingRequirements(input.snapshot, input.now);
-  const candidates = listGarmentTypesForPreference(input.clothingPreference).map(
-    (type) => evaluateGarmentEligibility(
-      requirements,
-      projectCatalogEffectiveGarment(type.typeId, input.clothingPreference),
-    ),
-  );
-  const composition = composeOutfitOptions(
-    requirements,
-    candidates,
-    input.dayVariant,
-  );
+  const composition = composeOutfitPool(requirements, input.clothingPreference, input.dayVariant);
   const availableOutfits = composition.status === 'composed'
     ? excludeOutfitOptions(composition.outfits, input.excludedOptionIds)
     : [];
@@ -228,7 +222,12 @@ export function createRecommendationContext(
     options: availableOutfits.map(toAiOption),
   });
   if (!parsed.success) throw new WorkerAiRecommendationMappingError();
-  return parsed.data;
+  return {
+    context: parsed.data,
+    poolOptionIds: composition.status === 'composed'
+      ? composition.outfits.map(outfitOptionId)
+      : [],
+  };
 }
 
 export function createAiRecommendationRequest(

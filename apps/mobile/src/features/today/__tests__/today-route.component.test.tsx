@@ -178,6 +178,7 @@ function recommendationReady(
     isRefreshing: false,
     lastFailure: null,
     phase: null,
+    exhausted: false,
     snapshot: {
       id: 'recommendation-one',
       localProfileId: 'profile-one',
@@ -556,7 +557,7 @@ test('the first recommendation refresh shows loading without reporting an error 
   const result = await render(
     <Providers
       {...props}
-      recommendation={{ status: 'ready', snapshot: null, isRefreshing: true, lastFailure: null, phase: null }}>
+      recommendation={{ status: 'ready', snapshot: null, isRefreshing: true, lastFailure: null, phase: null, exhausted: false }}>
       <TodayRoute />
     </Providers>,
   );
@@ -740,6 +741,24 @@ test('recommendation refresh and failure state reaches Today while the last outf
   expect(result.getByTestId('today-archetype')).toBeOnTheScreen();
 });
 
+test('an exhausted recommendation hides the regenerate action and caption from Today', async () => {
+  const result = await render(
+    <Providers
+      productAnalytics={createProductAnalytics()}
+      profile={profileValue()}
+      recommendation={recommendationReady({ exhausted: true })}
+      wardrobe={wardrobeValue()}
+      weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  expect(result.getByTestId('today-archetype')).toBeOnTheScreen();
+  expect(result.queryByTestId('today-regenerate')).toBeNull();
+  expect(result.queryByTestId('today-regenerate-caption')).toBeNull();
+  expect(result.queryByRole('button', { name: messages.en.today.regenerateAction })).toBeNull();
+});
+
 test('refreshing while Today shows stale weather and a failed attempt reports retry_after_failure_triggered', async () => {
   const productAnalytics = createProductAnalytics();
   // `refreshFailed` on an otherwise-loaded state: the last attempt failed but a snapshot
@@ -838,7 +857,7 @@ test('a visible recommendation failure uses only the recommendation error surfac
     <Providers
       productAnalytics={productAnalytics}
       profile={profileValue()}
-      recommendation={{ status: 'ready', snapshot: null, isRefreshing: false, lastFailure: 'unavailable', phase: null }}
+      recommendation={{ status: 'ready', snapshot: null, isRefreshing: false, lastFailure: 'unavailable', phase: null, exhausted: false }}
       wardrobe={wardrobeValue()}
       weather={weatherValue()}>
       <TodayRoute />
