@@ -17,10 +17,8 @@ After Zod parsing and before display or persistence, the recommendation domain c
 - Never widen the approved AI input projection for the sentence, including with a name, history, photo, identifier or coordinate.
 - Never repair invalid prose or reject otherwise valid outfit picks because only the optional sentence failed.
 
-## Accepted risks
+## Consequences
 
 A closed function-word check is a limited language signal and can reject valid phrasing or accept awkward phrasing. The deterministic localized sentence covers rejection without losing the selected outfits. A tolerant v2 response reader still requires strict validation of the fields it knows.
-
-## Consequences
 
 The v2 route separates a new mobile-facing shape from installed v1 readers. The insight is AI's only visible prose field; every other visible string comes from localization keys. The v2 aesthetics list adds one low-cardinality Worker cache-key field without putting free text into the request. The on-device selection tier retains its structured pick boundary and can use the deterministic first insight line.
