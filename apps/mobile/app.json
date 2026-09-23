@@ -2,7 +2,7 @@
   "expo": {
     "name": "kuyara",
     "slug": "kuyara",
-    "version": "0.1.20260920",
+    "version": "0.1.20260923",
     "orientation": "portrait",
     "icon": "./assets/icons/kuyara-icon.png",
     "scheme": "kuyara",
@@ -148,7 +148,8 @@
       "expo-font",
       "expo-image",
       "expo-web-browser",
-      "posthog-react-native/expo"
+      "posthog-react-native/expo",
+      "./plugins/with-ios-scene-lifecycle.js"
     ],
     "locales": {
       "en": "./src/localization/native/en.json",
