@@ -42,16 +42,21 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   current signals with the persisted snapshot. Today also carries a **show another outfit**
   action that regenerates the recommendation alone, leaving weather to the pull gesture: the
   first five taps of a local day reach the AI chain, and after that the same tap composes the
-  next valid three from the already-composed pool without an AI request. The allowance lives
-  in one policy module with a small app-private JSON counter, so it needed no migration, and
-  the button is always enabled: no provider, quota or remaining count is ever shown. Today draws a breathing skeleton garment
+  next valid three from the composed pool without an AI request. The allowance lives
+  in one policy module with a small app-private JSON counter, so it needed no migration. The
+  action and its caption are hidden once no distinct unseen valid option remains; no provider,
+  quota or remaining count is ever shown. Today draws a breathing skeleton garment
   board under a phase line (checking the on-device AI, asking the AI stylist, answer
   received, preparing outfits, using standard suggestions) while a recommendation is
   generated, the same phase line replaces the freshness caption during a refresh of a
   shown recommendation, its pull cycle keeps spinning until both the weather and the
   recommendation refresh settle, and its clock re-reads on focus and on foreground. Under the
-  rationale it says one deterministic sentence about the rest of the dressing day or
-  nothing, calling the hours from 18:00 the evening rather than the night, and every
+  garment board it shows the existing deterministic day insight and a second sentence about
+  a precipitation interval, sustained temperature, wind interval or temperature swing when
+  the forecast supports one. Both lines use body text and primary ink. The title combines
+  Today, the localized weekday and date, temperature and condition; the AI badge sits below
+  it, the archetype is a small label, and outfit reasons appear only on detail. The hours
+  from 18:00 are called the evening rather than the night, and every
   temperature it prints carries one decimal in the reader's own separator. Only the coarse generation mode is exposed,
   and Settings carries the bounded active AI probe beside an on-device availability row
   that calls no provider. Where the selection runs is decided in

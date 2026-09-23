@@ -39,6 +39,7 @@ import {
   type DayInsight,
   type DayInsightModifier,
 } from '@/features/weather/domain/day-insight';
+import { findDayWindow, type DayWindow } from '@/features/weather/domain/day-window';
 import {
   getMessages,
   type SupportedLanguage,
@@ -129,9 +130,9 @@ export type LoadedOutfitPresentation = Readonly<{
 
 export type LoadedTodayPresentation = Readonly<{
   kind: 'loaded';
+  title: string;
   atmosphere: AtmosphereState;
   copy: Readonly<{
-    title: string;
     piecesHeading: string;
     reasonsHeading: string;
     finishingTouchesHeading: string;
@@ -174,11 +175,8 @@ export type LoadedTodayPresentation = Readonly<{
   // The detail surface's one plain sentence, present in all three modes and null only while
   // no recommendation is settled.
   generationSource: string | null;
-  /**
-   * The support line under the rationale: what the rest of the dressing day does, or null on
-   * a day with nothing worth saying, which draws no line and leaves no gap.
-   */
   dayInsight: string | null;
+  dayWindow: string | null;
   stageAccessibilityLabel: string;
   suggestions: readonly LoadedOutfitPresentation[];
   noOutfit: Readonly<{ title: string; body: string }> | null;
@@ -279,6 +277,35 @@ function dayInsightSentence(
   }
 }
 
+function dayWindowSentence(
+  window: DayWindow,
+  copy: TodayMessages['dayWindow'],
+  at: (value: string) => string,
+  temperature: (value: number) => string,
+): string {
+  switch (window.kind) {
+    case 'rain':
+    case 'snow':
+    case 'wind':
+    case 'very_windy': {
+      const from = window.fromHour === null ? null : at(window.fromHour);
+      const until = window.untilHour === null ? null : at(window.untilHour);
+      if (window.kind === 'rain') return copy.rain(from, until);
+      if (window.kind === 'snow') return copy.snow(from, until);
+      return window.kind === 'wind' ? copy.wind(from, until) : copy.veryWindy(from, until);
+    }
+    case 'stays_hot': return copy.staysHot(at(window.fromHour));
+    case 'stays_very_hot': return copy.staysVeryHot(at(window.fromHour));
+    case 'stays_cold': return copy.staysCold(at(window.fromHour));
+    case 'stays_freezing': return copy.staysFreezing(at(window.fromHour));
+    case 'lowest': return copy.lowest(at(window.atHour), temperature(window.temperatureCelsius));
+    case 'temperature_change':
+      return window.direction === 'drop'
+        ? copy.coolsTo(at(window.atHour), temperature(window.toCelsius))
+        : copy.warmsTo(at(window.atHour), temperature(window.toCelsius));
+  }
+}
+
 function assignedGarments(outfit: OutfitCandidate): readonly AssignedOutfitGarment[] {
   const assigned = [
     ...(outfit.body.kind === 'separates'
@@ -338,10 +365,7 @@ function localizeOutfit(
     ...weatherReasons,
     ...outfit.reasonCodes.map((reason) => copy.compositionReasons[reason]),
   ];
-  // Today prints `reasons[0]` as its rationale line. A mild day derives no clothing
-  // requirement and therefore no reason code, which would leave that line blank, so one
-  // deterministic status sentence stands in. Any real reason, the daily-range one
-  // included, keeps its place and suppresses it.
+  // Detail still needs a reason even when mild weather derives no clothing requirement.
   const reasons = composedReasons.length > 0
     ? composedReasons
     : [copy.mildWeatherRationale];
@@ -406,10 +430,7 @@ function requirementNameKey(
     : 'footwear_water_protection';
 }
 
-// Today prints `reasons[0]` as the primary outfit's rationale. The derivation orders its
-// reason codes by the weather value they came from, so an optional requirement's sentence
-// can lead and explain the outfit by something it was not composed to answer. A mandatory
-// requirement's reason comes first; inside each group the derivation's own order stands.
+// Detail leads with mandatory requirements, then keeps the derivation's own order.
 function reasonCodesByPriority(
   requirements: ClothingRequirements,
 ): readonly ClothingRequirementReasonCode[] {
@@ -446,6 +467,13 @@ function createLoadedPresentation(
     insight,
     copy.dayInsight,
     (value) => formatTime(value, language, hour12, weather.timeZone),
+  );
+  const window = findDayWindow({ snapshot: weather, now: new Date(now).toISOString(), firstInsight: insight });
+  const dayWindow = window === null ? null : dayWindowSentence(
+    window,
+    copy.dayWindow,
+    (value) => formatTime(value, language, hour12, weather.timeZone),
+    (value) => formatTemperature(value, language),
   );
   const isStale = snapshot.freshness === 'stale';
   const condition = weatherCopy.conditions[current.condition];
@@ -504,9 +532,17 @@ function createLoadedPresentation(
 
   return {
     kind: 'loaded',
+    title: [
+      copy.title,
+      [
+        new Intl.DateTimeFormat(localeTag(language), { weekday: 'short' }).format(new Date(now)),
+        new Intl.DateTimeFormat(localeTag(language), { day: 'numeric', month: 'short' }).format(new Date(now)),
+      ].join(' '),
+      formatTemperature(current.temperatureCelsius, language),
+      condition,
+    ].join(' · '),
     atmosphere: resolveAtmosphereState(current.condition, daypart),
     copy: {
-      title: copy.title,
       piecesHeading: copy.piecesHeading,
       reasonsHeading: copy.reasonsHeading,
       finishingTouchesHeading: copy.finishingTouchesHeading,
@@ -558,6 +594,7 @@ function createLoadedPresentation(
     generationMode,
     generationSource,
     dayInsight,
+    dayWindow,
     stageAccessibilityLabel: primary ? copy.stageAccessibilityLabel({
       temperature: formatTemperatureValue(current.temperatureCelsius, language),
       condition,

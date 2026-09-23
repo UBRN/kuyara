@@ -223,7 +223,7 @@ function stateWithGenerationMode(
 }
 
 describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
-  test.each([lightTheme, darkTheme])('renders the stage, one rationale, quiet provenance and two equal alternates', async (theme) => {
+  test.each([lightTheme, darkTheme])('renders the title, stage, quiet provenance and two equal alternates', async (theme) => {
     const presentation = loadedPresentation(language);
     const primary = presentation.suggestions[0];
     const onOpenOutfitDetail = jest.fn();
@@ -242,9 +242,16 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     expect(result.getByTestId(`today-primary-board-${primary.id}`, hidden)).toBeOnTheScreen();
     expect(result.getByTestId('today-archetype', hidden)).toHaveTextContent(primary.title);
     expect(StyleSheet.flatten(result.getByTestId('today-archetype', hidden).props.style))
-      .toMatchObject(typography.title);
-    expect(result.getByTestId('today-rationale')).toHaveTextContent(primary.reasons[0]);
-    for (const reason of primary.reasons.slice(1)) {
+      .toMatchObject(typography.label);
+    const title = result.getByRole('header', { name: presentation.title });
+    expect(title).toBeOnTheScreen();
+    expect(presentation.title).toContain(language === 'en' ? 'Thu 13 Aug · 20.0°' : 'Per 13 Ağu · 20,0°');
+    expect(title.props.numberOfLines).toBeUndefined();
+    expect(StyleSheet.flatten(title.props.style)).toMatchObject({
+      ...typography.title, fontWeight: '700', fontVariant: ['tabular-nums'],
+    });
+    expect(result.queryByTestId('today-rationale')).not.toBeOnTheScreen();
+    for (const reason of primary.reasons) {
       expect(result.queryByText(reason)).not.toBeOnTheScreen();
     }
     expect(within(result.getByTestId('today-provenance')).getByTestId('today-freshness'))
@@ -260,14 +267,8 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     expect(StyleSheet.flatten(place.props.style)).toMatchObject({
       ...typography.caption, color: theme.colors.textSecondary,
     });
-    const temperature = result.getByTestId('today-header-temperature', hidden);
-    expect(StyleSheet.flatten(temperature.props.style)).toMatchObject({
-      ...typography.title, fontVariant: ['tabular-nums'], color: theme.colors.textPrimary,
-    });
-    expect(StyleSheet.flatten(result.getByTestId('today-condition', hidden).props.style))
-      .toMatchObject({ ...typography.caption, color: theme.colors.textPrimary });
-    expect(StyleSheet.flatten(result.getByTestId('today-condition', hidden).props.style))
-      .not.toHaveProperty('opacity');
+    expect(result.queryByTestId('today-header-temperature', hidden)).toBeNull();
+    expect(result.queryByTestId('today-condition', hidden)).toBeNull();
     expect(isHiddenFromAccessibility(result.getByTestId('today-sky', hidden))).toBe(true);
     expect(StyleSheet.flatten(result.getByTestId('today-outfit-list').props.style))
       .toMatchObject({ flexDirection: 'row', gap: spacing.md });
@@ -323,7 +324,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     expect(screenStyle.paddingBottom).toBe(spacing.md);
   });
 
-  test.each([lightTheme, darkTheme])('badges AI provenance under the outfit name, off the tinted stage', async (theme) => {
+  test.each([lightTheme, darkTheme])('badges AI provenance under the title, off the tinted stage', async (theme) => {
     const result = await render(providers(
       <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
         onRefresh={jest.fn()} onRegenerate={jest.fn()} state={aiAssistedTodayScreenState} />,
@@ -977,7 +978,7 @@ test('an unavailable recommendation keeps header and weather while replacing sug
   ));
 
   expect(result.getByText('Istanbul')).toBeOnTheScreen();
-  expect(result.getByTestId('today-header-temperature', { includeHiddenElements: true })).toBeOnTheScreen();
+  expect(result.getByTestId('today-title')).toBeOnTheScreen();
   expect(result.queryByTestId('today-weather-card')).not.toBeOnTheScreen();
   expect(result.getByRole('alert', {
     name: `${messages.en.today.noOutfitTitle}. ${messages.en.today.noOutfitBody}`,
@@ -1253,7 +1254,7 @@ describe.each(['en', 'tr'] as const)('%s Today section headings', (language: Sup
     for (const heading of [messages[language].today.otherOptionsHeading]) {
       const element = result.getByRole('header', { name: heading });
       expect(StyleSheet.flatten(element.props.style)).toMatchObject({
-        color: lightTheme.colors.textSecondary,
+        color: lightTheme.colors.textPrimary,
         fontSize: typography.bodyStrong.fontSize,
         fontWeight: typography.bodyStrong.fontWeight,
       });
@@ -1902,9 +1903,7 @@ describe('the contextual weather-alert offer', () => {
   });
 });
 
-// The "show another outfit" action. It is always enabled, because past the daily AI
-// allowance the same tap still composes a new valid three from the already-composed pool, so
-// there is no state in which the screen would have to explain a disabled control.
+// The action and caption disappear together once the complete composed pool is shown.
 describe.each(['en', 'tr'] as const)('%s regenerate action', (language) => {
   test('reads from the localized key, keeps a full touch target and stays enabled', async () => {
     const onRegenerate = jest.fn();
@@ -1922,6 +1921,8 @@ describe.each(['en', 'tr'] as const)('%s regenerate action', (language) => {
 
     const action = result.getByTestId('today-regenerate');
     expect(action).toHaveTextContent(messages[language].today.regenerateAction);
+    expect(result.getByTestId('today-regenerate-caption'))
+      .toHaveTextContent(messages[language].today.regenerateCaption);
     expect(action.props.accessibilityRole).toBe('button');
     expect(action.props.accessibilityState?.disabled).toBeFalsy();
     expect(StyleSheet.flatten(action.props.style))
@@ -1934,7 +1935,7 @@ describe.each(['en', 'tr'] as const)('%s regenerate action', (language) => {
   });
 });
 
-// The day-insight line: one deterministic sentence under the rationale saying what the rest
+// The day-insight line: one deterministic sentence under the board saying what the rest
 // of the dressing day does. The shared fixture's snapshot stops four hours in, which is not a
 // day anyone can describe, so these rows carry a snapshot that reaches local midnight.
 const insightHour = {
@@ -2000,9 +2001,9 @@ describe.each(['en', 'tr'] as const)('%s Today day insight', (language) => {
 
     const line = result.getByTestId('today-day-insight');
     expect(line).toHaveTextContent(sentence);
-    // A support line, not an anchor: caption in the secondary ink, under the rationale.
+    // Both insight lines use body text in primary ink.
     expect(StyleSheet.flatten(line.props.style))
-      .toMatchObject({ ...typography.caption, color: lightTheme.colors.textSecondary });
+      .toMatchObject({ ...typography.body, color: lightTheme.colors.textPrimary });
     // The sentence is its own label; the stage keeps the only weather label on the screen.
     expect(line.props.accessibilityLabel).toBeUndefined();
   });
@@ -2057,6 +2058,34 @@ describe.each(['en', 'tr'] as const)('%s Today day insight', (language) => {
     ));
 
     expect(result.queryByTestId('today-day-insight')).toBeNull();
-    expect(result.getByTestId('today-rationale')).toBeOnTheScreen();
+    expect(result.queryByTestId('today-rationale')).toBeNull();
+  });
+});
+
+describe.each(['en', 'tr'] as const)('%s Today window insight', (language) => {
+  test('uses a complete localized wind sentence in body text', async () => {
+    const result = await render(providers(
+      <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
+        onRefresh={jest.fn()} onRegenerate={jest.fn()}
+        state={insightState({ 14: { windSpeedMetersPerSecond: 5 } })} />,
+      lightTheme, language,
+    ));
+
+    const line = result.getByTestId('today-day-window');
+    expect(line).toHaveTextContent(messages[language].today.dayWindow.wind('14:00', '15:00'));
+    expect(StyleSheet.flatten(line.props.style)).toMatchObject({
+      ...typography.body, color: lightTheme.colors.textPrimary,
+    });
+  });
+
+  test('does not repeat rain already described by line one', async () => {
+    const result = await render(providers(
+      <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
+        onRefresh={jest.fn()} onRegenerate={jest.fn()}
+        state={insightState({ 11: rainHour, 12: rainHour })} />,
+      lightTheme, language,
+    ));
+    expect(result.getByTestId('today-day-insight')).toBeOnTheScreen();
+    expect(result.queryByTestId('today-day-window')).toBeNull();
   });
 });
