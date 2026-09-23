@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { use, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
@@ -21,6 +21,7 @@ import {
 } from '@/components/ui';
 import { useAmbientPulse } from '@/components/ui/use-ambient-pulse';
 import type { NotificationOptInOutcome } from '@/features/notifications/application/notification-application-controller';
+import { RecommendationApplicationContext } from '@/features/recommendation/application/recommendation-application-context';
 import type { WeatherAlertOfferReason } from '@/features/notifications/domain/weather-alert-offer';
 import type { TodayScreenState } from '@/features/today/model';
 import { GarmentBoardSkeleton } from '@/features/today/presentation/garment-board-skeleton';
@@ -84,6 +85,7 @@ export function TodayScreen({
   onRegenerate,
 }: TodayScreenProps) {
   const router = useRouter();
+  const recommendationApplication = use(RecommendationApplicationContext);
   const weatherApplication = useWeatherApplication();
   const { hour12 } = useLocalization();
   const now = useForegroundClock();
@@ -264,6 +266,8 @@ export function TodayScreen({
     ? ambientIntensityOf(state.snapshot.weather.current.condition)
     : 'calm';
   const [primary, ...alternates] = presentation.suggestions;
+  const exhausted = recommendationApplication?.state.status === 'ready'
+    && recommendationApplication.state.exhausted;
   // The two tiles share the row's own gap, so the width follows `styles.outfitList`.
   const alternateWidth = usesAccessibilityLayout
     ? contentWidth
@@ -298,6 +302,16 @@ export function TodayScreen({
           </AppText>
         </View>
 
+        <AppText accessibilityRole="header" style={styles.todayTitle} tabularNumbers testID="today-title" variant="title">
+          {presentation.title}
+        </AppText>
+        {presentation.generationMode ? (
+          <ProvenanceBadge
+            accessibilityLabel={presentation.generationMode.accessibilityLabel}
+            label={presentation.generationMode.label}
+          />
+        ) : null}
+
         {primary ? (
           <>
             <Pressable
@@ -306,6 +320,9 @@ export function TodayScreen({
               accessibilityRole="button"
               onPress={() => onOpenOutfitDetail(primary.id)}
               style={({ pressed }) => ({ opacity: pressed ? theme.interaction.pressedOpacity : 1 })}>
+              <AppText style={styles.archetypeName} testID="today-archetype" variant="label">
+                {primary.title}
+              </AppText>
               {usesAccessibilityLayout ? <Sky intensity={ambientIntensity} weather={presentation.weather} /> : null}
               <View
                 accessibilityElementsHidden
@@ -324,8 +341,8 @@ export function TodayScreen({
                   // ADR 0021 section 10's transition between suggestions: the key is the
                   // option identity, so a new recommendation re-mounts the board and the
                   // pieces rise once more, while a refresh that returns the same outfit
-                  // leaves it still. The rise is never the only signal; the archetype, the
-                  // rationale and the freshness line all change with it.
+                  // leaves it still. The rise is never the only signal; the archetype and
+                  // freshness line also change with it.
                   key={primary.id}
                   // Today's subject is the primary composition, so it is the one board that
                   // carries a coloured piece; the alternates below stay neutral.
@@ -339,42 +356,16 @@ export function TodayScreen({
                 />
                 {!usesAccessibilityLayout ? <Sky intensity={ambientIntensity} overlay weather={presentation.weather} /> : null}
               </View>
-              <View style={styles.titleRow}>
-                <AppText style={styles.outfitName} testID="today-archetype" variant="title">
-                  {primary.title}
-                </AppText>
-                <View style={styles.disclosure}>
-                  <Icon color={theme.colors.textPrimary} name="chevronRight" size={20} />
-                </View>
-              </View>
             </Pressable>
-            {/* The badge sits on the page ground, never inside the Pressable and never over
-                the tinted stage, where the badge ink falls to 2.622:1 on `fallingNight`. It is
-                not touchable, carries no glyph, and says only where the outfit came from. */}
-            {presentation.generationMode ? (
-              <ProvenanceBadge
-                accessibilityLabel={presentation.generationMode.accessibilityLabel}
-                label={presentation.generationMode.label}
-              />
-            ) : null}
-            <AppText
-              colorRole="textSecondary"
-              style={styles.rationale}
-              testID="today-rationale">
-              {primary.reasons[0]}
-            </AppText>
-            {/* A second support line under the first, never a second anchor (Law 1): the
-                rationale says why this outfit, this says what the day does, and reading them
-                in that order keeps the outfit the subject. It is ordinary text in the reading
-                order, so the sentence is its own label and the stage keeps the one it has. */}
-            {presentation.dayInsight ? (
-              <AppText
-                colorRole="textSecondary"
-                style={styles.dayInsight}
-                testID="today-day-insight"
-                variant="caption">
-                {presentation.dayInsight}
-              </AppText>
+            {presentation.dayInsight || presentation.dayWindow ? (
+              <View style={styles.insights}>
+                {presentation.dayInsight ? (
+                  <AppText testID="today-day-insight" variant="body">{presentation.dayInsight}</AppText>
+                ) : null}
+                {presentation.dayWindow ? (
+                  <AppText testID="today-day-window" variant="body">{presentation.dayWindow}</AppText>
+                ) : null}
+              </View>
             ) : null}
             <AccessoryBadges caption={presentation.copy.finishingTouchesHeading} suggestion={primary} />
           </>
@@ -432,7 +423,7 @@ export function TodayScreen({
             <View
               style={[styles.alternatesHeading, { borderBottomColor: theme.colors.borderSubtle }]}
               testID="today-alternates-heading">
-              <AppText accessibilityRole="header" colorRole="textSecondary" variant="bodyStrong">
+              <AppText accessibilityRole="header" variant="bodyStrong">
                 {presentation.copy.otherOptionsHeading}
               </AppText>
             </View>
@@ -481,22 +472,22 @@ export function TodayScreen({
           </View>
         ) : null}
 
-        {/* One quiet line, the calm of the offer row's actions: no accent fill and no
-            second card (Law 1, Law 3). It is always enabled, because past the daily AI
-            allowance the same tap still composes a new valid three from the pool. It never
-            says where the outfits come from, how many are left, or who chose them. A day
-            that has no outfit has none to show another of, so the line is absent there. */}
-        {primary ? (
-          <PressScale
-            accessibilityRole="button"
-            onPress={onRegenerate}
-            style={({ pressed }) => [
-              styles.regenerate,
-              { opacity: pressed ? theme.interaction.pressedOpacity : 1 },
-            ]}
-            testID="today-regenerate">
-            <AppText colorRole="textSecondary" variant="label">{copy.regenerateAction}</AppText>
-          </PressScale>
+        {primary && !exhausted ? (
+          <View style={styles.regenerateGroup}>
+            <PressScale
+              accessibilityRole="button"
+              onPress={onRegenerate}
+              style={({ pressed }) => [
+                styles.regenerate,
+                { opacity: pressed ? theme.interaction.pressedOpacity : 1 },
+              ]}
+              testID="today-regenerate">
+              <AppText variant="label">{copy.regenerateAction}</AppText>
+            </PressScale>
+            <AppText testID="today-regenerate-caption" variant="caption">
+              {copy.regenerateCaption}
+            </AppText>
+          </View>
         ) : null}
 
         {/* ADR 0002 section 8: attribution belongs on every surface that shows weather, so
@@ -600,7 +591,7 @@ function WeatherAlertOfferRow({
 }
 
 /**
- * The provenance badge: one controlled-role Pill under the outfit name, on the page ground.
+ * The provenance badge: one controlled-role Pill under the title, on the page ground.
  * Law 7: it arrives as a state change of something already on screen, so it takes the
  * `normal` duration and moves nothing but opacity, whether it mounts with a cached answer or
  * replaces the phase line when a live answer lands. The words and the colour carry the
@@ -669,7 +660,7 @@ function AccessoryBadges({
       ))}
       {/* Law 6: the silhouettes alone say what they are to nobody who has not learned them,
           so the row names itself. The accessible label already opens with the same words. */}
-      <AppText colorRole="textSecondary" style={styles.accessoryCaption} variant="caption">
+      <AppText style={styles.accessoryCaption} variant="caption">
         {caption}
       </AppText>
     </View>
@@ -710,14 +701,6 @@ function Sky({ intensity, weather, overlay = false }: Readonly<{
       pointerEvents="none"
       style={[styles.sky, overlay ? styles.skyOverlay : styles.skyAbove]}
       testID="today-sky">
-      <View style={styles.skyText}>
-        <AppText tabularNumbers testID="today-header-temperature" variant="title">
-          {weather.temperature}
-        </AppText>
-        <AppText colorRole="textPrimary" style={styles.condition} testID="today-condition" variant="caption">
-          {weather.condition}
-        </AppText>
-      </View>
       <View style={styles.weatherGlyph}>
         <WeatherGlyph
           condition={weather.conditionCode}
@@ -733,23 +716,21 @@ function Sky({ intensity, weather, overlay = false }: Readonly<{
 const styles = StyleSheet.create({
   placeRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
   location: { flex: 1, flexShrink: 1 },
+  todayTitle: { fontWeight: '700' },
+  archetypeName: { marginBottom: spacing.sm, marginTop: spacing.sm },
   stage: { borderRadius: 26, overflow: 'hidden' },
-  titleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg },
   outfitName: { flex: 1, flexShrink: 1 },
   disclosure: { opacity: 0.55 },
   provenanceBadge: { marginTop: spacing.xs },
-  rationale: { marginTop: spacing.sm },
-  dayInsight: { marginTop: spacing.xs },
+  insights: { gap: spacing.sm, marginTop: spacing.xl },
   accessoryBadges: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm },
   accessoryCaption: { flexShrink: 1, marginLeft: spacing.xs },
   loadingIntro: { gap: spacing.xs, marginBottom: spacing.md },
   generatingStatus: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.md },
   generatingStatusText: { flexShrink: 1 },
-  sky: { alignItems: 'flex-start', flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
-  skyText: { flex: 1, flexShrink: 1 },
+  sky: { alignItems: 'flex-end' },
   skyOverlay: { position: 'absolute', top: 18, left: 20, right: 20 },
   skyAbove: { marginBottom: spacing.md },
-  condition: { marginTop: spacing.xs },
   weatherGlyph: { transform: [{ scale: 31 / 36 }] },
   provenance: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.md },
   stackedProvenance: { alignItems: 'flex-start', flexDirection: 'column' },
@@ -761,13 +742,14 @@ const styles = StyleSheet.create({
   alertOfferActions: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },
   stackedAlertOfferActions: { alignItems: 'flex-start', flexDirection: 'column', gap: spacing.sm },
   alertOfferAction: { justifyContent: 'center', minHeight: layout.minimumTouchTarget },
-  alternates: { marginTop: spacing.xl },
+  alternates: { marginTop: spacing.md },
   alternatesHeading: { paddingBottom: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth },
   outfitList: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
   stackedOutfitList: { flexDirection: 'column', gap: spacing.md },
   alternateStage: { borderRadius: 14, justifyContent: 'center', overflow: 'hidden' },
   alternateTitleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   regenerate: { justifyContent: 'center', marginTop: spacing.md, minHeight: layout.minimumTouchTarget },
+  regenerateGroup: { gap: spacing.xs },
   attribution: { marginTop: spacing.md },
   feedbackContent: { alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.lg },
   feedbackCard: { alignItems: 'center', gap: spacing.md, maxWidth: 520, padding: spacing.lg, width: '100%' },
