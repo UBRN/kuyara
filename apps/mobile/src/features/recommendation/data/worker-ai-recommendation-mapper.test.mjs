@@ -279,6 +279,21 @@ const gridScenarios = [-3, 8, 16, 24, 31].flatMap((temperatureCelsius) =>
   return { scenarioInput, context, request: aiRequestFromContext(context) };
 });
 
+test('AI request excludes display name and every free-text profile field', () => {
+  const context = gridScenarios.find(({ request }) => request)?.context;
+  assert.ok(context);
+  const request = aiRequestFromContext({
+    ...context,
+    displayName: 'Utku',
+    profileNote: 'private profile note',
+  });
+  assert.ok(request);
+  const serialized = JSON.stringify(request);
+  for (const excluded of ['displayName', 'profileNote', 'Utku', 'private profile note']) {
+    assert.equal(serialized.includes(excluded), false);
+  }
+});
+
 // The arrangement of the six body slots. Accessories are left out: they follow from the
 // weather and the option's formality, so they say nothing about how it was arranged.
 function optionSignature(option) {

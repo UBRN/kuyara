@@ -17,6 +17,7 @@ export default function OnboardingRoute() {
   return (
     <OnboardingScreen
       initialBirthDate={state.profile.birthDate}
+      initialDisplayName={state.profile.displayName}
       initialDressStyle={state.profile.dressStyle}
       initialGender={state.profile.gender}
       onComplete={completeOnboarding}

@@ -16,6 +16,7 @@ export type ProfileApplicationValue = Readonly<{
   updateGender: (gender: Gender) => Promise<void>;
   updateDressStyle: (dressStyle: DressStyle) => Promise<void>;
   updateBirthDate: (birthDate: string | null) => Promise<void>;
+  updateDisplayName: (displayName: string | null) => Promise<void>;
   updateLanguagePreference: (preference: LanguagePreference) => Promise<void>;
   updateThemePreference: (preference: ThemePreference) => Promise<void>;
   updateNotificationsOptIn: (optIn: boolean) => Promise<void>;

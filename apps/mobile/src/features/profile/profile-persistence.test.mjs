@@ -24,6 +24,8 @@ const createRecord = (overrides = {}) => ({
   gender: null,
   dressStyle: null,
   birthDate: null,
+  displayName: null,
+  namePromptVersion: 0,
   languagePreference: 'system',
   themePreference: 'system',
   onboardingCompleted: 0,
@@ -783,4 +785,45 @@ test('a stored birth date is read back even when the device clock has moved behi
     createId: () => 'unused', now: () => updatedAt,
   }), () => new Date(1970, 0, 1));
   assert.equal((await relaunched.getOrCreateProfile()).birthDate, '2000-02-29');
+});
+
+test('name and one-time prompt gate round trip independently of personal preferences', async (t) => {
+  const { database, dataSource } = await createLocalDataSource(t);
+  const repository = new LocalProfileRepository(dataSource);
+  const initial = await repository.getOrCreateProfile();
+  assert.equal(initial.displayName, null);
+  assert.equal(initial.namePromptVersion, 0);
+
+  await repository.updateDisplayName('  Utku  ');
+  const relaunched = new LocalProfileRepository(new SqliteProfileLocalDataSource(database, {
+    createId: () => 'unused', now: () => updatedAt,
+  }));
+  assert.equal((await relaunched.getOrCreateProfile()).displayName, 'Utku');
+  assert.equal((await relaunched.getOrCreateProfile()).namePromptVersion, 1);
+  assert.deepEqual({ ...await database.getFirstAsync(
+    'SELECT display_name, name_prompt_version FROM local_profiles',
+  ) }, { display_name: 'Utku', name_prompt_version: 1 });
+
+  await repository.updateDisplayName('   ');
+  assert.equal((await repository.getOrCreateProfile()).displayName, null);
+  assert.equal((await repository.getOrCreateProfile()).namePromptVersion, 1);
+  await assert.rejects(() => repository.updateDisplayName('A'),
+    (error) => error instanceof ProfileRepositoryError && error.code === 'invalid-data');
+  await assert.rejects(() => repository.updateDisplayName('a'.repeat(31)),
+    (error) => error instanceof ProfileRepositoryError && error.code === 'invalid-data');
+  assert.equal((await repository.getOrCreateProfile()).displayName, null);
+});
+
+test('onboarding stores the optional name and marks its invitation answered', async (t) => {
+  const { database, dataSource } = await createLocalDataSource(t);
+  const repository = new LocalProfileRepository(dataSource);
+  await repository.getOrCreateProfile();
+  const completed = await repository.completeOnboarding({
+    gender: 'woman', dressStyle: 'smart', birthDate: null, displayName: '  Deniz  ',
+  });
+  assert.equal(completed.displayName, 'Deniz');
+  assert.equal(completed.namePromptVersion, 1);
+  assert.deepEqual({ ...await database.getFirstAsync(
+    'SELECT display_name, name_prompt_version FROM local_profiles',
+  ) }, { display_name: 'Deniz', name_prompt_version: 1 });
 });

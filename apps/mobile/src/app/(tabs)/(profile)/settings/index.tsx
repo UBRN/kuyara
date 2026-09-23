@@ -20,6 +20,7 @@ export default function SettingsRoute() {
     updateDressStyle,
     updateGender,
     updateLanguagePreference,
+    updateDisplayName,
     updateThemePreference,
   } = useProfileApplication();
   const { state: notificationState } = useNotificationApplication();
@@ -101,6 +102,7 @@ export default function SettingsRoute() {
         }}
         onOpenServiceProviders={() => router.push('/settings/service-providers')}
         onOpenBirthDate={() => router.push('/settings/birth-date')}
+        onNameChange={updateDisplayName}
         onOpenNotifications={() => router.push('/settings/notifications')}
         onOpenPrivacy={() => router.push('/settings/privacy')}
         onOpenSupport={() => {

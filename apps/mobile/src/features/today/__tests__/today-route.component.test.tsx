@@ -235,6 +235,8 @@ function profileValue(profile: Partial<LocalProfile> = {}) {
       gender: 'woman' as const,
       dressStyle: 'smart' as const,
       birthDate: null,
+      displayName: null,
+      namePromptVersion: 1,
       languagePreference: 'system' as const,
       themePreference: 'system' as const,
       onboardingCompleted: true,
@@ -255,6 +257,7 @@ function profileValue(profile: Partial<LocalProfile> = {}) {
     updateGender: jest.fn(async () => undefined),
     updateDressStyle: jest.fn(async () => undefined),
     updateBirthDate: jest.fn(async () => undefined),
+    updateDisplayName: jest.fn(async () => undefined),
     updateLanguagePreference: jest.fn(async () => undefined),
     updateThemePreference: jest.fn(async () => undefined),
     updateNotificationsOptIn: jest.fn(async () => undefined),
@@ -430,6 +433,50 @@ test('Today offers the alert opt-in once, and each action answers the offer', as
     .map(({ properties }) => properties)).toEqual([
     { schema_version: 3, outcome: 'dismissed', kind: 'morning_briefing' },
   ]);
+});
+
+test('an existing profile sees the versioned name sheet and Not now resolves it', async () => {
+  const profile = profileValue({ namePromptVersion: 0 });
+  const markRecommendationShown = jest.fn();
+  const screen = await render(
+    <Providers productAnalytics={createProductAnalytics()} profile={profile}
+      recommendation={recommendationReady()} wardrobe={wardrobeValue()} weather={weatherValue()}
+      markRecommendationShown={markRecommendationShown}>
+      <TodayRoute />
+    </Providers>,
+  );
+  expect(screen.getByText(messages.en.onboarding.nameTitle)).toBeOnTheScreen();
+  expect(markRecommendationShown).not.toHaveBeenCalled();
+  await fireEvent.press(screen.getByTestId('name-sheet-dismiss'));
+  await waitFor(() => expect(profile.updateDisplayName).toHaveBeenCalledWith(null));
+});
+
+test('Today releases its name prompt when saving the dismissal gate fails', async () => {
+  const profile = profileValue({ namePromptVersion: 0 });
+  profile.updateDisplayName.mockRejectedValueOnce(new Error('database failed'));
+  const screen = await render(
+    <Providers productAnalytics={createProductAnalytics()} profile={profile}
+      recommendation={recommendationReady()} wardrobe={wardrobeValue()} weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(screen.getByTestId('name-sheet-dismiss'));
+
+  await waitFor(() => expect(screen.queryByText(messages.en.onboarding.nameTitle)).toBeNull());
+  expect(screen.queryByTestId('name-save-error')).toBeNull();
+});
+
+test('Today greets a named profile without opening the name sheet', async () => {
+  const screen = await render(
+    <Providers productAnalytics={createProductAnalytics()}
+      profile={profileValue({ displayName: 'Utku', namePromptVersion: 1 })}
+      recommendation={recommendationReady()} wardrobe={wardrobeValue()} weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+  expect(screen.getByTestId('today-greeting')).toHaveTextContent('Welcome back, Utku');
+  expect(screen.queryByText(messages.en.onboarding.nameTitle)).toBeNull();
 });
 
 test('Today shows no alert offer when no alert would have fired', async () => {

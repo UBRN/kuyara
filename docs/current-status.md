@@ -198,6 +198,12 @@ The approved phase order, active work and remaining open items are in [the roadm
   longer draw attribution. The Apple Weather mark loads from the public attribution
   endpoint with a localized text fallback. Simulator verification remains open.
 
+- **Optional display name:** schema 17 adds a nullable profile name and a one-time prompt
+  version while preserving existing rows. Onboarding asks for a name after welcome,
+  existing users receive one Today sheet, and Settings can edit or remove it. Today
+  greets named users, Profile personalizes the Closet heading and no longer shows
+  location; the onboarding location step remains.
+
 - **The refresh reaches the stylist:** the validation gate rebuilds a picked option by
   finding the valid arrangement equal to the offer, so every option the app composes is
   accepted and a persisted

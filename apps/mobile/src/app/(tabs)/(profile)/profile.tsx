@@ -3,9 +3,8 @@ import { Stack, useRouter } from 'expo-router';
 import { Icon, IconButton } from '@/components/ui';
 import { useScreenInteractive } from '@/features/analytics/application/use-screen-interactive';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
+import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { ProfileScreen } from '@/features/profile/presentation/profile-screen';
-import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
-import { locationCaptionKey } from '@/features/weather/domain/location-caption';
 import { useMessages } from '@/localization/use-messages';
 
 export default function ProfileRoute() {
@@ -15,19 +14,7 @@ export default function ProfileRoute() {
   // Profile renders its rows from the already-ready profile, so its content is present on
   // the first render.
   useScreenInteractive({ state: 'ready' });
-  const { state } = useWeatherApplication();
-  const activeLocation = state.status === 'ready' ? state.activeLocation : null;
-  // A device fix names its locality when the reverse geocode resolved one; the caption
-  // below still says how the place was resolved.
-  const activePlaceName = activeLocation
-    ? activeLocation.displayName ?? messages.weather.currentLocation
-    : null;
-  // Weather and Profile answer "how was this place resolved?" from the same rule, so a
-  // searched city is never captioned as an approximate device fix.
-  const captionKey = locationCaptionKey(
-    activeLocation,
-    state.status === 'ready' && state.permission.kind === 'granted',
-  );
+  const { state } = useProfileApplication();
 
   return (
     <>
@@ -52,12 +39,10 @@ export default function ProfileRoute() {
         }}
       />
       <ProfileScreen
-        activePlaceName={activePlaceName}
-        locationCaption={captionKey ? messages.weather[captionKey] : null}
+        displayName={state.status === 'ready' ? state.profile.displayName : null}
         onOpenWardrobe={(filter) =>
           router.push(filter ? { params: { filter }, pathname: '/wardrobe' } : '/wardrobe')
         }
-        onOpenWeather={() => router.push('/weather')}
       />
     </>
   );

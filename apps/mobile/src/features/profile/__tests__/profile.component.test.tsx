@@ -88,14 +88,16 @@ function TestProviders({
   items,
   status,
   resolvePhotoUri,
+  language = 'en',
 }: PropsWithChildren<{
   items: readonly WardrobeItem[];
   status?: 'ready' | 'loading' | 'error';
   resolvePhotoUri?: WardrobeApplicationValue['resolvePhotoUri'];
+  language?: 'en' | 'tr';
 }>) {
   return (
     <WardrobeApplicationContext.Provider value={{ ...application(items, status), ...(resolvePhotoUri ? { resolvePhotoUri } : {}) }}>
-      <LocalizationContext.Provider value={{ language: 'en', messages: messages.en , hour12: false }}>
+      <LocalizationContext.Provider value={{ language, messages: messages[language], hour12: false }}>
         <KuyaraThemeContext.Provider value={lightTheme}>
           <SafeAreaProvider initialMetrics={initialMetrics}>
             {children}
@@ -121,9 +123,9 @@ test('the Closet heading counts both entry states and opens the closet with no f
         itemWithId('318f0f4d-1d45-4ae7-a8f1-796e8297d3b4', { entryState: 'wanted' }),
       ]}>
       <ProfileScreen
-        activePlaceName="Istanbul"
+
         onOpenWardrobe={onOpenWardrobe}
-        onOpenWeather={() => undefined}
+
       />
     </TestProviders>,
   );
@@ -144,9 +146,9 @@ test.each([
     const result = await render(
       <TestProviders items={[baseItem]}>
         <ProfileScreen
-          activePlaceName={null}
+
           onOpenWardrobe={() => undefined}
-          onOpenWeather={() => undefined}
+
         />
       </TestProviders>,
     );
@@ -174,9 +176,9 @@ test('the rail renders the newest owned pieces first, each as one accessible ite
   const result = await render(
     <TestProviders items={[older, newer]}>
       <ProfileScreen
-        activePlaceName={null}
+
         onOpenWardrobe={() => undefined}
-        onOpenWeather={() => undefined}
+
       />
     </TestProviders>,
   );
@@ -201,9 +203,9 @@ test('a ninth owned piece adds the "All pieces" tile, which opens the closet wit
   const result = await render(
     <TestProviders items={items}>
       <ProfileScreen
-        activePlaceName={null}
+
         onOpenWardrobe={onOpenWardrobe}
-        onOpenWeather={() => undefined}
+
       />
     </TestProviders>,
   );
@@ -222,9 +224,9 @@ test('the rail tile scales by min(fontScale, 2) above 1.5 per ADR 0028 section 3
   const result = await render(
     <TestProviders items={[baseItem]}>
       <ProfileScreen
-        activePlaceName={null}
+
         onOpenWardrobe={() => undefined}
-        onOpenWeather={() => undefined}
+
       />
     </TestProviders>,
   );
@@ -246,9 +248,9 @@ test('the empty Closet shows the sentence and the Add a piece action, and hides 
   const result = await render(
     <TestProviders items={[]}>
       <ProfileScreen
-        activePlaceName={null}
+
         onOpenWardrobe={onOpenWardrobe}
-        onOpenWeather={() => undefined}
+
       />
     </TestProviders>,
   );
@@ -265,9 +267,9 @@ test('a wanted-only closet counts its pieces and falls back to the wanted rail',
   const result = await render(
     <TestProviders items={[itemWithId(baseItem.id, { entryState: 'wanted' })]}>
       <ProfileScreen
-        activePlaceName={null}
+
         onOpenWardrobe={onOpenWardrobe}
-        onOpenWeather={() => undefined}
+
       />
     </TestProviders>,
   );
@@ -291,9 +293,9 @@ test('an owned-only closet keeps the Wanted row at zero', async () => {
   const result = await render(
     <TestProviders items={[baseItem]}>
       <ProfileScreen
-        activePlaceName={null}
+
         onOpenWardrobe={onOpenWardrobe}
-        onOpenWeather={() => undefined}
+
       />
     </TestProviders>,
   );
@@ -304,65 +306,40 @@ test('an owned-only closet keeps the Wanted row at zero', async () => {
   expect(onOpenWardrobe).toHaveBeenCalledWith('wanted');
 });
 
-test('the Location row shows the place at bodyStrong with the resolved caption and opens Weather', async () => {
-  mockFontScale(1);
-  const onOpenWeather = jest.fn();
+test('Profile removes the location row and keeps a label-only History row', async () => {
   const result = await render(
     <TestProviders items={[baseItem]}>
-      <ProfileScreen
-        activePlaceName="Istanbul"
-        locationCaption={messages.en.weather.approximateLocation}
-        onOpenWardrobe={() => undefined}
-        onOpenWeather={onOpenWeather}
-      />
+      <ProfileScreen onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
-
-  const row = result.getByTestId('profile-location-row');
-  expect(row.props.accessibilityLabel).toBe(
-    `Istanbul, ${messages.en.weather.approximateLocation}`,
-  );
-  expect(result.getByText('Istanbul')).toBeOnTheScreen();
-  expect(result.getByText(messages.en.weather.approximateLocation)).toBeOnTheScreen();
-  await fireEvent.press(row);
-  expect(onOpenWeather).toHaveBeenCalledTimes(1);
+  expect(result.queryByTestId('profile-location-row')).toBeNull();
+  const history = result.getByTestId('profile-history-row');
+  expect(history).toBeOnTheScreen();
+  expect(result.getByText(messages.en.profile.historyLabel)).toBeOnTheScreen();
+  expect(history.props.accessibilityRole).toBeUndefined();
 });
 
-// A city the user searched for is neither a precise nor an approximate device fix, so the
-// weather feature answers with no caption and the row must show none.
-test('the Location row shows no accuracy caption for a place that has none', async () => {
-  mockFontScale(1);
+test('the Closet heading uses the name while the rest of Profile stays the same', async () => {
   const result = await render(
     <TestProviders items={[baseItem]}>
-      <ProfileScreen
-        activePlaceName="Istanbul"
-        locationCaption={null}
-        onOpenWardrobe={() => undefined}
-        onOpenWeather={() => undefined}
-      />
+      <ProfileScreen displayName="Utku" onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
-
-  expect(result.getByTestId('profile-location-row').props.accessibilityLabel).toBe('Istanbul');
-  expect(result.queryByText(messages.en.weather.approximateLocation)).toBeNull();
-  expect(result.queryByText(messages.en.weather.fullLocation)).toBeNull();
+  expect(result.getByText("Utku's Closet")).toBeOnTheScreen();
+  expect(result.getByTestId('profile-closet-heading').props.accessibilityLabel)
+    .toBe("Utku's Closet, 1.");
 });
 
-test('the Location row falls back to the unset label with no approximate caption', async () => {
-  mockFontScale(1);
+test('Turkish keeps the name unchanged in the Closet heading at large text size', async () => {
+  mockFontScale(3.12);
   const result = await render(
-    <TestProviders items={[]}>
-      <ProfileScreen
-        activePlaceName={null}
-        onOpenWardrobe={() => undefined}
-        onOpenWeather={() => undefined}
-      />
+    <TestProviders items={[baseItem]} language="tr">
+      <ProfileScreen displayName="Utku" onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
-
-  const row = result.getByTestId('profile-location-row');
-  expect(row.props.accessibilityLabel).toBe(messages.en.profile.locationUnset);
-  expect(result.queryByText(messages.en.weather.approximateLocation)).toBeNull();
+  expect(result.getByText('Gardırop · Utku')).toBeOnTheScreen();
+  expect(result.getByTestId('profile-closet-heading').props.accessibilityLabel)
+    .toBe('Gardırop · Utku, 1.');
 });
 
 test.each(['loading', 'error'] as const)(
@@ -372,9 +349,9 @@ test.each(['loading', 'error'] as const)(
     const result = await render(
       <TestProviders items={[]} status={status}>
         <ProfileScreen
-          activePlaceName={null}
+
           onOpenWardrobe={() => undefined}
-          onOpenWeather={() => undefined}
+
         />
       </TestProviders>,
     );
@@ -387,7 +364,7 @@ test.each(['loading', 'error'] as const)(
     expect(result.getByText(expectedText)).toBeOnTheScreen();
     expect(result.queryByTestId('profile-closet-heading-count')).toBeNull();
     expect(result.queryByTestId('profile-wanted-row')).toBeNull();
-    expect(result.getByTestId('profile-location-row')).toBeOnTheScreen();
+    expect(result.getByTestId('profile-history-row')).toBeOnTheScreen();
   },
 );
 
@@ -399,7 +376,7 @@ test('the rail draws coloured silhouettes for typed garments and accessories, an
   const legacy = itemWithId('legacy', { garmentTypeId: null });
   const result = await render(
     <TestProviders items={[baseItem, accessory, legacy]}>
-      <ProfileScreen activePlaceName={null} onOpenWardrobe={() => undefined} onOpenWeather={() => undefined} />
+      <ProfileScreen onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
   const hidden = { includeHiddenElements: true };
@@ -414,7 +391,7 @@ test('the rail draws coloured silhouettes for typed garments and accessories, an
 test('the rail prefers a photo, falling to the silhouette when the photo cannot load', async () => {
   const result = await render(
     <TestProviders items={[{ ...baseItem, photoRelativePath: 'photo.jpg' }]} resolvePhotoUri={() => 'file:///photo.jpg'}>
-      <ProfileScreen activePlaceName={null} onOpenWardrobe={() => undefined} onOpenWeather={() => undefined} />
+      <ProfileScreen onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
   const hidden = { includeHiddenElements: true };

@@ -8,15 +8,11 @@ import { FirstUseTracker } from '@/features/analytics/application/first-use-trac
 import { RetryCounter } from '@/features/analytics/application/retry-counter';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
+import { ProfileApplicationContext, type ProfileApplicationValue } from '@/features/profile/application/profile-context';
 import {
   WardrobeApplicationContext,
   type WardrobeApplicationValue,
 } from '@/features/wardrobe/application/wardrobe-application-context';
-import {
-  WeatherApplicationContext,
-  type WeatherApplicationValue,
-} from '@/features/weather/application/weather-application-context';
-import type { ActiveLocation } from '@/features/weather/domain/weather';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
@@ -49,39 +45,35 @@ const wardrobe = {
   resolvePhotoUri: () => null,
 } as unknown as WardrobeApplicationValue;
 
-function weatherValue(activeLocation: ActiveLocation): WeatherApplicationValue {
+function profileValue(displayName: string | null): ProfileApplicationValue {
   return {
     state: {
-      status: 'ready',
-      activeLocation,
-      snapshot: null,
-      freshness: null,
-      permission: { kind: 'granted', accuracy: 'approximate' },
-      locationFlow: 'idle',
-      isSelectingLocation: false,
-      isRefreshing: false,
-      refreshFailure: null,
+      status: 'ready', isSaving: false,
+      profile: {
+        id: 'profile-id', gender: 'woman', dressStyle: 'smart', birthDate: null,
+        displayName, namePromptVersion: 1, clothingPreference: 'womens',
+        languagePreference: 'en', themePreference: 'light', onboardingCompleted: true,
+        notificationsOptIn: false, weatherAlertOfferShown: false,
+        morningBriefingOptIn: false, analyticsConsent: 'undecided',
+        createdAt: '2026-09-09T08:00:00.000Z', updatedAt: '2026-09-09T08:00:00.000Z',
+      },
     },
     retry: jest.fn(async () => undefined),
-    dismissLocationFlow: jest.fn(),
-    beginDeviceLocationSelection: jest.fn(async () => undefined),
-    confirmDeviceLocationRequest: jest.fn(async () => undefined),
-    openApplicationSettings: jest.fn(async () => undefined),
-    selectManualLocation: jest.fn(async () => undefined),
-    refresh: jest.fn(async () => undefined),
-    revalidateFreshness: jest.fn(async () => undefined),
-  } as unknown as WeatherApplicationValue;
+    completeOnboarding: jest.fn(async () => undefined),
+    updateGender: jest.fn(async () => undefined),
+    updateDressStyle: jest.fn(async () => undefined),
+    updateBirthDate: jest.fn(async () => undefined),
+    updateDisplayName: jest.fn(async () => undefined),
+    updateLanguagePreference: jest.fn(async () => undefined),
+    updateThemePreference: jest.fn(async () => undefined),
+    updateNotificationsOptIn: jest.fn(async () => undefined),
+    updateMorningBriefingOptIn: jest.fn(async () => undefined),
+    markWeatherAlertOfferShown: jest.fn(async () => undefined),
+    updateAnalyticsConsent: jest.fn(async () => undefined),
+  };
 }
 
-const deviceLocation = {
-  source: 'device',
-  accuracy: 'approximate',
-  coordinates: { latitudeE2: 4101, longitudeE2: 2898 },
-  locationKey: 'device:4101:2898',
-  timeZone: 'Europe/Istanbul',
-} as const satisfies ActiveLocation;
-
-function Providers({ children, activeLocation }: PropsWithChildren<{ activeLocation: ActiveLocation }>) {
+function Providers({ children, displayName }: PropsWithChildren<{ displayName: string | null }>) {
   const analytics = new RecordingProductAnalytics();
   return (
     <LocalizationContext value={{ language: 'en', messages: messages.en, hour12: false }}>
@@ -95,7 +87,7 @@ function Providers({ children, activeLocation }: PropsWithChildren<{ activeLocat
           firstUses: new FirstUseTracker(new InMemoryFirstUseStore()),
           retries: new RetryCounter(),
         }}>
-          <WeatherApplicationContext value={weatherValue(activeLocation)}>
+          <ProfileApplicationContext value={profileValue(displayName)}>
             <WardrobeApplicationContext value={wardrobe}>
               <SafeAreaProvider initialMetrics={{
                 frame: { x: 0, y: 0, width: 390, height: 844 },
@@ -104,35 +96,30 @@ function Providers({ children, activeLocation }: PropsWithChildren<{ activeLocat
                 {children}
               </SafeAreaProvider>
             </WardrobeApplicationContext>
-          </WeatherApplicationContext>
+          </ProfileApplicationContext>
         </ProductAnalyticsContext>
       </KuyaraThemeContext>
     </LocalizationContext>
   );
 }
 
-test('the Location row names a device location that resolved a locality', async () => {
+test('Profile shows a personalized Closet heading without a location row', async () => {
   const result = await render(
-    <Providers activeLocation={{ ...deviceLocation, displayName: 'Kadıköy' }}>
+    <Providers displayName="Utku">
       <ProfileRoute />
     </Providers>,
   );
 
-  // The name replaces the generic copy; the accuracy caption is unchanged by it.
-  expect(result.getByTestId('profile-location-row').props.accessibilityLabel).toBe(
-    `Kadıköy, ${messages.en.weather.approximateLocation}`,
-  );
-  expect(result.queryByText(messages.en.weather.currentLocation)).toBeNull();
+  expect(result.getByText("Utku's Closet")).toBeOnTheScreen();
+  expect(result.queryByTestId('profile-location-row')).toBeNull();
 });
 
-test('the Location row keeps the generic copy for a device location with no locality', async () => {
+test('Profile keeps the plain Closet heading without a name', async () => {
   const result = await render(
-    <Providers activeLocation={deviceLocation}>
+    <Providers displayName={null}>
       <ProfileRoute />
     </Providers>,
   );
 
-  expect(result.getByTestId('profile-location-row').props.accessibilityLabel).toBe(
-    `${messages.en.weather.currentLocation}, ${messages.en.weather.approximateLocation}`,
-  );
+  expect(result.getByText(messages.en.profile.wardrobeTitle)).toBeOnTheScreen();
 });

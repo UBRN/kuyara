@@ -47,6 +47,7 @@ export type TodayDayInsightKey =
 
 export type TodayMessages = Readonly<{
   title: string;
+  greetingNamed: (name: string) => string;
   // ADR 0034 section 4: the two AI modes have badges, the words final, no Apple glyph. The
   // on-device badge carries the Apple Intelligence word mark inside a referential phrase;
   // the spoken label makes kuyara the subject the badge alone cannot show.
@@ -228,6 +229,12 @@ export type AppMessages = Readonly<{
   }>;
   onboarding: Readonly<{
     stepPosition: (position: number, total: number) => string;
+    nameTitle: string;
+    nameBody: string;
+    namePlaceholder: string;
+    nameShortError: string;
+    nameLongError: string;
+    nameNotNow: string;
     welcomeTitle: string;
     welcomeBody: string;
     promiseHeading: string;
@@ -308,13 +315,21 @@ export type AppMessages = Readonly<{
   }>;
   profile: Readonly<{
     title: string;
+    nameLabel: string;
+    nameEditTitle: string;
+    nameDone: string;
+    nameClear: string;
+    nameSaveError: string;
+    nameRemoveHint: string;
     settingsAction: string;
     settingsHint: string;
-    locationUnset: string;
     wardrobeTitle: string;
+    wardrobeTitleNamed: (name: string) => string;
     closetHeadingAccessibilityLabel: (values: { count: number }) => string;
+    closetHeadingNamedAccessibilityLabel: (values: { name: string; count: number }) => string;
     closetHeadingHint: string;
     wantedLabel: string;
+    historyLabel: string;
     wardrobeLoading: string;
     wardrobeEmpty: string;
     wardrobeUnavailable: string;
@@ -589,12 +604,12 @@ const en = {
   },
   bootstrap: {
     loadingTitle: 'Preparing kuyara',
-    loadingBody: 'Your local preferences are loading.',
+    loadingBody: 'Your preferences are loading.',
     errorTitle: 'kuyara could not start',
-    errorBody: 'Your local data is still safe.',
+    errorBody: 'Your data is still safe.',
     errorReasonBodies: {
-      'database-open': 'The local database could not be opened.',
-      migration: 'Your local data could not be updated to this version.',
+      'database-open': 'The database could not be opened.',
+      migration: 'Your data could not be updated to this version.',
       'profile-load': 'Your profile could not be read.',
     },
     retryAction: 'Try again',
@@ -602,6 +617,12 @@ const en = {
   },
   onboarding: {
     stepPosition: (position: number, total: number) => `Step ${position} of ${total}`,
+    nameTitle: 'What should we call you?',
+    nameBody: 'Optional. You can add or change your name later in Settings.',
+    namePlaceholder: 'Your name',
+    nameShortError: 'Enter at least 2 characters, or choose Not now.',
+    nameLongError: 'Use 30 characters or fewer.',
+    nameNotNow: 'Not now',
     welcomeTitle: 'Welcome to kuyara',
     welcomeBody: 'A calm way to make daily clothing choices with the weather in mind.',
     promiseHeading: 'What to expect',
@@ -700,13 +721,21 @@ const en = {
   },
   profile: {
     title: 'Profile',
+    nameLabel: 'Name',
+    nameEditTitle: 'Edit name',
+    nameDone: 'Done',
+    nameClear: 'Clear name',
+    nameSaveError: 'That change could not be saved. Your previous name is still active.',
+    nameRemoveHint: 'Choose Done to remove your name.',
     settingsAction: 'Settings',
     settingsHint: 'Opens app settings.',
-    locationUnset: 'No location set yet',
     wardrobeTitle: 'Closet',
+    wardrobeTitleNamed: (name) => `${name}'s Closet`,
     closetHeadingAccessibilityLabel: ({ count }) => `Closet, ${count}.`,
+    closetHeadingNamedAccessibilityLabel: ({ name, count }) => `${name}'s Closet, ${count}.`,
     closetHeadingHint: 'Opens your closet.',
     wantedLabel: 'Wanted',
+    historyLabel: 'History',
     wardrobeLoading: 'Loading closet counts.',
     wardrobeEmpty: 'You have not added any owned or wanted items yet. Your closet stays separate from your outfit suggestions.',
     wardrobeUnavailable: 'Closet counts are unavailable right now.',
@@ -785,7 +814,7 @@ const en = {
     hourlyHeading: 'Coming hours',
     noSnapshot: 'Weather will appear once a location is selected.',
     loadErrorTitle: 'Weather could not be prepared',
-    loadErrorBody: 'Your saved local data is still safe. Please try again.',
+    loadErrorBody: 'Your saved data is still safe. Please try again.',
     retry: 'Try again',
     refresh: 'Refresh',
     refreshAccessibilityLabel: 'Refresh weather',
@@ -918,7 +947,7 @@ const en = {
     nameDescription: 'Optional. Use a name that helps you recognize this item.',
     namePlaceholder: 'For example, everyday rain jacket',
     photoTitle: 'Photo',
-    photoDescription: 'Optional. One photo is stored privately on this device.',
+    photoDescription: 'Optional. One photo of the piece.',
     photoEmptyBody: 'No photo selected.',
     selectPhotoAction: 'Select photo',
     changePhotoAction: 'Change photo',
@@ -968,6 +997,7 @@ const en = {
   },
   today: {
     title: 'Today',
+    greetingNamed: (name) => `Welcome back, ${name}`,
     generationModeOnDeviceAi: 'Chosen with Apple Intelligence',
     generationModeAiAssisted: 'Chosen with AI',
     generationModeOnDeviceAiAccessibilityLabel:
@@ -1208,12 +1238,12 @@ const tr = {
   },
   bootstrap: {
     loadingTitle: 'kuyara hazırlanıyor',
-    loadingBody: 'Bu cihazdaki tercihlerin yükleniyor.',
+    loadingBody: 'Tercihlerin yükleniyor.',
     errorTitle: 'kuyara başlatılamadı',
-    errorBody: 'Yerel verilerin güvende.',
+    errorBody: 'Verilerin güvende.',
     errorReasonBodies: {
-      'database-open': 'Yerel veri tabanı açılamadı.',
-      migration: 'Yerel verilerin bu sürüme güncellenemedi.',
+      'database-open': 'Veri tabanı açılamadı.',
+      migration: 'Verilerin bu sürüme güncellenemedi.',
       'profile-load': 'Profilin okunamadı.',
     },
     retryAction: 'Yeniden dene',
@@ -1221,6 +1251,12 @@ const tr = {
   },
   onboarding: {
     stepPosition: (position: number, total: number) => `${total} adımdan ${position}. adım`,
+    nameTitle: 'Sana nasıl hitap edelim?',
+    nameBody: 'İsteğe bağlı. Adını daha sonra Ayarlar’dan ekleyebilir veya değiştirebilirsin.',
+    namePlaceholder: 'Adın',
+    nameShortError: 'En az 2 karakter yaz veya Şimdi değil seçeneğini kullan.',
+    nameLongError: 'En fazla 30 karakter kullan.',
+    nameNotNow: 'Şimdi değil',
     welcomeTitle: 'kuyara’ya hoş geldiniz',
     welcomeBody: 'Hava durumunu dikkate alarak günlük giyim kararlarını sakinleştiren bir yol.',
     promiseHeading: 'Seni neler bekliyor',
@@ -1319,13 +1355,21 @@ const tr = {
   },
   profile: {
     title: 'Profil',
+    nameLabel: 'Ad',
+    nameEditTitle: 'Adı düzenle',
+    nameDone: 'Bitti',
+    nameClear: 'Adı temizle',
+    nameSaveError: 'Bu değişiklik kaydedilemedi. Önceki adın kullanılmaya devam ediyor.',
+    nameRemoveHint: 'Adını kaldırmak için Bitti’yi seç.',
     settingsAction: 'Ayarlar',
     settingsHint: 'Uygulama ayarlarını açar.',
-    locationUnset: 'Henüz konum seçilmedi',
     wardrobeTitle: 'Gardırop',
+    wardrobeTitleNamed: (name) => `Gardırop · ${name}`,
     closetHeadingAccessibilityLabel: ({ count }) => `Gardırop, ${count}.`,
+    closetHeadingNamedAccessibilityLabel: ({ name, count }) => `Gardırop · ${name}, ${count}.`,
     closetHeadingHint: 'Gardırobunu açar.',
     wantedLabel: 'İstekler',
+    historyLabel: 'Geçmiş',
     wardrobeLoading: 'Gardırop sayıları yükleniyor.',
     wardrobeEmpty: 'Henüz sahip olduğun veya istediğin bir parça eklemedin. Gardırobun kombin önerilerinden ayrı tutulur.',
     wardrobeUnavailable: 'Gardırop sayıları şu anda gösterilemiyor.',
@@ -1404,7 +1448,7 @@ const tr = {
     hourlyHeading: 'Önümüzdeki saatler',
     noSnapshot: 'Bir konum seçildiğinde hava durumu burada görünecek.',
     loadErrorTitle: 'Hava durumu hazırlanamadı',
-    loadErrorBody: 'Kayıtlı yerel verilerin güvende. Lütfen yeniden dene.',
+    loadErrorBody: 'Kayıtlı verilerin güvende. Lütfen yeniden dene.',
     retry: 'Yeniden dene',
     refresh: 'Yenile',
     refreshAccessibilityLabel: 'Hava durumunu yenile',
@@ -1541,7 +1585,7 @@ const tr = {
     nameDescription: 'İsteğe bağlı. Bu parçayı tanımana yardımcı olacak bir ad kullan.',
     namePlaceholder: 'Örneğin günlük yağmurluk',
     photoTitle: 'Fotoğraf',
-    photoDescription: 'İsteğe bağlı. Tek fotoğraf yalnızca bu cihazda gizli tutulur.',
+    photoDescription: 'İsteğe bağlı. Parçanın bir fotoğrafı.',
     photoEmptyBody: 'Fotoğraf seçilmedi.',
     selectPhotoAction: 'Fotoğraf seç',
     changePhotoAction: 'Fotoğrafı değiştir',
@@ -1591,6 +1635,7 @@ const tr = {
   },
   today: {
     title: 'Bugün',
+    greetingNamed: (name) => `Tekrar hoş geldin, ${name}`,
     generationModeOnDeviceAi: 'Apple Intelligence ile seçildi',
     generationModeAiAssisted: 'AI ile seçildi',
     generationModeOnDeviceAiAccessibilityLabel:

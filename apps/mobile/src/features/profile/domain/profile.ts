@@ -12,6 +12,8 @@ export type Profile = Readonly<{
   gender: Gender | null;
   dressStyle: DressStyle | null;
   birthDate: string | null;
+  displayName: string | null;
+  namePromptVersion: number;
   languagePreference: LanguagePreference;
   themePreference: ThemePreference;
   onboardingCompleted: boolean;
@@ -31,6 +33,7 @@ export type LocalProfile = Profile & Readonly<{
 }>;
 
 export type OnboardingPreferences = Readonly<{
+  displayName?: string | null;
   gender: Gender;
   dressStyle: DressStyle;
   birthDate: string | null;
@@ -38,6 +41,25 @@ export type OnboardingPreferences = Readonly<{
 
 export const genderSchema = z.enum(['woman', 'man']);
 export type Gender = z.infer<typeof genderSchema>;
+
+export function normalizeDisplayName(value: string | null): string | null {
+  const name = value?.trim() ?? '';
+  if (name === '') return null;
+  if (displayNameIssue(name)) {
+    throw new Error('The display name must have 2 to 30 characters.');
+  }
+  return name;
+}
+
+export function displayNameIssue(value: string): 'short' | 'long' | null {
+  const length = Array.from(value.trim()).length;
+  if (length === 0) return null;
+  if (length < 2) return 'short';
+  if (length > 30) return 'long';
+  return null;
+}
+
+export const namePromptVersion = 1;
 
 // ADR 0033 section 3: consent precedes collection, so the stored default is the unanswered
 // state rather than a boolean. `withdrawn` covers both declining the first-launch sheet and
