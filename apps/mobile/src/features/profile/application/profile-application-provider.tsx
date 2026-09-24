@@ -92,6 +92,8 @@ export function ProfileApplicationProvider({ children }: PropsWithChildren) {
         controller.completeOnboarding(preferences),
       updateGender: (gender) => controller.updateGender(gender),
       updateDressStyle: (dressStyle) => controller.updateDressStyle(dressStyle),
+      updateStyleAesthetics: (values) => controller.updateStyleAesthetics(values),
+      updateMorningSheetEnabled: (enabled) => controller.updateMorningSheetEnabled(enabled),
       updateBirthDate: (birthDate) => controller.updateBirthDate(birthDate),
       updateDisplayName: (displayName) => controller.updateDisplayName(displayName),
       updateLanguagePreference: (preference) =>

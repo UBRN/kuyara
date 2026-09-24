@@ -47,6 +47,21 @@ export type TodayDayInsightKey =
 
 export type TodayMessages = Readonly<{
   title: string;
+  dailyStyle: Readonly<{
+    question: string;
+    questionTomorrow: string;
+    casual: string;
+    smart: string;
+    formal: string;
+    more: string;
+    lastingStylePreferences: string;
+    chooseStyle: string;
+    continueWithoutChoosing: string;
+    dismissWarning: string;
+    planTomorrow: (date: string) => string;
+    close: string;
+    saveError: string;
+  }>;
   greetingNamed: (name: string) => string;
   // ADR 0034 section 4: the two AI modes have badges, the words final, no Apple glyph. The
   // on-device badge carries the Apple Intelligence word mark inside a referential phrase;
@@ -188,6 +203,17 @@ export type TodayMessages = Readonly<{
 }>;
 
 export type PreferenceMessages = Readonly<{
+  stylePreferencesTitle: string;
+  stylePreferencesBody: string;
+  stylePreferencesNone: string;
+  stylePreferencesDone: string;
+  stylePreferencesLimit: string;
+  styleAestheticMinimal: string;
+  styleAestheticClassic: string;
+  styleAestheticSporty: string;
+  styleAestheticStreetwear: string;
+  styleAestheticRelaxed: string;
+  morningQuestionTitle: string;
   genderTitle: string;
   genderWoman: string;
   genderMan: string;
@@ -254,6 +280,8 @@ export type AppMessages = Readonly<{
     dressStyleTitle: string;
     dressStyleBody: string;
     dressStyleRequiredError: string;
+    stylePreferencesTitle: string;
+    stylePreferencesBody: string;
     birthDateTitle: string;
     birthDateBody: string;
     birthDateNotSet: string;
@@ -642,6 +670,8 @@ const en = {
     dressStyleTitle: 'How do you usually dress?',
     dressStyleBody: 'Choose the look you wear most days. Suggestions lean that way first and exclude nothing. You can change it later in Settings.',
     dressStyleRequiredError: 'Choose how you usually dress to continue.',
+    stylePreferencesTitle: 'Which styles feel like you?',
+    stylePreferencesBody: 'Optional. Choose up to three styles. They shape the order of suggestions, without excluding outfits.',
     birthDateTitle: 'Your birth date',
     birthDateBody: 'Optional. It helps us understand who uses kuyara. It does not change your suggestions.',
     birthDateNotSet: 'Not set',
@@ -654,6 +684,17 @@ const en = {
     saveError: 'Your choices could not be saved. Please try again.',
   },
   preferences: {
+    stylePreferencesTitle: 'Style preferences',
+    stylePreferencesBody: 'Choose up to three styles.',
+    stylePreferencesNone: 'None selected',
+    stylePreferencesDone: 'Done',
+    stylePreferencesLimit: 'You can choose up to three styles.',
+    styleAestheticMinimal: 'Minimal',
+    styleAestheticClassic: 'Classic',
+    styleAestheticSporty: 'Sporty',
+    styleAestheticStreetwear: 'Streetwear',
+    styleAestheticRelaxed: 'Laid-back',
+    morningQuestionTitle: 'Morning question',
     genderTitle: 'Gender',
     genderWoman: 'Woman',
     genderMan: 'Man',
@@ -1005,6 +1046,19 @@ const en = {
   },
   today: {
     title: 'Today',
+    dailyStyle: {
+      question: 'How do you want to dress today?',
+      questionTomorrow: 'How do you want to dress tomorrow?',
+      casual: 'Relaxed', smart: 'Sharp', formal: 'Formal',
+      more: 'More',
+      lastingStylePreferences: 'These are your lasting style preferences.',
+      chooseStyle: 'Choose a style',
+      continueWithoutChoosing: 'Continue without choosing',
+      dismissWarning: 'Choose how you want to dress today, or continue with a surprise style.',
+      planTomorrow: (date) => `Plan tomorrow, ${date}`,
+      close: 'Close',
+      saveError: 'Your choice could not be saved. Try again.',
+    },
     greetingNamed: (name) => `Welcome back, ${name}`,
     generationModeOnDeviceAi: 'Chosen with Apple Intelligence',
     generationModeAiAssisted: 'Chosen with AI',
@@ -1288,6 +1342,8 @@ const tr = {
     dressStyleTitle: 'Genelde nasıl giyinirsin?',
     dressStyleBody: 'Çoğu gün giydiğin görünümü seç. Öneriler önce o yöne eğilir, hiçbir şeyi dışlamaz. Daha sonra Ayarlar’dan değiştirebilirsin.',
     dressStyleRequiredError: 'Devam etmek için giyim tarzını seç.',
+    stylePreferencesTitle: 'Hangi stiller sana yakın?',
+    stylePreferencesBody: 'İsteğe bağlı. En fazla üç stil seç. Bu seçimler kombinleri elemeden öneri sırasını etkiler.',
     birthDateTitle: 'Doğum tarihin',
     birthDateBody: 'İsteğe bağlı. kuyara’yı kimlerin kullandığını anlamamıza yardımcı olur. Önerilerini değiştirmez.',
     birthDateNotSet: 'Ayarlanmadı',
@@ -1300,6 +1356,17 @@ const tr = {
     saveError: 'Seçimlerin kaydedilemedi. Lütfen yeniden dene.',
   },
   preferences: {
+    stylePreferencesTitle: 'Stil tercihleri',
+    stylePreferencesBody: 'En fazla üç stil seç.',
+    stylePreferencesNone: 'Seçim yok',
+    stylePreferencesDone: 'Bitti',
+    stylePreferencesLimit: 'En fazla üç stil seçebilirsin.',
+    styleAestheticMinimal: 'Minimal',
+    styleAestheticClassic: 'Klasik',
+    styleAestheticSporty: 'Sportif',
+    styleAestheticStreetwear: 'Sokak stili',
+    styleAestheticRelaxed: 'Serbest',
+    morningQuestionTitle: 'Sabah sorusu',
     genderTitle: 'Cinsiyet',
     genderWoman: 'Kadın',
     genderMan: 'Erkek',
@@ -1655,6 +1722,19 @@ const tr = {
   },
   today: {
     title: 'Bugün',
+    dailyStyle: {
+      question: 'Bugün nasıl giyinmek istersin?',
+      questionTomorrow: 'Yarın nasıl giyinmek istersin?',
+      casual: 'Rahat', smart: 'Şık', formal: 'Resmi',
+      more: 'Daha fazla',
+      lastingStylePreferences: 'Bunlar kalıcı stil tercihlerindir.',
+      chooseStyle: 'Bir tarz seç',
+      continueWithoutChoosing: 'Seçmeden devam et',
+      dismissWarning: 'Bugün nasıl giyineceğini seç veya sürpriz bir tarzla devam et.',
+      planTomorrow: (date) => `Yarını planla, ${date}`,
+      close: 'Kapat',
+      saveError: 'Seçimin kaydedilemedi. Yeniden dene.',
+    },
     greetingNamed: (name) => `Tekrar hoş geldin, ${name}`,
     generationModeOnDeviceAi: 'Apple Intelligence ile seçildi',
     generationModeAiAssisted: 'AI ile seçildi',

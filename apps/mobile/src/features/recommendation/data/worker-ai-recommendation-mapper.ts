@@ -13,6 +13,7 @@ import {
   coverageLevels,
   dayKindSchema,
   dressStyleSchema,
+  styleAestheticSchema,
   garmentTypeIds,
   layerRoles,
   outfitArchetypeIds,
@@ -62,6 +63,7 @@ import type {
   RecommendationGenerationMode,
 } from '@/features/recommendation/domain/generation-mode';
 import { validateInsightSentence } from '@/features/recommendation/domain/insight-sentence';
+import { sortByAestheticAffinity } from '@/features/recommendation/domain/aesthetic-affinity';
 
 export class WorkerAiRecommendationMappingError extends Error {
   constructor() {
@@ -73,6 +75,7 @@ export class WorkerAiRecommendationMappingError extends Error {
 const recommendationContextSchema = z.strictObject({
   clothingPreference: z.enum(clothingPreferences),
   dressStyle: dressStyleSchema.optional(),
+  styleAesthetics: z.array(styleAestheticSchema).max(3).optional(),
   catalogVersion: z.number().int().min(1),
   dayVariant: z.number().int().min(0).max(6),
   // Optional, so a row persisted before the weekday rule still parses and keeps its label.
@@ -224,12 +227,14 @@ export function createRecommendationContextWithPool(
   const parsed = recommendationContextSchema.safeParse({
     clothingPreference: input.clothingPreference,
     dressStyle: input.dressStyle ?? 'smart',
+    ...(input.styleAesthetics?.length ? { styleAesthetics: [...input.styleAesthetics].sort() } : {}),
     catalogVersion: garmentCatalogVersion,
     dayVariant: input.dayVariant,
     dayKind: input.dayKind,
     localDayKey,
     requirements: requirements.requirements,
-    options: availableOutfits.map(toAiOption),
+    options: sortByAestheticAffinity(availableOutfits, input.styleAesthetics ?? [],
+      (outfit, id) => outfitMatchesArchetype(outfit, id, input.dayKind)).map(toAiOption),
   });
   if (!parsed.success) throw new WorkerAiRecommendationMappingError();
   return {
@@ -274,7 +279,9 @@ export function aiRequestFromContext(
     options: context.options,
   });
   if (!parsed.success) throw new WorkerAiRecommendationMappingError();
-  return parsed.data;
+  return { ...parsed.data, ...('styleAesthetics' in context && context.styleAesthetics?.length
+    ? { styleAesthetics: context.styleAesthetics }
+    : {}) };
 }
 
 function domainRequirements(context: RecommendationContext): ClothingRequirements {

@@ -18,6 +18,8 @@ export default function SettingsRoute() {
   const {
     state,
     updateDressStyle,
+    updateStyleAesthetics,
+    updateMorningSheetEnabled,
     updateGender,
     updateLanguagePreference,
     updateDisplayName,
@@ -78,6 +80,8 @@ export default function SettingsRoute() {
             new_value: value,
           });
         }}
+        onStyleAestheticsChange={(values) => updateStyleAesthetics?.(values) ?? Promise.resolve()}
+        onMorningSheetEnabledChange={(enabled) => updateMorningSheetEnabled?.(enabled) ?? Promise.resolve()}
         onGenderChange={async (value) => {
           await updateGender(value);
           analytics.capture('setting_changed', {

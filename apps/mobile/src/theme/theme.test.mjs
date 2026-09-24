@@ -57,6 +57,13 @@ test('light and dark themes expose the same required semantic color roles', () =
   assert.deepEqual(lightKeys, requiredSemanticRoles.toSorted());
 });
 
+test('secondary text and icon inks use the approved light and dark values', () => {
+  assert.equal(lightSemanticColors.textSecondary, '#2F4650');
+  assert.equal(lightSemanticColors.iconSecondary, '#2F4650');
+  assert.equal(darkSemanticColors.textSecondary, '#B0C0C5');
+  assert.equal(darkSemanticColors.iconSecondary, '#B0C0C5');
+});
+
 test('application themes expose semantic colors rather than primitive names', () => {
   const primitiveNames = Object.keys(brandColors);
 

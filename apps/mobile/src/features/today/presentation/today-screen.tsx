@@ -2,6 +2,7 @@ import { use, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
+import type { DressStyle } from '@kuyara/contracts';
 
 import {
   AppText,
@@ -39,7 +40,7 @@ import { useWeatherApplication } from '@/features/weather/application/weather-ap
 import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
-import { layout, spacing, type AmbientIntensity } from '@/theme/theme';
+import { borderWidths, layout, radii, spacing, type AmbientIntensity } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // Law 5's escalation point, for the generic line alone. A narrated wait says what it is
@@ -76,6 +77,10 @@ type TodayScreenProps = Readonly<{
   onRefresh: () => void;
   /** Regenerates the recommendation only. The pull gesture still refreshes weather too. */
   onRegenerate: () => void;
+  selectedFormality?: DressStyle;
+  onFormalityChange?: (style: DressStyle) => void;
+  tomorrowLabel?: string;
+  onPlanTomorrow?: () => void;
 }>;
 
 export function TodayScreen(props: TodayScreenProps) {
@@ -117,6 +122,10 @@ function TodayScreenContent({
   onOpenOutfitDetail,
   onRefresh,
   onRegenerate,
+  selectedFormality,
+  onFormalityChange,
+  tomorrowLabel,
+  onPlanTomorrow,
 }: TodayScreenProps & Readonly<{ now: number }>) {
   const router = useRouter();
   const recommendationApplication = use(RecommendationApplicationContext);
@@ -343,6 +352,32 @@ function TodayScreenContent({
         <AppText accessibilityRole="header" style={styles.todayTitle} tabularNumbers testID="today-title" variant="title">
           {presentation.title}
         </AppText>
+        {selectedFormality && onFormalityChange ? (
+          <View accessibilityRole="radiogroup" style={styles.formalityChips} testID="today-formality-chips">
+            {(['casual', 'smart', 'formal'] as const).map((style) => {
+              const selected = selectedFormality === style;
+              const filled = selected && !presentation.generationMode;
+              return (
+                <Pressable
+                  accessibilityLabel={copy.dailyStyle[style]}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
+                  key={style}
+                  onPress={() => { if (!selected) onFormalityChange(style); }}
+                  style={({ pressed }) => [styles.formalityChip, {
+                    borderColor: selected ? theme.colors.brandAccent : theme.colors.borderDefined,
+                    backgroundColor: filled ? theme.colors.brandAccent : 'transparent',
+                    opacity: pressed ? theme.interaction.pressedOpacity : 1,
+                  }]}
+                  testID={`today-formality-${style}`}>
+                  <AppText colorRole={filled ? 'textOnBrand' : selected ? 'brandAccent' : undefined} variant="label">
+                    {copy.dailyStyle[style]}
+                  </AppText>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
         {presentation.generationMode ? (
           <ProvenanceBadge
             accessibilityLabel={presentation.generationMode.accessibilityLabel}
@@ -427,6 +462,16 @@ function TodayScreenContent({
             {presentation.header.freshness}
           </AppText>
         </View>
+
+        {tomorrowLabel && onPlanTomorrow ? (
+          <Pressable accessibilityLabel={tomorrowLabel} accessibilityRole="button"
+            onPress={onPlanTomorrow} style={[styles.planTomorrow,
+              { borderBottomColor: theme.colors.borderSubtle }]}
+            testID="today-plan-tomorrow">
+            <AppText style={styles.planTomorrowLabel} variant="bodyStrong">{tomorrowLabel}</AppText>
+            <Icon color={theme.colors.iconSecondary} name="chevronRight" size={20} />
+          </Pressable>
+        ) : null}
 
         {presentation.noOutfit ? (
           <Surface
@@ -744,6 +789,13 @@ function Sky({ intensity, weather, overlay = false }: Readonly<{
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  formalityChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md },
+  formalityChip: { borderRadius: radii.pill, borderWidth: borderWidths.subtle, justifyContent: 'center',
+    minHeight: layout.minimumTouchTarget, minWidth: 88, alignItems: 'center',
+    paddingHorizontal: spacing.lg },
+  planTomorrow: { alignItems: 'center', borderBottomWidth: borderWidths.subtle, flexDirection: 'row',
+    minHeight: layout.minimumTouchTarget, marginTop: spacing.md, paddingVertical: spacing.sm },
+  planTomorrowLabel: { flex: 1 },
   placeRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
   location: { flex: 1, flexShrink: 1 },
   todayTitle: { fontWeight: '700' },
