@@ -1,6 +1,6 @@
 ---
 name: ui-verification
-description: Use when finishing a kuyara UI change to run the exact repository checks and the greppable design-language checks, and to decide whether the manual accessibility pass applies. The manual pass (focus order, largest text size) is risk-based, not routine. Trigger on "verify the UI", "run the checks", "accessibility check", "a11y", or before a commit that touches apps/mobile presentation code.
+description: Use when finishing a kuyara UI change to run the exact repository checks and the greppable design-language checks, and to decide whether the manual accessibility pass applies. The manual pass (focus order, largest standard text size) is risk-based, not routine. Trigger on "verify the UI", "run the checks", "accessibility check", "a11y", or before a commit that touches apps/mobile presentation code.
 ---
 
 # UI verification gate
@@ -91,7 +91,7 @@ the whole grid. When none applies, skip this section without listing its axes.
 | --- | --- |
 | Turkish **and** English | Longer Turkish strings wrapping, truncating, or breaking a row's height |
 | Light **and** dark | Contrast, and separators that only existed as a shadow (dark shadow contact is 1.000:1) |
-| Larger text settings | Fixed line heights clipping, rows colliding, native tab labels (they do not scale, expected) |
+| Largest standard text size | Fixed line heights clipping, rows colliding, native tab labels (they do not scale, expected). The iOS Larger Text slider maximum with Larger Accessibility Sizes off; accessibility sizes (AX1 to AX5) are not tested and are never a finding. The Android equivalent is still to be researched |
 | Accessibility hierarchy | Missing labels, decorative icons still in the tree, focus order not following source order |
 | Touch targets | 44 points of actual area, reached by painted size or `hitSlop` |
 | Colour alone | Every status needs ink **and** glyph **and** text |

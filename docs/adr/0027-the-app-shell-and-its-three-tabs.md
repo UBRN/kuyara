@@ -187,9 +187,11 @@ carries the platform's own edge treatment.
 
 ### 5. Dynamic Type and touch targets, measured
 
-[ADR 0012](0012-adopting-expo-router-native-tabs.md) recorded that primary tab labels
-truncated at the largest accessibility text size in the hand-built bar, and required a
-re-check after the migration because label rendering moved from JS to the platform.
+The hand-built bar truncated primary tab labels at the largest accessibility text size,
+and [ADR 0012](0012-adopting-expo-router-native-tabs.md) required a re-check after the
+migration because label rendering moved from JS to the platform. The acceptance axis is
+the largest standard text size; the accessibility-size measurement below is a recorded
+fact about the bar, not a requirement.
 
 The arithmetic makes the risk concrete: the widest label uses 34% of its tab, so it reaches
 the tab edge at about 2.9 times, and iOS accessibility sizes scale body text to roughly
@@ -202,8 +204,8 @@ the body copy wraps to one or two words per line, while **the three tab labels s
 their normal size and do not truncate**. The tab bar is visually unchanged at the largest
 accessibility size.
 
-So UIKit does not apply Dynamic Type to tab bar labels, and the truncation ADR 0012
-recorded was a property of the hand-built bar that the migration removed. No `fontSize` is
+So UIKit does not apply Dynamic Type to tab bar labels, and the truncation was a property
+of the hand-built bar that the migration removed. No `fontSize` is
 needed in `labelStyle`, although `NativeTabsLabelStyle` could express one, and the
 arithmetic above describes a risk that cannot be reached.
 

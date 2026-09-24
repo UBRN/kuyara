@@ -153,7 +153,7 @@ one. Simulator verification covers the animated sequence.
   "Sende var" / "İstiyorsun", as decision 5 specifies.
 - **Turkish role labels are the tightest text on the screen.** "ORTA KATMAN" wraps to two
   lines under the layer rail's caption cap. It does not collide at the default text size,
-  and it is the case to check first under Dynamic Type.
+  and it is the case to check first at the largest standard text size.
 - **The detail preset is a second consumer of ADR 0025's parameters.** A change to the
   rule's ladder or caps has to be checked against both presets, not only Today.
 - **A structural-category fallback is captioned like any other piece.** Its presence does

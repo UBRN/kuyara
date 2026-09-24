@@ -88,8 +88,9 @@ applies and no prior product use is required.
   aggressively. Two existing mechanisms must hold and are now load-bearing rather
   than incidental: `AppText` releases the authored line height above a font scale of
   1.5 so text grows instead of clipping, and Today's hero already switches to a
-  stacked column at that same threshold. Both are verified at the largest
-  accessibility size, in Turkish and English.
+  stacked column at that same threshold. Both were measured at the largest
+  accessibility size, in Turkish and English; that measurement is a recorded fact, not
+  an acceptance axis.
 - Turkish strings are longer than their English equivalents at every size, so the
   heading roles are checked in both languages rather than in English alone.
 - Nothing below `caption` 13 is introduced. Law 5's floor is unchanged.
@@ -98,8 +99,9 @@ applies and no prior product use is required.
 
 The scale's shape is two separated heading steps plus a genuine hero and negative
 tracking at the top. The accepted point values are verified beside the native large title
-and at the largest accessibility text size. Do not work around them in feature code; any
-future value change requires a new decision backed by native evidence.
+at the default and the largest standard text size; accessibility text sizes above that are
+not an acceptance axis. Do not work around them in feature code; any future value change
+requires a new decision backed by native evidence.
 
 ## Alternatives considered
 

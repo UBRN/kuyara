@@ -49,4 +49,4 @@ cannot take the same calls, so the wrapper is where the platform difference live
 
 One affected Simulator run or iOS build, per `AGENTS.md`; commands are in
 `docs/testing.md`. That run checks the change itself. It is not a VoiceOver, Reduced
-Motion or largest-text-size tour; those follow the risk rule in `AGENTS.md`.
+Motion or largest-standard-text-size tour; those follow the risk rule in `AGENTS.md`.
