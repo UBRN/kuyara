@@ -8,9 +8,13 @@ import { colorFamilyFills } from './color-family-fill';
 // Design language Law 3's second measurable token: a garment fill steps at least 1.20:1
 // off the plane it sits on and the outline clears 3.0:1 over the fill, on all seven light
 // atmosphere states and the dark stage. Both values are derived from the plane, so a board
-// carries no hex of its own.
-const BASE_RATIO = 0.13;
-const DEEP_RATIO = 0.22;
+// carries no hex of its own. Today's boards take the deeper step (M20), which clears the
+// same two floors on every plane with more room; every other surface keeps the standard one.
+export const garmentFillRatios = {
+  standard: { base: 0.13, deep: 0.22 },
+  today: { base: 0.17, deep: 0.26 },
+} as const;
+export type GarmentFillStep = keyof typeof garmentFillRatios;
 
 // The seven chromatic families from the approved content table (ADR 0028 section 6, ADR
 // 0029 section 5), read here as hue anchors rather than as fills. `purple` stays out: at
@@ -102,6 +106,7 @@ export function resolveGarmentRenderFills({
   plane,
   colors,
   colorScheme,
+  step = 'standard',
 }: Readonly<{
   optionId: string;
   pieces: readonly Readonly<{
@@ -111,9 +116,11 @@ export function resolveGarmentRenderFills({
   plane: string;
   colors: Pick<SemanticColors, 'textPrimary'>;
   colorScheme: ThemeColorScheme;
+  step?: GarmentFillStep;
 }>): ReadonlyMap<OutfitSlot, string> {
-  const base = blend(plane, colors.textPrimary, BASE_RATIO);
-  const deep = blend(plane, colors.textPrimary, DEEP_RATIO);
+  const ratios = garmentFillRatios[step];
+  const base = blend(plane, colors.textPrimary, ratios.base);
+  const deep = blend(plane, colors.textPrimary, ratios.deep);
   const accentSlot = optionId === ''
     ? undefined
     : accentSlots.find((slot) => pieces.some((piece) => piece.slot === slot));

@@ -10,7 +10,7 @@ import {
   lightTheme,
 } from '../../../theme/theme.ts';
 import { colorFamilyFills } from './color-family-fill.ts';
-import { resolveGarmentRenderFills } from './garment-render-fills.ts';
+import { garmentFillRatios, resolveGarmentRenderFills } from './garment-render-fills.ts';
 
 // Same sRGB linearization and contrast calculation as theme.test.mjs.
 function luminance(hex) {
@@ -76,7 +76,7 @@ const boardPieces = [
 
 // The seven hue anchors are private to the module, so they are read back through the seed
 // rather than copied here: a hundred option ids reach every bucket of a 7-wide index.
-function accentsOn({ plane, colors, colorScheme }) {
+function accentsOn({ plane, colors, colorScheme, step }) {
   const accents = new Map();
   for (let index = 0; index < 100; index += 1) {
     const fills = resolveGarmentRenderFills({
@@ -85,45 +85,50 @@ function accentsOn({ plane, colors, colorScheme }) {
       plane,
       colors,
       colorScheme,
+      step,
     });
     accents.set(fills.get('outer_layer'), `option-${index}`);
   }
   return accents;
 }
 
+// M20: Today's boards take the deeper step; both steps must clear both floors everywhere.
 test('garment board fills step off every plane without weakening the outline', (context) => {
   let worstStep = Infinity;
   let worstOutline = Infinity;
 
-  for (const { appearance, state, plane, colors } of [...stages, ...grounds]) {
-    const stroke = colors.textPrimary;
-    const base = blend(plane, stroke, 0.13);
-    const deep = blend(plane, stroke, 0.22);
-    const fills = resolveGarmentRenderFills({
-      optionId: '',
-      pieces: boardPieces,
-      plane,
-      colors,
-      colorScheme: appearance,
-    });
+  for (const [step, ratios] of Object.entries(garmentFillRatios)) {
+    for (const { appearance, state, plane, colors } of [...stages, ...grounds]) {
+      const stroke = colors.textPrimary;
+      const base = blend(plane, stroke, ratios.base);
+      const deep = blend(plane, stroke, ratios.deep);
+      const fills = resolveGarmentRenderFills({
+        optionId: '',
+        pieces: boardPieces,
+        plane,
+        colors,
+        colorScheme: appearance,
+        step,
+      });
 
-    assert.equal(fills.get('bottom'), base);
-    assert.equal(fills.get('footwear'), deep);
+      assert.equal(fills.get('bottom'), base);
+      assert.equal(fills.get('footwear'), deep);
 
-    const accents = accentsOn({ plane, colors, colorScheme: appearance });
-    assert.equal(accents.size, 7, `${appearance} ${state} reached ${accents.size} anchors`);
+      const accents = accentsOn({ plane, colors, colorScheme: appearance, step });
+      assert.equal(accents.size, 7, `${appearance} ${state} reached ${accents.size} anchors`);
 
-    const cells = [['base', base], ['deep', deep], ...[...accents.keys()].map((fill) => ['accent', fill])];
-    for (const [name, fill] of cells) {
-      const step = contrast(fill, plane);
-      const outline = contrast(stroke, fill);
-      worstStep = Math.min(worstStep, step);
-      worstOutline = Math.min(worstOutline, outline);
-      assert.ok(step >= 1.2, `${appearance} ${state} ${name} ${fill} step ${step.toFixed(3)}:1`);
-      assert.ok(outline >= 3, `${appearance} ${state} ${name} ${fill} outline ${outline.toFixed(3)}:1`);
+      const cells = [['base', base], ['deep', deep], ...[...accents.keys()].map((fill) => ['accent', fill])];
+      for (const [name, fill] of cells) {
+        const fillStep = contrast(fill, plane);
+        const outline = contrast(stroke, fill);
+        worstStep = Math.min(worstStep, fillStep);
+        worstOutline = Math.min(worstOutline, outline);
+        assert.ok(fillStep >= 1.2, `${step} ${appearance} ${state} ${name} ${fill} step ${fillStep.toFixed(3)}:1`);
+        assert.ok(outline >= 3, `${step} ${appearance} ${state} ${name} ${fill} outline ${outline.toFixed(3)}:1`);
+      }
+
+      context.diagnostic(`${step} ${appearance} ${state} | ${plane} | ${base} | ${deep}`);
     }
-
-    context.diagnostic(`${appearance} ${state} | ${plane} | ${base} | ${deep}`);
   }
 
   context.diagnostic(`worst step ${worstStep.toFixed(3)}:1, worst outline ${worstOutline.toFixed(3)}:1`);

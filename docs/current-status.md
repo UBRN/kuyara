@@ -44,7 +44,7 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   first five taps of a local day reach the AI chain, and after that the same tap composes the
   next valid three from the composed pool without an AI request. The allowance lives
   in one policy module with a small app-private JSON counter, so it needed no migration. The
-  action and its caption are hidden once no distinct unseen valid option remains; no provider,
+  action, a full-width bordered button, is hidden once no distinct unseen valid option remains; no provider,
   quota or remaining count is ever shown. Today draws a breathing skeleton garment
   board under a phase line (checking the on-device AI, asking the AI stylist, answer
   received, preparing outfits, using standard suggestions) while a recommendation is
@@ -53,9 +53,15 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   recommendation refresh settle, and its clock re-reads on focus and on foreground. Under the
   garment board it shows the existing deterministic day insight and a second sentence about
   a precipitation interval, sustained temperature, wind interval or temperature swing when
-  the forecast supports one. Both lines use body text and primary ink. The title combines
-  Today, the localized weekday and date, temperature and condition; the AI badge sits below
-  it, the archetype is a small label, and outfit reasons appear only on detail. The hours
+  the forecast supports one. Both lines use body text and primary ink. The top row pairs
+  the place with the dressing day's date, which turns at 04:00. The title is one localized
+  template, Today, temperature, the condition's animated SF Symbol and the condition, with
+  the day-type pill at its right; the pill opens the day-type sheet, and a change dims the
+  outfit under an "Updating for a … day" line until the new one lands. The AI badge sits
+  below with its own symbol (multicolor Apple Intelligence on a neutral, `sparkles` in the
+  purple family for the Worker), the archetype is a small label, the finishing touches are a
+  caption with 16-point drawings whose stroke scales with them, Plan tomorrow is a one-row
+  group, and outfit reasons appear only on detail. The hours
   from 18:00 are called the evening rather than the night, and every
   temperature it prints carries one decimal in the reader's own separator. Only the coarse generation mode is exposed,
   and Settings carries the bounded active AI probe beside an on-device availability row
@@ -191,7 +197,7 @@ The approved phase order, active work and remaining open items are in [the roadm
 ## Recently Completed
 
 - **First-generation wait:** Today now presents the garment-board loading overlay only while a dressing day lacks a valid recommendation and generation is running. After ten seconds a native alert offers an early deterministic outfit; the AI request continues and can replace it. The overlay holds a green completion state for 0.8 seconds. The app does not read the OS motion preference.
-- **Daily style choices:** schema 18 preserves profiles and adds style aesthetics, the morning question setting and keyed formality choices. Today offers the three-formality morning sheet, chips and tomorrow planning; onboarding and Settings edit the separate aesthetic preferences. Automated repository and component checks pass, the rebuilt version 17 device database replay passed, and the Simulator pass covered onboarding, chips, plan tomorrow, More and Settings; the morning sheet appeared at the first daytime open in the Simulator; its alert and the loading overlay's skip alert are covered by component tests.
+- **Daily style choices:** schema 18 preserves profiles and adds style aesthetics, the morning question setting and keyed formality choices. Today offers the day-type sheet (Casual, Smart and Formal tiles in one radio group, the current answer preselected, the setup answer with a caption on the first day), the title pill and tomorrow planning; the sheet opens over the first wait but never over an error card, and it carries no lasting-preference section, because onboarding and Settings alone edit the aesthetic preferences. Automated repository and component checks pass, the rebuilt version 17 device database replay passed, and the Simulator pass covered onboarding, chips, plan tomorrow, More and Settings; the morning sheet appeared at the first daytime open in the Simulator; its alert and the loading overlay's skip alert are covered by component tests.
 
 - **Settings and provider attribution:** the root presents Appearance, Notifications,
   Profile, Help and About in order, followed by the centred kuyara name and version.

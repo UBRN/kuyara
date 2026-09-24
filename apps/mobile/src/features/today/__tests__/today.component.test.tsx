@@ -4,6 +4,8 @@ import { AppState, Dimensions, processColor, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { resolveGarmentRenderFills } from '@/components/ui/garment-board/garment-render-fills';
+import { garmentSilhouetteIds } from '@/components/ui/garment-board/garment-silhouette-map';
+import { silhouettes } from '@/components/ui/garment-board/silhouettes';
 import { failureCategories } from '@/domain/failure-category';
 import {
   accessoryFreeTodayScreenState,
@@ -222,24 +224,73 @@ function stateWithGenerationMode(
 }
 
 describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
-  test('daily chips expose selected radio state, regenerate intent, and tomorrow action', async () => {
-    const onFormalityChange = jest.fn();
+  // M7: the chip row is gone; one pill at the title's right shows the day type in words and
+  // opens the day-type sheet. It is never the accent fill, and its hit area reaches 44 points.
+  test('the day-type pill opens the sheet, and Plan tomorrow is one row with the date', async () => {
+    const onOpenDayType = jest.fn();
     const onPlanTomorrow = jest.fn();
+    const copy = messages[language].today.dailyStyle;
     const result = await render(providers(
       <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
         onRefresh={jest.fn()} onRegenerate={jest.fn()} state={aiAssistedTodayScreenState}
-        selectedFormality="smart" onFormalityChange={onFormalityChange}
-        tomorrowLabel={messages[language].today.dailyStyle.planTomorrow('Thursday 24 September')}
-        onPlanTomorrow={onPlanTomorrow} />,
+        selectedFormality="formal" onOpenDayType={onOpenDayType}
+        tomorrowDate="Fri 14 Aug" onPlanTomorrow={onPlanTomorrow} />,
       lightTheme, language,
     ));
-    expect(result.getByTestId('today-formality-smart').props.accessibilityState.selected).toBe(true);
-    expect(StyleSheet.flatten(result.getByTestId('today-formality-smart').props.style))
-      .toMatchObject({ minHeight: 44, minWidth: 88, backgroundColor: 'transparent' });
-    await fireEvent.press(result.getByTestId('today-formality-casual'));
-    expect(onFormalityChange).toHaveBeenCalledWith('casual');
-    await fireEvent.press(result.getByTestId('today-plan-tomorrow'));
+    expect(result.queryByTestId('today-formality-chips')).toBeNull();
+    expect(result.queryByRole('radiogroup')).toBeNull();
+    const pill = result.getByTestId('today-day-type-pill');
+    expect(pill).toHaveTextContent(copy.formal);
+    expect(pill.props.accessibilityLabel).toBe(copy.pillAccessibilityLabel.formal);
+    const pillStyle = StyleSheet.flatten(pill.props.style);
+    expect(pillStyle).toMatchObject({
+      backgroundColor: lightTheme.colors.surfaceInteractive,
+      borderColor: lightTheme.colors.borderDefined,
+      minHeight: 36,
+    });
+    expect(pillStyle.backgroundColor).not.toBe(lightTheme.colors.brandAccent);
+    expect(36 + 2 * pill.props.hitSlop).toBe(layout.minimumTouchTarget);
+    await fireEvent.press(pill);
+    expect(onOpenDayType).toHaveBeenCalledTimes(1);
+    const plan = result.getByTestId('today-plan-tomorrow');
+    expect(plan.props.accessibilityLabel).toBe(copy.planTomorrow('Fri 14 Aug'));
+    expect(plan).toHaveTextContent(`${copy.planTomorrowLabel}Fri 14 Aug`);
+    await fireEvent.press(plan);
     expect(onPlanTomorrow).toHaveBeenCalledTimes(1);
+  });
+
+  // One whole template per language, split only where the symbol stands and where the line
+  // may break, so the words around the values are never concatenated fragments.
+  test('the title renders its localized template with the condition symbol inside', async () => {
+    const presentation = loadedPresentation(language);
+    const template = messages[language].today.titleTemplate;
+    const condition = messages[language].weather.conditions[
+      todayScreenState.snapshot.weather.current.condition as keyof typeof messages.en.weather.conditions
+    ];
+    const temperature = language === 'en' ? '20.0°' : '20,0°';
+    expect(presentation.title).toBe(template
+      .replace('{temperature}', temperature).replace(' {symbol}', '').replace('{condition}', condition));
+    expect(presentation.titleParts).toEqual({
+      lead: language === 'en' ? 'Today ·' : 'Bugün ·',
+      beforeSymbol: temperature,
+      afterSymbol: condition,
+    });
+    const result = await render(providers(
+      <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
+        onRefresh={jest.fn()} onRegenerate={jest.fn()} state={todayScreenState} />,
+      lightTheme, language,
+    ));
+    const hidden = { includeHiddenElements: true };
+    const title = result.getByRole('header', { name: presentation.title });
+    expect(title).toHaveTextContent(`${presentation.titleParts.lead}${temperature}${condition}`);
+    expect(within(title).getByTestId('today-title-symbol', hidden)).toBeOnTheScreen();
+    expect(isHiddenFromAccessibility(result.getByTestId('today-title-symbol', hidden))).toBe(true);
+    expect(StyleSheet.flatten(within(title).getByText(presentation.titleParts.lead).props.style))
+      .toMatchObject({ ...typography.title, fontWeight: '700', fontVariant: ['tabular-nums'] });
+    // The weather has left the garment card.
+    expect(within(result.getByTestId('today-stage', hidden)).queryByTestId('today-title-symbol', hidden))
+      .toBeNull();
+    expect(result.queryByTestId('today-sky', hidden)).toBeNull();
   });
   test.each([lightTheme, darkTheme])('renders the title, stage, quiet provenance and two equal alternates', async (theme) => {
     const presentation = loadedPresentation(language);
@@ -263,11 +314,11 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
       .toMatchObject(typography.label);
     const title = result.getByRole('header', { name: presentation.title });
     expect(title).toBeOnTheScreen();
-    expect(presentation.title).toContain(language === 'en' ? 'Thu 13 Aug · 20.0°' : 'Per 13 Ağu · 20,0°');
-    expect(title.props.numberOfLines).toBeUndefined();
-    expect(StyleSheet.flatten(title.props.style)).toMatchObject({
-      ...typography.title, fontWeight: '700', fontVariant: ['tabular-nums'],
-    });
+    expect(presentation.title).toContain(language === 'en' ? 'Today · 20.0°' : 'Bugün · 20,0°');
+    // M7: the date sits in the top row, opposite the place.
+    expect(result.getByTestId('today-date'))
+      .toHaveTextContent(language === 'en' ? 'Thu 13 Aug' : 'Per 13 Ağu');
+    expect(within(result.getByTestId('today-top-row')).getByText('Istanbul')).toBeOnTheScreen();
     expect(result.queryByTestId('today-rationale')).not.toBeOnTheScreen();
     for (const reason of primary.reasons) {
       expect(result.queryByText(reason)).not.toBeOnTheScreen();
@@ -287,7 +338,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     });
     expect(result.queryByTestId('today-header-temperature', hidden)).toBeNull();
     expect(result.queryByTestId('today-condition', hidden)).toBeNull();
-    expect(isHiddenFromAccessibility(result.getByTestId('today-sky', hidden))).toBe(true);
+    expect(isHiddenFromAccessibility(result.getByTestId('today-title-symbol', hidden))).toBe(true);
     expect(StyleSheet.flatten(result.getByTestId('today-outfit-list').props.style))
       .toMatchObject({ flexDirection: 'row', gap: spacing.md });
     expect(result.getByTestId('today-outfit-list').children).toHaveLength(2);
@@ -361,7 +412,8 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     // The badge is a record, not a control: no second pressable inside the navigating one.
     expect(badge.props.accessibilityRole).toBeUndefined();
     expect(badge.props.onStartShouldSetResponder).toBeUndefined();
-    // The badge carries the controlled role, never the accent, and never a glyph.
+    // The badge carries the controlled role, never the accent. M1: its own symbol is
+    // `sparkles` in the purple-family inks, drawn beside the words.
     expect(StyleSheet.flatten(pill.props.style)).toMatchObject({
       backgroundColor: theme.colors.provenanceContainer,
       borderColor: theme.colors.provenanceContainer,
@@ -370,7 +422,13 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
       .not.toBe(theme.colors.brandAccent);
     expect(within(pill).getAllByText(messages[language].today.generationModeAiAssisted))
       .toHaveLength(1);
-    expect(within(pill).queryByTestId('today-provenance-sparkle', hidden)).toBeNull();
+    const symbols = (SymbolView as unknown as jest.Mock).mock.calls.map(([props]) => props);
+    expect(symbols).toContainEqual(expect.objectContaining({
+      name: expect.objectContaining({ ios: 'sparkles' }),
+      type: 'palette',
+      colors: [theme.condition.mostlyClearNight, theme.condition.partlyCloudyNight, theme.colors.provenanceInk],
+      tintColor: undefined,
+    }));
     // `provenanceInk` clears its band on the page ground only: it is never a child of the
     // tinted stage or of the board that stands on it.
     const primaryBoard = result.getByTestId(
@@ -387,10 +445,12 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
       .queryByTestId('today-generation-mode')).toBeNull();
   });
 
-  // ADR 0034 section 4: the on-device badge is the one place the Apple Intelligence word
-  // mark appears outside Settings, inside a referential phrase and with no Apple symbol.
-  // The badge alone cannot show kuyara as the subject, so the spoken label carries it.
+  // ADR 0034 section 4 and M1: the on-device badge pairs the multicolor `apple.intelligence`
+  // symbol with the words, on a neutral that is not purple. The badge alone cannot show
+  // kuyara as the subject, so the spoken label carries it.
   test('the on-device badge names Apple Intelligence and speaks kuyara as the subject', async () => {
+    const symbols = SymbolView as unknown as jest.Mock;
+    symbols.mockClear();
     const result = await render(providers(
       <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
         onRefresh={jest.fn()} onRegenerate={jest.fn()}
@@ -402,6 +462,14 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     expect(pill).toHaveTextContent(messages[language].today.generationModeOnDeviceAi);
     expect(result.getByTestId('today-provenance-badge').props.accessibilityLabel)
       .toBe(messages[language].today.generationModeOnDeviceAiAccessibilityLabel);
+    expect(StyleSheet.flatten(pill.props.style)).toMatchObject({
+      backgroundColor: lightTheme.colors.surfaceMuted,
+    });
+    expect(symbols.mock.calls.map(([props]) => props)).toContainEqual(expect.objectContaining({
+      name: expect.objectContaining({ ios: 'apple.intelligence' }),
+      type: 'multicolor',
+      tintColor: undefined,
+    }));
   });
 });
 
@@ -455,6 +523,7 @@ test('only the primary board is coloured: the alternates stay on two neutrals', 
       plane,
       colors: lightTheme.colors,
       colorScheme: 'light',
+      step: 'today',
     }).values()].map((fill) => JSON.stringify({ type: 0, payload: processColor(fill) })),
   );
 
@@ -470,14 +539,12 @@ test('only the primary board is coloured: the alternates stay on two neutrals', 
   }
 });
 
-// Law 4's content encoding: the corner glyph resolves its own condition ink from the raw
-// condition code and the place's clock, the same call the Weather screen makes. Until the
-// presentation carried those two fields the call fell through to `neutral`, so Today showed
-// no condition colour and no tempo at all while the ink family was already shipped.
+// Law 4's content encoding: the title symbol resolves its own condition ink from the raw
+// condition code and the place's clock, the same call the Weather screen makes.
 test.each([
   ['a rainy', todayScreenState, 'rain'],
   ['a clear', accessoryFreeTodayScreenState, 'clearDay'],
-] as const)('%s Today draws its corner glyph in the condition ink, not the neutral one', async (
+] as const)('%s Today draws its title symbol in the condition ink, not the neutral one', async (
   _label,
   state,
   ink,
@@ -490,25 +557,25 @@ test.each([
   ));
 
   const hidden = { includeHiddenElements: true };
-  expect(result.getByTestId('today-header-weather-glyph', hidden)).toBeOnTheScreen();
+  expect(result.getByTestId('today-title-symbol', hidden)).toBeOnTheScreen();
   const tints = symbols.mock.calls.map(([props]) => (props as { tintColor: string }).tintColor);
   expect(tints).toContain(lightTheme.condition[ink]);
   expect(lightTheme.condition[ink]).not.toBe(lightTheme.condition.neutral);
 });
 
-// A clear sky does not move (ADR 0020), so the clear glyph sits at its rest offset.
-test('a clear Today leaves its corner glyph at rest', async () => {
+// ADR 0020's vocabulary: the sun turns and rain falls, each from its rest pose.
+test.each([
+  ['clear', accessoryFreeTodayScreenState, { rotate: '0deg' }],
+  ['rainy', todayScreenState, { translateY: 0 }],
+] as const)('a %s title symbol moves in its own way', async (_label, state, transform) => {
   const result = await render(providers(
     <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
-    onRegenerate={jest.fn()}
-      state={accessoryFreeTodayScreenState} />,
+    onRegenerate={jest.fn()} state={state} />,
   ));
 
-  const glyph = result.getByTestId('today-header-weather-glyph', { includeHiddenElements: true });
-  const animated = glyph.children[0];
-  if (typeof animated === 'string') throw new Error('Expected the animated glyph wrapper.');
-  expect(StyleSheet.flatten(animated.props.style))
-    .toMatchObject({ transform: [{ translateY: 0 }] });
+  const symbol = result.getByTestId('today-title-symbol', { includeHiddenElements: true });
+  expect(StyleSheet.flatten(symbol.props.style))
+    .toMatchObject({ height: 24, width: 24, transform: [transform] });
 });
 
 test('Today re-reads its clock when the app becomes active', async () => {
@@ -562,17 +629,13 @@ test('accessibility XXXL keeps the complete generation mode and freshness status
   expect(StyleSheet.flatten(freshness.props.style)).toMatchObject({ width: '100%' });
 });
 
-test.each([1.5, 1.6, 3])('font scale %s keeps weather clear of garments and stacks alternates above 1.5', async (fontScale) => {
+test.each([1.5, 1.6, 3])('font scale %s stacks alternates above 1.5', async (fontScale) => {
   Dimensions.set({ window: { ...originalDimensions, width: 390, fontScale } });
   const result = await render(providers(
     <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
     onRegenerate={jest.fn()} state={todayScreenState} />,
   ));
-  const hidden = { includeHiddenElements: true };
-  const stage = result.getByTestId('today-stage', hidden);
   const stacked = fontScale > 1.5;
-  expect(within(stage).queryByTestId('today-sky', hidden) !== null).toBe(!stacked);
-  expect(result.getByTestId('today-sky', hidden)).toBeOnTheScreen();
   expect(StyleSheet.flatten(result.getByTestId('today-outfit-list').props.style).flexDirection)
     .toBe(stacked ? 'column' : 'row');
   if (stacked) {
@@ -831,15 +894,12 @@ test('the hero board rises into a stage that stays still', async () => {
   });
   const hidden = { includeHiddenElements: true };
 
-  // Law 7: the garment pieces arrive; the stage plate they land on and the weather
-  // values drawn over it never move.
+  // Law 7: the garment pieces arrive; the stage plate they land on never moves.
   expect(StyleSheet.flatten(
     result.getByTestId(`today-primary-board-${todayOutfitId(1)}`, hidden).parent!.props.style,
   ))
     .toMatchObject({ opacity: 0, transform: [{ translateY: spacing.xl }] });
   expect(StyleSheet.flatten(result.getByTestId('today-stage', hidden).props.style))
-    .not.toHaveProperty('transform');
-  expect(StyleSheet.flatten(result.getByTestId('today-sky', hidden).props.style))
     .not.toHaveProperty('transform');
 });
 
@@ -1676,6 +1736,17 @@ describe('finishing touches', () => {
     // than leaving four silhouettes to be recognised unaided.
     expect(within(badges).getByText(messages.en.today.finishingTouchesHeading))
       .toBeOnTheScreen();
+    // M21: at the caption's 16 points the stroke scales with the drawing, about 1.1 points,
+    // instead of the board's fixed 1.9.
+    const drawing = within(badges).getByTestId(
+      `today-accessory-${accessories[0].garmentTypeId}`,
+      { includeHiddenElements: true },
+    );
+    expect(drawing.props.height).toBe(16);
+    const { bounds } = silhouettes[garmentSilhouetteIds[accessories[0].garmentTypeId]!];
+    const scale = 16 / (Math.max(bounds.width, bounds.height) + 3);
+    const [path] = drawing.queryAll((node) => typeof node.props.d === 'string');
+    expect(path.props.strokeWidth * scale).toBeCloseTo(1.9 * 16 / 28);
   });
 
   test('a day that asks for no accessory renders no badge row and no detail section', async () => {
@@ -1920,12 +1991,18 @@ describe.each(['en', 'tr'] as const)('%s regenerate action', (language) => {
 
     const action = result.getByTestId('today-regenerate');
     expect(action).toHaveTextContent(messages[language].today.regenerateAction);
-    expect(result.getByTestId('today-regenerate-caption'))
-      .toHaveTextContent(messages[language].today.regenerateCaption);
+    // f11: a full-width bordered button; the old caption is its hint.
+    expect(result.queryByTestId('today-regenerate-caption')).toBeNull();
+    expect(action.props.accessibilityHint).toBe(messages[language].today.regenerateCaption);
     expect(action.props.accessibilityRole).toBe('button');
     expect(action.props.accessibilityState?.disabled).toBeFalsy();
-    expect(StyleSheet.flatten(action.props.style))
-      .toMatchObject({ minHeight: layout.minimumTouchTarget });
+    const style = StyleSheet.flatten(action.props.style);
+    expect(style).toMatchObject({
+      borderColor: lightTheme.colors.borderDefined,
+      borderWidth: 1,
+      minHeight: layout.minimumTouchTarget,
+    });
+    expect(style.backgroundColor).toBeUndefined();
 
     await fireEvent.press(action);
     expect(onRegenerate).toHaveBeenCalledTimes(1);

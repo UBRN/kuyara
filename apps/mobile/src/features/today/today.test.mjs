@@ -10,6 +10,7 @@ import {
 import {
   createDetailCaptionLayout,
   createTodayPresentation,
+  formatDressingDate,
 } from './presentation/today-presentation.ts';
 import { recommendOutfits } from '../recommendation/application/recommend-outfits.ts';
 import { createKuyaraTheme } from '../../theme/theme.ts';
@@ -106,7 +107,7 @@ test('loaded mapping uses localized catalog names, slot order, positions, and fi
       {
         id: todayScreenState.snapshot.recommendation.outfits[2].optionId,
         positionLabel: 'Option 3 of 3',
-        title: 'Relaxed',
+        title: 'Easygoing',
         summary: 'Blouse + Skirt + Rain jacket + Rain boots',
         emphasis: undefined,
       },
@@ -403,8 +404,9 @@ test('a mild day falls back to the deterministic status sentence', () => {
   );
 });
 
-// ADR 0034 section 4: the two AI modes badge themselves, the deterministic one badges
-// nothing at rest, neither badge carries a glyph, and neither names a provider. The detail's
+// ADR 0034 section 4: the two AI modes badge themselves, each with its own mode so the
+// screen can draw its own symbol, the deterministic one badges nothing at rest, and neither
+// names a provider. The detail's
 // source sentence is present in all three modes, and kuyara is its subject.
 test('only the AI generation modes carry a localized accessible generation mark', () => {
   const recommendation = todayScreenState.snapshot.recommendation;
@@ -432,7 +434,7 @@ test('only the AI generation modes carry a localized accessible generation mark'
     ],
   ]) {
     const presentation = presentationOf(generationMode);
-    assert.deepEqual(presentation.generationMode, { label, accessibilityLabel });
+    assert.deepEqual(presentation.generationMode, { mode: generationMode, label, accessibilityLabel });
     assert.equal(presentation.generationSource, source);
   }
 
@@ -551,7 +553,7 @@ test('stale freshness and outfit copy localize in both languages', () => {
   assert.match(turkish.header.freshness, /06:05.*Güncelliğini yitirmiş olabilir/);
   assert.deepEqual(
     turkish.suggestions.map(({ title }) => title),
-    ['Yağmura Hazır', 'Rüzgara Karşı', 'Rahat Gün'],
+    ['Yağmura Hazır', 'Rüzgara Karşı', 'Keyifli Gün'],
   );
   assert.deepEqual(
     turkish.suggestions.map(({ summary }) => summary),
@@ -710,4 +712,18 @@ test('the stage label reads temperature, condition, pieces and archetype in both
     loadedPresentation(todayScreenState, 'tr').stageAccessibilityLabel,
     /^-?\d+,\d santigrat derece\. .+\. .+, .+\. .+\.$/,
   );
+});
+
+// M15: Today's top-row date follows the 04:00 dressing day, the same key Plan tomorrow reads.
+// The suite runs in UTC, so these instants are the device's wall clock.
+test('the top-row date names the dressing day, not the calendar day, before 04:00', () => {
+  const at = (iso, language = 'en') => loadedPresentation(todayScreenState, language, false, Date.parse(iso)).date;
+  const thursday = formatDressingDate('2026-09-24', 'en');
+
+  assert.match(thursday, /^Thu 24 Sep/);
+  assert.equal(at('2026-09-25T02:30:00.000Z'), thursday);
+  assert.equal(at('2026-09-25T02:30:00.000Z', 'tr'), formatDressingDate('2026-09-24', 'tr'));
+  assert.equal(at('2026-09-25T04:30:00.000Z'), formatDressingDate('2026-09-25', 'en'));
+  assert.match(at('2026-09-25T04:30:00.000Z'), /^Fri 25 Sep/);
+  assert.equal(at('2026-09-24T19:00:00.000Z'), thursday);
 });

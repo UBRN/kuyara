@@ -121,7 +121,7 @@ describe.each(['en', 'tr'] as const)('%s Service providers screen', (language) =
     const result = await rendered;
 
     expect(
-      result.getByText(language === 'en' ? /^AI responded at .+/ : /^AI saat .+ yanıt verdi\.$/),
+      result.getByText(language === 'en' ? /^AI responded at .+/ : /^AI yanıt verdi \(.+\)\.$/),
     ).toBeOnTheScreen();
   });
 

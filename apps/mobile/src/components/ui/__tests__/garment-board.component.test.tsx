@@ -3,7 +3,7 @@ import type { PropsWithChildren } from 'react';
 import { processColor, StyleSheet } from 'react-native';
 
 import { GarmentBoard, measureGarmentBoardHeight, type GarmentBoardPiece } from '@/components/ui/garment-board/garment-board';
-import { resolveGarmentRenderFills } from '@/components/ui/garment-board/garment-render-fills';
+import { garmentFillRatios, resolveGarmentRenderFills } from '@/components/ui/garment-board/garment-render-fills';
 import { silhouettes } from '@/components/ui/garment-board/silhouettes';
 import { blend } from '@/theme/color-blend';
 import { lightTheme, spacing } from '@/theme/theme';
@@ -49,7 +49,8 @@ test('detail uses the same pieces with its own measured height', async () => {
 
 test('a tinted stage gives static and travelling artwork the same derived target fill', async () => {
   const stageColor = lightTheme.atmosphere.clearDay;
-  const targetFill = blend(stageColor, lightTheme.colors.textPrimary, 0.13);
+  // M20: a Today board takes the deeper fill step on every plane it is drawn on.
+  const targetFill = blend(stageColor, lightTheme.colors.textPrimary, garmentFillRatios.today.base);
   const staticResult = await render(
     <GarmentBoard
       accessibilityLabel="Dress, sandals"
@@ -80,7 +81,7 @@ test('a tinted stage gives static and travelling artwork the same derived target
     { type: 0, payload: processColor(targetFill) },
     {
       type: 0,
-      payload: processColor(blend(fromStageColor, lightTheme.colors.textPrimary, 0.13)),
+      payload: processColor(blend(fromStageColor, lightTheme.colors.textPrimary, garmentFillRatios.today.base)),
     },
   ]);
 });
@@ -93,8 +94,9 @@ test('an option id colours one piece of the board that is the screen\u2019s subj
     plane,
     colors: lightTheme.colors,
     colorScheme: 'light',
+    step: 'today',
   });
-  const neutral = blend(plane, lightTheme.colors.textPrimary, 0.13);
+  const neutral = blend(plane, lightTheme.colors.textPrimary, garmentFillRatios.today.base);
   const result = await render(
     <GarmentBoard
       accessibilityLabel="Dress, sandals"

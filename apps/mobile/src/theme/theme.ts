@@ -126,7 +126,7 @@ export const darkSemanticColors = Object.freeze({
 const lightAtmosphere = Object.freeze({
   neutral: lightSemanticColors.stage,
   clearDay: blend(brandColors.quietSky, brandColors.cloudWhite, 0.549),
-  veiledDay: blend(brandColors.calmCurrent, brandColors.softMist, 0.756),
+  veiledDay: blend(brandColors.calmCurrent, brandColors.softMist, 0.83),
   fallingDay: blend(brandColors.calmCurrent, brandColors.quietSky, 0.943),
   clearNight: blend(brandColors.deepAtmosphere, brandColors.quietSky, 0.888),
   veiledNight: blend(brandColors.deepAtmosphere, brandColors.softMist, 0.645),
