@@ -32,6 +32,7 @@ import type {
   RecommendationSnapshot,
 } from '@/features/recommendation/data/recommendation-repository';
 import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
+import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import { WorkerAiClientError } from '@/features/recommendation/data/worker-ai-client';
 import {
   aiRequestFromContext,
@@ -145,6 +146,7 @@ type AiClient = Readonly<{
 
 type Dependencies = Readonly<{
   loadRepository: () => Promise<RecommendationRepository>;
+  loadRecentWorn?: () => Promise<readonly WornOutfit[]>;
   client: AiClient;
   // Optional: `recommendation_regenerated` fires on every completed attempt in `refreshOnce`,
   // which already knows the trigger (passed into `refresh()`) and the exact outcome branch
@@ -236,7 +238,10 @@ export function recommendationPoolExhausted(
 
 // A persisted recommendation carries the exact requirements and composition seed, so a
 // fresh controller can recover the full pool without a weather request or a new generation.
-function storedPoolOptionIds(snapshot: RecommendationSnapshot | null): readonly string[] | null {
+function storedPoolOptionIds(
+  snapshot: RecommendationSnapshot | null,
+  recentWorn: readonly WornOutfit[],
+): readonly string[] | null {
   const preference = snapshot?.clothingPreference;
   if (
     !snapshot ||
@@ -249,6 +254,7 @@ function storedPoolOptionIds(snapshot: RecommendationSnapshot | null): readonly 
       snapshot.recommendation.requirements,
       preference,
       snapshot.dayVariant,
+      recentWorn,
     );
     return composition.status === 'composed'
       ? composition.outfits.map(outfitOptionId)
@@ -322,6 +328,22 @@ export class RecommendationApplicationController {
    * were.
    */
   refresh(
+    trigger: RecommendationRefreshTrigger,
+    input: RecommendationApplicationInput,
+    options?: Readonly<{ allowAi?: boolean }>,
+  ): Promise<RecommendationSnapshot | null> {
+    if (this.dependencies.loadRecentWorn) {
+      return this.dependencies.loadRecentWorn()
+        .then((recentWorn) => this.refreshPrepared(trigger, { ...input, recentWorn }, options))
+        .catch((error: unknown) => {
+          this.setLastFailure(recommendationFailureCategory(error));
+          return this.currentSnapshot();
+        });
+    }
+    return this.refreshPrepared(trigger, input, options);
+  }
+
+  private refreshPrepared(
     trigger: RecommendationRefreshTrigger,
     input: RecommendationApplicationInput,
     options?: Readonly<{ allowAi?: boolean }>,
@@ -406,12 +428,21 @@ export class RecommendationApplicationController {
     try {
       this.repository = await this.dependencies.loadRepository();
       const snapshot = await this.repository.getSnapshot(this.localProfileId);
-      this.poolOptionIds = storedPoolOptionIds(snapshot);
+      let recentWorn: readonly WornOutfit[] = [];
+      let lastFailure: FailureCategory | null = null;
+      if (snapshot && this.dependencies.loadRecentWorn) {
+        try {
+          recentWorn = await this.dependencies.loadRecentWorn();
+        } catch (error) {
+          lastFailure = recommendationFailureCategory(error);
+        }
+      }
+      this.poolOptionIds = lastFailure === null ? storedPoolOptionIds(snapshot, recentWorn) : null;
       this.setReady({
         status: 'ready',
         snapshot,
         isRefreshing: false,
-        lastFailure: null,
+        lastFailure,
         phase: null,
         exhausted: recommendationPoolExhausted(this.poolOptionIds, snapshot),
         showFirstGenerationOverlay: false,
