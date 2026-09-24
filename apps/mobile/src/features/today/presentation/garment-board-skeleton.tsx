@@ -11,7 +11,7 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 // give ADR 0025's rule the aspect ratios it measures boxes with; what is drawn in each
 // box is the generic structural-category shape, because the wait knows where the pieces
 // will sit and not yet which pieces they are.
-const SKELETON_PIECES = [
+export const SKELETON_PIECES = [
   { slot: 'primary_top', garmentTypeId: 't_shirt', category: 'top' },
   { slot: 'bottom', garmentTypeId: 'trousers', category: 'bottom' },
   { slot: 'outer_layer', garmentTypeId: 'light_jacket', category: 'outerwear' },
