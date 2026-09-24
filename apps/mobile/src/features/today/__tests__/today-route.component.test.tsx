@@ -996,7 +996,7 @@ test('the first recommendation refresh shows loading without reporting an error 
   );
 
   expect(result.getByTestId('today-loading-screen', { includeHiddenElements: true })).toBeOnTheScreen();
-  expect(result.getByTestId('first-generation-overlay')).toBeOnTheScreen();
+  expect(result.getByTestId('first-generation-runway')).toBeOnTheScreen();
   expect(result.queryByTestId('today-unavailable-screen')).not.toBeOnTheScreen();
 
   await result.rerender(
@@ -1021,7 +1021,7 @@ test('a background recommendation refresh keeps Today inline', async () => {
       <TodayRoute />
     </Providers>,
   );
-  expect(result.queryByTestId('first-generation-overlay')).toBeNull();
+  expect(result.queryByTestId('first-generation-runway')).toBeNull();
   expect(result.getByTestId('today-freshness')).toHaveTextContent(messages.en.today.phase['asking-stylist']);
 });
 

@@ -13,6 +13,9 @@ export type ProgressFillProps = Readonly<{
   progress: number;
   /** The track's geometry: height, radius and how it shares its row. */
   style?: StyleProp<ViewStyle>;
+  /** A plane of its own changes both inks; left out, they are `borderSubtle` and `brandPrimary`. */
+  trackColor?: string;
+  fillColor?: string;
 }>;
 
 /**
@@ -22,7 +25,7 @@ export type ProgressFillProps = Readonly<{
  * component carries no accessibility props: the progress it draws is already announced by
  * whatever owns the step, so it adds no node a screen reader stops on.
  */
-export function ProgressFill({ progress, style }: ProgressFillProps) {
+export function ProgressFill({ progress, style, trackColor, fillColor }: ProgressFillProps) {
   const theme = useKuyaraTheme();
   const target = Math.min(1, Math.max(0, progress));
   const filled = useSharedValue(target);
@@ -34,9 +37,9 @@ export function ProgressFill({ progress, style }: ProgressFillProps) {
   const fillStyle = useAnimatedStyle(() => ({ width: `${filled.get() * 100}%` }));
 
   return (
-    <View style={[styles.track, { backgroundColor: theme.colors.borderSubtle }, style]}>
+    <View style={[styles.track, { backgroundColor: trackColor ?? theme.colors.borderSubtle }, style]}>
       <Animated.View
-        style={[styles.fill, { backgroundColor: theme.colors.brandPrimary }, fillStyle]}
+        style={[styles.fill, { backgroundColor: fillColor ?? theme.colors.brandPrimary }, fillStyle]}
       />
     </View>
   );

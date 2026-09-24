@@ -41,7 +41,7 @@ import {
   type DayInsightModifier,
 } from '@/features/weather/domain/day-insight';
 import { findDayWindow, type DayWindow } from '@/features/weather/domain/day-window';
-import type { WeatherSnapshot } from '@/features/weather/domain/weather';
+import type { NormalizedCoordinates, WeatherSnapshot } from '@/features/weather/domain/weather';
 import {
   getMessages,
   type SupportedLanguage,
@@ -283,18 +283,31 @@ function dayInsightSentence(
   }
 }
 
-export function loadingDayInsight(
+/**
+ * What the first-generation runway needs from the weather: the day's atmosphere, the same
+ * condition and daypart the title symbol reads, and the day insight its line rotates through.
+ */
+export function runwayWeather(
   weather: WeatherSnapshot,
+  coordinates: NormalizedCoordinates | null,
   language: SupportedLanguage,
   hour12: boolean,
   now: number,
-): string | null {
-  const insight = findDayInsight({ snapshot: weather, now: new Date(now).toISOString() });
-  return insight === null ? null : dayInsightSentence(
-    insight,
-    getMessages(language).today.dayInsight,
-    (value) => formatTime(value, language, hour12, weather.timeZone),
-  );
+): Readonly<{ atmosphere: AtmosphereState; condition: string; daypart: Daypart | null; insight: string | null }> {
+  const at = new Date(now).toISOString();
+  const daypart = resolveDaypart(at, weather.timeZone, coordinates);
+  const condition = weather.current.condition;
+  const insight = findDayInsight({ snapshot: weather, now: at });
+  return {
+    atmosphere: resolveAtmosphereState(condition, daypart),
+    condition,
+    daypart,
+    insight: insight === null ? null : dayInsightSentence(
+      insight,
+      getMessages(language).today.dayInsight,
+      (value) => formatTime(value, language, hour12, weather.timeZone),
+    ),
+  };
 }
 
 function dayWindowSentence(
@@ -342,6 +355,13 @@ function assignedGarments(outfit: OutfitCandidate): readonly AssignedOutfitGarme
   });
 }
 
+/** The pieces a board draws for an outfit, in the board's slot order. */
+export function outfitBoardPieces(outfit: OutfitCandidate): LoadedOutfitPresentation['boardPieces'] {
+  return assignedGarments(outfit).map(({ garment, slot }) => ({
+    slot, garmentTypeId: garment.garmentTypeId, category: garment.properties.category,
+  }));
+}
+
 function localizeOutfit(
   outfit: RecommendedOutfit,
   index: number,
@@ -353,9 +373,7 @@ function localizeOutfit(
   const messages = getMessages(language);
   const copy = messages.today;
   const assigned = assignedGarments(outfit);
-  const boardPieces = assigned.map(({ garment, slot }) => ({
-    slot, garmentTypeId: garment.garmentTypeId, category: garment.properties.category,
-  }));
+  const boardPieces = outfitBoardPieces(outfit);
   const pieces = assigned.map(({ garment, slot }) => ({
     slot: copy.slots[slot],
     item:

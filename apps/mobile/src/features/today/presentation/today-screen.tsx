@@ -29,10 +29,11 @@ import { localDayKey } from '@/features/recommendation/application/recommendatio
 import type { WeatherAlertOfferReason } from '@/features/notifications/domain/weather-alert-offer';
 import type { TodayScreenState } from '@/features/today/model';
 import { GarmentBoardSkeleton } from '@/features/today/presentation/garment-board-skeleton';
-import { FirstGenerationOverlay } from '@/features/today/presentation/first-generation-overlay';
+import { FirstGenerationRunway } from '@/features/today/presentation/first-generation-runway';
 import {
   createTodayPresentation,
-  loadingDayInsight,
+  outfitBoardPieces,
+  runwayWeather,
   type LoadedOutfitPresentation,
   type LoadedTodayPresentation,
 } from '@/features/today/presentation/today-presentation';
@@ -95,25 +96,36 @@ export function TodayScreen(props: TodayScreenProps) {
   const weather = useWeatherApplication();
   const { hour12 } = useLocalization();
   const now = useForegroundClock();
-  const recommendationState = application?.state;
-  const active = recommendationState?.status === 'ready'
-    && recommendationState.showFirstGenerationOverlay;
-  const completed = recommendationState?.status === 'ready'
-    && recommendationState.snapshot?.localDayKey === localDayKey(new Date(now))
-    && recommendationState.snapshot.recommendation.status === 'recommended';
+  const recommendationState = application?.state.status === 'ready' ? application.state : null;
+  const snapshot = recommendationState?.snapshot;
+  const settled = snapshot?.localDayKey === localDayKey(new Date(now))
+    && snapshot.recommendation.status === 'recommended'
+    ? snapshot.recommendation.outfits[0] ?? null
+    : null;
+  // The runway draws the deterministic preview while the wait runs and the chosen outfit
+  // once it lands, so an AI pick that differs moves the pieces to its own board.
+  const runwayOutfit = settled ?? recommendationState?.firstGenerationPreview ?? null;
+  const weatherState = weather.state.status === 'ready' ? weather.state : null;
 
   return (
     <View style={styles.root}>
       <TodayScreenContent {...props} now={now} />
-      <FirstGenerationOverlay
-        active={active ?? false}
-        completed={completed ?? false}
-        insight={weather.state.status === 'ready' && weather.state.snapshot
-          ? loadingDayInsight(weather.state.snapshot, props.language, hour12, now)
-          : null}
+      <FirstGenerationRunway
+        active={recommendationState?.showFirstGenerationOverlay ?? false}
+        completed={settled !== null}
         language={props.language}
         onSkip={() => { void application?.skipWait(); }}
-        phase={recommendationState?.status === 'ready' ? recommendationState.phase : null}
+        outfit={runwayOutfit ? { id: runwayOutfit.optionId, pieces: outfitBoardPieces(runwayOutfit) } : null}
+        phase={recommendationState?.phase ?? null}
+        weather={weatherState?.snapshot
+          ? runwayWeather(
+            weatherState.snapshot,
+            weatherState.activeLocation?.coordinates ?? null,
+            props.language,
+            hour12,
+            now,
+          )
+          : null}
       />
     </View>
   );

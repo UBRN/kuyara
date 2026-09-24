@@ -164,7 +164,7 @@ stacked hourly table.
 
 Gentle entrance of the garment pieces, a subtle transition between suggestions, and
 weather-state glyph transitions are the sanctioned uses. The first recommendation of
-a dressing day uses a full-screen runway with the day's atmosphere colour, falling or
+a dressing day uses a runway that fills Today with the day's atmosphere colour, falling or
 drifting weather particles, and garment silhouettes gliding onto the board one by one.
 Only garment silhouettes enter the board; there is no mannequin, avatar or mascot.
 [ADR 0020](0020-rewriting-the-motion-law.md) requires words to carry state alongside motion.

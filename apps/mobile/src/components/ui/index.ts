@@ -52,9 +52,11 @@ export {
   measureGarmentBoardHeight,
   type GarmentBoardLayout,
   type GarmentBoardLayoutBox,
+  type GarmentBoardPiece,
 } from './garment-board/garment-board';
 
 export { GarmentDrawing, GarmentTileArtwork } from './garment-board/garment-tile-artwork';
+export { GarmentRunwayBoard } from './garment-board/garment-runway-board';
 
 // ADR 0028 section 6 and ADR 0029 section 5: approved content colour for the Profile
 // rail, the Closet grid, and the form's colour-family swatches. Never a theme role.

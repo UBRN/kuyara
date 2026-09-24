@@ -89,7 +89,7 @@ type GarmentBoardProps = Readonly<{
   testID?: string;
 }>;
 
-function composePieces(pieces: readonly GarmentBoardPiece[], preset: Preset) {
+export function composePieces(pieces: readonly GarmentBoardPiece[], preset: Preset) {
   return composeGarmentBoard(pieces.map((piece) => ({
     ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category),
   })), preset === 'today' ? todayPreset : detailPreset);
@@ -118,12 +118,12 @@ export function layoutGarmentBoard(
   };
 }
 
-type ComposedPiece = ReturnType<typeof composePieces>['order'][number];
-type DrawnBox = ReturnType<typeof composePieces>['boxes'] extends Map<ComposedPiece, infer Box>
+export type ComposedPiece = ReturnType<typeof composePieces>['order'][number];
+export type DrawnBox = ReturnType<typeof composePieces>['boxes'] extends Map<ComposedPiece, infer Box>
   ? Box
   : never;
 
-function PieceArtwork({
+export function PieceArtwork({
   piece,
   fillColor,
   strokeColor,
