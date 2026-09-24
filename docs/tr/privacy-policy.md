@@ -20,7 +20,7 @@ yapabileceğini anlatır.
 - kuyara'nın geliştirildiği araç seti olan Expo'nun yaptığı iki istek, bu yanıttan önce ve
   yanıttan bağımsız olarak her açılışta gerçekleşir. Bu istekler rastgele bir kurulum kimliği
   ile uygulamaya ve cihaza dair sürüm bilgileri taşır; kuyara'ya girdiğin hiçbir şeyi taşımaz.
-- Analitik hiçbir zaman konumunu, fotoğraflarını, Gardırop içeriğini, adını, doğum
+- Analitik hiçbir zaman konumunu, fotoğraflarını, adını, giysi adlarını, doğum
   tarihini ya da yazdığın bir şeyi içermez.
 - kuyara seni başka uygulamalarda veya sitelerde izlemez, reklam göstermez ve veri satmaz.
 - Analitiği ve tanılamayı istediğin zaman Ayarlar'daki Gizlilik bölümünden kapatabilirsin.

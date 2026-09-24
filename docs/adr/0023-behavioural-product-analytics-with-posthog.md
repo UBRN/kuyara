@@ -252,9 +252,9 @@ Apple's [Review Guidelines](https://developer.apple.com/app-store/review/guideli
 2.5.14 require explicit consent and a clear recording indication; 5.1.1 requires an
 accessible withdrawal path and retention/deletion disclosure. The existing English and
 Turkish `analytics.consentBody` never asks to record screens and promises to exclude
-location, photos, Closet and name. A future proposal must reconcile explicit replay
-permission, re-consent for existing grants and a visible recording indicator with
-ADR 0033's one-answer design; it cannot silently widen an existing `granted` value or
+location, photos, name, and Closet item names and colours. A future proposal must
+reconcile explicit replay permission, re-consent for existing grants and a visible
+recording indicator with ADR 0033's one-answer design; it cannot silently widen an existing `granted` value or
 invent a second consent surface. Withdrawal must stop capture immediately, discard
 unsent native frames including offline queues, prevent later upload after restart or
 re-consent, and sever replay identity. Already uploaded data needs an explicit retention
