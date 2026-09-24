@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { useState } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import {
   AppText,
@@ -10,10 +10,13 @@ import {
   NativeListSection,
   NativeListRow,
   NativePickerRow,
+  NativeSheet,
+  Button,
 } from '@/components/ui';
 import type { LanguagePreference, ThemePreference } from '@/domain/preferences';
-import type { DressStyle, Gender, LocalProfile } from '@/features/profile/domain/profile';
+import type { DressStyle, Gender, LocalProfile, StyleAesthetic } from '@/features/profile/domain/profile';
 import { NameSheet } from '@/features/profile/presentation/name-sheet';
+import { aestheticLabels, StyleAestheticsOptions } from '@/features/profile/presentation/style-aesthetics-options';
 import { useLocalization } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
 
@@ -27,6 +30,8 @@ export type SettingsScreenProps = Readonly<{
   onOpenServiceProviders: () => void;
   onGenderChange: (value: Gender) => Promise<void>;
   onDressStyleChange: (value: DressStyle) => Promise<void>;
+  onStyleAestheticsChange: (values: readonly StyleAesthetic[]) => Promise<void>;
+  onMorningSheetEnabledChange: (enabled: boolean) => Promise<void>;
   onOpenBirthDate: () => void;
   onNameChange: (value: string | null) => Promise<void>;
   onOpenPrivacy: () => void;
@@ -42,6 +47,8 @@ export function SettingsScreen({
   notificationsOn,
   onAppearanceChange,
   onDressStyleChange,
+  onStyleAestheticsChange,
+  onMorningSheetEnabledChange,
   onGenderChange,
   onLanguageChange,
   onOpenServiceProviders,
@@ -61,6 +68,8 @@ export function SettingsScreen({
   const copy = messages.preferences;
   const [saveErrorGroup, setSaveErrorGroup] = useState<'appearance' | 'profile' | null>(null);
   const [nameEditorOpen, setNameEditorOpen] = useState(false);
+  const [aestheticsOpen, setAestheticsOpen] = useState(false);
+  const [aestheticDraft, setAestheticDraft] = useState<readonly StyleAesthetic[]>(profile.styleAesthetics ?? []);
 
   const savePreference = async (
     group: 'appearance' | 'profile',
@@ -181,6 +190,20 @@ export function SettingsScreen({
           testID="settings-dress-style-row"
         />
         <NativeListRow
+          glyph={({ color, size }) => <Icon color={color} name="clothing" size={size} />}
+          label={copy.stylePreferencesTitle}
+          onPress={() => { setAestheticDraft(profile.styleAesthetics ?? []); setAestheticsOpen(true); }}
+          testID="settings-style-preferences-row"
+          value={aestheticLabels(copy, profile.styleAesthetics ?? [])}
+        />
+        <NativeListRow
+          glyph={({ color, size }) => <Icon color={color} name="calendar" size={size} />}
+          label={copy.morningQuestionTitle}
+          testID="settings-morning-question-row"
+          toggle={{ value: profile.morningSheetEnabled ?? true, disabled: isSaving,
+            onValueChange: (enabled) => { void savePreference('profile', () => onMorningSheetEnabledChange(enabled)); } }}
+        />
+        <NativeListRow
           glyph={({ color, size }) => <Icon color={color} name="calendar" size={size} />}
           label={copy.birthDateTitle}
           onPress={onOpenBirthDate}
@@ -252,6 +275,18 @@ export function SettingsScreen({
       }}
       visible={nameEditorOpen}
     />
+    <NativeSheet visible={aestheticsOpen} onDismiss={() => setAestheticsOpen(false)} testID="settings-style-preferences-sheet">
+      <ScrollView contentContainerStyle={styles.sheetContent}>
+        <AppText accessibilityRole="header" variant="titleLarge">{copy.stylePreferencesTitle}</AppText>
+        <AppText>{copy.stylePreferencesBody}</AppText>
+        <StyleAestheticsOptions copy={copy} selected={aestheticDraft}
+          onChange={setAestheticDraft} testID="settings-style-option" />
+        <Button label={copy.stylePreferencesDone} onPress={() => {
+          void savePreference('profile', () => onStyleAestheticsChange(aestheticDraft));
+          setAestheticsOpen(false);
+        }} testID="settings-style-done" />
+      </ScrollView>
+    </NativeSheet>
     </>
   );
 }
@@ -263,6 +298,7 @@ const styles = StyleSheet.create({
   },
   name: { textAlign: 'center' },
   version: { textAlign: 'center' },
+  sheetContent: { gap: spacing.md, padding: spacing.lg },
 });
 
 function calendarDate(value: string): Date {

@@ -25,7 +25,8 @@ export default function OutfitDetailRoute() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const { language, messages } = useLocalization();
   const router = useRouter();
-  const { reevaluateLocalDay, state: recommendationState } = useRecommendationApplication();
+  const { dressingDayChoiceReady, reevaluateLocalDay, resolvedDressStyle,
+    state: recommendationState } = useRecommendationApplication();
   const wardrobe = useWardrobeApplication();
   const { revalidateFreshness: revalidateWeatherFreshness, state: weatherState } =
     useWeatherApplication();
@@ -49,7 +50,7 @@ export default function OutfitDetailRoute() {
     : {};
 
   const dressStyle = dressStyleProperty(
-    profileState.status === 'ready' ? profileState.profile.dressStyle : null,
+    resolvedDressStyle ?? (profileState.status === 'ready' ? profileState.profile.dressStyle : null),
   );
   const ageBucket = ageBucketProperty(
     profileState.status === 'ready' ? profileState.profile.birthDate : null,
@@ -78,7 +79,7 @@ export default function OutfitDetailRoute() {
       return;
     }
     if (
-      !suggestionId || !position || !outfit ||
+      !suggestionId || !position || !outfit || dressingDayChoiceReady === false ||
       recommendation?.status !== 'recommended' ||
       openedSuggestionIdRef.current === suggestionId
     ) return;
@@ -91,7 +92,8 @@ export default function OutfitDetailRoute() {
       dress_style: dressStyle,
       age_bucket: ageBucket,
     });
-  }, [ageBucket, analytics, dressStyle, isFocused, outfit, position, recommendation, suggestionId]);
+  }, [ageBucket, analytics, dressStyle, dressingDayChoiceReady, isFocused, outfit, position,
+    recommendation, suggestionId]);
 
   const onSetOwnership = (
     garmentTypeId: GarmentTypeId,
