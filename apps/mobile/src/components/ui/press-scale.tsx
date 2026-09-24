@@ -47,7 +47,7 @@ export function PressScale({
   };
 
   // `hovered` belongs to the web target; on iOS and Android it is always false.
-  const state: PressableStateCallbackType = { pressed };
+  const state: PressableStateCallbackType = { hovered: false, pressed };
 
   return (
     <AnimatedPressable
