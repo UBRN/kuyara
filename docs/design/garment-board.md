@@ -139,10 +139,10 @@ The stage height is therefore derived, insets plus the envelope, and clamped to
 from 0.680 to 1.135. Today's copy below the stage moves with it.
 
 The two insets are the tint's own margin around the composition and are not board
-geometry. The top inset is sized to clear the temperature and the condition glyph the
-screen draws in the stage's corners and nothing more; the bottom inset holds nothing, so
-it is the detail preset's. Tint that neither clears something nor holds something is
-slack, and the stage does not carry it.
+geometry. The top inset gives the garment composition breathing room without placing
+weather symbols inside the stage; the bottom inset holds nothing, so it is the detail
+preset's. Tint that neither supports the composition nor holds something is slack, and
+the stage does not carry it.
 
 This does not add a plane. Law 3 of [`design-language.md`](./design-language.md) already
 states that the condition-tinted stage is not a fourth plane; a variable height does not
@@ -170,7 +170,7 @@ Every value, in stage-width units unless marked otherwise.
 | mid inset | 0.20 | × core metric, off the rail axis |
 | footwear rise | 0.20 | × core metric, above the core baseline |
 | gutter | 0.095 | between the two columns |
-| top / bottom inset | 0.205 / 0.055 | the top inset clears the temperature and the condition glyph |
+| top / bottom inset | 0.205 / 0.055 | breathing room above the garment composition |
 | stage height | 0.66 to 1.14 | derived, then clamped |
 | ink centroid | 0.47 | where the composition lands |
 | side minimum | 0.09 | no drawn edge closer to a stage edge |
@@ -228,8 +228,8 @@ a two-line caption fits under every piece:
 | top / bottom inset | 0.205 / 0.055 | 0.045 / 0.055 |
 | stage height range | 0.66 to 1.14 | 0.60 to 1.45 |
 
-The insets collapse because the detail board is not on the tinted stage and has no
-temperature or condition glyph in its corners to clear.
+The insets collapse because the detail board is not on the tinted stage and needs less
+breathing room above the garment composition.
 
 **Captions.** A caption is centred on its piece's own axis and sits 7 points below the
 piece's drawn box. Its width is capped per column, **0.42** of the plate width for the

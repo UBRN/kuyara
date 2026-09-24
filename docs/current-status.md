@@ -190,7 +190,7 @@ The approved phase order, active work and remaining open items are in [the roadm
 
 ## Recently Completed
 
-- **First-generation wait:** Today now presents the garment-board loading overlay only while a dressing day lacks a valid recommendation and generation is running. After ten seconds a native alert offers an early deterministic outfit; the AI request continues and can replace it. The overlay holds a green completion state for 0.8 seconds. The app no longer reads the OS Reduce Motion setting.
+- **First-generation wait:** Today now presents the garment-board loading overlay only while a dressing day lacks a valid recommendation and generation is running. After ten seconds a native alert offers an early deterministic outfit; the AI request continues and can replace it. The overlay holds a green completion state for 0.8 seconds. The app does not read the OS motion preference.
 - **Daily style choices:** schema 18 preserves profiles and adds style aesthetics, the morning question setting and keyed formality choices. Today offers the three-formality morning sheet, chips and tomorrow planning; onboarding and Settings edit the separate aesthetic preferences. Automated repository and component checks pass, the rebuilt version 17 device database replay passed, and the Simulator pass covered onboarding, chips, plan tomorrow, More and Settings; the morning sheet appeared at the first daytime open in the Simulator; its alert and the loading overlay's skip alert are covered by component tests.
 
 - **Settings and provider attribution:** the root presents Appearance, Notifications,
@@ -390,7 +390,7 @@ The approved phase order, active work and remaining open items are in [the roadm
 - **Dark atmosphere states render neutral only.** ADR 0018 caps them at Deep Atmosphere's
   luminance; every compliant variation sits only 3 to 8 RGB levels from the current
   `#122A35` stage and is imperceptible. Lifting the cap needs a separate decision.
-- **The Pages site ignores Reduce Motion by decision.** The website at `docs/` animates
+- **The Pages site always animates by decision.** The website at `docs/` animates
   regardless of the OS setting and offers a System/Light/Dark selector stored in the
   browser; the decision is recorded in `product-decisions.md` and qualified in
   `docs/design/visual-identity.md`. With JavaScript off the selector is absent and the

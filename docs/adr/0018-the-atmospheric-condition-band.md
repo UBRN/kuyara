@@ -40,8 +40,9 @@ sit on the page ground, not on the hero.
 
 ### 1. The atmosphere is a stage, not a page
 
-The condition tints the surface the garment composition sits on and places one
-temperature and one condition glyph in its corner. Only `textPrimary`, `iconPrimary`
+The condition tints the surface the garment composition sits on. Temperature and the
+animated condition symbol sit beside Today's title, outside the garment card. Only
+`textPrimary`, `iconPrimary`
 and the resolved `condition.*` ink are permitted on the stage. The condition ink is
 measured against every atmosphere state its own condition family can produce and
 against `neutral`, clearing 3:1 on each. No supporting copy, bordered control or card
@@ -74,7 +75,7 @@ chosen and measured `#98C3CF`.
 
 | state | pair | t | hex |
 | --- | --- | ---: | --- |
-| `neutral` | current stage | — | `#D7DCDD` |
+| `neutral` | current stage | n/a | `#D7DCDD` |
 | `clearDay` | Quiet Sky to Cloud White | 0.549 | `#CBE1E5` |
 | `veiledDay` | Calm Current to Soft Mist | 0.756 | `#C2D1D3` |
 | `fallingDay` | Calm Current to Quiet Sky | 0.943 | `#98C3CF` |

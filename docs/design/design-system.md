@@ -123,7 +123,7 @@ Semantic haptic tokens live beside these existing `interaction` tokens in `theme
 
 `withAlpha(hexColor, alpha)` in `theme/color-alpha.ts` derives a translucent `rgba()` value from an already resolved semantic color. It is the only approved way to build a tinted surface, and it rejects anything other than a six-digit hex input. It never introduces a new hue: the input must be a semantic role read from the theme, never a brand primitive.
 
-Motion durations are `immediate` 0 ms, `fast` 120 ms, `normal` 200 ms, and `deliberate` 320 ms. Motion tokens and ambient loops do not read the OS Reduce Motion setting; animations play at their authored durations. Content visibility and state never depend on animation. The app makes no Reduced Motion support claim.
+Motion durations are `immediate` 0 ms, `fast` 120 ms, `normal` 200 ms, and `deliberate` 320 ms. Motion tokens and ambient loops do not read the OS motion preference; animations play at their authored durations. Content visibility and state never depend on animation. The app makes no motion-adaptation claim.
 
 ## Theme resolution and access
 

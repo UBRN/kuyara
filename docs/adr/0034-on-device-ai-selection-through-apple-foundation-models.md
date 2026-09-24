@@ -149,12 +149,8 @@ The rules around them:
   detail's source sentence is where that mode is said in words instead. The phase line
   shown while a recommendation is being produced is a different surface and still narrates
   the deterministic fallback as it runs.
-- Neither badge carries a glyph. The on-device badge takes none, and the Worker badge takes
-  none either: a spark beside either one is the AI-assistant convention
-  [`visual-identity.md`](../design/visual-identity.md) refuses, and the badge is already one
-  controlled colour block with one word in it
-  ([ADR 0021](0021-direction-e-a-visual-first-design-language.md) section 8).
-- The Apple Intelligence word mark appears only in the on-device badge and its spoken label, the detail source sentence, and the Settings Service providers status and footer. It stays referential, untranslated and unabbreviated, with no trademark sign under [Apple's third-party trademark guidance](https://www.apple.com/legal/intellectual-property/guidelinesfor3rdparties.html). The Settings Artificial intelligence section alone may draw the `apple.intelligence` SF Symbol beside an explicit status in words and a status colour plus shape. No badge uses a glyph. **Risk accepted:** Apple has not publicly answered whether third parties may draw that SF Symbol; this one use trades against the uncertainty while never making the symbol the only status carrier. Apple trademark guidance remains a submission check.
+- The on-device badge pairs its words with the `apple.intelligence` SF Symbol in its multicolor original rendering and uses a non-purple badge colour. The Worker badge pairs "Chosen with AI" with its own colorful AI symbol in the purple family; `sparkles` is a candidate. The symbols supplement the words rather than carrying provenance alone.
+- The Apple Intelligence word mark appears only in the on-device badge and its spoken label, the detail source sentence, and the Settings Service providers status and footer. It stays referential, untranslated and unabbreviated, with no trademark sign under [Apple's third-party trademark guidance](https://www.apple.com/legal/intellectual-property/guidelinesfor3rdparties.html). Settings Service providers shows the same `apple.intelligence` SF Symbol beside the device status line, with explicit words and a status colour plus shape. **Risk accepted:** Apple has not publicly answered whether third parties may draw that SF Symbol; these uses trade against the uncertainty while never making the symbol the only status carrier. Apple trademark guidance remains a submission check.
 - The copy never claims personalisation. AI picks three meaningfully different outfits
   from already valid options; it does not learn the user
   ([ADR 0031](0031-dress-style-is-the-formality-signal.md)).

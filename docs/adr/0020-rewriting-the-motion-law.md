@@ -43,10 +43,10 @@ Two requirements are binding.
    feedback, `normal` 200 for a state change on something already on screen,
    `deliberate` 320 for a full-screen or sheet transition.
 
-kuyara does not claim the Reduced Motion accessibility label. **Risk accepted:** the two
-indefinite `withRepeat` sites and the loading animation keep playing under the OS
-setting, trading against Apple's Reduce Motion guidance and the pause mechanism
-described in WCAG 2.2.2. Motion remains paired with words for state.
+The OS Reduce Motion setting is never read. kuyara makes no related accessibility
+support claim. **Risk accepted:** indefinite ambient animation and the loading
+runway keep playing under that setting, trading against Apple's guidance and the
+pause mechanism described in WCAG 2.2.2. Motion remains paired with words for state.
 
 ### Two spring roles
 
@@ -75,15 +75,17 @@ None of the three durations describes ambient motion. A cloud that bobs over 150
 not a 320 ms transition, so ambient motion has the duration role `theme.motion.ambient`
 rather than literals in a feature file.
 
-The role carries three tempo steps, each one leg of a loop: calm 1500 ms, moderate
-1000 ms and intense 650 ms. A deterministic rule in the weather domain picks the step
+The condition symbol uses a closed animation vocabulary: sun turns, clouds drift, rain
+and snow fall, and wind streams. These motions follow the condition rather than adding
+literal weather scenes. The role carries three tempo steps, each one leg of a loop:
+calm 1500 ms, moderate 1000 ms and intense 650 ms. A deterministic rule in the weather domain picks the step
 from the condition, so the tempo follows how fast the weather is moving rather than how
 bad it is: a condition that only sits in the sky is calm, drizzle is moderate, and
 anything that actually comes down is intense. The calm step's 1500 ms was kept after
 watching the Today glyph on the iPhone 17 Pro Simulator on 2026-09-12, and the two
 faster steps shorten the same leg. The glyph derives its drop cycle and its drop stagger
 from the selected step by fixed ratios, so the cloud and the rain keep one tempo at
-every step. An unresolved wait (Today's board skeleton, Today's loading line, the AI
+every step. An unresolved wait (Today's runway progress, Today's loading line, the AI
 status probe overlay) breathes on the moderate step, a full breath of 2000 ms, because
 that is the cycle band Ding and Kyung (Journal of Consumer Research 2026,
 <https://academic.oup.com/jcr/advance-article/doi/10.1093/jcr/ucaf037/8165440>) measured
@@ -122,7 +124,7 @@ a state the user set and crosses a real threshold.
 - Motion that delays the user's decision, which `visual-identity.md` prohibits
   independently.
 - An in-app motion toggle.
-- A content-detached grey-block wait surface. The board skeleton keeps ADR 0025's boxes
+- A content-detached grey-block wait surface. The runway keeps ADR 0025's boxes
   and the garment silhouettes because the wait already knows where the pieces will sit;
   Viget's 2017 test (136 participants, a web page,
   <https://www.viget.com/articles/a-bone-to-pick-with-skeleton-screens/>) measured a
@@ -130,10 +132,11 @@ a state the user set and crosses a real threshold.
   and blank, and no measurement ranks the silhouettes, so they stand on the composition
   rule alone.
 
-The first recommendation of a dressing day uses a full-screen loading overlay whose
-garment-board skeleton fills piece by piece. A line rotates every two seconds among
-day insights, phase status and teaching tips, without provider names. Completion holds
-a green "All set" state for 0.8 seconds. After ten seconds the user can open a
+The first recommendation of a dressing day uses a full-screen runway. The day's atmosphere
+colour fills the screen; weather particles fall or drift, and garment silhouettes glide
+in one by one onto the board. Progress and a line rotating every two seconds among
+day insights, phase status and teaching tips sit below, without provider names.
+Completion holds a green "All set" state for 0.8 seconds. After ten seconds the user can open a
 system alert to skip the wait; the red skip action is secondary to the blue
 keep-waiting default text, and the AI walk continues to its 46-second bound. Background
 refreshes retain the current outfit and inline phase. No mannequin, avatar or mascot
