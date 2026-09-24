@@ -9,30 +9,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { isWeatherConditionCode, type WeatherConditionCode } from '@/features/weather/domain/weather';
+import type { RunwayParticleKind } from '@/features/today/presentation/runway-palette';
 import { useKuyaraTheme } from '@/theme/theme-context';
-
-// ADR 0020's closed vocabulary, carried into the runway's board band: rain and snow fall,
-// cloud drifts as wisps, a clear sky shows slow motes.
-export type RunwayParticleKind = 'rain' | 'snow' | 'wisp' | 'mote';
-
-const kindByCondition: Readonly<Record<WeatherConditionCode, RunwayParticleKind>> = {
-  clear: 'mote',
-  mostly_clear: 'mote',
-  partly_cloudy: 'wisp',
-  cloudy: 'wisp',
-  fog: 'wisp',
-  drizzle: 'rain',
-  rain: 'rain',
-  heavy_rain: 'rain',
-  sleet: 'rain',
-  snow: 'snow',
-  thunderstorm: 'rain',
-};
-
-export function runwayParticleKind(condition: string): RunwayParticleKind | null {
-  return isWeatherConditionCode(condition) ? kindByCondition[condition] : null;
-}
 
 // Counts and sizes follow the runway render. Each loop is a whole number of ambient legs:
 // rain crosses the band on about one moderate leg, snow on four to six calm legs, and wisps
