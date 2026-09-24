@@ -13,9 +13,7 @@ import {
   createKuyaraTheme,
   darkSemanticColors,
   lightSemanticColors,
-  reducedMotion,
   resolveColorScheme,
-  resolveMotionTokens,
   standardMotion,
 } from './theme.ts';
 import { KuyaraThemeContext, useKuyaraTheme } from './theme-context.ts';
@@ -77,18 +75,7 @@ test('theme preference resolves explicit choices and defaults system safely', ()
   assert.equal(resolveColorScheme('system', null), 'light');
 });
 
-test('Reduce Motion removes decorative duration while preserving standard timing otherwise', () => {
-  assert.equal(resolveMotionTokens(false), standardMotion);
-  assert.equal(resolveMotionTokens(true), reducedMotion);
-  assert.equal(
-    Object.values(reducedMotion)
-      .flatMap((role) => (typeof role === 'number' ? role : Object.values(role)))
-      .every((duration) => duration === 0),
-    true,
-  );
-});
-
-test('the ambient role names three tempos and stops entirely under Reduce Motion', () => {
+test('the ambient role names three tempos', () => {
   const { calm, moderate, intense } = standardMotion.ambient;
 
   assert.deepEqual(Object.keys(standardMotion.ambient), ['calm', 'moderate', 'intense']);
@@ -97,22 +84,18 @@ test('the ambient role names three tempos and stops entirely under Reduce Motion
   assert.ok(calm > moderate);
   assert.ok(moderate > intense);
   assert.ok(intense > standardMotion.deliberate);
-  assert.deepEqual(reducedMotion.ambient, { calm: 0, moderate: 0, intense: 0 });
   assert.equal(createKuyaraTheme('light').motion.ambient.calm, calm);
-  assert.equal(createKuyaraTheme('light', true).motion.ambient.calm, 0);
 });
 
-test('the stagger role steps content arrival and disappears under Reduce Motion', () => {
+test('the stagger role steps content arrival', () => {
   assert.ok(standardMotion.stagger > 0);
   // A stagger is the gap between two arrivals, not an arrival: longer than the
   // entrance it spaces would read as a queue rather than one piece of content.
   assert.ok(standardMotion.stagger < standardMotion.fast);
-  assert.equal(reducedMotion.stagger, 0);
   assert.equal(createKuyaraTheme('light').motion.stagger, standardMotion.stagger);
-  assert.equal(createKuyaraTheme('light', true).motion.stagger, 0);
 });
 
-test('themes expose the two spring roles independent of Reduce Motion', () => {
+test('themes expose the two spring roles', () => {
   for (const theme of [createKuyaraTheme('light'), createKuyaraTheme('dark')]) {
     for (const role of [theme.springs.spatial, theme.springs.arrival]) {
       assert.ok(role.duration > 0);
@@ -125,22 +108,11 @@ test('themes expose the two spring roles independent of Reduce Motion', () => {
     assert.ok(theme.springs.arrival.dampingRatio < theme.springs.spatial.dampingRatio);
   }
 
-  // Reduce Motion never rewrites a spring role; the components under `components/ui`
-  // render the static end state instead, which is where the overshoot disappears.
-  assert.equal(
-    createKuyaraTheme('light', true).springs.spatial,
-    createKuyaraTheme('light').springs.spatial,
-  );
-  assert.equal(
-    createKuyaraTheme('light', true).springs.arrival,
-    createKuyaraTheme('light').springs.arrival,
-  );
 });
 
-test('themes expose two calm, platform-complete elevation levels independent of motion', () => {
+test('themes expose two calm, platform-complete elevation levels', () => {
   const light = createKuyaraTheme('light');
   const dark = createKuyaraTheme('dark');
-  const reduced = createKuyaraTheme('light', true);
 
   for (const theme of [light, dark]) {
     assert.deepEqual(Object.keys(theme.elevation).sort(), ['chrome', 'raised']);
@@ -170,7 +142,6 @@ test('themes expose two calm, platform-complete elevation levels independent of 
     shadowRadius: 12,
     elevation: 3,
   });
-  assert.equal(reduced.elevation, light.elevation);
 });
 
 function ShellThemeProbe() {
@@ -180,7 +151,6 @@ function ShellThemeProbe() {
     'main',
     {
       'data-color-scheme': theme.colorScheme,
-      'data-reduce-motion': String(theme.isReduceMotionEnabled),
       style: {
         backgroundColor: theme.colors.background,
         color: theme.colors.textPrimary,

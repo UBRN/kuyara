@@ -286,13 +286,6 @@ export function GarmentBoard({
   useEffect(() => {
     if (!entrance) return;
 
-    if (theme.isReduceMotionEnabled) {
-      cancelAnimation(progress);
-      cancelAnimation(tintProgress);
-      reportSettled();
-      return;
-    }
-
     if (width <= 0 || didStartEntrance.current) return;
     didStartEntrance.current = true;
     tintProgress.set(withTiming(1, { duration: theme.motion.normal }));
@@ -305,7 +298,6 @@ export function GarmentBoard({
     entrance,
     progress,
     reportSettled,
-    theme.isReduceMotionEnabled,
     theme.motion.normal,
     theme.springs.arrival,
     tintProgress,
@@ -315,7 +307,7 @@ export function GarmentBoard({
   // Mount only, like `Entrance`: the travel is spatial and rides the arrival role, the
   // fade is effects motion on `motion.fast`.
   useEffect(() => {
-    if (!rise || didStartRise.current || theme.isReduceMotionEnabled) return;
+    if (!rise || didStartRise.current) return;
     didStartRise.current = true;
     riseOpacity.set(withTiming(1, { duration: theme.motion.fast }));
     riseOffset.set(withSpring(0, theme.springs.arrival));
@@ -323,18 +315,15 @@ export function GarmentBoard({
     rise,
     riseOffset,
     riseOpacity,
-    theme.isReduceMotionEnabled,
     theme.motion.fast,
     theme.springs.arrival,
   ]);
 
   // Law 7's moment: one settle per completing action. The board mounts at its resting
-  // value, so a board that opens already complete stays still, and Reduce Motion
-  // renders nothing at all.
+  // value, so a board that opens already complete stays still.
   useEffect(() => {
     if (settle === lastSettle.current) return;
     lastSettle.current = settle;
-    if (theme.isReduceMotionEnabled) return;
     // One landing rather than a pulse: the down leg is travelled on the effects
     // duration instead of teleported, and the return carries the arrival overshoot.
     settleTravel.set(withSequence(
@@ -344,7 +333,6 @@ export function GarmentBoard({
   }, [
     settle,
     settleTravel,
-    theme.isReduceMotionEnabled,
     theme.motion.fast,
     theme.springs.arrival,
   ]);
@@ -380,7 +368,7 @@ export function GarmentBoard({
     testID,
   };
 
-  if (!entrance || theme.isReduceMotionEnabled) {
+  if (!entrance) {
     const board = (
       <Svg {...accessibilityProps} height={height} width={width}>
         {result.order.map((piece) => {
@@ -412,7 +400,7 @@ export function GarmentBoard({
 
     // The wrapper carries no accessibility props, so the rise adds no node a screen
     // reader stops on, and the stage the screen draws stays where it is.
-    return rise && !theme.isReduceMotionEnabled
+    return rise
       ? <Animated.View style={riseStyle}>{board}</Animated.View>
       : board;
   }

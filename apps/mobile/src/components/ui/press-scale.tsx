@@ -15,7 +15,7 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 
 // Law 7's press feedback role: a pressed surface scales down and back with
 // `motion.fast`. The value is the law's, and it lives here so no feature file
-// authors a scale. Under Reduce Motion the surface never leaves its resting 1.
+// authors a scale.
 const PRESSED_SCALE = 0.97;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -40,14 +40,14 @@ export function PressScale({
 
   const animateTo = (value: number) => {
     scale.set(
-      withTiming(theme.isReduceMotionEnabled ? 1 : value, {
+      withTiming(value, {
         duration: theme.motion.fast,
       }),
     );
   };
 
   // `hovered` belongs to the web target; on iOS and Android it is always false.
-  const state: PressableStateCallbackType = { hovered: false, pressed };
+  const state: PressableStateCallbackType = { pressed };
 
   return (
     <AnimatedPressable

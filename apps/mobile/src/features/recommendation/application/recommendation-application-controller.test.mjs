@@ -141,6 +141,46 @@ async function persistedRecommendation() {
   return controller.refresh('first-recommendation', input(16));
 }
 
+test('first generation can show deterministic outfits while its AI request continues', async () => {
+  let resolveAi;
+  let request;
+  const ai = new Promise((resolve) => { resolveAi = resolve; });
+  const { controller, calls } = createHarness({
+    client: { recommendRouted: (nextRequest) => {
+      request = nextRequest;
+      return ai;
+    } },
+  });
+  await controller.initialize();
+  const pending = controller.refresh('first-recommendation', input());
+  assert.equal(controller.getSnapshot().showFirstGenerationOverlay, true);
+  assert.equal(controller.getSnapshot().isRefreshing, true);
+
+  const skipped = await controller.skipWait();
+  assert.equal(skipped.generationMode, 'deterministic-fallback');
+  assert.equal(controller.getSnapshot().showFirstGenerationOverlay, false);
+  assert.equal(controller.getSnapshot().isRefreshing, true);
+  assert.equal(calls.client, 1);
+
+  resolveAi(mapWorkerAiRecommendation(request, workerResponse(request), 'ai-assisted'));
+  const settled = await pending;
+  assert.equal(settled.generationMode, 'ai-assisted');
+  assert.equal(controller.getSnapshot().isRefreshing, false);
+  assert.equal(calls.client, 1);
+});
+
+test('a same-day background refresh never requests the first-generation overlay', async () => {
+  const cached = await persistedRecommendation();
+  let resolveAi;
+  const ai = new Promise((resolve) => { resolveAi = resolve; });
+  const { controller } = createHarness({ cached, client: { recommendRouted: () => ai } });
+  await controller.initialize();
+  const pending = controller.refresh('explicit', input());
+  assert.equal(controller.getSnapshot().showFirstGenerationOverlay, false);
+  resolveAi(null);
+  await pending;
+});
+
 test('exhaustion compares the complete pool with the current shown set', async () => {
   const snapshot = await persistedRecommendation();
   const ids = snapshot.recommendation.outfits.map(({ optionId }) => optionId);
@@ -582,6 +622,7 @@ test('a repository load failure leaves the ready state carrying an unknown failu
     lastFailure: 'unknown',
     phase: null,
     exhausted: false,
+    showFirstGenerationOverlay: false,
   });
 });
 

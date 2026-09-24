@@ -2,14 +2,12 @@ import { render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 
 import { ProgressFill } from '@/components/ui/progress-fill';
-import { createKuyaraTheme, lightTheme } from '@/theme/theme';
+import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
-const reducedMotionTheme = createKuyaraTheme('light', true);
-
-async function renderFill(progress: number, reduceMotion = false) {
+async function renderFill(progress: number) {
   const result = await render(
-    <KuyaraThemeContext.Provider value={reduceMotion ? reducedMotionTheme : lightTheme}>
+    <KuyaraThemeContext.Provider value={lightTheme}>
       <ProgressFill progress={progress} />
     </KuyaraThemeContext.Provider>,
   );
@@ -25,14 +23,10 @@ async function renderFill(progress: number, reduceMotion = false) {
   };
 }
 
-// Law 7's first hard rule: the fill reaches the same width whether or not it travels
-// there, so the resting width is asserted in both modes. The Reanimated test mock rebuilds
+// The fill reaches its intended width. The Reanimated test mock rebuilds
 // shared values on every render, so the travel itself is not observable here.
-test.each([
-  ['standard motion', false],
-  ['Reduce Motion', true],
-])('fills the track to its progress under %s', async (_name, reduceMotion) => {
-  const { track, fill } = await renderFill(0.4, reduceMotion);
+test('fills the track to its progress', async () => {
+  const { track, fill } = await renderFill(0.4);
 
   expect(track.backgroundColor).toBe(lightTheme.colors.borderSubtle);
   expect(fill.backgroundColor).toBe(lightTheme.colors.brandPrimary);

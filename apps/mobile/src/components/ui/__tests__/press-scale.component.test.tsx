@@ -3,14 +3,12 @@ import type { PropsWithChildren } from 'react';
 import { StyleSheet, Text } from 'react-native';
 
 import { PressScale } from '@/components/ui/press-scale';
-import { createKuyaraTheme, lightTheme } from '@/theme/theme';
+import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
-const reducedMotionTheme = createKuyaraTheme('light', true);
-
-function Providers({ children, reduceMotion = false }: PropsWithChildren<{ reduceMotion?: boolean }>) {
+function Providers({ children }: PropsWithChildren) {
   return (
-    <KuyaraThemeContext.Provider value={reduceMotion ? reducedMotionTheme : lightTheme}>
+    <KuyaraThemeContext.Provider value={lightTheme}>
       {children}
     </KuyaraThemeContext.Provider>
   );
@@ -37,12 +35,9 @@ test('renders its children and forwards the press', async () => {
 // pressed state has to reach both the style callback and the children callback whether or
 // not the scale animation runs. The scale itself is a shared value and the Reanimated test
 // mock rebuilds shared values on every render, so its value is not observable here.
-test.each([
-  ['standard motion', false],
-  ['Reduce Motion', true],
-])('keeps the pressed state visible without motion under %s', async (_name, reduceMotion) => {
+test('keeps the pressed state visible with the scale feedback', async () => {
   const { getByTestId, getByText } = await render(
-    <Providers reduceMotion={reduceMotion}>
+    <Providers>
       <PressScale style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })} testID="press-target">
         {({ pressed }) => <Text>{pressed ? 'pressed' : 'resting'}</Text>}
       </PressScale>
