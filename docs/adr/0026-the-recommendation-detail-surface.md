@@ -131,7 +131,7 @@ rather than a cross-fade between two pictures.
 3. The captions arrive after the pieces settle, using the spatial spring role, so the
    reader never tracks moving text.
 4. The reasoning section rises as the ordinary push transition.
-5. The OS Reduce Motion setting does not suppress the re-layout or garment travel.
+5. The OS motion preference does not suppress the re-layout or garment travel.
    The tint difference remains, because it carries meaning rather than motion.
 
 The push remains the platform's. Garment travel is an in-screen re-layout from the Today

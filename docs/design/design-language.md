@@ -182,7 +182,9 @@ checkable with a number. Three of the four pairs are status verdicts; the fourth
 `provenance`, is not a verdict at all. It records where a recommendation came from, so it
 enters the band on the same terms and is spent on exactly one element: the prominent
 filled badge Today draws directly below its title ([ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md)
-section 8). It is never a control fill, a border or chrome, and it never stands on
+section 8). Its on-device variant keeps the multicolor original `apple.intelligence`
+symbol on a non-purple badge; the Worker variant uses a colorful AI symbol in the purple
+family. Both retain the controlled contrast rule. It is never a control fill, a border or chrome, and it never stands on
 the tinted stage, where `provenanceInk` falls to 2.622:1 on `fallingNight`.
 
 Reference: light `brandAccent` `#27606A` on `#FFFFFF` = **7.077**. Dark `brandAccent`
@@ -267,8 +269,8 @@ and not an accent. Fourteen of them carry a condition: one per code, and a secon
 after sunset for the three codes that show the sky itself, `clear`, `mostly_clear` and
 `partly_cloudy`. The fifteenth, `neutral`, is what an unreadable condition or an
 unreadable clock resolves to. They may colour only the Weather hero glyph, the hourly
-rail's condition icons, the daily outlook rows' condition glyphs and the same condition
-glyph when it appears on Today's atmosphere stage. Every value is flat and opaque. No
+rail's condition icons, the daily outlook rows' condition glyphs and the condition
+symbol beside Today's title. Every value is flat and opaque. No
 consumer may apply `withAlpha`, an opacity style, a gradient, glow or second colour stop.
 
 Each condition keeps a distinct system-symbol shape and a localized written name or
@@ -414,8 +416,7 @@ Two requirements are hard, not judgment calls:
   the hero value's line box and must not sit directly beneath it inside the stage. A
   glyph beside the hero on the same row is permitted.
 
-App motion does not read the OS Reduce Motion setting. The app makes
-no Reduced Motion support claim.
+App motion does not read the OS motion preference or claim adaptation to it.
 
 **Ambient motion has its own duration role**, `theme.motion.ambient`. `fast`, `normal`
 and `deliberate` all describe transitions, and a 1500 ms cloud bob is not a transition.
@@ -424,12 +425,18 @@ The role carries three tempo steps, each one leg of a loop: calm 1500 ms, modera
 iPhone 17 Pro Simulator on 2026-09-12. A deterministic weather-domain rule picks the step
 from the condition, a calm condition moving more slowly than a violent one. Two kinds of
 surface consume the role: the weather glyph on Today and Weather, and the wait surfaces
-(Today's board skeleton, Today's loading line, the Service providers probe overlay), which
+(Today's runway progress, Today's loading line, the Service providers probe overlay), which
 breathe on the moderate step, a full breath of 2000 ms, because that is the cycle band
 Ding and Kyung (Journal of Consumer Research 2026,
 <https://academic.oup.com/jcr/advance-article/doi/10.1093/jcr/ucaf037/8165440>) measured
 as the shortest perceived wait. Ambient motion never runs under a hero value. A duration
 is a role in the sense of Law 9, so the role is named ahead of its second use.
+
+The condition symbol uses a closed animation vocabulary: sun turns, clouds drift, rain
+and snow fall, and wind streams. The first recommendation uses a full-screen runway:
+the day's atmosphere colour fills the screen, weather particles fall or drift, and
+garment silhouettes glide one by one onto the board. Progress and a rotating line sit
+below. The runway uses the garment silhouettes without a mannequin or mascot.
 
 **Spatial and effects motion.** Motion is one of two kinds. *Effects*
 motion changes a property in place: opacity, colour, a tint draining away. The three
@@ -463,7 +470,7 @@ no custom navigation transitions, because the liveliness belongs to the content 
 rather than to the screen swapping.
 
 **A moment is a single settle plus its haptic**, fired once per user action that
-completes something. There are no particles, characters, mascots or sounds. One site
+completes something. A moment adds no particles, characters, mascots or sounds. One site
 carries a moment today: marking the last piece of an outfit as owned on the outfit detail
 board, where the pieces settle once with the arrival spring and Law 8's success
 notification fires.

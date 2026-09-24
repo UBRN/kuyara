@@ -23,8 +23,8 @@ Adopt Expo Router Native Tabs, imported from
 
 ### The accessibility argument that decided it
 
-A real `UITabBar` gets Liquid Glass drawn by the OS, and gets Reduce
-Transparency, Increase Contrast, and Reduce Motion adaptation from the OS as
+A real `UITabBar` gets Liquid Glass drawn by the OS, and gets transparency,
+contrast, and motion adaptation from the OS as
 well. A hand-built glass surface gets none of that: the app must call
 `AccessibilityInfo.isReduceTransparencyEnabled()` itself and swap to an
 opaque background. This repo treats accessibility as a definition-of-done

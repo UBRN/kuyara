@@ -291,7 +291,7 @@ body.ku-landing {
    Gated once, on capability alone. `@supports` keeps an engine without
    scroll-driven animations on the finished page; that is the only fallback
    path. The page animates for every reader, whatever the operating system's
-   Reduce Motion setting says.
+   motion preference says.
    Transform and opacity only, so the work stays on the compositor thread. */
 
 @supports (animation-timeline: view()) {
