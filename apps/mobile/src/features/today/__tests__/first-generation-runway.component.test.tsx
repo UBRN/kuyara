@@ -2,6 +2,7 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import { Alert, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import type { RecommendationPhase } from '@/features/recommendation/application/recommendation-application-controller';
 import { FirstGenerationRunway, type RunwayOutfit } from '@/features/today/presentation/first-generation-runway';
 import { messages } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
@@ -20,8 +21,8 @@ const props = {
   active: true,
   completed: false,
   language: 'en' as const,
-  phase: 'asking-stylist' as const,
-  weather: { atmosphere: 'veiledDay' as const, condition: 'cloudy', daypart: 'day' as const, insight: null as string | null },
+  phase: 'asking-stylist' as RecommendationPhase | null,
+  weather: { atmosphere: 'veiledDay' as const, condition: 'cloudy', insight: null as string | null },
   outfit: preview as RunwayOutfit | null,
   onSkip,
 };
@@ -112,18 +113,42 @@ test('skip appears at ten seconds and uses the native alert roles', async () => 
   expect(result.getByTestId('first-generation-skip').props.accessibilityRole).toBe('button');
 });
 
-test('completion lands every piece and holds All set for eight tenths of a second', async () => {
+test('completion holds All set for eight tenths of a second after the landing', async () => {
   const result = await render(runway());
   await laidOut(result);
   await result.rerender(runway({ active: false, completed: true }));
-  await act(() => jest.advanceTimersByTime(0));
+  await act(() => jest.advanceTimersByTime(lightTheme.springs.spatial.duration));
   expect(result.getByTestId('first-generation-success')).toHaveTextContent(copy.allSet);
-  expect(progressValue(result)).toBe(copy.progressComplete);
-  expect(pieceOpacity(result, 'footwear')).toBe(1);
   await act(() => jest.advanceTimersByTime(799));
   expect(result.getByTestId('first-generation-runway')).toBeOnTheScreen();
   await act(() => jest.advanceTimersByTime(1));
   expect(result.queryByTestId('first-generation-runway')).toBeNull();
+});
+
+test('an early completion lands every remaining piece and fills the bar before All set shows', async () => {
+  const result = await render(runway());
+  await laidOut(result);
+  await act(() => jest.advanceTimersByTime(1_200));
+  expect(pieceOpacity(result, 'footwear')).toBe(0);
+
+  await result.rerender(runway({ active: false, completed: true, phase: 'preparing-outfits' }));
+  await act(() => jest.advanceTimersByTime(0));
+  // The landing runs first: every piece is placed and the bar is full, the words wait.
+  expect(result.queryByTestId('first-generation-success')).toBeNull();
+  expect(progressValue(result)).toBe(copy.progressComplete);
+  expect(result.getByTestId('first-generation-progress').props.accessibilityValue.now).toBe(100);
+
+  await act(() => jest.advanceTimersByTime(lightTheme.springs.spatial.duration));
+  expect(result.getByTestId('first-generation-success')).toHaveTextContent(copy.allSet);
+  expect(progressValue(result)).toBe(copy.progressComplete);
+  for (const { slot } of preview.pieces) {
+    expect(pieceOpacity(result, slot)).toBe(1);
+    const piece = result.getByTestId(`runway-piece-${slot}`, { includeHiddenElements: true });
+    expect(StyleSheet.flatten(piece.props.style).transform).toEqual([
+      { translateX: 0 }, { translateY: 0 }, { scaleX: 1 }, { scaleY: 1 },
+    ]);
+    expect(result.getAllByTestId(`runway-mark-${slot}`, { includeHiddenElements: true })).toHaveLength(1);
+  }
 });
 
 test('a different chosen outfit replaces the preview pieces on the board', async () => {
@@ -134,7 +159,7 @@ test('a different chosen outfit replaces the preview pieces on the board', async
     completed: true,
     outfit: { id: 'ai-option', pieces: [...preview.pieces, { slot: 'outer_layer', garmentTypeId: 'light_jacket', category: 'outerwear' }] },
   }));
-  await act(() => jest.advanceTimersByTime(0));
+  await act(() => jest.advanceTimersByTime(lightTheme.springs.spatial.duration));
   expect(pieceOpacity(result, 'outer_layer')).toBe(1);
   expect(pieceOpacity(result, 'primary_top')).toBe(1);
 });
