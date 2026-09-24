@@ -77,7 +77,7 @@ chosen and measured `#98C3CF`.
 | --- | --- | ---: | --- |
 | `neutral` | current stage | n/a | `#D7DCDD` |
 | `clearDay` | Quiet Sky to Cloud White | 0.549 | `#CBE1E5` |
-| `veiledDay` | Calm Current to Soft Mist | 0.756 | `#C2D1D3` |
+| `veiledDay` | Calm Current to Soft Mist | 0.83 | `#D1DDDD` |
 | `fallingDay` | Calm Current to Quiet Sky | 0.943 | `#98C3CF` |
 | `clearNight` | Deep Atmosphere to Quiet Sky | 0.888 | `#8FB8C4` |
 | `veiledNight` | Deep Atmosphere to Soft Mist | 0.645 | `#A4AFB3` |
@@ -96,7 +96,7 @@ Light atmosphere values remain measured against `textPrimary` `#142F3B`.
 | state | L | `textPrimary` | vs ground | levels off ground |
 | --- | ---: | ---: | ---: | ---: |
 | `clearDay` | 0.7220 | 10.30:1 | 1.253:1 | 41 |
-| `veiledDay` | 0.6177 | 8.91:1 | 1.449:1 | 50 |
+| `veiledDay` | 0.7049 | 10.07:1 | 1.281:1 | 35 |
 | `fallingDay` | 0.5021 | 7.36:1 | 1.752:1 | 92 |
 | `clearNight` | 0.4411 | 6.55:1 | 1.970:1 | 101 |
 | `veiledNight` | 0.4181 | 6.24:1 | 2.067:1 | 80 |

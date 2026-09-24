@@ -54,7 +54,7 @@ export {
   type GarmentBoardLayoutBox,
 } from './garment-board/garment-board';
 
-export { GarmentTileArtwork } from './garment-board/garment-tile-artwork';
+export { GarmentDrawing, GarmentTileArtwork } from './garment-board/garment-tile-artwork';
 
 // ADR 0028 section 6 and ADR 0029 section 5: approved content colour for the Profile
 // rail, the Closet grid, and the form's colour-family swatches. Never a theme role.

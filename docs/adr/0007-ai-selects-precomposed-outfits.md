@@ -146,7 +146,7 @@ insight sentence is the one visible prose exception.
 | `everyday_easy` | Günlük Rahat | Easy Everyday | none |
 | `smart_casual` | Şık Günlük | Smart Casual | formality at least `smart` |
 | `office_ready` | Ofise Uygun | Office Ready | formality `smart` or `formal` |
-| `weekend_relaxed` | Hafta Sonu (weekday: Rahat Gün) | Weekend Casual (weekday: Casual) | formality `casual` and the day is not a weekday |
+| `weekend_relaxed` | Hafta Sonu (weekday: Keyifli Gün) | Easy Weekend (weekday: Easygoing) | formality `casual` and the day is not a weekday |
 | `layered_warmth` | Katmanlı Sıcaklık | Layered Warmth | mid layer and outer layer both present |
 | `cold_shield` | Soğuğa Karşı | Cold Shield | outer layer thermal `high` |
 | `rain_ready` | Yağmura Hazır | Rain Ready | water-protective outer layer, on a day whose requirements carry rain or drizzle |

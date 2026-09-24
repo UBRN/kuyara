@@ -1,7 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
-import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
+import type { DressStyle } from '@kuyara/contracts';
 
 import type { FailureCategory } from '@/domain/failure-category';
 import { useAnalyticsConsentTrigger } from '@/features/analytics/application/analytics-consent-trigger';
@@ -22,12 +22,13 @@ import { useWeatherAlertOffer } from '@/features/notifications/application/use-w
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { namePromptVersion } from '@/features/profile/domain/profile';
 import { NameSheet } from '@/features/profile/presentation/name-sheet';
-import { StyleAestheticsOptions } from '@/features/profile/presentation/style-aesthetics-options';
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
+import { localDayKey } from '@/features/recommendation/application/recommendation-application-controller';
 import { nextBareDressingDayKey } from '@/features/recommendation/domain/dressing-day-choice';
 import { unavailableTodayState, type TodayScreenState } from '@/features/today/model';
 import { TodayScreen } from '@/features/today/presentation/today-screen';
 import { DailyFormalitySheet } from '@/features/today/presentation/daily-formality-sheet';
+import { formatDressingDate } from '@/features/today/presentation/today-presentation';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { useLocalization } from '@/localization/use-messages';
 import { getMessages } from '@/localization/messages';
@@ -49,14 +50,14 @@ export default function TodayRoute() {
   const weatherApplication = useWeatherApplication();
   const { revalidateFreshness: revalidateWeatherFreshness, state: weatherState } =
     weatherApplication;
-  const { state: profileState, updateDisplayName, updateStyleAesthetics } = useProfileApplication();
+  const { state: profileState, updateDisplayName } = useProfileApplication();
   const [namePromptDismissed, setNamePromptDismissed] = useState(false);
   const currentDressingDayKey = dressingDayKey ?? null;
-  const [sheetTarget, setSheetTarget] = useState<'morning' | 'plan' | null>(null);
+  // The morning question, Plan tomorrow, or the title's pill: one sheet, three openers.
+  const [sheetTarget, setSheetTarget] = useState<'morning' | 'plan' | 'pill' | null>(null);
   const [sheetError, setSheetError] = useState(false);
   const offeredKey = useRef<string | null>(null);
   const savingChoice = useRef(false);
-  const savingAesthetics = useRef(false);
   const showNamePrompt = profileState.status === 'ready'
     && profileState.profile.onboardingCompleted
     && !namePromptDismissed
@@ -99,7 +100,11 @@ export default function TodayRoute() {
       ? weatherState.refreshFailure ?? 'unknown'
       : 'unknown';
     recommendationFailure = null;
-  } else if (recommendation === null && recommendationState.isRefreshing) {
+  } else if (recommendation === null && (recommendationState.isRefreshing ||
+      (morningChoicePending && !recommendationState.lastFailure))) {
+    // M16: a first recommendation held for the morning answer is a wait, so the morning
+    // sheet opens over it. A real failure still takes the unavailable branch below and is
+    // reported, and the sheet never opens over that card.
     state = { kind: 'loading', phase: recommendationState.phase };
     todayFailure = undefined;
     recommendationFailure = undefined;
@@ -154,31 +159,36 @@ export default function TodayRoute() {
   }, [reevaluateLocalDay, retries, revalidateWeatherFreshness]));
   useEffect(() => {
     if (!isFocused || !morningChoicePending || showNamePrompt || !currentDressingDayKey ||
-        offeredKey.current === currentDressingDayKey) return;
+        state.kind === 'unavailable' || offeredKey.current === currentDressingDayKey) return;
     offeredKey.current = currentDressingDayKey;
     setSheetTarget('morning');
-  }, [currentDressingDayKey, isFocused, morningChoicePending, showNamePrompt]);
+  }, [currentDressingDayKey, isFocused, morningChoicePending, showNamePrompt, state.kind]);
   const tomorrowKey = currentDressingDayKey
     ? nextBareDressingDayKey(currentDressingDayKey) : null;
-  const tomorrow = tomorrowKey ? new Date(`${tomorrowKey}T12:00:00`) : null;
-  const tomorrowDate = tomorrow
-    ? new Intl.DateTimeFormat(language, { weekday: 'long', month: 'long', day: 'numeric' }).format(tomorrow) : null;
-  const handleAestheticsChange = (values: readonly StyleAesthetic[]) => {
-    if (savingAesthetics.current || !updateStyleAesthetics) return;
-    savingAesthetics.current = true;
-    setSheetError(false);
-    void updateStyleAesthetics(values)
-      .catch(() => setSheetError(true))
-      .finally(() => { savingAesthetics.current = false; });
-  };
+  const profile = profileState.status === 'ready' ? profileState.profile : null;
+  const profileDressStyle = profile?.dressStyle ?? 'smart';
+  // f25 and M16: the first dressing day is the one the profile was set up on. Its greeting
+  // is a welcome, and its morning question opens on the answer given in setup.
+  const firstDressingDay = Boolean(profile?.onboardingCompleted && currentDressingDayKey &&
+    localDayKey(new Date(profile.createdAt)).slice(0, 10) === currentDressingDayKey.slice(0, 10));
+  // f7: the outfit on screen was made for another day type, and its replacement is running.
+  const snapshotDressStyle = recommendationState.status === 'ready'
+    ? recommendationState.snapshot?.dressStyle ?? null : null;
+  const updatingDayType = recommendationState.status === 'ready' && recommendationState.isRefreshing &&
+    resolvedDressStyle && snapshotDressStyle !== null && snapshotDressStyle !== resolvedDressStyle
+    ? resolvedDressStyle : null;
   const handleChoice = async (style: DressStyle) => {
-    if (!sheetTarget || savingChoice.current || savingAesthetics.current ||
-        !currentDressingDayKey || !tomorrowKey) return;
+    if (!sheetTarget || savingChoice.current || !currentDressingDayKey || !tomorrowKey) return;
+    // The pill reopened the answer already in force, so there is nothing to change.
+    if (sheetTarget === 'pill' && style === resolvedDressStyle) {
+      setSheetTarget(null);
+      return;
+    }
     savingChoice.current = true;
     setSheetError(false);
     try {
       await chooseFormality?.(sheetTarget === 'plan' ? tomorrowKey : currentDressingDayKey,
-        style, sheetTarget === 'plan' ? 'plan' : 'morning');
+        style, sheetTarget === 'plan' ? 'plan' : sheetTarget === 'pill' ? 'chip' : 'morning');
       setSheetTarget(null);
     } catch {
       setSheetError(true);
@@ -193,7 +203,7 @@ export default function TodayRoute() {
     if (target !== 'morning') return;
     const copy = getMessages(language).today.dailyStyle;
     Alert.alert(copy.question, copy.dismissWarning, [
-      { text: copy.chooseStyle, style: 'default', isPreferred: true,
+      { text: copy.chooseDayType, style: 'default', isPreferred: true,
         onPress: () => setSheetTarget('morning') },
       { text: copy.continueWithoutChoosing, style: 'destructive', onPress: () => {
         const styles: readonly DressStyle[] = ['casual', 'smart', 'formal'];
@@ -364,22 +374,18 @@ export default function TodayRoute() {
       onRefresh={handleRefresh}
       onRegenerate={() => void regenerateRecommendation()}
       selectedFormality={dressingDayChoiceReady === false ? undefined : resolvedDressStyle}
-      onFormalityChange={(style) => {
-        if (!currentDressingDayKey) return;
-        void chooseFormality?.(currentDressingDayKey, style, 'chip')
-          .catch(() => Alert.alert(getMessages(language).today.dailyStyle.saveError));
-      }}
-      tomorrowLabel={tomorrowDate ? getMessages(language).today.dailyStyle.planTomorrow(tomorrowDate) : undefined}
+      onOpenDayType={() => { setSheetError(false); setSheetTarget('pill'); }}
+      updatingDayType={updatingDayType}
+      firstDressingDay={firstDressingDay}
+      tomorrowDate={tomorrowKey ? formatDressingDate(tomorrowKey, language) : undefined}
       onPlanTomorrow={() => { setSheetError(false); setSheetTarget('plan'); }}
       state={state}
     />
-    <DailyFormalitySheet visible={sheetTarget !== null} language={language} mode={sheetTarget ?? 'morning'}
-      error={sheetError} onChoose={(style) => { void handleChoice(style); }} onDismiss={dismissChoice}
-      aestheticsSaving={profileState.status === 'ready' && profileState.isSaving}
-      stylePreferences={<StyleAestheticsOptions copy={getMessages(language).preferences}
-        selected={profileState.status === 'ready' ? profileState.profile.styleAesthetics ?? [] : []}
-        disabled={profileState.status === 'ready' && profileState.isSaving}
-        onChange={handleAestheticsChange} testID="daily-formality-style-option" />} />
+    <DailyFormalitySheet visible={sheetTarget !== null} language={language}
+      mode={sheetTarget === 'plan' ? 'tomorrow' : 'today'}
+      selected={sheetTarget === 'plan' ? profileDressStyle : resolvedDressStyle ?? profileDressStyle}
+      firstDay={sheetTarget === 'morning' && firstDressingDay}
+      error={sheetError} onChoose={(style) => { void handleChoice(style); }} onDismiss={dismissChoice} />
     <NameSheet
       initialName={null}
       mode="prompt"

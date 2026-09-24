@@ -53,7 +53,7 @@ apply the same rule. Do not introduce age-band schemas or age-band formality tab
 
 A daily answer overrides `dressStyle` for its dressing-day key only and uses the same three-value permutation table in section 2. An unanswered day resolves to the persistent default, unless the user explicitly chooses to continue without a choice. The strict request keeps `dressStyle` optional for older clients and defaults an absent value to `smart`. Aesthetics cross only as a closed sorted identifier list; they add one low-cardinality field to the Worker cache key and are applied by the deterministic fallback too.
 
-Recommendation context carries the day's resolved formality and aesthetics. Changing the profile default, the aesthetic choices or the day's answer regenerates the recommendation. Birth date, birth year, display name and derived age never enter the request or cache key and never trigger generation. [ADR 0037](0037-daily-formality-and-style-aesthetics.md) owns the sheet, chip row and plan-tomorrow interaction.
+Recommendation context carries the day's resolved formality and aesthetics. Changing the profile default, the aesthetic choices or the day's answer regenerates the recommendation. Birth date, birth year, display name and derived age never enter the request or cache key and never trigger generation. [ADR 0037](0037-daily-formality-and-style-aesthetics.md) owns the sheet, title pill and plan-tomorrow interaction.
 
 ### 4. Birth date is a demographic fact only
 

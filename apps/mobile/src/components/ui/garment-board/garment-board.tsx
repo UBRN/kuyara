@@ -265,6 +265,7 @@ export function GarmentBoard({
     plane: stageColor ?? colors.background,
     colors,
     colorScheme,
+    step: preset === 'today' ? 'today' : 'standard',
   });
   const progress = useSharedValue(0);
   const tintProgress = useSharedValue(0);
@@ -418,6 +419,7 @@ export function GarmentBoard({
     plane: entrance.fromStageColor,
     colors,
     colorScheme,
+    step: entrance.fromPreset === 'today' ? 'today' : 'standard',
   });
 
   return (

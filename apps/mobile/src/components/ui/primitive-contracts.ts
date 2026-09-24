@@ -11,7 +11,7 @@ import {
 
 export type SurfaceVariant = 'default' | 'muted' | 'elevated' | 'interactive';
 export type ButtonVariant = 'primary' | 'secondary' | 'quiet' | 'destructive';
-export type PillTone = 'accent-filled' | 'bordered' | 'provenance';
+export type PillTone = 'accent-filled' | 'bordered' | 'provenance' | 'muted';
 
 // ADR 0028 section 2, the list-row anatomy: a 28-point tile with a 20-point glyph and a
 // 7-point radius (a quarter of the tile) at the default text size, scaling together by
@@ -108,6 +108,16 @@ export function resolvePillColors(theme: KuyaraTheme, tone: PillTone) {
       backgroundColor: theme.colors.provenanceContainer,
       borderColor: theme.colors.provenanceContainer,
       textColorRole: 'provenanceInk',
+    } as const;
+  }
+
+  // The neutral record: the Apple Intelligence badge sits on the muted surface in the primary
+  // ink, so it never reads as the purple Worker badge (M1).
+  if (tone === 'muted') {
+    return {
+      backgroundColor: theme.colors.surfaceMuted,
+      borderColor: theme.colors.surfaceMuted,
+      textColorRole: 'textPrimary',
     } as const;
   }
 

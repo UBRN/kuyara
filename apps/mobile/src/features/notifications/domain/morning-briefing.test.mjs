@@ -170,9 +170,10 @@ test('the briefing copy names the hour the briefing is planned for', () => {
   // the notification arrived at another hour.
   const stampedHour = String(morningBriefingLocalHour).padStart(2, '0');
 
-  for (const [language, separator] of Object.entries({ en: ':', tr: '.' })) {
+  // Both languages write the time with a colon, as the device formats it.
+  for (const language of ['en', 'tr']) {
     const { morningBriefing, offer } = messages[language].notifications;
-    const stamp = `${stampedHour}${separator}00`;
+    const stamp = `${stampedHour}:00`;
 
     assert.ok(
       offer.sentences.morning_briefing.includes(stamp),

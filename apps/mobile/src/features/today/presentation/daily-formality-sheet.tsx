@@ -1,73 +1,106 @@
-import { useState, type ReactNode } from 'react';
 import type { DressStyle } from '@kuyara/contracts';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { AppText, Icon, NativeSheet } from '@/components/ui';
+import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
+import { AppText, GarmentDrawing, Icon, IconButton, NativeSheet, useTextScaling } from '@/components/ui';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
-import { borderWidths, layout, radii, spacing } from '@/theme/theme';
+import { borderWidths, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
-const choices = ['casual', 'smart', 'formal'] as const;
+// The three day types, each with a shipped ADR 0025 drawing (M6): Casual the tee, Smart the
+// shirt, Formal the blazer. They are pictures, never the only signal; the word is under each.
+const choices = [
+  { style: 'casual', garmentTypeId: 't_shirt', category: 'top' },
+  { style: 'smart', garmentTypeId: 'shirt', category: 'top' },
+  { style: 'formal', garmentTypeId: 'blazer', category: 'outerwear' },
+] as const satisfies readonly Readonly<{ style: DressStyle; garmentTypeId: GarmentTypeId; category: string }>[];
+const GLYPH_SIZE = 40;
+// The drawing grows with the text only a little, so three tiles still fit one row.
+const GLYPH_SCALE_CAP = 1.15;
+const CHECK_SIZE = 20;
 
+/**
+ * The day-type question (M6 step 1). One tap on a tile chooses and closes the sheet; the
+ * current answer is checked by three cues together (accent border, interactive fill and a
+ * check glyph), so it is never told by colour alone. Lasting style changes live only in
+ * Settings > Profile (M18), so the sheet offers none.
+ */
 export function DailyFormalitySheet({
-  visible, language, mode, onChoose, onDismiss, error,
-  stylePreferences, aestheticsSaving,
+  visible, language, mode, selected, firstDay = false, onChoose, onDismiss, error,
 }: Readonly<{
   visible: boolean;
   language: SupportedLanguage;
-  mode: 'morning' | 'plan';
+  mode: 'today' | 'tomorrow';
+  /** The answer checked when the sheet opens, so one tap confirms it. */
+  selected: DressStyle;
+  /** The day onboarding finished: the checked answer is the one given in setup. */
+  firstDay?: boolean;
   onChoose: (style: DressStyle) => void;
   onDismiss: () => void;
   error: boolean;
-  stylePreferences: ReactNode;
-  aestheticsSaving: boolean;
 }>) {
   const theme = useKuyaraTheme();
-  const messages = getMessages(language);
-  const copy = messages.today.dailyStyle;
-  const [showMore, setShowMore] = useState(false);
-  const dismiss = () => { setShowMore(false); onDismiss(); };
+  const { controlScale } = useTextScaling();
+  const copy = getMessages(language).today.dailyStyle;
+  const glyphSize = GLYPH_SIZE * Math.min(controlScale, GLYPH_SCALE_CAP);
   return (
-    <NativeSheet visible={visible} onDismiss={dismiss} testID="daily-formality-sheet">
+    <NativeSheet visible={visible} onDismiss={onDismiss} testID="daily-formality-sheet">
       <ScrollView contentContainerStyle={styles.content}>
-        <AppText accessibilityRole="header" variant="titleLarge">
-          {mode === 'plan' ? copy.questionTomorrow : copy.question}
-        </AppText>
-        {choices.map((style) => (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ disabled: aestheticsSaving }}
-            disabled={aestheticsSaving}
-            key={style}
-            onPress={() => { setShowMore(false); onChoose(style); }}
-            style={({ pressed }) => [styles.choice, {
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.borderDefined,
-              opacity: aestheticsSaving ? theme.interaction.disabledOpacity
-                : pressed ? theme.interaction.pressedOpacity : 1,
-            }]}
-            testID={`daily-formality-${style}`}>
-            <AppText variant="bodyStrong" style={styles.label}>{copy[style]}</AppText>
-            <Icon color={theme.colors.iconSecondary} name="chevronRight" size={20} />
-          </Pressable>
-        ))}
-        <Pressable accessibilityRole="button" accessibilityState={{ expanded: showMore }}
-          onPress={() => setShowMore((expanded) => !expanded)}
-          style={styles.more} testID="daily-formality-more">
-          <AppText variant="bodyStrong" style={styles.label}>{copy.more}</AppText>
-          <Icon color={theme.colors.iconSecondary} name="chevronRight" size={20} />
-        </Pressable>
-        {showMore ? (
-          <View style={styles.preferences}>
-            <AppText>{copy.lastingStylePreferences}</AppText>
-            {stylePreferences}
-          </View>
+        <View style={styles.head}>
+          <AppText accessibilityRole="header" style={styles.question} variant="title">
+            {mode === 'tomorrow' ? copy.questionTomorrow : copy.question}
+          </AppText>
+          <IconButton
+            accessibilityLabel={copy.close}
+            icon={(color) => <Icon color={color} name="close" size={18 * controlScale} />}
+            onPress={onDismiss}
+            style={styles.close}
+            testID="daily-formality-close"
+          />
+        </View>
+        {firstDay ? (
+          <AppText colorRole="textSecondary" testID="daily-formality-first-day" variant="caption">
+            {copy.firstDayNote}
+          </AppText>
         ) : null}
+        <View accessibilityRole="radiogroup" style={styles.tiles} testID="daily-formality-choices">
+          {choices.map(({ style, garmentTypeId, category }) => {
+            const checked = style === selected;
+            return (
+              <Pressable
+                accessibilityLabel={copy[style]}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: checked }}
+                key={style}
+                onPress={() => onChoose(style)}
+                style={({ pressed }) => [styles.tile, {
+                  backgroundColor: checked ? theme.colors.surfaceInteractive : theme.colors.surface,
+                  borderColor: checked ? theme.colors.brandAccent : theme.colors.borderDefined,
+                  borderWidth: checked ? borderWidths.strong : borderWidths.subtle,
+                  opacity: pressed ? theme.interaction.pressedOpacity : 1,
+                }]}
+                testID={`daily-formality-${style}`}>
+                <GarmentDrawing
+                  category={category}
+                  garmentTypeId={garmentTypeId}
+                  size={glyphSize}
+                  testID={`daily-formality-${style}-drawing`}
+                />
+                <AppText style={styles.label} variant="bodyStrong">{copy[style]}</AppText>
+                {checked ? (
+                  <View style={styles.check} testID={`daily-formality-${style}-check`}>
+                    <Icon
+                      color={theme.colors.brandAccent}
+                      name="checkCircle"
+                      size={CHECK_SIZE * Math.min(controlScale, GLYPH_SCALE_CAP)}
+                    />
+                  </View>
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </View>
         {error ? <AppText accessibilityRole="alert">{copy.saveError}</AppText> : null}
-        <Pressable accessibilityRole="button" onPress={dismiss}
-          style={styles.close} testID="daily-formality-close">
-          <AppText variant="label">{copy.close}</AppText>
-        </Pressable>
       </ScrollView>
     </NativeSheet>
   );
@@ -75,11 +108,12 @@ export function DailyFormalitySheet({
 
 const styles = StyleSheet.create({
   content: { gap: spacing.md, padding: spacing.lg },
-  choice: { alignItems: 'center', borderRadius: radii.control,
-    borderWidth: borderWidths.subtle, flexDirection: 'row',
-    minHeight: layout.minimumTouchTarget, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
-  more: { alignItems: 'center', flexDirection: 'row', minHeight: layout.minimumTouchTarget },
-  preferences: { gap: spacing.md },
-  label: { flex: 1 },
-  close: { alignItems: 'center', minHeight: layout.minimumTouchTarget, justifyContent: 'center' },
+  head: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.md },
+  question: { flex: 1, fontWeight: '600', marginTop: spacing.xs },
+  close: { borderRadius: radii.pill, borderWidth: 0 },
+  tiles: { flexDirection: 'row', gap: spacing.sm },
+  tile: { alignItems: 'center', borderRadius: radii.control, flex: 1, gap: spacing.sm,
+    justifyContent: 'center', minHeight: 128, paddingHorizontal: spacing.sm, paddingVertical: spacing.md },
+  label: { textAlign: 'center' },
+  check: { position: 'absolute', right: spacing.xs, top: spacing.xs },
 });

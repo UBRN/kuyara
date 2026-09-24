@@ -197,7 +197,10 @@ why the set could not be left as it was. Four cover the enlarged catalogue: `par
 The eight catalogue accessories (`beanie`, `brimmed_hat`, `cap`, `balaclava`, `scarf`,
 `neck_gaiter`, `gloves`, `umbrella`) carry seven further drawings, `neck_gaiter` sharing
 `scarf`'s. They appear on the Closet and Profile surfaces, the recommendation detail and
-Today badges. The garment board's fixed geometry does not draw them.
+Today's finishing-touches caption. The garment board's fixed geometry does not draw them.
+At that caption's 16 points each drawing is cropped to its own artwork and its stroke
+scales with it, 1.9 × size / 28 or about 1.1 points, because a fixed 1.9 would fill a
+16-point drawing solid.
 
 **Fallback.** A garment with no silhouette falls back to its structural category and is
 composed by the identical rule, with its drawn bounds measured from the artwork's alpha

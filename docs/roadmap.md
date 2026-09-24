@@ -9,7 +9,7 @@ The [product decisions](product-decisions.md) and [ADRs](adr/) define the approv
 | 1. Today | Header, AI badge, two insights, alternatives, outfit action and attribution placement | Implemented and Simulator verified |
 | 2. Settings and store rows | Root order, Service providers, sharing, rating and brand emphasis | Implemented and Simulator verified |
 | 3. Name and profile cleanup | Optional name, one-time prompt, location removal and the phase's migration | Implemented and Simulator verified |
-| 4. Daily style and loading | Aesthetics, morning sheet, formality chips, loading and plan tomorrow | Implemented and Simulator verified; the continue-without-choosing alert and the skip-the-wait alert are covered by component tests |
+| 4. Daily style and loading | Aesthetics, morning sheet, day-type pill, loading and plan tomorrow | Implemented and Simulator verified; the continue-without-choosing alert and the skip-the-wait alert are covered by component tests |
 | 5. Colour and history | Quick-add colour, outfit history, mirror photo and the phase's migration | Planned |
 | 6. Silhouettes and suggested colour | Approved silhouette redraw and closed catalog colorways | Planned |
 | 7. Manual mix-and-match | Catalog-piece swaps on outfit detail | Planned |
@@ -52,7 +52,7 @@ Every decision below, including AR1 through AR16, was approved on 2026-09-23. Ea
 | C2 | Profile removes its location row | [product](product-decisions.md), [ADR 0028](adr/0028-the-profile-tab-and-the-list-row-anatomy.md) |
 | C3 | The name migration receives independent review; AR4 assigns its number in ship order | [ADR 0036](adr/0036-display-name-and-one-time-prompt-gate.md), [architecture](architecture.md) |
 | D1 | Persistent aesthetics and daily formality reorder valid outfits; AR2, AR3 and AR16 define storage and measurement | [ADR 0031](adr/0031-dress-style-is-the-formality-signal.md), [ADR 0037](adr/0037-daily-formality-and-style-aesthetics.md), [architecture](architecture.md) |
-| D2 | One dismissible morning sheet and chip row set the day's answer; AR1, AR2 and AR15 define key and allowance | [product](product-decisions.md), [ADR 0037](adr/0037-daily-formality-and-style-aesthetics.md) |
+| D2 | One dismissible morning sheet and the title pill set the day's answer; AR1, AR2 and AR15 define key and allowance | [product](product-decisions.md), [ADR 0037](adr/0037-daily-formality-and-style-aesthetics.md) |
 | D3 | Continuing without a choice uses the red quality-warning action | [ADR 0010](adr/0010-status-colours-destructive-variant-and-defined-borders.md), [ADR 0037](adr/0037-daily-formality-and-style-aesthetics.md) |
 | D4 | First-day loading fills a garment board and allows skip; AR9 derives overlay state | [product](product-decisions.md), [architecture](architecture.md), [ADR 0020](adr/0020-rewriting-the-motion-law.md) |
 | D5 | The app does not read the OS motion preference | [AGENTS](../AGENTS.md), [ADR 0020](adr/0020-rewriting-the-motion-law.md) |
