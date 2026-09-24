@@ -179,6 +179,7 @@ function recommendationReady(
     lastFailure: null,
     phase: null,
     exhausted: false,
+    showFirstGenerationOverlay: false,
     snapshot: {
       id: 'recommendation-one',
       localProfileId: 'profile-one',
@@ -332,6 +333,7 @@ function Providers({
                 state: recommendation,
                 onDeviceAvailability: null,
                 refresh: recommendationRefresh,
+                skipWait: jest.fn(async () => null),
                 regenerate: recommendationRegenerate,
                 reevaluateLocalDay,
               }}>
@@ -604,12 +606,13 @@ test('the first recommendation refresh shows loading without reporting an error 
   const result = await render(
     <Providers
       {...props}
-      recommendation={{ status: 'ready', snapshot: null, isRefreshing: true, lastFailure: null, phase: null, exhausted: false }}>
+      recommendation={{ status: 'ready', snapshot: null, isRefreshing: true, lastFailure: null, phase: null, exhausted: false, showFirstGenerationOverlay: true }}>
       <TodayRoute />
     </Providers>,
   );
 
-  expect(result.getByTestId('today-loading-screen')).toBeOnTheScreen();
+  expect(result.getByTestId('today-loading-screen', { includeHiddenElements: true })).toBeOnTheScreen();
+  expect(result.getByTestId('first-generation-overlay')).toBeOnTheScreen();
   expect(result.queryByTestId('today-unavailable-screen')).not.toBeOnTheScreen();
 
   await result.rerender(
@@ -621,6 +624,21 @@ test('the first recommendation refresh shows loading without reporting an error 
     ({ name }) => name === 'error_shown' || name === 'error_recovered',
   );
   expect(errorEvents).toHaveLength(0);
+});
+
+test('a background recommendation refresh keeps Today inline', async () => {
+  const result = await render(
+    <Providers
+      productAnalytics={createProductAnalytics()}
+      profile={profileValue()}
+      recommendation={recommendationReady({ isRefreshing: true, phase: 'asking-stylist' })}
+      wardrobe={wardrobeValue()}
+      weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+  expect(result.queryByTestId('first-generation-overlay')).toBeNull();
+  expect(result.getByTestId('today-freshness')).toHaveTextContent(messages.en.today.phase['asking-stylist']);
 });
 
 test('a successful pull-to-refresh regenerates after weather and reports manual refresh, not retry', async () => {
@@ -904,7 +922,7 @@ test('a visible recommendation failure uses only the recommendation error surfac
     <Providers
       productAnalytics={productAnalytics}
       profile={profileValue()}
-      recommendation={{ status: 'ready', snapshot: null, isRefreshing: false, lastFailure: 'unavailable', phase: null, exhausted: false }}
+      recommendation={{ status: 'ready', snapshot: null, isRefreshing: false, lastFailure: 'unavailable', phase: null, exhausted: false, showFirstGenerationOverlay: false }}
       wardrobe={wardrobeValue()}
       weather={weatherValue()}>
       <TodayRoute />

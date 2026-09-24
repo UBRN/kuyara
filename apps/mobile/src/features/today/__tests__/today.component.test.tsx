@@ -35,7 +35,6 @@ import {
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 import {
-  createKuyaraTheme,
   darkTheme,
   layout,
   lightTheme,
@@ -1057,7 +1056,7 @@ describe.each(['en', 'tr'] as const)('%s first generation', (language: Supported
   });
 });
 
-test('the skeleton placeholders breathe on the ambient moderate step and hold still under Reduce Motion', async () => {
+test('the skeleton placeholders breathe on the ambient moderate step', async () => {
   const hidden = { includeHiddenElements: true };
   const withTiming = jest.spyOn(jest.requireMock('react-native-reanimated'), 'withTiming');
   const skeletonOpacity = async (theme: KuyaraTheme) => {
@@ -1074,18 +1073,14 @@ test('the skeleton placeholders breathe on the ambient moderate step and hold st
   };
 
   const breathing = await skeletonOpacity(lightTheme);
-  const still = await skeletonOpacity(createKuyaraTheme('light', true));
 
   expect(lightTheme.motion.ambient.moderate).toBeGreaterThan(0);
-  expect(createKuyaraTheme('light', true).motion.ambient.moderate).toBe(0);
   // Each leg of the wait breath is the moderate step, a 2000 ms breath, the cycle band
   // Ding and Kyung (JCR 2026) measured as the shortest perceived wait.
   const legs = withTiming.mock.calls.map(([, config]) => (config as { duration?: number }).duration);
   expect(legs.length).toBeGreaterThan(0);
   expect(new Set(legs)).toEqual(new Set([lightTheme.motion.ambient.moderate]));
   withTiming.mockRestore();
-  // Reduce Motion keeps the placeholders at one reduced opacity instead of animating.
-  expect(still).toBeCloseTo(PLACEHOLDER_REST);
   expect(breathing).toBeCloseTo(AMBIENT_PULSE_FLOOR * PLACEHOLDER_REST);
 });
 
@@ -1546,9 +1541,8 @@ test('an unnarrated refresh keeps the generic freshness line and shows no mark',
     .not.toBeOnTheScreen();
 });
 
-// Law 7: the mark breathes on the ambient moderate step and holds still under Reduce Motion, and
-// the line beside it is the state either way.
-test('the phase mark holds still under Reduce Motion', async () => {
+// Law 7: the mark breathes on the ambient moderate step; the line beside it is the state.
+test('the phase mark breathes during generation', async () => {
   const markOpacity = async (theme: KuyaraTheme) => {
     const result = await render(providers(
       <TodayScreen
@@ -1565,7 +1559,6 @@ test('the phase mark holds still under Reduce Motion', async () => {
   };
 
   expect(await markOpacity(lightTheme)).toBeCloseTo(AMBIENT_PULSE_FLOOR);
-  expect(await markOpacity(createKuyaraTheme('light', true))).toBeCloseTo(1);
 });
 
 // Provider attribution now lives in Settings > Service providers.

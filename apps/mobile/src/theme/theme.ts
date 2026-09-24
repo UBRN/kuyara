@@ -361,26 +361,12 @@ export const arrivalSpring = Object.freeze({
   dampingRatio: 0.65,
 } as const satisfies SpringRole);
 
-export const reducedMotion = Object.freeze({
-  immediate: 0,
-  fast: 0,
-  normal: 0,
-  deliberate: 0,
-  stagger: 0,
-  ambient: Object.freeze({
-    calm: 0,
-    moderate: 0,
-    intense: 0,
-  } as const satisfies AmbientMotionTokens),
-} as const satisfies MotionTokens);
-
 export type ThemeColorScheme = 'light' | 'dark';
 export type SystemColorScheme = ThemeColorScheme | 'unspecified' | null | undefined;
 
 export type KuyaraTheme = Readonly<{
   colorScheme: ThemeColorScheme;
   isDark: boolean;
-  isReduceMotionEnabled: boolean;
   colors: SemanticColors;
   atmosphere: AtmosphereColors;
   condition: ConditionColors;
@@ -409,7 +395,6 @@ export const lightTheme = Object.freeze({
   ...sharedFoundation,
   colorScheme: 'light',
   isDark: false,
-  isReduceMotionEnabled: false,
   colors: lightSemanticColors,
   atmosphere: lightAtmosphere,
   condition: lightCondition,
@@ -421,7 +406,6 @@ export const darkTheme = Object.freeze({
   ...sharedFoundation,
   colorScheme: 'dark',
   isDark: true,
-  isReduceMotionEnabled: false,
   colors: darkSemanticColors,
   atmosphere: darkAtmosphere,
   condition: darkCondition,
@@ -440,23 +424,6 @@ export function resolveColorScheme(
   return systemColorScheme === 'dark' ? 'dark' : 'light';
 }
 
-export function resolveMotionTokens(isReduceMotionEnabled: boolean): MotionTokens {
-  return isReduceMotionEnabled ? reducedMotion : standardMotion;
-}
-
-export function createKuyaraTheme(
-  colorScheme: ThemeColorScheme,
-  isReduceMotionEnabled = false,
-): KuyaraTheme {
-  const baseTheme = colorScheme === 'dark' ? darkTheme : lightTheme;
-
-  if (!isReduceMotionEnabled) {
-    return baseTheme;
-  }
-
-  return Object.freeze({
-    ...baseTheme,
-    isReduceMotionEnabled: true,
-    motion: reducedMotion,
-  });
+export function createKuyaraTheme(colorScheme: ThemeColorScheme): KuyaraTheme {
+  return colorScheme === 'dark' ? darkTheme : lightTheme;
 }

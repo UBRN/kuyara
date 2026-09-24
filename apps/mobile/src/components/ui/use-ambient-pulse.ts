@@ -19,20 +19,15 @@ export const AMBIENT_PULSE_FLOOR = 0.45;
  * moderate step: one leg up and one leg down make a 2000 ms breath, the cycle band Ding
  * and Kyung (Journal of Consumer Research 2026) measured as the shortest perceived wait,
  * where the calm step's 3000 ms breath reads slower than it is. It resolves to a still
- * value under Reduce Motion. `index` starts a consumer one leg after the one before it,
+ * value. `index` starts a consumer one leg after the one before it,
  * so several of them read as one breath travelling. A consumer that wants a quieter
  * breath scales the returned value rather than changing the range.
  */
 export function useAmbientPulse(index = 0): SharedValue<number> {
   const theme = useKuyaraTheme();
-  const progress = useSharedValue(theme.isReduceMotionEnabled ? 1 : AMBIENT_PULSE_FLOOR);
+  const progress = useSharedValue(AMBIENT_PULSE_FLOOR);
 
   useEffect(() => {
-    if (theme.isReduceMotionEnabled) {
-      progress.set(1);
-      return;
-    }
-
     const leg = theme.motion.ambient.moderate;
 
     progress.set(withDelay(
@@ -47,7 +42,7 @@ export function useAmbientPulse(index = 0): SharedValue<number> {
     ));
 
     return () => cancelAnimation(progress);
-  }, [index, progress, theme.isReduceMotionEnabled, theme.motion.ambient.moderate]);
+  }, [index, progress, theme.motion.ambient.moderate]);
 
   return progress;
 }

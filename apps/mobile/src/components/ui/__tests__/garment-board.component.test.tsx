@@ -6,21 +6,11 @@ import { GarmentBoard, measureGarmentBoardHeight, type GarmentBoardPiece } from 
 import { resolveGarmentRenderFills } from '@/components/ui/garment-board/garment-render-fills';
 import { silhouettes } from '@/components/ui/garment-board/silhouettes';
 import { blend } from '@/theme/color-blend';
-import { createKuyaraTheme, lightTheme, spacing } from '@/theme/theme';
+import { lightTheme, spacing } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 function LightTheme({ children }: PropsWithChildren) {
   return <KuyaraThemeContext.Provider value={lightTheme}>{children}</KuyaraThemeContext.Provider>;
-}
-
-const reducedMotionTheme = createKuyaraTheme('light', true);
-
-function ReducedMotionTheme({ children }: PropsWithChildren) {
-  return (
-    <KuyaraThemeContext.Provider value={reducedMotionTheme}>
-      {children}
-    </KuyaraThemeContext.Provider>
-  );
 }
 
 const pieces: readonly GarmentBoardPiece[] = [
@@ -136,16 +126,6 @@ const risingBoard = (
   />
 );
 
-const restingBoard = (
-  <GarmentBoard
-    accessibilityLabel="Dress, sandals"
-    pieces={pieces}
-    preset="today"
-    testID="board"
-    width={349}
-  />
-);
-
 test('a rising board starts one large step below at zero opacity and adds no node', async () => {
   const result = await render(risingBoard, { wrapper: LightTheme });
 
@@ -156,13 +136,6 @@ test('a rising board starts one large step below at zero opacity and adds no nod
   expect(style.transform).toEqual([{ translateY: spacing.xl }]);
   expect(result.getAllByRole('image')).toHaveLength(1);
   expect(result.getByRole('image', { name: 'Dress, sandals' })).toHaveProp('testID', 'board');
-});
-
-test('Reduced Motion draws a rising board at rest', async () => {
-  const rising = await render(risingBoard, { wrapper: ReducedMotionTheme });
-  const resting = await render(restingBoard, { wrapper: ReducedMotionTheme });
-
-  expect(rising.toJSON()).toEqual(resting.toJSON());
 });
 
 test('entrance keeps one accessible detail-height image and reports settle once', async () => {
@@ -215,42 +188,4 @@ test('a settle change moves the pieces without replaying the entrance or the acc
   // re-announced, and the entrance is not replayed.
   expect(result.toJSON()).toEqual(restingTree);
   expect(onSettled).toHaveBeenCalledTimes(1);
-});
-
-test('Reduced Motion reports settle once and preserves the static board tree', async () => {
-  const onSettled = jest.fn();
-  const staticResult = await render(
-    <GarmentBoard
-      accessibilityLabel="Dress, sandals"
-      pieces={pieces}
-      preset="detail"
-      testID="board"
-      width={349}
-    />,
-    { wrapper: ReducedMotionTheme },
-  );
-  const entranceBoard = (settle: number) => (
-    <GarmentBoard
-      accessibilityLabel="Dress, sandals"
-      entrance={{
-        fromPreset: 'today',
-        fromStageColor: lightTheme.atmosphere.fallingDay,
-        fromStageRadius: 26,
-        onSettled,
-      }}
-      pieces={pieces}
-      preset="detail"
-      settle={settle}
-      testID="board"
-      width={349}
-    />
-  );
-  const entranceResult = await render(entranceBoard(0), { wrapper: ReducedMotionTheme });
-
-  expect(entranceResult.toJSON()).toEqual(staticResult.toJSON());
-  expect(onSettled).toHaveBeenCalledTimes(1);
-
-  // The moment's settle renders nothing under Reduce Motion; only its haptic remains.
-  await entranceResult.rerender(entranceBoard(1));
-  expect(entranceResult.toJSON()).toEqual(staticResult.toJSON());
 });

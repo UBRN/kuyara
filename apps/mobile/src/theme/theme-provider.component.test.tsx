@@ -1,5 +1,5 @@
 import { render, waitFor } from '@testing-library/react-native';
-import { Appearance, Text } from 'react-native';
+import { AccessibilityInfo, Appearance, Text } from 'react-native';
 
 import { KuyaraThemeProvider } from '@/theme/theme-provider';
 
@@ -28,4 +28,14 @@ test('applies light, dark and system appearance preferences to native UI', async
     </KuyaraThemeProvider>,
   );
   await waitFor(() => expect(setColorScheme).toHaveBeenLastCalledWith('unspecified'));
+});
+
+test('does not read the system Reduce Motion preference', async () => {
+  const read = jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled');
+  const result = await render(
+    <KuyaraThemeProvider><Text>Child</Text></KuyaraThemeProvider>,
+  );
+  expect(read).not.toHaveBeenCalled();
+  read.mockRestore();
+  await result.unmount();
 });

@@ -68,7 +68,7 @@ export function OutfitDetailScreen({
   const { fontScale, usesStackedLayout } = useTextScaling();
   const [contentWidth, setContentWidth] = useState(0);
   const [captionHeights, setCaptionHeights] = useState<Readonly<Record<string, number>>>({});
-  const [piecesSettled, setPiecesSettled] = useState(theme.isReduceMotionEnabled);
+  const [piecesSettled, setPiecesSettled] = useState(false);
   const [completions, setCompletions] = useState(0);
   const now = useForegroundClock();
   const onPiecesSettled = useCallback(() => setPiecesSettled(true), []);

@@ -1,5 +1,4 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -28,8 +27,7 @@ export type EntranceProps = Readonly<{
 
 /**
  * Animates its children in once, on mount. A re-render, a refresh or a data update
- * never replays the entrance, and under Reduce Motion the children are rendered at
- * their resting state with no animation at all. The wrapper carries no accessibility
+ * never replays the entrance. The wrapper carries no accessibility
  * props, so it adds no node a screen reader stops on.
  */
 export function Entrance({ children, index = 0 }: EntranceProps) {
@@ -39,7 +37,7 @@ export function Entrance({ children, index = 0 }: EntranceProps) {
   const hasEntered = useRef(false);
 
   useEffect(() => {
-    if (hasEntered.current || theme.isReduceMotionEnabled) return;
+    if (hasEntered.current) return;
     hasEntered.current = true;
 
     const delay = Math.min(index * theme.motion.stagger, theme.motion.deliberate);
@@ -49,7 +47,6 @@ export function Entrance({ children, index = 0 }: EntranceProps) {
     index,
     offset,
     opacity,
-    theme.isReduceMotionEnabled,
     theme.motion.deliberate,
     theme.motion.fast,
     theme.motion.stagger,
@@ -60,10 +57,6 @@ export function Entrance({ children, index = 0 }: EntranceProps) {
     opacity: opacity.get(),
     transform: [{ translateY: offset.get() }],
   }));
-
-  if (theme.isReduceMotionEnabled) {
-    return <View>{children}</View>;
-  }
 
   return <Animated.View style={entranceStyle}>{children}</Animated.View>;
 }

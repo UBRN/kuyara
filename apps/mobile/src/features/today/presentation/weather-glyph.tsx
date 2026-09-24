@@ -59,7 +59,7 @@ export function WeatherGlyph({
   const conditionStyle = resolveConditionStyle(condition, daypart);
   const isClear = conditionStyle.ink === 'clearDay' || conditionStyle.ink === 'clearNight';
   const offset = useBobOffset(
-    !theme.isReduceMotionEnabled && !isClear && conditionStyle.ink !== 'neutral',
+    !isClear && conditionStyle.ink !== 'neutral',
     theme.motion.ambient[intensity],
   );
   const animatedStyle = useAnimatedStyle(() => ({

@@ -1,5 +1,5 @@
-import { type PropsWithChildren, useEffect, useMemo, useState } from 'react';
-import { AccessibilityInfo, Appearance } from 'react-native';
+import { type PropsWithChildren, useEffect, useMemo } from 'react';
+import { Appearance } from 'react-native';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
@@ -19,39 +19,15 @@ export function KuyaraThemeProvider({
   preference = 'system',
 }: KuyaraThemeProviderProps) {
   const systemColorScheme = useColorScheme() as SystemColorScheme;
-  const [isReduceMotionEnabled, setIsReduceMotionEnabled] = useState(false);
 
   useEffect(() => {
     Appearance.setColorScheme(preference === 'system' ? 'unspecified' : preference);
   }, [preference]);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    AccessibilityInfo.isReduceMotionEnabled().then((isEnabled) => {
-      if (isMounted) {
-        setIsReduceMotionEnabled(isEnabled);
-      }
-    });
-
-    const subscription = AccessibilityInfo.addEventListener(
-      'reduceMotionChanged',
-      setIsReduceMotionEnabled,
-    );
-
-    return () => {
-      isMounted = false;
-      subscription.remove();
-    };
-  }, []);
-
   const theme = useMemo(
     () =>
-      createKuyaraTheme(
-        resolveColorScheme(preference, systemColorScheme),
-        isReduceMotionEnabled,
-      ),
-    [isReduceMotionEnabled, preference, systemColorScheme],
+      createKuyaraTheme(resolveColorScheme(preference, systemColorScheme)),
+    [preference, systemColorScheme],
   );
 
   return <KuyaraThemeContext value={theme}>{children}</KuyaraThemeContext>;

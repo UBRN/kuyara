@@ -29,10 +29,9 @@ export function AnalyticsConsentScreen({
   const entranceStyle = useAnimatedStyle(() => ({ opacity: entranceProgress.get() }));
 
   useEffect(() => {
-    if (theme.isReduceMotionEnabled) return;
     entranceProgress.set(withTiming(1, { duration: theme.motion.fast }));
     return () => cancelAnimation(entranceProgress);
-  }, [entranceProgress, theme.isReduceMotionEnabled, theme.motion.fast]);
+  }, [entranceProgress, theme.motion.fast]);
 
   const answer = async (operation: () => Promise<void>) => {
     if (isAnswering) return;
@@ -50,7 +49,7 @@ export function AnalyticsConsentScreen({
   return (
     <Screen contentContainerStyle={styles.content} testID="analytics-consent-screen">
       <Animated.View
-        style={[styles.entrance, !theme.isReduceMotionEnabled && entranceStyle]}
+        style={[styles.entrance, entranceStyle]}
         testID="analytics-consent-content">
         <View style={styles.copy}>
           <AppText accessibilityRole="header" variant="title">
