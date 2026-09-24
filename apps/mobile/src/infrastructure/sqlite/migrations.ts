@@ -10,7 +10,7 @@ type Migration = Readonly<{
   migrate: (database: SqliteExecutor) => Promise<void>;
 }>;
 
-export const latestDatabaseVersion = 18;
+export const latestDatabaseVersion = 19;
 
 // Foreign keys are enforced on every connection: `migrateDatabase` turns them on for the
 // shared connection below, and the transaction wrapper in `expo-sqlite-database.ts` turns
@@ -509,6 +509,44 @@ const migrationV18: Migration = {
   },
 };
 
+const migrationV19: Migration = {
+  version: 19,
+  async migrate(database) {
+    await database.execAsync(`
+      ALTER TABLE dressing_day_choices ADD COLUMN style_aesthetics TEXT;
+      CREATE TABLE outfit_history (
+        id TEXT PRIMARY KEY NOT NULL,
+        local_profile_id TEXT NOT NULL,
+        day_key TEXT NOT NULL CHECK (day_key GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+        outfit_json TEXT NOT NULL,
+        photo_path TEXT,
+        worn_at TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        deleted_at TEXT,
+        UNIQUE (local_profile_id, day_key),
+        FOREIGN KEY (local_profile_id) REFERENCES local_profiles(id)
+          ON UPDATE RESTRICT ON DELETE RESTRICT
+      );
+      CREATE INDEX idx_outfit_history_profile_live_day
+        ON outfit_history (local_profile_id, deleted_at, day_key DESC);
+      CREATE TABLE dressing_day_departures (
+        id TEXT PRIMARY KEY NOT NULL,
+        local_profile_id TEXT NOT NULL,
+        day_key TEXT NOT NULL,
+        departure_at TEXT NOT NULL,
+        time_zone TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        deleted_at TEXT,
+        UNIQUE (local_profile_id, day_key),
+        FOREIGN KEY (local_profile_id) REFERENCES local_profiles(id)
+          ON UPDATE RESTRICT ON DELETE RESTRICT
+      );
+    `);
+  },
+};
+
 const migrations = [
   migrationV1,
   migrationV2,
@@ -528,6 +566,7 @@ const migrations = [
   migrationV16,
   migrationV17,
   migrationV18,
+  migrationV19,
 ] as const satisfies readonly Migration[];
 
 async function readUserVersion(database: SqliteExecutor): Promise<number> {

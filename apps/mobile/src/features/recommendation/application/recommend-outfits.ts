@@ -28,6 +28,7 @@ import {
   type ClothingRequirements,
 } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
+import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import type { WeatherSnapshot } from '@/features/weather/domain/weather';
 
 export type OutfitRecommendationInput = Readonly<{
@@ -41,6 +42,7 @@ export type OutfitRecommendationInput = Readonly<{
   /** Absent keeps the day-blind behaviour, where `weekend_relaxed` fits any casual outfit. */
   dayKind?: DayKind;
   excludedOptionIds?: readonly string[];
+  recentWorn?: readonly WornOutfit[];
 }>;
 
 export type OutfitRecommendationSuccess = Readonly<{
@@ -203,6 +205,7 @@ export function composeOutfitPool(
   requirements: ClothingRequirements,
   clothingPreference: ClothingPreference,
   dayVariant: number,
+  recentWorn: readonly WornOutfit[] = [],
 ): OutfitCompositionsResult {
   const candidates = listGarmentTypesForPreference(clothingPreference).map((type) =>
     evaluateGarmentEligibility(
@@ -210,7 +213,7 @@ export function composeOutfitPool(
       projectCatalogEffectiveGarment(type.typeId, clothingPreference),
     ),
   );
-  return composeOutfitOptions(requirements, candidates, dayVariant);
+  return composeOutfitOptions(requirements, candidates, dayVariant, recentWorn);
 }
 
 /**
@@ -250,7 +253,8 @@ export function recommendOutfits(
   input: OutfitRecommendationInput,
 ): OutfitRecommendationResult {
   const requirements = deriveClothingRequirements(input.snapshot, input.now);
-  const composition = composeOutfitPool(requirements, input.clothingPreference, input.dayVariant);
+  const composition = composeOutfitPool(requirements, input.clothingPreference, input.dayVariant,
+    input.recentWorn);
   const order: readonly FormalityLevel[] =
     formalityOrderByDressStyle[input.dressStyle ?? 'smart'];
 
