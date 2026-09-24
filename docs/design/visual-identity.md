@@ -201,7 +201,7 @@ Avoid photorealistic 3D clothing, plastic characters, AI sparkle aesthetics, fan
 
 ### Garment silhouettes
 
-Approved by [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md). A small set of simple line silhouettes represents the common garment types. One stroke weight at every rendered size, one optical size, no ornament beyond the single detail that identifies a type. A garment with no specific silhouette falls back to its structural category, so a composition degrades to six shapes rather than breaking; complete per-type artwork is not required and is not built speculatively.
+Approved by [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md). A small set of simple line silhouettes represents the common garment types. Use one optical size and no ornament beyond the single detail that identifies a type. Accessory strokes scale with their drawing; at Today's 16 pt caption size they are about 1.1 pt rather than the board's fixed 1.9 pt. A garment with no specific silhouette falls back to its structural category, so a composition degrades to six shapes rather than breaking; complete per-type artwork is not required and is not built speculatively.
 
 The silhouette is a slot in the composition, not an asset the composition depends on. A later version may render the same slot as richer illustration, catalogue artwork, a product image, or the user's own Closet photograph, without redesigning the information hierarchy.
 

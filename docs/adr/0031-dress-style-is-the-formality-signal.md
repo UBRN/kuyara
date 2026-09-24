@@ -73,7 +73,7 @@ Onboarding asks welcome, optional display name, required gender, required dress 
 
 ### 6. Schema
 
-Schema version 10's nullable checked `dress_style` remains the existing default field. The Phase 3 migration adds `display_name` and `name_prompt_version`; the Phase 4 migration adds `style_aesthetics`, `morning_sheet_enabled` and `dressing_day_choices`. Numbers are assigned in ship order, and phases shipped in one binary share one migration. Each additive migration preserves all rows and needs the independent review and device-database replay required for a user-device migration. Daily answers are keyed by dressing day. No age-band schema or new formality enum is added. See [ADR 0037](0037-daily-formality-and-style-aesthetics.md).
+Schema version 10's nullable checked `dress_style` remains the existing default field. Migration 17 adds `display_name` and `name_prompt_version`; migration 18 adds `style_aesthetics`, `morning_sheet_enabled` and `dressing_day_choices`. Both are additive and preserve every existing profile row. Each user-device migration needs the independent review and device-database replay required before shipping. Daily answers are keyed by dressing day. No age-band schema or new formality enum is added. See [ADR 0037](0037-daily-formality-and-style-aesthetics.md).
 
 ## Consequences
 
