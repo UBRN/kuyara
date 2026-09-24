@@ -254,6 +254,18 @@ test('a missing persisted snapshot triggers the first recommendation', () => {
   );
 });
 
+test('a lasting aesthetic edit takes the existing profile-change trigger even on a new day', () => {
+  const previous = {
+    weatherSnapshotId: 'weather-one', locationKey: 'location-one',
+    clothingPreference: 'womens', dressStyle: 'smart', styleAesthetics: [],
+    catalogVersion: 4, localDayKey: '2026-09-23',
+  };
+  const current = { ...previous, styleAesthetics: ['minimal'], localDayKey: '2026-09-24' };
+  assert.equal(recommendationRefreshTrigger(previous, current, null), 'dress-style-changed');
+  assert.equal(recommendationRefreshTrigger(previous, { ...current, styleAesthetics: [] }, null),
+    'local-day-changed');
+});
+
 test('equal persisted signals do not trigger a recommendation on reopen', () => {
   const current = {
     weatherSnapshotId: 'weather-one',

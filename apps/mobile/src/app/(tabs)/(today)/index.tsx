@@ -1,5 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert } from 'react-native';
+import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
 
 import type { FailureCategory } from '@/domain/failure-category';
 import { useAnalyticsConsentTrigger } from '@/features/analytics/application/analytics-consent-trigger';
@@ -20,11 +22,15 @@ import { useWeatherAlertOffer } from '@/features/notifications/application/use-w
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { namePromptVersion } from '@/features/profile/domain/profile';
 import { NameSheet } from '@/features/profile/presentation/name-sheet';
+import { StyleAestheticsOptions } from '@/features/profile/presentation/style-aesthetics-options';
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
+import { nextBareDressingDayKey } from '@/features/recommendation/domain/dressing-day-choice';
 import { unavailableTodayState, type TodayScreenState } from '@/features/today/model';
 import { TodayScreen } from '@/features/today/presentation/today-screen';
+import { DailyFormalitySheet } from '@/features/today/presentation/daily-formality-sheet';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { useLocalization } from '@/localization/use-messages';
+import { getMessages } from '@/localization/messages';
 
 export default function TodayRoute() {
   const { language } = useLocalization();
@@ -34,12 +40,23 @@ export default function TodayRoute() {
     refresh: refreshRecommendation,
     regenerate: regenerateRecommendation,
     reevaluateLocalDay,
+    dressingDayKey,
+    dressingDayChoiceReady,
+    morningChoicePending,
+    resolvedDressStyle,
+    chooseFormality,
   } = useRecommendationApplication();
   const weatherApplication = useWeatherApplication();
   const { revalidateFreshness: revalidateWeatherFreshness, state: weatherState } =
     weatherApplication;
-  const { state: profileState, updateDisplayName } = useProfileApplication();
+  const { state: profileState, updateDisplayName, updateStyleAesthetics } = useProfileApplication();
   const [namePromptDismissed, setNamePromptDismissed] = useState(false);
+  const currentDressingDayKey = dressingDayKey ?? null;
+  const [sheetTarget, setSheetTarget] = useState<'morning' | 'plan' | null>(null);
+  const [sheetError, setSheetError] = useState(false);
+  const offeredKey = useRef<string | null>(null);
+  const savingChoice = useRef(false);
+  const savingAesthetics = useRef(false);
   const showNamePrompt = profileState.status === 'ready'
     && profileState.profile.onboardingCompleted
     && !namePromptDismissed
@@ -135,13 +152,64 @@ export default function TodayRoute() {
       retries.reset('today');
     };
   }, [reevaluateLocalDay, retries, revalidateWeatherFreshness]));
+  useEffect(() => {
+    if (!isFocused || !morningChoicePending || showNamePrompt || !currentDressingDayKey ||
+        offeredKey.current === currentDressingDayKey) return;
+    offeredKey.current = currentDressingDayKey;
+    setSheetTarget('morning');
+  }, [currentDressingDayKey, isFocused, morningChoicePending, showNamePrompt]);
+  const tomorrowKey = currentDressingDayKey
+    ? nextBareDressingDayKey(currentDressingDayKey) : null;
+  const tomorrow = tomorrowKey ? new Date(`${tomorrowKey}T12:00:00`) : null;
+  const tomorrowDate = tomorrow
+    ? new Intl.DateTimeFormat(language, { weekday: 'long', month: 'long', day: 'numeric' }).format(tomorrow) : null;
+  const handleAestheticsChange = (values: readonly StyleAesthetic[]) => {
+    if (savingAesthetics.current || !updateStyleAesthetics) return;
+    savingAesthetics.current = true;
+    setSheetError(false);
+    void updateStyleAesthetics(values)
+      .catch(() => setSheetError(true))
+      .finally(() => { savingAesthetics.current = false; });
+  };
+  const handleChoice = async (style: DressStyle) => {
+    if (!sheetTarget || savingChoice.current || savingAesthetics.current ||
+        !currentDressingDayKey || !tomorrowKey) return;
+    savingChoice.current = true;
+    setSheetError(false);
+    try {
+      await chooseFormality?.(sheetTarget === 'plan' ? tomorrowKey : currentDressingDayKey,
+        style, sheetTarget === 'plan' ? 'plan' : 'morning');
+      setSheetTarget(null);
+    } catch {
+      setSheetError(true);
+    } finally {
+      savingChoice.current = false;
+    }
+  };
+  const dismissChoice = () => {
+    if (savingChoice.current || !sheetTarget) return;
+    const target = sheetTarget;
+    setSheetTarget(null);
+    if (target !== 'morning') return;
+    const copy = getMessages(language).today.dailyStyle;
+    Alert.alert(copy.question, copy.dismissWarning, [
+      { text: copy.chooseStyle, style: 'default', isPreferred: true,
+        onPress: () => setSheetTarget('morning') },
+      { text: copy.continueWithoutChoosing, style: 'destructive', onPress: () => {
+        const styles: readonly DressStyle[] = ['casual', 'smart', 'formal'];
+        if (!currentDressingDayKey) return;
+        void chooseFormality?.(currentDressingDayKey, styles[Math.floor(Math.random() * 3)], 'random')
+          .catch(() => { setSheetError(true); setSheetTarget('morning'); });
+      } },
+    ]);
+  };
   const viewedThisFocusRef = useRef(false);
   useEffect(() => {
     if (!isFocused) {
       viewedThisFocusRef.current = false;
       return;
     }
-    if (viewedThisFocusRef.current) return;
+    if (viewedThisFocusRef.current || morningChoicePending || dressingDayChoiceReady === false) return;
     if (state.kind !== 'loaded' || state.snapshot.recommendation.status !== 'recommended') return;
     viewedThisFocusRef.current = true;
     const cacheState = state.isRefreshing
@@ -155,18 +223,20 @@ export default function TodayRoute() {
       cache_state: cacheState,
       outfit_count: 3,
       dress_style: dressStyleProperty(
-        profileState.status === 'ready' ? profileState.profile.dressStyle : null,
+        resolvedDressStyle ?? (profileState.status === 'ready' ? profileState.profile.dressStyle : null),
       ),
       age_bucket: ageBucketProperty(
         profileState.status === 'ready' ? profileState.profile.birthDate : null,
       ),
     });
-  }, [analytics, isFocused, profileState, state]);
+  }, [analytics, dressingDayChoiceReady, isFocused, morningChoicePending, profileState, resolvedDressStyle, state]);
 
   useEffect(() => {
-    if (!isFocused || !isRecommendationShown || showNamePrompt) return;
+    if (!isFocused || !isRecommendationShown || showNamePrompt || morningChoicePending ||
+        dressingDayChoiceReady === false) return;
     markRecommendationShown();
-  }, [isFocused, isRecommendationShown, markRecommendationShown, showNamePrompt]);
+  }, [dressingDayChoiceReady, isFocused, isRecommendationShown, markRecommendationShown,
+    morningChoicePending, showNamePrompt]);
 
   // Taxonomy 5.7: Today's pull gesture doubles as the retry action when a failure is
   // already shown (there is no separate retry control).
@@ -293,8 +363,23 @@ export default function TodayRoute() {
       onOpenOutfitDetail={(id) => router.push({ pathname: '/[id]', params: { id } })}
       onRefresh={handleRefresh}
       onRegenerate={() => void regenerateRecommendation()}
+      selectedFormality={dressingDayChoiceReady === false ? undefined : resolvedDressStyle}
+      onFormalityChange={(style) => {
+        if (!currentDressingDayKey) return;
+        void chooseFormality?.(currentDressingDayKey, style, 'chip')
+          .catch(() => Alert.alert(getMessages(language).today.dailyStyle.saveError));
+      }}
+      tomorrowLabel={tomorrowDate ? getMessages(language).today.dailyStyle.planTomorrow(tomorrowDate) : undefined}
+      onPlanTomorrow={() => { setSheetError(false); setSheetTarget('plan'); }}
       state={state}
     />
+    <DailyFormalitySheet visible={sheetTarget !== null} language={language} mode={sheetTarget ?? 'morning'}
+      error={sheetError} onChoose={(style) => { void handleChoice(style); }} onDismiss={dismissChoice}
+      aestheticsSaving={profileState.status === 'ready' && profileState.isSaving}
+      stylePreferences={<StyleAestheticsOptions copy={getMessages(language).preferences}
+        selected={profileState.status === 'ready' ? profileState.profile.styleAesthetics ?? [] : []}
+        disabled={profileState.status === 'ready' && profileState.isSaving}
+        onChange={handleAestheticsChange} testID="daily-formality-style-option" />} />
     <NameSheet
       initialName={null}
       mode="prompt"

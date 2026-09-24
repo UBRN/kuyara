@@ -2,6 +2,7 @@ import type {
   AnalyticsConsent,
   DressStyle,
   Gender,
+  StyleAesthetic,
 } from '@/features/profile/domain/profile';
 import type {
   LanguagePreference,
@@ -13,6 +14,7 @@ export type PersistedOnboardingPreferences = Readonly<{
   displayName?: string | null;
   gender: Gender;
   dressStyle: DressStyle;
+  styleAesthetics?: readonly StyleAesthetic[];
   birthDate: string | null;
 }>;
 
@@ -21,6 +23,8 @@ export interface ProfileLocalDataSource {
   completeOnboarding(preferences: PersistedOnboardingPreferences): Promise<LocalProfileRecord>;
   updateGender(preference: Gender): Promise<LocalProfileRecord>;
   updateDressStyle(dressStyle: DressStyle): Promise<LocalProfileRecord>;
+  updateStyleAesthetics(values: readonly StyleAesthetic[]): Promise<LocalProfileRecord>;
+  updateMorningSheetEnabled(enabled: boolean): Promise<LocalProfileRecord>;
   updateBirthDate(birthDate: string | null): Promise<LocalProfileRecord>;
   updateDisplayName(displayName: string | null): Promise<LocalProfileRecord>;
   updateLanguagePreference(preference: LanguagePreference): Promise<LocalProfileRecord>;

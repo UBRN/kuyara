@@ -38,11 +38,13 @@ import {
 import type {
   DressStyle,
   Gender,
+  StyleAesthetic,
   OnboardingPreferences,
 } from '@/features/profile/domain/profile';
 import { displayNameIssue } from '@/features/profile/domain/profile';
 import { NameInput } from '@/features/profile/presentation/name-input';
 import { PreferenceOption } from '@/features/profile/presentation/preference-option';
+import { StyleAestheticsOptions } from '@/features/profile/presentation/style-aesthetics-options';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { LocationSelectionControls } from '@/features/weather/presentation/location-selection-controls';
 import { useLocalization } from '@/localization/use-messages';
@@ -52,17 +54,19 @@ import { borderWidths, radii, spacing } from '@/theme/theme';
 type OnboardingScreenProps = Readonly<{
   initialGender: Gender | null;
   initialDressStyle: DressStyle | null;
+  initialStyleAesthetics?: readonly StyleAesthetic[];
   initialBirthDate: string | null;
   initialDisplayName?: string | null;
   onComplete: (preferences: OnboardingPreferences) => Promise<void>;
 }>;
 
-const totalSteps = 6;
+const totalSteps = 7;
 
 export function OnboardingScreen({
   initialBirthDate,
   initialDisplayName = null,
   initialDressStyle,
+  initialStyleAesthetics = [],
   initialGender,
   onComplete,
 }: OnboardingScreenProps) {
@@ -72,6 +76,7 @@ export function OnboardingScreen({
       displayName: initialDisplayName,
       gender: initialGender,
       dressStyle: initialDressStyle,
+      styleAesthetics: initialStyleAesthetics,
       birthDate: initialBirthDate,
     }),
   );
@@ -112,8 +117,8 @@ export function OnboardingScreen({
           : draft.step === 3
             ? copy.dressStyleTitle
             : draft.step === 4
-              ? copy.birthDateTitle
-            : copy.locationTitle;
+              ? copy.stylePreferencesTitle
+              : draft.step === 5 ? copy.birthDateTitle : copy.locationTitle;
 
   useEffect(() => {
     if (announcedStep.current) {
@@ -150,10 +155,10 @@ export function OnboardingScreen({
       const stepCompleted: AnalyticsEventProperties<'onboarding_step_completed'> = {
         schema_version: ANALYTICS_SCHEMA_VERSION,
         step_name: stepName,
-        step_index: (draft.step === 0 ? 1 : draft.step) as 1 | 2 | 3 | 4,
+        step_index: (draft.step === 0 ? 1 : draft.step >= 5 ? draft.step - 1 : draft.step) as 1 | 2 | 3 | 4,
         // Only the birth date step is skippable here; the location step's own
         // `onboarding_step_completed` is reported from `complete()`.
-        skipped: draft.step === 4 ? draft.birthDate === null : false,
+        skipped: draft.step === 5 ? draft.birthDate === null : false,
       };
       analytics.capture(
         'onboarding_step_completed',
@@ -269,8 +274,8 @@ export function OnboardingScreen({
               : draft.step === 3
                 ? copy.dressStyleBody
                 : draft.step === 4
-                  ? copy.birthDateBody
-                : copy.locationBody}
+                  ? copy.stylePreferencesBody
+                  : draft.step === 5 ? copy.birthDateBody : copy.locationBody}
       </AppText>
     </View>
   );
@@ -279,11 +284,11 @@ export function OnboardingScreen({
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={[styles.screen, { backgroundColor: theme.colors.background }]}>
-      {draft.step === 5 ? (
+      {draft.step === 6 ? (
         <SafeAreaView edges={['top']} style={styles.screen}>
           <LocationSelectionControls
             header={heading}
-            testID="onboarding-step-6"
+            testID="onboarding-step-7"
             testIDPrefix="onboarding"
           />
         </SafeAreaView>
@@ -400,6 +405,12 @@ export function OnboardingScreen({
       ) : null}
 
       {draft.step === 4 ? (
+        <StyleAestheticsOptions copy={preferenceCopy} selected={draft.styleAesthetics}
+          onChange={(value) => dispatch({ type: 'select-style-aesthetics', value })}
+          testID="onboarding-style-option" />
+      ) : null}
+
+      {draft.step === 5 ? (
         <View style={styles.section}>
           {draft.birthDate === null ? (
             <AppText colorRole="textSecondary">{copy.birthDateNotSet}</AppText>
@@ -446,7 +457,7 @@ export function OnboardingScreen({
             borderColor: theme.colors.borderSubtle,
           },
         ]}>
-        {draft.step === 5 && saveError ? (
+        {draft.step === 6 && saveError ? (
           <AppText
             accessibilityLiveRegion="assertive"
             accessibilityRole="alert"
