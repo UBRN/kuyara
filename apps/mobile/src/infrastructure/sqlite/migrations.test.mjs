@@ -67,7 +67,7 @@ async function insertProfile(database, id = 'stable-profile-id') {
   );
 }
 
-test('an empty database applies versions 1 through 18 in order with the final schema', async (t) => {
+test('an empty database applies versions 1 through 19 in order with the final schema', async (t) => {
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
 
@@ -90,7 +90,7 @@ test('an empty database applies versions 1 through 18 in order with the final sc
     'PRAGMA table_info(weather_alert_deliveries)',
   );
 
-  assert.equal(latestDatabaseVersion, 18);
+  assert.equal(latestDatabaseVersion, 19);
   assert.equal(version.user_version, latestDatabaseVersion);
   assert.equal(profileTable.name, 'local_profiles');
   assert.match(profileTable.sql, /CHECK \(singleton_key = 1\)/);
@@ -201,7 +201,7 @@ test('an empty database applies versions 1 through 18 in order with the final sc
   );
 });
 
-test('an existing version 1 database upgrades through version 18 without changing profile data', async (t) => {
+test('an existing version 1 database upgrades through version 19 without changing profile data', async (t) => {
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
   await createReleasedVersionOneDatabase(database);
@@ -1250,7 +1250,7 @@ test('version 15 adds the briefing opt-in without disturbing a version 14 instal
   await migrateDatabase(database);
 
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
-  assert.equal(latestDatabaseVersion, 18);
+  assert.equal(latestDatabaseVersion, 19);
   assert.deepEqual(
     (await database.getAllAsync('SELECT * FROM local_profiles')).map((row) => ({ ...row })),
     profileBefore.map((row) => ({ ...row, morning_briefing_opt_in: 0, display_name: null, name_prompt_version: 0, style_aesthetics: '[]', morning_sheet_enabled: 1 })),
@@ -1474,8 +1474,8 @@ test('version 16 adds the daily outlook column without disturbing a version 15 i
 
   await migrateDatabase(database);
 
-  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 18);
-  assert.equal(latestDatabaseVersion, 18);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 19);
+  assert.equal(latestDatabaseVersion, 19);
   assert.deepEqual(
     (await database.getAllAsync('SELECT * FROM weather_snapshots')).map((row) => ({ ...row })),
     snapshotsBefore.map((row) => ({ ...row, daily_json: null })),
@@ -1566,7 +1566,7 @@ test('version 17 adds the optional name and prompt gate to a filled version 16 p
 
   await migrateDatabase(database);
 
-  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 18);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 19);
   assert.deepEqual(
     (await database.getAllAsync('SELECT * FROM local_profiles')).map((row) => ({ ...row })),
     profileBefore.map((row) => ({ ...row, display_name: null, name_prompt_version: 0, style_aesthetics: '[]', morning_sheet_enabled: 1 })),
@@ -1657,7 +1657,7 @@ test('version 18 keeps a filled version 17 profile and adds daily choices', asyn
     (await database.getAllAsync(`SELECT * FROM ${table}`)).map((row) => ({ ...row })),
   ])));
   await migrateDatabase(database);
-  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 18);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 19);
   assert.deepEqual({ ...await database.getFirstAsync('SELECT * FROM local_profiles') }, {
     ...before, style_aesthetics: '[]', morning_sheet_enabled: 1,
   });
@@ -1672,4 +1672,91 @@ test('version 18 keeps a filled version 17 profile and adds daily choices', asyn
     VALUES ('choice-1', 'stable-profile-id', '2026-09-24', 'casual', 'morning', ?, ?)`,
     [timestamp, timestamp]);
   assert.equal((await database.getFirstAsync('SELECT formality FROM dressing_day_choices')).formality, 'casual');
+});
+
+test('schema 16 fixture upgrades through 19 preserving rows in every existing table', async (t) => {
+  const database = new NodeSqliteDatabase();
+  t.after(() => database.close());
+  const stopBeforeV17 = {
+    execAsync: database.execAsync.bind(database),
+    getFirstAsync: database.getFirstAsync.bind(database),
+    withExclusiveTransactionAsync: (task) => database.withExclusiveTransactionAsync((transaction) => task({
+      ...transaction,
+      execAsync: async (sql) => {
+        if (sql.includes('ADD COLUMN display_name TEXT NULL')) throw new Error('schema 16 fixture');
+        await transaction.execAsync(sql);
+      },
+      runAsync: transaction.runAsync.bind(transaction),
+      getFirstAsync: transaction.getFirstAsync.bind(transaction),
+      getAllAsync: transaction.getAllAsync.bind(transaction),
+    })),
+  };
+  await assert.rejects(() => migrateDatabase(stopBeforeV17), /schema 16 fixture/);
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 16);
+  await insertProfile(database);
+  await database.runAsync(`UPDATE local_profiles SET gender = 'woman', dress_style = 'smart',
+    onboarding_completed = 1`);
+  await database.execAsync(`
+    INSERT INTO wardrobe_items
+      (id, local_profile_id, name, category, photo_relative_path, created_at, updated_at,
+       entry_state, garment_type_id)
+    VALUES
+      ('owned-coat', 'stable-profile-id', 'Rain coat', 'outerwear',
+       'kuyara/wardrobe/photos/550e8400-e29b-41d4-a716-446655440000.jpg',
+       '${timestamp}', '${timestamp}', 'owned', 'rain_jacket'),
+      ('wanted-shoes', 'stable-profile-id', 'Shoes', 'footwear', NULL,
+       '${timestamp}', '${timestamp}', 'wanted', 'sneakers'),
+      ('legacy-top', 'stable-profile-id', 'Old top', 'top', NULL,
+       '${timestamp}', '${timestamp}', 'owned', NULL);
+    INSERT INTO active_locations
+      (local_profile_id, location_key, source, manual_catalog_id, latitude_e2,
+       longitude_e2, time_zone, device_accuracy, created_at, updated_at, display_name)
+    VALUES ('stable-profile-id', 'manual:sample.istanbul', 'manual', 'sample.istanbul',
+      4101, 2898, 'Europe/Istanbul', NULL, '${timestamp}', '${timestamp}', 'Istanbul');
+    INSERT INTO weather_snapshots
+      (id, local_profile_id, location_key, time_zone, fetched_at, observed_at,
+       origin_kind, source_id, temperature_c, apparent_temperature_c,
+       minimum_temperature_c, maximum_temperature_c, condition_code,
+       precipitation_probability, wind_speed_mps, humidity, uv_index, daily_json)
+    VALUES ('weather', 'stable-profile-id', 'manual:sample.istanbul', 'Europe/Istanbul',
+      '${timestamp}', '${timestamp}', 'sample', 'test', 20, 20, 19, 21, 'clear',
+      0, 0, 0.5, 0, NULL);
+    INSERT INTO weather_hourly_entries
+      (snapshot_id, forecast_at, temperature_c, apparent_temperature_c, condition_code,
+       precipitation_probability, wind_speed_mps, humidity, uv_index)
+    VALUES ('weather', '${timestamp}', 20, 20, 'clear', 0, 0, 0.5, 0);
+    INSERT INTO recommendation_snapshots
+      (id, local_profile_id, weather_snapshot_id, location_key, generation_mode,
+       context_json, outfits_json, created_at, updated_at)
+    VALUES ('recommendation', 'stable-profile-id', 'weather', 'manual:sample.istanbul',
+      'deterministic-fallback', '{"fixture":true}', '[]', '${timestamp}', '${timestamp}');
+    INSERT INTO weather_alert_deliveries (id, local_profile_id, fire_at, created_at)
+    VALUES ('precipitation_onset:manual:sample.istanbul:2026-09-24',
+      'stable-profile-id', '${timestamp}', '${timestamp}');
+  `);
+  const tables = ['local_profiles', 'wardrobe_items', 'active_locations',
+    'weather_snapshots', 'weather_hourly_entries', 'recommendation_snapshots',
+    'weather_alert_deliveries'];
+  const before = Object.fromEntries(await Promise.all(tables.map(async (table) => [table,
+    (await database.getAllAsync(`SELECT * FROM ${table}`)).map((row) => ({ ...row }))])));
+  assert.ok(tables.every((table) => before[table].length > 0));
+  await migrateDatabase(database);
+  await migrateDatabase(new NodeSqliteDatabase(database.database));
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 19);
+  for (const table of tables) {
+    const after = (await database.getAllAsync(`SELECT * FROM ${table}`)).map((row) => ({ ...row }));
+    assert.equal(after.length, before[table].length, `${table} row count`);
+    for (let index = 0; index < after.length; index++) {
+      for (const [column, value] of Object.entries(before[table][index])) {
+        assert.deepEqual(after[index][column], value, `${table}.${column}`);
+      }
+    }
+  }
+  assert.equal((await database.getAllAsync('SELECT * FROM wardrobe_items'))
+    .find((row) => row.id === 'legacy-top').garment_type_id, null);
+  for (const table of ['outfit_history', 'dressing_day_choices', 'dressing_day_departures']) {
+    assert.equal((await database.getFirstAsync(`SELECT COUNT(*) AS count FROM ${table}`)).count, 0);
+  }
+  assert.deepEqual(await database.getAllAsync('PRAGMA foreign_key_check'), []);
+  assert.equal((await database.getFirstAsync('PRAGMA integrity_check')).integrity_check, 'ok');
 });

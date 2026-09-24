@@ -1,4 +1,4 @@
-import { dressStyleSchema, type DressStyle } from '@kuyara/contracts';
+import { dressStyleSchema, styleAestheticSchema, type DressStyle, type StyleAesthetic } from '@kuyara/contracts';
 import { z } from 'zod';
 
 export const dressingDayChoiceSourceSchema = z.enum(['morning', 'chip', 'plan', 'random']);
@@ -11,6 +11,7 @@ export type DressingDayChoice = Readonly<{
   dayKey: string;
   formality: DressStyle;
   source: DressingDayChoiceSource;
+  styleAesthetics: readonly StyleAesthetic[] | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -19,7 +20,18 @@ export type DressingDayChoice = Readonly<{
 export interface DressingDayChoiceRepository {
   get(localProfileId: string, dayKey: string): Promise<DressingDayChoice | null>;
   upsert(localProfileId: string, dayKey: string, formality: DressStyle,
-    source: DressingDayChoiceSource): Promise<DressingDayChoice>;
+    source: DressingDayChoiceSource, styleAesthetics?: readonly StyleAesthetic[] | null): Promise<DressingDayChoice>;
+}
+
+export const dailyStyleAestheticsSchema = z.array(styleAestheticSchema).max(3).refine(
+  (values) => new Set(values).size === values.length,
+);
+
+export function resolvedStyleAesthetics(
+  choice: DressingDayChoice | null,
+  settingsDefault: readonly StyleAesthetic[],
+): readonly StyleAesthetic[] {
+  return choice?.styleAesthetics?.length ? choice.styleAesthetics : settingsDefault;
 }
 
 export function resolvedFormality(
@@ -43,6 +55,7 @@ export function parseDressingDayChoice(value: unknown): DressingDayChoice {
     dayKey: dressingDayKeySchema,
     formality: dressStyleSchema,
     source: dressingDayChoiceSourceSchema,
+    styleAesthetics: dailyStyleAestheticsSchema.nullable(),
     createdAt: z.iso.datetime(),
     updatedAt: z.iso.datetime(),
     deletedAt: z.iso.datetime().nullable(),
