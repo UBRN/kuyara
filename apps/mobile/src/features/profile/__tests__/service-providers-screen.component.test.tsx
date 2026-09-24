@@ -242,6 +242,15 @@ describe.each(['en', 'tr'] as const)('%s on-device availability row', (language)
     expect(status.props.children.props.name).toBe(symbol);
   });
 
+  // M1: the device status row draws the same multicolor symbol as the Today badge.
+  test('draws the Apple Intelligence symbol in multicolor', async () => {
+    const { rendered } = screen(language, { onDeviceAvailability: { status: 'available' } });
+    const result = await rendered;
+    const tile = result.getByTestId('settings-service-providers-on-device', { includeHiddenElements: true });
+
+    expect(tile.props.children.props).toMatchObject({ name: 'appleIntelligence', rendering: 'multicolor' });
+  });
+
   test('names the on-device tier as the last recommendation source', async () => {
     const { rendered } = screen(language, { lastGenerationMode: 'on-device-ai' });
     const result = await rendered;

@@ -106,7 +106,9 @@ export function ServiceProvidersScreen({
           heading={copy.artificialIntelligenceHeading}
           testID="settings-service-providers-ai-group">
           <NativeListRow
-            glyph={({ color, size }) => <Icon color={color} name="appleIntelligence" size={size} />}
+            glyph={({ color, size }) => (
+              <Icon color={color} name="appleIntelligence" rendering="multicolor" size={size} />
+            )}
             label={onDeviceCopy}
             testID="settings-service-providers-on-device"
             trailingSymbol={{ name: statusSymbol, color: statusColor }}
