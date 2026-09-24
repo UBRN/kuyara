@@ -169,7 +169,9 @@ surface follows these constraints:
   existing native grouped list per [ADR 0030](0030-settings-as-a-native-grouped-list.md),
   beside the privacy policy link the same guideline requires in the app.
 - Copy from localization keys, Turkish and English, and the same copy discipline as the
-  rest of Settings.
+  rest of Settings. The copy never promises to exclude data an event carries. A wording
+  correction that describes existing, already disclosed collection more accurately keeps
+  existing `granted` answers; asking again is required only when collection widens.
 
 **Session replay is not covered by the existing grant.**
 [ADR 0023 section 9](0023-behavioural-product-analytics-with-posthog.md#9-session-replay-stays-disabled)

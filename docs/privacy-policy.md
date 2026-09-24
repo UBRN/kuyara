@@ -19,7 +19,7 @@ describes what data the app sends off your device, why, and what you can do abou
 - Two requests made by Expo, the toolkit kuyara is built with, happen every time the app
   starts, before and regardless of that answer. They carry a random installation identifier
   and version details about the app and the device, never anything you enter in kuyara.
-- Analytics never includes your location, photos, Closet contents, name, birth date, or
+- Analytics never includes your location, photos, name, garment names, birth date, or
   anything you type.
 - kuyara does not track you across other apps or websites, shows no ads, and sells no data.
 - You can turn analytics and diagnostics off at any time in Settings under Privacy.

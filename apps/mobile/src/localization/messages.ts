@@ -775,7 +775,7 @@ const en = {
   },
   analytics: {
     consentTitle: 'Help improve kuyara',
-    consentBody: 'Knowing which screens are used, whether suggestions load and coarse settings like dress style and age range helps make kuyara better. Your location, photos, closet and name are never included.',
+    consentBody: 'Knowing which screens are used, whether suggestions load, which kinds of clothes you add to your closet and coarse settings like dress style and age range helps make kuyara better. Your location, photos, name and the names and colors of your closet items are never included.',
     consentSettingsBody: 'You can change this any time in Settings, under Privacy.',
     acceptAction: 'Help improve',
     declineAction: 'Not now',
@@ -1463,7 +1463,7 @@ const tr = {
   },
   analytics: {
     consentTitle: "kuyara'yı geliştirmeye yardım et",
-    consentBody: "Hangi ekranların kullanıldığını, önerilerin yüklenip yüklenmediğini ve giyim stili ile yaş aralığı gibi ayrıntısız ayarları bilmek kuyara'yı daha iyi yapar. Konumun, fotoğrafların, gardırobun ve adın hiçbir zaman dahil edilmez.",
+    consentBody: "Hangi ekranların kullanıldığını, önerilerin yüklenip yüklenmediğini, gardırobuna hangi tür kıyafetler eklediğini ve giyim stili ile yaş aralığı gibi ayrıntısız ayarları bilmek kuyara'yı daha iyi yapar. Konumun, fotoğrafların, adın, gardırobundaki parçaların adları ve renkleri hiçbir zaman dahil edilmez.",
     consentSettingsBody: "Bunu istediğin zaman Ayarlar'daki Gizlilik bölümünden değiştirebilirsin.",
     acceptAction: 'Yardım et',
     declineAction: 'Şimdi değil',
