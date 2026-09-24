@@ -55,9 +55,9 @@ test('onboarding asks the optional name before required gender and dress style',
   draft = reduceOnboardingDraft(draft, { type: 'continue' });
   assert.equal(draft.step, 5);
   draft = reduceOnboardingDraft(draft, { type: 'continue' });
-  assert.equal(draft.step, 5);
+  assert.equal(draft.step, 6);
   draft = reduceOnboardingDraft(draft, { type: 'back' });
-  assert.equal(draft.step, 4);
+  assert.equal(draft.step, 5);
 });
 
 test('onboarding keeps personal choices independent and reviewable', () => {
@@ -74,6 +74,7 @@ test('onboarding keeps personal choices independent and reviewable', () => {
     displayName: null,
     gender: 'man',
     dressStyle: 'formal',
+    styleAesthetics: [],
     birthDate: '1994-03-14',
   });
   draft = reduceOnboardingDraft({ ...draft, step: 5 }, { type: 'back' });
@@ -84,6 +85,7 @@ test('onboarding keeps personal choices independent and reviewable', () => {
     displayName: null,
     gender: 'man',
     dressStyle: 'formal',
+    styleAesthetics: [],
     birthDate: null,
   });
 });

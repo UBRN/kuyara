@@ -1,4 +1,5 @@
 import * as Crypto from 'expo-crypto';
+import type { DressStyle } from '@kuyara/contracts';
 import { AppState, Platform, type AppStateStatus } from 'react-native';
 import {
   type PropsWithChildren,
@@ -29,6 +30,8 @@ import { useProfileApplication } from '@/features/profile/application/profile-co
 import { ExpoFileAiRegenerationBudget } from '@/features/recommendation/data/expo-file-ai-regeneration-budget';
 import { LocalRecommendationRepository } from '@/features/recommendation/data/recommendation-repository';
 import { SqliteRecommendationLocalDataSource } from '@/features/recommendation/data/sqlite-recommendation-local-data-source';
+import { SqliteDressingDayChoiceRepository } from '@/features/recommendation/data/sqlite-dressing-day-choice-repository';
+import { resolvedFormality, type DressingDayChoice, type DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
 import {
   OnDeviceAiClient,
   type OnDeviceAiModule,
@@ -107,6 +110,18 @@ async function loadRepository() {
   );
 }
 
+async function loadChoiceRepository() {
+  const database = await openKuyaraDatabase();
+  await migrateDatabase(database);
+  return new SqliteDressingDayChoiceRepository(database, () => Crypto.randomUUID(), now);
+}
+
+type DayChoiceReadState = Readonly<{ profileId: string; key: string }> & (
+  | Readonly<{ status: 'unknown'; previousChoice: DressingDayChoice | null }>
+  | Readonly<{ status: 'none' }>
+  | Readonly<{ status: 'row'; choice: DressingDayChoice }>
+);
+
 export function RecommendationApplicationProvider({
   children,
   localProfileId,
@@ -118,10 +133,53 @@ export function RecommendationApplicationProvider({
   const { analytics } = useProductAnalytics();
   const telemetry = usePerformanceTelemetry();
   const [localDay, setLocalDay] = useState(deviceLocalDay);
+  const [dayChoiceState, setDayChoiceState] = useState<DayChoiceReadState | null>(null);
+  const [choiceReadAttempt, setChoiceReadAttempt] = useState(0);
+  const choiceReadFailed = useRef(false);
+  useEffect(() => {
+    let live = true;
+    choiceReadFailed.current = false;
+    void loadChoiceRepository().then((repository) => repository.get(localProfileId, localDay.key))
+      .then((choice) => {
+        if (!live) return;
+        choiceReadFailed.current = false;
+        setDayChoiceState(choice
+          ? { profileId: localProfileId, key: localDay.key, status: 'row', choice }
+          : { profileId: localProfileId, key: localDay.key, status: 'none' });
+      })
+      .catch(() => {
+        if (!live) return;
+        choiceReadFailed.current = true;
+        setDayChoiceState((previous) => ({
+          profileId: localProfileId,
+          key: localDay.key,
+          status: 'unknown',
+          previousChoice: previous?.profileId === localProfileId && previous.key === localDay.key
+            ? previous.status === 'row'
+              ? previous.choice
+              : previous.status === 'unknown' ? previous.previousChoice : null
+            : null,
+        }));
+      });
+    return () => { live = false; };
+  }, [choiceReadAttempt, localDay.key, localProfileId]);
+  const currentDayChoice = dayChoiceState?.profileId === localProfileId &&
+    dayChoiceState.key === localDay.key ? dayChoiceState : null;
+  const choiceReady = currentDayChoice?.status === 'row' || currentDayChoice?.status === 'none';
+  const dayChoice = currentDayChoice?.status === 'row'
+    ? currentDayChoice.choice
+    : currentDayChoice?.status === 'unknown' ? currentDayChoice.previousChoice : null;
+  const profileDefault = profileState.status === 'ready'
+    ? profileState.profile.dressStyle ?? 'smart' : 'smart';
+  const resolvedDressStyle = resolvedFormality(dayChoice, profileDefault);
+  const morningChoicePending = Boolean(currentDayChoice?.status === 'none' &&
+    !localDay.key.endsWith(':evening') && profileState.status === 'ready' &&
+    profileState.profile.morningSheetEnabled);
   const appState = useRef<AppStateStatus>(AppState.currentState);
   const reevaluateLocalDay = useCallback(() => {
     const next = deviceLocalDay();
     setLocalDay((current) => current.key === next.key ? current : next);
+    if (choiceReadFailed.current) setChoiceReadAttempt((current) => current + 1);
   }, []);
   const client = useMemo(() => createRecommendationClient(), []);
   const [onDeviceAvailability, setOnDeviceAvailability] =
@@ -164,7 +222,7 @@ export function RecommendationApplicationProvider({
     if (
       weatherState.status !== 'ready' ||
       !weatherState.snapshot ||
-      !clothingPreference
+      !clothingPreference || !choiceReady
     ) return null;
     return {
       snapshot: weatherState.snapshot,
@@ -173,15 +231,15 @@ export function RecommendationApplicationProvider({
       // or the weather changes, which is every moment a recommendation is generated.
       now: now(),
       clothingPreference,
-      dressStyle: profileState.status === 'ready'
-        ? profileState.profile.dressStyle ?? 'smart'
-        : 'smart',
+      dressStyle: resolvedDressStyle,
+      styleAesthetics: profileState.status === 'ready'
+        ? profileState.profile.styleAesthetics ?? [] : [],
       dayVariant: localDay.variant,
       dayKind: localDay.kind,
       localDayKey: localDay.key,
       locale: language,
     };
-  }, [language, localDay, profileState, weatherState]);
+  }, [choiceReady, language, localDay, profileState, resolvedDressStyle, weatherState]);
   const staleRefreshSnapshotId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -237,6 +295,7 @@ export function RecommendationApplicationProvider({
       locationKey: input.snapshot.locationKey,
       clothingPreference: input.clothingPreference,
       dressStyle: input.dressStyle ?? 'smart',
+      styleAesthetics: input.styleAesthetics,
       catalogVersion: garmentCatalogVersion,
       localDayKey: input.localDayKey,
     };
@@ -246,10 +305,23 @@ export function RecommendationApplicationProvider({
           locationKey: persistedSnapshot.locationKey,
           clothingPreference: persistedSnapshot.clothingPreference,
           dressStyle: persistedSnapshot.dressStyle,
+          styleAesthetics: persistedSnapshot.styleAesthetics,
           catalogVersion: persistedSnapshot.catalogVersion,
           localDayKey: persistedSnapshot.localDayKey,
         }
       : null;
+
+    // The morning question normally holds automatic generation over the last valid look.
+    // A persistent aesthetic edit made inside that sheet is already a profile-change
+    // trigger, so it may refresh that look while the day's formality stays unanswered.
+    if (morningChoicePending) {
+      if (previous && JSON.stringify(previous.styleAesthetics ?? []) !==
+          JSON.stringify(current.styleAesthetics ?? [])) {
+        staleRefreshSnapshotId.current = null;
+        void controller.refresh('dress-style-changed', input);
+      }
+      return;
+    }
 
     const trigger = recommendationRefreshTrigger(
       previous,
@@ -261,7 +333,7 @@ export function RecommendationApplicationProvider({
     }
 
     if (trigger) void controller.refresh(trigger, input);
-  }, [controller, input, persistedSnapshot, state.status]);
+  }, [controller, input, morningChoicePending, persistedSnapshot, state.status]);
 
   // The generation input as of this moment, re-read from the live weather and profile rather
   // than from the render that bound the handler. `null` when there is nothing to compose for.
@@ -276,23 +348,42 @@ export function RecommendationApplicationProvider({
       currentWeather.status !== 'ready' ||
       !currentWeather.snapshot ||
       profileState.status !== 'ready' ||
-      !clothingPreference
+      !clothingPreference || !choiceReady
     ) return null;
     return {
       snapshot: currentWeather.snapshot,
       now: now(),
       clothingPreference,
-      dressStyle: profileState.profile.dressStyle ?? 'smart',
+      dressStyle: resolvedDressStyle,
+      styleAesthetics: profileState.profile.styleAesthetics ?? [],
       dayVariant: currentDay.variant,
       dayKind: currentDay.kind,
       localDayKey: currentDay.key,
       locale: language,
     };
-  }, [language, profileState, weatherApplication, weatherState]);
+  }, [choiceReady, language, profileState, resolvedDressStyle, weatherApplication, weatherState]);
+
+  const chooseFormality = useCallback(async (
+    key: string, formality: DressStyle, source: DressingDayChoiceSource,
+  ) => {
+    const repository = await loadChoiceRepository();
+    const choice = await repository.upsert(localProfileId, key, formality, source);
+    if (key !== localDay.key) return;
+    setDayChoiceState({ profileId: localProfileId, key, status: 'row', choice });
+    const generationInput = currentInput();
+    if (generationInput) void controller.refresh('dress-style-changed', {
+      ...generationInput, dressStyle: formality,
+    });
+  }, [controller, currentInput, localDay.key, localProfileId]);
 
   const value = useMemo<RecommendationApplicationValue>(() => ({
     state,
     onDeviceAvailability,
+    dressingDayKey: localDay.key,
+    dressingDayChoiceReady: choiceReady,
+    morningChoicePending,
+    resolvedDressStyle,
+    chooseFormality,
     refresh: () => {
       const generationInput = currentInput();
       return generationInput
@@ -314,8 +405,13 @@ export function RecommendationApplicationProvider({
     budget,
     controller,
     currentInput,
+    chooseFormality,
+    choiceReady,
+    localDay.key,
+    morningChoicePending,
     onDeviceAvailability,
     reevaluateLocalDay,
+    resolvedDressStyle,
     state,
   ]);
 
