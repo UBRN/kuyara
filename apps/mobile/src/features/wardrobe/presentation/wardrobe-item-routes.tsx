@@ -1,5 +1,5 @@
 import { useNavigation, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { use, useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet } from 'react-native';
 
 import { AppText, Button, Screen, Surface } from '@/components/ui';
@@ -12,6 +12,7 @@ import {
   dressStyleProperty,
 } from '@/features/analytics/domain/analytics-mappers';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
+import { RecommendationApplicationContext } from '@/features/recommendation/application/recommendation-application-context';
 import { closetFieldsChanged } from '@/features/wardrobe/application/closet-field-changes';
 import { isWardrobeRouteId } from '@/features/wardrobe/application/wardrobe-form';
 import { unchangedWardrobePhoto } from '@/features/wardrobe/application/wardrobe-photo-manager';
@@ -154,6 +155,7 @@ export function WardrobeNewItemRoute({
   } = useWardrobeApplication();
   const { analytics, firstUses } = useProductAnalytics();
   const profileApplication = useProfileApplication();
+  const recommendationApplication = use(RecommendationApplicationContext);
   const [isDirty, setIsDirty] = useState(false);
   const guard = useWardrobeExitGuard(isDirty, confirmation);
   useScreenViewed('closet_item_form');
@@ -192,7 +194,9 @@ export function WardrobeNewItemRoute({
             garment_type_id: created.garmentTypeId,
             has_photo: created.photoRelativePath !== null,
             entry_point: 'closet_list',
-            dress_style: dressStyleProperty(profile?.dressStyle ?? null),
+            dress_style: dressStyleProperty(
+              recommendationApplication?.resolvedDressStyle ?? profile?.dressStyle ?? null,
+            ),
             age_bucket: ageBucketProperty(profile?.birthDate ?? null),
           });
           // `markFirstUse` only reports whether this is the first use; the caller

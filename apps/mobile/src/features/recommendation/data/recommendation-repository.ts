@@ -1,4 +1,4 @@
-import type { DressStyle } from '@kuyara/contracts';
+import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
 
 import type { OutfitRecommendationSuccess } from '@/features/recommendation/application/recommend-outfits';
 import {
@@ -23,6 +23,7 @@ export type RecommendationSnapshot = Readonly<{
   locationKey: string;
   clothingPreference: string;
   dressStyle: DressStyle;
+  styleAesthetics?: readonly StyleAesthetic[];
   catalogVersion: number | null;
   dayVariant: number | null;
   localDayKey: string | null;
@@ -94,6 +95,7 @@ function mapRecord(record: RecommendationSnapshotRecord): RecommendationSnapshot
       locationKey: record.locationKey,
       clothingPreference: context.clothingPreference,
       dressStyle: 'dressStyle' in context ? context.dressStyle ?? 'smart' : 'smart',
+      styleAesthetics: 'styleAesthetics' in context ? context.styleAesthetics ?? [] : [],
       catalogVersion: 'catalogVersion' in context ? context.catalogVersion : null,
       dayVariant: 'dayVariant' in context ? context.dayVariant : null,
       localDayKey: 'localDayKey' in context ? context.localDayKey ?? null : null,

@@ -7,9 +7,11 @@ import {
   type DressStyle,
   type FormalityLevel,
   type OutfitArchetypeId,
+  type StyleAesthetic,
 } from '@kuyara/contracts';
 
 import type { ClothingPreference } from '@/domain/preferences';
+import { sortByAestheticAffinity } from '@/features/recommendation/domain/aesthetic-affinity';
 import { listGarmentTypesForPreference } from '@/features/catalog/domain/garment-catalog';
 import {
   evaluateGarmentEligibility,
@@ -34,6 +36,7 @@ export type OutfitRecommendationInput = Readonly<{
   now: string;
   clothingPreference: ClothingPreference;
   dressStyle?: DressStyle;
+  styleAesthetics?: readonly StyleAesthetic[];
   dayVariant: number;
   /** Absent keeps the day-blind behaviour, where `weekend_relaxed` fits any casual outfit. */
   dayKind?: DayKind;
@@ -266,7 +269,8 @@ export function recommendOutfits(
         generationMode: 'deterministic-fallback',
         requirements,
         outfits: assignFallbackArchetypes(
-          [...availableOutfits].sort(
+          [...sortByAestheticAffinity(availableOutfits, input.styleAesthetics ?? [],
+            (outfit, id) => outfitMatchesArchetype(outfit, id, input.dayKind))].sort(
             (left, right) => order.indexOf(left.formality) - order.indexOf(right.formality),
           ),
           requirements,

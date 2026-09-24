@@ -1,4 +1,4 @@
-import type { AiRecommendV1Request, DayKind, DressStyle } from '@kuyara/contracts';
+import type { AiRecommendV1Request, DayKind, DressStyle, StyleAesthetic } from '@kuyara/contracts';
 
 import { isClothingPreference } from '@/domain/preferences';
 import {
@@ -59,6 +59,7 @@ export type RecommendationSignals = Readonly<{
   locationKey: string;
   clothingPreference: string;
   dressStyle: DressStyle;
+  styleAesthetics?: readonly StyleAesthetic[];
   catalogVersion: number | null;
   localDayKey: string | null;
 }>;
@@ -88,6 +89,8 @@ export function recommendationRefreshTrigger(
     return 'clothing-preference-changed';
   }
   if (previous.dressStyle !== current.dressStyle) return 'dress-style-changed';
+  if (JSON.stringify(previous.styleAesthetics ?? []) !==
+      JSON.stringify(current.styleAesthetics ?? [])) return 'dress-style-changed';
   if (previous.localDayKey !== current.localDayKey) return 'local-day-changed';
   return null;
 }

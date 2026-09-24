@@ -191,6 +191,7 @@ The approved phase order, active work and remaining open items are in [the roadm
 ## Recently Completed
 
 - **First-generation wait:** Today now presents the garment-board loading overlay only while a dressing day lacks a valid recommendation and generation is running. After ten seconds a native alert offers an early deterministic outfit; the AI request continues and can replace it. The overlay holds a green completion state for 0.8 seconds. The app no longer reads the OS Reduce Motion setting.
+- **Daily style choices:** schema 18 preserves profiles and adds style aesthetics, the morning question setting and keyed formality choices. Today offers the three-formality morning sheet, chips and tomorrow planning; onboarding and Settings edit the separate aesthetic preferences. Automated repository and component checks pass, and the rebuilt version 17 device database replay passed. Simulator verification remains open.
 
 - **Settings and provider attribution:** the root presents Appearance, Notifications,
   Profile, Help and About in order, followed by the centred kuyara name and version.

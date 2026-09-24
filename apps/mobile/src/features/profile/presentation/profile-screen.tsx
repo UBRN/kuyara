@@ -262,6 +262,7 @@ export function ProfileScreen({
             {isReady ? (
               <AppText
                 colorRole="textSecondary"
+                style={styles.closetHeadingCount}
                 tabularNumbers
                 testID="profile-closet-heading-count"
                 variant="body">
@@ -277,6 +278,7 @@ export function ProfileScreen({
             {isReady ? (
               <AppText
                 colorRole="textSecondary"
+                style={styles.closetHeadingCount}
                 tabularNumbers
                 testID="profile-closet-heading-count"
                 variant="body">
@@ -294,7 +296,9 @@ export function ProfileScreen({
         </AppText>
       ) : isFullyEmpty ? (
         <View style={styles.emptyState} testID="profile-closet-empty">
-          <AppText colorRole="textSecondary">{copy.wardrobeEmpty}</AppText>
+          <AppText colorRole="textSecondary" style={styles.emptyStateCopy}>
+            {copy.wardrobeEmpty}
+          </AppText>
           <Button
             label={copy.addPieceAction}
             onPress={() => onOpenWardrobe()}
@@ -346,9 +350,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     minHeight: layout.minimumTouchTarget,
+    minWidth: 0,
+    width: '100%',
   },
   closetHeadingTitle: {
     flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  closetHeadingCount: {
+    flexShrink: 1,
+    maxWidth: '100%',
+    minWidth: 0,
   },
   stackedClosetHeading: {
     alignItems: 'stretch',
@@ -358,6 +371,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: spacing.sm,
+    minWidth: 0,
+    width: '100%',
   },
   pressed: {
     opacity: interaction.pressedOpacity,
@@ -367,6 +382,14 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     gap: spacing.md,
+    maxWidth: '100%',
+    minWidth: 0,
+    width: '100%',
+  },
+  emptyStateCopy: {
+    flexShrink: 1,
+    maxWidth: '100%',
+    minWidth: 0,
   },
   railBleed: {
     marginHorizontal: -spacing.lg,

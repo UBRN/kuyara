@@ -180,13 +180,15 @@ test('gender and dress style are required and a null birth date completes honest
   await fireEvent.press(result.getByTestId('onboarding-dress-style-formal'));
   await fireEvent.press(result.getByTestId('onboarding-continue'));
   expect(result.getByTestId('onboarding-step-5')).toBeOnTheScreen();
+  expect(result.getByTestId('onboarding-style-option')).toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('onboarding-continue'));
   expect(result.getByText(messages.en.onboarding.birthDateNotSet)).toBeOnTheScreen();
   expect(result.getByTestId('onboarding-birth-date').props.accessibilityLabel).toBe(
     messages.en.onboarding.birthDateTitle,
   );
 
   await fireEvent.press(result.getByTestId('onboarding-continue'));
-  expect(result.getByTestId('onboarding-step-6')).toBeOnTheScreen();
+  expect(result.getByTestId('onboarding-step-7')).toBeOnTheScreen();
   expect(result.getByText(messages.en.onboarding.locationTitle)).toBeOnTheScreen();
   expect(result.getByTestId('onboarding-location-device')).toBeOnTheScreen();
   expect(result.getByTestId('onboarding-place-search')).toBeOnTheScreen();
@@ -196,6 +198,7 @@ test('gender and dress style are required and a null birth date completes honest
     displayName: null,
     gender: 'woman',
     dressStyle: 'formal',
+    styleAesthetics: [],
     birthDate: null,
   }));
 
@@ -262,6 +265,7 @@ test('existing profile values prefill the reopened onboarding steps', async () =
   await fireEvent.press(result.getByTestId('onboarding-continue'));
   expect(result.getByTestId('onboarding-dress-style-smart').props.accessibilityState.selected).toBe(true);
   await fireEvent.press(result.getByTestId('onboarding-continue'));
+  await fireEvent.press(result.getByTestId('onboarding-continue'));
   expect(result.queryByText(messages.en.onboarding.birthDateNotSet)).toBeNull();
   expect(result.getByTestId('onboarding-birth-date').props.accessibilityValue.text).toContain(
     '1994-03-14',
@@ -280,7 +284,7 @@ test('selecting a searched place uses the weather application without completing
 
   await fireEvent.press(result.getByTestId('onboarding-continue'));
   await fireEvent.press(result.getByTestId('onboarding-name-skip'));
-  for (let step = 0; step < 3; step += 1) {
+  for (let step = 0; step < 4; step += 1) {
     await fireEvent.press(result.getByTestId('onboarding-continue'));
   }
   await fireEvent.changeText(result.getByTestId('onboarding-place-search'), 'Ista');
@@ -292,7 +296,7 @@ test('selecting a searched place uses the weather application without completing
 
   expect(search.selectPlaceSearchResult).toHaveBeenCalledWith(place);
   expect(onComplete).not.toHaveBeenCalled();
-  expect(result.getByTestId('onboarding-step-6')).toBeOnTheScreen();
+  expect(result.getByTestId('onboarding-step-7')).toBeOnTheScreen();
   jest.useRealTimers();
 });
 
@@ -300,7 +304,7 @@ test('device selection starts the shared flow and permanent denial keeps Setting
   const active = await renderOnboarding('woman', null, 'smart');
   await fireEvent.press(active.result.getByTestId('onboarding-continue'));
   await fireEvent.press(active.result.getByTestId('onboarding-name-skip'));
-  for (let step = 0; step < 3; step += 1) {
+  for (let step = 0; step < 4; step += 1) {
     await fireEvent.press(active.result.getByTestId('onboarding-continue'));
   }
   await fireEvent.press(active.result.getByTestId('onboarding-location-device'));
@@ -321,7 +325,7 @@ test('device selection starts the shared flow and permanent denial keeps Setting
   const denied = await renderOnboarding('woman', null, 'smart', undefined, deniedWeather);
   await fireEvent.press(denied.result.getByTestId('onboarding-continue'));
   await fireEvent.press(denied.result.getByTestId('onboarding-name-skip'));
-  for (let step = 0; step < 3; step += 1) {
+  for (let step = 0; step < 4; step += 1) {
     await fireEvent.press(denied.result.getByTestId('onboarding-continue'));
   }
   expect(denied.result.getByText(messages.en.weather.placePermanentDeniedBody))
@@ -355,7 +359,7 @@ test('a chosen location turns the final quiet action into the start action', asy
   const { result, onComplete } = await renderOnboarding('woman', null, 'smart', undefined, weather);
   await fireEvent.press(result.getByTestId('onboarding-continue'));
   await fireEvent.press(result.getByTestId('onboarding-name-skip'));
-  for (let step = 0; step < 3; step += 1) {
+  for (let step = 0; step < 4; step += 1) {
     await fireEvent.press(result.getByTestId('onboarding-continue'));
   }
   expect(result.queryByText(messages.en.onboarding.locationSkipAction)).not.toBeOnTheScreen();
@@ -366,7 +370,7 @@ test('a chosen location turns the final quiet action into the start action', asy
 });
 
 test.each(['tr', 'en'] as const)(
-  'the step 5 picker takes the app language %s and stacks its title above the control at accessibility sizes',
+  'the step 6 picker takes the app language %s and stacks its title above the control at accessibility sizes',
   async (language) => {
     mockFontScale(3);
     const { result } = await renderOnboarding(
@@ -381,10 +385,10 @@ test.each(['tr', 'en'] as const)(
 
     await fireEvent.press(result.getByTestId('onboarding-continue'));
     await fireEvent.press(result.getByTestId('onboarding-name-skip'));
-    for (let step = 0; step < 2; step += 1) {
+    for (let step = 0; step < 3; step += 1) {
       await fireEvent.press(result.getByTestId('onboarding-continue'));
     }
-    expect(result.getByTestId('onboarding-step-5')).toBeOnTheScreen();
+    expect(result.getByTestId('onboarding-step-6')).toBeOnTheScreen();
 
     const picker = result.getByTestId('onboarding-birth-date');
     expect(picker.props.modifiers).toEqual([

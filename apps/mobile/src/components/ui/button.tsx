@@ -129,6 +129,7 @@ const styles = StyleSheet.create({
     minHeight: layout.minimumTouchTarget,
     maxWidth: '100%',
     flexShrink: 1,
+    minWidth: 0,
     justifyContent: 'center',
     borderRadius: radii.control,
     borderWidth: borderWidths.strong,
@@ -138,11 +139,13 @@ const styles = StyleSheet.create({
   content: {
     minHeight: 20,
     maxWidth: '100%',
+    minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
   label: {
     flexShrink: 1,
+    minWidth: 0,
     textAlign: 'center',
   },
   hiddenLabel: {

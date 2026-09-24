@@ -16,11 +16,14 @@ import {
   isStoredBirthDate,
   isValidBirthDate,
   normalizeDisplayName,
+  sortedStyleAesthetics,
+  styleAestheticsSchema,
   type AnalyticsConsent,
   type Gender,
   type DressStyle,
   type Profile,
   type OnboardingPreferences,
+  type StyleAesthetic,
 } from '@/features/profile/domain/profile';
 
 export interface ProfileRepository {
@@ -28,6 +31,8 @@ export interface ProfileRepository {
   completeOnboarding(preferences: OnboardingPreferences): Promise<Profile>;
   updateGender(preference: Gender): Promise<Profile>;
   updateDressStyle(dressStyle: DressStyle): Promise<Profile>;
+  updateStyleAesthetics(values: readonly StyleAesthetic[]): Promise<Profile>;
+  updateMorningSheetEnabled(enabled: boolean): Promise<Profile>;
   updateBirthDate(birthDate: string | null): Promise<Profile>;
   updateDisplayName(displayName: string | null): Promise<Profile>;
   updateLanguagePreference(preference: LanguagePreference): Promise<Profile>;
@@ -60,6 +65,11 @@ function isUtcIsoTimestamp(value: string): boolean {
   return Number.isFinite(parsed) && new Date(parsed).toISOString() === value;
 }
 
+function readStyleAesthetics(raw: string | undefined): readonly StyleAesthetic[] {
+  try { return sortedStyleAesthetics(JSON.parse(raw ?? '[]')); }
+  catch { return []; }
+}
+
 function mapRecord(record: LocalProfileRecord): Profile {
   const hasValidGender =
     record.gender === null || genderSchema.safeParse(record.gender).success;
@@ -73,6 +83,9 @@ function mapRecord(record: LocalProfileRecord): Profile {
     record.weatherAlertOfferShown === 0 || record.weatherAlertOfferShown === 1;
   const hasValidMorningBriefingOptIn =
     record.morningBriefingOptIn === 0 || record.morningBriefingOptIn === 1;
+  const hasValidMorningSheetEnabled =
+    record.morningSheetEnabled === undefined ||
+    record.morningSheetEnabled === 0 || record.morningSheetEnabled === 1;
   const hasValidAnalyticsConsent =
     analyticsConsentSchema.safeParse(record.analyticsConsent).success;
   const hasValidDisplayName = (() => {
@@ -94,6 +107,7 @@ function mapRecord(record: LocalProfileRecord): Profile {
     !hasValidNotificationsOptIn ||
     !hasValidOfferShown ||
     !hasValidMorningBriefingOptIn ||
+    !hasValidMorningSheetEnabled ||
     !hasValidAnalyticsConsent ||
     !hasValidDisplayName ||
     !Number.isInteger(record.namePromptVersion) ||
@@ -110,6 +124,8 @@ function mapRecord(record: LocalProfileRecord): Profile {
     id: record.id,
     gender: record.gender === null ? null : genderSchema.parse(record.gender),
     dressStyle: record.dressStyle === null ? null : dressStyleSchema.parse(record.dressStyle),
+    styleAesthetics: readStyleAesthetics(record.styleAesthetics),
+    morningSheetEnabled: record.morningSheetEnabled !== 0,
     birthDate: record.birthDate,
     displayName: record.displayName,
     namePromptVersion: record.namePromptVersion,
@@ -144,10 +160,12 @@ export class LocalProfileRepository implements ProfileRepository {
       if (
         !genderSchema.safeParse(preferences.gender).success ||
         !dressStyleSchema.safeParse(preferences.dressStyle).success ||
+        !styleAestheticsSchema.safeParse(preferences.styleAesthetics ?? []).success ||
         !isValidBirthDate(preferences.birthDate, this.now())
       ) throw new ProfileMappingError();
       return this.dataSource.completeOnboarding({
         ...preferences,
+        styleAesthetics: sortedStyleAesthetics(preferences.styleAesthetics ?? []),
         displayName: validatedDisplayName(preferences.displayName ?? null),
       });
     });
@@ -165,6 +183,17 @@ export class LocalProfileRepository implements ProfileRepository {
       if (!dressStyleSchema.safeParse(dressStyle).success) throw new ProfileMappingError();
       return this.dataSource.updateDressStyle(dressStyle);
     });
+  }
+
+  updateStyleAesthetics(values: readonly StyleAesthetic[]): Promise<Profile> {
+    return this.execute(() => {
+      if (!styleAestheticsSchema.safeParse(values).success) throw new ProfileMappingError();
+      return this.dataSource.updateStyleAesthetics(sortedStyleAesthetics(values));
+    });
+  }
+
+  updateMorningSheetEnabled(enabled: boolean): Promise<Profile> {
+    return this.execute(() => this.dataSource.updateMorningSheetEnabled(enabled));
   }
 
   updateBirthDate(birthDate: string | null): Promise<Profile> {

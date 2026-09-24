@@ -222,6 +222,25 @@ function stateWithGenerationMode(
 }
 
 describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
+  test('daily chips expose selected radio state, regenerate intent, and tomorrow action', async () => {
+    const onFormalityChange = jest.fn();
+    const onPlanTomorrow = jest.fn();
+    const result = await render(providers(
+      <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
+        onRefresh={jest.fn()} onRegenerate={jest.fn()} state={aiAssistedTodayScreenState}
+        selectedFormality="smart" onFormalityChange={onFormalityChange}
+        tomorrowLabel={messages[language].today.dailyStyle.planTomorrow('Thursday 24 September')}
+        onPlanTomorrow={onPlanTomorrow} />,
+      lightTheme, language,
+    ));
+    expect(result.getByTestId('today-formality-smart').props.accessibilityState.selected).toBe(true);
+    expect(StyleSheet.flatten(result.getByTestId('today-formality-smart').props.style))
+      .toMatchObject({ minHeight: 44, minWidth: 88, backgroundColor: 'transparent' });
+    await fireEvent.press(result.getByTestId('today-formality-casual'));
+    expect(onFormalityChange).toHaveBeenCalledWith('casual');
+    await fireEvent.press(result.getByTestId('today-plan-tomorrow'));
+    expect(onPlanTomorrow).toHaveBeenCalledTimes(1);
+  });
   test.each([lightTheme, darkTheme])('renders the title, stage, quiet provenance and two equal alternates', async (theme) => {
     const presentation = loadedPresentation(language);
     const primary = presentation.suggestions[0];
