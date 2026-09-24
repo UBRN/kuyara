@@ -10,9 +10,9 @@ import {
   type GarmentBoardPiece,
 } from '@/components/ui';
 import type { RecommendationPhase } from '@/features/recommendation/application/recommendation-application-controller';
-import { resolveConditionStyle } from '@/features/today/domain/condition-style';
 import { SKELETON_PIECES } from '@/features/today/presentation/garment-board-skeleton';
-import { RunwayParticles, runwayParticleKind } from '@/features/today/presentation/runway-particles';
+import { runwayParticleColor, runwayParticleKind } from '@/features/today/presentation/runway-palette';
+import { RunwayParticles } from '@/features/today/presentation/runway-particles';
 import type { runwayWeather } from '@/features/today/presentation/today-presentation';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { blend } from '@/theme/color-blend';
@@ -37,10 +37,7 @@ const PHASE_PROGRESS: Readonly<Record<RecommendationPhase | 'starting', number>>
   'preparing-outfits': 0.9,
 };
 
-// Particle and track colours are derived from the day's atmosphere, never new hues: the
-// clear and veiled skies lean toward the page ground, falling weather toward its own ink.
-const GROUND_TONE = 0.62;
-const INK_TONE = 0.42;
+// The track is derived from the day's atmosphere, never a new hue.
 const TRACK_TONE = { light: 0.16, dark: 0.22 } as const;
 
 export type RunwayOutfit = Readonly<{ id: string; pieces: readonly GarmentBoardPiece[] }>;
@@ -64,6 +61,9 @@ export function FirstGenerationRunway({ active, completed, language, phase, weat
   const theme = useKuyaraTheme();
   const copy = getMessages(language).today;
   const [visible, setVisible] = useState(active);
+  // Completion runs in two steps: every remaining piece lands and the bar fills, then "All
+  // set" shows and holds, so the words never arrive over an unfinished board.
+  const [finishing, setFinishing] = useState(false);
   const [success, setSuccess] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [placed, setPlaced] = useState(0);
@@ -76,6 +76,7 @@ export function FirstGenerationRunway({ active, completed, language, phase, weat
       hadActive.current = true;
       const timer = setTimeout(() => {
         setVisible(true);
+        setFinishing(false);
         setSuccess(false);
       }, 0);
       return () => clearTimeout(timer);
@@ -86,10 +87,14 @@ export function FirstGenerationRunway({ active, completed, language, phase, weat
       const timer = setTimeout(() => setVisible(false), 0);
       return () => clearTimeout(timer);
     }
-    const start = setTimeout(() => setSuccess(true), 0);
-    const timer = setTimeout(() => setVisible(false), SUCCESS_MS);
-    return () => { clearTimeout(start); clearTimeout(timer); };
-  }, [active, completed]);
+    // The last pieces land together on the spatial spring, which also outlasts the bar's
+    // fill on `motion.deliberate`; "All set" follows once both have settled.
+    const landing = theme.springs.spatial.duration;
+    const finish = setTimeout(() => setFinishing(true), 0);
+    const start = setTimeout(() => setSuccess(true), landing);
+    const timer = setTimeout(() => setVisible(false), landing + SUCCESS_MS);
+    return () => { clearTimeout(finish); clearTimeout(start); clearTimeout(timer); };
+  }, [active, completed, theme.springs.spatial.duration]);
 
   useEffect(() => {
     if (!active) return undefined;
@@ -103,16 +108,11 @@ export function FirstGenerationRunway({ active, completed, language, phase, weat
 
   const pieces = outfit?.pieces ?? SKELETON_PIECES;
   // Without an outfit the marks stand alone; with one, completion lands every piece at once.
-  const placedCount = !outfit ? 0 : success ? pieces.length : Math.min(placed, pieces.length);
+  const placedCount = !outfit ? 0 : finishing ? pieces.length : Math.min(placed, pieces.length);
   const plane = theme.atmosphere[weather?.atmosphere ?? 'neutral'];
   const particleKind = weather ? runwayParticleKind(weather.condition) : null;
-  const falling = particleKind === 'rain' || particleKind === 'snow';
-  const ink = theme.condition[resolveConditionStyle(weather?.condition ?? '', weather?.daypart ?? null).ink];
-  const particleColor = falling
-    ? blend(plane, ink, INK_TONE)
-    : blend(plane, theme.colors.background, GROUND_TONE);
   const trackColor = blend(plane, theme.colors.textPrimary, TRACK_TONE[theme.colorScheme]);
-  const progress = success ? 1 : PHASE_PROGRESS[phase ?? 'starting'];
+  const progress = finishing ? 1 : PHASE_PROGRESS[phase ?? 'starting'];
   const progressText = placedCount >= pieces.length
     ? copy.loading.progressComplete
     : copy.loading.progress[Math.min(placedCount, copy.loading.progress.length - 1)];
@@ -137,7 +137,7 @@ export function FirstGenerationRunway({ active, completed, language, phase, weat
           testID="first-generation-stage">
           {particleKind ? (
             <RunwayParticles
-              color={particleColor}
+              color={runwayParticleColor(theme, plane, weather?.condition ?? '')}
               height={band.height}
               kind={particleKind}
               style={styles.particles}

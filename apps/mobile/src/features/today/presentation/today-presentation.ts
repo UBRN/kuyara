@@ -284,8 +284,8 @@ function dayInsightSentence(
 }
 
 /**
- * What the first-generation runway needs from the weather: the day's atmosphere, the same
- * condition and daypart the title symbol reads, and the day insight its line rotates through.
+ * What the first-generation runway needs from the weather: the day's atmosphere, the
+ * condition its particles follow, and the day insight its line rotates through.
  */
 export function runwayWeather(
   weather: WeatherSnapshot,
@@ -293,7 +293,7 @@ export function runwayWeather(
   language: SupportedLanguage,
   hour12: boolean,
   now: number,
-): Readonly<{ atmosphere: AtmosphereState; condition: string; daypart: Daypart | null; insight: string | null }> {
+): Readonly<{ atmosphere: AtmosphereState; condition: string; insight: string | null }> {
   const at = new Date(now).toISOString();
   const daypart = resolveDaypart(at, weather.timeZone, coordinates);
   const condition = weather.current.condition;
@@ -301,7 +301,6 @@ export function runwayWeather(
   return {
     atmosphere: resolveAtmosphereState(condition, daypart),
     condition,
-    daypart,
     insight: insight === null ? null : dayInsightSentence(
       insight,
       getMessages(language).today.dayInsight,
