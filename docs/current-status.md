@@ -6,9 +6,9 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
 
 ## Current State
 
-- **Mobile:** Expo SDK 57, React Native, Expo Router and Expo SQLite (schema version 16)
-  provide a five-step onboarding flow (welcome, gender, dress style, birth
-  date, optional location); three primary tabs, Today, Weather and Profile, drawn by Expo
+- **Mobile:** Expo SDK 57, React Native, Expo Router and Expo SQLite (schema version 18)
+  provide a seven-step onboarding flow (welcome, optional name, gender, dress style,
+  style preferences, birth date, optional location); three primary tabs, Today, Weather and Profile, drawn by Expo
   Router Native Tabs, with the Closet and Settings as Profile stack destinations; private
   Closet photos; Turkish and English; System/Light/Dark appearance; and semantic haptics
   at the six sites the design language names. The minimum supported iOS is 26.0.
@@ -191,7 +191,7 @@ The approved phase order, active work and remaining open items are in [the roadm
 ## Recently Completed
 
 - **First-generation wait:** Today now presents the garment-board loading overlay only while a dressing day lacks a valid recommendation and generation is running. After ten seconds a native alert offers an early deterministic outfit; the AI request continues and can replace it. The overlay holds a green completion state for 0.8 seconds. The app no longer reads the OS Reduce Motion setting.
-- **Daily style choices:** schema 18 preserves profiles and adds style aesthetics, the morning question setting and keyed formality choices. Today offers the three-formality morning sheet, chips and tomorrow planning; onboarding and Settings edit the separate aesthetic preferences. Automated repository and component checks pass, and the rebuilt version 17 device database replay passed. Simulator verification remains open.
+- **Daily style choices:** schema 18 preserves profiles and adds style aesthetics, the morning question setting and keyed formality choices. Today offers the three-formality morning sheet, chips and tomorrow planning; onboarding and Settings edit the separate aesthetic preferences. Automated repository and component checks pass, the rebuilt version 17 device database replay passed, and the Simulator pass covered onboarding, chips, plan tomorrow, More and Settings; the morning sheet appeared at the first daytime open in the Simulator; its alert and the loading overlay's skip alert are covered by component tests.
 
 - **Settings and provider attribution:** the root presents Appearance, Notifications,
   Profile, Help and About in order, followed by the centred kuyara name and version.
