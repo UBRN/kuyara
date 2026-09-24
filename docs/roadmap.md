@@ -6,20 +6,28 @@ The [product decisions](product-decisions.md) and [ADRs](adr/) define the approv
 
 | Phase | Scope | Status |
 | --- | --- | --- |
-| 1. Today | Header, AI badge, two insights, alternatives, outfit action and attribution placement | Implemented and Simulator verified |
+| 1. Today | Header, AI badge, two insights, alternatives, outfit action and attribution placement | Goal A landed on main; implemented and Simulator verified |
 | 2. Settings and store rows | Root order, Service providers, sharing, rating and brand emphasis | Implemented and Simulator verified |
 | 3. Name and profile cleanup | Optional name, one-time prompt, location removal and the phase's migration | Implemented and Simulator verified |
-| 4. Daily style and loading | Aesthetics, morning sheet, day-type pill, loading and plan tomorrow | Implemented and Simulator verified; the continue-without-choosing alert and the skip-the-wait alert are covered by component tests |
+| 4. Daily style and loading | Aesthetics, morning sheet, day-type pill, loading and plan tomorrow | Goals A and B landed on main; implemented and Simulator verified; both alerts are covered by component tests |
 | 5. Colour and history | Quick-add colour, outfit history, mirror photo and the phase's migration | Planned |
 | 6. Silhouettes and suggested colour | Approved silhouette redraw and closed catalog colorways | Planned |
 | 7. Manual mix-and-match | Catalog-piece swaps on outfit detail | Planned |
 | 8. Onboarding walkthrough | Walkthrough for new and existing users with one-time gate | Planned |
 | 9. Optional accounts | Supabase Auth, sync and account deletion | Planned |
 
+## Goals and build 15 scope
+
+| Goal | Scope | Status |
+| --- | --- | --- |
+| A | Today layout, AI badges, the first morning-sheet step and the approved visual refinements | Landed on main |
+| B | First-generation loading runway | Landed on main |
+| C | “Ask the stylist again” and the approved outfit timing model (N14-N24) | Planned |
+| Build 15 (N1) | Goals A and B, Phase 5 data and screens, Goal C, and every approved wave 2 mockup including the low-vision Settings section | Approved scope; release gates remain required |
+
 Open items:
 
-- Build 14 App Review outcome.
-- App Privacy answer set before submission.
+- Privacy check before build 15.
 - iOS 27 SDK build requirement before April 2027.
 - Android verification when the owner gives the go-ahead.
 - Apple Intelligence measurement on eligible hardware.
@@ -50,7 +58,7 @@ Every decision below, including AR1 through AR16, was approved on 2026-09-23. Ea
 | B5 | Temperature unit follows device locale; AR14 keeps storage in Celsius | [product](product-decisions.md), [architecture](architecture.md) |
 | C1 | Optional local display name uses a versioned prompt gate; AR5 and AR12 keep it device-only | [ADR 0036](adr/0036-display-name-and-one-time-prompt-gate.md), [architecture](architecture.md), [taxonomy](analytics-taxonomy.md) |
 | C2 | Profile removes its location row | [product](product-decisions.md), [ADR 0028](adr/0028-the-profile-tab-and-the-list-row-anatomy.md) |
-| C3 | The name migration receives independent review; AR4 assigns its number in ship order | [ADR 0036](adr/0036-display-name-and-one-time-prompt-gate.md), [architecture](architecture.md) |
+| C3 | The name and prompt-gate fields are in migration 17; the migration receives independent review | [ADR 0036](adr/0036-display-name-and-one-time-prompt-gate.md), [architecture](architecture.md) |
 | D1 | Persistent aesthetics and daily formality reorder valid outfits; AR2, AR3 and AR16 define storage and measurement | [ADR 0031](adr/0031-dress-style-is-the-formality-signal.md), [ADR 0037](adr/0037-daily-formality-and-style-aesthetics.md), [architecture](architecture.md) |
 | D2 | One dismissible morning sheet and the title pill set the day's answer; AR1, AR2 and AR15 define key and allowance | [product](product-decisions.md), [ADR 0037](adr/0037-daily-formality-and-style-aesthetics.md) |
 | D3 | Continuing without a choice uses the red quality-warning action | [ADR 0010](adr/0010-status-colours-destructive-variant-and-defined-borders.md), [ADR 0037](adr/0037-daily-formality-and-style-aesthetics.md) |

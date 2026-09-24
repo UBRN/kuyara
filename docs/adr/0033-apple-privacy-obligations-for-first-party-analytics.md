@@ -12,6 +12,9 @@ exception and section 7 inventories them. This ADR defines Apple's privacy requi
 [ADR 0023](0023-behavioural-product-analytics-with-posthog.md) and the resulting consent,
 revocation, deletion, and disclosure rules.
 
+PostHog Error Tracking is implemented behind the same consent boundary; its exception
+fields and per-session limits are recorded in [ADR 0035](0035-posthog-error-tracking.md).
+
 Every Apple, PostHog and Cloudflare statement below was read from the URL cited next to
 it, on the date recorded there. Apple's pages carry no visible revision date, so a second
 reading before App Store submission is part of the follow-up in section 6, not optional.
@@ -53,14 +56,14 @@ definition. The developer must disclose the practices of "third-party partners",
 the page defines to include "analytics tools", so PostHog's behaviour is kuyara's to
 declare.
 
-Against Apple's category list on that page, kuyara's planned collection maps as follows:
+Against Apple's category list on that page, kuyara's current collection maps as follows:
 
 | Apple category | Applies | Why |
 |---|---|---|
-| Usage Data: Product Interaction | Yes, from milestone 10 | Apple's example is "app launches, taps, clicks, scrolling information ... or other information about how the user interacts with the app". Screen, navigation, recommendation and Closet events are exactly this. |
-| Usage Data: Other Usage Data | Yes, from milestone 10 | Coarse product properties that are not interactions, such as generation mode or fallback state. PostHog's own iOS manifest declares this category alongside Product Interaction. |
+| Usage Data: Product Interaction | Yes, from the consented PostHog analytics adapter | Apple's example is "app launches, taps, clicks, scrolling information ... or other information about how the user interacts with the app". Screen, navigation, recommendation and Closet events are exactly this. |
+| Usage Data: Other Usage Data | Yes, from the consented PostHog analytics adapter | Coarse product properties that are not interactions, such as generation mode or fallback state. PostHog's own iOS manifest declares this category alongside Product Interaction. |
 | Diagnostics: Performance Data, Other Diagnostic Data | Yes, from the EAS Observe integration | Launch, navigation and readiness timing, two coarse product-performance events, handled-error reports and a launch-window network rollup. Section 7 records what is sent. |
-| Diagnostics: Crash Data | Yes, from the EAS Observe integration | MetricKit crash diagnostics and unhandled JavaScript errors, with message and stack trace, are stored as log rows by `expo-app-metrics` (`ios/MetricKitSubscriber.swift`, `ios/CrashReporting/CrashReport.swift`, `ios/LogEvents/ErrorReport.swift`) and dispatched by `expo-observe` (`ios/Observability.swift`, `dispatchLogs`) when consent is granted. PostHog Error Tracking in milestone 12 would add a second crash source and must not be enabled before the questionnaire is rechecked. |
+| Diagnostics: Crash Data | Yes, from EAS Observe and PostHog Error Tracking | EAS Observe dispatches its consent-gated diagnostic logs. PostHog Error Tracking captures uncaught JavaScript exceptions and unhandled rejections after consent, with its own exception-field allowlist and per-session cap ([ADR 0035](0035-posthog-error-tracking.md)). |
 | Identifiers: Device ID or User ID | Yes, from milestone 10 | Two independent random per-install identifiers, PostHog's and Observe's `expo.eas_client.id`, each an "other device-level ID". They are never joined to each other or to `localProfileId`, and both are declared linked to the user because profile-derived properties ride on the analytics one; see section 5 and section 7. |
 | Location: Coarse Location | No | PostHog derives `$geoip_city_name` and related properties from the request IP on its servers. Apple's Coarse Location definition covers any location "with lower resolution than a latitude and longitude with three or more decimal places". IP discard and the separately disabled GeoIP transformation keep this category out; see section 5. |
 | Precise Location | No | Coordinates never enter an analytics payload under ADR 0023. Section 7 records why the app-wide answer is also no. |
@@ -384,8 +387,9 @@ Milestone 10, PostHog product analytics integration, has these acceptance condit
    Usage Data with linked `true`,
    tracking `false`, purpose Analytics, and `NSPrivacyTracking` absent or `false`; the
    Xcode privacy report from an archive is read once to confirm the aggregation.
-8. Error Tracking is not enabled in milestone 10; when milestone 12 adds it, the
-   Diagnostics categories and the manifest are extended in the same change.
+8. PostHog Error Tracking is enabled behind the analytics consent boundary. Its
+   Diagnostics disclosure follows the implemented exception-field allowlist and
+   per-session cap ([ADR 0035](0035-posthog-error-tracking.md)).
 
 Milestone 11, App Store privacy disclosure and privacy policy, has these conditions:
 
@@ -488,7 +492,7 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
   | Diagnostics: Performance Data | Yes, from the Observe integration | "Such as launch time, hang rate, or energy use" | Cold and warm launch, time to first render, time to interactive and navigation timing are exactly this. |
   | Diagnostics: Other Diagnostic Data | Yes, from the Observe integration | "Any other data collected for the purposes of measuring technical diagnostics related to the app" | The two user-defined events, the handled-error reports and the network rollup. |
   | Identifiers: Device ID | Yes, from the Observe integration | "Such as the device's advertising identifier, or other device-level ID" | `expo.eas_client.id` is a persistent per-installation UUID on every payload. |
-  | Diagnostics: Crash Data | Yes, from the Observe integration | "Such as crash logs" | MetricKit crash diagnostics and unhandled JavaScript errors, with message and stack trace, are stored as log rows by `expo-app-metrics` (`ios/MetricKitSubscriber.swift`, `ios/CrashReporting/CrashReport.swift`, `ios/LogEvents/ErrorReport.swift`) and dispatched by `expo-observe` (`ios/Observability.swift`, `dispatchLogs`) when consent is granted. PostHog Error Tracking in milestone 12 would add a second crash source and must not be enabled before the questionnaire is rechecked. |
+  | Diagnostics: Crash Data | Yes, from Observe and PostHog Error Tracking | "Such as crash logs" | EAS Observe sends its consent-gated diagnostic logs. PostHog Error Tracking also captures consented uncaught JavaScript exceptions and unhandled rejections with the limits in ADR 0035. |
 
   The same four rows are in `apps/mobile/app.json` under `ios.privacyManifests`, copied from
   Apple's own identifier list: `NSPrivacyCollectedDataTypePerformanceData`,
@@ -623,7 +627,7 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
 
 - Implementation beyond the milestone acceptance conditions in section 6.
 - Any broader legal conclusion under GDPR, KVKK, or other statute.
-- Error Tracking, session replay, and Grafana, which keep their ADR 0023 status.
+- Session replay and Grafana, which remain unimplemented and keep their ADR 0023 status.
 - Account deletion design, which belongs with accounts.
 
 ## Sources
