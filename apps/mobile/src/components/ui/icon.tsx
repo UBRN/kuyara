@@ -1,4 +1,5 @@
 import { SymbolView, type AndroidSymbol, type SymbolViewProps } from 'expo-symbols';
+import { Platform } from 'react-native';
 
 // `sf-symbols-typescript` is a transitive dependency, so it is not resolvable from this
 // package under pnpm's strict layout. Derive the SF Symbol name union from the prop type
@@ -32,6 +33,8 @@ export const iconNames = Object.freeze({
   refresh: { ios: 'arrow.clockwise', android: 'refresh', web: 'refresh' },
   location: { ios: 'mappin.and.ellipse', android: 'location_on', web: 'location_on' },
   sparkle: { ios: 'sparkles', android: 'auto_awesome', web: 'auto_awesome' },
+  chevronDown: { ios: 'chevron.down', android: 'expand_more', web: 'expand_more' },
+  close: { ios: 'xmark', android: 'close', web: 'close' },
   appleIntelligence: { ios: 'apple.intelligence', android: 'auto_awesome', web: 'auto_awesome' },
   share: { ios: 'square.and.arrow.up', android: 'share', web: 'share' },
   star: { ios: 'star.fill', android: 'star', web: 'star' },
@@ -88,24 +91,36 @@ export const iconNames = Object.freeze({
 
 export type IconName = keyof typeof iconNames;
 
+/**
+ * How a symbol is coloured. `tint` is the default one-ink rendering. `multicolor` is the
+ * symbol's own original colours, and `palette` gives each layer one of the listed inks.
+ * Both colourful renderings are iOS only: a tint would repaint them, so iOS draws them
+ * without one, and Android, which has neither, keeps the single `color`.
+ */
+export type IconRendering = 'tint' | 'multicolor' | Readonly<{ palette: readonly string[] }>;
+
 type IconProps = Readonly<{
   name: IconName;
   size: number;
   color: string;
   accessibilityLabel?: string;
+  rendering?: IconRendering;
 }>;
 
-export function Icon({ accessibilityLabel, color, name, size }: IconProps) {
+export function Icon({ accessibilityLabel, color, name, rendering = 'tint', size }: IconProps) {
+  const colourful = rendering !== 'tint' && Platform.OS === 'ios';
   return (
     <SymbolView
       accessibilityElementsHidden={!accessibilityLabel}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole={accessibilityLabel ? 'image' : undefined}
       accessible={Boolean(accessibilityLabel)}
+      colors={colourful && typeof rendering === 'object' ? [...rendering.palette] : undefined}
       importantForAccessibility={accessibilityLabel ? 'auto' : 'no-hide-descendants'}
       name={iconNames[name]}
       size={size}
-      tintColor={color}
+      tintColor={colourful ? undefined : color}
+      type={colourful ? (rendering === 'multicolor' ? 'multicolor' : 'palette') : undefined}
     />
   );
 }

@@ -45,27 +45,42 @@ export type TodayDayInsightKey =
   | 'windy'
   | 'veryWindy';
 
+type DayTypeMessages = Readonly<Record<'casual' | 'smart' | 'formal', string>>;
+
 export type TodayMessages = Readonly<{
   title: string;
+  /**
+   * Today's title as one whole template per language. `{temperature}` and `{condition}` are
+   * values and `{symbol}` is where the animated condition symbol stands; the line may wrap
+   * only after the separator, so the three values stay together.
+   */
+  titleTemplate: string;
   dailyStyle: Readonly<{
     question: string;
     questionTomorrow: string;
     casual: string;
     smart: string;
     formal: string;
-    more: string;
-    lastingStylePreferences: string;
-    chooseStyle: string;
+    /** The pill's spoken label, one whole sentence per day type. */
+    pillAccessibilityLabel: DayTypeMessages;
+    /** The line under the dimmed outfit while a day-type change regenerates it. */
+    updating: DayTypeMessages;
+    /** The one caption on the day onboarding finishes, over the preselected answer. */
+    firstDayNote: string;
+    chooseDayType: string;
     continueWithoutChoosing: string;
     dismissWarning: string;
     planTomorrow: (date: string) => string;
+    planTomorrowLabel: string;
     close: string;
     saveError: string;
   }>;
   greetingNamed: (name: string) => string;
-  // ADR 0034 section 4: the two AI modes have badges, the words final, no Apple glyph. The
-  // on-device badge carries the Apple Intelligence word mark inside a referential phrase;
-  // the spoken label makes kuyara the subject the badge alone cannot show.
+  /** The greeting on the first dressing day, the day the profile was set up. */
+  greetingFirstNamed: (name: string) => string;
+  // ADR 0034 section 4: the two AI modes have badges, the words final, each beside its own
+  // symbol. The on-device badge carries the Apple Intelligence word mark inside a referential
+  // phrase; the spoken label makes kuyara the subject the badge alone cannot show.
   generationModeOnDeviceAi: string;
   generationModeAiAssisted: string;
   generationModeOnDeviceAiAccessibilityLabel: string;
@@ -730,9 +745,9 @@ const en = {
     serviceProvidersHeading: 'Service providers',
     artificialIntelligenceHeading: 'Artificial intelligence',
     weatherDataHeading: 'Weather data',
-    weatherNoSnapshot: 'No valid weather snapshot is saved yet. Provider attribution will appear after the first successful weather update.',
-    weatherFooter: 'Attribution stays available here for the last valid weather snapshot.',
-    aiStatusIntro: 'This active check uses the bounded online probe.',
+    weatherNoSnapshot: 'Sources appear here after the first weather update.',
+    weatherFooter: 'These are the sources of the latest weather update.',
+    aiStatusIntro: 'Sends one short online test.',
     aiStatusProvenanceFooter: 'Apple Intelligence is checked on this device. When it cannot choose, kuyara tries an online service before standard suggestions. Apple Intelligence is a trademark of Apple Inc.',
     aiStatusOnDeviceRunning: 'Apple Intelligence is compatible and running.',
     aiStatusOnDeviceOff: 'Apple Intelligence is turned off.',
@@ -1046,20 +1061,32 @@ const en = {
   },
   today: {
     title: 'Today',
+    titleTemplate: 'Today · {temperature} {symbol} {condition}',
     dailyStyle: {
-      question: 'How do you want to dress today?',
-      questionTomorrow: 'How do you want to dress tomorrow?',
-      casual: 'Relaxed', smart: 'Sharp', formal: 'Formal',
-      more: 'More',
-      lastingStylePreferences: 'These are your lasting style preferences.',
-      chooseStyle: 'Choose a style',
+      question: 'What kind of day is it?',
+      questionTomorrow: 'What kind of day is tomorrow?',
+      casual: 'Casual', smart: 'Smart', formal: 'Formal',
+      pillAccessibilityLabel: {
+        casual: 'Day type, Casual. Opens the day type choices.',
+        smart: 'Day type, Smart. Opens the day type choices.',
+        formal: 'Day type, Formal. Opens the day type choices.',
+      },
+      updating: {
+        casual: 'Updating for a Casual day…',
+        smart: 'Updating for a Smart day…',
+        formal: 'Updating for a Formal day…',
+      },
+      firstDayNote: 'Your answer from setup is already selected. Tap it to confirm.',
+      chooseDayType: 'Choose a day type',
       continueWithoutChoosing: 'Continue without choosing',
       dismissWarning: 'Choose how you want to dress today, or continue with a surprise style.',
       planTomorrow: (date) => `Plan tomorrow, ${date}`,
+      planTomorrowLabel: 'Plan tomorrow',
       close: 'Close',
       saveError: 'Your choice could not be saved. Try again.',
     },
     greetingNamed: (name) => `Welcome back, ${name}`,
+    greetingFirstNamed: (name) => `Welcome, ${name}`,
     generationModeOnDeviceAi: 'Chosen with Apple Intelligence',
     generationModeAiAssisted: 'Chosen with AI',
     generationModeOnDeviceAiAccessibilityLabel:
@@ -1331,8 +1358,8 @@ const tr = {
     nameShortError: 'En az 2 karakter yaz veya Şimdi değil seçeneğini kullan.',
     nameLongError: 'En fazla 30 karakter kullan.',
     nameNotNow: 'Şimdi değil',
-    welcomeTitle: 'kuyara’ya hoş geldiniz',
-    welcomeBody: 'Hava durumunu dikkate alarak günlük giyim kararlarını sakinleştiren bir yol.',
+    welcomeTitle: 'kuyara’ya hoş geldin',
+    welcomeBody: 'Hava durumuna göre her gün ne giyeceğine sakince karar vermenin yolu.',
     promiseHeading: 'Seni neler bekliyor',
     weatherPromise: 'kuyara, her gün ne giyeceğine karar vermeni kolaylaştırmak için hava durumunu kullanır.',
     outfitsPromise: 'Farklı planlar için üç eksiksiz kombin önerisi görürsün.',
@@ -1340,8 +1367,8 @@ const tr = {
     genderTitle: 'Cinsiyetin',
     genderBody: 'kuyara bunu kombin önerilerinin geldiği kataloğu seçmek için kullanır. Daha sonra Ayarlar’dan değiştirebilirsin.',
     dressStyleTitle: 'Genelde nasıl giyinirsin?',
-    dressStyleBody: 'Çoğu gün giydiğin görünümü seç. Öneriler önce o yöne eğilir, hiçbir şeyi dışlamaz. Daha sonra Ayarlar’dan değiştirebilirsin.',
-    dressStyleRequiredError: 'Devam etmek için giyim tarzını seç.',
+    dressStyleBody: 'Çoğu gün giydiğin görünümü seç. Öneriler önce bu stile göre sıralanır, hiçbir kombin dışarıda kalmaz. Daha sonra Ayarlar’dan değiştirebilirsin.',
+    dressStyleRequiredError: 'Devam etmek için giyim stilini seç.',
     stylePreferencesTitle: 'Hangi stiller sana yakın?',
     stylePreferencesBody: 'İsteğe bağlı. En fazla üç stil seç. Bu seçimler kombinleri elemeden öneri sırasını etkiler.',
     birthDateTitle: 'Doğum tarihin',
@@ -1370,8 +1397,8 @@ const tr = {
     genderTitle: 'Cinsiyet',
     genderWoman: 'Kadın',
     genderMan: 'Erkek',
-    dressStyleTitle: 'Giyim tarzı',
-    dressStyleCasual: 'Günlük',
+    dressStyleTitle: 'Giyim stili',
+    dressStyleCasual: 'Rahat',
     dressStyleSmart: 'Şık',
     dressStyleFormal: 'Resmî',
     birthDateTitle: 'Doğum tarihi',
@@ -1395,16 +1422,16 @@ const tr = {
     versionLine: (version: string, build?: string | null) => build ? `Sürüm ${version} (${build})` : `Sürüm ${version}`,
     developmentBuild: 'Geliştirme derlemesi',
     supportRow: 'Destek',
-    shareRow: 'kuyara paylaş',
+    shareRow: 'kuyara’yı paylaş',
     shareText: 'Günlük kombinimi seçerken kuyara bana yardımcı oluyor. Sen de göz at.',
-    rateRow: 'kuyara değerlendir',
+    rateRow: 'kuyara’yı değerlendir',
     licenceRow: 'Lisans',
     serviceProvidersHeading: 'Servis sağlayıcıları',
     artificialIntelligenceHeading: 'Yapay zekâ',
     weatherDataHeading: 'Hava durumu verisi',
-    weatherNoSnapshot: 'Henüz geçerli hava durumu verisi kaydedilmedi. İlk başarılı güncellemeden sonra sağlayıcı atfı burada görünecek.',
-    weatherFooter: 'Kayıtlı son geçerli hava durumu verisinin atfına buradan ulaşabilirsin.',
-    aiStatusIntro: 'Bu etkin kontrol sınırlı çevrimiçi sorguyu kullanır.',
+    weatherNoSnapshot: 'Kaynaklar ilk hava güncellemesinden sonra burada görünür.',
+    weatherFooter: 'Bunlar son hava güncellemesinin kaynakları.',
+    aiStatusIntro: 'Kısa bir çevrimiçi deneme yapar.',
     aiStatusProvenanceFooter: 'Apple Intelligence bu cihazda kontrol edilir. Seçim yapamadığında kuyara standart önerilerden önce çevrimiçi servisi dener. Apple Intelligence, Apple Inc.’in ticari markasıdır.',
     aiStatusOnDeviceRunning: 'Apple Intelligence uyumlu ve çalışıyor.',
     aiStatusOnDeviceOff: 'Apple Intelligence kapalı.',
@@ -1418,7 +1445,7 @@ const tr = {
     aiStatusLastUnknown: 'Son önerinin kaynağı bilinmiyor.',
     aiStatusCheckAction: 'AI durumunu kontrol et',
     aiStatusChecking: 'AI durumu kontrol ediliyor…',
-    aiStatusResultOk: (time: string) => `AI saat ${time} yanıt verdi.`,
+    aiStatusResultOk: (time: string) => `AI yanıt verdi (${time}).`,
     aiStatusResultUnavailable: 'AI şu anda yanıt vermedi.',
     aiStatusResultRateLimited: 'Çok sık kontrol edildi. Biraz sonra yeniden dene.',
     aiStatusResultError: 'AI durumu kontrol edilemedi.',
@@ -1428,7 +1455,7 @@ const tr = {
   },
   analytics: {
     consentTitle: "kuyara'yı geliştirmeye yardım et",
-    consentBody: "Hangi ekranların kullanıldığını, önerilerin yüklenip yüklenmediğini ve giyim tarzı ile yaş aralığı gibi kaba ayarları bilmek kuyara'yı daha iyi yapar. Konumun, fotoğrafların, gardırobun ve adın hiçbir zaman dahil edilmez.",
+    consentBody: "Hangi ekranların kullanıldığını, önerilerin yüklenip yüklenmediğini ve giyim stili ile yaş aralığı gibi ayrıntısız ayarları bilmek kuyara'yı daha iyi yapar. Konumun, fotoğrafların, gardırobun ve adın hiçbir zaman dahil edilmez.",
     consentSettingsBody: "Bunu istediğin zaman Ayarlar'daki Gizlilik bölümünden değiştirebilirsin.",
     acceptAction: 'Yardım et',
     declineAction: 'Şimdi değil',
@@ -1474,19 +1501,19 @@ const tr = {
     statusOn: 'Açık',
     statusOff: 'Kapalı',
     permissionDeniedHint: 'Bildirimler sistem ayarlarında kapalı.',
-    openSettingsAction: 'Ayarları Aç',
+    openSettingsAction: 'Ayarları aç',
     offer: {
       sentences: {
         precipitation_onset: 'kuyara bugün yağış başlamadan seni uyarabilirdi.',
         temperature_swing: 'kuyara bugün sıcaklık sert değişmeden seni uyarabilirdi.',
-        morning_briefing: 'kuyara sabah 07.00\u2019de bir brifing, gün içinde hava değişmeden de bir uyarı gönderebilir.',
+        morning_briefing: 'kuyara sabah 07:00\u2019de bir brifing, gün içinde hava değişmeden de bir uyarı gönderebilir.',
       },
       acceptAction: 'Bildirimleri aç',
       dismissAction: 'Şimdi değil',
     },
     morningBriefing: {
       toggleLabel: 'Sabah brifingi',
-      hint: 'Yarın sabah tahminde yer aldığında, 07.00\u2019de sabahın havasını anlatan tek bir bildirim.',
+      hint: 'Yarın sabah tahminde yer aldığında, 07:00\u2019de sabahın havasını anlatan tek bir bildirim.',
       title: 'Günaydın',
       clearBody: ({ low, high }) => (low === high
         ? `Açık bir sabah, ${low}\u00b0C. Bugünün kombini kuyara\u2019da seni bekliyor.`
@@ -1522,7 +1549,7 @@ const tr = {
     useCurrentLocation: 'Mevcut konumumu kullan',
     changeLocationAction: 'Değiştir',
     locationRationaleTitle: 'Konumun hava durumu için kullanılsın mı?',
-    locationRationaleBody: 'kuyara, kıyafet önerileri için hava durumunu bulmak üzere uygulamayı kullanırken yaklaşık konumunu kullanır.',
+    locationRationaleBody: 'kuyara, kombin önerileri için hava durumunu bulmak üzere uygulamayı kullanırken yaklaşık konumunu kullanır.',
     continuePermission: 'Devam et',
     cancel: 'Şimdi değil',
     deniedBody: 'Konum erişimi verilmedi. Örnek bir konum seçebilir veya daha sonra yeniden deneyebilirsin.',
@@ -1722,20 +1749,32 @@ const tr = {
   },
   today: {
     title: 'Bugün',
+    titleTemplate: 'Bugün · {temperature} {symbol} {condition}',
     dailyStyle: {
-      question: 'Bugün nasıl giyinmek istersin?',
-      questionTomorrow: 'Yarın nasıl giyinmek istersin?',
-      casual: 'Rahat', smart: 'Şık', formal: 'Resmi',
-      more: 'Daha fazla',
-      lastingStylePreferences: 'Bunlar kalıcı stil tercihlerindir.',
-      chooseStyle: 'Bir tarz seç',
+      question: 'Bugün nasıl bir gün?',
+      questionTomorrow: 'Yarın nasıl bir gün?',
+      casual: 'Rahat', smart: 'Şık', formal: 'Resmî',
+      pillAccessibilityLabel: {
+        casual: 'Gün türü, Rahat. Gün türü seçeneklerini açar.',
+        smart: 'Gün türü, Şık. Gün türü seçeneklerini açar.',
+        formal: 'Gün türü, Resmî. Gün türü seçeneklerini açar.',
+      },
+      updating: {
+        casual: 'Rahat bir güne göre güncelleniyor…',
+        smart: 'Şık bir güne göre güncelleniyor…',
+        formal: 'Resmî bir güne göre güncelleniyor…',
+      },
+      firstDayNote: 'Kurulumda verdiğin cevap zaten seçili. Onaylamak için ona dokun.',
+      chooseDayType: 'Gün türünü seç',
       continueWithoutChoosing: 'Seçmeden devam et',
-      dismissWarning: 'Bugün nasıl giyineceğini seç veya sürpriz bir tarzla devam et.',
+      dismissWarning: 'Bugün nasıl giyineceğini seç veya sürpriz bir stille devam et.',
       planTomorrow: (date) => `Yarını planla, ${date}`,
+      planTomorrowLabel: 'Yarını planla',
       close: 'Kapat',
       saveError: 'Seçimin kaydedilemedi. Yeniden dene.',
     },
     greetingNamed: (name) => `Tekrar hoş geldin, ${name}`,
+    greetingFirstNamed: (name) => `Hoş geldin, ${name}`,
     generationModeOnDeviceAi: 'Apple Intelligence ile seçildi',
     generationModeAiAssisted: 'AI ile seçildi',
     generationModeOnDeviceAiAccessibilityLabel:
@@ -1763,7 +1802,7 @@ const tr = {
     ownershipUntrackedLabel: 'Gardırobunda yok',
     ownershipSummary: ({ owned, total }) =>
       owned === 0
-        ? 'Bu parçaların hiçbiri henüz sende yok. Bir parçaya dokunup sende var ya da istiyorsun olarak işaretle.'
+        ? 'Bu parçaların hiçbiri henüz sende yok. Bir parçaya dokun, “Bende var” ya da “İstiyorum” diye işaretle.'
         : `Bu kombindeki ${total} parçadan ${owned} tanesi sende var.`,
     slots: {
       primary_top: 'Üst',
@@ -1921,9 +1960,9 @@ const tr = {
     generatingLongWaitStatus: 'Bugünün kombinleri seçiliyor. Bu biraz daha uzun sürebilir.',
     loading: {
       heading: 'Kombinin hazırlanıyor.',
-      phase: 'Birlikte uyumlu parçalar bulunuyor.',
+      phase: 'Birbirine uyan parçalar aranıyor.',
       tips: [
-        'Tarzını istediğin zaman değiştirebilirsin.',
+        'Stilini istediğin zaman değiştirebilirsin.',
         'Kombin seçeneklerin bugünün havasına göre hazırlanır.',
         'Bugün ekranında iki kombin daha görebilirsin.',
       ],

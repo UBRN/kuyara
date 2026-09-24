@@ -9,11 +9,11 @@ import { archetypeLabel, recommendationMessages } from './recommendation-message
 test('weekend_relaxed reads as a plain relaxed day on a weekday', () => {
   assert.equal(
     archetypeLabel(recommendationMessages.en, 'weekend_relaxed', 'weekend'),
-    'Weekend Relaxed',
+    'Easy Weekend',
   );
   assert.equal(
     archetypeLabel(recommendationMessages.en, 'weekend_relaxed', 'weekday'),
-    'Relaxed',
+    'Easygoing',
   );
   assert.equal(
     archetypeLabel(recommendationMessages.tr, 'weekend_relaxed', 'weekend'),
@@ -21,7 +21,7 @@ test('weekend_relaxed reads as a plain relaxed day on a weekday', () => {
   );
   assert.equal(
     archetypeLabel(recommendationMessages.tr, 'weekend_relaxed', 'weekday'),
-    'Rahat Gün',
+    'Keyifli Gün',
   );
 });
 

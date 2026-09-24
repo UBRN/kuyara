@@ -13,7 +13,7 @@ const en: RecommendationMessages = {
     everyday_easy: 'Easy Everyday',
     smart_casual: 'Smart Casual',
     office_ready: 'Office Ready',
-    weekend_relaxed: 'Weekend Relaxed',
+    weekend_relaxed: 'Easy Weekend',
     layered_warmth: 'Layered Warmth',
     cold_shield: 'Cold Shield',
     rain_ready: 'Rain Ready',
@@ -23,7 +23,7 @@ const en: RecommendationMessages = {
     on_the_move: 'On the Move',
     in_between: 'In-Between',
   },
-  weekdayRelaxed: 'Relaxed',
+  weekdayRelaxed: 'Easygoing',
 };
 
 const tr: RecommendationMessages = {
@@ -41,7 +41,7 @@ const tr: RecommendationMessages = {
     on_the_move: 'Hareketli Gün',
     in_between: 'Değişken Hava',
   },
-  weekdayRelaxed: 'Rahat Gün',
+  weekdayRelaxed: 'Keyifli Gün',
 };
 
 /** The words for an archetype on the day it is being read. */

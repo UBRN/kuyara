@@ -2,6 +2,7 @@ import type { DayKind } from '@kuyara/contracts';
 
 import {
   archetypeLabel,
+  localDayKey,
   localDayKind,
   type RecommendationPhase,
 } from '@/features/recommendation/application/recommendation-application-controller';
@@ -131,7 +132,15 @@ export type LoadedOutfitPresentation = Readonly<{
 
 export type LoadedTodayPresentation = Readonly<{
   kind: 'loaded';
+  /** The whole title as one sentence, for the header's spoken label. */
   title: string;
+  /**
+   * The same title split where it may wrap and where the symbol stands: `lead` is everything
+   * before the temperature, and the rest stays together on one line.
+   */
+  titleParts: Readonly<{ lead: string; beforeSymbol: string; afterSymbol: string }>;
+  /** The dressing day's date for the top row, which turns at 04:00, not at midnight. */
+  date: string;
   atmosphere: AtmosphereState;
   copy: Readonly<{
     piecesHeading: string;
@@ -157,14 +166,15 @@ export type LoadedTodayPresentation = Readonly<{
     rainProbability: string;
     accessibilityLabel: string;
     // The raw provider-neutral condition code and whether the sun is up at the place,
-    // carried so the corner glyph can resolve its own condition ink and tempo. Neither is
+    // carried so the title symbol can resolve its own condition ink and tempo. Neither is
     // display text: the visible condition name stays `condition`.
     conditionCode: string;
     daypart: Daypart | null;
   }>;
-  // ADR 0034 section 4: neither badge carries a glyph, so the presentation carries words
-  // only and the screen draws one controlled badge for both AI modes.
+  // ADR 0034 section 4: each AI mode has its own badge, words beside its own symbol, so the
+  // presentation carries which mode it is alongside the words.
   generationMode: Readonly<{
+    mode: 'on-device-ai' | 'ai-assisted';
     label: string;
     accessibilityLabel: string;
   }> | null;
@@ -456,6 +466,15 @@ function reasonCodesByPriority(
   ];
 }
 
+/** A dressing-day key's calendar date as Today's top row and Plan tomorrow show it. */
+export function formatDressingDate(dayKey: string, language: SupportedLanguage): string {
+  const date = new Date(`${dayKey.slice(0, 10)}T12:00:00`);
+  return [
+    new Intl.DateTimeFormat(localeTag(language), { weekday: 'short' }).format(date),
+    new Intl.DateTimeFormat(localeTag(language), { day: 'numeric', month: 'short' }).format(date),
+  ].join(' ');
+}
+
 function createLoadedPresentation(
   snapshot: TodaySnapshot,
   language: SupportedLanguage,
@@ -512,13 +531,15 @@ function createLoadedPresentation(
   // and still narrates the deterministic fallback while it runs.
   const generationModeBadges: Record<
     RecommendationGenerationMode,
-    Readonly<{ label: string; accessibilityLabel: string }> | null
+    LoadedTodayPresentation['generationMode']
   > = {
     'on-device-ai': {
+      mode: 'on-device-ai',
       label: copy.generationModeOnDeviceAi,
       accessibilityLabel: copy.generationModeOnDeviceAiAccessibilityLabel,
     },
     'ai-assisted': {
+      mode: 'ai-assisted',
       label: copy.generationModeAiAssisted,
       accessibilityLabel: copy.generationModeAiAssistedAccessibilityLabel,
     },
@@ -538,24 +559,31 @@ function createLoadedPresentation(
   const generationSource = settledMode ? generationSources[settledMode] : null;
   const primary = suggestions[0];
   // One reading of the place's own sunrise and sunset feeds both the stage tint and the
-  // corner glyph, so the two can never disagree about whether it is day or night there.
+  // title symbol, so the two can never disagree about whether it is day or night there.
   const daypart = resolveDaypart(
     new Date(now).toISOString(),
     weather.timeZone,
     snapshot.activeLocation.coordinates,
   );
 
+  // One localized template per language: the values are substituted, never the words.
+  const titleLine = copy.titleTemplate
+    .replace('{temperature}', formatTemperature(current.temperatureCelsius, language))
+    .replace('{condition}', condition);
+  const [beforeSymbol, afterSymbol] = titleLine.split(' {symbol} ');
+  const leadEnd = copy.titleTemplate.indexOf('{temperature}');
+
   return {
     kind: 'loaded',
-    title: [
-      copy.title,
-      [
-        new Intl.DateTimeFormat(localeTag(language), { weekday: 'short' }).format(new Date(now)),
-        new Intl.DateTimeFormat(localeTag(language), { day: 'numeric', month: 'short' }).format(new Date(now)),
-      ].join(' '),
-      formatTemperature(current.temperatureCelsius, language),
-      condition,
-    ].join(' · '),
+    title: `${beforeSymbol} ${afterSymbol}`,
+    titleParts: {
+      lead: beforeSymbol.slice(0, leadEnd).trim(),
+      beforeSymbol: beforeSymbol.slice(leadEnd),
+      afterSymbol,
+    },
+    // M15: the dressing day's date, the same key Plan tomorrow reads, so between midnight
+    // and 04:00 it still names the evening's calendar date.
+    date: formatDressingDate(localDayKey(new Date(now)), language),
     atmosphere: resolveAtmosphereState(current.condition, daypart),
     copy: {
       piecesHeading: copy.piecesHeading,

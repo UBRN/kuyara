@@ -232,7 +232,7 @@ const atmosphereStates = [
 
 const lightAtmosphereSpecs = {
   clearDay: { from: 'quietSky', to: 'cloudWhite', ratio: 0.549, hex: '#CBE1E5' },
-  veiledDay: { from: 'calmCurrent', to: 'softMist', ratio: 0.756, hex: '#C2D1D3' },
+  veiledDay: { from: 'calmCurrent', to: 'softMist', ratio: 0.83, hex: '#D1DDDD' },
   fallingDay: { from: 'calmCurrent', to: 'quietSky', ratio: 0.943, hex: '#98C3CF' },
   clearNight: { from: 'deepAtmosphere', to: 'quietSky', ratio: 0.888, hex: '#8FB8C4' },
   veiledNight: { from: 'deepAtmosphere', to: 'softMist', ratio: 0.645, hex: '#A4AFB3' },
