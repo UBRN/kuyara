@@ -191,7 +191,8 @@ Only garment silhouettes enter the board; there is no mannequin, avatar or masco
   outfit slots contain no accessory, so catalogue scarves, gloves, hats and umbrellas keep
   weather properties that nothing can read. This remains a product discussion, not a
   rendering gap.
-- **Native validation remains the acceptance surface.** Dynamic Type, Turkish and
+- **Native validation remains the acceptance surface.** Dynamic Type up to the largest
+  standard text size, Turkish and
   English, genuine dark mode, touch targets, safe areas, the
   bottom tab bar, contrast, silhouette legibility at small sizes, horizontal scrolling
   on Weather, and progressive-disclosure accessibility are validated in Expo rather than
