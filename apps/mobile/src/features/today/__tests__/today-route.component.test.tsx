@@ -32,6 +32,12 @@ import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
+jest.mock('@expo/ui/community/bottom-sheet', () => {
+  const React = jest.requireActual('react') as typeof import('react');
+  const { View } = jest.requireActual('react-native') as typeof import('react-native');
+  return { BottomSheet: ({ children, index }: { children: React.ReactNode; index: number }) =>
+    index >= 0 ? React.createElement(View, null, children) : null };
+});
 jest.mock('@/components/ui/native-menu', () => {
   const React = jest.requireActual('react') as typeof import('react');
   const {
@@ -124,6 +130,31 @@ jest.mock('@/features/analytics/data/observe-performance-telemetry', () => ({
   ...jest.requireActual('@/features/analytics/data/observe-performance-telemetry'),
   useObserveInteractiveMark: () => mockMarkInteractive,
 }));
+
+const mockChoiceGet = jest.fn();
+const mockChoiceUpsert = jest.fn();
+jest.mock('@/infrastructure/sqlite/expo-sqlite-database', () => ({
+  openKuyaraDatabase: async () => ({}),
+}));
+jest.mock('@/infrastructure/sqlite/migrations', () => ({ migrateDatabase: async () => undefined }));
+jest.mock('@/features/recommendation/data/sqlite-dressing-day-choice-repository', () => ({
+  SqliteDressingDayChoiceRepository: class {
+    get(...args: unknown[]) { return mockChoiceGet(...args); }
+    upsert(...args: unknown[]) { return mockChoiceUpsert(...args); }
+  },
+}));
+jest.mock('@/features/recommendation/data/on-device-ai-module', () => ({ onDeviceAiModule: null }));
+jest.mock('@/features/recommendation/application/recommendation-application-controller', () => {
+  const actual = jest.requireActual(
+    '@/features/recommendation/application/recommendation-application-controller',
+  );
+  return {
+    ...actual,
+    localDayKey: () => '2026-09-24',
+    localDayKind: () => 'weekday',
+    localDayVariant: () => 0,
+  };
+});
 
 const todayRecommendation = todayScreenState.snapshot.recommendation;
 
@@ -256,6 +287,7 @@ function profileValue(profile: Partial<LocalProfile> = {}) {
     completeOnboarding: jest.fn(async () => undefined),
     updateGender: jest.fn(async () => undefined),
     updateDressStyle: jest.fn(async () => undefined),
+    updateStyleAesthetics: jest.fn(async () => undefined),
     updateBirthDate: jest.fn(async () => undefined),
     updateDisplayName: jest.fn(async () => undefined),
     updateLanguagePreference: jest.fn(async () => undefined),
@@ -301,22 +333,62 @@ function Providers({
   recommendation,
   recommendationRefresh = jest.fn(async () => null),
   recommendationRegenerate = jest.fn(async () => null),
+  resolvedDressStyle,
+  dressingDayChoiceReady,
+  dressingDayKey,
+  morningChoicePending,
+  chooseFormality,
   reevaluateLocalDay = jest.fn(),
   wardrobe,
   profile,
   productAnalytics,
   markRecommendationShown = jest.fn(),
+  liveRecommendationProvider = false,
 }: PropsWithChildren<{
   weather: WeatherApplicationValue;
   recommendation: RecommendationApplicationState;
   recommendationRefresh?: () => Promise<null>;
   recommendationRegenerate?: () => Promise<null>;
+  resolvedDressStyle?: 'casual' | 'smart' | 'formal';
+  dressingDayChoiceReady?: boolean;
+  dressingDayKey?: string;
+  morningChoicePending?: boolean;
+  chooseFormality?: (key: string, formality: 'casual' | 'smart' | 'formal',
+    source: 'morning' | 'chip' | 'plan' | 'random') => Promise<void>;
   reevaluateLocalDay?: () => void;
   wardrobe: ReturnType<typeof wardrobeValue>;
   profile: ReturnType<typeof profileValue>;
   productAnalytics: ReturnType<typeof createProductAnalytics>;
   markRecommendationShown?: () => void;
+  liveRecommendationProvider?: boolean;
 }>) {
+  const screenContent = (
+    <WardrobeApplicationContext value={wardrobe as never}>
+      <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 47, right: 0, bottom: 34, left: 0 } }}>
+        {children}
+      </SafeAreaProvider>
+    </WardrobeApplicationContext>
+  );
+  const recommendationContent = liveRecommendationProvider ? (
+    <RecommendationApplicationProvider localProfileId={profile.state.profile.id}>
+      {screenContent}
+    </RecommendationApplicationProvider>
+  ) : (
+    <RecommendationApplicationContext value={{
+      state: recommendation,
+      onDeviceAvailability: null,
+      refresh: recommendationRefresh,
+      regenerate: recommendationRegenerate,
+      resolvedDressStyle,
+      dressingDayChoiceReady,
+      dressingDayKey,
+      morningChoicePending,
+      chooseFormality,
+      reevaluateLocalDay,
+    }}>
+      {screenContent}
+    </RecommendationApplicationContext>
+  );
   return (
     <LocalizationContext value={{ language: 'en', messages: messages.en , hour12: false }}>
       <KuyaraThemeContext value={lightTheme}>
@@ -328,19 +400,7 @@ function Providers({
             <ProfileApplicationContext value={profile}>
             <NotificationApplicationContext value={notificationValue()}>
             <WeatherApplicationContext value={weather}>
-              <RecommendationApplicationContext value={{
-                state: recommendation,
-                onDeviceAvailability: null,
-                refresh: recommendationRefresh,
-                regenerate: recommendationRegenerate,
-                reevaluateLocalDay,
-              }}>
-                <WardrobeApplicationContext value={wardrobe as never}>
-                  <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 47, right: 0, bottom: 34, left: 0 } }}>
-                    {children}
-                  </SafeAreaProvider>
-                </WardrobeApplicationContext>
-              </RecommendationApplicationContext>
+              {recommendationContent}
             </WeatherApplicationContext>
             </NotificationApplicationContext>
             </ProfileApplicationContext>
@@ -352,6 +412,8 @@ function Providers({
 }
 
 // Import the routes after all mocks above are set up.
+// eslint-disable-next-line import/first
+import { RecommendationApplicationProvider } from '@/features/recommendation/application/recommendation-application-provider';
 // eslint-disable-next-line import/first
 import TodayRoute from '@/app/(tabs)/(today)/index';
 // eslint-disable-next-line import/first
@@ -365,6 +427,8 @@ beforeEach(() => {
   mockDismissOffer.mockClear();
   mockOffer = { kind: 'none' };
   mockParams = {};
+  mockChoiceGet.mockReset().mockResolvedValue(null);
+  mockChoiceUpsert.mockReset().mockResolvedValue(undefined);
 });
 
 test('Today offers the alert opt-in once, and each action answers the offer', async () => {
@@ -549,6 +613,7 @@ test('Today reports screen_viewed and recommendation_viewed once while a recomme
       productAnalytics={productAnalytics}
       profile={profileValue()}
       recommendation={recommendationReady()}
+      resolvedDressStyle="formal"
       wardrobe={wardrobeValue()}
       weather={weatherValue()}>
       <TodayRoute />
@@ -564,9 +629,123 @@ test('Today reports screen_viewed and recommendation_viewed once while a recomme
     generation_mode: todayRecommendation.generationMode === 'ai-assisted' ? 'ai_assisted' : 'deterministic_fallback',
     cache_state: 'fresh',
     outfit_count: 3,
-    dress_style: 'smart',
+    dress_style: 'formal',
     age_bucket: 'unknown',
   });
+});
+
+test('Today waits for the day choice before reporting resolved formality', async () => {
+  const productAnalytics = createProductAnalytics();
+  const profile = profileValue();
+  const recommendation = recommendationReady();
+  const wardrobe = wardrobeValue();
+  const weather = weatherValue();
+  const reevaluateLocalDay = jest.fn();
+  const view = await render(
+    <Providers productAnalytics={productAnalytics} profile={profile}
+      recommendation={recommendation} resolvedDressStyle="smart"
+      dressingDayChoiceReady={false} reevaluateLocalDay={reevaluateLocalDay}
+      wardrobe={wardrobe} weather={weather}>
+      <TodayRoute />
+    </Providers>,
+  );
+  expect(productAnalytics.analytics.captures.filter((event) =>
+    event.name === 'recommendation_viewed')).toHaveLength(0);
+
+  view.rerender(
+    <Providers productAnalytics={productAnalytics} profile={profile}
+      recommendation={recommendation} resolvedDressStyle="formal"
+      dressingDayChoiceReady reevaluateLocalDay={reevaluateLocalDay}
+      wardrobe={wardrobe} weather={weather}>
+      <TodayRoute />
+    </Providers>,
+  );
+  await waitFor(() => expect(productAnalytics.analytics.captures.filter((event) =>
+    event.name === 'recommendation_viewed')).toHaveLength(1));
+  expect(productAnalytics.analytics.captures.find((event) =>
+    event.name === 'recommendation_viewed')?.properties).toMatchObject({ dress_style: 'formal' });
+});
+
+test('a rejected day-choice read leaves the morning sheet closed and writes no choice', async () => {
+  let rejectChoiceRead: ((reason: Error) => void) | undefined;
+  mockChoiceGet.mockImplementation(() => new Promise((_resolve, reject) => {
+    rejectChoiceRead = reject;
+  }));
+  const props = {
+    productAnalytics: createProductAnalytics(),
+    profile: profileValue({ morningSheetEnabled: true }),
+    recommendation: recommendationReady(),
+    liveRecommendationProvider: true,
+    wardrobe: wardrobeValue(),
+    weather: weatherValue(),
+  };
+  const view = await render(
+    <Providers {...props}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  await waitFor(() => expect(rejectChoiceRead).toBeDefined());
+  await act(async () => {
+    rejectChoiceRead?.(new Error('choice read failed'));
+    await Promise.resolve();
+  });
+
+  expect(view.queryByTestId('daily-formality-sheet')).toBeNull();
+  expect(mockChoiceUpsert).not.toHaveBeenCalled();
+
+  mockChoiceGet.mockResolvedValueOnce(null);
+  await act(async () => {
+    view.rerender(
+      <Providers {...props} weather={weatherValue()}>
+        <TodayRoute />
+      </Providers>,
+    );
+  });
+  await waitFor(() => expect(mockChoiceGet).toHaveBeenCalledTimes(2));
+  expect(await view.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
+  expect(mockChoiceUpsert).not.toHaveBeenCalled();
+});
+
+test('More saves lasting aesthetics without answering the morning question', async () => {
+  const updateStyleAesthetics = jest.fn(async () => undefined);
+  const chooseFormality = jest.fn(async () => undefined);
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()}
+      profile={{ ...profileValue({ morningSheetEnabled: true, styleAesthetics: [] }),
+        updateStyleAesthetics }}
+      recommendation={recommendationReady()} resolvedDressStyle="smart"
+      dressingDayKey="2026-08-13" dressingDayChoiceReady morningChoicePending
+      chooseFormality={chooseFormality} wardrobe={wardrobeValue()} weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(await view.findByTestId('daily-formality-more'));
+  expect(view.getByText(messages.en.today.dailyStyle.lastingStylePreferences)).toBeOnTheScreen();
+  await fireEvent.press(view.getByTestId('daily-formality-style-option-minimal'));
+  expect(updateStyleAesthetics).toHaveBeenCalledWith(['minimal']);
+  expect(chooseFormality).not.toHaveBeenCalled();
+  expect(view.getByTestId('daily-formality-sheet')).toBeOnTheScreen();
+});
+
+test('Plan tomorrow opens the same More preferences without writing a day choice', async () => {
+  const chooseFormality = jest.fn(async () => undefined);
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()}
+      profile={profileValue({ styleAesthetics: ['minimal', 'sporty', 'streetwear'] })}
+      recommendation={recommendationReady()} resolvedDressStyle="smart"
+      dressingDayKey="2026-08-13" dressingDayChoiceReady
+      chooseFormality={chooseFormality} wardrobe={wardrobeValue()} weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(view.getByTestId('today-plan-tomorrow'));
+  await fireEvent.press(await view.findByTestId('daily-formality-more'));
+  expect(view.getByTestId('daily-formality-style-option-classic').props.accessibilityState.disabled)
+    .toBe(true);
+  expect(chooseFormality).not.toHaveBeenCalled();
 });
 
 test('Today marks a rendered recommendation for the consent gate once', async () => {

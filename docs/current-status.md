@@ -190,6 +190,8 @@ The approved phase order, active work and remaining open items are in [the roadm
 
 ## Recently Completed
 
+- **Daily style choices:** schema 18 preserves profiles and adds style aesthetics, the morning question setting and keyed formality choices. Today offers the three-formality morning sheet, chips and tomorrow planning; onboarding and Settings edit the separate aesthetic preferences. Automated repository and component checks pass, and the rebuilt version 17 device database replay passed. Simulator verification remains open.
+
 - **Settings and provider attribution:** the root presents Appearance, Notifications,
   Profile, Help and About in order, followed by the centred kuyara name and version.
   Help opens the platform share sheet, direct store review and PolyForm licence;

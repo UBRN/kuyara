@@ -138,6 +138,19 @@ test('the policy opens the AI path until the daily allowance is spent, then the 
   assert.equal(regenerationMode(1, { dailyAiRegenerations: 1 }), 'pool');
 });
 
+test('chip formality refresh reaches AI without spending the regeneration allowance', async () => {
+  const input = { ...inputFor(), dressStyle: 'formal' };
+  const budget = inMemoryBudget();
+  const { client, requests } = aiClient(input);
+  const controller = createController({ client, budget });
+  await controller.initialize();
+
+  await controller.refresh('dress-style-changed', input);
+
+  assert.equal(requests.length, 1);
+  assert.equal(await budget.usedToday(today), 0);
+});
+
 // Gate 1, and gate 3's "the pool three differ from the three on screen".
 test('the sixth regeneration of a local day builds no request and composes from the pool', async () => {
   const input = inputFor();

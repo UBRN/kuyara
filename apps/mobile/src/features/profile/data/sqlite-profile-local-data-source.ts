@@ -2,6 +2,7 @@ import type {
   AnalyticsConsent,
   DressStyle,
   Gender,
+  StyleAesthetic,
 } from '@/features/profile/domain/profile';
 import { namePromptVersion } from '@/features/profile/domain/profile';
 import type {
@@ -23,6 +24,8 @@ type LocalProfileRow = Readonly<{
   id: string;
   gender: string | null;
   dress_style: string | null;
+  style_aesthetics: string;
+  morning_sheet_enabled: number;
   birth_date: string | null;
   display_name: string | null;
   name_prompt_version: number;
@@ -48,6 +51,8 @@ const selectProfileSql = `
     id,
     gender,
     dress_style,
+    style_aesthetics,
+    morning_sheet_enabled,
     birth_date,
     display_name,
     name_prompt_version,
@@ -70,6 +75,8 @@ function mapRow(row: LocalProfileRow): LocalProfileRecord {
     id: row.id,
     gender: row.gender,
     dressStyle: row.dress_style,
+    styleAesthetics: row.style_aesthetics,
+    morningSheetEnabled: row.morning_sheet_enabled,
     birthDate: row.birth_date,
     displayName: row.display_name,
     namePromptVersion: row.name_prompt_version,
@@ -166,6 +173,7 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
         SET
           gender = ?,
           dress_style = ?,
+          style_aesthetics = ?,
           birth_date = ?,
           display_name = ?,
           name_prompt_version = ?,
@@ -176,6 +184,7 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
       [
         preferences.gender,
         preferences.dressStyle,
+        JSON.stringify([...(preferences.styleAesthetics ?? [])].sort()),
         preferences.birthDate,
         preferences.displayName ?? null,
         namePromptVersion,
@@ -199,6 +208,22 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
       `UPDATE local_profiles SET dress_style = ?, updated_at = ?
        WHERE singleton_key = 1 AND deleted_at IS NULL`,
       [dressStyle],
+    );
+  }
+
+  updateStyleAesthetics(values: readonly StyleAesthetic[]): Promise<LocalProfileRecord> {
+    return this.updateProfile(
+      `UPDATE local_profiles SET style_aesthetics = ?, updated_at = ?
+       WHERE singleton_key = 1 AND deleted_at IS NULL`,
+      [JSON.stringify([...values].sort())],
+    );
+  }
+
+  updateMorningSheetEnabled(enabled: boolean): Promise<LocalProfileRecord> {
+    return this.updateProfile(
+      `UPDATE local_profiles SET morning_sheet_enabled = ?, updated_at = ?
+       WHERE singleton_key = 1 AND deleted_at IS NULL`,
+      [enabled ? 1 : 0],
     );
   }
 

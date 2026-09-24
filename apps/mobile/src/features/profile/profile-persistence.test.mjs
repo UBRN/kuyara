@@ -32,6 +32,8 @@ const createRecord = (overrides = {}) => ({
   notificationsOptIn: 0,
   weatherAlertOfferShown: 0,
   morningBriefingOptIn: 0,
+  morningSheetEnabled: 1,
+  styleAesthetics: '[]',
   analyticsConsent: 'undecided',
   createdAt,
   updatedAt: createdAt,
@@ -94,6 +96,28 @@ test('notification opt-in defaults off and persists across a new repository', as
     }),
   );
   assert.equal((await relaunchedRepository.getOrCreateProfile()).notificationsOptIn, true);
+});
+
+test('style aesthetics are sorted, bounded, and malformed stored JSON falls back without losing profile', async (t) => {
+  const { database, dataSource } = await createLocalDataSource(t);
+  const repository = new LocalProfileRepository(dataSource);
+  assert.deepEqual((await repository.getOrCreateProfile()).styleAesthetics, []);
+  const updated = await repository.updateStyleAesthetics(['sporty', 'classic']);
+  assert.deepEqual(updated.styleAesthetics, ['classic', 'sporty']);
+  assert.equal((await database.getFirstAsync('SELECT style_aesthetics FROM local_profiles')).style_aesthetics,
+    '["classic","sporty"]');
+  await assert.rejects(() => repository.updateStyleAesthetics(['classic', 'classic']),
+    { code: 'invalid-data' });
+  await assert.rejects(() => repository.updateStyleAesthetics(['unknown']),
+    { code: 'invalid-data' });
+  await database.runAsync(`UPDATE local_profiles SET style_aesthetics = 'bad json'`);
+  const reopened = new LocalProfileRepository(new SqliteProfileLocalDataSource(database, {
+    createId: () => 'unused', now: () => updatedAt,
+  }));
+  assert.deepEqual((await reopened.getOrCreateProfile()).styleAesthetics, []);
+  await database.runAsync(`UPDATE local_profiles SET style_aesthetics = '["unknown"]'`);
+  assert.deepEqual((await reopened.getOrCreateProfile()).styleAesthetics, []);
+  assert.equal((await reopened.updateMorningSheetEnabled(false)).morningSheetEnabled, false);
 });
 
 // ADR 0004: the morning briefing is the second notification kind, with its own opt-in that

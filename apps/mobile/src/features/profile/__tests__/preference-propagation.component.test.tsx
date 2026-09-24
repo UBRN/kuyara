@@ -14,7 +14,7 @@ import { ProductAnalyticsProvider } from '@/features/analytics/application/produ
 import { NotificationApplicationProvider } from '@/features/notifications/application/notification-application-provider';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
-import type { DressStyle, Gender } from '@/features/profile/domain/profile';
+import type { DressStyle, Gender, StyleAesthetic } from '@/features/profile/domain/profile';
 import { ProfileApplicationProvider } from '@/features/profile/application/profile-application-provider';
 import type { LocalProfileRecord } from '@/features/profile/data/local-profile-record';
 import { messages } from '@/localization/messages';
@@ -27,6 +27,12 @@ jest.mock('expo-symbols', () => ({
 jest.mock('@expo/ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 jest.mock('@expo/ui/swift-ui/modifiers', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
+jest.mock('@expo/ui/community/bottom-sheet', () => {
+  const React = jest.requireActual('react') as typeof import('react');
+  const { View } = jest.requireActual('react-native') as typeof import('react-native');
+  return { BottomSheet: ({ children, index }: { children: React.ReactNode; index: number }) =>
+    index >= 0 ? React.createElement(View, null, children) : null };
+});
 
 jest.mock('expo-constants', () => ({
   __esModule: true,
@@ -83,6 +89,16 @@ jest.mock('@/features/profile/data/sqlite-profile-local-data-source', () => ({
       return mockProfile;
     };
 
+    updateStyleAesthetics = async (styleAesthetics: readonly StyleAesthetic[]) => {
+      mockProfile = { ...mockProfile, styleAesthetics: JSON.stringify(styleAesthetics) };
+      return mockProfile;
+    };
+
+    updateMorningSheetEnabled = async (enabled: boolean) => {
+      mockProfile = { ...mockProfile, morningSheetEnabled: enabled ? 1 : 0 };
+      return mockProfile;
+    };
+
     updateBirthDate = async (birthDate: string | null) =>
       (mockProfile = { ...mockProfile, birthDate });
   },
@@ -111,6 +127,8 @@ function createProfile(): LocalProfileRecord {
     notificationsOptIn: 0,
     weatherAlertOfferShown: 0,
     morningBriefingOptIn: 0,
+    morningSheetEnabled: 1,
+    styleAesthetics: '[]',
     analyticsConsent: 'undecided',
     createdAt: '2026-07-30T10:00:00.000Z',
     updatedAt: '2026-07-30T10:00:00.000Z',
@@ -222,6 +240,14 @@ test('live preferences and support propagate localized behavior without remounti
   expect(result.getByText(messages.en.preferences.genderWoman)).toBeOnTheScreen();
   expect(result.getByText(messages.en.preferences.dressStyleSmart)).toBeOnTheScreen();
   expect(result.getByText(messages.en.onboarding.birthDateNotSet)).toBeOnTheScreen();
+  expect(result.getByTestId('settings-style-preferences-row')).toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('settings-style-preferences-row'));
+  await fireEvent.press(result.getByTestId('settings-style-option-classic'));
+  await fireEvent.press(result.getByTestId('settings-style-option-minimal'));
+  await fireEvent.press(result.getByTestId('settings-style-done'));
+  await waitFor(() => expect(mockProfile.styleAesthetics).toBe('["classic","minimal"]'));
+  await fireEvent(result.getByTestId('settings-morning-question-row-toggle'), 'valueChange', false);
+  await waitFor(() => expect(mockProfile.morningSheetEnabled).toBe(0));
   expect(result.getByRole('header', { name: messages.en.settings.profileHeading })).toHaveStyle({
     color: lightSemanticColors.textSecondary,
     fontSize: typography.bodyStrong.fontSize,

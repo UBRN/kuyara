@@ -1,4 +1,4 @@
-import { dressStyleSchema, type DressStyle } from '@kuyara/contracts';
+import { dressStyleSchema, styleAestheticSchema, type DressStyle } from '@kuyara/contracts';
 import { z } from 'zod';
 
 import type {
@@ -11,6 +11,8 @@ export type Profile = Readonly<{
   id: string;
   gender: Gender | null;
   dressStyle: DressStyle | null;
+  styleAesthetics?: readonly StyleAesthetic[];
+  morningSheetEnabled?: boolean;
   birthDate: string | null;
   displayName: string | null;
   namePromptVersion: number;
@@ -36,11 +38,21 @@ export type OnboardingPreferences = Readonly<{
   displayName?: string | null;
   gender: Gender;
   dressStyle: DressStyle;
+  styleAesthetics?: readonly StyleAesthetic[];
   birthDate: string | null;
 }>;
 
 export const genderSchema = z.enum(['woman', 'man']);
 export type Gender = z.infer<typeof genderSchema>;
+export type StyleAesthetic = z.infer<typeof styleAestheticSchema>;
+export const styleAestheticsSchema = z.array(styleAestheticSchema).max(3).refine(
+  (values) => new Set(values).size === values.length,
+);
+
+export function sortedStyleAesthetics(value: unknown): readonly StyleAesthetic[] {
+  const parsed = styleAestheticsSchema.safeParse(value);
+  return parsed.success ? [...parsed.data].sort() : [];
+}
 
 export function normalizeDisplayName(value: string | null): string | null {
   const name = value?.trim() ?? '';

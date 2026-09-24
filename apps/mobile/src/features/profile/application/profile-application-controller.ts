@@ -11,6 +11,7 @@ import type {
   OnboardingPreferences,
   DressStyle,
   Gender,
+  StyleAesthetic,
 } from '@/features/profile/domain/profile';
 
 const catalogPreferenceByGender = { woman: 'womens', man: 'mens' } as const;
@@ -119,6 +120,14 @@ export class ProfileApplicationController {
 
   updateDressStyle(dressStyle: DressStyle): Promise<void> {
     return this.updateProfile((repository) => repository.updateDressStyle(dressStyle));
+  }
+
+  updateStyleAesthetics(values: readonly StyleAesthetic[]): Promise<void> {
+    return this.updateProfile((repository) => repository.updateStyleAesthetics(values));
+  }
+
+  updateMorningSheetEnabled(enabled: boolean): Promise<void> {
+    return this.updateProfile((repository) => repository.updateMorningSheetEnabled(enabled));
   }
 
   updateBirthDate(birthDate: string | null): Promise<void> {
