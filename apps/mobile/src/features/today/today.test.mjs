@@ -601,19 +601,12 @@ test('loading, unavailable, and semantic theme behavior remains explicit', () =>
   const unavailable = createTodayPresentation({ kind: 'unavailable' }, 'tr', false, fixtureNow);
   const light = createKuyaraTheme('light');
   const dark = createKuyaraTheme('dark');
-  const reduced = createKuyaraTheme('light', true);
 
   assert.equal(loading.kind, 'loading');
   assert.match(loading.accessibilityLabel, /loading/i);
   assert.equal(unavailable.kind, 'unavailable');
   assert.match(unavailable.title, /kullanılamıyor/);
   assert.notEqual(light.colors.background, dark.colors.background);
-  assert.equal(
-    Object.values(reduced.motion)
-      .flatMap((role) => (typeof role === 'number' ? role : Object.values(role)))
-      .every((duration) => duration === 0),
-    true,
-  );
 });
 
 test('the freshness line reports refreshing, failure, staleness, and last update in that precedence', () => {

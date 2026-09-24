@@ -137,7 +137,7 @@ function ReadyApplicationShell({
                 />
                 <Stack
                   screenOptions={{
-                    animation: theme.isReduceMotionEnabled ? 'none' : 'default',
+                    animation: 'default',
                     headerShown: false,
                   }}>
                   <Stack.Screen name="(tabs)" />

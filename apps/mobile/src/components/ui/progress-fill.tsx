@@ -18,7 +18,7 @@ export type ProgressFillProps = Readonly<{
 /**
  * A track that fills to `progress`. The fill travels on `motion.deliberate`, the longest
  * single transition the language allows, because it reports a step the user just
- * completed; under Reduce Motion it arrives at its new width with no travel. The
+ * completed. The
  * component carries no accessibility props: the progress it draws is already announced by
  * whatever owns the step, so it adds no node a screen reader stops on.
  */
@@ -28,12 +28,8 @@ export function ProgressFill({ progress, style }: ProgressFillProps) {
   const filled = useSharedValue(target);
 
   useEffect(() => {
-    filled.set(
-      theme.isReduceMotionEnabled
-        ? target
-        : withTiming(target, { duration: theme.motion.deliberate }),
-    );
-  }, [filled, target, theme.isReduceMotionEnabled, theme.motion.deliberate]);
+    filled.set(withTiming(target, { duration: theme.motion.deliberate }));
+  }, [filled, target, theme.motion.deliberate]);
 
   const fillStyle = useAnimatedStyle(() => ({ width: `${filled.get() * 100}%` }));
 

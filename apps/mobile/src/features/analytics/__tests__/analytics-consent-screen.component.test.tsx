@@ -13,7 +13,7 @@ import {
 } from '@/features/profile/application/profile-context';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages } from '@/localization/messages';
-import { createKuyaraTheme, lightTheme } from '@/theme/theme';
+import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 jest.mock('expo-router', () => ({
@@ -160,10 +160,10 @@ test('shows the exact copy and full-width actions in primary-then-secondary orde
   });
 });
 
-test('renders the content without an animated entrance when Reduced Motion is enabled', async () => {
+test('renders the content with its animated entrance', async () => {
   const rendered = await render(
     <LocalizationContext.Provider value={{ language: 'en', messages: messages.en, hour12: false }}>
-      <KuyaraThemeContext.Provider value={createKuyaraTheme('light', true)}>
+      <KuyaraThemeContext.Provider value={lightTheme}>
         <SafeAreaProvider initialMetrics={initialMetrics}>
           <AnalyticsConsentScreen onAccept={jest.fn()} onDecline={jest.fn()} />
         </SafeAreaProvider>
@@ -172,5 +172,5 @@ test('renders the content without an animated entrance when Reduced Motion is en
   );
 
   expect(StyleSheet.flatten(rendered.getByTestId('analytics-consent-content').props.style))
-    .toEqual({ gap: 12 });
+    .toMatchObject({ gap: 12 });
 });

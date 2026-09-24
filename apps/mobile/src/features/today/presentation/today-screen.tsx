@@ -22,11 +22,14 @@ import {
 import { useAmbientPulse } from '@/components/ui/use-ambient-pulse';
 import type { NotificationOptInOutcome } from '@/features/notifications/application/notification-application-controller';
 import { RecommendationApplicationContext } from '@/features/recommendation/application/recommendation-application-context';
+import { localDayKey } from '@/features/recommendation/application/recommendation-application-controller';
 import type { WeatherAlertOfferReason } from '@/features/notifications/domain/weather-alert-offer';
 import type { TodayScreenState } from '@/features/today/model';
 import { GarmentBoardSkeleton } from '@/features/today/presentation/garment-board-skeleton';
+import { FirstGenerationOverlay } from '@/features/today/presentation/first-generation-overlay';
 import {
   createTodayPresentation,
+  loadingDayInsight,
   type LoadedOutfitPresentation,
   type LoadedTodayPresentation,
 } from '@/features/today/presentation/today-presentation';
@@ -75,7 +78,37 @@ type TodayScreenProps = Readonly<{
   onRegenerate: () => void;
 }>;
 
-export function TodayScreen({
+export function TodayScreen(props: TodayScreenProps) {
+  const application = use(RecommendationApplicationContext);
+  const weather = useWeatherApplication();
+  const { hour12 } = useLocalization();
+  const now = useForegroundClock();
+  const recommendationState = application?.state;
+  const active = recommendationState?.status === 'ready'
+    && recommendationState.showFirstGenerationOverlay;
+  const completed = recommendationState?.status === 'ready'
+    && recommendationState.snapshot?.localDayKey === localDayKey(new Date(now))
+    && recommendationState.snapshot.recommendation.status === 'recommended';
+
+  return (
+    <View style={styles.root}>
+      <TodayScreenContent {...props} now={now} />
+      <FirstGenerationOverlay
+        active={active ?? false}
+        completed={completed ?? false}
+        insight={weather.state.status === 'ready' && weather.state.snapshot
+          ? loadingDayInsight(weather.state.snapshot, props.language, hour12, now)
+          : null}
+        language={props.language}
+        onSkip={() => { void application?.skipWait(); }}
+        phase={recommendationState?.status === 'ready' ? recommendationState.phase : null}
+      />
+    </View>
+  );
+}
+
+function TodayScreenContent({
+  now,
   state,
   language,
   displayName = null,
@@ -84,12 +117,11 @@ export function TodayScreen({
   onOpenOutfitDetail,
   onRefresh,
   onRegenerate,
-}: TodayScreenProps) {
+}: TodayScreenProps & Readonly<{ now: number }>) {
   const router = useRouter();
   const recommendationApplication = use(RecommendationApplicationContext);
   const weatherApplication = useWeatherApplication();
   const { hour12 } = useLocalization();
-  const now = useForegroundClock();
   const presentationState =
     state.kind === 'unavailable' &&
     weatherApplication.state.status === 'ready' &&
@@ -592,14 +624,14 @@ function WeatherAlertOfferRow({
  * Law 7: it arrives as a state change of something already on screen, so it takes the
  * `normal` duration and moves nothing but opacity, whether it mounts with a cached answer or
  * replaces the phase line when a live answer lands. The words and the colour carry the
- * signal; the fade is never the only one, and under Reduce Motion it rests at full opacity.
+ * signal; the fade is never the only one.
  */
 function ProvenanceBadge({
   accessibilityLabel,
   label,
 }: Readonly<{ accessibilityLabel: string; label: string }>) {
   const theme = useKuyaraTheme();
-  const opacity = useSharedValue<number>(theme.isReduceMotionEnabled ? 1 : 0);
+  const opacity = useSharedValue<number>(0);
 
   useEffect(() => {
     opacity.set(withTiming(1, { duration: theme.motion.normal }));
@@ -668,7 +700,7 @@ function AccessoryBadges({
 // ink rather than the accent, because the wait is not the screen's one accent-filled
 // element. It is a clock rather than a sparkle: `visual-identity.md` refuses the AI-sparkle
 // convention, and the pulsing mark is where that convention was most visible. Law 7: it
-// breathes on the ambient moderate step, holds still under Reduce Motion, and stays out
+// breathes on the ambient moderate step and stays out
 // of the accessibility tree because the adjacent line is the state.
 function PhaseMark({ size, testID }: Readonly<{ size: number; testID: string }>) {
   const theme = useKuyaraTheme();
@@ -711,6 +743,7 @@ function Sky({ intensity, weather, overlay = false }: Readonly<{
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
   placeRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
   location: { flex: 1, flexShrink: 1 },
   todayTitle: { fontWeight: '700' },

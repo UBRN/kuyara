@@ -293,6 +293,7 @@ export function RecommendationApplicationProvider({
   const value = useMemo<RecommendationApplicationValue>(() => ({
     state,
     onDeviceAvailability,
+    skipWait: () => controller.skipWait(),
     refresh: () => {
       const generationInput = currentInput();
       return generationInput

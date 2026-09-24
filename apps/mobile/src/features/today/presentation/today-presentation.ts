@@ -40,6 +40,7 @@ import {
   type DayInsightModifier,
 } from '@/features/weather/domain/day-insight';
 import { findDayWindow, type DayWindow } from '@/features/weather/domain/day-window';
+import type { WeatherSnapshot } from '@/features/weather/domain/weather';
 import {
   getMessages,
   type SupportedLanguage,
@@ -270,6 +271,20 @@ function dayInsightSentence(
         : copy.sentences[`${sky}_${dayInsightModifierKeys[insight.modifier.level]}`];
     }
   }
+}
+
+export function loadingDayInsight(
+  weather: WeatherSnapshot,
+  language: SupportedLanguage,
+  hour12: boolean,
+  now: number,
+): string | null {
+  const insight = findDayInsight({ snapshot: weather, now: new Date(now).toISOString() });
+  return insight === null ? null : dayInsightSentence(
+    insight,
+    getMessages(language).today.dayInsight,
+    (value) => formatTime(value, language, hour12, weather.timeZone),
+  );
 }
 
 function dayWindowSentence(

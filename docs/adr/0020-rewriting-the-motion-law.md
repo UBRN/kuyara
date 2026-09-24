@@ -134,8 +134,8 @@ The first recommendation of a dressing day uses a full-screen loading overlay wh
 garment-board skeleton fills piece by piece. A line rotates every two seconds among
 day insights, phase status and teaching tips, without provider names. Completion holds
 a green "All set" state for 0.8 seconds. After ten seconds the user can open a
-system alert to skip the wait; the red dim skip is secondary to the blue filled
-keep-waiting default, and the AI walk continues to its 46-second bound. Background
+system alert to skip the wait; the red skip action is secondary to the blue
+keep-waiting default text, and the AI walk continues to its 46-second bound. Background
 refreshes retain the current outfit and inline phase. No mannequin, avatar or mascot
 enters the overlay.
 

@@ -146,6 +146,14 @@ export type TodayMessages = Readonly<{
   loadingAccessibilityLabel: string;
   generatingStatus: string;
   generatingLongWaitStatus: string;
+  loading: Readonly<{
+    heading: string;
+    phase: string;
+    tips: readonly string[];
+    keepWaiting: string;
+    skipWait: string;
+    allSet: string;
+  }>;
   // Law 5's status tone: the fact, nothing else. No exclamation mark, no praise, and no
   // provider or model name; "AI" is a generic word, not a name.
   phase: Readonly<Record<RecommendationPhase, string>>;
@@ -1178,6 +1186,18 @@ const en = {
     loadingAccessibilityLabel: 'Preparing today’s guidance. Content is loading.',
     generatingStatus: 'Choosing today’s outfits.',
     generatingLongWaitStatus: 'Choosing today’s outfits. This can take a little longer.',
+    loading: {
+      heading: 'Putting your outfit together.',
+      phase: 'Finding pieces that work together.',
+      tips: [
+        'You can change your style at any time.',
+        'Your outfit options respond to today’s weather.',
+        'You can explore two more outfits on Today.',
+      ],
+      keepWaiting: 'Keep waiting',
+      skipWait: 'Skip the wait',
+      allSet: 'All set',
+    },
     phase: {
       'checking-on-device': 'Checking the on-device AI.',
       'asking-stylist': 'Asking the AI stylist.',
@@ -1819,6 +1839,18 @@ const tr = {
     loadingAccessibilityLabel: 'Bugünün önerileri hazırlanıyor. İçerik yükleniyor.',
     generatingStatus: 'Bugünün kombinleri seçiliyor.',
     generatingLongWaitStatus: 'Bugünün kombinleri seçiliyor. Bu biraz daha uzun sürebilir.',
+    loading: {
+      heading: 'Kombinin hazırlanıyor.',
+      phase: 'Birlikte uyumlu parçalar bulunuyor.',
+      tips: [
+        'Tarzını istediğin zaman değiştirebilirsin.',
+        'Kombin seçeneklerin bugünün havasına göre hazırlanır.',
+        'Bugün ekranında iki kombin daha görebilirsin.',
+      ],
+      keepWaiting: 'Beklemeye devam et',
+      skipWait: 'Beklemeyi atla',
+      allSet: 'Hazır',
+    },
     phase: {
       'checking-on-device': 'Cihaz içi AI kontrol ediliyor.',
       'asking-stylist': 'AI stiliste soruluyor.',

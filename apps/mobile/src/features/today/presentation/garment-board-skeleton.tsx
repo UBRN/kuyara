@@ -19,16 +19,16 @@ const SKELETON_PIECES = [
   { slot: 'footwear', garmentTypeId: 'sneakers', category: 'footwear' },
 ] as const;
 
-// Where the still placeholders sit under Reduce Motion, and the crest of the breath
-// otherwise: a placeholder stays quieter than the drawn pieces it stands in for.
+// A placeholder stays quieter than the drawn pieces it stands in for.
 export const PLACEHOLDER_REST = 0.7;
 
 export type GarmentBoardSkeletonProps = Readonly<{
   width: number;
   testID?: string;
+  visibleCount?: number;
 }>;
 
-export function GarmentBoardSkeleton({ width, testID }: GarmentBoardSkeletonProps) {
+export function GarmentBoardSkeleton({ width, testID, visibleCount = 5 }: GarmentBoardSkeletonProps) {
   const theme = useKuyaraTheme();
   const { boxes, height } = layoutGarmentBoard(SKELETON_PIECES, width, 'today');
   const pulse = useAmbientPulse();
@@ -43,9 +43,10 @@ export function GarmentBoardSkeleton({ width, testID }: GarmentBoardSkeletonProp
       pointerEvents="none"
       style={[{ height, width }, animatedStyle]}
       testID={testID}>
-      {boxes.map((box) => (
+      {boxes.map((box, index) => (
         <Image
           key={box.slot}
+          testID={testID ? `${testID}-piece-${index}` : undefined}
           resizeMode="contain"
           source={resolveGarmentArtwork(
             SKELETON_PIECES.find((piece) => piece.slot === box.slot)!.category,
@@ -58,6 +59,7 @@ export function GarmentBoardSkeleton({ width, testID }: GarmentBoardSkeletonProp
             tintColor: theme.colors.iconSecondary,
             top: box.y,
             width: box.width,
+            opacity: index < visibleCount ? 1 : 0.12,
           }}
         />
       ))}

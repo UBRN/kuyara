@@ -414,7 +414,7 @@ Two requirements are hard, not judgment calls:
   the hero value's line box and must not sit directly beneath it inside the stage. A
   glyph beside the hero on the same row is permitted.
 
-Motion tokens and ambient loops do not read the OS Reduce Motion setting. The app makes
+App motion does not read the OS Reduce Motion setting. The app makes
 no Reduced Motion support claim.
 
 **Ambient motion has its own duration role**, `theme.motion.ambient`. `fast`, `normal`

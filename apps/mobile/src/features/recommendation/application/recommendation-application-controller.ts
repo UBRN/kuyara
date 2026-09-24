@@ -112,6 +112,7 @@ export type RecommendationApplicationState =
       // Null whenever `isRefreshing` is false: a settled state has no phase.
       phase: RecommendationPhase | null;
       exhausted: boolean;
+      showFirstGenerationOverlay: boolean;
     }>;
 
 // The Worker client is the only error this feature can classify. Its kinds are
@@ -207,6 +208,15 @@ function shownOptionIds(snapshot: RecommendationSnapshot | null): readonly strin
   return outfits?.length === 3 ? outfits.map(({ optionId }) => optionId) : [];
 }
 
+function hasValidRecommendationForDay(
+  snapshot: RecommendationSnapshot | null,
+  dayKey: string,
+): boolean {
+  return snapshot?.localDayKey === dayKey
+    && snapshot.recommendation.status === 'recommended'
+    && snapshot.recommendation.outfits.length === 3;
+}
+
 export function recommendationPoolExhausted(
   poolOptionIds: readonly string[] | null,
   snapshot: RecommendationSnapshot | null,
@@ -254,6 +264,14 @@ export class RecommendationApplicationController {
   private readonly telemetry: PerformanceTelemetry | null;
   private readonly holdPhase: (milliseconds: number) => Promise<void>;
   private poolOptionIds: readonly string[] | null = null;
+  private pendingSkip: Readonly<{
+    key: string;
+    context: RecommendationContext;
+    input: RecommendationApplicationInput;
+    poolOptionIds: readonly string[];
+  }> | null = null;
+  private skipPromise: Promise<RecommendationSnapshot | null> | null = null;
+  private aiPending = false;
 
   constructor(localProfileId: string, dependencies: Dependencies) {
     this.localProfileId = localProfileId;
@@ -313,13 +331,56 @@ export class RecommendationApplicationController {
     if (existing) return existing;
 
     this.latestRequestKey = key;
-    this.setRefreshing(true);
+    this.pendingSkip = { key, context, input: generationInput, poolOptionIds };
+    this.aiPending = request !== null;
+    this.setRefreshing(true, input.localDayKey);
     const refresh = this.refreshOnce(key, context, request, generationInput, trigger, poolOptionIds).finally(() => {
       this.refreshes.delete(key);
-      if (this.latestRequestKey === key) this.setRefreshing(false);
+      if (this.latestRequestKey === key) {
+        this.pendingSkip = null;
+        this.skipPromise = null;
+        this.aiPending = false;
+        this.setRefreshing(false);
+      }
     });
     this.refreshes.set(key, refresh);
     return refresh;
+  }
+
+  /** Show the deterministic three now, without cancelling or starting an AI request. */
+  skipWait(): Promise<RecommendationSnapshot | null> {
+    const pending = this.pendingSkip;
+    if (!pending || !this.aiPending || this.skipPromise) {
+      return this.skipPromise ?? Promise.resolve(this.currentSnapshot());
+    }
+    this.skipPromise = (async () => {
+      const fallback = recommendOutfits(pending.input);
+      if (fallback.status !== 'recommended' || this.latestRequestKey !== pending.key) {
+        return this.currentSnapshot();
+      }
+      try {
+        const snapshot = await this.requireRepository().saveSnapshot(this.localProfileId, {
+          weatherSnapshotId: pending.input.snapshot.id,
+          locationKey: pending.input.snapshot.locationKey,
+          context: pending.context,
+          recommendation: fallback,
+        });
+        if (this.latestRequestKey === pending.key) {
+          this.poolOptionIds = pending.poolOptionIds;
+          this.setReady({
+            status: 'ready', snapshot, isRefreshing: true, lastFailure: null,
+            phase: 'preparing-outfits',
+            exhausted: recommendationPoolExhausted(this.poolOptionIds, snapshot),
+            showFirstGenerationOverlay: false,
+          });
+        }
+        return snapshot;
+      } catch (error) {
+        this.setLastFailure(recommendationFailureCategory(error));
+        return this.currentSnapshot();
+      }
+    })();
+    return this.skipPromise;
   }
 
   private async initializeOnce(): Promise<void> {
@@ -334,6 +395,7 @@ export class RecommendationApplicationController {
         lastFailure: null,
         phase: null,
         exhausted: recommendationPoolExhausted(this.poolOptionIds, snapshot),
+        showFirstGenerationOverlay: false,
       });
     } catch (error) {
       this.setReady({
@@ -343,6 +405,7 @@ export class RecommendationApplicationController {
         lastFailure: recommendationFailureCategory(error),
         phase: null,
         exhausted: false,
+        showFirstGenerationOverlay: false,
       });
     }
   }
@@ -374,7 +437,22 @@ export class RecommendationApplicationController {
         this.setPhase(key, 'preparing-outfits');
       } catch (error) {
         aiFailure = recommendationFailureCategory(error);
+      } finally {
+        if (this.latestRequestKey === key) this.aiPending = false;
       }
+    }
+    if (this.latestRequestKey === key && this.skipPromise) await this.skipPromise;
+    if (!recommendation && this.skipPromise
+      && hasValidRecommendationForDay(this.currentSnapshot(), input.localDayKey)) {
+      this.captureAnalyticsEvent('recommendation_regenerated', {
+        schema_version: ANALYTICS_SCHEMA_VERSION,
+        trigger_reason: triggerReasonProperty(trigger),
+        result: 'success',
+        generation_mode: generationModeProperty('deterministic-fallback'),
+        ...(trigger === 'regenerate' ? { regeneration_source: 'ai' as const } : {}),
+      });
+      this.reportGenerated('deterministic-fallback', 3, aiFailure, startedAt);
+      return this.currentSnapshot();
     }
     if (!recommendation) {
       this.setPhase(key, 'using-standard');
@@ -421,6 +499,7 @@ export class RecommendationApplicationController {
           lastFailure: null,
           phase: 'preparing-outfits',
           exhausted: recommendationPoolExhausted(this.poolOptionIds, snapshot),
+          showFirstGenerationOverlay: false,
         });
       }
       this.captureAnalyticsEvent('recommendation_regenerated', {
@@ -510,9 +589,15 @@ export class RecommendationApplicationController {
 
   // A refresh starts and ends without a phase: the chain reports the first one, and a
   // settled state carries none.
-  private setRefreshing(isRefreshing: boolean): void {
+  private setRefreshing(isRefreshing: boolean, dayKey?: string): void {
     if (this.state.status === 'ready') {
-      this.setReady({ ...this.state, isRefreshing, phase: null });
+      this.setReady({
+        ...this.state,
+        isRefreshing,
+        phase: null,
+        showFirstGenerationOverlay: isRefreshing && dayKey !== undefined
+          && !hasValidRecommendationForDay(this.state.snapshot, dayKey),
+      });
     }
   }
 

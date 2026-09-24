@@ -1,14 +1,10 @@
 import { Stack } from 'expo-router';
 
-import { useKuyaraTheme } from '@/theme/theme-context';
-
 export function PrimaryTabStack() {
-  const theme = useKuyaraTheme();
-
   return (
     <Stack
       screenOptions={{
-        animation: theme.isReduceMotionEnabled ? 'none' : 'default',
+        animation: 'default',
         headerShown: false,
         // iOS 26 resolves the default `automatic` scroll edge effect to nothing over this
         // stack's scroll views, so a large-title route let its content pass under the

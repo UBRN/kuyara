@@ -190,6 +190,8 @@ The approved phase order, active work and remaining open items are in [the roadm
 
 ## Recently Completed
 
+- **First-generation wait:** Today now presents the garment-board loading overlay only while a dressing day lacks a valid recommendation and generation is running. After ten seconds a native alert offers an early deterministic outfit; the AI request continues and can replace it. The overlay holds a green completion state for 0.8 seconds. The app no longer reads the OS Reduce Motion setting.
+
 - **Settings and provider attribution:** the root presents Appearance, Notifications,
   Profile, Help and About in order, followed by the centred kuyara name and version.
   Help opens the platform share sheet, direct store review and PolyForm licence;
@@ -209,12 +211,12 @@ The approved phase order, active work and remaining open items are in [the roadm
   accepted and a persisted
   deterministic result always reloads; the Worker walks all five providers inside 36
   seconds and the mobile client waits 38 seconds for it after the 8-second on-device tier;
-  Today shows the generation phase on a live region with a still-under-Reduce-Motion
+  Today shows the generation phase on a live region with an
   ambient mark; the Settings AI status screen keeps a coarse tier label; the Privacy row
   shows no On/Off value. Checks: `pnpm check`, the component suite (405 tests), the
   design-language greps, and one Simulator run of a phased refresh that settled on the
   AI-assisted badge, with
-  the mark still under Reduce Motion. The Worker change is deployed (the 36 s walk
+  the mark animating. The Worker change is deployed (the 36 s walk
   is live) and the mobile change ships in build 8 and later binaries.
 - **AI chain repair** (2026-09-13): the dead OpenRouter slugs were replaced with the
   three free models that answer the real strict `json_schema` request

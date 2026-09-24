@@ -6,7 +6,6 @@ import { ServiceProvidersScreen } from '@/features/profile/presentation/service-
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 import {
-  createKuyaraTheme,
   lightTheme,
   type KuyaraTheme,
 } from '@/theme/theme';
@@ -156,15 +155,6 @@ describe.each(['en', 'tr'] as const)('%s Service providers screen', (language) =
   });
 });
 
-test('checking overlay renders with standard and reduced motion', async () => {
-  for (const theme of [lightTheme, createKuyaraTheme('light', true)]) {
-    const { rendered } = screen('en', { aiStatus: { kind: 'checking' } }, theme);
-    const result = await rendered;
-
-    expect(result.getByTestId('settings-service-providers-overlay')).toBeOnTheScreen();
-    await result.unmount();
-  }
-});
 
 test('shows the last recommendation generation mode', async () => {
   const { rendered } = screen('en', { lastGenerationMode: 'ai-assisted' });
