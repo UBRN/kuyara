@@ -50,16 +50,16 @@ This is a design inference from the combined evidence, not a statement quoted fr
 
 All sources were accessed on 2026-07-30.
 
-- **S1 — CDC/NIOSH:** [The Physiological Response of Working in Cold Environments and how your PPE can Help](https://www.cdc.gov/niosh/bulletin/2021/cold_ppe.html). Several loose layers, avoiding wet clothing, waterproof insulated boots, protection for ears/face/hands/feet, and wind-related heat loss.
-- **S2 — REI Co-op Expert Advice:** [Layering Basics](https://www.rei.com/learn/expert-advice/layering-basics.html). Base/middle/outer functions, adjustment across conditions, and the difference between water-resistant and waterproof shells.
-- **S3 — National Weather Service:** [Understanding Wind Chill](https://www.weather.gov/safety/cold-wind-chill-chart). Wind and cold increase heat loss from exposed skin; US warning thresholds are intentionally not adopted.
-- **S4 — NOAA:** [Wind Chill](https://prod-01-alb-www-noaa.woc.noaa.gov/jetstream/synoptic/wind-chill). Wind removes body heat faster and affects perceived cold.
-- **S5 — National Weather Service:** [Wind Chill Safety](https://www.weather.gov/bou/windchill). Wet clothing increases heat loss; layers, coverage, and waterproof insulated boots are relevant in cold weather.
-- **S6 — CDC:** [Heat-related illness prevention: clothing](https://www.cdc.gov/nceh/hsb/extreme/Heat_Illness/page1720.html). Lightweight, light-colored, loose-fitting clothing and evaporative heat loss.
-- **S7 — CDC:** [Sun Safety Facts](https://www.cdc.gov/skin-cancer/sun-safety/index.html). Coverage, weave, wetness, color, hats, and certified UV protection.
-- **S8 — ISO:** [ISO 811:2018 — Textiles — Determination of resistance to water penetration](https://www.iso.org/standard/65149.html). Hydrostatic-pressure test method, confirmed current in 2025.
-- **S9 — ISO:** [ISO 13287:2019 — Footwear — Test method for slip resistance](https://www.iso.org/standard/74965.html). Test method for PPE footwear slip resistance.
-- **S10 — GS1:** [How Global Product Classification works](https://www.gs1.org/standards/gpc/how-gpc-works) and [GPC implementation guide](https://www.gs1.org/docs/gpc/GPC_Development_Implementation.pdf). Stable classification codes, descriptions, attributes, and change management.
+- **S1: CDC/NIOSH:** [The Physiological Response of Working in Cold Environments and how your PPE can Help](https://www.cdc.gov/niosh/bulletin/2021/cold_ppe.html). Several loose layers, avoiding wet clothing, waterproof insulated boots, protection for ears/face/hands/feet, and wind-related heat loss.
+- **S2: REI Co-op Expert Advice:** [Layering Basics](https://www.rei.com/learn/expert-advice/layering-basics.html). Base/middle/outer functions, adjustment across conditions, and the difference between water-resistant and waterproof shells.
+- **S3: National Weather Service:** [Understanding Wind Chill](https://www.weather.gov/safety/cold-wind-chill-chart). Wind and cold increase heat loss from exposed skin; US warning thresholds are intentionally not adopted.
+- **S4: NOAA:** [Wind Chill](https://prod-01-alb-www-noaa.woc.noaa.gov/jetstream/synoptic/wind-chill). Wind removes body heat faster and affects perceived cold.
+- **S5: National Weather Service:** [Wind Chill Safety](https://www.weather.gov/bou/windchill). Wet clothing increases heat loss; layers, coverage, and waterproof insulated boots are relevant in cold weather.
+- **S6: CDC:** [Heat-related illness prevention: clothing](https://www.cdc.gov/nceh/hsb/extreme/Heat_Illness/page1720.html). Lightweight, light-colored, loose-fitting clothing and evaporative heat loss.
+- **S7: CDC:** [Sun Safety Facts](https://www.cdc.gov/skin-cancer/sun-safety/index.html). Coverage, weave, wetness, color, hats, and certified UV protection.
+- **S8: ISO:** [ISO 811:2018: Textiles: Determination of resistance to water penetration](https://www.iso.org/standard/65149.html). Hydrostatic-pressure test method, confirmed current in 2025.
+- **S9: ISO:** [ISO 13287:2019: Footwear: Test method for slip resistance](https://www.iso.org/standard/74965.html). Test method for PPE footwear slip resistance.
+- **S10: GS1:** [How Global Product Classification works](https://www.gs1.org/standards/gpc/how-gpc-works) and [GPC implementation guide](https://www.gs1.org/docs/gpc/GPC_Development_Implementation.pdf). Stable classification codes, descriptions, attributes, and change management.
 
 ## Recommended modeling approach
 
@@ -406,26 +406,26 @@ These records are **model-consistency examples**, not the final production fixtu
 
 | `typeId` | Category | Roles | Thermal | Water | Wind | Breathability | Region / coverage | Traction | Applicability |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `sleeveless_top` | `top` | `base`, `standalone` | `none` | — | — | `high` | `upper_body`; arms `none` | — | both |
-| `t_shirt` | `top` | `base`, `standalone` | `none` | — | — | `high` | `upper_body`; arms `partial` | — | both |
-| `long_sleeve_t_shirt` | `top` | `base`, `standalone` | `light` | — | — | `high` | `upper_body`; arms `full` | — | both |
-| `sweater` | `top` | `mid`, `standalone` | `moderate` | — | — | `moderate` | `upper_body`; arms `full` | — | both |
-| `cardigan` | `top` | `mid`, `standalone` | `moderate` | — | — | `moderate` | `upper_body`; arms `full` | — | both |
-| `overshirt` | `top` | `mid`, `outer`, `standalone` | `light` | `none` | `none` | `moderate` | `upper_body`; arms `full` | — | both |
-| `trousers` | `bottom` | `standalone` | `light` | — | — | `moderate` | `lower_body`; legs `full` | — | both |
-| `leggings` | `bottom` | `standalone` | `moderate` | — | — | `moderate` | `lower_body`; legs `full` | — | `womens` |
-| `shorts` | `bottom` | `standalone` | `none` | — | — | `high` | `lower_body`; legs `partial` | — | both |
-| `dress` | `one_piece` | `standalone` | `light` | — | — | `moderate` | `full_body`; arms `none`, legs `partial` | — | `womens` |
-| `insulated_jacket` | `outerwear` | `outer` | `high` | `water_resistant` | `wind_resistant` | `low` | `upper_body`; arms `full` | — | both |
-| `rain_jacket` | `outerwear` | `outer` | `none` | `waterproof` | `wind_resistant` | `moderate` | `upper_body`; arms `full` | — | both |
-| `sneakers` | `footwear` | — | `light` | `none` | — | `moderate` | `feet` | `everyday` | both |
-| `sandals` | `footwear` | — | `none` | `none` | — | `high` | `feet` | `everyday` | both |
-| `weather_boots` | `footwear` | — | `high` | `waterproof` | — | `low` | `feet` | `enhanced` | both |
-| `beanie` | `accessory` | — | `moderate` | — | — | `moderate` | `head` | — | both |
-| `scarf` | `accessory` | — | `moderate` | — | — | `moderate` | `neck` | — | both |
-| `gloves` | `accessory` | — | `moderate` | `none` | — | `moderate` | `hands` | — | both |
-| `brimmed_hat` | `accessory` | — | `none` | — | — | `high` | `head` | — | both |
-| `umbrella` | `accessory` | — | — | `waterproof` | — | — | — | — | both |
+| `sleeveless_top` | `top` | `base`, `standalone` | `none` | n/a | n/a | `high` | `upper_body`; arms `none` | n/a | both |
+| `t_shirt` | `top` | `base`, `standalone` | `none` | n/a | n/a | `high` | `upper_body`; arms `partial` | n/a | both |
+| `long_sleeve_t_shirt` | `top` | `base`, `standalone` | `light` | n/a | n/a | `high` | `upper_body`; arms `full` | n/a | both |
+| `sweater` | `top` | `mid`, `standalone` | `moderate` | n/a | n/a | `moderate` | `upper_body`; arms `full` | n/a | both |
+| `cardigan` | `top` | `mid`, `standalone` | `moderate` | n/a | n/a | `moderate` | `upper_body`; arms `full` | n/a | both |
+| `overshirt` | `top` | `mid`, `outer`, `standalone` | `light` | `none` | `none` | `moderate` | `upper_body`; arms `full` | n/a | both |
+| `trousers` | `bottom` | `standalone` | `light` | n/a | n/a | `moderate` | `lower_body`; legs `full` | n/a | both |
+| `leggings` | `bottom` | `standalone` | `moderate` | n/a | n/a | `moderate` | `lower_body`; legs `full` | n/a | `womens` |
+| `shorts` | `bottom` | `standalone` | `none` | n/a | n/a | `high` | `lower_body`; legs `partial` | n/a | both |
+| `dress` | `one_piece` | `standalone` | `light` | n/a | n/a | `moderate` | `full_body`; arms `none`, legs `partial` | n/a | `womens` |
+| `insulated_jacket` | `outerwear` | `outer` | `high` | `water_resistant` | `wind_resistant` | `low` | `upper_body`; arms `full` | n/a | both |
+| `rain_jacket` | `outerwear` | `outer` | `none` | `waterproof` | `wind_resistant` | `moderate` | `upper_body`; arms `full` | n/a | both |
+| `sneakers` | `footwear` | n/a | `light` | `none` | n/a | `moderate` | `feet` | `everyday` | both |
+| `sandals` | `footwear` | n/a | `none` | `none` | n/a | `high` | `feet` | `everyday` | both |
+| `weather_boots` | `footwear` | n/a | `high` | `waterproof` | n/a | `low` | `feet` | `enhanced` | both |
+| `beanie` | `accessory` | n/a | `moderate` | n/a | n/a | `moderate` | `head` | n/a | both |
+| `scarf` | `accessory` | n/a | `moderate` | n/a | n/a | `moderate` | `neck` | n/a | both |
+| `gloves` | `accessory` | n/a | `moderate` | `none` | n/a | `moderate` | `hands` | n/a | both |
+| `brimmed_hat` | `accessory` | n/a | `none` | n/a | n/a | `high` | `head` | n/a | both |
+| `umbrella` | `accessory` | n/a | n/a | `waterproof` | n/a | n/a | n/a | n/a | both |
 
 These defaults intentionally remain coarse. A mesh sneaker, heavy sweater, short-sleeved dress, unlined waterproof shell, or fashion boot is carried by its catalog type rather than by forcing another canonical type.
 

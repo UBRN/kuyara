@@ -68,17 +68,19 @@ not coordinates:
   wearing the outfit: the pieces lie on the stage, not on a body. No equal-size icon grid.
   No arbitrary scatter. No overlap unless it genuinely improves the composition.
 
-Today does not carry garment names or a five-row name list. Its one-line title gives
-Today, localized weekday and date, temperature in the device locale's unit, and
-condition (the clock time is not part of it, so the four segments fit one line); a small archetype label sits below. The card does not repeat that weather
-line. Two primary-ink body insight sentences replace the overview rationale.
+Today does not carry garment names or a five-row name list. The top row places the
+location opposite the localized date. The title below combines Today, temperature in
+the device locale's unit, an animated condition symbol, and condition. A small day-type
+pill at the title's right opens the day-type selection, and a small archetype label sits
+below. The card does not repeat the weather line. Two primary-ink body insight sentences
+replace the overview rationale.
 
 ### 3. The weather tints the stage rather than occupying a band
 
 [ADR 0018](0018-the-atmospheric-condition-band.md) defines a condition tint on the
-surface the garments lie on, with one temperature and one condition glyph in that
-surface's corner. The sky colours the ground under today's clothes and the two halves of
-the product become one object. Do not add a separate full-width atmosphere strip.
+surface the garments lie on. Temperature and the animated condition symbol sit in the
+title, outside the garment card. The sky colours the ground under today's clothes and
+the two halves of the product become one object. Do not add a separate full-width atmosphere strip.
 
 ADR 0018 owns the seven-state closed set, the derivation of every value as a blend of two
 approved brand hexes, the contrast floors, and the rule that no state may make contrast
@@ -136,10 +138,10 @@ engine's rules would reject the look.
 
 Provenance belongs next to the thing it describes, not in a page footer. When AI materially
 contributed, the interface shows a prominent filled badge in the controlled `provenance` role
-directly under Today's title, carrying words only. It carries no glyph: the spark is the
-AI-assistant convention [`visual-identity.md`](../design/visual-identity.md) refuses, and a
-badge that draws one is that convention whichever role fills it. The badge is a record, not
-a control: it is not touchable, it never stands on the tinted stage, and what it means is
+directly under Today's title. The on-device badge pairs its Apple Intelligence words with
+the multicolor original `apple.intelligence` SF Symbol in a non-purple badge. The Worker
+badge pairs "Chosen with AI" with a colorful AI symbol in the purple family. The badge
+is a record, not a control: it is not touchable, it never stands on the tinted stage, and what it means is
 explained on Settings > Service providers. Freshness keeps its own quiet metadata line.
 The reader first sees that AI chose the look, then reads the insight.
 
@@ -162,9 +164,10 @@ stacked hourly table.
 
 Gentle entrance of the garment pieces, a subtle transition between suggestions, and
 weather-state glyph transitions are the sanctioned uses. The first recommendation of
-a dressing day fills a garment-board skeleton in a full-screen overlay without a
-mannequin, avatar or mascot. [ADR 0020](0020-rewriting-the-motion-law.md) requires
-words to carry state alongside motion.
+a dressing day uses a full-screen runway with the day's atmosphere colour, falling or
+drifting weather particles, and garment silhouettes gliding onto the board one by one.
+Only garment silhouettes enter the board; there is no mannequin, avatar or mascot.
+[ADR 0020](0020-rewriting-the-motion-law.md) requires words to carry state alongside motion.
 
 ## Consequences
 

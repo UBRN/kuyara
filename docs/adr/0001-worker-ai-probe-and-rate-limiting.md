@@ -239,8 +239,8 @@ the AI-status section with a `scrim`), not a new route. It contains a custom
 `react-native-reanimated` dependency, following the `weather-glyph.tsx`
 precedent, plus a localized "Checking AI status…" line.
 
-- The indicator is an indefinite loop and continues under the OS Reduce Motion
-  setting. Its localized label carries the state in words.
+- The indicator is an indefinite loop and continues regardless of the OS motion
+  preference. Its localized label carries the state in words.
 - The overlay is a screen-reader stop with a label; focus returns to the
   "Check AI status" button when it dismisses.
 - No new dependency, no new theme token, no new shared primitive.

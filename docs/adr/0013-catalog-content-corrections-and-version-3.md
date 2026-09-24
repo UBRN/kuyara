@@ -66,8 +66,8 @@ Wardrobe override can close.
 
 | `typeId` | Category | Roles | Thermal | Water | Wind | Breathability | Coverage | Formality | Applicability |
 |---|---|---|---|---|---|---|---|---|---|
-| `sleeveless_top` | `top` | `base`, `standalone` | `none` | — | — | `high` | arms `none` | `casual` | both |
-| `leggings` | `bottom` | `standalone` | `moderate` | — | — | `moderate` | legs `full` | `casual` | `womens` |
+| `sleeveless_top` | `top` | `base`, `standalone` | `none` | n/a | n/a | `high` | arms `none` | `casual` | both |
+| `leggings` | `bottom` | `standalone` | `moderate` | n/a | n/a | `moderate` | legs `full` | `casual` | `womens` |
 
 `leggings` closes the warm-bottom hole for `womens` only; see section 3 for why
 it is not offered to `mens`. It surfaces only in cold buckets, where scoring is
