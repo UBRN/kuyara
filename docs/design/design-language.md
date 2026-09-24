@@ -433,8 +433,8 @@ as the shortest perceived wait. Ambient motion never runs under a hero value. A 
 is a role in the sense of Law 9, so the role is named ahead of its second use.
 
 The condition symbol uses a closed animation vocabulary: sun turns, clouds drift, rain
-and snow fall, and wind streams. The first recommendation uses a full-screen runway:
-the day's atmosphere colour fills the screen, weather particles fall or drift, and
+and snow fall, and wind streams. The first recommendation uses a runway:
+the day's atmosphere colour fills Today down to the tab bar, which stays usable, weather particles fall or drift, and
 garment silhouettes glide one by one onto the board. Progress and a rotating line sit
 below. The runway uses the garment silhouettes without a mannequin or mascot.
 
