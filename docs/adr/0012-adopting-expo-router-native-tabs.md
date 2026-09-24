@@ -57,10 +57,9 @@ reinstating the `tabBar` render prop.
 The three-tab information architecture is final per ADR 0006 and does not
 change: Today at `/`, Weather at `/weather`, Profile at `/profile`, with
 Wardrobe and Settings inside Profile. Localized visible labels, the selected
-accessibility state, and the minimum touch target must survive. The known
-issue that primary tab labels truncate at the largest accessibility text
-size must be re-checked after migration, because label rendering moves from
-JS to the platform.
+accessibility state, and the minimum touch target must survive. Primary tab
+label truncation must be re-checked after migration at the largest standard
+text size, because label rendering moves from JS to the platform.
 
 ### Android consequence
 
