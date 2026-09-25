@@ -131,6 +131,7 @@ function createHarness({ cached = null, client, failSave = false, captureAnalyti
     client: aiClient,
     captureAnalyticsEvent,
     holdPhase: holdPhase ?? (async () => undefined),
+    reserveAiReask: async () => true,
   });
   return { controller, calls, repository, requests, getStored: () => stored };
 }
@@ -192,6 +193,7 @@ test('exhaustion compares the complete pool with the current shown set', async (
   const ids = snapshot.recommendation.outfits.map(({ optionId }) => optionId);
   assert.equal(recommendationPoolExhausted(ids, snapshot), true);
   assert.equal(recommendationPoolExhausted([...ids, 'unseen-valid-option'], snapshot), false);
+  assert.equal(recommendationPoolExhausted([], snapshot), true);
   assert.equal(recommendationPoolExhausted(null, snapshot), false);
   assert.equal(recommendationPoolExhausted(ids, null), false);
 });
@@ -299,7 +301,7 @@ test('a changed persisted location triggers a recommendation', () => {
   );
 });
 
-test('trigger selection distinguishes stale refresh from unapproved weather changes', () => {
+test('weather refresh alone preserves the recommendation while approved signals trigger generation', () => {
   const current = {
     weatherSnapshotId: 'weather-two',
     locationKey: 'location-one',
@@ -313,8 +315,8 @@ test('trigger selection distinguishes stale refresh from unapproved weather chan
 
   assert.equal(recommendationRefreshTrigger(previous, current, null), null);
   assert.equal(
-    recommendationRefreshTrigger(previous, current, 'weather-one'),
-    'stale-weather-refreshed',
+    recommendationRefreshTrigger(previous, current),
+    null,
   );
   assert.equal(
     recommendationRefreshTrigger({ ...previous, locationKey: 'old' }, current, null),
@@ -611,6 +613,23 @@ test('an unclassifiable throw is unknown, and a success clears the category', as
   assert.equal(recovered.controller.getSnapshot().lastFailure, null);
   await recovered.controller.refresh('explicit', input(16));
   assert.equal(recovered.controller.getSnapshot().lastFailure, null);
+});
+
+test('clearing an old failure keeps the saved outfit and does not persist', async () => {
+  const cached = await persistedRecommendation();
+  const { controller, calls, getStored } = createHarness({ cached, failSave: true });
+  await controller.initialize();
+  await controller.refresh('explicit', input(20));
+  assert.equal(controller.getSnapshot().lastFailure, 'unknown');
+  const saved = controller.getSnapshot().snapshot;
+  const saves = calls.saves;
+
+  controller.clearLastFailure();
+
+  assert.equal(controller.getSnapshot().lastFailure, null);
+  assert.equal(controller.getSnapshot().snapshot, saved);
+  assert.equal(getStored(), cached);
+  assert.equal(calls.saves, saves);
 });
 
 test('an unusable input is an unknown failure without touching the AI client', async () => {

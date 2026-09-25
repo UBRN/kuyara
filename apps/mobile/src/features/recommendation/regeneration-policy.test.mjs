@@ -12,25 +12,23 @@ import {
   aiRequestFromContext,
   createRecommendationContext,
 } from './data/worker-ai-recommendation-mapper.ts';
-import { regenerationMode, regenerationPolicy } from './domain/regeneration-policy.ts';
+import { regenerationPolicy } from './domain/regeneration-policy.ts';
 import { todayWeatherSnapshot } from '../today/__tests__/fixtures.ts';
 
 const profileId = 'profile-one';
 const today = '2026-08-13';
 const tomorrow = '2026-08-14';
 
-// The in-memory twin of `ExpoFileAiRegenerationBudget`: one day's count, and a key that is
-// not today's reads as zero, so a new local day needs no sweep. `record` mutates before its
-// first await, which is what makes the provider's fire-and-forget `void record(...)` land
-// before the next read.
+// Mirrors the dressing-day reservation contract without file I/O.
 function inMemoryBudget() {
   let entry = { dayKey: '', count: 0 };
   return {
     usedToday: async (dayKey) => (entry.dayKey === dayKey ? entry.count : 0),
-    record: async (dayKey) => {
-      entry = entry.dayKey === dayKey
-        ? { dayKey, count: entry.count + 1 }
-        : { dayKey, count: 1 };
+    reserve: async (dayKey) => {
+      const count = entry.dayKey === dayKey ? entry.count : 0;
+      if (count >= regenerationPolicy.dailyAiRegenerations) return false;
+      entry = { dayKey, count: count + 1 };
+      return true;
     },
   };
 }
@@ -110,18 +108,7 @@ function createController({ client, budget, captures = [] }) {
     client,
     captureAnalyticsEvent: (name, properties) => captures.push({ name, properties }),
     holdPhase: async () => undefined,
-    onAiAttempt: (trigger, dayKey) => {
-      if (trigger === 'regenerate') void budget.record(dayKey);
-    },
-  });
-}
-
-// Exactly what `RecommendationApplicationProvider.regenerate` does: read the allowance, ask
-// the policy, and hand the answer to the controller as `allowAi`.
-async function regenerate(controller, budget, input) {
-  const used = await budget.usedToday(input.localDayKey);
-  return controller.refresh('regenerate', input, {
-    allowAi: regenerationMode(used) === 'ai',
+    reserveAiReask: (dayKey) => budget.reserve(dayKey),
   });
 }
 
@@ -129,13 +116,8 @@ function optionIds(snapshot) {
   return snapshot.recommendation.outfits.map(({ optionId }) => optionId);
 }
 
-test('the policy opens the AI path until the daily allowance is spent, then the pool path', () => {
+test('the re-ask allowance is five reservations per dressing-day date', () => {
   assert.equal(regenerationPolicy.dailyAiRegenerations, 5);
-  assert.equal(regenerationMode(0), 'ai');
-  assert.equal(regenerationMode(4), 'ai');
-  assert.equal(regenerationMode(5), 'pool');
-  // The number is a policy argument, not a constant baked into the rule.
-  assert.equal(regenerationMode(1, { dailyAiRegenerations: 1 }), 'pool');
 });
 
 test('chip formality refresh reaches AI without spending the regeneration allowance', async () => {
@@ -161,7 +143,7 @@ test('the sixth regeneration of a local day builds no request and composes from 
 
   const snapshots = [];
   for (let attempt = 0; attempt < 6; attempt += 1) {
-    snapshots.push(await regenerate(controller, budget, input));
+    snapshots.push(await controller.refresh('regenerate', input));
   }
 
   // Five taps reached the chain; the sixth never built a request, so nothing was sent.
@@ -178,10 +160,26 @@ test('the sixth regeneration of a local day builds no request and composes from 
     new Set(pooled.recommendation.outfits.map(({ archetypeId }) => archetypeId)).size,
     3,
   );
-  // Gate 3: the pool three are not the three that were on screen.
-  const previous = new Set(optionIds(snapshots[4]));
-  assert.ok(optionIds(pooled).every((id) => !previous.has(id)));
   // Gate 5's second half: the tap that never reached the chain spent nothing.
+  assert.equal(await budget.usedToday(today), 5);
+});
+
+test('six distinct concurrent re-asks reserve five slots before any AI call', async () => {
+  const budget = inMemoryBudget();
+  const requests = [];
+  const controllers = Array.from({ length: 6 }, (_, index) => {
+    const input = inputFor({ ...todayWeatherSnapshot, id: `weather-${index}` });
+    const routed = aiClient(input);
+    requests.push(routed.requests);
+    return { input, controller: createController({ client: routed.client, budget }) };
+  });
+  await Promise.all(controllers.map(({ controller }) => controller.initialize()));
+  const snapshots = await Promise.all(controllers.map(({ controller, input }) =>
+    controller.refresh('regenerate', input)));
+
+  assert.equal(requests.reduce((sum, entries) => sum + entries.length, 0), 5);
+  assert.equal(snapshots.filter(({ generationMode }) => generationMode === 'ai-assisted').length, 5);
+  assert.equal(snapshots.filter(({ generationMode }) => generationMode === 'deterministic-fallback').length, 1);
   assert.equal(await budget.usedToday(today), 5);
 });
 
@@ -194,11 +192,11 @@ test('a new local day reads the allowance as zero and the next tap takes the AI 
   await controller.initialize();
 
   for (let attempt = 0; attempt < 6; attempt += 1) {
-    await regenerate(controller, budget, input);
+    await controller.refresh('regenerate', input);
   }
   assert.equal(requests.length, 5);
 
-  const nextDay = await regenerate(controller, budget, inputFor(todayWeatherSnapshot, tomorrow));
+  const nextDay = await controller.refresh('regenerate', inputFor(todayWeatherSnapshot, tomorrow));
   assert.equal(requests.length, 6);
   assert.equal(nextDay.generationMode, 'ai-assisted');
   assert.equal(await budget.usedToday(tomorrow), 1);
@@ -207,16 +205,16 @@ test('a new local day reads the allowance as zero and the next tap takes the AI 
   assert.equal(await budget.usedToday(today), 0);
 });
 
-// Gate 3, on its own: two pool taps in a row each offer something else.
-test('consecutive pool regenerations each offer a valid three that is not the last', async () => {
+// A confirmed re-ask can repeat an earlier selection.
+test('consecutive pool re-asks can repeat the same valid three', async () => {
   const input = inputFor();
-  const budget = inMemoryBudget();
+  const budget = { reserve: async () => false };
   const { client, requests } = aiClient(input);
   const controller = createController({ client, budget });
   await controller.initialize();
 
-  const first = await controller.refresh('regenerate', input, { allowAi: false });
-  const second = await controller.refresh('regenerate', input, { allowAi: false });
+  const first = await controller.refresh('regenerate', input);
+  const second = await controller.refresh('regenerate', input);
 
   assert.equal(requests.length, 0);
   for (const snapshot of [first, second]) {
@@ -224,8 +222,7 @@ test('consecutive pool regenerations each offer a valid three that is not the la
     assert.equal(snapshot.recommendation.status, 'recommended');
     assert.equal(snapshot.recommendation.outfits.length, 3);
   }
-  const shown = new Set(optionIds(first));
-  assert.ok(optionIds(second).every((id) => !shown.has(id)));
+  assert.deepEqual(optionIds(second), optionIds(first));
 });
 
 // Gate 4. This is the recorded behaviour of `docs/product-decisions.md`'s cache identity
@@ -236,13 +233,13 @@ test('a warm day composing four options drops the exclusion and repeats the same
   assert.equal(context.options.length, 4);
 
   const input = inputFor(warm);
-  const budget = inMemoryBudget();
+  const budget = { reserve: async () => false };
   const { client } = aiClient(input);
   const controller = createController({ client, budget });
   await controller.initialize();
 
-  const first = await controller.refresh('regenerate', input, { allowAi: false });
-  const second = await controller.refresh('regenerate', input, { allowAi: false });
+  const first = await controller.refresh('regenerate', input);
+  const second = await controller.refresh('regenerate', input);
 
   assert.deepEqual(optionIds(second), optionIds(first));
 });
@@ -261,35 +258,34 @@ test('an AI attempt that fails into the deterministic three still spends one reg
   });
   await controller.initialize();
 
-  const snapshot = await regenerate(controller, budget, input);
+  const snapshot = await controller.refresh('regenerate', input);
 
   assert.equal(snapshot.generationMode, 'deterministic-fallback');
   assert.equal(await budget.usedToday(today), 1);
 });
 
-// Gate 5's second half, at the boundary that decides it: a pool under three yields no
-// request at all, and the controller records an attempt only inside the request branch.
-test('a pool under three builds no request, so no regeneration is spent', async () => {
+test('a failed budget reservation never enters AI and still returns three outfits', async () => {
+  for (const reserve of [async () => false, async () => { throw new Error('store unavailable'); }]) {
+    const input = inputFor();
+    const budget = { reserve };
+    const { client, requests } = aiClient(input);
+    const controller = createController({ client, budget });
+    await controller.initialize();
+    const snapshot = await controller.refresh('regenerate', input);
+    assert.equal(requests.length, 0);
+    assert.equal(snapshot.generationMode, 'deterministic-fallback');
+    assert.equal(snapshot.recommendation.outfits.length, 3);
+  }
+});
+
+test('a pool under three builds no AI request', () => {
   const context = createRecommendationContext(inputFor(), today);
   const narrow = { ...context, options: context.options.slice(0, 2) };
 
   assert.equal(aiRequestFromContext(narrow), null);
-
-  const input = inputFor();
-  const budget = inMemoryBudget();
-  const { client, requests } = aiClient(input);
-  const controller = createController({ client, budget });
-  await controller.initialize();
-
-  await controller.refresh('regenerate', input, { allowAi: false });
-
-  assert.equal(requests.length, 0);
-  assert.equal(await budget.usedToday(today), 0);
 });
 
-// Gate 6: the six automatic triggers are still the only ones the signal comparison produces.
-// "show another outfit" is a user action and can never be inferred from a signal change.
-test('the signal comparison never produces the regenerate trigger', () => {
+test('weather alone preserves the outfit and every approved signal still triggers generation', () => {
   const signals = {
     weatherSnapshotId: 'snapshot-one',
     locationKey: 'manual:sample.istanbul',
@@ -299,19 +295,19 @@ test('the signal comparison never produces the regenerate trigger', () => {
     localDayKey: today,
   };
   const changes = [
-    { weatherSnapshotId: 'snapshot-two' },
-    { locationKey: 'manual:sample.ankara' },
-    { clothingPreference: 'mens' },
-    { dressStyle: 'casual' },
-    { catalogVersion: 2 },
-    { localDayKey: tomorrow },
-    {},
+    [{ weatherSnapshotId: 'snapshot-two' }, null],
+    [{ locationKey: 'manual:sample.ankara' }, 'active-location-changed'],
+    [{ clothingPreference: 'mens' }, 'clothing-preference-changed'],
+    [{ dressStyle: 'casual' }, 'dress-style-changed'],
+    [{ styleAesthetics: ['minimal'] }, 'dress-style-changed'],
+    [{ catalogVersion: 2 }, 'first-recommendation'],
+    [{ localDayKey: tomorrow }, 'local-day-changed'],
+    [{}, null],
   ];
-  for (const change of changes) {
-    const trigger = recommendationRefreshTrigger(signals, { ...signals, ...change }, null);
-    assert.notEqual(trigger, 'regenerate');
+  for (const [change, expected] of changes) {
+    assert.equal(recommendationRefreshTrigger(signals, { ...signals, ...change }), expected);
   }
-  assert.equal(recommendationRefreshTrigger(null, signals, null), 'first-recommendation');
+  assert.equal(recommendationRefreshTrigger(null, signals), 'first-recommendation');
 });
 
 // Gate 8.
@@ -323,8 +319,8 @@ test('two taps in the same tick coalesce into one generation', async () => {
   await controller.initialize();
 
   const [first, second] = await Promise.all([
-    regenerate(controller, budget, input),
-    regenerate(controller, budget, input),
+    controller.refresh('regenerate', input),
+    controller.refresh('regenerate', input),
   ]);
 
   assert.equal(requests.length, 1);
@@ -335,15 +331,17 @@ test('two taps in the same tick coalesce into one generation', async () => {
 // ADR 0023 and taxonomy 5.5.
 test('regeneration_source qualifies a regenerate success and no other event', async () => {
   const input = inputFor();
-  const budget = inMemoryBudget();
+  let reservationAllowed = true;
+  const budget = { reserve: async () => reservationAllowed };
   const captures = [];
   const { client } = aiClient(input);
   const controller = createController({ client, budget, captures });
   await controller.initialize();
 
   await controller.refresh('explicit', input);
-  await regenerate(controller, budget, input);
-  await controller.refresh('regenerate', input, { allowAi: false });
+  await controller.refresh('regenerate', input);
+  reservationAllowed = false;
+  await controller.refresh('regenerate', input);
 
   const regenerated = captures.filter(({ name }) => name === 'recommendation_regenerated');
   assert.equal(regenerated.length, 3);
