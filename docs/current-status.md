@@ -51,9 +51,9 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   generated, the same phase line replaces the freshness caption during a refresh of a
   shown recommendation, its pull cycle keeps spinning until both the weather and the
   recommendation refresh settle, and its clock re-reads on focus and on foreground. Under the
-  garment board it shows the existing deterministic day insight and a second sentence about
-  a precipitation interval, sustained temperature, wind interval or temperature swing when
-  the forecast supports one. Both lines use body text and primary ink. The top row pairs
+  garment board it shows one insight line in body text and primary ink: the validated AI
+  sentence, else the deterministic day insight. After a place change it waits for the new
+  place's weather instead of showing the previous place's under the new name. The top row pairs
   the place with the dressing day's date, which turns at 04:00. The title is one localized
   template, Today, temperature, the condition's animated SF Symbol and the condition; Today
   has no day-type pill. Directly under the board a clock caption states the window the outfit
@@ -67,12 +67,12 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   a changed type as the day's `chip` answer and a Later departure under its own dressing day,
   then runs one reserved re-ask while the outfit dims under a "Choosing for the weather
   between …" line; approved-trigger evaluation waits for it. The 18:00 evening sheet opens
-  empty on the first foreground open of the evening key. A morning or evening answer dims the
+  empty on the first foreground open of the evening key; closing either sheet answers it with
+  the profile dress style. A morning or evening answer dims the
   outfit under an "Updating for a … day" line until the new one lands. The AI badge sits
   below with its own symbol (multicolor Apple Intelligence on a neutral, `sparkles` in the
   purple family for the Worker), the archetype is a small label, the finishing touches are a
-  caption with 16-point drawings whose stroke scales with them, Plan tomorrow is a one-row
-  group that names the target weekday after midnight, and outfit reasons appear only on
+  caption with 16-point drawings whose stroke scales with them, and outfit reasons appear only on
   detail, whose weather recap carries the coverage sentence. The hours
   from 18:00 are called the evening rather than the night, and every
   temperature it prints carries one decimal in the reader's own separator. Only the coarse generation mode is exposed,

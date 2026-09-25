@@ -13,8 +13,6 @@ import {
   GarmentDrawing,
   haptics,
   Icon,
-  ListRow,
-  ListRowGroup,
   PressScale,
   measureGarmentBoardHeight,
   Pill,
@@ -45,6 +43,7 @@ import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { TitleWeatherSymbol } from '@/features/today/presentation/weather-glyph';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity';
+import { activeLocationSnapshot } from '@/features/weather/domain/weather';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
@@ -85,9 +84,6 @@ type TodayScreenProps = Readonly<{
   updatingDayType?: DressStyle | null;
   /** The first dressing day, the day the profile was set up, takes its own greeting. */
   firstDressingDay?: boolean;
-  /** The Plan row (N23), already worded for the target day. */
-  planRow?: Readonly<{ label: string; value: string; accessibilityLabel: string }>;
-  onPlanTomorrow?: () => void;
 }>;
 
 export function TodayScreen(props: TodayScreenProps) {
@@ -104,7 +100,9 @@ export function TodayScreen(props: TodayScreenProps) {
   // The runway draws neutral drafts while the wait runs and receives the chosen outfit
   // once, when the answer is in (N2, O1); skipping makes the device's pick that answer.
   const runwayOutfit = settled;
-  const weatherState = weather.state.status === 'ready' ? weather.state : null;
+  // S3: the runway reads the weather of the active place only, never a previous place's.
+  const placeSnapshot = weather.state.status === 'ready'
+    ? activeLocationSnapshot(weather.state.snapshot, weather.state.activeLocation) : null;
 
   return (
     <View style={styles.root}>
@@ -114,21 +112,21 @@ export function TodayScreen(props: TodayScreenProps) {
         completed={settled !== null}
         language={props.language}
         onSkip={() => { void application?.skipWait(); }}
-        outfit={runwayOutfit && weatherState?.snapshot ? {
+        outfit={runwayOutfit && placeSnapshot ? {
           id: runwayOutfit.optionId,
           pieces: outfitBoardPieces(runwayOutfit),
           palette: outfitGarmentPalette(runwayOutfit, garmentPaletteDay(
-            weatherState.snapshot, now,
+            placeSnapshot, now,
             snapshot?.paletteWeather
               ? { ...snapshot.paletteWeather, localDayKey: snapshot.localDayKey }
               : undefined,
           )),
         } : null}
         phase={recommendationState?.phase ?? null}
-        weather={weatherState?.snapshot
+        weather={placeSnapshot && weather.state.status === 'ready'
           ? runwayWeather(
-            weatherState.snapshot,
-            weatherState.activeLocation?.coordinates ?? null,
+            placeSnapshot,
+            weather.state.activeLocation?.coordinates ?? null,
             props.language,
             hour12,
             now,
@@ -151,8 +149,6 @@ function TodayScreenContent({
   onAskAgain,
   updatingDayType = null,
   firstDressingDay = false,
-  planRow,
-  onPlanTomorrow,
 }: TodayScreenProps & Readonly<{ now: number }>) {
   const router = useRouter();
   const recommendationApplication = use(RecommendationApplicationContext);
@@ -508,14 +504,9 @@ function TodayScreenContent({
                 </AppText>
               </View>
             ) : null}
-            {presentation.dayInsight || presentation.dayWindow ? (
-              <Dimmed dimmed={updating} style={styles.insights}>
-                {presentation.dayInsight ? (
-                  <AppText testID="today-day-insight" variant="body">{presentation.dayInsight}</AppText>
-                ) : null}
-                {presentation.dayWindow ? (
-                  <AppText testID="today-day-window" variant="body">{presentation.dayWindow}</AppText>
-                ) : null}
+            {presentation.dayInsight ? (
+              <Dimmed dimmed={updating} style={styles.insight}>
+                <AppText testID="today-day-insight" variant="body">{presentation.dayInsight}</AppText>
               </Dimmed>
             ) : null}
             {primary.accessories.length > 0 || presentation.coolSpellCaption ? (
@@ -563,22 +554,6 @@ function TodayScreenContent({
               {presentation.noOutfit.body}
             </AppText>
           </Surface>
-        ) : null}
-
-        {/* One row in the Profile row anatomy: the target day as its label, the date as its value. */}
-        {planRow && onPlanTomorrow ? (
-          <View style={styles.planTomorrow}>
-            <ListRowGroup>
-              <ListRow
-                accessibilityLabel={planRow.accessibilityLabel}
-                glyph={({ color, size }) => <Icon color={color} name="calendar" size={size} />}
-                label={planRow.label}
-                onPress={onPlanTomorrow}
-                testID="today-plan-tomorrow"
-                value={planRow.value}
-              />
-            </ListRowGroup>
-          </View>
         ) : null}
 
         {alternates.length > 0 ? (
@@ -922,7 +897,7 @@ const styles = StyleSheet.create({
   updatingText: { flexShrink: 1 },
   outfitName: { flex: 1, flexShrink: 1 },
   disclosure: { opacity: 0.55 },
-  insights: { gap: spacing.sm, marginTop: spacing.xl },
+  insight: { marginTop: spacing.xl },
   finishingTouches: { gap: spacing.sm, marginTop: spacing.md },
   accessoryCaption: { alignItems: 'center', columnGap: spacing.sm, flexDirection: 'row', flexWrap: 'wrap',
     rowGap: spacing.xs },
@@ -936,7 +911,6 @@ const styles = StyleSheet.create({
   stackedProvenance: { alignItems: 'flex-start', flexDirection: 'column' },
   freshness: { flexShrink: 1 },
   stackedFreshness: { width: '100%' },
-  planTomorrow: { marginTop: spacing.md },
   noOutfit: { marginTop: spacing.md },
   alertOffer: { gap: spacing.md, marginTop: spacing.md, padding: spacing.lg },
   alertOfferMessage: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.sm },

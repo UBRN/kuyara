@@ -72,7 +72,7 @@ A screen shows **at most three emphasis levels**, and **exactly one** hero.
   **The hero is not always a type role.** [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md)
   makes the garment composition Today's hero, and Today therefore carries no `display` at
   all; its one-line header uses `title` at weight 700, with a small archetype label below
-  and two `body` insight lines in `textPrimary`. Only metadata such as last updated uses
+  and one `body` insight line in `textPrimary`. Only metadata such as last updated uses
   `textSecondary`. Where the answer to the
   screen's question is a value, the hero is still that value, as the temperature is on
   Weather. Where the answer is a picture, the picture is the hero and the type steps down
