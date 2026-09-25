@@ -1,11 +1,19 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {
+  RecommendationApplicationController,
+  recommendationRefreshTrigger,
+} from '../application/recommendation-application-controller.ts';
+import { reaskForDressingDay } from '../application/reask-for-dressing-day.ts';
+import { garmentCatalogVersion } from '@/features/catalog/domain/garment-catalog';
 
 import {
   LocalRecommendationRepository,
   RecommendationRepositoryError,
 } from './recommendation-repository.ts';
 import { SqliteRecommendationLocalDataSource } from './sqlite-recommendation-local-data-source.ts';
+import { SqliteDressingDayChoiceRepository } from './sqlite-dressing-day-choice-repository.ts';
+import { SqliteDressingDayDepartureRepository } from './sqlite-dressing-day-departure-repository.ts';
 import {
   createRecommendationContext,
 } from './worker-ai-recommendation-mapper.ts';
@@ -216,7 +224,7 @@ test('corrupt persisted payload fails with a sanitized repository error', async 
   );
 });
 
-test('persisted dress style round trips and retired contexts resolve to smart', async (t) => {
+test('persisted dress style round trips and rows without a day key are rejected', async (t) => {
   const { database, repository } = await setup();
   t.after(() => database.close());
   const generated = generatedRecommendation();
@@ -239,9 +247,231 @@ test('persisted dress style round trips and retired contexts resolve to smart', 
   delete context[retiredKey];
   delete context.localDayKey;
   await database.runAsync('UPDATE recommendation_snapshots SET context_json = ?', [JSON.stringify(context)]);
-  const legacySnapshot = await repository.getSnapshot(profileId);
-  assert.equal(legacySnapshot.dressStyle, 'smart');
-  assert.equal(legacySnapshot.localDayKey, null);
+  await assert.rejects(() => repository.getSnapshot(profileId),
+    (error) => error instanceof RecommendationRepositoryError && error.code === 'invalid-data');
+});
+
+test('the snapshot boundary rejects wrong day, catalog, partial, duplicate and invalid trios', async (t) => {
+  const { database, repository } = await setup();
+  t.after(() => database.close());
+  const generated = generatedRecommendation();
+  const input = {
+    weatherSnapshotId: generated.input.snapshot.id,
+    locationKey: generated.input.snapshot.locationKey,
+    context: generated.request,
+    recommendation: generated.recommendation,
+  };
+  await repository.saveSnapshot(profileId, input);
+  await assert.rejects(() => repository.getSnapshot(profileId, '2026-08-01:evening'),
+    (error) => error instanceof RecommendationRepositoryError && error.code === 'invalid-data');
+  assert.equal((await repository.getSnapshot(profileId, generated.input.localDayKey))
+    .recommendation.outfits.length, 3);
+
+  for (const recommendation of [
+    { ...generated.recommendation, outfits: generated.recommendation.outfits.slice(0, 2) },
+    { ...generated.recommendation, outfits: [generated.recommendation.outfits[0],
+      generated.recommendation.outfits[0], generated.recommendation.outfits[2]] },
+  ]) {
+    await assert.rejects(() => repository.saveSnapshot(profileId, { ...input, recommendation }),
+      (error) => error instanceof RecommendationRepositoryError && error.code === 'invalid-input');
+  }
+  await assert.rejects(() => repository.saveSnapshot(profileId, {
+    ...input, context: { ...generated.request, catalogVersion: generated.request.catalogVersion - 1 },
+  }), (error) => error instanceof RecommendationRepositoryError && error.code === 'invalid-input');
+
+  const row = await database.getFirstAsync('SELECT context_json, outfits_json FROM recommendation_snapshots');
+  const savedContext = JSON.parse(row.context_json);
+  const savedOutfits = JSON.parse(row.outfits_json);
+  for (const [field, value] of [
+    ['context_json', JSON.stringify({ ...savedContext, catalogVersion: savedContext.catalogVersion - 1 })],
+    ['outfits_json', JSON.stringify(savedOutfits.slice(0, 2))],
+    ['outfits_json', JSON.stringify([savedOutfits[0], savedOutfits[0], savedOutfits[2]])],
+    ['context_json', JSON.stringify({ ...savedContext, options: savedContext.options.filter(
+      ({ optionId }) => optionId !== generated.recommendation.outfits[0].optionId) })],
+  ]) {
+    await database.runAsync(`UPDATE recommendation_snapshots SET ${field} = ?`, [value]);
+    await assert.rejects(() => repository.getSnapshot(profileId),
+      (error) => error instanceof RecommendationRepositoryError && error.code === 'invalid-data');
+    await database.runAsync('UPDATE recommendation_snapshots SET context_json = ?, outfits_json = ?',
+      [row.context_json, row.outfits_json]);
+  }
+});
+
+test('offline start after a catalog bump replaces the old row from cached weather', async (t) => {
+  const { database, repository } = await setup();
+  t.after(() => database.close());
+  const generated = generatedRecommendation();
+  await repository.saveSnapshot(profileId, {
+    weatherSnapshotId: generated.input.snapshot.id,
+    locationKey: generated.input.snapshot.locationKey,
+    context: generated.request,
+    recommendation: generated.recommendation,
+  });
+  const row = await database.getFirstAsync('SELECT context_json FROM recommendation_snapshots');
+  const oldContext = JSON.parse(row.context_json);
+  oldContext.catalogVersion -= 1;
+  await database.runAsync('UPDATE recommendation_snapshots SET context_json = ?',
+    [JSON.stringify(oldContext)]);
+
+  let networkCalls = 0;
+  const controller = new RecommendationApplicationController(profileId, {
+    loadRepository: async () => repository,
+    client: { recommendRouted: async () => { networkCalls += 1; throw new Error('offline'); } },
+    holdPhase: async () => undefined,
+  });
+  await controller.initialize(generated.input.localDayKey);
+  assert.equal(controller.getSnapshot().snapshot, null);
+  assert.equal(controller.getSnapshot().lastFailure, null);
+  const replaced = await controller.refresh('first-recommendation', generated.input);
+  assert.equal(replaced.recommendation.generationMode, 'deterministic-fallback');
+  assert.equal(replaced.recommendation.outfits.length, 3);
+  assert.equal(replaced.catalogVersion, generated.request.catalogVersion);
+  assert.equal(controller.getSnapshot().snapshot.id, recommendationId);
+  assert.equal(networkCalls, 1);
+});
+
+for (const scenario of [
+  { name: '18:00', currentAt: '2026-09-24T16:00:00.000Z',
+    currentKey: '2026-09-24', departureAt: '2026-09-24T18:30:00.000Z',
+    departureKey: '2026-09-24:evening' },
+  { name: '04:00', currentAt: '2026-09-24T23:00:00.000Z',
+    currentKey: '2026-09-24:evening', departureAt: '2026-09-25T04:30:00.000Z',
+    departureKey: '2026-09-25' },
+]) {
+  test(`crossing ${scenario.name} plans Later without replacing Today, then generates once`, async (t) => {
+    const { database, repository } = await setup();
+    t.after(() => database.close());
+    const base = recommendationInput();
+    const input = {
+      ...base,
+      now: scenario.currentAt,
+      localDayKey: scenario.currentKey,
+      dressStyle: 'smart',
+      snapshot: {
+        ...base.snapshot,
+        fetchedAt: scenario.currentAt,
+        current: { ...base.snapshot.current, observedAt: scenario.currentAt },
+        hourly: [{ ...base.snapshot.hourly[0], forecastAt: scenario.departureAt }],
+      },
+    };
+    const initialRecommendation = recommendOutfits(input);
+    assert.equal(initialRecommendation.status, 'recommended');
+    const current = await repository.saveSnapshot(profileId, {
+      weatherSnapshotId: input.snapshot.id,
+      locationKey: input.snapshot.locationKey,
+      context: createRecommendationContext(input, scenario.currentKey),
+      recommendation: initialRecommendation,
+    });
+    let nextChoiceId = 0;
+    const choiceRepository = new SqliteDressingDayChoiceRepository(database,
+      () => nextChoiceId++ === 0
+        ? 'f60a06dd-65a7-455b-9af3-c28101172170'
+        : 'f60a06dd-65a7-455b-9af3-c28101172172', () => scenario.currentAt);
+    const departureRepository = new SqliteDressingDayDepartureRepository(database,
+      () => 'f60a06dd-65a7-455b-9af3-c28101172171', () => scenario.currentAt);
+    await choiceRepository.upsert(profileId, scenario.currentKey, 'smart', 'morning');
+    let generations = 0;
+    const controller = new RecommendationApplicationController(profileId, {
+      loadRepository: async () => repository,
+      client: { recommendRouted: async () => { generations += 1; throw new Error('offline'); } },
+      holdPhase: async () => undefined,
+    });
+    await controller.initialize(scenario.currentKey);
+
+    const planned = await reaskForDressingDay({ formality: 'formal',
+      departureAt: scenario.departureAt, timeZone: 'Etc/UTC' }, {
+      localProfileId: profileId,
+      currentDayKey: scenario.currentKey,
+      resolvedDressStyle: 'smart',
+      hasCurrentDayChoice: true,
+      choiceRepository,
+      departureRepository,
+      currentInput: () => input,
+      refresh: (next) => controller.refresh('regenerate', next),
+      now: () => scenario.currentAt,
+    });
+    await planned.settled;
+    assert.equal(planned.choice, null);
+    assert.equal(planned.departure, null);
+    assert.deepEqual(controller.getSnapshot().snapshot, current);
+    assert.deepEqual(await repository.getSnapshot(profileId, scenario.currentKey), current);
+    assert.equal(generations, 0);
+    assert.equal((await choiceRepository.get(profileId, scenario.currentKey)).formality, 'smart');
+    assert.equal((await choiceRepository.get(profileId, scenario.departureKey)).formality, 'formal');
+    const savedDeparture = await departureRepository.get(profileId, scenario.departureKey);
+    assert.equal(savedDeparture.departureAt, scenario.departureAt);
+    assert.equal(await departureRepository.get(profileId, scenario.currentKey), null);
+
+    const futureInput = { ...input, now: savedDeparture.departureAt,
+      localDayKey: savedDeparture.dayKey, departureAt: savedDeparture.departureAt,
+      dressStyle: (await choiceRepository.get(profileId, scenario.departureKey)).formality };
+    const trigger = recommendationRefreshTrigger({
+      weatherSnapshotId: current.weatherSnapshotId,
+      locationKey: current.locationKey,
+      clothingPreference: current.clothingPreference,
+      dressStyle: current.dressStyle,
+      catalogVersion: current.catalogVersion,
+      localDayKey: current.localDayKey,
+    }, {
+      weatherSnapshotId: futureInput.snapshot.id,
+      locationKey: futureInput.snapshot.locationKey,
+      clothingPreference: futureInput.clothingPreference,
+      dressStyle: futureInput.dressStyle,
+      catalogVersion: garmentCatalogVersion,
+      localDayKey: futureInput.localDayKey,
+    });
+    assert.ok(trigger);
+    const next = await controller.refresh(trigger, futureInput);
+    assert.equal(next.localDayKey, scenario.departureKey);
+    assert.equal(next.dressStyle, 'formal');
+    assert.equal(next.recommendation.outfits.length, 3);
+    assert.equal((await repository.getSnapshot(profileId, scenario.departureKey)).localDayKey,
+      scenario.departureKey);
+    assert.equal(generations, 1);
+  });
+}
+
+test('a same-day Now re-ask still generates once under the current key', async (t) => {
+  const { database, repository } = await setup();
+  t.after(() => database.close());
+  const generated = generatedRecommendation();
+  const input = { ...generated.input, now: '2026-08-01T10:00:00.000Z', dressStyle: 'smart' };
+  await repository.saveSnapshot(profileId, {
+    weatherSnapshotId: input.snapshot.id,
+    locationKey: input.snapshot.locationKey,
+    context: generated.request,
+    recommendation: generated.recommendation,
+  });
+  const choiceRepository = new SqliteDressingDayChoiceRepository(database,
+    () => 'f60a06dd-65a7-455b-9af3-c28101172170', () => input.now);
+  const departureRepository = new SqliteDressingDayDepartureRepository(database,
+    () => 'f60a06dd-65a7-455b-9af3-c28101172171', () => input.now);
+  let generations = 0;
+  const controller = new RecommendationApplicationController(profileId, {
+    loadRepository: async () => repository,
+    client: { recommendRouted: async () => { generations += 1; throw new Error('offline'); } },
+    holdPhase: async () => undefined,
+    reserveAiReask: async () => true,
+  });
+  await controller.initialize(input.localDayKey);
+  const result = await reaskForDressingDay({ formality: 'formal', departureAt: null,
+    timeZone: 'Etc/UTC' }, {
+    localProfileId: profileId,
+    currentDayKey: input.localDayKey,
+    resolvedDressStyle: 'smart',
+    hasCurrentDayChoice: false,
+    choiceRepository,
+    departureRepository,
+    currentInput: () => input,
+    refresh: (next) => controller.refresh('regenerate', next),
+    now: () => input.now,
+  });
+  await result.settled;
+  assert.equal(result.choice.dayKey, input.localDayKey);
+  assert.equal(result.choice.formality, 'formal');
+  assert.equal(result.departure, null);
+  assert.equal(generations, 1);
+  assert.equal((await repository.getSnapshot(profileId, input.localDayKey)).dressStyle, 'formal');
 });
 
 test('optional validated insight round trips in context_json and old rows still load', async (t) => {

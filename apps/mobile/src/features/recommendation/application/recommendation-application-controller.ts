@@ -26,9 +26,10 @@ import {
   type OutfitRecommendationInput,
   type OutfitRecommendationSuccess,
 } from '@/features/recommendation/application/recommend-outfits';
-import type {
-  RecommendationRepository,
-  RecommendationSnapshot,
+import {
+  RecommendationRepositoryError,
+  type RecommendationRepository,
+  type RecommendationSnapshot,
 } from '@/features/recommendation/data/recommendation-repository';
 import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
@@ -323,9 +324,9 @@ export class RecommendationApplicationController {
     }
   }
 
-  initialize(): Promise<void> {
+  initialize(localDayKey?: string): Promise<void> {
     if (!this.initializationPromise) {
-      this.initializationPromise = this.initializeOnce();
+      this.initializationPromise = this.initializeOnce(localDayKey);
     }
     return this.initializationPromise;
   }
@@ -426,10 +427,20 @@ export class RecommendationApplicationController {
     return this.skipPromise;
   }
 
-  private async initializeOnce(): Promise<void> {
+  private async initializeOnce(localDayKey?: string): Promise<void> {
     try {
       this.repository = await this.dependencies.loadRepository();
-      const snapshot = await this.repository.getSnapshot(this.localProfileId);
+      let snapshot: RecommendationSnapshot | null;
+      try {
+        snapshot = await this.repository.getSnapshot(this.localProfileId, localDayKey);
+      } catch (error) {
+        // An outdated or wrong-day row is absent for display. The normal day-choice
+        // gate still decides when the replacement may be generated.
+        if (!(error instanceof RecommendationRepositoryError) || error.code !== 'invalid-data') {
+          throw error;
+        }
+        snapshot = null;
+      }
       let recentWorn: readonly WornOutfit[] = [];
       let lastFailure: FailureCategory | null = null;
       if (snapshot && this.dependencies.loadRecentWorn) {

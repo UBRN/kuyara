@@ -642,6 +642,21 @@ test('a reasonably future provider timestamp is treated as fresh clock skew and 
   assert.equal(harness.calls.provider, 1);
 });
 
+test('offline start after the clock moves back keeps cached weather and attempts one refresh', async () => {
+  const istanbul = getManualLocation('sample.istanbul');
+  const cached = snapshotFor(istanbul, '2026-07-30T10:10:00.000Z');
+  const harness = createHarness({ active: istanbul, snapshots: [cached],
+    now: '2026-07-30T10:00:00.000Z',
+    provider: { fetchSnapshot: async () => { throw new WeatherProviderError('network'); } } });
+  await harness.controller.initialize();
+  await settle();
+  const state = harness.controller.getSnapshot();
+  assert.equal(state.snapshot.fetchedAt, cached.fetchedAt);
+  assert.equal(state.freshness, 'stale');
+  assert.equal(state.refreshFailure, 'offline');
+  assert.equal(harness.calls.provider, 1);
+});
+
 test('an unparseable cache is not displayed and a no-cache failure is explicit', async () => {
   const istanbul = getManualLocation('sample.istanbul');
   const corrupt = snapshotFor(istanbul, 'not-a-timestamp');

@@ -85,6 +85,14 @@ type Dependencies = Readonly<{
 
 type Listener = () => void;
 
+function cachedWeatherFreshness(fetchedAt: string, now: string): WeatherFreshness | 'invalid' {
+  const freshness = weatherFreshness(fetchedAt, now);
+  // A clock moved backwards does not corrupt a previously validated cache. A newly
+  // fetched response still goes through the stricter provider timestamp check.
+  return freshness === 'invalid' && Number.isFinite(Date.parse(fetchedAt)) &&
+    Number.isFinite(Date.parse(now)) ? 'stale' : freshness;
+}
+
 export class WeatherApplicationController {
   private state: WeatherApplicationState = { status: 'loading' };
   private repository: WeatherRepository | null = null;
@@ -216,7 +224,7 @@ export class WeatherApplicationController {
     if (this.state.status !== 'ready') return;
     const current = this.state;
     const freshness = current.snapshot
-      ? weatherFreshness(current.snapshot.fetchedAt, this.dependencies.now())
+      ? cachedWeatherFreshness(current.snapshot.fetchedAt, this.dependencies.now())
       : null;
     const snapshot = freshness === 'invalid' ? null : current.snapshot;
     // A snapshot retained from a previous location is the last valid result, never a
@@ -284,7 +292,8 @@ export class WeatherApplicationController {
         this.dependencies.deviceLocation.getPermissionState(),
       ]);
       const loadedSnapshot = activeLocation ? await this.loadMatchingSnapshot(activeLocation) : null;
-      const loadedFreshness = loadedSnapshot ? weatherFreshness(loadedSnapshot.fetchedAt, this.dependencies.now()) : null;
+      const loadedFreshness = loadedSnapshot
+        ? cachedWeatherFreshness(loadedSnapshot.fetchedAt, this.dependencies.now()) : null;
       const snapshot = loadedFreshness === 'invalid' ? null : loadedSnapshot;
       const freshness = loadedFreshness === 'invalid' ? null : loadedFreshness;
       this.setReady({

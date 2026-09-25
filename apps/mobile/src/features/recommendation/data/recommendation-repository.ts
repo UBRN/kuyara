@@ -1,4 +1,5 @@
 import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
+import { garmentCatalogVersion } from '@/features/catalog/domain/garment-catalog';
 
 import type { OutfitRecommendationSuccess } from '@/features/recommendation/application/recommend-outfits';
 import {
@@ -43,7 +44,7 @@ export type RecommendationSnapshotInput = Readonly<{
 }>;
 
 export interface RecommendationRepository {
-  getSnapshot(localProfileId: string): Promise<RecommendationSnapshot | null>;
+  getSnapshot(localProfileId: string, localDayKey?: string): Promise<RecommendationSnapshot | null>;
   saveSnapshot(
     localProfileId: string,
     input: RecommendationSnapshotInput,
@@ -73,7 +74,24 @@ function isUuidV4(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
-function mapRecord(record: RecommendationSnapshotRecord): RecommendationSnapshot {
+function requireCurrentTrio(
+  context: RecommendationContext,
+  recommendation: OutfitRecommendationSuccess,
+  localDayKey?: string,
+): void {
+  if (!('options' in context) ||
+    context.catalogVersion !== garmentCatalogVersion ||
+    !context.localDayKey ||
+    (localDayKey !== undefined && context.localDayKey !== localDayKey) ||
+    recommendation.outfits.length !== 3 ||
+    new Set(recommendation.outfits.map(({ optionId }) => optionId)).size !== 3 ||
+    recommendation.outfits.some(({ optionId }) =>
+      !context.options.some((option) => option.optionId === optionId))) {
+    throw new Error('Invalid recommendation snapshot.');
+  }
+}
+
+function mapRecord(record: RecommendationSnapshotRecord, localDayKey?: string): RecommendationSnapshot {
   try {
     if (
       !isUuidV4(record.id) ||
@@ -90,6 +108,7 @@ function mapRecord(record: RecommendationSnapshotRecord): RecommendationSnapshot
       JSON.parse(record.outfitsJson),
       record.generationMode,
     );
+    requireCurrentTrio(context, recommendation, localDayKey);
     return Object.freeze({
       id: record.id,
       localProfileId: record.localProfileId,
@@ -125,11 +144,11 @@ export class LocalRecommendationRepository implements RecommendationRepository {
     this.dependencies = dependencies;
   }
 
-  async getSnapshot(localProfileId: string): Promise<RecommendationSnapshot | null> {
+  async getSnapshot(localProfileId: string, localDayKey?: string): Promise<RecommendationSnapshot | null> {
     if (!localProfileId) throw new RecommendationRepositoryError('invalid-input');
     try {
       const record = await this.dataSource.getSnapshot(localProfileId);
-      return record ? mapRecord(record) : null;
+      return record ? mapRecord(record, localDayKey) : null;
     } catch (error) {
       if (error instanceof RecommendationRepositoryError) throw error;
       throw new RecommendationRepositoryError('unavailable');
@@ -154,6 +173,11 @@ export class LocalRecommendationRepository implements RecommendationRepository {
         outfits,
         input.recommendation.generationMode,
       );
+      try {
+        requireCurrentTrio(context, input.recommendation);
+      } catch {
+        throw new RecommendationRepositoryError('invalid-input');
+      }
       const existing = await this.dataSource.getSnapshot(localProfileId);
       const now = this.dependencies.now();
       const createdAt = existing?.createdAt ?? now;

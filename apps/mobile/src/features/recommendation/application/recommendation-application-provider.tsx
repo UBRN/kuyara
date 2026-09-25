@@ -36,6 +36,7 @@ import { SqliteDressingDayChoiceRepository } from '@/features/recommendation/dat
 import { SqliteDressingDayDepartureRepository } from '@/features/recommendation/data/sqlite-dressing-day-departure-repository';
 import type { DressingDayDeparture } from '@/features/recommendation/domain/dressing-day-departure';
 import { wardrobeDayWindow } from '@/features/weather/domain/wardrobe-day';
+import { reaskForDressingDay } from '@/features/recommendation/application/reask-for-dressing-day';
 import { resolvedFormality, resolvedStyleAesthetics, type DressingDayChoice, type DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
 import { ExpoHistoryPhotoStorage } from '@/features/recommendation/data/expo-history-photo-storage';
@@ -176,6 +177,7 @@ export function RecommendationApplicationProvider({
       .catch(() => { if (live) setDepartureState({ key: localDay.key, value: null }); });
     return () => { live = false; };
   }, [localDay.key, localProfileId]);
+  const departureReady = departureState?.key === localDay.key;
   const activeDeparture = departureState?.key === localDay.key &&
     departureState.value && Date.parse(departureState.value.departureAt) > Date.now()
     ? departureState.value : null;
@@ -255,11 +257,15 @@ export function RecommendationApplicationProvider({
     }),
     [analytics, budget, client, latestOnDeviceAvailability, localProfileId, telemetry],
   );
-  const state = useSyncExternalStore(
+  const controllerState = useSyncExternalStore(
     controller.subscribe,
     controller.getSnapshot,
     controller.getSnapshot,
   );
+  const state = useMemo(() => controllerState.status === 'ready' && controllerState.snapshot &&
+    controllerState.snapshot.localDayKey !== localDay.key
+    ? { ...controllerState, snapshot: null } as const
+    : controllerState, [controllerState, localDay.key]);
   const input = useMemo(() => {
     const clothingPreference = profileState.status === 'ready'
       ? profileState.profile.clothingPreference
@@ -267,7 +273,7 @@ export function RecommendationApplicationProvider({
     if (
       weatherState.status !== 'ready' ||
       !weatherState.snapshot ||
-      !clothingPreference || !choiceReady
+      !clothingPreference || !choiceReady || !departureReady
     ) return null;
     return {
       snapshot: weatherState.snapshot,
@@ -284,11 +290,11 @@ export function RecommendationApplicationProvider({
       localDayKey: localDay.key,
       locale: language,
     };
-  }, [activeDeparture, choiceReady, language, localDay, profileState,
+  }, [activeDeparture, choiceReady, departureReady, language, localDay, profileState,
     resolvedDressStyle, resolvedStyles, weatherState]);
   useEffect(() => {
-    void controller.initialize();
-  }, [controller]);
+    void controller.initialize(localDay.key);
+  }, [controller, localDay.key]);
 
   // ADR 0034 section 5: reading availability runs no inference and consumes no quota, so it
   // happens once on mount and never on a user action. It feeds the AI status row only.
@@ -437,7 +443,7 @@ export function RecommendationApplicationProvider({
       currentWeather.status !== 'ready' ||
       !currentWeather.snapshot ||
       profileState.status !== 'ready' ||
-      !clothingPreference || !choiceReady
+      !clothingPreference || !choiceReady || !departureReady
     ) return null;
     return {
       snapshot: currentWeather.snapshot,
@@ -451,7 +457,7 @@ export function RecommendationApplicationProvider({
       localDayKey: currentDay.key,
       locale: language,
     };
-  }, [activeDeparture, choiceReady, language, profileState, resolvedDressStyle,
+  }, [activeDeparture, choiceReady, departureReady, language, profileState, resolvedDressStyle,
     resolvedStyles, weatherApplication, weatherState]);
 
   const evaluateApprovedTriggers = useCallback(async (foreground = false) => {
@@ -519,34 +525,26 @@ export function RecommendationApplicationProvider({
     resolvedDressStyle,
     chooseFormality,
     reask: async ({ formality, departureAt, timeZone }) => {
-      const key = localDay.key;
-      const departureKey = departureAt ? wardrobeDayWindow(departureAt, timeZone)?.key : null;
-      if (departureAt && !departureKey) throw new Error('Invalid departure time or time zone.');
-      const writeChoice = formality !== resolvedDressStyle || currentDayChoice?.status !== 'row';
-      const choice = writeChoice
-        ? await (await loadChoiceRepository()).upsert(localProfileId, key, formality, 'chip')
-        : null;
-      const departures = await loadDepartureRepository();
-      // "Now" stores no row. A Later departure is stored under the dressing day it falls in
-      // (N22); one that leaves this dressing day also clears this day's earlier departure.
-      const departure = departureAt && departureKey
-        ? await departures.upsert(localProfileId, departureKey, departureAt, timeZone)
-        : null;
-      if (!departure || departureKey !== key) await departures.clear(localProfileId, key);
-      const generationInput = currentInput();
-      let refresh: Promise<unknown> = Promise.resolve(null);
-      if (generationInput) {
-        const { departureAt: _previousDeparture, ...base } = generationInput;
-        refresh = controller.refresh('regenerate', {
-          ...base, now: now(), dressStyle: formality, ...(departureAt ? { departureAt } : {}),
-        });
-      }
-      const settled = refresh.then(() => undefined, () => undefined).finally(() => {
+      const result = await reaskForDressingDay({ formality, departureAt, timeZone }, {
+        localProfileId,
+        currentDayKey: localDay.key,
+        resolvedDressStyle,
+        hasCurrentDayChoice: currentDayChoice?.status === 'row',
+        choiceRepository: await loadChoiceRepository(),
+        departureRepository: await loadDepartureRepository(),
+        currentInput,
+        refresh: (input) => controller.refresh('regenerate', input),
+        now,
+      });
+      const settled = result.settled.finally(() => {
         if (reaskInFlight.current === settled) reaskInFlight.current = null;
       });
       reaskInFlight.current = settled;
-      if (choice) setDayChoiceState({ profileId: localProfileId, key, status: 'row', choice });
-      setDepartureState({ key, value: departure && departureKey === key ? departure : null });
+      if (result.choice) {
+        setDayChoiceState({ profileId: localProfileId, key: localDay.key,
+          status: 'row', choice: result.choice });
+      }
+      setDepartureState({ key: localDay.key, value: result.departure });
       return { settled };
     },
     refresh: () => {

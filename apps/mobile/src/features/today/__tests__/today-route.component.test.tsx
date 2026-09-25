@@ -23,7 +23,10 @@ import {
   type RecommendationApplicationValue,
 } from '@/features/recommendation/application/recommendation-application-context';
 import type { RecommendationApplicationState } from '@/features/recommendation/application/recommendation-application-controller';
-import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
+import {
+  RecommendationRepositoryError,
+  type RecommendationSnapshot,
+} from '@/features/recommendation/data/recommendation-repository';
 import { todayActiveLocation, todayOutfitId, todayScreenState } from '@/features/today/__tests__/fixtures';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { WardrobeApplicationContext } from '@/features/wardrobe/application/wardrobe-application-context';
@@ -144,6 +147,7 @@ jest.mock('@/features/analytics/data/observe-performance-telemetry', () => ({
 const mockChoiceGet = jest.fn();
 const mockChoiceUpsert = jest.fn();
 let mockRecommendationSnapshot: RecommendationSnapshot | null = null;
+let mockRecommendationReadError: Error | null = null;
 jest.mock('@/infrastructure/sqlite/expo-sqlite-database', () => ({
   openKuyaraDatabase: async () => ({}),
 }));
@@ -156,9 +160,10 @@ jest.mock('@/features/recommendation/data/sqlite-dressing-day-choice-repository'
 }));
 const mockDepartureUpsert = jest.fn();
 const mockDepartureClear = jest.fn();
+const mockDepartureGet = jest.fn();
 jest.mock('@/features/recommendation/data/sqlite-dressing-day-departure-repository', () => ({
   SqliteDressingDayDepartureRepository: class {
-    async get() { return null; }
+    get(...args: unknown[]) { return mockDepartureGet(...args); }
     upsert(...args: unknown[]) { return mockDepartureUpsert(...args); }
     clear(...args: unknown[]) { return mockDepartureClear(...args); }
   },
@@ -193,7 +198,10 @@ jest.mock('@/features/recommendation/data/on-device-ai-module', () => ({ onDevic
 jest.mock('@/features/recommendation/data/recommendation-repository', () => ({
   ...jest.requireActual('@/features/recommendation/data/recommendation-repository'),
   LocalRecommendationRepository: class {
-    async getSnapshot() { return mockRecommendationSnapshot; }
+    async getSnapshot() {
+      if (mockRecommendationReadError) throw mockRecommendationReadError;
+      return mockRecommendationSnapshot;
+    }
   },
 }));
 jest.mock('@/features/recommendation/application/recommendation-application-controller', () => {
@@ -520,7 +528,9 @@ beforeEach(() => {
     departureAt: string, timeZone: string) => ({ id: 'departure-one', localProfileId, dayKey, departureAt,
     timeZone, createdAt: departureAt, updatedAt: departureAt, deletedAt: null }));
   mockDepartureClear.mockReset().mockResolvedValue(false);
+  mockDepartureGet.mockReset().mockResolvedValue(null);
   mockRecommendationSnapshot = null;
+  mockRecommendationReadError = null;
 });
 
 test('Today offers the alert opt-in once, and each action answers the offer', async () => {
@@ -998,6 +1008,32 @@ test('the morning sheet opens over the first wait', async () => {
   expect(view.queryByTestId('today-unavailable-screen')).toBeNull();
 });
 
+test('an offline catalog-bump cache stays hidden while the morning answer is pending', async () => {
+  const stale = recommendationReady();
+  if (stale.status !== 'ready' || !stale.snapshot) throw new Error('Expected saved fixture');
+  mockRecommendationSnapshot = { ...stale.snapshot, catalogVersion: garmentCatalogVersion - 1 };
+  mockRecommendationReadError = new RecommendationRepositoryError('invalid-data');
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementation(async () => null);
+  try {
+    const view = await render(
+      <Providers productAnalytics={createProductAnalytics()}
+        profile={profileValue({ morningSheetEnabled: true })}
+        recommendation={stale} liveRecommendationProvider
+        wardrobe={wardrobeValue()} weather={weatherValue()}>
+        <TodayRoute />
+      </Providers>,
+    );
+    expect(await view.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
+    expect(view.getByTestId('today-loading-screen')).toBeOnTheScreen();
+    expect(view.queryByTestId('today-outfit-list')).toBeNull();
+    expect(view.queryByTestId('today-unavailable-screen')).toBeNull();
+    expect(refresh).not.toHaveBeenCalled();
+  } finally {
+    refresh.mockRestore();
+  }
+});
+
 test('the morning sheet never opens over an error card', async () => {
   const view = await render(
     <Providers {...morningPendingProps()} recommendation={recommendationReady()}
@@ -1130,9 +1166,8 @@ test('Ask the stylist again reopens on the persisted Later departure', async () 
   expect(reask).toHaveBeenCalledWith({ formality: 'smart', departureAt, timeZone: 'Europe/Istanbul' });
 });
 
-// While the re-ask runs, its own new day type must not look like a change to the approved
-// triggers: one reserved generation, never a second, unreserved one beside it.
-test('a confirmed re-ask writes the chip answer and is the only generation while it runs', async () => {
+// A Later choice past the day boundary plans the next dressing day without changing Today.
+test('a Later re-ask crossing 18:00 stores the future choice without replacing Today', async () => {
   const saved = recommendationReady();
   if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
   mockRecommendationSnapshot = {
@@ -1141,18 +1176,20 @@ test('a confirmed re-ask writes the chip answer and is the only generation while
     localDayKey: '2026-09-24',
     dressStyle: 'smart',
   };
-  const row = (formality: string, source: string) => ({ id: '0f0e2c1a-8b52-4c0e-9d57-1d3c9c1c2a10',
-    localProfileId: 'profile-one', dayKey: '2026-09-24', formality, source, styleAesthetics: null,
+  const current = mockRecommendationSnapshot;
+  const row = (dayKey: string, formality: string, source: string) => ({
+    id: '0f0e2c1a-8b52-4c0e-9d57-1d3c9c1c2a10',
+    localProfileId: 'profile-one', dayKey, formality, source, styleAesthetics: null,
     createdAt: '2026-09-24T06:00:00.000Z', updatedAt: '2026-09-24T06:00:00.000Z', deletedAt: null });
-  mockChoiceGet.mockResolvedValue(row('smart', 'morning'));
-  mockChoiceUpsert.mockImplementation(async (_profile: string, _key: string, formality: string,
-    source: string) => row(formality, source));
-  let finishRefresh!: (value: RecommendationSnapshot | null) => void;
-  const pendingRefresh = new Promise<RecommendationSnapshot | null>((resolve) => {
-    finishRefresh = resolve;
+  mockChoiceGet.mockResolvedValue(row('2026-09-24', 'smart', 'morning'));
+  mockChoiceUpsert.mockImplementation(async (_profile: string, key: string, formality: string,
+    source: string) => row(key, formality, source));
+  jest.useFakeTimers({
+    now: new Date('2026-09-24T14:30:00.000Z'),
+    doNotFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'],
   });
   const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
-    .mockImplementation(() => pendingRefresh);
+    .mockImplementation(async () => null);
   try {
     const view = await render(
       <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
@@ -1168,18 +1205,59 @@ test('a confirmed re-ask writes the chip answer and is the only generation while
     await fireEvent.press(view.getByTestId('ask-again-day-type-formal'));
     await fireEvent.press(view.getByTestId('ask-again-when-later'));
     await fireEvent.press(view.getByTestId('ask-again-confirm'));
-    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
-    expect(mockChoiceUpsert).toHaveBeenCalledWith('profile-one', '2026-09-24', 'formal', 'chip');
+    await waitFor(() => expect(mockChoiceUpsert).toHaveBeenCalledWith(
+      'profile-one', '2026-09-24:evening', 'formal', 'chip'));
     expect(mockDepartureUpsert).toHaveBeenCalledTimes(1);
-    const [trigger, input] = refresh.mock.calls[0];
-    expect(trigger).toBe('regenerate');
-    expect(input.dressStyle).toBe('formal');
-    expect(input.departureAt).toBe(mockDepartureUpsert.mock.calls[0][2]);
-    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
-    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(mockDepartureUpsert.mock.calls[0][1]).toBe('2026-09-24:evening');
+    expect(refresh).not.toHaveBeenCalled();
+    expect(mockRecommendationSnapshot).toBe(current);
   } finally {
-    finishRefresh(mockRecommendationSnapshot);
     refresh.mockRestore();
+    jest.useRealTimers();
+  }
+});
+
+test('a new dressing day waits for its Later row before choosing outfits', async () => {
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
+  mockRecommendationSnapshot = { ...saved.snapshot,
+    catalogVersion: garmentCatalogVersion, localDayKey: '2026-09-23' };
+  mockChoiceGet.mockResolvedValue({
+    id: '0f0e2c1a-8b52-4c0e-9d57-1d3c9c1c2a10', localProfileId: 'profile-one',
+    dayKey: '2026-09-24', formality: 'formal', source: 'chip', styleAesthetics: null,
+    createdAt: '2026-09-24T13:00:00.000Z', updatedAt: '2026-09-24T13:00:00.000Z',
+    deletedAt: null,
+  });
+  let finishDeparture!: (value: unknown) => void;
+  mockDepartureGet.mockImplementation(() => new Promise((resolve) => {
+    finishDeparture = resolve;
+  }));
+  jest.useFakeTimers({ now: new Date('2026-09-24T13:00:00.000Z'),
+    doNotFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementation(async () => null);
+  const departureAt = '2026-09-24T14:00:00.000Z';
+  try {
+    await render(
+      <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+        recommendation={saved} liveRecommendationProvider
+        wardrobe={wardrobeValue()} weather={weatherValue()}>
+        <TodayRoute />
+      </Providers>,
+    );
+    await waitFor(() => expect(mockChoiceGet).toHaveBeenCalledWith('profile-one', '2026-09-24'));
+    expect(refresh).not.toHaveBeenCalled();
+    await act(async () => {
+      finishDeparture({ id: 'departure-one', localProfileId: 'profile-one',
+        dayKey: '2026-09-24', departureAt, timeZone: 'Europe/Istanbul',
+        createdAt: departureAt, updatedAt: departureAt, deletedAt: null });
+    });
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+    expect(refresh.mock.calls[0][1].departureAt).toBe(departureAt);
+    expect(refresh.mock.calls[0][1].dressStyle).toBe('formal');
+  } finally {
+    refresh.mockRestore();
+    jest.useRealTimers();
   }
 });
 
