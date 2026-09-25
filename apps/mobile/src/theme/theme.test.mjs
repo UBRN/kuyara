@@ -32,6 +32,9 @@ const requiredSemanticRoles = [
   'brandPrimary',
   'brandAccent',
   'primaryFill',
+  'primaryFillPressed',
+  'surfaceInteractivePressed',
+  'controlTonalRaised',
   'borderSubtle',
   'borderDefined',
   'borderStrong',
@@ -44,6 +47,7 @@ const requiredSemanticRoles = [
   'warningContainer',
   'dangerInk',
   'dangerContainer',
+  'dangerContainerPressed',
   'provenanceInk',
   'provenanceContainer',
   'scrim',
@@ -646,5 +650,33 @@ test('weather-card and photo-placeholder tinted surfaces meet WCAG contrast thre
       contrastRatio(mutedRainBar, cardBackground) >= 3.0,
       'muted rain bar on card background must meet the 3.0:1 non-text contrast minimum',
     );
+  }
+});
+
+test('button fill steps keep every button label legible in both appearances (O5)', () => {
+  // Pressed steps the fill rather than the opacity, and the dark tonal fill lifts on a sheet.
+  assert.equal(lightSemanticColors.controlTonalRaised, lightSemanticColors.surfaceInteractive);
+  assert.equal(darkSemanticColors.controlTonalRaised, '#33525E');
+
+  for (const colors of [lightSemanticColors, darkSemanticColors]) {
+    const pairs = [
+      ['textOnPrimaryFill', 'primaryFill'],
+      ['textOnPrimaryFill', 'primaryFillPressed'],
+      ['brandAccent', 'surfaceInteractive'],
+      ['brandAccent', 'surfaceInteractivePressed'],
+      ['brandAccent', 'controlTonalRaised'],
+      ['iconPrimary', 'surfaceInteractive'],
+      ['dangerInk', 'dangerContainer'],
+      ['dangerInk', 'dangerContainerPressed'],
+      ['brandAccent', 'background'],
+      ['brandAccent', 'surface'],
+    ];
+    for (const [ink, fill] of pairs) {
+      const contrast = contrastOfHexOverBackground(colors[ink], colors[fill]);
+      assert.ok(contrast >= 4.5, `${ink} on ${fill}: ${contrast.toFixed(2)}:1 >= 4.5:1`);
+    }
+    // Disabled is readable and clearly inert: the defined-border ink on the muted fill.
+    const disabled = contrastOfHexOverBackground(colors.borderDefined, colors.surfaceMuted);
+    assert.ok(disabled >= 3, `disabled label: ${disabled.toFixed(2)}:1 >= 3:1`);
   }
 });

@@ -1,6 +1,6 @@
 import { Stack, useRouter } from 'expo-router';
 
-import { Icon, IconButton } from '@/components/ui';
+import { GlassButton } from '@/components/ui';
 import { useScreenInteractive } from '@/features/analytics/application/use-screen-interactive';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
@@ -25,12 +25,12 @@ export default function ProfileRoute() {
         options={{
           headerLargeTitle: true,
           headerRight: () => (
-            <IconButton
+            <GlassButton
               accessibilityHint={messages.profile.settingsHint}
-              accessibilityLabel={messages.profile.settingsAction}
-              icon={(color) => <Icon color={color} name="settings" size={20} />}
+              icon="settings"
+              kind="bar"
+              label={messages.profile.settingsAction}
               onPress={() => router.push('/settings')}
-              variant="quiet"
               testID="profile-settings-button"
             />
           ),

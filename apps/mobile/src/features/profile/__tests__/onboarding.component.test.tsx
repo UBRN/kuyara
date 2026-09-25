@@ -409,9 +409,12 @@ test.each(['tr', 'en'] as const)(
   },
 );
 
+// O5: the button pair stacks, stronger action first, above text factor 1.2; the location
+// rationale leaves the bar only above the shared 1.5 threshold.
 test.each([
   [1, 'row', false],
-  [3, 'column-reverse', true],
+  [1.3, 'column', false],
+  [3, 'column', true],
 ] as const)(
   'at fontScale %s the pinned bar lays its actions out in a %s and keeps the step scrollable',
   async (fontScale, flexDirection, stacked) => {

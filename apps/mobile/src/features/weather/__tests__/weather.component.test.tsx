@@ -682,8 +682,9 @@ test('Weather at font scale 3.1 keeps its actions, hourly heading, and last colu
     </Providers>,
   );
 
-  expect(result.getByText(messages.en.weather.refresh)).toHaveTextContent('Refresh');
-  expect(result.getByText(messages.en.weather.refresh).props.numberOfLines).toBeUndefined();
+  const refreshLabel = result.getByText(messages.en.weather.refresh, { includeHiddenElements: true });
+  expect(refreshLabel).toHaveTextContent('Refresh');
+  expect(refreshLabel.props.numberOfLines).toBeUndefined();
   expect(result.getByTestId('weather-change-location-button')).toBeOnTheScreen();
   expect(StyleSheet.flatten(result.getByRole('header', {
     name: messages.en.weather.hourlyHeading,
@@ -707,13 +708,14 @@ test('Weather offers a pull-to-refresh gesture alongside the visible refresh but
 
   const button = result.getByTestId('weather-refresh-button');
   expect(button.props.accessibilityLabel).toBe(messages.en.weather.refreshAccessibilityLabel);
-  expect(result.getByText(messages.en.weather.refresh)).toBeOnTheScreen();
-  // The control carries the 44-point target in its own box rather than in a hitSlop the
-  // layout cannot see; the Pill inside keeps its size and sits centred.
+  expect(result.getByText(messages.en.weather.refresh, { includeHiddenElements: true }))
+    .toBeOnTheScreen();
+  // O5: a tonal Small capsule, drawn at 36 and reaching the 44-point target through the slop.
   expect(StyleSheet.flatten(button.props.style)).toMatchObject({
-    justifyContent: 'center',
-    minHeight: layout.minimumTouchTarget,
+    backgroundColor: lightTheme.colors.surfaceInteractive,
+    minHeight: 36,
   });
+  expect(36 + 2 * button.props.hitSlop).toBe(layout.minimumTouchTarget);
   fireEvent.press(button);
   expect(value.refresh).toHaveBeenCalledTimes(1);
 

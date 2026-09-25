@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { createKuyaraTheme, layout, typography } from '../../theme/theme.ts';
+import { createKuyaraTheme, layout, radii, typography } from '../../theme/theme.ts';
 import {
+  buttonGeometry,
   createPressHandler,
   resolveAppTextStyle,
   resolveButtonColors,
@@ -63,43 +64,71 @@ test('Button invokes enabled presses and blocks disabled or loading presses', ()
   assert.deepEqual(loadingState, { disabled: true, busy: true });
 });
 
-test('Button semantic variants resolve for light and dark appearances', () => {
+test('Button roles resolve the O5 fills, pressed steps and disabled state in both appearances', () => {
   for (const scheme of ['light', 'dark']) {
     const theme = createKuyaraTheme(scheme);
-    const primary = resolveButtonColors(theme, 'primary', false);
-    const secondary = resolveButtonColors(theme, 'secondary', false);
-    const destructive = resolveButtonColors(theme, 'destructive', false);
-    const destructivePressed = resolveButtonColors(theme, 'destructive', true);
-    const quietPressed = resolveButtonColors(theme, 'quiet', true);
+    const { colors } = theme;
+    const at = (variant, state = {}) =>
+      resolveButtonColors(theme, variant, { disabled: false, pressed: false, ...state });
 
-    assert.equal(primary.backgroundColor, theme.colors.primaryFill);
-    assert.equal(primary.textColor, theme.colors.textOnPrimaryFill);
-    assert.equal(secondary.backgroundColor, theme.colors.surfaceInteractive);
-    assert.equal(secondary.borderColor, theme.colors.borderDefined);
-    assert.equal(secondary.textColor, theme.colors.textPrimary);
-    assert.equal(destructive.backgroundColor, theme.colors.dangerInk);
-    assert.equal(destructive.borderColor, theme.colors.dangerInk);
-    assert.equal(destructive.textColor, theme.colors.textOnBrand);
-    assert.deepEqual(destructivePressed, destructive);
-    assert.equal(quietPressed.backgroundColor, theme.colors.surfaceInteractive);
-    assert.equal(quietPressed.textColor, theme.colors.brandAccent);
+    assert.deepEqual(at('prominent'), {
+      backgroundColor: colors.primaryFill, textColor: colors.textOnPrimaryFill,
+    });
+    assert.equal(at('prominent', { pressed: true }).backgroundColor, colors.primaryFillPressed);
+    assert.deepEqual(at('tonal'), {
+      backgroundColor: colors.surfaceInteractive, textColor: colors.brandAccent,
+    });
+    assert.equal(at('tonal', { raised: true }).backgroundColor, colors.controlTonalRaised);
+    assert.equal(at('tonal', { pressed: true }).backgroundColor, colors.surfaceInteractivePressed);
+    assert.deepEqual(at('plain'), { backgroundColor: 'transparent', textColor: colors.brandAccent });
+    assert.equal(at('plain', { pressed: true }).backgroundColor, colors.surfaceInteractive);
+    assert.deepEqual(at('destructive'), {
+      backgroundColor: colors.dangerContainer, textColor: colors.dangerInk,
+    });
+    assert.equal(at('destructive', { pressed: true }).backgroundColor, colors.dangerContainerPressed);
+
+    for (const variant of ['prominent', 'tonal', 'destructive']) {
+      assert.deepEqual(at(variant, { disabled: true }), {
+        backgroundColor: colors.surfaceMuted, textColor: colors.borderDefined,
+      });
+    }
+    assert.deepEqual(at('plain', { disabled: true }), {
+      backgroundColor: 'transparent', textColor: colors.borderDefined,
+    });
   }
 });
 
-test('Button exposes its label, role, stable loading layout, focus, and minimum target', async () => {
+test('Button sizes are capsules with a 44-point target at every size', () => {
+  assert.deepEqual(
+    Object.fromEntries(Object.entries(buttonGeometry).map(([size, { height }]) => [size, height])),
+    { large: 50, medium: 44, small: 36 },
+  );
+  assert.equal(buttonGeometry.small.labelRole, 'label');
+  assert.equal(buttonGeometry.large.labelRole, 'bodyStrong');
+  assert.equal(radii.pill, 999);
+});
+
+test('Button exposes its label, role, capsule, loading slot, focus ring and touch target', async () => {
   const buttonSource = await source('./button.tsx');
 
   assert.match(buttonSource, /accessibilityRole="button"/);
   assert.match(buttonSource, /accessibilityLabel \?\? label/);
   assert.match(buttonSource, /disabled=\{isUnavailable\}/);
   assert.match(buttonSource, /\{label\}/);
-  assert.match(buttonSource, /loading && styles\.hiddenLabel/);
+  assert.match(buttonSource, /borderRadius: radii\.pill/);
+  // Loading turns the leading slot into the spinner and keeps the label (O5).
+  assert.match(buttonSource, /loading \? \(\s*<ActivityIndicator/);
   assert.match(buttonSource, /theme\.colors\.focusRing/);
-  assert.match(buttonSource, /minHeight: layout\.minimumTouchTarget/);
+  assert.match(buttonSource, /layout\.minimumTouchTarget - geometry\.height/);
+  // The label wraps rather than truncates, and pressed never drops the opacity.
+  assert.doesNotMatch(buttonSource, /numberOfLines/);
+  assert.doesNotMatch(buttonSource, /pressedOpacity|opacity:/);
+  // Law 8: only the prominent role confirms its own press.
+  assert.match(buttonSource, /if \(variant === 'prominent'\) haptics\.impactLight\(\)/);
   assert.equal(layout.minimumTouchTarget, 44);
 });
 
-test('IconButton requires an accessible label and uses the shared interaction contract', async () => {
+test('IconButton is a labelled 44-point tonal circle with no opacity press', async () => {
   const iconButtonSource = await source('./icon-button.tsx');
 
   assert.match(iconButtonSource, /accessibilityLabel: string/);
@@ -108,7 +137,20 @@ test('IconButton requires an accessible label and uses the shared interaction co
   assert.match(iconButtonSource, /onPress=\{pressHandler\}/);
   assert.match(iconButtonSource, /width: layout\.minimumTouchTarget/);
   assert.match(iconButtonSource, /height: layout\.minimumTouchTarget/);
+  assert.match(iconButtonSource, /borderRadius: radii\.pill/);
+  assert.match(iconButtonSource, /resolveButtonColors\(theme, 'tonal'/);
   assert.match(iconButtonSource, /theme\.colors\.focusRing/);
+  assert.doesNotMatch(iconButtonSource, /pressedOpacity/);
+});
+
+test('GlassButton leaves Liquid Glass to the system and keeps SwiftUI off Android', async () => {
+  const glassSource = await source('./glass-button.tsx');
+
+  assert.match(glassSource, /buttonStyle\('glass'\)/);
+  assert.match(glassSource, /role="close"/);
+  assert.match(glassSource, /systemImage="chevron\.left"/);
+  assert.match(glassSource, /ios: \(\) => require\('@expo\/ui\/swift-ui'\)/);
+  assert.doesNotMatch(glassSource, /expo-glass-effect/);
 });
 
 test('Screen and Surface keep children on semantic light and dark foundations', async () => {
@@ -200,6 +242,8 @@ test('useTextScaling caps the control scale and derives the stacked-layout thres
 
   assert.match(hookSource, /STACKED_LAYOUT_THRESHOLD = 1\.5/);
   assert.match(hookSource, /MAXIMUM_CONTROL_SCALE = 1\.5/);
+  // O5: a button pair stacks, stronger action first, above text factor 1.2.
+  assert.match(hookSource, /BUTTON_PAIR_STACK_THRESHOLD = 1\.2/);
 });
 
 test('NativeDatePicker owns the Expo UI date control boundary and is exported', async () => {

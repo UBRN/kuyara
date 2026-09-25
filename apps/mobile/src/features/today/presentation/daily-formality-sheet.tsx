@@ -2,7 +2,7 @@ import type { DressStyle } from '@kuyara/contracts';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
-import { AppText, GarmentDrawing, Icon, IconButton, NativeSheet, useTextScaling } from '@/components/ui';
+import { AppText, GarmentDrawing, GlassButton, Icon, NativeSheet, useTextScaling } from '@/components/ui';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { borderWidths, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -50,11 +50,10 @@ export function DailyFormalitySheet({
           <AppText accessibilityRole="header" style={styles.question} variant="title">
             {mode === 'tomorrow' ? copy.questionTomorrow : copy.question}
           </AppText>
-          <IconButton
-            accessibilityLabel={copy.close}
-            icon={(color) => <Icon color={color} name="close" size={18 * controlScale} />}
+          <GlassButton
+            kind="close"
+            label={copy.close}
             onPress={onDismiss}
-            style={styles.close}
             testID="daily-formality-close"
           />
         </View>
@@ -110,7 +109,6 @@ const styles = StyleSheet.create({
   content: { gap: spacing.md, padding: spacing.lg },
   head: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.md },
   question: { flex: 1, fontWeight: '600', marginTop: spacing.xs },
-  close: { borderRadius: radii.pill, borderWidth: 0 },
   tiles: { flexDirection: 'row', gap: spacing.sm },
   tile: { alignItems: 'center', borderRadius: radii.control, flex: 1, gap: spacing.sm,
     justifyContent: 'center', minHeight: 128, paddingHorizontal: spacing.sm, paddingVertical: spacing.md },

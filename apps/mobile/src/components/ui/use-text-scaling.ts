@@ -7,11 +7,14 @@ import { useWindowDimensions } from 'react-native';
 export type TextScaling = Readonly<{
   fontScale: number;
   usesStackedLayout: boolean;
+  /** O5: above this factor a pair of buttons no longer fits side by side, so it stacks. */
+  stacksButtonPair: boolean;
   controlScale: number;
 }>;
 
 const STACKED_LAYOUT_THRESHOLD = 1.5;
 const MAXIMUM_CONTROL_SCALE = 1.5;
+const BUTTON_PAIR_STACK_THRESHOLD = 1.2;
 
 export function useTextScaling(): TextScaling {
   const { fontScale } = useWindowDimensions();
@@ -19,6 +22,7 @@ export function useTextScaling(): TextScaling {
   return {
     fontScale,
     usesStackedLayout: fontScale > STACKED_LAYOUT_THRESHOLD,
+    stacksButtonPair: fontScale > BUTTON_PAIR_STACK_THRESHOLD,
     controlScale: Math.min(fontScale, MAXIMUM_CONTROL_SCALE),
   };
 }

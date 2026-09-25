@@ -109,7 +109,7 @@ fires.
 Law 8's rule and its platform split stand: haptics confirm something the user cannot see
 or a physical threshold crossed under the finger, and the iOS impact call is never made on
 Android. Two clauses belong to this decision. A primary action confirms the press itself
-with a light impact, which means the `Button` primary variant alone; icon buttons, list
+with a light impact, which means the `Button` prominent role alone; icon buttons, list
 rows, chips, the tab bar and pickers fire nothing on press. And outfit ownership completed
 on the detail board fires a success notification, the moment's haptic, because it confirms
 a state the user set and crosses a real threshold.

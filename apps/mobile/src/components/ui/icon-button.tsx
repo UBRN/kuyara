@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import {
   StyleSheet,
   type PressableProps,
@@ -6,26 +6,34 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { Icon, type IconName } from '@/components/ui/icon';
 import { PressScale } from '@/components/ui/press-scale';
 import {
   createPressHandler,
+  resolveButtonColors,
   resolveInteractiveAccessibilityState,
 } from '@/components/ui/primitive-contracts';
-import { borderWidths, interaction, layout, radii } from '@/theme/theme';
+import { borderWidths, layout, radii } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
+
+const GLYPH_SIZE = 20;
 
 export type IconButtonProps = Omit<
   PressableProps,
   'accessibilityLabel' | 'accessibilityRole' | 'children' | 'disabled' | 'style'
 > & {
   accessibilityLabel: string;
-  icon: (color: string) => ReactNode;
+  icon: IconName;
   disabled?: boolean;
+  /** Drawn on a sheet, where the dark appearance lifts the tonal fill. */
+  raised?: boolean;
   style?: StyleProp<ViewStyle>;
-  /** `quiet` draws no fill and no border, for a glyph the system already frames, such as a native header's bar button. */
-  variant?: 'default' | 'quiet';
 };
 
+/**
+ * O5's rare icon-only action inside content: a 44-point circle on the tonal fill with a
+ * 20-point glyph in the primary ink. Bar buttons and sheet close are `GlassButton`.
+ */
 export function IconButton({
   accessibilityLabel,
   accessibilityState,
@@ -34,8 +42,8 @@ export function IconButton({
   onBlur,
   onFocus,
   onPress,
+  raised = false,
   style,
-  variant = 'default',
   ...rest
 }: IconButtonProps) {
   const theme = useKuyaraTheme();
@@ -64,17 +72,21 @@ export function IconButton({
       style={({ pressed }) => [
         styles.button,
         {
-          backgroundColor: theme.colors.surfaceInteractive,
-          borderColor: theme.colors.borderDefined,
+          backgroundColor: resolveButtonColors(theme, 'tonal', {
+            disabled,
+            pressed: pressed && !disabled,
+            raised,
+          }).backgroundColor,
         },
-        variant === 'quiet' && styles.quiet,
-        pressed && !disabled && styles.pressed,
-        disabled && styles.disabled,
-        isFocused && { borderColor: theme.colors.focusRing },
+        isFocused && { outlineColor: theme.colors.focusRing },
         style,
       ]}
       {...rest}>
-      {icon(theme.colors.iconPrimary)}
+      <Icon
+        color={disabled ? theme.colors.borderDefined : theme.colors.iconPrimary}
+        name={icon}
+        size={GLYPH_SIZE}
+      />
     </PressScale>
   );
 }
@@ -85,18 +97,10 @@ const styles = StyleSheet.create({
     height: layout.minimumTouchTarget,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radii.control,
-    borderWidth: borderWidths.strong,
-  },
-  quiet: {
-    backgroundColor: 'transparent',
-    borderColor: 'transparent',
-    borderWidth: 0,
-  },
-  pressed: {
-    opacity: interaction.pressedOpacity,
-  },
-  disabled: {
-    opacity: interaction.disabledOpacity,
+    borderRadius: radii.pill,
+    outlineColor: 'transparent',
+    outlineOffset: borderWidths.strong,
+    outlineStyle: 'solid',
+    outlineWidth: borderWidths.strong,
   },
 });
