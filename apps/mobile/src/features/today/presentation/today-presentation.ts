@@ -8,6 +8,11 @@ import {
 } from '@/features/recommendation/application/recommendation-application-controller';
 import type { RecommendedOutfit } from '@/features/recommendation/application/recommend-outfits';
 import type { RecommendationGenerationMode } from '@/features/recommendation/domain/generation-mode';
+import {
+  coverageDrift,
+  forecastBoundedCoverage,
+  type OutfitCoverage,
+} from '@/features/recommendation/domain/outfit-coverage';
 import type {
   ClothingRequirementReasonCode,
   ClothingRequirements,
@@ -181,6 +186,12 @@ export type LoadedTodayPresentation = Readonly<{
   // The detail surface's one plain sentence, present in all three modes and null only while
   // no recommendation is settled.
   generationSource: string | null;
+  /** N18: the window the displayed outfit was chosen for, one whole sentence. */
+  coverageCaption: string | null;
+  /** While a re-ask runs: the window being chosen for, one whole sentence. */
+  choosingCaption: string | null;
+  /** N15: protection the rest of the window needs that the outfit was not chosen for. */
+  driftCaption: string | null;
   dayInsight: string | null;
   dayWindow: string | null;
   stageAccessibilityLabel: string;
@@ -224,6 +235,105 @@ function formatTime(
     hour12,
     timeZone,
   }).format(new Date(value));
+}
+
+// The quarter hour the window is spoken from: "now" is an instant, and 13:02 reads as noise
+// in a sentence about the afternoon's weather.
+const quarterHourMs = 15 * 60 * 1000;
+
+function localDate(instant: number, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' })
+    .format(new Date(instant));
+}
+
+/** The long day name a window sentence uses when it starts on another calendar date. */
+function formatWindowDay(instant: number, language: SupportedLanguage, timeZone: string): string {
+  return new Intl.DateTimeFormat(localeTag(language), {
+    weekday: 'long', day: 'numeric', month: 'long', timeZone,
+  }).format(new Date(instant));
+}
+
+/**
+ * The three parts every window sentence takes: the start floored to the quarter hour, the
+ * end, and the day only when the window starts on a calendar date other than today's.
+ */
+export function coverageWindowParts(
+  window: OutfitCoverage,
+  now: number,
+  timeZone: string,
+  language: SupportedLanguage,
+  hour12: boolean,
+): Readonly<{ day: string | null; start: string; end: string }> {
+  const start = Math.floor(Date.parse(window.start) / quarterHourMs) * quarterHourMs;
+  return {
+    day: localDate(start, timeZone) === localDate(now, timeZone)
+      ? null : formatWindowDay(start, language, timeZone),
+    start: formatTime(new Date(start).toISOString(), language, hour12, timeZone),
+    end: formatTime(window.end, language, hour12, timeZone),
+  };
+}
+
+function windowSentence(
+  parts: ReturnType<typeof coverageWindowParts>,
+  sameDay: (start: string, end: string) => string,
+  onDay: (day: string, start: string, end: string) => string,
+): string {
+  return parts.day === null ? sameDay(parts.start, parts.end) : onDay(parts.day, parts.start, parts.end);
+}
+
+/** The re-ask sheet's warning for the window a confirmation would choose for. */
+export function askAgainWarning(
+  window: OutfitCoverage,
+  now: number,
+  timeZone: string,
+  language: SupportedLanguage,
+  hour12: boolean,
+): string {
+  const copy = getMessages(language).today.askAgain;
+  return windowSentence(coverageWindowParts(window, now, timeZone, language, hour12),
+    copy.warning, copy.warningOnDay);
+}
+
+/** A departure clock time as the wheel and the confirm label show it, in the place's zone. */
+export function formatDepartureTime(
+  instant: string,
+  language: SupportedLanguage,
+  hour12: boolean,
+  timeZone: string,
+): string {
+  return formatTime(instant, language, hour12, timeZone);
+}
+
+/**
+ * N23: before midnight the row says "Plan tomorrow" with the target's short date; after
+ * midnight "tomorrow" would name the wrong day, so it names the target weekday and keeps the
+ * bare date as its value. The sheet's question follows the same rule.
+ */
+export function planRowPresentation(
+  targetKey: string,
+  now: number,
+  language: SupportedLanguage,
+): Readonly<{ label: string; value: string; accessibilityLabel: string; question: string }> {
+  const copy = getMessages(language).today.dailyStyle;
+  const date = new Date(`${targetKey.slice(0, 10)}T12:00:00`);
+  const today = new Date(now);
+  const isToday = date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() && date.getDate() === today.getDate();
+  if (!isToday) {
+    const value = formatDressingDate(targetKey, language);
+    return { label: copy.planTomorrowLabel, value, accessibilityLabel: copy.planTomorrow(value),
+      question: copy.questionTomorrow };
+  }
+  const tag = localeTag(language);
+  const weekday = new Intl.DateTimeFormat(tag, { weekday: 'long' }).format(date);
+  const value = new Intl.DateTimeFormat(tag, { day: 'numeric', month: 'short' }).format(date);
+  return {
+    label: copy.planFor(weekday),
+    value,
+    accessibilityLabel: copy.planForAccessibilityLabel(weekday, value),
+    question: copy.questionForDay(
+      new Intl.DateTimeFormat(tag, { weekday: 'long', day: 'numeric', month: 'long' }).format(date)),
+  };
 }
 
 const dayInsightModifierKeys = {
@@ -307,6 +417,35 @@ export function runwayWeather(
       (value) => formatTime(value, language, hour12, weather.timeZone),
     ),
   };
+}
+
+type DayTopic = 'wet' | 'wind' | 'heat' | 'cold';
+
+// What each line is about, so the two lines never carry the same fact twice. A temperature
+// change or the evening's low adds a number and a time the first line does not give.
+function insightTopic(insight: DayInsight): DayTopic | null {
+  switch (insight.kind) {
+    case 'wet_all_day':
+    case 'wet_window': return 'wet';
+    case 'windy': return 'wind';
+    case 'heat': return 'heat';
+    case 'cold': return 'cold';
+    default: return insight.modifier?.kind ?? null;
+  }
+}
+
+function windowTopic(window: DayWindow): DayTopic | null {
+  switch (window.kind) {
+    case 'rain':
+    case 'snow': return 'wet';
+    case 'wind':
+    case 'very_windy': return 'wind';
+    case 'stays_hot':
+    case 'stays_very_hot': return 'heat';
+    case 'stays_cold':
+    case 'stays_freezing': return 'cold';
+    default: return null;
+  }
 }
 
 function dayWindowSentence(
@@ -500,6 +639,7 @@ function createLoadedPresentation(
   refreshFailed: boolean,
   now: number,
   phase: RecommendationPhase | null,
+  choosingWindow: OutfitCoverage | null,
 ): LoadedTodayPresentation {
   const messages = getMessages(language);
   const copy = messages.today;
@@ -519,16 +659,41 @@ function createLoadedPresentation(
     ? snapshot.recommendation.insightSentence
     : null;
   const dayInsight = acceptedInsight ?? deterministicDayInsight;
+  // The second line never restates the first: the window rule skips a wet run the first line
+  // already describes, and an identical sentence is dropped below.
   const window = findDayWindow({ snapshot: weather, now: new Date(now).toISOString(),
-    firstInsight: snapshot.coverageEnd ? null : insight,
+    firstInsight: insight,
     ...(snapshot.coverageStart && snapshot.coverageEnd
       ? { coverage: { start: snapshot.coverageStart, end: snapshot.coverageEnd } } : {}) });
-  const dayWindow = window === null ? null : dayWindowSentence(
+  const windowLine = window === null ? null : dayWindowSentence(
     window,
     copy.dayWindow,
     (value) => formatTime(value, language, hour12, weather.timeZone),
     (value) => formatTemperature(value, language),
   );
+  const dayWindow = windowLine === dayInsight || (insight !== null && window !== null &&
+    insightTopic(insight) !== null && insightTopic(insight) === windowTopic(window))
+    ? null : windowLine;
+  const shown = snapshot.coverageStart && snapshot.coverageEnd
+    ? forecastBoundedCoverage({ start: snapshot.coverageStart, end: snapshot.coverageEnd }, weather.hourly)
+    : null;
+  const coverageCaption = shown && snapshot.recommendation.status === 'recommended'
+    ? windowSentence(coverageWindowParts(shown, now, weather.timeZone, language, hour12),
+      copy.coverage.chosen, copy.coverage.chosenOnDay)
+    : null;
+  const choosing = choosingWindow
+    ? forecastBoundedCoverage(choosingWindow, weather.hourly) ?? choosingWindow : null;
+  const choosingCaption = choosing
+    ? windowSentence(coverageWindowParts(choosing, now, weather.timeZone, language, hour12),
+      copy.coverage.choosing, copy.coverage.choosingOnDay)
+    : null;
+  const drift = snapshot.coverageEnd && snapshot.recommendation.status === 'recommended' && !choosing
+    ? coverageDrift(snapshot.recommendation.requirements, weather.hourly,
+      new Date(now).toISOString(), snapshot.coverageEnd)
+    : null;
+  const driftCaption = drift
+    ? copy.drift[drift.kind](formatTime(drift.at, language, hour12, weather.timeZone))
+    : null;
   const isStale = snapshot.freshness === 'stale';
   const condition = weatherCopy.conditions[current.condition];
   const weatherReasons = reasonCodesByPriority(
@@ -655,6 +820,9 @@ function createLoadedPresentation(
     },
     generationMode,
     generationSource,
+    coverageCaption,
+    choosingCaption,
+    driftCaption,
     dayInsight,
     dayWindow,
     stageAccessibilityLabel: primary ? copy.stageAccessibilityLabel({
@@ -726,5 +894,6 @@ export function createTodayPresentation(
     state.refreshFailed,
     now,
     state.phase ?? null,
+    state.choosingWindow ?? null,
   );
 }

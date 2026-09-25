@@ -25,29 +25,34 @@ import { NameSheet } from '@/features/profile/presentation/name-sheet';
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
 import { localDayKey } from '@/features/recommendation/application/recommendation-application-controller';
 import { nextBareDressingDayKey } from '@/features/recommendation/domain/dressing-day-choice';
+import { outfitCoverage } from '@/features/recommendation/domain/outfit-coverage';
 import { unavailableTodayState, type TodayScreenState } from '@/features/today/model';
 import { TodayScreen } from '@/features/today/presentation/today-screen';
+import { AskAgainSheet, type AskAgainChoice } from '@/features/today/presentation/ask-again-sheet';
 import { DailyFormalitySheet } from '@/features/today/presentation/daily-formality-sheet';
-import { formatDressingDate } from '@/features/today/presentation/today-presentation';
+import { planRowPresentation } from '@/features/today/presentation/today-presentation';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
+import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useLocalization } from '@/localization/use-messages';
 import { getMessages } from '@/localization/messages';
 
 export default function TodayRoute() {
-  const { language } = useLocalization();
+  const { language, hour12 } = useLocalization();
+  const clock = useForegroundClock();
   const router = useRouter();
   const {
     state: recommendationState,
     getSnapshot: getRecommendationSnapshot,
     refresh: refreshRecommendation,
     evaluateApprovedTriggers,
-    regenerate: regenerateRecommendation,
     reevaluateLocalDay,
     dressingDayKey,
     dressingDayChoiceReady,
     morningChoicePending,
+    eveningChoicePending,
     resolvedDressStyle,
     chooseFormality,
+    reask,
   } = useRecommendationApplication();
   const weatherApplication = useWeatherApplication();
   const { revalidateFreshness: revalidateWeatherFreshness, state: weatherState } =
@@ -55,8 +60,14 @@ export default function TodayRoute() {
   const { state: profileState, updateDisplayName } = useProfileApplication();
   const [namePromptDismissed, setNamePromptDismissed] = useState(false);
   const currentDressingDayKey = dressingDayKey ?? null;
-  // The morning question, Plan tomorrow, or the title's pill: one sheet, three openers.
-  const [sheetTarget, setSheetTarget] = useState<'morning' | 'plan' | 'pill' | null>(null);
+  // The morning question, the 18:00 evening question, or Plan tomorrow: one sheet, three
+  // openers. During the day the day type changes inside "Ask the stylist again" (O2, O3).
+  const [sheetTarget, setSheetTarget] = useState<'morning' | 'evening' | 'plan' | null>(null);
+  // The re-ask sheet opens on the clock it was pressed at; its window is read against it.
+  const [askOpenedAt, setAskOpenedAt] = useState<number | null>(null);
+  const [askBusy, setAskBusy] = useState(false);
+  const [askError, setAskError] = useState(false);
+  const [choosingWindow, setChoosingWindow] = useState<Readonly<{ start: string; end: string }> | null>(null);
   const [sheetError, setSheetError] = useState(false);
   const offeredKey = useRef<string | null>(null);
   const savingChoice = useRef(false);
@@ -130,6 +141,7 @@ export default function TodayRoute() {
       refreshFailed:
         weatherState.refreshFailure !== null || recommendationState.lastFailure !== null,
       phase: recommendationState.phase,
+      choosingWindow,
     };
     todayFailure = weatherState.refreshFailure;
     recommendationFailure = recommendationState.lastFailure;
@@ -164,14 +176,18 @@ export default function TodayRoute() {
       retries.reset('today');
     };
   }, [reevaluateLocalDay, retries, revalidateWeatherFreshness]));
+  // M16 and N20: the first foreground open of a bare-date day asks the morning question, and
+  // the first one after 18:00 asks the evening question, starting empty.
+  const pendingQuestion = morningChoicePending ? 'morning' : eveningChoicePending ? 'evening' : null;
   useEffect(() => {
-    if (!isFocused || !morningChoicePending || showNamePrompt || !currentDressingDayKey ||
+    if (!isFocused || !pendingQuestion || showNamePrompt || !currentDressingDayKey ||
         state.kind === 'unavailable' || offeredKey.current === currentDressingDayKey) return;
     offeredKey.current = currentDressingDayKey;
-    setSheetTarget('morning');
-  }, [currentDressingDayKey, isFocused, morningChoicePending, showNamePrompt, state.kind]);
+    setSheetTarget(pendingQuestion);
+  }, [currentDressingDayKey, isFocused, pendingQuestion, showNamePrompt, state.kind]);
   const tomorrowKey = currentDressingDayKey
     ? nextBareDressingDayKey(currentDressingDayKey) : null;
+  const planRow = tomorrowKey ? planRowPresentation(tomorrowKey, clock, language) : null;
   const profile = profileState.status === 'ready' ? profileState.profile : null;
   const profileDressStyle = profile?.dressStyle ?? 'smart';
   // f25 and M16: the first dressing day is the one the profile was set up on. Its greeting
@@ -186,16 +202,11 @@ export default function TodayRoute() {
     ? resolvedDressStyle : null;
   const handleChoice = async (style: DressStyle) => {
     if (!sheetTarget || savingChoice.current || !currentDressingDayKey || !tomorrowKey) return;
-    // The pill reopened the answer already in force, so there is nothing to change.
-    if (sheetTarget === 'pill' && style === resolvedDressStyle) {
-      setSheetTarget(null);
-      return;
-    }
     savingChoice.current = true;
     setSheetError(false);
     try {
       await chooseFormality?.(sheetTarget === 'plan' ? tomorrowKey : currentDressingDayKey,
-        style, sheetTarget === 'plan' ? 'plan' : sheetTarget === 'pill' ? 'chip' : 'morning');
+        style, sheetTarget === 'plan' ? 'plan' : 'morning');
       setSheetTarget(null);
     } catch {
       setSheetError(true);
@@ -207,18 +218,37 @@ export default function TodayRoute() {
     if (savingChoice.current || !sheetTarget) return;
     const target = sheetTarget;
     setSheetTarget(null);
-    if (target !== 'morning') return;
+    if (target === 'plan') return;
     const copy = getMessages(language).today.dailyStyle;
-    Alert.alert(copy.question, copy.dismissWarning, [
+    // M17: the native alert, the same for the morning and the evening question.
+    Alert.alert(
+      target === 'evening' ? copy.questionEvening : copy.question,
+      target === 'evening' ? copy.dismissWarningEvening : copy.dismissWarning, [
       { text: copy.chooseDayType, style: 'default', isPreferred: true,
-        onPress: () => setSheetTarget('morning') },
+        onPress: () => setSheetTarget(target) },
       { text: copy.continueWithoutChoosing, style: 'destructive', onPress: () => {
         const styles: readonly DressStyle[] = ['casual', 'smart', 'formal'];
         if (!currentDressingDayKey) return;
         void chooseFormality?.(currentDressingDayKey, styles[Math.floor(Math.random() * 3)], 'random')
-          .catch(() => { setSheetError(true); setSheetTarget('morning'); });
+          .catch(() => { setSheetError(true); setSheetTarget(target); });
       } },
     ]);
+  };
+  const placeTimeZone = weatherState.status === 'ready' ? weatherState.snapshot?.timeZone ?? null : null;
+  const confirmAskAgain = async ({ formality, departureAt }: AskAgainChoice) => {
+    if (askBusy || !placeTimeZone || !reask) return;
+    setAskBusy(true);
+    setAskError(false);
+    try {
+      const { settled } = await reask({ formality, departureAt, timeZone: placeTimeZone });
+      setChoosingWindow(outfitCoverage(departureAt ?? new Date().toISOString(), placeTimeZone));
+      void settled.finally(() => setChoosingWindow(null));
+      setAskOpenedAt(null);
+    } catch {
+      setAskError(true);
+    } finally {
+      setAskBusy(false);
+    }
   };
   const viewedThisFocusRef = useRef(false);
   useEffect(() => {
@@ -381,20 +411,38 @@ export default function TodayRoute() {
       isRefreshing={isPullRefreshing}
       onOpenOutfitDetail={(id) => router.push({ pathname: '/[id]', params: { id } })}
       onRefresh={handleRefresh}
-      onRegenerate={() => void regenerateRecommendation()}
-      selectedFormality={dressingDayChoiceReady === false ? undefined : resolvedDressStyle}
-      onOpenDayType={() => { setSheetError(false); setSheetTarget('pill'); }}
+      onAskAgain={() => { setAskError(false); setAskOpenedAt(Date.now()); }}
       updatingDayType={updatingDayType}
       firstDressingDay={firstDressingDay}
-      tomorrowDate={tomorrowKey ? formatDressingDate(tomorrowKey, language) : undefined}
+      planRow={planRow ?? undefined}
       onPlanTomorrow={() => { setSheetError(false); setSheetTarget('plan'); }}
       state={state}
     />
     <DailyFormalitySheet visible={sheetTarget !== null} language={language}
-      mode={sheetTarget === 'plan' ? 'tomorrow' : 'today'}
-      selected={sheetTarget === 'plan' ? profileDressStyle : resolvedDressStyle ?? profileDressStyle}
+      question={sheetTarget === 'plan'
+        ? planRow?.question ?? getMessages(language).today.dailyStyle.questionTomorrow
+        : sheetTarget === 'evening'
+          ? getMessages(language).today.dailyStyle.questionEvening
+          : getMessages(language).today.dailyStyle.question}
+      selected={sheetTarget === 'plan' ? profileDressStyle
+        : sheetTarget === 'evening' ? null : resolvedDressStyle ?? profileDressStyle}
       firstDay={sheetTarget === 'morning' && firstDressingDay}
       error={sheetError} onChoose={(style) => { void handleChoice(style); }} onDismiss={dismissChoice} />
+    {placeTimeZone ? (
+      <AskAgainSheet
+        busy={askBusy}
+        error={askError}
+        evening={currentDressingDayKey?.endsWith(':evening') ?? false}
+        hour12={hour12}
+        language={language}
+        now={askOpenedAt ?? clock}
+        onConfirm={(choice) => { void confirmAskAgain(choice); }}
+        onDismiss={() => { if (!askBusy) setAskOpenedAt(null); }}
+        selected={resolvedDressStyle ?? profileDressStyle}
+        timeZone={placeTimeZone}
+        visible={askOpenedAt !== null}
+      />
+    ) : null}
     <NameSheet
       initialName={null}
       mode="prompt"

@@ -30,6 +30,12 @@ export type NativeSheetProps = Readonly<{
   children: ReactNode;
   /** Fires after the platform's own dismissal, and after a programmatic close. */
   onDismiss: () => void;
+  /**
+   * `large` opens at the large detent only, for content that never fits the medium one. A
+   * content-fitted detent is not used: its height would follow content that changes while
+   * the sheet is open.
+   */
+  size?: 'default' | 'large';
   testID?: string;
   visible: boolean;
 }>;
@@ -38,7 +44,7 @@ export type NativeSheetProps = Readonly<{
  * A platform bottom sheet over the current screen. The sheet owns its presentation,
  * its dismissal, its grabber and its scrim; the caller owns only what is inside it.
  */
-export function NativeSheet({ children, onDismiss, testID, visible }: NativeSheetProps) {
+export function NativeSheet({ children, onDismiss, size = 'default', testID, visible }: NativeSheetProps) {
   const theme = useKuyaraTheme();
   const { usesStackedLayout } = useTextScaling();
 
@@ -48,7 +54,7 @@ export function NativeSheet({ children, onDismiss, testID, visible }: NativeShee
       enablePanDownToClose
       index={visible ? 0 : -1}
       onClose={onDismiss}
-      snapPoints={usesStackedLayout ? [LARGE_DETENT] : [MEDIUM_DETENT, LARGE_DETENT]}>
+      snapPoints={usesStackedLayout || size === 'large' ? [LARGE_DETENT] : [MEDIUM_DETENT, LARGE_DETENT]}>
       {/* `backgroundStyle` paints the sheet's own chrome, the grabber zone and the
           bottom safe-area inset included; the content carries the same fill because it
           is hosted in its own native view that would otherwise be transparent. */}

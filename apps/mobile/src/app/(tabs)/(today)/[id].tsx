@@ -190,6 +190,8 @@ export default function OutfitDetailRoute() {
             ? 'fresh'
             : 'stale',
         recommendation,
+        coverageStart: recommendationState.snapshot?.coverageStart,
+        coverageEnd: recommendationState.snapshot?.coverageEnd,
       },
     };
   }

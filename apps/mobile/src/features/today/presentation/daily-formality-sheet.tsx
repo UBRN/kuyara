@@ -20,35 +20,90 @@ const GLYPH_SCALE_CAP = 1.15;
 const CHECK_SIZE = 20;
 
 /**
- * The day-type question (M6 step 1). One tap on a tile chooses and closes the sheet; the
- * current answer is checked by three cues together (accent border, interactive fill and a
- * check glyph), so it is never told by colour alone. Lasting style changes live only in
- * Settings > Profile (M18), so the sheet offers none.
+ * The three day-type tiles as one radio group. The checked answer is told by three cues
+ * together (accent border, interactive fill and a check glyph), never by colour alone. With
+ * nothing checked (the 18:00 evening sheet, N20) every tile draws its resting state.
  */
-export function DailyFormalitySheet({
-  visible, language, mode, selected, firstDay = false, onChoose, onDismiss, error,
+export function DayTypeTiles({
+  language, selected, onSelect, testID,
 }: Readonly<{
-  visible: boolean;
   language: SupportedLanguage;
-  mode: 'today' | 'tomorrow';
-  /** The answer checked when the sheet opens, so one tap confirms it. */
-  selected: DressStyle;
-  /** The day onboarding finished: the checked answer is the one given in setup. */
-  firstDay?: boolean;
-  onChoose: (style: DressStyle) => void;
-  onDismiss: () => void;
-  error: boolean;
+  selected: DressStyle | null;
+  onSelect: (style: DressStyle) => void;
+  testID: string;
 }>) {
   const theme = useKuyaraTheme();
   const { controlScale } = useTextScaling();
   const copy = getMessages(language).today.dailyStyle;
   const glyphSize = GLYPH_SIZE * Math.min(controlScale, GLYPH_SCALE_CAP);
   return (
+    <View accessibilityRole="radiogroup" style={styles.tiles} testID={`${testID}-choices`}>
+      {choices.map(({ style, garmentTypeId, category }) => {
+        const checked = style === selected;
+        return (
+          <Pressable
+            accessibilityLabel={copy[style]}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: checked }}
+            key={style}
+            onPress={() => onSelect(style)}
+            style={({ pressed }) => [styles.tile, {
+              backgroundColor: checked ? theme.colors.surfaceInteractive : theme.colors.surface,
+              borderColor: checked ? theme.colors.brandAccent : theme.colors.borderDefined,
+              borderWidth: checked ? borderWidths.strong : borderWidths.subtle,
+              opacity: pressed ? theme.interaction.pressedOpacity : 1,
+            }]}
+            testID={`${testID}-${style}`}>
+            <GarmentDrawing
+              category={category}
+              garmentTypeId={garmentTypeId}
+              size={glyphSize}
+              testID={`${testID}-${style}-drawing`}
+            />
+            <AppText style={styles.label} variant="bodyStrong">{copy[style]}</AppText>
+            {checked ? (
+              <View style={styles.check} testID={`${testID}-${style}-check`}>
+                <Icon
+                  color={theme.colors.brandAccent}
+                  name="checkCircle"
+                  size={CHECK_SIZE * Math.min(controlScale, GLYPH_SCALE_CAP)}
+                />
+              </View>
+            ) : null}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+/**
+ * The day-type question (M6 step 1): the morning sheet, the 18:00 evening sheet and Plan
+ * tomorrow. One tap on a tile chooses and closes the sheet. The evening sheet opens with
+ * nothing checked, because the morning answer never carries into the evening (N20).
+ */
+export function DailyFormalitySheet({
+  visible, language, question, selected, firstDay = false, onChoose, onDismiss, error,
+}: Readonly<{
+  visible: boolean;
+  language: SupportedLanguage;
+  /** The whole question, already worded for the day it asks about. */
+  question: string;
+  /** The answer checked when the sheet opens, so one tap confirms it; null checks none. */
+  selected: DressStyle | null;
+  /** The day onboarding finished: the checked answer is the one given in setup. */
+  firstDay?: boolean;
+  onChoose: (style: DressStyle) => void;
+  onDismiss: () => void;
+  error: boolean;
+}>) {
+  const copy = getMessages(language).today.dailyStyle;
+  return (
     <NativeSheet visible={visible} onDismiss={onDismiss} testID="daily-formality-sheet">
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.head}>
           <AppText accessibilityRole="header" style={styles.question} variant="title">
-            {mode === 'tomorrow' ? copy.questionTomorrow : copy.question}
+            {question}
           </AppText>
           <GlassButton
             kind="close"
@@ -62,43 +117,7 @@ export function DailyFormalitySheet({
             {copy.firstDayNote}
           </AppText>
         ) : null}
-        <View accessibilityRole="radiogroup" style={styles.tiles} testID="daily-formality-choices">
-          {choices.map(({ style, garmentTypeId, category }) => {
-            const checked = style === selected;
-            return (
-              <Pressable
-                accessibilityLabel={copy[style]}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: checked }}
-                key={style}
-                onPress={() => onChoose(style)}
-                style={({ pressed }) => [styles.tile, {
-                  backgroundColor: checked ? theme.colors.surfaceInteractive : theme.colors.surface,
-                  borderColor: checked ? theme.colors.brandAccent : theme.colors.borderDefined,
-                  borderWidth: checked ? borderWidths.strong : borderWidths.subtle,
-                  opacity: pressed ? theme.interaction.pressedOpacity : 1,
-                }]}
-                testID={`daily-formality-${style}`}>
-                <GarmentDrawing
-                  category={category}
-                  garmentTypeId={garmentTypeId}
-                  size={glyphSize}
-                  testID={`daily-formality-${style}-drawing`}
-                />
-                <AppText style={styles.label} variant="bodyStrong">{copy[style]}</AppText>
-                {checked ? (
-                  <View style={styles.check} testID={`daily-formality-${style}-check`}>
-                    <Icon
-                      color={theme.colors.brandAccent}
-                      name="checkCircle"
-                      size={CHECK_SIZE * Math.min(controlScale, GLYPH_SCALE_CAP)}
-                    />
-                  </View>
-                ) : null}
-              </Pressable>
-            );
-          })}
-        </View>
+        <DayTypeTiles language={language} onSelect={onChoose} selected={selected} testID="daily-formality" />
         {error ? <AppText accessibilityRole="alert">{copy.saveError}</AppText> : null}
       </ScrollView>
     </NativeSheet>
