@@ -66,6 +66,55 @@ function findRequirement(result, kind, target) {
   );
 }
 
+test('later departure uses its forecast, not the current reading', () => {
+  const result = deriveClothingRequirements(snapshot({
+    current: { temperatureCelsius: 30, apparentTemperatureCelsius: 30 },
+    hourly: [{ forecastAt: '2026-08-01T13:00:00.000Z',
+      ...measurements({ temperatureCelsius: 10, apparentTemperatureCelsius: 10 }) }],
+  }), '2026-08-01T11:00:00.000Z', '2026-08-01T13:00:00.000Z');
+  assert.equal(findRequirement(result, 'thermal')?.priority, 'mandatory');
+  assert.equal(findRequirement(result, 'breathability'), undefined);
+});
+
+test('short cold tail is optional; two consecutive hours below 12 or one below 5 are mandatory', () => {
+  const at = '2026-08-01T18:00:00.000Z';
+  const nextDay = (temps) => snapshot({ current: { temperatureCelsius: 21,
+    apparentTemperatureCelsius: 21 }, hourly: [
+    { forecastAt: at, ...measurements({ temperatureCelsius: 21 }) },
+    ...temps.map(([dateHour, temperature]) => ({ forecastAt: `2026-08-${dateHour}:00:00.000Z`,
+      ...measurements({ temperatureCelsius: temperature, apparentTemperatureCelsius: temperature }) })),
+  ] });
+  assert.equal(findRequirement(deriveClothingRequirements(nextDay([['02T00', 11]]), at), 'thermal')?.priority,
+    'optional');
+  assert.equal(findRequirement(deriveClothingRequirements(nextDay([['01T23', 11], ['02T00', 11]]), at), 'thermal')?.priority,
+    'mandatory');
+  assert.equal(findRequirement(deriveClothingRequirements(nextDay([['02T00', 4]]), at), 'thermal')?.priority,
+    'mandatory');
+});
+
+test('03:00 cold is outside a 20:00 selection ending at 01:00', () => {
+  const result = deriveClothingRequirements(snapshot({
+    hourly: [{ forecastAt: '2026-08-02T03:00:00.000Z',
+      ...measurements({ temperatureCelsius: 3, apparentTemperatureCelsius: 3 }) }],
+  }), '2026-08-01T20:00:00.000Z');
+  assert.equal(findRequirement(result, 'thermal'), undefined);
+});
+
+test('severe late cold remains mandatory after a hot first four hours', () => {
+  const at = '2026-08-01T18:00:00.000Z';
+  const result = deriveClothingRequirements(snapshot({
+    current: { temperatureCelsius: 30, apparentTemperatureCelsius: 30 },
+    hourly: [
+      { forecastAt: at, ...measurements({ temperatureCelsius: 30,
+        apparentTemperatureCelsius: 30 }) },
+      { forecastAt: '2026-08-02T00:00:00.000Z', ...measurements({
+        temperatureCelsius: 4, apparentTemperatureCelsius: 4 }) },
+    ],
+  }), at);
+  assert.equal(findRequirement(result, 'thermal')?.priority, 'mandatory');
+  assert.equal(findRequirement(result, 'breathability')?.priority, 'optional');
+});
+
 test('thermal and coverage thresholds use exact lower-bound semantics', () => {
   const cases = [
     [18.001, null, null],
@@ -131,7 +180,7 @@ test('breathability thresholds distinguish optional warmth from mandatory heat',
   }
 });
 
-test('a cold morning before a hot afternoon keeps the current side mandatory', () => {
+test('the first four hours keep the primary exposure mandatory', () => {
   const hourAt = (hour) => `2026-08-01T${String(hour).padStart(2, '0')}:00:00.000Z`;
   const hours = (entries) => entries.map(([hour, temperature]) => ({
     forecastAt: hourAt(hour),
@@ -154,59 +203,46 @@ test('a cold morning before a hot afternoon keeps the current side mandatory', (
     ]),
   );
 
-  // Cold now, heat later: breathability is demoted and still explains itself.
+  // The later hot hour does not make the cold morning outfit breathable.
   const coldNow = day(7, 4, hours([[8, 4], [16, 29]]));
   assert.deepEqual(priorities(coldNow), {
     thermal: 'high:mandatory',
     arm_coverage: 'full:mandatory',
     leg_coverage: 'full:mandatory',
-    breathability: 'high:optional',
+    breathability: 'undefined:undefined',
   });
-  assert.deepEqual(
-    findRequirement(coldNow, 'breathability').reasonCodes,
-    ['temperature_high', 'apparent_temperature_high', 'daily_range_wide'],
-  );
 
-  // Heat now, cold later: insulation and the coverage that came with it are demoted.
+  // Cold at the end boundary is outside coverage, so heat now wins alone.
   assert.deepEqual(priorities(day(16, 29, hours([[17, 29], [22, 4]]))), {
-    thermal: 'high:optional',
-    arm_coverage: 'full:optional',
-    leg_coverage: 'full:optional',
+    thermal: 'undefined:undefined',
+    arm_coverage: 'undefined:undefined',
+    leg_coverage: 'undefined:undefined',
     breathability: 'high:mandatory',
   });
-
-  // Neither is current: protection over comfort.
-  assert.deepEqual(priorities(day(12, 15, hours([[16, 29], [22, 4]]))), {
-    thermal: 'high:mandatory',
-    arm_coverage: 'full:mandatory',
-    leg_coverage: 'full:mandatory',
-    breathability: 'high:optional',
-  });
-  // Light thermal still excludes every breathable top but one, so the cold side below the
-  // coverage boundary is demoted the same way (17 °C at 08:00, 30 °C at 15:00).
+  // Later heat does not drive the main outfit outside its first four hours.
   assert.deepEqual(priorities(day(12, 15, hours([[16, 29], [22, 12]]))), {
     thermal: 'light:mandatory',
     arm_coverage: 'full:optional',
     leg_coverage: 'full:optional',
-    breathability: 'high:optional',
+    breathability: 'undefined:undefined',
   });
   assert.deepEqual(priorities(day(8, 17, hours([[9, 17], [15, 30]]))), {
     thermal: 'light:mandatory',
     arm_coverage: 'full:optional',
     leg_coverage: 'full:optional',
-    breathability: 'high:optional',
+    breathability: 'undefined:undefined',
   });
-  // Hot now, light cold later: comfort is what the wearer walks out into.
+  // Cold at 22:00 is outside the afternoon coverage end.
   assert.deepEqual(priorities(day(15, 30, hours([[16, 30], [22, 17]]))), {
-    thermal: 'light:optional',
-    arm_coverage: 'full:optional',
-    leg_coverage: 'full:optional',
+    thermal: 'undefined:undefined',
+    arm_coverage: 'undefined:undefined',
+    leg_coverage: 'undefined:undefined',
     breathability: 'high:mandatory',
   });
-  // At or above 18 °C there is no cold side to weigh against the heat.
+  // Later heat outside the first four hours does not force breathability.
   const warmAllDay = day(12, 20, hours([[16, 29], [22, 18]]));
   assert.equal(findRequirement(warmAllDay, 'thermal'), undefined);
-  assert.equal(findRequirement(warmAllDay, 'breathability').priority, 'mandatory');
+  assert.equal(findRequirement(warmAllDay, 'breathability'), undefined);
 });
 
 test('past daily cold does not over-insulate a warm evening with warm remaining hours', () => {
@@ -272,11 +308,9 @@ test('an open before 18:00 local ignores every hour after the local midnight', (
   assert.deepEqual(result.reasonCodes, []);
 });
 
-test('an open at or after 18:00 local dresses for the night it runs into', () => {
-  // The same snapshot read at 19:00: the dressing day now ends at 04:00, so the 01:00 hour
-  // is the night the person is walking into rather than a different calendar day.
+test('an evening open includes overnight weather until its 01:00 coverage end', () => {
   const overnight = {
-    forecastAt: '2026-08-02T01:00:00.000Z',
+    forecastAt: '2026-08-02T00:00:00.000Z',
     ...measurements({
       temperatureCelsius: 0,
       apparentTemperatureCelsius: -4,
@@ -296,7 +330,7 @@ test('an open at or after 18:00 local dresses for the night it runs into', () =>
         ...measurements({ temperatureCelsius: 18, apparentTemperatureCelsius: 18 }),
       },
       overnight,
-      // 05:00 local is past the 04:00 end and stays outside the window.
+      // 05:00 is beyond the 01:00 outfit end.
       {
         forecastAt: '2026-08-02T05:00:00.000Z',
         ...measurements({ temperatureCelsius: 35, apparentTemperatureCelsius: 35 }),
@@ -308,8 +342,7 @@ test('an open at or after 18:00 local dresses for the night it runs into', () =>
   assert.equal(findRequirement(result, 'thermal').minimum, 'high');
   assert.equal(findRequirement(result, 'water_protection').minimum, 'waterproof');
   assert.equal(findRequirement(result, 'wind_protection').priority, 'mandatory');
-  // The 05:00 hour sits past the window's end, and a 35 degree hour inside it would have
-  // demanded breathability; its absence is the proof that the window closed at 04:00.
+  // The 05:00 hour sits past the outfit end.
   assert.equal(findRequirement(result, 'breathability'), undefined);
 });
 
@@ -719,7 +752,7 @@ test('just after local midnight the remaining hours come from now, not from obse
     minimumTemperatureCelsius: 13,
     maximumTemperatureCelsius: 20,
     hourly: [{
-      forecastAt: '2026-08-01T22:00:00.000Z',
+      forecastAt: '2026-08-01T21:30:00.000Z',
       ...measurements({ temperatureCelsius: 4, apparentTemperatureCelsius: 4 }),
     }],
     snapshotFields: { timeZone: 'Europe/Istanbul' },

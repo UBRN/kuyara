@@ -208,12 +208,12 @@ Approved 2026-08-13; the dress-style rule is in [ADR 0031](adr/0031-dress-style-
 
 ## Approved ask-again and outfit timing
 
-These rules are approved for Goal C and Phase 5; implementation is planned.
+These rules are approved for Goal C and Phase 5. The strict re-ask reservation, departure persistence, coverage calculation and expiry evaluation are implemented; the remaining Today controls and copy are planned for C3.
 
 - Today has one re-ask control, “Ask the stylist again” / “Stiliste tekrar sor”. Every press opens the native confirmation. Repeated picks from earlier the same day are allowed. A7 hides the control only when the pool has no other valid option.
 - Each confirmed re-ask reserves one of five per-install AI regenerations for the local day before starting the AI chain. If no reservation is available, or reservation cannot be read or written, use the deterministic fallback.
 - A stale-weather refresh updates weather and the two insight lines only. The displayed outfit never changes silently. A one-line caption above the re-ask control appears when the remaining coverage window needs different protection.
-- The confirmation offers “Now | Later”. The start is now or the persisted Later departure, using the forecast at that departure time rather than the current reading. The selected departure is stored under its own dressing day.
+- The planned confirmation offers “Now | Later”. The application now accepts a persisted Later departure, using the forecast at that departure time rather than the current reading. The selected departure is stored under its own dressing day; the controls are planned for C3.
 - Outfit coverage is separate from the 04:00/18:00 dressing-day key and the weather-alert horizon. End time follows the departure time:
 
   | Departure time | Coverage ends |
@@ -224,11 +224,11 @@ These rules are approved for Goal C and Phase 5; implementation is planned.
   | 18:00-00:59 | 01:00 the next day |
   | 01:00-03:59 | 04:00 |
 
-  The coverage caption is one complete sentence stating the start and end, such as “Chosen for the weather between 13:00 and 20:00.”
+  The planned coverage caption is one complete sentence stating the start and end, such as “Chosen for the weather between 13:00 and 20:00.”
 - The first four hours of the coverage window, or the whole window if it is shorter, decide the main outfit. A later short cool spell becomes a finishing touch or prefers a suitable outer layer when one exists. Later cold is mandatory protection only below 12 °C for at least two consecutive hours or below 5 °C at any hour. Existing rain and wind thresholds stay unchanged. The 4-hour, 2-hour, 12 °C and 5 °C values must retain fixtures that produce three valid outfits.
-- At the first foreground open after the 18:00 key flip, an empty evening sheet asks for day type and then styles. Morning answers do not carry into it. Dismissal uses the existing “Continue without choosing” native alert. Once an outfit's coverage window ends, the next foreground open visibly reselects once. Weather refresh alone never swaps outfits; there are no hourly or background AI calls.
+- An unanswered evening key is now exposed as a separate pending state and holds automatic selection. C3 opens the empty evening sheet at the first foreground open after the 18:00 key flip, asks for day type and then styles, and applies the existing “Continue without choosing” native alert. Morning answers do not carry into it. Once an outfit's coverage window ends, the next foreground open reselects once through the normal trigger evaluation. Weather refresh alone never swaps outfits; there are no hourly or background AI calls.
 - “Later” may cross a day part or dressing day; plan it by the departure's own time rule and store it under the departure's dressing-day key. Plan tomorrow names the target weekday and date, the bare date after the active dressing day.
-- In the planned Phase 5 schema, `dressing_day_choices.style_aesthetics` is a nullable sorted JSON array of closed ids; null or empty resolves to Settings defaults. `dressing_day_departures` stores UUID `id`, `local_profile_id`, `day_key`, `departure_at`, IANA `time_zone`, `created_at`, `updated_at` and nullable `deleted_at`; “Now” stores no row. `outfit_history` follows [ADR 0038](adr/0038-outfit-history.md). Coverage start and end are optional fields in persisted recommendation JSON, not SQL columns, and “now” is not part of cache identity. Migration 19 is being built separately and is absent from schema version 18. No Worker request or response changes; weather hours become device-side requirements.
+- In the implemented Phase 5 schema, `dressing_day_choices.style_aesthetics` is a nullable sorted JSON array of closed ids; null or empty resolves to Settings defaults. `dressing_day_departures` stores UUID `id`, `local_profile_id`, `day_key`, `departure_at`, IANA `time_zone`, `created_at`, `updated_at` and nullable `deleted_at`; “Now” stores no row. `outfit_history` follows [ADR 0038](adr/0038-outfit-history.md). Coverage start and end are optional fields in persisted recommendation JSON, not SQL columns, and “now” is not part of cache identity. Migration 19 is implemented. No Worker request or response changes; weather hours become device-side requirements.
 
 ## Approved notifications scope
 

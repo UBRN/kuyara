@@ -122,6 +122,8 @@ export default function TodayRoute() {
         activeLocation: weatherState.activeLocation,
         freshness: weatherState.freshness,
         recommendation,
+        coverageStart: recommendationState.snapshot?.coverageStart,
+        coverageEnd: recommendationState.snapshot?.coverageEnd,
       },
       isRefreshing:
         isPullRefreshing || weatherState.isRefreshing || recommendationState.isRefreshing,
@@ -146,10 +148,13 @@ export default function TodayRoute() {
   // three-outfit recommendation is visible (an AI/fallback failure inside a `loaded` state
   // does not count).
   const [isFocused, setIsFocused] = useState(false);
+  const evaluateOnFocus = useRef(evaluateApprovedTriggers);
+  useEffect(() => { evaluateOnFocus.current = evaluateApprovedTriggers; }, [evaluateApprovedTriggers]);
   const isRecommendationShown = state.kind === 'loaded'
     && state.snapshot.recommendation.status === 'recommended';
   useFocusEffect(useCallback(() => {
     reevaluateLocalDay();
+    void evaluateOnFocus.current(true);
     // Today's freshness line ages with the clock, so returning to the tab re-evaluates it
     // and starts the stale refresh the existing coalescing then shares.
     void revalidateWeatherFreshness();

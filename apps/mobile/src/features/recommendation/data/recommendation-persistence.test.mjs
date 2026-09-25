@@ -249,7 +249,8 @@ test('optional validated insight round trips in context_json and old rows still 
   t.after(() => database.close());
   const generated = generatedRecommendation();
   const context = { ...generated.request, insightSentence: 'The outfit suits the day.',
-    insightLocale: 'en' };
+    insightLocale: 'en', coverageStart: '2026-08-01T20:00:00.000Z',
+    coverageEnd: '2026-08-02T01:00:00.000Z' };
   await repository.saveSnapshot(profileId, {
     weatherSnapshotId: generated.input.snapshot.id,
     locationKey: generated.input.snapshot.locationKey,
@@ -259,16 +260,20 @@ test('optional validated insight round trips in context_json and old rows still 
   const row = await database.getFirstAsync('SELECT context_json FROM recommendation_snapshots');
   assert.equal(JSON.parse(row.context_json).insightSentence, context.insightSentence);
   assert.equal(JSON.parse(row.context_json).insightLocale, 'en');
+  assert.equal((await repository.getSnapshot(profileId)).coverageEnd, context.coverageEnd);
   assert.equal((await repository.getSnapshot(profileId)).recommendation.insightSentence,
     context.insightSentence);
   assert.equal((await repository.getSnapshot(profileId)).recommendation.insightLocale, 'en');
   const oldContext = JSON.parse(row.context_json);
   delete oldContext.insightSentence;
   delete oldContext.insightLocale;
+  delete oldContext.coverageStart;
+  delete oldContext.coverageEnd;
   await database.runAsync('UPDATE recommendation_snapshots SET context_json = ?',
     [JSON.stringify(oldContext)]);
   assert.equal((await repository.getSnapshot(profileId)).recommendation.insightSentence, undefined);
   assert.equal((await repository.getSnapshot(profileId)).recommendation.insightLocale, undefined);
+  assert.equal((await repository.getSnapshot(profileId)).coverageEnd, undefined);
 });
 
 // The stored gate reads the day the result was generated for, not today, so a weekend

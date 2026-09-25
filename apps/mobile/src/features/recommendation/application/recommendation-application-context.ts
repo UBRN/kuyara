@@ -5,6 +5,7 @@ import type { RecommendationSnapshot } from '@/features/recommendation/data/reco
 import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import type { DressStyle } from '@kuyara/contracts';
 import type { DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
+import type { DressingDayDeparture } from '@/features/recommendation/domain/dressing-day-departure';
 
 export type RecommendationApplicationValue = Readonly<{
   state: RecommendationApplicationState;
@@ -13,7 +14,7 @@ export type RecommendationApplicationValue = Readonly<{
   // null until that answer arrives. No inference, no quota, no provider or model identity.
   onDeviceAvailability: OnDeviceAiAvailability | null;
   refresh: () => Promise<RecommendationSnapshot | null>;
-  evaluateApprovedTriggers: () => Promise<void>;
+  evaluateApprovedTriggers: (foreground?: boolean) => Promise<void>;
   skipWait: () => Promise<RecommendationSnapshot | null>;
   /**
    * Today's "show another outfit" action: it regenerates the recommendation and leaves
@@ -24,6 +25,11 @@ export type RecommendationApplicationValue = Readonly<{
   dressingDayKey?: string;
   dressingDayChoiceReady?: boolean;
   morningChoicePending?: boolean;
+  eveningChoicePending?: boolean;
+  activeDeparture?: DressingDayDeparture | null;
+  readDeparture?: (dayKey: string) => Promise<DressingDayDeparture | null>;
+  setDeparture?: (departureAt: string, timeZone: string) => Promise<DressingDayDeparture>;
+  clearDeparture?: (dayKey: string) => Promise<boolean>;
   resolvedDressStyle?: DressStyle;
   chooseFormality?: (key: string, formality: DressStyle, source: DressingDayChoiceSource) => Promise<void>;
   reevaluateLocalDay: () => void;

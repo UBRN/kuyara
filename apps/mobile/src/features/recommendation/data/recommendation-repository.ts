@@ -27,6 +27,8 @@ export type RecommendationSnapshot = Readonly<{
   catalogVersion: number | null;
   dayVariant: number | null;
   localDayKey: string | null;
+  coverageStart?: string;
+  coverageEnd?: string;
   generationMode: RecommendationGenerationMode;
   recommendation: OutfitRecommendationSuccess;
   createdAt: string;
@@ -99,6 +101,8 @@ function mapRecord(record: RecommendationSnapshotRecord): RecommendationSnapshot
       catalogVersion: 'catalogVersion' in context ? context.catalogVersion : null,
       dayVariant: 'dayVariant' in context ? context.dayVariant : null,
       localDayKey: 'localDayKey' in context ? context.localDayKey ?? null : null,
+      coverageStart: 'coverageStart' in context ? context.coverageStart : undefined,
+      coverageEnd: 'coverageEnd' in context ? context.coverageEnd : undefined,
       generationMode: record.generationMode,
       recommendation,
       createdAt: record.createdAt,

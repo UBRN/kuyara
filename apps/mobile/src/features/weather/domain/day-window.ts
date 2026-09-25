@@ -47,11 +47,12 @@ export function findDayWindow(input: Readonly<{
   snapshot: WeatherSnapshot;
   now: string;
   firstInsight: DayInsight | null;
+  coverage?: Readonly<{ start: string; end: string }>;
 }>): DayWindow | null {
-  const now = Date.parse(input.now);
-  const window = wardrobeDayWindow(input.now, input.snapshot.timeZone);
+  const now = Math.max(Date.parse(input.now), Date.parse(input.coverage?.start ?? input.now));
+  const window = wardrobeDayWindow(input.coverage?.start ?? input.now, input.snapshot.timeZone);
   if (!window || !Number.isFinite(now)) return null;
-  const end = Date.parse(window.end);
+  const end = Date.parse(input.coverage?.end ?? window.end);
   const hours = input.snapshot.hourly.filter(({ forecastAt }) => {
     const at = Date.parse(forecastAt);
     return at >= now && at < end;

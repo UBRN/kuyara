@@ -91,6 +91,18 @@ export function recommendationRefreshTrigger(
   return null;
 }
 
+export function expiredCoverageNeedsSelection(
+  snapshot: RecommendationSnapshot | null,
+  foregroundAt: string,
+  foreground: boolean,
+  lastAttemptedEnd: string | null,
+): boolean {
+  return Boolean(foreground && snapshot?.coverageEnd &&
+    snapshot.coverageEnd !== lastAttemptedEnd &&
+    Number.isFinite(Date.parse(foregroundAt)) &&
+    Date.parse(snapshot.coverageEnd) <= Date.parse(foregroundAt));
+}
+
 // What the wait is doing right now, so Today can say it instead of showing one generic line
 // for a wait that can run to the AI chain's whole length. Coarse by construction: no provider,
 // no model, no tier that is not already a user-visible generation mode.
@@ -369,7 +381,8 @@ export class RecommendationApplicationController {
     const key = JSON.stringify({
       weatherSnapshotId: input.snapshot.id,
       locationKey: input.snapshot.locationKey,
-      context,
+      context: JSON.stringify(context, (field, value) =>
+        field === 'coverageStart' || field === 'coverageEnd' ? undefined : value),
     });
     const existing = this.refreshes.get(key);
     if (existing) return existing;

@@ -13,6 +13,7 @@ import {
 
 import {
   RecommendationApplicationController,
+  expiredCoverageNeedsSelection,
   localDayKey,
   localDayKind,
   localDayVariant,
@@ -32,6 +33,9 @@ import { ExpoFileAiRegenerationBudget } from '@/features/recommendation/data/exp
 import { LocalRecommendationRepository } from '@/features/recommendation/data/recommendation-repository';
 import { SqliteRecommendationLocalDataSource } from '@/features/recommendation/data/sqlite-recommendation-local-data-source';
 import { SqliteDressingDayChoiceRepository } from '@/features/recommendation/data/sqlite-dressing-day-choice-repository';
+import { SqliteDressingDayDepartureRepository } from '@/features/recommendation/data/sqlite-dressing-day-departure-repository';
+import type { DressingDayDeparture } from '@/features/recommendation/domain/dressing-day-departure';
+import { wardrobeDayWindow } from '@/features/weather/domain/wardrobe-day';
 import { resolvedFormality, resolvedStyleAesthetics, type DressingDayChoice, type DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
 import { ExpoHistoryPhotoStorage } from '@/features/recommendation/data/expo-history-photo-storage';
@@ -130,6 +134,12 @@ async function loadChoiceRepository() {
   return new SqliteDressingDayChoiceRepository(database, () => Crypto.randomUUID(), now);
 }
 
+async function loadDepartureRepository() {
+  const database = await openKuyaraDatabase();
+  await migrateDatabase(database);
+  return new SqliteDressingDayDepartureRepository(database, () => Crypto.randomUUID(), now);
+}
+
 async function loadHistoryRepository() {
   const database = await openKuyaraDatabase();
   await migrateDatabase(database);
@@ -156,6 +166,19 @@ export function RecommendationApplicationProvider({
   const [localDay, setLocalDay] = useState(deviceLocalDay);
   const [dayChoiceState, setDayChoiceState] = useState<DayChoiceReadState | null>(null);
   const [choiceReadAttempt, setChoiceReadAttempt] = useState(0);
+  const [departureState, setDepartureState] = useState<{
+    key: string; value: DressingDayDeparture | null;
+  } | null>(null);
+  useEffect(() => {
+    let live = true;
+    void loadDepartureRepository().then((repository) => repository.get(localProfileId, localDay.key))
+      .then((value) => { if (live) setDepartureState({ key: localDay.key, value }); })
+      .catch(() => { if (live) setDepartureState({ key: localDay.key, value: null }); });
+    return () => { live = false; };
+  }, [localDay.key, localProfileId]);
+  const activeDeparture = departureState?.key === localDay.key &&
+    departureState.value && Date.parse(departureState.value.departureAt) > Date.now()
+    ? departureState.value : null;
   const choiceReadFailed = useRef(false);
   useEffect(() => {
     let live = true;
@@ -198,6 +221,8 @@ export function RecommendationApplicationProvider({
   const morningChoicePending = Boolean(currentDayChoice?.status === 'none' &&
     !localDay.key.endsWith(':evening') && profileState.status === 'ready' &&
     profileState.profile.morningSheetEnabled);
+  const eveningChoicePending = Boolean(currentDayChoice?.status === 'none' &&
+    localDay.key.endsWith(':evening') && profileState.status === 'ready');
   const appState = useRef<AppStateStatus>(AppState.currentState);
   const reevaluateLocalDay = useCallback(() => {
     const next = deviceLocalDay();
@@ -250,6 +275,7 @@ export function RecommendationApplicationProvider({
       // from the snapshot's observation time. It is re-read whenever the day, the profile
       // or the weather changes, which is every moment a recommendation is generated.
       now: now(),
+      ...(activeDeparture ? { departureAt: activeDeparture.departureAt } : {}),
       clothingPreference,
       dressStyle: resolvedDressStyle,
       styleAesthetics: resolvedStyles,
@@ -258,7 +284,7 @@ export function RecommendationApplicationProvider({
       localDayKey: localDay.key,
       locale: language,
     };
-  }, [choiceReady, language, localDay, profileState,
+  }, [activeDeparture, choiceReady, language, localDay, profileState,
     resolvedDressStyle, resolvedStyles, weatherState]);
   useEffect(() => {
     void controller.initialize();
@@ -293,6 +319,8 @@ export function RecommendationApplicationProvider({
   } | null>(null);
   const trailingApprovedInput = useRef<RecommendationApplicationInput | null>(null);
   const trailingApprovedPromise = useRef<Promise<boolean> | null>(null);
+  const foregroundEvaluationRequested = useRef(false);
+  const lastExpiryAttempt = useRef<string | null>(null);
   const evaluateApprovedTriggersOnce = useCallback(async (
     generationInput: RecommendationApplicationInput,
   ): Promise<boolean> => {
@@ -315,7 +343,7 @@ export function RecommendationApplicationProvider({
     // The morning question normally holds automatic generation over the last valid look.
     // A persistent aesthetic edit made inside that sheet is already a profile-change
     // trigger, so it may refresh that look while the day's formality stays unanswered.
-    if (morningChoicePending) {
+    if (morningChoicePending || eveningChoicePending) {
       if (previous && JSON.stringify(previous.styleAesthetics ?? []) !==
           JSON.stringify(current.styleAesthetics ?? [])) {
         await controller.refresh('dress-style-changed', generationInput);
@@ -327,12 +355,22 @@ export function RecommendationApplicationProvider({
     const trigger = recommendationRefreshTrigger(previous, current);
 
     if (trigger) {
+      foregroundEvaluationRequested.current = false;
       await controller.refresh(trigger, generationInput);
       return true;
     }
+    const coverageEnd = persistedSnapshot?.coverageEnd;
+    if (coverageEnd && expiredCoverageNeedsSelection(persistedSnapshot, generationInput.now,
+      foregroundEvaluationRequested.current, lastExpiryAttempt.current)) {
+      foregroundEvaluationRequested.current = false;
+      lastExpiryAttempt.current = coverageEnd;
+      await controller.refresh('explicit', generationInput);
+      return true;
+    }
+    foregroundEvaluationRequested.current = false;
     controller.updatePoolAvailability(generationInput);
     return false;
-  }, [controller, morningChoicePending]);
+  }, [controller, eveningChoicePending, morningChoicePending]);
 
   const evaluateApprovedTriggersForInput = useCallback(function evaluateApprovedTriggersForInput(
     generationInput: RecommendationApplicationInput,
@@ -398,6 +436,7 @@ export function RecommendationApplicationProvider({
     return {
       snapshot: currentWeather.snapshot,
       now: now(),
+      ...(activeDeparture ? { departureAt: activeDeparture.departureAt } : {}),
       clothingPreference,
       dressStyle: resolvedDressStyle,
       styleAesthetics: resolvedStyles,
@@ -406,13 +445,17 @@ export function RecommendationApplicationProvider({
       localDayKey: currentDay.key,
       locale: language,
     };
-  }, [choiceReady, language, profileState, resolvedDressStyle,
+  }, [activeDeparture, choiceReady, language, profileState, resolvedDressStyle,
     resolvedStyles, weatherApplication, weatherState]);
 
-  const evaluateApprovedTriggers = useCallback(async () => {
+  const evaluateApprovedTriggers = useCallback(async (foreground = false) => {
     const generationInput = currentInput();
     if (!generationInput) return;
-    const triggered = await evaluateApprovedTriggersForInput(generationInput);
+    if (foreground) foregroundEvaluationRequested.current = true;
+    let triggered = await evaluateApprovedTriggersForInput(generationInput);
+    if (foreground && foregroundEvaluationRequested.current) {
+      triggered = await evaluateApprovedTriggersForInput(currentInput() ?? generationInput) || triggered;
+    }
     if (!triggered) controller.clearLastFailure();
   }, [controller, currentInput, evaluateApprovedTriggersForInput]);
 
@@ -438,6 +481,35 @@ export function RecommendationApplicationProvider({
     dressingDayKey: localDay.key,
     dressingDayChoiceReady: choiceReady,
     morningChoicePending,
+    eveningChoicePending,
+    activeDeparture,
+    readDeparture: async (dayKey) => (await loadDepartureRepository()).get(localProfileId, dayKey),
+    setDeparture: async (departureAt, timeZone) => {
+      const key = wardrobeDayWindow(departureAt, timeZone)?.key;
+      if (!key) throw new Error('Invalid departure time or time zone.');
+      const value = await (await loadDepartureRepository()).upsert(
+        localProfileId, key, departureAt, timeZone);
+      if (key === localDay.key) {
+        setDepartureState({ key, value });
+        const generationInput = currentInput();
+        if (generationInput && !morningChoicePending && !eveningChoicePending) {
+          await controller.refresh('explicit', { ...generationInput, departureAt });
+        }
+      }
+      return value;
+    },
+    clearDeparture: async (dayKey) => {
+      const cleared = await (await loadDepartureRepository()).clear(localProfileId, dayKey);
+      if (dayKey === localDay.key) {
+        setDepartureState({ key: dayKey, value: null });
+        const generationInput = currentInput();
+        if (generationInput && !morningChoicePending && !eveningChoicePending) {
+          const { departureAt: _departureAt, ...nowInput } = generationInput;
+          await controller.refresh('explicit', { ...nowInput, now: now() });
+        }
+      }
+      return cleared;
+    },
     resolvedDressStyle,
     chooseFormality,
     refresh: () => {
@@ -455,11 +527,14 @@ export function RecommendationApplicationProvider({
   }), [
     controller,
     currentInput,
+    localProfileId,
     evaluateApprovedTriggers,
     chooseFormality,
     choiceReady,
     localDay.key,
     morningChoicePending,
+    eveningChoicePending,
+    activeDeparture,
     onDeviceAvailability,
     reevaluateLocalDay,
     resolvedDressStyle,

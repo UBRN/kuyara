@@ -35,6 +35,8 @@ export type OutfitRecommendationInput = Readonly<{
   snapshot: WeatherSnapshot;
   /** The moment the recommendation is for; decides the local day and the hours left in it. */
   now: string;
+  /** A persisted Later choice. Absent means the current instant. */
+  departureAt?: string;
   clothingPreference: ClothingPreference;
   dressStyle?: DressStyle;
   styleAesthetics?: readonly StyleAesthetic[];
@@ -252,7 +254,8 @@ export function assignFallbackArchetypes(
 export function recommendOutfits(
   input: OutfitRecommendationInput,
 ): OutfitRecommendationResult {
-  const requirements = deriveClothingRequirements(input.snapshot, input.now);
+  const requirements = deriveClothingRequirements(input.snapshot, input.now,
+    input.departureAt ?? input.now);
   const composition = composeOutfitPool(requirements, input.clothingPreference, input.dayVariant,
     input.recentWorn);
   const order: readonly FormalityLevel[] =

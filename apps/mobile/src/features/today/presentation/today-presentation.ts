@@ -519,7 +519,10 @@ function createLoadedPresentation(
     ? snapshot.recommendation.insightSentence
     : null;
   const dayInsight = acceptedInsight ?? deterministicDayInsight;
-  const window = findDayWindow({ snapshot: weather, now: new Date(now).toISOString(), firstInsight: insight });
+  const window = findDayWindow({ snapshot: weather, now: new Date(now).toISOString(),
+    firstInsight: snapshot.coverageEnd ? null : insight,
+    ...(snapshot.coverageStart && snapshot.coverageEnd
+      ? { coverage: { start: snapshot.coverageStart, end: snapshot.coverageEnd } } : {}) });
   const dayWindow = window === null ? null : dayWindowSentence(
     window,
     copy.dayWindow,

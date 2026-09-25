@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   RecommendationApplicationController,
+  expiredCoverageNeedsSelection,
   localDayKey,
   localDayKind,
   localDayVariant,
@@ -18,6 +19,15 @@ import {
 
 const profileId = 'profile-one';
 const now = '2026-08-01T20:00:00.000Z';
+test('expired coverage is selected once on foreground, never on weather refresh', () => {
+  const stored = { coverageEnd: '2026-08-02T01:00:00.000Z' };
+  assert.equal(expiredCoverageNeedsSelection(stored, '2026-08-02T00:59:59.000Z', true, null), false);
+  assert.equal(expiredCoverageNeedsSelection(stored, '2026-08-02T01:00:00.000Z', false, null), false);
+  assert.equal(expiredCoverageNeedsSelection(stored, '2026-08-02T01:00:00.000Z', true, null), true);
+  assert.equal(expiredCoverageNeedsSelection(stored, '2026-08-02T02:00:00.000Z', true,
+    stored.coverageEnd), false);
+  assert.equal(expiredCoverageNeedsSelection({}, '2026-08-02T02:00:00.000Z', true, null), false);
+});
 function workerResponse(request) {
   const used = new Set();
   return {

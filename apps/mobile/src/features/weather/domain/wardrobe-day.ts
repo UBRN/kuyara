@@ -1,12 +1,10 @@
 /**
- * The dressing day: the stretch of hours the outfit chosen right now has to cover.
+ * The dressing day: the key for daily preferences and weather alerts.
  *
  * A calendar day is not what a person dresses for. Someone who leaves the house at 19:00
  * and comes home at 03:00 is dressed for one evening, not for the end of one date and the
- * start of another, so kuyara plans to 04:00 rather than to midnight once the evening has
- * begun, and an open between midnight and 04:00 belongs to the evening it is still part of.
- * Before 18:00 the horizon is the rest of the calendar day, exactly as it has always been,
- * which is why every morning open is unchanged.
+ * start of another, so an open between midnight and 04:00 belongs to the evening it is
+ * still part of. Outfit coverage is a separate window in recommendation/domain.
  *
  * This module is the only place the boundary exists. It is pure: it reads no clock, does no
  * I/O, knows no copy and no language, and the same input always gives the same window.
@@ -113,7 +111,7 @@ export function wardrobeDayKey(local: LocalTime): string {
   return localDateKey(local);
 }
 
-/** The dressing-day window an outfit chosen at `nowIso` has to cover, in `timeZone`. */
+/** The dressing-day window used by daily preferences and weather alerts. */
 export function wardrobeDayWindow(
   nowIso: string,
   timeZone: string,

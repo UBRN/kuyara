@@ -64,6 +64,7 @@ import type {
 } from '@/features/recommendation/domain/generation-mode';
 import { validateInsightSentence } from '@/features/recommendation/domain/insight-sentence';
 import { sortByAestheticAffinity } from '@/features/recommendation/domain/aesthetic-affinity';
+import { outfitCoverage } from '@/features/recommendation/domain/outfit-coverage';
 
 export class WorkerAiRecommendationMappingError extends Error {
   constructor() {
@@ -87,6 +88,8 @@ const recommendationContextSchema = z.strictObject({
   options: z.array(aiOptionSchema).max(aiV1OptionLimit),
   insightSentence: insightSentenceSchema.optional(),
   insightLocale: z.enum(['tr', 'en']).optional(),
+  coverageStart: z.iso.datetime().optional(),
+  coverageEnd: z.iso.datetime().optional(),
 }).superRefine(({ options, insightSentence, insightLocale }, context) => {
   if (Boolean(insightSentence) !== Boolean(insightLocale)) {
     context.addIssue({
@@ -219,7 +222,9 @@ export function createRecommendationContextWithPool(
   input: OutfitRecommendationInput,
   localDayKey?: string,
 ): Readonly<{ context: RecommendationContext; poolOptionIds: readonly string[] }> {
-  const requirements = deriveClothingRequirements(input.snapshot, input.now);
+  const departureAt = input.departureAt ?? input.now;
+  const requirements = deriveClothingRequirements(input.snapshot, input.now, departureAt);
+  const coverage = outfitCoverage(departureAt, input.snapshot.timeZone);
   const composition = composeOutfitPool(requirements, input.clothingPreference, input.dayVariant,
     input.recentWorn);
   const availableOutfits = composition.status === 'composed'
@@ -233,6 +238,7 @@ export function createRecommendationContextWithPool(
     dayVariant: input.dayVariant,
     dayKind: input.dayKind,
     localDayKey,
+    ...(coverage ? { coverageStart: coverage.start, coverageEnd: coverage.end } : {}),
     requirements: requirements.requirements,
     options: sortByAestheticAffinity(availableOutfits, input.styleAesthetics ?? [],
       (outfit, id) => outfitMatchesArchetype(outfit, id, input.dayKind)).map(toAiOption),

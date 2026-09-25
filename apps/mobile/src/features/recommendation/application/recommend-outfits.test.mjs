@@ -94,6 +94,49 @@ function candidateKeys(result) {
   return result.outfits.flatMap((outfit) => outfit.candidateKeys);
 }
 
+test('late mild and severe cold tails retain three valid catalog outfits', () => {
+  const at = '2026-08-01T18:00:00.000Z';
+  for (const tail of [[11], [11, 11], [4]]) {
+    const hours = tail.length === 2
+      ? ['2026-08-01T23:00:00.000Z', '2026-08-02T00:00:00.000Z']
+      : ['2026-08-02T00:00:00.000Z'];
+    const weather = snapshot({
+      current: { temperatureCelsius: 20, apparentTemperatureCelsius: 20 },
+      hourly: [
+        { forecastAt: at, ...measurements() },
+        ...hours.map((forecastAt, index) => ({ forecastAt,
+          ...measurements({ temperatureCelsius: tail[index],
+            apparentTemperatureCelsius: tail[index] }) })),
+      ],
+    });
+    for (const clothingPreference of ['womens', 'mens']) {
+      const result = recommendOutfits({ snapshot: weather, now: at, clothingPreference,
+        dayVariant: 0, dayKind: 'weekday' });
+      assert.equal(result.status, 'recommended');
+      assert.equal(result.outfits.length, 3);
+    }
+  }
+});
+
+test('hot start with a severe late cold hour still composes three outfits', () => {
+  const at = '2026-08-01T18:00:00.000Z';
+  const weather = snapshot({
+    current: { temperatureCelsius: 30, apparentTemperatureCelsius: 30 },
+    hourly: [
+      { forecastAt: at, ...measurements({ temperatureCelsius: 30,
+        apparentTemperatureCelsius: 30 }) },
+      { forecastAt: '2026-08-02T00:00:00.000Z', ...measurements({
+        temperatureCelsius: 4, apparentTemperatureCelsius: 4 }) },
+    ],
+  });
+  for (const clothingPreference of ['womens', 'mens']) {
+    const result = recommendOutfits({ snapshot: weather, now: at, clothingPreference,
+      dayVariant: 0, dayKind: 'weekday' });
+    assert.equal(result.status, 'recommended');
+    assert.equal(result.outfits.length, 3);
+  }
+});
+
 test('cold wet weather recommends immutable deterministic catalog outfits', () => {
   const weather = coldWetSnapshot();
   const result = recommendOutfits({
@@ -118,9 +161,7 @@ test('cold wet weather recommends immutable deterministic catalog outfits', () =
 });
 
 test('a continental spring day still composes three outfits from the bundled catalog', () => {
-  // 4 °C at 07:00 and 29 °C at 16:00 once demanded mandatory high thermal and mandatory
-  // high breathability at once, which no catalog garment satisfies; the current side of
-  // the day now decides which of the two stays mandatory.
+  // The first four hours are cold; the late hot forecast does not invalidate that outfit.
   const hourAt = (hour) => `2026-04-15T${String(hour).padStart(2, '0')}:00:00.000Z`;
   const hourly = [[8, 4], [12, 15], [16, 29], [20, 18]].map(([hour, temperature]) => ({
     forecastAt: hourAt(hour),
@@ -151,7 +192,7 @@ test('a continental spring day still composes three outfits from the bundled cat
     );
     assert.equal(
       result.requirements.requirements.find(({ kind }) => kind === 'breathability')?.priority,
-      'optional',
+      undefined,
     );
   }
 });

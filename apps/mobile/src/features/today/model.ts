@@ -13,6 +13,8 @@ export type TodaySnapshot = Readonly<{
   activeLocation: ActiveLocation;
   freshness: TodayFreshness;
   recommendation: OutfitRecommendationResult;
+  coverageStart?: string;
+  coverageEnd?: string;
 }>;
 
 export type TodayScreenState =
