@@ -312,6 +312,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     // space is held for one, so the provenance line holds nothing but the freshness stamp.
     expect(result.queryByTestId('today-provenance-badge')).not.toBeOnTheScreen();
     expect(result.queryByTestId('today-generation-mode')).not.toBeOnTheScreen();
+    expect(result.queryByTestId('ai-sparkle-mark', hidden)).toBeNull();
     expect(result.queryByText(messages[language].today.emphasis.recommended)).not.toBeOnTheScreen();
     const place = result.getByText('Istanbul');
     // A long place name and a long archetype wrap instead of clipping at large text sizes.
@@ -395,8 +396,8 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     // The badge is a record, not a control: no second pressable inside the navigating one.
     expect(badge.props.accessibilityRole).toBeUndefined();
     expect(badge.props.onStartShouldSetResponder).toBeUndefined();
-    // The badge carries the controlled role, never the accent. M1: its own symbol is
-    // `sparkles` in the purple-family inks, drawn beside the words.
+    // The badge carries the controlled role, never the accent. O11: its own mark is the
+    // multicolour animated `sparkles`, drawn beside the words and hidden from the reader.
     expect(StyleSheet.flatten(pill.props.style)).toMatchObject({
       backgroundColor: theme.colors.provenanceContainer,
       borderColor: theme.colors.provenanceContainer,
@@ -405,13 +406,8 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
       .not.toBe(theme.colors.brandAccent);
     expect(within(pill).getAllByText(messages[language].today.generationModeAiAssisted))
       .toHaveLength(1);
-    const symbols = (SymbolView as unknown as jest.Mock).mock.calls.map(([props]) => props);
-    expect(symbols).toContainEqual(expect.objectContaining({
-      name: expect.objectContaining({ ios: 'sparkles' }),
-      type: 'palette',
-      colors: [theme.condition.mostlyClearNight, theme.condition.partlyCloudyNight, theme.colors.provenanceInk],
-      tintColor: undefined,
-    }));
+    const mark = within(pill).getByTestId('ai-sparkle-mark', hidden);
+    expect(isHiddenFromAccessibility(mark)).toBe(true);
     // `provenanceInk` clears its band on the page ground only: it is never a child of the
     // tinted stage or of the board that stands on it.
     const primaryBoard = result.getByTestId(
@@ -453,6 +449,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
       type: 'multicolor',
       tintColor: undefined,
     }));
+    expect(result.queryByTestId('ai-sparkle-mark', { includeHiddenElements: true })).toBeNull();
   });
 });
 
