@@ -220,7 +220,8 @@ export function createRecommendationContextWithPool(
   localDayKey?: string,
 ): Readonly<{ context: RecommendationContext; poolOptionIds: readonly string[] }> {
   const requirements = deriveClothingRequirements(input.snapshot, input.now);
-  const composition = composeOutfitPool(requirements, input.clothingPreference, input.dayVariant);
+  const composition = composeOutfitPool(requirements, input.clothingPreference, input.dayVariant,
+    input.recentWorn);
   const availableOutfits = composition.status === 'composed'
     ? excludeOutfitOptions(composition.outfits, input.excludedOptionIds)
     : [];
