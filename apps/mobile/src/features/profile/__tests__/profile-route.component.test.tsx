@@ -74,7 +74,11 @@ function profileValue(displayName: string | null): ProfileApplicationValue {
   };
 }
 
-function Providers({ children, displayName }: PropsWithChildren<{ displayName: string | null }>) {
+function Providers({
+  children,
+  displayName,
+  wardrobeValue = wardrobe,
+}: PropsWithChildren<{ displayName: string | null; wardrobeValue?: WardrobeApplicationValue }>) {
   const analytics = new RecordingProductAnalytics();
   return (
     <LocalizationContext value={{ language: 'en', messages: messages.en, hour12: false }}>
@@ -89,7 +93,7 @@ function Providers({ children, displayName }: PropsWithChildren<{ displayName: s
           retries: new RetryCounter(),
         }}>
           <ProfileApplicationContext value={profileValue(displayName)}>
-            <WardrobeApplicationContext value={wardrobe}>
+            <WardrobeApplicationContext value={wardrobeValue}>
               <SafeAreaProvider initialMetrics={{
                 frame: { x: 0, y: 0, width: 390, height: 844 },
                 insets: { top: 47, right: 0, bottom: 34, left: 0 },
@@ -135,4 +139,30 @@ test('the History row opens History', async () => {
 
   await fireEvent.press(result.getByTestId('profile-history-row'));
   expect(mockPush).toHaveBeenCalledWith('/history');
+});
+
+// O9: a category cell opens the Closet on that category.
+test('a category cell opens the Closet on its category', async () => {
+  const withShoes = {
+    ...wardrobe,
+    state: {
+      status: 'ready',
+      items: [{
+        id: '118f0f4d-1d45-4ae7-a8f1-796e8297d3b4', category: 'footwear', entryState: 'owned',
+        garmentTypeId: 'sneakers', colorFamily: null, name: null, photoRelativePath: null,
+        createdAt: '2026-09-09T08:00:00.000Z',
+      }],
+      isRefreshing: false,
+      isMutating: false,
+      refreshFailure: null,
+    },
+  } as unknown as WardrobeApplicationValue;
+  const result = await render(
+    <Providers displayName={null} wardrobeValue={withShoes}>
+      <ProfileRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(result.getByTestId('profile-category-footwear'));
+  expect(mockPush).toHaveBeenCalledWith({ params: { category: 'footwear' }, pathname: '/wardrobe' });
 });

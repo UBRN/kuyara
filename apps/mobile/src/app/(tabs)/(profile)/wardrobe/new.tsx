@@ -1,14 +1,17 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
 
-import { parseWardrobeEntryStateParam } from '@/features/wardrobe/application/wardrobe-form';
+import {
+  parseStructuralCategoryParam,
+  parseWardrobeEntryStateParam,
+} from '@/features/wardrobe/application/wardrobe-form';
 import { WardrobeNewItemRoute } from '@/features/wardrobe/presentation/wardrobe-item-routes';
 import { useMessages } from '@/localization/use-messages';
 
 export default function WardrobeNewRoute() {
-  // The Closet list's segment, so a piece added from Wanted is filed as wanted instead of
-  // silently defaulting to owned. An absent or unrecognised value leaves the form's own
-  // default in place.
-  const { filter } = useLocalSearchParams<{ filter?: string }>();
+  // `filter` files a piece added as wanted instead of silently defaulting to owned;
+  // `category` is the Closet category the user added from (O9), so the type chooser opens
+  // on it. An absent or unrecognised value leaves the form's own default in place.
+  const { category, filter } = useLocalSearchParams<{ category?: string; filter?: string }>();
   const messages = useMessages();
 
   return (
@@ -24,7 +27,10 @@ export default function WardrobeNewRoute() {
           headerTitle: messages.wardrobe.newTitle,
         }}
       />
-      <WardrobeNewItemRoute defaultEntryState={parseWardrobeEntryStateParam(filter)} />
+      <WardrobeNewItemRoute
+        defaultCategory={parseStructuralCategoryParam(category)}
+        defaultEntryState={parseWardrobeEntryStateParam(filter)}
+      />
     </>
   );
 }

@@ -197,7 +197,7 @@ The app icon and interface icons are separate systems. Prefer platform-native ic
 
 Custom interface icons should use clean forms, softened corners, moderate weight, and reliable small-size clarity. Illustrations should be minimal, geometric and lightly editorial. Phase 6 garments use a single ink-edge outline, with a 31-colour library, per-outfit harmony and at most one accent; the eight condition-hued runway field colours are used only by the runway.
 
-Avoid photorealistic 3D clothing, plastic characters, fantasy mythology and overly playful mascot styles. The Worker provenance badge alone uses animated, vivid multicolour `sparkles` in violet, fuchsia and gold. Garment and closet imagery should prioritize recognizability and color accuracy over decorative brand effects.
+Avoid photorealistic 3D clothing, plastic characters, fantasy mythology and overly playful mascot styles. The Worker provenance badge alone uses animated, vivid multicolour `sparkles` in violet, fuchsia and gold. Garment and closet imagery should prioritize recognizability and color accuracy over decorative brand effects. Profile's Closet is drawn as an open clothes rack, an approved visual metaphor: a top bar with hooks, two rails and a bottom shelf in the single ink outline with flat fills and no body, holding the user's own pieces in their recorded colour families, the newest face-out and the rest side-on.
 
 ### Garment silhouettes
 

@@ -4,6 +4,7 @@ import { ActivityIndicator, StyleSheet } from 'react-native';
 
 import { AppText, Button, Screen, Surface } from '@/components/ui';
 import type { ClothingPreference } from '@/domain/preferences';
+import type { StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
 import { ANALYTICS_SCHEMA_VERSION } from '@/features/analytics/domain/analytics-events';
@@ -84,8 +85,8 @@ function useWardrobeExitGuard(
   );
 
   return {
-    // The Closet list reads its segment, and the tile it should let arrive, from the
-    // route, so an exit that finished something says which list it finished it in. A
+    // The Closet reads its category, the section to reveal and the tile it should let
+    // arrive from the route, so an exit that finished something says where. A
     // cancelled edit pops instead of replacing, and keeps the list it left untouched.
     returnToList: (params?: Readonly<Record<string, string>>) => {
       allowExitRef.current = true;
@@ -140,9 +141,12 @@ export function WardrobeRouteStatus({
 
 export function WardrobeNewItemRoute({
   confirmation = showWardrobeConfirmation,
+  defaultCategory,
   defaultEntryState,
 }: Readonly<{
   confirmation?: WardrobeConfirmation;
+  /** The Closet category the add started from; the type chooser opens on it (O9). */
+  defaultCategory?: StructuralCategory;
   /** The Closet list's current segment; the form falls back to owned without it. */
   defaultEntryState?: WardrobeEntryState;
 }>) {
@@ -178,6 +182,7 @@ export function WardrobeNewItemRoute({
     <WardrobeItemFormScreen
       clothingPreference={clothingPreferenceOf(profileApplication)}
       confirmation={confirmation}
+      defaultCategory={defaultCategory}
       defaultEntryState={defaultEntryState}
       isBusy={state.isMutating}
       mode="create"
@@ -210,7 +215,11 @@ export function WardrobeNewItemRoute({
             }
           });
         }
-        guard.returnToList({ added: created.id, filter: created.entryState });
+        guard.returnToList({
+          added: created.id,
+          category: created.category,
+          filter: created.entryState,
+        });
       }}
       onDiscardStagedPhoto={discardStagedPhoto}
       onDirtyChange={setIsDirty}
@@ -319,7 +328,7 @@ export function WardrobeEditItemRoute({
           state: deletedEntryState,
           had_photo: hadPhoto,
         });
-        guard.returnToList({ filter: deletedEntryState });
+        guard.returnToList({ category: item.category, filter: deletedEntryState });
       }}
       onDiscardStagedPhoto={application.discardStagedPhoto}
       onDirtyChange={setIsDirty}
@@ -340,7 +349,7 @@ export function WardrobeEditItemRoute({
             entry_point: 'closet_list',
           });
         }
-        guard.returnToList({ filter: updated.entryState });
+        guard.returnToList({ category: updated.category, filter: updated.entryState });
       }}
       photoPreviewUri={application.resolvePhotoUri(item.photoRelativePath)}
     />

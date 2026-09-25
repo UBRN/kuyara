@@ -206,13 +206,25 @@ test('English and Turkish locale resolution preserve the supported product langu
     messages.tr.profile.closetHeadingAccessibilityLabel({ count: 3 }),
     'Gardırop, 3.',
   );
+  // O9: the rack and the category cells speak their counts in each language's own form.
+  const rackCategories = [{ label: 'Tops', count: 7 }, { label: 'Shoes', count: 1 }];
   assert.equal(
-    messages.en.profile.railItemAccessibilityLabel({ label: 'Rain jacket', position: 1, total: 3 }),
-    'Rain jacket, 1 of 3.',
+    messages.en.profile.rackAccessibilityLabel({ title: 'Closet', count: 8, categories: rackCategories }),
+    'Closet, 8 pieces: Tops 7, Shoes 1.',
   );
   assert.equal(
-    messages.tr.profile.railItemAccessibilityLabel({ label: 'Yağmurluk', position: 1, total: 3 }),
-    'Yağmurluk, 3 parçadan 1.',
+    messages.tr.profile.rackAccessibilityLabel({
+      title: 'Gardırop', count: 1, categories: [{ label: 'Ayakkabılar', count: 1 }],
+    }),
+    'Gardırop, 1 parça: Ayakkabılar 1.',
+  );
+  assert.equal(
+    messages.en.wardrobe.categoryAccessibilityLabel({ category: 'Tops', count: 1, wanted: 0 }),
+    'Tops, 1 piece.',
+  );
+  assert.equal(
+    messages.tr.wardrobe.categoryAccessibilityLabel({ category: 'Üstler', count: 7, wanted: 1 }),
+    'Üstler, 7 parça, 1 tanesi istek.',
   );
   assert.equal(messages.en.wardrobe.addAction, 'Add');
   assert.equal(messages.tr.wardrobe.addAction, 'Ekle');

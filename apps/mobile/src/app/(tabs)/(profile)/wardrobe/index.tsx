@@ -3,19 +3,25 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { GlassButton } from '@/components/ui';
 import {
   isWardrobeRouteId,
+  parseStructuralCategoryParam,
   parseWardrobeEntryStateParam,
 } from '@/features/wardrobe/application/wardrobe-form';
 import { WardrobeListRoute } from '@/features/wardrobe/presentation/wardrobe-list-route';
 import { useMessages } from '@/localization/use-messages';
 
 export default function WardrobeRoute() {
-  // ADR 0028 section 7 item 3, shared with ADR 0029: the filter so Profile's Wanted row
-  // can open the Closet list on the wanted state instead of the default owned one. The
-  // list keeps this param current as the user switches segments, so the plus button below
-  // and the add flow both start from the list the user is looking at. `added` names the
-  // item the add flow has just saved, so only that tile arrives on the way back.
-  const { added, filter } = useLocalSearchParams<{ added?: string; filter?: string }>();
-  const initialEntryState = parseWardrobeEntryStateParam(filter) ?? 'owned';
+  // O9 and ADR 0028 section 7: `category` opens the Closet on one category (Profile's
+  // category cells, and the add flow's return); the list keeps it current as the user
+  // switches tabs, so the plus button below starts the add flow on the category in view.
+  // `filter=wanted` brings the Wanted section into view (Profile's Wanted row, a saved
+  // wanted piece). `added` names the item the add flow has just saved, so only that tile
+  // arrives on the way back.
+  const { added, category, filter } = useLocalSearchParams<{
+    added?: string;
+    category?: string;
+    filter?: string;
+  }>();
+  const initialCategory = parseStructuralCategoryParam(category);
   const savedItemId = isWardrobeRouteId(added) ? added : null;
   const messages = useMessages();
   const router = useRouter();
@@ -35,10 +41,11 @@ export default function WardrobeRoute() {
               kind="bar"
               label={messages.wardrobe.addAction}
               onPress={() =>
-                router.push({
-                  params: { filter: initialEntryState },
-                  pathname: '/wardrobe/new',
-                })
+                router.push(
+                  initialCategory
+                    ? { params: { category: initialCategory }, pathname: '/wardrobe/new' }
+                    : '/wardrobe/new',
+                )
               }
               testID="wardrobe-add-button"
             />
@@ -47,7 +54,11 @@ export default function WardrobeRoute() {
           headerTitle: messages.wardrobe.title,
         }}
       />
-      <WardrobeListRoute initialEntryState={initialEntryState} savedItemId={savedItemId} />
+      <WardrobeListRoute
+        initialCategory={initialCategory}
+        revealWanted={parseWardrobeEntryStateParam(filter) === 'wanted'}
+        savedItemId={savedItemId}
+      />
     </>
   );
 }

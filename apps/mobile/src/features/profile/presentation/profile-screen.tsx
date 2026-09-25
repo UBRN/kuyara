@@ -1,228 +1,241 @@
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useMemo } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import {
   AppText,
   Button,
-  GarmentTileArtwork,
+  ClosetRack,
+  GarmentDrawing,
+  GarmentSlotGlyph,
   Icon,
   ListRow,
   ListRowGroup,
   Screen,
   useTextScaling,
+  type RackPiece,
 } from '@/components/ui';
-import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
+import {
+  structuralCategories,
+  type StructuralCategory,
+} from '@/features/catalog/domain/garment-taxonomy';
 import { useWardrobeApplication } from '@/features/wardrobe/application/wardrobe-application-context';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
-import type { AppMessages } from '@/localization/messages';
 import { useMessages } from '@/localization/use-messages';
 import { interaction, layout, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // ADR 0028 section 1: the Closet is the subject. The native large title and the
 // Settings bar button are the route's job (`app/(tabs)/(profile)/profile.tsx`), because
-// they are chrome the OS draws, not this screen's content.
+// they are chrome the OS draws, not this screen's content. O9 draws the Closet as an open
+// rack (`ClosetRack`) with six category cells under it as its legend.
 
-const RAIL_MAXIMUM_ITEMS = 8;
-const RAIL_TILE_WIDTH = 136;
-const RAIL_TILE_HEIGHT = 170;
-// No token in `radii` is 14; section 2's table fixes image tiles at 14 regardless of
-// Law 3's 20 container radius, so this is a local constant rather than a new role.
-const RAIL_TILE_RADIUS = 14;
-const RAIL_GLYPH_SIZE = 72;
-const RAIL_ALL_PIECES_ICON_SIZE = 16;
-// Section 3: rail tiles scale by `min(fontScale, 2)` above 1.5; below 1.5 only the
-// caption scales, which `AppText`'s default `allowFontScaling` already gives for free.
-const RAIL_SCALE_THRESHOLD = 1.5;
-const RAIL_SCALE_MAXIMUM = 2;
+// A cell is a 64 point stage-fill tile holding a 48 point drawing and the count. No token
+// in `radii` is 14; ADR 0028 section 2 fixes image tiles at 14, as the Closet grid does.
+const CELL_TILE_HEIGHT = 64;
+const CELL_TILE_RADIUS = 14;
+const CELL_ICON_BOX = 48;
+const CELL_DRAWING_SIZE = 44;
+const CELL_GLYPH_SIZE = 36;
+// The tile and its drawing grow with the text up to the largest standard size, no further,
+// so two columns of cells still fit beside the title-sized count.
+const CELL_SCALE_MAXIMUM = 1.2;
 
 type ProfileScreenProps = Readonly<{
   displayName?: string | null;
   onOpenWardrobe: (filter?: 'wanted') => void;
+  /** A category cell opens the Closet on that category (O9). */
+  onOpenCategory: (category: StructuralCategory) => void;
   onOpenHistory: () => void;
 }>;
 
-function resolveRailScale(fontScale: number): number {
-  return fontScale > RAIL_SCALE_THRESHOLD
-    ? Math.min(fontScale, RAIL_SCALE_MAXIMUM)
-    : 1;
-}
+type CategorySummary = Readonly<{ count: number; wanted: number; newest: WardrobeItem | null }>;
 
-function resolveItemCaption(
-  item: WardrobeItem,
-  messages: AppMessages,
-): Readonly<{ text: string; isOwnName: boolean }> {
-  const garmentType = item.garmentTypeId ? getGarmentType(item.garmentTypeId) : null;
-  const typeLabel = garmentType
-    ? messages.catalog[garmentType.nameKey]
-    : messages.wardrobe.unclassifiedType;
-
-  return item.name
-    ? { text: item.name, isOwnName: true }
-    : { text: typeLabel, isOwnName: false };
-}
-
-function RailItemTile({
-  item,
-  position,
-  resolvePhotoUri,
-  scale,
-  total,
-}: Readonly<{
-  item: WardrobeItem;
-  position: number;
-  resolvePhotoUri: (relativePath: string | null) => string | null;
-  scale: number;
-  total: number;
-}>) {
-  const messages = useMessages();
-  const theme = useKuyaraTheme();
-  const photoUri = resolvePhotoUri(item.photoRelativePath);
-  const caption = resolveItemCaption(item, messages);
-  const tileSize = {
-    width: RAIL_TILE_WIDTH * scale,
-    height: RAIL_TILE_HEIGHT * scale,
-  };
-
-  return (
-    <View
-      accessibilityLabel={messages.profile.railItemAccessibilityLabel({
-        label: caption.text,
-        position,
-        total,
-      })}
-      accessible
-      style={styles.railItem}
-      testID={`profile-rail-item-${item.id}`}>
-      <View
-        style={[
-          styles.railTile,
-          tileSize,
-          { backgroundColor: theme.colors.surfaceMuted },
-        ]}
-        testID={`profile-rail-item-${item.id}-tile`}>
-        <GarmentTileArtwork
-          photoUri={photoUri}
-          garmentTypeId={item.garmentTypeId}
-          category={item.category}
-          colorFamily={item.colorFamily}
-          width={tileSize.width}
-          height={tileSize.height}
-          glyphSize={RAIL_GLYPH_SIZE * scale}
-          photoTestID={`profile-rail-photo-${item.id}`}
-          silhouetteTestID={`profile-rail-silhouette-${item.id}`}
-          placeholderTestID={`profile-rail-photo-placeholder-${item.id}`}
-        />
-      </View>
-      <AppText
-        colorRole={caption.isOwnName ? 'textPrimary' : 'textSecondary'}
-        style={{ maxWidth: RAIL_TILE_WIDTH * scale }}
-        variant="caption">
-        {caption.text}
-      </AppText>
-    </View>
+function newestOf(items: readonly WardrobeItem[]): WardrobeItem | null {
+  return items.reduce<WardrobeItem | null>(
+    (newest, item) => (newest === null || item.createdAt > newest.createdAt ? item : newest),
+    null,
   );
 }
 
-function RailAllPiecesTile({
-  label,
+// Counts derive from the records, never a count table (ADR 0029). A cell's drawing is the
+// category's newest owned piece, or its newest wanted one when nothing there is owned.
+function summarizeCategories(
+  items: readonly WardrobeItem[],
+): Readonly<Record<StructuralCategory, CategorySummary>> {
+  return Object.fromEntries(
+    structuralCategories.map((category) => {
+      const inCategory = items.filter((item) => item.category === category);
+      const owned = inCategory.filter((item) => item.entryState === 'owned');
+      return [category, {
+        count: inCategory.length,
+        wanted: inCategory.length - owned.length,
+        newest: newestOf(owned) ?? newestOf(inCategory),
+      }];
+    }),
+  ) as Record<StructuralCategory, CategorySummary>;
+}
+
+function toRackPiece(item: WardrobeItem): RackPiece {
+  return {
+    id: item.id,
+    garmentTypeId: item.garmentTypeId,
+    category: item.category,
+    colorFamily: item.colorFamily,
+    wanted: item.entryState === 'wanted',
+    addedAt: Date.parse(item.createdAt),
+  };
+}
+
+function chunk<T>(values: readonly T[], size: number): T[][] {
+  return Array.from({ length: Math.ceil(values.length / size) }, (_, index) =>
+    values.slice(index * size, index * size + size),
+  );
+}
+
+function CategoryCell({
+  category,
   onPress,
   scale,
-}: Readonly<{ label: string; onPress: () => void; scale: number }>) {
+  summary,
+}: Readonly<{
+  category: StructuralCategory;
+  onPress?: () => void;
+  scale: number;
+  /** `null` while the Closet loads: the tile shows without a drawing or a count. */
+  summary: CategorySummary | null;
+}>) {
+  const messages = useMessages();
   const theme = useKuyaraTheme();
-  const tileSize = {
-    width: RAIL_TILE_WIDTH * scale,
-    height: RAIL_TILE_HEIGHT * scale,
-  };
+  const label = messages.wardrobe.categoryFilterLabels[category];
+  const newest = summary?.newest ?? null;
+  const tile = (
+    <View
+      style={[
+        styles.cellTile,
+        { backgroundColor: theme.colors.surfaceMuted, height: CELL_TILE_HEIGHT * scale },
+      ]}>
+      {summary ? (
+        <>
+          <View style={[styles.cellIcon, { height: CELL_ICON_BOX * scale, width: CELL_ICON_BOX * scale }]}>
+            {newest?.garmentTypeId ? (
+              <GarmentDrawing
+                category={category}
+                colorFamily={newest.colorFamily}
+                garmentTypeId={newest.garmentTypeId}
+                size={CELL_DRAWING_SIZE * scale}
+                testID={`profile-category-${category}-drawing`}
+              />
+            ) : (
+              <GarmentSlotGlyph
+                category={category}
+                color={theme.colors.iconSecondary}
+                size={CELL_GLYPH_SIZE * scale}
+              />
+            )}
+          </View>
+          <AppText
+            colorRole={summary.count > 0 ? 'textPrimary' : 'textSecondary'}
+            style={styles.cellCount}
+            tabularNumbers
+            testID={`profile-category-${category}-count`}
+            variant="title">
+            {summary.count}
+          </AppText>
+        </>
+      ) : null}
+    </View>
+  );
+  const name = (
+    <AppText colorRole="textSecondary" variant="caption">
+      {label}
+    </AppText>
+  );
+
+  if (!summary || !onPress) {
+    return (
+      <View style={styles.cell}>
+        {tile}
+        {name}
+      </View>
+    );
+  }
 
   return (
     <Pressable
-      accessibilityLabel={label}
+      accessibilityLabel={messages.wardrobe.categoryAccessibilityLabel({
+        category: label,
+        count: summary.count,
+        wanted: summary.wanted,
+      })}
       accessibilityRole="button"
       onPress={onPress}
-      style={styles.railItem}
-      testID="profile-rail-all-pieces">
-      <View
-        style={[
-          styles.railTile,
-          tileSize,
-          { backgroundColor: theme.colors.surfaceMuted },
-        ]}>
-        <Icon
-          color={theme.colors.iconSecondary}
-          name="chevronRight"
-          size={RAIL_ALL_PIECES_ICON_SIZE}
-        />
-      </View>
-      <AppText
-        colorRole="textSecondary"
-        style={{ maxWidth: RAIL_TILE_WIDTH * scale }}
-        variant="caption">
-        {label}
-      </AppText>
+      style={({ pressed }) => [styles.cell, pressed && styles.pressed]}
+      testID={`profile-category-${category}`}>
+      {tile}
+      {name}
     </Pressable>
   );
 }
 
-function ClosetRail({
-  items,
-  onOpenWardrobe,
-  resolvePhotoUri,
-  scale,
+function CategoryCells({
+  onOpenCategory,
+  summaries,
 }: Readonly<{
-  items: readonly WardrobeItem[];
-  onOpenWardrobe: () => void;
-  resolvePhotoUri: (relativePath: string | null) => string | null;
-  scale: number;
+  onOpenCategory: (category: StructuralCategory) => void;
+  summaries: Readonly<Record<StructuralCategory, CategorySummary>> | null;
 }>) {
   const messages = useMessages();
-  const newestFirst = [...items].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
-  const visible = newestFirst.slice(0, RAIL_MAXIMUM_ITEMS);
-  const hasMore = newestFirst.length > RAIL_MAXIMUM_ITEMS;
+  const { fontScale, usesTwoColumnGrid } = useTextScaling();
+  const scale = Math.min(Math.max(fontScale, 1), CELL_SCALE_MAXIMUM);
+  // All six cells always show, so each category keeps its place and a tap can be learned.
+  const rows = chunk(structuralCategories, usesTwoColumnGrid ? 2 : 3);
+  const isLoading = summaries === null;
 
   return (
-    <View style={styles.railBleed}>
-      <ScrollView
-        contentContainerStyle={styles.railContent}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        testID="profile-rail">
-        {visible.map((item, index) => (
-          <RailItemTile
-            item={item}
-            key={item.id}
-            position={index + 1}
-            resolvePhotoUri={resolvePhotoUri}
-            scale={scale}
-            total={visible.length}
-          />
-        ))}
-        {hasMore ? (
-          <RailAllPiecesTile
-            label={messages.profile.railAllPiecesLabel}
-            onPress={onOpenWardrobe}
-            scale={scale}
-          />
-        ) : null}
-      </ScrollView>
+    <View
+      accessibilityLabel={isLoading ? messages.wardrobe.loadingLabel : undefined}
+      accessibilityRole={isLoading ? 'progressbar' : undefined}
+      accessible={isLoading}
+      style={styles.cells}
+      testID={isLoading ? 'profile-category-cells-loading' : 'profile-category-cells'}>
+      {rows.map((row) => (
+        <View key={row.join('-')} style={styles.cellRow}>
+          {row.map((category) => (
+            <CategoryCell
+              category={category}
+              key={category}
+              onPress={() => onOpenCategory(category)}
+              scale={scale}
+              summary={summaries?.[category] ?? null}
+            />
+          ))}
+        </View>
+      ))}
     </View>
   );
 }
 
 export function ProfileScreen({
   displayName = null,
+  onOpenCategory,
   onOpenHistory,
   onOpenWardrobe,
 }: ProfileScreenProps) {
   const messages = useMessages();
   const copy = messages.profile;
   const theme = useKuyaraTheme();
-  const { fontScale, usesStackedLayout } = useTextScaling();
-  const { resolvePhotoUri, state } = useWardrobeApplication();
-  const railScale = resolveRailScale(fontScale);
+  const { usesStackedLayout } = useTextScaling();
+  const { refresh, state } = useWardrobeApplication();
 
   const isReady = state.status === 'ready';
+  const readyItems = isReady ? state.items : null;
+  // Memoised on the record list itself, so the rack, which is memoised on its pieces,
+  // repaints only when the Closet changes.
+  const rackPieces = useMemo(() => readyItems?.map(toRackPiece) ?? null, [readyItems]);
+  const summaries = useMemo(
+    () => (readyItems ? summarizeCategories(readyItems) : null),
+    [readyItems],
+  );
   const ownedItems = isReady
     ? state.items.filter((item) => item.entryState === 'owned')
     : [];
@@ -233,10 +246,21 @@ export function ProfileScreen({
   const hasWanted = wantedItems.length > 0;
   const isFullyEmpty = isReady && !hasOwned && !hasWanted;
   // The heading counts the whole Closet, both states, because the empty state is the one
-  // that needs both lists empty. A wanted-only Closet used to read "0" beside no rail at
-  // all; it now counts its pieces and the rail falls back to what it holds.
+  // that needs both lists empty; the cells count owned plus wanted the same way.
   const closetCount = ownedItems.length + wantedItems.length;
-  const railItems = hasOwned ? ownedItems : wantedItems;
+  const closetTitle = displayName ? copy.wardrobeTitleNamed(displayName) : copy.wardrobeTitle;
+  const rackLabel = summaries
+    ? copy.rackAccessibilityLabel({
+        title: closetTitle,
+        count: closetCount,
+        categories: structuralCategories
+          .filter((category) => summaries[category].count > 0)
+          .map((category) => ({
+            label: messages.wardrobe.categoryFilterLabels[category],
+            count: summaries[category].count,
+          })),
+      })
+    : undefined;
 
   return (
     <Screen contentContainerStyle={styles.content} testID="profile-screen">
@@ -257,7 +281,7 @@ export function ProfileScreen({
           <>
             <View style={styles.closetHeadingTitleRow} testID="profile-closet-heading-title-row">
               <AppText style={styles.closetHeadingTitle} variant="title">
-                {displayName ? copy.wardrobeTitleNamed(displayName) : copy.wardrobeTitle}
+                {closetTitle}
               </AppText>
               <Icon color={theme.colors.iconSecondary} name="chevronRight" size={20} />
             </View>
@@ -275,7 +299,7 @@ export function ProfileScreen({
         ) : (
           <>
             <AppText style={styles.closetHeadingTitle} variant="title">
-              {displayName ? copy.wardrobeTitleNamed(displayName) : copy.wardrobeTitle}
+              {closetTitle}
             </AppText>
             {isReady ? (
               <AppText
@@ -292,13 +316,38 @@ export function ProfileScreen({
         )}
       </Pressable>
 
-      {!isReady ? (
-        <AppText colorRole="textSecondary" style={styles.statusText}>
-          {state.status === 'loading' ? copy.wardrobeLoading : copy.wardrobeUnavailable}
-        </AppText>
+      {/* The rack stays in the same place in every state: bare while loading or after an
+          error, with empty hangers waiting when the Closet is empty (O9). */}
+      <ClosetRack
+        accessibilityHint={copy.closetHeadingHint}
+        accessibilityLabel={rackLabel}
+        onPress={isReady ? () => onOpenWardrobe() : undefined}
+        pieces={rackPieces}
+        testID="profile-rack"
+      />
+
+      {state.status === 'loading' ? (
+        <CategoryCells onOpenCategory={onOpenCategory} summaries={null} />
+      ) : state.status === 'error' ? (
+        <View style={styles.errorState} testID="profile-closet-error">
+          <Icon color={theme.colors.dangerInk} name="error" size={20} />
+          <AppText accessibilityRole="header" style={styles.errorTitle} variant="bodyStrong">
+            {messages.wardrobe.loadErrorTitle}
+          </AppText>
+          <AppText colorRole="textSecondary" style={styles.errorBody}>
+            {messages.wardrobe.loadErrorBody}
+          </AppText>
+          <Button
+            label={messages.wardrobe.retryAction}
+            onPress={() => void refresh()}
+            style={styles.errorRetry}
+            testID="profile-closet-retry-button"
+            variant="tonal"
+          />
+        </View>
       ) : isFullyEmpty ? (
         <View style={styles.emptyState} testID="profile-closet-empty">
-          <AppText colorRole="textSecondary" style={styles.emptyStateCopy}>
+          <AppText style={styles.emptyStateCopy}>
             {copy.wardrobeEmpty}
           </AppText>
           <Button
@@ -309,12 +358,7 @@ export function ProfileScreen({
           />
         </View>
       ) : (
-        <ClosetRail
-          items={railItems}
-          onOpenWardrobe={() => onOpenWardrobe()}
-          resolvePhotoUri={resolvePhotoUri}
-          scale={railScale}
-        />
+        <CategoryCells onOpenCategory={onOpenCategory} summaries={summaries} />
       )}
 
       <View style={styles.group}>
@@ -381,8 +425,19 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: interaction.pressedOpacity,
   },
-  statusText: {
-    minHeight: layout.minimumTouchTarget,
+  // The error block (ADR 0029 section 4): the glyph, 8, a `bodyStrong` title, 4, a `body`
+  // line, 12, the retry button.
+  errorState: {
+    alignItems: 'flex-start',
+  },
+  errorTitle: {
+    marginTop: spacing.sm,
+  },
+  errorBody: {
+    marginTop: spacing.xs,
+  },
+  errorRetry: {
+    marginTop: spacing.md,
   },
   emptyState: {
     gap: spacing.md,
@@ -395,24 +450,37 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
     minWidth: 0,
   },
-  railBleed: {
-    marginHorizontal: -spacing.lg,
-  },
-  railContent: {
+  cells: {
     gap: spacing.md,
-    paddingLeft: spacing.lg,
   },
-  railItem: {
+  cellRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  cell: {
+    flex: 1,
     gap: spacing.xs,
+    minWidth: 0,
   },
-  railTile: {
+  cellTile: {
     alignItems: 'center',
-    borderRadius: RAIL_TILE_RADIUS,
+    borderRadius: CELL_TILE_RADIUS,
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingLeft: spacing.sm,
+    paddingRight: spacing.md,
+  },
+  cellIcon: {
+    alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
+  },
+  cellCount: {
+    flexShrink: 1,
+    marginLeft: 'auto',
+    minWidth: 0,
   },
   group: {
-    // ADR 0028 section 1: 24 between the rail and the group. The content column already
+    // ADR 0028 section 1: 24 between the cells and the group. The content column already
     // contributes its 12 gap, so the margin carries only the remainder.
     marginTop: spacing.xl - spacing.md,
   },
