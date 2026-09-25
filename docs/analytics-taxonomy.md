@@ -174,7 +174,7 @@ catalog and `docs/current-status.md` retain twenty-four until the history Goal s
 **Domain values are mapped, not passed through.** Several enums below are the `snake_case`
 form of a kebab-case domain type. `generation_mode` is `on_device_ai` / `ai_assisted` / `deterministic_fallback`
 for the domain's `'on-device-ai'` / `'ai-assisted'` / `'deterministic-fallback'`
-(`features/recommendation/domain/generation-mode.ts`), and `trigger_reason` maps the eight
+(`features/recommendation/domain/generation-mode.ts`), and `trigger_reason` maps the seven
 values of `RecommendationRefreshTrigger` the same way. The mapping lives in the
 `ProductAnalytics` boundary, in one place, and a domain value with no mapping is a build
 error rather than a passed-through string.
@@ -311,7 +311,7 @@ table in the same change.
 | Event | Trigger | Properties |
 | --- | --- | --- |
 | `recommendation_viewed` | Today gains focus while a recommendation is visible, once per focus appearance. | `generation_mode` (`on_device_ai`\|`ai_assisted`\|`deterministic_fallback`), `cache_state` (`fresh`\|`stale_shown`\|`refreshing`), `outfit_count` (`3`), `dress_style` and `age_bucket` (section 3) |
-| `recommendation_regenerated` | A recommendation generation attempt completes. | `trigger_reason` (eight values, below), `result` (`success`\|`failure_kept_last_known`\|`failure_no_snapshot`), `generation_mode` (`on_device_ai`\|`ai_assisted`\|`deterministic_fallback`, present only when `result` is `success`), `regeneration_source` (`ai`\|`pool`, present only when `result` is `success` and `trigger_reason` is `regenerate`) |
+| `recommendation_regenerated` | A recommendation generation attempt completes. | `trigger_reason` (seven emitted values, below), `result` (`success`\|`failure_kept_last_known`\|`failure_no_snapshot`), `generation_mode` (`on_device_ai`\|`ai_assisted`\|`deterministic_fallback`, present only when `result` is `success`), `regeneration_source` (`ai`\|`pool`, present only when `result` is `success` and `trigger_reason` is `regenerate`) |
 
 `recommendation_viewed` is an impression, not a render counter. Rerenders while Today
 remains focused do not emit it again. When cache states overlap, `refreshing` takes
@@ -333,12 +333,11 @@ unchanged-snapshot, and null paths are at
 
 `trigger_reason` is the `snake_case` mapping of `RecommendationRefreshTrigger`
 (`features/recommendation/application/recommendation-application-controller.ts`), which has
-eight values, not the five the first draft listed:
+seven values:
 
 | `trigger_reason` | Domain value |
 | --- | --- |
 | `first_recommendation` | `first-recommendation` |
-| `stale_weather_refresh` | `stale-weather-refreshed` |
 | `location_changed` | `active-location-changed` |
 | `clothing_preference_changed` | `clothing-preference-changed` |
 | `dress_style_changed` | `dress-style-changed` |
@@ -346,19 +345,18 @@ eight values, not the five the first draft listed:
 | `explicit_request` | `explicit` |
 | `regenerate` | `regenerate` |
 
-Two of these are absent from the five triggers `AGENTS.md` lists: the first generation
-after install, and a dress-style change (which ADR 0031 made a recommendation input). The
-code is the authority here, and the `AGENTS.md` sentence should be reconciled with it
-separately.
+The domain trigger list includes first generation and explicit user requests. A weather-only
+refresh updates the live weather and derived insight lines without regenerating outfits.
+`stale_weather_refresh` remains a declared event property value for compatibility, but it
+stops being emitted because the stale-weather trigger was removed from the mapper.
 
-`explicit_request` is **kept, and is expected to be absent from the data at first.** The
-first draft called it `manual_request` and described it as a user action, but the only
-producer of `'explicit'` is the `refresh` callback the recommendation provider exposes, and
-no screen calls it: Today and outfit detail both destructure only `state`, and Today's pull
-to refresh calls the weather application instead, which reaches recommendations as
-`stale_weather_refresh`. Keeping the value costs nothing, matches the domain enum
-one-for-one, and avoids a `schema_version` bump on the day a screen wires the callback up.
-An analysis that sees zero `explicit_request` events is seeing the product as it is.
+Today's pull to refresh produces `explicit_request` only when it retries recommendation
+generation with no valid outfit displayed. With a saved valid outfit, the pull refreshes
+weather and its derived insight lines, then evaluates the normal approved triggers; those
+triggers retain their own `trigger_reason` values.
+The recommendation provider's `refresh` callback is the remaining production source of
+`explicit_request`; a later caller of that callback would also emit it. Confirmed re-asks
+use `regenerate` instead.
 
 **Product questions answered.**
 
@@ -401,8 +399,11 @@ failure episode. The first retry is `1`; the counter resets after success or whe
 surface loses focus. Attempts five and above collapse to `5+`. This is a client-side
 analytics bound and is unrelated to the Worker's internal provider-attempt limit. There is
 no `recommendation` surface value because the current product has no separate
-recommendation retry control; Today's refresh control calls the weather application
-(`apps/mobile/src/app/(tabs)/(today)/index.tsx:44-49`).
+recommendation retry control; Today's refresh control calls the weather application first,
+then checks the recommendation state and approved triggers.
+For Today, `retry_after_failure_triggered.result` is `success` only when the completed pull
+leaves weather and recommendation without a failure and a valid outfit is displayed. A
+remaining weather or recommendation failure reports `failure`.
 For `manual_refresh_triggered`, `failure_no_snapshot` applies only to Today or Weather;
 Closet refresh starts from an already loaded list and keeps that list on failure.
 

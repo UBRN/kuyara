@@ -1,5 +1,5 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
-import type { PropsWithChildren } from 'react';
+import { useSyncExternalStore, type PropsWithChildren } from 'react';
 import { Alert, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -10,6 +10,7 @@ import { AnalyticsConsentTriggerContext } from '@/features/analytics/application
 import { ProductAnalyticsContext } from '@/features/analytics/application/use-product-analytics';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
+import { garmentCatalogVersion } from '@/features/catalog/domain/garment-catalog';
 import {
   NotificationApplicationContext,
   type NotificationApplicationValue,
@@ -19,6 +20,7 @@ import { ProfileApplicationContext } from '@/features/profile/application/profil
 import type { LocalProfile } from '@/features/profile/domain/profile';
 import { RecommendationApplicationContext } from '@/features/recommendation/application/recommendation-application-context';
 import type { RecommendationApplicationState } from '@/features/recommendation/application/recommendation-application-controller';
+import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
 import { todayActiveLocation, todayOutfitId, todayScreenState } from '@/features/today/__tests__/fixtures';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { WardrobeApplicationContext } from '@/features/wardrobe/application/wardrobe-application-context';
@@ -134,6 +136,7 @@ jest.mock('@/features/analytics/data/observe-performance-telemetry', () => ({
 
 const mockChoiceGet = jest.fn();
 const mockChoiceUpsert = jest.fn();
+let mockRecommendationSnapshot: RecommendationSnapshot | null = null;
 jest.mock('@/infrastructure/sqlite/expo-sqlite-database', () => ({
   openKuyaraDatabase: async () => ({}),
 }));
@@ -145,13 +148,11 @@ jest.mock('@/features/recommendation/data/sqlite-dressing-day-choice-repository'
   },
 }));
 jest.mock('@/features/recommendation/data/on-device-ai-module', () => ({ onDeviceAiModule: null }));
-// The live provider test reads an empty snapshot store rather than failing on the stub
-// database: a failed snapshot load is a reported failure, and the morning sheet never opens
-// over it.
+// Live provider tests choose whether the stub store has a saved recommendation.
 jest.mock('@/features/recommendation/data/recommendation-repository', () => ({
   ...jest.requireActual('@/features/recommendation/data/recommendation-repository'),
   LocalRecommendationRepository: class {
-    async getSnapshot() { return null; }
+    async getSnapshot() { return mockRecommendationSnapshot; }
   },
 }));
 jest.mock('@/features/recommendation/application/recommendation-application-controller', () => {
@@ -237,6 +238,22 @@ function recommendationReady(
       updatedAt: '2026-08-13T06:00:00.000Z',
     },
     ...overrides,
+  };
+}
+
+function recommendationStateStore(initial: RecommendationApplicationState) {
+  let current = initial;
+  const listeners = new Set<() => void>();
+  return {
+    getSnapshot: () => current,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => { listeners.delete(listener); };
+    },
+    set: (next: RecommendationApplicationState) => {
+      current = next;
+      listeners.forEach((listener) => listener());
+    },
   };
 }
 
@@ -342,7 +359,9 @@ function Providers({
   children,
   weather,
   recommendation,
+  recommendationGetSnapshot,
   recommendationRefresh = jest.fn(async () => null),
+  recommendationEvaluateApprovedTriggers = jest.fn(async () => undefined),
   recommendationRegenerate = jest.fn(async () => null),
   resolvedDressStyle,
   dressingDayChoiceReady,
@@ -358,7 +377,9 @@ function Providers({
 }: PropsWithChildren<{
   weather: WeatherApplicationValue;
   recommendation: RecommendationApplicationState;
+  recommendationGetSnapshot?: () => RecommendationApplicationState;
   recommendationRefresh?: () => Promise<null>;
+  recommendationEvaluateApprovedTriggers?: () => Promise<void>;
   recommendationRegenerate?: () => Promise<null>;
   resolvedDressStyle?: 'casual' | 'smart' | 'formal';
   dressingDayChoiceReady?: boolean;
@@ -387,8 +408,10 @@ function Providers({
   ) : (
     <RecommendationApplicationContext value={{
       state: recommendation,
+      getSnapshot: recommendationGetSnapshot ?? (() => recommendation),
       onDeviceAvailability: null,
       refresh: recommendationRefresh,
+      evaluateApprovedTriggers: recommendationEvaluateApprovedTriggers,
       skipWait: jest.fn(async () => null),
       regenerate: recommendationRegenerate,
       resolvedDressStyle,
@@ -427,6 +450,8 @@ function Providers({
 // eslint-disable-next-line import/first
 import { RecommendationApplicationProvider } from '@/features/recommendation/application/recommendation-application-provider';
 // eslint-disable-next-line import/first
+import { RecommendationApplicationController } from '@/features/recommendation/application/recommendation-application-controller';
+// eslint-disable-next-line import/first
 import TodayRoute from '@/app/(tabs)/(today)/index';
 // eslint-disable-next-line import/first
 import OutfitDetailRoute from '@/app/(tabs)/(today)/[id]';
@@ -441,6 +466,7 @@ beforeEach(() => {
   mockParams = {};
   mockChoiceGet.mockReset().mockResolvedValue(null);
   mockChoiceUpsert.mockReset().mockResolvedValue(undefined);
+  mockRecommendationSnapshot = null;
 });
 
 test('Today offers the alert opt-in once, and each action answers the offer', async () => {
@@ -717,6 +743,120 @@ test('a rejected day-choice read leaves the morning sheet closed and writes no c
   await waitFor(() => expect(mockChoiceGet).toHaveBeenCalledTimes(2));
   expect(await view.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
   expect(mockChoiceUpsert).not.toHaveBeenCalled();
+});
+
+test('an automatic trigger and pull across a forecast hour share one controller refresh', async () => {
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
+  mockRecommendationSnapshot = {
+    ...saved.snapshot,
+    catalogVersion: garmentCatalogVersion,
+    localDayKey: '2026-09-24',
+    dressStyle: 'casual',
+  };
+  jest.useFakeTimers({
+    now: new Date('2026-09-24T06:59:59.000Z'),
+    doNotFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'],
+  });
+  let finishRefresh!: (value: RecommendationSnapshot | null) => void;
+  const pendingRefresh = new Promise<RecommendationSnapshot | null>((resolve) => {
+    finishRefresh = resolve;
+  });
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementation(() => pendingRefresh);
+  let pull: Promise<void> | null = null;
+  try {
+    const weather = weatherValue();
+    const view = await render(
+      <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+        recommendation={saved} liveRecommendationProvider
+        wardrobe={wardrobeValue()} weather={weather}>
+        <TodayRoute />
+      </Providers>,
+    );
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+    expect(refresh.mock.calls[0][0]).toBe('dress-style-changed');
+    expect(refresh.mock.calls[0][1].now).toBe('2026-09-24T06:59:59.000Z');
+
+    jest.setSystemTime(new Date('2026-09-24T07:00:00.000Z'));
+    expect(new Date().toISOString()).toBe('2026-09-24T07:00:00.000Z');
+    await act(async () => {
+      pull = view.getByTestId('today-screen').props.refreshControl.props.onRefresh();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(weather.refresh).toHaveBeenCalledTimes(1);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  } finally {
+    finishRefresh(mockRecommendationSnapshot);
+    if (pull) await act(async () => { await pull; });
+    refresh.mockRestore();
+    jest.useRealTimers();
+  }
+});
+
+test('a changed preference during regeneration runs once more with the latest input', async () => {
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
+  mockRecommendationSnapshot = {
+    ...saved.snapshot,
+    catalogVersion: garmentCatalogVersion,
+    localDayKey: '2026-09-24',
+    locationKey: 'manual:other',
+  };
+  let finishRefresh!: (value: RecommendationSnapshot | null) => void;
+  const pendingRefresh = new Promise<RecommendationSnapshot | null>((resolve) => {
+    finishRefresh = resolve;
+  });
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementationOnce(() => pendingRefresh)
+    .mockImplementation(async () => mockRecommendationSnapshot);
+  try {
+    const props = {
+      productAnalytics: createProductAnalytics(),
+      recommendation: saved,
+      liveRecommendationProvider: true,
+      wardrobe: wardrobeValue(),
+      weather: weatherValue(),
+    };
+    const view = await render(
+      <Providers {...props} profile={profileValue()}><TodayRoute /></Providers>,
+    );
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+    expect(refresh.mock.calls[0][0]).toBe('active-location-changed');
+    expect(refresh.mock.calls[0][1].dressStyle).toBe('smart');
+    const originalPull = view.getByTestId('today-screen').props.refreshControl.props.onRefresh;
+
+    await act(async () => {
+      view.rerender(<Providers {...props} profile={profileValue({ dressStyle: 'formal' })}>
+        <TodayRoute />
+      </Providers>);
+    });
+    await act(async () => {
+      view.rerender(<Providers {...props} profile={profileValue({ dressStyle: 'casual' })}>
+        <TodayRoute />
+      </Providers>);
+    });
+    expect(refresh).toHaveBeenCalledTimes(1);
+
+    let pendingPull!: Promise<void>;
+    await act(async () => {
+      pendingPull = originalPull();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      finishRefresh(mockRecommendationSnapshot);
+      await pendingPull;
+    });
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(2));
+    expect(refresh.mock.calls[1][1].dressStyle).toBe('casual');
+    await act(async () => { await Promise.resolve(); });
+    expect(refresh).toHaveBeenCalledTimes(2);
+  } finally {
+    finishRefresh(mockRecommendationSnapshot);
+    refresh.mockRestore();
+  }
 });
 
 // M6 step 1: the day-type tiles are one radio group, the current answer checked by three
@@ -1025,7 +1165,7 @@ test('a background recommendation refresh keeps Today inline', async () => {
   expect(result.getByTestId('today-freshness')).toHaveTextContent(messages.en.today.phase['asking-stylist']);
 });
 
-test('a successful pull-to-refresh regenerates after weather and reports manual refresh, not retry', async () => {
+test('pull-to-refresh with a valid recommendation refreshes weather without regenerating', async () => {
   const productAnalytics = createProductAnalytics();
   const order: string[] = [];
   const weather = {
@@ -1053,14 +1193,15 @@ test('a successful pull-to-refresh regenerates after weather and reports manual 
   const refreshControl = result.getByTestId('today-screen').props.refreshControl;
   await act(async () => refreshControl.props.onRefresh());
 
-  await waitFor(() => expect(recommendationRefresh).toHaveBeenCalledTimes(1));
-
-  expect(order).toEqual(['weather', 'recommendation']);
+  await waitFor(() => expect(weather.refresh).toHaveBeenCalledTimes(1));
+  expect(recommendationRefresh).not.toHaveBeenCalled();
+  expect(order).toEqual(['weather']);
   expect(productAnalytics.analytics.captures.map((c) => c.name)).toContain('manual_refresh_triggered');
   expect(productAnalytics.analytics.captures.map((c) => c.name)).not.toContain('retry_after_failure_triggered');
 });
 
-test('one pull stays refreshing until weather and recommendation have both settled', async () => {
+test('pull-to-refresh retries an unavailable recommendation after weather settles', async () => {
+  const productAnalytics = createProductAnalytics();
   let resolveWeather!: () => void;
   let resolveRecommendation!: (value: null) => void;
   const weatherRefresh = new Promise<void>((resolve) => { resolveWeather = resolve; });
@@ -1074,9 +1215,9 @@ test('one pull stays refreshing until weather and recommendation have both settl
   const recommendationRefresh = jest.fn(() => recommendationRefreshPromise);
   const result = await render(
     <Providers
-      productAnalytics={createProductAnalytics()}
+      productAnalytics={productAnalytics}
       profile={profileValue()}
-      recommendation={recommendationReady()}
+      recommendation={recommendationReady({ snapshot: null, lastFailure: 'unavailable' })}
       recommendationRefresh={recommendationRefresh}
       wardrobe={wardrobeValue()}
       weather={weather}>
@@ -1097,22 +1238,109 @@ test('one pull stays refreshing until weather and recommendation have both settl
   await waitFor(() => expect(
     result.getByTestId('today-screen').props.refreshControl.props.refreshing,
   ).toBe(false));
+  expect(productAnalytics.analytics.captures.find(({ name }) =>
+    name === 'retry_after_failure_triggered')?.properties).toEqual({
+    schema_version: 3, surface: 'today', attempt_number: 1, result: 'failure',
+  });
+});
+
+test('pull-to-refresh skips retry when an outfit arrives during weather refresh', async () => {
+  let resolveWeather!: () => void;
+  const productAnalytics = createProductAnalytics();
+  let currentRecommendation = recommendationReady({ snapshot: null, lastFailure: 'unavailable' });
+  const weather = {
+    ...weatherValue(),
+    refresh: jest.fn(() => new Promise<void>((resolve) => { resolveWeather = resolve; })),
+  };
+  const recommendationRefresh = jest.fn(async () => null);
+  const result = await render(
+    <Providers
+      productAnalytics={productAnalytics}
+      profile={profileValue()}
+      recommendation={currentRecommendation}
+      recommendationGetSnapshot={() => currentRecommendation}
+      recommendationRefresh={recommendationRefresh}
+      wardrobe={wardrobeValue()}
+      weather={weather}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  await act(async () => result.getByTestId('today-screen').props.refreshControl.props.onRefresh());
+  currentRecommendation = recommendationReady();
+  await act(async () => resolveWeather());
+
+  expect(weather.refresh).toHaveBeenCalledTimes(1);
+  expect(recommendationRefresh).not.toHaveBeenCalled();
+  expect(productAnalytics.analytics.captures.find(({ name }) =>
+    name === 'retry_after_failure_triggered')?.properties).toEqual({
+    schema_version: 3, surface: 'today', attempt_number: 1, result: 'success',
+  });
+});
+
+test('pull-to-refresh clears a saved outfit failure when its approved inputs are current', async () => {
+  const productAnalytics = createProductAnalytics();
+  const recommendationRefresh = jest.fn(async () => null);
+  const store = recommendationStateStore(recommendationReady({ lastFailure: 'unavailable' }));
+  const recommendationEvaluateApprovedTriggers = jest.fn(async () => {
+    store.set(recommendationReady());
+  });
+  function Scenario() {
+    const recommendation = useSyncExternalStore(store.subscribe, store.getSnapshot);
+    return <Providers
+      productAnalytics={productAnalytics}
+      profile={profileValue()}
+      recommendation={recommendation}
+      recommendationGetSnapshot={store.getSnapshot}
+      recommendationRefresh={recommendationRefresh}
+      recommendationEvaluateApprovedTriggers={recommendationEvaluateApprovedTriggers}
+      wardrobe={wardrobeValue()}
+      weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>;
+  }
+  const result = await render(
+    <Scenario />,
+  );
+  productAnalytics.analytics.captures.length = 0;
+  expect(result.getByTestId('today-freshness')).toHaveTextContent(/Couldn't refresh/);
+
+  await act(async () => result.getByTestId('today-screen').props.refreshControl.props.onRefresh());
+
+  expect(recommendationRefresh).not.toHaveBeenCalled();
+  expect(recommendationEvaluateApprovedTriggers).toHaveBeenCalledTimes(1);
+  expect(result.getByTestId('today-archetype')).toBeOnTheScreen();
+  expect(result.getByTestId('today-freshness')).not.toHaveTextContent(/Couldn't refresh/);
+  expect(productAnalytics.analytics.captures.find(({ name }) =>
+    name === 'retry_after_failure_triggered')?.properties).toEqual({
+    schema_version: 3, surface: 'today', attempt_number: 1, result: 'success',
+  });
 });
 
 test('a failed weather refresh with the same snapshot skips recommendation regeneration', async () => {
   const productAnalytics = createProductAnalytics();
   const weather = weatherValue({ refreshFailure: 'offline' });
   const recommendationRefresh = jest.fn(async () => null);
-  const result = await render(
-    <Providers
+  const store = recommendationStateStore(recommendationReady({ lastFailure: 'unavailable' }));
+  const recommendationEvaluateApprovedTriggers = jest.fn(async () => {
+    store.set(recommendationReady());
+  });
+  function Scenario() {
+    const recommendation = useSyncExternalStore(store.subscribe, store.getSnapshot);
+    return <Providers
       productAnalytics={productAnalytics}
       profile={profileValue()}
-      recommendation={recommendationReady()}
+      recommendation={recommendation}
+      recommendationGetSnapshot={store.getSnapshot}
       recommendationRefresh={recommendationRefresh}
+      recommendationEvaluateApprovedTriggers={recommendationEvaluateApprovedTriggers}
       wardrobe={wardrobeValue()}
       weather={weather}>
       <TodayRoute />
-    </Providers>,
+    </Providers>;
+  }
+  const result = await render(
+    <Scenario />,
   );
 
   await act(async () => result.getByTestId('today-screen').props.refreshControl.props.onRefresh());
@@ -1122,6 +1350,12 @@ test('a failed weather refresh with the same snapshot skips recommendation regen
 
   expect(weather.refresh).toHaveBeenCalledTimes(1);
   expect(recommendationRefresh).not.toHaveBeenCalled();
+  expect(recommendationEvaluateApprovedTriggers).toHaveBeenCalledTimes(1);
+  expect(result.getByTestId('today-freshness')).toHaveTextContent(/Couldn't refresh/);
+  expect(productAnalytics.analytics.captures.find(({ name }) =>
+    name === 'retry_after_failure_triggered')?.properties).toEqual({
+    schema_version: 3, surface: 'today', attempt_number: 1, result: 'failure',
+  });
 });
 
 test('focusing Today asks the recommendation provider to re-evaluate the local day', async () => {

@@ -38,7 +38,9 @@ export default function TodayRoute() {
   const router = useRouter();
   const {
     state: recommendationState,
+    getSnapshot: getRecommendationSnapshot,
     refresh: refreshRecommendation,
+    evaluateApprovedTriggers,
     regenerate: regenerateRecommendation,
     reevaluateLocalDay,
     dressingDayKey,
@@ -253,21 +255,19 @@ export default function TodayRoute() {
   const handleRefresh = async () => {
     if (isPullRefreshing) return;
     const wasFailing = state.kind === 'unavailable' || (state.kind === 'loaded' && state.refreshFailed);
-    const before = weatherApplication.getSnapshot?.() ?? weatherApplication.state;
-    const beforeSnapshotId = before.status === 'ready' ? before.snapshot?.id ?? null : null;
     setIsPullRefreshing(true);
     try {
       await weatherApplication.refresh();
-      const afterWeather = weatherApplication.getSnapshot?.() ?? weatherApplication.state;
-      const weatherRefreshFailed =
-        afterWeather.status !== 'ready' || afterWeather.refreshFailure !== null;
-      const afterWeatherSnapshotId =
-        afterWeather.status === 'ready' ? afterWeather.snapshot?.id ?? null : null;
-      if (!(weatherRefreshFailed && afterWeatherSnapshotId === beforeSnapshotId)) {
+      const currentRecommendation = getRecommendationSnapshot();
+      if (currentRecommendation.status === 'ready' &&
+          currentRecommendation.snapshot?.recommendation.status !== 'recommended') {
         await refreshRecommendation();
+      } else if (currentRecommendation.status === 'ready') {
+        await evaluateApprovedTriggers();
       }
 
       const after = weatherApplication.getSnapshot?.() ?? weatherApplication.state;
+      const recommendationAfter = getRecommendationSnapshot();
       const outcome = after.status !== 'ready'
         ? ('failure_no_snapshot' as const)
         : after.refreshFailure === null
@@ -276,13 +276,17 @@ export default function TodayRoute() {
             ? ('failure_kept_last_known' as const)
             : ('failure_no_snapshot' as const);
       if (wasFailing) {
+        const retrySucceeded = after.status === 'ready' && after.refreshFailure === null &&
+          after.snapshot !== null && after.activeLocation !== null && after.freshness !== null &&
+          recommendationAfter.status === 'ready' && recommendationAfter.lastFailure === null &&
+          recommendationAfter.snapshot?.recommendation.status === 'recommended';
         analytics.capture('retry_after_failure_triggered', {
           schema_version: ANALYTICS_SCHEMA_VERSION,
           surface: 'today',
           attempt_number: retries.nextAttempt('today'),
-          result: outcome === 'success' ? 'success' : 'failure',
+          result: retrySucceeded ? 'success' : 'failure',
         });
-        if (outcome === 'success') retries.reset('today');
+        if (retrySucceeded) retries.reset('today');
         return;
       }
       analytics.capture('manual_refresh_triggered', {

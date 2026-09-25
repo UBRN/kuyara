@@ -45,7 +45,6 @@ export { archetypeLabel } from '@/features/recommendation/localization/recommend
 
 export type RecommendationRefreshTrigger =
   | 'first-recommendation'
-  | 'stale-weather-refreshed'
   | 'active-location-changed'
   | 'clothing-preference-changed'
   | 'dress-style-changed'
@@ -73,12 +72,7 @@ export type RecommendationApplicationInput = OutfitRecommendationInput & Readonl
 export function recommendationRefreshTrigger(
   previous: RecommendationSignals | null,
   current: RecommendationSignals,
-  staleRefreshSnapshotId: string | null,
 ): RecommendationRefreshTrigger | null {
-  if (
-    staleRefreshSnapshotId &&
-    staleRefreshSnapshotId !== current.weatherSnapshotId
-  ) return 'stale-weather-refreshed';
   if (!previous) return 'first-recommendation';
   if (previous.catalogVersion !== current.catalogVersion) {
     return 'first-recommendation';
@@ -161,11 +155,8 @@ type Dependencies = Readonly<{
   // suggestions" phase would land in the same render as the settled result and never be
   // seen. Optional so tests can replace the wait with a resolved promise.
   holdPhase?: (milliseconds: number) => Promise<void>;
-  // Called once, before the AI chain is entered, for an attempt that really reaches a
-  // provider. A chain that then fails into the deterministic three has still spent the
-  // attempt; a refresh whose pool was too narrow to ask never gets here. The composition
-  // boundary decides which triggers it counts and where it keeps the tally.
-  onAiAttempt?: (trigger: RecommendationRefreshTrigger, dayKey: string) => void;
+  // A failed reservation takes the deterministic path; an AI failure keeps its slot spent.
+  reserveAiReask?: (dayKey: string) => Promise<boolean>;
 }>;
 
 // Long enough to be read, short enough that the deterministic three still feel immediate;
@@ -206,10 +197,9 @@ export function localDayKey(date: Date = new Date()): string {
 }
 
 /**
- * The three options the persisted snapshot is showing, whatever day it was written on. Every
- * regeneration, a new local day or an explicit refresh on the same one, offers something
- * other than what is on screen. `excludeOutfitOptions` drops the exclusion when it would
- * leave fewer than three options, so a narrow pool repeats rather than running out.
+ * The three options the persisted snapshot is showing, whatever day it was written on.
+ * Ordinary generation excludes them when at least three alternatives remain. A confirmed
+ * re-ask does not exclude them; its pool may repeat a selection shown earlier that day.
  */
 function shownOptionIds(snapshot: RecommendationSnapshot | null): readonly string[] {
   const outfits = snapshot?.recommendation.outfits;
@@ -229,7 +219,8 @@ export function recommendationPoolExhausted(
   poolOptionIds: readonly string[] | null,
   snapshot: RecommendationSnapshot | null,
 ): boolean {
-  if (!poolOptionIds || poolOptionIds.length === 0 || !snapshot) return false;
+  if (!poolOptionIds || !snapshot) return false;
+  if (poolOptionIds.length === 0) return true;
   const shown = new Set(shownOptionIds(snapshot));
   return shown.size === 3 && poolOptionIds.every((id) => shown.has(id));
 }
@@ -308,6 +299,26 @@ export class RecommendationApplicationController {
     return () => this.listeners.delete(listener);
   };
 
+  clearLastFailure(): void {
+    if (this.state.status === 'ready' && this.state.lastFailure !== null &&
+        this.state.snapshot?.recommendation.status === 'recommended') {
+      this.setReady({ ...this.state, lastFailure: null });
+    }
+  }
+
+  updatePoolAvailability(input: RecommendationApplicationInput): void {
+    if (this.state.status !== 'ready' || !this.state.snapshot) return;
+    try {
+      const { poolOptionIds } = createRecommendationContextWithPool(
+        { ...input, excludedOptionIds: [] }, input.localDayKey,
+      );
+      const exhausted = recommendationPoolExhausted(poolOptionIds, this.state.snapshot);
+      if (exhausted !== this.state.exhausted) this.setReady({ ...this.state, exhausted });
+    } catch {
+      // A failed derived availability check never discards the saved recommendation.
+    }
+  }
+
   initialize(): Promise<void> {
     if (!this.initializationPromise) {
       this.initializationPromise = this.initializeOnce();
@@ -315,22 +326,15 @@ export class RecommendationApplicationController {
     return this.initializationPromise;
   }
 
-  /**
-   * `allowAi: false` is the only difference the pool path needs: the request is not built, so
-   * `refreshOnce` takes the deterministic branch it already had, with the same exclusion, the
-   * same narrated wait and the same persistence. Its default keeps the other triggers as they
-   * were.
-   */
   refresh(
     trigger: RecommendationRefreshTrigger,
     input: RecommendationApplicationInput,
-    options?: Readonly<{ allowAi?: boolean }>,
   ): Promise<RecommendationSnapshot | null> {
     let context: RecommendationContext;
     let poolOptionIds: readonly string[];
     const generationInput = {
       ...input,
-      excludedOptionIds: shownOptionIds(this.currentSnapshot()),
+      excludedOptionIds: trigger === 'regenerate' ? [] : shownOptionIds(this.currentSnapshot()),
     };
     try {
       ({ context, poolOptionIds } = createRecommendationContextWithPool(
@@ -340,7 +344,7 @@ export class RecommendationApplicationController {
       this.setLastFailure(recommendationFailureCategory(error));
       return Promise.resolve(this.currentSnapshot());
     }
-    const request = options?.allowAi === false ? null : aiRequestFromContext(context);
+    const request = aiRequestFromContext(context);
     const key = JSON.stringify({
       weatherSnapshotId: input.snapshot.id,
       locationKey: input.snapshot.locationKey,
@@ -444,8 +448,15 @@ export class RecommendationApplicationController {
     let recommendation: OutfitRecommendationSuccess | null = null;
     let aiFailure: FailureCategory | null = null;
     const startedAt = Date.now();
+    if (request && trigger === 'regenerate') {
+      try {
+        if (!(await this.dependencies.reserveAiReask?.(input.localDayKey))) request = null;
+      } catch {
+        request = null;
+      }
+      if (!request && this.latestRequestKey === key) this.aiPending = false;
+    }
     if (request) {
-      this.dependencies.onAiAttempt?.(trigger, input.localDayKey);
       try {
         // The routed client runs the shared validation gate inside its own chain, so what
         // comes back here is already a validated recommendation from whichever tier won.

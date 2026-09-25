@@ -8,10 +8,12 @@ import type { DressingDayChoiceSource } from '@/features/recommendation/domain/d
 
 export type RecommendationApplicationValue = Readonly<{
   state: RecommendationApplicationState;
+  getSnapshot: () => RecommendationApplicationState;
   // ADR 0034 section 5: what the device reports about on-device selection, read once and
   // null until that answer arrives. No inference, no quota, no provider or model identity.
   onDeviceAvailability: OnDeviceAiAvailability | null;
   refresh: () => Promise<RecommendationSnapshot | null>;
+  evaluateApprovedTriggers: () => Promise<void>;
   skipWait: () => Promise<RecommendationSnapshot | null>;
   /**
    * Today's "show another outfit" action: it regenerates the recommendation and leaves

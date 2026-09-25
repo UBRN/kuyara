@@ -17,6 +17,7 @@ import {
   localDayKind,
   localDayVariant,
   recommendationRefreshTrigger,
+  type RecommendationApplicationInput,
   type RecommendationSignals,
 } from '@/features/recommendation/application/recommendation-application-controller';
 import {
@@ -43,7 +44,6 @@ import {
 } from '@/features/recommendation/data/worker-ai-client';
 import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import { onDeviceAiModule } from '@/features/recommendation/data/on-device-ai-module';
-import { regenerationMode } from '@/features/recommendation/domain/regeneration-policy';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { resolveWorkerBaseUrl, WorkerBaseUrlConfigurationError } from '@/config/worker-base-url';
 import { openKuyaraDatabase } from '@/infrastructure/sqlite/expo-sqlite-database';
@@ -51,6 +51,18 @@ import { migrateDatabase } from '@/infrastructure/sqlite/migrations';
 import { useLocalization } from '@/localization/use-messages';
 
 const now = () => new Date().toISOString();
+
+function approvedSignals(input: RecommendationApplicationInput): RecommendationSignals {
+  return {
+    weatherSnapshotId: input.snapshot.id,
+    locationKey: input.snapshot.locationKey,
+    clothingPreference: input.clothingPreference,
+    dressStyle: input.dressStyle ?? 'smart',
+    styleAesthetics: input.styleAesthetics,
+    catalogVersion: garmentCatalogVersion,
+    localDayKey: input.localDayKey,
+  };
+}
 
 /**
  * The allowance is five regenerations per day, and the dressing day is what a day means
@@ -192,9 +204,7 @@ export function RecommendationApplicationProvider({
   const [latestOnDeviceAvailability] = useState<{ value: OnDeviceAiAvailability | null }>(
     () => ({ value: null }),
   );
-  // The daily tally of AI regenerations. Only the composition layer sees it: the controller
-  // reports the attempt, the policy answers whether the next one may reach a provider, and
-  // neither the domain nor any screen reads the number.
+  // Re-asks reserve a daily slot before the controller enters the AI chain.
   const budget = useMemo(() => new ExpoFileAiRegenerationBudget(), []);
   const controller = useMemo(
     () => new RecommendationApplicationController(localProfileId, {
@@ -203,9 +213,7 @@ export function RecommendationApplicationProvider({
       captureAnalyticsEvent: (name, properties, options) => analytics.capture(name, properties, options),
       telemetry,
       getOnDeviceAvailability: () => latestOnDeviceAvailability.value,
-      onAiAttempt: (trigger, dayKey) => {
-        if (trigger === 'regenerate') void budget.record(budgetDayKey(dayKey));
-      },
+      reserveAiReask: (dayKey) => budget.reserve(budgetDayKey(dayKey)),
     }),
     [analytics, budget, client, latestOnDeviceAvailability, localProfileId, telemetry],
   );
@@ -214,7 +222,6 @@ export function RecommendationApplicationProvider({
     controller.getSnapshot,
     controller.getSnapshot,
   );
-  const persistedSnapshot = state.status === 'ready' ? state.snapshot : null;
   const input = useMemo(() => {
     const clothingPreference = profileState.status === 'ready'
       ? profileState.profile.clothingPreference
@@ -240,8 +247,6 @@ export function RecommendationApplicationProvider({
       locale: language,
     };
   }, [choiceReady, language, localDay, profileState, resolvedDressStyle, weatherState]);
-  const staleRefreshSnapshotId = useRef<string | null>(null);
-
   useEffect(() => {
     void controller.initialize();
   }, [controller]);
@@ -269,36 +274,19 @@ export function RecommendationApplicationProvider({
     return () => subscription.remove();
   }, [reevaluateLocalDay]);
 
-  useEffect(() => {
-    if (
-      weatherState.status === 'ready' &&
-      weatherState.snapshot &&
-      weatherState.freshness === 'stale' &&
-      weatherState.isRefreshing
-    ) {
-      staleRefreshSnapshotId.current = weatherState.snapshot.id;
-      return;
-    }
-    if (
-      weatherState.status === 'ready' &&
-      !weatherState.isRefreshing &&
-      weatherState.refreshFailure !== null
-    ) {
-      staleRefreshSnapshotId.current = null;
-    }
-  }, [weatherState]);
-
-  useEffect(() => {
-    if (state.status !== 'ready' || !input) return;
-    const current: RecommendationSignals = {
-      weatherSnapshotId: input.snapshot.id,
-      locationKey: input.snapshot.locationKey,
-      clothingPreference: input.clothingPreference,
-      dressStyle: input.dressStyle ?? 'smart',
-      styleAesthetics: input.styleAesthetics,
-      catalogVersion: garmentCatalogVersion,
-      localDayKey: input.localDayKey,
-    };
+  const approvedTriggerInFlight = useRef<{
+    input: RecommendationApplicationInput;
+    promise: Promise<boolean>;
+  } | null>(null);
+  const trailingApprovedInput = useRef<RecommendationApplicationInput | null>(null);
+  const trailingApprovedPromise = useRef<Promise<boolean> | null>(null);
+  const evaluateApprovedTriggersOnce = useCallback(async (
+    generationInput: RecommendationApplicationInput,
+  ): Promise<boolean> => {
+    const liveState = controller.getSnapshot();
+    if (liveState.status !== 'ready') return false;
+    const current = approvedSignals(generationInput);
+    const persistedSnapshot = liveState.snapshot;
     const previous: RecommendationSignals | null = persistedSnapshot
       ? {
           weatherSnapshotId: persistedSnapshot.weatherSnapshotId,
@@ -317,23 +305,67 @@ export function RecommendationApplicationProvider({
     if (morningChoicePending) {
       if (previous && JSON.stringify(previous.styleAesthetics ?? []) !==
           JSON.stringify(current.styleAesthetics ?? [])) {
-        staleRefreshSnapshotId.current = null;
-        void controller.refresh('dress-style-changed', input);
+        await controller.refresh('dress-style-changed', generationInput);
+        return true;
       }
-      return;
+      return false;
     }
 
-    const trigger = recommendationRefreshTrigger(
-      previous,
-      current,
-      staleRefreshSnapshotId.current,
-    );
-    if (trigger === 'stale-weather-refreshed') {
-      staleRefreshSnapshotId.current = null;
-    }
+    const trigger = recommendationRefreshTrigger(previous, current);
 
-    if (trigger) void controller.refresh(trigger, input);
-  }, [controller, input, morningChoicePending, persistedSnapshot, state.status]);
+    if (trigger) {
+      await controller.refresh(trigger, generationInput);
+      return true;
+    }
+    controller.updatePoolAvailability(generationInput);
+    return false;
+  }, [controller, morningChoicePending]);
+
+  const evaluateApprovedTriggersForInput = useCallback(function evaluateApprovedTriggersForInput(
+    generationInput: RecommendationApplicationInput,
+  ): Promise<boolean> {
+    const inFlight = approvedTriggerInFlight.current;
+    if (inFlight) {
+      // The weather/forecast hour may change `now` without changing an approved trigger.
+      if (!recommendationRefreshTrigger(
+        approvedSignals(inFlight.input), approvedSignals(generationInput),
+      )) return inFlight.promise;
+      if (trailingApprovedPromise.current) {
+        trailingApprovedInput.current = generationInput;
+        return trailingApprovedPromise.current;
+      }
+
+      // Keep only the latest changed input. When the first request settles, evaluate it
+      // against the controller's live persisted state, not the state from this render.
+      trailingApprovedInput.current = generationInput;
+      const runLatest = () => {
+        const latest = trailingApprovedInput.current;
+        trailingApprovedInput.current = null;
+        trailingApprovedPromise.current = null;
+        if (!latest || !recommendationRefreshTrigger(
+          approvedSignals(inFlight.input), approvedSignals(latest),
+        )) return inFlight.promise;
+        return evaluateApprovedTriggersForInput(latest);
+      };
+      const trailing = inFlight.promise.then(runLatest, runLatest);
+      trailingApprovedPromise.current = trailing;
+      return trailing;
+    }
+    const evaluation = evaluateApprovedTriggersOnce(generationInput);
+    approvedTriggerInFlight.current = { input: generationInput, promise: evaluation };
+    const clear = () => {
+      if (approvedTriggerInFlight.current?.promise === evaluation) {
+        approvedTriggerInFlight.current = null;
+      }
+    };
+    void evaluation.then(clear, clear);
+    return evaluation;
+  }, [evaluateApprovedTriggersOnce]);
+
+  useEffect(() => {
+    if (state.status !== 'ready' || !input) return;
+    void evaluateApprovedTriggersForInput(input);
+  }, [evaluateApprovedTriggersForInput, input, state.status]);
 
   // The generation input as of this moment, re-read from the live weather and profile rather
   // than from the render that bound the handler. `null` when there is nothing to compose for.
@@ -363,6 +395,13 @@ export function RecommendationApplicationProvider({
     };
   }, [choiceReady, language, profileState, resolvedDressStyle, weatherApplication, weatherState]);
 
+  const evaluateApprovedTriggers = useCallback(async () => {
+    const generationInput = currentInput();
+    if (!generationInput) return;
+    const triggered = await evaluateApprovedTriggersForInput(generationInput);
+    if (!triggered) controller.clearLastFailure();
+  }, [controller, currentInput, evaluateApprovedTriggersForInput]);
+
   const chooseFormality = useCallback(async (
     key: string, formality: DressStyle, source: DressingDayChoiceSource,
   ) => {
@@ -378,6 +417,8 @@ export function RecommendationApplicationProvider({
 
   const value = useMemo<RecommendationApplicationValue>(() => ({
     state,
+    getSnapshot: controller.getSnapshot,
+    evaluateApprovedTriggers,
     onDeviceAvailability,
     skipWait: () => controller.skipWait(),
     dressingDayKey: localDay.key,
@@ -394,18 +435,13 @@ export function RecommendationApplicationProvider({
     regenerate: async () => {
       const generationInput = currentInput();
       if (!generationInput) return null;
-      // The allowance is read here and nowhere else. Past it the tap still produces a new
-      // valid three from the already-composed pool, so the action never turns itself off.
-      const used = await budget.usedToday(budgetDayKey(generationInput.localDayKey));
-      return controller.refresh('regenerate', generationInput, {
-        allowAi: regenerationMode(used) === 'ai',
-      });
+      return controller.refresh('regenerate', generationInput);
     },
     reevaluateLocalDay,
   }), [
-    budget,
     controller,
     currentInput,
+    evaluateApprovedTriggers,
     chooseFormality,
     choiceReady,
     localDay.key,

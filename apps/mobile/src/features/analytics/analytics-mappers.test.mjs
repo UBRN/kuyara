@@ -34,11 +34,10 @@ test('every generation mode maps to a snake_case property', () => {
   );
 });
 
-// The seven values of RecommendationRefreshTrigger, docs/analytics-taxonomy.md section 5.5.
+// Approved automatic refresh triggers, docs/analytics-taxonomy.md section 5.5.
 test('every refresh trigger maps to a distinct trigger reason', () => {
   const triggers = [
     'first-recommendation',
-    'stale-weather-refreshed',
     'active-location-changed',
     'clothing-preference-changed',
     'dress-style-changed',
@@ -48,14 +47,13 @@ test('every refresh trigger maps to a distinct trigger reason', () => {
   const reasons = triggers.map(triggerReasonProperty);
   assert.deepEqual(reasons, [
     'first_recommendation',
-    'stale_weather_refresh',
     'location_changed',
     'clothing_preference_changed',
     'dress_style_changed',
     'new_calendar_day',
     'explicit_request',
   ]);
-  assert.equal(new Set(reasons).size, 7);
+  assert.equal(new Set(reasons).size, 6);
 });
 
 // The mapping is total over the eleven condition codes, section 5.4.

@@ -569,6 +569,75 @@ test('stale freshness and outfit copy localize in both languages', () => {
   assert.equal(turkish.weather.condition, 'Yağmurlu');
 });
 
+test('fresh weather updates derived insight lines without changing the selected outfits', () => {
+  const weather = todayScreenState.snapshot.weather;
+  const fullWeather = {
+    ...weather,
+    hourly: Array.from({ length: 14 }, (_, index) => ({
+      ...weather.hourly[2],
+      forecastAt: `2026-08-13T${String(index + 7).padStart(2, '0')}:00:00.000Z`,
+      condition: 'rain',
+      precipitationProbability: 0.8,
+      windSpeedMetersPerSecond: 8,
+    })),
+  };
+  const beforeState = {
+    ...todayScreenState,
+    snapshot: { ...todayScreenState.snapshot, weather: fullWeather },
+  };
+  const before = loadedPresentation(beforeState);
+  const clearMeasurements = (measurement) => ({
+    ...measurement,
+    condition: 'clear',
+    precipitationProbability: 0,
+    windSpeedMetersPerSecond: 1,
+    temperatureCelsius: 31,
+    apparentTemperatureCelsius: 33,
+  });
+  const after = loadedPresentation({
+    ...beforeState,
+    snapshot: {
+      ...beforeState.snapshot,
+      weather: {
+        ...fullWeather,
+        id: 'fresh-weather',
+        current: clearMeasurements(fullWeather.current),
+        hourly: fullWeather.hourly.map(clearMeasurements),
+        minimumTemperatureCelsius: 30,
+        maximumTemperatureCelsius: 34,
+      },
+    },
+  });
+  assert.deepEqual(after.suggestions, before.suggestions);
+  assert.deepEqual(after.generationMode, before.generationMode);
+  assert.notEqual(after.dayInsight, before.dayInsight);
+  assert.notEqual(after.dayWindow, before.dayWindow);
+});
+
+test('an AI-authored insight stays with its outfit when weather refreshes', () => {
+  const original = todayScreenState.snapshot;
+  const recommendation = {
+    ...original.recommendation,
+    insightSentence: 'A considered look for your day.',
+    insightLocale: 'en',
+  };
+  const state = {
+    ...todayScreenState,
+    snapshot: { ...original, recommendation },
+  };
+  const before = loadedPresentation(state);
+  const after = loadedPresentation({
+    ...state,
+    snapshot: { ...state.snapshot, weather: {
+      ...original.weather,
+      id: 'fresh-weather',
+      current: { ...original.weather.current, condition: 'clear' },
+    } },
+  });
+  assert.equal(after.dayInsight, before.dayInsight);
+  assert.deepEqual(after.suggestions, before.suggestions);
+});
+
 test('a device location shows its locality name, and the generic copy without one', () => {
   const deviceLocation = {
     source: 'device',

@@ -37,7 +37,6 @@ const generationModeProperties = {
 
 const triggerReasonProperties = {
   'first-recommendation': 'first_recommendation',
-  'stale-weather-refreshed': 'stale_weather_refresh',
   'active-location-changed': 'location_changed',
   'clothing-preference-changed': 'clothing_preference_changed',
   'dress-style-changed': 'dress_style_changed',

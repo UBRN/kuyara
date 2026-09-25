@@ -57,7 +57,7 @@ export type GenerationModeProperty =
   | 'ai_assisted'
   | 'deterministic_fallback';
 
-// Taxonomy 5.5: the snake_case form of `RecommendationRefreshTrigger`, all eight values.
+// Taxonomy 5.5: seven emitted trigger mappings; the retired stale value stays in the union.
 export type TriggerReasonProperty =
   | 'first_recommendation'
   | 'stale_weather_refresh'
