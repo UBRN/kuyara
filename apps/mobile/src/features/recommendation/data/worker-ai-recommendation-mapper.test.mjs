@@ -142,6 +142,22 @@ test('different day variants rotate distinct deterministic option sets for ident
   );
 });
 
+test('history filters local options without sending history rows in the AI request', () => {
+  const first = createAiRecommendationRequest(input());
+  const worn = { id: 'private-history-id',
+    garments: Object.fromEntries(first.options[0].garments.map((garment) =>
+      [garment.slot, garment.garmentTypeId])),
+    archetypeId: 'everyday_easy', formality: first.options[0].formality,
+    source: 'recommended' };
+  const next = createAiRecommendationRequest({ ...input(), recentWorn: [worn] });
+  const key = (garments) => [...new Set(garments.map((garment) => garment.garmentTypeId))]
+    .sort().join('|');
+  assert.equal(next.options.some((option) => key(option.garments) ===
+    [...new Set(Object.values(worn.garments))].sort().join('|')), false);
+  assert.equal(JSON.stringify(next).includes('private-history-id'), false);
+  assert.equal('recentWorn' in next, false);
+});
+
 test('maps each validated pick to its locally composed outfit and archetype', () => {
   const request = createAiRecommendationRequest(input());
   const selected = picks(request);

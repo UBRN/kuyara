@@ -85,7 +85,8 @@ function input(temperatureCelsius = 30) {
   };
 }
 
-function createHarness({ cached = null, client, failSave = false, captureAnalyticsEvent, holdPhase } = {}) {
+function createHarness({ cached = null, client, failSave = false, captureAnalyticsEvent, holdPhase,
+  loadRecentWorn } = {}) {
   let stored = cached;
   const calls = { client: 0, saves: 0 };
   const requests = [];
@@ -128,6 +129,7 @@ function createHarness({ cached = null, client, failSave = false, captureAnalyti
   };
   const controller = new RecommendationApplicationController(profileId, {
     loadRepository: async () => repository,
+    loadRecentWorn,
     client: aiClient,
     captureAnalyticsEvent,
     holdPhase: holdPhase ?? (async () => undefined),
@@ -135,6 +137,41 @@ function createHarness({ cached = null, client, failSave = false, captureAnalyti
   });
   return { controller, calls, repository, requests, getStored: () => stored };
 }
+
+function wornFromAiOption(option) {
+  return { garments: Object.fromEntries(option.garments.map((garment) =>
+    [garment.slot, garment.garmentTypeId])), archetypeId: 'everyday_easy',
+  formality: option.formality, source: 'recommended' };
+}
+
+function garmentSet(garments) {
+  return [...new Set(garments.map((garment) => garment.garmentTypeId))].sort().join('|');
+}
+
+test('regeneration reads current history after a worn outfit is logged', async () => {
+  let recentWorn = [];
+  const { controller, requests } = createHarness({ loadRecentWorn: async () => recentWorn });
+  await controller.initialize();
+  await controller.refresh('first-recommendation', input(20));
+  assert.ok(requests[0].options.length > 3);
+  const newlyWorn = requests[0].options[3];
+  recentWorn = [wornFromAiOption(newlyWorn)];
+  await controller.refresh('regenerate', input(20));
+  const wornSet = garmentSet(newlyWorn.garments);
+  assert.equal(requests[1].options.some((option) => garmentSet(option.garments) === wornSet), false);
+});
+
+test('restart reconstructs exhausted state from the current history-filtered pool', async () => {
+  const first = createHarness();
+  await first.controller.initialize();
+  const snapshot = await first.controller.refresh('first-recommendation', input(30));
+  assert.equal(first.requests[0].options.length, 4);
+  const fourth = first.requests[0].options[3];
+  const restored = createHarness({ cached: snapshot,
+    loadRecentWorn: async () => [wornFromAiOption(fourth)] });
+  await restored.controller.initialize();
+  assert.equal(restored.controller.getSnapshot().exhausted, true);
+});
 
 async function persistedRecommendation() {
   const { controller } = createHarness();
