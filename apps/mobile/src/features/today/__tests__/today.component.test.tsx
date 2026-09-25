@@ -2138,6 +2138,38 @@ describe.each(['en', 'tr'] as const)('%s coverage captions', (language) => {
         && props.name.ios === 'exclamationmark.triangle.fill')).toBe(true);
   });
 
+  // N19: a later short cool spell is one finishing-touch line beside the cardigan, never a warning.
+  test('a later short cool spell adds one take-a-layer line with the cardigan', async () => {
+    const cool = { temperatureCelsius: 15, apparentTemperatureCelsius: 14 };
+    const result = await render(providers(
+      <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
+        onRefresh={jest.fn()} onAskAgain={jest.fn()} state={coveredState({ 15: cool })} />,
+      lightTheme, language,
+    ));
+    const line = result.getByTestId('today-cool-spell');
+    expect(line).toHaveTextContent(messages[language].today.coolSpell('15:00'));
+    expect(line.props.accessibilityLabel).toBe(messages[language].today.coolSpell('15:00'));
+    // Law 6: the existing cardigan silhouette at the caption's 16 points.
+    expect(within(line).getByTestId('today-cool-spell-cardigan', { includeHiddenElements: true })
+      .props.height).toBe(16);
+    expect(result.getAllByTestId('today-cool-spell')).toHaveLength(1);
+    expect(result.queryByTestId('today-drift-caption')).toBeNull();
+    const ids = hostTestIds(result.toJSON());
+    expect(ids.indexOf('today-cool-spell')).toBeLessThan(ids.indexOf('today-freshness'));
+    // Turkish never attaches a case suffix to a clock time, and the rule stays mandatory cold
+    // when it lasts: two hours under 12 is the drift caption, not a layer.
+    expect(messages.tr.today.coolSpell('21:00')).toBe('Yanına ince bir kat al, saat 21:00 gibi hava serinliyor.');
+    expect(messages.en.today.coolSpell('21:00')).toBe('Take a light layer for the cool spell around 21:00.');
+    const cold = { apparentTemperatureCelsius: 10 };
+    const coldResult = await render(providers(
+      <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
+        onRefresh={jest.fn()} onAskAgain={jest.fn()} state={coveredState({ 17: cold, 18: cold })} />,
+      lightTheme, language,
+    ));
+    expect(coldResult.queryByTestId('today-cool-spell')).toBeNull();
+    expect(coldResult.getByTestId('today-drift-caption')).toBeOnTheScreen();
+  });
+
   // Observed on main: with a coverage window the second line restated the first line's rain.
   test('the two insight lines carry distinct facts under a coverage window', async () => {
     const result = await render(providers(
