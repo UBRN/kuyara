@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { nextBareDressingDayKey } from './dressing-day-choice.ts';
-import { outfitCoverage } from './outfit-coverage.ts';
+import { coverageDrift, forecastBoundedCoverage, outfitCoverage } from './outfit-coverage.ts';
 
 test('coverage end follows departure hour across the full dressing day', () => {
   for (let hour = 0; hour < 24; hour += 1) {
@@ -42,4 +42,48 @@ test('plan target is the bare next date, including overnight', () => {
   assert.equal(nextBareDressingDayKey('2026-09-24:evening'), '2026-09-25');
   assert.equal(new Intl.DateTimeFormat('en', { timeZone: 'UTC', weekday: 'long' })
     .format(new Date(`${nextBareDressingDayKey('2026-09-24:evening')}T12:00:00.000Z`)), 'Friday');
+});
+
+const hour = (clock, values = {}) => ({
+  forecastAt: `2026-09-25T${clock}:00.000Z`, temperatureCelsius: 16, apparentTemperatureCelsius: 16,
+  condition: 'cloudy', precipitationProbability: 0.1, windSpeedMetersPerSecond: 2, humidity: 0.5,
+  uvIndex: 1, ...values,
+});
+const noRequirements = { requirements: [], reasonCodes: [] };
+
+test('a short forecast ends the promised window at its last hour, never past it', () => {
+  const coverage = { start: '2026-09-25T13:00:00.000Z', end: '2026-09-25T20:00:00.000Z' };
+  const full = ['13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00'].map((clock) => hour(clock));
+  assert.deepEqual(forecastBoundedCoverage(coverage, full), coverage);
+  assert.deepEqual(forecastBoundedCoverage(coverage, full.slice(0, 6)),
+    { start: coverage.start, end: '2026-09-25T18:00:00.000Z' });
+  assert.equal(forecastBoundedCoverage(coverage, []), null);
+});
+
+test('drift names rain the outfit was not chosen for, and stays quiet when it was', () => {
+  const hours = [hour('13:00'), hour('17:00', { condition: 'rain' }), hour('18:00', { condition: 'rain' })];
+  assert.deepEqual(coverageDrift(noRequirements, hours, '2026-09-25T13:10:00.000Z', '2026-09-25T19:00:00.000Z'),
+    { kind: 'rain', at: '2026-09-25T17:00:00.000Z' });
+  const rainReady = { reasonCodes: [], requirements: [{ kind: 'water_protection', target: 'body',
+    minimum: 'waterproof', priority: 'mandatory', reasonCodes: ['condition_rain'] }] };
+  assert.equal(coverageDrift(rainReady, hours, '2026-09-25T13:10:00.000Z', '2026-09-25T19:00:00.000Z'), null);
+  // Rain after the window ends is not this outfit's business.
+  assert.equal(coverageDrift(noRequirements, hours, '2026-09-25T13:10:00.000Z', '2026-09-25T17:00:00.000Z'), null);
+  assert.equal(coverageDrift(noRequirements, [hour('15:00', { condition: 'snow' })],
+    '2026-09-25T13:10:00.000Z', '2026-09-25T19:00:00.000Z')?.kind, 'snow');
+});
+
+test('drift follows the mandatory cold rule: two hours under 12 or one under 5', () => {
+  const end = '2026-09-25T22:00:00.000Z';
+  const single = [hour('18:00', { temperatureCelsius: 11, apparentTemperatureCelsius: 11 }), hour('19:00')];
+  assert.equal(coverageDrift(noRequirements, single, '2026-09-25T16:00:00.000Z', end), null);
+  const twoHours = [hour('18:00', { apparentTemperatureCelsius: 11 }), hour('19:00', { apparentTemperatureCelsius: 10 })];
+  assert.deepEqual(coverageDrift(noRequirements, twoHours, '2026-09-25T16:00:00.000Z', end),
+    { kind: 'cold', at: '2026-09-25T18:00:00.000Z' });
+  const freezing = [hour('20:00', { apparentTemperatureCelsius: 4 })];
+  assert.equal(coverageDrift(noRequirements, freezing, '2026-09-25T16:00:00.000Z', end)?.at,
+    '2026-09-25T20:00:00.000Z');
+  const insulated = { reasonCodes: [], requirements: [{ kind: 'thermal', minimum: 'moderate',
+    priority: 'mandatory', reasonCodes: ['temperature_low'] }] };
+  assert.equal(coverageDrift(insulated, twoHours, '2026-09-25T16:00:00.000Z', end), null);
 });

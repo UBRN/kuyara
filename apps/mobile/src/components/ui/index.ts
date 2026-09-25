@@ -29,6 +29,11 @@ export {
   type NativePickerRowProps,
 } from './native-picker-row';
 export { NativeSheet, type NativeSheetProps } from './native-sheet';
+export {
+  NativeWheelPicker,
+  type NativeWheelPickerOption,
+  type NativeWheelPickerProps,
+} from './native-wheel-picker';
 export { NativeToggle, type NativeToggleProps } from './native-toggle';
 export { NativeDatePicker, type NativeDatePickerProps } from './native-date-picker';
 export { NativeTextField, type NativeTextFieldProps } from './native-text-field';
