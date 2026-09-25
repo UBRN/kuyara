@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 
 import {
   AppText,
+  Button,
   GarmentRunwayBoard,
   Icon,
   ProgressFill,
@@ -185,18 +186,17 @@ export function FirstGenerationRunway({ active, completed, language, phase, weat
               {line}
             </AppText>
             {showSkip ? (
-              <Pressable
-                accessibilityRole="button"
+              <Button
+                icon="skipForward"
+                label={copy.loading.skipWait}
                 onPress={() => Alert.alert(copy.loading.heading, undefined, [
                   { text: copy.loading.keepWaiting, isPreferred: true, style: 'cancel' },
                   { text: copy.loading.skipWait, style: 'destructive', onPress: onSkip },
                 ])}
-                style={({ pressed }) => [styles.skip, { opacity: pressed ? theme.interaction.pressedOpacity : 1 }]}
-                testID="first-generation-skip">
-                <AppText colorRole="brandAccent" variant="bodyStrong">
-                  {copy.loading.skipWait}
-                </AppText>
-              </Pressable>
+                style={styles.skip}
+                testID="first-generation-skip"
+                variant="plain"
+              />
             ) : null}
           </>
         )}
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
   progressTrack: { borderRadius: radii.pill, height: PROGRESS_HEIGHT },
   // Two lines' worth of room, so a rotation to a longer sentence never moves the skip.
   line: { marginTop: spacing.md, minHeight: 50 },
-  skip: { alignSelf: 'flex-start', justifyContent: 'center', marginTop: spacing.md, minHeight: layout.minimumTouchTarget },
+  skip: { alignSelf: 'flex-start', marginTop: spacing.md },
   success: { alignItems: 'center', borderRadius: radii.control, flexDirection: 'row', gap: spacing.sm,
     marginTop: spacing.md, minHeight: layout.minimumTouchTarget, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
 });

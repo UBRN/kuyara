@@ -284,7 +284,7 @@ export function SettingsScreen({
         <Button label={copy.stylePreferencesDone} onPress={() => {
           void savePreference('profile', () => onStyleAestheticsChange(aestheticDraft));
           setAestheticsOpen(false);
-        }} testID="settings-style-done" />
+        }} size="large" testID="settings-style-done" />
       </ScrollView>
     </NativeSheet>
     </>

@@ -336,3 +336,47 @@ test('the specifier reader sees `typeof import(…)`, the form the adapters name
     `expected the reader to report expo-observe on line ${typeofImportLine}, got ${JSON.stringify(found)}`,
   );
 });
+
+// O5, one button system: a feature's buttons are `Button`, `ButtonPair`, `IconButton` or
+// `GlassButton` from `components/ui`. A raw `Pressable` (or `PressScale`, or a Touchable) in
+// feature presentation code is a row, tile, chip, swatch, link or field accessory, and each
+// file may hold only the number listed here. The counts only shrink; a stale entry fails.
+const rawPressableAllowlist = Object.freeze({
+  // Radio swatches, the "any colour" chip, the type picker row and the details toggle row.
+  'features/wardrobe/presentation/wardrobe-item-form-screen.tsx': 4,
+  'features/wardrobe/presentation/wardrobe-category-chip.tsx': 1,
+  'features/wardrobe/presentation/wardrobe-grid-tile.tsx': 1,
+  'features/wardrobe/presentation/wardrobe-option.tsx': 1,
+  'features/wardrobe/presentation/garment-type-tile.tsx': 1,
+  // The provider attribution link.
+  'features/weather/presentation/weather-attribution.tsx': 1,
+  // The hero board, the alternate tiles and the day-type pill (removed by Goal C3).
+  'features/today/presentation/today-screen.tsx': 3,
+  // The three day-type radio tiles.
+  'features/today/presentation/daily-formality-sheet.tsx': 1,
+  // The text field's inline clear glyph.
+  'features/profile/presentation/name-input.tsx': 1,
+  // The Closet heading row and the rail's all-pieces tile.
+  'features/profile/presentation/profile-screen.tsx': 2,
+  'features/profile/presentation/style-aesthetics-options.tsx': 1,
+  'features/profile/presentation/preference-option.tsx': 1,
+});
+
+const rawPressablePattern = /<(?:Pressable|PressScale|AnimatedPressable|Touchable\w*)\b/g;
+
+test('feature presentation code draws buttons only through the button primitives (O5)', () => {
+  const counts = {};
+  for (const relativePath of sourceFiles()) {
+    if (!/^features\/[^/]+\/presentation\/.+\.tsx$/.test(relativePath)) continue;
+    const text = readFileSync(path.join(sourceRoot, relativePath), 'utf8');
+    const found = text.match(rawPressablePattern)?.length ?? 0;
+    if (found > 0) counts[relativePath] = found;
+  }
+
+  assert.deepEqual(
+    counts,
+    rawPressableAllowlist,
+    'a raw Pressable in feature presentation code must be a listed row, tile, chip or link; '
+      + 'a button uses Button, ButtonPair, IconButton or GlassButton from components/ui',
+  );
+});

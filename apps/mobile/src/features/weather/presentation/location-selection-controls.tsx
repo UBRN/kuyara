@@ -122,7 +122,7 @@ export function LocationSelectionControls({
             void application.beginDeviceLocationSelection().then(() => captureIfLocationChanged(before));
           }}
           testID={`${testIDPrefix}-location-device`}
-          variant={state.locationFlow === 'rationale' ? 'secondary' : 'primary'}
+          variant={state.locationFlow === 'rationale' ? 'tonal' : 'prominent'}
         />
         {state.locationFlow === 'rationale' ? (
           <Surface accessibilityLiveRegion="polite" style={styles.card} variant="interactive">
@@ -141,7 +141,7 @@ export function LocationSelectionControls({
               <Button
                 label={copy.cancel}
                 onPress={application.dismissLocationFlow}
-                variant="quiet"
+                variant="plain"
               />
             </View>
           </Surface>
@@ -153,13 +153,13 @@ export function LocationSelectionControls({
               <Button
                 label={copy.openSettings}
                 onPress={() => void application.openApplicationSettings()}
-                variant="secondary"
+                variant="tonal"
               />
             ) : null}
             <Button
               label={copy.cancel}
               onPress={application.dismissLocationFlow}
-              variant="quiet"
+              variant="plain"
             />
           </Surface>
         ) : null}

@@ -69,17 +69,19 @@ export function AnalyticsConsentScreen({
             disabled={isAnswering}
             label={messages.analytics.acceptAction}
             onPress={() => void answer(onAccept)}
+            size="large"
             style={styles.action}
             testID="analytics-consent-accept"
-            variant="primary"
+            variant="prominent"
           />
           <Button
             disabled={isAnswering}
             label={messages.analytics.declineAction}
             onPress={() => void answer(onDecline)}
+            size="large"
             style={styles.action}
             testID="analytics-consent-decline"
-            variant="secondary"
+            variant="tonal"
           />
         </View>
       </Animated.View>

@@ -493,14 +493,14 @@ Everywhere else, silence.
 | Pull-to-refresh threshold crossed, Today and Weather | impact light | Finger is on the glass, a physical threshold |
 | Refresh outcome, success or failure | notification success / error | The user may not be looking at the screen |
 | Selection change: tab bar, theme, language, clothing preference, wardrobe ownership toggle, the outfit detail owned/wanted pair | selection | State changes under the finger |
-| Primary action pressed, the `Button` primary variant | impact light | The screen's main action confirms the press itself |
+| Primary action pressed, the `Button` prominent role | impact light | The screen's main action confirms the press itself |
 | Outfit ownership completed on the detail board, the last piece marked owned | notification success | Confirming a state the user set, a real threshold |
 | Destructive confirmation | notification warning | Not reversible |
 | Navigation, including tapping an outfit card to open detail | **none** | Ordinary navigation |
 | Non-primary buttons, icon buttons and chevron rows | **none** | Same |
 
 **A primary action confirms the press itself with a light impact; no other control
-does.** Primary means the `Button` primary variant, the screen's main action. Icon
+does.** Primary means the `Button` prominent role, the screen's main action. Icon
 buttons, list rows, chips, the tab bar and pickers fire nothing on press; where the tab
 bar and the pickers do fire, it is the selection change above, which is a state changing
 under the finger rather than a press being acknowledged. The press that completes an

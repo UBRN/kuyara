@@ -40,6 +40,7 @@ import {
   darkTheme,
   layout,
   lightTheme,
+  radii,
   spacing,
   typography,
   type KuyaraTheme,
@@ -49,6 +50,10 @@ import { layoutGarmentBoard, measureGarmentBoardHeight } from '@/components/ui';
 import { AMBIENT_PULSE_FLOOR } from '@/components/ui/use-ambient-pulse';
 import { haptics } from '@/components/ui/haptics';
 
+// GlassButton draws the sheet close and the detail back as SwiftUI glass buttons.
+jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
+jest.mock('@expo/ui/swift-ui/modifiers', () =>
+  jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 jest.mock('expo-symbols', () => ({
   SymbolView: jest.fn(() => null),
 }));
@@ -1836,16 +1841,21 @@ describe('the contextual weather-alert offer', () => {
       .toHaveTextContent(copy.offer.sentences.temperature_swing);
     const accept = result.getByTestId('today-alert-offer-accept');
     const dismiss = result.getByTestId('today-alert-offer-dismiss');
-    expect(within(accept).getByText(copy.offer.acceptAction)).toHaveStyle({
+    expect(within(accept).getByText(copy.offer.acceptAction, { includeHiddenElements: true })).toHaveStyle({
       ...typography.label, color: lightTheme.colors.brandAccent,
     });
-    expect(within(dismiss).getByText(copy.offer.dismissAction)).toHaveStyle({
-      ...typography.label, color: lightTheme.colors.textSecondary,
+    expect(within(dismiss).getByText(copy.offer.dismissAction, { includeHiddenElements: true })).toHaveStyle({
+      ...typography.label, color: lightTheme.colors.brandAccent,
     });
-    // Both actions are buttons the hand can hit; neither is an accent fill.
+    // O5: a tonal Small offer beside a plain Small dismissal, drawn at 36 and reaching the
+    // 44-point target through the slop; neither is an accent fill.
+    expect(StyleSheet.flatten(accept.props.style).backgroundColor)
+      .toBe(lightTheme.colors.surfaceInteractive);
+    expect(StyleSheet.flatten(dismiss.props.style).backgroundColor).toBe('transparent');
     for (const action of [accept, dismiss]) {
       expect(action.props.accessibilityRole).toBe('button');
-      expect(StyleSheet.flatten(action.props.style)).toMatchObject({ minHeight: 44 });
+      expect(StyleSheet.flatten(action.props.style)).toMatchObject({ minHeight: 36 });
+      expect(action.props.hitSlop).toBe(4);
     }
     expect(StyleSheet.flatten(result.getByTestId('today-alert-offer').props.style))
       .toMatchObject({ backgroundColor: lightTheme.colors.surfaceMuted });
@@ -1991,18 +2001,16 @@ describe.each(['en', 'tr'] as const)('%s regenerate action', (language) => {
 
     const action = result.getByTestId('today-regenerate');
     expect(action).toHaveTextContent(messages[language].today.regenerateAction);
-    // f11: a full-width bordered button; the old caption is its hint.
+    // O5: a tonal Large capsule, never an accent fill; the old caption is its hint.
     expect(result.queryByTestId('today-regenerate-caption')).toBeNull();
     expect(action.props.accessibilityHint).toBe(messages[language].today.regenerateCaption);
     expect(action.props.accessibilityRole).toBe('button');
     expect(action.props.accessibilityState?.disabled).toBeFalsy();
-    const style = StyleSheet.flatten(action.props.style);
-    expect(style).toMatchObject({
-      borderColor: lightTheme.colors.borderDefined,
-      borderWidth: 1,
-      minHeight: layout.minimumTouchTarget,
+    expect(StyleSheet.flatten(action.props.style)).toMatchObject({
+      backgroundColor: lightTheme.colors.surfaceInteractive,
+      borderRadius: radii.pill,
+      minHeight: 50,
     });
-    expect(style.backgroundColor).toBeUndefined();
 
     await fireEvent.press(action);
     expect(onRegenerate).toHaveBeenCalledTimes(1);

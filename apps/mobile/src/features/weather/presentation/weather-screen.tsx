@@ -3,7 +3,6 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   AppState,
-  Pressable,
   RefreshControl,
   StyleSheet,
   View,
@@ -16,7 +15,6 @@ import {
   Icon,
   ListRow,
   ListRowGroup,
-  Pill,
   Screen,
   SectionHeader,
   Surface,
@@ -41,7 +39,7 @@ import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
 import { resolveDaypart } from '@/features/today/domain/atmosphere-state';
 import { useLocalization } from '@/localization/use-messages';
 import { formatTemperature, localeTag } from '@/presentation/format-temperature';
-import { interaction, layout, radii, spacing, typography } from '@/theme/theme';
+import { radii, spacing, typography } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 function decimal(value: number, language: 'en' | 'tr'): string {
@@ -391,24 +389,17 @@ export function WeatherScreen() {
       <SectionHeader
         title={copy.title}
         trailingAction={state.activeLocation ? (
-          <Pressable
+          <Button
             accessibilityLabel={copy.refreshAccessibilityLabel}
-            accessibilityRole="button"
-            accessibilityState={{ busy: state.isRefreshing, disabled: state.isRefreshing }}
-            disabled={state.isRefreshing}
+            icon="refresh"
+            label={copy.refresh}
+            loading={state.isRefreshing}
             onPress={() => void handleRefresh()}
-            style={({ pressed }) => [
-              styles.refreshButton,
-              { backgroundColor: theme.colors.surface },
-              pressed && styles.pressed,
-            ]}
-            testID="weather-refresh-button">
-            <Pill
-              icon={(color) => <Icon color={color} name="refresh" size={15} />}
-              label={copy.refresh}
-              tone="bordered"
-            />
-          </Pressable>
+            size="small"
+            style={styles.refreshButton}
+            testID="weather-refresh-button"
+            variant="tonal"
+          />
         ) : undefined}
       />
       {state.activeLocation ? null : (
@@ -669,16 +660,7 @@ const styles = StyleSheet.create({
   card: { gap: spacing.md, padding: spacing.lg },
   sectionHeading: { lineHeight: typography.bodyStrong.lineHeight },
   disclosure: { padding: spacing.md },
-  // The Pill is shorter than 44, so the pressable carries the touch target the way
-  // IconButton and ListRow do rather than borrowing it from a hitSlop the layout cannot
-  // see. The Pill keeps its own size and sits centred in it.
-  refreshButton: {
-    alignSelf: 'flex-start',
-    borderRadius: radii.pill,
-    justifyContent: 'center',
-    minHeight: layout.minimumTouchTarget,
-  },
-  pressed: { opacity: interaction.pressedOpacity },
+  refreshButton: { alignSelf: 'flex-start' },
   currentHero: {
     alignItems: 'center',
     flexDirection: 'row',

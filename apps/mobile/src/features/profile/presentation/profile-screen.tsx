@@ -300,6 +300,7 @@ export function ProfileScreen({
             {copy.wardrobeEmpty}
           </AppText>
           <Button
+            icon="plus"
             label={copy.addPieceAction}
             onPress={() => onOpenWardrobe()}
             testID="profile-add-piece-button"

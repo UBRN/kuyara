@@ -10,7 +10,9 @@ import {
 } from '../../theme/theme';
 
 export type SurfaceVariant = 'default' | 'muted' | 'elevated' | 'interactive';
-export type ButtonVariant = 'primary' | 'secondary' | 'quiet' | 'destructive';
+export type ButtonVariant = 'prominent' | 'tonal' | 'plain' | 'destructive';
+export type ButtonSize = 'large' | 'medium' | 'small';
+export type ButtonState = Readonly<{ pressed: boolean; disabled: boolean; raised?: boolean }>;
 export type PillTone = 'accent-filled' | 'bordered' | 'provenance' | 'muted';
 
 // ADR 0028 section 2, the list-row anatomy: a 28-point tile with a 20-point glyph and a
@@ -56,39 +58,66 @@ export function resolveSurfaceColors(theme: KuyaraTheme, variant: SurfaceVariant
   return colors;
 }
 
+// The O5 button system: every button is a capsule, and a size names its drawn height,
+// its horizontal padding, its label role and its leading icon. Small is drawn at 36 and
+// reaches the 44-point target through hit slop.
+export const buttonGeometry = Object.freeze({
+  large: { height: 50, paddingHorizontal: 20, labelRole: 'bodyStrong', iconSize: 20, gap: 8 },
+  medium: { height: 44, paddingHorizontal: 16, labelRole: 'bodyStrong', iconSize: 20, gap: 8 },
+  small: { height: 36, paddingHorizontal: 14, labelRole: 'label', iconSize: 16, gap: 6 },
+} as const satisfies Readonly<Record<ButtonSize, Readonly<{
+  height: number;
+  paddingHorizontal: number;
+  labelRole: TypographyRole;
+  iconSize: number;
+  gap: number;
+}>>>);
+
+/**
+ * Fill and ink for one button state. Pressed steps the fill, never the opacity; disabled
+ * is the muted fill with the defined-border ink, readable and clearly inert. `raised` is a
+ * tonal control drawn on a sheet, where the dark appearance lifts the tonal fill.
+ */
 export function resolveButtonColors(
   theme: KuyaraTheme,
   variant: ButtonVariant,
-  pressed: boolean,
+  { disabled, pressed, raised = false }: ButtonState,
 ) {
-  if (variant === 'primary') {
+  const { colors } = theme;
+  const tonalFill = raised ? colors.controlTonalRaised : colors.surfaceInteractive;
+
+  if (disabled) {
     return {
-      backgroundColor: theme.colors.primaryFill,
-      borderColor: theme.colors.primaryFill,
-      textColor: theme.colors.textOnPrimaryFill,
+      backgroundColor: variant === 'plain' ? 'transparent' : colors.surfaceMuted,
+      textColor: colors.borderDefined,
+    } as const;
+  }
+
+  if (variant === 'prominent') {
+    return {
+      backgroundColor: pressed ? colors.primaryFillPressed : colors.primaryFill,
+      textColor: colors.textOnPrimaryFill,
     } as const;
   }
 
   if (variant === 'destructive') {
     return {
-      backgroundColor: theme.colors.dangerInk,
-      borderColor: theme.colors.dangerInk,
-      textColor: theme.colors.textOnBrand,
+      backgroundColor: pressed ? colors.dangerContainerPressed : colors.dangerContainer,
+      textColor: colors.dangerInk,
     } as const;
   }
 
-  if (variant === 'secondary') {
+  if (variant === 'tonal') {
     return {
-      backgroundColor: theme.colors.surfaceInteractive,
-      borderColor: theme.colors.borderDefined,
-      textColor: theme.colors.textPrimary,
+      backgroundColor: pressed ? colors.surfaceInteractivePressed : tonalFill,
+      textColor: colors.brandAccent,
     } as const;
   }
 
+  // Plain draws no fill; its press shows the tonal capsule.
   return {
-    backgroundColor: pressed ? theme.colors.surfaceInteractive : 'transparent',
-    borderColor: 'transparent',
-    textColor: theme.colors.brandAccent,
+    backgroundColor: pressed ? tonalFill : 'transparent',
+    textColor: colors.brandAccent,
   } as const;
 }
 

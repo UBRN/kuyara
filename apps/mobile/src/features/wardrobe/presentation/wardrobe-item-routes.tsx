@@ -132,7 +132,7 @@ export function WardrobeRouteStatus({
         {onRetry ? (
           <Button label={copy.retryAction} onPress={onRetry} />
         ) : null}
-        <Button label={copy.returnToWardrobeAction} onPress={onBack} variant="secondary" />
+        <Button label={copy.returnToWardrobeAction} onPress={onBack} variant="tonal" />
       </Surface>
     </Screen>
   );

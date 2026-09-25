@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 
-import { Icon, IconButton } from '@/components/ui';
+import { GlassButton } from '@/components/ui';
 import {
   isWardrobeRouteId,
   parseWardrobeEntryStateParam,
@@ -29,17 +29,17 @@ export default function WardrobeRoute() {
         options={{
           headerLargeTitle: true,
           headerRight: () => (
-            <IconButton
+            <GlassButton
               accessibilityHint={messages.wardrobe.addHint}
-              accessibilityLabel={messages.wardrobe.addAction}
-              icon={(color) => <Icon color={color} name="plus" size={20} />}
+              icon="plus"
+              kind="bar"
+              label={messages.wardrobe.addAction}
               onPress={() =>
                 router.push({
                   params: { filter: initialEntryState },
                   pathname: '/wardrobe/new',
                 })
               }
-              variant="quiet"
               testID="wardrobe-add-button"
             />
           ),

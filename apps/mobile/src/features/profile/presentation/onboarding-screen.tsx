@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   AppText,
   Button,
+  ButtonPair,
   Icon,
   NativeDatePicker,
   ProgressFill,
@@ -428,7 +429,7 @@ export function OnboardingScreen({
             <Button
               label={copy.birthDateClearAction}
               onPress={() => dispatch({ type: 'select-birth-date', value: null })}
-              variant="quiet"
+              variant="plain"
             />
           ) : null}
         </View>
@@ -467,22 +468,8 @@ export function OnboardingScreen({
           </AppText>
         ) : null}
         {draft.step === 0 && !usesStackedLayout ? locationRationale : null}
-        <View
-          style={[styles.actions, usesStackedLayout && styles.stackedActions]}
-          testID="onboarding-actions-row">
-          {draft.step > 0 ? (
-            <Button
-              disabled={isSaving}
-              label={messages.common.back}
-              onPress={() => {
-                setSaveError(false);
-                dispatch({ type: 'back' });
-              }}
-              testID="onboarding-back"
-              variant="quiet"
-            />
-          ) : null}
-          {draft.step === totalSteps - 1 ? (
+        <ButtonPair
+          primary={draft.step === totalSteps - 1 ? (
             <View style={styles.primaryAction} testID="onboarding-location-skip">
               <Button
                 label={hasActiveLocation ? copy.completeAction : copy.locationSkipAction}
@@ -490,7 +477,7 @@ export function OnboardingScreen({
                 onPress={complete}
                 style={styles.skipAction}
                 testID="onboarding-complete"
-                variant="quiet"
+                variant="tonal"
               />
             </View>
           ) : draft.step === 1 ? (
@@ -502,12 +489,13 @@ export function OnboardingScreen({
                   dispatch({ type: 'continue' });
                 }}
                 testID="onboarding-name-skip"
-                variant="quiet"
+                variant="plain"
               />
               <Button
                 disabled={!hasValidName}
                 label={messages.common.continue}
                 onPress={goForward}
+                size="large"
                 testID="onboarding-continue"
               />
             </View>
@@ -516,11 +504,26 @@ export function OnboardingScreen({
               label={messages.common.continue}
               loading={isSaving}
               onPress={goForward}
+              size="large"
               style={styles.primaryAction}
               testID="onboarding-continue"
             />
           )}
-        </View>
+          secondary={draft.step > 0 ? (
+            <Button
+              disabled={isSaving}
+              label={messages.common.back}
+              onPress={() => {
+                setSaveError(false);
+                dispatch({ type: 'back' });
+              }}
+              size="large"
+              testID="onboarding-back"
+              variant="plain"
+            />
+          ) : null}
+          testID="onboarding-actions-row"
+        />
       </SafeAreaView>
     </KeyboardAvoidingView>
   );
@@ -564,15 +567,6 @@ const styles = StyleSheet.create({
   },
   options: {
     gap: spacing.md,
-  },
-  actions: {
-    alignItems: 'stretch',
-    flexDirection: 'row',
-    gap: spacing.md,
-    justifyContent: 'flex-end',
-  },
-  stackedActions: {
-    flexDirection: 'column-reverse',
   },
   primaryAction: {
     flexGrow: 1,

@@ -603,10 +603,11 @@ export function WardrobeItemFormScreen({
                     ? copy.changePhotoAction
                     : copy.selectPhotoAction
               }
+              icon="photo"
               loading={isProcessingPhoto}
               onPress={selectPhoto}
               testID="wardrobe-photo-select-button"
-              variant="secondary"
+              variant="tonal"
             />
             {hasPhoto ? (
               <Button
@@ -614,7 +615,7 @@ export function WardrobeItemFormScreen({
                 label={copy.removePhotoAction}
                 onPress={removePhoto}
                 testID="wardrobe-photo-remove-button"
-                variant="quiet"
+                variant="plain"
               />
             ) : null}
           </View>
@@ -736,6 +737,7 @@ export function WardrobeItemFormScreen({
           loading={isSaving}
           disabled={isDeleting || isBusy || isProcessingPhoto}
           onPress={save}
+          size="large"
           testID="wardrobe-save-button"
         />
 
@@ -758,6 +760,7 @@ export function WardrobeItemFormScreen({
             <Button
               accessibilityHint={copy.deleteSectionBody}
               disabled={isSaving || isBusy}
+              icon="trash"
               label={isDeleting ? copy.deletingLabel : copy.deleteAction}
               loading={isDeleting}
               onPress={requestDelete}

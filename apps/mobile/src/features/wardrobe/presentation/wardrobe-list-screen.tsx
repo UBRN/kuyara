@@ -248,6 +248,7 @@ export function WardrobeListScreen({
         <View style={styles.empty} testID="wardrobe-empty">
           <AppText colorRole="textSecondary">{emptyBody}</AppText>
           <Button
+            icon="plus"
             label={messages.profile.addPieceAction}
             onPress={onAdd}
             testID="wardrobe-empty-add-button"
@@ -275,7 +276,12 @@ export function WardrobeListScreen({
                 variant="caption">
                 {copy.loadErrorBody}
               </AppText>
-              <Button label={copy.retryAction} onPress={() => onRetry('retry_button')} variant="secondary" />
+              <Button
+                label={copy.retryAction}
+                onPress={() => onRetry('retry_button')}
+                size="small"
+                variant="tonal"
+              />
             </View>
           ) : null}
           {entryItems.length > 0 ? (

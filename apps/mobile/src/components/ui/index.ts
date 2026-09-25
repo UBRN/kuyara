@@ -1,7 +1,9 @@
 export { AppText, type AppTextProps } from './app-text';
 export { Button, type ButtonProps } from './button';
+export { ButtonPair, type ButtonPairProps } from './button-pair';
 export { Entrance, type EntranceProps } from './entrance';
 export { GarmentSlotGlyph, GarmentSlotTile } from './garment-slot-glyph';
+export { GlassButton, type GlassButtonProps } from './glass-button';
 export { Icon, iconNames, type IconName } from './icon';
 export { IconButton, type IconButtonProps } from './icon-button';
 export { ListRow, ListRowGroup, type ListRowGroupProps, type ListRowProps } from './list-row';

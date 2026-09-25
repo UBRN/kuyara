@@ -7,7 +7,7 @@ import Animated, {
 
 import {
   AppText,
-  Button,
+  GlassButton,
   Entrance,
   GarmentBoard,
   GarmentTileArtwork,
@@ -101,7 +101,7 @@ export function OutfitDetailScreen({
     const missingSuggestion = presentation.kind === 'loaded';
     return (
       <Screen testID="outfit-detail-screen">
-        <Button label={backLabel} onPress={onBack} variant="quiet" />
+        <GlassButton kind="back" label={backLabel} onPress={onBack} testID="outfit-detail-back" />
         <AppText accessibilityRole="header" variant="titleLarge">
           {missingSuggestion ? copy.noOutfitTitle : presentation.title}
         </AppText>
@@ -258,7 +258,7 @@ export function OutfitDetailScreen({
       <View
         onLayout={({ nativeEvent }) => setContentWidth(nativeEvent.layout.width)}
         testID="outfit-detail-content">
-        <Button label={backLabel} onPress={onBack} style={styles.backButton} variant="quiet" />
+        <GlassButton kind="back" label={backLabel} onPress={onBack} testID="outfit-detail-back" />
 
         <View
           style={[styles.headingGroup, usesStackedLayout && styles.stackedHeadingGroup]}
@@ -429,9 +429,6 @@ export function OutfitDetailScreen({
 }
 
 const styles = StyleSheet.create({
-  backButton: {
-    alignSelf: 'flex-start',
-  },
   missingSuggestionBody: {
     marginTop: spacing.sm,
   },

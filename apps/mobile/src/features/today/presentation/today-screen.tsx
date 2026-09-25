@@ -7,6 +7,7 @@ import type { DressStyle } from '@kuyara/contracts';
 import {
   AppText,
   Button,
+  ButtonPair,
   Entrance,
   GarmentBoard,
   GarmentDrawing,
@@ -162,7 +163,7 @@ function TodayScreenContent({
   const copy = getMessages(language).today;
   const theme = useKuyaraTheme();
   // One shared threshold (ADR 0019): the stacked layout is the same rule ListRow applies.
-  const { controlScale, usesStackedLayout: usesAccessibilityLayout } = useTextScaling();
+  const { usesStackedLayout: usesAccessibilityLayout } = useTextScaling();
   // Measure the content after Screen applies its safe-area insets and width cap.
   const [contentWidth, setContentWidth] = useState(0);
   const isGenerating = presentation.kind === 'loading';
@@ -504,27 +505,18 @@ function TodayScreenContent({
           </Surface>
         ) : null}
 
-        {/* f11: a full-width bordered button, never an accent fill; the old caption is its
-            hint. */}
+        {/* O5: a tonal Large capsule, never an accent fill; the old caption is its hint. */}
         {primary && !exhausted ? (
-          <PressScale
+          <Button
             accessibilityHint={copy.regenerateCaption}
-            accessibilityLabel={copy.regenerateAction}
-            accessibilityRole="button"
+            icon="refresh"
+            label={copy.regenerateAction}
             onPress={onRegenerate}
-            style={({ pressed }) => [
-              styles.regenerate,
-              {
-                borderColor: theme.colors.borderDefined,
-                opacity: pressed ? theme.interaction.pressedOpacity : 1,
-              },
-            ]}
-            testID="today-regenerate">
-            <Icon color={theme.colors.brandAccent} name="refresh" size={20 * controlScale} />
-            <AppText colorRole="brandAccent" style={styles.regenerateLabel} variant="bodyStrong">
-              {copy.regenerateAction}
-            </AppText>
-          </PressScale>
+            size="large"
+            style={styles.regenerate}
+            testID="today-regenerate"
+            variant="tonal"
+          />
         ) : null}
 
         <View
@@ -650,7 +642,7 @@ function WeatherAlertOfferRow({
   ruleId: WeatherAlertOfferReason;
 }>) {
   const theme = useKuyaraTheme();
-  const { controlScale, usesStackedLayout } = useTextScaling();
+  const { controlScale } = useTextScaling();
   const copy = getMessages(language).notifications;
   const [isAnswering, setIsAnswering] = useState(false);
   // A refused permission is explained with the Settings surface's own copy and its own way
@@ -687,30 +679,29 @@ function WeatherAlertOfferRow({
           {message}
         </AppText>
       </View>
-      <View style={[styles.alertOfferActions, usesStackedLayout && styles.stackedAlertOfferActions]}>
-        <Pressable
-          accessibilityRole="button"
-          disabled={isAnswering}
-          onPress={() => void accept()}
-          style={({ pressed }) => [
-            styles.alertOfferAction,
-            { opacity: pressed ? theme.interaction.pressedOpacity : 1 },
-          ]}
-          testID="today-alert-offer-accept">
-          <AppText colorRole="brandAccent" variant="label">{acceptLabel}</AppText>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          disabled={isAnswering}
-          onPress={() => void dismiss()}
-          style={({ pressed }) => [
-            styles.alertOfferAction,
-            { opacity: pressed ? theme.interaction.pressedOpacity : 1 },
-          ]}
-          testID="today-alert-offer-dismiss">
-          <AppText colorRole="textSecondary" variant="label">{copy.offer.dismissAction}</AppText>
-        </Pressable>
-      </View>
+      <ButtonPair
+        align="leading"
+        primary={(
+          <Button
+            disabled={isAnswering}
+            label={acceptLabel}
+            onPress={() => void accept()}
+            size="small"
+            testID="today-alert-offer-accept"
+            variant="tonal"
+          />
+        )}
+        secondary={(
+          <Button
+            disabled={isAnswering}
+            label={copy.offer.dismissAction}
+            onPress={() => void dismiss()}
+            size="small"
+            testID="today-alert-offer-dismiss"
+            variant="plain"
+          />
+        )}
+      />
     </Surface>
   );
 }
@@ -903,10 +894,7 @@ const styles = StyleSheet.create({
   loadingIntro: { gap: spacing.xs, marginBottom: spacing.md },
   generatingStatus: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.md },
   generatingStatusText: { flexShrink: 1 },
-  regenerate: { alignItems: 'center', borderRadius: radii.control, borderWidth: borderWidths.subtle,
-    flexDirection: 'row', gap: spacing.sm, justifyContent: 'center', marginTop: spacing.md,
-    minHeight: layout.minimumTouchTarget, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
-  regenerateLabel: { flexShrink: 1, textAlign: 'center' },
+  regenerate: { marginTop: spacing.md },
   provenance: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm },
   stackedProvenance: { alignItems: 'flex-start', flexDirection: 'column' },
   freshness: { flexShrink: 1 },
@@ -916,9 +904,6 @@ const styles = StyleSheet.create({
   alertOffer: { gap: spacing.md, marginTop: spacing.md, padding: spacing.lg },
   alertOfferMessage: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.sm },
   alertOfferText: { flex: 1, flexShrink: 1 },
-  alertOfferActions: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },
-  stackedAlertOfferActions: { alignItems: 'flex-start', flexDirection: 'column', gap: spacing.sm },
-  alertOfferAction: { justifyContent: 'center', minHeight: layout.minimumTouchTarget },
   alternates: { marginTop: spacing.md },
   alternatesHeading: { paddingBottom: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth },
   outfitList: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
