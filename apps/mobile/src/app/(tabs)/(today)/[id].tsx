@@ -192,6 +192,10 @@ export default function OutfitDetailRoute() {
         recommendation,
         coverageStart: recommendationState.snapshot?.coverageStart,
         coverageEnd: recommendationState.snapshot?.coverageEnd,
+        paletteBasis: recommendationState.snapshot?.paletteWeather
+          ? { ...recommendationState.snapshot.paletteWeather,
+              localDayKey: recommendationState.snapshot.localDayKey }
+          : undefined,
       },
     };
   }

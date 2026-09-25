@@ -3,6 +3,7 @@ import type { RecommendationPhase } from '@/features/recommendation/application/
 import type { OutfitRecommendationResult } from '@/features/recommendation/application/recommend-outfits';
 import type {
   ActiveLocation,
+  WeatherConditionCode,
   WeatherSnapshot,
 } from '@/features/weather/domain/weather';
 
@@ -15,6 +16,7 @@ export type TodaySnapshot = Readonly<{
   recommendation: OutfitRecommendationResult;
   coverageStart?: string;
   coverageEnd?: string;
+  paletteBasis?: Readonly<{ temperatureC: number; condition: WeatherConditionCode; localDayKey: string | null }>;
 }>;
 
 export type TodayScreenState =

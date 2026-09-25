@@ -1,4 +1,4 @@
-import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
+import type { DressStyle, StyleAesthetic, WeatherConditionCode } from '@kuyara/contracts';
 import { garmentCatalogVersion } from '@/features/catalog/domain/garment-catalog';
 
 import type { OutfitRecommendationSuccess } from '@/features/recommendation/application/recommend-outfits';
@@ -28,6 +28,7 @@ export type RecommendationSnapshot = Readonly<{
   catalogVersion: number | null;
   dayVariant: number | null;
   localDayKey: string | null;
+  paletteWeather?: Readonly<{ temperatureC: number; condition: WeatherConditionCode }>;
   coverageStart?: string;
   coverageEnd?: string;
   generationMode: RecommendationGenerationMode;
@@ -120,6 +121,7 @@ function mapRecord(record: RecommendationSnapshotRecord, localDayKey?: string): 
       catalogVersion: 'catalogVersion' in context ? context.catalogVersion : null,
       dayVariant: 'dayVariant' in context ? context.dayVariant : null,
       localDayKey: 'localDayKey' in context ? context.localDayKey ?? null : null,
+      paletteWeather: 'paletteWeather' in context ? context.paletteWeather : undefined,
       coverageStart: 'coverageStart' in context ? context.coverageStart : undefined,
       coverageEnd: 'coverageEnd' in context ? context.coverageEnd : undefined,
       generationMode: record.generationMode,
