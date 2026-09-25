@@ -212,9 +212,11 @@ export type TodayMessages = Readonly<{
     phase: string;
     // The runway's one tip names no control, so it never points at something off screen.
     tip: string;
-    // The runway progress's spoken value: pieces placed so far, zero to four, then all.
-    progress: readonly [string, string, string, string, string];
-    progressComplete: string;
+    // The runway progress's spoken value. It never counts the neutral drafts, which are
+    // placeholders: the wait, the dressing once the answer is in, then ready.
+    progress: Readonly<{ waiting: string; dressing: string; done: string }>;
+    // The line while the chosen outfit is dressed.
+    chosen: string;
     keepWaiting: string;
     skipWait: string;
     allSet: string;
@@ -1329,14 +1331,12 @@ const en = {
       heading: 'Putting your outfit together.',
       phase: 'Finding pieces that work together.',
       tip: 'Your outfit options respond to today’s weather.',
-      progress: [
-        'Putting your outfit together. No pieces placed yet.',
-        'Putting your outfit together. One piece placed.',
-        'Putting your outfit together. Two pieces placed.',
-        'Putting your outfit together. Three pieces placed.',
-        'Putting your outfit together. Four pieces placed.',
-      ],
-      progressComplete: 'Putting your outfit together. All pieces placed.',
+      progress: {
+        waiting: 'Choosing your outfit.',
+        dressing: 'Your outfit is chosen. Adding its pieces and colors.',
+        done: 'Your outfit is ready.',
+      },
+      chosen: 'Your outfit is chosen.',
       keepWaiting: 'Keep waiting',
       skipWait: 'Skip the wait',
       allSet: 'All set',
@@ -2047,14 +2047,12 @@ const tr = {
       heading: 'Kombinin hazırlanıyor.',
       phase: 'Birbirine uyan parçalar aranıyor.',
       tip: 'Kombin seçeneklerin bugünün havasına göre hazırlanır.',
-      progress: [
-        'Kombinin hazırlanıyor. Henüz parça yerleşmedi.',
-        'Kombinin hazırlanıyor. Bir parça yerleşti.',
-        'Kombinin hazırlanıyor. İki parça yerleşti.',
-        'Kombinin hazırlanıyor. Üç parça yerleşti.',
-        'Kombinin hazırlanıyor. Dört parça yerleşti.',
-      ],
-      progressComplete: 'Kombinin hazırlanıyor. Bütün parçalar yerleşti.',
+      progress: {
+        waiting: 'Kombinin seçiliyor.',
+        dressing: 'Kombinin seçildi. Parçaları ve renkleri ekleniyor.',
+        done: 'Kombinin hazır.',
+      },
+      chosen: 'Kombinin seçildi.',
       keepWaiting: 'Beklemeye devam et',
       skipWait: 'Beklemeyi atla',
       allSet: 'Hazır',

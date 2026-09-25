@@ -132,9 +132,9 @@ a state the user set and crosses a real threshold.
   and blank, and no measurement ranks the silhouettes, so they stand on the composition
   rule alone.
 
-The first recommendation of a dressing day uses a runway. The day's atmosphere
-colour fills Today down to the tab bar, which stays usable; weather particles fall or drift, and garment silhouettes glide
-in one by one onto the board. Progress and a line rotating every two seconds among
+The first recommendation of a dressing day uses a runway. The day's condition-hued
+runway field fills Today down to the tab bar, which stays usable; weather particles fall or drift, neutral drafts glide
+in one by one onto the board, and the chosen outfit is dressed piece by piece when the answer arrives. Progress and a line rotating every two seconds among
 day insights, phase status and one tip that names no control sit below, without provider names.
 Completion holds a green "All set" state for 0.8 seconds. After ten seconds the user can open a
 system alert to skip the wait; the red skip action is secondary to the blue

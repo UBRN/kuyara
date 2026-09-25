@@ -98,9 +98,9 @@ export function TodayScreen(props: TodayScreenProps) {
     && snapshot.recommendation.status === 'recommended'
     ? snapshot.recommendation.outfits[0] ?? null
     : null;
-  // The runway draws the deterministic preview while the wait runs and the chosen outfit
-  // once it lands, so an AI pick that differs moves the pieces to its own board.
-  const runwayOutfit = settled ?? recommendationState?.firstGenerationPreview ?? null;
+  // The runway draws neutral drafts while the wait runs and receives the chosen outfit
+  // once, when the answer is in (N2, O1); skipping makes the device's pick that answer.
+  const runwayOutfit = settled;
   const weatherState = weather.state.status === 'ready' ? weather.state : null;
 
   return (
