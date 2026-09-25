@@ -10,11 +10,34 @@ import { listGarmentTypesForPreference } from '../../catalog/domain/garment-cata
 import {
   collectValidOutfits,
   composeOutfitOptions,
+  excludeRecentlyWornOutfits,
   outfitCompositionFailureCodes,
   outfitCompositionReasonCodes,
 } from './outfit-composition.ts';
 import { deriveClothingRequirements } from './weather-to-clothing-requirements.ts';
 
+test('recent worn sets exclude by catalog garment IDs and relax oldest first to keep three', () => {
+  const make = (id) => ({
+    body: { kind: 'separates', primaryTop: { garment: { garmentTypeId: id } },
+      bottom: { garment: { garmentTypeId: 'jeans' } } },
+    midLayer: null, outerLayer: null,
+    footwear: { garment: { garmentTypeId: 'sneakers' } },
+    accessories: { head: null, neck: null, hands: null, handheld: null },
+  });
+  const ids = ['t_shirt', 'shirt', 'blouse', 'sweatshirt', 'hoodie'];
+  const options = ids.map(make);
+  const worn = ['t_shirt', 'shirt', 'blouse', 'sweatshirt', 'hoodie', 'polo_shirt',
+    'sweater', 'cardigan'].map((id) => ({ garments: {
+    primary_top: id, bottom: 'jeans', footwear: 'sneakers',
+  } }));
+  assert.deepEqual(excludeRecentlyWornOutfits(options, worn).map((outfit) =>
+    outfit.body.primaryTop.garment.garmentTypeId), ['blouse', 'sweatshirt', 'hoodie']);
+  assert.deepEqual(excludeRecentlyWornOutfits(options, worn.slice(0, 1)).map((outfit) =>
+    outfit.body.primaryTop.garment.garmentTypeId), ids.slice(1));
+  assert.deepEqual(excludeRecentlyWornOutfits(options,
+    [...Array(7).fill(worn[5]), worn[0]]).map((outfit) =>
+    outfit.body.primaryTop.garment.garmentTypeId), ids);
+});
 // Most cases below are about the best arrangement, which is the first one collected.
 function composeOutfit(requirements, candidates) {
   const result = collectValidOutfits(requirements, candidates);

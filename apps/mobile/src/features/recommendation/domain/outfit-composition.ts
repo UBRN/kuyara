@@ -9,6 +9,7 @@ import type {
   WindProtection,
 } from '@/features/catalog/domain/garment-taxonomy';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
+import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import {
   compareGarmentEligibilityResults,
   type EffectiveGarmentCandidate,
@@ -1830,6 +1831,7 @@ export function composeOutfitOptions(
   requirements: ClothingRequirements,
   candidates: readonly GarmentEligibilityResult[],
   startOffset: number,
+  recentWorn: readonly WornOutfit[] = [],
 ): OutfitCompositionsResult {
   const result = composeValidOutfits(requirements, candidates);
   // Accessories are attached to the offered outfits and to nothing else. The order above
@@ -1840,9 +1842,33 @@ export function composeOutfitOptions(
     ? result
     : Object.freeze({
         status: 'composed',
-        outfits: Object.freeze(withAccessories(
+        outfits: excludeRecentlyWornOutfits(withAccessories(
           selectDiverseOutfits(orderForOffer(result.outfits, startOffset), 24),
           result.accessorySets,
-        )),
+        ), recentWorn),
       });
+}
+
+function garmentIdSet(outfit: OutfitCandidate): string {
+  const body = outfit.body.kind === 'separates'
+    ? [outfit.body.primaryTop, outfit.body.bottom] : [outfit.body.onePiece];
+  const assigned = [...body, outfit.midLayer, outfit.outerLayer, outfit.footwear,
+    ...accessoryOutfitSlots.map((slot) => outfit.accessories[slot])];
+  return [...new Set(assigned.filter((item) => item !== null)
+    .map((item) => item.garment.garmentTypeId))].sort().join('|');
+}
+
+/** The first history row is newest. Relax the oldest exclusion until three remain. */
+export function excludeRecentlyWornOutfits(
+  outfits: readonly OutfitCandidate[],
+  recentWorn: readonly WornOutfit[],
+): readonly OutfitCandidate[] {
+  const keys = recentWorn.slice(0, 7).map((entry) =>
+    [...new Set(Object.values(entry.garments).filter((id) => id !== undefined))].sort().join('|'));
+  for (let active = keys.length; active >= 0; active -= 1) {
+    const excluded = new Set(keys.slice(0, active));
+    const remaining = outfits.filter((outfit) => !excluded.has(garmentIdSet(outfit)));
+    if (remaining.length >= 3 || active === 0) return Object.freeze(remaining);
+  }
+  return outfits;
 }

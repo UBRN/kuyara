@@ -32,7 +32,9 @@ import { ExpoFileAiRegenerationBudget } from '@/features/recommendation/data/exp
 import { LocalRecommendationRepository } from '@/features/recommendation/data/recommendation-repository';
 import { SqliteRecommendationLocalDataSource } from '@/features/recommendation/data/sqlite-recommendation-local-data-source';
 import { SqliteDressingDayChoiceRepository } from '@/features/recommendation/data/sqlite-dressing-day-choice-repository';
-import { resolvedFormality, type DressingDayChoice, type DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
+import { resolvedFormality, resolvedStyleAesthetics, type DressingDayChoice, type DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
+import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
+import { ExpoHistoryPhotoStorage } from '@/features/recommendation/data/expo-history-photo-storage';
 import {
   OnDeviceAiClient,
   type OnDeviceAiModule,
@@ -128,6 +130,13 @@ async function loadChoiceRepository() {
   return new SqliteDressingDayChoiceRepository(database, () => Crypto.randomUUID(), now);
 }
 
+async function loadHistoryRepository() {
+  const database = await openKuyaraDatabase();
+  await migrateDatabase(database);
+  return new SqliteOutfitHistoryRepository(database, () => Crypto.randomUUID(), now,
+    new ExpoHistoryPhotoStorage(() => Crypto.randomUUID()));
+}
+
 type DayChoiceReadState = Readonly<{ profileId: string; key: string }> & (
   | Readonly<{ status: 'unknown'; previousChoice: DressingDayChoice | null }>
   | Readonly<{ status: 'none' }>
@@ -184,6 +193,8 @@ export function RecommendationApplicationProvider({
   const profileDefault = profileState.status === 'ready'
     ? profileState.profile.dressStyle ?? 'smart' : 'smart';
   const resolvedDressStyle = resolvedFormality(dayChoice, profileDefault);
+  const resolvedStyles = resolvedStyleAesthetics(dayChoice,
+    profileState.status === 'ready' ? profileState.profile.styleAesthetics ?? [] : []);
   const morningChoicePending = Boolean(currentDayChoice?.status === 'none' &&
     !localDay.key.endsWith(':evening') && profileState.status === 'ready' &&
     profileState.profile.morningSheetEnabled);
@@ -209,6 +220,8 @@ export function RecommendationApplicationProvider({
   const controller = useMemo(
     () => new RecommendationApplicationController(localProfileId, {
       loadRepository,
+      loadRecentWorn: async () => (await (await loadHistoryRepository()).lastSeven(localProfileId))
+        .map((record) => record.outfit),
       client,
       captureAnalyticsEvent: (name, properties, options) => analytics.capture(name, properties, options),
       telemetry,
@@ -239,14 +252,14 @@ export function RecommendationApplicationProvider({
       now: now(),
       clothingPreference,
       dressStyle: resolvedDressStyle,
-      styleAesthetics: profileState.status === 'ready'
-        ? profileState.profile.styleAesthetics ?? [] : [],
+      styleAesthetics: resolvedStyles,
       dayVariant: localDay.variant,
       dayKind: localDay.kind,
       localDayKey: localDay.key,
       locale: language,
     };
-  }, [choiceReady, language, localDay, profileState, resolvedDressStyle, weatherState]);
+  }, [choiceReady, language, localDay, profileState,
+    resolvedDressStyle, resolvedStyles, weatherState]);
   useEffect(() => {
     void controller.initialize();
   }, [controller]);
@@ -387,13 +400,14 @@ export function RecommendationApplicationProvider({
       now: now(),
       clothingPreference,
       dressStyle: resolvedDressStyle,
-      styleAesthetics: profileState.profile.styleAesthetics ?? [],
+      styleAesthetics: resolvedStyles,
       dayVariant: currentDay.variant,
       dayKind: currentDay.kind,
       localDayKey: currentDay.key,
       locale: language,
     };
-  }, [choiceReady, language, profileState, resolvedDressStyle, weatherApplication, weatherState]);
+  }, [choiceReady, language, profileState, resolvedDressStyle,
+    resolvedStyles, weatherApplication, weatherState]);
 
   const evaluateApprovedTriggers = useCallback(async () => {
     const generationInput = currentInput();
