@@ -588,7 +588,9 @@ test('fresh weather updates derived insight lines without changing the selected 
   };
   const beforeState = {
     ...todayScreenState,
-    snapshot: { ...todayScreenState.snapshot, weather: fullWeather },
+    snapshot: { ...todayScreenState.snapshot, weather: fullWeather,
+      paletteBasis: { temperatureC: fullWeather.current.temperatureCelsius,
+        condition: fullWeather.current.condition, localDayKey: '2026-08-13' } },
   };
   const before = loadedPresentation(beforeState);
   const clearMeasurements = (measurement) => ({
@@ -599,28 +601,48 @@ test('fresh weather updates derived insight lines without changing the selected 
     temperatureCelsius: 31,
     apparentTemperatureCelsius: 33,
   });
+  const refreshedWeather = {
+    ...fullWeather,
+    id: 'fresh-weather',
+    current: clearMeasurements(fullWeather.current),
+    hourly: fullWeather.hourly.map(clearMeasurements),
+    minimumTemperatureCelsius: 30,
+    maximumTemperatureCelsius: 34,
+  };
   const after = loadedPresentation({
     ...beforeState,
     snapshot: {
       ...beforeState.snapshot,
-      weather: {
-        ...fullWeather,
-        id: 'fresh-weather',
-        current: clearMeasurements(fullWeather.current),
-        hourly: fullWeather.hourly.map(clearMeasurements),
-        minimumTemperatureCelsius: 30,
-        maximumTemperatureCelsius: 34,
-      },
+      weather: refreshedWeather,
     },
   });
-  // The outfits stay; only the palette's day half (O15: the current weather picks the mood)
-  // follows the fresh weather.
-  assert.deepEqual(withoutPaletteDay(after.suggestions), withoutPaletteDay(before.suggestions));
-  assert.deepEqual(after.suggestions.map(({ palette }) => [palette.temperatureC, palette.condition]),
-    after.suggestions.map(() => [31, 'clear']));
+  assert.deepEqual(after.suggestions.map(({ palette }) => palette),
+    before.suggestions.map(({ palette }) => palette));
+  const newlyChosen = loadedPresentation({ ...beforeState, snapshot: {
+    ...beforeState.snapshot,
+    weather: refreshedWeather,
+    paletteBasis: { temperatureC: 31, condition: 'clear', localDayKey: '2026-08-13' },
+  } });
+  assert.deepEqual(newlyChosen.suggestions.map(({ palette }) => [palette.temperatureC, palette.condition]),
+    newlyChosen.suggestions.map(() => [31, 'clear']));
+  assert.notDeepEqual(newlyChosen.suggestions.map(({ palette }) => palette),
+    before.suggestions.map(({ palette }) => palette));
   assert.deepEqual(after.generationMode, before.generationMode);
   assert.notEqual(after.dayInsight, before.dayInsight);
   assert.notEqual(after.dayWindow, before.dayWindow);
+});
+
+test('an older recommendation without a palette basis follows current weather', () => {
+  const weather = todayScreenState.snapshot.weather;
+  const original = loadedPresentation(todayScreenState);
+  const refreshed = loadedPresentation({ ...todayScreenState, snapshot: {
+    ...todayScreenState.snapshot,
+    weather: { ...weather, current: { ...weather.current, temperatureCelsius: 31,
+      condition: 'clear' } },
+  } });
+  assert.equal(refreshed.suggestions[0].palette.temperatureC, 31);
+  assert.equal(refreshed.suggestions[0].palette.condition, 'clear');
+  assert.notDeepEqual(refreshed.suggestions[0].palette, original.suggestions[0].palette);
 });
 
 test('an AI-authored insight stays with its outfit when weather refreshes', () => {

@@ -117,7 +117,12 @@ export function TodayScreen(props: TodayScreenProps) {
         outfit={runwayOutfit && weatherState?.snapshot ? {
           id: runwayOutfit.optionId,
           pieces: outfitBoardPieces(runwayOutfit),
-          palette: outfitGarmentPalette(runwayOutfit, garmentPaletteDay(weatherState.snapshot, now)),
+          palette: outfitGarmentPalette(runwayOutfit, garmentPaletteDay(
+            weatherState.snapshot, now,
+            snapshot?.paletteWeather
+              ? { ...snapshot.paletteWeather, localDayKey: snapshot.localDayKey }
+              : undefined,
+          )),
         } : null}
         phase={recommendationState?.phase ?? null}
         weather={weatherState?.snapshot

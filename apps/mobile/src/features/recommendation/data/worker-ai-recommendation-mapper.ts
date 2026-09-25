@@ -23,6 +23,7 @@ import {
   tractionSuitabilities,
   waterProtections,
   windProtections,
+  weatherConditionCodes,
   type AiOption,
   type AiRecommendV1Request,
   type AiRecommendV2Success,
@@ -84,6 +85,10 @@ const recommendationContextSchema = z.strictObject({
   // The dressing-day key: a bare local date, or that date plus `:evening` for the hours
   // from 18:00 through 04:00. A row written before the evening window still parses.
   localDayKey: z.string().regex(/^\d{4}-\d{2}-\d{2}(:evening)?$/).optional(),
+  paletteWeather: z.strictObject({
+    temperatureC: z.number().finite(),
+    condition: z.enum(weatherConditionCodes),
+  }).optional(),
   requirements: z.array(clothingRequirementSchema).max(11),
   options: z.array(aiOptionSchema).max(aiV1OptionLimit),
   insightSentence: insightSentenceSchema.optional(),
@@ -238,6 +243,10 @@ export function createRecommendationContextWithPool(
     dayVariant: input.dayVariant,
     dayKind: input.dayKind,
     localDayKey,
+    paletteWeather: {
+      temperatureC: input.snapshot.current.temperatureCelsius,
+      condition: input.snapshot.current.condition,
+    },
     ...(coverage ? { coverageStart: coverage.start, coverageEnd: coverage.end } : {}),
     requirements: requirements.requirements,
     options: sortByAestheticAffinity(availableOutfits, input.styleAesthetics ?? [],
