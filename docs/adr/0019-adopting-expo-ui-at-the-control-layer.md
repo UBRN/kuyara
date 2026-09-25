@@ -99,6 +99,10 @@ that is unchanged. Liquid Glass remains something the OS draws on navigation and
 control layers. The dependency is not removed in this ADR, but nothing may import it
 without a new decision.
 
+### App-owned button roles
+
+App-owned buttons use the capsule roles prominent, tonal, plain and destructive tonal red, with a 3% press shrink and fill step. System-glass controls keep native rendering; iOS 26 form save uses the toolbar pair. Native controls retain system colours.
+
 ## Consequences
 
 - Android gains real Material 3 Expressive controls from the same source. `@expo/ui`'s
