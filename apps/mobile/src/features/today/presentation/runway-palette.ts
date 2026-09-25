@@ -1,18 +1,18 @@
+import type { Daypart } from '@/features/today/domain/atmosphere-state';
 import { resolveConditionStyle } from '@/features/today/domain/condition-style';
 import { isWeatherConditionCode, type WeatherConditionCode } from '@/features/weather/domain/weather';
-import { blend } from '@/theme/color-blend';
-import type { KuyaraTheme } from '@/theme/theme';
+import type { KuyaraTheme, RunwayField } from '@/theme/theme';
 
 // ADR 0020's closed vocabulary, carried into the runway's board band: rain and snow fall,
 // cloud drifts as wisps, a clear sky shows slow motes.
 export type RunwayParticleKind = 'rain' | 'snow' | 'wisp' | 'mote';
 
-const kindByCondition: Readonly<Record<WeatherConditionCode, RunwayParticleKind>> = {
-  clear: 'mote',
-  mostly_clear: 'mote',
-  partly_cloudy: 'wisp',
-  cloudy: 'wisp',
-  fog: 'wisp',
+const groupByCondition: Readonly<Record<WeatherConditionCode, RunwayField>> = {
+  clear: 'clear',
+  mostly_clear: 'clear',
+  partly_cloudy: 'cloudy',
+  cloudy: 'cloudy',
+  fog: 'cloudy',
   drizzle: 'rain',
   rain: 'rain',
   heavy_rain: 'rain',
@@ -21,29 +21,33 @@ const kindByCondition: Readonly<Record<WeatherConditionCode, RunwayParticleKind>
   thunderstorm: 'rain',
 };
 
-export function runwayParticleKind(condition: string): RunwayParticleKind | null {
-  return isWeatherConditionCode(condition) ? kindByCondition[condition] : null;
+const kindByField: Readonly<Record<RunwayField, RunwayParticleKind>> = {
+  clear: 'mote',
+  cloudy: 'wisp',
+  rain: 'rain',
+  snow: 'snow',
+};
+
+/** The field group a condition wears; an unreadable one takes the quiet cloudy field. */
+export function runwayField(condition: string | null): RunwayField {
+  return condition !== null && isWeatherConditionCode(condition) ? groupByCondition[condition] : 'cloudy';
 }
 
-// Particles are derived from the atmosphere, never a new hue. Falling weather leans toward
-// its own condition ink. Clear and veiled skies lean toward the appearance's lightest
-// semantic value, because every atmosphere is darker than it in both appearances: in light
-// that is `surface` (the page ground sits too close to the day planes to be seen), in dark
-// `textPrimary` (the dark ground is darker than the stage, which drew charcoal on navy).
-// The ratios keep every pairing between the floor and ceiling `runway-palette.test.mjs` measures.
-const SKY_TONE = { light: 0.62, dark: 0.28 } as const;
-const INK_TONE = 0.42;
+export function runwayParticleKind(condition: string): RunwayParticleKind | null {
+  return isWeatherConditionCode(condition) ? kindByField[groupByCondition[condition]] : null;
+}
 
-export function runwayParticleColor(
+/**
+ * The particles wear their condition's own ink at full strength, flat and opaque: the
+ * runway is on Law 4's closed consumer list. A light clear field also carries white motes
+ * (`surface`) beside the sun's ink, the sparkle O1 approved.
+ */
+export function runwayParticleInks(
   theme: KuyaraTheme,
-  plane: string,
   condition: string,
-): string {
-  const kind = runwayParticleKind(condition);
-  // A falling condition wears the same ink at either hour, so the daypart never matters here.
-  if (kind === 'rain' || kind === 'snow') {
-    return blend(plane, theme.condition[resolveConditionStyle(condition, 'day').ink], INK_TONE);
-  }
-  const light = theme.isDark ? theme.colors.textPrimary : theme.colors.surface;
-  return blend(plane, light, SKY_TONE[theme.colorScheme]);
+  daypart: Daypart | null,
+): Readonly<{ ink: string; sparkle: string | null }> {
+  const ink = theme.condition[resolveConditionStyle(condition, daypart ?? 'day').ink];
+  const sparkle = !theme.isDark && runwayField(condition) === 'clear' ? theme.colors.surface : null;
+  return { ink, sparkle };
 }

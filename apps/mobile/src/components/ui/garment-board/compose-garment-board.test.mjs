@@ -1,7 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { audit, composeGarmentBoard, detailPreset, todayPreset } from './compose-garment-board.ts';
+import {
+  audit,
+  composeGarmentBoard,
+  detailPreset,
+  drawnExtent,
+  fitRunwayScale,
+  placeOnRunway,
+  runwayPreset,
+  todayPreset,
+} from './compose-garment-board.ts';
 import { resolveGarmentSilhouette } from './garment-silhouette-map.ts';
 
 const categories = {
@@ -85,4 +94,44 @@ test('detail pixel boxes stay inside the board with the rail right of the core a
   assert.ok(footwear.y + footwear.height > Math.max(
     ...boxes.filter(({ slot }) => slot !== 'footwear').map(({ y, height: boxHeight }) => y + boxHeight),
   ));
+});
+
+// The runway preset (O17, P6): one uniform scale, the ladder untouched.
+for (const [name, slots] of evidence) {
+  test(`runway: ${name} fits its drawn extent to the free area without changing the ladder`, () => {
+    const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
+    const result = composeGarmentBoard(pieces, todayPreset);
+    const extent = drawnExtent(result.boxes.values());
+    for (const [width, height] of [[339, 516], [339, 490], [343, 200], [300, 900]]) {
+      const scale = fitRunwayScale([extent], width, height);
+      assert.ok(scale > 0);
+      const placed = [...result.boxes.values()].map((box) => placeOnRunway(box, extent, scale, width, height));
+      const left = Math.min(...placed.map((box) => box.x));
+      const right = Math.max(...placed.map((box) => box.x + box.w));
+      const top = Math.min(...placed.map((box) => box.y));
+      const bottom = Math.max(...placed.map((box) => box.y + box.h));
+      // Inside the area with the preset's margins, centred on the drawn extent.
+      assert.ok(left >= runwayPreset.side - 1e-9 && right <= width - runwayPreset.side + 1e-9, name);
+      assert.ok(top >= runwayPreset.vertical / 2 - 1e-9 && bottom <= height - runwayPreset.vertical / 2 + 1e-9, name);
+      assert.ok(Math.abs(left + right - width) < 1e-9 && Math.abs(top + bottom - height) < 1e-9, name);
+      // The limiting axis is filled exactly, unless the width cap stops the growth.
+      const fillsWidth = Math.abs(right - left - (width - 2 * runwayPreset.side)) < 1e-9;
+      const fillsHeight = Math.abs(bottom - top - (height - runwayPreset.vertical)) < 1e-9;
+      assert.ok(fillsWidth || fillsHeight || scale === runwayPreset.maxScale * width, name);
+      // Uniform scale: every box keeps its ADR 0025 size relative to every other.
+      const boxes = [...result.boxes.values()];
+      placed.forEach((box, index) => {
+        assert.ok(Math.abs(box.w / boxes[index].w - scale) < 1e-9);
+        assert.ok(Math.abs(box.h / boxes[index].h - scale) < 1e-9);
+      });
+    }
+  });
+}
+
+test('runway: several compositions share the scale of the one that needs the least', () => {
+  const small = { x: 0, y: 0, w: 0.5, h: 0.5 };
+  const tall = { x: 0.1, y: 0.1, w: 0.5, h: 1 };
+  assert.equal(fitRunwayScale([small, tall], 339, 516), fitRunwayScale([tall], 339, 516));
+  assert.equal(fitRunwayScale([small], 0, 516), 0);
+  assert.equal(fitRunwayScale([], 339, 516), 0);
 });

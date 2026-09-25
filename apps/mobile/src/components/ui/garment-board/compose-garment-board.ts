@@ -156,6 +156,56 @@ export function composeGarmentBoard<Piece extends ArtworkPiece>(
   return { boxes, stageHeight, family, metric, core, order };
 }
 
+// The runway preset (owner decision O17, P6). The runway has no stage box, so a
+// composition is trimmed to its drawn extent and scaled, uniformly, to the free area:
+// `side` keeps the pieces off the band's edges, `vertical` off its top and bottom, and
+// `maxScale` stops a short outfit on a tall phone from growing past one and a quarter
+// area widths. ADR 0025's ladder, caps and placement families are the composition's own
+// and do not move; only the one scale does.
+export const runwayPreset = { side: 28, vertical: 24, maxScale: 1.25 } as const;
+
+export type DrawnExtent = Readonly<{ x: number; y: number; w: number; h: number }>;
+
+export function drawnExtent(boxes: Iterable<DrawnBox>): DrawnExtent {
+  const list = [...boxes];
+  const x = Math.min(...list.map((box) => box.x));
+  const y = Math.min(...list.map((box) => box.y));
+  return {
+    x,
+    y,
+    w: Math.max(...list.map((box) => box.x + box.w)) - x,
+    h: Math.max(...list.map((box) => box.y + box.h)) - y,
+  };
+}
+
+/** The one scale, in points per stage width, at which every extent fits the area. */
+export function fitRunwayScale(extents: readonly DrawnExtent[], width: number, height: number): number {
+  if (!extents.length || width <= 0 || height <= 0) return 0;
+  const w = Math.max(...extents.map((extent) => extent.w));
+  const h = Math.max(...extents.map((extent) => extent.h));
+  return Math.max(0, Math.min(
+    (width - 2 * runwayPreset.side) / w,
+    (height - runwayPreset.vertical) / h,
+    runwayPreset.maxScale * width,
+  ));
+}
+
+/** A composed box in area points, the composition centred on its own drawn extent. */
+export function placeOnRunway(
+  box: DrawnBox,
+  extent: DrawnExtent,
+  scale: number,
+  width: number,
+  height: number,
+): DrawnBox {
+  return {
+    x: (width - extent.w * scale) / 2 + (box.x - extent.x) * scale,
+    y: (height - extent.h * scale) / 2 + (box.y - extent.y) * scale,
+    w: box.w * scale,
+    h: box.h * scale,
+  };
+}
+
 // Geometric audit; ink parity needs raster coverage, which vector assets do not carry.
 export function audit<Piece extends ArtworkPiece>(result: ReturnType<typeof composeGarmentBoard<Piece>>) {
   const boxes = [...result.boxes.values()];
