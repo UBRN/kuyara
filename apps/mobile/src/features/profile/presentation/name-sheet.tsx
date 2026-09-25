@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppText, Button } from '@/components/ui';
+import { AppText, Button, ButtonPair } from '@/components/ui';
 import { displayNameIssue } from '@/features/profile/domain/profile';
 import { NameInput } from '@/features/profile/presentation/name-input';
 import { useMessages } from '@/localization/use-messages';
@@ -103,22 +103,26 @@ function VisibleNameSheet({
                 {mode === 'prompt' ? messages.onboarding.saveError : messages.profile.nameSaveError}
               </AppText>
             ) : null}
-            <View style={styles.actions}>
-              <Button
-                disabled={isSaving}
-                label={mode === 'prompt' ? messages.onboarding.nameNotNow : messages.common.back}
-                onPress={onDismiss}
-                testID="name-sheet-dismiss"
-                variant="quiet"
-              />
-              <Button
-                disabled={Boolean(displayNameIssue(value)) || (mode === 'prompt' && !value.trim())}
-                label={messages.profile.nameDone}
-                loading={isSaving}
-                onPress={() => { void save(); }}
-                testID="name-sheet-done"
-              />
-            </View>
+            <ButtonPair
+              primary={(
+                <Button
+                  disabled={Boolean(displayNameIssue(value)) || (mode === 'prompt' && !value.trim())}
+                  label={messages.profile.nameDone}
+                  loading={isSaving}
+                  onPress={() => { void save(); }}
+                  testID="name-sheet-done"
+                />
+              )}
+              secondary={(
+                <Button
+                  disabled={isSaving}
+                  label={mode === 'prompt' ? messages.onboarding.nameNotNow : messages.common.back}
+                  onPress={onDismiss}
+                  testID="name-sheet-dismiss"
+                  variant="plain"
+                />
+              )}
+            />
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -129,5 +133,4 @@ function VisibleNameSheet({
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: { gap: spacing.md, padding: spacing.lg },
-  actions: { flexDirection: 'row', gap: spacing.md, justifyContent: 'flex-end' },
 });

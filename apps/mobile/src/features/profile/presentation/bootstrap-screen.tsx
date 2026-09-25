@@ -61,7 +61,7 @@ export function BootstrapScreen(props: BootstrapScreenProps) {
               label={messages.bootstrap.reportAction}
               onPress={props.onReportProblem}
               testID="bootstrap-report"
-              variant="quiet"
+              variant="plain"
             />
           </>
         ) : null}

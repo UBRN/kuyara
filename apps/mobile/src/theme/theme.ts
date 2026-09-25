@@ -29,6 +29,11 @@ export const lightSemanticColors = Object.freeze({
   brandPrimary: brandColors.deepAtmosphere,
   brandAccent: brandColors.calmCurrent,
   primaryFill: brandColors.deepAtmosphere,
+  // The button system's derived fill steps (O5): a pressed button steps its fill, never
+  // its opacity, and a tonal control on a raised sheet keeps the ground's tonal fill here.
+  primaryFillPressed: '#334B55',
+  surfaceInteractivePressed: '#CDD9D9',
+  controlTonalRaised: '#DDE8E7',
   borderSubtle: '#CCD2D4',
   stage: '#D7DCDD',
   borderDefined: '#5C7A83',
@@ -44,6 +49,7 @@ export const lightSemanticColors = Object.freeze({
   warningContainer: '#F2E6CE',
   dangerInk: '#9B2C2C',
   dangerContainer: '#F8E3E1',
+  dangerContainerPressed: '#EFD1CF',
   // The provenance pair joins the same band: it records where a recommendation came from,
   // so it is a controlled role rather than an accent or a status verdict.
   provenanceInk: '#57518F',
@@ -102,6 +108,10 @@ export const darkSemanticColors = Object.freeze({
   brandPrimary: brandColors.quietSky,
   brandAccent: brandColors.quietSky,
   primaryFill: blend(brandColors.calmCurrent, brandColors.quietSky, 0.15),
+  primaryFillPressed: '#33646D',
+  surfaceInteractivePressed: '#315158',
+  // 16 % Quiet Sky over the dark sheet, so a tonal fill still reads on the raised plane.
+  controlTonalRaised: '#33525E',
   borderSubtle: '#26393F',
   stage: '#122A35',
   // Lifted from #527E90 so the boundary still clears 3:1 on the lighter elevated plane.
@@ -118,6 +128,7 @@ export const darkSemanticColors = Object.freeze({
   warningContainer: '#292010',
   dangerInk: '#F2A6A2',
   dangerContainer: '#301D1B',
+  dangerContainerPressed: '#432B28',
   provenanceInk: '#C3BDEE',
   provenanceContainer: '#2C1A38',
   scrim: 'rgba(13, 25, 30, 0.72)',

@@ -53,6 +53,10 @@ export const iconNames = Object.freeze({
   heart: { ios: 'heart', android: 'favorite', web: 'favorite' },
   heartFilled: { ios: 'heart.fill', android: 'favorite', web: 'favorite' },
   plus: { ios: 'plus', android: 'add', web: 'add' },
+  // O5's leading button icons: each names its action faster than the words do.
+  trash: { ios: 'trash', android: 'delete', web: 'delete' },
+  photo: { ios: 'photo', android: 'image', web: 'image' },
+  skipForward: { ios: 'forward.end', android: 'skip_next', web: 'skip_next' },
   wind: { ios: 'wind', android: 'air', web: 'air' },
   humidity: { ios: 'humidity.fill', android: 'water_drop', web: 'water_drop' },
   uv: { ios: 'sun.max.fill', android: 'wb_sunny', web: 'wb_sunny' },

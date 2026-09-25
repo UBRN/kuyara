@@ -20,6 +20,32 @@ export const disabled = (value = true) => ({ $type: 'disabled', disabled: value 
 export const menuIndicator = (visibility: string) => ({ $type: 'menuIndicator', visibility });
 export const pickerStyle = (style: string) => ({ $type: 'pickerStyle', style });
 export const tag = (value: string | number) => ({ $type: 'tag', tag: value });
+export const accessibilityHint = (hint: string) => ({ $type: 'accessibilityHint', hint });
+export const buttonStyle = (style: string) => ({ $type: 'buttonStyle', style });
+export const controlSize = (size: string) => ({ $type: 'controlSize', size });
+
+// The SwiftUI button: its accessible name is the label, or the accessibilityLabel modifier
+// for a label-less system button such as the glass close.
+export function Button({ label, modifiers, onPress, role, systemImage, testID }: Readonly<{
+  label?: string;
+  modifiers?: readonly Record<string, unknown>[];
+  onPress?: () => void;
+  role?: string;
+  systemImage?: string;
+  testID?: string;
+}>) {
+  const named = modifiers?.find((modifier) => modifier.$type === 'accessibilityLabel');
+  return (
+    <Pressable
+      accessibilityLabel={(named?.label as string | undefined) ?? label}
+      accessibilityRole="button"
+      onPress={onPress}
+      testID={testID}
+      {...{ modifiers, swiftUIRole: role, systemImage }}>
+      {label ? <RNText>{label}</RNText> : null}
+    </Pressable>
+  );
+}
 
 export function RNHostView({ children }: Readonly<{ children?: ReactNode }>) {
   return <View>{children}</View>;
