@@ -411,6 +411,7 @@ function Providers({
   eveningChoicePending,
   chooseFormality,
   reask,
+  activeDeparture = null,
   reevaluateLocalDay = jest.fn(),
   wardrobe,
   profile,
@@ -432,6 +433,7 @@ function Providers({
   chooseFormality?: (key: string, formality: 'casual' | 'smart' | 'formal',
     source: 'morning' | 'chip' | 'plan' | 'random') => Promise<void>;
   reask?: RecommendationApplicationValue['reask'];
+  activeDeparture?: RecommendationApplicationValue['activeDeparture'];
   reevaluateLocalDay?: () => void;
   wardrobe: ReturnType<typeof wardrobeValue>;
   profile: ReturnType<typeof profileValue>;
@@ -466,6 +468,7 @@ function Providers({
       eveningChoicePending,
       chooseFormality,
       reask,
+      activeDeparture,
       reevaluateLocalDay,
     }}>
       {screenContent}
@@ -1102,6 +1105,29 @@ test('Ask the stylist again opens one sheet and confirms through the application
   await waitFor(() => expect(view.queryByTestId('ask-again-sheet')).toBeNull());
   await act(async () => { finish(); await settled; });
   alert.mockRestore();
+});
+
+// Tour finding: a confirmed Later departure that is still ahead reopens the sheet on Later
+// at that time, not on Now.
+test('Ask the stylist again reopens on the persisted Later departure', async () => {
+  const reask = jest.fn(async () => ({ settled: Promise.resolve() }));
+  const departureAt = new Date(Math.floor(Date.now() / 900000) * 900000 + 2 * 3600000).toISOString();
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+      recommendation={recommendationReady()} resolvedDressStyle="smart"
+      dressingDayKey="2026-08-13" dressingDayChoiceReady reask={reask}
+      activeDeparture={{ id: 'departure-1', localProfileId: 'profile-1', dayKey: '2026-08-13', departureAt,
+        timeZone: 'Europe/Istanbul', createdAt: departureAt, updatedAt: departureAt, deletedAt: null }}
+      wardrobe={wardrobeValue()} weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+  await fireEvent.press(view.getByTestId('today-ask-again'));
+  expect(view.getByTestId('ask-again-departure')).toBeOnTheScreen();
+  expect(view.getByTestId('ask-again-confirm'))
+    .not.toHaveTextContent(messages.en.today.askAgain.chooseNow);
+  await fireEvent.press(view.getByTestId('ask-again-confirm'));
+  expect(reask).toHaveBeenCalledWith({ formality: 'smart', departureAt, timeZone: 'Europe/Istanbul' });
 });
 
 // While the re-ask runs, its own new day type must not look like a change to the approved

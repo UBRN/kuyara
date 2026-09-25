@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { nextBareDressingDayKey } from './dressing-day-choice.ts';
-import { coverageDrift, forecastBoundedCoverage, outfitCoverage } from './outfit-coverage.ts';
+import { coverageDrift, forecastBoundedCoverage, laterCoolSpell, outfitCoverage } from './outfit-coverage.ts';
 
 test('coverage end follows departure hour across the full dressing day', () => {
   for (let hour = 0; hour < 24; hour += 1) {
@@ -86,4 +86,34 @@ test('drift follows the mandatory cold rule: two hours under 12 or one under 5',
   const insulated = { reasonCodes: [], requirements: [{ kind: 'thermal', minimum: 'moderate',
     priority: 'mandatory', reasonCodes: ['temperature_low'] }] };
   assert.equal(coverageDrift(insulated, twoHours, '2026-09-25T16:00:00.000Z', end), null);
+});
+
+test('a later short cool spell is a finishing touch, never mandatory cold', () => {
+  const coverage = { start: '2026-09-25T11:00:00.000Z', end: '2026-09-25T20:00:00.000Z' };
+  const warm = { temperatureCelsius: 22, apparentTemperatureCelsius: 22 };
+  const day = (tail) => ['11:00', '12:00', '13:00', '14:00'].map((clock) => hour(clock, warm))
+    .concat(['15:00', '16:00', '17:00', '18:00', '19:00'].map((clock) => hour(clock, tail[clock] ?? warm)));
+  const nowIso = '2026-09-25T11:05:00.000Z';
+  // One hour at 11 and a cool 16 after it: short, so it is a touch at the first cool hour.
+  const short = day({ '17:00': { temperatureCelsius: 15, apparentTemperatureCelsius: 11 },
+    '18:00': { temperatureCelsius: 16, apparentTemperatureCelsius: 16 } });
+  assert.deepEqual(laterCoolSpell(noRequirements, short, nowIso, coverage), { at: '2026-09-25T17:00:00.000Z' });
+  // Two consecutive hours under 12, or one under 5, is mandatory protection instead.
+  const twoHours = day({ '17:00': { temperatureCelsius: 11, apparentTemperatureCelsius: 11 },
+    '18:00': { temperatureCelsius: 11, apparentTemperatureCelsius: 10 } });
+  assert.equal(laterCoolSpell(noRequirements, twoHours, nowIso, coverage), null);
+  const freezing = day({ '18:00': { temperatureCelsius: 6, apparentTemperatureCelsius: 4 } });
+  assert.equal(laterCoolSpell(noRequirements, freezing, nowIso, coverage), null);
+  // The first four hours decide the outfit: a cool hour inside them is not a later spell.
+  assert.equal(laterCoolSpell(noRequirements, day({}).map((value) => value.forecastAt.includes('T13:')
+    ? { ...value, temperatureCelsius: 15, apparentTemperatureCelsius: 15 } : value), nowIso, coverage), null);
+  // Nothing cool at all, or a spell already behind the viewer, or after the window ends.
+  assert.equal(laterCoolSpell(noRequirements, day({}), nowIso, coverage), null);
+  assert.equal(laterCoolSpell(noRequirements, short, '2026-09-25T19:10:00.000Z', coverage), null);
+  assert.equal(laterCoolSpell(noRequirements, short, nowIso,
+    { start: coverage.start, end: '2026-09-25T17:00:00.000Z' }), null);
+  // An outfit already chosen with mandatory insulation needs no extra layer.
+  const insulated = { reasonCodes: [], requirements: [{ kind: 'thermal', minimum: 'light',
+    priority: 'mandatory', reasonCodes: ['temperature_low'] }] };
+  assert.equal(laterCoolSpell(insulated, short, nowIso, coverage), null);
 });
