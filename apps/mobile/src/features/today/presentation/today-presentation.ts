@@ -11,6 +11,7 @@ import type { RecommendationGenerationMode } from '@/features/recommendation/dom
 import {
   coverageDrift,
   forecastBoundedCoverage,
+  laterCoolSpell,
   type OutfitCoverage,
 } from '@/features/recommendation/domain/outfit-coverage';
 import type {
@@ -192,6 +193,8 @@ export type LoadedTodayPresentation = Readonly<{
   choosingCaption: string | null;
   /** N15: protection the rest of the window needs that the outfit was not chosen for. */
   driftCaption: string | null;
+  /** N19: a later short cool spell, the "take a layer" finishing touch. */
+  coolSpellCaption: string | null;
   dayInsight: string | null;
   dayWindow: string | null;
   stageAccessibilityLabel: string;
@@ -694,6 +697,15 @@ function createLoadedPresentation(
   const driftCaption = drift
     ? copy.drift[drift.kind](formatTime(drift.at, language, hour12, weather.timeZone))
     : null;
+  // Cold drift already says the rest of the window needs more than a layer.
+  const coolSpell = shown && snapshot.recommendation.status === 'recommended' && !choosing &&
+    drift?.kind !== 'cold'
+    ? laterCoolSpell(snapshot.recommendation.requirements, weather.hourly,
+      new Date(now).toISOString(), shown)
+    : null;
+  const coolSpellCaption = coolSpell
+    ? copy.coolSpell(formatTime(coolSpell.at, language, hour12, weather.timeZone))
+    : null;
   const isStale = snapshot.freshness === 'stale';
   const condition = weatherCopy.conditions[current.condition];
   const weatherReasons = reasonCodesByPriority(
@@ -823,6 +835,7 @@ function createLoadedPresentation(
     coverageCaption,
     choosingCaption,
     driftCaption,
+    coolSpellCaption,
     dayInsight,
     dayWindow,
     stageAccessibilityLabel: primary ? copy.stageAccessibilityLabel({

@@ -508,7 +508,14 @@ function TodayScreenContent({
                 ) : null}
               </Dimmed>
             ) : null}
-            <AccessoryCaption caption={presentation.copy.finishingTouchesHeading} suggestion={primary} />
+            {primary.accessories.length > 0 || presentation.coolSpellCaption ? (
+              <View style={styles.finishingTouches}>
+                <AccessoryCaption caption={presentation.copy.finishingTouchesHeading} suggestion={primary} />
+                {presentation.coolSpellCaption ? (
+                  <CoolSpellLine caption={presentation.coolSpellCaption} />
+                ) : null}
+              </View>
+            ) : null}
           </>
         ) : null}
 
@@ -836,6 +843,25 @@ function AccessoryCaption({
   );
 }
 
+// N19: a later short cool spell is one finishing-touch line, led by the cardigan
+// silhouette at caption size (law 6), so the layer it asks for is named and drawn.
+function CoolSpellLine({ caption }: Readonly<{ caption: string }>) {
+  const { controlScale } = useTextScaling();
+  return (
+    <View accessible accessibilityLabel={caption} style={styles.coolSpell} testID="today-cool-spell">
+      <GarmentDrawing
+        category="top"
+        garmentTypeId="cardigan"
+        size={ACCESSORY_CAPTION_SIZE * controlScale}
+        testID="today-cool-spell-cardigan"
+      />
+      <AppText colorRole="textSecondary" style={styles.captionText} tabularNumbers variant="caption">
+        {caption}
+      </AppText>
+    </View>
+  );
+}
+
 // Law 6: a waiting mark, sized to the text it sits beside and drawn in the secondary icon
 // ink rather than the accent, because the wait is not the screen's one accent-filled
 // element. It is a clock rather than a sparkle: `visual-identity.md` refuses the AI-sparkle
@@ -878,8 +904,10 @@ const styles = StyleSheet.create({
   outfitName: { flex: 1, flexShrink: 1 },
   disclosure: { opacity: 0.55 },
   insights: { gap: spacing.sm, marginTop: spacing.xl },
+  finishingTouches: { gap: spacing.sm, marginTop: spacing.md },
   accessoryCaption: { alignItems: 'center', columnGap: spacing.sm, flexDirection: 'row', flexWrap: 'wrap',
-    marginTop: spacing.md, rowGap: spacing.xs },
+    rowGap: spacing.xs },
+  coolSpell: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
   accessoryGlyphs: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
   loadingIntro: { gap: spacing.xs, marginBottom: spacing.md },
   generatingStatus: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.md },

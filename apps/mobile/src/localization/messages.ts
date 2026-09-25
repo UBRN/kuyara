@@ -123,6 +123,8 @@ export type TodayMessages = Readonly<{
     snow: (time: string) => string;
     cold: (time: string) => string;
   }>;
+  // N19: a later short cool spell is a finishing touch, one line beside the cardigan.
+  coolSpell: (time: string) => string;
   backAction: string;
   otherOptionsHeading: string;
   piecesHeading: string;
@@ -1153,6 +1155,7 @@ const en = {
       snow: (time) => `This outfit wasn’t chosen for the snow after ${time}.`,
       cold: (time) => `This outfit wasn’t chosen for the cold after ${time}.`,
     },
+    coolSpell: (time) => `Take a light layer for the cool spell around ${time}.`,
     backAction: 'Back to Today',
     otherOptionsHeading: 'Alternative outfits',
     piecesHeading: 'Wear',
@@ -1867,6 +1870,7 @@ const tr = {
       snow: (time) => `Bu kombin ${time} karına göre seçilmedi.`,
       cold: (time) => `Bu kombin ${time} soğuğuna göre seçilmedi.`,
     },
+    coolSpell: (time) => `Yanına ince bir kat al, saat ${time} gibi hava serinliyor.`,
     backAction: 'Bugün’e dön',
     otherOptionsHeading: 'Alternatif kombinler',
     piecesHeading: 'Parçalar',

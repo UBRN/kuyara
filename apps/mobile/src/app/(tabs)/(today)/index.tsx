@@ -53,6 +53,7 @@ export default function TodayRoute() {
     resolvedDressStyle,
     chooseFormality,
     reask,
+    activeDeparture,
   } = useRecommendationApplication();
   const weatherApplication = useWeatherApplication();
   const { revalidateFreshness: revalidateWeatherFreshness, state: weatherState } =
@@ -431,6 +432,7 @@ export default function TodayRoute() {
     {placeTimeZone ? (
       <AskAgainSheet
         busy={askBusy}
+        departure={activeDeparture?.departureAt ?? null}
         error={askError}
         evening={currentDressingDayKey?.endsWith(':evening') ?? false}
         hour12={hour12}

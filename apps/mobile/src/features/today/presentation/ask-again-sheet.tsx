@@ -42,12 +42,16 @@ type Draft = Readonly<{
   options: readonly string[];
 }>;
 
-function openDraft(selected: DressStyle, now: number): Draft {
+function openDraft(selected: DressStyle, now: number, departure: string | null): Draft {
   const options = departureOptions(now);
+  // A persisted Later departure that is still ahead reopens as Later at that time; a past
+  // or absent one, or one the wheel does not offer, opens on Now.
+  const persisted = departure === null ? undefined
+    : options.find((option) => Date.parse(option) === Date.parse(departure));
   return {
     formality: selected,
-    mode: 'now',
-    departureAt: options.find((option) => Date.parse(option) >= now + defaultLeadMs)
+    mode: persisted ? 'later' : 'now',
+    departureAt: persisted ?? options.find((option) => Date.parse(option) >= now + defaultLeadMs)
       ?? options[options.length - 1] ?? new Date(now).toISOString(),
     options,
   };
@@ -60,7 +64,8 @@ function openDraft(selected: DressStyle, now: number): Draft {
  * time. Cancel keeps the outfit; the caller decides what a confirmation does.
  */
 export function AskAgainSheet({
-  visible, language, hour12, now, timeZone, selected, evening, busy, error, onConfirm, onDismiss,
+  visible, language, hour12, now, timeZone, selected, departure = null, evening, busy, error, onConfirm,
+  onDismiss,
 }: Readonly<{
   visible: boolean;
   language: SupportedLanguage;
@@ -71,6 +76,8 @@ export function AskAgainSheet({
   timeZone: string;
   /** The day type in force, checked when the sheet opens. */
   selected: DressStyle;
+  /** The dressing day's persisted Later departure, if any; the sheet reopens on it. */
+  departure?: string | null;
   /** The evening half of the dressing day words the question for the evening. */
   evening: boolean;
   busy: boolean;
@@ -80,12 +87,13 @@ export function AskAgainSheet({
 }>) {
   const messages = getMessages(language).today;
   const copy = messages.askAgain;
-  const [draft, setDraft] = useState(() => openDraft(selected, now));
+  const [draft, setDraft] = useState(() => openDraft(selected, now, departure));
   const [wasVisible, setWasVisible] = useState(visible);
-  // Every opening starts from the answer in force and from Now, never from the last draft.
+  // Every opening starts from the answer in force and the persisted departure (Now when
+  // none is ahead), never from the last draft.
   if (visible !== wasVisible) {
     setWasVisible(visible);
-    if (visible) setDraft(openDraft(selected, now));
+    if (visible) setDraft(openDraft(selected, now, departure));
   }
   const start = draft.mode === 'now' ? new Date(now).toISOString() : draft.departureAt;
   const coverage = outfitCoverage(start, timeZone);

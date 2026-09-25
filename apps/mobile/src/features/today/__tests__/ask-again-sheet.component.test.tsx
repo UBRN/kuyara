@@ -147,6 +147,30 @@ describe.each(['en', 'tr'] as const)('%s re-ask sheet', (language) => {
     expect(onConfirm).not.toHaveBeenCalled();
   });
 
+  test('a persisted departure still ahead reopens as Later at that time', async () => {
+    const onConfirm = jest.fn();
+    const view = await render(sheet(language, { departure: '2026-09-24T20:30:00.000Z', onConfirm }));
+    expect(view.getByTestId('ask-again-when-later').props.accessibilityState.selected).toBe(true);
+    expect(view.getByTestId('ask-again-departure').props.accessibilityValue.text)
+      .toBe('2026-09-24T20:30:00.000Z');
+    expect(view.getByTestId('ask-again-confirm')).toHaveTextContent(copy.askAgain.chooseAt('23:30'));
+    await fireEvent.press(view.getByTestId('ask-again-confirm'));
+    expect(onConfirm).toHaveBeenCalledWith({ formality: 'smart', departureAt: '2026-09-24T20:30:00.000Z' });
+  });
+
+  test('a past or absent departure opens on Now, also on a reopening', async () => {
+    const view = await render(sheet(language, { departure: '2026-09-24T12:30:00.000Z' }));
+    expect(view.getByTestId('ask-again-when-now').props.accessibilityState.selected).toBe(true);
+    expect(view.queryByTestId('ask-again-departure')).toBeNull();
+    expect(view.getByTestId('ask-again-confirm')).toHaveTextContent(copy.askAgain.chooseNow);
+    await view.rerender(sheet(language, { visible: false, departure: '2026-09-24T20:30:00.000Z' }));
+    await view.rerender(sheet(language, { departure: '2026-09-24T20:30:00.000Z' }));
+    expect(view.getByTestId('ask-again-confirm')).toHaveTextContent(copy.askAgain.chooseAt('23:30'));
+    await view.rerender(sheet(language, { visible: false, departure: null }));
+    await view.rerender(sheet(language, { departure: null }));
+    expect(view.getByTestId('ask-again-confirm')).toHaveTextContent(copy.askAgain.chooseNow);
+  });
+
   test('a failed save says so and keeps the sheet', async () => {
     const view = await render(sheet(language, { error: true }));
     expect(view.getByTestId('ask-again-error')).toHaveTextContent(copy.dailyStyle.saveError);

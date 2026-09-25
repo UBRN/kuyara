@@ -1,5 +1,5 @@
 import type { WeatherMeasurements } from '@/features/weather/domain/weather';
-import { isWetMeasurement } from '@/features/weather/domain/weather-thresholds';
+import { chillyCelsius, isWetMeasurement } from '@/features/weather/domain/weather-thresholds';
 import type { ClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 
 /** The outfit's useful forecast horizon, independent of the dressing-day key. */
@@ -108,11 +108,48 @@ export function coverageDrift(
     requirement.kind === 'thermal' && requirement.priority === 'mandatory' &&
     requirement.minimum !== 'light');
   if (coldProtected) return null;
-  const cold = remaining.find((hour, index) => {
+  const cold = firstMandatoryCold(remaining);
+  return cold ? { kind: 'cold', at: cold.forecastAt } : null;
+}
+
+/** N19's mandatory cold: below 5 °C at any hour, or below 12 °C for two consecutive hours. */
+function firstMandatoryCold<Hour extends DriftHour>(sorted: readonly Hour[]): Hour | undefined {
+  return sorted.find((hour, index) => {
     if (coldOf(hour) < 5) return true;
-    const next = remaining[index + 1];
+    const next = sorted[index + 1];
     return coldOf(hour) < 12 && next !== undefined && coldOf(next) < 12 &&
       Date.parse(next.forecastAt) - Date.parse(hour.forecastAt) === hourMs;
   });
-  return cold ? { kind: 'cold', at: cold.forecastAt } : null;
+}
+
+/** A later short cool spell: the hour it starts, for a "take a layer" finishing touch. */
+export type CoolSpell = Readonly<{ at: string }>;
+
+/**
+ * N19: the first four hours of the window decide the outfit, and a later cool hour that is
+ * not mandatory cold becomes a finishing touch rather than protection. Only for an outfit
+ * with no mandatory insulation, and only while the spell is still ahead. A tail that turns
+ * mandatory cold is not a short spell: the drift caption speaks for it instead.
+ */
+export function laterCoolSpell(
+  chosen: ClothingRequirements,
+  hourly: readonly DriftHour[],
+  nowIso: string,
+  coverage: OutfitCoverage,
+): CoolSpell | null {
+  const now = Date.parse(nowIso);
+  const start = Date.parse(coverage.start);
+  const end = Date.parse(coverage.end);
+  if (!Number.isFinite(now) || !Number.isFinite(start) || !Number.isFinite(end)) return null;
+  if (chosen.requirements.some((requirement) =>
+    requirement.kind === 'thermal' && requirement.priority === 'mandatory')) return null;
+  const tail = hourly
+    .filter(({ forecastAt }) => {
+      const at = Date.parse(forecastAt);
+      return at >= start + 4 * hourMs && at < end && at + hourMs > now;
+    })
+    .sort((left, right) => Date.parse(left.forecastAt) - Date.parse(right.forecastAt));
+  if (firstMandatoryCold(tail)) return null;
+  const cool = tail.find((hour) => coldOf(hour) < chillyCelsius);
+  return cool ? { at: cool.forecastAt } : null;
 }
