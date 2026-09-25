@@ -68,6 +68,9 @@ export type TodayMessages = Readonly<{
     firstDayNote: string;
     close: string;
     saveError: string;
+    /** M18 step 2: the day's styles, for this dressing day only. */
+    stylesQuestion: string;
+    stylesNote: string;
   }>;
   greetingNamed: (name: string) => string;
   /** The greeting on the first dressing day, the day the profile was set up. */
@@ -124,11 +127,22 @@ export type TodayMessages = Readonly<{
   ) => string;
   ownershipOwnedAction: string;
   ownershipWantedAction: string;
-  ownershipChangeHint: string;
-  ownershipOwnedLabel: string;
-  ownershipWantedLabel: string;
   ownershipUntrackedLabel: string;
-  ownershipSummary: (values: { owned: number; total: number }) => string;
+  /** O7: owned pieces of the same type, every one in another colour. */
+  ownershipSimilarLabel: string;
+  /** The user's own similar piece, named by its colour family. */
+  ownershipYours: (color: string) => string;
+  /** O6: the one line under the board that says the pieces open the edit sheet. */
+  editPieceHint: string;
+  editPieceAccessibilityHint: string;
+  // ADR 0038: "Wore this today" and its saved state, directly under the board.
+  wornAction: string;
+  wornToday: string;
+  wornSaveError: string;
+  wornReplaceTitle: string;
+  wornReplaceBody: string;
+  wornReplaceConfirm: string;
+  wornReplaceCancel: string;
   slots: Readonly<Record<OutfitSlot, string>>;
   requirementNames: Readonly<Record<TodayRequirementName, string>>;
   requirementRow: (values: { requirement: string; garments: readonly string[] }) => string;
@@ -393,6 +407,10 @@ export type AppMessages = Readonly<{
     closetHeadingHint: string;
     wantedLabel: string;
     historyLabel: string;
+    historyIntro: string;
+    historyEmptyTitle: string;
+    historyEmptyBody: string;
+    historyLoadError: string;
     wardrobeLoading: string;
     wardrobeEmpty: string;
     wardrobeUnavailable: string;
@@ -622,6 +640,13 @@ export type AppMessages = Readonly<{
     savingLabel: string;
     createError: string;
     updateError: string;
+    // O6: the outfit-detail piece sheet.
+    pieceSheetAddTitle: string;
+    pieceSheetEditTitle: string;
+    pieceSheetOwnershipTitle: string;
+    pieceSheetSuggested: string;
+    pieceSheetYours: string;
+    pieceSheetDone: string;
     typeChangeTitle: string;
     typeChangeBody: string;
     keepTypeAction: string;
@@ -812,6 +837,10 @@ const en = {
     closetHeadingHint: 'Opens your closet.',
     wantedLabel: 'Wanted',
     historyLabel: 'History',
+    historyIntro: 'Looks you chose to wear.',
+    historyEmptyTitle: 'No worn looks yet',
+    historyEmptyBody: 'When you wear a look, save it from outfit detail to see it here.',
+    historyLoadError: 'History could not be loaded. Try again later.',
     wardrobeLoading: 'Loading closet counts.',
     wardrobeEmpty: 'You have not added any owned or wanted items yet. Your closet stays separate from your outfit suggestions.',
     wardrobeUnavailable: 'Closet counts are unavailable right now.',
@@ -1049,6 +1078,12 @@ const en = {
     savingLabel: 'Saving item…',
     createError: 'This item could not be added. Your entries are still here; please try again.',
     updateError: 'This item could not be saved. Your changes are still here; please try again.',
+    pieceSheetAddTitle: 'Add to Closet',
+    pieceSheetEditTitle: 'Edit piece',
+    pieceSheetOwnershipTitle: 'Is it yours?',
+    pieceSheetSuggested: 'Suggested today',
+    pieceSheetYours: 'Yours',
+    pieceSheetDone: 'Done',
     typeChangeTitle: 'Change clothing type?',
     typeChangeBody:
       'Changing the type will remove your item property choices and use the new type’s catalog defaults.',
@@ -1086,6 +1121,8 @@ const en = {
       firstDayNote: 'Your answer from setup is already selected. Tap it to confirm.',
       close: 'Close',
       saveError: 'Your choice could not be saved. Try again.',
+      stylesQuestion: 'Any styles for today?',
+      stylesNote: 'Only for today. Your Settings stay as they are.',
     },
     greetingNamed: (name) => `Welcome back, ${name}`,
     greetingFirstNamed: (name) => `Welcome, ${name}`,
@@ -1133,14 +1170,18 @@ const en = {
     finishingTouchesRowAccessibilityLabel: ({ item, slot }) => `${item}, ${slot}`,
     ownershipOwnedAction: 'I own it',
     ownershipWantedAction: 'I want it',
-    ownershipChangeHint: 'Changes whether this piece is in your Closet',
-    ownershipOwnedLabel: englishOwnershipStateLabels.owned,
-    ownershipWantedLabel: englishOwnershipStateLabels.wanted,
     ownershipUntrackedLabel: 'Not in your Closet',
-    ownershipSummary: ({ owned, total }) =>
-      owned === 0
-        ? 'You don’t own any of these pieces yet. Tap a piece to mark it owned or wanted.'
-        : `You own ${owned} of ${total} ${total === 1 ? 'piece' : 'pieces'}.`,
+    ownershipSimilarLabel: 'You have a similar one',
+    ownershipYours: (color) => `Yours: ${color}`,
+    editPieceHint: 'Tap a piece to edit it.',
+    editPieceAccessibilityHint: 'Opens this piece in your Closet',
+    wornAction: 'Wore this today',
+    wornToday: 'Worn today',
+    wornSaveError: 'Today’s look could not be saved. Try again.',
+    wornReplaceTitle: 'Replace today’s look?',
+    wornReplaceBody: 'Only one look can be saved for a day. This replaces the look you recorded earlier today.',
+    wornReplaceConfirm: 'Replace look',
+    wornReplaceCancel: 'Cancel',
     slots: {
       primary_top: 'Top',
       bottom: 'Bottom',
@@ -1486,6 +1527,10 @@ const tr = {
     closetHeadingHint: 'Gardırobunu açar.',
     wantedLabel: 'İstekler',
     historyLabel: 'Geçmiş',
+    historyIntro: 'Giymeyi seçtiğin kombinler.',
+    historyEmptyTitle: 'Henüz giyilen kombin yok',
+    historyEmptyBody: 'Bir kombini giydiğinde, burada görmek için kombin detayından kaydet.',
+    historyLoadError: 'Geçmiş yüklenemedi. Biraz sonra yeniden dene.',
     wardrobeLoading: 'Gardırop sayıları yükleniyor.',
     wardrobeEmpty: 'Henüz sahip olduğun veya istediğin bir parça eklemedin. Gardırobun kombin önerilerinden ayrı tutulur.',
     wardrobeUnavailable: 'Gardırop sayıları şu anda gösterilemiyor.',
@@ -1727,6 +1772,12 @@ const tr = {
     savingLabel: 'Parça kaydediliyor…',
     createError: 'Bu parça eklenemedi. Girdilerin hâlâ burada; lütfen yeniden dene.',
     updateError: 'Bu parça kaydedilemedi. Değişikliklerin hâlâ burada; lütfen yeniden dene.',
+    pieceSheetAddTitle: 'Gardıroba ekle',
+    pieceSheetEditTitle: 'Parçayı düzenle',
+    pieceSheetOwnershipTitle: 'Sende var mı?',
+    pieceSheetSuggested: 'Bugün önerilen',
+    pieceSheetYours: 'Seninki',
+    pieceSheetDone: 'Bitti',
     typeChangeTitle: 'Giyim türü değiştirilsin mi?',
     typeChangeBody:
       'Türü değiştirmek, parça özellikleri seçimlerini kaldırır ve yeni türün katalog varsayılanlarını kullanır.',
@@ -1764,6 +1815,8 @@ const tr = {
       firstDayNote: 'Kurulumda verdiğin cevap zaten seçili. Onaylamak için ona dokun.',
       close: 'Kapat',
       saveError: 'Seçimin kaydedilemedi. Yeniden dene.',
+      stylesQuestion: 'Bugün hangi stiller?',
+      stylesNote: 'Yalnızca bugün için. Ayarların olduğu gibi kalır.',
     },
     greetingNamed: (name) => `Tekrar hoş geldin, ${name}`,
     greetingFirstNamed: (name) => `Hoş geldin, ${name}`,
@@ -1811,14 +1864,18 @@ const tr = {
     finishingTouchesRowAccessibilityLabel: ({ item, slot }) => `${item}, ${slot}`,
     ownershipOwnedAction: 'Bende var',
     ownershipWantedAction: 'İstiyorum',
-    ownershipChangeHint: 'Bu parçanın Gardırop durumunu değiştirir',
-    ownershipOwnedLabel: 'Sende var',
-    ownershipWantedLabel: 'İstiyorsun',
     ownershipUntrackedLabel: 'Gardırobunda yok',
-    ownershipSummary: ({ owned, total }) =>
-      owned === 0
-        ? 'Bu parçaların hiçbiri henüz sende yok. Bir parçaya dokun, “Bende var” ya da “İstiyorum” diye işaretle.'
-        : `Bu kombindeki ${total} parçadan ${owned} tanesi sende var.`,
+    ownershipSimilarLabel: 'Sende benzeri var',
+    ownershipYours: (color) => `Seninki: ${color}`,
+    editPieceHint: 'Düzenlemek için bir parçaya dokun.',
+    editPieceAccessibilityHint: 'Bu parçayı Gardırobunda açar',
+    wornAction: 'Bugün bunu giydim',
+    wornToday: 'Bugün giyildi',
+    wornSaveError: 'Bugünkü kombin kaydedilemedi. Yeniden dene.',
+    wornReplaceTitle: 'Bugünkü kombin değişsin mi?',
+    wornReplaceBody: 'Bir güne yalnızca bir kombin kaydedilebilir. Bu işlem, bugün daha önce kaydettiğin kombinin yerini alır.',
+    wornReplaceConfirm: 'Kombini değiştir',
+    wornReplaceCancel: 'Vazgeç',
     slots: {
       primary_top: 'Üst',
       bottom: 'Alt',

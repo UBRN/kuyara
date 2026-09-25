@@ -30,10 +30,7 @@ import {
 } from '@/features/weather/application/weather-application-context';
 import type { ActiveLocation, HourlyWeather } from '@/features/weather/domain/weather';
 import { WardrobeApplicationContext } from '@/features/wardrobe/application/wardrobe-application-context';
-import {
-  resolveGarmentOwnership,
-  type GarmentOwnershipState,
-} from '@/features/wardrobe/domain/garment-type-ownership';
+import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 import {
@@ -45,7 +42,7 @@ import {
   type KuyaraTheme,
 } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
-import { layoutGarmentBoard, measureGarmentBoardHeight } from '@/components/ui';
+import { garmentColorFamiliesBySlot, layoutGarmentBoard, measureGarmentBoardHeight } from '@/components/ui';
 import { AMBIENT_PULSE_FLOOR } from '@/components/ui/use-ambient-pulse';
 import { haptics } from '@/components/ui/haptics';
 
@@ -641,29 +638,46 @@ test.each([1.5, 1.6, 3])('font scale %s stacks alternates above 1.5', async (fon
   }
 });
 
-test('outfit detail renders the detail board, in-place captions, requirement rows, ownership states, and weather recap', async () => {
-  const presentation = loadedPresentation();
-  // Which garments the outfit wears follows the engine's offer order, so both the piece the
-  // board lookups name and the states the captions show are read from the presentation
-  // instead of written down. Alternating keeps an owned and a wanted caption on any offer.
-  const [firstPiece] = presentation.suggestions[0].pieces;
-  const ownershipByGarmentType: Record<string, GarmentOwnershipState> = Object.fromEntries(
-    presentation.suggestions[0].pieces.map(({ garmentTypeId }, index) => [
-      garmentTypeId,
-      index % 2 === 0 ? 'owned' : 'wanted',
-    ]),
-  );
-  const ownedPieceCount = presentation.suggestions[0].pieces
-    .filter(({ garmentTypeId }) => ownershipByGarmentType[garmentTypeId] === 'owned').length;
+// O7's rule, read off the pieces the fixture's first outfit wears: an owned record in the
+// piece's own colour family, an owned one in another family, and a wanted one.
+function closetFor(language: 'en' | 'tr' = 'en') {
+  const suggestion = loadedPresentation(language).suggestions[0];
+  const families = garmentColorFamiliesBySlot(suggestion.palette);
+  const [exactPiece, similarPiece, wantedPiece] = suggestion.pieces;
+  const slotOf = (garmentTypeId: string) =>
+    suggestion.boardPieces.find((piece) => piece.garmentTypeId === garmentTypeId)!.slot;
+  const exactFamily = families.get(slotOf(exactPiece.garmentTypeId))!;
+  const similarFamily = families.get(slotOf(similarPiece.garmentTypeId))!;
+  const record = (id: string, garmentTypeId: string, entryState: 'owned' | 'wanted',
+    colorFamily: WardrobeItem['colorFamily']): WardrobeItem => ({
+    ...todayWardrobeItems[0], id, name: null, garmentTypeId: garmentTypeId as WardrobeItem['garmentTypeId'],
+    entryState, colorFamily,
+  });
+  return {
+    suggestion,
+    exactPiece,
+    similarPiece,
+    wantedPiece,
+    items: [
+      record('exact', exactPiece.garmentTypeId, 'owned', exactFamily),
+      record('similar', similarPiece.garmentTypeId, 'owned', similarFamily === 'black' ? 'white' : 'black'),
+      record('wanted', wantedPiece.garmentTypeId, 'wanted', null),
+    ],
+  };
+}
+
+test('outfit detail renders the board, captions, piece rows by O7, requirement rows, and weather recap', async () => {
+  const { suggestion, exactPiece, similarPiece, wantedPiece, items } = closetFor();
+  const onEditPiece = jest.fn();
   const result = await render(providers(
     <OutfitDetailScreen
       backLabel={messages.en.common.back}
       language="en"
       onBack={() => undefined}
-      onSetOwnership={() => undefined}
-      ownershipByGarmentType={ownershipByGarmentType}
+      onEditPiece={onEditPiece}
       state={todayScreenState}
       suggestionId={todayOutfitId(1)}
+      wardrobeItems={items}
     />,
   ));
   await fireEvent(result.getByTestId('outfit-detail-content'), 'layout', {
@@ -676,68 +690,122 @@ test('outfit detail renders the detail board, in-place captions, requirement row
     fontSize: typography.bodyStrong.fontSize,
     fontWeight: typography.bodyStrong.fontWeight,
   });
-  expect(result.getByRole('header', { name: presentation.suggestions[0].title }))
-    .toBeOnTheScreen();
+  expect(result.getByRole('header', { name: suggestion.title })).toBeOnTheScreen();
   const hidden = { includeHiddenElements: true };
+  // The captions arrive after the pieces settle and stay visible.
+  expect(StyleSheet.flatten(result.getByTestId('outfit-detail-caption-overlay').props.style))
+    .toMatchObject({ opacity: 1 });
   expect(isHiddenFromAccessibility(result.getByTestId('outfit-detail-board', hidden))).toBe(true);
   expect(StyleSheet.flatten(result.getByTestId('outfit-detail-board', hidden).props.style))
     .toMatchObject({ width: 358 });
   const plate = result.getByTestId('outfit-detail-board-plate');
   const plateHeightBeforeCaptionMeasure = StyleSheet.flatten(plate.props.style).height;
-  const firstBox = layoutGarmentBoard(
-    presentation.suggestions[0].boardPieces, 358, 'detail',
-  ).boxes.find(({ garmentTypeId }) => garmentTypeId === firstPiece.garmentTypeId);
+  const firstBox = layoutGarmentBoard(suggestion.boardPieces, 358, 'detail')
+    .boxes.find(({ garmentTypeId }) => garmentTypeId === exactPiece.garmentTypeId);
   expect(firstBox).toBeDefined();
   const firstCaptionTop = createDetailCaptionLayout(firstBox!, 358).top;
   await fireEvent(
-    result.getByTestId(`outfit-detail-caption-content-${firstPiece.garmentTypeId}`),
+    result.getByTestId(`outfit-detail-caption-content-${exactPiece.garmentTypeId}`),
     'layout',
-    {
-      nativeEvent: { layout: { width: 120, height: 200, x: 0, y: 0 } },
-    },
+    { nativeEvent: { layout: { width: 120, height: 200, x: 0, y: 0 } } },
   );
   expect(StyleSheet.flatten(result.getByTestId('outfit-detail-board-plate').props.style).height)
     .toBeGreaterThanOrEqual(firstCaptionTop + 200);
   expect(plateHeightBeforeCaptionMeasure).toBeGreaterThan(
     StyleSheet.flatten(result.getByTestId('outfit-detail-board', hidden).props.style).height,
   );
-  for (const row of presentation.suggestions[0].requirementRows) {
+  for (const row of suggestion.requirementRows) {
     expect(result.getByText(row.text)).toBeOnTheScreen();
   }
-  for (const { garmentTypeId, item, slot } of presentation.suggestions[0].pieces) {
+
+  // The caption names the piece; its state is spoken, and drawn in the row below.
+  const copy = messages.en.today;
+  const states: Record<string, string> = {
+    [exactPiece.garmentTypeId]: copy.ownershipOwnedAction,
+    [similarPiece.garmentTypeId]: copy.ownershipSimilarLabel,
+    [wantedPiece.garmentTypeId]: copy.ownershipWantedAction,
+  };
+  for (const { garmentTypeId, item, slot } of suggestion.pieces) {
+    const state = states[garmentTypeId] ?? copy.ownershipUntrackedLabel;
     const caption = result.getByTestId(`outfit-detail-caption-${garmentTypeId}`);
-    expect(within(caption).getByText(slot)).toBeOnTheScreen();
     expect(within(caption).getByText(item)).toBeOnTheScreen();
-    const state = ownershipByGarmentType[garmentTypeId];
-    const stateLabel = state === 'owned'
-      ? messages.en.today.ownershipOwnedLabel
-      : messages.en.today.ownershipWantedLabel;
-    expect(caption).toHaveProp(
-      'accessibilityLabel',
-      `${item}, ${slot}, ${stateLabel}`,
-    );
-    expect(result.getByTestId(
-      `outfit-detail-ownership-marker-${garmentTypeId}`,
-      hidden,
-    )).toBeOnTheScreen();
-    expect(within(caption).getByText(stateLabel)).toBeOnTheScreen();
+    expect(caption).toHaveProp('accessibilityLabel', `${item}, ${slot}, ${state}`);
+    expect(caption).toHaveProp('accessibilityRole', 'button');
+    const row = result.getByTestId(`outfit-detail-piece-${garmentTypeId}`);
+    expect(within(row).getByText(item)).toBeOnTheScreen();
+    expect(within(row).getByText(slot)).toBeOnTheScreen();
+    if (states[garmentTypeId]) {
+      expect(within(row).getByText(state)).toBeOnTheScreen();
+      expect(result.getByTestId(`outfit-detail-badge-${garmentTypeId}`, hidden)).toBeOnTheScreen();
+    } else {
+      expect(result.queryByTestId(`outfit-detail-piece-status-${garmentTypeId}`)).toBeNull();
+      expect(result.queryByTestId(`outfit-detail-badge-${garmentTypeId}`, hidden)).toBeNull();
+    }
   }
-  expect(result.getByTestId('outfit-detail-ownership-summary')).toHaveTextContent(
-    messages.en.today.ownershipSummary({
-      owned: ownedPieceCount,
-      total: presentation.suggestions[0].pieces.length,
-    }),
+  // O7: the similar row shows the user's own piece by its colour.
+  const similarRecord = items[1];
+  expect(result.getByTestId(`outfit-detail-piece-yours-${similarPiece.garmentTypeId}`)).toHaveTextContent(
+    copy.ownershipYours(messages.en.catalog[`catalog.color_family.${similarRecord.colorFamily!}`]),
   );
+  expect(result.getByTestId('outfit-detail-edit-hint')).toHaveTextContent(copy.editPieceHint);
+
+  // O6: the caption, the drawing and the row open the same sheet target.
+  await fireEvent.press(result.getByTestId(`outfit-detail-caption-${similarPiece.garmentTypeId}`));
+  await fireEvent.press(result.getByTestId(`outfit-detail-garment-${similarPiece.garmentTypeId}`, hidden));
+  await fireEvent.press(result.getByTestId(`outfit-detail-piece-${similarPiece.garmentTypeId}`));
+  expect(onEditPiece).toHaveBeenCalledTimes(3);
+  const [target] = onEditPiece.mock.calls[0];
+  expect(target).toMatchObject({
+    garmentTypeId: similarPiece.garmentTypeId,
+    name: similarPiece.item,
+    slot: similarPiece.slot,
+    match: { kind: 'similar', item: similarRecord },
+  });
+  expect(onEditPiece.mock.calls[1][0]).toEqual(target);
+  expect(onEditPiece.mock.calls[2][0]).toEqual(target);
+
   const weatherRecap = within(result.getByTestId('outfit-detail-weather-recap'));
   expect(weatherRecap.getByText('20.0°')).toBeOnTheScreen();
   expect(weatherRecap.getByText('Rain')).toBeOnTheScreen();
   expect(weatherRecap.getByText('65% chance of rain')).toBeOnTheScreen();
   expect(StyleSheet.flatten(result.getByTestId('outfit-detail-weather-recap').props.style))
-    .toMatchObject({ backgroundColor: lightTheme.atmosphere[presentation.atmosphere] });
-  expect(StyleSheet.flatten(weatherRecap.getByText('Rain').props.style))
-    .toMatchObject({ color: lightTheme.colors.textPrimary });
-  expect(StyleSheet.flatten(weatherRecap.getByText('65% chance of rain').props.style))
-    .toMatchObject({ color: lightTheme.colors.textPrimary });
+    .toMatchObject({ backgroundColor: lightTheme.atmosphere[loadedPresentation().atmosphere] });
+});
+
+// ADR 0038: one worn record per dressing day. The action writes, the saved state says so in
+// ink, glyph and words, and a failed write says that too.
+describe.each(['en', 'tr'] as const)('%s wore this today', (language) => {
+  const detail = (props: Partial<React.ComponentProps<typeof OutfitDetailScreen>>) => providers(
+    <OutfitDetailScreen
+      backLabel={messages[language].common.back}
+      language={language}
+      onBack={() => undefined}
+      onEditPiece={() => undefined}
+      state={todayScreenState}
+      suggestionId={todayOutfitId(1)}
+      wardrobeItems={[]}
+      {...props}
+    />,
+    lightTheme,
+    language,
+  );
+
+  test('records from the button, shows the worn state, and reports a failed save', async () => {
+    const copy = messages[language].today;
+    const onWoreThis = jest.fn();
+    const result = await render(detail({ onWoreThis, worn: 'none' }));
+    await fireEvent.press(result.getByRole('button', { name: copy.wornAction }));
+    expect(onWoreThis).toHaveBeenCalledTimes(1);
+    expect(result.queryByTestId('outfit-detail-worn')).toBeNull();
+
+    await result.rerender(detail({ onWoreThis, worn: 'this' }));
+    expect(result.getByTestId('outfit-detail-worn')).toHaveProp('accessibilityLabel', copy.wornToday);
+    expect(result.queryByTestId('outfit-detail-wore-this')).toBeNull();
+
+    await result.rerender(detail({ onWoreThis, worn: 'other', wornError: copy.wornSaveError }));
+    expect(result.getByTestId('outfit-detail-wore-this')).toBeOnTheScreen();
+    expect(result.getByRole('alert')).toHaveTextContent(copy.wornSaveError);
+  });
 });
 
 // N18, item 13 A: the detail's coverage line lives inside the weather recap it describes.
@@ -749,8 +817,8 @@ test('outfit detail carries the coverage line inside the weather recap', async (
       backLabel={messages.en.common.back}
       language="en"
       onBack={() => undefined}
-      onSetOwnership={() => undefined}
-      ownershipByGarmentType={{}}
+      onEditPiece={() => undefined}
+      wardrobeItems={[]}
       state={covered}
       suggestionId={todayOutfitId(1)}
     />,
@@ -760,148 +828,6 @@ test('outfit detail carries the coverage line inside the weather recap', async (
   const line = messages.en.today.coverage.chosen('09:30', '11:00');
   expect(within(recap).getByTestId('outfit-detail-coverage')).toHaveTextContent(line);
   expect(recap.props.accessibilityLabel).toContain(line);
-});
-
-test('outfit detail keeps captions visible and labelled after its board entrance settles', async () => {
-  const presentation = loadedPresentation();
-  const result = await render(providers(
-    <OutfitDetailScreen
-      backLabel={messages.en.common.back}
-      language="en"
-      onBack={() => undefined}
-      onSetOwnership={() => undefined}
-      ownershipByGarmentType={{}}
-      state={todayScreenState}
-      suggestionId={todayOutfitId(1)}
-    />,
-  ));
-  await fireEvent(result.getByTestId('outfit-detail-content'), 'layout', {
-    nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
-  });
-
-  expect(StyleSheet.flatten(result.getByTestId('outfit-detail-caption-overlay').props.style))
-    .toMatchObject({ opacity: 1 });
-  for (const { garmentTypeId, item, slot } of presentation.suggestions[0].pieces) {
-    const caption = result.getByTestId(`outfit-detail-caption-${garmentTypeId}`);
-    expect(caption).toBeOnTheScreen();
-    expect(caption).toHaveProp(
-      'accessibilityLabel',
-      `${item}, ${slot}, ${messages.en.today.ownershipUntrackedLabel}`,
-    );
-  }
-});
-
-describe.each(['en', 'tr'] as const)('%s outfit detail untracked garments', (language) => {
-  test('speaks the untracked state but draws no marker or word', async () => {
-    const presentation = loadedPresentation(language);
-    const result = await render(providers(
-      <OutfitDetailScreen
-        backLabel={messages[language].common.back}
-        language={language}
-        onBack={() => undefined}
-        onSetOwnership={() => undefined}
-        ownershipByGarmentType={{}}
-        state={todayScreenState}
-        suggestionId={todayOutfitId(1)}
-      />,
-      lightTheme,
-      language,
-    ));
-
-    const copy = messages[language].today;
-    for (const { garmentTypeId, item, slot } of presentation.suggestions[0].pieces) {
-      const caption = result.getByTestId(`outfit-detail-caption-${garmentTypeId}`);
-      expect(caption).toHaveProp('accessibilityLabel', `${item}, ${slot}, ${copy.ownershipUntrackedLabel}`);
-      expect(within(caption).queryByText(copy.ownershipUntrackedLabel)).toBeNull();
-      expect(within(caption).queryByText(copy.ownershipOwnedLabel)).toBeNull();
-      expect(within(caption).queryByText(copy.ownershipWantedLabel)).toBeNull();
-      expect(result.queryByTestId(
-        `outfit-detail-ownership-marker-${garmentTypeId}`,
-        { includeHiddenElements: true },
-      )).toBeNull();
-    }
-    const summary = result.getByTestId('outfit-detail-ownership-summary');
-    expect(summary).toHaveTextContent(
-      copy.ownershipSummary({ owned: 0, total: presentation.suggestions[0].pieces.length }),
-    );
-    // Nothing marked yet is an invitation, not a tally: the zero state carries no count
-    // at all and says where the two states are set.
-    expect(summary).toHaveTextContent(/^\D+$/);
-  });
-});
-
-describe.each(['en', 'tr'] as const)('%s outfit detail ownership', (language) => {
-  test('shows matched states and changes them from each caption menu', async () => {
-    const onSetOwnership = jest.fn();
-    const presentation = loadedPresentation(language);
-    const [ownedPiece, wantedPiece] = presentation.suggestions[0].pieces;
-    // The wardrobe fixture's own entries no longer meet the first offered outfit, so the two
-    // states are set on this outfit's first two pieces and the resolver still supplies the
-    // rest. Which garments those are follows the offer order and is never written down.
-    const ownershipByGarmentType: Record<string, GarmentOwnershipState> = {
-      ...Object.fromEntries(
-        presentation.suggestions[0].pieces.map(({ garmentTypeId }) => [
-          garmentTypeId,
-          resolveGarmentOwnership(garmentTypeId, todayWardrobeItems).state,
-        ]),
-      ),
-      [ownedPiece.garmentTypeId]: 'owned',
-      [wantedPiece.garmentTypeId]: 'wanted',
-    };
-    const result = await render(providers(
-      <OutfitDetailScreen
-        backLabel={messages[language].common.back}
-        language={language}
-        onBack={() => undefined}
-        onSetOwnership={onSetOwnership}
-        ownershipByGarmentType={ownershipByGarmentType}
-        state={todayScreenState}
-        suggestionId={todayOutfitId(1)}
-      />,
-      lightTheme,
-      language,
-    ));
-
-    const ownedLabel = messages[language].today.ownershipOwnedLabel;
-    const wantedLabel = messages[language].today.ownershipWantedLabel;
-    expect(result.getByTestId(`outfit-detail-caption-${ownedPiece.garmentTypeId}`)).toHaveProp(
-      'accessibilityLabel',
-      `${ownedPiece.item}, ${ownedPiece.slot}, ${ownedLabel}`,
-    );
-    expect(result.getByTestId(`outfit-detail-caption-${wantedPiece.garmentTypeId}`)).toHaveProp(
-      'accessibilityLabel',
-      `${wantedPiece.item}, ${wantedPiece.slot}, ${wantedLabel}`,
-    );
-    for (const { garmentTypeId } of presentation.suggestions[0].pieces) {
-      const caption = result.getByTestId(`outfit-detail-caption-${garmentTypeId}`);
-      expect(caption.props.accessibilityState.selected).toBeUndefined();
-      expect(caption).toHaveProp('accessibilityHint', messages[language].today.ownershipChangeHint);
-      expect(caption).toHaveProp('accessibilityRole', 'button');
-    }
-    expect(result.getByTestId('outfit-detail-ownership-summary')).toHaveTextContent(
-      messages[language].today.ownershipSummary({
-        owned: 1,
-        total: presentation.suggestions[0].pieces.length,
-      }),
-    );
-
-    const ownedCaption = result.getByTestId(`outfit-detail-caption-${ownedPiece.garmentTypeId}`);
-    await fireEvent.press(ownedCaption);
-    await fireEvent.press(result.getByRole('button', { name: messages[language].today.ownershipOwnedAction }));
-    expect(onSetOwnership).not.toHaveBeenCalled();
-    await fireEvent.press(ownedCaption);
-    await fireEvent.press(result.getByRole('button', { name: messages[language].today.ownershipWantedAction }));
-    expect(onSetOwnership).toHaveBeenCalledWith(ownedPiece.garmentTypeId, 'wanted');
-
-    onSetOwnership.mockClear();
-    const wantedCaption = result.getByTestId(`outfit-detail-caption-${wantedPiece.garmentTypeId}`);
-    await fireEvent.press(wantedCaption);
-    await fireEvent.press(result.getByRole('button', { name: messages[language].today.ownershipWantedAction }));
-    expect(onSetOwnership).not.toHaveBeenCalled();
-    await fireEvent.press(wantedCaption);
-    await fireEvent.press(result.getByRole('button', { name: messages[language].today.ownershipOwnedAction }));
-    expect(onSetOwnership).toHaveBeenCalledWith(wantedPiece.garmentTypeId, 'owned');
-  });
 });
 
 test('the hero board rises into a stage that stays still', async () => {
@@ -964,43 +890,34 @@ test('a new suggestion re-mounts the hero board, and the same one back leaves it
   ]);
 });
 
-test('the press that completes the outfit fires success once instead of the selection haptic', async () => {
-  const selection = jest.spyOn(haptics, 'selection').mockImplementation(() => undefined);
+test('the save that owns the last piece fires success once and settles the board', async () => {
   const success = jest.spyOn(haptics, 'success').mockImplementation(() => undefined);
   const { pieces } = loadedPresentation().suggestions[0];
-  const lastPiece = pieces[pieces.length - 1];
-  const detail = (ownershipByGarmentType: Readonly<Record<string, 'owned' | 'wanted'>>) => providers(
+  // No colour family on a record matches on type alone, so each record owns its piece.
+  const owned = (count: number): WardrobeItem[] => pieces.slice(0, count).map(({ garmentTypeId }, index) => ({
+    ...todayWardrobeItems[0], id: `owned-${index}`, entryState: 'owned', colorFamily: null,
+    garmentTypeId: garmentTypeId as WardrobeItem['garmentTypeId'],
+  }));
+  const detail = (items: readonly WardrobeItem[]) => providers(
     <OutfitDetailScreen
       backLabel={messages.en.common.back}
       language="en"
       onBack={() => undefined}
-      onSetOwnership={() => undefined}
-      ownershipByGarmentType={ownershipByGarmentType}
+      onEditPiece={() => undefined}
       state={todayScreenState}
       suggestionId={todayOutfitId(1)}
+      wardrobeItems={items}
     />,
   );
-  const markOwned = async (result: Awaited<ReturnType<typeof render>>, garmentTypeId: string) => {
-    await fireEvent.press(result.getByTestId(`outfit-detail-caption-${garmentTypeId}`));
-    await fireEvent.press(result.getByRole('button', { name: messages.en.today.ownershipOwnedAction }));
-  };
 
-  // Every piece but the last one is already owned, so this press completes the outfit.
-  const result = await render(detail(Object.fromEntries(
-    pieces.slice(0, -1).map(({ garmentTypeId }) => [garmentTypeId, 'owned' as const]),
-  )));
-  await markOwned(result, lastPiece.garmentTypeId);
-  expect(success).toHaveBeenCalledTimes(1);
-  expect(selection).not.toHaveBeenCalled();
-
-  // Any other ownership change stays a selection under the finger.
-  success.mockClear();
-  const partial = await render(detail({}));
-  await markOwned(partial, lastPiece.garmentTypeId);
-  expect(selection).toHaveBeenCalledTimes(1);
+  const result = await render(detail(owned(pieces.length - 1)));
   expect(success).not.toHaveBeenCalled();
+  await result.rerender(detail(owned(pieces.length)));
+  expect(success).toHaveBeenCalledTimes(1);
+  // A later render with the same Closet is not a second moment.
+  await result.rerender(detail(owned(pieces.length)));
+  expect(success).toHaveBeenCalledTimes(1);
 
-  selection.mockRestore();
   success.mockRestore();
 });
 
@@ -1465,8 +1382,8 @@ describe.each(['en', 'tr'] as const)('%s outfit detail generation source', (lang
         backLabel={messages[language].common.back}
         language={language}
         onBack={() => undefined}
-        onSetOwnership={() => undefined}
-        ownershipByGarmentType={{}}
+        onEditPiece={() => undefined}
+        wardrobeItems={[]}
         state={stateWithGenerationMode(generationMode)}
         suggestionId={todayOutfitId(1)}
       />,
@@ -1480,13 +1397,9 @@ describe.each(['en', 'tr'] as const)('%s outfit detail generation source', (lang
 });
 
 // Goal 7 found the in-place captions breaking by character and overlapping the shoe at
-// the largest accessibility sizes. Above 1.5 they leave the plate as one list under it.
+// the largest accessibility sizes. Above 1.5 they leave the board, and the piece rows under
+// it name every piece in board order (ADR 0026 section 3).
 describe.each(['en', 'tr'] as const)('%s outfit detail captions above 1.5', (language) => {
-  const [markedPiece] = loadedPresentation(language).suggestions[0].pieces;
-  const ownershipByGarmentType: Record<string, 'owned' | 'wanted'> = {
-    [markedPiece.garmentTypeId]: 'owned',
-    rain_jacket: 'wanted',
-  };
   const detail = async (fontScale: number) => {
     Dimensions.set({ window: { ...originalDimensions, width: 390, fontScale } });
     const result = await render(providers(
@@ -1494,10 +1407,10 @@ describe.each(['en', 'tr'] as const)('%s outfit detail captions above 1.5', (lan
         backLabel={messages[language].common.back}
         language={language}
         onBack={() => undefined}
-        onSetOwnership={() => undefined}
-        ownershipByGarmentType={ownershipByGarmentType}
+        onEditPiece={() => undefined}
         state={todayScreenState}
         suggestionId={todayOutfitId(1)}
+        wardrobeItems={[]}
       />,
       lightTheme,
       language,
@@ -1508,44 +1421,24 @@ describe.each(['en', 'tr'] as const)('%s outfit detail captions above 1.5', (lan
     return result;
   };
 
-  test('moves them under the plate in board order, keeping every label and test id', async () => {
-    const pieces = loadedPresentation(language).suggestions[0].pieces;
+  test('leaves the plate exactly the board and keeps each piece a labelled row', async () => {
+    const captionId = /^outfit-detail-caption-(?!overlay$)[a-z_]+$/;
+    const { pieces, boardPieces } = loadedPresentation(language).suggestions[0];
     const inline = await detail(1);
-    const labels = pieces.map(({ garmentTypeId }) => {
-      const caption = inline.getByTestId(`outfit-detail-caption-${garmentTypeId}`);
-      return caption.props.accessibilityLabel;
-    });
-    expect(inline.queryByTestId('outfit-detail-caption-list')).toBeNull();
+    expect(inline.getAllByTestId(captionId)).toHaveLength(pieces.length);
 
-    const board = layoutGarmentBoard(
-      loadedPresentation(language).suggestions[0].boardPieces, 358, 'detail',
-    );
+    const board = layoutGarmentBoard(boardPieces, 358, 'detail');
     const stacked = await detail(3);
-    const list = stacked.getByTestId('outfit-detail-caption-list');
     const plate = stacked.getByTestId('outfit-detail-board-plate');
-    expect(within(plate).queryAllByTestId(/^outfit-detail-caption-/)).toHaveLength(0);
-    // With the captions out of the plate it is exactly the board, not board plus text.
+    expect(stacked.queryAllByTestId(captionId)).toHaveLength(0);
     expect(StyleSheet.flatten(plate.props.style).height).toBe(board.height);
-
-    const boardOrder = board.boxes
-      .map(({ garmentTypeId }) => garmentTypeId)
-      .filter((id) => pieces.some((piece) => piece.garmentTypeId === id));
-    expect(within(list).getAllByRole('button').map((row) => row.props.testID))
-      .toEqual(boardOrder.map((id) => `outfit-detail-caption-${id}`));
-
-    for (const [index, { garmentTypeId, item, slot }] of pieces.entries()) {
-      const caption = stacked.getByTestId(`outfit-detail-caption-${garmentTypeId}`);
-      expect(caption.props.accessibilityLabel).toBe(labels[index]);
-      expect(caption.props.accessible).toBe(true);
-      expect(caption.props.accessibilityHint).toBe(messages[language].today.ownershipChangeHint);
-      expect(within(caption).getByText(item)).toBeOnTheScreen();
-      expect(within(caption).getByText(slot)).toBeOnTheScreen();
+    for (const { garmentTypeId, item, slot } of pieces) {
+      const row = stacked.getByTestId(`outfit-detail-piece-${garmentTypeId}`);
+      expect(row).toHaveProp('accessibilityRole', 'button');
+      expect(row).toHaveProp('accessibilityHint', messages[language].today.editPieceAccessibilityHint);
+      expect(within(row).getByText(item)).toBeOnTheScreen();
+      expect(within(row).getByText(slot)).toBeOnTheScreen();
     }
-    expect(stacked.getByTestId(
-      `outfit-detail-ownership-marker-${markedPiece.garmentTypeId}`,
-      { includeHiddenElements: true },
-    )).toBeOnTheScreen();
-    expect(StyleSheet.flatten(list.props.style)).toMatchObject({ gap: spacing.md });
   });
 });
 
@@ -1553,15 +1446,15 @@ test.each([
   [1, 'row'],
   [1.5, 'row'],
   [3, 'column'],
-])('at font scale %s the detail emphasis pill uses a %s layout and captions stay controls', async (fontScale, direction) => {
+])('at font scale %s the detail emphasis pill uses a %s layout and piece rows stay controls', async (fontScale, direction) => {
   Dimensions.set({ window: { ...originalDimensions, width: 390, fontScale } });
   const result = await render(providers(
     <OutfitDetailScreen
       backLabel={messages.en.common.back}
       language="en"
       onBack={() => undefined}
-      onSetOwnership={() => undefined}
-      ownershipByGarmentType={{}}
+      onEditPiece={() => undefined}
+      wardrobeItems={[]}
       state={todayScreenState}
       suggestionId={todayOutfitId(1)}
     />,
@@ -1571,7 +1464,7 @@ test.each([
   expect(StyleSheet.flatten(result.getByTestId('outfit-detail-heading-group').props.style).flexDirection)
     .toBe(direction);
   expect(result.getByTestId(
-    `outfit-detail-caption-${loadedPresentation().suggestions[0].pieces[0].garmentTypeId}`,
+    `outfit-detail-piece-${loadedPresentation().suggestions[0].pieces[0].garmentTypeId}`,
   )).toHaveProp('accessibilityRole', 'button');
 });
 
@@ -1786,8 +1679,8 @@ describe('finishing touches', () => {
         backLabel={messages.en.common.back}
         language="en"
         onBack={() => undefined}
-        onSetOwnership={() => undefined}
-        ownershipByGarmentType={{}}
+        onEditPiece={() => undefined}
+        wardrobeItems={[]}
         state={accessoryFreeTodayScreenState}
         suggestionId={firstOutfitId(accessoryFreeTodayScreenState)}
       />,
@@ -1802,8 +1695,8 @@ describe('finishing touches', () => {
         backLabel={messages[language].common.back}
         language={language}
         onBack={() => undefined}
-        onSetOwnership={() => undefined}
-        ownershipByGarmentType={{}}
+        onEditPiece={() => undefined}
+        wardrobeItems={[]}
         state={coldTodayScreenState}
         suggestionId={firstOutfitId(coldTodayScreenState)}
       />,

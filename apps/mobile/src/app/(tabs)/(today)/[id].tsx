@@ -1,5 +1,5 @@
 import { useFocusEffect, useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { useScreenInteractive } from '@/features/analytics/application/use-screen-interactive';
@@ -10,44 +10,54 @@ import {
   dressStyleProperty,
   generationModeProperty,
 } from '@/features/analytics/domain/analytics-mappers';
-import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
 import { unavailableTodayState, type TodayScreenState } from '@/features/today/model';
-import { OutfitDetailScreen } from '@/features/today/presentation/outfit-detail-screen';
+import {
+  historyDayKey,
+  sameWornGarments,
+  wornOutfitFrom,
+  type WornOutfit,
+} from '@/features/recommendation/domain/outfit-history';
+import {
+  OutfitDetailScreen,
+  type OutfitWornState,
+} from '@/features/today/presentation/outfit-detail-screen';
 import { useWardrobeApplication } from '@/features/wardrobe/application/wardrobe-application-context';
-import { resolveGarmentOwnership } from '@/features/wardrobe/domain/garment-type-ownership';
+import { closetFieldsChanged } from '@/features/wardrobe/application/closet-field-changes';
+import {
+  PieceEditSheet,
+  type PieceSheetTarget,
+  type PieceSheetValues,
+} from '@/features/wardrobe/presentation/piece-edit-sheet';
+import { showWardrobeConfirmation } from '@/features/wardrobe/presentation/wardrobe-confirmation';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { activeLocationSnapshot, weatherFreshness } from '@/features/weather/domain/weather';
 import { useLocalization } from '@/localization/use-messages';
+import { useKuyaraTheme } from '@/theme/theme-context';
 
 export default function OutfitDetailRoute() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const { language, messages } = useLocalization();
   const router = useRouter();
-  const { dressingDayChoiceReady, reevaluateLocalDay, resolvedDressStyle,
-    state: recommendationState } = useRecommendationApplication();
+  const { dressingDayChoiceReady, dressingDayKey, outfitHistory, reevaluateLocalDay,
+    resolvedDressStyle, state: recommendationState } = useRecommendationApplication();
+  const theme = useKuyaraTheme();
   const wardrobe = useWardrobeApplication();
   const { revalidateFreshness: revalidateWeatherFreshness, state: weatherState } =
     useWeatherApplication();
   const { state: profileState } = useProfileApplication();
   const { analytics, firstUses } = useProductAnalytics();
-  const [ownershipError, setOwnershipError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<PieceSheetTarget | null>(null);
+  const [wornGarments, setWornGarments] = useState<{ key: string; outfit: WornOutfit | null } | null>(null);
+  const [wornBusy, setWornBusy] = useState(false);
+  const [wornError, setWornError] = useState<string | null>(null);
   useScreenViewed('outfit_detail');
   const suggestionId = Array.isArray(id) ? id[0] : id;
   const recommendation = recommendationState.status === 'ready'
     ? recommendationState.snapshot?.recommendation ?? null
     : null;
-  const wardrobeItems = wardrobe.state.status === 'ready' ? wardrobe.state.items : null;
-  const ownershipByGarmentType = wardrobeItems
-    ? Object.fromEntries(
-        wardrobeItems.flatMap(({ garmentTypeId }) =>
-          garmentTypeId
-            ? [[garmentTypeId, resolveGarmentOwnership(garmentTypeId, wardrobeItems).state]]
-            : [],
-        ),
-      )
-    : {};
+  const wardrobeItems = wardrobe.state.status === 'ready' ? wardrobe.state.items : [];
 
   const dressStyle = dressStyleProperty(
     resolvedDressStyle ?? (profileState.status === 'ready' ? profileState.profile.dressStyle : null),
@@ -95,60 +105,104 @@ export default function OutfitDetailRoute() {
   }, [ageBucket, analytics, dressStyle, dressingDayChoiceReady, isFocused, outfit, position,
     recommendation, suggestionId]);
 
-  const onSetOwnership = (
-    garmentTypeId: GarmentTypeId,
-    next: 'owned' | 'wanted',
-  ): boolean => {
-    if (wardrobe.state.status !== 'ready') return false;
+  // ADR 0038: the day's worn record, read once per dressing day, so the action knows whether
+  // it records, repeats nothing, or replaces another look.
+  const dayKey = dressingDayKey ? historyDayKey(dressingDayKey) : null;
+  useEffect(() => {
+    if (!dayKey || !outfitHistory) return;
+    let live = true;
+    void outfitHistory.get(dayKey).then(
+      (record) => { if (live) setWornGarments({ key: dayKey, outfit: record?.outfit ?? null }); },
+      () => { if (live) setWornGarments(null); },
+    );
+    return () => { live = false; };
+  }, [dayKey, outfitHistory]);
+  const thisWorn = useMemo(() => {
+    try { return outfit ? wornOutfitFrom(outfit) : null; } catch { return null; }
+  }, [outfit]);
+  const dayWorn = wornGarments?.key === dayKey ? wornGarments : null;
+  const worn: OutfitWornState = !dayWorn || !thisWorn
+    ? 'unknown'
+    : dayWorn.outfit === null ? 'none'
+      : sameWornGarments(dayWorn.outfit, thisWorn) ? 'this' : 'other';
+  const logWorn = () => {
+    if (!dayKey || !thisWorn || !outfitHistory) return;
+    setWornBusy(true);
+    void outfitHistory.log(dayKey, thisWorn)
+      .then((record) => setWornGarments({ key: dayKey, outfit: record.outfit }))
+      .catch(() => setWornError(messages.today.wornSaveError))
+      .finally(() => setWornBusy(false));
+  };
+  // Idempotent per dressing day: the day's row is read again at the tap, the same look is
+  // never written twice, and another look replaces it only after the reader confirms.
+  const onWoreThis = () => {
+    if (!dayKey || !thisWorn || !outfitHistory || wornBusy) return;
+    setWornBusy(true);
+    setWornError(null);
+    void outfitHistory.get(dayKey).then((record) => {
+      setWornBusy(false);
+      if (!record) { logWorn(); return; }
+      setWornGarments({ key: dayKey, outfit: record.outfit });
+      if (sameWornGarments(record.outfit, thisWorn)) return;
+      showWardrobeConfirmation({
+        title: messages.today.wornReplaceTitle,
+        message: messages.today.wornReplaceBody,
+        cancelLabel: messages.today.wornReplaceCancel,
+        confirmLabel: messages.today.wornReplaceConfirm,
+        destructive: true,
+        colorScheme: theme.colorScheme,
+      }, logWorn);
+    }, () => {
+      setWornBusy(false);
+      setWornError(messages.today.wornSaveError);
+    });
+  };
 
-    const activeItems = wardrobe.state.items;
-    const match = resolveGarmentOwnership(garmentTypeId, activeItems);
-    if (match.state === next) return false;
-    setOwnershipError(null);
-
-    // Taxonomy 5.8: the same event shape Closet itself emits, with `entry_point:
-    // 'outfit_detail'`; no shared file with the Closet feature's own capture.
-    if (match.itemIds.length > 0) {
-      void (async () => {
-        try {
-          for (const current of activeItems) {
-            if (current.garmentTypeId !== garmentTypeId || current.entryState === next) continue;
-            const item = await wardrobe.updateItem(current.id, { entryState: next });
-            if (!item.garmentTypeId) continue;
-            analytics.capture('closet_item_updated', {
-              schema_version: ANALYTICS_SCHEMA_VERSION,
-              fields_changed: ['state'],
-              garment_type_id: item.garmentTypeId,
-              entry_point: 'outfit_detail',
-            });
-          }
-        } catch {
-          setOwnershipError(messages.wardrobe.updateError);
+  // O6: one sheet writes the piece's Closet record. Taxonomy 5.8's existing events, with
+  // `entry_point: 'outfit_detail'`, and no new event.
+  const savePiece = async ({ entryState, colorFamily, photoChange }: PieceSheetValues) => {
+    if (!editing) return;
+    const { match, garmentTypeId } = editing;
+    const photo = photoChange.kind === 'unchanged' ? undefined : photoChange;
+    if (match.kind === 'owned' || match.kind === 'wanted') {
+      const submitted = { entryState, colorFamily };
+      const fieldsChanged = closetFieldsChanged(match.item, submitted, photoChange.kind !== 'unchanged');
+      if (fieldsChanged.length > 0) {
+        const item = photo
+          ? await wardrobe.updateItem(match.item.id, submitted, photo)
+          : await wardrobe.updateItem(match.item.id, submitted);
+        if (item.garmentTypeId) {
+          analytics.capture('closet_item_updated', {
+            schema_version: ANALYTICS_SCHEMA_VERSION,
+            fields_changed: fieldsChanged,
+            garment_type_id: item.garmentTypeId,
+            entry_point: 'outfit_detail',
+          });
         }
-      })();
-      return true;
+      }
+      setEditing(null);
+      return;
     }
-
-    void wardrobe.createItem({ garmentTypeId, entryState: next }).then((item) => {
-      if (!item.garmentTypeId) return;
-      analytics.capture('closet_item_created', {
+    const input = { garmentTypeId, entryState, colorFamily };
+    const item = photo ? await wardrobe.createItem(input, photo) : await wardrobe.createItem(input);
+    setEditing(null);
+    if (!item.garmentTypeId) return;
+    analytics.capture('closet_item_created', {
+      schema_version: ANALYTICS_SCHEMA_VERSION,
+      state: item.entryState,
+      garment_type_id: item.garmentTypeId,
+      has_photo: item.photoRelativePath !== null,
+      entry_point: 'outfit_detail',
+      dress_style: dressStyle,
+      age_bucket: ageBucket,
+    });
+    void firstUses.markFirstUse('closet').then((firstUse) => {
+      if (!firstUse) return;
+      analytics.capture('feature_used_first_time', {
         schema_version: ANALYTICS_SCHEMA_VERSION,
-        state: item.entryState,
-        garment_type_id: item.garmentTypeId,
-        has_photo: item.photoRelativePath !== null,
-        entry_point: 'outfit_detail',
-        dress_style: dressStyle,
-        age_bucket: ageBucket,
+        feature_name: 'closet',
       });
-      void firstUses.markFirstUse('closet').then((firstUse) => {
-        if (!firstUse) return;
-        analytics.capture('feature_used_first_time', {
-          schema_version: ANALYTICS_SCHEMA_VERSION,
-          feature_name: 'closet',
-        });
-      });
-    }).catch(() => setOwnershipError(messages.wardrobe.createError));
-    return true;
+    });
   };
 
   const onBack = () => {
@@ -209,15 +263,28 @@ export default function OutfitDetailRoute() {
   useScreenInteractive(state.kind === 'loaded' ? { state: 'loaded' } : null);
 
   return (
-    <OutfitDetailScreen
-      backLabel={messages.today.backAction}
-      language={language}
-      onBack={onBack}
-      onSetOwnership={onSetOwnership}
-      ownershipByGarmentType={ownershipByGarmentType}
-      ownershipError={ownershipError}
-      state={state}
-      suggestionId={suggestionId}
-    />
+    <>
+      <OutfitDetailScreen
+        backLabel={messages.today.backAction}
+        language={language}
+        onBack={onBack}
+        onEditPiece={setEditing}
+        onWoreThis={outfitHistory && dayKey ? onWoreThis : undefined}
+        state={state}
+        suggestionId={suggestionId}
+        wardrobeItems={wardrobeItems}
+        worn={worn}
+        wornBusy={wornBusy}
+        wornError={wornError}
+      />
+      <PieceEditSheet
+        onDiscardStagedPhoto={wardrobe.discardStagedPhoto}
+        onDismiss={() => setEditing(null)}
+        onSave={savePiece}
+        onSelectPhoto={wardrobe.preparePhoto}
+        resolvePhotoUri={wardrobe.resolvePhotoUri}
+        target={editing}
+      />
+    </>
   );
 }

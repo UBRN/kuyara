@@ -1,5 +1,5 @@
 import * as Crypto from 'expo-crypto';
-import type { DressStyle } from '@kuyara/contracts';
+import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
 import { AppState, Platform, type AppStateStatus } from 'react-native';
 import {
   type PropsWithChildren,
@@ -40,6 +40,7 @@ import { reaskForDressingDay } from '@/features/recommendation/application/reask
 import { resolvedFormality, resolvedStyleAesthetics, type DressingDayChoice, type DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
 import { ExpoHistoryPhotoStorage } from '@/features/recommendation/data/expo-history-photo-storage';
+import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import {
   OnDeviceAiClient,
   type OnDeviceAiModule,
@@ -471,18 +472,29 @@ export function RecommendationApplicationProvider({
     if (!triggered) controller.clearLastFailure();
   }, [controller, currentInput, evaluateApprovedTriggersForInput]);
 
+  const settingsStyles = profileState.status === 'ready' ? profileState.profile.styleAesthetics ?? null : null;
   const chooseFormality = useCallback(async (
     key: string, formality: DressStyle, source: DressingDayChoiceSource,
+    styleAesthetics?: readonly StyleAesthetic[],
   ) => {
     const repository = await loadChoiceRepository();
-    const choice = await repository.upsert(localProfileId, key, formality, source);
+    const choice = await repository.upsert(localProfileId, key, formality, source, styleAesthetics);
     if (key !== localDay.key) return;
     setDayChoiceState({ profileId: localProfileId, key, status: 'row', choice });
+    // Both answers ride one generation, with the styles the next render resolves too, so
+    // the approved triggers see nothing new and join this request instead of adding one.
     const generationInput = currentInput();
     if (generationInput) void controller.refresh('dress-style-changed', {
       ...generationInput, dressStyle: formality,
+      styleAesthetics: resolvedStyleAesthetics(choice, settingsStyles ?? []),
     });
-  }, [controller, currentInput, localDay.key, localProfileId]);
+  }, [controller, currentInput, localDay.key, localProfileId, settingsStyles]);
+  const outfitHistory = useMemo(() => ({
+    list: async () => (await loadHistoryRepository()).list(localProfileId),
+    get: async (dayKey: string) => (await loadHistoryRepository()).get(localProfileId, dayKey),
+    log: async (dayKey: string, outfit: WornOutfit) =>
+      (await loadHistoryRepository()).log(localProfileId, dayKey, outfit),
+  }), [localProfileId]);
 
   const value = useMemo<RecommendationApplicationValue>(() => ({
     state,
@@ -523,7 +535,9 @@ export function RecommendationApplicationProvider({
       return cleared;
     },
     resolvedDressStyle,
+    resolvedStyleAesthetics: resolvedStyles,
     chooseFormality,
+    outfitHistory,
     reask: async ({ formality, departureAt, timeZone }) => {
       const result = await reaskForDressingDay({ formality, departureAt, timeZone }, {
         localProfileId,
@@ -574,6 +588,8 @@ export function RecommendationApplicationProvider({
     onDeviceAvailability,
     reevaluateLocalDay,
     resolvedDressStyle,
+    resolvedStyles,
+    outfitHistory,
     state,
   ]);
 

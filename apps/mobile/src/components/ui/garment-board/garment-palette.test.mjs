@@ -4,7 +4,7 @@ import test from 'node:test';
 import { colorFamilies, garmentTypeIds } from '../../../features/catalog/domain/garment-taxonomy.ts';
 import { darkTheme, lightTheme } from '../../../theme/theme.ts';
 import {
-  garmentFillForAppearance, garmentPaletteMood, garmentPaletteRoutes,
+  garmentColorFamiliesBySlot, garmentFillForAppearance, garmentPaletteMood, garmentPaletteRoutes,
   garmentSwatchColorFamilies, garmentSwatches, legalizeGarmentFill,
   resolveGarmentPalette, toGarmentOklch,
 } from './garment-palette.ts';
@@ -145,4 +145,15 @@ test('31 x 8 swatch-stage matrix matches the approved clamp metrics', (context) 
   assert.equal(Number(largestMove.toFixed(3)), 0.060);
   assert.ok(minimumStep >= 1.2);
   context.diagnostic(`248 cells passed; moved ${moved}; max |dL| ${largestMove.toFixed(3)}; minimum fill:stage ${minimumStep.toFixed(3)}`);
+});
+
+test('an outfit piece keeps one colour family in both appearances (O7)', () => {
+  const pieces = [piece('primary_top', 't_shirt'), piece('bottom', 'jeans'), piece('footwear', 'sneakers')];
+  const palette = { optionId: 'o7', pieces, temperatureC: 18, condition: 'clear', isNight: false, formality: 'casual' };
+  const families = garmentColorFamiliesBySlot(palette);
+  for (const appearance of ['light', 'dark']) {
+    const resolved = resolveGarmentPalette(input({ ...palette, appearance }));
+    assert.deepEqual(resolved.map(({ piece: { slot }, colorFamily }) => [slot, colorFamily]),
+      pieces.map(({ slot }) => [slot, families.get(slot)]));
+  }
 });

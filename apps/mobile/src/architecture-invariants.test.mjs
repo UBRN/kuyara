@@ -349,6 +349,8 @@ const rawPressableAllowlist = Object.freeze({
   'features/today/presentation/today-screen.tsx': 2,
   // The three day-type radio tiles.
   'features/today/presentation/daily-formality-sheet.tsx': 1,
+  // O6: the board caption, the garment drawing's target and the piece row open one sheet.
+  'features/today/presentation/outfit-detail-screen.tsx': 3,
   // The text field's inline clear glyph.
   'features/profile/presentation/name-input.tsx': 1,
   // The Closet heading row and the rail's all-pieces tile.

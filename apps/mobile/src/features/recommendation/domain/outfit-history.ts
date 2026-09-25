@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { garmentTypeIdSchema } from '@/features/catalog/domain/garment-taxonomy';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
-import { outfitSlots } from '@/features/recommendation/domain/outfit-composition';
+import { outfitSlots, type OutfitCandidate } from '@/features/recommendation/domain/outfit-composition';
 
 export const bareHistoryDayKeySchema = z.iso.date();
 function validWornGarments(garments: Partial<Record<(typeof outfitSlots)[number], string>>): boolean {
@@ -43,6 +43,33 @@ export const wornOutfitSchema = z.strictObject({
   source: z.enum(['recommended', 'manual']),
 });
 export type WornOutfit = z.infer<typeof wornOutfitSchema>;
+
+/** The bare-date day a dressing-day key records under: the evening shares its date's row. */
+export function historyDayKey(dressingDayKey: string): string {
+  return bareHistoryDayKeySchema.parse(dressingDayKey.replace(/:evening$/, ''));
+}
+
+/** A recommended outfit as the worn record "Wore this today" writes (ADR 0038). */
+export function wornOutfitFrom(
+  outfit: OutfitCandidate & Readonly<{ archetypeId: WornOutfit['archetypeId'] }>,
+): WornOutfit {
+  const body = outfit.body.kind === 'separates'
+    ? [outfit.body.primaryTop, outfit.body.bottom] : [outfit.body.onePiece];
+  const assigned = [...body, outfit.midLayer, outfit.outerLayer, outfit.footwear,
+    ...Object.values(outfit.accessories)].filter((garment) => garment !== null);
+  return wornOutfitSchema.parse({
+    garments: Object.fromEntries(assigned.map(({ slot, garment }) => [slot, garment.garmentTypeId])),
+    archetypeId: outfit.archetypeId,
+    formality: outfit.formality,
+    source: 'recommended',
+  });
+}
+
+/** Whether two worn records dress the same pieces in the same slots. */
+export function sameWornGarments(a: WornOutfit, b: WornOutfit): boolean {
+  const keys = new Set([...Object.keys(a.garments), ...Object.keys(b.garments)]) as Set<keyof WornOutfit['garments']>;
+  return [...keys].every((slot) => a.garments[slot] === b.garments[slot]);
+}
 
 export type OutfitHistoryRecord = Readonly<{
   id: string;

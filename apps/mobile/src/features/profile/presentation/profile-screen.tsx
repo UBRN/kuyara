@@ -38,6 +38,7 @@ const RAIL_SCALE_MAXIMUM = 2;
 type ProfileScreenProps = Readonly<{
   displayName?: string | null;
   onOpenWardrobe: (filter?: 'wanted') => void;
+  onOpenHistory: () => void;
 }>;
 
 function resolveRailScale(fontScale: number): number {
@@ -211,6 +212,7 @@ function ClosetRail({
 
 export function ProfileScreen({
   displayName = null,
+  onOpenHistory,
   onOpenWardrobe,
 }: ProfileScreenProps) {
   const messages = useMessages();
@@ -334,6 +336,7 @@ export function ProfileScreen({
             glyph={({ color, size }) => <Icon color={color} name="calendar" size={size} />}
             key="history"
             label={copy.historyLabel}
+            onPress={onOpenHistory}
             testID="profile-history-row"
           />
         </ListRowGroup>
