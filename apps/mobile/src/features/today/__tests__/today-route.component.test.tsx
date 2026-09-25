@@ -1079,28 +1079,46 @@ test('a pending morning answer with a recommendation failure stays unavailable a
   ]);
 });
 
-// M17 and M23: dismissing the morning question keeps the alert, and its preferred action
-// is "Choose a day type".
-test('dismissing the morning sheet asks first, with Choose a day type as the preferred action', async () => {
+// P6: closing the morning question answers it with the profile's dress style, through the
+// one write an answer makes. No alert, no random style, and no second write.
+test('dismissing the morning sheet answers with the profile dress style and asks nothing', async () => {
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+  const chooseFormality = jest.fn(async () => undefined);
   const view = await render(
     <Providers productAnalytics={createProductAnalytics()}
-      profile={profileValue({ morningSheetEnabled: true })}
-      recommendation={recommendationReady()} resolvedDressStyle="smart"
+      profile={profileValue({ morningSheetEnabled: true, dressStyle: 'casual' })}
+      recommendation={recommendationReady()} resolvedDressStyle="casual"
       dressingDayKey="2026-08-13" dressingDayChoiceReady morningChoicePending
-      chooseFormality={jest.fn(async () => undefined)} wardrobe={wardrobeValue()} weather={weatherValue()}>
+      chooseFormality={chooseFormality} wardrobe={wardrobeValue()} weather={weatherValue()}>
       <TodayRoute />
     </Providers>,
   );
 
   await fireEvent.press(await view.findByTestId('daily-formality-close'));
-  const copy = messages.en.today.dailyStyle;
-  expect(alert).toHaveBeenCalledTimes(1);
-  const [title, message, buttons] = alert.mock.calls[0];
-  expect([title, message]).toEqual([copy.question, copy.dismissWarning]);
-  expect(buttons?.[0]).toMatchObject({ text: copy.chooseDayType, isPreferred: true, style: 'default' });
-  expect(buttons?.[1]).toMatchObject({ text: copy.continueWithoutChoosing, style: 'destructive' });
+  expect(alert).not.toHaveBeenCalled();
+  expect(chooseFormality).toHaveBeenCalledTimes(1);
+  expect(chooseFormality).toHaveBeenCalledWith('2026-08-13', 'casual', 'morning');
+  await waitFor(() => expect(view.queryByTestId('daily-formality-sheet')).toBeNull());
+  // P6: Today has no Plan tomorrow row.
+  expect(view.queryByTestId('today-plan-tomorrow')).toBeNull();
   alert.mockRestore();
+});
+
+test('a dismissal whose save fails reopens the question with the save error', async () => {
+  const chooseFormality = jest.fn(async () => { throw new Error('write failed'); });
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()}
+      profile={profileValue({ morningSheetEnabled: true })}
+      recommendation={recommendationReady()} resolvedDressStyle="smart"
+      dressingDayKey="2026-08-13" dressingDayChoiceReady morningChoicePending
+      chooseFormality={chooseFormality} wardrobe={wardrobeValue()} weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(await view.findByTestId('daily-formality-close'));
+  expect(await view.findByText(messages.en.today.dailyStyle.saveError)).toBeOnTheScreen();
+  expect(view.getByTestId('daily-formality-sheet')).toBeOnTheScreen();
 });
 
 // O3: one sheet, no system alert. The current day type is checked, Now is the default, and
@@ -1262,15 +1280,16 @@ test('a new dressing day waits for its Later row before choosing outfits', async
 });
 
 // N20: the first foreground open after 18:00 asks the evening question with nothing checked,
-// and dismissing it uses the M17 alert with the evening's own words.
-test('the evening sheet arrives empty and its dismissal asks with the evening copy', async () => {
+// and closing it answers the evening with the profile's dress style (P6).
+test('the evening sheet arrives empty and its dismissal uses the profile dress style', async () => {
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+  const chooseFormality = jest.fn(async () => undefined);
   const view = await render(
     <Providers productAnalytics={createProductAnalytics()}
-      profile={profileValue({ morningSheetEnabled: true, dressStyle: 'smart' })}
-      recommendation={recommendationReady()} resolvedDressStyle="smart"
+      profile={profileValue({ morningSheetEnabled: true, dressStyle: 'formal' })}
+      recommendation={recommendationReady()} resolvedDressStyle="formal"
       dressingDayKey="2026-08-13:evening" dressingDayChoiceReady eveningChoicePending
-      chooseFormality={jest.fn(async () => undefined)} wardrobe={wardrobeValue()} weather={weatherValue()}>
+      chooseFormality={chooseFormality} wardrobe={wardrobeValue()} weather={weatherValue()}>
       <TodayRoute />
     </Providers>,
   );
@@ -1283,32 +1302,36 @@ test('the evening sheet arrives empty and its dismissal asks with the evening co
   expect(view.queryByTestId('daily-formality-smart-check')).toBeNull();
 
   await fireEvent.press(view.getByTestId('daily-formality-close'));
-  expect(alert).toHaveBeenCalledTimes(1);
-  const [title, message, buttons] = alert.mock.calls[0];
-  expect([title, message]).toEqual([copy.questionEvening, copy.dismissWarningEvening]);
-  expect(buttons?.[0]).toMatchObject({ text: copy.chooseDayType, isPreferred: true });
-  expect(buttons?.[1]).toMatchObject({ text: copy.continueWithoutChoosing, style: 'destructive' });
+  expect(alert).not.toHaveBeenCalled();
+  expect(chooseFormality).toHaveBeenCalledTimes(1);
+  expect(chooseFormality).toHaveBeenCalledWith('2026-08-13:evening', 'formal', 'morning');
   alert.mockRestore();
 });
 
-test('Plan tomorrow asks about tomorrow and writes the next dressing day', async () => {
-  const chooseFormality = jest.fn(async () => undefined);
+// S3: after a place switch the previous place's snapshot is the last valid result, but it is
+// never shown under the new place's name. Today waits, or states the failure.
+test('a retained previous-place snapshot never renders under the new place', async () => {
+  const newPlace = { ...todayActiveLocation, locationKey: 'manual:sample.ankara', displayName: 'Ankara' };
+  const props = { productAnalytics: createProductAnalytics(), profile: profileValue(),
+    recommendation: recommendationReady(), wardrobe: wardrobeValue() };
   const view = await render(
-    <Providers productAnalytics={createProductAnalytics()} profile={profileValue({ dressStyle: 'casual' })}
-      recommendation={recommendationReady()} resolvedDressStyle="smart"
-      dressingDayKey="2026-08-13" dressingDayChoiceReady
-      chooseFormality={chooseFormality} wardrobe={wardrobeValue()} weather={weatherValue()}>
+    <Providers {...props} weather={weatherValue({ activeLocation: newPlace, freshness: 'stale',
+      isRefreshing: true })}>
       <TodayRoute />
     </Providers>,
   );
+  expect(view.getByTestId('today-loading-screen')).toBeOnTheScreen();
+  expect(view.queryByText('Ankara')).toBeNull();
+  expect(view.queryByTestId('today-title')).toBeNull();
 
-  expect(view.getByTestId('today-plan-tomorrow').props.accessibilityLabel)
-    .toBe(messages.en.today.dailyStyle.planTomorrow('Fri 14 Aug'));
-  await fireEvent.press(view.getByTestId('today-plan-tomorrow'));
-  expect(view.getByText(messages.en.today.dailyStyle.questionTomorrow)).toBeOnTheScreen();
-  expect(view.getByTestId('daily-formality-casual').props.accessibilityState.selected).toBe(true);
-  await fireEvent.press(view.getByTestId('daily-formality-formal'));
-  expect(chooseFormality).toHaveBeenCalledWith('2026-08-14', 'formal', 'plan');
+  await view.rerender(
+    <Providers {...props} weather={weatherValue({ activeLocation: newPlace, freshness: 'stale',
+      refreshFailure: 'offline' })}>
+      <TodayRoute />
+    </Providers>,
+  );
+  expect(view.getByTestId('today-unavailable-screen')).toBeOnTheScreen();
+  expect(view.queryByTestId('today-title')).toBeNull();
 });
 
 // f7: a morning or evening answer dims the outfit under a line that says what is

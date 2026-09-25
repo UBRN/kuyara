@@ -21,7 +21,6 @@ import { OutfitDetailScreen } from '@/features/today/presentation/outfit-detail-
 import {
   createDetailCaptionLayout,
   createTodayPresentation,
-  planRowPresentation,
 } from '@/features/today/presentation/today-presentation';
 import { PLACEHOLDER_REST } from '@/features/today/presentation/garment-board-skeleton';
 import { TodayScreen, type TodayAlertOffer } from '@/features/today/presentation/today-screen';
@@ -229,17 +228,13 @@ function stateWithGenerationMode(
 }
 
 describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
-  // O2: Today has no day-type pill; the day type changes inside the re-ask sheet. Plan
-  // tomorrow stays one row with the target day's date as its value.
-  test('Today has no day-type pill, and Plan tomorrow is one row with the date', async () => {
-    const onPlanTomorrow = jest.fn();
+  // O2 and P6: Today has no day-type pill and no Plan tomorrow row; the day type changes
+  // inside the re-ask sheet.
+  test('Today has no day-type pill and no Plan tomorrow row', async () => {
     const copy = messages[language].today.dailyStyle;
     const result = await render(providers(
       <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
-        onRefresh={jest.fn()} onAskAgain={jest.fn()} state={aiAssistedTodayScreenState}
-        planRow={{ label: copy.planTomorrowLabel, value: 'Fri 14 Aug',
-          accessibilityLabel: copy.planTomorrow('Fri 14 Aug') }}
-        onPlanTomorrow={onPlanTomorrow} />,
+        onRefresh={jest.fn()} onAskAgain={jest.fn()} state={aiAssistedTodayScreenState} />,
       lightTheme, language,
     ));
     expect(result.queryByTestId('today-day-type-pill')).toBeNull();
@@ -247,11 +242,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     for (const style of ['casual', 'smart', 'formal'] as const) {
       expect(result.queryByText(copy[style])).toBeNull();
     }
-    const plan = result.getByTestId('today-plan-tomorrow');
-    expect(plan.props.accessibilityLabel).toBe(copy.planTomorrow('Fri 14 Aug'));
-    expect(plan).toHaveTextContent(`${copy.planTomorrowLabel}Fri 14 Aug`);
-    await fireEvent.press(plan);
-    expect(onPlanTomorrow).toHaveBeenCalledTimes(1);
+    expect(result.queryByTestId('today-plan-tomorrow')).toBeNull();
   });
 
   // One whole template per language, split only where the symbol stands and where the line
@@ -2072,18 +2063,14 @@ describe.each(['en', 'tr'] as const)('%s ask-again control', (language) => {
     expect(onRefresh).not.toHaveBeenCalled();
   });
 
-  test('"Last updated" sits under the finishing touches, before the plan row', async () => {
-    const copy = messages[language].today.dailyStyle;
+  test('"Last updated" sits under the finishing touches, before the ask-again button', async () => {
     const result = await render(providers(
       <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
-        onRefresh={jest.fn()} onAskAgain={jest.fn()} state={todayScreenState}
-        planRow={{ label: copy.planTomorrowLabel, value: 'Fri 14 Aug',
-          accessibilityLabel: copy.planTomorrow('Fri 14 Aug') }}
-        onPlanTomorrow={jest.fn()} />,
+        onRefresh={jest.fn()} onAskAgain={jest.fn()} state={todayScreenState} />,
       lightTheme, language,
     ));
     const ids = hostTestIds(result.toJSON());
-    const order = ['today-accessory-badges', 'today-freshness', 'today-plan-tomorrow', 'today-ask-again']
+    const order = ['today-accessory-badges', 'today-freshness', 'today-ask-again']
       .map((id) => ids.indexOf(id));
     expect(order.every((index) => index >= 0)).toBe(true);
     expect([...order].sort((left, right) => left - right)).toEqual(order);
@@ -2184,29 +2171,6 @@ describe.each(['en', 'tr'] as const)('%s coverage captions', (language) => {
     expect(coldResult.getByTestId('today-drift-caption')).toBeOnTheScreen();
   });
 
-  // Observed on main: with a coverage window the second line restated the first line's rain.
-  test('the two insight lines carry distinct facts under a coverage window', async () => {
-    const result = await render(providers(
-      <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
-        onRefresh={jest.fn()} onAskAgain={jest.fn()}
-        state={coveredState({ 11: rainHour, 12: rainHour })} />,
-      lightTheme, language,
-    ));
-    expect(result.getByTestId('today-day-insight')).toBeOnTheScreen();
-    expect(result.queryByTestId('today-day-window')).toBeNull();
-    const windy = { windSpeedMetersPerSecond: 6 };
-    const allDayWind = Object.fromEntries(Array.from({ length: 14 }, (_, index) => [index + 10, windy]));
-    const windResult = await render(providers(
-      <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
-        onRefresh={jest.fn()} onAskAgain={jest.fn()} state={coveredState(allDayWind)} />,
-      lightTheme, language,
-    ));
-    const lines = [windResult.queryByTestId('today-day-insight'), windResult.queryByTestId('today-day-window')]
-      .filter((line) => line !== null);
-    expect(lines.filter((line) => /wind|rüzgâr|rüzgar/i.test(JSON.stringify(line?.props.children)))
-      .length).toBeLessThanOrEqual(1);
-  });
-
   test('says what it is choosing for while a re-ask runs, in place of the claim', async () => {
     const base = coveredState();
     if (base.kind !== 'loaded') throw new Error('loaded fixture required');
@@ -2220,25 +2184,6 @@ describe.each(['en', 'tr'] as const)('%s coverage captions', (language) => {
     expect(result.getByTestId('today-choosing-caption'))
       .toHaveTextContent(messages[language].today.coverage.choosing('15:00', '20:00'));
     expect(result.queryByTestId('today-coverage-caption')).toBeNull();
-  });
-});
-
-describe.each(['en', 'tr'] as const)('%s plan row after midnight', (language) => {
-  test('names the target weekday from the date and keeps the date as the value', () => {
-    const copy = messages[language].today.dailyStyle;
-    // 01:30 on Friday 25 September 2026 (device clock), still Thursday evening's dressing day.
-    const after = planRowPresentation('2026-09-25', Date.parse('2026-09-25T01:30:00.000Z'), language);
-    const weekday = language === 'en' ? 'Friday' : 'Cuma';
-    expect(after.label).toBe(copy.planFor(weekday));
-    expect(after.value.startsWith('25 ')).toBe(true);
-    expect(after.value).not.toContain(weekday);
-    expect(after.accessibilityLabel).toBe(copy.planForAccessibilityLabel(weekday, after.value));
-    expect(after.question).toBe(copy.questionForDay(language === 'en'
-      ? 'Friday 25 September' : '25 Eylül Cuma'));
-    // Before midnight the same target is still "tomorrow".
-    const before = planRowPresentation('2026-09-25', Date.parse('2026-09-24T23:30:00.000Z'), language);
-    expect(before.label).toBe(copy.planTomorrowLabel);
-    expect(before.question).toBe(copy.questionTomorrow);
   });
 });
 
@@ -2403,30 +2348,71 @@ describe.each(['en', 'tr'] as const)('%s Today day insight', (language) => {
   });
 });
 
-describe.each(['en', 'tr'] as const)('%s Today window insight', (language) => {
-  test('uses a complete localized wind sentence in body text', async () => {
+// P4 and P6: "No two visible lines on one surface state the same fact." Today has one
+// weather line, from one generator: the accepted AI sentence, else the deterministic one.
+describe.each(['en', 'tr'] as const)('%s Today states each fact once', (language) => {
+  const visibleLines = (tree: unknown): string[] => {
+    const lines: string[] = [];
+    const walk = (node: unknown) => {
+      if (Array.isArray(node)) { node.forEach(walk); return; }
+      if (!node || typeof node !== 'object') return;
+      const { type, children } = node as { type?: string; children?: unknown[] | null };
+      if (type === 'Text') {
+        const text = (children ?? []).filter((child) => typeof child === 'string').join('').trim();
+        if (text) lines.push(text);
+        return;
+      }
+      (children ?? []).forEach(walk);
+    };
+    walk(tree);
+    return lines;
+  };
+  const withSentence = (state: TodayScreenState, sentence: string): TodayScreenState => {
+    if (state.kind !== 'loaded' || state.snapshot.recommendation.status !== 'recommended') {
+      throw new Error('loaded recommendation fixture required');
+    }
+    return { ...state, snapshot: { ...state.snapshot, recommendation: {
+      ...state.snapshot.recommendation, insightSentence: sentence, insightLocale: language,
+    } } };
+  };
+  const windy = Object.fromEntries(Array.from({ length: 14 }, (_, index) =>
+    [index + 10, { windSpeedMetersPerSecond: 6 }]));
+  const states: readonly (readonly [string, TodayScreenState])[] = [
+    ['rain window', insightState({ 11: rainHour, 12: rainHour })],
+    ['wind all day', insightState(windy)],
+    ['a late wind hour on a clear day', insightState({ 14: { windSpeedMetersPerSecond: 5 } })],
+    ['hot evening', insightState({ 22: { apparentTemperatureCelsius: 24 }, 23: { apparentTemperatureCelsius: 24 } })],
+    ['AI sentence over rain', withSentence(insightState({ 11: rainHour, 12: rainHour }),
+      language === 'tr' ? 'Öğle saatlerinde yağmur var.' : 'Rain arrives around midday.')],
+    // The observed repeat: an AI sentence about the wind above a second line about the wind.
+    ['AI sentence over a wind hour', withSentence(insightState({ 14: { windSpeedMetersPerSecond: 5 } }),
+      language === 'tr' ? 'Öğleden sonra rüzgâr çıkıyor.' : 'The wind picks up this afternoon.')],
+  ];
+
+  test.each(states)('%s: one weather line and no repeated line', async (_name, state) => {
     const result = await render(providers(
       <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
-        onRefresh={jest.fn()} onAskAgain={jest.fn()}
-        state={insightState({ 14: { windSpeedMetersPerSecond: 5 } })} />,
+        onRefresh={jest.fn()} onAskAgain={jest.fn()} state={state} />,
       lightTheme, language,
     ));
-
-    const line = result.getByTestId('today-day-window');
-    expect(line).toHaveTextContent(messages[language].today.dayWindow.wind('14:00', '15:00'));
-    expect(StyleSheet.flatten(line.props.style)).toMatchObject({
-      ...typography.body, color: lightTheme.colors.textPrimary,
-    });
-  });
-
-  test('does not repeat rain already described by line one', async () => {
-    const result = await render(providers(
-      <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
-        onRefresh={jest.fn()} onAskAgain={jest.fn()}
-        state={insightState({ 11: rainHour, 12: rainHour })} />,
-      lightTheme, language,
-    ));
-    expect(result.getByTestId('today-day-insight')).toBeOnTheScreen();
+    expect(result.queryAllByTestId('today-day-insight').length).toBeLessThanOrEqual(1);
     expect(result.queryByTestId('today-day-window')).toBeNull();
+    const lines = visibleLines(result.toJSON());
+    expect(lines.length).toBeGreaterThan(0);
+    expect(lines.filter((line, index) => lines.indexOf(line) !== index)).toEqual([]);
+    const presentation = createTodayPresentation(state, language, false, Date.now());
+    if (presentation.kind !== 'loaded') throw new Error('loaded presentation required');
+    expect(Object.keys(presentation)).not.toContain('dayWindow');
+    if (state.kind === 'loaded' && state.snapshot.recommendation.status === 'recommended' &&
+        state.snapshot.recommendation.insightSentence) {
+      expect(result.getByTestId('today-day-insight'))
+        .toHaveTextContent(state.snapshot.recommendation.insightSentence);
+      // The deterministic fallback for the same weather is not shown beside it.
+      const fallback = createTodayPresentation({ ...state, snapshot: { ...state.snapshot,
+        recommendation: { ...state.snapshot.recommendation, insightSentence: undefined } } },
+      language, false, Date.now());
+      if (fallback.kind !== 'loaded' || !fallback.dayInsight) throw new Error('fallback line expected');
+      expect(lines).not.toContain(fallback.dayInsight);
+    }
   });
 });

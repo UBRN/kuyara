@@ -90,11 +90,8 @@ All six clear 3:1. Light `#5C7A83` at 4.60 on white stays visibly quieter than
 Filled destructive button: fill `dangerInk`, label the appearance's on-brand
 colour, `textOnBrand`. Light `textOnBrand` on `#9B2C2C` is about 7.1. Dark `#0D191E` on
 `#F2A6A2` = 9.15. The confirming Alert stays the platform's, as today.
-The danger role may also mark a quality-reducing, non-destructive choice. In the daily
-formality alert, "Continue without choosing" takes the native destructive style (red text on iOS)
-while the recommended "Choose a day type" action is the native default (bold blue text on
-iOS); the alert is the system alert with its own look, never a custom filled sheet. This extends danger beyond
-destructive actions, so the words and emphasis must explain the choice.
+The danger role may also mark a quality-reducing, non-destructive choice; the words and
+emphasis must then explain the choice.
 
 ### No info colour
 

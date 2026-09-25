@@ -17,8 +17,7 @@ import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { spacing } from '@/theme/theme';
 
 const quarterHourMs = 15 * 60 * 1000;
-// Settled with the owner: a 15-minute wheel over the next 12 hours. A plan further out is
-// Plan tomorrow's job, and the forecast is hourly.
+// Settled with the owner: a 15-minute wheel over the next 12 hours; the forecast is hourly.
 const horizonMs = 12 * 60 * 60 * 1000;
 // The wheel opens about an hour ahead, the nearest departure worth planning for.
 const defaultLeadMs = 60 * 60 * 1000;

@@ -41,13 +41,6 @@ export function resolvedFormality(
   return choice?.formality ?? profileDefault;
 }
 
-export function nextBareDressingDayKey(currentKey: string): string {
-  const key = dressingDayKeySchema.parse(currentKey);
-  const date = new Date(`${key.slice(0, 10)}T00:00:00.000Z`);
-  date.setUTCDate(date.getUTCDate() + 1);
-  return date.toISOString().slice(0, 10);
-}
-
 export function parseDressingDayChoice(value: unknown): DressingDayChoice {
   return z.strictObject({
     id: z.uuid(),

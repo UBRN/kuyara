@@ -203,3 +203,15 @@ export function weatherFreshness(
 export function isWeatherConditionCode(value: string): value is WeatherConditionCode {
   return (weatherConditionCodes as readonly string[]).includes(value);
 }
+
+/**
+ * The snapshot only when it belongs to the active place. After a place switch the previous
+ * place's snapshot stays the last valid result until the new one loads, and it carries no
+ * name of its own, so nothing place-dependent may render it under the new place's label.
+ */
+export function activeLocationSnapshot(
+  snapshot: WeatherSnapshot | null,
+  activeLocation: ActiveLocation | null,
+): WeatherSnapshot | null {
+  return snapshot !== null && snapshot.locationKey === activeLocation?.locationKey ? snapshot : null;
+}

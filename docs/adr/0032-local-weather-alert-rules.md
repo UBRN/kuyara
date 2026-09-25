@@ -70,10 +70,8 @@ Wind is deliberately not a rule: wind changes what outerwear is, which the outfi
 covers, and it does not announce itself at an hour the way rain does. UV, humidity and
 condition-only changes are not rules either.
 
-Today's second insight line is a display projection, not a notification rule. It may
-describe a precipitation interval, a sustained hot or cold run, a wind interval or
-the existing 8 °C cooling/warming hour in that priority order, using the same
-dressing-day window. This adds no wind or humidity alert and no Yr wind bands; see
+Today's insight line is a display projection, not a notification rule, over the same
+dressing-day window. It adds no wind or humidity alert and no Yr wind bands; see
 [Today](../product-decisions.md#today).
 
 ### 2. Identity and repeat suppression

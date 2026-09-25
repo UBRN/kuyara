@@ -18,7 +18,7 @@ import { OutfitDetailScreen } from '@/features/today/presentation/outfit-detail-
 import { useWardrobeApplication } from '@/features/wardrobe/application/wardrobe-application-context';
 import { resolveGarmentOwnership } from '@/features/wardrobe/domain/garment-type-ownership';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
-import { weatherFreshness } from '@/features/weather/domain/weather';
+import { activeLocationSnapshot, weatherFreshness } from '@/features/weather/domain/weather';
 import { useLocalization } from '@/localization/use-messages';
 
 export default function OutfitDetailRoute() {
@@ -159,12 +159,18 @@ export default function OutfitDetailRoute() {
     }
   };
 
+  const placeSnapshot = weatherState.status === 'ready'
+    ? activeLocationSnapshot(weatherState.snapshot, weatherState.activeLocation) : null;
   let state: TodayScreenState;
   if (weatherState.status === 'loading' || recommendationState.status === 'loading') {
     state = { kind: 'loading' };
+  } else if (weatherState.status === 'ready' && weatherState.activeLocation !== null &&
+      weatherState.snapshot !== null && placeSnapshot === null && weatherState.refreshFailure === null) {
+    // S3: the previous place's snapshot is still the last valid result; wait for the new one.
+    state = { kind: 'loading' };
   } else if (
     weatherState.status === 'error' ||
-    weatherState.snapshot === null ||
+    placeSnapshot === null ||
     weatherState.activeLocation === null
   ) {
     // Same classification rule as the Today route; the detail surface renders neither.
@@ -180,11 +186,11 @@ export default function OutfitDetailRoute() {
       refreshFailed:
         weatherState.refreshFailure !== null || recommendationState.lastFailure !== null,
       snapshot: {
-        weather: weatherState.snapshot,
+        weather: placeSnapshot,
         activeLocation: weatherState.activeLocation,
         freshness:
           weatherFreshness(
-            weatherState.snapshot.fetchedAt,
+            placeSnapshot.fetchedAt,
             new Date().toISOString(),
           ) === 'fresh'
             ? 'fresh'

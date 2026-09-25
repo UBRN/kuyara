@@ -48,7 +48,6 @@ import {
   type DayInsight,
   type DayInsightModifier,
 } from '@/features/weather/domain/day-insight';
-import { findDayWindow, type DayWindow } from '@/features/weather/domain/day-window';
 import type { NormalizedCoordinates, WeatherSnapshot } from '@/features/weather/domain/weather';
 import {
   getMessages,
@@ -199,8 +198,8 @@ export type LoadedTodayPresentation = Readonly<{
   driftCaption: string | null;
   /** N19: a later short cool spell, the "take a layer" finishing touch. */
   coolSpellCaption: string | null;
+  /** P6: the one weather line, the accepted AI sentence first, else the deterministic one. */
   dayInsight: string | null;
-  dayWindow: string | null;
   stageAccessibilityLabel: string;
   suggestions: readonly LoadedOutfitPresentation[];
   noOutfit: Readonly<{ title: string; body: string }> | null;
@@ -311,38 +310,6 @@ export function formatDepartureTime(
   return formatTime(instant, language, hour12, timeZone);
 }
 
-/**
- * N23: before midnight the row says "Plan tomorrow" with the target's short date; after
- * midnight "tomorrow" would name the wrong day, so it names the target weekday and keeps the
- * bare date as its value. The sheet's question follows the same rule.
- */
-export function planRowPresentation(
-  targetKey: string,
-  now: number,
-  language: SupportedLanguage,
-): Readonly<{ label: string; value: string; accessibilityLabel: string; question: string }> {
-  const copy = getMessages(language).today.dailyStyle;
-  const date = new Date(`${targetKey.slice(0, 10)}T12:00:00`);
-  const today = new Date(now);
-  const isToday = date.getFullYear() === today.getFullYear() &&
-    date.getMonth() === today.getMonth() && date.getDate() === today.getDate();
-  if (!isToday) {
-    const value = formatDressingDate(targetKey, language);
-    return { label: copy.planTomorrowLabel, value, accessibilityLabel: copy.planTomorrow(value),
-      question: copy.questionTomorrow };
-  }
-  const tag = localeTag(language);
-  const weekday = new Intl.DateTimeFormat(tag, { weekday: 'long' }).format(date);
-  const value = new Intl.DateTimeFormat(tag, { day: 'numeric', month: 'short' }).format(date);
-  return {
-    label: copy.planFor(weekday),
-    value,
-    accessibilityLabel: copy.planForAccessibilityLabel(weekday, value),
-    question: copy.questionForDay(
-      new Intl.DateTimeFormat(tag, { weekday: 'long', day: 'numeric', month: 'long' }).format(date)),
-  };
-}
-
 const dayInsightModifierKeys = {
   hot: 'hot',
   very_hot: 'veryHot',
@@ -423,64 +390,6 @@ export function runwayWeather(
       (value) => formatTime(value, language, hour12, weather.timeZone),
     ),
   };
-}
-
-type DayTopic = 'wet' | 'wind' | 'heat' | 'cold';
-
-// What each line is about, so the two lines never carry the same fact twice. A temperature
-// change or the evening's low adds a number and a time the first line does not give.
-function insightTopic(insight: DayInsight): DayTopic | null {
-  switch (insight.kind) {
-    case 'wet_all_day':
-    case 'wet_window': return 'wet';
-    case 'windy': return 'wind';
-    case 'heat': return 'heat';
-    case 'cold': return 'cold';
-    default: return insight.modifier?.kind ?? null;
-  }
-}
-
-function windowTopic(window: DayWindow): DayTopic | null {
-  switch (window.kind) {
-    case 'rain':
-    case 'snow': return 'wet';
-    case 'wind':
-    case 'very_windy': return 'wind';
-    case 'stays_hot':
-    case 'stays_very_hot': return 'heat';
-    case 'stays_cold':
-    case 'stays_freezing': return 'cold';
-    default: return null;
-  }
-}
-
-function dayWindowSentence(
-  window: DayWindow,
-  copy: TodayMessages['dayWindow'],
-  at: (value: string) => string,
-  temperature: (value: number) => string,
-): string {
-  switch (window.kind) {
-    case 'rain':
-    case 'snow':
-    case 'wind':
-    case 'very_windy': {
-      const from = window.fromHour === null ? null : at(window.fromHour);
-      const until = window.untilHour === null ? null : at(window.untilHour);
-      if (window.kind === 'rain') return copy.rain(from, until);
-      if (window.kind === 'snow') return copy.snow(from, until);
-      return window.kind === 'wind' ? copy.wind(from, until) : copy.veryWindy(from, until);
-    }
-    case 'stays_hot': return copy.staysHot(at(window.fromHour));
-    case 'stays_very_hot': return copy.staysVeryHot(at(window.fromHour));
-    case 'stays_cold': return copy.staysCold(at(window.fromHour));
-    case 'stays_freezing': return copy.staysFreezing(at(window.fromHour));
-    case 'lowest': return copy.lowest(at(window.atHour), temperature(window.temperatureCelsius));
-    case 'temperature_change':
-      return window.direction === 'drop'
-        ? copy.coolsTo(at(window.atHour), temperature(window.toCelsius))
-        : copy.warmsTo(at(window.atHour), temperature(window.toCelsius));
-  }
 }
 
 function assignedGarments(outfit: OutfitCandidate): readonly AssignedOutfitGarment[] {
@@ -668,7 +577,7 @@ function reasonCodesByPriority(
   ];
 }
 
-/** A dressing-day key's calendar date as Today's top row and Plan tomorrow show it. */
+/** A dressing-day key's calendar date as Today's top row shows it. */
 export function formatDressingDate(dayKey: string, language: SupportedLanguage): string {
   const date = new Date(`${dayKey.slice(0, 10)}T12:00:00`);
   return [
@@ -705,21 +614,6 @@ function createLoadedPresentation(
     ? snapshot.recommendation.insightSentence
     : null;
   const dayInsight = acceptedInsight ?? deterministicDayInsight;
-  // The second line never restates the first: the window rule skips a wet run the first line
-  // already describes, and an identical sentence is dropped below.
-  const window = findDayWindow({ snapshot: weather, now: new Date(now).toISOString(),
-    firstInsight: insight,
-    ...(snapshot.coverageStart && snapshot.coverageEnd
-      ? { coverage: { start: snapshot.coverageStart, end: snapshot.coverageEnd } } : {}) });
-  const windowLine = window === null ? null : dayWindowSentence(
-    window,
-    copy.dayWindow,
-    (value) => formatTime(value, language, hour12, weather.timeZone),
-    (value) => formatTemperature(value, language),
-  );
-  const dayWindow = windowLine === dayInsight || (insight !== null && window !== null &&
-    insightTopic(insight) !== null && insightTopic(insight) === windowTopic(window))
-    ? null : windowLine;
   const shown = snapshot.coverageStart && snapshot.coverageEnd
     ? forecastBoundedCoverage({ start: snapshot.coverageStart, end: snapshot.coverageEnd }, weather.hourly)
     : null;
@@ -822,8 +716,8 @@ function createLoadedPresentation(
       beforeSymbol: beforeSymbol.slice(leadEnd),
       afterSymbol,
     },
-    // M15: the dressing day's date, the same key Plan tomorrow reads, so between midnight
-    // and 04:00 it still names the evening's calendar date.
+    // M15: the dressing day's date, so between midnight and 04:00 it still names the
+    // evening's calendar date.
     date: formatDressingDate(localDayKey(new Date(now)), language),
     atmosphere: resolveAtmosphereState(current.condition, daypart),
     copy: {
@@ -881,7 +775,6 @@ function createLoadedPresentation(
     driftCaption,
     coolSpellCaption,
     dayInsight,
-    dayWindow,
     stageAccessibilityLabel: primary ? copy.stageAccessibilityLabel({
       temperature: formatTemperatureValue(current.temperatureCelsius, language),
       condition,

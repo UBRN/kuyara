@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { nextBareDressingDayKey } from './dressing-day-choice.ts';
 import { coverageDrift, forecastBoundedCoverage, laterCoolSpell, outfitCoverage } from './outfit-coverage.ts';
 
 test('coverage end follows departure hour across the full dressing day', () => {
@@ -36,12 +35,6 @@ test('coverage resolves its end in the snapshot zone across daylight saving time
     '2026-11-01T05:00:00.000Z');
   assert.equal(outfitCoverage('2026-11-01T06:30:00.000Z', 'America/New_York')?.end,
     '2026-11-01T09:00:00.000Z');
-});
-
-test('plan target is the bare next date, including overnight', () => {
-  assert.equal(nextBareDressingDayKey('2026-09-24:evening'), '2026-09-25');
-  assert.equal(new Intl.DateTimeFormat('en', { timeZone: 'UTC', weekday: 'long' })
-    .format(new Date(`${nextBareDressingDayKey('2026-09-24:evening')}T12:00:00.000Z`)), 'Friday');
 });
 
 const hour = (clock, values = {}) => ({

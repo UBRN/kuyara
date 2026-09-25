@@ -78,9 +78,10 @@ export function DayTypeTiles({
 }
 
 /**
- * The day-type question (M6 step 1): the morning sheet, the 18:00 evening sheet and Plan
- * tomorrow. One tap on a tile chooses and closes the sheet. The evening sheet opens with
- * nothing checked, because the morning answer never carries into the evening (N20).
+ * The day-type question (M6 step 1): the morning sheet and the 18:00 evening sheet. One tap
+ * on a tile chooses and closes the sheet; closing it answers with the profile's dress style.
+ * The evening sheet opens with nothing checked, because the morning answer never carries into
+ * the evening (N20).
  */
 export function DailyFormalitySheet({
   visible, language, question, selected, firstDay = false, onChoose, onDismiss, error,

@@ -629,7 +629,6 @@ test('fresh weather updates derived insight lines without changing the selected 
     before.suggestions.map(({ palette }) => palette));
   assert.deepEqual(after.generationMode, before.generationMode);
   assert.notEqual(after.dayInsight, before.dayInsight);
-  assert.notEqual(after.dayWindow, before.dayWindow);
 });
 
 test('an older recommendation without a palette basis follows current weather', () => {
@@ -814,7 +813,7 @@ test('the stage label reads temperature, condition, pieces and archetype in both
   );
 });
 
-// M15: Today's top-row date follows the 04:00 dressing day, the same key Plan tomorrow reads.
+// M15: Today's top-row date follows the 04:00 dressing day.
 // The suite runs in UTC, so these instants are the device's wall clock.
 test('the top-row date names the dressing day, not the calendar day, before 04:00', () => {
   const at = (iso, language = 'en') => loadedPresentation(todayScreenState, language, false, Date.parse(iso)).date;

@@ -57,11 +57,8 @@ export type TodayMessages = Readonly<{
   titleTemplate: string;
   dailyStyle: Readonly<{
     question: string;
-    questionTomorrow: string;
     /** The 18:00 evening sheet's question (N20). */
     questionEvening: string;
-    /** Plan tomorrow after midnight names the target day instead of "tomorrow" (N23). */
-    questionForDay: (date: string) => string;
     casual: string;
     smart: string;
     formal: string;
@@ -69,15 +66,6 @@ export type TodayMessages = Readonly<{
     updating: DayTypeMessages;
     /** The one caption on the day onboarding finishes, over the preselected answer. */
     firstDayNote: string;
-    chooseDayType: string;
-    continueWithoutChoosing: string;
-    dismissWarning: string;
-    dismissWarningEvening: string;
-    planTomorrow: (date: string) => string;
-    planTomorrowLabel: string;
-    /** After midnight the row names the target weekday; its value is the bare date. */
-    planFor: (weekday: string) => string;
-    planForAccessibilityLabel: (weekday: string, date: string) => string;
     close: string;
     saveError: string;
   }>;
@@ -164,19 +152,6 @@ export type TodayMessages = Readonly<{
     veryHot: (time: string) => string;
     chilly: (time: string) => string;
     freezing: (time: string) => string;
-  }>;
-  dayWindow: Readonly<{
-    rain: (from: string | null, until: string | null) => string;
-    snow: (from: string | null, until: string | null) => string;
-    wind: (from: string | null, until: string | null) => string;
-    veryWindy: (from: string | null, until: string | null) => string;
-    staysHot: (time: string) => string;
-    staysVeryHot: (time: string) => string;
-    staysCold: (time: string) => string;
-    staysFreezing: (time: string) => string;
-    coolsTo: (time: string, temperature: string) => string;
-    warmsTo: (time: string, temperature: string) => string;
-    lowest: (time: string, temperature: string) => string;
   }>;
   emphasis: Readonly<{ recommended: string }>;
   updatedAt: (time: string) => string;
@@ -1101,9 +1076,7 @@ const en = {
     titleTemplate: 'Today · {temperature} {symbol} {condition}',
     dailyStyle: {
       question: 'What kind of day is it?',
-      questionTomorrow: 'What kind of day is tomorrow?',
       questionEvening: 'What kind of evening is it?',
-      questionForDay: (date) => `What kind of day is ${date}?`,
       casual: 'Casual', smart: 'Smart', formal: 'Formal',
       updating: {
         casual: 'Updating for a Casual day…',
@@ -1111,14 +1084,6 @@ const en = {
         formal: 'Updating for a Formal day…',
       },
       firstDayNote: 'Your answer from setup is already selected. Tap it to confirm.',
-      chooseDayType: 'Choose a day type',
-      continueWithoutChoosing: 'Continue without choosing',
-      dismissWarning: 'Choose how you want to dress today, or continue with a surprise style.',
-      dismissWarningEvening: 'Choose how you want to dress this evening, or continue with a surprise style.',
-      planTomorrow: (date) => `Plan tomorrow, ${date}`,
-      planTomorrowLabel: 'Plan tomorrow',
-      planFor: (weekday) => `Plan for ${weekday}`,
-      planForAccessibilityLabel: (weekday, date) => `Plan for ${weekday}, ${date}`,
       close: 'Close',
       saveError: 'Your choice could not be saved. Try again.',
     },
@@ -1275,31 +1240,6 @@ const en = {
       veryHot: (time: string) => `It gets very hot around ${time}.`,
       chilly: (time: string) => `It turns chilly around ${time}.`,
       freezing: (time: string) => `It turns freezing around ${time}.`,
-    },
-    dayWindow: {
-      rain: (from, until) => from && until
-        ? `Rain is expected between ${from} and ${until}.`
-        : from ? `Rain is expected after ${from}.` : until
-          ? `Rain is expected until ${until}.` : 'Rain is expected for the remaining hours.',
-      snow: (from, until) => from && until
-        ? `Snow is expected between ${from} and ${until}.`
-        : from ? `Snow is expected after ${from}.` : until
-          ? `Snow is expected until ${until}.` : 'Snow is expected for the remaining hours.',
-      wind: (from, until) => from && until
-        ? `Windy between ${from} and ${until}.`
-        : from ? `Windy after ${from}.` : until
-          ? `Windy until ${until}.` : 'Windy for the remaining hours.',
-      veryWindy: (from, until) => from && until
-        ? `Very windy between ${from} and ${until}.`
-        : from ? `Very windy after ${from}.` : until
-          ? `Very windy until ${until}.` : 'Very windy for the remaining hours.',
-      staysHot: (time) => `It stays hot after ${time}.`,
-      staysVeryHot: (time) => `It stays very hot after ${time}.`,
-      staysCold: (time) => `It stays cold after ${time}.`,
-      staysFreezing: (time) => `It stays freezing after ${time}.`,
-      coolsTo: (time, temperature) => `It cools to ${temperature} by ${time}.`,
-      warmsTo: (time, temperature) => `It warms to ${temperature} by ${time}.`,
-      lowest: (time, temperature) => `Lowest around ${time}, near ${temperature}.`,
     },
     emphasis: {
       recommended: 'Recommended',
@@ -1814,9 +1754,7 @@ const tr = {
     titleTemplate: 'Bugün · {temperature} {symbol} {condition}',
     dailyStyle: {
       question: 'Bugün nasıl bir gün?',
-      questionTomorrow: 'Yarın nasıl bir gün?',
       questionEvening: 'Bu akşam nasıl bir akşam?',
-      questionForDay: (date) => `${date} nasıl bir gün?`,
       casual: 'Rahat', smart: 'Şık', formal: 'Resmî',
       updating: {
         casual: 'Rahat bir güne göre güncelleniyor…',
@@ -1824,14 +1762,6 @@ const tr = {
         formal: 'Resmî bir güne göre güncelleniyor…',
       },
       firstDayNote: 'Kurulumda verdiğin cevap zaten seçili. Onaylamak için ona dokun.',
-      chooseDayType: 'Gün türünü seç',
-      continueWithoutChoosing: 'Seçmeden devam et',
-      dismissWarning: 'Bugün nasıl giyineceğini seç veya sürpriz bir stille devam et.',
-      dismissWarningEvening: 'Bu akşam nasıl giyineceğini seç veya sürpriz bir stille devam et.',
-      planTomorrow: (date) => `Yarını planla, ${date}`,
-      planTomorrowLabel: 'Yarını planla',
-      planFor: (weekday) => `${weekday} için planla`,
-      planForAccessibilityLabel: (weekday, date) => `${weekday} için planla, ${date}`,
       close: 'Kapat',
       saveError: 'Seçimin kaydedilemedi. Yeniden dene.',
     },
@@ -1990,31 +1920,6 @@ const tr = {
       veryHot: (time: string) => `Saat ${time} civarında hava iyice ısınıyor.`,
       chilly: (time: string) => `Saat ${time} civarında hava serinliyor.`,
       freezing: (time: string) => `Saat ${time} civarında hava buz gibi oluyor.`,
-    },
-    dayWindow: {
-      rain: (from, until) => from && until
-        ? `${from} ile ${until} arasında yağmur bekleniyor.`
-        : from ? `Saat ${from} sonrasında yağmur bekleniyor.` : until
-          ? `Saat ${until} civarına kadar yağmur bekleniyor.` : 'Kalan saatlerde yağmur bekleniyor.',
-      snow: (from, until) => from && until
-        ? `${from} ile ${until} arasında kar bekleniyor.`
-        : from ? `Saat ${from} sonrasında kar bekleniyor.` : until
-          ? `Saat ${until} civarına kadar kar bekleniyor.` : 'Kalan saatlerde kar bekleniyor.',
-      wind: (from, until) => from && until
-        ? `${from} ile ${until} arasında hava rüzgârlı olacak.`
-        : from ? `Saat ${from} sonrasında hava rüzgârlı olacak.` : until
-          ? `Saat ${until} civarına kadar rüzgâr sürecek.` : 'Kalan saatlerde hava rüzgârlı olacak.',
-      veryWindy: (from, until) => from && until
-        ? `${from} ile ${until} arasında kuvvetli rüzgâr var.`
-        : from ? `Saat ${from} sonrasında kuvvetli rüzgâr var.` : until
-          ? `Saat ${until} civarına kadar kuvvetli rüzgâr var.` : 'Kalan saatlerde kuvvetli rüzgâr var.',
-      staysHot: (time) => `Saat ${time} sonrasında hava sıcak kalacak.`,
-      staysVeryHot: (time) => `Saat ${time} sonrasında hava çok sıcak kalacak.`,
-      staysCold: (time) => `Saat ${time} sonrasında hava soğuk kalacak.`,
-      staysFreezing: (time) => `Saat ${time} sonrasında dondurucu soğuk sürecek.`,
-      coolsTo: (time, temperature) => `Hava ${time} civarında ${temperature} seviyesine inecek.`,
-      warmsTo: (time, temperature) => `Hava ${time} civarında ${temperature} seviyesine çıkacak.`,
-      lowest: (time, temperature) => `En düşük ${time} civarında, ${temperature} dolayında.`,
     },
     emphasis: {
       recommended: 'Önerilen',
