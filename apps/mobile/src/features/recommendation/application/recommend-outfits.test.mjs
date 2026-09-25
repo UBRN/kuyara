@@ -94,6 +94,35 @@ function candidateKeys(result) {
   return result.outfits.flatMap((outfit) => outfit.candidateKeys);
 }
 
+test('extreme weather pipeline composes three distinct valid catalog outfits', () => {
+  const cases = [
+    ['below minus fifteen', { temperatureCelsius: -18, apparentTemperatureCelsius: -22,
+      condition: 'clear', precipitationProbability: 0, windSpeedMetersPerSecond: 2 }],
+    ['above thirty eight', { temperatureCelsius: 40, apparentTemperatureCelsius: 42,
+      condition: 'clear', precipitationProbability: 0, windSpeedMetersPerSecond: 2 }],
+    ['wind and precipitation', { temperatureCelsius: 12, apparentTemperatureCelsius: 8,
+      condition: 'heavy_rain', precipitationProbability: 1, windSpeedMetersPerSecond: 18 }],
+  ];
+  for (const [label, reading] of cases) {
+    const weather = snapshot({ current: reading,
+      minimumTemperatureCelsius: reading.temperatureCelsius - 2,
+      maximumTemperatureCelsius: reading.temperatureCelsius + 2 });
+    for (const clothingPreference of ['womens', 'mens']) {
+      const result = recommendOutfits({ snapshot: weather, now: observedAt,
+        clothingPreference, dayVariant: 3, dayKind: 'weekday' });
+      assert.equal(result.status, 'recommended', `${label}: ${clothingPreference}`);
+      assert.equal(result.outfits.length, 3, `${label}: ${clothingPreference}`);
+      assert.equal(new Set(result.outfits.map(({ optionId }) => optionId)).size, 3,
+        `${label}: ${clothingPreference}`);
+      assert.ok(result.outfits.every((outfit) => outfit.candidateKeys.every((key) =>
+        key.startsWith('catalog:'))), `${label}: ${clothingPreference}`);
+      assert.ok(result.outfits.every((outfit) => outfit.requirementEvaluations.every(
+        ({ requirement, status }) => requirement.priority === 'optional' || status === 'met'
+          || status === 'tradeoff')), `${label}: ${clothingPreference}`);
+    }
+  }
+});
+
 test('late mild and severe cold tails retain three valid catalog outfits', () => {
   const at = '2026-08-01T18:00:00.000Z';
   for (const tail of [[11], [11, 11], [4]]) {
