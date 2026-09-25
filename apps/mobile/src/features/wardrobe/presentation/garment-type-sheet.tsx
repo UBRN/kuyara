@@ -39,6 +39,8 @@ const COLUMNS = 2;
 export type GarmentTypeSheetProps = Readonly<{
   /** `null` while the profile has not resolved one; the whole catalogue is then listed. */
   clothingPreference: ClothingPreference | null;
+  /** The category to open on when nothing is selected yet (O9: the Closet's category). */
+  initialCategory?: StructuralCategory;
   onDismiss: () => void;
   onSelect: (typeId: GarmentTypeId) => void;
   selectedTypeId: GarmentTypeId | null;
@@ -47,6 +49,7 @@ export type GarmentTypeSheetProps = Readonly<{
 
 export function GarmentTypeSheet({
   clothingPreference,
+  initialCategory,
   onDismiss,
   onSelect,
   selectedTypeId,
@@ -83,10 +86,14 @@ export function GarmentTypeSheet({
   );
 
   const selectedType = selectedTypeId ? getGarmentType(selectedTypeId) : null;
-  // No stored default: the sheet opens on the selected type's own category, and on the
-  // first category when nothing is selected yet.
+  // No stored default: the sheet opens on the selected type's own category, else on the
+  // Closet category the add started from, else on the first category.
   const activeCategory =
-    category ?? selectedType?.structuralCategory ?? categories[0] ?? null;
+    category
+    ?? selectedType?.structuralCategory
+    ?? (initialCategory && categories.includes(initialCategory) ? initialCategory : undefined)
+    ?? categories[0]
+    ?? null;
   const visibleTypes = selectableTypes.filter(
     (garmentType) => garmentType.structuralCategory === activeCategory,
   );

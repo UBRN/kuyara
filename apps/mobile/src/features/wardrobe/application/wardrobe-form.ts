@@ -5,6 +5,7 @@ import {
   colorFamilies,
   coverageLevels,
   coverageSchema,
+  structuralCategorySchema,
   thermalLevels,
   thermalLevelSchema,
   tractionSuitabilities,
@@ -18,6 +19,7 @@ import {
   type Coverage,
   type GarmentType,
   type GarmentTypeId,
+  type StructuralCategory,
   type ThermalLevel,
   type TractionSuitability,
   type WaterProtection,
@@ -318,7 +320,8 @@ export function isWardrobeRouteId(value: unknown): value is string {
   );
 }
 
-// The Closet list carries its segment into the add flow and back through a route param.
+// The Closet carries its category and the section to reveal into the add flow and back
+// through route params.
 // A param is an untrusted string, and the stored enum is locale-independent, so it is
 // validated against the same schema the record uses and anything else is dropped rather
 // than repaired: the caller then falls back to its own default.
@@ -326,5 +329,11 @@ export function parseWardrobeEntryStateParam(
   value: unknown,
 ): WardrobeEntryState | undefined {
   const parsed = wardrobeEntryStateSchema.safeParse(value);
+  return parsed.success ? parsed.data : undefined;
+}
+
+/** The Closet's category route param (O9), validated the same way. */
+export function parseStructuralCategoryParam(value: unknown): StructuralCategory | undefined {
+  const parsed = structuralCategorySchema.safeParse(value);
   return parsed.success ? parsed.data : undefined;
 }

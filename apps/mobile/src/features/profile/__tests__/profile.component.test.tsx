@@ -122,7 +122,7 @@ test('the Closet heading counts both entry states and opens the closet with no f
         itemWithId('218f0f4d-1d45-4ae7-a8f1-796e8297d3b4'),
         itemWithId('318f0f4d-1d45-4ae7-a8f1-796e8297d3b4', { entryState: 'wanted' }),
       ]}>
-      <ProfileScreen onOpenHistory={() => undefined}
+      <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined}
 
         onOpenWardrobe={onOpenWardrobe}
 
@@ -145,7 +145,7 @@ test.each([
     mockFontScale(fontScale);
     const result = await render(
       <TestProviders items={[baseItem]}>
-        <ProfileScreen onOpenHistory={() => undefined}
+        <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined}
 
           onOpenWardrobe={() => undefined}
 
@@ -164,90 +164,85 @@ test.each([
   },
 );
 
-test('the rail renders the newest owned pieces first, each as one accessible item with a position and total', async () => {
-  mockFontScale(1);
-  const older = itemWithId('218f0f4d-1d45-4ae7-a8f1-796e8297d3b4', {
-    name: null,
-    createdAt: '2026-07-29T10:00:00.000Z',
-  });
-  const newer = itemWithId('318f0f4d-1d45-4ae7-a8f1-796e8297d3b4', {
-    createdAt: '2026-07-31T10:00:00.000Z',
-  });
-  const result = await render(
-    <TestProviders items={[older, newer]}>
-      <ProfileScreen onOpenHistory={() => undefined}
-
-        onOpenWardrobe={() => undefined}
-
-      />
-    </TestProviders>,
-  );
-
-  expect(result.getByTestId(`profile-rail-item-${newer.id}`).props.accessibilityLabel).toBe(
-    'City shell, 1 of 2.',
-  );
-  expect(result.getByTestId(`profile-rail-item-${older.id}`).props.accessibilityLabel).toBe(
-    `${messages.en.catalog['catalog.garment_type.rain_jacket.name']}, 2 of 2.`,
-  );
-  expect(result.queryByTestId('profile-rail-all-pieces')).toBeNull();
-});
-
-test('a ninth owned piece adds the "All pieces" tile, which opens the closet with no filter', async () => {
+test('the rack is one button whose label names the Closet and its pieces by category', async () => {
   mockFontScale(1);
   const onOpenWardrobe = jest.fn();
-  const items = Array.from({ length: 9 }, (_, index) =>
-    itemWithId(`00000000-0000-0000-0000-00000000000${index}`, {
-      createdAt: `2026-07-${20 + index}T10:00:00.000Z`,
-    }),
-  );
   const result = await render(
-    <TestProviders items={items}>
-      <ProfileScreen onOpenHistory={() => undefined}
-
+    <TestProviders
+      items={[
+        baseItem,
+        itemWithId('218f0f4d-1d45-4ae7-a8f1-796e8297d3b4', { category: 'top', garmentTypeId: 't_shirt' }),
+        itemWithId('318f0f4d-1d45-4ae7-a8f1-796e8297d3b4', { category: 'top', garmentTypeId: 'shirt', entryState: 'wanted' }),
+      ]}>
+      <ProfileScreen
+        displayName="Deniz"
+        onOpenCategory={() => undefined}
+        onOpenHistory={() => undefined}
         onOpenWardrobe={onOpenWardrobe}
-
       />
     </TestProviders>,
   );
 
-  const tiles = result
-    .queryAllByTestId(/^profile-rail-item-/)
-    .filter((node) => !String(node.props.testID).endsWith('-tile'));
-
-  expect(tiles).toHaveLength(8);
-  await fireEvent.press(result.getByTestId('profile-rail-all-pieces'));
+  const rack = result.getByTestId('profile-rack');
+  expect(rack.props.accessibilityRole).toBe('button');
+  // Catalogue order, and only the categories that hold something.
+  expect(rack.props.accessibilityLabel).toBe("Deniz's Closet, 3 pieces: Tops 2, Outerwear 1.");
+  expect(rack.props.accessibilityHint).toBe(messages.en.profile.closetHeadingHint);
+  await fireEvent.press(rack);
   expect(onOpenWardrobe).toHaveBeenCalledWith();
 });
 
-test('the rail tile scales by min(fontScale, 2) above 1.5 per ADR 0028 section 3', async () => {
-  mockFontScale(3.12);
+test('six category cells always show, counting owned plus wanted, and a cell opens its category', async () => {
+  mockFontScale(1);
+  const onOpenCategory = jest.fn();
   const result = await render(
-    <TestProviders items={[baseItem]}>
-      <ProfileScreen onOpenHistory={() => undefined}
-
-        onOpenWardrobe={() => undefined}
-
-      />
+    <TestProviders
+      items={[
+        baseItem,
+        itemWithId('218f0f4d-1d45-4ae7-a8f1-796e8297d3b4', { category: 'top', garmentTypeId: 't_shirt' }),
+        itemWithId('318f0f4d-1d45-4ae7-a8f1-796e8297d3b4', { category: 'top', garmentTypeId: 'shirt', entryState: 'wanted' }),
+      ]}>
+      <ProfileScreen onOpenCategory={onOpenCategory} onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
 
-  const tile = result.getByTestId(`profile-rail-item-${baseItem.id}-tile`);
-  const tileStyle = StyleSheet.flatten(tile.props.style);
-
-  expect(tileStyle.width).toBe(272);
-  expect(tileStyle.height).toBe(340);
-  expect(tileStyle.borderRadius).toBe(14);
-  const artwork = result.getByTestId(`profile-rail-silhouette-${baseItem.id}`, { includeHiddenElements: true });
-  expect(artwork).toHaveProp('width', 272);
-  expect(artwork).toHaveProp('height', 340);
+  const expected = { top: 2, bottom: 0, one_piece: 0, outerwear: 1, footwear: 0, accessory: 0 } as const;
+  for (const [category, count] of Object.entries(expected)) {
+    expect(result.getByTestId(`profile-category-${category}-count`)).toHaveTextContent(String(count));
+  }
+  const tops = result.getByTestId('profile-category-top');
+  expect(tops.props.accessibilityRole).toBe('button');
+  expect(tops.props.accessibilityLabel).toBe('Tops, 2 pieces, 1 wanted.');
+  expect(result.getByTestId('profile-category-outerwear').props.accessibilityLabel).toBe('Outerwear, 1 piece.');
+  expect(result.getByTestId('profile-category-footwear').props.accessibilityLabel).toBe('Shoes, 0 pieces.');
+  await fireEvent.press(result.getByTestId('profile-category-footwear'));
+  expect(onOpenCategory).toHaveBeenCalledWith('footwear');
 });
 
-test('the empty Closet shows the sentence and the Add a piece action, and hides the Wanted row', async () => {
+test.each([
+  [1, 3],
+  [1.353, 2],
+] as const)('at fontScale %s the category cells sit in %s columns', async (fontScale, columns) => {
+  mockFontScale(fontScale);
+  const result = await render(
+    <TestProviders items={[baseItem]}>
+      <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
+    </TestProviders>,
+  );
+
+  const rows = result.getByTestId('profile-category-cells').props.children;
+  expect(rows).toHaveLength(6 / columns);
+  for (const row of rows) {
+    expect(row.props.children).toHaveLength(columns);
+  }
+});
+
+test('the empty Closet shows the empty rack, the sentence and the Add a piece action, and hides the Wanted row', async () => {
   mockFontScale(1);
   const onOpenWardrobe = jest.fn();
   const result = await render(
     <TestProviders items={[]}>
-      <ProfileScreen onOpenHistory={() => undefined}
+      <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined}
 
         onOpenWardrobe={onOpenWardrobe}
 
@@ -256,6 +251,9 @@ test('the empty Closet shows the sentence and the Add a piece action, and hides 
   );
 
   expect(result.getByText(messages.en.profile.wardrobeEmpty)).toBeOnTheScreen();
+  // The empty rack keeps its place; a row of zeros is what ADR 0028 removed, so no cells.
+  expect(result.getByTestId('profile-rack').props.accessibilityLabel).toBe('Closet, 0 pieces.');
+  expect(result.queryByTestId('profile-category-cells')).toBeNull();
   expect(result.queryByTestId('profile-wanted-row')).toBeNull();
   await fireEvent.press(result.getByTestId('profile-add-piece-button'));
   expect(onOpenWardrobe).toHaveBeenCalledWith();
@@ -265,7 +263,7 @@ test('the Turkish empty Closet wraps its text within the window at fontScale 3.1
   mockFontScale(3.1);
   const result = await render(
     <TestProviders items={[]} language="tr">
-      <ProfileScreen onOpenHistory={() => undefined} displayName="Utku" onOpenWardrobe={() => undefined} />
+      <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined} displayName="Utku" onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
 
@@ -301,12 +299,12 @@ test('the Turkish empty Closet wraps its text within the window at fontScale 3.1
   expect(result.getByTestId('profile-closet-heading-count')).toHaveTextContent('0');
 });
 
-test('a wanted-only closet counts its pieces and falls back to the wanted rail', async () => {
+test('a wanted-only closet counts its pieces and keeps the rack and the cells', async () => {
   mockFontScale(1);
   const onOpenWardrobe = jest.fn();
   const result = await render(
     <TestProviders items={[itemWithId(baseItem.id, { entryState: 'wanted' })]}>
-      <ProfileScreen onOpenHistory={() => undefined}
+      <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined}
 
         onOpenWardrobe={onOpenWardrobe}
 
@@ -314,9 +312,10 @@ test('a wanted-only closet counts its pieces and falls back to the wanted rail',
     </TestProviders>,
   );
 
-  // The empty state needs both lists empty, so a wanted-only Closet keeps a rail and a
-  // count rather than reading zero beside nothing at all.
-  expect(result.getByTestId('profile-rail')).toBeOnTheScreen();
+  // The empty state needs both lists empty, so a wanted-only Closet keeps its rack, its
+  // cells and a count rather than reading zero beside nothing at all.
+  expect(result.getByTestId('profile-rack')).toBeOnTheScreen();
+  expect(result.getByTestId('profile-category-outerwear-count')).toHaveTextContent('1');
   expect(result.getByTestId('profile-closet-heading-count')).toHaveTextContent('1');
   expect(result.queryByText(messages.en.profile.wardrobeEmpty)).toBeNull();
   const wantedRow = result.getByTestId('profile-wanted-row');
@@ -332,7 +331,7 @@ test('an owned-only closet keeps the Wanted row at zero', async () => {
   const onOpenWardrobe = jest.fn();
   const result = await render(
     <TestProviders items={[baseItem]}>
-      <ProfileScreen onOpenHistory={() => undefined}
+      <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined}
 
         onOpenWardrobe={onOpenWardrobe}
 
@@ -350,7 +349,7 @@ test('Profile removes the location row and its History row opens History', async
   const onOpenHistory = jest.fn();
   const result = await render(
     <TestProviders items={[baseItem]}>
-      <ProfileScreen onOpenHistory={onOpenHistory} onOpenWardrobe={() => undefined} />
+      <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={onOpenHistory} onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
   expect(result.queryByTestId('profile-location-row')).toBeNull();
@@ -364,7 +363,7 @@ test('Profile removes the location row and its History row opens History', async
 test('the Closet heading uses the name while the rest of Profile stays the same', async () => {
   const result = await render(
     <TestProviders items={[baseItem]}>
-      <ProfileScreen onOpenHistory={() => undefined} displayName="Utku" onOpenWardrobe={() => undefined} />
+      <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined} displayName="Utku" onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
   expect(result.getByText("Utku's Closet")).toBeOnTheScreen();
@@ -376,7 +375,7 @@ test('Turkish keeps the name unchanged in the Closet heading at large text size'
   mockFontScale(3.12);
   const result = await render(
     <TestProviders items={[baseItem]} language="tr">
-      <ProfileScreen onOpenHistory={() => undefined} displayName="Utku" onOpenWardrobe={() => undefined} />
+      <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined} displayName="Utku" onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
   expect(result.getByText('Gardırop · Utku')).toBeOnTheScreen();
@@ -384,63 +383,60 @@ test('Turkish keeps the name unchanged in the Closet heading at large text size'
     .toBe('Gardırop · Utku, 1.');
 });
 
-test.each(['loading', 'error'] as const)(
-  'a %s wardrobe status renders its status text instead of the rail or the group\'s Wanted row',
-  async (status) => {
-    mockFontScale(1);
-    const result = await render(
-      <TestProviders items={[]} status={status}>
-        <ProfileScreen onOpenHistory={() => undefined}
-
-          onOpenWardrobe={() => undefined}
-
-        />
-      </TestProviders>,
-    );
-
-    const expectedText =
-      status === 'loading'
-        ? messages.en.profile.wardrobeLoading
-        : messages.en.profile.wardrobeUnavailable;
-
-    expect(result.getByText(expectedText)).toBeOnTheScreen();
-    expect(result.queryByTestId('profile-closet-heading-count')).toBeNull();
-    expect(result.queryByTestId('profile-wanted-row')).toBeNull();
-    expect(result.getByTestId('profile-history-row')).toBeOnTheScreen();
-  },
-);
-
-// ADR 0025 gives the five accessories their own silhouettes, so an
-// accessory draws like any typed garment; only a legacy entry without a type falls back
-// to the category placeholder.
-test('the rail draws coloured silhouettes for typed garments and accessories, and a glyph for legacy entries', async () => {
-  const accessory = itemWithId('accessory', { garmentTypeId: 'beanie', category: 'accessory' });
-  const legacy = itemWithId('legacy', { garmentTypeId: null });
+test('a loading Closet shows the bare rack and the six cells without counts, spoken as loading', async () => {
+  mockFontScale(1);
   const result = await render(
-    <TestProviders items={[baseItem, accessory, legacy]}>
-      <ProfileScreen onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
+    <TestProviders items={[]} status="loading">
+      <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
-  const hidden = { includeHiddenElements: true };
-  for (const item of [baseItem, accessory]) {
-    expect(result.getByTestId(`profile-rail-silhouette-${item.id}`, hidden)).toBeOnTheScreen();
-    expect(result.queryByTestId(`profile-rail-photo-placeholder-${item.id}`, hidden)).toBeNull();
-  }
-  expect(result.getByTestId(`profile-rail-photo-placeholder-${legacy.id}`, hidden)).toBeOnTheScreen();
-  expect(result.queryByTestId(`profile-rail-silhouette-${legacy.id}`, hidden)).toBeNull();
+
+  const rack = result.getByTestId('profile-rack', { includeHiddenElements: true });
+  expect(rack.props.accessibilityRole).toBeUndefined();
+  const cells = result.getByTestId('profile-category-cells-loading');
+  expect(cells.props.accessibilityRole).toBe('progressbar');
+  expect(cells.props.accessibilityLabel).toBe(messages.en.wardrobe.loadingLabel);
+  expect(result.queryByTestId('profile-category-top-count', { includeHiddenElements: true })).toBeNull();
+  expect(result.queryByTestId('profile-closet-heading-count')).toBeNull();
+  expect(result.queryByTestId('profile-wanted-row')).toBeNull();
+  expect(result.getByTestId('profile-history-row')).toBeOnTheScreen();
 });
 
-test('the rail prefers a photo, falling to the silhouette when the photo cannot load', async () => {
+test('a Closet that cannot load shows the bare rack and a retry that refreshes it', async () => {
+  mockFontScale(1);
+  const refresh = jest.fn(async () => undefined);
   const result = await render(
-    <TestProviders items={[{ ...baseItem, photoRelativePath: 'photo.jpg' }]} resolvePhotoUri={() => 'file:///photo.jpg'}>
-      <ProfileScreen onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
+    <WardrobeApplicationContext.Provider value={{ ...application([], 'error'), refresh }}>
+      <LocalizationContext.Provider value={{ language: 'en', messages: messages.en, hour12: false }}>
+        <KuyaraThemeContext.Provider value={lightTheme}>
+          <SafeAreaProvider initialMetrics={initialMetrics}>
+            <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
+          </SafeAreaProvider>
+        </KuyaraThemeContext.Provider>
+      </LocalizationContext.Provider>
+    </WardrobeApplicationContext.Provider>,
+  );
+
+  expect(result.getByText(messages.en.wardrobe.loadErrorTitle)).toBeOnTheScreen();
+  expect(result.queryByTestId('profile-category-cells')).toBeNull();
+  expect(result.queryByTestId('profile-wanted-row')).toBeNull();
+  await fireEvent.press(result.getByTestId('profile-closet-retry-button'));
+  expect(refresh).toHaveBeenCalledTimes(1);
+});
+
+// ADR 0025 gives the accessories their own silhouettes, so an accessory draws like any
+// typed garment; a legacy entry without a type and an empty category draw the category glyph.
+test('a cell draws its newest owned piece, and a legacy or empty category its glyph', async () => {
+  const accessory = itemWithId('accessory', { garmentTypeId: 'beanie', category: 'accessory' });
+  const legacy = itemWithId('legacy', { garmentTypeId: null, category: 'top' });
+  const result = await render(
+    <TestProviders items={[baseItem, accessory, legacy]}>
+      <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
   const hidden = { includeHiddenElements: true };
-  const photo = result.getByTestId(`profile-rail-photo-${baseItem.id}`, hidden);
-  expect(photo).toHaveProp('resizeMode', 'cover');
-  expect(result.queryByTestId(`profile-rail-silhouette-${baseItem.id}`, hidden)).toBeNull();
-  await fireEvent(photo, 'error');
-  expect(result.getByTestId(`profile-rail-silhouette-${baseItem.id}`, hidden)).toBeOnTheScreen();
-  expect(result.queryByTestId(`profile-rail-photo-${baseItem.id}`, hidden)).toBeNull();
+  expect(result.getByTestId('profile-category-outerwear-drawing', hidden)).toBeOnTheScreen();
+  expect(result.getByTestId('profile-category-accessory-drawing', hidden)).toBeOnTheScreen();
+  expect(result.queryByTestId('profile-category-top-drawing', hidden)).toBeNull();
+  expect(result.queryByTestId('profile-category-footwear-drawing', hidden)).toBeNull();
 });

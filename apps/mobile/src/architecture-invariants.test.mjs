@@ -165,7 +165,7 @@ const rules = [
     allowedDirectories: ['components/ui/garment-board/', 'components/ui/index.ts'],
     ruleText:
       'docs/design/design-system.md, "Implemented and deferred": the colour-family fills are '
-      + '"approved content colour for the rail and grid only (ADR 0028 section 6 and ADR 0029 '
+      + '"approved content colour for the rack and grid only (ADR 0028 section 6 and ADR 0029 '
       + 'section 5), not semantic theme roles", and the Phase 6 swatch library is content colour '
       + 'too. The resolvers that turn an outfit and a plane into fills are the board renderer\'s '
       + 'own business: they stay under components/ui/garment-board/, and a '
@@ -210,7 +210,7 @@ for (const rule of rules) {
 
 // docs/design/design-language.md, Law 4 (O15): every board draws its outfit in that outfit's
 // own palette, the alternates included, so an outfit looks the same wherever it appears. The
-// Closet and the Profile rail draw personal records and never take a board or its palette.
+// Closet and the Profile rack draw personal records and never take a board or its palette.
 test('every garment board carries its outfit palette and only Today draws one', () => {
   const boards = sourceFiles().flatMap((relativePath) => (
     [...readFileSync(path.join(sourceRoot, relativePath), 'utf8').matchAll(/<GarmentBoard\b[\s\S]*?\/>/g)]
@@ -353,7 +353,7 @@ const rawPressableAllowlist = Object.freeze({
   'features/today/presentation/outfit-detail-screen.tsx': 3,
   // The text field's inline clear glyph.
   'features/profile/presentation/name-input.tsx': 1,
-  // The Closet heading row and the rail's all-pieces tile.
+  // The Closet heading row and a category cell (O9; the rack is `ClosetRack`'s own button).
   'features/profile/presentation/profile-screen.tsx': 2,
   'features/profile/presentation/style-aesthetics-options.tsx': 1,
   'features/profile/presentation/preference-option.tsx': 1,

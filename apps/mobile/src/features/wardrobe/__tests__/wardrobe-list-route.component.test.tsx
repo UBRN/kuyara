@@ -22,43 +22,6 @@ jest.mock('expo-symbols', () => ({
   SymbolView: () => null,
 }));
 
-// The native control layer (ADR 0019) renders native views that do not mount under
-// Jest, and the wrapper already has its own coverage in
-// `components/ui/__tests__/segmented-control.component.test.tsx`. This screen test
-// mocks the wrapper itself rather than its native dependency, which also keeps
-// `features/` clear of that dependency's name, the boundary this repository greps for.
-jest.mock('@/components/ui/segmented-control', () => {
-  const { Pressable: MockPressable, View: MockView } = jest.requireActual('react-native');
-
-  function MockSegmentedControl({
-    onChange,
-    options,
-    testID,
-    value,
-  }: Readonly<{
-    onChange: (value: string) => void;
-    options: readonly Readonly<{ label: string; value: string }>[];
-    testID?: string;
-    value: string;
-  }>) {
-    return (
-      <MockView testID={testID}>
-        {options.map((option, index) => (
-          <MockPressable
-            accessibilityRole="button"
-            accessibilityState={{ selected: option.value === value }}
-            key={option.value}
-            onPress={() => onChange(option.value)}
-            testID={testID ? `${testID}-segment-${index}` : undefined}
-          />
-        ))}
-      </MockView>
-    );
-  }
-
-  return { SegmentedControl: MockSegmentedControl };
-});
-
 type FocusEffect = () => void | (() => void);
 
 let focusEffects: FocusEffect[] = [];
@@ -230,21 +193,21 @@ beforeEach(() => {
 // `Stack.Screen` `headerRight`, not in `WardrobeListRoute`'s own tree, exactly as
 // `profile.tsx`'s settings gear is untested at the route level; only the empty state's
 // own "Add a piece" button is this component's to test.
-test('the empty state add action navigates to the absolute new-item route, carrying the current segment', async () => {
+test('the empty state add action navigates to the absolute new-item route, carrying the category', async () => {
   const result = await renderRoute([]);
   await fireEvent.press(result.getByTestId('wardrobe-empty-add-button'));
   expect(mockPush).toHaveBeenLastCalledWith({
-    params: { filter: 'owned' },
+    params: { category: 'top' },
     pathname: '/wardrobe/new',
   });
 });
 
-// The segment is the route's, not this screen's: the plus bar button lives in the route
-// file and reads the same param, so a piece added from Wanted is filed as wanted.
-test('switching the segment writes it back to the route', async () => {
+// The category is the route's, not this screen's: the plus bar button lives in the route
+// file and reads the same param, so a piece added from Shoes starts on shoes.
+test('switching the category tab writes it back to the route', async () => {
   const result = await renderRoute([item]);
-  await fireEvent.press(result.getByTestId('wardrobe-entry-filter-segment-1'));
-  expect(mockSetParams).toHaveBeenCalledWith({ filter: 'wanted' });
+  await fireEvent.press(result.getByTestId('wardrobe-category-tab-footwear'));
+  expect(mockSetParams).toHaveBeenCalledWith({ category: 'footwear' });
 });
 
 test('selecting an item navigates to its absolute edit route', async () => {
@@ -258,22 +221,32 @@ test('selecting an item navigates to its absolute edit route', async () => {
   expect(mockPush).toHaveBeenCalledWith(`/wardrobe/${item.id}`);
 });
 
-test('an initial entry state, passed by the route for ADR 0028\'s Wanted row, selects that filter on first render', async () => {
-  const wantedItem = { ...item, id: '218f0f4d-1d45-4ae7-a8f1-796e8297d3b4', entryState: 'wanted' as const };
-  const result = await render(
+test('the Wanted row opens the first category holding a wanted piece; a category param wins', async () => {
+  const wantedItem = {
+    ...item,
+    id: '218f0f4d-1d45-4ae7-a8f1-796e8297d3b4',
+    entryState: 'wanted' as const,
+    category: 'footwear' as const,
+    garmentTypeId: 'sneakers' as const,
+  };
+  const wanted = await render(
     <TestProviders>
       <WardrobeApplicationContext.Provider value={createApplication([item, wantedItem])}>
-        <WardrobeListRoute initialEntryState="wanted" />
+        <WardrobeListRoute revealWanted />
       </WardrobeApplicationContext.Provider>
     </TestProviders>,
   );
+  expect(wanted.getByTestId('wardrobe-category-tab-footwear').props.accessibilityState.selected).toBe(true);
+  await wanted.unmount();
 
-  expect(
-    result.getByTestId('wardrobe-entry-filter-segment-1').props.accessibilityState.selected,
-  ).toBe(true);
-  expect(
-    result.getByTestId('wardrobe-entry-filter-segment-0').props.accessibilityState.selected,
-  ).toBe(false);
+  const requested = await render(
+    <TestProviders>
+      <WardrobeApplicationContext.Provider value={createApplication([item, wantedItem])}>
+        <WardrobeListRoute initialCategory="outerwear" revealWanted />
+      </WardrobeApplicationContext.Provider>
+    </TestProviders>,
+  );
+  expect(requested.getByTestId('wardrobe-category-tab-outerwear').props.accessibilityState.selected).toBe(true);
 });
 
 // `useScreenViewed('closet_list')` registers its `useFocusEffect` before the route's own,

@@ -24,6 +24,9 @@ const TONE = 0.9;
 const STITCH = 0.8;
 const ZIP = CONSTRUCTION * 1.25;
 const STITCH_DASH = [1.8, 1.5] as const;
+// The wanted edge (O9), in points: long enough to read as a line at tile size, short enough
+// to read as dashed on a rack piece.
+export const WANTED_OUTLINE_DASH = [3.2, 2.4] as const;
 const CAPTION_CONSTRUCTION = 0.55;
 // Non-text contrast (WCAG 1.4.11): an ink construction line under 3:1 on its fill switches
 // to the piece's own tone line.
@@ -50,6 +53,11 @@ type GarmentPaintingProps = Readonly<{
   layer?: 'all' | 'fill' | 'outline';
   /** A paint server for the main fill (the Closet's multicolour gradient). */
   mainPaint?: string;
+  /**
+   * Dash and gap of the ink edge in points: a wanted Closet piece draws a dashed edge, the
+   * same "dashed edge = wanted" rule on the rack and the Closet tile (O9).
+   */
+  outlineDash?: readonly [number, number];
 }>;
 
 /**
@@ -66,6 +74,7 @@ export const GarmentPainting = memo(function GarmentPainting({
   outline = GARMENT_OUTLINE,
   layer = 'all',
   mainPaint,
+  outlineDash,
 }: GarmentPaintingProps) {
   const uid = useId().replace(/[^A-Za-z0-9]/g, '');
   const caption = lod === 'caption';
@@ -123,7 +132,11 @@ export const GarmentPainting = memo(function GarmentPainting({
             </G>
           ) : null}
           {layer !== 'fill' && group.stroked !== false ? (
-            <Path d={group.outline} {...line(ink, outline)} />
+            <Path
+              d={group.outline}
+              {...line(ink, outline)}
+              {...(outlineDash ? { strokeDasharray: outlineDash.map((dash) => dash * unit) } : {})}
+            />
           ) : null}
         </G>
       ))}

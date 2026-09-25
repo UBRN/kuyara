@@ -9,12 +9,19 @@ export type TextScaling = Readonly<{
   usesStackedLayout: boolean;
   /** O5: above this factor a pair of buttons no longer fits side by side, so it stacks. */
   stacksButtonPair: boolean;
+  /**
+   * O9: the largest standard text sizes (above XL) drop the Closet grid and Profile's
+   * category cells from three columns to two, so a two-line `label` still fits a tile.
+   */
+  usesTwoColumnGrid: boolean;
   controlScale: number;
 }>;
 
 const STACKED_LAYOUT_THRESHOLD = 1.5;
 const MAXIMUM_CONTROL_SCALE = 1.5;
 const BUTTON_PAIR_STACK_THRESHOLD = 1.2;
+// iOS XXL is 1.235 and XXXL, the largest standard size, 1.353.
+const TWO_COLUMN_GRID_THRESHOLD = 1.2;
 
 export function useTextScaling(): TextScaling {
   const { fontScale } = useWindowDimensions();
@@ -23,6 +30,7 @@ export function useTextScaling(): TextScaling {
     fontScale,
     usesStackedLayout: fontScale > STACKED_LAYOUT_THRESHOLD,
     stacksButtonPair: fontScale > BUTTON_PAIR_STACK_THRESHOLD,
+    usesTwoColumnGrid: fontScale > TWO_COLUMN_GRID_THRESHOLD,
     controlScale: Math.min(fontScale, MAXIMUM_CONTROL_SCALE),
   };
 }
