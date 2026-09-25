@@ -1,6 +1,5 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert } from 'react-native';
 import type { DressStyle } from '@kuyara/contracts';
 
 import type { FailureCategory } from '@/domain/failure-category';
@@ -24,14 +23,13 @@ import { namePromptVersion } from '@/features/profile/domain/profile';
 import { NameSheet } from '@/features/profile/presentation/name-sheet';
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
 import { localDayKey } from '@/features/recommendation/application/recommendation-application-controller';
-import { nextBareDressingDayKey } from '@/features/recommendation/domain/dressing-day-choice';
 import { outfitCoverage } from '@/features/recommendation/domain/outfit-coverage';
 import { unavailableTodayState, type TodayScreenState } from '@/features/today/model';
 import { TodayScreen } from '@/features/today/presentation/today-screen';
 import { AskAgainSheet, type AskAgainChoice } from '@/features/today/presentation/ask-again-sheet';
 import { DailyFormalitySheet } from '@/features/today/presentation/daily-formality-sheet';
-import { planRowPresentation } from '@/features/today/presentation/today-presentation';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
+import { activeLocationSnapshot } from '@/features/weather/domain/weather';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useLocalization } from '@/localization/use-messages';
 import { getMessages } from '@/localization/messages';
@@ -61,9 +59,16 @@ export default function TodayRoute() {
   const { state: profileState, updateDisplayName } = useProfileApplication();
   const [namePromptDismissed, setNamePromptDismissed] = useState(false);
   const currentDressingDayKey = dressingDayKey ?? null;
-  // The morning question, the 18:00 evening question, or Plan tomorrow: one sheet, three
-  // openers. During the day the day type changes inside "Ask the stylist again" (O2, O3).
-  const [sheetTarget, setSheetTarget] = useState<'morning' | 'evening' | 'plan' | null>(null);
+  // The morning question or the 18:00 evening question: one sheet, two openers. During the
+  // day the day type changes inside "Ask the stylist again" (O2, O3).
+  const [sheetTarget, setSheetTargetState] = useState<'morning' | 'evening' | null>(null);
+  // The sheet reports a programmatic close as a dismissal too. Read live, so the close that
+  // follows an answer is never taken for a dismissal that would overwrite that answer.
+  const openSheet = useRef<'morning' | 'evening' | null>(null);
+  const setSheetTarget = useCallback((target: 'morning' | 'evening' | null) => {
+    openSheet.current = target;
+    setSheetTargetState(target);
+  }, []);
   // The re-ask sheet opens on the clock it was pressed at; its window is read against it.
   const [askOpenedAt, setAskOpenedAt] = useState<number | null>(null);
   const [askBusy, setAskBusy] = useState(false);
@@ -91,6 +96,11 @@ export default function TodayRoute() {
   const recommendation = recommendationState.status === 'ready'
     ? recommendationState.snapshot?.recommendation ?? null
     : null;
+  // S3: after a place switch the weather controller keeps the previous place's snapshot as the
+  // last valid result until the new one loads. It never renders under the new place's name:
+  // Today waits, or states the failure, exactly as it does with no snapshot at all.
+  const placeSnapshot = weatherState.status === 'ready'
+    ? activeLocationSnapshot(weatherState.snapshot, weatherState.activeLocation) : null;
 
   let state: TodayScreenState;
   let todayFailure: FailureCategory | null | undefined;
@@ -99,9 +109,15 @@ export default function TodayRoute() {
     state = { kind: 'loading' };
     todayFailure = undefined;
     recommendationFailure = undefined;
+  } else if (weatherState.status === 'ready' && weatherState.snapshot !== null &&
+      weatherState.activeLocation !== null && placeSnapshot === null &&
+      weatherState.refreshFailure === null) {
+    state = { kind: 'loading' };
+    todayFailure = undefined;
+    recommendationFailure = undefined;
   } else if (
     weatherState.status === 'error' ||
-    weatherState.snapshot === null ||
+    placeSnapshot === null ||
     weatherState.activeLocation === null ||
     weatherState.freshness === null
   ) {
@@ -130,7 +146,7 @@ export default function TodayRoute() {
     state = {
       kind: 'loaded',
       snapshot: {
-        weather: weatherState.snapshot,
+        weather: placeSnapshot,
         activeLocation: weatherState.activeLocation,
         freshness: weatherState.freshness,
         recommendation,
@@ -189,10 +205,7 @@ export default function TodayRoute() {
         state.kind === 'unavailable' || offeredKey.current === currentDressingDayKey) return;
     offeredKey.current = currentDressingDayKey;
     setSheetTarget(pendingQuestion);
-  }, [currentDressingDayKey, isFocused, pendingQuestion, showNamePrompt, state.kind]);
-  const tomorrowKey = currentDressingDayKey
-    ? nextBareDressingDayKey(currentDressingDayKey) : null;
-  const planRow = tomorrowKey ? planRowPresentation(tomorrowKey, clock, language) : null;
+  }, [currentDressingDayKey, isFocused, pendingQuestion, setSheetTarget, showNamePrompt, state.kind]);
   const profile = profileState.status === 'ready' ? profileState.profile : null;
   const profileDressStyle = profile?.dressStyle ?? 'smart';
   // f25 and M16: the first dressing day is the one the profile was set up on. Its greeting
@@ -206,12 +219,11 @@ export default function TodayRoute() {
     resolvedDressStyle && snapshotDressStyle !== null && snapshotDressStyle !== resolvedDressStyle
     ? resolvedDressStyle : null;
   const handleChoice = async (style: DressStyle) => {
-    if (!sheetTarget || savingChoice.current || !currentDressingDayKey || !tomorrowKey) return;
+    if (!sheetTarget || savingChoice.current || !currentDressingDayKey) return;
     savingChoice.current = true;
     setSheetError(false);
     try {
-      await chooseFormality?.(sheetTarget === 'plan' ? tomorrowKey : currentDressingDayKey,
-        style, sheetTarget === 'plan' ? 'plan' : 'morning');
+      await chooseFormality?.(currentDressingDayKey, style, 'morning');
       setSheetTarget(null);
     } catch {
       setSheetError(true);
@@ -219,27 +231,18 @@ export default function TodayRoute() {
       savingChoice.current = false;
     }
   };
+  // P6: closing the question answers it with the profile's own dress style, through the same
+  // write an answer makes, so it starts no generation the answer would not.
   const dismissChoice = () => {
-    if (savingChoice.current || !sheetTarget) return;
-    const target = sheetTarget;
+    const target = openSheet.current;
+    if (savingChoice.current || !target || !currentDressingDayKey) return;
+    savingChoice.current = true;
     setSheetTarget(null);
-    if (target === 'plan') return;
-    const copy = getMessages(language).today.dailyStyle;
-    // M17: the native alert, the same for the morning and the evening question.
-    Alert.alert(
-      target === 'evening' ? copy.questionEvening : copy.question,
-      target === 'evening' ? copy.dismissWarningEvening : copy.dismissWarning, [
-      { text: copy.chooseDayType, style: 'default', isPreferred: true,
-        onPress: () => setSheetTarget(target) },
-      { text: copy.continueWithoutChoosing, style: 'destructive', onPress: () => {
-        const styles: readonly DressStyle[] = ['casual', 'smart', 'formal'];
-        if (!currentDressingDayKey) return;
-        void chooseFormality?.(currentDressingDayKey, styles[Math.floor(Math.random() * 3)], 'random')
-          .catch(() => { setSheetError(true); setSheetTarget(target); });
-      } },
-    ]);
+    void (chooseFormality?.(currentDressingDayKey, profileDressStyle, 'morning') ?? Promise.resolve())
+      .catch(() => { setSheetError(true); setSheetTarget(target); })
+      .finally(() => { savingChoice.current = false; });
   };
-  const placeTimeZone = weatherState.status === 'ready' ? weatherState.snapshot?.timeZone ?? null : null;
+  const placeTimeZone = placeSnapshot?.timeZone ?? null;
   const confirmAskAgain = async ({ formality, departureAt }: AskAgainChoice) => {
     if (askBusy || !placeTimeZone || !reask) return;
     setAskBusy(true);
@@ -419,18 +422,13 @@ export default function TodayRoute() {
       onAskAgain={() => { setAskError(false); setAskOpenedAt(Date.now()); }}
       updatingDayType={updatingDayType}
       firstDressingDay={firstDressingDay}
-      planRow={planRow ?? undefined}
-      onPlanTomorrow={() => { setSheetError(false); setSheetTarget('plan'); }}
       state={state}
     />
     <DailyFormalitySheet visible={sheetTarget !== null} language={language}
-      question={sheetTarget === 'plan'
-        ? planRow?.question ?? getMessages(language).today.dailyStyle.questionTomorrow
-        : sheetTarget === 'evening'
-          ? getMessages(language).today.dailyStyle.questionEvening
-          : getMessages(language).today.dailyStyle.question}
-      selected={sheetTarget === 'plan' ? profileDressStyle
-        : sheetTarget === 'evening' ? null : resolvedDressStyle ?? profileDressStyle}
+      question={sheetTarget === 'evening'
+        ? getMessages(language).today.dailyStyle.questionEvening
+        : getMessages(language).today.dailyStyle.question}
+      selected={sheetTarget === 'evening' ? null : resolvedDressStyle ?? profileDressStyle}
       firstDay={sheetTarget === 'morning' && firstDressingDay}
       error={sheetError} onChoose={(style) => { void handleChoice(style); }} onDismiss={dismissChoice} />
     {placeTimeZone ? (

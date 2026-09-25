@@ -4,15 +4,10 @@ import test from 'node:test';
 import { migrateDatabase } from '@/infrastructure/sqlite/migrations';
 import { NodeSqliteDatabase } from '../../../../test/node-sqlite-database.mjs';
 import { SqliteDressingDayChoiceRepository } from './sqlite-dressing-day-choice-repository.ts';
-import { nextBareDressingDayKey, resolvedFormality } from '../domain/dressing-day-choice.ts';
+import { resolvedFormality } from '../domain/dressing-day-choice.ts';
 
 const profileId = '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4';
 const choiceId = 'f60a06dd-65a7-455b-9af3-c28101172170';
-
-test('tomorrow uses the next bare key across evening and year boundaries', () => {
-  assert.equal(nextBareDressingDayKey('2026-09-24'), '2026-09-25');
-  assert.equal(nextBareDressingDayKey('2026-12-31:evening'), '2027-01-01');
-});
 
 test('daily choice upsert preserves identity and creation time and resolves only its key', async (t) => {
   const database = new NodeSqliteDatabase();
