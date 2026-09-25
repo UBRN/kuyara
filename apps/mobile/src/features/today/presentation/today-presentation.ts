@@ -502,14 +502,18 @@ function assignedGarments(outfit: OutfitCandidate): readonly AssignedOutfitGarme
 export type GarmentPaletteDay = Pick<GarmentOutfitPalette, 'temperatureC' | 'condition' | 'isNight'>;
 
 /**
- * The day half of an outfit's palette: the current weather and whether the dressing day has
- * turned to its evening key, the same on Today, the detail and the runway.
+ * A saved recommendation keeps the weather and dressing-day half it was chosen for.
+ * Older rows without a basis retain the current-weather fallback.
  */
-export function garmentPaletteDay(weather: WeatherSnapshot, now: number): GarmentPaletteDay {
+export function garmentPaletteDay(
+  weather: WeatherSnapshot,
+  now: number,
+  basis?: TodaySnapshot['paletteBasis'],
+): GarmentPaletteDay {
   return {
-    temperatureC: weather.current.temperatureCelsius,
-    condition: weather.current.condition,
-    isNight: localDayKey(new Date(now)).endsWith(':evening'),
+    temperatureC: basis?.temperatureC ?? weather.current.temperatureCelsius,
+    condition: basis?.condition ?? weather.current.condition,
+    isNight: (basis?.localDayKey ?? localDayKey(new Date(now))).endsWith(':evening'),
   };
 }
 
@@ -757,7 +761,7 @@ function createLoadedPresentation(
   // The label follows the day the user is reading it on, so a stored weekend result does not
   // say "Weekend Relaxed" on the Monday after.
   const dayKind = localDayKind(new Date(now));
-  const paletteDay = garmentPaletteDay(weather, now);
+  const paletteDay = garmentPaletteDay(weather, now, snapshot.paletteBasis);
   const suggestions = outfits.map((outfit, index) =>
     localizeOutfit(outfit, index, outfits.length, weatherReasons, language, dayKind, paletteDay),
   );

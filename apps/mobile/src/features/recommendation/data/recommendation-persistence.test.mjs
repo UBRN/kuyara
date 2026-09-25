@@ -124,10 +124,31 @@ test('migration v5 persists a validated recommendation snapshot with lifecycle f
   assert.equal(replaced.generationMode, 'deterministic-fallback');
   assert.equal(replaced.catalogVersion, 5);
   assert.equal(replaced.localDayKey, '2026-08-01');
+  assert.deepEqual(replaced.paletteWeather, { temperatureC: 16, condition: 'clear' });
   assert.equal(replaced.recommendation.outfits.length, 3);
   assert.equal(new Set(replaced.recommendation.outfits.map(
     ({ archetypeId }) => archetypeId)).size, 3);
   assert.deepEqual(await repository.getSnapshot(profileId), replaced);
+});
+
+test('palette weather round trips in context_json and older rows remain readable', async (t) => {
+  const { database, repository } = await setup();
+  t.after(() => database.close());
+  const generated = generatedRecommendation();
+  const saved = await repository.saveSnapshot(profileId, {
+    weatherSnapshotId: generated.input.snapshot.id,
+    locationKey: generated.input.snapshot.locationKey,
+    context: generated.request,
+    recommendation: generated.recommendation,
+  });
+  assert.deepEqual(saved.paletteWeather, { temperatureC: 16, condition: 'clear' });
+  const row = await database.getFirstAsync('SELECT context_json FROM recommendation_snapshots');
+  const context = JSON.parse(row.context_json);
+  assert.deepEqual(context.paletteWeather, saved.paletteWeather);
+  delete context.paletteWeather;
+  await database.runAsync('UPDATE recommendation_snapshots SET context_json = ?',
+    [JSON.stringify(context)]);
+  assert.equal((await repository.getSnapshot(profileId)).paletteWeather, undefined);
 });
 
 test('a backwards clock still saves and reads the recommendation', async (t) => {

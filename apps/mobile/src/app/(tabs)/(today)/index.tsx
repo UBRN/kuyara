@@ -136,6 +136,10 @@ export default function TodayRoute() {
         recommendation,
         coverageStart: recommendationState.snapshot?.coverageStart,
         coverageEnd: recommendationState.snapshot?.coverageEnd,
+        paletteBasis: recommendationState.snapshot?.paletteWeather
+          ? { ...recommendationState.snapshot.paletteWeather,
+              localDayKey: recommendationState.snapshot.localDayKey }
+          : undefined,
       },
       isRefreshing:
         isPullRefreshing || weatherState.isRefreshing || recommendationState.isRefreshing,
