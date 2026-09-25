@@ -144,9 +144,11 @@ Why this is stricter than the mockups: see [Relationship to the mockups](#relati
   **>= 3.0:1**, measured on all seven light atmosphere states and the dark stage. This is
   not the shadow threshold, and it is not the surface step
   [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md) section 4 declines
-  to bound. It holds for the neutral base, for the deeper `footwear` neutral and for the
-  one luminance-matched accent alike, and the two page grounds the detail plate and the
-  Today alternates stand on are measured with them.
+  to bound. A garment's main fill passes it, or clears 3:1 against the plane on its own;
+  a palette colour that passes neither moves in OKLCH lightness only, by the smallest
+  passing step, with its hue unchanged. The neutral fill of a drawing without a palette
+  clears the step on every plane, and the page ground the detail plate and the Today
+  alternates stand on is measured with the stages.
 
 ## Law 4: one accent, and a controlled role band
 
@@ -163,14 +165,20 @@ take the `condition.*` family because their hue is a data encoding chosen by the
 rather than an emphasis chosen by the product. The family is consumed nowhere else,
 never by text, a filled control, a border or chrome, and never through alpha.
 
-Garment render fills are a content encoding and do not spend the accent budget. The Phase 6 library has 31 colours; each board keeps per-outfit harmony with at most one accent, and only
-the board that is the subject of the screen may carry that accent, so Today's alternates and
-the detail's recap stay neutral. The hue is a deterministic function of the option identifier
-and is stored nowhere. It reaches no text, control, border or chrome, it is never composited
-through alpha, and it is never the only signal: the outline, the garment name and the
-accessibility label say the same thing without it. A colour the owner recorded always wins
-over a derived one, and a piece with no recorded colour stays neutral rather than being
-guessed at.
+Garment colour is a content encoding and does not spend the accent budget. Every garment is
+drawn in the colours it really comes in: each drawing has a closed colourway from the Phase 6
+library of 31 colours and a few fixed materials (soles, bands, handles, hardware). The day
+picks a mood from its weather and dressing-day half (light, mild, wet, cold or evening), and
+an outfit takes at most one accent piece, placed by the mood and the day type; every other
+piece is a neutral from its own colourway, with enough lightness between neighbouring pieces
+that they never merge. Every outfit is coloured this way, the Today alternates included
+(O15), and ties break on the option identifier, so an outfit shows the same colours on its
+board, its alternate tile, its finishing-touch badges, its detail and the runway, and nothing
+is stored. Colour reaches no text, control, border or chrome, it is never composited through
+alpha, and it is never the only signal: the outline, the garment name and the accessibility
+label say the same thing without it. Personal records in the Closet and the Profile rail keep
+the colour-family fills: a recorded colour always wins, and a record without one stays
+neutral rather than being guessed at.
 
 **Controlled roles are approved and enter as a band, not as free hues.** Every controlled
 ink is tuned so its contrast against its own appearance's `surface` lies within **±0.8**
@@ -434,7 +442,7 @@ is a role in the sense of Law 9, so the role is named ahead of its second use.
 The condition symbol uses a closed animation vocabulary: sun turns, clouds drift, rain
 and snow fall, and wind streams. The first recommendation uses a runway:
 the day's atmosphere colour fills Today down to the tab bar, which stays usable, weather particles fall or drift, and
-neutral five-slot outlines arrive first and fill piece by piece when the AI answer arrives; no provisional outfit is shown. Progress and a rotating line sit
+neutral five-slot outlines arrive first and the chosen outfit fills piece by piece in its own palette when the AI answer arrives; no provisional outfit is shown. Progress and a rotating line sit
 below. The runway uses the garment silhouettes without a mannequin or mascot.
 
 **Spatial and effects motion.** Motion is one of two kinds. *Effects*

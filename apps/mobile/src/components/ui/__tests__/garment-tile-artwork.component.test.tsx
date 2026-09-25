@@ -21,9 +21,24 @@ const props = {
 };
 const hidden = { includeHiddenElements: true };
 
-// Inspect authored vector props without importing the vector library outside its boundary.
+// A clip path's own shape is geometry, not paint; skip it when reading drawn fills.
+const insideClip = (node: { type: unknown; parent: unknown }): boolean => {
+  for (let at = node.parent as { type: unknown; parent: unknown } | null; at; at = at.parent as typeof at) {
+    if (String(at.type).includes('ClipPath')) return true;
+  }
+  return false;
+};
+
+const teeOutline = silhouettes['g-tee'].groups[0].outline;
+
+// Inspect authored vector props without importing the vector library outside its boundary:
+// the outline is filled once and stroked once (the ink edge), and also clips its parts.
 function paths(result: Awaited<ReturnType<typeof render>>) {
-  return result.container.queryAll((node) => node.props.d === silhouettes['g-tee'].paths[0].d);
+  return result.container.queryAll((node) => node.props.d === teeOutline && node.props.strokeWidth == null
+    && node.props.fill != null && node.props.fill !== 'none' && !insideClip(node));
+}
+function edges(result: Awaited<ReturnType<typeof render>>) {
+  return result.container.queryAll((node) => node.props.d === teeOutline && node.props.strokeWidth != null);
 }
 
 test.each([lightTheme, darkTheme])('null colour uses the page ground\u2019s neutral and blue uses the content fill in $colorScheme', async (theme) => {
@@ -41,11 +56,12 @@ test.each([lightTheme, darkTheme])('null colour uses the page ground\u2019s neut
     type: 0,
     payload: processColor(blend(theme.colors.background, theme.colors.textPrimary, 0.13)),
   });
-  expect(path.props.stroke).toEqual({ type: 0, payload: processColor(theme.colors.textPrimary) });
+  const [edge] = edges(result);
+  expect(edge.props.stroke).toEqual({ type: 0, payload: processColor(theme.colors.textPrimary) });
   const bounds = silhouettes['g-tee'].bounds;
   const scale = Math.min(136 * 0.6 / bounds.width, 170 * 0.61 / bounds.height);
-  expect(path.props.strokeWidth).toBeCloseTo(1.9 / scale);
-  expect(path.props.vectorEffect).toBeUndefined();
+  expect(edge.props.strokeWidth).toBeCloseTo(1.9 / scale);
+  expect(edge.props.vectorEffect).toBeUndefined();
   await result.rerender(
     <KuyaraThemeContext.Provider value={theme}><GarmentTileArtwork {...props} colorFamily="blue" /></KuyaraThemeContext.Provider>,
   );
@@ -104,4 +120,24 @@ test('an unreadable legacy-entry photo falls to the category glyph, and a replac
   expect(result.queryByTestId('silhouette', hidden)).toBeNull();
   await result.rerender(draw('file:///new.jpg'));
   expect(result.getByTestId('photo', hidden)).toHaveProp('source', { uri: 'file:///new.jpg' });
+});
+
+// Phase 6's level of detail: below 32 points the tone lines and stitches drop out, while the
+// fills, the shade planes and the construction line stay.
+test('a drawing below 32 points drops tone lines and stitches, and keeps its construction', async () => {
+  const dashed = (result: Awaited<ReturnType<typeof render>>) =>
+    result.container.queryAll((node) => node.props.strokeDasharray != null && node.props.d != null);
+  const construction = 'M25 14.5 Q32 20.2 39 14.5';
+  const draw = (width: number, height: number) => (
+    <KuyaraThemeContext.Provider value={lightTheme}>
+      <GarmentTileArtwork {...props} width={width} height={height} />
+    </KuyaraThemeContext.Provider>
+  );
+  const board = await render(draw(136, 170));
+  expect(dashed(board).length).toBeGreaterThan(0);
+  const caption = await render(draw(40, 44));
+  expect(dashed(caption)).toHaveLength(0);
+  expect(caption.container.queryAll((node) => node.props.d === construction && node.props.strokeWidth != null))
+    .toHaveLength(1);
+  expect(paths(caption)).toHaveLength(1);
 });

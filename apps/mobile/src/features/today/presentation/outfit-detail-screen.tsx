@@ -17,6 +17,7 @@ import {
   Pill,
   Screen,
   haptics,
+  useGarmentRoles,
   useTextScaling,
 } from '@/components/ui';
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
@@ -81,6 +82,8 @@ export function OutfitDetailScreen({
     presentation.kind === 'loaded'
       ? presentation.suggestions.find(({ id }) => id === suggestionId)
       : undefined;
+  // The finishing touches keep the colours the outfit's palette gave them on Today (O15).
+  const accessoryRoles = useGarmentRoles(suggestion?.palette ?? null);
   const boardLayout = suggestion
     ? layoutGarmentBoard(suggestion.boardPieces, contentWidth, 'detail')
     : { height: 0, boxes: [] };
@@ -281,10 +284,9 @@ export function OutfitDetailScreen({
               fromStageRadius: 26,
               onSettled: onPiecesSettled,
             }}
-            // The opened outfit is this screen's subject, so it carries the same coloured
-            // piece it carried on Today. The plate stands on the page ground, so the board
-            // derives its fills from `background` rather than from the stage tint.
-            optionId={suggestion.id}
+            // The opened outfit keeps the palette it had on Today (O15). The plate stands on
+            // the page ground, so every fill is made legible on `background`.
+            palette={suggestion.palette}
             pieces={suggestion.boardPieces}
             preset="detail"
             settle={completions}
@@ -346,6 +348,7 @@ export function OutfitDetailScreen({
                   <GarmentTileArtwork
                     category={accessory.category}
                     colorFamily={null}
+                    roles={accessoryRoles.get(accessory.accessorySlot)}
                     garmentTypeId={accessory.garmentTypeId}
                     glyphSize={ACCESSORY_ARTWORK_SIZE}
                     height={ACCESSORY_ARTWORK_SIZE}

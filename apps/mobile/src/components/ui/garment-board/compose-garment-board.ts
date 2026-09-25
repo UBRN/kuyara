@@ -16,11 +16,11 @@ export const todayPreset = {
   midInset: 0.20,
   footRise: 0.20,
   gutter: 0.095,
-  // The top inset clears the temperature and the condition glyph the screen draws in the
-  // stage's corners; the bottom inset is the tint's own edge and holds nothing, so it is
-  // the detail preset's. Neither is board geometry: the ladder, the caps and the gaps
-  // above are ADR 0025's and do not move.
-  topInset: 0.205,
+  // Today's stage holds nothing but the board: the temperature and the condition symbol
+  // live in the title above it, so both insets are the tint's own edge and match the detail
+  // preset's. Neither is board geometry: the ladder, the caps and the gaps above are
+  // ADR 0025's and do not move.
+  topInset: 0.045,
   botInset: 0.055,
   stageMin: 0.66,
   stageMax: 1.14,
