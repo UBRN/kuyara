@@ -3,9 +3,8 @@ import type { PropsWithChildren } from 'react';
 import { processColor, StyleSheet } from 'react-native';
 
 import { GarmentBoard, measureGarmentBoardHeight, type GarmentBoardPiece } from '@/components/ui/garment-board/garment-board';
-import { garmentFillRatios, resolveGarmentRenderFills } from '@/components/ui/garment-board/garment-render-fills';
+import { garmentRolesBySlot, type GarmentOutfitPalette } from '@/components/ui/garment-board/garment-palette';
 import { silhouettes } from '@/components/ui/garment-board/silhouettes';
-import { blend } from '@/theme/color-blend';
 import { lightTheme, spacing } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
@@ -18,10 +17,33 @@ const pieces: readonly GarmentBoardPiece[] = [
   { slot: 'footwear', garmentTypeId: 'sandals', category: 'footwear' },
 ];
 
+const palette: GarmentOutfitPalette = {
+  optionId: 'outfit-a', formality: 'casual', temperatureC: 29, condition: 'clear', isNight: false,
+  pieces: [{ slot: 'one_piece', garmentTypeId: 'dress' }, { slot: 'footwear', garmentTypeId: 'sandals' }],
+};
+
+const rolesOn = (plane: string) => garmentRolesBySlot({
+  ...palette,
+  appearance: 'light',
+  stageColor: plane,
+  accessoryStageColor: lightTheme.colors.background,
+  inkColor: lightTheme.colors.textPrimary,
+});
+
+// A clip path's own shape is geometry, not paint; skip it when reading drawn fills.
+const insideClip = (node: { type: unknown; parent: unknown }): boolean => {
+  for (let at = node.parent as { type: unknown; parent: unknown } | null; at; at = at.parent as typeof at) {
+    if (String(at.type).includes('ClipPath')) return true;
+  }
+  return false;
+};
+
+// The first group's outline, filled (its stroke-free copy; the edge and the clip are separate).
 function fillsOf(result: Awaited<ReturnType<typeof render>>, silhouetteId: 'g-dress' | 'g-sandal') {
-  const filledPath = silhouettes[silhouetteId].paths.find((path) => path.filled)!;
+  const [group] = silhouettes[silhouetteId].groups;
   return result.container
-    .queryAll((node) => node.props.d === filledPath.d)
+    .queryAll((node) => node.props.d === group.outline && node.props.strokeWidth == null
+      && node.props.fill != null && node.props.fill !== 'none' && !insideClip(node))
     .map((node) => node.props.fill);
 }
 
@@ -30,7 +52,7 @@ function dressFills(result: Awaited<ReturnType<typeof render>>) {
 }
 
 test('the board is one accessible image and its measured height matches its SVG', async () => {
-  const result = await render(<GarmentBoard pieces={pieces} width={349} preset="today" accessibilityLabel="Dress, sandals" testID="board" />, { wrapper: LightTheme });
+  const result = await render(<GarmentBoard palette={palette} pieces={pieces} width={349} preset="today" accessibilityLabel="Dress, sandals" testID="board" />, { wrapper: LightTheme });
   const board = result.getByRole('image', { name: 'Dress, sandals' });
   expect(result.getAllByRole('image')).toHaveLength(1);
   expect(board).toHaveProp('testID', 'board');
@@ -39,21 +61,23 @@ test('the board is one accessible image and its measured height matches its SVG'
 });
 
 test('detail uses the same pieces with its own measured height', async () => {
-  const result = await render(<GarmentBoard pieces={pieces} width={349} preset="detail" accessibilityLabel="Dress, sandals" />, { wrapper: LightTheme });
+  const result = await render(<GarmentBoard palette={palette} pieces={pieces} width={349} preset="detail" accessibilityLabel="Dress, sandals" />, { wrapper: LightTheme });
   expect(result.getByRole('image')).toHaveProp('height', measureGarmentBoardHeight(pieces, 349, 'detail'));
   expect(measureGarmentBoardHeight(pieces, 349, 'detail')).not.toBe(measureGarmentBoardHeight(pieces, 349, 'today'));
   expect(dressFills(result)).toEqual([
-    { type: 0, payload: processColor(lightTheme.colors.stage) },
+    { type: 0, payload: processColor(rolesOn(lightTheme.colors.background).get('one_piece')!.main) },
   ]);
 });
 
-test('a tinted stage gives static and travelling artwork the same derived target fill', async () => {
+// O15: the board takes every fill from the outfit's palette, made legible on the plane it
+// stands on, and a travelling board keeps those colours across the move.
+test('board fills come from the outfit palette on the plane the board stands on', async () => {
   const stageColor = lightTheme.atmosphere.clearDay;
-  // M20: a Today board takes the deeper fill step on every plane it is drawn on.
-  const targetFill = blend(stageColor, lightTheme.colors.textPrimary, garmentFillRatios.today.base);
+  const roles = rolesOn(stageColor);
   const staticResult = await render(
     <GarmentBoard
       accessibilityLabel="Dress, sandals"
+      palette={palette}
       pieces={pieces}
       preset="today"
       stageColor={stageColor}
@@ -61,15 +85,15 @@ test('a tinted stage gives static and travelling artwork the same derived target
     />,
     { wrapper: LightTheme },
   );
-  expect(dressFills(staticResult)).toEqual([
-    { type: 0, payload: processColor(targetFill) },
-  ]);
+  expect(dressFills(staticResult)).toEqual([{ type: 0, payload: processColor(roles.get('one_piece')!.main) }]);
+  expect(fillsOf(staticResult, 'g-sandal')).toEqual([{ type: 0, payload: processColor(roles.get('footwear')!.main) }]);
+  expect(roles.get('one_piece')!.main).not.toBe(roles.get('footwear')!.main);
 
-  const fromStageColor = lightTheme.atmosphere.fallingDay;
   const travellingResult = await render(
     <GarmentBoard
       accessibilityLabel="Dress, sandals"
-      entrance={{ fromPreset: 'today', fromStageColor, fromStageRadius: 26 }}
+      entrance={{ fromPreset: 'today', fromStageColor: lightTheme.atmosphere.fallingDay, fromStageRadius: 26 }}
+      palette={palette}
       pieces={pieces}
       preset="today"
       stageColor={stageColor}
@@ -77,48 +101,12 @@ test('a tinted stage gives static and travelling artwork the same derived target
     />,
     { wrapper: LightTheme },
   );
-  expect(dressFills(travellingResult)).toEqual([
-    { type: 0, payload: processColor(targetFill) },
-    {
-      type: 0,
-      payload: processColor(blend(fromStageColor, lightTheme.colors.textPrimary, garmentFillRatios.today.base)),
-    },
-  ]);
-});
-
-test('an option id colours one piece of the board that is the screen\u2019s subject', async () => {
-  const plane = lightTheme.atmosphere.clearDay;
-  const expected = resolveGarmentRenderFills({
-    optionId: 'outfit-a',
-    pieces: pieces.map(({ slot }) => ({ slot, colorFamily: null })),
-    plane,
-    colors: lightTheme.colors,
-    colorScheme: 'light',
-    step: 'today',
-  });
-  const neutral = blend(plane, lightTheme.colors.textPrimary, garmentFillRatios.today.base);
-  const result = await render(
-    <GarmentBoard
-      accessibilityLabel="Dress, sandals"
-      optionId="outfit-a"
-      pieces={pieces}
-      preset="today"
-      stageColor={plane}
-      width={349}
-    />,
-    { wrapper: LightTheme },
-  );
-
-  // The dress takes the accent and the sandals the deeper neutral, so the board reads as
-  // one answer with one colour in it rather than as three equal panels.
-  expect(dressFills(result)).toEqual([{ type: 0, payload: processColor(expected.get('one_piece')) }]);
-  expect(fillsOf(result, 'g-sandal')).toEqual([{ type: 0, payload: processColor(expected.get('footwear')) }]);
-  expect(expected.get('one_piece')).not.toBe(neutral);
-  expect(expected.get('footwear')).not.toBe(neutral);
+  expect(dressFills(travellingResult)).toEqual([{ type: 0, payload: processColor(roles.get('one_piece')!.main) }]);
 });
 
 const risingBoard = (
   <GarmentBoard
+    palette={palette}
     accessibilityLabel="Dress, sandals"
     pieces={pieces}
     preset="today"
@@ -144,6 +132,7 @@ test('entrance keeps one accessible detail-height image and reports settle once'
   const onSettled = jest.fn();
   const result = await render(
     <GarmentBoard
+      palette={palette}
       accessibilityLabel="Dress, sandals"
       entrance={{
         fromPreset: 'today',
@@ -168,6 +157,7 @@ test('a settle change moves the pieces without replaying the entrance or the acc
   const onSettled = jest.fn();
   const board = (settle: number) => (
     <GarmentBoard
+      palette={palette}
       accessibilityLabel="Dress, sandals"
       entrance={{
         fromPreset: 'today',

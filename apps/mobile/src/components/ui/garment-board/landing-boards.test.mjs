@@ -4,22 +4,23 @@ import test from 'node:test';
 
 import { silhouettes } from './silhouettes.ts';
 
-// The public site's landing layout inlines garment boards whose path data is copied from
-// silhouettes.ts. Nothing generates them, so this suite is what notices when the
-// vocabulary changes under the copy. Each `<g>` is identified by its ordered `d` list,
-// which is unique per silhouette, so the HTML needs no garment marker.
+// The public site's landing layout inlines garment boards whose outlines are copied from
+// silhouettes.ts; the site draws them flat, without the app's colour and construction detail.
+// Nothing generates them, so this suite is what notices when the vocabulary changes under the
+// copy. Each `<g>` is identified by its ordered outline list, which is unique per silhouette,
+// so the HTML needs no garment marker.
 const landingUrl = new URL('../../../../../../docs/_layouts/landing.html', import.meta.url);
 const regenerate = 'regenerate the board in docs/_layouts/landing.html from silhouettes.ts';
 
-// docs/design/garment-board.md section 8: stroke 1.9, round joins and caps, filled paths
-// take the stage fill and open paths take none (garment-board.tsx does the same).
+// docs/design/garment-board.md section 8: stroke 1.9, round joins and caps; every outline
+// takes the stage fill.
 const strokeAttributes = {
   stroke: 'var(--ku-board-ink)',
   'stroke-width': '1.9',
   'stroke-linejoin': 'round',
   'stroke-linecap': 'round',
 };
-const fillFor = (filled) => (filled ? 'var(--ku-board-fill)' : 'none');
+const outlinesOf = (silhouette) => silhouette.groups.map(({ outline }) => outline);
 
 const attributesOf = (tag) => Object.fromEntries(
   [...tag.matchAll(/([A-Za-z-]+)="([^"]*)"/g)].map(([, name, value]) => [name, value]),
@@ -41,7 +42,7 @@ function readBoards() {
 }
 
 const vocabulary = new Map(Object.values(silhouettes)
-  .map((silhouette) => [silhouette.paths.map(({ d }) => d).join('\n'), silhouette]));
+  .map((silhouette) => [outlinesOf(silhouette).join('\n'), silhouette]));
 
 function identify(paths) {
   const key = paths.map(({ d }) => d).join('\n');
@@ -51,7 +52,7 @@ function identify(paths) {
   const nearest = Object.values(silhouettes)
     .map((silhouette) => ({
       silhouette,
-      shared: silhouette.paths.filter(({ d }) => drawn.has(d)).length,
+      shared: outlinesOf(silhouette).filter((d) => drawn.has(d)).length,
     }))
     .sort((a, b) => b.shared - a.shared)[0];
   return { silhouette: nearest.silhouette, exact: false, shared: nearest.shared };
@@ -71,11 +72,10 @@ test('every landing board piece is a silhouette copied verbatim, with the spec f
       const match = identify(piece.paths);
       assert.ok(match.exact,
         `${where} no longer matches any silhouette; its nearest is ${match.silhouette.id} `
-        + `(${match.shared} of ${match.silhouette.paths.length} paths still equal). `
+        + `(${match.shared} of ${match.silhouette.groups.length} outlines still equal). `
         + `Either that drawing changed in silhouettes.ts or the copy was edited: ${regenerate}.`);
       piece.paths.forEach((attributes, index) => {
-        const source = match.silhouette.paths[index];
-        assert.equal(attributes.fill, fillFor(source.filled),
+        assert.equal(attributes.fill, 'var(--ku-board-fill)',
           `${where} (${match.silhouette.id}) path ${index + 1} fill`);
         for (const [name, value] of Object.entries(strokeAttributes)) {
           assert.equal(attributes[name], value, `${where} (${match.silhouette.id}) path ${index + 1} ${name}`);
@@ -108,7 +108,7 @@ test('every landing board places its pieces on the shared columns without clippi
     boxes.forEach((box, index) => {
       const piece = board.pieces[index];
       const where = `landing.html line ${board.line}, column ${piece.column} (${identify(piece.paths).silhouette.id})`;
-      assert.equal(box.centre, columns[index],
+      assert.ok(Math.abs(box.centre - columns[index]) < 1e-6,
         `${where} is centred at ${box.centre}, the column sits at ${columns[index]}; ${regenerate}`);
       assert.ok(box.left >= minX && box.right <= minX + width && box.top >= minY && box.bottom <= minY + height,
         `${where} leaves the board's viewBox; ${regenerate}`);

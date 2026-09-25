@@ -1,20 +1,17 @@
-import { useId, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
-import Svg, { Defs, G, LinearGradient, Path, Stop } from 'react-native-svg';
+import Svg, { Defs, G, LinearGradient, Stop } from 'react-native-svg';
 
 import type { ColorFamily, GarmentTypeId, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { GarmentSlotGlyph } from '../garment-slot-glyph';
-import { colorFamilyFills } from './color-family-fill';
-import { resolveGarmentRenderFills } from './garment-render-fills';
+import { GARMENT_OUTLINE, garmentLevelOfDetail, GarmentPainting } from './garment-painting';
+import { garmentFillRoles, type GarmentRoles } from './garment-palette';
+import { resolveGarmentTileFill } from './garment-render-fills';
 import { garmentSilhouetteIds } from './garment-silhouette-map';
 import { silhouettes, type Silhouette } from './silhouettes';
 
-// A tile draws one garment rather than an outfit, so it has no slot of its own. It asks
-// for the one slot that is neither the deeper `footwear` neutral nor, with an empty option
-// id, ever an accent: a personal record is never coloured by a guess.
-const TILE_SLOT = 'primary_top';
 // A cropped drawing keeps this margin around its own artwork, in drawing units, so the
 // stroke is not clipped at the edge.
 const CROP_PAD = 1.5;
@@ -26,6 +23,7 @@ const STANDALONE_SIZE = 28;
 function GarmentTileSilhouette({
   silhouette,
   colorFamily,
+  roles: paletteRoles,
   width,
   height,
   testID,
@@ -33,6 +31,8 @@ function GarmentTileSilhouette({
 }: Readonly<{
   silhouette: Silhouette;
   colorFamily: ColorFamily | null;
+  /** An outfit piece's palette roles (O15); without them the drawing takes the tile fill. */
+  roles?: GarmentRoles;
   width: number;
   height: number;
   testID: string;
@@ -41,28 +41,25 @@ function GarmentTileSilhouette({
 }>) {
   const { colors, colorScheme } = useKuyaraTheme();
   const gradientId = `garment-fill-${useId()}`;
-  // `multicolor` is the one family a single fill cannot carry, so it keeps its two stops
-  // here; everything else takes the recorded colour or the neutral base of the page ground.
-  const fill = colorFamily === 'multicolor'
-    ? colorFamilyFills[colorScheme].multicolor
-    : resolveGarmentRenderFills({
-      optionId: '',
-      pieces: [{ slot: TILE_SLOT, colorFamily }],
-      plane: colors.background,
-      colors,
-      colorScheme,
-    }).get(TILE_SLOT)!;
+  // `multicolor` is the one family a single fill cannot carry, so it keeps its two stops;
+  // everything else takes the recorded colour or the neutral step off the page ground.
+  const fill = resolveGarmentTileFill({ colorFamily, plane: colors.background, colors, colorScheme });
   const gradient = typeof fill !== 'string';
+  // Every tone of the drawing derives from its main fill; a multicolour piece derives them
+  // from its first stop and paints its main surfaces with the gradient.
+  const tileRoles = useMemo(
+    () => garmentFillRoles(silhouette.id, gradient ? fill[0] : fill, colorScheme),
+    [colorScheme, fill, gradient, silhouette.id],
+  );
   const { bounds } = silhouette;
   const scale = cropped
     ? Math.min(width, height) / (Math.max(bounds.width, bounds.height) + 2 * CROP_PAD)
     : Math.min(width * 0.6 / bounds.width, height * 0.61 / bounds.height);
-  const strokeWidth = cropped ? 1.9 * Math.min(1, height / STANDALONE_SIZE) : 1.9;
-  // The board's `vectorEffect="non-scaling-stroke"` is not used here: on iOS react-native-svg
-  // paints a non-scaling-stroke path in client space while a gradient fill still uses the
-  // path's local bounds, so the multicolor gradient landed outside the drawing (measured
-  // 2026-09-09 on 15.15.4). Dividing the 1.9 stroke by the uniform scale draws the same
-  // 1.9 point edge and keeps the gradient in the path's own coordinate space.
+  const outline = cropped ? GARMENT_OUTLINE * Math.min(1, height / STANDALONE_SIZE) : GARMENT_OUTLINE;
+  // No `vectorEffect="non-scaling-stroke"`: on iOS react-native-svg paints a non-scaling
+  // stroke in client space while a gradient fill still uses the path's local bounds, so the
+  // multicolor gradient landed outside the drawing (measured 2026-09-09 on 15.15.4). The
+  // painting divides every stroke by the uniform scale instead.
   const x = (width - bounds.width * scale) / 2 - bounds.x * scale;
   const y = (height - bounds.height * scale) / 2 - bounds.y * scale;
 
@@ -83,17 +80,15 @@ function GarmentTileSilhouette({
         </Defs>
       ) : null}
       <G transform={`translate(${x} ${y}) scale(${scale})`}>
-        {silhouette.paths.map((path) => (
-          <Path
-            key={path.d}
-            d={path.d}
-            fill={path.filled ? (gradient ? `url(#${gradientId})` : fill) : 'none'}
-            stroke={colors.textPrimary}
-            strokeWidth={strokeWidth / scale}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        ))}
+        <GarmentPainting
+          ink={colors.textPrimary}
+          lod={garmentLevelOfDetail(Math.max(bounds.width, bounds.height) * scale)}
+          mainPaint={gradient && !paletteRoles ? `url(#${gradientId})` : undefined}
+          outline={outline}
+          roles={paletteRoles ?? tileRoles}
+          scale={scale}
+          silhouette={silhouette}
+        />
       </G>
     </Svg>
   );
@@ -102,18 +97,20 @@ function GarmentTileSilhouette({
 /**
  * One garment drawn beside words: a finishing touch at caption size, a day type on a sheet
  * tile. The drawing is normalised by its own drawn extent, so a coat and a shoe read at the
- * same weight, and filled from the page ground. A type without a drawing falls back to its
- * category glyph at the same size.
+ * same weight. An outfit's piece takes its palette roles (O15); anything else is filled from
+ * the page ground. A type without a drawing falls back to its category glyph at the same size.
  */
 export function GarmentDrawing({
   garmentTypeId,
   category,
   size,
+  roles,
   testID,
 }: Readonly<{
   garmentTypeId: GarmentTypeId;
   category: StructuralCategory;
   size: number;
+  roles?: GarmentRoles;
   testID: string;
 }>) {
   const { colors } = useKuyaraTheme();
@@ -125,6 +122,7 @@ export function GarmentDrawing({
         colorFamily={null}
         cropped
         height={size}
+        roles={roles}
         silhouette={silhouettes[silhouetteId]}
         testID={testID}
         width={size}
@@ -141,13 +139,15 @@ export function GarmentDrawing({
 
 // One photo, then silhouette, then category glyph ladder for both personal-piece surfaces.
 export function GarmentTileArtwork({
-  photoUri, garmentTypeId, category, colorFamily, width, height, glyphSize,
+  photoUri, garmentTypeId, category, colorFamily, roles, width, height, glyphSize,
   photoTestID, silhouetteTestID, placeholderTestID,
 }: Readonly<{
   photoUri: string | null;
   garmentTypeId: GarmentTypeId | null;
   category: StructuralCategory;
   colorFamily: ColorFamily | null;
+  /** An outfit piece's palette roles (O15), for the detail's finishing touches. */
+  roles?: GarmentRoles;
   width: number;
   height: number;
   glyphSize: number;
@@ -175,7 +175,7 @@ export function GarmentTileArtwork({
   }
 
   if (silhouetteId) {
-    return <GarmentTileSilhouette silhouette={silhouettes[silhouetteId]} colorFamily={colorFamily} width={width} height={height} testID={silhouetteTestID} />;
+    return <GarmentTileSilhouette silhouette={silhouettes[silhouetteId]} colorFamily={colorFamily} roles={roles} width={width} height={height} testID={silhouetteTestID} />;
   }
 
   return (

@@ -18,6 +18,7 @@ import {
   PressScale,
   measureGarmentBoardHeight,
   Pill,
+  useGarmentRoles,
   Screen,
   Surface,
   useRefreshOutcomeHaptics,
@@ -33,7 +34,9 @@ import { GarmentBoardSkeleton } from '@/features/today/presentation/garment-boar
 import { FirstGenerationRunway } from '@/features/today/presentation/first-generation-runway';
 import {
   createTodayPresentation,
+  garmentPaletteDay,
   outfitBoardPieces,
+  outfitGarmentPalette,
   runwayWeather,
   type LoadedOutfitPresentation,
   type LoadedTodayPresentation,
@@ -111,7 +114,11 @@ export function TodayScreen(props: TodayScreenProps) {
         completed={settled !== null}
         language={props.language}
         onSkip={() => { void application?.skipWait(); }}
-        outfit={runwayOutfit ? { id: runwayOutfit.optionId, pieces: outfitBoardPieces(runwayOutfit) } : null}
+        outfit={runwayOutfit && weatherState?.snapshot ? {
+          id: runwayOutfit.optionId,
+          pieces: outfitBoardPieces(runwayOutfit),
+          palette: outfitGarmentPalette(runwayOutfit, garmentPaletteDay(weatherState.snapshot, now)),
+        } : null}
         phase={recommendationState?.phase ?? null}
         weather={weatherState?.snapshot
           ? runwayWeather(
@@ -437,9 +444,7 @@ function TodayScreenContent({
                     // leaves it still. The rise is never the only signal; the archetype and
                     // freshness line also change with it.
                     key={primary.id}
-                    // Today's subject is the primary composition, so it is the one board that
-                    // carries a coloured piece; the alternates below stay neutral.
-                    optionId={primary.id}
+                    palette={primary.palette}
                     pieces={primary.boardPieces}
                     preset="today"
                     rise
@@ -510,7 +515,11 @@ function TodayScreenContent({
             ) : null}
             {primary.accessories.length > 0 || presentation.coolSpellCaption ? (
               <View style={styles.finishingTouches}>
-                <AccessoryCaption caption={presentation.copy.finishingTouchesHeading} suggestion={primary} />
+                <AccessoryCaption
+                  caption={presentation.copy.finishingTouchesHeading}
+                  stageColor={stageColor}
+                  suggestion={primary}
+                />
                 {presentation.coolSpellCaption ? (
                   <CoolSpellLine caption={presentation.coolSpellCaption} />
                 ) : null}
@@ -595,11 +604,11 @@ function TodayScreenContent({
                       importantForAccessibility="no-hide-descendants"
                       style={[styles.alternateStage, { height: alternateStageHeight }]}
                       testID={`today-alternate-stage-${suggestion.id}`}>
-                      {/* The alternates stand on the page ground and take the neutral stage
-                          fill, so the screen carries one chromatic event: the primary
-                          composition. A plate tinted with its own fill would read 1.0:1. */}
+                      {/* O15: each alternate stands on the page ground in its own palette, so
+                          it looks the same here as on Today's stage once chosen. */}
                       <GarmentBoard
                         accessibilityLabel={suggestion.boardAccessibilityLabel}
+                        palette={suggestion.palette}
                         pieces={suggestion.boardPieces}
                         preset="today"
                         testID={`today-alternate-board-${suggestion.id}`}
@@ -806,15 +815,19 @@ function Dimmed({
 
 /**
  * The accessories the outfit finishes with: the caption, then each drawing at the caption's
- * size (Law 6), cropped to its own artwork with the stroke scaled to it (M21). One accessible
- * element reads the names, never an accent and never animated. A day that asks for no
- * accessory renders nothing at all.
+ * size (Law 6), cropped to its own artwork with the stroke scaled to it (M21), in the colours
+ * the outfit's palette gave it with the board (O15). One accessible element reads the names,
+ * never animated. A day that asks for no accessory renders nothing at all.
  */
 function AccessoryCaption({
   caption,
+  stageColor,
   suggestion,
-}: Readonly<{ caption: string; suggestion: LoadedOutfitPresentation }>) {
+}: Readonly<{ caption: string; stageColor: string; suggestion: LoadedOutfitPresentation }>) {
   const { controlScale } = useTextScaling();
+  // The board's own resolution, read back from the palette memo: accessories stand on the
+  // page ground, which the palette already measures them against.
+  const roles = useGarmentRoles(suggestion.palette, stageColor);
   if (suggestion.accessories.length === 0) {
     return null;
   }
@@ -834,6 +847,7 @@ function AccessoryCaption({
             category={accessory.category}
             garmentTypeId={accessory.garmentTypeId}
             key={accessory.accessorySlot}
+            roles={roles.get(accessory.accessorySlot)}
             size={ACCESSORY_CAPTION_SIZE * controlScale}
             testID={`today-accessory-${accessory.garmentTypeId}`}
           />

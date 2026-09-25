@@ -1,5 +1,7 @@
 import type { DayKind } from '@kuyara/contracts';
 
+import type { GarmentOutfitPalette } from '@/components/ui';
+
 import {
   archetypeLabel,
   localDayKey,
@@ -128,6 +130,8 @@ export type LoadedOutfitPresentation = Readonly<{
   emphasis?: string;
   pieces: readonly LocalizedOutfitPiece[];
   boardPieces: readonly Readonly<{ slot: OutfitSlot; garmentTypeId: GarmentTypeId; category: StructuralCategory }>[];
+  /** The outfit's colours (O15): its board, alternate tile, badges and detail share them. */
+  palette: GarmentOutfitPalette;
   boardAccessibilityLabel: string;
   accessories: readonly LocalizedOutfitAccessory[];
   accessoriesAccessibilityLabel: string;
@@ -495,6 +499,40 @@ function assignedGarments(outfit: OutfitCandidate): readonly AssignedOutfitGarme
   });
 }
 
+export type GarmentPaletteDay = Pick<GarmentOutfitPalette, 'temperatureC' | 'condition' | 'isNight'>;
+
+/**
+ * The day half of an outfit's palette: the current weather and whether the dressing day has
+ * turned to its evening key, the same on Today, the detail and the runway.
+ */
+export function garmentPaletteDay(weather: WeatherSnapshot, now: number): GarmentPaletteDay {
+  return {
+    temperatureC: weather.current.temperatureCelsius,
+    condition: weather.current.condition,
+    isNight: localDayKey(new Date(now)).endsWith(':evening'),
+  };
+}
+
+/**
+ * One outfit's palette inputs, accessories included, so a single resolution colours its
+ * board and its finishing-touch badges together. Colour is render-only: nothing here is
+ * stored or reaches a recommendation.
+ */
+export function outfitGarmentPalette(outfit: RecommendedOutfit, day: GarmentPaletteDay): GarmentOutfitPalette {
+  return {
+    ...day,
+    optionId: outfit.optionId,
+    formality: outfit.formality,
+    pieces: [
+      ...outfitBoardPieces(outfit).map(({ slot, garmentTypeId }) => ({ slot, garmentTypeId })),
+      ...accessoryOutfitSlots.flatMap((slot) => {
+        const accessory = outfit.accessories[slot];
+        return accessory ? [{ slot, garmentTypeId: accessory.garment.garmentTypeId }] : [];
+      }),
+    ],
+  };
+}
+
 /** The pieces a board draws for an outfit, in the board's slot order. */
 export function outfitBoardPieces(outfit: OutfitCandidate): LoadedOutfitPresentation['boardPieces'] {
   return assignedGarments(outfit).map(({ garment, slot }) => ({
@@ -509,6 +547,7 @@ function localizeOutfit(
   weatherReasons: readonly string[],
   language: SupportedLanguage,
   dayKind: DayKind,
+  paletteDay: GarmentPaletteDay,
 ): LoadedOutfitPresentation {
   const messages = getMessages(language);
   const copy = messages.today;
@@ -581,6 +620,7 @@ function localizeOutfit(
     emphasis: index === 0 ? copy.emphasis.recommended : undefined,
     pieces,
     boardPieces,
+    palette: outfitGarmentPalette(outfit, paletteDay),
     boardAccessibilityLabel: copy.boardAccessibilityLabel({ archetype: title, pieces: pieces.map(({ item }) => item) }),
     accessories,
     accessoriesAccessibilityLabel: accessories.length > 0
@@ -717,8 +757,9 @@ function createLoadedPresentation(
   // The label follows the day the user is reading it on, so a stored weekend result does not
   // say "Weekend Relaxed" on the Monday after.
   const dayKind = localDayKind(new Date(now));
+  const paletteDay = garmentPaletteDay(weather, now);
   const suggestions = outfits.map((outfit, index) =>
-    localizeOutfit(outfit, index, outfits.length, weatherReasons, language, dayKind),
+    localizeOutfit(outfit, index, outfits.length, weatherReasons, language, dayKind, paletteDay),
   );
   // ADR 0034 section 4: the on-device badge appears only when the stored mode is
   // `on-device-ai`, so the words never advertise a tier that did not produce this result,
