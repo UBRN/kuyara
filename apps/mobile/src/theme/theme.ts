@@ -95,6 +95,15 @@ export type ConditionInkRole =
 
 type ConditionColors = Readonly<Record<ConditionInkRole, string>>;
 
+/**
+ * The first-generation runway's field, one flat colour per weather group (owner decision
+ * O1). They belong to the runway alone: no other surface may read them, which
+ * `runway-palette.test.mjs` holds with a consumer grep.
+ */
+export type RunwayField = 'clear' | 'cloudy' | 'rain' | 'snow';
+
+type RunwayColors = Readonly<Record<RunwayField, string>>;
+
 export const darkSemanticColors = Object.freeze({
   background: brandColors.nightLayer,
   backgroundElevated: blend(brandColors.deepAtmosphere, brandColors.quietSky, 0.08),
@@ -192,6 +201,20 @@ const darkCondition = Object.freeze({
   thunderstorm: '#C29EDB',
   neutral: darkSemanticColors.textPrimary,
 } as const satisfies ConditionColors);
+
+const lightRunway = Object.freeze({
+  clear: '#F1DDA8',
+  cloudy: '#C7D0DD',
+  rain: '#7FB1CC',
+  snow: '#D5E5EE',
+} as const satisfies RunwayColors);
+
+const darkRunway = Object.freeze({
+  clear: '#1B3350',
+  cloudy: '#1C2B37',
+  rain: '#0E3A52',
+  snow: '#193344',
+} as const satisfies RunwayColors);
 
 export const spacing = Object.freeze({
   xs: 4,
@@ -381,6 +404,7 @@ export type KuyaraTheme = Readonly<{
   colors: SemanticColors;
   atmosphere: AtmosphereColors;
   condition: ConditionColors;
+  runway: RunwayColors;
   spacing: typeof spacing;
   typography: typeof typography;
   radii: typeof radii;
@@ -409,6 +433,7 @@ export const lightTheme = Object.freeze({
   colors: lightSemanticColors,
   atmosphere: lightAtmosphere,
   condition: lightCondition,
+  runway: lightRunway,
   elevation: lightElevation,
   motion: standardMotion,
 } as const satisfies KuyaraTheme);
@@ -420,6 +445,7 @@ export const darkTheme = Object.freeze({
   colors: darkSemanticColors,
   atmosphere: darkAtmosphere,
   condition: darkCondition,
+  runway: darkRunway,
   elevation: darkElevation,
   motion: standardMotion,
 } as const satisfies KuyaraTheme);

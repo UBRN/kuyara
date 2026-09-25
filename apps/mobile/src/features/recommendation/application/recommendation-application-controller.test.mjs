@@ -189,7 +189,7 @@ async function persistedRecommendation() {
   return controller.refresh('first-recommendation', input(16));
 }
 
-test('first generation can show deterministic outfits while its AI request continues', async () => {
+test('first generation can save deterministic outfits while its AI request continues', async () => {
   let resolveAi;
   let request;
   const ai = new Promise((resolve) => { resolveAi = resolve; });
@@ -203,15 +203,12 @@ test('first generation can show deterministic outfits while its AI request conti
   const pending = controller.refresh('first-recommendation', input());
   assert.equal(controller.getSnapshot().showFirstGenerationOverlay, true);
   assert.equal(controller.getSnapshot().isRefreshing, true);
-  const preview = controller.getSnapshot().firstGenerationPreview;
-  assert.ok(preview);
+  // The runway draws neutral drafts while it waits: the state carries no provisional outfit (N2).
+  assert.equal('firstGenerationPreview' in controller.getSnapshot(), false);
 
   const skipped = await controller.skipWait();
   assert.equal(skipped.generationMode, 'deterministic-fallback');
-  // The runway's preview is the outfit the skip saves, so skipping moves nothing on the board.
-  assert.equal(preview.optionId, skipped.recommendation.outfits[0].optionId);
   assert.equal(controller.getSnapshot().showFirstGenerationOverlay, false);
-  assert.equal(controller.getSnapshot().firstGenerationPreview, undefined);
   assert.equal(controller.getSnapshot().isRefreshing, true);
   assert.equal(calls.client, 1);
 
@@ -230,7 +227,6 @@ test('a same-day background refresh never requests the first-generation overlay'
   await controller.initialize();
   const pending = controller.refresh('explicit', input());
   assert.equal(controller.getSnapshot().showFirstGenerationOverlay, false);
-  assert.equal(controller.getSnapshot().firstGenerationPreview, null);
   resolveAi(null);
   await pending;
 });

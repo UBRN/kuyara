@@ -25,7 +25,6 @@ import {
   recommendOutfits,
   type OutfitRecommendationInput,
   type OutfitRecommendationSuccess,
-  type RecommendedOutfit,
 } from '@/features/recommendation/application/recommend-outfits';
 import type {
   RecommendationRepository,
@@ -124,10 +123,6 @@ export type RecommendationApplicationState =
       phase: RecommendationPhase | null;
       exhausted: boolean;
       showFirstGenerationOverlay: boolean;
-      // Read-only, and set only while the first-generation runway shows: the outfit the
-      // deterministic composition would put first for this wait, the one "Skip the wait"
-      // would save. The runway draws it while the AI chain runs; nothing else reads it.
-      firstGenerationPreview?: RecommendedOutfit | null;
     }>;
 
 // The Worker client is the only error this feature can classify. Its kinds are
@@ -270,15 +265,6 @@ function storedPoolOptionIds(
 
 // The primary outfit `skipWait` would save for the same input. Composing it is pure and
 // persists nothing; a composition that throws only leaves the runway without a preview.
-function deterministicPreview(input: RecommendationApplicationInput): RecommendedOutfit | null {
-  try {
-    const result = recommendOutfits(input);
-    return result.status === 'recommended' ? result.outfits[0] ?? null : null;
-  } catch {
-    return null;
-  }
-}
-
 export class RecommendationApplicationController {
   private state: RecommendationApplicationState = { status: 'loading' };
   private repository: RecommendationRepository | null = null;
@@ -671,7 +657,6 @@ export class RecommendationApplicationController {
         isRefreshing,
         phase: null,
         showFirstGenerationOverlay,
-        firstGenerationPreview: showFirstGenerationOverlay ? deterministicPreview(input) : null,
       });
     }
   }
