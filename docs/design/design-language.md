@@ -163,9 +163,7 @@ take the `condition.*` family because their hue is a data encoding chosen by the
 rather than an emphasis chosen by the product. The family is consumed nowhere else,
 never by text, a filled control, a border or chrome, and never through alpha.
 
-Garment render fills are the second such encoding and are not emphasis either, so they do
-not spend the accent budget. They carry their own ceiling instead: a board draws at most a
-neutral base, a deeper neutral for `footwear` and **one** luminance-matched accent, and only
+Garment render fills are a content encoding and do not spend the accent budget. The Phase 6 library has 31 colours; each board keeps per-outfit harmony with at most one accent, and only
 the board that is the subject of the screen may carry that accent, so Today's alternates and
 the detail's recap stay neutral. The hue is a deterministic function of the option identifier
 and is stored nowhere. It reaches no text, control, border or chrome, it is never composited
@@ -182,9 +180,8 @@ checkable with a number. Three of the four pairs are status verdicts; the fourth
 `provenance`, is not a verdict at all. It records where a recommendation came from, so it
 enters the band on the same terms and is spent on exactly one element: the prominent
 filled badge Today draws directly below its title ([ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md)
-section 8). Its on-device variant keeps the multicolor original `apple.intelligence`
-symbol on a non-purple badge; the Worker variant uses a colorful AI symbol in the purple
-family. Both retain the controlled contrast rule. It is never a control fill, a border or chrome, and it never stands on
+section 8). Its on-device variant keeps the system's rendering of the `apple.intelligence`
+symbol on a non-purple badge; the Worker variant uses the SF Symbol `sparkles` as an animated vivid multicolour layer in violet, fuchsia and gold. Both retain the controlled contrast rule. It is never a control fill, a border or chrome, and it never stands on
 the tinted stage, where `provenanceInk` falls to 2.622:1 on `fallingNight`.
 
 Reference: light `brandAccent` `#27606A` on `#FFFFFF` = **7.077**. Dark `brandAccent`
@@ -268,9 +265,7 @@ The fifteen `condition.*` roles are a closed content encoding, not a fourth stat
 and not an accent. Fourteen of them carry a condition: one per code, and a second one
 after sunset for the three codes that show the sky itself, `clear`, `mostly_clear` and
 `partly_cloudy`. The fifteenth, `neutral`, is what an unreadable condition or an
-unreadable clock resolves to. They may colour only the Weather hero glyph, the hourly
-rail's condition icons, the daily outlook rows' condition glyphs and the condition
-symbol beside Today's title. Every value is flat and opaque. No
+unreadable clock resolves to. They may colour only the Weather hero glyph, the hourly rail's condition icons, the daily outlook rows' condition glyphs, the condition symbol beside Today's title, and full-ink particles on the first-generation runway. Every value is flat and opaque. No
 consumer may apply `withAlpha`, an opacity style, a gradient, glow or second colour stop.
 
 Each condition keeps a distinct system-symbol shape and a localized written name or
@@ -310,6 +305,10 @@ installed Expo module, so reacting to it would mean a native module with no call
 Filled destructive button: fill `dangerInk`, label the appearance's on-brand colour.
 Light `#FFFFFF` on `#9B2C2C` = **7.53**. Dark `#0D191E` on `#F2A6A2` = **9.15**. The
 confirming Alert stays the platform's, as today.
+
+### Approved button roles
+
+App-owned buttons are capsules: prominent, tonal, plain or destructive tonal red; native system-glass controls keep their platform treatment. A form save uses the iOS 26 toolbar pair. Press feedback shrinks by 3% and steps the fill. Dark tonal derives from `#33525E`. The provenance badge and content colour encodings remain outside the high-emphasis button count. "Ask the stylist again" is a tonal button at the end of Today content.
 
 ### The role of `borderSubtle` narrows
 
@@ -435,7 +434,7 @@ is a role in the sense of Law 9, so the role is named ahead of its second use.
 The condition symbol uses a closed animation vocabulary: sun turns, clouds drift, rain
 and snow fall, and wind streams. The first recommendation uses a runway:
 the day's atmosphere colour fills Today down to the tab bar, which stays usable, weather particles fall or drift, and
-garment silhouettes glide one by one onto the board. Progress and a rotating line sit
+neutral five-slot outlines arrive first and fill piece by piece when the AI answer arrives; no provisional outfit is shown. Progress and a rotating line sit
 below. The runway uses the garment silhouettes without a mannequin or mascot.
 
 **Spatial and effects motion.** Motion is one of two kinds. *Effects*
@@ -493,7 +492,7 @@ Everywhere else, silence.
 | --- | --- | --- |
 | Pull-to-refresh threshold crossed, Today and Weather | impact light | Finger is on the glass, a physical threshold |
 | Refresh outcome, success or failure | notification success / error | The user may not be looking at the screen |
-| Selection change: tab bar, theme, language, clothing preference, wardrobe owned/wanted filter and toggle, the outfit detail owned/wanted pair | selection | State changes under the finger |
+| Selection change: tab bar, theme, language, clothing preference, wardrobe ownership toggle, the outfit detail owned/wanted pair | selection | State changes under the finger |
 | Primary action pressed, the `Button` primary variant | impact light | The screen's main action confirms the press itself |
 | Outfit ownership completed on the detail board, the last piece marked owned | notification success | Confirming a state the user set, a real threshold |
 | Destructive confirmation | notification warning | Not reversible |

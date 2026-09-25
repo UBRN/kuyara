@@ -103,7 +103,7 @@ stage width, clamped away from the edges. Placing by bounding box was tried and 
 on measurement: a two-piece dress-and-sandals board then put 4.8% of its ink in the right
 half, against 23.3% under centroid placement.
 
-### 6. Thirty-three silhouettes cover the catalogue vocabulary
+### 6. The silhouette vocabulary covers the catalogue
 
 The outfit-eligible set includes `tank`, `tee`, `hoodie`, `puffer`, `shorts`, `leggings`,
 `dress`, `jumpsuit` and `sandal` alongside the thirteen silhouettes established by the
@@ -116,7 +116,7 @@ look cannot otherwise be drawn.
 later visual iteration rather than treated as a blocker.
 
 Seven per-type accessory silhouettes, `beanie`, `brimmed_hat`, `cap`, `balaclava`,
-`scarf`, `gloves` and `umbrella`, bring the vocabulary to 33 drawings covering all 49
+`scarf`, `gloves` and `umbrella`, bring the implemented vocabulary to 33 drawings covering all 49
 catalogue types. They are drawn on the Closet and Profile surfaces, the recommendation
 detail and Today badges. The garment board itself does not draw them.
 
@@ -133,6 +133,8 @@ are not a third icon family; they are the same bundled-artwork family at finer g
 with the six structural categories as its fallback tier. Both tiers use the silhouette
 idiom. The small raster class carries an optical stroke for 20-to-28-point use, while the
 large raster class uses the idiom-pure stroke above 32 points.
+
+The approved Phase 6 vocabulary adds polo, turtleneck, blouse, bomber, leather jacket, coat, loafer and rain boot drawings. Its single ink-edge outline retains the four-step sizing ladder. A runway board preset fits the composition to the free space while keeping that ladder and the same placement families.
 
 ## Consequences
 

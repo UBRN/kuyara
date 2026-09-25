@@ -195,9 +195,9 @@ The public site published from `docs/` is a brand export in the same sense as th
 
 The app icon and interface icons are separate systems. Prefer platform-native icon systems where they clearly express the required action or concept. Reserve custom icons for kuyara-specific concepts that platform libraries cannot represent well.
 
-Custom interface icons should use clean forms, softened corners, moderate weight, and reliable small-size clarity. Illustrations should be minimal, geometric, lightly editorial, and limited in color.
+Custom interface icons should use clean forms, softened corners, moderate weight, and reliable small-size clarity. Illustrations should be minimal, geometric and lightly editorial. Phase 6 garments use a single ink-edge outline, with a 31-colour library, per-outfit harmony and at most one accent; the eight condition-hued runway field colours are used only by the runway.
 
-Avoid photorealistic 3D clothing, plastic characters, AI sparkle aesthetics, fantasy mythology, and overly playful mascot styles. Garment and closet imagery should prioritize recognizability and color accuracy over decorative brand effects.
+Avoid photorealistic 3D clothing, plastic characters, fantasy mythology and overly playful mascot styles. The Worker provenance badge alone uses animated, vivid multicolour `sparkles` in violet, fuchsia and gold. Garment and closet imagery should prioritize recognizability and color accuracy over decorative brand effects.
 
 ### Garment silhouettes
 
@@ -209,7 +209,7 @@ The silhouette is a slot in the composition, not an asset the composition depend
 
 Motion must be restrained, functional, and calm. Use it for hierarchy, feedback, and state transitions, and ensure that critical information remains understandable without motion. A screen's content arrives in reading order after the platform's own transition, which stays the platform's; the outfit is the hero, and its pieces land on the board with a visible settle. Continuous and repeating motion is permitted where it supports the weather atmosphere, state, hierarchy, feedback, or product character, per [ADR 0020](../adr/0020-rewriting-the-motion-law.md) and [`design-language.md`](design-language.md#law-7-motion), and ambient weather motion takes its pace from the condition's intensity; it must never be the only indication of a state change and must not sit under a screen's hero value.
 
-There is no mascot or sound. Weather particles belong only to the first-generation runway, where the day's atmosphere accompanies garment silhouettes gliding onto the board. The app does not read the OS motion preference, and words also carry state, per [ADR 0020](../adr/0020-rewriting-the-motion-law.md). The website animates regardless of that preference, as recorded in [`product-decisions.md`](../product-decisions.md#approved-privacy-and-consent-posture-for-analytics). Avoid constant decorative animation and transitions that delay the user's decision.
+There is no mascot or sound. Weather particles belong only to the first-generation runway, where condition-hued fields and particles accompany neutral five-slot drafts. The drafts fill piece by piece when the AI answer arrives; no provisional outfit is shown. The app does not read the OS motion preference, and words also carry state, per [ADR 0020](../adr/0020-rewriting-the-motion-law.md). The website animates regardless of that preference, as recorded in [`product-decisions.md`](../product-decisions.md#approved-privacy-and-consent-posture-for-analytics). Avoid constant decorative animation and transitions that delay the user's decision.
 
 ## Accessibility acceptance requirements
 

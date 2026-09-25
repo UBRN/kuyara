@@ -40,15 +40,10 @@ Top to bottom, the populated screen is:
 2. A **Closet heading row**: the word at `title` 22, the total count trailing at `body`
    17 in `textSecondary` with tabular figures, then a chevron. The whole row opens the
    list. It is a heading, not a list row, and does not take the anatomy in section 2.
-3. **The rail, the hero**: the eight newest owned pieces as 136 × 170 tiles on the stage
-   fill, radius 14, gap 12, bleeding off the right edge, with one "All pieces" tile past
-   eight. Each tile draws the first rung of the ladder it can: the user's photo, else the
-   garment-type silhouette from ADR 0025 filled with the piece's colour family, else the
-   structural-category glyph. A `caption` 13 line sits 4 under each tile: the type name in
-   `textSecondary`, or the user's own name for the piece in `textPrimary`.
+3. **The illustrated Closet, the hero**: an open rack with a rail and shelves fills with the user's active pieces. The newest one to three are face-out and the rest side-on. Each piece uses its photo, garment-type silhouette or structural-category glyph as available. Six category cells below show the category icon and active-item count, derived from the items rather than a count table; each opens its Closet category.
 4. `spacing.xl` 24, the one permitted `xl` on the screen.
 5. One inset group holding a **Wanted** row (heart tile, count, chevron; opens the list on
-   the wanted filter) and a **History** row (calendar/list of outfits worn, with optional
+   the wanted sections) and a **History** row (calendar/list of outfits worn, with optional
    mirror photos). Location selection lives only on Weather.
 6. A trailing `spacing['2xl']` 32 inside the content. `Screen` owns the inset
    (ADR 0027 section 4).
@@ -58,8 +53,8 @@ The empty Closet shows the heading, one sentence at `body` in `textSecondary`, a
 state). The Wanted row is hidden while nothing exists in either state. The History row
 sits in the group under Closet.
 
-There are no cards. The planes are ground and chrome plus the tile stage. Emphasis levels
-are three: the rail; `title` and `bodyStrong`; `body` and `caption`. No `display`, no
+There are no cards. The planes are ground and chrome plus the illustrated Closet stage. Emphasis levels
+are three: the rack; `title` and `bodyStrong`; `body` and `caption`. No `display`, no
 `eyebrow`, no motion, no haptic.
 
 ### 2. The list-row anatomy, decided once
@@ -120,7 +115,7 @@ and is not settled here.
 
 Filling a garment-type silhouette with the piece's colour family, a muted tint tuned per
 appearance, is approved by the sheet approval. It is content colour, not an interface
-token, and it applies to the Profile rail and the Closet grid and to the garment board as
+token, and it applies to the Profile rack and the Closet grid and to the garment board as
 the source of its hue anchors. Its
 per-family fill table doubles as the mapper that the shipped list lacks, where a stored
 enum currently reaches a style by the coincidence that every family name is a CSS colour
@@ -130,10 +125,9 @@ keyword.
 
 1. ADR 0027's bottom-inset rule and the English Closet label are prerequisites for this
    screen.
-2. The rail uses the photo, silhouette, and category-glyph fallback ladder. The
+2. The rack uses the photo, silhouette, and category-glyph fallback ladder. The
    silhouette rung shares ADR 0025's twenty-seven garment drawings, accessories included.
-3. The route to the list accepts an optional initial filter so the Wanted row opens on
-   the wanted state.
+3. The Wanted row opens the Closet with the wanted sections in view.
 4. Profile has no location row or location-status row; selection lives on Weather.
 
 ## Consequences
@@ -146,10 +140,10 @@ keyword.
 - **The light appearance has two group treatments.** A kuyara-drawn group is a hairline
   outline; a native group keeps its system fill. That is the trade ADR 0030 names as
   visible rather than hidden, and it is accepted knowingly.
-- **A new dependency on the silhouette vocabulary.** The rail's middle rung and the
+- **A new dependency on the silhouette vocabulary.** The rack's middle rung and the
   colour-family fill both depend on ADR 0025's drawings entering the app.
 - **Strings and routing follow the same contract.** The empty-state copy agrees with
-  ADR 0005, and the Wanted row opens the Closet's wanted filter.
+  ADR 0005, and the Wanted row opens the Closet's wanted sections.
 
 ## Alternatives considered
 
@@ -169,5 +163,5 @@ card step, and the hairline outline carries the group without reintroducing a pl
 
 - The Closet screen and the Settings screen, which are ADR 0029 and ADR 0030.
 - The add and edit form and the photo pipeline.
-- Accessory silhouettes; ADR 0025 drew none and the rail falls to the category glyph.
+- Accessory silhouettes on the outfit board; ADR 0025 keeps them on Closet and Profile only.
 - Any production code change.

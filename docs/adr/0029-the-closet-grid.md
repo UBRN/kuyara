@@ -2,15 +2,7 @@
 
 Status: Accepted (2026-09-07)
 
-Implementation: complete. The grid, the state filter, the category chips, section 5's
-silhouette rung and colour-family fill are implemented; the segmented control's tint
-applies on Android only. The installed `@expo/ui` control ignores `tintColor` on iOS, and
-composing its SwiftUI `Picker` directly with `tint(brandPrimary)` leaves the selected
-segment in the system colours on the Simulator, because SwiftUI's tint does not reach
-`UISegmentedControl.selectedSegmentTintColor` and the package exposes no UIKit appearance
-hook. The rendered target sheet, in English and Turkish, both appearances, three tile
-states, four screen states and three text sizes, is kept outside the repository; its
-"target, in numbers" table is the implementation target.
+Implementation: the shipped grid and tile ladder are recorded in `current-status.md`; the six-category tab strip, open-rack relationship and owned/wanted sections are the approved build 15 design.
 
 Builds on: [ADR 0005](0005-catalog-only-recommendation-candidates.md), which the empty
 state finally agrees with; [ADR 0021](0021-direction-e-a-visual-first-design-language.md);
@@ -31,11 +23,9 @@ rules out. This design retires all three.
 
 ## Decision
 
-### 1. A grid, not a list
+### 1. Category pages with a grid
 
-The Closet is a two-column grid of the rail's tile: 174.5 × 218, radius 14, on the stage
-fill, gap 12, inset 16. Category and colour are carried by the picture, not by badges or
-dots. Above `fontScale` 1.5 the grid is one column of 361 × 280 tiles.
+The Closet presents six categories side by side through a horizontal tab strip. Each selected category scrolls vertically within its own page. Owned and wanted pieces are sections on that page. The grid has three columns, reducing to two at the largest standard text size. Category and colour are carried by the picture, not by badges or dots.
 
 Each tile draws the first rung it can, as in ADR 0028, through the shared
 `GarmentTileArtwork`: the photo, cover-cropped; else the garment-type silhouette filled
@@ -50,23 +40,14 @@ Accessories take the silhouette rung like every other type: ADR 0025's seven per
 accessory silhouettes are available here. The garment board's fixed geometry does not
 draw accessories; the Closet can.
 
-Sorting is newest first, the rail's order. No sort control is added.
+Sorting is newest first within each ownership section. No sort control is added.
 
-### 2. Chrome and filters
+### 2. Chrome and categories
 
 - Native large title, "Closet" / "Gardırop", native back to Profile, and a plus bar
-  button that replaces the faked icon button. No kuyara-drawn primitive is added for it.
-- The owned / wanted state filter is the native segmented control, full width, 4 above and
-  12 below, without counts drawn in the segments. Each segment's accessibility value may
-  still carry its count. Changing state fires the selection haptic Law 8 already names.
-- **Category chips** sit under the segmented control: "All", then only the categories
-  present in the current state, in catalogue order (tops, bottoms, one-piece, outerwear,
-  shoes, accessories). They are kuyara-drawn: `label` 15 at weight 600, 40 tall with 2
-  points of vertical hit slop for a 44 target, a 1 point `borderDefined` outline, and the
-  selected chip is the screen's one accent fill. State is the segmented control; category
-  is scope. Chip labels are new plural strings in both languages; the catalogue's
-  singular attribute labels stay for the type picker and tile sublines.
-- No haptic on chips or tiles.
+  button that opens the visual "Add a piece" form with owned/wanted visuals, garment-type selection and in-app camera capture. No kuyara-drawn bar-button primitive is added.
+- The horizontal category tabs use catalogue order (tops, bottoms, one-piece, outerwear, shoes, accessories) and show counts derived from active items. Owned and wanted remain visible as two sections on the selected category page, without a state filter. Legacy rows with no garment type remain accessible through their structural category.
+- No haptic on category tabs or tiles.
 
 ### 3. The three tile states coexist by construction
 
@@ -77,12 +58,12 @@ contract rather than by a per-state layout.
 
 ### 4. States
 
-- **Empty**, per filter: Profile's sentence and "Add a piece" button, reused. The empty
+- **Empty**, per category: a sentence and "Add a piece" button. The empty
   copy never promises that the Closet feeds recommendations; ADR 0005 rules that out.
 - **Loading**: the grid's stage fills without artwork.
 - **Error**: a `dangerInk` glyph at 20, 8, a `bodyStrong` title, 4, a `body` line in
-  `textSecondary`, 12, a retry button. The error state shows no chips.
-- **Wanted**: the same grid under the other segment.
+  `textSecondary`, 12, a retry button. The error state shows no category tabs.
+- **Wanted**: a section below owned items on the selected category page.
 
 ### 5. The colour-family fill
 
@@ -105,21 +86,19 @@ ADR 0028 section 2 unchanged.
   with no type, so a Closet made of typed pieces has no glyph tiles.
 - **Accessory silhouettes exist for the Closet and Profile only.** They never enter an
   outfit board; the Closet is where they are seen.
-- **The route gains an optional initial filter**, shared with ADR 0028's Wanted row.
+- **The route gains an optional initial category**, shared with ADR 0028’s category cells.
 
 ## Alternatives considered
 
 **Keeping the vertical list with a better dot.** Rejected: it keeps colour and category as
 metadata beside the piece instead of in it, and Direction E's subject is the garment.
 
-**Counts in the segments.** Rejected as drawn; kept as accessibility values so the number
-is available without competing with the grid.
+**A separate count table.** Rejected: active-item counts derive from the Closet records.
 
-**A category filter as a second segmented control.** Rejected: the categories present
-vary by state, and a native segmented control cannot drop segments per state gracefully.
+**A separate owned/wanted page.** Rejected: both states remain in sections of one category page.
 
 ## Out of scope
 
-- The add and edit form; ADR 0019 already moves it to native grouped sections.
+- Form details and the background cut-out, which is deferred.
 - The photo pipeline.
 - Accessory silhouettes on Today or the detail board; ADR 0025 keeps them off the board.

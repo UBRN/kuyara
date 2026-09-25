@@ -9,9 +9,9 @@ The [product decisions](product-decisions.md) and [ADRs](adr/) define the approv
 | 1. Today | Header, AI badge, two insights, alternatives, outfit action and attribution placement | Goal A landed on main; implemented and Simulator verified |
 | 2. Settings and store rows | Root order, Service providers, sharing, rating and brand emphasis | Implemented and Simulator verified |
 | 3. Name and profile cleanup | Optional name, one-time prompt, location removal and the phase's migration | Implemented and Simulator verified |
-| 4. Daily style and loading | Aesthetics, morning sheet, day-type pill, loading and plan tomorrow | Goals A and B landed on main; implemented and Simulator verified; both alerts are covered by component tests |
-| 5. Colour and history | Quick-add colour, outfit history, mirror photo and the phase's migration | Planned |
-| 6. Silhouettes and suggested colour | Approved silhouette redraw and closed catalog colorways | Planned |
+| 4. Daily style and loading | Aesthetics, morning sheet, loading and plan tomorrow; Today pill removal approved | Goals A and B landed on main; implemented controls are Simulator verified; the approved redesign is in the build 15 goals below |
+| 5. Colour and history | Outfit history, mirror photo, garment edit sheet, 33-colour palette, patterns and migration 20 | Planned |
+| 6. Silhouettes and suggested colour | Ink-edge silhouettes, eight new drawings and 31-colour catalog colorways | Planned |
 | 7. Manual mix-and-match | Catalog-piece swaps on outfit detail | Planned |
 | 8. Onboarding walkthrough | Walkthrough for new and existing users with one-time gate | Planned |
 | 9. Optional accounts | Supabase Auth, sync and account deletion | Planned |
@@ -22,10 +22,19 @@ The [product decisions](product-decisions.md) and [ADRs](adr/) define the approv
 | --- | --- | --- |
 | A | Today layout, AI badges, the first morning-sheet step and the approved visual refinements | Landed on main |
 | B | First-generation loading runway | Landed on main |
-| C | “Ask the stylist again” and the approved outfit timing model (N14-N24) | Planned |
-| Build 15 (N1) | Goals A and B, Phase 5 data and screens, Goal C, and every approved wave 2 mockup including the low-vision Settings section | Approved scope; release gates remain required |
+| C | “Ask the stylist again” and the approved outfit timing model: C1 and C2 domain landed (c330eb0, 53e6246), migration 19 landed (1fc733a) | C3 remains |
+| Buttons | Capsule roles, toolbar save, press feedback and dark tonal fill (O5) | Approved for build 15 |
+| C3 | Re-ask sheet with day type and Now or Later (O2-O4) | Approved for build 15 |
+| Runway | Neutral five-slot drafts, condition fields and piece-by-piece dressing (O1, O17) | Approved for build 15 |
+| Phase 6 | Ink-edge silhouettes, eight new drawings, 31-colour harmony and one catalog version bump (O15) | Approved for build 15 |
+| Phase 5B | Detail sheet and garment rows, wide palette and patterns, history, migration 20 (O6-O8) | Approved for build 15 |
+| Closet | Open rack, six category counts, category tabs and owned/wanted sections (O9) | Approved for build 15 |
+| Add a piece | Visual form with in-app camera capture (O10) | Approved for build 15 |
+| Worker badge | Animated multicolour `sparkles` (O11) | Approved for build 15 |
+| Accessibility and wave 2 | Easier to see switch (O13); cards, rows, back, name, weather and onboarding (O14) | Approved for build 15 |
+| Build 15 | All approved Goals above, plus landed A and B; every automated, independent-review, migration, native and Simulator release gate applies | No date promised |
 
-Open items:
+Release evidence:
 
 - Privacy check before build 15.
 - iOS 27 SDK build requirement before April 2027.
@@ -60,12 +69,12 @@ Every decision below, including AR1 through AR16, was approved on 2026-09-23. Ea
 | C2 | Profile removes its location row | [product](product-decisions.md), [ADR 0028](adr/0028-the-profile-tab-and-the-list-row-anatomy.md) |
 | C3 | The name and prompt-gate fields are in migration 17; the migration receives independent review | [ADR 0036](adr/0036-display-name-and-one-time-prompt-gate.md), [architecture](architecture.md) |
 | D1 | Persistent aesthetics and daily formality reorder valid outfits; AR2, AR3 and AR16 define storage and measurement | [ADR 0031](adr/0031-dress-style-is-the-formality-signal.md), [ADR 0037](adr/0037-daily-formality-and-style-aesthetics.md), [architecture](architecture.md) |
-| D2 | One dismissible morning sheet and the title pill set the day's answer; AR1, AR2 and AR15 define key and allowance | [product](product-decisions.md), [ADR 0037](adr/0037-daily-formality-and-style-aesthetics.md) |
+| D2 | Morning and evening sheets set day type; re-ask changes it during the day; AR1, AR2 and AR15 define key and allowance | [product](product-decisions.md), [ADR 0037](adr/0037-daily-formality-and-style-aesthetics.md) |
 | D3 | Continuing without a choice uses the red quality-warning action | [ADR 0010](adr/0010-status-colours-destructive-variant-and-defined-borders.md), [ADR 0037](adr/0037-daily-formality-and-style-aesthetics.md) |
 | D4 | First-day loading fills a garment board and allows skip; AR9 derives overlay state | [product](product-decisions.md), [architecture](architecture.md), [ADR 0020](adr/0020-rewriting-the-motion-law.md) |
 | D5 | The app does not read the OS motion preference | [AGENTS](../AGENTS.md), [ADR 0020](adr/0020-rewriting-the-motion-law.md) |
 | D6 | Plan tomorrow ships with daily style | [product](product-decisions.md), [ADR 0037](adr/0037-daily-formality-and-style-aesthetics.md) |
-| E1 | Quick-add selects a closed colour family | [product](product-decisions.md), [ADR 0026](adr/0026-the-recommendation-detail-surface.md) |
+| E1 | Detail edit uses 33 colours, a system picker, second colour and 14 pattern options | [product](product-decisions.md), [ADR 0026](adr/0026-the-recommendation-detail-surface.md) |
 | E2 | One daily outfit and optional mirror photo enter history; AR6, AR13 and AR16 define storage and boundaries | [ADR 0038](adr/0038-outfit-history.md), [architecture](architecture.md), [taxonomy](analytics-taxonomy.md) |
 | F1 | Garment silhouettes become more realistic within approved vocabulary | [product](product-decisions.md), [ADR 0025](adr/0025-the-garment-board-composition-rule.md) |
 | F2 | Catalog colorways suggest quick-add colour | [product](product-decisions.md), [ADR 0007](adr/0007-ai-selects-precomposed-outfits.md) |

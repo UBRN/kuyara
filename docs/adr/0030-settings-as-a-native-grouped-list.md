@@ -23,7 +23,7 @@ group and a centred brand name above the version line as the last element.
 The root is a native inset grouped list in the system's colours over kuyara's ground,
 with the list's own scroll-content background hidden. Kuyara owns the large title colour,
 the tint, the ground, the status inks, the section headings, the leading tiles and the
-brand and version footer. Inside a cell, nothing is kuyara's: label, secondary value, separator,
+brand and version footer. Inside a cell, the leading tile is kuyara's; label, secondary value, separator,
 chevron, toggle and picker are the system's. This makes the system-colour trade visible
 rather than hidden. The installed `@expo/ui` 57.0.8 SwiftUI API exposes
 `listStyle('insetGrouped')` and `scrollContentBackground('hidden')`; the wrapper uses both
@@ -35,20 +35,19 @@ and keeps kuyara's ground visible, as verified on the iPhone 17 Pro / iOS 26.3 S
 2. **Notifications:** the notification preference and its pushed surface.
 3. **Profile:** display name, gender, dress style, style aesthetics and birth date. The `aboutYouFooter` helper text under birth date is removed. This foundation permits an Account group above Profile when optional accounts arrive.
 4. **Help:** Support, Share kuyara and Rate kuyara.
-5. **About:** Service providers, Privacy and Licence.
-6. The centred version and build footer.
+5. **Accessibility:** one "Easier to see" / "Görme kolaylığı" switch. It follows iOS Bold Text and Increase Contrast, enlarges the garment board by 1.3, enlarges targets, and keeps the preview card.
+6. **About:** Service providers, Privacy and Licence.
+7. The centred version and build footer.
 
 Native inset groups and ADR 0028's row anatomy stay. Inside native cells the system owns typography and colour; the app-owned `kuyara` footer uses the display role and Deep Atmosphere in light or Quiet Sky in dark. It fits on one line at the largest accessibility text size. The name is not a custom wordmark.
 
-Share kuyara opens the platform share sheet with the App Store link on iOS or Play link on Android and short localized text in the sharer's voice. Rate kuyara opens the store review page directly (`?action=write-review` on iOS, `market://details?id=` on Android), and its row shows five filled stars. No in-app review request is used. **Risk accepted:** the star treatment trades against Apple 5.6.1 and Google in-app review guidance on steering.
+Share kuyara opens the platform share sheet with the App Store link on iOS or Play link on Android and short localized text in the sharer's voice. Rate kuyara opens the store review page directly (`?action=write-review` on iOS, `market://details?id=` on Android), and its row shows five filled system-grey stars at 13 points. No in-app review request is used. **Risk accepted:** the star treatment trades against Apple 5.6.1 and Google in-app review guidance on steering.
 
 ### 3. The rows take ADR 0028's anatomy
 
-Every root row except the four preference Picker rows carries the shared leading tile:
+Every root row carries the shared leading tile:
 28 × 28, radius 7, a monochrome glyph at 20 in the system label ink, fill from that ink
-at 8% in light and 12% in dark. Language, Appearance, Gender, and Dress style instead use
-their existing SF Symbol through the Picker's `systemImage`, because the Picker label must
-remain a plain string and cannot host the tile. The separator starts 56 from the group
+at 8% in light and 12% in dark. Language, Appearance, Gender and Dress style use a hosted leading tile beside their Picker labels. Every tile follows the same anatomy. The separator starts 56 from the group
 edge. The trailing value is the system's secondary before the chevron, and above
 `fontScale` 1.5 it stacks under the label. The leading tile is kuyara's own React Native
 view hosted inside the native row, so it keeps ADR 0028 section 3's capped control scale
@@ -58,7 +57,7 @@ rows.
 
 Section headings are kuyara's: sentence case, `bodyStrong` 17, `textSecondary`, drawn
 outside the native group with 12 below before the group and 24 between groups. SwiftUI's
-uppercase header never appears. Each of the five root groups carries its sentence-case heading.
+uppercase header never appears. Each of the six root groups carries its sentence-case heading.
 
 ### 4. The version line
 
@@ -75,7 +74,7 @@ build number from `expo-constants` and omits unavailable build data cleanly.
 Notifications, Service providers, Privacy and Birth date use native inline titles, back buttons and grouped content. The preference Pickers remain on the root list.
 
 - **Notifications:** preferences use system controls, with denied-permission explanation and a way into system Settings.
-- **Service providers:** the Artificial intelligence section first shows the `apple.intelligence` SF Symbol and status in words, a status colour and shape: green `checkmark.circle` for compatible and running, yellow `pause.circle` for turned off, grey `xmark.circle` for not compatible. Its second row reads "Last recommendation: on this device / cloud / standard". A short explanation and the bounded active-probe row follow. The Weather data section names the provider behind the last valid snapshot and carries its full mark, text, link and OpenWeather logo as applicable. Only this surface may show the controlled, non-secret last-check provider and model ID. **Risk accepted:** Apple has not publicly answered whether a third party may show `apple.intelligence`; the Apple Intelligence word mark stays referential and is never the only status signal.
+- **Service providers:** the Artificial intelligence section first shows the system's rendering of the `apple.intelligence` SF Symbol and status in words, a status colour and shape: green `checkmark.circle` for compatible and running, yellow `pause.circle` for turned off, grey `xmark.circle` for not compatible. Its second row reads "Last recommendation: on this device / cloud / standard". A short explanation and the bounded active-probe row follow. The Weather data section names the provider behind the last valid snapshot and carries its full mark, text, link and OpenWeather logo as applicable. Only this surface may show the controlled, non-secret last-check provider and model ID. **Risk accepted:** Apple has not publicly answered whether a third party may show `apple.intelligence`; the Apple Intelligence word mark stays referential and is never the only status signal.
 - **Privacy:** analytics consent and withdrawal use the native grouped surface decided in ADR 0033.
 
 ### 6. Birth date

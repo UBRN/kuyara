@@ -282,3 +282,7 @@ The approved phase order, active work and remaining open items are in [the roadm
   directory renders pages without layouts and copies front-matter-less Markdown raw;
   `docker pull` hangs on the maintainer's machine, so the official build image cannot run
   locally. The recipe is in `docs/testing.md`.
+
+## Approved build 15 design pending implementation
+
+The installed schema is version 19. Migration 20, the wide Closet colour and pattern fields, the in-app camera permission, the open-rack Closet, the re-ask sheet, the neutral-draft runway and Phase 6 artwork remain approved build 15 work. The currently shipped Today day-type pill and interim runway are described above as implementation state, not the approved final design.
