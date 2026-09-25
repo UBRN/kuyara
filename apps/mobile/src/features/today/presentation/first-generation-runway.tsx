@@ -10,7 +10,7 @@ import {
   ProgressFill,
   runwayDressingDuration,
   Screen,
-  type GarmentBoardPiece,
+  type RunwayBoardOutfit,
 } from '@/components/ui';
 import type { RecommendationPhase } from '@/features/recommendation/application/recommendation-application-controller';
 import { SKELETON_PIECES } from '@/features/today/presentation/garment-board-skeleton';
@@ -50,7 +50,7 @@ const PHASE_PROGRESS: Readonly<Record<RecommendationPhase | 'starting', number>>
 // The track is derived from the field, never a new hue.
 const TRACK_TONE = { light: 0.16, dark: 0.22 } as const;
 
-export type RunwayOutfit = Readonly<{ id: string; pieces: readonly GarmentBoardPiece[] }>;
+export type RunwayOutfit = RunwayBoardOutfit;
 
 type Size = Readonly<{ width: number; height: number }>;
 const sizeOf = ({ nativeEvent }: LayoutChangeEvent): Size => ({

@@ -107,16 +107,17 @@ half, against 23.3% under centroid placement.
 
 The outfit-eligible set includes `tank`, `tee`, `hoodie`, `puffer`, `shorts`, `leggings`,
 `dress`, `jumpsuit` and `sandal` alongside the thirteen silhouettes established by the
-spike, and `parka`, `blazer`, `vest` and `flat` for the enlarged catalogue. Those
-twenty-six drawings cover all **41 outfit-eligible catalogue types**, with fifteen types
-sharing a drawing with another. `dress` and `jumpsuit` are required because a one-piece
-look cannot otherwise be drawn.
+spike, and `parka`, `blazer`, `vest` and `flat` for the enlarged catalogue. With the eight
+Phase 6 drawings for `polo_shirt`, `turtleneck`, `blouse`, `bomber_jacket`,
+`leather_jacket`, `coat`, `loafers` and `rain_boots`, those thirty-four drawings cover all
+**41 outfit-eligible catalogue types**, with seven types sharing a drawing with another.
+`dress` and `jumpsuit` are required because a one-piece look cannot otherwise be drawn.
 
 `sandal` is the weakest of the nine and is explicitly accepted as redrawable during a
 later visual iteration rather than treated as a blocker.
 
 Seven per-type accessory silhouettes, `beanie`, `brimmed_hat`, `cap`, `balaclava`,
-`scarf`, `gloves` and `umbrella`, bring the implemented vocabulary to 33 drawings covering all 49
+`scarf`, `gloves` and `umbrella`, bring the implemented vocabulary to 41 drawings covering all 49
 catalogue types. They are drawn on the Closet and Profile surfaces, the recommendation
 detail and Today badges. The garment board itself does not draw them.
 

@@ -55,6 +55,34 @@ for (const [presetName, preset, min, max] of [
   }
 }
 
+// The six Phase 6 README boards on the Phase 6 drawings: the rule is unchanged and reads the
+// new outline bounds, so every board still composes without overlap or clipping.
+const readmeBoards = [
+  ['warm casual', [['primary_top', 't_shirt'], ['bottom', 'jeans'], ['mid_layer', 'overshirt'], ['footwear', 'sneakers']]],
+  ['rainy smart', [['primary_top', 'shirt'], ['bottom', 'trousers'], ['mid_layer', 'sweater'], ['outer_layer', 'rain_jacket'], ['footwear', 'ankle_boots']]],
+  ['cold formal', [['primary_top', 'shirt'], ['bottom', 'trousers'], ['mid_layer', 'blazer'], ['outer_layer', 'coat'], ['footwear', 'closed_shoes']]],
+  ['hot casual', [['one_piece', 'dress'], ['footwear', 'sandals']]],
+  ['night out', [['one_piece', 'jumpsuit'], ['outer_layer', 'blazer'], ['footwear', 'ballet_flats']]],
+  ['snow casual', [['primary_top', 'hoodie'], ['bottom', 'jeans'], ['outer_layer', 'insulated_jacket'], ['footwear', 'weather_boots']]],
+];
+
+for (const [presetName, preset] of [['today', todayPreset], ['detail', detailPreset]]) {
+  for (const [name, slots] of readmeBoards) {
+    test(`${presetName}: README board ${name} has no overlap and no clip`, () => {
+      const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
+      const measured = audit(composeGarmentBoard(pieces, preset));
+      assert.equal(measured.overlap, 0, name);
+      assert.equal(measured.clip, 0, name);
+    });
+  }
+}
+
+// P2: Today's stage holds only the board, so its top inset is the detail preset's.
+test('the Today and detail presets share the stage insets', () => {
+  assert.equal(todayPreset.topInset, detailPreset.topInset);
+  assert.equal(todayPreset.botInset, detailPreset.botInset);
+});
+
 test('layout does not mutate artwork or depend on the input ordering', () => {
   const pieces = evidence[6][1].map(([slot, type]) => Object.freeze({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
   const first = composeGarmentBoard(Object.freeze(pieces));

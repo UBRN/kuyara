@@ -265,7 +265,7 @@ The approved phase order, active work and remaining open items are in [the roadm
   iOS 26 with the App Store; the Simulator never shows it. Firefox 155 takes the
   finished page through the `@supports` gate and the IntersectionObserver reveal at
   1280 and 400 px in both languages; keyboard operation of the controls in Firefox is
-  unverified. The garment path data is copied from `silhouettes.ts`;
+  unverified. The garment outlines are copied from `silhouettes.ts` and drawn flat;
   `landing-boards.test.mjs` in the mobile suite fails when the copy and the vocabulary
   disagree. The 2.6:1 stage row and the `2xl` band padding are web-only choices recorded
   under "Web presence" in `docs/design/visual-identity.md`, together with the favicon and
@@ -297,4 +297,4 @@ The approved phase order, active work and remaining open items are in [the roadm
 
 ## Approved build 15 design pending implementation
 
-The installed schema is version 19. Migration 20, the wide Closet colour and pattern fields, the in-app camera permission, the open-rack Closet and Phase 6 artwork remain approved build 15 work. The first-generation runway implements O1 and O17: condition-hued fields, neutral five-slot drafts before the answer, piece-by-piece dressing and full-ink particles; dressed fills use the current board derivation until Phase 6 colour lands. The re-ask sheet opens at the large detent: a content-fitted detent is not used, and the morning and evening sheets remain one day-type step without the style step.
+The installed schema is version 19. Migration 20, the wide Closet colour and pattern fields, the in-app camera permission and the open-rack Closet remain approved build 15 work. Phase 6 artwork is implemented: the 33 drawings are redrawn as colour fashion flats with the eight additions, and Today's board, its alternates, the finishing-touch badges, the detail and the runway take each outfit's colours from the Phase 6 palette (O15); Today's stage uses the detail preset's insets (P2). The first-generation runway implements O1 and O17: condition-hued fields, neutral five-slot drafts before the answer, piece-by-piece dressing in the outfit's palette and full-ink particles. The re-ask sheet opens at the large detent: a content-fitted detent is not used, and the morning and evening sheets remain one day-type step without the style step.

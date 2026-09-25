@@ -17,6 +17,14 @@ const chosen: RunwayOutfit = {
     { slot: 'bottom', garmentTypeId: 'trousers', category: 'bottom' },
     { slot: 'footwear', garmentTypeId: 'sneakers', category: 'footwear' },
   ],
+  palette: {
+    optionId: 'ai-option', formality: 'casual', temperatureC: 12, condition: 'rain', isNight: false,
+    pieces: [
+      { slot: 'primary_top', garmentTypeId: 't_shirt' },
+      { slot: 'bottom', garmentTypeId: 'trousers' },
+      { slot: 'footwear', garmentTypeId: 'sneakers' },
+    ],
+  },
 };
 const draftSlots = ['primary_top', 'bottom', 'outer_layer', 'mid_layer', 'footwear'];
 const props = {

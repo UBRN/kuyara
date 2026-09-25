@@ -4,7 +4,11 @@ import test from 'node:test';
 
 import { weatherConditionCodes } from '../../weather/domain/weather.ts';
 import { darkTheme, lightTheme } from '../../../theme/theme.ts';
-import { clampRunwayFill, contrastRatio, resolveRunwayFills } from '../../../components/ui/garment-board/runway-fills.ts';
+import {
+  garmentPaletteContrast as contrastRatio,
+  legalizeGarmentFill,
+  resolveGarmentPalette,
+} from '../../../components/ui/garment-board/garment-palette.ts';
 import { runwayField, runwayParticleInks, runwayParticleKind } from './runway-palette.ts';
 
 const fields = ['clear', 'cloudy', 'rain', 'snow'];
@@ -51,15 +55,22 @@ for (const theme of themes) {
     assert.equal(runwayParticleInks(theme, 'rain', 'day').sparkle, null);
   });
 
+  // The runway draws the outfit in its own palette (O15), made legible on the field.
   test(`${theme.colorScheme}: every dressed fill separates from every field`, () => {
-    const slots = ['primary_top', 'bottom', 'outer_layer', 'footwear'];
+    const pieces = [
+      { slot: 'primary_top', garmentTypeId: 't_shirt' }, { slot: 'bottom', garmentTypeId: 'jeans' },
+      { slot: 'outer_layer', garmentTypeId: 'rain_jacket' }, { slot: 'footwear', garmentTypeId: 'sneakers' },
+    ];
     for (const field of fields) {
       const plane = theme.runway[field];
       for (let option = 0; option < 40; option += 1) {
-        const fills = resolveRunwayFills({
-          optionId: `option-${option}`, slots, field: plane, colors: theme.colors, colorScheme: theme.colorScheme,
+        const colours = resolveGarmentPalette({
+          optionId: `option-${option}`, pieces, temperatureC: option - 5,
+          condition: ['clear', 'rain', 'snow', 'cloudy'][option % 4], isNight: option % 5 === 0,
+          formality: ['casual', 'smart', 'formal'][option % 3], appearance: theme.colorScheme,
+          stageColor: plane, inkColor: theme.colors.textPrimary,
         });
-        for (const fill of fills.values()) {
+        for (const fill of colours.map(({ roles }) => roles.main)) {
           const step = contrastRatio(fill, plane);
           const passes = step >= 3 || (step >= 1.2 && contrastRatio(theme.colors.textPrimary, fill) >= 3);
           assert.ok(passes, `${field} option-${option} ${fill}`);
@@ -69,15 +80,17 @@ for (const theme of themes) {
   });
 }
 
+const clampOnField = (fill, field, ink) => legalizeGarmentFill(fill, field, ink).hex;
+
 test('the clamp moves exactly the four colliding fills O1 measured, lightness only', () => {
   const ink = lightTheme.colors.textPrimary;
-  assert.equal(clampRunwayFill('#5F686C', '#7FB1CC', ink), '#525B5F');
-  assert.equal(clampRunwayFill('#D99A94', '#7FB1CC', ink), '#C88B85');
-  assert.equal(clampRunwayFill('#E5B48F', '#C7D0DD', ink), '#E3B28D');
-  assert.equal(clampRunwayFill('#E3D4BC', '#C7D0DD', ink), '#F0E1C9');
+  assert.equal(clampOnField('#5F686C', '#7FB1CC', ink), '#525B5F');
+  assert.equal(clampOnField('#D99A94', '#7FB1CC', ink), '#C88B85');
+  assert.equal(clampOnField('#E5B48F', '#C7D0DD', ink), '#E3B28D');
+  assert.equal(clampOnField('#E3D4BC', '#C7D0DD', ink), '#F0E1C9');
   // A passing fill never moves: dark `white` clears the fill-alone route on every dark field.
   for (const field of Object.values(darkTheme.runway)) {
-    assert.equal(clampRunwayFill('#C9D1D3', field, darkTheme.colors.textPrimary), '#C9D1D3');
+    assert.equal(clampOnField('#C9D1D3', field, darkTheme.colors.textPrimary), '#C9D1D3');
   }
 });
 

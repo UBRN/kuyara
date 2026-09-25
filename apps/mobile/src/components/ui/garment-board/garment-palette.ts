@@ -258,16 +258,18 @@ export type GarmentPaletteInput = Readonly<{
   accessoryStageColor?: string;
 }>;
 
+export type GarmentRoles = Readonly<{
+  main: string; shade: string; toneLine: string; light: string; darkTrim: string;
+  material: string; materialShade: string; materialTone: string; hardware: string;
+}>;
+
 export type GarmentPieceColors = Readonly<{
   piece: GarmentPalettePiece;
   swatchId: GarmentSwatchId;
   colorFamily: ColorFamily;
   reason: 'recorded' | 'accent' | 'neutral' | 'footwear';
   colorwayId: keyof typeof COLORWAY;
-  roles: Readonly<{
-    main: string; shade: string; toneLine: string; light: string; darkTrim: string;
-    material: string; materialShade: string; materialTone: string; hardware: string;
-  }>;
+  roles: GarmentRoles;
   legibility: ReturnType<typeof legalizeGarmentFill>;
 }>;
 
@@ -360,17 +362,47 @@ export function resolveGarmentPalette(input: GarmentPaletteInput): readonly Garm
     const base = garmentFillForAppearance(swatch.hex, dark);
     const plane = accessorySlots.includes(piece.slot) ? input.accessoryStageColor ?? input.stageColor : input.stageColor;
     const legibility = legalizeGarmentFill(base, plane, input.inkColor);
-    const second = COLORWAY[colorwayId].a;
-    const materialHex = second === null ? null : second in garmentSwatches
-      ? garmentSwatches[second as GarmentSwatchId].hex : second;
-    const material = materialHex === null ? null : garmentFillForAppearance(materialHex, dark);
-    const tone = tones(legibility.hex, material, COLORWAY[colorwayId].h, dark);
     return {
       piece, swatchId: choice.swatchId, colorFamily: swatch.fam, reason: choice.reason,
-      colorwayId, legibility,
-      roles: { main: tone.m, shade: tone.s, toneLine: tone.d, light: tone.l,
-        darkTrim: tone.k, material: tone.a, materialShade: tone.as,
-        materialTone: tone.ad, hardware: tone.h },
+      colorwayId, legibility, roles: garmentFillRoles(colorwayId, legibility.hex, input.appearance),
     };
   });
+}
+
+/**
+ * Every colour role one drawing paints with, derived from its main fill and its colourway's
+ * fixed materials. `colorwayId` is the drawing's silhouette id; a drawing without a colourway
+ * (a category glyph) has no second material and takes its hardware from the tone line.
+ */
+export function garmentFillRoles(colorwayId: string, main: string, appearance: ThemeColorScheme): GarmentRoles {
+  const dark = appearance === 'dark';
+  const colorway = colorwayId in COLORWAY ? COLORWAY[colorwayId as keyof typeof COLORWAY] : null;
+  const second = colorway?.a ?? null;
+  const materialHex = second === null ? null : second in garmentSwatches
+    ? garmentSwatches[second as GarmentSwatchId].hex : second;
+  const material = materialHex === null ? null : garmentFillForAppearance(materialHex, dark);
+  const tone = tones(main, material, colorway?.h ?? null, dark);
+  return { main: tone.m, shade: tone.s, toneLine: tone.d, light: tone.l,
+    darkTrim: tone.k, material: tone.a, materialShade: tone.as,
+    materialTone: tone.ad, hardware: tone.h };
+}
+
+/** One outfit's palette inputs apart from the plane it stands on and the appearance. */
+export type GarmentOutfitPalette = Omit<GarmentPaletteInput, 'appearance' | 'stageColor' | 'inkColor' | 'accessoryStageColor'>;
+
+// Today draws the same outfit on its board, its badges and, after a tap, the detail, so
+// each resolved palette is kept by value: the board and the badges read one result, and a
+// re-render never repeats the OKLCH work. Bounded: a day holds a handful of outfits.
+const PALETTE_CACHE_LIMIT = 48;
+const paletteCache = new Map<string, ReadonlyMap<OutfitSlot, GarmentRoles>>();
+
+/** The colour roles of every piece of one outfit, by slot, memoised by value. */
+export function garmentRolesBySlot(input: GarmentPaletteInput): ReadonlyMap<OutfitSlot, GarmentRoles> {
+  const key = JSON.stringify(input);
+  const cached = paletteCache.get(key);
+  if (cached) return cached;
+  if (paletteCache.size >= PALETTE_CACHE_LIMIT) paletteCache.clear();
+  const roles = new Map(resolveGarmentPalette(input).map(({ piece, roles }) => [piece.slot, roles]));
+  paletteCache.set(key, roles);
+  return roles;
 }

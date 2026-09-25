@@ -10,7 +10,7 @@ import {
   lightTheme,
 } from '../../../theme/theme.ts';
 import { colorFamilyFills } from './color-family-fill.ts';
-import { garmentFillRatios, resolveGarmentRenderFills } from './garment-render-fills.ts';
+import { NEUTRAL_GARMENT_FILL, resolveGarmentTileFill } from './garment-render-fills.ts';
 
 // Same sRGB linearization and contrast calculation as theme.test.mjs.
 function luminance(hex) {
@@ -24,20 +24,6 @@ function luminance(hex) {
 function contrast(a, b) {
   const values = [luminance(a), luminance(b)];
   return (Math.max(...values) + 0.05) / (Math.min(...values) + 0.05);
-}
-
-// HSL hue in degrees: the accent is the anchor's hue carried to another luminance, so two
-// planes give the same outfit the same hue at two different values.
-function hue(hex) {
-  const [r, g, b] = hex.slice(1).match(/../g).map((channel) => parseInt(channel, 16) / 255);
-  const high = Math.max(r, g, b);
-  const low = Math.min(r, g, b);
-  if (high === low) return 0;
-  const span = high - low;
-  const degrees = high === r
-    ? ((g - b) / span + (g < b ? 6 : 0))
-    : high === g ? (b - r) / span + 2 : (r - g) / span + 4;
-  return degrees * 60;
 }
 
 // The eight planes a board may stand on: the seven light atmosphere states of Today's
@@ -66,139 +52,28 @@ const grounds = [lightTheme, darkTheme].map((theme) => ({
   colors: theme.colors,
 }));
 
-// One board of one of each kind: an outer layer to take the accent, footwear to take the
-// deeper neutral, and a bottom to stay on the base.
-const boardPieces = [
-  { slot: 'outer_layer', colorFamily: null },
-  { slot: 'bottom', colorFamily: null },
-  { slot: 'footwear', colorFamily: null },
-];
-
-// The seven hue anchors are private to the module, so they are read back through the seed
-// rather than copied here: a hundred option ids reach every bucket of a 7-wide index.
-function accentsOn({ plane, colors, colorScheme, step }) {
-  const accents = new Map();
-  for (let index = 0; index < 100; index += 1) {
-    const fills = resolveGarmentRenderFills({
-      optionId: `option-${index}`,
-      pieces: boardPieces,
-      plane,
-      colors,
-      colorScheme,
-      step,
-    });
-    accents.set(fills.get('outer_layer'), `option-${index}`);
+// A drawing without a palette (a Closet record with no colour, a day-type tile) takes the
+// neutral step; it must clear both floors on every plane a drawing stands on.
+test('the neutral garment fill steps off every plane without weakening the outline', (context) => {
+  for (const { appearance, state, plane, colors } of [...stages, ...grounds]) {
+    const fill = resolveGarmentTileFill({ colorFamily: null, plane, colors, colorScheme: appearance });
+    assert.equal(fill, blend(plane, colors.textPrimary, NEUTRAL_GARMENT_FILL));
+    const fillStep = contrast(fill, plane);
+    const outline = contrast(colors.textPrimary, fill);
+    assert.ok(fillStep >= 1.2, `${appearance} ${state} ${fill} step ${fillStep.toFixed(3)}:1`);
+    assert.ok(outline >= 3, `${appearance} ${state} ${fill} outline ${outline.toFixed(3)}:1`);
+    context.diagnostic(`${appearance} ${state} | ${plane} | ${fill}`);
   }
-  return accents;
-}
-
-// M20: Today's boards take the deeper step; both steps must clear both floors everywhere.
-test('garment board fills step off every plane without weakening the outline', (context) => {
-  let worstStep = Infinity;
-  let worstOutline = Infinity;
-
-  for (const [step, ratios] of Object.entries(garmentFillRatios)) {
-    for (const { appearance, state, plane, colors } of [...stages, ...grounds]) {
-      const stroke = colors.textPrimary;
-      const base = blend(plane, stroke, ratios.base);
-      const deep = blend(plane, stroke, ratios.deep);
-      const fills = resolveGarmentRenderFills({
-        optionId: '',
-        pieces: boardPieces,
-        plane,
-        colors,
-        colorScheme: appearance,
-        step,
-      });
-
-      assert.equal(fills.get('bottom'), base);
-      assert.equal(fills.get('footwear'), deep);
-
-      const accents = accentsOn({ plane, colors, colorScheme: appearance, step });
-      assert.equal(accents.size, 7, `${appearance} ${state} reached ${accents.size} anchors`);
-
-      const cells = [['base', base], ['deep', deep], ...[...accents.keys()].map((fill) => ['accent', fill])];
-      for (const [name, fill] of cells) {
-        const fillStep = contrast(fill, plane);
-        const outline = contrast(stroke, fill);
-        worstStep = Math.min(worstStep, fillStep);
-        worstOutline = Math.min(worstOutline, outline);
-        assert.ok(fillStep >= 1.2, `${step} ${appearance} ${state} ${name} ${fill} step ${fillStep.toFixed(3)}:1`);
-        assert.ok(outline >= 3, `${step} ${appearance} ${state} ${name} ${fill} outline ${outline.toFixed(3)}:1`);
-      }
-
-      context.diagnostic(`${step} ${appearance} ${state} | ${plane} | ${base} | ${deep}`);
-    }
-  }
-
-  context.diagnostic(`worst step ${worstStep.toFixed(3)}:1, worst outline ${worstOutline.toFixed(3)}:1`);
 });
 
-test('the accent is a deterministic function of the option id and of nothing else', () => {
-  const stage = lightTheme.atmosphere.fallingNight;
-  const of = (optionId, plane) => resolveGarmentRenderFills({
-    optionId,
-    pieces: boardPieces,
-    plane,
-    colors: lightTheme.colors,
-    colorScheme: 'light',
-  });
-
-  assert.deepEqual([...of('outfit-a', stage)], [...of('outfit-a', stage)]);
-  assert.notEqual(
-    of('outfit-a', stage).get('outer_layer'),
-    of('outfit-b', stage).get('outer_layer'),
-  );
-  // Today's tinted stage and the detail's page ground are two planes, so the same outfit
-  // keeps its hue on both while each fill still steps off the plane it stands on.
-  const onStage = of('outfit-a', stage).get('outer_layer');
-  const onGround = of('outfit-a', lightTheme.colors.background).get('outer_layer');
-  assert.notEqual(onStage, onGround);
-  assert.ok(
-    Math.abs(hue(onStage) - hue(onGround)) < 1,
-    `${onStage} at ${hue(onStage).toFixed(1)} degrees, ${onGround} at ${hue(onGround).toFixed(1)}`,
-  );
-});
-
-test('a board carries at most three values and exactly one accent', () => {
-  const fills = resolveGarmentRenderFills({
-    optionId: 'outfit-a',
-    pieces: [...boardPieces, { slot: 'primary_top', colorFamily: null }, { slot: 'mid_layer', colorFamily: null }],
-    plane: lightTheme.colors.background,
-    colors: lightTheme.colors,
-    colorScheme: 'light',
-  });
-  const base = blend(lightTheme.colors.background, lightTheme.colors.textPrimary, 0.13);
-
-  assert.equal(new Set(fills.values()).size, 3);
-  assert.equal([...fills.values()].filter((fill) => fill === base).length, 3);
-  // The accent takes the outermost body piece an outfit has, so `primary_top` keeps the
-  // base while an outer layer is present.
-  assert.equal(fills.get('primary_top'), base);
-  assert.notEqual(fills.get('outer_layer'), base);
-});
-
-test('an outfit without an accent slot and a Closet tile both stay neutral', () => {
+test('a recorded colour family wins and a record without one is never guessed at', () => {
   const plane = lightTheme.colors.background;
-  const base = blend(plane, lightTheme.colors.textPrimary, 0.13);
-  const resolve = (optionId, pieces) => resolveGarmentRenderFills({
-    optionId, pieces, plane, colors: lightTheme.colors, colorScheme: 'light',
+  const resolve = (colorFamily) => resolveGarmentTileFill({
+    colorFamily, plane, colors: lightTheme.colors, colorScheme: 'light',
   });
-
-  assert.deepEqual(
-    [...resolve('outfit-a', [{ slot: 'bottom', colorFamily: null }]).values()],
-    [base],
-  );
-  // The Closet and the Profile rail call with an empty option id: a recorded colour wins,
-  // and a piece without one is drawn neutral rather than guessed at.
-  assert.deepEqual(
-    [...resolve('', [{ slot: 'primary_top', colorFamily: null }]).values()],
-    [base],
-  );
-  assert.deepEqual(
-    [...resolve('', [{ slot: 'primary_top', colorFamily: 'blue' }]).values()],
-    [colorFamilyFills.light.blue],
-  );
+  assert.equal(resolve(null), blend(plane, lightTheme.colors.textPrimary, 0.13));
+  assert.equal(resolve('blue'), colorFamilyFills.light.blue);
+  assert.deepEqual(resolve('multicolor'), colorFamilyFills.light.multicolor);
 });
 
 for (const [appearance, colors] of Object.entries({ light: lightSemanticColors, dark: darkSemanticColors })) {

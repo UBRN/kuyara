@@ -16,8 +16,14 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { resolveGarmentArtwork } from '../garment-slot-glyph';
 import { drawnExtent, fitRunwayScale, placeOnRunway } from './compose-garment-board';
-import { composePieces, PieceArtwork, type ComposedPiece, type GarmentBoardPiece } from './garment-board';
-import { resolveRunwayFills } from './runway-fills';
+import {
+  composePieces,
+  PieceArtwork,
+  useGarmentRoles,
+  type ComposedPiece,
+  type GarmentBoardPiece,
+} from './garment-board';
+import type { GarmentOutfitPalette, GarmentRoles } from './garment-palette';
 
 // A landing mark is the draft's own outline, faint, so the board shows where each piece
 // will stand before it arrives.
@@ -143,7 +149,7 @@ function RunwayDraft({ piece, box, ink, answered, kept, handoverDelay }: RunwayD
 type RunwayDressedProps = Readonly<{
   piece: ComposedPiece;
   box: Box;
-  fill: string;
+  roles: GarmentRoles;
   ink: string;
   delay: number;
   /** A slot whose draft never landed enters already dressed, gliding in. */
@@ -154,7 +160,7 @@ type RunwayDressedProps = Readonly<{
 // `motion.deliberate`. The pour is a clip that travels on transforms alone: the clipping
 // view moves down by the unpoured share while the artwork inside moves back up by the same
 // amount, so only the poured band from the hem up is visible and nothing is laid out again.
-function RunwayDressed({ piece, box, fill, ink, delay, glides }: RunwayDressedProps) {
+function RunwayDressed({ piece, box, roles, ink, delay, glides }: RunwayDressedProps) {
   const theme = useKuyaraTheme();
   const pour = useSharedValue(0);
   const outline = useSharedValue(0);
@@ -190,15 +196,22 @@ function RunwayDressed({ piece, box, fill, ink, delay, glides }: RunwayDressedPr
       testID={`runway-dressed-${piece.slot}`}>
       <Animated.View style={[StyleSheet.absoluteFill, styles.clip, clipStyle]}>
         <Animated.View style={artworkStyle}>
-          <PieceArtwork fillColor={fill} height={h} piece={piece} strokeColor="transparent" width={w} />
+          <PieceArtwork height={h} ink={ink} layer="fill" piece={piece} roles={roles} width={w} />
         </Animated.View>
       </Animated.View>
       <Animated.View style={[StyleSheet.absoluteFill, outlineStyle]}>
-        <PieceArtwork fillColor="none" height={h} piece={piece} strokeColor={ink} width={w} />
+        <PieceArtwork height={h} ink={ink} layer="outline" piece={piece} roles={roles} width={w} />
       </Animated.View>
     </Animated.View>
   );
 }
+
+export type RunwayBoardOutfit = Readonly<{
+  id: string;
+  pieces: readonly GarmentBoardPiece[];
+  /** The outfit's palette (O15), the same one Today and the detail draw it in. */
+  palette: GarmentOutfitPalette;
+}>;
 
 type GarmentRunwayBoardProps = Readonly<{
   /** The neutral drafts, drawn in this composition's order before any answer. */
@@ -206,8 +219,8 @@ type GarmentRunwayBoardProps = Readonly<{
   /** How many drafts, in drawing order, have started onto the board. */
   placedCount: number;
   /** The chosen outfit, handed over once, when the answer is in. */
-  outfit: Readonly<{ id: string; pieces: readonly GarmentBoardPiece[] }> | null;
-  /** The runway field the board stands on; every dressed fill is derived from it. */
+  outfit: RunwayBoardOutfit | null;
+  /** The runway field the board stands on; every dressed fill is legible on it. */
   field: string;
   /** The free area the board fits into (the runway preset, O17). */
   width: number;
@@ -237,7 +250,7 @@ export function GarmentRunwayBoard({
   outlineInk,
   testID,
 }: GarmentRunwayBoardProps) {
-  const { colors, colorScheme, motion } = useKuyaraTheme();
+  const { motion } = useKuyaraTheme();
   const draftLayout = layoutOf(drafts);
   const chosenLayout = outfit ? layoutOf(outfit.pieces) : null;
   // The drafts keep one scale for the whole wait; the chosen outfit takes the same one
@@ -252,9 +265,7 @@ export function GarmentRunwayBoard({
   const chosenBox = (piece: ComposedPiece) =>
     placeOnRunway(chosenLayout!.result.boxes.get(piece)!, chosenLayout!.extent, chosenScale, width, height);
   const draftIndex = new Map(draftLayout.result.order.map((piece, index) => [piece.slot, index]));
-  const fills = outfit
-    ? resolveRunwayFills({ optionId: outfit.id, slots: chosenOrder.map(({ slot }) => slot), field, colors, colorScheme })
-    : null;
+  const roles = useGarmentRoles(outfit?.palette ?? null, field);
   const startedBeforeAnswer = (slot: OutfitSlot) => (draftIndex.get(slot) ?? Infinity) < placedCount;
 
   return (
@@ -296,7 +307,7 @@ export function GarmentRunwayBoard({
         <RunwayDressed
           box={chosenBox(piece)}
           delay={dressStart(index, motion)}
-          fill={fills!.get(piece.slot)!}
+          roles={roles.get(piece.slot)!}
           glides={!startedBeforeAnswer(piece.slot)}
           ink={outlineInk}
           key={`dressed-${piece.slot}`}

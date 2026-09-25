@@ -159,15 +159,16 @@ const rules = [
     name: 'the garment fill tables and the accent resolver stay behind the board renderer',
     matches: (specifier) =>
       modulePathMatcher('garment-board/garment-render-fills')(specifier)
+      || modulePathMatcher('garment-board/garment-palette')(specifier)
       || modulePathMatcher('garment-board/color-family-fill')(specifier),
     forbiddenDirectories: null,
     allowedDirectories: ['components/ui/garment-board/', 'components/ui/index.ts'],
     ruleText:
       'docs/design/design-system.md, "Implemented and deferred": the colour-family fills are '
       + '"approved content colour for the rail and grid only (ADR 0028 section 6 and ADR 0029 '
-      + 'section 5), not semantic theme roles", and "Today and detail boards derive their fills '
-      + 'from the plane they sit on". The resolver that turns a plane and an option id into fills '
-      + 'is the board renderer\'s own business: it stays under components/ui/garment-board/, and a '
+      + 'section 5), not semantic theme roles", and the Phase 6 swatch library is content colour '
+      + 'too. The resolvers that turn an outfit and a plane into fills are the board renderer\'s '
+      + 'own business: they stay under components/ui/garment-board/, and a '
       + 'feature that needs an approved content colour takes `colorFamilyFills` from the '
       + '`components/ui` barrel instead of reaching into the module.',
   },
@@ -207,29 +208,23 @@ for (const rule of rules) {
   });
 }
 
-// docs/design/design-system.md, "Implemented and deferred": a board carries "at most one
-// luminance-matched accent on the board that is the subject of the screen". `optionId` is the
-// prop that asks `GarmentBoard` for that accent, so passing it is the greppable form of the
-// rule: only the two subject boards may, and the Today alternates, the Closet grid and the
-// Profile rail stay neutral. A third caller is a design decision, not a test fix.
-const subjectBoardFiles = [
-  'features/today/presentation/outfit-detail-screen.tsx',
-  'features/today/presentation/today-screen.tsx',
-];
-
-test('only the subject boards ask GarmentBoard for a coloured piece', () => {
-  const callers = sourceFiles().filter((relativePath) => (
-    [...readFileSync(path.join(sourceRoot, relativePath), 'utf8')
-      .matchAll(/<GarmentBoard\b[\s\S]*?\/>/g)]
-      .some(([element]) => element.includes('optionId='))
+// docs/design/design-language.md, Law 4 (O15): every board draws its outfit in that outfit's
+// own palette, the alternates included, so an outfit looks the same wherever it appears. The
+// Closet and the Profile rail draw personal records and never take a board or its palette.
+test('every garment board carries its outfit palette and only Today draws one', () => {
+  const boards = sourceFiles().flatMap((relativePath) => (
+    [...readFileSync(path.join(sourceRoot, relativePath), 'utf8').matchAll(/<GarmentBoard\b[\s\S]*?\/>/g)]
+      .map(([element]) => ({ relativePath, element }))
   ));
 
+  assert.ok(boards.length > 0);
   assert.deepEqual(
-    callers.sort(),
-    subjectBoardFiles,
-    'Today and detail boards carry "at most one luminance-matched accent on the board that is '
-    + 'the subject of the screen" (docs/design/design-system.md). Render the board without '
-    + '`optionId` so it stays neutral, or take the accent to the design documents first.',
+    boards.filter(({ relativePath, element }) => (
+      !relativePath.startsWith('features/today/presentation/') || !element.includes('palette=')
+    )).map(({ relativePath }) => relativePath),
+    [],
+    'A board draws a recommended outfit in its palette (O15, design-language.md Law 4). Pass the '
+    + 'outfit\'s `palette`, or draw a personal record with `GarmentTileArtwork` instead.',
   );
 });
 

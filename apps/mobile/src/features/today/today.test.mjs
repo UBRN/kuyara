@@ -569,6 +569,11 @@ test('stale freshness and outfit copy localize in both languages', () => {
   assert.equal(turkish.weather.condition, 'Yağmurlu');
 });
 
+const withoutPaletteDay = (suggestions) => suggestions.map(({ palette, ...rest }) => ({
+  ...rest,
+  palette: { optionId: palette.optionId, formality: palette.formality, pieces: palette.pieces },
+}));
+
 test('fresh weather updates derived insight lines without changing the selected outfits', () => {
   const weather = todayScreenState.snapshot.weather;
   const fullWeather = {
@@ -608,7 +613,11 @@ test('fresh weather updates derived insight lines without changing the selected 
       },
     },
   });
-  assert.deepEqual(after.suggestions, before.suggestions);
+  // The outfits stay; only the palette's day half (O15: the current weather picks the mood)
+  // follows the fresh weather.
+  assert.deepEqual(withoutPaletteDay(after.suggestions), withoutPaletteDay(before.suggestions));
+  assert.deepEqual(after.suggestions.map(({ palette }) => [palette.temperatureC, palette.condition]),
+    after.suggestions.map(() => [31, 'clear']));
   assert.deepEqual(after.generationMode, before.generationMode);
   assert.notEqual(after.dayInsight, before.dayInsight);
   assert.notEqual(after.dayWindow, before.dayWindow);
@@ -635,7 +644,7 @@ test('an AI-authored insight stays with its outfit when weather refreshes', () =
     } },
   });
   assert.equal(after.dayInsight, before.dayInsight);
-  assert.deepEqual(after.suggestions, before.suggestions);
+  assert.deepEqual(withoutPaletteDay(after.suggestions), withoutPaletteDay(before.suggestions));
 });
 
 test('a device location shows its locality name, and the generic copy without one', () => {

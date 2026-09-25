@@ -139,8 +139,8 @@ The stage height is therefore derived, insets plus the envelope, and clamped to
 from 0.680 to 1.135. Today's copy below the stage moves with it.
 
 The two insets are the tint's own margin around the composition and are not board
-geometry. The top inset gives the garment composition breathing room without placing
-weather symbols inside the stage; the bottom inset holds nothing, so it is the detail
+geometry. The stage holds nothing but the board: the temperature and the condition symbol
+sit in the title above it, so neither inset holds anything and both are the detail
 preset's. Tint that neither supports the composition nor holds something is slack, and
 the stage does not carry it.
 
@@ -170,7 +170,7 @@ Every value, in stage-width units unless marked otherwise.
 | mid inset | 0.20 | × core metric, off the rail axis |
 | footwear rise | 0.20 | × core metric, above the core baseline |
 | gutter | 0.095 | between the two columns |
-| top / bottom inset | 0.205 / 0.055 | breathing room above the garment composition |
+| top / bottom inset | 0.045 / 0.055 | the tint's own edge; the stage holds nothing else |
 | stage height | 0.66 to 1.14 | derived, then clamped |
 | ink centroid | 0.47 | where the composition lands |
 | side minimum | 0.09 | no drawn edge closer to a stage edge |
@@ -178,15 +178,16 @@ Every value, in stage-width units unless marked otherwise.
 
 ## 8. The silhouette set
 
-Twenty-six drawings, one 64×64 viewBox each, stroke 1.9 non-scaling, filled with a value
-derived from the plane it sits on so a garment reads as a pale solid with a drawn edge. They cover all
-**41 outfit-eligible catalogue types**; fifteen types share a drawing with another
-(`blouse`, `overshirt` with `shirt`; `sweatshirt`, `fleece`, `turtleneck` with `sweater`;
-`polo_shirt` with `t_shirt`; `long_skirt` with `skirt`; `track_pants` with `trousers`;
-`knit_dress` with `dress`; `coat` with `trench_coat`; `bomber_jacket`, `leather_jacket`
-with `light_jacket`; `weather_boots`, `rain_boots` with `ankle_boots`; `loafers` with
-`closed_shoes`). ADR 0021 already records the blouse-and-shirt collision as a cost of the
-MVP vocabulary rather than a layout defect.
+Thirty-four garment drawings, one 64×64 viewBox each, painted as Phase 6 colour fashion
+flats: each drawing is a list of outlines filled with the piece's own palette colours and
+edged in one 1.9-point ink stroke, with shade planes, tone lines and stitches clipped inside
+them (`silhouettes.ts`, `garment-painting.tsx`). The drawn bounds the rule reads are
+measured from the outlines. They cover all **41 outfit-eligible catalogue types**; seven
+types share a drawing with another (`overshirt` with `shirt`; `sweatshirt`, `fleece` with
+`sweater`; `long_skirt` with `skirt`; `track_pants` with `trousers`; `knit_dress` with
+`dress`; `weather_boots` with `ankle_boots`). `polo_shirt`, `turtleneck`, `blouse`,
+`bomber_jacket`, `leather_jacket`, `coat`, `loafers` and `rain_boots` have their own
+Phase 6 drawings.
 
 Thirteen are carried unchanged from the Direction E spike. Nine entered with the MVP
 vocabulary: `tank`, `tee`, `hoodie`, `puffer`, `shorts`, `leggings`, `dress`, `jumpsuit`,
@@ -228,11 +229,11 @@ a two-line caption fits under every piece:
 | rail width cap | 0.170 | 0.150 |
 | gutter | 0.095 | 0.135 |
 | mid inset | 0.20 | 0.16 |
-| top / bottom inset | 0.205 / 0.055 | 0.045 / 0.055 |
+| top / bottom inset | 0.045 / 0.055 | 0.045 / 0.055 |
 | stage height range | 0.66 to 1.14 | 0.60 to 1.45 |
 
-The insets collapse because the detail board is not on the tinted stage and needs less
-breathing room above the garment composition.
+The insets are the same on both surfaces: neither the tinted stage nor the detail plate
+holds anything besides the board.
 
 **Captions.** A caption is centred on its piece's own axis and sits 7 points below the
 piece's drawn box. Its width is capped per column, **0.42** of the plate width for the

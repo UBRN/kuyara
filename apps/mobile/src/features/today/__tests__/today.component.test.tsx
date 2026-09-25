@@ -3,7 +3,7 @@ import { SymbolView } from 'expo-symbols';
 import { AppState, Dimensions, processColor, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { resolveGarmentRenderFills } from '@/components/ui/garment-board/garment-render-fills';
+import { garmentRolesBySlot } from '@/components/ui/garment-board/garment-palette';
 import { garmentSilhouetteIds } from '@/components/ui/garment-board/garment-silhouette-map';
 import { silhouettes } from '@/components/ui/garment-board/silhouettes';
 import { failureCategories } from '@/domain/failure-category';
@@ -494,7 +494,15 @@ test.each([
   }
 });
 
-test('only the primary board is coloured: the alternates stay on two neutrals', async () => {
+// A clip path's own shape is geometry, not paint; skip it when reading drawn fills.
+const insideClip = (node: { type: unknown; parent: unknown }): boolean => {
+  for (let at = node.parent as { type: unknown; parent: unknown } | null; at; at = at.parent as typeof at) {
+    if (String(at.type).includes('ClipPath')) return true;
+  }
+  return false;
+};
+
+test('every board draws its own outfit palette: the primary on its stage, each alternate on the ground (O15)', async () => {
   const result = await render(providers(
     <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
     onAskAgain={jest.fn()} state={todayScreenState} />,
@@ -506,31 +514,35 @@ test('only the primary board is coloured: the alternates stay on two neutrals', 
   const hidden = { includeHiddenElements: true };
   const presentation = loadedPresentation();
   const [primary, ...alternates] = presentation.suggestions;
+  const paint = (hex: string) => JSON.stringify({ type: 0, payload: processColor(hex) });
   const drawnFills = (testID: string) => new Set(
     result.getByTestId(testID, hidden)
-      .queryAll((node) => typeof node.props.d === 'string' && node.props.fill != null)
+      .queryAll((node) => typeof node.props.d === 'string' && node.props.fill != null && node.props.fill !== 'none' && !insideClip(node))
       .map((node) => JSON.stringify(node.props.fill)),
   );
-  const resolvedFills = (suggestion: typeof primary, optionId: string, plane: string) => new Set(
-    [...resolveGarmentRenderFills({
-      optionId,
-      pieces: suggestion.boardPieces.map(({ slot }) => ({ slot, colorFamily: null })),
-      plane,
-      colors: lightTheme.colors,
-      colorScheme: 'light',
-      step: 'today',
-    }).values()].map((fill) => JSON.stringify({ type: 0, payload: processColor(fill) })),
-  );
+  const rolesOf = (suggestion: typeof primary, plane: string) => {
+    const roles = garmentRolesBySlot({
+      ...suggestion.palette,
+      appearance: 'light',
+      stageColor: plane,
+      accessoryStageColor: lightTheme.colors.background,
+      inkColor: lightTheme.colors.textPrimary,
+    });
+    return suggestion.boardPieces.map(({ slot }) => roles.get(slot)!);
+  };
+  const expectPalette = (testID: string, suggestion: typeof primary, plane: string) => {
+    const roles = rolesOf(suggestion, plane);
+    const drawn = drawnFills(testID);
+    // Every piece shows its main colour, and nothing is painted outside the outfit's roles.
+    for (const { main } of roles) expect(drawn.has(paint(main))).toBe(true);
+    const allowed = new Set(roles.flatMap((role) => Object.values(role).map(paint)));
+    expect([...drawn].filter((fill) => !allowed.has(fill))).toEqual([]);
+  };
 
-  expect(drawnFills(`today-primary-board-${primary.id}`))
-    .toEqual(resolvedFills(primary, primary.id, lightTheme.atmosphere[presentation.atmosphere]));
+  expectPalette(`today-primary-board-${primary.id}`, primary, lightTheme.atmosphere[presentation.atmosphere]);
+  expect(alternates.length).toBeGreaterThan(0);
   for (const suggestion of alternates) {
-    // Law 4's per-surface ceiling: an alternate is drawn on the page ground with the
-    // neutral base and the deeper footwear neutral only, so the screen offers one answer
-    // rather than three.
-    const fills = drawnFills(`today-alternate-board-${suggestion.id}`);
-    expect(fills.size).toBeLessThanOrEqual(2);
-    expect(fills).toEqual(resolvedFills(suggestion, '', lightTheme.colors.background));
+    expectPalette(`today-alternate-board-${suggestion.id}`, suggestion, lightTheme.colors.background);
   }
 });
 
@@ -1762,8 +1774,10 @@ describe('finishing touches', () => {
     expect(drawing.props.height).toBe(16);
     const { bounds } = silhouettes[garmentSilhouetteIds[accessories[0].garmentTypeId]!];
     const scale = 16 / (Math.max(bounds.width, bounds.height) + 3);
-    const [path] = drawing.queryAll((node) => typeof node.props.d === 'string');
-    expect(path.props.strokeWidth * scale).toBeCloseTo(1.9 * 16 / 28);
+    const [edge] = drawing.queryAll((node) => typeof node.props.d === 'string'
+      && node.props.d === silhouettes[garmentSilhouetteIds[accessories[0].garmentTypeId]!].groups[0].outline
+      && node.props.strokeWidth != null);
+    expect(edge.props.strokeWidth * scale).toBeCloseTo(1.9 * 16 / 28);
   });
 
   test('a day that asks for no accessory renders no badge row and no detail section', async () => {

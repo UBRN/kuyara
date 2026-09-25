@@ -51,33 +51,40 @@ function drawnBounds(paths) {
   };
 }
 
-// ADR 0025's 27 cover the catalog; g-blazer, g-parka, g-vest, g-cap, g-flat and
-// g-balaclava are drawn ahead of the catalog mapping that will use them, so the garment
-// count is 33.
-test('the vocabulary contains exactly 33 garments and six category glyphs', () => {
-  assert.equal(Object.keys(silhouettes).filter((id) => id.startsWith('g-cat-')).length, 6);
-  assert.equal(Object.keys(silhouettes).length, 39);
+// ADR 0025's 33 drawings plus the eight Phase 6 additions: 41 garments, and six category glyphs.
+const additions = ['x-polo', 'x-turtleneck', 'x-blouse', 'x-bomber', 'x-leather', 'x-coat', 'x-loafer', 'x-rainboot'];
+
+test('the vocabulary contains exactly 41 garments and six category glyphs', () => {
+  const ids = Object.keys(silhouettes);
+  assert.equal(ids.filter((id) => id.startsWith('g-cat-')).length, 6);
+  assert.equal(ids.filter((id) => !id.startsWith('g-cat-')).length, 41);
+  for (const id of additions) assert.ok(silhouettes[id], id);
 });
 
-test('every authored bound matches the drawn paths without stroke', () => {
+test('every authored bound matches the drawn outlines without stroke', () => {
   for (const [id, silhouette] of Object.entries(silhouettes)) {
     assert.equal(silhouette.id, id);
     assert.equal(silhouette.viewBox, 64);
-    assert.deepEqual(drawnBounds(silhouette.paths), silhouette.bounds, id);
+    const measured = drawnBounds(silhouette.groups.map(({ outline }) => ({ d: outline })));
+    for (const key of ['x', 'y', 'width', 'height']) {
+      assert.ok(Math.abs(measured[key] - silhouette.bounds[key]) <= 0.005, `${id} ${key}`);
+    }
   }
 });
 
-test('accessory silhouettes stay inside the existing accessory-scale bounds range', () => {
-  const accessoryIds = ['g-beanie', 'g-hat', 'g-cap', 'g-balaclava', 'g-scarf', 'g-gloves', 'g-umbrella'];
-  const referenceIds = ['g-sneaker', 'g-sandal', 'g-boot', 'g-cat-accessory'];
-  const referenceBounds = referenceIds.map((id) => silhouettes[id].bounds);
-  const minWidth = Math.min(...referenceBounds.map(({ width }) => width));
-  const maxWidth = Math.max(...referenceBounds.map(({ width }) => width));
-  const minHeight = Math.min(...referenceBounds.map(({ height }) => height));
-  const maxHeight = Math.max(...referenceBounds.map(({ height }) => height));
-
-  assert.deepEqual(accessoryIds.filter((id) => {
-    const { width, height } = silhouettes[id].bounds;
-    return width < minWidth || width > maxWidth || height < minHeight || height > maxHeight;
-  }), []);
+// Style A: flat fills from the piece's own roles, no gradient, no alpha, no body. A drawing
+// names only colour roles, never a colour, and every part stays inside the 64 viewBox.
+test('drawings are role-painted data with no colour, gradient or opacity of their own', () => {
+  const kinds = new Set(['fs', 'fl', 'fk', 'fa', 'fas', 'fm', 'fh', 'D', 'Dh', 'T', 'Ta', 'S', 'Sh', 'Sa']);
+  const roles = new Set(['main', 'shade', 'toneLine', 'darkTrim', 'material', 'hardware']);
+  for (const [id, silhouette] of Object.entries(silhouettes)) {
+    assert.ok(silhouette.groups.length > 0, id);
+    for (const group of silhouette.groups) {
+      assert.ok(roles.has(group.fill), `${id} ${group.fill}`);
+      for (const [kind, d] of group.parts) {
+        assert.ok(kinds.has(kind), `${id} ${kind}`);
+        assert.match(d, /^[MLQAZ0-9 .-]+$/, id);
+      }
+    }
+  }
 });

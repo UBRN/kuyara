@@ -11,7 +11,7 @@ import Animated, {
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
-import Svg, { G, Path } from 'react-native-svg';
+import Svg, { G } from 'react-native-svg';
 
 import type { GarmentTypeId, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
@@ -19,7 +19,8 @@ import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { composeGarmentBoard, detailPreset, todayPreset } from './compose-garment-board';
-import { resolveGarmentRenderFills } from './garment-render-fills';
+import { garmentLevelOfDetail, GarmentPainting } from './garment-painting';
+import { garmentRolesBySlot, type GarmentOutfitPalette, type GarmentRoles } from './garment-palette';
 import { resolveGarmentSilhouette } from './garment-silhouette-map';
 
 export { composeGarmentBoard } from './compose-garment-board';
@@ -79,11 +80,10 @@ type GarmentBoardProps = Readonly<{
   /** Law 7's moment: change it and an entering board's pieces settle once. */
   settle?: number;
   /**
-   * The option this board draws. It is the only seed of the one coloured piece, so the
-   * same outfit is the same colour wherever it is drawn. Left out, the board stays
-   * neutral: that is how the alternates keep the screen to one answer.
+   * The outfit's palette inputs (O15). Every board, the alternates included, takes its
+   * colours from them, so the same outfit is the same colours wherever it is drawn.
    */
-  optionId?: string;
+  palette: GarmentOutfitPalette;
   /** The plane the board stands on. Left out, it stands on the page ground. */
   stageColor?: string;
   testID?: string;
@@ -123,18 +123,42 @@ export type DrawnBox = ReturnType<typeof composePieces>['boxes'] extends Map<Com
   ? Box
   : never;
 
+const NO_ROLES: ReadonlyMap<OutfitSlot, GarmentRoles> = new Map();
+
+/**
+ * The colour roles of every piece of one outfit on the plane it stands on, by slot. The
+ * board, the Today badges and the runway read the same memoised result for the same outfit.
+ */
+export function useGarmentRoles(
+  palette: GarmentOutfitPalette | null,
+  stageColor?: string,
+): ReadonlyMap<OutfitSlot, GarmentRoles> {
+  const { colors, colorScheme } = useKuyaraTheme();
+  if (palette === null) return NO_ROLES;
+  return garmentRolesBySlot({
+    ...palette,
+    appearance: colorScheme,
+    stageColor: stageColor ?? colors.background,
+    accessoryStageColor: colors.background,
+    inkColor: colors.textPrimary,
+  });
+}
+
+/** One composed piece in its own box, the viewBox fitted to its drawn bounds. */
 export function PieceArtwork({
   piece,
-  fillColor,
-  strokeColor,
+  roles,
+  ink,
   width,
   height,
+  layer,
 }: Readonly<{
   piece: ComposedPiece;
-  fillColor: string;
-  strokeColor: string;
+  roles: GarmentRoles;
+  ink: string;
   width: number;
   height: number;
+  layer?: 'all' | 'fill' | 'outline';
 }>) {
   const { bounds } = piece;
 
@@ -144,27 +168,21 @@ export function PieceArtwork({
       preserveAspectRatio="none"
       viewBox={`${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`}
       width={width}>
-      {piece.paths.map((path) => (
-        <Path
-          d={path.d}
-          fill={path.filled ? fillColor : 'none'}
-          key={path.d}
-          stroke={strokeColor}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={1.9}
-          vectorEffect="non-scaling-stroke"
-        />
-      ))}
+      <GarmentPainting
+        ink={ink}
+        layer={layer}
+        lod={garmentLevelOfDetail(Math.max(width, height))}
+        roles={roles}
+        scale={width / bounds.width}
+        silhouette={piece}
+      />
     </Svg>
   );
 }
 
 // Each travelling piece is a plain view carrying a native transform, because Reanimated
 // cannot drive react-native-svg's `transform` or `fill` on the new architecture: the
-// strings reach the native view unprocessed. The fill fades by stacking the resting
-// artwork under a tinted copy whose opacity drains; both strokes share one colour, so
-// the overlap never changes the outline.
+// strings reach the native view unprocessed. The piece keeps its colours across the move.
 function TravellingPiece({
   piece,
   fromBox,
@@ -172,10 +190,8 @@ function TravellingPiece({
   width,
   progress,
   settleTravel,
-  tintProgress,
-  fromFill,
-  toFill,
-  strokeColor,
+  roles,
+  ink,
 }: Readonly<{
   piece: ComposedPiece;
   fromBox: DrawnBox;
@@ -183,10 +199,8 @@ function TravellingPiece({
   width: number;
   progress: SharedValue<number>;
   settleTravel: SharedValue<number>;
-  tintProgress: SharedValue<number>;
-  fromFill: string;
-  toFill: string;
-  strokeColor: string;
+  roles: GarmentRoles;
+  ink: string;
 }>) {
   const boxWidth = toBox.w * width;
   const boxHeight = toBox.h * width;
@@ -206,8 +220,6 @@ function TravellingPiece({
       ],
     };
   });
-  const tintStyle = useAnimatedStyle(() => ({ opacity: 1 - tintProgress.get() }));
-
   return (
     <Animated.View
       pointerEvents="none"
@@ -216,22 +228,7 @@ function TravellingPiece({
         { height: boxHeight, left: toBox.x * width, top: toBox.y * width, width: boxWidth },
         travelStyle,
       ]}>
-      <PieceArtwork
-        fillColor={toFill}
-        height={boxHeight}
-        piece={piece}
-        strokeColor={strokeColor}
-        width={boxWidth}
-      />
-      <Animated.View style={[StyleSheet.absoluteFill, tintStyle]}>
-        <PieceArtwork
-          fillColor={fromFill}
-          height={boxHeight}
-          piece={piece}
-          strokeColor={strokeColor}
-          width={boxWidth}
-        />
-      </Animated.View>
+      <PieceArtwork height={boxHeight} ink={ink} piece={piece} roles={roles} width={boxWidth} />
     </Animated.View>
   );
 }
@@ -249,24 +246,14 @@ export function GarmentBoard({
   entrance,
   rise = false,
   settle,
-  optionId = '',
+  palette,
   stageColor,
   testID,
 }: GarmentBoardProps) {
   const theme = useKuyaraTheme();
-  const { colors, colorScheme } = theme;
+  const { colors } = theme;
   const result = composePieces(pieces, preset);
-  // A board carries no colour of its own: every fill is derived from the plane it stands
-  // on, and the board's own pieces never carry a recorded colour family.
-  const renderPieces = result.order.map(({ slot }) => ({ slot, colorFamily: null }));
-  const fills = resolveGarmentRenderFills({
-    optionId,
-    pieces: renderPieces,
-    plane: stageColor ?? colors.background,
-    colors,
-    colorScheme,
-    step: preset === 'today' ? 'today' : 'standard',
-  });
+  const roles = useGarmentRoles(palette, stageColor);
   const progress = useSharedValue(0);
   const tintProgress = useSharedValue(0);
   const settleTravel = useSharedValue(0);
@@ -374,25 +361,20 @@ export function GarmentBoard({
       <Svg {...accessibilityProps} height={height} width={width}>
         {result.order.map((piece) => {
           const box = result.boxes.get(piece)!;
-          const kx = box.w / piece.bounds.width;
-          const ky = box.h / piece.bounds.height;
+          // The composition keeps each drawing's aspect ratio, so one scale serves both axes.
+          const scale = (box.w / piece.bounds.width) * width;
           return (
             <G
               key={piece.slot}
-              transform={`translate(${(box.x - piece.bounds.x * kx) * width} ${(box.y - piece.bounds.y * ky) * width}) scale(${kx * width} ${ky * width})`}
+              transform={`translate(${box.x * width - piece.bounds.x * scale} ${box.y * width - piece.bounds.y * scale}) scale(${scale})`}
             >
-              {piece.paths.map((path) => (
-                <Path
-                  key={path.d}
-                  d={path.d}
-                  fill={path.filled ? fills.get(piece.slot)! : 'none'}
-                  stroke={colors.textPrimary}
-                  strokeWidth={1.9}
-                  vectorEffect="non-scaling-stroke"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              ))}
+              <GarmentPainting
+                ink={colors.textPrimary}
+                lod={garmentLevelOfDetail(Math.max(box.w, box.h) * width)}
+                roles={roles.get(piece.slot)!}
+                scale={scale}
+                silhouette={piece}
+              />
             </G>
           );
         })}
@@ -411,16 +393,6 @@ export function GarmentBoard({
     piece.slot,
     fromResult.boxes.get(piece)!,
   ]));
-  // The pieces fly from the plane they were drawn on, so the coloured piece keeps its
-  // colour across the move instead of arriving in it.
-  const fromFills = resolveGarmentRenderFills({
-    optionId,
-    pieces: renderPieces,
-    plane: entrance.fromStageColor,
-    colors,
-    colorScheme,
-    step: entrance.fromPreset === 'today' ? 'today' : 'standard',
-  });
 
   return (
     <Animated.View
@@ -433,15 +405,13 @@ export function GarmentBoard({
       {result.order.map((piece) => (
         <TravellingPiece
           fromBox={fromBoxes.get(piece.slot) ?? result.boxes.get(piece)!}
-          fromFill={fromFills.get(piece.slot)!}
+          ink={colors.textPrimary}
           key={piece.slot}
           piece={piece}
           progress={progress}
+          roles={roles.get(piece.slot)!}
           settleTravel={settleTravel}
-          strokeColor={colors.textPrimary}
-          tintProgress={tintProgress}
           toBox={result.boxes.get(piece)!}
-          toFill={fills.get(piece.slot)!}
           width={width}
         />
       ))}
