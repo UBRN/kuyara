@@ -3,9 +3,10 @@ import { createContext, use } from 'react';
 import type { RecommendationApplicationState } from '@/features/recommendation/application/recommendation-application-controller';
 import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
 import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
-import type { DressStyle } from '@kuyara/contracts';
+import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
 import type { DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
 import type { DressingDayDeparture } from '@/features/recommendation/domain/dressing-day-departure';
+import type { OutfitHistoryRecord, WornOutfit } from '@/features/recommendation/domain/outfit-history';
 
 export type RecommendationApplicationValue = Readonly<{
   state: RecommendationApplicationState;
@@ -31,7 +32,24 @@ export type RecommendationApplicationValue = Readonly<{
   setDeparture?: (departureAt: string, timeZone: string) => Promise<DressingDayDeparture>;
   clearDeparture?: (dayKey: string) => Promise<boolean>;
   resolvedDressStyle?: DressStyle;
-  chooseFormality?: (key: string, formality: DressStyle, source: DressingDayChoiceSource) => Promise<void>;
+  /** The active dressing day's styles: its own answer, else the Settings defaults (N4). */
+  resolvedStyleAesthetics?: readonly StyleAesthetic[];
+  /**
+   * One answer to the morning or evening question. `styleAesthetics` is the day's step-2
+   * answer (M18), written in the same row and starting the same single generation; left
+   * out, the day keeps the styles it had.
+   */
+  chooseFormality?: (key: string, formality: DressStyle, source: DressingDayChoiceSource,
+    styleAesthetics?: readonly StyleAesthetic[]) => Promise<void>;
+  /**
+   * Outfit history (ADR 0038) for this profile, keyed by the bare-date day. Writing it
+   * never starts a generation; the next approved one reads it for repeat avoidance.
+   */
+  outfitHistory?: Readonly<{
+    list: () => Promise<readonly OutfitHistoryRecord[]>;
+    get: (dayKey: string) => Promise<OutfitHistoryRecord | null>;
+    log: (dayKey: string, outfit: WornOutfit) => Promise<OutfitHistoryRecord>;
+  }>;
   /**
    * The confirmed "Ask the stylist again" (O3). It records a changed day type as the active
    * dressing day's `chip` answer, stores a Later departure under its own dressing day or

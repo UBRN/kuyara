@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   withTiming,
@@ -7,30 +7,39 @@ import Animated, {
 
 import {
   AppText,
+  Button,
+  colorFamilyFills,
+  garmentColorFamiliesBySlot,
   GlassButton,
   Entrance,
   GarmentBoard,
   GarmentTileArtwork,
   Icon,
+  type IconName,
   layoutGarmentBoard,
-  NativeMenu,
   Pill,
+  PressScale,
   Screen,
   haptics,
   useGarmentRoles,
   useTextScaling,
 } from '@/components/ui';
-import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
+import type { ColorFamily } from '@/features/catalog/domain/garment-taxonomy';
 import {
   createDetailCaptionLayout,
   createTodayPresentation,
 } from '@/features/today/presentation/today-presentation';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import type { TodayScreenState } from '@/features/today/model';
-import type { GarmentOwnershipState } from '@/features/wardrobe/domain/garment-type-ownership';
+import {
+  matchPieceOwnership,
+  type PieceOwnershipMatch,
+} from '@/features/wardrobe/domain/garment-type-ownership';
+import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
+import type { PieceSheetTarget } from '@/features/wardrobe/presentation/piece-edit-sheet';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
-import { borderWidths, radii, spacing } from '@/theme/theme';
+import { borderWidths, layout, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // The detail draws its pieces at board scale; an accessory is not on the board, so it reads
@@ -39,6 +48,25 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 // other. It is deliberately larger than the 20 point reason-row icons, which are glyphs
 // sized to the body line they sit beside rather than drawings that have to be recognised.
 const ACCESSORY_ARTWORK_SIZE = 28;
+// A piece row's thumbnail, and the smaller drawing of the user's own similar piece.
+const ROW_TILE_SIZE = 56;
+const OWN_TILE_SIZE = 32;
+// The ownership badge at a board garment's corner: a 16-point glyph on a 28-point disc.
+const BADGE_SIZE = 28;
+const BADGE_GLYPH_SIZE = 16;
+const SWATCH_DOT_SIZE = 16;
+
+const matchIcons: Readonly<Record<Exclude<PieceOwnershipMatch['kind'], 'none'>, IconName>> = {
+  owned: 'check',
+  similar: 'hanger',
+  wanted: 'heartFilled',
+};
+
+/**
+ * Whether today's worn record is this outfit (`this`), another one (`other`), none, or not
+ * read yet (`unknown`). One record per dressing day (ADR 0038).
+ */
+export type OutfitWornState = 'this' | 'other' | 'none' | 'unknown';
 
 type OutfitDetailScreenProps = Readonly<{
   state: TodayScreenState;
@@ -46,13 +74,60 @@ type OutfitDetailScreenProps = Readonly<{
   suggestionId: string | undefined;
   onBack: () => void;
   backLabel: string;
-  ownershipByGarmentType: Readonly<Record<string, GarmentOwnershipState>>;
+  /** The active Closet records; O7 matches each piece against them, on this screen only. */
+  wardrobeItems: readonly WardrobeItem[];
   ownershipError?: string | null;
-  onSetOwnership: (
-    garmentTypeId: GarmentTypeId,
-    next: 'owned' | 'wanted',
-  ) => boolean | void;
+  /** O6: a board garment and its row open the same edit sheet. */
+  onEditPiece: (target: PieceSheetTarget) => void;
+  worn?: OutfitWornState;
+  wornBusy?: boolean;
+  wornError?: string | null;
+  onWoreThis?: () => void;
 }>;
+
+type DetailSuggestion = Extract<ReturnType<typeof createTodayPresentation>, { kind: 'loaded' }>['suggestions'][number];
+
+/**
+ * O7: each piece against the Closet, by type and the colour family the outfit draws it in.
+ * The board, the captions and the rows all read this one list.
+ */
+function pieceEntries(
+  suggestion: DetailSuggestion,
+  wardrobeItems: readonly WardrobeItem[],
+  copy: ReturnType<typeof getMessages>['today'],
+) {
+  const colorFamilies = garmentColorFamiliesBySlot(suggestion.palette);
+  return suggestion.pieces.flatMap((piece) => {
+    const boardPiece = suggestion.boardPieces.find(
+      ({ garmentTypeId }) => garmentTypeId === piece.garmentTypeId,
+    );
+    if (!boardPiece) return [];
+    const colorFamily: ColorFamily | null = colorFamilies.get(boardPiece.slot) ?? null;
+    const match = matchPieceOwnership(piece.garmentTypeId, colorFamily, wardrobeItems);
+    const status = match.kind === 'owned'
+      ? copy.ownershipOwnedAction
+      : match.kind === 'similar'
+        ? copy.ownershipSimilarLabel
+        : match.kind === 'wanted' ? copy.ownershipWantedAction : null;
+    const target: PieceSheetTarget = {
+      garmentTypeId: piece.garmentTypeId,
+      category: piece.category,
+      name: piece.item,
+      slot: piece.slot,
+      suggestedColorFamily: colorFamily,
+      match,
+    };
+    return [{
+      piece,
+      slot: boardPiece.slot,
+      match,
+      status,
+      target,
+      // Assistive tech hears the state of every piece, the untracked default included.
+      spokenLabel: `${piece.item}, ${piece.slot}, ${status ?? copy.ownershipUntrackedLabel}`,
+    }];
+  });
+}
 
 export function OutfitDetailScreen({
   state,
@@ -60,9 +135,13 @@ export function OutfitDetailScreen({
   suggestionId,
   onBack,
   backLabel,
-  ownershipByGarmentType,
+  wardrobeItems,
   ownershipError = null,
-  onSetOwnership,
+  onEditPiece,
+  worn = 'unknown',
+  wornBusy = false,
+  wornError = null,
+  onWoreThis,
 }: OutfitDetailScreenProps) {
   const theme = useKuyaraTheme();
   const { hour12 } = useLocalization();
@@ -76,20 +155,22 @@ export function OutfitDetailScreen({
   const captionEntranceStyle = useAnimatedStyle(() => ({
     opacity: withTiming(piecesSettled ? 1 : 0, { duration: theme.motion.fast }),
   }), [piecesSettled, theme.motion.fast]);
-  const copy = getMessages(language).today;
+  const messages = getMessages(language);
+  const copy = messages.today;
   const presentation = createTodayPresentation(state, language, hour12, now);
   const suggestion =
     presentation.kind === 'loaded'
       ? presentation.suggestions.find(({ id }) => id === suggestionId)
       : undefined;
-  // The finishing touches keep the colours the outfit's palette gave them on Today (O15).
-  const accessoryRoles = useGarmentRoles(suggestion?.palette ?? null);
+  // The finishing touches and the piece rows keep the colours the outfit's palette gave
+  // them on Today (O15).
+  const pieceRoles = useGarmentRoles(suggestion?.palette ?? null);
   const boardLayout = suggestion
     ? layoutGarmentBoard(suggestion.boardPieces, contentWidth, 'detail')
     : { height: 0, boxes: [] };
   const initialCaptionHeight = theme.typography.body.lineHeight * fontScale * 2;
-  // Above 1.5 the captions leave the plate (see the caption list below), so the plate is
-  // exactly the board and nothing has to be reserved for text inside it.
+  // Above 1.5 the captions leave the board and the piece rows alone name the pieces, so the
+  // plate is exactly the board and nothing has to be reserved for text inside it.
   const plateHeight = usesStackedLayout
     ? boardLayout.height
     : Math.max(
@@ -99,6 +180,28 @@ export function OutfitDetailScreen({
           return caption.top + (captionHeights[box.slot] ?? initialCaptionHeight);
         }),
       );
+
+  const entries = suggestion ? pieceEntries(suggestion, wardrobeItems, copy) : [];
+  const entryFor = (garmentTypeId: string) =>
+    entries.find(({ piece }) => piece.garmentTypeId === garmentTypeId);
+  const ownedCount = entries.filter(({ match }) => match.kind === 'owned').length;
+  // Law 7's one moment: the save that makes the last piece owned settles the board once,
+  // with Law 8's success notification. Any other change is visible in the rows.
+  const previousOwned = useRef(ownedCount);
+  useEffect(() => {
+    const before = previousOwned.current;
+    previousOwned.current = ownedCount;
+    if (ownedCount > before && ownedCount === entries.length) {
+      haptics.success();
+      setCompletions((count) => count + 1);
+    }
+  }, [entries.length, ownedCount]);
+  const colorName = (family: ColorFamily | null) => family
+    ? messages.catalog[`catalog.color_family.${family}`] : messages.wardrobe.colorUnspecified;
+  const swatchFill = (family: ColorFamily) => {
+    const fill = colorFamilyFills[theme.colorScheme][family];
+    return typeof fill === 'string' ? fill : fill[0];
+  };
 
   if (presentation.kind !== 'loaded' || !suggestion) {
     const missingSuggestion = presentation.kind === 'loaded';
@@ -118,141 +221,59 @@ export function OutfitDetailScreen({
   }
 
   const stageColor = theme.atmosphere[presentation.atmosphere];
-
-  const ownedCount = suggestion.pieces.filter(
-    ({ garmentTypeId }) => ownershipByGarmentType[garmentTypeId] === 'owned',
-  ).length;
-
-  // Law 8: the owned/wanted pair mirrors the wardrobe toggle, a selection change under
-  // the finger. The press that completes the outfit is the exception: it fires the
-  // success notification instead, one press and one haptic, and asks the board for
-  // Law 7's single settle. The caption menu never reports the state it already shows,
-  // so a press to `owned` always raises the count by one.
-  const setOwnership = (garmentTypeId: GarmentTypeId, next: 'owned' | 'wanted') => {
-    if (onSetOwnership(garmentTypeId, next) === false) return;
-
-    if (next === 'owned' && ownedCount + 1 === suggestion.pieces.length) {
-      haptics.success();
-      setCompletions((count) => count + 1);
-    } else {
-      haptics.selection();
-    }
-
-  };
-
-  const captionEntries = boardLayout.boxes.flatMap((box) => {
-    const piece = suggestion.pieces.find(
-      ({ garmentTypeId }) => garmentTypeId === box.garmentTypeId,
-    );
-    if (!piece) return [];
-
-    const ownership = ownershipByGarmentType[piece.garmentTypeId] ?? 'none';
-    // Owned and wanted are the exceptions worth a mark; an untracked garment is the
-    // default and stays visually quiet so the two tracked states keep their weight.
-    // Assistive tech still hears the state, so the silence is never ambiguous.
-    const ownershipLabel = ownership === 'owned'
-      ? copy.ownershipOwnedLabel
-      : ownership === 'wanted'
-        ? copy.ownershipWantedLabel
-        : null;
-
-    return [{
-      box,
-      piece,
-      ownership,
-      ownershipLabel,
-      spokenOwnership: ownershipLabel ?? copy.ownershipUntrackedLabel,
-    }];
-  });
-
-  // In place up to 1.5, one list under the plate above it: at accessibility sizes the
-  // measured caption boxes break by character and overlap each other and the footwear.
-  // Same content, same single accessible element, same test id in both branches.
-  const renderCaption = ({
-    box,
-    piece,
-    ownership,
-    ownershipLabel,
-    spokenOwnership,
-  }: (typeof captionEntries)[number]) => {
-    const captionLayout = usesStackedLayout
-      ? null
-      : createDetailCaptionLayout(box, contentWidth);
-    const captionWidth = captionLayout?.width ?? contentWidth;
-    const captionHeight = captionHeights[box.slot] ?? initialCaptionHeight;
-    // Centred text belongs under a centred piece; in the list the box shrinks to its
-    // content and wrapped lines read from the left edge like every other list.
-    const captionTextStyle = captionLayout ? styles.captionText : undefined;
-
+  const renderCaption = (box: (typeof boardLayout.boxes)[number]) => {
+    const entry = entryFor(box.garmentTypeId);
+    if (!entry) return null;
+    const captionLayout = createDetailCaptionLayout(box, contentWidth);
     return (
-      <View
-        key={box.slot}
-        style={captionLayout ? [styles.captionPosition, captionLayout] : undefined}>
-        <NativeMenu
-          accessibilityHint={copy.ownershipChangeHint}
-          accessibilityLabel={`${piece.item}, ${piece.slot}, ${spokenOwnership}`}
-          height={captionHeight}
+      <View key={box.slot} style={[styles.captionPosition, captionLayout]}>
+        <Pressable
+          accessibilityHint={copy.editPieceAccessibilityHint}
+          accessibilityLabel={entry.spokenLabel}
+          accessibilityRole="button"
           hitSlop={spacing.sm}
-          items={[
-            {
-              id: 'owned',
-              label: copy.ownershipOwnedAction,
-              selected: ownership === 'owned',
-            },
-            {
-              id: 'wanted',
-              label: copy.ownershipWantedAction,
-              selected: ownership === 'wanted',
-            },
-          ]}
-          onSelect={(next) => {
-            if (next === 'owned' || next === 'wanted') {
-              setOwnership(piece.garmentTypeId, next);
-            }
-          }}
-          testID={`outfit-detail-caption-${piece.garmentTypeId}`}
-          width={captionWidth}>
+          onPress={() => onEditPiece(entry.target)}
+          style={({ pressed }) => pressed && { opacity: theme.interaction.pressedOpacity }}
+          testID={`outfit-detail-caption-${box.garmentTypeId}`}>
           <View
             onLayout={({ nativeEvent }) => {
               const height = nativeEvent.layout.height;
               if (captionHeights[box.slot] === height) return;
               setCaptionHeights((current) => ({ ...current, [box.slot]: height }));
             }}
-            style={captionLayout ? styles.caption : styles.stackedCaption}
-            testID={`outfit-detail-caption-content-${piece.garmentTypeId}`}>
-            <AppText style={captionTextStyle} variant="bodyStrong">
-              {piece.item}
-            </AppText>
-            <View style={styles.captionMeta}>
-              <AppText colorRole="textSecondary" style={captionTextStyle} variant="caption">
-                {piece.slot}
-              </AppText>
-              {ownershipLabel ? (
-                <View style={styles.ownershipState}>
-                  <View
-                    accessibilityElementsHidden
-                    importantForAccessibility="no-hide-descendants"
-                    style={[
-                      styles.ownershipMarker,
-                      ownership === 'owned'
-                        ? {
-                            backgroundColor: theme.colors.brandAccent,
-                            borderColor: theme.colors.brandAccent,
-                          }
-                        : { borderColor: theme.colors.brandAccent },
-                    ]}
-                    testID={`outfit-detail-ownership-marker-${piece.garmentTypeId}`}
-                  />
-                  <AppText colorRole="textSecondary" variant="caption">
-                    {ownershipLabel}
-                  </AppText>
-                </View>
-              ) : null}
-              <Icon color={theme.colors.textSecondary} name="menuIndicator" size={16} />
-            </View>
+            style={styles.caption}
+            testID={`outfit-detail-caption-content-${box.garmentTypeId}`}>
+            <AppText style={styles.captionText} variant="bodyStrong">{entry.piece.item}</AppText>
           </View>
-        </NativeMenu>
+        </Pressable>
       </View>
+    );
+  };
+
+  // The garment itself is the larger target (O6). Its caption already carries the name and
+  // the state for assistive tech, so the drawing's target stays out of the reading order.
+  const renderGarmentTarget = (box: (typeof boardLayout.boxes)[number]) => {
+    const entry = entryFor(box.garmentTypeId);
+    if (!entry) return null;
+    return (
+      <Pressable
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        key={box.slot}
+        onPress={() => onEditPiece(entry.target)}
+        style={[styles.garmentTarget, { height: box.height, left: box.x, top: box.y, width: box.width }]}
+        testID={`outfit-detail-garment-${box.garmentTypeId}`}>
+        {entry.match.kind === 'none' ? null : (
+          <View
+            style={[styles.badge, {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.borderDefined,
+            }]}
+            testID={`outfit-detail-badge-${box.garmentTypeId}`}>
+            <Icon color={theme.colors.brandAccent} name={matchIcons[entry.match.kind]} size={BADGE_GLYPH_SIZE} />
+          </View>
+        )}
+      </Pressable>
     );
   };
 
@@ -293,31 +314,129 @@ export function OutfitDetailScreen({
             testID="outfit-detail-board"
             width={contentWidth}
           />
-          {usesStackedLayout ? null : (
-            <Animated.View
-              style={[styles.captionOverlay, captionEntranceStyle]}
-              testID="outfit-detail-caption-overlay">
-              {captionEntries.map(renderCaption)}
-            </Animated.View>
-          )}
+          <Animated.View
+            style={[styles.captionOverlay, captionEntranceStyle]}
+            testID="outfit-detail-caption-overlay">
+            {boardLayout.boxes.map(renderGarmentTarget)}
+            {usesStackedLayout ? null : boardLayout.boxes.map(renderCaption)}
+          </Animated.View>
         </View>
 
-        {usesStackedLayout ? (
-          <Animated.View
-            style={[styles.captionList, captionEntranceStyle]}
-            testID="outfit-detail-caption-list">
-            {captionEntries.map(renderCaption)}
-          </Animated.View>
-        ) : null}
-
         <Entrance>
-          <View style={styles.ownershipSummary} testID="outfit-detail-ownership-summary">
-            <Icon color={theme.colors.brandAccent} name="info" size={16} />
-            <AppText colorRole="textSecondary" style={styles.ownershipSummaryText} variant="caption">
-              {copy.ownershipSummary({ owned: ownedCount, total: suggestion.pieces.length })}
+          <View style={styles.editHint} testID="outfit-detail-edit-hint">
+            <Icon color={theme.colors.iconSecondary} name="info" size={16} />
+            <AppText colorRole="textSecondary" style={styles.flexText} variant="caption">
+              {copy.editPieceHint}
             </AppText>
           </View>
         </Entrance>
+
+        {/* ADR 0038: one worn record per dressing day, written only by this action. */}
+        {worn === 'this' ? (
+          <View
+            accessible
+            accessibilityLabel={copy.wornToday}
+            style={[styles.wornState, { borderColor: theme.colors.borderDefined }]}
+            testID="outfit-detail-worn">
+            <Icon color={theme.colors.successInk} name="checkCircle" size={20} />
+            <AppText variant="bodyStrong">{copy.wornToday}</AppText>
+          </View>
+        ) : onWoreThis ? (
+          <Button
+            icon="calendarCheck"
+            label={copy.wornAction}
+            loading={wornBusy}
+            onPress={onWoreThis}
+            size="large"
+            style={styles.wornAction}
+            testID="outfit-detail-wore-this"
+          />
+        ) : null}
+        {wornError ? (
+          <AppText accessibilityRole="alert" colorRole="dangerInk" style={styles.ownershipError} variant="caption">
+            {wornError}
+          </AppText>
+        ) : null}
+
+        <View style={styles.section} testID="outfit-detail-pieces">
+          <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
+            {presentation.copy.piecesHeading}
+          </AppText>
+          <View>
+            {entries.map(({ piece, slot, match, status, target, spokenLabel }, index) => (
+              <PressScale
+                accessibilityHint={copy.editPieceAccessibilityHint}
+                accessibilityLabel={match.kind === 'similar'
+                  ? `${spokenLabel}, ${copy.ownershipYours(colorName(match.item.colorFamily))}`
+                  : spokenLabel}
+                accessibilityRole="button"
+                key={piece.garmentTypeId}
+                onPress={() => onEditPiece(target)}
+                style={[styles.pieceRow, index > 0 && {
+                  borderTopColor: theme.colors.borderSubtle,
+                  borderTopWidth: StyleSheet.hairlineWidth,
+                }]}
+                testID={`outfit-detail-piece-${piece.garmentTypeId}`}>
+                <View style={[styles.rowTile, { backgroundColor: theme.colors.surfaceMuted }]}>
+                  <GarmentTileArtwork
+                    category={piece.category}
+                    colorFamily={null}
+                    garmentTypeId={piece.garmentTypeId}
+                    glyphSize={ROW_TILE_SIZE * 0.6}
+                    height={ROW_TILE_SIZE}
+                    photoTestID={`outfit-detail-piece-photo-${piece.garmentTypeId}`}
+                    photoUri={null}
+                    placeholderTestID={`outfit-detail-piece-glyph-${piece.garmentTypeId}`}
+                    roles={pieceRoles.get(slot)}
+                    silhouetteTestID={`outfit-detail-piece-silhouette-${piece.garmentTypeId}`}
+                    width={ROW_TILE_SIZE}
+                  />
+                </View>
+                <View style={styles.rowText}>
+                  <AppText variant="bodyStrong">{piece.item}</AppText>
+                  <AppText colorRole="textSecondary" variant="caption">{piece.slot}</AppText>
+                  {match.kind !== 'none' && status ? (
+                    <View style={styles.rowStatus} testID={`outfit-detail-piece-status-${piece.garmentTypeId}`}>
+                      <Icon color={theme.colors.brandAccent} name={match.kind === 'wanted' ? 'heartFilled' : 'hanger'} size={16} />
+                      <AppText variant="caption">{status}</AppText>
+                      {match.kind === 'owned' ? (
+                        <Icon color={theme.colors.brandAccent} name="check" size={16} />
+                      ) : null}
+                    </View>
+                  ) : null}
+                  {match.kind === 'similar' ? (
+                    <View style={styles.rowStatus} testID={`outfit-detail-piece-yours-${piece.garmentTypeId}`}>
+                      <View style={[styles.ownTile, { backgroundColor: theme.colors.surfaceMuted }]}>
+                        <GarmentTileArtwork
+                          category={piece.category}
+                          colorFamily={match.item.colorFamily}
+                          garmentTypeId={piece.garmentTypeId}
+                          glyphSize={OWN_TILE_SIZE * 0.6}
+                          height={OWN_TILE_SIZE}
+                          photoTestID={`outfit-detail-yours-photo-${piece.garmentTypeId}`}
+                          photoUri={null}
+                          placeholderTestID={`outfit-detail-yours-glyph-${piece.garmentTypeId}`}
+                          silhouetteTestID={`outfit-detail-yours-silhouette-${piece.garmentTypeId}`}
+                          width={OWN_TILE_SIZE}
+                        />
+                      </View>
+                      {match.item.colorFamily ? (
+                        <View style={[styles.swatchDot, {
+                          backgroundColor: swatchFill(match.item.colorFamily),
+                          borderColor: theme.colors.borderDefined,
+                        }]} />
+                      ) : null}
+                      <AppText colorRole="textSecondary" style={styles.flexText} variant="caption">
+                        {copy.ownershipYours(colorName(match.item.colorFamily))}
+                      </AppText>
+                    </View>
+                  ) : null}
+                </View>
+                <Icon color={theme.colors.textSecondary} name="chevronRight" size={20} />
+              </PressScale>
+            ))}
+          </View>
+        </View>
 
         {ownershipError ? (
           <AppText
@@ -348,7 +467,7 @@ export function OutfitDetailScreen({
                   <GarmentTileArtwork
                     category={accessory.category}
                     colorFamily={null}
-                    roles={accessoryRoles.get(accessory.accessorySlot)}
+                    roles={pieceRoles.get(accessory.accessorySlot)}
                     garmentTypeId={accessory.garmentTypeId}
                     glyphSize={ACCESSORY_ARTWORK_SIZE}
                     height={ACCESSORY_ARTWORK_SIZE}
@@ -478,43 +597,84 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
   },
-  captionList: {
-    gap: spacing.md,
-    marginTop: spacing.md,
-  },
-  stackedCaption: {
-    alignItems: 'flex-start',
-  },
   captionText: {
     textAlign: 'center',
   },
-  captionMeta: {
+  garmentTarget: {
+    position: 'absolute',
+  },
+  badge: {
     alignItems: 'center',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
+    borderRadius: BADGE_SIZE / 2,
+    borderWidth: borderWidths.subtle,
+    height: BADGE_SIZE,
     justifyContent: 'center',
+    position: 'absolute',
+    right: -BADGE_SIZE / 3,
+    top: -BADGE_SIZE / 3,
+    width: BADGE_SIZE,
   },
-  ownershipState: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  ownershipMarker: {
-    borderRadius: radii.pill,
-    borderWidth: borderWidths.strong,
-    height: spacing.sm,
-    width: spacing.sm,
-  },
-  ownershipSummary: {
+  editHint: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: spacing.sm,
     marginTop: spacing.md,
   },
-  ownershipSummaryText: {
+  flexText: {
     flex: 1,
     flexShrink: 1,
+  },
+  wornAction: {
+    marginTop: spacing.md,
+  },
+  wornState: {
+    alignItems: 'center',
+    borderRadius: radii.pill,
+    borderWidth: borderWidths.subtle,
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    minHeight: layout.minimumTouchTarget,
+    paddingHorizontal: spacing.lg,
+  },
+  pieceRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.md,
+    minHeight: layout.minimumTouchTarget,
+    paddingVertical: spacing.md,
+  },
+  rowTile: {
+    alignItems: 'center',
+    borderRadius: radii.control,
+    height: ROW_TILE_SIZE,
+    justifyContent: 'center',
+    overflow: 'hidden',
+    width: ROW_TILE_SIZE,
+  },
+  rowText: {
+    flex: 1,
+    flexShrink: 1,
+    gap: spacing.xs,
+  },
+  rowStatus: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  ownTile: {
+    alignItems: 'center',
+    borderRadius: radii.control,
+    height: OWN_TILE_SIZE,
+    justifyContent: 'center',
+    overflow: 'hidden',
+    width: OWN_TILE_SIZE,
+  },
+  swatchDot: {
+    borderRadius: SWATCH_DOT_SIZE / 2,
+    borderWidth: borderWidths.subtle,
+    height: SWATCH_DOT_SIZE,
+    width: SWATCH_DOT_SIZE,
   },
   ownershipError: {
     marginTop: spacing.sm,

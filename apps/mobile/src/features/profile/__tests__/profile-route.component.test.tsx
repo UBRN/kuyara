@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -19,13 +19,14 @@ import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
+const mockPush = jest.fn();
 jest.mock('expo-router', () => {
   const actualReact = jest.requireActual('react') as typeof import('react');
   return {
     Stack: { Screen: () => null },
     useFocusEffect: (callback: () => void | (() => void)) =>
       actualReact.useEffect(callback, [callback]),
-    useRouter: () => ({ push: jest.fn() }),
+    useRouter: () => ({ push: mockPush }),
   };
 });
 jest.mock('@/features/analytics/data/observe-performance-telemetry', () => ({
@@ -122,4 +123,16 @@ test('Profile keeps the plain Closet heading without a name', async () => {
   );
 
   expect(result.getByText(messages.en.profile.wardrobeTitle)).toBeOnTheScreen();
+});
+
+// P5 stability list: the History row opens History inside the Profile stack.
+test('the History row opens History', async () => {
+  const result = await render(
+    <Providers displayName={null}>
+      <ProfileRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(result.getByTestId('profile-history-row'));
+  expect(mockPush).toHaveBeenCalledWith('/history');
 });

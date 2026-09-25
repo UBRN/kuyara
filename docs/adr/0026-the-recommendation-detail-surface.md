@@ -38,7 +38,7 @@ the visible statement that the weather was the input and the outfit is now the s
 
 ### 3. Garment rows sit below the board
 
-The board keeps the detail preset and no text overlaps the drawings. "Wore this today" sits directly under the board. Below it, garment rows name each piece and its slot in board order. A board garment or row thumbnail opens the same edit sheet for ownership, colour or pattern, and optional photo. Rows retain readable labels and 44-point targets at the largest standard text size.
+The board keeps the detail preset and no text overlaps the drawings. One line under the board says the pieces open the edit sheet, and "Wore this today" sits directly under it. Below it, garment rows name each piece, its slot and its Closet state in board order. A board garment, its caption or its row opens the same edit sheet for ownership, colour and optional photo. Rows retain readable labels and 44-point targets at the largest standard text size; above `fontScale` 1.5 the board captions leave and the rows alone name the pieces.
 
 The slot label is used rather than `layerRole`, which would print "standalone" under a bottom.
 
@@ -57,9 +57,9 @@ join over existing domain data.
 
 ### 5. One edit sheet owns garment changes
 
-The board garment and its row thumbnail open one sheet. It shows the piece, the user's owned or wanted record, colour and pattern choices, and the optional private photo. An exact palette-colour match is "I own it" / "Bende var"; a type match with a different colour is "You have a similar one" / "Sende benzeri var" beside the user's piece and its swatch. Until Phase 6 supplies suggested colours, a type match uses "I own it" with the user's swatch. Ownership appears on detail only, never Today. State is named in words and never carried by colour alone.
+The board garment and its row open one sheet. It shows the piece, the user's owned or wanted record, the 13 closed colour families and the optional private photo from the photo library. A match compares the piece's type and the colour family its Phase 6 palette swatch belongs to with the Closet record's family: the same family is "I own it" / "Bende var"; owned records of the type only in other families are "You have a similar one" / "Sende benzeri var" beside the user's piece and its colour. A record or a piece without a colour family matches on type alone. The matching is one pure domain function. Ownership appears on detail only, never Today. State is named in words and never carried by colour alone.
 
-The approved palette contains 33 colours, a system colour picker, a second colour and 14 two-colour or pattern options, including two purple swatches. These require new Closet fields in migration 20, with independent review, an upgrade test and device-database replay. The installed schema is version 19.
+The approved wide palette contains 33 colours, a system colour picker, a second colour and 14 two-colour or pattern options, including two purple swatches. It requires new Closet fields in migration 20, with independent review, an upgrade test and device-database replay, and ships in build 16. The installed schema is version 19.
 
 ### 6. Manual swaps sit outside recommendation selection
 
@@ -70,7 +70,7 @@ combination is not blocked when weather or composition rules would reject it; a 
 reader chooses "Wore this today". **Risk accepted:** manual mode can present a look
 the deterministic recommendation engine would reject.
 
-The quick-add and edit sheet uses the approved wide palette and patterns. A closed catalog colorway may preselect a suggested colour without sending Closet data to AI.
+A new record starts on the colour family the outfit draws the piece in, without sending Closet data to AI.
 
 ### 7. The entry transition
 

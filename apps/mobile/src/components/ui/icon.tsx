@@ -52,6 +52,9 @@ export const iconNames = Object.freeze({
   circle: { ios: 'circle', android: 'radio_button_unchecked', web: 'radio_button_unchecked' },
   heart: { ios: 'heart', android: 'favorite', web: 'favorite' },
   heartFilled: { ios: 'heart.fill', android: 'favorite', web: 'favorite' },
+  // O6, O7: the owned piece is a hanger; a worn day is a calendar with a check.
+  hanger: { ios: 'hanger', android: 'checkroom', web: 'checkroom' },
+  calendarCheck: { ios: 'calendar.badge.checkmark', android: 'event_available', web: 'event_available' },
   plus: { ios: 'plus', android: 'add', web: 'add' },
   // O5's leading button icons: each names its action faster than the words do.
   trash: { ios: 'trash', android: 'delete', web: 'delete' },

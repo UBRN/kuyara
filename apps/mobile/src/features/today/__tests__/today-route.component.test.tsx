@@ -27,6 +27,7 @@ import {
   RecommendationRepositoryError,
   type RecommendationSnapshot,
 } from '@/features/recommendation/data/recommendation-repository';
+import { wornOutfitFrom, type WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import { todayActiveLocation, todayOutfitId, todayScreenState } from '@/features/today/__tests__/fixtures';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { WardrobeApplicationContext } from '@/features/wardrobe/application/wardrobe-application-context';
@@ -413,6 +414,8 @@ function Providers({
   recommendationEvaluateApprovedTriggers = jest.fn(async () => undefined),
   recommendationRegenerate = jest.fn(async () => null),
   resolvedDressStyle,
+  resolvedStyleAesthetics,
+  outfitHistory,
   dressingDayChoiceReady,
   dressingDayKey,
   morningChoicePending,
@@ -434,12 +437,13 @@ function Providers({
   recommendationEvaluateApprovedTriggers?: (foreground?: boolean) => Promise<void>;
   recommendationRegenerate?: () => Promise<null>;
   resolvedDressStyle?: 'casual' | 'smart' | 'formal';
+  resolvedStyleAesthetics?: RecommendationApplicationValue['resolvedStyleAesthetics'];
+  outfitHistory?: RecommendationApplicationValue['outfitHistory'];
   dressingDayChoiceReady?: boolean;
   dressingDayKey?: string;
   morningChoicePending?: boolean;
   eveningChoicePending?: boolean;
-  chooseFormality?: (key: string, formality: 'casual' | 'smart' | 'formal',
-    source: 'morning' | 'chip' | 'plan' | 'random') => Promise<void>;
+  chooseFormality?: RecommendationApplicationValue['chooseFormality'];
   reask?: RecommendationApplicationValue['reask'];
   activeDeparture?: RecommendationApplicationValue['activeDeparture'];
   reevaluateLocalDay?: () => void;
@@ -470,6 +474,8 @@ function Providers({
       skipWait: jest.fn(async () => null),
       regenerate: recommendationRegenerate,
       resolvedDressStyle,
+      resolvedStyleAesthetics,
+      outfitHistory,
       dressingDayChoiceReady,
       dressingDayKey,
       morningChoicePending,
@@ -924,8 +930,8 @@ test('a changed preference during regeneration runs once more with the latest in
 });
 
 // M6 step 1: the day-type tiles are one radio group, the current answer checked by three
-// cues together, and one tap chooses and closes. M18: lasting style changes live only in
-// Settings, so the sheet offers no "More" section.
+// cues together, and one tap chooses. M18 step 2 then offers the day's styles; an untouched
+// step writes the day type alone, so the Settings styles keep applying (N4).
 test('the morning sheet is a radio group with the day answer preselected, and one tap chooses', async () => {
   const chooseFormality = jest.fn(async () => undefined);
   const view = await render(
@@ -957,8 +963,57 @@ test('the morning sheet is a radio group with the day answer preselected, and on
     .toBe(messages.en.today.dailyStyle.close);
 
   await fireEvent.press(view.getByTestId('daily-formality-formal'));
-  expect(chooseFormality).toHaveBeenCalledWith('2026-08-13', 'formal', 'morning');
+  expect(chooseFormality).not.toHaveBeenCalled();
+  expect(view.getByText(messages.en.today.dailyStyle.stylesQuestion)).toBeOnTheScreen();
+  await fireEvent.press(view.getByTestId('daily-formality-styles-done'));
+  expect(chooseFormality).toHaveBeenCalledTimes(1);
+  expect(chooseFormality).toHaveBeenCalledWith('2026-08-13', 'formal', 'morning', undefined);
   await waitFor(() => expect(view.queryByTestId('daily-formality-sheet')).toBeNull());
+});
+
+// M18 step 2 at the large detent (N7): the day's styles start on what the day resolves to,
+// and the changed answer rides the same single write as the day type.
+test('the morning sheet step 2 writes the day type and the changed styles once', async () => {
+  const chooseFormality = jest.fn(async () => undefined);
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()}
+      profile={profileValue({ morningSheetEnabled: true, dressStyle: 'smart' })}
+      recommendation={recommendationReady()} resolvedDressStyle="smart"
+      resolvedStyleAesthetics={['classic']}
+      dressingDayKey="2026-08-13" dressingDayChoiceReady morningChoicePending
+      chooseFormality={chooseFormality} wardrobe={wardrobeValue()} weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(await view.findByTestId('daily-formality-casual'));
+  expect(view.getByTestId('daily-formality-styles-classic').props.accessibilityState.checked).toBe(true);
+  expect(view.getByTestId('daily-formality-styles-note'))
+    .toHaveTextContent(messages.en.today.dailyStyle.stylesNote);
+  await fireEvent.press(view.getByTestId('daily-formality-styles-sporty'));
+  await fireEvent.press(view.getByTestId('daily-formality-styles-done'));
+  expect(chooseFormality).toHaveBeenCalledTimes(1);
+  expect(chooseFormality).toHaveBeenCalledWith('2026-08-13', 'casual', 'morning', ['classic', 'sporty']);
+  await waitFor(() => expect(view.queryByTestId('daily-formality-sheet')).toBeNull());
+});
+
+test('closing the sheet on step 2 keeps the chosen day type and leaves the styles alone', async () => {
+  const chooseFormality = jest.fn(async () => undefined);
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()}
+      profile={profileValue({ morningSheetEnabled: true, dressStyle: 'smart' })}
+      recommendation={recommendationReady()} resolvedDressStyle="smart"
+      dressingDayKey="2026-08-13" dressingDayChoiceReady morningChoicePending
+      chooseFormality={chooseFormality} wardrobe={wardrobeValue()} weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(await view.findByTestId('daily-formality-formal'));
+  await fireEvent.press(view.getByTestId('daily-formality-styles-minimal'));
+  await fireEvent.press(view.getByTestId('daily-formality-close'));
+  expect(chooseFormality).toHaveBeenCalledTimes(1);
+  expect(chooseFormality).toHaveBeenCalledWith('2026-08-13', 'formal', 'morning');
 });
 
 // M16: on the day onboarding finishes the sheet still asks, with the setup answer checked
@@ -1182,6 +1237,69 @@ test('Ask the stylist again reopens on the persisted Later departure', async () 
     .not.toHaveTextContent(messages.en.today.askAgain.chooseNow);
   await fireEvent.press(view.getByTestId('ask-again-confirm'));
   expect(reask).toHaveBeenCalledWith({ formality: 'smart', departureAt, timeZone: 'Europe/Istanbul' });
+});
+
+// M18: the day type and the day's styles are one write, and the generation it starts
+// already carries both, so the approved triggers find nothing left to answer.
+test('the step 2 answer reaches the recommendation in the same write and generation', async () => {
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
+  mockRecommendationSnapshot = {
+    ...saved.snapshot,
+    catalogVersion: garmentCatalogVersion,
+    localDayKey: '2026-09-24',
+    dressStyle: 'smart',
+    styleAesthetics: ['classic'],
+  };
+  mockChoiceGet.mockResolvedValue(null);
+  mockChoiceUpsert.mockImplementation(async (_profile: string, dayKey: string, formality: string,
+    source: string, styleAesthetics?: readonly string[]) => ({
+    id: '0f0e2c1a-8b52-4c0e-9d57-1d3c9c1c2a10', localProfileId: 'profile-one', dayKey, formality,
+    source, styleAesthetics: styleAesthetics ? [...styleAesthetics].sort() : null,
+    createdAt: '2026-09-24T06:00:00.000Z', updatedAt: '2026-09-24T06:00:00.000Z', deletedAt: null,
+  }));
+  jest.useFakeTimers({
+    now: new Date('2026-09-24T06:30:00.000Z'),
+    doNotFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'],
+  });
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementation(() => new Promise(() => undefined));
+  try {
+    const view = await render(
+      <Providers productAnalytics={createProductAnalytics()}
+        profile={profileValue({ morningSheetEnabled: true, styleAesthetics: ['classic'] })}
+        recommendation={saved} liveRecommendationProvider
+        wardrobe={wardrobeValue()} weather={weatherValue()}>
+        <TodayRoute />
+      </Providers>,
+    );
+    await fireEvent.press(await view.findByTestId('daily-formality-casual'));
+    expect(view.getByTestId('daily-formality-styles-classic').props.accessibilityState.checked).toBe(true);
+    await fireEvent.press(view.getByTestId('daily-formality-styles-classic'));
+    await fireEvent.press(view.getByTestId('daily-formality-styles-minimal'));
+    expect(refresh).not.toHaveBeenCalled();
+    await fireEvent.press(view.getByTestId('daily-formality-styles-done'));
+
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(mockChoiceUpsert).toHaveBeenCalledTimes(1);
+    expect(mockChoiceUpsert).toHaveBeenCalledWith(
+      'profile-one', '2026-09-24', 'casual', 'morning', ['minimal']);
+    await act(async () => { await Promise.resolve(); });
+    // Every generation after the answer asks for both answers; none for the old day.
+    for (const [, input] of refresh.mock.calls) {
+      expect(input).toMatchObject({ dressStyle: 'casual', styleAesthetics: ['minimal'] });
+    }
+    expect(refresh.mock.calls[0][0]).toBe('dress-style-changed');
+    // The approved triggers see the same answers, so any request they make is the identical
+    // one, which the controller joins to the request in flight instead of starting another.
+    for (const [trigger, input] of refresh.mock.calls.slice(1)) {
+      expect(trigger).toBe('dress-style-changed');
+      expect(input).toEqual(refresh.mock.calls[0][1]);
+    }
+  } finally {
+    refresh.mockRestore();
+    jest.useRealTimers();
+  }
 });
 
 // A Later choice past the day boundary plans the next dressing day without changing Today.
@@ -1968,7 +2086,7 @@ test('recomputing a focused outfit detail does not reopen the same suggestion', 
     .toHaveLength(1);
 });
 
-test('setting ownership from outfit detail creates the Closet entry with entry_point outfit_detail', async () => {
+test('the piece sheet adds an untracked piece to the Closet with entry_point outfit_detail', async () => {
   mockParams = { id: todayOutfitId(1) };
   const productAnalytics = createProductAnalytics();
   const created = wardrobeItem();
@@ -1984,11 +2102,21 @@ test('setting ownership from outfit detail creates the Closet entry with entry_p
     </Providers>,
   );
 
-  await fireEvent.press(result.getByTestId(`outfit-detail-caption-${firstDetailGarmentTypeId}`));
-  await fireEvent.press(result.getByRole('button', { name: messages.en.today.ownershipOwnedAction }));
+  await fireEvent.press(result.getByTestId(`outfit-detail-piece-${firstDetailGarmentTypeId}`));
+  expect(result.getByText(messages.en.wardrobe.pieceSheetAddTitle)).toBeOnTheScreen();
+  // Done waits for the ownership answer; the colour starts on the outfit's own family.
+  expect(result.getByTestId('piece-edit-done').props.accessibilityState.disabled).toBe(true);
+  const suggestedFamily = result.getAllByRole('radio').find((radio) =>
+    radio.props.testID?.startsWith('wardrobe-color-') && radio.props.accessibilityState.selected);
+  expect(suggestedFamily).toBeDefined();
+  await fireEvent.press(result.getByTestId('piece-edit-owned'));
+  await fireEvent.press(result.getByTestId('piece-edit-done'));
 
-  expect(wardrobe.createItem)
-    .toHaveBeenCalledWith({ garmentTypeId: firstDetailGarmentTypeId, entryState: 'owned' });
+  const family = suggestedFamily!.props.testID.replace('wardrobe-color-', '');
+  expect(wardrobe.createItem).toHaveBeenCalledWith({
+    garmentTypeId: firstDetailGarmentTypeId, entryState: 'owned', colorFamily: family,
+  });
+  await waitFor(() => expect(result.queryByTestId('piece-edit-sheet')).toBeNull());
   const createdCapture = productAnalytics.analytics.captures.find((c) => c.name === 'closet_item_created');
   expect(createdCapture?.properties).toEqual({
     schema_version: 3,
@@ -2002,16 +2130,18 @@ test('setting ownership from outfit detail creates the Closet entry with entry_p
   expect(productAnalytics.analytics.captures.some((c) => c.name === 'feature_used_first_time')).toBe(true);
 });
 
-test('setting ownership from outfit detail updates the existing Closet entry', async () => {
+test('the piece sheet edits the matching record, with a photo from the library', async () => {
   mockParams = { id: todayOutfitId(1) };
   const productAnalytics = createProductAnalytics();
   const existing = wardrobeItem({ entryState: 'wanted' });
+  const stagedPhoto = { previewUri: 'file:///cache/kuyara/wardrobe/staging/one.jpg' };
   const wardrobe = wardrobeValue({
     state: {
       status: 'ready', items: [existing], isRefreshing: false, isMutating: false,
       refreshFailure: null,
     },
-    updateItem: jest.fn(async () => ({ ...existing, entryState: 'owned' })),
+    preparePhoto: jest.fn(async () => stagedPhoto),
+    updateItem: jest.fn(async () => ({ ...existing, entryState: 'owned', colorFamily: 'green' })),
   });
   const result = await render(
     <Providers
@@ -2024,20 +2154,80 @@ test('setting ownership from outfit detail updates the existing Closet entry', a
     </Providers>,
   );
 
-  await fireEvent.press(result.getByTestId(`outfit-detail-caption-${firstDetailGarmentTypeId}`));
-  await fireEvent.press(result.getByRole('button', { name: messages.en.today.ownershipOwnedAction }));
+  await fireEvent.press(result.getByTestId(`outfit-detail-piece-${firstDetailGarmentTypeId}`));
+  expect(result.getByText(messages.en.wardrobe.pieceSheetEditTitle)).toBeOnTheScreen();
+  expect(result.getByTestId('piece-edit-wanted').props.accessibilityState.selected).toBe(true);
+  await fireEvent.press(result.getByTestId('piece-edit-owned'));
+  await fireEvent.press(result.getByTestId('wardrobe-color-green'));
+  await fireEvent.press(result.getByTestId('piece-edit-photo-select'));
+  await waitFor(() => expect(result.getByTestId('piece-edit-photo-preview')).toBeOnTheScreen());
+  await fireEvent.press(result.getByTestId('piece-edit-done'));
 
-  expect(wardrobe.updateItem).toHaveBeenCalledWith('item-one', { entryState: 'owned' });
-  expect(productAnalytics.analytics.captures).toContainEqual({
+  expect(wardrobe.updateItem).toHaveBeenCalledWith(
+    'item-one',
+    { entryState: 'owned', colorFamily: 'green' },
+    { kind: 'replace', stagedPhoto },
+  );
+  await waitFor(() => expect(productAnalytics.analytics.captures).toContainEqual({
     name: 'closet_item_updated',
     properties: {
       schema_version: 3,
-      fields_changed: ['state'],
+      fields_changed: ['color_family', 'state', 'photo'],
       garment_type_id: firstDetailGarmentTypeId,
       entry_point: 'outfit_detail',
     },
     options: undefined,
-  });
+  }));
+  // A saved photo belongs to the record now; closing the sheet never discards it.
+  expect(wardrobe.discardStagedPhoto).not.toHaveBeenCalled();
+});
+
+// ADR 0038: "Wore this today" writes one row per dressing day under its bare date. The same
+// look is never written twice, and another look replaces the day only after a confirmation.
+test('wore this today records the outfit once per dressing day', async () => {
+  mockParams = { id: todayOutfitId(1) };
+  if (todayRecommendation.status !== 'recommended') throw new Error('fixture');
+  let stored: WornOutfit | null = null;
+  const outfitHistory = {
+    list: jest.fn(async () => []),
+    get: jest.fn(async () => stored ? { outfit: stored } as never : null),
+    log: jest.fn(async (_day: string, outfit: WornOutfit) => {
+      stored = outfit;
+      return { outfit } as never;
+    }),
+  };
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+  const props = {
+    productAnalytics: createProductAnalytics(),
+    profile: profileValue(),
+    recommendation: recommendationReady(),
+    wardrobe: wardrobeValue(),
+    weather: weatherValue(),
+    dressingDayKey: '2026-08-13:evening',
+    outfitHistory,
+  };
+  const result = await render(<Providers {...props}><OutfitDetailRoute /></Providers>);
+
+  await waitFor(() => expect(outfitHistory.get).toHaveBeenCalledWith('2026-08-13'));
+  await fireEvent.press(await result.findByTestId('outfit-detail-wore-this'));
+  expect(outfitHistory.log).toHaveBeenCalledTimes(1);
+  expect(outfitHistory.log).toHaveBeenCalledWith('2026-08-13', wornOutfitFrom(todayRecommendation.outfits[0]));
+  expect(await result.findByTestId('outfit-detail-worn')).toBeOnTheScreen();
+  expect(result.queryByTestId('outfit-detail-wore-this')).toBeNull();
+  expect(props.productAnalytics.analytics.names()).not.toContain('outfit_worn_logged');
+
+  // Another outfit of the same day asks before it replaces the record.
+  mockParams = { id: todayOutfitId(2) };
+  await result.rerender(<Providers {...props}><OutfitDetailRoute /></Providers>);
+  await fireEvent.press(await result.findByTestId('outfit-detail-wore-this'));
+  expect(alert).toHaveBeenCalledTimes(1);
+  expect(alert.mock.calls[0][0]).toBe(messages.en.today.wornReplaceTitle);
+  expect(outfitHistory.log).toHaveBeenCalledTimes(1);
+  const confirm = alert.mock.calls[0][2]?.find(({ style }) => style === 'destructive');
+  await act(async () => { confirm?.onPress?.(); });
+  expect(outfitHistory.log).toHaveBeenCalledTimes(2);
+  expect(outfitHistory.log).toHaveBeenLastCalledWith('2026-08-13', wornOutfitFrom(todayRecommendation.outfits[1]));
+  alert.mockRestore();
 });
 
 test('accepting the offer with the briefing already on records only the alert preference change', async () => {
