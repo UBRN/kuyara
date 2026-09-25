@@ -413,14 +413,26 @@ export function OutfitDetailScreen({
               presentation.weather.temperature,
               presentation.weather.condition,
               presentation.weather.rainProbability,
+              ...(presentation.coverageCaption ? [presentation.coverageCaption] : []),
             ].join(', ')}
             style={[styles.weatherRecap, { backgroundColor: stageColor }]}
             testID="outfit-detail-weather-recap">
-            <AppText tabularNumbers variant="caption">{presentation.weather.temperature}</AppText>
-            <AppText colorRole="textPrimary" variant="caption">{presentation.weather.condition}</AppText>
-            <AppText colorRole="textPrimary" tabularNumbers variant="caption">
-              {presentation.weather.rainProbability}
-            </AppText>
+            <View style={styles.weatherRecapValues}>
+              <AppText tabularNumbers variant="caption">{presentation.weather.temperature}</AppText>
+              <AppText colorRole="textPrimary" variant="caption">{presentation.weather.condition}</AppText>
+              <AppText colorRole="textPrimary" tabularNumbers variant="caption">
+                {presentation.weather.rainProbability}
+              </AppText>
+            </View>
+            {/* N18: the hours this outfit was chosen for belong with the weather they describe. */}
+            {presentation.coverageCaption ? (
+              <View style={styles.weatherRecapCoverage} testID="outfit-detail-coverage">
+                <Icon color={theme.colors.textPrimary} name="clock" size={16} />
+                <AppText colorRole="textPrimary" style={styles.weatherRecapCoverageText} tabularNumbers variant="caption">
+                  {presentation.coverageCaption}
+                </AppText>
+              </View>
+            ) : null}
           </View>
         </Entrance>
       </View>
@@ -533,13 +545,24 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   weatherRecap: {
-    alignItems: 'center',
     borderRadius: radii.card,
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    padding: spacing.lg,
+  },
+  weatherRecapValues: {
+    alignItems: 'center',
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
     justifyContent: 'space-between',
-    marginTop: spacing.md,
-    padding: spacing.lg,
+  },
+  weatherRecapCoverage: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  weatherRecapCoverageText: {
+    flexShrink: 1,
   },
 });

@@ -1,3 +1,7 @@
+import type { WeatherMeasurements } from '@/features/weather/domain/weather';
+import { isWetMeasurement } from '@/features/weather/domain/weather-thresholds';
+import type { ClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
+
 /** The outfit's useful forecast horizon, independent of the dressing-day key. */
 export type OutfitCoverage = Readonly<{ start: string; end: string }>;
 
@@ -38,4 +42,77 @@ export function outfitCoverage(startIso: string, timeZone: string): OutfitCovera
   } catch {
     return null;
   }
+}
+
+const hourMs = 3600000;
+
+/**
+ * The window a sentence may promise. When the forecast stops before the coverage end, the
+ * sentence ends at the last forecast hour instead: no protection is claimed for an hour the
+ * forecast does not describe. Null when no forecast hour falls inside the window at all.
+ */
+export function forecastBoundedCoverage(
+  coverage: OutfitCoverage,
+  forecastHours: readonly Readonly<{ forecastAt: string }>[],
+): OutfitCoverage | null {
+  const start = Date.parse(coverage.start);
+  const end = Date.parse(coverage.end);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
+  const last = Math.max(...forecastHours.map(({ forecastAt }) => Date.parse(forecastAt))
+    .filter((at) => Number.isFinite(at) && at < end));
+  if (!Number.isFinite(last) || last <= start) return null;
+  return last + hourMs >= end ? coverage : { start: coverage.start, end: new Date(last).toISOString() };
+}
+
+/** What the rest of a displayed outfit's window now asks for that the outfit was not chosen for. */
+export type CoverageDrift = Readonly<{ kind: 'rain' | 'snow' | 'cold'; at: string }>;
+
+type DriftHour = WeatherMeasurements & Readonly<{ forecastAt: string }>;
+
+const coldOf = (hour: WeatherMeasurements) =>
+  Math.min(hour.temperatureCelsius, hour.apparentTemperatureCelsius);
+
+/**
+ * N15: after a stale refresh the outfit never changes silently, so Today says when the rest
+ * of its window needs protection the outfit was not chosen for. Rain or snow counts when the
+ * chosen requirements carry no mandatory body water protection; cold uses N19's mandatory
+ * rule (below 12 °C for two consecutive hours, or below 5 °C once) and counts when the outfit
+ * carries no mandatory insulation above light. Rain is reported ahead of cold.
+ */
+export function coverageDrift(
+  chosen: ClothingRequirements,
+  hourly: readonly DriftHour[],
+  nowIso: string,
+  coverageEnd: string,
+): CoverageDrift | null {
+  const now = Date.parse(nowIso);
+  const end = Date.parse(coverageEnd);
+  if (!Number.isFinite(now) || !Number.isFinite(end) || now >= end) return null;
+  const remaining = [...hourly]
+    .filter(({ forecastAt }) => {
+      const at = Date.parse(forecastAt);
+      return at + hourMs > now && at < end;
+    })
+    .sort((left, right) => Date.parse(left.forecastAt) - Date.parse(right.forecastAt));
+  const rainProtected = chosen.requirements.some((requirement) =>
+    requirement.kind === 'water_protection' && requirement.target === 'body' &&
+    requirement.priority === 'mandatory');
+  if (!rainProtected) {
+    const wet = remaining.find(isWetMeasurement);
+    if (wet) {
+      return { kind: wet.condition === 'sleet' || wet.condition === 'snow' ? 'snow' : 'rain',
+        at: wet.forecastAt };
+    }
+  }
+  const coldProtected = chosen.requirements.some((requirement) =>
+    requirement.kind === 'thermal' && requirement.priority === 'mandatory' &&
+    requirement.minimum !== 'light');
+  if (coldProtected) return null;
+  const cold = remaining.find((hour, index) => {
+    if (coldOf(hour) < 5) return true;
+    const next = remaining[index + 1];
+    return coldOf(hour) < 12 && next !== undefined && coldOf(next) < 12 &&
+      Date.parse(next.forecastAt) - Date.parse(hour.forecastAt) === hourMs;
+  });
+  return cold ? { kind: 'cold', at: cold.forecastAt } : null;
 }

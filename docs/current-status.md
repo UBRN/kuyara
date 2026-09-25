@@ -55,13 +55,25 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   a precipitation interval, sustained temperature, wind interval or temperature swing when
   the forecast supports one. Both lines use body text and primary ink. The top row pairs
   the place with the dressing day's date, which turns at 04:00. The title is one localized
-  template, Today, temperature, the condition's animated SF Symbol and the condition, with
-  the day-type pill at its right; the pill opens the day-type sheet, and a change dims the
+  template, Today, temperature, the condition's animated SF Symbol and the condition; Today
+  has no day-type pill. Directly under the board a clock caption states the window the outfit
+  was chosen for in one sentence, ending at the last forecast hour when the forecast stops
+  short, and a warning-ink caption with its glyph appears when the rest of that window needs
+  rain, snow or cold protection the outfit was not chosen for. "Last updated" sits under the
+  finishing touches. The last element of the content is the tonal Large "Ask the stylist
+  again" button, hidden when the pool has no other valid option; it opens one sheet with the
+  day-type tiles (current type checked), Now | Later with a 15-minute wheel over the next 12
+  hours, the warning sentence for the window and one prominent confirmation. Confirming stores
+  a changed type as the day's `chip` answer and a Later departure under its own dressing day,
+  then runs one reserved re-ask while the outfit dims under a "Choosing for the weather
+  between …" line; approved-trigger evaluation waits for it. The 18:00 evening sheet opens
+  empty on the first foreground open of the evening key. A morning or evening answer dims the
   outfit under an "Updating for a … day" line until the new one lands. The AI badge sits
   below with its own symbol (multicolor Apple Intelligence on a neutral, `sparkles` in the
   purple family for the Worker), the archetype is a small label, the finishing touches are a
   caption with 16-point drawings whose stroke scales with them, Plan tomorrow is a one-row
-  group, and outfit reasons appear only on detail. The hours
+  group that names the target weekday after midnight, and outfit reasons appear only on
+  detail, whose weather recap carries the coverage sentence. The hours
   from 18:00 are called the evening rather than the night, and every
   temperature it prints carries one decimal in the reader's own separator. Only the coarse generation mode is exposed,
   and Settings carries the bounded active AI probe beside an on-device availability row
@@ -285,4 +297,4 @@ The approved phase order, active work and remaining open items are in [the roadm
 
 ## Approved build 15 design pending implementation
 
-The installed schema is version 19. Migration 20, the wide Closet colour and pattern fields, the in-app camera permission, the open-rack Closet, the re-ask sheet, the neutral-draft runway and Phase 6 artwork remain approved build 15 work. The currently shipped Today day-type pill and interim runway are described above as implementation state, not the approved final design.
+The installed schema is version 19. Migration 20, the wide Closet colour and pattern fields, the in-app camera permission, the open-rack Closet, the neutral-draft runway and Phase 6 artwork remain approved build 15 work. The interim runway is described above as implementation state, not the approved final design. The re-ask sheet opens at the large detent: a content-fitted detent is not used, and the morning and evening sheets remain one day-type step without the style step.

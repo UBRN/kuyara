@@ -350,8 +350,8 @@ const rawPressableAllowlist = Object.freeze({
   'features/wardrobe/presentation/garment-type-tile.tsx': 1,
   // The provider attribution link.
   'features/weather/presentation/weather-attribution.tsx': 1,
-  // The hero board, the alternate tiles and the day-type pill (removed by Goal C3).
-  'features/today/presentation/today-screen.tsx': 3,
+  // The hero board and the alternate tiles.
+  'features/today/presentation/today-screen.tsx': 2,
   // The three day-type radio tiles.
   'features/today/presentation/daily-formality-sheet.tsx': 1,
   // The text field's inline clear glyph.

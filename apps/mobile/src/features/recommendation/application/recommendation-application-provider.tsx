@@ -321,9 +321,15 @@ export function RecommendationApplicationProvider({
   const trailingApprovedPromise = useRef<Promise<boolean> | null>(null);
   const foregroundEvaluationRequested = useRef(false);
   const lastExpiryAttempt = useRef<string | null>(null);
+  // A confirmed re-ask changes the answers the approved triggers read. Evaluating them while
+  // it runs would see its own new day type as a change and start a second, unreserved
+  // generation, so evaluation waits for it and then reads the persisted result.
+  const reaskInFlight = useRef<Promise<unknown> | null>(null);
   const evaluateApprovedTriggersOnce = useCallback(async (
     generationInput: RecommendationApplicationInput,
   ): Promise<boolean> => {
+    const pendingReask = reaskInFlight.current;
+    if (pendingReask) await pendingReask;
     const liveState = controller.getSnapshot();
     if (liveState.status !== 'ready') return false;
     const current = approvedSignals(generationInput);
@@ -512,6 +518,37 @@ export function RecommendationApplicationProvider({
     },
     resolvedDressStyle,
     chooseFormality,
+    reask: async ({ formality, departureAt, timeZone }) => {
+      const key = localDay.key;
+      const departureKey = departureAt ? wardrobeDayWindow(departureAt, timeZone)?.key : null;
+      if (departureAt && !departureKey) throw new Error('Invalid departure time or time zone.');
+      const writeChoice = formality !== resolvedDressStyle || currentDayChoice?.status !== 'row';
+      const choice = writeChoice
+        ? await (await loadChoiceRepository()).upsert(localProfileId, key, formality, 'chip')
+        : null;
+      const departures = await loadDepartureRepository();
+      // "Now" stores no row. A Later departure is stored under the dressing day it falls in
+      // (N22); one that leaves this dressing day also clears this day's earlier departure.
+      const departure = departureAt && departureKey
+        ? await departures.upsert(localProfileId, departureKey, departureAt, timeZone)
+        : null;
+      if (!departure || departureKey !== key) await departures.clear(localProfileId, key);
+      const generationInput = currentInput();
+      let refresh: Promise<unknown> = Promise.resolve(null);
+      if (generationInput) {
+        const { departureAt: _previousDeparture, ...base } = generationInput;
+        refresh = controller.refresh('regenerate', {
+          ...base, now: now(), dressStyle: formality, ...(departureAt ? { departureAt } : {}),
+        });
+      }
+      const settled = refresh.then(() => undefined, () => undefined).finally(() => {
+        if (reaskInFlight.current === settled) reaskInFlight.current = null;
+      });
+      reaskInFlight.current = settled;
+      if (choice) setDayChoiceState({ profileId: localProfileId, key, status: 'row', choice });
+      setDepartureState({ key, value: departure && departureKey === key ? departure : null });
+      return { settled };
+    },
     refresh: () => {
       const generationInput = currentInput();
       return generationInput
@@ -531,6 +568,7 @@ export function RecommendationApplicationProvider({
     evaluateApprovedTriggers,
     chooseFormality,
     choiceReady,
+    currentDayChoice,
     localDay.key,
     morningChoicePending,
     eveningChoicePending,

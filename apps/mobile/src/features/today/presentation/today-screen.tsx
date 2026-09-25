@@ -44,7 +44,7 @@ import { useWeatherApplication } from '@/features/weather/application/weather-ap
 import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
-import { borderWidths, layout, radii, spacing } from '@/theme/theme';
+import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // Law 5's escalation point, for the generic line alone. A narrated wait says what it is
@@ -54,8 +54,6 @@ const LONG_WAIT_MS = 8_000;
 // Law 6: a drawing beside caption text is drawn at the caption's 16 points, cropped to its
 // own artwork so the garment itself is that tall.
 const ACCESSORY_CAPTION_SIZE = 16;
-// The day-type pill's painted height; its hit slop brings the touch area to 44 points.
-const PILL_HEIGHT = 36;
 
 /**
  * ADR 0004's one contextual offer, handed down already decided: the route owns the rule, and
@@ -78,17 +76,14 @@ type TodayScreenProps = Readonly<{
   alertOffer?: TodayAlertOffer | null;
   onOpenOutfitDetail: (id: string) => void;
   onRefresh: () => void;
-  /** Regenerates the recommendation only. The pull gesture still refreshes weather too. */
-  onRegenerate: () => void;
-  /** The day's type, shown in the title's pill; the pill opens the day-type sheet. */
-  selectedFormality?: DressStyle;
-  onOpenDayType?: () => void;
-  /** Set while a day-type change is regenerating the outfit, until the new one lands. */
+  /** Opens the "Ask the stylist again" sheet (O3). The pull gesture never changes the outfit. */
+  onAskAgain: () => void;
+  /** Set while a day-type answer from the morning or evening sheet is regenerating the outfit. */
   updatingDayType?: DressStyle | null;
   /** The first dressing day, the day the profile was set up, takes its own greeting. */
   firstDressingDay?: boolean;
-  /** Tomorrow's dressing-day date, already formatted for the Plan tomorrow row. */
-  tomorrowDate?: string;
+  /** The Plan row (N23), already worded for the target day. */
+  planRow?: Readonly<{ label: string; value: string; accessibilityLabel: string }>;
   onPlanTomorrow?: () => void;
 }>;
 
@@ -141,12 +136,10 @@ function TodayScreenContent({
   alertOffer = null,
   onOpenOutfitDetail,
   onRefresh,
-  onRegenerate,
-  selectedFormality,
-  onOpenDayType,
+  onAskAgain,
   updatingDayType = null,
   firstDressingDay = false,
-  tomorrowDate,
+  planRow,
   onPlanTomorrow,
 }: TodayScreenProps & Readonly<{ now: number }>) {
   const router = useRouter();
@@ -324,7 +317,8 @@ function TodayScreenContent({
   }
 
   const stageColor = theme.atmosphere[presentation.atmosphere];
-  const updating = updatingDayType !== null;
+  const choosing = presentation.choosingCaption;
+  const updating = updatingDayType !== null || choosing !== null;
   // The symbol draws the same rain at every tempo; only the condition's ambient step says
   // how fast it falls.
   const ambientIntensity = state.kind === 'loaded'
@@ -378,9 +372,8 @@ function TodayScreenContent({
             {firstDressingDay ? copy.greetingFirstNamed(displayName) : copy.greetingNamed(displayName)}
           </AppText>
         ) : null}
-        {/* The title and the pill share a wrapping row, so the pill drops under the title
-            only when the two do not fit on one line. Inside the title the line may break
-            only after the separator: the temperature, symbol and condition stay together. */}
+        {/* O2: Today has no day-type pill. Inside the title the line may break only after the
+            separator: the temperature, symbol and condition stay together. */}
         <View style={styles.titleRow}>
           <View
             accessible
@@ -406,9 +399,6 @@ function TodayScreenContent({
               </AppText>
             </View>
           </View>
-          {selectedFormality && onOpenDayType ? (
-            <DayTypePill language={language} onPress={onOpenDayType} value={selectedFormality} />
-          ) : null}
         </View>
         {/* The badge waits for the new outfit's own source while a day-type change runs. */}
         {presentation.generationMode && !updating ? (
@@ -460,9 +450,42 @@ function TodayScreenContent({
                 </View>
               </Pressable>
             </Dimmed>
-            {/* f7: the pill already shows the new value; this line says why the outfit is
-                dimmed, and it stays until the new outfit lands. */}
-            {updatingDayType ? (
+            {/* N18 and N15: the outfit's claim sits directly under the board, where it is read
+                with the outfit, never beside the button. While a re-ask runs, its window
+                replaces the claim and says why the outfit is dimmed. */}
+            {choosing ? (
+              <View style={styles.captionRow}>
+                <PhaseMark size={16} testID="today-choosing-mark" />
+                <AppText
+                  accessibilityLiveRegion="polite"
+                  colorRole="textSecondary"
+                  style={styles.captionText}
+                  tabularNumbers
+                  testID="today-choosing-caption"
+                  variant="caption">
+                  {choosing}
+                </AppText>
+              </View>
+            ) : presentation.coverageCaption ? (
+              <View accessible style={styles.captionRow} testID="today-coverage-caption">
+                <Icon color={theme.colors.iconSecondary} name="clock" size={16} />
+                <AppText colorRole="textSecondary" style={styles.captionText} tabularNumbers variant="caption">
+                  {presentation.coverageCaption}
+                </AppText>
+              </View>
+            ) : null}
+            {/* Law 4: a status is ink, glyph and text together. */}
+            {presentation.driftCaption ? (
+              <View accessible style={styles.captionRow} testID="today-drift-caption">
+                <Icon color={theme.colors.warningInk} name="warning" size={16} />
+                <AppText colorRole="warningInk" style={styles.captionText} tabularNumbers variant="caption">
+                  {presentation.driftCaption}
+                </AppText>
+              </View>
+            ) : null}
+            {/* f7: a morning or evening answer is regenerating the outfit; this line says why
+                it is dimmed, and it stays until the new outfit lands. */}
+            {updatingDayType && !choosing ? (
               <View style={styles.updatingRow}>
                 <PhaseMark size={16} testID="today-updating-mark" />
                 <AppText
@@ -489,6 +512,22 @@ function TodayScreenContent({
           </>
         ) : null}
 
+        {/* O5: "Last updated" sits under the finishing touches; it no longer describes a button. */}
+        <View
+          style={[styles.provenance, usesAccessibilityLayout && styles.stackedProvenance]}
+          testID="today-provenance">
+          {presentation.header.phase ? <PhaseMark size={16} testID="today-phase-mark" /> : null}
+          <AppText
+            accessibilityLiveRegion={presentation.header.announceFreshness ? 'polite' : 'none'}
+            colorRole="textSecondary"
+            style={[styles.freshness, usesAccessibilityLayout && styles.stackedFreshness]}
+            tabularNumbers
+            testID="today-freshness"
+            variant="caption">
+            {presentation.header.freshness}
+          </AppText>
+        </View>
+
         {presentation.noOutfit ? (
           <Surface
             accessible
@@ -505,46 +544,17 @@ function TodayScreenContent({
           </Surface>
         ) : null}
 
-        {/* O5: a tonal Large capsule, never an accent fill; the old caption is its hint. */}
-        {primary && !exhausted ? (
-          <Button
-            accessibilityHint={copy.regenerateCaption}
-            icon="refresh"
-            label={copy.regenerateAction}
-            onPress={onRegenerate}
-            size="large"
-            style={styles.regenerate}
-            testID="today-regenerate"
-            variant="tonal"
-          />
-        ) : null}
-
-        <View
-          style={[styles.provenance, usesAccessibilityLayout && styles.stackedProvenance]}
-          testID="today-provenance">
-          {presentation.header.phase ? <PhaseMark size={16} testID="today-phase-mark" /> : null}
-          <AppText
-            accessibilityLiveRegion={presentation.header.announceFreshness ? 'polite' : 'none'}
-            colorRole="textSecondary"
-            style={[styles.freshness, usesAccessibilityLayout && styles.stackedFreshness]}
-            tabularNumbers
-            testID="today-freshness"
-            variant="caption">
-            {presentation.header.freshness}
-          </AppText>
-        </View>
-
-        {/* One row in the Profile row anatomy: the label, tomorrow's date as its value. */}
-        {tomorrowDate && onPlanTomorrow ? (
+        {/* One row in the Profile row anatomy: the target day as its label, the date as its value. */}
+        {planRow && onPlanTomorrow ? (
           <View style={styles.planTomorrow}>
             <ListRowGroup>
               <ListRow
-                accessibilityLabel={copy.dailyStyle.planTomorrow(tomorrowDate)}
+                accessibilityLabel={planRow.accessibilityLabel}
                 glyph={({ color, size }) => <Icon color={color} name="calendar" size={size} />}
-                label={copy.dailyStyle.planTomorrowLabel}
+                label={planRow.label}
                 onPress={onPlanTomorrow}
                 testID="today-plan-tomorrow"
-                value={tomorrowDate}
+                value={planRow.value}
               />
             </ListRowGroup>
           </View>
@@ -615,6 +625,21 @@ function TodayScreenContent({
               ruleId={offerToRender.ruleId}
             />
           </Entrance>
+        ) : null}
+
+        {/* O4: the last element of the content, one tonal Large capsule. A7 hides it and puts
+            nothing in its place. */}
+        {primary && !exhausted ? (
+          <Button
+            accessibilityHint={copy.askAgain.hint}
+            icon="refresh"
+            label={copy.askAgain.action}
+            onPress={onAskAgain}
+            size="large"
+            style={styles.askAgain}
+            testID="today-ask-again"
+            variant="tonal"
+          />
         ) : null}
       </View>
     </Screen>
@@ -703,41 +728,6 @@ function WeatherAlertOfferRow({
         )}
       />
     </Surface>
-  );
-}
-
-/**
- * M7's day-type pill at the title's right: the value in words and a chevron, on the neutral
- * interactive fill with a defined border. It never takes the accent fill, so a provenance
- * badge beside it stays inside Law 1. The visual is 36 points tall and the hit area 44.
- */
-function DayTypePill({
-  language,
-  onPress,
-  value,
-}: Readonly<{ language: SupportedLanguage; onPress: () => void; value: DressStyle }>) {
-  const theme = useKuyaraTheme();
-  const { controlScale } = useTextScaling();
-  const copy = getMessages(language).today.dailyStyle;
-
-  return (
-    <Pressable
-      accessibilityLabel={copy.pillAccessibilityLabel[value]}
-      accessibilityRole="button"
-      hitSlop={(layout.minimumTouchTarget - PILL_HEIGHT) / 2}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.dayTypePill,
-        {
-          backgroundColor: theme.colors.surfaceInteractive,
-          borderColor: theme.colors.borderDefined,
-          opacity: pressed ? theme.interaction.pressedOpacity : 1,
-        },
-      ]}
-      testID="today-day-type-pill">
-      <AppText variant="label">{copy[value]}</AppText>
-      <Icon color={theme.colors.textPrimary} name="chevronDown" size={16 * controlScale} />
-    </Pressable>
   );
 }
 
@@ -878,11 +868,11 @@ const styles = StyleSheet.create({
   title: { alignItems: 'center', columnGap: spacing.sm, flexDirection: 'row', flexShrink: 1, flexWrap: 'wrap' },
   titleValues: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
   titleText: { fontWeight: '700' },
-  dayTypePill: { alignItems: 'center', borderRadius: radii.pill, borderWidth: borderWidths.subtle,
-    flexDirection: 'row', gap: spacing.xs, minHeight: PILL_HEIGHT, paddingHorizontal: spacing.md },
   provenanceBadge: { marginTop: spacing.sm },
   archetypeName: { marginBottom: spacing.sm, marginTop: spacing.md },
   stage: { borderRadius: 26, overflow: 'hidden' },
+  captionRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  captionText: { flexShrink: 1 },
   updatingRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   updatingText: { flexShrink: 1 },
   outfitName: { flex: 1, flexShrink: 1 },
@@ -894,7 +884,7 @@ const styles = StyleSheet.create({
   loadingIntro: { gap: spacing.xs, marginBottom: spacing.md },
   generatingStatus: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.md },
   generatingStatusText: { flexShrink: 1 },
-  regenerate: { marginTop: spacing.md },
+  askAgain: { marginTop: spacing.md },
   provenance: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm },
   stackedProvenance: { alignItems: 'flex-start', flexDirection: 'column' },
   freshness: { flexShrink: 1 },

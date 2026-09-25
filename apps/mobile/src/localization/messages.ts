@@ -58,11 +58,13 @@ export type TodayMessages = Readonly<{
   dailyStyle: Readonly<{
     question: string;
     questionTomorrow: string;
+    /** The 18:00 evening sheet's question (N20). */
+    questionEvening: string;
+    /** Plan tomorrow after midnight names the target day instead of "tomorrow" (N23). */
+    questionForDay: (date: string) => string;
     casual: string;
     smart: string;
     formal: string;
-    /** The pill's spoken label, one whole sentence per day type. */
-    pillAccessibilityLabel: DayTypeMessages;
     /** The line under the dimmed outfit while a day-type change regenerates it. */
     updating: DayTypeMessages;
     /** The one caption on the day onboarding finishes, over the preselected answer. */
@@ -70,8 +72,12 @@ export type TodayMessages = Readonly<{
     chooseDayType: string;
     continueWithoutChoosing: string;
     dismissWarning: string;
+    dismissWarningEvening: string;
     planTomorrow: (date: string) => string;
     planTomorrowLabel: string;
+    /** After midnight the row names the target weekday; its value is the bare date. */
+    planFor: (weekday: string) => string;
+    planForAccessibilityLabel: (weekday: string, date: string) => string;
     close: string;
     saveError: string;
   }>;
@@ -90,10 +96,33 @@ export type TodayMessages = Readonly<{
   generationSourceOnDeviceAi: string;
   generationSourceAiAssisted: string;
   generationSourceDeterministic: string;
-  // Today's "show another outfit" action. It names no provider, no quota and no
-  // remaining count, and it is the same words whichever path answers the tap.
-  regenerateAction: string;
-  regenerateCaption: string;
+  // "Ask the stylist again" (O3, O4). The control, its sheet and its sentences name no
+  // provider, no quota and no remaining count. Every sentence with a clock time is one whole
+  // template per language, and Turkish never puts a case suffix on a clock time.
+  askAgain: Readonly<{
+    action: string;
+    hint: string;
+    whenQuestion: string;
+    now: string;
+    later: string;
+    chooseNow: string;
+    chooseAt: (time: string) => string;
+    warning: (start: string, end: string) => string;
+    warningOnDay: (day: string, start: string, end: string) => string;
+  }>;
+  // N18: the outfit's coverage window as one sentence under the board, and its in-flight twin.
+  coverage: Readonly<{
+    chosen: (start: string, end: string) => string;
+    chosenOnDay: (day: string, start: string, end: string) => string;
+    choosing: (start: string, end: string) => string;
+    choosingOnDay: (day: string, start: string, end: string) => string;
+  }>;
+  // N15: the rest of the window needs protection the displayed outfit was not chosen for.
+  drift: Readonly<{
+    rain: (time: string) => string;
+    snow: (time: string) => string;
+    cold: (time: string) => string;
+  }>;
   backAction: string;
   otherOptionsHeading: string;
   piecesHeading: string;
@@ -1069,12 +1098,9 @@ const en = {
     dailyStyle: {
       question: 'What kind of day is it?',
       questionTomorrow: 'What kind of day is tomorrow?',
+      questionEvening: 'What kind of evening is it?',
+      questionForDay: (date) => `What kind of day is ${date}?`,
       casual: 'Casual', smart: 'Smart', formal: 'Formal',
-      pillAccessibilityLabel: {
-        casual: 'Day type, Casual. Opens the day type choices.',
-        smart: 'Day type, Smart. Opens the day type choices.',
-        formal: 'Day type, Formal. Opens the day type choices.',
-      },
       updating: {
         casual: 'Updating for a Casual day…',
         smart: 'Updating for a Smart day…',
@@ -1084,8 +1110,11 @@ const en = {
       chooseDayType: 'Choose a day type',
       continueWithoutChoosing: 'Continue without choosing',
       dismissWarning: 'Choose how you want to dress today, or continue with a surprise style.',
+      dismissWarningEvening: 'Choose how you want to dress this evening, or continue with a surprise style.',
       planTomorrow: (date) => `Plan tomorrow, ${date}`,
       planTomorrowLabel: 'Plan tomorrow',
+      planFor: (weekday) => `Plan for ${weekday}`,
+      planForAccessibilityLabel: (weekday, date) => `Plan for ${weekday}, ${date}`,
       close: 'Close',
       saveError: 'Your choice could not be saved. Try again.',
     },
@@ -1100,8 +1129,30 @@ const en = {
     generationSourceOnDeviceAi: 'kuyara chose this outfit on your device with Apple Intelligence.',
     generationSourceAiAssisted: 'kuyara chose this outfit with online AI.',
     generationSourceDeterministic: 'AI was not used. kuyara computed this outfit on your device.',
-    regenerateAction: 'Show another outfit',
-    regenerateCaption: 'See a different outfit for the same day.',
+    askAgain: {
+      action: 'Ask the stylist again',
+      hint: 'Chooses a new outfit for the time you pick.',
+      whenQuestion: 'When are you heading out?',
+      now: 'Now',
+      later: 'Later',
+      chooseNow: 'Choose for now',
+      chooseAt: (time) => `Choose for ${time}`,
+      warning: (start, end) =>
+        `kuyara will choose again for the weather between ${start} and ${end}. The outfits on screen will be replaced.`,
+      warningOnDay: (day, start, end) =>
+        `kuyara will choose again for the weather on ${day}, between ${start} and ${end}. The outfits on screen will be replaced.`,
+    },
+    coverage: {
+      chosen: (start, end) => `Chosen for the weather between ${start} and ${end}.`,
+      chosenOnDay: (day, start, end) => `Chosen for the weather on ${day}, between ${start} and ${end}.`,
+      choosing: (start, end) => `Choosing for the weather between ${start} and ${end}…`,
+      choosingOnDay: (day, start, end) => `Choosing for the weather on ${day}, between ${start} and ${end}…`,
+    },
+    drift: {
+      rain: (time) => `This outfit wasn’t chosen for the rain after ${time}.`,
+      snow: (time) => `This outfit wasn’t chosen for the snow after ${time}.`,
+      cold: (time) => `This outfit wasn’t chosen for the cold after ${time}.`,
+    },
     backAction: 'Back to Today',
     otherOptionsHeading: 'Alternative outfits',
     piecesHeading: 'Wear',
@@ -1761,12 +1812,9 @@ const tr = {
     dailyStyle: {
       question: 'Bugün nasıl bir gün?',
       questionTomorrow: 'Yarın nasıl bir gün?',
+      questionEvening: 'Bu akşam nasıl bir akşam?',
+      questionForDay: (date) => `${date} nasıl bir gün?`,
       casual: 'Rahat', smart: 'Şık', formal: 'Resmî',
-      pillAccessibilityLabel: {
-        casual: 'Gün türü, Rahat. Gün türü seçeneklerini açar.',
-        smart: 'Gün türü, Şık. Gün türü seçeneklerini açar.',
-        formal: 'Gün türü, Resmî. Gün türü seçeneklerini açar.',
-      },
       updating: {
         casual: 'Rahat bir güne göre güncelleniyor…',
         smart: 'Şık bir güne göre güncelleniyor…',
@@ -1776,8 +1824,11 @@ const tr = {
       chooseDayType: 'Gün türünü seç',
       continueWithoutChoosing: 'Seçmeden devam et',
       dismissWarning: 'Bugün nasıl giyineceğini seç veya sürpriz bir stille devam et.',
+      dismissWarningEvening: 'Bu akşam nasıl giyineceğini seç veya sürpriz bir stille devam et.',
       planTomorrow: (date) => `Yarını planla, ${date}`,
       planTomorrowLabel: 'Yarını planla',
+      planFor: (weekday) => `${weekday} için planla`,
+      planForAccessibilityLabel: (weekday, date) => `${weekday} için planla, ${date}`,
       close: 'Kapat',
       saveError: 'Seçimin kaydedilemedi. Yeniden dene.',
     },
@@ -1792,8 +1843,30 @@ const tr = {
     generationSourceOnDeviceAi: 'Bu kombini kuyara, cihazında Apple Intelligence ile seçti.',
     generationSourceAiAssisted: 'Bu kombini kuyara çevrimiçi AI ile seçti.',
     generationSourceDeterministic: 'AI kullanılmadı, bu kombini kuyara cihazında hesapladı.',
-    regenerateAction: 'Başka kombin göster',
-    regenerateCaption: 'Aynı gün için farklı bir kombin gör.',
+    askAgain: {
+      action: 'Stiliste tekrar sor',
+      hint: 'Seçeceğin saat için yeni bir kombin seçer.',
+      whenQuestion: 'Ne zaman çıkıyorsun?',
+      now: 'Şimdi',
+      later: 'Sonra',
+      chooseNow: 'Şimdi için seç',
+      chooseAt: (time) => `${time} için seç`,
+      warning: (start, end) =>
+        `kuyara, ${start} ile ${end} arasındaki havaya göre yeniden seçecek. Ekrandaki kombinlerin yerine yenileri gelecek.`,
+      warningOnDay: (day, start, end) =>
+        `kuyara, ${day} ${start} ile ${end} arasındaki havaya göre yeniden seçecek. Ekrandaki kombinlerin yerine yenileri gelecek.`,
+    },
+    coverage: {
+      chosen: (start, end) => `${start} ile ${end} arasındaki havaya göre seçildi.`,
+      chosenOnDay: (day, start, end) => `${day}, ${start} ile ${end} arasındaki havaya göre seçildi.`,
+      choosing: (start, end) => `${start} ile ${end} arasındaki havaya göre seçiliyor…`,
+      choosingOnDay: (day, start, end) => `${day}, ${start} ile ${end} arasındaki havaya göre seçiliyor…`,
+    },
+    drift: {
+      rain: (time) => `Bu kombin ${time} yağmuruna göre seçilmedi.`,
+      snow: (time) => `Bu kombin ${time} karına göre seçilmedi.`,
+      cold: (time) => `Bu kombin ${time} soğuğuna göre seçilmedi.`,
+    },
     backAction: 'Bugün’e dön',
     otherOptionsHeading: 'Alternatif kombinler',
     piecesHeading: 'Parçalar',

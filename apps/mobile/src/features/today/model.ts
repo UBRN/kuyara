@@ -34,6 +34,8 @@ export type TodayScreenState =
       isRefreshing: boolean;
       refreshFailed: boolean;
       phase?: RecommendationPhase | null;
+      /** Set while a confirmed re-ask is choosing: the window it is choosing for. */
+      choosingWindow?: Readonly<{ start: string; end: string }> | null;
     }>;
 
 export function unavailableTodayState(

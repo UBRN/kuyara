@@ -18,7 +18,10 @@ import {
 import type { WeatherAlertOffer } from '@/features/notifications/domain/weather-alert-offer';
 import { ProfileApplicationContext } from '@/features/profile/application/profile-context';
 import type { LocalProfile } from '@/features/profile/domain/profile';
-import { RecommendationApplicationContext } from '@/features/recommendation/application/recommendation-application-context';
+import {
+  RecommendationApplicationContext,
+  type RecommendationApplicationValue,
+} from '@/features/recommendation/application/recommendation-application-context';
 import type { RecommendationApplicationState } from '@/features/recommendation/application/recommendation-application-controller';
 import type { RecommendationSnapshot } from '@/features/recommendation/data/recommendation-repository';
 import { todayActiveLocation, todayOutfitId, todayScreenState } from '@/features/today/__tests__/fixtures';
@@ -151,6 +154,40 @@ jest.mock('@/features/recommendation/data/sqlite-dressing-day-choice-repository'
     upsert(...args: unknown[]) { return mockChoiceUpsert(...args); }
   },
 }));
+const mockDepartureUpsert = jest.fn();
+const mockDepartureClear = jest.fn();
+jest.mock('@/features/recommendation/data/sqlite-dressing-day-departure-repository', () => ({
+  SqliteDressingDayDepartureRepository: class {
+    async get() { return null; }
+    upsert(...args: unknown[]) { return mockDepartureUpsert(...args); }
+    clear(...args: unknown[]) { return mockDepartureClear(...args); }
+  },
+}));
+// The re-ask sheet's native controls are tested in their own wrappers; here they are plain
+// buttons, which also keeps the native dependency's name out of `features/`.
+jest.mock('@/components/ui/segmented-control', () => {
+  const { Pressable: MockPressable, Text: MockText, View: MockView } = jest.requireActual('react-native');
+  return {
+    SegmentedControl: ({ onChange, options, testID }: Readonly<{
+      onChange: (value: string) => void;
+      options: readonly Readonly<{ label: string; value: string }>[];
+      testID?: string;
+    }>) => (
+      <MockView testID={testID}>
+        {options.map((option) => (
+          <MockPressable key={option.value} onPress={() => onChange(option.value)}
+            testID={`${testID}-${option.value}`}>
+            <MockText>{option.label}</MockText>
+          </MockPressable>
+        ))}
+      </MockView>
+    ),
+  };
+});
+jest.mock('@/components/ui/native-wheel-picker', () => {
+  const { View: MockView } = jest.requireActual('react-native');
+  return { NativeWheelPicker: ({ testID }: Readonly<{ testID?: string }>) => <MockView testID={testID} /> };
+});
 jest.mock('@/features/recommendation/data/on-device-ai-module', () => ({ onDeviceAiModule: null }));
 // Live provider tests choose whether the stub store has a saved recommendation.
 jest.mock('@/features/recommendation/data/recommendation-repository', () => ({
@@ -371,7 +408,9 @@ function Providers({
   dressingDayChoiceReady,
   dressingDayKey,
   morningChoicePending,
+  eveningChoicePending,
   chooseFormality,
+  reask,
   reevaluateLocalDay = jest.fn(),
   wardrobe,
   profile,
@@ -389,8 +428,10 @@ function Providers({
   dressingDayChoiceReady?: boolean;
   dressingDayKey?: string;
   morningChoicePending?: boolean;
+  eveningChoicePending?: boolean;
   chooseFormality?: (key: string, formality: 'casual' | 'smart' | 'formal',
     source: 'morning' | 'chip' | 'plan' | 'random') => Promise<void>;
+  reask?: RecommendationApplicationValue['reask'];
   reevaluateLocalDay?: () => void;
   wardrobe: ReturnType<typeof wardrobeValue>;
   profile: ReturnType<typeof profileValue>;
@@ -422,7 +463,9 @@ function Providers({
       dressingDayChoiceReady,
       dressingDayKey,
       morningChoicePending,
+      eveningChoicePending,
       chooseFormality,
+      reask,
       reevaluateLocalDay,
     }}>
       {screenContent}
@@ -470,6 +513,10 @@ beforeEach(() => {
   mockParams = {};
   mockChoiceGet.mockReset().mockResolvedValue(null);
   mockChoiceUpsert.mockReset().mockResolvedValue(undefined);
+  mockDepartureUpsert.mockReset().mockImplementation(async (localProfileId: string, dayKey: string,
+    departureAt: string, timeZone: string) => ({ id: 'departure-one', localProfileId, dayKey, departureAt,
+    timeZone, createdAt: departureAt, updatedAt: departureAt, deletedAt: null }));
+  mockDepartureClear.mockReset().mockResolvedValue(false);
   mockRecommendationSnapshot = null;
 });
 
@@ -1017,34 +1064,126 @@ test('dismissing the morning sheet asks first, with Choose a day type as the pre
   alert.mockRestore();
 });
 
-// M7: the pill opens the same sheet on the day's answer; a change records the existing
-// `chip` source, the same answer changes nothing, and closing it asks nothing.
-test('the title pill opens the day-type sheet and records a change as a chip choice', async () => {
-  const chooseFormality = jest.fn(async () => undefined);
+// O3: one sheet, no system alert. The current day type is checked, Now is the default, and
+// the confirmation hands the day type and the departure to the application in one call.
+test('Ask the stylist again opens one sheet and confirms through the application', async () => {
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+  let finish!: () => void;
+  const settled = new Promise<void>((resolve) => { finish = resolve; });
+  const reask = jest.fn(async () => ({ settled }));
+  const regenerate = jest.fn(async () => null);
   const view = await render(
     <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
       recommendation={recommendationReady()} resolvedDressStyle="smart"
-      dressingDayKey="2026-08-13" dressingDayChoiceReady
-      chooseFormality={chooseFormality} wardrobe={wardrobeValue()} weather={weatherValue()}>
+      dressingDayKey="2026-08-13" dressingDayChoiceReady recommendationRegenerate={regenerate}
+      reask={reask} wardrobe={wardrobeValue()} weather={weatherValue()}>
       <TodayRoute />
     </Providers>,
   );
 
-  expect(view.queryByTestId('today-formality-chips')).toBeNull();
-  await fireEvent.press(view.getByTestId('today-day-type-pill'));
-  expect(view.getByTestId('daily-formality-smart').props.accessibilityState.selected).toBe(true);
-  await fireEvent.press(view.getByTestId('daily-formality-smart'));
-  expect(chooseFormality).not.toHaveBeenCalled();
-  expect(view.queryByTestId('daily-formality-sheet')).toBeNull();
-
-  await fireEvent.press(view.getByTestId('today-day-type-pill'));
-  await fireEvent.press(view.getByTestId('daily-formality-close'));
+  expect(view.queryByTestId('today-day-type-pill')).toBeNull();
+  expect(view.queryByTestId('ask-again-sheet')).toBeNull();
+  await fireEvent.press(view.getByTestId('today-ask-again'));
+  expect(view.getByTestId('ask-again-sheet')).toBeOnTheScreen();
   expect(alert).not.toHaveBeenCalled();
+  expect(view.getByTestId('ask-again-day-type-smart').props.accessibilityState.selected).toBe(true);
+  expect(view.getByTestId('ask-again-confirm')).toHaveTextContent(messages.en.today.askAgain.chooseNow);
 
-  await fireEvent.press(view.getByTestId('today-day-type-pill'));
-  await fireEvent.press(view.getByTestId('daily-formality-casual'));
-  expect(chooseFormality).toHaveBeenCalledWith('2026-08-13', 'casual', 'chip');
+  // Closing keeps the outfit and asks nothing.
+  await fireEvent.press(view.getByTestId('ask-again-close'));
+  expect(view.queryByTestId('ask-again-sheet')).toBeNull();
+  expect(reask).not.toHaveBeenCalled();
+
+  await fireEvent.press(view.getByTestId('today-ask-again'));
+  await fireEvent.press(view.getByTestId('ask-again-day-type-formal'));
+  await fireEvent.press(view.getByTestId('ask-again-confirm'));
+  expect(reask).toHaveBeenCalledWith({ formality: 'formal', departureAt: null, timeZone: 'Europe/Istanbul' });
+  expect(regenerate).not.toHaveBeenCalled();
+  await waitFor(() => expect(view.queryByTestId('ask-again-sheet')).toBeNull());
+  await act(async () => { finish(); await settled; });
+  alert.mockRestore();
+});
+
+// While the re-ask runs, its own new day type must not look like a change to the approved
+// triggers: one reserved generation, never a second, unreserved one beside it.
+test('a confirmed re-ask writes the chip answer and is the only generation while it runs', async () => {
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
+  mockRecommendationSnapshot = {
+    ...saved.snapshot,
+    catalogVersion: garmentCatalogVersion,
+    localDayKey: '2026-09-24',
+    dressStyle: 'smart',
+  };
+  const row = (formality: string, source: string) => ({ id: '0f0e2c1a-8b52-4c0e-9d57-1d3c9c1c2a10',
+    localProfileId: 'profile-one', dayKey: '2026-09-24', formality, source, styleAesthetics: null,
+    createdAt: '2026-09-24T06:00:00.000Z', updatedAt: '2026-09-24T06:00:00.000Z', deletedAt: null });
+  mockChoiceGet.mockResolvedValue(row('smart', 'morning'));
+  mockChoiceUpsert.mockImplementation(async (_profile: string, _key: string, formality: string,
+    source: string) => row(formality, source));
+  let finishRefresh!: (value: RecommendationSnapshot | null) => void;
+  const pendingRefresh = new Promise<RecommendationSnapshot | null>((resolve) => {
+    finishRefresh = resolve;
+  });
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementation(() => pendingRefresh);
+  try {
+    const view = await render(
+      <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+        recommendation={saved} liveRecommendationProvider
+        wardrobe={wardrobeValue()} weather={weatherValue()}>
+        <TodayRoute />
+      </Providers>,
+    );
+    await waitFor(() => expect(view.getByTestId('today-ask-again')).toBeOnTheScreen());
+    expect(refresh).not.toHaveBeenCalled();
+
+    await fireEvent.press(view.getByTestId('today-ask-again'));
+    await fireEvent.press(view.getByTestId('ask-again-day-type-formal'));
+    await fireEvent.press(view.getByTestId('ask-again-when-later'));
+    await fireEvent.press(view.getByTestId('ask-again-confirm'));
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+    expect(mockChoiceUpsert).toHaveBeenCalledWith('profile-one', '2026-09-24', 'formal', 'chip');
+    expect(mockDepartureUpsert).toHaveBeenCalledTimes(1);
+    const [trigger, input] = refresh.mock.calls[0];
+    expect(trigger).toBe('regenerate');
+    expect(input.dressStyle).toBe('formal');
+    expect(input.departureAt).toBe(mockDepartureUpsert.mock.calls[0][2]);
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(refresh).toHaveBeenCalledTimes(1);
+  } finally {
+    finishRefresh(mockRecommendationSnapshot);
+    refresh.mockRestore();
+  }
+});
+
+// N20: the first foreground open after 18:00 asks the evening question with nothing checked,
+// and dismissing it uses the M17 alert with the evening's own words.
+test('the evening sheet arrives empty and its dismissal asks with the evening copy', async () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()}
+      profile={profileValue({ morningSheetEnabled: true, dressStyle: 'smart' })}
+      recommendation={recommendationReady()} resolvedDressStyle="smart"
+      dressingDayKey="2026-08-13:evening" dressingDayChoiceReady eveningChoicePending
+      chooseFormality={jest.fn(async () => undefined)} wardrobe={wardrobeValue()} weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  const copy = messages.en.today.dailyStyle;
+  expect(await view.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
+  expect(view.getByText(copy.questionEvening)).toBeOnTheScreen();
+  expect(view.getAllByRole('radio').map((tile) => tile.props.accessibilityState.selected))
+    .toEqual([false, false, false]);
+  expect(view.queryByTestId('daily-formality-smart-check')).toBeNull();
+
+  await fireEvent.press(view.getByTestId('daily-formality-close'));
+  expect(alert).toHaveBeenCalledTimes(1);
+  const [title, message, buttons] = alert.mock.calls[0];
+  expect([title, message]).toEqual([copy.questionEvening, copy.dismissWarningEvening]);
+  expect(buttons?.[0]).toMatchObject({ text: copy.chooseDayType, isPreferred: true });
+  expect(buttons?.[1]).toMatchObject({ text: copy.continueWithoutChoosing, style: 'destructive' });
   alert.mockRestore();
 });
 
@@ -1068,7 +1207,7 @@ test('Plan tomorrow asks about tomorrow and writes the next dressing day', async
   expect(chooseFormality).toHaveBeenCalledWith('2026-08-14', 'formal', 'plan');
 });
 
-// f7: the pill shows the new answer at once; the outfit dims under a line that says what is
+// f7: a morning or evening answer dims the outfit under a line that says what is
 // happening, and the badge waits for the new outfit's own source.
 test('a day-type change dims the outfit and says it is updating until the new one lands', async () => {
   const view = await render(
@@ -1080,7 +1219,7 @@ test('a day-type change dims the outfit and says it is updating until the new on
     </Providers>,
   );
 
-  expect(view.getByTestId('today-day-type-pill')).toHaveTextContent('Formal');
+  expect(view.queryByTestId('today-day-type-pill')).toBeNull();
   expect(view.getByTestId('today-updating-status'))
     .toHaveTextContent(messages.en.today.dailyStyle.updating.formal);
   expect(view.queryByTestId('today-provenance-badge')).toBeNull();
@@ -1433,7 +1572,7 @@ test('recommendation refresh and failure state reaches Today while the last outf
   expect(result.getByTestId('today-archetype')).toBeOnTheScreen();
 });
 
-test('an exhausted recommendation hides the regenerate action and caption from Today', async () => {
+test('an exhausted recommendation (A7) hides the ask-again control and puts nothing in its place', async () => {
   const result = await render(
     <Providers
       productAnalytics={createProductAnalytics()}
@@ -1446,9 +1585,8 @@ test('an exhausted recommendation hides the regenerate action and caption from T
   );
 
   expect(result.getByTestId('today-archetype')).toBeOnTheScreen();
-  expect(result.queryByTestId('today-regenerate')).toBeNull();
-  expect(result.queryByTestId('today-regenerate-caption')).toBeNull();
-  expect(result.queryByRole('button', { name: messages.en.today.regenerateAction })).toBeNull();
+  expect(result.queryByTestId('today-ask-again')).toBeNull();
+  expect(result.queryByRole('button', { name: messages.en.today.askAgain.action })).toBeNull();
 });
 
 test('refreshing while Today shows stale weather and a failed attempt reports retry_after_failure_triggered', async () => {

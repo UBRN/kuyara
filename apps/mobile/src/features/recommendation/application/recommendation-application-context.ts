@@ -32,6 +32,17 @@ export type RecommendationApplicationValue = Readonly<{
   clearDeparture?: (dayKey: string) => Promise<boolean>;
   resolvedDressStyle?: DressStyle;
   chooseFormality?: (key: string, formality: DressStyle, source: DressingDayChoiceSource) => Promise<void>;
+  /**
+   * The confirmed "Ask the stylist again" (O3). It records a changed day type as the active
+   * dressing day's `chip` answer, stores a Later departure under its own dressing day or
+   * clears the day's departure for Now, then starts one re-ask through the strict five-per-day
+   * reservation. It resolves once the answers are stored; `settled` ends with the generation.
+   */
+  reask?: (choice: Readonly<{
+    formality: DressStyle;
+    departureAt: string | null;
+    timeZone: string;
+  }>) => Promise<Readonly<{ settled: Promise<void> }>>;
   reevaluateLocalDay: () => void;
 }>;
 
