@@ -22,6 +22,7 @@ import {
   useRefreshOutcomeHaptics,
   useTextScaling,
 } from '@/components/ui';
+import { AiSparkleMark } from '@/components/ui/ai-sparkle-mark';
 import { useAmbientPulse } from '@/components/ui/use-ambient-pulse';
 import type { NotificationOptInOutcome } from '@/features/notifications/application/notification-application-controller';
 import { RecommendationApplicationContext } from '@/features/recommendation/application/recommendation-application-context';
@@ -730,7 +731,7 @@ function WeatherAlertOfferRow({
 /**
  * The provenance badge under the title (ADR 0034 section 4, M1). Apple Intelligence: the
  * multicolor `apple.intelligence` symbol and the words on the muted neutral, never purple.
- * The Worker's AI: `sparkles` in the purple-family inks on the provenance container. The
+ * The Worker's AI: the multicolour animated `sparkles` (O11) on the provenance container. The
  * badge speaks one sentence; its visible words are grouped under it. Law 7: it arrives as a
  * state change, so it fades on the `normal` duration and moves nothing.
  */
@@ -758,16 +759,7 @@ function ProvenanceBadge({
           icon={(color) => (onDevice ? (
             <Icon color={color} name="appleIntelligence" rendering="multicolor" size={16} />
           ) : (
-            <Icon
-              color={color}
-              name="sparkle"
-              rendering={{ palette: [
-                theme.condition.mostlyClearNight,
-                theme.condition.partlyCloudyNight,
-                theme.colors.provenanceInk,
-              ] }}
-              size={16}
-            />
+            <AiSparkleMark color={color} size={16} />
           ))}
           label={generationMode.label}
           testID="today-generation-mode"
