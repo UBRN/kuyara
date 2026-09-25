@@ -10,7 +10,7 @@ import type {
   WeatherMeasurements,
   WeatherSnapshot,
 } from '@/features/weather/domain/weather';
-import { wardrobeDayWindow } from '@/features/weather/domain/wardrobe-day';
+import { outfitCoverage } from '@/features/recommendation/domain/outfit-coverage';
 import {
   chillyCelsius,
   freezingCelsius,
@@ -320,28 +320,43 @@ function addTraction(
 export function deriveClothingRequirements(
   snapshot: WeatherSnapshot,
   nowIso: string,
+  departureAt: string = nowIso,
 ): ClothingRequirements {
-  // Both the window and the "remaining" cut come from `now`, not from `observedAt`: at 00:20
-  // a 23:50 snapshot would otherwise answer for yesterday and drop every hour left ahead.
-  // The window is the dressing day, so an evening open reaches the hours of the night the
-  // person is walking into instead of stopping at a midnight nobody changes clothes at.
-  const now = Date.parse(nowIso);
-  const dayWindow = wardrobeDayWindow(nowIso, snapshot.timeZone);
-  // A zone `Intl` refuses leaves no window, and a requirement set built from the current
-  // measurement alone would be a silent narrowing rather than a stated one. Every hour the
-  // snapshot still has ahead is the honest pool there: wider than the dressing day, never
-  // emptier than it.
-  const windowEnd = dayWindow ? Date.parse(dayWindow.end) : Number.POSITIVE_INFINITY;
+  const start = Date.parse(departureAt);
+  const coverage = outfitCoverage(departureAt, snapshot.timeZone);
+  const windowEnd = coverage ? Date.parse(coverage.end) : Number.POSITIVE_INFINITY;
   const relevantHourly = snapshot.hourly.filter(
     ({ forecastAt }) => {
       const forecast = Date.parse(forecastAt);
-      return forecast >= now && forecast < windowEnd;
+      return forecast >= start && forecast < windowEnd;
     },
   );
-  const measurements: readonly WeatherMeasurements[] = [
-    snapshot.current,
-    ...relevantHourly,
+  const leavingNow = departureAt === nowIso;
+  const firstHours = relevantHourly.filter(({ forecastAt }) =>
+    Date.parse(forecastAt) < start + 4 * 3600000);
+  const mainHours = firstHours.length ? firstHours
+    : leavingNow ? [] : relevantHourly.slice(0, 1);
+  const tail = relevantHourly.filter(({ forecastAt }) =>
+    Date.parse(forecastAt) >= start + 4 * 3600000);
+  const severeTail = tail.filter((hour, index) => {
+    const cold = (value: WeatherMeasurements) => Math.min(
+      value.temperatureCelsius, value.apparentTemperatureCelsius);
+    if (cold(hour) < 5) return true;
+    if (cold(hour) >= 12) return false;
+    const adjacent = (other: typeof hour | undefined) => other && cold(other) < 12 &&
+      Math.abs(Date.parse(other.forecastAt) - Date.parse(hour.forecastAt)) === 3600000;
+    return Boolean(adjacent(tail[index - 1]) || adjacent(tail[index + 1]));
+  });
+  // A future departure never uses the present reading as its main weather. Missing hours
+  // use whichever forecast hours remain; a completely empty forecast falls back safely.
+  const primaryMeasurements: readonly WeatherMeasurements[] = [
+    ...(leavingNow ? [snapshot.current] : []), ...mainHours, ...severeTail,
   ];
+  const measurements = primaryMeasurements.length ? primaryMeasurements : [snapshot.current];
+  const windowMeasurements: readonly WeatherMeasurements[] = [
+    ...(leavingNow ? [snapshot.current] : []), ...relevantHourly,
+  ];
+  const allWindowMeasurements = windowMeasurements.length ? windowMeasurements : [snapshot.current];
   // The extremes are the window's own, never the provider's daily minimum and maximum: those
   // describe the observation's calendar day, so at 23:40 they answer with this morning's low
   // and after midnight they answer for a day that has ended. A window with no hour in it
@@ -366,16 +381,11 @@ export function deriveClothingRequirements(
   // so the side the current conditions trigger stays mandatory and the side only later
   // hours trigger becomes optional. When neither is current, protection wins over
   // comfort: the cold side stays mandatory.
-  const currentCold = Math.min(
-    snapshot.current.temperatureCelsius,
-    snapshot.current.apparentTemperatureCelsius,
-  );
-  const currentHeat = Math.max(
-    snapshot.current.temperatureCelsius,
-    snapshot.current.apparentTemperatureCelsius,
-  );
+  const primary = leavingNow ? snapshot.current : mainHours[0] ?? snapshot.current;
+  const currentCold = Math.min(primary.temperatureCelsius, primary.apparentTemperatureCelsius);
+  const currentHeat = Math.max(primary.temperatureCelsius, primary.apparentTemperatureCelsius);
   const conflicting = coldExposure < chillyCelsius && heatExposure >= veryHotCelsius;
-  const coldDemoted = conflicting
+  const coldDemoted = conflicting && severeTail.length === 0
     && currentHeat >= veryHotCelsius
     && currentCold >= chillyCelsius;
   const heatDemoted = conflicting && !coldDemoted;
@@ -416,6 +426,11 @@ export function deriveClothingRequirements(
       reasonCodes: coldReasons,
     });
   }
+  if (coldExposure >= chillyCelsius && tail.some((hour) =>
+    Math.min(hour.temperatureCelsius, hour.apparentTemperatureCelsius) < chillyCelsius)) {
+    candidates.push({ kind: 'thermal', minimum: 'light', priority: 'optional',
+      reasonCodes: ['temperature_low'] });
+  }
 
   // Below 12 the head, the neck and the hands are worth covering, which is the boundary
   // that already makes full arm and leg coverage mandatory. These three stay optional
@@ -455,7 +470,7 @@ export function deriveClothingRequirements(
   }
 
   const maximumWind = Math.max(
-    ...measurements.map(({ windSpeedMetersPerSecond }) =>
+    ...allWindowMeasurements.map(({ windSpeedMetersPerSecond }) =>
       windSpeedMetersPerSecond,
     ),
   );
@@ -470,7 +485,7 @@ export function deriveClothingRequirements(
   }
 
   const maximumPrecipitationProbability = Math.max(
-    ...measurements.map(({ precipitationProbability }) =>
+    ...allWindowMeasurements.map(({ precipitationProbability }) =>
       precipitationProbability,
     ),
   );
@@ -492,7 +507,7 @@ export function deriveClothingRequirements(
     );
   }
 
-  for (const condition of new Set(measurements.map(({ condition }) => condition))) {
+  for (const condition of new Set(allWindowMeasurements.map(({ condition }) => condition))) {
     const reasonCode = `condition_${condition}` as ClothingRequirementReasonCode;
 
     switch (condition) {

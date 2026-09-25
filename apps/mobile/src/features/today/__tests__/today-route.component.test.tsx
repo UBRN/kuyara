@@ -379,7 +379,7 @@ function Providers({
   recommendation: RecommendationApplicationState;
   recommendationGetSnapshot?: () => RecommendationApplicationState;
   recommendationRefresh?: () => Promise<null>;
-  recommendationEvaluateApprovedTriggers?: () => Promise<void>;
+  recommendationEvaluateApprovedTriggers?: (foreground?: boolean) => Promise<void>;
   recommendationRegenerate?: () => Promise<null>;
   resolvedDressStyle?: 'casual' | 'smart' | 'formal';
   dressingDayChoiceReady?: boolean;
@@ -1282,8 +1282,8 @@ test('pull-to-refresh clears a saved outfit failure when its approved inputs are
   const productAnalytics = createProductAnalytics();
   const recommendationRefresh = jest.fn(async () => null);
   const store = recommendationStateStore(recommendationReady({ lastFailure: 'unavailable' }));
-  const recommendationEvaluateApprovedTriggers = jest.fn(async () => {
-    store.set(recommendationReady());
+  const recommendationEvaluateApprovedTriggers = jest.fn(async (foreground?: boolean) => {
+    if (!foreground) store.set(recommendationReady());
   });
   function Scenario() {
     const recommendation = useSyncExternalStore(store.subscribe, store.getSnapshot);
@@ -1303,12 +1303,13 @@ test('pull-to-refresh clears a saved outfit failure when its approved inputs are
     <Scenario />,
   );
   productAnalytics.analytics.captures.length = 0;
+  recommendationEvaluateApprovedTriggers.mockClear();
   expect(result.getByTestId('today-freshness')).toHaveTextContent(/Couldn't refresh/);
 
   await act(async () => result.getByTestId('today-screen').props.refreshControl.props.onRefresh());
 
   expect(recommendationRefresh).not.toHaveBeenCalled();
-  expect(recommendationEvaluateApprovedTriggers).toHaveBeenCalledTimes(1);
+  expect(recommendationEvaluateApprovedTriggers).toHaveBeenCalledWith();
   expect(result.getByTestId('today-archetype')).toBeOnTheScreen();
   expect(result.getByTestId('today-freshness')).not.toHaveTextContent(/Couldn't refresh/);
   expect(productAnalytics.analytics.captures.find(({ name }) =>
@@ -1322,8 +1323,8 @@ test('a failed weather refresh with the same snapshot skips recommendation regen
   const weather = weatherValue({ refreshFailure: 'offline' });
   const recommendationRefresh = jest.fn(async () => null);
   const store = recommendationStateStore(recommendationReady({ lastFailure: 'unavailable' }));
-  const recommendationEvaluateApprovedTriggers = jest.fn(async () => {
-    store.set(recommendationReady());
+  const recommendationEvaluateApprovedTriggers = jest.fn(async (foreground?: boolean) => {
+    if (!foreground) store.set(recommendationReady());
   });
   function Scenario() {
     const recommendation = useSyncExternalStore(store.subscribe, store.getSnapshot);
@@ -1342,6 +1343,7 @@ test('a failed weather refresh with the same snapshot skips recommendation regen
   const result = await render(
     <Scenario />,
   );
+  recommendationEvaluateApprovedTriggers.mockClear();
 
   await act(async () => result.getByTestId('today-screen').props.refreshControl.props.onRefresh());
   await waitFor(() => expect(
@@ -1350,7 +1352,7 @@ test('a failed weather refresh with the same snapshot skips recommendation regen
 
   expect(weather.refresh).toHaveBeenCalledTimes(1);
   expect(recommendationRefresh).not.toHaveBeenCalled();
-  expect(recommendationEvaluateApprovedTriggers).toHaveBeenCalledTimes(1);
+  expect(recommendationEvaluateApprovedTriggers).toHaveBeenCalledWith();
   expect(result.getByTestId('today-freshness')).toHaveTextContent(/Couldn't refresh/);
   expect(productAnalytics.analytics.captures.find(({ name }) =>
     name === 'retry_after_failure_triggered')?.properties).toEqual({
@@ -1360,11 +1362,13 @@ test('a failed weather refresh with the same snapshot skips recommendation regen
 
 test('focusing Today asks the recommendation provider to re-evaluate the local day', async () => {
   const reevaluateLocalDay = jest.fn();
+  const recommendationEvaluateApprovedTriggers = jest.fn(async () => undefined);
   await render(
     <Providers
       productAnalytics={createProductAnalytics()}
       profile={profileValue()}
       recommendation={recommendationReady()}
+      recommendationEvaluateApprovedTriggers={recommendationEvaluateApprovedTriggers}
       reevaluateLocalDay={reevaluateLocalDay}
       wardrobe={wardrobeValue()}
       weather={weatherValue()}>
@@ -1373,6 +1377,7 @@ test('focusing Today asks the recommendation provider to re-evaluate the local d
   );
 
   expect(reevaluateLocalDay).toHaveBeenCalledTimes(1);
+  expect(recommendationEvaluateApprovedTriggers).toHaveBeenCalledWith(true);
 });
 
 test('focusing outfit detail re-evaluates the local day and weather freshness', async () => {
