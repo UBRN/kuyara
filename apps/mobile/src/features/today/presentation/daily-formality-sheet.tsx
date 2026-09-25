@@ -1,8 +1,9 @@
 import type { DressStyle } from '@kuyara/contracts';
+import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
-import { AppText, GarmentDrawing, GlassButton, Icon, NativeSheet, useTextScaling } from '@/components/ui';
+import { AppText, Button, GarmentDrawing, GlassButton, Icon, NativeSheet, useTextScaling } from '@/components/ui';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { borderWidths, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -78,13 +79,15 @@ export function DayTypeTiles({
 }
 
 /**
- * The day-type question (M6 step 1): the morning sheet and the 18:00 evening sheet. One tap
- * on a tile chooses and closes the sheet; closing it answers with the profile's dress style.
- * The evening sheet opens with nothing checked, because the morning answer never carries into
- * the evening (N20).
+ * The morning sheet and the 18:00 evening sheet. Step 1 asks the day type: one tap on a tile
+ * chooses it. Step 2 (M18) offers the day's styles at the large detent (N7); its answer and
+ * the day type are written together, once. Closing the sheet answers with what it holds:
+ * the profile's dress style on step 1, the chosen day type on step 2. The evening sheet opens
+ * with nothing checked, because the morning answer never carries into the evening (N20).
  */
 export function DailyFormalitySheet({
   visible, language, question, selected, firstDay = false, onChoose, onDismiss, error,
+  step = 'dayType', styles: styleOptions, onConfirmStyles, confirmLabel,
 }: Readonly<{
   visible: boolean;
   language: SupportedLanguage;
@@ -97,14 +100,21 @@ export function DailyFormalitySheet({
   onChoose: (style: DressStyle) => void;
   onDismiss: () => void;
   error: boolean;
+  step?: 'dayType' | 'styles';
+  /** The day's style options, composed by the route (they belong to the profile feature). */
+  styles?: ReactNode;
+  onConfirmStyles?: () => void;
+  confirmLabel?: string;
 }>) {
   const copy = getMessages(language).today.dailyStyle;
+  const stylesStep = step === 'styles';
   return (
-    <NativeSheet visible={visible} onDismiss={onDismiss} testID="daily-formality-sheet">
+    <NativeSheet onDismiss={onDismiss} size={stylesStep ? 'large' : 'default'}
+      testID="daily-formality-sheet" visible={visible}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.head}>
           <AppText accessibilityRole="header" style={styles.question} variant="title">
-            {question}
+            {stylesStep ? copy.stylesQuestion : question}
           </AppText>
           <GlassButton
             kind="close"
@@ -113,12 +123,27 @@ export function DailyFormalitySheet({
             testID="daily-formality-close"
           />
         </View>
-        {firstDay ? (
-          <AppText colorRole="textSecondary" testID="daily-formality-first-day" variant="caption">
-            {copy.firstDayNote}
-          </AppText>
-        ) : null}
-        <DayTypeTiles language={language} onSelect={onChoose} selected={selected} testID="daily-formality" />
+        {stylesStep ? (
+          <>
+            <AppText colorRole="textSecondary" testID="daily-formality-styles-note" variant="caption">
+              {copy.stylesNote}
+            </AppText>
+            {styleOptions}
+            {onConfirmStyles && confirmLabel ? (
+              <Button label={confirmLabel} onPress={onConfirmStyles} size="large"
+                testID="daily-formality-styles-done" />
+            ) : null}
+          </>
+        ) : (
+          <>
+            {firstDay ? (
+              <AppText colorRole="textSecondary" testID="daily-formality-first-day" variant="caption">
+                {copy.firstDayNote}
+              </AppText>
+            ) : null}
+            <DayTypeTiles language={language} onSelect={onChoose} selected={selected} testID="daily-formality" />
+          </>
+        )}
         {error ? <AppText accessibilityRole="alert">{copy.saveError}</AppText> : null}
       </ScrollView>
     </NativeSheet>

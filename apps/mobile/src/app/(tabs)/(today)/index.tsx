@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { DressStyle } from '@kuyara/contracts';
+import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
 
 import type { FailureCategory } from '@/domain/failure-category';
 import { useAnalyticsConsentTrigger } from '@/features/analytics/application/analytics-consent-trigger';
@@ -21,6 +21,7 @@ import { useWeatherAlertOffer } from '@/features/notifications/application/use-w
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { namePromptVersion } from '@/features/profile/domain/profile';
 import { NameSheet } from '@/features/profile/presentation/name-sheet';
+import { StyleAestheticsOptions } from '@/features/profile/presentation/style-aesthetics-options';
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
 import { localDayKey } from '@/features/recommendation/application/recommendation-application-controller';
 import { outfitCoverage } from '@/features/recommendation/domain/outfit-coverage';
@@ -49,6 +50,7 @@ export default function TodayRoute() {
     morningChoicePending,
     eveningChoicePending,
     resolvedDressStyle,
+    resolvedStyleAesthetics,
     chooseFormality,
     reask,
     activeDeparture,
@@ -75,6 +77,11 @@ export default function TodayRoute() {
   const [askError, setAskError] = useState(false);
   const [choosingWindow, setChoosingWindow] = useState<Readonly<{ start: string; end: string }> | null>(null);
   const [sheetError, setSheetError] = useState(false);
+  // M18 step 2: the day type chosen on step 1 and the styles on screen. Nothing is written
+  // until the sheet closes, so both answers land in one write and one generation.
+  const [stylesStep, setStylesStep] = useState<Readonly<{
+    style: DressStyle; initial: readonly StyleAesthetic[]; draft: readonly StyleAesthetic[];
+  }> | null>(null);
   const offeredKey = useRef<string | null>(null);
   const savingChoice = useRef(false);
   const showNamePrompt = profileState.status === 'ready'
@@ -218,12 +225,15 @@ export default function TodayRoute() {
   const updatingDayType = recommendationState.status === 'ready' && recommendationState.isRefreshing &&
     resolvedDressStyle && snapshotDressStyle !== null && snapshotDressStyle !== resolvedDressStyle
     ? resolvedDressStyle : null;
-  const handleChoice = async (style: DressStyle) => {
+  // The one write that answers the sheet. `styles` is left out unless step 2 changed them,
+  // so an untouched step keeps the Settings defaults following Settings (N4).
+  const answerSheet = async (style: DressStyle, styles?: readonly StyleAesthetic[]) => {
     if (!sheetTarget || savingChoice.current || !currentDressingDayKey) return;
     savingChoice.current = true;
     setSheetError(false);
     try {
-      await chooseFormality?.(currentDressingDayKey, style, 'morning');
+      await chooseFormality?.(currentDressingDayKey, style, 'morning', styles);
+      setStylesStep(null);
       setSheetTarget(null);
     } catch {
       setSheetError(true);
@@ -231,14 +241,29 @@ export default function TodayRoute() {
       savingChoice.current = false;
     }
   };
+  const handleChoice = (style: DressStyle) => {
+    if (!sheetTarget || savingChoice.current) return;
+    const initial = resolvedStyleAesthetics ?? [];
+    setStylesStep({ style, initial, draft: initial });
+  };
+  const confirmStyles = () => {
+    if (!stylesStep) return;
+    const changed = JSON.stringify([...stylesStep.draft].sort()) !==
+      JSON.stringify([...stylesStep.initial].sort());
+    void answerSheet(stylesStep.style, changed ? stylesStep.draft : undefined);
+  };
   // P6: closing the question answers it with the profile's own dress style, through the same
-  // write an answer makes, so it starts no generation the answer would not.
+  // write an answer makes, so it starts no generation the answer would not. Closed on step 2,
+  // it answers with the day type already chosen and leaves the styles as they were.
   const dismissChoice = () => {
     const target = openSheet.current;
     if (savingChoice.current || !target || !currentDressingDayKey) return;
+    const chosen = stylesStep;
     savingChoice.current = true;
     setSheetTarget(null);
-    void (chooseFormality?.(currentDressingDayKey, profileDressStyle, 'morning') ?? Promise.resolve())
+    void (chooseFormality?.(currentDressingDayKey, chosen?.style ?? profileDressStyle, 'morning')
+      ?? Promise.resolve())
+      .then(() => setStylesStep(null))
       .catch(() => { setSheetError(true); setSheetTarget(target); })
       .finally(() => { savingChoice.current = false; });
   };
@@ -430,7 +455,15 @@ export default function TodayRoute() {
         : getMessages(language).today.dailyStyle.question}
       selected={sheetTarget === 'evening' ? null : resolvedDressStyle ?? profileDressStyle}
       firstDay={sheetTarget === 'morning' && firstDressingDay}
-      error={sheetError} onChoose={(style) => { void handleChoice(style); }} onDismiss={dismissChoice} />
+      error={sheetError} onChoose={handleChoice} onDismiss={dismissChoice}
+      step={stylesStep ? 'styles' : 'dayType'}
+      styles={stylesStep ? (
+        <StyleAestheticsOptions copy={getMessages(language).preferences}
+          onChange={(draft) => setStylesStep({ ...stylesStep, draft })}
+          selected={stylesStep.draft} testID="daily-formality-styles" />
+      ) : null}
+      onConfirmStyles={confirmStyles}
+      confirmLabel={getMessages(language).preferences.stylePreferencesDone} />
     {placeTimeZone ? (
       <AskAgainSheet
         busy={askBusy}

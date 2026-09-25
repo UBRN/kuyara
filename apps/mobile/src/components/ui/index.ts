@@ -69,7 +69,7 @@ export {
   runwayDressingDuration,
   type RunwayBoardOutfit,
 } from './garment-board/garment-runway-board';
-export type { GarmentOutfitPalette } from './garment-board/garment-palette';
+export { garmentColorFamiliesBySlot, type GarmentOutfitPalette } from './garment-board/garment-palette';
 
 // ADR 0028 section 6 and ADR 0029 section 5: approved content colour for the Profile
 // rail, the Closet grid, and the form's colour-family swatches. Never a theme role.

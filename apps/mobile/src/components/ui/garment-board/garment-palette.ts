@@ -406,3 +406,15 @@ export function garmentRolesBySlot(input: GarmentPaletteInput): ReadonlyMap<Outf
   paletteCache.set(key, roles);
   return roles;
 }
+
+/**
+ * The colour family each piece of one outfit is drawn in (O7). The swatch a piece takes
+ * depends only on the outfit and its day, never on the appearance or the plane, so the
+ * outfit detail can compare it with a Closet record's family. Render data only: it never
+ * reaches a recommendation.
+ */
+export function garmentColorFamiliesBySlot(palette: GarmentOutfitPalette): ReadonlyMap<OutfitSlot, ColorFamily> {
+  return new Map(resolveGarmentPalette({
+    ...palette, appearance: 'light', stageColor: '#FFFFFF', inkColor: '#000000',
+  }).map(({ piece, colorFamily }) => [piece.slot, colorFamily]));
+}

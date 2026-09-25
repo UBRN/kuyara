@@ -1,65 +1,37 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { resolveGarmentOwnership } from './garment-type-ownership.ts';
+import { matchPieceOwnership } from './garment-type-ownership.ts';
 
-function item({
-  id,
-  entryState,
-  garmentTypeId = 't_shirt',
-  createdAt = '2026-09-01T10:00:00.000Z',
-}) {
-  return { id, entryState, garmentTypeId, createdAt };
+function item({ id, entryState = 'owned', garmentTypeId = 'jeans', colorFamily = null }) {
+  return { id, entryState, garmentTypeId, colorFamily };
 }
 
-test('returns none when no item matches the garment type', () => {
-  assert.deepEqual(
-    resolveGarmentOwnership('t_shirt', [
-      item({ id: 'other', entryState: 'owned', garmentTypeId: 'shirt' }),
-    ]),
-    { state: 'none', itemIds: [] },
-  );
+test('O7: an owned record in the piece colour family is "I own it"', () => {
+  const exact = item({ id: 'exact', colorFamily: 'blue' });
+  assert.deepEqual(matchPieceOwnership('jeans', 'blue', [
+    item({ id: 'other', colorFamily: 'black' }), exact,
+  ]), { kind: 'owned', item: exact });
 });
 
-test('returns the matching owned item', () => {
-  assert.deepEqual(
-    resolveGarmentOwnership('t_shirt', [item({ id: 'owned', entryState: 'owned' })]),
-    { state: 'owned', itemIds: ['owned'] },
-  );
+test('O7: owned records of the type, all in another colour family, are "a similar one"', () => {
+  const black = item({ id: 'black', colorFamily: 'black' });
+  assert.deepEqual(matchPieceOwnership('jeans', 'blue', [black]), { kind: 'similar', item: black });
 });
 
-test('returns the matching wanted item', () => {
-  assert.deepEqual(
-    resolveGarmentOwnership('t_shirt', [item({ id: 'wanted', entryState: 'wanted' })]),
-    { state: 'wanted', itemIds: ['wanted'] },
-  );
+test('a missing colour family on either side matches on type alone', () => {
+  const noColour = item({ id: 'plain' });
+  assert.deepEqual(matchPieceOwnership('jeans', 'blue', [noColour]), { kind: 'owned', item: noColour });
+  const black = item({ id: 'black', colorFamily: 'black' });
+  assert.deepEqual(matchPieceOwnership('jeans', null, [black]), { kind: 'owned', item: black });
 });
 
-test('returns every matching item and derives owned when any match is owned', () => {
-  assert.deepEqual(
-    resolveGarmentOwnership('t_shirt', [
-      item({ id: 'wanted-first', entryState: 'wanted', createdAt: '2026-08-01T10:00:00.000Z' }),
-      item({ id: 'owned-later', entryState: 'owned', createdAt: '2026-09-01T10:00:00.000Z' }),
-    ]),
-    { state: 'owned', itemIds: ['wanted-first', 'owned-later'] },
-  );
-});
-
-test('derives wanted when every matching item is wanted', () => {
-  assert.deepEqual(
-    resolveGarmentOwnership('t_shirt', [
-      item({ id: 'later', entryState: 'wanted', createdAt: '2026-09-02T10:00:00.000Z' }),
-      item({ id: 'earlier', entryState: 'wanted' }),
-    ]),
-    { state: 'wanted', itemIds: ['later', 'earlier'] },
-  );
-});
-
-test('ignores legacy items without a garment type', () => {
-  assert.deepEqual(
-    resolveGarmentOwnership('t_shirt', [
-      item({ id: 'legacy', entryState: 'owned', garmentTypeId: null }),
-    ]),
-    { state: 'none', itemIds: [] },
-  );
+test('owned outranks wanted, wanted outranks nothing, and other types never match', () => {
+  const wanted = item({ id: 'wanted', entryState: 'wanted', colorFamily: 'blue' });
+  const owned = item({ id: 'owned', colorFamily: 'black' });
+  assert.deepEqual(matchPieceOwnership('jeans', 'blue', [wanted, owned]), { kind: 'similar', item: owned });
+  assert.deepEqual(matchPieceOwnership('jeans', 'blue', [wanted]), { kind: 'wanted', item: wanted });
+  assert.deepEqual(matchPieceOwnership('jeans', 'blue', [item({ id: 'x', garmentTypeId: 'trousers' })]),
+    { kind: 'none' });
+  assert.deepEqual(matchPieceOwnership('jeans', 'blue', []), { kind: 'none' });
 });

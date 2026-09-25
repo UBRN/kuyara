@@ -122,7 +122,7 @@ test('the Closet heading counts both entry states and opens the closet with no f
         itemWithId('218f0f4d-1d45-4ae7-a8f1-796e8297d3b4'),
         itemWithId('318f0f4d-1d45-4ae7-a8f1-796e8297d3b4', { entryState: 'wanted' }),
       ]}>
-      <ProfileScreen
+      <ProfileScreen onOpenHistory={() => undefined}
 
         onOpenWardrobe={onOpenWardrobe}
 
@@ -145,7 +145,7 @@ test.each([
     mockFontScale(fontScale);
     const result = await render(
       <TestProviders items={[baseItem]}>
-        <ProfileScreen
+        <ProfileScreen onOpenHistory={() => undefined}
 
           onOpenWardrobe={() => undefined}
 
@@ -175,7 +175,7 @@ test('the rail renders the newest owned pieces first, each as one accessible ite
   });
   const result = await render(
     <TestProviders items={[older, newer]}>
-      <ProfileScreen
+      <ProfileScreen onOpenHistory={() => undefined}
 
         onOpenWardrobe={() => undefined}
 
@@ -202,7 +202,7 @@ test('a ninth owned piece adds the "All pieces" tile, which opens the closet wit
   );
   const result = await render(
     <TestProviders items={items}>
-      <ProfileScreen
+      <ProfileScreen onOpenHistory={() => undefined}
 
         onOpenWardrobe={onOpenWardrobe}
 
@@ -223,7 +223,7 @@ test('the rail tile scales by min(fontScale, 2) above 1.5 per ADR 0028 section 3
   mockFontScale(3.12);
   const result = await render(
     <TestProviders items={[baseItem]}>
-      <ProfileScreen
+      <ProfileScreen onOpenHistory={() => undefined}
 
         onOpenWardrobe={() => undefined}
 
@@ -247,7 +247,7 @@ test('the empty Closet shows the sentence and the Add a piece action, and hides 
   const onOpenWardrobe = jest.fn();
   const result = await render(
     <TestProviders items={[]}>
-      <ProfileScreen
+      <ProfileScreen onOpenHistory={() => undefined}
 
         onOpenWardrobe={onOpenWardrobe}
 
@@ -265,7 +265,7 @@ test('the Turkish empty Closet wraps its text within the window at fontScale 3.1
   mockFontScale(3.1);
   const result = await render(
     <TestProviders items={[]} language="tr">
-      <ProfileScreen displayName="Utku" onOpenWardrobe={() => undefined} />
+      <ProfileScreen onOpenHistory={() => undefined} displayName="Utku" onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
 
@@ -306,7 +306,7 @@ test('a wanted-only closet counts its pieces and falls back to the wanted rail',
   const onOpenWardrobe = jest.fn();
   const result = await render(
     <TestProviders items={[itemWithId(baseItem.id, { entryState: 'wanted' })]}>
-      <ProfileScreen
+      <ProfileScreen onOpenHistory={() => undefined}
 
         onOpenWardrobe={onOpenWardrobe}
 
@@ -332,7 +332,7 @@ test('an owned-only closet keeps the Wanted row at zero', async () => {
   const onOpenWardrobe = jest.fn();
   const result = await render(
     <TestProviders items={[baseItem]}>
-      <ProfileScreen
+      <ProfileScreen onOpenHistory={() => undefined}
 
         onOpenWardrobe={onOpenWardrobe}
 
@@ -346,23 +346,25 @@ test('an owned-only closet keeps the Wanted row at zero', async () => {
   expect(onOpenWardrobe).toHaveBeenCalledWith('wanted');
 });
 
-test('Profile removes the location row and keeps a label-only History row', async () => {
+test('Profile removes the location row and its History row opens History', async () => {
+  const onOpenHistory = jest.fn();
   const result = await render(
     <TestProviders items={[baseItem]}>
-      <ProfileScreen onOpenWardrobe={() => undefined} />
+      <ProfileScreen onOpenHistory={onOpenHistory} onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
   expect(result.queryByTestId('profile-location-row')).toBeNull();
   const history = result.getByTestId('profile-history-row');
-  expect(history).toBeOnTheScreen();
-  expect(result.getByText(messages.en.profile.historyLabel)).toBeOnTheScreen();
-  expect(history.props.accessibilityRole).toBeUndefined();
+  expect(history.props.accessibilityRole).toBe('button');
+  expect(history.props.accessibilityLabel).toBe(messages.en.profile.historyLabel);
+  await fireEvent.press(history);
+  expect(onOpenHistory).toHaveBeenCalledTimes(1);
 });
 
 test('the Closet heading uses the name while the rest of Profile stays the same', async () => {
   const result = await render(
     <TestProviders items={[baseItem]}>
-      <ProfileScreen displayName="Utku" onOpenWardrobe={() => undefined} />
+      <ProfileScreen onOpenHistory={() => undefined} displayName="Utku" onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
   expect(result.getByText("Utku's Closet")).toBeOnTheScreen();
@@ -374,7 +376,7 @@ test('Turkish keeps the name unchanged in the Closet heading at large text size'
   mockFontScale(3.12);
   const result = await render(
     <TestProviders items={[baseItem]} language="tr">
-      <ProfileScreen displayName="Utku" onOpenWardrobe={() => undefined} />
+      <ProfileScreen onOpenHistory={() => undefined} displayName="Utku" onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
   expect(result.getByText('Gardırop · Utku')).toBeOnTheScreen();
@@ -388,7 +390,7 @@ test.each(['loading', 'error'] as const)(
     mockFontScale(1);
     const result = await render(
       <TestProviders items={[]} status={status}>
-        <ProfileScreen
+        <ProfileScreen onOpenHistory={() => undefined}
 
           onOpenWardrobe={() => undefined}
 
@@ -416,7 +418,7 @@ test('the rail draws coloured silhouettes for typed garments and accessories, an
   const legacy = itemWithId('legacy', { garmentTypeId: null });
   const result = await render(
     <TestProviders items={[baseItem, accessory, legacy]}>
-      <ProfileScreen onOpenWardrobe={() => undefined} />
+      <ProfileScreen onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
   const hidden = { includeHiddenElements: true };
@@ -431,7 +433,7 @@ test('the rail draws coloured silhouettes for typed garments and accessories, an
 test('the rail prefers a photo, falling to the silhouette when the photo cannot load', async () => {
   const result = await render(
     <TestProviders items={[{ ...baseItem, photoRelativePath: 'photo.jpg' }]} resolvePhotoUri={() => 'file:///photo.jpg'}>
-      <ProfileScreen onOpenWardrobe={() => undefined} />
+      <ProfileScreen onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
     </TestProviders>,
   );
   const hidden = { includeHiddenElements: true };

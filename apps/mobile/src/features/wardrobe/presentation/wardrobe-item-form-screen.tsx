@@ -112,7 +112,7 @@ function FormSectionLabel({
 // requires of an interactive component, which a white swatch on a white surface needs.
 // Colour is not the only signal: the selected family's name sits under the row and the
 // radio state carries it for assistive technology.
-function ColorSwatch({
+export function ColorSwatch({
   colorFamily,
   disabled,
   label,
