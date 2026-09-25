@@ -1,8 +1,6 @@
 /**
- * The one place the "show another outfit" allowance lives. Nothing here knows about a
- * provider, a model, the Worker or its quota: the policy answers one question, whether this
- * regeneration may spend an AI attempt, and the button stays enabled either way because the
- * pool path always has a valid three to offer.
+ * The one place the "ask again" allowance lives. Nothing here knows about a
+ * provider, a model, the Worker or its quota.
  *
  * The daily number is a first-release default, not a derived limit. It keeps a single
  * install from spending the whole shared Worker ceiling in one sitting without making that
@@ -10,20 +8,11 @@
  */
 export const regenerationPolicy = { dailyAiRegenerations: 5 } as const;
 
-export function regenerationMode(
-  used: number,
-  policy: Readonly<{ dailyAiRegenerations: number }> = regenerationPolicy,
-): 'ai' | 'pool' {
-  return used < policy.dailyAiRegenerations ? 'ai' : 'pool';
-}
-
 /**
- * How many AI regenerations the day has already spent. The day key is the calendar date of
+ * Reserve an AI re-ask before entering the chain. The day key is the calendar date of
  * the controller's own dressing-day key, so there is no second clock and the evening shares
- * the allowance of the date it began on: a key that is not today's reads as zero and nothing
- * has to be swept.
+ * the allowance of the date it began on. A failed read or write denies the reservation.
  */
 export interface AiRegenerationBudget {
-  usedToday(dayKey: string): Promise<number>;
-  record(dayKey: string): Promise<void>;
+  reserve(dayKey: string): Promise<boolean>;
 }

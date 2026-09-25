@@ -1,6 +1,6 @@
 import { Directory, File, Paths } from 'expo-file-system';
 
-import type { AiRegenerationBudget } from '@/features/recommendation/domain/regeneration-policy';
+import { regenerationPolicy, type AiRegenerationBudget } from '@/features/recommendation/domain/regeneration-policy';
 
 // A counter for one local day is not durable user data and would cost a migration on the
 // released schema, so it lives beside the analytics first-use ledger as a small JSON file in
@@ -10,46 +10,46 @@ const directorySegments = ['kuyara', 'recommendation'] as const;
 const fileName = 'ai-regenerations.json';
 
 export class ExpoFileAiRegenerationBudget implements AiRegenerationBudget {
+  private static pending: Promise<void> = Promise.resolve();
+
   private file(): File {
     return new File(Paths.document, ...directorySegments, fileName);
   }
 
-  /**
-   * Never rejects. Both callers fire this without awaiting it, so a rejection would only
-   * surface as an unhandled promise warning. An unreadable or malformed file reads as zero,
-   * the same answer a file naming another day already gives.
-   */
-  async usedToday(dayKey: string): Promise<number> {
+  private async countFor(dayKey: string): Promise<number | null> {
     try {
       const file = this.file();
       if (!file.exists) return 0;
 
       const parsed: unknown = JSON.parse(await file.text());
-      if (typeof parsed !== 'object' || parsed === null) return 0;
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
       const record = parsed as Readonly<{ dayKey?: unknown; count?: unknown }>;
-      // `>= 0` also rejects NaN, which is the only shape `typeof` lets through.
-      return record.dayKey === dayKey && typeof record.count === 'number' && record.count >= 0
-        ? record.count
-        : 0;
+      if (typeof record.dayKey !== 'string' || typeof record.count !== 'number' ||
+          !Number.isSafeInteger(record.count) || record.count < 0) return null;
+      return record.dayKey === dayKey ? record.count : 0;
     } catch {
-      return 0;
+      return null;
     }
   }
 
-  /**
-   * Never rejects either. A lost count only means one more AI regeneration is allowed today,
-   * which is the safe direction for a counter that exists to bound spend, not to bill.
-   */
-  async record(dayKey: string): Promise<void> {
-    const count = (await this.usedToday(dayKey)) + 1;
+  private async reserveOnce(dayKey: string): Promise<boolean> {
+    const count = await this.countFor(dayKey);
+    if (count === null || count >= regenerationPolicy.dailyAiRegenerations) return false;
     try {
       new Directory(Paths.document, ...directorySegments).create({
         idempotent: true,
         intermediates: true,
       });
-      this.file().write(JSON.stringify({ dayKey, count }));
+      this.file().write(JSON.stringify({ dayKey, count: count + 1 }));
+      return true;
     } catch {
-      // The budget stays where it was; the next tap simply gets one more allowance.
+      return false;
     }
+  }
+
+  reserve(dayKey: string): Promise<boolean> {
+    const result = ExpoFileAiRegenerationBudget.pending.then(() => this.reserveOnce(dayKey));
+    ExpoFileAiRegenerationBudget.pending = result.then(() => undefined, () => undefined);
+    return result;
   }
 }

@@ -2,11 +2,10 @@ import assert from 'node:assert/strict';
 import { registerHooks } from 'node:module';
 import test from 'node:test';
 
-// The adapter is the only thing between a device file and two `void`-ed calls, so the file
-// system is mocked rather than the adapter: a rejection here would leave an unhandled promise
-// on the device and nothing else would report it.
+// Mock the device file to verify durable, serialized reservations.
 const files = new Map();
-let failure = null;
+let readFailure = false;
+let writeFailure = false;
 
 function fileUri(parts) {
   const [root, ...segments] = parts;
@@ -14,8 +13,12 @@ function fileUri(parts) {
   return [rootUri.replace(/\/$/, ''), ...segments].join('/');
 }
 
-function throwWhenFailing() {
-  if (failure) throw new Error(failure);
+function throwOnRead() {
+  if (readFailure) throw new Error('read failed');
+}
+
+function throwOnWrite() {
+  if (writeFailure) throw new Error('write failed');
 }
 
 globalThis.__kuyaraRegenerationBudgetFileMocks = {
@@ -25,7 +28,7 @@ globalThis.__kuyaraRegenerationBudgetFileMocks = {
     }
 
     create() {
-      throwWhenFailing();
+      throwOnWrite();
     }
   },
   File: class {
@@ -34,17 +37,17 @@ globalThis.__kuyaraRegenerationBudgetFileMocks = {
     }
 
     get exists() {
-      throwWhenFailing();
+      throwOnRead();
       return files.has(this.uri);
     }
 
     async text() {
-      throwWhenFailing();
+      throwOnRead();
       return files.get(this.uri);
     }
 
     write(value) {
-      throwWhenFailing();
+      throwOnWrite();
       files.set(this.uri, value);
     }
   },
@@ -74,60 +77,47 @@ const budgetPath = 'file:///documents/kuyara/recommendation/ai-regenerations.jso
 
 test.beforeEach(() => {
   files.clear();
-  failure = null;
+  readFailure = false;
+  writeFailure = false;
 });
 
-test('a missing file reads as no regenerations today', async () => {
-  assert.equal(await new ExpoFileAiRegenerationBudget().usedToday('2026-09-18'), 0);
+test('six concurrent reservations across instances allow exactly five', async () => {
+  const reservations = await Promise.all(Array.from({ length: 6 }, () =>
+    new ExpoFileAiRegenerationBudget().reserve('2026-09-18')));
+  assert.deepEqual(reservations, [true, true, true, true, true, false]);
+  assert.equal(files.get(budgetPath), JSON.stringify({ dayKey: '2026-09-18', count: 5 }));
 });
 
-test('recording counts up and the count is read back for the same day', async () => {
+test('the dressing-day date shares one allowance and a new date resets it', async () => {
   const budget = new ExpoFileAiRegenerationBudget();
-
-  await budget.record('2026-09-18');
-  await budget.record('2026-09-18');
-
-  assert.equal(files.get(budgetPath), JSON.stringify({ dayKey: '2026-09-18', count: 2 }));
-  assert.equal(await budget.usedToday('2026-09-18'), 2);
+  assert.equal(await budget.reserve('2026-09-18'), true);
+  assert.equal(await budget.reserve('2026-09-18'), true);
+  assert.equal(await budget.reserve('2026-09-19'), true);
+  assert.equal(files.get(budgetPath), JSON.stringify({ dayKey: '2026-09-19', count: 1 }));
 });
 
-test("yesterday's entry reads as zero and is overwritten rather than cleaned up", async () => {
+test('malformed, unreadable and unwritable stores deny a reservation', async () => {
   const budget = new ExpoFileAiRegenerationBudget();
-  files.set(budgetPath, JSON.stringify({ dayKey: '2026-09-17', count: 3 }));
-
-  assert.equal(await budget.usedToday('2026-09-18'), 0);
-
-  await budget.record('2026-09-18');
-  assert.equal(files.get(budgetPath), JSON.stringify({ dayKey: '2026-09-18', count: 1 }));
-});
-
-test('a malformed or wrongly shaped file reads as zero', async () => {
-  const budget = new ExpoFileAiRegenerationBudget();
-
   for (const stored of ['not json', 'null', '[]', '{"dayKey":"2026-09-18"}',
     '{"dayKey":"2026-09-18","count":"2"}', '{"dayKey":"2026-09-18","count":-1}']) {
     files.set(budgetPath, stored);
-    assert.equal(await budget.usedToday('2026-09-18'), 0, stored);
+    assert.equal(await budget.reserve('2026-09-18'), false, stored);
   }
+  files.clear();
+  readFailure = true;
+  assert.equal(await budget.reserve('2026-09-18'), false);
+  readFailure = false;
+  writeFailure = true;
+  assert.equal(await budget.reserve('2026-09-18'), false);
+  assert.equal(files.has(budgetPath), false);
 });
 
-// Finding 3 of the presubmit read: both call sites are `void`-ed, so a rejection would reach
-// no catch at all.
-test('a throwing file system leaves neither call rejecting', async () => {
+test('a failed write does not falsely consume or grant a slot', async () => {
   const budget = new ExpoFileAiRegenerationBudget();
-  failure = 'file system unavailable';
-
-  assert.equal(await budget.usedToday('2026-09-18'), 0);
-  assert.equal(await budget.record('2026-09-18'), undefined);
-});
-
-test('a write that fails leaves the previous count in place and allows one more regeneration', async () => {
-  const budget = new ExpoFileAiRegenerationBudget();
-  files.set(budgetPath, JSON.stringify({ dayKey: '2026-09-18', count: 1 }));
-
-  failure = 'disk full';
-  await budget.record('2026-09-18');
-  failure = null;
-
-  assert.equal(await budget.usedToday('2026-09-18'), 1);
+  files.set(budgetPath, JSON.stringify({ dayKey: '2026-09-18', count: 4 }));
+  writeFailure = true;
+  assert.equal(await budget.reserve('2026-09-18'), false);
+  writeFailure = false;
+  assert.equal(await budget.reserve('2026-09-18'), true);
+  assert.equal(await budget.reserve('2026-09-18'), false);
 });
