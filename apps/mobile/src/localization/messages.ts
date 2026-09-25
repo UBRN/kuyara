@@ -411,15 +411,14 @@ export type AppMessages = Readonly<{
     historyEmptyTitle: string;
     historyEmptyBody: string;
     historyLoadError: string;
-    wardrobeLoading: string;
     wardrobeEmpty: string;
-    wardrobeUnavailable: string;
     addPieceAction: string;
-    railAllPiecesLabel: string;
-    railItemAccessibilityLabel: (values: {
-      label: string;
-      position: number;
-      total: number;
+    // O9: the open rack is one button; its label names the heading and the pieces by
+    // category, so the drawing is never the only carrier of what the Closet holds.
+    rackAccessibilityLabel: (values: {
+      title: string;
+      count: number;
+      categories: readonly Readonly<{ label: string; count: number }>[];
     }) => string;
   }>;
   notifications: Readonly<{
@@ -602,13 +601,17 @@ export type AppMessages = Readonly<{
     // ADR 0029 section 2: new plural chip strings for the Closet's category filter. The
     // catalogue's singular attribute labels (`catalog.attribute.structural_category.*`)
     // stay for the type picker and the tile subline.
-    categoryFilterAll: string;
     categoryFilterLabels: Readonly<Record<StructuralCategory, string>>;
-    // The Closet's empty sentence is segment-scoped: on the Owned segment it must not
-    // claim the wanted list is empty too.
-    ownedEmpty: string;
-    wantedEmpty: string;
-    bothEmpty: string;
+    // O9: Profile's category cells and the Closet's category tabs speak the same label.
+    categoryAccessibilityLabel: (values: {
+      category: string;
+      count: number;
+      wanted: number;
+    }) => string;
+    // O9: an empty category page names its own category.
+    categoryEmpty: Readonly<Record<StructuralCategory, string>>;
+    // Spoken after a wanted tile's name, with its heart badge.
+    wantedTileLabel: string;
     newTitle: string;
     editTitle: string;
     nameLabel: string;
@@ -841,13 +844,13 @@ const en = {
     historyEmptyTitle: 'No worn looks yet',
     historyEmptyBody: 'When you wear a look, save it from outfit detail to see it here.',
     historyLoadError: 'History could not be loaded. Try again later.',
-    wardrobeLoading: 'Loading closet counts.',
-    wardrobeEmpty: 'You have not added any owned or wanted items yet. Your closet stays separate from your outfit suggestions.',
-    wardrobeUnavailable: 'Closet counts are unavailable right now.',
+    wardrobeEmpty: 'Add the pieces you own or want.',
     addPieceAction: 'Add a piece',
-    railAllPiecesLabel: 'All pieces',
-    railItemAccessibilityLabel: ({ label, position, total }) =>
-      `${label}, ${position} of ${total}.`,
+    rackAccessibilityLabel: ({ title, count, categories }) =>
+      `${title}, ${count} ${count === 1 ? 'piece' : 'pieces'}`
+      + (categories.length > 0
+        ? `: ${categories.map(({ label, count: n }) => `${label} ${n}`).join(', ')}.`
+        : '.'),
   },
   notifications: {
     title: 'Notifications',
@@ -1034,7 +1037,6 @@ const en = {
     unclassifiedType: 'Type not selected',
     ownedLabel: englishOwnershipStateLabels.owned,
     wantedLabel: englishOwnershipStateLabels.wanted,
-    categoryFilterAll: 'All',
     categoryFilterLabels: {
       top: 'Tops',
       bottom: 'Bottoms',
@@ -1043,9 +1045,18 @@ const en = {
       footwear: 'Shoes',
       accessory: 'Accessories',
     },
-    ownedEmpty: 'You have not added any owned items yet.',
-    wantedEmpty: 'You have not added any wanted items yet.',
-    bothEmpty: 'You have not added any owned or wanted items yet. Your closet stays separate from your outfit suggestions.',
+    categoryAccessibilityLabel: ({ category, count, wanted }) =>
+      `${category}, ${count} ${count === 1 ? 'piece' : 'pieces'}`
+      + (wanted > 0 ? `, ${wanted} wanted.` : '.'),
+    categoryEmpty: {
+      top: 'You have not added any tops yet.',
+      bottom: 'You have not added any bottoms yet.',
+      one_piece: 'You have not added any one-piece items yet.',
+      outerwear: 'You have not added any outerwear yet.',
+      footwear: 'You have not added any shoes yet.',
+      accessory: 'You have not added any accessories yet.',
+    },
+    wantedTileLabel: 'Wanted',
     newTitle: 'Add closet item',
     editTitle: 'Edit closet item',
     nameLabel: 'Item name',
@@ -1531,13 +1542,13 @@ const tr = {
     historyEmptyTitle: 'Henüz giyilen kombin yok',
     historyEmptyBody: 'Bir kombini giydiğinde, burada görmek için kombin detayından kaydet.',
     historyLoadError: 'Geçmiş yüklenemedi. Biraz sonra yeniden dene.',
-    wardrobeLoading: 'Gardırop sayıları yükleniyor.',
-    wardrobeEmpty: 'Henüz sahip olduğun veya istediğin bir parça eklemedin. Gardırobun kombin önerilerinden ayrı tutulur.',
-    wardrobeUnavailable: 'Gardırop sayıları şu anda gösterilemiyor.',
+    wardrobeEmpty: 'Sahip olduğun ya da istediğin parçaları ekle.',
     addPieceAction: 'Parça ekle',
-    railAllPiecesLabel: 'Tüm parçalar',
-    railItemAccessibilityLabel: ({ label, position, total }) =>
-      `${label}, ${total} parçadan ${position}.`,
+    rackAccessibilityLabel: ({ title, count, categories }) =>
+      `${title}, ${count} parça`
+      + (categories.length > 0
+        ? `: ${categories.map(({ label, count: n }) => `${label} ${n}`).join(', ')}.`
+        : '.'),
   },
   notifications: {
     title: 'Bildirimler',
@@ -1728,7 +1739,6 @@ const tr = {
     // column at fontScale 3.118. The Profile lane already unified profile.wantedLabel;
     // this closes the same key here so the two screens cannot drift again.
     wantedLabel: 'İstekler',
-    categoryFilterAll: 'Tümü',
     categoryFilterLabels: {
       top: 'Üstler',
       bottom: 'Altlar',
@@ -1737,9 +1747,17 @@ const tr = {
       footwear: 'Ayakkabılar',
       accessory: 'Aksesuarlar',
     },
-    ownedEmpty: 'Henüz sahip olduğun bir parça eklemedin.',
-    wantedEmpty: 'Henüz istediğin bir parça eklemedin.',
-    bothEmpty: 'Henüz sahip olduğun veya istediğin bir parça eklemedin. Gardırobun kombin önerilerinden ayrı tutulur.',
+    categoryAccessibilityLabel: ({ category, count, wanted }) =>
+      `${category}, ${count} parça` + (wanted > 0 ? `, ${wanted} tanesi istek.` : '.'),
+    categoryEmpty: {
+      top: 'Henüz üst parça eklemedin.',
+      bottom: 'Henüz alt parça eklemedin.',
+      one_piece: 'Henüz tek parça eklemedin.',
+      outerwear: 'Henüz dış giyim parçası eklemedin.',
+      footwear: 'Henüz ayakkabı eklemedin.',
+      accessory: 'Henüz aksesuar eklemedin.',
+    },
+    wantedTileLabel: 'İstek',
     newTitle: 'Gardırop parçası ekle',
     editTitle: 'Gardırop parçasını düzenle',
     nameLabel: 'Parça adı',

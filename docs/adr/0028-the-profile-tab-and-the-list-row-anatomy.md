@@ -6,7 +6,7 @@ Builds on: [ADR 0006](0006-three-tab-information-architecture.md), whose three t
 Closet-inside-Profile placement are not reopened; [ADR 0019](0019-adopting-expo-ui-at-the-control-layer.md),
 whose control-layer boundary this respects; [ADR 0021](0021-direction-e-a-visual-first-design-language.md),
 whose Direction E it applies to the third tab; [ADR 0025](0025-the-garment-board-composition-rule.md),
-whose silhouettes the rail reuses; and [ADR 0027](0027-the-app-shell-and-its-three-tabs.md),
+whose silhouettes the rack reuses; and [ADR 0027](0027-the-app-shell-and-its-three-tabs.md),
 whose inset rule every screen here obeys.
 
 ## Context
@@ -40,7 +40,26 @@ Top to bottom, the populated screen is:
 2. A **Closet heading row**: the word at `title` 22, the total count trailing at `body`
    17 in `textSecondary` with tabular figures, then a chevron. The whole row opens the
    list. It is a heading, not a list row, and does not take the anatomy in section 2.
-3. **The illustrated Closet, the hero**: an open rack with a rail and shelves fills with the user's active pieces. The newest one to three are face-out and the rest side-on. Each piece uses its photo, garment-type silhouette or structural-category glyph as available. Six category cells below show the category icon and active-item count, derived from the items rather than a count table; each opens its Closet category.
+3. **The illustrated Closet, the hero**: an open clothes rack, full content width at a
+   361 by 240 proportion, drawn in `textPrimary` ink with one outline and flat fills
+   (`surface` on the top bar, the shelf and the castors), no carcass, no doors and no
+   body. Each category has its own zone: accessories on eight hooks under the top bar;
+   outerwear, one-piece and tops on the upper rail, long pieces first; bottoms on clip
+   hangers on the lower rail; shoes on the bottom shelf. While a rail has room every piece
+   hangs face-out with up to two empty hangers after it; when it fills, its newest one to
+   three owned pieces face out and every other piece hangs side-on as a slice in its own
+   colour, owned grouped by category and run dark to light, wanted last with a dashed edge.
+   A zone past its slice minimum ends in a "+N" tag at `caption`. Pieces draw their
+   garment-type silhouette in their colour family, or their category glyph when they have
+   no type; a photo never enters the drawing. The rack is one button that opens the Closet;
+   its label names the heading, the total and the count per category.
+   Under it, 12 below, **six category cells** in three columns (two at the largest
+   standard text sizes), 12 apart: a 64 point `surfaceMuted` tile, radius 14, holding the
+   category's newest owned piece drawn in its colour (the category glyph in
+   `textSecondary` when the category is empty) and its count at `title` in tabular
+   figures, then the category name at `caption` in `textSecondary`, 4 below. All six
+   always show; counts are owned plus wanted, derived from the records. Each cell is a
+   button, "Tops, 7 pieces, 1 wanted.", that opens the Closet on its category.
 4. `spacing.xl` 24, the one permitted `xl` on the screen.
 5. One inset group holding a **Wanted** row (heart tile, count, chevron; opens the list on
    the wanted sections) and a **History** row (calendar/list of outfits worn, with optional
@@ -48,10 +67,14 @@ Top to bottom, the populated screen is:
 6. A trailing `spacing['2xl']` 32 inside the content. `Screen` owns the inset
    (ADR 0027 section 4).
 
-The empty Closet shows the heading, one sentence at `body` in `textSecondary`, and an
-"Add a piece" / "Parça ekle" button (the screen's only accent fill, present only in this
-state). The Wanted row is hidden while nothing exists in either state. The History row
-sits in the group under Closet.
+The rack keeps its place in every state. The empty Closet shows the heading, the rack with
+bare hangers waiting on both rails, one sentence at `body` in `textPrimary`, and an "Add a
+piece" / "Parça ekle" button (the screen's only accent fill, present only in this state),
+with no category cells. Loading draws the bare rack, hooks and rails without hangers,
+then the six cell tiles without drawings or counts, spoken as loading. An error draws the
+bare rack, then a `dangerInk` glyph at 20, a `bodyStrong` title, a `body` line and a
+tonal "Try again" button. The Wanted row is hidden while nothing exists in either state.
+The History row sits in the group under Closet.
 
 There are no cards. The planes are ground and chrome plus the illustrated Closet stage. Emphasis levels
 are three: the rack; `title` and `bodyStrong`; `body` and `caption`. No `display`, no
@@ -81,8 +104,10 @@ reference's three, and section headings use `textSecondary`.
 
 ### 3. Text scaling
 
-- Rail tiles scale by `min(fontScale, 2)` above 1.5, so the artwork grows with its
-  caption and the caption fits its longest word; below 1.5 only the caption scales.
+- The rack scales with the content width, never with the text. The category cells go
+  from three columns to two above `fontScale` 1.2, the largest standard text sizes, and
+  their tile and drawing scale by `min(fontScale, 1.2)`, so the title-sized count still
+  fits beside the drawing.
 - In a kuyara-drawn row the leading tile, its glyph and the chevron scale by
   `min(fontScale, 1.5)`, so at the largest accessibility size they are 42, 30 and 30 and
   the separator moves to 70. Without the cap the chevron reached 62 points and pushed the
@@ -125,8 +150,9 @@ keyword.
 
 1. ADR 0027's bottom-inset rule and the English Closet label are prerequisites for this
    screen.
-2. The rack uses the photo, silhouette, and category-glyph fallback ladder. The
-   silhouette rung shares ADR 0025's twenty-seven garment drawings, accessories included.
+2. The rack draws the garment-type silhouette, else the category glyph, and never a
+   photo; photos stay on the Closet's tiles. It shares ADR 0025's garment drawings,
+   accessories included.
 3. The Wanted row opens the Closet with the wanted sections in view.
 4. Profile has no location row or location-status row; selection lives on Weather.
 
@@ -140,8 +166,8 @@ keyword.
 - **The light appearance has two group treatments.** A kuyara-drawn group is a hairline
   outline; a native group keeps its system fill. That is the trade ADR 0030 names as
   visible rather than hidden, and it is accepted knowingly.
-- **A new dependency on the silhouette vocabulary.** The rack's middle rung and the
-  colour-family fill both depend on ADR 0025's drawings entering the app.
+- **A new dependency on the silhouette vocabulary.** The rack and the colour-family fill
+  both depend on ADR 0025's drawings.
 - **Strings and routing follow the same contract.** The empty-state copy agrees with
   ADR 0005, and the Wanted row opens the Closet's wanted sections.
 

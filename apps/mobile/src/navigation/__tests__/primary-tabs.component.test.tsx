@@ -263,8 +263,8 @@ describe.each([
 
     // ADR 0029: the Closet's title is the native large title set by the route file
     // (`app/(tabs)/(profile)/wardrobe/index.tsx`), not rendered by `WardrobeListScreen`
-    // itself, exactly as Profile's title is not rendered by `profile-screen.tsx`. The
-    // empty state reuses Profile's own sentence rather than a wardrobe-specific one.
+    // itself, exactly as Profile's title is not rendered by `profile-screen.tsx`. An empty
+    // Closet opens on its first category, which names itself as empty (O9).
     const wardrobe = await render(
       <TestProviders language={language}>
         <WardrobeListScreen
@@ -282,7 +282,7 @@ describe.each([
       </TestProviders>,
     );
     expect(
-      wardrobe.getByText(messages[language].profile.wardrobeEmpty),
+      wardrobe.getByText(messages[language].wardrobe.categoryEmpty.top),
     ).toBeOnTheScreen();
   });
 });

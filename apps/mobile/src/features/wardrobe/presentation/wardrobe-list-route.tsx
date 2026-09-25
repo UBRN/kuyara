@@ -9,8 +9,8 @@ import {
   ANALYTICS_SCHEMA_VERSION,
   type CountBucket,
 } from '@/features/analytics/domain/analytics-events';
+import type { StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import { useWardrobeApplication } from '@/features/wardrobe/application/wardrobe-application-context';
-import type { WardrobeEntryState } from '@/features/wardrobe/domain/wardrobe-item';
 import {
   WardrobeListScreen,
   type WardrobeRetrySource,
@@ -26,10 +26,12 @@ type PendingRetry = Readonly<{
 }>;
 
 export function WardrobeListRoute({
-  initialEntryState,
+  initialCategory,
+  revealWanted = false,
   savedItemId,
 }: Readonly<{
-  initialEntryState?: WardrobeEntryState;
+  initialCategory?: StructuralCategory;
+  revealWanted?: boolean;
   savedItemId?: string | null;
 }> = {}) {
   const router = useRouter();
@@ -121,20 +123,21 @@ export function WardrobeListRoute({
 
   return (
     <WardrobeListScreen
-      initialEntryState={initialEntryState}
-      // The segment lives on the route, so the plus bar button in the route file reads
-      // the same value this add action sends, and the form defaults to the list the user
-      // is actually looking at.
-      onAdd={() =>
+      initialCategory={initialCategory}
+      // The category lives on the route, so the plus bar button in the route file reads
+      // the same value this add action sends, and the form opens its type chooser on the
+      // category the user is looking at.
+      onAdd={(category) =>
         router.push({
-          params: { filter: initialEntryState ?? 'owned' },
+          params: { category },
           pathname: '/wardrobe/new',
         })
       }
+      onCategoryChange={(category) => router.setParams({ category })}
       onEdit={(id) => router.push(`/wardrobe/${id}`)}
-      onEntryStateChange={(entryState) => router.setParams({ filter: entryState })}
       onRetry={handleRetry}
       resolvePhotoUri={resolvePhotoUri}
+      revealWanted={revealWanted}
       savedItemId={savedItemId}
       state={state}
     />

@@ -1,12 +1,14 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { StyleSheet } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { WardrobeApplicationState } from '@/features/wardrobe/application/wardrobe-application-controller';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import {
   WardrobeListScreen,
+  buildCategoryRows,
+  resolveDefaultCategory,
   resolveGridGeometry,
   tileEntranceIndex,
 } from '@/features/wardrobe/presentation/wardrobe-list-screen';
@@ -19,48 +21,16 @@ jest.mock('expo-symbols', () => ({
   SymbolView: () => null,
 }));
 
-// The native control layer (ADR 0019) renders native views that do not mount under
-// Jest, and the wrapper already has its own coverage in
-// `components/ui/__tests__/segmented-control.component.test.tsx`. This screen test
-// mocks the wrapper itself rather than its native dependency, which also keeps
-// `features/` clear of that dependency's name, the boundary this repository greps for.
-jest.mock('@/components/ui/segmented-control', () => {
-  const { Pressable: MockPressable, View: MockView } = jest.requireActual('react-native');
-
-  function MockSegmentedControl({
-    onChange,
-    options,
-    testID,
-    value,
-  }: Readonly<{
-    onChange: (value: string) => void;
-    options: readonly Readonly<{ label: string; value: string }>[];
-    testID?: string;
-    value: string;
-  }>) {
-    return (
-      <MockView testID={testID}>
-        {options.map((option, index) => (
-          <MockPressable
-            accessibilityLabel={option.label}
-            accessibilityRole="button"
-            accessibilityState={{ selected: option.value === value }}
-            key={option.value}
-            onPress={() => onChange(option.value)}
-            testID={testID ? `${testID}-segment-${index}` : undefined}
-          />
-        ))}
-      </MockView>
-    );
-  }
-
-  return { SegmentedControl: MockSegmentedControl };
-});
-
 const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
   insets: { top: 47, right: 0, bottom: 34, left: 0 },
 };
+
+const originalWindowDimensions = Dimensions.get('window');
+
+afterEach(() => {
+  Dimensions.set({ window: originalWindowDimensions });
+});
 
 const ownedItem: WardrobeItem = {
   id: '118f0f4d-1d45-4ae7-a8f1-796e8297d3b4',
@@ -142,7 +112,7 @@ test('loading state exposes an accessible progressbar and no artwork', async () 
   expect(result.getByLabelText(messages.en.wardrobe.loadingLabel)).toBeOnTheScreen();
 });
 
-test('error state retries and shows no chips', async () => {
+test('error state retries and shows no category tabs', async () => {
   const onRetry = jest.fn();
   const result = await render(
     <TestProviders>
@@ -157,13 +127,13 @@ test('error state retries and shows no chips', async () => {
 
   expect(result.getByTestId('wardrobe-load-error')).toBeOnTheScreen();
   expect(result.getByText(messages.en.wardrobe.loadErrorTitle)).toBeOnTheScreen();
-  expect(result.queryByTestId('wardrobe-category-chips')).not.toBeOnTheScreen();
+  expect(result.queryByTestId('wardrobe-category-tabs')).not.toBeOnTheScreen();
   await fireEvent.press(result.getByTestId('wardrobe-retry-button'));
   expect(onRetry).toHaveBeenCalledTimes(1);
   expect(onRetry).toHaveBeenCalledWith('retry_button');
 });
 
-test('a closet with nothing in either state says so, and offers the add action', async () => {
+test('an empty Closet opens on the first category, says it is empty and adds into it', async () => {
   const onAdd = jest.fn();
   const result = await render(
     <TestProviders>
@@ -176,19 +146,21 @@ test('a closet with nothing in either state says so, and offers the add action',
     </TestProviders>,
   );
 
-  expect(result.getByText(messages.en.wardrobe.bothEmpty)).toBeOnTheScreen();
+  expect(result.getByText(messages.en.wardrobe.categoryEmpty.top)).toBeOnTheScreen();
+  expect(result.getByTestId('wardrobe-category-tab-top').props.accessibilityState.selected).toBe(true);
   await fireEvent.press(
     result.getByRole('button', { name: messages.en.profile.addPieceAction }),
   );
-  expect(onAdd).toHaveBeenCalledTimes(1);
+  expect(onAdd).toHaveBeenCalledWith('top');
 });
 
-test('the wanted segment shows its own empty state when only owned items exist', async () => {
+test('an empty category page names its own category and adds into it', async () => {
+  const onAdd = jest.fn();
   const result = await render(
-    <TestProviders>
+    <TestProviders language="tr">
       <WardrobeListScreen
-        initialEntryState="wanted"
-        onAdd={() => undefined}
+        initialCategory="one_piece"
+        onAdd={onAdd}
         onEdit={() => undefined}
         onRetry={() => undefined}
         state={readyState([ownedItem])}
@@ -196,17 +168,42 @@ test('the wanted segment shows its own empty state when only owned items exist',
     </TestProviders>,
   );
 
-  expect(result.getByTestId('wardrobe-empty')).toBeOnTheScreen();
+  expect(result.getByText(messages.tr.wardrobe.categoryEmpty.one_piece)).toBeOnTheScreen();
   expect(result.queryByTestId(`wardrobe-item-${ownedItem.id}`)).not.toBeOnTheScreen();
-  // The sentence is scoped to the empty segment: "owned or wanted" would be false here.
-  expect(result.getByText(messages.en.wardrobe.wantedEmpty)).toBeOnTheScreen();
-  expect(result.queryByText(messages.en.wardrobe.bothEmpty)).not.toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('wardrobe-empty-add-button'));
+  expect(onAdd).toHaveBeenCalledWith('one_piece');
 });
 
-test('the owned segment says only the owned list is empty when a wanted item exists', async () => {
+test('owned and wanted are sections of one category page, owned first, each with its count', async () => {
+  const ownedShoe = { ...wantedItem, id: '418f0f4d-1d45-4ae7-a8f1-796e8297d3b4', entryState: 'owned' as const };
   const result = await render(
     <TestProviders>
       <WardrobeListScreen
+        initialCategory="footwear"
+        onAdd={() => undefined}
+        onEdit={() => undefined}
+        onRetry={() => undefined}
+        state={readyState([ownedItem, wantedItem, ownedShoe])}
+      />
+    </TestProviders>,
+  );
+
+  const owned = result.getByTestId('wardrobe-section-owned');
+  const wanted = result.getByTestId('wardrobe-section-wanted');
+  expect(owned.props.accessibilityRole).toBe('header');
+  expect(owned.props.accessibilityLabel).toBe('Owned, 1');
+  expect(wanted.props.accessibilityLabel).toBe('Wanted, 1');
+  expect(result.getByTestId(`wardrobe-item-${ownedShoe.id}`)).toBeOnTheScreen();
+  expect(result.getByTestId(`wardrobe-item-${wantedItem.id}`)).toBeOnTheScreen();
+  // The outerwear piece belongs to another page.
+  expect(result.queryByTestId(`wardrobe-item-${ownedItem.id}`)).not.toBeOnTheScreen();
+});
+
+test('a wanted tile has no stage fill, a dashed frame, a heart badge and says Wanted', async () => {
+  const result = await render(
+    <TestProviders>
+      <WardrobeListScreen
+        initialCategory="footwear"
         onAdd={() => undefined}
         onEdit={() => undefined}
         onRetry={() => undefined}
@@ -215,8 +212,13 @@ test('the owned segment says only the owned list is empty when a wanted item exi
     </TestProviders>,
   );
 
-  expect(result.getByText(messages.en.wardrobe.ownedEmpty)).toBeOnTheScreen();
-  expect(result.queryByText(messages.en.wardrobe.bothEmpty)).not.toBeOnTheScreen();
+  const frame = StyleSheet.flatten(result.getByTestId(`wardrobe-item-${wantedItem.id}-frame`).props.style);
+  expect(frame.borderStyle).toBe('dashed');
+  expect(frame.backgroundColor).toBeUndefined();
+  expect(result.getByTestId(`wardrobe-item-${wantedItem.id}-wanted-badge`, { includeHiddenElements: true }))
+    .toBeOnTheScreen();
+  expect(result.getByTestId(`wardrobe-item-${wantedItem.id}`).props.accessibilityLabel)
+    .toBe(`${messages.en.catalog['catalog.garment_type.weather_boots.name']}. Wanted`);
 });
 
 test('a named item shows its own name and the type as the subline', async () => {
@@ -331,52 +333,96 @@ test('a photo tile falls back to the silhouette after a load failure', async () 
   ).toBeOnTheScreen();
 });
 
-test('category chips list only the categories present in the current segment, catalogue order, and filter the grid', async () => {
+test('the six category tabs always show in catalogue order with counts, and a tab turns the page', async () => {
+  const onCategoryChange = jest.fn();
   const result = await render(
     <TestProviders>
       <WardrobeListScreen
         onAdd={() => undefined}
+        onCategoryChange={onCategoryChange}
         onEdit={() => undefined}
         onRetry={() => undefined}
-        state={readyState([ownedItem, legacyItem])}
+        state={readyState([ownedItem, legacyItem, wantedItem])}
       />
     </TestProviders>,
   );
 
-  expect(result.getByTestId('wardrobe-category-chip-all')).toBeOnTheScreen();
-  // `ownedItem` is outerwear and `legacyItem` is top; catalogue order is top before
-  // outerwear, and footwear (only on the wanted item) must not appear here.
-  expect(result.getByTestId('wardrobe-category-chip-top')).toBeOnTheScreen();
-  expect(result.getByTestId('wardrobe-category-chip-outerwear')).toBeOnTheScreen();
-  expect(result.queryByTestId('wardrobe-category-chip-footwear')).not.toBeOnTheScreen();
+  const strip = result.getByTestId('wardrobe-category-tabs');
+  expect(strip.props.accessibilityRole).toBe('tablist');
+  const tabs = result.getAllByRole('tab');
+  expect(tabs.map((tab) => tab.props.testID)).toEqual([
+    'wardrobe-category-tab-top',
+    'wardrobe-category-tab-bottom',
+    'wardrobe-category-tab-one_piece',
+    'wardrobe-category-tab-outerwear',
+    'wardrobe-category-tab-footwear',
+    'wardrobe-category-tab-accessory',
+  ]);
+  expect(result.getByTestId('wardrobe-category-tab-footwear-count')).toHaveTextContent('1');
+  expect(result.getByTestId('wardrobe-category-tab-bottom-count')).toHaveTextContent('0');
+  expect(result.getByTestId('wardrobe-category-tab-footwear').props.accessibilityLabel)
+    .toBe('Shoes, 1 piece, 1 wanted.');
 
-  await fireEvent.press(result.getByTestId('wardrobe-category-chip-outerwear'));
+  // The first category that holds anything opens first: the legacy top.
+  expect(result.getByTestId(`wardrobe-item-${legacyItem.id}`)).toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('wardrobe-category-tab-outerwear'));
+  expect(onCategoryChange).toHaveBeenCalledWith('outerwear');
   expect(result.getByTestId(`wardrobe-item-${ownedItem.id}`)).toBeOnTheScreen();
   expect(result.queryByTestId(`wardrobe-item-${legacyItem.id}`)).not.toBeOnTheScreen();
-  expect(
-    result.getByTestId('wardrobe-category-chip-outerwear').props.accessibilityState.selected,
-  ).toBe(true);
+  expect(result.getByTestId('wardrobe-category-tab-outerwear').props.accessibilityState.selected).toBe(true);
 });
 
-test('switching the segmented control changes which items are shown', async () => {
+test.each([
+  [1, 3],
+  [1.353, 2],
+] as const)('at fontScale %s the grid has %s columns', async (fontScale, columns) => {
+  Dimensions.set({ window: { ...originalWindowDimensions, fontScale } });
+  const tops = Array.from({ length: 4 }, (_, index) => ({
+    ...legacyItem,
+    id: `00000000-0000-4000-8000-00000000000${index}`,
+    createdAt: `2026-07-2${index}T10:00:00.000Z`,
+  }));
   const result = await render(
     <TestProviders>
       <WardrobeListScreen
         onAdd={() => undefined}
         onEdit={() => undefined}
         onRetry={() => undefined}
-        state={readyState([ownedItem, wantedItem])}
+        state={readyState(tops)}
       />
     </TestProviders>,
   );
 
-  expect(result.getByTestId(`wardrobe-item-${ownedItem.id}`)).toBeOnTheScreen();
-  expect(result.queryByTestId(`wardrobe-item-${wantedItem.id}`)).not.toBeOnTheScreen();
+  // The newest tile leads the first row, and that row holds exactly `columns` tiles.
+  const first = result.getByTestId(`wardrobe-item-${tops[3].id}`);
+  const width = StyleSheet.flatten(result.getByTestId(`wardrobe-item-${tops[3].id}-frame`).props.style).width;
+  expect(first).toBeOnTheScreen();
+  expect(width).toBeCloseTo(resolveGridGeometry(originalWindowDimensions.width, columns).width, 5);
+});
 
-  await fireEvent.press(result.getByTestId('wardrobe-entry-filter-segment-1'));
+test('a category page is an owned section then a wanted section, cut into rows, newest first', () => {
+  const at = (id: string, entryState: 'owned' | 'wanted', day: number) => ({
+    ...legacyItem, id, entryState, createdAt: `2026-07-1${day}T10:00:00.000Z`,
+  });
+  const rows = buildCategoryRows(
+    [at('a', 'owned', 1), at('b', 'owned', 2), at('c', 'owned', 3), at('d', 'owned', 4), at('w', 'wanted', 5), ownedItem],
+    'top',
+    3,
+  );
+  expect(rows.map((row) => (row.kind === 'section' ? row.entryState : row.items.map((item) => item.id).join('')))).toEqual([
+    'owned', 'dcb', 'a', 'wanted', 'w',
+  ]);
+  expect(rows[3]).toMatchObject({ kind: 'section', afterOwned: true, count: 1 });
+  expect(buildCategoryRows([ownedItem], 'top', 3)).toEqual([]);
+});
 
-  expect(result.getByTestId(`wardrobe-item-${wantedItem.id}`)).toBeOnTheScreen();
-  expect(result.queryByTestId(`wardrobe-item-${ownedItem.id}`)).not.toBeOnTheScreen();
+test('without a requested category the Closet opens where its pieces are, or where its wanted ones are', () => {
+  expect(resolveDefaultCategory([], false)).toBe('top');
+  expect(resolveDefaultCategory([ownedItem, wantedItem], false)).toBe('outerwear');
+  // Profile's Wanted row: the first category holding a wanted piece.
+  expect(resolveDefaultCategory([ownedItem, wantedItem], true)).toBe('footwear');
+  // Nothing wanted anywhere: fall back to where the pieces are.
+  expect(resolveDefaultCategory([ownedItem], true)).toBe('outerwear');
 });
 
 test('a background refresh failure shows a retryable banner without discarding the grid', async () => {
@@ -401,20 +447,17 @@ test('a background refresh failure shows a retryable banner without discarding t
   expect(onRetry).toHaveBeenCalledWith('retry_button');
 });
 
-test('grid geometry follows the window width and reproduces ADR 0029 at the 393 point reference', () => {
-  const twoColumns = resolveGridGeometry(393, false);
-  expect(twoColumns.numColumns).toBe(2);
-  expect(twoColumns.geometry.width).toBe(174.5);
-  expect(twoColumns.geometry.height).toBeCloseTo(218, 5);
+test('grid geometry follows the window width: three columns, two at the largest standard text size', () => {
+  // The 393 point reference: 112 by 140 in three columns, 174.5 by 218 in two.
+  const three = resolveGridGeometry(393, 3);
+  expect(three.width).toBeCloseTo(112.33, 2);
+  expect(three.height / three.width).toBeCloseTo(218 / 174.5, 5);
+  const two = resolveGridGeometry(393, 2);
+  expect(two.width).toBe(174.5);
+  expect(two.height).toBeCloseTo(218, 5);
 
-  const oneColumn = resolveGridGeometry(393, true);
-  expect(oneColumn.numColumns).toBe(1);
-  expect(oneColumn.geometry.width).toBe(361);
-  expect(oneColumn.geometry.height).toBeCloseTo(280, 5);
-
-  // A 375 point device: two tiles plus the gap still fit inside the 343 point content box.
-  const narrow = resolveGridGeometry(375, false);
-  expect(narrow.geometry.width * 2 + 12).toBe(343);
+  // A 375 point device: three tiles plus two gaps still fit inside the 343 point content box.
+  expect(resolveGridGeometry(375, 3).width * 3 + 24).toBeCloseTo(343, 5);
 });
 
 // ADR 0025 gives the five accessories their own silhouettes, so an
@@ -422,17 +465,25 @@ test('grid geometry follows the window width and reproduces ADR 0029 at the 393 
 // to the category placeholder.
 test('the grid draws coloured silhouettes for typed garments and accessories, and a glyph for legacy entries', async () => {
   const accessory = { ...ownedItem, id: 'accessory', garmentTypeId: 'beanie' as const, category: 'accessory' as const };
+  const items = [ownedItem, accessory, legacyItem];
+  const hidden = { includeHiddenElements: true };
+  for (const item of [ownedItem, accessory]) {
+    const result = await render(
+      <TestProviders>
+        <WardrobeListScreen onAdd={() => undefined} onEdit={() => undefined} onRetry={() => undefined}
+          initialCategory={item.category} state={readyState(items)} />
+      </TestProviders>,
+    );
+    expect(result.getByTestId(`wardrobe-silhouette-${item.id}`, hidden)).toBeOnTheScreen();
+    expect(result.queryByTestId(`wardrobe-photo-placeholder-${item.id}`, hidden)).toBeNull();
+    await result.unmount();
+  }
   const result = await render(
     <TestProviders>
       <WardrobeListScreen onAdd={() => undefined} onEdit={() => undefined} onRetry={() => undefined}
-        state={readyState([ownedItem, accessory, legacyItem])} />
+        initialCategory="top" state={readyState(items)} />
     </TestProviders>,
   );
-  const hidden = { includeHiddenElements: true };
-  for (const item of [ownedItem, accessory]) {
-    expect(result.getByTestId(`wardrobe-silhouette-${item.id}`, hidden)).toBeOnTheScreen();
-    expect(result.queryByTestId(`wardrobe-photo-placeholder-${item.id}`, hidden)).toBeNull();
-  }
   expect(result.getByTestId(`wardrobe-photo-placeholder-${legacyItem.id}`, hidden)).toBeOnTheScreen();
   expect(result.queryByTestId(`wardrobe-silhouette-${legacyItem.id}`, hidden)).toBeNull();
 });
@@ -453,11 +504,11 @@ test('every tile arrives on a plain open, and only the saved one after an add', 
   expect(tileEntranceIndex('a', 0, 'gone')).toBeNull();
 });
 
-test('the segment follows the route, so a return from the add flow reselects it', async () => {
+test('the category follows the route, so a return from the add flow reselects it', async () => {
   const result = await render(
     <TestProviders>
       <WardrobeListScreen
-        initialEntryState="owned"
+        initialCategory="outerwear"
         onAdd={() => undefined}
         onEdit={() => undefined}
         onRetry={() => undefined}
@@ -468,15 +519,16 @@ test('the segment follows the route, so a return from the add flow reselects it'
 
   expect(result.getByTestId(`wardrobe-item-${ownedItem.id}`)).toBeOnTheScreen();
 
-  // The add flow returns to `/wardrobe` with the segment the item joined. Whether the
+  // The add flow returns to `/wardrobe` with the category the item joined. Whether the
   // navigator remounts this screen or keeps it, the new prop has to win.
   await result.rerender(
     <TestProviders>
       <WardrobeListScreen
-        initialEntryState="wanted"
+        initialCategory="footwear"
         onAdd={() => undefined}
         onEdit={() => undefined}
         onRetry={() => undefined}
+        revealWanted
         savedItemId={wantedItem.id}
         state={readyState([ownedItem, wantedItem])}
       />
@@ -485,25 +537,6 @@ test('the segment follows the route, so a return from the add flow reselects it'
 
   expect(result.getByTestId(`wardrobe-item-${wantedItem.id}`)).toBeOnTheScreen();
   expect(result.queryByTestId(`wardrobe-item-${ownedItem.id}`)).not.toBeOnTheScreen();
-});
-
-test('switching the segment reports it, so the route can carry it into the add flow', async () => {
-  const onEntryStateChange = jest.fn();
-  const result = await render(
-    <TestProviders>
-      <WardrobeListScreen
-        onAdd={() => undefined}
-        onEdit={() => undefined}
-        onEntryStateChange={onEntryStateChange}
-        onRetry={() => undefined}
-        state={readyState([ownedItem, wantedItem])}
-      />
-    </TestProviders>,
-  );
-
-  await fireEvent.press(result.getByTestId('wardrobe-entry-filter-segment-1'));
-  expect(onEntryStateChange).toHaveBeenCalledWith('wanted');
-  expect(result.getByTestId(`wardrobe-item-${wantedItem.id}`)).toBeOnTheScreen();
 });
 
 // Milestone 10 phase 3: the route (`wardrobe-list-route.tsx`) tells the pull gesture

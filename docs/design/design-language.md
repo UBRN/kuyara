@@ -176,7 +176,7 @@ that they never merge. Every outfit is coloured this way, the Today alternates i
 board, its alternate tile, its finishing-touch badges, its detail and the runway, and nothing
 is stored. Colour reaches no text, control, border or chrome, it is never composited through
 alpha, and it is never the only signal: the outline, the garment name and the accessibility
-label say the same thing without it. Personal records in the Closet and the Profile rail keep
+label say the same thing without it. Personal records in the Closet and on the Profile rack keep
 the colour-family fills: a recorded colour always wins, and a record without one stays
 neutral rather than being guessed at.
 

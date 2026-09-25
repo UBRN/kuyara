@@ -1144,11 +1144,11 @@ test('a piece added from the Wanted list is filed as wanted and returns to that 
     expect.objectContaining({ entryState: 'wanted' }),
     undefined,
   );
-  // Back to the list the item actually joined, with the saved tile named so it alone
-  // arrives there.
+  // Back to the category and section the item actually joined, with the saved tile named
+  // so it alone arrives there.
   await waitFor(() =>
     expect(mockReplace).toHaveBeenCalledWith({
-      params: { added: created.id, filter: 'wanted' },
+      params: { added: created.id, category: created.category, filter: 'wanted' },
       pathname: '/wardrobe',
     }),
   );

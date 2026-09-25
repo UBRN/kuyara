@@ -28,6 +28,7 @@ import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import type {
   ColorFamily,
   GarmentTypeId,
+  StructuralCategory,
 } from '@/features/catalog/domain/garment-taxonomy';
 import {
   colorFamilies,
@@ -69,6 +70,8 @@ type WardrobeItemFormScreenProps = Readonly<{
    * is filed as wanted. An existing item's stored state always wins over it.
    */
   defaultEntryState?: WardrobeEntryState;
+  /** The Closet category a new item was added from; the type chooser opens on it (O9). */
+  defaultCategory?: StructuralCategory;
   isBusy: boolean;
   confirmation?: WardrobeConfirmation;
   photoPreviewUri?: string | null;
@@ -162,6 +165,7 @@ export function ColorSwatch({
 export function WardrobeItemFormScreen({
   clothingPreference = null,
   confirmation = showWardrobeConfirmation,
+  defaultCategory,
   defaultEntryState = 'owned',
   isBusy,
   item,
@@ -772,6 +776,7 @@ export function WardrobeItemFormScreen({
       </Screen>
       <GarmentTypeSheet
         clothingPreference={clothingPreference}
+        initialCategory={defaultCategory}
         onDismiss={() => setTypeSheetVisible(false)}
         onSelect={(typeId) => {
           setTypeSheetVisible(false);

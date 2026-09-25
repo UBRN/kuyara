@@ -12,6 +12,7 @@
 // parameter appears without being listed here.
 export const telemetryFilteredRouteParams = [
   'added',
+  'category',
   'filter',
   'garmentTypeId',
   'id',

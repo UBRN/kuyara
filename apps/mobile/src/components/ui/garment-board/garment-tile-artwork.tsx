@@ -6,7 +6,7 @@ import type { ColorFamily, GarmentTypeId, StructuralCategory } from '@/features/
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { GarmentSlotGlyph } from '../garment-slot-glyph';
-import { GARMENT_OUTLINE, garmentLevelOfDetail, GarmentPainting } from './garment-painting';
+import { GARMENT_OUTLINE, garmentLevelOfDetail, GarmentPainting, WANTED_OUTLINE_DASH } from './garment-painting';
 import { garmentFillRoles, type GarmentRoles } from './garment-palette';
 import { resolveGarmentTileFill } from './garment-render-fills';
 import { garmentSilhouetteIds } from './garment-silhouette-map';
@@ -28,6 +28,7 @@ function GarmentTileSilhouette({
   height,
   testID,
   cropped = false,
+  wanted = false,
 }: Readonly<{
   silhouette: Silhouette;
   colorFamily: ColorFamily | null;
@@ -38,6 +39,8 @@ function GarmentTileSilhouette({
   testID: string;
   /** Fit the artwork's own extent to the box, not the tile's margins; see `GarmentDrawing`. */
   cropped?: boolean;
+  /** A wanted Closet piece draws its ink edge dashed (O9). */
+  wanted?: boolean;
 }>) {
   const { colors, colorScheme } = useKuyaraTheme();
   const gradientId = `garment-fill-${useId()}`;
@@ -85,6 +88,7 @@ function GarmentTileSilhouette({
           lod={garmentLevelOfDetail(Math.max(bounds.width, bounds.height) * scale)}
           mainPaint={gradient && !paletteRoles ? `url(#${gradientId})` : undefined}
           outline={outline}
+          outlineDash={wanted ? WANTED_OUTLINE_DASH : undefined}
           roles={paletteRoles ?? tileRoles}
           scale={scale}
           silhouette={silhouette}
@@ -105,12 +109,15 @@ export function GarmentDrawing({
   category,
   size,
   roles,
+  colorFamily = null,
   testID,
 }: Readonly<{
   garmentTypeId: GarmentTypeId;
   category: StructuralCategory;
   size: number;
   roles?: GarmentRoles;
+  /** A Closet record's recorded colour (Profile's category cells); ignored beside `roles`. */
+  colorFamily?: ColorFamily | null;
   testID: string;
 }>) {
   const { colors } = useKuyaraTheme();
@@ -119,7 +126,7 @@ export function GarmentDrawing({
   if (silhouetteId) {
     return (
       <GarmentTileSilhouette
-        colorFamily={null}
+        colorFamily={colorFamily}
         cropped
         height={size}
         roles={roles}
@@ -140,7 +147,7 @@ export function GarmentDrawing({
 // One photo, then silhouette, then category glyph ladder for both personal-piece surfaces.
 export function GarmentTileArtwork({
   photoUri, garmentTypeId, category, colorFamily, roles, width, height, glyphSize,
-  photoTestID, silhouetteTestID, placeholderTestID,
+  photoTestID, silhouetteTestID, placeholderTestID, wanted = false,
 }: Readonly<{
   photoUri: string | null;
   garmentTypeId: GarmentTypeId | null;
@@ -154,6 +161,8 @@ export function GarmentTileArtwork({
   photoTestID: string;
   silhouetteTestID: string;
   placeholderTestID: string;
+  /** A wanted Closet piece: the silhouette's ink edge is dashed (O9). */
+  wanted?: boolean;
 }>) {
   const { colors } = useKuyaraTheme();
   const [unreadablePhotoUri, setUnreadablePhotoUri] = useState<string | null>(null);
@@ -175,7 +184,7 @@ export function GarmentTileArtwork({
   }
 
   if (silhouetteId) {
-    return <GarmentTileSilhouette silhouette={silhouettes[silhouetteId]} colorFamily={colorFamily} roles={roles} width={width} height={height} testID={silhouetteTestID} />;
+    return <GarmentTileSilhouette silhouette={silhouettes[silhouetteId]} colorFamily={colorFamily} roles={roles} wanted={wanted} width={width} height={height} testID={silhouetteTestID} />;
   }
 
   return (
