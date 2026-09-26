@@ -820,6 +820,7 @@ test('a rejected day-choice read leaves the morning sheet closed and writes no c
 
   expect(view.queryByTestId('daily-formality-sheet')).toBeNull();
   expect(view.getByTestId('day-choice-read-status')).toHaveTextContent('true');
+  expect(view.getByTestId('today-unavailable-screen')).toBeOnTheScreen();
   expect(mockChoiceUpsert).not.toHaveBeenCalled();
 
   mockChoiceGet.mockResolvedValueOnce(null);
@@ -1083,6 +1084,31 @@ test('the morning sheet opens over the first wait', async () => {
   expect(await view.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
   expect(view.getByTestId('today-loading-screen')).toBeOnTheScreen();
   expect(view.queryByTestId('today-unavailable-screen')).toBeNull();
+});
+
+test('a missing recommendation without a failure waits without day-choice fixture fields', async () => {
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+      recommendation={recommendationReady({ snapshot: null })}
+      wardrobe={wardrobeValue()} weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+  expect(view.getByTestId('today-loading-screen')).toBeOnTheScreen();
+  expect(view.queryByTestId('today-unavailable-screen')).toBeNull();
+});
+
+test('a completed profile without a clothing preference cannot wait for generation', async () => {
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()}
+      profile={profileValue({ gender: null, clothingPreference: null })}
+      recommendation={recommendationReady({ snapshot: null })} liveRecommendationProvider
+      wardrobe={wardrobeValue()} weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+  expect(await view.findByTestId('today-unavailable-screen')).toBeOnTheScreen();
+  expect(view.queryByTestId('today-loading-screen')).toBeNull();
 });
 
 test('an offline catalog-bump cache stays hidden while the morning answer is pending', async () => {
@@ -1419,6 +1445,26 @@ test('a new dressing day waits for its Later row before choosing outfits', async
   }
 });
 
+test('a rejected departure read still starts the first recommendation', async () => {
+  mockRecommendationReadError = new RecommendationRepositoryError('invalid-data');
+  mockDepartureGet.mockRejectedValueOnce(new Error('departure read failed'));
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementation(() => new Promise(() => undefined));
+  try {
+    const view = await render(
+      <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+        recommendation={recommendationReady({ snapshot: null })} liveRecommendationProvider
+        wardrobe={wardrobeValue()} weather={weatherValue()}>
+        <TodayRoute />
+      </Providers>,
+    );
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+    expect(view.getByTestId('today-loading-screen')).toBeOnTheScreen();
+  } finally {
+    refresh.mockRestore();
+  }
+});
+
 test('cold evening open waits for its unanswered choice and generates once after dismissal', async () => {
   const saved = recommendationReady();
   if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
@@ -1459,6 +1505,59 @@ test('cold evening open waits for its unanswered choice and generates once after
     expect(mockChoiceUpsert).toHaveBeenCalledWith(
       'profile-one', '2026-09-24:evening', 'formal', 'morning', undefined);
     expect(refresh.mock.calls[0][1].localDayKey).toBe('2026-09-24:evening');
+  } finally {
+    refresh.mockRestore();
+    jest.useRealTimers();
+  }
+});
+
+test.each([
+  ['morning', '2026-09-24T08:30:00.000Z', '2026-09-24'],
+  ['evening', '2026-09-24T18:30:00.000Z', '2026-09-24:evening'],
+])('an answered %s question stays in the wait until generation begins', async (
+  _question, at, key,
+) => {
+  mockLocalDayKey = null;
+  jest.useFakeTimers({ now: new Date(at),
+    doNotFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+  mockRecommendationReadError = new RecommendationRepositoryError('invalid-data');
+  let finishDeparture!: (value: null) => void;
+  mockDepartureGet.mockImplementation(() => new Promise((resolve) => {
+    finishDeparture = resolve;
+  }));
+  mockChoiceUpsert.mockImplementation(async (_profile: string, dayKey: string,
+    formality: string, source: string) => ({
+    id: '0f0e2c1a-8b52-4c0e-9d57-1d3c9c1c2a10', localProfileId: 'profile-one',
+    dayKey, formality, source, styleAesthetics: null,
+    createdAt: at, updatedAt: at, deletedAt: null,
+  }));
+  const analytics = createProductAnalytics();
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementation(() => new Promise(() => undefined));
+  try {
+    const view = await render(
+      <Providers productAnalytics={analytics}
+        profile={profileValue({ morningSheetEnabled: true })}
+        recommendation={recommendationReady()} liveRecommendationProvider
+        wardrobe={wardrobeValue()} weather={weatherValue()}>
+        <TodayRoute />
+      </Providers>,
+    );
+    expect(await view.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
+    await fireEvent.press(view.getByTestId('daily-formality-close'));
+    await waitFor(() => expect(view.queryByTestId('daily-formality-sheet')).toBeNull());
+    expect(mockChoiceUpsert).toHaveBeenCalledWith(
+      'profile-one', key, 'smart', 'morning', undefined);
+    expect(refresh).not.toHaveBeenCalled();
+    expect(view.getByTestId('today-loading-screen')).toBeOnTheScreen();
+    expect(view.queryByTestId('today-unavailable-screen')).toBeNull();
+    analytics.errorEpisodes.flushAll('session_end');
+    expect(analytics.analytics.names()).not.toContain('error_shown');
+
+    await act(async () => { finishDeparture(null); });
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+    expect(refresh.mock.calls[0][1].localDayKey).toBe(key);
+    expect(view.queryByTestId('today-unavailable-screen')).toBeNull();
   } finally {
     refresh.mockRestore();
     jest.useRealTimers();
@@ -1599,8 +1698,7 @@ test.each([
   const renderPlace = (weather: WeatherApplicationValue, recommendation: RecommendationApplicationState,
     dressingDayChoiceFailed = false) => (
     <Providers {...props} weather={weather} recommendation={recommendation}
-      dressingDayChoiceFailed={dressingDayChoiceFailed}
-      dressingDayChoiceReady={dressingDayChoiceFailed ? false : undefined}>
+      dressingDayChoiceFailed={dressingDayChoiceFailed}>
       <Route />
     </Providers>
   );
