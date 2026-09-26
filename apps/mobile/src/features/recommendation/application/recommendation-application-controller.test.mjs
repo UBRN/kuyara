@@ -191,6 +191,34 @@ test('restart reconstructs exhausted state from the current history-filtered poo
   assert.equal(restored.controller.getSnapshot().exhausted, true);
 });
 
+test('availability reuses the generation history-filtered pool for provider input', async () => {
+  const first = createHarness();
+  await first.controller.initialize();
+  const generationInput = { ...input(30), now };
+  await first.controller.refresh('first-recommendation', generationInput);
+  const fourth = first.requests[0].options[3];
+  const worn = [wornFromAiOption(fourth)];
+  let compositions = 0;
+  const withHistory = createHarness({
+    loadRecentWorn: async () => worn,
+    createContextWithPool: (...args) => {
+      compositions += 1;
+      return createRecommendationContextWithPool(...args);
+    },
+  });
+  await withHistory.controller.initialize();
+  await withHistory.controller.refresh('first-recommendation', generationInput);
+  assert.equal(withHistory.requests[0].options.length, 3);
+  const generationCompositions = compositions;
+
+  withHistory.controller.updatePoolAvailability(generationInput);
+
+  assert.deepEqual({
+    availabilityCompositions: compositions - generationCompositions,
+    exhausted: withHistory.controller.getSnapshot().exhausted,
+  }, { availabilityCompositions: 0, exhausted: true });
+});
+
 async function persistedRecommendation() {
   const { controller } = createHarness();
   await controller.initialize();
