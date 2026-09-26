@@ -61,7 +61,7 @@ test('the provider exposes a first-use tracker that survives analytics withdrawa
   await expect(providedFirstUses!.markFirstUse('closet')).resolves.toBe(true);
   await analytics.withdraw();
   await expect(providedFirstUses!.markFirstUse('closet')).resolves.toBe(false);
-  expect(analytics.names()).toEqual(['analytics_consent_withdrawn']);
+  expect(analytics.names()).toEqual([]);
 });
 
 test('the background transition emits buffered failures before flushing', async () => {

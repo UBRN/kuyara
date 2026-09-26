@@ -255,7 +255,13 @@ export function WeatherScreen() {
     state.permission.kind === 'granted',
   );
   const locationCaption = captionKey ? copy[captionKey] : null;
-  const snapshot = state.snapshot;
+  // After a location switch the controller keeps the previous place's snapshot as the last
+  // valid result until the new place loads. It carries no name of its own, so its conditions
+  // are held back rather than shown under the new place's label.
+  const snapshot = state.snapshot !== null
+    && state.snapshot.locationKey === state.activeLocation?.locationKey
+    ? state.snapshot
+    : null;
   const remainingHourly = snapshot ? remainingHourlyForecast(snapshot.hourly, now) : [];
   const outlook = snapshot
     ? findWeatherOutlook({ snapshot, now: new Date(now).toISOString() })
@@ -630,7 +636,7 @@ export function WeatherScreen() {
             <AppText accessibilityRole="header" variant="title">{failureCopy.title}</AppText>
           )}
           <AppText accessibilityLiveRegion={failureCopy ? 'polite' : undefined}>
-            {failureCopy?.body ?? copy.noSnapshot}
+            {failureCopy?.body ?? (state.activeLocation ? copy.loading : copy.noSnapshot)}
           </AppText>
         </Surface>
       )}

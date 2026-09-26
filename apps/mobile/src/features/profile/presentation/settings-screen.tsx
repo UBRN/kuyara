@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
-import { useState } from 'react';
-import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { AccessibilityInfo, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import {
   AppText,
@@ -70,6 +70,28 @@ export function SettingsScreen({
   const [nameEditorOpen, setNameEditorOpen] = useState(false);
   const [aestheticsOpen, setAestheticsOpen] = useState(false);
   const [aestheticDraft, setAestheticDraft] = useState<readonly StyleAesthetic[]>(profile.styleAesthetics ?? []);
+  const [aestheticsSaving, setAestheticsSaving] = useState(false);
+  const [aestheticsError, setAestheticsError] = useState(false);
+  const aestheticsSavePending = useRef(false);
+
+  // The sheet closes only once the choice is stored. A failed save keeps it open with the
+  // draft intact, so nothing the person picked is lost and Done can simply be pressed again.
+  const saveAesthetics = async () => {
+    if (aestheticsSavePending.current) return;
+    aestheticsSavePending.current = true;
+    setAestheticsSaving(true);
+    setAestheticsError(false);
+    try {
+      await onStyleAestheticsChange(aestheticDraft);
+      setAestheticsOpen(false);
+    } catch {
+      setAestheticsError(true);
+      AccessibilityInfo.announceForAccessibility(messages.settings.saveError);
+    } finally {
+      aestheticsSavePending.current = false;
+      setAestheticsSaving(false);
+    }
+  };
 
   const savePreference = async (
     group: 'appearance' | 'profile',
@@ -192,7 +214,11 @@ export function SettingsScreen({
         <NativeListRow
           glyph={({ color, size }) => <Icon color={color} name="clothing" size={size} />}
           label={copy.stylePreferencesTitle}
-          onPress={() => { setAestheticDraft(profile.styleAesthetics ?? []); setAestheticsOpen(true); }}
+          onPress={() => {
+            setAestheticDraft(profile.styleAesthetics ?? []);
+            setAestheticsError(false);
+            setAestheticsOpen(true);
+          }}
           testID="settings-style-preferences-row"
           value={aestheticLabels(copy, profile.styleAesthetics ?? [])}
         />
@@ -279,12 +305,15 @@ export function SettingsScreen({
       <ScrollView contentContainerStyle={styles.sheetContent}>
         <AppText accessibilityRole="header" variant="titleLarge">{copy.stylePreferencesTitle}</AppText>
         <AppText>{copy.stylePreferencesBody}</AppText>
-        <StyleAestheticsOptions copy={copy} selected={aestheticDraft}
+        <StyleAestheticsOptions copy={copy} disabled={aestheticsSaving} selected={aestheticDraft}
           onChange={setAestheticDraft} testID="settings-style-option" />
-        <Button label={copy.stylePreferencesDone} onPress={() => {
-          void savePreference('profile', () => onStyleAestheticsChange(aestheticDraft));
-          setAestheticsOpen(false);
-        }} size="large" testID="settings-style-done" />
+        {aestheticsError ? (
+          <AppText accessibilityRole="alert" colorRole="textSecondary" testID="settings-style-save-error">
+            {messages.settings.saveError}
+          </AppText>
+        ) : null}
+        <Button label={copy.stylePreferencesDone} loading={aestheticsSaving}
+          onPress={() => { void saveAesthetics(); }} size="large" testID="settings-style-done" />
       </ScrollView>
     </NativeSheet>
     </>
