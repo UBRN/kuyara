@@ -34,6 +34,7 @@ The [product decisions](product-decisions.md) and [ADRs](adr/) define the approv
 | Accessibility and wave 2 | Easier to see switch (O13); cards, rows, back, name, weather and onboarding (O14) | Approved for build 15 |
 | Sheet close button | The glass close button on the name, day-type (both steps), ask-again and piece-edit sheets draws a clipped glyph instead of an xmark on device and Simulator; the fix gives it an explicit `xmark` image and circle shape like the confirm button, keeps `role="close"`, and adds a close-button check to the Simulator tour | Fixed in code; reaches build 15 installs through `eas update --channel production` once build 15 is on the store |
 | Build 15 | All approved Goals above, plus landed A and B; every automated, independent-review, migration, native and Simulator release gate applies | No date promised |
+| pnpm 12 | Separate major upgrade from the pnpm 11.18.0 pinned since the scaffold: `packageManager` and both `eas.json` profiles move together, `pnpm install` regenerates the lockfile, `pnpm-workspace.yaml` passes pnpm 12's unknown-setting check, then `pnpm check`, the component suite and one local native build. It never rides an `eas update`, because the `appVersion` runtime policy lets an update reach installs without a native check | Build 16 maintenance; starts after the build 15 close-button update ships |
 
 Release evidence:
 
