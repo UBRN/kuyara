@@ -1,25 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Image,
-  Pressable,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import { StyleSheet, TextInput, View, type LayoutChangeEvent } from 'react-native';
+import Animated, { useAnimatedRef } from 'react-native-reanimated';
 
 import {
   AppText,
   Button,
-  colorFamilyFills,
-  GarmentTileArtwork,
+  garmentUsualColorFamilies,
   haptics,
   Icon,
-  PhotoPlaceholder,
   Screen,
   Surface,
 } from '@/components/ui';
@@ -50,32 +38,37 @@ import type {
   WardrobeEntryState,
   WardrobeItem,
 } from '@/features/wardrobe/domain/wardrobe-item';
+import { ColorSwatch } from '@/features/wardrobe/presentation/color-swatch';
+import { FormToolbar } from '@/features/wardrobe/presentation/form-toolbar';
+import { GarmentTypePicker } from '@/features/wardrobe/presentation/garment-type-picker';
+import { OwnershipChoice } from '@/features/wardrobe/presentation/ownership-choice';
+import { PiecePreviewStage } from '@/features/wardrobe/presentation/piece-preview-stage';
 import {
   showWardrobeConfirmation,
   type WardrobeConfirmation,
 } from '@/features/wardrobe/presentation/wardrobe-confirmation';
-import { GarmentTypeSheet } from '@/features/wardrobe/presentation/garment-type-sheet';
-import { WardrobeOption } from '@/features/wardrobe/presentation/wardrobe-option';
 import { useMessages } from '@/localization/use-messages';
-import { borderWidths, interaction, layout, radii, spacing, typography } from '@/theme/theme';
+import { borderWidths, radii, spacing, typography } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 type WardrobeItemFormScreenProps = Readonly<{
   mode: 'create' | 'edit';
   item?: WardrobeItem;
-  /** Filters the type sheet's catalogue; `null` until the profile resolves one. */
+  /** Filters the type picker's catalogue; `null` until the profile resolves one. */
   clothingPreference?: ClothingPreference | null;
   /**
    * Where a new item lands: the Closet list's own segment, so a piece added from Wanted
    * is filed as wanted. An existing item's stored state always wins over it.
    */
   defaultEntryState?: WardrobeEntryState;
-  /** The Closet category a new item was added from; the type chooser opens on it (O9). */
+  /** The Closet category a new item was added from; the type picker opens on it (O9). */
   defaultCategory?: StructuralCategory;
   isBusy: boolean;
   confirmation?: WardrobeConfirmation;
   photoPreviewUri?: string | null;
   onDirtyChange: (isDirty: boolean) => void;
+  /** The toolbar's Cancel; the route's exit guard confirms a dirty form. */
+  onCancel?: () => void;
   onSelectPhoto?: () => Promise<StagedWardrobePhoto | null>;
   onDiscardStagedPhoto?: (photo: StagedWardrobePhoto) => Promise<void>;
   onCreate: (
@@ -89,76 +82,53 @@ type WardrobeItemFormScreenProps = Readonly<{
   onDelete?: () => Promise<void>;
 }>;
 
-function FormSectionLabel({
+// A heading with its Required or Optional tag on the trailing edge. The tag is words, so
+// the invalid state is ink, glyph and text together (Law 4).
+function SectionHeading({
   heading,
-  description,
-}: Readonly<{ heading: string; description?: string }>) {
+  invalid = false,
+  tag,
+  testID,
+  variant = 'title',
+}: Readonly<{
+  heading: string;
+  tag?: string;
+  invalid?: boolean;
+  testID?: string;
+  variant?: 'title' | 'bodyStrong';
+}>) {
+  const theme = useKuyaraTheme();
   return (
-    <View style={styles.sectionLabel}>
-      <AppText colorRole="textPrimary" variant="bodyStrong">
+    <View style={styles.heading}>
+      <AppText accessibilityRole="header" style={styles.headingText} variant={variant}>
         {heading}
       </AppText>
-      {description ? (
-        <AppText colorRole="textSecondary">{description}</AppText>
+      {tag ? (
+        <View style={styles.tag} testID={testID}>
+          {invalid ? <Icon color={theme.colors.dangerInk} name="error" size={16} /> : null}
+          <AppText colorRole={invalid ? 'dangerInk' : 'textSecondary'} variant="label">
+            {tag}
+          </AppText>
+        </View>
       ) : null}
     </View>
   );
 }
 
-// The colour family is a colour, so the control shows the colour rather than naming it
-// fourteen times. The fills are ADR 0028 section 6's approved content colours, read
-// through the one mapper; the enum value is never passed as a colour.
-//
-// Selection is a 2 point `brandAccent` ring, never a fill: Law 1 allows one accent-filled
-// element per viewport and the Save button spends it. The ring is drawn in both states so
-// selecting never moves the row, and it doubles as the `borderDefined` boundary Law 4
-// requires of an interactive component, which a white swatch on a white surface needs.
-// Colour is not the only signal: the selected family's name sits under the row and the
-// radio state carries it for assistive technology.
-export function ColorSwatch({
-  colorFamily,
-  disabled,
-  label,
-  onPress,
-  selected,
-}: Readonly<{
-  colorFamily: ColorFamily;
-  disabled: boolean;
-  label: string;
-  onPress: () => void;
-  selected: boolean;
-}>) {
+function ErrorLine({ message, testID }: Readonly<{ message: string; testID: string }>) {
   const theme = useKuyaraTheme();
-  const fill = colorFamilyFills[theme.colorScheme][colorFamily];
-  // `multicolor` is the one two-stop family, and it keeps its own treatment rather than
-  // borrowing an interface colour (ADR 0029 section 5).
-  const secondStop = typeof fill === 'string' ? null : fill[1];
-
   return (
-    <Pressable
-      accessibilityLabel={label}
-      accessibilityRole="radio"
-      accessibilityState={{ disabled, selected }}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.swatch,
-        {
-          backgroundColor: typeof fill === 'string' ? fill : fill[0],
-          borderColor: selected
-            ? theme.colors.brandAccent
-            : theme.colors.borderDefined,
-        },
-        pressed && !disabled && styles.pressed,
-        disabled && styles.disabled,
-      ]}
-      testID={`wardrobe-color-${colorFamily}`}>
-      {secondStop ? (
-        <View
-          style={[styles.swatchTrailingHalf, { backgroundColor: secondStop }]}
-        />
-      ) : null}
-    </Pressable>
+    <View style={styles.errorRow}>
+      <Icon color={theme.colors.dangerInk} name="error" size={20} />
+      <AppText
+        accessibilityLiveRegion="assertive"
+        accessibilityRole="alert"
+        colorRole="dangerInk"
+        style={styles.errorCopy}
+        testID={testID}>
+        {message}
+      </AppText>
+    </View>
   );
 }
 
@@ -170,6 +140,7 @@ export function WardrobeItemFormScreen({
   isBusy,
   item,
   mode,
+  onCancel = () => undefined,
   onCreate,
   onDelete,
   onDiscardStagedPhoto = async () => undefined,
@@ -183,10 +154,8 @@ export function WardrobeItemFormScreen({
   const messages = useMessages();
   const copy = messages.wardrobe;
   const theme = useKuyaraTheme();
-  // Law 7: the row's silhouette and name change in place, so the swap is effects motion
-  // on `normal`. `motion.normal` is 0 under Reduce Motion and the row still reads.
-  const typeRowOpacity = useSharedValue<number>(1);
-  const typeRowStyle = useAnimatedStyle(() => ({ opacity: typeRowOpacity.get() }));
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
+  const typeSectionY = useRef(0);
   const initialValues = useMemo(() => createWardrobeFormValues(item), [item]);
   const initialEntryState = item?.entryState ?? defaultEntryState;
   const [values, setValues] = useState(initialValues);
@@ -204,12 +173,12 @@ export function WardrobeItemFormScreen({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState(false);
-  const [detailsExpanded, setDetailsExpanded] = useState(false);
-  const [typeSheetVisible, setTypeSheetVisible] = useState(false);
   const [photoChange, setPhotoChange] = useState<WardrobePhotoChange>(
     unchangedWardrobePhoto,
   );
   const [unreadablePhotoUri, setUnreadablePhotoUri] = useState<string | null>(null);
+  // O10: a new piece starts on its type's most natural colour until the user picks one.
+  const colorChosenRef = useRef(mode === 'edit');
   const operationRef = useRef<Promise<void> | null>(null);
   const mountedRef = useRef(true);
   const stagedPhotoRef = useRef<StagedWardrobePhoto | null>(null);
@@ -221,9 +190,9 @@ export function WardrobeItemFormScreen({
   const selectedTypeLabel = selectedType
     ? messages.catalog[selectedType.nameKey]
     : null;
-  const selectedColorLabel = values.colorFamily
-    ? messages.catalog[`catalog.color_family.${values.colorFamily}`]
-    : copy.colorUnspecified;
+  const colorLabel = (family: ColorFamily | null) =>
+    family ? messages.catalog[`catalog.color_family.${family}`] : copy.colorUnspecified;
+  const usualColors = selectedType ? garmentUsualColorFamilies(selectedType.typeId) : [];
   const resolvedPreviewUri =
     photoChange.kind === 'replace'
       ? photoChange.stagedPhoto.previewUri
@@ -235,7 +204,12 @@ export function WardrobeItemFormScreen({
     (photoChange.kind === 'unchanged' && Boolean(item?.photoRelativePath));
   const visiblePreviewUri =
     resolvedPreviewUri === unreadablePhotoUri ? null : resolvedPreviewUri;
-  const photoTypeLabel = selectedTypeLabel ?? copy.unclassifiedType;
+  const saveLabel =
+    mode === 'edit'
+      ? copy.saveAction
+      : entryState === 'wanted'
+        ? copy.saveWantedAction
+        : copy.saveOwnedAction;
 
   useEffect(() => {
     discardStagedPhotoRef.current = onDiscardStagedPhoto;
@@ -270,6 +244,11 @@ export function WardrobeItemFormScreen({
     if (entryState !== next) haptics.selection();
     setEntryState(next);
     setSaveError(false);
+  };
+
+  const chooseColor = (colorFamily: ColorFamily) => {
+    colorChosenRef.current = true;
+    updateValues((current) => ({ ...current, colorFamily }));
   };
 
   // The exit guard reads one derived fact. It is reported from an effect, never from
@@ -344,10 +323,13 @@ export function WardrobeItemFormScreen({
     }
 
     const applySelection = () => {
-      updateValues((current) => selectWardrobeGarmentType(current, typeId));
+      updateValues((current) => {
+        const next = selectWardrobeGarmentType(current, typeId);
+        return colorChosenRef.current
+          ? next
+          : { ...next, colorFamily: garmentUsualColorFamilies(typeId)[0] ?? null };
+      });
       setValidationError(false);
-      typeRowOpacity.set(0);
-      typeRowOpacity.set(withTiming(1, { duration: theme.motion.normal }));
     };
 
     if (values.garmentTypeId && hasWardrobeOverrides(values)) {
@@ -374,6 +356,8 @@ export function WardrobeItemFormScreen({
 
     if (validateWardrobeForm(values)) {
       setValidationError(true);
+      // Save sits in the toolbar, so the question it is waiting on is brought into view.
+      scrollRef.current?.scrollTo({ animated: true, y: Math.max(typeSectionY.current - spacing.md, 0) });
       return;
     }
 
@@ -398,6 +382,8 @@ export function WardrobeItemFormScreen({
         })())
       .catch(() => {
         setSaveError(true);
+        // The failure line sits at the top, above the stage, where the toolbar's Save is.
+        scrollRef.current?.scrollTo({ animated: true, y: 0 });
       })
       .finally(() => {
         setIsSaving(false);
@@ -436,124 +422,162 @@ export function WardrobeItemFormScreen({
     );
   };
 
+  const piece = {
+    category: selectedType?.structuralCategory ?? item?.category ?? 'top',
+    colorFamily: values.colorFamily,
+    garmentTypeId: selectedType?.typeId ?? null,
+  } as const;
+
   return (
     <>
+      <FormToolbar
+        cancelDisabled={isSaving || isDeleting}
+        cancelLabel={copy.cancelAction}
+        onCancel={onCancel}
+        onSave={save}
+        saveDisabled={busy}
+        saveLabel={saveLabel}
+      />
       <Screen
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
+        ref={scrollRef}
         testID={mode === 'create' ? 'wardrobe-create-form' : 'wardrobe-edit-form'}>
-        {/* The title and the back control are the route's native large-title header, as
-            on the Closet list; `Screen`'s automatic content inset clears it. */}
+        {/* The title and Cancel/Save are the route's native header; `Screen`'s automatic
+            content inset clears it. */}
+        {saveError ? (
+          <ErrorLine
+            message={mode === 'create' ? copy.createError : copy.updateError}
+            testID="wardrobe-save-error"
+          />
+        ) : null}
+
         <View style={styles.section}>
-          <Pressable
-            accessibilityHint={copy.typePickerHint}
-            accessibilityLabel={copy.typeAccessibilityLabel(
-              selectedTypeLabel ?? copy.typeChoosePrompt,
-            )}
-            accessibilityRole="button"
-            accessibilityValue={{
-              text: selectedTypeLabel ?? copy.unclassifiedType,
-            }}
-            disabled={busy}
-            onPress={() => setTypeSheetVisible(true)}
-            style={({ pressed }) => [
-              styles.typePickerRow,
-              {
-                backgroundColor: theme.colors.surface,
-                borderColor: validationError
-                  ? theme.colors.dangerInk
-                  : theme.colors.borderDefined,
-              },
-              pressed && !busy && styles.pressed,
-              busy && styles.disabled,
-            ]}
-            testID="wardrobe-type-picker-row">
-            {selectedType ? (
-              // Law 6 exempts garment artwork from the icon ladder and sizes it from its
-              // own drawn bounds; at 20 beside the label the silhouette's drawn box would
-              // be about 12 points and unreadable as a garment. The row's leading element
-              // is therefore the same small tile the Closet draws, at the row's own 44.
-              <Animated.View
-                accessibilityElementsHidden
-                importantForAccessibility="no-hide-descendants"
-                style={[
-                  styles.typePickerTile,
-                  typeRowStyle,
-                  { backgroundColor: theme.colors.surfaceMuted },
-                ]}>
-                <GarmentTileArtwork
-                  category={selectedType.structuralCategory}
-                  colorFamily={null}
-                  garmentTypeId={selectedType.typeId}
-                  glyphSize={TYPE_ROW_TILE_SIZE * TYPE_ROW_GLYPH_RATIO}
-                  height={TYPE_ROW_TILE_SIZE}
-                  photoTestID="wardrobe-type-row-photo"
-                  photoUri={null}
-                  placeholderTestID="wardrobe-type-row-placeholder"
-                  silhouetteTestID="wardrobe-type-row-silhouette"
-                  width={TYPE_ROW_TILE_SIZE}
-                />
-              </Animated.View>
-            ) : null}
-            <View style={styles.typePickerCopy}>
-              <AppText colorRole="textPrimary" variant="bodyStrong">
-                {copy.typeTitle}
-              </AppText>
-              <Animated.View style={typeRowStyle}>
-                <AppText variant="bodyStrong">
-                  {selectedTypeLabel ?? copy.typeChoosePrompt}
-                </AppText>
-              </Animated.View>
-              {selectedTypeLabel ? null : (
-                // An instruction beside a filled answer reads as "you are not done", so
-                // the hint leaves once the row carries a type.
-                <AppText colorRole="textSecondary" variant="caption">
-                  {copy.typeDescription}
-                </AppText>
-              )}
-            </View>
-            <Icon color={theme.colors.iconSecondary} name="chevronRight" size={20} />
-          </Pressable>
-          {validationError ? (
-            <View style={styles.errorRow}>
-              <Icon color={theme.colors.dangerInk} name="error" size={20} />
-              <AppText
-                accessibilityLiveRegion="assertive"
-                accessibilityRole="alert"
-                colorRole="dangerInk"
-                style={styles.errorCopy}
-                testID="wardrobe-type-error">
-                {copy.typeRequiredError}
-              </AppText>
-            </View>
+          <PiecePreviewStage
+            category={piece.category}
+            colorFamily={piece.colorFamily}
+            disabled={isSaving || isDeleting || isBusy}
+            garmentTypeId={piece.garmentTypeId}
+            hasPhoto={hasPhoto}
+            isProcessing={isProcessingPhoto}
+            onPhotoError={() => setUnreadablePhotoUri(visiblePreviewUri)}
+            onRemovePhoto={removePhoto}
+            onSelectPhoto={selectPhoto}
+            photoUri={visiblePreviewUri}
+            removeDisabled={busy}
+            typeLabel={selectedTypeLabel}
+          />
+          {hasPhoto ? null : (
+            <AppText colorRole="textSecondary" variant="caption">
+              {copy.photoHint}
+            </AppText>
+          )}
+          {photoError ? (
+            <ErrorLine message={copy.photoError} testID="wardrobe-photo-error" />
           ) : null}
         </View>
 
-        <View accessibilityRole="radiogroup" style={styles.section}>
-          <FormSectionLabel
-            description={copy.entryStateDescription}
-            heading={copy.entryStateTitle}
+        <OwnershipChoice
+          disabled={busy}
+          entryState={entryState}
+          onChange={updateEntryState}
+          piece={piece}
+        />
+
+        <View
+          onLayout={(event: LayoutChangeEvent) => {
+            typeSectionY.current = event.nativeEvent.layout.y;
+          }}
+          style={styles.section}
+          testID="wardrobe-type-section">
+          <SectionHeading
+            heading={copy.typeTitle}
+            invalid={validationError}
+            tag={copy.requiredTag}
+            testID="wardrobe-type-required"
           />
-          <View style={styles.options}>
-            <WardrobeOption
-              disabled={busy}
-              label={copy.ownedLabel}
-              onPress={() => updateEntryState('owned')}
-              selected={entryState === 'owned'}
-              testID="wardrobe-entry-state-owned"
-            />
-            <WardrobeOption
-              disabled={busy}
-              label={copy.wantedLabel}
-              onPress={() => updateEntryState('wanted')}
-              selected={entryState === 'wanted'}
-              testID="wardrobe-entry-state-wanted"
-            />
-          </View>
+          {validationError ? (
+            <ErrorLine message={copy.typeRequiredError} testID="wardrobe-type-error" />
+          ) : null}
+          <GarmentTypePicker
+            clothingPreference={clothingPreference}
+            colorFamily={values.colorFamily}
+            disabled={busy}
+            initialCategory={item?.category ?? defaultCategory}
+            onSelect={selectType}
+            selectedTypeId={values.garmentTypeId}
+          />
         </View>
 
+        {selectedType ? (
+          <View style={styles.section} testID="wardrobe-color-section">
+            <View style={styles.heading}>
+              <AppText accessibilityRole="header" style={styles.headingText} variant="title">
+                {copy.colorTitle}
+              </AppText>
+              {/* The swatches carry their names for assistive technology, so this is the
+                  sighted reader's confirmation: colour is never the only signal. */}
+              <AppText
+                accessibilityElementsHidden
+                colorRole="textSecondary"
+                importantForAccessibility="no-hide-descendants"
+                testID="wardrobe-color-selected"
+                variant="label">
+                {colorLabel(values.colorFamily)}
+              </AppText>
+            </View>
+            <AppText colorRole="textSecondary" variant="label">
+              {copy.usualColorsLabel}
+            </AppText>
+            <View
+              accessibilityLabel={copy.usualColorsLabel}
+              accessibilityRole="radiogroup"
+              style={styles.swatchRow}>
+              {usualColors.map((family) => (
+                <View key={family} style={styles.namedSwatch}>
+                  <ColorSwatch
+                    colorFamily={family}
+                    disabled={busy}
+                    label={colorLabel(family)}
+                    onPress={() => chooseColor(family)}
+                    selected={values.colorFamily === family}
+                  />
+                  <AppText
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                    numberOfLines={2}
+                    style={styles.swatchName}
+                    variant="caption">
+                    {colorLabel(family)}
+                  </AppText>
+                </View>
+              ))}
+            </View>
+            <AppText colorRole="textSecondary" variant="label">
+              {copy.allColorsLabel}
+            </AppText>
+            <View
+              accessibilityLabel={copy.allColorsLabel}
+              accessibilityRole="radiogroup"
+              style={styles.swatchRow}>
+              {colorFamilies
+                .filter((family) => !usualColors.includes(family))
+                .map((family) => (
+                  <ColorSwatch
+                    colorFamily={family}
+                    disabled={busy}
+                    key={family}
+                    label={colorLabel(family)}
+                    onPress={() => chooseColor(family)}
+                    selected={values.colorFamily === family}
+                  />
+                ))}
+            </View>
+          </View>
+        ) : null}
+
         <View style={styles.section}>
-          <FormSectionLabel description={copy.nameDescription} heading={copy.nameLabel} />
+          <SectionHeading heading={copy.nameLabel} tag={copy.optionalTag} variant="bodyStrong" />
           <TextInput
             accessibilityLabel={copy.nameLabel}
             editable={!busy}
@@ -573,193 +597,16 @@ export function WardrobeItemFormScreen({
           />
         </View>
 
-        <View style={styles.section}>
-          <FormSectionLabel description={copy.photoDescription} heading={copy.photoTitle} />
-          {visiblePreviewUri ? (
-            <Image
-              accessible
-              accessibilityLabel={copy.photoAccessibilityLabel(photoTypeLabel)}
-              onError={() => setUnreadablePhotoUri(visiblePreviewUri)}
-              resizeMode="cover"
-              source={{ uri: visiblePreviewUri }}
-              style={[
-                styles.photoPreview,
-                { backgroundColor: theme.colors.surfaceMuted },
-              ]}
-              testID="wardrobe-photo-preview"
-            />
-          ) : (
-            <PhotoPlaceholder
-              borderRadius={radii.card}
-              height={140}
-              label={copy.photoEmptyBody}
-              testID="wardrobe-photo-empty"
-              width="100%"
-            />
-          )}
-          <View style={styles.photoActions}>
-            <Button
-              disabled={isSaving || isDeleting || isBusy}
-              label={
-                isProcessingPhoto
-                  ? copy.photoProcessingLabel
-                  : hasPhoto
-                    ? copy.changePhotoAction
-                    : copy.selectPhotoAction
-              }
-              icon="photo"
-              loading={isProcessingPhoto}
-              onPress={selectPhoto}
-              testID="wardrobe-photo-select-button"
-              variant="tonal"
-            />
-            {hasPhoto ? (
-              <Button
-                disabled={busy}
-                label={copy.removePhotoAction}
-                onPress={removePhoto}
-                testID="wardrobe-photo-remove-button"
-                variant="plain"
-              />
-            ) : null}
-          </View>
-          {photoError ? (
-            <View style={styles.errorRow}>
-              <Icon color={theme.colors.dangerInk} name="error" size={20} />
-              <AppText
-                accessibilityLiveRegion="assertive"
-                accessibilityRole="alert"
-                colorRole="dangerInk"
-                style={styles.errorCopy}
-                testID="wardrobe-photo-error">
-                {copy.photoError}
-              </AppText>
-            </View>
-          ) : null}
-        </View>
-
-        <Surface style={styles.detailsCard} variant="muted">
-          <Pressable
-            accessibilityHint={copy.detailsCaption}
-            accessibilityLabel={copy.detailsTitle}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: detailsExpanded }}
-            disabled={busy}
-            onPress={() => setDetailsExpanded((expanded) => !expanded)}
-            style={({ pressed }) => [
-              styles.detailsToggle,
-              pressed && !busy && styles.pressed,
-              busy && styles.disabled,
-            ]}
-            testID="wardrobe-details-toggle">
-            <View style={styles.detailsCopy}>
-              <AppText variant="bodyStrong">{copy.detailsTitle}</AppText>
-              <AppText colorRole="textSecondary">{copy.detailsCaption}</AppText>
-            </View>
-            <View
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-              style={detailsExpanded ? styles.expandedChevron : undefined}>
-              <Icon color={theme.colors.iconSecondary} name="chevronRight" size={20} />
-            </View>
-          </Pressable>
-
-          {detailsExpanded ? (
-            <View style={styles.detailsContent} testID="wardrobe-details-content">
-              <View style={styles.detailSection}>
-                <FormSectionLabel description={copy.colorDescription} heading={copy.colorTitle} />
-                <View accessibilityRole="radiogroup" style={styles.swatchRow}>
-                  <Pressable
-                    accessibilityLabel={copy.colorUnspecified}
-                    accessibilityRole="radio"
-                    accessibilityState={{
-                      disabled: busy,
-                      selected: values.colorFamily === null,
-                    }}
-                    disabled={busy}
-                    onPress={() =>
-                      updateValues((current) => ({ ...current, colorFamily: null }))
-                    }
-                    style={({ pressed }) => [
-                      styles.anyColorChip,
-                      {
-                        backgroundColor: theme.colors.surface,
-                        borderColor:
-                          values.colorFamily === null
-                            ? theme.colors.brandAccent
-                            : theme.colors.borderDefined,
-                      },
-                      pressed && !busy && styles.pressed,
-                      busy && styles.disabled,
-                    ]}
-                    testID="wardrobe-color-unspecified">
-                    <AppText variant="label">{copy.colorUnspecified}</AppText>
-                  </Pressable>
-                  {colorFamilies.map((colorFamily) => (
-                    <ColorSwatch
-                      colorFamily={colorFamily}
-                      disabled={busy}
-                      key={colorFamily}
-                      label={messages.catalog[`catalog.color_family.${colorFamily}`]}
-                      onPress={() =>
-                        updateValues((current) => ({ ...current, colorFamily }))
-                      }
-                      selected={values.colorFamily === colorFamily}
-                    />
-                  ))}
-                </View>
-                {/* The swatches already carry their names for assistive technology, so
-                    this line is the sighted reader's confirmation only. */}
-                <AppText
-                  accessibilityElementsHidden
-                  colorRole="textSecondary"
-                  importantForAccessibility="no-hide-descendants"
-                  testID="wardrobe-color-selected"
-                  variant="caption">
-                  {selectedColorLabel}
-                </AppText>
-              </View>
-            </View>
-          ) : null}
-        </Surface>
-
-        {saveError ? (
-          <View style={styles.errorRow}>
-            <Icon color={theme.colors.dangerInk} name="error" size={20} />
-            <AppText
-              accessibilityLiveRegion="assertive"
-              accessibilityRole="alert"
-              colorRole="dangerInk"
-              style={styles.errorCopy}
-              testID="wardrobe-save-error">
-              {mode === 'create' ? copy.createError : copy.updateError}
-            </AppText>
-          </View>
-        ) : null}
-        <Button
-          label={isSaving ? copy.savingLabel : copy.saveAction}
-          loading={isSaving}
-          disabled={isDeleting || isBusy || isProcessingPhoto}
-          onPress={save}
-          size="large"
-          testID="wardrobe-save-button"
-        />
-
         {mode === 'edit' && onDelete ? (
           <Surface style={styles.deleteSection} variant="muted">
-            <FormSectionLabel description={copy.deleteSectionBody} heading={copy.deleteSectionTitle} />
+            <View style={styles.sectionLabel}>
+              <AppText colorRole="textPrimary" variant="bodyStrong">
+                {copy.deleteSectionTitle}
+              </AppText>
+              <AppText colorRole="textSecondary">{copy.deleteSectionBody}</AppText>
+            </View>
             {deleteError ? (
-              <View style={styles.errorRow}>
-                <Icon color={theme.colors.dangerInk} name="error" size={20} />
-                <AppText
-                  accessibilityLiveRegion="assertive"
-                  accessibilityRole="alert"
-                  colorRole="dangerInk"
-                  style={styles.errorCopy}
-                  testID="wardrobe-delete-error">
-                  {copy.deleteError}
-                </AppText>
-              </View>
+              <ErrorLine message={copy.deleteError} testID="wardrobe-delete-error" />
             ) : null}
             <Button
               accessibilityHint={copy.deleteSectionBody}
@@ -774,28 +621,12 @@ export function WardrobeItemFormScreen({
           </Surface>
         ) : null}
       </Screen>
-      <GarmentTypeSheet
-        clothingPreference={clothingPreference}
-        initialCategory={defaultCategory}
-        onDismiss={() => setTypeSheetVisible(false)}
-        onSelect={(typeId) => {
-          setTypeSheetVisible(false);
-          selectType(typeId);
-        }}
-        selectedTypeId={values.garmentTypeId}
-        visible={typeSheetVisible}
-      />
     </>
   );
 }
 
-// ADR 0029 section 1's rail ratio, reused rather than invented: a 72-point glyph inside
-// a 136-wide tile.
-const TYPE_ROW_TILE_SIZE = layout.minimumTouchTarget;
-const TYPE_ROW_GLYPH_RATIO = 72 / 136;
-// A swatch is its own touch target, so it is drawn at the 44 minimum rather than padded
-// up to it.
-const SWATCH_SIZE = layout.minimumTouchTarget;
+// A named swatch column is the swatch's own 44 plus room for a two-line name.
+const NAMED_SWATCH_WIDTH = 72;
 
 const styles = StyleSheet.create({
   content: {
@@ -804,26 +635,20 @@ const styles = StyleSheet.create({
   section: {
     gap: spacing.sm,
   },
-  typePickerRow: {
-    alignItems: 'center',
-    borderRadius: radii.control,
-    borderWidth: borderWidths.subtle,
+  sectionLabel: {
+    gap: spacing.xs,
+  },
+  heading: {
+    alignItems: 'baseline',
     flexDirection: 'row',
-    gap: spacing.md,
-    minHeight: layout.minimumTouchTarget,
-    padding: spacing.lg,
+    gap: spacing.sm,
   },
-  typePickerTile: {
-    alignItems: 'center',
-    borderRadius: radii.control,
-    flexShrink: 0,
-    height: TYPE_ROW_TILE_SIZE,
-    justifyContent: 'center',
-    overflow: 'hidden',
-    width: TYPE_ROW_TILE_SIZE,
-  },
-  typePickerCopy: {
+  headingText: {
     flex: 1,
+  },
+  tag: {
+    alignItems: 'center',
+    flexDirection: 'row',
     gap: spacing.xs,
   },
   errorRow: {
@@ -834,79 +659,18 @@ const styles = StyleSheet.create({
   errorCopy: {
     flex: 1,
   },
-  sectionLabel: {
-    gap: spacing.xs,
-  },
-  options: {
-    gap: spacing.sm,
-  },
-  photoActions: {
-    gap: spacing.sm,
-  },
-  photoPreview: {
-    alignSelf: 'stretch',
-    borderRadius: radii.card,
-    height: 220,
-    width: '100%',
-  },
   swatchRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  swatch: {
-    borderRadius: SWATCH_SIZE / 2,
-    borderWidth: borderWidths.strong,
-    height: SWATCH_SIZE,
-    overflow: 'hidden',
-    width: SWATCH_SIZE,
-  },
-  swatchTrailingHalf: {
-    bottom: 0,
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    width: '50%',
-  },
-  anyColorChip: {
+  namedSwatch: {
     alignItems: 'center',
-    borderRadius: SWATCH_SIZE / 2,
-    borderWidth: borderWidths.strong,
-    justifyContent: 'center',
-    // The round swatches beside it are fixed because they hold no text; this one holds a
-    // word, so the touch target is a floor and the chip grows with the text size instead
-    // of clipping it on Android or spilling over the swatches on iOS.
-    minHeight: SWATCH_SIZE,
-    paddingHorizontal: spacing.md,
-  },
-  detailsCard: {
-    gap: spacing.md,
-    padding: spacing.lg,
-  },
-  detailsToggle: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.md,
-    minHeight: layout.minimumTouchTarget,
-  },
-  detailsCopy: {
-    flex: 1,
     gap: spacing.xs,
+    width: NAMED_SWATCH_WIDTH,
   },
-  detailsContent: {
-    gap: spacing.md,
-  },
-  detailSection: {
-    gap: spacing.sm,
-  },
-  expandedChevron: {
-    transform: [{ rotate: '90deg' }],
-  },
-  pressed: {
-    opacity: interaction.pressedOpacity,
-  },
-  disabled: {
-    opacity: interaction.disabledOpacity,
+  swatchName: {
+    textAlign: 'center',
   },
   textInput: {
     borderRadius: radii.control,

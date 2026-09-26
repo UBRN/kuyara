@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { resolveListRowTileGeometry } from '@/components/ui/primitive-contracts';
 import { useTextScaling } from '@/components/ui/use-text-scaling';
 import { withAlpha } from '@/theme/color-alpha';
+import type { KuyaraTheme } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // ADR 0028 section 2. Never a coloured tile: the fill is always the row's own ink at a
@@ -17,10 +18,19 @@ export type ListRowTileProps = Readonly<{
   testID?: string;
 }>;
 
+/** The tile's fill and glyph ink, shared with the SwiftUI tile a Picker row draws itself. */
+export function listRowTileColors(theme: KuyaraTheme) {
+  return {
+    fill: withAlpha(theme.colors.textPrimary, theme.isDark ? 0.12 : 0.08),
+    ink: theme.colors.textPrimary,
+  } as const;
+}
+
 export function ListRowTile({ glyph, testID }: ListRowTileProps) {
   const theme = useKuyaraTheme();
   const { controlScale } = useTextScaling();
   const geometry = resolveListRowTileGeometry(controlScale);
+  const colors = listRowTileColors(theme);
 
   return (
     <View
@@ -30,11 +40,11 @@ export function ListRowTile({ glyph, testID }: ListRowTileProps) {
           width: geometry.size,
           height: geometry.size,
           borderRadius: geometry.borderRadius,
-          backgroundColor: withAlpha(theme.colors.textPrimary, theme.isDark ? 0.12 : 0.08),
+          backgroundColor: colors.fill,
         },
       ]}
       testID={testID}>
-      {glyph({ color: theme.colors.textPrimary, size: geometry.glyphSize })}
+      {glyph({ color: colors.ink, size: geometry.glyphSize })}
     </View>
   );
 }

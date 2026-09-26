@@ -211,6 +211,9 @@ for (const rule of rules) {
 // docs/design/design-language.md, Law 4 (O15): every board draws its outfit in that outfit's
 // own palette, the alternates included, so an outfit looks the same wherever it appears. The
 // Closet and the Profile rack draw personal records and never take a board or its palette.
+// Onboarding's welcome step (O14) is the one other board: a fixed sample of what Today
+// shows, drawn in its own palette like any outfit.
+const boardFiles = ['features/today/presentation/', 'features/profile/presentation/onboarding-screen.tsx'];
 test('every garment board carries its outfit palette and only Today draws one', () => {
   const boards = sourceFiles().flatMap((relativePath) => (
     [...readFileSync(path.join(sourceRoot, relativePath), 'utf8').matchAll(/<GarmentBoard\b[\s\S]*?\/>/g)]
@@ -220,7 +223,7 @@ test('every garment board carries its outfit palette and only Today draws one', 
   assert.ok(boards.length > 0);
   assert.deepEqual(
     boards.filter(({ relativePath, element }) => (
-      !relativePath.startsWith('features/today/presentation/') || !element.includes('palette=')
+      !boardFiles.some((prefix) => relativePath.startsWith(prefix)) || !element.includes('palette=')
     )).map(({ relativePath }) => relativePath),
     [],
     'A board draws a recommended outfit in its palette (O15, design-language.md Law 4). Pass the '
@@ -337,8 +340,10 @@ test('the specifier reader sees `typeof import(…)`, the form the adapters name
 // feature presentation code is a row, tile, chip, swatch, link or field accessory, and each
 // file may hold only the number listed here. The counts only shrink; a stale entry fails.
 const rawPressableAllowlist = Object.freeze({
-  // Radio swatches, the "any colour" chip, the type picker row and the details toggle row.
-  'features/wardrobe/presentation/wardrobe-item-form-screen.tsx': 4,
+  // O10: a colour swatch, a category tile of the type picker, an ownership card.
+  'features/wardrobe/presentation/color-swatch.tsx': 1,
+  'features/wardrobe/presentation/garment-type-picker.tsx': 1,
+  'features/wardrobe/presentation/ownership-choice.tsx': 1,
   'features/wardrobe/presentation/wardrobe-category-chip.tsx': 1,
   'features/wardrobe/presentation/wardrobe-grid-tile.tsx': 1,
   'features/wardrobe/presentation/wardrobe-option.tsx': 1,
@@ -347,8 +352,6 @@ const rawPressableAllowlist = Object.freeze({
   'features/weather/presentation/weather-attribution.tsx': 1,
   // The hero board and the alternate tiles.
   'features/today/presentation/today-screen.tsx': 2,
-  // The three day-type radio tiles.
-  'features/today/presentation/daily-formality-sheet.tsx': 1,
   // O6: the board caption, the garment drawing's target and the piece row open one sheet.
   'features/today/presentation/outfit-detail-screen.tsx': 3,
   // The text field's inline clear glyph.

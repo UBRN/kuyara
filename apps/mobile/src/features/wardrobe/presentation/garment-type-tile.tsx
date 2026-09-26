@@ -7,7 +7,7 @@ import {
   PressScale,
   useTextScaling,
 } from '@/components/ui';
-import type { GarmentType } from '@/features/catalog/domain/garment-taxonomy';
+import type { ColorFamily, GarmentType } from '@/features/catalog/domain/garment-taxonomy';
 import { borderWidths, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -27,6 +27,8 @@ const SELECTED_MARK_SIZE = 20;
 
 export type GarmentTypeTileProps = Readonly<{
   garmentType: GarmentType;
+  /** O10: each type is drawn in its most natural colour, since five pairs share a drawing. */
+  colorFamily?: ColorFamily | null;
   label: string;
   onPress: () => void;
   selected: boolean;
@@ -35,6 +37,7 @@ export type GarmentTypeTileProps = Readonly<{
 }>;
 
 export function GarmentTypeTile({
+  colorFamily = null,
   garmentType,
   label,
   onPress,
@@ -69,7 +72,7 @@ export function GarmentTypeTile({
         ]}>
         <GarmentTileArtwork
           category={garmentType.structuralCategory}
-          colorFamily={null}
+          colorFamily={colorFamily}
           garmentTypeId={garmentType.typeId}
           glyphSize={artworkSize * GLYPH_SIZE_RATIO}
           height={artworkSize}

@@ -107,7 +107,9 @@ function ReadyApplicationShell({
       ...baseNavigationTheme.colors,
       primary: theme.colors.brandPrimary,
       background: theme.colors.background,
-      card: theme.colors.backgroundElevated,
+      // O14 dark cards B: the nav chrome takes the ground, so the card is the only lifted
+      // plane. Light is unchanged: its elevated plane already equals the ground.
+      card: theme.colors.background,
       text: theme.colors.textPrimary,
       border: theme.colors.borderSubtle,
       notification: theme.colors.brandAccent,

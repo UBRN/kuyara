@@ -52,11 +52,14 @@ export type WardrobeGridTileProps = Readonly<{
   messages: AppMessages;
   onPress: () => void;
   resolvePhotoUri: (relativePath: string | null) => string | null;
+  /** O10: the piece just saved wears a 2 point `brandAccent` ring beside its confirmation. */
+  highlighted?: boolean;
   testID?: string;
 }>;
 
 export function WardrobeGridTile({
   geometry,
+  highlighted = false,
   item,
   messages,
   onPress,
@@ -95,6 +98,7 @@ export function WardrobeGridTile({
           wanted
             ? [styles.wantedTile, { borderColor: theme.colors.borderDefined }]
             : { backgroundColor: theme.colors.surfaceMuted },
+          highlighted && [styles.highlightedTile, { borderColor: theme.colors.brandAccent }],
         ]}
         testID={testID ? `${testID}-frame` : undefined}>
         <GarmentTileArtwork
@@ -155,6 +159,10 @@ const styles = StyleSheet.create({
   wantedTile: {
     borderStyle: 'dashed',
     borderWidth: WANTED_FRAME_WIDTH,
+  },
+  highlightedTile: {
+    borderStyle: 'solid',
+    borderWidth: borderWidths.strong,
   },
   wantedBadge: {
     alignItems: 'center',

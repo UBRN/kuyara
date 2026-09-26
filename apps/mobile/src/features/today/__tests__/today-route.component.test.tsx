@@ -109,9 +109,11 @@ const mockPush = jest.fn();
 const mockBack = jest.fn();
 let mockParams: { id?: string } = {};
 
+const mockStackScreen = jest.fn();
 jest.mock('expo-router', () => {
   const actualReact = jest.requireActual('react');
   return {
+    Stack: { Screen: (props: unknown) => { mockStackScreen(props); return null; } },
     useFocusEffect: (callback: () => void | (() => void)) => actualReact.useEffect(callback, [callback]),
     useIsFocused: () => true,
     useRouter: () => ({
@@ -2053,8 +2055,12 @@ test('a regeneration finishing under an open detail keeps the same outfit or sho
   expect(result.queryByTestId('outfit-detail-board')).not.toBeOnTheScreen();
   expect(result.queryByRole('header', { name: messages.en.recommendation.archetypes.snow_day }))
     .not.toBeOnTheScreen();
-  await fireEvent.press(result.getByRole('button', { name: messages.en.today.backAction }));
-  expect(mockBack).toHaveBeenCalledTimes(1);
+  // O14: the way back is the system's glass capsule in the native bar, named for Today; the
+  // screen draws no back control of its own, not even in the unavailable state.
+  expect(mockStackScreen).toHaveBeenLastCalledWith({
+    options: { headerBackTitle: messages.en.navigation.today, headerShown: true, headerTitle: '' },
+  });
+  expect(result.queryByTestId('outfit-detail-back')).toBeNull();
 });
 
 test('recomputing a focused outfit detail does not reopen the same suggestion', async () => {

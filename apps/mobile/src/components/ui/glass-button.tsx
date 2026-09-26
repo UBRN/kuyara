@@ -1,8 +1,10 @@
 import {
   accessibilityHint as nativeAccessibilityHint,
   accessibilityLabel as nativeAccessibilityLabel,
+  buttonBorderShape,
   buttonStyle,
   controlSize,
+  disabled as nativeDisabled,
   tint,
 } from '@expo/ui/swift-ui/modifiers';
 import { Platform, StyleSheet } from 'react-native';
@@ -37,6 +39,8 @@ export type GlassButtonProps = Readonly<{
 }> & (
   | Readonly<{ kind: 'bar'; icon: IconName }>
   | Readonly<{ kind: 'back' | 'close' }>
+  // A sheet's prominent glass checkmark (O14 name editor A): the tint fills it.
+  | Readonly<{ kind: 'confirm'; disabled?: boolean }>
 );
 
 export function GlassButton(props: GlassButtonProps) {
@@ -57,6 +61,31 @@ export function GlassButton(props: GlassButtonProps) {
         testID={testID}>
         <Icon color={theme.colors.iconPrimary} name={props.icon} size={BAR_GLYPH_SIZE} />
       </PressScale>
+    );
+  }
+
+  if (swiftUI && props.kind === 'confirm') {
+    const { Button: SwiftUIButton, Host, Image } = swiftUI;
+    const height = layout.minimumTouchTarget * Math.max(1, fontScale);
+    return (
+      <Host
+        colorScheme={theme.isDark ? 'dark' : 'light'}
+        style={{ height, width: height }}>
+        <SwiftUIButton
+          modifiers={[
+            buttonStyle('glassProminent'),
+            buttonBorderShape('circle'),
+            controlSize('large'),
+            tint(theme.colors.brandPrimary),
+            nativeAccessibilityLabel(label),
+            ...(accessibilityHint ? [nativeAccessibilityHint(accessibilityHint)] : []),
+            ...(props.disabled ? [nativeDisabled(true)] : []),
+          ]}
+          onPress={onPress}
+          testID={testID}>
+          <Image systemName="checkmark" />
+        </SwiftUIButton>
+      </Host>
     );
   }
 
@@ -95,8 +124,23 @@ export function GlassButton(props: GlassButtonProps) {
     );
   }
 
-  // Material: the close icon button on the sheet's tonal fill, and back as a plain text
-  // button with its chevron; the system back gesture stays the platform's.
+  // Material: the close icon button on the sheet's tonal fill, confirm as the filled icon
+  // button, and back as a plain text button with its chevron; the system back gesture stays
+  // the platform's.
+  if (props.kind === 'confirm') {
+    return (
+      <IconButton
+        accessibilityHint={accessibilityHint}
+        accessibilityLabel={label}
+        disabled={props.disabled}
+        icon="check"
+        onPress={onPress}
+        raised
+        testID={testID}
+      />
+    );
+  }
+
   return props.kind === 'close' ? (
     <IconButton
       accessibilityHint={accessibilityHint}

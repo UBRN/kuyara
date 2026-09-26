@@ -1,6 +1,7 @@
-import type { SymbolViewProps } from 'expo-symbols';
 import {
+  accessibilityHidden,
   accessibilityLabel as accessibilityLabelModifier,
+  background,
   disabled as disabledModifier,
   font,
   foregroundStyle,
@@ -8,13 +9,18 @@ import {
   labelsHidden,
   menuIndicator,
   pickerStyle,
+  shapes,
   tag,
 } from '@expo/ui/swift-ui/modifiers';
-import { Alert, Platform } from 'react-native';
+import { Alert, Platform, PlatformColor } from 'react-native';
 
 import { haptics } from '@/components/ui/haptics';
+import { Icon, iconNames, type IconName } from '@/components/ui/icon';
+import { listRowTileColors } from '@/components/ui/list-row-tile';
 import { NativeListRow } from '@/components/ui/native-list';
+import { resolveListRowTileGeometry } from '@/components/ui/primitive-contracts';
 import { useTextScaling } from '@/components/ui/use-text-scaling';
+import { useKuyaraTheme } from '@/theme/theme-context';
 
 const swiftUI = Platform.select<() => typeof import('@expo/ui/swift-ui') | null>({
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- Keep SwiftUI off Android.
@@ -22,10 +28,13 @@ const swiftUI = Platform.select<() => typeof import('@expo/ui/swift-ui') | null>
   default: () => null,
 })();
 
-type SFSymbol = Extract<SymbolViewProps['name'], string>;
-
 const IOS_ROW_FRAME_MODIFIERS = [frame({ maxWidth: Infinity, alignment: 'leading' })];
-const IOS_ROW_SYMBOL_MODIFIERS = [font({ textStyle: 'body' })];
+// A Menu label takes the tint as its foreground, so the label names the system label ink
+// itself: O14 row anatomy A reads every Settings label in one ink, the tint is for actions.
+const IOS_LABEL_MODIFIERS = Platform.OS === 'ios' ? [foregroundStyle(PlatformColor('label'))] : [];
+// `ListItem` spaces its leading tile and its headline by 12, so a Picker row's label starts
+// at the same x as every other tiled row and the separators line up.
+const LIST_ITEM_LEADING_SPACING = 12;
 const IOS_SECONDARY_TEXT_MODIFIERS = [
   font({ textStyle: 'body' }),
   foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
@@ -46,7 +55,8 @@ export type NativePickerRowProps<T extends string> = Readonly<{
   onSelectionChange: (value: T) => void | Promise<void>;
   options: readonly NativePickerRowOption<T>[];
   selection: T;
-  systemImage?: SFSymbol;
+  /** The row's glyph, drawn in the same 28-point tile as every other Settings row. */
+  icon?: IconName;
   testID?: string;
 }>;
 
@@ -67,10 +77,11 @@ export function NativePickerRow<T extends string>({
   onSelectionChange,
   options,
   selection,
-  systemImage,
+  icon,
   testID,
 }: NativePickerRowProps<T>) {
-  const { usesStackedLayout } = useTextScaling();
+  const theme = useKuyaraTheme();
+  const { controlScale, usesStackedLayout } = useTextScaling();
   const selectedLabel = options.find((option) => option.value === selection)?.label ?? '';
   const spokenLabel = selectedLabel ? `${label}, ${selectedLabel}` : label;
   const select = (value: T) => {
@@ -80,6 +91,23 @@ export function NativePickerRow<T extends string>({
   };
 
   if (swiftUI) {
+    // ADR 0028 section 2's tile, drawn in SwiftUI because the Menu label cannot host the
+    // React Native one: the same geometry, fill and ink as `ListRowTile`.
+    const tile = resolveListRowTileGeometry(controlScale);
+    const tileColors = listRowTileColors(theme);
+    const leadingTile = icon ? (
+      <swiftUI.Image
+        modifiers={[
+          font({ size: tile.glyphSize }),
+          foregroundStyle(tileColors.ink),
+          frame({ width: tile.size, height: tile.size }),
+          background(tileColors.fill, shapes.roundedRectangle({ cornerRadius: tile.borderRadius })),
+          accessibilityHidden(),
+        ]}
+        systemName={iconNames[icon].ios}
+        testID={testID ? `${testID}-tile` : undefined}
+      />
+    ) : null;
     const trailingValue = (
       <swiftUI.HStack spacing={4}>
         <swiftUI.Text modifiers={IOS_SECONDARY_TEXT_MODIFIERS}>
@@ -95,17 +123,15 @@ export function NativePickerRow<T extends string>({
     return (
       <swiftUI.Menu
         label={
-          <swiftUI.HStack modifiers={IOS_ROW_FRAME_MODIFIERS} spacing={8}>
-            {systemImage ? (
-              <swiftUI.Image modifiers={IOS_ROW_SYMBOL_MODIFIERS} systemName={systemImage} />
-            ) : null}
+          <swiftUI.HStack modifiers={IOS_ROW_FRAME_MODIFIERS} spacing={LIST_ITEM_LEADING_SPACING}>
+            {leadingTile}
             {usesStackedLayout ? (
               <swiftUI.VStack alignment="leading" spacing={2}>
-                <swiftUI.Text>{label}</swiftUI.Text>
+                <swiftUI.Text modifiers={IOS_LABEL_MODIFIERS}>{label}</swiftUI.Text>
                 {trailingValue}
               </swiftUI.VStack>
             ) : (
-              <swiftUI.Text>{label}</swiftUI.Text>
+              <swiftUI.Text modifiers={IOS_LABEL_MODIFIERS}>{label}</swiftUI.Text>
             )}
             <swiftUI.Spacer />
             {usesStackedLayout ? null : trailingValue}
@@ -134,6 +160,7 @@ export function NativePickerRow<T extends string>({
 
   return (
     <NativeListRow
+      glyph={icon ? ({ color, size }) => <Icon color={color} name={icon} size={size} /> : undefined}
       label={label}
       onPress={disabled ? undefined : () => {
         Alert.alert(
