@@ -40,7 +40,7 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 export default function OutfitDetailRoute() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const { language, messages } = useLocalization();
-  const { dressingDayChoiceReady, dressingDayKey, outfitHistory, reevaluateLocalDay,
+  const { dressingDayChoiceReady, dressingDayChoiceFailed, dressingDayKey, outfitHistory, reevaluateLocalDay,
     resolvedDressStyle, state: recommendationState } = useRecommendationApplication();
   const theme = useKuyaraTheme();
   const wardrobe = useWardrobeApplication();
@@ -236,7 +236,8 @@ export default function OutfitDetailRoute() {
       weatherState.status === 'ready' ? weatherState.refreshFailure : null,
     );
   } else if (recommendation === null && (recommendationState.isRefreshing ||
-      (recommendationState.snapshot !== null && recommendationState.lastFailure === null))) {
+      (recommendationState.snapshot !== null && recommendationState.lastFailure === null &&
+        !dressingDayChoiceFailed))) {
     state = { kind: 'loading', phase: recommendationState.phase };
   } else if (recommendation === null) {
     state = unavailableTodayState(recommendationState.lastFailure);

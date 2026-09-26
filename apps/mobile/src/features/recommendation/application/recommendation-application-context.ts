@@ -25,6 +25,7 @@ export type RecommendationApplicationValue = Readonly<{
   regenerate: () => Promise<RecommendationSnapshot | null>;
   dressingDayKey?: string;
   dressingDayChoiceReady?: boolean;
+  dressingDayChoiceFailed?: boolean;
   morningChoicePending?: boolean;
   eveningChoicePending?: boolean;
   activeDeparture?: DressingDayDeparture | null;

@@ -47,6 +47,7 @@ export default function TodayRoute() {
     reevaluateLocalDay,
     dressingDayKey,
     dressingDayChoiceReady,
+    dressingDayChoiceFailed,
     morningChoicePending,
     eveningChoicePending,
     resolvedDressStyle,
@@ -139,7 +140,8 @@ export default function TodayRoute() {
       : 'unknown';
     recommendationFailure = null;
   } else if (recommendation === null && (recommendationState.isRefreshing ||
-      (recommendationState.snapshot !== null && recommendationState.lastFailure === null) ||
+      (recommendationState.snapshot !== null && recommendationState.lastFailure === null &&
+        !dressingDayChoiceFailed) ||
       (morningChoicePending && !recommendationState.lastFailure))) {
     // M16: a first recommendation held for the morning answer is a wait, so the morning
     // sheet opens over it. A real failure still takes the unavailable branch below and is
