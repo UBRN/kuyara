@@ -17,6 +17,7 @@ kuyara is a source-available Expo/React Native weather and outfit app for iOS an
 
 - Apple Developer membership is active; WeatherKit, EAS Build, iOS signing credentials, and TestFlight work is permitted.
 - Approved iOS release work has standing authorization for production build, upload, TestFlight distribution, and App Store Connect submission. After required automated checks, independent review, and affected Simulator verification pass with no release blocker, proceed without further approval or maintainer TestFlight confirmation. Preserve configured release and phased-release preferences.
+- Build iOS binaries on the maintainer's Mac with `eas build --local` and upload them with the `asc` CLI ([release path](docs/testing.md#release-path)); a cloud `eas build`, `eas workflow:run` or cloud development-client build needs an explicit owner request, because it spends the EAS Free plan quota.
 - Require physical testing only when necessary release evidence for changed behavior is unavailable in the Simulator. Otherwise use automated and Simulator evidence. Production work outside this iOS release path requires an explicit user request.
 
 ## Working principles
