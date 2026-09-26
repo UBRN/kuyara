@@ -191,6 +191,37 @@ test('restart reconstructs exhausted state from the current history-filtered poo
   assert.equal(restored.controller.getSnapshot().exhausted, true);
 });
 
+test('cold initialize reuses the pool when persisted requirement keys are reordered', async () => {
+  const generationInput = { ...input(16), now };
+  const first = createHarness();
+  await first.controller.initialize();
+  const snapshot = await first.controller.refresh('first-recommendation', generationInput);
+  const reorderedSnapshot = {
+    ...snapshot,
+    recommendation: {
+      ...snapshot.recommendation,
+      requirements: {
+        ...snapshot.recommendation.requirements,
+        requirements: snapshot.recommendation.requirements.requirements.map((requirement) =>
+          Object.fromEntries(Object.entries(requirement).reverse())),
+      },
+    },
+  };
+  let compositions = 0;
+  const restored = createHarness({
+    cached: reorderedSnapshot,
+    createContextWithPool: (...args) => {
+      compositions += 1;
+      return createRecommendationContextWithPool(...args);
+    },
+  });
+
+  await restored.controller.initialize();
+  restored.controller.updatePoolAvailability(generationInput);
+
+  assert.equal(compositions, 0);
+});
+
 test('availability reuses the generation history-filtered pool for provider input', async () => {
   const first = createHarness();
   await first.controller.initialize();
