@@ -1,6 +1,6 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { useSyncExternalStore, type PropsWithChildren } from 'react';
-import { Alert, StyleSheet } from 'react-native';
+import { Alert, StyleSheet, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
@@ -21,6 +21,7 @@ import type { LocalProfile } from '@/features/profile/domain/profile';
 import {
   RecommendationApplicationContext,
   type RecommendationApplicationValue,
+  useRecommendationApplication,
 } from '@/features/recommendation/application/recommendation-application-context';
 import type { RecommendationApplicationState } from '@/features/recommendation/application/recommendation-application-controller';
 import {
@@ -422,6 +423,7 @@ function Providers({
   resolvedStyleAesthetics,
   outfitHistory,
   dressingDayChoiceReady,
+  dressingDayChoiceFailed,
   dressingDayKey,
   morningChoicePending,
   eveningChoicePending,
@@ -445,6 +447,7 @@ function Providers({
   resolvedStyleAesthetics?: RecommendationApplicationValue['resolvedStyleAesthetics'];
   outfitHistory?: RecommendationApplicationValue['outfitHistory'];
   dressingDayChoiceReady?: boolean;
+  dressingDayChoiceFailed?: boolean;
   dressingDayKey?: string;
   morningChoicePending?: boolean;
   eveningChoicePending?: boolean;
@@ -482,6 +485,7 @@ function Providers({
       resolvedStyleAesthetics,
       outfitHistory,
       dressingDayChoiceReady,
+      dressingDayChoiceFailed,
       dressingDayKey,
       morningChoicePending,
       eveningChoicePending,
@@ -781,6 +785,10 @@ test('Today waits for the day choice before reporting resolved formality', async
 });
 
 test('a rejected day-choice read leaves the morning sheet closed and writes no choice', async () => {
+  function ChoiceReadStatus() {
+    const { dressingDayChoiceFailed } = useRecommendationApplication();
+    return <Text testID="day-choice-read-status">{String(dressingDayChoiceFailed)}</Text>;
+  }
   let rejectChoiceRead: ((reason: Error) => void) | undefined;
   mockChoiceGet.mockImplementation(() => new Promise((_resolve, reject) => {
     rejectChoiceRead = reject;
@@ -796,16 +804,19 @@ test('a rejected day-choice read leaves the morning sheet closed and writes no c
   const view = await render(
     <Providers {...props}>
       <TodayRoute />
+      <ChoiceReadStatus />
     </Providers>,
   );
 
   await waitFor(() => expect(rejectChoiceRead).toBeDefined());
+  expect(view.getByTestId('day-choice-read-status')).toHaveTextContent('false');
   await act(async () => {
     rejectChoiceRead?.(new Error('choice read failed'));
     await Promise.resolve();
   });
 
   expect(view.queryByTestId('daily-formality-sheet')).toBeNull();
+  expect(view.getByTestId('day-choice-read-status')).toHaveTextContent('true');
   expect(mockChoiceUpsert).not.toHaveBeenCalled();
 
   mockChoiceGet.mockResolvedValueOnce(null);
@@ -813,11 +824,13 @@ test('a rejected day-choice read leaves the morning sheet closed and writes no c
     view.rerender(
       <Providers {...props} weather={weatherValue()}>
         <TodayRoute />
+        <ChoiceReadStatus />
       </Providers>,
     );
   });
   await waitFor(() => expect(mockChoiceGet).toHaveBeenCalledTimes(2));
   expect(await view.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
+  expect(view.getByTestId('day-choice-read-status')).toHaveTextContent('false');
   expect(mockChoiceUpsert).not.toHaveBeenCalled();
 });
 
@@ -1469,8 +1482,11 @@ test.each([
   const saved = recommendationReady();
   const props = { productAnalytics: createProductAnalytics(), profile: profileValue(),
     wardrobe: wardrobeValue() };
-  const renderPlace = (weather: WeatherApplicationValue, recommendation: RecommendationApplicationState) => (
-    <Providers {...props} weather={weather} recommendation={recommendation}>
+  const renderPlace = (weather: WeatherApplicationValue, recommendation: RecommendationApplicationState,
+    dressingDayChoiceFailed = false) => (
+    <Providers {...props} weather={weather} recommendation={recommendation}
+      dressingDayChoiceFailed={dressingDayChoiceFailed}
+      dressingDayChoiceReady={dressingDayChoiceFailed ? false : undefined}>
       <Route />
     </Providers>
   );
@@ -1482,6 +1498,10 @@ test.each([
   await view.rerender(renderPlace(atNewPlace, saved));
   expect(view.queryByText(messages.en.recommendation.archetypes.rain_ready)).toBeNull();
   expect(view.getByRole('header', { name: messages.en.today.loadingTitle })).toBeOnTheScreen();
+
+  await view.rerender(renderPlace(atNewPlace, saved, true));
+  expect(view.queryByText(messages.en.recommendation.archetypes.rain_ready)).toBeNull();
+  expect(view.getByRole('header', { name: messages.en.today.unavailableTitle })).toBeOnTheScreen();
 
   await view.rerender(renderPlace(atNewPlace, recommendationReady({ isRefreshing: true })));
   expect(view.queryByText(messages.en.recommendation.archetypes.rain_ready)).toBeNull();

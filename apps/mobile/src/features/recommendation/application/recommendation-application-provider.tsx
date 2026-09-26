@@ -213,6 +213,7 @@ export function RecommendationApplicationProvider({
   const currentDayChoice = dayChoiceState?.profileId === localProfileId &&
     dayChoiceState.key === localDay.key ? dayChoiceState : null;
   const choiceReady = currentDayChoice?.status === 'row' || currentDayChoice?.status === 'none';
+  const choiceFailed = currentDayChoice?.status === 'unknown';
   const dayChoice = currentDayChoice?.status === 'row'
     ? currentDayChoice.choice
     : currentDayChoice?.status === 'unknown' ? currentDayChoice.previousChoice : null;
@@ -504,6 +505,7 @@ export function RecommendationApplicationProvider({
     skipWait: () => controller.skipWait(),
     dressingDayKey: localDay.key,
     dressingDayChoiceReady: choiceReady,
+    dressingDayChoiceFailed: choiceFailed,
     morningChoicePending,
     eveningChoicePending,
     activeDeparture,
@@ -580,6 +582,7 @@ export function RecommendationApplicationProvider({
     evaluateApprovedTriggers,
     chooseFormality,
     choiceReady,
+    choiceFailed,
     currentDayChoice,
     localDay.key,
     morningChoicePending,
