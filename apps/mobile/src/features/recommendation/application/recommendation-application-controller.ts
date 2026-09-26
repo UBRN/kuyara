@@ -279,6 +279,7 @@ export class RecommendationApplicationController {
   private readonly telemetry: PerformanceTelemetry | null;
   private readonly holdPhase: (milliseconds: number) => Promise<void>;
   private poolOptionIds: readonly string[] | null = null;
+  private previousOptionIds: readonly string[] = [];
   private pendingSkip: Readonly<{
     key: string;
     context: RecommendationContext;
@@ -352,9 +353,11 @@ export class RecommendationApplicationController {
   ): Promise<RecommendationSnapshot | null> {
     let context: RecommendationContext;
     let poolOptionIds: readonly string[];
+    const snapshot = this.currentSnapshot();
     const generationInput = {
       ...input,
-      excludedOptionIds: trigger === 'regenerate' ? [] : shownOptionIds(this.currentSnapshot()),
+      excludedOptionIds: trigger === 'regenerate' ? []
+        : snapshot ? shownOptionIds(snapshot) : this.previousOptionIds,
     };
     try {
       ({ context, poolOptionIds } = createRecommendationContextWithPool(
@@ -440,6 +443,13 @@ export class RecommendationApplicationController {
           throw error;
         }
         snapshot = null;
+        try {
+          this.previousOptionIds = shownOptionIds(
+            await this.repository.getSnapshot(this.localProfileId),
+          );
+        } catch {
+          // Invalid or outdated rows cannot supply a validated exclusion trio.
+        }
       }
       let recentWorn: readonly WornOutfit[] = [];
       let lastFailure: FailureCategory | null = null;
