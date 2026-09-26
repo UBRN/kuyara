@@ -293,6 +293,8 @@ export function OutfitDetailScreen({
             accessibilityLabel={suggestion.boardAccessibilityLabel}
             decorative
             entrance={{
+              // The pieces leave from where Today's fitted stage drew them (P2).
+              fromFit: true,
               fromPreset: 'today',
               fromStageColor: stageColor,
               fromStageRadius: 26,

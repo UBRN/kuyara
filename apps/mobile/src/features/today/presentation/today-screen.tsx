@@ -434,7 +434,8 @@ function TodayScreenContent({
                     {
                       backgroundColor: stageColor,
                       width: contentWidth,
-                      height: measureGarmentBoardHeight(primary.boardPieces, contentWidth, 'today'),
+                      // P2: the stage is as tall as its fitted board, never the free space.
+                      height: measureGarmentBoardHeight(primary.boardPieces, contentWidth, 'today', true),
                     },
                   ]}
                   testID="today-stage">
@@ -446,6 +447,8 @@ function TodayScreenContent({
                     // leaves it still. The rise is never the only signal; the archetype and
                     // freshness line also change with it.
                     key={primary.id}
+                    contactShade={theme.contactShade[presentation.atmosphere]}
+                    fit
                     palette={primary.palette}
                     pieces={primary.boardPieces}
                     preset="today"

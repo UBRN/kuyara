@@ -4,9 +4,12 @@ import test from 'node:test';
 import {
   audit,
   composeGarmentBoard,
+  contactShadeOf,
+  contactShadeRule,
   detailPreset,
   drawnExtent,
   fitRunwayScale,
+  fitTodayStage,
   placeOnRunway,
   runwayPreset,
   todayPreset,
@@ -162,4 +165,59 @@ test('runway: several compositions share the scale of the one that needs the lea
   assert.equal(fitRunwayScale([small, tall], 339, 516), fitRunwayScale([tall], 339, 516));
   assert.equal(fitRunwayScale([small], 0, 516), 0);
   assert.equal(fitRunwayScale([], 339, 516), 0);
+});
+
+// P2: Today's primary stage is the runway fit with the tight height. The three spec boards
+// of the P2 mockup (vault phase-6-today-stage/measure.json, 339-point stage), within half a
+// point: the mockup reads the same drawings through a browser's bounds.
+const p2Boards = [
+  ['warm casual', [['primary_top', 't_shirt'], ['bottom', 'jeans'], ['mid_layer', 'overshirt'], ['footwear', 'sneakers']],
+    { height: 286.5, extentW: 197.6, extentH: 262.5 }],
+  ['rainy smart', [['primary_top', 'shirt'], ['bottom', 'trousers'], ['mid_layer', 'sweater'], ['outer_layer', 'rain_jacket'], ['footwear', 'ankle_boots']],
+    { height: 317.4, extentW: 223.8, extentH: 293.4 }],
+  ['cold formal', [['primary_top', 'shirt'], ['bottom', 'trousers'], ['mid_layer', 'blazer'], ['outer_layer', 'trench_coat'], ['footwear', 'closed_shoes']],
+    { height: 306.0, extentW: 223.5, extentH: 282.0 }],
+];
+
+for (const [name, slots, expected] of p2Boards) {
+  test(`Today stage: ${name} matches the P2 mockup's tight stage`, (context) => {
+    const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
+    const extent = drawnExtent(composeGarmentBoard(pieces, todayPreset).boxes.values());
+    const { scale, height } = fitTodayStage(extent, 339);
+    // The 1.25 cap binds on all three boards, as it did in the mockup.
+    assert.equal(scale, runwayPreset.maxScale * 339);
+    assert.ok(Math.abs(height - expected.height) <= 0.5, `${name}: ${height}`);
+    assert.ok(Math.abs(extent.w * scale - expected.extentW) <= 0.5, `${name}: ${extent.w * scale}`);
+    assert.ok(Math.abs(extent.h * scale - expected.extentH) <= 0.5, `${name}: ${extent.h * scale}`);
+    context.diagnostic(`${name}: stage ${height.toFixed(1)} pt, scale x${(scale / 339).toFixed(3)}`);
+  });
+}
+
+for (const [name, slots] of evidence) {
+  test(`Today stage: ${name} is the fitted board plus its margin, inside ADR 0025's clamp`, () => {
+    const pieces = slots.map(([slot, type]) => ({ slot, ...resolveGarmentSilhouette(type, categories[slot]) }));
+    const result = composeGarmentBoard(pieces, todayPreset);
+    const extent = drawnExtent(result.boxes.values());
+    for (const width of [339, 358, 402]) {
+      const { scale, height } = fitTodayStage(extent, width);
+      assert.ok(height >= todayPreset.stageMin * width - 1e-9 && height <= todayPreset.stageMax * width + 1e-9, name);
+      // Tight: the stage never carries more than the vertical margin, unless the clamp's floor lifts it.
+      assert.ok(height <= Math.max(todayPreset.stageMin * width, extent.h * scale + runwayPreset.vertical) + 1e-9, name);
+      assert.ok(scale <= runwayPreset.maxScale * width + 1e-9, name);
+      const placed = [...result.boxes.values()].map((box) => placeOnRunway(box, extent, scale, width, height));
+      assert.ok(Math.min(...placed.map((box) => box.x)) >= runwayPreset.side - 1e-9, name);
+      assert.ok(Math.max(...placed.map((box) => box.x + box.w)) <= width - runwayPreset.side + 1e-9, name);
+      assert.ok(Math.min(...placed.map((box) => box.y)) >= runwayPreset.vertical / 2 - 1e-9, name);
+      assert.ok(Math.max(...placed.map((box) => box.y + box.h)) <= height - runwayPreset.vertical / 2 + 1e-9, name);
+    }
+  });
+}
+
+test('the contact shade sits centred on the drawn bottom edge, 0.80 wide and 3 to 6 points tall', () => {
+  const box = { x: 40, y: 10, w: 60, h: 80 };
+  assert.deepEqual(contactShadeOf(box), { cx: 70, cy: 90, rx: 24, ry: 0.07 * 60 / 2 });
+  assert.equal(contactShadeOf({ ...box, w: 20 }).ry, contactShadeRule.minHeight / 2);
+  assert.equal(contactShadeOf({ ...box, w: 200 }).ry, contactShadeRule.maxHeight / 2);
+  // The lowest shade's lower half stays inside the stage's vertical margin.
+  assert.ok(contactShadeRule.maxHeight / 2 < runwayPreset.vertical / 2);
 });

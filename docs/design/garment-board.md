@@ -136,7 +136,9 @@ fixed stage produces either a squashed dress or an empty band.
 
 The stage height is therefore derived, insets plus the envelope, and clamped to
 **0.66 to 1.14** times the stage width. Across the ten evidence boards it takes values
-from 0.680 to 1.135. Today's copy below the stage moves with it.
+from 0.680 to 1.135. Today's primary stage replaces the insets with a fit to the stage and
+is the fitted composition plus its vertical margin, within the same clamp (section 9).
+Today's copy below the stage moves with it.
 
 The two insets are the tint's own margin around the composition and are not board
 geometry. The stage holds nothing but the board: the temperature and the condition symbol
@@ -170,7 +172,7 @@ Every value, in stage-width units unless marked otherwise.
 | mid inset | 0.20 | × core metric, off the rail axis |
 | footwear rise | 0.20 | × core metric, above the core baseline |
 | gutter | 0.095 | between the two columns |
-| top / bottom inset | 0.045 / 0.055 | the tint's own edge; the stage holds nothing else |
+| top / bottom inset | 0.045 / 0.055 | the tint's own edge; the stage holds nothing else (Today's primary stage fits instead, section 9) |
 | stage height | 0.66 to 1.14 | derived, then clamped |
 | ink centroid | 0.47 | where the composition lands |
 | side minimum | 0.09 | no drawn edge closer to a stage edge |
@@ -229,11 +231,37 @@ a two-line caption fits under every piece:
 | rail width cap | 0.170 | 0.150 |
 | gutter | 0.095 | 0.135 |
 | mid inset | 0.20 | 0.16 |
-| top / bottom inset | 0.045 / 0.055 | 0.045 / 0.055 |
-| stage height range | 0.66 to 1.14 | 0.60 to 1.45 |
+| top / bottom inset | 0.045 / 0.055, alternates | 0.045 / 0.055 |
+| fit to the stage | primary stage: runway preset, side 28 pt, vertical 24 pt, scale cap 1.25 × width | none |
+| stage height | primary stage: fitted composition + 24 pt; alternates: insets + envelope; both 0.66 to 1.14 | insets + envelope, 0.60 to 1.45 |
+| contact shade | primary stage only | none |
 
 The insets are the same on both surfaces: neither the tinted stage nor the detail plate
 holds anything besides the board.
+
+**Today's primary stage.** The composition is trimmed to its drawn extent and scaled once,
+uniformly, with the runway preset: 28 points off each side, 24 points of vertical margin,
+and never more than 1.25 times the plain Today preset's size, centred on the extent. The
+stage is then exactly as tall as the fitted composition plus the 24 points, clamped to
+0.66 to 1.14 of its width. The cap binds on the reference boards, so their pieces are drawn
+a quarter larger than the plain preset draws them, and the height depends on the outfit
+and the width alone:
+the provenance badge, a wrapped title or a larger text size above the stage never moves
+it. On a 339-point stage the three reference boards measure 286.5 points (warm casual),
+317.2 (rainy smart) and 305.7 (cold formal). The ladder, the caps and the placement
+families are unchanged; only the one scale is. The alternate tiles keep the plain preset
+with the insets above.
+
+**Contact shade.** Each piece on the primary stage stands on one flat, opaque ellipse,
+0.80 of the piece's drawn width wide and 0.07 of it tall, held to 3 to 6 points, centred
+under the piece with its centre on the drawn bottom edge, so only its lower half shows.
+Every shade is drawn before any piece. Its colour is the stage colour moved in OKLCH
+lightness only, by -0.060 in light and -0.045 in dark, with hue and chroma kept: no blur,
+no alpha, no glow and no new colour. The ink outline, not the shade, carries each piece's
+edge, so the measured floor is ink against shade, at least 3:1 on every atmosphere stage
+in both appearances (4.15 to 15.26). The shade steps 1.21 to 1.26 off the light stages
+and 1.14 off the dark stage, where it is decorative, as Law 3 declares dark shadows. The
+alternates, the detail plate, the runway and the Closet draw no shade.
 
 **Captions.** A caption is centred on its piece's own axis and sits 7 points below the
 piece's drawn box. Its width is capped per column, **0.42** of the plate width for the

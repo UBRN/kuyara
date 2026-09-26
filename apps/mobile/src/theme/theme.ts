@@ -3,6 +3,7 @@ import type { TextStyle, ViewStyle } from 'react-native';
 import type { ThemePreference } from '@/domain/preferences';
 
 import { blend } from './color-blend';
+import { shiftOklchLightness } from './color-oklch';
 
 export type { ThemePreference } from '@/domain/preferences';
 
@@ -162,6 +163,18 @@ const darkAtmosphere = Object.freeze({
   veiledNight: darkSemanticColors.stage,
   fallingNight: darkSemanticColors.stage,
 } as const satisfies AtmosphereColors);
+
+// Today's contact shade (owner decision P2): one flat opaque ellipse under each garment on
+// the primary stage, in the stage's own colour moved down in OKLCH lightness only, so it
+// adds no hue, no alpha and no new brand colour. The dark stage has less room below it
+// before the shade meets the page ground, so its step is smaller and the shade is
+// decorative there (Law 3). The ink outline, not the shade, carries every garment's edge.
+const contactShadeStep = { light: -0.06, dark: -0.045 } as const;
+const shadeEach = (atmosphere: AtmosphereColors, step: number): AtmosphereColors => Object.freeze(
+  Object.fromEntries(Object.entries(atmosphere).map(([state, stage]) => [state, shiftOklchLightness(stage, step)])),
+) as AtmosphereColors;
+const lightContactShade = shadeEach(lightAtmosphere, contactShadeStep.light);
+const darkContactShade = shadeEach(darkAtmosphere, contactShadeStep.dark);
 
 // Fog reads green rather than grey so it can never be mistaken for cloud, and snow is the
 // least saturated of the falling family so it can never be mistaken for rain. Every value
@@ -403,6 +416,7 @@ export type KuyaraTheme = Readonly<{
   isDark: boolean;
   colors: SemanticColors;
   atmosphere: AtmosphereColors;
+  contactShade: AtmosphereColors;
   condition: ConditionColors;
   runway: RunwayColors;
   spacing: typeof spacing;
@@ -432,6 +446,7 @@ export const lightTheme = Object.freeze({
   isDark: false,
   colors: lightSemanticColors,
   atmosphere: lightAtmosphere,
+  contactShade: lightContactShade,
   condition: lightCondition,
   runway: lightRunway,
   elevation: lightElevation,
@@ -444,6 +459,7 @@ export const darkTheme = Object.freeze({
   isDark: true,
   colors: darkSemanticColors,
   atmosphere: darkAtmosphere,
+  contactShade: darkContactShade,
   condition: darkCondition,
   runway: darkRunway,
   elevation: darkElevation,
