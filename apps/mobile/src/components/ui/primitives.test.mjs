@@ -150,6 +150,8 @@ test('GlassButton leaves Liquid Glass to the system and keeps SwiftUI off Androi
 
   assert.match(glassSource, /buttonStyle\('glass'\)/);
   assert.match(glassSource, /role="close"/);
+  // The close role alone let the system pick a label that rendered as a clipped glyph (build 15).
+  assert.match(glassSource, /role="close"[\s\S]{0,80}<Image systemName="xmark" \/>/);
   assert.match(glassSource, /systemImage="chevron\.left"/);
   assert.match(glassSource, /ios: \(\) => require\('@expo\/ui\/swift-ui'\)/);
   assert.doesNotMatch(glassSource, /expo-glass-effect/);
