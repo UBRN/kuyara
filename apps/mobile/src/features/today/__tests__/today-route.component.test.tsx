@@ -110,12 +110,15 @@ const mockBack = jest.fn();
 let mockParams: { id?: string } = {};
 
 const mockStackScreen = jest.fn();
+const mockDispatch = jest.fn();
+let mockFocused = true;
 jest.mock('expo-router', () => {
   const actualReact = jest.requireActual('react');
   return {
     Stack: { Screen: (props: unknown) => { mockStackScreen(props); return null; } },
     useFocusEffect: (callback: () => void | (() => void)) => actualReact.useEffect(callback, [callback]),
-    useIsFocused: () => true,
+    useIsFocused: () => mockFocused,
+    useNavigation: () => ({ dispatch: mockDispatch }),
     useRouter: () => ({
       push: mockPush,
       back: mockBack,
@@ -525,6 +528,7 @@ import OutfitDetailRoute from '@/app/(tabs)/(today)/[id]';
 beforeEach(() => {
   mockPush.mockClear();
   mockBack.mockClear();
+  mockDispatch.mockClear();
   mockMarkInteractive.mockClear();
   mockAcceptOffer.mockClear();
   mockDismissOffer.mockClear();
@@ -2061,6 +2065,46 @@ test('a regeneration finishing under an open detail keeps the same outfit or sho
     options: { headerBackTitle: messages.en.navigation.today, headerShown: true, headerTitle: '' },
   });
   expect(result.queryByTestId('outfit-detail-back')).toBeNull();
+  // In view, the page stays put rather than being popped under the reader.
+  expect(mockDispatch).not.toHaveBeenCalled();
+});
+
+test('a regeneration that drops the outfit while detail is off screen returns Today to its root', async () => {
+  mockParams = { id: todayOutfitId(1) };
+  if (todayRecommendation.status !== 'recommended') throw new Error('fixture');
+  const props = {
+    productAnalytics: createProductAnalytics(),
+    profile: profileValue(),
+    wardrobe: wardrobeValue(),
+    weather: weatherValue(),
+  };
+  const [first, second, third] = todayRecommendation.outfits;
+  const ready = recommendationReady();
+  if (ready.status !== 'ready' || !ready.snapshot) throw new Error('fixture');
+  const withOutfits = (outfits: typeof todayRecommendation.outfits) => ({
+    ...ready,
+    snapshot: { ...ready.snapshot!, recommendation: { ...todayRecommendation, outfits } },
+  });
+  mockFocused = false;
+  try {
+    // Off screen with the outfit still offered, detail stays where it is.
+    const result = await render(
+      <Providers {...props} recommendation={withOutfits([second, first, third])}>
+        <OutfitDetailRoute />
+      </Providers>,
+    );
+    expect(mockDispatch).not.toHaveBeenCalled();
+
+    await result.rerender(
+      <Providers {...props} recommendation={withOutfits([second, third])}>
+        <OutfitDetailRoute />
+      </Providers>,
+    );
+    expect(mockDispatch).toHaveBeenCalledTimes(1);
+    expect(mockDispatch).toHaveBeenCalledWith({ type: 'POP_TO_TOP' });
+  } finally {
+    mockFocused = true;
+  }
 });
 
 test('recomputing a focused outfit detail does not reopen the same suggestion', async () => {
