@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createProductAnalytics } from './data/create-product-analytics.ts';
+import {
+  createProductAnalytics,
+  createUnavailableProductAnalytics,
+} from './data/create-product-analytics.ts';
 import { DevelopmentLoggingProductAnalytics } from './data/development-logging-product-analytics.ts';
-import { noopProductAnalytics } from './data/noop-product-analytics.ts';
 
 test('the development logger prints only the event and JSON properties after consent', async (t) => {
   const messages = [];
@@ -31,7 +33,6 @@ test('the development logger prints only the event and JSON properties after con
       'analytics analytics_consent_granted {"schema_version":3,"surface":"today_sheet"}',
     ],
     ['analytics screen_viewed {"schema_version":3,"screen_name":"today"}'],
-    ['analytics analytics_consent_withdrawn {"schema_version":3}'],
   ]);
   assert.equal(analytics.getIdentifier(), null);
 });
@@ -52,8 +53,30 @@ test('the factory uses logging only for a missing development key', (t) => {
     createProductAnalytics(true, 'granted')
       instanceof DevelopmentLoggingProductAnalytics,
   );
-  assert.equal(createProductAnalytics(false, 'granted'), noopProductAnalytics);
+  assert.equal(createProductAnalytics(false, 'granted').getIdentifier(), null);
 
   process.env.EXPO_PUBLIC_POSTHOG_API_KEY = 'configured-but-invalid';
-  assert.equal(createProductAnalytics(true, 'granted'), noopProductAnalytics);
+  assert.equal(createProductAnalytics(true, 'granted').getIdentifier(), null);
+});
+
+test('missing provider config keeps cleanup pending across restart when native disable fails', async () => {
+  const files = new Map([['.posthog-rn.json', JSON.stringify({
+    version: 'v1', content: { opted_out: false, distinct_id: 'old-id', queue: ['old'] },
+  })]]);
+  const storage = {
+    getItem: (key) => files.get(key) ?? null,
+    setItem: (key, value) => { files.set(key, value); },
+  };
+  const failed = createUnavailableProductAnalytics('withdrawn', storage, () => {
+    throw new Error('native disable failed');
+  });
+  await failed.whenReady();
+  assert.equal(failed.isCleanupPending(), true);
+  assert.deepEqual(JSON.parse(files.get('.posthog-rn.json')).content, { opted_out: true });
+
+  const restarted = createUnavailableProductAnalytics('withdrawn', storage, () => undefined);
+  await restarted.whenReady();
+  assert.equal(restarted.isCleanupPending(), false);
+  await restarted.prepareGrant();
+  assert.deepEqual(JSON.parse(files.get('.posthog-rn-logs.json')).content, {});
 });

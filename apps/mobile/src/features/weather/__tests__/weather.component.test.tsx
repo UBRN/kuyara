@@ -512,6 +512,44 @@ test('without a snapshot the location control stays the first block after the ti
   expect(texts).toEqual([placeName, messages.en.weather.offlineBody]);
 });
 
+test.each(['en', 'tr'] as const)(
+  '%s a snapshot retained from the previous place never shows under the new place name',
+  async (language) => {
+    const copy = messages[language].weather;
+    const next = getManualLocation('sample.london')!;
+    const retained = sampleSnapshot();
+    expect(retained.locationKey).not.toBe(next.locationKey);
+    const loading = createValue({
+      ...baseState,
+      activeLocation: next,
+      snapshot: retained,
+      freshness: 'stale',
+      isRefreshing: true,
+    });
+    const result = await render(
+      <Providers language={language} value={loading}><WeatherScreen /></Providers>,
+    );
+
+    expect(result.getByText(next.displayName)).toBeOnTheScreen();
+    expect(result.queryByTestId('weather-current-card')).toBeNull();
+    expect(result.queryByTestId('weather-hourly-card')).toBeNull();
+    expect(result.queryByText(copy.conditions.rain)).toBeNull();
+    expect(result.getByText(copy.loading)).toBeOnTheScreen();
+
+    const failed = createValue({
+      ...loading.state,
+      isRefreshing: false,
+      refreshFailure: 'offline',
+    } as WeatherReadyState);
+    const failedResult = await render(
+      <Providers language={language} value={failed}><WeatherScreen /></Providers>,
+    );
+    expect(failedResult.queryByTestId('weather-current-card')).toBeNull();
+    expect(failedResult.getByText(copy.offlineBody)).toBeOnTheScreen();
+    expect(failedResult.queryByText(copy.offlineNotice)).toBeNull();
+  },
+);
+
 test('the freshness line announces only while it is not fresh', async () => {
   const fresh = createValue({
     ...baseState,

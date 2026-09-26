@@ -56,7 +56,8 @@ test('exactly one adapter imports the PostHog SDK, and it pins the privacy optio
   );
   const adapter = readFileSync(join(sourceDirectory, importers[0]), 'utf8');
   for (const option of [
-    'defaultOptIn: true,',
+    'defaultOptIn = true,',
+    'defaultOptIn,',
     'private client: PostHogClient | null = null;',
     "personProfiles: 'identified_only'",
     'disableGeoip: true',
@@ -70,7 +71,7 @@ test('exactly one adapter imports the PostHog SDK, and it pins the privacy optio
     'setPersistedProperty(',
   ]) {
     assert.equal(adapter.includes(option), true, `the adapter must keep ${option}`);
-}
+  }
 });
 
 // ADR 0033 section 3: accept and decline are the only exits from the consent sheet.

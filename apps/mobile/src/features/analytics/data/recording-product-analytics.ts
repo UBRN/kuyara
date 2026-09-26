@@ -27,6 +27,8 @@ export class RecordingProductAnalytics implements ProductAnalytics {
   private identityGeneration = 1;
   private sessionGeneration = 1;
   private consented: boolean;
+  private withdrawing = false;
+  private cleanupPending = false;
 
   constructor(consent: AnalyticsConsent = 'granted') {
     this.consented = consent === 'granted';
@@ -37,13 +39,15 @@ export class RecordingProductAnalytics implements ProductAnalytics {
     properties: AnalyticsEventProperties<Name>,
     options?: AnalyticsCaptureOptions,
   ): void {
-    if (!this.consented) return;
+    if (!this.consented || this.withdrawing) return;
     this.captures.push({ name, properties, options });
+    if (name === 'analytics_consent_withdrawn') this.withdrawing = true;
   }
 
   optIn(surface: AnalyticsConsentSurface): Promise<void> {
     this.optInCount += 1;
     this.consented = true;
+    this.withdrawing = false;
     this.capture('analytics_consent_granted', {
       schema_version: ANALYTICS_SCHEMA_VERSION,
       surface,
@@ -51,23 +55,28 @@ export class RecordingProductAnalytics implements ProductAnalytics {
     return Promise.resolve();
   }
 
+  prepareGrant(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  markCleanupPending(): void { this.cleanupPending = true; }
+  clearCleanupPending(): void { this.cleanupPending = false; }
+  isCleanupPending(): boolean { return this.cleanupPending; }
+
   decline(): Promise<void> {
     this.declineCount += 1;
     return Promise.resolve();
   }
 
   withdraw(): Promise<void> {
-    if (this.consented) {
-      this.capture('analytics_consent_withdrawn', {
-        schema_version: ANALYTICS_SCHEMA_VERSION,
-      });
-      this.flushCount += 1;
-    }
     this.withdrawCount += 1;
     this.consented = false;
+    this.withdrawing = true;
     this.identityGeneration += 1;
     return Promise.resolve();
   }
+
+  isWithdrawalInProgress(): boolean { return this.withdrawing; }
 
   flush(): Promise<void> {
     this.flushCount += 1;
@@ -82,6 +91,14 @@ export class RecordingProductAnalytics implements ProductAnalytics {
 
   getSessionId(): string | null {
     return this.consented ? `recording-session-${this.sessionGeneration}` : null;
+  }
+
+  isApplied(): boolean {
+    return this.consented;
+  }
+
+  whenReady(): Promise<void> {
+    return Promise.resolve();
   }
 
   startNewSession(): void {

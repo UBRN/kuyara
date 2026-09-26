@@ -385,6 +385,12 @@ export type AppMessages = Readonly<{
     privacyTitle: string;
     shareUsageData: string;
     toggleFooter: string;
+    withdrawFailed: string;
+    withdrawIncomplete: string;
+    grantFailed: string;
+    grantIncomplete: string;
+    retryGrant: string;
+    retryWithdraw: string;
     identifierLabel: string;
     identifierFooter: string;
     privacyPolicyLabel: string;
@@ -818,6 +824,12 @@ const en = {
     privacyTitle: 'Privacy',
     shareUsageData: 'Share usage data',
     toggleFooter: 'Usage data helps improve kuyara. Turning this off stops collection immediately and unlinks past data from this device.',
+    withdrawFailed: 'Usage data sharing could not be turned off completely. Try again.',
+    withdrawIncomplete: 'Your choice to turn off usage data sharing was saved, but cleanup did not finish. Try again.',
+    grantFailed: 'Usage data sharing could not be turned on. Try again.',
+    grantIncomplete: 'Your choice to share usage data was saved, but setup did not finish. Some sharing may be active. Try again.',
+    retryGrant: 'Retry sharing',
+    retryWithdraw: 'Retry turning off',
     identifierLabel: 'Analytics identifier',
     identifierFooter: 'You can quote this identifier in a request about your data.',
     privacyPolicyLabel: 'Privacy policy',
@@ -1516,6 +1528,12 @@ const tr = {
     privacyTitle: 'Gizlilik',
     shareUsageData: 'Kullanım verisi paylaş',
     toggleFooter: "Kullanım verisi kuyara'yı geliştirmeye yardımcı olur. Kapatmak toplamayı hemen durdurur ve geçmiş verilerin bu cihazla bağını koparır.",
+    withdrawFailed: 'Kullanım verisi paylaşımı tamamen kapatılamadı. Yeniden dene.',
+    withdrawIncomplete: 'Kullanım verisi paylaşımını kapatma seçimin kaydedildi, ancak temizleme tamamlanamadı. Yeniden dene.',
+    grantFailed: 'Kullanım verisi paylaşımı açılamadı. Yeniden dene.',
+    grantIncomplete: 'Kullanım verisi paylaşma seçimin kaydedildi, ancak işlem tamamlanamadı. Bazı veriler paylaşılabilir. Yeniden dene.',
+    retryGrant: 'Paylaşımı yeniden dene',
+    retryWithdraw: 'Kapatmayı yeniden dene',
     identifierLabel: 'Analitik kimliği',
     identifierFooter: 'Verilerinle ilgili bir talepte bu kimliği belirtebilirsin.',
     privacyPolicyLabel: 'Gizlilik politikası',

@@ -15,6 +15,7 @@ import {
   withObserveRoot,
 } from '@/features/analytics/data/observe-performance-telemetry';
 import { TelemetryError } from '@/features/analytics/domain/performance-telemetry';
+import type { AnalyticsConsent } from '@/features/profile/domain/profile';
 
 // The spies are created inside the factory: `jest.mock` is hoisted above the imports, and
 // the adapter requires `expo-observe` while those imports are evaluated, so a factory that
@@ -42,6 +43,8 @@ const mockObserve = (
 ).Observe;
 
 const error = new TelemetryError('profile.bootstrap_failed', { stage: 'migration' });
+let storedConsent: AnalyticsConsent = 'undecided';
+const readConsent = () => storedConsent;
 
 function emitBoth() {
   observePerformanceTelemetry.logEvent('weather.refreshed', {
@@ -58,6 +61,7 @@ function expectNothingRecorded() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  storedConsent = 'undecided';
 });
 
 describe('the Observe adapter and consent', () => {
@@ -71,7 +75,7 @@ describe('the Observe adapter and consent', () => {
   });
 
   it('records nothing while consent is undecided or withdrawn', () => {
-    configureObserveTelemetry({ dispatchingEnabled: false });
+    configureObserveTelemetry({ dispatchingEnabled: false, readConsent });
 
     emitBoth();
 
@@ -82,7 +86,8 @@ describe('the Observe adapter and consent', () => {
   });
 
   it('records once consent is granted', () => {
-    configureObserveTelemetry({ dispatchingEnabled: true });
+    storedConsent = 'granted';
+    configureObserveTelemetry({ dispatchingEnabled: true, readConsent });
 
     emitBoth();
 
@@ -94,8 +99,10 @@ describe('the Observe adapter and consent', () => {
   });
 
   it('stops recording the moment consent is withdrawn, and resumes on a later grant', () => {
-    configureObserveTelemetry({ dispatchingEnabled: true });
+    storedConsent = 'granted';
+    configureObserveTelemetry({ dispatchingEnabled: true, readConsent });
 
+    storedConsent = 'withdrawn';
     observePerformanceTelemetry.setDispatching(false);
     emitBoth();
     expectNothingRecorded();
@@ -103,10 +110,24 @@ describe('the Observe adapter and consent', () => {
       expect.objectContaining({ dispatchingEnabled: false }),
     );
 
+    storedConsent = 'granted';
     observePerformanceTelemetry.setDispatching(true);
     emitBoth();
     expect(mockObserve.logEvent).toHaveBeenCalledTimes(1);
     expect(mockObserve.reportError).toHaveBeenCalledTimes(1);
+  });
+
+  it('stored withdrawal gates JS emission even when native reconfiguration fails', () => {
+    storedConsent = 'granted';
+    configureObserveTelemetry({ dispatchingEnabled: true, readConsent });
+    storedConsent = 'withdrawn';
+    mockObserve.configure.mockImplementationOnce(() => { throw new Error('native configure failed'); });
+
+    expect(() => observePerformanceTelemetry.setDispatching(false))
+      .toThrow('native configure failed');
+    emitBoth();
+    expectNothingRecorded();
+    mockObserve.configure.mockReset();
   });
 });
 
@@ -120,7 +141,8 @@ describe('the Observe adapter outside a real build', () => {
   });
 
   it('renders the wrapped tree and marks interactive without throwing', async () => {
-    configureObserveTelemetry({ dispatchingEnabled: true });
+    storedConsent = 'granted';
+    configureObserveTelemetry({ dispatchingEnabled: true, readConsent });
 
     function Content() {
       const markInteractive = useObserveInteractiveMark();

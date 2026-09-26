@@ -2,7 +2,7 @@
 // above this file depends on the `PerformanceTelemetry` port, exactly as product analytics
 // depends on `ProductAnalytics` rather than on PostHog.
 //
-// Verified against the installed `expo-observe@57.0.21` and `expo-app-metrics@57.0.18`:
+// Verified against the installed `expo-observe@57.0.24` and `expo-app-metrics@57.0.21`:
 //
 // - `configure()` is a full replacement the native side persists in its own UserDefaults
 //   suite, and `shouldDispatch()` reads that persisted value at dispatch time, so calling
@@ -29,6 +29,9 @@ import type {
   TelemetryError,
 } from '@/features/analytics/domain/performance-telemetry';
 import { telemetryFilteredRouteParams } from '@/features/analytics/domain/telemetry-route-params';
+import { readAnalyticsConsentSync } from '@/features/analytics/data/analytics-consent-sync-source';
+import type { AnalyticsConsent } from '@/features/profile/domain/profile';
+import { openKuyaraDatabaseSync } from '@/infrastructure/sqlite/expo-sqlite-database';
 
 type ObserveApi = typeof import('expo-observe');
 
@@ -52,9 +55,10 @@ type ObserveConfiguration = Readonly<{
 }>;
 
 let applied: ObserveConfiguration | null = null;
+let readStoredConsent: () => AnalyticsConsent = () =>
+  readAnalyticsConsentSync(openKuyaraDatabaseSync);
 
 function apply(configuration: ObserveConfiguration): void {
-  applied = configuration;
   try {
     observe?.Observe.configure({
       dispatchingEnabled: configuration.dispatchingEnabled,
@@ -64,9 +68,11 @@ function apply(configuration: ObserveConfiguration): void {
         'expo-router': { filteredParams: [...telemetryFilteredRouteParams] },
       },
     });
-  } catch {
-    // Configuration must never be the reason the app fails to start.
+  } catch (error) {
+    // A consent change must observe this failure before it stores the new answer.
+    throw error;
   }
+  applied = configuration;
 }
 
 // A debug build dispatches nothing in normal operation. The flag exists so one verification
@@ -80,22 +86,31 @@ function dispatchInDebugRequested(): boolean {
  * expo-router integration cannot be enabled after the tree is mounted.
  */
 export function configureObserveTelemetry(
-  input: Readonly<{ dispatchingEnabled: boolean }>,
+  input: Readonly<{
+    dispatchingEnabled: boolean;
+    readConsent?: () => AnalyticsConsent;
+  }>,
 ): void {
-  apply({
-    dispatchingEnabled: input.dispatchingEnabled,
-    environment: __DEV__ ? 'development' : 'production',
-    dispatchInDebug: dispatchInDebugRequested(),
-  });
+  if (input.readConsent) readStoredConsent = input.readConsent;
+  try {
+    apply({
+      dispatchingEnabled: input.dispatchingEnabled,
+      environment: __DEV__ ? 'development' : 'production',
+      dispatchInDebug: dispatchInDebugRequested(),
+    });
+  } catch {
+    // Launch stays usable; an interactive consent change reports configuration failures.
+  }
 }
 
 // Nothing is recorded before the person has answered. `applied` is null until the root
 // layout configures, so the window before configuration is silent too.
 function canEmit(): boolean {
-  return applied?.dispatchingEnabled === true;
+  return applied?.dispatchingEnabled === true && readStoredConsent() === 'granted';
 }
 
 export const observePerformanceTelemetry: PerformanceTelemetry = {
+  isApplied: () => applied?.dispatchingEnabled === true,
   logEvent(name: PerformanceTelemetryEventName, attributes: TelemetryAttributes) {
     if (!canEmit()) return;
     try {
@@ -113,8 +128,12 @@ export const observePerformanceTelemetry: PerformanceTelemetry = {
     }
   },
   setDispatching(enabled: boolean) {
-    if (!applied || applied.dispatchingEnabled === enabled) return;
-    apply({ ...applied, dispatchingEnabled: enabled });
+    if (applied?.dispatchingEnabled === enabled) return;
+    apply({
+      dispatchingEnabled: enabled,
+      environment: applied?.environment ?? (__DEV__ ? 'development' : 'production'),
+      dispatchInDebug: applied?.dispatchInDebug ?? dispatchInDebugRequested(),
+    });
   },
 };
 
@@ -126,6 +145,7 @@ function useObserveMarkInteractive(): MarkInteractive {
   const { markInteractive } = observe!.useObserve();
   return useCallback(
     (params: TelemetryAttributes) => {
+      if (!canEmit()) return;
       try {
         void markInteractive({ params: { ...params } });
       } catch {

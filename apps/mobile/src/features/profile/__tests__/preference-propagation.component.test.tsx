@@ -1,7 +1,7 @@
-import { fireEvent, render, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import Constants from 'expo-constants';
 import { useEffect, useState } from 'react';
-import { Linking, Share, StyleSheet } from 'react-native';
+import { AccessibilityInfo, Linking, Share, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import SettingsRoute from '@/app/(tabs)/(profile)/settings';
@@ -59,7 +59,10 @@ jest.mock('@/infrastructure/sqlite/migrations', () => ({
 }));
 
 let mockProfile = createProfile();
-let mockUpdateFailure: 'appearance' | 'dress-style' | 'gender' | 'language' | null = null;
+let mockUpdateFailure:
+  'appearance' | 'dress-style' | 'gender' | 'language' | 'style-aesthetics' | null = null;
+let mockStyleSaveCalls = 0;
+let mockStyleSaveBarrier: Promise<void> | null = null;
 
 jest.mock('@/features/profile/data/sqlite-profile-local-data-source', () => ({
   SqliteProfileLocalDataSource: class {
@@ -90,6 +93,9 @@ jest.mock('@/features/profile/data/sqlite-profile-local-data-source', () => ({
     };
 
     updateStyleAesthetics = async (styleAesthetics: readonly StyleAesthetic[]) => {
+      mockStyleSaveCalls += 1;
+      if (mockStyleSaveBarrier) await mockStyleSaveBarrier;
+      if (mockUpdateFailure === 'style-aesthetics') throw new Error('save failed');
       mockProfile = { ...mockProfile, styleAesthetics: JSON.stringify(styleAesthetics) };
       return mockProfile;
     };
@@ -111,6 +117,8 @@ const initialMetrics = {
 
 afterEach(() => {
   mockUpdateFailure = null;
+  mockStyleSaveCalls = 0;
+  mockStyleSaveBarrier = null;
 });
 
 function createProfile(): LocalProfileRecord {
@@ -395,6 +403,70 @@ test('preference save errors replace the footer for the affected Settings group'
   expect(within(result.getByTestId('settings-appearance-group'))
     .queryByText(messages.en.settings.saveError)).toBeNull();
   expect(within(result.getByTestId('settings-gender-row')).getByTestId('expo-ui-picker').props.selection).toBe('woman');
+});
+
+test('a failed style save keeps the sheet open with the chosen styles and says so', async () => {
+  mockProfile = createProfile();
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
+  const result = await render(
+    <SafeAreaProvider initialMetrics={initialMetrics}>
+      <ProfileApplicationProvider>
+        <ProductAnalyticsProvider
+          analytics={new RecordingProductAnalytics()}
+          firstUseStore={new InMemoryFirstUseStore()}>
+          <MountedSettingsRoutes onMount={() => undefined} />
+        </ProductAnalyticsProvider>
+      </ProfileApplicationProvider>
+    </SafeAreaProvider>,
+  );
+
+  await fireEvent.press(await result.findByTestId('settings-style-preferences-row'));
+  await fireEvent.press(result.getByTestId('settings-style-option-classic'));
+  await fireEvent.press(result.getByTestId('settings-style-option-sporty'));
+  mockUpdateFailure = 'style-aesthetics';
+  await fireEvent.press(result.getByTestId('settings-style-done'));
+
+  await waitFor(() => {
+    expect(result.getByTestId('settings-style-save-error'))
+      .toHaveTextContent(messages.en.settings.saveError);
+  });
+  expect(announce).toHaveBeenCalledWith(messages.en.settings.saveError);
+  expect(result.getByTestId('settings-style-option-classic').props.accessibilityState.checked).toBe(true);
+  expect(result.getByTestId('settings-style-option-sporty').props.accessibilityState.checked).toBe(true);
+  expect(mockProfile.styleAesthetics).toBe(createProfile().styleAesthetics);
+  expect(within(result.getByTestId('settings-profile-group'))
+    .queryByText(messages.en.settings.saveError)).toBeNull();
+
+  mockUpdateFailure = null;
+  await fireEvent.press(result.getByTestId('settings-style-done'));
+  await waitFor(() => expect(mockProfile.styleAesthetics).toBe('["classic","sporty"]'));
+  await waitFor(() => expect(result.queryByTestId('settings-style-done')).toBeNull());
+  announce.mockRestore();
+});
+
+test('two immediate Done presses while aesthetics save is pending make one update call', async () => {
+  mockProfile = createProfile();
+  let release!: () => void;
+  mockStyleSaveBarrier = new Promise<void>((resolve) => { release = resolve; });
+  const result = await render(
+    <SafeAreaProvider initialMetrics={initialMetrics}>
+      <ProfileApplicationProvider>
+        <ProductAnalyticsProvider
+          analytics={new RecordingProductAnalytics()}
+          firstUseStore={new InMemoryFirstUseStore()}>
+          <MountedSettingsRoutes onMount={() => undefined} />
+        </ProductAnalyticsProvider>
+      </ProfileApplicationProvider>
+    </SafeAreaProvider>,
+  );
+  await fireEvent.press(await result.findByTestId('settings-style-preferences-row'));
+  const done = result.getByTestId('settings-style-done');
+  await act(async () => {
+    fireEvent.press(done);
+    fireEvent.press(done);
+  });
+  expect(mockStyleSaveCalls).toBe(1);
+  await act(async () => { release(); });
 });
 
 test('version templates omit an unavailable build without leaving empty parentheses', () => {
