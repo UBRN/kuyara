@@ -305,6 +305,7 @@ export class RecommendationApplicationController {
   private readonly holdPhase: (milliseconds: number) => Promise<void>;
   private poolOptionIds: readonly string[] | null = null;
   private poolKey: string | null = null;
+  private recentWorn: readonly WornOutfit[] = [];
   private previousOptionIds: readonly string[] = [];
   private pendingSkip: Readonly<{
     key: string;
@@ -341,11 +342,12 @@ export class RecommendationApplicationController {
   updatePoolAvailability(input: RecommendationApplicationInput): void {
     if (this.state.status !== 'ready' || !this.state.snapshot) return;
     try {
-      const key = poolCompositionKeyForInput(input);
+      const poolInput = { ...input, recentWorn: input.recentWorn ?? this.recentWorn };
+      const key = poolCompositionKeyForInput(poolInput);
       if (key !== this.poolKey || this.poolOptionIds === null) {
         const { poolOptionIds } = (this.dependencies.createContextWithPool ??
           createRecommendationContextWithPool)(
-          { ...input, excludedOptionIds: [] }, input.localDayKey,
+          { ...poolInput, excludedOptionIds: [] }, input.localDayKey,
         );
         this.poolOptionIds = poolOptionIds;
         this.poolKey = key;
@@ -370,13 +372,18 @@ export class RecommendationApplicationController {
   ): Promise<RecommendationSnapshot | null> {
     if (this.dependencies.loadRecentWorn) {
       return this.dependencies.loadRecentWorn()
-        .then((recentWorn) => this.refreshPrepared(trigger, { ...input, recentWorn }))
+        .then((recentWorn) => {
+          this.recentWorn = recentWorn;
+          return this.refreshPrepared(trigger, { ...input, recentWorn });
+        })
         .catch((error: unknown) => {
           this.setLastFailure(recommendationFailureCategory(error));
           return this.currentSnapshot();
         });
     }
-    return this.refreshPrepared(trigger, input);
+    const recentWorn = input.recentWorn ?? this.recentWorn;
+    this.recentWorn = recentWorn;
+    return this.refreshPrepared(trigger, { ...input, recentWorn });
   }
 
   private refreshPrepared(
@@ -490,6 +497,7 @@ export class RecommendationApplicationController {
       if (snapshot && this.dependencies.loadRecentWorn) {
         try {
           recentWorn = await this.dependencies.loadRecentWorn();
+          this.recentWorn = recentWorn;
         } catch (error) {
           lastFailure = recommendationFailureCategory(error);
         }
