@@ -12,6 +12,7 @@ import {
   usingStandardPhaseMilliseconds,
 } from './recommendation-application-controller.ts';
 import { WorkerAiClientError } from '../data/worker-ai-client.ts';
+import { RecommendationRepositoryError } from '../data/recommendation-repository.ts';
 import {
   createAiRecommendationRequest,
   mapWorkerAiRecommendation,
@@ -101,7 +102,12 @@ function createHarness({ cached = null, client, failSave = false, captureAnalyti
   const calls = { client: 0, saves: 0 };
   const requests = [];
   const repository = {
-    async getSnapshot() { return stored; },
+    async getSnapshot(_localProfileId, localDayKey) {
+      if (stored && localDayKey !== undefined && stored.localDayKey !== localDayKey) {
+        throw new RecommendationRepositoryError('invalid-data');
+      }
+      return stored;
+    },
     async saveSnapshot(localProfileId, value) {
       calls.saves += 1;
       if (failSave) throw new Error('database unavailable');
