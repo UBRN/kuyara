@@ -13,6 +13,8 @@ import {
   mapProviderWeatherToApi,
   mapProviderWeatherToApiV2,
 } from './provider-weather-mapper.ts';
+import { mapOpenMeteoWeatherCode } from './open-meteo-raw.ts';
+import { mapOpenWeatherCondition } from './openweather-raw.ts';
 import { WeatherProviderError } from './weather-provider-error.ts';
 import {
   mapWeatherKitCondition,
@@ -178,10 +180,10 @@ test('maps every documented WeatherKit condition code', () => {
     ['smoky', 'fog'],
     ['blowingDust', 'fog'],
     ['drizzle', 'drizzle'],
-    ['freezingDrizzle', 'drizzle'],
+    ['freezingDrizzle', 'sleet'],
     ['sunShowers', 'drizzle'],
     ['rain', 'rain'],
-    ['freezingRain', 'rain'],
+    ['freezingRain', 'sleet'],
     ['heavyRain', 'heavy_rain'],
     ['hurricane', 'heavy_rain'],
     ['tropicalStorm', 'heavy_rain'],
@@ -211,6 +213,20 @@ test('maps every documented WeatherKit condition code', () => {
     const pascalCase = conditionCode.charAt(0).toUpperCase() + conditionCode.slice(1);
     assert.equal(mapWeatherKitCondition(pascalCase), condition);
   }
+});
+
+test('maps freezing precipitation to sleet across weather adapters', () => {
+  assert.deepEqual([
+    mapWeatherKitCondition('freezingRain'),
+    mapWeatherKitCondition('freezingDrizzle'),
+    mapOpenMeteoWeatherCode(56),
+    mapOpenMeteoWeatherCode(57),
+    mapOpenMeteoWeatherCode(66),
+    mapOpenMeteoWeatherCode(67),
+    mapOpenWeatherCondition(511),
+  ], [
+    'sleet', 'sleet', 'sleet', 'sleet', 'sleet', 'sleet', 'sleet',
+  ]);
 });
 
 test('rejects an unmapped WeatherKit condition code', () => {
