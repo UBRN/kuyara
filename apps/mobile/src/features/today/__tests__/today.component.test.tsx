@@ -1072,6 +1072,42 @@ describe.each(['en', 'tr'] as const)('%s first generation', (language: Supported
       jest.useRealTimers();
     }
   });
+
+  test('never calls the wait for the day question a long generation, and times one from the answer', async () => {
+    jest.useFakeTimers();
+    try {
+      const screen = (awaitingDayQuestion: boolean) => providers(
+        <TodayScreen
+          awaitingDayQuestion={awaitingDayQuestion}
+          language={language}
+          onOpenOutfitDetail={() => undefined}
+          onRefresh={() => undefined} onAskAgain={jest.fn()}
+          state={{ kind: 'loading' }}
+        />,
+        lightTheme,
+        language,
+      );
+      const result = await render(screen(true));
+      const copy = messages[language].today;
+
+      // Nothing is generating while the sheet waits for the person's answer.
+      await act(async () => { jest.advanceTimersByTime(30_000); });
+      expect(result.getByTestId('today-generating-status')).toHaveTextContent(copy.generatingStatus);
+      expect(result.getByTestId('today-generating-status'))
+        .not.toHaveTextContent(copy.generatingLongWaitStatus);
+
+      // The answer starts the generation, and the long wait is timed from that point.
+      await result.rerender(screen(false));
+      await act(async () => { jest.advanceTimersByTime(7_000); });
+      expect(result.getByTestId('today-generating-status'))
+        .not.toHaveTextContent(copy.generatingLongWaitStatus);
+      await act(async () => { jest.advanceTimersByTime(2_000); });
+      expect(result.getByTestId('today-generating-status'))
+        .toHaveTextContent(copy.generatingLongWaitStatus);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });
 
 test('the skeleton placeholders breathe on the ambient moderate step', async () => {
