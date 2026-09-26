@@ -34,14 +34,14 @@ Kabul edersen kuyara şunları toplar:
 - **Ürün etkileşimi.** Hangi ekranların açıldığı, yenileme gibi dokunuşlar, önerinin
   yüklenip yüklenmediği ve Gardırobun nasıl kullanıldığı.
 - **Diğer kullanım verisi.** Önerinin yapay zekadan mı yoksa yerleşik yedek yöntemden mi
-  geldiği gibi kaba ürün durumu, giyim tarzı ayarın ve kaba bir yaş aralığı (doğum tarihin
+  geldiği gibi kaba ürün durumu, giyim stili ayarın ve kaba bir yaş aralığı (doğum tarihin
   asla).
 - **Bir analitik kimliği.** Analitik açıldığında cihazında oluşturulan rastgele bir
   kimlik. Olayları birbirine bağlar; böylece akışlar ve özellik kullanımı anlaşılabilir.
   Reklam kimliği değildir, hiçbir donanım kimliğinden türetilmez ve profiline,
   Gardırobuna ya da herhangi bir hesaba bağlı değildir.
 
-Giyim tarzı ve yaş aralığı bu kimlikle birlikte gittiği için, bu veri Apple'ın App Store
+Giyim stili ve yaş aralığı bu kimlikle birlikte gittiği için, bu veri Apple'ın App Store
 tanımlarına göre "kullanıcıyla ilişkili" sayılır. İzleme için kullanılmaz.
 
 **Neden.** kuyara'nın hangi bölümlerinin kullanıldığını, önerilerin nerede başarısız
@@ -180,18 +180,29 @@ istektir, senin hakkında tutulan bir kayıt değildir:
   döndürür. Kesin koordinatlar hiçbir zaman gönderilmez, saklanmaz veya loglanmaz.
   Şehir adı yazarak seçtiğin bir konum aynı sunucu üzerinden Open-Meteo'nun coğrafi
   kodlama hizmetiyle aranır.
-- **Öneriler.** Sunucu, hava durumundan türetilen deterministik giyim gereksinimlerini,
-  giyim tercihini, giyim tarzını, bir gün tohumunu ve seçebileceği katalog kombinlerinin
-  kimliklerini alır; üçünü seçmesi için bunları bir yapay zeka sağlayıcısına iletebilir.
-  Konumunu, Gardırobunu, fotoğraflarını, adlarını, doğum tarihini ya da sana veya
-  cihazına ait herhangi bir kimliği hiçbir zaman almaz.
-- **Cihazda.** Profilin, Gardırop kayıtların ve fotoğrafların, önbelleğe alınmış hava
-  durumu ve hava uyarısı planları uygulamanın cihazındaki özel alanında saklanır.
-  Gardırop fotoğrafları yüklenmez. Hava uyarıları cihazda planlanır; hiçbir yere push
-  jetonu veya cihaz kaydı gönderilmez. Cihazdaki bu veriler, yani uygulamanın yerel
-  veritabanı ve varsa Gardırop fotoğrafların, kendi yedekleme ayarlarına göre cihaz
-  yedeğine (örneğin iCloud yedeğine) dahil olur; o yedek sana aittir ve sorumluya hiçbir
-  zaman ulaşmaz.
+- **Öneriler.** Sunucu giyim tercihini, giyim stilini, seçtiysen stil özelliklerini,
+  uygulama dilini, katalog sürümünü, gün varyantını, gün türünü, hava durumundan türetilen
+  deterministik giyim gereksinimlerini ve kimlikleri, resmiyet düzeyleri, giysi türleri ve
+  özellikleriyle birlikte katalog kombin seçeneklerini alır. Üç kombin seçmesi için bir
+  yapay zeka sağlayıcısına yalnızca giyim tercihini, giyim stilinden türetilen resmiyet
+  sırasını, gün türünü ve seçeneklerin kimliklerini, resmiyet düzeylerini, giysi türlerini
+  ve uygun kombin kategorilerini iletebilir. Sağlayıcıya ayrıca yanıtı uygulama dilinde
+  yazması söylenir. Stil özellikleri cihazında seçeneklerin sırasını etkiler, ancak yapay
+  zeka sağlayıcısına gönderilmez. Sunucu bu istekte konumunu, Gardırop içeriğini, giyilen
+  kombin geçmişini, fotoğraflarını, görünen adını, doğum tarihini veya sana ya da cihazına
+  ait bir kimliği almaz.
+- **Cihazda.** Profilin (varsa görünen adın dahil), Gardırop kayıtların ve fotoğrafların,
+  giyilen kombin geçmişin, günlük resmiyet düzeyi ve stil özelliği seçimlerin, Sonra için
+  planladığın çıkış saatleri, önbelleğe alınmış hava durumu ve hava uyarısı planları
+  uygulamanın cihazındaki özel alanında saklanır. Gardırop ve kombin geçmişi fotoğrafları
+  yüklenmez. Hava uyarıları cihazda planlanır; hiçbir yere push jetonu veya cihaz kaydı
+  gönderilmez. Cihazdaki bu veriler, yani uygulamanın yerel veritabanı ve varsa
+  fotoğrafların, kendi yedekleme
+  ayarlarına göre cihaz yedeğine (örneğin iCloud yedeğine) dahil olur; o yedek sana aittir
+  ve sorumluya hiçbir zaman ulaşmaz. Gardırop kayıtlarını uygulamada silebilir, Sonra
+  planını temizleyebilirsin. Mevcut Geçmiş ekranında silme seçeneği yoktur. kuyara'yı
+  silmek uygulamanın cihazdaki yerel verilerini kaldırır; cihaz yedeklerindeki kopyalar
+  yedekleme ayarlarına tabi olmaya devam eder.
 
 ## Hesaplar
 
