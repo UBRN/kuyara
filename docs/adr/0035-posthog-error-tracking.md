@@ -122,6 +122,8 @@ phases during a native build, and `posthog-cli hermes upload --directory dist` a
 `POSTHOG_CLI_HOST` set to the EU host, since the project is PostHog Cloud EU project 270871.
 A native build that bundles JavaScript fails if any of those variables is missing because
 the wrapper treats a failed `hermes clone` or `hermes upload` as a build failure.
+For a local production build, all three variables must be readable in the local build
+environment. EAS variables with `secret` visibility are readable only on EAS builders.
 
 Three consequences follow for this repository.
 
@@ -135,8 +137,8 @@ once per marketing version.
 
 **The credentials are build-time secrets.** `POSTHOG_CLI_API_KEY` is a personal API key with
 write scope, which is categorically different from the public project key already shipped in
-the app. It lives as an EAS secret in the build environment. It is never committed, never an
-`EXPO_PUBLIC_` variable, never in `app.json`, and never in the bundle.
+the app. It is a build-time secret available to the build environment. It is never committed,
+never an `EXPO_PUBLIC_` variable, never in `app.json`, and never in the bundle.
 
 **Resolved frames may show source context.** A frame resolved against an uploaded map can
 carry `context_line`, `pre_context` and `post_context`. That content is kuyara's own source,
@@ -330,9 +332,9 @@ dropped for errors in the meantime, and no third error collector is added.
 3. The extended `before_send` allowlist is in place with the unit test described in section 4, and
    a test proves the hook runs for an exception event.
 4. The per-session cap and deduplication of section 6 are implemented and tested.
-5. Source map upload runs in the EAS build, the credentials are EAS secrets, and a real exception
-   resolves to readable frames in the PostHog issue view. A verification exception is thrown
-   deliberately for that check, never from production.
+5. Source map upload runs in the local production build with the three variables from section 2,
+   and a real exception resolves to readable frames in the PostHog issue view. A verification
+   exception is thrown deliberately for that check, never from production.
 6. The project ingestion rate limits are configured in PostHog and recorded in
    `docs/current-status.md`; the billing limit becomes a required step only when a payment method
    exists.
