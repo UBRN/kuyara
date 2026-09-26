@@ -289,9 +289,18 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     });
     const hidden = { includeHiddenElements: true };
     const stageColor = theme.atmosphere[presentation.atmosphere];
+    // P2: the stage is as tall as its fitted board, and every piece stands on a contact shade.
     expect(StyleSheet.flatten(result.getByTestId('today-stage', hidden).props.style))
-      .toMatchObject({ backgroundColor: stageColor, borderRadius: 26, width: 358 });
+      .toMatchObject({
+        backgroundColor: stageColor, borderRadius: 26, width: 358,
+        height: measureGarmentBoardHeight(primary.boardPieces, 358, 'today', true),
+      });
     expect(result.getByTestId(`today-primary-board-${primary.id}`, hidden)).toBeOnTheScreen();
+    const shades = result.getByTestId('today-stage', hidden)
+      .queryAll((node) => node.props.rx != null && node.props.ry != null);
+    expect(shades).toHaveLength(primary.boardPieces.length);
+    expect(shades.every((node) => node.props.fill?.payload === processColor(theme.contactShade[presentation.atmosphere])))
+      .toBe(true);
     expect(result.getByTestId('today-archetype', hidden)).toHaveTextContent(primary.title);
     expect(StyleSheet.flatten(result.getByTestId('today-archetype', hidden).props.style))
       .toMatchObject(typography.label);
