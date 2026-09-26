@@ -104,6 +104,9 @@ Open-Meteo on ordinary windy days. Temperature and wind speed reach the
 recommendation engine as their own fields, so nothing is lost except sky cover,
 which Apple did not report in these cases either.
 
+Freezing rain and freezing drizzle read as `sleet`, matching Open-Meteo and
+OpenWeather, because they require waterproof footwear and traction.
+
 `currentWeather` has no precipitation chance, only `precipitationIntensity`. The
 current probability is therefore taken from the hourly entry nearest to `asOf`,
 exactly as the Open-Meteo adapter already does. Wind speed is Apple's only unit
