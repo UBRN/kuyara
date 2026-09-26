@@ -25,7 +25,7 @@ import { StyleAestheticsOptions } from '@/features/profile/presentation/style-ae
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
 import { localDayKey } from '@/features/recommendation/application/recommendation-application-controller';
 import { outfitCoverage } from '@/features/recommendation/domain/outfit-coverage';
-import { unavailableTodayState, type TodayScreenState } from '@/features/today/model';
+import { activeLocationRecommendation, unavailableTodayState, type TodayScreenState } from '@/features/today/model';
 import { TodayScreen } from '@/features/today/presentation/today-screen';
 import { AskAgainSheet, type AskAgainChoice } from '@/features/today/presentation/ask-again-sheet';
 import { DailyFormalitySheet } from '@/features/today/presentation/daily-formality-sheet';
@@ -101,7 +101,8 @@ export default function TodayRoute() {
   useScreenViewed('today');
 
   const recommendation = recommendationState.status === 'ready'
-    ? recommendationState.snapshot?.recommendation ?? null
+    ? activeLocationRecommendation(recommendationState.snapshot, weatherState.status === 'ready'
+      ? weatherState.activeLocation : null)
     : null;
   // S3: after a place switch the weather controller keeps the previous place's snapshot as the
   // last valid result until the new one loads. It never renders under the new place's name:
@@ -138,6 +139,7 @@ export default function TodayRoute() {
       : 'unknown';
     recommendationFailure = null;
   } else if (recommendation === null && (recommendationState.isRefreshing ||
+      (recommendationState.snapshot !== null && recommendationState.lastFailure === null) ||
       (morningChoicePending && !recommendationState.lastFailure))) {
     // M16: a first recommendation held for the morning answer is a wait, so the morning
     // sheet opens over it. A real failure still takes the unavailable branch below and is
