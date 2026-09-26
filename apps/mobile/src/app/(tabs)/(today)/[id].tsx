@@ -1,4 +1,5 @@
-import { Stack, useFocusEffect, useIsFocused, useLocalSearchParams } from 'expo-router';
+import { Stack, useFocusEffect, useIsFocused, useLocalSearchParams, useNavigation } from 'expo-router';
+import { StackActions } from 'expo-router/react-navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
@@ -74,6 +75,17 @@ export default function OutfitDetailRoute() {
   const outfitIndex = outfits.findIndex(({ optionId }) => optionId === suggestionId);
   const outfit = outfits[outfitIndex] ?? null;
   const position = outfit ? ((outfitIndex + 1) as 1 | 2 | 3) : null;
+
+  // A regeneration that lands while the reader is on another tab and no longer offers this
+  // outfit leaves nothing to come back to, so the Today stack returns to its root rather
+  // than keeping an "Outfit unavailable" page for the next Today tap. While detail is in
+  // view it stays put, with the unavailable state and the back capsule, so nothing moves
+  // under the reader.
+  const navigation = useNavigation();
+  const outfitGone = recommendation !== null && outfit === null;
+  useEffect(() => {
+    if (!isFocused && outfitGone) navigation.dispatch(StackActions.popToTop());
+  }, [isFocused, navigation, outfitGone]);
 
   useFocusEffect(useCallback(() => {
     reevaluateLocalDay();
