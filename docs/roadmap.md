@@ -32,6 +32,7 @@ The [product decisions](product-decisions.md) and [ADRs](adr/) define the approv
 | Add a piece | Visual form: preview stage, owned and wanted cards, illustrated type picker, usual colours, the toolbar save pair and photo-library import; in-app camera capture ships in build 16 (O10, P5) | Approved for build 15 |
 | Worker badge | Animated multicolour `sparkles` (O11) | Approved for build 15 |
 | Accessibility and wave 2 | Easier to see switch (O13); cards, rows, back, name, weather and onboarding (O14) | Approved for build 15 |
+| Sheet close button | The glass close button on the name, day-type (both steps), ask-again and piece-edit sheets draws a clipped glyph instead of an xmark on device and Simulator; the fix gives it an explicit `xmark` image and circle shape like the confirm button, keeps `role="close"`, and adds a close-button check to the Simulator tour | Fixed in code; reaches build 15 installs through `eas update --channel production` once build 15 is on the store |
 | Build 15 | All approved Goals above, plus landed A and B; every automated, independent-review, migration, native and Simulator release gate applies | No date promised |
 
 Release evidence:

@@ -90,7 +90,7 @@ export function GlassButton(props: GlassButtonProps) {
   }
 
   if (swiftUI) {
-    const { Button: SwiftUIButton, Host } = swiftUI;
+    const { Button: SwiftUIButton, Host, Image } = swiftUI;
     const modifiers = [
       buttonStyle('glass'),
       controlSize('large'),
@@ -106,7 +106,15 @@ export function GlassButton(props: GlassButtonProps) {
       <Host
         colorScheme={theme.isDark ? 'dark' : 'light'}
         style={{ height, width: height }}>
-        <SwiftUIButton modifiers={modifiers} onPress={onPress} role="close" testID={testID} />
+        {/* Without an explicit image the system picks the close label itself, and inside this
+            fixed 44 pt glass circle it drew a clipped glyph instead of an xmark (build 15). */}
+        <SwiftUIButton
+          modifiers={[...modifiers, buttonBorderShape('circle')]}
+          onPress={onPress}
+          role="close"
+          testID={testID}>
+          <Image systemName="xmark" />
+        </SwiftUIButton>
       </Host>
     ) : (
       <Host
