@@ -12,6 +12,10 @@ const labelKeys = {
   relaxed: 'styleAestheticRelaxed',
 } as const satisfies Record<StyleAesthetic, keyof PreferenceMessages>;
 
+export function aestheticLabel(copy: PreferenceMessages, value: StyleAesthetic): string {
+  return copy[labelKeys[value]];
+}
+
 export function aestheticLabels(copy: PreferenceMessages, values: readonly StyleAesthetic[]): string {
   return values.length ? values.map((id) => copy[labelKeys[id]]).join(', ') : copy.stylePreferencesNone;
 }

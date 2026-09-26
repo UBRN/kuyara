@@ -1,13 +1,11 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, View } from 'react-native';
 
-import { AppText, Button, ButtonPair } from '@/components/ui';
+import { AppText, Button, GlassButton, NativeSheet } from '@/components/ui';
 import { displayNameIssue } from '@/features/profile/domain/profile';
 import { NameInput } from '@/features/profile/presentation/name-input';
 import { useMessages } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
-import { useKuyaraTheme } from '@/theme/theme-context';
 
 type NameSheetProps = Readonly<{
   mode: 'prompt' | 'edit';
@@ -19,7 +17,7 @@ type NameSheetProps = Readonly<{
 
 export function NameSheet({ mode, visible, initialName, onSave, onDismiss }: NameSheetProps) {
   const [dismissed, setDismissed] = useState(false);
-  if (!visible || dismissed) return null;
+  const open = visible && !dismissed;
 
   const dismiss = () => {
     if (mode !== 'prompt') {
@@ -43,94 +41,105 @@ export function NameSheet({ mode, visible, initialName, onSave, onDismiss }: Nam
     })();
   };
 
-  return <VisibleNameSheet mode={mode} initialName={initialName} onSave={onSave} onDismiss={dismiss} />;
+  // The sheet stays mounted so the platform animates it out. Its close callback also fires
+  // after a close the host asked for (a save); only a close while still open is the person
+  // dismissing it, so only that one reaches `onDismiss`.
+  return (
+    <NativeSheet onDismiss={() => { if (open) dismiss(); }} size="fit" testID="name-sheet" visible={open}>
+      {open ? (
+        <NameSheetContent initialName={initialName} mode={mode} onDismiss={dismiss} onSave={onSave} />
+      ) : null}
+    </NativeSheet>
+  );
 }
 
-function VisibleNameSheet({
+/**
+ * O14 name editor A: one field deserves one glance, not a page. A sheet sized to its
+ * content sits on the keyboard with the field focused; the bar carries Cancel (glass xmark)
+ * and Done (prominent glass checkmark). Removing a saved name is an action, not an
+ * instruction to empty the field.
+ */
+function NameSheetContent({
   mode,
   initialName,
   onSave,
   onDismiss,
 }: Omit<NameSheetProps, 'visible'> & { onDismiss: () => void }) {
   const messages = useMessages();
-  const theme = useKuyaraTheme();
   const [value, setValue] = useState(initialName ?? '');
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
 
-  const save = async () => {
-    if (isSaving || displayNameIssue(value) || (mode === 'prompt' && !value.trim())) return;
+  const commit = async (name: string | null) => {
+    if (isSaving) return;
     setIsSaving(true);
     setSaveError(false);
     try {
-      await onSave(value.trim() || null);
+      await onSave(name);
     } catch {
       setSaveError(true);
     } finally {
       setIsSaving(false);
     }
   };
-
-  const title = mode === 'prompt' ? messages.onboarding.nameTitle : messages.profile.nameEditTitle;
+  const doneDisabled = isSaving || Boolean(displayNameIssue(value)) || (mode === 'prompt' && !value.trim());
+  const save = () => {
+    if (doneDisabled) return;
+    void commit(value.trim() || null);
+  };
 
   return (
-    <Modal
-      allowSwipeDismissal
-      animationType="slide"
-      onRequestClose={onDismiss}
-      presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen'}
-      visible>
-      <SafeAreaView style={[styles.screen, { backgroundColor: theme.colors.background }]}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.screen}>
-          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-            <AppText accessibilityRole="header" variant="titleLarge">{title}</AppText>
-            {mode === 'prompt' ? (
-              <AppText colorRole="textSecondary">{messages.onboarding.nameBody}</AppText>
-            ) : null}
-            <NameInput
-              onChangeText={setValue}
-              onClear={mode === 'edit' ? () => setValue('') : undefined}
-              testID={mode === 'prompt' ? 'name-prompt-input' : 'name-edit-input'}
-              value={value}
-            />
-            {mode === 'edit' && value.trim() === '' ? (
-              <AppText colorRole="textSecondary" variant="caption">
-                {messages.profile.nameRemoveHint}
-              </AppText>
-            ) : null}
-            {saveError ? (
-              <AppText accessibilityRole="alert" colorRole="textSecondary" testID="name-save-error">
-                {mode === 'prompt' ? messages.onboarding.saveError : messages.profile.nameSaveError}
-              </AppText>
-            ) : null}
-            <ButtonPair
-              primary={(
-                <Button
-                  disabled={Boolean(displayNameIssue(value)) || (mode === 'prompt' && !value.trim())}
-                  label={messages.profile.nameDone}
-                  loading={isSaving}
-                  onPress={() => { void save(); }}
-                  testID="name-sheet-done"
-                />
-              )}
-              secondary={(
-                <Button
-                  disabled={isSaving}
-                  label={mode === 'prompt' ? messages.onboarding.nameNotNow : messages.common.back}
-                  onPress={onDismiss}
-                  testID="name-sheet-dismiss"
-                  variant="plain"
-                />
-              )}
-            />
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </Modal>
+    <View style={styles.content}>
+      <View style={styles.bar}>
+        <GlassButton
+          kind="close"
+          label={mode === 'prompt' ? messages.onboarding.nameNotNow : messages.profile.nameCancel}
+          onPress={onDismiss}
+          testID="name-sheet-dismiss"
+        />
+        <AppText accessibilityRole="header" style={styles.title} variant="bodyStrong">
+          {mode === 'prompt' ? messages.onboarding.nameTitle : messages.profile.nameLabel}
+        </AppText>
+        <GlassButton
+          disabled={doneDisabled}
+          kind="confirm"
+          label={messages.profile.nameDone}
+          onPress={save}
+          testID="name-sheet-done"
+        />
+      </View>
+      {mode === 'prompt' ? (
+        <AppText colorRole="textSecondary">{messages.onboarding.nameBody}</AppText>
+      ) : null}
+      <NameInput
+        autoFocus
+        onChangeText={setValue}
+        onClear={mode === 'edit' ? () => setValue('') : undefined}
+        testID={mode === 'prompt' ? 'name-prompt-input' : 'name-edit-input'}
+        value={value}
+      />
+      {mode === 'edit' && initialName ? (
+        <Button
+          disabled={isSaving}
+          icon="trash"
+          label={messages.profile.nameRemove}
+          onPress={() => { void commit(null); }}
+          size="medium"
+          testID="name-sheet-remove"
+          variant="destructive"
+        />
+      ) : null}
+      {saveError ? (
+        <AppText accessibilityRole="alert" colorRole="textSecondary" testID="name-save-error">
+          {mode === 'prompt' ? messages.onboarding.saveError : messages.profile.nameSaveError}
+        </AppText>
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  content: { gap: spacing.md, padding: spacing.lg },
+  content: { gap: spacing.md, paddingBottom: spacing.lg, paddingHorizontal: spacing.lg },
+  bar: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },
+  title: { flex: 1, textAlign: 'center' },
 });

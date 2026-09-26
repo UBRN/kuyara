@@ -45,10 +45,23 @@ export function resolveAppTextStyle(
   return [typography[variant], { color: theme.colors[colorRole] }] as const;
 }
 
+// O14 dark cards B: in dark the kuyara card is the elevated plane, 1.511:1 to the ground
+// against the old 1.276:1, and it drops the hairline, which measured only 1.16:1 and added
+// nothing. Light keeps the white card and its hairline. Native list cells are not kuyara
+// cards and keep the system's grey (ADR 0019, ADR 0030).
+export function surfaceColorRole(theme: KuyaraTheme, variant: SurfaceVariant): SemanticColorRole {
+  return variant === 'default' && theme.isDark ? 'backgroundElevated' : surfaceColorRoleByVariant[variant];
+}
+
+/** The fill a kuyara card paints, for content that knocks out or fades to the card. */
+export function resolveCardFill(theme: KuyaraTheme): string {
+  return theme.colors[surfaceColorRole(theme, 'default')];
+}
+
 export function resolveSurfaceColors(theme: KuyaraTheme, variant: SurfaceVariant) {
   const colors = {
-    backgroundColor: theme.colors[surfaceColorRoleByVariant[variant]],
-    borderColor: theme.colors.borderSubtle,
+    backgroundColor: theme.colors[surfaceColorRole(theme, variant)],
+    borderColor: variant === 'default' && theme.isDark ? 'transparent' : theme.colors.borderSubtle,
   } as const;
 
   if (variant === 'elevated') {

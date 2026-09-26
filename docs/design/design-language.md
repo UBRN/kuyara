@@ -134,7 +134,8 @@ Why this is stricter than the mockups: see [Relationship to the mockups](#relati
   - **Dark fails both at 1.000:1 and cannot pass**, because the shadow colour equals
     the dark background. The language resolves this honestly rather than by tuning a
     number that cannot move: in the dark appearance the separator is the plane step
-    (1.276:1) plus the hairline, and dark shadows are declared decorative. Dark
+    alone, the card on `backgroundElevated` at 1.511:1 with no hairline (a hairline on
+    it measured 1.16:1 and added nothing), and dark shadows are declared decorative. Dark
     elevation tokens stay as they are; the doc states that they contribute nothing on
     the ground plane and must never be the only separator. This matches [Ant Design's
     reasoning that an object close to the ground carries no shadow](https://ant.design/docs/spec/shadow),

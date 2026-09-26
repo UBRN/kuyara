@@ -4,6 +4,7 @@ import * as ReactNative from 'react-native';
 
 import { NativePickerRow } from '@/components/ui/native-picker-row';
 import { lightTheme } from '@/theme/theme';
+import { KuyaraThemeContext } from '@/theme/theme-context';
 
 const { Alert, Dimensions, Platform } = ReactNative;
 const mockSelectionHaptic = jest.fn();
@@ -56,6 +57,10 @@ afterEach(() => {
   Dimensions.set({ window: originalWindowDimensions });
 });
 
+function ThemeWrapper({ children }: Readonly<{ children: React.ReactNode }>) {
+  return <KuyaraThemeContext.Provider value={lightTheme}>{children}</KuyaraThemeContext.Provider>;
+}
+
 function mockFontScale(fontScale: number) {
   Dimensions.set({ window: { ...originalWindowDimensions, fontScale } });
 }
@@ -73,9 +78,10 @@ test('the full-width menu row renders the native picker options and changes sele
         { label: 'Dark', value: 'dark' },
       ]}
       selection="light"
-      systemImage="circle.lefthalf.filled"
+      icon="theme"
       testID="picker"
     />,
+    { wrapper: ThemeWrapper },
   );
 
   const menu = result.getByTestId('picker');
@@ -91,13 +97,30 @@ test('the full-width menu row renders the native picker options and changes sele
   expect(row.props.modifiers).toEqual([
     { $type: 'frame', maxWidth: Infinity, alignment: 'leading' },
   ]);
-  expect(row.props.spacing).toBe(8);
+  // ListItem's own leading spacing, so the label starts where every tiled row's does.
+  expect(row.props.spacing).toBe(12);
+  // O14 anatomy A: the label reads in the system label ink, never the Menu's tint.
+  expect(result.getByText('Appearance').props.modifiers).toEqual([
+    { $type: 'foregroundStyle', style: ReactNative.PlatformColor('label') },
+  ]);
+  // The 28-point tile, drawn in SwiftUI with ListRowTile's geometry, fill and ink.
+  expect(result.getByTestId('picker-tile').props.modifiers).toEqual([
+    { $type: 'font', size: 20 },
+    { $type: 'foregroundStyle', style: lightTheme.colors.textPrimary },
+    { $type: 'frame', width: 28, height: 28 },
+    {
+      $type: 'background',
+      style: 'rgba(20, 47, 59, 0.08)',
+      shape: { shape: 'roundedRectangle', cornerRadius: 7 },
+    },
+    { $type: 'accessibilityHidden', hidden: true },
+  ]);
   expect(result.getByText('Light').props.modifiers).toEqual([
     { $type: 'font', textStyle: 'body' },
     { $type: 'foregroundStyle', style: { type: 'hierarchical', style: 'secondary' } },
   ]);
+  expect(result.getByTestId('picker-tile').props.systemName).toBe('circle.lefthalf.filled');
   expect(result.getAllByTestId('expo-ui-image').map((image) => image.props.systemName)).toEqual([
-    'circle.lefthalf.filled',
     'chevron.up.chevron.down',
   ]);
   expect(result.queryByTestId('expo-ui-vstack')).toBeNull();
@@ -137,6 +160,7 @@ test('a disabled menu row ignores picker changes', async () => {
       selection="system"
       testID="picker"
     />,
+    { wrapper: ThemeWrapper },
   );
 
   const menu = result.getByTestId('picker');
@@ -165,9 +189,10 @@ test('at accessibility text size the value and menu indicator stack under the la
         { label: 'Light', value: 'light' },
       ]}
       selection="light"
-      systemImage="circle.lefthalf.filled"
+      icon="theme"
       testID="picker"
     />,
+    { wrapper: ThemeWrapper },
   );
 
   const stackedLabel = result.getByTestId('expo-ui-vstack');

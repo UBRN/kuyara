@@ -1,4 +1,4 @@
-import { useFocusEffect, useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
@@ -39,7 +39,6 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 export default function OutfitDetailRoute() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const { language, messages } = useLocalization();
-  const router = useRouter();
   const { dressingDayChoiceReady, dressingDayKey, outfitHistory, reevaluateLocalDay,
     resolvedDressStyle, state: recommendationState } = useRecommendationApplication();
   const theme = useKuyaraTheme();
@@ -205,14 +204,6 @@ export default function OutfitDetailRoute() {
     });
   };
 
-  const onBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/');
-    }
-  };
-
   const placeSnapshot = weatherState.status === 'ready'
     ? activeLocationSnapshot(weatherState.snapshot, weatherState.activeLocation) : null;
   let state: TodayScreenState;
@@ -264,10 +255,18 @@ export default function OutfitDetailRoute() {
 
   return (
     <>
+      {/* O14: every pushed screen goes back the same way, through the system's glass back
+          capsule with the parent's name; it stays in the bar instead of scrolling away. The
+          Today stack hides its header, so this route turns it on and names Today itself. */}
+      <Stack.Screen
+        options={{
+          headerBackTitle: messages.navigation.today,
+          headerShown: true,
+          headerTitle: '',
+        }}
+      />
       <OutfitDetailScreen
-        backLabel={messages.today.backAction}
         language={language}
-        onBack={onBack}
         onEditPiece={setEditing}
         onWoreThis={outfitHistory && dayKey ? onWoreThis : undefined}
         state={state}

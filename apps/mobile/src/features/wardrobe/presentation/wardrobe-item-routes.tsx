@@ -85,6 +85,8 @@ function useWardrobeExitGuard(
   );
 
   return {
+    // The toolbar's Cancel pops the form; `beforeRemove` above confirms a dirty one.
+    cancel: () => router.back(),
     // The Closet reads its category, the section to reveal and the tile it should let
     // arrive from the route, so an exit that finished something says where. A
     // cancelled edit pops instead of replacing, and keeps the list it left untouched.
@@ -186,6 +188,7 @@ export function WardrobeNewItemRoute({
       defaultEntryState={defaultEntryState}
       isBusy={state.isMutating}
       mode="create"
+      onCancel={guard.cancel}
       onCreate={async (input, photoChange) => {
         const created = await createItem(input, photoChange);
         if (created.garmentTypeId) {
@@ -317,6 +320,7 @@ export function WardrobeEditItemRoute({
       }
       item={item}
       mode="edit"
+      onCancel={guard.cancel}
       onDelete={async () => {
         // Taxonomy 5.8: `state` and `had_photo` are read from the loaded item before the
         // soft delete, not from the (already cleared) mutation result.

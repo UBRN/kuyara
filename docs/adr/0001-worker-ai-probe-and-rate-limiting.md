@@ -222,12 +222,12 @@ state as `snapshot.recommendation.generationMode` when
   no external store or controller). It passes `aiStatus`, `lastGenerationMode`,
   and `onCheckAiStatus` into the pure `SettingsScreen`.
 - New Settings section: eyebrow heading, the last-generation-mode line, a
-  "Check AI status" button, and a result line announced with
-  `accessibilityLiveRegion`. Result copy:
-  - `ok` -> "AI responded just now" plus the local `checkedAt` time,
-  - `unavailable` -> "AI did not respond right now",
-  - `rate-limited` -> "Checked too often, try again shortly",
-  - other failures -> a generic "could not check" line.
+  "Test online AI" button (it tests the Worker AI only, never Apple Intelligence), and a
+  result line announced with `accessibilityLiveRegion`. Result copy:
+  - `ok` -> "Online AI answered at" plus the local `checkedAt` time,
+  - `unavailable` -> "Online AI did not answer this time",
+  - `rate-limited` -> "Tested a moment ago. Try again in a few minutes",
+  - other failures -> a generic "The test could not run" line.
   Copy never states or implies that a later recommendation will succeed.
 - The button is disabled when no Worker base URL is configured.
 
@@ -237,12 +237,12 @@ While the probe is in flight, Settings shows an inline overlay (a `Surface` over
 the AI-status section with a `scrim`), not a new route. It contains a custom
 `Animated` looping indicator (pulsing dots) built with the existing
 `react-native-reanimated` dependency, following the `weather-glyph.tsx`
-precedent, plus a localized "Checking AI status…" line.
+precedent, plus a localized "Testing online AI…" line.
 
 - The indicator is an indefinite loop and continues regardless of the OS motion
   preference. Its localized label carries the state in words.
 - The overlay is a screen-reader stop with a label; focus returns to the
-  "Check AI status" button when it dismisses.
+  "Test online AI" button when it dismisses.
 - No new dependency, no new theme token, no new shared primitive.
 
 ## Consequences

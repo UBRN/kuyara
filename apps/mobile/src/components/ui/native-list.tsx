@@ -1,5 +1,5 @@
 import { Column, Host as UniversalHost, Icon as ExpoIcon, List as UniversalList, ListItem, RNHostView, Row, Text as ExpoText } from '@expo/ui';
-import { accessibilityAddTraits, accessibilityHidden, font, foregroundStyle, listStyle, scrollContentBackground, tint } from '@expo/ui/swift-ui/modifiers';
+import { accessibilityAddTraits, accessibilityHidden, font, foregroundStyle, listStyle, onAppear, scrollContentBackground, tint } from '@expo/ui/swift-ui/modifiers';
 import type { ReactElement, ReactNode } from 'react';
 import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,9 +27,18 @@ const IOS_SECONDARY_TEXT_MODIFIERS = Platform.OS === 'ios'
 const IOS_BODY_SEMIBOLD_FONT_MODIFIERS = Platform.OS === 'ios'
   ? [font({ textStyle: 'body', weight: 'semibold' })]
   : undefined;
-const IOS_SELECTED_MODIFIERS = Platform.OS === 'ios'
-  ? [accessibilityAddTraits(['isSelected'])]
-  : undefined;
+// O14: the five decorative stars are grey and 13 points at the default size. `footnote` is
+// the 13-point text style, so they grow with Dynamic Type as the chevron does, and the ink is
+// the hierarchical secondary style, because an Image's `color` prop cannot name a system
+// colour and drew them in the label ink.
+const IOS_RATING_STAR_MODIFIERS = Platform.OS === 'ios'
+  ? [
+    font({ textStyle: 'footnote' }),
+    foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+    accessibilityHidden(),
+  ]
+  : [];
+const RATING_STAR_SIZE = 13;
 
 export type NativeListProps = Readonly<{ children: ReactNode; testID?: string }>;
 
@@ -146,6 +155,8 @@ export type NativeListRowProps = Readonly<{
   supportingText?: string;
   /** Renders a tinted `Switch` as the trailing accessory instead of a value/chevron. */
   toggle?: NativeListRowToggle;
+  /** Fires when the native row first comes on screen (iOS); a lazy list may mount it earlier. */
+  onAppear?: () => void;
   onPress?: () => void;
   testID?: string;
 }>;
@@ -154,6 +165,7 @@ export function NativeListRow({
   chevron,
   glyph,
   label,
+  onAppear: onRowAppear,
   onPress,
   ratingStars = false,
   secondary = false,
@@ -224,11 +236,9 @@ export function NativeListRow({
           <Row alignment="center" spacing={2}>
             {Array.from({ length: 5 }, (_, index) => (
               <swiftUI.Image
-                color="secondaryLabel"
                 key={index}
-                modifiers={[accessibilityHidden()]}
+                modifiers={IOS_RATING_STAR_MODIFIERS}
                 systemName="star.fill"
-                size={16}
               />
             ))}
           </Row>
@@ -236,7 +246,7 @@ export function NativeListRow({
           <RNHostView matchContents>
             <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: 'row' }}>
               {Array.from({ length: 5 }, (_, index) => (
-                <Icon color={theme.colors.textSecondary} key={index} name="star" size={16} />
+                <Icon color={theme.colors.textSecondary} key={index} name="star" size={RATING_STAR_SIZE} />
               ))}
             </View>
           </RNHostView>
@@ -270,7 +280,10 @@ export function NativeListRow({
           </RNHostView>
         ) : undefined
       }
-      modifiers={selected ? IOS_SELECTED_MODIFIERS : undefined}
+      modifiers={Platform.OS === 'ios' && (selected || onRowAppear) ? [
+        ...(selected ? [accessibilityAddTraits(['isSelected'])] : []),
+        ...(onRowAppear ? [onAppear(onRowAppear)] : []),
+      ] : undefined}
       onPress={onPress}
       supportingText={resolvedSupportingText}
       testID={glyph ? undefined : testID}

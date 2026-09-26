@@ -31,11 +31,11 @@ export type NativeSheetProps = Readonly<{
   /** Fires after the platform's own dismissal, and after a programmatic close. */
   onDismiss: () => void;
   /**
-   * `large` opens at the large detent only, for content that never fits the medium one. A
-   * content-fitted detent is not used: its height would follow content that changes while
-   * the sheet is open.
+   * `large` opens at the large detent only, for content that never fits the medium one.
+   * `fit` sizes the sheet to its content: only for a short, fixed form such as the name
+   * editor (O14), whose height changes by at most one line while it is open.
    */
-  size?: 'default' | 'large';
+  size?: 'default' | 'large' | 'fit';
   testID?: string;
   visible: boolean;
 }>;
@@ -54,12 +54,14 @@ export function NativeSheet({ children, onDismiss, size = 'default', testID, vis
       enablePanDownToClose
       index={visible ? 0 : -1}
       onClose={onDismiss}
-      snapPoints={usesStackedLayout || size === 'large' ? [LARGE_DETENT] : [MEDIUM_DETENT, LARGE_DETENT]}>
+      snapPoints={size === 'fit'
+        ? undefined
+        : usesStackedLayout || size === 'large' ? [LARGE_DETENT] : [MEDIUM_DETENT, LARGE_DETENT]}>
       {/* `backgroundStyle` paints the sheet's own chrome, the grabber zone and the
           bottom safe-area inset included; the content carries the same fill because it
           is hosted in its own native view that would otherwise be transparent. */}
       <View
-        style={[styles.content, { backgroundColor: theme.colors.surface }]}
+        style={[size === 'fit' ? null : styles.content, { backgroundColor: theme.colors.surface }]}
         testID={testID}>
         {children}
       </View>

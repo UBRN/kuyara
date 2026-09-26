@@ -11,7 +11,10 @@ export default function WardrobeItemRoute() {
     <>
       <Stack.Screen
         options={{
-          headerLargeTitle: true,
+          // O10: an inline title between the toolbar's Cancel and Save, which the
+          // form sets itself; Cancel replaces the back button.
+          headerBackVisible: false,
+          headerLargeTitle: false,
           headerShown: true,
           headerTitle: messages.wardrobe.editTitle,
         }}
