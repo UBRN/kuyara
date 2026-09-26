@@ -31,6 +31,7 @@ import {
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
 import { wornOutfitFrom, type WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import { todayActiveLocation, todayOutfitId, todayScreenState } from '@/features/today/__tests__/fixtures';
+import { DailyFormalitySheet } from '@/features/today/presentation/daily-formality-sheet';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { WardrobeApplicationContext } from '@/features/wardrobe/application/wardrobe-application-context';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
@@ -203,6 +204,12 @@ jest.mock('@/components/ui/native-wheel-picker', () => {
   return { NativeWheelPicker: ({ testID }: Readonly<{ testID?: string }>) => <MockView testID={testID} /> };
 });
 jest.mock('@/features/recommendation/data/on-device-ai-module', () => ({ onDeviceAiModule: null }));
+// The real sheet, recorded: the test sheet unmounts its content once closed, so what a native
+// sheet draws while it animates out is read from the props it received.
+jest.mock('@/features/today/presentation/daily-formality-sheet', () => {
+  const actual = jest.requireActual('@/features/today/presentation/daily-formality-sheet');
+  return { ...actual, DailyFormalitySheet: jest.fn(actual.DailyFormalitySheet) };
+});
 // Live provider tests choose whether the stub store has a saved recommendation.
 jest.mock('@/features/recommendation/data/recommendation-repository', () => ({
   ...jest.requireActual('@/features/recommendation/data/recommendation-repository'),
@@ -1656,6 +1663,54 @@ test('the evening sheet arrives empty and its dismissal uses the profile dress s
   expect(chooseFormality).toHaveBeenCalledTimes(1);
   expect(chooseFormality).toHaveBeenCalledWith('2026-08-13:evening', 'formal', 'morning');
   alert.mockRestore();
+});
+
+// The native sheet animates out after it is closed: while it does, it still draws the question
+// it was showing, never the morning question with the day's dress style checked.
+test('a closing evening sheet keeps its question and its empty choice while it animates out', async () => {
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()}
+      profile={profileValue({ morningSheetEnabled: true, dressStyle: 'smart' })}
+      recommendation={recommendationReady()} resolvedDressStyle="smart"
+      dressingDayKey="2026-08-13:evening" dressingDayChoiceReady eveningChoicePending
+      chooseFormality={jest.fn(async () => undefined)} wardrobe={wardrobeValue()} weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+  expect(await view.findByText(messages.en.today.dailyStyle.questionEvening)).toBeOnTheScreen();
+  const sheet = jest.mocked(DailyFormalitySheet);
+  sheet.mockClear();
+
+  await fireEvent.press(view.getByTestId('daily-formality-close'));
+  await waitFor(() => expect(view.queryByTestId('daily-formality-sheet')).toBeNull());
+  const closing = sheet.mock.calls.map(([props]) => props).filter((props) => !props.visible);
+  expect(closing).not.toHaveLength(0);
+  expect(closing.map(({ question, selected, firstDay, step }) => ({ question, selected, firstDay, step })))
+    .toEqual(closing.map(() => ({ question: messages.en.today.dailyStyle.questionEvening,
+      selected: null, firstDay: false, step: 'dayType' })));
+});
+
+test('a sheet answered on step 2 keeps the styles step while it animates out', async () => {
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()}
+      profile={profileValue({ morningSheetEnabled: true, dressStyle: 'smart' })}
+      recommendation={recommendationReady()} resolvedDressStyle="smart"
+      resolvedStyleAesthetics={['classic']}
+      dressingDayKey="2026-08-13" dressingDayChoiceReady morningChoicePending
+      chooseFormality={jest.fn(async () => undefined)} wardrobe={wardrobeValue()} weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+  await fireEvent.press(await view.findByTestId('daily-formality-casual'));
+  const sheet = jest.mocked(DailyFormalitySheet);
+  sheet.mockClear();
+
+  await fireEvent.press(view.getByTestId('daily-formality-styles-done'));
+  await waitFor(() => expect(view.queryByTestId('daily-formality-sheet')).toBeNull());
+  const closing = sheet.mock.calls.map(([props]) => props).filter((props) => !props.visible);
+  expect(closing).not.toHaveLength(0);
+  expect(closing.map(({ step, styles }) => ({ step, hasStyles: styles != null })))
+    .toEqual(closing.map(() => ({ step: 'styles', hasStyles: true })));
 });
 
 // S3: after a place switch the previous place's snapshot is the last valid result, but it is
