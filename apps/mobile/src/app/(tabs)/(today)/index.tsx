@@ -140,13 +140,11 @@ export default function TodayRoute() {
       ? weatherState.refreshFailure ?? 'unknown'
       : 'unknown';
     recommendationFailure = null;
-  } else if (recommendation === null && (recommendationState.isRefreshing ||
-      (recommendationState.snapshot !== null && recommendationState.lastFailure === null &&
-        !dressingDayChoiceFailed) ||
-      ((dayQuestionPending || (dressingDayChoiceReady === false && !dressingDayChoiceFailed)) &&
-        !recommendationState.lastFailure))) {
-    // Reading a new day's choice or waiting for its question is a wait. A real read or
-    // recommendation failure still takes the unavailable branch and keeps the sheet closed.
+  } else if (recommendation === null && recommendationState.lastFailure === null &&
+      !dressingDayChoiceFailed && profileState.status === 'ready' &&
+      profileState.profile.clothingPreference !== null) {
+    // With no outfit to show, wait for the day's inputs or generation unless a read or
+    // recommendation failed. A profile without a clothing preference cannot generate.
     state = { kind: 'loading', phase: recommendationState.phase };
     todayFailure = undefined;
     recommendationFailure = undefined;
