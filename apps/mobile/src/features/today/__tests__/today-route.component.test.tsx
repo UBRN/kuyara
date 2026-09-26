@@ -1,5 +1,5 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
-import { useSyncExternalStore, type PropsWithChildren } from 'react';
+import { useEffect, useSyncExternalStore, type PropsWithChildren } from 'react';
 import { Alert, StyleSheet, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -28,6 +28,7 @@ import {
   RecommendationRepositoryError,
   type RecommendationSnapshot,
 } from '@/features/recommendation/data/recommendation-repository';
+import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
 import { wornOutfitFrom, type WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import { todayActiveLocation, todayOutfitId, todayScreenState } from '@/features/today/__tests__/fixtures';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
@@ -155,6 +156,7 @@ const mockChoiceGet = jest.fn();
 const mockChoiceUpsert = jest.fn();
 let mockRecommendationSnapshot: RecommendationSnapshot | null = null;
 let mockRecommendationReadError: Error | null = null;
+let mockLocalDayKey: string | null = '2026-09-24';
 jest.mock('@/infrastructure/sqlite/expo-sqlite-database', () => ({
   openKuyaraDatabase: async () => ({}),
 }));
@@ -217,7 +219,7 @@ jest.mock('@/features/recommendation/application/recommendation-application-cont
   );
   return {
     ...actual,
-    localDayKey: () => '2026-09-24',
+    localDayKey: (date: Date) => mockLocalDayKey ?? actual.localDayKey(date),
     localDayKind: () => 'weekday',
     localDayVariant: () => 0,
   };
@@ -547,6 +549,7 @@ beforeEach(() => {
   mockDepartureGet.mockReset().mockResolvedValue(null);
   mockRecommendationSnapshot = null;
   mockRecommendationReadError = null;
+  mockLocalDayKey = '2026-09-24';
 });
 
 test('Today offers the alert opt-in once, and each action answers the offer', async () => {
@@ -1411,6 +1414,117 @@ test('a new dressing day waits for its Later row before choosing outfits', async
     expect(refresh.mock.calls[0][1].departureAt).toBe(departureAt);
     expect(refresh.mock.calls[0][1].dressStyle).toBe('formal');
   } finally {
+    refresh.mockRestore();
+    jest.useRealTimers();
+  }
+});
+
+test('cold evening open waits for its unanswered choice and generates once after dismissal', async () => {
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
+  mockLocalDayKey = null;
+  jest.useFakeTimers({ now: new Date('2026-09-24T18:30:00.000Z'),
+    doNotFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+  mockRecommendationSnapshot = { ...saved.snapshot, localDayKey: '2026-09-24' };
+  mockRecommendationReadError = new RecommendationRepositoryError('invalid-data');
+  const analytics = createProductAnalytics();
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementation(() => new Promise(() => undefined));
+  mockChoiceUpsert.mockImplementation(async (_profile: string, key: string, formality: string,
+    source: string) => ({
+    id: '0f0e2c1a-8b52-4c0e-9d57-1d3c9c1c2a10', localProfileId: 'profile-one',
+    dayKey: key, formality, source, styleAesthetics: null,
+    createdAt: '2026-09-24T18:00:00.000Z', updatedAt: '2026-09-24T18:00:00.000Z',
+    deletedAt: null,
+  }));
+  try {
+    const view = await render(
+      <Providers productAnalytics={analytics}
+        profile={profileValue({ morningSheetEnabled: false, dressStyle: 'formal' })}
+        recommendation={saved} liveRecommendationProvider
+        wardrobe={wardrobeValue()} weather={weatherValue()}>
+        <TodayRoute />
+      </Providers>,
+    );
+    expect(await view.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
+    expect(view.getByTestId('today-loading-screen')).toBeOnTheScreen();
+    expect(view.queryByTestId('today-unavailable-screen')).toBeNull();
+    analytics.errorEpisodes.flushAll('session_end');
+    expect(analytics.analytics.names()).not.toContain('error_shown');
+    expect(refresh).not.toHaveBeenCalled();
+
+    await fireEvent.press(view.getByTestId('daily-formality-close'));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(new Set(refresh.mock.calls.map(([, input]) => JSON.stringify(input))).size).toBe(1);
+    expect(mockChoiceUpsert).toHaveBeenCalledWith(
+      'profile-one', '2026-09-24:evening', 'formal', 'morning', undefined);
+    expect(refresh.mock.calls[0][1].localDayKey).toBe('2026-09-24:evening');
+  } finally {
+    refresh.mockRestore();
+    jest.useRealTimers();
+  }
+});
+
+test('a warm process crossing 18:00 opens the evening question over a wait', async () => {
+  mockLocalDayKey = null;
+  jest.useFakeTimers({ now: new Date('2026-09-24T17:59:00.000Z'),
+    doNotFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
+  mockRecommendationSnapshot = { ...saved.snapshot, catalogVersion: garmentCatalogVersion,
+    localDayKey: '2026-09-24' };
+  mockChoiceGet.mockImplementation(async (_profile: string, key: string) =>
+    key === '2026-09-24' ? {
+      id: '0f0e2c1a-8b52-4c0e-9d57-1d3c9c1c2a10', localProfileId: 'profile-one',
+      dayKey: key, formality: 'smart', source: 'morning', styleAesthetics: null,
+      createdAt: '2026-09-24T06:00:00.000Z', updatedAt: '2026-09-24T06:00:00.000Z',
+      deletedAt: null,
+    } : null);
+  mockChoiceUpsert.mockImplementation(async (_profile: string, key: string, formality: string,
+    source: string) => ({
+    id: '0f0e2c1a-8b52-4c0e-9d57-1d3c9c1c2a10', localProfileId: 'profile-one',
+    dayKey: key, formality, source, styleAesthetics: null,
+    createdAt: '2026-09-24T18:00:00.000Z', updatedAt: '2026-09-24T18:00:00.000Z',
+    deletedAt: null,
+  }));
+  const analytics = createProductAnalytics();
+  let focusToday!: () => void;
+  function ForegroundProbe() {
+    const { reevaluateLocalDay } = useRecommendationApplication();
+    useEffect(() => { focusToday = reevaluateLocalDay; }, [reevaluateLocalDay]);
+    return null;
+  }
+  const history = jest.spyOn(SqliteOutfitHistoryRepository.prototype, 'lastSeven')
+    .mockResolvedValue([]);
+  const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')
+    .mockImplementation(() => new Promise(() => undefined));
+  try {
+    const view = await render(
+      <Providers productAnalytics={analytics} profile={profileValue()}
+        recommendation={saved} liveRecommendationProvider
+        wardrobe={wardrobeValue()} weather={weatherValue()}>
+        <ForegroundProbe />
+        <TodayRoute />
+      </Providers>,
+    );
+    await waitFor(() => expect(view.getByTestId('today-outfit-list')).toBeOnTheScreen());
+    jest.setSystemTime(new Date('2026-09-24T18:00:00.000Z'));
+    await act(async () => { focusToday(); });
+    expect(await view.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
+    expect(view.getByTestId('today-loading-screen')).toBeOnTheScreen();
+    expect(view.queryByTestId('today-unavailable-screen')).toBeNull();
+    analytics.errorEpisodes.flushAll('session_end');
+    expect(analytics.analytics.names()).not.toContain('error_shown');
+    expect(refresh).not.toHaveBeenCalled();
+
+    await fireEvent.press(view.getByTestId('daily-formality-close'));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(mockChoiceUpsert).toHaveBeenCalledTimes(1);
+    expect(refresh.mock.calls.every(([, input]) => input.localDayKey === '2026-09-24:evening'))
+      .toBe(true);
+    expect(new Set(refresh.mock.calls.map(([, input]) => JSON.stringify(input))).size).toBe(1);
+  } finally {
+    history.mockRestore();
     refresh.mockRestore();
     jest.useRealTimers();
   }
