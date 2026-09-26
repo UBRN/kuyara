@@ -15,6 +15,7 @@ import { WorkerAiClientError } from '../data/worker-ai-client.ts';
 import { RecommendationRepositoryError } from '../data/recommendation-repository.ts';
 import {
   createAiRecommendationRequest,
+  createRecommendationContextWithPool,
   mapWorkerAiRecommendation,
 } from '../data/worker-ai-recommendation-mapper.ts';
 
@@ -97,7 +98,7 @@ function input(temperatureCelsius = 30) {
 }
 
 function createHarness({ cached = null, client, failSave = false, captureAnalyticsEvent, holdPhase,
-  loadRecentWorn } = {}) {
+  loadRecentWorn, createContextWithPool } = {}) {
   let stored = cached;
   const calls = { client: 0, saves: 0 };
   const requests = [];
@@ -146,6 +147,7 @@ function createHarness({ cached = null, client, failSave = false, captureAnalyti
   const controller = new RecommendationApplicationController(profileId, {
     loadRepository: async () => repository,
     loadRecentWorn,
+    createContextWithPool,
     client: aiClient,
     captureAnalyticsEvent,
     holdPhase: holdPhase ?? (async () => undefined),
@@ -245,6 +247,28 @@ test('exhaustion compares the complete pool with the current shown set', async (
   assert.equal(recommendationPoolExhausted([], snapshot), true);
   assert.equal(recommendationPoolExhausted(null, snapshot), false);
   assert.equal(recommendationPoolExhausted(ids, null), false);
+});
+
+test('unchanged pool inputs reuse the generation composition on repeated availability checks', async () => {
+  let compositions = 0;
+  const { controller } = createHarness({
+    createContextWithPool: (...args) => {
+      compositions += 1;
+      return createRecommendationContextWithPool(...args);
+    },
+  });
+  const sameInput = { ...input(16), now };
+  await controller.initialize();
+  await controller.refresh('first-recommendation', sameInput);
+  assert.equal(compositions, 1);
+
+  controller.updatePoolAvailability(sameInput);
+  controller.updatePoolAvailability({ ...sameInput, snapshot: { ...sameInput.snapshot } });
+  assert.equal(compositions, 1);
+
+  controller.updatePoolAvailability({ ...input(30), now });
+  controller.updatePoolAvailability({ ...input(30), now });
+  assert.equal(compositions, 2);
 });
 
 test('local day variant is a deterministic seven-day ring', () => {

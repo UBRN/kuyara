@@ -33,6 +33,10 @@ import {
 } from '@/features/recommendation/data/recommendation-repository';
 import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import type { WornOutfit } from '@/features/recommendation/domain/outfit-history';
+import {
+  deriveClothingRequirements,
+  type ClothingRequirements,
+} from '@/features/recommendation/domain/weather-to-clothing-requirements';
 import { WorkerAiClientError } from '@/features/recommendation/data/worker-ai-client';
 import {
   aiRequestFromContext,
@@ -150,6 +154,7 @@ type Dependencies = Readonly<{
   loadRepository: () => Promise<RecommendationRepository>;
   loadRecentWorn?: () => Promise<readonly WornOutfit[]>;
   client: AiClient;
+  createContextWithPool?: typeof createRecommendationContextWithPool;
   // Optional: `recommendation_regenerated` fires on every completed attempt in `refreshOnce`,
   // which already knows the trigger (passed into `refresh()`) and the exact outcome branch
   // taken; a no-op default keeps existing composition and tests unchanged.
@@ -264,6 +269,26 @@ function storedPoolOptionIds(
   }
 }
 
+function poolCompositionKey(
+  requirements: ClothingRequirements,
+  clothingPreference: RecommendationApplicationInput['clothingPreference'],
+  dayVariant: number,
+  recentWorn: readonly WornOutfit[] = [],
+): string {
+  return JSON.stringify([
+    garmentCatalogVersion, requirements, clothingPreference, dayVariant,
+    recentWorn.slice(0, 7).map(({ garments }) =>
+      Object.values(garments).filter((id) => id !== undefined).sort()),
+  ]);
+}
+
+function poolCompositionKeyForInput(input: RecommendationApplicationInput): string {
+  return poolCompositionKey(
+    deriveClothingRequirements(input.snapshot, input.now, input.departureAt ?? input.now),
+    input.clothingPreference, input.dayVariant, input.recentWorn,
+  );
+}
+
 // The primary outfit `skipWait` would save for the same input. Composing it is pure and
 // persists nothing; a composition that throws only leaves the runway without a preview.
 export class RecommendationApplicationController {
@@ -279,6 +304,7 @@ export class RecommendationApplicationController {
   private readonly telemetry: PerformanceTelemetry | null;
   private readonly holdPhase: (milliseconds: number) => Promise<void>;
   private poolOptionIds: readonly string[] | null = null;
+  private poolKey: string | null = null;
   private previousOptionIds: readonly string[] = [];
   private pendingSkip: Readonly<{
     key: string;
@@ -315,10 +341,16 @@ export class RecommendationApplicationController {
   updatePoolAvailability(input: RecommendationApplicationInput): void {
     if (this.state.status !== 'ready' || !this.state.snapshot) return;
     try {
-      const { poolOptionIds } = createRecommendationContextWithPool(
-        { ...input, excludedOptionIds: [] }, input.localDayKey,
-      );
-      const exhausted = recommendationPoolExhausted(poolOptionIds, this.state.snapshot);
+      const key = poolCompositionKeyForInput(input);
+      if (key !== this.poolKey || this.poolOptionIds === null) {
+        const { poolOptionIds } = (this.dependencies.createContextWithPool ??
+          createRecommendationContextWithPool)(
+          { ...input, excludedOptionIds: [] }, input.localDayKey,
+        );
+        this.poolOptionIds = poolOptionIds;
+        this.poolKey = key;
+      }
+      const exhausted = recommendationPoolExhausted(this.poolOptionIds, this.state.snapshot);
       if (exhausted !== this.state.exhausted) this.setReady({ ...this.state, exhausted });
     } catch {
       // A failed derived availability check never discards the saved recommendation.
@@ -360,7 +392,8 @@ export class RecommendationApplicationController {
         : snapshot ? shownOptionIds(snapshot) : this.previousOptionIds,
     };
     try {
-      ({ context, poolOptionIds } = createRecommendationContextWithPool(
+      ({ context, poolOptionIds } = (this.dependencies.createContextWithPool ??
+        createRecommendationContextWithPool)(
         generationInput, input.localDayKey,
       ));
     } catch (error) {
@@ -414,6 +447,7 @@ export class RecommendationApplicationController {
         });
         if (this.latestRequestKey === pending.key) {
           this.poolOptionIds = pending.poolOptionIds;
+          this.poolKey = poolCompositionKeyForInput(pending.input);
           this.setReady({
             status: 'ready', snapshot, isRefreshing: true, lastFailure: null,
             phase: 'preparing-outfits',
@@ -461,6 +495,11 @@ export class RecommendationApplicationController {
         }
       }
       this.poolOptionIds = lastFailure === null ? storedPoolOptionIds(snapshot, recentWorn) : null;
+      this.poolKey = this.poolOptionIds && snapshot &&
+        isClothingPreference(snapshot.clothingPreference) && snapshot.dayVariant !== null
+        ? poolCompositionKey(snapshot.recommendation.requirements,
+          snapshot.clothingPreference, snapshot.dayVariant, recentWorn)
+        : null;
       this.setReady({
         status: 'ready',
         snapshot,
@@ -572,6 +611,7 @@ export class RecommendationApplicationController {
       );
       if (this.latestRequestKey === key) {
         this.poolOptionIds = poolOptionIds;
+        this.poolKey = poolCompositionKeyForInput(input);
         this.setReady({
           status: 'ready',
           snapshot,
