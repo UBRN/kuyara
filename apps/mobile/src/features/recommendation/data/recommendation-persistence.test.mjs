@@ -15,6 +15,7 @@ import { SqliteRecommendationLocalDataSource } from './sqlite-recommendation-loc
 import { SqliteDressingDayChoiceRepository } from './sqlite-dressing-day-choice-repository.ts';
 import { SqliteDressingDayDepartureRepository } from './sqlite-dressing-day-departure-repository.ts';
 import {
+  createAiRecommendationRequest,
   createRecommendationContext,
 } from './worker-ai-recommendation-mapper.ts';
 import { recommendOutfits } from '../application/recommend-outfits.ts';
@@ -316,6 +317,41 @@ test('the snapshot boundary rejects wrong day, catalog, partial, duplicate and i
     await database.runAsync('UPDATE recommendation_snapshots SET context_json = ?, outfits_json = ?',
       [row.context_json, row.outfits_json]);
   }
+});
+
+test('cold new-day generation excludes yesterday, while regenerate offers the full pool', async (t) => {
+  const { database, repository } = await setup();
+  t.after(() => database.close());
+  const generated = generatedRecommendation();
+  const previous = await repository.saveSnapshot(profileId, {
+    weatherSnapshotId: generated.input.snapshot.id,
+    locationKey: generated.input.snapshot.locationKey,
+    context: generated.request,
+    recommendation: generated.recommendation,
+  });
+  const previousIds = previous.recommendation.outfits.map(({ optionId }) => optionId);
+  // Keep the composition seed fixed so the test observes exclusion, not rotation.
+  const nextInput = { ...generated.input, localDayKey: '2026-08-02' };
+  const fullPool = createAiRecommendationRequest(nextInput).options.map(({ optionId }) => optionId);
+  const requests = [];
+  const controller = new RecommendationApplicationController(profileId, {
+    loadRepository: async () => repository,
+    client: { recommendRouted: async (request) => {
+      requests.push(request);
+      throw new Error('offline');
+    } },
+    reserveAiReask: async () => true,
+    holdPhase: async () => undefined,
+  });
+
+  await controller.initialize(nextInput.localDayKey);
+  assert.equal(controller.getSnapshot().snapshot, null);
+  await controller.refresh('local-day-changed', nextInput);
+  assert.deepEqual(fullPool.filter((id) =>
+    !requests[0].options.some((option) => option.optionId === id)).sort(), previousIds.sort());
+
+  await controller.refresh('regenerate', nextInput);
+  assert.deepEqual(requests[1].options.map(({ optionId }) => optionId), fullPool);
 });
 
 test('offline start after a catalog bump replaces the old row from cached weather', async (t) => {
