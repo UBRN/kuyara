@@ -99,6 +99,7 @@ export default function TodayRoute() {
   const { acceptOffer, dismissOffer, offer } = useWeatherAlertOffer();
   const { openApplicationSettings } = useNotificationApplication();
   const [isPullRefreshing, setIsPullRefreshing] = useState(false);
+  const dayQuestionPending = morningChoicePending || eveningChoicePending;
   useScreenViewed('today');
 
   const recommendation = recommendationState.status === 'ready'
@@ -142,10 +143,10 @@ export default function TodayRoute() {
   } else if (recommendation === null && (recommendationState.isRefreshing ||
       (recommendationState.snapshot !== null && recommendationState.lastFailure === null &&
         !dressingDayChoiceFailed) ||
-      (morningChoicePending && !recommendationState.lastFailure))) {
-    // M16: a first recommendation held for the morning answer is a wait, so the morning
-    // sheet opens over it. A real failure still takes the unavailable branch below and is
-    // reported, and the sheet never opens over that card.
+      ((dayQuestionPending || (dressingDayChoiceReady === false && !dressingDayChoiceFailed)) &&
+        !recommendationState.lastFailure))) {
+    // Reading a new day's choice or waiting for its question is a wait. A real read or
+    // recommendation failure still takes the unavailable branch and keeps the sheet closed.
     state = { kind: 'loading', phase: recommendationState.phase };
     todayFailure = undefined;
     recommendationFailure = undefined;
@@ -293,7 +294,7 @@ export default function TodayRoute() {
       viewedThisFocusRef.current = false;
       return;
     }
-    if (viewedThisFocusRef.current || morningChoicePending || dressingDayChoiceReady === false) return;
+    if (viewedThisFocusRef.current || dayQuestionPending || dressingDayChoiceReady === false) return;
     if (state.kind !== 'loaded' || state.snapshot.recommendation.status !== 'recommended') return;
     viewedThisFocusRef.current = true;
     const cacheState = state.isRefreshing
@@ -313,14 +314,14 @@ export default function TodayRoute() {
         profileState.status === 'ready' ? profileState.profile.birthDate : null,
       ),
     });
-  }, [analytics, dressingDayChoiceReady, isFocused, morningChoicePending, profileState, resolvedDressStyle, state]);
+  }, [analytics, dayQuestionPending, dressingDayChoiceReady, isFocused, profileState, resolvedDressStyle, state]);
 
   useEffect(() => {
-    if (!isFocused || !isRecommendationShown || showNamePrompt || morningChoicePending ||
+    if (!isFocused || !isRecommendationShown || showNamePrompt || dayQuestionPending ||
         dressingDayChoiceReady === false) return;
     markRecommendationShown();
-  }, [dressingDayChoiceReady, isFocused, isRecommendationShown, markRecommendationShown,
-    morningChoicePending, showNamePrompt]);
+  }, [dayQuestionPending, dressingDayChoiceReady, isFocused, isRecommendationShown,
+    markRecommendationShown, showNamePrompt]);
 
   // Taxonomy 5.7: Today's pull gesture doubles as the retry action when a failure is
   // already shown (there is no separate retry control).
