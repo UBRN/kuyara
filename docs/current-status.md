@@ -138,9 +138,10 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   spring where garment pieces land on a board, and an ambient tempo taken from the
   condition's intensity.
 - **Builds:** iOS is the first release target. EAS production credentials and an App Store
-  Connect record (`com.ubrn.kuyara`, ASC app `6806664440`) exist. Build 14 (`0.1.20260920`) is in phased release (see Release State below);
-  the `production` profile points at the deployed Worker, and the `development` profile
-  is the physical-iPhone path ([Development build on the physical
+  Connect record (`com.ubrn.kuyara`, ASC app `6806664440`) exist. Build 14 (`0.1.20260920`)
+  is in phased release and build 15 (`0.1.20260926`) awaits App Review (see Release State below);
+  the `production` profile points at the deployed Worker, and the development client
+  builds locally ([Development build on the physical
   iPhone](testing.md#development-build-on-the-physical-iphone)). The version scheme and
   the EAS Update rule are in [Approved release
   versioning and update path](product-decisions.md#approved-release-versioning-and-update-path),
@@ -160,7 +161,7 @@ The approved phase order, active work and remaining open items are in [the roadm
 - **Build 14:** Version `0.1.20260920`, build 14, is `READY_FOR_DISTRIBUTION`; App Review is `COMPLETE`. App Store Connect status was checked on 25 September 2026.
 - **Phased release:** `ACTIVE`, started `2026-09-20T03:15Z`, on day 5 at the latest status check. The configured release is in progress.
 - **Compatibility:** Builds 8 and 9 were released before commit `8e949ec` and carry strict `/v1` response schemas. Keep `/v1` response shapes frozen while either binary remains installed; changed shapes use a new route.
-- **Build 15:** The approved scope and required pre-build privacy check are in [the roadmap](roadmap.md). Build 14's phased release continues under its configured state.
+- **Build 15:** Version `0.1.20260926`, build 15, was submitted for App Review on 26 September 2026. Its state is `WAITING_FOR_REVIEW`, with `AFTER_APPROVAL` release and phased release configured.
 
 ## Known Issues and Manual Verification Gaps
 

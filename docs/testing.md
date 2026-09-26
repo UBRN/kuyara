@@ -294,6 +294,14 @@ This section is the command sequence only.
 - The version bump and the changes being released are committed, and the worktree holds
   nothing else: `eas.json` sets `cli.requireCommit: true`, so the build runs against the
   committed tree and an uncommitted bump would carry the old version string into the binary.
+- The maintainer's Mac has Xcode 27 with the iOS 27 SDK, CocoaPods, fastlane, Node 24.21.0
+  and pnpm 11.18.0. Apple accepts Xcode 27 builds. The Node and pnpm versions match
+  `eas.json`.
+- fastlane and CocoaPods need a UTF-8 locale: run the build with `LANG=en_US.UTF-8` and
+  `LC_ALL=en_US.UTF-8` set.
+- The local build environment provides `POSTHOG_CLI_API_KEY`, `POSTHOG_CLI_HOST` and
+  `POSTHOG_CLI_PROJECT_ID` for the Hermes source-map upload. EAS variables with `secret`
+  visibility are readable only on EAS builders; see [ADR 0035](adr/0035-posthog-error-tracking.md).
 - `pnpm check` and `pnpm --filter @kuyara/mobile test:components` are green.
 - The production profile must not set `uploadSourceMaps`. EAS's own upload pre-sets
   `SOURCEMAP_FILE` to its `observe-source-maps` directory, the PostHog build phase then
@@ -303,7 +311,8 @@ This section is the command sequence only.
 - `expo.version` in `apps/mobile/app.json` is bumped to the next `0.MINOR.YYYYMMDD` string,
   and `version` in `apps/mobile/package.json` is set to the same string. Never edit a build
   number: `eas.json` sets `appVersionSource: "remote"` and the production profile
-  auto-increments it on EAS.
+  auto-increments it through EAS, including for a local build. This does not spend cloud
+  build quota.
 - If `packages/contracts` or a Worker route changed, deploy the Worker before submitting the
   app. The deployed Worker is the top-level configuration; the named `e2e` environment is
   local-only and never deployed ([ADR 0003](adr/0003-single-worker-environment.md)):
@@ -321,49 +330,21 @@ This section is the command sequence only.
   oldest installed version, adding a field becomes safe; removing, renaming or retyping a field
   or route a shipped version reads never is, until no installed version needs it.
 
-### Build and submit
+### Build and upload
 
-`apps/mobile/.eas/workflows/release-ios.yml` is the build and upload path: a production iOS
-build, then a submit against the `submit.production` profile, both on EAS infrastructure. It
-replaces separate `eas build` and `eas submit` commands. It declares no `push` or
-`pull_request` trigger, so it never starts on its own. Run it from `apps/mobile`, where both
-`eas.json` and the `.eas` directory live:
+Build on the maintainer's Mac from `apps/mobile`, then upload the IPA to App Store Connect:
 
 ```bash
-eas workflow:validate .eas/workflows/release-ios.yml
-eas workflow:run .eas/workflows/release-ios.yml
+eas build --platform ios --profile production --local --output "<IPA_PATH_OUTSIDE_REPO>"
+asc builds upload --app 6806664440 --ipa "<IPA_PATH_OUTSIDE_REPO>" --wait
 ```
 
-`workflow:validate` checks the file against the EAS schema and against the build and
-submit profiles in `eas.json`. `eas workflow:run FILE` uploads the local project directory,
-so the bump has to be committed before the run and no `--ref` is passed. The submit job
-reads `submit.production.ios.ascAppId` from `eas.json`, so no app identifier is passed on
-the command line. A started run is followed with `eas workflow:status`,
-`eas workflow:logs` and `eas workflow:runs`, and on the project's workflows page in the
-Expo dashboard. If the submit job fails the build survives, and the upload alone is retried
-with `eas submit --profile production --platform ios --latest`.
-
-Linking the GitHub repository to the EAS project is not required here. That link exists
-for the GitHub event triggers, and `eas workflow:run` works without it ([Get started with
-EAS Workflows](https://docs.expo.dev/eas/workflows/get-started/#automate-workflows-with-github-events)).
-The one setup the workflow needs is an App Store Connect API key held by EAS, so the
-submit job can authenticate with Apple non-interactively. The account already holds one:
-`eas submit --non-interactive` uploaded build 9 without a prompt. If it ever has to be
-recreated, run `eas credentials --platform ios`, choose the `production` profile, then
-**App Store Connect: Manage your API Key** and **Set up your project to use an API Key for
-EAS Submit** ([Automate with EAS
-Workflows](https://docs.expo.dev/submit/ios/#automate-with-eas-workflows)).
-
-The workflow builds and uploads, and does nothing else. The Preconditions above still come
-first, in the same order: the committed `expo.version` bump in `apps/mobile/app.json`, green
-`pnpm check` and component tests, and the Worker deploy when a contract or a route changed.
-After the run finishes, the agent completes the App Store Connect record steps below
-under the standing iOS release authorization in `AGENTS.md`. Once the required checks,
-independent review and Simulator verification pass, submit without another approval or
-a maintainer TestFlight confirmation. The run happens on EAS infrastructure and draws on
-the account's EAS plan: the build job is billed like any other EAS build, and the remaining
-job time comes out of the plan's CI/CD minutes. Check the current allowances on
-<https://expo.dev/pricing> rather than assuming them.
+The local build uses EAS signing credentials and remote build-number assignment without
+spending EAS Free cloud build quota. After the required checks, independent review and
+Simulator verification pass, complete the App Store Connect record and submit under the
+standing iOS release authorization in `AGENTS.md`, without another approval or a maintainer
+TestFlight confirmation. The cloud-build red line is in
+[Approved release versioning and update path](product-decisions.md#approved-release-versioning-and-update-path).
 
 ### TestFlight pass on the phone
 
@@ -381,29 +362,23 @@ renders the cached snapshot before any refresh, and the Settings AI status scree
 
 ### App Store Connect record
 
-The App Store Connect record is the one part of the release EAS does not do: creating the
-version record, attaching a build to it, the per-locale release notes and the review
-submission are ASC API calls, not build artefacts. The `asc` CLI is used for these record
-steps only, never to build or upload; it runs on the maintainer's Mac against the `kuyara`
-profile. Create the version record first, copying the metadata forward from the version
-before it, then read the ids with `asc status --app 6806664440` for the version id and the
-build id and `asc localizations list --version "VERSION_ID"` for the `en-US` and `tr`
-localization ids:
+Use the `asc` CLI with the `kuyara` profile on the maintainer's Mac. Create the version
+record, copying metadata from the previous version except its release notes, and enable
+phased release. Read the version id with `asc versions list --app 6806664440 --platform IOS` and the
+uploaded build id with `asc builds list --app 6806664440 --limit 1`:
 
 ```bash
-asc versions create --app 6806664440 --version "VERSION" --platform IOS --copy-metadata-from "PREVIOUS_VERSION"
-asc versions attach-build --version-id "VERSION_ID" --build-id "BUILD_ID"
-asc localizations update --id "LOCALIZATION_ID" --whats-new "..."
-asc review doctor
-asc review submit --app 6806664440 --version-id "VERSION_ID" --build-id "BUILD_ID" --platform IOS --dry-run
-asc review submit --app 6806664440 --version-id "VERSION_ID" --build-id "BUILD_ID" --platform IOS --confirm
+asc versions create --app 6806664440 --version "VERSION" --platform IOS --copy-metadata-from "PREVIOUS_VERSION" --exclude-fields whatsNew --release-type AFTER_APPROVAL
+asc versions phased-release create --version-id "VERSION_ID"
+asc localizations update --version "VERSION_ID" --locale en-US --whats-new "..."
+asc localizations update --version "VERSION_ID" --locale tr --whats-new "..."
+asc validate --app 6806664440 --version-id "VERSION_ID"
+asc review submit --app 6806664440 --version-id "VERSION_ID" --build-id "BUILD_ID" --confirm
 ```
 
-Run `asc localizations update` once per locale, `en-US` first and then `tr`; an update
-version needs release notes in both. `asc review doctor` must report no blocking check
-before the submission. `asc review submit` leaves the version in `WAITING_FOR_REVIEW` and
-does not change the release type, so automatic release after approval stays selected and the
-store build replaces the TestFlight build in place.
+An update version needs release notes in both locales. `asc validate` must report no
+blocking check before submission. The version keeps automatic release after approval with
+phased release, and the store build replaces the TestFlight build in place.
 
 ### JavaScript-only fix for the live version
 
@@ -427,15 +402,20 @@ way: it bumps the date stamp and takes the build-and-submit steps above.
 This optional path is for a concrete device-only verification question. Routine mobile
 checks use the iOS Simulator above.
 
-Register the phone once for internal distribution (the command takes no flags), then build and
-install from the EAS link, both from `apps/mobile`:
+Build and install locally on an iOS Simulator or a connected iPhone from the repository root:
 
 ```bash
-eas device:create
-eas build --profile development --platform ios
+pnpm --filter @kuyara/mobile exec expo run:ios
 ```
 
-This build also replaces the store build in place and keeps its data.
+After changing an `app.json` config plugin, explicitly run this from `apps/mobile` before
+building:
+
+```bash
+expo prebuild --platform ios
+```
+
+On a phone, the development client replaces the store build in place and keeps its data.
 
 The `development` profile sets no Worker URL, so `apps/mobile/src/config/worker-base-url.ts`
 falls back to `http://127.0.0.1:8788`, which on a phone is the phone. To reach a Worker running
