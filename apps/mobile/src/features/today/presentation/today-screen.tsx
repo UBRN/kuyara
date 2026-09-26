@@ -85,6 +85,8 @@ type TodayScreenProps = Readonly<{
   updatingDayType?: DressStyle | null;
   /** The first dressing day, the day the profile was set up, takes its own greeting. */
   firstDressingDay?: boolean;
+  /** Set while the morning or evening question is unanswered, so the wait is on the person. */
+  awaitingDayQuestion?: boolean;
 }>;
 
 export function TodayScreen(props: TodayScreenProps) {
@@ -150,6 +152,7 @@ function TodayScreenContent({
   onAskAgain,
   updatingDayType = null,
   firstDressingDay = false,
+  awaitingDayQuestion = false,
 }: TodayScreenProps & Readonly<{ now: number }>) {
   const router = useRouter();
   const recommendationApplication = use(RecommendationApplicationContext);
@@ -168,7 +171,8 @@ function TodayScreenContent({
   const { usesStackedLayout: usesAccessibilityLayout } = useTextScaling();
   // Measure the content after Screen applies its safe-area insets and width cap.
   const [contentWidth, setContentWidth] = useState(0);
-  const isGenerating = presentation.kind === 'loading';
+  // Waiting for the day question is not a slow generation, so its clock starts at the answer.
+  const isGenerating = presentation.kind === 'loading' && !awaitingDayQuestion;
   // Law 5's warning structure: the same fact, plus what is still happening, once the
   // wait has run past the point where the first line alone stops being informative.
   const [isLongWait, setIsLongWait] = useState(false);

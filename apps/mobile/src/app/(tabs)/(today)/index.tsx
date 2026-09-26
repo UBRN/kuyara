@@ -458,6 +458,7 @@ export default function TodayRoute() {
       onAskAgain={() => { setAskError(false); setAskOpenedAt(Date.now()); }}
       updatingDayType={updatingDayType}
       firstDressingDay={firstDressingDay}
+      awaitingDayQuestion={dayQuestionPending}
       state={state}
     />
     <DailyFormalitySheet visible={sheetTarget !== null} language={language}
