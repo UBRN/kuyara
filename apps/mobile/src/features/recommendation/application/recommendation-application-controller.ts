@@ -269,17 +269,29 @@ function storedPoolOptionIds(
   }
 }
 
+function canonicalizePoolKeyValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalizePoolKeyValue);
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
+        .map(([key, nested]) => [key, canonicalizePoolKeyValue(nested)]),
+    );
+  }
+  return value;
+}
+
 function poolCompositionKey(
   requirements: ClothingRequirements,
   clothingPreference: RecommendationApplicationInput['clothingPreference'],
   dayVariant: number,
   recentWorn: readonly WornOutfit[] = [],
 ): string {
-  return JSON.stringify([
+  return JSON.stringify(canonicalizePoolKeyValue([
     garmentCatalogVersion, requirements, clothingPreference, dayVariant,
     recentWorn.slice(0, 7).map(({ garments }) =>
       Object.values(garments).filter((id) => id !== undefined).sort()),
-  ]);
+  ]));
 }
 
 function poolCompositionKeyForInput(input: RecommendationApplicationInput): string {
