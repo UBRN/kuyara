@@ -47,3 +47,7 @@ goldie/out/
 
 # argent screen recordings written during goldie captures
 .argent/recordings/
+
+# Expo tooling started from the repo root (MCP servers, eas-cli) writes a stub {"expo":{}} here;
+# the real config is apps/mobile/app.json.
+/app.json
