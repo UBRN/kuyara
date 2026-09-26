@@ -39,3 +39,7 @@ apps/worker/**/*.pfx
 AGENTS.local.md
 
 
+
+# Expo tooling started from the repo root (eas-cli and similar) writes a stub {"expo":{}} here;
+# the real config is apps/mobile/app.json.
+/app.json
