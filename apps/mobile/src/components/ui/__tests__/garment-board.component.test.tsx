@@ -1,6 +1,7 @@
 import { render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { processColor, StyleSheet } from 'react-native';
+import * as Reanimated from 'react-native-reanimated';
 
 import {
   composeGarmentBoard,
@@ -130,7 +131,10 @@ const risingBoard = (
 );
 
 test('a rising board starts one large step below at zero opacity and adds no node', async () => {
+  // The test mock lands every spring at once; hold the landing to read the first frame.
+  const withSpring = jest.spyOn(Reanimated, 'withSpring').mockImplementation((toValue) => toValue);
   const result = await render(risingBoard, { wrapper: LightTheme });
+  withSpring.mockRestore();
 
   // The whole arrival rides one wrapper, so the stage the screen draws never moves, and
   // the wrapper carries no accessibility props of its own.
@@ -138,6 +142,20 @@ test('a rising board starts one large step below at zero opacity and adds no nod
   expect(style.opacity).toBe(0);
   expect(style.transform).toEqual([{ translateY: spacing.xl }]);
   expect(result.getAllByRole('image')).toHaveLength(1);
+  expect(result.getByRole('image', { name: 'Dress, sandals' })).toHaveProp('testID', 'board');
+});
+
+// A landed rise hands its resting style to React itself. Reanimated only syncs a settled
+// animation's props back to React when a JS tick falls 1 to 2 s after its last frame and
+// drops them natively after 2 s; a JS stall across that window (a cold-launch background
+// refresh) left React holding the zero-opacity start, and the next re-render committed it:
+// the stage stayed, the pieces vanished until restart.
+test('a landed rise leaves no zero-opacity start in the props React commits', async () => {
+  const result = await render(risingBoard, { wrapper: LightTheme });
+
+  const style = StyleSheet.flatten(result.toJSON()!.props.style) ?? {};
+  expect(style.opacity ?? 1).toBe(1);
+  expect(style.transform ?? []).toEqual([]);
   expect(result.getByRole('image', { name: 'Dress, sandals' })).toHaveProp('testID', 'board');
 });
 

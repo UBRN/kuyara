@@ -1,5 +1,6 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Animated, {
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -35,6 +36,10 @@ export function Entrance({ children, index = 0 }: EntranceProps) {
   const opacity = useSharedValue<number>(0);
   const offset = useSharedValue<number>(ENTRANCE_OFFSET);
   const hasEntered = useRef(false);
+  // Once landed, React holds the resting style itself, so a re-render after Reanimated
+  // dropped its settled props (a JS stall 1 to 2 s after the last frame) cannot commit
+  // the zero-opacity start again.
+  const [entered, setEntered] = useState(false);
 
   useEffect(() => {
     if (hasEntered.current) return;
@@ -42,7 +47,9 @@ export function Entrance({ children, index = 0 }: EntranceProps) {
 
     const delay = Math.min(index * theme.motion.stagger, theme.motion.deliberate);
     opacity.set(withDelay(delay, withTiming(1, { duration: theme.motion.fast })));
-    offset.set(withDelay(delay, withSpring(0, theme.springs.spatial)));
+    offset.set(withDelay(delay, withSpring(0, theme.springs.spatial, (finished) => {
+      if (finished) runOnJS(setEntered)(true);
+    })));
   }, [
     index,
     offset,
@@ -58,5 +65,5 @@ export function Entrance({ children, index = 0 }: EntranceProps) {
     transform: [{ translateY: offset.get() }],
   }));
 
-  return <Animated.View style={entranceStyle}>{children}</Animated.View>;
+  return <Animated.View style={entered ? undefined : entranceStyle}>{children}</Animated.View>;
 }
