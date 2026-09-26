@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import Animated, {
   cancelAnimation,
@@ -318,6 +318,11 @@ export function GarmentBoard({
   const didStartEntrance = useRef(false);
   const didStartRise = useRef(false);
   const didReportSettled = useRef(false);
+  // Once landed, React holds the resting style itself: Reanimated drops a settled view's
+  // props natively 2 s after its last frame and only syncs them to React if a JS tick
+  // lands 1 to 2 s after it, so a stall across that window left the zero-opacity start
+  // for the next re-render to commit, and the pieces vanished from a still stage.
+  const [risen, setRisen] = useState(!rise);
   const onSettled = entrance?.onSettled;
 
   const reportSettled = useCallback(() => {
@@ -353,7 +358,9 @@ export function GarmentBoard({
     if (!rise || didStartRise.current) return;
     didStartRise.current = true;
     riseOpacity.set(withTiming(1, { duration: theme.motion.fast }));
-    riseOffset.set(withSpring(0, theme.springs.arrival));
+    riseOffset.set(withSpring(0, theme.springs.arrival, (finished) => {
+      if (finished) runOnJS(setRisen)(true);
+    }));
   }, [
     rise,
     riseOffset,
@@ -443,7 +450,7 @@ export function GarmentBoard({
     // The wrapper carries no accessibility props, so the rise adds no node a screen
     // reader stops on, and the stage the screen draws stays where it is.
     return rise
-      ? <Animated.View style={riseStyle}>{board}</Animated.View>
+      ? <Animated.View style={risen ? undefined : riseStyle}>{board}</Animated.View>
       : board;
   }
 
