@@ -45,3 +45,12 @@ export function unavailableTodayState(
 ): TodayScreenState {
   return failure ? { kind: 'unavailable', failure } : { kind: 'unavailable' };
 }
+
+/** Keep a previous place's saved outfit available without presenting it at the active place. */
+export function activeLocationRecommendation(
+  snapshot: Readonly<{ locationKey: string; recommendation: OutfitRecommendationResult }> | null,
+  activeLocation: ActiveLocation | null,
+): OutfitRecommendationResult | null {
+  return snapshot !== null && snapshot.locationKey === activeLocation?.locationKey
+    ? snapshot.recommendation : null;
+}
