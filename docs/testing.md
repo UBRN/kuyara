@@ -387,10 +387,43 @@ A fix that touches no native code, no dependency, no config plugin and nothing u
 follows `expo.version`, so the update reaches only installs of the version string in
 `apps/mobile/app.json`; do not bump the version for it, and do not use this path when a newer
 version with the same fix is already in review, because that version is a different runtime.
-From `apps/mobile`, with a clean committed tree and green checks:
+Before publishing, the EAS `production` environment must contain
+`EXPO_PUBLIC_KUYARA_WORKER_BASE_URL` as a project-scoped plain-text variable, with the same
+value as `build.production.env` in `apps/mobile/eas.json`, alongside
+`EXPO_PUBLIC_POSTHOG_API_KEY` and `EXPO_PUBLIC_POSTHOG_HOST`. Set it for this one-time setup:
 
 ```bash
-eas update --channel production --message "..."
+eas env:set production --name EXPO_PUBLIC_KUYARA_WORKER_BASE_URL --value "https://kuyara-worker.ubarin08.workers.dev" --type string --visibility plaintext --scope project --non-interactive
+```
+
+From `apps/mobile`, with a clean committed tree and green checks, export for iOS using the EAS
+production variables, disable local `.env` loading, and stop unless both production origins are
+present in that export. The checks search the Hermes bytecode as text and do not print
+variable values:
+
+```bash
+eas env:exec --non-interactive production 'set -eu
+EXPO_NO_DOTENV=1 ./node_modules/.bin/expo export --platform ios --output-dir dist --dump-sourcemap --dump-assetmap
+test -n "$EXPO_PUBLIC_KUYARA_WORKER_BASE_URL"
+if rg -q -a -F "$EXPO_PUBLIC_KUYARA_WORKER_BASE_URL" dist; then
+  echo "PASS: Worker origin is in dist"
+else
+  echo "FAIL: Worker origin is missing from dist" >&2
+  exit 1
+fi
+test -n "$EXPO_PUBLIC_POSTHOG_HOST"
+if rg -q -a -F "$EXPO_PUBLIC_POSTHOG_HOST" dist; then
+  echo "PASS: PostHog host is in dist"
+else
+  echo "FAIL: PostHog host is missing from dist" >&2
+  exit 1
+fi'
+```
+
+Publish that checked directory, then upload its Hermes source maps:
+
+```bash
+eas update --environment production --channel production --platform ios --skip-bundler --input-dir dist --message "..."
 posthog-cli hermes upload --directory dist
 ```
 
