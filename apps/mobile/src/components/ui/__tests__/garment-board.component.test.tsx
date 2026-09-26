@@ -2,8 +2,21 @@ import { render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { processColor, StyleSheet } from 'react-native';
 
-import { GarmentBoard, measureGarmentBoardHeight, type GarmentBoardPiece } from '@/components/ui/garment-board/garment-board';
+import {
+  composeGarmentBoard,
+  drawnExtent,
+  fitTodayStage,
+  placeOnRunway,
+  todayPreset,
+} from '@/components/ui/garment-board/compose-garment-board';
+import {
+  entranceStartBoxes,
+  GarmentBoard,
+  measureGarmentBoardHeight,
+  type GarmentBoardPiece,
+} from '@/components/ui/garment-board/garment-board';
 import { garmentRolesBySlot, type GarmentOutfitPalette } from '@/components/ui/garment-board/garment-palette';
+import { resolveGarmentSilhouette } from '@/components/ui/garment-board/garment-silhouette-map';
 import { silhouettes } from '@/components/ui/garment-board/silhouettes';
 import { lightTheme, spacing } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
@@ -180,4 +193,50 @@ test('a settle change moves the pieces without replaying the entrance or the acc
   // re-announced, and the entrance is not replayed.
   expect(result.toJSON()).toEqual(restingTree);
   expect(onSettled).toHaveBeenCalledTimes(1);
+});
+
+// P2: Today's primary stage fits the board and stands each piece on one flat contact shade,
+// all shades drawn before any piece; without the props nothing changes.
+test('a fitted board is as tall as its fitted pieces and draws every shade first', async () => {
+  const shade = lightTheme.contactShade.clearDay;
+  const fitted = await render(
+    <GarmentBoard accessibilityLabel="Dress, sandals" contactShade={shade} fit palette={palette}
+      pieces={pieces} preset="today" stageColor={lightTheme.atmosphere.clearDay} width={349} />,
+    { wrapper: LightTheme },
+  );
+  const image = fitted.getByRole('image');
+  expect(image).toHaveProp('height', measureGarmentBoardHeight(pieces, 349, 'today', true));
+  const shades = fitted.container.queryAll((node) => node.props.rx != null && node.props.ry != null);
+  expect(shades).toHaveLength(pieces.length);
+  expect(shades.every((node) => processColor(shade) === (node.props.fill?.payload ?? node.props.fill))).toBe(true);
+  const drawn = fitted.container.queryAll((node) => node.props.rx != null || node.props.transform != null);
+  expect(drawn.slice(0, pieces.length)).toEqual(shades);
+
+  const plain = await render(
+    <GarmentBoard accessibilityLabel="Dress, sandals" palette={palette} pieces={pieces} preset="today" width={349} />,
+    { wrapper: LightTheme },
+  );
+  expect(plain.container.queryAll((node) => node.props.rx != null && node.props.ry != null)).toHaveLength(0);
+});
+
+// P2: opening the detail, the pieces leave from where Today's fitted stage drew them, so
+// nothing jumps by the fit's scale; without the fit they leave from the plain preset.
+test('an entrance from the fitted Today stage starts on the fitted Today boxes', () => {
+  const composed = composeGarmentBoard(pieces.map((piece) => ({
+    ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category),
+  })), todayPreset);
+  const extent = drawnExtent(composed.boxes.values());
+  const { scale, height } = fitTodayStage(extent, 349);
+  const start = entranceStartBoxes(pieces, 349, 'today', true);
+  expect(start.size).toBe(pieces.length);
+  for (const piece of composed.order) {
+    const today = placeOnRunway(composed.boxes.get(piece)!, extent, scale, 349, height);
+    const from = start.get(piece.slot)!;
+    expect(from.x * 349).toBeCloseTo(today.x, 9);
+    expect(from.y * 349).toBeCloseTo(today.y, 9);
+    expect(from.w * 349).toBeCloseTo(today.w, 9);
+    expect(from.h * 349).toBeCloseTo(today.h, 9);
+  }
+  const plain = entranceStartBoxes(pieces, 349, 'today', false);
+  for (const piece of composed.order) expect(plain.get(piece.slot)).toEqual(composed.boxes.get(piece));
 });

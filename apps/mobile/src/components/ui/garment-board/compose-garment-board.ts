@@ -206,6 +206,29 @@ export function placeOnRunway(
   };
 }
 
+// Today's primary stage (owner decisions O17 and P2) takes the runway fit: the composition
+// is trimmed to its drawn extent and scaled once, uniformly, with the runway preset. The
+// stage is then only as tall as the fitted composition plus the preset's vertical margin,
+// within ADR 0025's clamp, so it depends on the outfit and the width alone and nothing
+// above it (a badge, a wrapped title) moves it. The alternates keep the plain Today preset.
+export function fitTodayStage(extent: DrawnExtent, width: number) {
+  const max = todayPreset.stageMax * width;
+  const scale = fitRunwayScale([extent], width, max);
+  const height = Math.min(max, Math.max(todayPreset.stageMin * width, extent.h * scale + runwayPreset.vertical));
+  return { scale, height };
+}
+
+// The contact shade under each piece on Today's stage (P2): a flat ellipse 0.80 of the
+// piece's drawn width wide and 0.07 of it tall, held to 3 to 6 points, centred under the
+// piece with its centre on the drawn bottom edge, so the piece covers its upper half.
+export const contactShadeRule = { width: 0.8, height: 0.07, minHeight: 3, maxHeight: 6 } as const;
+
+/** One piece's contact shade, from its drawn box in points. */
+export function contactShadeOf(box: DrawnBox) {
+  const height = Math.min(contactShadeRule.maxHeight, Math.max(contactShadeRule.minHeight, contactShadeRule.height * box.w));
+  return { cx: box.x + box.w / 2, cy: box.y + box.h, rx: contactShadeRule.width * box.w / 2, ry: height / 2 };
+}
+
 // Geometric audit; ink parity needs raster coverage, which vector assets do not carry.
 export function audit<Piece extends ArtworkPiece>(result: ReturnType<typeof composeGarmentBoard<Piece>>) {
   const boxes = [...result.boxes.values()];

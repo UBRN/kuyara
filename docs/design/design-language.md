@@ -149,7 +149,10 @@ Why this is stricter than the mockups: see [Relationship to the mockups](#relati
   a palette colour that passes neither moves in OKLCH lightness only, by the smallest
   passing step, with its hue unchanged. The neutral fill of a drawing without a palette
   clears the step on every plane, and the page ground the detail plate and the Today
-  alternates stand on is measured with the stages.
+  alternates stand on is measured with the stages. The contact shade under each piece on
+  Today's primary stage is neither a shadow token nor a separator: it is the stage colour
+  moved in OKLCH lightness only, and the ink outline over it clears **>= 3.0:1** on every
+  atmosphere stage in both appearances, so the fill never has to clear a step against it.
 
 ## Law 4: one accent, and a controlled role band
 

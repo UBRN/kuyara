@@ -87,8 +87,9 @@ rather than a cross-fade between two pictures.
 5. The OS motion preference does not suppress the re-layout or garment travel.
    The tint difference remains, because it carries meaning rather than motion.
 
-The push remains the platform's. Garment travel is an in-screen re-layout from the Today
-preset to the detail preset, not a shared-element transition, on the spatial role
+The push remains the platform's. Garment travel is an in-screen re-layout from the boxes
+Today's fitted primary stage draws to the detail preset, not a shared-element transition,
+on the spatial role
 `theme.springs.spatial`. Each piece travels as a plain view with a native transform,
 because Reanimated cannot drive react-native-svg's `transform` or `fill` on the new
 architecture; the fill fades by draining a tinted copy of the artwork over the resting

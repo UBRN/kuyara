@@ -11,14 +11,22 @@ import Animated, {
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
-import Svg, { G } from 'react-native-svg';
+import Svg, { Ellipse, G } from 'react-native-svg';
 
 import type { GarmentTypeId, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
-import { composeGarmentBoard, detailPreset, todayPreset } from './compose-garment-board';
+import {
+  composeGarmentBoard,
+  contactShadeOf,
+  detailPreset,
+  drawnExtent,
+  fitTodayStage,
+  placeOnRunway,
+  todayPreset,
+} from './compose-garment-board';
 import { garmentLevelOfDetail, GarmentPainting } from './garment-painting';
 import { garmentRolesBySlot, type GarmentOutfitPalette, type GarmentRoles } from './garment-palette';
 import { resolveGarmentSilhouette } from './garment-silhouette-map';
@@ -45,6 +53,8 @@ const RISE_TRAVEL = spacing.xl;
 
 type GarmentBoardEntrance = Readonly<{
   fromPreset: Preset;
+  /** The pieces start where Today's fitted primary stage draws them (P2). */
+  fromFit?: boolean;
   fromStageColor: string;
   fromStageRadius: number;
   onSettled?: () => void;
@@ -86,6 +96,13 @@ type GarmentBoardProps = Readonly<{
   palette: GarmentOutfitPalette;
   /** The plane the board stands on. Left out, it stands on the page ground. */
   stageColor?: string;
+  /**
+   * Today's primary stage only (P2): the composition is fitted to the stage the way the
+   * runway fits it, and the stage is as tall as the fitted pieces. Ignored with `entrance`.
+   */
+  fit?: boolean;
+  /** Today's primary stage only (P2): one flat contact shade under each piece, this colour. */
+  contactShade?: string;
   testID?: string;
 }>;
 
@@ -95,25 +112,36 @@ export function composePieces(pieces: readonly GarmentBoardPiece[], preset: Pres
   })), preset === 'today' ? todayPreset : detailPreset);
 }
 
+/** Every piece's drawn box in points, and the stage height, with or without Today's fit. */
+function placePieces(pieces: readonly GarmentBoardPiece[], width: number, preset: Preset, fit: boolean) {
+  const result = composePieces(pieces, preset);
+  if (!fit) {
+    const placed = new Map(result.order.map((piece) => {
+      const box = result.boxes.get(piece)!;
+      return [piece, { x: box.x * width, y: box.y * width, w: box.w * width, h: box.h * width }];
+    }));
+    return { result, placed, height: width * result.stageHeight };
+  }
+  const extent = drawnExtent(result.boxes.values());
+  const { scale, height } = fitTodayStage(extent, width);
+  const placed = new Map(result.order.map((piece) => [
+    piece, placeOnRunway(result.boxes.get(piece)!, extent, scale, width, height),
+  ]));
+  return { result, placed, height };
+}
+
 export function layoutGarmentBoard(
   pieces: readonly GarmentBoardPiece[],
   width: number,
   preset: Preset,
 ): GarmentBoardLayout {
-  const result = composePieces(pieces, preset);
+  const { result, placed, height } = placePieces(pieces, width, preset, false);
 
   return {
-    height: width * result.stageHeight,
+    height,
     boxes: result.order.map((piece) => {
-      const box = result.boxes.get(piece)!;
-      return {
-        slot: piece.slot,
-        garmentTypeId: piece.garmentTypeId,
-        x: box.x * width,
-        y: box.y * width,
-        width: box.w * width,
-        height: box.h * width,
-      };
+      const box = placed.get(piece)!;
+      return { slot: piece.slot, garmentTypeId: piece.garmentTypeId, x: box.x, y: box.y, width: box.w, height: box.h };
     }),
   };
 }
@@ -233,8 +261,33 @@ function TravellingPiece({
   );
 }
 
-export function measureGarmentBoardHeight(pieces: readonly GarmentBoardPiece[], width: number, preset: Preset) {
-  return width * composePieces(pieces, preset).stageHeight;
+/**
+ * Where an entering board's pieces start, by slot, in stage-width units: the from preset's
+ * composition, or with `fit` the boxes Today's fitted primary stage draws at this width.
+ */
+export function entranceStartBoxes(
+  pieces: readonly GarmentBoardPiece[],
+  width: number,
+  preset: Preset,
+  fit: boolean,
+): ReadonlyMap<OutfitSlot, DrawnBox> {
+  // Before the first layout the width is 0 and there is nothing to fit to.
+  const fitted = fit && width > 0;
+  const unit = fitted ? width : 1;
+  const { result, placed } = placePieces(pieces, unit, preset, fitted);
+  return new Map(result.order.map((piece) => {
+    const box = placed.get(piece)!;
+    return [piece.slot, { x: box.x / unit, y: box.y / unit, w: box.w / unit, h: box.h / unit }];
+  }));
+}
+
+export function measureGarmentBoardHeight(
+  pieces: readonly GarmentBoardPiece[],
+  width: number,
+  preset: Preset,
+  fit = false,
+) {
+  return placePieces(pieces, width, preset, fit).height;
 }
 
 export function GarmentBoard({
@@ -248,11 +301,13 @@ export function GarmentBoard({
   settle,
   palette,
   stageColor,
+  fit = false,
+  contactShade,
   testID,
 }: GarmentBoardProps) {
   const theme = useKuyaraTheme();
   const { colors } = theme;
-  const result = composePieces(pieces, preset);
+  const { result, placed, height } = placePieces(pieces, width, preset, fit && !entrance);
   const roles = useGarmentRoles(palette, stageColor);
   const progress = useSharedValue(0);
   const tintProgress = useSharedValue(0);
@@ -346,7 +401,6 @@ export function GarmentBoard({
     ),
   }));
 
-  const height = width * result.stageHeight;
   const accessibilityProps = {
     accessible: decorative ? undefined : true,
     accessibilityElementsHidden: decorative || undefined,
@@ -359,18 +413,23 @@ export function GarmentBoard({
   if (!entrance) {
     const board = (
       <Svg {...accessibilityProps} height={height} width={width}>
+        {/* Every shade is drawn before any piece, so no shade ever crosses a garment. */}
+        {contactShade ? result.order.map((piece) => {
+          const shade = contactShadeOf(placed.get(piece)!);
+          return <Ellipse fill={contactShade} key={`shade-${piece.slot}`} {...shade} />;
+        }) : null}
         {result.order.map((piece) => {
-          const box = result.boxes.get(piece)!;
+          const box = placed.get(piece)!;
           // The composition keeps each drawing's aspect ratio, so one scale serves both axes.
-          const scale = (box.w / piece.bounds.width) * width;
+          const scale = box.w / piece.bounds.width;
           return (
             <G
               key={piece.slot}
-              transform={`translate(${box.x * width - piece.bounds.x * scale} ${box.y * width - piece.bounds.y * scale}) scale(${scale})`}
+              transform={`translate(${box.x - piece.bounds.x * scale} ${box.y - piece.bounds.y * scale}) scale(${scale})`}
             >
               <GarmentPainting
                 ink={colors.textPrimary}
-                lod={garmentLevelOfDetail(Math.max(box.w, box.h) * width)}
+                lod={garmentLevelOfDetail(Math.max(box.w, box.h))}
                 roles={roles.get(piece.slot)!}
                 scale={scale}
                 silhouette={piece}
@@ -388,11 +447,7 @@ export function GarmentBoard({
       : board;
   }
 
-  const fromResult = composePieces(pieces, entrance.fromPreset);
-  const fromBoxes = new Map(fromResult.order.map((piece) => [
-    piece.slot,
-    fromResult.boxes.get(piece)!,
-  ]));
+  const fromBoxes = entranceStartBoxes(pieces, width, entrance.fromPreset, entrance.fromFit === true);
 
   return (
     <Animated.View

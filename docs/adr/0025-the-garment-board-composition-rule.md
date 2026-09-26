@@ -86,7 +86,9 @@ A one-piece look and a five-piece look cannot fill the same box. A dress tall en
 span a two-anchor core would be drawn 0.55 of the stage width, which no width cap allows,
 so a fixed stage yields either a squashed one-piece or an empty band. The stage height is
 therefore insets plus the composition's envelope, clamped to 0.66 to 1.14 times the stage
-width.
+width. Today's primary stage fits the composition, trimmed to its drawn extent, with the
+runway preset and is the fitted composition plus 24 points, within the same clamp
+([`garment-board.md`](../design/garment-board.md) section 9).
 
 This is accepted **for now, and is the rule's most reversible part**. It means Today's
 copy sits at a different vertical position depending on how many pieces the outfit has.
