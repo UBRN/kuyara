@@ -1,6 +1,7 @@
 import { act, fireEvent, isHiddenFromAccessibility, render, waitFor, within } from '@testing-library/react-native';
 import { SymbolView } from 'expo-symbols';
 import { AppState, Dimensions, processColor, StyleSheet } from 'react-native';
+import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { garmentRolesBySlot } from '@/components/ui/garment-board/garment-palette';
@@ -831,6 +832,8 @@ test('outfit detail carries the coverage line inside the weather recap', async (
 });
 
 test('the hero board rises into a stage that stays still', async () => {
+  // The test mock lands every spring at once; hold the landing to read the first frame.
+  const withSpring = jest.spyOn(Reanimated, 'withSpring').mockImplementation((toValue) => toValue);
   const result = await render(providers(
     <TodayScreen language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
     onAskAgain={jest.fn()} state={todayScreenState} />,
@@ -847,6 +850,7 @@ test('the hero board rises into a stage that stays still', async () => {
     .toMatchObject({ opacity: 0, transform: [{ translateY: spacing.xl }] });
   expect(StyleSheet.flatten(result.getByTestId('today-stage', hidden).props.style))
     .not.toHaveProperty('transform');
+  withSpring.mockRestore();
 });
 
 test('a new suggestion re-mounts the hero board, and the same one back leaves it still', async () => {
@@ -1779,6 +1783,8 @@ describe('the contextual weather-alert offer', () => {
   });
 
   test('the offer arrives rather than appearing mid-screen', async () => {
+    // The test mock lands every spring at once; hold the landing to read the first frame.
+    const withSpring = jest.spyOn(Reanimated, 'withSpring').mockImplementation((toValue) => toValue);
     const result = await render(providers(
       <TodayScreen alertOffer={offerProps()} language="en" onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
       onAskAgain={jest.fn()} state={todayScreenState} />,
@@ -1789,6 +1795,7 @@ describe('the contextual weather-alert offer', () => {
     // so the wrapper is read at the state the entrance starts from.
     expect(StyleSheet.flatten(result.getByTestId('today-alert-offer').parent!.props.style))
       .toMatchObject({ opacity: 0, transform: [{ translateY: spacing.md }] });
+    withSpring.mockRestore();
   });
 
   test('renders nothing when no alert would have fired', async () => {
