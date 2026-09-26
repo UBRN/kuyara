@@ -53,6 +53,7 @@ export interface PerformanceTelemetry {
   // the native side persists, so re-applying it with a new value takes effect immediately
   // rather than at the next launch.
   setDispatching(enabled: boolean): void;
+  isApplied(): boolean;
 }
 
 /**
