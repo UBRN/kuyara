@@ -83,6 +83,14 @@ export default function TodayRoute() {
   const [stylesStep, setStylesStep] = useState<Readonly<{
     style: DressStyle; initial: readonly StyleAesthetic[]; draft: readonly StyleAesthetic[];
   }> | null>(null);
+  // The native sheet animates out after its target clears, so it keeps drawing the question
+  // it was showing (title, checked tile, step) until the next one opens.
+  const [shownSheet, setShownSheet] = useState({ target: sheetTarget, stylesStep });
+  if (sheetTarget !== null &&
+      (shownSheet.target !== sheetTarget || shownSheet.stylesStep !== stylesStep)) {
+    setShownSheet({ target: sheetTarget, stylesStep });
+  }
+  const shownStylesStep = shownSheet.stylesStep;
   const offeredKey = useRef<string | null>(null);
   const savingChoice = useRef(false);
   const showNamePrompt = profileState.status === 'ready'
@@ -453,17 +461,17 @@ export default function TodayRoute() {
       state={state}
     />
     <DailyFormalitySheet visible={sheetTarget !== null} language={language}
-      question={sheetTarget === 'evening'
+      question={shownSheet.target === 'evening'
         ? getMessages(language).today.dailyStyle.questionEvening
         : getMessages(language).today.dailyStyle.question}
-      selected={sheetTarget === 'evening' ? null : resolvedDressStyle ?? profileDressStyle}
-      firstDay={sheetTarget === 'morning' && firstDressingDay}
+      selected={shownSheet.target === 'evening' ? null : resolvedDressStyle ?? profileDressStyle}
+      firstDay={shownSheet.target === 'morning' && firstDressingDay}
       error={sheetError} onChoose={handleChoice} onDismiss={dismissChoice}
-      step={stylesStep ? 'styles' : 'dayType'}
-      styles={stylesStep ? (
+      step={shownStylesStep ? 'styles' : 'dayType'}
+      styles={shownStylesStep ? (
         <StyleAestheticsOptions copy={getMessages(language).preferences}
-          onChange={(draft) => setStylesStep({ ...stylesStep, draft })}
-          selected={stylesStep.draft} testID="daily-formality-styles" />
+          onChange={(draft) => setStylesStep({ ...shownStylesStep, draft })}
+          selected={shownStylesStep.draft} testID="daily-formality-styles" />
       ) : null}
       onConfirmStyles={confirmStyles}
       confirmLabel={getMessages(language).preferences.stylePreferencesDone} />
