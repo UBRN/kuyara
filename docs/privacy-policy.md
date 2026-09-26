@@ -174,17 +174,27 @@ calls weather and AI providers. This is a live request, not a record of you:
   weather provider (Apple WeatherKit, Open-Meteo or OpenWeather), and returns it. Exact
   coordinates are never sent, stored, or logged. A location you choose by typing a city
   name is looked up through the same server with Open-Meteo's geocoding service.
-- **Recommendations.** The server receives the deterministic clothing requirements derived
-  from the weather, your clothing preference, your dress style, a day seed, and the
-  identifiers of catalog outfits it may choose from, and may pass these to an AI provider
-  to pick three. It never receives your location, your Closet, photos, names, birth date,
-  or any identifier for you or your device.
-- **On the device.** Your profile, Closet entries and photos, cached weather, and weather
-  alert schedules are stored in the app's private storage on your device. Closet photos
-  are not uploaded. Weather alerts are scheduled locally; no push token or device
-  registration is sent anywhere. This on-device data, the app's local database and any
-  Closet photos, is included in your own device backup, such as an iCloud backup, under
-  your own backup settings; that backup is yours and the maintainer never receives it.
+- **Recommendations.** The server receives your clothing preference, dress style, optional
+  style aesthetics, the app language, the catalog version, a day variant, the day type,
+  deterministic clothing requirements derived from the weather, and catalog outfit options
+  with their identifiers, formality, garment types and traits. It may ask an AI provider to
+  pick three using only your clothing preference, a formality order derived from your dress
+  style, the day type, and the options' identifiers, formality, garment types and eligible
+  outfit categories. The provider also receives an instruction to write in the app language.
+  Style aesthetics affect option ordering on your device but are not sent to the AI provider.
+  The server receives no location, Closet contents, outfit history, photos, display name,
+  birth date, or identifier for you or your device in this request.
+- **On the device.** Your profile, including an optional display name, Closet entries and
+  photos, worn outfit history, daily formality and style aesthetics choices, Later departure
+  plans, cached weather, and weather alert schedules are stored in the app's private storage
+  on your device. Closet and outfit history photos are not uploaded. Weather alerts are
+  scheduled locally; no push token or device registration is sent anywhere. This on-device
+  data, including the app's local database and any photos, is included in your own device
+  backup, such as an iCloud backup, under your own backup settings; that backup is yours and
+  the maintainer never receives it. You can delete Closet entries and clear a Later plan in
+  the app. The current History screen has no delete control. Deleting kuyara removes its
+  local app data from the device; copies in your device backups remain subject to your backup
+  settings.
 
 ## Accounts
 
