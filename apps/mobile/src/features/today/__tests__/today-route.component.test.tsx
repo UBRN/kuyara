@@ -1458,6 +1458,44 @@ test('a retained previous-place snapshot never renders under the new place', asy
   expect(view.queryByTestId('today-title')).toBeNull();
 });
 
+test.each([
+  ['Today', TodayRoute],
+  ['outfit detail', OutfitDetailRoute],
+])('%s only presents the active place\'s saved outfit', async (_screen, Route) => {
+  mockParams = { id: todayOutfitId(1) };
+  const newPlace = { ...todayActiveLocation, locationKey: 'manual:sample.ankara', displayName: 'Ankara' };
+  const newWeather = { ...todayScreenState.snapshot.weather, id: 'ankara-weather',
+    locationKey: newPlace.locationKey };
+  const saved = recommendationReady();
+  const props = { productAnalytics: createProductAnalytics(), profile: profileValue(),
+    wardrobe: wardrobeValue() };
+  const renderPlace = (weather: WeatherApplicationValue, recommendation: RecommendationApplicationState) => (
+    <Providers {...props} weather={weather} recommendation={recommendation}>
+      <Route />
+    </Providers>
+  );
+  const view = await render(renderPlace(weatherValue(), saved));
+  expect(view.getByText(messages.en.recommendation.archetypes.rain_ready)).toBeOnTheScreen();
+
+  // B's weather has arrived, but its selection still has A's saved row as last known good.
+  const atNewPlace = weatherValue({ activeLocation: newPlace, snapshot: newWeather });
+  await view.rerender(renderPlace(atNewPlace, saved));
+  expect(view.queryByText(messages.en.recommendation.archetypes.rain_ready)).toBeNull();
+  expect(view.getByRole('header', { name: messages.en.today.loadingTitle })).toBeOnTheScreen();
+
+  await view.rerender(renderPlace(atNewPlace, recommendationReady({ isRefreshing: true })));
+  expect(view.queryByText(messages.en.recommendation.archetypes.rain_ready)).toBeNull();
+  expect(view.getByRole('header', { name: messages.en.today.loadingTitle })).toBeOnTheScreen();
+
+  // A failed selection leaves A's saved row available when returning, never on B's screen.
+  await view.rerender(renderPlace(atNewPlace, recommendationReady({ lastFailure: 'offline' })));
+  expect(view.queryByText(messages.en.recommendation.archetypes.rain_ready)).toBeNull();
+  expect(view.getByRole('header', { name: messages.en.weather.offlineTitle })).toBeOnTheScreen();
+
+  await view.rerender(renderPlace(weatherValue(), saved));
+  expect(view.getByText(messages.en.recommendation.archetypes.rain_ready)).toBeOnTheScreen();
+});
+
 // f7: a morning or evening answer dims the outfit under a line that says what is
 // happening, and the badge waits for the new outfit's own source.
 test('a day-type change dims the outfit and says it is updating until the new one lands', async () => {

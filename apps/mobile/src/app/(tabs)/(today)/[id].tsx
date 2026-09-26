@@ -13,7 +13,7 @@ import {
 } from '@/features/analytics/domain/analytics-mappers';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
-import { unavailableTodayState, type TodayScreenState } from '@/features/today/model';
+import { activeLocationRecommendation, unavailableTodayState, type TodayScreenState } from '@/features/today/model';
 import {
   historyDayKey,
   sameWornGarments,
@@ -55,7 +55,8 @@ export default function OutfitDetailRoute() {
   useScreenViewed('outfit_detail');
   const suggestionId = Array.isArray(id) ? id[0] : id;
   const recommendation = recommendationState.status === 'ready'
-    ? recommendationState.snapshot?.recommendation ?? null
+    ? activeLocationRecommendation(recommendationState.snapshot, weatherState.status === 'ready'
+      ? weatherState.activeLocation : null)
     : null;
   const wardrobeItems = wardrobe.state.status === 'ready' ? wardrobe.state.items : [];
 
@@ -234,6 +235,9 @@ export default function OutfitDetailRoute() {
     state = unavailableTodayState(
       weatherState.status === 'ready' ? weatherState.refreshFailure : null,
     );
+  } else if (recommendation === null && (recommendationState.isRefreshing ||
+      (recommendationState.snapshot !== null && recommendationState.lastFailure === null))) {
+    state = { kind: 'loading', phase: recommendationState.phase };
   } else if (recommendation === null) {
     state = unavailableTodayState(recommendationState.lastFailure);
   } else {
