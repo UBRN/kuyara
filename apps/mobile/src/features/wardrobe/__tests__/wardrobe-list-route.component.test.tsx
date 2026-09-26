@@ -1,4 +1,4 @@
-import { act, fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -204,6 +204,21 @@ test('the empty state add action navigates to the absolute new-item route, carry
 
 // The category is the route's, not this screen's: the plus bar button lives in the route
 // file and reads the same param, so a piece added from Shoes starts on shoes.
+test('Undo on the saved confirmation removes the piece through the application and emits no event (O10)', async () => {
+  const analytics = new RecordingProductAnalytics();
+  const application = { ...createApplication([item]), softDeleteItem: jest.fn(async () => item) };
+  const result = await render(
+    <TestProviders analytics={analytics}>
+      <WardrobeApplicationContext.Provider value={application}>
+        <WardrobeListRoute initialCategory="outerwear" savedItemId={item.id} />
+      </WardrobeApplicationContext.Provider>
+    </TestProviders>,
+  );
+  const before = analytics.captures.length;
+  await fireEvent.press(result.getByTestId('wardrobe-saved-undo'));
+  await waitFor(() => expect(application.softDeleteItem).toHaveBeenCalledWith(item.id));
+  expect(analytics.captures.slice(before).map(({ name }) => name)).not.toContain('closet_item_deleted');
+});
 test('switching the category tab writes it back to the route', async () => {
   const result = await renderRoute([item]);
   await fireEvent.press(result.getByTestId('wardrobe-category-tab-footwear'));

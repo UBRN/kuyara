@@ -2,10 +2,10 @@ import Constants from 'expo-constants';
 import { useRef, useState } from 'react';
 import { AccessibilityInfo, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
+import { AiSparkleMark } from '@/components/ui/ai-sparkle-mark';
 import {
   AppText,
   Icon,
-  iconNames,
   NativeList,
   NativeListSection,
   NativeListRow,
@@ -72,6 +72,9 @@ export function SettingsScreen({
   const [aestheticDraft, setAestheticDraft] = useState<readonly StyleAesthetic[]>(profile.styleAesthetics ?? []);
   const [aestheticsSaving, setAestheticsSaving] = useState(false);
   const [aestheticsError, setAestheticsError] = useState(false);
+  // O11: the Service providers row's mark plays its appear once, when the row first comes
+  // on screen; the row sits below the fold, so it waits for the row rather than the mount.
+  const [serviceRowSeen, setServiceRowSeen] = useState(false);
   const aestheticsSavePending = useRef(false);
 
   // The sheet closes only once the choice is stored. A failed save keeps it open with the
@@ -136,7 +139,7 @@ export function SettingsScreen({
             { label: copy.languageEnglish, value: 'en' },
           ]}
           selection={profile.languagePreference}
-          systemImage={iconNames.language.ios}
+          icon="language"
           testID="settings-language-row"
         />
         <NativePickerRow
@@ -152,7 +155,7 @@ export function SettingsScreen({
             { label: copy.themeDark, value: 'dark' },
           ]}
           selection={profile.themePreference}
-          systemImage={iconNames.theme.ios}
+          icon="theme"
           testID="settings-theme-row"
         />
       </NativeListSection>
@@ -161,7 +164,7 @@ export function SettingsScreen({
         heading={messages.settings.notificationsHeading}
         testID="settings-notifications-group">
         <NativeListRow
-          glyph={({ color, size }) => <Icon color={color} name="bell" size={size} />}
+          glyph={({ color, size }) => <Icon color={color} name="bellOutline" size={size} />}
           label={messages.notifications.title}
           onPress={onOpenNotifications}
           testID="settings-notifications-row"
@@ -192,7 +195,7 @@ export function SettingsScreen({
             { label: copy.genderMan, value: 'man' },
           ]}
           selection={profile.gender ?? 'woman'}
-          systemImage={iconNames.tabProfileOutline.ios}
+          icon="tabProfileOutline"
           testID="settings-gender-row"
         />
         <NativePickerRow
@@ -208,7 +211,7 @@ export function SettingsScreen({
             { label: copy.dressStyleFormal, value: 'formal' },
           ]}
           selection={profile.dressStyle ?? 'smart'}
-          systemImage={iconNames.clothing.ios}
+          icon="clothing"
           testID="settings-dress-style-row"
         />
         <NativeListRow
@@ -223,7 +226,7 @@ export function SettingsScreen({
           value={aestheticLabels(copy, profile.styleAesthetics ?? [])}
         />
         <NativeListRow
-          glyph={({ color, size }) => <Icon color={color} name="calendar" size={size} />}
+          glyph={({ color, size }) => <Icon color={color} name="sunrise" size={size} />}
           label={copy.morningQuestionTitle}
           testID="settings-morning-question-row"
           toggle={{ value: profile.morningSheetEnabled ?? true, disabled: isSaving,
@@ -239,7 +242,7 @@ export function SettingsScreen({
       </NativeListSection>
       <NativeListSection heading={messages.settings.helpHeading} testID="settings-help-group">
         <NativeListRow
-          glyph={({ color, size }) => <Icon color={color} name="help" size={size} />}
+          glyph={({ color, size }) => <Icon color={color} name="helpOutline" size={size} />}
           label={messages.settings.supportRow}
           onPress={onOpenSupport}
           testID="settings-support-row"
@@ -252,7 +255,7 @@ export function SettingsScreen({
         />
         {showRate ? (
           <NativeListRow
-            glyph={({ color, size }) => <Icon color={color} name="star" size={size} />}
+            glyph={({ color, size }) => <Icon color={color} name="starOutline" size={size} />}
             label={messages.settings.rateRow}
             onPress={onRate}
             ratingStars
@@ -262,13 +265,16 @@ export function SettingsScreen({
       </NativeListSection>
       <NativeListSection heading={messages.settings.aboutHeading} testID="settings-about-group">
         <NativeListRow
-          glyph={({ color, size }) => <Icon color={color} name="sparkle" size={size} />}
+          glyph={({ color, size }) => (
+            <AiSparkleMark color={color} play={serviceRowSeen} repeats={false} size={size} />
+          )}
           label={messages.settings.serviceProvidersHeading}
+          onAppear={() => setServiceRowSeen(true)}
           onPress={onOpenServiceProviders}
           testID="settings-service-providers-row"
         />
         <NativeListRow
-          glyph={({ color, size }) => <Icon color={color} name="info" size={size} />}
+          glyph={({ color, size }) => <Icon color={color} name="infoOutline" size={size} />}
           label={messages.analytics.privacyTitle}
           onPress={onOpenPrivacy}
           testID="settings-privacy-row"

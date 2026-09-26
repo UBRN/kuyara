@@ -606,9 +606,14 @@ export function WeatherScreen() {
                     precipitation: percentage(hour.precipitationProbability, language),
                     temperature: formatTemperature(hour.temperatureCelsius, language),
                     temperatureCelsius: hour.temperatureCelsius,
-                    time: startsNewLocalDay
-                      ? weekday(hour.forecastAt, snapshot.timeZone, language, 'short')
-                      : hourLabel,
+                    // O14 rail A: the first column is the current hour, so it says "Now";
+                    // its spoken label keeps the clock time.
+                    time: index === 0
+                      ? copy.hourlyNow
+                      : startsNewLocalDay
+                        ? weekday(hour.forecastAt, snapshot.timeZone, language, 'short')
+                        : hourLabel,
+                    timeEmphasis: index === 0 ? 'now' : startsNewLocalDay ? 'newDay' : undefined,
                   };
                 })}
               />

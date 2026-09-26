@@ -24,7 +24,7 @@ import {
 import type { StagedWardrobePhoto } from '@/features/wardrobe/data/wardrobe-photo-adapters';
 import type { PieceOwnershipMatch } from '@/features/wardrobe/domain/garment-type-ownership';
 import type { WardrobeEntryState } from '@/features/wardrobe/domain/wardrobe-item';
-import { ColorSwatch } from '@/features/wardrobe/presentation/wardrobe-item-form-screen';
+import { ColorSwatch } from '@/features/wardrobe/presentation/color-swatch';
 import { WardrobeOption } from '@/features/wardrobe/presentation/wardrobe-option';
 import { useMessages } from '@/localization/use-messages';
 import { radii, spacing } from '@/theme/theme';

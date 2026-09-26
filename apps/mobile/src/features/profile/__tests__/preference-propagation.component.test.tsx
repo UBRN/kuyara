@@ -236,6 +236,20 @@ test('live preferences and support propagate localized behavior without remounti
   expect(ratingStars.every((star) => star.props.modifiers.some(
     (modifier: { $type: string }) => modifier.$type === 'accessibilityHidden',
   ))).toBe(true);
+  // O14 row anatomy A: the four Picker rows draw the same 28-point tile as every other row.
+  for (const row of ['language', 'theme', 'gender', 'dress-style']) {
+    expect(result.getByTestId(`settings-${row}-row-tile`).props.modifiers).toContainEqual(
+      expect.objectContaining({ $type: 'background' }),
+    );
+  }
+  // O11: the Service providers row carries the multicolour Worker mark; it waits for the
+  // native row's first appearance and then plays once.
+  const hidden = { includeHiddenElements: true };
+  expect(within(result.getByTestId('settings-service-providers-row')).getByTestId('ai-sparkle-mark', hidden))
+    .toBeTruthy();
+  const appearing = result.container.queryAll((node) => Array.isArray(node.props.modifiers)
+    && node.props.modifiers.some((modifier: { $type: string }) => modifier.$type === 'onAppear'));
+  expect(appearing.length).toBeGreaterThan(0);
   await fireEvent.press(result.getByTestId('settings-licence-row'));
   expect(openURL).toHaveBeenLastCalledWith('https://polyformproject.org/licenses/noncommercial/1.0.0');
   expect(within(result.getByTestId('settings-profile-group')).getByTestId('settings-gender-row')).toBeOnTheScreen();

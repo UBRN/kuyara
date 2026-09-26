@@ -23,6 +23,12 @@ export const tag = (value: string | number) => ({ $type: 'tag', tag: value });
 export const accessibilityHint = (hint: string) => ({ $type: 'accessibilityHint', hint });
 export const buttonStyle = (style: string) => ({ $type: 'buttonStyle', style });
 export const controlSize = (size: string) => ({ $type: 'controlSize', size });
+export const buttonBorderShape = (shape: string) => ({ $type: 'buttonBorderShape', shape });
+export const onAppear = (handler: () => void) => ({ $type: 'onAppear', handler });
+export const background = (style: unknown, shape?: unknown) => ({ $type: 'background', style, shape });
+export const shapes = {
+  roundedRectangle: (params: Record<string, unknown>) => ({ shape: 'roundedRectangle', ...params }),
+};
 
 // The SwiftUI button: its accessible name is the label, or the accessibilityLabel modifier
 // for a label-less system button such as the glass close.
@@ -35,10 +41,13 @@ export function Button({ label, modifiers, onPress, role, systemImage, testID }:
   testID?: string;
 }>) {
   const named = modifiers?.find((modifier) => modifier.$type === 'accessibilityLabel');
+  const isDisabled = modifiers?.some((modifier) => modifier.$type === 'disabled' && modifier.disabled) ?? false;
   return (
     <Pressable
       accessibilityLabel={(named?.label as string | undefined) ?? label}
       accessibilityRole="button"
+      accessibilityState={isDisabled ? { disabled: true } : undefined}
+      disabled={isDisabled}
       onPress={onPress}
       testID={testID}
       {...{ modifiers, swiftUIRole: role, systemImage }}>

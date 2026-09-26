@@ -12,9 +12,12 @@ import {
   AppText,
   Button,
   Entrance,
+  GarmentTileArtwork,
   Icon,
+  Surface,
   useTextScaling,
 } from '@/components/ui';
+import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import {
   structuralCategories,
   type StructuralCategory,
@@ -56,6 +59,8 @@ type WardrobeListScreenProps = Readonly<{
   onEdit: (id: string) => void;
   onCategoryChange?: (category: StructuralCategory) => void;
   onRetry: (source: WardrobeRetrySource) => void;
+  /** O10: Undo on the saved confirmation; rejects when the removal failed. */
+  onUndoSaved?: (id: string) => Promise<void>;
   resolvePhotoUri?: (relativePath: string | null) => string | null;
 }>;
 
@@ -72,6 +77,9 @@ const EMPTY_GLYPH_SIZE = 44;
 // Where the revealed Wanted heading lands, as a fraction of the viewport, so it clears the
 // collapsed navigation bar whatever the content inset.
 const REVEAL_VIEW_POSITION = 0.25;
+// The saved confirmation's thumbnail: the 44 target size, drawn like the tile it names.
+const SAVED_TILE_SIZE = 44;
+const SAVED_TILE_RADIUS = 10;
 
 export function resolveGridGeometry(
   windowWidth: number,
@@ -167,6 +175,7 @@ export function WardrobeListScreen({
   onCategoryChange = () => undefined,
   onEdit,
   onRetry,
+  onUndoSaved = async () => undefined,
   resolvePhotoUri = () => null,
   revealWanted = false,
   savedItemId = null,
@@ -187,6 +196,7 @@ export function WardrobeListScreen({
   // was never torn down needs no help anyway, since the saved item is the only tile
   // mounting and the ones around it have long since entered.
   const [arrivingItemId] = useState<string | null>(savedItemId);
+  const [undoStatus, setUndoStatus] = useState<'idle' | 'pending' | 'failed'>('idle');
   const [selectedCategory, setSelectedCategory] = useState<StructuralCategory | null>(
     initialCategory ?? null,
   );
@@ -312,6 +322,26 @@ export function WardrobeListScreen({
     );
   }
 
+  // O10: the piece the add flow saved is named above the grid, with Undo, while it is on
+  // this page. Undo removes it like Delete does; the row leaves with the piece.
+  const savedItem = arrivingItemId
+    ? items.find((item) => item.id === arrivingItemId && item.category === category) ?? null
+    : null;
+  const savedItemType = savedItem?.garmentTypeId ? getGarmentType(savedItem.garmentTypeId) : null;
+  const savedPieceName = savedItem
+    ? savedItem.name
+      ?? (savedItemType
+        ? messages.catalog[savedItemType.nameKey]
+        : messages.catalog[`catalog.attribute.structural_category.${savedItem.category}`])
+    : '';
+  const undoSaved = (id: string) => {
+    setUndoStatus('pending');
+    onUndoSaved(id).then(
+      () => setUndoStatus('idle'),
+      () => setUndoStatus('failed'),
+    );
+  };
+
   const selectCategory = (next: StructuralCategory) => {
     setSelectedCategory(next);
     onCategoryChange(next);
@@ -324,6 +354,7 @@ export function WardrobeListScreen({
         geometry={geometry}
         item={item}
         messages={messages}
+        highlighted={item.id === savedItem?.id}
         onPress={() => onEdit(item.id)}
         resolvePhotoUri={resolvePhotoUri}
         testID={`wardrobe-item-${item.id}`}
@@ -400,6 +431,54 @@ export function WardrobeListScreen({
               );
             })}
           </ScrollView>
+          {savedItem ? (
+            <Surface style={styles.saved} testID="wardrobe-saved-confirmation">
+              <View
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                style={[styles.savedTile, { backgroundColor: theme.colors.surfaceMuted }]}>
+                <GarmentTileArtwork
+                  category={savedItem.category}
+                  colorFamily={savedItem.colorFamily}
+                  garmentTypeId={savedItem.garmentTypeId}
+                  glyphSize={SAVED_TILE_SIZE / 2}
+                  height={SAVED_TILE_SIZE}
+                  photoTestID="wardrobe-saved-photo"
+                  photoUri={resolvePhotoUri(savedItem.photoRelativePath)}
+                  placeholderTestID="wardrobe-saved-glyph"
+                  silhouetteTestID="wardrobe-saved-drawing"
+                  wanted={savedItem.entryState === 'wanted'}
+                  width={SAVED_TILE_SIZE}
+                />
+              </View>
+              <AppText accessibilityLiveRegion="polite" style={styles.savedCopy}>
+                {savedItem.entryState === 'wanted'
+                  ? copy.savedWantedConfirmation(savedPieceName)
+                  : copy.savedOwnedConfirmation(savedPieceName)}
+              </AppText>
+              <Button
+                disabled={undoStatus === 'pending'}
+                label={copy.undoAction}
+                loading={undoStatus === 'pending'}
+                onPress={() => undoSaved(savedItem.id)}
+                size="small"
+                testID="wardrobe-saved-undo"
+                variant="plain"
+              />
+            </Surface>
+          ) : null}
+          {savedItem && undoStatus === 'failed' ? (
+            <View style={styles.inlineError} testID="wardrobe-undo-error">
+              <Icon color={theme.colors.dangerInk} name="error" size={16} />
+              <AppText
+                accessibilityRole="alert"
+                colorRole="dangerInk"
+                style={styles.inlineErrorText}
+                variant="caption">
+                {copy.deleteError}
+              </AppText>
+            </View>
+          ) : null}
           {state.refreshFailure !== null ? (
             <View style={styles.inlineError} testID="wardrobe-refresh-error">
               <Icon color={theme.colors.dangerInk} name="error" size={16} />
@@ -531,6 +610,24 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   inlineErrorText: {
+    flex: 1,
+  },
+  // Law 3: a card confirms with radius 20, the 16 inset and the fill step together.
+  saved: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.md,
+    padding: spacing.lg,
+  },
+  savedTile: {
+    alignItems: 'center',
+    borderRadius: SAVED_TILE_RADIUS,
+    height: SAVED_TILE_SIZE,
+    justifyContent: 'center',
+    overflow: 'hidden',
+    width: SAVED_TILE_SIZE,
+  },
+  savedCopy: {
     flex: 1,
   },
   // An empty category page (ADR 0029 section 4): the hanger, the sentence and the add

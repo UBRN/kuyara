@@ -11,9 +11,10 @@ type NameInputProps = Readonly<{
   onChangeText: (value: string) => void;
   testID: string;
   onClear?: () => void;
+  autoFocus?: boolean;
 }>;
 
-export function NameInput({ value, onChangeText, testID, onClear }: NameInputProps) {
+export function NameInput({ autoFocus = false, value, onChangeText, testID, onClear }: NameInputProps) {
   const messages = useMessages();
   const copy = messages.onboarding;
   const profileCopy = messages.profile;
@@ -29,6 +30,7 @@ export function NameInput({ value, onChangeText, testID, onClear }: NameInputPro
         <TextInput
           accessibilityLabel={copy.namePlaceholder}
           autoCapitalize="words"
+          autoFocus={autoFocus}
           autoCorrect={false}
           onChangeText={onChangeText}
           onSubmitEditing={() => Keyboard.dismiss()}

@@ -539,6 +539,83 @@ test('the category follows the route, so a return from the add flow reselects it
   expect(result.queryByTestId(`wardrobe-item-${ownedItem.id}`)).not.toBeOnTheScreen();
 });
 
+// O10: after a save, the Closet names the piece above the grid, rings its tile, and offers
+// Undo; the row leaves with the piece, and a failed Undo says so and keeps the piece.
+test('the saved piece is named with Undo and ringed, and Undo removes it or reports a failure', async () => {
+  const plainPiece: WardrobeItem = { ...ownedItem, name: null };
+  let rejectUndo: ((error: Error) => void) | undefined;
+  const onUndoSaved = jest.fn(
+    () => new Promise<void>((_resolve, reject) => {
+      rejectUndo = reject;
+    }),
+  );
+  const render_ = (items: readonly WardrobeItem[]) => (
+    <TestProviders>
+      <WardrobeListScreen
+        initialCategory="outerwear"
+        onAdd={() => undefined}
+        onEdit={() => undefined}
+        onRetry={() => undefined}
+        onUndoSaved={onUndoSaved}
+        savedItemId={plainPiece.id}
+        state={readyState(items)}
+      />
+    </TestProviders>
+  );
+  const result = await render(render_([plainPiece]));
+
+  expect(result.getByTestId('wardrobe-saved-confirmation')).toHaveTextContent(
+    messages.en.wardrobe.savedOwnedConfirmation('Rain jacket'),
+    { exact: false },
+  );
+  const frame = StyleSheet.flatten(result.getByTestId(`wardrobe-item-${plainPiece.id}-frame`).props.style);
+  expect(frame.borderColor).toBe(lightTheme.colors.brandAccent);
+
+  await fireEvent.press(result.getByTestId('wardrobe-saved-undo'));
+  expect(onUndoSaved).toHaveBeenCalledWith(plainPiece.id);
+  await act(async () => rejectUndo?.(new Error('write failed')));
+  await waitFor(() => expect(result.getByTestId('wardrobe-undo-error')).toBeOnTheScreen());
+  expect(result.getByTestId('wardrobe-saved-confirmation')).toBeOnTheScreen();
+
+  // The piece is gone once the removal lands, and the confirmation goes with it.
+  await result.rerender(render_([]));
+  expect(result.queryByTestId('wardrobe-saved-confirmation')).not.toBeOnTheScreen();
+
+  // A plain open names nothing and rings nothing.
+  const plain = await render(
+    <TestProviders>
+      <WardrobeListScreen
+        initialCategory="outerwear"
+        onAdd={() => undefined}
+        onEdit={() => undefined}
+        onRetry={() => undefined}
+        state={readyState([plainPiece])}
+      />
+    </TestProviders>,
+  );
+  expect(plain.queryByTestId('wardrobe-saved-confirmation')).not.toBeOnTheScreen();
+});
+
+test('a wanted piece is confirmed as added to the wanted pieces, in Turkish too', async () => {
+  const result = await render(
+    <TestProviders language="tr">
+      <WardrobeListScreen
+        initialCategory="footwear"
+        onAdd={() => undefined}
+        onEdit={() => undefined}
+        onRetry={() => undefined}
+        savedItemId={wantedItem.id}
+        state={readyState([wantedItem])}
+      />
+    </TestProviders>,
+  );
+  expect(result.getByTestId('wardrobe-saved-confirmation')).toHaveTextContent(
+    messages.tr.wardrobe.savedWantedConfirmation(messages.tr.catalog['catalog.garment_type.weather_boots.name']),
+    { exact: false },
+  );
+  expect(result.getByRole('button', { name: messages.tr.wardrobe.undoAction })).toBeOnTheScreen();
+});
+
 // Milestone 10 phase 3: the route (`wardrobe-list-route.tsx`) tells the pull gesture
 // apart from either retry button by this `source` argument alone, so this screen stays
 // free of analytics itself while still proving each control reports its own source.

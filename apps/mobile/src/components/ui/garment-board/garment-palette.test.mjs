@@ -157,3 +157,15 @@ test('an outfit piece keeps one colour family in both appearances (O7)', () => {
       pieces.map(({ slot }) => [slot, families.get(slot)]));
   }
 });
+
+test('a type offers its colourway folded onto families, most natural first and without repeats (O10)', async () => {
+  const { garmentUsualColorFamilies } = await import('./garment-palette.ts');
+  assert.deepEqual(garmentUsualColorFamilies('jeans'), ['blue', 'black']);
+  assert.deepEqual(garmentUsualColorFamilies('sneakers'), ['white', 'gray', 'blue', 'black']);
+  for (const typeId of garmentTypeIds) {
+    const families = garmentUsualColorFamilies(typeId);
+    assert.ok(families.length > 0, typeId);
+    assert.equal(new Set(families).size, families.length, typeId);
+    assert.ok(families.every((family) => colorFamilies.includes(family)), typeId);
+  }
+});

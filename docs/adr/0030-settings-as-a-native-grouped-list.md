@@ -47,7 +47,7 @@ Share kuyara opens the platform share sheet with the App Store link on iOS or Pl
 
 Every root row carries the shared leading tile:
 28 × 28, radius 7, a monochrome glyph at 20 in the system label ink, fill from that ink
-at 8% in light and 12% in dark. Language, Appearance, Gender and Dress style use a hosted leading tile beside their Picker labels. Every tile follows the same anatomy. The separator starts 56 from the group
+at 8% in light and 12% in dark. Language, Appearance, Gender and Dress style draw the same tile in SwiftUI inside their Menu labels, because a Menu label cannot host the React Native one, and their labels read in the system label ink, never the tint. Every row glyph is the outline weight. Every tile follows the same anatomy. The separator starts 56 from the group
 edge. The trailing value is the system's secondary before the chevron, and above
 `fontScale` 1.5 it stacks under the label. The leading tile is kuyara's own React Native
 view hosted inside the native row, so it keeps ADR 0028 section 3's capped control scale
@@ -74,7 +74,7 @@ build number from `expo-constants` and omits unavailable build data cleanly.
 Notifications, Service providers, Privacy and Birth date use native inline titles, back buttons and grouped content. The preference Pickers remain on the root list.
 
 - **Notifications:** preferences use system controls, with denied-permission explanation and a way into system Settings.
-- **Service providers:** the Artificial intelligence section first shows the system's rendering of the `apple.intelligence` SF Symbol and status in words, a status colour and shape: green `checkmark.circle` for compatible and running, yellow `pause.circle` for turned off, grey `xmark.circle` for not compatible. Its second row reads "Last recommendation: on this device / cloud / standard". A short explanation and the bounded active-probe row follow. The Weather data section names the provider behind the last valid snapshot and carries its full mark, text, link and OpenWeather logo as applicable. Only this surface may show the controlled, non-secret last-check provider and model ID. **Risk accepted:** Apple has not publicly answered whether a third party may show `apple.intelligence`; the Apple Intelligence word mark stays referential and is never the only status signal.
+- **Service providers:** the Artificial intelligence section first shows the system's rendering of the `apple.intelligence` SF Symbol and status in words, a status colour and shape: green `checkmark.circle` for on and ready, yellow `pause.circle` for turned off, grey `xmark.circle` for a device that does not support it. Its second row names who chose the last outfit, with kuyara as subject: with Apple Intelligence, with online AI, or from its standard suggestions. The footer states the order (Apple Intelligence first, then online AI, then standard suggestions). The bounded active-probe row, "Test online AI", and its one-line footer follow. The Weather data section names the provider behind the last valid snapshot and carries its full mark, text, link and OpenWeather logo as applicable. Only this surface may show the controlled, non-secret last-check provider and model ID. **Risk accepted:** Apple has not publicly answered whether a third party may show `apple.intelligence`; the Apple Intelligence word mark stays referential and is never the only status signal.
 - **Privacy:** analytics consent and withdrawal use the native grouped surface decided in ADR 0033.
 
 ### 6. Birth date

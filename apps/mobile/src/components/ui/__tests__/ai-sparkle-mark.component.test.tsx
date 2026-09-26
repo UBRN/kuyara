@@ -69,6 +69,20 @@ test('twinkles once after the appear, then every six seconds, and stops on unmou
   expect(sequences).toHaveBeenCalledTimes(perTwinkle * 2);
 });
 
+test('the Settings row mark waits to be seen, plays its appear once and never twinkles', async () => {
+  const result = await render(
+    <AiSparkleMark color="#000000" play={false} repeats={false} size={16} />,
+    { wrapper: withTheme(lightTheme) },
+  );
+  await act(async () => { jest.advanceTimersByTime(appearEnd + sparkleTwinkleInterval * 3); });
+  expect(sequences).not.toHaveBeenCalled();
+
+  await result.rerender(<AiSparkleMark color="#000000" play repeats={false} size={16} />);
+  expect(result.getByTestId('ai-sparkle-mark', hidden)).toBeTruthy();
+  await act(async () => { jest.advanceTimersByTime(appearEnd + sparkleTwinkleInterval * 3); });
+  expect(sequences).not.toHaveBeenCalled();
+});
+
 test('Android keeps the Material glyph in the badge ink and schedules nothing', async () => {
   const os = Platform.OS;
   Object.defineProperty(Platform, 'OS', { configurable: true, value: 'android' });

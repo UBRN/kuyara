@@ -1,7 +1,7 @@
 import { Fragment } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { AppText, Icon, useTextScaling } from '@/components/ui';
+import { AppText, Icon, resolveCardFill, useTextScaling } from '@/components/ui';
 import { Divider } from '@/components/ui/divider';
 import { resolveConditionStyle } from '@/features/today/domain/condition-style';
 import type { WeatherConditionCode } from '@/features/weather/domain/weather';
@@ -98,7 +98,7 @@ export function DailyOutlook({ rows }: Readonly<{ rows: readonly DailyOutlookRow
                   {
                     // The card's own fill, knocked out of the accent the way the hourly
                     // rail knocks its numbers out of the series.
-                    backgroundColor: theme.colors.surface,
+                    backgroundColor: resolveCardFill(theme),
                     left: `${position(row.currentCelsius) * 100}%`,
                   },
                 ]}

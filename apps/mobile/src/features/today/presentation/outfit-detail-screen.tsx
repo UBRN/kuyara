@@ -10,7 +10,6 @@ import {
   Button,
   colorFamilyFills,
   garmentColorFamiliesBySlot,
-  GlassButton,
   Entrance,
   GarmentBoard,
   GarmentTileArtwork,
@@ -72,8 +71,6 @@ type OutfitDetailScreenProps = Readonly<{
   state: TodayScreenState;
   language: SupportedLanguage;
   suggestionId: string | undefined;
-  onBack: () => void;
-  backLabel: string;
   /** The active Closet records; O7 matches each piece against them, on this screen only. */
   wardrobeItems: readonly WardrobeItem[];
   ownershipError?: string | null;
@@ -133,8 +130,6 @@ export function OutfitDetailScreen({
   state,
   language,
   suggestionId,
-  onBack,
-  backLabel,
   wardrobeItems,
   ownershipError = null,
   onEditPiece,
@@ -207,7 +202,6 @@ export function OutfitDetailScreen({
     const missingSuggestion = presentation.kind === 'loaded';
     return (
       <Screen testID="outfit-detail-screen">
-        <GlassButton kind="back" label={backLabel} onPress={onBack} testID="outfit-detail-back" />
         <AppText accessibilityRole="header" variant="titleLarge">
           {missingSuggestion ? copy.noOutfitTitle : presentation.title}
         </AppText>
@@ -282,7 +276,6 @@ export function OutfitDetailScreen({
       <View
         onLayout={({ nativeEvent }) => setContentWidth(nativeEvent.layout.width)}
         testID="outfit-detail-content">
-        <GlassButton kind="back" label={backLabel} onPress={onBack} testID="outfit-detail-back" />
 
         <View
           style={[styles.headingGroup, usesStackedLayout && styles.stackedHeadingGroup]}

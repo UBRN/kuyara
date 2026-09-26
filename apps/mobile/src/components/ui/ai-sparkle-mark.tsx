@@ -43,7 +43,14 @@ const twinkleScale = 1.28;
 const twinkleTurn = 12;
 const sine = Easing.bezier(0.37, 0, 0.63, 1);
 
-type AiSparkleMarkProps = Readonly<{ color: string; size: number }>;
+type AiSparkleMarkProps = Readonly<{
+  color: string;
+  size: number;
+  /** False holds the stars back until the mark is on screen, then true plays the appear. */
+  play?: boolean;
+  /** False plays the appear once and never twinkles: the Settings row (O11). */
+  repeats?: boolean;
+}>;
 
 /**
  * The multicolour animated `sparkles` of the Worker badge (AGENTS.md, ADR 0034). On appear the
@@ -51,13 +58,13 @@ type AiSparkleMarkProps = Readonly<{ color: string; size: number }>;
  * and again every six seconds. Only the views' transform and opacity move. Decorative: the
  * badge speaks for it. Android keeps the Material `auto_awesome` glyph in the badge ink.
  */
-export function AiSparkleMark({ color, size }: AiSparkleMarkProps) {
+export function AiSparkleMark({ color, play = true, repeats = true, size }: AiSparkleMarkProps) {
   const theme = useKuyaraTheme();
   const [twinkle, setTwinkle] = useState(0);
   const appearEnd = theme.motion.stagger * (stars.length - 1) + theme.springs.arrival.duration;
 
   useEffect(() => {
-    if (Platform.OS !== 'ios') {
+    if (Platform.OS !== 'ios' || !play || !repeats) {
       return undefined;
     }
     let interval: ReturnType<typeof setInterval> | undefined;
@@ -71,7 +78,7 @@ export function AiSparkleMark({ color, size }: AiSparkleMarkProps) {
       clearTimeout(first);
       clearInterval(interval);
     };
-  }, [appearEnd]);
+  }, [appearEnd, play, repeats]);
 
   if (Platform.OS !== 'ios') {
     return <Icon color={color} name="sparkle" size={size} />;
@@ -92,6 +99,7 @@ export function AiSparkleMark({ color, size }: AiSparkleMarkProps) {
           color={inks[index]}
           index={index}
           key={index}
+          play={play}
           size={size}
           twinkle={twinkle}
         />
@@ -104,9 +112,10 @@ function Star({
   cascadeIndex,
   color,
   index,
+  play,
   size,
   twinkle,
-}: Readonly<{ cascadeIndex: number; color: string; index: number; size: number; twinkle: number }>) {
+}: Readonly<{ cascadeIndex: number; color: string; index: number; play: boolean; size: number; twinkle: number }>) {
   const theme = useKuyaraTheme();
   const scale = useSharedValue(0.6);
   const turn = useSharedValue(-90);
@@ -115,6 +124,9 @@ function Star({
   const side = star.w * size;
 
   useEffect(() => {
+    if (!play) {
+      return undefined;
+    }
     const delay = index * theme.motion.stagger;
     scale.set(withDelay(delay, withSpring(1, theme.springs.arrival)));
     turn.set(withDelay(delay, withSpring(0, theme.springs.arrival)));
@@ -125,7 +137,7 @@ function Star({
       cancelAnimation(turn);
       cancelAnimation(opacity);
     };
-  }, [index, opacity, scale, theme.motion.normal, theme.motion.stagger, theme.springs.arrival, turn]);
+  }, [index, opacity, play, scale, theme.motion.normal, theme.motion.stagger, theme.springs.arrival, turn]);
 
   useEffect(() => {
     if (twinkle === 0) {

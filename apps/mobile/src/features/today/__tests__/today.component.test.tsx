@@ -668,9 +668,7 @@ test('outfit detail renders the board, captions, piece rows by O7, requirement r
   const onEditPiece = jest.fn();
   const result = await render(providers(
     <OutfitDetailScreen
-      backLabel={messages.en.common.back}
       language="en"
-      onBack={() => undefined}
       onEditPiece={onEditPiece}
       state={todayScreenState}
       suggestionId={todayOutfitId(1)}
@@ -774,9 +772,7 @@ test('outfit detail renders the board, captions, piece rows by O7, requirement r
 describe.each(['en', 'tr'] as const)('%s wore this today', (language) => {
   const detail = (props: Partial<React.ComponentProps<typeof OutfitDetailScreen>>) => providers(
     <OutfitDetailScreen
-      backLabel={messages[language].common.back}
       language={language}
-      onBack={() => undefined}
       onEditPiece={() => undefined}
       state={todayScreenState}
       suggestionId={todayOutfitId(1)}
@@ -811,9 +807,7 @@ test('outfit detail carries the coverage line inside the weather recap', async (
     coverageStart: '2026-08-13T06:30:00.000Z', coverageEnd: '2026-08-13T16:00:00.000Z' } };
   const result = await render(providers(
     <OutfitDetailScreen
-      backLabel={messages.en.common.back}
       language="en"
-      onBack={() => undefined}
       onEditPiece={() => undefined}
       wardrobeItems={[]}
       state={covered}
@@ -897,9 +891,7 @@ test('the save that owns the last piece fires success once and settles the board
   }));
   const detail = (items: readonly WardrobeItem[]) => providers(
     <OutfitDetailScreen
-      backLabel={messages.en.common.back}
       language="en"
-      onBack={() => undefined}
       onEditPiece={() => undefined}
       state={todayScreenState}
       suggestionId={todayOutfitId(1)}
@@ -1376,9 +1368,7 @@ describe.each(['en', 'tr'] as const)('%s outfit detail generation source', (lang
   ] as const)('%s reads its own sentence', async (generationMode, key) => {
     const result = await render(providers(
       <OutfitDetailScreen
-        backLabel={messages[language].common.back}
         language={language}
-        onBack={() => undefined}
         onEditPiece={() => undefined}
         wardrobeItems={[]}
         state={stateWithGenerationMode(generationMode)}
@@ -1401,9 +1391,7 @@ describe.each(['en', 'tr'] as const)('%s outfit detail captions above 1.5', (lan
     Dimensions.set({ window: { ...originalDimensions, width: 390, fontScale } });
     const result = await render(providers(
       <OutfitDetailScreen
-        backLabel={messages[language].common.back}
         language={language}
-        onBack={() => undefined}
         onEditPiece={() => undefined}
         state={todayScreenState}
         suggestionId={todayOutfitId(1)}
@@ -1447,9 +1435,7 @@ test.each([
   Dimensions.set({ window: { ...originalDimensions, width: 390, fontScale } });
   const result = await render(providers(
     <OutfitDetailScreen
-      backLabel={messages.en.common.back}
       language="en"
-      onBack={() => undefined}
       onEditPiece={() => undefined}
       wardrobeItems={[]}
       state={todayScreenState}
@@ -1673,9 +1659,7 @@ describe('finishing touches', () => {
 
     const detail = await render(providers(
       <OutfitDetailScreen
-        backLabel={messages.en.common.back}
         language="en"
-        onBack={() => undefined}
         onEditPiece={() => undefined}
         wardrobeItems={[]}
         state={accessoryFreeTodayScreenState}
@@ -1689,9 +1673,7 @@ describe('finishing touches', () => {
     const accessories = accessoryNames(coldTodayScreenState, language);
     const result = await render(providers(
       <OutfitDetailScreen
-        backLabel={messages[language].common.back}
         language={language}
-        onBack={() => undefined}
         onEditPiece={() => undefined}
         wardrobeItems={[]}
         state={coldTodayScreenState}

@@ -16,13 +16,16 @@ export default function WardrobeNewRoute() {
 
   return (
     <>
-      {/* The form's title and its back control are the platform's, as on the Closet
-          list: the screen carries no hand-drawn header and `Screen`'s automatic content
-          inset clears the large title. The exit guard runs off `beforeRemove`, so the
-          native back button is confirmed exactly as the drawn one was. */}
+      {/* The form's title and its Cancel/Save pair are the platform's header: the screen
+          carries no hand-drawn header and `Screen`'s automatic content inset clears it.
+          The exit guard runs off `beforeRemove`, so Cancel and the back swipe are
+          confirmed the same way. */}
       <Stack.Screen
         options={{
-          headerLargeTitle: true,
+          // O10: an inline title between the toolbar's Cancel and Save, which the
+          // form sets itself; Cancel replaces the back button.
+          headerBackVisible: false,
+          headerLargeTitle: false,
           headerShown: true,
           headerTitle: messages.wardrobe.newTitle,
         }}

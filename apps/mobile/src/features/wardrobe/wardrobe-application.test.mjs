@@ -166,7 +166,7 @@ test('wardrobe routes remain thin, virtualized, and free of SQLite or SQL access
       source('./presentation/wardrobe-item-form-screen.tsx'),
       source('./presentation/wardrobe-list-screen.tsx'),
       source('./presentation/wardrobe-item-routes.tsx'),
-      source('./presentation/garment-type-sheet.tsx'),
+      source('./presentation/garment-type-picker.tsx'),
     ]);
   const routeSources = `${indexRoute}\n${newRoute}\n${editRoute}`;
   const presentationSources = `${form}\n${list}\n${routeComposition}\n${typeSheet}`;
@@ -180,14 +180,14 @@ test('wardrobe routes remain thin, virtualized, and free of SQLite or SQL access
   assert.match(list, /<FlatList/);
   assert.match(routeComposition, /beforeRemove/);
   assert.match(routeComposition, /discardTitle/);
-  // The type sheet opens over the form instead of on a route of its own, so it is the
+  // The type picker sits inside the form rather than on a route of its own, so it is the
   // one that reads the catalogue and filters it by clothing preference; the route
-  // composition now carries neither, and passes the preference down instead.
+  // composition carries neither, and passes the preference down instead.
   assert.doesNotMatch(routeComposition, /garmentCatalog|listGarmentTypesForPreference/);
   assert.match(routeComposition, /clothingPreference/);
   assert.match(typeSheet, /garmentCatalog\.garmentTypes/);
   assert.match(typeSheet, /listGarmentTypesForPreference/);
-  assert.match(form, /accessibilityRole="radio"|<WardrobeOption/);
+  assert.match(form, /<OwnershipChoice|<ColorSwatch/);
   assert.match(form, /accessibilityRole="alert"/);
 });
 

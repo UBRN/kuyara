@@ -292,3 +292,41 @@ test('a section heading is bound to the list width so it wraps instead of clippi
   expect(style.paddingLeft).toBe(16);
   expect(heading.props.numberOfLines).toBeUndefined();
 });
+
+test('the rating row draws five grey 13-point stars that scale with the text', async () => {
+  const result = await render(
+    <TestProviders>
+      <NativeList testID="group">
+        <NativeListRow label="Rate kuyara" onPress={() => {}} ratingStars testID="row" />
+      </NativeList>
+    </TestProviders>,
+  );
+
+  const stars = result.getAllByTestId('expo-ui-image').filter((image) => image.props.systemName === 'star.fill');
+  expect(stars).toHaveLength(5);
+  for (const star of stars) {
+    // `footnote` is 13 points at the default size and grows with Dynamic Type; the ink is
+    // the hierarchical secondary style, because an Image `color` cannot name a system colour.
+    expect(star.props.modifiers).toEqual([
+      { $type: 'font', textStyle: 'footnote' },
+      { $type: 'foregroundStyle', style: { type: 'hierarchical', style: 'secondary' } },
+      { $type: 'accessibilityHidden', hidden: true },
+    ]);
+  }
+});
+
+test('a row reports its first appearance through the native onAppear modifier', async () => {
+  const onAppear = jest.fn();
+  const result = await render(
+    <TestProviders>
+      <NativeList testID="group">
+        <NativeListRow label="Service providers" onAppear={onAppear} onPress={() => {}} testID="row" />
+      </NativeList>
+    </TestProviders>,
+  );
+
+  const modifier = (result.getByTestId('row').props.modifiers as { $type: string; handler?: () => void }[])
+    .find((entry) => entry.$type === 'onAppear');
+  modifier?.handler?.();
+  expect(onAppear).toHaveBeenCalledTimes(1);
+});

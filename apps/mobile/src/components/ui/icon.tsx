@@ -69,6 +69,13 @@ export const iconNames = Object.freeze({
   bell: { ios: 'bell.fill', android: 'notifications', web: 'notifications' },
   calendar: { ios: 'calendar', android: 'calendar_today', web: 'calendar_today' },
   clothing: { ios: 'tshirt', android: 'checkroom', web: 'checkroom' },
+  // O14 Settings row anatomy A: every row glyph is the outline weight, and the morning
+  // question takes its own symbol instead of sharing the birth date's calendar.
+  bellOutline: { ios: 'bell', android: 'notifications', web: 'notifications' },
+  helpOutline: { ios: 'questionmark.circle', android: 'help', web: 'help' },
+  infoOutline: { ios: 'info.circle', android: 'info', web: 'info' },
+  starOutline: { ios: 'star', android: 'star', web: 'star' },
+  sunrise: { ios: 'sunrise', android: 'wb_twilight', web: 'wb_twilight' },
   precipitationChance: { ios: 'drop.fill', android: 'water_drop', web: 'water_drop' },
   // The eleven weather condition codes, filled because a forecast column reports an
   // active condition (Law 6). Material has no drizzle or heavy-rain counterpart of the

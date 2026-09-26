@@ -596,8 +596,8 @@ test('returning to Weather re-evaluates freshness', async () => {
 });
 
 test.each([
-  [false, '12:00', 'Last updated at 09:00'],
-  [true, '12:00 pm', 'Last updated at 9:00 am'],
+  [false, '13:00', 'Last updated at 09:00'],
+  [true, '1:00 pm', 'Last updated at 9:00 am'],
 ] as const)('hour labels follow the device clock setting (hour12: %s)', async (
   hour12,
   railLabel,
@@ -614,7 +614,9 @@ test.each([
     <Providers hour12={hour12} language="en" value={value}><WeatherScreen /></Providers>,
   );
 
-  // The rail stays in the location's zone (09:00 UTC is 12:00 in Istanbul); the label does not.
+  // The rail stays in the location's zone (10:00 UTC is 13:00 in Istanbul); the label does not.
+  // O14 rail A: the first column is the current hour and reads "Now" in either setting.
+  expect(result.getByText(messages.en.weather.hourlyNow)).toBeOnTheScreen();
   expect(result.getByText(railLabel)).toBeOnTheScreen();
   expect(result.getByText(updatedLabel.replace(/\u00a0|\u202f/gu, ' '))).toBeOnTheScreen();
 });
@@ -1015,14 +1017,17 @@ test('the hourly rail scrolls horizontally and plots one accent temperature seri
   // react-native-svg normalizes the stroke into a processed colour before it reaches the
   // host element, so the accent is compared in that form.
   expect(line.props.stroke.payload).toBe(processColor(lightTheme.colors.brandAccent));
-  // The series runs behind the rail, so each number knocks the stroke out with the card's
-  // own fill instead of letting it cross the digits.
+  // O14 rail A: each number rides above its own dot in `label`, so nothing is knocked out of
+  // the line and a flat stretch no longer reads as dashes between numbers.
   const label = result.getAllByTestId('weather-hourly-temperature', { includeHiddenElements: true })[0];
   expect(StyleSheet.flatten(label.props.style)).toMatchObject({
-    backgroundColor: lightTheme.colors.surface,
-    paddingHorizontal: spacing.xs,
+    fontSize: typography.label.fontSize,
     position: 'absolute',
   });
+  expect(StyleSheet.flatten(label.props.style).backgroundColor).toBeUndefined();
+  // A fade to the card's own fill tells the rail goes on past the right edge.
+  expect(result.getByTestId('weather-hourly-fade-right', { includeHiddenElements: true })).toBeTruthy();
+  expect(result.queryByTestId('weather-hourly-fade-left', { includeHiddenElements: true })).toBeNull();
 });
 
 test('the UV stat is omitted at zero and wind and humidity keep their places', async () => {

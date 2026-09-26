@@ -409,15 +409,15 @@ test.each(['tr', 'en'] as const)(
   },
 );
 
-// O5: the button pair stacks, stronger action first, above text factor 1.2; the location
-// rationale leaves the bar only above the shared 1.5 threshold.
+// O5: the button pair stacks, stronger action first, above text factor 1.2. O14: the
+// location rationale is always part of the welcome step, never the pinned bar.
 test.each([
-  [1, 'row', false],
-  [1.3, 'column', false],
-  [3, 'column', true],
+  [1, 'row'],
+  [1.3, 'column'],
+  [3, 'column'],
 ] as const)(
   'at fontScale %s the pinned bar lays its actions out in a %s and keeps the step scrollable',
-  async (fontScale, flexDirection, stacked) => {
+  async (fontScale, flexDirection) => {
     mockFontScale(fontScale);
     const { result } = await renderOnboarding(null, null);
 
@@ -425,11 +425,53 @@ test.each([
     expect(StyleSheet.flatten(result.getByTestId('onboarding-actions-row').props.style))
       .toMatchObject({ flexDirection });
 
-    // Above the threshold the bar holds nothing but its stacked buttons; the rationale
-    // moves into the scrollable step, where it can still be read to its end.
     const rationale = messages.en.weather.locationRationaleBody;
     const step = within(result.getByTestId('onboarding-step-1'));
-    expect(actions.queryByText(rationale) !== null).toBe(!stacked);
-    expect(step.queryByText(rationale) !== null).toBe(stacked);
+    expect(actions.queryByText(rationale)).toBeNull();
+    expect(step.getByText(rationale)).toBeOnTheScreen();
   },
 );
+
+// O14: every step shows what it changes, from shipped drawings only.
+test('each step draws what it changes: a Today preview, a greeting and garment tiles', async () => {
+  mockFontScale(1);
+  const { result } = await renderOnboarding(null, null);
+  const hidden = { includeHiddenElements: true };
+  const copy = messages.en.onboarding;
+
+  const preview = result.getByTestId('onboarding-welcome-preview', hidden);
+  expect(preview.props.accessibilityElementsHidden).toBe(true);
+  expect(result.getByText(copy.welcomePreviewCaption)).toBeOnTheScreen();
+  await fireEvent(preview, 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 361, height: 300 } } });
+  expect(result.getByTestId('onboarding-welcome-board', hidden)).toBeTruthy();
+
+  await fireEvent.press(result.getByTestId('onboarding-continue'));
+  expect(within(result.getByTestId('onboarding-name-preview')).getByText(copy.nameGreetingEmpty))
+    .toBeOnTheScreen();
+  await fireEvent.changeText(result.getByTestId('onboarding-name'), 'Deniz');
+  expect(within(result.getByTestId('onboarding-name-preview'))
+    .getByText(messages.en.today.greetingFirstNamed('Deniz'))).toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('onboarding-continue'));
+
+  // Gender: two radio tiles, each hinting at three pieces from its catalog.
+  expect(result.getByTestId('onboarding-gender-woman')).toHaveAccessibleName(messages.en.preferences.genderWoman);
+  expect(result.getByTestId('onboarding-gender-woman-drawing-2', hidden)).toBeTruthy();
+  await fireEvent.press(result.getByTestId('onboarding-gender-man'));
+  expect(result.getByTestId('onboarding-gender-man-check', hidden)).toBeTruthy();
+  await fireEvent.press(result.getByTestId('onboarding-continue'));
+
+  // Dress style: the morning sheet's day-type drawings.
+  expect(result.getByTestId('onboarding-dress-style-casual-drawing', hidden)).toBeTruthy();
+  await fireEvent.press(result.getByTestId('onboarding-dress-style-smart'));
+  await fireEvent.press(result.getByTestId('onboarding-continue'));
+
+  // Styles: checkbox tiles; a fourth choice is disabled once three are taken.
+  for (const style of ['classic', 'minimal', 'sporty'] as const) {
+    await fireEvent.press(result.getByTestId(`onboarding-style-option-${style}`));
+  }
+  expect(result.getByTestId('onboarding-style-option-minimal').props.accessibilityState)
+    .toMatchObject({ checked: true });
+  expect(result.getByTestId('onboarding-style-option-relaxed').props.accessibilityState)
+    .toMatchObject({ checked: false, disabled: true });
+  expect(result.getByText(messages.en.preferences.stylePreferencesLimit)).toBeOnTheScreen();
+});

@@ -418,3 +418,12 @@ export function garmentColorFamiliesBySlot(palette: GarmentOutfitPalette): Reado
     ...palette, appearance: 'light', stageColor: '#FFFFFF', inkColor: '#000000',
   }).map(({ piece, colorFamily }) => [piece.slot, colorFamily]));
 }
+
+/**
+ * The colour families a garment type is usually seen in, most natural first (O10): its
+ * Phase 6 colourway folded onto the Closet's closed families. The add-piece form offers
+ * these first and preselects the first one. Render data only: never a recommendation input.
+ */
+export function garmentUsualColorFamilies(garmentTypeId: GarmentTypeId): readonly ColorFamily[] {
+  return [...new Set(COLORWAY[garmentColorwayIds[garmentTypeId]].list.map((id) => garmentSwatches[id].fam))];
+}

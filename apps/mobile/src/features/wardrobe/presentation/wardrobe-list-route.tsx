@@ -36,7 +36,7 @@ export function WardrobeListRoute({
 }> = {}) {
   const router = useRouter();
   const { analytics, firstUses, retries } = useProductAnalytics();
-  const { refresh, resolvePhotoUri, state } = useWardrobeApplication();
+  const { refresh, resolvePhotoUri, softDeleteItem, state } = useWardrobeApplication();
   const pendingRetryRef = useRef<PendingRetry | null>(null);
   const stateStatusRef = useRef(state.status);
 
@@ -136,6 +136,11 @@ export function WardrobeListRoute({
       onCategoryChange={(category) => router.setParams({ category })}
       onEdit={(id) => router.push(`/wardrobe/${id}`)}
       onRetry={handleRetry}
+      // O10's Undo removes the piece just saved, as Delete would; it emits no analytics
+      // event of its own (no event change in this Goal).
+      onUndoSaved={async (id) => {
+        await softDeleteItem(id);
+      }}
       resolvePhotoUri={resolvePhotoUri}
       revealWanted={revealWanted}
       savedItemId={savedItemId}

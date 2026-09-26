@@ -1,3 +1,4 @@
+import { styleAesthetics } from '@kuyara/contracts';
 import {
   AccessibilityInfo,
   findNodeHandle,
@@ -14,11 +15,15 @@ import {
   AppText,
   Button,
   ButtonPair,
+  ChoiceTile,
+  type ChoiceTileDrawing,
+  ChoiceTileGrid,
+  GarmentBoard,
+  type GarmentOutfitPalette,
   Icon,
   NativeDatePicker,
   ProgressFill,
   Screen,
-  useTextScaling,
 } from '@/components/ui';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
@@ -44,13 +49,59 @@ import type {
 } from '@/features/profile/domain/profile';
 import { displayNameIssue } from '@/features/profile/domain/profile';
 import { NameInput } from '@/features/profile/presentation/name-input';
-import { PreferenceOption } from '@/features/profile/presentation/preference-option';
-import { StyleAestheticsOptions } from '@/features/profile/presentation/style-aesthetics-options';
+import { aestheticLabel } from '@/features/profile/presentation/style-aesthetics-options';
+import { resolveConditionStyle } from '@/features/today/domain/condition-style';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { LocationSelectionControls } from '@/features/weather/presentation/location-selection-controls';
 import { useLocalization } from '@/localization/use-messages';
 import { useKuyaraTheme } from '@/theme/theme-context';
 import { borderWidths, radii, spacing } from '@/theme/theme';
+
+// O14 onboarding visuals: each step shows what it changes, drawn only from shipped
+// silhouettes on the approved stages; no mascot, avatar or body, no new colour.
+// Step 1's preview is a fixed sample: no location is known yet.
+const welcomePreviewPieces = [
+  { slot: 'outer_layer', garmentTypeId: 'light_jacket', category: 'outerwear' },
+  { slot: 'primary_top', garmentTypeId: 't_shirt', category: 'top' },
+  { slot: 'bottom', garmentTypeId: 'jeans', category: 'bottom' },
+  { slot: 'footwear', garmentTypeId: 'sneakers', category: 'footwear' },
+] as const;
+const welcomePreviewPalette: GarmentOutfitPalette = {
+  optionId: 'onboarding-welcome-preview',
+  pieces: welcomePreviewPieces.map(({ garmentTypeId, slot }) => ({ garmentTypeId, slot })),
+  temperatureC: 14,
+  condition: 'cloudy',
+  isNight: false,
+  formality: 'casual',
+};
+const welcomePreviewCondition = resolveConditionStyle('cloudy', 'day');
+// Each answer hints at the catalog it chooses, three pieces from it.
+const genderHints: Readonly<Record<Gender, readonly ChoiceTileDrawing[]>> = {
+  woman: [
+    { garmentTypeId: 'cardigan', category: 'top' },
+    { garmentTypeId: 'skirt', category: 'bottom' },
+    { garmentTypeId: 'ballet_flats', category: 'footwear' },
+  ],
+  man: [
+    { garmentTypeId: 'light_jacket', category: 'outerwear' },
+    { garmentTypeId: 'trousers', category: 'bottom' },
+    { garmentTypeId: 'closed_shoes', category: 'footwear' },
+  ],
+};
+// The morning sheet's day-type drawings, so the answer is recognisable the next morning (M16).
+const dressStyleDrawings: Readonly<Record<DressStyle, ChoiceTileDrawing>> = {
+  casual: { garmentTypeId: 't_shirt', category: 'top' },
+  smart: { garmentTypeId: 'shirt', category: 'top' },
+  formal: { garmentTypeId: 'blazer', category: 'outerwear' },
+};
+const styleDrawings: Readonly<Record<StyleAesthetic, ChoiceTileDrawing>> = {
+  minimal: { garmentTypeId: 'long_sleeve_t_shirt', category: 'top' },
+  classic: { garmentTypeId: 'trench_coat', category: 'outerwear' },
+  sporty: { garmentTypeId: 'sneakers', category: 'footwear' },
+  streetwear: { garmentTypeId: 'hoodie', category: 'top' },
+  relaxed: { garmentTypeId: 'sandals', category: 'footwear' },
+};
+const STYLE_LIMIT = 3;
 
 type OnboardingScreenProps = Readonly<{
   initialGender: Gender | null;
@@ -83,7 +134,7 @@ export function OnboardingScreen({
   );
   const [saveError, setSaveError] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const { usesStackedLayout } = useTextScaling();
+  const [previewWidth, setPreviewWidth] = useState(0);
   const announcedStep = useRef(false);
   const headingRef = useRef<Text>(null);
   const maximumBirthDate = useMemo(() => new Date(), []);
@@ -204,20 +255,14 @@ export function OnboardingScreen({
     }
   };
 
-  // Above the shared stacked threshold the pinned bar holds nothing but its stacked
-  // buttons, so it cannot grow over the step; the rationale moves into the scrollable
-  // content, where it can still be read to its end (ADR 0028 section 3).
+  // The rationale is part of the welcome step's content, not the pinned bar (O14), so the
+  // bar holds only its buttons and the step can still be read to its end.
   const locationRationale = (
     <AppText colorRole="textSecondary" variant="caption">
       {messages.weather.locationRationaleBody}
     </AppText>
   );
-
-  const promises = [
-    ['location', copy.weatherPromise],
-    ['clothing', copy.outfitsPromise],
-    ['heart', copy.wardrobePromise],
-  ] as const;
+  const typedName = draft.displayName?.trim() ?? '';
 
   const heading = (
     <View style={styles.heading}>
@@ -237,33 +282,6 @@ export function OnboardingScreen({
             style={styles.progressSegment}
           />
         ))}
-      </View>
-      <View
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        style={styles.illustration}>
-        <View style={[styles.horizonRing, { borderColor: theme.colors.brandAccent }]} />
-        <View
-          style={[
-            styles.horizonBar,
-            styles.horizonBarLight,
-            { backgroundColor: theme.colors.surfaceInteractive },
-          ]}
-        />
-        <View
-          style={[
-            styles.horizonBar,
-            styles.horizonBarMedium,
-            { backgroundColor: theme.colors.brandAccent },
-          ]}
-        />
-        <View
-          style={[
-            styles.horizonBar,
-            styles.horizonBarHeavy,
-            { backgroundColor: theme.colors.brandPrimary },
-          ]}
-        />
       </View>
       <AppText colorRole="textSecondary">
         {draft.step === 0
@@ -301,58 +319,73 @@ export function OnboardingScreen({
 
       {draft.step === 0 ? (
         <View style={styles.panel}>
-          <AppText accessibilityRole="header" variant="bodyStrong">
-            {copy.promiseHeading}
-          </AppText>
-          <View style={styles.promiseList}>
-            {promises.map(([icon, promise]) => (
-              <View
-                accessible
-                accessibilityLabel={promise}
-                key={promise}
-                style={styles.promiseRow}>
-                <View style={[
-                    styles.promiseChip,
-                    { backgroundColor: theme.colors.surfaceInteractive },
-                  ]}>
-                  <Icon color={theme.colors.iconSecondary} name={icon} size={19} />
-                </View>
-                <AppText style={styles.promiseText}>{promise}</AppText>
-              </View>
-            ))}
+          <View
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            onLayout={({ nativeEvent }) => setPreviewWidth(nativeEvent.layout.width)}
+            style={[styles.stage, { backgroundColor: theme.atmosphere.veiledDay }]}
+            testID="onboarding-welcome-preview">
+            <View style={styles.previewTitle}>
+              <Icon
+                color={theme.condition[welcomePreviewCondition.ink]}
+                name={welcomePreviewCondition.shape}
+                size={20}
+              />
+              <AppText tabularNumbers variant="bodyStrong">{copy.welcomePreviewTitle}</AppText>
+            </View>
+            {previewWidth > 0 ? (
+              <GarmentBoard
+                accessibilityLabel={copy.welcomePreviewCaption}
+                decorative
+                palette={welcomePreviewPalette}
+                pieces={welcomePreviewPieces}
+                preset="today"
+                stageColor={theme.atmosphere.veiledDay}
+                testID="onboarding-welcome-board"
+                width={previewWidth}
+              />
+            ) : null}
           </View>
-          {usesStackedLayout ? locationRationale : null}
+          <AppText>{copy.welcomePreviewCaption}</AppText>
+          {locationRationale}
         </View>
       ) : null}
 
       {draft.step === 1 ? (
-        <NameInput
-          onChangeText={(value) => dispatch({ type: 'set-display-name', value })}
-          testID="onboarding-name"
-          value={draft.displayName ?? ''}
-        />
+        <View style={styles.panel}>
+          <View
+            style={[styles.stage, styles.greeting, { backgroundColor: theme.atmosphere.veiledDay }]}
+            testID="onboarding-name-preview">
+            <AppText variant="title">
+              {typedName && !displayNameIssue(typedName)
+                ? messages.today.greetingFirstNamed(typedName)
+                : copy.nameGreetingEmpty}
+            </AppText>
+            <AppText colorRole="textSecondary" variant="caption">{copy.nameGreetingCaption}</AppText>
+          </View>
+          <NameInput
+            onChangeText={(value) => dispatch({ type: 'set-display-name', value })}
+            testID="onboarding-name"
+            value={draft.displayName ?? ''}
+          />
+        </View>
       ) : null}
 
       {draft.step === 2 ? (
         <View style={styles.section} accessibilityLabel={preferenceCopy.genderTitle}>
-          <View style={styles.options}>
-            <PreferenceOption
-              label={preferenceCopy.genderWoman}
-              onPress={() => {
-                dispatch({ type: 'select-gender', value: 'woman' });
-              }}
-              selected={draft.gender === 'woman'}
-              testID="onboarding-gender-woman"
-            />
-            <PreferenceOption
-              label={preferenceCopy.genderMan}
-              onPress={() => {
-                dispatch({ type: 'select-gender', value: 'man' });
-              }}
-              selected={draft.gender === 'man'}
-              testID="onboarding-gender-man"
-            />
-          </View>
+          <ChoiceTileGrid accessibilityRole="radiogroup" columns={2}>
+            {(['woman', 'man'] as const).map((gender) => (
+              <ChoiceTile
+                drawings={genderHints[gender]}
+                key={gender}
+                label={gender === 'woman' ? preferenceCopy.genderWoman : preferenceCopy.genderMan}
+                onPress={() => dispatch({ type: 'select-gender', value: gender })}
+                role="radio"
+                selected={draft.gender === gender}
+                testID={`onboarding-gender-${gender}`}
+              />
+            ))}
+          </ChoiceTileGrid>
           {draft.hasValidationError ? (
             <AppText
               accessibilityLiveRegion="assertive"
@@ -367,32 +400,21 @@ export function OnboardingScreen({
 
       {draft.step === 3 ? (
         <View style={styles.section} accessibilityLabel={preferenceCopy.dressStyleTitle}>
-          <View style={styles.options} accessibilityRole="radiogroup">
-            <PreferenceOption
-              label={preferenceCopy.dressStyleCasual}
-              onPress={() => {
-                dispatch({ type: 'select-dress-style', value: 'casual' });
-              }}
-              selected={draft.dressStyle === 'casual'}
-              testID="onboarding-dress-style-casual"
-            />
-            <PreferenceOption
-              label={preferenceCopy.dressStyleSmart}
-              onPress={() => {
-                dispatch({ type: 'select-dress-style', value: 'smart' });
-              }}
-              selected={draft.dressStyle === 'smart'}
-              testID="onboarding-dress-style-smart"
-            />
-            <PreferenceOption
-              label={preferenceCopy.dressStyleFormal}
-              onPress={() => {
-                dispatch({ type: 'select-dress-style', value: 'formal' });
-              }}
-              selected={draft.dressStyle === 'formal'}
-              testID="onboarding-dress-style-formal"
-            />
-          </View>
+          <ChoiceTileGrid accessibilityRole="radiogroup" columns={3}>
+            {(['casual', 'smart', 'formal'] as const).map((style) => (
+              <ChoiceTile
+                drawings={[dressStyleDrawings[style]]}
+                key={style}
+                label={style === 'casual'
+                  ? preferenceCopy.dressStyleCasual
+                  : style === 'smart' ? preferenceCopy.dressStyleSmart : preferenceCopy.dressStyleFormal}
+                onPress={() => dispatch({ type: 'select-dress-style', value: style })}
+                role="radio"
+                selected={draft.dressStyle === style}
+                testID={`onboarding-dress-style-${style}`}
+              />
+            ))}
+          </ChoiceTileGrid>
           {draft.hasValidationError ? (
             <AppText
               accessibilityLiveRegion="assertive"
@@ -406,9 +428,33 @@ export function OnboardingScreen({
       ) : null}
 
       {draft.step === 4 ? (
-        <StyleAestheticsOptions copy={preferenceCopy} selected={draft.styleAesthetics}
-          onChange={(value) => dispatch({ type: 'select-style-aesthetics', value })}
-          testID="onboarding-style-option" />
+        <View style={styles.section}>
+          <ChoiceTileGrid columns={2} testID="onboarding-style-option">
+            {styleAesthetics.map((style) => {
+              const checked = draft.styleAesthetics.includes(style);
+              return (
+                <ChoiceTile
+                  disabled={!checked && draft.styleAesthetics.length >= STYLE_LIMIT}
+                  drawings={[styleDrawings[style]]}
+                  key={style}
+                  label={aestheticLabel(preferenceCopy, style)}
+                  onPress={() => dispatch({
+                    type: 'select-style-aesthetics',
+                    value: checked
+                      ? draft.styleAesthetics.filter((value) => value !== style)
+                      : [...draft.styleAesthetics, style].sort(),
+                  })}
+                  role="checkbox"
+                  selected={checked}
+                  testID={`onboarding-style-option-${style}`}
+                />
+              );
+            })}
+          </ChoiceTileGrid>
+          {draft.styleAesthetics.length >= STYLE_LIMIT ? (
+            <AppText variant="caption">{preferenceCopy.stylePreferencesLimit}</AppText>
+          ) : null}
+        </View>
       ) : null}
 
       {draft.step === 5 ? (
@@ -467,7 +513,6 @@ export function OnboardingScreen({
             {copy.saveError}
           </AppText>
         ) : null}
-        {draft.step === 0 && !usesStackedLayout ? locationRationale : null}
         <ButtonPair
           primary={draft.step === totalSteps - 1 ? (
             <View style={styles.primaryAction} testID="onboarding-location-skip">
@@ -543,24 +588,20 @@ const styles = StyleSheet.create({
   panel: {
     gap: spacing.md,
   },
-  promiseList: {
-    gap: spacing.md,
+  stage: {
+    borderRadius: radii.card,
+    overflow: 'hidden',
   },
-  promiseRow: {
+  previewTitle: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: spacing.md,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
   },
-  promiseChip: {
-    alignItems: 'center',
-    borderRadius: radii.pill,
-    height: 36,
-    justifyContent: 'center',
-    width: 36,
-  },
-  promiseText: {
-    flex: 1,
-    flexShrink: 1,
+  greeting: {
+    gap: spacing.xs,
+    padding: spacing.lg,
   },
   section: {
     gap: spacing.md,
@@ -571,7 +612,8 @@ const styles = StyleSheet.create({
   primaryAction: {
     flexGrow: 1,
   },
-  nameActions: { flex: 1, gap: spacing.sm },
+  // O14: one footer row on every step; on the name step Not now and Continue share it.
+  nameActions: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: spacing.sm, justifyContent: 'flex-end' },
   skipAction: {
     width: '100%',
   },
@@ -583,32 +625,6 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     flex: 1,
     height: 6,
-  },
-  illustration: {
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.lg,
-  },
-  horizonRing: {
-    borderRadius: radii.pill,
-    borderWidth: borderWidths.strong,
-    height: 20,
-    width: 20,
-  },
-  horizonBar: {
-    borderRadius: radii.pill,
-  },
-  horizonBarLight: {
-    height: 8,
-    width: 104,
-  },
-  horizonBarMedium: {
-    height: 12,
-    width: 136,
-  },
-  horizonBarHeavy: {
-    height: 16,
-    width: 168,
   },
   pinnedAction: {
     borderTopWidth: borderWidths.subtle,

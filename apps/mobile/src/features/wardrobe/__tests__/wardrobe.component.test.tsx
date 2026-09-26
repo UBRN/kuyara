@@ -1,4 +1,4 @@
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { Dimensions, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -58,9 +58,44 @@ jest.mock('@expo/ui/community/bottom-sheet', () => {
 let mockFocusEffects: (() => void | (() => void))[] = [];
 let mockSearchParams: Record<string, string | string[] | undefined> = {};
 let mockReplace = jest.fn();
+let mockBack = jest.fn();
 
-jest.mock('expo-router', () => ({
-  useFocusEffect: (effect: () => void | (() => void)) => {
+// O10: the form's Cancel/Save pair is the native header's. The mock renders both toolbar
+// buttons (and Android's header slots) into the tree, so a test presses them as a user
+// presses the bar items.
+jest.mock('expo-router', () => {
+  const React = jest.requireActual('react') as typeof import('react');
+  const { Pressable, View } = jest.requireActual('react-native') as typeof import('react-native');
+  const Toolbar = ({ children }: { children: React.ReactNode }) =>
+    React.createElement(View, null, children);
+  Toolbar.Button = function ToolbarButton({
+    accessibilityLabel,
+    disabled,
+    icon,
+    onPress,
+    variant,
+  }: {
+    accessibilityLabel: string;
+    disabled?: boolean;
+    icon: string;
+    onPress: () => void;
+    variant?: string;
+  }) {
+    return React.createElement(Pressable, {
+      accessibilityLabel,
+      accessibilityRole: 'button',
+      accessibilityState: { disabled: Boolean(disabled) },
+      accessibilityValue: variant ? { text: variant } : undefined,
+      disabled,
+      onPress,
+      testID: `wardrobe-toolbar-${icon}`,
+    });
+  };
+  const Screen = ({ options }: { options?: { headerLeft?: () => React.ReactNode; headerRight?: () => React.ReactNode } }) =>
+    React.createElement(View, null, options?.headerLeft?.(), options?.headerRight?.());
+  return {
+    Stack: { Screen, Toolbar },
+    useFocusEffect: (effect: () => void | (() => void)) => {
     mockFocusEffects.push(effect);
   },
   useNavigation: () => ({
@@ -69,13 +104,14 @@ jest.mock('expo-router', () => ({
   }),
   useLocalSearchParams: () => mockSearchParams,
   useRouter: () => ({
-    back: () => undefined,
+    back: (...args: unknown[]) => mockBack(...args),
     dismissTo: () => undefined,
     push: () => undefined,
     replace: (...args: unknown[]) => mockReplace(...args),
     setParams: () => undefined,
   }),
-}));
+  };
+});
 
 const profile: LocalProfile = {
   id: 'profile-id',
@@ -238,12 +274,12 @@ test('create route shows initialization status instead of the form until wardrob
 
   const loading = await renderRoute({ status: 'loading' });
   expect(loading.getByTestId('wardrobe-item-loading')).toBeOnTheScreen();
-  expect(loading.queryByTestId('wardrobe-save-button')).not.toBeOnTheScreen();
+  expect(loading.queryByTestId('wardrobe-toolbar-checkmark')).not.toBeOnTheScreen();
   await loading.unmount();
 
   const error = await renderRoute({ status: 'error' });
   expect(error.getByTestId('wardrobe-item-error')).toBeOnTheScreen();
-  expect(error.queryByTestId('wardrobe-save-button')).not.toBeOnTheScreen();
+  expect(error.queryByTestId('wardrobe-toolbar-checkmark')).not.toBeOnTheScreen();
   await fireEvent.press(
     error.getByRole('button', { name: messages.en.wardrobe.retryAction }),
   );
@@ -275,18 +311,23 @@ function CreateForm({
   );
 }
 
-// The Drawer replaces the pushed picker route: the form's type row opens a sheet over
-// the form, and the tile inside it is the selection. Pressing the category chip first
-// is a no-op when the sheet already opens on that category.
+// O10: the type is chosen inline. A chosen type collapses to a row with Change; the
+// category tiles lead to the chip rail and its grid, where the tile is the selection.
+// Pressing the chip of the category already shown is a no-op.
 async function chooseType(
   result: Awaited<ReturnType<typeof render>>,
   category: string,
   typeId: string,
 ) {
-  await fireEvent.press(result.getByTestId('wardrobe-type-picker-row'));
-  await fireEvent.press(result.getByTestId(`wardrobe-type-category-${category}`));
+  const change = result.queryByTestId('wardrobe-type-change-button');
+  if (change) await fireEvent.press(change);
+  const tile = result.queryByTestId(`wardrobe-type-category-tile-${category}`);
+  await fireEvent.press(tile ?? result.getByTestId(`wardrobe-type-category-${category}`));
   await fireEvent.press(result.getByTestId(`wardrobe-type-${typeId}`));
 }
+
+const SAVE = 'wardrobe-toolbar-checkmark';
+const CANCEL = 'wardrobe-toolbar-xmark';
 
 test('create and edit forms leave the top safe area to the platform instead of a fixed offset', async () => {
   const createResult = await render(<CreateForm />);
@@ -321,38 +362,109 @@ test('create and edit forms leave the top safe area to the platform instead of a
   ]);
 });
 
-test('create form keeps only the required picker and entry state options visible by default', async () => {
+test('a new piece opens on the preview, the two ownership cards and six category tiles (O10)', async () => {
+  const result = await render(<CreateForm clothingPreference="womens" />);
+
+  // The stage holds the dashed placeholder in a viewfinder, with one library action and
+  // the hint; there is no camera in build 15 (P5).
+  expect(result.getByTestId('wardrobe-preview-placeholder', { includeHiddenElements: true })).toBeOnTheScreen();
+  expect(result.getByText(messages.en.wardrobe.photoHint)).toBeOnTheScreen();
+  expect(result.getByRole('button', { name: messages.en.wardrobe.selectPhotoAction })).toBeOnTheScreen();
+  // Owned is preselected; the cards are the only radios until a category opens.
+  expect(result.getAllByRole('radio')).toHaveLength(2);
+  expect(result.getByTestId('wardrobe-entry-state-owned').props.accessibilityState.selected).toBe(true);
+  expect(result.getByLabelText(messages.en.wardrobe.entryStateTitle)).toHaveProp('accessibilityRole', 'radiogroup');
+  for (const category of ['top', 'bottom', 'one_piece', 'outerwear', 'footwear', 'accessory']) {
+    expect(result.getByTestId(`wardrobe-type-category-tile-${category}`)).toBeOnTheScreen();
+  }
+  expect(result.getByTestId('wardrobe-type-required')).toHaveTextContent(messages.en.wardrobe.requiredTag);
+  // Colour appears only once a type is chosen; the name stays last and optional.
+  expect(result.queryByTestId('wardrobe-color-section')).not.toBeOnTheScreen();
+  expect(result.getByText(messages.en.wardrobe.optionalTag)).toBeOnTheScreen();
+  expect(result.queryByTestId('wardrobe-delete-button')).not.toBeOnTheScreen();
+
+  // Two taps: a category, then a type. The picker collapses to one row with Change.
+  await fireEvent.press(result.getByTestId('wardrobe-type-category-tile-bottom'));
+  expect(result.getByTestId('wardrobe-type-category-bottom').props.accessibilityState).toEqual(
+    expect.objectContaining({ selected: true }),
+  );
+  await fireEvent.press(result.getByTestId('wardrobe-type-jeans'));
+  expect(result.getByTestId('wardrobe-type-row-name')).toHaveTextContent('Jeans');
+  expect(result.queryByTestId('wardrobe-type-jeans')).not.toBeOnTheScreen();
+  expect(result.getByTestId('wardrobe-preview-drawing', { includeHiddenElements: true })).toBeOnTheScreen();
+  expect(result.getByTestId('wardrobe-color-section')).toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('wardrobe-type-change-button'));
+  expect(result.getByTestId('wardrobe-type-jeans').props.accessibilityState).toEqual(
+    expect.objectContaining({ selected: true }),
+  );
+});
+
+test('the toolbar pair names where the piece goes and Cancel leaves through the guard', async () => {
+  const result = await render(<CreateForm />);
+  expect(result.getByTestId(SAVE)).toHaveProp('accessibilityLabel', messages.en.wardrobe.saveOwnedAction);
+  expect(result.getByTestId(SAVE)).toHaveAccessibilityValue({ text: 'prominent' });
+  await fireEvent.press(result.getByTestId('wardrobe-entry-state-wanted'));
+  expect(result.getByTestId(SAVE)).toHaveProp('accessibilityLabel', messages.en.wardrobe.saveWantedAction);
+  expect(result.getByTestId(CANCEL)).toHaveProp('accessibilityLabel', messages.en.wardrobe.cancelAction);
+
+  const edit = await render(
+    <TestProviders>
+      <WardrobeItemFormScreen
+        isBusy={false}
+        item={item}
+        mode="edit"
+        onCreate={async () => undefined}
+        onDirtyChange={() => undefined}
+        onUpdate={async () => undefined}
+      />
+    </TestProviders>,
+  );
+  expect(edit.getByTestId(SAVE)).toHaveProp('accessibilityLabel', messages.en.wardrobe.saveAction);
+
+  // The route wires Cancel to a pop, which the `beforeRemove` guard confirms when dirty.
+  mockBack = jest.fn();
+  const route = await render(
+    <TestProviders>
+      <AnalyticsProviders>
+        <WardrobeApplicationContext.Provider value={wardrobeApplication()}>
+          <WardrobeNewItemRoute />
+        </WardrobeApplicationContext.Provider>
+      </AnalyticsProviders>
+    </TestProviders>,
+  );
+  await fireEvent.press(route.getByTestId(CANCEL));
+  expect(mockBack).toHaveBeenCalledTimes(1);
+});
+
+test('a chosen type starts on its most natural colour, offers its usual colours first, and a pick sticks', async () => {
   const onCreate = jest.fn(async () => undefined);
   const result = await render(<CreateForm onCreate={onCreate} />);
+  await chooseType(result, 'bottom', 'jeans');
 
-  expect(result.getAllByRole('radio')).toHaveLength(2);
-  expect(result.queryByRole('radio', { name: 'T-shirt' })).not.toBeOnTheScreen();
-  expect(result.getByTestId('wardrobe-type-picker-row')).toHaveAccessibilityValue({
-    text: messages.en.wardrobe.unclassifiedType,
-  });
-  expect(result.getByTestId('wardrobe-details-toggle').props.accessibilityState).toEqual(
-    expect.objectContaining({ expanded: false }),
+  const selectedName = () =>
+    result.getByTestId('wardrobe-color-selected', { includeHiddenElements: true });
+  expect(selectedName()).toHaveTextContent(messages.en.catalog['catalog.color_family.blue']);
+  expect(result.getByLabelText(messages.en.wardrobe.usualColorsLabel)).toHaveProp('accessibilityRole', 'radiogroup');
+  expect(result.getByTestId('wardrobe-color-blue').props.accessibilityState).toEqual(
+    expect.objectContaining({ selected: true }),
   );
-  expect(result.queryByTestId('wardrobe-color-unspecified')).not.toBeOnTheScreen();
-  expect(result.getByText(messages.en.wardrobe.detailsCaption)).toBeOnTheScreen();
-  // The sheet is not mounted until the row opens it, and it dismisses itself on the tile.
-  expect(result.queryByTestId('wardrobe-garment-type-picker')).not.toBeOnTheScreen();
-  await fireEvent.press(result.getByTestId('wardrobe-type-picker-row'));
-  expect(result.getByTestId('wardrobe-garment-type-picker')).toBeOnTheScreen();
-  await fireEvent.press(result.getByTestId('wardrobe-type-t_shirt'));
-  expect(result.queryByTestId('wardrobe-garment-type-picker')).not.toBeOnTheScreen();
-  expect(result.getByTestId('wardrobe-type-picker-row')).toHaveAccessibilityValue({
-    text: 'T-shirt',
-  });
-  expect(result.queryByTestId('wardrobe-delete-button')).not.toBeOnTheScreen();
-  expect(result.getByTestId('wardrobe-entry-state-owned').props.accessibilityState.selected).toBe(true);
+  // The user's own pick survives a later type change; only the untouched default follows it.
+  await fireEvent.press(result.getByTestId('wardrobe-color-red'));
+  await chooseType(result, 'top', 't_shirt');
+  expect(selectedName()).toHaveTextContent(messages.en.catalog['catalog.color_family.red']);
+  await fireEvent.press(result.getByTestId(SAVE));
+  expect(onCreate).toHaveBeenCalledWith(
+    expect.objectContaining({ colorFamily: 'red', garmentTypeId: 't_shirt' }),
+  );
+  // The photo stays optional: a piece saves with no photo change at all.
+  expect(onCreate.mock.calls[0]).toHaveLength(1);
 });
 
 test('saving with no clothing type shows the hint instead of creating an item', async () => {
   const onCreate = jest.fn(async () => undefined);
   const result = await render(<CreateForm onCreate={onCreate} />);
 
-  await fireEvent.press(result.getByTestId('wardrobe-save-button'));
+  await fireEvent.press(result.getByTestId('wardrobe-toolbar-checkmark'));
   expect(result.getByTestId('wardrobe-type-error')).toHaveTextContent(
     messages.en.wardrobe.typeRequiredError,
   );
@@ -397,14 +509,14 @@ test('the edit form shows the type hint on arrival for an entry with no resolvab
   expect(resolvable.queryByTestId('wardrobe-type-error')).not.toBeOnTheScreen();
 });
 
-test('the type sheet lists only preference-filtered active types and marks the selection', async () => {
+test('the type picker lists only preference-filtered active types and marks the selection', async () => {
   const result = await render(<CreateForm clothingPreference="mens" />);
-  await fireEvent.press(result.getByTestId('wardrobe-type-picker-row'));
 
-  // Both one-piece garments are womens-only since catalog version 4, so the mens sheet
-  // has no One-piece chip at all, and a womens-only top never reaches the Tops grid.
+  // Both one-piece garments are womens-only since catalog version 4, so the mens picker
+  // has no One-piece tile or chip at all, and a womens-only top never reaches the Tops grid.
+  expect(result.queryByTestId('wardrobe-type-category-tile-one_piece')).not.toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('wardrobe-type-category-tile-top'));
   expect(result.queryByTestId('wardrobe-type-category-one_piece')).not.toBeOnTheScreen();
-  expect(result.getByTestId('wardrobe-type-category-top')).toBeOnTheScreen();
   expect(result.queryByTestId('wardrobe-type-blouse')).not.toBeOnTheScreen();
   expect(result.getByTestId('wardrobe-type-t_shirt')).toBeOnTheScreen();
   // The rail is the filter: a type from another category is not in the grid until its
@@ -418,18 +530,35 @@ test('the type sheet lists only preference-filtered active types and marks the s
     expect.objectContaining({ selected: false }),
   );
   await fireEvent.press(rainJacket);
-  expect(result.getByTestId('wardrobe-type-picker-row')).toHaveAccessibilityValue({
-    text: 'Rain jacket',
-  });
+  expect(result.getByTestId('wardrobe-type-row-name')).toHaveTextContent('Rain jacket');
 
-  // Reopening lands on the selected type's own category with its tile already marked.
-  await fireEvent.press(result.getByTestId('wardrobe-type-picker-row'));
+  // Change reopens on the selected type's own category with its tile already marked.
+  await fireEvent.press(result.getByTestId('wardrobe-type-change-button'));
   expect(
     result.getByTestId('wardrobe-type-rain_jacket').props.accessibilityState,
   ).toEqual(expect.objectContaining({ selected: true }));
 });
 
-test('the type sheet is localized from catalog and wardrobe keys', async () => {
+test('the Closet category a piece is added from opens the type grid on it (O9)', async () => {
+  const result = await render(
+    <TestProviders>
+      <WardrobeItemFormScreen
+        defaultCategory="footwear"
+        isBusy={false}
+        mode="create"
+        onCreate={async () => undefined}
+        onDirtyChange={() => undefined}
+      />
+    </TestProviders>,
+  );
+  expect(result.queryByTestId('wardrobe-type-category-tile-top')).not.toBeOnTheScreen();
+  expect(result.getByTestId('wardrobe-type-category-footwear').props.accessibilityState).toEqual(
+    expect.objectContaining({ selected: true }),
+  );
+  expect(result.getByTestId('wardrobe-type-sneakers')).toBeOnTheScreen();
+});
+
+test('the type picker is localized from catalog and wardrobe keys', async () => {
   const result = await render(
     <TestProviders language="tr">
       <WardrobeItemFormScreen
@@ -441,17 +570,21 @@ test('the type sheet is localized from catalog and wardrobe keys', async () => {
       />
     </TestProviders>,
   );
-  await fireEvent.press(result.getByTestId('wardrobe-type-picker-row'));
 
   expect(
     result.getByRole('header', { name: messages.tr.wardrobe.typeTitle }),
   ).toBeOnTheScreen();
+  expect(result.getByText(messages.tr.wardrobe.requiredTag)).toBeOnTheScreen();
   expect(
     result.getByText(messages.tr.wardrobe.categoryFilterLabels.one_piece),
   ).toBeOnTheScreen();
+  expect(result.getByText(messages.tr.today.ownershipOwnedAction)).toBeOnTheScreen();
+  expect(result.getByText(messages.tr.today.ownershipWantedAction)).toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId('wardrobe-type-category-tile-top'));
   expect(result.getByTestId('wardrobe-type-t_shirt').props.accessibilityLabel).toBe(
     messages.tr.catalog['catalog.garment_type.t_shirt.name'],
   );
+  expect(result.getByTestId(SAVE)).toHaveProp('accessibilityLabel', messages.tr.wardrobe.saveOwnedAction);
 });
 
 test('create and edit forms persist the selected wardrobe state', async () => {
@@ -459,7 +592,7 @@ test('create and edit forms persist the selected wardrobe state', async () => {
   const createResult = await render(<CreateForm onCreate={onCreate} />);
   await chooseType(createResult, 'top', 't_shirt');
   await fireEvent.press(createResult.getByTestId('wardrobe-entry-state-wanted'));
-  await fireEvent.press(createResult.getByTestId('wardrobe-save-button'));
+  await fireEvent.press(createResult.getByTestId('wardrobe-toolbar-checkmark'));
   expect(onCreate).toHaveBeenCalledWith(
     expect.objectContaining({ entryState: 'wanted', garmentTypeId: 't_shirt' }),
   );
@@ -479,43 +612,42 @@ test('create and edit forms persist the selected wardrobe state', async () => {
   );
   expect(editResult.getByTestId('wardrobe-entry-state-wanted').props.accessibilityState.selected).toBe(true);
   await fireEvent.press(editResult.getByTestId('wardrobe-entry-state-owned'));
-  await fireEvent.press(editResult.getByTestId('wardrobe-save-button'));
+  await fireEvent.press(editResult.getByTestId('wardrobe-toolbar-checkmark'));
   expect(onUpdate).toHaveBeenCalledWith(
     expect.objectContaining({ entryState: 'owned' }),
   );
 });
 
-// The seven property overrides stay stored fields and leave the form entirely, so the
-// Details disclosure holds the colour family alone.
-test('the details disclosure offers colour swatches and no property pickers', async () => {
+// The seven property overrides stay stored fields and never appear in the form; colour
+// is the one detail, offered once a type is chosen.
+test('the colour section offers named family swatches and no property pickers', async () => {
   const result = await render(<CreateForm />);
   await chooseType(result, 'accessory', 'umbrella');
 
-  expect(result.getByTestId('wardrobe-type-picker-row')).toHaveAccessibilityValue({
-    text: 'Umbrella',
-  });
-  await fireEvent.press(result.getByTestId('wardrobe-details-toggle'));
+  expect(result.getByTestId('wardrobe-type-row-name')).toHaveTextContent('Umbrella');
   expect(result.queryByTestId('wardrobe-attribute-waterProtectionOverride')).not.toBeOnTheScreen();
   expect(result.queryByTestId('wardrobe-attribute-thermalLevelOverride')).not.toBeOnTheScreen();
 
-  // Fourteen family swatches plus the "Any" chip, each a radio carrying its own name.
-  const swatch = result.getByTestId('wardrobe-color-blue');
+  // Every family appears once, usual ones first, each a radio carrying its own name.
+  const swatch = result.getByTestId('wardrobe-color-pink');
   expect(swatch.props.accessibilityRole).toBe('radio');
   expect(swatch.props.accessibilityLabel).toBe(
-    messages.en.catalog['catalog.color_family.blue'],
+    messages.en.catalog['catalog.color_family.pink'],
   );
+  for (const family of ['black', 'white', 'gray', 'brown', 'beige', 'red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'multicolor']) {
+    expect(result.getAllByTestId(`wardrobe-color-${family}`)).toHaveLength(1);
+  }
   // The name line is hidden from the accessibility tree on purpose: the swatches already
   // carry their names, so it is the sighted reader's confirmation only.
   const selectedName = () =>
     result.getByTestId('wardrobe-color-selected', { includeHiddenElements: true });
-  expect(selectedName()).toHaveTextContent(messages.en.wardrobe.colorUnspecified);
   await fireEvent.press(swatch);
   expect(selectedName()).toHaveTextContent(
-    messages.en.catalog['catalog.color_family.blue'],
+    messages.en.catalog['catalog.color_family.pink'],
   );
   // Law 1: selection is a `brandAccent` ring, never a fill.
   const selectedStyle = StyleSheet.flatten(
-    result.getByTestId('wardrobe-color-blue').props.style,
+    result.getByTestId('wardrobe-color-pink').props.style,
   );
   expect(selectedStyle.borderColor).toBe(lightTheme.colors.brandAccent);
   expect(selectedStyle.backgroundColor).not.toBe(lightTheme.colors.brandAccent);
@@ -535,10 +667,9 @@ test('valid create maps values, blocks rapid duplicate presses, and reports dirt
   await chooseType(result, 'accessory', 'umbrella');
 
   await fireEvent.changeText(result.getByTestId('wardrobe-name-input'), 'City umbrella');
-  await fireEvent.press(result.getByTestId('wardrobe-details-toggle'));
   await fireEvent.press(result.getByTestId('wardrobe-color-blue'));
-  await fireEvent.press(result.getByTestId('wardrobe-save-button'));
-  await fireEvent.press(result.getByTestId('wardrobe-save-button'));
+  await fireEvent.press(result.getByTestId('wardrobe-toolbar-checkmark'));
+  await fireEvent.press(result.getByTestId('wardrobe-toolbar-checkmark'));
   expect(onCreate).toHaveBeenCalledTimes(1);
   expect(onCreate).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -547,13 +678,13 @@ test('valid create maps values, blocks rapid duplicate presses, and reports dirt
       colorFamily: 'blue',
     }),
   );
-  expect(result.getByTestId('wardrobe-save-button').props.accessibilityState).toEqual(
-    expect.objectContaining({ busy: true, disabled: true }),
+  expect(result.getByTestId(SAVE).props.accessibilityState).toEqual(
+    expect.objectContaining({ disabled: true }),
   );
   resolveSave?.();
   await waitFor(() =>
-    expect(result.getByTestId('wardrobe-save-button').props.accessibilityState).toEqual(
-      expect.objectContaining({ busy: false }),
+    expect(result.getByTestId(SAVE).props.accessibilityState).toEqual(
+      expect.objectContaining({ disabled: false }),
     ),
   );
   // The form no longer draws its own back control: the route's native header owns it and
@@ -569,11 +700,11 @@ test('create failure preserves entries and allows retry', async () => {
   const result = await render(<CreateForm onCreate={onCreate} />);
   await chooseType(result, 'top', 't_shirt');
   await fireEvent.changeText(result.getByTestId('wardrobe-name-input'), 'My tee');
-  await fireEvent.press(result.getByTestId('wardrobe-save-button'));
+  await fireEvent.press(result.getByTestId('wardrobe-toolbar-checkmark'));
 
   await waitFor(() => expect(result.getByTestId('wardrobe-save-error')).toBeOnTheScreen());
   expect(result.getByTestId('wardrobe-name-input').props.value).toBe('My tee');
-  await fireEvent.press(result.getByTestId('wardrobe-save-button'));
+  await fireEvent.press(result.getByTestId('wardrobe-toolbar-checkmark'));
   await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(2));
 });
 
@@ -590,7 +721,7 @@ test('unchanged and changed forms report distinct dirty state to the exit guard'
 test('the form draws no header of its own', async () => {
   const result = await render(<CreateForm />);
   expect(result.queryByText(messages.en.wardrobe.newTitle)).not.toBeOnTheScreen();
-  expect(result.queryByRole('header')).not.toBeOnTheScreen();
+  expect(result.queryByRole('button', { name: messages.en.common.back })).not.toBeOnTheScreen();
 });
 
 test('picker cancellation leaves the form unchanged and photo errors preserve other values', async () => {
@@ -648,13 +779,16 @@ test('photo processing exposes busy state and selected photo participates in dir
   expect(result.getByTestId('wardrobe-photo-select-button').props.accessibilityState).toEqual(
     expect.objectContaining({ busy: true, disabled: true }),
   );
-  expect(result.getByTestId('wardrobe-save-button').props.accessibilityState.disabled).toBe(true);
+  expect(result.getByTestId('wardrobe-toolbar-checkmark').props.accessibilityState.disabled).toBe(true);
   await act(async () => resolveSelection?.(stagedPhoto));
   await waitFor(() => expect(result.getByTestId('wardrobe-photo-preview')).toBeOnTheScreen());
   expect(result.getByTestId('wardrobe-photo-preview').props.accessibilityLabel).toBe(
     messages.en.wardrobe.photoAccessibilityLabel('Rain jacket'),
   );
-  await fireEvent.press(result.getByTestId('wardrobe-save-button'));
+  // On a photo, the stage names the chosen type in a badge with its drawing.
+  expect(result.getByTestId('wardrobe-photo-type-badge', { includeHiddenElements: true }))
+    .toHaveTextContent('Rain jacket');
+  await fireEvent.press(result.getByTestId('wardrobe-toolbar-checkmark'));
   expect(onCreate).toHaveBeenCalledWith(
     expect.objectContaining({ garmentTypeId: 'rain_jacket' }),
     { kind: 'replace', stagedPhoto },
@@ -696,7 +830,7 @@ test('changing and removing an edit photo cleans staging and marks removal for n
   await fireEvent.press(result.getByTestId('wardrobe-photo-remove-button'));
   expect(onDiscard).toHaveBeenCalledWith(stagedPhoto);
   expect(result.queryByTestId('wardrobe-photo-preview')).not.toBeOnTheScreen();
-  await fireEvent.press(result.getByTestId('wardrobe-save-button'));
+  await fireEvent.press(result.getByTestId('wardrobe-toolbar-checkmark'));
   expect(onUpdate).toHaveBeenCalledWith(expect.any(Object), { kind: 'remove' });
 });
 
@@ -767,9 +901,7 @@ test('edit prefills values and cancels or confirms type-reset behavior', async (
   );
 
   expect(result.getByTestId('wardrobe-name-input').props.value).toBe(item.name);
-  expect(result.getByTestId('wardrobe-type-picker-row')).toHaveAccessibilityValue({
-    text: 'Rain jacket',
-  });
+  expect(result.getByTestId('wardrobe-type-row-name')).toHaveTextContent('Rain jacket');
   await chooseType(result, 'accessory', 'umbrella');
   expect(confirmation).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -778,15 +910,11 @@ test('edit prefills values and cancels or confirms type-reset behavior', async (
     }),
     expect.any(Function),
   );
-  expect(result.getByTestId('wardrobe-type-picker-row')).toHaveAccessibilityValue({
-    text: 'Rain jacket',
-  });
+  expect(result.getByTestId('wardrobe-type-row-name')).toHaveTextContent('Rain jacket');
   await act(async () => {
     pendingConfirm.current?.();
   });
-  expect(result.getByTestId('wardrobe-type-picker-row')).toHaveAccessibilityValue({
-    text: 'Umbrella',
-  });
+  expect(result.getByTestId('wardrobe-type-row-name')).toHaveTextContent('Umbrella');
 });
 
 // The form cannot produce an override any more, so the type-change confirmation is owed
@@ -819,9 +947,7 @@ test('changing the type of an item with no stored override skips the confirmatio
 
   await chooseType(result, 'accessory', 'umbrella');
   expect(confirmation).not.toHaveBeenCalled();
-  expect(result.getByTestId('wardrobe-type-picker-row')).toHaveAccessibilityValue({
-    text: 'Umbrella',
-  });
+  expect(result.getByTestId('wardrobe-type-row-name')).toHaveTextContent('Umbrella');
 });
 
 test('edit update failure preserves values and remains retryable', async () => {
@@ -843,10 +969,10 @@ test('edit update failure preserves values and remains retryable', async () => {
     </TestProviders>,
   );
   await fireEvent.changeText(result.getByTestId('wardrobe-name-input'), 'Updated shell');
-  await fireEvent.press(result.getByTestId('wardrobe-save-button'));
+  await fireEvent.press(result.getByTestId('wardrobe-toolbar-checkmark'));
   await waitFor(() => expect(result.getByTestId('wardrobe-save-error')).toBeOnTheScreen());
   expect(result.getByTestId('wardrobe-name-input').props.value).toBe('Updated shell');
-  await fireEvent.press(result.getByTestId('wardrobe-save-button'));
+  await fireEvent.press(result.getByTestId('wardrobe-toolbar-checkmark'));
   await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(2));
 });
 
@@ -962,7 +1088,7 @@ test('a successful create captures closet_item_created with profile segmentation
   );
   await chooseType(result, 'outerwear', 'rain_jacket');
 
-  await fireEvent.press(result.getByTestId('wardrobe-save-button'));
+  await fireEvent.press(result.getByTestId('wardrobe-toolbar-checkmark'));
   await waitFor(() => expect(application.createItem).toHaveBeenCalledTimes(1));
   await waitFor(() => expect(analytics.names()).toContain('feature_used_first_time'));
 
@@ -1007,7 +1133,7 @@ test('a create with no consent captures nothing', async () => {
   );
   await chooseType(result, 'outerwear', 'rain_jacket');
 
-  await fireEvent.press(result.getByTestId('wardrobe-save-button'));
+  await fireEvent.press(result.getByTestId('wardrobe-toolbar-checkmark'));
   await waitFor(() => expect(application.createItem).toHaveBeenCalledTimes(1));
   expect(analytics.captures).toEqual([]);
 });
@@ -1032,7 +1158,7 @@ test('a successful update captures closet_item_updated with only the fields that
 
   await waitFor(() => expect(result.getByTestId('wardrobe-edit-form')).toBeOnTheScreen());
   await fireEvent.press(result.getByTestId('wardrobe-entry-state-wanted'));
-  await fireEvent.press(result.getByTestId('wardrobe-save-button'));
+  await fireEvent.press(result.getByTestId('wardrobe-toolbar-checkmark'));
   await waitFor(() => expect(application.updateItem).toHaveBeenCalledTimes(1));
 
   expect(analytics.captures).toEqual(
@@ -1138,7 +1264,7 @@ test('a piece added from the Wanted list is filed as wanted and returns to that 
   ).toBe(true);
 
   await chooseType(result, 'outerwear', 'rain_jacket');
-  await fireEvent.press(result.getByTestId('wardrobe-save-button'));
+  await fireEvent.press(result.getByTestId('wardrobe-toolbar-checkmark'));
   await waitFor(() => expect(application.createItem).toHaveBeenCalledTimes(1));
   expect(application.createItem).toHaveBeenCalledWith(
     expect.objectContaining({ entryState: 'wanted' }),
@@ -1154,10 +1280,16 @@ test('a piece added from the Wanted list is filed as wanted and returns to that 
   );
 });
 
-test('the type hint leaves once the row carries a type', async () => {
+test('a Save with no type marks Required in the danger ink with a glyph, and a type clears it', async () => {
   const result = await render(<CreateForm />);
 
-  expect(result.getByText(messages.en.wardrobe.typeDescription)).toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId(SAVE));
+  const tag = result.getByTestId('wardrobe-type-required');
+  expect(tag).toHaveTextContent(messages.en.wardrobe.requiredTag);
+  expect(StyleSheet.flatten(within(tag).getByText(messages.en.wardrobe.requiredTag).props.style).color)
+    .toBe(lightTheme.colors.dangerInk);
   await chooseType(result, 'outerwear', 'rain_jacket');
-  expect(result.queryByText(messages.en.wardrobe.typeDescription)).not.toBeOnTheScreen();
+  expect(result.queryByTestId('wardrobe-type-error')).not.toBeOnTheScreen();
+  expect(StyleSheet.flatten(within(result.getByTestId('wardrobe-type-required')).getByText(messages.en.wardrobe.requiredTag).props.style).color)
+    .not.toBe(lightTheme.colors.dangerInk);
 });

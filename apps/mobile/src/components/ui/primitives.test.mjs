@@ -13,7 +13,9 @@ import {
   resolveListRowSeparatorInset,
   resolveListRowTileGeometry,
   resolvePillColors,
+  resolveCardFill,
   resolveSurfaceColors,
+  surfaceColorRole,
   surfaceColorRoleByVariant,
 } from './primitive-contracts.ts';
 
@@ -162,10 +164,10 @@ test('Screen and Surface keep children on semantic light and dark foundations', 
   for (const scheme of ['light', 'dark']) {
     const theme = createKuyaraTheme(scheme);
 
-    for (const [variant, role] of Object.entries(surfaceColorRoleByVariant)) {
+    for (const variant of Object.keys(surfaceColorRoleByVariant)) {
       const resolvedStyle = resolveSurfaceColors(theme, variant);
 
-      assert.equal(resolvedStyle.backgroundColor, theme.colors[role]);
+      assert.equal(resolvedStyle.backgroundColor, theme.colors[surfaceColorRole(theme, variant)]);
       if (variant === 'elevated') {
         assert.equal(resolvedStyle.shadowColor, theme.elevation.raised.shadowColor);
         assert.equal(resolvedStyle.elevation, theme.elevation.raised.elevation);
@@ -174,6 +176,12 @@ test('Screen and Surface keep children on semantic light and dark foundations', 
         assert.equal('elevation' in resolvedStyle, false);
       }
     }
+
+    // O14 dark cards B: the dark card is the elevated plane with no hairline; light is unchanged.
+    const card = resolveSurfaceColors(theme, 'default');
+    assert.equal(card.backgroundColor, scheme === 'dark' ? theme.colors.backgroundElevated : theme.colors.surface);
+    assert.equal(card.borderColor, scheme === 'dark' ? 'transparent' : theme.colors.borderSubtle);
+    assert.equal(resolveCardFill(theme), card.backgroundColor);
 
     assert.match(screenSource, /theme\.colors\.background/);
     assert.match(screenSource, /\{children\}/);

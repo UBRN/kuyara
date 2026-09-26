@@ -27,9 +27,9 @@ The [product decisions](product-decisions.md) and [ADRs](adr/) define the approv
 | C3 | Re-ask sheet with day type and Now or Later (O2-O4) | Approved for build 15 |
 | Runway | Neutral five-slot drafts, condition fields and piece-by-piece dressing (O1, O17) | Approved for build 15 |
 | Phase 6 | Ink-edge silhouettes, eight new drawings, 31-colour harmony and one catalog version bump (O15) | Approved for build 15 |
-| Phase 5B | Detail sheet and garment rows, wide palette and patterns, history, migration 20 (O6-O8) | Approved for build 15 |
+| Phase 5B | Detail sheet and garment rows, ownership match, “Wore this today” and history (O6, O7); the wide palette, second colour, patterns and migration 20 (O8) ship in build 16 (P5) | O6 and O7 landed on main (6d70cdb) |
 | Closet | Open rack, six category counts, category tabs and owned/wanted sections (O9) | Approved for build 15 |
-| Add a piece | Visual form with in-app camera capture (O10) | Approved for build 15 |
+| Add a piece | Visual form: preview stage, owned and wanted cards, illustrated type picker, usual colours, the toolbar save pair and photo-library import; in-app camera capture ships in build 16 (O10, P5) | Approved for build 15 |
 | Worker badge | Animated multicolour `sparkles` (O11) | Approved for build 15 |
 | Accessibility and wave 2 | Easier to see switch (O13); cards, rows, back, name, weather and onboarding (O14) | Approved for build 15 |
 | Build 15 | All approved Goals above, plus landed A and B; every automated, independent-review, migration, native and Simulator release gate applies | No date promised |

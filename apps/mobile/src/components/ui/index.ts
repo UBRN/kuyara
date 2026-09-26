@@ -1,6 +1,7 @@
 export { AppText, type AppTextProps } from './app-text';
 export { Button, type ButtonProps } from './button';
 export { ButtonPair, type ButtonPairProps } from './button-pair';
+export { ChoiceTile, ChoiceTileGrid, type ChoiceTileDrawing, type ChoiceTileProps } from './choice-tile';
 export { Entrance, type EntranceProps } from './entrance';
 export { GarmentSlotGlyph, GarmentSlotTile } from './garment-slot-glyph';
 export { GlassButton, type GlassButtonProps } from './glass-button';
@@ -49,6 +50,7 @@ export {
   type SegmentedControlProps,
 } from './segmented-control';
 export { Surface, type SurfaceProps } from './surface';
+export { resolveCardFill } from './primitive-contracts';
 export type { ButtonVariant, PillTone, SurfaceVariant } from './primitive-contracts';
 export { haptics, useRefreshOutcomeHaptics } from './haptics';
 export { useTextScaling, type TextScaling } from './use-text-scaling';
@@ -70,7 +72,11 @@ export {
   runwayDressingDuration,
   type RunwayBoardOutfit,
 } from './garment-board/garment-runway-board';
-export { garmentColorFamiliesBySlot, type GarmentOutfitPalette } from './garment-board/garment-palette';
+export {
+  garmentColorFamiliesBySlot,
+  garmentUsualColorFamilies,
+  type GarmentOutfitPalette,
+} from './garment-board/garment-palette';
 
 // ADR 0028 section 6 and ADR 0029 section 5: approved content colour for the Profile
 // rack, the Closet grid, and the form's colour-family swatches. Never a theme role.

@@ -116,7 +116,6 @@ export type TodayMessages = Readonly<{
   }>;
   // N19: a later short cool spell is a finishing touch, one line beside the cardigan.
   coolSpell: (time: string) => string;
-  backAction: string;
   otherOptionsHeading: string;
   piecesHeading: string;
   reasonsHeading: string;
@@ -312,10 +311,10 @@ export type AppMessages = Readonly<{
     nameNotNow: string;
     welcomeTitle: string;
     welcomeBody: string;
-    promiseHeading: string;
-    weatherPromise: string;
-    outfitsPromise: string;
-    wardrobePromise: string;
+    welcomePreviewTitle: string;
+    welcomePreviewCaption: string;
+    nameGreetingEmpty: string;
+    nameGreetingCaption: string;
     genderTitle: string;
     genderBody: string;
     dressStyleTitle: string;
@@ -399,11 +398,11 @@ export type AppMessages = Readonly<{
   profile: Readonly<{
     title: string;
     nameLabel: string;
-    nameEditTitle: string;
     nameDone: string;
     nameClear: string;
     nameSaveError: string;
-    nameRemoveHint: string;
+    nameCancel: string;
+    nameRemove: string;
     settingsAction: string;
     settingsHint: string;
     wardrobeTitle: string;
@@ -496,6 +495,7 @@ export type AppMessages = Readonly<{
     openSettings: string;
     sampleDisclosure: string;
     hourlyHeading: string;
+    hourlyNow: string;
     noSnapshot: string;
     loadErrorTitle: string;
     loadErrorBody: string;
@@ -620,33 +620,39 @@ export type AppMessages = Readonly<{
     wantedTileLabel: string;
     newTitle: string;
     editTitle: string;
+    // O10: the form's toolbar pair; Save names where the piece goes.
+    cancelAction: string;
+    saveOwnedAction: string;
+    saveWantedAction: string;
     nameLabel: string;
-    nameDescription: string;
     namePlaceholder: string;
+    optionalTag: string;
+    requiredTag: string;
     photoTitle: string;
-    photoDescription: string;
-    photoEmptyBody: string;
+    photoHint: string;
     selectPhotoAction: string;
     changePhotoAction: string;
     removePhotoAction: string;
+    // Shown on the preview stage; the full action above is what is spoken.
+    photoChangeLabel: string;
+    photoRemoveLabel: string;
     photoProcessingLabel: string;
     photoError: string;
     photoAccessibilityLabel: (type: string) => string;
     entryStateTitle: string;
-    entryStateDescription: string;
     typeTitle: string;
-    typeDescription: string;
-    typeChoosePrompt: string;
-    typePickerHint: string;
-    typeAccessibilityLabel: (value: string) => string;
+    typeChangeAction: string;
+    typeChangeHint: string;
     typeRequiredError: string;
-    detailsTitle: string;
-    detailsCaption: string;
     colorTitle: string;
-    colorDescription: string;
+    usualColorsLabel: string;
+    allColorsLabel: string;
     colorUnspecified: string;
     saveAction: string;
-    savingLabel: string;
+    // O10: the Closet names the piece it has just saved, with Undo.
+    savedOwnedConfirmation: (piece: string) => string;
+    savedWantedConfirmation: (piece: string) => string;
+    undoAction: string;
     createError: string;
     updateError: string;
     // O6: the outfit-detail piece sheet.
@@ -722,10 +728,10 @@ const en = {
     nameNotNow: 'Not now',
     welcomeTitle: 'Welcome to kuyara',
     welcomeBody: 'A calm way to make daily clothing choices with the weather in mind.',
-    promiseHeading: 'What to expect',
-    weatherPromise: 'kuyara uses weather to simplify what to wear each day.',
-    outfitsPromise: 'You will see three complete outfit suggestions for different plans.',
-    wardrobePromise: 'Your closet keeps track of pieces you own or want, separate from your outfit suggestions.',
+    welcomePreviewTitle: 'Today · 14° · Cloudy',
+    welcomePreviewCaption: 'Every morning: one outfit for the day’s weather.',
+    nameGreetingEmpty: 'Welcome',
+    nameGreetingCaption: 'Your name appears here on Today.',
     genderTitle: 'Your gender',
     genderBody: 'kuyara uses it to choose the catalog your outfit suggestions come from. You can change it later in Settings.',
     dressStyleTitle: 'How do you usually dress?',
@@ -792,26 +798,26 @@ const en = {
     artificialIntelligenceHeading: 'Artificial intelligence',
     weatherDataHeading: 'Weather data',
     weatherNoSnapshot: 'Sources appear here after the first weather update.',
-    weatherFooter: 'These are the sources of the latest weather update.',
-    aiStatusIntro: 'Sends one short online test.',
-    aiStatusProvenanceFooter: 'Apple Intelligence is checked on this device. When it cannot choose, kuyara tries an online service before standard suggestions. Apple Intelligence is a trademark of Apple Inc.',
-    aiStatusOnDeviceRunning: 'Apple Intelligence is compatible and running.',
+    weatherFooter: 'Where your latest weather came from. Tap the source to open its page.',
+    aiStatusIntro: 'Sends one short request. Your outfit does not change.',
+    aiStatusProvenanceFooter: 'kuyara asks Apple Intelligence first. If it cannot answer in time, kuyara asks online AI, and then uses its standard suggestions. Apple Intelligence is a trademark of Apple Inc.',
+    aiStatusOnDeviceRunning: 'Apple Intelligence is on and ready.',
     aiStatusOnDeviceOff: 'Apple Intelligence is turned off.',
-    aiStatusOnDeviceIncompatible: 'Apple Intelligence is not compatible with this device.',
-    aiStatusOnDeviceGettingReady: 'Apple Intelligence is compatible and getting ready.',
+    aiStatusOnDeviceIncompatible: 'This device does not support Apple Intelligence.',
+    aiStatusOnDeviceGettingReady: 'Apple Intelligence is getting ready.',
     aiStatusAssistant: (provider: string, model: string) =>
       `Answered by ${provider} (${model})`,
-    aiStatusLastOnDeviceAi: 'The last recommendation was chosen on this device.',
-    aiStatusLastAiAssisted: 'The last recommendation was chosen in the cloud.',
-    aiStatusLastStandard: 'The last recommendation used standard suggestions.',
-    aiStatusLastUnknown: 'The last recommendation source is unknown.',
-    aiStatusCheckAction: 'Check AI status',
-    aiStatusChecking: 'Checking AI status…',
-    aiStatusResultOk: (time: string) => `AI responded at ${time}`,
-    aiStatusResultUnavailable: 'AI did not respond right now.',
-    aiStatusResultRateLimited: 'Checked too often. Try again in a little while.',
-    aiStatusResultError: 'AI status could not be checked.',
-    aiStatusUnsupported: 'AI status checks are not available on this build.',
+    aiStatusLastOnDeviceAi: 'kuyara chose your last outfit with Apple Intelligence.',
+    aiStatusLastAiAssisted: 'kuyara chose your last outfit with online AI.',
+    aiStatusLastStandard: 'kuyara chose your last outfit from its standard suggestions.',
+    aiStatusLastUnknown: 'No outfit has been chosen yet.',
+    aiStatusCheckAction: 'Test online AI',
+    aiStatusChecking: 'Testing online AI…',
+    aiStatusResultOk: (time: string) => `Online AI answered at ${time}.`,
+    aiStatusResultUnavailable: 'Online AI did not answer this time.',
+    aiStatusResultRateLimited: 'Tested a moment ago. Try again in a few minutes.',
+    aiStatusResultError: 'The test could not run. Try again later.',
+    aiStatusUnsupported: 'This version cannot run the test.',
     saving: 'Saving changes…',
     saveError: 'That change could not be saved. Your previous setting is still active.',
   },
@@ -838,11 +844,11 @@ const en = {
   profile: {
     title: 'Profile',
     nameLabel: 'Name',
-    nameEditTitle: 'Edit name',
     nameDone: 'Done',
     nameClear: 'Clear name',
     nameSaveError: 'That change could not be saved. Your previous name is still active.',
-    nameRemoveHint: 'Choose Done to remove your name.',
+    nameCancel: 'Cancel',
+    nameRemove: 'Remove name',
     settingsAction: 'Settings',
     settingsHint: 'Opens app settings.',
     wardrobeTitle: 'Closet',
@@ -932,6 +938,7 @@ const en = {
     openSettings: 'Open system settings',
     sampleDisclosure: 'Sample weather data, not live weather.',
     hourlyHeading: 'Coming hours',
+    hourlyNow: 'Now',
     noSnapshot: 'Weather will appear once a location is selected.',
     loadErrorTitle: 'Weather could not be prepared',
     loadErrorBody: 'Your saved data is still safe. Please try again.',
@@ -1069,36 +1076,39 @@ const en = {
       accessory: 'You have not added any accessories yet.',
     },
     wantedTileLabel: 'Wanted',
-    newTitle: 'Add closet item',
-    editTitle: 'Edit closet item',
-    nameLabel: 'Item name',
-    nameDescription: 'Optional. Use a name that helps you recognize this item.',
-    namePlaceholder: 'For example, everyday rain jacket',
+    newTitle: 'New piece',
+    editTitle: 'Edit piece',
+    cancelAction: 'Cancel',
+    saveOwnedAction: 'Add to Closet',
+    saveWantedAction: 'Add to wanted pieces',
+    nameLabel: 'Name',
+    namePlaceholder: 'For example, my weekend jeans',
+    optionalTag: 'Optional',
+    requiredTag: 'Required',
     photoTitle: 'Photo',
-    photoDescription: 'Optional. One photo of the piece.',
-    photoEmptyBody: 'No photo selected.',
-    selectPhotoAction: 'Select photo',
+    photoHint: 'A photo is optional. Without one, kuyara draws the piece.',
+    selectPhotoAction: 'Choose photo',
     changePhotoAction: 'Change photo',
     removePhotoAction: 'Remove photo',
+    photoChangeLabel: 'Change',
+    photoRemoveLabel: 'Remove',
     photoProcessingLabel: 'Preparing photo…',
     photoError:
       'The photo could not be prepared. Your other changes are still here; please try again.',
     photoAccessibilityLabel: (type: string) => `${type} closet item photo.`,
-    entryStateTitle: 'Closet list',
-    entryStateDescription: 'Choose whether you own this item or want it.',
-    typeTitle: 'Clothing type',
-    typeDescription: 'Required. Choose the closest type from the catalog.',
-    typeChoosePrompt: 'Choose a type',
-    typePickerHint: 'Opens the clothing type chooser.',
-    typeAccessibilityLabel: (value: string) => `Clothing type, required: ${value}`,
-    typeRequiredError: 'Choose a clothing type before saving.',
-    detailsTitle: 'Details',
-    detailsCaption: 'Optional. The color family for this item.',
-    colorTitle: 'Color family',
-    colorDescription: 'Optional. Choose the item’s main color family.',
+    entryStateTitle: 'Do you own this piece?',
+    typeTitle: 'What is it?',
+    typeChangeAction: 'Change',
+    typeChangeHint: 'Shows the clothing types again.',
+    typeRequiredError: 'Choose what kind of piece this is before saving.',
+    colorTitle: 'Color',
+    usualColorsLabel: 'Usual colors',
+    allColorsLabel: 'All colors',
     colorUnspecified: 'Any',
-    saveAction: 'Save item',
-    savingLabel: 'Saving item…',
+    saveAction: 'Save',
+    savedOwnedConfirmation: (piece: string) => `${piece} added to your Closet.`,
+    savedWantedConfirmation: (piece: string) => `${piece} added to your wanted pieces.`,
+    undoAction: 'Undo',
     createError: 'This item could not be added. Your entries are still here; please try again.',
     updateError: 'This item could not be saved. Your changes are still here; please try again.',
     pieceSheetAddTitle: 'Add to Closet',
@@ -1183,7 +1193,6 @@ const en = {
       cold: (time) => `This outfit wasn’t chosen for the cold after ${time}.`,
     },
     coolSpell: (time) => `Take a light layer for the cool spell around ${time}.`,
-    backAction: 'Back to Today',
     otherOptionsHeading: 'Alternative outfits',
     piecesHeading: 'Wear',
     reasonsHeading: 'Why it works',
@@ -1426,10 +1435,10 @@ const tr = {
     nameNotNow: 'Şimdi değil',
     welcomeTitle: 'kuyara’ya hoş geldin',
     welcomeBody: 'Hava durumuna göre her gün ne giyeceğine sakince karar vermenin yolu.',
-    promiseHeading: 'Seni neler bekliyor',
-    weatherPromise: 'kuyara, her gün ne giyeceğine karar vermeni kolaylaştırmak için hava durumunu kullanır.',
-    outfitsPromise: 'Farklı planlar için üç eksiksiz kombin önerisi görürsün.',
-    wardrobePromise: 'Gardırobun, sahip olduğun ya da istediğin parçaları kombin önerilerinden ayrı tutar.',
+    welcomePreviewTitle: 'Bugün · 14° · Bulutlu',
+    welcomePreviewCaption: 'Her sabah: günün havasına göre bir kombin.',
+    nameGreetingEmpty: 'Hoş geldin',
+    nameGreetingCaption: 'Adın Bugün ekranında burada görünür.',
     genderTitle: 'Cinsiyetin',
     genderBody: 'kuyara bunu kombin önerilerinin geldiği kataloğu seçmek için kullanır. Daha sonra Ayarlar’dan değiştirebilirsin.',
     dressStyleTitle: 'Genelde nasıl giyinirsin?',
@@ -1496,26 +1505,26 @@ const tr = {
     artificialIntelligenceHeading: 'Yapay zekâ',
     weatherDataHeading: 'Hava durumu verisi',
     weatherNoSnapshot: 'Kaynaklar ilk hava güncellemesinden sonra burada görünür.',
-    weatherFooter: 'Bunlar son hava güncellemesinin kaynakları.',
-    aiStatusIntro: 'Kısa bir çevrimiçi deneme yapar.',
-    aiStatusProvenanceFooter: 'Apple Intelligence bu cihazda kontrol edilir. Seçim yapamadığında kuyara standart önerilerden önce çevrimiçi servisi dener. Apple Intelligence, Apple Inc.’in ticari markasıdır.',
-    aiStatusOnDeviceRunning: 'Apple Intelligence uyumlu ve çalışıyor.',
+    weatherFooter: 'Son hava durumunun geldiği yer. Sayfasını açmak için kaynağa dokun.',
+    aiStatusIntro: 'Kısa bir istek gönderir. Kombinin değişmez.',
+    aiStatusProvenanceFooter: 'kuyara önce Apple Intelligence’a sorar. Zamanında yanıt alamazsa çevrimiçi yapay zekâya sorar, o da olmazsa standart önerilerini kullanır. Apple Intelligence, Apple Inc.’in ticari markasıdır.',
+    aiStatusOnDeviceRunning: 'Apple Intelligence açık ve hazır.',
     aiStatusOnDeviceOff: 'Apple Intelligence kapalı.',
-    aiStatusOnDeviceIncompatible: 'Apple Intelligence bu cihazla uyumlu değil.',
-    aiStatusOnDeviceGettingReady: 'Apple Intelligence uyumlu ve hazırlanıyor.',
+    aiStatusOnDeviceIncompatible: 'Bu cihaz Apple Intelligence’ı desteklemiyor.',
+    aiStatusOnDeviceGettingReady: 'Apple Intelligence hazırlanıyor.',
     aiStatusAssistant: (provider: string, model: string) =>
       `Yanıtlayan: ${provider} (${model})`,
-    aiStatusLastOnDeviceAi: 'Son öneri bu cihazda seçildi.',
-    aiStatusLastAiAssisted: 'Son öneri bulutta seçildi.',
-    aiStatusLastStandard: 'Son öneri standart önerilerle oluşturuldu.',
-    aiStatusLastUnknown: 'Son önerinin kaynağı bilinmiyor.',
-    aiStatusCheckAction: 'AI durumunu kontrol et',
-    aiStatusChecking: 'AI durumu kontrol ediliyor…',
-    aiStatusResultOk: (time: string) => `AI yanıt verdi (${time}).`,
-    aiStatusResultUnavailable: 'AI şu anda yanıt vermedi.',
-    aiStatusResultRateLimited: 'Çok sık kontrol edildi. Biraz sonra yeniden dene.',
-    aiStatusResultError: 'AI durumu kontrol edilemedi.',
-    aiStatusUnsupported: 'AI durum kontrolleri bu sürümde kullanılamıyor.',
+    aiStatusLastOnDeviceAi: 'kuyara son kombinini Apple Intelligence ile seçti.',
+    aiStatusLastAiAssisted: 'kuyara son kombinini çevrimiçi yapay zekâ ile seçti.',
+    aiStatusLastStandard: 'kuyara son kombinini standart önerilerinden seçti.',
+    aiStatusLastUnknown: 'Henüz bir kombin seçilmedi.',
+    aiStatusCheckAction: 'Çevrimiçi yapay zekâyı dene',
+    aiStatusChecking: 'Çevrimiçi yapay zekâ deneniyor…',
+    aiStatusResultOk: (time: string) => `Çevrimiçi yapay zekâ yanıt verdi (${time}).`,
+    aiStatusResultUnavailable: 'Çevrimiçi yapay zekâ bu sefer yanıt vermedi.',
+    aiStatusResultRateLimited: 'Az önce denendi. Birkaç dakika sonra yeniden dene.',
+    aiStatusResultError: 'Deneme yapılamadı. Daha sonra yeniden dene.',
+    aiStatusUnsupported: 'Bu sürüm denemeyi yapamıyor.',
     saving: 'Değişiklikler kaydediliyor…',
     saveError: 'Bu değişiklik kaydedilemedi. Önceki ayarın kullanılmaya devam ediyor.',
   },
@@ -1542,11 +1551,11 @@ const tr = {
   profile: {
     title: 'Profil',
     nameLabel: 'Ad',
-    nameEditTitle: 'Adı düzenle',
     nameDone: 'Bitti',
     nameClear: 'Adı temizle',
     nameSaveError: 'Bu değişiklik kaydedilemedi. Önceki adın kullanılmaya devam ediyor.',
-    nameRemoveHint: 'Adını kaldırmak için Bitti’yi seç.',
+    nameCancel: 'Vazgeç',
+    nameRemove: 'Adı kaldır',
     settingsAction: 'Ayarlar',
     settingsHint: 'Uygulama ayarlarını açar.',
     wardrobeTitle: 'Gardırop',
@@ -1636,6 +1645,7 @@ const tr = {
     openSettings: 'Sistem ayarlarını aç',
     sampleDisclosure: 'Örnek hava durumu verisi, canlı değildir.',
     hourlyHeading: 'Önümüzdeki saatler',
+    hourlyNow: 'Şimdi',
     noSnapshot: 'Bir konum seçildiğinde hava durumu burada görünecek.',
     loadErrorTitle: 'Hava durumu hazırlanamadı',
     loadErrorBody: 'Kayıtlı verilerin güvende. Lütfen yeniden dene.',
@@ -1776,36 +1786,39 @@ const tr = {
       accessory: 'Henüz aksesuar eklemedin.',
     },
     wantedTileLabel: 'İstek',
-    newTitle: 'Gardırop parçası ekle',
-    editTitle: 'Gardırop parçasını düzenle',
-    nameLabel: 'Parça adı',
-    nameDescription: 'İsteğe bağlı. Bu parçayı tanımana yardımcı olacak bir ad kullan.',
-    namePlaceholder: 'Örneğin günlük yağmurluk',
+    newTitle: 'Yeni parça',
+    editTitle: 'Parçayı düzenle',
+    cancelAction: 'Vazgeç',
+    saveOwnedAction: 'Gardıroba ekle',
+    saveWantedAction: 'İsteklere ekle',
+    nameLabel: 'Ad',
+    namePlaceholder: 'Örneğin hafta sonu kotum',
+    optionalTag: 'İsteğe bağlı',
+    requiredTag: 'Zorunlu',
     photoTitle: 'Fotoğraf',
-    photoDescription: 'İsteğe bağlı. Parçanın bir fotoğrafı.',
-    photoEmptyBody: 'Fotoğraf seçilmedi.',
+    photoHint: 'Fotoğraf isteğe bağlı. Fotoğraf yoksa kuyara parçayı çizer.',
     selectPhotoAction: 'Fotoğraf seç',
     changePhotoAction: 'Fotoğrafı değiştir',
     removePhotoAction: 'Fotoğrafı kaldır',
+    photoChangeLabel: 'Değiştir',
+    photoRemoveLabel: 'Kaldır',
     photoProcessingLabel: 'Fotoğraf hazırlanıyor…',
     photoError:
       'Fotoğraf hazırlanamadı. Diğer değişikliklerin hâlâ burada; lütfen yeniden dene.',
     photoAccessibilityLabel: (type: string) => `${type} gardırop parçası fotoğrafı.`,
-    entryStateTitle: 'Gardırop listesi',
-    entryStateDescription: 'Bu parçaya sahip olduğunu veya parçayı istediğini seç.',
-    typeTitle: 'Giyim türü',
-    typeDescription: 'Zorunlu. Katalogdan en yakın türü seç.',
-    typeChoosePrompt: 'Tür seç',
-    typePickerHint: 'Giyim türü seçicisini açar.',
-    typeAccessibilityLabel: (value: string) => `Giyim türü, zorunlu: ${value}`,
-    typeRequiredError: 'Kaydetmeden önce bir giyim türü seç.',
-    detailsTitle: 'Ayrıntılar',
-    detailsCaption: 'İsteğe bağlı. Bu parçanın renk ailesi.',
-    colorTitle: 'Renk ailesi',
-    colorDescription: 'İsteğe bağlı. Parçanın ana renk ailesini seç.',
+    entryStateTitle: 'Bu parça sende var mı?',
+    typeTitle: 'Bu ne?',
+    typeChangeAction: 'Değiştir',
+    typeChangeHint: 'Giyim türlerini yeniden gösterir.',
+    typeRequiredError: 'Kaydetmeden önce bunun ne tür bir parça olduğunu seç.',
+    colorTitle: 'Renk',
+    usualColorsLabel: 'Sık görülen renkler',
+    allColorsLabel: 'Tüm renkler',
     colorUnspecified: 'Fark etmez',
-    saveAction: 'Parçayı kaydet',
-    savingLabel: 'Parça kaydediliyor…',
+    saveAction: 'Kaydet',
+    savedOwnedConfirmation: (piece: string) => `${piece} gardırobuna eklendi.`,
+    savedWantedConfirmation: (piece: string) => `${piece} isteklerine eklendi.`,
+    undoAction: 'Geri al',
     createError: 'Bu parça eklenemedi. Girdilerin hâlâ burada; lütfen yeniden dene.',
     updateError: 'Bu parça kaydedilemedi. Değişikliklerin hâlâ burada; lütfen yeniden dene.',
     pieceSheetAddTitle: 'Gardıroba ekle',
@@ -1890,7 +1903,6 @@ const tr = {
       cold: (time) => `Bu kombin ${time} soğuğuna göre seçilmedi.`,
     },
     coolSpell: (time) => `Yanına ince bir kat al, saat ${time} gibi hava serinliyor.`,
-    backAction: 'Bugün’e dön',
     otherOptionsHeading: 'Alternatif kombinler',
     piecesHeading: 'Parçalar',
     reasonsHeading: 'Neden uygun',
