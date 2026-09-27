@@ -340,6 +340,29 @@ test('the briefing formats its temperatures for the active language', async () =
   assert.equal(turkish.scheduled[0].title, 'Günaydın');
 });
 
+test('a briefing range rounded to zero reads as one temperature', async () => {
+  const morning = {
+    ...weatherSnapshot(),
+    hourly: [
+      { ...weatherSnapshot().hourly[0], forecastAt: '2026-09-10T07:00:00.000Z', temperatureCelsius: -0.4, condition: 'cloudy', precipitationProbability: 0 },
+      { ...weatherSnapshot().hourly[0], forecastAt: '2026-09-10T10:00:00.000Z', temperatureCelsius: 0.4, condition: 'cloudy', precipitationProbability: 0 },
+    ],
+  };
+  const harness = createSchedulerHarness();
+
+  await harness.scheduler.reschedule({
+    ...enabledInput,
+    snapshot: morning,
+    weatherAlertsEnabled: false,
+    morningBriefingEnabled: true,
+  });
+
+  assert.equal(
+    harness.scheduled[0].body,
+    'A cloudy morning at 0\u00b0C. Your outfit for today is waiting in kuyara.',
+  );
+});
+
 test('a briefing the ledger already recorded for that day is not scheduled again', async () => {
   const harness = createSchedulerHarness({
     firedIds: new Set(['morning_briefing:2026-09-10']),
