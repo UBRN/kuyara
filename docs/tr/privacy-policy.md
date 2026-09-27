@@ -6,7 +6,7 @@ ref: privacy-policy
 
 # kuyara gizlilik politikası
 
-Yürürlük tarihi: 19 Eylül 2026.
+Yürürlük tarihi: 27 Eylül 2026.
 
 kuyara, iOS ve Android için bir hava durumu ve kıyafet önerisi uygulamasıdır. Bu metin
 uygulamanın cihazından hangi verileri gönderdiğini, neden gönderdiğini ve bu konuda ne
@@ -100,8 +100,13 @@ Gardırop içeriği veya fotoğrafları; profil tercihlerin; yapay zeka istemler
 analitik kimliği veya uygulamanın yerel profil kimliği.
 
 Bir teknik sınır vardır. Expo paketi, onay sorusunu yanıtlamadan önce teknik hata kayıtlarını
-otomatik olarak yazabilir. Arada uygulamayı arka plana göndermeden kabul edersen bu kayıtlar
-daha sonra gönderilebilir. Yanıtın "hayır" olduğu sürece hiçbir şey gönderilmez.
+otomatik olarak yazabilir. Kabul ettiğinde kuyara önce pakete o ana kadar yazılmış bütün
+kayıtları atlamasını söyler, bu yüzden bu kayıtlar normalde gönderilmez. Nadir durumlarda
+yanıtından önceki bir kayıt yine de gönderilebilir: daha önceki bir açılışa ait ve iOS'un
+uygulamaya ancak sen kabul ettikten sonra ilettiği bir çökme raporu; paylaşım kapalıyken
+yazılmış bir kayıt, paylaşımı yeniden açmandan kısa süre önce bir gönderim denemesi başarısız
+olduysa; ve kurulumdan sonraki ilk açılışta, uygulama kuyara başlamadan arka plana
+gönderilirse açılış süresi. "Hayır" yanıtından sonra hiçbir şey gönderilmez.
 
 Apple'ın App Store tanımlarına göre bu veri, kurulum kimliği üzerinden "kullanıcıyla
 ilişkili" sayılır. İzleme için kullanılmaz.

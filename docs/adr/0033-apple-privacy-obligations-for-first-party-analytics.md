@@ -459,7 +459,7 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
   item, checked again before the next App Store submission, and it is not assumed in either
   direction in the meantime.
 
-- **EAS Observe.** Performance and diagnostic telemetry through `expo-observe` 57.0.21 is
+- **EAS Observe.** Performance and diagnostic telemetry through `expo-observe` 57.0.24 is
   separate from PostHog and carries no product behaviour. Its payloads go to Expo's endpoint
   `https://o.expo.dev/<project-id>/v1/{metrics,logs}` as OpenTelemetry over HTTP. Dispatch
   follows the same consent answer: `granted` dispatches, `withdrawn` and `undecided` do not,
@@ -530,18 +530,19 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
   industrial design name, never the user-settable device name
   (`expo-app-metrics/android/src/main/java/expo/modules/appmetrics/AppMetadataProvider.kt`).
 
-  One limit stands: `dispatchingEnabled` gates delivery, not recording. The app's own
-  `logEvent` and `reportError` calls are gated on the consent answer at the adapter, so
-  nothing kuyara emits is written before consent, but the package's automatic unhandled-error
-  records are written from the moment `expo-app-metrics` is imported, and a flush while
-  dispatch is disabled only advances the cursor when it actually runs
-  (`expo-observe/ios/Observability.swift`, `dispatchMetrics` and `dispatchLogs`), which
-  happens on resign-active and terminate. Records made before consent in a session that is
-  never backgrounded before the grant are therefore delivered after it. The package offers no
-  way to clear them on iOS: `clearStoredEntries` is an empty no-op there
-  (`expo-app-metrics/ios/AppMetricsModule.swift`), and only Android implements it
-  (`android/.../storage/SessionManager.kt`, `clearAllData`). This is an upstream gap to raise
-  with Expo alongside the missing privacy manifests.
+  `dispatchingEnabled` gates delivery, not recording. The app's own `logEvent` and
+  `reportError` calls are gated on consent. The package can still record unhandled errors
+  before consent. On a grant, the adapter awaits `Observe.dispatchEvents()` while dispatch
+  is disabled, advancing the metric and log cursors past those records before enabling
+  delivery. This closes same-session replay of rows already recorded before the grant.
+  Three native limits remain: dispatch defaults to enabled before JavaScript configures it;
+  a MetricKit crash row from an earlier launch can arrive after the grant and cross the
+  cursor then; and the in-process retry gate that follows a failed send returns before the
+  disabled dispatch advances a cursor, so rows written while sharing was withdrawn can be
+  sent after a re-grant inside that backoff window. `dispatchEvents()` resolves in every
+  case, so JavaScript cannot tell. The package offers no iOS clearing API: `clearStoredEntries` is an
+  empty no-op there (`expo-app-metrics/ios/AppMetricsModule.swift`). These are upstream
+  gaps alongside the missing privacy manifests.
 
   Linkage follows section 5: these rows are declared **linked to the user**, on the same
   reasoning that made the analytics identifier linked. Tracking stays "no": the identifier

@@ -52,7 +52,7 @@ export interface PerformanceTelemetry {
   // Consent changed inside this session. `Observe.configure()` is a full replacement that
   // the native side persists, so re-applying it with a new value takes effect immediately
   // rather than at the next launch.
-  setDispatching(enabled: boolean): void;
+  setDispatching(enabled: boolean): Promise<void>;
   isApplied(): boolean;
 }
 

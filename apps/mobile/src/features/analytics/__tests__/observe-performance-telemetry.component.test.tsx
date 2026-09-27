@@ -23,6 +23,7 @@ import type { AnalyticsConsent } from '@/features/profile/domain/profile';
 jest.mock('expo-observe', () => {
   const Observe = {
     configure: jest.fn(),
+    dispatchEvents: jest.fn().mockResolvedValue(undefined),
     logEvent: jest.fn(),
     reportError: jest.fn(),
     markInteractive: jest.fn(),
@@ -38,7 +39,7 @@ jest.mock('expo-observe', () => {
 
 const mockObserve = (
   jest.requireMock('expo-observe') as {
-    Observe: Record<'configure' | 'logEvent' | 'reportError' | 'markInteractive', jest.Mock>;
+    Observe: Record<'configure' | 'dispatchEvents' | 'logEvent' | 'reportError' | 'markInteractive', jest.Mock>;
   }
 ).Observe;
 
@@ -98,12 +99,67 @@ describe('the Observe adapter and consent', () => {
     expect(mockObserve.reportError).toHaveBeenCalledWith(error);
   });
 
-  it('stops recording the moment consent is withdrawn, and resumes on a later grant', () => {
+  it('finishes a disabled dispatch before enabling delivery after a grant', async () => {
+    configureObserveTelemetry({ dispatchingEnabled: false, readConsent });
+    let finishDispatch!: () => void;
+    mockObserve.dispatchEvents.mockImplementationOnce(() => new Promise<void>((resolve) => {
+      finishDispatch = resolve;
+    }));
+
+    storedConsent = 'granted';
+    const grant = observePerformanceTelemetry.setDispatching(true);
+
+    expect(mockObserve.dispatchEvents).toHaveBeenCalledTimes(1);
+    expect(mockObserve.configure).toHaveBeenCalledTimes(1);
+    expect(mockObserve.configure).toHaveBeenLastCalledWith(
+      expect.objectContaining({ dispatchingEnabled: false }),
+    );
+    finishDispatch();
+    await grant;
+
+    expect(mockObserve.configure).toHaveBeenLastCalledWith(
+      expect.objectContaining({ dispatchingEnabled: true }),
+    );
+  });
+
+  it('does not enable delivery if consent is withdrawn during the cursor flush', async () => {
+    configureObserveTelemetry({ dispatchingEnabled: false, readConsent });
+    let finishDispatch!: () => void;
+    mockObserve.dispatchEvents.mockImplementationOnce(() => new Promise<void>((resolve) => {
+      finishDispatch = resolve;
+    }));
+
+    storedConsent = 'granted';
+    const grant = observePerformanceTelemetry.setDispatching(true);
+    storedConsent = 'withdrawn';
+    await observePerformanceTelemetry.setDispatching(false);
+    finishDispatch();
+    await grant;
+
+    expect(mockObserve.configure).not.toHaveBeenCalledWith(
+      expect.objectContaining({ dispatchingEnabled: true }),
+    );
+  });
+
+  it('rejects a failed disabled dispatch and leaves delivery off', async () => {
+    configureObserveTelemetry({ dispatchingEnabled: false, readConsent });
+    mockObserve.dispatchEvents.mockRejectedValueOnce(new Error('dispatch failed'));
+    storedConsent = 'granted';
+
+    await expect(observePerformanceTelemetry.setDispatching(true))
+      .rejects.toThrow('dispatch failed');
+    expect(observePerformanceTelemetry.isApplied()).toBe(false);
+    expect(mockObserve.configure).not.toHaveBeenCalledWith(
+      expect.objectContaining({ dispatchingEnabled: true }),
+    );
+  });
+
+  it('stops recording the moment consent is withdrawn, and resumes on a later grant', async () => {
     storedConsent = 'granted';
     configureObserveTelemetry({ dispatchingEnabled: true, readConsent });
 
     storedConsent = 'withdrawn';
-    observePerformanceTelemetry.setDispatching(false);
+    await observePerformanceTelemetry.setDispatching(false);
     emitBoth();
     expectNothingRecorded();
     expect(mockObserve.configure).toHaveBeenLastCalledWith(
@@ -111,7 +167,7 @@ describe('the Observe adapter and consent', () => {
     );
 
     storedConsent = 'granted';
-    observePerformanceTelemetry.setDispatching(true);
+    await observePerformanceTelemetry.setDispatching(true);
     emitBoth();
     expect(mockObserve.logEvent).toHaveBeenCalledTimes(1);
     expect(mockObserve.reportError).toHaveBeenCalledTimes(1);
@@ -132,12 +188,12 @@ describe('the Observe adapter and consent', () => {
 });
 
 describe('the Observe adapter outside a real build', () => {
-  it('never throws from configuration or from the port', () => {
+  it('never throws from configuration or from the port', async () => {
     expect(() => configureObserveTelemetry({ dispatchingEnabled: false })).not.toThrow();
     expect(() => configureObserveTelemetry({ dispatchingEnabled: true })).not.toThrow();
     expect(() => emitBoth()).not.toThrow();
-    expect(() => observePerformanceTelemetry.setDispatching(false)).not.toThrow();
-    expect(() => observePerformanceTelemetry.setDispatching(true)).not.toThrow();
+    await expect(observePerformanceTelemetry.setDispatching(false)).resolves.toBeUndefined();
+    await expect(observePerformanceTelemetry.setDispatching(true)).resolves.toBeUndefined();
   });
 
   it('renders the wrapped tree and marks interactive without throwing', async () => {
