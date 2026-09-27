@@ -71,8 +71,12 @@ export function ClosetColorPalette({
 
   return (
     <View style={styles.palette} testID="wardrobe-color-palette">
-      <AppText colorRole="textSecondary" variant="label">{copy.solidColorsLabel}</AppText>
-      <View accessibilityLabel={copy.solidColorsLabel} accessibilityRole="radiogroup" style={styles.grid}>
+      {/* Each grid is a radio group named by its heading. iOS has no radio-group container, so
+          the heading is also a header VoiceOver's rotor reaches; Android reads the group. */}
+      <AppText accessibilityRole="header" colorRole="textSecondary" nativeID="wardrobe-color-solid-heading"
+        variant="label">{copy.solidColorsLabel}</AppText>
+      <View accessibilityLabel={copy.solidColorsLabel} accessibilityLabelledBy="wardrobe-color-solid-heading"
+        accessibilityRole="radiogroup" style={styles.grid} testID="wardrobe-color-solid-group">
         {closetSolidSwatches.map(({ id }) => optionSwatch(id))}
         <View style={styles.cell}>
           <NativeColorWell
@@ -94,8 +98,10 @@ export function ClosetColorPalette({
           />
         </View>
       </View>
-      <AppText colorRole="textSecondary" variant="label">{copy.patternColorsLabel}</AppText>
-      <View accessibilityLabel={copy.patternColorsLabel} accessibilityRole="radiogroup" style={styles.grid}>
+      <AppText accessibilityRole="header" colorRole="textSecondary" nativeID="wardrobe-color-pattern-heading"
+        variant="label">{copy.patternColorsLabel}</AppText>
+      <View accessibilityLabel={copy.patternColorsLabel} accessibilityLabelledBy="wardrobe-color-pattern-heading"
+        accessibilityRole="radiogroup" style={styles.grid} testID="wardrobe-color-pattern-group">
         {closetColorOptions.map(({ id }) => optionSwatch(id))}
       </View>
     </View>
