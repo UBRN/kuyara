@@ -22,6 +22,7 @@ import {
   useTextScaling,
 } from '@/components/ui';
 import { Divider } from '@/components/ui/divider';
+import { useStatusAnnouncement } from '@/components/ui/use-status-announcement';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
 import { ANALYTICS_SCHEMA_VERSION } from '@/features/analytics/domain/analytics-events';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
@@ -190,6 +191,25 @@ export function WeatherScreen() {
     state.status === 'ready' && state.isRefreshing,
     state.status === 'ready' && state.refreshFailure !== null,
   );
+  // The same three announced states as Today (docs/product-decisions.md): refreshing,
+  // refresh failed, or last updated, the last of which keeps Weather's fresh/stale split.
+  const freshnessStatus = state.status !== 'ready'
+    ? null
+    : state.isRefreshing
+      ? copy.refreshing
+      : state.refreshFailure !== null
+        ? copy.refreshFailed
+        : state.freshness === 'fresh'
+          ? copy.fresh
+          : copy.stale;
+  // Only the focused screen speaks, so a refresh Today shows as well is not said twice.
+  const [focused, setFocused] = useState(false);
+  useFocusEffect(useCallback(() => {
+    setFocused(true);
+    return () => setFocused(false);
+  }, []));
+  // The freshness line's live region covers Android; VoiceOver hears each change once.
+  useStatusAnnouncement(freshnessStatus, focused);
 
   if (state.status === 'loading') {
     return (
@@ -344,15 +364,6 @@ export function WeatherScreen() {
             notice: copy.rateLimitedNotice,
           }
         : null;
-  // The same three announced states as Today (docs/product-decisions.md): refreshing,
-  // refresh failed, or last updated, the last of which keeps Weather's fresh/stale split.
-  const freshnessStatus = state.isRefreshing
-    ? copy.refreshing
-    : state.refreshFailure !== null
-      ? copy.refreshFailed
-      : state.freshness === 'fresh'
-        ? copy.fresh
-        : copy.stale;
   const locationAccessibilityLabel = accessibilitySentence(
     activeName,
     locationCaption,
