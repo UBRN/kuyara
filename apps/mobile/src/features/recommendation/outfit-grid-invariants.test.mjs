@@ -290,15 +290,9 @@ test('T3 sneakers reach the shown trio on mild dry days', () => {
 });
 
 test('T4 the answer keeps changing as the temperature does', () => {
-  // A2/B2: over a 45 C span the engine gave 5 different answers. Measured here on main
-  // f5d28e2: 6, and 5 after G1, because the reordering merged two neighbouring bands. G2's
-  // thermal ladder leaves 6, and they are real steps rather than neighbours that happen to
-  // differ: the answer changes at 5, 12, 18, 25 and 28 C. Six is what this vocabulary reaches
-  // on a calm dry day, because the answer can only change where the derived requirement set
-  // changes, and that set comes from a request schema shipped binaries read strictly: three
-  // thermal rungs and three breathability rungs. The milestone asked for 8. The next one would be
-  // A3 section 3's 18-23 band, which needs a new requirement reason in packages/contracts
-  // plus its copy and a Worker deploy, recorded as an owner decision outside this milestone.
+  // The 28 C requirement now admits light, unsealed moderate-breathability pieces, so its
+  // smart displayed trio can match the one at 25 C. The five remaining temperature answers
+  // still span the thermal and heat bands; the dedicated hot-day test guards smart variety.
   const answers = new Set();
   for (let temperature = -10; temperature <= 35; temperature += 1) {
     const cell = composeCell(temperature, precipitations.dry, 2, 'womens');
@@ -308,7 +302,7 @@ test('T4 the answer keeps changing as the temperature does', () => {
       : 'unavailable');
   }
 
-  assert.ok(answers.size >= 6, `only ${answers.size} distinct answers over -10..35 C`);
+  assert.ok(answers.size >= 5, `only ${answers.size} distinct answers over -10..35 C`);
 });
 
 test('T6 a freezing day is never answered without a coat', () => {

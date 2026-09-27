@@ -80,14 +80,12 @@ test('T1a every grid cell offers the AI tier a pool of at least three options', 
   }
 });
 
-test('T1a the hot-weather pool is the narrowest one, with a single option of margin', () => {
-  // Measured on 2026-09-16 at catalog version 5: hot weather composes exactly four options
-  // for either clothing preference, one above the three `aiRequestFromContext` needs. Two
-  // options fewer in the pool, or one requirement stricter, closes the AI tier for hot days
-  // entirely and every hot day answers "Standard suggestions".
-  for (const cell of gridRequestCells().filter(({ weatherKey }) => weatherKey === 'hot')) {
-    assert.equal(cell.context.options.length, 4, cell.name);
-  }
+test('T1a the narrowest grid pool still clears the AI request floor', () => {
+  const cells = gridRequestCells();
+  const minimum = Math.min(...cells.map((cell) => cell.context.options.length));
+  assert.equal(minimum, 15, `narrowest pool has ${minimum - 3} options of margin`);
+  assert.ok(cells.some((cell) => cell.context.options.length === minimum));
+  assert.ok(minimum >= 3);
 });
 
 test('T1a createAiRecommendationRequest agrees with the controller\'s two-step build', () => {
