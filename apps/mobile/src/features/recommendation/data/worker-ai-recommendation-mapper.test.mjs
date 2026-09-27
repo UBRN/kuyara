@@ -76,6 +76,20 @@ test('empty aesthetics keep the previous cache context byte-identical while sele
   assert.deepEqual(aiRequestFromContext(selected).styleAesthetics, ['classic', 'minimal']);
 });
 
+test('dry mild aesthetic ordering does not lead the AI offer with a rain shell', () => {
+  for (const clothingPreference of ['womens', 'mens']) {
+    const context = createRecommendationContext({
+      ...input({ temperatureCelsius: 20, clothingPreference }),
+      now: observedAt,
+      dayKind: 'weekday',
+      styleAesthetics: ['relaxed', 'sporty'],
+    });
+    assert.equal(archetypeDayFromRequirements(context.requirements).wet, false);
+    assert.notEqual(context.options[0].garments.find(({ slot }) => slot === 'outer_layer')
+      ?.garmentTypeId, 'rain_jacket', clothingPreference);
+  }
+});
+
 // The archetypes `outfitMatchesArchetype` accepts for an option on a given day, most
 // specific first. The three weather labels are the day's to withhold: a waterproof shell is
 // no rain answer where nothing falls, a rain boot no snow answer outside snow and sleet, and

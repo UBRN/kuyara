@@ -229,6 +229,7 @@ export function createRecommendationContextWithPool(
 ): Readonly<{ context: RecommendationContext; poolOptionIds: readonly string[] }> {
   const departureAt = input.departureAt ?? input.now;
   const requirements = deriveClothingRequirements(input.snapshot, input.now, departureAt);
+  const day = archetypeDayFromRequirements(requirements.requirements);
   const coverage = outfitCoverage(departureAt, input.snapshot.timeZone);
   const composition = composeOutfitPool(requirements, input.clothingPreference, input.dayVariant,
     input.recentWorn);
@@ -250,7 +251,7 @@ export function createRecommendationContextWithPool(
     ...(coverage ? { coverageStart: coverage.start, coverageEnd: coverage.end } : {}),
     requirements: requirements.requirements,
     options: sortByAestheticAffinity(availableOutfits, input.styleAesthetics ?? [],
-      (outfit, id) => outfitMatchesArchetype(outfit, id, input.dayKind)).map(toAiOption),
+      (outfit, id) => outfitMatchesArchetype(outfit, id, input.dayKind, day)).map(toAiOption),
   });
   if (!parsed.success) throw new WorkerAiRecommendationMappingError();
   return {
