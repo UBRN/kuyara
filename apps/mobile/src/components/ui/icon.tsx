@@ -59,6 +59,7 @@ export const iconNames = Object.freeze({
   // O5's leading button icons: each names its action faster than the words do.
   trash: { ios: 'trash', android: 'delete', web: 'delete' },
   photo: { ios: 'photo', android: 'image', web: 'image' },
+  camera: { ios: 'camera', android: 'photo_camera', web: 'photo_camera' },
   skipForward: { ios: 'forward.end', android: 'skip_next', web: 'skip_next' },
   wind: { ios: 'wind', android: 'air', web: 'air' },
   humidity: { ios: 'humidity.fill', android: 'water_drop', web: 'water_drop' },

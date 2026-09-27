@@ -16,10 +16,28 @@ export type WardrobePhotoResize = Readonly<{
   outputHeight: number;
 }>;
 
+/** Where a new Closet photo comes from: the system photo picker or the system camera. */
+export type WardrobePhotoSource = 'library' | 'camera';
+
 export class WardrobePhotoValidationError extends Error {
   constructor() {
     super('The wardrobe photo is invalid.');
     this.name = 'WardrobePhotoValidationError';
+  }
+}
+
+/**
+ * The camera could not be used: `denied` when camera access is off (iOS reports a
+ * restricted camera the same way), `unavailable` when the device has no camera to open.
+ * Neither is a failure of the photo; the library route keeps working.
+ */
+export class WardrobeCameraAccessError extends Error {
+  readonly reason: 'denied' | 'unavailable';
+
+  constructor(reason: 'denied' | 'unavailable') {
+    super('The camera cannot be used.');
+    this.name = 'WardrobeCameraAccessError';
+    this.reason = reason;
   }
 }
 

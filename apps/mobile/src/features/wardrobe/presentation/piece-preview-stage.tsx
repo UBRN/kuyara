@@ -13,6 +13,7 @@ import type {
   StructuralCategory,
 } from '@/features/catalog/domain/garment-taxonomy';
 import type { ClosetColorChoice } from '@/features/wardrobe/domain/closet-color-options';
+import type { WardrobePhotoSource } from '@/features/wardrobe/domain/wardrobe-photo';
 import { useMessages } from '@/localization/use-messages';
 import { borderWidths, layout, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -21,7 +22,8 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 // frame around a dashed garment; after a type, the drawing in the chosen colour or pattern
 // (O8), updating live; after a photo, the photo with a badge naming the type. The photo actions sit on
 // the stage and move under it once the label no longer fits beside the other one (the
-// largest standard sizes). In-app camera capture is build 16 (P5): only the library.
+// largest standard sizes). Take photo opens the system camera and Choose photo the library;
+// a photo from the camera is replaced by Retake, any other by Change.
 const STAGE_HEIGHT = 232;
 // The drawing keeps the band above the actions free.
 const ARTWORK_HEIGHT = 156;
@@ -32,19 +34,22 @@ const PLACEHOLDER_TYPE: GarmentTypeId = 't_shirt';
 export type PiecePreviewStageProps = Readonly<{
   /** The readable photo to show, or `null` to draw the piece. */
   photoUri: string | null;
-  /** Whether the record has a photo, readable or not; it decides Change and Remove. */
+  /** Whether the record has a photo, readable or not; it decides the replace action and Remove. */
   hasPhoto: boolean;
+  /** Where the shown photo came from: `camera` offers Retake, `library` offers Change. */
+  photoSource: WardrobePhotoSource;
   garmentTypeId: GarmentTypeId | null;
   category: StructuralCategory;
   colorFamily: ColorFamily | null;
   /** O8: the palette colour, custom colour or pattern the piece is drawn in, if chosen. */
   colorChoice?: ClosetColorChoice | null;
   typeLabel: string | null;
-  isProcessing: boolean;
+  /** The source whose photo is being prepared; its button shows the spinner. */
+  processingSource: WardrobePhotoSource | null;
   disabled: boolean;
   removeDisabled: boolean;
   onPhotoError: () => void;
-  onSelectPhoto: () => void;
+  onSelectPhoto: (source: WardrobePhotoSource) => void;
   onRemovePhoto: () => void;
 }>;
 
@@ -55,11 +60,12 @@ export function PiecePreviewStage({
   disabled,
   garmentTypeId,
   hasPhoto,
-  isProcessing,
   onPhotoError,
   onRemovePhoto,
   onSelectPhoto,
+  photoSource,
   photoUri,
+  processingSource,
   removeDisabled,
   typeLabel,
 }: PiecePreviewStageProps) {
@@ -70,24 +76,46 @@ export function PiecePreviewStage({
   const stageWidth = Math.min(width, layout.maxContentWidth) - spacing.lg * 2;
   const cornerColor = theme.colors.iconSecondary;
 
+  const cameraBusy = processingSource === 'camera';
+  const libraryBusy = processingSource === 'library';
   const actions = (
     <View style={[styles.actions, stacksButtonPair ? styles.actionsBelow : styles.actionsOnStage]}>
-      <Button
-        accessibilityLabel={
-          isProcessing
-            ? copy.photoProcessingLabel
-            : hasPhoto
-              ? copy.changePhotoAction
-              : copy.selectPhotoAction
-        }
-        disabled={disabled}
-        icon="photo"
-        label={hasPhoto ? copy.photoChangeLabel : copy.selectPhotoAction}
-        loading={isProcessing}
-        onPress={onSelectPhoto}
-        testID="wardrobe-photo-select-button"
-        variant="tonal"
-      />
+      {!hasPhoto || photoSource === 'camera' ? (
+        <Button
+          accessibilityLabel={
+            cameraBusy
+              ? copy.photoProcessingLabel
+              : hasPhoto
+                ? copy.retakePhotoAction
+                : copy.takePhotoAction
+          }
+          disabled={disabled || libraryBusy}
+          icon="camera"
+          label={hasPhoto ? copy.photoRetakeLabel : copy.takePhotoAction}
+          loading={cameraBusy}
+          onPress={() => onSelectPhoto('camera')}
+          testID="wardrobe-photo-camera-button"
+          variant="tonal"
+        />
+      ) : null}
+      {!hasPhoto || photoSource === 'library' ? (
+        <Button
+          accessibilityLabel={
+            libraryBusy
+              ? copy.photoProcessingLabel
+              : hasPhoto
+                ? copy.changePhotoAction
+                : copy.selectPhotoAction
+          }
+          disabled={disabled || cameraBusy}
+          icon="photo"
+          label={hasPhoto ? copy.photoChangeLabel : copy.selectPhotoAction}
+          loading={libraryBusy}
+          onPress={() => onSelectPhoto('library')}
+          testID="wardrobe-photo-select-button"
+          variant="tonal"
+        />
+      ) : null}
       {hasPhoto ? (
         <Button
           accessibilityLabel={copy.removePhotoAction}

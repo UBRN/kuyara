@@ -1,6 +1,6 @@
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { Dimensions, StyleSheet } from 'react-native';
+import { Dimensions, Linking, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import WardrobeRoute from '@/app/(tabs)/(profile)/wardrobe/index';
@@ -22,6 +22,10 @@ import {
 } from '@/features/wardrobe/application/wardrobe-application-context';
 import { nearestFamilyForHex } from '@/features/wardrobe/domain/closet-color-options';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
+import {
+  WardrobeCameraAccessError,
+  type WardrobePhotoSource,
+} from '@/features/wardrobe/domain/wardrobe-photo';
 import type { StagedWardrobePhoto } from '@/features/wardrobe/data/wardrobe-photo-adapters';
 import type { WardrobeConfirmation } from '@/features/wardrobe/presentation/wardrobe-confirmation';
 import { WardrobeItemFormScreen } from '@/features/wardrobe/presentation/wardrobe-item-form-screen';
@@ -391,10 +395,11 @@ test('create and edit forms leave the top safe area to the platform instead of a
 test('a new piece opens on the preview, the two ownership cards and six category tiles (O10)', async () => {
   const result = await render(<CreateForm clothingPreference="womens" />);
 
-  // The stage holds the dashed placeholder in a viewfinder, with one library action and
-  // the hint; there is no camera in build 15 (P5).
+  // The stage holds the dashed placeholder in a viewfinder, with the camera and library
+  // actions on it, and the hint under it.
   expect(result.getByTestId('wardrobe-preview-placeholder', { includeHiddenElements: true })).toBeOnTheScreen();
   expect(result.getByText(messages.en.wardrobe.photoHint)).toBeOnTheScreen();
+  expect(result.getByRole('button', { name: messages.en.wardrobe.takePhotoAction })).toBeOnTheScreen();
   expect(result.getByRole('button', { name: messages.en.wardrobe.selectPhotoAction })).toBeOnTheScreen();
   // Owned is preselected; the cards are the only radios until a category opens.
   expect(result.getAllByRole('radio')).toHaveLength(2);
@@ -850,6 +855,200 @@ test('picker cancellation leaves the form unchanged and photo errors preserve ot
   await waitFor(() => expect(result.getByTestId('wardrobe-photo-error')).toBeOnTheScreen());
   expect(result.getByTestId('wardrobe-name-input').props.value).toBe('My shell');
   expect(result.getByRole('button', { name: messages.en.wardrobe.selectPhotoAction })).toBeEnabled();
+});
+
+function PhotoForm({
+  language = 'en',
+  onCreate = async () => undefined,
+  onDirtyChange = () => undefined,
+  onSelectPhoto,
+}: Readonly<{
+  language?: SupportedLanguage;
+  onCreate?: (input: Record<string, unknown>, photoChange?: unknown) => Promise<void>;
+  onDirtyChange?: (dirty: boolean) => void;
+  onSelectPhoto: (source: WardrobePhotoSource) => Promise<StagedWardrobePhoto | null>;
+}>) {
+  return (
+    <TestProviders language={language}>
+      <WardrobeItemFormScreen
+        isBusy={false}
+        mode="create"
+        onCreate={onCreate}
+        onDirtyChange={onDirtyChange}
+        onSelectPhoto={onSelectPhoto}
+      />
+    </TestProviders>
+  );
+}
+
+// README section 1: both actions sit on the stage, and above text factor 1.2 they leave it
+// and wrap under it (iOS XXXL, the largest standard size, is 1.353).
+test.each([
+  ['en', 1, true],
+  ['tr', 1, true],
+  ['tr', 1.353, false],
+] as const)(
+  'in %s at text factor %s Take photo sits beside Choose photo, on the stage: %s',
+  async (language, fontScale, onStage) => {
+    Dimensions.set({ window: { ...originalWindowDimensions, fontScale } });
+    const copy = messages[language].wardrobe;
+    const result = await render(<PhotoForm language={language} onSelectPhoto={async () => null} />);
+    const stage = within(result.getByTestId('wardrobe-preview-stage'));
+    const camera = result.getByTestId('wardrobe-photo-camera-button');
+    expect(camera).toHaveProp('accessibilityLabel', copy.takePhotoAction);
+    expect(camera).toHaveProp('accessibilityRole', 'button');
+    expect(within(camera).getByText(copy.takePhotoAction, { includeHiddenElements: true })).toBeTruthy();
+    expect(result.getByTestId('wardrobe-photo-select-button')).toHaveProp(
+      'accessibilityLabel',
+      copy.selectPhotoAction,
+    );
+    expect(stage.queryByTestId('wardrobe-photo-camera-button') !== null).toBe(onStage);
+    expect(stage.queryByTestId('wardrobe-photo-select-button') !== null).toBe(onStage);
+  },
+);
+
+test('Take photo asks for the camera, and a captured photo saves like a chosen one with Retake', async () => {
+  const onSelectPhoto = jest.fn(async (_source: WardrobePhotoSource) => stagedPhoto);
+  const onCreate = jest.fn(async () => undefined);
+  const result = await render(<PhotoForm onCreate={onCreate} onSelectPhoto={onSelectPhoto} />);
+  await chooseType(result, 'outerwear', 'rain_jacket');
+
+  await fireEvent.press(result.getByTestId('wardrobe-photo-camera-button'));
+  await waitFor(() => expect(result.getByTestId('wardrobe-photo-preview')).toBeOnTheScreen());
+  expect(onSelectPhoto).toHaveBeenCalledWith('camera');
+  // A captured photo is replaced by the camera again; the library stays one Remove away.
+  expect(result.getByRole('button', { name: messages.en.wardrobe.retakePhotoAction })).toBeOnTheScreen();
+  expect(result.getByRole('button', { name: messages.en.wardrobe.removePhotoAction })).toBeOnTheScreen();
+  expect(result.queryByTestId('wardrobe-photo-select-button')).not.toBeOnTheScreen();
+
+  await fireEvent.press(result.getByTestId(SAVE));
+  expect(onCreate).toHaveBeenCalledWith(
+    expect.objectContaining({ garmentTypeId: 'rain_jacket' }),
+    { kind: 'replace', stagedPhoto },
+  );
+
+  await fireEvent.press(result.getByTestId('wardrobe-photo-remove-button'));
+  expect(result.getByTestId('wardrobe-photo-camera-button')).toHaveProp(
+    'accessibilityLabel',
+    messages.en.wardrobe.takePhotoAction,
+  );
+  expect(result.getByTestId('wardrobe-photo-select-button')).toBeOnTheScreen();
+});
+
+test.each(['en', 'tr'] as const)(
+  'a denied camera explains itself with a Settings link in %s, and Choose photo still works',
+  async (language) => {
+    const copy = messages[language].wardrobe;
+    const openSettings = jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
+    const onSelectPhoto = jest.fn(async (source: WardrobePhotoSource) => {
+      if (source === 'camera') throw new WardrobeCameraAccessError('denied');
+      return stagedPhoto;
+    });
+    const result = await render(<PhotoForm language={language} onSelectPhoto={onSelectPhoto} />);
+
+    await fireEvent.press(result.getByTestId('wardrobe-photo-camera-button'));
+    await waitFor(() =>
+      expect(result.getByTestId('wardrobe-camera-denied')).toHaveTextContent(copy.cameraDeniedMessage),
+    );
+    // Not a failure: no error line and no danger ink.
+    expect(result.queryByTestId('wardrobe-photo-error')).not.toBeOnTheScreen();
+    expect(StyleSheet.flatten(result.getByTestId('wardrobe-camera-denied').props.style).color).toBe(
+      lightTheme.colors.textSecondary,
+    );
+    await fireEvent.press(result.getByRole('button', { name: copy.openSettingsAction }));
+    expect(openSettings).toHaveBeenCalledTimes(1);
+
+    await fireEvent.press(result.getByTestId('wardrobe-photo-select-button'));
+    await waitFor(() => expect(result.getByTestId('wardrobe-photo-preview')).toBeOnTheScreen());
+    expect(onSelectPhoto).toHaveBeenLastCalledWith('library');
+    expect(result.queryByTestId('wardrobe-camera-denied')).not.toBeOnTheScreen();
+    expect(result.getByRole('button', { name: copy.changePhotoAction })).toBeOnTheScreen();
+    openSettings.mockRestore();
+  },
+);
+
+test('in the edit form, a Retake that meets denied access offers Change, which the note points to', async () => {
+  const secondPhoto: StagedWardrobePhoto = {
+    id: '318f0f4d-1d45-4ae7-a8f1-796e8297d3b4',
+    previewUri: 'file:///private/cache/second-photo.jpg',
+  };
+  let cameraCalls = 0;
+  const onSelectPhoto = jest.fn(async (source: WardrobePhotoSource) => {
+    if (source === 'library') return secondPhoto;
+    cameraCalls += 1;
+    if (cameraCalls > 1) throw new WardrobeCameraAccessError('denied');
+    return stagedPhoto;
+  });
+  const onDiscard = jest.fn(async () => undefined);
+  const onUpdate = jest.fn(async () => undefined);
+  const result = await render(
+    <TestProviders>
+      <WardrobeItemFormScreen
+        isBusy={false}
+        item={item}
+        mode="edit"
+        onCreate={async () => undefined}
+        onDiscardStagedPhoto={onDiscard}
+        onDirtyChange={() => undefined}
+        onSelectPhoto={onSelectPhoto}
+        onUpdate={onUpdate}
+      />
+    </TestProviders>,
+  );
+  const copy = messages.en.wardrobe;
+
+  await fireEvent.press(result.getByTestId('wardrobe-photo-camera-button'));
+  await waitFor(() => expect(result.getByRole('button', { name: copy.retakePhotoAction })).toBeOnTheScreen());
+  await fireEvent.press(result.getByRole('button', { name: copy.retakePhotoAction }));
+  await waitFor(() => expect(result.getByTestId('wardrobe-camera-denied')).toBeOnTheScreen());
+  // The note says a photo can be chosen instead, so the library action is on the stage.
+  expect(result.getByRole('button', { name: copy.changePhotoAction })).toBeOnTheScreen();
+  expect(result.queryByRole('button', { name: copy.retakePhotoAction })).not.toBeOnTheScreen();
+  expect(result.getByRole('button', { name: copy.openSettingsAction })).toBeOnTheScreen();
+
+  await fireEvent.press(result.getByRole('button', { name: copy.changePhotoAction }));
+  await waitFor(() =>
+    expect(result.getByTestId('wardrobe-photo-preview').props.source.uri).toBe(secondPhoto.previewUri),
+  );
+  expect(onSelectPhoto).toHaveBeenLastCalledWith('library');
+  expect(onDiscard).toHaveBeenCalledWith(stagedPhoto);
+  expect(result.queryByTestId('wardrobe-camera-denied')).not.toBeOnTheScreen();
+  await fireEvent.press(result.getByTestId(SAVE));
+  expect(onUpdate).toHaveBeenCalledWith(expect.any(Object), { kind: 'replace', stagedPhoto: secondPhoto });
+});
+
+test('a device without a camera says so calmly, with no Settings link and no error', async () => {
+  const onSelectPhoto = jest.fn(async (source: WardrobePhotoSource) => {
+    if (source === 'camera') throw new WardrobeCameraAccessError('unavailable');
+    return null;
+  });
+  const result = await render(<PhotoForm language="tr" onSelectPhoto={onSelectPhoto} />);
+
+  await fireEvent.press(result.getByTestId('wardrobe-photo-camera-button'));
+  await waitFor(() =>
+    expect(result.getByTestId('wardrobe-camera-unavailable')).toHaveTextContent(
+      messages.tr.wardrobe.cameraUnavailableMessage,
+    ),
+  );
+  expect(result.queryByTestId('wardrobe-photo-error')).not.toBeOnTheScreen();
+  expect(result.queryByRole('button', { name: messages.tr.wardrobe.openSettingsAction })).not.toBeOnTheScreen();
+  expect(result.getByTestId('wardrobe-photo-select-button')).toBeEnabled();
+  expect(result.getByTestId('wardrobe-photo-camera-button')).toBeEnabled();
+});
+
+test('cancelling the camera leaves the form unchanged', async () => {
+  const onDirtyChange = jest.fn();
+  const onSelectPhoto = jest.fn(async (_source: WardrobePhotoSource) => null);
+  const result = await render(<PhotoForm onDirtyChange={onDirtyChange} onSelectPhoto={onSelectPhoto} />);
+
+  await fireEvent.press(result.getByTestId('wardrobe-photo-camera-button'));
+  await waitFor(() => expect(onSelectPhoto).toHaveBeenCalledWith('camera'));
+  expect(onDirtyChange).not.toHaveBeenCalledWith(true);
+  expect(result.queryByTestId('wardrobe-photo-preview')).not.toBeOnTheScreen();
+  expect(result.queryByTestId('wardrobe-camera-denied')).not.toBeOnTheScreen();
+  expect(result.queryByTestId('wardrobe-camera-unavailable')).not.toBeOnTheScreen();
+  expect(result.queryByTestId('wardrobe-photo-error')).not.toBeOnTheScreen();
+  expect(result.getByTestId('wardrobe-photo-camera-button')).toBeEnabled();
 });
 
 test('photo processing exposes busy state and selected photo participates in dirty save state', async () => {

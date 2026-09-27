@@ -2,6 +2,7 @@
   "ios": {
     "NSLocationWhenInUseUsageDescription": "kuyara uses your approximate location to find the weather for your outfit suggestions while you use the app.",
     "NSMotionUsageDescription": "kuyara uses motion data to help estimate your approximate location for the weather while you use the app.",
+    "NSCameraUsageDescription": "kuyara uses the camera so you can take a Closet photo.",
     "NSPhotoLibraryUsageDescription": "kuyara uses your photo library so you can choose a Closet photo."
   }
 }

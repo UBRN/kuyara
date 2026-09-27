@@ -73,7 +73,7 @@ export function WardrobeApplicationProvider({
     () => ({
       refresh: () => controller.refresh(),
       getItem: (id) => controller.getItem(id),
-      preparePhoto: () => controller.preparePhoto(),
+      preparePhoto: (source) => controller.preparePhoto(source),
       discardStagedPhoto: (photo) => controller.discardStagedPhoto(photo),
       resolvePhotoUri: (relativePath) => controller.resolvePhotoUri(relativePath),
       createItem: (input, photoChange) => controller.createItem(input, photoChange),
