@@ -535,7 +535,7 @@ test('a legacy request rejects office_ready on smart while a day-aware request a
 });
 
 test('accepts every archetype when its option satisfies the precondition', async () => {
-  // The three weather archetypes need the day as well as the garment, so their cases carry
+  // Weather archetypes need the day as well as the garment, so their cases carry
   // the requirements the day derives; the rest run on the fixture's own mild day.
   const dayOf = (reasonCode) => [{
     kind: 'water_protection',
@@ -556,7 +556,8 @@ test('accepts every archetype when its option satisfies the precondition', async
     ['cold_shield', separatesOption(
       'cold', 'casual', 't_shirt', 'trousers', 'closed_shoes',
       { outerThermalHigh: true },
-    )],
+    ), [{ kind: 'thermal', minimum: 'moderate', priority: 'mandatory',
+      reasonCodes: ['temperature_low'] }]],
     ['rain_ready', separatesOption(
       'rain', 'casual', 't_shirt', 'trousers', 'closed_shoes',
       { outerWaterProtective: true },
@@ -568,7 +569,8 @@ test('accepts every archetype when its option satisfies the precondition', async
     ['wind_guard', separatesOption(
       'wind', 'casual', 't_shirt', 'trousers', 'closed_shoes',
       { windResistant: true },
-    )],
+    ), [{ kind: 'wind_protection', minimum: 'wind_resistant', priority: 'optional',
+      reasonCodes: ['wind_elevated'] }]],
     ['light_and_airy', separatesOption(
       'airy', 'casual', 't_shirt', 'shorts', 'sandals',
       { breathabilityHigh: true },

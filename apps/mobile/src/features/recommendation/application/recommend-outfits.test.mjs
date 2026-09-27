@@ -374,14 +374,9 @@ test('the rationale grid keeps band-neutral reasons across boundary temperatures
 
   assert.equal(mildDay.status, 'recommended');
   assert.deepEqual(mildDay.requirements.reasonCodes, []);
-  const windGuard = mildDay.outfits.find(({ archetypeId }) => archetypeId === 'wind_guard');
-  assert.ok(windGuard);
-  assert.deepEqual(
-    windGuard.reasonCodes.map(
-      (reason) => messages.en.today.compositionReasons[reason],
-    ),
-    ['This outfit carries more warmth than the day calls for.'],
-  );
+  assert.equal(mildDay.outfits.some(({ archetypeId }) => archetypeId === 'wind_guard'), false);
+  assert.ok(mildDay.outfits.some(({ reasonCodes }) =>
+    reasonCodes.includes('thermal_over_protection')));
   assert.equal(
     messages.en.today.compositionReasons.thermal_over_protection,
     'This outfit carries more warmth than the day calls for.',
@@ -462,6 +457,43 @@ test('fallback archetypes use rule order and advance past duplicates', () => {
     result.outfits.map(({ archetypeId }) => archetypeId),
     ['rain_ready', 'cold_shield', 'wind_guard'],
   );
+});
+
+test('cold and wind labels follow the day in fallback, and three outfits remain', () => {
+  const coldWindy = recommendOutfits({
+    now: observedAt,
+    snapshot: coldWetSnapshot(),
+    clothingPreference: 'womens',
+    dayKind: 'weekday',
+  });
+  assert.equal(coldWindy.status, 'recommended');
+  const coldDay = archetypeDayFromRequirements(coldWindy.requirements.requirements);
+  assert.equal(coldDay.cold, true);
+  assert.equal(coldDay.windy, true);
+  for (const archetypeId of ['cold_shield', 'wind_guard']) {
+    const outfit = coldWindy.outfits.find((candidate) => candidate.archetypeId === archetypeId);
+    assert.ok(outfit, archetypeId);
+    assert.equal(outfitMatchesArchetype(outfit, archetypeId, 'weekday', coldDay), true);
+  }
+
+  const warmCalm = recommendOutfits({
+    now: observedAt,
+    snapshot: snapshot({ current: { temperatureCelsius: 21, apparentTemperatureCelsius: 21 } }),
+    clothingPreference: 'womens',
+    dayKind: 'weekday',
+  });
+  assert.equal(warmCalm.status, 'recommended');
+  assert.equal(warmCalm.outfits.length, 3);
+  assert.equal(new Set(warmCalm.outfits.map(({ archetypeId }) => archetypeId)).size, 3);
+  const warmDay = archetypeDayFromRequirements(warmCalm.requirements.requirements);
+  assert.equal(warmDay.cold, false);
+  assert.equal(warmDay.windy, false);
+  for (const outfit of warmCalm.outfits) {
+    for (const archetypeId of ['cold_shield', 'wind_guard']) {
+      assert.equal(outfitMatchesArchetype(outfit, archetypeId, 'weekday', warmDay), false);
+    }
+    assert.equal(['cold_shield', 'wind_guard'].includes(outfit.archetypeId), false);
+  }
 });
 
 // The bug: snow makes a waterproof outer layer mandatory, so every outfit on a -1 °C snow

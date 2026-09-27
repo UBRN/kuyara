@@ -91,15 +91,13 @@ test('dry mild aesthetic ordering does not lead the AI offer with a rain shell',
 });
 
 // The archetypes `outfitMatchesArchetype` accepts for an option on a given day, most
-// specific first. The three weather labels are the day's to withhold: a waterproof shell is
-// no rain answer where nothing falls, a rain boot no snow answer outside snow and sleet, and
-// nothing is airy on a day asking for insulation.
+// specific first. Weather labels are withheld when the day does not call for them.
 function archetypeCandidates(option, day) {
   return [
     day.wet && option.traits.outerWaterProtective && 'rain_ready',
     day.frozen && option.traits.tractionEnhanced && 'snow_day',
-    option.traits.outerThermalHigh && 'cold_shield',
-    option.traits.windResistant && 'wind_guard',
+    day.cold && option.traits.outerThermalHigh && 'cold_shield',
+    day.windy && option.traits.windResistant && 'wind_guard',
     option.traits.hasMidLayer && option.traits.hasOuterLayer && 'layered_warmth',
     option.traits.hasMidLayer && !option.traits.hasOuterLayer && 'in_between',
     !day.cold && !option.traits.hasOuterLayer && option.traits.breathabilityHigh

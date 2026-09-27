@@ -151,10 +151,10 @@ function attemptFailureReason(error: unknown, timedOut: boolean): ProviderFailur
  * Bump it whenever `meetsArchetypePrecondition`, the archetype projection sent to the
  * model, or the day derivation changes, so every entry an older gate wrote misses and is
  * regenerated instead of being handed to a client whose own gate would reject it. The
- * thirty day TTL makes this the only way those entries retire. Version 2 is the day-aware
- * gate: version 1 labelled a dry day `rain_ready` and a mild one `snow_day`.
+ * thirty day TTL makes this the only way those entries retire. Version 3 also withholds
+ * `cold_shield` and `wind_guard` when the day's requirements do not call for them.
  */
-const AI_GATE_VERSION = 2;
+const AI_GATE_VERSION = 3;
 
 function validSelection(
   picks: { optionId: string; archetypeId: string }[],
@@ -187,7 +187,7 @@ async function buildCacheRequest(
   const optionKey = JSON.stringify(aiModelInputFromRequest(request).options
     .slice().sort((left, right) => left.optionId.localeCompare(right.optionId)));
   // The gate reads the day from the reason codes, which the requirement projection above
-  // drops, so the key carries the same three facts derived through the same function: two
+  // drops, so the key carries the same day facts derived through the same function: two
   // days that the gate judges differently can never share one entry.
   const day = archetypeDayFromRequirements(request.requirements);
   const canonical = [
@@ -201,6 +201,7 @@ async function buildCacheRequest(
     `frozen:${day.frozen}`,
     `wet:${day.wet}`,
     `cold:${day.cold}`,
+    `windy:${day.windy}`,
     `gate:${AI_GATE_VERSION}`,
     // The route and v2-only fields keep the two response versions separate.
     ...(route === aiRecommendV2Path && 'locale' in request
