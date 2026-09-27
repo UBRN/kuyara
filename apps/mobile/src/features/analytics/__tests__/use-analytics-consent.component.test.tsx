@@ -1,10 +1,13 @@
-import { render } from '@testing-library/react-native';
-import { Text } from 'react-native';
+import { act, render } from '@testing-library/react-native';
+import { AppState, type AppStateStatus, Text } from 'react-native';
+import { useEffect, useState } from 'react';
 
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
 import { PerformanceTelemetryContext } from '@/features/analytics/application/use-performance-telemetry';
 import { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
 import { RetryCounter } from '@/features/analytics/application/retry-counter';
+import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
+import type { ProductAnalyticsValue } from '@/features/analytics/application/use-product-analytics';
 import {
   type AnalyticsConsentControls,
   useAnalyticsConsent,
@@ -12,6 +15,7 @@ import {
 import type { ProductAnalytics } from '@/features/analytics/domain/product-analytics';
 import { noopProductAnalytics } from '@/features/analytics/data/noop-product-analytics';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
+import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import {
   ProfileApplicationContext,
   type ProfileApplicationValue,
@@ -37,6 +41,103 @@ const profile = {
   createdAt: '2026-09-09T12:00:00.000Z',
   updatedAt: '2026-09-09T12:00:00.000Z',
 };
+
+const addEventListener = jest.mocked(AppState.addEventListener);
+
+async function renderConsentBoundary(
+  analytics: RecordingProductAnalytics,
+  firstUseStore = new InMemoryFirstUseStore(),
+) {
+  let controls!: AnalyticsConsentControls;
+  let trackers!: ProductAnalyticsValue;
+  function Child() {
+    const currentControls = useAnalyticsConsent();
+    const currentTrackers = useProductAnalytics();
+    useEffect(() => {
+      controls = currentControls;
+      trackers = currentTrackers;
+    }, [currentControls, currentTrackers]);
+    return <Text>{currentControls.consent}</Text>;
+  }
+  function Boundary() {
+    const [consent, setConsent] = useState<'undecided' | 'granted' | 'withdrawn'>('undecided');
+    const application = {
+      state: { status: 'ready' as const, profile: { ...profile, analyticsConsent: consent }, isSaving: false },
+      updateAnalyticsConsent: async (answer: 'undecided' | 'granted' | 'withdrawn') => setConsent(answer),
+    } as ProfileApplicationValue;
+    return (
+      <ProfileApplicationContext value={application}>
+        <ProductAnalyticsProvider analytics={analytics} firstUseStore={firstUseStore}>
+          <Child />
+        </ProductAnalyticsProvider>
+      </ProfileApplicationContext>
+    );
+  }
+  addEventListener.mockClear();
+  const listeners = new Set<(status: AppStateStatus) => void>();
+  addEventListener.mockImplementation((_type, listener) => {
+    listeners.add(listener);
+    return { remove: () => { listeners.delete(listener); } };
+  });
+  await render(<Boundary />);
+  const background = () => {
+    listeners.forEach((listener) => listener('active'));
+    listeners.forEach((listener) => listener('background'));
+  };
+  return { get controls() { return controls; }, get trackers() { return trackers; }, background, firstUseStore };
+}
+
+test('a failure from before the consent answer is not replayed after acceptance', async () => {
+  const analytics = new RecordingProductAnalytics('undecided');
+  const boundary = await renderConsentBoundary(analytics);
+  boundary.trackers.errorEpisodes.failed({ surface: 'today', failureCategory: 'offline' });
+
+  await act(async () => boundary.controls.grant('today_sheet'));
+  boundary.background();
+
+  expect(analytics.names()).toEqual(['analytics_consent_granted']);
+});
+
+test('a failure after acceptance is captured with its post-acceptance timestamp', async () => {
+  const analytics = new RecordingProductAnalytics('undecided');
+  const boundary = await renderConsentBoundary(analytics);
+  jest.useFakeTimers().setSystemTime(new Date('2026-09-09T12:00:00.000Z'));
+  try {
+    boundary.trackers.errorEpisodes.failed({ surface: 'today', failureCategory: 'offline' });
+    await act(async () => boundary.controls.grant('today_sheet'));
+    jest.setSystemTime(new Date('2026-09-09T12:01:00.000Z'));
+
+    boundary.trackers.errorEpisodes.failed({ surface: 'today', failureCategory: 'offline' });
+    boundary.background();
+
+    const shown = analytics.captures.filter((capture) => capture.name === 'error_shown');
+    expect(shown).toHaveLength(1);
+    expect(shown[0].options!.timestamp).toBe('2026-09-09T12:01:00.000Z');
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+test('first use while unanswered writes nothing and a later use records after acceptance', async () => {
+  const analytics = new RecordingProductAnalytics('undecided');
+  const boundary = await renderConsentBoundary(analytics);
+
+  await expect(boundary.trackers.firstUses.markFirstUse('closet')).resolves.toBe(false);
+  expect(await boundary.firstUseStore.has('closet')).toBe(false);
+  await act(async () => boundary.controls.grant('today_sheet'));
+  await expect(boundary.trackers.firstUses.markFirstUse('closet')).resolves.toBe(true);
+  expect(await boundary.firstUseStore.has('closet')).toBe(true);
+});
+
+test('first acceptance clears a marker saved by an earlier build', async () => {
+  const analytics = new RecordingProductAnalytics('undecided');
+  const firstUseStore = new InMemoryFirstUseStore(['closet']);
+  const boundary = await renderConsentBoundary(analytics, firstUseStore);
+
+  await act(async () => boundary.controls.grant('today_sheet'));
+
+  await expect(boundary.trackers.firstUses.markFirstUse('closet')).resolves.toBe(true);
+});
 
 test('grant, withdrawal, and decline use the required operation order', async () => {
   const operations: string[] = [];
@@ -88,6 +189,9 @@ test('grant, withdrawal, and decline use the required operation order', async ()
   await controls.decline();
 
   expect(operations).toEqual([
+    'resetErrors',
+    'resetRetries',
+    'clearFirstUses',
     'persist:granted',
     'optIn:today_sheet',
     'telemetry:true',

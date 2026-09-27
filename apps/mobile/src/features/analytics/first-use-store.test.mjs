@@ -70,7 +70,7 @@ const { ExpoFileFirstUseStore } = await import(
 const storePath = 'file:///documents/kuyara/analytics/first-uses.json';
 
 test('the tracker returns true only once, including concurrent attempts', async () => {
-  const tracker = new FirstUseTracker(new InMemoryFirstUseStore());
+  const tracker = new FirstUseTracker(new InMemoryFirstUseStore(), () => true);
 
   assert.deepEqual(
     await Promise.all([

@@ -1,5 +1,5 @@
 import { AppState, type AppStateStatus } from 'react-native';
-import { type PropsWithChildren, useEffect, useMemo, useRef } from 'react';
+import { type PropsWithChildren, use, useEffect, useMemo, useRef } from 'react';
 
 import { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
 import { FirstUseTracker } from '@/features/analytics/application/first-use-tracker';
@@ -15,6 +15,8 @@ import type {
 import type { FirstUseStore } from '@/features/analytics/domain/first-use-store';
 import { ExpoFileFirstUseStore } from '@/features/analytics/data/expo-file-first-use-store';
 import { noopProductAnalytics } from '@/features/analytics/data/noop-product-analytics';
+import { ProfileApplicationContext } from '@/features/profile/application/profile-context';
+import type { AnalyticsConsent } from '@/features/profile/domain/profile';
 
 const now = () => new Date().toISOString();
 
@@ -28,6 +30,9 @@ export function ProductAnalyticsProvider({
   analytics = noopProductAnalytics,
   firstUseStore,
 }: ProductAnalyticsProviderProps) {
+  const profileApplication = use(ProfileApplicationContext);
+  const consent: AnalyticsConsent | null = profileApplication?.state.status === 'ready'
+    ? profileApplication.state.profile.analyticsConsent : null;
   const resolvedFirstUseStore = useMemo(
     () => firstUseStore ?? new ExpoFileFirstUseStore(),
     [firstUseStore],
@@ -36,11 +41,11 @@ export function ProductAnalyticsProvider({
     const capture: CaptureAnalyticsEvent = (name, properties, options) =>
       analytics.capture(name, properties, options);
     return {
-      errorEpisodes: new ErrorEpisodeTracker(capture, now),
-      firstUses: new FirstUseTracker(resolvedFirstUseStore),
+      errorEpisodes: new ErrorEpisodeTracker(capture, now, () => consent === 'granted'),
+      firstUses: new FirstUseTracker(resolvedFirstUseStore, () => consent === 'granted'),
       retries: new RetryCounter(),
     };
-  }, [analytics, resolvedFirstUseStore]);
+  }, [analytics, consent, resolvedFirstUseStore]);
 
   const value = useMemo<ProductAnalyticsValue>(
     () => ({

@@ -34,15 +34,18 @@ export class ErrorEpisodeTracker {
   private readonly episodes = new Map<string, Episode>();
   private readonly capture: CaptureAnalyticsEvent;
   private readonly now: () => string;
+  private readonly isEnabled: () => boolean;
 
-  constructor(capture: CaptureAnalyticsEvent, now: () => string) {
+  constructor(capture: CaptureAnalyticsEvent, now: () => string, isEnabled: () => boolean) {
     this.capture = capture;
     this.now = now;
+    this.isEnabled = isEnabled;
   }
 
   // A user-facing failure state rendered on a surface. Nothing is captured here: the count
   // is buffered until the pair is finalised.
   failed(pair: ErrorEpisodeKey): void {
+    if (!this.isEnabled()) return;
     const key = pairKey(pair);
     const episode = this.episodes.get(key);
     if (!episode) {
