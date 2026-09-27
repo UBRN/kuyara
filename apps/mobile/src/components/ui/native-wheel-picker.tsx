@@ -1,10 +1,5 @@
 import { Host, Picker } from '@expo/ui';
-import {
-  accessibilityLabel as accessibilityLabelModifier,
-  labelsHidden,
-  pickerStyle,
-  tag,
-} from '@expo/ui/swift-ui/modifiers';
+import { labelsHidden, pickerStyle, tag } from '@expo/ui/swift-ui/modifiers';
 import { Platform } from 'react-native';
 
 import { haptics } from '@/components/ui/haptics';
@@ -21,7 +16,8 @@ const swiftUI = Platform.select<() => typeof import('@expo/ui/swift-ui') | null>
 // The installed SwiftUI `DatePicker` has no minute interval, so a 15-minute time wheel is
 // built from a `Picker` with the `wheel` style over a closed list of options. iOS draws the
 // native rotor with SwiftUI's `Picker` itself, because the universal one passes it no name:
-// the label is hidden from sight and named to VoiceOver, which reads it before the value.
+// `labelsHidden` hides the label from sight and still gives it to VoiceOver, which reads it
+// once before the value (an added accessibility label made it read twice on the Simulator).
 // Android keeps the universal `Picker`, which falls back to the platform's own dropdown
 // (Material 3 has no wheel). `Host matchContents` collapses inside a ScrollView (ADR 0019),
 // so the host takes the standard rotor height explicitly.
@@ -57,7 +53,7 @@ export function NativeWheelPicker<T extends string>({
       {swiftUI ? (
         <swiftUI.Picker
           label={label}
-          modifiers={[pickerStyle('wheel'), labelsHidden(), accessibilityLabelModifier(label)]}
+          modifiers={[pickerStyle('wheel'), labelsHidden()]}
           onSelectionChange={(value) => select(value as T)}
           selection={selection}
           testID={testID}>

@@ -134,10 +134,11 @@ test('names the wheel for VoiceOver without drawing the name', async () => {
     </KuyaraThemeContext.Provider>,
   );
   const wheel = view.getByTestId('wheel');
+  // SwiftUI gives a hidden Picker label to VoiceOver; the host renders no text for it.
   expect(wheel).toHaveAccessibleName(label);
-  expect(wheel.props.modifiers).toEqual(expect.arrayContaining([
-    { $type: 'accessibilityLabel', label },
-    { $type: 'labelsHidden' },
+  expect(wheel.props.modifiers).toEqual(expect.arrayContaining([{ $type: 'labelsHidden' }]));
+  expect(wheel.props.modifiers).not.toEqual(expect.arrayContaining([
+    expect.objectContaining({ $type: 'accessibilityLabel' }),
   ]));
   expect(view.queryByText(label)).toBeNull();
 });
