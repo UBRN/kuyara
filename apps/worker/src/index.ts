@@ -96,6 +96,13 @@ export function createAiProviders(env: Env): AiProvider[] {
   }
   if (typeof env.OPENROUTER_API_KEY === 'string' && env.OPENROUTER_API_KEY.length > 0) {
     for (const model of openRouterModels) {
+      if (typeof model !== 'string' || (
+        model !== 'openrouter/free'
+        && !/^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+:free$/.test(model)
+      )) {
+        console.warn({ event: 'openrouter_model_rejected' });
+        continue;
+      }
       providers.push(new OpenRouterAiProvider({
         apiKey: env.OPENROUTER_API_KEY,
         model,
