@@ -96,10 +96,11 @@ function ReadyApplicationShell({
   const [analytics] = useState(() =>
     createProductAnalytics(__DEV__, profile.analyticsConsent));
   const pathname = usePathname();
-  const { recommendationShown } = useAnalyticsConsentTrigger();
+  const { recommendationShown, beginConsentPresentation } = useAnalyticsConsentTrigger();
   const presentAnalyticsConsent = useCallback(() => {
-    router.push('/analytics-consent');
-  }, []);
+    const presentation = beginConsentPresentation();
+    router.push({ pathname: '/analytics-consent', params: { presentation } });
+  }, [beginConsentPresentation]);
   const baseNavigationTheme = theme.isDark ? DarkTheme : DefaultTheme;
   const navigationTheme = {
     ...baseNavigationTheme,
