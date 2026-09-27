@@ -6,6 +6,7 @@ import { notificationsAreActive } from '@/features/notifications/application/not
 import { useNotificationApplication } from '@/features/notifications/application/notification-context';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
+import { activeLocationSnapshot } from '@/features/weather/domain/weather';
 import { useLocalizationContext } from '@/localization/localization-context';
 
 export function WeatherAlertObserver() {
@@ -19,7 +20,11 @@ export function WeatherAlertObserver() {
   const weather = weatherApplication.state.status === 'ready'
     ? weatherApplication.state
     : null;
-  const snapshot = weather?.snapshot ?? null;
+  const snapshot = weather
+    ? activeLocationSnapshot(weather.snapshot, weather.activeLocation)
+    : null;
+  const locationMismatch = weather?.snapshot != null
+    && weather.snapshot.locationKey !== weather.activeLocation?.locationKey;
   const snapshotId = snapshot?.id;
   const permission = notificationApplication.state.permission;
   const notificationsOptIn = profile?.notificationsOptIn ?? false;
@@ -45,7 +50,9 @@ export function WeatherAlertObserver() {
     // ADR 0004: the two kinds have their own opt-ins, so either one on is a reason to plan
     // and both off is the opt-out that cancels.
     const anyOptIn = notificationsOptIn || morningBriefingOptIn;
-    const cancels = !anyOptIn || permission.kind === 'denied';
+    // A place switch keeps the previous snapshot visible while the new one loads. Cancel
+    // the old place's pending alerts before a failed refresh can leave them on the device.
+    const cancels = !anyOptIn || permission.kind === 'denied' || locationMismatch;
     const plans = anyOptIn
       && permission.kind === 'granted'
       && snapshot !== null;
@@ -67,6 +74,7 @@ export function WeatherAlertObserver() {
     language,
     localDate,
     localProfileId,
+    weather?.activeLocation?.locationKey,
     morningBriefingOptIn,
     notificationApplication.weatherAlertScheduler,
     notificationsOptIn,

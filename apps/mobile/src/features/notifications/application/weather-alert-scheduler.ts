@@ -62,8 +62,8 @@ function briefingCopy(
     maximumFractionDigits: 0,
   });
   const temperatures = {
-    low: format.format(Math.round(plan.content.minimumTemperatureCelsius)),
-    high: format.format(Math.round(plan.content.maximumTemperatureCelsius)),
+    low: format.format(Math.round(plan.content.minimumTemperatureCelsius) || 0),
+    high: format.format(Math.round(plan.content.maximumTemperatureCelsius) || 0),
   };
   if (precipitationLikely) return { title: copy.title, body: copy.wetBody(temperatures) };
   return ['clear', 'mostly_clear'].includes(condition)

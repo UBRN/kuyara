@@ -10,7 +10,7 @@ import type { WeatherAlertDeliveryRepository } from '@/features/notifications/da
 import { ProfileApplicationContext, type ProfileApplicationValue } from '@/features/profile/application/profile-context';
 import type { LocalProfile } from '@/features/profile/domain/profile';
 import { WeatherApplicationContext, type WeatherApplicationValue } from '@/features/weather/application/weather-application-context';
-import type { WeatherFreshness, WeatherSnapshot } from '@/features/weather/domain/weather';
+import type { ActiveLocation, WeatherFreshness, WeatherSnapshot } from '@/features/weather/domain/weather';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 
@@ -93,10 +93,15 @@ function weatherApplication(
   freshness: WeatherFreshness,
   refreshFailure: FailureCategory | null,
   status: 'loading' | 'ready' | 'error',
+  activeLocationKey: string,
 ): WeatherApplicationValue {
   return {
     state: status !== 'ready' ? { status } : {
-      status: 'ready', activeLocation: null, snapshot: weatherSnapshot, freshness,
+      status: 'ready', activeLocation: {
+        source: 'manual', catalogId: 'sample.istanbul', displayName: 'Istanbul',
+        locationKey: activeLocationKey, coordinates: { latitudeE2: 4101, longitudeE2: 2897 },
+        timeZone: 'Europe/Istanbul',
+      } satisfies ActiveLocation, snapshot: weatherSnapshot, freshness,
       permission: { kind: 'undetermined' }, locationFlow: 'idle',
       isSelectingLocation: false, isRefreshing: false, refreshFailure,
     },
@@ -134,6 +139,7 @@ function Providers({
   freshness = 'fresh',
   refreshFailure = null,
   weatherStatus = 'ready',
+  activeLocationKey = 'manual:sample.istanbul',
 }: Readonly<{
   scheduler: WeatherAlertScheduling;
   weatherSnapshot: WeatherSnapshot | null;
@@ -144,6 +150,7 @@ function Providers({
   freshness?: WeatherFreshness;
   refreshFailure?: FailureCategory | null;
   weatherStatus?: 'loading' | 'ready' | 'error';
+  activeLocationKey?: string;
 }>) {
   return (
     <ProfileApplicationContext.Provider value={profileApplication(notificationsOptIn)}>
@@ -151,7 +158,7 @@ function Providers({
         <NotificationApplicationContext.Provider value={notificationApplication(scheduler, permission)}>
           <WeatherApplicationContext.Provider
             value={weatherApplication(
-              weatherSnapshot, freshness, refreshFailure, weatherStatus,
+              weatherSnapshot, freshness, refreshFailure, weatherStatus, activeLocationKey,
             )}
           >
             <WeatherAlertObserver />
@@ -180,6 +187,29 @@ test('a fresh snapshot id change triggers exactly one additional reschedule', as
 
   await waitFor(() => expect(reschedule).toHaveBeenCalledTimes(2));
   expect(reschedule.mock.calls[1]?.[0].snapshot?.id).toBe('snapshot-two');
+});
+
+test('switching location cancels old alerts while the previous snapshot remains', async () => {
+  const harness = cancellableScheduler();
+  const oldSnapshot = snapshot('snapshot-old');
+  const result = await render(
+    <Providers scheduler={harness.scheduler} weatherSnapshot={oldSnapshot} />,
+  );
+  await waitFor(() => expect(harness.cancelScheduledWeatherAlerts).toHaveBeenCalledTimes(1));
+  const scheduledBeforeSwitch = harness.scheduleWeatherAlert.mock.calls.length;
+
+  result.rerender(
+    <Providers
+      scheduler={harness.scheduler}
+      weatherSnapshot={oldSnapshot}
+      activeLocationKey="manual:sample.ankara"
+      freshness="stale"
+      refreshFailure="offline"
+    />,
+  );
+
+  await waitFor(() => expect(harness.cancelScheduledWeatherAlerts).toHaveBeenCalledTimes(2));
+  expect(harness.scheduleWeatherAlert).toHaveBeenCalledTimes(scheduledBeforeSwitch);
 });
 
 // The clock setting decides how the crossing reads in the notification body, so a change
@@ -250,12 +280,13 @@ test('a refresh failure with the same cached snapshot does not cancel or resched
 
 function cancellableScheduler() {
   const cancelScheduledWeatherAlerts = jest.fn(async () => true);
+  const scheduleWeatherAlert = jest.fn(async () => true);
   const gateway: NotificationGateway = {
     getPermissionState: async () => ({ kind: 'granted' }),
     requestPermission: async () => ({ kind: 'granted' }),
     openApplicationSettings: async () => undefined,
     cancelScheduledWeatherAlerts,
-    scheduleWeatherAlert: async () => true,
+    scheduleWeatherAlert,
     subscribeToResponses: () => () => undefined,
   };
   const repository: WeatherAlertDeliveryRepository = {
@@ -266,6 +297,7 @@ function cancellableScheduler() {
   };
   return {
     cancelScheduledWeatherAlerts,
+    scheduleWeatherAlert,
     scheduler: new WeatherAlertScheduler(
       gateway,
       repository,
