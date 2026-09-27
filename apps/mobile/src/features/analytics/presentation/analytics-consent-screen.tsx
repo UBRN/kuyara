@@ -13,11 +13,13 @@ import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 export type AnalyticsConsentScreenProps = Readonly<{
+  answerPending?: boolean;
   onAccept: () => Promise<void>;
   onDecline: () => Promise<void>;
 }>;
 
 export function AnalyticsConsentScreen({
+  answerPending = false,
   onAccept,
   onDecline,
 }: AnalyticsConsentScreenProps) {
@@ -34,7 +36,7 @@ export function AnalyticsConsentScreen({
   }, [entranceProgress, theme.motion.fast]);
 
   const answer = async (operation: () => Promise<void>) => {
-    if (isAnswering) return;
+    if (isAnswering || answerPending) return;
     setIsAnswering(true);
     try {
       await operation();
@@ -66,7 +68,7 @@ export function AnalyticsConsentScreen({
         </View>
         <View style={styles.actions}>
           <Button
-            disabled={isAnswering}
+            disabled={isAnswering || answerPending}
             label={messages.analytics.acceptAction}
             onPress={() => void answer(onAccept)}
             size="large"
@@ -75,7 +77,7 @@ export function AnalyticsConsentScreen({
             variant="prominent"
           />
           <Button
-            disabled={isAnswering}
+            disabled={isAnswering || answerPending}
             label={messages.analytics.declineAction}
             onPress={() => void answer(onDecline)}
             size="large"

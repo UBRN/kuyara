@@ -13,6 +13,7 @@ import {
   useAnalyticsConsent,
 } from '@/features/analytics/application/use-analytics-consent';
 import type { ProductAnalytics } from '@/features/analytics/domain/product-analytics';
+import type { PerformanceTelemetry } from '@/features/analytics/domain/performance-telemetry';
 import { noopProductAnalytics } from '@/features/analytics/data/noop-product-analytics';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
@@ -47,6 +48,8 @@ const addEventListener = jest.mocked(AppState.addEventListener);
 async function renderConsentBoundary(
   analytics: RecordingProductAnalytics,
   firstUseStore = new InMemoryFirstUseStore(),
+  initialConsent: 'undecided' | 'granted' | 'withdrawn' = 'undecided',
+  telemetry?: PerformanceTelemetry,
 ) {
   let controls!: AnalyticsConsentControls;
   let trackers!: ProductAnalyticsValue;
@@ -60,16 +63,23 @@ async function renderConsentBoundary(
     return <Text>{currentControls.consent}</Text>;
   }
   function Boundary() {
-    const [consent, setConsent] = useState<'undecided' | 'granted' | 'withdrawn'>('undecided');
+    const [consent, setConsent] = useState<'undecided' | 'granted' | 'withdrawn'>(initialConsent);
     const application = {
       state: { status: 'ready' as const, profile: { ...profile, analyticsConsent: consent }, isSaving: false },
       updateAnalyticsConsent: async (answer: 'undecided' | 'granted' | 'withdrawn') => setConsent(answer),
     } as ProfileApplicationValue;
     return (
       <ProfileApplicationContext value={application}>
-        <ProductAnalyticsProvider analytics={analytics} firstUseStore={firstUseStore}>
-          <Child />
-        </ProductAnalyticsProvider>
+        <PerformanceTelemetryContext value={telemetry ?? {
+          logEvent: () => undefined,
+          reportError: () => undefined,
+          setDispatching: async () => undefined,
+          isApplied: () => true,
+        }}>
+          <ProductAnalyticsProvider analytics={analytics} firstUseStore={firstUseStore}>
+            <Child />
+          </ProductAnalyticsProvider>
+        </PerformanceTelemetryContext>
       </ProfileApplicationContext>
     );
   }
@@ -96,6 +106,43 @@ test('a failure from before the consent answer is not replayed after acceptance'
   boundary.background();
 
   expect(analytics.names()).toEqual(['analytics_consent_granted']);
+});
+
+test('granting consent again does not capture or opt in a second time', async () => {
+  const analytics = new RecordingProductAnalytics('granted');
+  const boundary = await renderConsentBoundary(analytics, new InMemoryFirstUseStore(), 'granted');
+
+  await act(async () => boundary.controls.grant('today_sheet'));
+
+  expect(analytics.names()).toEqual([]);
+  expect(analytics.optInCount).toBe(0);
+  expect(boundary.controls.consent).toBe('granted');
+});
+
+test('retrying a stored grant applies an analytics provider that has not applied it', async () => {
+  const analytics = new RecordingProductAnalytics('undecided');
+  const boundary = await renderConsentBoundary(analytics, new InMemoryFirstUseStore(), 'granted');
+
+  await act(async () => boundary.controls.grant('settings_privacy'));
+
+  expect(analytics.optInCount).toBe(1);
+  expect(analytics.names()).toEqual(['analytics_consent_granted']);
+});
+
+test('retrying a stored grant applies telemetry that has not applied it', async () => {
+  const analytics = new RecordingProductAnalytics('granted');
+  const dispatch = jest.fn(async () => undefined);
+  const boundary = await renderConsentBoundary(analytics, new InMemoryFirstUseStore(), 'granted', {
+    logEvent: () => undefined,
+    reportError: () => undefined,
+    setDispatching: dispatch,
+    isApplied: () => false,
+  });
+
+  await act(async () => boundary.controls.grant('settings_privacy'));
+
+  expect(analytics.optInCount).toBe(1);
+  expect(dispatch).toHaveBeenCalledWith(true);
 });
 
 test('a failure after acceptance is captured with its post-acceptance timestamp', async () => {
