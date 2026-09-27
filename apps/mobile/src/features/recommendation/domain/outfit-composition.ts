@@ -929,13 +929,27 @@ function candidateKeys(draft: DraftComposition): readonly string[] {
 function evaluateDraft(
   draft: DraftComposition,
   requirements: BodyClothingRequirements,
-): OutfitCandidate {
+  skipInvalid: true,
+): OutfitCandidate | null;
+function evaluateDraft(
+  draft: DraftComposition,
+  requirements: BodyClothingRequirements,
+  skipInvalid?: false,
+): OutfitCandidate;
+function evaluateDraft(
+  draft: DraftComposition,
+  requirements: BodyClothingRequirements,
+  skipInvalid = false,
+): OutfitCandidate | null {
   const aggregates = aggregateProperties(draft);
   const requirementEvaluations = Object.freeze(
     requirements.requirements.map((requirement) =>
       evaluateRequirement(requirement, draft, aggregates, requirements),
     ),
   );
+  if (skipInvalid && !requirementsMet(requirementEvaluations)) {
+    return null;
+  }
   const weightedTotal = requirementEvaluations.reduce(
     (sum, evaluation) =>
       sum + evaluation.contribution *
@@ -1046,40 +1060,13 @@ function evaluateDraft(
   });
 }
 
-/**
- * Half of validity, and the half that reads only the draft: every garment's formality has
- * to sit inside one step of the ladder. It is checked before the draft is scored, because a
- * catalogue that spans three formality levels drafts far more mixed outfits than consistent
- * ones and scoring one costs orders of magnitude more than this. `collectValidOutfits`
- * keeps the rejected drafts so a day that composes nothing still reports the same evidence.
- */
-function hasConsistentFormality(draft: DraftComposition): boolean {
-  let lowest = Number.MAX_SAFE_INTEGER;
-  let highest = -1;
-  for (const result of bodyResults(draft)) {
-    const rank = formalityRankOf(result);
-    if (rank < 0) {
-      return false;
-    }
-    lowest = Math.min(lowest, rank);
-    highest = Math.max(highest, rank);
-  }
-
-  const footwearRank = formalityRankOf(draft.footwear);
-  if (footwearRank < 0) {
-    return false;
-  }
-
-  return Math.max(highest, footwearRank) - Math.min(lowest, footwearRank) <= 1;
-}
-
 function formalityRankOf(result: EligibleGarmentResult): number {
   const formality = getGarmentType(result.garment.garmentTypeId)?.formality;
   return formality ? formalityOrder.indexOf(formality) : -1;
 }
 
-function isValid(candidate: OutfitCandidate): boolean {
-  return candidate.requirementEvaluations.every(
+function requirementsMet(evaluations: readonly OutfitRequirementEvaluation[]): boolean {
+  return evaluations.every(
     ({ requirement, status }) =>
       requirement.priority === 'optional' ||
       status === 'met' ||
@@ -1116,16 +1103,16 @@ function slotScoreVector(candidate: OutfitCandidate): readonly number[] {
  * day composes tens of thousands of valid outfits, so the sort asks for these hundreds of
  * thousands of times; `slotScoreVector` allocated and froze an array on every one of them.
  */
-type OutfitSortKey = Readonly<{
-  outfit: OutfitCandidate;
-  layers: number;
-  slotScores: readonly number[];
-  digest: number;
-}>;
+type OutfitSortKey = {
+  readonly outfit: OutfitCandidate;
+  readonly layers: number;
+  readonly slotScores: readonly number[];
+  digest?: number;
+};
 
 /**
- * A stable 32-bit FNV-1a digest of a composition key, read once per outfit like the rest of
- * the sort key rather than once per comparison.
+ * A stable 32-bit FNV-1a digest of a composition key. The comparator requests it only
+ * when score, penalties, layer count and slot scores all tie.
  */
 function compositionKeyDigest(key: string): number {
   let hash = 0x811c9dc5;
@@ -1140,7 +1127,6 @@ function outfitSortKey(outfit: OutfitCandidate): OutfitSortKey {
     outfit,
     layers: optionalLayerCount(outfit),
     slotScores: slotScoreVector(outfit),
-    digest: compositionKeyDigest(outfit.compositionKey),
   };
 }
 
@@ -1173,7 +1159,8 @@ function compareOutfitSortKeys(left: OutfitSortKey, right: OutfitSortKey): numbe
   // and sneakers reached 6 of the 1512 shown outfits the grid measures. The digest keeps the
   // order deterministic and total while taking the garment's name out of it, and the key
   // itself settles the rare collision so the comparator stays a strict weak ordering.
-  const digestOrder = left.digest - right.digest;
+  const digestOrder = (left.digest ??= compositionKeyDigest(left.outfit.compositionKey)) -
+    (right.digest ??= compositionKeyDigest(right.outfit.compositionKey));
   return digestOrder !== 0
     ? digestOrder
     : compareStrings(left.outfit.compositionKey, right.outfit.compositionKey);
@@ -1520,6 +1507,7 @@ function composeValidOutfits(
   }
 
   const evaluated: OutfitCandidate[] = [];
+  const invalidDrafts: DraftComposition[] = [];
   // Scored only when nothing composes, so the failure evidence covers every draft.
   const mixedFormality: DraftComposition[] = [];
   const midOptions: readonly (EligibleGarmentResult | null)[] = [
@@ -1530,12 +1518,20 @@ function composeValidOutfits(
     null,
     ...outerLayers,
   ];
+  const rankedFootwear = footwear.map((candidate) => ({
+    candidate,
+    rank: formalityRankOf(candidate),
+  }));
 
   for (const body of bodyCores) {
     for (const midLayer of midOptions) {
       for (const outerLayer of outerOptions) {
         const bodySide = bodySideResults(body, midLayer, outerLayer);
-        for (const footwearCandidate of footwear) {
+        const bodyRanks = bodySide.map(formalityRankOf);
+        const lowest = Math.min(...bodyRanks);
+        const highest = Math.max(...bodyRanks);
+        const bodyConsistent = lowest >= 0 && highest - lowest <= 1;
+        for (const { candidate: footwearCandidate, rank: footwearRank } of rankedFootwear) {
           const draft = Object.freeze({
             body,
             midLayer,
@@ -1546,8 +1542,14 @@ function composeValidOutfits(
           if (hasDuplicateCandidate(draft)) {
             continue;
           }
-          if (hasConsistentFormality(draft)) {
-            evaluated.push(evaluateDraft(draft, requirements));
+          if (bodyConsistent && footwearRank >= 0 &&
+            Math.max(highest, footwearRank) - Math.min(lowest, footwearRank) <= 1) {
+            const outfit = evaluateDraft(draft, requirements, true);
+            if (outfit) {
+              evaluated.push(outfit);
+            } else {
+              invalidDrafts.push(draft);
+            }
           } else {
             mixedFormality.push(draft);
           }
@@ -1556,7 +1558,7 @@ function composeValidOutfits(
     }
   }
 
-  const valid = sortedOutfits(evaluated.filter(isValid));
+  const valid = sortedOutfits(evaluated);
   if (valid.length > 0) {
     return Object.freeze({
       status: 'composed',
@@ -1566,7 +1568,7 @@ function composeValidOutfits(
   }
 
   const evidence = bestEvidence(mandatoryRequirements, [
-    ...evaluated,
+    ...invalidDrafts.map((draft) => evaluateDraft(draft, requirements)),
     ...mixedFormality.map((draft) => evaluateDraft(draft, requirements)),
   ]);
   const unmet = mandatoryRequirements.filter((requirement) => {
