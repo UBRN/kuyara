@@ -17,9 +17,9 @@ export type AnalyticsCaptureOptions = Readonly<{
 }>;
 
 export interface ProductAnalytics {
-  // While consent is undecided, the composition-root decorator buffers captures in memory.
-  // A first grant creates no provider client before consent. A later grant may prepare
-  // an opted-out client, but persisted consent also gates its transport.
+  // Captures while consent is undecided are dropped. A first grant creates no provider
+  // client before consent. A later grant may prepare an opted-out client, but persisted
+  // consent also gates its transport.
   capture<Name extends AnalyticsEventName>(
     name: Name,
     properties: AnalyticsEventProperties<Name>,
@@ -40,8 +40,8 @@ export interface ProductAnalytics {
   clearCleanupPending(): void;
   isCleanupPending(): boolean;
 
-  // Records the first-launch decline locally by discarding the undecided buffer. It never
-  // delegates to a provider and therefore sends no event.
+  // Records the first-launch decline locally. It never delegates to a provider or sends
+  // an event.
   decline(): Promise<void>;
 
   // The use case best-effort captures and flushes the final withdrawal event while

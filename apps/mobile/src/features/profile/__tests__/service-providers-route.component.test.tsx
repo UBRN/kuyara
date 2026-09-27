@@ -5,6 +5,7 @@ import ServiceProvidersRoute from '@/app/(tabs)/(profile)/settings/service-provi
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
+import { ProfileApplicationContext, type ProfileApplicationValue } from '@/features/profile/application/profile-context';
 import type { AiProbeUiState } from '@/features/recommendation/application/ai-probe-state';
 import { WeatherApplicationContext, type WeatherApplicationValue } from '@/features/weather/application/weather-application-context';
 import { LocalizationContext } from '@/localization/localization-context';
@@ -49,13 +50,17 @@ async function renderRoute(analytics: RecordingProductAnalytics, sourceId?: stri
     <LocalizationContext.Provider value={{ language: 'en', messages: messages.en , hour12: false }}>
       <KuyaraThemeContext.Provider value={lightTheme}>
         <SafeAreaProvider initialMetrics={initialMetrics}>
-          <ProductAnalyticsProvider
-            analytics={analytics}
-            firstUseStore={new InMemoryFirstUseStore()}>
-            <WeatherApplicationContext.Provider value={weather}>
-              <ServiceProvidersRoute />
-            </WeatherApplicationContext.Provider>
-          </ProductAnalyticsProvider>
+          <ProfileApplicationContext value={{
+            state: { status: 'ready', profile: { analyticsConsent: 'granted' }, isSaving: false },
+          } as ProfileApplicationValue}>
+            <ProductAnalyticsProvider
+              analytics={analytics}
+              firstUseStore={new InMemoryFirstUseStore()}>
+              <WeatherApplicationContext.Provider value={weather}>
+                <ServiceProvidersRoute />
+              </WeatherApplicationContext.Provider>
+            </ProductAnalyticsProvider>
+          </ProfileApplicationContext>
         </SafeAreaProvider>
       </KuyaraThemeContext.Provider>
     </LocalizationContext.Provider>,

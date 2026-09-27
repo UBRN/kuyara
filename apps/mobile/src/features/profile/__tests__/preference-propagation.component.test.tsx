@@ -182,9 +182,9 @@ const notificationGateway = {
 // ADR 0030: the root list and the four preference pickers are native. These tests assert
 // the strings and selected tags kuyara supplies, while the system owns row and menu chrome.
 test('live preferences and support propagate localized behavior without remounting', async () => {
-  mockProfile = createProfile();
+  mockProfile = { ...createProfile(), analyticsConsent: 'granted' };
   const onMount = jest.fn();
-  const analytics = new RecordingProductAnalytics();
+  const analytics = new RecordingProductAnalytics('granted');
   const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
   const result = await render(
     <SafeAreaProvider initialMetrics={initialMetrics}>
@@ -213,12 +213,6 @@ test('live preferences and support propagate localized behavior without remounti
   expect(result.getAllByTestId('expo-ui-list')).toHaveLength(1);
   expect(within(result.getByTestId('settings-appearance-group')).getByTestId('settings-theme-row')).toBeOnTheScreen();
   expect(within(result.getByTestId('settings-about-group')).getByTestId('settings-service-providers-row')).toBeOnTheScreen();
-  expect(within(result.getByTestId('settings-about-group')).getByTestId('settings-privacy-row')).toBeOnTheScreen();
-  // The Privacy row is a door, not a status: it carries glyph, label and chevron and no
-  // trailing value, so an unanswered consent sheet is never reported as a setting.
-  expect(result.queryByTestId('settings-privacy-row-value-stacked')).not.toBeOnTheScreen();
-  expect(result.queryByText(messages.en.analytics.statusNotAsked)).not.toBeOnTheScreen();
-  expect(result.getByText(messages.en.analytics.privacyTitle)).toBeOnTheScreen();
   expect(result.getByText(messages.en.settings.supportRow)).toBeOnTheScreen();
   await fireEvent.press(result.getByTestId('settings-support-row'));
   expect(openURL).toHaveBeenLastCalledWith('https://ubrn.github.io/kuyara/support?lang=en');
@@ -328,6 +322,27 @@ test('live preferences and support propagate localized behavior without remounti
     { schema_version: 3, feature_name: 'appearance_override' },
   ]);
   openURL.mockRestore();
+});
+
+test('Privacy row is a door while analytics consent is unanswered', async () => {
+  mockProfile = { ...createProfile(), analyticsConsent: 'undecided' };
+  const result = await render(
+    <SafeAreaProvider initialMetrics={initialMetrics}>
+      <ProfileApplicationProvider>
+        <ProductAnalyticsProvider
+          analytics={new RecordingProductAnalytics('undecided')}
+          firstUseStore={new InMemoryFirstUseStore()}>
+          <MountedSettingsRoutes onMount={() => undefined} />
+        </ProductAnalyticsProvider>
+      </ProfileApplicationProvider>
+    </SafeAreaProvider>,
+  );
+
+  expect(await result.findByTestId('settings-privacy-row')).toBeOnTheScreen();
+  expect(within(result.getByTestId('settings-about-group')).getByTestId('settings-privacy-row')).toBeOnTheScreen();
+  expect(result.queryByTestId('settings-privacy-row-value-stacked')).not.toBeOnTheScreen();
+  expect(result.queryByText(messages.en.analytics.statusNotAsked)).not.toBeOnTheScreen();
+  expect(result.getByText(messages.en.analytics.privacyTitle)).toBeOnTheScreen();
 });
 
 test('personal preferences keep their order and birth date can be cleared to null', async () => {

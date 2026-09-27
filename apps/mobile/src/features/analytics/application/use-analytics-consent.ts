@@ -71,16 +71,13 @@ export function useAnalyticsConsent(): AnalyticsConsentControls {
         // A previous withdrawal may have failed, even in an earlier app process. The
         // provider must be cleaned while opted out before the answer can change.
         await analytics.prepareGrant();
-        // A withdrawn period has no analytics identity. Clear taxonomy 5.10 tracker state
-        // accumulated during it, and taxonomy 5.11 first uses from the severed identity,
-        // before the new identity starts.
-        errorEpisodes.reset();
-        retries.reset();
-        await firstUses.clear();
       }
+      // Neither an unanswered nor a withdrawn period belongs to the new identity.
+      // Clear pending failures and retries, including first-use markers from older builds.
+      errorEpisodes.reset();
+      retries.reset();
+      await firstUses.clear();
       await updateAnalyticsConsent('granted');
-      // For the initial undecided window, keep the onboarding session's tracker state.
-      // Resetting it would lose counts or permit a duplicate first use after buffered events.
       try {
         await analytics.optIn(surface);
         telemetry.setDispatching(telemetryDispatchingEnabled('granted'));
