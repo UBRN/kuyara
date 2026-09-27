@@ -1,6 +1,6 @@
 import { act, fireEvent, isHiddenFromAccessibility, render, waitFor, within } from '@testing-library/react-native';
 import { SymbolView } from 'expo-symbols';
-import { AppState, Dimensions, processColor, StyleSheet } from 'react-native';
+import { AccessibilityInfo, AppState, Dimensions, Platform, processColor, StyleSheet } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -138,10 +138,15 @@ jest.mock('@/components/ui/native-menu', () => {
   };
 });
 const mockPush = jest.fn();
+// Today is focused unless a test blurs it, the way another tab or a pushed route does.
+let mockFocused = true;
 jest.mock('expo-router', () => {
   const React = jest.requireActual('react') as typeof import('react');
   return {
-    useFocusEffect: (callback: () => void | (() => void)) => React.useEffect(callback, [callback]),
+    useFocusEffect: (callback: () => void | (() => void)) => {
+      const focused = mockFocused;
+      React.useEffect(() => (focused ? callback() : undefined), [callback, focused]);
+    },
     useRouter: () => ({ push: mockPush }),
   };
 });
@@ -156,6 +161,7 @@ beforeEach(() => {
 afterEach(() => {
   dateNowSpy.mockRestore();
   Dimensions.set({ window: originalDimensions });
+  mockFocused = true;
 });
 
 const initialMetrics = {
@@ -1284,6 +1290,48 @@ test('every Today state carries the stable today-screen container id', async () 
   }
 });
 
+// On iOS an `accessible` view is one accessibility element and nothing inside it can be
+// focused, so a card that reads its text as one element keeps its action beside that element.
+const insideAccessibleElement = (node: { parent: unknown }): boolean => {
+  type Node = { props?: { accessible?: boolean }; parent: unknown };
+  for (let at = node.parent as Node | null; at; at = at.parent as Node | null) {
+    if (at.props?.accessible === true) return true;
+  }
+  return false;
+};
+
+test.each([
+  ['no-location', null, 'noLocationTitle', 'noLocationBody', 'chooseLocationAction', 'today-no-location'],
+  ['unavailable', todayScreenState.snapshot.activeLocation, 'unavailableTitle', 'unavailableBody', 'refreshAction',
+    'today-unavailable-screen'],
+] as const)('the %s card reads its text as one element and its action as another', async (
+  _kind, activeLocation, titleKey, bodyKey, actionKey, cardTestID,
+) => {
+  const copy = messages.en.today;
+  const result = await render(providers(
+    <TodayScreen
+      language="en"
+      onOpenOutfitDetail={() => undefined}
+      onRefresh={() => undefined} onAskAgain={jest.fn()}
+      state={{ kind: 'unavailable' }}
+    />,
+    lightTheme,
+    'en',
+    activeLocation,
+  ));
+
+  const text = result.getByRole('alert');
+  expect(text).toHaveProp('accessible', true);
+  expect(text).toHaveProp('accessibilityLabel', `${copy[titleKey]}. ${copy[bodyKey]}`);
+  expect(within(text).queryByRole('button')).toBeNull();
+
+  const action = result.getByRole('button', { name: copy[actionKey] });
+  expect(action).toHaveProp('accessibilityLabel', copy[actionKey]);
+  expect(insideAccessibleElement(action)).toBe(false);
+  // Both stay on the one card.
+  expect(within(result.getByTestId(cardTestID)).getByRole('button', { name: copy[actionKey] })).toBe(action);
+});
+
 describe.each(['en', 'tr'] as const)('%s Today section headings', (language: SupportedLanguage) => {
   test('uses localized sentence-case bodyStrong headers', async () => {
     const result = await render(providers(
@@ -1375,6 +1423,76 @@ test('refreshing, failure and staleness announce freshness while retaining the l
   expect(result.getByTestId('today-freshness')).toHaveProp('accessibilityLiveRegion', 'polite');
   await result.rerender(screen(false, false));
   expect(result.getByTestId('today-freshness')).toHaveProp('accessibilityLiveRegion', 'none');
+});
+
+// docs/product-decisions.md: refresh status is announced, not only shown. VoiceOver ignores
+// the line's live region, so iOS speaks each move of the line once; Android keeps the region.
+describe.each(['en', 'tr'] as const)('%s Today refresh status announcement', (language) => {
+  let announce: jest.SpiedFunction<typeof AccessibilityInfo.announceForAccessibility>;
+  const originalOS = Platform.OS;
+  beforeEach(() => {
+    // The React Native preset already mocks it, so the spy is that shared mock: clear it.
+    announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+    announce.mockClear();
+  });
+  afterEach(() => {
+    announce.mockRestore();
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: originalOS });
+  });
+  const state = (isRefreshing: boolean, refreshFailed: boolean): TodayScreenState =>
+    ({ ...todayScreenState, isRefreshing, refreshFailed });
+  const freshness = (isRefreshing: boolean, refreshFailed: boolean) => {
+    const presentation = createTodayPresentation(state(isRefreshing, refreshFailed), language, false, fixtureNow);
+    if (presentation.kind !== 'loaded') throw new Error('Expected loaded Today presentation.');
+    return presentation.header.freshness;
+  };
+  const screen = (isRefreshing: boolean, refreshFailed: boolean) => providers(
+    <TodayScreen language={language} onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()}
+      onAskAgain={jest.fn()} state={state(isRefreshing, refreshFailed)} />,
+    lightTheme,
+    language,
+  );
+
+  test('iOS hears the move to refreshing, to refresh failed and back to updated, once each', async () => {
+    const result = await render(screen(false, false));
+    await result.rerender(screen(false, false));
+    expect(announce).not.toHaveBeenCalled();
+
+    await result.rerender(screen(true, false));
+    await result.rerender(screen(true, false));
+    await result.rerender(screen(false, true));
+    await result.rerender(screen(true, true));
+    await result.rerender(screen(false, false));
+    expect(announce.mock.calls).toEqual([
+      [freshness(true, false)],
+      [freshness(false, true)],
+      [freshness(true, true)],
+      [freshness(false, false)],
+    ]);
+    expect(result.getByTestId('today-freshness')).toHaveTextContent(freshness(false, false));
+  });
+
+  test('a blurred Today stays silent, and focus does not replay the move it missed', async () => {
+    const result = await render(screen(false, false));
+    mockFocused = false;
+    await result.rerender(screen(false, false));
+    await result.rerender(screen(true, false));
+    mockFocused = true;
+    await result.rerender(screen(true, false));
+    expect(announce).not.toHaveBeenCalled();
+
+    await result.rerender(screen(false, false));
+    expect(announce.mock.calls).toEqual([[freshness(false, false)]]);
+  });
+
+  test('Android leaves the announcement to the live region', async () => {
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: 'android' });
+    const result = await render(screen(false, false));
+    await result.rerender(screen(true, false));
+    expect(result.getByTestId('today-freshness')).toHaveProp('accessibilityLiveRegion', 'polite');
+    await result.rerender(screen(false, true));
+    expect(announce).not.toHaveBeenCalled();
+  });
 });
 
 describe.each(['en', 'tr'] as const)('%s Today refresh action', (language) => {

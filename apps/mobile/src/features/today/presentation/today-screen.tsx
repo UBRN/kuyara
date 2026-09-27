@@ -1,7 +1,7 @@
-import { use, useEffect, useState, type ReactNode } from 'react';
+import { use, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Pressable, RefreshControl, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import type { DressStyle } from '@kuyara/contracts';
 
 import {
@@ -24,6 +24,7 @@ import {
 } from '@/components/ui';
 import { AiSparkleMark } from '@/components/ui/ai-sparkle-mark';
 import { useAmbientPulse } from '@/components/ui/use-ambient-pulse';
+import { useStatusAnnouncement } from '@/components/ui/use-status-announcement';
 import type { NotificationOptInOutcome } from '@/features/notifications/application/notification-application-controller';
 import { RecommendationApplicationContext } from '@/features/recommendation/application/recommendation-application-context';
 import { localDayKey } from '@/features/recommendation/application/recommendation-application-controller';
@@ -222,6 +223,15 @@ function TodayScreenContent({
     presentation.kind === 'loaded' && presentation.header.isRefreshing,
     state.kind === 'loaded' && state.refreshFailed,
   );
+  // Only the focused screen speaks: Today also shows a refresh pulled on Weather, and iOS
+  // would otherwise say both screens' lines at once.
+  const [focused, setFocused] = useState(false);
+  useFocusEffect(useCallback(() => {
+    setFocused(true);
+    return () => setFocused(false);
+  }, []));
+  // The freshness line's live region covers Android; VoiceOver hears each change once.
+  useStatusAnnouncement(presentation.kind === 'loaded' ? presentation.header.freshness : null, focused);
   const refreshControl = (
     <RefreshControl
       colors={[theme.colors.iconSecondary]}
@@ -298,9 +308,6 @@ function TodayScreenContent({
         refreshControl={refreshControl}
         testID="today-screen">
         <Surface
-          accessible
-          accessibilityLabel={presentation.accessibilityLabel}
-          accessibilityRole="alert"
           style={styles.feedbackCard}
           testID={
             presentation.reason === 'no-active-location'
@@ -308,12 +315,20 @@ function TodayScreenContent({
               : 'today-unavailable-screen'
           }
           variant="elevated">
-          <AppText accessibilityRole="header" variant="title" style={styles.centerText}>
-            {presentation.title}
-          </AppText>
-          <AppText colorRole="textSecondary" style={styles.centerText}>
-            {presentation.body}
-          </AppText>
+          {/* The text reads as one alert and the action beside it stays its own element: on
+              iOS an accessible view hides everything inside it from VoiceOver. */}
+          <View
+            accessible
+            accessibilityLabel={presentation.accessibilityLabel}
+            accessibilityRole="alert"
+            style={styles.feedbackText}>
+            <AppText accessibilityRole="header" variant="title" style={styles.centerText}>
+              {presentation.title}
+            </AppText>
+            <AppText colorRole="textSecondary" style={styles.centerText}>
+              {presentation.body}
+            </AppText>
+          </View>
           {presentation.actionLabel ? (
             <Button
               label={presentation.actionLabel}
@@ -922,5 +937,7 @@ const styles = StyleSheet.create({
   alternateTitleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   feedbackContent: { alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.lg },
   feedbackCard: { alignItems: 'center', gap: spacing.md, maxWidth: 520, padding: spacing.lg, width: '100%' },
+  // The card's own centring and gap, carried inside the grouped text so nothing moves.
+  feedbackText: { alignItems: 'center', alignSelf: 'stretch', gap: spacing.md },
   centerText: { textAlign: 'center' },
 });
