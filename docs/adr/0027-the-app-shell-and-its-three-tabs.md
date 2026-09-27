@@ -238,8 +238,8 @@ layout: 80dp to 64dp, item padding 12/16 to 6/6, active indicator 64dp to 56dp, 
 label moving from on-surface-variant to secondary, and a horizontal item layout on windows
 at least 600dp wide. None of them touch translucency.
 
-The contributor rules already say the right thing: do not imitate
-Liquid Glass, express the same identity in Material semantics. **The iOS material is drawn
+Android must not imitate Liquid Glass; it expresses the same identity in Material semantics.
+**The iOS material is drawn
 by the OS and the Android surface is a Material tonal colour, and the two are supposed to
 look different.** `blurEffect`, `shadowColor` and `minimizeBehavior` are all tagged
 iOS-only in the installed package and are no-ops on Android; nothing should be set to
@@ -248,7 +248,8 @@ compensate.
 **This splits decision 3's second signal.** Material 3 Expressive states plainly that the
 bottom navigation bar's "label text is no longer bolded when selected", so applying a
 semibold selected label on Android would force an iOS convention onto Material, which
-the contributor rules forbid. Android has its own second non-colour signal that iOS does not have:
+would violate the platform-adaptive UI rule. Android has its own second non-colour signal
+that iOS does not have:
 the **active indicator**, the pill behind the selected item, 56dp in Expressive and present
 by default. The installed package exposes `disableIndicator` and `indicatorColor` as
 Android-only props.

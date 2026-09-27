@@ -22,7 +22,7 @@ Source of truth for the rules this taxonomy follows:
 - [ADR 0031](adr/0031-dress-style-is-the-formality-signal.md): dress style and the coarse
   age bucket as the only profile-derived properties; the birth date and its year
   never leave the device.
-- Contributor rules, "Worker, API, security, and privacy" and "Localization and preferences."
+- [Product decisions](product-decisions.md) and [ADR 0033](adr/0033-apple-privacy-obligations-for-first-party-analytics.md) for privacy and profile boundaries.
 
 ## 1. Design principles this taxonomy follows
 
@@ -212,7 +212,7 @@ app used?"
 ### 5.2 Onboarding progress and abandonment
 
 Onboarding has five steps: welcome, gender, dress style, birth date (optional), location
-(optional); ADR 0031 section 5, the contributor rules and the implementation (`totalSteps = 5` in
+(optional); ADR 0031 section 5 and the implementation (`totalSteps = 5` in
 `features/profile/presentation/onboarding-screen.tsx`) agree. Abandonment is read from
 PostHog funnels between `onboarding_started` and `onboarding_completed`, not from a
 dedicated abandonment event, since there is no reliable trigger for "the user will never
@@ -547,7 +547,7 @@ PostHog from the earliest occurrence of the underlying event per identity.
 
 ### 5.12 Account conversion
 
-Not defined. Accounts do not exist yet (contributor rules, product scope). No event name is
+Not defined. The first release has no accounts ([ADR 0022](adr/0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md)). No event name is
 reserved here; designing this area now would be speculative infrastructure ahead of the
 feature it measures. Revisit this section when Supabase Auth work is scheduled.
 

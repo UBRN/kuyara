@@ -1,4 +1,4 @@
-// The app's only importer of `expo-observe` (the contributor rules keep that greppable). Everything
+// The app's only importer of `expo-observe`, guarded by architecture-invariants.test.mjs. Everything
 // above this file depends on the `PerformanceTelemetry` port, exactly as product analytics
 // depends on `ProductAnalytics` rather than on PostHog.
 //

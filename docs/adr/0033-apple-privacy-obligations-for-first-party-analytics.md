@@ -242,7 +242,7 @@ the ordinary list-row anatomy of [ADR 0028](0028-the-profile-tab-and-the-list-ro
 and [ADR 0030](0030-settings-as-a-native-grouped-list.md), with no accent, badge, banner or
 onboarding mention pointing at them. The maintainer asked for the control to be as
 inconspicuous as possible; this placement is the floor, because the guideline's own words
-are "easily accessible", the accessibility rules forbid controls that are
+are "easily accessible", accessible controls cannot be
 hard to reach or unlabeled, and a reviewer who cannot find the control in two taps has
 grounds to reject. Two taps from Settings, a clear label, no dark pattern.
 
@@ -374,7 +374,7 @@ Milestone 10, PostHog product analytics integration, has these acceptance condit
 4. A privacy policy link is reachable from Settings.
 5. `identify()`, `alias()`, `group()` and `setPersonProperties()` have no caller;
    `personProfiles` stays `identified_only`. A grep-style check guards this like the
-   `@expo/ui` rule in the contributor rules.
+   `@expo/ui` import boundary.
 6. The single PostHog project is Cloud EU project 270871 on the free plan. "Discard client
    IP data" is on, the GeoIP transformation is disabled (the IP toggle alone is not enough;
    see section 5), session replay is off (ADR 0023 section 9), and event retention is twelve
