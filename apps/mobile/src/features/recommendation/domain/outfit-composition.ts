@@ -1312,8 +1312,8 @@ function formalityDistance(
 
 /**
  * One accessory for one slot, or none. The slot's own region decides who may fill it, the
- * formality closest to the outfit's decides which of them does, and the eligibility order
- * breaks the tie, so the strongest answer to what the day asked wins. Where a region offers
+ * closest formality decides which one fills the slot, except that cold head protection
+ * takes priority over formality. Where a region offers
  * a single garment the formality step never excludes it: gloves and the umbrella belong to
  * a casual outfit exactly as much as to a formal one.
  */
@@ -1332,12 +1332,14 @@ function accessoryForSlot(
 
   const outfitRank = formalityOrder.indexOf(formality);
   const chosen = offered.reduce((best, candidate) => {
+    const suitability = best.score - candidate.score;
     const order = formalityDistance(candidate, outfitRank) -
       formalityDistance(best, outfitRank);
-    return order < 0 ||
-        (order === 0 && compareGarmentEligibilityResults(candidate, best) < 0)
-      ? candidate
-      : best;
+    const better = slot === 'head'
+      ? suitability < 0 || (suitability === 0 && (order < 0 ||
+        (order === 0 && compareGarmentEligibilityResults(candidate, best) < 0)))
+      : order < 0 || (order === 0 && compareGarmentEligibilityResults(candidate, best) < 0);
+    return better ? candidate : best;
   });
 
   return assignedGarment(chosen, slot, null);
@@ -1868,8 +1870,7 @@ export function composeOutfitOptions(
 function garmentIdSet(outfit: OutfitCandidate): string {
   const body = outfit.body.kind === 'separates'
     ? [outfit.body.primaryTop, outfit.body.bottom] : [outfit.body.onePiece];
-  const assigned = [...body, outfit.midLayer, outfit.outerLayer, outfit.footwear,
-    ...accessoryOutfitSlots.map((slot) => outfit.accessories[slot])];
+  const assigned = [...body, outfit.midLayer, outfit.outerLayer, outfit.footwear];
   return [...new Set(assigned.filter((item) => item !== null)
     .map((item) => item.garment.garmentTypeId))].sort().join('|');
 }
@@ -1880,7 +1881,8 @@ export function excludeRecentlyWornOutfits(
   recentWorn: readonly WornOutfit[],
 ): readonly OutfitCandidate[] {
   const keys = recentWorn.slice(0, 7).map((entry) =>
-    [...new Set(Object.values(entry.garments).filter((id) => id !== undefined))].sort().join('|'));
+    [...new Set(outfitSlots.slice(0, 6).map((slot) => entry.garments[slot])
+      .filter((id) => id !== undefined))].sort().join('|'));
   for (let active = keys.length; active >= 0; active -= 1) {
     const excluded = new Set(keys.slice(0, active));
     const remaining = outfits.filter((outfit) => !excluded.has(garmentIdSet(outfit)));

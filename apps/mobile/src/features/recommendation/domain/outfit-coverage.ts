@@ -29,16 +29,22 @@ export function outfitCoverage(startIso: string, timeZone: string): OutfitCovera
     // Search actual instants, not a fixed UTC offset. This also chooses the first 01:00
     // on a fall-back night and handles a changed offset before the end of the window.
     const first = Math.ceil((start + 1) / 900000) * 900000;
+    let firstAfterSkippedHour: number | null = null;
     for (let at = first; at <= start + 30 * 3600000; at += 900000) {
       const candidate = localParts(at, timeZone);
       if (candidate.year === endDate.getUTCFullYear() &&
           candidate.month === endDate.getUTCMonth() + 1 &&
-          candidate.day === endDate.getUTCDate() &&
-          candidate.hour === endHour && candidate.minute === 0) {
-        return { start: new Date(start).toISOString(), end: new Date(at).toISOString() };
+          candidate.day === endDate.getUTCDate() && candidate.minute === 0) {
+        if (candidate.hour === endHour) {
+          return { start: new Date(start).toISOString(), end: new Date(at).toISOString() };
+        }
+        if (candidate.hour > endHour && firstAfterSkippedHour === null) {
+          firstAfterSkippedHour = at;
+        }
       }
     }
-    return null;
+    return firstAfterSkippedHour === null ? null
+      : { start: new Date(start).toISOString(), end: new Date(firstAfterSkippedHour).toISOString() };
   } catch {
     return null;
   }
