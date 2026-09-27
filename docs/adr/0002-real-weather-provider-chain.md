@@ -72,7 +72,8 @@ re-derive rather than trusting these numbers later.
 ### 1. Providers and endpoints
 
 Open-Meteo is primary via `GET https://api.open-meteo.com/v1/forecast`, keyless,
-requested with `wind_speed_unit=ms`, `timezone=UTC` and `forecast_days=2`.
+requested with `wind_speed_unit=ms`, `precipitation_unit=mm`, the requested IANA
+time zone and `forecast_days=7` for the v2 daily outlook.
 
 OpenWeather is the fallback via
 `GET https://api.openweathermap.org/data/3.0/onecall` with `units=metric` and
@@ -86,10 +87,12 @@ endpoints (`/current`, `/timeline/1h`, `/timeline/1day`) with no `exclude`
 parameter, costing several requests and materially more code for no benefit.
 One Call 3.0 is not deprecated and has no announced sunset.
 
-### 2. Provider requests ask for UTC, local-day bucketing happens in the mapper
+### 2. Provider timestamps and local-day bucketing
 
-Both adapters request UTC timestamps and then bucket to the requested local day
-using `weatherLocalDateKey`, exported from `packages/contracts/src/weather-v1.ts`.
+Open-Meteo requests the location's time zone so its daily low and high belong to
+the requested local day. OpenWeather timestamps are absolute. Both adapters
+bucket hourly timestamps to the requested local day using `weatherLocalDateKey`,
+exported from `packages/contracts/src/weather-v1.ts`.
 That is the exact function `weatherV1DataSchema` uses to validate the invariant,
 so producer and validator cannot drift. Both adapters echo the requested
 `timeZone` string back verbatim; OpenWeather's own `timezone` field is ignored,
@@ -137,8 +140,8 @@ plus Worker overhead must fit inside that budget.
 A Cloudflare rate-limit binding `WEATHER_RATE_LIMIT` (namespace 1003) allows
 **20 requests per 60 seconds per IP**, keyed `weather:${cf-connecting-ip}`.
 Exceeding it returns 429 with `{ "error": { "code": "rate_limited" } }` and
-`Retry-After: 60`. When the binding is absent, in local dev and unit tests, the
-Worker degrades to the existing permissive limiter.
+`Retry-After: 60`. Without the binding, the composed weather route returns 503;
+the handler can still receive an injected limiter in unit tests.
 
 The endpoint has no authentication, so without this a single client could pass
 Open-Meteo's 600/minute ceiling. That would not cost money, but it would breach
@@ -237,13 +240,10 @@ fallback.
   then pointed at an unreachable host, and the same request came back with
   `origin.sourceId === "openweather"` and passed the same validation, so the
   fallback is demonstrated end to end rather than only simulated in unit tests.
-- The two providers legitimately return different hourly counts for the same
-  local day: Open-Meteo is asked for `forecast_days=2` and yields the whole day
-  including elapsed hours (21 entries in the live check), while One Call 3.0
-  returns a forward-only 48-hour series, so only the remaining hours of the local
-  day survive bucketing (3 entries in the same check). Both satisfy the
-  contract's `min(1).max(25)`, and OpenWeather's first hourly entry is the
-  current hour, so a late-evening request cannot bucket to zero entries.
+- The provider-neutral hourly window runs from the current local hour through
+  36 hours after observation, with at most 38 ordered entries. Providers can
+  supply different counts within that window; the contract validates the
+  window rather than requiring a whole local day.
 
 ## Alternatives considered
 

@@ -2,10 +2,8 @@
 
 Status: Accepted (2026-09-03)
 
-Implementation: complete and live in production since 2026-09-03. The four
-secrets are set on the deployed Worker and `origin.sourceId` reads `weatherkit`.
-The first live call falsified one of this ADR's stated assumptions; see
-[Outcome](#outcome-2026-09-03).
+The four WeatherKit secrets are set on the deployed Worker, and successful
+WeatherKit responses carry `origin.sourceId: weatherkit`.
 
 ## Context
 
@@ -52,10 +50,9 @@ Apple's terms change; re-derive rather than trusting these numbers later.
 
 `timezone` is a required parameter and controls only how Apple rolls hourly data
 into daily buckets; the timestamps themselves are absolute. Passing the requested
-zone therefore makes `forecastDaily` a real local day rather than a UTC one,
-without weakening ADR 0002 §2's rule. That rule exists because Open-Meteo and
-OpenWeather can return provider-local time strings; the mapper still buckets
-hourly entries itself with `weatherLocalDateKey` and still echoes
+zone therefore makes `forecastDaily` a real local day. Open-Meteo also requests
+the location's zone for its daily block; OpenWeather provides absolute
+timestamps. Each mapper buckets hourly entries with `weatherLocalDateKey` and echoes
 `location.timeZone` back verbatim rather than reading any zone out of the
 response.
 
@@ -91,8 +88,9 @@ silently turns the head provider into a 401 when it expires.
 
 Apple types `conditionCode` as a plain string in the REST reference and
 documents its values only in the Swift `WeatherKit.WeatherCondition` enum, which
-has 34 cases. The adapter maps all 34 explicitly and rejects anything else as
-`invalid_response`, matching ADR 0002 §3.
+has 34 cases. The adapter accepts Apple's PascalCase REST spelling and the
+Swift enum's camelCase spelling, maps all 34 explicitly, and rejects anything
+else as `invalid_response`, matching ADR 0002 §3.
 
 Four of them, `breezy`, `windy`, `hot` and `frigid`, describe wind or temperature
 and carry no sky or precipitation information at all. The contract's eleven
@@ -213,18 +211,13 @@ does not apply either. No archive of any kind.
 
 ### 8. Operational requirement before WeatherKit is enabled
 
-WeatherKit cannot be reached until kuyara creates, in the Apple Developer
-portal, a WeatherKit-enabled Service ID and a WeatherKit private key, and sets
-the four secrets. Until then the four-secret gate keeps the chain exactly as it
-is today, and every code path in this ADR is exercised by unit tests against
-recorded responses rather than by a live call.
+WeatherKit is composed only when the Worker has a WeatherKit-enabled Service ID,
+private key and all four required secrets. If any is absent, the chain starts
+with Open-Meteo and never attempts an unsigned WeatherKit call.
 
-**Satisfied on 2026-09-03.** The Service ID `com.ubrn.kuyara.weatherkit` and a
-WeatherKit-enabled key were created, the four secrets were set, and the Worker
-was redeployed. Apple's runtime behaviour is now partly verified against the
-real service rather than only against its documentation; see
-[Outcome](#outcome-2026-09-03) for what the first live call confirmed and what
-it disproved.
+The Service ID `com.ubrn.kuyara.weatherkit`, WeatherKit-enabled key and four
+Worker secrets are configured. A live response with
+`origin.sourceId: weatherkit` verifies that the primary provider is reachable.
 
 ## Consequences
 
@@ -234,54 +227,13 @@ it disproved.
 - Service providers keeps Apple attribution reachable for the last valid snapshot,
   including a cached or stale snapshot, and shows no invented provider for an
   unrecognized source. Today and Weather carry no attribution.
-- Apple's documentation gaps were carried as risk rather than as assumption.
-  One of the three has since been resolved against the live service and the
-  assumption was wrong: `conditionCode` is PascalCase, not the Swift enum's
-  case names. The quota-exhausted status code and the exact `date-time`
-  serialization remain unconfirmed by Apple's own pages. Each failure mode
-  lands on a fallback-eligible error, so the worst case is a demotion to
-  Open-Meteo rather than a broken response. Carrying these as
-  fallback-eligible errors is what limited the `conditionCode` defect to a
-  silent demotion instead of an outage.
+- Apple's REST `conditionCode` uses PascalCase; the mapper accepts it and the
+  Swift enum spelling. Unrecognized codes and malformed responses are
+  fallback-eligible invalid responses, so the chain advances to Open-Meteo.
+  Apple's quota-exhausted status code and exact `date-time` serialization are
+  not confirmed by its documentation.
 - `PrecipitationType` and `pressureTrend` are not consumed, so Apple's known
   documentation defect in the `PrecipitationType` term list does not reach us.
-
-## Outcome (2026-09-03)
-
-The secrets were set the same day this ADR was accepted, and the first live
-request exposed a defect that every test in this ADR's scope had missed.
-
-**What was wrong.** Apple's REST API serializes `conditionCode` in PascalCase
-(`MostlyClear`, `PartlyCloudy`). The mapper's 34-entry table was keyed on the
-camelCase Swift `WeatherCondition` case names (`mostlyClear`), which this ADR
-listed above as an unconfirmed assumption. Every lookup missed,
-`mapWeatherKitCondition` threw `invalid_response`, and the chain demoted to
-Open-Meteo on every single request.
-
-**Why it was invisible.** The demotion is exactly the designed behaviour. The
-deployment succeeded, `/v1/weather` returned HTTP 200, the response validated
-against the contract, and the unit suite stayed green because its recorded
-fixtures used the spelling the documentation implied. Nothing in the system
-reported a problem, because by its own definition there was none. The only
-observable difference was `origin.sourceId`.
-
-**The fix.** Commit `a59a000` lowers the first character of `conditionCode`
-during lookup rather than rewriting all 34 keys, so both spellings resolve and
-the table keeps the naming Apple's own enum uses. The existing 34-case test now
-asserts each code in both spellings.
-
-**What the live call confirmed.** Everything else in the adapter was correct
-against real data: the response schema parsed the live body unchanged, the km/h
-to m/s wind conversion, the nearest-hour source for current precipitation
-probability, and the local-day filtering all produced values consistent with
-Open-Meteo's reading of the same coordinates minutes earlier. The ES256 signer,
-the `id` and `sub` JWT claims, and the one-hour token cache work against the
-real service.
-
-**What this changes for future providers.** A provider chain that falls back
-cleanly also hides a broken provider completely. Adding a provider is not
-finished when its tests pass and its deployment succeeds; it is finished when a
-live response is observed carrying that provider's own `origin.sourceId`.
 
 ## Alternatives considered
 

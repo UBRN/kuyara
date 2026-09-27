@@ -66,5 +66,5 @@ bought a different Worker name and nothing else.
 ## Out of scope
 
 - Deploying the Worker, provisioning KV, or setting further remote secrets.
-- Any change to handler behavior. Every handler still degrades to permissive when
-  a binding is absent, which is what keeps local dev and unit tests working.
+- Handler internals and unit-test injection. Composed quota-spending routes
+  return 503 when their required rate-limit binding is absent.

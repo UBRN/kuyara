@@ -187,7 +187,7 @@ read on, so a weekend result read on the Monday after says Casual.
 | `archetypeId` is in the closed list and the three differ | Selection boundary |
 | The three picks differ by body core or by at least two body garments | Selection boundary |
 | Archetype precondition holds for its outfit | Selection boundary |
-| Optional `insightSentence` is one sentence, at most 90 characters, in the reader's language; every number matches the snapshot and no banned content appears | Device validation, with deterministic line-1 fallback |
+| Optional `insightSentence` is one sentence, at most 90 characters, in the reader's language, with no decimal digit or banned content | Device validation, with deterministic line-1 fallback |
 
 The selection boundary is the on-device client when the selection runs on the
 device and the Worker when it runs on the Worker; the mobile mapper enforces the

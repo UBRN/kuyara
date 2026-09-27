@@ -30,9 +30,10 @@ route segment, localization keys, repository types, file names, and test ids rem
 Profile header and is not a tab.
 
 Gender and dress style are required, prominent onboarding inputs because they shape the
-catalogue selection and formality order. Their Settings controls live in the last,
-deliberately unprominent About you group. Birth date is optional; language and appearance
-follow the device by default and remain changeable in Settings. The profile fields are
+catalogue selection and formality order. Their Settings controls live in the
+Profile group with display name, style aesthetics and optional birth date;
+language and appearance follow the device by default and remain changeable in
+Settings. The profile fields are
 decided in [ADR 0031](0031-dress-style-is-the-formality-signal.md).
 
 Expo Router Native Tabs implements the tab bar under

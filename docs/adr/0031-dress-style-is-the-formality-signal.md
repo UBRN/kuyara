@@ -74,7 +74,7 @@ or other network payloads. No bucket is stored. Do not derive an age band anywhe
 
 ### 5. Onboarding and Settings
 
-Onboarding asks welcome, optional display name, required gender, required dress style, optional birth date and optional location. The location step remains governed by [ADR 0016](0016-location-in-onboarding-and-an-honest-empty-state.md). Settings > Profile edits name, gender, dress style, style aesthetics and birth date. Its birth-date helper footer is removed.
+Onboarding asks welcome, optional display name, required gender, required dress style, optional style aesthetics, optional birth date and optional location. The location step remains governed by [ADR 0016](0016-location-in-onboarding-and-an-honest-empty-state.md). Settings > Profile edits name, gender, dress style, style aesthetics and birth date. Its birth-date helper footer is removed.
 
 ### 6. Schema
 
