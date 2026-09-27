@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test, { mock } from 'node:test';
 
-import { aiRecommendV1SuccessSchema } from '@kuyara/contracts';
+import { aiModelInputFromRequest, aiRecommendV1SuccessSchema, archetypeDayFromRequirements } from '@kuyara/contracts';
 
 import {
   WORKERS_AI_DAILY_ATTEMPT_LIMIT,
@@ -888,6 +888,45 @@ async function preGateCacheUrl(body) {
   return `https://kuyara.internal/v1/ai/recommend/${hash}`;
 }
 
+async function prePromptCacheUrl(body) {
+  const day = archetypeDayFromRequirements(body.requirements);
+  const canonical = [
+    body.requirements.map(({ kind, priority, minimum, target }) =>
+      [kind, priority, minimum, target ?? ''].join('|')).sort().join(','),
+    JSON.stringify(aiModelInputFromRequest(body).options
+      .slice().sort((left, right) => left.optionId.localeCompare(right.optionId))),
+    body.clothingPreference, body.dressStyle ?? 'smart', body.catalogVersion,
+    body.dayVariant, body.dayKind ?? 'unknown',
+    `frozen:${day.frozen}`, `wet:${day.wet}`, `cold:${day.cold}`, `windy:${day.windy}`,
+    'gate:3',
+  ].join('\n');
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
+  const hash = [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `https://kuyara.internal/v1/ai/recommend/${hash}`;
+}
+
+test('an old prompt cache bucket misses and refills under the new prompt key', async () => {
+  const restore = installMemoryCache();
+  try {
+    const body = validRequestBody();
+    let providerCalls = 0;
+    const handle = createAiHandler({ providers: [{
+      async generateOutfits() { providerCalls += 1; return validOutput(); },
+    }] });
+    await globalThis.caches.default.put(
+      new Request(await prePromptCacheUrl(body)),
+      Response.json(validOutput()),
+    );
+    assert.equal((await handle(request({ body: JSON.stringify(body) }))).status, 200);
+    assert.equal(providerCalls, 1);
+    assert.equal((await handle(request({ body: JSON.stringify(body) }))).status, 200);
+    assert.equal(providerCalls, 1);
+  } finally {
+    restore();
+  }
+});
+
 // Two requirement sets can project identically into the key and still describe different
 // days, because the day is read from the reason codes the projection drops. Rain and snow
 // ask for the same waterproof shell; only one of them may be labelled `snow_day`.
@@ -1438,7 +1477,7 @@ test('the daily attempt budget covers the largest prompt in the shared grid', as
   // lists of a weekday, and it sends the day's requirements, so the three weather archetypes
   // leave the lists of the days that contradict them: the largest prompt is shorter than
   // either the day-blind or the day-kind-only one.
-  assert.equal(promptCharacters, 17_599);
+  assert.equal(promptCharacters, 17_586);
   const inputTokens = Math.ceil(promptCharacters / 4 / 100) * 100;
   assert.equal(inputTokens, 4_400);
   const attemptNeurons = Math.ceil(

@@ -24,22 +24,52 @@ test('prompt supplies the shared formality preference without personal facts', (
   }
 });
 
-test('v2 alone asks for one locale-specific insight without changing model input', () => {
+test('v2 alone asks for one locale-specific insight with closed day flags', () => {
   const base = { clothingPreference: 'womens', options: [], requirements: [] };
   const v1 = buildMessages(base);
   for (const [locale, language] of [['tr', 'Turkish'], ['en', 'English']]) {
     const v2 = buildMessages({ ...base, locale });
-    assert.equal(v1[1].content, v2[1].content);
+    assert.deepEqual(JSON.parse(v2[1].content).day,
+      { frozen: false, wet: false, cold: false, windy: false });
+    assert.equal(JSON.parse(v1[1].content).day, undefined);
     assert.ok(v2[0].content.includes(`insightSentence: ${language} only`));
-    assert.match(v2[0].content, /no numbers\/times\/degrees/);
+    assert.match(v2[0].content, /no numbers\/times\/degrees/i);
+    assert.match(v2[0].content, /chosen outfits/i);
+    assert.match(v2[0].content, /verb/i);
+    assert.match(v2[0].content, /no weather claim/i);
+    assert.match(v2[0].content, /wet=rain possible\/likely/i);
+    assert.match(v2[0].content, /frozen=snow\/sleet/i);
+    assert.match(v2[0].content, /cold=cold day/i);
+    assert.match(v2[0].content, /windy=wind/i);
+    assert.match(v2[0].content, /no sun\/clear\/heat\/other weather/i);
     assert.equal(v2[0].content.includes('with no prose'), false);
   }
   assert.equal(v1[0].content.includes('insightSentence'), false);
   const v2Schema = buildPickJsonSchema([], true).properties.data;
   assert.deepEqual(v2Schema.properties.insightSentence, { type: 'string', maxLength: 90 });
-  assert.deepEqual(v2Schema.required, ['insightSentence', 'picks']);
+  assert.deepEqual(v2Schema.required, ['picks', 'insightSentence']);
+  assert.deepEqual(Object.keys(v2Schema.properties), ['picks', 'insightSentence']);
   assert.deepEqual(buildPickJsonSchema([]).properties.data.required, ['picks']);
   assert.equal('insightSentence' in buildPickJsonSchema([]).properties.data.properties, false);
+});
+
+test('v2 day flags follow frozen, wet, cold and windy requirements', () => {
+  const base = { clothingPreference: 'womens', options: [] };
+  const cases = [
+    [[{ kind: 'traction', minimum: 'enhanced', priority: 'mandatory', reasonCodes: ['condition_snow'] }],
+      { frozen: true, wet: false, cold: false, windy: false }],
+    [[{ kind: 'water_protection', minimum: 'waterproof', target: 'body', priority: 'mandatory', reasonCodes: ['condition_rain'] }],
+      { frozen: false, wet: true, cold: false, windy: false }],
+    [[{ kind: 'thermal', minimum: 'moderate', priority: 'mandatory', reasonCodes: ['temperature_low'] }],
+      { frozen: false, wet: false, cold: true, windy: false }],
+    [[{ kind: 'wind_protection', minimum: 'wind_resistant', priority: 'optional', reasonCodes: ['wind_elevated'] }],
+      { frozen: false, wet: false, cold: false, windy: true }],
+  ];
+  for (const [requirements, expected] of cases) {
+    const v2 = buildMessages({ ...base, requirements, locale: 'en' });
+    assert.deepEqual(JSON.parse(v2[1].content).day, expected);
+    assert.equal(JSON.parse(buildMessages({ ...base, requirements })[1].content).day, undefined);
+  }
 });
 
 // The 503 regression: every reply was rejected for an archetype precondition the

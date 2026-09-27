@@ -58,7 +58,7 @@ type Dependencies = Readonly<{
  *   of output: 14.3 + 52.4 = 66.7, rounded up to 67 Neurons; `PROBE_DAILY_LIMIT` (30)
  *   calls reserve 2,010.
  * - Input per attempt: the largest prompt `buildMessages` and `buildPickJsonSchema`
- *   produce over the v2 recommendation grid is 17,599 characters (messages plus response
+ *   produce over the v2 recommendation grid is 17,586 characters (messages plus response
  *   schema, 24 options), rounded to 4,400 tokens at four characters per token. The budget test in
  *   ai-handler.test.mjs measures that prompt and derives the
  *   limit below from it, so the constant and the prompt stay in step.
@@ -155,6 +155,8 @@ function attemptFailureReason(error: unknown, timedOut: boolean): ProviderFailur
  * `cold_shield` and `wind_guard` when the day's requirements do not call for them.
  */
 const AI_GATE_VERSION = 3;
+// Bump whenever prompt text, provider schema order, or model-visible input changes.
+const AI_PROMPT_VERSION = 2;
 
 function validSelection(
   picks: { optionId: string; archetypeId: string }[],
@@ -203,6 +205,7 @@ async function buildCacheRequest(
     `cold:${day.cold}`,
     `windy:${day.windy}`,
     `gate:${AI_GATE_VERSION}`,
+    `prompt:${AI_PROMPT_VERSION}`,
     // The route and v2-only fields keep the two response versions separate.
     ...(route === aiRecommendV2Path && 'locale' in request
       ? [route, request.locale,

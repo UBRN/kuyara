@@ -87,7 +87,10 @@ export type AiModelInput = Readonly<{
 }>;
 
 /**
- * The only structured data a model may see. Cache-key and validation-only fields
+ * The shared projection orders options best-first by the day's formality preference,
+ * preserving incoming aesthetic order within each formality. The v2 Worker prompt adds
+ * closed boolean day flags outside this projection; the on-device input shape stays fixed.
+ * Cache-key and validation-only fields
  * (requirements, catalogVersion, dayVariant, dressStyle itself, traits, layerRole) are
  * deliberately left out. Traits stay out; the archetype eligibility they decide is
  * projected instead, because the caller rejects any pick whose archetype fails its
@@ -97,19 +100,23 @@ export type AiModelInput = Readonly<{
  */
 export function aiModelInputFromRequest(request: AiRecommendV1Request): AiModelInput {
   const day = archetypeDayFromRequirements(request.requirements);
+  const formalityOrder = formalityOrderByDressStyle[request.dressStyle ?? 'smart'];
   return {
     clothingPreference: request.clothingPreference,
-    formalityOrder: formalityOrderByDressStyle[request.dressStyle ?? 'smart'],
+    formalityOrder,
     ...(request.dayKind ? { dayKind: request.dayKind } : {}),
-    options: request.options.map((option) => ({
-      optionId: option.optionId,
-      formality: option.formality,
-      garments: option.garments.map(({ slot, garmentTypeId }) => ({
-        slot,
-        garmentTypeId,
+    options: [...request.options]
+      .sort((left, right) => formalityOrder.indexOf(left.formality)
+        - formalityOrder.indexOf(right.formality))
+      .map((option) => ({
+        optionId: option.optionId,
+        formality: option.formality,
+        garments: option.garments.map(({ slot, garmentTypeId }) => ({
+          slot,
+          garmentTypeId,
+        })),
+        eligibleArchetypeIds: projectedArchetypeIdsForOption(option, request.dayKind, day),
       })),
-      eligibleArchetypeIds: projectedArchetypeIdsForOption(option, request.dayKind, day),
-    })),
   };
 }
 
