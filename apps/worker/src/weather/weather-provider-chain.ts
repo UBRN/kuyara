@@ -41,15 +41,16 @@ export function createWeatherProviderChain(dependencies: Readonly<{
             timeout,
           ]);
         } catch (error) {
-          if (!isFallbackEligible(error)) throw error;
+          if (!(error instanceof WeatherProviderError)) throw error;
           // The chain answers 200 from a lower-ranked provider, so a dead one is invisible
           // in the response. The attempt position is the configured chain order; the kind
           // is the adapter's closed classification, never the upstream message.
           console.warn({
             event: 'weather_provider_attempt_failed',
             attempt: attemptIndex + 1,
-            kind: (error as WeatherProviderError).kind,
+            kind: error.kind,
           });
+          if (!isFallbackEligible(error)) throw error;
           lastEligibleError = error;
         } finally {
           clearTimeout(timeoutId!);

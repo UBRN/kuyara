@@ -2,7 +2,6 @@ import { weatherLocalDateKey } from '@kuyara/contracts';
 import { AppState } from 'react-native';
 import { useEffect, useEffectEvent } from 'react';
 
-import { notificationsAreActive } from '@/features/notifications/application/notification-application-controller';
 import { useNotificationApplication } from '@/features/notifications/application/notification-context';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
@@ -56,12 +55,13 @@ export function WeatherAlertObserver() {
     const plans = anyOptIn
       && permission.kind === 'granted'
       && snapshot !== null;
-    if (!cancels && !plans) return;
+    const disablesKind = !notificationsOptIn || !morningBriefingOptIn;
+    if (!cancels && !plans && !disablesKind) return;
     void notificationApplication.weatherAlertScheduler.reschedule({
       localProfileId,
-      snapshot,
-      weatherAlertsEnabled: notificationsAreActive(notificationsOptIn, permission),
-      morningBriefingEnabled: notificationsAreActive(morningBriefingOptIn, permission),
+      snapshot: permission.kind === 'granted' ? snapshot : null,
+      weatherAlertsEnabled: !cancels && notificationsOptIn,
+      morningBriefingEnabled: !cancels && morningBriefingOptIn,
       language,
       hour12,
       temperatureUnit,

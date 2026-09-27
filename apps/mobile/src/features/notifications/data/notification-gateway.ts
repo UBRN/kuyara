@@ -14,7 +14,7 @@ export interface NotificationGateway {
   requestPermission(): Promise<NotificationPermissionState>;
   openApplicationSettings(): Promise<void>;
   /** Resolves false when any pending kuyara alert could not be cancelled. */
-  cancelScheduledWeatherAlerts(): Promise<boolean>;
+  cancelScheduledWeatherAlerts(kind?: NotificationKind): Promise<boolean>;
   /** Resolves false when the alert was not handed to the OS. */
   scheduleWeatherAlert(request: Readonly<{
     identifier: string;

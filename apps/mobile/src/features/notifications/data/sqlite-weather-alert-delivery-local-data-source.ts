@@ -1,5 +1,6 @@
 import type { WeatherAlertDeliveryLocalDataSource } from '@/features/notifications/data/weather-alert-delivery-local-data-source';
 import type { WeatherAlertDeliveryRecord } from '@/features/notifications/data/weather-alert-delivery-record';
+import type { NotificationKind } from '@/features/notifications/data/notification-gateway';
 import type { SqliteDatabase } from '@/infrastructure/sqlite/sqlite-database';
 
 type WeatherAlertDeliveryRow = Readonly<{
@@ -55,11 +56,12 @@ implements WeatherAlertDeliveryLocalDataSource {
     return rows.map(mapRow);
   }
 
-  async deletePending(localProfileId: string, now: string): Promise<void> {
+  async deletePending(localProfileId: string, now: string, kind?: NotificationKind): Promise<void> {
     await this.database.runAsync(
       `DELETE FROM weather_alert_deliveries
-       WHERE local_profile_id = ? AND fire_at > ?`,
-      [localProfileId, now],
+       WHERE local_profile_id = ? AND fire_at > ?
+         AND (? IS NULL OR (substr(id, 1, 17) = 'morning_briefing:') = ?)`,
+      [localProfileId, now, kind ?? null, kind === 'morning_briefing' ? 1 : 0],
     );
   }
 

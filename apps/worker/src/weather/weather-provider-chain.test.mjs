@@ -70,6 +70,7 @@ test('falls back after an eligible provider failure', async () => {
 });
 
 test('rethrows invalid requests without calling another provider', async () => {
+  const warningsBefore = warning.mock.calls.length;
   const failure = new WeatherProviderError('invalid_request');
   let secondCalls = 0;
   const chain = createWeatherProviderChain({ providers: [
@@ -79,6 +80,11 @@ test('rethrows invalid requests without calling another provider', async () => {
 
   await assert.rejects(chain.fetchWeather(location), (error) => error === failure);
   assert.equal(secondCalls, 0);
+  assert.deepEqual(warning.mock.calls.slice(warningsBefore).map(({ arguments: args }) => args), [[{
+    event: 'weather_provider_attempt_failed',
+    attempt: 1,
+    kind: 'invalid_request',
+  }]]);
 });
 
 test('attempts at most three providers by default', async () => {

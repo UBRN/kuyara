@@ -223,10 +223,10 @@ recommendation is never withheld.
 - A closed suggested colorway can preselect quick-add colour without widening AI input.
 - Results of a Worker selection are shared across all users by construction,
   which ADR 0005 already accepted. An on-device selection is computed per device.
-- Outfits recur on a seven-day cycle for an unchanged weather bucket. Within a
-  day, a regeneration excludes the three outfits on screen, so an explicit
-  refresh answers with different ones; where excluding them would leave fewer
-  than three candidates, the exclusion is dropped whole and the same three return.
+- Outfits recur on a seven-day cycle for an unchanged weather bucket. Ordinary
+  generation excludes the persisted snapshot's three options when at least
+  three valid alternatives remain. A confirmed re-ask may show an option
+  selected earlier that day. A narrow pool still supplies three valid picks.
 
 ## Alternatives considered
 
