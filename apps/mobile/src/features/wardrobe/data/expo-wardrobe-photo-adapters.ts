@@ -1,6 +1,8 @@
+import * as Device from 'expo-device';
 import { Directory, File, Paths } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
+import { Platform } from 'react-native';
 
 import type {
   PickedWardrobePhoto,
@@ -22,6 +24,7 @@ import {
 } from '@/features/wardrobe/domain/wardrobe-item';
 import {
   calculateWardrobePhotoResize,
+  WardrobeCameraAccessError,
   wardrobePhotoPolicy,
   WardrobePhotoValidationError,
 } from '@/features/wardrobe/domain/wardrobe-photo';
@@ -40,41 +43,101 @@ export class ExpoSystemWardrobePhotoPicker implements WardrobePhotoPicker {
       quality: 1,
     });
 
-    if (result.canceled) {
-      return null;
-    }
-
-    if (result.assets.length !== 1) {
-      throw new WardrobePhotoValidationError();
-    }
-
-    const [asset] = result.assets;
-    if (!asset || (asset.type !== null && asset.type !== undefined && asset.type !== 'image')) {
-      throw new WardrobePhotoValidationError();
-    }
-
-    calculateWardrobePhotoResize(asset);
-    return { uri: asset.uri, width: asset.width, height: asset.height };
+    return pickedPhotoFrom(result);
   }
+
+  async capturePhoto(): Promise<PickedWardrobePhoto | null> {
+    // Asked on the tap, never earlier. iOS answers a restricted camera as denied.
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      throw new WardrobeCameraAccessError('denied');
+    }
+
+    // UIImagePickerController raises an uncatchable exception for a camera the device
+    // lacks (the iOS Simulator), and expo-image-picker does not check first. Every
+    // supported iPhone has a camera. Android resolves the camera app itself and rejects.
+    if (Platform.OS === 'ios' && !Device.isDevice) {
+      throw new WardrobeCameraAccessError('unavailable');
+    }
+
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        base64: false,
+        exif: false,
+        quality: 1,
+      });
+      return pickedPhotoFrom(result);
+    } catch (error) {
+      // expo-image-picker's Android `MissingActivityToHandleIntent`: no camera app to open.
+      if ((error as { code?: unknown } | null)?.code === 'ERR_MISSING_ACTIVITY_TO_HANDLE_INTENT') {
+        throw new WardrobeCameraAccessError('unavailable');
+      }
+      throw error;
+    }
+  }
+}
+
+function pickedPhotoFrom(
+  result: ImagePicker.ImagePickerResult,
+): PickedWardrobePhoto | null {
+  if (result.canceled) {
+    return null;
+  }
+
+  if (result.assets.length !== 1) {
+    throw new WardrobePhotoValidationError();
+  }
+
+  const [asset] = result.assets;
+  if (!asset || (asset.type !== null && asset.type !== undefined && asset.type !== 'image')) {
+    throw new WardrobePhotoValidationError();
+  }
+
+  calculateWardrobePhotoResize(asset);
+  return { uri: asset.uri, width: asset.width, height: asset.height };
 }
 
 export class ExpoWardrobePhotoProcessor implements WardrobePhotoProcessor {
   async processPhoto(photo: PickedWardrobePhoto): Promise<ProcessedWardrobePhoto> {
-    const resize = calculateWardrobePhotoResize(photo);
-    const context = ImageManipulator.manipulate(photo.uri);
-    if (resize) {
-      context.resize({ width: resize.width, height: resize.height });
+    let processedUri: string | null = null;
+    try {
+      const resize = calculateWardrobePhotoResize(photo);
+      const context = ImageManipulator.manipulate(photo.uri);
+      if (resize) {
+        context.resize({ width: resize.width, height: resize.height });
+      }
+
+      const rendered = await context.renderAsync();
+      const result = await rendered.saveAsync({
+        base64: false,
+        compress: wardrobePhotoPolicy.jpegQuality,
+        format: SaveFormat.JPEG,
+      });
+      processedUri = result.uri;
+      return { uri: result.uri, width: result.width, height: result.height };
+    } finally {
+      // The picker's full-size original is spent either way; only the processed copy
+      // goes on to staging. Only a file in the app's own cache is ever deleted.
+      if (processedUri !== photo.uri) {
+        deleteCachedFile(photo.uri);
+      }
     }
-
-    const rendered = await context.renderAsync();
-    const result = await rendered.saveAsync({
-      base64: false,
-      compress: wardrobePhotoPolicy.jpegQuality,
-      format: SaveFormat.JPEG,
-    });
-
-    return { uri: result.uri, width: result.width, height: result.height };
   }
+}
+
+function isInPrivateCache(file: File): boolean {
+  return file.uri.startsWith(Paths.cache.uri);
+}
+
+function deleteCachedFile(uri: string): void {
+  try {
+    const file = new File(uri);
+    if (isInPrivateCache(file) && file.exists) {
+      file.delete();
+    }
+  } catch {}
 }
 
 export class ExpoPrivateWardrobePhotoStorage implements WardrobePhotoStorage {
@@ -86,7 +149,7 @@ export class ExpoPrivateWardrobePhotoStorage implements WardrobePhotoStorage {
 
   async stagePhoto(photo: ProcessedWardrobePhoto): Promise<StagedWardrobePhoto> {
     const source = new File(photo.uri);
-    if (!source.exists || !source.uri.startsWith(Paths.cache.uri)) {
+    if (!source.exists || !isInPrivateCache(source)) {
       throw new WardrobePhotoValidationError();
     }
 

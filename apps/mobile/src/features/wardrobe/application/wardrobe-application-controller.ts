@@ -21,6 +21,7 @@ import {
 } from '@/features/wardrobe/application/wardrobe-photo-manager';
 import type { StagedWardrobePhoto } from '@/features/wardrobe/data/wardrobe-photo-adapters';
 import { isManagedWardrobePhotoRelativePath } from '@/features/wardrobe/data/wardrobe-photo-path';
+import type { WardrobePhotoSource } from '@/features/wardrobe/domain/wardrobe-photo';
 
 export type WardrobeApplicationState =
   | Readonly<{ status: 'loading' }>
@@ -117,8 +118,8 @@ export class WardrobeApplicationController {
     return repository.getActiveItem(this.localProfileId, id);
   }
 
-  preparePhoto(): Promise<StagedWardrobePhoto | null> {
-    return this.photoManager.preparePhoto();
+  preparePhoto(source?: WardrobePhotoSource): Promise<StagedWardrobePhoto | null> {
+    return this.photoManager.preparePhoto(source);
   }
 
   discardStagedPhoto(photo: StagedWardrobePhoto): Promise<void> {

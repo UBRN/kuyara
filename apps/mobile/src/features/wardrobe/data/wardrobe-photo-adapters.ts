@@ -18,7 +18,13 @@ export type StoredWardrobePhoto = Readonly<{
 }>;
 
 export interface WardrobePhotoPicker {
+  /** The system photo picker; `null` when the user cancels. */
   pickPhoto(): Promise<PickedWardrobePhoto | null>;
+  /**
+   * The system camera, asking for camera access first; `null` when the user cancels.
+   * Rejects with `WardrobeCameraAccessError` when access is off or there is no camera.
+   */
+  capturePhoto(): Promise<PickedWardrobePhoto | null>;
 }
 
 export interface WardrobePhotoProcessor {

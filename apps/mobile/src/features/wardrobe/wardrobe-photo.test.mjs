@@ -11,12 +11,16 @@ import {
 } from './data/wardrobe-photo-path.ts';
 import {
   calculateWardrobePhotoResize,
+  WardrobeCameraAccessError,
   wardrobePhotoPolicy,
+  WardrobePhotoValidationError,
 } from './domain/wardrobe-photo.ts';
 
 const nativeImageCalls = [];
 const nativeFiles = new Set();
 let nativeCopyFailure = null;
+let nativeDeleteFailure = null;
+let nativeSaveFailure = null;
 
 function nativeFileUri(parts) {
   const [root, ...segments] = parts;
@@ -43,6 +47,7 @@ globalThis.__kuyaraWardrobePhotoNativeMocks = {
     }
 
     delete() {
+      if (nativeDeleteFailure) throw nativeDeleteFailure;
       nativeFiles.delete(this.uri);
     }
   },
@@ -58,6 +63,7 @@ globalThis.__kuyaraWardrobePhotoNativeMocks = {
           return {
             async saveAsync(options) {
               nativeImageCalls.push(['save', options]);
+              if (nativeSaveFailure) throw nativeSaveFailure;
               return {
                 uri: 'file:///cache/processed.jpg',
                 width: 1600,
@@ -73,6 +79,14 @@ globalThis.__kuyaraWardrobePhotoNativeMocks = {
     cache: { uri: 'file:///cache' },
     document: { uri: 'file:///documents' },
   },
+  // The system camera: what the permission request answers, what the capture returns, and
+  // the order of the native calls the adapter made.
+  camera: {
+    calls: [],
+    permission: { granted: true, status: 'granted', canAskAgain: true, expires: 'never' },
+    result: { canceled: true, assets: null },
+  },
+  Platform: { OS: 'ios' },
 };
 
 const nativeMockModules = {
@@ -85,7 +99,27 @@ const nativeMockModules = {
       globalThis.__kuyaraWardrobePhotoNativeMocks.ImageManipulator;
     export const SaveFormat = Object.freeze({ JPEG: 'jpeg' });
   `,
-  'expo-image-picker': 'export const launchImageLibraryAsync = async () => null;',
+  'expo-image-picker': `
+    const camera = globalThis.__kuyaraWardrobePhotoNativeMocks.camera;
+    export const launchImageLibraryAsync = async () => null;
+    export const requestCameraPermissionsAsync = async () => {
+      camera.calls.push('request-permission');
+      return camera.permission;
+    };
+    export const launchCameraAsync = async (options) => {
+      camera.calls.push(['launch-camera', options]);
+      if (camera.rejection) throw camera.rejection;
+      return camera.result;
+    };
+  `,
+  // A live binding, so a test can stand the adapter on a Simulator.
+  'expo-device': `
+    export let isDevice = true;
+    globalThis.__kuyaraWardrobePhotoNativeMocks.setIsDevice = (value) => { isDevice = value; };
+  `,
+  'react-native': `
+    export const Platform = globalThis.__kuyaraWardrobePhotoNativeMocks.Platform;
+  `,
 };
 
 registerHooks({
@@ -101,9 +135,45 @@ registerHooks({
   },
 });
 
-const { ExpoPrivateWardrobePhotoStorage, ExpoWardrobePhotoProcessor } = await import(
-  './data/expo-wardrobe-photo-adapters.ts'
-);
+const {
+  ExpoPrivateWardrobePhotoStorage,
+  ExpoSystemWardrobePhotoPicker,
+  ExpoWardrobePhotoProcessor,
+} = await import('./data/expo-wardrobe-photo-adapters.ts');
+
+const nativeMocks = globalThis.__kuyaraWardrobePhotoNativeMocks;
+
+function standCamera(t, { permission, result, isDevice = true, os = 'ios' } = {}) {
+  const camera = nativeMocks.camera;
+  const defaults = { permission: camera.permission, result: camera.result };
+  camera.calls.length = 0;
+  if (permission) camera.permission = permission;
+  if (result) camera.result = result;
+  nativeMocks.setIsDevice(isDevice);
+  nativeMocks.Platform.OS = os;
+  t.after(() => {
+    camera.permission = defaults.permission;
+    camera.result = defaults.result;
+    nativeMocks.setIsDevice(true);
+    nativeMocks.Platform.OS = 'ios';
+  });
+  return camera;
+}
+
+const capturedAsset = Object.freeze({
+  uri: 'file:///cache/ImagePicker/captured.jpg',
+  width: 4032,
+  height: 3024,
+  type: 'image',
+});
+// iOS reports a restricted camera (Screen Time, device management) as denied and never
+// asks again: `ImagePickerPermissionRequesters.swift` folds `.restricted` into denied.
+const deniedPermission = Object.freeze({
+  granted: false, status: 'denied', canAskAgain: true, expires: 'never',
+});
+const restrictedPermission = Object.freeze({
+  granted: false, status: 'denied', canAskAgain: false, expires: 'never',
+});
 
 const profileId = '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4';
 const itemId = '118f0f4d-1d45-4ae7-a8f1-796e8297d3b4';
@@ -194,6 +264,149 @@ test('photo manager treats picker cancellation as no change and stages processed
   assert.deepEqual(calls, ['pick', 'pick-ready', 'process-ready', 'stage-ready']);
 });
 
+test('the camera route asks permission only on the tap and returns the library shape', async (t) => {
+  const camera = standCamera(t, { result: { canceled: false, assets: [capturedAsset] } });
+  const picker = new ExpoSystemWardrobePhotoPicker();
+  assert.deepEqual(camera.calls, []);
+
+  const captured = await picker.capturePhoto();
+
+  assert.deepEqual(captured, { uri: capturedAsset.uri, width: 4032, height: 3024 });
+  assert.deepEqual(camera.calls, [
+    'request-permission',
+    ['launch-camera', {
+      mediaTypes: ['images'],
+      allowsEditing: false,
+      base64: false,
+      exif: false,
+      quality: 1,
+    }],
+  ]);
+});
+
+test('a captured photo runs the same processing and private staging as a chosen one', async () => {
+  const calls = [];
+  const picked = { uri: 'file:///cache/ImagePicker/captured.jpg', width: 4032, height: 3024 };
+  const processed = { uri: 'file:///cache/processed.jpg', width: 1600, height: 1200 };
+  const manager = new LocalWardrobePhotoManager(
+    {
+      async pickPhoto() { calls.push('library'); return picked; },
+      async capturePhoto() { calls.push('camera'); return picked; },
+    },
+    {
+      async processPhoto(value) {
+        calls.push('process');
+        assert.equal(value, picked);
+        return processed;
+      },
+    },
+    {
+      async stagePhoto(value) {
+        calls.push('stage');
+        assert.equal(value, processed);
+        return stagedPhoto;
+      },
+    },
+  );
+
+  assert.equal(await manager.preparePhoto('camera'), stagedPhoto);
+  assert.equal(await manager.preparePhoto('library'), stagedPhoto);
+  assert.equal(await manager.preparePhoto(), stagedPhoto);
+  assert.deepEqual(calls, [
+    'camera', 'process', 'stage',
+    'library', 'process', 'stage',
+    'library', 'process', 'stage',
+  ]);
+});
+
+test('a denied camera permission rejects as denied and never opens the camera', async (t) => {
+  const camera = standCamera(t, { permission: deniedPermission });
+  await assert.rejects(
+    () => new ExpoSystemWardrobePhotoPicker().capturePhoto(),
+    (error) => error instanceof WardrobeCameraAccessError && error.reason === 'denied',
+  );
+  assert.deepEqual(camera.calls, ['request-permission']);
+});
+
+test('a restricted camera rejects as denied and never opens the camera', async (t) => {
+  const camera = standCamera(t, { permission: restrictedPermission });
+  await assert.rejects(
+    () => new ExpoSystemWardrobePhotoPicker().capturePhoto(),
+    (error) => error instanceof WardrobeCameraAccessError && error.reason === 'denied',
+  );
+  assert.deepEqual(camera.calls, ['request-permission']);
+});
+
+test('an iOS Simulator rejects as unavailable after the prompt, before UIKit is asked for a camera', async (t) => {
+  // UIImagePickerController throws an uncatchable exception for a source type the device
+  // lacks, and expo-image-picker does not check, so the adapter must not launch it.
+  const camera = standCamera(t, {
+    isDevice: false,
+    result: { canceled: false, assets: [capturedAsset] },
+  });
+  await assert.rejects(
+    () => new ExpoSystemWardrobePhotoPicker().capturePhoto(),
+    (error) => error instanceof WardrobeCameraAccessError && error.reason === 'unavailable',
+  );
+  assert.deepEqual(camera.calls, ['request-permission']);
+});
+
+test('an Android emulator still opens the camera; Android checks for a camera itself', async (t) => {
+  const camera = standCamera(t, {
+    isDevice: false,
+    os: 'android',
+    result: { canceled: false, assets: [capturedAsset] },
+  });
+  assert.deepEqual(
+    await new ExpoSystemWardrobePhotoPicker().capturePhoto(),
+    { uri: capturedAsset.uri, width: 4032, height: 3024 },
+  );
+  assert.equal(camera.calls.length, 2);
+});
+
+test('a cancelled camera is no change: nothing is processed or staged', async (t) => {
+  const camera = standCamera(t, { result: { canceled: true, assets: null } });
+  assert.equal(await new ExpoSystemWardrobePhotoPicker().capturePhoto(), null);
+  assert.equal(camera.calls.length, 2);
+
+  const calls = [];
+  const manager = new LocalWardrobePhotoManager(
+    { async capturePhoto() { calls.push('camera'); return null; } },
+    { async processPhoto() { calls.push('process'); throw new Error('unexpected'); } },
+    { async stagePhoto() { calls.push('stage'); throw new Error('unexpected'); } },
+  );
+  assert.equal(await manager.preparePhoto('camera'), null);
+  assert.deepEqual(calls, ['camera']);
+});
+
+test('Android without a camera app rejects as unavailable, not as a failed photo', async (t) => {
+  // expo-image-picker's Android `launchCameraAsync` throws `MissingActivityToHandleIntent`
+  // before opening anything; Expo infers the code from the class name.
+  const camera = standCamera(t, { os: 'android' });
+  camera.rejection = Object.assign(new Error('Failed to resolve activity'), {
+    code: 'ERR_MISSING_ACTIVITY_TO_HANDLE_INTENT',
+  });
+  t.after(() => { camera.rejection = null; });
+  await assert.rejects(
+    () => new ExpoSystemWardrobePhotoPicker().capturePhoto(),
+    (error) => error instanceof WardrobeCameraAccessError && error.reason === 'unavailable',
+  );
+
+  const other = new Error('camera failed');
+  camera.rejection = other;
+  await assert.rejects(() => new ExpoSystemWardrobePhotoPicker().capturePhoto(), (error) => error === other);
+});
+
+test('a captured photo is validated like a chosen one', async (t) => {
+  standCamera(t, {
+    result: { canceled: false, assets: [{ ...capturedAsset, type: 'video' }] },
+  });
+  await assert.rejects(
+    () => new ExpoSystemWardrobePhotoPicker().capturePhoto(),
+    WardrobePhotoValidationError,
+  );
+});
+
 test('photo manager stops before storage and repository when processing rejects', async () => {
   const calls = [];
   const repositoryEvents = [];
@@ -245,6 +458,45 @@ test('Expo processor requests aspect-ratio resize and JPEG compression', async (
     width: 1600,
     height: 1200,
   });
+});
+
+test('the processor deletes the picker original in the app cache once processed, and on failure', async (t) => {
+  t.after(() => {
+    nativeSaveFailure = null;
+    nativeDeleteFailure = null;
+    nativeFiles.clear();
+  });
+  const original = 'file:///cache/ImagePicker/captured.jpg';
+  const photo = { uri: original, width: 4032, height: 3024 };
+
+  nativeFiles.add(original);
+  const processed = await new ExpoWardrobePhotoProcessor().processPhoto(photo);
+  assert.equal(processed.uri, 'file:///cache/processed.jpg');
+  assert.equal(nativeFiles.has(original), false);
+
+  nativeFiles.add(original);
+  nativeSaveFailure = new Error('save failed');
+  await assert.rejects(
+    () => new ExpoWardrobePhotoProcessor().processPhoto(photo),
+    (error) => error === nativeSaveFailure,
+  );
+  assert.equal(nativeFiles.has(original), false);
+  nativeSaveFailure = null;
+
+  // A missing or undeletable original never fails the photo.
+  assert.equal((await new ExpoWardrobePhotoProcessor().processPhoto(photo)).width, 1600);
+  nativeFiles.add(original);
+  nativeDeleteFailure = new Error('delete failed');
+  assert.equal((await new ExpoWardrobePhotoProcessor().processPhoto(photo)).width, 1600);
+  assert.equal(nativeFiles.has(original), true);
+});
+
+test('the processor never deletes an original outside the app cache', async (t) => {
+  t.after(() => nativeFiles.clear());
+  const outside = 'file:///documents/kuyara/wardrobe/photos/518f0f4d-1d45-4ae7-a8f1-796e8297d3b4.jpg';
+  nativeFiles.add(outside);
+  await new ExpoWardrobePhotoProcessor().processPhoto({ uri: outside, width: 800, height: 600 });
+  assert.equal(nativeFiles.has(outside), true);
 });
 
 test('failed private copy removes its partial destination before repository write', async (t) => {
@@ -305,13 +557,16 @@ test('Expo adapters use the single-image privacy options and current processing/
   assert.match(adapterSource, /selectionLimit:\s*1/);
   assert.match(adapterSource, /base64:\s*false/);
   assert.match(adapterSource, /exif:\s*false/);
-  assert.doesNotMatch(adapterSource, /launchCameraAsync|requestMediaLibraryPermissionsAsync/);
+  // The library route is the system picker and needs no photo-library permission; the
+  // camera is requested only by the camera route.
+  assert.doesNotMatch(adapterSource, /requestMediaLibraryPermissionsAsync|getCameraPermissionsAsync/);
+  assert.match(adapterSource, /requestCameraPermissionsAsync\(\)/);
   assert.match(adapterSource, /new Directory\(\s*Paths\.document/);
   assert.match(adapterSource, /new File\(/);
   assert.doesNotMatch(adapterSource, /expo-file-system\/legacy/);
 });
 
-test('native config blocks camera and microphone permissions and localizes photo access', async () => {
+test('native config localizes camera and photo access and blocks the microphone', async () => {
   const [appConfig, english, turkish] = await Promise.all([
     readFile(new URL('../../../app.json', import.meta.url), 'utf8').then(JSON.parse),
     readFile(new URL('../../localization/native/en.json', import.meta.url), 'utf8').then(JSON.parse),
@@ -320,13 +575,24 @@ test('native config blocks camera and microphone permissions and localizes photo
   const pickerPlugin = appConfig.expo.plugins.find(
     (plugin) => Array.isArray(plugin) && plugin[0] === 'expo-image-picker',
   );
-  assert.equal(pickerPlugin[1].cameraPermission, false);
+  // The plugin's string is the Info.plist base value; the locale files override it per
+  // language, so the English file and the plugin must say the same thing.
+  assert.equal(pickerPlugin[1].cameraPermission, english.ios.NSCameraUsageDescription);
+  assert.equal(pickerPlugin[1].photosPermission, english.ios.NSPhotoLibraryUsageDescription);
   assert.equal(pickerPlugin[1].microphonePermission, false);
   assert.equal(appConfig.expo.ios.infoPlist.CFBundleAllowMixedLocalizations, true);
   assert.equal(appConfig.expo.locales.en, './src/localization/native/en.json');
   assert.equal(appConfig.expo.locales.tr, './src/localization/native/tr.json');
   assert.ok(english.ios.NSPhotoLibraryUsageDescription);
   assert.ok(turkish.ios.NSPhotoLibraryUsageDescription);
+  assert.match(english.ios.NSCameraUsageDescription, /take a Closet photo/);
+  assert.match(turkish.ios.NSCameraUsageDescription, /Gardırop fotoğrafı çekebilmen/);
+  // K1 and the contributor rules: user-facing copy makes no storage-location promise.
+  for (const text of [english.ios.NSCameraUsageDescription, turkish.ios.NSCameraUsageDescription]) {
+    assert.doesNotMatch(text, /device|stays|only|cihaz|kalır|yalnız/i);
+  }
+  assert.equal(english.ios.NSMicrophoneUsageDescription, undefined);
+  assert.equal(turkish.ios.NSMicrophoneUsageDescription, undefined);
 });
 
 function photoManager(events, options = {}) {

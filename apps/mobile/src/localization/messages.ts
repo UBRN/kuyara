@@ -643,13 +643,21 @@ export type AppMessages = Readonly<{
     photoTitle: string;
     photoHint: string;
     selectPhotoAction: string;
+    takePhotoAction: string;
     changePhotoAction: string;
+    retakePhotoAction: string;
     removePhotoAction: string;
     // Shown on the preview stage; the full action above is what is spoken.
     photoChangeLabel: string;
+    photoRetakeLabel: string;
     photoRemoveLabel: string;
     photoProcessingLabel: string;
     photoError: string;
+    // The camera could not open: access is off (with a link to the app's settings), or the
+    // device has no camera. Neither is an error; the library still works.
+    cameraDeniedMessage: string;
+    cameraUnavailableMessage: string;
+    openSettingsAction: string;
     photoAccessibilityLabel: (type: string) => string;
     entryStateTitle: string;
     typeTitle: string;
@@ -1109,13 +1117,21 @@ const en = {
     photoTitle: 'Photo',
     photoHint: 'A photo is optional. Without one, kuyara draws the piece.',
     selectPhotoAction: 'Choose photo',
+    takePhotoAction: 'Take photo',
     changePhotoAction: 'Change photo',
+    retakePhotoAction: 'Retake photo',
     removePhotoAction: 'Remove photo',
     photoChangeLabel: 'Change',
+    photoRetakeLabel: 'Retake',
     photoRemoveLabel: 'Remove',
     photoProcessingLabel: 'Preparing photo…',
     photoError:
       'The photo could not be prepared. Your other changes are still here; please try again.',
+    cameraDeniedMessage:
+      'Camera access for kuyara is turned off in system settings. You can turn it on there or choose a photo instead.',
+    cameraUnavailableMessage:
+      'The camera is not available on this device. You can choose a photo instead.',
+    openSettingsAction: 'Open Settings',
     photoAccessibilityLabel: (type: string) => `${type} closet item photo.`,
     entryStateTitle: 'Do you own this piece?',
     typeTitle: 'What is it?',
@@ -1879,13 +1895,21 @@ const tr = {
     photoTitle: 'Fotoğraf',
     photoHint: 'Fotoğraf isteğe bağlı. Fotoğraf yoksa kuyara parçayı çizer.',
     selectPhotoAction: 'Fotoğraf seç',
+    takePhotoAction: 'Fotoğraf çek',
     changePhotoAction: 'Fotoğrafı değiştir',
+    retakePhotoAction: 'Fotoğrafı yeniden çek',
     removePhotoAction: 'Fotoğrafı kaldır',
     photoChangeLabel: 'Değiştir',
+    photoRetakeLabel: 'Yeniden çek',
     photoRemoveLabel: 'Kaldır',
     photoProcessingLabel: 'Fotoğraf hazırlanıyor…',
     photoError:
       'Fotoğraf hazırlanamadı. Diğer değişikliklerin hâlâ burada; lütfen yeniden dene.',
+    cameraDeniedMessage:
+      'kuyara için kamera erişimi sistem ayarlarında kapalı. Oradan açabilir ya da bunun yerine bir fotoğraf seçebilirsin.',
+    cameraUnavailableMessage:
+      'Bu cihazda kamera kullanılamıyor. Bunun yerine bir fotoğraf seçebilirsin.',
+    openSettingsAction: 'Ayarları aç',
     photoAccessibilityLabel: (type: string) => `${type} gardırop parçası fotoğrafı.`,
     entryStateTitle: 'Bu parça sende var mı?',
     typeTitle: 'Bu ne?',

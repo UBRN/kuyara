@@ -5,6 +5,7 @@ import type {
   WardrobePhotoProcessor,
   WardrobePhotoStorage,
 } from '@/features/wardrobe/data/wardrobe-photo-adapters';
+import type { WardrobePhotoSource } from '@/features/wardrobe/domain/wardrobe-photo';
 
 export type WardrobePhotoChange =
   | Readonly<{ kind: 'unchanged' }>
@@ -16,7 +17,7 @@ export const unchangedWardrobePhoto: WardrobePhotoChange = Object.freeze({
 });
 
 export interface WardrobePhotoManager {
-  preparePhoto(): Promise<StagedWardrobePhoto | null>;
+  preparePhoto(source?: WardrobePhotoSource): Promise<StagedWardrobePhoto | null>;
   commitStagedPhoto(photo: StagedWardrobePhoto): Promise<StoredWardrobePhoto>;
   discardStagedPhoto(photo: StagedWardrobePhoto): Promise<void>;
   deleteStoredPhoto(relativePath: string): Promise<void>;
@@ -38,8 +39,13 @@ export class LocalWardrobePhotoManager implements WardrobePhotoManager {
     this.storage = storage;
   }
 
-  async preparePhoto(): Promise<StagedWardrobePhoto | null> {
-    const picked = await this.picker.pickPhoto();
+  // Both sources run the same resize, compression and private staging.
+  async preparePhoto(
+    source: WardrobePhotoSource = 'library',
+  ): Promise<StagedWardrobePhoto | null> {
+    const picked = source === 'camera'
+      ? await this.picker.capturePhoto()
+      : await this.picker.pickPhoto();
     if (!picked) {
       return null;
     }

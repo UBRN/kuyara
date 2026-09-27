@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, TextInput, View, type LayoutChangeEvent } from 'react-native';
+import { Linking, StyleSheet, TextInput, View, type LayoutChangeEvent } from 'react-native';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
 
 import {
@@ -41,6 +41,10 @@ import type {
   WardrobeItem,
 } from '@/features/wardrobe/domain/wardrobe-item';
 import {
+  WardrobeCameraAccessError,
+  type WardrobePhotoSource,
+} from '@/features/wardrobe/domain/wardrobe-photo';
+import {
   closetColorName,
   ClosetColorPalette,
 } from '@/features/wardrobe/presentation/closet-color-palette';
@@ -74,7 +78,7 @@ type WardrobeItemFormScreenProps = Readonly<{
   onDirtyChange: (isDirty: boolean) => void;
   /** The toolbar's Cancel; the route's exit guard confirms a dirty form. */
   onCancel?: () => void;
-  onSelectPhoto?: () => Promise<StagedWardrobePhoto | null>;
+  onSelectPhoto?: (source: WardrobePhotoSource) => Promise<StagedWardrobePhoto | null>;
   onDiscardStagedPhoto?: (photo: StagedWardrobePhoto) => Promise<void>;
   onCreate: (
     input: NonNullable<ReturnType<typeof mapWardrobeCreateValues>>,
@@ -123,13 +127,31 @@ function SectionHeading({
 function ErrorLine({ message, testID }: Readonly<{ message: string; testID: string }>) {
   const theme = useKuyaraTheme();
   return (
-    <View style={styles.errorRow}>
+    <View style={styles.statusRow}>
       <Icon color={theme.colors.dangerInk} name="error" size={20} />
       <AppText
         accessibilityLiveRegion="assertive"
         accessibilityRole="alert"
         colorRole="dangerInk"
-        style={styles.errorCopy}
+        style={styles.statusCopy}
+        testID={testID}>
+        {message}
+      </AppText>
+    </View>
+  );
+}
+
+// The camera could not open. That is not a failure of the form, so the line is secondary
+// ink with an info glyph and words (Law 4), never the danger treatment.
+function CameraNotice({ message, testID }: Readonly<{ message: string; testID: string }>) {
+  const theme = useKuyaraTheme();
+  return (
+    <View style={styles.statusRow}>
+      <Icon color={theme.colors.iconSecondary} name="infoOutline" size={20} />
+      <AppText
+        accessibilityLiveRegion="polite"
+        colorRole="textSecondary"
+        style={styles.statusCopy}
         testID={testID}>
         {message}
       </AppText>
@@ -176,8 +198,13 @@ export function WardrobeItemFormScreen({
   const [deleteError, setDeleteError] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
-  const [photoError, setPhotoError] = useState(false);
+  const [processingSource, setProcessingSource] = useState<WardrobePhotoSource | null>(null);
+  // `failed` is the photo pipeline's error; `denied` and `unavailable` are the camera's.
+  const [photoProblem, setPhotoProblem] = useState<
+    'failed' | WardrobeCameraAccessError['reason'] | null
+  >(null);
+  // Where the staged photo came from, so a camera photo is replaced by the camera again.
+  const [photoSource, setPhotoSource] = useState<WardrobePhotoSource>('library');
   const [photoChange, setPhotoChange] = useState<WardrobePhotoChange>(
     unchangedWardrobePhoto,
   );
@@ -188,6 +215,7 @@ export function WardrobeItemFormScreen({
   const mountedRef = useRef(true);
   const stagedPhotoRef = useRef<StagedWardrobePhoto | null>(null);
   const discardStagedPhotoRef = useRef(onDiscardStagedPhoto);
+  const isProcessingPhoto = processingSource !== null;
   const busy = isBusy || isSaving || isDeleting || isProcessingPhoto;
   const selectedType = values.garmentTypeId
     ? getGarmentType(values.garmentTypeId)
@@ -265,14 +293,14 @@ export function WardrobeItemFormScreen({
     onDirtyChange(isDirty);
   }, [isDirty, onDirtyChange]);
 
-  const selectPhoto = () => {
+  const selectPhoto = (source: WardrobePhotoSource) => {
     if (operationRef.current || busy) {
       return;
     }
 
-    setPhotoError(false);
-    setIsProcessingPhoto(true);
-    void onSelectPhoto()
+    setPhotoProblem(null);
+    setProcessingSource(source);
+    void onSelectPhoto(source)
       .then(async (stagedPhoto) => {
         if (!stagedPhoto) {
           return;
@@ -292,16 +320,17 @@ export function WardrobeItemFormScreen({
           return;
         }
         setUnreadablePhotoUri(null);
+        setPhotoSource(source);
         changePhoto({ kind: 'replace', stagedPhoto });
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (mountedRef.current) {
-          setPhotoError(true);
+          setPhotoProblem(error instanceof WardrobeCameraAccessError ? error.reason : 'failed');
         }
       })
       .finally(() => {
         if (mountedRef.current) {
-          setIsProcessingPhoto(false);
+          setProcessingSource(null);
         }
       });
   };
@@ -316,7 +345,7 @@ export function WardrobeItemFormScreen({
       void onDiscardStagedPhoto(stagedPhoto).catch(() => undefined);
     }
     setUnreadablePhotoUri(null);
-    setPhotoError(false);
+    setPhotoProblem(null);
     changePhoto(item?.photoRelativePath ? { kind: 'remove' } : unchangedWardrobePhoto);
   };
 
@@ -464,11 +493,14 @@ export function WardrobeItemFormScreen({
             disabled={isSaving || isDeleting || isBusy}
             garmentTypeId={piece.garmentTypeId}
             hasPhoto={hasPhoto}
-            isProcessing={isProcessingPhoto}
             onPhotoError={() => setUnreadablePhotoUri(visiblePreviewUri)}
             onRemovePhoto={removePhoto}
             onSelectPhoto={selectPhoto}
+            // A camera photo offers Retake, unless the camera just could not open: then the
+            // library's Change is what the note's "choose a photo instead" points to.
+            photoSource={photoChange.kind === 'replace' && photoProblem === null ? photoSource : 'library'}
             photoUri={visiblePreviewUri}
+            processingSource={processingSource}
             removeDisabled={busy}
             typeLabel={selectedTypeLabel}
           />
@@ -477,8 +509,28 @@ export function WardrobeItemFormScreen({
               {copy.photoHint}
             </AppText>
           )}
-          {photoError ? (
+          {photoProblem === 'failed' ? (
             <ErrorLine message={copy.photoError} testID="wardrobe-photo-error" />
+          ) : null}
+          {photoProblem === 'unavailable' ? (
+            <CameraNotice
+              message={copy.cameraUnavailableMessage}
+              testID="wardrobe-camera-unavailable"
+            />
+          ) : null}
+          {photoProblem === 'denied' ? (
+            <>
+              <CameraNotice message={copy.cameraDeniedMessage} testID="wardrobe-camera-denied" />
+              {/* The platform's own link to kuyara's page in the system settings. */}
+              <Button
+                label={copy.openSettingsAction}
+                onPress={() => void Linking.openSettings().catch(() => undefined)}
+                size="small"
+                style={styles.settingsLink}
+                testID="wardrobe-camera-settings-button"
+                variant="tonal"
+              />
+            </>
           ) : null}
         </View>
 
@@ -607,13 +659,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.xs,
   },
-  errorRow: {
+  statusRow: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: spacing.sm,
   },
-  errorCopy: {
+  statusCopy: {
     flex: 1,
+  },
+  settingsLink: {
+    alignSelf: 'flex-start',
   },
   textInput: {
     borderRadius: radii.control,
