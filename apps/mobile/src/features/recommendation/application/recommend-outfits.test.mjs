@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { outfitArchetypeIds } from '@kuyara/contracts';
+import { archetypeDayFromRequirements, outfitArchetypeIds } from '@kuyara/contracts';
 
 import { messages } from '@/localization/messages';
 import { deriveClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
@@ -776,6 +776,31 @@ test('T4 every assigned archetype is a member of the closed twelve', () => {
   for (const { where, result } of hotDryWeekdayResults()) {
     for (const { archetypeId } of result.outfits) {
       assert.equal(outfitArchetypeIds.includes(archetypeId), true, `${where}: ${archetypeId}`);
+    }
+  }
+});
+
+test('dry mild aesthetic ordering agrees with the day-aware label gate', () => {
+  for (const clothingPreference of ['womens', 'mens']) {
+    const result = recommendOutfits({
+      snapshot: snapshot(),
+      now: observedAt,
+      clothingPreference,
+      dressStyle: 'casual',
+      styleAesthetics: ['relaxed', 'sporty'],
+      dayVariant: 0,
+      dayKind: 'weekday',
+    });
+    assert.equal(result.status, 'recommended', clothingPreference);
+    const day = archetypeDayFromRequirements(result.requirements.requirements);
+    assert.equal(day.wet, false, clothingPreference);
+    assert.notEqual(result.outfits[0].outerLayer?.garment.properties.waterProtection,
+      'waterproof', clothingPreference);
+    for (const outfit of result.outfits) {
+      assert.equal(outfitMatchesArchetype(outfit, outfit.archetypeId, 'weekday', day),
+        true, `${clothingPreference}: ${outfit.archetypeId}`);
+      assert.equal(outfitMatchesArchetype(outfit, 'rain_ready', 'weekday', day),
+        false, `${clothingPreference}: dry day labelled rain_ready`);
     }
   }
 });

@@ -256,6 +256,7 @@ export function recommendOutfits(
 ): OutfitRecommendationResult {
   const requirements = deriveClothingRequirements(input.snapshot, input.now,
     input.departureAt ?? input.now);
+  const day = archetypeDayFromRequirements(requirements.requirements);
   const composition = composeOutfitPool(requirements, input.clothingPreference, input.dayVariant,
     input.recentWorn);
   const order: readonly FormalityLevel[] =
@@ -277,7 +278,7 @@ export function recommendOutfits(
         requirements,
         outfits: assignFallbackArchetypes(
           [...sortByAestheticAffinity(availableOutfits, input.styleAesthetics ?? [],
-            (outfit, id) => outfitMatchesArchetype(outfit, id, input.dayKind))].sort(
+            (outfit, id) => outfitMatchesArchetype(outfit, id, input.dayKind, day))].sort(
             (left, right) => order.indexOf(left.formality) - order.indexOf(right.formality),
           ),
           requirements,
