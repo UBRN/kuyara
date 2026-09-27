@@ -13,8 +13,8 @@ import {
 import { WeatherProviderError } from './weather-provider-error.ts';
 import { WeatherKitWeatherProvider } from './weatherkit-weather-provider.ts';
 
-// The chain reports every failed attempt; keep that out of the test output.
-mock.method(console, 'warn', () => {});
+// Keep expected failed-attempt reports out of the test output while checking them below.
+const warning = mock.method(console, 'warn', () => {});
 
 const location = {
   latitudeE2: 4101,
@@ -53,6 +53,7 @@ test('returns the first successful provider without calling the second', async (
 });
 
 test('falls back after an eligible provider failure', async () => {
+  const warningsBefore = warning.mock.calls.length;
   let secondCalls = 0;
   const chain = createWeatherProviderChain({ providers: [
     { fetchWeather: async () => { throw new WeatherProviderError('upstream'); } },
@@ -61,6 +62,11 @@ test('falls back after an eligible provider failure', async () => {
 
   assert.strictEqual(await chain.fetchWeather(location), snapshot);
   assert.equal(secondCalls, 1);
+  assert.deepEqual(warning.mock.calls.slice(warningsBefore).map(({ arguments: args }) => args), [[{
+    event: 'weather_provider_attempt_failed',
+    attempt: 1,
+    kind: 'upstream',
+  }]]);
 });
 
 test('rethrows invalid requests without calling another provider', async () => {
