@@ -190,7 +190,8 @@ unavailable tier.
   step is the Worker either way. Its message names the failure as one code from a closed list
   the module itself writes, never framework or model text, and a development build logs that
   code and nothing above reads it.
-- iOS 26.0 stays the minimum and the build stays on Xcode 26.x.
+- iOS 26.0 stays the minimum deployment target. Building with Xcode 27 and the iOS 27 SDK is
+  allowed and is the current local release path. The app uses no iOS 27-only API.
 - Only the recommendation feature's data layer imports the module, through a single file
   that re-exports it. Application, feature and domain code never import it, mirroring the
   rule that `components/ui` is the only importer of the native control layer
@@ -307,7 +308,7 @@ the two AI badges, the badgeless deterministic state and the availability row in
   `react-native-apple-llm`, not `expo-apple-intelligence`, not `expo-ai-kit`. All are beta
   and all duplicate a small local module.
 - `expo-app-intents` is not adopted from expo/expo main.
-- No Xcode 27 build and no higher deployment target.
+- Do not raise the minimum deployment target above iOS 26.0 or use an API that requires iOS 27.
 - No provider identity, model identity or model version reaches Today, the recommendation
   detail, analytics or the durable domain model; the Settings Service providers screen is the only
   surface that names them.
