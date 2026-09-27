@@ -27,6 +27,11 @@ import {
 import type { WardrobeItemRecord } from '@/features/wardrobe/data/wardrobe-item-record';
 import type { WardrobeLocalDataSource } from '@/features/wardrobe/data/wardrobe-local-data-source';
 import {
+  colorChoiceFamily,
+  normalizeClosetColorChoice,
+  type ClosetColorChoice,
+} from '@/features/wardrobe/domain/closet-color-options';
+import {
   isWardrobeItemCategory,
   normalizeOptionalWardrobeText,
   normalizeWardrobePhotoRelativePath,
@@ -66,6 +71,7 @@ type MutableWardrobeFields = Readonly<{
   garmentTypeId: GarmentTypeId | null;
   color: string | null;
   colorFamily: ColorFamily | null;
+  colorChoice: ClosetColorChoice | null;
   thermalLevelOverride: ThermalLevel | null;
   waterProtectionOverride: WaterProtection | null;
   windProtectionOverride: WindProtection | null;
@@ -162,6 +168,26 @@ function optionalEnum<Value>(
   return requireEnum(value, schema);
 }
 
+function optionalColorChoice(value: unknown): ClosetColorChoice | null {
+  if (value === null || value === undefined) return null;
+  try {
+    return normalizeClosetColorChoice(value);
+  } catch {
+    throw new WardrobeItemValidationError();
+  }
+}
+
+function resolveColorFields(
+  choice: ClosetColorChoice | null,
+  family: ColorFamily | null,
+  familyWasExplicit: boolean,
+): Pick<MutableWardrobeFields, 'colorChoice' | 'colorFamily'> {
+  if (choice === null) return { colorChoice: null, colorFamily: family };
+  const derived = colorChoiceFamily(choice);
+  if (familyWasExplicit && family !== derived) throw new WardrobeItemValidationError();
+  return { colorChoice: choice, colorFamily: derived };
+}
+
 function taxonomyFieldsAreConsistent(fields: MutableWardrobeFields): boolean {
   if (fields.garmentTypeId === null) {
     return (
@@ -208,6 +234,12 @@ function mutableFieldsFromCreate(input: CreateWardrobeItemInput): MutableWardrob
     throw new WardrobeItemValidationError();
   }
 
+  const colorFields = resolveColorFields(
+    optionalColorChoice(input.colorChoice),
+    optionalEnum(input.colorFamily, colorFamilySchema),
+    Object.prototype.hasOwnProperty.call(input, 'colorFamily'),
+  );
+
   return requireConsistentTaxonomyFields({
     name: normalizeOptionalWardrobeText(input.name),
     category: Object.prototype.hasOwnProperty.call(input, 'category')
@@ -218,7 +250,7 @@ function mutableFieldsFromCreate(input: CreateWardrobeItemInput): MutableWardrob
       : 'owned',
     garmentTypeId,
     color: normalizeOptionalWardrobeText(input.color),
-    colorFamily: optionalEnum(input.colorFamily, colorFamilySchema),
+    ...colorFields,
     thermalLevelOverride: optionalEnum(
       input.thermalLevelOverride,
       thermalLevelSchema,
@@ -253,6 +285,7 @@ function hasMutableUpdate(input: UpdateWardrobeItemInput): boolean {
     'garmentTypeId',
     'color',
     'colorFamily',
+    'colorChoice',
     'thermalLevelOverride',
     'waterProtectionOverride',
     'windProtectionOverride',
@@ -281,6 +314,21 @@ function mutableFieldsFromUpdate(
     : current.garmentTypeId;
   const selectedType = garmentTypeId ? getGarmentType(garmentTypeId) : null;
 
+  const hasChoiceUpdate = Object.prototype.hasOwnProperty.call(input, 'colorChoice');
+  const hasFamilyUpdate = Object.prototype.hasOwnProperty.call(input, 'colorFamily');
+  const requestedFamily = hasFamilyUpdate
+    ? optionalEnum(input.colorFamily, colorFamilySchema)
+    : current.colorFamily;
+  const requestedChoice = hasChoiceUpdate
+    ? optionalColorChoice(input.colorChoice)
+    : current.colorChoice ?? null;
+  const colorFields = hasChoiceUpdate
+    ? resolveColorFields(requestedChoice, requestedFamily, hasFamilyUpdate)
+    : hasFamilyUpdate && requestedChoice !== null &&
+        requestedFamily !== colorChoiceFamily(requestedChoice)
+      ? { colorChoice: null, colorFamily: requestedFamily }
+      : resolveColorFields(requestedChoice, requestedFamily, false);
+
   return requireConsistentTaxonomyFields({
     name: Object.prototype.hasOwnProperty.call(input, 'name')
       ? normalizeOptionalWardrobeText(input.name)
@@ -297,9 +345,7 @@ function mutableFieldsFromUpdate(
     color: Object.prototype.hasOwnProperty.call(input, 'color')
       ? normalizeOptionalWardrobeText(input.color)
       : current.color,
-    colorFamily: Object.prototype.hasOwnProperty.call(input, 'colorFamily')
-      ? optionalEnum(input.colorFamily, colorFamilySchema)
-      : current.colorFamily,
+    ...colorFields,
     thermalLevelOverride: Object.prototype.hasOwnProperty.call(
       input,
       'thermalLevelOverride',
@@ -380,6 +426,8 @@ export class LocalWardrobeRepository implements WardrobeRepository {
         garmentTypeId: fields.garmentTypeId,
         color: fields.color,
         colorFamily: fields.colorFamily,
+        colorOptionId: fields.colorChoice?.kind === 'option' ? fields.colorChoice.id : null,
+        colorCustomHex: fields.colorChoice?.kind === 'custom' ? fields.colorChoice.hex : null,
         thermalLevelOverride: fields.thermalLevelOverride,
         waterProtectionOverride: fields.waterProtectionOverride,
         windProtectionOverride: fields.windProtectionOverride,
@@ -473,6 +521,10 @@ export class LocalWardrobeRepository implements WardrobeRepository {
 
       const current = this.mapScopedRecord(currentRecord, owner, false);
       const fields = mutableFieldsFromUpdate(current, input);
+      const preserveStoredColorChoice =
+        !Object.prototype.hasOwnProperty.call(input, 'colorChoice') &&
+        fields.colorChoice === current.colorChoice &&
+        fields.colorFamily === currentRecord.colorFamily;
       const updatedRecord = await this.dataSource.updateActiveItem({
         id: current.id,
         localProfileId: current.localProfileId,
@@ -482,6 +534,12 @@ export class LocalWardrobeRepository implements WardrobeRepository {
         garmentTypeId: fields.garmentTypeId,
         color: fields.color,
         colorFamily: fields.colorFamily,
+        colorOptionId: preserveStoredColorChoice
+          ? currentRecord.colorOptionId
+          : fields.colorChoice?.kind === 'option' ? fields.colorChoice.id : null,
+        colorCustomHex: preserveStoredColorChoice
+          ? currentRecord.colorCustomHex
+          : fields.colorChoice?.kind === 'custom' ? fields.colorChoice.hex : null,
         thermalLevelOverride: fields.thermalLevelOverride,
         waterProtectionOverride: fields.waterProtectionOverride,
         windProtectionOverride: fields.windProtectionOverride,

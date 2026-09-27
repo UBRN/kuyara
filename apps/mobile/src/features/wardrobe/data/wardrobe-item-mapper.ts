@@ -2,6 +2,11 @@ import type { ZodType } from 'zod';
 
 import type { WardrobeItemRecord } from '@/features/wardrobe/data/wardrobe-item-record';
 import {
+  colorChoiceFamily,
+  findClosetColorOption,
+  normalizeCustomColorHex,
+} from '@/features/wardrobe/domain/closet-color-options';
+import {
   breathabilitySchema,
   colorFamilySchema,
   coverageSchema,
@@ -105,6 +110,22 @@ export function mapWardrobeItemRecord(record: WardrobeItemRecord): WardrobeItem 
     const entryState = mapEnum(record.entryState, wardrobeEntryStateSchema);
     const garmentTypeId = mapNullableGarmentTypeId(record.garmentTypeId);
     const colorFamily = mapNullableEnum(record.colorFamily, colorFamilySchema);
+    const optionId = record.colorOptionId ?? null;
+    const customHex = record.colorCustomHex ?? null;
+    if ((optionId !== null && typeof optionId !== 'string') ||
+        (customHex !== null && typeof customHex !== 'string') ||
+        (optionId !== null && customHex !== null)) {
+      throw new WardrobeItemMappingError();
+    }
+    const colorChoice = optionId !== null
+      ? findClosetColorOption(optionId) ? { kind: 'option' as const, id: optionId } : null
+      : customHex !== null
+        ? { kind: 'custom' as const, hex: normalizeCustomColorHex(customHex) }
+        : null;
+    if ((customHex !== null && colorChoice?.kind === 'custom' && customHex !== colorChoice.hex) ||
+        (colorChoice !== null && colorFamily !== colorChoiceFamily(colorChoice))) {
+      throw new WardrobeItemMappingError();
+    }
     const thermalLevelOverride = mapNullableEnum(
       record.thermalLevelOverride,
       thermalLevelSchema,
@@ -163,6 +184,7 @@ export function mapWardrobeItemRecord(record: WardrobeItemRecord): WardrobeItem 
       garmentTypeId,
       color: record.color,
       colorFamily,
+      colorChoice,
       thermalLevelOverride,
       waterProtectionOverride,
       windProtectionOverride,

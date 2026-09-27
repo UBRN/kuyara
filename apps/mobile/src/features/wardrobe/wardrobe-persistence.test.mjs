@@ -219,6 +219,7 @@ test('create generates a UUID and maps a profile-owned item across domain and pe
     garmentTypeId: 'rain_jacket',
     color: 'Petrol',
     colorFamily: null,
+    colorChoice: null,
     thermalLevelOverride: null,
     waterProtectionOverride: null,
     windProtectionOverride: null,
@@ -240,6 +241,8 @@ test('create generates a UUID and maps a profile-owned item across domain and pe
     garmentTypeId: row.garment_type_id,
     color: row.color,
     colorFamily: row.color_family,
+    colorOptionId: row.color_option_id,
+    colorCustomHex: row.color_custom_hex,
     thermalLevelOverride: row.thermal_level_override,
     waterProtectionOverride: row.water_protection_override,
     windProtectionOverride: row.wind_protection_override,
@@ -301,6 +304,159 @@ test('entry state round-trips, validates stored values, and update preserves omi
     }),
     assertRepositoryError('invalid-input'),
   );
+});
+
+test('palette choices round-trip through SQLite and derive ownership families', async (t) => {
+  const { database, repository, setTime } = await createRepository(t);
+  const option = await repository.createItem({
+    localProfileId: profileId, garmentTypeId: 't_shirt',
+    colorChoice: { kind: 'option', id: 'blue_stripes' },
+  });
+  assert.deepEqual(option.colorChoice, { kind: 'option', id: 'blue_stripes' });
+  assert.equal(option.colorFamily, 'white');
+  const custom = await repository.createItem({
+    localProfileId: profileId, garmentTypeId: 'trousers',
+    colorChoice: { kind: 'custom', hex: '#ff0000' },
+  });
+  assert.deepEqual(custom.colorChoice, { kind: 'custom', hex: '#FF0000' });
+  assert.equal(custom.colorFamily, 'red');
+  const none = await repository.createItem({
+    localProfileId: profileId, garmentTypeId: 'sweater', colorFamily: 'blue',
+  });
+  assert.equal(none.colorChoice, null);
+  assert.equal(none.colorFamily, 'blue');
+  const rows = await database.getAllAsync(
+    'SELECT id, color_option_id, color_custom_hex, color_family FROM wardrobe_items ORDER BY id',
+  );
+  assert.deepEqual(rows.map((row) => ({ ...row })), [
+    { id: option.id, color_option_id: 'blue_stripes', color_custom_hex: null, color_family: 'white' },
+    { id: custom.id, color_option_id: null, color_custom_hex: '#FF0000', color_family: 'red' },
+    { id: none.id, color_option_id: null, color_custom_hex: null, color_family: 'blue' },
+  ].sort((a, b) => a.id.localeCompare(b.id)));
+  setTime(updatedAt);
+  assert.deepEqual((await repository.updateItem({
+    id: option.id, localProfileId: profileId, name: 'Still striped',
+  })).colorChoice, option.colorChoice);
+  const familyOnly = await repository.updateItem({
+    id: option.id, localProfileId: profileId, colorFamily: 'green',
+  });
+  assert.equal(familyOnly.colorChoice, null);
+  assert.equal(familyOnly.colorFamily, 'green');
+  const cleared = await repository.updateItem({
+    id: custom.id, localProfileId: profileId, colorChoice: null,
+  });
+  assert.equal(cleared.colorChoice, null);
+  assert.equal(cleared.colorFamily, 'red');
+});
+
+test('invalid palette writes and conflicting explicit families are rejected', async (t) => {
+  const { repository } = await createRepository(t);
+  for (const input of [
+    { colorChoice: { kind: 'option', id: 'future_option' } },
+    { colorChoice: { kind: 'custom', hex: '#1234' } },
+    { colorChoice: { kind: 'option', id: 'white', hex: '#FFFFFF' } },
+    { colorChoice: { kind: 'custom', hex: '#FFFFFF', id: 'white' } },
+    { colorChoice: { kind: 'option', id: 'white' }, colorFamily: 'black' },
+    { colorChoice: { kind: 'custom', hex: '#FFFFFF' }, colorFamily: 'black' },
+  ]) {
+    await assert.rejects(() => repository.createItem({
+      localProfileId: profileId, garmentTypeId: 't_shirt', ...input,
+    }), assertRepositoryError('invalid-input'));
+  }
+  const valid = await repository.createItem({
+    localProfileId: profileId, garmentTypeId: 't_shirt',
+    colorChoice: { kind: 'option', id: 'white' },
+  });
+  await assert.rejects(() => repository.updateItem({
+    id: valid.id, localProfileId: profileId,
+    colorChoice: { kind: 'custom', hex: '#000000' }, colorFamily: 'white',
+  }), assertRepositoryError('invalid-input'));
+});
+
+test('unknown stored option is readable as family-only and legacy rows stay readable', async (t) => {
+  const { database, repository } = await createRepository(t);
+  await database.runAsync(`INSERT INTO wardrobe_items
+    (id, local_profile_id, category, entry_state, garment_type_id, color_family,
+     color_option_id, color, created_at, updated_at)
+    VALUES (?, ?, 'top', 'owned', NULL, 'purple', 'future_option', 'Legacy', ?, ?)`,
+    [itemIds[0], profileId, createdAt, createdAt]);
+  const item = await repository.getActiveItem(profileId, itemIds[0]);
+  assert.equal(item.colorChoice, null);
+  assert.equal(item.colorFamily, 'purple');
+  assert.equal(item.color, 'Legacy');
+  assert.equal(item.garmentTypeId, null);
+  assert.equal((await database.getFirstAsync(
+    'SELECT color_option_id FROM wardrobe_items WHERE id = ?', [itemIds[0]],
+  )).color_option_id, 'future_option');
+});
+
+test('editing an unrelated field preserves an unknown stored colour option ID', async (t) => {
+  const { database, repository } = await createRepository(t);
+  await database.runAsync(`INSERT INTO wardrobe_items
+    (id, local_profile_id, name, category, entry_state, garment_type_id, color_family,
+     color_option_id, created_at, updated_at)
+    VALUES (?, ?, 'Before', 'top', 'owned', 't_shirt', 'purple', 'future_option', ?, ?)`,
+    [itemIds[0], profileId, createdAt, createdAt]);
+  const updated = await repository.updateItem({
+    id: itemIds[0], localProfileId: profileId, name: 'After',
+  });
+  assert.equal(updated.name, 'After');
+  assert.equal(updated.colorChoice, null);
+  assert.equal(updated.colorFamily, 'purple');
+  const row = await database.getFirstAsync(
+    'SELECT color_option_id, color_custom_hex, color_family FROM wardrobe_items WHERE id = ?',
+    [itemIds[0]],
+  );
+  assert.deepEqual({ ...row }, {
+    color_option_id: 'future_option', color_custom_hex: null, color_family: 'purple',
+  });
+});
+
+test('changing the family clears an unknown stored colour option ID', async (t) => {
+  const { database, repository } = await createRepository(t);
+  await database.runAsync(`INSERT INTO wardrobe_items
+    (id, local_profile_id, category, entry_state, garment_type_id, color_family,
+     color_option_id, created_at, updated_at)
+    VALUES (?, ?, 'top', 'owned', 't_shirt', 'purple', 'future_option', ?, ?)`,
+    [itemIds[0], profileId, createdAt, createdAt]);
+
+  await repository.updateItem({
+    id: itemIds[0], localProfileId: profileId, colorFamily: 'purple',
+  });
+  assert.equal((await database.getFirstAsync(
+    'SELECT color_option_id FROM wardrobe_items WHERE id = ?', [itemIds[0]],
+  )).color_option_id, 'future_option');
+
+  const updated = await repository.updateItem({
+    id: itemIds[0], localProfileId: profileId, colorFamily: 'green',
+  });
+  assert.equal(updated.colorChoice, null);
+  assert.equal(updated.colorFamily, 'green');
+  const row = await database.getFirstAsync(
+    'SELECT color_option_id, color_custom_hex, color_family FROM wardrobe_items WHERE id = ?',
+    [itemIds[0]],
+  );
+  assert.deepEqual({ ...row }, {
+    color_option_id: null, color_custom_hex: null, color_family: 'green',
+  });
+});
+
+test('mapper rejects both choice columns and known choices with conflicting families', async (t) => {
+  const { dataSource, repository } = await createRepository(t);
+  const item = await repository.createItem({
+    localProfileId: profileId, garmentTypeId: 't_shirt',
+    colorChoice: { kind: 'option', id: 'white' },
+  });
+  const record = await dataSource.getActiveItem(profileId, item.id);
+  assert.throws(() => mapWardrobeItemRecord({
+    ...record, colorCustomHex: '#FFFFFF',
+  }), WardrobeItemMappingError);
+  assert.throws(() => mapWardrobeItemRecord({
+    ...record, colorFamily: 'black',
+  }), WardrobeItemMappingError);
+  assert.throws(() => mapWardrobeItemRecord({
+    ...record, colorOptionId: null, colorCustomHex: '#abcdef',
+  }), WardrobeItemMappingError);
 });
 
 test('taxonomy fields round-trip and update distinguishes omission from clearing an override', async (t) => {
@@ -417,6 +573,7 @@ test('released version 2 rows remain readable as unclassified legacy items', asy
     garmentTypeId: null,
     color: 'Lacivert',
     colorFamily: null,
+    colorChoice: null,
     thermalLevelOverride: null,
     waterProtectionOverride: null,
     windProtectionOverride: null,
@@ -471,6 +628,7 @@ test('an unknown stored type is read as unclassified without hiding valid rows o
     garmentTypeId: null,
     color: 'Lacivert',
     colorFamily: 'blue',
+    colorChoice: null,
     thermalLevelOverride: 'moderate',
     waterProtectionOverride: null,
     windProtectionOverride: null,
