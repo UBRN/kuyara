@@ -3,11 +3,13 @@ import { Image, StyleSheet, View } from 'react-native';
 import Svg, { Defs, G, LinearGradient, Stop } from 'react-native-svg';
 
 import type { ColorFamily, GarmentTypeId, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
+import type { ClosetColorChoice } from '@/features/wardrobe/domain/closet-color-options';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { GarmentSlotGlyph } from '../garment-slot-glyph';
+import { closetColorPaint, closetPaintBase, ClosetPatternDef } from './closet-color-art';
 import { GARMENT_OUTLINE, garmentLevelOfDetail, GarmentPainting, WANTED_OUTLINE_DASH } from './garment-painting';
-import { garmentFillRoles, type GarmentRoles } from './garment-palette';
+import { garmentFillRoles, legalizeGarmentFill, type GarmentRoles } from './garment-palette';
 import { resolveGarmentTileFill } from './garment-render-fills';
 import { garmentSilhouetteIds } from './garment-silhouette-map';
 import { silhouettes, type Silhouette } from './silhouettes';
@@ -19,10 +21,14 @@ const CROP_PAD = 1.5;
 // with the drawing (M21): about 1.1 points at the 16-point caption size, where a fixed 1.9
 // would fill the drawing solid.
 const STANDALONE_SIZE = 28;
+// A pattern's repeat in drawing units, the mockup's 4.4 on its 64-unit drawings.
+const PATTERN_REPEAT = 4.4;
+const DRAWING_BOX = 64;
 
 function GarmentTileSilhouette({
   silhouette,
   colorFamily,
+  colorChoice = null,
   roles: paletteRoles,
   width,
   height,
@@ -32,6 +38,11 @@ function GarmentTileSilhouette({
 }: Readonly<{
   silhouette: Silhouette;
   colorFamily: ColorFamily | null;
+  /**
+   * A Closet piece's own palette colour, custom colour or pattern (O8), drawn on the edit
+   * surfaces and the detail's "Yours" only. An unknown stored option draws the family fill.
+   */
+  colorChoice?: ClosetColorChoice | null;
   /** An outfit piece's palette roles (O15); without them the drawing takes the tile fill. */
   roles?: GarmentRoles;
   width: number;
@@ -44,6 +55,15 @@ function GarmentTileSilhouette({
 }>) {
   const { colors, colorScheme } = useKuyaraTheme();
   const gradientId = `garment-fill-${useId()}`;
+  const patternId = `garment-pattern-${useId().replace(/[^A-Za-z0-9]/g, '')}`;
+  // A palette solid or custom colour is kept legible on the plane the way an outfit piece
+  // is; a pattern draws its own colours over tones derived from its base.
+  const paint = paletteRoles ? null : closetColorPaint(colorChoice, colorScheme);
+  const paintMain = paint === null
+    ? null
+    : paint.kind === 'solid'
+      ? legalizeGarmentFill(paint.hex, colors.background, colors.textPrimary).hex
+      : closetPaintBase(paint);
   // `multicolor` is the one family a single fill cannot carry, so it keeps its two stops;
   // everything else takes the recorded colour or the neutral step off the page ground.
   const fill = resolveGarmentTileFill({ colorFamily, plane: colors.background, colors, colorScheme });
@@ -51,9 +71,12 @@ function GarmentTileSilhouette({
   // Every tone of the drawing derives from its main fill; a multicolour piece derives them
   // from its first stop and paints its main surfaces with the gradient.
   const tileRoles = useMemo(
-    () => garmentFillRoles(silhouette.id, gradient ? fill[0] : fill, colorScheme),
-    [colorScheme, fill, gradient, silhouette.id],
+    () => garmentFillRoles(silhouette.id, paintMain ?? (gradient ? fill[0] : fill), colorScheme),
+    [colorScheme, fill, gradient, paintMain, silhouette.id],
   );
+  const mainPaint = paint !== null && paint.kind !== 'solid'
+    ? `url(#${patternId})`
+    : gradient && paint === null && !paletteRoles ? `url(#${gradientId})` : undefined;
   const { bounds } = silhouette;
   const scale = cropped
     ? Math.min(width, height) / (Math.max(bounds.width, bounds.height) + 2 * CROP_PAD)
@@ -74,7 +97,11 @@ function GarmentTileSilhouette({
       width={width}
       height={height}
       testID={testID}>
-      {gradient ? (
+      {paint !== null && paint.kind !== 'solid' ? (
+        <Defs>
+          <ClosetPatternDef box={DRAWING_BOX} id={patternId} paint={paint} unit={PATTERN_REPEAT} />
+        </Defs>
+      ) : gradient && paint === null ? (
         <Defs>
           <LinearGradient id={gradientId} x1={0} y1={0} x2={1} y2={1}>
             <Stop offset={0} stopColor={fill[0]} />
@@ -86,7 +113,7 @@ function GarmentTileSilhouette({
         <GarmentPainting
           ink={colors.textPrimary}
           lod={garmentLevelOfDetail(Math.max(bounds.width, bounds.height) * scale)}
-          mainPaint={gradient && !paletteRoles ? `url(#${gradientId})` : undefined}
+          mainPaint={mainPaint}
           outline={outline}
           outlineDash={wanted ? WANTED_OUTLINE_DASH : undefined}
           roles={paletteRoles ?? tileRoles}
@@ -110,6 +137,7 @@ export function GarmentDrawing({
   size,
   roles,
   colorFamily = null,
+  colorChoice = null,
   testID,
 }: Readonly<{
   garmentTypeId: GarmentTypeId;
@@ -118,6 +146,8 @@ export function GarmentDrawing({
   roles?: GarmentRoles;
   /** A Closet record's recorded colour (Profile's category cells); ignored beside `roles`. */
   colorFamily?: ColorFamily | null;
+  /** A Closet piece's own colour choice (O8), for the edit surfaces only. */
+  colorChoice?: ClosetColorChoice | null;
   testID: string;
 }>) {
   const { colors } = useKuyaraTheme();
@@ -126,6 +156,7 @@ export function GarmentDrawing({
   if (silhouetteId) {
     return (
       <GarmentTileSilhouette
+        colorChoice={colorChoice}
         colorFamily={colorFamily}
         cropped
         height={size}
@@ -146,13 +177,18 @@ export function GarmentDrawing({
 
 // One photo, then silhouette, then category glyph ladder for both personal-piece surfaces.
 export function GarmentTileArtwork({
-  photoUri, garmentTypeId, category, colorFamily, roles, width, height, glyphSize,
+  photoUri, garmentTypeId, category, colorFamily, colorChoice = null, roles, width, height, glyphSize,
   photoTestID, silhouetteTestID, placeholderTestID, wanted = false,
 }: Readonly<{
   photoUri: string | null;
   garmentTypeId: GarmentTypeId | null;
   category: StructuralCategory;
   colorFamily: ColorFamily | null;
+  /**
+   * A Closet piece's own colour choice (O8). Only the piece edit surfaces and the detail's
+   * "Yours" pass it; the Closet grid and the Profile rack keep the family fill.
+   */
+  colorChoice?: ClosetColorChoice | null;
   /** An outfit piece's palette roles (O15), for the detail's finishing touches. */
   roles?: GarmentRoles;
   width: number;
@@ -184,7 +220,7 @@ export function GarmentTileArtwork({
   }
 
   if (silhouetteId) {
-    return <GarmentTileSilhouette silhouette={silhouettes[silhouetteId]} colorFamily={colorFamily} roles={roles} wanted={wanted} width={width} height={height} testID={silhouetteTestID} />;
+    return <GarmentTileSilhouette silhouette={silhouettes[silhouetteId]} colorChoice={colorChoice} colorFamily={colorFamily} roles={roles} wanted={wanted} width={width} height={height} testID={silhouetteTestID} />;
   }
 
   return (

@@ -11,20 +11,27 @@ import {
   NativeSheet,
   Surface,
 } from '@/components/ui';
-import {
-  colorFamilies,
-  type ColorFamily,
-  type GarmentTypeId,
-  type StructuralCategory,
+import type {
+  ColorFamily,
+  GarmentTypeId,
+  StructuralCategory,
 } from '@/features/catalog/domain/garment-taxonomy';
 import {
   unchangedWardrobePhoto,
   type WardrobePhotoChange,
 } from '@/features/wardrobe/application/wardrobe-photo-manager';
+import { sameClosetColorChoice } from '@/features/wardrobe/application/wardrobe-form';
 import type { StagedWardrobePhoto } from '@/features/wardrobe/data/wardrobe-photo-adapters';
+import {
+  colorChoiceFamily,
+  type ClosetColorChoice,
+} from '@/features/wardrobe/domain/closet-color-options';
 import type { PieceOwnershipMatch } from '@/features/wardrobe/domain/garment-type-ownership';
 import type { WardrobeEntryState } from '@/features/wardrobe/domain/wardrobe-item';
-import { ColorSwatch } from '@/features/wardrobe/presentation/color-swatch';
+import {
+  closetColorName,
+  ClosetColorPalette,
+} from '@/features/wardrobe/presentation/closet-color-palette';
 import { WardrobeOption } from '@/features/wardrobe/presentation/wardrobe-option';
 import { useMessages } from '@/localization/use-messages';
 import { radii, spacing } from '@/theme/theme';
@@ -48,6 +55,11 @@ export type PieceSheetTarget = Readonly<{
 export type PieceSheetValues = Readonly<{
   entryState: WardrobeEntryState;
   colorFamily: ColorFamily | null;
+  /**
+   * The palette choice, present only when the user picked one other than the record's. An
+   * untouched colour sends no choice, so the repository keeps what is stored (O8).
+   */
+  colorChoice?: ClosetColorChoice;
   photoChange: WardrobePhotoChange;
 }>;
 
@@ -98,6 +110,7 @@ function PieceEditForm({
   const [colorFamily, setColorFamily] = useState<ColorFamily | null>(
     record ? record.colorFamily : target.suggestedColorFamily,
   );
+  const [colorChoice, setColorChoice] = useState<ClosetColorChoice | null>(record?.colorChoice ?? null);
   const [photoChange, setPhotoChange] = useState<WardrobePhotoChange>(unchangedWardrobePhoto);
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState(false);
@@ -113,8 +126,10 @@ function PieceEditForm({
   const photoUri = photoChange.kind === 'replace'
     ? photoChange.stagedPhoto.previewUri
     : photoChange.kind === 'remove' ? null : resolvePhotoUri(record?.photoRelativePath ?? null);
-  const colorLabel = (family: ColorFamily | null) => family
-    ? messages.catalog[`catalog.color_family.${family}`] : copy.colorUnspecified;
+  const chooseColor = (next: ClosetColorChoice) => {
+    setColorChoice(next);
+    setColorFamily(colorChoiceFamily(next));
+  };
 
   const replacePhoto = (next: WardrobePhotoChange) => {
     const previous = staged.current;
@@ -135,7 +150,11 @@ function PieceEditForm({
     if (busy || !entryState) return;
     setSaveError(false);
     setBusy(true);
-    void onSave({ entryState, colorFamily, photoChange })
+    const changedChoice = colorChoice && !sameClosetColorChoice(colorChoice, record?.colorChoice)
+      ? colorChoice : null;
+    void onSave(changedChoice
+      ? { entryState, colorFamily, colorChoice: changedChoice, photoChange }
+      : { entryState, colorFamily, photoChange })
       // The record now owns a committed photo, so the unmount must not discard it.
       .then(() => { staged.current = null; })
       .catch(() => { setSaveError(true); setBusy(false); });
@@ -159,7 +178,7 @@ function PieceEditForm({
 
       <View style={styles.piece}>
         <View style={[styles.hero, { backgroundColor: theme.colors.surfaceMuted }]}>
-          <GarmentTileArtwork category={target.category} colorFamily={colorFamily}
+          <GarmentTileArtwork category={target.category} colorChoice={colorChoice} colorFamily={colorFamily}
             garmentTypeId={target.garmentTypeId} glyphSize={HERO_SIZE * 0.6} height={HERO_SIZE}
             photoTestID="piece-edit-photo" photoUri={photoUri}
             placeholderTestID="piece-edit-placeholder" silhouetteTestID="piece-edit-silhouette"
@@ -168,7 +187,9 @@ function PieceEditForm({
         <View style={styles.pieceText}>
           <AppText variant="title">{target.name}</AppText>
           <AppText colorRole="textSecondary">{target.slot}</AppText>
-          <AppText testID="piece-edit-color-name" variant="bodyStrong">{colorLabel(colorFamily)}</AppText>
+          <AppText testID="piece-edit-color-name" variant="bodyStrong">
+            {closetColorName(messages, colorChoice, colorFamily)}
+          </AppText>
         </View>
       </View>
 
@@ -179,13 +200,15 @@ function PieceEditForm({
             <AppText variant="bodyStrong">{messages.today.ownershipSimilarLabel}</AppText>
           </View>
           {[
-            { key: 'suggested', label: copy.pieceSheetSuggested, family: target.suggestedColorFamily, uri: null },
+            { key: 'suggested', label: copy.pieceSheetSuggested, family: target.suggestedColorFamily,
+              choice: null, uri: null },
+            // O8: the user's own piece is drawn in its saved palette colour or pattern.
             { key: 'yours', label: copy.pieceSheetYours, family: match.item.colorFamily,
-              uri: resolvePhotoUri(match.item.photoRelativePath) },
-          ].map(({ key, label, family, uri }) => (
+              choice: match.item.colorChoice ?? null, uri: resolvePhotoUri(match.item.photoRelativePath) },
+          ].map(({ key, label, family, choice, uri }) => (
             <View accessible key={key} style={styles.compareRow} testID={`piece-edit-similar-${key}`}>
               <View style={[styles.cardTile, { backgroundColor: theme.colors.surface }]}>
-                <GarmentTileArtwork category={target.category} colorFamily={family}
+                <GarmentTileArtwork category={target.category} colorChoice={choice} colorFamily={family}
                   garmentTypeId={target.garmentTypeId} glyphSize={CARD_TILE_SIZE * 0.6}
                   height={CARD_TILE_SIZE} photoTestID={`piece-edit-similar-${key}-photo`} photoUri={uri}
                   placeholderTestID={`piece-edit-similar-${key}-placeholder`}
@@ -193,7 +216,7 @@ function PieceEditForm({
               </View>
               <View style={styles.pieceText}>
                 <AppText colorRole="textSecondary" variant="caption">{label}</AppText>
-                <AppText variant="bodyStrong">{colorLabel(family)}</AppText>
+                <AppText variant="bodyStrong">{closetColorName(messages, choice, family)}</AppText>
               </View>
             </View>
           ))}
@@ -212,12 +235,7 @@ function PieceEditForm({
 
       <View style={styles.section}>
         <AppText accessibilityRole="header" variant="bodyStrong">{copy.colorTitle}</AppText>
-        <View accessibilityRole="radiogroup" style={styles.swatches}>
-          {colorFamilies.map((family) => (
-            <ColorSwatch colorFamily={family} disabled={busy} key={family} label={colorLabel(family)}
-              onPress={() => setColorFamily(family)} selected={colorFamily === family} />
-          ))}
-        </View>
+        <ClosetColorPalette choice={colorChoice} disabled={busy} onChange={chooseColor} />
       </View>
 
       <View style={styles.section}>
@@ -263,6 +281,5 @@ const styles = StyleSheet.create({
   cardTile: { alignItems: 'center', borderRadius: radii.control, height: CARD_TILE_SIZE,
     justifyContent: 'center', overflow: 'hidden', width: CARD_TILE_SIZE },
   section: { gap: spacing.sm },
-  swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   photo: { borderRadius: radii.card, height: 180, width: '100%' },
 });

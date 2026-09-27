@@ -14,12 +14,10 @@ import {
 import type { ClothingPreference } from '@/domain/preferences';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import type {
-  ColorFamily,
   GarmentTypeId,
   StructuralCategory,
 } from '@/features/catalog/domain/garment-taxonomy';
 import {
-  colorFamilies,
   createWardrobeFormValues,
   hasWardrobeOverrides,
   mapWardrobeCreateValues,
@@ -34,11 +32,18 @@ import {
   type WardrobePhotoChange,
 } from '@/features/wardrobe/application/wardrobe-photo-manager';
 import type { StagedWardrobePhoto } from '@/features/wardrobe/data/wardrobe-photo-adapters';
+import {
+  colorChoiceFamily,
+  type ClosetColorChoice,
+} from '@/features/wardrobe/domain/closet-color-options';
 import type {
   WardrobeEntryState,
   WardrobeItem,
 } from '@/features/wardrobe/domain/wardrobe-item';
-import { ColorSwatch } from '@/features/wardrobe/presentation/color-swatch';
+import {
+  closetColorName,
+  ClosetColorPalette,
+} from '@/features/wardrobe/presentation/closet-color-palette';
 import { FormToolbar } from '@/features/wardrobe/presentation/form-toolbar';
 import { GarmentTypePicker } from '@/features/wardrobe/presentation/garment-type-picker';
 import { OwnershipChoice } from '@/features/wardrobe/presentation/ownership-choice';
@@ -190,9 +195,6 @@ export function WardrobeItemFormScreen({
   const selectedTypeLabel = selectedType
     ? messages.catalog[selectedType.nameKey]
     : null;
-  const colorLabel = (family: ColorFamily | null) =>
-    family ? messages.catalog[`catalog.color_family.${family}`] : copy.colorUnspecified;
-  const usualColors = selectedType ? garmentUsualColorFamilies(selectedType.typeId) : [];
   const resolvedPreviewUri =
     photoChange.kind === 'replace'
       ? photoChange.stagedPhoto.previewUri
@@ -246,9 +248,10 @@ export function WardrobeItemFormScreen({
     setSaveError(false);
   };
 
-  const chooseColor = (colorFamily: ColorFamily) => {
+  // O8: one palette choice sets the family it belongs to, as the repository derives it.
+  const chooseColor = (colorChoice: ClosetColorChoice) => {
     colorChosenRef.current = true;
-    updateValues((current) => ({ ...current, colorFamily }));
+    updateValues((current) => ({ ...current, colorChoice, colorFamily: colorChoiceFamily(colorChoice) }));
   };
 
   // The exit guard reads one derived fact. It is reported from an effect, never from
@@ -373,7 +376,7 @@ export function WardrobeItemFormScreen({
             : Promise.reject(new Error('The form is invalid.'));
         })()
       : (() => {
-          const payload = mapWardrobeUpdateValues(values);
+          const payload = mapWardrobeUpdateValues(values, initialValues);
           return payload && onUpdate
             ? photoChange.kind === 'unchanged'
               ? onUpdate({ ...payload, entryState })
@@ -427,6 +430,7 @@ export function WardrobeItemFormScreen({
     colorFamily: values.colorFamily,
     garmentTypeId: selectedType?.typeId ?? null,
   } as const;
+  const colorName = closetColorName(messages, values.colorChoice, values.colorFamily);
 
   return (
     <>
@@ -455,6 +459,7 @@ export function WardrobeItemFormScreen({
         <View style={styles.section}>
           <PiecePreviewStage
             category={piece.category}
+            colorChoice={values.colorChoice}
             colorFamily={piece.colorFamily}
             disabled={isSaving || isDeleting || isBusy}
             garmentTypeId={piece.garmentTypeId}
@@ -523,56 +528,10 @@ export function WardrobeItemFormScreen({
                 importantForAccessibility="no-hide-descendants"
                 testID="wardrobe-color-selected"
                 variant="label">
-                {colorLabel(values.colorFamily)}
+                {colorName}
               </AppText>
             </View>
-            <AppText colorRole="textSecondary" variant="label">
-              {copy.usualColorsLabel}
-            </AppText>
-            <View
-              accessibilityLabel={copy.usualColorsLabel}
-              accessibilityRole="radiogroup"
-              style={styles.swatchRow}>
-              {usualColors.map((family) => (
-                <View key={family} style={styles.namedSwatch}>
-                  <ColorSwatch
-                    colorFamily={family}
-                    disabled={busy}
-                    label={colorLabel(family)}
-                    onPress={() => chooseColor(family)}
-                    selected={values.colorFamily === family}
-                  />
-                  <AppText
-                    accessibilityElementsHidden
-                    importantForAccessibility="no-hide-descendants"
-                    numberOfLines={2}
-                    style={styles.swatchName}
-                    variant="caption">
-                    {colorLabel(family)}
-                  </AppText>
-                </View>
-              ))}
-            </View>
-            <AppText colorRole="textSecondary" variant="label">
-              {copy.allColorsLabel}
-            </AppText>
-            <View
-              accessibilityLabel={copy.allColorsLabel}
-              accessibilityRole="radiogroup"
-              style={styles.swatchRow}>
-              {colorFamilies
-                .filter((family) => !usualColors.includes(family))
-                .map((family) => (
-                  <ColorSwatch
-                    colorFamily={family}
-                    disabled={busy}
-                    key={family}
-                    label={colorLabel(family)}
-                    onPress={() => chooseColor(family)}
-                    selected={values.colorFamily === family}
-                  />
-                ))}
-            </View>
+            <ClosetColorPalette choice={values.colorChoice} disabled={busy} onChange={chooseColor} />
           </View>
         ) : null}
 
@@ -625,9 +584,6 @@ export function WardrobeItemFormScreen({
   );
 }
 
-// A named swatch column is the swatch's own 44 plus room for a two-line name.
-const NAMED_SWATCH_WIDTH = 72;
-
 const styles = StyleSheet.create({
   content: {
     gap: spacing.md,
@@ -658,19 +614,6 @@ const styles = StyleSheet.create({
   },
   errorCopy: {
     flex: 1,
-  },
-  swatchRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  namedSwatch: {
-    alignItems: 'center',
-    gap: spacing.xs,
-    width: NAMED_SWATCH_WIDTH,
-  },
-  swatchName: {
-    textAlign: 'center',
   },
   textInput: {
     borderRadius: radii.control,

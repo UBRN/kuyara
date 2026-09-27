@@ -33,7 +33,9 @@ import { wornOutfitFrom, type WornOutfit } from '@/features/recommendation/domai
 import { todayActiveLocation, todayOutfitId, todayScreenState } from '@/features/today/__tests__/fixtures';
 import { DailyFormalitySheet } from '@/features/today/presentation/daily-formality-sheet';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
+import { garmentColorFamiliesBySlot } from '@/components/ui';
 import { WardrobeApplicationContext } from '@/features/wardrobe/application/wardrobe-application-context';
+import { closetColorOptions, closetSolidSwatches } from '@/features/wardrobe/domain/closet-color-options';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import {
   WeatherApplicationContext,
@@ -2517,18 +2519,21 @@ test('the piece sheet adds an untracked piece to the Closet with entry_point out
 
   await fireEvent.press(result.getByTestId(`outfit-detail-piece-${firstDetailGarmentTypeId}`));
   expect(result.getByText(messages.en.wardrobe.pieceSheetAddTitle)).toBeOnTheScreen();
-  // Done waits for the ownership answer; the colour starts on the outfit's own family.
+  // Done waits for the ownership answer; the colour starts on the outfit's own family, which
+  // names no palette shade (O8), so the sheet names the family and no swatch is selected.
   expect(result.getByTestId('piece-edit-done').props.accessibilityState.disabled).toBe(true);
-  const suggestedFamily = result.getAllByRole('radio').find((radio) =>
-    radio.props.testID?.startsWith('wardrobe-color-') && radio.props.accessibilityState.selected);
-  expect(suggestedFamily).toBeDefined();
+  expect(result.getAllByRole('radio').filter((radio) =>
+    radio.props.testID?.startsWith('wardrobe-color-') && radio.props.accessibilityState.selected)).toEqual([]);
+  const nameLine = result.getByTestId('piece-edit-color-name');
+  const suggestedName = (nameLine.children as readonly unknown[]).filter((child) => typeof child === 'string').join('');
   await fireEvent.press(result.getByTestId('piece-edit-owned'));
   await fireEvent.press(result.getByTestId('piece-edit-done'));
 
-  const family = suggestedFamily!.props.testID.replace('wardrobe-color-', '');
-  expect(wardrobe.createItem).toHaveBeenCalledWith({
-    garmentTypeId: firstDetailGarmentTypeId, entryState: 'owned', colorFamily: family,
+  const [input] = (wardrobe.createItem as jest.Mock).mock.calls[0] as [{ colorFamily: 'black' }];
+  expect(input).toEqual({
+    garmentTypeId: firstDetailGarmentTypeId, entryState: 'owned', colorFamily: input.colorFamily,
   });
+  expect(messages.en.catalog[`catalog.color_family.${input.colorFamily}`]).toBe(suggestedName);
   await waitFor(() => expect(result.queryByTestId('piece-edit-sheet')).toBeNull());
   const createdCapture = productAnalytics.analytics.captures.find((c) => c.name === 'closet_item_created');
   expect(createdCapture?.properties).toEqual({
@@ -2571,14 +2576,15 @@ test('the piece sheet edits the matching record, with a photo from the library',
   expect(result.getByText(messages.en.wardrobe.pieceSheetEditTitle)).toBeOnTheScreen();
   expect(result.getByTestId('piece-edit-wanted').props.accessibilityState.selected).toBe(true);
   await fireEvent.press(result.getByTestId('piece-edit-owned'));
-  await fireEvent.press(result.getByTestId('wardrobe-color-green'));
+  await fireEvent.press(result.getByTestId('wardrobe-color-sage'));
   await fireEvent.press(result.getByTestId('piece-edit-photo-select'));
   await waitFor(() => expect(result.getByTestId('piece-edit-photo-preview')).toBeOnTheScreen());
   await fireEvent.press(result.getByTestId('piece-edit-done'));
 
+  // The palette choice is written with its family; analytics reports only the categories.
   expect(wardrobe.updateItem).toHaveBeenCalledWith(
     'item-one',
-    { entryState: 'owned', colorFamily: 'green' },
+    { entryState: 'owned', colorFamily: 'green', colorChoice: { kind: 'option', id: 'sage' } },
     { kind: 'replace', stagedPhoto },
   );
   await waitFor(() => expect(productAnalytics.analytics.captures).toContainEqual({
@@ -2593,6 +2599,50 @@ test('the piece sheet edits the matching record, with a photo from the library',
   }));
   // A saved photo belongs to the record now; closing the sheet never discards it.
   expect(wardrobe.discardStagedPhoto).not.toHaveBeenCalled();
+});
+
+// O8: another shade of the record's own family changes no analytics category, so the record
+// is written with the new choice and no closet_item_updated event is sent.
+test('the piece sheet writes a new shade of the same family without an analytics event', async () => {
+  mockParams = { id: todayOutfitId(1) };
+  const productAnalytics = createProductAnalytics();
+  // A record in the family the outfit draws the piece in, so it opens as the owned record.
+  const presentation = createTodayPresentation(todayScreenState, 'en', false, 'celsius', Date.now());
+  if (presentation.kind !== 'loaded') throw new Error('Expected loaded Today presentation.');
+  const [suggestion] = presentation.suggestions;
+  const slot = suggestion.boardPieces.find(({ garmentTypeId }) => garmentTypeId === firstDetailGarmentTypeId)!.slot;
+  const family = garmentColorFamiliesBySlot(suggestion.palette).get(slot)!;
+  const [first, second] = [...closetSolidSwatches, ...closetColorOptions]
+    .filter((option) => option.family === family).map(({ id }) => id);
+  const existing = wardrobeItem({ colorFamily: family, colorChoice: { kind: 'option', id: first } });
+  const wardrobe = wardrobeValue({
+    state: {
+      status: 'ready', items: [existing], isRefreshing: false, isMutating: false,
+      refreshFailure: null,
+    },
+    updateItem: jest.fn(async () => ({ ...existing, colorChoice: { kind: 'option' as const, id: second } })),
+  });
+  const result = await render(
+    <Providers
+      productAnalytics={productAnalytics}
+      profile={profileValue()}
+      recommendation={recommendationReady()}
+      wardrobe={wardrobe}
+      weather={weatherValue()}>
+      <OutfitDetailRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(result.getByTestId(`outfit-detail-piece-${firstDetailGarmentTypeId}`));
+  expect(result.getByTestId(`wardrobe-color-${first}`).props.accessibilityState.selected).toBe(true);
+  await fireEvent.press(result.getByTestId(`wardrobe-color-${second}`));
+  await fireEvent.press(result.getByTestId('piece-edit-done'));
+
+  expect(wardrobe.updateItem).toHaveBeenCalledWith(
+    'item-one', { entryState: 'owned', colorFamily: family, colorChoice: { kind: 'option', id: second } },
+  );
+  await waitFor(() => expect(result.queryByTestId('piece-edit-sheet')).toBeNull());
+  expect(productAnalytics.analytics.captures.some((c) => c.name === 'closet_item_updated')).toBe(false);
 });
 
 // ADR 0038: "Wore this today" writes one row per dressing day under its bare date. The same

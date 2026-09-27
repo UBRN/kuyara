@@ -37,6 +37,7 @@ export {
 } from './native-wheel-picker';
 export { NativeToggle, type NativeToggleProps } from './native-toggle';
 export { NativeDatePicker, type NativeDatePickerProps } from './native-date-picker';
+export { NativeColorWell, type NativeColorWellProps } from './native-color-well';
 export { NativeTextField, type NativeTextFieldProps } from './native-text-field';
 export { PhotoPlaceholder, type PhotoPlaceholderProps } from './photo-placeholder';
 export { Pill, type PillProps } from './pill';
@@ -66,6 +67,7 @@ export {
 } from './garment-board/garment-board';
 
 export { GarmentDrawing, GarmentTileArtwork } from './garment-board/garment-tile-artwork';
+export { ClosetColorDisc } from './garment-board/closet-color-art';
 export { ClosetRack, type ClosetRackProps, type RackPiece } from './garment-board/closet-rack';
 export {
   GarmentRunwayBoard,
