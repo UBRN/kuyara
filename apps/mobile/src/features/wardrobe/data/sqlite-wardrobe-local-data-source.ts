@@ -19,6 +19,8 @@ type WardrobeItemRow = Readonly<{
   garment_type_id: string | null;
   color: string | null;
   color_family: string | null;
+  color_option_id: string | null;
+  color_custom_hex: string | null;
   thermal_level_override: string | null;
   water_protection_override: string | null;
   wind_protection_override: string | null;
@@ -41,6 +43,8 @@ const wardrobeItemColumns = `
   garment_type_id,
   color,
   color_family,
+  color_option_id,
+  color_custom_hex,
   thermal_level_override,
   water_protection_override,
   wind_protection_override,
@@ -64,6 +68,8 @@ function mapRow(row: WardrobeItemRow): WardrobeItemRecord {
     garmentTypeId: row.garment_type_id,
     color: row.color,
     colorFamily: row.color_family,
+    colorOptionId: row.color_option_id,
+    colorCustomHex: row.color_custom_hex,
     thermalLevelOverride: row.thermal_level_override,
     waterProtectionOverride: row.water_protection_override,
     windProtectionOverride: row.wind_protection_override,
@@ -119,6 +125,8 @@ export class SqliteWardrobeLocalDataSource implements WardrobeLocalDataSource {
             garment_type_id,
             color,
             color_family,
+            color_option_id,
+            color_custom_hex,
             thermal_level_override,
             water_protection_override,
             wind_protection_override,
@@ -130,7 +138,7 @@ export class SqliteWardrobeLocalDataSource implements WardrobeLocalDataSource {
             created_at,
             updated_at,
             deleted_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         [
           record.id,
@@ -141,6 +149,8 @@ export class SqliteWardrobeLocalDataSource implements WardrobeLocalDataSource {
           record.garmentTypeId,
           record.color,
           record.colorFamily,
+          record.colorOptionId,
+          record.colorCustomHex,
           record.thermalLevelOverride,
           record.waterProtectionOverride,
           record.windProtectionOverride,
@@ -267,6 +277,8 @@ export class SqliteWardrobeLocalDataSource implements WardrobeLocalDataSource {
             garment_type_id = ?,
             color = ?,
             color_family = ?,
+            color_option_id = ?,
+            color_custom_hex = ?,
             thermal_level_override = ?,
             water_protection_override = ?,
             wind_protection_override = ?,
@@ -285,6 +297,8 @@ export class SqliteWardrobeLocalDataSource implements WardrobeLocalDataSource {
           record.garmentTypeId,
           record.color,
           record.colorFamily,
+          record.colorOptionId,
+          record.colorCustomHex,
           record.thermalLevelOverride,
           record.waterProtectionOverride,
           record.windProtectionOverride,

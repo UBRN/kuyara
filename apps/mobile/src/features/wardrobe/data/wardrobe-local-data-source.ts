@@ -11,6 +11,8 @@ export type UpdateWardrobeItemRecord = Readonly<{
   garmentTypeId: string | null;
   color: string | null;
   colorFamily: string | null;
+  colorOptionId: string | null;
+  colorCustomHex: string | null;
   thermalLevelOverride: string | null;
   waterProtectionOverride: string | null;
   windProtectionOverride: string | null;
