@@ -22,11 +22,12 @@ adresinde.
 ## Sık sorulan sorular
 
 **Kombinlerim neden değişti?**
-kuyara kombinleri o anki hava durumundan oluşturur; hava durumu anlık görüntüsü, giyim
-tercihin veya giyim tarzın değiştiğinde ve yeni bir günde yeniler. Yapay zeka seçimi
-kullanılamadığında yerleşik bir yedek yöntem aynı kurallarla üç kombin seçer; bu yüzden
-küme öncekinden farklı olabilir. Yapay zeka seçimi ayrıca bir önceki günün kombinlerini
-tekrarlamamaya çalışır.
+Sabah ve 18.00'den sonraki akşam sorusunda günün resmiyet düzeyini ve en fazla üç stil
+özelliğini seçebilirsin. Öneriler yeni günün yanıtı kaydedilince, konumun ya da kayıtlı giyim
+tercihlerin değişince, tahmin kapsama süresi bitip Bugün'ü yeniden açınca veya "Stiliste
+tekrar sor"u onaylayınca yenilenebilir. Hava durumu yenilenince yalnızca hava içgörüsü
+güncellenir, kombin değişmez. Yapay zeka kullanılamadığında yerleşik yöntem yine üç kombin
+seçer.
 
 **kuyara neden konumumu istiyor?**
 Yalnızca "Konumumu kullan" seçeneğini seçersen. Konum sadece bulunduğun yerin hava
@@ -36,12 +37,11 @@ gönderir, kesin koordinatları asla saklamaz ve konumu analitiğe hiç katmaz. 
 yeterlidir.
 
 **Verilerimi nasıl silerim?**
-kuyara'nın senin hakkında sakladığı her şey cihazında durur; uygulamayı silmek onları da
-siler. Başka bir yerde tutulan veriler isteğe bağlıdır: kullanım analitiği ile performans
-ve çökme tanılamaları; ikisi de yalnız tek rıza sorusunu kabul ettikten sonra toplanır.
-İkisini de durdurmak ve geçmiş analitik olaylarının bağını koparmak için Ayarlar'daki
-Gizlilik bölümünden kapat. Geçmiş analitik olaylarının silinmesini istemek için o ekranda
-görünen analitik kimliğiyle birlikte sorumluya e-posta gönder. Tanılama verisi uygulamanın
-göstermediği ayrı bir kimlik taşır, bu yüzden şimdilik istek üzerine silinemez; nelerin
-silinip silinemeyeceğini ve her birinin ne kadar tutulduğunu
-[gizlilik politikası](privacy-policy) anlatıyor.
+Uygulamayı silmek kuyara'nın cihazında sakladığı verileri kaldırır. Analitik ve performans
+veya çökme tanılamaları yalnızca rıza sorusunu kabul edersen gönderilir. Expo ise rızadan
+bağımsız olarak her açılışta kurulum kimliği taşıyan açılış sayımı ve güncelleme kontrolü
+istekleri alır; ayrıntılar [gizlilik politikasında](privacy-policy#expo-açılış-istekleri).
+Ayarlar > Gizlilik'ten paylaşımı kapatmak analitik ve tanılama gönderimini durdurur, geçmiş
+olayların bağını koparır. Geçmiş analitik olaylarının silinmesini istemek için ekrandaki
+kimlikle sorumluya e-posta gönder. Tanılama ve Expo istekleri kuyara'nın silme talebinde
+kullanamadığı ayrı bir kimlik taşır.

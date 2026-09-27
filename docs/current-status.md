@@ -176,17 +176,16 @@ The approved phase order, active work and remaining open items are in [the roadm
   [expo/expo#50373](https://github.com/expo/expo/issues/50373) for `clearStoredEntries`.
   The reproduction is at <https://github.com/UBRN/expo-observe-privacy-repro>. Observe stays
   within the existing free scope; paid route and event dashboards are deferred.
-- **Apple's iOS 27 SDK build requirement lands in April 2027.** Apple's news item of
-  2026-09-09 states that starting April 2027, apps uploaded to App Store Connect must be
-  built with the iOS 27 and iPadOS 27 SDK or later
-  (<https://developer.apple.com/news/?id=k1mtkt1k>). This is a build-SDK requirement,
-  separate from the 26.0 deployment target of ADR 0011, which does not change. The one
-  launch-blocking consequence, the scene-based life cycle, is adopted through the config
-  plugin of [ADR 0040](adr/0040-ios-scene-based-life-cycle.md): on 2026-09-23 a local Xcode
-  27 Debug build launched on the iOS 27.0 Simulator, loaded JavaScript from Metro and
-  delivered a cold-start URL; universal links and a route-level cold-start assertion are not
-  yet exercised at runtime. Production builds still use the EAS `sdk-57` image; the image
-  that builds with Xcode 27 is chosen for the first upload that needs it, before April 2027.
+- **iOS 27 SDK upload requirement.** Starting in April 2027, Apple requires uploads to use
+  the iOS 27 SDK or later. Build 15 (`0.1.20260926`), submitted for review on 26 September
+  2026, was built locally with Xcode 27 and the iOS 27 SDK, as used by the
+  [current local release path](testing.md#release-path). The minimum deployment target
+  remains iOS 26.0. The scene-based life cycle is adopted through the config plugin of
+  [ADR 0040](adr/0040-ios-scene-based-life-cycle.md):
+  on 2026-09-23 a local Xcode 27 Debug
+  build launched on the iOS 27.0 Simulator, loaded JavaScript from Metro and delivered a
+  cold-start URL; universal links and a route-level cold-start assertion are not yet
+  exercised at runtime.
 - **Apple Intelligence device verification is deferred.** No eligible physical device is
   available. The iPhone 14 Pro exercises the Worker and deterministic fallback tiers only;
   no on-device AI latency or success is claimed from its runs.

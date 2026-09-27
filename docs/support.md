@@ -21,11 +21,11 @@ and its source is available at [github.com/UBRN/kuyara](https://github.com/UBRN/
 ## Frequently asked questions
 
 **Why did my outfits change?**
-kuyara builds outfits from the current weather and refreshes them when the weather
-snapshot changes, when your clothing preference or dress style changes, and on a new day.
-When the AI selection is unavailable, a built-in fallback picks three outfits with the
-same rules, so the set can differ from the previous one. The AI selection also avoids
-repeating the previous day's outfits.
+Each day, the morning and evening questions let you choose formality and up to three style
+preferences. Recommendations refresh for each new day's answer, when your location or saved
+clothing preferences change, when forecast coverage ends and you next open Today, or when you
+confirm "Ask the stylist again." A weather refresh updates the insight, not the outfit. If AI
+is unavailable, the built-in fallback still picks three outfits.
 
 **Why does kuyara ask for my location?**
 Only if you choose "Use my location". Location is used solely to fetch the weather for
@@ -34,11 +34,11 @@ your location rounded to about one kilometre to its own weather server, never st
 coordinates, and never includes location in analytics. Approximate location is enough.
 
 **How do I delete my data?**
-Everything kuyara stores about you lives on your device; deleting the app removes it. The
-data kept elsewhere is optional: usage analytics and performance and crash diagnostics,
-both collected only after you accept the one consent question. Switch it off in Settings
-under Privacy to stop both and unlink past analytics events. To request deletion of past
-analytics events, email the maintainer with the analytics identifier shown on that
-screen. Diagnostics carry a separate identifier the app does not show, so they cannot yet
-be deleted on request; the [privacy policy](privacy-policy) explains what can and cannot
-be deleted and how long each is kept.
+Deleting the app removes the data kuyara stores on your device. Analytics and performance or
+crash diagnostics are sent only after you accept the consent question. Expo also receives a
+launch count and update check with an installation identifier on every launch, regardless of
+consent; see [Expo launch requests in the privacy policy](privacy-policy#expo-launch-requests).
+Turn sharing off under Settings > Privacy to stop analytics and diagnostics and unlink past
+events. To request deletion of past analytics events, email the maintainer with the identifier
+shown there. Diagnostics and Expo requests use a separate identifier kuyara cannot use for
+deletion requests.
