@@ -26,23 +26,23 @@ This file is the mechanism. [`design-language.md`](design-language.md) is the la
 
 Both appearances expose the same semantic roles:
 
-- Foundations: `background`, `backgroundElevated`, `surface`, `surfaceMuted`, `surfaceInteractive`
+- Foundations: `background`, `backgroundElevated`, `surface`, `surfaceMuted`, `surfaceInteractive`, `stage`
 - Content: `textPrimary`, `textSecondary`, `textOnBrand`, `textOnPrimaryFill`, `iconPrimary`, `iconSecondary`
-- Identity and interaction: `brandPrimary`, `brandAccent`, `primaryFill`, `focusRing`
+- Identity and interaction: `brandPrimary`, `brandAccent`, `primaryFill`, `primaryFillPressed`, `surfaceInteractivePressed`, `controlTonalRaised`, `focusRing`
 - Boundaries and overlays: `borderSubtle`, `borderStrong`, `borderDefined`, `scrim`
-- Status: `successInk`, `successContainer`, `warningInk`, `warningContainer`, `dangerInk`, `dangerContainer`
-- Provenance: `provenanceInk`, `provenanceContainer`, the one controlled role pair that is not a status verdict. It fills the badge Today shows under the outfit name when AI chose the outfit, and nothing else; it sits in the same accent band as the status pairs and is never used for text, a control, a border or chrome.
+- Status: `successInk`, `successContainer`, `warningInk`, `warningContainer`, `dangerInk`, `dangerContainer`, `dangerContainerPressed`
+- Provenance: `provenanceInk`, `provenanceContainer`, a controlled role pair for the Worker AI badge, not a status verdict. It sits in the same accent band as the status pairs and is not used for a control, border or chrome.
 - The on-device provenance badge pairs Apple Intelligence words with the system's rendering of the `apple.intelligence` SF Symbol in a non-purple badge. The Worker badge pairs “Chosen with AI” with the SF Symbol `sparkles` as an animated vivid multicolour layer in violet, fuchsia and gold. Deterministic fallback has no provenance badge. See [ADR 0034](../adr/0034-on-device-ai-selection-through-apple-foundation-models.md).
-- Atmosphere: a closed seven-state set (`neutral`, `clearDay`, `veiledDay`, `fallingDay`, `clearNight`, `veiledNight`, `fallingNight`), each supplying a tonal ground for the condition-tinted stage on Today and Weather. Under [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md) the atmosphere is the tint of the surface the garment composition sits on, not a full-width band above a stable ground, and the per-state values sit high in luminance because the tint is behind ink and silhouettes rather than behind a hero number. The state set, the two-hex derivation rule and the contrast floors are unchanged. Every value is an sRGB interpolation between two approved brand hexes at a recorded ratio, and `neutral` is whatever `background` resolves to in each appearance, so every screen without an atmosphere is unchanged. See [ADR 0018](../adr/0018-the-atmospheric-condition-band.md) for the full table and its measurements.
+- Atmosphere: a closed seven-state set (`neutral`, `clearDay`, `veiledDay`, `fallingDay`, `clearNight`, `veiledNight`, `fallingNight`), each supplying a tonal ground for the condition-tinted stage on Today and Weather. Under [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md) the atmosphere tints the surface behind the garment composition. Condition states use sRGB interpolation between approved brand hexes at recorded ratios; `neutral` resolves to `stage` in each appearance. See [ADR 0018](../adr/0018-the-atmospheric-condition-band.md) for the state table and contrast measurements.
 - Contact shade: one value per atmosphere state and appearance (`theme.contactShade`), the state's stage colour moved in OKLCH lightness only, -0.060 light and -0.045 dark, through `theme/color-oklch.ts`. Only Today's primary garment board reads it, for the flat ellipse under each piece ([`garment-board.md`](garment-board.md) section 9); `textPrimary` clears 3:1 on every value.
 - Runway: four condition-hued fields per appearance (`clear`, `cloudy`, `rain`, `snow`; light `#F1DDA8`, `#C7D0DD`, `#7FB1CC`, `#D5E5EE`, dark `#1B3350`, `#1C2B37`, `#0E3A52`, `#193344`), roadmap item O1. Only the first-generation runway reads `theme.runway`, and `runway-palette.test.mjs` fails on any other consumer or any other file spelling the values. `textPrimary` clears 4.5:1, and the drafts' `iconSecondary` outline 3:1, on all eight.
-- Condition: a closed eight-role ink set (`clearDay`, `clearNight`, `overcast`, `fog`, `rain`, `snow`, `storm`, `neutral`) consumed only by condition glyphs and hourly condition icons. It is content colour selected by weather data, never an accent or status colour, and is always rendered at full opacity.
+- Condition: a closed 15-role ink set, listed below, consumed only by condition glyphs and hourly condition icons. It is content colour selected by weather data, never an accent or status colour, and is always rendered at full opacity.
 
 [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md) reallocates the light foundation and the supporting ink: the page ground rises to Soft Mist, which lifts `textPrimary` from 10.04:1 to 12.90:1, and supporting text becomes a derived neutral rather than Calm Current, leaving Calm Current as a selective accent. This reallocation is app-wide: Profile, Closet and Settings adopt Direction E rather than keeping a white-card step. Light `background` is Soft Mist, `textSecondary` and `iconSecondary` are the derived neutral `#2F4650` (dark `#B0C0C5`), `borderSubtle` is `#CCD2D4` (dark `#26393F`), and a new `stage` role, `#D7DCDD` light and `#122A35` dark, is the condition-tinted stage in its neutral state. The per-condition states carry ADR 0018's values at ADR 0021's raised luminance.
 
 The light and dark sets are authored independently. Dark appearance is not an inversion. Light appearance uses Soft Mist `#F4F6F5` as the page foundation and the chrome plane, pure white for the remaining card surfaces (a 1.085:1 step that no longer carries separation), and Deep Atmosphere for primary content and controls. Dark appearance uses Night Layer as the page foundation, Deep Atmosphere for plain surfaces, `#1F3B47` for elevated content, Cloud White for primary content, `#B0C0C5` for secondary content, and Quiet Sky for focus and native controls. Filled primary buttons use `primaryFill`: Deep Atmosphere in light and the derived `#39707A` in dark, with `textOnPrimaryFill` resolving to Cloud White in both appearances. A few restrained tonal surface and border values extend the approved palette for hierarchy; they are semantic UI values, not additional brand colors.
 
-Status roles are approved, not deferred: the condition the earlier deferral named, concrete informational, success, warning, and error presentation, was already met by six sites in the shipped app before anyone re-read it (`ai-status-section.tsx`, `wardrobe-item-form-screen.tsx`, `weather-screen.tsx`, `outfit-detail-screen.tsx`, `outfit-suggestion-card.tsx`, `today-screen.tsx`). See [ADR 0010](../adr/0010-status-colours-destructive-variant-and-defined-borders.md) and [`design-language.md`](design-language.md#law-4-one-accent-and-a-controlled-role-band). Every status ink is tuned so its contrast against its own appearance's `surface` lies within ±0.8 of `brandAccent`'s, and status UI must always communicate state through ink, glyph, and text together, never color alone.
+Status ink and container roles follow [ADR 0010](../adr/0010-status-colours-destructive-variant-and-defined-borders.md) and [`design-language.md`](design-language.md#law-4-one-accent-and-a-controlled-role-band). Every status ink is tuned so its contrast against its appearance's `surface` lies within ±0.8 of `brandAccent`'s. Status UI communicates state through ink, glyph and text together, never color alone.
 
 | role | light | dark |
 | --- | --- | --- |
@@ -60,13 +60,20 @@ These are derived semantic values in the same class as the existing derived neut
 
 | condition role | light | dark |
 | --- | --- | --- |
-| `clearDay` | `#8F5A0E` | `#F0C177` |
-| `clearNight` | `#31456F` | `#B3BEE4` |
-| `overcast` | `#3E545C` | `#B6C6CC` |
-| `fog` | `#3E545C` | `#A8B6BB` |
-| `rain` | `#17536E` | `#8CC0DB` |
-| `snow` | `#1B4E63` | `#D6E8F0` |
-| `storm` | `#253A4C` | `#C6D2DE` |
+| `clearDay` | `#90650E` | `#D3A445` |
+| `mostlyClearDay` | `#AE5713` | `#DC9C6A` |
+| `clearNight` | `#434F89` | `#A3ABD2` |
+| `mostlyClearNight` | `#59419F` | `#B2A4DA` |
+| `partlyCloudyDay` | `#206F6C` | `#4DCBC7` |
+| `partlyCloudyNight` | `#743974` | `#CE9CCE` |
+| `cloudy` | `#315272` | `#8DADCE` |
+| `fog` | `#2A5546` | `#6FB89E` |
+| `drizzle` | `#134853` | `#45BCD3` |
+| `rain` | `#12466E` | `#77B2DF` |
+| `heavyRain` | `#1A3F89` | `#8FACE5` |
+| `sleet` | `#3F3597` | `#AAA4DF` |
+| `snow` | `#2D4653` | `#8BAFC1` |
+| `thunderstorm` | `#5B2D7B` | `#C29EDB` |
 | `neutral` | `textPrimary` | `textPrimary` |
 
 ### Contrast evidence
@@ -82,29 +89,29 @@ Contrast was calculated with the WCAG relative-luminance formula. The measuremen
 | Primary text on the weather card | 11.51:1 | 13.80:1 |
 | Eyebrow and accent text on the weather card | 5.81:1 | 8.61:1 |
 | Accent-filled pill label on its fill | 6.37:1 | 10.03:1 |
-| Photo placeholder label on its tint | 5.95:1 | 7.04:1 |
+| Photo placeholder label on its strongest stripe tint | 7.38:1 | 4.81:1 |
 | Muted rain bar against the weather card | 3.15:1 | 4.97:1 |
 | Success ink on surface | 7.42:1 | 7.89:1 |
-| Success ink on background | 5.32:1 | 10.07:1 |
+| Success ink on background | 6.83:1 | 10.07:1 |
 | Warning ink on surface | 7.11:1 | 7.89:1 |
-| Warning ink on background | 5.10:1 | 10.08:1 |
+| Warning ink on background | 6.55:1 | 10.07:1 |
 | Danger ink on surface | 7.53:1 | 7.17:1 |
-| Danger ink on background | 5.40:1 | 9.15:1 |
-| Status ink on its own container | 6.02 to 6.12:1 | 8.16 to 9.04:1 |
-| Status container tint on its surface (decorative, not the signal) | 1.23:1 ±0.01 | 1.14:1 ±0.01 |
-| `borderDefined` on surface | 4.60:1 | 3.17:1 |
-| `borderDefined` on background | 3.30:1 | 4.04:1 |
-| `borderDefined` on backgroundElevated | 4.24:1 | 3.17:1 |
-| Destructive button label on its `dangerInk` fill | 7.53:1 | 9.15:1 |
-| Worst condition ink on an allowed atmosphere plane | 3.13:1 | 7.15:1 |
+| Danger ink on background | 6.93:1 | 9.15:1 |
+| Status ink on its own container | 5.75 to 6.12:1 | 8.16 to 9.04:1 |
+| Provenance ink on its container | 5.75:1 | 9.02:1 |
+| Status container tint on its surface (decorative, not the signal) | 1.23 to 1.24:1 | 1.14 to 1.15:1 |
+| `borderDefined` on surface | 4.60:1 | 3.68:1 |
+| `borderDefined` on background | 4.24:1 | 4.70:1 |
+| `borderDefined` on backgroundElevated | 4.24:1 | 3.11:1 |
+| Destructive tonal button label on `dangerContainer` | 6.12:1 | 8.16:1 |
 
 The approved light supporting ink `#2F4650` measures 9.16:1 on Soft Mist (`#F4F6F5`), 7.18:1 on the stage (`#D7DCDD`), and 8.45:1 on the muted surface (`#E7EEED`).
 
-The first four rows are text pairs measured against the 4.5:1 threshold. The next non-status row is meaningful non-text content measured against the 3:1 threshold; rain probability is additionally encoded by bar height and repeated in the group's accessibility label, so it never depends on color alone. The weather card tint is `brandAccent` at 0.08 over `background`, and the photo placeholder tint is `brandAccent` at 0.05 over `surface`. The status ink rows are text pairs measured against 4.5:1 on both planes a status instance may sit on. The status container row is intentionally below the 3:1 non-text threshold: the container fill is decorative and is never the signal, while the ink on it stays at 6.02 to 9.04:1. The `borderDefined` rows are non-text pairs measured against 3:1 across every plane a control may sit on. These pairs are asserted in `theme.test.mjs`.
+Text pairs are measured against the 4.5:1 threshold. The muted rain bar is meaningful non-text content measured against 3:1; rain probability is also encoded by bar height and repeated in the group's accessibility label. The weather card tint is `brandAccent` at 0.08 over `background`. The photo placeholder starts with `brandAccent` at 0.05 over `surface` and overlays stripes at 0.15. Status containers are decorative; ink, glyph and text carry the signal. `borderDefined` identifies controls on each listed plane and clears the 3:1 non-text threshold. The theme tests enforce contrast floors; the measurements above use the current theme tokens.
 
 ### Elevation ladder
 
-The current allocation is [ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md)'s, landed 2026-09-08. In the light appearance the page ground is Soft Mist `#F4F6F5` on every screen, `surface` is `#FFFFFF`, and separation is carried by type and space rather than a card fill step: the light card step measures 1.085:1 and `theme.test.mjs` records that value instead of enforcing a minimum. In dark, `backgroundElevated` is the derived `#1F3B47`: 1.51:1 over the Night Layer ground and 1.18:1 over `surface`. Cloud White reads at 10.65:1 and `textSecondary` at 4.59:1 on that plane. The surface-to-elevated step stays below 1.2:1 by decision because a lighter value would push secondary text below 4.5:1. The floors the test enforces in both appearances: `background` has the strictly lowest luminance; `textPrimary` on `stage` remains at or above 4.5:1; every resolved `condition.*` ink at full opacity clears 3:1 on its allowed atmosphere planes, `neutral` and the Weather card surface; `textSecondary` on `background` and dark `backgroundElevated` remains at or above 4.5:1. The contrast floors for text and non-text elements are unchanged.
+In the light appearance the page ground is Soft Mist `#F4F6F5` on every screen, `surface` is `#FFFFFF`, and type and space carry separation; the card step is 1.085:1. Light `backgroundElevated` equals `background`. In dark, `backgroundElevated` is the derived `#1F3B47`: 1.51:1 over Night Layer and 1.18:1 over `surface`. Cloud White reads at 10.65:1 and `textSecondary` at 6.31:1 on that plane. The theme test enforces these floors: `background` has the lowest luminance; `textPrimary` on `stage` clears 4.5:1; every `condition.*` ink at full opacity clears 3:1 on its allowed atmosphere planes and the Weather card; `textSecondary` on `background` and dark `backgroundElevated` clears 4.5:1.
 
 Light `elevation.raised` is offset `{0, 4}`, radius 12, opacity 0.1, Android elevation 3; dark `raised` and both `chrome` levels are lower-opacity because the dark surface step already carries the separation. The shadow contact contrast rule and its measured values are in [`design-language.md`](design-language.md#law-3-surfaces-confirm-they-do-not-separate).
 
@@ -164,10 +171,10 @@ The canonical primitive entry point is `apps/mobile/src/components/ui/index.ts`.
 - `Button` is a capsule in four roles, `prominent`, `tonal`, `plain` and `destructive`, and three sizes, `large` 50, `medium` 44 and `small` 36 drawn with a 44-point target through hit slop. It takes at most one leading `icon`. The required visible `label` keeps localized text at the call site and wraps rather than truncates. Loading turns the leading slot into the progress indicator, keeps the label, blocks activation, and exposes busy and disabled accessibility state. `ButtonPair` places two buttons side by side and stacks them, stronger action first, above text factor 1.2.
 - `IconButton` requires an `accessibilityLabel` at the type boundary, accepts an optional standard accessibility hint through React Native props, and draws one `Icon` name as a 44-point circle on the tonal fill.
 - `GlassButton` is the one place a system glass control is drawn: `back` and `close` are `@expo/ui` SwiftUI buttons in the iOS 26 `.glass` style, and `bar` is the glyph a native header item frames in glass. Android maps them onto a plain text button, a tonal icon button and a plain header glyph. Feature presentation code draws a raw `Pressable` only for a listed row, tile, chip or link; `architecture-invariants.test.mjs` holds the list.
-- `Icon` (`apps/mobile/src/components/ui/icon.tsx`) wraps `expo-symbols` `SymbolView` behind a single frozen `iconNames` map from a semantic key to a `{ ios, android, web }` name triple, currently 25 entries with all three platforms present for each. It is decorative by default, hidden from the accessibility tree, and becomes a named element only when given an `accessibilityLabel`.
-- `GarmentSlotGlyph` and `GarmentSlotTile` (`apps/mobile/src/components/ui/garment-slot-glyph.tsx`) render the four-slot garment iconography as bundled monochrome template artwork (`apps/mobile/assets/icons/garment/`, one image per structural category at 1x/2x/3x, authored as SVG and rasterised to transparent PNG) through React Native `Image` with `tintColor`, rather than through `Icon`'s `expo-symbols` mechanism. Still keyed by the same six-value structural category union. See [ADR 0008](../adr/0008-expanding-the-visual-vocabulary-for-m6-1.md) for why SF Symbols and Material Symbols cover none of the four slots; `react-native-svg` remains rejected as a native module that would invalidate the existing dev build.
+- `Icon` (`apps/mobile/src/components/ui/icon.tsx`) wraps `expo-symbols` `SymbolView` behind a frozen `iconNames` map of 67 semantic keys, each with iOS, Android and web names. It is decorative by default, hidden from the accessibility tree, and becomes a named element only when given an `accessibilityLabel`.
+- `GarmentSlotGlyph` and `GarmentSlotTile` (`apps/mobile/src/components/ui/garment-slot-glyph.tsx`) render six structural categories through bundled monochrome PNG template artwork in standard and large sets (`apps/mobile/assets/icons/garment/`), with 1x, 2x and 3x densities. React Native `Image` applies `tintColor`; `Icon` remains the platform-symbol wrapper. See [ADR 0008](../adr/0008-expanding-the-visual-vocabulary-for-m6-1.md) for the garment-specific icon rationale.
 - `SectionHeader` composes a heading, optional supporting text, and optional trailing action. It changes to a stacked layout at large text sizes so the action does not compress the heading.
-- `Pill` is a small non-interactive label capsule with `accent-filled`, `bordered` and `provenance` tones resolved by `resolvePillColors`. The `provenance` tone fills container and border with `provenanceContainer` and draws its label in `provenanceInk`, so it spends nothing from Law 1's accent budget. Its label is the `caption` role at bold weight rather than a scale of its own, because [`design-language.md`](design-language.md#law-5-typographic-tone) allows nothing below `caption` 13 except the uppercase `eyebrow`; the weight is the primitive-level decision. It stays non-interactive: a caller that needs a tap wraps it in its own pressable and supplies the accessibility role, state, and target. It accepts an optional decorative leading icon, hidden from the accessibility tree; the generation-mode badge passes none, because neither AI badge carries a glyph ([ADR 0034](../adr/0034-on-device-ai-selection-through-apple-foundation-models.md) section 4).
+- `Pill` is a small non-interactive label capsule with `accent-filled`, `bordered`, `provenance` and `muted` tones resolved by `resolvePillColors`. The Worker AI badge uses `provenanceContainer` and `provenanceInk`; the on-device badge uses the neutral `muted` tone. Its label uses the bold `caption` role. A caller that needs a tap supplies its own pressable, accessibility role, state and target. Its optional leading icon is decorative and hidden from the accessibility tree. Today pairs the on-device words with the system-rendered `apple.intelligence` symbol and the Worker words with the animated multicolour `sparkles` layer. Settled deterministic fallback has no badge ([ADR 0034](../adr/0034-on-device-ai-selection-through-apple-foundation-models.md) section 4).
 - `PhotoPlaceholder` fills a fixed photo area with a striped semantic tint while no image is available. It renders its label only at heights of 96 points and above, because a thumbnail-sized box clips text at accessibility sizes; at smaller sizes it is a silent swatch and the surrounding row supplies the accessible name.
 - `ListRow`, `ListRowGroup`, and `ListRowTile` (`apps/mobile/src/components/ui/list-row.tsx` and `list-row-tile.tsx`) implement [ADR 0028](../adr/0028-the-profile-tab-and-the-list-row-anatomy.md) section 2's list-row anatomy once, for Profile, the Closet, and Settings to adopt. `ListRow` takes a leading glyph render function, a label, an optional trailing value and supporting caption, and an optional `onPress`; a pressable row is a button whose accessible name defaults to the label rather than a label-plus-value sentence assembled from fragments, and a caller that needs the two joined supplies an explicit `accessibilityLabel`. `ListRowGroup` renders the appearance-dependent group container, no fill plus a `borderDefined` hairline in light, the Night Layer surface step with no border in dark, both at the Law 3 card radius, and inserts a `borderSubtle` separator between rows at the text edge. `ListRowTile` is exported standalone so [ADR 0030](../adr/0030-settings-as-a-native-grouped-list.md)'s native Settings rows can host the same 28-by-28, radius-7 tile inside an `@expo/ui` `ListItem`'s `leading` slot through an `RNHostView`; the tile fill is always the row's own ink at a low `withAlpha` opacity, never a coloured tile. The tile, its glyph, and the chevron scale together by the shared `useTextScaling` hook's capped `controlScale`, and the trailing value stacks under the label above `fontScale` 1.5 while the chevron stays on the label line.
 - `NativePickerRow` is a direct native-list child for the four Settings preferences. On iOS it is a menu-style SwiftUI `Picker` with string tags, a plain label, and the row's SF Symbol through `systemImage`; on other platforms it keeps the existing native list-row anatomy and opens a local React Native alert with the same choices. The primitive owns the one selection haptic and never uses SwiftUI's `navigationLink` picker style, which crashes inside the react-native-screens stack.
