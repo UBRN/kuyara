@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 import {
@@ -15,6 +16,36 @@ import {
   outfitCompositionReasonCodes,
 } from './outfit-composition.ts';
 import { deriveClothingRequirements } from './weather-to-clothing-requirements.ts';
+import { gridRecommendationInput } from '../../../../test/recommendation-grid.mjs';
+
+test('the complete ordered catalog pool stays byte-identical across weather and dress styles', () => {
+  const hash = createHash('sha256');
+  for (const preference of ['womens', 'mens']) {
+    for (const dressStyle of ['casual', 'smart', 'formal']) {
+      for (const weather of ['hot', 'mild', 'cold_rain', 'freezing']) {
+        const cell = { preference, dressStyle, weather };
+        const input = gridRecommendationInput(weather, preference, dressStyle);
+        const requirements = deriveClothingRequirements(input.snapshot, input.now);
+        const candidates = listGarmentTypesForPreference(preference).map(({ typeId }) =>
+          catalogCandidate(requirements, typeId, preference));
+        const result = collectValidOutfits(requirements, candidates);
+        const ordered = result.status === 'composed'
+          ? result.outfits.map((outfit, order) => ({
+              order,
+              compositionKey: outfit.compositionKey,
+              score: outfit.score,
+              formality: outfit.formality,
+            }))
+          : { failure: result.reasonCodes };
+        hash.update(JSON.stringify({ cell, ordered }));
+      }
+    }
+  }
+  assert.equal(
+    hash.digest('hex'),
+    '5b4773f0a947b2914111d4b785a4c4af96f4d23521a0810d425997ec8900a437',
+  );
+});
 
 test('recent worn sets exclude by catalog garment IDs and relax oldest first to keep three', () => {
   const make = (id) => ({
