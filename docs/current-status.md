@@ -138,8 +138,8 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   spring where garment pieces land on a board, and an ambient tempo taken from the
   condition's intensity.
 - **Builds:** iOS is the first release target. EAS production credentials and an App Store
-  Connect record (`com.ubrn.kuyara`, ASC app `6806664440`) exist. Build 14 (`0.1.20260920`)
-  is in phased release and build 15 (`0.1.20260926`) awaits App Review (see Release State below);
+  Connect record (`com.ubrn.kuyara`, ASC app `6806664440`) exist. Build 15 (`0.1.20260926`)
+  is on the App Store and has received one production EAS Update (see Release State below);
   the `production` profile points at the deployed Worker, and the development client
   builds locally ([Development build on the physical
   iPhone](testing.md#development-build-on-the-physical-iphone)). The version scheme and
@@ -158,10 +158,10 @@ The approved phase order, active work and remaining open items are in [the roadm
 
 ## Release State
 
-- **Build 14:** Version `0.1.20260920`, build 14, is `READY_FOR_DISTRIBUTION`; App Review is `COMPLETE`. App Store Connect status was checked on 25 September 2026.
-- **Phased release:** `ACTIVE`, started `2026-09-20T03:15Z`, on day 5 at the latest status check. The configured release is in progress.
+- **Build 15:** Version `0.1.20260926`, build 15, is `READY_FOR_SALE`; App Store Connect status was checked on 27 September 2026. It was submitted on 26 September 2026 with `AFTER_APPROVAL` release and phased release configured. Build 14 (`0.1.20260920`) is the previous release.
+- **EAS Update:** One production iOS update reaches build 15 installs: group `8a94063e-8e3d-4228-9760-f783ebc6d557`, runtime `0.1.20260926`, commit `6bbe001` (the sheet close button, the evening and cold-start recommendation fixes, focus performance and the pre-consent episode fix). The EAS `production` environment carries `EXPO_PUBLIC_KUYARA_WORKER_BASE_URL` and the PostHog variables, and the Hermes source maps for release `kuyara@6bbe001` are uploaded to PostHog.
+- **Worker:** The deployed Worker is version `2a6d14af`, built from commit `ab75c52` (WeatherKit freezing precipitation reads as `sleet`); `/v1/health` returned 200 after the deploy.
 - **Compatibility:** Builds 8 and 9 were released before commit `8e949ec` and carry strict `/v1` response schemas. Keep `/v1` response shapes frozen while either binary remains installed; changed shapes use a new route.
-- **Build 15:** Version `0.1.20260926`, build 15, was submitted for App Review on 26 September 2026. Its state is `WAITING_FOR_REVIEW`, with `AFTER_APPROVAL` release and phased release configured.
 
 ## Known Issues and Manual Verification Gaps
 
