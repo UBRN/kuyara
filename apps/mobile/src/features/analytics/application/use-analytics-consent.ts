@@ -67,8 +67,11 @@ export function useAnalyticsConsent(): AnalyticsConsentControls {
       if (state.profile.analyticsConsent === 'granted' && analytics.isWithdrawalInProgress()) {
         throw new Error('Complete the pending analytics withdrawal before granting again');
       }
-      if (state.profile.analyticsConsent === 'granted'
-        && analytics.isApplied() && telemetry.isApplied()) return;
+      if (state.profile.analyticsConsent === 'granted' && analytics.isApplied()) {
+        if (telemetry.isApplied()) return;
+        await telemetry.setDispatching(telemetryDispatchingEnabled('granted'));
+        return;
+      }
       if (state.profile.analyticsConsent !== 'undecided') {
         // A previous withdrawal may have failed, even in an earlier app process. The
         // provider must be cleaned while opted out before the answer can change.
