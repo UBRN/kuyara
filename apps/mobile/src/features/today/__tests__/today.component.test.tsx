@@ -169,11 +169,44 @@ const initialMetrics = {
   insets: { top: 59, right: 0, bottom: 34, left: 0 },
 };
 
+test('Today renders Fahrenheit and speaks the selected unit', async () => {
+  const result = await render(providers(
+    <TodayScreen language="en" onOpenOutfitDetail={jest.fn()}
+      onRefresh={jest.fn()} onAskAgain={jest.fn()} state={todayScreenState} />,
+    lightTheme, 'en', todayScreenState.snapshot.activeLocation, 'fahrenheit',
+  ));
+  expect(result.getByRole('header', { name: /68\.0 degrees Fahrenheit/ })).toBeOnTheScreen();
+  expect(result.getByTestId('today-title').props.accessibilityLabel)
+    .toMatch(/^Today, 68\.0 degrees Fahrenheit, /);
+});
+
+test.each([
+  ['en', 'degrees Fahrenheit', 'Today', '68.0'],
+  ['tr', 'fahrenhayt derece', 'Bugün', '68,0'],
+] as const)('%s title and detail recap speak the Fahrenheit unit', async (language, unitName, title, temperature) => {
+  const today = await render(providers(
+    <TodayScreen language={language} onOpenOutfitDetail={jest.fn()}
+      onRefresh={jest.fn()} onAskAgain={jest.fn()} state={todayScreenState} />,
+    lightTheme, language, todayScreenState.snapshot.activeLocation, 'fahrenheit',
+  ));
+  expect(today.getByTestId('today-title').props.accessibilityLabel)
+    .toContain(`${title}, ${temperature} ${unitName}, `);
+
+  const detail = await render(providers(
+    <OutfitDetailScreen language={language} onEditPiece={() => undefined}
+      state={todayScreenState} suggestionId={todayOutfitId(1)} wardrobeItems={[]} />,
+    lightTheme, language, todayScreenState.snapshot.activeLocation, 'fahrenheit',
+  ));
+  expect(detail.getByTestId('outfit-detail-weather-recap').props.accessibilityLabel)
+    .toContain(`${temperature} ${unitName}, `);
+});
+
 function providers(
   children: React.ReactNode,
   theme: KuyaraTheme = lightTheme,
   language: SupportedLanguage = 'en',
   activeLocation: ActiveLocation | null = todayScreenState.snapshot.activeLocation,
+  temperatureUnit: 'celsius' | 'fahrenheit' = 'celsius',
 ) {
   const weather = {
     state: {
@@ -197,7 +230,7 @@ function providers(
     revalidateFreshness: jest.fn(async () => undefined),
   } satisfies WeatherApplicationValue;
   return (
-    <LocalizationContext value={{ language, messages: messages[language], hour12: false }}>
+    <LocalizationContext value={{ language, messages: messages[language], hour12: false, temperatureUnit }}>
       <KuyaraThemeContext.Provider value={theme}>
         <SafeAreaProvider initialMetrics={initialMetrics}>
           <WeatherApplicationContext value={weather}>{children}</WeatherApplicationContext>
@@ -208,7 +241,7 @@ function providers(
 }
 
 function loadedPresentation(language: 'en' | 'tr' = 'en') {
-  const presentation = createTodayPresentation(todayScreenState, language, false, fixtureNow);
+  const presentation = createTodayPresentation(todayScreenState, language, false, 'celsius', fixtureNow);
   if (presentation.kind !== 'loaded') throw new Error('Expected loaded Today presentation.');
   return presentation;
 }
@@ -271,7 +304,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
       lightTheme, language,
     ));
     const hidden = { includeHiddenElements: true };
-    const title = result.getByRole('header', { name: presentation.title });
+    const title = result.getByRole('header', { name: presentation.titleAccessibilityLabel });
     expect(title).toHaveTextContent(`${presentation.titleParts.lead}${temperature}${condition}`);
     expect(within(title).getByTestId('today-title-symbol', hidden)).toBeOnTheScreen();
     expect(isHiddenFromAccessibility(result.getByTestId('today-title-symbol', hidden))).toBe(true);
@@ -311,7 +344,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     expect(result.getByTestId('today-archetype', hidden)).toHaveTextContent(primary.title);
     expect(StyleSheet.flatten(result.getByTestId('today-archetype', hidden).props.style))
       .toMatchObject(typography.label);
-    const title = result.getByRole('header', { name: presentation.title });
+    const title = result.getByRole('header', { name: presentation.titleAccessibilityLabel });
     expect(title).toBeOnTheScreen();
     expect(presentation.title).toContain(language === 'en' ? 'Today · 20.0°' : 'Bugün · 20,0°');
     // M7: the date sits in the top row, opposite the place.
@@ -613,7 +646,7 @@ test('accessibility XXXL keeps the complete generation mode and freshness status
   const presentation = createTodayPresentation(
     aiAssistedTodayScreenState,
     'en',
-    false,
+    false, 'celsius',
     fixtureNow,
   );
   if (presentation.kind !== 'loaded' || !presentation.generationMode) {
@@ -1442,7 +1475,7 @@ describe.each(['en', 'tr'] as const)('%s Today refresh status announcement', (la
   const state = (isRefreshing: boolean, refreshFailed: boolean): TodayScreenState =>
     ({ ...todayScreenState, isRefreshing, refreshFailed });
   const freshness = (isRefreshing: boolean, refreshFailed: boolean) => {
-    const presentation = createTodayPresentation(state(isRefreshing, refreshFailed), language, false, fixtureNow);
+    const presentation = createTodayPresentation(state(isRefreshing, refreshFailed), language, false, 'celsius', fixtureNow);
     if (presentation.kind !== 'loaded') throw new Error('Expected loaded Today presentation.');
     return presentation.header.freshness;
   };
@@ -1764,7 +1797,7 @@ describe.each(['en', 'tr'] as const)('%s Today attribution absence', (language: 
 // "Finishing touches" row. Both disappear on a day that asks for none.
 describe('finishing touches', () => {
   function accessoryNames(state: typeof coldTodayScreenState, language: 'en' | 'tr' = 'en') {
-    const presentation = createTodayPresentation(state, language, false, fixtureNow);
+    const presentation = createTodayPresentation(state, language, false, 'celsius', fixtureNow);
     if (presentation.kind !== 'loaded') throw new Error('Expected a loaded presentation.');
     return presentation.suggestions[0].accessories;
   }
@@ -1861,7 +1894,7 @@ describe('finishing touches', () => {
       expect(within(row).getByText(accessory.item)).toBeOnTheScreen();
     }
     // The board is the six body slots and nothing else.
-    const boardPieces = createTodayPresentation(coldTodayScreenState, language, false, fixtureNow);
+    const boardPieces = createTodayPresentation(coldTodayScreenState, language, false, 'celsius', fixtureNow);
     if (boardPieces.kind !== 'loaded') throw new Error('Expected a loaded presentation.');
     expect(
       boardPieces.suggestions[0].boardPieces.some(({ category }) => category === 'accessory'),
@@ -2442,7 +2475,7 @@ describe.each(['en', 'tr'] as const)('%s Today states each fact once', (language
     const lines = visibleLines(result.toJSON());
     expect(lines.length).toBeGreaterThan(0);
     expect(lines.filter((line, index) => lines.indexOf(line) !== index)).toEqual([]);
-    const presentation = createTodayPresentation(state, language, false, Date.now());
+    const presentation = createTodayPresentation(state, language, false, 'celsius', Date.now());
     if (presentation.kind !== 'loaded') throw new Error('loaded presentation required');
     expect(Object.keys(presentation)).not.toContain('dayWindow');
     if (state.kind === 'loaded' && state.snapshot.recommendation.status === 'recommended' &&
@@ -2452,7 +2485,7 @@ describe.each(['en', 'tr'] as const)('%s Today states each fact once', (language
       // The deterministic fallback for the same weather is not shown beside it.
       const fallback = createTodayPresentation({ ...state, snapshot: { ...state.snapshot,
         recommendation: { ...state.snapshot.recommendation, insightSentence: undefined } } },
-      language, false, Date.now());
+      language, false, 'celsius', Date.now());
       if (fallback.kind !== 'loaded' || !fallback.dayInsight) throw new Error('fallback line expected');
       expect(lines).not.toContain(fallback.dayInsight);
     }

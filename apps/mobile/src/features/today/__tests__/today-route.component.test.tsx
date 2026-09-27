@@ -238,7 +238,7 @@ const todayRecommendation = todayScreenState.snapshot.recommendation;
 // screen renders rather than written down, so a change in the engine's offer order moves the
 // caption lookups and the Closet entry they create with it.
 const firstDetailGarmentTypeId = (() => {
-  const presentation = createTodayPresentation(todayScreenState, 'en', false, Date.now());
+  const presentation = createTodayPresentation(todayScreenState, 'en', false, 'celsius', Date.now());
   if (presentation.kind !== 'loaded') throw new Error('Expected loaded Today presentation.');
   return presentation.suggestions[0].pieces[0].garmentTypeId;
 })();

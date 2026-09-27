@@ -1,7 +1,7 @@
 import { type PropsWithChildren, useMemo } from 'react';
 
 import type { LanguagePreference } from '@/domain/preferences';
-import { getDeviceHour12, getDeviceLocale } from '@/localization/device-locale';
+import { getDeviceHour12, getDeviceLocale, useDeviceTemperatureUnit } from '@/localization/device-locale';
 import { resolveLanguagePreference } from '@/localization/language-preference';
 import {
   LocalizationContext,
@@ -17,6 +17,7 @@ export function LocalizationProvider({
   children,
   preference = 'system',
 }: LocalizationProviderProps) {
+  const temperatureUnit = useDeviceTemperatureUnit();
   const localization = useMemo<LocalizationValue>(() => {
     const deviceLocale = getDeviceLocale();
     const language = resolveLanguagePreference(preference, deviceLocale);
@@ -24,8 +25,9 @@ export function LocalizationProvider({
       language,
       messages: getMessages(language),
       hour12: getDeviceHour12(deviceLocale),
+      temperatureUnit,
     };
-  }, [preference]);
+  }, [preference, temperatureUnit]);
 
   return (
     <LocalizationContext value={localization}>{children}</LocalizationContext>

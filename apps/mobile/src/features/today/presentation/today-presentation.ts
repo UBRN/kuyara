@@ -55,6 +55,7 @@ import {
   type TodayMessages,
   type TodayRequirementName,
 } from '@/localization/messages';
+import type { TemperatureUnit } from '@/localization/device-locale';
 import {
   formatTemperature,
   formatTemperatureValue,
@@ -141,8 +142,9 @@ export type LoadedOutfitPresentation = Readonly<{
 
 export type LoadedTodayPresentation = Readonly<{
   kind: 'loaded';
-  /** The whole title as one sentence, for the header's spoken label. */
+  /** The visible title, whose temperature remains grouped with its condition. */
   title: string;
+  titleAccessibilityLabel: string;
   /**
    * The same title split where it may wrap and where the symbol stands: `lead` is everything
    * before the temperature, and the rest stays together on one line.
@@ -174,6 +176,7 @@ export type LoadedTodayPresentation = Readonly<{
     range: string;
     rainProbability: string;
     accessibilityLabel: string;
+    recapAccessibilityLabel: string;
     // The raw provider-neutral condition code and whether the sun is up at the place,
     // carried so the title symbol can resolve its own condition ink and tempo. Neither is
     // display text: the visible condition name stays `condition`.
@@ -590,6 +593,7 @@ function createLoadedPresentation(
   snapshot: TodaySnapshot,
   language: SupportedLanguage,
   hour12: boolean,
+  temperatureUnit: TemperatureUnit,
   isRefreshing: boolean,
   refreshFailed: boolean,
   now: number,
@@ -703,7 +707,7 @@ function createLoadedPresentation(
 
   // One localized template per language: the values are substituted, never the words.
   const titleLine = copy.titleTemplate
-    .replace('{temperature}', formatTemperature(current.temperatureCelsius, language))
+    .replace('{temperature}', formatTemperature(current.temperatureCelsius, language, temperatureUnit))
     .replace('{condition}', condition);
   const [beforeSymbol, afterSymbol] = titleLine.split(' {symbol} ');
   const leadEnd = copy.titleTemplate.indexOf('{temperature}');
@@ -711,6 +715,11 @@ function createLoadedPresentation(
   return {
     kind: 'loaded',
     title: `${beforeSymbol} ${afterSymbol}`,
+    titleAccessibilityLabel: copy.titleAccessibilityLabel({
+      temperature: formatTemperatureValue(current.temperatureCelsius, language, temperatureUnit),
+      unitName: messages.temperatureUnitNames[temperatureUnit],
+      condition,
+    }),
     titleParts: {
       lead: beforeSymbol.slice(0, leadEnd).trim(),
       beforeSymbol: beforeSymbol.slice(leadEnd),
@@ -746,24 +755,32 @@ function createLoadedPresentation(
     },
     weather: {
       condition,
-      temperature: formatTemperature(current.temperatureCelsius, language),
+      temperature: formatTemperature(current.temperatureCelsius, language, temperatureUnit),
       apparentTemperature: copy.apparentTemperature(
-        formatTemperature(current.apparentTemperatureCelsius, language),
+        formatTemperature(current.apparentTemperatureCelsius, language, temperatureUnit),
       ),
       range: copy.temperatureRange(
-        formatTemperature(weather.minimumTemperatureCelsius, language),
-        formatTemperature(weather.maximumTemperatureCelsius, language),
+        formatTemperature(weather.minimumTemperatureCelsius, language, temperatureUnit),
+        formatTemperature(weather.maximumTemperatureCelsius, language, temperatureUnit),
       ),
       rainProbability: copy.rainProbability(
         formatPercent(rainProbability, language),
       ),
       accessibilityLabel: copy.weatherAccessibilityLabel({
         condition,
-        current: formatTemperatureValue(current.temperatureCelsius, language),
-        apparent: formatTemperatureValue(current.apparentTemperatureCelsius, language),
-        minimum: formatTemperatureValue(weather.minimumTemperatureCelsius, language),
-        maximum: formatTemperatureValue(weather.maximumTemperatureCelsius, language),
+        unitName: messages.temperatureUnitNames[temperatureUnit],
+        current: formatTemperatureValue(current.temperatureCelsius, language, temperatureUnit),
+        apparent: formatTemperatureValue(current.apparentTemperatureCelsius, language, temperatureUnit),
+        minimum: formatTemperatureValue(weather.minimumTemperatureCelsius, language, temperatureUnit),
+        maximum: formatTemperatureValue(weather.maximumTemperatureCelsius, language, temperatureUnit),
         rainProbability: Math.round(rainProbability * 100),
+      }),
+      recapAccessibilityLabel: copy.weatherRecapAccessibilityLabel({
+        temperature: formatTemperatureValue(current.temperatureCelsius, language, temperatureUnit),
+        unitName: messages.temperatureUnitNames[temperatureUnit],
+        condition,
+        rainProbability: Math.round(rainProbability * 100),
+        coverageCaption,
       }),
       conditionCode: current.condition,
       daypart,
@@ -776,7 +793,8 @@ function createLoadedPresentation(
     coolSpellCaption,
     dayInsight,
     stageAccessibilityLabel: primary ? copy.stageAccessibilityLabel({
-      temperature: formatTemperatureValue(current.temperatureCelsius, language),
+      unitName: messages.temperatureUnitNames[temperatureUnit],
+      temperature: formatTemperatureValue(current.temperatureCelsius, language, temperatureUnit),
       condition,
       pieces: primary.pieces.map(({ item }) => item),
       archetype: primary.title,
@@ -793,6 +811,7 @@ export function createTodayPresentation(
   state: TodayScreenState,
   language: SupportedLanguage,
   hour12: boolean,
+  temperatureUnit: TemperatureUnit,
   now: number,
 ): TodayPresentation {
   const messages = getMessages(language);
@@ -840,6 +859,7 @@ export function createTodayPresentation(
     state.snapshot,
     language,
     hour12,
+    temperatureUnit,
     state.isRefreshing,
     state.refreshFailed,
     now,

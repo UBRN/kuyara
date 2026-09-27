@@ -2,6 +2,11 @@ jest.mock('react-native-worklets', () =>
   jest.requireActual('react-native-worklets/src/mock'),
 );
 
+jest.mock('expo-localization', () => {
+  const locales = [{ temperatureUnit: 'celsius' }];
+  return { getLocales: () => locales, useLocales: () => locales };
+});
+
 jest.mock('react-native-reanimated', () => {
   const reanimated = jest.requireActual('react-native-reanimated/mock');
 

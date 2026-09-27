@@ -122,12 +122,13 @@ async function renderOnboarding(
   },
   language: 'en' | 'tr' = 'en',
   analytics = new RecordingProductAnalytics(),
+  temperatureUnit: 'celsius' | 'fahrenheit' = 'celsius',
 ) {
   return {
     analytics,
     onComplete,
     result: await render(
-      <LocalizationContext.Provider value={{ language, messages: messages[language], hour12: false }}>
+      <LocalizationContext.Provider value={{ language, messages: messages[language], hour12: false, temperatureUnit }}>
         <KuyaraThemeContext.Provider value={lightTheme}>
           <SafeAreaProvider initialMetrics={initialMetrics}>
             <ProductAnalyticsProvider
@@ -431,6 +432,15 @@ test.each([
     expect(step.getByText(rationale)).toBeOnTheScreen();
   },
 );
+
+test('the onboarding weather sample follows Fahrenheit', async () => {
+  const { result } = await renderOnboarding(
+    null, null, undefined, undefined, undefined, undefined, undefined, undefined, 'fahrenheit',
+  );
+  expect(result.getByText(messages.en.onboarding.welcomePreviewTitle('57°'), {
+    includeHiddenElements: true,
+  })).toBeOnTheScreen();
+});
 
 // O14: every step shows what it changes, from shipped drawings only.
 test('each step draws what it changes: a Today preview, a greeting and garment tiles', async () => {

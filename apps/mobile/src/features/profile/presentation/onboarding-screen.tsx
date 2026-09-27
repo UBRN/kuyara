@@ -54,6 +54,7 @@ import { resolveConditionStyle } from '@/features/today/domain/condition-style';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { LocationSelectionControls } from '@/features/weather/presentation/location-selection-controls';
 import { useLocalization } from '@/localization/use-messages';
+import { formatWholeTemperatureValue } from '@/presentation/format-temperature';
 import { useKuyaraTheme } from '@/theme/theme-context';
 import { borderWidths, radii, spacing } from '@/theme/theme';
 
@@ -138,7 +139,7 @@ export function OnboardingScreen({
   const announcedStep = useRef(false);
   const headingRef = useRef<Text>(null);
   const maximumBirthDate = useMemo(() => new Date(), []);
-  const { language, messages } = useLocalization();
+  const { language, messages, temperatureUnit } = useLocalization();
   const copy = messages.onboarding;
   const preferenceCopy = messages.preferences;
   const theme = useKuyaraTheme();
@@ -331,7 +332,7 @@ export function OnboardingScreen({
                 name={welcomePreviewCondition.shape}
                 size={20}
               />
-              <AppText tabularNumbers variant="bodyStrong">{copy.welcomePreviewTitle}</AppText>
+              <AppText tabularNumbers variant="bodyStrong">{copy.welcomePreviewTitle(`${formatWholeTemperatureValue(14, language, temperatureUnit)}°`)}</AppText>
             </View>
             {previewWidth > 0 ? (
               <GarmentBoard

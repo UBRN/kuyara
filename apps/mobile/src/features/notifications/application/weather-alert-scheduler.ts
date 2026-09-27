@@ -12,6 +12,8 @@ import {
 } from '@/features/notifications/domain/weather-alerts';
 import { weatherFreshness, type WeatherSnapshot } from '@/features/weather/domain/weather';
 import { messages, type SupportedLanguage } from '@/localization/messages';
+import type { TemperatureUnit } from '@/localization/device-locale';
+import { formatWholeTemperature } from '@/presentation/format-temperature';
 
 type RescheduleInput = Readonly<{
   localProfileId: string;
@@ -23,6 +25,7 @@ type RescheduleInput = Readonly<{
   language: SupportedLanguage;
   /** The device's 12/24-hour clock setting, which the user sets apart from the language. */
   hour12: boolean;
+  temperatureUnit: TemperatureUnit;
   /** Defaults to the foreground lead of ADR 0032 section 3. */
   leadTimeMinutes?: number;
 }>;
@@ -52,18 +55,15 @@ function crossingTime(
 function briefingCopy(
   plan: MorningBriefingPlan,
   language: SupportedLanguage,
+  temperatureUnit: TemperatureUnit,
 ): Readonly<{ title: string; body: string }> {
   const copy = messages[language].notifications.morningBriefing;
   const { condition, precipitationLikely } = plan.content;
-  // The same locale pair `crossingTime` uses, so a below-zero morning reads with the
-  // locale's own minus sign. The copy owns the unit and the single-value form; a one-hour
-  // morning window has one temperature and must not read as a range of it to itself.
-  const format = new Intl.NumberFormat(language === 'tr' ? 'tr-TR' : 'en-GB', {
-    maximumFractionDigits: 0,
-  });
+  // Compare the displayed values so a converted range that rounds to one degree
+  // reads as one temperature.
   const temperatures = {
-    low: format.format(Math.round(plan.content.minimumTemperatureCelsius) || 0),
-    high: format.format(Math.round(plan.content.maximumTemperatureCelsius) || 0),
+    low: formatWholeTemperature(plan.content.minimumTemperatureCelsius, language, temperatureUnit),
+    high: formatWholeTemperature(plan.content.maximumTemperatureCelsius, language, temperatureUnit),
   };
   if (precipitationLikely) return { title: copy.title, body: copy.wetBody(temperatures) };
   return ['clear', 'mostly_clear'].includes(condition)
@@ -76,6 +76,7 @@ function alertCopy(
   timeZone: string,
   language: SupportedLanguage,
   hour12: boolean,
+  temperatureUnit: TemperatureUnit,
 ): Readonly<{ title: string; body: string }> {
   const copy = messages[language].notifications.alerts;
   const time = crossingTime(plan, timeZone, language, hour12);
@@ -84,10 +85,10 @@ function alertCopy(
       ? { title: copy.snowTitle, body: copy.snowBody(time) }
       : { title: copy.rainTitle, body: copy.rainBody(time) };
   }
-  const temperatureCelsius = Math.round(plan.detail.toApparentCelsius);
+  const temperature = formatWholeTemperature(plan.detail.toApparentCelsius, language, temperatureUnit);
   return plan.detail.direction === 'drop'
-    ? { title: copy.dropTitle, body: copy.dropBody({ time, temperatureCelsius }) }
-    : { title: copy.riseTitle, body: copy.riseBody({ time, temperatureCelsius }) };
+    ? { title: copy.dropTitle, body: copy.dropBody({ time, temperature }) }
+    : { title: copy.riseTitle, body: copy.riseBody({ time, temperature }) };
 }
 
 export class WeatherAlertScheduler implements WeatherAlertScheduling {
@@ -181,9 +182,9 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
     };
 
     for (const plan of plans) {
-      await schedule(plan, alertCopy(plan, snapshot.timeZone, input.language, input.hour12));
+      await schedule(plan, alertCopy(plan, snapshot.timeZone, input.language, input.hour12, input.temperatureUnit));
     }
-    if (briefing) await schedule(briefing, briefingCopy(briefing, input.language));
+    if (briefing) await schedule(briefing, briefingCopy(briefing, input.language, input.temperatureUnit));
 
     await repository.upsertScheduled(scheduled);
     await repository.pruneBefore(
