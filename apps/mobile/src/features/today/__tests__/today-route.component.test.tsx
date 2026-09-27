@@ -514,6 +514,11 @@ function Providers({
           <AnalyticsConsentTriggerContext value={{
             recommendationShown: false,
             markRecommendationShown,
+            beginConsentPresentation: () => 'gate-nonce',
+            matchesConsentPresentation: () => false,
+            clearConsentPresentation: () => undefined,
+            answeringPresentation: null,
+            answerConsentPresentation: (_nonce, answer) => answer(),
           }}>
             <ProfileApplicationContext value={profile}>
             <NotificationApplicationContext value={notificationValue()}>
