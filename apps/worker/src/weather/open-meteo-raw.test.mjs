@@ -134,6 +134,30 @@ test('keeps the ordered 36-hour window across local midnight', () => {
   ), true);
 });
 
+test('ignores invalid hourly and daily values outside the used windows', () => {
+  const fixture = rawFixture();
+  fixture.hourly.time.unshift('2026-08-28T00:00');
+  for (const [key, values] of Object.entries(fixture.hourly)) {
+    if (key !== 'time') values.unshift(key === 'weather_code' ? 999 : -999);
+  }
+  fixture.daily.time.unshift('2026-08-28');
+  for (const [key, values] of Object.entries(fixture.daily)) {
+    if (key !== 'time') values.unshift(key === 'weather_code' ? 999 : -999);
+  }
+  assert.doesNotThrow(() => mapOpenMeteoResponse(
+    openMeteoResponseSchema.parse(fixture), location, fetchedAt,
+  ));
+});
+
+test('rejects an invalid in-window hourly value', () => {
+  const fixture = rawFixture();
+  fixture.hourly.precipitation_probability[0] = -1;
+  assert.throws(
+    () => mapOpenMeteoResponse(openMeteoResponseSchema.parse(fixture), location, fetchedAt),
+    (error) => error instanceof WeatherProviderError && error.kind === 'invalid_response',
+  );
+});
+
 test('takes the low and high from the local day, not the UTC day', () => {
   // 01:10 in Istanbul is still the previous UTC day, which is where `daily[0]` sits.
   const fixture = rawFixture();

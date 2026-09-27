@@ -62,6 +62,9 @@ jobs:
       - name: Test the Worker
         run: pnpm --filter @kuyara/worker test
 
+      - name: Test installed contract compatibility
+        run: pnpm --filter @kuyara/contracts test
+
       # `wrangler deploy --dry-run` against the top-level configuration: the bundle
       # must build before anything reaches Cloudflare. The same source bundles for
       # both Wrangler environments, so one dry run gates both.

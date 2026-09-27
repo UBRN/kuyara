@@ -1,0 +1,309 @@
+{
+  "weather-v2:weatherV2SuccessSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "data": {
+        "type": "object",
+        "properties": {
+          "timeZone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "fetchedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "origin": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "sample",
+                  "live"
+                ]
+              },
+              "sourceId": {
+                "type": "string",
+                "enum": [
+                  "sample",
+                  "open-meteo",
+                  "openweather",
+                  "weatherkit"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "sourceId"
+            ]
+          },
+          "current": {
+            "type": "object",
+            "properties": {
+              "temperatureCelsius": {
+                "type": "number"
+              },
+              "apparentTemperatureCelsius": {
+                "type": "number"
+              },
+              "condition": {
+                "type": "string",
+                "enum": [
+                  "clear",
+                  "mostly_clear",
+                  "partly_cloudy",
+                  "cloudy",
+                  "fog",
+                  "drizzle",
+                  "rain",
+                  "heavy_rain",
+                  "sleet",
+                  "snow",
+                  "thunderstorm"
+                ]
+              },
+              "precipitationProbability": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "windSpeedMetersPerSecond": {
+                "type": "number",
+                "minimum": 0
+              },
+              "humidity": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "uvIndex": {
+                "type": "number",
+                "minimum": 0
+              },
+              "observedAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              }
+            },
+            "required": [
+              "temperatureCelsius",
+              "apparentTemperatureCelsius",
+              "condition",
+              "precipitationProbability",
+              "windSpeedMetersPerSecond",
+              "humidity",
+              "uvIndex",
+              "observedAt"
+            ]
+          },
+          "minimumTemperatureCelsius": {
+            "type": "number"
+          },
+          "maximumTemperatureCelsius": {
+            "type": "number"
+          },
+          "hourly": {
+            "minItems": 1,
+            "maxItems": 38,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "temperatureCelsius": {
+                  "type": "number"
+                },
+                "apparentTemperatureCelsius": {
+                  "type": "number"
+                },
+                "condition": {
+                  "type": "string",
+                  "enum": [
+                    "clear",
+                    "mostly_clear",
+                    "partly_cloudy",
+                    "cloudy",
+                    "fog",
+                    "drizzle",
+                    "rain",
+                    "heavy_rain",
+                    "sleet",
+                    "snow",
+                    "thunderstorm"
+                  ]
+                },
+                "precipitationProbability": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "windSpeedMetersPerSecond": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "humidity": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "uvIndex": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "forecastAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                }
+              },
+              "required": [
+                "temperatureCelsius",
+                "apparentTemperatureCelsius",
+                "condition",
+                "precipitationProbability",
+                "windSpeedMetersPerSecond",
+                "humidity",
+                "uvIndex",
+                "forecastAt"
+              ]
+            }
+          },
+          "daily": {
+            "minItems": 1,
+            "maxItems": 7,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "dateKey": {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                },
+                "condition": {
+                  "type": "string",
+                  "enum": [
+                    "clear",
+                    "mostly_clear",
+                    "partly_cloudy",
+                    "cloudy",
+                    "fog",
+                    "drizzle",
+                    "rain",
+                    "heavy_rain",
+                    "sleet",
+                    "snow",
+                    "thunderstorm"
+                  ]
+                },
+                "minimumTemperatureCelsius": {
+                  "type": "number"
+                },
+                "maximumTemperatureCelsius": {
+                  "type": "number"
+                },
+                "precipitationProbability": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "precipitationMillimetres": {
+                  "anyOf": [
+                    {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "dateKey",
+                "condition",
+                "minimumTemperatureCelsius",
+                "maximumTemperatureCelsius",
+                "precipitationProbability",
+                "precipitationMillimetres"
+              ]
+            }
+          }
+        },
+        "required": [
+          "timeZone",
+          "fetchedAt",
+          "origin",
+          "current",
+          "minimumTemperatureCelsius",
+          "maximumTemperatureCelsius",
+          "hourly",
+          "daily"
+        ]
+      }
+    },
+    "required": [
+      "data"
+    ]
+  },
+  "ai-v2:aiRecommendV2SuccessSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "data": {
+        "type": "object",
+        "properties": {
+          "picks": {
+            "minItems": 3,
+            "maxItems": 3,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "optionId": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9:_-]{1,32}$"
+                },
+                "archetypeId": {
+                  "type": "string",
+                  "enum": [
+                    "everyday_easy",
+                    "smart_casual",
+                    "office_ready",
+                    "weekend_relaxed",
+                    "layered_warmth",
+                    "cold_shield",
+                    "rain_ready",
+                    "snow_day",
+                    "wind_guard",
+                    "light_and_airy",
+                    "on_the_move",
+                    "in_between"
+                  ]
+                }
+              },
+              "required": [
+                "optionId",
+                "archetypeId"
+              ]
+            }
+          },
+          "insightSentence": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 90
+          }
+        },
+        "required": [
+          "picks"
+        ]
+      }
+    },
+    "required": [
+      "data"
+    ]
+  }
+}
