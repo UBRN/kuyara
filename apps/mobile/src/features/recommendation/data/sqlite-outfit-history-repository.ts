@@ -35,6 +35,18 @@ function mapRow(row: Row): OutfitHistoryRecord {
   };
 }
 
+function validRows(rows: readonly Row[]): OutfitHistoryRecord[] {
+  const records: OutfitHistoryRecord[] = [];
+  for (const row of rows) {
+    try {
+      records.push(mapRow(row));
+    } catch {
+      // One invalid record must not hide the other days in history.
+    }
+  }
+  return records;
+}
+
 async function read(db: SqliteExecutor, profileId: string, dayKey: string): Promise<OutfitHistoryRecord | null> {
   const row = await db.getFirstAsync<Row>(`SELECT ${columns} FROM outfit_history
     WHERE local_profile_id = ? AND day_key = ? AND deleted_at IS NULL`, [profileId, dayKey]);
@@ -64,13 +76,13 @@ export class SqliteOutfitHistoryRepository implements OutfitHistoryRepository {
   async list(profileId: string): Promise<readonly OutfitHistoryRecord[]> {
     const rows = await this.db.getAllAsync<Row>(`SELECT ${columns} FROM outfit_history
       WHERE local_profile_id = ? AND deleted_at IS NULL ORDER BY day_key DESC`, [profileId]);
-    return rows.map(mapRow);
+    return validRows(rows);
   }
 
   async lastSeven(profileId: string): Promise<readonly OutfitHistoryRecord[]> {
     const rows = await this.db.getAllAsync<Row>(`SELECT ${columns} FROM outfit_history
-      WHERE local_profile_id = ? AND deleted_at IS NULL ORDER BY day_key DESC LIMIT 7`, [profileId]);
-    return rows.map(mapRow);
+      WHERE local_profile_id = ? AND deleted_at IS NULL ORDER BY day_key DESC`, [profileId]);
+    return validRows(rows).slice(0, 7);
   }
 
   async log(profileId: string, dayKey: string, outfit: WornOutfit,

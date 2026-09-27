@@ -267,7 +267,7 @@ Attribution (`origin.sourceId`) is the one controlled addition to the shared con
 
 Deterministic rules bound the request, AI composes within those bounds, and validation gates the result twice. AI is not a personalization layer. It selects three meaningfully different outfits from catalog-only candidates that are already complete, formality-consistent and plausibly layered, avoiding previous-day repetition; colour harmony is not its job, because the catalog describes types without colour ([ADR 0007](adr/0007-ai-selects-precomposed-outfits.md) section 3).
 
-Before either AI tier sees options, composition excludes an outfit when its garment-id set equals one of the last seven worn history rows. Seven is a domain constant. If that leaves fewer than three candidates, it relaxes the oldest exclusion first until three remain. Only the resulting catalog options cross the AI boundary; history rows and photos never do. The existing exclusion of the three options currently shown still applies when the pool permits it. See [ADR 0038](adr/0038-outfit-history.md).
+Before either AI tier sees options, composition excludes an outfit when its garment-id set equals one of the seven most recent valid worn history rows. Invalid rows are skipped, while database read errors still propagate. Seven is a domain constant. If that leaves fewer than three candidates, it relaxes the oldest exclusion first until three remain. Only the resulting catalog options cross the AI boundary; history rows and photos never do. The existing exclusion of the three options currently shown still applies when the pool permits it. See [ADR 0038](adr/0038-outfit-history.md).
 
 ```text
 mobile: deterministic requirements + preference-filtered catalog candidates + day seed
