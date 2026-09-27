@@ -226,8 +226,7 @@ recommendation is never withheld.
 - Outfits recur on a seven-day cycle for an unchanged weather bucket. Within a
   day, a regeneration excludes the three outfits on screen, so an explicit
   refresh answers with different ones; where excluding them would leave fewer
-  than three candidates, as hot weather's four options do, the exclusion is
-  dropped whole and the same three return.
+  than three candidates, the exclusion is dropped whole and the same three return.
 
 ## Alternatives considered
 

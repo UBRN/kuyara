@@ -14,6 +14,7 @@ import {
 } from './recommendation-application-controller.ts';
 import { WorkerAiClientError } from '../data/worker-ai-client.ts';
 import { RecommendationRepositoryError } from '../data/recommendation-repository.ts';
+import { assignFallbackArchetypes, composeOutfitPool, outfitOptionId } from './recommend-outfits.ts';
 import {
   createAiRecommendationRequest,
   createRecommendationContextWithPool,
@@ -183,6 +184,21 @@ function garmentSet(garments) {
   return [...new Set(garments.map((garment) => garment.garmentTypeId))].sort().join('|');
 }
 
+function fourOptionContext(input, localDayKey) {
+  const { context } = createRecommendationContextWithPool(
+    { ...input, recentWorn: [], excludedOptionIds: [] }, localDayKey);
+  const narrow = context.options.slice(0, 4);
+  const worn = new Set((input.recentWorn ?? []).map(({ garments }) =>
+    [...new Set(Object.values(garments).filter(Boolean))].sort().join('|')));
+  const pool = narrow.filter((option) => !worn.has(garmentSet(option.garments)));
+  const excluded = new Set(input.excludedOptionIds ?? []);
+  const remaining = pool.filter((option) => !excluded.has(option.optionId));
+  return {
+    context: { ...context, options: remaining.length >= 3 ? remaining : pool },
+    poolOptionIds: pool.map((option) => option.optionId),
+  };
+}
+
 test('regeneration reads current history after a worn outfit is logged', async () => {
   let recentWorn = [];
   const { controller, requests } = createHarness({ loadRecentWorn: async () => recentWorn });
@@ -199,11 +215,31 @@ test('regeneration reads current history after a worn outfit is logged', async (
 test('restart reconstructs exhausted state from the current history-filtered pool', async () => {
   const first = createHarness();
   await first.controller.initialize();
-  const snapshot = await first.controller.refresh('first-recommendation', input(30));
-  assert.equal(first.requests[0].options.length, 4);
-  const fourth = first.requests[0].options[3];
-  const restored = createHarness({ cached: snapshot,
-    loadRecentWorn: async () => [wornFromAiOption(fourth)] });
+  const generationInput = { ...input(30), clothingPreference: 'mens' };
+  const snapshot = await first.controller.refresh('first-recommendation', generationInput);
+  const requirements = {
+    ...snapshot.recommendation.requirements,
+    requirements: [...snapshot.recommendation.requirements.requirements,
+      { kind: 'leg_coverage', minimum: 'full', priority: 'mandatory',
+        reasonCodes: ['temperature_low'] }],
+  };
+  const composition = composeOutfitPool(requirements, 'mens', generationInput.dayVariant);
+  assert.equal(composition.status, 'composed');
+  assert.equal(composition.outfits.length, 4);
+  const narrow = {
+    ...snapshot,
+    recommendation: {
+      ...snapshot.recommendation,
+      requirements,
+      outfits: assignFallbackArchetypes(composition.outfits, requirements, 3),
+    },
+  };
+  const fourth = composition.outfits[3];
+  const fourthOption = first.requests[0].options.find(
+    (option) => option.optionId === outfitOptionId(fourth));
+  assert.ok(fourthOption);
+  const restored = createHarness({ cached: narrow,
+    loadRecentWorn: async () => [wornFromAiOption(fourthOption)] });
   await restored.controller.initialize();
   assert.equal(restored.controller.getSnapshot().exhausted, true);
 });
@@ -240,7 +276,7 @@ test('cold initialize reuses the pool when persisted requirement keys are reorde
 });
 
 test('availability reuses the generation history-filtered pool for provider input', async () => {
-  const first = createHarness();
+  const first = createHarness({ createContextWithPool: fourOptionContext });
   await first.controller.initialize();
   const generationInput = { ...input(30), now };
   await first.controller.refresh('first-recommendation', generationInput);
@@ -251,7 +287,7 @@ test('availability reuses the generation history-filtered pool for provider inpu
     loadRecentWorn: async () => worn,
     createContextWithPool: (...args) => {
       compositions += 1;
-      return createRecommendationContextWithPool(...args);
+      return fourOptionContext(...args);
     },
   });
   await withHistory.controller.initialize();
@@ -623,12 +659,10 @@ test('a mild day falls back to the deterministic three when every AI tier fails'
   assert.deepEqual(calls, { client: 1, saves: 1 });
 });
 
-// The pool the AI tier is offered is narrowest on a hot day: the catalog composes four
-// options, one above the three `aiRequestFromContext` needs. These two tests hold both ends
-// of that floor at the controller: the AI tier is still attempted, and the deterministic
-// fallback still fills three outfits when every AI tier fails.
+// A four-option controller fixture exercises the AI floor. The catalog fallback still
+// composes three outfits when every AI tier fails.
 test('the smallest composable pool still reaches the AI client', async () => {
-  const { controller, calls, requests } = createHarness();
+  const { controller, calls, requests } = createHarness({ createContextWithPool: fourOptionContext });
   await controller.initialize();
 
   const snapshot = await controller.refresh('explicit', input(30));

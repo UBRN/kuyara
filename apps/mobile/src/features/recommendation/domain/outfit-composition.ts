@@ -484,8 +484,17 @@ function coreAndMidResults(
 
 function minimumBreathability(
   results: readonly EligibleGarmentResult[],
+  allowLightModerate = false,
 ): Breathability | null {
-  const values = results.map(({ garment }) => garment.properties.breathability);
+  const values = results.map(({ garment }) => {
+    const properties = garment.properties;
+    // Mandatory high heat accepts moderate airflow when the garment is light and unsealed.
+    return allowLightModerate && properties.breathability === 'moderate' &&
+      (properties.thermalLevel === 'none' || properties.thermalLevel === 'light') &&
+      (properties.waterProtection === null || properties.waterProtection === 'none') &&
+      (properties.windProtection === null || properties.windProtection === 'none')
+      ? 'high' : properties.breathability;
+  });
   if (values.length === 0 || values.some((value) => value === null)) {
     return null;
   }
@@ -678,8 +687,14 @@ function evaluateRequirement(
     }
     case 'breathability': {
       const required = breathabilityStrength[requirement.minimum];
-      const bodyValue = aggregates.breathability.body;
-      const coreValue = aggregates.breathability.coreAndMid;
+      const allowLightModerate = requirement.priority === 'mandatory' &&
+        requirement.minimum === 'high';
+      const bodyValue = allowLightModerate
+        ? minimumBreathability(body, true)
+        : aggregates.breathability.body;
+      const coreValue = allowLightModerate
+        ? minimumBreathability(coreAndMidResults(draft), true)
+        : aggregates.breathability.coreAndMid;
       observedContribution = bodyValue === null
         ? 0
         : percentage(breathabilityStrength[bodyValue], required);

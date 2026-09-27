@@ -17,6 +17,7 @@ import {
 } from './outfit-composition.ts';
 import { deriveClothingRequirements } from './weather-to-clothing-requirements.ts';
 import { gridRecommendationInput } from '../../../../test/recommendation-grid.mjs';
+import { recommendOutfits } from '../application/recommend-outfits.ts';
 
 test('the complete ordered catalog pool stays byte-identical across weather and dress styles', () => {
   const hash = createHash('sha256');
@@ -43,7 +44,7 @@ test('the complete ordered catalog pool stays byte-identical across weather and 
   }
   assert.equal(
     hash.digest('hex'),
-    'e8a03e30a8dd216c11c7fcc4ccdebe534707301b1fa270f1aac22aaa5ebdfedc',
+    '2a40ff61c3d93f248d873238b3df4057677ce130f4c398d6c6025024e41cf81a',
   );
 });
 
@@ -62,6 +63,27 @@ test('a mild dry Formal day offers a formal outfit for both clothing preferences
       `${preference} composed no formal outfit`);
     assert.ok(offered.outfits.some(({ formality }) => formality === 'formal'),
       `${preference} offered no formal outfit`);
+  }
+});
+
+test('a dry 30 C Smart or Formal day still offers smart outfits for both clothing preferences', () => {
+  for (const preference of ['womens', 'mens']) {
+    for (const dressStyle of ['smart', 'formal']) {
+      const input = gridRecommendationInput('hot', preference, dressStyle);
+      const measurements = { temperatureCelsius: 30, apparentTemperatureCelsius: 30 };
+      const snapshot = {
+        ...input.snapshot,
+        current: { ...input.snapshot.current, ...measurements },
+        hourly: input.snapshot.hourly.map((hour) => ({ ...hour, ...measurements })),
+        minimumTemperatureCelsius: 30,
+        maximumTemperatureCelsius: 30,
+      };
+      const result = recommendOutfits({ ...input, snapshot });
+
+      assert.equal(result.status, 'recommended', `${preference}/${dressStyle}`);
+      assert.ok(result.outfits.some(({ formality }) => formality === 'smart'),
+        `${preference}/${dressStyle} showed no smart outfit at 30 C`);
+    }
   }
 });
 
@@ -1115,14 +1137,15 @@ test('a cold rainy day composes no bare arrangement, so the alternating core mov
   }
 });
 
-test('a hot day composes no layered arrangement, so the pool stays at four', () => {
+test('a hot day retains smart and formal options, including light layers', () => {
   for (const preference of ['womens', 'mens']) {
     const { requirements, candidates } = composableForWeather(clearDay(32), {}, preference);
     const valid = collectValidOutfits(requirements, candidates);
     assert.equal(valid.status, 'composed', preference);
-    // No group holds a layered member, so the rule finds nothing to move.
-    assert.equal(valid.outfits.some((outfit) => layerCount(outfit) > 0), false, preference);
-    assert.equal(offeredForWeather(clearDay(32), {}, preference).length, 4, preference);
+    assert.equal(valid.outfits.some((outfit) => layerCount(outfit) > 0), true, preference);
+    const offered = offeredForWeather(clearDay(32), {}, preference);
+    assert.ok(offered.some(({ formality }) => formality === 'smart'), preference);
+    assert.ok(offered.some(({ formality }) => formality === 'formal'), preference);
   }
 });
 
