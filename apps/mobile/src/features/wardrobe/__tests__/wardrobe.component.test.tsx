@@ -3,6 +3,7 @@ import type { PropsWithChildren } from 'react';
 import { Dimensions, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import WardrobeRoute from '@/app/(tabs)/(profile)/wardrobe/index';
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
@@ -79,6 +80,7 @@ jest.mock('@/components/ui/native-color-well', () => {
 let mockFocusEffects: (() => void | (() => void))[] = [];
 let mockSearchParams: Record<string, string | string[] | undefined> = {};
 let mockReplace = jest.fn();
+let mockDismissTo = jest.fn();
 let mockBack = jest.fn();
 
 // O10: the form's Cancel/Save pair is the native header's. The mock renders both toolbar
@@ -123,10 +125,11 @@ jest.mock('expo-router', () => {
     addListener: () => () => undefined,
     dispatch: () => undefined,
   }),
+  useIsFocused: () => true,
   useLocalSearchParams: () => mockSearchParams,
   useRouter: () => ({
     back: (...args: unknown[]) => mockBack(...args),
-    dismissTo: () => undefined,
+    dismissTo: (...args: unknown[]) => mockDismissTo(...args),
     push: () => undefined,
     replace: (...args: unknown[]) => mockReplace(...args),
     setParams: () => undefined,
@@ -1339,6 +1342,7 @@ test('one screen_viewed for closet_item_form fires on focus for the edit route',
 test('a piece added from the Wanted list is filed as wanted and returns to that list, naming the saved tile', async () => {
   mockSearchParams = {};
   mockReplace = jest.fn();
+  mockDismissTo = jest.fn();
   const created: WardrobeItem = { ...plainItem, entryState: 'wanted' };
   const application = wardrobeApplication({ createItem: jest.fn(async () => created) });
 
@@ -1366,13 +1370,38 @@ test('a piece added from the Wanted list is filed as wanted and returns to that 
     undefined,
   );
   // Back to the category and section the item actually joined, with the saved tile named
-  // so it alone arrives there.
+  // so it alone arrives there: popped back to, never replaced into a second Closet.
   await waitFor(() =>
-    expect(mockReplace).toHaveBeenCalledWith({
+    expect(mockDismissTo).toHaveBeenCalledWith({
       params: { added: created.id, category: created.category, filter: 'wanted' },
       pathname: '/wardrobe',
     }),
   );
+  expect(mockReplace).not.toHaveBeenCalled();
+});
+
+// A finished add pops back to the Closet it was pushed from and swaps the route's params,
+// so a Closet that was already mounted must still name the piece just saved.
+test('a Closet popped back to with a newly saved piece names that piece', async () => {
+  const saved: WardrobeItem = { ...plainItem, id: '418f0f4d-1d45-4ae7-a8f1-796e8297d3b4' };
+  const draw = (items: WardrobeItem[]) => (
+    <TestProviders>
+      <AnalyticsProviders>
+        <WardrobeApplicationContext.Provider value={wardrobeApplication({
+          state: { status: 'ready', items, isRefreshing: false, isMutating: false, refreshFailure: null },
+        })}>
+          <WardrobeRoute />
+        </WardrobeApplicationContext.Provider>
+      </AnalyticsProviders>
+    </TestProviders>
+  );
+  mockSearchParams = { category: plainItem.category };
+  const result = await render(draw([plainItem]));
+  expect(result.queryByTestId('wardrobe-saved-confirmation')).toBeNull();
+
+  mockSearchParams = { added: saved.id, category: saved.category, filter: saved.entryState };
+  await result.rerender(draw([plainItem, saved]));
+  expect(result.getByTestId('wardrobe-saved-confirmation')).toBeOnTheScreen();
 });
 
 test('a Save with no type marks Required in the danger ink with a glyph, and a type clears it', async () => {
