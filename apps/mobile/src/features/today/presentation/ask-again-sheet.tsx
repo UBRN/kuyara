@@ -124,6 +124,7 @@ export function AskAgainSheet({
         />
         {draft.mode === 'later' ? (
           <NativeWheelPicker
+            label={copy.whenQuestion}
             onSelectionChange={(departureAt) => setDraft((current) => ({ ...current, departureAt }))}
             options={draft.options.map((value) => ({ value, label: time(value) }))}
             selection={draft.departureAt}

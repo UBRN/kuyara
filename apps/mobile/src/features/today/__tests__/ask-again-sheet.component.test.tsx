@@ -42,13 +42,14 @@ jest.mock('@/components/ui/segmented-control', () => {
 jest.mock('@/components/ui/native-wheel-picker', () => {
   const { Pressable: MockPressable, Text: MockText, View: MockView } = jest.requireActual('react-native');
   return {
-    NativeWheelPicker: ({ onSelectionChange, options, selection, testID }: Readonly<{
+    NativeWheelPicker: ({ label, onSelectionChange, options, selection, testID }: Readonly<{
+      label: string;
       onSelectionChange: (value: string) => void;
       options: readonly Readonly<{ label: string; value: string }>[];
       selection: string;
       testID?: string;
     }>) => (
-      <MockView accessibilityValue={{ text: selection }} testID={testID}>
+      <MockView accessibilityLabel={label} accessibilityValue={{ text: selection }} testID={testID}>
         {options.map((option) => (
           <MockPressable key={option.value} onPress={() => onSelectionChange(option.value)}
             testID={`${testID}-${option.label}`}>
@@ -107,6 +108,8 @@ describe.each(['en', 'tr'] as const)('%s re-ask sheet', (language) => {
     const view = await render(sheet(language, { onConfirm }));
     await fireEvent.press(view.getByTestId('ask-again-when-later'));
     expect(view.getByTestId('ask-again-departure')).toBeOnTheScreen();
+    // The wheel is named by the question it answers, the heading drawn above it.
+    expect(view.getByTestId('ask-again-departure').props.accessibilityLabel).toBe(copy.askAgain.whenQuestion);
     // The wheel opens about an hour ahead.
     expect(view.getByTestId('ask-again-confirm')).toHaveTextContent(copy.askAgain.chooseAt('17:15'));
     await fireEvent.press(view.getByTestId('ask-again-departure-18:00'));
