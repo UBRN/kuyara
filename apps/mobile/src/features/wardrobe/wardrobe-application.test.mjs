@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import ts from 'typescript';
 
 import { garmentCatalog } from '../catalog/domain/garment-catalog.ts';
 import {
@@ -178,8 +179,14 @@ test('wardrobe routes remain thin, virtualized, and free of SQLite or SQL access
   // native large title, so the list no longer needs Reanimated's `Animated.FlatList`
   // wrapper; a plain `FlatList` is still virtualized, which is this assertion's intent.
   assert.match(list, /<FlatList/);
-  assert.match(routeComposition, /beforeRemove/);
-  assert.match(routeComposition, /discardTitle/);
+  // Strip comments before checking the exit path; a comment alone cannot satisfy this guard.
+  const executableRoute = ts.transpileModule(routeComposition, {
+    compilerOptions: { jsx: ts.JsxEmit.Preserve, removeComments: true, target: ts.ScriptTarget.ESNext },
+  }).outputText;
+  assert.match(executableRoute, /navigation\.addListener\('beforeRemove', \(event\) => \{/);
+  assert.match(executableRoute, /if \(!isDirty \|\| allowExitRef\.current\) \{\s*return;/);
+  assert.match(executableRoute, /event\.preventDefault\(\);\s*confirmDiscard\(\(\) => \{\s*allowExitRef\.current = true;\s*navigation\.dispatch\(event\.data\.action\);/);
+  assert.match(executableRoute, /title: copy\.discardTitle/);
   // The type picker sits inside the form rather than on a route of its own, so it is the
   // one that reads the catalogue and filters it by clothing preference; the route
   // composition carries neither, and passes the preference down instead.
