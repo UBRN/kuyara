@@ -33,6 +33,7 @@ export interface ProfileRepository {
   updateDressStyle(dressStyle: DressStyle): Promise<Profile>;
   updateStyleAesthetics(values: readonly StyleAesthetic[]): Promise<Profile>;
   updateMorningSheetEnabled(enabled: boolean): Promise<Profile>;
+  updateEasierToSee(enabled: boolean): Promise<Profile>;
   updateBirthDate(birthDate: string | null): Promise<Profile>;
   updateDisplayName(displayName: string | null): Promise<Profile>;
   updateLanguagePreference(preference: LanguagePreference): Promise<Profile>;
@@ -86,6 +87,9 @@ function mapRecord(record: LocalProfileRecord): Profile {
   const hasValidMorningSheetEnabled =
     record.morningSheetEnabled === undefined ||
     record.morningSheetEnabled === 0 || record.morningSheetEnabled === 1;
+  const hasValidEasierToSee =
+    record.easierToSee === undefined ||
+    record.easierToSee === 0 || record.easierToSee === 1;
   const hasValidAnalyticsConsent =
     analyticsConsentSchema.safeParse(record.analyticsConsent).success;
   const hasValidDisplayName = (() => {
@@ -108,6 +112,7 @@ function mapRecord(record: LocalProfileRecord): Profile {
     !hasValidOfferShown ||
     !hasValidMorningBriefingOptIn ||
     !hasValidMorningSheetEnabled ||
+    !hasValidEasierToSee ||
     !hasValidAnalyticsConsent ||
     !hasValidDisplayName ||
     !Number.isInteger(record.namePromptVersion) ||
@@ -126,6 +131,7 @@ function mapRecord(record: LocalProfileRecord): Profile {
     dressStyle: record.dressStyle === null ? null : dressStyleSchema.parse(record.dressStyle),
     styleAesthetics: readStyleAesthetics(record.styleAesthetics),
     morningSheetEnabled: record.morningSheetEnabled !== 0,
+    easierToSee: record.easierToSee === 1,
     birthDate: record.birthDate,
     displayName: record.displayName,
     namePromptVersion: record.namePromptVersion,
@@ -194,6 +200,10 @@ export class LocalProfileRepository implements ProfileRepository {
 
   updateMorningSheetEnabled(enabled: boolean): Promise<Profile> {
     return this.execute(() => this.dataSource.updateMorningSheetEnabled(enabled));
+  }
+
+  updateEasierToSee(enabled: boolean): Promise<Profile> {
+    return this.execute(() => this.dataSource.updateEasierToSee(enabled));
   }
 
   updateBirthDate(birthDate: string | null): Promise<Profile> {

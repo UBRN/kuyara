@@ -33,6 +33,7 @@ import {
   type WardrobeGridTileGeometry,
 } from '@/features/wardrobe/presentation/wardrobe-grid-tile';
 import { useMessages } from '@/localization/use-messages';
+import { useEasierToSee } from '@/theme/easier-to-see';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -188,6 +189,9 @@ export function WardrobeListScreen({
   const messages = useMessages();
   const theme = useKuyaraTheme();
   const { usesTwoColumnGrid } = useTextScaling();
+  // O13: Easier to see keeps the Closet at two columns, whose tiles hold
+  // the 1.3 times larger drawings.
+  const easierToSee = useEasierToSee();
   const { width: windowWidth } = useWindowDimensions();
   const copy = messages.wardrobe;
   const listRef = useRef<FlatList<ClosetRow>>(null);
@@ -220,7 +224,7 @@ export function WardrobeListScreen({
     // The pull has finished: derive the reset during render rather than in an effect.
     setIsPulling(false);
   }
-  const numColumns = usesTwoColumnGrid ? 2 : 3;
+  const numColumns = usesTwoColumnGrid || easierToSee ? 2 : 3;
   const geometry = resolveGridGeometry(windowWidth - insets.left - insets.right, numColumns);
   const items = state.status === 'ready' ? state.items : [];
   const category = selectedCategory ?? resolveDefaultCategory(items, revealWanted);

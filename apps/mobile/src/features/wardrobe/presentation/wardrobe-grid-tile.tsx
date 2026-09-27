@@ -5,6 +5,7 @@ import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import type { AppMessages } from '@/localization/messages';
 import { borderWidths, radii, spacing } from '@/theme/theme';
+import { useStrongEdge } from '@/theme/easier-to-see';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // ADR 0029 sections 1 and 3. Each tile draws the first rung it can: the photo,
@@ -67,6 +68,9 @@ export function WardrobeGridTile({
   testID,
 }: WardrobeGridTileProps) {
   const theme = useKuyaraTheme();
+  // O13: while higher contrast applies the tile wears a 2-point ring in
+  // the strong edge ink; a wanted tile keeps its dashed frame in that ink.
+  const strongEdge = useStrongEdge();
   // A long Turkish name needs a third line once the layout stacks; below that the
   // two-line cap keeps the grid's rows aligned (ADR 0028 section 3's threshold).
   const { usesStackedLayout } = useTextScaling();
@@ -98,6 +102,7 @@ export function WardrobeGridTile({
           wanted
             ? [styles.wantedTile, { borderColor: theme.colors.borderDefined }]
             : { backgroundColor: theme.colors.surfaceMuted },
+          strongEdge,
           highlighted && [styles.highlightedTile, { borderColor: theme.colors.brandAccent }],
         ]}
         testID={testID ? `${testID}-frame` : undefined}>

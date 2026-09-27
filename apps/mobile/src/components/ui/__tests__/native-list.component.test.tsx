@@ -1,6 +1,6 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { Dimensions, StyleSheet, View as RNView } from 'react-native';
+import { Dimensions, PlatformColor, StyleSheet, View as RNView } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import {
@@ -8,6 +8,7 @@ import {
   NativeListSection,
   NativeListRow,
 } from '@/components/ui/native-list';
+import { EasierToSeeContext } from '@/theme/easier-to-see';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
@@ -329,4 +330,55 @@ test('a row reports its first appearance through the native onAppear modifier', 
     .find((entry) => entry.$type === 'onAppear');
   modifier?.handler?.();
   expect(onAppear).toHaveBeenCalledTimes(1);
+});
+
+// O13: while "Easier to see" is on the native list changes its text only.
+// Labels take one weight step; values, subtitles, footers and the chevron read in the system
+// label ink. Row height, separators and the group edge stay the system's.
+test('Easier to see makes labels heavier and values, footers and chevrons primary ink', async () => {
+  mockFontScale(1);
+  const result = await render(
+    <TestProviders>
+      <EasierToSeeContext value>
+        <NativeList testID="group">
+          <NativeListSection footer="Footer words" heading="Appearance">
+            <NativeListRow label="Language" onPress={() => {}} testID="row" value="System" />
+            <NativeListRow label="Support" onPress={() => {}} tinted />
+            <NativeListRow label="Morning question" supportingText="Every morning" testID="subtitle-row" />
+          </NativeListSection>
+        </NativeList>
+      </EasierToSeeContext>
+    </TestProviders>,
+  );
+
+  const primaryInk = [
+    { $type: 'font', textStyle: 'body', weight: 'semibold' },
+    { $type: 'foregroundStyle', style: PlatformColor('label') },
+  ];
+  expect(result.getByText('Language').props.modifiers).toEqual([{ $type: 'font', textStyle: 'body', weight: 'semibold' }]);
+  expect(result.getByText('System').props.modifiers).toEqual(primaryInk);
+  expect(result.getByText('Every morning').props.modifiers).toEqual(primaryInk);
+  expect(result.getByText('Support').props.modifiers).toEqual([{ $type: 'font', textStyle: 'body', weight: 'bold' }]);
+  expect(result.getByText('Footer words').props.modifiers).toEqual([
+    { $type: 'font', textStyle: 'subheadline', weight: 'medium' },
+    { $type: 'foregroundStyle', style: PlatformColor('label') },
+  ]);
+  expect(result.getAllByTestId('expo-ui-icon')[0]).toHaveStyle({ backgroundColor: PlatformColor('label') });
+});
+
+test('with Easier to see off the list keeps the system text styles', async () => {
+  mockFontScale(1);
+  const result = await render(
+    <TestProviders>
+      <NativeList testID="group">
+        <NativeListSection footer="Footer words" heading="Appearance">
+          <NativeListRow label="Language" onPress={() => {}} testID="row" value="System" />
+        </NativeListSection>
+      </NativeList>
+    </TestProviders>,
+  );
+
+  expect(result.getByText('Language').props.modifiers).toBeUndefined();
+  expect(result.getByText('Footer words').props.modifiers).toBeUndefined();
+  expect(result.getByTestId('expo-ui-icon')).toHaveStyle({ backgroundColor: 'tertiaryLabel' });
 });

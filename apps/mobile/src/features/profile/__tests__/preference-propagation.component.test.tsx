@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import SettingsRoute from '@/app/(tabs)/(profile)/settings';
 import BirthDateSettingsRoute from '@/app/(tabs)/(profile)/settings/birth-date';
+import EasierToSeeSettingsRoute from '@/app/(tabs)/(profile)/settings/easier-to-see';
 import type {
   LanguagePreference,
   ThemePreference,
@@ -100,6 +101,11 @@ jest.mock('@/features/profile/data/sqlite-profile-local-data-source', () => ({
       return mockProfile;
     };
 
+    updateEasierToSee = async (enabled: boolean) => {
+      mockProfile = { ...mockProfile, easierToSee: enabled ? 1 : 0 };
+      return mockProfile;
+    };
+
     updateMorningSheetEnabled = async (enabled: boolean) => {
       mockProfile = { ...mockProfile, morningSheetEnabled: enabled ? 1 : 0 };
       return mockProfile;
@@ -136,6 +142,7 @@ function createProfile(): LocalProfileRecord {
     weatherAlertOfferShown: 0,
     morningBriefingOptIn: 0,
     morningSheetEnabled: 1,
+    easierToSee: 0,
     styleAesthetics: '[]',
     analyticsConsent: 'undecided',
     createdAt: '2026-07-30T10:00:00.000Z',
@@ -145,7 +152,7 @@ function createProfile(): LocalProfileRecord {
 }
 
 function MountedSettingsRoutes({ onMount }: Readonly<{ onMount: () => void }>) {
-  const [route, setRoute] = useState<'birth-date' | 'settings'>('settings');
+  const [route, setRoute] = useState<'birth-date' | 'easier-to-see' | 'settings'>('settings');
 
   useEffect(onMount, [onMount]);
   useEffect(() => {
@@ -153,6 +160,9 @@ function MountedSettingsRoutes({ onMount }: Readonly<{ onMount: () => void }>) {
     mockRouter.push.mockImplementation((path: string) => {
       if (path === '/settings/birth-date') {
         setRoute('birth-date');
+      }
+      if (path === '/settings/easier-to-see') {
+        setRoute('easier-to-see');
       }
     });
   }, []);
@@ -165,7 +175,9 @@ function MountedSettingsRoutes({ onMount }: Readonly<{ onMount: () => void }>) {
       notificationsOptIn
       persistOptIn={async () => undefined}
       weatherAlertScheduler={{ reschedule: async () => undefined }}>
-      {route === 'birth-date' ? <BirthDateSettingsRoute /> : <SettingsRoute />}
+      {route === 'birth-date'
+        ? <BirthDateSettingsRoute />
+        : route === 'easier-to-see' ? <EasierToSeeSettingsRoute /> : <SettingsRoute />}
     </NotificationApplicationProvider>
   );
 }
@@ -204,9 +216,9 @@ test('live preferences and support propagate localized behavior without remounti
       .backgroundColor,
   ).toBe(lightSemanticColors.background);
 
-  const sections = result.getAllByTestId(/^(settings-(appearance|notifications|profile|help|about)-group|expo-ui-section)$/);
+  const sections = result.getAllByTestId(/^(settings-(appearance|accessibility|notifications|profile|help|about)-group|expo-ui-section)$/);
   expect(sections.map((section) => section.props.testID)).toEqual([
-    'settings-appearance-group', 'settings-notifications-group', 'settings-profile-group',
+    'settings-appearance-group', 'settings-accessibility-group', 'settings-notifications-group', 'settings-profile-group',
     'settings-help-group', 'settings-about-group', 'expo-ui-section',
   ]);
   expect(result.getAllByTestId('expo-ui-host')).toHaveLength(1);
@@ -522,4 +534,47 @@ test('the version line stays the last root element when no version is configured
   expect(within(result.getByTestId('expo-ui-section')).getByText(messages.en.settings.developmentBuild))
     .toBeOnTheScreen();
   Constants.expoConfig = expoConfig;
+});
+
+// O13: the Accessibility group sits right under Appearance with one "Easier to see" row. Its
+// page holds the preview card and the one switch, and the switch is stored through the
+// profile application and read back by every surface through the theme provider.
+test.each(['en', 'tr'] as const)('%s Easier to see opens its page, persists the switch and reads back On', async (language) => {
+  mockProfile = { ...createProfile(), languagePreference: language };
+  const copy = messages[language].settings;
+  const result = await render(
+    <SafeAreaProvider initialMetrics={initialMetrics}>
+      <ProfileApplicationProvider>
+        <ProductAnalyticsProvider
+          analytics={new RecordingProductAnalytics('undecided')}
+          firstUseStore={new InMemoryFirstUseStore()}>
+          <MountedSettingsRoutes onMount={() => undefined} />
+        </ProductAnalyticsProvider>
+      </ProfileApplicationProvider>
+    </SafeAreaProvider>,
+  );
+
+  const group = await result.findByTestId('settings-accessibility-group');
+  expect(within(group).getByText(copy.accessibilityHeading)).toBeOnTheScreen();
+  expect(within(group).getByText(copy.easierToSee.title)).toBeOnTheScreen();
+  expect(within(group).getByText(copy.easierToSee.off)).toBeOnTheScreen();
+  expect(within(group).getAllByRole('button')).toHaveLength(1);
+
+  await fireEvent.press(result.getByTestId('settings-easier-to-see-row'));
+  expect(mockRouter.push).toHaveBeenLastCalledWith('/settings/easier-to-see');
+  expect(await result.findByTestId('settings-easier-to-see')).toBeOnTheScreen();
+  expect(result.getByText(copy.easierToSee.previewHeading)).toBeOnTheScreen();
+  expect(result.getByText(copy.easierToSee.footer)).toBeOnTheScreen();
+  expect(result.getByTestId('settings-easier-to-see-preview')).toHaveProp('accessibilityLabel', copy.easierToSee.previewLabelOff);
+  const toggle = result.getByTestId('settings-easier-to-see-toggle-row-toggle');
+  expect(toggle.props.value).toBe(false);
+  expect(toggle).toHaveProp('accessibilityLabel', copy.easierToSee.title);
+
+  await fireEvent(toggle, 'valueChange', true);
+  await waitFor(() => expect(mockProfile.easierToSee).toBe(1));
+  await waitFor(() => expect(result.getByTestId('settings-easier-to-see-toggle-row-toggle').props.value).toBe(true));
+  expect(result.getByTestId('settings-easier-to-see-preview')).toHaveProp('accessibilityLabel', copy.easierToSee.previewLabelOn);
+
+  await act(async () => { mockRouter.back(); });
+  expect(within(await result.findByTestId('settings-accessibility-group')).getByText(copy.easierToSee.on)).toBeOnTheScreen();
 });

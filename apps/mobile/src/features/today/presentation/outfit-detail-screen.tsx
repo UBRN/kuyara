@@ -17,7 +17,6 @@ import {
   Icon,
   type IconName,
   layoutGarmentBoard,
-  Pill,
   PressScale,
   Screen,
   haptics,
@@ -40,6 +39,7 @@ import type { PieceSheetTarget } from '@/features/wardrobe/presentation/piece-ed
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
 import { borderWidths, layout, radii, spacing } from '@/theme/theme';
+import { useEasierToSee } from '@/theme/easier-to-see';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // The detail draws its pieces at board scale; an accessory is not on the board, so it reads
@@ -140,6 +140,7 @@ export function OutfitDetailScreen({
   onWoreThis,
 }: OutfitDetailScreenProps) {
   const theme = useKuyaraTheme();
+  const easierToSee = useEasierToSee();
   const { hour12, temperatureUnit } = useLocalization();
   const { fontScale, usesStackedLayout } = useTextScaling();
   const [contentWidth, setContentWidth] = useState(0);
@@ -162,7 +163,7 @@ export function OutfitDetailScreen({
   // them on Today (O15).
   const pieceRoles = useGarmentRoles(suggestion?.palette ?? null);
   const boardLayout = suggestion
-    ? layoutGarmentBoard(suggestion.boardPieces, contentWidth, 'detail')
+    ? layoutGarmentBoard(suggestion.boardPieces, contentWidth, 'detail', easierToSee)
     : { height: 0, boxes: [] };
   const initialCaptionHeight = theme.typography.body.lineHeight * fontScale * 2;
   // Above 1.5 the captions leave the board and the piece rows alone name the pieces, so the
@@ -281,13 +282,11 @@ export function OutfitDetailScreen({
         onLayout={({ nativeEvent }) => setContentWidth(nativeEvent.layout.width)}
         testID="outfit-detail-content">
 
-        <View
-          style={[styles.headingGroup, usesStackedLayout && styles.stackedHeadingGroup]}
-          testID="outfit-detail-heading-group">
+        {/* ADR 0021: three equal options, so the title carries no emphasis pill. */}
+        <View style={styles.headingGroup} testID="outfit-detail-heading-group">
           <AppText accessibilityRole="header" variant="title">
             {suggestion.title}
           </AppText>
-          {suggestion.emphasis ? <Pill label={suggestion.emphasis} tone="accent-filled" /> : null}
         </View>
 
         <View
@@ -571,15 +570,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   headingGroup: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.sm,
     marginTop: spacing.md,
-  },
-  // Above fontScale 1.5 the emphasis pill sits under the title instead of leaving the screen.
-  stackedHeadingGroup: {
-    alignItems: 'flex-start',
-    flexDirection: 'column',
   },
   boardPlate: {
     marginTop: spacing.xl,

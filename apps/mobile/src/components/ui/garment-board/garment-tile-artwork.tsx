@@ -4,6 +4,7 @@ import Svg, { Defs, G, LinearGradient, Stop } from 'react-native-svg';
 
 import type { ColorFamily, GarmentTypeId, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import type { ClosetColorChoice } from '@/features/wardrobe/domain/closet-color-options';
+import { easierToSee, useEasierToSee } from '@/theme/easier-to-see';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { GarmentSlotGlyph } from '../garment-slot-glyph';
@@ -54,6 +55,8 @@ function GarmentTileSilhouette({
   wanted?: boolean;
 }>) {
   const { colors, colorScheme } = useKuyaraTheme();
+  // O13: a tile's drawing is 1.3 times larger in the same tile.
+  const drawingScale = useEasierToSee() ? easierToSee.boardScale : 1;
   const gradientId = `garment-fill-${useId()}`;
   const patternId = `garment-pattern-${useId().replace(/[^A-Za-z0-9]/g, '')}`;
   // A palette solid or custom colour is kept legible on the plane the way an outfit piece
@@ -80,7 +83,7 @@ function GarmentTileSilhouette({
   const { bounds } = silhouette;
   const scale = cropped
     ? Math.min(width, height) / (Math.max(bounds.width, bounds.height) + 2 * CROP_PAD)
-    : Math.min(width * 0.6 / bounds.width, height * 0.61 / bounds.height);
+    : Math.min(width * 0.6 * drawingScale / bounds.width, height * 0.61 * drawingScale / bounds.height);
   const outline = cropped ? GARMENT_OUTLINE * Math.min(1, height / STANDALONE_SIZE) : GARMENT_OUTLINE;
   // No `vectorEffect="non-scaling-stroke"`: on iOS react-native-svg paints a non-scaling
   // stroke in client space while a gradient fill still uses the path's local bounds, so the

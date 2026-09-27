@@ -25,6 +25,7 @@ export interface ProfileLocalDataSource {
   updateDressStyle(dressStyle: DressStyle): Promise<LocalProfileRecord>;
   updateStyleAesthetics(values: readonly StyleAesthetic[]): Promise<LocalProfileRecord>;
   updateMorningSheetEnabled(enabled: boolean): Promise<LocalProfileRecord>;
+  updateEasierToSee(enabled: boolean): Promise<LocalProfileRecord>;
   updateBirthDate(birthDate: string | null): Promise<LocalProfileRecord>;
   updateDisplayName(displayName: string | null): Promise<LocalProfileRecord>;
   updateLanguagePreference(preference: LanguagePreference): Promise<LocalProfileRecord>;

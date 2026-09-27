@@ -43,6 +43,7 @@ import {
   typography,
   type KuyaraTheme,
 } from '@/theme/theme';
+import { EasierToSeeContext, SystemVisibilityContext } from '@/theme/easier-to-see';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 import { garmentColorFamiliesBySlot, layoutGarmentBoard, measureGarmentBoardHeight } from '@/components/ui';
 import { AMBIENT_PULSE_FLOOR } from '@/components/ui/use-ambient-pulse';
@@ -363,7 +364,7 @@ describe.each(['en', 'tr'] as const)('%s loaded Today', (language) => {
     expect(result.queryByTestId('today-provenance-badge')).not.toBeOnTheScreen();
     expect(result.queryByTestId('today-generation-mode')).not.toBeOnTheScreen();
     expect(result.queryByTestId('ai-sparkle-mark', hidden)).toBeNull();
-    expect(result.queryByText(messages[language].today.emphasis.recommended)).not.toBeOnTheScreen();
+    expect(result.queryByText(language === 'en' ? 'Recommended' : 'Önerilen')).not.toBeOnTheScreen();
     const place = result.getByText('Istanbul');
     // A long place name and a long archetype wrap instead of clipping at large text sizes.
     expect(place.props.numberOfLines).toBe(2);
@@ -1659,11 +1660,7 @@ describe.each(['en', 'tr'] as const)('%s outfit detail captions above 1.5', (lan
   });
 });
 
-test.each([
-  [1, 'row'],
-  [1.5, 'row'],
-  [3, 'column'],
-])('at font scale %s the detail emphasis pill uses a %s layout and piece rows stay controls', async (fontScale, direction) => {
+test.each([1, 1.5, 3])('at font scale %s the detail title carries no emphasis pill and piece rows stay controls', async (fontScale) => {
   Dimensions.set({ window: { ...originalDimensions, width: 390, fontScale } });
   const result = await render(providers(
     <OutfitDetailScreen
@@ -1675,9 +1672,10 @@ test.each([
     />,
   ));
 
-  expect(result.getByText(messages.en.today.emphasis.recommended)).toBeOnTheScreen();
-  expect(StyleSheet.flatten(result.getByTestId('outfit-detail-heading-group').props.style).flexDirection)
-    .toBe(direction);
+  // R11-4 and ADR 0021: the first option is not singled out on its own detail.
+  expect(result.queryByText('Recommended')).not.toBeOnTheScreen();
+  expect(within(result.getByTestId('outfit-detail-heading-group')).getByText(loadedPresentation().suggestions[0].title))
+    .toBeOnTheScreen();
   expect(result.getByTestId(
     `outfit-detail-piece-${loadedPresentation().suggestions[0].pieces[0].garmentTypeId}`,
   )).toHaveProp('accessibilityRole', 'button');
@@ -2520,6 +2518,105 @@ describe.each(['en', 'tr'] as const)('%s Today states each fact once', (language
       language, false, 'celsius', Date.now());
       if (fallback.kind !== 'loaded' || !fallback.dayInsight) throw new Error('fallback line expected');
       expect(lines).not.toContain(fallback.dayInsight);
+    }
+  });
+});
+
+// O13 "Easier to see" on Today (renders 10 to 13): the switch draws the finishing touches at
+// 24 points, lists the alternatives as full-width rows, stacks the offer's actions as 56-point
+// buttons, and every kuyara-drawn control takes the 2-point strong edge. iOS Increase
+// Contrast alone brings the edges, not the switch's layout.
+describe('Today with Easier to see', () => {
+  const offer: TodayAlertOffer = {
+    ruleId: 'precipitation_onset',
+    onAccept: jest.fn(async () => ({ outcome: 'enabled' } as const)),
+    onDismiss: jest.fn(async () => undefined),
+    onOpenSystemSettings: jest.fn(),
+  };
+  const edge = { borderColor: lightTheme.colors.borderStrong, borderWidth: 2 };
+
+  async function renderToday(
+    state: TodayScreenState,
+    switchOn: boolean,
+    system = { boldText: false, increaseContrast: false },
+  ) {
+    const result = await render(providers(
+      <EasierToSeeContext value={switchOn}>
+        <SystemVisibilityContext value={system}>
+          <TodayScreen alertOffer={offer} language="en" onAskAgain={jest.fn()}
+            onOpenOutfitDetail={jest.fn()} onRefresh={jest.fn()} state={state} />
+        </SystemVisibilityContext>
+      </EasierToSeeContext>,
+    ));
+    await fireEvent(result.getByTestId('today-content'), 'layout', {
+      nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
+    });
+    return result;
+  }
+
+  test('finishing touches draw at 24 points instead of 16', async () => {
+    const cold = createTodayPresentation(coldTodayScreenState, 'en', false, 'celsius', fixtureNow);
+    if (cold.kind !== 'loaded') throw new Error('Expected a loaded presentation.');
+    const [accessory] = cold.suggestions[0].accessories;
+    const result = await renderToday(coldTodayScreenState, true);
+    expect(result.getByTestId(`today-accessory-${accessory.garmentTypeId}`, { includeHiddenElements: true }).props.height)
+      .toBe(24);
+  });
+
+  test('alternatives are full-width rows with the strong edge', async () => {
+    const result = await renderToday(todayScreenState, true);
+    for (const suggestion of loadedPresentation().suggestions.slice(1)) {
+      expect(StyleSheet.flatten(result.getByTestId(`today-alternate-${suggestion.id}`).props.style))
+        .toMatchObject({ ...edge, flexDirection: 'row', minHeight: 60 });
+      expect(StyleSheet.flatten(
+        result.getByTestId(`today-alternate-stage-${suggestion.id}`, { includeHiddenElements: true }).props.style,
+      ).width).toBe(128);
+    }
+    expect(StyleSheet.flatten(result.getByTestId('today-outfit-list').props.style).flexDirection).toBe('column');
+  });
+
+  test('the offer stacks two 56-point actions with strong edges and the row takes the edge', async () => {
+    const result = await renderToday(todayScreenState, true);
+    const accept = result.getByTestId('today-alert-offer-accept');
+    const dismiss = result.getByTestId('today-alert-offer-dismiss');
+    expect(StyleSheet.flatten(accept.parent!.props.style)).toMatchObject({ flexDirection: 'column' });
+    for (const action of [accept, dismiss]) {
+      expect(StyleSheet.flatten(action.props.style)).toMatchObject({ ...edge, minHeight: 56 });
+      expect(within(action).getByText(/./, { includeHiddenElements: true }))
+        .toHaveStyle({ fontSize: typography.bodyStrong.fontSize, fontWeight: '700' });
+    }
+    expect(StyleSheet.flatten(result.getByTestId('today-alert-offer').props.style)).toMatchObject(edge);
+    expect(StyleSheet.flatten(result.getByTestId('today-ask-again').props.style)).toMatchObject({ ...edge, minHeight: 56 });
+  });
+
+  test('Increase Contrast alone draws the edges and keeps the ordinary layout', async () => {
+    const result = await renderToday(todayScreenState, false, { boldText: false, increaseContrast: true });
+    const accept = result.getByTestId('today-alert-offer-accept');
+    expect(StyleSheet.flatten(accept.props.style)).toMatchObject({ ...edge, minHeight: 36 });
+    expect(StyleSheet.flatten(accept.parent!.props.style)).toMatchObject({ flexDirection: 'row' });
+    expect(StyleSheet.flatten(result.getByTestId('today-alert-offer').props.style)).toMatchObject(edge);
+    // The alternatives stay two-up tiles, and each tile's drawing plate takes the edge.
+    for (const alternate of loadedPresentation().suggestions.slice(1)) {
+      const tile = StyleSheet.flatten(result.getByTestId(`today-alternate-${alternate.id}`).props.style);
+      expect(tile).toMatchObject({ width: (358 - spacing.md) / 2 });
+      expect(tile.borderWidth).toBeUndefined();
+      expect(StyleSheet.flatten(
+        result.getByTestId(`today-alternate-stage-${alternate.id}`, { includeHiddenElements: true }).props.style,
+      )).toMatchObject(edge);
+    }
+  });
+
+  test('with the switch and both iPhone settings off nothing takes an edge', async () => {
+    const result = await renderToday(todayScreenState, false);
+    for (const id of ['today-alert-offer-accept', 'today-alert-offer-dismiss', 'today-ask-again']) {
+      expect(StyleSheet.flatten(result.getByTestId(id).props.style).borderWidth).toBeUndefined();
+    }
+    expect(StyleSheet.flatten(result.getByTestId('today-alert-offer').props.style))
+      .toMatchObject({ borderColor: lightTheme.colors.borderSubtle, borderWidth: 1 });
+    for (const alternate of loadedPresentation().suggestions.slice(1)) {
+      expect(StyleSheet.flatten(
+        result.getByTestId(`today-alternate-stage-${alternate.id}`, { includeHiddenElements: true }).props.style,
+      ).borderWidth).toBeUndefined();
     }
   });
 });

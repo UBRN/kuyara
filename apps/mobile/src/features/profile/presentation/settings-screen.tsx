@@ -27,6 +27,7 @@ export type SettingsScreenProps = Readonly<{
   onLanguageChange: (value: LanguagePreference) => Promise<void>;
   onAppearanceChange: (value: ThemePreference) => Promise<void>;
   onOpenNotifications: () => void;
+  onOpenEasierToSee: () => void;
   onOpenServiceProviders: () => void;
   onGenderChange: (value: Gender) => Promise<void>;
   onDressStyleChange: (value: DressStyle) => Promise<void>;
@@ -55,6 +56,7 @@ export function SettingsScreen({
   onOpenBirthDate,
   onNameChange,
   onOpenNotifications,
+  onOpenEasierToSee,
   onOpenPrivacy,
   onOpenSupport,
   onShare,
@@ -157,6 +159,21 @@ export function SettingsScreen({
           selection={profile.themePreference}
           icon="theme"
           testID="settings-theme-row"
+        />
+      </NativeListSection>
+
+      {/* O13: Accessibility sits directly under Appearance. */}
+      <NativeListSection
+        heading={messages.settings.accessibilityHeading}
+        testID="settings-accessibility-group">
+        <NativeListRow
+          glyph={({ color, size }) => <Icon color={color} name="accessibility" size={size} />}
+          label={messages.settings.easierToSee.title}
+          onPress={onOpenEasierToSee}
+          testID="settings-easier-to-see-row"
+          value={profile.easierToSee === true
+            ? messages.settings.easierToSee.on
+            : messages.settings.easierToSee.off}
         />
       </NativeListSection>
 

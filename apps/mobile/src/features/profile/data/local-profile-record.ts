@@ -4,6 +4,7 @@ export type LocalProfileRecord = Readonly<{
   dressStyle: string | null;
   styleAesthetics?: string;
   morningSheetEnabled?: number;
+  easierToSee?: number;
   birthDate: string | null;
   displayName: string | null;
   namePromptVersion: number;

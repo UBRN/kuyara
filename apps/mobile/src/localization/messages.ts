@@ -166,7 +166,6 @@ export type TodayMessages = Readonly<{
     chilly: (time: string) => string;
     freezing: (time: string) => string;
   }>;
-  emphasis: Readonly<{ recommended: string }>;
   updatedAt: (time: string) => string;
   staleAt: (time: string) => string;
   refreshingStatus: string;
@@ -350,6 +349,27 @@ export type AppMessages = Readonly<{
     profileHeading: string;
     helpHeading: string;
     aboutHeading: string;
+    accessibilityHeading: string;
+    easierToSee: Readonly<{
+      title: string;
+      on: string;
+      off: string;
+      footer: string;
+      previewHeading: string;
+      previewLabelOff: string;
+      previewLabelOn: string;
+      /** The preview card's sample outfit name; the card is illustration, never a recommendation. */
+      previewOutfitName: string;
+      /** The read-only group naming the iPhone settings kuyara follows (Apple's own names). */
+      systemHeading: string;
+      systemFooter: string;
+      largerText: string;
+      boldText: string;
+      increaseContrast: string;
+      textSizeDefault: string;
+      textSizeLarger: string;
+      textSizeSmaller: string;
+    }>;
     themeRow: string;
     versionLine: (version: string, build?: string | null) => string;
     developmentBuild: string;
@@ -812,6 +832,25 @@ const en = {
     profileHeading: 'Profile',
     helpHeading: 'Help',
     aboutHeading: 'About',
+    accessibilityHeading: 'Accessibility',
+    easierToSee: {
+      title: 'Easier to see',
+      on: 'On',
+      off: 'Off',
+      footer: 'Makes text heavier, raises contrast, draws clearer edges around buttons, and makes the outfit drawings and buttons larger.',
+      previewHeading: 'Preview',
+      previewLabelOff: 'Preview of Today with Easier to see off.',
+      previewLabelOn: 'Preview of Today with Easier to see on.',
+      previewOutfitName: 'Layered Warmth',
+      systemHeading: 'iPhone settings kuyara follows',
+      systemFooter: 'Change these in the iPhone Settings app, under Accessibility, Display & Text Size. When Bold Text or Increase Contrast is on, kuyara follows it even with Easier to see off.',
+      largerText: 'Larger Text',
+      boldText: 'Bold Text',
+      increaseContrast: 'Increase Contrast',
+      textSizeDefault: 'Default',
+      textSizeLarger: 'Larger',
+      textSizeSmaller: 'Smaller',
+    },
     themeRow: 'Theme',
     versionLine: (version: string, build?: string | null) => build ? `Version ${version} (${build})` : `Version ${version}`,
     developmentBuild: 'Development build',
@@ -1401,9 +1440,6 @@ const en = {
       chilly: (time: string) => `It turns chilly around ${time}.`,
       freezing: (time: string) => `It turns freezing around ${time}.`,
     },
-    emphasis: {
-      recommended: 'Recommended',
-    },
     updatedAt: (time: string) => `Last updated at ${time}`,
     staleAt: (time: string) => `Last updated at ${time} · May be out of date`,
     refreshingStatus: 'Refreshing today’s guidance…',
@@ -1587,6 +1623,25 @@ const tr = {
     profileHeading: 'Profil',
     helpHeading: 'Yardım',
     aboutHeading: 'Hakkında',
+    accessibilityHeading: 'Erişilebilirlik',
+    easierToSee: {
+      title: 'Görme kolaylığı',
+      on: 'Açık',
+      off: 'Kapalı',
+      footer: 'Yazıyı kalınlaştırır, kontrastı artırır, düğmelerin kenarlarını belirginleştirir, kıyafet çizimlerini ve düğmeleri büyütür.',
+      previewHeading: 'Önizleme',
+      previewLabelOff: 'Görme kolaylığı kapalıyken Bugün ekranının önizlemesi.',
+      previewLabelOn: 'Görme kolaylığı açıkken Bugün ekranının önizlemesi.',
+      previewOutfitName: 'Katmanlı Sıcaklık',
+      systemHeading: 'kuyara’nın izlediği iPhone ayarları',
+      systemFooter: 'Bunları iPhone’daki Ayarlar uygulamasında, Erişilebilirlik, Ekran ve Metin Puntosu bölümünde değiştirebilirsin. Kalın Metin ya da Kontrastı Artır açıksa, Görme kolaylığı kapalıyken de kuyara bu ayara uyar.',
+      largerText: 'Daha Büyük Metin',
+      boldText: 'Kalın Metin',
+      increaseContrast: 'Kontrastı Artır',
+      textSizeDefault: 'Varsayılan',
+      textSizeLarger: 'Büyük',
+      textSizeSmaller: 'Küçük',
+    },
     themeRow: 'Tema',
     versionLine: (version: string, build?: string | null) => build ? `Sürüm ${version} (${build})` : `Sürüm ${version}`,
     developmentBuild: 'Geliştirme derlemesi',
@@ -2180,9 +2235,6 @@ const tr = {
       veryHot: (time: string) => `Saat ${time} civarında hava iyice ısınıyor.`,
       chilly: (time: string) => `Saat ${time} civarında hava serinliyor.`,
       freezing: (time: string) => `Saat ${time} civarında hava buz gibi oluyor.`,
-    },
-    emphasis: {
-      recommended: 'Önerilen',
     },
     updatedAt: (time: string) => `Son güncelleme ${time}`,
     staleAt: (time: string) => `Son güncelleme ${time} · Güncelliğini yitirmiş olabilir`,

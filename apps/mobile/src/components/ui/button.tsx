@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/primitive-contracts';
 import { useTextScaling } from '@/components/ui/use-text-scaling';
 import { borderWidths, layout, radii, spacing } from '@/theme/theme';
+import { easierToSee, useEasierToSee, useStrongEdge } from '@/theme/easier-to-see';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 export type ButtonProps = Omit<
@@ -63,7 +64,17 @@ export function Button({
   const [isFocused, setIsFocused] = useState(false);
   const isUnavailable = disabled || loading;
   const pressHandler = createPressHandler(onPress, isUnavailable);
+  // O13: every kuyara-drawn button is a 56-point primary-action target while Easier to see
+  // is on; the label, icon and padding keep their size.
+  const large = useEasierToSee();
+  // A button that is not already a dark fill takes the 2-point strong edge
+  // while higher contrast applies; a disabled one keeps the edge in its inert ink.
+  const strongEdge = useStrongEdge();
+  const edge = strongEdge && variant !== 'prominent'
+    ? { ...strongEdge, borderColor: disabled ? theme.colors.borderDefined : strongEdge.borderColor }
+    : null;
   const geometry = buttonGeometry[size];
+  const height = large ? Math.max(geometry.height, easierToSee.primaryActionHeight) : geometry.height;
   const iconSize = geometry.iconSize * controlScale;
 
   return (
@@ -77,7 +88,7 @@ export function Button({
       )}
       disabled={isUnavailable}
       // Small is drawn at 36 and reaches the 44-point target through the slop.
-      hitSlop={Math.max(0, (layout.minimumTouchTarget - geometry.height) / 2)}
+      hitSlop={large ? 0 : Math.max(0, (layout.minimumTouchTarget - geometry.height) / 2)}
       onBlur={(event) => {
         setIsFocused(false);
         onBlur?.(event);
@@ -101,9 +112,10 @@ export function Button({
             pressed: pressed && !isUnavailable,
           }).backgroundColor,
           columnGap: geometry.gap,
-          minHeight: geometry.height,
+          minHeight: height,
           paddingHorizontal: geometry.paddingHorizontal,
         },
+        edge,
         isFocused && { outlineColor: theme.colors.focusRing },
         style,
       ]}

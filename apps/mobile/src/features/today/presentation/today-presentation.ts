@@ -127,7 +127,6 @@ export type LoadedOutfitPresentation = Readonly<{
   positionLabel: string;
   title: string;
   summary: string;
-  emphasis?: string;
   pieces: readonly LocalizedOutfitPiece[];
   boardPieces: readonly Readonly<{ slot: OutfitSlot; garmentTypeId: GarmentTypeId; category: StructuralCategory }>[];
   /** The outfit's colours (O15): its board, alternate tile, badges and detail share them. */
@@ -533,7 +532,6 @@ function localizeOutfit(
     positionLabel: copy.optionPosition(index + 1, total),
     title,
     summary,
-    emphasis: index === 0 ? copy.emphasis.recommended : undefined,
     pieces,
     boardPieces,
     palette: outfitGarmentPalette(outfit, paletteDay),

@@ -3,6 +3,7 @@ import { Platform, Pressable, StyleSheet, type AccessibilityRole, type LayoutCha
 import { AppText, GarmentSlotGlyph } from '@/components/ui';
 import type { StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import { borderWidths, interaction, radii, spacing } from '@/theme/theme';
+import { easierToSee, useEasierToSee, useStrongEdge } from '@/theme/easier-to-see';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // ADR 0029 section 2. `Pill` (`components/ui/pill.tsx`) is a display-only badge with a
@@ -52,6 +53,11 @@ export function WardrobeCategoryChip({
   testID,
 }: WardrobeCategoryChipProps) {
   const theme = useKuyaraTheme();
+  // O13: a 48-point chip while Easier to see is on.
+  const large = useEasierToSee();
+  // O13: the 2-point strong edge while higher contrast applies; the
+  // selected tab keeps its accent fill as its edge.
+  const strongEdge = useStrongEdge();
   const ink = selected ? theme.colors.textOnBrand : theme.colors.textPrimary;
 
   return (
@@ -65,10 +71,12 @@ export function WardrobeCategoryChip({
       style={({ pressed }) => [
         styles.chip,
         category ? styles.withGlyph : null,
+        large ? { minHeight: easierToSee.chipHeight } : null,
         {
           backgroundColor: selected ? theme.colors.brandAccent : 'transparent',
-          borderColor: selected ? theme.colors.brandAccent : theme.colors.borderDefined,
+          borderColor: selected ? theme.colors.brandAccent : strongEdge?.borderColor ?? theme.colors.borderDefined,
         },
+        strongEdge ? { borderWidth: strongEdge.borderWidth } : null,
         pressed && styles.pressed,
       ]}
       testID={testID}>

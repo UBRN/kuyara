@@ -20,6 +20,7 @@ import { listRowTileColors } from '@/components/ui/list-row-tile';
 import { NativeListRow } from '@/components/ui/native-list';
 import { resolveListRowTileGeometry } from '@/components/ui/primitive-contracts';
 import { useTextScaling } from '@/components/ui/use-text-scaling';
+import { useEasierToSee } from '@/theme/easier-to-see';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 const swiftUI = Platform.select<() => typeof import('@expo/ui/swift-ui') | null>({
@@ -43,6 +44,15 @@ const IOS_MENU_INDICATOR_MODIFIERS = [
   font({ textStyle: 'caption' }),
   foregroundStyle({ type: 'hierarchical', style: 'tertiary' }),
 ];
+// O13: "Easier to see" changes the row's text only, as `NativeListRow`
+// does: the label and the value one weight step heavier in the label ink, and the indicator
+// in that ink too.
+const IOS_EASIER_TEXT_MODIFIERS = Platform.OS === 'ios'
+  ? [font({ textStyle: 'body', weight: 'semibold' }), foregroundStyle(PlatformColor('label'))]
+  : [];
+const IOS_EASIER_MENU_INDICATOR_MODIFIERS = Platform.OS === 'ios'
+  ? [font({ textStyle: 'caption' }), foregroundStyle(PlatformColor('label'))]
+  : [];
 
 export type NativePickerRowOption<T extends string> = Readonly<{
   label: string;
@@ -82,6 +92,8 @@ export function NativePickerRow<T extends string>({
 }: NativePickerRowProps<T>) {
   const theme = useKuyaraTheme();
   const { controlScale, usesStackedLayout } = useTextScaling();
+  const easierToSee = useEasierToSee();
+  const labelModifiers = easierToSee ? IOS_EASIER_TEXT_MODIFIERS : IOS_LABEL_MODIFIERS;
   const selectedLabel = options.find((option) => option.value === selection)?.label ?? '';
   const spokenLabel = selectedLabel ? `${label}, ${selectedLabel}` : label;
   const select = (value: T) => {
@@ -110,11 +122,11 @@ export function NativePickerRow<T extends string>({
     ) : null;
     const trailingValue = (
       <swiftUI.HStack spacing={4}>
-        <swiftUI.Text modifiers={IOS_SECONDARY_TEXT_MODIFIERS}>
+        <swiftUI.Text modifiers={easierToSee ? IOS_EASIER_TEXT_MODIFIERS : IOS_SECONDARY_TEXT_MODIFIERS}>
           {selectedLabel}
         </swiftUI.Text>
         <swiftUI.Image
-          modifiers={IOS_MENU_INDICATOR_MODIFIERS}
+          modifiers={easierToSee ? IOS_EASIER_MENU_INDICATOR_MODIFIERS : IOS_MENU_INDICATOR_MODIFIERS}
           systemName="chevron.up.chevron.down"
         />
       </swiftUI.HStack>
@@ -127,11 +139,11 @@ export function NativePickerRow<T extends string>({
             {leadingTile}
             {usesStackedLayout ? (
               <swiftUI.VStack alignment="leading" spacing={2}>
-                <swiftUI.Text modifiers={IOS_LABEL_MODIFIERS}>{label}</swiftUI.Text>
+                <swiftUI.Text modifiers={labelModifiers}>{label}</swiftUI.Text>
                 {trailingValue}
               </swiftUI.VStack>
             ) : (
-              <swiftUI.Text modifiers={IOS_LABEL_MODIFIERS}>{label}</swiftUI.Text>
+              <swiftUI.Text modifiers={labelModifiers}>{label}</swiftUI.Text>
             )}
             <swiftUI.Spacer />
             {usesStackedLayout ? null : trailingValue}

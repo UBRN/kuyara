@@ -3,6 +3,7 @@ import * as React from 'react';
 import * as ReactNative from 'react-native';
 
 import { NativePickerRow } from '@/components/ui/native-picker-row';
+import { EasierToSeeContext } from '@/theme/easier-to-see';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
@@ -240,4 +241,33 @@ test('on Android the row opens an alert that carries every option', async () => 
   expect(mockSelectionHaptic).toHaveBeenCalledTimes(1);
 
   alert.mockRestore();
+});
+
+// O13: "Easier to see" changes the picker row's text only, the label and
+// the value one weight heavier in the system label ink and the indicator in that ink.
+test('Easier to see draws the label and value heavier in the label ink', async () => {
+  mockFontScale(1);
+  const result = await render(
+    <EasierToSeeContext value>
+      <NativePickerRow
+        label="Appearance"
+        onSelectionChange={() => undefined}
+        options={[{ label: 'System', value: 'system' }, { label: 'Light', value: 'light' }]}
+        selection="light"
+        testID="picker"
+      />
+    </EasierToSeeContext>,
+    { wrapper: ThemeWrapper },
+  );
+
+  const heavier = [
+    { $type: 'font', textStyle: 'body', weight: 'semibold' },
+    { $type: 'foregroundStyle', style: ReactNative.PlatformColor('label') },
+  ];
+  expect(result.getByText('Appearance').props.modifiers).toEqual(heavier);
+  expect(result.getByText('Light').props.modifiers).toEqual(heavier);
+  expect(result.getByTestId('expo-ui-image').props.modifiers).toEqual([
+    { $type: 'font', textStyle: 'caption' },
+    { $type: 'foregroundStyle', style: ReactNative.PlatformColor('label') },
+  ]);
 });

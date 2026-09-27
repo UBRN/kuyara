@@ -300,12 +300,14 @@ pattern of pairing a specific colour with a specific
 icon](https://carbondesignsystem.com/patterns/status-indicator-pattern/). `iconNames`
 already carries `checkCircle`, `warning`, `error`, `info`. No new icon is required.
 
-kuyara reads neither iOS Increase Contrast (`isDarkerSystemColorsEnabled`) nor
-Differentiate Without Color: every text role clears 4.5:1 and every defined border
-3:1 by default, so the [higher-contrast scheme the HIG asks for only when the default
-falls short](https://developer.apple.com/design/human-interface-guidelines/accessibility)
-is not owed, and ink + glyph + text already leaves nothing for the second setting to
-change. The system-drawn controls of ADR 0019 adapt to both on their own, and
+Every text role clears 4.5:1 and every defined border 3:1 by default. kuyara still
+follows iOS Bold Text (`isBoldTextEnabled`) and Increase Contrast
+(`isDarkerSystemColorsEnabled`) for the "Easier to see" changes they name, even with that
+switch off ([ADR 0030](../adr/0030-settings-as-a-native-grouped-list.md) section 5): Bold
+Text makes kuyara-owned text one weight step heavier, Increase Contrast reads secondary
+text in the primary ink and gives kuyara-drawn controls a 2-point `borderStrong` edge.
+kuyara does not read Differentiate Without Color: ink + glyph + text already leaves nothing
+for it to change. The system-drawn controls of ADR 0019 adapt to both on their own, and
 Differentiate Without Color is not exposed to JavaScript by React Native or any
 installed Expo module, so reacting to it would mean a native module with no caller.
 

@@ -108,6 +108,7 @@ export default function SettingsRoute() {
         onOpenBirthDate={() => router.push('/settings/birth-date')}
         onNameChange={updateDisplayName}
         onOpenNotifications={() => router.push('/settings/notifications')}
+        onOpenEasierToSee={() => router.push('/settings/easier-to-see')}
         onOpenPrivacy={() => router.push('/settings/privacy')}
         onOpenSupport={() => {
           void Linking.openURL(SUPPORT_URL[language]);

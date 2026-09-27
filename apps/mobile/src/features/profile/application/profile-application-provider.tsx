@@ -94,6 +94,7 @@ export function ProfileApplicationProvider({ children }: PropsWithChildren) {
       updateDressStyle: (dressStyle) => controller.updateDressStyle(dressStyle),
       updateStyleAesthetics: (values) => controller.updateStyleAesthetics(values),
       updateMorningSheetEnabled: (enabled) => controller.updateMorningSheetEnabled(enabled),
+      updateEasierToSee: (enabled) => controller.updateEasierToSee(enabled),
       updateBirthDate: (birthDate) => controller.updateBirthDate(birthDate),
       updateDisplayName: (displayName) => controller.updateDisplayName(displayName),
       updateLanguagePreference: (preference) =>
@@ -119,11 +120,12 @@ export function ProfileApplicationProvider({ children }: PropsWithChildren) {
     state.status === 'ready' ? state.profile.languagePreference : 'system';
   const themePreference =
     state.status === 'ready' ? state.profile.themePreference : 'system';
+  const easierToSee = state.status === 'ready' && state.profile.easierToSee === true;
 
   return (
     <ProfileApplicationContext value={value}>
       <LocalizationProvider preference={languagePreference}>
-        <KuyaraThemeProvider preference={themePreference}>
+        <KuyaraThemeProvider easierToSee={easierToSee} preference={themePreference}>
           {children}
         </KuyaraThemeProvider>
       </LocalizationProvider>

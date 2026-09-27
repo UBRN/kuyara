@@ -1,4 +1,4 @@
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -295,16 +295,17 @@ test('the morning briefing is its own row and reports the same events the alert 
 });
 
 test('an opt-in the OS revoked reads Off on the Settings root row', async () => {
-  // The alert row is the only Settings row valued from these keys, so the single Off is
-  // unambiguously its own and no On is left anywhere on the screen.
+  // Within its group the alert row is the only row valued from these keys, so the single
+  // Off is unambiguously its own and no On is left there (O13's Easier to see row, in its
+  // own group, also reads Off by default).
   mockProfile = { ...createProfile(), notificationsOptIn: 1, analyticsConsent: 'granted' };
   const { gateway } = createGateway('denied');
   const result = await renderSettings(gateway, new RecordingProductAnalytics());
 
-  await result.findByTestId('settings-notifications-row');
-  await waitFor(() => expect(result.getAllByText(messages.en.notifications.statusOff))
+  const group = await result.findByTestId('settings-notifications-group');
+  await waitFor(() => expect(within(group).getAllByText(messages.en.notifications.statusOff))
     .toHaveLength(1));
-  expect(result.queryByText(messages.en.notifications.statusOn)).not.toBeOnTheScreen();
+  expect(within(group).queryByText(messages.en.notifications.statusOn)).not.toBeOnTheScreen();
 });
 
 // ADR 0004: the root row stands for the whole Notifications surface, so the briefing alone
@@ -314,10 +315,10 @@ test('the briefing alone reads On on the Settings root row', async () => {
   const { gateway } = createGateway('granted');
   const result = await renderSettings(gateway, new RecordingProductAnalytics());
 
-  await result.findByTestId('settings-notifications-row');
-  await waitFor(() => expect(result.getAllByText(messages.en.notifications.statusOn))
+  const group = await result.findByTestId('settings-notifications-group');
+  await waitFor(() => expect(within(group).getAllByText(messages.en.notifications.statusOn))
     .toHaveLength(1));
-  expect(result.queryByText(messages.en.notifications.statusOff)).not.toBeOnTheScreen();
+  expect(within(group).queryByText(messages.en.notifications.statusOff)).not.toBeOnTheScreen();
 });
 
 test('the blocked sub-screen keeps the preference on the toggle beside the denied footer', async () => {

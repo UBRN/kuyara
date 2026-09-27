@@ -576,6 +576,32 @@ test('defined borders identify interactive boundaries on every plane', () => {
   );
 });
 
+// O13: the strong boundary is the secondary text value as a stroke, no
+// new colour, and it clears 3:1 on every plane a kuyara-drawn control stands on.
+test('the strong border is the secondary ink and clears 3:1 on every plane', () => {
+  for (const semanticColors of [lightSemanticColors, darkSemanticColors]) {
+    assert.equal(semanticColors.borderStrong, semanticColors.textSecondary);
+    for (const plane of ['surface', 'surfaceMuted', 'background', 'backgroundElevated']) {
+      assert.ok(contrastOfHexOverBackground(semanticColors.borderStrong, semanticColors[plane]) >= 3);
+    }
+  }
+});
+
+// O13 review finding: an edge drawn from the token directly followed the switch alone and
+// missed iOS Increase Contrast. Every strong edge comes from `useStrongEdge()`, so only the
+// token's definition and that hook may name it.
+test('the strong border is read only through the Easier to see edge hook', async () => {
+  const sourceRoot = new URL('../', import.meta.url);
+  const entries = await readdir(sourceRoot, { recursive: true, withFileTypes: true });
+  const readers = [];
+  for (const entry of entries) {
+    if (!entry.isFile() || !/\.(ts|tsx)$/.test(entry.name) || /\.test\./.test(entry.name)) continue;
+    const source = await readFile(`${entry.parentPath}/${entry.name}`, 'utf8');
+    if (source.includes('borderStrong')) readers.push(entry.name);
+  }
+  assert.deepEqual(readers.sort(), ['easier-to-see.ts', 'theme.ts']);
+});
+
 test('elevation contact contrast pins light thresholds and the accepted dark defect', () => {
   const light = createKuyaraTheme('light');
   const dark = createKuyaraTheme('dark');
