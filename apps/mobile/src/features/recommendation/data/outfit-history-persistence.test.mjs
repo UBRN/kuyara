@@ -5,6 +5,7 @@ import test from 'node:test';
 import { migrateDatabase } from '@/infrastructure/sqlite/migrations';
 import { NodeSqliteDatabase } from '../../../../test/node-sqlite-database.mjs';
 import { SqliteOutfitHistoryRepository } from './sqlite-outfit-history-repository.ts';
+import { recommendOutfits } from '../application/recommend-outfits.ts';
 import { SqliteDressingDayDepartureRepository } from './sqlite-dressing-day-departure-repository.ts';
 import { SqliteDressingDayChoiceRepository } from './sqlite-dressing-day-choice-repository.ts';
 import { resolvedStyleAesthetics } from '../domain/dressing-day-choice.ts';
@@ -51,6 +52,44 @@ test('history overwrites and revives one day, lists newest first, and reads only
   assert.deepEqual((await repo.lastSeven(profileId)).map((entry) => entry.dayKey),
     ['09', '08', '07', '06', '05', '04', '03'].map((day) => `2026-09-${day}`));
   assert.equal((await db.getFirstAsync('SELECT COUNT(*) AS count FROM outfit_history')).count, 9);
+});
+
+test('history skips corrupt rows while preserving seven valid reads and recommendation generation', async (t) => {
+  const db = await setup(t);
+  const photos = { copyStaged: async () => { throw new Error('unexpected photo copy'); },
+    discardStaged: async () => {}, deleteStored: async () => {}, resolveUri: () => null };
+  const repo = new SqliteOutfitHistoryRepository(db, randomUUID, () => now, photos);
+  for (let day = 1; day <= 8; day++) {
+    await repo.log(profileId, `2026-09-${String(day).padStart(2, '0')}`, first);
+  }
+  await db.runAsync(`UPDATE outfit_history SET outfit_json = ? WHERE day_key = ?`,
+    ['{"garments":"invalid"}', '2026-09-07']);
+  assert.deepEqual((await repo.list(profileId)).map((entry) => entry.dayKey),
+    ['08', '06', '05', '04', '03', '02', '01'].map((day) => `2026-09-${day}`));
+  assert.equal((await repo.get(profileId, '2026-09-08')).dayKey, '2026-09-08');
+  const recentWorn = (await repo.lastSeven(profileId)).map((entry) => entry.outfit);
+  assert.equal(recentWorn.length, 7);
+  const observedAt = '2026-09-24T09:00:00.000Z';
+  const measurements = { temperatureCelsius: 20, apparentTemperatureCelsius: 20,
+    condition: 'clear', precipitationProbability: 0, windSpeedMetersPerSecond: 0,
+    humidity: 0.5, uvIndex: 0 };
+  const recommendation = recommendOutfits({
+    snapshot: { id: randomUUID(), localProfileId: profileId, locationKey: 'manual:test',
+      timeZone: 'UTC', fetchedAt: observedAt, origin: { kind: 'sample', sourceId: 'test' },
+      current: { observedAt, ...measurements }, minimumTemperatureCelsius: 20,
+      maximumTemperatureCelsius: 21,
+      hourly: [{ forecastAt: '2026-09-24T10:00:00.000Z', ...measurements }] },
+    now: observedAt, clothingPreference: 'womens', dayVariant: 0, recentWorn,
+  });
+  assert.equal(recommendation.status, 'recommended');
+  assert.equal(recommendation.outfits.length, 3);
+});
+
+test('history list reads preserve database errors', async () => {
+  const unreadable = { getAllAsync: async () => { throw new Error('database unreadable'); } };
+  const repo = new SqliteOutfitHistoryRepository(unreadable, randomUUID, () => now, {});
+  await assert.rejects(() => repo.list(profileId), /database unreadable/);
+  await assert.rejects(() => repo.lastSeven(profileId), /database unreadable/);
 });
 
 test('history rejects catalog garments in incompatible slots and incomplete or conflicting cores', async (t) => {
