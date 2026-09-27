@@ -36,12 +36,11 @@ Three problems follow from that table.
    to its hero, which means the space in between, where an anchor level would live,
    does not exist. Law 1 asks for three emphasis levels; the scale supplies two.
 3. **No role carries negative tracking.** At 40 points the system face needs it.
-   Without it `display` reads as a large label rather than a hero, which is exactly
-   how the temperature on Today reads today.
+   Without it `display` reads as a large label rather than a hero on Weather.
 
-The practical consequence is that most of any kuyara screen is rendered at 17 or 13
-points, with one 24-point heading and one 40-point number. That is the flatness, and
-it is a typography defect rather than a surface defect.
+The scale separates the hero value on Weather from its headings and supporting copy.
+On Today, the garment composition is the hero, the bold `title` role carries the
+one-line weather title, and the insight uses `body` in primary ink.
 
 ## Decision
 
@@ -85,10 +84,8 @@ applies and no prior product use is required.
   `theme.test.mjs`'s typography guard is the repository-wide ban on literal
   `fontSize` and `lineHeight` under `features/`. Neither pins a size.
 - **`display` at 56 is the real risk.** At the largest Dynamic Type settings it grows
-  aggressively. Two existing mechanisms must hold and are now load-bearing rather
-  than incidental: `AppText` releases the authored line height above a font scale of
-  1.5 so text grows instead of clipping, and Today's hero already switches to a
-  stacked column at that same threshold. Both were measured at the largest
+  aggressively. `AppText` releases the authored line height above a font scale of
+  1.5 so text grows instead of clipping. The roles were measured at the largest
   accessibility size, in Turkish and English; that measurement is a recorded fact, not
   an acceptance axis.
 - Turkish strings are longer than their English equivalents at every size, so the
