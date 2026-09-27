@@ -11,15 +11,12 @@ import {
   NativeTextField,
   Surface,
 } from '@/components/ui';
-import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
-import { ANALYTICS_SCHEMA_VERSION } from '@/features/analytics/domain/analytics-events';
-import { locationChangedMethodProperty } from '@/features/analytics/domain/analytics-mappers';
+import { useWeatherInteractionEvents } from '@/features/analytics/application/use-interaction-events';
 import { PlaceSearchController } from '@/features/weather/application/place-search-controller';
 import {
   usePlaceSearchApplication,
   useWeatherApplication,
 } from '@/features/weather/application/weather-application-context';
-import type { WeatherApplicationState } from '@/features/weather/application/weather-application-controller';
 import { useLocalization } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -38,21 +35,17 @@ export function LocationSelectionControls({
   const application = useWeatherApplication();
   const { state } = application;
   const { searchPlaces, selectPlaceSearchResult } = usePlaceSearchApplication();
-  const { analytics, firstUses } = useProductAnalytics();
+  const weatherEvents = useWeatherInteractionEvents();
   const changeContext = testIDPrefix === 'onboarding' ? 'onboarding' : 'weather_tab';
   // Taxonomy 5.4: `location_changed` fires only when the active location's identity
   // actually changed. `getSnapshot()` reads the controller's committed state directly, so
   // the "after" read here is never a stale, pre-await render.
-  const captureIfLocationChanged = (before: WeatherApplicationState) => {
-    const beforeKey = before.status === 'ready' ? before.activeLocation?.locationKey : undefined;
-    const after = application.getSnapshot?.() ?? application.state;
-    if (after.status !== 'ready' || !after.activeLocation) return;
-    if (after.activeLocation.locationKey === beforeKey) return;
-    analytics.capture('location_changed', {
-      schema_version: ANALYTICS_SCHEMA_VERSION,
-      method: locationChangedMethodProperty(after.activeLocation.source),
-      change_context: changeContext,
-    });
+  const reportLocationSelection = (before: typeof application.state) => {
+    weatherEvents.locationSelectionFinished(
+      before,
+      application.getSnapshot?.() ?? application.state,
+      changeContext,
+    );
   };
   const { language, messages } = useLocalization();
   const copy = messages.weather;
@@ -119,7 +112,7 @@ export function LocationSelectionControls({
           loading={state.isSelectingLocation}
           onPress={() => {
             const before = application.state;
-            void application.beginDeviceLocationSelection().then(() => captureIfLocationChanged(before));
+            void application.beginDeviceLocationSelection().then(() => reportLocationSelection(before));
           }}
           testID={`${testIDPrefix}-location-device`}
           variant={state.locationFlow === 'rationale' ? 'tonal' : 'prominent'}
@@ -135,7 +128,7 @@ export function LocationSelectionControls({
                 label={copy.continuePermission}
                 onPress={() => {
                   const before = application.state;
-                  void application.confirmDeviceLocationRequest().then(() => captureIfLocationChanged(before));
+                  void application.confirmDeviceLocationRequest().then(() => reportLocationSelection(before));
                 }}
               />
               <Button
@@ -201,17 +194,11 @@ export function LocationSelectionControls({
                     ? undefined
                     : () => {
                         const before = application.state;
-                        void selectPlaceSearchResult(place).then(() => captureIfLocationChanged(before));
+                        void selectPlaceSearchResult(place).then(() => reportLocationSelection(before));
                         // A manual pick overrides the device location regardless of
                         // whether it ends up the same place, so first use gates on the
                         // action, not on `location_changed` firing.
-                        void firstUses.markFirstUse('location_override').then((firstUse) => {
-                          if (!firstUse) return;
-                          analytics.capture('feature_used_first_time', {
-                            schema_version: ANALYTICS_SCHEMA_VERSION,
-                            feature_name: 'location_override',
-                          });
-                        });
+                        weatherEvents.manualLocationSelected();
                       }
                 }
                 selected={

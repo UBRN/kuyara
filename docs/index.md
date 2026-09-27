@@ -40,8 +40,9 @@ privacy_title: Free, ad-free, quiet
 privacy_account: >-
   This release works without an account. There is nothing to sign up for.
 privacy_consent: >-
-  Usage analytics and diagnostics are collected only after you say yes, and you can
-  switch them off again in Settings.
+  Usage analytics and performance diagnostics follow the choice you make in the app,
+  apart from rare technical records described in the privacy policy. A launch count
+  and update check run regardless of that choice. You can switch sharing off in Settings.
 privacy_location: >-
   Your location is used to fetch the weather, rounded before it is sent. It never
   goes into analytics.

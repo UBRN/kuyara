@@ -315,7 +315,7 @@ test('withdrawal never flushes queued events and completes durable local opt-out
   assert.equal(client.operations.includes('flush'), false);
 });
 
-test('the before-send filter removes lifecycle URLs and non-allowlisted properties', () => {
+test('the before-send filter removes lifecycle URLs, timezone and non-allowlisted properties', () => {
   const original = {
     event: 'Application Opened',
     properties: {
@@ -325,6 +325,23 @@ test('the before-send filter removes lifecycle URLs and non-allowlisted properti
       previous_version: '1.0.0',
       schema_version: 3,
       '$lib': 'posthog-react-native',
+      '$lib_version': '4.68.4',
+      '$lib_custom': 'unreviewed SDK extension',
+      '$process_person_profile': false,
+      '$session_id': 'random-session',
+      '$device_id': 'random-install',
+      '$app_version': '16',
+      '$app_build': '16',
+      '$os_name': 'iOS',
+      '$os_version': '26.0',
+      '$device_name': 'iPhone',
+      '$device_type': 'Mobile',
+      '$locale': 'tr-TR',
+      '$timezone': 'Europe/Istanbul',
+      '$app_namespace': 'private.bundle.id',
+      '$device_manufacturer': 'private manufacturer',
+      '$feature/unreviewed': 'private flag',
+      '$exception_list': [{ value: 'unexpected on lifecycle event' }],
       '$ip': '203.0.113.1',
       '$geoip_country_code': 'TR',
       '$geoip_disable': true,
@@ -339,6 +356,17 @@ test('the before-send filter removes lifecycle URLs and non-allowlisted properti
     properties: {
       schema_version: 3,
       '$lib': 'posthog-react-native',
+      '$lib_version': '4.68.4',
+      '$process_person_profile': false,
+      '$session_id': 'random-session',
+      '$device_id': 'random-install',
+      '$app_version': '16',
+      '$app_build': '16',
+      '$os_name': 'iOS',
+      '$os_version': '26.0',
+      '$device_name': 'iPhone',
+      '$device_type': 'Mobile',
+      '$locale': 'tr-TR',
       '$geoip_disable': true,
     },
   });

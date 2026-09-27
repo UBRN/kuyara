@@ -1,5 +1,7 @@
 import { Redirect } from 'expo-router';
+import type { ComponentProps } from 'react';
 
+import { useScreenViewed } from '@/features/analytics/application/use-screen-viewed';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { OnboardingScreen } from '@/features/profile/presentation/onboarding-screen';
 
@@ -15,7 +17,7 @@ export default function OnboardingRoute() {
   }
 
   return (
-    <OnboardingScreen
+    <ReadyOnboarding
       initialBirthDate={state.profile.birthDate}
       initialDisplayName={state.profile.displayName}
       initialDressStyle={state.profile.dressStyle}
@@ -24,4 +26,11 @@ export default function OnboardingRoute() {
       onComplete={completeOnboarding}
     />
   );
+}
+
+type ReadyOnboardingProps = ComponentProps<typeof OnboardingScreen>;
+
+function ReadyOnboarding(props: ReadyOnboardingProps) {
+  useScreenViewed('onboarding');
+  return <OnboardingScreen {...props} />;
 }

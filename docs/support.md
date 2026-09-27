@@ -34,11 +34,14 @@ your location rounded to about one kilometre to its own weather server, never st
 coordinates, and never includes location in analytics. Approximate location is enough.
 
 **How do I delete my data?**
-Deleting the app removes the data kuyara stores on your device. Analytics and performance or
-crash diagnostics are sent only after you accept the consent question. Expo also receives a
+Deleting the app removes its local data from that device. Copies may remain in your device
+backup under your backup settings. Usage analytics and performance or crash diagnostics
+follow the choice you make in the app, apart from rare technical records explained in the
+[privacy policy](privacy-policy#performance-and-diagnostics). Expo also receives a
 launch count and update check with an installation identifier on every launch, regardless of
 consent; see [Expo launch requests in the privacy policy](privacy-policy#expo-launch-requests).
-Turn sharing off under Settings > Privacy to stop analytics and diagnostics and unlink past
-events. To request deletion of past analytics events, email the maintainer with the identifier
-shown there. Diagnostics and Expo requests use a separate identifier kuyara cannot use for
+To request deletion of past analytics events, copy the identifier shown under Settings >
+Privacy while sharing is on and email it to the maintainer. Turning sharing off stops
+analytics and diagnostics and discards that identifier; past events remain until deleted
+or expired. Diagnostics and Expo requests use a separate identifier kuyara cannot use for
 deletion requests.

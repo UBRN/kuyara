@@ -111,11 +111,22 @@ export function forceOptedOutStorage(storage: SyncStringStorage): void {
 const allowedCustomPropertyKeys = new Set<string>(
   Object.values(analyticsEventPropertyKeys).flat(),
 );
-const blockedSystemPropertyKeys = new Set([
-  '$ip',
-  '$screen_name',
-  '$current_url',
-  '$referrer',
+// docs/analytics-taxonomy.md section 5.1 is the SDK-default allowlist. New SDK keys
+// are dropped until that list is reviewed, even when they start with `$`.
+const allowedSystemPropertyKeys = new Set([
+  '$device_id',
+  '$session_id',
+  '$app_version',
+  '$app_build',
+  '$os_name',
+  '$os_version',
+  '$device_name',
+  '$device_type',
+  '$locale',
+  '$geoip_disable',
+  '$process_person_profile',
+  '$lib',
+  '$lib_version',
 ]);
 
 export function sanitizePostHogEvent(event: BeforeSendEvent): BeforeSendEvent {
@@ -124,12 +135,9 @@ export function sanitizePostHogEvent(event: BeforeSendEvent): BeforeSendEvent {
   const properties = Object.fromEntries(
     Object.entries(event.properties).filter(([key]) => {
       if (allowedCustomPropertyKeys.has(key)) return true;
-      if (!key.startsWith('$')) return false;
-      if (blockedSystemPropertyKeys.has(key)) return false;
-      // This control property prevents server-side location enrichment. Other `$geoip*`
-      // properties are data and remain outside the allowlist.
-      if (key === '$geoip_disable') return true;
-      return !key.startsWith('$geoip');
+      if (allowedSystemPropertyKeys.has(key)) return true;
+      return event.event === '$exception'
+        && (key === '$exception_level' || key === '$exception_list');
     }),
   );
 

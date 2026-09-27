@@ -15,11 +15,12 @@ yapabileceğini anlatır.
 ## Özet
 
 - kuyara senden oturum açmanı istemiyor. Profilin, Gardırobun ve ayarların cihazında durur.
-- Kullanım analitiği ve tanılama verisi isteğe bağlıdır. Yalnızca tanışma adımlarından
-  sonra sorulan onay sorusunu kabul edersen gönderilir.
+- Kullanım analitiği ve performans tanılamaları uygulamada yaptığın seçime bağlıdır;
+  aşağıda anlatılan nadir teknik kayıtlar bunun istisnasıdır.
 - kuyara'nın geliştirildiği araç seti olan Expo'nun yaptığı iki istek, bu yanıttan önce ve
   yanıttan bağımsız olarak her açılışta gerçekleşir. Bu istekler rastgele bir kurulum kimliği
-  ile uygulamaya ve cihaza dair sürüm bilgileri taşır; kuyara'ya girdiğin hiçbir şeyi taşımaz.
+  ile uygulamaya ve cihaza dair sürüm bilgileri taşır. Güncelleme isteği, önceki açılışın
+  ölümcül hata metnini de taşıyabilir; ayrıntılar aşağıdadır.
 - Analitik hiçbir zaman konumunu, fotoğraflarını, adını, giysi adlarını, doğum
   tarihini ya da yazdığın bir şeyi içermez.
 - kuyara seni başka uygulamalarda veya sitelerde izlemez, reklam göstermez ve veri satmaz.
@@ -27,8 +28,9 @@ yapabileceğini anlatır.
 
 ## Kullanım analitiği
 
-kuyara, tanışma adımlarından sonra bir kez kullanım verisi paylaşmak isteyip
-istemediğini sorar. Reddedersen hiçbir şey gönderilmez ve uygulama aynı şekilde çalışır.
+kuyara, tanışma adımlarından sonra bir kez kullanım, performans ve tanılama verisi
+paylaşmak isteyip istemediğini sorar. Reddedersen aşağıda anlatılan nadir teknik durumlar
+dışında bu veriler gönderilmez ve uygulama aynı şekilde çalışır. Ayrı Expo açılış istekleri devam eder.
 Kabul edersen kuyara şunları toplar:
 
 - **Ürün etkileşimi.** Hangi ekranların açıldığı, yenileme gibi dokunuşlar, önerinin
@@ -63,8 +65,9 @@ olsa bir konum türetilmez.
 ## Performans ve tanılama
 
 Performans ve tanılama verisi, kuyara'nın tanışma adımlarından sonra kullanım analitiği için
-sorduğu aynı onay sorusuna bağlıdır. Yalnızca kabul edersen gönderilir. Reddedersen hiçbir
-şey gönderilmez. Kabul edersen kuyara şunları gönderir:
+sorduğu aynı onay sorusuna bağlıdır. Normalde yalnızca kabul edersen gönderilir. Reddedersen
+yanıtından sonra, aşağıda anlatılan nadir teknik durumlar dışında yeni veri gönderilmez.
+Kabul edersen kuyara şunları gönderir:
 
 - **Performans süreleri.** Uygulamanın açılış ve ekranlar arası geçiş süreleri, ilk
   görüntülemeye ve etkileşime hazır hale gelmeye kadar geçen süreler dahil.
@@ -96,8 +99,8 @@ sorduğu aynı onay sorusuna bağlıdır. Yalnızca kabul edersen gönderilir. R
 Observe bu verileri 90 gün saklar.
 
 **Performans ve tanılamaya asla girmeyenler:** konumun, koordinatların veya şehrin;
-Gardırop içeriği veya fotoğrafları; profil tercihlerin; yapay zeka istemleri veya yanıtları;
-analitik kimliği veya uygulamanın yerel profil kimliği.
+Gardırop içeriği veya fotoğrafları; adın veya yazdığın herhangi bir şey; profil tercihlerin;
+yapay zeka istemleri veya yanıtları; analitik kimliği veya uygulamanın yerel profil kimliği.
 
 Bir teknik sınır vardır. Expo paketi, onay sorusunu yanıtlamadan önce teknik hata kayıtlarını
 otomatik olarak yazabilir. Kabul ettiğinde kuyara önce pakete o ana kadar yazılmış bütün
@@ -106,7 +109,8 @@ yanıtından önceki bir kayıt yine de gönderilebilir: daha önceki bir açıl
 uygulamaya ancak sen kabul ettikten sonra ilettiği bir çökme raporu; paylaşım kapalıyken
 yazılmış bir kayıt, paylaşımı yeniden açmandan kısa süre önce bir gönderim denemesi başarısız
 olduysa; ve kurulumdan sonraki ilk açılışta, uygulama kuyara başlamadan arka plana
-gönderilirse açılış süresi. "Hayır" yanıtından sonra hiçbir şey gönderilmez.
+gönderilirse açılış süresi. "Hayır" yanıtından sonra paylaşım kapalıyken Observe yeni
+kayıt göndermez; aşağıdaki ayrı Expo açılış istekleri yine de çalışır.
 
 Apple'ın App Store tanımlarına göre bu veri, kurulum kimliği üzerinden "kullanıcıyla
 ilişkili" sayılır. İzleme için kullanılmaz.
@@ -147,14 +151,16 @@ oluşturur; ancak bir cihaz yedeği geri yüklenirse eski kimlik geri gelebilir.
 
 ## Analitiği ve tanılamayı kapatmak
 
-Ayarlar'ı, ardından Gizlilik'i aç ve "Kullanım verisi paylaş" seçeneğini kapat. Gönderim
-ikisi için de aynı oturumda hemen durur. Anahtarı kapatmadan önce oluşturulan kayıtlar daha
-sonra gönderilmez. Expo paketi hata kayıtlarını cihazında yazmaya devam edebilir, ancak
-paylaşım kapalıyken hiçbiri gönderilmez. Uygulama analitik kimliğini de siler; böylece o ana
-kadar toplanan olaylar sonrasında toplananlarla ilişkilendirilemez. Tanılama kimliği
-cihazında kalır, ancak onunla
-başka hiçbir şey gönderilmez. Paylaşımı yeniden açmak yeni bir analitik kimliği oluşturur. Yukarıda
-anlatılan iki Expo açılış isteği bu anahtarın kapsamında değildir ve her durumda devam eder.
+Ayarlar'ı, ardından Gizlilik'i aç ve "Kullanım ve tanılama verisi paylaş" seçeneğini kapat.
+Kullanım analitiği ile performans ve tanılama kayıtlarının gönderimi aynı oturumda hemen
+durur. Kuyruktaki kayıtlar atılır. Expo paketi hata kayıtlarını cihazında yazmaya devam
+edebilir, ancak paylaşım kapalıyken Observe'a gönderilmez; paylaşımı yeniden açarsan
+yukarıdaki nadir gönderim sınırları geçerlidir. Uygulama analitik kimliğini de siler;
+böylece o ana kadar toplanan olaylar sonrasında toplananlarla ilişkilendirilemez.
+Paylaşımı yeniden açmak yeni bir analitik
+kimliği oluşturur. Tanılama kimliği cihazında kalır ve yukarıda anlatılan ayrı Expo
+Insights açılış sayımı ile Expo Updates güncelleme kontrolüne eşlik etmeye devam eder.
+Bu istekler anahtarın kapsamında değildir ve her durumda sürer.
 
 ## Silme talebi
 

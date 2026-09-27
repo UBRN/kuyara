@@ -37,11 +37,15 @@ gönderir, kesin koordinatları asla saklamaz ve konumu analitiğe hiç katmaz. 
 yeterlidir.
 
 **Verilerimi nasıl silerim?**
-Uygulamayı silmek kuyara'nın cihazında sakladığı verileri kaldırır. Analitik ve performans
-veya çökme tanılamaları yalnızca rıza sorusunu kabul edersen gönderilir. Expo ise rızadan
+Uygulamayı silmek cihazındaki yerel verileri kaldırır. Kopyalar, yedekleme ayarlarına göre
+cihaz yedeğinde kalabilir. Kullanım analitiği ile performans veya çökme tanılamaları
+uygulamada yaptığın seçime bağlıdır; bunun tek istisnası
+[gizlilik politikasında](privacy-policy#performans-ve-tanılama) açıklanan nadir teknik
+kayıtlardır. Expo ise onaydan
 bağımsız olarak her açılışta kurulum kimliği taşıyan açılış sayımı ve güncelleme kontrolü
 istekleri alır; ayrıntılar [gizlilik politikasında](privacy-policy#expo-açılış-istekleri).
-Ayarlar > Gizlilik'ten paylaşımı kapatmak analitik ve tanılama gönderimini durdurur, geçmiş
-olayların bağını koparır. Geçmiş analitik olaylarının silinmesini istemek için ekrandaki
-kimlikle sorumluya e-posta gönder. Tanılama ve Expo istekleri kuyara'nın silme talebinde
+Ayarlar > Gizlilik'te paylaşım açıkken gösterilen analitik kimliğini kopyalayıp sorumluya
+e-posta göndererek geçmiş olaylarının silinmesini isteyebilirsin. Paylaşımı kapatmak
+analitik ve tanılama gönderimini durdurur ve bu kimliği cihazdan siler; geçmiş olaylar
+silinene veya süreleri dolana kadar kalır. Tanılama ve Expo istekleri kuyara'nın silme talebinde
 kullanamadığı ayrı bir kimlik taşır.
