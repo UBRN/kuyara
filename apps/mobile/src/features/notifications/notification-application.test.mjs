@@ -141,7 +141,7 @@ function weatherSnapshot(id = '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4') {
   };
 }
 
-function createSchedulerHarness({ firedIds = new Set(), cancel, schedule } = {}) {
+function createSchedulerHarness({ firedIds = new Set(), cancel, schedule, now = '2026-09-09T15:00:00.000Z' } = {}) {
   const events = [];
   const scheduled = [];
   const upserted = [];
@@ -182,7 +182,7 @@ function createSchedulerHarness({ firedIds = new Set(), cancel, schedule } = {})
     scheduler: new WeatherAlertScheduler(
       gateway,
       repository,
-      () => '2026-09-09T15:00:00.000Z',
+      () => now,
     ),
   };
 }
@@ -389,6 +389,31 @@ test('a briefing the ledger already recorded for that day is not scheduled again
 
   assert.deepEqual(harness.scheduled, []);
   assert.deepEqual(harness.upserted[0], []);
+});
+
+test('rescheduling before 07:00 keeps this morning, after 07:00 plans tomorrow, and a fired morning stays suppressed', async () => {
+  const morning = {
+    ...weatherSnapshot(),
+    hourly: [
+      { ...weatherSnapshot().hourly[0], forecastAt: '2026-09-10T07:00:00.000Z' },
+      { ...weatherSnapshot().hourly[0], forecastAt: '2026-09-11T07:00:00.000Z' },
+    ],
+  };
+  for (const { now, firedIds, expected } of [
+    { now: '2026-09-10T03:00:00.000Z', firedIds: new Set(), expected: 'morning_briefing:2026-09-10' },
+    { now: '2026-09-10T07:00:00.000Z', firedIds: new Set(), expected: 'morning_briefing:2026-09-11' },
+    { now: '2026-09-10T08:00:00.000Z', firedIds: new Set(), expected: 'morning_briefing:2026-09-11' },
+    { now: '2026-09-10T03:00:00.000Z', firedIds: new Set(['morning_briefing:2026-09-10']), expected: 'morning_briefing:2026-09-11' },
+  ]) {
+    const harness = createSchedulerHarness({ now, firedIds });
+    await harness.scheduler.reschedule({
+      ...enabledInput,
+      snapshot: { ...morning, fetchedAt: now },
+      weatherAlertsEnabled: false,
+      morningBriefingEnabled: true,
+    });
+    assert.deepEqual(harness.scheduled.map(({ identifier }) => identifier), [expected], now);
+  }
 });
 
 test('weather alerts suppress identities whose ledger fire time has passed', async () => {

@@ -70,10 +70,13 @@ version 15), and its row is the second group on the Settings Notifications surfa
 either kind can be turned off in one tap.
 
 The briefing is scheduled only from a snapshot that is fresh under the existing 30-minute
-window and whose hourly array actually reaches tomorrow's 07:00 hour in the snapshot's
-time zone. When it does not, no briefing is planned and nothing is shown: the content is
-never invented. Its identity is `morning_briefing:<localDate>` in the existing
-`weather_alert_deliveries` ledger, which is what bounds it to one a day.
+window and whose hourly array actually reaches the selected morning's 07:00 hour in the
+snapshot's time zone. Before 07:00 local, rescheduling keeps that morning's briefing if it
+has not fired; at or after 07:00, or if that morning's briefing has fired, it plans the
+following morning. When the hourly window does not reach the selected morning, no briefing
+is planned and nothing is shown: the content is never invented. Its identity is
+`morning_briefing:<localDate>` in the existing `weather_alert_deliveries` ledger, which
+bounds it to one a day.
 
 The opt-in is offered in two places and nowhere else. The Settings Notifications
 surface holds it permanently, and Today makes one contextual offer at a moment a
@@ -114,7 +117,7 @@ The decision is scoped into three milestones:
 ## Consequences
 
 - The MVP is limited to on-device local notifications, with no server-sent push.
-- The briefing depends on the hourly window reaching tomorrow morning, which the
+- The briefing depends on the hourly window reaching the selected morning, which the
   36-hour contract normally gives but a short provider response can withhold. A day it
   cannot cover is a silent day, not a fabricated one.
 - The briefing's fire time is 07:00 in the snapshot's time zone, the end of quiet hours
