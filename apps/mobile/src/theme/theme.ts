@@ -38,7 +38,9 @@ export const lightSemanticColors = Object.freeze({
   borderSubtle: '#CCD2D4',
   stage: '#D7DCDD',
   borderDefined: '#5C7A83',
-  borderStrong: brandColors.calmCurrent,
+  // O13's boundary ink (owner decision 9): the secondary text value used as a 2-point stroke,
+  // read only while "Easier to see" or iOS Increase Contrast is on (ADR 0030 section 5).
+  borderStrong: '#2F4650',
   focusRing: brandColors.calmCurrent,
   iconPrimary: brandColors.deepAtmosphere,
   iconSecondary: '#2F4650',
@@ -126,7 +128,7 @@ export const darkSemanticColors = Object.freeze({
   stage: '#122A35',
   // Lifted from #527E90 so the boundary still clears 3:1 on the lighter elevated plane.
   borderDefined: '#5E899A',
-  borderStrong: brandColors.quietSky,
+  borderStrong: '#B0C0C5',
   focusRing: brandColors.quietSky,
   iconPrimary: brandColors.cloudWhite,
   iconSecondary: '#B0C0C5',

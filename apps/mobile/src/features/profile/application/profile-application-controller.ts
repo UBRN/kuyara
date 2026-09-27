@@ -130,6 +130,10 @@ export class ProfileApplicationController {
     return this.updateProfile((repository) => repository.updateMorningSheetEnabled(enabled));
   }
 
+  updateEasierToSee(enabled: boolean): Promise<void> {
+    return this.updateProfile((repository) => repository.updateEasierToSee(enabled));
+  }
+
   updateBirthDate(birthDate: string | null): Promise<void> {
     return this.updateProfile((repository) => repository.updateBirthDate(birthDate));
   }

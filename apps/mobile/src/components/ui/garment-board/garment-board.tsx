@@ -15,6 +15,7 @@ import Svg, { Ellipse, G } from 'react-native-svg';
 
 import type { GarmentTypeId, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
+import { easierToSee as easierToSeeValues, useEasierToSee } from '@/theme/easier-to-see';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -23,6 +24,7 @@ import {
   contactShadeOf,
   detailPreset,
   drawnExtent,
+  easierToSeeRule,
   fitTodayStage,
   placeOnRunway,
   todayPreset,
@@ -106,15 +108,18 @@ type GarmentBoardProps = Readonly<{
   testID?: string;
 }>;
 
-export function composePieces(pieces: readonly GarmentBoardPiece[], preset: Preset) {
+export function composePieces(pieces: readonly GarmentBoardPiece[], preset: Preset, large = false) {
+  const rule = preset === 'today' ? todayPreset : detailPreset;
   return composeGarmentBoard(pieces.map((piece) => ({
     ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category),
-  })), preset === 'today' ? todayPreset : detailPreset);
+  })), large
+    ? easierToSeeRule(rule, easierToSeeValues.boardScale, easierToSeeValues.boardSideMinimum)
+    : rule);
 }
 
 /** Every piece's drawn box in points, and the stage height, with or without Today's fit. */
-function placePieces(pieces: readonly GarmentBoardPiece[], width: number, preset: Preset, fit: boolean) {
-  const result = composePieces(pieces, preset);
+function placePieces(pieces: readonly GarmentBoardPiece[], width: number, preset: Preset, fit: boolean, large = false) {
+  const result = composePieces(pieces, preset, large);
   if (!fit) {
     const placed = new Map(result.order.map((piece) => {
       const box = result.boxes.get(piece)!;
@@ -134,8 +139,10 @@ export function layoutGarmentBoard(
   pieces: readonly GarmentBoardPiece[],
   width: number,
   preset: Preset,
+  /** O13: the "Easier to see" board; pass `useEasierToSee()`. */
+  large = false,
 ): GarmentBoardLayout {
-  const { result, placed, height } = placePieces(pieces, width, preset, false);
+  const { result, placed, height } = placePieces(pieces, width, preset, false, large);
 
   return {
     height,
@@ -180,6 +187,7 @@ export function PieceArtwork({
   width,
   height,
   layer,
+  outline,
 }: Readonly<{
   piece: ComposedPiece;
   roles: GarmentRoles;
@@ -187,6 +195,8 @@ export function PieceArtwork({
   width: number;
   height: number;
   layer?: 'all' | 'fill' | 'outline';
+  /** The board outline in points; O13's mode draws it heavier. */
+  outline?: number;
 }>) {
   const { bounds } = piece;
 
@@ -200,6 +210,7 @@ export function PieceArtwork({
         ink={ink}
         layer={layer}
         lod={garmentLevelOfDetail(Math.max(width, height))}
+        outline={outline}
         roles={roles}
         scale={width / bounds.width}
         silhouette={piece}
@@ -220,6 +231,7 @@ function TravellingPiece({
   settleTravel,
   roles,
   ink,
+  outline,
 }: Readonly<{
   piece: ComposedPiece;
   fromBox: DrawnBox;
@@ -229,6 +241,7 @@ function TravellingPiece({
   settleTravel: SharedValue<number>;
   roles: GarmentRoles;
   ink: string;
+  outline?: number;
 }>) {
   const boxWidth = toBox.w * width;
   const boxHeight = toBox.h * width;
@@ -256,7 +269,7 @@ function TravellingPiece({
         { height: boxHeight, left: toBox.x * width, top: toBox.y * width, width: boxWidth },
         travelStyle,
       ]}>
-      <PieceArtwork height={boxHeight} ink={ink} piece={piece} roles={roles} width={boxWidth} />
+      <PieceArtwork height={boxHeight} ink={ink} outline={outline} piece={piece} roles={roles} width={boxWidth} />
     </Animated.View>
   );
 }
@@ -270,11 +283,12 @@ export function entranceStartBoxes(
   width: number,
   preset: Preset,
   fit: boolean,
+  large = false,
 ): ReadonlyMap<OutfitSlot, DrawnBox> {
   // Before the first layout the width is 0 and there is nothing to fit to.
   const fitted = fit && width > 0;
   const unit = fitted ? width : 1;
-  const { result, placed } = placePieces(pieces, unit, preset, fitted);
+  const { result, placed } = placePieces(pieces, unit, preset, fitted, large);
   return new Map(result.order.map((piece) => {
     const box = placed.get(piece)!;
     return [piece.slot, { x: box.x / unit, y: box.y / unit, w: box.w / unit, h: box.h / unit }];
@@ -286,8 +300,10 @@ export function measureGarmentBoardHeight(
   width: number,
   preset: Preset,
   fit = false,
+  /** O13: the "Easier to see" board; pass `useEasierToSee()`. */
+  large = false,
 ) {
-  return placePieces(pieces, width, preset, fit).height;
+  return placePieces(pieces, width, preset, fit, large).height;
 }
 
 export function GarmentBoard({
@@ -307,7 +323,9 @@ export function GarmentBoard({
 }: GarmentBoardProps) {
   const theme = useKuyaraTheme();
   const { colors } = theme;
-  const { result, placed, height } = placePieces(pieces, width, preset, fit && !entrance);
+  const large = useEasierToSee();
+  const outline = large ? easierToSeeValues.boardOutline : undefined;
+  const { result, placed, height } = placePieces(pieces, width, preset, fit && !entrance, large);
   const roles = useGarmentRoles(palette, stageColor);
   const progress = useSharedValue(0);
   const tintProgress = useSharedValue(0);
@@ -437,6 +455,7 @@ export function GarmentBoard({
               <GarmentPainting
                 ink={colors.textPrimary}
                 lod={garmentLevelOfDetail(Math.max(box.w, box.h))}
+                outline={outline}
                 roles={roles.get(piece.slot)!}
                 scale={scale}
                 silhouette={piece}
@@ -454,7 +473,7 @@ export function GarmentBoard({
       : board;
   }
 
-  const fromBoxes = entranceStartBoxes(pieces, width, entrance.fromPreset, entrance.fromFit === true);
+  const fromBoxes = entranceStartBoxes(pieces, width, entrance.fromPreset, entrance.fromFit === true, large);
 
   return (
     <Animated.View
@@ -469,6 +488,7 @@ export function GarmentBoard({
           fromBox={fromBoxes.get(piece.slot) ?? result.boxes.get(piece)!}
           ink={colors.textPrimary}
           key={piece.slot}
+          outline={outline}
           piece={piece}
           progress={progress}
           roles={roles.get(piece.slot)!}

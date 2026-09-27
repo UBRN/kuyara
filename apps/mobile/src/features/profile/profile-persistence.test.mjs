@@ -33,6 +33,7 @@ const createRecord = (overrides = {}) => ({
   weatherAlertOfferShown: 0,
   morningBriefingOptIn: 0,
   morningSheetEnabled: 1,
+  easierToSee: 0,
   styleAesthetics: '[]',
   analyticsConsent: 'undecided',
   createdAt,
@@ -120,6 +121,23 @@ test('style aesthetics are sorted, bounded, and malformed stored JSON falls back
   assert.equal((await reopened.updateMorningSheetEnabled(false)).morningSheetEnabled, false);
 });
 
+// O13: the "Easier to see" switch is off on a new profile, round-trips through the SQLite
+// data source and the repository mapper, survives a reopen, and a corrupt stored value is
+// refused rather than read as on.
+test('Easier to see defaults off, persists both ways, and rejects an invalid stored value', async (t) => {
+  const { database, dataSource } = await createLocalDataSource(t);
+  const repository = new LocalProfileRepository(dataSource);
+  assert.equal((await repository.getOrCreateProfile()).easierToSee, false);
+  assert.equal((await repository.updateEasierToSee(true)).easierToSee, true);
+  assert.equal((await database.getFirstAsync('SELECT easier_to_see FROM local_profiles')).easier_to_see, 1);
+  const reopened = new LocalProfileRepository(new SqliteProfileLocalDataSource(database, {
+    createId: () => 'unused', now: () => updatedAt,
+  }));
+  assert.equal((await reopened.getOrCreateProfile()).easierToSee, true);
+  assert.equal((await reopened.updateEasierToSee(false)).easierToSee, false);
+  assert.equal((await database.getFirstAsync('SELECT easier_to_see FROM local_profiles')).easier_to_see, 0);
+});
+
 // ADR 0004: the morning briefing is the second notification kind, with its own opt-in that
 // moves both ways independently of the weather alert one.
 test('the morning briefing opt-in defaults off, persists, and is independent', async (t) => {
@@ -189,6 +207,17 @@ test('analytics consent defaults to undecided, persists, and rejects an unknown 
   assert.equal(
     (await relaunchedRepository.getOrCreateProfile()).analyticsConsent,
     'withdrawn',
+  );
+});
+
+test('a record with an invalid Easier to see value is rejected as invalid data', async () => {
+  const repository = new LocalProfileRepository({
+    getOrCreateProfile: async () => createRecord({ easierToSee: 2 }),
+  });
+
+  await assert.rejects(
+    () => repository.getOrCreateProfile(),
+    (error) => error instanceof ProfileRepositoryError && error.code === 'invalid-data',
   );
 });
 

@@ -48,7 +48,8 @@ import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity'
 import { activeLocationSnapshot } from '@/features/weather/domain/weather';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
-import { spacing } from '@/theme/theme';
+import { radii, spacing } from '@/theme/theme';
+import { easierToSee as easierToSeeValues, useEasierToSee, useStrongEdge } from '@/theme/easier-to-see';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // Law 5's escalation point, for the generic line alone. A narrated wait says what it is
@@ -56,8 +57,13 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 // informative on its own.
 const LONG_WAIT_MS = 8_000;
 // Law 6: a drawing beside caption text is drawn at the caption's 16 points, cropped to its
-// own artwork so the garment itself is that tall.
+// own artwork so the garment itself is that tall. "Easier to see" draws it at 24 (O13).
 const ACCESSORY_CAPTION_SIZE = 16;
+
+function useAccessoryDrawingSize(): number {
+  const { controlScale } = useTextScaling();
+  return (useEasierToSee() ? easierToSeeValues.accessoryDrawingSize : ACCESSORY_CAPTION_SIZE) * controlScale;
+}
 
 /**
  * ADR 0004's one contextual offer, handed down already decided: the route owns the rule, and
@@ -168,6 +174,10 @@ function TodayScreenContent({
   const presentation = createTodayPresentation(presentationState, language, hour12, temperatureUnit, now);
   const copy = getMessages(language).today;
   const theme = useKuyaraTheme();
+  const easierToSee = useEasierToSee();
+  // The one source for the strong edge (owner decision 9): the switch or iOS Increase
+  // Contrast. A full-width row wears it; a two-up tile wears it on its drawing plate.
+  const strongEdge = useStrongEdge();
   // One shared threshold (ADR 0019): the stacked layout is the same rule ListRow applies.
   const { usesStackedLayout: usesAccessibilityLayout } = useTextScaling();
   // Measure the content after Screen applies its safe-area insets and width cap.
@@ -355,17 +365,21 @@ function TodayScreenContent({
   const [primary, ...alternates] = presentation.suggestions;
   const exhausted = recommendationApplication?.state.status === 'ready'
     && recommendationApplication.state.exhausted;
-  // The two tiles share the row's own gap, so the width follows `styles.outfitList`.
-  const alternateWidth = usesAccessibilityLayout
-    ? contentWidth
-    : Math.max(0, (contentWidth - spacing.md) / 2);
+  // The two tiles share the row's own gap, so the width follows `styles.outfitList`. O13
+  // (owner decision 6): while Easier to see is on, each alternate is a full-width row
+  // with its drawing at the left, so a name is never cut and the list scrolls one way.
+  const alternateWidth = easierToSee
+    ? ALTERNATE_ROW_BOARD_WIDTH
+    : usesAccessibilityLayout
+      ? contentWidth
+      : Math.max(0, (contentWidth - spacing.md) / 2);
   // Each board's stage height is derived from its own pieces, so two alternates side by
   // side would end at different heights and their captions would sit on different
   // baselines. The alternates share the taller stage and centre their board in it.
   const alternateStageHeight = Math.max(
     0,
     ...alternates.map((suggestion) =>
-      measureGarmentBoardHeight(suggestion.boardPieces, alternateWidth, 'today'),
+      measureGarmentBoardHeight(suggestion.boardPieces, alternateWidth, 'today', false, easierToSee),
     ),
   );
 
@@ -454,7 +468,7 @@ function TodayScreenContent({
                       backgroundColor: stageColor,
                       width: contentWidth,
                       // P2: the stage is as tall as its fitted board, never the free space.
-                      height: measureGarmentBoardHeight(primary.boardPieces, contentWidth, 'today', true),
+                      height: measureGarmentBoardHeight(primary.boardPieces, contentWidth, 'today', true, easierToSee),
                     },
                   ]}
                   testID="today-stage">
@@ -589,7 +603,7 @@ function TodayScreenContent({
               </AppText>
             </View>
             <View
-              style={[styles.outfitList, usesAccessibilityLayout && styles.stackedOutfitList]}
+              style={[styles.outfitList, (usesAccessibilityLayout || easierToSee) && styles.stackedOutfitList]}
               testID="today-outfit-list">
               {alternates.map((suggestion, index) => (
                 <Entrance index={index + 1} key={suggestion.id}>
@@ -599,13 +613,18 @@ function TodayScreenContent({
                     accessibilityRole="button"
                     onPress={() => onOpenOutfitDetail(suggestion.id)}
                     style={({ pressed }) => [
-                      { width: alternateWidth, opacity: pressed ? theme.interaction.pressedOpacity : 1 },
+                      easierToSee ? [styles.alternateRow, strongEdge] : { width: alternateWidth },
+                      { opacity: pressed ? theme.interaction.pressedOpacity : 1 },
                     ]}
                     testID={`today-alternate-${suggestion.id}`}>
                     <View
                       accessibilityElementsHidden
                       importantForAccessibility="no-hide-descendants"
-                      style={[styles.alternateStage, { height: alternateStageHeight }]}
+                      style={[
+                        styles.alternateStage,
+                        { height: alternateStageHeight, width: alternateWidth },
+                        easierToSee ? null : strongEdge,
+                      ]}
                       testID={`today-alternate-stage-${suggestion.id}`}>
                       {/* O15: each alternate stands on the page ground in its own palette, so
                           it looks the same here as on Today's stage once chosen. */}
@@ -618,7 +637,7 @@ function TodayScreenContent({
                         width={alternateWidth}
                       />
                     </View>
-                    <View style={styles.alternateTitleRow}>
+                    <View style={[styles.alternateTitleRow, easierToSee && styles.alternateRowTitle]}>
                       <AppText numberOfLines={2} style={styles.outfitName} variant="label">
                         {suggestion.title}
                       </AppText>
@@ -687,6 +706,11 @@ function WeatherAlertOfferRow({
 }>) {
   const theme = useKuyaraTheme();
   const { controlScale } = useTextScaling();
+  // O13: while "Easier to see" is on the two actions stack as 56-point buttons, and the row
+  // takes the strong edge while higher contrast applies.
+  const easierToSee = useEasierToSee();
+  const strongEdge = useStrongEdge();
+  const actionSize = easierToSee ? 'large' : 'small';
   const copy = getMessages(language).notifications;
   const [isAnswering, setIsAnswering] = useState(false);
   // A refused permission is explained with the Settings surface's own copy and its own way
@@ -711,7 +735,7 @@ function WeatherAlertOfferRow({
   };
 
   return (
-    <Surface style={styles.alertOffer} testID="today-alert-offer" variant="muted">
+    <Surface style={[styles.alertOffer, strongEdge]} testID="today-alert-offer" variant="muted">
       <View style={styles.alertOfferMessage}>
         <Icon color={theme.colors.iconSecondary} name="bell" size={20 * controlScale} />
         <AppText
@@ -725,12 +749,13 @@ function WeatherAlertOfferRow({
       </View>
       <ButtonPair
         align="leading"
+        stacked={easierToSee}
         primary={(
           <Button
             disabled={isAnswering}
             label={acceptLabel}
             onPress={() => void accept()}
-            size="small"
+            size={actionSize}
             testID="today-alert-offer-accept"
             variant="tonal"
           />
@@ -740,7 +765,7 @@ function WeatherAlertOfferRow({
             disabled={isAnswering}
             label={copy.offer.dismissAction}
             onPress={() => void dismiss()}
-            size="small"
+            size={actionSize}
             testID="today-alert-offer-dismiss"
             variant="plain"
           />
@@ -818,7 +843,7 @@ function AccessoryCaption({
   stageColor,
   suggestion,
 }: Readonly<{ caption: string; stageColor: string; suggestion: LoadedOutfitPresentation }>) {
-  const { controlScale } = useTextScaling();
+  const drawingSize = useAccessoryDrawingSize();
   // The board's own resolution, read back from the palette memo: accessories stand on the
   // page ground, which the palette already measures them against.
   const roles = useGarmentRoles(suggestion.palette, stageColor);
@@ -842,7 +867,7 @@ function AccessoryCaption({
             garmentTypeId={accessory.garmentTypeId}
             key={accessory.accessorySlot}
             roles={roles.get(accessory.accessorySlot)}
-            size={ACCESSORY_CAPTION_SIZE * controlScale}
+            size={drawingSize}
             testID={`today-accessory-${accessory.garmentTypeId}`}
           />
         ))}
@@ -854,13 +879,13 @@ function AccessoryCaption({
 // N19: a later short cool spell is one finishing-touch line, led by the cardigan
 // silhouette at caption size (law 6), so the layer it asks for is named and drawn.
 function CoolSpellLine({ caption }: Readonly<{ caption: string }>) {
-  const { controlScale } = useTextScaling();
+  const drawingSize = useAccessoryDrawingSize();
   return (
     <View accessible accessibilityLabel={caption} style={styles.coolSpell} testID="today-cool-spell">
       <GarmentDrawing
         category="top"
         garmentTypeId="cardigan"
-        size={ACCESSORY_CAPTION_SIZE * controlScale}
+        size={drawingSize}
         testID="today-cool-spell-cardigan"
       />
       <AppText colorRole="textSecondary" style={styles.captionText} tabularNumbers variant="caption">
@@ -891,6 +916,9 @@ function PhaseMark({ size, testID }: Readonly<{ size: number; testID: string }>)
     </Animated.View>
   );
 }
+
+// O13: the drawing inside a full-width alternate row, the mockup's 128 points.
+const ALTERNATE_ROW_BOARD_WIDTH = 128;
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
@@ -932,6 +960,10 @@ const styles = StyleSheet.create({
   alternates: { marginTop: spacing.md },
   alternatesHeading: { paddingBottom: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth },
   outfitList: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
+  // O13's alternate row: 60-point target and card radius; its edge is `strongEdge`.
+  alternateRow: { alignItems: 'center', borderRadius: radii.card, flexDirection: 'row', gap: spacing.md,
+    minHeight: easierToSeeValues.rowHeight, padding: spacing.md },
+  alternateRowTitle: { flex: 1, marginTop: 0 },
   stackedOutfitList: { flexDirection: 'column', gap: spacing.md },
   alternateStage: { borderRadius: 14, justifyContent: 'center', overflow: 'hidden' },
   alternateTitleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },

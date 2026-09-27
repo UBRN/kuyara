@@ -16,6 +16,7 @@ import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
+import { EasierToSeeContext, SystemVisibilityContext } from '@/theme/easier-to-see';
 
 jest.mock('expo-symbols', () => ({
   SymbolView: () => null,
@@ -374,9 +375,11 @@ test('the six category tabs always show in catalogue order with counts, and a ta
 });
 
 test.each([
-  [1, 3],
-  [1.353, 2],
-] as const)('at fontScale %s the grid has %s columns', async (fontScale, columns) => {
+  [1, 3, false],
+  [1.353, 2, false],
+  // O13 (owner decision 8): Easier to see keeps two columns at the default size.
+  [1, 2, true],
+] as const)('at fontScale %s the grid has %s columns (Easier to see %s)', async (fontScale, columns, easierToSee) => {
   Dimensions.set({ window: { ...originalWindowDimensions, fontScale } });
   const tops = Array.from({ length: 4 }, (_, index) => ({
     ...legacyItem,
@@ -385,12 +388,14 @@ test.each([
   }));
   const result = await render(
     <TestProviders>
-      <WardrobeListScreen
-        onAdd={() => undefined}
-        onEdit={() => undefined}
-        onRetry={() => undefined}
-        state={readyState(tops)}
-      />
+      <EasierToSeeContext value={easierToSee}>
+        <WardrobeListScreen
+          onAdd={() => undefined}
+          onEdit={() => undefined}
+          onRetry={() => undefined}
+          state={readyState(tops)}
+        />
+      </EasierToSeeContext>
     </TestProviders>,
   );
 
@@ -399,6 +404,49 @@ test.each([
   const width = StyleSheet.flatten(result.getByTestId(`wardrobe-item-${tops[3].id}-frame`).props.style).width;
   expect(first).toBeOnTheScreen();
   expect(width).toBeCloseTo(resolveGridGeometry(originalWindowDimensions.width, columns).width, 5);
+});
+
+// O13 (owner decision 9, render 21): while "Easier to see" or iOS Increase Contrast is on,
+// an unselected category chip and every tile take the 2-point strong edge; the wanted tile
+// keeps its dashed frame in that ink. Off, both keep their ordinary boundary.
+test.each([
+  ['the switch', true, false],
+  ['Increase Contrast', false, true],
+  ['neither', false, false],
+] as const)('with %s on, the strong edge on Closet chips and tiles follows the switch or Increase Contrast', async (_name, switchOn, increaseContrast) => {
+  Dimensions.set({ window: { ...originalWindowDimensions, fontScale: 1 } });
+  const ownedTop = legacyItem;
+  const wantedTop: WardrobeItem = { ...legacyItem, id: '418f0f4d-1d45-4ae7-a8f1-796e8297d3b4', entryState: 'wanted' };
+  const result = await render(
+    <TestProviders>
+      <EasierToSeeContext value={switchOn}>
+        <SystemVisibilityContext value={{ boldText: false, increaseContrast }}>
+          <WardrobeListScreen
+            onAdd={() => undefined}
+            onEdit={() => undefined}
+            onRetry={() => undefined}
+            state={readyState([ownedTop, wantedTop])}
+          />
+        </SystemVisibilityContext>
+      </EasierToSeeContext>
+    </TestProviders>,
+  );
+
+  const edged = switchOn || increaseContrast;
+  // The top tab is selected and keeps its accent fill; the outerwear tab is the plain chip.
+  const chip = StyleSheet.flatten(result.getByTestId('wardrobe-category-tab-outerwear').props.style);
+  const owned = StyleSheet.flatten(result.getByTestId(`wardrobe-item-${ownedTop.id}-frame`).props.style);
+  const wanted = StyleSheet.flatten(result.getByTestId(`wardrobe-item-${wantedTop.id}-frame`).props.style);
+  if (edged) {
+    expect(chip).toMatchObject({ borderColor: lightTheme.colors.borderStrong, borderWidth: 2 });
+    expect(owned).toMatchObject({ borderColor: lightTheme.colors.borderStrong, borderWidth: 2 });
+    expect(wanted).toMatchObject({ borderColor: lightTheme.colors.borderStrong, borderStyle: 'dashed', borderWidth: 2 });
+  } else {
+    expect(chip).toMatchObject({ borderColor: lightTheme.colors.borderDefined, borderWidth: 1 });
+    expect(owned.borderWidth).toBeUndefined();
+    expect(wanted).toMatchObject({ borderColor: lightTheme.colors.borderDefined, borderWidth: 1.5 });
+  }
+  expect(chip.minHeight).toBe(switchOn ? 48 : 40);
 });
 
 test('a category page is an owned section then a wanted section, cut into rows, newest first', () => {

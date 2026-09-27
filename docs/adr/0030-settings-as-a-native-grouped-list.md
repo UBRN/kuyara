@@ -32,14 +32,14 @@ and keeps kuyara's ground visible, as verified on the iPhone 17 Pro / iOS 26.3 S
 ### 2. Root groups, in order
 
 1. **Appearance:** Language and theme, each a value row opening the native picker.
-2. **Notifications:** the notification preference and its pushed surface.
-3. **Profile:** display name, gender, dress style, style aesthetics and birth date. The `aboutYouFooter` helper text under birth date is removed. This foundation permits an Account group above Profile when optional accounts arrive.
-4. **Help:** Support, Share kuyara and Rate kuyara.
-5. **Accessibility:** one "Easier to see" / "Görme kolaylığı" switch. It follows iOS Bold Text and Increase Contrast, enlarges the garment board by 1.3, enlarges targets, and keeps the preview card.
+2. **Accessibility:** one "Easier to see" / "Görme kolaylığı" value row (On or Off) opening its pushed surface (section 5).
+3. **Notifications:** the notification preference and its pushed surface.
+4. **Profile:** display name, gender, dress style, style aesthetics and birth date. The `aboutYouFooter` helper text under birth date is removed. This foundation permits an Account group above Profile when optional accounts arrive.
+5. **Help:** Support, Share kuyara and Rate kuyara.
 6. **About:** Service providers, Privacy and Licence.
 7. The centred version and build footer.
 
-Native inset groups and ADR 0028's row anatomy stay. Inside native cells the system owns typography and colour; the app-owned `kuyara` footer uses the display role and Deep Atmosphere in light or Quiet Sky in dark. It fits on one line at the largest accessibility text size. The name is not a custom wordmark.
+Native inset groups and ADR 0028's row anatomy stay. Inside native cells the system owns typography and colour, apart from the Easier to see text changes (section 5); the app-owned `kuyara` footer uses the display role and Deep Atmosphere in light or Quiet Sky in dark. It fits on one line at the largest accessibility text size. The name is not a custom wordmark.
 
 Share kuyara opens the platform share sheet with the App Store link on iOS or Play link on Android and short localized text in the sharer's voice. Rate kuyara opens the store review page directly (`?action=write-review` on iOS, `market://details?id=` on Android), and its row shows five filled system-grey stars at 13 points. No in-app review request is used. **Risk accepted:** the star treatment trades against Apple 5.6.1 and Google in-app review guidance on steering.
 
@@ -71,11 +71,12 @@ build number from `expo-constants` and omits unavailable build data cleanly.
 
 ### 5. Remaining pushed surfaces
 
-Notifications, Service providers, Privacy and Birth date use native inline titles, back buttons and grouped content. The preference Pickers remain on the root list.
+Notifications, Service providers, Privacy, Easier to see and Birth date use native inline titles, back buttons and grouped content. The preference Pickers remain on the root list.
 
 - **Notifications:** preferences use system controls, with denied-permission explanation and a way into system Settings.
 - **Service providers:** the Artificial intelligence section first shows the system's rendering of the `apple.intelligence` SF Symbol and status in words, a status colour and shape: green `checkmark.circle` for on and ready, yellow `pause.circle` for turned off, grey `xmark.circle` for a device that does not support it. Its second row names who chose the last outfit, with kuyara as subject: with Apple Intelligence, with online AI, or from its standard suggestions. The footer states the order (Apple Intelligence first, then online AI, then standard suggestions). The bounded active-probe row, "Test online AI", and its one-line footer follow. The Weather data section names the provider behind the last valid snapshot and carries its full mark, text, link and OpenWeather logo as applicable. Only this surface may show the controlled, non-secret last-check provider and model ID. **Risk accepted:** Apple has not publicly answered whether a third party may show `apple.intelligence`; the Apple Intelligence word mark stays referential and is never the only status signal.
 - **Privacy:** analytics consent and withdrawal use the native grouped surface decided in ADR 0033.
+- **Easier to see:** three groups. A preview card draws a fixed layered outfit on a stage beside an outfit name and one insight line in Today's type roles, as one image for assistive tech and with no day-type pill, because Today has none. One switch follows, with a footer naming its five changes. On iPhone a read-only group, "iPhone settings kuyara follows", then names Larger Text, Bold Text and Increase Contrast with their state and a footer saying where to change them; kuyara never changes them or opens system Settings, and Android, which reports neither Bold Text nor Increase Contrast, has no such group. The switch is device-local, off by default, and stored on the profile. On, it makes kuyara-owned text one weight step heavier with nothing under the 15-point label size, reads secondary text in the primary ink, and gives kuyara-drawn controls a 2-point `borderStrong` edge: every button but the prominent fill, which is its own boundary, the Closet chips and tiles, Today's alert offer and its alternatives (each row, or each tile's drawing plate while the switch is off). It draws every garment board but the first-generation runway, which fits its drafts to its own area, with its size caps × 1.3, a side minimum of 0.05 and a 2.8-point outline, every tile drawing (the Closet, the add and edit forms, the detail's piece rows and History) 1.3 times larger in the same tile, and Today's finishing touches at 24 points; it shows Today's alternatives as full-width rows, stacks the alert offer's two actions, and makes kuyara-drawn buttons 56 points, rows 60 and Closet chips 48 tall. With the switch off, iOS Bold Text alone applies the heavier text, and iOS Increase Contrast alone the primary-ink secondary text and the strong edges. Garment fills keep their palette colours: a piece's fill is a legalized Phase 6 palette colour rather than a tint step, so the mode has no deeper fill. Inside native cells the switch changes text only: labels one weight heavier, and values, subtitles, footers and chevrons in the system label ink. Row height, separators and the group edge stay the system's, and glass controls keep their native look.
 
 ### 6. Birth date
 

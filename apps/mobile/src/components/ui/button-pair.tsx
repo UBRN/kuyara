@@ -13,6 +13,8 @@ export type ButtonPairProps = Readonly<{
    * first (an offer and its dismissal inside a card).
    */
   align?: 'leading' | 'trailing';
+  /** Stacks at every text size, as O13's "Easier to see" offer does. */
+  stacked?: boolean;
   testID?: string;
 }>;
 
@@ -20,10 +22,10 @@ export type ButtonPairProps = Readonly<{
  * O5's pair placement: side by side at ordinary text sizes, stacked with the stronger action
  * first once the text factor passes 1.2, so neither label is squeezed into a third line.
  */
-export function ButtonPair({ align = 'trailing', primary, secondary, testID }: ButtonPairProps) {
+export function ButtonPair({ align = 'trailing', primary, secondary, stacked = false, testID }: ButtonPairProps) {
   const { stacksButtonPair } = useTextScaling();
 
-  if (stacksButtonPair) {
+  if (stacked || stacksButtonPair) {
     return (
       <View style={styles.stacked} testID={testID}>
         {primary}

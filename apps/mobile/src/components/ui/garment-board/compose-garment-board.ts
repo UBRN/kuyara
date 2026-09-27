@@ -45,6 +45,15 @@ export const detailPreset = {
   stageMax: 1.45,
 };
 
+/**
+ * O13's "Easier to see" board (owner decisions 5 and 9): every size cap of section 7 x 1.3
+ * and the side minimum 0.09 to 0.05. The ladder, the gaps and the placement families are
+ * unchanged; the gaps follow the core metric, so the whole composition grows with the caps.
+ */
+export function easierToSeeRule<Rule extends typeof todayPreset>(rule: Rule, scale: number, sideMin: number): Rule {
+  return { ...rule, coreCap: rule.coreCap * scale, soloCap: rule.soloCap * scale, railCap: rule.railCap * scale, sideMin };
+}
+
 type ArtworkPiece = Readonly<{
   slot: OutfitSlot;
   bounds: Readonly<{ x: number; y: number; width: number; height: number }>;

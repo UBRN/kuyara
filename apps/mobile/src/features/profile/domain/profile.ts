@@ -13,6 +13,8 @@ export type Profile = Readonly<{
   dressStyle: DressStyle | null;
   styleAesthetics?: readonly StyleAesthetic[];
   morningSheetEnabled?: boolean;
+  /** O13: the "Easier to see" display mode, device-local, off by default. */
+  easierToSee?: boolean;
   birthDate: string | null;
   displayName: string | null;
   namePromptVersion: number;

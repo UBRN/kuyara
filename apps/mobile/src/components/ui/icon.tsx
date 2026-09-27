@@ -77,6 +77,11 @@ export const iconNames = Object.freeze({
   infoOutline: { ios: 'info.circle', android: 'info', web: 'info' },
   starOutline: { ios: 'star', android: 'star', web: 'star' },
   sunrise: { ios: 'sunrise', android: 'wb_twilight', web: 'wb_twilight' },
+  accessibility: { ios: 'accessibility', android: 'accessibility_new', web: 'accessibility_new' },
+  // O13's read-only rows for the iPhone settings kuyara follows (ADR 0030 section 5).
+  textSize: { ios: 'textformat.size', android: 'format_size', web: 'format_size' },
+  boldText: { ios: 'bold', android: 'format_bold', web: 'format_bold' },
+  increaseContrast: { ios: 'circle.lefthalf.filled', android: 'contrast', web: 'contrast' },
   precipitationChance: { ios: 'drop.fill', android: 'water_drop', web: 'water_drop' },
   // The eleven weather condition codes, filled because a forecast column reports an
   // active condition (Law 6). Material has no drizzle or heavy-rain counterpart of the

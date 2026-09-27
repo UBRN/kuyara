@@ -1,7 +1,7 @@
 import { Column, Host as UniversalHost, Icon as ExpoIcon, List as UniversalList, ListItem, RNHostView, Row, Text as ExpoText } from '@expo/ui';
 import { accessibilityAddTraits, accessibilityHidden, font, foregroundStyle, listStyle, onAppear, scrollContentBackground, tint } from '@expo/ui/swift-ui/modifiers';
 import type { ReactElement, ReactNode } from 'react';
-import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Platform, PlatformColor, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/ui/app-text';
@@ -9,6 +9,7 @@ import { Icon, type IconName } from '@/components/ui/icon';
 import { ListRowTile, type ListRowTileGlyph } from '@/components/ui/list-row-tile';
 import { NativeToggle } from '@/components/ui/native-toggle';
 import { useTextScaling } from '@/components/ui/use-text-scaling';
+import { useEasierToSee } from '@/theme/easier-to-see';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -27,6 +28,20 @@ const IOS_SECONDARY_TEXT_MODIFIERS = Platform.OS === 'ios'
 const IOS_BODY_SEMIBOLD_FONT_MODIFIERS = Platform.OS === 'ios'
   ? [font({ textStyle: 'body', weight: 'semibold' })]
   : undefined;
+// O13, owner decision 7: while "Easier to see" is on the list changes its text only. Labels
+// take one weight step, and values, subtitles, footers and chevrons read in the system label
+// ink instead of the secondary one. Row height, separators and the group edge stay the
+// system's; iOS Bold Text and Increase Contrast already reach the cells on their own.
+const IOS_EASIER_BODY_BOLD_FONT_MODIFIERS = Platform.OS === 'ios'
+  ? [font({ textStyle: 'body', weight: 'bold' })]
+  : undefined;
+const IOS_EASIER_VALUE_MODIFIERS = Platform.OS === 'ios'
+  ? [font({ textStyle: 'body', weight: 'semibold' }), foregroundStyle(PlatformColor('label'))]
+  : undefined;
+const IOS_EASIER_FOOTER_MODIFIERS = Platform.OS === 'ios'
+  ? [font({ textStyle: 'subheadline', weight: 'medium' }), foregroundStyle(PlatformColor('label'))]
+  : undefined;
+const IOS_EASIER_CHEVRON_COLOR = Platform.OS === 'ios' ? PlatformColor('label') : undefined;
 // O14: the five decorative stars are grey and 13 points at the default size. `footnote` is
 // the 13-point text style, so they grow with Dynamic Type as the chevron does, and the ink is
 // the hierarchical secondary style, because an Image's `color` prop cannot name a system
@@ -85,6 +100,7 @@ export function NativeListSection({ children, footer, heading, testID }: NativeL
   // the window, so the heading is given that width less one gutter: it now wraps inside the
   // host and the host reports the wrapped height back to the section.
   const { width } = useWindowDimensions();
+  const easierToSee = useEasierToSee();
   const header = heading ? (
     <RNHostView matchContents>
       <AppText
@@ -98,7 +114,7 @@ export function NativeListSection({ children, footer, heading, testID }: NativeL
     </RNHostView>
   ) : undefined;
   const nativeFooter = typeof footer === 'string'
-    ? <ExpoText>{footer}</ExpoText>
+    ? <ExpoText modifiers={easierToSee ? IOS_EASIER_FOOTER_MODIFIERS : undefined}>{footer}</ExpoText>
     : footer ? <RNHostView matchContents>{footer}</RNHostView> : undefined;
 
   return swiftUI ? (
@@ -179,17 +195,23 @@ export function NativeListRow({
 }: NativeListRowProps) {
   const theme = useKuyaraTheme();
   const { usesStackedLayout } = useTextScaling();
+  const easierToSee = useEasierToSee();
   const showChevron = chevron ?? (Boolean(onPress) && !toggle && !tinted);
   const stacksValue = usesStackedLayout && value !== undefined && !toggle;
+  const secondaryTextModifiers = easierToSee ? IOS_EASIER_VALUE_MODIFIERS : IOS_SECONDARY_TEXT_MODIFIERS;
 
   const headline: ReactNode = tinted ? (
     <ExpoText
-      modifiers={IOS_BODY_SEMIBOLD_FONT_MODIFIERS}
-      textStyle={{ color: theme.colors.brandPrimary, fontWeight: '600' }}>
+      modifiers={easierToSee ? IOS_EASIER_BODY_BOLD_FONT_MODIFIERS : IOS_BODY_SEMIBOLD_FONT_MODIFIERS}
+      textStyle={{ color: theme.colors.brandPrimary, fontWeight: easierToSee ? '700' : '600' }}>
       {label}
     </ExpoText>
   ) : secondary ? (
-    <ExpoText modifiers={IOS_SECONDARY_TEXT_MODIFIERS} textStyle={{ color: SYSTEM_SECONDARY_LABEL }}>
+    <ExpoText modifiers={secondaryTextModifiers} textStyle={{ color: SYSTEM_SECONDARY_LABEL }}>
+      {label}
+    </ExpoText>
+  ) : easierToSee ? (
+    <ExpoText modifiers={IOS_BODY_SEMIBOLD_FONT_MODIFIERS} textStyle={{ fontWeight: '600' }}>
       {label}
     </ExpoText>
   ) : (
@@ -197,7 +219,7 @@ export function NativeListRow({
   );
   const stackedValue = stacksValue ? (
     <ExpoText
-      modifiers={IOS_SECONDARY_TEXT_MODIFIERS}
+      modifiers={secondaryTextModifiers}
       testID={testID ? `${testID}-value-stacked` : undefined}
       textStyle={{ color: SYSTEM_SECONDARY_LABEL }}>
       {value}
@@ -208,12 +230,16 @@ export function NativeListRow({
       <Column alignment="start" spacing={2}>
         {stackedValue}
         <ExpoText
-          modifiers={IOS_SECONDARY_TEXT_MODIFIERS}
+          modifiers={secondaryTextModifiers}
           textStyle={{ color: SYSTEM_SECONDARY_LABEL }}>
           {supportingText}
         </ExpoText>
       </Column>
     ) : stackedValue
+  ) : easierToSee && supportingText !== undefined ? (
+    <ExpoText modifiers={secondaryTextModifiers} textStyle={{ color: SYSTEM_SECONDARY_LABEL }}>
+      {supportingText}
+    </ExpoText>
   ) : supportingText;
 
   const trailing: ReactNode = toggle ? (
@@ -227,7 +253,7 @@ export function NativeListRow({
   ) : (!stacksValue && value !== undefined) || showChevron || ratingStars || trailingSymbol ? (
     <Row alignment="center" spacing={4}>
       {!stacksValue && value !== undefined ? (
-        <ExpoText modifiers={IOS_SECONDARY_TEXT_MODIFIERS} textStyle={{ color: SYSTEM_SECONDARY_LABEL }}>
+        <ExpoText modifiers={secondaryTextModifiers} textStyle={{ color: SYSTEM_SECONDARY_LABEL }}>
           {value}
         </ExpoText>
       ) : null}
@@ -261,7 +287,7 @@ export function NativeListRow({
       ) : null}
       {showChevron ? (
         Platform.OS === 'ios' ? (
-          <ExpoIcon color="tertiaryLabel" name="chevron.right" size={13} />
+          <ExpoIcon color={easierToSee ? IOS_EASIER_CHEVRON_COLOR : 'tertiaryLabel'} name="chevron.right" size={13} />
         ) : (
           <RNHostView matchContents><Icon color={theme.colors.textSecondary} name="chevronRight" size={13} /></RNHostView>
         )

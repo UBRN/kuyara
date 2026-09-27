@@ -26,6 +26,7 @@ type LocalProfileRow = Readonly<{
   dress_style: string | null;
   style_aesthetics: string;
   morning_sheet_enabled: number;
+  easier_to_see: number;
   birth_date: string | null;
   display_name: string | null;
   name_prompt_version: number;
@@ -53,6 +54,7 @@ const selectProfileSql = `
     dress_style,
     style_aesthetics,
     morning_sheet_enabled,
+    easier_to_see,
     birth_date,
     display_name,
     name_prompt_version,
@@ -77,6 +79,7 @@ function mapRow(row: LocalProfileRow): LocalProfileRecord {
     dressStyle: row.dress_style,
     styleAesthetics: row.style_aesthetics,
     morningSheetEnabled: row.morning_sheet_enabled,
+    easierToSee: row.easier_to_see,
     birthDate: row.birth_date,
     displayName: row.display_name,
     namePromptVersion: row.name_prompt_version,
@@ -222,6 +225,14 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
   updateMorningSheetEnabled(enabled: boolean): Promise<LocalProfileRecord> {
     return this.updateProfile(
       `UPDATE local_profiles SET morning_sheet_enabled = ?, updated_at = ?
+       WHERE singleton_key = 1 AND deleted_at IS NULL`,
+      [enabled ? 1 : 0],
+    );
+  }
+
+  updateEasierToSee(enabled: boolean): Promise<LocalProfileRecord> {
+    return this.updateProfile(
+      `UPDATE local_profiles SET easier_to_see = ?, updated_at = ?
        WHERE singleton_key = 1 AND deleted_at IS NULL`,
       [enabled ? 1 : 0],
     );

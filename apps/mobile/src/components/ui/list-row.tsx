@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/primitive-contracts';
 import { useTextScaling } from '@/components/ui/use-text-scaling';
 import { borderWidths, interaction, layout, radii, spacing } from '@/theme/theme';
+import { easierToSee, useEasierToSee } from '@/theme/easier-to-see';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // ADR 0028 section 2, the list-row anatomy, and section 3, its text scaling. This is the
@@ -45,6 +46,8 @@ export function ListRow({
   valueTabular = false,
 }: ListRowProps) {
   const theme = useKuyaraTheme();
+  // O13: a kuyara-drawn row is 60 points tall while Easier to see is on.
+  const rowHeight = useEasierToSee() ? { minHeight: easierToSee.rowHeight } : null;
   const { controlScale, usesStackedLayout } = useTextScaling();
   const pressHandler = createPressHandler(onPress, false);
 
@@ -93,7 +96,7 @@ export function ListRow({
 
   if (!onPress) {
     return (
-      <View style={styles.row} testID={testID}>
+      <View style={[styles.row, rowHeight]} testID={testID}>
         {content}
       </View>
     );
@@ -104,7 +107,7 @@ export function ListRow({
       accessibilityLabel={accessibilityLabel ?? (value ? `${label}, ${value}` : label)}
       accessibilityRole="button"
       onPress={pressHandler}
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.row, rowHeight, pressed && styles.pressed]}
       testID={testID}>
       {content}
     </PressScale>

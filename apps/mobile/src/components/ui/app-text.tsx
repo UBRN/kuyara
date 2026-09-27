@@ -9,6 +9,7 @@ import {
   type SemanticColorRole,
   type TypographyRole,
 } from '@/theme/theme';
+import { heavierWeight, useVisibility } from '@/theme/easier-to-see';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 export type AppTextProps = TextProps & {
@@ -32,7 +33,25 @@ export const AppText = forwardRef<Text, AppTextProps>(function AppText(
   ref,
 ) {
   const theme = useKuyaraTheme();
+  const { heavierText, higherContrast } = useVisibility();
   const { usesStackedLayout } = useTextScaling();
+  // O13: higher contrast reads secondary text in the primary ink; heavier text takes one
+  // weight step and lifts the 13-point roles to the 15-point label size.
+  const resolvedColorRole = higherContrast && colorRole === 'textSecondary' ? 'textPrimary' : colorRole;
+  const role = typography[variant];
+  const heavier = heavierText
+    ? {
+      fontWeight: heavierWeight(role.fontWeight),
+      ...(role.fontSize === typography.caption.fontSize
+        ? usesStackedLayout
+          ? { fontSize: typography.label.fontSize }
+          : { fontSize: typography.label.fontSize, lineHeight: typography.label.lineHeight }
+        : null),
+    }
+    : null;
+  // A weight the caller sets itself (a title's 700, a pill's label) takes the same step.
+  const callerWeight = heavierText ? heavierWeight(String(StyleSheet.flatten(style)?.fontWeight)) : undefined;
+  const heavierCaller = callerWeight ? { fontWeight: callerWeight } : null;
   const language = use(LocalizationContext)?.language ?? 'en';
   const fontFamily =
     variant === 'code' ? Platform.select({ ios: 'ui-monospace', default: 'monospace' }) : undefined;
@@ -43,10 +62,12 @@ export const AppText = forwardRef<Text, AppTextProps>(function AppText(
       ref={ref}
       style={[
         styles.text,
-        resolveAppTextStyle(theme, variant, colorRole, usesStackedLayout),
+        resolveAppTextStyle(theme, variant, resolvedColorRole, usesStackedLayout),
+        heavier,
         { fontFamily },
         tabularNumbers && { fontVariant: ['tabular-nums'] },
         style,
+        heavierCaller,
       ]}
       {...rest}
       adjustsFontSizeToFit={fitSingleLine ? true : rest.adjustsFontSizeToFit}

@@ -88,16 +88,16 @@ test('test input is frozen, domain-shaped, and recommended through the real appl
   );
 });
 
-test('loaded mapping uses localized catalog names, slot order, positions, and first-only emphasis', () => {
+test('loaded mapping uses localized catalog names, slot order, positions, and no emphasis on any option', () => {
   const english = loadedPresentation();
 
   assert.deepEqual(
-    english.suggestions.map(({ id, positionLabel, title, summary, emphasis }) => ({
+    english.suggestions.map(({ id, positionLabel, title, summary, ...rest }) => ({
       id,
       positionLabel,
       title,
       summary,
-      emphasis,
+      hasEmphasis: 'emphasis' in rest,
     })),
     [
       {
@@ -105,21 +105,21 @@ test('loaded mapping uses localized catalog names, slot order, positions, and fi
         positionLabel: 'Option 1 of 3',
         title: 'Rain Ready',
         summary: 'T-shirt + Skirt + Rain jacket + Rain boots',
-        emphasis: 'Recommended',
+        hasEmphasis: false,
       },
       {
         id: todayScreenState.snapshot.recommendation.outfits[1].optionId,
         positionLabel: 'Option 2 of 3',
         title: 'Wind Guard',
         summary: 'Blouse + Jeans + Rain jacket + Rain boots',
-        emphasis: undefined,
+        hasEmphasis: false,
       },
       {
         id: todayScreenState.snapshot.recommendation.outfits[2].optionId,
         positionLabel: 'Option 3 of 3',
         title: 'Easygoing',
         summary: 'Blouse + Skirt + Rain jacket + Rain boots',
-        emphasis: undefined,
+        hasEmphasis: false,
       },
     ],
   );

@@ -10,7 +10,7 @@ type Migration = Readonly<{
   migrate: (database: SqliteExecutor) => Promise<void>;
 }>;
 
-export const latestDatabaseVersion = 20;
+export const latestDatabaseVersion = 21;
 
 // Foreign keys are enforced on every connection: `migrateDatabase` turns them on for the
 // shared connection below, and the transaction wrapper in `expo-sqlite-database.ts` turns
@@ -562,6 +562,18 @@ const migrationV20: Migration = {
   },
 };
 
+// O13, ADR 0030 section 2: the "Easier to see" switch is a device-local display preference
+// beside the theme and language, off until the person turns it on.
+const migrationV21: Migration = {
+  version: 21,
+  async migrate(database) {
+    await database.execAsync(`
+      ALTER TABLE local_profiles ADD COLUMN easier_to_see INTEGER NOT NULL DEFAULT 0
+        CHECK (easier_to_see IN (0, 1));
+    `);
+  },
+};
+
 const migrations = [
   migrationV1,
   migrationV2,
@@ -583,6 +595,7 @@ const migrations = [
   migrationV18,
   migrationV19,
   migrationV20,
+  migrationV21,
 ] as const satisfies readonly Migration[];
 
 async function readUserVersion(database: SqliteExecutor): Promise<number> {
