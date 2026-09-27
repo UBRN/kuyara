@@ -23,8 +23,8 @@ import { RunwayParticles } from '@/features/today/presentation/runway-particles'
 import type { runwayWeather } from '@/features/today/presentation/today-presentation';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { blend } from '@/theme/color-blend';
-import { layout, radii, spacing } from '@/theme/theme';
-import { useKuyaraTheme } from '@/theme/theme-context';
+import { layout, radii, spacing, type KuyaraTheme } from '@/theme/theme';
+import { KuyaraThemeContext, useKuyaraTheme } from '@/theme/theme-context';
 
 const ROTATION_MS = 2_000;
 const SKIP_MS = 10_000;
@@ -51,6 +51,13 @@ const PHASE_PROGRESS: Readonly<Record<RecommendationPhase | 'starting', number>>
 const TRACK_TONE = { light: 0.16, dark: 0.22 } as const;
 
 export type RunwayOutfit = RunwayBoardOutfit;
+
+// The plain button's ink is `brandAccent`, measured on the app's own planes, not on the
+// runway's fields: it reads 3.05:1 on the light rain field. On the field the Skip wears the
+// runway's text ink instead, which clears 4.5:1 on every field in both appearances; every
+// other role, the pressed capsule's fill included, keeps its value.
+const onField = (theme: KuyaraTheme): KuyaraTheme =>
+  ({ ...theme, colors: { ...theme.colors, brandAccent: theme.colors.textPrimary } });
 
 type Size = Readonly<{ width: number; height: number }>;
 const sizeOf = ({ nativeEvent }: LayoutChangeEvent): Size => ({
@@ -270,17 +277,19 @@ export function FirstGenerationRunway({ active, completed, language, phase, weat
               {/* The slot keeps its height when Skip is hidden, so the board never resizes. */}
               <View style={styles.skipSlot}>
                 {showSkip ? (
-                  <Button
-                    icon="skipForward"
-                    label={copy.loading.skipWait}
-                    onPress={() => Alert.alert(copy.loading.heading, undefined, [
-                      { text: copy.loading.keepWaiting, isPreferred: true, style: 'cancel' },
-                      { text: copy.loading.skipWait, style: 'destructive', onPress: onSkip },
-                    ])}
-                    style={styles.skip}
-                    testID="first-generation-skip"
-                    variant="plain"
-                  />
+                  <KuyaraThemeContext value={onField(theme)}>
+                    <Button
+                      icon="skipForward"
+                      label={copy.loading.skipWait}
+                      onPress={() => Alert.alert(copy.loading.heading, undefined, [
+                        { text: copy.loading.keepWaiting, isPreferred: true, style: 'cancel' },
+                        { text: copy.loading.skipWait, style: 'destructive', onPress: onSkip },
+                      ])}
+                      style={styles.skip}
+                      testID="first-generation-skip"
+                      variant="plain"
+                    />
+                  </KuyaraThemeContext>
                 ) : null}
               </View>
             </>

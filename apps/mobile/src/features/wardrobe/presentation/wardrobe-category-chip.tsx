@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, type LayoutChangeEvent } from 'react-native';
+import { Platform, Pressable, StyleSheet, type AccessibilityRole, type LayoutChangeEvent } from 'react-native';
 
 import { AppText, GarmentSlotGlyph } from '@/components/ui';
 import type { StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
@@ -16,6 +16,15 @@ const CHIP_HIT_SLOP = 2;
 // Law 6: the glyph tracks the adjacent `label` 15, between the caption and body sizes.
 const CHIP_GLYPH_SIZE = 22;
 
+/**
+ * The role of the container that holds category tabs. React Native maps `tab` and `tablist`
+ * to no iOS trait; of the tab roles only `tabbar` becomes one (`UIAccessibilityTraitTabBar`),
+ * so VoiceOver heard neither a tab nor a button. On iOS the strip is therefore UIKit's own
+ * tab bar shape: a `tabbar` container whose items are buttons carrying the selected trait.
+ * Android keeps `tablist` and `tab`, which TalkBack reads as they are.
+ */
+export const categoryTabListRole = (): AccessibilityRole => (Platform.OS === 'ios' ? 'tabbar' : 'tablist');
+
 export type WardrobeCategoryChipProps = Readonly<{
   label: string;
   selected: boolean;
@@ -24,7 +33,7 @@ export type WardrobeCategoryChipProps = Readonly<{
   category?: StructuralCategory;
   /** A category tab's piece count, in tabular figures after the label (O9). */
   count?: number;
-  /** `tab` inside a tab list, `radio` inside a radio group. */
+  /** `tab` inside a `categoryTabListRole()` container, `radio` inside a radio group. */
   role?: 'radio' | 'tab';
   accessibilityLabel?: string;
   onLayout?: (event: LayoutChangeEvent) => void;
@@ -48,7 +57,7 @@ export function WardrobeCategoryChip({
   return (
     <Pressable
       accessibilityLabel={accessibilityLabel ?? label}
-      accessibilityRole={role}
+      accessibilityRole={role === 'tab' && Platform.OS === 'ios' ? 'button' : role}
       accessibilityState={{ selected }}
       hitSlop={{ bottom: CHIP_HIT_SLOP, top: CHIP_HIT_SLOP }}
       onLayout={onLayout}

@@ -1,12 +1,14 @@
-import { act, fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render, within } from '@testing-library/react-native';
 import { Alert, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { runwayDressingDuration } from '@/components/ui';
+import { garmentPaletteContrast as contrastRatio } from '@/components/ui/garment-board/garment-palette';
 import type { RecommendationPhase } from '@/features/recommendation/application/recommendation-application-controller';
 import { FirstGenerationRunway, type RunwayOutfit } from '@/features/today/presentation/first-generation-runway';
+import { runwayField } from '@/features/today/presentation/runway-palette';
 import { messages } from '@/localization/messages';
-import { lightTheme } from '@/theme/theme';
+import { darkTheme, lightTheme, type KuyaraTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 const onSkip = jest.fn();
@@ -43,9 +45,9 @@ const initialMetrics = {
 const copy = messages.en.today.loading;
 const dressing = runwayDressingDuration(chosen.pieces.length, lightTheme.motion);
 
-function runway(overrides: Partial<typeof props> = {}) {
+function runway(overrides: Partial<typeof props> = {}, theme: KuyaraTheme = lightTheme) {
   return (
-    <KuyaraThemeContext.Provider value={lightTheme}>
+    <KuyaraThemeContext.Provider value={theme}>
       <SafeAreaProvider initialMetrics={initialMetrics}>
         <FirstGenerationRunway {...props} {...overrides} />
       </SafeAreaProvider>
@@ -187,6 +189,27 @@ test('skip appears at ten seconds, uses the native alert roles and leaves with t
   await act(() => jest.advanceTimersByTime(dressing + 800));
   expect(result.queryByTestId('first-generation-runway')).toBeNull();
 });
+
+// R10-3: the plain button's `brandAccent` label reads 3.05:1 on the light rain field. The
+// Skip is text, so it needs 4.5:1 on every field the runway can wear, in both appearances.
+test.each([['light', lightTheme], ['dark', darkTheme]] as const)(
+  '%s: the Skip label wears the text ink and reads 4.5:1 on every field',
+  async (_appearance, theme) => {
+    for (const condition of ['clear', 'cloudy', 'rain', 'snow'] as const) {
+      const result = await render(runway({ weather: { ...props.weather, condition } }, theme));
+      await laidOut(result);
+      await act(() => jest.advanceTimersByTime(10_000));
+      const skip = result.getByTestId('first-generation-skip');
+      const ink = StyleSheet.flatten(within(skip).getByText(copy.skipWait, hidden).props.style).color;
+      const field = theme.runway[runwayField(condition)];
+      expect(ink).toBe(theme.colors.textPrimary);
+      expect(contrastRatio(ink, field)).toBeGreaterThanOrEqual(4.5);
+      // Nothing else on the button changes: the capsule stays clear at rest.
+      expect(StyleSheet.flatten(skip.props.style).backgroundColor).toBe('transparent');
+      await result.unmount();
+    }
+  },
+);
 
 test('the runway is an in-screen layer, never a modal over the tab bar', async () => {
   const result = await render(runway());
