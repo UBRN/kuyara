@@ -287,6 +287,24 @@ test('an absent dress style projects the smart formality order', () => {
   );
 });
 
+test('options follow each dress style best-first while ties retain their incoming order', () => {
+  const options = [
+    option('smart-a', [], 'smart'), option('casual-a', [], 'casual'),
+    option('formal-a', [], 'formal'), option('smart-b', [], 'smart'),
+    option('casual-b', [], 'casual'), option('formal-b', [], 'formal'),
+  ];
+  for (const [dressStyle, expected] of [
+    ['casual', ['casual-a', 'casual-b', 'smart-a', 'smart-b', 'formal-a', 'formal-b']],
+    ['smart', ['smart-a', 'smart-b', 'casual-a', 'casual-b', 'formal-a', 'formal-b']],
+    ['formal', ['formal-a', 'formal-b', 'smart-a', 'smart-b', 'casual-a', 'casual-b']],
+  ]) {
+    const projected = aiModelInputFromRequest({ ...fixtureRequest, dressStyle, options });
+    assert.deepEqual(projected.options.map(({ optionId }) => optionId), expected);
+    assert.deepEqual(options.map(({ optionId }) => optionId),
+      ['smart-a', 'casual-a', 'formal-a', 'smart-b', 'casual-b', 'formal-b']);
+  }
+});
+
 const topAndBottom = (top, bottom, extra = []) => option('x', [
   garment('primary_top', top),
   garment('bottom', bottom),
