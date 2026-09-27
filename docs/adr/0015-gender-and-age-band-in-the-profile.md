@@ -15,9 +15,9 @@ while birth date is optional, device-only, and absent from product logic.
 The profile needs a user-facing identity field while the catalog needs an applicability
 vocabulary. Those are different concepts: the profile uses `woman` or `man`, while the
 catalog uses `womens` or `mens`. A single explicit mapping connects them so a garment can
-apply to both catalogs without making a statement about the garment's gender. This keeps
-the reasoning in [ADR 0013](0013-catalog-content-corrections-and-version-3.md), where
-`leggings` is available to both preferences.
+apply to both catalogs without making a statement about the garment's gender.
+The catalog can still restrict a garment type such as `leggings` to `womens`, as
+recorded in [ADR 0013](0013-catalog-content-corrections-and-version-3.md).
 
 The profile also needs a direct formality signal. Age is not that signal: it is a weak
 proxy for how a person dresses, and the former cut points had no defensible basis.
@@ -91,15 +91,17 @@ deployment order are decided in [ADR 0031](0031-dress-style-is-the-formality-sig
 
 ### 7. Onboarding and Settings
 
-Onboarding has five steps: welcome, gender, dress style, birth date, and optional location
-selection. Gender and dress style are required; birth date and location are skippable.
+Onboarding has seven steps: welcome, optional display name, gender, dress style,
+optional style aesthetics, birth date, and optional location selection. Gender
+and dress style are required; display name, style aesthetics, birth date and
+location are skippable.
 Language and appearance follow the device by default and remain changeable in Settings,
 so onboarding does not ask for them.
 
 Gender and dress style stay prominent in onboarding because they shape catalog selection
-and formality order. Settings places Gender, Dress style, and Birth date in that order in
-the final, deliberately unprominent About you group. Profile shows none of those personal
-facts. The surfaces are decided in
+and formality order. Settings places display name, Gender, Dress style, style
+aesthetics and Birth date in its Profile group. The Profile tab does not list
+those personal facts. The surfaces are decided in
 [ADR 0028](0028-the-profile-tab-and-the-list-row-anatomy.md) and
 [ADR 0030](0030-settings-as-a-native-grouped-list.md); the location step is decided in
 [ADR 0016](0016-location-in-onboarding-and-an-honest-empty-state.md).
