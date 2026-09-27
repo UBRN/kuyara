@@ -156,6 +156,20 @@ function createHarness({ cached = null, client, failSave = false, captureAnalyti
   return { controller, calls, repository, requests, getStored: () => stored };
 }
 
+test('refreshing is observable before synchronous pool composition', async () => {
+  let controller;
+  const states = [];
+  ({ controller } = createHarness({
+    createContextWithPool: (...args) => {
+      states.push(controller.getSnapshot());
+      return createRecommendationContextWithPool(...args);
+    },
+  }));
+  await controller.initialize();
+  await controller.refresh('first-recommendation', input(20));
+  assert.equal(states[0].isRefreshing, true);
+});
+
 function wornFromAiOption(option) {
   return { garments: Object.fromEntries(option.garments.map((garment) =>
     [garment.slot, garment.garmentTypeId])), archetypeId: 'everyday_easy',

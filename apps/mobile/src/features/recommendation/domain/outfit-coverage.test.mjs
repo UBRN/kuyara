@@ -35,6 +35,10 @@ test('coverage resolves its end in the snapshot zone across daylight saving time
     '2026-11-01T05:00:00.000Z');
   assert.equal(outfitCoverage('2026-11-01T06:30:00.000Z', 'America/New_York')?.end,
     '2026-11-01T09:00:00.000Z');
+  // London skips 01:00 on 29 March. The evening window still ends at the first
+  // real local time after its nominal end, 02:00 BST.
+  assert.equal(outfitCoverage('2026-03-28T19:00:00.000Z', 'Europe/London')?.end,
+    '2026-03-29T01:00:00.000Z');
 });
 
 const hour = (clock, values = {}) => ({

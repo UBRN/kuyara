@@ -410,6 +410,8 @@ export class RecommendationApplicationController {
       excludedOptionIds: trigger === 'regenerate' ? []
         : snapshot ? shownOptionIds(snapshot) : this.previousOptionIds,
     };
+    const startedRefreshing = this.state.status === 'ready' && !this.state.isRefreshing;
+    if (startedRefreshing) this.setRefreshing(true, generationInput);
     try {
       ({ context, poolOptionIds } = (this.dependencies.createContextWithPool ??
         createRecommendationContextWithPool)(
@@ -417,6 +419,7 @@ export class RecommendationApplicationController {
       ));
     } catch (error) {
       this.setLastFailure(recommendationFailureCategory(error));
+      if (startedRefreshing) this.setRefreshing(false);
       return Promise.resolve(this.currentSnapshot());
     }
     const request = aiRequestFromContext(context);
