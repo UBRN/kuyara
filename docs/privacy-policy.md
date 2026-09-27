@@ -6,7 +6,7 @@ ref: privacy-policy
 
 # kuyara privacy policy
 
-Effective date: 2026-09-19.
+Effective date: 2026-09-27.
 
 kuyara is a weather and outfit recommendation app for iOS and Android. This policy
 describes what data the app sends off your device, why, and what you can do about it.
@@ -96,9 +96,13 @@ contents or photos; profile preferences; AI prompts or responses; the analytics 
 or the app's local profile identifier.
 
 One technical limit applies. The Expo package may automatically write technical error
-records before you answer the consent question. If you accept without sending the app to
-the background in between, those records may then be delivered. Nothing is sent while your
-answer is "no".
+records before you answer the consent question. When you accept, kuyara first asks the
+package to skip every record already written, so those records are normally not delivered.
+In rare cases a record from before your answer can still be delivered: a crash report from
+an earlier launch that iOS hands to the app only after you accept; a record written while
+sharing was off, if a delivery attempt had failed shortly before you turned sharing back on;
+and, on the first launch after installing, launch timing, if the app is sent to the
+background before kuyara has started. After you answer "no", nothing is sent.
 
 Under Apple's App Store definitions, this data is linked to you through the per-installation
 identifier. It is not used for tracking.

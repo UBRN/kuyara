@@ -42,7 +42,7 @@ export function useAnalyticsConsent(): AnalyticsConsentControls {
     if (!analytics.isWithdrawalInProgress()) {
       // Native dispatch must stop before the final event. A failed disable leaves
       // the grant active and emits nothing, so the whole sequence can be retried.
-      telemetry.setDispatching(false);
+      await telemetry.setDispatching(false);
 
       // Taxonomy 5.14 places this last event on the old identity before opt-out.
       // A failed send cannot prevent withdrawal; cleanup will discard its queue.
@@ -80,7 +80,7 @@ export function useAnalyticsConsent(): AnalyticsConsentControls {
       await updateAnalyticsConsent('granted');
       try {
         await analytics.optIn(surface);
-        telemetry.setDispatching(telemetryDispatchingEnabled('granted'));
+        await telemetry.setDispatching(telemetryDispatchingEnabled('granted'));
       } catch (error) {
         // A partly applied grant follows the same safe withdrawal order.
         try {
@@ -93,7 +93,7 @@ export function useAnalyticsConsent(): AnalyticsConsentControls {
       await withdrawGranted();
     },
     decline: async () => {
-      telemetry.setDispatching(false);
+      await telemetry.setDispatching(false);
       await updateAnalyticsConsent('withdrawn');
       await analytics.decline();
       await cleanWithdrawn();

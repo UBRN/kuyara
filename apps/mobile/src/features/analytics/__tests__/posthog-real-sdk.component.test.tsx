@@ -234,7 +234,7 @@ test('real SDK: failed final flush and consent write cannot send on a later back
       <ProfileApplicationContext value={application}>
         <PerformanceTelemetryContext value={{
           logEvent: () => undefined, reportError: () => undefined,
-          setDispatching: () => undefined, isApplied: () => true,
+          setDispatching: async () => undefined, isApplied: () => true,
         }}>
           <ProductAnalyticsProvider analytics={analytics}>
             <ConsentHarness onReady={(value) => { controls = value; }} />

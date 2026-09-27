@@ -174,6 +174,11 @@ The approved phase order, active work and remaining open items are in [the roadm
   [expo/expo#50372](https://github.com/expo/expo/issues/50372), and do not clear
   pre-consent unhandled-error records on iOS, reported as
   [expo/expo#50373](https://github.com/expo/expo/issues/50373) for `clearStoredEntries`.
+  On a grant, the app now finishes a disabled Observe dispatch before enabling delivery,
+  skipping rows already stored before consent. Native dispatch still defaults to on before
+  JavaScript configures it, a MetricKit crash row delivered after a grant can still be sent,
+  and a retry gate left by a failed send skips the cursor advance for a re-grant inside its
+  backoff; closing those paths requires a native change.
   The reproduction is at <https://github.com/UBRN/expo-observe-privacy-repro>. Observe stays
   within the existing free scope; paid route and event dashboards are deferred.
 - **iOS 27 SDK upload requirement.** Starting in April 2027, Apple requires uploads to use
