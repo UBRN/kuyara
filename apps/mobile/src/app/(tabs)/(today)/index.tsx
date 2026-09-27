@@ -2,7 +2,6 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
 
-import type { FailureCategory } from '@/domain/failure-category';
 import { useAnalyticsConsentTrigger } from '@/features/analytics/application/analytics-consent-trigger';
 import { useFocusedErrorEpisode } from '@/features/analytics/application/use-focused-error-episode';
 import { useScreenInteractive } from '@/features/analytics/application/use-screen-interactive';
@@ -25,7 +24,7 @@ import { StyleAestheticsOptions } from '@/features/profile/presentation/style-ae
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
 import { localDayKey } from '@/features/recommendation/application/recommendation-application-controller';
 import { outfitCoverage } from '@/features/recommendation/domain/outfit-coverage';
-import { activeLocationRecommendation, unavailableTodayState, type TodayScreenState } from '@/features/today/model';
+import { classifyTodayState, mayOfferDayQuestion } from '@/features/today/application/today-state';
 import { TodayScreen } from '@/features/today/presentation/today-screen';
 import { AskAgainSheet, type AskAgainChoice } from '@/features/today/presentation/ask-again-sheet';
 import { DailyFormalitySheet } from '@/features/today/presentation/daily-formality-sheet';
@@ -110,81 +109,17 @@ export default function TodayRoute() {
   const dayQuestionPending = morningChoicePending || eveningChoicePending;
   useScreenViewed('today');
 
-  const recommendation = recommendationState.status === 'ready'
-    ? activeLocationRecommendation(recommendationState.snapshot, weatherState.status === 'ready'
-      ? weatherState.activeLocation : null)
-    : null;
-  // S3: after a place switch the weather controller keeps the previous place's snapshot as the
-  // last valid result until the new one loads. It never renders under the new place's name:
-  // Today waits, or states the failure, exactly as it does with no snapshot at all.
+  const { state, todayFailure, recommendationFailure } = classifyTodayState({
+    weather: weatherState,
+    recommendation: recommendationState,
+    profile: profileState,
+    dressingDayChoiceFailed,
+    surface: 'today',
+    isPullRefreshing,
+    choosingWindow,
+  });
   const placeSnapshot = weatherState.status === 'ready'
     ? activeLocationSnapshot(weatherState.snapshot, weatherState.activeLocation) : null;
-
-  let state: TodayScreenState;
-  let todayFailure: FailureCategory | null | undefined;
-  let recommendationFailure: FailureCategory | null | undefined;
-  if (weatherState.status === 'loading' || recommendationState.status === 'loading') {
-    state = { kind: 'loading' };
-    todayFailure = undefined;
-    recommendationFailure = undefined;
-  } else if (weatherState.status === 'ready' && weatherState.snapshot !== null &&
-      weatherState.activeLocation !== null && placeSnapshot === null &&
-      weatherState.refreshFailure === null) {
-    state = { kind: 'loading' };
-    todayFailure = undefined;
-    recommendationFailure = undefined;
-  } else if (
-    weatherState.status === 'error' ||
-    placeSnapshot === null ||
-    weatherState.activeLocation === null ||
-    weatherState.freshness === null
-  ) {
-    // Weather is the reason here, so its category classifies the failure. Nothing
-    // renders this; it only carries the cause the analytics taxonomy asks for.
-    state = unavailableTodayState(
-      weatherState.status === 'ready' ? weatherState.refreshFailure : null,
-    );
-    todayFailure = weatherState.status === 'ready'
-      ? weatherState.refreshFailure ?? 'unknown'
-      : 'unknown';
-    recommendationFailure = null;
-  } else if (recommendation === null && recommendationState.lastFailure === null &&
-      !dressingDayChoiceFailed && profileState.status === 'ready' &&
-      profileState.profile.clothingPreference !== null) {
-    // With no outfit to show, wait for the day's inputs or generation unless a read or
-    // recommendation failed. A profile without a clothing preference cannot generate.
-    state = { kind: 'loading', phase: recommendationState.phase };
-    todayFailure = undefined;
-    recommendationFailure = undefined;
-  } else if (recommendation === null) {
-    state = unavailableTodayState(recommendationState.lastFailure);
-    todayFailure = null;
-    recommendationFailure = recommendationState.lastFailure ?? 'unknown';
-  } else {
-    state = {
-      kind: 'loaded',
-      snapshot: {
-        weather: placeSnapshot,
-        activeLocation: weatherState.activeLocation,
-        freshness: weatherState.freshness,
-        recommendation,
-        coverageStart: recommendationState.snapshot?.coverageStart,
-        coverageEnd: recommendationState.snapshot?.coverageEnd,
-        paletteBasis: recommendationState.snapshot?.paletteWeather
-          ? { ...recommendationState.snapshot.paletteWeather,
-              localDayKey: recommendationState.snapshot.localDayKey }
-          : undefined,
-      },
-      isRefreshing:
-        isPullRefreshing || weatherState.isRefreshing || recommendationState.isRefreshing,
-      refreshFailed:
-        weatherState.refreshFailure !== null || recommendationState.lastFailure !== null,
-      phase: recommendationState.phase,
-      choosingWindow,
-    };
-    todayFailure = weatherState.refreshFailure;
-    recommendationFailure = recommendationState.lastFailure;
-  }
 
   // Today is the first screen the shell mounts after bootstrap, so its first presentation
   // is the moment the app is usable. The kind is coarse: loading, loaded or unavailable.
@@ -220,10 +155,10 @@ export default function TodayRoute() {
   const pendingQuestion = morningChoicePending ? 'morning' : eveningChoicePending ? 'evening' : null;
   useEffect(() => {
     if (!isFocused || !pendingQuestion || showNamePrompt || !currentDressingDayKey ||
-        state.kind === 'unavailable' || offeredKey.current === currentDressingDayKey) return;
+        !mayOfferDayQuestion(weatherState, state) || offeredKey.current === currentDressingDayKey) return;
     offeredKey.current = currentDressingDayKey;
     setSheetTarget(pendingQuestion);
-  }, [currentDressingDayKey, isFocused, pendingQuestion, setSheetTarget, showNamePrompt, state.kind]);
+  }, [currentDressingDayKey, isFocused, pendingQuestion, setSheetTarget, showNamePrompt, state, weatherState]);
   const profile = profileState.status === 'ready' ? profileState.profile : null;
   const profileDressStyle = profile?.dressStyle ?? 'smart';
   // f25 and M16: the first dressing day is the one the profile was set up on. Its greeting

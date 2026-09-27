@@ -6,10 +6,25 @@ import { archetypeDayFromRequirements, outfitArchetypeIds } from '@kuyara/contra
 import { messages } from '@/localization/messages';
 import { deriveClothingRequirements } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 import {
+  composeOutfitPool,
   excludeOutfitOptions,
   outfitMatchesArchetype,
   recommendOutfits,
 } from './recommend-outfits.ts';
+
+test('the same derived pool is reused when fallback follows context creation', () => {
+  const weather = snapshot();
+  const first = composeOutfitPool(
+    deriveClothingRequirements(weather, observedAt), 'womens', 0,
+  );
+  const fallback = composeOutfitPool(
+    deriveClothingRequirements(weather, observedAt), 'womens', 0,
+  );
+  assert.strictEqual(fallback, first);
+  assert.notStrictEqual(composeOutfitPool(
+    deriveClothingRequirements(weather, observedAt), 'mens', 0,
+  ), first);
+});
 
 const observedAt = '2026-08-01T18:00:00.000Z';
 const futureAt = '2026-08-01T19:00:00.000Z';

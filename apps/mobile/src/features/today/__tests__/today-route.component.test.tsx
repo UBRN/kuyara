@@ -1094,6 +1094,38 @@ test('the morning sheet opens over the first wait', async () => {
   expect(view.queryByTestId('today-unavailable-screen')).toBeNull();
 });
 
+test('the day question stays closed through loading when no active location follows', async () => {
+  const props = morningPendingProps();
+  const view = await render(
+    <Providers {...props} recommendation={recommendationReady({ snapshot: null })}
+      weather={{ ...weatherValue(), state: { status: 'loading' } }}>
+      <TodayRoute />
+    </Providers>,
+  );
+  expect(view.getByTestId('today-loading-screen')).toBeOnTheScreen();
+  expect(view.queryByTestId('daily-formality-sheet')).toBeNull();
+
+  await view.rerender(
+    <Providers {...props} recommendation={recommendationReady({ snapshot: null })}
+      weather={weatherValue({ activeLocation: null, snapshot: null, freshness: null })}>
+      <TodayRoute />
+    </Providers>,
+  );
+  expect(view.getByTestId('today-no-location')).toBeOnTheScreen();
+  expect(view.queryByTestId('daily-formality-sheet')).toBeNull();
+});
+
+test('the day question stays closed when weather already failed during recommendation loading', async () => {
+  const view = await render(
+    <Providers {...morningPendingProps()} recommendation={{ status: 'loading' }}
+      weather={weatherValue({ snapshot: null, freshness: null, refreshFailure: 'offline' })}>
+      <TodayRoute />
+    </Providers>,
+  );
+  expect(view.getByTestId('today-loading-screen')).toBeOnTheScreen();
+  expect(view.queryByTestId('daily-formality-sheet')).toBeNull();
+});
+
 test('a missing recommendation without a failure waits without day-choice fixture fields', async () => {
   const view = await render(
     <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
