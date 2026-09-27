@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { latestDatabaseVersion, migrateDatabase } from './migrations.ts';
@@ -1674,24 +1675,10 @@ test('version 18 keeps a filled version 17 profile and adds daily choices', asyn
   assert.equal((await database.getFirstAsync('SELECT formality FROM dressing_day_choices')).formality, 'casual');
 });
 
-test('schema 16 fixture upgrades through 19 preserving rows in every existing table', async (t) => {
+test('build 14 schema 16 upgrades through 19 preserving rows in every existing table', async (t) => {
   const database = new NodeSqliteDatabase();
   t.after(() => database.close());
-  const stopBeforeV17 = {
-    execAsync: database.execAsync.bind(database),
-    getFirstAsync: database.getFirstAsync.bind(database),
-    withExclusiveTransactionAsync: (task) => database.withExclusiveTransactionAsync((transaction) => task({
-      ...transaction,
-      execAsync: async (sql) => {
-        if (sql.includes('ADD COLUMN display_name TEXT NULL')) throw new Error('schema 16 fixture');
-        await transaction.execAsync(sql);
-      },
-      runAsync: transaction.runAsync.bind(transaction),
-      getFirstAsync: transaction.getFirstAsync.bind(transaction),
-      getAllAsync: transaction.getAllAsync.bind(transaction),
-    })),
-  };
-  await assert.rejects(() => migrateDatabase(stopBeforeV17), /schema 16 fixture/);
+  await database.execAsync(await readFile(new URL('./build-14-schema-16.sql', import.meta.url), 'utf8'));
   assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, 16);
   await insertProfile(database);
   await database.runAsync(`UPDATE local_profiles SET gender = 'woman', dress_style = 'smart',
@@ -1759,4 +1746,22 @@ test('schema 16 fixture upgrades through 19 preserving rows in every existing ta
   }
   assert.deepEqual(await database.getAllAsync('PRAGMA foreign_key_check'), []);
   assert.equal((await database.getFirstAsync('PRAGMA integrity_check')).integrity_check, 'ok');
+});
+
+test('build 15 schema 19 stays unchanged and is the schema produced by a fresh install', async (t) => {
+  const shipped = new NodeSqliteDatabase();
+  const fresh = new NodeSqliteDatabase();
+  t.after(() => { shipped.close(); fresh.close(); });
+  await shipped.execAsync(await readFile(new URL('./build-15-schema-19.sql', import.meta.url), 'utf8'));
+  await insertProfile(shipped);
+  await shipped.runAsync("UPDATE local_profiles SET display_name = 'Saved name'");
+  await migrateDatabase(shipped);
+  await migrateDatabase(fresh);
+
+  const schema = async (database) => (await database.getAllAsync(
+    "SELECT type, name, sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY name",
+  )).map((row) => ({ ...row }));
+  assert.deepEqual(await schema(fresh), await schema(shipped));
+  assert.equal((await shipped.getFirstAsync('PRAGMA user_version')).user_version, latestDatabaseVersion);
+  assert.equal((await shipped.getFirstAsync('SELECT display_name FROM local_profiles')).display_name, 'Saved name');
 });
