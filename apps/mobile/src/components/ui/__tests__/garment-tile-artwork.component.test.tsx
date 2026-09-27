@@ -252,3 +252,68 @@ test.each([32, 56, 156])('navy and camel divides the garment at %s points', asyn
   expect(camelTop).toBeGreaterThan(bounds.y);
   expect(camelTop).toBeLessThan(bounds.y + bounds.height);
 });
+
+// O8 follow-up 7: react-native-svg 15.15.4 on iOS writes a group's matrix only when a six-entry
+// one arrives (RNSVGFabricConversions.h, `setCommonNodeProps`), so a group whose transform goes
+// away keeps the one it had. This draws the edge the way iOS does: the root viewBox, then each
+// group's matrix, the last one it was sent when a render sends none. The editor preview keeps
+// one drawing mounted while the choice changes, so a pattern chosen after a solid must still
+// land where the solid did; a freshly mounted pattern (the small "Yours" tiles) too.
+type Matrix = readonly [number, number, number, number, number, number];
+const IDENTITY: Matrix = [1, 0, 0, 1, 0, 0];
+const concat = ([a, b, c, d, e, f]: Matrix, [g, h, i, j, k, l]: Matrix): Matrix =>
+  [a * g + c * h, b * g + d * h, a * i + c * j, b * i + d * j, a * k + c * l + e, b * k + d * l + f];
+
+function iosFrame(width: number, height: number) {
+  const kept = new Map<number, Matrix>();
+  return (result: Awaited<ReturnType<typeof render>>) => {
+    const svg = result.getByTestId('silhouette', hidden);
+    const { minX, minY, vbWidth, vbHeight } = svg.props as Record<string, number | undefined>;
+    let at = IDENTITY;
+    if (vbWidth && vbHeight) {
+      const k = Math.min(width / vbWidth, height / vbHeight);
+      at = [k, 0, 0, k, (width - vbWidth * k) / 2 - (minX ?? 0) * k, (height - vbHeight * k) / 2 - (minY ?? 0) * k];
+    }
+    const groups: { props: { matrix?: unknown } }[] = [];
+    for (let node = edges(result)[0].parent; node && node.props.testID !== 'silhouette'; node = node.parent) {
+      if (node.type === 'RNSVGGroup') groups.unshift(node);
+    }
+    groups.forEach((group, depth) => {
+      const sent = group.props.matrix;
+      const matrix = Array.isArray(sent) && sent.length === 6 ? (sent as unknown as Matrix) : kept.get(depth) ?? IDENTITY;
+      kept.set(depth, matrix);
+      at = concat(at, matrix);
+    });
+    const bounds = silhouettes['g-tee'].bounds;
+    return { x: at[0] * bounds.x + at[4], y: at[3] * bounds.y + at[5], width: at[0] * bounds.width, height: at[3] * bounds.height };
+  };
+}
+
+test.each([
+  { width: 370, height: 156 },
+  { width: 56, height: 56 },
+])('a pattern draws where the solid does in $width by $height, chosen live or mounted fresh', async ({ width, height }) => {
+  const draw = (id: string) => (
+    <KuyaraThemeContext.Provider value={lightTheme}>
+      <GarmentTileArtwork {...props} colorChoice={{ kind: 'option', id }} colorFamily="blue" height={height} width={width} />
+    </KuyaraThemeContext.Provider>
+  );
+  const frame = iosFrame(width, height);
+  const result = await render(draw('mid_wash_denim'));
+  const solid = frame(result);
+  const bounds = silhouettes['g-tee'].bounds;
+  const scale = Math.min(width * 0.6 / bounds.width, height * 0.61 / bounds.height);
+  expect(solid.width).toBeCloseTo(bounds.width * scale);
+  expect(solid.x + solid.width / 2).toBeCloseTo(width / 2);
+  expect(solid.y + solid.height / 2).toBeCloseTo(height / 2);
+  const same = (drawn: typeof solid) => {
+    for (const key of ['x', 'y', 'width', 'height'] as const) expect(drawn[key]).toBeCloseTo(solid[key]);
+  };
+  for (const id of ['navy_and_camel', 'blue_stripes', 'houndstooth']) {
+    await result.rerender(draw(id));
+    same(frame(result));
+    await result.rerender(draw('mid_wash_denim'));
+    same(frame(result));
+    same(iosFrame(width, height)(await render(draw(id))));
+  }
+});
