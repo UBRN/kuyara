@@ -13,7 +13,8 @@ import {
 } from '@/features/analytics/domain/analytics-mappers';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
-import { activeLocationRecommendation, unavailableTodayState, type TodayScreenState } from '@/features/today/model';
+import { classifyTodayState } from '@/features/today/application/today-state';
+import { activeLocationRecommendation } from '@/features/today/model';
 import {
   historyDayKey,
   sameWornGarments,
@@ -33,7 +34,6 @@ import {
 } from '@/features/wardrobe/presentation/piece-edit-sheet';
 import { showWardrobeConfirmation } from '@/features/wardrobe/presentation/wardrobe-confirmation';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
-import { activeLocationSnapshot, weatherFreshness } from '@/features/weather/domain/weather';
 import { useLocalization } from '@/localization/use-messages';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -217,56 +217,13 @@ export default function OutfitDetailRoute() {
     });
   };
 
-  const placeSnapshot = weatherState.status === 'ready'
-    ? activeLocationSnapshot(weatherState.snapshot, weatherState.activeLocation) : null;
-  let state: TodayScreenState;
-  if (weatherState.status === 'loading' || recommendationState.status === 'loading') {
-    state = { kind: 'loading' };
-  } else if (weatherState.status === 'ready' && weatherState.activeLocation !== null &&
-      weatherState.snapshot !== null && placeSnapshot === null && weatherState.refreshFailure === null) {
-    // S3: the previous place's snapshot is still the last valid result; wait for the new one.
-    state = { kind: 'loading' };
-  } else if (
-    weatherState.status === 'error' ||
-    placeSnapshot === null ||
-    weatherState.activeLocation === null
-  ) {
-    // Same classification rule as the Today route; the detail surface renders neither.
-    state = unavailableTodayState(
-      weatherState.status === 'ready' ? weatherState.refreshFailure : null,
-    );
-  } else if (recommendation === null && (recommendationState.isRefreshing ||
-      (recommendationState.snapshot !== null && recommendationState.lastFailure === null &&
-        !dressingDayChoiceFailed))) {
-    state = { kind: 'loading', phase: recommendationState.phase };
-  } else if (recommendation === null) {
-    state = unavailableTodayState(recommendationState.lastFailure);
-  } else {
-    state = {
-      kind: 'loaded',
-      isRefreshing: weatherState.isRefreshing || recommendationState.isRefreshing,
-      refreshFailed:
-        weatherState.refreshFailure !== null || recommendationState.lastFailure !== null,
-      snapshot: {
-        weather: placeSnapshot,
-        activeLocation: weatherState.activeLocation,
-        freshness:
-          weatherFreshness(
-            placeSnapshot.fetchedAt,
-            new Date().toISOString(),
-          ) === 'fresh'
-            ? 'fresh'
-            : 'stale',
-        recommendation,
-        coverageStart: recommendationState.snapshot?.coverageStart,
-        coverageEnd: recommendationState.snapshot?.coverageEnd,
-        paletteBasis: recommendationState.snapshot?.paletteWeather
-          ? { ...recommendationState.snapshot.paletteWeather,
-              localDayKey: recommendationState.snapshot.localDayKey }
-          : undefined,
-      },
-    };
-  }
+  const { state } = classifyTodayState({
+    weather: weatherState,
+    recommendation: recommendationState,
+    profile: profileState,
+    dressingDayChoiceFailed,
+    surface: 'detail',
+  });
 
   useScreenInteractive(state.kind === 'loaded' ? { state: 'loaded' } : null);
 
