@@ -298,7 +298,7 @@ This section is the command sequence only.
   nothing else: `eas.json` sets `cli.requireCommit: true`, so the build runs against the
   committed tree and an uncommitted bump would carry the old version string into the binary.
 - The maintainer's Mac has Xcode 27 with the iOS 27 SDK, CocoaPods, fastlane, Node 24.21.0
-  and pnpm 11.18.0. Apple accepts Xcode 27 builds. The Node and pnpm versions match
+  and pnpm 12.6.0. Apple accepts Xcode 27 builds. The Node and pnpm versions match
   `eas.json`.
 - fastlane and CocoaPods need a UTF-8 locale: run the build with `LANG=en_US.UTF-8` and
   `LC_ALL=en_US.UTF-8` set.
