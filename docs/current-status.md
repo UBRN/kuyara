@@ -6,7 +6,7 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
 
 ## Current State
 
-- **Mobile:** Expo SDK 57, React Native, Expo Router and Expo SQLite (schema version 18)
+- **Mobile:** Expo SDK 57, React Native, Expo Router and Expo SQLite (schema version 19)
   provide a seven-step onboarding flow (welcome, optional name, gender, dress style,
   style preferences, birth date, optional location); three primary tabs, Today, Weather and Profile, drawn by Expo
   Router Native Tabs, with the Closet and Settings as Profile stack destinations; private
@@ -39,14 +39,14 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   bounds its whole AI walk at 36 seconds (five attempts of 7 seconds plus one second),
   so every provider gets its turn and the deterministic fallback is reached only after
   the last one fails; the whole wait is bounded at 46 seconds. Generation triggers compare
-  current signals with the persisted snapshot. Today also carries a **show another outfit**
-  action that regenerates the recommendation alone, leaving weather to the pull gesture: the
-  first five taps of a local day reach the AI chain, and after that the same tap composes the
-  next valid three from the composed pool without an AI request. The allowance lives
-  in one policy module with a small app-private JSON counter, so it needed no migration. The
-  action, a full-width bordered button, is hidden once no distinct unseen valid option remains; no provider,
-  quota or remaining count is ever shown. Today draws a breathing skeleton garment
-  board under a phase line (checking the on-device AI, asking the AI stylist, answer
+  current signals with the persisted snapshot. Today's "Ask the stylist again" action
+  opens a sheet for day type and Now or Later, then regenerates the recommendation alone;
+  weather refresh remains on the pull gesture. Five confirmed re-asks per local day can
+  reserve an AI attempt; when the allowance is exhausted or reservation fails, the
+  device-local deterministic generator supplies the answer. A small app-private JSON
+  counter holds the allowance. The action is hidden when the composed pool has no other
+  valid option; no provider, quota or remaining count is shown. Today draws a breathing
+  skeleton garment board under a phase line (checking the on-device AI, asking the AI stylist, answer
   received, preparing outfits, using standard suggestions) while a recommendation is
   generated, the same phase line replaces the freshness caption during a refresh of a
   shown recommendation, its pull cycle keeps spinning until both the weather and the
