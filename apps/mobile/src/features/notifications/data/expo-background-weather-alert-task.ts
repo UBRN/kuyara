@@ -14,7 +14,7 @@ import { LocalWeatherRepository } from '@/features/weather/data/weather-reposito
 import { SqliteWeatherLocalDataSource } from '@/features/weather/data/sqlite-weather-local-data-source';
 import { openKuyaraDatabase } from '@/infrastructure/sqlite/expo-sqlite-database';
 import { migrateDatabase } from '@/infrastructure/sqlite/migrations';
-import { getDeviceHour12, getDeviceLocale } from '@/localization/device-locale';
+import { getDeviceHour12, getDeviceLocale, getDeviceTemperatureUnit } from '@/localization/device-locale';
 
 export const backgroundWeatherAlertTaskName = 'kuyara-background-weather-alert-refresh';
 export const backgroundWeatherAlertMinimumIntervalMinutes = 15;
@@ -65,6 +65,7 @@ TaskManager.defineTask(backgroundWeatherAlertTaskName, async ({ error }) => {
       ).reschedule(input),
       getDeviceLocale,
       getDeviceHour12,
+      getDeviceTemperatureUnit,
       now,
     });
     return outcome === 'success'

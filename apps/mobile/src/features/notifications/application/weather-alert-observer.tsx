@@ -13,7 +13,7 @@ export function WeatherAlertObserver() {
   const notificationApplication = useNotificationApplication();
   const profileApplication = useProfileApplication();
   const weatherApplication = useWeatherApplication();
-  const { hour12, language } = useLocalizationContext();
+  const { hour12, language, temperatureUnit } = useLocalizationContext();
   const profile = profileApplication.state.status === 'ready'
     ? profileApplication.state.profile
     : null;
@@ -64,6 +64,7 @@ export function WeatherAlertObserver() {
       morningBriefingEnabled: notificationsAreActive(morningBriefingOptIn, permission),
       language,
       hour12,
+      temperatureUnit,
     }).catch(() => undefined);
   });
 
@@ -71,6 +72,7 @@ export function WeatherAlertObserver() {
     rescheduleWeatherAlerts();
   }, [
     hour12,
+    temperatureUnit,
     language,
     localDate,
     localProfileId,

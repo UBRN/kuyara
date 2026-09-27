@@ -4,6 +4,7 @@ import type {
   AppMessages,
   SupportedLanguage,
 } from '@/localization/messages';
+import type { TemperatureUnit } from '@/localization/device-locale';
 
 export type LocalizationValue = Readonly<{
   language: SupportedLanguage;
@@ -13,16 +14,17 @@ export type LocalizationValue = Readonly<{
    * application language. Screens read it from here so they never touch a native module.
    */
   hour12: boolean;
+  temperatureUnit?: TemperatureUnit;
 }>;
 
 export const LocalizationContext = createContext<LocalizationValue | null>(null);
 
-export function useLocalizationContext(): LocalizationValue {
+export function useLocalizationContext(): LocalizationValue & { temperatureUnit: TemperatureUnit } {
   const localization = use(LocalizationContext);
 
   if (!localization) {
     throw new Error('useLocalization must be used within LocalizationProvider');
   }
 
-  return localization;
+  return { ...localization, temperatureUnit: localization.temperatureUnit ?? 'celsius' };
 }

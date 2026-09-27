@@ -194,6 +194,7 @@ const enabledInput = {
   morningBriefingEnabled: false,
   language: 'en',
   hour12: false,
+  temperatureUnit: 'celsius',
 };
 
 test('weather alerts cancel before planning, schedule localized copy, persist, and prune', async () => {
@@ -362,6 +363,36 @@ test('a briefing range rounded to zero reads as one temperature', async () => {
     'A cloudy morning at 0\u00b0C. Your outfit for today is waiting in kuyara.',
   );
 });
+
+for (const [language, expectedBriefing, expectedAlert] of [
+  ['en', 'A cloudy morning at 51°F. Your outfit for today is waiting in kuyara.',
+    'Around 18:00, it will feel like 44°F. Take a warmer layer with you.'],
+  ['tr', 'Bulutlu bir sabah, 51°F. Bugünün kombini kuyara\u2019da seni bekliyor.',
+    'Saat 18:00 civarında hissedilen sıcaklık 44°F olacak. Yanına daha sıcak tutan bir kat al.'],
+]) {
+  test(`${language} notifications convert a Fahrenheit briefing and swing alert`, async () => {
+    const morning = weatherSnapshot();
+    // 10.49 and 10.51 round to 10 and 11 °C, but both display as 51 °F.
+    const snapshot = {
+      ...morning,
+      hourly: [
+        ...morning.hourly,
+        { ...morning.hourly[0], forecastAt: '2026-09-10T07:00:00.000Z', temperatureCelsius: 10.49, condition: 'cloudy', precipitationProbability: 0 },
+        { ...morning.hourly[0], forecastAt: '2026-09-10T10:00:00.000Z', temperatureCelsius: 10.51, condition: 'cloudy', precipitationProbability: 0 },
+      ],
+    };
+    const harness = createSchedulerHarness();
+    await harness.scheduler.reschedule({
+      ...enabledInput,
+      language,
+      temperatureUnit: 'fahrenheit',
+      snapshot,
+      morningBriefingEnabled: true,
+    });
+    assert.equal(harness.scheduled.find(({ identifier }) => identifier.startsWith('morning_briefing'))?.body, expectedBriefing);
+    assert.equal(harness.scheduled.find(({ identifier }) => identifier.startsWith('temperature_swing'))?.body, expectedAlert);
+  });
+}
 
 test('a briefing the ledger already recorded for that day is not scheduled again', async () => {
   const harness = createSchedulerHarness({

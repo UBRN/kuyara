@@ -224,14 +224,22 @@ export type TodayMessages = Readonly<{
     // The three temperatures arrive already formatted, so the spoken number is the one
     // the eye sees, separator and all, rather than a raw float read in a fixed locale.
     current: string;
+    unitName: string;
     apparent: string;
     minimum: string;
     maximum: string;
     rainProbability: number;
   }) => string;
+  titleAccessibilityLabel: (values: {
+    temperature: string; unitName: string; condition: string;
+  }) => string;
+  weatherRecapAccessibilityLabel: (values: {
+    temperature: string; unitName: string; condition: string;
+    rainProbability: number; coverageCaption: string | null;
+  }) => string;
   boardAccessibilityLabel: (values: { archetype: string; pieces: readonly string[] }) => string;
   stageAccessibilityLabel: (values: {
-    temperature: string; condition: string; pieces: readonly string[]; archetype: string;
+    temperature: string; unitName: string; condition: string; pieces: readonly string[]; archetype: string;
   }) => string;
   outfitAccessibilityLabel: (values: {
     position: number;
@@ -276,6 +284,7 @@ export type PreferenceMessages = Readonly<{
 export type MorningTemperatures = Readonly<{ low: string; high: string }>;
 
 export type AppMessages = Readonly<{
+  temperatureUnitNames: Readonly<Record<'celsius' | 'fahrenheit', string>>;
   catalog: CatalogMessages;
   recommendation: RecommendationMessages;
   common: Readonly<{
@@ -311,7 +320,7 @@ export type AppMessages = Readonly<{
     nameNotNow: string;
     welcomeTitle: string;
     welcomeBody: string;
-    welcomePreviewTitle: string;
+    welcomePreviewTitle: (temperature: string) => string;
     welcomePreviewCaption: string;
     nameGreetingEmpty: string;
     nameGreetingCaption: string;
@@ -455,8 +464,8 @@ export type AppMessages = Readonly<{
       title: string;
       /**
        * `low` and `high` arrive already formatted for the language's locale, as the alert
-       * bodies' temperatures do; the unit, the range dash and the single-value form belong
-       * to the copy.
+       * bodies' temperatures do; the range dash and the single-value form belong
+       * to the copy. Each value already carries its unit.
        */
       clearBody: (values: MorningTemperatures) => string;
       cloudyBody: (values: MorningTemperatures) => string;
@@ -468,9 +477,9 @@ export type AppMessages = Readonly<{
       snowTitle: string;
       snowBody: (time: string) => string;
       dropTitle: string;
-      dropBody: (values: { time: string; temperatureCelsius: number }) => string;
+      dropBody: (values: { time: string; temperature: string }) => string;
       riseTitle: string;
-      riseBody: (values: { time: string; temperatureCelsius: number }) => string;
+      riseBody: (values: { time: string; temperature: string }) => string;
     }>;
   }>;
   weather: Readonly<{
@@ -537,6 +546,7 @@ export type AppMessages = Readonly<{
     precipitation: (probability: number) => string;
     currentConditionsAccessibilityLabel: (values: {
       condition: string;
+      unitName: string;
       temperature: string;
       apparentTemperature: string;
       minimumTemperature: string;
@@ -554,6 +564,7 @@ export type AppMessages = Readonly<{
     hourlyForecastAccessibilityLabel: (values: {
       day?: string;
       time: string;
+      unitName: string;
       temperature: string;
       condition: string;
       precipitationProbability: number;
@@ -564,6 +575,7 @@ export type AppMessages = Readonly<{
     dailyForecastAccessibilityLabel: (values: {
       day: string;
       condition: string;
+      unitName: string;
       minimumTemperature: string;
       maximumTemperature: string;
       precipitationProbability: number;
@@ -692,6 +704,7 @@ const englishOwnershipStateLabels = Object.freeze({
 });
 
 const en = {
+  temperatureUnitNames: { celsius: 'degrees Celsius', fahrenheit: 'degrees Fahrenheit' },
   catalog: catalogMessages.en,
   recommendation: recommendationMessages.en,
   common: {
@@ -728,7 +741,7 @@ const en = {
     nameNotNow: 'Not now',
     welcomeTitle: 'Welcome to kuyara',
     welcomeBody: 'A calm way to make daily clothing choices with the weather in mind.',
-    welcomePreviewTitle: 'Today · 14° · Cloudy',
+    welcomePreviewTitle: (temperature) => `Today · ${temperature} · Cloudy`,
     welcomePreviewCaption: 'Every morning: one outfit for the day’s weather.',
     nameGreetingEmpty: 'Welcome',
     nameGreetingCaption: 'Your name appears here on Today.',
@@ -894,14 +907,14 @@ const en = {
       hint: 'A single notification at 07:00 with the morning\u2019s weather, when tomorrow morning is already in the forecast.',
       title: 'Good morning',
       clearBody: ({ low, high }) => (low === high
-        ? `A clear morning at ${low}\u00b0C. Your outfit for today is waiting in kuyara.`
-        : `A clear morning between ${low}\u00b0C and ${high}\u00b0C. Your outfit for today is waiting in kuyara.`),
+        ? `A clear morning at ${low}. Your outfit for today is waiting in kuyara.`
+        : `A clear morning between ${low} and ${high}. Your outfit for today is waiting in kuyara.`),
       cloudyBody: ({ low, high }) => (low === high
-        ? `A cloudy morning at ${low}\u00b0C. Your outfit for today is waiting in kuyara.`
-        : `A cloudy morning between ${low}\u00b0C and ${high}\u00b0C. Your outfit for today is waiting in kuyara.`),
+        ? `A cloudy morning at ${low}. Your outfit for today is waiting in kuyara.`
+        : `A cloudy morning between ${low} and ${high}. Your outfit for today is waiting in kuyara.`),
       wetBody: ({ low, high }) => (low === high
-        ? `A wet morning at ${low}\u00b0C. Your outfit for today is waiting in kuyara.`
-        : `A wet morning between ${low}\u00b0C and ${high}\u00b0C. Your outfit for today is waiting in kuyara.`),
+        ? `A wet morning at ${low}. Your outfit for today is waiting in kuyara.`
+        : `A wet morning between ${low} and ${high}. Your outfit for today is waiting in kuyara.`),
     },
     alerts: {
       rainTitle: 'Rain is on the way',
@@ -909,11 +922,11 @@ const en = {
       snowTitle: 'Snow is on the way',
       snowBody: (time) => `Snow is expected around ${time}. Take a warm, waterproof layer with you.`,
       dropTitle: 'It will feel colder',
-      dropBody: ({ time, temperatureCelsius }) =>
-        `Around ${time}, it will feel like ${temperatureCelsius}°C. Take a warmer layer with you.`,
+      dropBody: ({ time, temperature }) =>
+        `Around ${time}, it will feel like ${temperature}. Take a warmer layer with you.`,
       riseTitle: 'It will feel warmer',
-      riseBody: ({ time, temperatureCelsius }) =>
-        `Around ${time}, it will feel like ${temperatureCelsius}°C. Choose a lighter layer.`,
+      riseBody: ({ time, temperature }) =>
+        `Around ${time}, it will feel like ${temperature}. Choose a lighter layer.`,
     },
   },
   weather: {
@@ -985,14 +998,15 @@ const en = {
     precipitation: (probability) => `${Math.round(probability * 100)}% precipitation`,
     currentConditionsAccessibilityLabel: ({
       condition,
+      unitName,
       temperature,
       apparentTemperature,
       minimumTemperature,
       maximumTemperature,
       precipitationProbability,
     }) =>
-      `${condition}. ${temperature}. Feels like ${apparentTemperature}. ` +
-      `Low ${minimumTemperature} · High ${maximumTemperature}. ` +
+      `${condition}. ${temperature} ${unitName}. Feels like ${apparentTemperature} ${unitName}. ` +
+      `Low ${minimumTemperature} ${unitName} · High ${maximumTemperature} ${unitName}. ` +
       `${Math.round(precipitationProbability * 100)}% precipitation`,
     wind: (speed) => `Wind ${speed} m/s`,
     humidity: (humidity) => `${Math.round(humidity * 100)}% humidity`,
@@ -1002,17 +1016,19 @@ const en = {
     hourlyForecastAccessibilityLabel: ({
       day,
       time,
+      unitName,
       temperature,
       condition,
       precipitationProbability,
     }) =>
-      `${day ? `${day}, ` : ''}${time}. ${temperature}. ${condition}. ` +
+      `${day ? `${day}, ` : ''}${time}. ${temperature} ${unitName}. ${condition}. ` +
       `${Math.round(precipitationProbability * 100)}% precipitation`,
     dailyHeading: 'Coming days',
     dailyPrecipitationValue: (millimetres, probability) => `${millimetres} mm · ${probability}`,
     dailyForecastAccessibilityLabel: ({
       day,
       condition,
+      unitName,
       minimumTemperature,
       maximumTemperature,
       precipitationProbability,
@@ -1020,8 +1036,8 @@ const en = {
       currentTemperature,
     }) =>
       `${currentTemperature ? `Today, ${day}` : day}. ${condition}. ` +
-      `Low ${minimumTemperature} · High ${maximumTemperature}. ` +
-      `${currentTemperature ? `Now ${currentTemperature}. ` : ''}` +
+      `Low ${minimumTemperature} ${unitName} · High ${maximumTemperature} ${unitName}. ` +
+      `${currentTemperature ? `Now ${currentTemperature} ${unitName}. ` : ''}` +
       `${precipitationMillimetres ? `${precipitationMillimetres} mm, ` : ''}` +
       `${Math.round(precipitationProbability * 100)}% precipitation`,
     windValue: (speed) => `${speed} m/s`,
@@ -1375,12 +1391,18 @@ const en = {
       minimum,
       maximum,
       rainProbability,
+      unitName,
     }) =>
-      `${condition}. ${current} degrees Celsius, feels like ${apparent} degrees. ` +
-      `Low ${minimum}, high ${maximum}. ${rainProbability} percent chance of rain.`,
+      `${condition}. ${current} ${unitName}, feels like ${apparent} ${unitName}. ` +
+      `Low ${minimum} ${unitName}, high ${maximum} ${unitName}. ${rainProbability} percent chance of rain.`,
+    titleAccessibilityLabel: ({ temperature, unitName, condition }) =>
+      `Today, ${temperature} ${unitName}, ${condition}`,
+    weatherRecapAccessibilityLabel: ({ temperature, unitName, condition, rainProbability, coverageCaption }) =>
+      `${temperature} ${unitName}, ${condition}, ${rainProbability} percent chance of rain` +
+      (coverageCaption ? `. ${coverageCaption}` : ''),
     boardAccessibilityLabel: ({ archetype, pieces }) => `${archetype}. ${pieces.join(', ')}.`,
-    stageAccessibilityLabel: ({ temperature, condition, pieces, archetype }) =>
-      `${temperature} degrees Celsius. ${condition}. ${pieces.join(', ')}. ${archetype}.`,
+    stageAccessibilityLabel: ({ temperature, unitName, condition, pieces, archetype }) =>
+      `${temperature} ${unitName}. ${condition}. ${pieces.join(', ')}. ${archetype}.`,
     outfitAccessibilityLabel: ({
       position,
       total,
@@ -1399,6 +1421,7 @@ const en = {
 } satisfies AppMessages;
 
 const tr = {
+  temperatureUnitNames: { celsius: 'santigrat derece', fahrenheit: 'fahrenhayt derece' },
   catalog: catalogMessages.tr,
   recommendation: recommendationMessages.tr,
   common: {
@@ -1435,7 +1458,7 @@ const tr = {
     nameNotNow: 'Şimdi değil',
     welcomeTitle: 'kuyara’ya hoş geldin',
     welcomeBody: 'Hava durumuna göre her gün ne giyeceğine sakince karar vermenin yolu.',
-    welcomePreviewTitle: 'Bugün · 14° · Bulutlu',
+    welcomePreviewTitle: (temperature) => `Bugün · ${temperature} · Bulutlu`,
     welcomePreviewCaption: 'Her sabah: günün havasına göre bir kombin.',
     nameGreetingEmpty: 'Hoş geldin',
     nameGreetingCaption: 'Adın Bugün ekranında burada görünür.',
@@ -1601,14 +1624,14 @@ const tr = {
       hint: 'Yarın sabah tahminde yer aldığında, 07:00\u2019de sabahın havasını anlatan tek bir bildirim.',
       title: 'Günaydın',
       clearBody: ({ low, high }) => (low === high
-        ? `Açık bir sabah, ${low}\u00b0C. Bugünün kombini kuyara\u2019da seni bekliyor.`
-        : `Açık bir sabah, ${low}\u00b0C ile ${high}\u00b0C arası. Bugünün kombini kuyara\u2019da seni bekliyor.`),
+        ? `Açık bir sabah, ${low}. Bugünün kombini kuyara\u2019da seni bekliyor.`
+        : `Açık bir sabah, ${low} ile ${high} arası. Bugünün kombini kuyara\u2019da seni bekliyor.`),
       cloudyBody: ({ low, high }) => (low === high
-        ? `Bulutlu bir sabah, ${low}\u00b0C. Bugünün kombini kuyara\u2019da seni bekliyor.`
-        : `Bulutlu bir sabah, ${low}\u00b0C ile ${high}\u00b0C arası. Bugünün kombini kuyara\u2019da seni bekliyor.`),
+        ? `Bulutlu bir sabah, ${low}. Bugünün kombini kuyara\u2019da seni bekliyor.`
+        : `Bulutlu bir sabah, ${low} ile ${high} arası. Bugünün kombini kuyara\u2019da seni bekliyor.`),
       wetBody: ({ low, high }) => (low === high
-        ? `Yağışlı bir sabah, ${low}\u00b0C. Bugünün kombini kuyara\u2019da seni bekliyor.`
-        : `Yağışlı bir sabah, ${low}\u00b0C ile ${high}\u00b0C arası. Bugünün kombini kuyara\u2019da seni bekliyor.`),
+        ? `Yağışlı bir sabah, ${low}. Bugünün kombini kuyara\u2019da seni bekliyor.`
+        : `Yağışlı bir sabah, ${low} ile ${high} arası. Bugünün kombini kuyara\u2019da seni bekliyor.`),
     },
     alerts: {
       rainTitle: 'Yağmur geliyor',
@@ -1616,11 +1639,11 @@ const tr = {
       snowTitle: 'Kar geliyor',
       snowBody: (time) => `Saat ${time} civarında kar bekleniyor. Yanına sıcak tutan, su geçirmez bir kat al.`,
       dropTitle: 'Hava daha soğuk hissedilecek',
-      dropBody: ({ time, temperatureCelsius }) =>
-        `Saat ${time} civarında hissedilen sıcaklık ${temperatureCelsius}°C olacak. Yanına daha sıcak tutan bir kat al.`,
+      dropBody: ({ time, temperature }) =>
+        `Saat ${time} civarında hissedilen sıcaklık ${temperature} olacak. Yanına daha sıcak tutan bir kat al.`,
       riseTitle: 'Hava daha sıcak hissedilecek',
-      riseBody: ({ time, temperatureCelsius }) =>
-        `Saat ${time} civarında hissedilen sıcaklık ${temperatureCelsius}°C olacak. Daha hafif bir kat seç.`,
+      riseBody: ({ time, temperature }) =>
+        `Saat ${time} civarında hissedilen sıcaklık ${temperature} olacak. Daha hafif bir kat seç.`,
     },
   },
   weather: {
@@ -1692,14 +1715,15 @@ const tr = {
     precipitation: (probability) => `%${Math.round(probability * 100)} yağış`,
     currentConditionsAccessibilityLabel: ({
       condition,
+      unitName,
       temperature,
       apparentTemperature,
       minimumTemperature,
       maximumTemperature,
       precipitationProbability,
     }) =>
-      `${condition}. Sıcaklık ${temperature}. Hissedilen sıcaklık ${apparentTemperature}. ` +
-      `En düşük ${minimumTemperature}, en yüksek ${maximumTemperature}. ` +
+      `${condition}. Sıcaklık ${temperature} ${unitName}. Hissedilen sıcaklık ${apparentTemperature} ${unitName}. ` +
+      `En düşük ${minimumTemperature} ${unitName}, en yüksek ${maximumTemperature} ${unitName}. ` +
       `Yağış olasılığı yüzde ${Math.round(precipitationProbability * 100)}.`,
     wind: (speed) => `Rüzgâr ${speed} m/sn`,
     humidity: (humidity) => `%${Math.round(humidity * 100)} nem`,
@@ -1710,17 +1734,19 @@ const tr = {
     hourlyForecastAccessibilityLabel: ({
       day,
       time,
+      unitName,
       temperature,
       condition,
       precipitationProbability,
     }) =>
-      `${day ? `${day}, saat` : 'Saat'} ${time}. Sıcaklık ${temperature}. ${condition}. ` +
+      `${day ? `${day}, saat` : 'Saat'} ${time}. Sıcaklık ${temperature} ${unitName}. ${condition}. ` +
       `Yağış olasılığı yüzde ${Math.round(precipitationProbability * 100)}.`,
     dailyHeading: 'Önümüzdeki günler',
     dailyPrecipitationValue: (millimetres, probability) => `${millimetres} mm · ${probability}`,
     dailyForecastAccessibilityLabel: ({
       day,
       condition,
+      unitName,
       minimumTemperature,
       maximumTemperature,
       precipitationProbability,
@@ -1728,8 +1754,8 @@ const tr = {
       currentTemperature,
     }) =>
       `${currentTemperature ? `Bugün, ${day}` : day}. ${condition}. ` +
-      `En düşük ${minimumTemperature}, en yüksek ${maximumTemperature}. ` +
-      `${currentTemperature ? `Şu an ${currentTemperature}. ` : ''}` +
+      `En düşük ${minimumTemperature} ${unitName}, en yüksek ${maximumTemperature} ${unitName}. ` +
+      `${currentTemperature ? `Şu an ${currentTemperature} ${unitName}. ` : ''}` +
       `${precipitationMillimetres ? `${precipitationMillimetres} milimetre yağış. ` : ''}` +
       `Yağış olasılığı yüzde ${Math.round(precipitationProbability * 100)}.`,
     windValue: (speed) => `${speed} m/sn`,
@@ -2088,12 +2114,18 @@ const tr = {
       minimum,
       maximum,
       rainProbability,
+      unitName,
     }) =>
-      `${condition}. Sıcaklık ${current} santigrat derece, hissedilen ${apparent} derece. ` +
-      `En düşük ${minimum}, en yüksek ${maximum}. Yağmur olasılığı yüzde ${rainProbability}.`,
+      `${condition}. Sıcaklık ${current} ${unitName}, hissedilen ${apparent} ${unitName}. ` +
+      `En düşük ${minimum} ${unitName}, en yüksek ${maximum} ${unitName}. Yağmur olasılığı yüzde ${rainProbability}.`,
+    titleAccessibilityLabel: ({ temperature, unitName, condition }) =>
+      `Bugün, ${temperature} ${unitName}, ${condition}`,
+    weatherRecapAccessibilityLabel: ({ temperature, unitName, condition, rainProbability, coverageCaption }) =>
+      `${temperature} ${unitName}, ${condition}, yağmur olasılığı yüzde ${rainProbability}` +
+      (coverageCaption ? `. ${coverageCaption}` : ''),
     boardAccessibilityLabel: ({ archetype, pieces }) => `${archetype}. ${pieces.join(', ')}.`,
-    stageAccessibilityLabel: ({ temperature, condition, pieces, archetype }) =>
-      `${temperature} santigrat derece. ${condition}. ${pieces.join(', ')}. ${archetype}.`,
+    stageAccessibilityLabel: ({ temperature, unitName, condition, pieces, archetype }) =>
+      `${temperature} ${unitName}. ${condition}. ${pieces.join(', ')}. ${archetype}.`,
     outfitAccessibilityLabel: ({
       position,
       total,

@@ -31,11 +31,21 @@ function loadedPresentation(
   language = 'en',
   hour12 = false,
   now = fixtureNow,
+  temperatureUnit = 'celsius',
 ) {
-  const presentation = createTodayPresentation(state, language, hour12, now);
+  const presentation = createTodayPresentation(state, language, hour12, temperatureUnit, now);
   assert.equal(presentation.kind, 'loaded');
   return presentation;
 }
+
+test('Today converts displayed weather and spoken units to Fahrenheit', () => {
+  const presentation = loadedPresentation(todayScreenState, 'en', false, fixtureNow, 'fahrenheit');
+  assert.equal(presentation.weather.temperature, '68.0°');
+  assert.match(presentation.weather.accessibilityLabel, /degrees Fahrenheit/);
+  assert.match(presentation.titleAccessibilityLabel, /degrees Fahrenheit/);
+  assert.match(presentation.weather.recapAccessibilityLabel, /degrees Fahrenheit/);
+  assert.match(presentation.stageAccessibilityLabel, /degrees Fahrenheit/);
+});
 
 function unavailableRecommendationState() {
   const { recommendation } = todayScreenState.snapshot;
@@ -303,29 +313,29 @@ test('a mandatory requirement explains the outfit before an optional one', () =>
 });
 
 test('the unavailable branch offers a retry and says when the cause is being offline', () => {
-  const generic = createTodayPresentation({ kind: 'unavailable' }, 'en', false, fixtureNow);
+  const generic = createTodayPresentation({ kind: 'unavailable' }, 'en', false, 'celsius', fixtureNow);
   const rateLimited = createTodayPresentation(
     { kind: 'unavailable', failure: 'rate-limited' },
     'en',
-    false,
+    false, 'celsius',
     fixtureNow,
   );
   const offline = createTodayPresentation(
     { kind: 'unavailable', failure: 'offline' },
     'en',
-    false,
+    false, 'celsius',
     fixtureNow,
   );
   const offlineTurkish = createTodayPresentation(
     { kind: 'unavailable', failure: 'offline' },
     'tr',
-    false,
+    false, 'celsius',
     fixtureNow,
   );
   const noLocation = createTodayPresentation(
     { kind: 'unavailable', reason: 'no-active-location' },
     'en',
-    false,
+    false, 'celsius',
     fixtureNow,
   );
 
@@ -698,8 +708,8 @@ test('a device location shows its locality name, and the generic copy without on
 });
 
 test('loading, unavailable, and semantic theme behavior remains explicit', () => {
-  const loading = createTodayPresentation({ kind: 'loading' }, 'en', false, fixtureNow);
-  const unavailable = createTodayPresentation({ kind: 'unavailable' }, 'tr', false, fixtureNow);
+  const loading = createTodayPresentation({ kind: 'loading' }, 'en', false, 'celsius', fixtureNow);
+  const unavailable = createTodayPresentation({ kind: 'unavailable' }, 'tr', false, 'celsius', fixtureNow);
   const light = createKuyaraTheme('light');
   const dark = createKuyaraTheme('dark');
 
@@ -786,9 +796,9 @@ test('a phase is dropped when the screen is not refreshing, and the loading wait
   assert.equal(settled.header.phase, null);
   assert.match(settled.header.freshness, /^Updated at |^Last updated at /);
 
-  const unnarrated = createTodayPresentation({ kind: 'loading' }, 'en', false, fixtureNow);
+  const unnarrated = createTodayPresentation({ kind: 'loading' }, 'en', false, 'celsius', fixtureNow);
   const narrated = createTodayPresentation(
-    { kind: 'loading', phase: 'preparing-outfits' }, 'en', false, fixtureNow,
+    { kind: 'loading', phase: 'preparing-outfits' }, 'en', false, 'celsius', fixtureNow,
   );
   assert.equal(unnarrated.phase, null);
   assert.equal(narrated.phase, 'preparing-outfits');

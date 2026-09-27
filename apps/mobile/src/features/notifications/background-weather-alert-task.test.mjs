@@ -94,6 +94,7 @@ function createHarness({ cached = null, ...overrides } = {}) {
     },
     getDeviceLocale: () => 'tr-TR',
     getDeviceHour12: () => false,
+    getDeviceTemperatureUnit: () => 'celsius',
     now: () => now,
     ...overrides,
   };
@@ -120,6 +121,7 @@ test('refreshes, validates, persists, and reschedules through the existing input
     morningBriefingEnabled: false,
     language: 'tr',
     hour12: false,
+    temperatureUnit: 'celsius',
     leadTimeMinutes: weatherAlertBackgroundLeadTimeMinutes,
   });
 });
@@ -154,6 +156,12 @@ test("the device's 12-hour setting reaches the schedule beside the resolved loca
   assert.equal(await runBackgroundWeatherAlertTask(harness.dependencies), 'success');
   assert.deepEqual(locales, ['tr-TR']);
   assert.equal(harness.calls.at(-1).hour12, true);
+});
+
+test('the background task passes the current device temperature unit to scheduling', async () => {
+  const harness = createHarness({ getDeviceTemperatureUnit: () => 'fahrenheit' });
+  assert.equal(await runBackgroundWeatherAlertTask(harness.dependencies), 'success');
+  assert.equal(harness.calls.at(-1).temperatureUnit, 'fahrenheit');
 });
 
 test('a still-fresh cached snapshot reschedules without spending a provider request', async () => {
