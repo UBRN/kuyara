@@ -1,5 +1,5 @@
-import { Stack } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { Stack, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
 import { HistoryScreen, type HistoryEntry } from '@/features/profile/presentation/history-screen';
@@ -11,15 +11,19 @@ export default function HistoryRoute() {
   const [entries, setEntries] = useState<readonly HistoryEntry[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     if (!outfitHistory) return;
     let live = true;
     void outfitHistory.list().then(
-      (records) => { if (live) setEntries(records.map(({ dayKey, outfit }) => ({ dayKey, outfit }))); },
+      (records) => {
+        if (!live) return;
+        setEntries(records.map(({ dayKey, outfit }) => ({ dayKey, outfit })));
+        setLoadFailed(false);
+      },
       () => { if (live) setLoadFailed(true); },
     );
     return () => { live = false; };
-  }, [outfitHistory]);
+  }, [outfitHistory]));
 
   return (
     <>

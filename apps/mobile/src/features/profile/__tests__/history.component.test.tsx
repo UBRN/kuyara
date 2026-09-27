@@ -1,4 +1,4 @@
-import { render, waitFor, within } from '@testing-library/react-native';
+import { act, render, waitFor, within } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -13,7 +13,25 @@ import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
 jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
-jest.mock('expo-router', () => ({ Stack: { Screen: () => null } }));
+const mockHistoryFocus = { refocus: undefined as (() => void) | undefined };
+jest.mock('expo-router', () => {
+  const actualReact = jest.requireActual('react') as typeof import('react');
+  return {
+    Stack: { Screen: () => null },
+    useFocusEffect: (callback: () => void | (() => void)) =>
+      actualReact.useEffect(() => {
+        let cleanup = callback();
+        mockHistoryFocus.refocus = () => {
+          cleanup?.();
+          cleanup = callback();
+        };
+        return () => {
+          cleanup?.();
+          mockHistoryFocus.refocus = undefined;
+        };
+      }, [callback]),
+  };
+});
 
 // eslint-disable-next-line import/first
 import HistoryRoute from '@/app/(tabs)/(profile)/history';
@@ -29,12 +47,13 @@ function record(dayKey: string, archetypeId: OutfitHistoryRecord['outfit']['arch
   };
 }
 
-function Providers({ children, language, list }: PropsWithChildren<{
+function Providers({ children, language, list, log }: PropsWithChildren<{
   language: SupportedLanguage;
   list: () => Promise<readonly OutfitHistoryRecord[]>;
+  log?: (dayKey: string, outfit: OutfitHistoryRecord['outfit']) => Promise<OutfitHistoryRecord>;
 }>) {
   const value = {
-    outfitHistory: { list, get: jest.fn(), log: jest.fn() },
+    outfitHistory: { list, get: jest.fn(), log: log ?? jest.fn() },
   } as unknown as RecommendationApplicationValue;
   return (
     <LocalizationContext value={{ language, messages: messages[language], hour12: false }}>
@@ -98,4 +117,31 @@ test('a failed History read says so instead of showing an empty list', async () 
 
   expect(await result.findByTestId('history-error')).toHaveTextContent(messages.en.profile.historyLoadError);
   expect(result.queryByTestId('history-empty')).toBeNull();
+});
+
+test('History reloads when it regains focus while still mounted', async () => {
+  let records = [record('2026-09-23', 'layered_warmth', 'casual')];
+  const list = jest.fn(async () => records);
+  const log = jest.fn(async (dayKey: string, outfit: OutfitHistoryRecord['outfit']) => {
+    const written = { ...record(dayKey, outfit.archetypeId, outfit.formality), outfit };
+    records = [written];
+    return written;
+  });
+  const result = await render(
+    <Providers language="en" list={list} log={log}>
+      <HistoryRoute />
+    </Providers>,
+  );
+
+  expect(await result.findByTestId('history-entry-2026-09-23')).toBeOnTheScreen();
+  expect(list).toHaveBeenCalledTimes(1);
+
+  await act(async () => {
+    await log('2026-09-24', record('2026-09-24', 'rain_ready', 'smart').outfit);
+    mockHistoryFocus.refocus?.();
+  });
+
+  expect(await result.findByTestId('history-entry-2026-09-24')).toBeOnTheScreen();
+  expect(result.queryByTestId('history-entry-2026-09-23')).toBeNull();
+  expect(list).toHaveBeenCalledTimes(2);
 });
