@@ -136,10 +136,10 @@ against the 30/day cap.
 
 ### 2. Rate limiting for `POST /v1/ai/recommend`
 
-`aiHandler` gains an optional injected `rateLimiter`. When present, it applies a
-per-IP burst limit (`limit: 10, period: 60`) before any provider work; denied ->
-`429 rate_limited`. When absent (existing unit tests, local composition without
-the binding) the check is skipped so current behavior and tests are unchanged.
+`aiHandler` accepts an injected `rateLimiter`. It applies a per-IP burst limit
+(`limit: 10, period: 60`) before any provider work; denial returns
+`429 rate_limited`. The composed AI route returns 503 when the binding or its
+daily counter is missing. Unit tests may inject their own limiter.
 
 ### 3. Cloudflare bindings (`apps/worker/wrangler.jsonc`)
 

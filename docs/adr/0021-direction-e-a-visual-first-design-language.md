@@ -70,8 +70,8 @@ not coordinates:
 
 Today does not carry garment names or a five-row name list. The top row places the
 location opposite the localized date. The title below combines Today, temperature in
-the device locale's unit, an animated condition symbol, and condition. A small archetype label sits below. The morning and evening sheets ask for day type; during the day, it changes inside "Ask the stylist again". The card does not repeat the weather line. Two primary-ink body insight sentences
-replace the overview rationale.
+the device locale's unit, an animated condition symbol, and condition. A small archetype label sits below. The morning and evening sheets ask for day type; during the day, it changes inside "Ask the stylist again". The card does not repeat the weather line. One primary-ink body insight sentence
+replaces the overview rationale.
 
 ### 3. The weather tints the stage rather than occupying a band
 
@@ -184,10 +184,11 @@ Only garment silhouettes enter the board; there is no mannequin, avatar or masco
   silhouette, so two alternate looks can open with the same drawing. That is the clearest
   argument in the spike for richer per-type illustration, and it is a cost of the MVP
   fallback rather than a layout defect.
-- **The accessory role is designed and unfillable.** The recommendation contract's six
-  outfit slots contain no accessory, so catalogue scarves, gloves, hats and umbrellas keep
-  weather properties that nothing can read. This remains a product discussion, not a
-  rendering gap.
+- **Accessories finish a composed outfit.** The six body slots form the core;
+  up to four optional accessory slots attach to the finished outfit. Today
+  shows their small silhouettes beside the finishing-touches caption, while
+  recommendation detail presents them in their own row. The garment board
+  remains body-only.
 - **Native validation remains the acceptance surface.** Dynamic Type up to the largest
   standard text size, Turkish and
   English, genuine dark mode, touch targets, safe areas, the
@@ -220,7 +221,8 @@ is an input and the outcome is deciding what to wear.
 
 ## Out of scope
 
-- The recommendation contract, its six outfit slots, and the absence of an accessory slot.
+- The recommendation contract's six body slots and up to four finishing
+  accessory slots, with only the body entering the garment board.
 - The garment rendering architecture that would later swap silhouettes for artwork.
 - The recommendation detail surface, owned by ADR 0026, and Profile, Closet and Settings,
   owned by ADRs 0028 to 0030.

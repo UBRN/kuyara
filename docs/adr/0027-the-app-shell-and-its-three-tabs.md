@@ -30,9 +30,10 @@ Today, Weather and Profile, from `navigation.today`, `navigation.weather` and
 `navigation.profile` in `apps/mobile/src/localization/messages.ts`. Turkish is Bugün,
 Hava, Profil.
 
-Within the Today tab, the one-line content title combines Today, the localized weekday
-and date, locale-derived temperature and condition; the clock time is not part of it. The archetype is
-a small label below it; the card no longer repeats time, temperature or condition
+Within the Today tab, the top row places location opposite the localized date.
+The content title combines Today, locale-derived temperature, an animated
+condition symbol and condition; the clock time is not part of it. The archetype is
+a small label below it; the card does not repeat time, temperature or condition
 above the garment board. The tab label itself remains simply Today / Bugün.
 
 Measured at the bar's own size, the widest label is the English "Weather" at 42.5 points
