@@ -1,11 +1,15 @@
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useState } from 'react';
 
 import { PrivacySettingsScreen } from '@/features/profile/presentation/privacy-settings-screen';
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
 import { PerformanceTelemetryContext } from '@/features/analytics/application/use-performance-telemetry';
+import { useAnalyticsConsent } from '@/features/analytics/application/use-analytics-consent';
 import { noopProductAnalytics } from '@/features/analytics/data/noop-product-analytics';
+import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
+import { ProfileApplicationContext, type ProfileApplicationValue } from '@/features/profile/application/profile-context';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
@@ -50,7 +54,7 @@ async function renderScreen(
   };
   const telemetry = {
     logEvent: () => undefined, reportError: () => undefined,
-    setDispatching: () => undefined,
+    setDispatching: async () => undefined,
     isApplied: () => readiness.telemetryApplied ?? true,
   };
   const screenProps = {
@@ -244,6 +248,73 @@ test('stored grant keeps the switch on while active PostHog and unapplied teleme
   await waitFor(() => expect(result.rendered.getByText(messages.en.analytics.grantIncomplete)).toBeOnTheScreen());
   expect(result.rendered.getByTestId('settings-privacy-toggle-row-toggle').props.value).toBe(true);
   expect(result.rendered.getByTestId('settings-privacy-retry-grant-row')).toBeOnTheScreen();
+});
+
+test('a successful grant finishes Observe delivery setup before Privacy shows the settled state', async () => {
+  const analytics = new RecordingProductAnalytics('withdrawn');
+  let finishDispatch!: () => void;
+  const dispatch = new Promise<void>((resolve) => { finishDispatch = resolve; });
+  let telemetryApplied = false;
+  let grantResolved = false;
+  const telemetry = {
+    logEvent: () => undefined, reportError: () => undefined,
+    setDispatching: async (enabled: boolean) => {
+      if (enabled) await dispatch;
+      telemetryApplied = enabled;
+    },
+    isApplied: () => telemetryApplied,
+  };
+  const profile = {
+    id: 'profile-id', gender: 'woman', clothingPreference: 'womens', dressStyle: 'smart',
+    birthDate: null, languagePreference: 'en', themePreference: 'light',
+    onboardingCompleted: true, notificationsOptIn: false, analyticsConsent: 'withdrawn',
+    createdAt: '2026-09-09T12:00:00.000Z', updatedAt: '2026-09-09T12:00:00.000Z',
+  };
+
+  function PrivacyWithConsent() {
+    const consent = useAnalyticsConsent();
+    return <PrivacySettingsScreen
+      consent={consent.consent}
+      identifier={consent.getIdentifier()}
+      privacyPolicyUrl={null}
+      onGrant={async () => { await consent.grant('settings_privacy'); grantResolved = true; }}
+      onWithdraw={consent.withdraw}
+      onOpenPrivacyPolicy={() => undefined}
+    />;
+  }
+  function Boundary() {
+    const [answer, setAnswer] = useState<'withdrawn' | 'granted'>('withdrawn');
+    const application = {
+      state: { status: 'ready' as const, profile: { ...profile, analyticsConsent: answer }, isSaving: false },
+      updateAnalyticsConsent: async (value: 'withdrawn' | 'granted') => { setAnswer(value); },
+    } as ProfileApplicationValue;
+    return <ProfileApplicationContext value={application}>
+      <PerformanceTelemetryContext value={telemetry}>
+        <ProductAnalyticsProvider analytics={analytics}>
+          <PrivacyWithConsent />
+        </ProductAnalyticsProvider>
+      </PerformanceTelemetryContext>
+    </ProfileApplicationContext>;
+  }
+  const rendered = await render(
+    <LocalizationContext.Provider value={{ language: 'en', messages: messages.en, hour12: false }}>
+      <KuyaraThemeContext.Provider value={lightTheme}>
+        <SafeAreaProvider initialMetrics={initialMetrics}><Boundary /></SafeAreaProvider>
+      </KuyaraThemeContext.Provider>
+    </LocalizationContext.Provider>,
+  );
+
+  await act(async () => {
+    fireEvent(rendered.getByTestId('settings-privacy-toggle-row-toggle'), 'valueChange', true);
+  });
+  await waitFor(() => expect(analytics.optInCount).toBe(1));
+  expect(grantResolved).toBe(false);
+  expect(rendered.queryByText(messages.en.analytics.grantIncomplete)).toBeNull();
+  expect(rendered.queryByTestId('settings-privacy-retry-grant-row')).toBeNull();
+  await act(async () => { finishDispatch(); await dispatch; });
+  await waitFor(() => expect(grantResolved).toBe(true));
+  expect(rendered.queryByText(messages.en.analytics.grantIncomplete)).toBeNull();
+  expect(rendered.queryByTestId('settings-privacy-retry-grant-row')).toBeNull();
 });
 
 test('a failed grant says sharing is still off, and the next change clears the message', async () => {

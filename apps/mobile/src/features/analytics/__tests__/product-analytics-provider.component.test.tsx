@@ -57,7 +57,7 @@ async function renderProvider(
   const notify = (status: AppStateStatus) => {
     addEventListener.mock.calls.forEach(([, listener]) => listener(status));
   };
-  return { view, background: () => { notify('active'); notify('background'); } };
+  return { view, notify, background: () => { notify('active'); notify('background'); } };
 }
 
 test('mounting the provider captures nothing on its own', async () => {
@@ -93,6 +93,20 @@ test('the background transition emits buffered failures before flushing', async 
     failure_category: 'offline',
     occurrence_count: 1,
   });
+  expect(analytics.flushCount).toBe(1);
+});
+
+test('iOS inactive then background flushes once, while a repeated background does not', async () => {
+  const analytics = new RecordingProductAnalytics();
+  const { notify } = await renderProvider(analytics);
+
+  notify('active');
+  notify('inactive');
+  expect(analytics.flushCount).toBe(0);
+  notify('background');
+  notify('background');
+
+  expect(analytics.names()).toEqual(['error_shown']);
   expect(analytics.flushCount).toBe(1);
 });
 

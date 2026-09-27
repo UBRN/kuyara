@@ -15,10 +15,9 @@
 // - Both packages call `requireNativeModule` at module scope, which throws wherever the
 //   native module is absent (web, a build without the module). The require below is guarded
 //   so importing this adapter is always safe and telemetry simply goes silent.
-// - `dispatchingEnabled` gates delivery, not recording: a `logEvent` or `reportError` made
-//   while it is false is still written to the on-device store, and a later flush sends every
-//   row past the cursor, so it reaches the server after a later grant. Consent therefore has
-//   to gate emission here as well, which is what `canEmit()` below does.
+// - `dispatchingEnabled` gates delivery, not recording. A disabled dispatch advances the
+//   native cursor past stored rows, so a grant must finish one before enabling delivery.
+//   Consent also gates the app's own emission through `canEmit()` below.
 import { useCallback } from 'react';
 import type { ComponentType } from 'react';
 
@@ -55,6 +54,7 @@ type ObserveConfiguration = Readonly<{
 }>;
 
 let applied: ObserveConfiguration | null = null;
+let dispatchChange = 0;
 let readStoredConsent: () => AnalyticsConsent = () =>
   readAnalyticsConsentSync(openKuyaraDatabaseSync);
 
@@ -103,7 +103,7 @@ export function configureObserveTelemetry(
   }
 }
 
-// Nothing is recorded before the person has answered. `applied` is null until the root
+// The app records nothing of its own before the person has answered. `applied` is null until the root
 // layout configures, so the window before configuration is silent too.
 function canEmit(): boolean {
   return applied?.dispatchingEnabled === true && readStoredConsent() === 'granted';
@@ -128,12 +128,25 @@ export const observePerformanceTelemetry: PerformanceTelemetry = {
     }
   },
   setDispatching(enabled: boolean) {
-    if (applied?.dispatchingEnabled === enabled) return;
-    apply({
+    const change = ++dispatchChange;
+    if (applied?.dispatchingEnabled === enabled) return Promise.resolve();
+    const configuration = {
       dispatchingEnabled: enabled,
       environment: applied?.environment ?? (__DEV__ ? 'development' : 'production'),
       dispatchInDebug: applied?.dispatchInDebug ?? dispatchInDebugRequested(),
-    });
+    };
+    if (!enabled) {
+      apply(configuration);
+      return Promise.resolve();
+    }
+    // A failed cursor flush must leave delivery disabled. A later withdrawal cancels
+    // an in-flight grant so it cannot re-enable dispatch after consent changes.
+    return (observe?.Observe.dispatchEvents() ?? Promise.resolve())
+      .then(() => {
+        if (change === dispatchChange && readStoredConsent() === 'granted') {
+          apply(configuration);
+        }
+      });
   },
 };
 

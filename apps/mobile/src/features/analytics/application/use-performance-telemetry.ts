@@ -10,7 +10,7 @@ import type { PerformanceTelemetry } from '@/features/analytics/domain/performan
 export const PerformanceTelemetryContext = createContext<PerformanceTelemetry>({
   logEvent: () => undefined,
   reportError: () => undefined,
-  setDispatching: () => undefined,
+  setDispatching: async () => undefined,
   isApplied: () => true,
 });
 

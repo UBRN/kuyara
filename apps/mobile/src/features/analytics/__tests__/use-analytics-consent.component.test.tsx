@@ -169,7 +169,7 @@ test('grant, withdrawal, and decline use the required operation order', async ()
     <ProfileApplicationContext value={application}>
       <PerformanceTelemetryContext value={{
         logEvent: () => undefined, reportError: () => undefined,
-        setDispatching: (enabled) => { operations.push(`telemetry:${enabled}`); },
+        setDispatching: async (enabled) => { operations.push(`telemetry:${enabled}`); },
         isApplied: () => true,
       }}>
         <ProductAnalyticsProvider
@@ -214,6 +214,39 @@ test('grant, withdrawal, and decline use the required operation order', async ()
   expect(controls.getIdentifier()).toBe('analytics-id');
   resetErrors.mockRestore();
   resetRetries.mockRestore();
+});
+
+test('rejected Observe dispatch rolls back a saved grant and rejects visibly', async () => {
+  const operations: string[] = [];
+  const analytics = new RecordingProductAnalytics('undecided');
+  let controls!: AnalyticsConsentControls;
+  const application = {
+    state: { status: 'ready' as const, profile, isSaving: false },
+    updateAnalyticsConsent: async (consent: string) => { operations.push(`persist:${consent}`); },
+  } as ProfileApplicationValue;
+
+  await render(
+    <ProfileApplicationContext value={application}>
+      <PerformanceTelemetryContext value={{
+        logEvent: () => undefined, reportError: () => undefined,
+        setDispatching: async (enabled) => {
+          operations.push(`telemetry:${enabled}`);
+          if (enabled) throw new Error('Observe dispatch failed');
+        },
+        isApplied: () => false,
+      }}>
+        <ProductAnalyticsProvider analytics={analytics}>
+          <Harness onReady={(value) => { controls = value; }} />
+        </ProductAnalyticsProvider>
+      </PerformanceTelemetryContext>
+    </ProfileApplicationContext>,
+  );
+
+  await expect(controls.grant('settings_privacy')).rejects.toThrow('Observe dispatch failed');
+  expect(operations).toEqual([
+    'persist:granted', 'telemetry:true', 'telemetry:false', 'persist:withdrawn',
+  ]);
+  expect(analytics.withdrawCount).toBe(1);
 });
 
 test('a failed grant persistence never opts the provider in', async () => {
@@ -419,7 +452,7 @@ test('a failed withdrawal write keeps capture closed and retry only writes and c
     <ProfileApplicationContext value={application}>
       <PerformanceTelemetryContext value={{
         logEvent: () => undefined, reportError: () => undefined,
-        setDispatching: (enabled) => { operations.push(`telemetry:${enabled}`); },
+        setDispatching: async (enabled) => { operations.push(`telemetry:${enabled}`); },
         isApplied: () => true,
       }}>
         <ProductAnalyticsProvider analytics={analytics}>
@@ -471,7 +504,7 @@ test('failed native telemetry disable emits nothing and a successful retry emits
     <ProfileApplicationContext value={application}>
       <PerformanceTelemetryContext value={{
         logEvent: () => undefined, reportError: () => undefined,
-        setDispatching: () => {
+        setDispatching: async () => {
           operations.push('disable');
           if (failDisable) throw new Error('native configure failed');
         },
@@ -516,7 +549,7 @@ test('failed final-event capture and flush still disable and persist withdrawal 
     <ProfileApplicationContext value={application}>
       <PerformanceTelemetryContext value={{
         logEvent: () => undefined, reportError: () => undefined,
-        setDispatching: (enabled) => { operations.push(`telemetry:${enabled}`); },
+        setDispatching: async (enabled) => { operations.push(`telemetry:${enabled}`); },
         isApplied: () => true,
       }}>
         <ProductAnalyticsProvider analytics={analytics}>
@@ -554,7 +587,7 @@ test('failed provider opt-in rolls back a saved grant and leaves a retry path', 
     <ProfileApplicationContext value={application}>
       <PerformanceTelemetryContext value={{
         logEvent: () => undefined, reportError: () => undefined,
-        setDispatching: (enabled) => { operations.push(`telemetry:${enabled}`); },
+        setDispatching: async (enabled) => { operations.push(`telemetry:${enabled}`); },
         isApplied: () => true,
       }}>
         <ProductAnalyticsProvider analytics={analytics}>
