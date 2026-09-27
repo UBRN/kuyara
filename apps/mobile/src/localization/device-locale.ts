@@ -1,6 +1,9 @@
-import { I18nManager, NativeModules, Platform } from 'react-native';
+import { useEffect, useState } from 'react';
+import { AppState, I18nManager, NativeModules, Platform } from 'react-native';
+import { getLocales, useLocales } from 'expo-localization';
 
 type AppleSettings = Record<string, unknown> | undefined;
+export type TemperatureUnit = 'celsius' | 'fahrenheit';
 
 function firstString(value: unknown): string | undefined {
   if (typeof value === 'string') {
@@ -21,7 +24,9 @@ function getAppleSettings(): AppleSettings {
         getConstants?: () => { settings?: Record<string, unknown> };
       }
     | undefined;
-  return settingsManager?.settings ?? settingsManager?.getConstants?.().settings;
+  return settingsManager?.getConstants
+    ? settingsManager.getConstants().settings
+    : settingsManager?.settings;
 }
 
 function isEnabled(value: unknown): boolean {
@@ -67,5 +72,40 @@ export function getDeviceHour12(deviceLocale = getDeviceLocale()): boolean {
   return resolveDeviceHour12(
     Platform.OS === 'ios' ? getAppleSettings() : undefined,
     deviceLocale,
+  );
+}
+
+export function resolveDeviceTemperatureUnit(
+  settings: AppleSettings,
+  locales: readonly Readonly<{ temperatureUnit?: unknown }>[],
+): TemperatureUnit {
+  if (settings?.AppleTemperatureUnit === 'Fahrenheit') return 'fahrenheit';
+  if (settings?.AppleTemperatureUnit === 'Celsius') return 'celsius';
+  const localeUnit = locales[0]?.temperatureUnit;
+  return localeUnit === 'fahrenheit' || localeUnit === 'celsius'
+    ? localeUnit
+    : 'celsius';
+}
+
+export function getDeviceTemperatureUnit(): TemperatureUnit {
+  return resolveDeviceTemperatureUnit(
+    Platform.OS === 'ios' ? getAppleSettings() : undefined,
+    getLocales(),
+  );
+}
+
+export function useDeviceTemperatureUnit(): TemperatureUnit {
+  const locales = useLocales();
+  const [, refresh] = useState(0);
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refresh((value) => value + 1);
+    });
+    return () => subscription.remove();
+  }, []);
+  return resolveDeviceTemperatureUnit(
+    Platform.OS === 'ios' ? getAppleSettings() : undefined,
+    locales,
   );
 }

@@ -136,6 +136,7 @@ function Providers({
   permission = { kind: 'granted' },
   language = 'en',
   hour12 = false,
+  temperatureUnit = 'celsius',
   freshness = 'fresh',
   refreshFailure = null,
   weatherStatus = 'ready',
@@ -147,6 +148,7 @@ function Providers({
   permission?: NotificationPermissionState;
   language?: SupportedLanguage;
   hour12?: boolean;
+  temperatureUnit?: 'celsius' | 'fahrenheit';
   freshness?: WeatherFreshness;
   refreshFailure?: FailureCategory | null;
   weatherStatus?: 'loading' | 'ready' | 'error';
@@ -154,7 +156,7 @@ function Providers({
 }>) {
   return (
     <ProfileApplicationContext.Provider value={profileApplication(notificationsOptIn)}>
-      <LocalizationContext.Provider value={{ language, messages: messages[language], hour12 }}>
+      <LocalizationContext.Provider value={{ language, messages: messages[language], hour12, temperatureUnit }}>
         <NotificationApplicationContext.Provider value={notificationApplication(scheduler, permission)}>
           <WeatherApplicationContext.Provider
             value={weatherApplication(
@@ -233,6 +235,23 @@ test("the device's clock setting reaches the scheduler and re-plans when it chan
 
   await waitFor(() => expect(reschedule).toHaveBeenCalledTimes(2));
   expect(reschedule.mock.calls[1]?.[0].hour12).toBe(true);
+});
+
+test('changing the device temperature unit reschedules local alerts', async () => {
+  const reschedule = jest.fn<
+    ReturnType<WeatherAlertScheduling['reschedule']>,
+    Parameters<WeatherAlertScheduling['reschedule']>
+  >(async () => undefined);
+  const scheduler: WeatherAlertScheduling = { reschedule };
+  const weatherSnapshot = snapshot('snapshot-one');
+  const result = await render(<Providers scheduler={scheduler} weatherSnapshot={weatherSnapshot} />);
+  await waitFor(() => expect(reschedule).toHaveBeenCalledTimes(1));
+  expect(reschedule.mock.calls[0]?.[0].temperatureUnit).toBe('celsius');
+  result.rerender(
+    <Providers scheduler={scheduler} temperatureUnit="fahrenheit" weatherSnapshot={weatherSnapshot} />,
+  );
+  await waitFor(() => expect(reschedule).toHaveBeenCalledTimes(2));
+  expect(reschedule.mock.calls[1]?.[0].temperatureUnit).toBe('fahrenheit');
 });
 
 test('a stale snapshot still reschedules weather alerts with the cached snapshot', async () => {

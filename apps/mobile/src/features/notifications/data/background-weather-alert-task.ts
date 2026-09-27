@@ -6,6 +6,7 @@ import type { WeatherProvider } from '@/features/weather/data/weather-provider';
 import type { WeatherRepository } from '@/features/weather/data/weather-repository';
 import { weatherFreshness } from '@/features/weather/domain/weather';
 import { resolveLanguagePreference } from '@/localization/language-preference';
+import type { TemperatureUnit } from '@/localization/device-locale';
 
 export type BackgroundWeatherAlertTaskOutcome = 'success' | 'failed';
 
@@ -17,6 +18,7 @@ type BackgroundWeatherAlertTaskDependencies = Readonly<{
   reschedule: WeatherAlertScheduling['reschedule'];
   getDeviceLocale: () => string;
   getDeviceHour12: (deviceLocale: string) => boolean;
+  getDeviceTemperatureUnit: () => TemperatureUnit;
   now: () => string;
 }>;
 
@@ -64,6 +66,7 @@ export async function runBackgroundWeatherAlertTask(
       morningBriefingEnabled: profile.morningBriefingOptIn,
       language: resolveLanguagePreference(profile.languagePreference, deviceLocale),
       hour12: dependencies.getDeviceHour12(deviceLocale),
+      temperatureUnit: dependencies.getDeviceTemperatureUnit(),
       // ADR 0032 section 3: the app is not open here, so a crossing closer than the
       // foreground lead still earns a shortened warning.
       leadTimeMinutes: weatherAlertBackgroundLeadTimeMinutes,

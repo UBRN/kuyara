@@ -158,14 +158,14 @@ function TodayScreenContent({
   const router = useRouter();
   const recommendationApplication = use(RecommendationApplicationContext);
   const weatherApplication = useWeatherApplication();
-  const { hour12 } = useLocalization();
+  const { hour12, temperatureUnit } = useLocalization();
   const presentationState =
     state.kind === 'unavailable' &&
     weatherApplication.state.status === 'ready' &&
     weatherApplication.state.activeLocation === null
       ? { ...state, reason: 'no-active-location' as const }
       : state;
-  const presentation = createTodayPresentation(presentationState, language, hour12, now);
+  const presentation = createTodayPresentation(presentationState, language, hour12, temperatureUnit, now);
   const copy = getMessages(language).today;
   const theme = useKuyaraTheme();
   // One shared threshold (ADR 0019): the stacked layout is the same rule ListRow applies.
@@ -405,7 +405,7 @@ function TodayScreenContent({
         <View style={styles.titleRow}>
           <View
             accessible
-            accessibilityLabel={presentation.title}
+            accessibilityLabel={presentation.titleAccessibilityLabel}
             accessibilityRole="header"
             style={styles.title}
             testID="today-title">

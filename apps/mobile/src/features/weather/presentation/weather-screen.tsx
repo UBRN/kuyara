@@ -39,7 +39,8 @@ import { remainingHourlyForecast } from '@/features/weather/presentation/remaini
 import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
 import { resolveDaypart } from '@/features/today/domain/atmosphere-state';
 import { useLocalization } from '@/localization/use-messages';
-import { formatTemperature, localeTag } from '@/presentation/format-temperature';
+import { formatTemperature, formatTemperatureDifference, formatTemperatureValue, localeTag } from '@/presentation/format-temperature';
+import type { TemperatureUnit } from '@/localization/device-locale';
 import { radii, spacing, typography } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -117,6 +118,7 @@ function outlookSentence(
   timeZone: string,
   language: 'en' | 'tr',
   hour12: boolean,
+  temperatureUnit: TemperatureUnit,
 ): string {
   // The dressing day is what "the rest of" means: before 18:00 local it is the rest of the
   // calendar day, and from 18:00 it runs to 04:00, which the copy calls the evening. The
@@ -130,9 +132,9 @@ function outlookSentence(
   if (outlook.kind === 'temperature_change') {
     const values = {
       time: at,
-      degrees: formatTemperature(
+      degrees: formatTemperatureDifference(
         Math.abs(outlook.toApparentCelsius - outlook.fromApparentCelsius),
-        language,
+        language, temperatureUnit
       ),
     };
     return outlook.direction === 'drop'
@@ -160,7 +162,7 @@ function locationName(
 }
 
 export function WeatherScreen() {
-  const { hour12, language, messages } = useLocalization();
+  const { hour12, language, messages, temperatureUnit } = useLocalization();
   const theme = useKuyaraTheme();
   const { usesStackedLayout } = useTextScaling();
   const copy = messages.weather;
@@ -325,19 +327,20 @@ export function WeatherScreen() {
         accessibilityLabel: copy.dailyForecastAccessibilityLabel({
           day: weekday(date, 'UTC', language, 'long'),
           condition: copy.conditions[day.condition],
-          minimumTemperature: formatTemperature(day.minimumTemperatureCelsius, language),
-          maximumTemperature: formatTemperature(day.maximumTemperatureCelsius, language),
+          unitName: messages.temperatureUnitNames[temperatureUnit],
+          minimumTemperature: formatTemperatureValue(day.minimumTemperatureCelsius, language, temperatureUnit),
+          maximumTemperature: formatTemperatureValue(day.maximumTemperatureCelsius, language, temperatureUnit),
           precipitationProbability: day.precipitationProbability,
           precipitationMillimetres: amount ?? undefined,
           currentTemperature: currentCelsius === null
             ? undefined
-            : formatTemperature(currentCelsius, language),
+            : formatTemperatureValue(currentCelsius, language, temperatureUnit),
         }),
         condition: day.condition,
         currentCelsius,
-        maximum: formatTemperature(day.maximumTemperatureCelsius, language),
+        maximum: formatTemperature(day.maximumTemperatureCelsius, language, temperatureUnit),
         maximumCelsius: day.maximumTemperatureCelsius,
-        minimum: formatTemperature(day.minimumTemperatureCelsius, language),
+        minimum: formatTemperature(day.minimumTemperatureCelsius, language, temperatureUnit),
         minimumCelsius: day.minimumTemperatureCelsius,
         precipitation: amount !== null
           ? copy.dailyPrecipitationValue(amount, chance)
@@ -441,13 +444,14 @@ export function WeatherScreen() {
                 accessible
                 accessibilityLabel={copy.currentConditionsAccessibilityLabel({
                   condition: copy.conditions[snapshot.current.condition],
-                  temperature: formatTemperature(snapshot.current.temperatureCelsius, language),
-                  apparentTemperature: formatTemperature(
+                  unitName: messages.temperatureUnitNames[temperatureUnit],
+                  temperature: formatTemperatureValue(snapshot.current.temperatureCelsius, language, temperatureUnit),
+                  apparentTemperature: formatTemperatureValue(
                     snapshot.current.apparentTemperatureCelsius,
-                    language,
+                    language, temperatureUnit
                   ),
-                  minimumTemperature: formatTemperature(snapshot.minimumTemperatureCelsius, language),
-                  maximumTemperature: formatTemperature(snapshot.maximumTemperatureCelsius, language),
+                  minimumTemperature: formatTemperatureValue(snapshot.minimumTemperatureCelsius, language, temperatureUnit),
+                  maximumTemperature: formatTemperatureValue(snapshot.maximumTemperatureCelsius, language, temperatureUnit),
                   precipitationProbability: snapshot.current.precipitationProbability,
                 })}
                 style={[
@@ -462,7 +466,7 @@ export function WeatherScreen() {
                       numberOfLines={1}
                       tabularNumbers
                       variant="display">
-                      {formatTemperature(snapshot.current.temperatureCelsius, language)}
+                      {formatTemperature(snapshot.current.temperatureCelsius, language, temperatureUnit)}
                     </AppText>
                     <AppText variant="bodyStrong">
                       {copy.conditions[snapshot.current.condition]}
@@ -470,10 +474,10 @@ export function WeatherScreen() {
                   </View>
                   <AppText colorRole="textSecondary" variant="caption">
                     {`${copy.feelsLike(
-                      formatTemperature(snapshot.current.apparentTemperatureCelsius, language),
+                      formatTemperature(snapshot.current.apparentTemperatureCelsius, language, temperatureUnit),
                     )} · ${copy.range(
-                      formatTemperature(snapshot.minimumTemperatureCelsius, language),
-                      formatTemperature(snapshot.maximumTemperatureCelsius, language),
+                      formatTemperature(snapshot.minimumTemperatureCelsius, language, temperatureUnit),
+                      formatTemperature(snapshot.maximumTemperatureCelsius, language, temperatureUnit),
                     )}`}
                   </AppText>
                 </View>
@@ -498,7 +502,7 @@ export function WeatherScreen() {
                   tabularNumbers
                   testID="weather-outlook"
                   variant="body">
-                  {outlookSentence(outlook, copy, snapshot.timeZone, language, hour12)}
+                  {outlookSentence(outlook, copy, snapshot.timeZone, language, hour12, temperatureUnit)}
                 </AppText>
               ) : null}
 
@@ -603,7 +607,8 @@ export function WeatherScreen() {
                         ? weekday(hour.forecastAt, snapshot.timeZone, language, 'long')
                         : undefined,
                       time: hourLabel,
-                      temperature: formatTemperature(hour.temperatureCelsius, language),
+                      unitName: messages.temperatureUnitNames[temperatureUnit],
+                      temperature: formatTemperatureValue(hour.temperatureCelsius, language, temperatureUnit),
                       condition: copy.conditions[hour.condition],
                       precipitationProbability: hour.precipitationProbability,
                     }),
@@ -615,7 +620,7 @@ export function WeatherScreen() {
                     ),
                     precipitationProbability: hour.precipitationProbability,
                     precipitation: percentage(hour.precipitationProbability, language),
-                    temperature: formatTemperature(hour.temperatureCelsius, language),
+                    temperature: formatTemperature(hour.temperatureCelsius, language, temperatureUnit),
                     temperatureCelsius: hour.temperatureCelsius,
                     // O14 rail A: the first column is the current hour, so it says "Now";
                     // its spoken label keeps the clock time.

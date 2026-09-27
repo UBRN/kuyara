@@ -139,7 +139,7 @@ export function OutfitDetailScreen({
   onWoreThis,
 }: OutfitDetailScreenProps) {
   const theme = useKuyaraTheme();
-  const { hour12 } = useLocalization();
+  const { hour12, temperatureUnit } = useLocalization();
   const { fontScale, usesStackedLayout } = useTextScaling();
   const [contentWidth, setContentWidth] = useState(0);
   const [captionHeights, setCaptionHeights] = useState<Readonly<Record<string, number>>>({});
@@ -152,7 +152,7 @@ export function OutfitDetailScreen({
   }), [piecesSettled, theme.motion.fast]);
   const messages = getMessages(language);
   const copy = messages.today;
-  const presentation = createTodayPresentation(state, language, hour12, now);
+  const presentation = createTodayPresentation(state, language, hour12, temperatureUnit, now);
   const suggestion =
     presentation.kind === 'loaded'
       ? presentation.suggestions.find(({ id }) => id === suggestionId)
@@ -526,12 +526,7 @@ export function OutfitDetailScreen({
         <Entrance index={1}>
           <View
             accessible
-            accessibilityLabel={[
-              presentation.weather.temperature,
-              presentation.weather.condition,
-              presentation.weather.rainProbability,
-              ...(presentation.coverageCaption ? [presentation.coverageCaption] : []),
-            ].join(', ')}
+            accessibilityLabel={presentation.weather.recapAccessibilityLabel}
             style={[styles.weatherRecap, { backgroundColor: stageColor }]}
             testID="outfit-detail-weather-recap">
             <View style={styles.weatherRecapValues}>
