@@ -1,0 +1,43 @@
+{
+  "weather": {
+    "latitudeE2": 4101,
+    "longitudeE2": 2897,
+    "timeZone": "Europe/Istanbul"
+  },
+  "placeSearch": {
+    "query": "istanbul",
+    "limit": 5,
+    "language": "tr"
+  },
+  "aiV1": {
+    "clothingPreference": "womens",
+    "dressStyle": "smart",
+    "catalogVersion": 1,
+    "dayVariant": 0,
+    "requirements": [
+      { "kind": "thermal", "minimum": "light", "priority": "mandatory", "reasonCodes": ["temperature_low"] }
+    ],
+    "options": [
+      {
+        "optionId": "opt-01",
+        "formality": "smart",
+        "garments": [
+          { "slot": "primary_top", "layerRole": "base", "garmentTypeId": "shirt" },
+          { "slot": "bottom", "layerRole": null, "garmentTypeId": "trousers" },
+          { "slot": "footwear", "layerRole": null, "garmentTypeId": "closed_shoes" }
+        ],
+        "traits": {
+          "hasMidLayer": false,
+          "hasOuterLayer": false,
+          "outerThermalHigh": false,
+          "outerWaterProtective": false,
+          "windResistant": false,
+          "tractionEnhanced": false,
+          "breathabilityHigh": true
+        }
+      }
+    ]
+  },
+  "build14AiFields": { "dayKind": "weekday" },
+  "build15AiFields": { "dayKind": "weekday", "locale": "tr", "styleAesthetics": ["classic", "minimal"] }
+}

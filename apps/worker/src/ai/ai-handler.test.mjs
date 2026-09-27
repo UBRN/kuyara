@@ -825,6 +825,47 @@ test('requests with different offered option ids use different shared-cache entr
   }
 });
 
+test('same option ids with changed offered garments miss the shared cache', async () => {
+  const restore = installMemoryCache();
+  try {
+    let calls = 0;
+    const handle = createAiHandler({ providers: [{
+      async generateOutfits() { calls += 1; return validOutput(); },
+    }] });
+    const changed = validRequestBody();
+    changed.options[0].garments[0].garmentTypeId = 'blouse';
+    assert.equal((await handle(request())).status, 200);
+    assert.equal((await handle(request({ body: JSON.stringify(changed) }))).status, 200);
+    assert.equal(calls, 2);
+  } finally { restore(); }
+});
+
+test('a cached selection is checked against the current offer', async () => {
+  const previous = globalThis.caches;
+  let cached;
+  globalThis.caches = { default: {
+    async match() { return cached?.clone(); },
+    async put(_key, response) { cached = response.clone(); },
+  } };
+  try {
+    let calls = 0;
+    const handle = createAiHandler({ providers: [{
+      async generateOutfits() { calls += 1; return validOutput(); },
+    }] });
+    assert.equal((await handle(request())).status, 200);
+    cached = new Response(JSON.stringify({ data: { picks: [
+      { optionId: 'missing', archetypeId: 'everyday_easy' },
+      ...validOutput().data.picks.slice(1),
+    ] } }));
+    const response = await handle(request());
+    assert.deepEqual(await response.json(), validOutput());
+    assert.equal(calls, 2);
+  } finally {
+    if (previous === undefined) delete globalThis.caches;
+    else globalThis.caches = previous;
+  }
+});
+
 // The canonical string the Worker hashed before the day facts and the gate version joined
 // the key, so a test can leave an entry exactly where an older deploy left one.
 async function preGateCacheUrl(body) {

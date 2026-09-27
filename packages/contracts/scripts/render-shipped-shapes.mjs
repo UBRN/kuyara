@@ -1,14 +1,15 @@
-// Renders the response shapes a shipped binary's contract schemas accept, as JSON Schema with
-// every `additionalProperties` removed, into src/__fixtures__/shipped-build8-response-shapes.json.
+// Renders response shapes from a recorded shipped commit as JSON Schema with
+// every `additionalProperties` removed. v1 is frozen against build 8, v2 against build 15.
 // src/shipped-shape.test.mjs projects HEAD's schemas the same way and asserts equality.
 //
 // Regenerate (for example after a Zod upgrade changes toJSONSchema output), from the repo root:
 //
 //   node --experimental-strip-types packages/contracts/scripts/render-shipped-shapes.mjs 67c20ae
+//   node --experimental-strip-types packages/contracts/scripts/render-shipped-shapes.mjs --v2 046eb2c
 //
-// The commit argument is the one the oldest installed binary was built from. The script writes
-// that commit's weather-v1.ts, ai-v1.ts and place-search-v1.ts into a temporary directory (under
-// TMPDIR), resolves `zod` there through this package's node_modules and imports them unchanged.
+// The commit argument identifies the recorded binary. The script copies that commit's route
+// schemas and their imports into a temporary directory, resolves this package's Zod there,
+// and imports the historical source unchanged.
 
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
@@ -25,6 +26,8 @@ export const fixturePath = join(
   '__fixtures__',
   'shipped-build8-response-shapes.json',
 );
+export const v2FixturePath = join(packageDirectory, 'src', '__fixtures__',
+  'shipped-build15-v2-response-shapes.json');
 
 // One entry per response body the Worker sends, keyed "<file>:<exportName>".
 export const responseSchemaNames = {
@@ -37,6 +40,10 @@ export const responseSchemaNames = {
     'aiV1ErrorSchema',
   ],
   'place-search-v1': ['placeSearchV1SuccessSchema', 'placeSearchV1ErrorSchema'],
+};
+export const v2ResponseSchemaNames = {
+  'weather-v2': ['weatherV2SuccessSchema'],
+  'ai-v2': ['aiRecommendV2SuccessSchema'],
 };
 
 // Reader-side enum widening (Lane E: weather `origin.sourceId`, weather and place-search
@@ -72,9 +79,9 @@ export function projectResponseShape(_key, schema) {
   return normalise(z.toJSONSchema(schema, { unrepresentable: 'any' }));
 }
 
-export async function renderShapes(modulesByFile) {
+export async function renderShapes(modulesByFile, schemaNames = responseSchemaNames) {
   const shapes = {};
-  for (const [file, names] of Object.entries(responseSchemaNames)) {
+  for (const [file, names] of Object.entries(schemaNames)) {
     const module = await modulesByFile(file);
     for (const name of names) {
       const key = `${file}:${name}`;
@@ -86,11 +93,16 @@ export async function renderShapes(modulesByFile) {
 }
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
-  const commit = process.argv[2];
-  if (!commit) throw new Error('Usage: render-shipped-shapes.mjs <commit>');
+  const v2 = process.argv[2] === '--v2';
+  const commit = process.argv[v2 ? 3 : 2];
+  if (!commit) throw new Error('Usage: render-shipped-shapes.mjs [--v2] <commit>');
 
   const directory = mkdtempSync(join(tmpdir(), 'kuyara-shipped-contracts-'));
-  for (const file of Object.keys(responseSchemaNames)) {
+  const names = v2 ? v2ResponseSchemaNames : responseSchemaNames;
+  const files = v2
+    ? ['enum-or-unknown', 'weather-v1', 'ai-v1', ...Object.keys(names)]
+    : Object.keys(names);
+  for (const file of files) {
     const source = execFileSync('git', ['show', `${commit}:packages/contracts/src/${file}.ts`], {
       cwd: packageDirectory,
       encoding: 'utf8',
@@ -99,7 +111,8 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
   }
   symlinkSync(join(packageDirectory, 'node_modules'), join(directory, 'node_modules'));
 
-  const shapes = await renderShapes((file) => import(pathToFileURL(join(directory, `${file}.ts`)).href));
-  writeFileSync(fixturePath, `${JSON.stringify(shapes, null, 2)}\n`);
-  console.log(`Wrote ${Object.keys(shapes).length} shapes from ${commit} to ${fixturePath}`);
+  const shapes = await renderShapes((file) => import(pathToFileURL(join(directory, `${file}.ts`)).href), names);
+  const target = v2 ? v2FixturePath : fixturePath;
+  writeFileSync(target, `${JSON.stringify(shapes, null, 2)}\n`);
+  console.log(`Wrote ${Object.keys(shapes).length} shapes from ${commit} to ${target}`);
 }
