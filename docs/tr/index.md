@@ -41,8 +41,9 @@ privacy_title: Ücretsiz, reklamsız, sessiz
 privacy_account: >-
   Bu sürüm hesap açmadan çalışıyor. Kaydolman gereken bir şey yok.
 privacy_consent: >-
-  Kullanım analitiği ve tanılama verileri yalnızca sen onay verdikten sonra
-  toplanıyor; Ayarlar'dan yeniden kapatabilirsin.
+  Kullanım analitiği ve performans tanılamaları uygulamada yaptığın seçime bağlıdır;
+  gizlilik politikasında anlatılan nadir teknik kayıtlar bunun istisnasıdır. Açılış
+  sayımı ve güncelleme kontrolü bu seçimden bağımsızdır. Paylaşımı Ayarlar'dan kapatabilirsin.
 privacy_location: >-
   Konumun hava durumunu almak için kullanılıyor ve gönderilmeden önce yuvarlanıyor.
   Analitiğe hiç girmiyor.

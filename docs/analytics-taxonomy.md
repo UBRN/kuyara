@@ -160,16 +160,14 @@ surface became part of milestone 10 under ADR 0033.
 ### 5.0 Properties every event carries
 
 Every custom event sent through the `ProductAnalytics` boundary carries `schema_version`
-(integer, 4 when `outfit_worn_logged` ships). It is incremented when an existing event's properties change
-meaning or an allowed value set changes; the history event also takes the approved
-version bump. Version 3 is the
+(integer). It is incremented when an existing event's properties change meaning or an
+allowed value set changes. Version 3 is the
 notification work: `setting_name` gained `morning_briefing_enabled` and `notification_opened`
 gained a required `kind`. The SDK-supplied app
 version, OS version, and build number (already covered by the provider default, section 5.1)
 are not duplicated as custom properties on any event.
 
-**Count.** This document defines **twenty-five custom events**. The implemented typed
-catalog and `docs/current-status.md` retain twenty-four until the history milestone ships.
+**Count.** This document defines **twenty-four custom events**.
 
 **Domain values are mapped, not passed through.** Several enums below are the `snake_case`
 form of a kebab-case domain type. `generation_mode` is `on_device_ai` / `ai_assisted` / `deterministic_fallback`
@@ -198,13 +196,20 @@ The backgrounded event is also the flush point for the aggregation rules in sect
 locale, and timezone metadata (`docs/adr/0033-apple-privacy-obligations-for-first-party-analytics.md:99-103`).
 This taxonomy accepts the SDK's random install and session identifiers described in
 section 2, app version and build metadata, OS name and version, coarse device name or type,
-locale, and timezone. IP capture and every IP-derived geo property are disabled. Advertising
+locale. Timezone names are dropped because they can contain a city. IP capture and every
+IP-derived geo property are disabled. Advertising
 identifiers, vendor identifiers, hardware identifiers, person-profile enrichment, and any
-property on the exclusion checklist remain disabled. The exact default key set, including
-the build and session property names, is **unknown until the SDK version is installed and
-pinned**. Milestone 10 must inspect a captured payload against this allowlist; a
-version-dependent default outside it is disabled or added here through review, never
-accepted implicitly.
+property on the exclusion checklist remain disabled. The event adapter admits only
+`$device_id`, `$session_id`, `$app_version`, `$app_build`, `$os_name`, `$os_version`,
+`$device_name`, `$device_type`, `$locale`, `$lib`, `$lib_version`,
+`$geoip_disable` and `$process_person_profile`. The two library keys identify the SDK for
+ingestion and error tracking without identifying a person. `$geoip_disable` prevents
+location enrichment; `$process_person_profile` preserves the SDK's `false` control on
+anonymous captures so PostHog does not create a person profile. The adapter drops every
+other SDK property, including app namespace, device manufacturer, emulator status, feature
+flags and URLs. Exception events separately admit the closed fields in ADR 0035. A
+version-dependent default outside this list is disabled
+or added here through review, never accepted implicitly.
 
 **Product questions answered.** Lifecycle autocapture answers "how often and how long is the
 app used?"
@@ -370,11 +375,7 @@ use `regenerate` instead.
 | Event | Trigger | Properties |
 | --- | --- | --- |
 | `outfit_detail_opened` | The user opens one of the three outfits from Today. | `outfit_position` (`1`\|`2`\|`3`), `archetype` (one of the twelve closed archetype identifiers already defined in the AI selection contract; not restated here to avoid drift from that source of truth), `generation_mode` (`on_device_ai`\|`ai_assisted`\|`deterministic_fallback`), `dress_style` and `age_bucket` (section 3) |
-| `outfit_worn_logged` | The user confirms or overwrites "Wore this today" on outfit detail. | `action` (`created`\|`overwritten`) only; no outfit, garment, photo or day identity |
-
-Opening detail is an impression of interest; `outfit_worn_logged` alone records a
-confirmed wear action. The latter is closed and carries no garment identity, free text,
-image content or history row ID. Its addition ships with the schema-version bump above.
+Opening detail is an impression of interest. Logging a worn outfit emits no new event.
 
 **Product questions answered.**
 

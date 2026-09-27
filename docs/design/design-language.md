@@ -176,7 +176,9 @@ is stored. Colour reaches no text, control, border or chrome, it is never compos
 alpha, and it is never the only signal: the outline, the garment name and the accessibility
 label say the same thing without it. Personal records in the Closet and on the Profile rack keep
 the colour-family fills: a recorded colour always wins, and a record without one stays
-neutral rather than being guessed at.
+neutral rather than being guessed at. Multicolour records use the approved two-stop
+diagonal family gradient in the Closet grid and on the Profile rack; this is the exception
+to the single-colour family fill rule on those two surfaces.
 
 **Controlled roles are approved and enter as a band, not as free hues.** Every controlled
 ink is tuned so its contrast against its own appearance's `surface` lies within **±0.8**

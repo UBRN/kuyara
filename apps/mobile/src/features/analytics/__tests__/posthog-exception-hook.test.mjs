@@ -14,6 +14,9 @@ function exceptionEvent(line = 12) {
       schema_version: 3,
       unapproved_custom: 'drop me',
       '$lib': 'posthog-react-native',
+      '$lib_version': '4.68.4',
+      '$lib_custom': 'unreviewed SDK extension',
+      '$process_person_profile': false,
       '$ip': '203.0.113.1',
       '$geoip_country_code': 'TR',
       '$geoip_disable': true,
@@ -84,6 +87,8 @@ test('exception payloads keep only the explicit allowlist', () => {
     properties: {
       schema_version: 3,
       '$lib': 'posthog-react-native',
+      '$lib_version': '4.68.4',
+      '$process_person_profile': false,
       '$geoip_disable': true,
       '$exception_level': 'error',
       '$exception_list': [{

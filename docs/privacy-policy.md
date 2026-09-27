@@ -14,11 +14,12 @@ describes what data the app sends off your device, why, and what you can do abou
 ## Summary
 
 - kuyara does not ask you to sign in. Your profile, Closet and settings live on your device.
-- Usage analytics and diagnostics are optional and sent only after you accept the consent
-  question kuyara asks after onboarding.
+- Usage analytics and performance diagnostics follow the choice you make in the app, apart
+  from rare technical records described below.
 - Two requests made by Expo, the toolkit kuyara is built with, happen every time the app
   starts, before and regardless of that answer. They carry a random installation identifier
-  and version details about the app and the device, never anything you enter in kuyara.
+  and version details about the app and the device. An update request can also carry the
+  previous launch's fatal error text, as described below.
 - Analytics never includes your location, photos, name, garment names, birth date, or
   anything you type.
 - kuyara does not track you across other apps or websites, shows no ads, and sells no data.
@@ -26,8 +27,10 @@ describes what data the app sends off your device, why, and what you can do abou
 
 ## Usage analytics
 
-kuyara asks once, after onboarding, whether you want to share usage data. If you decline,
-nothing is sent and the app works exactly the same. If you accept, kuyara collects:
+kuyara asks once, after onboarding, whether you want to share usage, performance and
+diagnostic data. If you decline, none of this data is sent, apart from the rare technical
+cases below, and the app works exactly the same. The separate Expo launch requests still
+run. If you accept, kuyara collects:
 
 - **Product interaction.** Which screens open, taps such as refresh, whether a
   recommendation loaded, and how the Closet is used.
@@ -60,8 +63,9 @@ location, not even a city, is derived from it.
 ## Performance and diagnostics
 
 Performance and diagnostic data follows the same consent question kuyara asks after
-onboarding for usage analytics. It is sent only if you accept. If you decline, nothing is
-sent. If you accept, kuyara sends:
+onboarding for usage analytics. It is normally sent only if you accept. If you decline,
+none is sent after your answer, apart from the rare technical cases below. If you accept,
+kuyara sends:
 
 - **Performance timings.** App launch and screen-navigation timing, including time to first
   render and time to interactive.
@@ -92,8 +96,8 @@ According to [Expo's published pricing information](https://expo.dev/pricing),
 Observe retains this data for 90 days.
 
 **Never in performance and diagnostics:** your location, coordinates, or city; Closet
-contents or photos; profile preferences; AI prompts or responses; the analytics identifier
-or the app's local profile identifier.
+contents or photos; your name or anything you type; profile preferences; AI prompts or
+responses; the analytics identifier or the app's local profile identifier.
 
 One technical limit applies. The Expo package may automatically write technical error
 records before you answer the consent question. When you accept, kuyara first asks the
@@ -102,7 +106,8 @@ In rare cases a record from before your answer can still be delivered: a crash r
 an earlier launch that iOS hands to the app only after you accept; a record written while
 sharing was off, if a delivery attempt had failed shortly before you turned sharing back on;
 and, on the first launch after installing, launch timing, if the app is sent to the
-background before kuyara has started. After you answer "no", nothing is sent.
+background before kuyara has started. After you answer "no", Observe sends no further
+records while sharing is off; the separate Expo launch requests below still run.
 
 Under Apple's App Store definitions, this data is linked to you through the per-installation
 identifier. It is not used for tracking.
@@ -141,13 +146,15 @@ a new one, unless a device backup restores the old value.
 
 ## Turning analytics and diagnostics off
 
-Open Settings, then Privacy, and switch off "Share usage data". Sending stops
-immediately for both in the same session. Records made before the switch are not sent
-afterwards. The Expo package may keep writing error records locally, but none are sent while
-sharing is off. The app also discards the analytics identifier, so events collected before
-that moment cannot be linked to anything collected later. The diagnostics identifier stays on
-your device, but nothing further is sent with it. Turning sharing back on creates a new
-analytics identifier. The two Expo launch requests described above are not part of
+Open Settings, then Privacy, and switch off "Share usage and diagnostics". Sending usage
+analytics and performance or diagnostic records stops immediately in the same session.
+Queued records are discarded. The Expo package may keep writing error records locally, but
+none are sent to Observe while sharing is off; the rare delivery limits above apply if you
+turn sharing back on. The app also discards the analytics identifier, so events collected
+before that moment cannot be linked to anything collected later. Turning sharing back on
+creates a new analytics identifier.
+The diagnostics identifier stays on your device and still accompanies the separate Expo
+Insights launch count and Expo Updates check described above. Those requests are outside
 this switch and continue either way.
 
 ## Requesting deletion

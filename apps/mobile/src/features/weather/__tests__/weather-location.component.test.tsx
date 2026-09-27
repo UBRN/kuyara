@@ -197,6 +197,26 @@ test('selecting the device location does not report feature_used_first_time for 
   expect(analytics.captures.some((c) => c.name === 'feature_used_first_time')).toBe(false);
 });
 
+test('selecting the same place again does not report a location change', async () => {
+  const { weather, search, analytics, Providers } = harness();
+  weather.state = {
+    ...(weather.state as Extract<WeatherApplicationValue['state'], { status: 'ready' }>),
+    activeLocation: {
+      source: 'manual', catalogId: place.id as ManualLocationId,
+      displayName: place.displayName, locationKey: 'manual:place.745044',
+      coordinates: { latitudeE2: 4101, longitudeE2: 2898 }, timeZone: 'Europe/Istanbul',
+    },
+  };
+  const result = await render(<Providers><WeatherLocationScreen /></Providers>);
+  await fireEvent.changeText(result.getByTestId('weather-place-search'), 'Ista');
+  await debounce();
+  await fireEvent.press(result.getByTestId('weather-place-place.745044'));
+
+  expect(search.selectPlaceSearchResult).toHaveBeenCalledTimes(1);
+  expect(analytics.captures.filter((capture) => capture.name === 'location_changed')).toHaveLength(0);
+  expect(analytics.captures.filter((capture) => capture.name === 'feature_used_first_time')).toHaveLength(1);
+});
+
 test('permission rationale and permanent denial retain their existing actions on the new screen', async () => {
   const { weather, Providers } = harness();
   weather.state = { ...weather.state as Extract<WeatherApplicationValue['state'], { status: 'ready' }>, locationFlow: 'rationale' };

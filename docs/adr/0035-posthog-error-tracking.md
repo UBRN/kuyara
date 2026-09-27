@@ -213,8 +213,8 @@ if one ever is, the fix is to stop the data reaching the throwing path, not to s
 suppress the report.
 
 The structural half is the `before_send` hook. The general `sanitizePostHogEvent` filter keeps
-standard SDK `$` properties unless explicitly blocked, while `$exception` events take a separate
-explicit allowlist:
+only the SDK properties explicitly listed in the analytics taxonomy; `$exception` events add
+a separate explicit allowlist:
 
 - Allowed: `$exception_list` entries reduced to `type`, `value`, `mechanism`, and
   `stacktrace.frames`; `mechanism` is limited to boolean `handled`, string `type`, and boolean
@@ -223,8 +223,8 @@ explicit allowlist:
   taxonomy already allows.
 - Dropped: every frame `vars`, `context_line`, `pre_context` and `post_context` on the way out;
   mechanism `source`, nested variables, and every other mechanism field; `$exception_steps`;
-  and the existing `$ip`, `$screen_name`, `$current_url`, `$referrer` and `$geoip*` blocks,
-  which stay.
+  and the existing `$ip`, `$screen_name`, `$current_url`, `$referrer` and location-bearing
+  `$geoip*` blocks. The `$geoip_disable` control remains allowed.
 
 A unit test on the hook feeds it a synthetic `$exception` payload carrying every dropped field
 and asserts the exact result. A `PostHogCore` test also calls `captureException` and proves that
