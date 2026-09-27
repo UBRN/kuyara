@@ -37,7 +37,7 @@ test('rejects banned content in both languages and preserves valid picks indepen
   for (const locale of ['en', 'tr']) {
     for (const text of ['Cloudflare', 'OpenRouter', 'Llama', 'GPT', 'Gemini', 'Claude',
       'Mistral', 'Qwen', 'DeepSeek', 'Nvidia', 'Meta', 'OpenAI', 'Apple Intelligence',
-      'AI', 'yapay zeka', 'http', 'www.', '.com', '☀️', '🇹🇷']) {
+      'AI', 'yapay zeka', 'yapay zekâ', 'YAPAY ZEKÂ', 'http', 'www.', '.com', '☀️', '🇹🇷']) {
       assert.equal(check(`${locale === 'tr' ? 'Bu' : 'The'} ${text} day.`, locale), null, text);
     }
   }

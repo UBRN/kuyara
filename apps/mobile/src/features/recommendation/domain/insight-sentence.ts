@@ -5,7 +5,7 @@ const functionWords = {
   tr: new Set(['bir', 'bu', 'da', 'de', 'gibi', 'için', 'ile', 'ise', 've', 'ya', 'değil', 'olan', 'olarak', 'sana', 'senin']),
 } as const;
 
-const bannedContent = /workers ai|cloudflare|openrouter|llama|gpt|gemini|claude|mistral|qwen|deepseek|nvidia|meta|openai|apple intelligence|\bai\b|yapay zeka|http|www\.|\.com|\p{Extended_Pictographic}|\p{Regional_Indicator}|\u20e3/iu;
+const bannedContent = /workers ai|cloudflare|openrouter|llama|gpt|gemini|claude|mistral|qwen|deepseek|nvidia|meta|openai|apple intelligence|\bai\b|yapay zek[aâ]|http|www\.|\.com|\p{Extended_Pictographic}|\p{Regional_Indicator}|\u20e3/iu;
 export function validateInsightSentence({
   sentence,
   locale,
