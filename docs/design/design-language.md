@@ -16,33 +16,29 @@ same class as the existing derived neutrals `#E7EEED`, `#DDE8E7`, `#CCD2D4`, and
 
 ### The foundational finding
 
-The light appearance has no contrast headroom left for depth. Measured:
+The light appearance has little contrast headroom for depth. Current tokens measure:
 
 | depth cue available to a light card | measured | 3:1 non-text threshold |
 | --- | --- | --- |
-| fill step, card `#FFFFFF` over ground `#D0DDDC` | 1.395:1 | fails |
+| fill step, card `#FFFFFF` over Soft Mist ground `#F4F6F5` | 1.085:1 | fails |
 | hairline, `borderSubtle` `#CCD2D4` on the white card | 1.529:1 | fails |
-| shadow contact, `elevation.raised` opacity 0.10 over the ground | 1.218:1 | fails |
+| shadow contact, `elevation.raised` opacity 0.10 over the ground | 1.22:1 | fails |
 
-Three successive milestones attacked flatness through surfaces and moved the
-ground/card step 1.023 -> 1.255 -> 1.395. That series is converging, not improving:
-Soft Mist to pure white is only 1.085:1 of total headroom, and the six brand hexes are
-locked. Surfaces physically cannot carry hierarchy in this palette.
+Soft Mist to pure white offers only a 1.085:1 card step. The six brand hexes are locked,
+so type and space carry hierarchy while surfaces confirm it.
 
 The dark appearance is worse in one specific way: its shadow colour is `nightLayer`
 `#0D191E`, which is also the dark `background`. A dark raised shadow falling on the
-ground composites to `#0D191E` at every opacity from 0.04 to 0.12, contact contrast
-**1.000:1**. The dark shadow tokens do literally nothing. That is a measured defect,
-not a stylistic choice.
+ground composites to `#0D191E` at the authored shadow opacities, contact contrast
+**1.000:1**. Dark shadows provide no separation on that plane.
 
 Therefore the central law of this language:
 
 > **Hierarchy is carried by type and space, and only confirmed by surface. Never the
 > reverse.**
 
-This is the missing middle layer. It explains the whole symptom: token values were
-correct, and every screen still used one body size, one card treatment, and asked
-surfaces to produce a hierarchy that surfaces in this palette cannot produce.
+The palette's small surface steps make type and spacing the reliable sources of visual
+hierarchy across screens.
 
 ## Law 1: the emphasis budget
 
@@ -127,17 +123,15 @@ Why this is stricter than the mockups: see [Relationship to the mockups](#relati
   that no future change tries to fix depth with one of them alone.
 - **New measurable token: shadow contact contrast.** The composite of a shadow at its
   nominal opacity over the plane it falls on, against that plane.
-  - `elevation.raised` must reach **>= 1.20:1**. Light currently measures 1.218 and
-    passes, barely.
-  - `elevation.chrome` must reach **>= 1.35:1**. Light at opacity 0.16 measures 1.372
+  - `elevation.raised` must reach **>= 1.20:1**. Light measures 1.22:1.
+  - `elevation.chrome` must reach **>= 1.35:1**. Light at opacity 0.16 measures 1.39:1
     and passes.
   - **Dark fails both at 1.000:1 and cannot pass**, because the shadow colour equals
     the dark background. The language resolves this honestly rather than by tuning a
     number that cannot move: in the dark appearance the separator is the plane step
-    alone, the card on `backgroundElevated` at 1.511:1 with no hairline (a hairline on
-    it measured 1.16:1 and added nothing), and dark shadows are declared decorative. Dark
-    elevation tokens stay as they are; the doc states that they contribute nothing on
-    the ground plane and must never be the only separator. This matches [Ant Design's
+    alone: `backgroundElevated` clears the ground by 1.51:1, while `surface` and
+    `backgroundElevated` differ by 1.18:1. Dark shadows are decorative and must never
+    be the only separator. This matches [Ant Design's
     reasoning that an object close to the ground carries no shadow](https://ant.design/docs/spec/shadow),
     because the shadow overlaps completely with the object itself.
 - **Second measurable token, separately named: the garment fill step.** A garment fill
@@ -189,11 +183,12 @@ ink is tuned so its contrast against its own appearance's `surface` lies within 
 of `brandAccent`'s, and its container sits at 1.23:1 light and 1.14:1 dark against the same
 plane. That is the rule that keeps a calm interface from becoming a traffic light, and it is
 checkable with a number. Three of the four pairs are status verdicts; the fourth,
-`provenance`, is not a verdict at all. It records where a recommendation came from, so it
-enters the band on the same terms and is spent on exactly one element: the prominent
-filled badge Today draws directly below its title ([ADR 0021](../adr/0021-direction-e-a-visual-first-design-language.md)
-section 8). Its on-device variant keeps the system's rendering of the `apple.intelligence`
-symbol on a non-purple badge; the Worker variant uses the SF Symbol `sparkles` as an animated vivid multicolour layer in violet, fuchsia and gold. Both retain the controlled contrast rule. It is never a control fill, a border or chrome, and it never stands on
+`provenance`, records where a recommendation came from. The Worker AI badge directly
+below Today's title uses that pair with the SF Symbol `sparkles` as an animated vivid
+multicolour layer in violet, fuchsia and gold. The on-device badge uses the muted neutral
+surface, primary ink and the system's rendering of the `apple.intelligence` symbol.
+Deterministic fallback has no badge ([ADR 0034](../adr/0034-on-device-ai-selection-through-apple-foundation-models.md)
+section 4). The provenance pair is never a control fill, a border or chrome, and it never stands on
 the tinted stage, where `provenanceInk` falls to 2.622:1 on `fallingNight`.
 
 Reference: light `brandAccent` `#27606A` on `#FFFFFF` = **7.077**. Dark `brandAccent`
@@ -260,11 +255,11 @@ meaning.
 
 | | on `surface` | on `background` | on `backgroundElevated` |
 | --- | --- | --- | --- |
-| light `#5C7A83` | 4.60 | 3.30 | 4.24 |
+| light `#5C7A83` | 4.60 | 4.24 | 4.24 |
 | dark `#5E899A` | 3.68 | 4.70 | 3.11 |
 
 All six clear 3:1. Light `#5C7A83` at 4.60 on white stays visibly quieter than
-`textSecondary`'s 7.08, so it reads as a boundary and not as text.
+`textSecondary`'s 9.16 on Soft Mist, so it reads as a boundary and not as text.
 
 ### No info colour
 
@@ -314,9 +309,10 @@ installed Expo module, so reacting to it would mean a native module with no call
 
 ### Destructive variant, approved
 
-Filled destructive button: fill `dangerInk`, label the appearance's on-brand colour.
-Light `#FFFFFF` on `#9B2C2C` = **7.53**. Dark `#0D191E` on `#F2A6A2` = **9.15**. The
-confirming Alert stays the platform's, as today.
+The destructive button is tonal: `dangerContainer` fills the capsule and `dangerInk`
+colours the label. Its pressed fill is `dangerContainerPressed`. Label contrast on the
+resting fill is **6.12:1** in light and **8.16:1** in dark. The confirming Alert uses
+the platform control.
 
 ### Approved button roles
 
