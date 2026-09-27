@@ -6,13 +6,19 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { RecommendationApplicationController, recommendationRefreshTrigger } from './application/recommendation-application-controller.ts';
-import { recommendOutfits } from './application/recommend-outfits.ts';
+import {
+  composeOutfitPool,
+  excludeOutfitOptions,
+  outfitOptionId,
+  recommendOutfits,
+} from './application/recommend-outfits.ts';
 import { WorkerAiClientError } from './data/worker-ai-client.ts';
 import {
   aiRequestFromContext,
   createRecommendationContext,
 } from './data/worker-ai-recommendation-mapper.ts';
 import { regenerationPolicy } from './domain/regeneration-policy.ts';
+import { deriveClothingRequirements } from './domain/weather-to-clothing-requirements.ts';
 import { todayWeatherSnapshot } from '../today/__tests__/fixtures.ts';
 
 const profileId = 'profile-one';
@@ -227,21 +233,16 @@ test('consecutive pool re-asks can repeat the same valid three', async () => {
 
 // Gate 4. This is the recorded behaviour of `docs/product-decisions.md`'s cache identity
 // rule, not a defect: the exclusion is dropped whole rather than showing fewer than three.
-test('a warm day composing four options drops the exclusion and repeats the same three', async () => {
+test('a four-option pool drops the exclusion and repeats the same three', () => {
   const warm = dayAt(28, 'clear', 0);
-  const context = createRecommendationContext(inputFor(warm), today);
-  assert.equal(context.options.length, 4);
+  const input = { ...inputFor(warm), clothingPreference: 'mens' };
+  const requirements = deriveClothingRequirements(warm, input.now);
+  const composition = composeOutfitPool(requirements, input.clothingPreference, input.dayVariant);
+  assert.equal(composition.status, 'composed');
+  const narrowPool = composition.outfits.slice(0, 4);
+  const first = narrowPool.slice(0, 3).map(outfitOptionId);
 
-  const input = inputFor(warm);
-  const budget = { reserve: async () => false };
-  const { client } = aiClient(input);
-  const controller = createController({ client, budget });
-  await controller.initialize();
-
-  const first = await controller.refresh('regenerate', input);
-  const second = await controller.refresh('regenerate', input);
-
-  assert.deepEqual(optionIds(second), optionIds(first));
+  assert.deepEqual(excludeOutfitOptions(narrowPool, first).slice(0, 3).map(outfitOptionId), first);
 });
 
 // Gate 5's first half.

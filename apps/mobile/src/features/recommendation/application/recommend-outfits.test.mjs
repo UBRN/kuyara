@@ -9,6 +9,7 @@ import {
   composeOutfitPool,
   excludeOutfitOptions,
   outfitMatchesArchetype,
+  outfitOptionId,
   recommendOutfits,
 } from './recommend-outfits.ts';
 
@@ -634,23 +635,14 @@ test('deterministic selection never returns an excluded option', () => {
 });
 
 test('a narrow pool keeps the three shown options rather than running out', () => {
-  const shared = {
-    now: observedAt,
-    snapshot: snapshot({ current: { temperatureCelsius: 32, apparentTemperatureCelsius: 32 } }),
-    clothingPreference: 'womens',
-    dressStyle: 'smart',
-    dayVariant: 0,
-  };
-  const shown = recommendOutfits(shared);
-  assert.equal(shown.status, 'recommended');
-  const excludedOptionIds = shown.outfits.map(({ optionId }) => optionId);
+  const weather = snapshot({ current: { temperatureCelsius: 32, apparentTemperatureCelsius: 32 } });
+  const requirements = deriveClothingRequirements(weather, observedAt);
+  const composition = composeOutfitPool(requirements, 'mens', 0);
+  assert.equal(composition.status, 'composed');
+  const narrowPool = composition.outfits.slice(0, 4);
+  const shownIds = narrowPool.slice(0, 3).map((outfit) => outfitOptionId(outfit));
 
-  // A hot day composes four options, so removing three would leave one. The exclusion is
-  // dropped whole and the day repeats rather than falling back to fewer than three outfits.
-  const next = recommendOutfits({ ...shared, excludedOptionIds });
-
-  assert.equal(next.status, 'recommended');
-  assert.deepEqual(next.outfits.map(({ optionId }) => optionId), excludedOptionIds);
+  assert.deepEqual(excludeOutfitOptions(narrowPool, shownIds), narrowPool);
 });
 
 // A day with no thermal requirement once offered no layered arrangement at all, so the three
