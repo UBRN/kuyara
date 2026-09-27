@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { act, fireEvent, isHiddenFromAccessibility, render, within } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { AppState, Dimensions, processColor, StyleSheet } from 'react-native';
+import { AccessibilityInfo, AppState, Dimensions, Platform, processColor, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
@@ -19,12 +19,17 @@ import { messages, type SupportedLanguage } from '@/localization/messages';
 import { layout, lightTheme, spacing, typography } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
+// Weather is focused unless a test blurs it, the way another tab or a pushed route does.
+let mockFocused = true;
 jest.mock('expo-router', () => {
   const actualReact = jest.requireActual('react');
   return {
     router: { push: jest.fn() },
     Stack: { Screen: () => null },
-    useFocusEffect: (callback: () => void | (() => void)) => actualReact.useEffect(callback, [callback]),
+    useFocusEffect: (callback: () => void | (() => void)) => {
+      const focused = mockFocused;
+      actualReact.useEffect(() => (focused ? callback() : undefined), [callback, focused]);
+    },
     useIsFocused: () => true,
   };
 });
@@ -56,6 +61,7 @@ beforeEach(() => {
 afterEach(() => {
   clock.mockRestore();
   Dimensions.set({ window: originalWindowDimensions });
+  mockFocused = true;
 });
 
 const baseState: WeatherReadyState = {
@@ -572,6 +578,79 @@ test('the freshness line announces only while it is not fresh', async () => {
   const staleLine = staleResult.getByTestId('weather-freshness');
   expect(staleLine).toHaveTextContent(messages.en.weather.stale);
   expect(staleLine.props.accessibilityLiveRegion).toBe('polite');
+});
+
+// docs/product-decisions.md: refresh status is announced, not only shown. VoiceOver ignores
+// the line's live region, so iOS speaks each move of the line once; Android keeps the region.
+describe.each(['en', 'tr'] as const)('%s Weather refresh status announcement', (language) => {
+  let announce: jest.SpiedFunction<typeof AccessibilityInfo.announceForAccessibility>;
+  const originalOS = Platform.OS;
+  beforeEach(() => {
+    // The React Native preset already mocks it, so the spy is that shared mock: clear it.
+    announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+    announce.mockClear();
+  });
+  afterEach(() => {
+    announce.mockRestore();
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: originalOS });
+  });
+  const settled = () => createValue({
+    ...baseState,
+    activeLocation: getManualLocation('sample.istanbul')!,
+    snapshot: sampleSnapshot(),
+    freshness: 'fresh',
+  });
+  // One value throughout, so only the state moves between renders.
+  const screen = (value: ReturnType<typeof settled>, patch: Partial<WeatherReadyState> = {}) => (
+    <Providers language={language} value={{ ...value, state: { ...value.state as WeatherReadyState, ...patch } }}>
+      <WeatherScreen />
+    </Providers>
+  );
+
+  test('iOS hears the move to refreshing, to refresh failed and back to fresh, once each', async () => {
+    const copy = messages[language].weather;
+    const value = settled();
+    const result = await render(screen(value));
+    await result.rerender(screen(value));
+    expect(announce).not.toHaveBeenCalled();
+
+    await result.rerender(screen(value, { isRefreshing: true }));
+    await result.rerender(screen(value, { isRefreshing: true }));
+    await result.rerender(screen(value, { refreshFailure: 'offline' }));
+    await result.rerender(screen(value, { isRefreshing: true, refreshFailure: 'offline' }));
+    await result.rerender(screen(value));
+    expect(announce.mock.calls).toEqual([
+      [copy.refreshing],
+      [copy.refreshFailed],
+      [copy.refreshing],
+      [copy.fresh],
+    ]);
+    expect(result.getByTestId('weather-freshness')).toHaveTextContent(copy.fresh);
+  });
+
+  test('a blurred Weather stays silent, and focus does not replay the move it missed', async () => {
+    const value = settled();
+    const result = await render(screen(value));
+    mockFocused = false;
+    await result.rerender(screen(value));
+    await result.rerender(screen(value, { isRefreshing: true }));
+    mockFocused = true;
+    await result.rerender(screen(value, { isRefreshing: true }));
+    expect(announce).not.toHaveBeenCalled();
+
+    await result.rerender(screen(value, { refreshFailure: 'offline' }));
+    expect(announce.mock.calls).toEqual([[messages[language].weather.refreshFailed]]);
+  });
+
+  test('Android leaves the announcement to the live region', async () => {
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: 'android' });
+    const value = settled();
+    const result = await render(screen(value));
+    await result.rerender(screen(value, { isRefreshing: true }));
+    expect(result.getByTestId('weather-freshness').props.accessibilityLiveRegion).toBe('polite');
+    await result.rerender(screen(value, { refreshFailure: 'offline' }));
+    expect(announce).not.toHaveBeenCalled();
+  });
 });
 
 test('the cold load says it is loading rather than refreshing', async () => {
