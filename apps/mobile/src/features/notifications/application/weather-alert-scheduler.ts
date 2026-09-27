@@ -1,4 +1,7 @@
-import type { NotificationGateway } from '@/features/notifications/data/notification-gateway';
+import type {
+  NotificationGateway,
+  NotificationKind,
+} from '@/features/notifications/data/notification-gateway';
 import type { WeatherAlertDeliveryRecord } from '@/features/notifications/data/weather-alert-delivery-record';
 import type { WeatherAlertDeliveryRepository } from '@/features/notifications/data/weather-alert-delivery-repository';
 import {
@@ -132,10 +135,19 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
     const now = this.now();
     const anyKindEnabled = input.weatherAlertsEnabled || input.morningBriefingEnabled;
     const snapshot = anyKindEnabled ? input.snapshot : null;
-    // A stale or invalid snapshot is hours old, so its hours and its temperature baseline
-    // are not the ones to plan from. Nothing is cancelled and nothing is written: the
-    // previous schedule stands until a refresh brings a fresh snapshot.
-    if (snapshot && weatherFreshness(snapshot.fetchedAt, now) !== 'fresh') return;
+    // A stale snapshot cannot plan enabled kinds. Disabled kinds still lose their own
+    // pending notifications immediately, while the enabled kind keeps its last schedule.
+    if (anyKindEnabled && (!snapshot || weatherFreshness(snapshot.fetchedAt, now) !== 'fresh')) {
+      for (const [enabled, kind] of [
+        [input.weatherAlertsEnabled, 'weather_alert'],
+        [input.morningBriefingEnabled, 'morning_briefing'],
+      ] as const satisfies readonly (readonly [boolean, NotificationKind])[]) {
+        if (enabled) continue;
+        if (!await this.gateway.cancelScheduledWeatherAlerts(kind)) return;
+        await (await this.repository).deletePending(input.localProfileId, now, kind);
+      }
+      return;
+    }
     // A failed cancellation leaves superseded alerts pending, so re-planning over it would
     // let them fire beside the new ones. Abort and leave the schedule and ledger as they are.
     if (!await this.gateway.cancelScheduledWeatherAlerts()) return;

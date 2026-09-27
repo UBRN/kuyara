@@ -55,6 +55,25 @@ test('cancellation tries every prefixed kuyara weather alert and reports the fai
   ]);
 });
 
+test('kind cancellation leaves the other kind pending', async () => {
+  notifications.getAllScheduledNotificationsAsync.mockResolvedValue([
+    { identifier: 'weather-alert:precipitation_onset:location:day' },
+    { identifier: 'weather-alert:morning_briefing:day' },
+    { identifier: 'foreign-alert' },
+  ]);
+  notifications.cancelScheduledNotificationAsync.mockResolvedValue(undefined);
+  const gateway = new ExpoNotificationGateway();
+  await expect(gateway.cancelScheduledWeatherAlerts('weather_alert')).resolves.toBe(true);
+  expect(notifications.cancelScheduledNotificationAsync.mock.calls).toEqual([
+    ['weather-alert:precipitation_onset:location:day'],
+  ]);
+  notifications.cancelScheduledNotificationAsync.mockClear();
+  await expect(gateway.cancelScheduledWeatherAlerts('morning_briefing')).resolves.toBe(true);
+  expect(notifications.cancelScheduledNotificationAsync.mock.calls).toEqual([
+    ['weather-alert:morning_briefing:day'],
+  ]);
+});
+
 test('Android scheduling creates one silent default channel and uses prefixed identifiers', async () => {
   Object.defineProperty(Platform, 'OS', { configurable: true, value: 'android' });
   notifications.setNotificationChannelAsync.mockResolvedValue({});

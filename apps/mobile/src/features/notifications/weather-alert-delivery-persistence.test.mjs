@@ -89,6 +89,27 @@ test('scheduled alert deliveries upsert, retain fired rows, delete pending rows,
   );
 });
 
+test('deleting one pending kind preserves the other kind and fired rows', async (t) => {
+  const { database, repository } = await setup();
+  t.after(() => database.close());
+  await repository.upsertScheduled([
+    { id: 'precipitation_onset:location:day', localProfileId: profileId,
+      fireAt: '2026-09-09T11:00:00.000Z', createdAt },
+    { id: 'morning_briefing:day', localProfileId: profileId,
+      fireAt: '2026-09-09T11:00:00.000Z', createdAt },
+    { id: 'temperature_swing:location:previous', localProfileId: profileId,
+      fireAt: '2026-09-09T07:00:00.000Z', createdAt },
+  ]);
+  await repository.deletePending(profileId, '2026-09-09T09:00:00.000Z', 'weather_alert');
+  assert.deepEqual((await database.getAllAsync(
+    'SELECT id FROM weather_alert_deliveries ORDER BY id',
+  )).map(({ id }) => id), ['morning_briefing:day', 'temperature_swing:location:previous']);
+  await repository.deletePending(profileId, '2026-09-09T09:00:00.000Z', 'morning_briefing');
+  assert.deepEqual((await database.getAllAsync(
+    'SELECT id FROM weather_alert_deliveries ORDER BY id',
+  )).map(({ id }) => id), ['temperature_swing:location:previous']);
+});
+
 function precipitationSnapshot(id, crossingAt, precipitationProbability, fetchedAt) {
   return {
     id,

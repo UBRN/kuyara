@@ -193,6 +193,11 @@ export class SqliteWeatherLocalDataSource implements WeatherLocalDataSource {
   async replaceSnapshot(record: WeatherSnapshotRecord): Promise<WeatherSnapshotRecord> {
     let result: WeatherSnapshotRecord | null = null;
     await this.database.withExclusiveTransactionAsync(async (transaction) => {
+      const current = await readSnapshot(transaction, record.localProfileId, record.locationKey);
+      if (current && current.fetchedAt >= record.fetchedAt) {
+        result = current;
+        return;
+      }
       // This explicit delete owns the removal of the hourly rows; the wrapper enforces foreign
       // keys on the transaction connection, so ON DELETE CASCADE now fires as well and finds none.
       await transaction.runAsync(

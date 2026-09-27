@@ -149,8 +149,8 @@ function createSchedulerHarness({ firedIds = new Set(), cancel, schedule, now = 
   const pruned = [];
   const gateway = {
     ...createGateway({ kind: 'granted' }).gateway,
-    cancelScheduledWeatherAlerts: cancel ?? (async () => {
-      events.push('cancel');
+    cancelScheduledWeatherAlerts: cancel ?? (async (kind) => {
+      events.push(kind ? `cancel:${kind}` : 'cancel');
       return true;
     }),
     scheduleWeatherAlert: async (request) => {
@@ -160,8 +160,8 @@ function createSchedulerHarness({ firedIds = new Set(), cancel, schedule, now = 
     },
   };
   const repository = {
-    deletePending: async (localProfileId, now) => {
-      events.push('delete-pending');
+    deletePending: async (localProfileId, now, kind) => {
+      events.push(kind ? `delete-pending:${kind}` : 'delete-pending');
       deletedPending.push({ localProfileId, now });
     },
     listFiredIds: async () => {
@@ -530,12 +530,12 @@ test('disabled weather alerts cancel and delete pending ledger rows without read
   assert.deepEqual(harness.events, ['cancel', 'delete-pending']);
 });
 
-test('a missing weather snapshot cancels and deletes pending ledger rows without reading or upserting', async () => {
+test('a missing weather snapshot cancels only the disabled kind', async () => {
   const harness = createSchedulerHarness();
 
   await harness.scheduler.reschedule({ ...enabledInput, snapshot: null });
 
-  assert.deepEqual(harness.events, ['cancel', 'delete-pending']);
+  assert.deepEqual(harness.events, ['cancel:morning_briefing', 'delete-pending:morning_briefing']);
 });
 
 test('a concurrent reschedule waits for the active run and then runs once', async () => {
@@ -568,6 +568,7 @@ test('a stale snapshot leaves the existing schedule and ledger untouched', async
 
   await harness.scheduler.reschedule({
     ...enabledInput,
+    morningBriefingEnabled: true,
     snapshot: { ...enabledInput.snapshot, fetchedAt: '2026-09-09T14:00:00.000Z' },
   });
 
@@ -585,6 +586,70 @@ test('opting out still cancels and clears pending rows from a stale snapshot', a
   });
 
   assert.deepEqual(harness.events, ['cancel', 'delete-pending']);
+});
+
+for (const [name, weatherAlertsEnabled, morningBriefingEnabled, kind] of [
+  ['weather alerts', false, true, 'weather_alert'],
+  ['morning briefing', true, false, 'morning_briefing'],
+]) test(`turning off ${name} cancels only that kind with stale weather`, async () => {
+  const harness = createSchedulerHarness();
+  await harness.scheduler.reschedule({
+    ...enabledInput,
+    weatherAlertsEnabled,
+    morningBriefingEnabled,
+    snapshot: { ...enabledInput.snapshot, fetchedAt: '2026-09-09T14:00:00.000Z' },
+  });
+  assert.deepEqual(harness.events, [`cancel:${kind}`, `delete-pending:${kind}`]);
+});
+
+test('toggle, freshness and pending-kind matrix preserves only allowed stale schedules', async () => {
+  for (const kind of ['weather_alert', 'morning_briefing']) {
+    for (const toggle of ['on-to-off', 'off-to-on']) {
+      for (const freshness of ['fresh', 'stale']) {
+        for (const pendingState of ['none', 'that-kind', 'both-kinds']) {
+          const target = kind === 'weather_alert' ? 'precipitation_onset:place:day'
+            : 'morning_briefing:day';
+          const other = kind === 'weather_alert' ? 'morning_briefing:day'
+            : 'precipitation_onset:place:day';
+          const initialPending = pendingState === 'none' ? []
+            : pendingState === 'that-kind' ? [target] : [target, other];
+          const pending = new Set(initialPending);
+          const cancelled = [];
+          const scheduler = new WeatherAlertScheduler({
+            cancelScheduledWeatherAlerts: async (selectedKind) => {
+              cancelled.push(selectedKind ?? 'all');
+              for (const id of pending) {
+                if (!selectedKind || (id.startsWith('morning_briefing:')
+                  ? 'morning_briefing' : 'weather_alert') === selectedKind) pending.delete(id);
+              }
+              return true;
+            },
+            scheduleWeatherAlert: async () => false,
+          }, {
+            deletePending: async () => undefined,
+            listFiredIds: async () => new Set(),
+            upsertScheduled: async () => undefined,
+            pruneBefore: async () => undefined,
+          }, () => '2026-09-09T15:00:00.000Z');
+          const enabled = toggle === 'off-to-on';
+          await scheduler.reschedule({
+            ...enabledInput,
+            snapshot: { ...enabledInput.snapshot,
+              fetchedAt: freshness === 'fresh'
+                ? '2026-09-09T15:00:00.000Z' : '2026-09-09T14:00:00.000Z' },
+            weatherAlertsEnabled: kind === 'weather_alert' ? enabled : true,
+            morningBriefingEnabled: kind === 'morning_briefing' ? enabled : true,
+          });
+          const label = `${kind}, ${toggle}, ${freshness}, ${pendingState}`;
+          assert.deepEqual(cancelled, freshness === 'fresh' ? ['all']
+            : enabled ? [] : [kind], label);
+          const expectedPending = freshness === 'fresh' ? []
+            : enabled ? initialPending : initialPending.filter((id) => id !== target);
+          assert.deepEqual([...pending].sort(), expectedPending.sort(), label);
+        }
+      }
+    }
+  }
 });
 
 test('a failed cancellation aborts the reschedule before the ledger is touched', async () => {

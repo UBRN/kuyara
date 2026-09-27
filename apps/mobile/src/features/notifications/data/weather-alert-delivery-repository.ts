@@ -1,9 +1,10 @@
 import type { WeatherAlertDeliveryLocalDataSource } from '@/features/notifications/data/weather-alert-delivery-local-data-source';
 import type { WeatherAlertDeliveryRecord } from '@/features/notifications/data/weather-alert-delivery-record';
+import type { NotificationKind } from '@/features/notifications/data/notification-gateway';
 
 export interface WeatherAlertDeliveryRepository {
   upsertScheduled(deliveries: readonly WeatherAlertDeliveryRecord[]): Promise<void>;
-  deletePending(localProfileId: string, now: string): Promise<void>;
+  deletePending(localProfileId: string, now: string, kind?: NotificationKind): Promise<void>;
   listFiredIds(localProfileId: string, now: string): Promise<ReadonlySet<string>>;
   pruneBefore(localProfileId: string, isoDate: string): Promise<void>;
 }
@@ -41,11 +42,11 @@ implements WeatherAlertDeliveryRepository {
     return new Set(records.map(({ id }) => id));
   }
 
-  async deletePending(localProfileId: string, now: string): Promise<void> {
+  async deletePending(localProfileId: string, now: string, kind?: NotificationKind): Promise<void> {
     if (!localProfileId || !isIsoDate(now)) {
       throw new Error('The weather alert delivery query is invalid.');
     }
-    await this.dataSource.deletePending(localProfileId, now);
+    await this.dataSource.deletePending(localProfileId, now, kind);
   }
 
   async pruneBefore(localProfileId: string, isoDate: string): Promise<void> {

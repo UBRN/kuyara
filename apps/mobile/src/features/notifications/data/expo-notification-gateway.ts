@@ -73,12 +73,13 @@ export class ExpoNotificationGateway implements NotificationGateway {
 
   // A superseded alert that is still pending would fire against the newer plan, so the
   // caller has to learn that the cancellation did not happen rather than plan over it.
-  async cancelScheduledWeatherAlerts(): Promise<boolean> {
+  async cancelScheduledWeatherAlerts(kind?: NotificationKind): Promise<boolean> {
     try {
       const requests = await Notifications.getAllScheduledNotificationsAsync();
       let cancelled = true;
       for (const request of requests) {
         if (!request.identifier.startsWith(weatherAlertIdentifierPrefix)) continue;
+        if (kind && notificationKind(request.identifier) !== kind) continue;
         try {
           await Notifications.cancelScheduledNotificationAsync(request.identifier);
         } catch {

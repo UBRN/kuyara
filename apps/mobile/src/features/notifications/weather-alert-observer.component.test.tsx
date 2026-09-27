@@ -66,11 +66,11 @@ function snapshot(id: string): WeatherSnapshot {
   };
 }
 
-function profileApplication(notificationsOptIn: boolean): ProfileApplicationValue {
+function profileApplication(notificationsOptIn: boolean, morningBriefingOptIn: boolean): ProfileApplicationValue {
   return {
     state: {
       status: 'ready',
-      profile: { ...profile, notificationsOptIn },
+      profile: { ...profile, notificationsOptIn, morningBriefingOptIn },
       isSaving: false,
     },
     retry: async () => undefined,
@@ -133,6 +133,7 @@ function Providers({
   scheduler,
   weatherSnapshot,
   notificationsOptIn = true,
+  morningBriefingOptIn = false,
   permission = { kind: 'granted' },
   language = 'en',
   hour12 = false,
@@ -145,6 +146,7 @@ function Providers({
   scheduler: WeatherAlertScheduling;
   weatherSnapshot: WeatherSnapshot | null;
   notificationsOptIn?: boolean;
+  morningBriefingOptIn?: boolean;
   permission?: NotificationPermissionState;
   language?: SupportedLanguage;
   hour12?: boolean;
@@ -155,7 +157,7 @@ function Providers({
   activeLocationKey?: string;
 }>) {
   return (
-    <ProfileApplicationContext.Provider value={profileApplication(notificationsOptIn)}>
+    <ProfileApplicationContext.Provider value={profileApplication(notificationsOptIn, morningBriefingOptIn)}>
       <LocalizationContext.Provider value={{ language, messages: messages[language], hour12, temperatureUnit }}>
         <NotificationApplicationContext.Provider value={notificationApplication(scheduler, permission)}>
           <WeatherApplicationContext.Provider
@@ -297,6 +299,23 @@ test('a refresh failure with the same cached snapshot does not cancel or resched
   expect(reschedule.mock.calls[0]?.[0].snapshot).toBe(weatherSnapshot);
 });
 
+test('turning off weather alerts with stale weather reaches the scheduler immediately', async () => {
+  const reschedule = rescheduleSpy();
+  const weatherSnapshot = snapshot('snapshot-cached');
+  const result = await render(
+    <Providers scheduler={{ reschedule }} weatherSnapshot={weatherSnapshot}
+      morningBriefingOptIn freshness="stale" />,
+  );
+  await waitFor(() => expect(reschedule).toHaveBeenCalledTimes(1));
+  result.rerender(
+    <Providers scheduler={{ reschedule }} weatherSnapshot={weatherSnapshot}
+      notificationsOptIn={false} morningBriefingOptIn freshness="stale" />,
+  );
+  await waitFor(() => expect(reschedule).toHaveBeenCalledTimes(2));
+  expect(reschedule.mock.calls[1]?.[0].weatherAlertsEnabled).toBe(false);
+  expect(reschedule.mock.calls[1]?.[0].morningBriefingEnabled).toBe(true);
+});
+
 function cancellableScheduler() {
   const cancelScheduledWeatherAlerts = jest.fn(async () => true);
   const scheduleWeatherAlert = jest.fn(async () => true);
@@ -352,7 +371,7 @@ test.each([
   ['an undetermined permission', { kind: 'undetermined' } as const, 'ready' as const],
   ['weather that is still loading', { kind: 'granted' } as const, 'loading' as const],
   ['weather that failed to load', { kind: 'granted' } as const, 'error' as const],
-])('%s neither plans nor cancels', async (_label, permission, weatherStatus) => {
+])('%s neither plans nor cancels when both kinds remain enabled', async (_label, permission, weatherStatus) => {
   // ADR 0032 section 6: none of these proves an opt-out or a denial, so the alerts an
   // earlier session or the background task left pending have to survive them.
   const reschedule = rescheduleSpy();
@@ -361,6 +380,7 @@ test.each([
     <Providers
       scheduler={{ reschedule }}
       weatherSnapshot={snapshot('snapshot-one')}
+      morningBriefingOptIn
       permission={permission}
       weatherStatus={weatherStatus}
     />,
@@ -370,12 +390,11 @@ test.each([
 });
 
 test('ready weather with no cached snapshot plans nothing and cancels nothing', async () => {
-  // The scheduler reads a null snapshot as a cancellation, so the observer must not reach
-  // it before there is something to plan from.
+  // Without a known opt-out, a missing snapshot leaves both kinds pending.
   const harness = cancellableScheduler();
 
   await render(
-    <Providers scheduler={harness.scheduler} weatherSnapshot={null} />,
+    <Providers scheduler={harness.scheduler} weatherSnapshot={null} morningBriefingOptIn />,
   );
 
   expect(harness.cancelScheduledWeatherAlerts).not.toHaveBeenCalled();
@@ -388,13 +407,14 @@ test('the plan follows once the cached weather has loaded', async () => {
     <Providers
       scheduler={{ reschedule }}
       weatherSnapshot={weatherSnapshot}
+      morningBriefingOptIn
       weatherStatus="loading"
     />,
   );
   expect(reschedule).not.toHaveBeenCalled();
 
   result.rerender(
-    <Providers scheduler={{ reschedule }} weatherSnapshot={weatherSnapshot} />,
+    <Providers scheduler={{ reschedule }} weatherSnapshot={weatherSnapshot} morningBriefingOptIn />,
   );
 
   await waitFor(() => expect(reschedule).toHaveBeenCalledTimes(1));

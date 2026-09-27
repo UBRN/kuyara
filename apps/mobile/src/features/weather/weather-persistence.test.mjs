@@ -25,6 +25,7 @@ const firstId = '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4';
 const secondId = '118f0f4d-1d45-4ae7-a8f1-796e8297d3b4';
 const thirdId = '218f0f4d-1d45-4ae7-a8f1-796e8297d3b4';
 const fourthId = '318f0f4d-1d45-4ae7-a8f1-796e8297d3b4';
+const fifthId = '418f0f4d-1d45-4ae7-a8f1-796e8297d3b4';
 
 async function setup() {
   const database = new NodeSqliteDatabase();
@@ -197,6 +198,101 @@ test('snapshot and hourly data round-trip, remain location-bound, and retain act
   ]);
 });
 
+test('concurrent foreground and background results keep the newest fetched snapshot', async (t) => {
+  const { database, repository: foreground } = await setup();
+  t.after(() => database.close());
+  // Expo queues exclusive transactions; the synchronous Node adapter needs that queue
+  // made explicit when both callers start in the same event-loop turn.
+  const transaction = database.withExclusiveTransactionAsync.bind(database);
+  let tail = Promise.resolve();
+  database.withExclusiveTransactionAsync = (task) => {
+    const result = tail.then(() => transaction(task));
+    tail = result.catch(() => undefined);
+    return result;
+  };
+  const backgroundIds = [fourthId, fifthId];
+  const background = new LocalWeatherRepository(new SqliteWeatherLocalDataSource(database), {
+    createId: () => backgroundIds.shift() ?? fifthId,
+    now: () => '2026-07-30T12:00:00.000Z',
+  });
+  const location = getManualLocation('sample.istanbul');
+  await foreground.setActiveLocation(profileId, location);
+  const older = provided(location, '2026-07-30T10:00:00.000Z', 16);
+  const newer = provided(location, '2026-07-30T11:00:00.000Z', 20);
+  const first = await foreground.saveSnapshot(profileId, older);
+  assert.equal(first.current.temperatureCelsius, 16);
+  const second = await background.saveSnapshot(profileId, newer);
+  assert.equal(second.current.temperatureCelsius, 20);
+  assert.equal((await foreground.saveSnapshot(profileId, older)).id, second.id);
+  assert.equal((await foreground.getSnapshot(profileId, location.locationKey)).id, second.id);
+
+  const equal = await foreground.saveSnapshot(profileId, newer);
+  assert.equal(equal.id, second.id);
+
+  const otherLocation = getManualLocation('sample.ankara');
+  await foreground.setActiveLocation(profileId, otherLocation);
+  const otherForeground = new LocalWeatherRepository(new SqliteWeatherLocalDataSource(database), {
+    createId: () => thirdId, now: () => '2026-07-30T12:00:00.000Z',
+  });
+  const simultaneous = await Promise.all([
+    otherForeground.saveSnapshot(profileId, provided(otherLocation, older.fetchedAt, 16)),
+    background.saveSnapshot(profileId, provided(otherLocation, newer.fetchedAt, 20)),
+  ]);
+  assert.equal(simultaneous[1].fetchedAt, newer.fetchedAt);
+  assert.equal((await foreground.getSnapshot(profileId, otherLocation.locationKey)).fetchedAt, newer.fetchedAt);
+  assert.equal((await background.saveSnapshot(profileId, provided(otherLocation, older.fetchedAt, 16))).id,
+    simultaneous[1].id);
+  const rows = await database.getAllAsync('SELECT id FROM weather_snapshots WHERE local_profile_id = ?', [profileId]);
+  assert.equal(rows.length, 2);
+});
+
+test('both writers preserve the newest snapshot across every completion and stored-state order', async () => {
+  for (const newerWriter of ['foreground', 'background']) {
+    for (const completion of ['newer-first', 'older-first', 'simultaneous']) {
+      for (const stored of ['none', 'older', 'newer']) {
+        const { database, repository: foreground } = await setup();
+        try {
+          // The test adapter shares one synchronous connection. Queue its transactions
+          // to model the production BEGIN IMMEDIATE lock for simultaneous requests.
+          const transaction = database.withExclusiveTransactionAsync.bind(database);
+          let tail = Promise.resolve();
+          database.withExclusiveTransactionAsync = (task) => {
+            const result = tail.then(() => transaction(task));
+            tail = result.catch(() => undefined);
+            return result;
+          };
+          const background = new LocalWeatherRepository(new SqliteWeatherLocalDataSource(database), {
+            createId: () => fourthId, now: () => '2026-07-30T12:00:00.000Z',
+          });
+          const location = getManualLocation('sample.istanbul');
+          await foreground.setActiveLocation(profileId, location);
+          if (stored !== 'none') {
+            await foreground.saveSnapshot(profileId, provided(location,
+              stored === 'older' ? '2026-07-30T09:00:00.000Z' : '2026-07-30T12:00:00.000Z'));
+          }
+          const newer = () => (newerWriter === 'foreground' ? foreground : background)
+            .saveSnapshot(profileId, provided(location, '2026-07-30T11:00:00.000Z', 20));
+          const older = () => (newerWriter === 'foreground' ? background : foreground)
+            .saveSnapshot(profileId, provided(location, '2026-07-30T10:00:00.000Z', 16));
+          if (completion === 'newer-first') {
+            await newer(); await older();
+          } else if (completion === 'older-first') {
+            await older(); await newer();
+          } else {
+            await Promise.all([newer(), older()]);
+          }
+          const final = await foreground.getSnapshot(profileId, location.locationKey);
+          assert.equal(final.fetchedAt,
+            stored === 'newer' ? '2026-07-30T12:00:00.000Z' : '2026-07-30T11:00:00.000Z',
+            `${newerWriter}, ${completion}, ${stored}`);
+        } finally {
+          database.close();
+        }
+      }
+    }
+  }
+});
+
 test('replacing and pruning snapshots removes their hourly rows without the cascade', async (t) => {
   const { database, dataSource, repository } = await setup();
   t.after(() => database.close());
@@ -303,6 +399,7 @@ test('repository still reads an ordered legacy same-day snapshot with older hour
   const record = await dataSource.getSnapshot(profileId, istanbul.locationKey);
   await dataSource.replaceSnapshot({
     ...record,
+    fetchedAt: '2026-07-30T20:00:00.001Z',
     hourly: [
       { ...record.hourly[0], forecastAt: '2026-07-29T22:00:00.000Z' },
       record.hourly[0],
