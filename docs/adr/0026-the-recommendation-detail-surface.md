@@ -57,9 +57,9 @@ join over existing domain data.
 
 ### 5. One edit sheet owns garment changes
 
-The board garment and its row open one sheet. It shows the piece, the user's owned or wanted record, the 13 closed colour families and the optional private photo from the photo library. A match compares the piece's type and the colour family its Phase 6 palette swatch belongs to with the Closet record's family: the same family is "I own it" / "Bende var"; owned records of the type only in other families are "You have a similar one" / "Sende benzeri var" beside the user's piece and its colour. A record or a piece without a colour family matches on type alone. The matching is one pure domain function. Ownership appears on detail only, never Today. State is named in words and never carried by colour alone.
+The board garment and its row open one sheet. It shows the piece, the user's owned or wanted record, the Closet palette and the optional private photo from the photo library. A match compares the piece's type and the colour family its Phase 6 palette swatch belongs to with the Closet record's family: the same family is "I own it" / "Bende var"; owned records of the type only in other families are "You have a similar one" / "Sende benzeri var" beside the user's piece and its colour. A record or a piece without a colour family matches on type alone. The matching is one pure domain function. Ownership appears on detail only, never Today. State is named in words and never carried by colour alone.
 
-The approved wide palette contains 33 colours, a system colour picker, a second colour and 14 two-colour or pattern options, including two purple swatches. It requires new Closet fields in migration 20, with independent review, an upgrade test and device-database replay, and ships in build 16. The installed schema is version 19.
+The Closet palette contains 33 colours, including two purple swatches, the system colour picker on iOS, and 14 fixed two-colour or pattern options; there is no free second colour. Its fields are migration 20's. The similar piece's "Yours" draws the user's own piece in its saved colour or pattern and names its option; the board keeps the outfit's palette.
 
 ### 6. Manual swaps sit outside recommendation selection
 

@@ -12,13 +12,14 @@ import type {
   GarmentTypeId,
   StructuralCategory,
 } from '@/features/catalog/domain/garment-taxonomy';
+import type { ClosetColorChoice } from '@/features/wardrobe/domain/closet-color-options';
 import { useMessages } from '@/localization/use-messages';
 import { borderWidths, layout, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // O10's preview stage: one surface shows the piece. Before a type it holds a viewfinder
-// frame around a dashed garment; after a type, the drawing in the chosen colour, updating
-// live; after a photo, the photo with a badge naming the type. The photo actions sit on
+// frame around a dashed garment; after a type, the drawing in the chosen colour or pattern
+// (O8), updating live; after a photo, the photo with a badge naming the type. The photo actions sit on
 // the stage and move under it once the label no longer fits beside the other one (the
 // largest standard sizes). In-app camera capture is build 16 (P5): only the library.
 const STAGE_HEIGHT = 232;
@@ -36,6 +37,8 @@ export type PiecePreviewStageProps = Readonly<{
   garmentTypeId: GarmentTypeId | null;
   category: StructuralCategory;
   colorFamily: ColorFamily | null;
+  /** O8: the palette colour, custom colour or pattern the piece is drawn in, if chosen. */
+  colorChoice?: ClosetColorChoice | null;
   typeLabel: string | null;
   isProcessing: boolean;
   disabled: boolean;
@@ -47,6 +50,7 @@ export type PiecePreviewStageProps = Readonly<{
 
 export function PiecePreviewStage({
   category,
+  colorChoice = null,
   colorFamily,
   disabled,
   garmentTypeId,
@@ -122,6 +126,7 @@ export function PiecePreviewStage({
                 testID="wardrobe-photo-type-badge">
                 <GarmentDrawing
                   category={category}
+                  colorChoice={colorChoice}
                   colorFamily={colorFamily}
                   garmentTypeId={garmentTypeId}
                   size={BADGE_DRAWING_SIZE}
@@ -138,6 +143,7 @@ export function PiecePreviewStage({
             style={[styles.artwork, stacksButtonPair && styles.artworkAlone]}>
             <GarmentTileArtwork
               category={garmentTypeId ? category : 'top'}
+              colorChoice={garmentTypeId ? colorChoice : null}
               colorFamily={garmentTypeId ? colorFamily : null}
               garmentTypeId={garmentTypeId ?? PLACEHOLDER_TYPE}
               glyphSize={ARTWORK_HEIGHT / 2}

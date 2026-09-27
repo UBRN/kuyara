@@ -8,6 +8,7 @@ import Animated, {
 import {
   AppText,
   Button,
+  ClosetColorDisc,
   colorFamilyFills,
   garmentColorFamiliesBySlot,
   Entrance,
@@ -193,6 +194,9 @@ export function OutfitDetailScreen({
   }, [entries.length, ownedCount]);
   const colorName = (family: ColorFamily | null) => family
     ? messages.catalog[`catalog.color_family.${family}`] : messages.wardrobe.colorUnspecified;
+  // O8: the user's own piece is named by its palette option when it has one, else by family.
+  const ownColorName = (item: WardrobeItem) => (item.colorChoice?.kind === 'option'
+    ? messages.wardrobe.colorOptionNames[item.colorChoice.id] : undefined) ?? colorName(item.colorFamily);
   const swatchFill = (family: ColorFamily) => {
     const fill = colorFamilyFills[theme.colorScheme][family];
     return typeof fill === 'string' ? fill : fill[0];
@@ -362,7 +366,7 @@ export function OutfitDetailScreen({
               <PressScale
                 accessibilityHint={copy.editPieceAccessibilityHint}
                 accessibilityLabel={match.kind === 'similar'
-                  ? `${spokenLabel}, ${copy.ownershipYours(colorName(match.item.colorFamily))}`
+                  ? `${spokenLabel}, ${copy.ownershipYours(ownColorName(match.item))}`
                   : spokenLabel}
                 accessibilityRole="button"
                 key={piece.garmentTypeId}
@@ -404,6 +408,7 @@ export function OutfitDetailScreen({
                       <View style={[styles.ownTile, { backgroundColor: theme.colors.surfaceMuted }]}>
                         <GarmentTileArtwork
                           category={piece.category}
+                          colorChoice={match.item.colorChoice ?? null}
                           colorFamily={match.item.colorFamily}
                           garmentTypeId={piece.garmentTypeId}
                           glyphSize={OWN_TILE_SIZE * 0.6}
@@ -415,14 +420,20 @@ export function OutfitDetailScreen({
                           width={OWN_TILE_SIZE}
                         />
                       </View>
-                      {match.item.colorFamily ? (
+                      {match.item.colorChoice ? (
+                        <ClosetColorDisc
+                          choice={match.item.colorChoice}
+                          size={SWATCH_DOT_SIZE}
+                          testID={`outfit-detail-yours-swatch-${piece.garmentTypeId}`}
+                        />
+                      ) : match.item.colorFamily ? (
                         <View style={[styles.swatchDot, {
                           backgroundColor: swatchFill(match.item.colorFamily),
                           borderColor: theme.colors.borderDefined,
                         }]} />
                       ) : null}
                       <AppText colorRole="textSecondary" style={styles.flexText} variant="caption">
-                        {copy.ownershipYours(colorName(match.item.colorFamily))}
+                        {copy.ownershipYours(ownColorName(match.item))}
                       </AppText>
                     </View>
                   ) : null}

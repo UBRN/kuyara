@@ -329,3 +329,32 @@ export function DatePicker({
     />
   );
 }
+
+// The SwiftUI colour well: its name, value and selected trait come from modifiers, and a
+// test drives `onSelectionChange` as the system picker would.
+export function ColorPicker({ label, modifiers, onSelectionChange, selection, supportsOpacity, testID }: Readonly<{
+  label?: string;
+  modifiers?: readonly Record<string, unknown>[];
+  onSelectionChange?: (value: string) => void;
+  selection: string | null;
+  supportsOpacity?: boolean;
+  testID?: string;
+}>) {
+  const labelModifier = modifiers?.find((modifier) => modifier.$type === 'accessibilityLabel');
+  const valueModifier = modifiers?.find((modifier) => modifier.$type === 'accessibilityValue');
+  const traits = modifiers?.filter((modifier) => modifier.$type === 'accessibilityAddTraits')
+    .flatMap((modifier) => modifier.traits as string[]) ?? [];
+  return (
+    <Pressable
+      accessibilityLabel={(labelModifier?.label as string | undefined) ?? label}
+      accessibilityRole="button"
+      accessibilityState={{
+        disabled: modifiers?.some((modifier) => modifier.$type === 'disabled'),
+        selected: traits.includes('isSelected'),
+      }}
+      accessibilityValue={{ text: valueModifier?.value as string | undefined }}
+      testID={testID ?? 'expo-ui-color-picker'}
+      {...{ modifiers, onSelectionChange, selection, supportsOpacity }}
+    />
+  );
+}

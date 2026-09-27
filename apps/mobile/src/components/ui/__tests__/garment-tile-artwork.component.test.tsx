@@ -1,11 +1,15 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import { processColor } from 'react-native';
 
+import { ClosetColorDisc } from '@/components/ui/garment-board/closet-color-art';
+import { garmentFillForAppearance, garmentFillRoles, legalizeGarmentFill } from '@/components/ui/garment-board/garment-palette';
 import { GarmentTileArtwork } from '@/components/ui/garment-board/garment-tile-artwork';
 import { silhouettes } from '@/components/ui/garment-board/silhouettes';
 import { blend } from '@/theme/color-blend';
 import { darkTheme, lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
+
+jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 
 const props = {
   photoUri: null,
@@ -140,4 +144,79 @@ test('a drawing below 32 points drops tone lines and stitches, and keeps its con
   expect(caption.container.queryAll((node) => node.props.d === construction && node.props.strokeWidth != null))
     .toHaveLength(1);
   expect(paths(caption)).toHaveLength(1);
+});
+
+// O8: a Closet piece's own palette colour, custom colour or pattern, on the edit surfaces and
+// the detail's "Yours". A solid is kept legible on the ground; a pattern fills the main
+// surfaces with its repeat; an option this build does not know draws the family fill.
+describe('a Closet colour choice', () => {
+  const draw = (theme: typeof lightTheme | typeof darkTheme, extra: Partial<React.ComponentProps<typeof GarmentTileArtwork>>) => render(
+    <KuyaraThemeContext.Provider value={theme}><GarmentTileArtwork {...props} {...extra} /></KuyaraThemeContext.Provider>,
+  );
+  const patternOf = (result: Awaited<ReturnType<typeof render>>) => {
+    const ref = paths(result)[0].props.fill?.brushRef as string | undefined;
+    return ref ? result.container.queryAll((node) => node.props.name === ref && String(node.type).includes('Pattern'))[0] : undefined;
+  };
+
+  test.each([lightTheme, darkTheme])('a palette solid and a custom colour draw their own colour in $colorScheme', async (theme) => {
+    const solid = await draw(theme, { colorFamily: 'blue', colorChoice: { kind: 'option', id: 'mid_wash_denim' } });
+    const expected = legalizeGarmentFill(garmentFillForAppearance('#5A7DA7', theme.isDark), theme.colors.background, theme.colors.textPrimary).hex;
+    expect(paths(solid)[0].props.fill).toEqual({ type: 0, payload: processColor(expected) });
+    expect(patternOf(solid)).toBeUndefined();
+
+    const custom = await draw(theme, { colorFamily: 'green', colorChoice: { kind: 'custom', hex: '#3C8D2F' } });
+    const customExpected = legalizeGarmentFill(garmentFillForAppearance('#3C8D2F', theme.isDark), theme.colors.background, theme.colors.textPrimary).hex;
+    expect(paths(custom)[0].props.fill).toEqual({ type: 0, payload: processColor(customExpected) });
+  });
+
+  test('a pattern fills the main surfaces with its own repeat, one per drawing', async () => {
+    const result = await render(
+      <KuyaraThemeContext.Provider value={lightTheme}>
+        <GarmentTileArtwork {...props} colorChoice={{ kind: 'option', id: 'blue_stripes' }} colorFamily="white" />
+        <GarmentTileArtwork {...props} colorChoice={{ kind: 'option', id: 'blue_stripes' }} colorFamily="white"
+          silhouetteTestID="second" />
+      </KuyaraThemeContext.Provider>,
+    );
+    const patterns = result.container.queryAll((node) => String(node.type).includes('Pattern') && node.props.name != null);
+    expect(patterns).toHaveLength(2);
+    expect(patterns[0].props.name).not.toBe(patterns[1].props.name);
+    expect(paths(result).some((path) => path.props.fill?.brushRef === patterns[0].props.name)).toBe(true);
+    // Blue stripes: the white ground and the cobalt band, in the light appearance as stored.
+    const fills = result.container.queryAll((node) => node.props.fill != null && node.props.fill.type === 0)
+      .map((node) => node.props.fill.payload);
+    expect(fills).toEqual(expect.arrayContaining([processColor('#F4F3EE'), processColor('#2F5BA6')]));
+  });
+
+  test.each(['white_and_black', 'navy_and_camel', 'navy_stripes', 'blue_gingham', 'tartan', 'houndstooth',
+    'polka_dots', 'floral', 'leopard'])('%s draws as a pattern', async (id) => {
+    const result = await draw(lightTheme, { colorChoice: { kind: 'option', id } });
+    expect(patternOf(result)).toBeDefined();
+  });
+
+  test('an unknown stored option and a missing choice draw the family fill; outfit roles win', async () => {
+    const family = { type: 0, payload: processColor('#A3BBD2') };
+    const unknown = await draw(lightTheme, { colorFamily: 'blue', colorChoice: { kind: 'option', id: 'from_a_later_build' } });
+    expect(paths(unknown)[0].props.fill).toEqual(family);
+    const legacy = await draw(lightTheme, { colorFamily: 'blue', colorChoice: null });
+    expect(paths(legacy)[0].props.fill).toEqual(family);
+    const outfit = await draw(lightTheme, {
+      colorChoice: { kind: 'option', id: 'tartan' }, roles: garmentFillRoles('g-tee', '#335577', 'light'),
+    });
+    expect(paths(outfit)[0].props.fill).toEqual({ type: 0, payload: processColor('#335577') });
+    expect(patternOf(outfit)).toBeUndefined();
+  });
+});
+
+test('a colour disc names nothing itself and checks a selected choice in a legible ink', async () => {
+  const result = await render(
+    <KuyaraThemeContext.Provider value={lightTheme}>
+      <ClosetColorDisc choice={{ kind: 'option', id: 'white' }} selected size={36} testID="white" />
+      <ClosetColorDisc choice={{ kind: 'option', id: 'black' }} size={36} testID="black" />
+      <ClosetColorDisc choice={{ kind: 'option', id: 'from_a_later_build' }} size={36} testID="unknown" />
+    </KuyaraThemeContext.Provider>,
+  );
+  expect(result.getByTestId('white', hidden)).toHaveProp('accessibilityElementsHidden', true);
+  expect(result.queryByTestId('unknown', hidden)).toBeNull();
+  expect(result.getByTestId('white-check', hidden)).toBeOnTheScreen();
+  expect(result.queryByTestId('black-check', hidden)).toBeNull();
 });

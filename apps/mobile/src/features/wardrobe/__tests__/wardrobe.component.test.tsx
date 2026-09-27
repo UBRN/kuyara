@@ -19,6 +19,7 @@ import {
   WardrobeApplicationContext,
   type WardrobeApplicationValue,
 } from '@/features/wardrobe/application/wardrobe-application-context';
+import { nearestFamilyForHex } from '@/features/wardrobe/domain/closet-color-options';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import type { StagedWardrobePhoto } from '@/features/wardrobe/data/wardrobe-photo-adapters';
 import type { WardrobeConfirmation } from '@/features/wardrobe/presentation/wardrobe-confirmation';
@@ -52,6 +53,26 @@ jest.mock('@expo/ui/community/bottom-sheet', () => {
       children: React.ReactNode;
       index: number;
     }) => (index >= 0 ? React.createElement(View, null, children) : null),
+  };
+});
+
+// The system colour well is the `components/ui` wrapper's business; a press here stands in
+// for the user picking `mockPickedHex` in the system picker (O8).
+let mockPickedHex = '#3C8D2F';
+jest.mock('@/components/ui/native-color-well', () => {
+  const React = jest.requireActual('react') as typeof import('react');
+  const { Pressable } = jest.requireActual('react-native') as typeof import('react-native');
+  return {
+    NativeColorWell: (props: {
+      accessibilityLabel: string; disabled?: boolean; selected: boolean;
+      onChange: (hex: string) => void; testID: string;
+    }) => React.createElement(Pressable, {
+      accessibilityLabel: props.accessibilityLabel,
+      accessibilityRole: 'radio',
+      accessibilityState: { disabled: props.disabled, selected: props.selected },
+      onPress: () => props.onChange(mockPickedHex),
+      testID: props.testID,
+    }),
   };
 });
 
@@ -438,25 +459,28 @@ test('the toolbar pair names where the piece goes and Cancel leaves through the 
   expect(mockBack).toHaveBeenCalledTimes(1);
 });
 
-test('a chosen type starts on its most natural colour, offers its usual colours first, and a pick sticks', async () => {
+test('a chosen type starts on its most natural colour family, and a palette pick sticks', async () => {
   const onCreate = jest.fn(async () => undefined);
   const result = await render(<CreateForm onCreate={onCreate} />);
   await chooseType(result, 'bottom', 'jeans');
 
   const selectedName = () =>
     result.getByTestId('wardrobe-color-selected', { includeHiddenElements: true });
+  // The type's usual family is named and drawn; it names no palette shade, so no swatch is on.
   expect(selectedName()).toHaveTextContent(messages.en.catalog['catalog.color_family.blue']);
-  expect(result.getByLabelText(messages.en.wardrobe.usualColorsLabel)).toHaveProp('accessibilityRole', 'radiogroup');
-  expect(result.getByTestId('wardrobe-color-blue').props.accessibilityState).toEqual(
-    expect.objectContaining({ selected: true }),
-  );
+  expect(result.getByLabelText(messages.en.wardrobe.solidColorsLabel)).toHaveProp('accessibilityRole', 'radiogroup');
+  expect(result.getAllByRole('radio').filter((radio) => radio.props.accessibilityState?.selected)
+    .map((radio) => radio.props.testID)).toEqual(['wardrobe-entry-state-owned']);
   // The user's own pick survives a later type change; only the untouched default follows it.
-  await fireEvent.press(result.getByTestId('wardrobe-color-red'));
+  await fireEvent.press(result.getByTestId('wardrobe-color-tomato_red'));
   await chooseType(result, 'top', 't_shirt');
-  expect(selectedName()).toHaveTextContent(messages.en.catalog['catalog.color_family.red']);
+  expect(selectedName()).toHaveTextContent(messages.en.wardrobe.colorOptionNames.tomato_red);
+  expect(result.getByTestId('wardrobe-color-tomato_red').props.accessibilityState.selected).toBe(true);
   await fireEvent.press(result.getByTestId(SAVE));
   expect(onCreate).toHaveBeenCalledWith(
-    expect.objectContaining({ colorFamily: 'red', garmentTypeId: 't_shirt' }),
+    expect.objectContaining({
+      colorFamily: 'red', colorChoice: { kind: 'option', id: 'tomato_red' }, garmentTypeId: 't_shirt',
+    }),
   );
   // The photo stays optional: a piece saves with no photo change at all.
   expect(onCreate.mock.calls[0]).toHaveLength(1);
@@ -622,7 +646,7 @@ test('create and edit forms persist the selected wardrobe state', async () => {
 
 // The seven property overrides stay stored fields and never appear in the form; colour
 // is the one detail, offered once a type is chosen.
-test('the colour section offers named family swatches and no property pickers', async () => {
+test('the colour section offers the palette, one choice at a time, and no property pickers', async () => {
   const result = await render(<CreateForm />);
   await chooseType(result, 'accessory', 'umbrella');
 
@@ -630,29 +654,98 @@ test('the colour section offers named family swatches and no property pickers', 
   expect(result.queryByTestId('wardrobe-attribute-waterProtectionOverride')).not.toBeOnTheScreen();
   expect(result.queryByTestId('wardrobe-attribute-thermalLevelOverride')).not.toBeOnTheScreen();
 
-  // Every family appears once, usual ones first, each a radio carrying its own name.
-  const swatch = result.getByTestId('wardrobe-color-pink');
+  const copy = messages.en.wardrobe;
+  expect(within(result.getByLabelText(copy.solidColorsLabel)).getAllByRole('radio')).toHaveLength(34);
+  expect(within(result.getByLabelText(copy.patternColorsLabel)).getAllByRole('radio')).toHaveLength(14);
+  const swatch = result.getByTestId('wardrobe-color-dusty_rose');
   expect(swatch.props.accessibilityRole).toBe('radio');
-  expect(swatch.props.accessibilityLabel).toBe(
-    messages.en.catalog['catalog.color_family.pink'],
-  );
-  for (const family of ['black', 'white', 'gray', 'brown', 'beige', 'red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'multicolor']) {
-    expect(result.getAllByTestId(`wardrobe-color-${family}`)).toHaveLength(1);
-  }
+  expect(swatch.props.accessibilityLabel).toBe(copy.colorOptionNames.dusty_rose);
+  expect(result.getByTestId('wardrobe-color-custom')).toHaveProp('accessibilityLabel', copy.moreColorsLabel);
+
   // The name line is hidden from the accessibility tree on purpose: the swatches already
   // carry their names, so it is the sighted reader's confirmation only.
   const selectedName = () =>
     result.getByTestId('wardrobe-color-selected', { includeHiddenElements: true });
+  const selected = () => result.getAllByRole('radio')
+    .filter((radio) => radio.props.accessibilityState?.selected && radio.props.testID !== 'wardrobe-entry-state-owned')
+    .map((radio) => radio.props.testID);
   await fireEvent.press(swatch);
-  expect(selectedName()).toHaveTextContent(
-    messages.en.catalog['catalog.color_family.pink'],
-  );
+  expect(selectedName()).toHaveTextContent(copy.colorOptionNames.dusty_rose);
+  expect(selected()).toEqual(['wardrobe-color-dusty_rose']);
   // Law 1: selection is a `brandAccent` ring, never a fill.
-  const selectedStyle = StyleSheet.flatten(
-    result.getByTestId('wardrobe-color-pink').props.style,
-  );
+  const selectedStyle = StyleSheet.flatten(result.getByTestId('wardrobe-color-dusty_rose').props.style);
   expect(selectedStyle.borderColor).toBe(lightTheme.colors.brandAccent);
   expect(selectedStyle.backgroundColor).not.toBe(lightTheme.colors.brandAccent);
+
+  await fireEvent.press(result.getByTestId('wardrobe-color-polka_dots'));
+  expect(selected()).toEqual(['wardrobe-color-polka_dots']);
+  expect(selectedName()).toHaveTextContent(copy.colorOptionNames.polka_dots);
+  mockPickedHex = '#8A2BE2';
+  await fireEvent.press(result.getByTestId('wardrobe-color-custom'));
+  expect(selected()).toEqual(['wardrobe-color-custom']);
+  // A custom colour is named by the family it is nearest to.
+  expect(selectedName()).toHaveTextContent(
+    messages.en.catalog[`catalog.color_family.${nearestFamilyForHex('#8A2BE2')}`]);
+});
+
+// O8: the preview stage draws the piece in the chosen solid, pattern or custom colour.
+test('the preview stage draws the chosen solid, pattern and custom colour', async () => {
+  const result = await render(<CreateForm />);
+  await chooseType(result, 'top', 't_shirt');
+  type HostNode = { type: unknown; props: Record<string, unknown>; children: readonly (HostNode | string)[] };
+  const fills = (node: HostNode): unknown[] => [
+    ...(String(node.type).includes('Path') && node.props.fill != null ? [node.props.fill] : []),
+    ...(node.children ?? []).flatMap((child) => (typeof child === 'string' ? [] : fills(child))),
+  ];
+  const preview = () => fills(result.getByTestId('wardrobe-preview-drawing', { includeHiddenElements: true }) as never);
+  const patterned = () => preview().some((fill) => (fill as { brushRef?: string }).brushRef != null);
+
+  await fireEvent.press(result.getByTestId('wardrobe-color-cobalt'));
+  expect(patterned()).toBe(false);
+  const cobalt = preview();
+  await fireEvent.press(result.getByTestId('wardrobe-color-red_gingham'));
+  expect(patterned()).toBe(true);
+  mockPickedHex = '#8A2BE2';
+  await fireEvent.press(result.getByTestId('wardrobe-color-custom'));
+  expect(patterned()).toBe(false);
+  expect(preview()).not.toEqual(cobalt);
+});
+
+// A record saved before build 16 (a family and no palette choice) opens named and drawn in
+// its family with no swatch on, and an unrelated edit sends no colour choice, so the stored
+// colour data stays as it is.
+test.each([
+  ['a legacy family-only record', null],
+  ['a record with a stored pattern', { kind: 'option', id: 'navy_stripes' } as const],
+])('%s survives an unrelated edit unchanged', async (_label, colorChoice) => {
+  const onUpdate = jest.fn(async (_input: Record<string, unknown>) => undefined);
+  const stored: WardrobeItem = colorChoice ? { ...item, colorFamily: 'white', colorChoice } : item;
+  const result = await render(
+    <TestProviders>
+      <WardrobeItemFormScreen isBusy={false} item={stored} mode="edit" onCreate={async () => undefined}
+        onDirtyChange={() => undefined} onUpdate={onUpdate} />
+    </TestProviders>,
+  );
+  const selectedName = () =>
+    result.getByTestId('wardrobe-color-selected', { includeHiddenElements: true });
+  expect(selectedName()).toHaveTextContent(colorChoice
+    ? messages.en.wardrobe.colorOptionNames.navy_stripes
+    : messages.en.catalog['catalog.color_family.blue']);
+  expect(result.getAllByRole('radio').filter((radio) => radio.props.accessibilityState?.selected)
+    .map((radio) => radio.props.testID).filter((id) => id.startsWith('wardrobe-color-')))
+    .toEqual(colorChoice ? ['wardrobe-color-navy_stripes'] : []);
+
+  await fireEvent.changeText(result.getByTestId('wardrobe-name-input'), 'Renamed');
+  await fireEvent.press(result.getByTestId(SAVE));
+  expect(onUpdate).toHaveBeenCalledTimes(1);
+  const [payload] = onUpdate.mock.calls[0];
+  expect(payload).toMatchObject({ name: 'Renamed', colorFamily: stored.colorFamily });
+  expect(payload).not.toHaveProperty('colorChoice');
+
+  // Picking a colour does send it, with the family it belongs to.
+  await fireEvent.press(result.getByTestId('wardrobe-color-olive'));
+  await fireEvent.press(result.getByTestId(SAVE));
+  expect(onUpdate.mock.calls[1][0]).toMatchObject({ colorFamily: 'green', colorChoice: { kind: 'option', id: 'olive' } });
 });
 
 test('valid create maps values, blocks rapid duplicate presses, and reports dirty state', async () => {
@@ -669,7 +762,7 @@ test('valid create maps values, blocks rapid duplicate presses, and reports dirt
   await chooseType(result, 'accessory', 'umbrella');
 
   await fireEvent.changeText(result.getByTestId('wardrobe-name-input'), 'City umbrella');
-  await fireEvent.press(result.getByTestId('wardrobe-color-blue'));
+  await fireEvent.press(result.getByTestId('wardrobe-color-cobalt'));
   await fireEvent.press(result.getByTestId('wardrobe-toolbar-checkmark'));
   await fireEvent.press(result.getByTestId('wardrobe-toolbar-checkmark'));
   expect(onCreate).toHaveBeenCalledTimes(1);

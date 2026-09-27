@@ -25,6 +25,7 @@ import {
   type WaterProtection,
   type WindProtection,
 } from '@/features/catalog/domain/garment-taxonomy';
+import type { ClosetColorChoice } from '@/features/wardrobe/domain/closet-color-options';
 import {
   wardrobeEntryStateSchema,
   type CreateWardrobeItemInput,
@@ -37,6 +38,8 @@ export type WardrobeFormValues = Readonly<{
   name: string;
   garmentTypeId: GarmentTypeId | null;
   colorFamily: ColorFamily | null;
+  /** O8: the palette option or custom colour; `null` for a family-only record. */
+  colorChoice: ClosetColorChoice | null;
   thermalLevelOverride: ThermalLevel | null;
   waterProtectionOverride: WaterProtection | null;
   windProtectionOverride: WindProtection | null;
@@ -48,7 +51,7 @@ export type WardrobeFormValues = Readonly<{
 
 export type WardrobeOverrideField = Exclude<
   keyof WardrobeFormValues,
-  'name' | 'garmentTypeId' | 'colorFamily'
+  'name' | 'garmentTypeId' | 'colorFamily' | 'colorChoice'
 >;
 
 export type WardrobeOverrideDefinition = Readonly<{
@@ -122,6 +125,7 @@ const emptyValues: WardrobeFormValues = Object.freeze({
   name: '',
   garmentTypeId: null,
   colorFamily: null,
+  colorChoice: null,
   thermalLevelOverride: null,
   waterProtectionOverride: null,
   windProtectionOverride: null,
@@ -144,6 +148,7 @@ export function createWardrobeFormValues(
     name: item.name ?? '',
     garmentTypeId: item.garmentTypeId,
     colorFamily: item.colorFamily,
+    colorChoice: item.colorChoice ?? null,
     thermalLevelOverride: item.thermalLevelOverride,
     waterProtectionOverride: item.waterProtectionOverride,
     windProtectionOverride: item.windProtectionOverride,
@@ -159,8 +164,20 @@ export function wardrobeFormValuesEqual(
   right: WardrobeFormValues,
 ): boolean {
   return (Object.keys(emptyValues) as (keyof WardrobeFormValues)[]).every(
-    (key) => left[key] === right[key],
+    (key) => key === 'colorChoice'
+      ? sameClosetColorChoice(left.colorChoice, right.colorChoice)
+      : left[key] === right[key],
   );
+}
+
+export function sameClosetColorChoice(
+  left: ClosetColorChoice | null | undefined,
+  right: ClosetColorChoice | null | undefined,
+): boolean {
+  if (!left || !right) return (left ?? null) === (right ?? null);
+  return left.kind === 'option'
+    ? right.kind === 'option' && left.id === right.id
+    : right.kind === 'custom' && left.hex === right.hex;
 }
 
 export function hasWardrobeOverrides(values: WardrobeFormValues): boolean {
@@ -297,18 +314,30 @@ export function mapWardrobeCreateValues(
     return null;
   }
 
-  return visibleFields(values, garmentTypeId);
+  return values.colorChoice
+    ? { ...visibleFields(values, garmentTypeId), colorChoice: values.colorChoice }
+    : visibleFields(values, garmentTypeId);
 }
 
+/**
+ * The update payload. A palette choice is sent only when it differs from `initialValues`':
+ * an untouched colour leaves the key out, so the repository keeps the stored choice, an
+ * option this build does not know included (O8).
+ */
 export function mapWardrobeUpdateValues(
   values: WardrobeFormValues,
+  initialValues?: WardrobeFormValues,
 ): Omit<UpdateWardrobeItemInput, 'id' | 'localProfileId'> | null {
   const { garmentTypeId } = values;
   if (!garmentTypeId || !getGarmentType(garmentTypeId)) {
     return null;
   }
 
-  return visibleFields(values, garmentTypeId);
+  const choiceChanged = values.colorChoice !== null &&
+    !sameClosetColorChoice(values.colorChoice, initialValues?.colorChoice ?? null);
+  return choiceChanged
+    ? { ...visibleFields(values, garmentTypeId), colorChoice: values.colorChoice }
+    : visibleFields(values, garmentTypeId);
 }
 
 export function isWardrobeRouteId(value: unknown): value is string {

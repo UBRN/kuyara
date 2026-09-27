@@ -31,6 +31,7 @@ import {
 } from '@/features/weather/application/weather-application-context';
 import type { ActiveLocation, HourlyWeather } from '@/features/weather/domain/weather';
 import { WardrobeApplicationContext } from '@/features/wardrobe/application/wardrobe-application-context';
+import { closetColorOptions } from '@/features/wardrobe/domain/closet-color-options';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
@@ -701,6 +702,7 @@ function closetFor(language: 'en' | 'tr' = 'en') {
   });
   return {
     suggestion,
+    similarFamily,
     exactPiece,
     similarPiece,
     wantedPiece,
@@ -814,6 +816,36 @@ test('outfit detail renders the board, captions, piece rows by O7, requirement r
   expect(weatherRecap.getByText('65% chance of rain')).toBeOnTheScreen();
   expect(StyleSheet.flatten(result.getByTestId('outfit-detail-weather-recap').props.style))
     .toMatchObject({ backgroundColor: lightTheme.atmosphere[loadedPresentation().atmosphere] });
+});
+
+// O8: the similar row's "Yours" draws the user's own piece in its saved pattern and names it
+// by its palette option, in words and in the row's spoken label; a family-only record keeps
+// its family dot and name (the test above).
+test('the similar row draws and names the user\u2019s own palette pattern', async () => {
+  const { similarPiece, similarFamily, items } = closetFor();
+  // A patterned record in a family other than the one the outfit draws the piece in.
+  const pattern = closetColorOptions.find((option) => option.kind === 'pattern' && option.family !== similarFamily)!;
+  const record: WardrobeItem = {
+    ...items[1], colorFamily: pattern.family, colorChoice: { kind: 'option', id: pattern.id },
+  };
+  const similarItems = [items[0], record, items[2]];
+  const result = await render(providers(
+    <OutfitDetailScreen language="en" onEditPiece={jest.fn()} state={todayScreenState}
+      suggestionId={todayOutfitId(1)} wardrobeItems={similarItems} />,
+  ));
+  const id = similarPiece.garmentTypeId;
+  const row = result.getByTestId(`outfit-detail-piece-yours-${id}`);
+  const name = messages.en.wardrobe.colorOptionNames[pattern.id];
+  expect(row).toHaveTextContent(messages.en.today.ownershipYours(name));
+  expect(result.getByTestId(`outfit-detail-piece-${id}`).props.accessibilityLabel)
+    .toContain(messages.en.today.ownershipYours(name));
+  const hidden = { includeHiddenElements: true };
+  expect(result.getByTestId(`outfit-detail-yours-swatch-${id}`, hidden)).toBeOnTheScreen();
+  type HostNode = { type: unknown; props: Record<string, unknown>; children: readonly (HostNode | string)[] };
+  const patterned = (node: HostNode): boolean =>
+    (String(node.type).includes('Path') && (node.props.fill as { brushRef?: string } | undefined)?.brushRef != null)
+    || (node.children ?? []).some((child) => typeof child !== 'string' && patterned(child));
+  expect(patterned(result.getByTestId(`outfit-detail-yours-silhouette-${id}`, hidden) as never)).toBe(true);
 });
 
 // ADR 0038: one worn record per dressing day. The action writes, the saved state says so in

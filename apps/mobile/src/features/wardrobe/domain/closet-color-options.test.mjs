@@ -115,13 +115,17 @@ test('an equal-distance tie goes to the earlier swatch', () => {
 test('Closet palette fields do not cross into recommendation, AI, analytics or Worker code', async () => {
   const mobileSrc = fileURLToPath(new URL('../../../', import.meta.url));
   const workerSrc = fileURLToPath(new URL('../../../../../worker/src/', import.meta.url));
+  // The one approved reader outside the Closet (O8): the outfit detail draws the
+  // user's own similar piece ("Yours") in its saved colour. It renders and names it only; the
+  // rest of Today, recommendation, analytics and the Worker stay free of the fields.
+  const displayOnly = new Set([join(mobileSrc, 'features', 'today', 'presentation', 'outfit-detail-screen.tsx')]);
   async function scan(directory) {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
       const path = join(directory, entry.name);
       if (entry.isDirectory()) {
         if (path === join(mobileSrc, 'features', 'wardrobe')) continue;
         await scan(path);
-      } else if (/\.(?:ts|tsx|js|mjs)$/.test(entry.name) &&
+      } else if (!displayOnly.has(path) && /\.(?:ts|tsx|js|mjs)$/.test(entry.name) &&
           !/\.test\.(?:ts|tsx|js|mjs)$/.test(entry.name)) {
         const source = await readFile(path, 'utf8');
         assert.equal(/\b(?:colorChoice|colorOptionId|colorCustomHex|color_option_id|color_custom_hex)\b/.test(source), false, path);
