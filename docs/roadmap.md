@@ -55,14 +55,14 @@ Every decision below, including AR1 through AR16, was approved on 2026-09-23. Ea
 | A2 | AI provenance becomes a prominent filled badge | [product](product-decisions.md), [ADR 0034](adr/0034-on-device-ai-selection-through-apple-foundation-models.md), [design language](design/design-language.md) |
 | A3 | Today removes requirement-rationale copy | [product](product-decisions.md), [ADR 0026](adr/0026-the-recommendation-detail-surface.md) |
 | A4 | Today has one insight line; deterministic weather rules live in weather domain | [product](product-decisions.md), [ADR 0032](adr/0032-local-weather-alert-rules.md), [architecture](architecture.md) |
-| A5 | AI may supply one validated insight sentence; AR7 gives it a v2 route | [AGENTS](../AGENTS.md), [product](product-decisions.md), [ADR 0039](adr/0039-ai-v2-route-and-the-validated-insight-sentence.md), [architecture](architecture.md) |
+| A5 | AI may supply one validated insight sentence; AR7 gives it a v2 route | [product](product-decisions.md), [ADR 0039](adr/0039-ai-v2-route-and-the-validated-insight-sentence.md), [architecture](architecture.md) |
 | A6 | Alternative outfits is the overview label | [product](product-decisions.md) |
 | A7 | A pool with no other valid option hides the re-ask; AR9 derives the flag | [product](product-decisions.md), [architecture](architecture.md), [status](current-status.md) |
 | A8 | Today uses primary body insight copy and a bold title | [ADR 0021](adr/0021-direction-e-a-visual-first-design-language.md), [design language](design/design-language.md) |
 | A9 | Weather attribution is reachable only in Settings | [product](product-decisions.md), [ADR 0002](adr/0002-real-weather-provider-chain.md) |
 | A10 | Today has no row for planning another day | [product](product-decisions.md), [ADR 0037](adr/0037-daily-formality-and-style-aesthetics.md) |
 | B1 | Settings uses five ordered groups | [product](product-decisions.md), [ADR 0030](adr/0030-settings-as-a-native-grouped-list.md) |
-| B2 | Service providers combines AI and weather status; AR11 reads the stored snapshot | [AGENTS](../AGENTS.md), [ADR 0030](adr/0030-settings-as-a-native-grouped-list.md), [ADR 0034](adr/0034-on-device-ai-selection-through-apple-foundation-models.md) |
+| B2 | Service providers combines AI and weather status; AR11 reads the stored snapshot | [ADR 0030](adr/0030-settings-as-a-native-grouped-list.md), [ADR 0034](adr/0034-on-device-ai-selection-through-apple-foundation-models.md) |
 | B3 | Share and Rate open platform surfaces | [product](product-decisions.md), [ADR 0030](adr/0030-settings-as-a-native-grouped-list.md) |
 | B4 | App-owned kuyara text receives display-role brand emphasis | [visual identity](design/visual-identity.md), [ADR 0030](adr/0030-settings-as-a-native-grouped-list.md) |
 | B5 | Temperature unit follows device locale; AR14 keeps storage in Celsius | [product](product-decisions.md), [architecture](architecture.md) |
@@ -73,7 +73,7 @@ Every decision below, including AR1 through AR16, was approved on 2026-09-23. Ea
 | D2 | Morning and evening sheets set day type; re-ask changes it during the day; AR1, AR2 and AR15 define key and allowance | [product](product-decisions.md), [ADR 0037](adr/0037-daily-formality-and-style-aesthetics.md) |
 | D3 | Dismissing the day-type sheet uses the profile dress style, with no alert or random formality | [product](product-decisions.md), [ADR 0037](adr/0037-daily-formality-and-style-aesthetics.md) |
 | D4 | First-day loading fills a garment board and allows skip; AR9 derives overlay state | [product](product-decisions.md), [architecture](architecture.md), [ADR 0020](adr/0020-rewriting-the-motion-law.md) |
-| D5 | The app does not read the OS motion preference | [AGENTS](../AGENTS.md), [ADR 0020](adr/0020-rewriting-the-motion-law.md) |
+| D5 | The app does not read the OS motion preference | [ADR 0020](adr/0020-rewriting-the-motion-law.md) |
 | D6 | Morning and evening sheets write the current dressing-day answer | [product](product-decisions.md), [ADR 0037](adr/0037-daily-formality-and-style-aesthetics.md) |
 | E1 | Build 16 detail edit adds 33 colours, a system picker, second colour and 14 pattern options | [product](product-decisions.md), [ADR 0026](adr/0026-the-recommendation-detail-surface.md) |
 | E2 | One daily outfit and optional mirror photo enter history; AR6, AR13 and AR16 define storage and boundaries | [ADR 0038](adr/0038-outfit-history.md), [architecture](architecture.md), [taxonomy](analytics-taxonomy.md) |
@@ -85,10 +85,10 @@ Every decision below, including AR1 through AR16, was approved on 2026-09-23. Ea
 | I2 | Profile completion is dismissible and members gain sync benefits | [product](product-decisions.md) |
 | I3 | New records stay sync-ready without building a sync engine; AR13 specifies the fields | [architecture](architecture.md), [ADR 0038](adr/0038-outfit-history.md) |
 | I4 | Sending coarse profile metadata to Worker AI remains deferred | [roadmap](roadmap.md), Turkish vault note |
-| J1 | This roadmap and its Turkish vault twin carry the plan | [AGENTS](../AGENTS.md), [status](current-status.md) |
+| J1 | This roadmap and its Turkish vault twin carry the plan | [status](current-status.md) |
 | J2 | New localized copy uses whole sentences | [product](product-decisions.md) |
 | J3 | Nine phases follow approved mockups and Goals | [roadmap](roadmap.md) |
-| J4 | ADR decisions state current truth and rejected approaches as red lines | [AGENTS](../AGENTS.md) |
+| J4 | ADR decisions state current truth and rejected approaches as red lines | Project documentation rule |
 
 ## Lessons index
 

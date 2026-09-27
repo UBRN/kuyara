@@ -27,7 +27,7 @@ test('every event carries schema_version', () => {
   }
 });
 
-// docs/analytics-taxonomy.md section 4, and AGENTS.md "Worker, API, security, and privacy".
+// docs/analytics-taxonomy.md section 4 defines the permitted event properties.
 const forbiddenFragments = [
   'lat',
   'lon',

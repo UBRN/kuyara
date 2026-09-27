@@ -53,7 +53,7 @@ type AiSparkleMarkProps = Readonly<{
 }>;
 
 /**
- * The multicolour animated `sparkles` of the Worker badge (AGENTS.md, ADR 0034). On appear the
+ * The multicolour animated `sparkles` of the Worker badge (ADR 0034). On appear the
  * stars arrive largest first on the arrival spring, then a twinkle runs small, middle, large,
  * and again every six seconds. Only the views' transform and opacity move. Decorative: the
  * badge speaks for it. Android keeps the Material `auto_awesome` glyph in the badge ink.

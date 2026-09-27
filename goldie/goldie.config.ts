@@ -1,10 +1,11 @@
 import type { GoldieConfig } from "/opt/homebrew/lib/node_modules/goldie/dist/config";
+import { fileURLToPath } from "node:url";
 
 // App Store assets for kuyara. Scene flows live in ../.argent/flows and are
 // prefixed store-. Output renders into goldie/out (gitignored). The scenes
 // run in this order on one clean install, so a flow may depend on the state
 // the flows before it left behind (see the comments in each flow).
-const APP_ROOT = "/Users/utkubarin/Developer/kuyara";
+const APP_ROOT = fileURLToPath(new URL("..", import.meta.url));
 
 const config: GoldieConfig = {
   appRoot: APP_ROOT,

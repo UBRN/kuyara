@@ -41,7 +41,7 @@ about the failures nobody bothers to report.
 
 Three things already in the repository bound what can be added.
 
-**The payload rule is a closed list.** `AGENTS.md` states that analytics, telemetry and
+**The payload rule is a closed list.** Analytics, telemetry and
 error payloads must never carry exact coordinates, photos or image content, free-form user
 text, full AI prompts or model responses, raw provider responses, secrets, complete SQLite
 rows, credentials, or a persistent device fingerprint, and that an error reaches a
@@ -88,7 +88,7 @@ emitting the coarse `error_shown` and `error_recovered` events exactly as
 them becomes a `$exception` event. Three reasons, each sufficient. They are already
 measured, with a session-scoped emission rule and an occurrence bucket, so an exception
 event would add volume, not knowledge. Their input is a caught error whose message
-`AGENTS.md` forbids sending, so forwarding them would either send the forbidden message or
+the payload rule forbids sending, so forwarding them would either send the forbidden message or
 send a code that the analytics event already carries. And `captureException` on a caught
 error is precisely the call the red lines below prohibit, so allowing it here would leave
 the rule unenforceable.
@@ -187,7 +187,7 @@ a conclusion about that group.
 
 ### 4. The payload exclusion list applies item by item, and the stack trace is reconciled with it
 
-`AGENTS.md`'s list applies unchanged to a `$exception` event. Item by item:
+The payload exclusion list applies unchanged to a `$exception` event. Item by item:
 
 | Forbidden | How it stays out |
 |---|---|
@@ -277,7 +277,7 @@ at that install count, which no honest failure rate produces. The real risk is n
 it is a loop: an exception thrown on every render or inside a retry, which can generate thousands
 in one session on one device.
 
-The controls follow from that, and from `AGENTS.md`'s rule that paid usage has explicit hard
+The controls follow from that, and from the rule that paid usage has explicit hard
 limits and no automatic top-up:
 
 1. A per-session client cap. The app captures at most five exceptions per session and deduplicates

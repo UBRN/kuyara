@@ -351,8 +351,7 @@ outlining every card at 3:1 would read as a wireframe, the opposite of the ident
   the approved intent.
 - Nothing renders below `caption` 13, except `eyebrow` 10.5, which is uppercase and
   tracked and therefore legible at that size.
-- Never build a sentence from translated fragments (already an AGENTS.md rule; the
-  language repeats it because it is a typography-visible rule in Turkish).
+- Never build a sentence from translated fragments; this is visible in Turkish typography.
 
 ### Status copy, the tone rules
 

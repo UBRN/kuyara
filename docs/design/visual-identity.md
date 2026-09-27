@@ -223,4 +223,4 @@ UI work is not complete until it considers:
 - Turkish and English content and layout behavior
 - Small-size icon legibility
 
-These are product requirements, kept in routine development by the automated checks in `AGENTS.md`. The granular manual pass with a screen reader and the largest standard text size is risk-based rather than routine; `AGENTS.md` names the cases that call for it and leaves the accessibility text sizes above that maximum untested.
+These are product requirements, kept in routine development by automated theme, component and accessibility checks plus an affected Simulator pass. Manually inspect focus order and the largest standard text size for direct accessibility changes, the dedicated accessibility milestone, or a user request. Accessibility text sizes above that maximum remain outside the release and review scope.

@@ -259,7 +259,7 @@ precedent, plus a localized "Testing online AI…" line.
   global ceiling is somewhat higher than the configured numbers. This is
   acceptable for an abuse guard; it is not an accounting system.
 - The animated component and the Settings probe flow follow the automated
-  accessibility checks and affected Simulator pass in `AGENTS.md`.
+  accessibility checks and an affected Simulator pass.
 
 ## Alternatives considered
 

@@ -51,3 +51,11 @@ goldie/out/
 # Expo tooling started from the repo root (MCP servers, eas-cli) writes a stub {"expo":{}} here;
 # the real config is apps/mobile/app.json.
 /app.json
+
+# Agent instructions live outside this public repository.
+/AGENTS.md
+/AGENTS.override.md
+/CLAUDE.md
+/.claude/skills/
+/.agents/
+/.codex/

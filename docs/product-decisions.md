@@ -19,7 +19,7 @@ dated history live in the ADR each section cites; implementation state lives in
 
 ## Apple Developer Program
 
-The membership is active. WeatherKit, EAS Build, iOS signing credentials and TestFlight are permitted. Approved iOS release operations follow the standing authorization in `AGENTS.md`; production operations outside that path require an explicit user request. The rule is canonical in [`AGENTS.md`](../AGENTS.md#release-operations).
+The membership is active. WeatherKit, EAS Build, iOS signing credentials and TestFlight are permitted. Approved iOS release work has standing authorization for production build, upload, TestFlight distribution and App Store Connect submission after required automated checks, independent review and affected Simulator verification pass without a release blocker. Production operations outside that path require an explicit user request.
 
 ## Approved release versioning and update path
 
@@ -133,7 +133,7 @@ Approved 2026-08-13; rationale, the dated pricing basis and limits in [ADR 0002]
 
 - The chain is WeatherKit primary, Open-Meteo fallback, OpenWeather fallback, then the last valid device-local weather snapshot. WeatherKit was inserted at the head of the established chain rather than replacing it and is present only when its four Apple credentials are configured.
 - Each upstream provider has an isolated adapter with raw-response runtime validation, explicit unit and condition mapping, timeout handling, and sanitized errors. Provider payloads and secrets do not cross into mobile and are not logged.
-- Fallback eligibility follows the [repository rule in `AGENTS.md`](../AGENTS.md#weather-and-recommendation-behavior). Attempts per request are bounded at three with a 3,000 ms per-attempt timeout so the chain fits inside the mobile client's 10,000 ms abort; loops are prevented.
+- Fallback is eligible only for availability, timeout, quota or rate limit, authentication or configuration, upstream failure, or invalid response, never for valid but undesirable or different conditions. Attempts per request are bounded at three with a 3,000 ms per-attempt timeout so the chain fits inside the mobile client's 10,000 ms abort; loops are prevented.
 - Open-Meteo, OpenWeather and Apple WeatherKit attribution identifiers cross as controlled, non-secret values. Full marks, text and links are always reachable on Settings > Service providers. **Risk accepted:** Apple WeatherKit requires its mark and legal link where weather data is shown, and Open-Meteo CC BY and OpenWeather ODbL require visible attribution; removing attribution from Today and Weather trades against those requirements.
 - OpenWeather usage is bounded by provider-side limits plus a Kuyara-side daily cap; WeatherKit's included monthly allowance has no automatic overage and a derived Kuyara-side daily cap applies. The numbers live in the two ADRs' pricing sections, not here.
 - Open-Meteo's free tier is non-commercial use only. kuyara's free, ad-free, noncommercially licensed nature is recorded as a deliberate reading that fits those terms, not a certification; re-check if the product ever monetizes.
