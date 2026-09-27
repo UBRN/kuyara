@@ -2,7 +2,7 @@
 
 Status: Accepted (2026-09-13)
 
-Implementation: complete; `garmentCatalogVersion` is 4.
+Implementation: complete; `garmentCatalogVersion` is 6.
 
 This ADR owns the current catalog content and version used by the catalog-only
 recommendation source in [ADR 0005](0005-catalog-only-recommendation-candidates.md)
@@ -100,9 +100,9 @@ Red line: do not widen a type to `mens` on a diversity, coverage, or
 "preference is not sex" argument alone. A widening needs the everyday-outfit
 question answered yes first.
 
-### 4. Catalog version 4
+### 4. Catalog version 6
 
-`garmentCatalogVersion` is 4 for the content above. All related content changes
+`garmentCatalogVersion` is 6 for the catalog and its suit formality rule. All related changes
 share one version; the version is not incremented per edit.
 
 Bumping is not optional when content changes. `catalogVersion` is a segment of
@@ -117,21 +117,19 @@ aged out.
 
 ### What the bump costs, and what a user sees
 
-**On device, the version number invalidates nothing by itself.**
-`catalogVersion` is stored in the snapshot's context but is not among the
-signals `recommendationRefreshTrigger` compares. What invalidates a snapshot is
-the content change: `mapStoredRecommendation` re-derives every stored garment
-from the current catalog and requires the recomposition to match what was
-stored. A corrected property that shifts composition makes that fail, the
-repository raises `invalid-data`, and controller initialization catches it and
-starts with no snapshot.
+**On device, a stored snapshot must use the current catalog version.**
+The repository re-derives stored garments from the current catalog and requires
+the saved composition to match. It also checks `context.catalogVersion` against
+`garmentCatalogVersion`. A mismatch raises `invalid-data`, and controller
+initialization starts with no snapshot.
 
 The trigger then returns `first-recommendation` and Today regenerates on that
 same launch. So on the first launch after the update a user sees **one extra
 loading state and then three fresh outfits**. The stored row is not deleted, only
-overwritten by the next successful save, and the last-valid-result rule is
-untouched: a failed refresh still keeps what was there. Offline is safe, because
-the device-local deterministic fallback composes from the new catalog.
+overwritten by the next successful save. A failed in-session refresh still keeps
+an already displayed valid result, while a rejected old-version snapshot cannot
+be shown. Offline is safe, because the device-local deterministic fallback
+composes from the current catalog.
 
 **On the Worker, the bump is a single bounded cache miss.** Every
 `(requirement vector, clothing preference, day variant)` key misses once, so a

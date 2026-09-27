@@ -123,7 +123,7 @@ test('migration v5 persists a validated recommendation snapshot with lifecycle f
   assert.equal(replaced.createdAt, firstTime);
   assert.equal(replaced.updatedAt, secondTime);
   assert.equal(replaced.generationMode, 'deterministic-fallback');
-  assert.equal(replaced.catalogVersion, 5);
+  assert.equal(replaced.catalogVersion, 6);
   assert.equal(replaced.localDayKey, '2026-08-01');
   assert.deepEqual(replaced.paletteWeather, { temperatureC: 16, condition: 'clear' });
   assert.equal(replaced.recommendation.outfits.length, 3);

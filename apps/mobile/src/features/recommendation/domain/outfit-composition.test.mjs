@@ -43,8 +43,26 @@ test('the complete ordered catalog pool stays byte-identical across weather and 
   }
   assert.equal(
     hash.digest('hex'),
-    '5b4773f0a947b2914111d4b785a4c4af96f4d23521a0810d425997ec8900a437',
+    'e8a03e30a8dd216c11c7fcc4ccdebe534707301b1fa270f1aac22aaa5ebdfedc',
   );
+});
+
+test('a mild dry Formal day offers a formal outfit for both clothing preferences', () => {
+  for (const preference of ['womens', 'mens']) {
+    const input = gridRecommendationInput('mild', preference, 'formal');
+    const requirements = deriveClothingRequirements(input.snapshot, input.now);
+    const candidates = listGarmentTypesForPreference(preference).map(({ typeId }) =>
+      catalogCandidate(requirements, typeId, preference));
+    const composed = collectValidOutfits(requirements, candidates);
+    const offered = composeOutfitOptions(requirements, candidates, input.dayVariant);
+
+    assert.equal(composed.status, 'composed', preference);
+    assert.equal(offered.status, 'composed', preference);
+    assert.ok(composed.outfits.some(({ formality }) => formality === 'formal'),
+      `${preference} composed no formal outfit`);
+    assert.ok(offered.outfits.some(({ formality }) => formality === 'formal'),
+      `${preference} offered no formal outfit`);
+  }
 });
 
 test('recent worn sets exclude by catalog garment IDs and relax oldest first to keep three', () => {
@@ -193,6 +211,27 @@ test('rejects an outfit whose slot garments span casual through formal', () => {
 
   assert.equal(result.status, 'failure');
   assert.deepEqual(result.reasonCodes, ['no_valid_composition']);
+});
+
+test('only the exact shirt, trousers, blazer and closed shoes suit is formal', () => {
+  const requirements = clothingRequirements();
+  const outfitWith = (top, bottom, outer, footwear, mid = null) => {
+    const ids = [top, bottom, mid, outer, footwear].filter(Boolean);
+    const result = collectValidOutfits(requirements, ids.map((id) =>
+      catalogCandidate(requirements, id, 'mens')));
+    assert.equal(result.status, 'composed', ids.join(', '));
+    const outfit = result.outfits.find((candidate) =>
+      (candidate.midLayer?.garment.garmentTypeId ?? null) === mid &&
+      (candidate.outerLayer?.garment.garmentTypeId ?? null) === outer);
+    assert.ok(outfit, `${ids.join(', ')} did not compose together`);
+    return outfit.formality;
+  };
+
+  assert.equal(outfitWith('shirt', 'trousers', 'blazer', 'closed_shoes'), 'formal');
+  assert.equal(outfitWith('shirt', 'trousers', null, 'closed_shoes'), 'smart');
+  assert.equal(outfitWith('polo_shirt', 'trousers', 'blazer', 'closed_shoes'), 'smart');
+  assert.equal(outfitWith('shirt', 'trousers', 'blazer', 'loafers'), 'smart');
+  assert.equal(outfitWith('shirt', 'trousers', 'blazer', 'closed_shoes', 'cardigan'), 'smart');
 });
 
 test('one-piece replaces separates and may add one mid and one outer layer', () => {

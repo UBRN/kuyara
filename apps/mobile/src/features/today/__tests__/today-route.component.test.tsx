@@ -294,7 +294,7 @@ function recommendationReady(
       locationKey: todayScreenState.snapshot.activeLocation.locationKey,
       clothingPreference: 'womens',
       dressStyle: 'smart',
-      catalogVersion: 4,
+      catalogVersion: garmentCatalogVersion,
       dayVariant: 0,
       localDayKey: '2026-08-13',
       generationMode: todayRecommendation.generationMode,
