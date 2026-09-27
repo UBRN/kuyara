@@ -20,18 +20,18 @@ The [product decisions](product-decisions.md) and [ADRs](adr/) define the approv
 
 | Goal | Scope | Status |
 | --- | --- | --- |
-| A | Today layout, AI badges, the first morning-sheet step and the approved visual refinements | Landed on main |
-| B | First-generation loading runway | Landed on main |
-| C | “Ask the stylist again” and the approved outfit timing model: C1 and C2 domain landed (c330eb0, 53e6246), migration 19 landed (1fc733a) | C3 remains |
-| Buttons | Capsule roles, toolbar save, press feedback and dark tonal fill (O5) | Approved for build 15 |
-| C3 | Re-ask sheet with day type and Now or Later (O2-O4) | Approved for build 15 |
-| Runway | Neutral five-slot drafts, condition fields and piece-by-piece dressing (O1, O17) | Approved for build 15 |
-| Phase 6 | Ink-edge silhouettes, eight new drawings, 31-colour harmony and one catalog version bump (O15) | Approved for build 15 |
-| Phase 5B | Detail sheet and garment rows, ownership match, “Wore this today” and history (O6, O7); the wide palette, second colour, patterns and migration 20 (O8) ship in build 16 (P5) | O6 and O7 landed on main (6d70cdb) |
-| Closet | Open rack, six category counts, category tabs and owned/wanted sections (O9) | Approved for build 15 |
-| Add a piece | Visual form: preview stage, owned and wanted cards, illustrated type picker, usual colours, the toolbar save pair and photo-library import; in-app camera capture ships in build 16 (O10, P5) | Approved for build 15 |
-| Worker badge | Animated multicolour `sparkles` (O11) | Approved for build 15 |
-| Accessibility and wave 2 | Easier to see switch (O13); cards, rows, back, name, weather and onboarding (O14) | Approved for build 15 |
+| A | Today layout, AI badges, the first morning-sheet step and the approved visual refinements | Shipped in build 15 |
+| B | First-generation loading runway | Shipped in build 15 |
+| C | “Ask the stylist again” and the approved outfit timing model: C1 and C2 domain (c330eb0, 53e6246), migration 19 (1fc733a), and the C3 re-ask sheet (O2-O4) | Shipped in build 15 |
+| Buttons | Capsule roles, toolbar save, press feedback and dark tonal fill (O5) | Shipped in build 15 |
+| C3 | Re-ask sheet with day type and Now or Later (O2-O4) | Shipped in build 15 |
+| Runway | Neutral five-slot drafts, condition fields and piece-by-piece dressing (O1, O17) | Shipped in build 15 |
+| Phase 6 | Ink-edge silhouettes, eight new drawings, 31-colour harmony and one catalog version bump (O15) | Shipped in build 15 |
+| Phase 5B | Detail sheet and garment rows, ownership match, “Wore this today” and history (O6, O7); the wide palette, second colour, patterns and migration 20 (O8) ship in build 16 (P5) | O6 and O7 shipped in build 15 |
+| Closet | Open rack, six category counts, category tabs and owned/wanted sections (O9) | Shipped in build 15 |
+| Add a piece | Visual form: preview stage, owned and wanted cards, illustrated type picker, usual colours, the toolbar save pair and photo-library import; in-app camera capture ships in build 16 (O10, P5) | Shipped in build 15 |
+| Worker badge | Animated multicolour `sparkles` (O11) | Shipped in build 15 |
+| Accessibility and wave 2 | Easier to see switch (O13); cards, rows, back, name, weather and onboarding (O14) | O14 shipped in build 15; O13 “Easier to see” switch unverified |
 | Sheet close button | The glass close button on the name, day-type (both steps), ask-again and piece-edit sheets draws a clipped glyph instead of an xmark on device and Simulator; the fix gives it an explicit `xmark` image and circle shape like the confirm button, keeps `role="close"`, and adds a close-button check to the Simulator tour | Shipped to build 15 installs by the production EAS Update from commit `6bbe001` ([procedure](testing.md#javascript-only-fix-for-the-live-version)) |
 | Build 15 | All approved Goals above, plus landed A and B; every automated, independent-review, migration, native and Simulator release gate applies | On the App Store (`READY_FOR_SALE`) |
 | pnpm 12 | Separate major upgrade from the pnpm 11.18.0 pinned since the scaffold: `packageManager` and both `eas.json` profiles move together, `pnpm install` regenerates the lockfile, `pnpm-workspace.yaml` passes pnpm 12's unknown-setting check, then `pnpm check`, the component suite and one local native build. It never rides an `eas update`, because the `appVersion` runtime policy lets an update reach installs without a native check | Build 16 maintenance; lands after the last planned build 15 update |
