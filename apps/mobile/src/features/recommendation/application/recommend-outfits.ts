@@ -143,9 +143,10 @@ export function outfitMatchesArchetype(
       return day.frozen &&
         outfit.footwear.garment.properties.tractionSuitability === 'enhanced';
     case 'cold_shield':
-      return outfit.outerLayer?.garment.properties.thermalLevel === 'high';
+      return (day === dayBlindArchetypeDay || day.cold) &&
+        outfit.outerLayer?.garment.properties.thermalLevel === 'high';
     case 'wind_guard':
-      return assignedGarments(outfit).some(
+      return day.windy && assignedGarments(outfit).some(
         ({ garment }) => garment.properties.windProtection === 'wind_resistant',
       );
     case 'layered_warmth':

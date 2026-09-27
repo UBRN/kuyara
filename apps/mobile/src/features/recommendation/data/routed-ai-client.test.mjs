@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { aiModelInputFromRequest, picksAreMeaningfullyDifferent } from '@kuyara/contracts';
+import {
+  aiModelInputFromRequest,
+  archetypeDayFromRequirements,
+  picksAreMeaningfullyDifferent,
+} from '@kuyara/contracts';
 
 import {
   OnDeviceAiClient,
@@ -52,19 +56,21 @@ function input() {
 }
 
 const request = createAiRecommendationRequest(input());
+const day = archetypeDayFromRequirements(request.requirements);
 
 // Three options that differ in their body core, so the shared distinctness rule accepts
 // them, each labelled with an archetype its own traits satisfy, so the mapper's archetype
 // precondition accepts them too. Both gates now run inside the chain.
 function archetypeFor(option, used) {
   const candidates = [
-    option.traits.outerWaterProtective && 'rain_ready',
-    option.traits.tractionEnhanced && 'snow_day',
-    option.traits.outerThermalHigh && 'cold_shield',
-    option.traits.windResistant && 'wind_guard',
+    day.wet && option.traits.outerWaterProtective && 'rain_ready',
+    day.frozen && option.traits.tractionEnhanced && 'snow_day',
+    day.cold && option.traits.outerThermalHigh && 'cold_shield',
+    day.windy && option.traits.windResistant && 'wind_guard',
     option.traits.hasMidLayer && option.traits.hasOuterLayer && 'layered_warmth',
     option.traits.hasMidLayer && !option.traits.hasOuterLayer && 'in_between',
-    !option.traits.hasOuterLayer && option.traits.breathabilityHigh && 'light_and_airy',
+    !day.cold && !option.traits.hasOuterLayer && option.traits.breathabilityHigh
+      && 'light_and_airy',
     // This request sends no dayKind, so office_ready holds for formal outfits only.
     option.formality === 'formal' && 'office_ready',
     option.formality !== 'casual' && 'smart_casual',

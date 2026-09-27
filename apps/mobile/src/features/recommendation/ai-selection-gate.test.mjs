@@ -237,7 +237,7 @@ test('T2 the mobile gate refuses every answer shape the Worker gate refuses', ()
 
 test('T3 outfitMatchesArchetype (application/recommend-outfits.ts) equals meetsArchetypePrecondition (contracts ai-model-input.ts), day-blind and day-aware', () => {
   // A4/B5: the two twins used to be compared without a day, so the `office_ready` and
-  // `on_the_move` branches that only differ when a `dayKind` is present, and the three
+  // `on_the_move` branches that only differ when a `dayKind` is present, and the five
   // weather branches that only differ when the day is, could drift unseen. Every caller
   // shape is compared here instead: the day-blind one builds 8 and 9 are, a caller that
   // sends only the day kind, and the day-aware one this app is on both day kinds.

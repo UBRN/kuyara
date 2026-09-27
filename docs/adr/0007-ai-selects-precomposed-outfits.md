@@ -150,10 +150,10 @@ insight sentence is the one visible prose exception.
 | `office_ready` | Ofise Uygun | Office Ready | formality `smart` or `formal` |
 | `weekend_relaxed` | Hafta Sonu (weekday: Keyifli Gün) | Easy Weekend (weekday: Easygoing) | formality `casual` and the day is not a weekday |
 | `layered_warmth` | Katmanlı Sıcaklık | Layered Warmth | mid layer and outer layer both present |
-| `cold_shield` | Soğuğa Karşı | Cold Shield | outer layer thermal `high` |
+| `cold_shield` | Soğuğa Karşı | Cold Shield | outer layer thermal `high`, on a day with mandatory moderate or high insulation |
 | `rain_ready` | Yağmura Hazır | Rain Ready | water-protective outer layer, on a day whose requirements carry rain or drizzle |
 | `snow_day` | Karlı Gün | Snow Day | footwear traction `enhanced`, on a snow or sleet day |
-| `wind_guard` | Rüzgara Karşı | Wind Guard | a wind-resistant garment |
+| `wind_guard` | Rüzgara Karşı | Wind Guard | a wind-resistant garment, on a day with a wind-protection requirement |
 | `light_and_airy` | Hafif ve Ferah | Light and Airy | no outer layer, breathability `high`, on a day with no mandatory insulation band at `moderate` or above |
 | `on_the_move` | Hareketli Gün | On the Move | footwear `sneakers` |
 | `in_between` | Değişken Hava | In-Between | mid layer present, no outer layer |
@@ -162,9 +162,9 @@ Twelve is deliberate. A longer list lowers selection quality in a small model
 and creates a precondition to write for every entry.
 
 `weekend_relaxed` is the one archetype whose precondition reads the calendar, and
-`rain_ready`, `snow_day` and `light_and_airy` are the three that read the weather:
+`cold_shield`, `rain_ready`, `snow_day`, `wind_guard` and `light_and_airy` read the weather:
 both executors derive the day from the requirements the request already carries
-(the reason codes and the mandatory insulation band), so a label never contradicts
+(the reason codes, mandatory insulation band and wind requirement), so a label never contradicts
 the day it is shown on and no request field exists for it; a caller that passes no
 day keeps the property-only reading. The
 request carries an optional `dayKind` of `weekday` or `weekend`, derived on the
