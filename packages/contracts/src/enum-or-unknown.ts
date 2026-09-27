@@ -2,8 +2,9 @@ import { z } from 'zod';
 
 // The named unknown branch a response enum needs before the Worker may grow it. An
 // installed binary reads a member it does not know as the literal 'unknown' instead of
-// rejecting the whole payload, so a published Worker can add a provider or an error code
-// ahead of the next binary, and every consumer maps 'unknown' deliberately. Only an
+// rejecting the whole payload. This reader defense does not permit the Worker to emit a
+// new member while an installed binary still has a strict reader. The v1 output shape and
+// emitted enums remain frozen; changed output belongs on a new route. Only an
 // identifier-shaped string lands there: a missing key, a number or free text is still a
 // broken payload. The Worker never emits 'unknown'; its own code stays typed by the closed
 // const arrays. Weather condition codes are deliberately not read this way: every mobile

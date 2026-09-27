@@ -7,11 +7,14 @@
 //  - Golden payloads: the exact success and error bodies build 0.1.20260913 (build 8, commit
 //    67c20ae) expected. Today's schemas must still parse them, so a deployed Worker keeps
 //    serving the binaries already in the field.
-//  - Tolerance: response schemas ignore unknown keys and strip them, so a published Worker may
-//    add a response field without breaking installed binaries. Request schemas stay strict;
-//    the Worker owns them and an unknown request key is a client bug, not a version skew.
+//  - Installed requests: fixed examples from the schemas and client call sites at the recorded
+//    build commits must remain accepted by the current strict Worker parsers.
+//  - Reader tolerance: newer binaries strip unknown response fields. Builds 8 and 9 do not,
+//    so /v1 output remains frozen while either is installed. The Worker must not emit a new
+//    field or enum member on any installed route just because newer readers tolerate it.
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -22,6 +25,7 @@ import {
   aiV1ErrorSchema,
   healthV1SuccessSchema,
 } from './ai-v1.ts';
+import { aiRecommendV2RequestSchema } from './ai-v2.ts';
 import {
   placeSearchV1ErrorSchema,
   placeSearchV1RequestSchema,
@@ -32,6 +36,24 @@ import {
   weatherV1RequestSchema,
   weatherV1SuccessSchema,
 } from './weather-v1.ts';
+
+const installedRequests = JSON.parse(readFileSync(
+  new URL('./__fixtures__/installed-requests.json', import.meta.url), 'utf8',
+));
+
+test('current Worker parsers accept requests sent by installed builds 8, 9, 14 and 15', () => {
+  // 8e949ec and e292fd7 use /v1. Build 14 adds dayKind on /v1; build 15
+  // (046eb2c) sends locale and aesthetics on /v2. Weather and places keep /v1 requests.
+  for (const build of [8, 9, 14, 15]) {
+    assert.equal(weatherV1RequestSchema.safeParse(installedRequests.weather).success, true, `weather ${build}`);
+    assert.equal(placeSearchV1RequestSchema.safeParse(installedRequests.placeSearch).success, true, `places ${build}`);
+    const ai = { ...installedRequests.aiV1,
+      ...(build === 14 ? installedRequests.build14AiFields : {}),
+      ...(build === 15 ? installedRequests.build15AiFields : {}) };
+    const schema = build === 15 ? aiRecommendV2RequestSchema : aiRecommendV1RequestSchema;
+    assert.equal(schema.safeParse(ai).success, true, `AI ${build}`);
+  }
+});
 
 // --- Golden payloads (build 0.1.20260913, build 8, commit 67c20ae) -----------------------
 //
@@ -180,7 +202,8 @@ function valueAt(value, path) {
 
 /**
  * One entry per object level of every response schema: the top level and each nested object.
- * A Worker may add a field at any of these levels, so every level must tolerate one.
+ * Newer mobile readers strip an added field at any of these levels. This does not
+ * authorize the Worker to emit one while a strict reader still uses /v1.
  */
 const responseLevels = [
   ['weatherV1SuccessSchema root', 'weatherV1SuccessSchema', build8WeatherSuccess, []],
@@ -255,7 +278,7 @@ const responseLevels = [
 ];
 
 for (const [name, schemaName, payload, path] of responseLevels) {
-  test(`a published Worker may add a field at ${name}`, () => {
+  test(`a newer reader strips a field at ${name}`, () => {
     const result = schemasByName[schemaName].safeParse(withUnknownFieldAt(payload(), path));
     assert.equal(
       result.success,
@@ -274,8 +297,9 @@ for (const [name, schemaName, payload, path] of responseLevels) {
 //
 // A response schema tolerates an unknown FIELD, and for two enums an unknown MEMBER: a
 // provider sourceId and an error code the binary does not know read as the literal
-// 'unknown', so a published Worker may add a provider or an error code ahead of the next
-// binary. Only an identifier-shaped string maps there; a missing key or a number is still a
+// 'unknown'. This is a reader defense, not permission to expand the Worker's emitted
+// enums while old binaries are installed. Only an identifier-shaped string maps there;
+// a missing key or a number is still a
 // broken payload. The weather condition code stays closed on purpose: every mobile consumer
 // is exhaustive over it and the Worker maps every upstream code onto the list itself, so a
 // new condition member is a binary change on both sides (see enum-or-unknown.ts).

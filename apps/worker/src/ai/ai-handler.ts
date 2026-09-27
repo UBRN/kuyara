@@ -9,6 +9,7 @@ import {
   aiRecommendV2SuccessSchema,
   insightSentenceSchema,
   aiV1ErrorSchema,
+  aiModelInputFromRequest,
   archetypeDayFromRequirements,
   meetsArchetypePrecondition,
   picksAreMeaningfullyDifferent,
@@ -155,6 +156,21 @@ function attemptFailureReason(error: unknown, timedOut: boolean): ProviderFailur
  */
 const AI_GATE_VERSION = 2;
 
+function validSelection(
+  picks: { optionId: string; archetypeId: string }[],
+  request: AiRecommendV1Request | AiRecommendV2Request,
+  options: Map<string, AiOption>,
+): boolean {
+  const picked = picks.map(({ optionId }) => options.get(optionId));
+  if (!picked.every((option): option is AiOption => option !== undefined)) return false;
+  if (!picksAreMeaningfullyDifferent(picked)) return false;
+  return picks.every(({ archetypeId }, index) => meetsArchetypePrecondition(
+    archetypeId as Parameters<typeof meetsArchetypePrecondition>[0],
+    picked[index]!, request.dayKind,
+    archetypeDayFromRequirements(request.requirements),
+  ));
+}
+
 async function buildCacheRequest(
   request: AiRecommendV1Request | AiRecommendV2Request,
   route: string,
@@ -168,10 +184,8 @@ async function buildCacheRequest(
     ].join('|'))
     .sort()
     .join(',');
-  const optionKey = request.options
-    .map(({ optionId }) => optionId)
-    .sort()
-    .join(',');
+  const optionKey = JSON.stringify(aiModelInputFromRequest(request).options
+    .slice().sort((left, right) => left.optionId.localeCompare(right.optionId)));
   // The gate reads the day from the reason codes, which the requirement projection above
   // drops, so the key carries the same three facts derived through the same function: two
   // days that the gate judges differently can never share one entry.
@@ -188,7 +202,7 @@ async function buildCacheRequest(
     `wet:${day.wet}`,
     `cold:${day.cold}`,
     `gate:${AI_GATE_VERSION}`,
-    // Leave v1's canonical identity byte-for-byte intact for installed builds.
+    // The route and v2-only fields keep the two response versions separate.
     ...(route === aiRecommendV2Path && 'locale' in request
       ? [route, request.locale,
           'styleAesthetics' in request ? request.styleAesthetics?.join(',') ?? 'none' : 'none']
@@ -272,7 +286,13 @@ export function createAiHandler({
         cacheRequest = await buildCacheRequest(requestResult.data, url.pathname);
         const cached = await cache.match(cacheRequest);
         if (cached) {
-          return new Response(cached.body, { status: 200, headers: jsonHeaders });
+          const payload: unknown = await cached.json();
+          const parsed = isV2
+            ? aiRecommendV2SuccessSchema.safeParse(payload)
+            : aiRecommendV1SuccessSchema.safeParse(payload);
+          if (parsed.success && validSelection(parsed.data.data.picks, requestResult.data, options)) {
+            return Response.json(parsed.data, { status: 200, headers: jsonHeaders });
+          }
         }
       } catch {
         // Shared cache failures fall through to normal generation.
@@ -346,8 +366,7 @@ export function createAiHandler({
           continue;
         }
 
-        const pickedOptions = result.data.data.picks.map(({ optionId }) =>
-          options.get(optionId));
+        const pickedOptions = result.data.data.picks.map(({ optionId }) => options.get(optionId));
         if (!pickedOptions.every((option): option is AiOption => option !== undefined)) {
           logProviderFailure(provider, 'unknown_option');
           continue;
@@ -356,13 +375,7 @@ export function createAiHandler({
           logProviderFailure(provider, 'picks_not_distinct');
           continue;
         }
-        if (!result.data.data.picks.every(({ archetypeId }, index) =>
-          meetsArchetypePrecondition(
-            archetypeId,
-            pickedOptions[index]!,
-            requestResult.data.dayKind,
-            archetypeDayFromRequirements(requestResult.data.requirements),
-          ))) {
+        if (!validSelection(result.data.data.picks, requestResult.data, options)) {
           logProviderFailure(provider, 'archetype_precondition');
           continue;
         }
