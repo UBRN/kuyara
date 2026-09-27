@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ClosetColorChoice } from '@/features/wardrobe/domain/closet-color-options';
 
 import {
   structuralCategories,
@@ -23,6 +24,7 @@ export type WardrobeEntryState = z.infer<typeof wardrobeEntryStateSchema>;
 export type WardrobeItemTaxonomyFields = Readonly<{
   garmentTypeId: GarmentTypeId | null;
   colorFamily: ColorFamily | null;
+  colorChoice?: ClosetColorChoice | null;
   thermalLevelOverride: ThermalLevel | null;
   waterProtectionOverride: WaterProtection | null;
   windProtectionOverride: WindProtection | null;
@@ -53,6 +55,7 @@ export type CreateWardrobeItemInput = Readonly<{
   garmentTypeId: GarmentTypeId;
   color?: string | null;
   colorFamily?: ColorFamily | null;
+  colorChoice?: ClosetColorChoice | null;
   thermalLevelOverride?: ThermalLevel | null;
   waterProtectionOverride?: WaterProtection | null;
   windProtectionOverride?: WindProtection | null;
@@ -72,6 +75,7 @@ export type UpdateWardrobeItemInput = Readonly<{
   garmentTypeId?: GarmentTypeId;
   color?: string | null;
   colorFamily?: ColorFamily | null;
+  colorChoice?: ClosetColorChoice | null;
   thermalLevelOverride?: ThermalLevel | null;
   waterProtectionOverride?: WaterProtection | null;
   windProtectionOverride?: WindProtection | null;
