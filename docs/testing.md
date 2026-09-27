@@ -405,14 +405,14 @@ variable values:
 eas env:exec --non-interactive production 'set -eu
 EXPO_NO_DOTENV=1 ./node_modules/.bin/expo export --platform ios --output-dir dist --dump-sourcemap --dump-assetmap
 test -n "$EXPO_PUBLIC_KUYARA_WORKER_BASE_URL"
-if rg -q -a -F "$EXPO_PUBLIC_KUYARA_WORKER_BASE_URL" dist; then
+if grep -rqaF "$EXPO_PUBLIC_KUYARA_WORKER_BASE_URL" dist; then
   echo "PASS: Worker origin is in dist"
 else
   echo "FAIL: Worker origin is missing from dist" >&2
   exit 1
 fi
 test -n "$EXPO_PUBLIC_POSTHOG_HOST"
-if rg -q -a -F "$EXPO_PUBLIC_POSTHOG_HOST" dist; then
+if grep -rqaF "$EXPO_PUBLIC_POSTHOG_HOST" dist; then
   echo "PASS: PostHog host is in dist"
 else
   echo "FAIL: PostHog host is missing from dist" >&2
