@@ -427,7 +427,7 @@ Publish that checked directory, then upload its Hermes source maps:
 
 ```bash
 eas update --environment production --channel production --platform ios --skip-bundler --input-dir dist --message "..."
-posthog-cli hermes upload --directory dist
+./node_modules/.bin/posthog-cli hermes upload --directory dist
 ```
 
 Confirm the target with `eas update:list --branch production`. A native change never goes this
