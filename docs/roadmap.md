@@ -88,7 +88,7 @@ Every decision below, including AR1 through AR16, was approved on 2026-09-23. Ea
 | J1 | This roadmap and its Turkish vault twin carry the plan | [status](current-status.md) |
 | J2 | New localized copy uses whole sentences | [product](product-decisions.md) |
 | J3 | Nine phases follow approved mockups and milestones | [roadmap](roadmap.md) |
-| J4 | ADR decisions state current truth and rejected approaches as red lines | the contributor rules |
+| J4 | ADR decisions state current truth and rejected approaches as red lines | Project documentation rule |
 
 ## Lessons index
 

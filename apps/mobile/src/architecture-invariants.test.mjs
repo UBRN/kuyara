@@ -1,4 +1,4 @@
-// The contributor rules state several import boundaries as greppable `rg` invariants. This file is the
+// The project's import boundaries are also greppable `rg` invariants. This file is the
 // automated guard for them: it walks `apps/mobile/src` itself instead of shelling out, so the
 // rules hold in CI without depending on ripgrep being installed.
 //
@@ -6,10 +6,10 @@
 // `export ... from '<spec>'`, side-effect `import '<spec>'`, `require('<spec>')`, and
 // `import('<spec>')` in both its forms, the dynamic `await import('<spec>')` and the type-level
 // `typeof import('<spec>')`. A type-only reference counts: `import type { X } from '<spec>'`
-// already does, the `rg` invariants in the contributor rules match the text either way, and the adapters
+// already does, the `rg` invariants match the text either way, and the adapters
 // name their SDK through `typeof import(...)` today. Test files (`*.test.*`, which also covers
 // `*.component.test.*`) are skipped for every rule: component tests legitimately call
-// `jest.mock('@expo/ui/...')` and friends, and the contributor rules themselves write the Observe check as
+// `jest.mock('@expo/ui/...')` and friends, and the Observe check uses
 // `--glob '!*.test.*'`. Non-test helpers under `__tests__/` stay in scope, exactly as they do
 // for those `rg` commands; a shared mock of a guarded package belongs next to the wrapper it
 // stands in for (`components/ui/__tests__/expo-ui-test-mock.tsx`), not under a feature.
@@ -96,14 +96,21 @@ const inDirectory = (relativePath, directory) => relativePath.startsWith(directo
 
 const rules = [
   {
+    name: 'expo-localization has one device-locale importer',
+    matches: packageMatcher('expo-localization'),
+    forbiddenDirectories: null,
+    allowedDirectories: ['localization/device-locale.ts'],
+    ruleText: 'Device temperature settings enter through localization/device-locale.ts only.',
+  },
+  {
     name: 'components/ui is the only importer of @expo/ui and expo-haptics',
     matches: (specifier) => packageMatcher('@expo/ui')(specifier) || packageMatcher('expo-haptics')(specifier),
     forbiddenDirectories: ['features/'],
     allowedDirectories: null,
     ruleText:
-      'Contributor rules, "UI and visual identity": "Feature code never imports `@expo/ui` or `expo-haptics`. '
+      'Feature code never imports `@expo/ui` or `expo-haptics`. '
       + '`components/ui` wraps both and is the only importer; `rg \"@expo/ui|expo-haptics\" '
-      + 'apps/mobile/src/features` must return nothing." Native controls are wrapped once so the '
+      + 'apps/mobile/src/features` must return nothing. Native controls are wrapped once so the '
       + 'control layer stays replaceable (ADR 0019). Wrap the control in `components/ui` and import '
       + 'that wrapper from the feature instead.',
   },
@@ -113,9 +120,9 @@ const rules = [
     forbiddenDirectories: null,
     allowedDirectories: ['features/recommendation/data/'],
     ruleText:
-      'Contributor rules, "UI and visual identity": "The local Foundation Models Expo module has exactly one '
+      'The local Foundation Models Expo module has exactly one '
       + 'importer. `rg \"modules/kuyara-on-device-ai\" apps/mobile/src` must return only files under '
-      + '`apps/mobile/src/features/recommendation/data/`" (ADR 0034). Feature code never imports the '
+      + '`apps/mobile/src/features/recommendation/data/` (ADR 0034). Feature code never imports the '
       + 'native module; it goes through the recommendation data adapter.',
   },
   {
@@ -124,9 +131,9 @@ const rules = [
     forbiddenDirectories: null,
     allowedDirectories: ['features/analytics/data/'],
     ruleText:
-      'Contributor rules, "Product and scope": EAS Observe "reaches Observe only through the project-owned '
+      'EAS Observe reaches Observe only through the project-owned '
       + '`PerformanceTelemetry` boundary; `rg \"expo-observe\" apps/mobile/src --glob \'!*.test.*\'` '
-      + 'must return only its single adapter." (ADR 0033 section 7). Observe is observability, not '
+      + 'must return only its single adapter (ADR 0033 section 7). Observe is observability, not '
       + 'product analytics: route the call through the adapter under features/analytics/data/.',
   },
   {
@@ -135,9 +142,9 @@ const rules = [
     forbiddenDirectories: null,
     allowedDirectories: ['features/analytics/data/'],
     ruleText:
-      'Contributor rules, "Product and scope": analytics "reaches PostHog only through the project-owned '
+      'Analytics reaches PostHog only through the project-owned '
       + '`ProductAnalytics` boundary and the reviewed event taxonomy; do not add provider SDK calls '
-      + 'in features or emit events outside an approved task." (ADR 0023). Emit through the '
+      + 'in features or emit events outside an approved task (ADR 0023). Emit through the '
       + 'ProductAnalytics boundary under features/analytics/data/, never the provider SDK.',
   },
   {
@@ -146,10 +153,10 @@ const rules = [
     forbiddenDirectories: null,
     allowedDirectories: ['infrastructure/sqlite/'],
     ruleText:
-      'Contributor rules, "Architecture boundaries": "UI and domain code must not import SQLite, Supabase, '
-      + 'Firebase, WeatherKit, Cloudflare, or provider-specific SDKs directly", and "Local data and '
-      + 'future-sync rules": "Access SQLite only through repository interfaces and local data '
-      + 'sources." The contributor rules alone would also read as permitting a feature\'s local data source to '
+      'UI and domain code must not import SQLite, Supabase, '
+      + 'Firebase, WeatherKit, Cloudflare, or provider-specific SDKs directly, and access SQLite '
+      + 'only through repository interfaces and local data '
+      + 'sources. This could also read as permitting a feature\'s local data source to '
       + 'import the SDK; docs/architecture.md pins the narrower reading: "Only the infrastructure '
       + 'adapter imports `expo-sqlite`." The SDK is opened once in infrastructure/sqlite/ and '
       + 'everything else takes the `SqliteDatabase` handle from there. Widening this allowance is '
@@ -254,7 +261,7 @@ function featureModuleOf(relativePath, specifier) {
 
 const featureOf = (relativePath) => relativePath.match(/^features\/([^/]+)\//)?.[1] ?? null;
 
-// Each entry is one runtime import that the contributor rules forbid and that predates the rule.
+// Each entry is one pre-existing runtime import forbidden by the cross-feature boundary.
 // Remove the entry when its fix lands; a stale entry fails the test.
 const crossFeatureInternalImportAllowlist = [
   // Background task composes the profile repository by hand; export a loadProfileRepository() from profile/application.
@@ -274,11 +281,11 @@ const crossFeatureInternalImportAllowlist = [
 
 test('a feature reaches another feature only through its domain or application layer', () => {
   const ruleText =
-    'Contributor rules, "Architecture boundaries": "A feature reaches another feature only through that '
+    'A feature reaches another feature only through that '
     + 'feature\'s domain or application layer; an `import type` of an interface is the one exception. '
     + 'Composition code (the route files under `app/`, each feature\'s application provider, and the '
     + 'background task entry) may import a feature\'s data and presentation modules; feature code may '
-    + 'not." Reach the other feature through its application context, hook or exported factory, move a '
+    + 'not. Reach the other feature through its application context, hook or exported factory, move a '
     + 'shared primitive to components/ui, or wire the pieces together in the route file.';
   const seen = new Set();
   const violations = [];

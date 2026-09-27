@@ -34,7 +34,7 @@ decisions:
   keyed to a stable push token.
 - **Unbounded upstream spend.** A cron over N devices multiplies forecast calls
   by the tick rate. Open-Meteo fair-use is exhausted quickly as devices grow,
-  and the contributor rules require explicit or safely derived limits.
+  and paid-provider usage requires explicit or safely derived limits.
 
 kuyara is a "check it in the morning, get dressed" app. A user who opens it most
 mornings already gives the app a fresh forecast at the moment it matters, from

@@ -37,7 +37,7 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 // rail over a grid of that category's types, each drawn in its own most natural colour and
 // named, because the catalogue shares one drawing across five pairs of types. A chosen
 // type collapses the picker to one row with "Change". The catalogue type stays required
-// and no free-form type exists (the contributor rules, Wardrobe).
+// and no free-form type exists (docs/product-decisions.md, Closet).
 
 // Each category tile shows one recognisable piece in one colour. Illustration only: the
 // record never takes this colour.

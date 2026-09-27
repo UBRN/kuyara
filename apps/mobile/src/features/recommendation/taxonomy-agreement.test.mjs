@@ -1,6 +1,6 @@
 // Sixteen closed vocabularies are declared twice on purpose: once in the mobile domain, once
-// in the shared contract. The contributor rules want that duplication (domain models, DTOs and future
-// remote records stay separate), so nothing here merges or dedupes them. What was missing is
+// in the shared contract. The architecture keeps domain models, DTOs and future remote records
+// separate, so nothing here merges or dedupes them. What was missing is
 // the assertion that the two copies still agree.
 //
 // The cost of silent drift is concrete. `data/worker-ai-recommendation-mapper.ts` (around

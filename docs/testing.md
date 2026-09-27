@@ -9,7 +9,7 @@ measurement of physical-iPhone latency.
 
 ## Apple Developer Program
 
-The Apple Developer Program section governs release-facing validation; weather integration tests use deterministic providers and fixed raw-response fixtures rather than live external weather calls.
+The [Apple Developer Program](product-decisions.md#apple-developer-program) release policy governs release-facing validation; weather integration tests use deterministic providers and fixed raw-response fixtures rather than live external weather calls.
 
 ## Repository and configuration checks
 
@@ -183,7 +183,7 @@ React Native component tests use Jest, `jest-expo`, React Native Testing Library
 pnpm --filter @kuyara/mobile test:components
 ```
 
-The component suite covers the production tab bar and stack anchors, Profile navigation and onboarding, Closet list and form routes, localized Weather and Today states, recommendation and AI status surfaces, notification Settings, consent controls, and shared native-control wrappers. Expo Router 57's `renderRouter` helper assumes an older synchronous renderer, so tests exercise production controls and navigation intents directly while mocking native navigation state. Device-level transitions, gestures, notification delivery, and platform visuals remain Simulator or device verification concerns; manual accessibility scope follows the contributor rules.
+The component suite covers the production tab bar and stack anchors, Profile navigation and onboarding, Closet list and form routes, localized Weather and Today states, recommendation and AI status surfaces, notification Settings, consent controls, and shared native-control wrappers. Expo Router 57's `renderRouter` helper assumes an older synchronous renderer, so tests exercise production controls and navigation intents directly while mocking native navigation state. Device-level transitions, gestures, notification delivery, and platform visuals remain Simulator or device verification concerns; manual accessibility scope is reserved for direct accessibility changes, the dedicated accessibility milestone, or a user request.
 
 Run the focused local-profile persistence suite with:
 
@@ -341,8 +341,8 @@ asc builds upload --app 6806664440 --ipa "<IPA_PATH_OUTSIDE_REPO>" --wait
 The local build uses EAS signing credentials and remote build-number assignment without
 spending EAS Free cloud build quota. After the required checks, independent review and
 Simulator verification pass, complete the App Store Connect record and submit under the
-standing iOS release authorization in the contributor rules, without a
-TestFlight confirmation. The cloud-build red line is in
+standing [iOS release authorization](product-decisions.md#apple-developer-program), without
+a TestFlight confirmation. The cloud-build red line is in
 [Approved release versioning and update path](product-decisions.md#approved-release-versioning-and-update-path).
 
 ### TestFlight pass on the phone
@@ -352,7 +352,7 @@ check only when a specific changed behavior cannot be verified there and that ev
 necessary to accept the release.
 A routine release does not require a separate phone tour or a connected phone. Record a TestFlight update reported with no apparent issues
 as that evidence; do not request the same confirmation again. Migration changes still
-require the upgrade and realistic-database replay checks in the contributor rules.
+require an upgrade test from the last released version and a realistic device-database replay.
 
 When an in-place phone upgrade is checked, TestFlight and the store app share
 `com.ubrn.kuyara`, so install over the existing app without deleting it. Check that
