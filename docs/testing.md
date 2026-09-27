@@ -223,12 +223,15 @@ Presentation tests should focus on pure onboarding/route decisions, localization
 
 ## Local iOS end-to-end flows
 
-The repository contains two critical local Maestro flows in `.maestro/flows`:
+The repository contains three critical local Maestro flows in `.maestro/flows`:
 
 - fresh-install onboarding;
-- fresh-install onboarding followed by updating and relaunch-verifying clothing, language, and theme preferences.
+- fresh-install onboarding followed by updating and relaunch-verifying clothing, language, and theme preferences;
+- fresh-install onboarding followed by a deterministic recommendation without an AI badge.
 
-Both flows clear the application state at the start, run independently, and use the app's stable accessibility identifiers. They intentionally exclude Android, cloud execution, CI, screenshots, system permission permutations, and broad regression coverage.
+These flows clear the application state at the start, run independently, and use the app's stable accessibility identifiers. They intentionally exclude Android, cloud execution, CI, screenshots, system permission permutations, and broad regression coverage. Today can offer the day-type sheet while it is still loading, so every launch or relaunch that lands on Today without a location runs `.maestro/subflows/close-day-type-sheet.yaml`, which closes the sheet when it is visible. Shared subflows live outside `flows/`, so the default run does not execute them as flows of their own.
+
+A separate `onboarding-location-permission.yaml` flow covers the iOS location alert and denied city-search path on an English-language Simulator. It gives the Simulator a simulated location (Istanbul) and sets the location permission on each of its launches (`unset`, then `never`), because Maestro's `launchApp` otherwise grants every permission and the system alert never appears. Run it explicitly with `maestro test .maestro/flows/onboarding-location-permission.yaml`; it is tagged outside the default set because it changes the Simulator's location permission and simulated location.
 
 ### Prerequisites
 

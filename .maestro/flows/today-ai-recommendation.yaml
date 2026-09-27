@@ -28,21 +28,29 @@ tags:
 - assertVisible:
     id: onboarding-step-2
 - tapOn:
-    id: onboarding-gender-woman
-- tapOn:
-    id: onboarding-continue
+    id: onboarding-name-skip
 - assertVisible:
     id: onboarding-step-3
 - tapOn:
-    id: onboarding-dress-style-smart
+    id: onboarding-gender-woman
 - tapOn:
     id: onboarding-continue
 - assertVisible:
     id: onboarding-step-4
 - tapOn:
+    id: onboarding-dress-style-smart
+- tapOn:
     id: onboarding-continue
 - assertVisible:
     id: onboarding-step-5
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-6
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-7
 
 # Manual (searched) location, not the device location, per the milestone. See
 # today-standard-suggestions.yaml for the reasoning behind "Reykjavik" and the Enter-before-
@@ -62,6 +70,18 @@ tags:
     id: onboarding-complete
 - tapOn:
     id: onboarding-complete
+
+# Answer the new dressing day's question before waiting for its recommendation.
+- extendedWaitUntil:
+    visible:
+      id: daily-formality-sheet
+    timeout: 15000
+- tapOn:
+    id: daily-formality-smart
+- assertVisible:
+    id: daily-formality-styles-done
+- tapOn:
+    id: daily-formality-styles-done
 
 # The first-recommendation analytics consent sheet (ADR 0033) is a genuine Stack.Screen push
 # (formSheet presentation), not an overlay drawn over Today: iOS excludes the presenting
@@ -96,6 +116,6 @@ tags:
 # badge at all, so this assertion correctly fails rather than passing on the wrong tier.
 - extendedWaitUntil:
     visible:
-      id: "today-generation-mode"
-      text: ".*(Chosen on your device with Apple Intelligence|AI-assisted).*"
+      id: "today-provenance-badge"
+      text: "(Recommendation source: kuyara chose this outfit with (Apple Intelligence|AI)|Öneri kaynağı: kuyara bu kombini (Apple Intelligence|AI) ile seçti)"
     timeout: 10000
