@@ -10,24 +10,35 @@ tags:
     id: onboarding-step-1
 - tapOn:
     id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-2
+- tapOn:
+    id: onboarding-name-skip
+- assertVisible:
+    id: onboarding-step-3
 - tapOn:
     id: onboarding-gender-woman
 - tapOn:
     id: onboarding-continue
 - assertVisible:
-    id: onboarding-step-3
+    id: onboarding-step-4
 - tapOn:
     id: onboarding-dress-style-smart
 - tapOn:
     id: onboarding-continue
 - assertVisible:
-    id: onboarding-step-4
+    id: onboarding-step-5
 - tapOn:
     id: onboarding-continue
 - assertVisible:
-    id: onboarding-step-5
+    id: onboarding-step-6
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-7
 - tapOn:
     id: onboarding-complete
+- runFlow: ../subflows/close-day-type-sheet.yaml
 - assertVisible:
     id: today-screen
 - tapOn:
@@ -41,7 +52,7 @@ tags:
 # are system menu entries: they carry no test id and are reachable only by their visible text.
 # Selection happens in place, so nothing is pushed and nothing has to be popped afterwards.
 #
-# The row itself exposes no test id either — the SwiftUI section's identifier is what reaches the
+# The row itself exposes no test id either. The SwiftUI section's identifier is what reaches the
 # accessibility tree, so `settings-language-row` and its siblings never appear there. Each row is
 # a single button whose accessibility text is "<label>, <current value>", the way the plain rows
 # beside it read "Bildirimler, Kapalı", so that one string both opens the row and asserts its
@@ -53,9 +64,9 @@ tags:
 - tapOn: "Türkçe"
 - assertVisible: "Dil, Türkçe"
 
-- tapOn: "Görünüm, Sistem"
+- tapOn: "Tema, Sistem"
 - tapOn: "Koyu"
-- assertVisible: "Görünüm, Koyu"
+- assertVisible: "Tema, Koyu"
 
 # Gender sits in the final About you group, so it needs a scroll before its menu can open.
 - scrollUntilVisible:
@@ -67,6 +78,7 @@ tags:
 - assertVisible: "Cinsiyet, Erkek"
 
 - launchApp
+- runFlow: ../subflows/close-day-type-sheet.yaml
 - tapOn:
     id: tab-profile
 - tapOn:
@@ -78,7 +90,7 @@ tags:
 # brings gender into view and pushes them off screen. Each row renders its own saved value, so
 # the value text is the assertion; no picker has to be opened to read it back.
 - assertVisible: "Dil, Türkçe"
-- assertVisible: "Görünüm, Koyu"
+- assertVisible: "Tema, Koyu"
 - scrollUntilVisible:
     element:
       text: "Cinsiyet, .*"
