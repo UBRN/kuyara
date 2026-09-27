@@ -220,3 +220,35 @@ test('a colour disc names nothing itself and checks a selected choice in a legib
   expect(result.getByTestId('white-check', hidden)).toBeOnTheScreen();
   expect(result.queryByTestId('black-check', hidden)).toBeNull();
 });
+
+// O8 follow-up 6: iOS lays a pattern out in the root viewBox's space, so a patterned drawing
+// is framed by its viewBox, not a group transform. Its repeat is then in drawing units and a
+// two-colour option divides the garment's own bounds: a 32-point "Yours" tile carries navy
+// and camel exactly as the large preview does.
+test.each([32, 56, 156])('navy and camel divides the garment at %s points', async (size) => {
+  const result = await render(
+    <KuyaraThemeContext.Provider value={lightTheme}>
+      <GarmentTileArtwork {...props} colorChoice={{ kind: 'option', id: 'navy_and_camel' }} colorFamily="blue"
+        height={size} width={size} />
+    </KuyaraThemeContext.Provider>,
+  );
+  const bounds = silhouettes['g-tee'].bounds;
+  const scale = Math.min(size * 0.6 / bounds.width, size * 0.61 / bounds.height);
+  const svg = result.getByTestId('silhouette', hidden);
+  const [vx, vy, vw, vh] = String(svg.props.vbWidth != null
+    ? [svg.props.minX, svg.props.minY, svg.props.vbWidth, svg.props.vbHeight] : svg.props.viewBox).split(',').map(Number);
+  expect(vw).toBeCloseTo(size / scale);
+  expect(vh).toBeCloseTo(size / scale);
+  expect(vx + vw / 2).toBeCloseTo(bounds.x + bounds.width / 2);
+  expect(vy + vh / 2).toBeCloseTo(bounds.y + bounds.height / 2);
+  expect(result.container.queryAll((node) => Array.isArray(node.props.matrix)
+    && (node.props.matrix[0] !== 1 || node.props.matrix[4] !== 0))).toHaveLength(0);
+  // The camel block starts inside the garment's own extent, with navy above it.
+  const pattern = result.container.queryAll((node) => String(node.type).includes('Pattern') && node.props.name != null)[0];
+  const camel = result.container.queryAll((node) => node.props.fill?.payload === processColor('#B7854D')
+    && node.props.y != null)[0];
+  expect(pattern).toBeDefined();
+  const camelTop = Number(camel.props.y);
+  expect(camelTop).toBeGreaterThan(bounds.y);
+  expect(camelTop).toBeLessThan(bounds.y + bounds.height);
+});

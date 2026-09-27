@@ -1,6 +1,6 @@
 import { useId, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Svg, { Circle, Defs, Ellipse, Path, Pattern, Rect } from 'react-native-svg';
+import Svg, { Circle, Defs, Ellipse, LinearGradient, Path, Pattern, Rect, Stop } from 'react-native-svg';
 
 import {
   findClosetColorOption,
@@ -83,20 +83,26 @@ export function closetPaintBase(paint: ClosetColorPaint): string {
 
 /**
  * One option's repeat as an SVG pattern in the referencing drawing's own units: `unit` is the
- * repeat, `box` the drawing's extent for the split and block options, which cover it once.
+ * repeat and `box` the drawing's extent. The split and block options cover it once and divide
+ * `frame`, the drawn garment's own bounds, so both colours land on the garment whatever its
+ * shape or size (O8).
  */
 export function ClosetPatternDef({
   id,
   paint,
   unit,
   box,
+  frame = { x: 0, y: 0, width: box, height: box },
 }: Readonly<{
   id: string;
   paint: Exclude<ClosetColorPaint, { kind: 'solid' }>;
   unit: number;
   box: number;
+  frame?: Readonly<{ x: number; y: number; width: number; height: number }>;
 }>) {
   const [a, b, c = b, d = c] = paint.hexes;
+  const right = frame.x + frame.width;
+  const bottom = frame.y + frame.height;
   const open = (size: number, children: ReactNode) => (
     <Pattern height={size} id={id} patternUnits="userSpaceOnUse" width={size} x={0} y={0}>
       {children}
@@ -107,12 +113,12 @@ export function ClosetPatternDef({
     case 'split':
       return open(box, <>
         <Rect fill={a} height={box} width={box} />
-        <Path d={`M${box} 0 L${box} ${box} L0 ${box} Z`} fill={b} />
+        <Path d={`M${right} ${frame.y} L${right} ${bottom} L${frame.x} ${bottom} Z`} fill={b} />
       </>);
     case 'block':
       return open(box, <>
         <Rect fill={a} height={box} width={box} />
-        <Rect fill={b} height={box} width={box} y={box * 0.56} />
+        <Rect fill={b} height={box} width={box} y={frame.y + frame.height * 0.56} />
       </>);
     case 'stripes':
       return open(u, <>
@@ -255,6 +261,37 @@ export function ClosetColorDisc({
           </View>
         </View>
       ) : null}
+    </View>
+  );
+}
+
+// The system colour well's own mark in the mockup: a multicolour ring around the
+// stage colour with a plus. Its hues depict the system picker; they are not a palette or a
+// theme role.
+const WELL_RING_STOPS = ['#E5484D', '#F5A524', '#F5D90A', '#46A758', '#3E9BD6', '#6E56CF', '#E5484D'] as const;
+
+/** The empty colour well ("More colors"), drawn at a swatch disc's size. Decorative. */
+export function ColorWellMark({ size, testID }: Readonly<{ size: number; testID?: string }>) {
+  const { colors } = useKuyaraTheme();
+  const gradientId = `color-well-${useId().replace(/[^A-Za-z0-9]/g, '')}`;
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={[styles.disc, { height: size, width: size }]}
+      testID={testID}>
+      <Svg height={size} viewBox={`0 0 ${DISC_BOX} ${DISC_BOX}`} width={size}>
+        <Defs>
+          <LinearGradient id={gradientId} x1={0} x2={1} y1={0} y2={1}>
+            {WELL_RING_STOPS.map((stop, index) => (
+              <Stop key={index} offset={index / (WELL_RING_STOPS.length - 1)} stopColor={stop} />
+            ))}
+          </LinearGradient>
+        </Defs>
+        <Circle cx={8} cy={8} fill="none" r={7.2} stroke={`url(#${gradientId})`} strokeWidth={1.6} />
+        <Circle cx={8} cy={8} fill={colors.stage} r={4.8} />
+        <Path d="M8 5.8 V10.2 M5.8 8 H10.2" stroke={colors.textPrimary} strokeLinecap="round" strokeWidth={1.1} />
+      </Svg>
     </View>
   );
 }

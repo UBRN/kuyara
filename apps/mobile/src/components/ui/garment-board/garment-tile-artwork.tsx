@@ -88,6 +88,12 @@ function GarmentTileSilhouette({
   // painting divides every stroke by the uniform scale instead.
   const x = (width - bounds.width * scale) / 2 - bounds.x * scale;
   const y = (height - bounds.height * scale) / 2 - bounds.y * scale;
+  // react-native-svg on iOS lays a pattern out in the root viewBox's space, ignoring the
+  // path's own transform and `patternTransform` (RNSVGPainter's `paintPattern`), so a pattern
+  // repeat set in drawing units drew at screen scale: a small "Yours" tile showed navy and
+  // camel as navy only (O8). A patterned drawing is framed by the viewBox instead of a group
+  // transform, so its repeat and its colour bands sit on the garment at every size.
+  const patterned = paint !== null && paint.kind !== 'solid';
 
   return (
     <Svg
@@ -96,10 +102,11 @@ function GarmentTileSilhouette({
       importantForAccessibility="no-hide-descendants"
       width={width}
       height={height}
+      {...(patterned ? { viewBox: `${-x / scale} ${-y / scale} ${width / scale} ${height / scale}` } : {})}
       testID={testID}>
       {paint !== null && paint.kind !== 'solid' ? (
         <Defs>
-          <ClosetPatternDef box={DRAWING_BOX} id={patternId} paint={paint} unit={PATTERN_REPEAT} />
+          <ClosetPatternDef box={DRAWING_BOX} frame={bounds} id={patternId} paint={paint} unit={PATTERN_REPEAT} />
         </Defs>
       ) : gradient && paint === null ? (
         <Defs>
@@ -109,7 +116,7 @@ function GarmentTileSilhouette({
           </LinearGradient>
         </Defs>
       ) : null}
-      <G transform={`translate(${x} ${y}) scale(${scale})`}>
+      <G transform={patterned ? undefined : `translate(${x} ${y}) scale(${scale})`}>
         <GarmentPainting
           ink={colors.textPrimary}
           lod={garmentLevelOfDetail(Math.max(bounds.width, bounds.height) * scale)}

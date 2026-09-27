@@ -1,7 +1,7 @@
 import { Platform, StyleSheet, View } from 'react-native';
 
-import { Icon } from '@/components/ui/icon';
-import { borderWidths, layout } from '@/theme/theme';
+import { ClosetColorDisc, ColorWellMark } from '@/components/ui/garment-board/closet-color-art';
+import { borderWidths, interaction, layout } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // Load SwiftUI only on iOS, as native-list.tsx does.
@@ -15,9 +15,9 @@ const modifiers: typeof import('@expo/ui/swift-ui/modifiers') | null = Platform.
   : null;
 
 export type NativeColorWellProps = Readonly<{
-  /** The well's spoken name ("More colors"); it is hidden as a visible label. */
+  /** The well's one spoken name ("More colors"); it has no visible label. */
   accessibilityLabel: string;
-  /** Spoken after the name while a custom colour is chosen, such as its colour family. */
+  /** Spoken while the custom colour is the choice, such as its colour family. */
   accessibilityValue?: string;
   selected: boolean;
   disabled?: boolean;
@@ -29,13 +29,26 @@ export type NativeColorWellProps = Readonly<{
 }>;
 
 const SIZE = layout.minimumTouchTarget;
+// Drawn at the swatch discs' size (color-swatch.tsx).
+const DISC_SIZE = 36;
+// SwiftUI draws its well at 28 points whatever the frame (measured on the Simulator, O8), and
+// only the well takes touches. Scaled up, it covers the whole 44-point slot, so the slot is
+// the touch target; the host clips it to that square.
+const NATIVE_WELL_SIZE = 28;
+export const COLOR_WELL_TOUCH_SCALE = (SIZE + 2) / NATIVE_WELL_SIZE;
+// The native well only takes the touches: kuyara draws the well itself, so it looks like the
+// swatches and never shows a colour that is no longer chosen. SwiftUI stops hit-testing a
+// fully transparent view, so it keeps a trace of opacity under the drawn mark.
+const NATIVE_WELL_OPACITY = 0.02;
 
 /**
- * HIG Color wells: the system colour well that opens the system colour picker, the last
- * swatch of the Closet palette (O8). SwiftUI's `ColorPicker` on iOS; Android has no
- * equivalent control in this build, so the well is not drawn there and the palette's
- * swatches remain the whole choice. Selection is the same `brandAccent` ring the swatches
- * use, plus the selected trait for VoiceOver.
+ * HIG Color wells: the last swatch of the Closet palette (O8), which opens the system colour
+ * picker (SwiftUI's `ColorPicker`). It is one radio in the palette's set: the React Native
+ * wrapper carries the name, the selected state and the value, and the native control is
+ * hidden from assistive technology; VoiceOver's activation taps through to it. Empty, it is
+ * the multicolour ring with a plus; chosen, the custom colour's disc with the same ring and
+ * check as the other swatches. A colour that is no longer chosen is not kept. Android has no
+ * equivalent control in this build, so no well is drawn there.
  */
 export function NativeColorWell({
   accessibilityLabel,
@@ -52,35 +65,45 @@ export function NativeColorWell({
   const report = (next: string) => {
     if (/^#[0-9a-fA-F]{6}$/.test(next)) onChange(next.toUpperCase());
   };
+  const chosen = selected && value !== null ? value : null;
 
   return (
-    <View style={styles.well} testID={testID}>
+    <View
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="radio"
+      accessibilityState={{ disabled, selected }}
+      accessibilityValue={chosen && accessibilityValue ? { text: accessibilityValue } : undefined}
+      accessible
+      style={[styles.well, disabled && styles.disabled]}
+      testID={testID}>
       <swiftUI.Host colorScheme={theme.isDark ? 'dark' : 'light'} style={styles.host}>
         <swiftUI.ColorPicker
           label={accessibilityLabel}
           modifiers={[
             modifiers.labelsHidden(),
-            modifiers.accessibilityLabel(accessibilityLabel),
-            ...(accessibilityValue ? [modifiers.accessibilityValue(accessibilityValue)] : []),
-            ...(selected ? [modifiers.accessibilityAddTraits(['isSelected'])] : []),
+            modifiers.accessibilityHidden(true),
+            modifiers.scaleEffect(COLOR_WELL_TOUCH_SCALE),
+            modifiers.opacity(NATIVE_WELL_OPACITY),
             ...(disabled ? [modifiers.disabled(true)] : []),
           ]}
           onSelectionChange={report}
-          selection={value}
+          selection={chosen}
           supportsOpacity={false}
           testID={`${testID}-picker`}
         />
       </swiftUI.Host>
-      {/* The plus says the well adds a colour of its own; it draws over the well's empty
-          centre and lets every touch through to the native control. */}
-      {value === null ? (
-        <View pointerEvents="none" style={styles.overlay}>
-          <Icon color={theme.colors.iconPrimary} name="plus" size={16} />
-        </View>
-      ) : null}
+      <View pointerEvents="none" style={styles.overlay}>
+        {chosen ? (
+          <ClosetColorDisc choice={{ kind: 'custom', hex: chosen }} selected size={DISC_SIZE}
+            testID={`${testID}-disc`} />
+        ) : (
+          <ColorWellMark size={DISC_SIZE} testID={`${testID}-mark`} />
+        )}
+      </View>
       <View
         pointerEvents="none"
         style={[styles.ring, { borderColor: selected ? theme.colors.brandAccent : 'transparent' }]}
+        testID={`${testID}-ring`}
       />
     </View>
   );
@@ -93,6 +116,7 @@ const styles = StyleSheet.create({
   },
   host: {
     height: SIZE,
+    overflow: 'hidden',
     width: SIZE,
   },
   overlay: {
@@ -112,5 +136,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
     top: 0,
+  },
+  disabled: {
+    opacity: interaction.disabledOpacity,
   },
 });

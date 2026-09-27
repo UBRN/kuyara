@@ -246,3 +246,32 @@ test('the similar card draws and names the user\'s own pattern', async () => {
   expect(drawsPattern(result.getByTestId('piece-edit-similar-yours-silhouette', hidden))).toBe(true);
   expect(drawsPattern(result.getByTestId('piece-edit-similar-suggested-silhouette', hidden))).toBe(false);
 });
+
+// O8 follow-up 2 and 5: the two grids are radio groups named by their headings, which are
+// headers; the well is one of the solid group's radios, and it is empty again (no colour, not
+// selected) once another option replaces the custom colour.
+test('the grids are named groups and the well empties when an option replaces the custom colour', async () => {
+  const target: PieceSheetTarget = {
+    garmentTypeId: 't_shirt', category: 'top', name: 'T-shirt', slot: 'Top',
+    suggestedColorFamily: null, match: { kind: 'none' },
+  };
+  const result = await renderSheet(target);
+  const copy = messages.en.wardrobe;
+  for (const [label, group] of [[copy.solidColorsLabel, 'solid'], [copy.patternColorsLabel, 'pattern']] as const) {
+    expect(result.getByRole('header', { name: label })).toHaveProp('nativeID', `wardrobe-color-${group}-heading`);
+    const container = result.getByTestId(`wardrobe-color-${group}-group`);
+    expect(container).toHaveProp('accessibilityRole', 'radiogroup');
+    expect(container).toHaveProp('accessibilityLabel', label);
+    expect(container).toHaveProp('accessibilityLabelledBy', `wardrobe-color-${group}-heading`);
+  }
+  expect(within(result.getByTestId('wardrobe-color-solid-group'))
+    .getByRole('radio', { name: copy.moreColorsLabel })).toBeOnTheScreen();
+
+  mockPickedHex = '#3C8D2F';
+  await fireEvent.press(result.getByTestId('wardrobe-color-custom'));
+  expect(result.getByTestId('wardrobe-color-custom')).toHaveProp('value', '#3C8D2F');
+  await fireEvent.press(result.getByTestId('wardrobe-color-floral'));
+  expect(result.getByTestId('wardrobe-color-custom')).toHaveProp('value', null);
+  expect(result.getByTestId('wardrobe-color-custom').props.accessibilityState.selected).toBe(false);
+  expect(selectedIds(result)).toEqual(['wardrobe-color-floral']);
+});

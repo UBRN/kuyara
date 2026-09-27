@@ -8,6 +8,8 @@ export const accessibilityLabel = (label: string) => ({ $type: 'accessibilityLab
 export const accessibilityValue = (value: string) => ({ $type: 'accessibilityValue', value });
 export const accessibilityAddTraits = (traits: string[]) => ({ $type: 'accessibilityAddTraits', traits });
 export const accessibilityHidden = (hidden = true) => ({ $type: 'accessibilityHidden', hidden });
+export const scaleEffect = (scale: number) => ({ $type: 'scaleEffect', scale });
+export const opacity = (value: number) => ({ $type: 'opacity', value });
 export const listStyle = (style: string) => ({ $type: 'listStyle', style });
 export const scrollContentBackground = (visible: string) => ({ $type: 'scrollContentBackground', visible });
 export const font = (params: Record<string, unknown>) => ({ $type: 'font', ...params });
@@ -330,8 +332,9 @@ export function DatePicker({
   );
 }
 
-// The SwiftUI colour well: its name, value and selected trait come from modifiers, and a
-// test drives `onSelectionChange` as the system picker would.
+// The SwiftUI colour well: its name, value and selected trait come from modifiers, a hidden
+// modifier takes it out of the accessibility tree, and a test drives `onSelectionChange` as
+// the system picker would.
 export function ColorPicker({ label, modifiers, onSelectionChange, selection, supportsOpacity, testID }: Readonly<{
   label?: string;
   modifiers?: readonly Record<string, unknown>[];
@@ -342,10 +345,12 @@ export function ColorPicker({ label, modifiers, onSelectionChange, selection, su
 }>) {
   const labelModifier = modifiers?.find((modifier) => modifier.$type === 'accessibilityLabel');
   const valueModifier = modifiers?.find((modifier) => modifier.$type === 'accessibilityValue');
+  const hidden = modifiers?.some((modifier) => modifier.$type === 'accessibilityHidden' && modifier.hidden) ?? false;
   const traits = modifiers?.filter((modifier) => modifier.$type === 'accessibilityAddTraits')
     .flatMap((modifier) => modifier.traits as string[]) ?? [];
   return (
     <Pressable
+      accessibilityElementsHidden={hidden}
       accessibilityLabel={(labelModifier?.label as string | undefined) ?? label}
       accessibilityRole="button"
       accessibilityState={{
@@ -353,6 +358,7 @@ export function ColorPicker({ label, modifiers, onSelectionChange, selection, su
         selected: traits.includes('isSelected'),
       }}
       accessibilityValue={{ text: valueModifier?.value as string | undefined }}
+      importantForAccessibility={hidden ? 'no-hide-descendants' : undefined}
       testID={testID ?? 'expo-ui-color-picker'}
       {...{ modifiers, onSelectionChange, selection, supportsOpacity }}
     />
