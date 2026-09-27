@@ -92,7 +92,7 @@ export function planWeatherAlerts(input: Readonly<{
   leadTimeMinutes?: number;
 }>): readonly WeatherAlertPlan[] {
   const { snapshot, quietHours, deliveredAlertIds } = input;
-  const leadTimeMinutes = input.leadTimeMinutes ?? weatherAlertLeadTimeMinutes;
+  const shortenedLeadTimeMinutes = input.leadTimeMinutes ?? weatherAlertLeadTimeMinutes;
   const now = Date.parse(input.now);
   // The day is the one the user is living, not the one the snapshot was observed in: a
   // 23:50 snapshot read at 00:20 belongs to the evening still under way, and the alert id
@@ -118,6 +118,9 @@ export function planWeatherAlerts(input: Readonly<{
     // has fired re-fires after the update; the evening keeps a namespace of its own.
     const id = `${ruleId}:${snapshot.locationKey}:${windowKey}`;
     const crossingAt = Date.parse(crossing.forecastAt);
+    const leadTimeMinutes = crossingAt - now < weatherAlertLeadTimeMinutes * minuteMilliseconds
+      ? shortenedLeadTimeMinutes
+      : weatherAlertLeadTimeMinutes;
     const originalFireAt = crossingAt - leadTimeMinutes * minuteMilliseconds;
     if (deliveredAlertIds.has(id) || originalFireAt < now) return;
 

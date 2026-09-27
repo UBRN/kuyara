@@ -345,15 +345,16 @@ test('an overnight crossing is plannable in the evening and fires once for that 
   }), []);
 });
 
-test('a shortened lead schedules a crossing the foreground lead drops', () => {
-  const weather = snapshot({
-    hourly: [hour('2026-09-09T08:30:00.000Z', { condition: 'rain' })],
-  });
+test('background lead is shortened only for crossings less than 60 minutes away', () => {
+  for (const [crossing, expectedFireAt] of [
+    ['2026-09-09T08:30:00.000Z', '2026-09-09T08:15:00.000Z'],
+    ['2026-09-09T09:00:00.000Z', '2026-09-09T08:00:00.000Z'],
+    ['2026-09-09T10:00:00.000Z', '2026-09-09T09:00:00.000Z'],
+  ]) {
+    const result = plan(snapshot({ hourly: [hour(crossing, { condition: 'rain' })] }), {
+      leadTimeMinutes: weatherAlertBackgroundLeadTimeMinutes,
+    });
 
-  assert.deepEqual(plan(weather), []);
-  assert.deepEqual(
-    plan(weather, { leadTimeMinutes: weatherAlertBackgroundLeadTimeMinutes })
-      .map(({ fireAt }) => fireAt),
-    ['2026-09-09T08:15:00.000Z'],
-  );
+    assert.deepEqual(result.map(({ fireAt }) => fireAt), [expectedFireAt], crossing);
+  }
 });
