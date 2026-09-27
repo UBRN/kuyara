@@ -9,6 +9,7 @@ function createTracker(times = ['2026-09-09T09:00:00.000Z']) {
   const tracker = new ErrorEpisodeTracker(
     (name, properties, options) => captures.push({ name, properties, options }),
     () => times[Math.min(index++, times.length - 1)],
+    () => true,
   );
   return { tracker, captures };
 }
@@ -158,5 +159,26 @@ test('reset discards buffered and finalised pairs without capturing', () => {
   assert.deepEqual(captures.map(({ name }) => name), [
     'error_shown',
     'error_recovered',
+  ]);
+});
+
+test('a failure while consent is unanswered cannot become an episode after consent', () => {
+  const captures = [];
+  let enabled = false;
+  const tracker = new ErrorEpisodeTracker(
+    (name, properties, options) => captures.push({ name, properties, options }),
+    () => enabled ? '2026-09-09T10:00:00.000Z' : '2026-09-09T09:00:00.000Z',
+    () => enabled,
+  );
+
+  tracker.failed(todayOffline);
+  enabled = true;
+  tracker.flushAll('background');
+  assert.deepEqual(captures, []);
+
+  tracker.failed(todayOffline);
+  tracker.flushAll('background');
+  assert.deepEqual(captures.map(({ name, options }) => [name, options?.timestamp]), [
+    ['error_shown', '2026-09-09T10:00:00.000Z'],
   ]);
 });

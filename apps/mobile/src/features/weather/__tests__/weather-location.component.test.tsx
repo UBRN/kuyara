@@ -55,8 +55,9 @@ function harness(language: SupportedLanguage = 'en') {
     errorEpisodes: new ErrorEpisodeTracker(
       (name, properties, options) => analytics.capture(name, properties, options),
       () => new Date().toISOString(),
+      () => true,
     ),
-    firstUses: new FirstUseTracker(new InMemoryFirstUseStore()),
+    firstUses: new FirstUseTracker(new InMemoryFirstUseStore(), () => true),
     retries: new RetryCounter(),
   };
   function Providers({ children }: PropsWithChildren) {

@@ -157,13 +157,15 @@ function AnalyticsProviders({
   children,
 }: PropsWithChildren<{ analytics?: RecordingProductAnalytics }>) {
   return (
-    <ProductAnalyticsProvider
-      analytics={analytics ?? new RecordingProductAnalytics()}
-      firstUseStore={new InMemoryFirstUseStore()}>
-      <ProfileApplicationContext.Provider value={readyProfileApplication()}>
+    <ProfileApplicationContext.Provider value={readyProfileApplication({
+      analyticsConsent: analytics?.isApplied() === false ? 'undecided' : 'granted',
+    })}>
+      <ProductAnalyticsProvider
+        analytics={analytics ?? new RecordingProductAnalytics()}
+        firstUseStore={new InMemoryFirstUseStore()}>
         {children}
-      </ProfileApplicationContext.Provider>
-    </ProductAnalyticsProvider>
+      </ProductAnalyticsProvider>
+    </ProfileApplicationContext.Provider>
   );
 }
 

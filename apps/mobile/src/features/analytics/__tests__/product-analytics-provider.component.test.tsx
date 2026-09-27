@@ -8,6 +8,11 @@ import type { FirstUseTracker } from '@/features/analytics/application/first-use
 import type { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
+import {
+  ProfileApplicationContext,
+  type ProfileApplicationValue,
+} from '@/features/profile/application/profile-context';
+import type { AnalyticsConsent } from '@/features/profile/domain/profile';
 
 const addEventListener = jest.mocked(AppState.addEventListener);
 let providedFirstUses: FirstUseTracker | null = null;
@@ -30,13 +35,24 @@ function FailingChild() {
   return <Text>child</Text>;
 }
 
-async function renderProvider(analytics: RecordingProductAnalytics) {
+async function renderProvider(
+  analytics: RecordingProductAnalytics,
+  consent: AnalyticsConsent | null = 'granted',
+  firstUseStore = new InMemoryFirstUseStore(),
+) {
+  const profileApplication = consent === null ? null : {
+    state: {
+      status: 'ready',
+      profile: { analyticsConsent: consent },
+      isSaving: false,
+    },
+  } as ProfileApplicationValue;
   const view = await render(
-    <ProductAnalyticsProvider
-      analytics={analytics}
-      firstUseStore={new InMemoryFirstUseStore()}>
-      <FailingChild />
-    </ProductAnalyticsProvider>,
+    <ProfileApplicationContext value={profileApplication}>
+      <ProductAnalyticsProvider analytics={analytics} firstUseStore={firstUseStore}>
+        <FailingChild />
+      </ProductAnalyticsProvider>
+    </ProfileApplicationContext>,
   );
   const notify = (status: AppStateStatus) => {
     addEventListener.mock.calls.forEach(([, listener]) => listener(status));
@@ -82,12 +98,41 @@ test('the background transition emits buffered failures before flushing', async 
 
 test('the local consent gate drops a buffered failure before consent', async () => {
   const analytics = new RecordingProductAnalytics('undecided');
-  const { background } = await renderProvider(analytics);
+  const { background } = await renderProvider(analytics, 'undecided');
 
   background();
 
   expect(analytics.captures).toEqual([]);
   expect(analytics.flushCount).toBe(1);
+});
+
+test('granted consent tracks a failure and first use while adapter readiness is delayed', async () => {
+  const analytics = new RecordingProductAnalytics('granted');
+  const firstUseStore = new InMemoryFirstUseStore();
+  const isApplied = jest.spyOn(analytics, 'isApplied').mockReturnValue(false);
+  const whenReady = jest.spyOn(analytics, 'whenReady').mockImplementation(
+    () => new Promise<void>(() => undefined),
+  );
+  const { background } = await renderProvider(analytics, 'granted', firstUseStore);
+
+  await expect(providedFirstUses!.markFirstUse('closet')).resolves.toBe(true);
+  expect(await firstUseStore.has('closet')).toBe(true);
+  background();
+
+  expect(analytics.names()).toEqual(['error_shown']);
+  expect(isApplied).not.toHaveBeenCalled();
+  expect(whenReady).not.toHaveBeenCalled();
+});
+
+test('an absent profile context cannot open episodes or write first-use markers', async () => {
+  const analytics = new RecordingProductAnalytics('granted');
+  const firstUseStore = new InMemoryFirstUseStore();
+  const { background } = await renderProvider(analytics, null, firstUseStore);
+
+  await expect(providedFirstUses!.markFirstUse('closet')).resolves.toBe(false);
+  expect(await firstUseStore.has('closet')).toBe(false);
+  background();
+  expect(analytics.names()).toEqual([]);
 });
 
 test('a foreground transition neither flushes nor emits', async () => {

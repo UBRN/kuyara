@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ProductAnalyticsProvider } from '@/features/analytics/application/product-analytics-provider';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
+import { ProfileApplicationContext, type ProfileApplicationValue } from '@/features/profile/application/profile-context';
 import {
   WardrobeApplicationContext,
   type WardrobeApplicationValue,
@@ -158,9 +159,16 @@ function TestProviders({
   children,
 }: PropsWithChildren<{ analytics?: RecordingProductAnalytics }>) {
   return (
-    <ProductAnalyticsProvider
-      analytics={analytics ?? new RecordingProductAnalytics()}
-      firstUseStore={new InMemoryFirstUseStore()}>
+    <ProfileApplicationContext value={{
+      state: {
+        status: 'ready',
+        profile: { analyticsConsent: analytics?.isApplied() === false ? 'undecided' : 'granted' },
+        isSaving: false,
+      },
+    } as ProfileApplicationValue}>
+      <ProductAnalyticsProvider
+        analytics={analytics ?? new RecordingProductAnalytics()}
+        firstUseStore={new InMemoryFirstUseStore()}>
       <LocalizationContext.Provider value={{ language: 'en', messages: messages.en , hour12: false }}>
         <KuyaraThemeContext.Provider value={lightTheme}>
           <SafeAreaProvider initialMetrics={initialMetrics}>
@@ -168,7 +176,8 @@ function TestProviders({
           </SafeAreaProvider>
         </KuyaraThemeContext.Provider>
       </LocalizationContext.Provider>
-    </ProductAnalyticsProvider>
+      </ProductAnalyticsProvider>
+    </ProfileApplicationContext>
   );
 }
 

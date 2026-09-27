@@ -168,9 +168,9 @@ function renderSettings(
 }
 
 test('granting permission from the switch persists the opt-in flag and reports the resolved outcome', async () => {
-  mockProfile = createProfile();
+  mockProfile = { ...createProfile(), analyticsConsent: 'granted' };
   const { gateway } = createGateway('undetermined');
-  const analytics = new RecordingProductAnalytics();
+  const analytics = new RecordingProductAnalytics('granted');
   const result = await renderSettings(gateway, analytics);
 
   await fireEvent.press(await result.findByTestId('settings-notifications-row'));
@@ -250,9 +250,9 @@ test('a tapped notification response is reported as notification_opened and open
 });
 
 test('the morning briefing is its own row and reports the same events the alert row does', async () => {
-  mockProfile = createProfile();
+  mockProfile = { ...createProfile(), analyticsConsent: 'granted' };
   const { gateway } = createGateway('undetermined');
-  const analytics = new RecordingProductAnalytics();
+  const analytics = new RecordingProductAnalytics('granted');
   const result = await renderSettings(gateway, analytics);
 
   await fireEvent.press(await result.findByTestId('settings-notifications-row'));
