@@ -6,7 +6,7 @@ import { DeterministicStubAiProvider } from './stub-ai-provider.ts';
 import { OpenRouterAiProvider } from './openrouter-ai-provider.ts';
 import { WorkersAiProvider } from './workers-ai-provider.ts';
 
-const models = ['model/one', 'model/two', 'model/three'];
+const models = ['model/one:free', 'model/two:free', 'model/three:free'];
 const ai = { run: async () => ({ response: {} }) };
 
 test('empty environment composes no AI providers', () => {
@@ -62,4 +62,25 @@ test('does not compose OpenRouter without an array of models', () => {
 
     assert.deepEqual(providers, []);
   }
+});
+
+test('rejects paid and malformed OpenRouter slugs without logging their values', (t) => {
+  const warnings = [];
+  t.mock.method(console, 'warn', (warning) => warnings.push(warning));
+  const providers = createAiProviders({
+    OPENROUTER_API_KEY: 'secret',
+    OPENROUTER_MODELS: ['model/paid', 'model/fast:nitro', 'model/web:online', 'model/name:free ', '', 42, 'model/free:free'],
+  });
+  assert.deepEqual(providers.map((provider) => provider.model), ['model/free:free']);
+  assert.deepEqual(warnings, Array.from({ length: 6 }, () => ({
+    event: 'openrouter_model_rejected',
+  })));
+});
+
+test('the free-model router is an allowed OpenRouter configuration', () => {
+  const providers = createAiProviders({
+    OPENROUTER_API_KEY: 'key',
+    OPENROUTER_MODELS: ['openrouter/free'],
+  });
+  assert.deepEqual(providers.map((provider) => provider.model), ['openrouter/free']);
 });
