@@ -11,7 +11,7 @@ import {
 } from '@/features/catalog/domain/garment-taxonomy';
 import type { ClothingPreference } from '@/domain/preferences';
 
-export const garmentCatalogVersion = 5;
+export const garmentCatalogVersion = 6;
 
 export class GarmentCatalogValidationError extends Error {
   constructor() {

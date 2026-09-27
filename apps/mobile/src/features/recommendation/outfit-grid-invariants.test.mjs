@@ -26,7 +26,7 @@ import {
   evaluateGarmentEligibility,
   projectCatalogEffectiveGarment,
 } from './domain/garment-eligibility.ts';
-import { composeOutfitOptions } from './domain/outfit-composition.ts';
+import { composeOutfitOptions, isFormalSuit } from './domain/outfit-composition.ts';
 import { deriveClothingRequirements } from './domain/weather-to-clothing-requirements.ts';
 
 const gridNow = '2026-09-14T12:00:00.000Z';
@@ -213,8 +213,8 @@ test('T1 every shown outfit is valid, formality-consistent and shown once in its
     );
     assert.equal(
       outfit.formality,
-      formalityLevels[Math.min(...ranks)],
-      `${cell.name} showed an outfit whose formality is not its least formal garment`,
+      isFormalSuit(outfit) ? 'formal' : formalityLevels[Math.min(...ranks)],
+      `${cell.name} showed an outfit with incorrect derived formality`,
     );
   }
 

@@ -926,6 +926,17 @@ function candidateKeys(draft: DraftComposition): readonly string[] {
   );
 }
 
+export function isFormalSuit(
+  outfit: Pick<OutfitCandidate, 'body' | 'midLayer' | 'outerLayer' | 'footwear'>,
+): boolean {
+  return outfit.body.kind === 'separates' &&
+    outfit.body.primaryTop.garment.garmentTypeId === 'shirt' &&
+    outfit.body.bottom.garment.garmentTypeId === 'trousers' &&
+    outfit.midLayer === null &&
+    outfit.outerLayer?.garment.garmentTypeId === 'blazer' &&
+    outfit.footwear.garment.garmentTypeId === 'closed_shoes';
+}
+
 function evaluateDraft(
   draft: DraftComposition,
   requirements: BodyClothingRequirements,
@@ -1024,28 +1035,31 @@ function evaluateDraft(
           'standalone',
         ),
       });
+  const footwear = assignedGarment(draft.footwear, 'footwear', null);
   const formalities = [
     ...(body.kind === 'separates'
       ? [body.primaryTop, body.bottom]
       : [body.onePiece]),
     midLayer,
     outerLayer,
-    assignedGarment(draft.footwear, 'footwear', null),
+    footwear,
   ].flatMap((assigned) => {
     const formality = assigned && getGarmentType(assigned.garment.garmentTypeId)?.formality;
     return formality ? [formality] : [];
   });
-  const formality = formalities.reduce<Formality>((leastFormal, candidate) =>
-    formalityOrder.indexOf(candidate) < formalityOrder.indexOf(leastFormal)
-      ? candidate
-      : leastFormal,
-  formalities[0] ?? 'casual');
+  const formality = isFormalSuit({ body, midLayer, outerLayer, footwear })
+    ? 'formal'
+    : formalities.reduce<Formality>((leastFormal, candidate) =>
+      formalityOrder.indexOf(candidate) < formalityOrder.indexOf(leastFormal)
+        ? candidate
+        : leastFormal,
+    formalities[0] ?? 'casual');
 
   return Object.freeze({
     body,
     midLayer,
     outerLayer,
-    footwear: assignedGarment(draft.footwear, 'footwear', null),
+    footwear,
     accessories: noAccessories,
     aggregates,
     requirementEvaluations,
