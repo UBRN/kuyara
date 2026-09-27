@@ -8,3 +8,4 @@ executionOrder:
 #   maestro test .maestro/flows/today-ai-recommendation.yaml
 excludeTags:
   - ai-network
+  - location-permission

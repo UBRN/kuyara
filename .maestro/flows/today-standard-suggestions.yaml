@@ -30,21 +30,29 @@ tags:
 - assertVisible:
     id: onboarding-step-2
 - tapOn:
-    id: onboarding-gender-woman
-- tapOn:
-    id: onboarding-continue
+    id: onboarding-name-skip
 - assertVisible:
     id: onboarding-step-3
 - tapOn:
-    id: onboarding-dress-style-smart
+    id: onboarding-gender-woman
 - tapOn:
     id: onboarding-continue
 - assertVisible:
     id: onboarding-step-4
 - tapOn:
+    id: onboarding-dress-style-smart
+- tapOn:
     id: onboarding-continue
 - assertVisible:
     id: onboarding-step-5
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-6
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-7
 
 # Manual (searched) location, not the device location, per the Goal. The search is a real
 # call through the Worker's place-search route (Open-Meteo geocoding), so the exact result
@@ -72,6 +80,18 @@ tags:
     id: onboarding-complete
 - tapOn:
     id: onboarding-complete
+
+# A new dressing day asks for its day type before the first outfit settles.
+- extendedWaitUntil:
+    visible:
+      id: daily-formality-sheet
+    timeout: 15000
+- tapOn:
+    id: daily-formality-smart
+- assertVisible:
+    id: daily-formality-styles-done
+- tapOn:
+    id: daily-formality-styles-done
 
 # The first-recommendation analytics consent sheet (ADR 0033) is a genuine Stack.Screen push
 # (formSheet presentation), not an overlay drawn over Today: iOS excludes the presenting

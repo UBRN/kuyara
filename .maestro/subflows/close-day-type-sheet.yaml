@@ -1,0 +1,31 @@
+appId: com.ubrn.kuyara
+name: Close the day-type sheet when Today without a location offers it
+---
+# Run after every launch or relaunch that lands on Today without a location. Today offers the
+# day-type sheet ("What kind of day is it?" / "Bugün nasıl bir gün?") on the first open of a
+# dressing day while it is still loading. Without a location Today settles to
+# `today-no-location`, and a sheet offered before that stays up: it hides Today and the tab bar
+# from the accessibility tree Maestro reads. Which one wins depends on timing, so wait for
+# whichever appears first, give a sheet that is still animating in a moment to arrive, and
+# close it. Closing answers the question with the profile's own dress style (P6), so the sheet
+# is not offered again that day.
+- extendedWaitUntil:
+    visible:
+      id: "today-no-location|daily-formality-sheet"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: daily-formality-sheet
+    timeout: 2000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: daily-formality-sheet
+    commands:
+      - tapOn:
+          id: daily-formality-close
+      - extendedWaitUntil:
+          notVisible:
+            id: daily-formality-sheet
+          timeout: 10000

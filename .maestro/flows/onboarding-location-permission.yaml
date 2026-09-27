@@ -1,0 +1,130 @@
+appId: com.ubrn.kuyara
+name: Onboarding location permission and denied fallback
+tags:
+  - ios
+  - location-permission
+---
+# Run on an English-language iOS Simulator; the system alert is matched by its English text.
+# Maestro's launchApp grants every permission unless told otherwise, so each journey sets the
+# location permission on its own launch: `unset` lets the first request show the system alert,
+# and `never` exercises the city-search escape path. Maestro's iOS location values are `always`,
+# `inuse`, `never` and `unset`; it rejects `deny`. The Simulator has no location fix of its own,
+# so the flow gives it one (Istanbul) for "Use my current location" to resolve.
+- setLocation:
+    latitude: 41.0082
+    longitude: 28.9784
+- launchApp:
+    clearState: true
+    permissions:
+      location: unset
+- assertVisible:
+    id: onboarding-step-1
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-2
+- tapOn:
+    id: onboarding-name-skip
+- assertVisible:
+    id: onboarding-step-3
+- tapOn:
+    id: onboarding-gender-woman
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-4
+- tapOn:
+    id: onboarding-dress-style-smart
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-5
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-6
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-7
+- tapOn:
+    id: onboarding-location-device
+- assertVisible: "Use your location for weather?"
+- tapOn: "Continue"
+- tapOn: "Allow While Using App"
+- extendedWaitUntil:
+    visible:
+      text: "Start using kuyara"
+    timeout: 15000
+- tapOn:
+    id: onboarding-complete
+- extendedWaitUntil:
+    visible:
+      id: daily-formality-sheet
+    timeout: 15000
+- tapOn:
+    id: daily-formality-smart
+- tapOn:
+    id: daily-formality-styles-done
+- assertVisible:
+    id: today-screen
+
+# Reset app data and deny location on the same launch to exercise the city-search escape path.
+- launchApp:
+    clearState: true
+    permissions:
+      location: never
+- assertVisible:
+    id: onboarding-step-1
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-2
+- tapOn:
+    id: onboarding-name-skip
+- assertVisible:
+    id: onboarding-step-3
+- tapOn:
+    id: onboarding-gender-woman
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-4
+- tapOn:
+    id: onboarding-dress-style-smart
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-5
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-6
+- tapOn:
+    id: onboarding-continue
+- assertVisible:
+    id: onboarding-step-7
+- tapOn:
+    id: onboarding-location-device
+- assertVisible: "Location access can no longer be requested here. Open system settings or search for a city."
+- tapOn:
+    id: onboarding-place-search
+- inputText: "Reykjavik"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      text: "Reykjavik, Capital Region, Iceland"
+    timeout: 15000
+- tapOn: "Reykjavik, Capital Region, Iceland"
+- tapOn:
+    id: onboarding-complete
+- extendedWaitUntil:
+    visible:
+      id: daily-formality-sheet
+    timeout: 15000
+- tapOn:
+    id: daily-formality-smart
+- tapOn:
+    id: daily-formality-styles-done
+- assertVisible:
+    id: today-screen
