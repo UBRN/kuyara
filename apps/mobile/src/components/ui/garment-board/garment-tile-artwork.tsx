@@ -92,7 +92,10 @@ function GarmentTileSilhouette({
   // path's own transform and `patternTransform` (RNSVGPainter's `paintPattern`), so a pattern
   // repeat set in drawing units drew at screen scale: a small "Yours" tile showed navy and
   // camel as navy only (O8). A patterned drawing is framed by the viewBox instead of a group
-  // transform, so its repeat and its colour bands sit on the garment at every size.
+  // transform, so its repeat and its colour bands sit on the garment at every size. Its group
+  // still sends an identity transform: iOS keeps a group's last matrix when the prop goes
+  // away (`setCommonNodeProps` writes only a six-entry one), so a preview switched from a
+  // solid to a pattern drew through both the viewBox and the stale transform, off the canvas.
   const patterned = paint !== null && paint.kind !== 'solid';
 
   return (
@@ -116,7 +119,7 @@ function GarmentTileSilhouette({
           </LinearGradient>
         </Defs>
       ) : null}
-      <G transform={patterned ? undefined : `translate(${x} ${y}) scale(${scale})`}>
+      <G transform={patterned ? 'scale(1)' : `translate(${x} ${y}) scale(${scale})`}>
         <GarmentPainting
           ink={colors.textPrimary}
           lod={garmentLevelOfDetail(Math.max(bounds.width, bounds.height) * scale)}
