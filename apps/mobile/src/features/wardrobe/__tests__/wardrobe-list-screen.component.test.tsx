@@ -1,4 +1,4 @@
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { Dimensions, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -347,9 +347,10 @@ test('the six category tabs always show in catalogue order with counts, and a ta
     </TestProviders>,
   );
 
+  // iOS (Jest's platform): a tab bar container of buttons, the roles VoiceOver honours.
   const strip = result.getByTestId('wardrobe-category-tabs');
-  expect(strip.props.accessibilityRole).toBe('tablist');
-  const tabs = result.getAllByRole('tab');
+  expect(strip.props.accessibilityRole).toBe('tabbar');
+  const tabs = within(strip).getAllByRole('button');
   expect(tabs.map((tab) => tab.props.testID)).toEqual([
     'wardrobe-category-tab-top',
     'wardrobe-category-tab-bottom',

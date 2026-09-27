@@ -24,7 +24,10 @@ import {
 } from '@/features/catalog/domain/garment-taxonomy';
 import type { WardrobeApplicationState } from '@/features/wardrobe/application/wardrobe-application-controller';
 import type { WardrobeEntryState, WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
-import { WardrobeCategoryChip } from '@/features/wardrobe/presentation/wardrobe-category-chip';
+import {
+  categoryTabListRole,
+  WardrobeCategoryChip,
+} from '@/features/wardrobe/presentation/wardrobe-category-chip';
 import {
   WardrobeGridTile,
   type WardrobeGridTileGeometry,
@@ -394,7 +397,7 @@ export function WardrobeListScreen({
       ListHeaderComponent={
         <View style={styles.listHeader}>
           <ScrollView
-            accessibilityRole="tablist"
+            accessibilityRole={categoryTabListRole()}
             contentContainerStyle={styles.strip}
             horizontal
             ref={stripRef}
