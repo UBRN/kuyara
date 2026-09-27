@@ -12,25 +12,25 @@ import {
 type AiOptionGarment = AiOption['garments'][number];
 
 /**
- * The three facts about the weather an archetype label can contradict: `rain_ready` on a
- * day with nothing falling, `snow_day` on a day with no snow, `light_and_airy` on a day
- * that asks for insulation. Both archetype twins read them, and both read them from the
+ * Weather facts an archetype label can contradict. Both archetype twins read them from the
  * requirements the request already carries, so no request field and no enum member moves.
  */
 export type ArchetypeDay = Readonly<{
   frozen: boolean;
   wet: boolean;
   cold: boolean;
+  windy: boolean;
 }>;
 
 /**
- * What an absent day means: no fact contradicts any label, which is the day-blind behaviour
- * of every caller that passes none, builds 8 and 9 included.
+ * An absent day keeps the property-only behaviour of older callers. The sentinel lets
+ * `cold_shield` remain eligible while `light_and_airy` remains eligible too.
  */
 export const dayBlindArchetypeDay: ArchetypeDay = Object.freeze({
   frozen: true,
   wet: true,
   cold: false,
+  windy: true,
 });
 
 const wetReasonCodes = Object.freeze([
@@ -67,6 +67,7 @@ export function archetypeDayFromRequirements(
     cold: requirements.some(({ kind, minimum, priority }) =>
       kind === 'thermal' && priority === 'mandatory'
       && (minimum === 'moderate' || minimum === 'high')),
+    windy: requirements.some(({ kind }) => kind === 'wind_protection'),
   });
 }
 
@@ -144,7 +145,8 @@ export function meetsArchetypePrecondition(
     case 'layered_warmth':
       return option.traits.hasMidLayer && option.traits.hasOuterLayer;
     case 'cold_shield':
-      return option.traits.outerThermalHigh;
+      // With no day, older clients still read the outer layer alone.
+      return (day === dayBlindArchetypeDay || day.cold) && option.traits.outerThermalHigh;
     case 'rain_ready':
       // A waterproof shell is a rain answer only where rain is what falls. On a dry day it
       // is the day's only high-thermal outer layer, and on a frozen one it is the snow
@@ -155,7 +157,7 @@ export function meetsArchetypePrecondition(
       // which is how every wet day used to read as a frozen one.
       return option.traits.tractionEnhanced && day.frozen;
     case 'wind_guard':
-      return option.traits.windResistant;
+      return day.windy && option.traits.windResistant;
     case 'light_and_airy':
       // Breathable and shell-free is airy only where the day is not asking for insulation.
       return !option.traits.hasOuterLayer && option.traits.breathabilityHigh && !day.cold;

@@ -182,9 +182,9 @@ test('the three weather archetypes are withheld on a day that contradicts them',
     ),
   };
 
-  assert.deepEqual(days.rain, { frozen: false, wet: true, cold: false });
-  assert.deepEqual(days.snow, { frozen: true, wet: false, cold: false });
-  assert.deepEqual(days.dry, { frozen: false, wet: false, cold: false });
+  assert.deepEqual(days.rain, { frozen: false, wet: true, cold: false, windy: false });
+  assert.deepEqual(days.snow, { frozen: true, wet: false, cold: false, windy: false });
+  assert.deepEqual(days.dry, { frozen: false, wet: false, cold: false, windy: false });
 
   assert.equal(meetsArchetypePrecondition('rain_ready', wearing, undefined, days.rain), true);
   assert.equal(meetsArchetypePrecondition('rain_ready', wearing, undefined, days.dry), false);
@@ -203,6 +203,35 @@ test('the three weather archetypes are withheld on a day that contradicts them',
   assert.equal(meetsArchetypePrecondition('rain_ready', wearing), true);
   assert.equal(meetsArchetypePrecondition('snow_day', wearing), true);
   assert.equal(meetsArchetypePrecondition('light_and_airy', airy), true);
+});
+
+test('cold_shield and wind_guard require both garment protection and the matching day', () => {
+  const protectedOption = {
+    ...parsedFixtureOption(),
+    traits: { ...traits, outerThermalHigh: true, windResistant: true },
+  };
+  const calm = archetypeDayFromRequirements([]);
+  const coldWindy = archetypeDayFromRequirements([
+    { kind: 'thermal', minimum: 'moderate', priority: 'mandatory', reasonCodes: ['temperature_low'] },
+    { kind: 'wind_protection', minimum: 'wind_resistant', priority: 'optional', reasonCodes: ['wind_elevated'] },
+  ]);
+  assert.deepEqual(calm, { frozen: false, wet: false, cold: false, windy: false });
+  assert.deepEqual(coldWindy, { frozen: false, wet: false, cold: true, windy: true });
+  for (const archetypeId of ['cold_shield', 'wind_guard']) {
+    assert.equal(meetsArchetypePrecondition(archetypeId, protectedOption, undefined, calm), false);
+    assert.equal(meetsArchetypePrecondition(archetypeId, protectedOption, undefined, coldWindy), true);
+    assert.equal(meetsArchetypePrecondition(archetypeId, protectedOption), true);
+  }
+  const unprotected = parsedFixtureOption();
+  assert.equal(meetsArchetypePrecondition('cold_shield', unprotected, undefined, coldWindy), false);
+  assert.equal(meetsArchetypePrecondition('wind_guard', unprotected, undefined, coldWindy), false);
+  const projected = aiModelInputFromRequest({
+    ...fixtureRequest,
+    options: [protectedOption],
+    requirements: [],
+  }).options[0].eligibleArchetypeIds;
+  assert.equal(projected.includes('cold_shield'), false);
+  assert.equal(projected.includes('wind_guard'), false);
 });
 
 function parsedFixtureOption() {
