@@ -50,6 +50,7 @@ async function renderConsentBoundary(
   firstUseStore = new InMemoryFirstUseStore(),
   initialConsent: 'undecided' | 'granted' | 'withdrawn' = 'undecided',
   telemetry?: PerformanceTelemetry,
+  onUpdate?: (consent: 'undecided' | 'granted' | 'withdrawn') => void,
 ) {
   let controls!: AnalyticsConsentControls;
   let trackers!: ProductAnalyticsValue;
@@ -66,7 +67,10 @@ async function renderConsentBoundary(
     const [consent, setConsent] = useState<'undecided' | 'granted' | 'withdrawn'>(initialConsent);
     const application = {
       state: { status: 'ready' as const, profile: { ...profile, analyticsConsent: consent }, isSaving: false },
-      updateAnalyticsConsent: async (answer: 'undecided' | 'granted' | 'withdrawn') => setConsent(answer),
+      updateAnalyticsConsent: async (answer: 'undecided' | 'granted' | 'withdrawn') => {
+        onUpdate?.(answer);
+        setConsent(answer);
+      },
     } as ProfileApplicationValue;
     return (
       <ProfileApplicationContext value={application}>
@@ -129,20 +133,53 @@ test('retrying a stored grant applies an analytics provider that has not applied
   expect(analytics.names()).toEqual(['analytics_consent_granted']);
 });
 
-test('retrying a stored grant applies telemetry that has not applied it', async () => {
+test.each([
+  { name: 'a telemetry-only retry applies Observe without touching PostHog or consent', fails: false },
+  { name: 'a failed telemetry-only retry leaves PostHog and consent granted', fails: true },
+])('$name', async ({ fails }) => {
   const analytics = new RecordingProductAnalytics('granted');
-  const dispatch = jest.fn(async () => undefined);
-  const boundary = await renderConsentBoundary(analytics, new InMemoryFirstUseStore(), 'granted', {
+  const firstUseStore = new InMemoryFirstUseStore(['closet']);
+  const clearFirstUses = jest.spyOn(firstUseStore, 'clear');
+  const updateConsent = jest.fn();
+  const dispatch = jest.fn(async () => {
+    if (fails) throw new Error('Observe dispatch failed');
+  });
+  const boundary = await renderConsentBoundary(analytics, firstUseStore, 'granted', {
     logEvent: () => undefined,
     reportError: () => undefined,
     setDispatching: dispatch,
     isApplied: () => false,
-  });
+  }, updateConsent);
+  const prepareGrant = jest.spyOn(analytics, 'prepareGrant');
+  const optIn = jest.spyOn(analytics, 'optIn');
+  const capture = jest.spyOn(analytics, 'capture');
+  const resetErrors = jest.spyOn(boundary.trackers.errorEpisodes, 'reset');
+  const resetRetries = jest.spyOn(boundary.trackers.retries, 'reset');
+  const identifier = boundary.controls.getIdentifier();
+  expect(boundary.trackers.retries.nextAttempt('today')).toBe(1);
 
-  await act(async () => boundary.controls.grant('settings_privacy'));
+  if (fails) {
+    await act(async () => {
+      await expect(boundary.controls.grant('settings_privacy')).rejects.toThrow('Observe dispatch failed');
+    });
+  } else {
+    await act(async () => boundary.controls.grant('settings_privacy'));
+  }
 
-  expect(analytics.optInCount).toBe(1);
+  expect(dispatch).toHaveBeenCalledTimes(1);
   expect(dispatch).toHaveBeenCalledWith(true);
+  expect(prepareGrant).not.toHaveBeenCalled();
+  expect(optIn).not.toHaveBeenCalled();
+  expect(capture).not.toHaveBeenCalled();
+  expect(analytics.withdrawCount).toBe(0);
+  expect(resetErrors).not.toHaveBeenCalled();
+  expect(resetRetries).not.toHaveBeenCalled();
+  expect(clearFirstUses).not.toHaveBeenCalled();
+  expect(updateConsent).not.toHaveBeenCalled();
+  expect(boundary.trackers.retries.nextAttempt('today')).toBe(2);
+  expect(await firstUseStore.has('closet')).toBe(true);
+  expect(boundary.controls.getIdentifier()).toBe(identifier);
+  expect(boundary.controls.consent).toBe('granted');
 });
 
 test('a failure after acceptance is captured with its post-acceptance timestamp', async () => {
