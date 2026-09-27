@@ -203,19 +203,25 @@ export function excludeOutfitOptions(
   return filtered.length >= 3 ? Object.freeze(filtered) : outfits;
 }
 
+let lastComposedPool: Readonly<{ key: string; result: OutfitCompositionsResult }> | null = null;
+
 export function composeOutfitPool(
   requirements: ClothingRequirements,
   clothingPreference: ClothingPreference,
   dayVariant: number,
   recentWorn: readonly WornOutfit[] = [],
 ): OutfitCompositionsResult {
+  const key = JSON.stringify([requirements, clothingPreference, dayVariant, recentWorn]);
+  if (lastComposedPool?.key === key) return lastComposedPool.result;
   const candidates = listGarmentTypesForPreference(clothingPreference).map((type) =>
     evaluateGarmentEligibility(
       requirements,
       projectCatalogEffectiveGarment(type.typeId, clothingPreference),
     ),
   );
-  return composeOutfitOptions(requirements, candidates, dayVariant, recentWorn);
+  const result = composeOutfitOptions(requirements, candidates, dayVariant, recentWorn);
+  lastComposedPool = { key, result };
+  return result;
 }
 
 /**
