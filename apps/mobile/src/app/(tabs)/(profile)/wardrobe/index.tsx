@@ -54,8 +54,12 @@ export default function WardrobeRoute() {
           headerTitle: messages.wardrobe.title,
         }}
       />
+      {/* A finished add pops back to this screen and swaps its params rather than opening a
+          second Closet, so the list mounts afresh for each saved tile, as a newly opened
+          Closet would: that tile alone arrives and its confirmation shows. */}
       <WardrobeListRoute
         initialCategory={initialCategory}
+        key={savedItemId ?? ''}
         revealWanted={parseWardrobeEntryStateParam(filter) === 'wanted'}
         savedItemId={savedItemId}
       />

@@ -41,7 +41,7 @@ function clothingPreferenceOf(
     : null;
 }
 
-function useWardrobeExitGuard(
+export function useWardrobeExitGuard(
   isDirty: boolean,
   confirmation: WardrobeConfirmation,
 ) {
@@ -88,11 +88,13 @@ function useWardrobeExitGuard(
     // The toolbar's Cancel pops the form; `beforeRemove` above confirms a dirty one.
     cancel: () => router.back(),
     // The Closet reads its category, the section to reveal and the tile it should let
-    // arrive from the route, so an exit that finished something says where. A
-    // cancelled edit pops instead of replacing, and keeps the list it left untouched.
+    // arrive from the route, so an exit that finished something says where. It pops back
+    // to the Closet the form was pushed from and hands it these params, so no second
+    // Closet stacks on the first; a deep-linked form has none beneath it, and `dismissTo`
+    // then replaces the form with one. A cancelled edit pops and keeps the list untouched.
     returnToList: (params?: Readonly<Record<string, string>>) => {
       allowExitRef.current = true;
-      router.replace(params ? { params, pathname: '/wardrobe' } : '../');
+      router.dismissTo({ params, pathname: '/wardrobe' });
     },
   };
 }
@@ -135,7 +137,8 @@ export function WardrobeRouteStatus({
         {onRetry ? (
           <Button label={copy.retryAction} onPress={onRetry} />
         ) : null}
-        <Button label={copy.returnToWardrobeAction} onPress={onBack} variant="tonal" />
+        {/* Not `onBack` itself: the press event would reach the route as its params. */}
+        <Button label={copy.returnToWardrobeAction} onPress={() => onBack()} variant="tonal" />
       </Surface>
     </Screen>
   );
