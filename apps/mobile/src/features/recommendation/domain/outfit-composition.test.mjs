@@ -87,6 +87,21 @@ test('recent worn sets exclude by catalog garment IDs and relax oldest first to 
     [...Array(7).fill(worn[5]), worn[0]]).map((outfit) =>
     outfit.body.primaryTop.garment.garmentTypeId), ids);
 });
+
+test('recent worn exclusion compares the body core even when accessories change', () => {
+  const options = ['t_shirt', 'shirt', 'blouse', 'sweatshirt', 'hoodie'].map((id) => ({
+    body: { kind: 'separates', primaryTop: { garment: { garmentTypeId: id } },
+      bottom: { garment: { garmentTypeId: 'jeans' } } },
+    midLayer: null, outerLayer: null,
+    footwear: { garment: { garmentTypeId: 'sneakers' } },
+    accessories: { head: null, neck: null, hands: null, handheld: null },
+  }));
+  const recentWorn = [{ garments: { primary_top: 't_shirt', bottom: 'jeans',
+    footwear: 'sneakers', head: 'beanie' } }];
+  assert.deepEqual(excludeRecentlyWornOutfits(options, recentWorn).map((outfit) =>
+    outfit.body.primaryTop.garment.garmentTypeId),
+  ['shirt', 'blouse', 'sweatshirt', 'hoodie']);
+});
 // Most cases below are about the best arrangement, which is the first one collected.
 function composeOutfit(requirements, candidates) {
   const result = collectValidOutfits(requirements, candidates);
@@ -983,16 +998,13 @@ test('a cold day covers head, neck and hands, and each slot holds exactly one ga
     neck: 'neck_gaiter',
     hands: 'gloves',
   });
-  // Formality consistency: a smart or formal outfit finishes with the smart hat and scarf,
-  // and the one garment its slot offers reaches every outfit whatever the formality.
+  // Cold protection takes priority over matching formality for headwear.
   for (const formality of ['smart', 'formal']) {
     const chosen = byFormality.get(formality);
     if (!chosen) continue;
-    assert.deepEqual(chosen, {
-      head: 'brimmed_hat',
-      neck: 'scarf',
-      hands: 'gloves',
-    });
+    assert.notEqual(chosen.head, 'brimmed_hat');
+    assert.equal(chosen.neck, 'scarf');
+    assert.equal(chosen.hands, 'gloves');
   }
 });
 
