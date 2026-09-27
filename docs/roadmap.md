@@ -39,7 +39,6 @@ The [product decisions](product-decisions.md) and [ADRs](adr/) define the approv
 Release evidence:
 
 - Privacy check before build 15.
-- iOS 27 SDK build requirement before April 2027.
 - Android verification, once Android work starts.
 - Apple Intelligence measurement on eligible hardware.
 - N2 background execution and delivery verification on a compatible device.

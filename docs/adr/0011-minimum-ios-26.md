@@ -64,13 +64,10 @@ returned zero matches; the only `Platform.select` uses
 version, so there is no dead guard to remove. The change needs a fresh native
 build, which every App Store build since the first has carried.
 
-Apple's separate requirement, unchanged by this: since 2026-04-28 all new App
-Store Connect uploads must be built with Xcode 26 and the iOS 26 SDK. That is
-a build SDK requirement and never forced the deployment target. The deployment target
-and the SDK the app is built with are independent settings: the target is this ADR's
-decision, while the build SDK follows the Xcode that the installed Expo SDK supports and
-Apple's own upload requirement, which moves on Apple's schedule (the iOS 27 SDK from
-April 2027) without reopening this decision.
+The deployment target and the SDK used to build an upload are independent. The current local
+release path uses Xcode 27 and the iOS 27 SDK, which Apple accepts; uploads require the iOS 27
+SDK or later starting in April 2027. Using that newer SDK does not change this ADR's iOS 26.0
+minimum or allow APIs that require iOS 27.
 
 ### Garment icons stay bundled artwork
 
