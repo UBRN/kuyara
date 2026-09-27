@@ -6,12 +6,12 @@ The [product decisions](product-decisions.md) and [ADRs](adr/) define the approv
 
 | Phase | Scope | Status |
 | --- | --- | --- |
-| 1. Today | Header, AI badge, two insights, alternatives, outfit action and attribution placement | Goal A landed on main; implemented and Simulator verified |
+| 1. Today | Weather title, AI badge, one insight, alternatives, re-ask action and attribution placement | Shipped in build 15 |
 | 2. Settings and store rows | Root order, Service providers, sharing, rating and brand emphasis | Implemented and Simulator verified |
 | 3. Name and profile cleanup | Optional name, one-time prompt, location removal and the phase's migration | Implemented and Simulator verified |
-| 4. Daily style and loading | Aesthetics, morning sheet, loading and plan tomorrow; Today pill removal approved | Goals A and B landed on main; implemented controls are Simulator verified; the approved redesign is in the build 15 goals below |
-| 5. Colour and history | Outfit history, mirror photo, garment edit sheet, 33-colour palette, patterns and migration 20 | Planned |
-| 6. Silhouettes and suggested colour | Ink-edge silhouettes, eight new drawings and 31-colour catalog colorways | Planned |
+| 4. Daily style and loading | Aesthetics, morning and evening sheets, first-generation runway and Today pill removal | Shipped in build 15 |
+| 5. Colour and history | Outfit history and garment edit sheet shipped; wider Closet palette, patterns and migration 20 follow in build 16 | Partly shipped |
+| 6. Silhouettes and suggested colour | Ink-edge silhouettes, eight new drawings and 31-colour catalog colorways | Shipped in build 15 |
 | 7. Manual mix-and-match | Catalog-piece swaps on outfit detail | Planned |
 | 8. Onboarding walkthrough | Walkthrough for new and existing users with one-time gate | Planned |
 | 9. Optional accounts | Supabase Auth, sync and account deletion | Planned |
@@ -54,13 +54,13 @@ Every decision below, including AR1 through AR16, was approved on 2026-09-23. Ea
 | A1 | Today uses a one-line dated weather header and small archetype label | [product](product-decisions.md), [ADR 0021](adr/0021-direction-e-a-visual-first-design-language.md), [ADR 0027](adr/0027-the-app-shell-and-its-three-tabs.md) |
 | A2 | AI provenance becomes a prominent filled badge | [product](product-decisions.md), [ADR 0034](adr/0034-on-device-ai-selection-through-apple-foundation-models.md), [design language](design/design-language.md) |
 | A3 | Today removes requirement-rationale copy | [product](product-decisions.md), [ADR 0026](adr/0026-the-recommendation-detail-surface.md) |
-| A4 | Today has two bounded insight lines; AR8 places their rules in weather domain | [product](product-decisions.md), [ADR 0032](adr/0032-local-weather-alert-rules.md), [architecture](architecture.md) |
+| A4 | Today has one insight line; deterministic weather rules live in weather domain | [product](product-decisions.md), [ADR 0032](adr/0032-local-weather-alert-rules.md), [architecture](architecture.md) |
 | A5 | AI may supply one validated insight sentence; AR7 gives it a v2 route | [AGENTS](../AGENTS.md), [product](product-decisions.md), [ADR 0039](adr/0039-ai-v2-route-and-the-validated-insight-sentence.md), [architecture](architecture.md) |
 | A6 | Alternative outfits is the overview label | [product](product-decisions.md) |
-| A7 | Exhausted distinct outfit pools hide the action; AR9 derives the flag | [product](product-decisions.md), [architecture](architecture.md), [status](current-status.md) |
+| A7 | A pool with no other valid option hides the re-ask; AR9 derives the flag | [product](product-decisions.md), [architecture](architecture.md), [status](current-status.md) |
 | A8 | Today uses primary body insight copy and a bold title | [ADR 0021](adr/0021-direction-e-a-visual-first-design-language.md), [design language](design/design-language.md) |
 | A9 | Weather attribution is reachable only in Settings | [product](product-decisions.md), [ADR 0002](adr/0002-real-weather-provider-chain.md) |
-| A10 | Plan tomorrow stores the next day answer; AR1 uses the existing day key | [product](product-decisions.md), [ADR 0037](adr/0037-daily-formality-and-style-aesthetics.md) |
+| A10 | Today has no row for planning another day | [product](product-decisions.md), [ADR 0037](adr/0037-daily-formality-and-style-aesthetics.md) |
 | B1 | Settings uses five ordered groups | [product](product-decisions.md), [ADR 0030](adr/0030-settings-as-a-native-grouped-list.md) |
 | B2 | Service providers combines AI and weather status; AR11 reads the stored snapshot | [AGENTS](../AGENTS.md), [ADR 0030](adr/0030-settings-as-a-native-grouped-list.md), [ADR 0034](adr/0034-on-device-ai-selection-through-apple-foundation-models.md) |
 | B3 | Share and Rate open platform surfaces | [product](product-decisions.md), [ADR 0030](adr/0030-settings-as-a-native-grouped-list.md) |
@@ -71,11 +71,11 @@ Every decision below, including AR1 through AR16, was approved on 2026-09-23. Ea
 | C3 | The name and prompt-gate fields are in migration 17; the migration receives independent review | [ADR 0036](adr/0036-display-name-and-one-time-prompt-gate.md), [architecture](architecture.md) |
 | D1 | Persistent aesthetics and daily formality reorder valid outfits; AR2, AR3 and AR16 define storage and measurement | [ADR 0031](adr/0031-dress-style-is-the-formality-signal.md), [ADR 0037](adr/0037-daily-formality-and-style-aesthetics.md), [architecture](architecture.md) |
 | D2 | Morning and evening sheets set day type; re-ask changes it during the day; AR1, AR2 and AR15 define key and allowance | [product](product-decisions.md), [ADR 0037](adr/0037-daily-formality-and-style-aesthetics.md) |
-| D3 | Continuing without a choice uses the red quality-warning action | [ADR 0010](adr/0010-status-colours-destructive-variant-and-defined-borders.md), [ADR 0037](adr/0037-daily-formality-and-style-aesthetics.md) |
+| D3 | Dismissing the day-type sheet uses the profile dress style, with no alert or random formality | [product](product-decisions.md), [ADR 0037](adr/0037-daily-formality-and-style-aesthetics.md) |
 | D4 | First-day loading fills a garment board and allows skip; AR9 derives overlay state | [product](product-decisions.md), [architecture](architecture.md), [ADR 0020](adr/0020-rewriting-the-motion-law.md) |
 | D5 | The app does not read the OS motion preference | [AGENTS](../AGENTS.md), [ADR 0020](adr/0020-rewriting-the-motion-law.md) |
-| D6 | Plan tomorrow ships with daily style | [product](product-decisions.md), [ADR 0037](adr/0037-daily-formality-and-style-aesthetics.md) |
-| E1 | Detail edit uses 33 colours, a system picker, second colour and 14 pattern options | [product](product-decisions.md), [ADR 0026](adr/0026-the-recommendation-detail-surface.md) |
+| D6 | Morning and evening sheets write the current dressing-day answer | [product](product-decisions.md), [ADR 0037](adr/0037-daily-formality-and-style-aesthetics.md) |
+| E1 | Build 16 detail edit adds 33 colours, a system picker, second colour and 14 pattern options | [product](product-decisions.md), [ADR 0026](adr/0026-the-recommendation-detail-surface.md) |
 | E2 | One daily outfit and optional mirror photo enter history; AR6, AR13 and AR16 define storage and boundaries | [ADR 0038](adr/0038-outfit-history.md), [architecture](architecture.md), [taxonomy](analytics-taxonomy.md) |
 | F1 | Garment silhouettes become more realistic within approved vocabulary | [product](product-decisions.md), [ADR 0025](adr/0025-the-garment-board-composition-rule.md) |
 | F2 | Catalog colorways suggest quick-add colour | [product](product-decisions.md), [ADR 0007](adr/0007-ai-selects-precomposed-outfits.md) |

@@ -169,7 +169,7 @@ Rationale and the recalculated probe limits in [ADR 0001](adr/0001-worker-ai-pro
 
 - Today gives the two AI generation modes a prominent filled badge under its title. The on-device badge appears only for stored `on-device-ai` and pairs Apple Intelligence words with the system's rendering of the `apple.intelligence` SF Symbol in a non-purple badge. The AI-assisted badge appears only for `ai-assisted` and pairs "Chosen with AI" with animated, vivid multicolour SF Symbol `sparkles` in violet, fuchsia and gold. A settled deterministic result carries none. Settings > Service providers shows the same Apple Intelligence symbol beside the device status line and the last recommendation's coarse tier beside an availability row that calls no provider.
 - `POST /v1/ai/probe` is distinct from liveness and configuration readiness: one bounded call to the first provider and a briefly cached sanitized `ok | unavailable` result. A successful result also carries the controlled, non-secret identifier and configured model slug of the provider that answered, read only by Settings > Service providers. Settings triggers the probe explicitly ("Test online AI").
-- Recommendation and probe routes use per-IP burst limits; the probe also has a Durable Object-backed daily cap. Kuyara limit denials return the stable `rate_limited` error; upstream quota or capacity failures follow the normal sanitized AI fallback. Missing bindings degrade permissively, so deployed bindings must remain configured.
+- Recommendation and probe routes use per-IP burst limits; the probe also has a Durable Object-backed daily cap. Kuyara limit denials return the stable `rate_limited` error; upstream quota or capacity failures follow the normal sanitized AI fallback. A route whose rate-limit or required daily-counter binding is missing returns 503 with a sanitized unavailable code.
 
 ## Approved AI input privacy boundary
 
@@ -183,6 +183,7 @@ On the on-device tier the inference itself never leaves the device, and both tie
 - deterministic weather and clothing requirements,
 - clothing preference,
 - dress style,
+- the closed response-language locale (`tr` or `en`),
 - a closed sorted list of up to three style aesthetics (`minimal`, `classic`, `sporty`, `streetwear`, `relaxed`),
 - a local calendar day seed,
 - whether that local day is a weekday or a weekend.
@@ -376,10 +377,10 @@ Approved 2026-09-04. Canonical in [ADR 0024](adr/0024-relicensing-to-polyform-no
 - **The MIT history is not revoked.** Versions distributed under MIT from 2026-07-25 until 2026-09-04 remain under MIT.
 - A contributor licence agreement, commercial licence terms, dual licensing, and trademark policy are out of scope and undecided.
 
-## Planned phases
+## Implemented and planned phases
 
-- **Phase 6, silhouettes and suggested colour.** Redraw garment silhouettes to be more realistic and colourful, using garments' natural or suggested colours. Suggested colour uses a 31-colour library, per-outfit harmony and at most one accent; bump the catalog version once when it ships. The eight additional drawings are polo, turtleneck, blouse, bomber, leather jacket, coat, loafer and rain boot; they use a single ink-edge outline. Current interim values are `veiledDay #D1DDDD` and Today garment fills at `0.17` on the plane and `0.26` for footwear; measure them again when Phase 6 colours land.
-- **Phase 7, manual mix-and-match.** Outfit detail permits catalog-piece swaps outside the recommendation engine. Invalid combinations remain visible with a quiet “Unusual for this weather” note, and swaps are not saved unless “Wore this today” records the outfit. Closet items remain excluded from recommendation candidates. **Risk accepted:** manual mode can show a look that the engine's weather rules reject.
+- **Phase 6, silhouettes and suggested colour.** The garment board draws colour fashion flats with ink-edge silhouettes, including polo, turtleneck, blouse, bomber, leather jacket, coat, loafer and rain boot. A closed 31-colour library supplies catalog colorways, per-outfit harmony and at most one accent. The catalog is at version 6. Today, its alternatives, finishing touches, detail and the first-generation runway draw each outfit in its resolved palette.
+- **Phase 7, manual mix-and-match.** Outfit detail will permit catalog-piece swaps outside the recommendation engine. Invalid combinations will remain visible with a quiet “Unusual for this weather” note, and swaps will not be saved unless “Wore this today” records the outfit. Closet items will remain excluded from recommendation candidates. **Risk accepted:** manual mode can show a look that the engine's weather rules reject.
 
 ## Future possibilities, not MVP commitments
 
