@@ -94,6 +94,23 @@ function candidateKeys(result) {
   return result.outfits.flatMap((outfit) => outfit.candidateKeys);
 }
 
+test('Formal dress style selects the mens suit on a mild dry day', () => {
+  const input = { snapshot: snapshot(), now: observedAt,
+    clothingPreference: 'mens', dayVariant: 0, dayKind: 'weekday' };
+  const smart = recommendOutfits({ ...input, dressStyle: 'smart' });
+  const formal = recommendOutfits({ ...input, dressStyle: 'formal' });
+
+  assert.equal(smart.status, 'recommended');
+  assert.equal(formal.status, 'recommended');
+  assert.equal(formal.outfits[0].formality, 'formal');
+  assert.equal(formal.outfits[0].body.primaryTop.garment.garmentTypeId, 'shirt');
+  assert.equal(formal.outfits[0].body.bottom.garment.garmentTypeId, 'trousers');
+  assert.equal(formal.outfits[0].outerLayer.garment.garmentTypeId, 'blazer');
+  assert.equal(formal.outfits[0].footwear.garment.garmentTypeId, 'closed_shoes');
+  assert.notDeepEqual(formal.outfits.map(({ optionId }) => optionId),
+    smart.outfits.map(({ optionId }) => optionId));
+});
+
 test('extreme weather pipeline composes three distinct valid catalog outfits', () => {
   const cases = [
     ['below minus fifteen', { temperatureCelsius: -18, apparentTemperatureCelsius: -22,

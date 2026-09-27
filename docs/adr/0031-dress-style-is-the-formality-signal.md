@@ -49,6 +49,11 @@ no per-style re-measurement. The table lives in `packages/contracts` as
 `formalityOrderByDressStyle`, because the Worker prompt and device-local fallback must
 apply the same rule. Do not introduce age-band schemas or age-band formality tables.
 
+The composer derives each outfit's formality before applying this order. The exact
+`shirt` + `trousers` + `blazer` + `closed_shoes` combination, with no mid layer,
+counts as formal for either clothing preference. Other outfits use their least
+formal composed garment; the formality-consistency gate still applies.
+
 ### 3. The day's resolved formality and sorted aesthetics cross the AI boundary
 
 A daily answer overrides `dressStyle` for its dressing-day key only and uses the same three-value permutation table in section 2. An unanswered or dismissed day resolves to the persistent default. The strict request keeps `dressStyle` optional for older clients and defaults an absent value to `smart`. Aesthetics cross only as a closed sorted identifier list; they add one low-cardinality field to the Worker cache key and are applied by the deterministic fallback too.
