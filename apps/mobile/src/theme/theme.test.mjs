@@ -286,6 +286,34 @@ test('feature source does not hardcode approved primitive colors or disable font
   }
 });
 
+test('every prominent native toolbar button tints with a fill that carries the white system glyph', async () => {
+  // UIKit draws a prominent bar item's glyph in white on the tint colour, whatever the
+  // appearance, so the tint must clear 3:1 (WCAG 1.4.11) against white in both themes.
+  const systemGlyph = '#FFFFFF';
+  const sourceRoot = new URL('../', import.meta.url);
+  const entries = await readdir(sourceRoot, { recursive: true, withFileTypes: true });
+  const sourceFiles = entries.filter(
+    (entry) => entry.isFile() && /\.tsx$/.test(entry.name) && !/\.test\./.test(entry.name),
+  );
+  let checked = 0;
+
+  for (const entry of sourceFiles) {
+    const source = await readFile(`${entry.parentPath}/${entry.name}`, 'utf8');
+    for (const [element] of source.matchAll(/<Stack\.Toolbar\.Button\b[^>]*>/g)) {
+      if (!element.includes('variant="prominent"')) continue;
+      const token = /tintColor=\{theme\.colors\.(\w+)\}/.exec(element)?.[1];
+      assert.ok(token, `${entry.name}: a prominent toolbar button names a theme colour tint`);
+      for (const [appearance, colors] of Object.entries({ light: lightSemanticColors, dark: darkSemanticColors })) {
+        const ratio = contrastOfHexOverBackground(systemGlyph, colors[token]);
+        assert.ok(ratio >= 3, `${entry.name} ${appearance} ${token} under the white glyph: ${ratio.toFixed(3)}:1 >= 3:1`);
+      }
+      checked += 1;
+    }
+  }
+
+  assert.ok(checked >= 1, 'the form toolbar Save is found and checked');
+});
+
 test('feature source keeps typography on theme roles instead of literal fontSize/lineHeight styles', async () => {
   const sourceRoot = new URL('../features/', import.meta.url);
   const entries = await readdir(sourceRoot, { recursive: true, withFileTypes: true });
