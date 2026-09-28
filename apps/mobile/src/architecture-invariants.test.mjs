@@ -590,3 +590,93 @@ test('an application module imports its own feature data as a value only in a pr
     'the same-feature allowlist only shrinks: lower this count when an entry goes',
   );
 });
+
+// Feature domain code reads no ambient clock and no randomness: a caller hands in the date or
+// the id, so a unit test pins it without a fake timer. The one named exception is the
+// analytics age-bucket default; the list only shrinks and a stale entry fails.
+const domainAmbientReadAllowlist = [
+  'features/analytics/domain/analytics-mappers.ts',
+];
+
+function nonTestFilesUnder(prefixPattern) {
+  return sourceFiles().filter((relativePath) => prefixPattern.test(relativePath));
+}
+
+test('feature domain code reads no ambient clock or randomness', () => {
+  const ambientRead = /Date\.now\(\)|new Date\(\)|Math\.random|randomUUID/;
+  const hits = new Set();
+  for (const relativePath of nonTestFilesUnder(/^features\/[^/]+\/domain\//)) {
+    if (ambientRead.test(readFileSync(path.join(sourceRoot, relativePath), 'utf8'))) {
+      hits.add(relativePath);
+    }
+  }
+
+  const violations = [...hits].filter((relativePath) => !domainAmbientReadAllowlist.includes(relativePath));
+  assert.deepEqual(violations, [], 'take the date or id as a parameter and read the clock at the edge');
+  const stale = domainAmbientReadAllowlist.filter((relativePath) => !hits.has(relativePath));
+  assert.deepEqual(stale, [], 'remove these entries so the list only shrinks');
+  assert.equal(domainAmbientReadAllowlist.length, 1, 'the domain clock allowlist only shrinks');
+});
+
+// An exported function never defaults a time parameter to the ambient clock: the caller
+// passes it. The single pre-existing default is the analytics age bucket. The check
+// reads only annotated parameters (`: Date`, `: string`, `: number`); an unannotated default
+// is not covered.
+const clockDefaultAllowlist = [
+  'features/analytics/domain/analytics-mappers.ts',
+];
+
+test('an exported function does not default a time parameter to the ambient clock', () => {
+  const clockDefault = /(?::\s*Date|:\s*string|:\s*number)\s*=\s*(?:new Date\(\)|Date\.now\(\))/;
+  const hits = new Set();
+  for (const relativePath of sourceFiles()) {
+    if (clockDefault.test(readFileSync(path.join(sourceRoot, relativePath), 'utf8'))) hits.add(relativePath);
+  }
+
+  const violations = [...hits].filter((relativePath) => !clockDefaultAllowlist.includes(relativePath));
+  assert.deepEqual(violations, [], 'make the time parameter required and pass the clock at the call site');
+  const stale = clockDefaultAllowlist.filter((relativePath) => !hits.has(relativePath));
+  assert.deepEqual(stale, [], 'remove these entries so the list only shrinks');
+  assert.equal(clockDefaultAllowlist.length, 1, 'the clock default allowlist only shrinks');
+});
+
+// The dressing-day key of a device-local Date is derived in one place, `local-day.ts`; the only
+// other reader of `wardrobeDayKey` is its own module, which builds the key from an instant and
+// a zone (`local-day.test.mjs` pins the boundaries).
+test('the device-local dressing day key is derived only in recommendation/domain/local-day.ts', () => {
+  const callers = sourceFiles()
+    .filter((relativePath) => relativePath !== 'features/weather/domain/wardrobe-day.ts')
+    .filter((relativePath) => /\bwardrobeDayKey\(/.test(readFileSync(path.join(sourceRoot, relativePath), 'utf8')));
+
+  assert.deepEqual(callers, ['features/recommendation/domain/local-day.ts']);
+});
+
+// A swallowed error is justified in one line: an empty `catch` block says nothing about why
+// losing the error is safe. The promise form `.catch(() => {})` is not covered yet:
+// it has sites today.
+test('mobile production code has no empty catch block', () => {
+  const empty = /catch(?:\s*\([^)]*\))?\s*\{\s*\}/g;
+  const hits = [];
+  for (const relativePath of sourceFiles()) {
+    const text = readFileSync(path.join(sourceRoot, relativePath), 'utf8');
+    for (const match of text.matchAll(empty)) {
+      hits.push(`${repoRelativeRoot}/${relativePath}:${text.slice(0, match.index).split('\n').length}`);
+    }
+  }
+
+  assert.deepEqual(hits, [], 'say in one comment line why swallowing the error is safe');
+});
+
+// Untrusted values are parsed before they are typed: the Closet category reaches the domain
+// type through `isWardrobeItemCategory`, never a cast. The weather-condition and on-device AI
+// casts of that kind stay outside this check until their own milestones land.
+test('the wardrobe category is narrowed by its guard, never cast', () => {
+  const casts = [];
+  for (const relativePath of sourceFiles()) {
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/\bas WardrobeItemCategory\b/.test(line)) casts.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(casts, [], 'narrow with isWardrobeItemCategory instead of casting');
+});

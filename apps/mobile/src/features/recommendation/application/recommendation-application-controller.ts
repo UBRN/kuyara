@@ -1,4 +1,4 @@
-import type { AiRecommendV1Request, DayKind, DressStyle, StyleAesthetic } from '@kuyara/contracts';
+import type { AiRecommendV1Request, DressStyle, StyleAesthetic } from '@kuyara/contracts';
 
 import { isClothingPreference } from '@/domain/preferences';
 import {
@@ -43,7 +43,6 @@ import {
   createRecommendationContextWithPool,
   type RecommendationContext,
 } from '@/features/recommendation/data/worker-ai-recommendation-mapper';
-import { wardrobeDayKey } from '@/features/weather/domain/wardrobe-day';
 
 // Today reads the archetype label, and a feature reaches this one only through its application layer.
 export { archetypeLabel } from '@/features/recommendation/localization/recommendation-messages';
@@ -180,36 +179,7 @@ export const usingStandardPhaseMilliseconds = 800;
 
 type Listener = () => void;
 
-export function localDayVariant(date: Date = new Date()): number {
-  const dayOfYear = Math.floor(
-    (Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) -
-      Date.UTC(date.getFullYear(), 0, 0)) /
-      (24 * 60 * 60 * 1000),
-  );
-  return dayOfYear % 7;
-}
-
-// Saturday and Sunday are the weekend; everything else is a weekday. Read from the device's
-// own local date, so a traveller's day matches the day they are dressing for.
-export function localDayKind(date: Date = new Date()): DayKind {
-  const weekday = date.getDay();
-  return weekday === 0 || weekday === 6 ? 'weekend' : 'weekday';
-}
-
-/**
- * The dressing day the device clock is in: the bare local date until 18:00, and that date
- * plus `:evening` from 18:00 through 04:00 the next morning. It keeps its name, its type and
- * its place in the signals, so the existing `local-day-changed` trigger now fires at 04:00
- * and at 18:00 instead of at midnight, and a key written by an older build still matches.
- */
-export function localDayKey(date: Date = new Date()): string {
-  return wardrobeDayKey({
-    year: date.getFullYear(),
-    month: date.getMonth() + 1,
-    day: date.getDate(),
-    hour: date.getHours(),
-  });
-}
+export { localDayKey, localDayKind, localDayVariant } from '@/features/recommendation/domain/local-day';
 
 /**
  * The three options the persisted snapshot is showing, whatever day it was written on.

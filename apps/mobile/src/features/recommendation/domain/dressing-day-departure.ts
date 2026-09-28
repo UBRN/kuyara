@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { dressingDayKeySchema } from '@/features/recommendation/domain/dressing-day-choice';
-import { wardrobeDayKey } from '@/features/weather/domain/wardrobe-day';
+import { localDayKey } from '@/features/recommendation/domain/local-day';
 
 export const departureDayKeySchema = dressingDayKeySchema;
 export const departureTimeZoneSchema = z.string().min(1).refine((value) => {
@@ -11,21 +11,15 @@ export const departureTimeZoneSchema = z.string().min(1).refine((value) => {
 });
 
 /**
- * The dressing day a departure belongs to, read on the device clock: the same clock as the
- * controller's `localDayKey`, which is the only dressing-day clock. The departure's own
- * `timeZone` bounds its coverage window and plays no part in the key, so a place in another
+ * The dressing day a departure belongs to, read on the device clock: the same clock as
+ * `localDayKey` in `recommendation/domain/local-day.ts`, which owns the dressing-day rule.
+ * The departure's own `timeZone` bounds its coverage window and plays no part in the key, so a place in another
  * zone cannot file the departure under a day Today never reads.
  */
 export function departureDressingDayKey(departureAt: string): string | null {
   const instant = Date.parse(departureAt);
   if (!Number.isFinite(instant)) return null;
-  const date = new Date(instant);
-  return wardrobeDayKey({
-    year: date.getFullYear(),
-    month: date.getMonth() + 1,
-    day: date.getDate(),
-    hour: date.getHours(),
-  });
+  return localDayKey(new Date(instant));
 }
 
 export type DressingDayDeparture = Readonly<{

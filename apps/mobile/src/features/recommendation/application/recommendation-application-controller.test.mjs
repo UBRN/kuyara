@@ -383,27 +383,14 @@ test('unchanged pool inputs reuse the generation composition on repeated availab
   assert.equal(compositions, 2);
 });
 
-test('local day variant is a deterministic seven-day ring', () => {
-  assert.equal(localDayVariant(new Date(2026, 0, 1, 12)), 1);
-  assert.equal(localDayVariant(new Date(2026, 0, 2, 12)), 2);
-  assert.equal(localDayVariant(new Date(2026, 0, 8, 12)), 1);
-});
+// The rules and their boundaries are pinned in domain/local-day.test.mjs; this checks that the
+// controller still re-exports them and that the refresh trigger reads the same key.
+test('the controller re-exports the local day rules and the trigger follows their key', async () => {
+  const domain = await import('../domain/local-day.ts');
+  assert.equal(localDayKey, domain.localDayKey);
+  assert.equal(localDayKind, domain.localDayKind);
+  assert.equal(localDayVariant, domain.localDayVariant);
 
-// The seven-day ring is a rotation seed, not a weekday: only this reads the calendar.
-test('local day kind names Saturday and Sunday the weekend', () => {
-  // 2026-09-14 is a Monday.
-  const kinds = [14, 15, 16, 17, 18, 19, 20].map((day) =>
-    localDayKind(new Date(2026, 8, day, 12)));
-  assert.deepEqual(kinds, [
-    'weekday', 'weekday', 'weekday', 'weekday', 'weekday', 'weekend', 'weekend',
-  ]);
-});
-
-test('the dressing day key turns at 04:00 and 18:00, and never at midnight', () => {
-  const december31 = new Date(2025, 11, 31, 23, 59);
-  const january1 = new Date(2026, 0, 1, 0, 1);
-  const januaryMorning = new Date(2026, 0, 1, 4, 0);
-  const januaryEvening = new Date(2026, 0, 1, 18, 0);
   const signalsFor = (date) => ({
     weatherSnapshotId: 'weather-one',
     locationKey: 'location-one',
@@ -414,22 +401,11 @@ test('the dressing day key turns at 04:00 and 18:00, and never at midnight', () 
   });
   const triggerBetween = (from, to) =>
     recommendationRefreshTrigger(signalsFor(from), signalsFor(to), null);
+  const midnight = [new Date(2025, 11, 31, 23, 59), new Date(2026, 0, 1, 0, 1)];
 
-  // Midnight moves the calendar date but not the dressing day: someone out at 00:01 keeps
-  // the outfit they left the house in, and the New Year is no exception. The composition
-  // seed still repeats across that boundary, which is what makes the key the detector.
-  assert.equal(localDayVariant(december31), localDayVariant(january1));
-  assert.equal(localDayKey(december31), '2025-12-31:evening');
-  assert.equal(localDayKey(january1), '2025-12-31:evening');
-  assert.equal(localDayKey(januaryMorning), '2026-01-01');
-  assert.equal(localDayKey(januaryEvening), '2026-01-01:evening');
-
-  assert.equal(triggerBetween(december31, january1), null);
-  assert.equal(triggerBetween(january1, januaryMorning), 'local-day-changed');
-  assert.equal(triggerBetween(januaryMorning, januaryEvening), 'local-day-changed');
-  // A day-period key is the bare date an older build already wrote, so updating the app in
-  // the middle of an afternoon regenerates nothing.
-  assert.equal(localDayKey(new Date(2026, 0, 1, 12, 0)), '2026-01-01');
+  assert.equal(triggerBetween(...midnight), null);
+  assert.equal(triggerBetween(midnight[1], new Date(2026, 0, 1, 4, 0)), 'local-day-changed');
+  assert.equal(triggerBetween(new Date(2026, 0, 1, 4, 0), new Date(2026, 0, 1, 18, 0)), 'local-day-changed');
 });
 
 test('a missing persisted snapshot triggers the first recommendation', () => {

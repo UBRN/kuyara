@@ -137,7 +137,9 @@ function deleteCachedFile(uri: string): void {
     if (isInPrivateCache(file) && file.exists) {
       file.delete();
     }
-  } catch {}
+  } catch {
+    // A cache file that cannot be removed is left for the system to purge; the Closet does not depend on it.
+  }
 }
 
 export class ExpoPrivateWardrobePhotoStorage implements WardrobePhotoStorage {
@@ -193,7 +195,9 @@ export class ExpoPrivateWardrobePhotoStorage implements WardrobePhotoStorage {
         if (stored.exists) {
           stored.delete();
         }
-      } catch {}
+      } catch {
+        // The copy error rethrown below is the one that matters; a failed cleanup must not replace it.
+      }
       throw error;
     }
 
