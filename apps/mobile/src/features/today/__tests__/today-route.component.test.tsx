@@ -1,5 +1,5 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
-import { useEffect, useSyncExternalStore, type PropsWithChildren } from 'react';
+import { useEffect, useState, useSyncExternalStore, type PropsWithChildren } from 'react';
 import { Alert, StyleSheet, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -29,6 +29,7 @@ import {
   type RecommendationSnapshot,
 } from '@/features/recommendation/data/recommendation-repository';
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
+import { RoutedAiClient } from '@/features/recommendation/data/routed-ai-client';
 import { slotCandidates } from '@/features/recommendation/domain/manual-mix';
 import { wornOutfitFrom, type WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import { todayActiveLocation, todayOutfitId, todayScreenState } from '@/features/today/__tests__/fixtures';
@@ -160,6 +161,7 @@ const mockChoiceGet = jest.fn();
 const mockChoiceUpsert = jest.fn();
 let mockRecommendationSnapshot: RecommendationSnapshot | null = null;
 let mockRecommendationReadError: Error | null = null;
+const mockRecommendationSave = jest.fn();
 let mockLocalDayKey: string | null = '2026-09-24';
 jest.mock('@/infrastructure/sqlite/expo-sqlite-database', () => ({
   openKuyaraDatabase: async () => ({}),
@@ -221,6 +223,7 @@ jest.mock('@/features/recommendation/data/recommendation-repository', () => ({
       if (mockRecommendationReadError) throw mockRecommendationReadError;
       return mockRecommendationSnapshot;
     }
+    saveSnapshot(...args: unknown[]) { return mockRecommendationSave(...args); }
   },
 }));
 jest.mock('@/features/recommendation/application/recommendation-application-controller', () => {
@@ -565,6 +568,7 @@ beforeEach(() => {
   mockDepartureGet.mockReset().mockResolvedValue(null);
   mockRecommendationSnapshot = null;
   mockRecommendationReadError = null;
+  mockRecommendationSave.mockReset();
   mockLocalDayKey = '2026-09-24';
 });
 
@@ -1185,6 +1189,57 @@ test('an offline catalog-bump cache stays hidden while the morning answer is pen
   }
 });
 
+test('offline start after a catalog bump renders current fallback outfits and cached weather', async () => {
+  const saved = recommendationReady();
+  if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
+  mockRecommendationSnapshot = { ...saved.snapshot, catalogVersion: garmentCatalogVersion - 1,
+    localDayKey: '2026-09-24' };
+  mockRecommendationSave.mockImplementation(async (_profileId, entry) => ({
+    ...mockRecommendationSnapshot,
+    id: 'current-catalog-recommendation',
+    catalogVersion: entry.context.catalogVersion,
+    localDayKey: entry.context.localDayKey,
+    weatherSnapshotId: entry.weatherSnapshotId,
+    locationKey: entry.locationKey,
+    generationMode: entry.recommendation.generationMode,
+    recommendation: entry.recommendation,
+  }));
+  const ai = jest.spyOn(RoutedAiClient.prototype, 'recommendRouted')
+    .mockRejectedValue(new Error('offline'));
+  const history = jest.spyOn(SqliteOutfitHistoryRepository.prototype, 'lastSeven')
+    .mockResolvedValue([]);
+  try {
+    const cachedWeather = weatherValue({ freshness: 'stale', refreshFailure: 'offline' });
+    const view = await render(
+      <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+        recommendation={saved} liveRecommendationProvider wardrobe={wardrobeValue()}
+        weather={cachedWeather}>
+        <TodayRoute />
+      </Providers>,
+    );
+    await waitFor(() => expect(mockRecommendationSave).toHaveBeenCalledTimes(1),
+      { timeout: 5000 });
+    await waitFor(() => expect(view.getByTestId('today-outfit-list')).toBeOnTheScreen());
+    expect(ai).toHaveBeenCalledTimes(1);
+    expect(mockRecommendationSave).toHaveBeenCalledTimes(1);
+    const generated = mockRecommendationSave.mock.results[0].value as Promise<RecommendationSnapshot>;
+    const current = await generated;
+    expect(current.catalogVersion).toBe(garmentCatalogVersion);
+    expect(current.recommendation.status).toBe('recommended');
+    if (current.recommendation.status !== 'recommended') throw new Error('Expected fallback');
+    expect(current.recommendation.outfits).toHaveLength(3);
+    expect(current.generationMode).toBe('deterministic-fallback');
+    expect(view.getByTestId('today-top-row')).toHaveTextContent(/Istanbul/);
+    expect(view.getByTestId('today-title')).toHaveTextContent(/20/);
+    expect(view.getByTestId('today-freshness')).toHaveTextContent(/06:05/);
+    expect(view.queryByTestId('today-provenance-badge')).toBeNull();
+    expect(view.queryByTestId('today-unavailable-screen')).toBeNull();
+  } finally {
+    ai.mockRestore();
+    history.mockRestore();
+  }
+}, 10000);
+
 test('the morning sheet never opens over an error card', async () => {
   const view = await render(
     <Providers {...morningPendingProps()} recommendation={recommendationReady()}
@@ -1778,6 +1833,58 @@ test('a retained previous-place snapshot never renders under the new place', asy
   );
   expect(view.getByTestId('today-unavailable-screen')).toBeOnTheScreen();
   expect(view.queryByTestId('today-title')).toBeNull();
+});
+
+test('a place change keeps the old weather and outfit hidden until the new request resolves', async () => {
+  const newPlace = { ...todayActiveLocation, locationKey: 'manual:sample.ankara', displayName: 'Ankara' };
+  const newWeather = { ...todayScreenState.snapshot.weather, id: 'ankara-weather',
+    locationKey: newPlace.locationKey,
+    current: { ...todayScreenState.snapshot.weather.current, temperatureCelsius: 31,
+      condition: 'clear' as const } };
+  const oldRecommendation = recommendationReady();
+  if (oldRecommendation.status !== 'ready' || !oldRecommendation.snapshot) {
+    throw new Error('Expected saved fixture');
+  }
+  const oldSnapshot = oldRecommendation.snapshot;
+  let selectPlace!: () => Promise<void>;
+  let resolveWeather!: () => void;
+  function Transition() {
+    const [weather, setWeather] = useState(() => weatherValue());
+    const [recommendation, setRecommendation] = useState(oldRecommendation);
+    useEffect(() => {
+      selectPlace = async () => {
+        setWeather(weatherValue({ activeLocation: newPlace, isRefreshing: true }));
+        await new Promise<void>((resolve) => { resolveWeather = resolve; });
+        setWeather(weatherValue({ activeLocation: newPlace, snapshot: newWeather }));
+        setRecommendation(recommendationReady({ snapshot: {
+          ...oldSnapshot, id: 'ankara-recommendation',
+          weatherSnapshotId: newWeather.id, locationKey: newPlace.locationKey,
+        } }));
+      };
+    }, []);
+    return <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+      recommendation={recommendation} wardrobe={wardrobeValue()} weather={weather}>
+      <TodayRoute />
+    </Providers>;
+  }
+  const view = await render(<Transition />);
+  expect(view.getByTestId('today-top-row')).toHaveTextContent(/Istanbul/);
+  expect(view.getByTestId('today-title')).toHaveTextContent(/20/);
+  expect(view.getByTestId('today-title')).toHaveTextContent(/Rain/);
+  expect(view.getByTestId('today-outfit-list')).toBeOnTheScreen();
+
+  await act(async () => { void selectPlace(); });
+  expect(view.getByTestId('today-loading-screen')).toBeOnTheScreen();
+  expect(view.queryByText('Ankara')).toBeNull();
+  expect(view.queryByTestId('today-title')).toBeNull();
+  expect(view.queryByTestId('today-outfit-list')).toBeNull();
+
+  await act(async () => { resolveWeather(); });
+  expect(view.getByTestId('today-top-row')).toHaveTextContent(/Ankara/);
+  expect(view.getByTestId('today-title')).toHaveTextContent(/31/);
+  expect(view.getByTestId('today-title')).toHaveTextContent(/Clear/);
+  expect(view.getByTestId('today-outfit-list')).toBeOnTheScreen();
+  expect(view.queryByText('Istanbul')).toBeNull();
 });
 
 test.each([
