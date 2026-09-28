@@ -25,6 +25,7 @@ import { useRecommendationApplication } from '@/features/recommendation/applicat
 import { localDayKey } from '@/features/recommendation/application/recommendation-application-controller';
 import { outfitCoverage } from '@/features/recommendation/domain/outfit-coverage';
 import { classifyTodayState, mayOfferDayQuestion } from '@/features/today/application/today-state';
+import { useWalkthrough } from '@/features/walkthrough/application/walkthrough-context';
 import { TodayScreen } from '@/features/today/presentation/today-screen';
 import { AskAgainSheet, type AskAgainChoice } from '@/features/today/presentation/ask-again-sheet';
 import { DailyFormalitySheet } from '@/features/today/presentation/daily-formality-sheet';
@@ -107,6 +108,9 @@ export default function TodayRoute() {
   const { openApplicationSettings } = useNotificationApplication();
   const [isPullRefreshing, setIsPullRefreshing] = useState(false);
   const dayQuestionPending = morningChoicePending || eveningChoicePending;
+  const walkthrough = useWalkthrough();
+  const tourActive = walkthrough?.active === true;
+  const [runwayVisible, setRunwayVisible] = useState(false);
   useScreenViewed('today');
 
   const { state, todayFailure, recommendationFailure } = classifyTodayState({
@@ -154,11 +158,13 @@ export default function TodayRoute() {
   // the first one after 18:00 asks the evening question, starting empty.
   const pendingQuestion = morningChoicePending ? 'morning' : eveningChoicePending ? 'evening' : null;
   useEffect(() => {
-    if (!isFocused || !pendingQuestion || showNamePrompt || !currentDressingDayKey ||
+    // The Phase 8 tour holds the question back until it ends: one overlay at a time.
+    if (!isFocused || !pendingQuestion || showNamePrompt || tourActive || !currentDressingDayKey ||
         !mayOfferDayQuestion(weatherState, state) || offeredKey.current === currentDressingDayKey) return;
     offeredKey.current = currentDressingDayKey;
     setSheetTarget(pendingQuestion);
-  }, [currentDressingDayKey, isFocused, pendingQuestion, setSheetTarget, showNamePrompt, state, weatherState]);
+  }, [currentDressingDayKey, isFocused, pendingQuestion, setSheetTarget, showNamePrompt, state, tourActive,
+    weatherState]);
   const profile = profileState.status === 'ready' ? profileState.profile : null;
   const profileDressStyle = profile?.dressStyle ?? 'smart';
   // f25 and M16: the first dressing day is the one the profile was set up on. Its greeting
@@ -263,6 +269,24 @@ export default function TodayRoute() {
     markRecommendationShown();
   }, [dayQuestionPending, dressingDayChoiceReady, isFocused, isRecommendationShown,
     markRecommendationShown, showNamePrompt]);
+
+  // Phase 8: Today tells the tour whether its outfit has settled and what else claims the
+  // screen; the tour decides when to open (README "When it opens").
+  const reportToday = walkthrough?.reportToday;
+  const outfitSettled = isFocused && isRecommendationShown && state.kind === 'loaded' && !state.isRefreshing
+    && !runwayVisible
+    && !isPullRefreshing && !dayQuestionPending && dressingDayChoiceReady !== false
+    && updatingDayType === null && choosingWindow === null;
+  const overlayOpen = sheetTarget !== null || askOpenedAt !== null || showNamePrompt;
+  const dayQuestionClaim = sheetTarget !== null || dayQuestionPending === true;
+  useEffect(() => {
+    reportToday?.({
+      settled: outfitSettled,
+      overlayOpen,
+      dayQuestion: dayQuestionClaim,
+      namePrompt: showNamePrompt,
+    });
+  }, [dayQuestionClaim, outfitSettled, overlayOpen, reportToday, showNamePrompt]);
 
   // Taxonomy 5.7: Today's pull gesture doubles as the retry action when a failure is
   // already shown (there is no separate retry control).
@@ -390,6 +414,7 @@ export default function TodayRoute() {
       isRefreshing={isPullRefreshing}
       onOpenOutfitDetail={(id) => router.push({ pathname: '/[id]', params: { id } })}
       onRefresh={handleRefresh}
+      onRunwayVisibleChange={setRunwayVisible}
       onAskAgain={() => { setAskError(false); setAskOpenedAt(Date.now()); }}
       updatingDayType={updatingDayType}
       firstDressingDay={firstDressingDay}

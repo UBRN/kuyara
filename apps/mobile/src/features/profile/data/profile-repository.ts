@@ -41,6 +41,7 @@ export interface ProfileRepository {
   updateNotificationsOptIn(optIn: boolean): Promise<Profile>;
   updateMorningBriefingOptIn(optIn: boolean): Promise<Profile>;
   markWeatherAlertOfferShown(): Promise<Profile>;
+  markWalkthroughSeen(): Promise<Profile>;
   updateAnalyticsConsent(consent: AnalyticsConsent): Promise<Profile>;
 }
 
@@ -117,6 +118,8 @@ function mapRecord(record: LocalProfileRecord): Profile {
     !hasValidDisplayName ||
     !Number.isInteger(record.namePromptVersion) ||
     record.namePromptVersion < 0 ||
+    (record.walkthroughVersion !== undefined &&
+      (!Number.isInteger(record.walkthroughVersion) || record.walkthroughVersion < 0)) ||
     completedWithoutPreference ||
     !isUtcIsoTimestamp(record.createdAt) ||
     !isUtcIsoTimestamp(record.updatedAt) ||
@@ -135,6 +138,7 @@ function mapRecord(record: LocalProfileRecord): Profile {
     birthDate: record.birthDate,
     displayName: record.displayName,
     namePromptVersion: record.namePromptVersion,
+    walkthroughVersion: record.walkthroughVersion ?? 0,
     languagePreference: record.languagePreference,
     themePreference: record.themePreference,
     onboardingCompleted: record.onboardingCompleted === 1,
@@ -235,6 +239,10 @@ export class LocalProfileRepository implements ProfileRepository {
 
   markWeatherAlertOfferShown(): Promise<Profile> {
     return this.execute(() => this.dataSource.markWeatherAlertOfferShown());
+  }
+
+  markWalkthroughSeen(): Promise<Profile> {
+    return this.execute(() => this.dataSource.markWalkthroughSeen());
   }
 
   updateAnalyticsConsent(consent: AnalyticsConsent): Promise<Profile> {

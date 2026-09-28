@@ -8,6 +8,7 @@ export type LocalProfileRecord = Readonly<{
   birthDate: string | null;
   displayName: string | null;
   namePromptVersion: number;
+  walkthroughVersion?: number;
   languagePreference: string;
   themePreference: string;
   onboardingCompleted: number;

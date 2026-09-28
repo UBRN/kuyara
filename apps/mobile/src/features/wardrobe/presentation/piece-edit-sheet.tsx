@@ -33,6 +33,7 @@ import {
   ClosetColorPalette,
 } from '@/features/wardrobe/presentation/closet-color-palette';
 import { WardrobeOption } from '@/features/wardrobe/presentation/wardrobe-option';
+import { TourSheetScope, TourTarget } from '@/features/walkthrough/application/tour-target';
 import { useMessages } from '@/localization/use-messages';
 import { radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -82,12 +83,15 @@ export function PieceEditSheet({ target, onDismiss, ...rest }: PieceEditSheetPro
   return (
     <NativeSheet onDismiss={onDismiss} testID="piece-edit-sheet" visible={target !== null}>
       {target ? (
-        <PieceEditForm
-          key={`${target.garmentTypeId}:${target.match.kind === 'none' ? '' : target.match.item.id}`}
-          onDismiss={onDismiss}
-          target={target}
-          {...rest}
-        />
+        // Phase 8: the tour lights this sheet and rings its Close.
+        <TourSheetScope>
+          <PieceEditForm
+            key={`${target.garmentTypeId}:${target.match.kind === 'none' ? '' : target.match.item.id}`}
+            onDismiss={onDismiss}
+            target={target}
+            {...rest}
+          />
+        </TourSheetScope>
       ) : null}
     </NativeSheet>
   );
@@ -167,8 +171,10 @@ function PieceEditForm({
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <View style={styles.head}>
-        <GlassButton kind="close" label={messages.today.dailyStyle.close} onPress={onDismiss}
-          testID="piece-edit-close" />
+        <TourTarget activate={onDismiss} id="sheet-close" label={messages.today.dailyStyle.close}>
+          <GlassButton kind="close" label={messages.today.dailyStyle.close} onPress={onDismiss}
+            testID="piece-edit-close" />
+        </TourTarget>
         <AppText accessibilityRole="header" style={styles.title} variant="bodyStrong">
           {record ? copy.pieceSheetEditTitle : copy.pieceSheetAddTitle}
         </AppText>

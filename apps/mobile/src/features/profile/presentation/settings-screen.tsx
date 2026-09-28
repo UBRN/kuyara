@@ -40,6 +40,8 @@ export type SettingsScreenProps = Readonly<{
   onShare: () => void;
   onRate: () => void;
   onOpenLicence: () => void;
+  /** Phase 8: the coach-mark tour again, from step 1 over Today; the gate is not touched. */
+  onRestartTour?: () => void;
   showRate: boolean;
 }>;
 
@@ -62,6 +64,7 @@ export function SettingsScreen({
   onShare,
   onRate,
   onOpenLicence,
+  onRestartTour,
   showRate,
   profile,
 }: SettingsScreenProps) {
@@ -277,6 +280,14 @@ export function SettingsScreen({
             onPress={onRate}
             ratingStars
             testID="settings-rate-row"
+          />
+        ) : null}
+        {onRestartTour ? (
+          <NativeListRow
+            glyph={({ color, size }) => <Icon color={color} name="handTap" size={size} />}
+            label={messages.walkthrough.name}
+            onPress={onRestartTour}
+            testID="settings-walkthrough-row"
           />
         ) : null}
       </NativeListSection>

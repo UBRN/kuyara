@@ -4,6 +4,7 @@ import {
   type PropsWithChildren,
   useEffect,
   useMemo,
+  useState,
   useSyncExternalStore,
 } from 'react';
 
@@ -70,6 +71,7 @@ export function NotificationApplicationProvider(
   }, [controller]);
 
   const { analytics } = useProductAnalytics();
+  const [openedNotifications, setOpenedNotifications] = useState(0);
   useEffect(
     () => gateway.subscribeToResponses((kind) => {
       // Taxonomy 5.13: a tapped local notification, named by kind only, with no rule,
@@ -78,6 +80,7 @@ export function NotificationApplicationProvider(
         schema_version: ANALYTICS_SCHEMA_VERSION,
         kind,
       });
+      setOpenedNotifications((count) => count + 1);
       router.navigate('/');
     }),
     [analytics, gateway],
@@ -89,7 +92,8 @@ export function NotificationApplicationProvider(
     requestPermission: () => controller.requestPermission(),
     openApplicationSettings: () => gateway.openApplicationSettings(),
     weatherAlertScheduler,
-  }), [controller, gateway, state, weatherAlertScheduler]);
+    openedNotifications,
+  }), [controller, gateway, openedNotifications, state, weatherAlertScheduler]);
 
   return (
     <NotificationApplicationContext value={value}>

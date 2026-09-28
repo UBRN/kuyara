@@ -10,6 +10,7 @@ import { notificationsAreActive } from '@/features/notifications/application/not
 import { useNotificationApplication } from '@/features/notifications/application/notification-context';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { SettingsScreen } from '@/features/profile/presentation/settings-screen';
+import { useWalkthrough } from '@/features/walkthrough/application/walkthrough-context';
 import { IOS_REVIEW_URL, IOS_STORE_URL, LICENCE_URL, androidStoreLinks } from '@/features/profile/presentation/store-links';
 import { useLocalization } from '@/localization/use-messages';
 
@@ -28,6 +29,7 @@ export default function SettingsRoute() {
   const { state: notificationState } = useNotificationApplication();
   const { analytics, firstUses } = useProductAnalytics();
   const androidPackage = Constants.expoConfig?.android?.package;
+  const walkthrough = useWalkthrough();
   useScreenViewed('settings');
 
   if (state.status !== 'ready') {
@@ -114,6 +116,12 @@ export default function SettingsRoute() {
           void Linking.openURL(SUPPORT_URL[language]);
         }}
         onOpenLicence={() => { void Linking.openURL(LICENCE_URL); }}
+        // Phase 8: the tour starts over Today, from Profile's root so its step 7 lands there.
+        onRestartTour={walkthrough ? () => {
+          walkthrough.restart();
+          router.dismissAll();
+          router.navigate('/');
+        } : undefined}
         onRate={() => {
           const url = Platform.OS === 'ios'
             ? IOS_REVIEW_URL

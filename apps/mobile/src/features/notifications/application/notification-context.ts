@@ -13,6 +13,8 @@ export type NotificationApplicationValue = Readonly<{
   requestPermission: () => Promise<NotificationOptInOutcome>;
   openApplicationSettings: () => Promise<void>;
   weatherAlertScheduler: WeatherAlertScheduling;
+  /** Local notifications opened in this launch; the Phase 8 tour yields to each one. */
+  openedNotifications?: number;
 }>;
 
 export const NotificationApplicationContext =

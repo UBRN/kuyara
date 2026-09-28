@@ -1,6 +1,12 @@
 import { use, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Pressable, RefreshControl, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, {
+  useAnimatedRef,
+  useAnimatedStyle,
+  useScrollOffset,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type { DressStyle } from '@kuyara/contracts';
 
@@ -46,6 +52,7 @@ import { TitleWeatherSymbol } from '@/features/today/presentation/weather-glyph'
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity';
 import { activeLocationSnapshot } from '@/features/weather/domain/weather';
+import { TourTarget } from '@/features/walkthrough/application/tour-target';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
 import { radii, spacing } from '@/theme/theme';
@@ -94,6 +101,8 @@ type TodayScreenProps = Readonly<{
   firstDressingDay?: boolean;
   /** Set while the morning or evening question is unanswered, so the wait is on the person. */
   awaitingDayQuestion?: boolean;
+  /** The first-generation runway shows or leaves (the Phase 8 tour never opens over it). */
+  onRunwayVisibleChange?: (visible: boolean) => void;
 }>;
 
 export function TodayScreen(props: TodayScreenProps) {
@@ -122,6 +131,7 @@ export function TodayScreen(props: TodayScreenProps) {
         completed={settled !== null}
         language={props.language}
         onSkip={() => { void application?.skipWait(); }}
+        onVisibleChange={props.onRunwayVisibleChange}
         outfit={runwayOutfit && placeSnapshot ? {
           id: runwayOutfit.optionId,
           pieces: outfitBoardPieces(runwayOutfit),
@@ -162,6 +172,11 @@ function TodayScreenContent({
   awaitingDayQuestion = false,
 }: TodayScreenProps & Readonly<{ now: number }>) {
   const router = useRouter();
+  // The Phase 8 tour asks Today to bring its outfit or its last action into view, and to
+  // scroll further when the scroll view's end leaves that action under the tab bar.
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
+  const scrollOffset = useScrollOffset(scrollRef);
+  const scrollBy = (dy: number) => scrollRef.current?.scrollTo({ animated: true, y: scrollOffset.get() + dy });
   const recommendationApplication = use(RecommendationApplicationContext);
   const weatherApplication = useWeatherApplication();
   const { hour12, temperatureUnit } = useLocalization();
@@ -262,6 +277,9 @@ function TodayScreenContent({
         onAccessibilityAction={({ nativeEvent }) => {
           if (nativeEvent.actionName === 'refresh') onRefresh();
         }}
+        // Every branch carries the scroll ref: React keeps one scroll view across them, and
+        // Reanimated attaches a ref only when the view mounts.
+        ref={scrollRef}
         refreshControl={refreshControl}
         testID="today-screen">
         <View
@@ -315,6 +333,7 @@ function TodayScreenContent({
         onAccessibilityAction={({ nativeEvent }) => {
           if (nativeEvent.actionName === 'refresh') onRefresh();
         }}
+        ref={scrollRef}
         refreshControl={refreshControl}
         testID="today-screen">
         <Surface
@@ -393,7 +412,9 @@ function TodayScreenContent({
       onAccessibilityAction={({ nativeEvent }) => {
         if (nativeEvent.actionName === 'refresh') onRefresh();
       }}
+      ref={scrollRef}
       refreshControl={refreshControl}
+      scrollToOverflowEnabled
       testID="today-screen">
       <View onLayout={({ nativeEvent }) => setContentWidth(nativeEvent.layout.width)} testID="today-content">
         {/* M7: the place at left and the dressing day's date opposite it. */}
@@ -444,54 +465,62 @@ function TodayScreenContent({
         </View>
         {/* The badge waits for the new outfit's own source while a day-type change runs. */}
         {presentation.generationMode && !updating ? (
-          <ProvenanceBadge generationMode={presentation.generationMode} />
+          <TourTarget id="badge" style={styles.provenanceBadge}>
+            <ProvenanceBadge generationMode={presentation.generationMode} />
+          </TourTarget>
         ) : null}
 
         {primary ? (
           <>
             <Dimmed dimmed={updating}>
-              <Pressable
-                accessible
-                accessibilityLabel={presentation.stageAccessibilityLabel}
-                accessibilityRole="button"
-                onPress={() => onOpenOutfitDetail(primary.id)}
-                style={({ pressed }) => ({ opacity: pressed ? theme.interaction.pressedOpacity : 1 })}>
-                <AppText style={styles.archetypeName} testID="today-archetype" variant="label">
-                  {primary.title}
-                </AppText>
-                <View
-                  accessibilityElementsHidden
-                  importantForAccessibility="no-hide-descendants"
-                  style={[
-                    styles.stage,
-                    {
-                      backgroundColor: stageColor,
-                      width: contentWidth,
-                      // P2: the stage is as tall as its fitted board, never the free space.
-                      height: measureGarmentBoardHeight(primary.boardPieces, contentWidth, 'today', true, easierToSee),
-                    },
-                  ]}
-                  testID="today-stage">
-                  <GarmentBoard
-                    accessibilityLabel={presentation.stageAccessibilityLabel}
-                    // ADR 0021 section 10's transition between suggestions: the key is the
-                    // option identity, so a new recommendation re-mounts the board and the
-                    // pieces rise once more, while a refresh that returns the same outfit
-                    // leaves it still. The rise is never the only signal; the archetype and
-                    // freshness line also change with it.
-                    key={primary.id}
-                    contactShade={theme.contactShade[presentation.atmosphere]}
-                    fit
-                    palette={primary.palette}
-                    pieces={primary.boardPieces}
-                    preset="today"
-                    rise
-                    stageColor={stageColor}
-                    testID={`today-primary-board-${primary.id}`}
-                    width={contentWidth}
-                  />
-                </View>
-              </Pressable>
+              <TourTarget
+                activate={() => onOpenOutfitDetail(primary.id)}
+                id="outfit"
+                label={presentation.stageAccessibilityLabel}
+                scrollBy={scrollBy}>
+                <Pressable
+                  accessible
+                  accessibilityLabel={presentation.stageAccessibilityLabel}
+                  accessibilityRole="button"
+                  onPress={() => onOpenOutfitDetail(primary.id)}
+                  style={({ pressed }) => ({ opacity: pressed ? theme.interaction.pressedOpacity : 1 })}>
+                  <AppText style={styles.archetypeName} testID="today-archetype" variant="label">
+                    {primary.title}
+                  </AppText>
+                  <View
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                    style={[
+                      styles.stage,
+                      {
+                        backgroundColor: stageColor,
+                        width: contentWidth,
+                        // P2: the stage is as tall as its fitted board, never the free space.
+                        height: measureGarmentBoardHeight(primary.boardPieces, contentWidth, 'today', true, easierToSee),
+                      },
+                    ]}
+                    testID="today-stage">
+                    <GarmentBoard
+                      accessibilityLabel={presentation.stageAccessibilityLabel}
+                      // ADR 0021 section 10's transition between suggestions: the key is the
+                      // option identity, so a new recommendation re-mounts the board and the
+                      // pieces rise once more, while a refresh that returns the same outfit
+                      // leaves it still. The rise is never the only signal; the archetype and
+                      // freshness line also change with it.
+                      key={primary.id}
+                      contactShade={theme.contactShade[presentation.atmosphere]}
+                      fit
+                      palette={primary.palette}
+                      pieces={primary.boardPieces}
+                      preset="today"
+                      rise
+                      stageColor={stageColor}
+                      testID={`today-primary-board-${primary.id}`}
+                      width={contentWidth}
+                    />
+                  </View>
+                </Pressable>
+              </TourTarget>
             </Dimmed>
             {/* N18 and N15: the outfit's claim sits directly under the board, where it is read
                 with the outfit, never beside the button. While a re-ask runs, its window
@@ -668,16 +697,21 @@ function TodayScreenContent({
         {/* O4: the last element of the content, one tonal Large capsule. A7 hides it and puts
             nothing in its place. */}
         {primary && !exhausted ? (
-          <Button
-            accessibilityHint={copy.askAgain.hint}
-            icon="refresh"
-            label={copy.askAgain.action}
-            onPress={onAskAgain}
-            size="large"
-            style={styles.askAgain}
-            testID="today-ask-again"
-            variant="tonal"
-          />
+          <TourTarget
+            id="again"
+            reveal={() => scrollRef.current?.scrollToEnd({ animated: true })}
+            scrollBy={scrollBy}
+            style={styles.askAgain}>
+            <Button
+              accessibilityHint={copy.askAgain.hint}
+              icon="refresh"
+              label={copy.askAgain.action}
+              onPress={onAskAgain}
+              size="large"
+              testID="today-ask-again"
+              variant="tonal"
+            />
+          </TourTarget>
         ) : null}
       </View>
     </Screen>
@@ -799,7 +833,6 @@ function ProvenanceBadge({
     <View
       accessible
       accessibilityLabel={generationMode.accessibilityLabel}
-      style={styles.provenanceBadge}
       testID="today-provenance-badge">
       <Animated.View style={arrivalStyle}>
         <Pill

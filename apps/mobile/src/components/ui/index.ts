@@ -2,6 +2,13 @@ export { AppText, type AppTextProps } from './app-text';
 export { Button, type ButtonProps } from './button';
 export { ButtonPair, type ButtonPairProps } from './button-pair';
 export { ChoiceTile, ChoiceTileGrid, type ChoiceTileDrawing, type ChoiceTileProps } from './choice-tile';
+export {
+  CoachMarkArrival,
+  CoachMarkLayer,
+  CoachMarkRing,
+  type CoachMarkLayerProps,
+  type CoachMarkRect,
+} from './coach-mark-layer';
 export { Entrance, type EntranceProps } from './entrance';
 export { GarmentSlotGlyph, GarmentSlotTile } from './garment-slot-glyph';
 export { GlassButton, type GlassButtonProps } from './glass-button';

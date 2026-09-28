@@ -4,7 +4,7 @@ import type {
   Gender,
   StyleAesthetic,
 } from '@/features/profile/domain/profile';
-import { namePromptVersion } from '@/features/profile/domain/profile';
+import { namePromptVersion, walkthroughVersion } from '@/features/profile/domain/profile';
 import type {
   LanguagePreference,
   ThemePreference,
@@ -30,6 +30,7 @@ type LocalProfileRow = Readonly<{
   birth_date: string | null;
   display_name: string | null;
   name_prompt_version: number;
+  walkthrough_version: number;
   language_preference: string;
   theme_preference: string;
   onboarding_completed: number;
@@ -58,6 +59,7 @@ const selectProfileSql = `
     birth_date,
     display_name,
     name_prompt_version,
+    walkthrough_version,
     language_preference,
     theme_preference,
     onboarding_completed,
@@ -83,6 +85,7 @@ function mapRow(row: LocalProfileRow): LocalProfileRecord {
     birthDate: row.birth_date,
     displayName: row.display_name,
     namePromptVersion: row.name_prompt_version,
+    walkthroughVersion: row.walkthrough_version,
     languagePreference: row.language_preference,
     themePreference: row.theme_preference,
     onboardingCompleted: row.onboarding_completed,
@@ -306,6 +309,15 @@ export class SqliteProfileLocalDataSource implements ProfileLocalDataSource {
         WHERE singleton_key = 1 AND deleted_at IS NULL
       `,
       [],
+    );
+  }
+
+  // Phase 8: the tour's only write, the code version, whatever closed the offered tour.
+  markWalkthroughSeen(): Promise<LocalProfileRecord> {
+    return this.updateProfile(
+      `UPDATE local_profiles SET walkthrough_version = ?, updated_at = ?
+       WHERE singleton_key = 1 AND deleted_at IS NULL`,
+      [walkthroughVersion],
     );
   }
 

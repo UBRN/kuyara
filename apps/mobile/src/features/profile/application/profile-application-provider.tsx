@@ -104,6 +104,7 @@ export function ProfileApplicationProvider({ children }: PropsWithChildren) {
       updateNotificationsOptIn,
       updateMorningBriefingOptIn,
       markWeatherAlertOfferShown,
+      markWalkthroughSeen: () => controller.markWalkthroughSeen(),
       updateAnalyticsConsent,
     }),
     [

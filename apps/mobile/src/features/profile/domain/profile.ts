@@ -18,6 +18,8 @@ export type Profile = Readonly<{
   birthDate: string | null;
   displayName: string | null;
   namePromptVersion: number;
+  /** Phase 8, ADR 0036: the coach-mark tour's stored gate; below `walkthroughVersion` it is due. */
+  walkthroughVersion?: number;
   languagePreference: LanguagePreference;
   themePreference: ThemePreference;
   onboardingCompleted: boolean;
@@ -74,6 +76,10 @@ export function displayNameIssue(value: string): 'short' | 'long' | null {
 }
 
 export const namePromptVersion = 1;
+
+// Phase 8, ADR 0036: the coach-mark tour's code version. A stored value below it offers the
+// tour once; Skip, Done or any other close of that tour stores it.
+export const walkthroughVersion = 1;
 
 // ADR 0033 section 3: consent precedes collection, so the stored default is the unanswered
 // state rather than a boolean. `withdrawn` covers both declining the first-launch sheet and

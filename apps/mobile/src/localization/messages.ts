@@ -729,6 +729,32 @@ export type AppMessages = Readonly<{
     returnToWardrobeAction: string;
   }>;
   today: TodayMessages;
+  /** Phase 8's coach-mark tour: every bubble, the counter, Skip and the spoken hint. */
+  walkthrough: WalkthroughMessages;
+}>;
+
+type WalkthroughStepCopy = Readonly<{ title: string; body: string }>;
+
+export type WalkthroughMessages = Readonly<{
+  /** The overlay's accessible name and the Settings, Help row. */
+  name: string;
+  counter: (step: number, total: number) => string;
+  skip: string;
+  /** Spoken only, added to the live control's own label. */
+  targetHint: string;
+  steps: Readonly<{
+    outfit: WalkthroughStepCopy & Readonly<{ bodyNoBadge: string }>;
+    /** `piece` is the first piece's catalog name, inserted as a whole word. */
+    piece: Readonly<{ title: string; body: (piece: string) => string }>;
+    sheet: WalkthroughStepCopy;
+    worn: WalkthroughStepCopy;
+    back: WalkthroughStepCopy;
+    again: WalkthroughStepCopy;
+    profileTab: WalkthroughStepCopy;
+    closet: WalkthroughStepCopy;
+    /** The title is the shipped History label. */
+    history: Readonly<{ body: string }>;
+  }>;
 }>;
 
 const englishOwnershipStateLabels = Object.freeze({
@@ -1523,6 +1549,50 @@ const en = {
         ...pieces.map(({ slot, item }) => `${slot}: ${item}.`),
         reasons.length > 0 ? `Why it works: ${reasons.join(' ')}` : null,
       ].filter(Boolean).join(' ');
+    },
+  },
+  walkthrough: {
+    name: 'Get to know kuyara step by step',
+    counter: (step: number, total: number) => `Step ${step} of ${total}`,
+    skip: 'Skip',
+    targetHint: 'Tour. Opens the next step.',
+    steps: {
+      outfit: {
+        title: 'Your outfit for today',
+        body: 'kuyara chose it for today’s weather. The badge under the title shows that AI helped choose it. Tap the outfit to see its pieces.',
+        bodyNoBadge: 'kuyara chose it for today’s weather. Tap the outfit to see its pieces.',
+      },
+      piece: {
+        title: 'Every piece by name',
+        body: (piece: string) => `Each piece has its name beside it. Tap ${piece} to see it on its own.`,
+      },
+      sheet: {
+        title: 'Mark what you own or want',
+        body: 'Under “Is it yours?”, choose “I own it” or “I want it”, then Done, and the piece joins your Closet. For now, close this sheet.',
+      },
+      worn: {
+        title: 'On the day you wear it',
+        body: 'When you wear this outfit, tap “Wore this today”. History then lists it under that day. You do not need to tap it now.',
+      },
+      back: {
+        title: 'Back to Today',
+        body: 'Tap Today in the corner to go back.',
+      },
+      again: {
+        title: 'If your day changes',
+        body: 'Each morning and evening, kuyara asks whether your day is casual, smart or formal. If your plans change during the day, tap “Ask the stylist again”.',
+      },
+      profileTab: {
+        title: 'Your Closet and History',
+        body: 'Both are on the Profile tab. Tap Profile.',
+      },
+      closet: {
+        title: 'Your Closet',
+        body: 'The pieces you mark hang on this rack. The ones you want have a dashed outline.',
+      },
+      history: {
+        body: 'The outfits you wore are listed here by day. To see this tour again, open Settings and find it under Help.',
+      },
     },
   },
 } satisfies AppMessages;
@@ -2321,6 +2391,50 @@ const tr = {
         ...pieces.map(({ slot, item }) => `${slot}: ${item}.`),
         reasons.length > 0 ? `Bu kombin şu nedenlerle uygun: ${reasons.join(' ')}` : null,
       ].filter(Boolean).join(' ');
+    },
+  },
+  walkthrough: {
+    name: 'kuyara’yı adım adım tanı',
+    counter: (step: number, total: number) => `Adım ${step}/${total}`,
+    skip: 'Geç',
+    targetHint: 'Tur. Sonraki adımı açar.',
+    steps: {
+      outfit: {
+        title: 'Bugünkü kombinin',
+        body: 'kuyara bunu bugünkü havaya göre seçti. Başlığın altındaki rozet, bu seçimde AI yardımı olduğunu gösterir. Parçalarını görmek için kombine dokun.',
+        bodyNoBadge: 'kuyara bunu bugünkü havaya göre seçti. Parçalarını görmek için kombine dokun.',
+      },
+      piece: {
+        title: 'Her parça adıyla',
+        body: (piece: string) => `Her parçanın adı yanında yazar. Tek başına görmek için ${piece} parçasına dokun.`,
+      },
+      sheet: {
+        title: 'Sende olanı ya da istediğini işaretle',
+        body: '“Sende var mı?” altında “Bende var” ya da “İstiyorum” seçip Bitti’ye dokunduğunda parça Gardırobuna eklenir. Şimdilik bu ekranı kapat.',
+      },
+      worn: {
+        title: 'Giydiğin gün',
+        body: 'Bu kombini giydiğinde “Bugün bunu giydim” düğmesine dokun. Geçmiş onu o günün altında listeler. Şimdi dokunman gerekmez.',
+      },
+      back: {
+        title: 'Bugün’e dön',
+        body: 'Geri dönmek için köşedeki Bugün düğmesine dokun.',
+      },
+      again: {
+        title: 'Günün değişirse',
+        body: 'kuyara her sabah ve akşam gününün rahat mı, şık mı, resmî mi olduğunu sorar. Gün içinde planın değişirse “Stiliste tekrar sor” düğmesine dokun.',
+      },
+      profileTab: {
+        title: 'Gardırop ve Geçmiş',
+        body: 'İkisi de Profil sekmesinde. Profil sekmesine dokun.',
+      },
+      closet: {
+        title: 'Gardırobun',
+        body: 'İşaretlediğin parçalar bu askılıkta asılı durur. İstediklerinin çizgisi kesiklidir.',
+      },
+      history: {
+        body: 'Giydiğin kombinler burada günlere göre listelenir. Bu turu yeniden görmek için Ayarlar’ı aç, Yardım bölümünde bulursun.',
+      },
     },
   },
 } satisfies AppMessages;

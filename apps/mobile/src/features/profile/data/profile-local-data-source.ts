@@ -33,6 +33,7 @@ export interface ProfileLocalDataSource {
   updateNotificationsOptIn(optIn: boolean): Promise<LocalProfileRecord>;
   updateMorningBriefingOptIn(optIn: boolean): Promise<LocalProfileRecord>;
   markWeatherAlertOfferShown(): Promise<LocalProfileRecord>;
+  markWalkthroughSeen(): Promise<LocalProfileRecord>;
   updateAnalyticsConsent(consent: AnalyticsConsent): Promise<LocalProfileRecord>;
 }
 

@@ -4,6 +4,8 @@ import { Dimensions, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ProfileScreen } from '@/features/profile/presentation/profile-screen';
+import { TourTargetRegistry } from '@/features/walkthrough/application/tour-target-registry';
+import { TourTargetsContext } from '@/features/walkthrough/application/walkthrough-context';
 import {
   WardrobeApplicationContext,
   type WardrobeApplicationValue,
@@ -439,4 +441,21 @@ test('a cell draws its newest owned piece, and a legacy or empty category its gl
   expect(result.getByTestId('profile-category-accessory-drawing', hidden)).toBeOnTheScreen();
   expect(result.queryByTestId('profile-category-top-drawing', hidden)).toBeNull();
   expect(result.queryByTestId('profile-category-footwear-drawing', hidden)).toBeNull();
+});
+
+// Phase 8: Profile offers the tour its Closet heading, rack and History row, unchanged.
+test('Profile registers the Closet heading, the rack and the History row for the tour', async () => {
+  const registry = new TourTargetRegistry();
+  const onOpenHistory = jest.fn();
+  const result = await render(
+    <TestProviders items={[baseItem]}>
+      <TourTargetsContext value={registry}>
+        <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={onOpenHistory} onOpenWardrobe={() => undefined} />
+      </TourTargetsContext>
+    </TestProviders>,
+  );
+  expect(['closet-head', 'rack', 'history'].map((id) => registry.has(id as 'rack'))).toEqual([true, true, true]);
+  expect(registry.get('history')?.reveal).toEqual(expect.any(Function));
+  await fireEvent.press(result.getByTestId('profile-history-row'));
+  expect(onOpenHistory).toHaveBeenCalledTimes(1);
 });

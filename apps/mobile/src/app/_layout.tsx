@@ -40,6 +40,7 @@ import { composeBootstrapReportText } from '@/features/profile/presentation/boot
 import { RecommendationApplicationProvider } from '@/features/recommendation/application/recommendation-application-provider';
 import { WeatherApplicationProvider } from '@/features/weather/application/weather-application-provider';
 import { WardrobeApplicationProvider } from '@/features/wardrobe/application/wardrobe-application-provider';
+import { WalkthroughProvider } from '@/features/walkthrough/application/walkthrough-provider';
 import { openKuyaraDatabaseSync } from '@/infrastructure/sqlite/expo-sqlite-database';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -138,6 +139,9 @@ function ReadyApplicationShell({
                     sessionIndex,
                   })}
                 />
+                {/* Phase 8: the coach-mark tour draws above the navigator, native tabs and
+                    sheets included, and reads the launch it opens in. */}
+                <WalkthroughProvider sessionIndex={sessionIndex}>
                 <Stack
                   screenOptions={{
                     animation: 'default',
@@ -162,6 +166,7 @@ function ReadyApplicationShell({
                     }}
                   />
                 </Stack>
+                </WalkthroughProvider>
               </ThemeProvider>
             </RecommendationApplicationProvider>
           </WardrobeApplicationProvider>
