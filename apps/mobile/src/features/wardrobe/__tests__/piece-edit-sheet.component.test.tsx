@@ -1,4 +1,5 @@
-import { fireEvent, render, within } from '@testing-library/react-native';
+import { act, fireEvent, render, within } from '@testing-library/react-native';
+import { View } from 'react-native';
 
 import {
   closetColorOptions,
@@ -298,7 +299,18 @@ test('the open piece sheet registers its head, ownership choice and Close for th
       </KuyaraThemeContext>
     </LocalizationContext>
   );
+  // Nothing is offered until the sheet has laid out and knows where it starts.
+  const measure = jest.spyOn(View.prototype as unknown as { measureInWindow: View['measureInWindow'] }, 'measureInWindow')
+    .mockImplementation((callback) => callback(0, 16, 390, 373));
   const result = await render(sheet(target));
+  expect(['sheet-area', 'sheet-close'].map((id) => registry.has(id as 'sheet-area')))
+    .toEqual([false, false]);
+  await act(async () => {
+    fireEvent(result.getByTestId('walkthrough-sheet-scope'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 373 } },
+    });
+  });
+  measure.mockRestore();
   expect(['sheet-area', 'sheet-close'].map((id) => registry.has(id as 'sheet-area')))
     .toEqual([true, true]);
   expect(registry.get('sheet-close')?.label()).toBe(messages.en.today.dailyStyle.close);

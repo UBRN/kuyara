@@ -78,8 +78,12 @@ export function TourTarget({
   const revealable = reveal !== undefined;
   const activatable = activate !== undefined;
   const scrollable = scrollBy !== undefined;
+  // Inside the piece sheet a control is offered only once the sheet knows where it starts:
+  // the tour measures a step as soon as its control is registered, and a sheet frame that
+  // arrives later would leave the step measured without it.
+  const sheetPending = sheet !== null && !sheet.ready;
   useEffect(() => {
-    if (!registry || !id) return undefined;
+    if (!registry || !id || sheetPending) return undefined;
     return registry.register(id, {
       measure: async () => {
         const rect = await measureInWindow(view.current);
@@ -93,7 +97,7 @@ export function TourTarget({
       activate: activatable ? () => latest.current.activate?.() : undefined,
       scrollBy: scrollable ? (dy) => latest.current.scrollBy?.(dy) : undefined,
     });
-  }, [activatable, id, registry, revealable, scrollable]);
+  }, [activatable, id, registry, revealable, scrollable, sheetPending]);
 
   return (
     <View
@@ -122,6 +126,8 @@ const CLOSE_RADIUS = 22;
  * layer only needs where the sheet starts: this registers the window below the highest point
  * the sheet can start at (its content, its bottom safe area and the 8-point edge, unscaled),
  * so the bubble and the window's blocking views stay above the sheet and never cover it.
+ * The sheet lays its content out after it mounts, so the sheet area and the controls inside
+ * are registered only once that frame is known, and again whenever it moves.
  */
 export function TourSheetScope({ children }: Readonly<{ children: ReactNode }>) {
   const registry = use(TourTargetsContext);
@@ -134,26 +140,25 @@ export function TourSheetScope({ children }: Readonly<{ children: ReactNode }>) 
   const [close, setClose] = useState<TourRect | null>(null);
   const top = frame ? Math.max(0, windowHeight - SHEET_EDGE - bottom - (frame.y + frame.height)) : null;
   const geometry = useMemo<TourSheetGeometry>(() => ({
+    ready: top !== null,
     toWindow: (rect) => ({ ...rect, y: (top ?? 0) + rect.y }),
   }), [top]);
-  const latestTop = useRef(top);
-  useEffect(() => {
-    latestTop.current = top;
-  }, [top]);
 
+  // A layout that measures nothing (the host before it has a size) keeps the last frame.
   const measureFrame = useCallback(() => {
-    void measureInWindow(view.current).then(setFrame);
+    void measureInWindow(view.current).then((rect) => {
+      if (rect) setFrame(rect);
+    });
   }, []);
+  // Registering again when the sheet moves tells a shown step to measure again.
   useEffect(() => {
-    if (!registry) return undefined;
+    if (!registry || top === null) return undefined;
     return registry.register('sheet-area', {
-      measure: async () => (latestTop.current === null ? null : {
-        x: 0, y: latestTop.current, width: windowWidth, height: windowHeight - latestTop.current,
-      }),
+      measure: async () => ({ x: 0, y: top, width: windowWidth, height: windowHeight - top }),
       label: () => undefined,
       name: () => undefined,
     });
-  }, [registry, windowHeight, windowWidth]);
+  }, [registry, top, windowHeight, windowWidth]);
   // On the sheet step, Close is found in the sheet's own space, relative to this view.
   useEffect(() => {
     if (!registry || !sheetStep || !frame) return undefined;
@@ -177,7 +182,8 @@ export function TourSheetScope({ children }: Readonly<{ children: ReactNode }>) 
         collapsable={false}
         onLayout={registry ? measureFrame : undefined}
         ref={view}
-        style={styles.sheet}>
+        style={styles.sheet}
+        testID="walkthrough-sheet-scope">
         {children}
         {blockers && close ? (
           <View pointerEvents="box-none" style={StyleSheet.absoluteFill} testID="walkthrough-sheet-layer">
