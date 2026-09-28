@@ -88,9 +88,16 @@ export const analyticsConsentValues = ['undecided', 'granted', 'withdrawn'] as c
 export const analyticsConsentSchema = z.enum(analyticsConsentValues);
 export type AnalyticsConsent = z.infer<typeof analyticsConsentSchema>;
 
+const MINIMUM_BIRTH_YEAR = 1900;
+const MAXIMUM_BIRTH_YEAR = 2100;
+
+// The earliest date a birth date picker may offer, so the UI cannot select what the
+// schema below refuses. Noon local time, as the picker's own dates are.
+export const minimumBirthDate = new Date(MINIMUM_BIRTH_YEAR, 0, 1, 12);
+
 const birthDateSchema = z.iso.date().refine((value) => {
   const year = Number(value.slice(0, 4));
-  return year >= 1900 && year <= 2100;
+  return year >= MINIMUM_BIRTH_YEAR && year <= MAXIMUM_BIRTH_YEAR;
 }).nullable();
 
 // The static shape and year bounds, the same rule the SQLite CHECK enforces. Used on the read

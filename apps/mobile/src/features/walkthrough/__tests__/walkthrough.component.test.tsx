@@ -48,7 +48,7 @@ jest.mock('expo-constants', () => ({
 }));
 let mockPathname = '/';
 jest.mock('expo-router', () => ({
-  router: { back: jest.fn(), navigate: jest.fn() },
+  router: { back: jest.fn(), dismissAll: jest.fn(), navigate: jest.fn() },
   usePathname: () => mockPathname,
 }));
 
@@ -533,7 +533,10 @@ function profileValue(value: LocalProfile, markWalkthroughSeen: jest.Mock): Prof
 }
 
 // The Help row's action, as Today's probe last received it.
-const probe: { restart: (() => void) | null } = { restart: null };
+const probe: { restart: (() => void) | null; registry: TourTargetRegistry | null } = {
+  restart: null,
+  registry: null,
+};
 
 // Stands in for Today: registers its outfit (and Ask the stylist again unless exhausted) and
 // reports its facts.
@@ -545,6 +548,7 @@ function TodayProbe({ exhausted, facts }: Readonly<{ exhausted: boolean; facts: 
     [exhausted, registry]);
   useEffect(() => { walkthrough?.reportToday(facts); }, [facts, walkthrough]);
   useEffect(() => { probe.restart = walkthrough?.restart ?? null; }, [walkthrough]);
+  useEffect(() => { probe.registry = registry ?? null; }, [registry]);
   return null;
 }
 
@@ -723,6 +727,84 @@ test('a notification opened during the Help row\'s tour ends it too', async () =
   await act(async () => { await jest.advanceTimersByTimeAsync(400); });
   expect(result.queryByTestId('walkthrough-skip')).toBeNull();
   expect(markWalkthroughSeen).not.toHaveBeenCalled();
+});
+
+// Item 12: the Help row's request is "start the tour now over Today". If Today cannot host it
+// and the person leaves, the request lapses; it must not open the tour unprompted later.
+test('a Help restart the person walked away from does not open the tour when Today settles later', async () => {
+  const { rerender, result } = await renderProvider({
+    facts: { ...settledToday, settled: false },
+    value: profile({ walkthroughVersion: 1 }),
+  });
+  mockPathname = '/settings';
+  await act(async () => { probe.restart?.(); });
+  // Settings, Help then lands on Today, which is not settled, and the person moves on.
+  mockPathname = '/';
+  await rerender(profile({ walkthroughVersion: 1 }), { ...settledToday, settled: false });
+  mockPathname = '/weather';
+  await rerender(profile({ walkthroughVersion: 1 }), { ...settledToday, settled: false });
+  mockPathname = '/';
+  await rerender(profile({ walkthroughVersion: 1 }), settledToday);
+  await waitOpen(result);
+  expect(result.queryByTestId('walkthrough-skip')).toBeNull();
+});
+
+test('a Help restart still opens once the Today it landed on settles', async () => {
+  const { rerender, result } = await renderProvider({
+    facts: { ...settledToday, settled: false },
+    value: profile({ walkthroughVersion: 1 }),
+  });
+  mockPathname = '/settings';
+  await act(async () => { probe.restart?.(); });
+  mockPathname = '/';
+  await rerender(profile({ walkthroughVersion: 1 }), { ...settledToday, settled: false });
+  await rerender(profile({ walkthroughVersion: 1 }), settledToday);
+  await waitOpen(result);
+  expect(bubble(result).counter).toBe('Step 1 of 9');
+});
+
+// Item 11: Profile keeps its own stack, so the Profile tab can land on Settings, the Closet
+// or History. Step 7 must still reach Profile's root, where steps 8 and 9 have their targets.
+test('a Profile tab that restores a retained sub-screen is reset to Profile\'s root instead of ending the tour', async () => {
+  const { rerender, result } = await renderProvider({ value: profile({ walkthroughVersion: 1 }) });
+  const router = jest.requireMock('expo-router').router as { dismissAll: jest.Mock };
+  router.dismissAll.mockClear();
+  const go = async (pathname: string) => {
+    mockPathname = pathname;
+    await rerender(profile({ walkthroughVersion: 1 }));
+    await settle(result);
+  };
+  const next = async () => {
+    await act(async () => { fireEvent.press(result.getByTestId('walkthrough-continue')); });
+    await settle(result);
+  };
+  await act(async () => {
+    // The targets the other screens of the tour would register.
+    for (const id of ['piece', 'worn', 'closet-head', 'rack', 'history'] as const) {
+      probe.registry?.register(id, screenTargets[id] as TourTargetHandle);
+    }
+    probe.restart?.();
+  });
+  await waitOpen(result);
+  await go('/opt-3f2a');
+  let unregisterSheet: (() => void)[] = [];
+  await act(async () => {
+    unregisterSheet = Object.entries(sheetTargets).map(([id, target]) =>
+      probe.registry!.register(id as TourTargetId, target as TourTargetHandle));
+  });
+  await settle(result);
+  await act(async () => { unregisterSheet.forEach((unregister) => unregister()); });
+  await settle(result);
+  await next();
+  await go('/');
+  await next();
+  expect(bubble(result).counter).toBe('Step 7 of 9');
+
+  await go('/settings');
+  expect(router.dismissAll).toHaveBeenCalledTimes(1);
+  expect(bubble(result).counter).toBe('Step 7 of 9');
+  await go('/profile');
+  expect(bubble(result).counter).toBe('Step 8 of 9');
 });
 
 // --- Settings, Help --------------------------------------------------------------------------

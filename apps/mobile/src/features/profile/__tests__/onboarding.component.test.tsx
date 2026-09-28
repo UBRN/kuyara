@@ -273,6 +273,17 @@ test('existing profile values prefill the reopened onboarding steps', async () =
   );
 });
 
+test('the onboarding birth date picker cannot select a date the birth date rule refuses', async () => {
+  const { result } = await renderOnboarding('man', null, 'smart');
+
+  await fireEvent.press(result.getByTestId('onboarding-continue'));
+  await fireEvent.press(result.getByTestId('onboarding-name-skip'));
+  for (let step = 0; step < 3; step += 1) {
+    await fireEvent.press(result.getByTestId('onboarding-continue'));
+  }
+  expect(result.getByTestId('onboarding-birth-date').props.range.start.getFullYear()).toBe(1900);
+});
+
 test('selecting a searched place uses the weather application without completing onboarding', async () => {
   jest.useFakeTimers();
   const onComplete = jest.fn(async () => undefined);

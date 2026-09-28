@@ -25,6 +25,14 @@ export function classifyTourRoute(pathname: string): TourRoute {
 }
 
 /**
+ * A screen the Profile tab hosts below its root. The tab keeps its own stack, so a tap on it
+ * can restore one of these instead of `/profile`.
+ */
+export function isProfileHostedPath(pathname: string): boolean {
+  return /^\/(settings|wardrobe)(\/|$)/.test(pathname) || pathname === '/history';
+}
+
+/**
  * What claims a launch before the tour can (README "When it opens"): another overlay (the
  * morning or evening day-type sheet, the name prompt, the analytics consent sheet), or a
  * launch with a purpose of its own (a tapped notification, a deep link).

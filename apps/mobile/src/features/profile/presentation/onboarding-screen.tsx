@@ -37,7 +37,7 @@ import type {
   StyleAesthetic,
   OnboardingPreferences,
 } from '@/features/profile/domain/profile';
-import { displayNameIssue } from '@/features/profile/domain/profile';
+import { displayNameIssue, minimumBirthDate } from '@/features/profile/domain/profile';
 import { NameInput } from '@/features/profile/presentation/name-input';
 import { aestheticLabel } from '@/features/profile/presentation/style-aesthetics-options';
 import { resolveConditionStyle } from '@/features/today/domain/condition-style';
@@ -421,6 +421,7 @@ export function OnboardingScreen({
             accessibilityLabel={copy.birthDateTitle}
             language={language}
             maximumDate={maximumBirthDate}
+            minimumDate={minimumBirthDate}
             onChange={(value) => dispatch({ type: 'select-birth-date', value })}
             standalone
             testID="onboarding-birth-date"

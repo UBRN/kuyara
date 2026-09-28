@@ -5,6 +5,7 @@ import { WalkthroughController } from './application/walkthrough-controller.ts';
 import {
   classifyTourRoute,
   isDeepLinkLaunch,
+  isProfileHostedPath,
   isWalkthroughDue,
   routeOutcome,
   sheetOutcome,
@@ -141,6 +142,15 @@ test('routes classify into Today, an outfit detail, Profile, or elsewhere', () =
   for (const pathname of ['/weather', '/history', '/settings', '/wardrobe', '/onboarding',
     '/analytics-consent', '/settings/privacy', '/wardrobe/item-1', '/weather/location']) {
     assert.equal(classifyTourRoute(pathname), 'other', pathname);
+  }
+});
+
+test('the Profile tab hosts Settings, the Closet and History below its root, and nothing else', () => {
+  for (const pathname of ['/settings', '/settings/privacy', '/wardrobe', '/wardrobe/item-1', '/history']) {
+    assert.equal(isProfileHostedPath(pathname), true, pathname);
+  }
+  for (const pathname of ['/', '/profile', '/weather', '/weather/location', '/opt-3f2a', '/settingsx']) {
+    assert.equal(isProfileHostedPath(pathname), false, pathname);
   }
 });
 

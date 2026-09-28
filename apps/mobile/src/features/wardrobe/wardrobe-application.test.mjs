@@ -337,6 +337,52 @@ test('a retry keeps the shown failure until its successful list read lands', asy
   assert.equal(controller.getSnapshot().refreshFailure, null);
 });
 
+test('a refresh that overlaps a mutation neither strands isMutating nor restores the old list', async () => {
+  let deleted = false;
+  let holdRefreshRead = false;
+  let resolveRefreshRead;
+  let releaseDelete;
+  const deleteGate = new Promise((resolve) => {
+    releaseDelete = resolve;
+  });
+  const { repository } = createRepository({
+    async listActiveItems() {
+      if (holdRefreshRead) {
+        holdRefreshRead = false;
+        const snapshot = deleted ? [] : [item];
+        return new Promise((resolve) => {
+          resolveRefreshRead = () => resolve(snapshot);
+        });
+      }
+      return deleted ? [] : [item];
+    },
+    async softDeleteItem(owner, id) {
+      await deleteGate;
+      deleted = true;
+      return { ...item, localProfileId: owner, id, deletedAt: item.updatedAt };
+    },
+  });
+  const controller = new WardrobeApplicationController(profileId, async () => repository);
+  await controller.initialize();
+
+  const mutation = controller.softDeleteItem(itemId);
+  assert.equal(controller.getSnapshot().isMutating, true);
+  holdRefreshRead = true;
+  const refresh = controller.refresh();
+  // The refresh's read has started against the pre-mutation data; the mutation now lands.
+  releaseDelete();
+  await mutation;
+  assert.equal(controller.getSnapshot().isMutating, false);
+  assert.deepEqual(controller.getSnapshot().items, []);
+
+  resolveRefreshRead();
+  await refresh;
+  const snapshot = controller.getSnapshot();
+  assert.equal(snapshot.isMutating, false);
+  assert.equal(snapshot.isRefreshing, false);
+  assert.deepEqual(snapshot.items, []);
+});
+
 test('a confirmed write remains successful when its follow-up list read fails', async () => {
   let failList = false;
   const { repository, resolveCreate } = createRepository({

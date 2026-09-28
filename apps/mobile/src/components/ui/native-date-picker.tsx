@@ -30,6 +30,8 @@ export type NativeDatePickerProps = Readonly<{
    */
   language: SupportedLanguage;
   maximumDate: Date;
+  /** The earliest selectable date; without it the wheel scrolls back without limit. */
+  minimumDate: Date;
   onChange: (value: string) => void;
   /**
    * A SwiftUI view must live inside a Host. Inside `NativeList` the list's Host already
@@ -62,6 +64,7 @@ export function NativeDatePicker({
   accessibilityLabel,
   language,
   maximumDate,
+  minimumDate,
   onChange,
   standalone = false,
   testID,
@@ -88,7 +91,7 @@ export function NativeDatePicker({
         displayedComponents={['date']}
         modifiers={modifiers}
         onDateChange={(date) => onChange(isoCalendarDate(date))}
-        range={{ end: maximumDate }}
+        range={{ start: minimumDate, end: maximumDate }}
         selection={selection}
         testID={testID}
         title={accessibilityLabel}
@@ -123,7 +126,7 @@ export function NativeDatePicker({
           displayedComponents="date"
           initialDate={selection.toISOString()}
           onDateSelected={(date) => onChange(isoCalendarDate(date))}
-          selectableDates={{ end: maximumDate }}
+          selectableDates={{ start: minimumDate, end: maximumDate }}
         />
       </View>
     );

@@ -13,15 +13,18 @@ export class FirstUseTracker {
 
   markFirstUse(feature: FeatureName): Promise<boolean> {
     if (!this.isEnabled()) return Promise.resolve(false);
+    // Best-effort: analytics bookkeeping must never reject into a caller that fires and
+    // forgets it. A store failure reports "not a first use" and so emits no event.
     const result = this.pending.then(async () => {
-      if (await this.store.has(feature)) return false;
-      await this.store.markUsed(feature);
-      return true;
+      try {
+        if (await this.store.has(feature)) return false;
+        await this.store.markUsed(feature);
+        return true;
+      } catch {
+        return false;
+      }
     });
-    this.pending = result.then(
-      () => undefined,
-      () => undefined,
-    );
+    this.pending = result.then(() => undefined);
     return result;
   }
 

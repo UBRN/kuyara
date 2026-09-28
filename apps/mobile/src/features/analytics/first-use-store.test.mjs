@@ -83,6 +83,18 @@ test('the tracker returns true only once, including concurrent attempts', async 
   assert.equal(await tracker.markFirstUse('manual_refresh'), false);
 });
 
+test('a failing store makes the mark best-effort instead of rejecting the caller', async () => {
+  const failing = new InMemoryFirstUseStore();
+  failing.markUsed = async () => {
+    throw new Error('disk full');
+  };
+  const tracker = new FirstUseTracker(failing, () => true);
+
+  assert.equal(await tracker.markFirstUse('closet'), false);
+  // The chain keeps working for later, healthy marks.
+  assert.equal(await new FirstUseTracker(new InMemoryFirstUseStore(), () => true).markFirstUse('closet'), true);
+});
+
 test('the in-memory store can start with already-used features', async () => {
   const store = new InMemoryFirstUseStore(['notifications']);
 

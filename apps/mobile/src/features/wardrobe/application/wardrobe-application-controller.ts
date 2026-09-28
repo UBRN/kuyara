@@ -60,6 +60,9 @@ export class WardrobeApplicationController {
   private initializationPromise: Promise<void> | null = null;
   private refreshPromise: Promise<void> | null = null;
   private mutationPromise: Promise<WardrobeItem> | null = null;
+  // Bumped when a mutation starts and when it settles, so a refresh can tell that its
+  // list read straddled a mutation and may hold pre-mutation data.
+  private mutationEpoch = 0;
   private readonly listeners = new Set<Listener>();
   private readonly localProfileId: string;
   private readonly loadRepository: () => Promise<WardrobeRepository>;
@@ -209,21 +212,31 @@ export class WardrobeApplicationController {
       this.setState({ status: 'loading' });
     }
 
+    const epoch = this.mutationEpoch;
     try {
       const items = await repository.listActiveItems(this.localProfileId);
+      if (epoch !== this.mutationEpoch && this.state.status === 'ready') {
+        // A mutation started or settled during the read. It owns the list and the
+        // isMutating flag, so this possibly pre-mutation result must not overwrite them.
+        this.setState({ ...this.state, isRefreshing: false });
+        return;
+      }
       this.setState({
         status: 'ready',
         items,
         isRefreshing: false,
-        isMutating: previous?.isMutating ?? false,
+        isMutating: this.mutationPromise !== null,
         refreshFailure: null,
       });
     } catch (error) {
-      if (previous) {
+      if (previous && this.state.status === 'ready') {
         this.setState({
-          ...previous,
+          ...this.state,
           isRefreshing: false,
-          refreshFailure: wardrobeFailureCategory(error),
+          refreshFailure:
+            epoch !== this.mutationEpoch
+              ? this.state.refreshFailure
+              : wardrobeFailureCategory(error),
         });
       } else {
         this.setState({ status: 'error' });
@@ -403,6 +416,7 @@ export class WardrobeApplicationController {
 
     const repository = this.requireRepository();
     const readyState = this.state.status === 'ready' ? this.state : null;
+    this.mutationEpoch += 1;
     if (readyState) {
       this.setState({ ...readyState, isMutating: true });
     }
@@ -443,6 +457,7 @@ export class WardrobeApplicationController {
       return item;
     })().finally(() => {
       this.mutationPromise = null;
+      this.mutationEpoch += 1;
     });
 
     return this.mutationPromise;

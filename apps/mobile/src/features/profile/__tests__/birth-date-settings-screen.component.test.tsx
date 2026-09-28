@@ -60,3 +60,10 @@ test('a stored birth date keeps the ISO contract and offers the clear action', a
   expect(result.queryByText(messages.tr.onboarding.birthDateNotSet)).toBeNull();
   expect(result.getByTestId('settings-birth-date-clear')).toBeOnTheScreen();
 });
+
+test('the settings picker cannot select a date the birth date rule refuses', async () => {
+  const result = await renderScreen('en', null);
+
+  expect(result.getByTestId('settings-birth-date-picker').props.range.start.getFullYear())
+    .toBe(1900);
+});

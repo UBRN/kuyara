@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { NativeList, NativeListSection, NativeListRow } from '@/components/ui';
 import type { NotificationPermissionState } from '@/features/notifications/data/notification-gateway';
 import { useMessages } from '@/localization/use-messages';
@@ -31,6 +33,22 @@ export function NotificationsSettingsScreen({
   permission,
 }: NotificationsSettingsScreenProps) {
   const messages = useMessages();
+  // A failed write reverts the switch on its own, which says nothing. The footer of the
+  // group that was touched says so, with the sentence every other Settings control uses.
+  const [failedToggle, setFailedToggle] = useState<'notifications' | 'morningBriefing' | null>(
+    null,
+  );
+  const save = async (
+    which: 'notifications' | 'morningBriefing',
+    write: () => Promise<void>,
+  ) => {
+    setFailedToggle(null);
+    try {
+      await write();
+    } catch {
+      setFailedToggle(which);
+    }
+  };
   // A refusal is remembered, but the permission outranks it: once the OS grants
   // notifications the footer stops claiming they are turned off in system settings.
   const showsDeniedHint = permission.kind === 'denied'
@@ -39,7 +57,9 @@ export function NotificationsSettingsScreen({
   return (
     <NativeList testID="settings-notifications-screen">
       <NativeListSection
-        footer={showsDeniedHint
+        footer={failedToggle === 'notifications'
+          ? messages.settings.saveError
+          : showsDeniedHint
           ? messages.notifications.permissionDeniedHint
           : [
             messages.notifications.introduction,
@@ -52,7 +72,7 @@ export function NotificationsSettingsScreen({
           testID="settings-notifications-toggle-row"
           toggle={{
             disabled: isBusy,
-            onValueChange: (value) => void onToggle(value),
+            onValueChange: (value) => void save('notifications', () => onToggle(value)),
             value: optedIn,
           }}
         />
@@ -66,14 +86,17 @@ export function NotificationsSettingsScreen({
         ) : null}
       </NativeListSection>
       <NativeListSection
-        footer={messages.notifications.morningBriefing.hint}
+        footer={failedToggle === 'morningBriefing'
+          ? messages.settings.saveError
+          : messages.notifications.morningBriefing.hint}
         testID="settings-morning-briefing-group">
         <NativeListRow
           label={messages.notifications.morningBriefing.toggleLabel}
           testID="settings-morning-briefing-toggle-row"
           toggle={{
             disabled: isBusy,
-            onValueChange: (value) => void onToggleMorningBriefing(value),
+            onValueChange: (value) =>
+              void save('morningBriefing', () => onToggleMorningBriefing(value)),
             value: morningBriefingOptedIn,
           }}
         />

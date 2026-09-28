@@ -145,6 +145,19 @@ describe.each(['en', 'tr'] as const)('%s Service providers screen', (language) =
     expect(result.queryByText(new RegExp(hour12 ? '18:05' : '6:05'))).toBeNull();
   });
 
+  test('writes the 12-hour checked time in the app-wide English tag, not US capitals', async () => {
+    const { rendered } = screen(
+      language,
+      { aiStatus: { kind: 'ok', checkedAt: eveningCheckedAt } },
+      lightTheme,
+      true,
+    );
+    const result = await rendered;
+
+    // en-GB (localeTag) writes "6:05 pm", the same as Weather; bare "en" wrote "6:05 PM".
+    expect(result.queryByText(language === 'en' ? /6:05 pm/ : /6:05/)).toBeOnTheScreen();
+  });
+
   test('disables unsupported checks and announces build availability', async () => {
     const { rendered } = screen(language, { isProbeSupported: false });
     const result = await rendered;
