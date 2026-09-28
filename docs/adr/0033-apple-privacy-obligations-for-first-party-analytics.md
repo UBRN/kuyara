@@ -454,10 +454,12 @@ Milestone 11, App Store privacy disclosure and privacy policy, has these conditi
   invocation logs for three days on the current plan and describes their content as details
   "such as the Request, Response, and related metadata"
   (<https://developers.cloudflare.com/workers/observability/logs/workers-logs/>, read
-  2026-09-13). Whether that capture includes the request body is not stated on the Workers
-  Logs, Logpush, or `workers_trace_events` dataset pages. That gap is an open verification
-  item, checked again before the next App Store submission, and it is not assumed in either
-  direction in the meantime.
+  2026-09-13). The stored event fields carry no request body, so the coordinates are not
+  retained; they do carry Cloudflare's own IP-derived location fields (`request.cf` city,
+  postal code, latitude and longitude) and the client IP, which Cloudflare adds to every
+  request (field list read through the Workers observability keys API on 2026-09-28). This
+  infrastructure logging does not change the App Privacy answers: Location stays not
+  collected.
 
 - **EAS Observe.** Performance and diagnostic telemetry through `expo-observe` 57.0.24 is
   separate from PostHog and carries no product behaviour. Its payloads go to Expo's endpoint
