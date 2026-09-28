@@ -289,6 +289,48 @@ describe.each(['en', 'tr'] as const)('%s manual mix', (language) => {
   });
 });
 
+// M12: the row pressable fills the row and the row's content is drawn over it, so a tap on the
+// row body reaches the pressable only when every layer above it lets touches through. RNTL's
+// press skips native hit testing, so the layering itself is the behaviour under test.
+test('no layer drawn over a piece row covers its pressable, and the row Change stays pressable', async () => {
+  const result = await renderDetail('en');
+  type Element = ReturnType<typeof result.getByTestId>;
+  const isHost = (node: Element) => typeof node.type === 'string';
+  const hostChildren = (node: Element): Element[] => node.children.flatMap((child) =>
+    typeof child === 'string' ? [] : isHost(child) ? [child] : hostChildren(child));
+  const hostParent = (node: Element) => {
+    let parent = node.parent;
+    while (parent && !isHost(parent)) parent = parent.parent;
+    if (!parent) throw new Error('Expected a host parent.');
+    return parent;
+  };
+  const isChange = (node: Element) => /^outfit-detail-change-/.test(String(node.props.testID ?? ''));
+  // The layers that take a touch at some point of the row, drawn above the pressable.
+  const covering = (node: Element): Element[] => {
+    if (node.props.pointerEvents === 'none') return [];
+    if (node.props.pointerEvents === 'box-none') return hostChildren(node).flatMap(covering);
+    return isChange(node) ? [] : [node];
+  };
+
+  const pieces = archetype('en').pieces;
+  expect(pieces.length).toBeGreaterThan(1);
+  for (const { garmentTypeId } of pieces) {
+    const pressable = result.getByTestId(`outfit-detail-piece-${garmentTypeId}`);
+    const row = hostParent(pressable);
+    const siblings = hostChildren(row);
+    const above = siblings.slice(siblings.indexOf(pressable) + 1);
+    expect(above.length).toBeGreaterThan(0);
+    expect(above.flatMap(covering).map((node) => node.props.testID ?? node.type)).toEqual([]);
+  }
+
+  // The Change control is drawn above the pressable and takes its own touches.
+  const change = result.getByTestId('outfit-detail-change-outer_layer');
+  expect(change.props.pointerEvents).not.toBe('none');
+  for (let node = change.parent; node && node.props.testID !== 'outfit-detail-pieces'; node = node.parent) {
+    expect(['none', 'box-only']).not.toContain(node.props.pointerEvents);
+  }
+});
+
 test('a suitable change drops the hint and raises no note', async () => {
   const result = await renderDetail('en');
   await act(async () => {

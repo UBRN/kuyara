@@ -162,7 +162,8 @@ function FadeOnChange({ animate, children }: Readonly<{ animate: boolean; childr
     opacity.set(withTiming(1, { duration: theme.motion.normal }));
   }, [opacity, theme.motion.normal]);
   const style = useAnimatedStyle(() => ({ opacity: opacity.get() }));
-  return <Animated.View style={style}>{children}</Animated.View>;
+  // A piece row draws this over its full-row pressable, so the fade itself never takes a touch.
+  return <Animated.View pointerEvents="box-none" style={style}>{children}</Animated.View>;
 }
 
 /** The title after a change: the old one leaves on `fast`, the new one arrives on `normal`. */
