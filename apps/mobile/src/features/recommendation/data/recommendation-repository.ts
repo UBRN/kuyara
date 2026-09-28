@@ -16,6 +16,7 @@ import {
   toStoredRecommendationOutfits,
   type RecommendationContext,
 } from '@/features/recommendation/data/worker-ai-recommendation-mapper';
+import { isUtcIsoTimestamp, isUuidV4 } from '@/domain/record-identity';
 
 export type RecommendationSnapshot = Readonly<{
   id: string;
@@ -64,17 +65,6 @@ export class RecommendationRepositoryError extends Error {
 
 type Dependencies = Readonly<{ createId: () => string; now: () => string }>;
 
-function isUtcIso(value: string): boolean {
-  const parsed = Date.parse(value);
-  return typeof value === 'string' &&
-    Number.isFinite(parsed) &&
-    new Date(parsed).toISOString() === value;
-}
-
-function isUuidV4(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-}
-
 function requireCurrentTrio(
   context: RecommendationContext,
   recommendation: OutfitRecommendationSuccess,
@@ -100,8 +90,8 @@ function mapRecord(record: RecommendationSnapshotRecord, localDayKey?: string): 
       !record.weatherSnapshotId ||
       !record.locationKey ||
       !isRecommendationGenerationMode(record.generationMode) ||
-      !isUtcIso(record.createdAt) ||
-      !isUtcIso(record.updatedAt)
+      !isUtcIsoTimestamp(record.createdAt) ||
+      !isUtcIsoTimestamp(record.updatedAt)
     ) throw new Error();
     const context = parseRecommendationContext(JSON.parse(record.contextJson));
     const recommendation = mapStoredRecommendation(
@@ -195,7 +185,7 @@ export class LocalRecommendationRepository implements RecommendationRepository {
         // A device clock that moves backwards must not write updatedAt before createdAt.
         updatedAt: now < createdAt ? createdAt : now,
       };
-      if (!isUuidV4(record.id) || !isUtcIso(record.createdAt) || !isUtcIso(record.updatedAt)) {
+      if (!isUuidV4(record.id) || !isUtcIsoTimestamp(record.createdAt) || !isUtcIsoTimestamp(record.updatedAt)) {
         throw new RecommendationRepositoryError('invalid-input');
       }
       return mapRecord(await this.dataSource.replaceSnapshot(record));

@@ -25,6 +25,7 @@ import {
   type OnboardingPreferences,
   type StyleAesthetic,
 } from '@/features/profile/domain/profile';
+import { isUtcIsoTimestamp } from '@/domain/record-identity';
 
 export interface ProfileRepository {
   getOrCreateProfile(): Promise<Profile>;
@@ -60,11 +61,6 @@ class ProfileMappingError extends Error {}
 function validatedDisplayName(value: string | null): string | null {
   try { return normalizeDisplayName(value); }
   catch { throw new ProfileMappingError(); }
-}
-
-function isUtcIsoTimestamp(value: string): boolean {
-  const parsed = Date.parse(value);
-  return Number.isFinite(parsed) && new Date(parsed).toISOString() === value;
 }
 
 function readStyleAesthetics(raw: string | undefined): readonly StyleAesthetic[] {

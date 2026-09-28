@@ -25,6 +25,7 @@ import {
   type WeatherSnapshot,
   WeatherValidationError,
 } from '@/features/weather/domain/weather';
+import { isUtcIsoTimestamp, isUuidV4 } from '@/domain/record-identity';
 
 type RepositoryDependencies = Readonly<{ createId: () => string; now: () => string }>;
 
@@ -45,15 +46,6 @@ export class WeatherRepositoryError extends Error {
 }
 
 class WeatherMappingError extends Error {}
-
-function isUtcIso(value: string): boolean {
-  const parsed = Date.parse(value);
-  return typeof value === 'string' && Number.isFinite(parsed) && new Date(parsed).toISOString() === value;
-}
-
-function isUuidV4(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-}
 
 function requireMeasurements(value: WeatherMeasurements): WeatherMeasurements {
   if (
@@ -128,7 +120,7 @@ function mapLocation(record: ActiveLocationRecord): ActiveLocation {
     !record.localProfileId || !record.locationKey ||
     !Number.isInteger(record.latitudeE2) || record.latitudeE2 < -9000 || record.latitudeE2 > 9000 ||
     !Number.isInteger(record.longitudeE2) || record.longitudeE2 < -18000 || record.longitudeE2 > 18000 ||
-    !isValidTimeZone(record.timeZone) || !isUtcIso(record.createdAt) || !isUtcIso(record.updatedAt)
+    !isValidTimeZone(record.timeZone) || !isUtcIsoTimestamp(record.createdAt) || !isUtcIsoTimestamp(record.updatedAt)
   ) throw new WeatherMappingError();
 
   const common = {
@@ -163,7 +155,7 @@ function mapLocation(record: ActiveLocationRecord): ActiveLocation {
 
 function mapHourly(record: HourlyWeatherRecord): HourlyWeather {
   const value = requireMeasurements({ ...record, condition: record.condition as HourlyWeather['condition'] });
-  if (!isUtcIso(record.forecastAt)) throw new WeatherMappingError();
+  if (!isUtcIsoTimestamp(record.forecastAt)) throw new WeatherMappingError();
   return {
     temperatureCelsius: value.temperatureCelsius,
     apparentTemperatureCelsius: value.apparentTemperatureCelsius,
@@ -181,7 +173,7 @@ function mapSnapshot(record: WeatherSnapshotRecord): WeatherSnapshot {
     const current = requireMeasurements({ ...record, condition: record.condition as WeatherSnapshot['current']['condition'] });
     if (
       !isUuidV4(record.id) || !record.localProfileId || !record.locationKey ||
-      !isValidTimeZone(record.timeZone) || !isUtcIso(record.fetchedAt) || !isUtcIso(record.observedAt) ||
+      !isValidTimeZone(record.timeZone) || !isUtcIsoTimestamp(record.fetchedAt) || !isUtcIsoTimestamp(record.observedAt) ||
       (record.originKind !== 'sample' && record.originKind !== 'live') || !record.sourceId.trim() ||
       !Number.isFinite(record.minimumTemperatureCelsius) ||
       !Number.isFinite(record.maximumTemperatureCelsius) ||
@@ -240,8 +232,8 @@ function toRecord(
   requireMeasurements(snapshot.current);
   if (
     !isUuidV4(id) || !localProfileId || !snapshot.locationKey ||
-    !isValidTimeZone(snapshot.timeZone) || !isUtcIso(snapshot.fetchedAt) ||
-    !isUtcIso(snapshot.current.observedAt) ||
+    !isValidTimeZone(snapshot.timeZone) || !isUtcIsoTimestamp(snapshot.fetchedAt) ||
+    !isUtcIsoTimestamp(snapshot.current.observedAt) ||
     (snapshot.origin.kind !== 'sample' && snapshot.origin.kind !== 'live') ||
     !snapshot.origin.sourceId.trim() ||
     !Number.isFinite(snapshot.minimumTemperatureCelsius) ||
@@ -253,7 +245,7 @@ function toRecord(
   ) throw new WeatherValidationError();
   for (const hour of snapshot.hourly) {
     requireMeasurements(hour);
-    if (!isUtcIso(hour.forecastAt)) throw new WeatherValidationError();
+    if (!isUtcIsoTimestamp(hour.forecastAt)) throw new WeatherValidationError();
   }
   if (!isValidWeatherHourlyForecastWindow(
     snapshot.hourly,
@@ -325,7 +317,7 @@ export class LocalWeatherRepository implements WeatherRepository {
       if (location.locationKey !== expectedLocationKey) throw new WeatherValidationError();
       const existing = await this.dataSource.getActiveLocation(localProfileId);
       const now = this.dependencies.now();
-      if (!isUtcIso(now)) throw new WeatherValidationError();
+      if (!isUtcIsoTimestamp(now)) throw new WeatherValidationError();
       const record = await this.dataSource.setActiveLocation({
         localProfileId,
         locationKey: location.locationKey,

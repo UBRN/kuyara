@@ -1,5 +1,4 @@
-import * as Crypto from 'expo-crypto';
-import { AppState, Platform, type AppStateStatus } from 'react-native';
+import { AppState, type AppStateStatus } from 'react-native';
 import { type PropsWithChildren, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 
 import { WeatherApplicationController } from '@/features/weather/application/weather-application-controller';
@@ -11,22 +10,17 @@ import {
 } from '@/features/weather/application/weather-application-context';
 import { usePerformanceTelemetry } from '@/features/analytics/application/use-performance-telemetry';
 import { useProductAnalytics } from '@/features/analytics/application/use-product-analytics';
-import {
-  resolveWorkerBaseUrl,
-  WorkerBaseUrlConfigurationError,
-} from '@/config/worker-base-url';
+import { resolveAppWorkerBaseUrl } from '@/config/app-worker-base-url';
+import { WorkerBaseUrlConfigurationError } from '@/config/worker-base-url';
 import { ExpoDeviceLocationGateway } from '@/features/weather/data/expo-device-location-gateway';
 import {
   WeatherProviderError,
   type WeatherProvider,
 } from '@/features/weather/data/weather-provider';
-import { LocalWeatherRepository } from '@/features/weather/data/weather-repository';
-import { SqliteWeatherLocalDataSource } from '@/features/weather/data/sqlite-weather-local-data-source';
+import { loadWeatherRepository } from '@/features/weather/application/weather-repository-loader';
 import { WorkerWeatherProvider } from '@/features/weather/data/worker-weather-provider';
 import { PlaceSearchError, WorkerPlaceSearchDataSource } from '@/features/weather/data/worker-place-search-data-source';
 import type { SearchPlaces } from '@/features/weather/application/place-search-controller';
-import { openKuyaraDatabase } from '@/infrastructure/sqlite/expo-sqlite-database';
-import { migrateDatabase } from '@/infrastructure/sqlite/migrations';
 
 const now = () => new Date().toISOString();
 const deviceLocation = new ExpoDeviceLocationGateway();
@@ -34,11 +28,7 @@ const deviceLocation = new ExpoDeviceLocationGateway();
 export function createWeatherProvider(): WeatherProvider {
   try {
     return new WorkerWeatherProvider({
-      baseUrl: resolveWorkerBaseUrl({
-        configuredUrl: process.env.EXPO_PUBLIC_KUYARA_WORKER_BASE_URL,
-        isDevelopment: __DEV__,
-        platform: Platform.OS === 'android' ? 'android' : Platform.OS === 'web' ? 'web' : 'ios',
-      }),
+      baseUrl: resolveAppWorkerBaseUrl(),
     });
   } catch (error) {
     if (!(error instanceof WorkerBaseUrlConfigurationError)) throw error;
@@ -48,23 +38,10 @@ export function createWeatherProvider(): WeatherProvider {
   }
 }
 
-async function loadRepository() {
-  const database = await openKuyaraDatabase();
-  await migrateDatabase(database);
-  return new LocalWeatherRepository(new SqliteWeatherLocalDataSource(database), {
-    createId: () => Crypto.randomUUID(),
-    now,
-  });
-}
-
 export function createPlaceSearch(): SearchPlaces {
   try {
     const source = new WorkerPlaceSearchDataSource({
-      baseUrl: resolveWorkerBaseUrl({
-        configuredUrl: process.env.EXPO_PUBLIC_KUYARA_WORKER_BASE_URL,
-        isDevelopment: __DEV__,
-        platform: Platform.OS === 'android' ? 'android' : Platform.OS === 'web' ? 'web' : 'ios',
-      }),
+      baseUrl: resolveAppWorkerBaseUrl(),
     });
     return (request) => source.search(request);
   } catch (error) {
@@ -82,7 +59,7 @@ export function WeatherApplicationProvider({
   const { analytics } = useProductAnalytics();
   const telemetry = usePerformanceTelemetry();
   const controller = useMemo(() => new WeatherApplicationController(localProfileId, {
-    loadRepository, provider, deviceLocation, now,
+    loadRepository: loadWeatherRepository, provider, deviceLocation, now,
     captureAnalyticsEvent: (name, properties, options) => analytics.capture(name, properties, options),
     telemetry,
   }), [analytics, localProfileId, provider, telemetry]);

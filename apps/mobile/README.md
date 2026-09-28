@@ -29,7 +29,7 @@ Worker origins are intentionally distinct:
 
 | Development target | Worker origin | Configuration |
 | --- | --- | --- |
-| iOS Simulator and web | `http://127.0.0.1:8788` | Built-in development default |
+| iOS Simulator | `http://127.0.0.1:8788` | Built-in development default |
 | Android emulator | `http://10.0.2.2:8788` | Built-in development default |
 | Production builds | HTTPS deployed Worker | Set in `eas.json` |
 

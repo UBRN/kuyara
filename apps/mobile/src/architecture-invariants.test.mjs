@@ -267,19 +267,11 @@ function featureModuleOf(relativePath, specifier) {
 const featureOf = (relativePath) => relativePath.match(/^features\/([^/]+)\//)?.[1] ?? null;
 
 // Each entry is one pre-existing runtime import forbidden by the cross-feature boundary.
-// Remove the entry when its fix lands; a stale entry fails the test.
+// Remove the entry when its fix lands; a stale entry fails the test. The ceiling below only
+// falls: adding an entry to make a new violation pass is not allowed.
 const crossFeatureInternalImportAllowlist = [
-  // Background task composes the profile repository by hand; export a loadProfileRepository() from profile/application.
-  ['features/notifications/data/expo-background-weather-alert-task.ts', 'features/profile/data/profile-repository'],
-  // Same composition; goes away with the factory above.
-  ['features/notifications/data/expo-background-weather-alert-task.ts', 'features/profile/data/sqlite-profile-local-data-source'],
-  // Background task duplicates weather/application's unexported loadRepository(); export and reuse it.
-  ['features/notifications/data/expo-background-weather-alert-task.ts', 'features/weather/data/weather-repository'],
-  // Same composition; goes away with the weather factory.
-  ['features/notifications/data/expo-background-weather-alert-task.ts', 'features/weather/data/sqlite-weather-local-data-source'],
   // Onboarding renders weather's location controls; pass them in from app/onboarding.tsx as a slot.
   ['features/profile/presentation/onboarding-screen.tsx', 'features/weather/presentation/location-selection-controls'],
-  // Today shows the weather provider attribution; slot it from app/(tabs)/(today)/index.tsx or move the component.
   // WeatherGlyph depends on theme only and is misfiled under today/; move it to components/ui.
   ['features/weather/presentation/weather-screen.tsx', 'features/today/presentation/weather-glyph'],
 ].map(([importer, module]) => `${importer} -> ${module}`);
@@ -318,6 +310,11 @@ test('a feature reaches another feature only through its domain or application l
   assert.deepEqual(violations, [], `${ruleText}\n\nThese imports break that rule:\n${violations.map((v) => `  - ${v}`).join('\n')}`);
   const stale = crossFeatureInternalImportAllowlist.filter((key) => !seen.has(key));
   assert.deepEqual(stale, [], `These allowlist entries no longer match an import; remove them so the list only shrinks:\n${stale.map((v) => `  - ${v}`).join('\n')}`);
+  assert.equal(
+    crossFeatureInternalImportAllowlist.length,
+    2,
+    'the cross-feature allowlist only shrinks: fix the import instead of listing it, and lower this count when an entry goes',
+  );
 });
 
 test('the walker actually reads the tree it is asked to guard', () => {
@@ -476,4 +473,120 @@ test('mobile deterministic test doubles live only under __tests__ folders', () =
     .map((relativePath) => `${repoRelativeRoot}/${relativePath}`);
 
   assert.deepEqual(misplaced, [], 'move the test double under a __tests__ folder next to it');
+});
+
+// Each `Local*Repository` is constructed in exactly one file: the loader or provider that opens
+// and migrates the database for it. A second construction site (the background task once built
+// three of them by hand) drifts from the first in open, migrate or clock wiring.
+test('each Local repository class is constructed in exactly one file', () => {
+  const sites = new Map();
+  for (const relativePath of sourceFiles()) {
+    const text = readFileSync(path.join(sourceRoot, relativePath), 'utf8');
+    for (const [, className] of text.matchAll(/new (Local\w+Repository)\(/g)) {
+      sites.set(className, new Set([...(sites.get(className) ?? []), relativePath]));
+    }
+  }
+
+  assert.ok(sites.size >= 5, `expected the composition sites to be found, saw ${sites.size} classes`);
+  assert.deepEqual(
+    [...sites].filter(([, files]) => files.size > 1).map(([name, files]) => `${name}: ${[...files].join(', ')}`),
+    [],
+    'construct each repository in one loader or provider and import that function elsewhere',
+  );
+});
+
+// Row-identity validators have one home, `domain/record-identity.ts`, so every repository trusts
+// a stored row by the same rule.
+test('UUID v4 and UTC ISO validators are defined only in domain/record-identity.ts, by name or by body', () => {
+  const copies = [];
+  for (const relativePath of sourceFiles()) {
+    if (relativePath === 'domain/record-identity.ts') continue;
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/function (?:isUuidV4|isUtcIso)|toISOString\(\) === value/.test(line)) copies.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(copies, [], 'import isUuidV4 or isUtcIsoTimestamp from @/domain/record-identity');
+});
+
+// The Worker origin variable is read in one place, `config/`, and the app has no web target
+// branch: kuyara ships for iOS and Android only.
+test('the Worker base URL variable is read once, under config/', () => {
+  const reads = [];
+  for (const relativePath of sourceFiles()) {
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (line.includes('EXPO_PUBLIC_KUYARA_WORKER_BASE_URL')) reads.push(`${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.equal(reads.length, 1, `expected one read, found ${JSON.stringify(reads)}`);
+  assert.ok(reads[0].startsWith('config/'), `the read belongs under config/, found ${reads[0]}`);
+});
+
+test('mobile source has no web target branch or *.web.* file', () => {
+  const hits = [];
+  for (const relativePath of sourceFiles()) {
+    if (/\.web\.[^/]+$/.test(relativePath)) hits.push(relativePath);
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/['"]web['"]/.test(line)) hits.push(`${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(hits, [], 'kuyara ships for iOS and Android; delete the web branch');
+});
+
+// Inside one feature the application layer reaches its own data layer as a value only from a
+// composition file: a `*-provider.tsx` or a plain `*-loader.ts` factory. Each entry is one
+// pre-existing import; the list only shrinks and a stale entry fails.
+const sameFeatureApplicationDataAllowlist = [
+  ['features/analytics/application/use-screen-interactive.ts', 'features/analytics/data/observe-performance-telemetry'],
+  ['features/recommendation/application/ai-probe-state.ts', 'features/recommendation/data/worker-ai-probe-client'],
+  ['features/recommendation/application/recommendation-application-controller.ts', 'features/recommendation/data/recommendation-repository'],
+  ['features/recommendation/application/recommendation-application-controller.ts', 'features/recommendation/data/worker-ai-client'],
+  ['features/recommendation/application/recommendation-application-controller.ts', 'features/recommendation/data/worker-ai-recommendation-mapper'],
+  ['features/recommendation/application/use-ai-probe.ts', 'features/recommendation/data/worker-ai-probe-client'],
+  ['features/wardrobe/application/wardrobe-application-controller.ts', 'features/wardrobe/data/wardrobe-photo-path'],
+  ['features/wardrobe/application/wardrobe-application-controller.ts', 'features/wardrobe/data/wardrobe-repository'],
+  ['features/weather/application/place-search-controller.ts', 'features/weather/data/worker-place-search-data-source'],
+  ['features/weather/application/weather-application-controller.ts', 'features/weather/data/manual-location-catalog'],
+  ['features/weather/application/weather-application-controller.ts', 'features/weather/data/weather-provider'],
+  ['features/weather/application/weather-application-controller.ts', 'features/weather/data/weather-repository'],
+].map(([importer, module]) => `${importer} -> ${module}`);
+
+test('an application module imports its own feature data as a value only in a provider or loader', () => {
+  const seen = new Set();
+  const violations = [];
+
+  for (const relativePath of sourceFiles()) {
+    if (!/^features\/[^/]+\/application\//.test(relativePath)) continue;
+    if (/(?:-provider\.tsx|-loader\.ts)$/.test(relativePath)) continue;
+    const typeOnly = typeOnlyImportLines(relativePath);
+
+    for (const { specifier, line } of specifiersIn(relativePath)) {
+      const target = featureModuleOf(relativePath, specifier);
+      if (target === null || target.feature !== featureOf(relativePath) || target.layer !== 'data') continue;
+      if (typeOnly.has(line)) continue;
+
+      const key = `${relativePath} -> ${target.module}`;
+      if (sameFeatureApplicationDataAllowlist.includes(key)) {
+        seen.add(key);
+        continue;
+      }
+      violations.push(`${repoRelativeRoot}/${relativePath}:${line} imports '${specifier}'`);
+    }
+  }
+
+  assert.deepEqual(
+    violations,
+    [],
+    'move the construction into a *-provider.tsx or *-loader.ts and take the port as a parameter:\n'
+      + violations.map((v) => `  - ${v}`).join('\n'),
+  );
+  const stale = sameFeatureApplicationDataAllowlist.filter((key) => !seen.has(key));
+  assert.deepEqual(stale, [], `remove these entries so the list only shrinks:\n${stale.map((v) => `  - ${v}`).join('\n')}`);
+  assert.equal(
+    sameFeatureApplicationDataAllowlist.length,
+    12,
+    'the same-feature allowlist only shrinks: lower this count when an entry goes',
+  );
 });

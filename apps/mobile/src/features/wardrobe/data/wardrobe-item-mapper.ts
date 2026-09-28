@@ -24,17 +24,13 @@ import {
   type WardrobeItem,
   type WardrobeItemCategory,
 } from '@/features/wardrobe/domain/wardrobe-item';
+import { isUtcIsoTimestamp, isUuidV4 } from '@/domain/record-identity';
 
 export class WardrobeItemMappingError extends Error {
   constructor() {
     super('The stored wardrobe item is invalid.');
     this.name = 'WardrobeItemMappingError';
   }
-}
-
-function isUtcIsoTimestamp(value: string): boolean {
-  const parsed = Date.parse(value);
-  return Number.isFinite(parsed) && new Date(parsed).toISOString() === value;
 }
 
 function isNullableString(value: unknown): value is string | null {
@@ -69,12 +65,6 @@ function mapNullableGarmentTypeId(value: unknown): GarmentTypeId | null {
 
   const result = garmentTypeIdSchema.safeParse(value);
   return result.success ? result.data : null;
-}
-
-function isUuidV4(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value,
-  );
 }
 
 export function mapWardrobeCategoryToRecord(
