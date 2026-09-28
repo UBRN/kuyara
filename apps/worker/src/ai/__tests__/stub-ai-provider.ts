@@ -4,7 +4,7 @@ import type {
   OutfitArchetypeId,
 } from '@kuyara/contracts';
 
-import type { AiProvider } from './ai-provider.ts';
+import type { AiProvider } from '../ai-provider.ts';
 
 function validArchetypes(option: AiOption): OutfitArchetypeId[] {
   const archetypes: OutfitArchetypeId[] = [];

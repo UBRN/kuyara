@@ -154,7 +154,6 @@ export type Breathability = z.infer<typeof breathabilitySchema>;
 export type Coverage = z.infer<typeof coverageSchema>;
 export type TractionSuitability = z.infer<typeof tractionSuitabilitySchema>;
 export type ColorFamily = z.infer<typeof colorFamilySchema>;
-export type GarmentTypeStatus = z.infer<typeof garmentTypeStatusSchema>;
 export type Formality = z.infer<typeof formalitySchema>;
 
 export type GarmentTypeNameKey =

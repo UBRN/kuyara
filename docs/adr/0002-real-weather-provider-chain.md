@@ -223,8 +223,8 @@ alternative, relaxing them, is recorded below.
 ### 9. The sample provider is unreachable in production
 
 The Worker's production composition excludes
-`DeterministicMockWeatherProvider`; only tests use it. It is never a production
-fallback.
+`DeterministicMockWeatherProvider`, a test fixture under `weather/__tests__/`;
+only tests use it. It is never a production fallback.
 
 ## Consequences
 

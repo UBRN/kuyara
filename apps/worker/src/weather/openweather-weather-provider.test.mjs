@@ -234,3 +234,15 @@ test('classifies schema-invalid and unmapped-condition responses as invalid_resp
     );
   }
 });
+
+test('stamps fetchedAt from the injected clock', async () => {
+  const provider = new OpenWeatherWeatherProvider({
+    apiKey: 'configured-key',
+    fetch: async () => Response.json(rawFixture()),
+    now: () => new Date('2026-08-29T09:05:00.000Z'),
+  });
+
+  const snapshot = await provider.fetchWeather(location);
+
+  assert.equal(snapshot.fetchedAt, '2026-08-29T09:05:00.000Z');
+});

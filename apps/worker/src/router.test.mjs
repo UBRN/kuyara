@@ -11,7 +11,7 @@ import { createAiHandler } from './ai/ai-handler.ts';
 import { createProbeHandler } from './ai/probe-handler.ts';
 import { createRouter } from './router.ts';
 import { createWeatherHandler } from './weather-handler.ts';
-import { DeterministicMockWeatherProvider } from './weather/mock-weather-provider.ts';
+import { DeterministicMockWeatherProvider } from './weather/__tests__/mock-weather-provider.ts';
 
 const fixedNow = '2026-08-01T09:30:00.000Z';
 const weatherBody = {

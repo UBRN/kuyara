@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test, { mock } from 'node:test';
 
 import { createWeatherProviders } from '../index.ts';
-import { DeterministicMockWeatherProvider } from './mock-weather-provider.ts';
+import { DeterministicMockWeatherProvider } from './__tests__/mock-weather-provider.ts';
 import { OpenMeteoWeatherProvider } from './open-meteo-weather-provider.ts';
 import { OpenWeatherWeatherProvider } from './openweather-weather-provider.ts';
 import {

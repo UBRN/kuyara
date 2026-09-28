@@ -1,19 +1,13 @@
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import {
   breathabilityLevels,
-  breathabilitySchema,
   colorFamilies,
   coverageLevels,
-  coverageSchema,
   structuralCategorySchema,
   thermalLevels,
-  thermalLevelSchema,
   tractionSuitabilities,
-  tractionSuitabilitySchema,
   waterProtections,
-  waterProtectionSchema,
   windProtections,
-  windProtectionSchema,
   type Breathability,
   type ColorFamily,
   type Coverage,
@@ -199,54 +193,6 @@ export function selectWardrobeGarmentType(
     legCoverageOverride: null,
     tractionSuitabilityOverride: null,
   };
-}
-
-export function setWardrobeOverrideValue(
-  values: WardrobeFormValues,
-  field: WardrobeOverrideField,
-  value: string | null,
-): WardrobeFormValues {
-  switch (field) {
-    case 'thermalLevelOverride':
-      return {
-        ...values,
-        thermalLevelOverride: value === null ? null : thermalLevelSchema.parse(value),
-      };
-    case 'waterProtectionOverride':
-      return {
-        ...values,
-        waterProtectionOverride:
-          value === null ? null : waterProtectionSchema.parse(value),
-      };
-    case 'windProtectionOverride':
-      return {
-        ...values,
-        windProtectionOverride:
-          value === null ? null : windProtectionSchema.parse(value),
-      };
-    case 'breathabilityOverride':
-      return {
-        ...values,
-        breathabilityOverride:
-          value === null ? null : breathabilitySchema.parse(value),
-      };
-    case 'armCoverageOverride':
-      return {
-        ...values,
-        armCoverageOverride: value === null ? null : coverageSchema.parse(value),
-      };
-    case 'legCoverageOverride':
-      return {
-        ...values,
-        legCoverageOverride: value === null ? null : coverageSchema.parse(value),
-      };
-    case 'tractionSuitabilityOverride':
-      return {
-        ...values,
-        tractionSuitabilityOverride:
-          value === null ? null : tractionSuitabilitySchema.parse(value),
-      };
-  }
 }
 
 export function listSupportedWardrobeOverrides(

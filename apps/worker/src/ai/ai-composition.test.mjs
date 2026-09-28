@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createAiProviders } from '../index.ts';
-import { DeterministicStubAiProvider } from './stub-ai-provider.ts';
+import { DeterministicStubAiProvider } from './__tests__/stub-ai-provider.ts';
 import { OpenRouterAiProvider } from './openrouter-ai-provider.ts';
 import { WorkersAiProvider } from './workers-ai-provider.ts';
 
