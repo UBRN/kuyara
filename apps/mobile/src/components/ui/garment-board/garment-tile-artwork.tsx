@@ -5,6 +5,7 @@ import Svg, { Defs, G, LinearGradient, Stop } from 'react-native-svg';
 import type { ColorFamily, GarmentTypeId, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import type { ClosetColorChoice } from '@/features/wardrobe/domain/closet-color-options';
 import { easierToSee, useEasierToSee } from '@/theme/easier-to-see';
+import { layout, radii } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 import { GarmentSlotGlyph } from '../garment-slot-glyph';
@@ -242,3 +243,54 @@ export function GarmentTileArtwork({
     </View>
   );
 }
+
+/** A candidate tile's side: the picker's and the board strip's 44-point target. */
+const GARMENT_CANDIDATE_TILE_SIZE = layout.minimumTouchTarget;
+
+/**
+ * Phase 7's candidate tile, one catalog piece drawn in the colour the outfit would give it on
+ * a `surfaceMuted` tile: the row picker's and the board strip's. Test IDs take the caller's
+ * prefix, `<prefix>-photo-<id>`, `<prefix>-glyph-<id>` and `<prefix>-silhouette-<id>`.
+ */
+export function GarmentCandidateTile({
+  garmentTypeId,
+  category,
+  roles,
+  testIDPrefix,
+}: Readonly<{
+  garmentTypeId: GarmentTypeId;
+  category: StructuralCategory;
+  roles?: GarmentRoles;
+  testIDPrefix: string;
+}>) {
+  const { colors } = useKuyaraTheme();
+  const size = GARMENT_CANDIDATE_TILE_SIZE;
+  return (
+    <View style={[candidateTileStyles.tile, { backgroundColor: colors.surfaceMuted }]}>
+      <GarmentTileArtwork
+        category={category}
+        colorFamily={null}
+        garmentTypeId={garmentTypeId}
+        glyphSize={size * 0.6}
+        height={size}
+        photoTestID={`${testIDPrefix}-photo-${garmentTypeId}`}
+        photoUri={null}
+        placeholderTestID={`${testIDPrefix}-glyph-${garmentTypeId}`}
+        roles={roles}
+        silhouetteTestID={`${testIDPrefix}-silhouette-${garmentTypeId}`}
+        width={size}
+      />
+    </View>
+  );
+}
+
+const candidateTileStyles = StyleSheet.create({
+  tile: {
+    alignItems: 'center',
+    borderRadius: radii.control,
+    height: GARMENT_CANDIDATE_TILE_SIZE,
+    justifyContent: 'center',
+    overflow: 'hidden',
+    width: GARMENT_CANDIDATE_TILE_SIZE,
+  },
+});

@@ -82,7 +82,7 @@ export {
   type GarmentSwapCandidate,
 } from './garment-board/garment-swap-board';
 
-export { GarmentDrawing, GarmentTileArtwork } from './garment-board/garment-tile-artwork';
+export { GarmentCandidateTile, GarmentDrawing, GarmentTileArtwork } from './garment-board/garment-tile-artwork';
 export { ClosetColorDisc } from './garment-board/closet-color-art';
 export { ClosetRack, type ClosetRackProps, type RackPiece } from './garment-board/closet-rack';
 export {

@@ -2,7 +2,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 
 import {
   AppText,
-  GarmentTileArtwork,
+  GarmentCandidateTile,
   GlassButton,
   Icon,
   NativeSheet,
@@ -14,10 +14,8 @@ import type { GarmentTypeId, StructuralCategory } from '@/features/catalog/domai
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
 import { useMessages } from '@/localization/use-messages';
 import { easierToSee, useEasierToSee } from '@/theme/easier-to-see';
-import { layout, radii, spacing } from '@/theme/theme';
+import { layout, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
-
-const TILE_SIZE = 44;
 
 export type PiecePickerOption = Readonly<{
   garmentTypeId: GarmentTypeId;
@@ -89,21 +87,12 @@ function PiecePickerList({
           borderTopWidth: StyleSheet.hairlineWidth,
         }]}
         testID={`piece-picker-option-${option.garmentTypeId}`}>
-        <View style={[styles.tile, { backgroundColor: theme.colors.surfaceMuted }]}>
-          <GarmentTileArtwork
-            category={option.category}
-            colorFamily={null}
-            garmentTypeId={option.garmentTypeId}
-            glyphSize={TILE_SIZE * 0.6}
-            height={TILE_SIZE}
-            photoTestID={`piece-picker-photo-${option.garmentTypeId}`}
-            photoUri={null}
-            placeholderTestID={`piece-picker-glyph-${option.garmentTypeId}`}
-            roles={roles.get(option.garmentTypeId)}
-            silhouetteTestID={`piece-picker-silhouette-${option.garmentTypeId}`}
-            width={TILE_SIZE}
-          />
-        </View>
+        <GarmentCandidateTile
+          category={option.category}
+          garmentTypeId={option.garmentTypeId}
+          roles={roles.get(option.garmentTypeId)}
+          testIDPrefix="piece-picker"
+        />
         <AppText style={styles.name} variant="bodyStrong">{option.name}</AppText>
         {current ? (
           <View style={styles.current} testID={`piece-picker-current-${option.garmentTypeId}`}>
@@ -150,8 +139,6 @@ const styles = StyleSheet.create({
   section: { gap: spacing.sm },
   sectionHead: { gap: spacing.xs },
   row: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, paddingVertical: spacing.sm },
-  tile: { alignItems: 'center', borderRadius: radii.control, height: TILE_SIZE, justifyContent: 'center',
-    overflow: 'hidden', width: TILE_SIZE },
   name: { flex: 1, flexShrink: 1 },
   current: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
 });

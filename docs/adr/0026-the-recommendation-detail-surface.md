@@ -38,7 +38,7 @@ the visible statement that the weather was the input and the outfit is now the s
 
 ### 3. Garment rows sit below the board
 
-The board keeps the detail preset and no text overlaps the drawings. One line under the board says a piece is tapped and then swiped to change it, until the first change, and "Wore this today" sits directly under it. Below it, garment rows name each piece, its slot and its Closet state in board order; each row opens the piece's edit sheet for ownership, colour and optional photo, and carries the plain "Change" control of decision 6. Rows retain readable labels and 44-point targets at the largest standard text size, where Change moves under the row's text; above `fontScale` 1.5 the board captions leave and the rows alone name the pieces.
+The board keeps the detail preset and no text overlaps the drawings. One line under the board says a piece is tapped and then swiped to change it, until the first change; while a piece is enlarged the candidate strip of decision 6 stands in its place. "Wore this today" sits directly under them. Below it, garment rows name each piece, its slot and its Closet state in board order; each row opens the piece's edit sheet for ownership, colour and optional photo, and carries the plain "Change" control of decision 6. Rows retain readable labels and 44-point targets at the largest standard text size, where Change moves under the row's text; above `fontScale` 1.5 the board captions leave and the rows alone name the pieces.
 
 The slot label is used rather than `layerRole`, which would print "standalone" under a bottom.
 
@@ -67,22 +67,52 @@ Detail permits a reader to swap any drawn piece for another catalog piece of the
 slot, in two equivalent ways. Each garment row's "Change" opens the slot's picker: every
 catalog piece of the slot with the profile's gender applicability kept, the pieces that
 keep kuyara's pick weather-suitable first and the rest under a short explanation, a piece
-worn by another slot left out. On the board a tap focuses a piece and a horizontal drag on
-it steps through the same order, with arrows beside it and increment and decrement on its
-adjustable accessibility element. Closet items never become candidates. Suitability is
+worn by another slot left out. Closet items never become candidates. Suitability is
 the domain validator's verdict: the pieces' own hard requirements and every mandatory
 weather requirement of the set, the same test a composed outfit passes; formality
 consistency is not part of it.
 
+On the board a tap enlarges a piece in place. It grows about its centre to twice its
+composed size, less where the board holds less but never under 1.6 times, shifted only as
+far as the stage needs; the other pieces step back to 0.9 in full colour, and every caption
+and ownership badge leaves until the pieces rest again. Under the stage a strip names the
+piece and its place ("Coat 3 / 12") beside "Done", over the slot's candidates in the
+picker's order as 44-point tiles, seven to a row (fewer on a narrower column) and as many
+rows as the slot needs, never a sideways scroller; no slot offers more than two rows' worth
+today, and a test fails before a catalog change needs a third. A 1-point hairline in `borderSubtle` stands before the first piece
+that makes the outfit unusual, and a `focusRing` marker rings the current tile. The piece
+changes while it stays large: a horizontal swipe on it, or a tile. A swipe pages the
+enlarged piece opaque inside its own window, clipped so it never covers a stepped-back
+piece; a release past half a step or a 500 pt/s flick commits, both ends resist like a
+rubber band, the order never wraps, and 5 points of vertical travel first hand the press
+to the page scroll. A pressed tile, and a swipe past half a step, name the landing piece in
+the header before it commits. Each piece is one adjustable accessibility element whose
+increment and decrement walk the same order; a tile or a swipe announces the new piece and
+its place. A tap on the enlarged piece, on empty board, on "Done" or anywhere else on the
+page settles the enlargement, as does VoiceOver's escape; a tap on a stepped-back piece
+moves it. The strip lies outside the board's gesture, so a tile, "Done" or a gap between
+tiles never reaches the board.
+
+The enlarged piece is drawn once more at its grow size and handed over to its resting
+drawing on `motion.fast`, fading in from the tap and back once a quarter of the settle is
+travelled, so its outline is 1.9 points (2.8 with Easier to see) at both ends and never an
+upscaled raster. The stage keeps the height of the slot's tallest candidate for the whole
+enlargement, so a change never moves a tile under a finger. One height carries the stage
+and the hint or the strip on the spatial spring, so the content under the board moves once
+when a piece is enlarged and once when it settles; text enters once its space is nine
+tenths open and leaves before it closes, and the unusual note, "Back to kuyara's pick" and
+"Changed from" do the same.
+
 Every change lays the whole look out again with ADR 0025's composition rule, and the
 pieces glide to their new boxes on the spatial spring; the incoming piece enters from the
-side its order gives and the outgoing one leaves the other way. A changed piece is
+side its order gives and the outgoing one leaves the other way, paged inside the window
+while the slot is enlarged and crossfading otherwise. A changed piece is
 coloured afresh, and every piece that is still kuyara's pick keeps the colour the
 original outfit gave it, passed to the palette resolver as a recorded swatch; nothing is
 stored. The manual combination is not blocked when weather or composition rules would
 reject it; "Unusual for this weather" under the board, in the warning glyph and ink,
-explains the departure. The title becomes "Your outfit" with "Changed from" the
-archetype, the reasons are recomputed for the pieces worn, the source sentence names the
+explains the departure. The title becomes "Your outfit" in place at the change, and
+"Changed from" the archetype opens under it once the board is still, the reasons are recomputed for the pieces worn, the source sentence names the
 change, and "Back to kuyara's pick" returns the recommendation. The change lives only as
 long as detail is open: nothing is saved until the reader chooses "Wore this today",
 which records a `manual` outfit (ADR 0038). No haptic marks a step, because the design
