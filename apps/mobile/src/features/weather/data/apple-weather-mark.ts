@@ -20,10 +20,11 @@ export async function appleWeatherMarkUrl(
   language: SupportedLanguage,
   isDark: boolean,
   pixelRatio: number,
+  fetchAttribution: typeof globalThis.fetch = globalThis.fetch,
 ): Promise<string> {
   let request = cached.get(language);
   if (!request) {
-    request = loadAttribution(language);
+    request = loadAttribution(language, fetchAttribution);
     cached.set(language, request);
   }
   const attribution = await request;
@@ -33,11 +34,14 @@ export async function appleWeatherMarkUrl(
   return new URL(path, baseUrl).toString();
 }
 
-async function loadAttribution(language: SupportedLanguage): Promise<Attribution> {
+async function loadAttribution(
+  language: SupportedLanguage,
+  fetchAttribution: typeof globalThis.fetch,
+): Promise<Attribution> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5000);
   try {
-    const response = await fetch(`${baseUrl}/attribution/${language}`, {
+    const response = await fetchAttribution(`${baseUrl}/attribution/${language}`, {
       signal: controller.signal,
     });
     if (!response.ok) throw new Error('Attribution unavailable');

@@ -92,7 +92,7 @@ test('each adapter stamps a literal sourceId from the closed list', () => {
     'weatherkit-raw.ts',
     'open-meteo-raw.ts',
     'openweather-raw.ts',
-    'mock-weather-provider.ts',
+    '__tests__/mock-weather-provider.ts',
   ];
   for (const file of adapters) {
     const source = readFileSync(new URL(file, import.meta.url), 'utf8');

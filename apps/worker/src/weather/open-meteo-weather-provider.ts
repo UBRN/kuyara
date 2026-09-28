@@ -23,9 +23,13 @@ function httpErrorKind(status: number): WeatherProviderErrorKind {
 
 export class OpenMeteoWeatherProvider implements WeatherProvider {
   readonly #fetch: typeof globalThis.fetch | undefined;
+  readonly #now: () => Date;
 
-  constructor(dependencies?: Readonly<{ fetch?: typeof globalThis.fetch }>) {
+  constructor(
+    dependencies?: Readonly<{ fetch?: typeof globalThis.fetch; now?: () => Date }>,
+  ) {
     this.#fetch = dependencies?.fetch;
+    this.#now = dependencies?.now ?? (() => new Date());
   }
 
   async fetchWeather(
@@ -75,7 +79,11 @@ export class OpenMeteoWeatherProvider implements WeatherProvider {
     if (!parsed.success) throw new WeatherProviderError('invalid_response');
 
     try {
-      const snapshot = mapOpenMeteoResponse(parsed.data, location, new Date().toISOString());
+      const snapshot = mapOpenMeteoResponse(
+        parsed.data,
+        location,
+        this.#now().toISOString(),
+      );
       // The self-check runs the richer v2 shape: a daily block this adapter cannot fill
       // fails the attempt here, so the chain moves on instead of serving a hollow /v2.
       mapProviderWeatherToApiV2(snapshot);

@@ -200,3 +200,15 @@ test('a 400 malformed request never advances the chain', async () => {
     return true;
   });
 });
+
+test('stamps fetchedAt from the injected clock', async () => {
+  const provider = new WeatherKitWeatherProvider({
+    token: async () => 'sentinel-bearer-token',
+    fetch: async () => Response.json(rawFixture()),
+    now: () => new Date('2026-08-29T09:05:00.000Z'),
+  });
+
+  const snapshot = await provider.fetchWeather(location);
+
+  assert.equal(snapshot.fetchedAt, '2026-08-29T09:05:00.000Z');
+});

@@ -11,7 +11,7 @@ import type {
   ProviderWeatherMeasurements,
   ProviderWeatherSnapshot,
   WeatherProvider,
-} from './weather-provider.ts';
+} from '../weather-provider.ts';
 
 type Dependencies = Readonly<{ now: () => string }>;
 

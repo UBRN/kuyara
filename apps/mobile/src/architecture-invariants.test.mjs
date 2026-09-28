@@ -28,7 +28,7 @@ const sourceExtensions = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'])
 const skippedDirectories = new Set(['node_modules', '.expo', '.expo-shared', 'dist', 'build']);
 
 /** Every non-test source file under `src`, as paths relative to `src` in posix form. */
-function sourceFiles(directory = sourceRoot, relative = '') {
+function sourceFiles(directory = sourceRoot, { includeTests = false } = {}, relative = '') {
   const found = [];
 
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -38,14 +38,14 @@ function sourceFiles(directory = sourceRoot, relative = '') {
       if (skippedDirectories.has(entry.name)) {
         continue;
       }
-      found.push(...sourceFiles(path.join(directory, entry.name), entryRelative));
+      found.push(...sourceFiles(path.join(directory, entry.name), { includeTests }, entryRelative));
       continue;
     }
 
     if (!entry.isFile() || !sourceExtensions.has(path.extname(entry.name))) {
       continue;
     }
-    if (entry.name.includes('.test.')) {
+    if (!includeTests && entry.name.includes('.test.')) {
       continue;
     }
 
@@ -393,4 +393,87 @@ test('feature presentation code draws buttons only through the button primitives
     'a raw Pressable in feature presentation code must be a listed row, tile, chip or link; '
       + 'a button uses Button, ButtonPair, IconButton or GlassButton from components/ui',
   );
+});
+
+// Every exported symbol is used beyond its own definition, in production code, in a test or in
+// a script. An export nothing reads is dead weight that still looks like API. The allowlist only
+// shrinks: a stale entry fails. `app/` is out of the export scan (expo-router reads its route
+// files by convention: `default`, `unstable_settings`, `ErrorBoundary`); this file is out of the
+// count so the allowlist cannot vouch for itself.
+const unusedExportAllowlist = new Set([
+  // The compile-time exhaustiveness proof: it is read by the type checker, not by name.
+  'AnalyticsPropertyKeysAreExhaustive',
+]);
+
+test('every exported symbol has a use outside its own definition', () => {
+  const exportPattern =
+    /^export (?:async )?(?:function|const|class|type|interface)\s+([A-Za-z_$][\w$]*)/gm;
+  const self = path.basename(import.meta.filename);
+  const appRoot = path.join(sourceRoot, '..');
+  const pool = [
+    ...sourceFiles(sourceRoot, { includeTests: true })
+      .filter((relativePath) => relativePath !== self)
+      .map((relativePath) => ({
+        relativePath,
+        text: readFileSync(path.join(sourceRoot, relativePath), 'utf8'),
+      })),
+    ...['scripts', 'test'].flatMap((folder) => (
+      sourceFiles(path.join(appRoot, folder), { includeTests: true }).map((relativePath) => ({
+        relativePath: `../${folder}/${relativePath}`,
+        text: readFileSync(path.join(appRoot, folder, relativePath), 'utf8'),
+      }))
+    )),
+  ];
+  const occurrences = new Map();
+  for (const { text } of pool) {
+    for (const word of text.match(/[A-Za-z_$][\w$]*/g) ?? []) {
+      occurrences.set(word, (occurrences.get(word) ?? 0) + 1);
+    }
+  }
+
+  const unused = [];
+  for (const { relativePath, text } of pool) {
+    if (relativePath.startsWith('../') || relativePath.includes('.test.')) continue;
+    if (relativePath.startsWith('app/')) continue;
+    for (const match of text.matchAll(exportPattern)) {
+      const name = match[1];
+      if (occurrences.get(name) === 1 && !unusedExportAllowlist.has(name)) {
+        unused.push(`${relativePath}: ${name}`);
+      }
+    }
+  }
+  assert.deepEqual(unused, [], 'an exported symbol nothing else names is dead code: delete it');
+
+  const stale = [...unusedExportAllowlist].filter((name) => occurrences.get(name) !== 1);
+  assert.deepEqual(stale, [], 'an allowlisted export now has a use (or is gone): drop it from the list');
+});
+
+// Mobile production code never calls the global `fetch` by its bare name: a client takes its
+// `fetch` as a dependency, so a unit test hands it a fake instead of patching the global.
+test('mobile production code has no bare global fetch call', () => {
+  const bareFetch = /(?:^|[^.\w])fetch\(/;
+  const found = [];
+  for (const relativePath of sourceFiles()) {
+    const lines = readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n');
+    lines.forEach((line, index) => {
+      if (bareFetch.test(line)) found.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(found, [], 'take `fetch` as a parameter and call that');
+});
+
+// A test double never sits beside production code: the mobile sample provider lives under a
+// `__tests__` folder, where no composition root can import it by accident. The Worker half
+// is in `apps/worker/src/architecture-invariants.test.mjs`.
+test('mobile deterministic test doubles live only under __tests__ folders', () => {
+  const doublePattern = /^export class Deterministic(?:Mock|Stub|Fake)\w*/m;
+  const misplaced = sourceFiles()
+    .filter((relativePath) => !relativePath.split('/').includes('__tests__'))
+    .filter((relativePath) => (
+      doublePattern.test(readFileSync(path.join(sourceRoot, relativePath), 'utf8'))
+    ))
+    .map((relativePath) => `${repoRelativeRoot}/${relativePath}`);
+
+  assert.deepEqual(misplaced, [], 'move the test double under a __tests__ folder next to it');
 });

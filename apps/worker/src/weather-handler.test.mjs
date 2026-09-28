@@ -9,7 +9,7 @@ import {
 } from '@kuyara/contracts';
 
 import { createWeatherHandler } from './weather-handler.ts';
-import { DeterministicMockWeatherProvider } from './weather/mock-weather-provider.ts';
+import { DeterministicMockWeatherProvider } from './weather/__tests__/mock-weather-provider.ts';
 import { WeatherProviderError } from './weather/weather-provider-error.ts';
 
 const fixedNow = '2026-08-01T09:30:00.000Z';
