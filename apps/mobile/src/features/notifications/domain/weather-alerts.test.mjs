@@ -358,3 +358,28 @@ test('background lead is shortened only for crossings less than 60 minutes away'
     assert.deepEqual(result.map(({ fireAt }) => fireAt), [expectedFireAt], crossing);
   }
 });
+
+test('a crossing after 18:00 keeps one identity from the morning plan through the evening replan', () => {
+  // Istanbul is UTC+3: 19:00 local rain, first planned at 10:00 and replanned at 18:10.
+  const istanbul = snapshot({
+    timeZone: 'Europe/Istanbul',
+    hourly: [hour('2026-09-29T16:00:00.000Z', { precipitationProbability: 0.9 })],
+  });
+  const quietHours = { ...defaultQuietHours, timeZone: 'Europe/Istanbul' };
+  const morning = planWeatherAlerts({
+    snapshot: istanbul,
+    now: '2026-09-29T07:00:00.000Z',
+    quietHours,
+    deliveredAlertIds: new Set(),
+    leadTimeMinutes: 15,
+  });
+  assert.equal(morning.length, 1);
+  const fired = new Set(morning.map(({ id }) => id));
+  assert.deepEqual(planWeatherAlerts({
+    snapshot: istanbul,
+    now: '2026-09-29T15:10:00.000Z',
+    quietHours,
+    deliveredAlertIds: fired,
+    leadTimeMinutes: 15,
+  }), []);
+});

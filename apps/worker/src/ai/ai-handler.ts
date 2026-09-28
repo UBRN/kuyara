@@ -255,7 +255,18 @@ export function createAiHandler({
     }
     if (rateLimiter) {
       const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
-      const { success } = await rateLimiter.limit({ key: `recommend:${ip}` });
+      let success: boolean;
+      try {
+        ({ success } = await rateLimiter.limit({ key: `recommend:${ip}` }));
+      } catch {
+        // A failing binding answers in the route's own closed code; no error text is logged.
+        console.warn({
+          event: 'rate_limiter_error',
+          route: url.pathname,
+          limiter: 'ai_recommend_burst',
+        });
+        return errorResponse(503, 'ai_unavailable');
+      }
       if (!success) {
         console.warn({
           event: 'rate_limited',

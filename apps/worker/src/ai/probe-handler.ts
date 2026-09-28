@@ -165,7 +165,14 @@ export function createProbeHandler({
     }
 
     const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
-    const { success } = await rateLimiter.limit({ key: `probe:${ip}` });
+    let success: boolean;
+    try {
+      ({ success } = await rateLimiter.limit({ key: `probe:${ip}` }));
+    } catch {
+      // A failing binding answers in the route's own closed code; no error text is logged.
+      console.warn({ event: 'rate_limiter_error', route: aiProbeV1Path, limiter: 'ai_probe_burst' });
+      return errorResponse(503, 'ai_unavailable');
+    }
     if (!success) {
       console.warn({ event: 'rate_limited', route: aiProbeV1Path, limiter: 'ai_probe_burst' });
       return errorResponse(429, 'rate_limited', { 'Retry-After': '60' });

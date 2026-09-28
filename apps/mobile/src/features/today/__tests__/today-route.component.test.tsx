@@ -1454,6 +1454,7 @@ test('the step 2 answer reaches the recommendation in the same write and generat
 });
 
 // A Later choice past the day boundary plans the next dressing day without changing Today.
+// The boundary is the device clock's (the suite runs in UTC), whatever zone the place is in.
 test('a Later re-ask crossing 18:00 stores the future choice without replacing Today', async () => {
   const saved = recommendationReady();
   if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');
@@ -1472,7 +1473,7 @@ test('a Later re-ask crossing 18:00 stores the future choice without replacing T
   mockChoiceUpsert.mockImplementation(async (_profile: string, key: string, formality: string,
     source: string) => row(key, formality, source));
   jest.useFakeTimers({
-    now: new Date('2026-09-24T14:30:00.000Z'),
+    now: new Date('2026-09-24T17:30:00.000Z'),
     doNotFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'],
   });
   const refresh = jest.spyOn(RecommendationApplicationController.prototype, 'refresh')

@@ -1623,3 +1623,15 @@ test('a Workers AI quota refusal skips the remaining Workers AI providers and Op
   assert.equal(spentOpenRouter.status, 200);
   assert.deepEqual(calls, ['router/spent', 'router/free']);
 });
+
+test('a failing rate-limit binding answers a stable ai_unavailable, not a thrown error', async (t) => {
+  t.mock.method(console, 'warn', () => {});
+  let providerCalls = 0;
+  const handle = createAiHandler({
+    providers: [{ async generateOutfits() { providerCalls += 1; return validOutput(); } }],
+    rateLimiter: { async limit() { throw new Error('binding down'); } },
+  });
+  await assertError(await handle(request({ body: JSON.stringify(validRequestBody()) })),
+    503, 'ai_unavailable');
+  assert.equal(providerCalls, 0);
+});

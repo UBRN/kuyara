@@ -5,7 +5,7 @@ const HOUR_IN_MILLISECONDS = 60 * 60 * 1000;
 
 /**
  * The highest rain chance ahead, including current conditions and only hourly entries that
- * still overlap the dressing day: the rest of the calendar day until 18:00 local, and the
+ * still overlap the dressing day: the rest of the calendar day until local midnight, and the
  * hours through 04:00 once the evening has begun.
  */
 export function todayRainOutlookProbability(

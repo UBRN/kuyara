@@ -47,10 +47,25 @@ function validRows(rows: readonly Row[]): OutfitHistoryRecord[] {
   return records;
 }
 
-async function read(db: SqliteExecutor, profileId: string, dayKey: string): Promise<OutfitHistoryRecord | null> {
-  const row = await db.getFirstAsync<Row>(`SELECT ${columns} FROM outfit_history
+async function readRow(db: SqliteExecutor, profileId: string, dayKey: string): Promise<Row | null> {
+  return db.getFirstAsync<Row>(`SELECT ${columns} FROM outfit_history
     WHERE local_profile_id = ? AND day_key = ? AND deleted_at IS NULL`, [profileId, dayKey]);
-  return row ? mapRow(row) : null;
+}
+
+/** A row that no longer validates is absent for the reader, as it is in `list`. */
+async function read(db: SqliteExecutor, profileId: string, dayKey: string): Promise<OutfitHistoryRecord | null> {
+  const row = await readRow(db, profileId, dayKey);
+  if (!row) return null;
+  try {
+    return mapRow(row);
+  } catch {
+    return null;
+  }
+}
+
+/** The stored photo of the day's row, valid or not, so an overwrite or delete still cleans it up. */
+function managedPhotoPath(row: Row | null): string | null {
+  return row && row.photo_path !== null && isManagedHistoryPhotoPath(row.photo_path) ? row.photo_path : null;
 }
 
 export class SqliteOutfitHistoryRepository implements OutfitHistoryRepository {
@@ -100,8 +115,7 @@ export class SqliteOutfitHistoryRepository implements OutfitHistoryRepository {
     };
     try {
       await this.db.withExclusiveTransactionAsync(async (transaction) => {
-        const old = await read(transaction, profileId, dayKey);
-        outcome.oldPhotoPath = old?.photoPath ?? null;
+        outcome.oldPhotoPath = managedPhotoPath(await readRow(transaction, profileId, dayKey));
         const nextPath = photo.kind === 'keep' ? outcome.oldPhotoPath : copied;
         await transaction.runAsync(`INSERT INTO outfit_history
           (id, local_profile_id, day_key, outfit_json, photo_path, worn_at, created_at, updated_at, deleted_at)
@@ -135,14 +149,14 @@ export class SqliteOutfitHistoryRepository implements OutfitHistoryRepository {
     let oldPhotoPath: string | null = null;
     let changed = false;
     await this.db.withExclusiveTransactionAsync(async (transaction) => {
-      const old = await read(transaction, profileId, dayKey);
+      const old = await readRow(transaction, profileId, dayKey);
       if (!old) return;
       const updated = await transaction.runAsync(`UPDATE outfit_history SET
         photo_path = NULL, deleted_at = ?, updated_at = ?
         WHERE local_profile_id = ? AND day_key = ? AND deleted_at IS NULL`,
       [now, now, profileId, dayKey]);
       changed = updated.changes > 0;
-      if (changed) oldPhotoPath = old.photoPath;
+      if (changed) oldPhotoPath = managedPhotoPath(old);
     });
     if (oldPhotoPath) await this.photos.deleteStored(oldPhotoPath).catch(() => {});
     return changed;

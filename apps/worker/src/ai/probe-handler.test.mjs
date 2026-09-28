@@ -400,3 +400,15 @@ test('cache reuses the probe result within 60 seconds and refreshes after expiry
   assert.equal(providerCalls, 2);
   assert.equal(counterState.incrementKeys.length, 2);
 });
+
+test('a failing rate-limit binding answers a stable ai_unavailable, not a thrown error', async (t) => {
+  t.mock.method(console, 'warn', () => {});
+  let providerCalls = 0;
+  const { deps } = dependencies({
+    providers: [{ async generateOutfits() { providerCalls += 1; return validOutput(); } }],
+    rateLimiter: { async limit() { throw new Error('binding down'); } },
+  });
+  const response = await createProbeHandler(deps)(request());
+  await assertJson(response, 503, { error: { code: 'ai_unavailable' } });
+  assert.equal(providerCalls, 0);
+});
