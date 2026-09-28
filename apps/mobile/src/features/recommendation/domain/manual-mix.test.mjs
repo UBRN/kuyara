@@ -143,3 +143,39 @@ test('"Wore this today" records a changed outfit as manual under the existing sc
   assert.equal(worn.archetypeId, mild.outfit.archetypeId);
   assert.equal(wornOutfitFrom(mild.outfit).source, 'recommended');
 });
+
+// Phase 7b: the board's candidate strip draws seven 44-point tiles a row and has room for two
+// rows (vault phase-7b final-spec section 1). Today the most any slot shows is 13 (the
+// women's top); a 15th candidate would need a third row, which must be a decision, not an
+// accident of a catalog addition.
+const STRIP_TILES = 2 * 7;
+
+test('no slot ever offers more candidates than the strip\'s two rows hold', () => {
+  let most = 0;
+  for (const preference of ['womens', 'mens']) {
+    const types = listGarmentTypesForPreference(preference).map(({ typeId }) => typeId);
+    for (const slot of ['primary_top', 'bottom', 'one_piece', 'mid_layer', 'outer_layer', 'footwear']) {
+      const ceiling = types.filter((typeId) => garmentFitsSlot(slot, typeId)).length;
+      assert.ok(ceiling <= STRIP_TILES, `${preference} ${slot} has ${ceiling} catalog candidates`);
+      most = Math.max(most, ceiling);
+    }
+  }
+  assert.equal(most, 13);
+  // A small grid of days, both applicabilities: what the picker and the board receive.
+  for (const preference of ['womens', 'mens']) {
+    for (const temperature of [-10, 4, 10, 20, 32]) {
+      for (const [condition, rain] of [['clear', 0], ['rain', 0.8], ['snow', 0.6]]) {
+        const snapshot = day(temperature, condition, rain);
+        const result = recommendOutfits({ snapshot, now: snapshot.current.observedAt, clothingPreference: preference, dayVariant: 0 });
+        if (result.status !== 'recommended') continue;
+        for (const outfit of result.outfits) {
+          const garments = outfitGarments(outfit);
+          for (const slot of outfitSwappableSlots(outfit)) {
+            const shown = availableCandidates(slotCandidates(outfit, slot, result.requirements, preference), slot, garments);
+            assert.ok(shown.length <= STRIP_TILES, `${preference} ${slot} at ${temperature} shows ${shown.length}`);
+          }
+        }
+      }
+    }
+  }
+});

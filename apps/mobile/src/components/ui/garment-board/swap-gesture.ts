@@ -1,11 +1,19 @@
-import { layout, spacing } from '@/theme/theme';
+import { borderWidths, layout, spacing } from '@/theme/theme';
 
-// Phase 7's board swap (vault motion-spec section 4.1). These are the gesture's own
-// constants: every duration and spring the swap moves on is the theme's, by role.
+// Phase 7b's board swap (vault phase-7b final-spec sections 4 and 5). These are the gesture's
+// own constants and geometry: every duration and spring the swap moves on is the theme's, by role.
 
-/** The focused piece grows this much: "slightly", inside the functional ceiling of 1.05. */
-export const SWAP_FOCUS_SCALE = 1.05;
-/** One slop decides tap versus drag, and a horizontal drag versus a vertical scroll. */
+/** The tapped piece grows to twice its composed size where the board holds it ... */
+export const SWAP_GROW_MAX = 2;
+/** ... and never less than this, whatever the board holds. */
+export const SWAP_GROW_MIN = 1.6;
+/** The other pieces step back to this scale, in full colour. */
+export const SWAP_STEP_BACK = 0.9;
+/** A shrinking piece hands back to its resting drawing once its scale has travelled this share. */
+export const SWAP_HANDOFF_AFTER = 0.25;
+/** Candidate tiles a row: seven 44 pt tiles with `spacing.sm` between them fill 356 pt. */
+export const SWAP_STRIP_COLUMNS = 7;
+/** One slop decides tap versus drag. */
 export const SWAP_TOUCH_SLOP = 10;
 /** A release past half a step commits it. */
 export const SWAP_COMMIT_DISTANCE = 0.5;
@@ -15,13 +23,97 @@ export const SWAP_COMMIT_VELOCITY = 500;
 export const SWAP_RUBBER_BAND = 0.55;
 /** A drag never starts this close to the screen's left edge, which keeps the system back swipe. */
 export const SWAP_EDGE_GUARD = 24;
+/** The hairline before the first unsuitable tile. */
+export const SWAP_HAIRLINE_LENGTH = 24;
 
-type Box = Readonly<{ x: number; y: number; w: number; h: number }>;
+export type SwapBox = Readonly<{ x: number; y: number; w: number; h: number }>;
 
-/** One candidate step: never under two touch targets, so a small boot never commits at 22 pt. */
-export function swapStride(boxWidth: number): number {
+const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(value, high));
+
+/** A box scaled about its centre: a stepped-back piece. */
+export function swapScaledBox(box: SwapBox, scale: number): SwapBox {
+  const w = box.w * scale;
+  const h = box.h * scale;
+  return { x: box.x + (box.w - w) / 2, y: box.y + (box.h - h) / 2, w, h };
+}
+
+/** The enlarged piece's box: grown about its centre, then shifted just enough to stay on the stage. */
+export function swapGrownBox(box: SwapBox, scale: number, stageWidth: number, stageHeight: number): SwapBox {
+  const w = box.w * scale;
+  const h = box.h * scale;
+  return {
+    x: clamp(box.x + box.w / 2 - w / 2, 0, stageWidth - w),
+    y: clamp(box.y + box.h / 2 - h / 2, 0, stageHeight - h),
+    w,
+    h,
+  };
+}
+
+const apart = (a: SwapBox, b: SwapBox, gap: number) =>
+  a.x >= b.x + b.w + gap || b.x >= a.x + a.w + gap || a.y >= b.y + b.h + gap || b.y >= a.y + a.h + gap;
+
+/** One candidate composed with the rest of the outfit: its own box, the others' and the stage. */
+export type SwapCandidateLayout = Readonly<{
+  box: SwapBox;
+  others: readonly SwapBox[];
+  stageWidth: number;
+  stageHeight: number;
+}>;
+
+/**
+ * The slot's grow scale for one enlargement: the largest scale in 0.01 steps up to
+ * `SWAP_GROW_MAX` at which every candidate, composed with the rest of the outfit and grown on
+ * its stage, clears every stepped-back piece by `spacing.sm`; never under `SWAP_GROW_MIN`.
+ */
+export function swapGrowScale(layouts: readonly SwapCandidateLayout[]): number {
+  let fit = SWAP_GROW_MAX;
+  for (const { box, others, stageWidth, stageHeight } of layouts) {
+    const back = others.map((other) => swapScaledBox(other, SWAP_STEP_BACK));
+    let best = 1;
+    for (let step = 101; step <= SWAP_GROW_MAX * 100; step += 1) {
+      const grown = swapGrownBox(box, step / 100, stageWidth, stageHeight);
+      if (!back.every((other) => apart(grown, other, spacing.sm))) break;
+      best = step / 100;
+    }
+    fit = Math.min(fit, best);
+  }
+  return Math.max(SWAP_GROW_MIN, fit);
+}
+
+/**
+ * The stage held for one enlargement: the tallest stage any candidate composes, so a change
+ * never moves the tiles under a tapping finger.
+ */
+export function swapHeldStage(stageHeights: readonly number[]): number {
+  return Math.max(0, ...stageHeights);
+}
+
+/**
+ * The paging window: the grown box widened by a touch target each side, never past the stage
+ * and never into a stepped-back piece standing entirely to one side; the held stage's height.
+ */
+export function swapWindow(
+  grown: SwapBox,
+  steppedBack: readonly SwapBox[],
+  stageWidth: number,
+  heldStage: number,
+): SwapBox & Readonly<{ padLeft: number; padRight: number }> {
+  let left = Math.max(0, grown.x - layout.minimumTouchTarget);
+  let right = Math.min(stageWidth, grown.x + grown.w + layout.minimumTouchTarget);
+  for (const other of steppedBack) {
+    if (other.x + other.w <= grown.x) left = Math.max(left, other.x + other.w);
+    else if (other.x >= grown.x + grown.w) right = Math.min(right, other.x);
+  }
+  return { x: left, y: 0, w: right - left, h: heldStage, padLeft: grown.x - left, padRight: right - (grown.x + grown.w) };
+}
+
+/**
+ * One step on one side: the neighbour waits exactly behind the window's edge on its side, and
+ * a step is never under two touch targets.
+ */
+export function swapStride(grownWidth: number, pad: number): number {
   'worklet';
-  return Math.max(2 * layout.minimumTouchTarget, boxWidth * SWAP_FOCUS_SCALE + spacing.md);
+  return Math.max(2 * layout.minimumTouchTarget, grownWidth + pad);
 }
 
 /** How far a resisted drag shows: 120 pt past an end shows as 37.7 pt at an 88 pt stride. */
@@ -77,30 +169,76 @@ export function swapExitOffset(direction: 1 | -1, shown: number, stride: number)
   return -direction * Math.max(stride, Math.abs(shown) + stride / 2);
 }
 
-/**
- * Drag visuals: the outgoing piece fades as it leaves and the incoming one turns solid
- * exactly at the commit distance, where the label already names it.
- */
-export function swapDragOpacities(shown: number, stride: number): Readonly<{ outgoing: number; incoming: number }> {
-  'worklet';
-  const progress = Math.min(1, Math.abs(shown) / stride);
-  return { outgoing: 1 - progress, incoming: Math.min(1, progress / SWAP_COMMIT_DISTANCE) };
-}
-
 /** An incoming piece's first box: its own size, centred where the slot's piece stood. */
-export function swapEntryBox(from: Box, to: Box): Box {
+export function swapEntryBox(from: SwapBox, to: SwapBox): SwapBox {
   return { x: from.x + from.w / 2 - to.w / 2, y: from.y + from.h / 2 - to.h / 2, w: to.w, h: to.h };
 }
 
 /**
- * The plate while a piece is focused never shrinks below its height at focus start, so the
- * content under the board does not bob on every step; it grows when the stage, the ring or
- * the focus label needs more. At rest it is the composed height.
+ * Where a horizontal drag may start: the enlarged piece with `spacing.md` around it, at least
+ * two targets square, inside the stage.
  */
-export function swapPlateHeight(
-  rest: number,
-  focus: Readonly<{ held: number; stage: number; ringBottom: number; labelHeight: number }> | null,
-): number {
-  if (!focus) return rest;
-  return Math.max(focus.held, focus.stage, focus.ringBottom + spacing.xs + focus.labelHeight);
+export function swapDragZone(grown: SwapBox, heldStage: number): SwapBox {
+  const minimum = 2 * layout.minimumTouchTarget;
+  const w = Math.max(grown.w + 2 * spacing.md, minimum);
+  const h = Math.max(grown.h + 2 * spacing.md, minimum);
+  const x = grown.x + grown.w / 2 - w / 2;
+  const top = Math.max(0, grown.y + grown.h / 2 - h / 2);
+  const bottom = Math.min(heldStage, grown.y + grown.h / 2 + h / 2);
+  return { x, y: top, w, h: bottom - top };
+}
+
+export type SwapStripLayout = Readonly<{
+  tiles: readonly Readonly<{ x: number; y: number }>[];
+  columns: number;
+  rows: number;
+  width: number;
+  height: number;
+  /** The hairline's top-left corner, or null when every tile or none is weather-suitable. */
+  hairline: Readonly<{ x: number; y: number }> | null;
+}>;
+
+/**
+ * The candidate grid under the enlarged piece: 44 pt tiles `spacing.sm` apart, left-aligned,
+ * seven a row (356 pt) or as many as a narrower column holds, as many rows as the slot needs
+ * and never a sideways scroller. The weather-suitable pieces come first; a hairline stands in
+ * the gap before the first other piece or, when that piece starts a row, after the last tile
+ * of the row above.
+ */
+export function swapStripLayout(count: number, suitableCount: number, columnWidth: number): SwapStripLayout {
+  const tile = layout.minimumTouchTarget;
+  const pitch = tile + spacing.sm;
+  const columns = Math.max(1, Math.min(SWAP_STRIP_COLUMNS, Math.floor((columnWidth + spacing.sm) / pitch)));
+  const tiles = Array.from({ length: count }, (_, index) => ({
+    x: (index % columns) * pitch,
+    y: Math.floor(index / columns) * pitch,
+  }));
+  const rows = Math.ceil(count / columns);
+  const width = columns * pitch - spacing.sm;
+  const height = rows > 0 ? rows * tile + (rows - 1) * spacing.sm : 0;
+  let hairline: SwapStripLayout['hairline'] = null;
+  if (suitableCount > 0 && suitableCount < count) {
+    const first = tiles[suitableCount];
+    const top = (tile - SWAP_HAIRLINE_LENGTH) / 2;
+    hairline = first.x > 0
+      ? { x: first.x - spacing.sm / 2 - borderWidths.subtle / 2, y: first.y + top }
+      : { x: (columns - 1) * pitch + tile + spacing.sm / 2 - borderWidths.subtle / 2, y: first.y - pitch + top };
+  }
+  return { tiles, columns, rows, width, height, hairline };
+}
+
+/**
+ * Where the strip's marker stands while a drag moves between two tiles: it travels with the
+ * finger within a row and waits on its tile when the step crosses a row, so it never slides
+ * diagonally under the finger.
+ */
+export function swapMarkerPosition(
+  from: Readonly<{ x: number; y: number }>,
+  to: Readonly<{ x: number; y: number }> | null,
+  progress: number,
+): Readonly<{ x: number; y: number }> {
+  'worklet';
+  if (!to || to.y !== from.y) return { x: from.x, y: from.y };
+  const t = Math.min(1, Math.max(0, progress));
+  return { x: from.x + (to.x - from.x) * t, y: from.y };
 }

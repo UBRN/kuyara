@@ -2,6 +2,7 @@ import type {
   OutfitCompositionReasonCode,
   OutfitSlot,
 } from '@/features/recommendation/domain/outfit-composition';
+import type { SwappableSlot } from '@/features/recommendation/domain/manual-mix';
 import type { RecommendationPhase } from '@/features/recommendation/application/recommendation-application-controller';
 import type { ClothingRequirementReasonCode } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 import type { WeatherAlertOfferReason } from '@/features/notifications/domain/weather-alert-offer';
@@ -140,7 +141,8 @@ export type TodayMessages = Readonly<{
   // spoken or visible sentence is whole per language, never assembled from fragments.
   manualMix: Readonly<{
     change: string;
-    changeAccessibilityLabel: (values: { slot: string; piece: string }) => string;
+    /** One whole sentence per changeable slot, never a slot name inflected in place. */
+    changeAccessibilityLabel: Readonly<Record<SwappableSlot, (piece: string) => string>>;
     changed: string;
     title: string;
     changedFrom: (archetype: string) => string;
@@ -153,8 +155,8 @@ export type TodayMessages = Readonly<{
     pickerCurrent: string;
     counter: (position: number, total: number) => string;
     pieceValue: (values: { piece: string; position: number; total: number }) => string;
-    previousPiece: string;
-    nextPiece: string;
+    /** Phase 7b: ends the enlargement from the strip's header. */
+    done: string;
     /** The source sentence after one changed piece, per generation mode; no AI words in deterministic. */
     sourceOne: Readonly<{ onDeviceAi: string; aiAssisted: string; deterministic: string }>;
     /** The same after two or more changed pieces. */
@@ -1387,7 +1389,14 @@ const en = {
     editPieceAccessibilityHint: 'Opens this piece in your Closet',
     manualMix: {
       change: 'Change',
-      changeAccessibilityLabel: ({ slot, piece }) => `Change ${slot}, now ${piece}`,
+      changeAccessibilityLabel: {
+        primary_top: (piece) => `Change the top, now ${piece}`,
+        bottom: (piece) => `Change the bottom, now ${piece}`,
+        one_piece: (piece) => `Change the one-piece, now ${piece}`,
+        mid_layer: (piece) => `Change the mid layer, now ${piece}`,
+        outer_layer: (piece) => `Change the outer layer, now ${piece}`,
+        footwear: (piece) => `Change the footwear, now ${piece}`,
+      },
       changed: 'Changed',
       title: 'Your outfit',
       changedFrom: (archetype) => `Changed from ${archetype}`,
@@ -1400,8 +1409,7 @@ const en = {
       pickerCurrent: 'Current',
       counter: (position, total) => `${position} / ${total}`,
       pieceValue: ({ piece, position, total }) => `${piece}, ${position} of ${total}`,
-      previousPiece: 'Previous piece',
-      nextPiece: 'Next piece',
+      done: 'Done',
       sourceOne: {
         onDeviceAi: 'You changed a piece. kuyara chose the rest on your device with Apple Intelligence.',
         aiAssisted: 'You changed a piece. kuyara chose the rest with online AI.',
@@ -2253,7 +2261,14 @@ const tr = {
     editPieceAccessibilityHint: 'Bu parçayı Gardırobunda açar',
     manualMix: {
       change: 'Değiştir',
-      changeAccessibilityLabel: ({ slot, piece }) => `${slot} parçasını değiştir, şu an ${piece}`,
+      changeAccessibilityLabel: {
+        primary_top: (piece) => `Üstü değiştir, şu an ${piece}`,
+        bottom: (piece) => `Altı değiştir, şu an ${piece}`,
+        one_piece: (piece) => `Tek parçayı değiştir, şu an ${piece}`,
+        mid_layer: (piece) => `Orta katmanı değiştir, şu an ${piece}`,
+        outer_layer: (piece) => `Dış katmanı değiştir, şu an ${piece}`,
+        footwear: (piece) => `Ayakkabıyı değiştir, şu an ${piece}`,
+      },
       changed: 'Değişti',
       title: 'Senin kombinin',
       changedFrom: (archetype) => `${archetype} önerisinden değiştirildi`,
@@ -2266,8 +2281,7 @@ const tr = {
       pickerCurrent: 'Şu anki',
       counter: (position, total) => `${position} / ${total}`,
       pieceValue: ({ piece, position, total }) => `${piece}, ${total} parçadan ${position}`,
-      previousPiece: 'Önceki parça',
-      nextPiece: 'Sonraki parça',
+      done: 'Bitti',
       sourceOne: {
         onDeviceAi: 'Bir parçayı sen değiştirdin. Kalanını kuyara, cihazında Apple Intelligence ile seçti.',
         aiAssisted: 'Bir parçayı sen değiştirdin. Kalanını kuyara çevrimiçi AI ile seçti.',

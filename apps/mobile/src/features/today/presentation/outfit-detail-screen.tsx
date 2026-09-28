@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { AccessibilityInfo, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, {
   runOnJS,
@@ -8,6 +8,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   AppText,
@@ -45,6 +46,7 @@ import {
   createTodayPresentation,
 } from '@/features/today/presentation/today-presentation';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
+import { useStableValue } from '@/hooks/use-stable-value';
 import type { TodayScreenState } from '@/features/today/model';
 import {
   matchPieceOwnership,
@@ -74,6 +76,10 @@ const BADGE_GLYPH_SIZE = 16;
 const SWATCH_DOT_SIZE = 16;
 // A tap outside the board ends the focus only when the finger did not travel: a scroll keeps it.
 const OUTSIDE_TAP_SLOP = 10;
+// The bars over the scroll view when the strip is revealed: the navigation bar's and the tab
+// bar's content heights, above the safe areas.
+const NAVIGATION_BAR_HEIGHT = 44;
+const TAB_BAR_HEIGHT = 49;
 
 const matchIcons: Readonly<Record<Exclude<PieceOwnershipMatch['kind'], 'none'>, IconName>> = {
   owned: 'check',
@@ -105,7 +111,7 @@ type OutfitDetailScreenProps = Readonly<{
    * Absent, the pieces cannot change.
    */
   manualMix?: ManualMix<RecommendedOutfit> | null;
-  /** Phase 7: a board piece is focused, so the route turns the full-screen back swipe off. */
+  /** Phase 7: a board piece is enlarged, so the route turns the full-screen back swipe off. */
   onBoardFocusChange?: (focused: boolean) => void;
 }>;
 
@@ -235,6 +241,10 @@ export function OutfitDetailScreen({
   // After the first change, replaced rows and sentences fade in; nothing fades on opening.
   const [everChanged, setEverChanged] = useState(false);
   const [shownChangedFrom, setShownChangedFrom] = useState<string | null>(null);
+  // "Changed from" changes the height above the board, so it waits for a still board.
+  const [boardAtRest, setBoardAtRest] = useState(true);
+  const boardRef = useRef<View>(null);
+  const insets = useSafeAreaInsets();
   // Phase 8: the tour brings the first piece row about a third of the way down the screen.
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const scrollOffset = useScrollOffset(scrollRef);
@@ -255,16 +265,13 @@ export function OutfitDetailScreen({
       ? presentation.suggestions.find(({ id }) => id === suggestionId)
       : undefined;
   // O15 and Phase 7: the pieces kuyara still chose keep their colours after a
-  // change; only a changed piece is coloured afresh.
-  const paletteKey = suggestion ? JSON.stringify([suggestion.palette, suggestion.keptColors]) : null;
-  const palette = useMemo(() => {
-    if (!suggestion) return null;
-    return suggestion.keptColors
+  // change; only a changed piece is coloured afresh. The suggestion is rebuilt on every
+  // render, so the palette keeps one instance per content.
+  const palette = useStableValue(suggestion
+    ? suggestion.keptColors
       ? keepGarmentColors(suggestion.keptColors.original, suggestion.palette, suggestion.keptColors.slots)
-      : suggestion.palette;
-    // `paletteKey` stands for both inputs; the suggestion object is rebuilt on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paletteKey]);
+      : suggestion.palette
+    : null);
   // The finishing touches and the piece rows keep the colours the outfit's palette gave
   // them on Today (O15).
   const pieceRoles = useGarmentRoles(palette);
@@ -315,10 +322,14 @@ export function OutfitDetailScreen({
     }
     wasUnusual.current = unusual;
   }, [copy.manualMix.unusualAccessibilityLabel, unusual]);
-  // The "changed from" line keeps its words while it collapses after a reset.
+  // The "changed from" line keeps its words while it collapses after a reset, and opens or
+  // closes only while the board is still: never while a piece is enlarged or moving.
   if (suggestion?.changedFrom && suggestion.changedFrom !== shownChangedFrom) {
     setShownChangedFrom(suggestion.changedFrom);
   }
+  const [changedFromShown, setChangedFromShown] = useState(suggestion?.changedFrom != null);
+  const changedFromWanted = suggestion?.changedFrom != null;
+  if (boardAtRest && changedFromShown !== changedFromWanted) setChangedFromShown(changedFromWanted);
 
   // The board's step is stable across renders, so a render mid-drag never rebuilds its gestures.
   const choose = manualMix?.choose;
@@ -373,8 +384,8 @@ export function OutfitDetailScreen({
   const candidates = Object.fromEntries(suggestion.boardPieces.map(({ slot, garmentTypeId, category }) => [
     slot,
     manualMix?.candidates[slot as SwappableSlot]?.map((candidate) => ({
-      garmentTypeId: candidate.garmentTypeId, category: categoryOf(candidate.garmentTypeId),
-    })) ?? [{ garmentTypeId, category }],
+      garmentTypeId: candidate.garmentTypeId, category: categoryOf(candidate.garmentTypeId), suitable: candidate.suitable,
+    })) ?? [{ garmentTypeId, category, suitable: true }],
   ]));
   const garmentIn = (slot: OutfitSlot) =>
     suggestion.boardPieces.find((piece) => piece.slot === slot)?.garmentTypeId;
@@ -394,6 +405,17 @@ export function OutfitDetailScreen({
   const reset = () => {
     setFocusedSlot(null);
     manualMix?.reset();
+  };
+  // An enlargement brings the strip into view by the least scroll that shows it, never so far
+  // that the enlarged piece leaves the top.
+  const revealStrip = ({ pieceTop, panelBottom }: Readonly<{ pieceTop: number; panelBottom: number }>) => {
+    boardRef.current?.measureInWindow((_x, boardTop) => {
+      const visibleBottom = windowHeight - insets.bottom - TAB_BAR_HEIGHT;
+      const visibleTop = insets.top + NAVIGATION_BAR_HEIGHT;
+      const needed = boardTop + panelBottom + spacing.md - visibleBottom;
+      const delta = Math.min(needed, Math.max(0, boardTop + pieceTop - visibleTop));
+      if (delta > 0) scrollRef.current?.scrollTo({ animated: true, y: scrollOffset.get() + delta });
+    });
   };
 
   const captionLayouts = new Map(boardLayout.boxes.map((box) => [box.slot, createDetailCaptionLayout(box, contentWidth)]));
@@ -447,6 +469,21 @@ export function OutfitDetailScreen({
     );
   };
 
+  // The hint names the gesture until the first change; the strip takes its place while a
+  // piece is enlarged.
+  const boardHint = (
+    <View testID="outfit-detail-edit-hint">
+      <Entrance>
+        <View style={styles.boardLine}>
+          <Icon color={theme.colors.iconSecondary} name="info" size={16} />
+          <AppText colorRole="textSecondary" style={styles.flexText} variant="caption">
+            {copy.boardHint}
+          </AppText>
+        </View>
+      </Entrance>
+    </View>
+  );
+
   const boardOverlay = (
     <>
       {boardLayout.boxes.map(renderBadge)}
@@ -474,17 +511,18 @@ export function OutfitDetailScreen({
         testID="outfit-detail-content">
 
         {/* ADR 0021: three equal options, so the title carries no emphasis pill. Phase 7,
-            after a change the title is the reader's and says where it came from. */}
+            after a change the title is the reader's and says where it came from.
+            The title changes in place at once; "Changed from" waits for a still board. */}
         <View style={styles.headingGroup} testID="outfit-detail-heading-group">
           <CrossfadeTitle title={suggestion.title} />
-          <Presence testID="outfit-detail-changed-from" visible={suggestion.changedFrom !== null}>
+          <Presence testID="outfit-detail-changed-from" visible={changedFromShown}>
             <AppText colorRole="textSecondary" style={styles.changedFrom} variant="body">
               {suggestion.changedFrom ?? shownChangedFrom}
             </AppText>
           </Presence>
         </View>
 
-        <View onTouchStart={() => { boardTouched.current = true; }} style={styles.boardPlate}>
+        <View onTouchStart={() => { boardTouched.current = true; }} ref={boardRef} style={styles.boardPlate}>
           <GarmentSwapBoard
             candidates={candidates}
             captionRects={captionRects}
@@ -494,15 +532,19 @@ export function OutfitDetailScreen({
               fromStageRadius: 26,
             }}
             focusedSlot={focusedSlot}
+            hint={boardHint}
+            hintVisible={!changed}
             labels={{
               pieceName,
               slotName: (slot) => copy.slots[slot],
               counter: copy.manualMix.counter,
               pieceValue: (piece, position, total) => copy.manualMix.pieceValue({ piece, position, total }),
-              previous: copy.manualMix.previousPiece,
-              next: copy.manualMix.nextPiece,
+              done: copy.manualMix.done,
+              otherHint: copy.manualMix.pickerOtherHint,
             }}
             onFocusChange={setFocusedSlot}
+            onRestChange={setBoardAtRest}
+            onReveal={revealStrip}
             onStep={onBoardStep}
             overlay={boardOverlay}
             overlayTestID="outfit-detail-caption-overlay"
@@ -517,18 +559,8 @@ export function OutfitDetailScreen({
           />
         </View>
 
-        {/* The hint names the gesture until the first change; the unusual note is a status in
-            its own glyph and ink, and the two never stand together. */}
-        <Presence testID="outfit-detail-edit-hint" visible={!changed}>
-          <Entrance>
-            <View style={styles.boardLine}>
-              <Icon color={theme.colors.iconSecondary} name="info" size={16} />
-              <AppText colorRole="textSecondary" style={styles.flexText} variant="caption">
-                {copy.boardHint}
-              </AppText>
-            </View>
-          </Entrance>
-        </Presence>
+        {/* The unusual note is a status in its own glyph and ink; it stands only after a
+            change, when the hint has gone, so the two never stand together. */}
         <Presence testID="outfit-detail-unusual" visible={unusual}>
           <View style={styles.boardLine}>
             <Icon color={theme.colors.warningInk} name="warning" size={16} />
@@ -669,7 +701,7 @@ export function OutfitDetailScreen({
               );
               const change = manualMix ? (
                 <Button
-                  accessibilityLabel={copy.manualMix.changeAccessibilityLabel({ slot: piece.slot, piece: piece.item })}
+                  accessibilityLabel={copy.manualMix.changeAccessibilityLabel[slot as SwappableSlot](piece.item)}
                   label={copy.manualMix.change}
                   onPress={() => openPicker(slot as SwappableSlot)}
                   size="medium"

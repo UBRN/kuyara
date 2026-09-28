@@ -1,6 +1,6 @@
 // React Compiler (`experiments.reactCompiler`) memoizes a component only when it can compile
 // it, and it skips a whole component for a construct it cannot lower, such as a `finally`
-// clause anywhere in its body. A skipped component re-renders its entire subtree whenever it
+// clause anywhere in its body, or a suppressed hooks lint rule. A skipped component re-renders its entire subtree whenever it
 // renders: TodayRoute did, and Today drew on every navigation commit (measured 2026-09-29).
 // Jest does not run the compiler, so a render count cannot see that; this test compiles the
 // screens on the Today and Weather tabs with the compiler's own logger and fails on any bail-out.
@@ -16,6 +16,9 @@ const files = [
   'app/(tabs)/weather/index.tsx',
   'features/today/presentation/today-screen.tsx',
   'features/weather/presentation/weather-screen.tsx',
+  // Phase 7b: a piece change re-renders the whole outfit detail when either is skipped.
+  'features/today/presentation/outfit-detail-screen.tsx',
+  'components/ui/garment-board/garment-swap-board.tsx',
 ];
 
 const report = JSON.parse(execFileSync(
