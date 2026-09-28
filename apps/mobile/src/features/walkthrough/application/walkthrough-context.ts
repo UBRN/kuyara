@@ -38,8 +38,9 @@ export const TourTargetsContext = createContext<TourTargetRegistry | null>(null)
  * SwiftUI host's RNHostView is the layout root there), and iOS draws a medium-detent sheet
  * inset and scaled, so no exact window frame exists in JavaScript. The sheet scope moves a
  * frame to an approximate window position, used only to aim the bubble's tail and VoiceOver's
- * stand-in; the ring and the blocking happen inside the sheet, in its own space.
+ * stand-in; the ring and the blocking happen inside the sheet, in its own space. Until the
+ * sheet has laid out (`ready`), no window position exists and nothing inside it registers.
  */
-export type TourSheetGeometry = Readonly<{ toWindow: (rect: TourRect) => TourRect }>;
+export type TourSheetGeometry = Readonly<{ ready: boolean; toWindow: (rect: TourRect) => TourRect }>;
 
 export const TourSheetContext = createContext<TourSheetGeometry | null>(null);

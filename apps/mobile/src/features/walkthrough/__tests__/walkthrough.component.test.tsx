@@ -1,6 +1,6 @@
 import { act, fireEvent, render, within } from '@testing-library/react-native';
 import { use, useEffect, useSyncExternalStore, type ReactNode } from 'react';
-import { AccessibilityInfo } from 'react-native';
+import { AccessibilityInfo, Dimensions, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { NotificationApplicationValue } from '@/features/notifications/application/notification-context';
@@ -11,6 +11,7 @@ import {
 } from '@/features/profile/application/profile-context';
 import type { LocalProfile } from '@/features/profile/domain/profile';
 import { SettingsScreen } from '@/features/profile/presentation/settings-screen';
+import { TourSheetScope, TourTarget } from '@/features/walkthrough/application/tour-target';
 import {
   TourTargetRegistry,
   type TourRect,
@@ -20,6 +21,7 @@ import { WalkthroughController } from '@/features/walkthrough/application/walkth
 import {
   TourTargetsContext,
   useWalkthrough,
+  WalkthroughContext,
   type WalkthroughTodayFacts,
 } from '@/features/walkthrough/application/walkthrough-context';
 import {
@@ -388,6 +390,66 @@ test('the stand-in performs a screen\'s registered action, the system back or th
   expect(outfit).toHaveBeenCalledTimes(1);
   expect(navigation.back).toHaveBeenCalledTimes(1);
   expect(navigation.navigate).toHaveBeenCalledWith('/profile');
+});
+
+// Build 16, step 3: the piece sheet lays its content out only after it mounts. The tour
+// measured the step as soon as the sheet's Close registered, before the sheet knew where it
+// starts, and the frame that came later told it nothing: the bubble centred over the sheet.
+test('the piece sheet offers Close and its area only once it has laid out, and again when it moves', async () => {
+  // The Simulator's frames: the sheet's content 16 points under its top, Close 16 in.
+  let sheetFrame: TourRect | null = null;
+  const measure = jest.spyOn(View.prototype as unknown as { measureInWindow: View['measureInWindow'] }, 'measureInWindow')
+    .mockImplementation(function measureInWindow(this: View, callback) {
+      const props = (this as unknown as { props: { testID?: string; children?: { props?: { testID?: string } } } }).props;
+      if (props.testID === 'walkthrough-sheet-scope') {
+        const frame = sheetFrame ?? rect(0, 0, 0, 0);
+        callback(frame.x, frame.y, frame.width, frame.height);
+      } else if (props.children?.props?.testID === 'sheet-close-control') {
+        callback(16, 16, 44, 44);
+      }
+    });
+  const registry = new TourTargetRegistry();
+  const emitted: TourTargetId[] = [];
+  registry.subscribe((id) => emitted.push(id));
+  const walkthrough = { active: true, sheetStep: true, restart: () => undefined, reportToday: () => undefined };
+  const result = await render(shell(
+    <TourTargetsContext value={registry}>
+      <WalkthroughContext value={walkthrough}>
+        <TourSheetScope>
+          <TourTarget id="sheet-close" label="Close"><View testID="sheet-close-control" /></TourTarget>
+        </TourSheetScope>
+      </WalkthroughContext>
+    </TourTargetsContext>,
+  ));
+  const window = Dimensions.get('window');
+  const layout = async (frame: TourRect) => {
+    sheetFrame = frame;
+    await act(async () => {
+      fireEvent(result.getByTestId('walkthrough-sheet-scope'), 'layout', {
+        nativeEvent: { layout: { x: 0, y: 0, width: frame.width, height: frame.height } },
+      });
+    });
+  };
+
+  // Mounted, and laid out before the sheet has a size: nothing for the tour to measure yet.
+  await layout(rect(0, 0, 0, 0));
+  expect(registry.has('sheet-close')).toBe(false);
+  expect(registry.has('sheet-area')).toBe(false);
+
+  // At the medium detent the sheet starts under its 373 points, the bottom inset and the edge.
+  await layout(rect(0, 16, 393, 373));
+  const mediumTop = window.height - 8 - 34 - (16 + 373);
+  expect(await registry.get('sheet-area')?.measure()).toEqual(rect(0, mediumTop, window.width, window.height - mediumTop));
+  expect(await registry.get('sheet-close')?.measure()).toEqual(rect(16, mediumTop + 16, 44, 44));
+
+  // Dragged to the large detent: the area registers again, so a shown step measures again.
+  emitted.length = 0;
+  await layout(rect(0, 16, 393, 740));
+  const largeTop = window.height - 8 - 34 - (16 + 740);
+  expect(emitted).toContain('sheet-area');
+  expect(await registry.get('sheet-area')?.measure()).toEqual(rect(0, largeTop, window.width, window.height - largeTop));
+  expect(await registry.get('sheet-close')?.measure()).toEqual(rect(16, largeTop + 16, 44, 44));
+  measure.mockRestore();
 });
 
 // Review finding 3: exhausted recommendations draw no "Ask the stylist again".
