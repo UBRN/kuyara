@@ -207,8 +207,8 @@ test('weather alerts cancel before planning, schedule localized copy, persist, a
     'cancel',
     'delete-pending',
     'list-fired',
-    'schedule:precipitation_onset:manual:sample.istanbul:2026-09-09',
-    'schedule:temperature_swing:manual:sample.istanbul:2026-09-09',
+    'schedule:precipitation_onset:manual:sample.istanbul:2026-09-09:evening',
+    'schedule:temperature_swing:manual:sample.istanbul:2026-09-09:evening',
     'upsert',
     'prune',
   ]);
@@ -257,8 +257,8 @@ test('the morning briefing is scheduled beside the alerts, on its own opt-in', a
   });
 
   assert.deepEqual(both.scheduled.map(({ identifier }) => identifier), [
-    'precipitation_onset:manual:sample.istanbul:2026-09-09',
-    'temperature_swing:manual:sample.istanbul:2026-09-09',
+    'precipitation_onset:manual:sample.istanbul:2026-09-09:evening',
+    'temperature_swing:manual:sample.istanbul:2026-09-09:evening',
     'morning_briefing:2026-09-10',
   ]);
   assert.deepEqual(both.scheduled.at(-1), {
@@ -268,8 +268,8 @@ test('the morning briefing is scheduled beside the alerts, on its own opt-in', a
     body: 'A cloudy morning at 11\u00b0C. Your outfit for today is waiting in kuyara.',
   });
   assert.deepEqual(both.upserted[0].map(({ id }) => id), [
-    'precipitation_onset:manual:sample.istanbul:2026-09-09',
-    'temperature_swing:manual:sample.istanbul:2026-09-09',
+    'precipitation_onset:manual:sample.istanbul:2026-09-09:evening',
+    'temperature_swing:manual:sample.istanbul:2026-09-09:evening',
     'morning_briefing:2026-09-10',
   ]);
 
@@ -449,7 +449,7 @@ test('rescheduling before 07:00 keeps this morning, after 07:00 plans tomorrow, 
 
 test('weather alerts suppress identities whose ledger fire time has passed', async () => {
   const firedIds = new Set([
-    'precipitation_onset:manual:sample.istanbul:2026-09-09',
+    'precipitation_onset:manual:sample.istanbul:2026-09-09:evening',
   ]);
   const harness = createSchedulerHarness({ firedIds });
 
@@ -457,11 +457,11 @@ test('weather alerts suppress identities whose ledger fire time has passed', asy
 
   assert.deepEqual(
     harness.scheduled.map(({ identifier }) => identifier),
-    ['temperature_swing:manual:sample.istanbul:2026-09-09'],
+    ['temperature_swing:manual:sample.istanbul:2026-09-09:evening'],
   );
   assert.deepEqual(
     harness.upserted[0].map(({ id }) => id),
-    ['temperature_swing:manual:sample.istanbul:2026-09-09'],
+    ['temperature_swing:manual:sample.istanbul:2026-09-09:evening'],
   );
 });
 
@@ -669,6 +669,43 @@ test('the ledger records only the alerts the OS accepted', async () => {
 
   assert.deepEqual(
     harness.upserted[0].map(({ id }) => id),
-    ['precipitation_onset:manual:sample.istanbul:2026-09-09'],
+    ['precipitation_onset:manual:sample.istanbul:2026-09-09:evening'],
   );
+});
+
+test('an opt-out queued behind a failing run still runs, and the caller still sees the failure', async () => {
+  const cancelled = [];
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  let failed = false;
+  const scheduler = new WeatherAlertScheduler({
+    cancelScheduledWeatherAlerts: async (kind) => {
+      cancelled.push(kind ?? 'all');
+      await gate;
+      return true;
+    },
+    scheduleWeatherAlert: async () => true,
+  }, {
+    deletePending: async () => {
+      if (!failed) {
+        failed = true;
+        throw new Error('sqlite busy');
+      }
+    },
+    listFiredIds: async () => new Set(),
+    upsertScheduled: async () => undefined,
+    pruneBefore: async () => undefined,
+  }, () => '2026-09-09T15:00:00.000Z');
+
+  const first = scheduler.reschedule(enabledInput);
+  const optOut = scheduler.reschedule({
+    ...enabledInput, weatherAlertsEnabled: false, morningBriefingEnabled: false,
+  });
+  const settled = Promise.allSettled([first, optOut]);
+  release();
+  const results = await settled;
+
+  assert.equal(results[0].status, 'rejected');
+  assert.equal(results[1].status, 'rejected');
+  assert.deepEqual(cancelled, ['all', 'all']);
 });

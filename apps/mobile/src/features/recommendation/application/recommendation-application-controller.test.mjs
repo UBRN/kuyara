@@ -1072,3 +1072,29 @@ test('a superseded refresh does not flip the phase of the one the user is waitin
   await superseded;
   assert.equal(controller.getSnapshot().phase, null);
 });
+
+test('joining a superseded in-flight refresh leaves the controller settled when it finishes', async () => {
+  let releaseFirst;
+  let call = 0;
+  const { controller } = createHarness({
+    client: {
+      recommendRouted: async (request) => {
+        call += 1;
+        if (call === 1) await new Promise((resolve) => { releaseFirst = resolve; });
+        return mapWorkerAiRecommendation(request, workerResponse(request), 'ai-assisted');
+      },
+    },
+  });
+  await controller.initialize();
+
+  const first = controller.refresh('first-recommendation', input(16));
+  await controller.refresh('explicit', input(24));
+  const joined = controller.refresh('first-recommendation', input(16));
+  assert.equal(call, 2);
+  assert.equal(controller.getSnapshot().isRefreshing, true);
+
+  releaseFirst();
+  await Promise.all([first, joined]);
+
+  assert.equal(controller.getSnapshot().isRefreshing, false);
+});

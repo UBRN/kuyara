@@ -193,3 +193,22 @@ test('departure zones accept IANA names but reject numeric offsets and abbreviat
     assert.equal(departureTimeZoneSchema.safeParse(zone).success, false, zone);
   }
 });
+
+test('an invalid same-day row reads as absent and can be overwritten or deleted, with its photo cleaned up', async (t) => {
+  const db = await setup(t);
+  const deleted = [];
+  const photoPath = `kuyara/history/photos/${randomUUID()}.jpg`;
+  const photos = { copyStaged: async () => photoPath, discardStaged: async () => {},
+    deleteStored: async (path) => { deleted.push(path); }, resolveUri: () => null };
+  const repo = new SqliteOutfitHistoryRepository(db, randomUUID, () => now, photos);
+  await repo.log(profileId, '2026-09-07', first, { kind: 'replace', stagedUri: 'stage' });
+  await repo.log(profileId, '2026-09-08', first, { kind: 'replace', stagedUri: 'stage' });
+  await db.runAsync(`UPDATE outfit_history SET outfit_json = ?`, ['{"garments":"invalid"}']);
+
+  assert.equal(await repo.get(profileId, '2026-09-07'), null);
+  const overwritten = await repo.log(profileId, '2026-09-07', second, { kind: 'remove' });
+  assert.equal(overwritten.outfit.source, 'manual');
+  assert.equal(deleted.at(-1), photoPath);
+  assert.equal(await repo.softDelete(profileId, '2026-09-08'), true);
+  assert.equal(deleted.length, 2);
+});

@@ -63,8 +63,15 @@ export function createWeatherHandler(
       return errorResponse(405, 'method_not_allowed', { Allow: 'POST' });
     }
     const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
-    const { success } = await dependencies.rateLimiter?.limit({ key: `weather:${ip}` })
-      ?? { success: true };
+    let success: boolean;
+    try {
+      ({ success } = await dependencies.rateLimiter?.limit({ key: `weather:${ip}` })
+        ?? { success: true });
+    } catch {
+      // A failing binding answers in the route's own closed code; no error text is logged.
+      console.warn({ event: 'rate_limiter_error', route: url.pathname, limiter: 'weather_burst' });
+      return errorResponse(503, 'weather_unavailable');
+    }
     if (!success) {
       console.warn({ event: 'rate_limited', route: url.pathname, limiter: 'weather_burst' });
       return errorResponse(429, 'rate_limited', { 'Retry-After': '60' });

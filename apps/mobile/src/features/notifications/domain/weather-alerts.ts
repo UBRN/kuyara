@@ -116,7 +116,11 @@ export function planWeatherAlerts(input: Readonly<{
     // One alert per rule per location per dressing-day window. A day-period key is the bare
     // local date, byte-identical to every id already in the delivery ledger, so nothing that
     // has fired re-fires after the update; the evening keeps a namespace of its own.
-    const id = `${ruleId}:${snapshot.locationKey}:${windowKey}`;
+    // The id follows the dressing day the crossing itself falls in: the day window runs to
+    // midnight, so a 19:00 crossing planned at 10:00 already wears the evening namespace and
+    // the replan after 18:00 finds it in the ledger instead of announcing it a second time.
+    const crossingKey = wardrobeDayWindow(crossing.forecastAt, snapshot.timeZone)?.key ?? windowKey;
+    const id = `${ruleId}:${snapshot.locationKey}:${crossingKey}`;
     const crossingAt = Date.parse(crossing.forecastAt);
     const leadTimeMinutes = crossingAt - now < weatherAlertLeadTimeMinutes * minuteMilliseconds
       ? shortenedLeadTimeMinutes

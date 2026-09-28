@@ -242,3 +242,17 @@ test('maps WeatherProviderError to sanitized weather_unavailable', async () => {
   assert.deepEqual(body, { error: { code: 'weather_unavailable' } });
   assert.equal(JSON.stringify(body).includes('auth'), false);
 });
+
+test('a failing rate-limit binding answers a stable weather_unavailable, not a thrown error', async (t) => {
+  const warnings = [];
+  t.mock.method(console, 'warn', (entry) => warnings.push(entry));
+  const handler = createWeatherHandler({
+    provider: { fetchWeather: async () => null },
+    rateLimiter: { limit: async () => { throw new Error('binding down'); } },
+  });
+
+  for (const path of ['/v1/weather', '/v2/weather']) {
+    await assertError(await handler(request(path)), 503, 'weather_unavailable');
+  }
+  assert.equal(JSON.stringify(warnings).includes('binding down'), false);
+});

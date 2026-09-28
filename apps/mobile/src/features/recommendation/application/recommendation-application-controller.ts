@@ -430,7 +430,16 @@ export class RecommendationApplicationController {
         field === 'coverageStart' || field === 'coverageEnd' ? undefined : value),
     });
     const existing = this.refreshes.get(key);
-    if (existing) return existing;
+    if (existing) {
+      // The joined request may have been superseded meanwhile. It is the one the caller waits
+      // on again, so it must be latest for its own finish to end the refreshing state.
+      if (this.latestRequestKey !== key) {
+        this.latestRequestKey = key;
+        this.pendingSkip = { key, context, input: generationInput, poolOptionIds };
+        this.aiPending = request !== null;
+      }
+      return existing;
+    }
 
     this.latestRequestKey = key;
     this.pendingSkip = { key, context, input: generationInput, poolOptionIds };

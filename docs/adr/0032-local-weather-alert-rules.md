@@ -53,7 +53,9 @@ begun, with an open between midnight and 04:00 still belonging to that evening. 
 comes from `wardrobeDayWindow` in the weather domain, the one place the boundary exists,
 and the clothing requirement engine, the Weather meaning line and Today's rain outlook read
 the same function. An overnight crossing is therefore announceable from the evening before,
-which a calendar day made impossible.
+which a calendar day made impossible. The alert's identity follows the dressing day of its
+crossing, not of `now`: a crossing after 18:00 planned at midday already carries the evening
+identity, so the replan after 18:00 finds it announced.
 
 - **Precipitation onset.** Fires when the current measurement is dry (probability below
   0.6 and a condition outside drizzle, rain, heavy rain, sleet, snow, thunderstorm) and a
@@ -151,9 +153,10 @@ age.
   beyond the window would be a separate decision about what is worth interrupting someone
   for. An open between midnight and 04:00 sees only the hours left in that night, and the
   next window is planned on the first pass after 04:00.
-- A rule can fire twice in one calendar date, once in the day window and once in the
-  evening one. That is the price of giving the evening its own namespace, and it matches
-  what the alert is for: the evening is a second occasion to get dressed.
+- A rule can fire twice in one calendar date, for a crossing of the day and a later crossing
+  of the evening. That is the price of giving the evening its own namespace, and it matches
+  what the alert is for: the evening is a second occasion to get dressed. One crossing is
+  never announced twice.
 - The thresholds are shared numbers, not shared code: the alert module restates 0.6 and
   8 °C as its own named constants and a test pins them to the requirement engine's values
   so the two cannot drift silently.

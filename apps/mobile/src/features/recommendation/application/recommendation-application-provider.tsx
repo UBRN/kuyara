@@ -34,8 +34,10 @@ import { LocalRecommendationRepository } from '@/features/recommendation/data/re
 import { SqliteRecommendationLocalDataSource } from '@/features/recommendation/data/sqlite-recommendation-local-data-source';
 import { SqliteDressingDayChoiceRepository } from '@/features/recommendation/data/sqlite-dressing-day-choice-repository';
 import { SqliteDressingDayDepartureRepository } from '@/features/recommendation/data/sqlite-dressing-day-departure-repository';
-import type { DressingDayDeparture } from '@/features/recommendation/domain/dressing-day-departure';
-import { wardrobeDayWindow } from '@/features/weather/domain/wardrobe-day';
+import {
+  departureDressingDayKey,
+  type DressingDayDeparture,
+} from '@/features/recommendation/domain/dressing-day-departure';
 import { reaskForDressingDay } from '@/features/recommendation/application/reask-for-dressing-day';
 import { resolvedFormality, resolvedStyleAesthetics, type DressingDayChoice, type DressingDayChoiceSource } from '@/features/recommendation/domain/dressing-day-choice';
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
@@ -511,7 +513,7 @@ export function RecommendationApplicationProvider({
     activeDeparture,
     readDeparture: async (dayKey) => (await loadDepartureRepository()).get(localProfileId, dayKey),
     setDeparture: async (departureAt, timeZone) => {
-      const key = wardrobeDayWindow(departureAt, timeZone)?.key;
+      const key = departureDressingDayKey(departureAt);
       if (!key) throw new Error('Invalid departure time or time zone.');
       const value = await (await loadDepartureRepository()).upsert(
         localProfileId, key, departureAt, timeZone);

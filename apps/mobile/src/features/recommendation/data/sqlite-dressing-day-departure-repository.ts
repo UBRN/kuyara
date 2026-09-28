@@ -2,12 +2,12 @@ import { z } from 'zod';
 
 import {
   departureDayKeySchema,
+  departureDressingDayKey,
   departureTimeZoneSchema,
   type DressingDayDeparture,
   type DressingDayDepartureRepository,
 } from '@/features/recommendation/domain/dressing-day-departure';
 import type { SqliteDatabase, SqliteExecutor } from '@/infrastructure/sqlite/sqlite-database';
-import { wardrobeDayWindow } from '@/features/weather/domain/wardrobe-day';
 
 type Row = Readonly<{
   id: string; local_profile_id: string; day_key: string; departure_at: string;
@@ -50,7 +50,7 @@ export class SqliteDressingDayDepartureRepository implements DressingDayDepartur
     departureDayKeySchema.parse(dayKey);
     z.iso.datetime({ offset: true }).parse(departureAt);
     departureTimeZoneSchema.parse(timeZone);
-    if (wardrobeDayWindow(departureAt, timeZone)?.key !== dayKey) {
+    if (departureDressingDayKey(departureAt) !== dayKey) {
       throw new Error('Departure day does not match its dressing day.');
     }
     const now = z.iso.datetime().parse(this.now());

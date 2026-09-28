@@ -5,11 +5,11 @@ import type {
   DressingDayChoice,
   DressingDayChoiceRepository,
 } from '@/features/recommendation/domain/dressing-day-choice';
-import type {
-  DressingDayDeparture,
-  DressingDayDepartureRepository,
+import {
+  departureDressingDayKey,
+  type DressingDayDeparture,
+  type DressingDayDepartureRepository,
 } from '@/features/recommendation/domain/dressing-day-departure';
-import { wardrobeDayWindow } from '@/features/weather/domain/wardrobe-day';
 
 type ReaskRequest = Readonly<{
   formality: DressStyle;
@@ -39,7 +39,7 @@ export async function reaskForDressingDay(
 }>> {
   const { localProfileId, currentDayKey } = dependencies;
   const departureKey = request.departureAt
-    ? wardrobeDayWindow(request.departureAt, request.timeZone)?.key : null;
+    ? departureDressingDayKey(request.departureAt) : null;
   if (request.departureAt && !departureKey) {
     throw new Error('Invalid departure time or time zone.');
   }

@@ -124,11 +124,19 @@ export class WeatherAlertScheduler implements WeatherAlertScheduling {
   }
 
   private async runQueued(): Promise<void> {
+    // A failed run must not strand the input queued behind it: that one may be the opt-out
+    // whose cancellation the failed run never reached. Drain first, then report the first failure.
+    let failure: { error: unknown } | null = null;
     while (this.queuedInput) {
       const input = this.queuedInput;
       this.queuedInput = null;
-      await this.run(input);
+      try {
+        await this.run(input);
+      } catch (error) {
+        failure ??= { error };
+      }
     }
+    if (failure) throw failure.error;
   }
 
   private async run(input: RescheduleInput): Promise<void> {

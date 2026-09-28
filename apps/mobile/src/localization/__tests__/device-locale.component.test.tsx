@@ -1,6 +1,8 @@
 import { act, render } from '@testing-library/react-native';
 import { AppState, NativeModules, Platform, Text } from 'react-native';
 
+import { LocalizationProvider } from '@/localization/localization-provider';
+import { useLocalization } from '@/localization/use-messages';
 import {
   getDeviceTemperatureUnit,
   resolveDeviceHour12,
@@ -89,6 +91,40 @@ test('a mounted iOS unit reader follows fresh native settings on foregrounding',
     expect(getDeviceTemperatureUnit()).toBe('fahrenheit');
     Platform.OS = 'android';
     expect(getDeviceTemperatureUnit()).toBe('celsius');
+  } finally {
+    Platform.OS = originalOS;
+    NativeModules.SettingsManager = originalSettingsManager;
+    appState.mockRestore();
+  }
+});
+
+test('the localization provider re-reads the 12/24-hour switch when the app returns to the foreground', async () => {
+  const originalOS = Platform.OS;
+  const originalSettingsManager = NativeModules.SettingsManager;
+  Platform.OS = 'ios';
+  let force24Hour = false;
+  NativeModules.SettingsManager = {
+    getConstants: () => ({
+      settings: { AppleLanguages: ['en-US'], ...(force24Hour ? { AppleICUForce24HourTime: true } : {}) },
+    }),
+  };
+  let onAppStateChange: ((state: string) => void) | undefined;
+  const appState = jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, callback) => {
+    onAppStateChange = callback as (state: string) => void;
+    return { remove: jest.fn() };
+  });
+
+  function HourReader() {
+    return <Text testID="hour12">{String(useLocalization().hour12)}</Text>;
+  }
+
+  try {
+    const view = await render(<LocalizationProvider><HourReader /></LocalizationProvider>);
+    expect(view.getByTestId('hour12')).toHaveTextContent('true');
+    force24Hour = true;
+    await act(async () => onAppStateChange?.('active'));
+    expect(view.getByTestId('hour12')).toHaveTextContent('false');
+    await view.unmount();
   } finally {
     Platform.OS = originalOS;
     NativeModules.SettingsManager = originalSettingsManager;
