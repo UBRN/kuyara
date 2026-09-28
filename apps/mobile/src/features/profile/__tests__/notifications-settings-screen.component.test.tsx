@@ -23,9 +23,10 @@ function renderScreen(
     onToggleMorningBriefing: (optIn: boolean) => Promise<void>;
   }>,
   language: SupportedLanguage = 'en',
+  hour12 = false,
 ) {
   return render(
-    <LocalizationContext value={{ language, messages: messages[language], hour12: false }}>
+    <LocalizationContext value={{ language, messages: messages[language], hour12 }}>
       <KuyaraThemeContext.Provider value={lightTheme}>
         <SafeAreaProvider initialMetrics={initialMetrics}>
           <NotificationsSettingsScreen
@@ -94,3 +95,21 @@ test('the save error clears on the next successful toggle', async () => {
   });
   expect(result.queryByText(messages.en.settings.saveError)).toBeNull();
 });
+
+// The quiet hours and the briefing's hour are fixed wall-clock times (22:00 to 07:00), but
+// the alerts themselves follow the device's 12 or 24-hour setting, so the copy must too.
+test.each([
+  ['en', false, '22:00', '07:00'],
+  ['en', true, '10:00 pm', '7:00 am'],
+  ['tr', false, '22:00', '07:00'],
+] as const)('%s footers name quiet hours and the briefing on the device clock (hour12 %s)',
+  async (language, hour12, start, end) => {
+    const handlers = { onToggle: jest.fn(async () => undefined), onToggleMorningBriefing: jest.fn(async () => undefined) };
+    const result = await renderScreen(handlers, language, hour12);
+    const copy = messages[language].notifications;
+
+    expect(within(result.getByTestId('settings-notifications-toggle-group'))
+      .getByText(copy.quietHoursHint({ start, end }), { exact: false })).toBeOnTheScreen();
+    expect(within(result.getByTestId('settings-morning-briefing-group'))
+      .getByText(copy.morningBriefing.hint(end), { exact: false })).toBeOnTheScreen();
+  });

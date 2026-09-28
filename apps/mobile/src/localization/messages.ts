@@ -487,7 +487,8 @@ export type AppMessages = Readonly<{
     title: string;
     introduction: string;
     leadTimeHint: string;
-    quietHoursHint: string;
+    /** `start` and `end` arrive formatted for the device's 12 or 24-hour clock. */
+    quietHoursHint: (values: { start: string; end: string }) => string;
     toggleLabel: string;
     statusOn: string;
     statusOff: string;
@@ -498,7 +499,9 @@ export type AppMessages = Readonly<{
      * whether a rule would have fired or the morning briefing would have been scheduled.
      */
     offer: Readonly<{
-      sentences: Readonly<Record<WeatherAlertOfferReason, string>>;
+      sentences: Readonly<Record<Exclude<WeatherAlertOfferReason, 'morning_briefing'>, string>>;
+      /** `time` arrives formatted for the device's 12 or 24-hour clock. */
+      morningBriefingSentence: (time: string) => string;
       acceptAction: string;
       dismissAction: string;
     }>;
@@ -508,7 +511,8 @@ export type AppMessages = Readonly<{
      */
     morningBriefing: Readonly<{
       toggleLabel: string;
-      hint: string;
+      /** `time` arrives formatted for the device's 12 or 24-hour clock. */
+      hint: (time: string) => string;
       title: string;
       /**
        * `low` and `high` arrive already formatted for the language's locale, as the alert
@@ -993,7 +997,7 @@ const en = {
     title: 'Notifications',
     introduction: 'kuyara sends weather alerts for the hours ahead on this device.',
     leadTimeHint: 'An alert arrives up to an hour before rain starts or the temperature swings sharply.',
-    quietHoursHint: 'No alert is sent between 22:00 and 07:00.',
+    quietHoursHint: ({ start, end }) => `No alert is sent between ${start} and ${end}.`,
     toggleLabel: 'Allow notifications',
     statusOn: 'On',
     statusOff: 'Off',
@@ -1003,14 +1007,14 @@ const en = {
       sentences: {
         precipitation_onset: 'kuyara could have warned you before rain or snow started today.',
         temperature_swing: 'kuyara could have warned you before today\u2019s sharp temperature change.',
-        morning_briefing: 'kuyara can send a morning briefing at 07:00 and a weather alert before the weather changes during the day.',
       },
+      morningBriefingSentence: (time) => `kuyara can send a morning briefing at ${time} and a weather alert before the weather changes during the day.`,
       acceptAction: 'Turn on notifications',
       dismissAction: 'Not now',
     },
     morningBriefing: {
       toggleLabel: 'Morning briefing',
-      hint: 'A single notification at 07:00 with the morning\u2019s weather, when tomorrow morning is already in the forecast.',
+      hint: (time) => `A single notification at ${time} with the morning\u2019s weather, when tomorrow morning is already in the forecast.`,
       title: 'Good morning',
       clearBody: ({ low, high }) => (low === high
         ? `A clear morning at ${low}. Your outfit for today is waiting in kuyara.`
@@ -1862,7 +1866,7 @@ const tr = {
     title: 'Bildirimler',
     introduction: 'kuyara bu cihazda, önündeki saatler için hava uyarıları gönderir.',
     leadTimeHint: 'Uyarı, yağmur başlamadan ya da sıcaklık sert değişmeden en çok bir saat önce gelir.',
-    quietHoursHint: '22:00 ile 07:00 arasında uyarı gönderilmez.',
+    quietHoursHint: ({ start, end }) => `${start} ile ${end} arasında uyarı gönderilmez.`,
     toggleLabel: 'Bildirimlere izin ver',
     statusOn: 'Açık',
     statusOff: 'Kapalı',
@@ -1872,14 +1876,14 @@ const tr = {
       sentences: {
         precipitation_onset: 'kuyara bugün yağış başlamadan seni uyarabilirdi.',
         temperature_swing: 'kuyara bugün sıcaklık sert değişmeden seni uyarabilirdi.',
-        morning_briefing: 'kuyara sabah 07:00\u2019de bir brifing, gün içinde hava değişmeden de bir uyarı gönderebilir.',
       },
+      morningBriefingSentence: (time) => `kuyara sabahları bir brifing (saat ${time}), gün içinde hava değişmeden de bir uyarı gönderebilir.`,
       acceptAction: 'Bildirimleri aç',
       dismissAction: 'Şimdi değil',
     },
     morningBriefing: {
       toggleLabel: 'Sabah brifingi',
-      hint: 'Yarın sabah tahminde yer aldığında, 07:00\u2019de sabahın havasını anlatan tek bir bildirim.',
+      hint: (time) => `Yarın sabah tahminde yer aldığında, sabahın havasını anlatan tek bir bildirim (saat ${time}).`,
       title: 'Günaydın',
       clearBody: ({ low, high }) => (low === high
         ? `Açık bir sabah, ${low}. Bugünün kombini kuyara\u2019da seni bekliyor.`

@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 
 import type { GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import { AppText, Button, ChoiceTile, ChoiceTileGrid, GlassButton, NativeSheet } from '@/components/ui';
+import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { spacing } from '@/theme/theme';
 
@@ -76,6 +77,7 @@ export function DailyFormalitySheet({
 }>) {
   const copy = getMessages(language).today.dailyStyle;
   const stylesStep = step === 'styles';
+  useErrorAnnouncement(visible && error ? copy.saveError : null);
   return (
     <NativeSheet onDismiss={onDismiss} size={stylesStep ? 'large' : 'default'}
       testID="daily-formality-sheet" visible={visible}>

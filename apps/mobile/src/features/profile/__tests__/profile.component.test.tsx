@@ -404,6 +404,25 @@ test('a loading Closet shows the bare rack and the six cells without counts, spo
   expect(result.getByTestId('profile-history-row')).toBeOnTheScreen();
 });
 
+test('the Closet heading speaks no count while the Closet is loading or failed to load', async () => {
+  mockFontScale(1);
+  const loading = await render(
+    <TestProviders items={[]} status="loading">
+      <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
+    </TestProviders>,
+  );
+  expect(loading.getByTestId('profile-closet-heading').props.accessibilityLabel)
+    .toBe(messages.en.profile.wardrobeTitle);
+
+  const failed = await render(
+    <TestProviders items={[]} status="error">
+      <ProfileScreen onOpenCategory={() => undefined} onOpenHistory={() => undefined} onOpenWardrobe={() => undefined} />
+    </TestProviders>,
+  );
+  expect(failed.getByTestId('profile-closet-heading').props.accessibilityLabel)
+    .toBe(messages.en.profile.wardrobeTitle);
+});
+
 test('a Closet that cannot load shows the bare rack and a retry that refreshes it', async () => {
   mockFontScale(1);
   const refresh = jest.fn(async () => undefined);

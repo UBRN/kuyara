@@ -5,6 +5,8 @@ import { weatherConditionCodes } from '@/features/weather/domain/weather';
 import {
   clothingRequirementReasonCodes,
   deriveClothingRequirements,
+  isWideDailyRange,
+  withDailyRangeReason,
 } from './weather-to-clothing-requirements.ts';
 
 const observedAt = '2026-08-01T18:00:00.000Z';
@@ -760,4 +762,26 @@ test('just after local midnight the remaining hours come from now, not from obse
 
   assert.equal(result.reasonCodes.includes('daily_extrema_fallback'), false);
   assert.equal(findRequirement(result, 'thermal').minimum, 'high');
+});
+
+test('the wide-range reason is restored from the day\u2019s spread, once, in derivation order', () => {
+  assert.equal(isWideDailyRange(13, 20.9), false);
+  assert.equal(isWideDailyRange(13, 21), true);
+
+  // A narrow day, or a code already present, changes nothing (and returns the same list).
+  const cold = ['temperature_low', 'daily_range_wide'];
+  assert.equal(withDailyRangeReason(cold, 13, 24), cold);
+  const narrow = ['temperature_low'];
+  assert.equal(withDailyRangeReason(narrow, 13, 15), narrow);
+
+  // A stored result that kept only requirement-level codes gets the global one back, after
+  // the ones that order before it, exactly where deriveClothingRequirements puts it.
+  const derived = deriveClothingRequirements(snapshot({
+    current: { temperatureCelsius: 10, apparentTemperatureCelsius: 10 },
+    minimumTemperatureCelsius: 8,
+    maximumTemperatureCelsius: 18,
+  }), new Date(observedAt));
+  assert.ok(derived.reasonCodes.includes('daily_range_wide'));
+  const stored = derived.reasonCodes.filter((code) => code !== 'daily_range_wide');
+  assert.deepEqual(withDailyRangeReason(stored, 8, 18), derived.reasonCodes);
 });

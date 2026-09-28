@@ -31,7 +31,9 @@ export function HistoryScreen({ entries, loadFailed }: HistoryScreenProps) {
     weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC',
   });
 
-  if (loadFailed) {
+  // A failed re-read on refocus keeps the list already loaded; the error replaces the screen
+  // only when there is nothing to show.
+  if (loadFailed && entries === null) {
     return (
       <Screen testID="history-screen">
         <AppText accessibilityRole="alert" colorRole="textSecondary" testID="history-error">

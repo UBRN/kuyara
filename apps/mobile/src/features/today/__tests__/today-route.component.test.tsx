@@ -2506,6 +2506,25 @@ test('Today opens outfit detail by the outfit\'s stable option id', async () => 
   expect(mockPush).toHaveBeenCalledWith({ pathname: '/[id]', params: { id: todayOutfitId(1) } });
 });
 
+test('a quick double tap on an outfit opens one detail, not two stacked on each other', async () => {
+  const result = await render(
+    <Providers
+      productAnalytics={createProductAnalytics()}
+      profile={profileValue()}
+      recommendation={recommendationReady()}
+      wardrobe={wardrobeValue()}
+      weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(result.getByTestId('today-archetype'));
+  await fireEvent.press(result.getByTestId('today-archetype'));
+
+  expect(mockPush.mock.calls.filter(([href]) => typeof href === 'object' && href.pathname === '/[id]'))
+    .toHaveLength(1);
+});
+
 test('a regeneration finishing under an open detail keeps the same outfit or shows none, never another', async () => {
   mockParams = { id: todayOutfitId(1) };
   if (todayRecommendation.status !== 'recommended') throw new Error('fixture');

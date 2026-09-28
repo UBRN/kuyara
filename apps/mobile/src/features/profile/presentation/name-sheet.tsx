@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText, Button, GlassButton, NativeSheet } from '@/components/ui';
+import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { displayNameIssue } from '@/features/profile/domain/profile';
 import { NameInput } from '@/features/profile/presentation/name-input';
 import { useMessages } from '@/localization/use-messages';
@@ -82,6 +83,10 @@ function NameSheetContent({
       setIsSaving(false);
     }
   };
+  const saveErrorCopy = saveError
+    ? (mode === 'prompt' ? messages.onboarding.saveError : messages.profile.nameSaveError)
+    : null;
+  useErrorAnnouncement(saveErrorCopy);
   const doneDisabled = isSaving || Boolean(displayNameIssue(value)) || (mode === 'prompt' && !value.trim());
   const save = () => {
     if (doneDisabled) return;
@@ -129,9 +134,9 @@ function NameSheetContent({
           variant="destructive"
         />
       ) : null}
-      {saveError ? (
+      {saveErrorCopy ? (
         <AppText accessibilityRole="alert" colorRole="textSecondary" testID="name-save-error">
-          {mode === 'prompt' ? messages.onboarding.saveError : messages.profile.nameSaveError}
+          {saveErrorCopy}
         </AppText>
       ) : null}
     </View>

@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { AccessibilityInfo, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { AiSparkleMark } from '@/components/ui/ai-sparkle-mark';
+import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import {
   AppText,
   Icon,
@@ -82,6 +83,8 @@ export function SettingsScreen({
   // on screen; the row sits below the fold, so it waits for the row rather than the mount.
   const [serviceRowSeen, setServiceRowSeen] = useState(false);
   const aestheticsSavePending = useRef(false);
+  // The footer under the group changes silently for VoiceOver, so its failure is spoken.
+  useErrorAnnouncement(saveErrorGroup ? messages.settings.saveError : null);
 
   // The sheet closes only once the choice is stored. A failed save keeps it open with the
   // draft intact, so nothing the person picked is lost and Done can simply be pressed again.

@@ -414,6 +414,36 @@ test('a mild day falls back to the deterministic status sentence', () => {
   );
 });
 
+test('a wide day spread shows its reason for a stored or AI-chosen result as it does for a fresh one', () => {
+  // 13 to 24 C spread over a mild 20 C window: no requirement carries `daily_range_wide`,
+  // so a result rebuilt from its requirements (a restart, an AI or on-device answer) has
+  // lost the one code derivation added globally, and the day's own spread must restore it.
+  const wide = {
+    ...mildWeather,
+    minimumTemperatureCelsius: 13,
+    maximumTemperatureCelsius: 24,
+    hourly: [{ ...mildWeather.hourly[0], forecastAt: '2026-08-13T07:00:00.000Z' }],
+  };
+  const now = todayWeatherSnapshot.current.observedAt;
+  const { recommendation, presentation: fresh } = mildPresentation(wide, now);
+  assert.deepEqual(recommendation.requirements.reasonCodes, ['daily_range_wide']);
+  const sentence = 'A wide temperature range calls for adjustable layers.';
+  assert.deepEqual(fresh.suggestions[0].reasons, [sentence]);
+
+  const restored = loadedPresentation({
+    ...todayScreenState,
+    snapshot: {
+      ...todayScreenState.snapshot,
+      weather: wide,
+      recommendation: {
+        ...recommendation,
+        requirements: { ...recommendation.requirements, reasonCodes: [] },
+      },
+    },
+  });
+  assert.deepEqual(restored.suggestions[0].reasons, [sentence]);
+});
+
 // ADR 0034 section 4: the two AI modes badge themselves, each with its own mode so the
 // screen can draw its own symbol, the deterministic one badges nothing at rest, and neither
 // names a provider. The detail's

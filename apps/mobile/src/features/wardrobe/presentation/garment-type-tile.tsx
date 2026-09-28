@@ -8,7 +8,7 @@ import {
   useTextScaling,
 } from '@/components/ui';
 import type { ColorFamily, GarmentType } from '@/features/catalog/domain/garment-taxonomy';
-import { borderWidths, spacing } from '@/theme/theme';
+import { borderWidths, interaction, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // The Drawer's tile. It draws the same picture the Closet grid draws for the same
@@ -29,6 +29,8 @@ export type GarmentTypeTileProps = Readonly<{
   garmentType: GarmentType;
   /** O10: each type is drawn in its most natural colour, since five pairs share a drawing. */
   colorFamily?: ColorFamily | null;
+  /** The form is saving or deleting: the tile is dimmed and reports itself disabled. */
+  disabled?: boolean;
   label: string;
   onPress: () => void;
   selected: boolean;
@@ -38,6 +40,7 @@ export type GarmentTypeTileProps = Readonly<{
 
 export function GarmentTypeTile({
   colorFamily = null,
+  disabled = false,
   garmentType,
   label,
   onPress,
@@ -56,9 +59,10 @@ export function GarmentTypeTile({
     <PressScale
       accessibilityLabel={label}
       accessibilityRole="radio"
-      accessibilityState={{ selected }}
+      accessibilityState={{ disabled, selected }}
+      disabled={disabled}
       onPress={onPress}
-      style={styles.wrapper}
+      style={[styles.wrapper, disabled && styles.disabled]}
       testID={`wardrobe-type-${garmentType.typeId}`}>
       <View
         style={[
@@ -115,6 +119,9 @@ const styles = StyleSheet.create({
     borderWidth: borderWidths.strong,
     justifyContent: 'center',
     overflow: 'hidden',
+  },
+  disabled: {
+    opacity: interaction.disabledOpacity,
   },
   mark: {
     bottom: spacing.sm,

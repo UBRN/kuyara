@@ -62,6 +62,11 @@ type WardrobeListScreenProps = Readonly<{
   onAdd: (category: StructuralCategory) => void;
   onEdit: (id: string) => void;
   onCategoryChange?: (category: StructuralCategory) => void;
+  /**
+   * The category on screen once the list is ready, including the one it resolved itself when
+   * the route carried none, so the route's plus button can start the add flow on it.
+   */
+  onCategoryInView?: (category: StructuralCategory) => void;
   onRetry: (source: WardrobeRetrySource) => void;
   /** O10: Undo on the saved confirmation; rejects when the removal failed. */
   onUndoSaved?: (id: string) => Promise<void>;
@@ -177,6 +182,7 @@ export function WardrobeListScreen({
   initialCategory,
   onAdd,
   onCategoryChange = () => undefined,
+  onCategoryInView,
   onEdit,
   onRetry,
   onUndoSaved = async () => undefined,
@@ -197,7 +203,7 @@ export function WardrobeListScreen({
   const listRef = useRef<FlatList<ClosetRow>>(null);
   const stripRef = useRef<ScrollView>(null);
   const tabOffsets = useRef<Partial<Record<StructuralCategory, number>>>({});
-  const revealedKey = useRef<string | null>(null);
+  const revealHandled = useRef(false);
   // Read once, at the mount the add flow returned to. Later it must not change: a tile
   // already on screen would swap its wrapper and remount for nothing, and a screen that
   // was never torn down needs no help anyway, since the saved item is the only tile
@@ -233,6 +239,11 @@ export function WardrobeListScreen({
     (row) => row.kind === 'section' && row.entryState === 'wanted',
   );
 
+  const listReady = state.status === 'ready';
+  useEffect(() => {
+    if (listReady) onCategoryInView?.(category);
+  }, [category, listReady, onCategoryInView]);
+
   // Keep the selected tab in view, for a category opened from Profile's cells as much as
   // for one picked off the strip's edge.
   useEffect(() => {
@@ -243,14 +254,14 @@ export function WardrobeListScreen({
   }, [category]);
 
   // Profile's Wanted row and a saved wanted piece open on the Wanted section, once per
-  // request from the route (a tab switch is not one), and only when owned rows would
-  // otherwise push it down.
-  const revealKey = revealWanted && wantedRowIndex > 0
-    ? `${initialCategory ?? ''}:${savedItemId ?? ''}`
-    : null;
+  // request from the route, and only when owned rows would otherwise push it down. The
+  // request is one mount (a saved piece remounts the list, and Profile's Wanted row opens a
+  // new one): `filter=wanted` stays in the route params after it, so a tab switch, which
+  // only swaps `category`, must not be read as another request.
   useEffect(() => {
-    if (revealKey === null || revealedKey.current === revealKey) return;
-    revealedKey.current = revealKey;
+    if (!revealWanted || !listReady || revealHandled.current) return;
+    revealHandled.current = true;
+    if (wantedRowIndex <= 0) return;
     const frame = requestAnimationFrame(() => {
       listRef.current?.scrollToIndex({
         animated: false,
@@ -259,7 +270,7 @@ export function WardrobeListScreen({
       });
     });
     return () => cancelAnimationFrame(frame);
-  }, [revealKey, wantedRowIndex]);
+  }, [revealWanted, listReady, wantedRowIndex]);
 
   const horizontalPadding = spacing.lg;
   const contentInsets = {

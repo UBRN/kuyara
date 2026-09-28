@@ -1,6 +1,6 @@
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { Dimensions, Linking, StyleSheet } from 'react-native';
+import { AccessibilityInfo, Dimensions, Linking, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import WardrobeRoute from '@/app/(tabs)/(profile)/wardrobe/index';
@@ -28,6 +28,7 @@ import {
 } from '@/features/wardrobe/domain/wardrobe-photo';
 import type { StagedWardrobePhoto } from '@/features/wardrobe/data/wardrobe-photo-adapters';
 import type { WardrobeConfirmation } from '@/features/wardrobe/presentation/wardrobe-confirmation';
+import { GarmentTypePicker } from '@/features/wardrobe/presentation/garment-type-picker';
 import { WardrobeItemFormScreen } from '@/features/wardrobe/presentation/wardrobe-item-form-screen';
 import {
   WardrobeEditItemRoute,
@@ -86,6 +87,7 @@ let mockSearchParams: Record<string, string | string[] | undefined> = {};
 let mockReplace = jest.fn();
 let mockDismissTo = jest.fn();
 let mockBack = jest.fn();
+let mockPush = jest.fn();
 
 // O10: the form's Cancel/Save pair is the native header's. The mock renders both toolbar
 // buttons (and Android's header slots) into the tree, so a test presses them as a user
@@ -134,7 +136,7 @@ jest.mock('expo-router', () => {
   useRouter: () => ({
     back: (...args: unknown[]) => mockBack(...args),
     dismissTo: (...args: unknown[]) => mockDismissTo(...args),
-    push: () => undefined,
+    push: (...args: unknown[]) => mockPush(...args),
     replace: (...args: unknown[]) => mockReplace(...args),
     setParams: () => undefined,
   }),
@@ -211,6 +213,7 @@ afterEach(() => {
 beforeEach(() => {
   mockFocusEffects = [];
   mockSearchParams = {};
+  mockPush = jest.fn();
 });
 
 const item: WardrobeItem = {
@@ -1615,4 +1618,85 @@ test('a Save with no type marks Required in the danger ink with a glyph, and a t
   expect(result.queryByTestId('wardrobe-type-error')).not.toBeOnTheScreen();
   expect(StyleSheet.flatten(within(result.getByTestId('wardrobe-type-required')).getByText(messages.en.wardrobe.requiredTag).props.style).color)
     .not.toBe(lightTheme.colors.dangerInk);
+});
+
+test('the type-required and save errors are spoken to VoiceOver, where live regions are ignored', async () => {
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  announce.mockClear();
+  const onCreate = jest.fn<Promise<void>, [Record<string, unknown>]>()
+    .mockRejectedValueOnce(new Error('write failed'));
+  const result = await render(<CreateForm onCreate={onCreate} />);
+
+  await fireEvent.press(result.getByTestId(SAVE));
+  expect(announce).toHaveBeenCalledTimes(1);
+  expect(announce).toHaveBeenLastCalledWith(messages.en.wardrobe.typeRequiredError);
+
+  await chooseType(result, 'top', 't_shirt');
+  await fireEvent.press(result.getByTestId(SAVE));
+  await waitFor(() => expect(result.getByTestId('wardrobe-save-error')).toBeOnTheScreen());
+  expect(announce).toHaveBeenLastCalledWith(messages.en.wardrobe.createError);
+  announce.mockRestore();
+});
+
+test('while the form is busy the type tiles are dimmed and report themselves disabled', async () => {
+  const onSelect = jest.fn();
+  const picker = (disabled: boolean) => (
+    <TestProviders>
+      <GarmentTypePicker clothingPreference={null} colorFamily={null} disabled={disabled}
+        initialCategory="top" onSelect={onSelect} selectedTypeId={null} />
+    </TestProviders>
+  );
+  const result = await render(picker(false));
+  expect(result.getByTestId('wardrobe-type-t_shirt').props.accessibilityState).toEqual({
+    disabled: false, selected: false,
+  });
+
+  await result.rerender(picker(true));
+  const tile = result.getByTestId('wardrobe-type-t_shirt');
+  expect(tile.props.accessibilityState).toEqual({ disabled: true, selected: false });
+  expect(StyleSheet.flatten(tile.props.style).opacity).toBe(0.48);
+  await fireEvent.press(tile);
+  expect(onSelect).not.toHaveBeenCalled();
+});
+
+function closetRoute(items: WardrobeItem[]) {
+  return (
+    <TestProviders>
+      <AnalyticsProviders>
+        <WardrobeApplicationContext.Provider value={wardrobeApplication({
+          state: { status: 'ready', items, isRefreshing: false, isMutating: false, refreshFailure: null },
+        })}>
+          <WardrobeRoute />
+        </WardrobeApplicationContext.Provider>
+      </AnalyticsProviders>
+    </TestProviders>
+  );
+}
+
+test('the plus button starts the add flow on the category in view when the route carried none', async () => {
+  // Opened from Profile's heading: no `category` param, the list resolves one itself.
+  mockSearchParams = {};
+  const result = await render(closetRoute([plainItem]));
+
+  await fireEvent.press(result.getByTestId('wardrobe-add-button'));
+  expect(mockPush).toHaveBeenCalledTimes(1);
+  expect(mockPush).toHaveBeenCalledWith({
+    params: { category: plainItem.category },
+    pathname: '/wardrobe/new',
+  });
+});
+
+test('a quick double tap on the plus button or a Closet tile opens one screen', async () => {
+  mockSearchParams = { category: plainItem.category };
+  const result = await render(closetRoute([plainItem]));
+
+  await fireEvent.press(result.getByTestId('wardrobe-add-button'));
+  await fireEvent.press(result.getByTestId('wardrobe-add-button'));
+  expect(mockPush).toHaveBeenCalledTimes(1);
+
+  // A second, separate route instance has its own window: the tile press is its own tap.
+  const tiles = await render(closetRoute([plainItem]));
+  await fireEvent.press(tiles.getByTestId(`wardrobe-item-${plainItem.id}`));
+  await fireEvent.press(tiles.getByTestId(`wardrobe-item-${plainItem.id}`));
+  expect(mockPush.mock.calls.filter(([href]) => href === `/wardrobe/${plainItem.id}`)).toHaveLength(1);
 });

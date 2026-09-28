@@ -2,6 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
 
+import { useSinglePush } from '@/components/ui/use-single-push';
 import { useAnalyticsConsentTrigger } from '@/features/analytics/application/analytics-consent-trigger';
 import { useFocusedErrorEpisode } from '@/features/analytics/application/use-focused-error-episode';
 import { useScreenInteractive } from '@/features/analytics/application/use-screen-interactive';
@@ -39,6 +40,7 @@ export default function TodayRoute() {
   const { language, hour12 } = useLocalization();
   const clock = useForegroundClock();
   const router = useRouter();
+  const push = useSinglePush();
   const {
     state: recommendationState,
     getSnapshot: getRecommendationSnapshot,
@@ -411,7 +413,7 @@ export default function TodayRoute() {
       language={language}
       displayName={profileState.status === 'ready' ? profileState.profile.displayName : null}
       isRefreshing={isPullRefreshing}
-      onOpenOutfitDetail={(id) => router.push({ pathname: '/[id]', params: { id } })}
+      onOpenOutfitDetail={(id) => push({ pathname: '/[id]', params: { id } })}
       onRefresh={handleRefresh}
       onRunwayVisibleChange={setRunwayVisible}
       onAskAgain={() => { setAskError(false); setAskOpenedAt(Date.now()); }}

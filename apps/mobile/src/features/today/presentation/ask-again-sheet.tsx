@@ -10,6 +10,7 @@ import {
   NativeWheelPicker,
   SegmentedControl,
 } from '@/components/ui';
+import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { outfitCoverage } from '@/features/recommendation/domain/outfit-coverage';
 import { DayTypeTiles } from '@/features/today/presentation/daily-formality-sheet';
 import { askAgainWarning, formatDepartureTime } from '@/features/today/presentation/today-presentation';
@@ -86,6 +87,7 @@ export function AskAgainSheet({
 }>) {
   const messages = getMessages(language).today;
   const copy = messages.askAgain;
+  useErrorAnnouncement(visible && error ? messages.dailyStyle.saveError : null);
   const [draft, setDraft] = useState(() => openDraft(selected, now, departure));
   const [wasVisible, setWasVisible] = useState(visible);
   // Every opening starts from the answer in force and the persisted departure (Now when

@@ -411,6 +411,8 @@ test('personal preferences keep their order and birth date can be cleared to nul
 
 test('preference save errors replace the footer for the affected Settings group', async () => {
   mockProfile = createProfile();
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  announce.mockClear();
   const result = await render(
     <SafeAreaProvider initialMetrics={initialMetrics}>
       <ProfileApplicationProvider>
@@ -434,6 +436,9 @@ test('preference save errors replace the footer for the affected Settings group'
   expect(within(result.getByTestId('settings-profile-group'))
     .queryByText(messages.en.settings.saveError)).toBeNull();
   expect(within(result.getByTestId('settings-theme-row')).getByTestId('expo-ui-picker').props.selection).toBe('light');
+  // The footer changes silently for VoiceOver, so the failure is spoken as well.
+  expect(announce).toHaveBeenCalledTimes(1);
+  expect(announce).toHaveBeenLastCalledWith(messages.en.settings.saveError);
 
   mockUpdateFailure = 'gender';
   await fireEvent(within(result.getByTestId('settings-gender-row')).getByTestId('expo-ui-picker'), 'selectionChange', 'man');
@@ -445,6 +450,8 @@ test('preference save errors replace the footer for the affected Settings group'
   expect(within(result.getByTestId('settings-appearance-group'))
     .queryByText(messages.en.settings.saveError)).toBeNull();
   expect(within(result.getByTestId('settings-gender-row')).getByTestId('expo-ui-picker').props.selection).toBe('woman');
+  expect(announce).toHaveBeenCalledTimes(2);
+  announce.mockRestore();
 });
 
 test('a failed style save keeps the sheet open with the chosen styles and says so', async () => {

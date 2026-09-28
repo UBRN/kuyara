@@ -16,9 +16,10 @@ import {
   laterCoolSpell,
   type OutfitCoverage,
 } from '@/features/recommendation/domain/outfit-coverage';
-import type {
-  ClothingRequirementReasonCode,
-  ClothingRequirements,
+import {
+  withDailyRangeReason,
+  type ClothingRequirementReasonCode,
+  type ClothingRequirements,
 } from '@/features/recommendation/domain/weather-to-clothing-requirements';
 import type {
   GarmentTypeId,
@@ -695,9 +696,16 @@ function createLoadedPresentation(
     : null;
   const isStale = snapshot.freshness === 'stale';
   const condition = weatherCopy.conditions[current.condition];
-  const weatherReasons = reasonCodesByPriority(
-    snapshot.recommendation.requirements,
-  ).map((reason) => copy.requirementReasons[reason]);
+  // A stored or AI-chosen result rebuilds its reason codes from the requirements alone, so
+  // the day's own spread supplies the wide-range one that no requirement carries.
+  const weatherReasons = reasonCodesByPriority({
+    ...snapshot.recommendation.requirements,
+    reasonCodes: withDailyRangeReason(
+      snapshot.recommendation.requirements.reasonCodes,
+      weather.minimumTemperatureCelsius,
+      weather.maximumTemperatureCelsius,
+    ),
+  }).map((reason) => copy.requirementReasons[reason]);
   const outfits =
     snapshot.recommendation.status === 'recommended'
       ? snapshot.recommendation.outfits

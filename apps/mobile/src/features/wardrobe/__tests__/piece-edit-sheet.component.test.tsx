@@ -1,5 +1,5 @@
 import { act, fireEvent, render, within } from '@testing-library/react-native';
-import { View } from 'react-native';
+import { AccessibilityInfo, View } from 'react-native';
 
 import {
   closetColorOptions,
@@ -320,4 +320,50 @@ test('the open piece sheet registers its head, ownership choice and Close for th
   expect(onDismiss).toHaveBeenCalledTimes(2);
   await result.rerender(sheet(null));
   expect(registry.has('sheet-close')).toBe(false);
+});
+
+const ownedWithPhoto: WardrobeItem = { ...yours, photoRelativePath: 'wardrobe/jeans.jpg' };
+const ownedTarget: PieceSheetTarget = {
+  garmentTypeId: 'jeans', category: 'bottom', name: 'Jeans', slot: 'Bottom',
+  suggestedColorFamily: null, match: { kind: 'owned', item: ownedWithPhoto },
+};
+
+function renderPhotoSheet(onSave = jest.fn(async () => undefined)) {
+  return render(
+    <LocalizationContext value={{ language: 'en', messages: messages.en, hour12: false }}>
+      <KuyaraThemeContext value={lightTheme}>
+        <PieceEditSheet onDiscardStagedPhoto={jest.fn(async () => undefined)} onDismiss={jest.fn()}
+          onSave={onSave} onSelectPhoto={jest.fn(async () => null)}
+          resolvePhotoUri={() => 'file:///wardrobe/jeans.jpg'} target={ownedTarget} />
+      </KuyaraThemeContext>
+    </LocalizationContext>,
+  );
+}
+
+test('the stored photo preview is an accessibility element that carries its label', async () => {
+  const result = await renderPhotoSheet();
+  const preview = result.getByTestId('piece-edit-photo-preview');
+  expect(preview.props.accessible).toBe(true);
+  expect(preview.props.accessibilityLabel).toBe(messages.en.wardrobe.photoAccessibilityLabel('Jeans'));
+});
+
+test('a stored photo that cannot be decoded leaves no blank block, and Remove stays reachable', async () => {
+  const result = await renderPhotoSheet();
+  await fireEvent(result.getByTestId('piece-edit-photo-preview'), 'error', { nativeEvent: { error: 'decode' } });
+  expect(result.queryByTestId('piece-edit-photo-preview')).toBeNull();
+  expect(result.getByTestId('piece-edit-photo-select')).toBeOnTheScreen();
+  expect(result.getByTestId('piece-edit-photo-remove')).toBeOnTheScreen();
+});
+
+test('a failed save is spoken to VoiceOver', async () => {
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  announce.mockClear();
+  const onSave = jest.fn(async () => { throw new Error('database failed'); });
+  const result = await renderPhotoSheet(onSave);
+  expect(announce).not.toHaveBeenCalled();
+  await fireEvent.press(result.getByTestId('piece-edit-done'));
+  await expect(result.findByTestId('piece-edit-error')).resolves.toBeOnTheScreen();
+  expect(announce).toHaveBeenCalledTimes(1);
+  expect(announce).toHaveBeenCalledWith(messages.en.wardrobe.updateError);
+  announce.mockRestore();
 });

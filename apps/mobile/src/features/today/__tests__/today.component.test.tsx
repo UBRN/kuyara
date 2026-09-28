@@ -211,6 +211,7 @@ function providers(
   language: SupportedLanguage = 'en',
   activeLocation: ActiveLocation | null = todayScreenState.snapshot.activeLocation,
   temperatureUnit: 'celsius' | 'fahrenheit' = 'celsius',
+  hour12 = false,
 ) {
   const weather = {
     state: {
@@ -234,7 +235,7 @@ function providers(
     revalidateFreshness: jest.fn(async () => undefined),
   } satisfies WeatherApplicationValue;
   return (
-    <LocalizationContext value={{ language, messages: messages[language], hour12: false, temperatureUnit }}>
+    <LocalizationContext value={{ language, messages: messages[language], hour12, temperatureUnit }}>
       <KuyaraThemeContext.Provider value={theme}>
         <SafeAreaProvider initialMetrics={initialMetrics}>
           <WeatherApplicationContext value={weather}>{children}</WeatherApplicationContext>
@@ -1946,6 +1947,25 @@ describe('the contextual weather-alert offer', () => {
       ...overrides,
     };
   }
+
+  // The briefing arrives at 07:00 on the wall clock, and the offer says so on the clock the
+  // device is set to, as the alert bodies do, not in a fixed 24-hour text.
+  test.each([[false, '07:00'], [true, '7:00 am']] as const)(
+    'the morning briefing offer names its hour on the device clock (hour12 %s)', async (hour12, time) => {
+    const result = await render(providers(
+      <TodayScreen
+        alertOffer={offerProps({ ruleId: 'morning_briefing' })}
+        language="en"
+        onOpenOutfitDetail={jest.fn()}
+        onRefresh={jest.fn()} onAskAgain={jest.fn()}
+        state={todayScreenState}
+      />,
+      lightTheme, 'en', undefined, 'celsius', hour12,
+    ));
+
+    expect(result.getByTestId('today-alert-offer-message'))
+      .toHaveTextContent(messages.en.notifications.offer.morningBriefingSentence(time));
+  });
 
   test.each(['en', 'tr'] as const)('%s names the rule that would have fired and offers both actions', async (language) => {
     const copy = messages[language].notifications;

@@ -1,6 +1,9 @@
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 
 import { GlassButton } from '@/components/ui';
+import { useSinglePush } from '@/components/ui/use-single-push';
+import type { StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import {
   isWardrobeRouteId,
   parseStructuralCategoryParam,
@@ -24,7 +27,11 @@ export default function WardrobeRoute() {
   const initialCategory = parseStructuralCategoryParam(category);
   const savedItemId = isWardrobeRouteId(added) ? added : null;
   const messages = useMessages();
-  const router = useRouter();
+  const push = useSinglePush();
+  // The Closet opened from Profile's heading or Wanted row carries no category; the list
+  // resolves one and reports it here so the plus button still starts on the one in view.
+  const [viewedCategory, setViewedCategory] = useState<StructuralCategory | undefined>();
+  const addCategory = initialCategory ?? viewedCategory;
 
   return (
     <>
@@ -41,9 +48,9 @@ export default function WardrobeRoute() {
               kind="bar"
               label={messages.wardrobe.addAction}
               onPress={() =>
-                router.push(
-                  initialCategory
-                    ? { params: { category: initialCategory }, pathname: '/wardrobe/new' }
+                push(
+                  addCategory
+                    ? { params: { category: addCategory }, pathname: '/wardrobe/new' }
                     : '/wardrobe/new',
                 )
               }
@@ -59,6 +66,7 @@ export default function WardrobeRoute() {
           Closet would: that tile alone arrives and its confirmation shows. */}
       <WardrobeListRoute
         initialCategory={initialCategory}
+        onCategoryInView={setViewedCategory}
         key={savedItemId ?? ''}
         revealWanted={parseWardrobeEntryStateParam(filter) === 'wanted'}
         savedItemId={savedItemId}

@@ -1,4 +1,5 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { AccessibilityInfo } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { NameSheet } from '@/features/profile/presentation/name-sheet';
@@ -101,4 +102,18 @@ test('a failed prompt dismissal closes the sheet without showing an error', asyn
   await waitFor(() => expect(screen.queryByTestId('name-prompt-input')).toBeNull());
   expect(onDismiss).toHaveBeenCalledTimes(1);
   expect(screen.queryByTestId('name-save-error')).toBeNull();
+});
+
+test('a failed save is spoken to VoiceOver, where the alert role and live region are ignored', async () => {
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  announce.mockClear();
+  const onSave = jest.fn(async () => { throw new Error('database failed'); });
+  const screen = await renderSheet('edit', 'Utku', onSave);
+  expect(announce).not.toHaveBeenCalled();
+  await fireEvent.changeText(screen.getByTestId('name-edit-input'), 'Deniz');
+  await fireEvent.press(screen.getByTestId('name-sheet-done'));
+  await waitFor(() => expect(screen.getByTestId('name-save-error')).toBeOnTheScreen());
+  expect(announce).toHaveBeenCalledTimes(1);
+  expect(announce).toHaveBeenCalledWith(messages.en.profile.nameSaveError);
+  announce.mockRestore();
 });
