@@ -235,11 +235,12 @@ export class WeatherApplicationController {
     const resolved: WeatherFreshness | null = freshness === null || freshness === 'invalid'
       ? null
       : describesActiveLocation ? freshness : 'stale';
-    this.setReady({
-      ...current,
-      snapshot,
-      freshness: resolved,
-    });
+    // Publishing an identical state still hands every subscriber a new object, and the
+    // provider turns that into a new context value: both tabs revalidate on each focus, so
+    // every tab switch drew Today and Weather again (measured 2026-09-29).
+    if (snapshot !== current.snapshot || resolved !== current.freshness) {
+      this.setReady({ ...current, snapshot, freshness: resolved });
+    }
     if (!current.activeLocation || (snapshot && resolved === 'fresh')) return;
     await this.refreshLocation(
       current.activeLocation,

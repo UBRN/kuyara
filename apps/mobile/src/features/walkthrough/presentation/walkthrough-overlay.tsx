@@ -151,10 +151,11 @@ export function WalkthroughOverlay({
     fontScale,
   };
   const bounds = bubbleBounds(height, insets.top, insets.bottom);
-  // Read by the measuring sequence without restarting it.
-  const latest = useRef({ chrome, bounds, messages });
+  // Read by the measuring sequence without restarting it. `running` is here too: the
+  // sequence restarts on a new step (`stepKey`), not on every change to the running state.
+  const latest = useRef({ chrome, bounds, messages, running });
   useEffect(() => {
-    latest.current = { chrome, bounds, messages };
+    latest.current = { chrome, bounds, messages, running };
   });
 
   const measureTarget = useCallback(async (id: TourTargetId): Promise<TourRect | null> => {
@@ -179,6 +180,7 @@ export function WalkthroughOverlay({
   const stepKey = running ? `${running.run}:${running.stepIndex}` : null;
   const entry = running?.entry ?? 'start';
   useEffect(() => {
+    const { running } = latest.current;
     if (!stepKey || !running) return undefined;
     const stepIndex = running.stepIndex;
     const step = tourSteps[stepIndex];
@@ -243,9 +245,7 @@ export function WalkthroughOverlay({
       cancelled = true;
       for (const cleanup of cleanups) cleanup();
     };
-    // `running` is read through `stepKey` and `entry`; the rest is stable.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stepKey]);
+  }, [entry, labelOf, measureStep, measureTarget, registry, stepKey]);
 
   // A frame belongs to its step: the moment the step changes, its bubble, ring and gap go,
   // while the spotlight keeps its place until the next step has measured. While the layer

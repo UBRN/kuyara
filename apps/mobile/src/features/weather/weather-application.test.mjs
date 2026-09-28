@@ -458,6 +458,23 @@ test('revalidateFreshness republishes freshness on focus and starts the stale re
   assert.equal(harness.controller.getSnapshot().snapshot.fetchedAt, now);
 });
 
+test('revalidateFreshness publishes nothing when neither the snapshot nor its freshness moved', async () => {
+  const istanbul = getManualLocation('sample.istanbul');
+  const harness = createHarness({
+    active: istanbul, snapshots: [snapshotFor(istanbul, '2026-07-30T09:45:00.000Z')],
+  });
+  await harness.controller.initialize();
+  const published = harness.controller.getSnapshot();
+  let notifications = 0;
+  harness.controller.subscribe(() => { notifications += 1; });
+
+  await harness.controller.revalidateFreshness();
+  await harness.controller.revalidateFreshness();
+
+  assert.equal(notifications, 0);
+  assert.equal(harness.controller.getSnapshot(), published);
+});
+
 test('fresh cache is immediate, while stale bootstrap deduplicates refresh and keeps cache on failure', async () => {
   const istanbul = getManualLocation('sample.istanbul');
   const fresh = snapshotFor(istanbul, '2026-07-30T09:45:00.000Z');
