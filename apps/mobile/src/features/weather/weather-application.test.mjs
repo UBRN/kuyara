@@ -657,6 +657,23 @@ test('offline start after the clock moves back keeps cached weather and attempts
   assert.equal(harness.calls.provider, 1);
 });
 
+test('selecting a place whose cache is ahead of a moved-back clock keeps that cache as stale', async () => {
+  const istanbul = getManualLocation('sample.istanbul');
+  const london = getManualLocation('sample.london');
+  const skewed = snapshotFor(london, '2026-07-30T10:10:00.000Z');
+  const harness = createHarness({ active: istanbul, snapshots: [skewed],
+    now: '2026-07-30T10:00:00.000Z',
+    provider: { fetchSnapshot: async () => { throw new WeatherProviderError('network'); } } });
+  await harness.controller.initialize();
+  await settle();
+  await harness.controller.selectManualLocation('sample.london');
+  await settle();
+  const state = harness.controller.getSnapshot();
+  assert.equal(state.snapshot.locationKey, london.locationKey);
+  assert.equal(state.freshness, 'stale');
+  assert.equal(state.refreshFailure, 'offline');
+});
+
 test('an unparseable cache is not displayed and a no-cache failure is explicit', async () => {
   const istanbul = getManualLocation('sample.istanbul');
   const corrupt = snapshotFor(istanbul, 'not-a-timestamp');

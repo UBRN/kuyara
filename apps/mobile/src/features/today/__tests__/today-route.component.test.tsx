@@ -858,6 +858,29 @@ test('a rejected day-choice read leaves the morning sheet closed and writes no c
   expect(mockChoiceUpsert).not.toHaveBeenCalled();
 });
 
+test('a pull re-reads a failed day-choice read instead of leaving Today unavailable', async () => {
+  mockChoiceGet.mockRejectedValueOnce(new Error('choice read failed'));
+  const view = await render(
+    <Providers
+      productAnalytics={createProductAnalytics()}
+      profile={profileValue({ morningSheetEnabled: true })}
+      recommendation={recommendationReady()}
+      liveRecommendationProvider
+      wardrobe={wardrobeValue()}
+      weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+  expect(await view.findByTestId('today-unavailable-screen')).toBeOnTheScreen();
+  expect(mockChoiceGet).toHaveBeenCalledTimes(1);
+
+  mockChoiceGet.mockResolvedValueOnce(null);
+  await act(async () => view.getByTestId('today-screen').props.refreshControl.props.onRefresh());
+
+  await waitFor(() => expect(mockChoiceGet).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(view.queryByTestId('today-unavailable-screen')).toBeNull());
+});
+
 test('an automatic trigger and pull across a forecast hour share one controller refresh', async () => {
   const saved = recommendationReady();
   if (saved.status !== 'ready' || !saved.snapshot) throw new Error('Expected saved fixture');

@@ -35,8 +35,11 @@ export function classifyTodayState(input: TodayStateInput): Readonly<{
         profile.status === 'ready' && profile.profile.clothingPreference !== null);
 
   if (weather.status === 'loading' || recommendation.status === 'loading' ||
-      (weather.status === 'ready' && weather.snapshot !== null && activeLocation !== null &&
-        placeSnapshot === null && weather.refreshFailure === null)) {
+      // No snapshot for the active place and no failure yet: either another place's weather is
+      // retained, or the very first fetch is still on its way. Neither is "unavailable".
+      (weather.status === 'ready' && activeLocation !== null &&
+        placeSnapshot === null && weather.refreshFailure === null &&
+        (weather.snapshot !== null || weather.isRefreshing || weather.isSelectingLocation))) {
     return { state: { kind: 'loading' }, todayFailure: undefined, recommendationFailure: undefined };
   }
   if (weather.status !== 'ready' || placeSnapshot === null || activeLocation === null ||

@@ -33,6 +33,19 @@ function mapPermission(
   return { kind: 'granted', accuracy };
 }
 
+// A fix that never arrives (no signal indoors, no provider answer on Android) must end in the
+// lookup-failed flow: the picker stays locked for as long as this call is pending. A fix that
+// comes in after the bound is dropped, since the caller has already moved on.
+const positionFixTimeoutMilliseconds = 15_000;
+
+function withinFixTimeout<T>(fix: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('Device location timed out.')), positionFixTimeoutMilliseconds);
+  });
+  return Promise.race([fix, timeout]).finally(() => clearTimeout(timer));
+}
+
 export class ExpoDeviceLocationGateway implements DeviceLocationGateway {
   getPermissionState(): Promise<LocationPermissionState> {
     return Location.getForegroundPermissionsAsync().then(mapPermission).catch(() => ({
@@ -60,10 +73,12 @@ export class ExpoDeviceLocationGateway implements DeviceLocationGateway {
       }
 
       // Raw coordinates intentionally exist only inside this adapter.
-      const result = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Low,
-        mayShowUserSettingsDialog: false,
-      });
+      const result = await withinFixTimeout(
+        Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Low,
+          mayShowUserSettingsDialog: false,
+        }),
+      );
       const coordinates = normalizeCoordinates(
         result.coords.latitude,
         result.coords.longitude,

@@ -262,6 +262,25 @@ function formatTime(
   }).format(new Date(value));
 }
 
+// The freshness line's time, read against the viewer's calendar as well as their clock: once
+// the snapshot is not from the current local day, "06:05" alone would read as minutes old, so
+// the locale's short date joins it, as it does on Weather's "last updated" label.
+function formatFreshnessTime(
+  value: string,
+  language: SupportedLanguage,
+  hour12: boolean,
+  now: number,
+): string {
+  const fetched = new Date(value);
+  if (fetched.toDateString() === new Date(now).toDateString()) {
+    return formatTime(value, language, hour12);
+  }
+  return new Intl.DateTimeFormat(
+    localeTag(language),
+    { dateStyle: 'short', timeStyle: 'short', hour12 },
+  ).format(fetched);
+}
+
 // The quarter hour the window is spoken from: "now" is an instant, and 13:02 reads as noise
 // in a sentence about the afternoon's weather.
 const quarterHourMs = 15 * 60 * 1000;
@@ -633,7 +652,7 @@ function createLoadedPresentation(
   const weather = snapshot.weather;
   const current = weather.current;
   const rainProbability = todayRainOutlookProbability(weather, now);
-  const time = formatTime(weather.fetchedAt, language, hour12);
+  const time = formatFreshnessTime(weather.fetchedAt, language, hour12, now);
   const insight = findDayInsight({ snapshot: weather, now: new Date(now).toISOString() });
   const deterministicDayInsight = insight === null ? null : dayInsightSentence(
     insight,

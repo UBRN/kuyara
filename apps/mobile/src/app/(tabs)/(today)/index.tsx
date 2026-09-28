@@ -292,6 +292,9 @@ export default function TodayRoute() {
     if (isPullRefreshing) return;
     const wasFailing = state.kind === 'unavailable' || (state.kind === 'loaded' && state.refreshFailed);
     setIsPullRefreshing(true);
+    // A failed day-choice read leaves no generation input, so a retry that skipped it would do
+    // nothing visible; the re-read lets the provider's input effect continue into generation.
+    if (dressingDayChoiceFailed) reevaluateLocalDay();
     await (async () => {
       await weatherApplication.refresh();
       const currentRecommendation = getRecommendationSnapshot();

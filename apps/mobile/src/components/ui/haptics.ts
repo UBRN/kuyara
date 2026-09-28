@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef } from 'react';
 import {
   AndroidHaptics,
   ImpactFeedbackStyle,
@@ -55,13 +56,24 @@ export const haptics = {
   },
 };
 
+// Both tab screens stay mounted and read the same weather refresh, so one refresh ends on both:
+// only the focused screen buzzes, once. Focus is read from a ref, as in useStatusAnnouncement,
+// so that a tab switch does not re-render the screen; `wasRefreshing` keeps moving while
+// blurred, so regaining focus replays nothing.
 export function useRefreshOutcomeHaptics(isRefreshing: boolean, failed: boolean): void {
   const wasRefreshing = useRef(isRefreshing);
+  const focused = useRef(false);
 
+  // Declared before the focus effect so that a refresh that ends in the very commit that
+  // focus leaves or arrives is judged against the focus the screen had before it.
   useEffect(() => {
-    if (wasRefreshing.current && !isRefreshing) {
+    if (wasRefreshing.current && !isRefreshing && focused.current) {
       haptics[failed ? 'error' : 'success']();
     }
     wasRefreshing.current = isRefreshing;
   }, [failed, isRefreshing]);
+  useFocusEffect(useCallback(() => {
+    focused.current = true;
+    return () => { focused.current = false; };
+  }, []));
 }
