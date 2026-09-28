@@ -124,10 +124,10 @@ test('loaded mapping uses localized catalog names, slot order, positions, and no
     ],
   );
   assert.deepEqual(english.suggestions[0].pieces, [
-    { slot: 'Top', item: 'T-shirt', category: 'top', garmentTypeId: 't_shirt' },
-    { slot: 'Bottom', item: 'Skirt', category: 'bottom', garmentTypeId: 'skirt' },
-    { slot: 'Outer layer', item: 'Rain jacket', category: 'outerwear', garmentTypeId: 'rain_jacket' },
-    { slot: 'Footwear', item: 'Rain boots', category: 'footwear', garmentTypeId: 'rain_boots' },
+    { slot: 'Top', item: 'T-shirt', category: 'top', garmentTypeId: 't_shirt', changed: false },
+    { slot: 'Bottom', item: 'Skirt', category: 'bottom', garmentTypeId: 'skirt', changed: false },
+    { slot: 'Outer layer', item: 'Rain jacket', category: 'outerwear', garmentTypeId: 'rain_jacket', changed: false },
+    { slot: 'Footwear', item: 'Rain boots', category: 'footwear', garmentTypeId: 'rain_boots', changed: false },
   ]);
   assert.equal(
     english.suggestions.every(({ reasons }) =>
@@ -835,4 +835,50 @@ test('the top-row date names the dressing day, not the calendar day, before 04:0
   assert.equal(at('2026-09-25T04:30:00.000Z'), formatDressingDate('2026-09-25', 'en'));
   assert.match(at('2026-09-25T04:30:00.000Z'), /^Fri 25 Sep/);
   assert.equal(at('2026-09-24T19:00:00.000Z'), thursday);
+});
+
+// Phase 7, owner answer 5: a changed outfit is the reader's. Its title and "changed from"
+// line, its source sentence per generation mode and count, and its reasons are its own.
+test('a changed outfit names itself the reader\'s and says where kuyara chose the rest, per mode', async () => {
+  const { applySwaps } = await import('../recommendation/domain/manual-mix.ts');
+  const { messages } = await import('../../localization/messages.ts');
+  const { recommendation } = todayScreenState.snapshot;
+  const [pick] = recommendation.outfits;
+  const one = applySwaps(pick, { outer_layer: 'trench_coat' }, recommendation.requirements, 'womens');
+  const two = applySwaps(pick, { outer_layer: 'trench_coat', footwear: 'sneakers' }, recommendation.requirements, 'womens');
+  for (const language of ['en', 'tr']) {
+    const copy = messages[language].today.manualMix;
+    for (const [mode, key] of [['on-device-ai', 'onDeviceAi'], ['ai-assisted', 'aiAssisted'], ['deterministic-fallback', 'deterministic']]) {
+      const state = { ...todayScreenState, snapshot: { ...todayScreenState.snapshot,
+        recommendation: { ...recommendation, generationMode: mode } } };
+      const present = (manual) => createTodayPresentation(state, language, false, 'celsius', fixtureNow,
+        { optionId: pick.optionId, outfit: manual.outfit, changedSlots: manual.changedSlots });
+      assert.equal(present(one).generationSource, copy.sourceOne[key]);
+      assert.equal(present(two).generationSource, copy.sourceMany[key]);
+    }
+    assert.doesNotMatch(copy.sourceOne.deterministic, /\bAI\b|Apple Intelligence/);
+    assert.doesNotMatch(copy.sourceMany.deterministic, /\bAI\b|Apple Intelligence/);
+    const untouched = loadedPresentation(todayScreenState, language).suggestions[0];
+    const changed = createTodayPresentation(todayScreenState, language, false, 'celsius', fixtureNow,
+      { optionId: pick.optionId, outfit: one.outfit, changedSlots: one.changedSlots }).suggestions[0];
+    assert.equal(changed.title, copy.title);
+    assert.equal(changed.changedFrom, copy.changedFrom(untouched.title));
+    assert.equal(untouched.changedFrom, null);
+    assert.deepEqual(changed.pieces.filter(({ changed: mark }) => mark).map(({ garmentTypeId }) => garmentTypeId),
+      ['trench_coat']);
+    // "Why it works" is recomputed: the rain jacket no longer answers the rain.
+    assert.notDeepEqual(changed.requirementRows, untouched.requirementRows);
+    assert.equal(changed.requirementRows.some(({ text }) => text.includes(
+      messages[language].catalog['catalog.garment_type.rain_jacket.name'])), false);
+    // P1: every piece still kuyara's pick keeps the original palette's colours.
+    assert.deepEqual(changed.keptColors.original, untouched.palette);
+    assert.equal(changed.keptColors.slots.includes('outer_layer'), false);
+    assert.ok(changed.keptColors.slots.includes('footwear'));
+    // The other options are untouched.
+    assert.equal(changed.id, untouched.id);
+  }
+  // With no change the sentence is the recommendation's own.
+  const unchanged = createTodayPresentation(todayScreenState, 'en', false, 'celsius', fixtureNow,
+    { optionId: pick.optionId, outfit: pick, changedSlots: [] });
+  assert.equal(unchanged.generationSource, loadedPresentation().generationSource);
 });

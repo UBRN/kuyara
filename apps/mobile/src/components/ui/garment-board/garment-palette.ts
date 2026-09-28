@@ -391,3 +391,40 @@ export function garmentColorFamiliesBySlot(palette: GarmentOutfitPalette): Reado
 export function garmentUsualColorFamilies(garmentTypeId: GarmentTypeId): readonly ColorFamily[] {
   return [...new Set(COLORWAY[garmentColorwayIds[garmentTypeId]].list.map((id) => garmentSwatches[id].fam))];
 }
+
+/**
+ * Phase 7, proposal P1 (adopted): a changed outfit keeps the colours of every piece that is
+ * still kuyara's pick. Each kept piece passes the swatch the original outfit resolved for it
+ * as its `recordedSwatchId`, so only a changed piece is coloured afresh. Nothing new is
+ * stored: the swatches are derived from the original palette on every render.
+ */
+export function keepGarmentColors(
+  original: GarmentOutfitPalette,
+  next: GarmentOutfitPalette,
+  keptSlots: readonly OutfitSlot[],
+): GarmentOutfitPalette {
+  const resolved = resolveGarmentPalette({
+    ...original, appearance: 'light', stageColor: '#FFFFFF', inkColor: '#000000',
+  });
+  const swatch = (piece: GarmentPalettePiece) => resolved.find(({ piece: kept }) =>
+    kept.slot === piece.slot && kept.garmentTypeId === piece.garmentTypeId)?.swatchId;
+  return {
+    ...next,
+    pieces: next.pieces.map((piece) => {
+      const recordedSwatchId = keptSlots.includes(piece.slot) ? swatch(piece) : undefined;
+      return recordedSwatchId === undefined ? piece : { ...piece, recordedSwatchId };
+    }),
+  };
+}
+
+/** The palette an outfit would have with one slot's piece replaced: that piece is coloured afresh. */
+export function paletteWithGarment(
+  palette: GarmentOutfitPalette,
+  slot: OutfitSlot,
+  garmentTypeId: GarmentTypeId,
+): GarmentOutfitPalette {
+  return {
+    ...palette,
+    pieces: palette.pieces.map((piece) => (piece.slot === slot ? { slot, garmentTypeId } : piece)),
+  };
+}

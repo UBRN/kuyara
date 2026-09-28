@@ -122,15 +122,32 @@ export type LocalizedRequirementRow = Readonly<{
   text: string;
 }>;
 
+/**
+ * Phase 7's manual mix on detail: the changed arrangement of one option, evaluated by the
+ * domain, and the slots the person changed. The option keeps its id and archetype.
+ */
+export type ManualDetail = Readonly<{
+  optionId: string;
+  outfit: RecommendedOutfit;
+  changedSlots: readonly OutfitSlot[];
+}>;
+
 export type LoadedOutfitPresentation = Readonly<{
   id: string;
   positionLabel: string;
   title: string;
+  /** Set once a piece is changed on detail: "Changed from <archetype>", one whole sentence. */
+  changedFrom: string | null;
   summary: string;
-  pieces: readonly LocalizedOutfitPiece[];
+  pieces: readonly (LocalizedOutfitPiece & Readonly<{ changed: boolean }>)[];
   boardPieces: readonly Readonly<{ slot: OutfitSlot; garmentTypeId: GarmentTypeId; category: StructuralCategory }>[];
   /** The outfit's colours (O15): its board, alternate tile, badges and detail share them. */
   palette: GarmentOutfitPalette;
+  /**
+   * Phase 7 proposal P1 (adopted): after a change, the pieces still kuyara's pick keep the
+   * colours the original outfit gave them. The screen resolves them from `original`.
+   */
+  keptColors: Readonly<{ original: GarmentOutfitPalette; slots: readonly OutfitSlot[] }> | null;
   boardAccessibilityLabel: string;
   accessories: readonly LocalizedOutfitAccessory[];
   accessoriesAccessibilityLabel: string;
@@ -463,7 +480,9 @@ function localizeOutfit(
   language: SupportedLanguage,
   dayKind: DayKind,
   paletteDay: GarmentPaletteDay,
+  manual: Readonly<{ original: RecommendedOutfit; changedSlots: readonly OutfitSlot[] }> | null = null,
 ): LoadedOutfitPresentation {
+  const changedSlots = manual?.changedSlots ?? [];
   const messages = getMessages(language);
   const copy = messages.today;
   const assigned = assignedGarments(outfit);
@@ -476,6 +495,7 @@ function localizeOutfit(
       ],
     category: garment.properties.category,
     garmentTypeId: garment.garmentTypeId,
+    changed: changedSlots.includes(slot),
   }));
   const accessories = accessoryOutfitSlots.flatMap((accessorySlot) => {
     const accessory = outfit.accessories[accessorySlot];
@@ -491,7 +511,9 @@ function localizeOutfit(
         } satisfies LocalizedOutfitAccessory]
       : [];
   });
-  const title = archetypeLabel(messages.recommendation, outfit.archetypeId, dayKind);
+  const archetype = archetypeLabel(messages.recommendation, outfit.archetypeId, dayKind);
+  const changed = changedSlots.length > 0;
+  const title = changed ? copy.manualMix.title : archetype;
   const summary = pieces.map(({ item }) => item).join(' + ');
   const composedReasons = [
     ...weatherReasons,
@@ -531,10 +553,16 @@ function localizeOutfit(
     id: outfit.optionId,
     positionLabel: copy.optionPosition(index + 1, total),
     title,
+    changedFrom: changed ? copy.manualMix.changedFrom(archetype) : null,
     summary,
     pieces,
     boardPieces,
     palette: outfitGarmentPalette(outfit, paletteDay),
+    keptColors: manual && changed ? {
+      original: outfitGarmentPalette(manual.original, paletteDay),
+      slots: outfitGarmentPalette(outfit, paletteDay).pieces
+        .map(({ slot }) => slot).filter((slot) => !changedSlots.includes(slot)),
+    } : null,
     boardAccessibilityLabel: copy.boardAccessibilityLabel({ archetype: title, pieces: pieces.map(({ item }) => item) }),
     accessories,
     accessoriesAccessibilityLabel: accessories.length > 0
@@ -597,6 +625,7 @@ function createLoadedPresentation(
   now: number,
   phase: RecommendationPhase | null,
   choosingWindow: OutfitCoverage | null,
+  manual: ManualDetail | null,
 ): LoadedTodayPresentation {
   const messages = getMessages(language);
   const copy = messages.today;
@@ -659,7 +688,10 @@ function createLoadedPresentation(
   const dayKind = localDayKind(new Date(now));
   const paletteDay = garmentPaletteDay(weather, now, snapshot.paletteBasis);
   const suggestions = outfits.map((outfit, index) =>
-    localizeOutfit(outfit, index, outfits.length, weatherReasons, language, dayKind, paletteDay),
+    manual && manual.changedSlots.length > 0 && outfit.optionId === manual.optionId
+      ? localizeOutfit(manual.outfit, index, outfits.length, weatherReasons, language, dayKind, paletteDay,
+        { original: outfit, changedSlots: manual.changedSlots })
+      : localizeOutfit(outfit, index, outfits.length, weatherReasons, language, dayKind, paletteDay),
   );
   // ADR 0034 section 4: the on-device badge appears only when the stored mode is
   // `on-device-ai`, so the words never advertise a tier that did not produce this result,
@@ -692,8 +724,19 @@ function createLoadedPresentation(
   const settledMode = snapshot.recommendation.status === 'recommended'
     ? snapshot.recommendation.generationMode
     : null;
+  // Phase 7, owner answer 5: after a change the sentence says the person changed a piece and
+  // where kuyara chose the rest, one whole sentence per mode and per count.
+  const manualSources = manual && manual.changedSlots.length > 0
+    ? (manual.changedSlots.length === 1 ? copy.manualMix.sourceOne : copy.manualMix.sourceMany)
+    : null;
+  const manualGenerationSources: Record<RecommendationGenerationMode, string> | null = manualSources ? {
+    'on-device-ai': manualSources.onDeviceAi,
+    'ai-assisted': manualSources.aiAssisted,
+    'deterministic-fallback': manualSources.deterministic,
+  } : null;
   const generationMode = settledMode ? generationModeBadges[settledMode] : null;
-  const generationSource = settledMode ? generationSources[settledMode] : null;
+  const generationSource = settledMode
+    ? (manualGenerationSources ?? generationSources)[settledMode] : null;
   const primary = suggestions[0];
   // One reading of the place's own sunrise and sunset feeds both the stage tint and the
   // title symbol, so the two can never disagree about whether it is day or night there.
@@ -811,6 +854,8 @@ export function createTodayPresentation(
   hour12: boolean,
   temperatureUnit: TemperatureUnit,
   now: number,
+  /** Detail only: the open option as the person changed it (Phase 7). */
+  manual: ManualDetail | null = null,
 ): TodayPresentation {
   const messages = getMessages(language);
   const copy = messages.today;
@@ -863,5 +908,6 @@ export function createTodayPresentation(
     now,
     state.phase ?? null,
     state.choosingWindow ?? null,
+    manual,
   );
 }

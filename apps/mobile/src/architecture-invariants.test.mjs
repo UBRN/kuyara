@@ -228,7 +228,7 @@ const boardFiles = [
 ];
 test('every garment board carries its outfit palette and only Today draws one', () => {
   const boards = sourceFiles().flatMap((relativePath) => (
-    [...readFileSync(path.join(sourceRoot, relativePath), 'utf8').matchAll(/<GarmentBoard\b[\s\S]*?\/>/g)]
+    [...readFileSync(path.join(sourceRoot, relativePath), 'utf8').matchAll(/<Garment(?:Swap)?Board\b[\s\S]*?\/>/g)]
       .map(([element]) => ({ relativePath, element }))
   ));
 
@@ -364,8 +364,10 @@ const rawPressableAllowlist = Object.freeze({
   'features/weather/presentation/weather-attribution.tsx': 1,
   // The hero board and the alternate tiles.
   'features/today/presentation/today-screen.tsx': 2,
-  // O6: the board caption, the garment drawing's target and the piece row open one sheet.
-  'features/today/presentation/outfit-detail-screen.tsx': 3,
+  // O6: the piece row opens the piece's sheet (the board changes pieces since Phase 7).
+  'features/today/presentation/outfit-detail-screen.tsx': 1,
+  // Phase 7: a candidate row of the piece picker.
+  'features/today/presentation/piece-picker-sheet.tsx': 1,
   // The text field's inline clear glyph.
   'features/profile/presentation/name-input.tsx': 1,
   // The Closet heading row and a category cell (O9; the rack is `ClosetRack`'s own button).

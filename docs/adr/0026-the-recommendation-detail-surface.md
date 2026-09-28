@@ -38,7 +38,7 @@ the visible statement that the weather was the input and the outfit is now the s
 
 ### 3. Garment rows sit below the board
 
-The board keeps the detail preset and no text overlaps the drawings. One line under the board says the pieces open the edit sheet, and "Wore this today" sits directly under it. Below it, garment rows name each piece, its slot and its Closet state in board order. A board garment, its caption or its row opens the same edit sheet for ownership, colour and optional photo. Rows retain readable labels and 44-point targets at the largest standard text size; above `fontScale` 1.5 the board captions leave and the rows alone name the pieces.
+The board keeps the detail preset and no text overlaps the drawings. One line under the board says a piece is tapped and then swiped to change it, until the first change, and "Wore this today" sits directly under it. Below it, garment rows name each piece, its slot and its Closet state in board order; each row opens the piece's edit sheet for ownership, colour and optional photo, and carries the plain "Change" control of decision 6. Rows retain readable labels and 44-point targets at the largest standard text size, where Change moves under the row's text; above `fontScale` 1.5 the board captions leave and the rows alone name the pieces.
 
 The slot label is used rather than `layerRole`, which would print "standalone" under a bottom.
 
@@ -55,20 +55,39 @@ recomposes the outfit on read, so the evaluations are rebuilt on every load. Per
 reasoning requires no schema change, migration or contract change; it is a presentation
 join over existing domain data.
 
-### 5. One edit sheet owns garment changes
+### 5. One edit sheet owns the piece's Closet record
 
-The board garment and its row open one sheet. It shows the piece, the user's owned or wanted record, the Closet palette and the optional private photo from the photo library. A match compares the piece's type and the colour family its Phase 6 palette swatch belongs to with the Closet record's family: the same family is "I own it" / "Bende var"; owned records of the type only in other families are "You have a similar one" / "Sende benzeri var" beside the user's piece and its colour. A record or a piece without a colour family matches on type alone. The matching is one pure domain function. Ownership appears on detail only, never Today. State is named in words and never carried by colour alone.
+The garment row opens the sheet; the board changes pieces (decision 6). It shows the piece, the user's owned or wanted record, the Closet palette and the optional private photo from the photo library. A match compares the piece's type and the colour family its Phase 6 palette swatch belongs to with the Closet record's family: the same family is "I own it" / "Bende var"; owned records of the type only in other families are "You have a similar one" / "Sende benzeri var" beside the user's piece and its colour. A record or a piece without a colour family matches on type alone. The matching is one pure domain function. Ownership appears on detail only, never Today. State is named in words and never carried by colour alone.
 
 The Closet palette contains 33 colours, including two purple swatches, the system colour picker on iOS, and 14 fixed two-colour or pattern options; there is no free second colour. Its fields are migration 20's. The similar piece's "Yours" draws the user's own piece in its saved colour or pattern and names its option; the board keeps the outfit's palette.
 
 ### 6. Manual swaps sit outside recommendation selection
 
-Detail permits a reader to swap any piece for another catalog piece. Closet items do
-not become candidates. The whole look rerenders on the garment board. The manual
-combination is not blocked when weather or composition rules would reject it; a quiet
-"Unusual for this weather" note explains the departure. Nothing is saved until the
-reader chooses "Wore this today". **Risk accepted:** manual mode can present a look
-the deterministic recommendation engine would reject.
+Detail permits a reader to swap any drawn piece for another catalog piece of the same
+slot, in two equivalent ways. Each garment row's "Change" opens the slot's picker: every
+catalog piece of the slot with the profile's gender applicability kept, the pieces that
+keep kuyara's pick weather-suitable first and the rest under a short explanation, a piece
+worn by another slot left out. On the board a tap focuses a piece and a horizontal drag on
+it steps through the same order, with arrows beside it and increment and decrement on its
+adjustable accessibility element. Closet items never become candidates. Suitability is
+the domain validator's verdict: the pieces' own hard requirements and every mandatory
+weather requirement of the set, the same test a composed outfit passes; formality
+consistency is not part of it.
+
+Every change lays the whole look out again with ADR 0025's composition rule, and the
+pieces glide to their new boxes on the spatial spring; the incoming piece enters from the
+side its order gives and the outgoing one leaves the other way. A changed piece is
+coloured afresh, and every piece that is still kuyara's pick keeps the colour the
+original outfit gave it, passed to the palette resolver as a recorded swatch; nothing is
+stored. The manual combination is not blocked when weather or composition rules would
+reject it; "Unusual for this weather" under the board, in the warning glyph and ink,
+explains the departure. The title becomes "Your outfit" with "Changed from" the
+archetype, the reasons are recomputed for the pieces worn, the source sentence names the
+change, and "Back to kuyara's pick" returns the recommendation. The change lives only as
+long as detail is open: nothing is saved until the reader chooses "Wore this today",
+which records a `manual` outfit (ADR 0038). No haptic marks a step, because the design
+language's haptic sites do not include it. **Risk accepted:** manual mode can present an
+outfit the deterministic recommendation engine would reject.
 
 A new record starts on the colour family the outfit draws the piece in, without sending Closet data to AI.
 
@@ -103,7 +122,7 @@ one. Simulator verification covers the animated sequence.
   explicitly outside engine selection by decision 6.
 - **The screen uses two existing pieces of data**: `suppliedByCandidateKeys` and
   `OutfitCandidate.formality`.
-- **One edit sheet owns the actions.** Garment rows and board thumbnails open it without duplicating controls.
+- **One edit sheet owns the Closet actions.** The garment rows open it; the board and the rows' Change control change pieces, so no control is duplicated.
 - **The detail preset is a second consumer of ADR 0025's parameters.** A change to the rule's ladder or caps is checked against both presets.
 - **A structural-category fallback remains readable and editable.** A legacy null-type record does not break this surface.
 - **History titles are dates.** The history entry title names the date, with its recorded outfit and optional mirror photo below.

@@ -29,6 +29,7 @@ import {
   type RecommendationSnapshot,
 } from '@/features/recommendation/data/recommendation-repository';
 import { SqliteOutfitHistoryRepository } from '@/features/recommendation/data/sqlite-outfit-history-repository';
+import { slotCandidates } from '@/features/recommendation/domain/manual-mix';
 import { wornOutfitFrom, type WornOutfit } from '@/features/recommendation/domain/outfit-history';
 import { todayActiveLocation, todayOutfitId, todayScreenState } from '@/features/today/__tests__/fixtures';
 import { DailyFormalitySheet } from '@/features/today/presentation/daily-formality-sheet';
@@ -2691,6 +2692,63 @@ test('wore this today records the outfit once per dressing day', async () => {
   expect(outfitHistory.log).toHaveBeenCalledTimes(2);
   expect(outfitHistory.log).toHaveBeenLastCalledWith('2026-08-13', wornOutfitFrom(todayRecommendation.outfits[1]));
   alert.mockRestore();
+});
+
+// Phase 7, owner answer 4: a changed outfit is recorded only by "Wore this today", as a
+// manual worn outfit under the existing schema, and leaving detail forgets the change.
+test('a changed outfit records as manual, turns the full-screen back swipe off while focused, and is forgotten on leaving', async () => {
+  mockParams = { id: todayOutfitId(1) };
+  if (todayRecommendation.status !== 'recommended') throw new Error('fixture');
+  const [pick] = todayRecommendation.outfits;
+  const footwear = slotCandidates(pick, 'footwear', todayRecommendation.requirements, 'womens')
+    .map(({ garmentTypeId }) => garmentTypeId);
+  const next = footwear[footwear.indexOf(pick.footwear.garment.garmentTypeId) + 1];
+  const outfitHistory = {
+    list: jest.fn(async () => []),
+    get: jest.fn(async () => null),
+    log: jest.fn(async (_day: string, outfit: WornOutfit) => ({ outfit }) as never),
+  };
+  const props = {
+    productAnalytics: createProductAnalytics(),
+    profile: profileValue(),
+    recommendation: recommendationReady(),
+    wardrobe: wardrobeValue(),
+    weather: weatherValue(),
+    dressingDayKey: '2026-08-13',
+    outfitHistory,
+  };
+  const layout = { nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } } };
+  const lastOptions = () => (mockStackScreen.mock.calls.at(-1)?.[0] as { options: Record<string, unknown> }).options;
+  const result = await render(<Providers {...props}><OutfitDetailRoute /></Providers>);
+  await fireEvent(result.getByTestId('outfit-detail-content'), 'layout', layout);
+  const piece = () => result.getByTestId('outfit-detail-board-piece-footwear');
+  expect(lastOptions().fullScreenGestureEnabled).toBeUndefined();
+  await fireEvent(piece(), 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
+  expect(lastOptions().fullScreenGestureEnabled).toBe(false);
+  await fireEvent(piece(), 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
+  await fireEvent(piece(), 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
+  expect(lastOptions().fullScreenGestureEnabled).toBeUndefined();
+  expect(result.getByRole('header', { name: messages.en.today.manualMix.title })).toBeOnTheScreen();
+
+  await fireEvent.press(await result.findByTestId('outfit-detail-wore-this'));
+  await waitFor(() => expect(outfitHistory.log).toHaveBeenCalledTimes(1));
+  const [, worn] = outfitHistory.log.mock.calls[0];
+  expect(worn).toEqual({
+    ...wornOutfitFrom(pick),
+    garments: { ...wornOutfitFrom(pick).garments, footwear: next },
+    formality: expect.any(String),
+    source: 'manual',
+  });
+  expect(props.productAnalytics.analytics.names()).not.toContain('outfit_worn_logged');
+
+  // Leaving detail drops the change: the outfit opens again as kuyara chose it.
+  await result.rerender(<Providers {...props}><Text>Today</Text></Providers>);
+  expect(result.queryByTestId('outfit-detail-content')).toBeNull();
+  await result.rerender(<Providers {...props}><OutfitDetailRoute /></Providers>);
+  await fireEvent(result.getByTestId('outfit-detail-content'), 'layout', layout);
+  expect(result.queryByRole('header', { name: messages.en.today.manualMix.title })).toBeNull();
+  expect(result.getByTestId(`outfit-detail-piece-${pick.footwear.garment.garmentTypeId}`)).toBeOnTheScreen();
+  expect(result.queryByRole('button', { name: messages.en.today.manualMix.reset })).toBeNull();
 });
 
 test('accepting the offer with the briefing already on records only the alert preference change', async () => {

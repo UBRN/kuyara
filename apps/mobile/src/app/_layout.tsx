@@ -3,7 +3,8 @@ import { router, Stack, usePathname } from 'expo-router';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import { StatusBar } from 'expo-status-bar';
-import { Platform, Share } from 'react-native';
+import { Platform, Share, StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useCallback, useEffect, useState } from 'react';
 
 import {
@@ -204,15 +205,26 @@ function ThemedApplicationShell() {
   );
 }
 
+// Phase 7: the outfit detail board's tap and swipe are gesture-handler gestures, which do
+// nothing, and report nothing, without this root. The package has been a native dependency
+// of every build, so this is JavaScript only.
 function RootLayout() {
   return (
-    <PerformanceTelemetryContext value={observePerformanceTelemetry}>
-      <ProfileApplicationProvider>
-        <ThemedApplicationShell />
-      </ProfileApplicationProvider>
-    </PerformanceTelemetryContext>
+    <GestureHandlerRootView style={styles.root}>
+      <PerformanceTelemetryContext value={observePerformanceTelemetry}>
+        <ProfileApplicationProvider>
+          <ThemedApplicationShell />
+        </ProfileApplicationProvider>
+      </PerformanceTelemetryContext>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+});
 
 // `ObserveRoot` marks the first render and mounts the router integration's storage provider.
 export default withObserveRoot(RootLayout);

@@ -6,6 +6,29 @@ import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import { outfitSlots, type OutfitCandidate } from '@/features/recommendation/domain/outfit-composition';
 
 export const bareHistoryDayKeySchema = z.iso.date();
+/** Whether a catalog garment type can dress one outfit slot: the rule the composer and the worn record share. */
+export function garmentFitsSlot(slot: (typeof outfitSlots)[number], id: string): boolean {
+  const type = getGarmentType(id);
+  if (!type) return false;
+  switch (slot) {
+    case 'primary_top': return type.structuralCategory === 'top'
+      && (type.supportedLayerRoles.includes('base') || type.supportedLayerRoles.includes('standalone'));
+    case 'bottom': return type.structuralCategory === 'bottom'
+      && type.supportedLayerRoles.includes('standalone');
+    case 'one_piece': return type.structuralCategory === 'one_piece'
+      && type.supportedLayerRoles.includes('standalone');
+    case 'mid_layer': return type.structuralCategory === 'top'
+      && type.supportedLayerRoles.includes('mid');
+    case 'outer_layer': return (type.structuralCategory === 'top' || type.structuralCategory === 'outerwear')
+      && type.supportedLayerRoles.includes('outer');
+    case 'footwear': return type.structuralCategory === 'footwear';
+    case 'head': case 'neck': case 'hands': return type.structuralCategory === 'accessory'
+      && type.bodyRegion === slot;
+    case 'handheld': return type.structuralCategory === 'accessory'
+      && type.bodyRegion === null;
+    default: return false;
+  }
+}
 function validWornGarments(garments: Partial<Record<(typeof outfitSlots)[number], string>>): boolean {
   const hasOnePiece = Boolean(garments.one_piece);
   if (!garments.footwear || (hasOnePiece
@@ -13,28 +36,8 @@ function validWornGarments(garments: Partial<Record<(typeof outfitSlots)[number]
     : !garments.primary_top || !garments.bottom)) return false;
   const ids = Object.values(garments);
   if (new Set(ids).size !== ids.length) return false;
-  return Object.entries(garments).every(([slot, id]) => {
-    const type = getGarmentType(id);
-    if (!type) return false;
-    switch (slot) {
-      case 'primary_top': return type.structuralCategory === 'top'
-        && (type.supportedLayerRoles.includes('base') || type.supportedLayerRoles.includes('standalone'));
-      case 'bottom': return type.structuralCategory === 'bottom'
-        && type.supportedLayerRoles.includes('standalone');
-      case 'one_piece': return type.structuralCategory === 'one_piece'
-        && type.supportedLayerRoles.includes('standalone');
-      case 'mid_layer': return type.structuralCategory === 'top'
-        && type.supportedLayerRoles.includes('mid');
-      case 'outer_layer': return (type.structuralCategory === 'top' || type.structuralCategory === 'outerwear')
-        && type.supportedLayerRoles.includes('outer');
-      case 'footwear': return type.structuralCategory === 'footwear';
-      case 'head': case 'neck': case 'hands': return type.structuralCategory === 'accessory'
-        && type.bodyRegion === slot;
-      case 'handheld': return type.structuralCategory === 'accessory'
-        && type.bodyRegion === null;
-      default: return false;
-    }
-  });
+  return Object.entries(garments).every(([slot, id]) =>
+    garmentFitsSlot(slot as (typeof outfitSlots)[number], id));
 }
 export const wornOutfitSchema = z.strictObject({
   garments: z.partialRecord(z.enum(outfitSlots), garmentTypeIdSchema).refine(validWornGarments),
@@ -49,9 +52,13 @@ export function historyDayKey(dressingDayKey: string): string {
   return bareHistoryDayKeySchema.parse(dressingDayKey.replace(/:evening$/, ''));
 }
 
-/** A recommended outfit as the worn record "Wore this today" writes (ADR 0038). */
+/**
+ * An outfit as the worn record "Wore this today" writes (ADR 0038): `manual` when the
+ * reader changed a piece of kuyara's pick on detail, which keeps the pick's archetype.
+ */
 export function wornOutfitFrom(
   outfit: OutfitCandidate & Readonly<{ archetypeId: WornOutfit['archetypeId'] }>,
+  source: WornOutfit['source'] = 'recommended',
 ): WornOutfit {
   const body = outfit.body.kind === 'separates'
     ? [outfit.body.primaryTop, outfit.body.bottom] : [outfit.body.onePiece];
@@ -61,7 +68,7 @@ export function wornOutfitFrom(
     garments: Object.fromEntries(assigned.map(({ slot, garment }) => [slot, garment.garmentTypeId])),
     archetypeId: outfit.archetypeId,
     formality: outfit.formality,
-    source: 'recommended',
+    source,
   });
 }
 

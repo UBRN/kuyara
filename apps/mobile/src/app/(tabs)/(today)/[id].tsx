@@ -11,8 +11,10 @@ import {
   dressStyleProperty,
   generationModeProperty,
 } from '@/features/analytics/domain/analytics-mappers';
+import { isClothingPreference } from '@/domain/preferences';
 import { useProfileApplication } from '@/features/profile/application/profile-context';
 import { useRecommendationApplication } from '@/features/recommendation/application/recommendation-application-context';
+import { useManualMix } from '@/features/recommendation/application/use-manual-mix';
 import { classifyTodayState } from '@/features/today/application/today-state';
 import { activeLocationRecommendation } from '@/features/today/model';
 import {
@@ -52,6 +54,7 @@ export default function OutfitDetailRoute() {
   const [wornGarments, setWornGarments] = useState<{ key: string; outfit: WornOutfit | null } | null>(null);
   const [wornBusy, setWornBusy] = useState(false);
   const [wornError, setWornError] = useState<string | null>(null);
+  const [boardFocused, setBoardFocused] = useState(false);
   useScreenViewed('outfit_detail');
   const suggestionId = Array.isArray(id) ? id[0] : id;
   const recommendation = recommendationState.status === 'ready'
@@ -76,6 +79,17 @@ export default function OutfitDetailRoute() {
   const outfitIndex = outfits.findIndex(({ optionId }) => optionId === suggestionId);
   const outfit = outfits[outfitIndex] ?? null;
   const position = outfit ? ((outfitIndex + 1) as 1 | 2 | 3) : null;
+  // Phase 7: the reader's changes to this outfit live exactly as long as this route, so
+  // leaving detail forgets them (owner answer 4). The candidates keep the profile's gender
+  // applicability the outfit was composed with.
+  const snapshotPreference = recommendationState.status === 'ready'
+    ? recommendationState.snapshot?.clothingPreference : undefined;
+  const manualMix = useManualMix(
+    outfit,
+    recommendation?.status === 'recommended' ? recommendation.requirements : null,
+    isClothingPreference(snapshotPreference) ? snapshotPreference : null,
+  );
+  const changedOutfit = manualMix && manualMix.changedSlots.length > 0 ? manualMix.outfit : null;
 
   // A regeneration that lands while the reader is on another tab and no longer offers this
   // outfit leaves nothing to come back to, so the Today stack returns to its root rather
@@ -129,9 +143,12 @@ export default function OutfitDetailRoute() {
     );
     return () => { live = false; };
   }, [dayKey, outfitHistory]);
+  // A changed outfit records as `manual` (ADR 0038); the schema already carries the source.
   const thisWorn = useMemo(() => {
-    try { return outfit ? wornOutfitFrom(outfit) : null; } catch { return null; }
-  }, [outfit]);
+    try {
+      return changedOutfit ? wornOutfitFrom(changedOutfit, 'manual') : outfit ? wornOutfitFrom(outfit) : null;
+    } catch { return null; }
+  }, [changedOutfit, outfit]);
   const dayWorn = wornGarments?.key === dayKey ? wornGarments : null;
   const worn: OutfitWornState = !dayWorn || !thisWorn
     ? 'unknown'
@@ -240,10 +257,16 @@ export default function OutfitDetailRoute() {
           headerBackTitle: messages.navigation.today,
           headerShown: true,
           headerTitle: '',
+          // Phase 7: iOS 26's full-screen back swipe would take a rightward drag on the
+          // focused piece, so it is off while a piece is focused; the edge swipe stays, and
+          // the platform default returns when the focus ends.
+          fullScreenGestureEnabled: boardFocused ? false : undefined,
         }}
       />
       <OutfitDetailScreen
         language={language}
+        manualMix={manualMix}
+        onBoardFocusChange={setBoardFocused}
         onEditPiece={setEditing}
         onWoreThis={outfitHistory && dayKey ? onWoreThis : undefined}
         state={state}

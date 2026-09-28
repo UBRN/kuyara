@@ -1840,6 +1840,60 @@ function selectDiverseOutfits(
   return Object.freeze(selected);
 }
 
+/** One arrangement a person put together on detail (Phase 7 manual mix), slot by slot. */
+export type OutfitArrangement = Readonly<{
+  body:
+    | Readonly<{ kind: 'separates'; primaryTop: GarmentEligibilityResult; bottom: GarmentEligibilityResult }>
+    | Readonly<{ kind: 'one_piece'; onePiece: GarmentEligibilityResult }>;
+  midLayer: GarmentEligibilityResult | null;
+  outerLayer: GarmentEligibilityResult | null;
+  footwear: GarmentEligibilityResult;
+}>;
+
+/**
+ * Evaluates an arrangement with the composer's own rules, without composing anything. The
+ * arrangement is never rejected: `suitable` is the domain's weather verdict, true only when
+ * every piece passes its own hard requirements and the set meets every mandatory
+ * requirement, exactly what a composed outfit must satisfy. Formality consistency is not
+ * part of it, because the verdict speaks only of the weather. A piece that fails a hard
+ * requirement still counts with its evaluations, so the reasoning and the score describe
+ * what the person actually chose. The result carries no accessories.
+ */
+export function evaluateArrangement(
+  requirements: ClothingRequirements,
+  arrangement: OutfitArrangement,
+): Readonly<{ outfit: OutfitCandidate; suitable: boolean }> {
+  const results = [
+    ...(arrangement.body.kind === 'separates'
+      ? [arrangement.body.primaryTop, arrangement.body.bottom]
+      : [arrangement.body.onePiece]),
+    arrangement.midLayer,
+    arrangement.outerLayer,
+    arrangement.footwear,
+  ].filter((result) => result !== null);
+  const asDraftPart = (result: GarmentEligibilityResult): EligibleGarmentResult => {
+    if (result.status === 'eligible') return result;
+    if (result.garment === null) throw new Error('An arrangement piece has no catalog garment.');
+    return Object.freeze({ ...result, status: 'eligible', garment: result.garment, score: 0,
+      scoreBeforePenalties: 0, penaltyPoints: 0 });
+  };
+  const draft: DraftComposition = Object.freeze({
+    body: arrangement.body.kind === 'separates'
+      ? Object.freeze({ kind: 'separates', primaryTop: asDraftPart(arrangement.body.primaryTop),
+        bottom: asDraftPart(arrangement.body.bottom) })
+      : Object.freeze({ kind: 'one_piece', onePiece: asDraftPart(arrangement.body.onePiece) }),
+    midLayer: arrangement.midLayer ? asDraftPart(arrangement.midLayer) : null,
+    outerLayer: arrangement.outerLayer ? asDraftPart(arrangement.outerLayer) : null,
+    footwear: asDraftPart(arrangement.footwear),
+  });
+  const outfit = evaluateDraft(draft, bodyClothingRequirements(requirements));
+  return Object.freeze({
+    outfit,
+    suitable: results.every(({ status }) => status === 'eligible') &&
+      requirementsMet(outfit.requirementEvaluations),
+  });
+}
+
 /**
  * Every valid composition, sorted best first, each finished with the day's accessories.
  * The mapper rebuilds one stored or AI-chosen option through here, so what it hands back
