@@ -8,6 +8,10 @@ import type { SupportedLanguage } from '@/localization/messages';
 import { lightTheme, spacing } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
+// The native identifiers of the one English convention (en-GB) and of Turkish; a bare `en` draws
+// the US month-first, Sunday-first picker.
+const nativeLocale = { en: 'en_GB', tr: 'tr_TR' } as const;
+
 jest.mock('@expo/ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 jest.mock('@expo/ui/swift-ui/modifiers', () =>
@@ -62,7 +66,7 @@ test.each(['tr', 'en'] as const)(
     const standalone = await renderPicker(language);
 
     expect(standalone.getByTestId('birth-date').props.modifiers).toEqual([
-      { $type: 'environment', key: 'locale', value: language },
+      { $type: 'environment', key: 'locale', value: nativeLocale[language] },
       { $type: 'tint', color: lightTheme.colors.brandPrimary },
     ]);
     await standalone.unmount();
@@ -70,7 +74,7 @@ test.each(['tr', 'en'] as const)(
     // Inside a native list the system draws the row, so only the locale is pushed.
     const listed = await renderPicker(language, { standalone: false });
     expect(listed.getByTestId('birth-date').props.modifiers).toEqual([
-      { $type: 'environment', key: 'locale', value: language },
+      { $type: 'environment', key: 'locale', value: nativeLocale[language] },
     ]);
     expect(listed.queryByTestId('expo-ui-host')).toBeNull();
   },
@@ -89,7 +93,7 @@ test.each([
   expect(StyleSheet.flatten(result.getByTestId('expo-ui-host').props.style))
     .toMatchObject({ height });
   expect(result.getByTestId('birth-date').props.modifiers).toEqual([
-    { $type: 'environment', key: 'locale', value: 'tr' },
+    { $type: 'environment', key: 'locale', value: nativeLocale.tr },
     { $type: 'tint', color: lightTheme.colors.brandPrimary },
   ]);
   expect(result.queryByText('Doğum tarihi', { includeHiddenElements: true })).toBeNull();
@@ -103,7 +107,7 @@ test('above fontScale 1.5 the standalone title stacks above a single-row picker'
   expect(StyleSheet.flatten(result.getByTestId('expo-ui-host').props.style))
     .toMatchObject({ height: 96 });
   expect(result.getByTestId('birth-date').props.modifiers).toEqual([
-    { $type: 'environment', key: 'locale', value: 'tr' },
+    { $type: 'environment', key: 'locale', value: nativeLocale.tr },
     { $type: 'labelsHidden' },
     { $type: 'tint', color: lightTheme.colors.brandPrimary },
   ]);
@@ -119,7 +123,7 @@ test('the list-mounted picker keeps the native row at accessibility sizes', asyn
   const result = await renderPicker('tr', { standalone: false });
 
   expect(result.getByTestId('birth-date').props.modifiers).toEqual([
-    { $type: 'environment', key: 'locale', value: 'tr' },
+    { $type: 'environment', key: 'locale', value: nativeLocale.tr },
   ]);
   expect(result.queryByText('Doğum tarihi', { includeHiddenElements: true })).toBeNull();
   expect(result.queryByTestId('expo-ui-host')).toBeNull();

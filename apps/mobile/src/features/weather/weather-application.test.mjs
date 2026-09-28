@@ -101,6 +101,7 @@ function createHarness({
   locationResult,
   snapshotReadFailureFor = null,
   captureAnalyticsEvent,
+  repositoryLoadFailures = 0,
 } = {}) {
   const currentTime = () => typeof now === 'function' ? now() : now;
   const byKey = new Map(snapshots.map((entry) => [entry.locationKey, entry]));
@@ -146,8 +147,15 @@ function createHarness({
       return weatherProvider.fetchSnapshot(location);
     },
   };
+  let repositoryLoadsLeftToFail = repositoryLoadFailures;
   const controller = new WeatherApplicationController(profileId, {
-    loadRepository: async () => repository,
+    loadRepository: async () => {
+      if (repositoryLoadsLeftToFail > 0) {
+        repositoryLoadsLeftToFail -= 1;
+        throw new Error('database busy');
+      }
+      return repository;
+    },
     provider: wrappedProvider,
     deviceLocation,
     now: currentTime,
@@ -226,6 +234,16 @@ test('bootstrap with no active location never requests permission or weather', a
   assert.equal(controller.getSnapshot().status, 'ready');
   assert.equal(controller.getSnapshot().activeLocation, null);
   assert.deepEqual(calls, { permissionRequests: 0, lookups: 0, settings: 0, provider: 0 });
+});
+
+test('an explicit refresh re-initializes a controller whose bootstrap failed', async () => {
+  const harness = createHarness({ active: getManualLocation('sample.istanbul'), repositoryLoadFailures: 1 });
+  await harness.controller.initialize();
+  assert.equal(harness.controller.getSnapshot().status, 'error');
+  await harness.controller.refresh();
+  await settle();
+  assert.equal(harness.controller.getSnapshot().status, 'ready');
+  assert.equal(harness.calls.provider, 1);
 });
 
 test('weather bootstrap degrades missing production configuration to retryable unavailable state', async () => {

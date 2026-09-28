@@ -7,6 +7,7 @@ import type {
 } from '@/features/recommendation/domain/dressing-day-choice';
 import {
   departureDressingDayKey,
+  departureTimeZoneSchema,
   type DressingDayDeparture,
   type DressingDayDepartureRepository,
 } from '@/features/recommendation/domain/dressing-day-departure';
@@ -40,7 +41,9 @@ export async function reaskForDressingDay(
   const { localProfileId, currentDayKey } = dependencies;
   const departureKey = request.departureAt
     ? departureDressingDayKey(request.departureAt) : null;
-  if (request.departureAt && !departureKey) {
+  // Checked before anything is written: a departure the store would refuse must not leave
+  // the day's choice half-written.
+  if (request.departureAt && (!departureKey || !departureTimeZoneSchema.safeParse(request.timeZone).success)) {
     throw new Error('Invalid departure time or time zone.');
   }
   const key = departureKey ?? currentDayKey;

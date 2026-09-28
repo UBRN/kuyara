@@ -5,6 +5,7 @@ import { Platform, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/ui/app-text';
 import { useTextScaling } from '@/components/ui/use-text-scaling';
 import type { SupportedLanguage } from '@/localization/messages';
+import { localeTag } from '@/presentation/format-temperature';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -77,15 +78,18 @@ export function NativeDatePicker({
   const standaloneRowHeight = STANDALONE_ROW_HEIGHT * Math.min(fontScale, 2);
 
   if (swiftUI && NativeSwiftDatePicker) {
-    // `Locale.availableIdentifiers` holds the bare `en` / `tr` identifiers, which is what
-    // `SupportedLanguage` already is; an unknown value is ignored by the native modifier.
+    // The one English convention every other date uses (day before month, Monday first), as
+    // the native identifier: the modifier applies a value only when `Locale.availableIdentifiers`
+    // holds it, which lists `en_GB` and `tr_TR` but neither the hyphenated tags nor a bare `en`
+    // that would draw the US convention. An unknown value is ignored by the native modifier.
+    const locale = localeTag(language).replace('-', '_');
     const modifiers = standalone
       ? [
-          environment('locale', language),
+          environment('locale', locale),
           ...(usesStackedLayout ? [labelsHidden()] : []),
           tint(theme.colors.brandPrimary),
         ]
-      : [environment('locale', language)];
+      : [environment('locale', locale)];
     const picker = (
       <NativeSwiftDatePicker
         displayedComponents={['date']}

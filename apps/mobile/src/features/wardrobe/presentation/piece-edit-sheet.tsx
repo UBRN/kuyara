@@ -189,6 +189,12 @@ function PieceEditForm({
           size="small" testID="piece-edit-done" />
       </View>
 
+      {saveErrorCopy ? (
+        <AppText accessibilityRole="alert" colorRole="dangerInk" testID="piece-edit-error">
+          {saveErrorCopy}
+        </AppText>
+      ) : null}
+
       <View style={styles.piece}>
         <View style={[styles.hero, { backgroundColor: theme.colors.surfaceMuted }]}>
           <GarmentTileArtwork category={target.category} colorChoice={colorChoice} colorFamily={colorFamily}
@@ -270,12 +276,6 @@ function PieceEditForm({
           <AppText accessibilityRole="alert" colorRole="dangerInk" variant="caption">{copy.photoError}</AppText>
         ) : null}
       </View>
-
-      {saveErrorCopy ? (
-        <AppText accessibilityRole="alert" colorRole="dangerInk" testID="piece-edit-error">
-          {saveErrorCopy}
-        </AppText>
-      ) : null}
     </ScrollView>
   );
 }

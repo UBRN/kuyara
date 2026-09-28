@@ -8,6 +8,10 @@ import type { SupportedLanguage } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
+// The native identifiers of the one English convention (en-GB) and of Turkish; a bare `en` draws
+// the US month-first, Sunday-first picker.
+const nativeLocale = { en: 'en_GB', tr: 'tr_TR' } as const;
+
 jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 jest.mock('@expo/ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 jest.mock('@expo/ui/swift-ui', () =>
@@ -43,7 +47,7 @@ test.each(['tr', 'en'] as const)(
     const picker = result.getByTestId('settings-birth-date-picker');
 
     expect(picker.props.modifiers).toEqual([
-      { $type: 'environment', key: 'locale', value: language },
+      { $type: 'environment', key: 'locale', value: nativeLocale[language] },
     ]);
     expect(picker.props.accessibilityLabel).toBe(messages[language].preferences.birthDateTitle);
     // Unset stays as it is: the row still says so in words while the picker shows today.

@@ -289,6 +289,7 @@ export function WardrobeListScreen({
       <View
         accessibilityLabel={copy.loadingLabel}
         accessibilityRole="progressbar"
+        accessible
         style={[
           styles.centered,
           contentInsets,

@@ -11,8 +11,11 @@ import {
   NativeTextField,
   Surface,
 } from '@/components/ui';
+import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
+import { useKeyboardVisible } from '@/components/ui/use-keyboard-visible';
 import { useWeatherInteractionEvents } from '@/features/analytics/application/use-interaction-events';
 import { PlaceSearchController } from '@/features/weather/application/place-search-controller';
+import type { WeatherApplicationState } from '@/features/weather/application/weather-application-controller';
 import {
   usePlaceSearchApplication,
   useWeatherApplication,
@@ -20,6 +23,8 @@ import {
 import { useLocalization } from '@/localization/use-messages';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
+
+type LocationFlow = Extract<WeatherApplicationState, { status: 'ready' }>['locationFlow'];
 
 type LocationSelectionControlsProps = Readonly<{
   header?: ReactNode;
@@ -51,6 +56,10 @@ export function LocationSelectionControls({
   const copy = messages.weather;
   const theme = useKuyaraTheme();
   const [query, setQuery] = useState('');
+  // With the keyboard up the results are the point of the screen: the onboarding heading, its
+  // progress bar and its long body step aside so the list keeps room above the keyboard.
+  const keyboardVisible = useKeyboardVisible();
+  const shownHeader = keyboardVisible ? null : header;
   const controller = useMemo(() => new PlaceSearchController(searchPlaces), [searchPlaces]);
   const search = useSyncExternalStore(
     controller.subscribe,
@@ -78,11 +87,28 @@ export function LocationSelectionControls({
     }
   }, [statusCopy]);
 
+  // The cards under the main button carry live regions for Android; VoiceOver ignores them,
+  // so the outcome of the button is spoken here, once each time a message appears.
+  const flowMessages: Partial<Record<LocationFlow, string>> = {
+    'denied-requestable': copy.placeDeniedBody,
+    'denied-permanent': copy.placePermanentDeniedBody,
+    'services-unavailable': copy.placeServicesUnavailableBody,
+    'lookup-failed': copy.lookupFailedBody,
+    'selection-failed': copy.selectionFailedBody,
+  };
+  const locationFlow = state.status === 'ready' ? state.locationFlow : 'idle';
+  const flowMessage = flowMessages[locationFlow];
+  useErrorAnnouncement(
+    locationFlow === 'rationale'
+      ? `${copy.locationRationaleTitle} ${copy.locationRationaleBody}`
+      : flowMessage ?? null,
+  );
+
   if (state.status !== 'ready') {
     return (
       <View style={styles.root} testID={testID}>
         <View style={styles.controls}>
-          {header}
+          {shownHeader}
           <AppText accessibilityLiveRegion="polite">
             {state.status === 'loading' ? copy.loading : copy.loadErrorBody}
           </AppText>
@@ -94,19 +120,10 @@ export function LocationSelectionControls({
     );
   }
 
-  const flowMessages: Partial<Record<typeof state.locationFlow, string>> = {
-    'denied-requestable': copy.placeDeniedBody,
-    'denied-permanent': copy.placePermanentDeniedBody,
-    'services-unavailable': copy.placeServicesUnavailableBody,
-    'lookup-failed': copy.lookupFailedBody,
-    'selection-failed': copy.selectionFailedBody,
-  };
-  const flowMessage = flowMessages[state.locationFlow];
-
   return (
     <View style={styles.root} testID={testID}>
       <View style={styles.controls}>
-        {header}
+        {shownHeader}
         <Button
           label={copy.useCurrentLocation}
           loading={state.isSelectingLocation}

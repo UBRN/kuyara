@@ -55,3 +55,18 @@ test('a Later departure is keyed by the device dressing day, not the place time 
   assert.equal(refreshes[0].departureAt, '2026-09-29T20:00:00.000Z');
   assert.equal(result.departure.dayKey, '2026-09-29:evening');
 });
+
+test('a Later departure in a slash-less zone is stored, and an invalid zone writes nothing at all', async () => {
+  const stored = harness();
+  const result = await reaskForDressingDay({
+    formality: 'formal', departureAt: '2026-09-29T20:00:00.000Z', timeZone: 'UTC',
+  }, stored.dependencies);
+  await result.settled;
+  assert.deepEqual(stored.calls[1], ['departure', '2026-09-29:evening', '2026-09-29T20:00:00.000Z', 'UTC']);
+
+  const refused = harness();
+  await assert.rejects(() => reaskForDressingDay({
+    formality: 'formal', departureAt: '2026-09-29T20:00:00.000Z', timeZone: '+03:00',
+  }, refused.dependencies));
+  assert.deepEqual(refused.calls, []);
+});
