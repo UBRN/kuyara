@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import { NativeDatePicker, NativeList, NativeListRow, NativeListSection } from '@/components/ui';
+import { minimumBirthDate } from '@/features/profile/domain/profile';
 import { useLocalization } from '@/localization/use-messages';
 
 export type BirthDateSettingsScreenProps = Readonly<{
@@ -43,6 +44,7 @@ export function BirthDateSettingsScreen({
           accessibilityLabel={messages.preferences.birthDateTitle}
           language={language}
           maximumDate={maximumBirthDate}
+          minimumDate={minimumBirthDate}
           onChange={(value) => void save(value)}
           testID="settings-birth-date-picker"
           value={birthDate}

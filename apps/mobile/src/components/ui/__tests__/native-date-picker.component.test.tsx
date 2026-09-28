@@ -45,6 +45,7 @@ async function renderPicker(
         accessibilityLabel="Doğum tarihi"
         language={language}
         maximumDate={new Date(2026, 8, 9, 12)}
+        minimumDate={new Date(1900, 0, 1, 12)}
         onChange={jest.fn()}
         standalone={options.standalone ?? true}
         testID="birth-date"
@@ -133,4 +134,13 @@ test('an unset value starts the picker at the maximum date and keeps the ISO con
 
   const set = await renderPicker('en', { value: '1994-03-14' });
   expect(set.getByTestId('birth-date').props.accessibilityValue.text).toContain('1994-03-14');
+});
+
+test('the picker offers only dates between the minimum and the maximum', async () => {
+  mockFontScale(1);
+  const result = await renderPicker('en');
+  const { start, end } = result.getByTestId('birth-date').props.range;
+
+  expect(start.getFullYear()).toBe(1900);
+  expect(end.getFullYear()).toBe(2026);
 });

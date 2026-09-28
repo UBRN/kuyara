@@ -25,6 +25,7 @@ import {
 import {
   classifyTourRoute,
   isDeepLinkLaunch,
+  isProfileHostedPath,
   isWalkthroughDue,
   walkthroughOpening,
   type LaunchClaim,
@@ -87,6 +88,19 @@ export function WalkthroughProvider({
   );
   const [today, setToday] = useState<WalkthroughTodayFacts | null>(null);
   const [manualPending, setManualPending] = useState(false);
+  // The Help row's request means "start the tour now over Today": it lapses when the person
+  // leaves Today after the request has reached it, so it cannot open the tour unprompted
+  // hours later. Settings calls restart() before navigating, so the pathname at that moment
+  // says nothing; only "was on Today since the request, then left" ends it.
+  const manualReachedToday = useRef(false);
+  useEffect(() => {
+    if (!manualPending) manualReachedToday.current = false;
+    else if (pathname === '/') manualReachedToday.current = true;
+    else if (manualReachedToday.current) {
+      manualReachedToday.current = false;
+      setManualPending(false);
+    }
+  }, [manualPending, pathname]);
   const [openedThisLaunch, setOpenedThisLaunch] = useState(false);
 
   // Claims latch for the launch: a sheet that has been answered still claimed it.
@@ -111,6 +125,18 @@ export function WalkthroughProvider({
   }, [controller, openedNotifications]);
 
   useEffect(() => {
+    // Profile keeps its own stack, so the tab can restore Settings, the Closet or History.
+    // Step 7 is about the tab, not that screen: pop Profile to its root, where the pathname
+    // becomes `/profile` and the step advances, rather than reading it as a foreign route.
+    const snapshot = controller.getSnapshot();
+    if (
+      snapshot.status === 'running'
+      && tourSteps[snapshot.stepIndex].advanceOn === 'tab'
+      && isProfileHostedPath(pathname)
+    ) {
+      router.dismissAll();
+      return;
+    }
     controller.observeRoute(classifyTourRoute(pathname));
   }, [controller, pathname]);
   useEffect(() => registry.subscribe((id) => {

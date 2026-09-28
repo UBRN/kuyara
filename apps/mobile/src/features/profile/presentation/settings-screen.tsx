@@ -18,6 +18,7 @@ import type { DressStyle, Gender, LocalProfile, StyleAesthetic } from '@/feature
 import { NameSheet } from '@/features/profile/presentation/name-sheet';
 import { aestheticLabels, StyleAestheticsOptions } from '@/features/profile/presentation/style-aesthetics-options';
 import { useLocalization } from '@/localization/use-messages';
+import { localeTag } from '@/presentation/format-temperature';
 import { spacing } from '@/theme/theme';
 
 export type SettingsScreenProps = Readonly<{
@@ -115,7 +116,7 @@ export function SettingsScreen({
 
   const birthDateValue = profile.birthDate === null
     ? messages.onboarding.birthDateNotSet
-    : new Intl.DateTimeFormat(language, { dateStyle: 'long' })
+    : new Intl.DateTimeFormat(localeTag(language), { dateStyle: 'long' })
       .format(calendarDate(profile.birthDate));
   const notificationValue = notificationsOn
     ? messages.notifications.statusOn

@@ -311,12 +311,14 @@ export function Picker({
 export function DatePicker({
   modifiers,
   onDateChange,
+  range,
   selection,
   testID,
   title,
 }: Readonly<{
   modifiers?: readonly Record<string, unknown>[];
   onDateChange?: (date: Date) => void;
+  range?: Readonly<{ start?: Date; end?: Date }>;
   selection?: Date;
   testID?: string;
   title?: string;
@@ -327,7 +329,7 @@ export function DatePicker({
       accessibilityRole="adjustable"
       accessibilityValue={{ text: selection?.toISOString() }}
       testID={testID}
-      {...{ modifiers, onDateChange }}
+      {...{ modifiers, onDateChange, range }}
     />
   );
 }

@@ -373,7 +373,8 @@ test('personal preferences keep their order and birth date can be cleared to nul
   );
 
   await result.findByTestId('settings-gender-row');
-  expect(result.getByText(new Intl.DateTimeFormat('en', { dateStyle: 'long' }).format(new Date(1994, 2, 14)))).toBeOnTheScreen();
+  // The app's one English tag is en-GB (localeTag), so the day comes before the month.
+  expect(result.getByText('14 March 1994')).toBeOnTheScreen();
   expect(within(result.getByTestId('settings-gender-row')).getByTestId('expo-ui-picker').props.options).toEqual([
     { label: messages.en.preferences.genderWoman, value: 'woman' },
     { label: messages.en.preferences.genderMan, value: 'man' },
