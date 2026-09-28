@@ -93,16 +93,20 @@ export function SettingsScreen({
     aestheticsSavePending.current = true;
     setAestheticsSaving(true);
     setAestheticsError(false);
-    try {
+    // A promise chain, not try/finally: React Compiler does not compile a component holding a
+    // `finally` clause, and Settings then re-rendered every row on each change.
+    await (async () => {
       await onStyleAestheticsChange(aestheticDraft);
       setAestheticsOpen(false);
-    } catch {
-      setAestheticsError(true);
-      AccessibilityInfo.announceForAccessibility(messages.settings.saveError);
-    } finally {
-      aestheticsSavePending.current = false;
-      setAestheticsSaving(false);
-    }
+    })()
+      .catch(() => {
+        setAestheticsError(true);
+        AccessibilityInfo.announceForAccessibility(messages.settings.saveError);
+      })
+      .finally(() => {
+        aestheticsSavePending.current = false;
+        setAestheticsSaving(false);
+      });
   };
 
   const savePreference = async (

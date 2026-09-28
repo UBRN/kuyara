@@ -1,6 +1,6 @@
 import { act, render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { Profiler } from 'react';
+import { Profiler, useMemo, useSyncExternalStore } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
@@ -9,7 +9,10 @@ import { RetryCounter } from '@/features/analytics/application/retry-counter';
 import { ProductAnalyticsContext } from '@/features/analytics/application/use-product-analytics';
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
-import type { WeatherReadyState } from '@/features/weather/application/weather-application-controller';
+import {
+  WeatherApplicationController,
+  type WeatherReadyState,
+} from '@/features/weather/application/weather-application-controller';
 import {
   WeatherApplicationContext,
   type WeatherApplicationValue,
@@ -190,4 +193,62 @@ test('returning after an hour has ended still drops it from the rail', async () 
 
   expect(mockRailColumnCounts.length).toBeGreaterThan(railRenders);
   expect(mockRailColumnCounts.at(-1)).toBe(1);
+});
+
+// The provider hands every consumer a new context value whenever the controller publishes a
+// state, so a focus that republished an identical state drew every screen reading the context
+// (measured 2026-09-29: revalidating freshness on focus did exactly that, on both tabs). This
+// test runs the real controller behind the same subscription the provider uses.
+function ControllerProviders({
+  children,
+  controller,
+}: PropsWithChildren<{ controller: WeatherApplicationController }>) {
+  const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
+  const value = useMemo<WeatherApplicationValue>(() => ({
+    ...ready(),
+    state,
+    refresh: () => controller.refresh(),
+    revalidateFreshness: controller.revalidateFreshness,
+    getSnapshot: controller.getSnapshot,
+  }), [controller, state]);
+  return <Providers value={value}>{children}</Providers>;
+}
+
+test('a focus that leaves freshness as it was does not draw Weather again', async () => {
+  const location = getManualLocation('sample.istanbul')!;
+  const snapshot = { ...sampleSnapshot(), fetchedAt: '2026-07-30T09:20:00.000Z' };
+  const controller = new WeatherApplicationController('profile-id', {
+    loadRepository: async () => ({
+      getActiveLocation: async () => location,
+      getSnapshot: async () => snapshot,
+    }) as never,
+    provider: { fetchSnapshot: async () => { throw new Error('no fetch expected'); } },
+    deviceLocation: {
+      getPermissionState: async () => ({ kind: 'undetermined' }),
+    } as never,
+    now: () => new Date(now).toISOString(),
+  });
+  await controller.initialize();
+  expect(controller.getSnapshot()).toMatchObject({ status: 'ready', freshness: 'fresh' });
+
+  let commits = 0;
+  await render(
+    <ControllerProviders controller={controller}>
+      <Profiler id="weather" onRender={() => { commits += 1; }}><WeatherScreen /></Profiler>
+    </ControllerProviders>,
+  );
+  await act(async () => undefined);
+  const railRenders = mockRailColumnCounts.length;
+  const mountCommits = commits;
+  const publishedState = controller.getSnapshot();
+
+  for (let visit = 0; visit < 3; visit += 1) {
+    await switchTab(false);
+    now += 10_000;
+    await switchTab(true);
+  }
+
+  expect(controller.getSnapshot()).toBe(publishedState);
+  expect(mockRailColumnCounts.length).toBe(railRenders);
+  expect(commits).toBe(mountCommits);
 });

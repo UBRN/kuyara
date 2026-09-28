@@ -199,15 +199,17 @@ export function OnboardingScreen({
 
     setIsSaving(true);
     setSaveError(false);
-    try {
+    // A promise chain, not try/finally: React Compiler does not compile a component holding a
+    // `finally` clause, and the whole onboarding tree then re-rendered on every step.
+    await (async () => {
       await onComplete(preferences);
       onboardingEvents.completed(preferences, activeLocationSource);
-    } catch {
-      setSaveError(true);
-      AccessibilityInfo.announceForAccessibility(copy.saveError);
-    } finally {
-      setIsSaving(false);
-    }
+    })()
+      .catch(() => {
+        setSaveError(true);
+        AccessibilityInfo.announceForAccessibility(copy.saveError);
+      })
+      .finally(() => setIsSaving(false));
   };
 
   // The rationale is part of the welcome step's content, not the pinned bar (O14), so the

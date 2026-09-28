@@ -75,13 +75,11 @@ function NameSheetContent({
     if (isSaving) return;
     setIsSaving(true);
     setSaveError(false);
-    try {
-      await onSave(name);
-    } catch {
-      setSaveError(true);
-    } finally {
-      setIsSaving(false);
-    }
+    // A promise chain, not try/finally: React Compiler does not compile a component holding a
+    // `finally` clause, and the sheet then re-rendered its whole content on every keystroke.
+    await (async () => onSave(name))()
+      .catch(() => setSaveError(true))
+      .finally(() => setIsSaving(false));
   };
   const saveErrorCopy = saveError
     ? (mode === 'prompt' ? messages.onboarding.saveError : messages.profile.nameSaveError)
