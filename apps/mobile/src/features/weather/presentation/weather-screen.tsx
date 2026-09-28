@@ -1,8 +1,7 @@
 import { weatherLocalDateKey } from '@kuyara/contracts';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
-  AppState,
   RefreshControl,
   StyleSheet,
   View,
@@ -37,6 +36,7 @@ import { HourlyRail } from '@/features/weather/presentation/hourly-rail';
 import { remainingHourlyForecast } from '@/features/weather/presentation/remaining-hours';
 import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
 import { resolveDaypart } from '@/features/today/domain/atmosphere-state';
+import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useLocalization } from '@/localization/use-messages';
 import { formatTemperature, formatTemperatureDifference, formatTemperatureValue, localeTag } from '@/presentation/format-temperature';
 import type { TemperatureUnit } from '@/localization/device-locale';
@@ -175,19 +175,10 @@ export function WeatherScreen() {
   const [pullInFlight, setPullInFlight] = useState(false);
   // The rail's clock: read once, then again whenever the tab regains focus, so a screen
   // left open across an hour boundary drops the ended hour on return without a timer.
+  const now = useForegroundClock();
   // The same return re-evaluates freshness, which otherwise only moves on init,
   // foreground, selection and refresh, and leaves a screen left open labelled "Fresh".
-  const [now, setNow] = useState(() => Date.now());
-  useFocusEffect(useCallback(() => {
-    setNow(Date.now());
-    void revalidateFreshness();
-  }, [revalidateFreshness]));
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active') setNow(Date.now());
-    });
-    return () => subscription.remove();
-  }, []);
+  useFocusEffect(useCallback(() => { void revalidateFreshness(); }, [revalidateFreshness]));
   useRefreshOutcomeHaptics(
     state.status === 'ready' && state.isRefreshing,
     state.status === 'ready' && state.refreshFailure !== null,
@@ -204,13 +195,8 @@ export function WeatherScreen() {
           ? copy.fresh
           : copy.stale;
   // Only the focused screen speaks, so a refresh Today shows as well is not said twice.
-  const [focused, setFocused] = useState(false);
-  useFocusEffect(useCallback(() => {
-    setFocused(true);
-    return () => setFocused(false);
-  }, []));
   // The freshness line's live region covers Android; VoiceOver hears each change once.
-  useStatusAnnouncement(freshnessStatus, focused);
+  useStatusAnnouncement(freshnessStatus);
 
   if (state.status === 'loading') {
     return (

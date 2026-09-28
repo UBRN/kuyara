@@ -1,4 +1,4 @@
-import { use, useCallback, useEffect, useState, type ReactNode } from 'react';
+import { use, useEffect, useState, type ReactNode } from 'react';
 import { Pressable, RefreshControl, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
   useAnimatedRef,
@@ -7,7 +7,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import type { DressStyle } from '@kuyara/contracts';
 
 import {
@@ -250,13 +250,8 @@ function TodayScreenContent({
   );
   // Only the focused screen speaks: Today also shows a refresh pulled on Weather, and iOS
   // would otherwise say both screens' lines at once.
-  const [focused, setFocused] = useState(false);
-  useFocusEffect(useCallback(() => {
-    setFocused(true);
-    return () => setFocused(false);
-  }, []));
   // The freshness line's live region covers Android; VoiceOver hears each change once.
-  useStatusAnnouncement(presentation.kind === 'loaded' ? presentation.header.freshness : null, focused);
+  useStatusAnnouncement(presentation.kind === 'loaded' ? presentation.header.freshness : null);
   const refreshControl = (
     <RefreshControl
       colors={[theme.colors.iconSecondary]}
@@ -753,19 +748,11 @@ function WeatherAlertOfferRow({
   const acceptLabel = blocked ? copy.openSettingsAction : copy.offer.acceptAction;
   const accept = async () => {
     setIsAnswering(true);
-    try {
-      await onAccept();
-    } finally {
-      setIsAnswering(false);
-    }
+    await onAccept().finally(() => setIsAnswering(false));
   };
   const dismiss = async () => {
     setIsAnswering(true);
-    try {
-      await onDismiss();
-    } finally {
-      setIsAnswering(false);
-    }
+    await onDismiss().finally(() => setIsAnswering(false));
   };
 
   return (
