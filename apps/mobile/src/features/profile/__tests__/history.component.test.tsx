@@ -145,3 +145,21 @@ test('History reloads when it regains focus while still mounted', async () => {
   expect(result.queryByTestId('history-entry-2026-09-23')).toBeNull();
   expect(list).toHaveBeenCalledTimes(2);
 });
+
+test('a transient read failure on refocus keeps the list already loaded', async () => {
+  const list = jest.fn<Promise<readonly OutfitHistoryRecord[]>, []>()
+    .mockResolvedValueOnce([record('2026-09-23', 'layered_warmth', 'casual')])
+    .mockRejectedValueOnce(new Error('database busy'));
+  const result = await render(
+    <Providers language="en" list={list}>
+      <HistoryRoute />
+    </Providers>,
+  );
+  expect(await result.findByTestId('history-entry-2026-09-23')).toBeOnTheScreen();
+
+  await act(async () => { mockHistoryFocus.refocus?.(); });
+
+  await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+  expect(result.getByTestId('history-entry-2026-09-23')).toBeOnTheScreen();
+  expect(result.queryByTestId('history-error')).toBeNull();
+});

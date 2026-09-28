@@ -164,24 +164,22 @@ test('a clock past the window\u2019s last day leaves no morning to plan', () => 
   assert.equal(plan({ now: '2026-09-10T07:30:00.000Z' }), null);
 });
 
-test('the briefing copy names the hour the briefing is planned for', () => {
-  // The two sentences that promise a time are the only copy the hour reaches, and nothing
-  // else ties them to it: a moved quiet-hours end would leave them promising 07:00 while
-  // the notification arrived at another hour.
-  const stampedHour = String(morningBriefingLocalHour).padStart(2, '0');
+test('the briefing copy names the time it is given, and the screens give it the planned hour', () => {
+  // The two sentences that promise a time take it from the caller, so it is written on the
+  // device's own clock; the screens that show them format morningBriefingLocalHour (the
+  // hour quiet hours end, which is when the briefing fires), so a moved end moves the copy.
+  const stamp = `${String(morningBriefingLocalHour).padStart(2, '0')}:00`;
 
-  // Both languages write the time with a colon, as the device formats it.
   for (const language of ['en', 'tr']) {
     const { morningBriefing, offer } = messages[language].notifications;
-    const stamp = `${stampedHour}:00`;
 
     assert.ok(
-      offer.sentences.morning_briefing.includes(stamp),
-      `${language} offer sentence does not name ${stamp}`,
+      offer.morningBriefingSentence(stamp).includes(stamp),
+      `${language} offer sentence does not carry the time it is given`,
     );
     assert.ok(
-      morningBriefing.hint.includes(stamp),
-      `${language} briefing hint does not name ${stamp}`,
+      morningBriefing.hint(stamp).includes(stamp),
+      `${language} briefing hint does not carry the time it is given`,
     );
   }
 });

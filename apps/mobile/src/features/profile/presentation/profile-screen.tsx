@@ -273,9 +273,11 @@ export function ProfileScreen({
       <TourTarget id="closet-head">
       <Pressable
         accessibilityHint={copy.closetHeadingHint}
-        accessibilityLabel={displayName
-          ? copy.closetHeadingNamedAccessibilityLabel({ name: displayName, count: closetCount })
-          : copy.closetHeadingAccessibilityLabel({ count: closetCount })}
+        accessibilityLabel={!isReady
+          ? closetTitle
+          : displayName
+            ? copy.closetHeadingNamedAccessibilityLabel({ name: displayName, count: closetCount })
+            : copy.closetHeadingAccessibilityLabel({ count: closetCount })}
         accessibilityRole="button"
         onPress={() => onOpenWardrobe()}
         style={({ pressed }) => [

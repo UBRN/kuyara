@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { AccessibilityInfo, Platform, StyleSheet, View } from 'react-native';
 
 import { AppText, Icon, NativeList, NativeListSection, NativeListRow, NativeListContentRow, type IconName } from '@/components/ui';
 import { ProbeLoadingOverlay } from '@/features/profile/presentation/probe-loading-overlay';
@@ -95,6 +95,17 @@ export function ServiceProvidersScreen({
           : aiStatus.kind === 'unavailable' || aiStatus.kind === 'rate-limited'
             ? 'warning'
             : 'error';
+
+  // VoiceOver ignores the overlay's live region and the result row has none, so the start
+  // of a check and its outcome are spoken here, once per change of state and never on mount.
+  const announcedKind = useRef(aiStatus.kind);
+  useEffect(() => {
+    if (announcedKind.current === aiStatus.kind) return;
+    announcedKind.current = aiStatus.kind;
+    if (Platform.OS === 'ios' && isProbeSupported && result !== null) {
+      AccessibilityInfo.announceForAccessibility(result);
+    }
+  }, [aiStatus.kind, isProbeSupported, result]);
 
   const resultRow = result !== null && resultIcon !== null ? { icon: resultIcon, text: result } : null;
   const canCheck = isProbeSupported && aiStatus.kind !== 'checking';

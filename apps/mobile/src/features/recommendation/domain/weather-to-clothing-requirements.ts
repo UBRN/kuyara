@@ -188,6 +188,28 @@ function orderedReasonCodes(
   );
 }
 
+/** The provider's calendar-day spread that earns `daily_range_wide`. */
+export function isWideDailyRange(minimumCelsius: number, maximumCelsius: number): boolean {
+  return maximumCelsius - minimumCelsius >= 8;
+}
+
+/**
+ * Derivation adds `daily_range_wide` to the requirements' reason codes even when no single
+ * requirement carries it (a mild 20 C window inside a 13 to 24 C day), but a stored or
+ * AI-chosen result rebuilds the codes from its requirements alone and loses that one. This
+ * restores it from the day's spread, in derivation's own order, and changes nothing when the
+ * code is already there.
+ */
+export function withDailyRangeReason(
+  reasonCodes: readonly ClothingRequirementReasonCode[],
+  minimumCelsius: number,
+  maximumCelsius: number,
+): readonly ClothingRequirementReasonCode[] {
+  return isWideDailyRange(minimumCelsius, maximumCelsius) && !reasonCodes.includes('daily_range_wide')
+    ? orderedReasonCodes([...reasonCodes, 'daily_range_wide'])
+    : reasonCodes;
+}
+
 function requirementKey(requirement: ClothingRequirement): string {
   return requirement.kind === 'water_protection' ||
       requirement.kind === 'extremity_cover'
@@ -373,8 +395,10 @@ export function deriveClothingRequirements(
   // Deliberately the provider's calendar day and not the window: `daily_range_wide` is a
   // statement about how far the date's own spread reaches, and rebasing it on the window
   // would silently change the meaning of a reason code that is already shipped.
-  const wideDailyRange =
-    snapshot.maximumTemperatureCelsius - snapshot.minimumTemperatureCelsius >= 8;
+  const wideDailyRange = isWideDailyRange(
+    snapshot.minimumTemperatureCelsius,
+    snapshot.maximumTemperatureCelsius,
+  );
   // Cold below 18 makes insulation mandatory (below 12 also full coverage); heat at or
   // above 28 makes high breathability mandatory. One day can demand both (4 °C at 07:00,
   // 29 °C at 16:00, or 17 °C at 08:00 and 30 °C at 15:00) and no garment satisfies both,

@@ -1,4 +1,5 @@
 import { fireEvent, render } from '@testing-library/react-native';
+import { AccessibilityInfo } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AskAgainSheet, departureOptions } from '@/features/today/presentation/ask-again-sheet';
@@ -179,4 +180,17 @@ describe.each(['en', 'tr'] as const)('%s re-ask sheet', (language) => {
     expect(view.getByTestId('ask-again-error')).toHaveTextContent(copy.dailyStyle.saveError);
     expect(view.getByTestId('ask-again-confirm')).toBeOnTheScreen();
   });
+});
+
+test('a failed re-ask is spoken to VoiceOver once, not on mount without an error', async () => {
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  announce.mockClear();
+  const screen = await render(sheet('en'));
+  expect(announce).not.toHaveBeenCalled();
+  await screen.rerender(sheet('en', { error: true }));
+  expect(announce).toHaveBeenCalledTimes(1);
+  expect(announce).toHaveBeenCalledWith(messages.en.today.dailyStyle.saveError);
+  await screen.rerender(sheet('en', { error: true, busy: false }));
+  expect(announce).toHaveBeenCalledTimes(1);
+  announce.mockRestore();
 });

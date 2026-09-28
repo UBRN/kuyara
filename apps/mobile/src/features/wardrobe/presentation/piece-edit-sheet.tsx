@@ -11,6 +11,7 @@ import {
   NativeSheet,
   Surface,
 } from '@/components/ui';
+import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import type {
   ColorFamily,
   GarmentTypeId,
@@ -119,6 +120,9 @@ function PieceEditForm({
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [photoError, setPhotoError] = useState(false);
+  // A stored file that exists but cannot be decoded: the preview steps aside for the hero's
+  // drawing (Change and Remove stay reachable) instead of leaving a blank block.
+  const [unreadablePhotoUri, setUnreadablePhotoUri] = useState<string | null>(null);
   const staged = useRef<StagedWardrobePhoto | null>(null);
   const discard = useRef(onDiscardStagedPhoto);
   useEffect(() => { discard.current = onDiscardStagedPhoto; }, [onDiscardStagedPhoto]);
@@ -130,6 +134,9 @@ function PieceEditForm({
   const photoUri = photoChange.kind === 'replace'
     ? photoChange.stagedPhoto.previewUri
     : photoChange.kind === 'remove' ? null : resolvePhotoUri(record?.photoRelativePath ?? null);
+  const saveErrorCopy = saveError ? (record ? copy.updateError : copy.createError) : null;
+  useErrorAnnouncement(saveErrorCopy);
+  useErrorAnnouncement(photoError ? copy.photoError : null);
   const chooseColor = (next: ClosetColorChoice) => {
     setColorChoice(next);
     setColorFamily(colorChoiceFamily(next));
@@ -246,8 +253,8 @@ function PieceEditForm({
 
       <View style={styles.section}>
         <AppText accessibilityRole="header" variant="bodyStrong">{copy.photoTitle}</AppText>
-        {photoUri ? (
-          <Image accessibilityLabel={copy.photoAccessibilityLabel(target.name)} resizeMode="cover"
+        {photoUri && photoUri !== unreadablePhotoUri ? (
+          <Image accessibilityLabel={copy.photoAccessibilityLabel(target.name)} accessible onError={() => setUnreadablePhotoUri(photoUri)} resizeMode="cover"
             source={{ uri: photoUri }} style={[styles.photo, { backgroundColor: theme.colors.surfaceMuted }]}
             testID="piece-edit-photo-preview" />
         ) : null}
@@ -264,9 +271,9 @@ function PieceEditForm({
         ) : null}
       </View>
 
-      {saveError ? (
+      {saveErrorCopy ? (
         <AppText accessibilityRole="alert" colorRole="dangerInk" testID="piece-edit-error">
-          {record ? copy.updateError : copy.createError}
+          {saveErrorCopy}
         </AppText>
       ) : null}
     </ScrollView>

@@ -1,6 +1,6 @@
 import { fireEvent, isHiddenFromAccessibility, render } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Dimensions, View } from 'react-native';
+import { AccessibilityInfo, Dimensions, View } from 'react-native';
 
 import { ServiceProvidersScreen } from '@/features/profile/presentation/service-providers-screen';
 import { LocalizationContext } from '@/localization/localization-context';
@@ -306,5 +306,34 @@ describe.each(['en', 'tr'] as const)('%s assistant identity row', (language) => 
     const result = await rendered;
 
     expect(result.queryByTestId('settings-service-providers-assistant-identity')).not.toBeOnTheScreen();
+  });
+});
+
+describe('VoiceOver announcements of the AI status check', () => {
+  const settings = messages.en.settings;
+  const rerenderWith = (result: Awaited<ReturnType<typeof render>>, aiStatus: React.ComponentProps<typeof ServiceProvidersScreen>['aiStatus']) =>
+    result.rerender(providers(
+      <ServiceProvidersScreen aiStatus={aiStatus} isProbeSupported lastGenerationMode={null}
+        onCheckAiStatus={jest.fn()} onDeviceAvailability={null} weatherAttribution={null} />,
+      'en',
+    ));
+
+  test('the start of a check and each outcome are spoken once, and nothing on mount', async () => {
+    const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+    announce.mockClear();
+    const { rendered } = screen('en');
+    const result = await rendered;
+    expect(announce).not.toHaveBeenCalled();
+
+    await rerenderWith(result, { kind: 'checking' });
+    expect(announce).toHaveBeenLastCalledWith(settings.aiStatusChecking);
+
+    await rerenderWith(result, { kind: 'rate-limited' });
+    expect(announce).toHaveBeenLastCalledWith(settings.aiStatusResultRateLimited);
+    await rerenderWith(result, { kind: 'checking' });
+    await rerenderWith(result, { kind: 'error' });
+    expect(announce).toHaveBeenLastCalledWith(settings.aiStatusResultError);
+    expect(announce).toHaveBeenCalledTimes(4);
+    announce.mockRestore();
   });
 });

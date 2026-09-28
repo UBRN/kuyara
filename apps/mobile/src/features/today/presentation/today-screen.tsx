@@ -34,6 +34,7 @@ import { useStatusAnnouncement } from '@/components/ui/use-status-announcement';
 import type { NotificationOptInOutcome } from '@/features/notifications/application/notification-application-controller';
 import { RecommendationApplicationContext } from '@/features/recommendation/application/recommendation-application-context';
 import { localDayKey } from '@/features/recommendation/application/recommendation-application-controller';
+import { morningBriefingLocalHour } from '@/features/notifications/domain/morning-briefing';
 import type { WeatherAlertOfferReason } from '@/features/notifications/domain/weather-alert-offer';
 import type { TodayScreenState } from '@/features/today/model';
 import { GarmentBoardSkeleton } from '@/features/today/presentation/garment-board-skeleton';
@@ -49,6 +50,7 @@ import {
 } from '@/features/today/presentation/today-presentation';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { TitleWeatherSymbol } from '@/features/today/presentation/weather-glyph';
+import { formatWallClockTime } from '@/presentation/format-clock-time';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
 import { ambientIntensityOf } from '@/features/weather/domain/ambient-intensity';
 import { activeLocationSnapshot } from '@/features/weather/domain/weather';
@@ -741,10 +743,17 @@ function WeatherAlertOfferRow({
   const strongEdge = useStrongEdge();
   const actionSize = easierToSee ? 'large' : 'small';
   const copy = getMessages(language).notifications;
+  const { hour12 } = useLocalization();
   const [isAnswering, setIsAnswering] = useState(false);
   // A refused permission is explained with the Settings surface's own copy and its own way
   // out, rather than with a second wording of the same fact.
-  const message = blocked ? copy.permissionDeniedHint : copy.offer.sentences[ruleId];
+  const message = blocked
+    ? copy.permissionDeniedHint
+    : ruleId === 'morning_briefing'
+      ? copy.offer.morningBriefingSentence(
+        formatWallClockTime({ hour: morningBriefingLocalHour, minute: 0 }, language, hour12),
+      )
+      : copy.offer.sentences[ruleId];
   const acceptLabel = blocked ? copy.openSettingsAction : copy.offer.acceptAction;
   const accept = async () => {
     setIsAnswering(true);

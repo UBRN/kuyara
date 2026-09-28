@@ -233,6 +233,7 @@ export function GarmentTypePicker({
         {visibleTypes.map((garmentType) => (
           <GarmentTypeTile
             colorFamily={garmentUsualColorFamilies(garmentType.typeId)[0] ?? null}
+            disabled={disabled}
             garmentType={garmentType}
             key={garmentType.typeId}
             label={messages.catalog[garmentType.nameKey]}

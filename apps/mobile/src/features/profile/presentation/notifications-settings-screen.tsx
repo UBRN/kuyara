@@ -2,7 +2,10 @@ import { useState } from 'react';
 
 import { NativeList, NativeListSection, NativeListRow } from '@/components/ui';
 import type { NotificationPermissionState } from '@/features/notifications/data/notification-gateway';
-import { useMessages } from '@/localization/use-messages';
+import { morningBriefingLocalHour } from '@/features/notifications/domain/morning-briefing';
+import { defaultQuietHours } from '@/features/notifications/domain/weather-alerts';
+import { useLocalization } from '@/localization/use-messages';
+import { formatWallClockTime } from '@/presentation/format-clock-time';
 
 // ADR 0030 section 5 and ADR 0032 section 4: the first group is the "Allow notifications"
 // toggle tinted `brandPrimary`, plus a footer whose text changes and gains an "Open
@@ -32,7 +35,7 @@ export function NotificationsSettingsScreen({
   optedIn,
   permission,
 }: NotificationsSettingsScreenProps) {
-  const messages = useMessages();
+  const { hour12, language, messages } = useLocalization();
   // A failed write reverts the switch on its own, which says nothing. The footer of the
   // group that was touched says so, with the sentence every other Settings control uses.
   const [failedToggle, setFailedToggle] = useState<'notifications' | 'morningBriefing' | null>(
@@ -64,7 +67,10 @@ export function NotificationsSettingsScreen({
           : [
             messages.notifications.introduction,
             messages.notifications.leadTimeHint,
-            messages.notifications.quietHoursHint,
+            messages.notifications.quietHoursHint({
+              start: formatWallClockTime(defaultQuietHours.start, language, hour12),
+              end: formatWallClockTime(defaultQuietHours.end, language, hour12),
+            }),
           ].join(' ')}
         testID="settings-notifications-toggle-group">
         <NativeListRow
@@ -88,7 +94,9 @@ export function NotificationsSettingsScreen({
       <NativeListSection
         footer={failedToggle === 'morningBriefing'
           ? messages.settings.saveError
-          : messages.notifications.morningBriefing.hint}
+          : messages.notifications.morningBriefing.hint(
+            formatWallClockTime({ hour: morningBriefingLocalHour, minute: 0 }, language, hour12),
+          )}
         testID="settings-morning-briefing-group">
         <NativeListRow
           label={messages.notifications.morningBriefing.toggleLabel}

@@ -1,9 +1,10 @@
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
-import type { PropsWithChildren } from 'react';
-import { Dimensions, StyleSheet } from 'react-native';
+import { useState, type PropsWithChildren } from 'react';
+import { Dimensions, FlatList, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { WardrobeApplicationState } from '@/features/wardrobe/application/wardrobe-application-controller';
+import type { StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import {
   WardrobeListScreen,
@@ -681,9 +682,44 @@ test('the pull gesture reports its own source, distinct from either retry button
     </TestProviders>,
   );
 
-  act(() => {
+  await act(async () => {
     result.getByTestId('wardrobe-list').props.onRefresh();
   });
   expect(onRetry).toHaveBeenCalledTimes(1);
   expect(onRetry).toHaveBeenCalledWith('pull');
+});
+
+// `filter=wanted` stays in the route params after Profile's Wanted row opens the Closet, and a
+// tab switch only swaps `category` (router.setParams merges), so the reveal must not re-fire.
+test('the Wanted reveal happens once per request, not again on every tab switch', async () => {
+  const scrollToIndex = jest.spyOn(FlatList.prototype, 'scrollToIndex').mockImplementation(() => undefined);
+  const piece = (id: string, category: StructuralCategory, entryState: 'owned' | 'wanted'): WardrobeItem => ({
+    ...ownedItem, id, category, entryState,
+    garmentTypeId: category === 'footwear' ? 'weather_boots' : 'rain_jacket',
+  });
+  const items = [
+    piece('a1', 'outerwear', 'owned'), piece('a2', 'outerwear', 'wanted'),
+    piece('b1', 'footwear', 'owned'), piece('b2', 'footwear', 'wanted'),
+  ];
+  function Route() {
+    const [category, setCategory] = useState<StructuralCategory>('outerwear');
+    return (
+      <TestProviders>
+        <WardrobeListScreen initialCategory={category} onAdd={() => undefined}
+          onCategoryChange={setCategory} onEdit={() => undefined} onRetry={() => undefined}
+          revealWanted state={readyState(items)} />
+      </TestProviders>
+    );
+  }
+  const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 60)); });
+  const result = await render(<Route />);
+  await waitFor(() => expect(scrollToIndex).toHaveBeenCalledTimes(1));
+  await settle();
+
+  await fireEvent.press(result.getByTestId('wardrobe-category-tab-footwear'));
+  await settle();
+  await fireEvent.press(result.getByTestId('wardrobe-category-tab-outerwear'));
+  await settle();
+  expect(scrollToIndex).toHaveBeenCalledTimes(1);
+  scrollToIndex.mockRestore();
 });

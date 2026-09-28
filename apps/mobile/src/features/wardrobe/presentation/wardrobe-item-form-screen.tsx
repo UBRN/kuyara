@@ -11,6 +11,7 @@ import {
   Screen,
   Surface,
 } from '@/components/ui';
+import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import type { ClothingPreference } from '@/domain/preferences';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import type {
@@ -126,6 +127,7 @@ function SectionHeading({
 
 function ErrorLine({ message, testID }: Readonly<{ message: string; testID: string }>) {
   const theme = useKuyaraTheme();
+  useErrorAnnouncement(message);
   return (
     <View style={styles.statusRow}>
       <Icon color={theme.colors.dangerInk} name="error" size={20} />
