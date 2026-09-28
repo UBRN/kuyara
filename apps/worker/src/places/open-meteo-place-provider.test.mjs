@@ -124,3 +124,23 @@ test('a typed query that fails still fails, whatever a spelling would have answe
   await assert.rejects(() => provider.search(ascii), PlaceSearchProviderError);
   assert.deepEqual(calls.map((call) => call.name), ['Bagcilar']);
 });
+
+test('rows that share a name, province and country carry the district, and no other row does', async () => {
+  const merkez = (id, admin2, latitude) => ({
+    id, name: 'Merkez', admin1: 'Mersin', admin2, country: 'Türkiye Cumhuriyeti', latitude, longitude: 34.15,
+    timezone: 'Europe/Istanbul',
+  });
+  const body = {
+    results: [
+      merkez(388147, 'Erdemli İlçesi', 36.48),
+      merkez(12556624, 'Aydıncık İlçesi', 36.14),
+      { ...place(3, 'Mersin', 36.8), admin2: 'Akdeniz' },
+    ],
+  };
+  const { places } = await provider(body).search({ query: 'Merkez', limit: 5, language: 'tr' });
+  assert.deepEqual(places.map((entry) => entry.region), [
+    'Erdemli İlçesi, Mersin, Türkiye Cumhuriyeti',
+    'Aydıncık İlçesi, Mersin, Türkiye Cumhuriyeti',
+    'Mersin, Türkiye',
+  ]);
+});

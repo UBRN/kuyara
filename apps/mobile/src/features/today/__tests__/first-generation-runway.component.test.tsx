@@ -1,5 +1,5 @@
 import { act, fireEvent, render, within } from '@testing-library/react-native';
-import { Alert, StyleSheet } from 'react-native';
+import { AccessibilityInfo, Alert, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { runwayDressingDuration } from '@/components/ui';
@@ -217,4 +217,23 @@ test('the runway is an in-screen layer, never a modal over the tab bar', async (
   expect(JSON.stringify(result.toJSON())).not.toContain('ModalHostView');
   const root = result.getByTestId('first-generation-runway');
   expect(StyleSheet.flatten(root.props.style)).toMatchObject({ position: 'absolute', bottom: 0, top: 0 });
+});
+
+// VoiceOver ignores live regions, so the wait and the completion are spoken: each phase once,
+// never the rotating tips, and "All set" when the outfit is dressed.
+test('speaks each phase once and All set on completion, and not the rotating line', async () => {
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  announce.mockClear();
+  const result = await render(runway());
+  await act(() => jest.advanceTimersByTime(0));
+  expect(announce).toHaveBeenLastCalledWith(messages.en.today.phase['asking-stylist']);
+  await act(() => jest.advanceTimersByTime(4_000));
+  expect(announce).toHaveBeenCalledTimes(1);
+  await result.rerender(runway({ phase: 'using-standard' }));
+  expect(announce).toHaveBeenLastCalledWith(messages.en.today.phase['using-standard']);
+  expect(announce).toHaveBeenCalledTimes(2);
+  await result.rerender(runway({ active: false, completed: true, outfit: chosen }));
+  await act(() => jest.advanceTimersByTime(dressing + 100));
+  expect(announce).toHaveBeenLastCalledWith(copy.allSet);
+  expect(announce).toHaveBeenCalledTimes(3);
 });

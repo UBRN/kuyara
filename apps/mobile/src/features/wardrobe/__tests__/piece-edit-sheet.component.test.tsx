@@ -367,3 +367,16 @@ test('a failed save is spoken to VoiceOver', async () => {
   expect(announce).toHaveBeenCalledWith(messages.en.wardrobe.updateError);
   announce.mockRestore();
 });
+
+// Done sits in the head, so the failure it reports belongs beside it and not below the
+// palette and photo sections, where a long sheet leaves it off screen.
+test('a failed save shows its error right under the head, before the piece and its sections', async () => {
+  const onSave = jest.fn(async () => { throw new Error('database failed'); });
+  const result = await renderPhotoSheet(onSave);
+  await fireEvent.press(result.getByTestId('piece-edit-done'));
+  await result.findByTestId('piece-edit-error');
+  const tree = JSON.stringify(result.toJSON());
+  const errorAt = tree.indexOf('piece-edit-error');
+  expect(errorAt).toBeGreaterThan(tree.indexOf('piece-edit-done'));
+  expect(errorAt).toBeLessThan(tree.indexOf('piece-edit-color-name'));
+});

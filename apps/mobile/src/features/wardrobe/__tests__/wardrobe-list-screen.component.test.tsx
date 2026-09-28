@@ -111,6 +111,8 @@ test('loading state exposes an accessible progressbar and no artwork', async () 
 
   const loading = result.getByTestId('wardrobe-loading');
   expect(loading.props.accessibilityRole).toBe('progressbar');
+  // The label is spoken only when the view is an accessibility element.
+  expect(loading.props.accessible).toBe(true);
   expect(result.getByLabelText(messages.en.wardrobe.loadingLabel)).toBeOnTheScreen();
 });
 

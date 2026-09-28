@@ -2108,6 +2108,8 @@ describe('the contextual weather-alert offer', () => {
       onAskAgain={jest.fn()} state={todayScreenState} />,
     ));
 
+    const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+    announce.mockClear();
     await fireEvent.press(result.getByTestId('today-alert-offer-accept'));
     expect(result.getByTestId('today-alert-offer-accept').props.accessibilityState)
       .toMatchObject({ disabled: true });
@@ -2122,6 +2124,10 @@ describe('the contextual weather-alert offer', () => {
     const deniedMessage = result.getByTestId('today-alert-offer-message');
     expect(deniedMessage).toHaveTextContent(messages.en.notifications.permissionDeniedHint);
     expect(deniedMessage.props.accessibilityLiveRegion).toBe('polite');
+    // VoiceOver ignores the live region, so the refusal is spoken once.
+    expect(announce.mock.calls.filter(([text]) => text === messages.en.notifications.permissionDeniedHint))
+      .toHaveLength(1);
+    announce.mockRestore();
     await fireEvent.press(result.getByTestId('today-alert-offer-accept'));
     expect(offer.onOpenSystemSettings).toHaveBeenCalledTimes(1);
     await fireEvent.press(result.getByTestId('today-alert-offer-dismiss'));

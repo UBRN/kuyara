@@ -30,6 +30,7 @@ import {
 } from '@/components/ui';
 import { AiSparkleMark } from '@/components/ui/ai-sparkle-mark';
 import { useAmbientPulse } from '@/components/ui/use-ambient-pulse';
+import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { useStatusAnnouncement } from '@/components/ui/use-status-announcement';
 import type { NotificationOptInOutcome } from '@/features/notifications/application/notification-application-controller';
 import { RecommendationApplicationContext } from '@/features/recommendation/application/recommendation-application-context';
@@ -755,6 +756,8 @@ function WeatherAlertOfferRow({
       )
       : copy.offer.sentences[ruleId];
   const acceptLabel = blocked ? copy.openSettingsAction : copy.offer.acceptAction;
+  // The live region below covers Android; VoiceOver keeps focus on the button and hears nothing.
+  useErrorAnnouncement(blocked ? copy.permissionDeniedHint : null);
   const accept = async () => {
     setIsAnswering(true);
     await onAccept().finally(() => setIsAnswering(false));

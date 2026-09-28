@@ -1,6 +1,6 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
-import { AccessibilityInfo } from 'react-native';
+import { AccessibilityInfo, Keyboard, Text } from 'react-native';
 import type { PlaceSearchV1Data } from '@kuyara/contracts';
 
 import { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
@@ -12,6 +12,7 @@ import { RecordingProductAnalytics } from '@/features/analytics/data/recording-p
 import { PlaceSearchApplicationContext, WeatherApplicationContext, type WeatherApplicationValue } from '@/features/weather/application/weather-application-context';
 import { PlaceSearchError } from '@/features/weather/data/worker-place-search-data-source';
 import type { ManualLocationId } from '@/features/weather/domain/weather';
+import { LocationSelectionControls } from '@/features/weather/presentation/location-selection-controls';
 import { WeatherLocationScreen } from '@/features/weather/presentation/weather-location-screen';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
@@ -229,4 +230,51 @@ test('permission rationale and permanent denial retain their existing actions on
   expect(denied.getByText(messages.en.weather.placePermanentDeniedBody)).toBeOnTheScreen();
   await fireEvent.press(denied.getByRole('button', { name: messages.en.weather.openSettings }));
   expect(weather.openApplicationSettings).toHaveBeenCalledTimes(1);
+});
+
+// VoiceOver ignores live regions, so the card the main button leaves behind is spoken.
+test.each([
+  ['denied-requestable', (copy: typeof messages.en.weather) => copy.placeDeniedBody],
+  ['denied-permanent', (copy: typeof messages.en.weather) => copy.placePermanentDeniedBody],
+  ['services-unavailable', (copy: typeof messages.en.weather) => copy.placeServicesUnavailableBody],
+  ['lookup-failed', (copy: typeof messages.en.weather) => copy.lookupFailedBody],
+  ['selection-failed', (copy: typeof messages.en.weather) => copy.selectionFailedBody],
+  ['rationale', (copy: typeof messages.en.weather) => `${copy.locationRationaleTitle} ${copy.locationRationaleBody}`],
+] as const)('the %s location message is announced on iOS', async (locationFlow, expected) => {
+  const { weather, Providers } = harness();
+  jest.mocked(AccessibilityInfo.announceForAccessibility).mockClear();
+  weather.state = { ...weather.state as Extract<WeatherApplicationValue['state'], { status: 'ready' }>, locationFlow };
+  await render(<Providers><WeatherLocationScreen /></Providers>);
+  expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledTimes(1);
+  expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(expected(messages.en.weather));
+});
+
+test('an idle location flow announces nothing', async () => {
+  const { Providers } = harness();
+  jest.mocked(AccessibilityInfo.announceForAccessibility).mockClear();
+  await render(<Providers><WeatherLocationScreen /></Providers>);
+  expect(AccessibilityInfo.announceForAccessibility).not.toHaveBeenCalled();
+});
+
+// The onboarding heading, progress bar and body take most of a phone's height, so while the
+// keyboard is up they step aside and the result list keeps room above it.
+test('the header steps aside while the keyboard is up and returns when it goes', async () => {
+  const handlers = new Map<string, () => void>();
+  jest.spyOn(Keyboard, 'addListener').mockImplementation(((event: string, handler: () => void) => {
+    handlers.set(event, handler);
+    return { remove: jest.fn() };
+  }) as unknown as typeof Keyboard.addListener);
+  const { Providers } = harness();
+  const result = await render(
+    <Providers>
+      <LocationSelectionControls header={<Text testID="test-header">Heading</Text>} testID="controls"
+        testIDPrefix="onboarding" />
+    </Providers>,
+  );
+  expect(result.getByTestId('test-header')).toBeOnTheScreen();
+  await act(async () => { handlers.get('keyboardWillShow')?.(); });
+  expect(result.queryByTestId('test-header')).toBeNull();
+  expect(result.getByTestId('onboarding-place-search')).toBeOnTheScreen();
+  await act(async () => { handlers.get('keyboardWillHide')?.(); });
+  expect(result.getByTestId('test-header')).toBeOnTheScreen();
 });

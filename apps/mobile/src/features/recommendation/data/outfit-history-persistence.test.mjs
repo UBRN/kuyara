@@ -10,6 +10,7 @@ import { SqliteDressingDayDepartureRepository } from './sqlite-dressing-day-depa
 import { SqliteDressingDayChoiceRepository } from './sqlite-dressing-day-choice-repository.ts';
 import { resolvedStyleAesthetics } from '../domain/dressing-day-choice.ts';
 import { departureTimeZoneSchema } from '../domain/dressing-day-departure.ts';
+import { isValidTimeZone } from '../../weather/domain/weather.ts';
 
 const profileId = randomUUID();
 const now = '2026-09-24T10:00:00.000Z';
@@ -186,10 +187,12 @@ test('departure belongs to its own dressing day, clears and revives its one row'
   assert.equal((await db.getFirstAsync('SELECT COUNT(*) AS count FROM dressing_day_departures')).count, 1);
 });
 
-test('departure zones accept IANA names but reject numeric offsets and abbreviations', () => {
-  assert.equal(departureTimeZoneSchema.safeParse('Europe/Istanbul').success, true);
-  assert.equal(departureTimeZoneSchema.safeParse('America/New_York').success, true);
-  for (const zone of ['+03:00', 'UTC', 'GMT+3', 'PST']) {
+test('departure zones accept every name the weather layer accepts but not numeric offsets', () => {
+  for (const zone of ['Europe/Istanbul', 'America/New_York', 'UTC', 'GMT', 'CET', 'EST5EDT']) {
+    assert.equal(departureTimeZoneSchema.safeParse(zone).success, true, zone);
+    assert.equal(isValidTimeZone(zone), true, zone);
+  }
+  for (const zone of ['+03:00', '-0300', 'GMT+3', 'Nowhere/Land']) {
     assert.equal(departureTimeZoneSchema.safeParse(zone).success, false, zone);
   }
 });

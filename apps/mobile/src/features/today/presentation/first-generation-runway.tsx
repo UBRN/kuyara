@@ -12,6 +12,7 @@ import {
   Screen,
   type RunwayBoardOutfit,
 } from '@/components/ui';
+import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import type { RecommendationPhase } from '@/features/recommendation/application/recommendation-application-controller';
 import { SKELETON_PIECES } from '@/features/today/presentation/garment-board-skeleton';
 import {
@@ -193,6 +194,13 @@ export function FirstGenerationRunway({
     }, FIRST_PLACE_MS);
     return () => { clearTimeout(first); if (placing) clearInterval(placing); };
   }, [active, answered]);
+
+  // The runway's lines carry live regions for Android; VoiceOver ignores them. Each phase is
+  // spoken once when it begins and "All set" when the outfit is dressed; the rotating tips are
+  // not, so the wait stays quiet between phases.
+  useErrorAnnouncement(!visible ? null
+    : success ? copy.loading.allSet
+      : active && !answered ? (phase ? copy.phase[phase] : copy.loading.phase) : null);
 
   if (!visible) return null;
 

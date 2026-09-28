@@ -17,6 +17,22 @@ function firstString(value: unknown): string | undefined {
   return undefined;
 }
 
+function strings(value: unknown): string[] {
+  if (typeof value === 'string') return [value];
+  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
+}
+
+// The device's preferred languages in order; the app's own languages are English and Turkish.
+// The first one the app supports decides, as it does for the system's own permission prompts
+// and share sheet, so German then Turkish reads Turkish here too. With none supported the
+// first stands (English is the fallback downstream).
+export function firstSupportedLocale(candidates: readonly string[]): string | undefined {
+  return candidates.find((tag) => {
+    const language = tag.split(/[-_]/)[0]?.toLowerCase();
+    return language === 'en' || language === 'tr';
+  }) ?? candidates[0];
+}
+
 function getAppleSettings(): AppleSettings {
   const settingsManager = NativeModules.SettingsManager as
     | {
@@ -50,7 +66,7 @@ export function resolveDeviceHour12(settings: AppleSettings, deviceLocale: strin
 export function getDeviceLocale(): string {
   if (Platform.OS === 'ios') {
     const settings = getAppleSettings();
-    const appleLanguage = firstString(settings?.AppleLanguages);
+    const appleLanguage = firstSupportedLocale(strings(settings?.AppleLanguages));
     const appleLocale = firstString(settings?.AppleLocale);
 
     if (appleLanguage) {
@@ -63,8 +79,9 @@ export function getDeviceLocale(): string {
   }
 
   return (
-    I18nManager.getConstants().localeIdentifier ??
-    Intl.DateTimeFormat().resolvedOptions().locale
+    firstSupportedLocale(strings(getLocales().map((locale) => locale.languageTag)))
+    ?? I18nManager.getConstants().localeIdentifier
+    ?? Intl.DateTimeFormat().resolvedOptions().locale
   );
 }
 

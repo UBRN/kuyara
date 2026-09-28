@@ -48,6 +48,8 @@ import { messages } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
+const mockOpenSheetClosers: (() => void)[] = [];
+
 // GlassButton draws the sheet close and the detail back as SwiftUI glass buttons.
 jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 jest.mock('@expo/ui/swift-ui/modifiers', () =>
@@ -56,8 +58,14 @@ jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 jest.mock('@expo/ui/community/bottom-sheet', () => {
   const React = jest.requireActual('react') as typeof import('react');
   const { View } = jest.requireActual('react-native') as typeof import('react-native');
-  return { BottomSheet: ({ children, index }: { children: React.ReactNode; index: number }) =>
-    index >= 0 ? React.createElement(View, null, children) : null };
+  // A pan-down is the platform closing the sheet and calling `onClose`; the test reads the
+  // handler of the sheet that is showing.
+  return { BottomSheet: ({ children, index, onClose }: {
+    children: React.ReactNode; index: number; onClose?: () => void;
+  }) => {
+    if (index >= 0 && onClose) mockOpenSheetClosers.push(onClose);
+    return index >= 0 ? React.createElement(View, null, children) : null;
+  } };
 });
 jest.mock('@/components/ui/native-menu', () => {
   const React = jest.requireActual('react') as typeof import('react');
@@ -1388,6 +1396,31 @@ test('Ask the stylist again opens one sheet and confirms through the application
   await waitFor(() => expect(view.queryByTestId('ask-again-sheet')).toBeNull());
   await act(async () => { finish(); await settled; });
   alert.mockRestore();
+});
+
+// The flag follows the platform sheet: a pan-down during the write closes it for good, so a
+// failed write leaves it closed and Ask again can present it again.
+test('Ask the stylist again closed by a pan-down while busy stays closed when the write fails', async () => {
+  let fail!: () => void;
+  const reask = jest.fn(() => new Promise<{ settled: Promise<void> }>((_, reject) => {
+    fail = () => reject(new Error('write failed'));
+  }));
+  const view = await render(
+    <Providers productAnalytics={createProductAnalytics()} profile={profileValue()}
+      recommendation={recommendationReady()} resolvedDressStyle="smart"
+      dressingDayKey="2026-08-13" dressingDayChoiceReady reask={reask}
+      wardrobe={wardrobeValue()} weather={weatherValue()}>
+      <TodayRoute />
+    </Providers>,
+  );
+  await fireEvent.press(view.getByTestId('today-ask-again'));
+  await fireEvent.press(view.getByTestId('ask-again-confirm'));
+  expect(reask).toHaveBeenCalledTimes(1);
+  const close = mockOpenSheetClosers.at(-1);
+  expect(close).toBeDefined();
+  await act(async () => { close!(); });
+  await act(async () => { fail(); });
+  await waitFor(() => expect(view.queryByTestId('ask-again-sheet')).toBeNull());
 });
 
 // Tour finding: a confirmed Later departure that is still ahead reopens the sheet on Later

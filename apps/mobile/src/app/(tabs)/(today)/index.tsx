@@ -447,7 +447,7 @@ export default function TodayRoute() {
         language={language}
         now={askOpenedAt ?? clock}
         onConfirm={(choice) => { void confirmAskAgain(choice); }}
-        onDismiss={() => { if (!askBusy) setAskOpenedAt(null); }}
+        onDismiss={() => setAskOpenedAt(null)}
         selected={resolvedDressStyle ?? profileDressStyle}
         timeZone={placeTimeZone}
         visible={askOpenedAt !== null}

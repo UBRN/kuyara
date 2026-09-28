@@ -210,8 +210,10 @@ export class WeatherApplicationController {
   // gesture and visible control, and reuse it as the retry action when a failure is shown
   // (taxonomy 5.7 notes neither surface has a separate retry control). The caller reads the
   // outcome back through `getSnapshot()` after this resolves, since the state it needs is
-  // committed synchronously inside `refreshOnce` before the promise settles.
+  // committed synchronously inside `refreshOnce` before the promise settles. A bootstrap
+  // that failed has nothing to refresh yet, so the same gesture starts it over.
   refresh(): Promise<void> {
+    if (this.state.status === 'error') return this.retry();
     const active = this.state.status === 'ready' ? this.state.activeLocation : null;
     return active ? this.refreshLocation(active, 'manual') : Promise.resolve();
   }

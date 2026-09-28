@@ -4,6 +4,8 @@ import { AppState, NativeModules, Platform, Text } from 'react-native';
 import { LocalizationProvider } from '@/localization/localization-provider';
 import { useLocalization } from '@/localization/use-messages';
 import {
+  firstSupportedLocale,
+  getDeviceLocale,
   getDeviceTemperatureUnit,
   resolveDeviceHour12,
   resolveDeviceTemperatureUnit,
@@ -130,4 +132,33 @@ test('the localization provider re-reads the 12/24-hour switch when the app retu
     NativeModules.SettingsManager = originalSettingsManager;
     appState.mockRestore();
   }
+});
+
+// The system language is the first of the device's preferred list that the app supports.
+describe('the system language', () => {
+  test.each([
+    [['de-DE', 'tr-TR'], 'tr-TR'],
+    [['fr-FR', 'de-DE', 'tr'], 'tr'],
+    [['en-GB', 'tr-TR'], 'en-GB'],
+    [['zh-Hans-CN', 'EN_us'], 'EN_us'],
+    [['de-DE', 'fr-FR'], 'de-DE'],
+    [[], undefined],
+  ] as const)('%j resolves to %s', (candidates, expected) => {
+    expect(firstSupportedLocale(candidates)).toBe(expected);
+  });
+
+  test('iOS reads the whole AppleLanguages list', () => {
+    const originalOS = Platform.OS;
+    const originalSettingsManager = NativeModules.SettingsManager;
+    Platform.OS = 'ios';
+    NativeModules.SettingsManager = { settings: { AppleLanguages: ['de-DE', 'tr-TR'] } };
+    try {
+      expect(getDeviceLocale()).toBe('tr-TR');
+      NativeModules.SettingsManager = { settings: { AppleLanguages: ['de-DE', 'fr-FR'] } };
+      expect(getDeviceLocale()).toBe('de-DE');
+    } finally {
+      Platform.OS = originalOS;
+      NativeModules.SettingsManager = originalSettingsManager;
+    }
+  });
 });
