@@ -183,15 +183,15 @@ export default function TodayRoute() {
     if (!sheetTarget || savingChoice.current || !currentDressingDayKey) return;
     savingChoice.current = true;
     setSheetError(false);
-    try {
-      await chooseFormality?.(currentDressingDayKey, style, 'morning', styles);
-      setStylesStep(null);
-      setSheetTarget(null);
-    } catch {
-      setSheetError(true);
-    } finally {
-      savingChoice.current = false;
-    }
+    // Promise chains, not try/finally: React Compiler does not compile a component holding a
+    // `finally` clause, and this route then re-rendered Today on every navigation commit.
+    await (async () => chooseFormality?.(currentDressingDayKey, style, 'morning', styles))()
+      .then(() => {
+        setStylesStep(null);
+        setSheetTarget(null);
+      })
+      .catch(() => setSheetError(true))
+      .finally(() => { savingChoice.current = false; });
   };
   const handleChoice = (style: DressStyle) => {
     if (!sheetTarget || savingChoice.current) return;
@@ -224,16 +224,14 @@ export default function TodayRoute() {
     if (askBusy || !placeTimeZone || !reask) return;
     setAskBusy(true);
     setAskError(false);
-    try {
+    await (async () => {
       const { settled } = await reask({ formality, departureAt, timeZone: placeTimeZone });
       setChoosingWindow(outfitCoverage(departureAt ?? new Date().toISOString(), placeTimeZone));
       void settled.finally(() => setChoosingWindow(null));
       setAskOpenedAt(null);
-    } catch {
-      setAskError(true);
-    } finally {
-      setAskBusy(false);
-    }
+    })()
+      .catch(() => setAskError(true))
+      .finally(() => setAskBusy(false));
   };
   const viewedThisFocusRef = useRef(false);
   useEffect(() => {
@@ -294,7 +292,7 @@ export default function TodayRoute() {
     if (isPullRefreshing) return;
     const wasFailing = state.kind === 'unavailable' || (state.kind === 'loaded' && state.refreshFailed);
     setIsPullRefreshing(true);
-    try {
+    await (async () => {
       await weatherApplication.refresh();
       const currentRecommendation = getRecommendationSnapshot();
       if (currentRecommendation.status === 'ready' &&
@@ -339,9 +337,7 @@ export default function TodayRoute() {
           feature_name: 'manual_refresh',
         });
       });
-    } finally {
-      setIsPullRefreshing(false);
-    }
+    })().finally(() => setIsPullRefreshing(false));
   };
 
   return (

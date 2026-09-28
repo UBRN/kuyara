@@ -1,0 +1,193 @@
+import { act, render } from '@testing-library/react-native';
+import type { PropsWithChildren } from 'react';
+import { Profiler } from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+import { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
+import { FirstUseTracker } from '@/features/analytics/application/first-use-tracker';
+import { RetryCounter } from '@/features/analytics/application/retry-counter';
+import { ProductAnalyticsContext } from '@/features/analytics/application/use-product-analytics';
+import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
+import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
+import type { WeatherReadyState } from '@/features/weather/application/weather-application-controller';
+import {
+  WeatherApplicationContext,
+  type WeatherApplicationValue,
+} from '@/features/weather/application/weather-application-context';
+import { getManualLocation } from '@/features/weather/data/manual-location-catalog';
+import { WeatherScreen } from '@/features/weather/presentation/weather-screen';
+import { LocalizationContext } from '@/localization/localization-context';
+import { messages } from '@/localization/messages';
+import { lightTheme } from '@/theme/theme';
+import { KuyaraThemeContext } from '@/theme/theme-context';
+
+// A tab switch is a blur followed by a focus, and the router tells the screen about both
+// without re-rendering it. This mock delivers exactly those two events, so a re-render that
+// follows is one the screen caused itself.
+const mockFocusSubscribers = new Set<(focused: boolean) => void>();
+jest.mock('expo-router', () => {
+  const React = jest.requireActual('react') as typeof import('react');
+  return {
+    router: { push: jest.fn() },
+    useFocusEffect: (callback: () => void | (() => void)) => {
+      React.useEffect(() => {
+        let cleanup = callback();
+        const subscriber = (focused: boolean) => {
+          if (focused) cleanup = callback();
+          else cleanup?.();
+        };
+        mockFocusSubscribers.add(subscriber);
+        return () => {
+          mockFocusSubscribers.delete(subscriber);
+          cleanup?.();
+        };
+      }, [callback]);
+    },
+  };
+});
+
+// The rail is the screen's heaviest child and takes fresh props whenever the screen renders,
+// so its render count is the screen's render count as far as a tab switch is concerned.
+const mockRailColumnCounts: number[] = [];
+jest.mock('@/features/weather/presentation/hourly-rail', () => {
+  const actual = jest.requireActual('@/features/weather/presentation/hourly-rail') as
+    typeof import('@/features/weather/presentation/hourly-rail');
+  return {
+    ...actual,
+    HourlyRail: (props: Parameters<typeof actual.HourlyRail>[0]) => {
+      mockRailColumnCounts.push(props.columns.length);
+      return actual.HourlyRail(props);
+    },
+  };
+});
+
+async function switchTab(focused: boolean) {
+  await act(async () => { mockFocusSubscribers.forEach((subscriber) => subscriber(focused)); });
+}
+
+let clock: jest.SpyInstance<number, []>;
+let now = Date.parse('2026-07-30T09:30:00.000Z');
+beforeEach(() => {
+  now = Date.parse('2026-07-30T09:30:00.000Z');
+  clock = jest.spyOn(Date, 'now').mockImplementation(() => now);
+  mockRailColumnCounts.length = 0;
+});
+afterEach(() => clock.mockRestore());
+
+const initialMetrics = {
+  frame: { x: 0, y: 0, width: 390, height: 844 },
+  insets: { top: 47, right: 0, bottom: 34, left: 0 },
+};
+
+function sampleSnapshot() {
+  const location = getManualLocation('sample.istanbul')!;
+  const hour = (forecastAt: string) => ({
+    forecastAt, temperatureCelsius: 16, apparentTemperatureCelsius: 15, condition: 'rain' as const,
+    precipitationProbability: 0.5, windSpeedMetersPerSecond: 4, humidity: 0.7, uvIndex: 2,
+  });
+  return {
+    id: '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4', localProfileId: 'profile-id',
+    locationKey: location.locationKey, timeZone: location.timeZone,
+    fetchedAt: '2026-07-30T09:00:00.000Z',
+    origin: { kind: 'sample' as const, sourceId: 'test' },
+    current: {
+      observedAt: '2026-07-30T09:00:00.000Z', temperatureCelsius: 16,
+      apparentTemperatureCelsius: 15, condition: 'rain' as const,
+      precipitationProbability: 0.5, windSpeedMetersPerSecond: 4, humidity: 0.7, uvIndex: 2,
+    },
+    minimumTemperatureCelsius: 12, maximumTemperatureCelsius: 19,
+    hourly: [hour('2026-07-30T09:00:00.000Z'), hour('2026-07-30T10:00:00.000Z')],
+  };
+}
+
+function ready(): WeatherApplicationValue {
+  const state: WeatherReadyState = {
+    status: 'ready', activeLocation: getManualLocation('sample.istanbul')!,
+    snapshot: sampleSnapshot(), freshness: 'fresh', permission: { kind: 'undetermined' },
+    locationFlow: 'idle', isSelectingLocation: false, isRefreshing: false, refreshFailure: null,
+  };
+  return {
+    state,
+    retry: jest.fn(async () => undefined),
+    dismissLocationFlow: jest.fn(),
+    beginDeviceLocationSelection: jest.fn(async () => undefined),
+    confirmDeviceLocationRequest: jest.fn(async () => undefined),
+    openApplicationSettings: jest.fn(async () => undefined),
+    selectManualLocation: jest.fn(async () => undefined),
+    refresh: jest.fn(async () => undefined),
+    revalidateFreshness: jest.fn(async () => undefined),
+  };
+}
+
+function productAnalytics() {
+  const analytics = new RecordingProductAnalytics();
+  return {
+    analytics,
+    errorEpisodes: new ErrorEpisodeTracker(
+      (name, properties, options) => analytics.capture(name, properties, options),
+      () => new Date().toISOString(),
+      () => true,
+    ),
+    firstUses: new FirstUseTracker(new InMemoryFirstUseStore(), () => true),
+    retries: new RetryCounter(),
+  };
+}
+
+function Providers({ children, value }: PropsWithChildren<{ value: WeatherApplicationValue }>) {
+  return (
+    <LocalizationContext.Provider
+      value={{ language: 'en', messages: messages.en, hour12: false, temperatureUnit: 'celsius' }}>
+      <KuyaraThemeContext.Provider value={lightTheme}>
+        <ProductAnalyticsContext value={productAnalytics()}>
+          <WeatherApplicationContext.Provider value={value}>
+            <SafeAreaProvider initialMetrics={initialMetrics}>{children}</SafeAreaProvider>
+          </WeatherApplicationContext.Provider>
+        </ProductAnalyticsContext>
+      </KuyaraThemeContext.Provider>
+    </LocalizationContext.Provider>
+  );
+}
+
+// Tab switches are the app's commonest navigation, and Weather sits behind every one of them.
+// A blur and a focus that change nothing the screen shows must not draw it again (measured
+// 2026-09-29: 110 to 133 ms per switch in a development build).
+test('a tab switch that changes nothing on screen does not render Weather again', async () => {
+  const value = ready();
+  let commits = 0;
+  await render(
+    <Providers value={value}>
+      <Profiler id="weather" onRender={() => { commits += 1; }}><WeatherScreen /></Profiler>
+    </Providers>,
+  );
+  await act(async () => undefined);
+  const railRenders = mockRailColumnCounts.length;
+  const mountCommits = commits;
+  expect(railRenders).toBeGreaterThan(0);
+  expect(value.revalidateFreshness).toHaveBeenCalledTimes(1);
+
+  for (let visit = 0; visit < 3; visit += 1) {
+    await switchTab(false);
+    // Seconds pass between visits, not a minute: the clock moves with the minute, never sooner.
+    now += 10_000;
+    await switchTab(true);
+  }
+
+  // Focus still re-evaluates freshness; only the drawing is spared.
+  expect(value.revalidateFreshness).toHaveBeenCalledTimes(4);
+  expect(mockRailColumnCounts.length).toBe(railRenders);
+  expect(commits).toBe(mountCommits);
+});
+
+test('returning after an hour has ended still drops it from the rail', async () => {
+  const value = ready();
+  await render(<Providers value={value}><WeatherScreen /></Providers>);
+  expect(mockRailColumnCounts.at(-1)).toBe(2);
+  const railRenders = mockRailColumnCounts.length;
+
+  await switchTab(false);
+  now = Date.parse('2026-07-30T10:05:00.000Z');
+  await switchTab(true);
+
+  expect(mockRailColumnCounts.length).toBeGreaterThan(railRenders);
+  expect(mockRailColumnCounts.at(-1)).toBe(1);
+});
