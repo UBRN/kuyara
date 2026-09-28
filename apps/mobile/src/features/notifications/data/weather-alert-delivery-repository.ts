@@ -1,3 +1,4 @@
+import { isUtcIsoTimestamp } from '@/domain/record-identity';
 import type { WeatherAlertDeliveryLocalDataSource } from '@/features/notifications/data/weather-alert-delivery-local-data-source';
 import type { WeatherAlertDeliveryRecord } from '@/features/notifications/data/weather-alert-delivery-record';
 import type { NotificationKind } from '@/features/notifications/data/notification-gateway';
@@ -7,11 +8,6 @@ export interface WeatherAlertDeliveryRepository {
   deletePending(localProfileId: string, now: string, kind?: NotificationKind): Promise<void>;
   listFiredIds(localProfileId: string, now: string): Promise<ReadonlySet<string>>;
   pruneBefore(localProfileId: string, isoDate: string): Promise<void>;
-}
-
-function isIsoDate(value: string): boolean {
-  const parsed = Date.parse(value);
-  return Number.isFinite(parsed) && new Date(parsed).toISOString() === value;
 }
 
 export class LocalWeatherAlertDeliveryRepository
@@ -25,14 +21,14 @@ implements WeatherAlertDeliveryRepository {
   async upsertScheduled(deliveries: readonly WeatherAlertDeliveryRecord[]): Promise<void> {
     if (deliveries.some((delivery) =>
       !delivery.id || !delivery.localProfileId
-      || !isIsoDate(delivery.fireAt) || !isIsoDate(delivery.createdAt))) {
+      || !isUtcIsoTimestamp(delivery.fireAt) || !isUtcIsoTimestamp(delivery.createdAt))) {
       throw new Error('The weather alert delivery is invalid.');
     }
     await this.dataSource.upsertScheduled(deliveries);
   }
 
   async listFiredIds(localProfileId: string, now: string): Promise<ReadonlySet<string>> {
-    if (!localProfileId || !isIsoDate(now)) {
+    if (!localProfileId || !isUtcIsoTimestamp(now)) {
       throw new Error('The weather alert delivery query is invalid.');
     }
     const records = await this.dataSource.listFired(localProfileId, now);
@@ -43,14 +39,14 @@ implements WeatherAlertDeliveryRepository {
   }
 
   async deletePending(localProfileId: string, now: string, kind?: NotificationKind): Promise<void> {
-    if (!localProfileId || !isIsoDate(now)) {
+    if (!localProfileId || !isUtcIsoTimestamp(now)) {
       throw new Error('The weather alert delivery query is invalid.');
     }
     await this.dataSource.deletePending(localProfileId, now, kind);
   }
 
   async pruneBefore(localProfileId: string, isoDate: string): Promise<void> {
-    if (!localProfileId || !isIsoDate(isoDate)) {
+    if (!localProfileId || !isUtcIsoTimestamp(isoDate)) {
       throw new Error('The weather alert delivery prune boundary is invalid.');
     }
     await this.dataSource.pruneBefore(localProfileId, isoDate);

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { resolveWorkerBaseUrl, WorkerBaseUrlConfigurationError } from '../../config/worker-base-url.ts';
+import { resolveWorkerBaseUrl, WorkerBaseUrlConfigurationError, workerPlatform } from '../../config/worker-base-url.ts';
 import { getManualLocation } from './data/manual-location-catalog.ts';
 import {
   WorkerWeatherProvider,
@@ -264,6 +264,12 @@ test('aborts a stuck request as a network failure and allows a subsequent retry'
   assert.equal(firstSignal.aborted, true);
   assert.equal((await provider.fetchSnapshot(location)).fetchedAt, fetchedAt);
   assert.equal(attempts, 2);
+});
+
+test('maps a runtime OS to the two shipped Worker platforms', () => {
+  assert.equal(workerPlatform('android'), 'android');
+  assert.equal(workerPlatform('ios'), 'ios');
+  assert.equal(workerPlatform('web'), 'ios', 'any non-Android OS resolves like iOS');
 });
 
 test('uses platform-aware local development URLs and requires an explicit production URL', () => {

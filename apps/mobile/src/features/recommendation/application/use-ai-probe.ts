@@ -1,10 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Platform } from 'react-native';
 
-import {
-  resolveWorkerBaseUrl,
-  WorkerBaseUrlConfigurationError,
-} from '@/config/worker-base-url';
+import { resolveAppWorkerBaseUrl } from '@/config/app-worker-base-url';
+import { WorkerBaseUrlConfigurationError } from '@/config/worker-base-url';
 import {
   mapProbeError,
   mapProbeResult,
@@ -29,16 +26,7 @@ export function useAiProbe(dependencies?: Dependencies): Readonly<{
 }> {
   const baseUrl = useMemo(() => {
     try {
-      return resolveWorkerBaseUrl({
-        configuredUrl:
-          dependencies?.baseUrl ?? process.env.EXPO_PUBLIC_KUYARA_WORKER_BASE_URL,
-        isDevelopment: __DEV__,
-        platform: Platform.OS === 'android'
-          ? 'android'
-          : Platform.OS === 'web'
-            ? 'web'
-            : 'ios',
-      });
+      return resolveAppWorkerBaseUrl(dependencies?.baseUrl);
     } catch (error) {
       if (error instanceof WorkerBaseUrlConfigurationError) return null;
       throw error;

@@ -1,6 +1,6 @@
 import * as Crypto from 'expo-crypto';
 import type { DressStyle, StyleAesthetic } from '@kuyara/contracts';
-import { AppState, Platform, type AppStateStatus } from 'react-native';
+import { AppState, type AppStateStatus } from 'react-native';
 import {
   type PropsWithChildren,
   useCallback,
@@ -55,7 +55,8 @@ import {
 import type { OnDeviceAiAvailability } from '@/features/recommendation/domain/on-device-ai-availability';
 import { onDeviceAiModule } from '@/features/recommendation/data/on-device-ai-module';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
-import { resolveWorkerBaseUrl, WorkerBaseUrlConfigurationError } from '@/config/worker-base-url';
+import { resolveAppWorkerBaseUrl } from '@/config/app-worker-base-url';
+import { WorkerBaseUrlConfigurationError } from '@/config/worker-base-url';
 import { openKuyaraDatabase } from '@/infrastructure/sqlite/expo-sqlite-database';
 import { migrateDatabase } from '@/infrastructure/sqlite/migrations';
 import { useLocalization } from '@/localization/use-messages';
@@ -95,11 +96,7 @@ function deviceLocalDay() {
 function createWorkerClient(): Pick<WorkerAiClient, 'recommend'> {
   try {
     return new WorkerAiClient({
-      baseUrl: resolveWorkerBaseUrl({
-        configuredUrl: process.env.EXPO_PUBLIC_KUYARA_WORKER_BASE_URL,
-        isDevelopment: __DEV__,
-        platform: Platform.OS === 'android' ? 'android' : Platform.OS === 'web' ? 'web' : 'ios',
-      }),
+      baseUrl: resolveAppWorkerBaseUrl(),
     });
   } catch (error) {
     if (!(error instanceof WorkerBaseUrlConfigurationError)) throw error;

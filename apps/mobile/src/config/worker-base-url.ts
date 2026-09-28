@@ -1,4 +1,7 @@
-export type WorkerPlatform = 'android' | 'ios' | 'web';
+export type WorkerPlatform = 'android' | 'ios';
+
+// kuyara ships for iOS and Android only; every non-Android runtime OS resolves like iOS.
+export const workerPlatform = (os: string): WorkerPlatform => (os === 'android' ? 'android' : 'ios');
 
 type WorkerBaseUrlOptions = Readonly<{
   configuredUrl?: string;
@@ -9,7 +12,6 @@ type WorkerBaseUrlOptions = Readonly<{
 const localWorkerBaseUrls: Readonly<Record<WorkerPlatform, string>> = {
   android: 'http://10.0.2.2:8788',
   ios: 'http://127.0.0.1:8788',
-  web: 'http://127.0.0.1:8788',
 };
 
 export class WorkerBaseUrlConfigurationError extends Error {
