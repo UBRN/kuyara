@@ -8,7 +8,9 @@ import { useKuyaraTheme } from '@/theme/theme-context';
 // Cancel is the system `xmark` on the left and Save the prominent `checkmark` on the right,
 // both native bar items the header frames in Liquid Glass, so Save is never scrolled under
 // the tab bar. Android's toolbar items take image sources only, so it keeps Material icon
-// buttons in the same two header slots.
+// buttons in the same two header slots. The prominent Save is a filled primary action,
+// so it takes `primaryFill`, the token every filled primary button uses: UIKit draws the
+// glyph white on the tint, and dark `brandPrimary` (Quiet Sky) is too light for that.
 export type FormToolbarProps = Readonly<{
   cancelLabel: string;
   saveLabel: string;
@@ -69,7 +71,7 @@ export function FormToolbar({
           disabled={saveDisabled}
           icon="checkmark"
           onPress={onSave}
-          tintColor={theme.colors.brandPrimary}
+          tintColor={theme.colors.primaryFill}
           variant="prominent"
         />
       </Stack.Toolbar>
