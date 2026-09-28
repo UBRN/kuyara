@@ -17,6 +17,7 @@ import {
   type AiRecommendV1Request,
   type AiRecommendV2Request,
   type AiV1ErrorCode,
+  type OutfitArchetypeId,
 } from '@kuyara/contracts';
 
 import type { ExecutionContext } from '../router.ts';
@@ -159,7 +160,7 @@ const AI_GATE_VERSION = 3;
 const AI_PROMPT_VERSION = 2;
 
 function validSelection(
-  picks: { optionId: string; archetypeId: string }[],
+  picks: readonly { optionId: string; archetypeId: OutfitArchetypeId }[],
   request: AiRecommendV1Request | AiRecommendV2Request,
   options: Map<string, AiOption>,
 ): boolean {
@@ -167,7 +168,7 @@ function validSelection(
   if (!picked.every((option): option is AiOption => option !== undefined)) return false;
   if (!picksAreMeaningfullyDifferent(picked)) return false;
   return picks.every(({ archetypeId }, index) => meetsArchetypePrecondition(
-    archetypeId as Parameters<typeof meetsArchetypePrecondition>[0],
+    archetypeId,
     picked[index]!, request.dayKind,
     archetypeDayFromRequirements(request.requirements),
   ));

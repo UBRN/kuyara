@@ -50,3 +50,43 @@ test('weather adapters take the clock as a dependency', () => {
 
   assert.deepEqual(inline, [], 'take `now` in the constructor: `dependencies.now ?? (() => new Date())`');
 });
+
+// An exported Worker function never defaults a time parameter to the ambient clock. Only
+// annotated parameters (`: Date`, `: string`, `: number`) are read; an unannotated default is
+// not covered.
+test('a Worker function does not default a time parameter to the ambient clock', () => {
+  const clockDefault = /(?::\s*Date|:\s*string|:\s*number)\s*=\s*(?:new Date\(\)|Date\.now\(\))/;
+  const hits = sourceFiles().filter((relativePath) => (
+    clockDefault.test(readFileSync(path.join(sourceRoot, relativePath), 'utf8'))
+  ));
+
+  assert.deepEqual(hits, [], 'make the time parameter required and pass the clock at the call site');
+});
+
+// A swallowed error is justified in one line: an empty `catch` block says nothing. The
+// promise form `.catch(() => {})` is not covered yet.
+test('Worker production code has no empty catch block', () => {
+  const empty = /catch(?:\s*\([^)]*\))?\s*\{\s*\}/g;
+  const hits = [];
+  for (const relativePath of sourceFiles()) {
+    const text = readFileSync(path.join(sourceRoot, relativePath), 'utf8');
+    for (const match of text.matchAll(empty)) {
+      hits.push(`${relativePath}:${text.slice(0, match.index).split('\n').length}`);
+    }
+  }
+
+  assert.deepEqual(hits, [], 'say in one comment line why swallowing the error is safe');
+});
+
+// The archetype id reaches the precondition gate already typed by the parsed pick schema, so
+// the gate is never called through a cast of its own parameter type.
+test('the archetype gate is not called through a parameter-type cast', () => {
+  const casts = [];
+  for (const relativePath of sourceFiles()) {
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/as Parameters<typeof/.test(line)) casts.push(`${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(casts, [], 'type the argument as the contracts type instead of casting');
+});

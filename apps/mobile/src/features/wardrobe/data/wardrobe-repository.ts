@@ -130,7 +130,7 @@ function requireTimestamp(value: string): string {
   return value;
 }
 
-function requireCategory(value: WardrobeItemCategory): WardrobeItemCategory {
+function requireCategory(value: unknown): WardrobeItemCategory {
   if (typeof value !== 'string' || !isWardrobeItemCategory(value)) {
     throw new WardrobeItemValidationError();
   }
@@ -233,7 +233,7 @@ function mutableFieldsFromCreate(input: CreateWardrobeItemInput): MutableWardrob
   return requireConsistentTaxonomyFields({
     name: normalizeOptionalWardrobeText(input.name),
     category: Object.prototype.hasOwnProperty.call(input, 'category')
-      ? requireCategory(input.category as WardrobeItemCategory)
+      ? requireCategory(input.category)
       : type.structuralCategory,
     entryState: Object.prototype.hasOwnProperty.call(input, 'entryState')
       ? requireEnum(input.entryState, wardrobeEntryStateSchema)
@@ -324,7 +324,7 @@ function mutableFieldsFromUpdate(
       ? normalizeOptionalWardrobeText(input.name)
       : current.name,
     category: Object.prototype.hasOwnProperty.call(input, 'category')
-      ? requireCategory(input.category as WardrobeItemCategory)
+      ? requireCategory(input.category)
       : hasGarmentTypeUpdate && selectedType
         ? selectedType.structuralCategory
         : current.category,

@@ -400,7 +400,9 @@ export class WardrobeApplicationController {
   private reportCleanupError(): void {
     try {
       this.reportPhotoCleanupError();
-    } catch {}
+    } catch {
+      // The report hook is best effort: a throwing reporter must not fail the Closet action it observes.
+    }
   }
 
   private mutate(

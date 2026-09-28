@@ -107,7 +107,7 @@ export function isStoredBirthDate(value: unknown): value is string | null {
 }
 
 // The moving bound, applied before a write only (ADR 0015 section 8).
-export function isValidBirthDate(value: unknown, today: Date = new Date()): value is string | null {
+export function isValidBirthDate(value: unknown, today: Date): value is string | null {
   const parsed = birthDateSchema.safeParse(value);
   if (!parsed.success) return false;
   if (parsed.data === null) return true;
