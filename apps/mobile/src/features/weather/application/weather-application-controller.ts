@@ -357,7 +357,7 @@ export class WeatherApplicationController {
     try {
       const loadedSnapshot = await this.loadMatchingSnapshot(persisted);
       const loadedFreshness = loadedSnapshot
-        ? weatherFreshness(loadedSnapshot.fetchedAt, this.dependencies.now())
+        ? cachedWeatherFreshness(loadedSnapshot.fetchedAt, this.dependencies.now())
         : null;
       const ready = this.requireReady();
       const validLoadedFreshness = loadedFreshness === 'invalid' ? null : loadedFreshness;

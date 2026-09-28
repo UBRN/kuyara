@@ -24,6 +24,17 @@ jest.mock('expo-haptics', () => ({
   selectionAsync: jest.fn(() => Promise.resolve()),
 }));
 
+// Focus is decided when a hook instance mounts, so a test can mount one focused screen and one
+// that sits behind it, the way two mounted tabs do.
+const mockFocus = { current: true };
+jest.mock('expo-router', () => {
+  const { useEffect } = jest.requireActual<typeof import('react')>('react');
+  return {
+    useFocusEffect: (callback: () => void | (() => void)) =>
+      useEffect(() => (mockFocus.current ? callback() : undefined), [callback]),
+  };
+});
+
 const originalPlatform = Platform.OS;
 const impactAsync = jest.mocked(ExpoHaptics.impactAsync);
 const notificationAsync = jest.mocked(ExpoHaptics.notificationAsync);
@@ -36,6 +47,7 @@ function setPlatform(os: typeof Platform.OS) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockFocus.current = true;
   impactAsync.mockResolvedValue();
   notificationAsync.mockResolvedValue();
   performAndroidHapticsAsync.mockResolvedValue();
@@ -113,4 +125,24 @@ test.each([
   await hook.rerender({ failed, isRefreshing: false });
 
   expect(outcome).toHaveBeenCalledTimes(1);
+});
+
+test('only the focused screen reports the outcome of a shared refresh', async () => {
+  const success = jest.spyOn(haptics, 'success').mockImplementation(() => undefined);
+  const focusedScreen = await renderHook(
+    (props: { isRefreshing: boolean }) => useRefreshOutcomeHaptics(props.isRefreshing, false),
+    { initialProps: { isRefreshing: false } },
+  );
+  mockFocus.current = false;
+  const hiddenScreen = await renderHook(
+    (props: { isRefreshing: boolean }) => useRefreshOutcomeHaptics(props.isRefreshing, false),
+    { initialProps: { isRefreshing: false } },
+  );
+
+  for (const isRefreshing of [true, false]) {
+    await focusedScreen.rerender({ isRefreshing });
+    await hiddenScreen.rerender({ isRefreshing });
+  }
+
+  expect(success).toHaveBeenCalledTimes(1);
 });

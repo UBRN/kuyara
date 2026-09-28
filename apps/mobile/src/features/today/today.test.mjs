@@ -742,6 +742,21 @@ test('the freshness line reports refreshing, failure, staleness, and last update
   assert.equal(turkish.header.phase, null);
 });
 
+test('the freshness line carries the short date once the snapshot is not from the current local day', () => {
+  const failed = { ...todayScreenState, isRefreshing: false, refreshFailed: true };
+  const sameDay = loadedPresentation(failed, 'en', false, fixtureNow);
+  assert.doesNotMatch(sameDay.header.freshness, /2026|\//);
+  for (const days of [1, 3]) {
+    const later = loadedPresentation(failed, 'en', false, fixtureNow + days * 24 * 3_600_000);
+    assert.match(later.header.freshness, /^Couldn't refresh · Showing last update from 13\/08\/2026, 06:05$/);
+  }
+  const turkish = loadedPresentation(
+    { ...todayScreenState, isRefreshing: false, refreshFailed: false },
+    'tr', false, fixtureNow + 24 * 3_600_000,
+  );
+  assert.match(turkish.header.freshness, /13\.08\.2026 06:05/);
+});
+
 // The wait can now run to the length of the whole AI chain, so the freshness line says what
 // the wait is doing instead of repeating one generic sentence for the whole of it.
 test('a narrated refresh replaces the generic freshness line with the phase, in both languages', () => {
