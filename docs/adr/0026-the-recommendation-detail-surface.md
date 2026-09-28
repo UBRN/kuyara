@@ -77,9 +77,11 @@ composed size, less where the board holds less but never under 1.6 times, shifte
 far as the stage needs; the other pieces step back to 0.9 in full colour, and every caption
 and ownership badge leaves until the pieces rest again. Under the stage a strip names the
 piece and its place ("Coat 3 / 12") beside "Done", over the slot's candidates in the
-picker's order as 44-point tiles, seven to a row (fewer on a narrower column) and as many
-rows as the slot needs, never a sideways scroller; no slot offers more than two rows' worth
-today, and a test fails before a catalog change needs a third. A 1-point hairline in `borderSubtle` stands before the first piece
+picker's order as 44-point tiles 8 points apart, as many a row as the column holds and at
+most seven (seven in a 390-point phone's 358-point column, six in a 375-point phone's 343),
+in as many rows as the slot needs, never a sideways scroller. No slot offers more than 14
+candidates today, two rows of seven; the 13-candidate top takes three rows of six on a
+375-point phone, and a test fails before a catalog change needs more. A 1-point hairline in `borderSubtle` stands before the first piece
 that makes the outfit unusual, and a `focusRing` marker rings the current tile. The piece
 changes while it stays large: a horizontal swipe on it, or a tile. A swipe pages the
 enlarged piece opaque inside its own window, clipped so it never covers a stepped-back
@@ -87,17 +89,24 @@ piece; a release past half a step or a 500 pt/s flick commits, both ends resist 
 rubber band, the order never wraps, and 5 points of vertical travel first hand the press
 to the page scroll. A pressed tile, and a swipe past half a step, name the landing piece in
 the header before it commits. Each piece is one adjustable accessibility element whose
-increment and decrement walk the same order; a tile or a swipe announces the new piece and
-its place. A tap on the enlarged piece, on empty board, on "Done" or anywhere else on the
-page settles the enlargement, as does VoiceOver's escape; a tap on a stepped-back piece
-moves it. The strip lies outside the board's gesture, so a tile, "Done" or a gap between
-tiles never reaches the board.
+increment and decrement walk the same order, and the enlarged one reads as expanded; a tile
+or a swipe announces the new piece and its place, in the same announcement as the unusual
+note when the change makes the outfit unusual. A tap on the enlarged piece, on empty board,
+on "Done" or anywhere else on the page settles the enlargement, as does VoiceOver's escape;
+a tap on a stepped-back piece moves it. Settled from the board, "Done" or the escape,
+VoiceOver's focus returns to the piece. The strip lies outside the board's gesture, so a
+tile, "Done" or a gap between tiles never reaches the board, and it takes no touch or focus
+until it fades in. "Done" is a plain button, 56 points with Easier to see, and "Done" and
+the tiles take the strong edge while higher contrast applies.
 
 The enlarged piece is drawn once more at its grow size and handed over to its resting
 drawing on `motion.fast`, fading in from the tap and back once a quarter of the settle is
 travelled, so its outline is 1.9 points (2.8 with Easier to see) at both ends and never an
 upscaled raster. The stage keeps the height of the slot's tallest candidate for the whole
-enlargement, so a change never moves a tile under a finger. One height carries the stage
+enlargement, so a change never moves a tile under a finger. Each neighbour waits wholly
+behind its side of the window, a step being its own grown width from there, so a wider
+neighbour never shows when a drag begins; a paged piece still sliding when the enlargement
+settles finishes its slide in the window it had. One height carries the stage
 and the hint or the strip on the spatial spring, so the content under the board moves once
 when a piece is enlarged and once when it settles; text enters once its space is nine
 tenths open and leaves before it closes, and the unusual note, "Back to kuyara's pick" and

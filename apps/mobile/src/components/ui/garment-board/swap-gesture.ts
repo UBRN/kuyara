@@ -108,12 +108,14 @@ export function swapWindow(
 }
 
 /**
- * One step on one side: the neighbour waits exactly behind the window's edge on its side, and
- * a step is never under two touch targets.
+ * One step on one side: the piece that comes in from that side waits exactly behind the
+ * window's edge, whatever its own grown width, so a wider neighbour never shows when a drag
+ * makes it opaque; a step is never under two touch targets. With no neighbour on that side
+ * the enlarged piece's own grown box stands in, which is its width plus the window's pad.
  */
-export function swapStride(grownWidth: number, pad: number): number {
-  'worklet';
-  return Math.max(2 * layout.minimumTouchTarget, grownWidth + pad);
+export function swapStride(window: Readonly<{ x: number; w: number }>, incoming: SwapBox, direction: 1 | -1): number {
+  const behind = direction === 1 ? window.x + window.w - incoming.x : incoming.x + incoming.w - window.x;
+  return Math.max(2 * layout.minimumTouchTarget, behind);
 }
 
 /** How far a resisted drag shows: 120 pt past an end shows as 37.7 pt at an 88 pt stride. */
@@ -241,4 +243,19 @@ export function swapMarkerPosition(
   if (!to || to.y !== from.y) return { x: from.x, y: from.y };
   const t = Math.min(1, Math.max(0, progress));
   return { x: from.x + (to.x - from.x) * t, y: from.y };
+}
+
+/**
+ * How far the page scrolls when a piece is enlarged (final-spec section 3): the least that
+ * shows the strip's bottom `spacing.md` above the visible bottom, never so far that the
+ * enlarged piece's top leaves the visible top, and nothing when the strip already shows.
+ * `pieceTop` and `panelBottom` are in board points, `boardTop` and `visible` in window points.
+ */
+export function swapRevealScroll(
+  area: Readonly<{ pieceTop: number; panelBottom: number }>,
+  boardTop: number,
+  visible: Readonly<{ top: number; bottom: number }>,
+): number {
+  const needed = boardTop + area.panelBottom + spacing.md - visible.bottom;
+  return Math.max(0, Math.min(needed, boardTop + area.pieceTop - visible.top));
 }

@@ -155,8 +155,17 @@ export type TodayMessages = Readonly<{
     pickerCurrent: string;
     counter: (position: number, total: number) => string;
     pieceValue: (values: { piece: string; position: number; total: number }) => string;
+    /**
+     * Phase 7b: one announcement after a tile or a swipe that makes the outfit unusual: the
+     * new piece and its place, then the note, as whole sentences so neither cuts the other off.
+     */
+    stepUnusual: (values: { piece: string; position: number; total: number }) => string;
     /** Phase 7b: ends the enlargement from the strip's header. */
     done: string;
+    /** Phase 7b: spoken on one strip tile after the hairline. */
+    otherPieceHint: string;
+    /** Phase 7b: spoken when VoiceOver's activate enlarges a piece and the strip opens below it. */
+    stripShown: string;
     /** The source sentence after one changed piece, per generation mode; no AI words in deterministic. */
     sourceOne: Readonly<{ onDeviceAi: string; aiAssisted: string; deterministic: string }>;
     /** The same after two or more changed pieces. */
@@ -1413,7 +1422,11 @@ const en = {
       pickerCurrent: 'Current',
       counter: (position, total) => `${position} / ${total}`,
       pieceValue: ({ piece, position, total }) => `${piece}, ${position} of ${total}`,
+      stepUnusual: ({ piece, position, total }) =>
+        `${piece}, ${position} of ${total}. Unusual for this weather. You can still wear this outfit and record it.`,
       done: 'Done',
+      otherPieceHint: 'This piece can make the outfit unusual for this weather.',
+      stripShown: 'The pieces you can choose are below.',
       sourceOne: {
         onDeviceAi: 'You changed a piece. kuyara chose the rest on your device with Apple Intelligence.',
         aiAssisted: 'You changed a piece. kuyara chose the rest with online AI.',
@@ -2285,7 +2298,11 @@ const tr = {
       pickerCurrent: 'Şu anki',
       counter: (position, total) => `${position} / ${total}`,
       pieceValue: ({ piece, position, total }) => `${piece}, ${total} parçadan ${position}`,
+      stepUnusual: ({ piece, position, total }) =>
+        `${piece}, ${total} parçadan ${position}. Bu hava için alışılmadık. Bu kombini yine de giyip kaydedebilirsin.`,
       done: 'Bitti',
+      otherPieceHint: 'Bu parça kombini bu hava için alışılmadık yapabilir.',
+      stripShown: 'Seçebileceğin parçalar aşağıda.',
       sourceOne: {
         onDeviceAi: 'Bir parçayı sen değiştirdin. Kalanını kuyara, cihazında Apple Intelligence ile seçti.',
         aiAssisted: 'Bir parçayı sen değiştirdin. Kalanını kuyara çevrimiçi AI ile seçti.',

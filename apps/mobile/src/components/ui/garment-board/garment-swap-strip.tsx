@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 
 import { AppText } from '@/components/ui/app-text';
+import { Button } from '@/components/ui/button';
 import { PressScale } from '@/components/ui/press-scale';
 import type { GarmentTypeId, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
-import { borderWidths, layout, radii, spacing } from '@/theme/theme';
+import { easierToSee, useEasierToSee } from '@/theme/easier-to-see';
+import { borderWidths, interaction, layout, radii, spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 import type { GarmentRoles } from './garment-palette';
@@ -23,7 +25,7 @@ export type GarmentSwapStripLabels = Readonly<{
   counter: (position: number, total: number) => string;
   pieceValue: (piece: string, position: number, total: number) => string;
   done: string;
-  /** Spoken on the tiles after the hairline: they can make the outfit unusual. */
+  /** Spoken on each tile after the hairline: that piece can make the outfit unusual. */
   otherHint: string;
 }>;
 
@@ -44,6 +46,17 @@ type GarmentSwapStripProps = Readonly<{
   onHeaderLayout?: (height: number) => void;
   testID: string;
 }>;
+
+/** The header's words: drawn from their first frame at `from` and eased in on `motion.fast`. */
+function HeaderWords({ from, children }: Readonly<{ from: number; children: ReactNode }>) {
+  const theme = useKuyaraTheme();
+  const opacity = useSharedValue(from);
+  useEffect(() => {
+    opacity.set(withTiming(1, { duration: theme.motion.fast }));
+  }, [opacity, theme.motion.fast]);
+  const style = useAnimatedStyle(() => ({ opacity: opacity.get() }));
+  return <Animated.View style={style}>{children}</Animated.View>;
+}
 
 /**
  * Phase 7b's candidate strip under the enlarged piece (vault phase-7b final-spec): a header
@@ -68,6 +81,8 @@ export function GarmentSwapStrip({
 }: GarmentSwapStripProps) {
   const theme = useKuyaraTheme();
   const { colors } = theme;
+  // Easier to see: Done is a 56-point target like every kuyara-drawn button, so the header is too.
+  const headerHeight = useEasierToSee() ? easierToSee.primaryActionHeight : layout.minimumTouchTarget;
   const [pressedId, setPressedId] = useState<GarmentTypeId | null>(null);
   const [doneWidth, setDoneWidth] = useState<number>(layout.minimumTouchTarget);
   const suitableCount = candidates.filter(({ suitable }) => suitable).length;
@@ -79,19 +94,13 @@ export function GarmentSwapStrip({
   const shownPosition = indexOf(shownId) + 1;
 
   // The header fades only when its words change without a preview having named them first.
+  // The new words mount transparent, so they never show whole for a frame before the fade.
   const [lastShown, setLastShown] = useState(shownId);
   const [fades, setFades] = useState(0);
   if (lastShown !== shownId) {
     setLastShown(shownId);
     if (pressedId === null && previewId === null) setFades((count) => count + 1);
   }
-  const headerOpacity = useSharedValue(1);
-  useEffect(() => {
-    if (fades === 0) return;
-    headerOpacity.set(0);
-    headerOpacity.set(withTiming(1, { duration: theme.motion.fast }));
-  }, [fades, headerOpacity, theme.motion.fast]);
-  const headerStyle = useAnimatedStyle(() => ({ opacity: headerOpacity.get() }));
 
   const currentTile = strip.tiles[Math.max(0, indexOf(current))] ?? { x: 0, y: 0 };
   const markerStyle = useAnimatedStyle(() => ({
@@ -109,19 +118,21 @@ export function GarmentSwapStrip({
       pointerEvents={interactive ? 'box-none' : 'none'}
       style={{ width: strip.width }}
       testID={testID}>
-      <Animated.View
+      <View
         accessibilityLabel={labels.pieceValue(shownName, shownPosition, candidates.length)}
         accessible
         onLayout={({ nativeEvent }) => onHeaderLayout?.(nativeEvent.layout.height)}
-        style={[styles.header, { paddingRight: doneWidth }, headerStyle]}
+        style={[styles.header, { minHeight: headerHeight, paddingRight: doneWidth }]}
         testID={`${testID}-header`}>
-        <View style={styles.headerLine}>
-          <AppText numberOfLines={1} style={styles.name} variant="bodyStrong">{shownName}</AppText>
-          <AppText colorRole="textSecondary" style={styles.counter} tabularNumbers variant="caption">
-            {labels.counter(shownPosition, candidates.length)}
-          </AppText>
-        </View>
-      </Animated.View>
+        <HeaderWords from={fades === 0 ? 1 : 0} key={fades}>
+          <View style={styles.headerLine}>
+            <AppText numberOfLines={1} style={styles.name} variant="bodyStrong">{shownName}</AppText>
+            <AppText colorRole="textSecondary" style={styles.counter} tabularNumbers variant="caption">
+              {labels.counter(shownPosition, candidates.length)}
+            </AppText>
+          </View>
+        </HeaderWords>
+      </View>
       <View style={[styles.grid, { height: strip.height, width: strip.width }]} testID={`${testID}-grid`}>
         {candidates.map((candidate, index) => {
           const tile = strip.tiles[index];
@@ -136,10 +147,14 @@ export function GarmentSwapStrip({
               onPress={() => onChoose(candidate.garmentTypeId)}
               onPressIn={() => setPressedId(candidate.garmentTypeId)}
               onPressOut={() => setPressedId(null)}
-              style={[styles.tile, { left: tile.x, top: tile.y }]}
+              // A held tile dims (the tiles' pressed token); the scale rides on top of it.
+              style={({ pressed }) => [styles.tile, {
+                left: tile.x, opacity: pressed ? interaction.pressedOpacity : 1, top: tile.y,
+              }]}
               testID={`${testID}-tile-${candidate.garmentTypeId}`}>
               <GarmentCandidateTile
                 category={candidate.category}
+                control
                 garmentTypeId={candidate.garmentTypeId}
                 roles={roles.get(candidate.garmentTypeId)}
                 testIDPrefix={`${testID}-art`}
@@ -160,19 +175,21 @@ export function GarmentSwapStrip({
           testID={`${testID}-marker`}
         />
       </View>
-      {/* Done reads after the tiles and stands at the header's trailing edge, flush with the grid. */}
-      <View pointerEvents="box-none" style={[styles.doneRow, { width: strip.width }]}>
-        <PressScale
-          accessibilityLabel={labels.done}
-          accessibilityRole="button"
+      {/* Done reads after the tiles and stands at the header's trailing edge. It is a plain
+          button: its press shows the tonal capsule, and Easier to see gives it 56 points and,
+          with higher contrast, the strong edge. */}
+      <View pointerEvents="box-none" style={[styles.doneRow, { minHeight: headerHeight, width: strip.width }]}>
+        <Button
+          label={labels.done}
           onLayout={({ nativeEvent }) => {
             if (nativeEvent.layout.width !== doneWidth) setDoneWidth(nativeEvent.layout.width);
           }}
           onPress={onDone}
+          size="small"
           style={styles.done}
-          testID={`${testID}-done`}>
-          <AppText colorRole="brandAccent" variant="label">{labels.done}</AppText>
-        </PressScale>
+          testID={`${testID}-done`}
+          variant="plain"
+        />
       </View>
     </View>
   );
@@ -182,15 +199,14 @@ const styles = StyleSheet.create({
   counter: {
     flexShrink: 0,
   },
+  // The capsule keeps `spacing.sm` around the word, so the name and counter keep their room.
   done: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    minHeight: layout.minimumTouchTarget,
     minWidth: layout.minimumTouchTarget,
-    paddingLeft: spacing.sm,
+    paddingHorizontal: spacing.sm,
   },
   doneRow: {
     alignItems: 'flex-end',
+    justifyContent: 'center',
     left: 0,
     position: 'absolute',
     top: 0,
@@ -205,11 +221,11 @@ const styles = StyleSheet.create({
   },
   header: {
     justifyContent: 'center',
-    minHeight: layout.minimumTouchTarget,
   },
+  // Law 2: `xs` binds the counter to the name it counts.
   headerLine: {
     alignItems: 'baseline',
-    columnGap: spacing.sm,
+    columnGap: spacing.xs,
     flexDirection: 'row',
   },
   marker: {

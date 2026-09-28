@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AccessibilityInfo, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, findNodeHandle, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
@@ -61,8 +61,6 @@ import {
 
 // Law 7's completion moment, as in `GarmentBoard`.
 const SETTLE_TRAVEL = spacing.xs;
-// The strip's header before it has measured itself: one touch target.
-const HEADER_HEIGHT = layout.minimumTouchTarget;
 
 type Box = SwapBox;
 type Role = 'current' | 'previous' | 'next' | 'leaving';
@@ -99,6 +97,10 @@ type Instance = Readonly<{
   paged: boolean;
   /** The scale the piece is moving to: 1 at rest, the grow scale enlarged, 0.9 stepped back. */
   scale: number;
+  /** A paged piece keeps the window it slides in, so it can finish a slide after a settle. */
+  window: Box | null;
+  /** A neighbour's offset behind the window's edge, where it waits for a drag. */
+  waits: number | null;
 }>;
 /** One enlargement: the slot's grow scale and the stage held under it. */
 type Grow = Readonly<{ slot: OutfitSlot; scale: number; held: number; width: number; large: boolean }>;
@@ -124,7 +126,8 @@ type Intent =
     }>
   | Readonly<{ kind: 'scale'; values: PieceValues; scale: number }>
   | Readonly<{ kind: 'wait'; values: PieceValues; box: Box; offset: number; scale: number; created: boolean }>
-  | Readonly<{ kind: 'drain'; key: string; values: PieceValues }>;
+  | Readonly<{ kind: 'drain'; key: string; values: PieceValues }>
+  | Readonly<{ kind: 'retire'; key: string; values: PieceValues; offset: number }>;
 type Model = Readonly<{
   signature: string | null;
   instances: readonly Instance[];
@@ -147,6 +150,8 @@ export type GarmentSwapCandidate = Readonly<{
 
 export type GarmentSwapBoardLabels = GarmentSwapStripLabels & Readonly<{
   slotName: (slot: OutfitSlot) => string;
+  /** Spoken when VoiceOver's activate enlarges a piece: the strip has opened below it. */
+  stripShown: string;
 }>;
 
 export type GarmentSwapBoardProps = Readonly<{
@@ -158,8 +163,12 @@ export type GarmentSwapBoardProps = Readonly<{
   candidates: Readonly<Partial<Record<OutfitSlot, readonly GarmentSwapCandidate[]>>>;
   focusedSlot: OutfitSlot | null;
   onFocusChange: (slot: OutfitSlot | null) => void;
-  /** One step to another candidate: the owner applies it and hands the board the new pieces. */
-  onStep: (slot: OutfitSlot, garmentTypeId: GarmentTypeId) => void;
+  /**
+   * One step to another candidate: the owner applies it and hands the board the new pieces.
+   * `spoken` is true for a tile or a swipe, which the owner announces once the change is
+   * known (with the unusual note in the same sentence); an adjustable step speaks its value.
+   */
+  onStep: (slot: OutfitSlot, garmentTypeId: GarmentTypeId, spoken: boolean) => void;
   /** The plate at rest: the composed stage, or the lowest caption under it. */
   restHeight: number;
   /** Caption rectangles at rest, which also enlarge their piece when tapped. */
@@ -256,18 +265,48 @@ function growFor(
   };
 }
 
-function pagerFor(composed: Composed, slot: OutfitSlot, grow: Grow, width: number): Pager | null {
+/** Where the slot's two neighbours stand before a drag: each centred on the slot's piece. */
+function neighbourBoxes(
+  pieces: readonly GarmentBoardPiece[],
+  composed: Composed,
+  slot: OutfitSlot,
+  garmentTypeId: GarmentTypeId | undefined,
+  candidates: Candidates,
+  width: number,
+  large: boolean,
+): Readonly<Record<1 | -1, Box | null>> {
+  const current = composed.bySlot.get(slot)?.box;
+  const boxOf = (direction: 1 | -1) => {
+    const neighbour = current && garmentTypeId ? neighbourIn(candidates, slot, garmentTypeId, direction) : null;
+    if (!current || !neighbour) return null;
+    return swapEntryBox(current, composeInPoints(withGarment(pieces, slot, neighbour), width, large).bySlot.get(slot)!.box);
+  };
+  return { [1]: boxOf(1), [-1]: boxOf(-1) };
+}
+
+function pagerFor(
+  composed: Composed,
+  slot: OutfitSlot,
+  grow: Grow,
+  width: number,
+  neighbours: Readonly<Record<1 | -1, Box | null>>,
+): Pager | null {
   const own = composed.bySlot.get(slot);
   if (!own) return null;
   const grown = swapGrownBox(own.box, grow.scale, width, grow.held);
   const steppedBack = composed.order.filter((other) => other !== slot)
     .map((other) => swapScaledBox(composed.bySlot.get(other)!.box, SWAP_STEP_BACK));
   const window = swapWindow(grown, steppedBack, width, grow.held);
+  // Each side's step keeps that side's neighbour, grown, wholly behind the window's edge.
+  const incoming = (direction: 1 | -1) => {
+    const box = neighbours[direction];
+    return box ? swapGrownBox(box, grow.scale, width, grow.held) : grown;
+  };
   return {
     grown,
     window,
-    strideNext: swapStride(grown.w, window.padRight),
-    stridePrevious: swapStride(grown.w, window.padLeft),
+    strideNext: swapStride(window, incoming(1), 1),
+    stridePrevious: swapStride(window, incoming(-1), -1),
     zone: swapDragZone(grown, grow.held),
   };
 }
@@ -353,11 +392,13 @@ function reconcile(model: Model, inputs: ReconcileInputs): Model {
       const values = valuesFor({ from, box, p: 0, dx: 0, op: 1, sc: 1, hand: 0 });
       byKey.set(key, {
         key, slot, garmentTypeId, role: 'current', piece, base: box, roles: pieceRoles, drainRoles: null, values,
-        big: null, paged: false, scale: 1,
+        big: null, paged: false, scale: 1, window: null, waits: null,
       });
       intents.push({ kind: 'entrance', values, reportsSettled: index === 0 });
     } else if (existing) {
-      let next: Instance = { ...existing, piece, paged: false, big: big ?? existing.big, scale };
+      let next: Instance = {
+        ...existing, piece, paged: false, big: big ?? existing.big, scale, window: null, waits: null,
+      };
       if (existing.role !== 'current') {
         moved = true;
         next = { ...next, role: 'current', base: box };
@@ -383,13 +424,13 @@ function reconcile(model: Model, inputs: ReconcileInputs): Model {
       });
       byKey.set(key, {
         key, slot, garmentTypeId, role: 'current', piece, base: box, roles: pieceRoles, drainRoles: null, values,
-        big: paged ? big : null, paged: false, scale,
+        big: paged ? big : null, paged: false, scale, window: null, waits: null,
       });
       intents.push({ kind: 'enter', values, previous: previous?.values ?? null, box, direction, stride, paged });
     }
 
     if (previous && previous.role === 'current') {
-      byKey.set(previous.key, { ...previous, role: 'leaving', paged });
+      byKey.set(previous.key, { ...previous, role: 'leaving', paged, window: paged ? pager.window : null });
       intents.push({ kind: 'leave', key: previous.key, values: previous.values, direction, stride, fromGesture, paged });
     }
     garments[slot] = garmentTypeId;
@@ -415,7 +456,7 @@ function reconcile(model: Model, inputs: ReconcileInputs): Model {
       if (existing) {
         byKey.set(key, {
           ...existing, role, piece: preview.piece, roles: previewRoles, base: box, big: grow.scale, paged: true,
-          scale: grow.scale,
+          scale: grow.scale, window: pager.window, waits: offset,
         });
         intents.push({ kind: 'wait', values: existing.values, box, offset, scale: grow.scale, created: false });
       } else {
@@ -423,16 +464,19 @@ function reconcile(model: Model, inputs: ReconcileInputs): Model {
         byKey.set(key, {
           key, slot: focusedSlot, garmentTypeId: neighbour.garmentTypeId, role, piece: preview.piece, base: box,
           roles: previewRoles, drainRoles: null, values, big: grow.scale, paged: true, scale: grow.scale,
+          window: pager.window, waits: offset,
         });
         intents.push({ kind: 'wait', values, box, offset, scale: grow.scale, created: true });
       }
     }
   }
-  const instances = [...byKey.values()].filter((instance) => {
-    if (instance.role === 'previous' || instance.role === 'next') return wanted.has(instance.key);
-    // A paged piece still leaving when the enlargement ends is already behind the window.
-    if (instance.role === 'leaving' && instance.paged) return focusedSlot === instance.slot;
-    return true;
+  // A paged piece still sliding when the enlargement ends or moves (Done or a tile right after
+  // a step) finishes its slide inside the window it kept and leaves the tree on landing: a
+  // neighbour no longer wanted slides on to where it waits, behind the window's edge.
+  const instances = [...byKey.values()].map((instance) => {
+    if ((instance.role !== 'previous' && instance.role !== 'next') || wanted.has(instance.key)) return instance;
+    intents.push({ kind: 'retire', key: instance.key, values: instance.values, offset: instance.waits ?? 0 });
+    return { ...instance, role: 'leaving' as const };
   });
 
   return {
@@ -607,7 +651,11 @@ export function GarmentSwapBoard({
     }
     activeGrow = { ...activeGrow, held: Math.max(activeGrow.held, composed.height) };
   }
-  const pager = focusedSlot && composed && activeGrow ? pagerFor(composed, focusedSlot, activeGrow, width) : null;
+  const pager = focusedSlot && composed && activeGrow
+    ? pagerFor(composed, focusedSlot, activeGrow, width,
+      neighbourBoxes(pieces, composed, focusedSlot,
+        composed.bySlot.get(focusedSlot)?.piece.garmentTypeId, candidates, width, large))
+    : null;
 
   // The strip follows the enlargement: it arrives with it, swaps when it moves, and stays
   // while it fades out after a settle.
@@ -623,10 +671,16 @@ export function GarmentSwapBoard({
   const [settled, setSettled] = useState(false);
   const [lastSettle, setLastSettle] = useState(settle);
   const [previewId, setPreviewId] = useState<GarmentTypeId | null>(null);
-  const [headerHeight, setHeaderHeight] = useState<number>(HEADER_HEIGHT);
+  // The strip's header before it has measured itself: Done's height.
+  const headerMinimum = large ? easierToSeeValues.primaryActionHeight : layout.minimumTouchTarget;
+  const [headerHeight, setHeaderHeight] = useState<number>(headerMinimum);
   const [hintHeight, setHintHeight] = useState(0);
   const [hintMounted, setHintMounted] = useState(hintVisible);
   if (hintVisible && !hintMounted) setHintMounted(true);
+  // The strip takes touches and VoiceOver's focus only once it is fading in: while its space
+  // opens its tiles are not drawn yet, so they are not there to press or read.
+  const [liveSlot, setLiveSlot] = useState<OutfitSlot | null>(focusedSlot);
+  if (focusedSlot === null && liveSlot !== null) setLiveSlot(null);
 
   const tint = useSharedValue(0);
   const settleTravel = useSharedValue(0);
@@ -793,6 +847,15 @@ export function GarmentSwapBoard({
             }));
           }
           break;
+        case 'retire': {
+          const { key } = intent;
+          pendingSprings.current += 1;
+          values.dx.set(withSpring(intent.offset, spatial, (finished) => {
+            runOnJS(springLanded)();
+            if (finished) runOnJS(removeLeaving)(key);
+          }));
+          break;
+        }
         case 'drain': {
           const { key } = intent;
           values.drain.set(1);
@@ -876,11 +939,14 @@ export function GarmentSwapBoard({
   const blockTarget = focusedSlot && activeGrow
     ? activeGrow.held + spacing.md + panelHeightOf(focusedSlot)
     : restHeight + (hintVisible ? hintHeight : 0);
+  const latest = useRef({ focus: focusedSlot, target: blockTarget, hint: hintVisible });
+  const markPanelLive = () => setLiveSlot(latest.current.focus);
   const flushPending = () => {
     'worklet';
     if (panelPending.get() === 1) {
       panelPending.set(0);
       panelOpacity.set(withTiming(1, { duration: fast }));
+      runOnJS(markPanelLive)();
     }
     if (hintPending.get() === 1) {
       hintPending.set(0);
@@ -893,7 +959,6 @@ export function GarmentSwapBoard({
     if (Math.abs(end - start) < 0.5 || (height - start) / (end - start) >= PRESENCE_TEXT_AFTER) flushPending();
   });
   const blockToken = useRef(0);
-  const latest = useRef({ focus: focusedSlot, target: blockTarget, hint: hintVisible });
   // After a settle the strip leaves the tree once the block has closed: until then the board
   // is not still, so nothing waiting for it opens over a closing block.
   const closingPanel = useRef(false);
@@ -937,6 +1002,7 @@ export function GarmentSwapBoard({
     if (latest.current.focus === null) return;
     startBlock(latest.current.target);
     panelOpacity.set(withTiming(1, { duration: normal }));
+    markPanelLive();
   };
   const afterHintOut = () => {
     if (latest.current.hint) return;
@@ -991,6 +1057,7 @@ export function GarmentSwapBoard({
             if (finished) runOnJS(afterLeavingPanelOut)();
           }));
           panelOpacity.set(withTiming(1, { duration: normal }));
+          markPanelLive();
           startBlock(blockTarget);
         } else if (panelHeight > seen.panel) {
           leavingPanelOpacity.set(withTiming(0, { duration: fast }, (finished) => {
@@ -1034,33 +1101,41 @@ export function GarmentSwapBoard({
   const stepSlot = (slot: OutfitSlot, direction: 1 | -1) => {
     const garmentTypeId = model.garments[slot];
     const neighbour = garmentTypeId ? neighbourIn(candidates, slot, garmentTypeId, direction) : null;
-    if (neighbour) onStep(slot, neighbour.garmentTypeId);
-  };
-  const announce = (slot: OutfitSlot, garmentTypeId: GarmentTypeId) => {
-    const order = candidates[slot] ?? [];
-    const position = order.findIndex((candidate) => candidate.garmentTypeId === garmentTypeId) + 1;
-    AccessibilityInfo.announceForAccessibility(
-      labels.pieceValue(labels.pieceName(garmentTypeId), position, order.length));
+    if (neighbour) onStep(slot, neighbour.garmentTypeId, false);
   };
   const chooseTile = (garmentTypeId: GarmentTypeId) => {
     if (!focusedSlot || model.garments[focusedSlot] === garmentTypeId) return;
-    announce(focusedSlot, garmentTypeId);
-    onStep(focusedSlot, garmentTypeId);
+    onStep(focusedSlot, garmentTypeId, true);
   };
   const commitFromGesture = (slot: OutfitSlot, garmentTypeId: GarmentTypeId) => {
     setModel((current) => ({ ...current, gestureCommit: { slot, garmentTypeId } }));
     setPreviewId(null);
-    announce(slot, garmentTypeId);
-    onStep(slot, garmentTypeId);
+    onStep(slot, garmentTypeId, true);
   };
-  const settleBack = () => {
-    if (focusedSlot) onFocusChange(null);
+
+  // Done, VoiceOver's escape or a tap on the enlarged piece or the empty stage hands
+  // VoiceOver's focus back to the piece that opened the strip, whose element stays.
+  const pieceTargets = useRef(new Map<OutfitSlot, View>());
+  const [focusReturn, setFocusReturn] = useState<OutfitSlot | null>(null);
+  const settleToPiece = () => {
+    if (!focusedSlot) return;
+    setFocusReturn(focusedSlot);
+    onFocusChange(null);
   };
+  useEffect(() => {
+    if (focusedSlot !== null || focusReturn === null) return undefined;
+    const frame = requestAnimationFrame(() => {
+      setFocusReturn(null);
+      const node = findNodeHandle(pieceTargets.current.get(focusReturn) ?? null);
+      if (node) AccessibilityInfo.setAccessibilityFocus(node);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [focusReturn, focusedSlot]);
   const handleTap = (x: number, y: number) => {
     if (focusedSlot && pager && composed) {
       // The large piece or empty stage settles; a stepped-back piece takes the enlargement.
       if (inside(atLeast(pager.grown, layout.minimumTouchTarget), x, y)) {
-        onFocusChange(null);
+        settleToPiece();
         return;
       }
       let hit: OutfitSlot | null = null;
@@ -1073,7 +1148,8 @@ export function GarmentSwapBoard({
           if (distance < nearest) { nearest = distance; hit = slot; }
         }
       }
-      onFocusChange(hit);
+      if (hit) onFocusChange(hit);
+      else settleToPiece();
       return;
     }
     let hit: OutfitSlot | null = null;
@@ -1205,6 +1281,9 @@ export function GarmentSwapBoard({
   const panelStyle = useAnimatedStyle(() => ({ opacity: panelOpacity.get() }));
   const leavingPanelStyle = useAnimatedStyle(() => ({ opacity: leavingPanelOpacity.get() }));
 
+  // Before the pieces have arrived the strip is drawn at once, so it is live at once.
+  const stripLive = panels.current !== null && focusedSlot === panels.current.slot
+    && (liveSlot === focusedSlot || !settled);
   const drawOrder: Role[] = ['current', 'leaving', 'previous', 'next'];
   const sortedInstances = [...instances].sort((a, b) =>
     Number(a.slot === focusedSlot) - Number(b.slot === focusedSlot)
@@ -1233,7 +1312,9 @@ export function GarmentSwapBoard({
           ) : null}
           {sortedInstances.map((instance) => (
             <PieceView
-              clip={pager && instance.slot === focusedSlot ? pager.window : null}
+              // A leaving piece stays in the window it slid in; the rest of the slot, the current one's.
+              clip={instance.role === 'leaving' && instance.window ? instance.window
+                : pager && instance.slot === focusedSlot ? pager.window : null}
               ink={colors.textPrimary}
               instance={instance}
               key={instance.key}
@@ -1271,16 +1352,26 @@ export function GarmentSwapBoard({
                 accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }, { name: 'activate' }]}
                 accessibilityLabel={labels.slotName(slot)}
                 accessibilityRole="adjustable"
+                // The enlarged piece reads as expanded: its strip is open under the board.
+                accessibilityState={{ expanded: focusedSlot === slot }}
                 accessibilityValue={{ text: labels.pieceValue(labels.pieceName(garmentTypeId), position, order.length) }}
                 accessible
                 key={`piece-${slot}`}
                 onAccessibilityAction={({ nativeEvent }) => {
                   if (nativeEvent.actionName === 'increment') stepSlot(slot, 1);
                   else if (nativeEvent.actionName === 'decrement') stepSlot(slot, -1);
-                  else if (nativeEvent.actionName === 'activate') onFocusChange(slot === focusedSlot ? null : slot);
+                  else if (nativeEvent.actionName === 'activate') {
+                    // Focus stays on the piece; one short sentence says the strip is below.
+                    if (slot !== focusedSlot) AccessibilityInfo.announceForAccessibility(labels.stripShown);
+                    onFocusChange(slot === focusedSlot ? null : slot);
+                  }
                 }}
-                onAccessibilityEscape={settleBack}
+                onAccessibilityEscape={settleToPiece}
                 pointerEvents="none"
+                ref={(node) => {
+                  if (node) pieceTargets.current.set(slot, node);
+                  else pieceTargets.current.delete(slot);
+                }}
                 style={[styles.target, { height: box.h, left: box.x, top: box.y, width: box.w }]}
                 testID={`${boardTestID}-piece-${slot}`}
               />
@@ -1312,7 +1403,7 @@ export function GarmentSwapBoard({
             labels={stripLabels}
             marker={null}
             onChoose={chooseTile}
-            onDone={settleBack}
+            onDone={settleToPiece}
             previewId={null}
             roles={leavingRoles}
             testID={`${boardTestID}-strip-leaving`}
@@ -1321,19 +1412,19 @@ export function GarmentSwapBoard({
       ) : null}
       {panels.current && model.garments[panels.current.slot] ? (
         <Animated.View
-          pointerEvents={focusedSlot === panels.current.slot ? 'box-none' : 'none'}
+          pointerEvents={stripLive ? 'box-none' : 'none'}
           style={[styles.panel, { top: heldStage + spacing.md }, panelStyle]}>
           <GarmentSwapStrip
             candidates={stripCandidates(panels.current.slot)}
             columnWidth={width}
             current={model.garments[panels.current.slot]!}
-            interactive={focusedSlot === panels.current.slot}
+            interactive={stripLive}
             labels={stripLabels}
             marker={focusedSlot === panels.current.slot ? { x: markerX, y: markerY } : null}
             onChoose={chooseTile}
-            onDone={settleBack}
+            onDone={settleToPiece}
             onHeaderLayout={(height) => {
-              if (Math.abs(height - headerHeight) >= 0.5) setHeaderHeight(Math.max(HEADER_HEIGHT, height));
+              if (Math.abs(height - headerHeight) >= 0.5) setHeaderHeight(Math.max(headerMinimum, height));
             }}
             previewId={focusedSlot === panels.current.slot ? previewId : null}
             roles={panelRoles}

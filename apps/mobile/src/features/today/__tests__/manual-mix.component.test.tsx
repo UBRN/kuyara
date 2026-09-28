@@ -1,5 +1,5 @@
 import { act, fireEvent, render, within } from '@testing-library/react-native';
-import { AccessibilityInfo, Dimensions, StyleSheet } from 'react-native';
+import ReactNative, { AccessibilityInfo, Dimensions, StyleSheet } from 'react-native';
 import { State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -14,7 +14,12 @@ import { TourTargetRegistry } from '@/features/walkthrough/application/tour-targ
 import { TourTargetsContext } from '@/features/walkthrough/application/walkthrough-context';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
-import { EasierToSeeContext, easierToSee as easierToSeeValues } from '@/theme/easier-to-see';
+import {
+  EasierToSeeContext,
+  easierToSee as easierToSeeValues,
+  SystemVisibilityContext,
+  type SystemVisibility,
+} from '@/theme/easier-to-see';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
 
@@ -93,10 +98,12 @@ async function renderDetail(
   props: Partial<React.ComponentProps<typeof Detail>> = {},
   tourTargets: TourTargetRegistry | null = null,
   easierToSee = false,
+  system: SystemVisibility = { boldText: false, increaseContrast: false },
 ) {
   const result = await render(
     <LocalizationContext value={{ language, messages: messages[language], hour12: false, temperatureUnit: 'celsius' }}>
       <KuyaraThemeContext.Provider value={lightTheme}>
+        <SystemVisibilityContext value={system}>
         <EasierToSeeContext value={easierToSee}>
         <SafeAreaProvider initialMetrics={{
           frame: { x: 0, y: 0, width: 390, height: 844 },
@@ -107,6 +114,7 @@ async function renderDetail(
           </TourTargetsContext>
         </SafeAreaProvider>
         </EasierToSeeContext>
+        </SystemVisibilityContext>
       </KuyaraThemeContext.Provider>
     </LocalizationContext>,
   );
@@ -206,7 +214,7 @@ describe.each(['en', 'tr'] as const)('%s manual mix', (language) => {
       expect(tile).toHaveProp('accessibilityRole', 'button');
       expect(tile).toHaveProp('accessibilityLabel', catalogName(language, candidate.garmentTypeId));
       expect(tile.props.accessibilityState).toEqual({ selected: candidate.garmentTypeId === 'rain_boots' });
-      expect(tile.props.accessibilityHint).toBe(candidate.suitable ? undefined : copy.manualMix.pickerOtherHint);
+      expect(tile.props.accessibilityHint).toBe(candidate.suitable ? undefined : copy.manualMix.otherPieceHint);
     }
     const done = strip.getByTestId('outfit-detail-board-strip-done');
     expect(done).toHaveProp('accessibilityRole', 'button');
@@ -542,3 +550,246 @@ test.each(['en', 'tr'] as const)('%s strip header keeps one line at the largest 
     await fireEvent.press(result.getByTestId('outfit-detail-board-strip-done'));
   }
 });
+
+// The a11y and design review of Phase 7b.
+const activate = async (result: Awaited<ReturnType<typeof renderDetail>>, slot: string) =>
+  fireEvent(result.getByTestId(`outfit-detail-board-piece-${slot}`), 'accessibilityAction',
+    { nativeEvent: { actionName: 'activate' } });
+const stripOrder = (result: Awaited<ReturnType<typeof renderDetail>>) =>
+  result.getAllByTestId(/^outfit-detail-board-strip-tile-/)
+    .map(({ props }) => String(props.testID).replace('outfit-detail-board-strip-tile-', ''));
+/** The opacity a node is drawn at: its nearest ancestor that sets one. */
+const drawnOpacity = (node: ReturnType<ReturnType<typeof within>['getByText']>) => {
+  for (let current: typeof node | null = node; current; current = current.parent) {
+    const opacity = StyleSheet.flatten(current.props.style)?.opacity;
+    if (typeof opacity === 'number') return opacity;
+  }
+  return 1;
+};
+
+test('closing the strip from the board hands VoiceOver\'s focus back to the piece that opened it', async () => {
+  const focus = jest.spyOn(AccessibilityInfo, 'setAccessibilityFocus').mockImplementation(() => undefined);
+  // The test renderer has no native tags: a view stands for its test ID.
+  const handle = jest.spyOn(ReactNative as unknown as { findNodeHandle: object }, 'findNodeHandle', 'get').mockReturnValue(
+    ((instance: { props?: { testID?: string } } | null) => instance?.props?.testID ?? null) as never);
+  const nextFrame = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+  const result = await renderDetail('en');
+
+  await activate(result, 'footwear');
+  await fireEvent.press(result.getByTestId('outfit-detail-board-strip-done'));
+  await nextFrame();
+  expect(focus).toHaveBeenLastCalledWith('outfit-detail-board-piece-footwear');
+
+  await activate(result, 'bottom');
+  await fireEvent(result.getByTestId('outfit-detail-board-strip'), 'accessibilityEscape');
+  await nextFrame();
+  expect(focus).toHaveBeenLastCalledWith('outfit-detail-board-piece-bottom');
+
+  // A tap on the enlarged piece itself settles it.
+  await activate(result, 'outer_layer');
+  const target = StyleSheet.flatten(result.getByTestId('outfit-detail-board-piece-outer_layer').props.style);
+  const at = { x: target.left + target.width / 2, y: target.top + target.height / 2 };
+  await act(async () => {
+    fireGestureHandler(getByGestureTestId('outfit-detail-board-tap'), [
+      { state: State.BEGAN, ...at }, { state: State.ACTIVE, ...at }, { state: State.END, ...at },
+    ]);
+  });
+  await nextFrame();
+  expect(result.queryByTestId('outfit-detail-board-strip')).toBeNull();
+  expect(focus).toHaveBeenLastCalledWith('outfit-detail-board-piece-outer_layer');
+  expect(focus).toHaveBeenCalledTimes(3);
+  focus.mockRestore();
+  handle.mockRestore();
+});
+
+test.each(['en', 'tr'] as const)('%s a tile that makes the outfit unusual is one announcement: the piece, then the note', async (language) => {
+  const copy = messages[language].today.manualMix;
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  const result = await renderDetail(language);
+  await activate(result, 'outer_layer');
+  const order = stripOrder(result);
+  announce.mockClear();
+  await fireEvent.press(result.getByTestId('outfit-detail-board-strip-tile-trench_coat'));
+  const values = { piece: catalogName(language, 'trench_coat'), position: order.indexOf('trench_coat') + 1, total: order.length };
+  expect(announce.mock.calls).toEqual([[copy.stepUnusual(values)]]);
+  expect(copy.stepUnusual(values).startsWith(`${copy.pieceValue(values)}. `)).toBe(true);
+  // A tile back to a weather-suitable piece names only the piece.
+  announce.mockClear();
+  await fireEvent.press(result.getByTestId('outfit-detail-board-strip-tile-rain_jacket'));
+  expect(announce.mock.calls).toEqual([[copy.pieceValue({ ...values, piece: catalogName(language, 'rain_jacket'),
+    position: order.indexOf('rain_jacket') + 1 })]]);
+  announce.mockRestore();
+});
+
+test('activating a piece reads it as expanded and says once that the strip is below; the tile hint is singular', async () => {
+  const copy = messages.en.today.manualMix;
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  const result = await renderDetail('en');
+  const piece = (slot: string) => result.getByTestId(`outfit-detail-board-piece-${slot}`);
+  expect(piece('outer_layer').props.accessibilityState).toEqual({ expanded: false });
+  await activate(result, 'outer_layer');
+  expect(piece('outer_layer').props.accessibilityState).toEqual({ expanded: true });
+  expect(piece('footwear').props.accessibilityState).toEqual({ expanded: false });
+  expect(announce.mock.calls).toEqual([[copy.stripShown]]);
+  expect(result.getByTestId('outfit-detail-board-strip-tile-trench_coat').props.accessibilityHint)
+    .toBe(copy.otherPieceHint);
+  await fireEvent.press(result.getByTestId('outfit-detail-board-strip-done'));
+  expect(piece('outer_layer').props.accessibilityState).toEqual({ expanded: false });
+  announce.mockRestore();
+});
+
+test.each([
+  ['Easier to see', true, { boldText: false, increaseContrast: false }],
+  ['Increase Contrast alone', false, { boldText: false, increaseContrast: true }],
+  ['neither', false, { boldText: false, increaseContrast: false }],
+] as const)('%s: Done and the strip tiles take the mode\'s size and strong edge; the picker tiles stay plain', async (
+  _name, large, system,
+) => {
+  const result = await renderDetail('en', {}, null, large, system);
+  await activate(result, 'outer_layer');
+  const edged = large || system.increaseContrast;
+  const done = StyleSheet.flatten(result.getByTestId('outfit-detail-board-strip-done').props.style);
+  expect(done.minHeight).toBe(large ? easierToSeeValues.primaryActionHeight : 36);
+  expect(done.borderWidth).toBe(edged ? 2 : undefined);
+  expect(done.borderColor).toBe(edged ? lightTheme.colors.borderStrong : undefined);
+  expect(StyleSheet.flatten(result.getByTestId('outfit-detail-board-strip-header').props.style).minHeight)
+    .toBe(large ? easierToSeeValues.primaryActionHeight : 44);
+  const frames = result.getAllByTestId(/^outfit-detail-board-strip-art-tile-/);
+  expect(frames.length).toBe(stripOrder(result).length);
+  for (const frame of frames) {
+    const style = StyleSheet.flatten(frame.props.style);
+    expect(style.borderWidth).toBe(edged ? 2 : undefined);
+    expect(style.width).toBe(44);
+  }
+  // In the picker the row is the control and the tile its picture.
+  await fireEvent.press(result.getByTestId('outfit-detail-change-outer_layer'));
+  for (const frame of result.getAllByTestId(/^piece-picker-tile-/)) {
+    expect(StyleSheet.flatten(frame.props.style).borderWidth).toBeUndefined();
+  }
+});
+
+test('Done shows its press without motion, in the plain button\'s tonal capsule', async () => {
+  const result = await renderDetail('en');
+  await activate(result, 'footwear');
+  const fill = () => StyleSheet.flatten(result.getByTestId('outfit-detail-board-strip-done').props.style).backgroundColor;
+  expect(fill()).toBe('transparent');
+  await fireEvent(result.getByTestId('outfit-detail-board-strip-done'), 'pressIn');
+  expect(fill()).toBe(lightTheme.colors.surfaceInteractive);
+  await fireEvent(result.getByTestId('outfit-detail-board-strip-done'), 'pressOut');
+  expect(fill()).toBe('transparent');
+});
+
+test('new words are transparent in their first frame: the title after a change and the strip header after a step', async () => {
+  const result = await renderDetail('en');
+  const heading = () => within(result.getByTestId('outfit-detail-heading-group'));
+  // Nothing fades on opening.
+  expect(drawnOpacity(heading().getByRole('header', { name: archetype('en').title }))).toBe(1);
+  await activate(result, 'footwear');
+  const header = () => within(result.getByTestId('outfit-detail-board-strip-header'));
+  expect(drawnOpacity(header().getByText(catalogName('en', 'rain_boots')))).toBe(1);
+  const other = stripOrder(result).find((id) => id !== 'rain_boots')!;
+  await fireEvent.press(result.getByTestId(`outfit-detail-board-strip-tile-${other}`));
+  // Jest's Reanimated mock draws every frame from a shared value's first value.
+  expect(drawnOpacity(heading().getByRole('header', { name: messages.en.today.manualMix.title }))).toBe(0);
+  expect(drawnOpacity(header().getByText(catalogName('en', other)))).toBe(0);
+});
+
+type Host = ReturnType<Awaited<ReturnType<typeof renderDetail>>['getByTestId']>;
+const firstHost = (node: Host, matches: (node: Host) => boolean): Host | null => {
+  for (const child of node.children) {
+    if (typeof child === 'string') continue;
+    if (typeof child.type === 'string' && matches(child)) return child;
+    const found = firstHost(child, matches);
+    if (found) return found;
+  }
+  return null;
+};
+
+test('every waiting neighbour stands wholly behind its window edge, whatever the pair', async () => {
+  const result = await renderDetail('en');
+  let checked = 0;
+  for (const { slot } of archetype('en').boardPieces) {
+    await activate(result, slot);
+    for (const id of stripOrder(result)) {
+      // Step to the piece, then open it afresh: the mock draws a frame from the values its
+      // render sees, and a freshly opened strip's neighbours are laid out in that render.
+      await fireEvent.press(result.getByTestId(`outfit-detail-board-strip-tile-${id}`));
+      await fireEvent.press(result.getByTestId('outfit-detail-board-strip-done'));
+      await activate(result, slot);
+      const order = stripOrder(result);
+      const index = order.indexOf(id);
+      for (const [neighbour, side] of [[order[index + 1], 1], [order[index - 1], -1]] as const) {
+        if (!neighbour) continue;
+        const clip = result.getByTestId(`outfit-detail-board-drawing-${slot}-${neighbour}`, hidden);
+        const window = StyleSheet.flatten(clip.props.style);
+        const piece = firstHost(clip, (node) => Array.isArray(StyleSheet.flatten(node.props.style)?.transform))!;
+        const style = StyleSheet.flatten(piece.props.style);
+        const [{ translateX }, , { scaleX }] = style.transform as [{ translateX: number }, unknown, { scaleX: number }];
+        const left = style.left + style.width / 2 + translateX - (style.width * scaleX) / 2;
+        const right = left + style.width * scaleX;
+        if (side === 1) expect(left).toBeGreaterThanOrEqual(window.left + window.width - 0.01);
+        else expect(right).toBeLessThanOrEqual(window.left + 0.01);
+        checked += 1;
+      }
+    }
+    await fireEvent.press(result.getByTestId('outfit-detail-board-strip-done'));
+  }
+  expect(checked).toBeGreaterThan(20);
+  // Every candidate of every slot is opened afresh: about six seconds on one core.
+}, 20_000);
+
+test('while the strip\'s space opens its tiles take no touch and no VoiceOver focus', async () => {
+  const result = await renderDetail('en');
+  // The mock lands every spring at once; here the block's spring is still in flight.
+  const reanimated = jest.requireMock<typeof import('react-native-reanimated')>('react-native-reanimated');
+  const landed: (() => void)[] = [];
+  const spring = jest.spyOn(reanimated, 'withSpring').mockImplementation(((target: number, _config: unknown,
+    callback?: (finished: boolean) => void) => {
+    if (callback) landed.push(() => callback(true));
+    return target;
+  }) as never);
+  await activate(result, 'footwear');
+  const strip = () => result.getByTestId('outfit-detail-board-strip', hidden);
+  expect(strip().props.pointerEvents).toBe('none');
+  expect(strip().props.accessibilityElementsHidden).toBe(true);
+  spring.mockRestore();
+  // Once its space is nine tenths open the strip fades in and is live.
+  await act(async () => {
+    while (landed.length > 0) landed.shift()!();
+  });
+  expect(strip().props.pointerEvents).toBe('box-none');
+  expect(strip().props.accessibilityElementsHidden).toBe(false);
+});
+
+test.each([['the next piece', 1], ['a piece further on', 3]] as const)(
+  'a piece still sliding out when Done follows a step to %s finishes its slide inside the window it kept',
+  async (_name, distance) => {
+    const result = await renderDetail('en');
+    await activate(result, 'footwear');
+    const order = stripOrder(result);
+    const other = order[order.indexOf('rain_boots') + distance] ?? order[order.indexOf('rain_boots') - distance];
+    expect(other).toBeDefined();
+    const outgoing = () => result.queryByTestId('outfit-detail-board-drawing-footwear-rain_boots', hidden);
+    const reanimated = jest.requireMock<typeof import('react-native-reanimated')>('react-native-reanimated');
+    const landed: (() => void)[] = [];
+    const spring = jest.spyOn(reanimated, 'withSpring').mockImplementation(((target: number, _config: unknown,
+      callback?: (finished: boolean) => void) => {
+      if (callback) landed.push(() => callback(true));
+      return target;
+    }) as never);
+    await fireEvent.press(result.getByTestId(`outfit-detail-board-strip-tile-${other}`));
+    const window = StyleSheet.flatten(outgoing()!.props.style);
+    await fireEvent.press(result.getByTestId('outfit-detail-board-strip-done'));
+    spring.mockRestore();
+    // Settled, the outgoing piece is still drawn, clipped where it was.
+    expect(outgoing()).not.toBeNull();
+    const kept = StyleSheet.flatten(outgoing()!.props.style);
+    expect(kept.overflow).toBe('hidden');
+    expect([kept.left, kept.width]).toEqual([window.left, window.width]);
+    // It leaves the tree once its slide lands.
+    await act(async () => {
+      while (landed.length > 0) landed.shift()!();
+    });
+    expect(outgoing()).toBeNull();
+  },
+);

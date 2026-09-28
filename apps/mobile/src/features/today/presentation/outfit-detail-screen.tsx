@@ -28,6 +28,7 @@ import {
   PressScale,
   Screen,
   haptics,
+  swapRevealScroll,
   useGarmentRoles,
   useTextScaling,
 } from '@/components/ui';
@@ -172,40 +173,47 @@ function FadeOnChange({ animate, children }: Readonly<{ animate: boolean; childr
   return <Animated.View pointerEvents="box-none" style={style}>{children}</Animated.View>;
 }
 
-/** The title after a change: the old one leaves on `fast`, the new one arrives on `normal`. */
-function CrossfadeTitle({ title }: Readonly<{ title: string }>) {
+/** A leaving title: whole in its first frame, gone on `fast`, then out of the tree. */
+function FadeOut({ onDone, children }: Readonly<{ onDone: () => void; children: ReactNode }>) {
   const theme = useKuyaraTheme();
-  const [titles, setTitles] = useState<Readonly<{ current: string; previous: string | null }>>({
-    current: title, previous: null,
-  });
-  if (titles.current !== title) setTitles({ current: title, previous: titles.current });
-  const incoming = useSharedValue(1);
-  const outgoing = useSharedValue(0);
-  const clearPrevious = useCallback(() => setTitles((value) => ({ ...value, previous: null })), []);
+  const opacity = useSharedValue(1);
   useEffect(() => {
-    if (titles.previous === null) return;
-    incoming.set(0);
-    incoming.set(withTiming(1, { duration: theme.motion.normal }));
-    outgoing.set(1);
-    outgoing.set(withTiming(0, { duration: theme.motion.fast }, (finished) => {
-      if (finished) runOnJS(clearPrevious)();
+    opacity.set(withTiming(0, { duration: theme.motion.fast }, (finished) => {
+      if (finished) runOnJS(onDone)();
     }));
-  }, [clearPrevious, incoming, outgoing, theme.motion.fast, theme.motion.normal, titles]);
-  const incomingStyle = useAnimatedStyle(() => ({ opacity: incoming.get() }));
-  const outgoingStyle = useAnimatedStyle(() => ({ opacity: outgoing.get() }));
+  }, [onDone, opacity, theme.motion.fast]);
+  const style = useAnimatedStyle(() => ({ opacity: opacity.get() }));
+  return (
+    <Animated.View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      pointerEvents="none"
+      style={[StyleSheet.absoluteFill, style]}>
+      {children}
+    </Animated.View>
+  );
+}
+
+/**
+ * The title after a change: the old one leaves on `fast`, the new one arrives on `normal`.
+ * Each change mounts both layers afresh, so the new title's first frame is transparent and
+ * the old one's is whole: neither shows in the wrong state before its fade starts.
+ */
+function CrossfadeTitle({ title }: Readonly<{ title: string }>) {
+  const [titles, setTitles] = useState<Readonly<{ current: string; previous: string | null; changes: number }>>({
+    current: title, previous: null, changes: 0,
+  });
+  if (titles.current !== title) setTitles({ current: title, previous: titles.current, changes: titles.changes + 1 });
+  const clearPrevious = useCallback(() => setTitles((value) => ({ ...value, previous: null })), []);
   return (
     <View>
-      <Animated.View style={incomingStyle}>
+      <FadeOnChange animate={titles.changes > 0} key={`in-${titles.changes}`}>
         <AppText accessibilityRole="header" variant="title">{titles.current}</AppText>
-      </Animated.View>
+      </FadeOnChange>
       {titles.previous !== null ? (
-        <Animated.View
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-          pointerEvents="none"
-          style={[StyleSheet.absoluteFill, outgoingStyle]}>
+        <FadeOut key={`out-${titles.changes}`} onDone={clearPrevious}>
           <AppText variant="title">{titles.previous}</AppText>
-        </Animated.View>
+        </FadeOut>
       ) : null}
     </View>
   );
@@ -312,16 +320,10 @@ export function OutfitDetailScreen({
   useEffect(() => {
     onBoardFocusChange?.(boardFocused);
   }, [boardFocused, onBoardFocusChange]);
-  // A change that makes the outfit unusual says so once to VoiceOver; the value alone does
-  // not. Android keeps the note's live region.
   const unusual = changed && (manualMix?.unusual ?? false);
   const wasUnusual = useRef(unusual);
-  useEffect(() => {
-    if (unusual && !wasUnusual.current && Platform.OS === 'ios') {
-      AccessibilityInfo.announceForAccessibility(copy.manualMix.unusualAccessibilityLabel);
-    }
-    wasUnusual.current = unusual;
-  }, [copy.manualMix.unusualAccessibilityLabel, unusual]);
+  // A board tile or swipe waits here until the change it asked for has rendered.
+  const spokenStep = useRef<Readonly<{ slot: SwappableSlot; garmentTypeId: GarmentTypeId }> | null>(null);
   // The "changed from" line keeps its words while it collapses after a reset, and opens or
   // closes only while the board is still: never while a piece is enlarged or moving.
   if (suggestion?.changedFrom && suggestion.changedFrom !== shownChangedFrom) {
@@ -333,7 +335,8 @@ export function OutfitDetailScreen({
 
   // The board's step is stable across renders, so a render mid-drag never rebuilds its gestures.
   const choose = manualMix?.choose;
-  const onBoardStep = useCallback((slot: OutfitSlot, garmentTypeId: GarmentTypeId) => {
+  const onBoardStep = useCallback((slot: OutfitSlot, garmentTypeId: GarmentTypeId, spoken: boolean) => {
+    if (spoken) spokenStep.current = { slot: slot as SwappableSlot, garmentTypeId };
     choose?.(slot as SwappableSlot, garmentTypeId);
   }, [choose]);
   // A picker choice plays on the board once the sheet has gone: on its dismissal, or after
@@ -359,6 +362,29 @@ export function OutfitDetailScreen({
     return typeof fill === 'string' ? fill : fill[0];
   };
   const pieceName = (garmentTypeId: GarmentTypeId) => messages.catalog[`catalog.garment_type.${garmentTypeId}.name`];
+
+  // One announcement per change, never two that cut each other off (final-spec section 8):
+  // a board tile or swipe names the new piece and its place, and says in the same
+  // announcement when the change made the outfit unusual; any other change that makes it
+  // unusual says only that. Android keeps the note's live region for the note.
+  useEffect(() => {
+    const step = spokenStep.current;
+    spokenStep.current = null;
+    const becameUnusual = unusual && !wasUnusual.current && Platform.OS === 'ios';
+    wasUnusual.current = unusual;
+    if (step) {
+      const order = manualMix?.candidates[step.slot] ?? [];
+      const values = {
+        piece: pieceName(step.garmentTypeId),
+        position: order.findIndex(({ garmentTypeId }) => garmentTypeId === step.garmentTypeId) + 1,
+        total: order.length,
+      };
+      AccessibilityInfo.announceForAccessibility(becameUnusual
+        ? copy.manualMix.stepUnusual(values) : copy.manualMix.pieceValue(values));
+    } else if (becameUnusual) {
+      AccessibilityInfo.announceForAccessibility(copy.manualMix.unusualAccessibilityLabel);
+    }
+  });
 
   if (presentation.kind !== 'loaded' || !suggestion || !palette) {
     const missingSuggestion = presentation.kind === 'loaded';
@@ -408,12 +434,12 @@ export function OutfitDetailScreen({
   };
   // An enlargement brings the strip into view by the least scroll that shows it, never so far
   // that the enlarged piece leaves the top.
-  const revealStrip = ({ pieceTop, panelBottom }: Readonly<{ pieceTop: number; panelBottom: number }>) => {
+  const revealStrip = (area: Readonly<{ pieceTop: number; panelBottom: number }>) => {
     boardRef.current?.measureInWindow((_x, boardTop) => {
-      const visibleBottom = windowHeight - insets.bottom - TAB_BAR_HEIGHT;
-      const visibleTop = insets.top + NAVIGATION_BAR_HEIGHT;
-      const needed = boardTop + panelBottom + spacing.md - visibleBottom;
-      const delta = Math.min(needed, Math.max(0, boardTop + pieceTop - visibleTop));
+      const delta = swapRevealScroll(area, boardTop, {
+        top: insets.top + NAVIGATION_BAR_HEIGHT,
+        bottom: windowHeight - insets.bottom - TAB_BAR_HEIGHT,
+      });
       if (delta > 0) scrollRef.current?.scrollTo({ animated: true, y: scrollOffset.get() + delta });
     });
   };
@@ -540,7 +566,8 @@ export function OutfitDetailScreen({
               counter: copy.manualMix.counter,
               pieceValue: (piece, position, total) => copy.manualMix.pieceValue({ piece, position, total }),
               done: copy.manualMix.done,
-              otherHint: copy.manualMix.pickerOtherHint,
+              otherHint: copy.manualMix.otherPieceHint,
+              stripShown: copy.manualMix.stripShown,
             }}
             onFocusChange={setFocusedSlot}
             onRestChange={setBoardAtRest}
