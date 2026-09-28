@@ -117,7 +117,9 @@ function RunwayFrame({
  * dressed piece by piece. The progress bar and the line say what is happening, so no state
  * lives in the motion alone.
  */
-export function FirstGenerationRunway({ active, completed, language, phase, weather, outfit, onSkip }: Readonly<{
+export function FirstGenerationRunway({
+  active, completed, language, phase, weather, outfit, onSkip, onVisibleChange,
+}: Readonly<{
   active: boolean;
   completed: boolean;
   language: SupportedLanguage;
@@ -126,6 +128,8 @@ export function FirstGenerationRunway({ active, completed, language, phase, weat
   /** The chosen outfit, set only once the answer is in; never a provisional preview. */
   outfit: RunwayOutfit | null;
   onSkip: () => void;
+  /** Reports each show and hide, so nothing opens over the runway (Phase 8). */
+  onVisibleChange?: (visible: boolean) => void;
 }>) {
   const theme = useKuyaraTheme();
   const copy = getMessages(language).today;
@@ -144,6 +148,10 @@ export function FirstGenerationRunway({ active, completed, language, phase, weat
   useEffect(() => {
     dressingRef.current = dressing;
   }, [dressing]);
+
+  useEffect(() => {
+    onVisibleChange?.(visible);
+  }, [onVisibleChange, visible]);
 
   useEffect(() => {
     if (active) {

@@ -11,6 +11,8 @@ import { LocalizationContext } from '@/localization/localization-context';
 import { messages, type SupportedLanguage } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
 import { KuyaraThemeContext } from '@/theme/theme-context';
+import { TourTargetRegistry } from '@/features/walkthrough/application/tour-target-registry';
+import { TourTargetsContext } from '@/features/walkthrough/application/walkthrough-context';
 
 jest.mock('@expo/ui/swift-ui', () => jest.requireActual('@/components/ui/__tests__/expo-ui-test-mock'));
 jest.mock('@expo/ui/swift-ui/modifiers', () =>
@@ -274,4 +276,36 @@ test('the grids are named groups and the well empties when an option replaces th
   expect(result.getByTestId('wardrobe-color-custom')).toHaveProp('value', null);
   expect(result.getByTestId('wardrobe-color-custom').props.accessibilityState.selected).toBe(false);
   expect(selectedIds(result)).toEqual(['wardrobe-color-floral']);
+});
+
+// Phase 8: the open sheet offers the tour its head, ownership choice and Close; closing the
+// sheet withdraws them, which is how the tour observes the sheet closing.
+test('the open piece sheet registers its head, ownership choice and Close for the tour', async () => {
+  const registry = new TourTargetRegistry();
+  const onDismiss = jest.fn();
+  const target: PieceSheetTarget = {
+    garmentTypeId: 'jeans', category: 'bottom', name: 'Jeans', slot: 'Bottom',
+    suggestedColorFamily: 'blue', match: { kind: 'none' },
+  };
+  const sheet = (open: PieceSheetTarget | null) => (
+    <LocalizationContext value={{ language: 'en', messages: messages.en, hour12: false }}>
+      <KuyaraThemeContext value={lightTheme}>
+        <TourTargetsContext value={registry}>
+          <PieceEditSheet onDiscardStagedPhoto={jest.fn(async () => undefined)} onDismiss={onDismiss}
+            onSave={jest.fn(async () => undefined)} onSelectPhoto={jest.fn(async () => null)}
+            resolvePhotoUri={() => null} target={open} />
+        </TourTargetsContext>
+      </KuyaraThemeContext>
+    </LocalizationContext>
+  );
+  const result = await render(sheet(target));
+  expect(['sheet-area', 'sheet-close'].map((id) => registry.has(id as 'sheet-area')))
+    .toEqual([true, true]);
+  expect(registry.get('sheet-close')?.label()).toBe(messages.en.today.dailyStyle.close);
+  await fireEvent.press(result.getByTestId('piece-edit-close'));
+  expect(onDismiss).toHaveBeenCalledTimes(1);
+  registry.get('sheet-close')?.activate?.();
+  expect(onDismiss).toHaveBeenCalledTimes(2);
+  await result.rerender(sheet(null));
+  expect(registry.has('sheet-close')).toBe(false);
 });

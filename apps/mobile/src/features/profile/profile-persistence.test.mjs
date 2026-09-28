@@ -10,6 +10,7 @@ import {
   LocalProfileRepository,
   ProfileRepositoryError,
 } from './data/profile-repository.ts';
+import { walkthroughVersion } from './domain/profile.ts';
 import { SqliteProfileLocalDataSource } from './data/sqlite-profile-local-data-source.ts';
 import { recommendOutfits } from '../recommendation/application/recommend-outfits.ts';
 import { todayWeatherSnapshot } from '../today/__tests__/fixtures.ts';
@@ -34,6 +35,7 @@ const createRecord = (overrides = {}) => ({
   morningBriefingOptIn: 0,
   morningSheetEnabled: 1,
   easierToSee: 0,
+  walkthroughVersion: 0,
   styleAesthetics: '[]',
   analyticsConsent: 'undecided',
   createdAt,
@@ -137,6 +139,41 @@ test('Easier to see defaults off, persists both ways, and rejects an invalid sto
   assert.equal((await reopened.updateEasierToSee(false)).easierToSee, false);
   assert.equal((await database.getFirstAsync('SELECT easier_to_see FROM local_profiles')).easier_to_see, 0);
 });
+
+// Phase 8, ADR 0036: the coach-mark tour's gate starts at 0 on a new profile, the offered
+// tour's close stores the code version through the SQLite data source and the repository
+// mapper, the stored value survives a reopen, and a corrupt stored value is refused.
+test('the tour gate starts at 0, stores the code version once seen, and survives a reopen', async (t) => {
+  const { database, dataSource } = await createLocalDataSource(t);
+  const repository = new LocalProfileRepository(dataSource);
+  assert.equal((await repository.getOrCreateProfile()).walkthroughVersion, 0);
+  const seen = await repository.markWalkthroughSeen();
+  assert.equal(seen.walkthroughVersion, walkthroughVersion);
+  assert.equal(walkthroughVersion, 1);
+  assert.equal((await database.getFirstAsync('SELECT walkthrough_version FROM local_profiles'))
+    .walkthrough_version, 1);
+  const reopened = new LocalProfileRepository(new SqliteProfileLocalDataSource(database, {
+    createId: () => 'unused', now: () => updatedAt,
+  }));
+  const after = await reopened.getOrCreateProfile();
+  assert.equal(after.walkthroughVersion, 1);
+  // The gate is independent of every other profile field.
+  assert.deepEqual({ ...after, walkthroughVersion: 0, updatedAt: createdAt },
+    { ...await new LocalProfileRepository({ getOrCreateProfile: async () => createRecord({
+      id: after.id }) }).getOrCreateProfile() });
+});
+
+for (const walkthroughVersionValue of [-1, 1.5, '1']) {
+  test(`a record with the tour gate ${JSON.stringify(walkthroughVersionValue)} is rejected as invalid data`, async () => {
+    const repository = new LocalProfileRepository({
+      getOrCreateProfile: async () => createRecord({ walkthroughVersion: walkthroughVersionValue }),
+    });
+    await assert.rejects(
+      () => repository.getOrCreateProfile(),
+      (error) => error instanceof ProfileRepositoryError && error.code === 'invalid-data',
+    );
+  });
+}
 
 // ADR 0004: the morning briefing is the second notification kind, with its own opt-in that
 // moves both ways independently of the weather alert one.

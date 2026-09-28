@@ -164,6 +164,10 @@ export class ProfileApplicationController {
     return this.updateProfile((repository) => repository.markWeatherAlertOfferShown());
   }
 
+  markWalkthroughSeen(): Promise<void> {
+    return this.updateProfile((repository) => repository.markWalkthroughSeen());
+  }
+
   updateAnalyticsConsent(consent: AnalyticsConsent): Promise<void> {
     return this.updateProfile((repository) => repository.updateAnalyticsConsent(consent));
   }

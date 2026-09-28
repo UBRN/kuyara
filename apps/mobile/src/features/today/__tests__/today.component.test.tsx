@@ -45,6 +45,8 @@ import {
 } from '@/theme/theme';
 import { EasierToSeeContext, SystemVisibilityContext } from '@/theme/easier-to-see';
 import { KuyaraThemeContext } from '@/theme/theme-context';
+import { TourTargetRegistry } from '@/features/walkthrough/application/tour-target-registry';
+import { TourTargetsContext } from '@/features/walkthrough/application/walkthrough-context';
 import { garmentColorFamiliesBySlot, layoutGarmentBoard, measureGarmentBoardHeight } from '@/components/ui';
 import { AMBIENT_PULSE_FLOOR } from '@/components/ui/use-ambient-pulse';
 import { haptics } from '@/components/ui/haptics';
@@ -2619,4 +2621,61 @@ describe('Today with Easier to see', () => {
       ).borderWidth).toBeUndefined();
     }
   });
+});
+
+// Phase 8: Today and outfit detail offer the tour their controls through plain wrappers, and
+// every control keeps its own behaviour.
+test('Today registers the badge, the outfit and Ask the stylist again for the tour', async () => {
+  const registry = new TourTargetRegistry();
+  const onOpenOutfitDetail = jest.fn();
+  const result = await render(providers(
+    <TourTargetsContext value={registry}>
+      <TodayScreen language="en" onOpenOutfitDetail={onOpenOutfitDetail}
+        onRefresh={jest.fn()} onAskAgain={jest.fn()} state={aiAssistedTodayScreenState} />
+    </TourTargetsContext>,
+  ));
+  await fireEvent(result.getByTestId('today-content'), 'layout', {
+    nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
+  });
+  expect(['badge', 'outfit', 'again'].map((id) => registry.has(id as 'badge'))).toEqual([true, true, true]);
+  const presentation = createTodayPresentation(aiAssistedTodayScreenState, 'en', false, 'celsius', fixtureNow);
+  expect(registry.get('outfit')?.label()).toBe(
+    presentation.kind === 'loaded' ? presentation.stageAccessibilityLabel : undefined,
+  );
+  expect(registry.get('outfit')?.reveal).toBeUndefined();
+  expect(registry.get('outfit')?.scrollBy).toEqual(expect.any(Function));
+  expect(registry.get('again')?.reveal).toEqual(expect.any(Function));
+  expect(registry.get('again')?.scrollBy).toEqual(expect.any(Function));
+  expect(registry.get('badge')?.reveal).toBeUndefined();
+  expect(registry.get('badge')?.scrollBy).toBeUndefined();
+  await fireEvent.press(result.getByRole('button', { name: registry.get('outfit')?.label() }));
+  expect(onOpenOutfitDetail).toHaveBeenCalledTimes(1);
+  // VoiceOver's activation of the tour's stand-in performs the same action.
+  registry.get('outfit')?.activate?.();
+  expect(onOpenOutfitDetail).toHaveBeenLastCalledWith(onOpenOutfitDetail.mock.calls[0][0]);
+  expect(onOpenOutfitDetail).toHaveBeenCalledTimes(2);
+});
+
+test('outfit detail registers its first piece row by name and Wore this today for the tour', async () => {
+  const registry = new TourTargetRegistry();
+  const onWoreThis = jest.fn();
+  const onEditPiece = jest.fn();
+  const result = await render(providers(
+    <TourTargetsContext value={registry}>
+      <OutfitDetailScreen language="en" onEditPiece={onEditPiece} onWoreThis={onWoreThis}
+        state={todayScreenState} suggestionId={todayOutfitId(1)} wardrobeItems={[]} worn="none" />
+    </TourTargetsContext>,
+  ));
+  const name = registry.get('piece')?.name();
+  expect(name).toEqual(expect.any(String));
+  expect(registry.get('piece')?.label()?.startsWith(`${name}, `)).toBe(true);
+  expect(registry.has('worn')).toBe(true);
+  // The board caption speaks the same label; the row is the later of the two.
+  await fireEvent.press(result.getAllByRole('button', { name: registry.get('piece')?.label() }).at(-1)!);
+  expect(onEditPiece).toHaveBeenCalledWith(expect.objectContaining({ name }));
+  registry.get('piece')?.activate?.();
+  expect(onEditPiece).toHaveBeenCalledTimes(2);
+  expect(onEditPiece.mock.calls[1][0]).toEqual(onEditPiece.mock.calls[0][0]);
+  await fireEvent.press(result.getByTestId('outfit-detail-wore-this'));
+  expect(onWoreThis).toHaveBeenCalledTimes(1);
 });

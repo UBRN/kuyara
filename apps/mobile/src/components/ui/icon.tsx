@@ -78,6 +78,8 @@ export const iconNames = Object.freeze({
   starOutline: { ios: 'star', android: 'star', web: 'star' },
   sunrise: { ios: 'sunrise', android: 'wb_twilight', web: 'wb_twilight' },
   accessibility: { ios: 'accessibility', android: 'accessibility_new', web: 'accessibility_new' },
+  // Phase 8: Settings, Help's row that starts the coach-mark tour.
+  handTap: { ios: 'hand.tap', android: 'touch_app', web: 'touch_app' },
   // O13's read-only rows for the iPhone settings kuyara follows (ADR 0030 section 5).
   textSize: { ios: 'textformat.size', android: 'format_size', web: 'format_size' },
   boldText: { ios: 'bold', android: 'format_bold', web: 'format_bold' },

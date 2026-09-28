@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, {
+  useAnimatedRef,
   useAnimatedStyle,
+  useScrollOffset,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -36,6 +38,7 @@ import {
 } from '@/features/wardrobe/domain/garment-type-ownership';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import type { PieceSheetTarget } from '@/features/wardrobe/presentation/piece-edit-sheet';
+import { TourTarget } from '@/features/walkthrough/application/tour-target';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
 import { borderWidths, layout, radii, spacing } from '@/theme/theme';
@@ -147,6 +150,11 @@ export function OutfitDetailScreen({
   const [captionHeights, setCaptionHeights] = useState<Readonly<Record<string, number>>>({});
   const [piecesSettled, setPiecesSettled] = useState(false);
   const [completions, setCompletions] = useState(0);
+  // Phase 8: the tour brings the first piece row about a third of the way down the screen.
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
+  const scrollOffset = useScrollOffset(scrollRef);
+  const piecesTop = useRef(0);
+  const { height: windowHeight } = useWindowDimensions();
   const now = useForegroundClock();
   const onPiecesSettled = useCallback(() => setPiecesSettled(true), []);
   const captionEntranceStyle = useAnimatedStyle(() => ({
@@ -206,7 +214,8 @@ export function OutfitDetailScreen({
   if (presentation.kind !== 'loaded' || !suggestion) {
     const missingSuggestion = presentation.kind === 'loaded';
     return (
-      <Screen testID="outfit-detail-screen">
+      // The same scroll view stays mounted when the outfit arrives; it keeps the tour's ref.
+      <Screen ref={scrollRef} scrollToOverflowEnabled testID="outfit-detail-screen">
         <AppText accessibilityRole="header" variant="titleLarge">
           {missingSuggestion ? copy.noOutfitTitle : presentation.title}
         </AppText>
@@ -277,7 +286,7 @@ export function OutfitDetailScreen({
   };
 
   return (
-    <Screen testID="outfit-detail-screen">
+    <Screen ref={scrollRef} scrollToOverflowEnabled testID="outfit-detail-screen">
       <View
         onLayout={({ nativeEvent }) => setContentWidth(nativeEvent.layout.width)}
         testID="outfit-detail-content">
@@ -331,24 +340,27 @@ export function OutfitDetailScreen({
 
         {/* ADR 0038: one worn record per dressing day, written only by this action. */}
         {worn === 'this' ? (
-          <View
-            accessible
-            accessibilityLabel={copy.wornToday}
-            style={[styles.wornState, { borderColor: theme.colors.borderDefined }]}
-            testID="outfit-detail-worn">
-            <Icon color={theme.colors.successInk} name="checkCircle" size={20} />
-            <AppText variant="bodyStrong">{copy.wornToday}</AppText>
-          </View>
+          <TourTarget id="worn" style={styles.wornAction}>
+            <View
+              accessible
+              accessibilityLabel={copy.wornToday}
+              style={[styles.wornState, { borderColor: theme.colors.borderDefined }]}
+              testID="outfit-detail-worn">
+              <Icon color={theme.colors.successInk} name="checkCircle" size={20} />
+              <AppText variant="bodyStrong">{copy.wornToday}</AppText>
+            </View>
+          </TourTarget>
         ) : onWoreThis ? (
-          <Button
-            icon="calendarCheck"
-            label={copy.wornAction}
-            loading={wornBusy}
-            onPress={onWoreThis}
-            size="large"
-            style={styles.wornAction}
-            testID="outfit-detail-wore-this"
-          />
+          <TourTarget id="worn" style={styles.wornAction}>
+            <Button
+              icon="calendarCheck"
+              label={copy.wornAction}
+              loading={wornBusy}
+              onPress={onWoreThis}
+              size="large"
+              testID="outfit-detail-wore-this"
+            />
+          </TourTarget>
         ) : null}
         {wornError ? (
           <AppText accessibilityRole="alert" colorRole="dangerInk" style={styles.ownershipError} variant="caption">
@@ -356,12 +368,28 @@ export function OutfitDetailScreen({
           </AppText>
         ) : null}
 
-        <View style={styles.section} testID="outfit-detail-pieces">
+        <View
+          onLayout={({ nativeEvent }) => { piecesTop.current = nativeEvent.layout.y; }}
+          style={styles.section}
+          testID="outfit-detail-pieces">
           <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
             {presentation.copy.piecesHeading}
           </AppText>
           <View>
             {entries.map(({ piece, slot, match, status, target, spokenLabel }, index) => (
+              // Phase 8: the first piece row is the tour's step 2 control; the wrapper adds a
+              // plain view and nothing else.
+              <TourTarget
+                activate={() => onEditPiece(target)}
+                id={index === 0 ? 'piece' : null}
+                key={piece.garmentTypeId}
+                label={spokenLabel}
+                name={piece.item}
+                reveal={() => scrollRef.current?.scrollTo({
+                  animated: true,
+                  y: Math.max(0, piecesTop.current - windowHeight / 3),
+                })}
+                scrollBy={(dy) => scrollRef.current?.scrollTo({ animated: true, y: scrollOffset.get() + dy })}>
               <PressScale
                 accessibilityHint={copy.editPieceAccessibilityHint}
                 accessibilityLabel={match.kind === 'similar'
@@ -439,6 +467,7 @@ export function OutfitDetailScreen({
                 </View>
                 <Icon color={theme.colors.textSecondary} name="chevronRight" size={20} />
               </PressScale>
+              </TourTarget>
             ))}
           </View>
         </View>
@@ -625,7 +654,6 @@ const styles = StyleSheet.create({
     borderWidth: borderWidths.subtle,
     flexDirection: 'row',
     gap: spacing.sm,
-    marginTop: spacing.md,
     minHeight: layout.minimumTouchTarget,
     paddingHorizontal: spacing.lg,
   },

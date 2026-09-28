@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import Animated, { useAnimatedRef, useScrollOffset } from 'react-native-reanimated';
 
 import {
   AppText,
@@ -19,6 +20,7 @@ import {
   type StructuralCategory,
 } from '@/features/catalog/domain/garment-taxonomy';
 import { useWardrobeApplication } from '@/features/wardrobe/application/wardrobe-application-context';
+import { TourTarget } from '@/features/walkthrough/application/tour-target';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 import { useMessages } from '@/localization/use-messages';
 import { interaction, layout, spacing } from '@/theme/theme';
@@ -226,6 +228,10 @@ export function ProfileScreen({
   const theme = useKuyaraTheme();
   const { usesStackedLayout } = useTextScaling();
   const { refresh, state } = useWardrobeApplication();
+  // Phase 8: the tour scrolls Profile to its end to light the History row, and further when
+  // that end leaves the row under the tab bar.
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
+  const scrollOffset = useScrollOffset(scrollRef);
 
   const isReady = state.status === 'ready';
   const readyItems = isReady ? state.items : null;
@@ -263,7 +269,8 @@ export function ProfileScreen({
     : undefined;
 
   return (
-    <Screen contentContainerStyle={styles.content} testID="profile-screen">
+    <Screen contentContainerStyle={styles.content} ref={scrollRef} scrollToOverflowEnabled testID="profile-screen">
+      <TourTarget id="closet-head">
       <Pressable
         accessibilityHint={copy.closetHeadingHint}
         accessibilityLabel={displayName
@@ -315,16 +322,19 @@ export function ProfileScreen({
           </>
         )}
       </Pressable>
+      </TourTarget>
 
       {/* The rack stays in the same place in every state: bare while loading or after an
           error, with empty hangers waiting when the Closet is empty (O9). */}
-      <ClosetRack
-        accessibilityHint={copy.closetHeadingHint}
-        accessibilityLabel={rackLabel}
-        onPress={isReady ? () => onOpenWardrobe() : undefined}
-        pieces={rackPieces}
-        testID="profile-rack"
-      />
+      <TourTarget id="rack">
+        <ClosetRack
+          accessibilityHint={copy.closetHeadingHint}
+          accessibilityLabel={rackLabel}
+          onPress={isReady ? () => onOpenWardrobe() : undefined}
+          pieces={rackPieces}
+          testID="profile-rack"
+        />
+      </TourTarget>
 
       {state.status === 'loading' ? (
         <CategoryCells onOpenCategory={onOpenCategory} summaries={null} />
@@ -376,13 +386,18 @@ export function ProfileScreen({
               valueTabular
             />
           )}
-          <ListRow
-            glyph={({ color, size }) => <Icon color={color} name="calendar" size={size} />}
+          <TourTarget
+            id="history"
             key="history"
-            label={copy.historyLabel}
-            onPress={onOpenHistory}
-            testID="profile-history-row"
-          />
+            reveal={() => scrollRef.current?.scrollToEnd({ animated: true })}
+            scrollBy={(dy) => scrollRef.current?.scrollTo({ animated: true, y: scrollOffset.get() + dy })}>
+            <ListRow
+              glyph={({ color, size }) => <Icon color={color} name="calendar" size={size} />}
+              label={copy.historyLabel}
+              onPress={onOpenHistory}
+              testID="profile-history-row"
+            />
+          </TourTarget>
         </ListRowGroup>
       </View>
     </Screen>

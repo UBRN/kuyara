@@ -26,6 +26,8 @@ export type ProfileApplicationValue = Readonly<{
   updateNotificationsOptIn: (optIn: boolean) => Promise<void>;
   updateMorningBriefingOptIn: (optIn: boolean) => Promise<void>;
   markWeatherAlertOfferShown: () => Promise<void>;
+  /** Phase 8: stores the tour's code version; only the offered tour's close calls it. */
+  markWalkthroughSeen?: () => Promise<void>;
   updateAnalyticsConsent: (consent: AnalyticsConsent) => Promise<void>;
 }>;
 
