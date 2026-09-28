@@ -4,7 +4,7 @@ import Svg, { Defs, G, LinearGradient, Stop } from 'react-native-svg';
 
 import type { ColorFamily, GarmentTypeId, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import type { ClosetColorChoice } from '@/features/wardrobe/domain/closet-color-options';
-import { easierToSee, useEasierToSee } from '@/theme/easier-to-see';
+import { easierToSee, useEasierToSee, useStrongEdge } from '@/theme/easier-to-see';
 import { layout, radii } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
@@ -256,17 +256,27 @@ export function GarmentCandidateTile({
   garmentTypeId,
   category,
   roles,
+  control = false,
   testIDPrefix,
 }: Readonly<{
   garmentTypeId: GarmentTypeId;
   category: StructuralCategory;
   roles?: GarmentRoles;
+  /**
+   * The tile is itself the control (the board strip), so it takes the strong edge while
+   * higher contrast applies, as the Closet's tiles do. In the picker the row is the control
+   * and the tile its picture: the row grows with Easier to see and the tile stays plain.
+   */
+  control?: boolean;
   testIDPrefix: string;
 }>) {
   const { colors } = useKuyaraTheme();
+  const strongEdge = useStrongEdge();
   const size = GARMENT_CANDIDATE_TILE_SIZE;
   return (
-    <View style={[candidateTileStyles.tile, { backgroundColor: colors.surfaceMuted }]}>
+    <View
+      style={[candidateTileStyles.tile, { backgroundColor: colors.surfaceMuted }, control && strongEdge]}
+      testID={`${testIDPrefix}-tile-${garmentTypeId}`}>
       <GarmentTileArtwork
         category={category}
         colorFamily={null}

@@ -19,9 +19,20 @@ import {
   swapRubberBand,
   swapScaledBox,
   swapStride,
+  swapRevealScroll,
   swapStripLayout,
   swapWindow,
 } from './swap-gesture.ts';
+import { easierToSeeRule, composeGarmentBoard, detailPreset } from './compose-garment-board.ts';
+import { resolveGarmentSilhouette } from './garment-silhouette-map.ts';
+import { recommendOutfits } from '../../../features/recommendation/application/recommend-outfits.ts';
+import { getGarmentType } from '../../../features/catalog/domain/garment-catalog.ts';
+import {
+  availableCandidates,
+  outfitGarments,
+  outfitSwappableSlots,
+  slotCandidates,
+} from '../../../features/recommendation/domain/manual-mix.ts';
 
 // Phase 7b's board swap, vault phase-7b final-spec sections 4, 5 and 10: the geometry and
 // thresholds a device run then feels.
@@ -44,10 +55,110 @@ test('the grid holds at most seven tiles a row, in ceil(n / 7) rows, and never w
   // Today's most, 13, is two rows; 14 still fits two.
   assert.equal(swapStripLayout(13, 9, 361).rows, 2);
   assert.equal(swapStripLayout(14, 9, 361).height, 2 * 44 + 8);
-  // A narrower column (a 375 pt phone) takes as many tiles as fit, never a sideways scroller.
+});
+
+test('a 343-point column (375-point phones) holds six tiles a row, so 13 candidates take three rows', () => {
   const narrow = swapStripLayout(13, 9, 343);
   assert.equal(narrow.columns, 6);
-  assert.ok(narrow.width <= 343);
+  assert.equal(narrow.rows, 3);
+  assert.equal(narrow.width, 6 * 52 - 8);
+  assert.equal(narrow.height, 3 * 44 + 2 * 8);
+  assert.equal(swapStripLayout(12, 9, 343).rows, 2);
+  // A hairline at a row start stays inside the narrower grid.
+  assert.ok(swapStripLayout(13, 6, 343).hairline.x + 1 <= narrow.width + 8);
+  // 390-point phones (a 358-point column) and wider hold seven.
+  for (const column of [358, 370]) {
+    assert.equal(swapStripLayout(13, 9, column).columns, SWAP_STRIP_COLUMNS);
+    assert.equal(swapStripLayout(13, 9, column).rows, 2);
+  }
+});
+
+test('the reveal scrolls the least that shows the strip, and never the enlarged piece off the top', () => {
+  const visible = { top: 20 + 44, bottom: 667 - 49 };
+  assert.equal(swapRevealScroll({ pieceTop: 10, panelBottom: 300 }, 100, visible), 0);
+  assert.equal(swapRevealScroll({ pieceTop: 10, panelBottom: 500 }, 200, visible), 200 + 500 + 12 - 618);
+  // No room for both: the piece's top stops at the visible top.
+  assert.equal(swapRevealScroll({ pieceTop: 0, panelBottom: 598 }, 150, visible), 150 - 64);
+  assert.equal(swapRevealScroll({ pieceTop: 0, panelBottom: 598 }, 40, visible), 0);
+});
+
+// Final-spec sections 3 and 7 on a 375-point phone: the enlarged piece's top, the held stage,
+// the strip's header and three rows of six, from real women's outfits on cold days (the
+// 13-candidate top). The visible area is the window less the status bar, the 44-point
+// navigation bar, the home indicator and the 49-point tab bar the detail screen assumes; the
+// Simulator pass confirms those two bar heights.
+function day(temperatureCelsius, condition, precipitationProbability) {
+  const measurements = {
+    temperatureCelsius, apparentTemperatureCelsius: temperatureCelsius, condition,
+    precipitationProbability, windSpeedMetersPerSecond: 3, humidity: 0.6, uvIndex: 1,
+  };
+  return {
+    id: '018f0f4d-1d45-4ae7-a8f1-796e8297d3b4', localProfileId: 'profile-one', locationKey: 'manual:sample.istanbul',
+    timeZone: 'Europe/Istanbul', fetchedAt: '2026-08-13T06:05:00.000Z', origin: { kind: 'sample', sourceId: 'strip-reveal' },
+    current: { observedAt: '2026-08-13T06:00:00.000Z', ...measurements },
+    minimumTemperatureCelsius: temperatureCelsius - 1, maximumTemperatureCelsius: temperatureCelsius + 1,
+    hourly: [{ forecastAt: '2026-08-13T07:00:00.000Z', ...measurements }],
+  };
+}
+
+/** The tallest reveal a three-row strip needs: from the enlarged piece's top to spacing.md under the grid. */
+function tallestThreeRowReveal(column, large) {
+  const rule = large ? easierToSeeRule(detailPreset, 1.3, 0.05) : detailPreset;
+  const compose = (pieces) => {
+    const result = composeGarmentBoard(pieces.map((piece) => ({
+      ...piece, ...resolveGarmentSilhouette(piece.garmentTypeId, piece.category),
+    })), rule);
+    const boxes = new Map(result.order.map((piece) => {
+      const box = result.boxes.get(piece);
+      return [piece.slot, { x: box.x * column, y: box.y * column, w: box.w * column, h: box.h * column }];
+    }));
+    return { boxes, order: result.order.map(({ slot }) => slot), height: result.stageHeight * column };
+  };
+  const header = large ? 56 : 44;
+  let tallest = 0;
+  for (const temperature of [-15, -8, 4, 12]) {
+    for (const [condition, rain] of [['clear', 0], ['snow', 0.6]]) {
+      const snapshot = day(temperature, condition, rain);
+      const result = recommendOutfits({ snapshot, now: snapshot.current.observedAt, clothingPreference: 'womens', dayVariant: 0 });
+      if (result.status !== 'recommended') continue;
+      for (const outfit of result.outfits) {
+        const garments = outfitGarments(outfit);
+        const pieces = Object.entries(garments).map(([slot, garmentTypeId]) => ({
+          slot, garmentTypeId, category: getGarmentType(garmentTypeId).structuralCategory,
+        }));
+        for (const slot of outfitSwappableSlots(outfit)) {
+          const shown = availableCandidates(slotCandidates(outfit, slot, result.requirements, 'womens'), slot, garments);
+          const strip = swapStripLayout(shown.length, shown.filter(({ suitable }) => suitable).length, column);
+          if (strip.rows < 3) continue;
+          const current = compose(pieces);
+          const layouts = [current, ...shown.map(({ garmentTypeId }) => compose(pieces.map((piece) => (piece.slot === slot
+            ? { ...piece, garmentTypeId, category: getGarmentType(garmentTypeId).structuralCategory } : piece))))]
+            .map((composed) => ({
+              box: composed.boxes.get(slot),
+              others: composed.order.filter((other) => other !== slot).map((other) => composed.boxes.get(other)),
+              stageWidth: column,
+              stageHeight: composed.height,
+            }));
+          const held = swapHeldStage(layouts.map(({ stageHeight }) => stageHeight));
+          const pieceTop = swapGrownBox(current.boxes.get(slot), swapGrowScale(layouts), column, held).y;
+          const panelBottom = held + 12 + header + 8 + strip.height;
+          tallest = Math.max(tallest, panelBottom + 12 - pieceTop);
+        }
+      }
+    }
+  }
+  return tallest;
+}
+
+test('on a 375-point phone three rows show above the tab bar on a tall screen; on a 667-point one the last row waits', () => {
+  const tallest = tallestThreeRowReveal(343, false);
+  assert.ok(tallest > 0, 'a cold women\'s day offers the 13-candidate top');
+  // 375 x 812 (iPhone 13 mini): 812 - 50 - 44 - 34 - 49 = 635 points show.
+  assert.ok(tallest <= 635, `three rows need ${tallest.toFixed(1)} points`);
+  // 375 x 667 (iPhone SE): 667 - 20 - 44 - 49 = 554 points show. The reveal keeps the enlarged
+  // piece's top, so the header and the first two rows show and the third waits for a scroll.
+  assert.ok(tallest > 554);
+  assert.ok(tallest - (44 + 8) <= 554, `two rows need ${(tallest - 52).toFixed(1)} points`);
 });
 
 test('the hairline stands before the first unsuitable tile, after the row above at a row start, and not at all at an end', () => {
@@ -104,9 +215,31 @@ test('the paging window never covers a stepped-back piece and reaches at most a 
 });
 
 test('a step is the grown width plus the window pad on its side, never under two touch targets', () => {
-  assert.equal(swapStride(30, 0), 88);
-  assert.equal(swapStride(100, 44), 144);
-  assert.equal(swapStride(100, 20), 120);
+  const grown = { x: 120, y: 20, w: 100, h: 140 };
+  const window = swapWindow(grown, [], 358, 300);
+  assert.equal(swapStride(window, grown, 1), 144);
+  assert.equal(swapStride(window, grown, -1), 144);
+  const edge = swapWindow({ x: 10, y: 0, w: 100, h: 100 }, [], 358, 300);
+  assert.equal(swapStride(edge, { x: 10, y: 0, w: 100, h: 100 }, -1), 110);
+  const small = { x: 150, y: 20, w: 20, h: 20 };
+  assert.equal(swapStride({ x: 150, w: 20 }, small, 1), 88);
+});
+
+test('a wider neighbour waits wholly behind the window edge, so a drag never shows it early', () => {
+  // A narrow enlarged piece (a sleeveless top) and a wide neighbour (a sweatshirt), both
+  // centred where the slot's piece stands: grown about that centre, the wider one reaches
+  // past the narrow one's window unless its own width sets the step.
+  const narrow = { x: 139, y: 20, w: 80, h: 120 };
+  const window = swapWindow(narrow, [], 358, 300);
+  for (const width of [80, 120, 160, 200]) {
+    const wide = { x: 179 - width / 2, y: 20, w: width, h: 120 };
+    const next = swapStride(window, wide, 1);
+    const previous = swapStride(window, wide, -1);
+    assert.ok(wide.x + next >= window.x + window.w - 1e-9, `next ${width}`);
+    assert.ok(wide.x + wide.w - previous <= window.x + 1e-9, `previous ${width}`);
+    // The shipped step, the enlarged width plus the pad, let the wider one peek.
+    if (width > narrow.w) assert.ok(wide.x + narrow.w + window.padRight < window.x + window.w);
+  }
 });
 
 test('the drag zone is the grown piece with spacing.md around it, at least 88 square, inside the stage', () => {

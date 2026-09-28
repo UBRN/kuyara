@@ -81,6 +81,7 @@ export {
   type GarmentSwapBoardProps,
   type GarmentSwapCandidate,
 } from './garment-board/garment-swap-board';
+export { swapRevealScroll } from './garment-board/swap-gesture';
 
 export { GarmentCandidateTile, GarmentDrawing, GarmentTileArtwork } from './garment-board/garment-tile-artwork';
 export { ClosetColorDisc } from './garment-board/closet-color-art';

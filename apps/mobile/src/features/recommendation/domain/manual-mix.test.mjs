@@ -144,10 +144,12 @@ test('"Wore this today" records a changed outfit as manual under the existing sc
   assert.equal(wornOutfitFrom(mild.outfit).source, 'recommended');
 });
 
-// Phase 7b: the board's candidate strip draws seven 44-point tiles a row and has room for two
-// rows (vault phase-7b final-spec section 1). Today the most any slot shows is 13 (the
-// women's top); a 15th candidate would need a third row, which must be a decision, not an
-// accident of a catalog addition.
+// Phase 7b: the board's candidate strip draws as many 44-point tiles a row as the column holds,
+// at most seven: two rows of seven on a 390-point phone, three rows of six on a 375-point one
+// (vault phase-7b final-spec section 1, ADR 0026). Today the most any slot shows is 13 (the
+// women's top), which already takes three rows on the narrower phone; a 15th candidate would
+// need a third row on the wider ones too, which must be a decision, not an accident of a
+// catalog addition.
 const STRIP_TILES = 2 * 7;
 
 test('no slot ever offers more candidates than the strip\'s two rows hold', () => {
