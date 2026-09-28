@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { AccessibilityInfo, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, {
+  runOnJS,
   useAnimatedRef,
   useAnimatedStyle,
   useScrollOffset,
+  useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -14,18 +16,30 @@ import {
   colorFamilyFills,
   garmentColorFamiliesBySlot,
   Entrance,
-  GarmentBoard,
+  GarmentSwapBoard,
   GarmentTileArtwork,
   Icon,
+  type GarmentOutfitPalette,
   type IconName,
+  keepGarmentColors,
   layoutGarmentBoard,
+  Presence,
   PressScale,
   Screen,
   haptics,
   useGarmentRoles,
   useTextScaling,
 } from '@/components/ui';
-import type { ColorFamily } from '@/features/catalog/domain/garment-taxonomy';
+import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
+import type { ColorFamily, GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
+import type { RecommendedOutfit } from '@/features/recommendation/application/recommend-outfits';
+import type { ManualMix } from '@/features/recommendation/application/use-manual-mix';
+import type { SwappableSlot } from '@/features/recommendation/domain/manual-mix';
+import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
+import {
+  PiecePickerSheet,
+  type PiecePickerTarget,
+} from '@/features/today/presentation/piece-picker-sheet';
 import {
   createDetailCaptionLayout,
   createTodayPresentation,
@@ -41,8 +55,8 @@ import type { PieceSheetTarget } from '@/features/wardrobe/presentation/piece-ed
 import { TourTarget } from '@/features/walkthrough/application/tour-target';
 import { getMessages, type SupportedLanguage } from '@/localization/messages';
 import { useLocalization } from '@/localization/use-messages';
-import { borderWidths, layout, radii, spacing } from '@/theme/theme';
-import { useEasierToSee } from '@/theme/easier-to-see';
+import { borderWidths, interaction, layout, radii, spacing } from '@/theme/theme';
+import { easierToSee, useEasierToSee } from '@/theme/easier-to-see';
 import { useKuyaraTheme } from '@/theme/theme-context';
 
 // The detail draws its pieces at board scale; an accessory is not on the board, so it reads
@@ -58,6 +72,8 @@ const OWN_TILE_SIZE = 32;
 const BADGE_SIZE = 28;
 const BADGE_GLYPH_SIZE = 16;
 const SWATCH_DOT_SIZE = 16;
+// A tap outside the board ends the focus only when the finger did not travel: a scroll keeps it.
+const OUTSIDE_TAP_SLOP = 10;
 
 const matchIcons: Readonly<Record<Exclude<PieceOwnershipMatch['kind'], 'none'>, IconName>> = {
   owned: 'check',
@@ -78,12 +94,19 @@ type OutfitDetailScreenProps = Readonly<{
   /** The active Closet records; O7 matches each piece against them, on this screen only. */
   wardrobeItems: readonly WardrobeItem[];
   ownershipError?: string | null;
-  /** O6: a board garment and its row open the same edit sheet. */
+  /** O6: a piece row opens the piece's Closet sheet. */
   onEditPiece: (target: PieceSheetTarget) => void;
   worn?: OutfitWornState;
   wornBusy?: boolean;
   wornError?: string | null;
   onWoreThis?: () => void;
+  /**
+   * Phase 7: the open outfit's manual mix, owned by the route so leaving detail forgets it.
+   * Absent, the pieces cannot change.
+   */
+  manualMix?: ManualMix<RecommendedOutfit> | null;
+  /** Phase 7: a board piece is focused, so the route turns the full-screen back swipe off. */
+  onBoardFocusChange?: (focused: boolean) => void;
 }>;
 
 type DetailSuggestion = Extract<ReturnType<typeof createTodayPresentation>, { kind: 'loaded' }>['suggestions'][number];
@@ -94,10 +117,11 @@ type DetailSuggestion = Extract<ReturnType<typeof createTodayPresentation>, { ki
  */
 function pieceEntries(
   suggestion: DetailSuggestion,
+  palette: GarmentOutfitPalette,
   wardrobeItems: readonly WardrobeItem[],
   copy: ReturnType<typeof getMessages>['today'],
 ) {
-  const colorFamilies = garmentColorFamiliesBySlot(suggestion.palette);
+  const colorFamilies = garmentColorFamiliesBySlot(palette);
   return suggestion.pieces.flatMap((piece) => {
     const boardPiece = suggestion.boardPieces.find(
       ({ garmentTypeId }) => garmentTypeId === piece.garmentTypeId,
@@ -130,6 +154,56 @@ function pieceEntries(
   });
 }
 
+/** Content that fades in when it is replaced (effects motion), and stays still on mount. */
+function FadeOnChange({ animate, children }: Readonly<{ animate: boolean; children: ReactNode }>) {
+  const theme = useKuyaraTheme();
+  const opacity = useSharedValue(animate ? 0 : 1);
+  useEffect(() => {
+    opacity.set(withTiming(1, { duration: theme.motion.normal }));
+  }, [opacity, theme.motion.normal]);
+  const style = useAnimatedStyle(() => ({ opacity: opacity.get() }));
+  return <Animated.View style={style}>{children}</Animated.View>;
+}
+
+/** The title after a change: the old one leaves on `fast`, the new one arrives on `normal`. */
+function CrossfadeTitle({ title }: Readonly<{ title: string }>) {
+  const theme = useKuyaraTheme();
+  const [titles, setTitles] = useState<Readonly<{ current: string; previous: string | null }>>({
+    current: title, previous: null,
+  });
+  if (titles.current !== title) setTitles({ current: title, previous: titles.current });
+  const incoming = useSharedValue(1);
+  const outgoing = useSharedValue(0);
+  const clearPrevious = useCallback(() => setTitles((value) => ({ ...value, previous: null })), []);
+  useEffect(() => {
+    if (titles.previous === null) return;
+    incoming.set(0);
+    incoming.set(withTiming(1, { duration: theme.motion.normal }));
+    outgoing.set(1);
+    outgoing.set(withTiming(0, { duration: theme.motion.fast }, (finished) => {
+      if (finished) runOnJS(clearPrevious)();
+    }));
+  }, [clearPrevious, incoming, outgoing, theme.motion.fast, theme.motion.normal, titles]);
+  const incomingStyle = useAnimatedStyle(() => ({ opacity: incoming.get() }));
+  const outgoingStyle = useAnimatedStyle(() => ({ opacity: outgoing.get() }));
+  return (
+    <View>
+      <Animated.View style={incomingStyle}>
+        <AppText accessibilityRole="header" variant="title">{titles.current}</AppText>
+      </Animated.View>
+      {titles.previous !== null ? (
+        <Animated.View
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, outgoingStyle]}>
+          <AppText variant="title">{titles.previous}</AppText>
+        </Animated.View>
+      ) : null}
+    </View>
+  );
+}
+
 export function OutfitDetailScreen({
   state,
   language,
@@ -141,37 +215,60 @@ export function OutfitDetailScreen({
   wornBusy = false,
   wornError = null,
   onWoreThis,
+  manualMix = null,
+  onBoardFocusChange,
 }: OutfitDetailScreenProps) {
   const theme = useKuyaraTheme();
-  const easierToSee = useEasierToSee();
+  const easierToSeeOn = useEasierToSee();
   const { hour12, temperatureUnit } = useLocalization();
-  const { fontScale, usesStackedLayout } = useTextScaling();
+  const { fontScale, stacksButtonPair, usesStackedLayout } = useTextScaling();
   const [contentWidth, setContentWidth] = useState(0);
   const [captionHeights, setCaptionHeights] = useState<Readonly<Record<string, number>>>({});
-  const [piecesSettled, setPiecesSettled] = useState(false);
   const [completions, setCompletions] = useState(0);
+  const [focusedSlot, setFocusedSlot] = useState<OutfitSlot | null>(null);
+  const [pickerSlot, setPickerSlot] = useState<SwappableSlot | null>(null);
+  const [pressedRow, setPressedRow] = useState<OutfitSlot | null>(null);
+  const pendingChoice = useRef<Readonly<{ slot: SwappableSlot; garmentTypeId: GarmentTypeId }> | null>(null);
+  const boardTouched = useRef(false);
+  const touchStart = useRef<Readonly<{ x: number; y: number; inBoard: boolean }> | null>(null);
+  // After the first change, replaced rows and sentences fade in; nothing fades on opening.
+  const [everChanged, setEverChanged] = useState(false);
+  const [shownChangedFrom, setShownChangedFrom] = useState<string | null>(null);
   // Phase 8: the tour brings the first piece row about a third of the way down the screen.
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const scrollOffset = useScrollOffset(scrollRef);
   const piecesTop = useRef(0);
   const { height: windowHeight } = useWindowDimensions();
   const now = useForegroundClock();
-  const onPiecesSettled = useCallback(() => setPiecesSettled(true), []);
-  const captionEntranceStyle = useAnimatedStyle(() => ({
-    opacity: withTiming(piecesSettled ? 1 : 0, { duration: theme.motion.fast }),
-  }), [piecesSettled, theme.motion.fast]);
   const messages = getMessages(language);
   const copy = messages.today;
-  const presentation = createTodayPresentation(state, language, hour12, temperatureUnit, now);
+  const changedSlots = manualMix?.changedSlots ?? [];
+  const changed = changedSlots.length > 0;
+  if (changed && !everChanged) setEverChanged(true);
+  const presentation = createTodayPresentation(state, language, hour12, temperatureUnit, now,
+    manualMix && changed && suggestionId
+      ? { optionId: suggestionId, outfit: manualMix.outfit, changedSlots }
+      : null);
   const suggestion =
     presentation.kind === 'loaded'
       ? presentation.suggestions.find(({ id }) => id === suggestionId)
       : undefined;
+  // O15 and Phase 7: the pieces kuyara still chose keep their colours after a
+  // change; only a changed piece is coloured afresh.
+  const paletteKey = suggestion ? JSON.stringify([suggestion.palette, suggestion.keptColors]) : null;
+  const palette = useMemo(() => {
+    if (!suggestion) return null;
+    return suggestion.keptColors
+      ? keepGarmentColors(suggestion.keptColors.original, suggestion.palette, suggestion.keptColors.slots)
+      : suggestion.palette;
+    // `paletteKey` stands for both inputs; the suggestion object is rebuilt on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paletteKey]);
   // The finishing touches and the piece rows keep the colours the outfit's palette gave
   // them on Today (O15).
-  const pieceRoles = useGarmentRoles(suggestion?.palette ?? null);
+  const pieceRoles = useGarmentRoles(palette);
   const boardLayout = suggestion
-    ? layoutGarmentBoard(suggestion.boardPieces, contentWidth, 'detail', easierToSee)
+    ? layoutGarmentBoard(suggestion.boardPieces, contentWidth, 'detail', easierToSeeOn)
     : { height: 0, boxes: [] };
   const initialCaptionHeight = theme.typography.body.lineHeight * fontScale * 2;
   // Above 1.5 the captions leave the board and the piece rows alone name the pieces, so the
@@ -186,7 +283,7 @@ export function OutfitDetailScreen({
         }),
       );
 
-  const entries = suggestion ? pieceEntries(suggestion, wardrobeItems, copy) : [];
+  const entries = suggestion && palette ? pieceEntries(suggestion, palette, wardrobeItems, copy) : [];
   const entryFor = (garmentTypeId: string) =>
     entries.find(({ piece }) => piece.garmentTypeId === garmentTypeId);
   const ownedCount = entries.filter(({ match }) => match.kind === 'owned').length;
@@ -201,6 +298,45 @@ export function OutfitDetailScreen({
       setCompletions((count) => count + 1);
     }
   }, [entries.length, ownedCount]);
+
+  // The route turns the iOS 26 full-screen back swipe off while a piece is focused.
+  const boardFocused = focusedSlot !== null;
+  useEffect(() => {
+    onBoardFocusChange?.(boardFocused);
+  }, [boardFocused, onBoardFocusChange]);
+  // A change that makes the outfit unusual says so once to VoiceOver; the value alone does
+  // not. Android keeps the note's live region.
+  const unusual = changed && (manualMix?.unusual ?? false);
+  const wasUnusual = useRef(unusual);
+  useEffect(() => {
+    if (unusual && !wasUnusual.current && Platform.OS === 'ios') {
+      AccessibilityInfo.announceForAccessibility(copy.manualMix.unusualAccessibilityLabel);
+    }
+    wasUnusual.current = unusual;
+  }, [copy.manualMix.unusualAccessibilityLabel, unusual]);
+  // The "changed from" line keeps its words while it collapses after a reset.
+  if (suggestion?.changedFrom && suggestion.changedFrom !== shownChangedFrom) {
+    setShownChangedFrom(suggestion.changedFrom);
+  }
+
+  // The board's step is stable across renders, so a render mid-drag never rebuilds its gestures.
+  const choose = manualMix?.choose;
+  const onBoardStep = useCallback((slot: OutfitSlot, garmentTypeId: GarmentTypeId) => {
+    choose?.(slot as SwappableSlot, garmentTypeId);
+  }, [choose]);
+  // A picker choice plays on the board once the sheet has gone: on its dismissal, or after
+  // the sheet transition if the platform reports none.
+  const applyPendingChoice = useCallback(() => {
+    const choice = pendingChoice.current;
+    pendingChoice.current = null;
+    if (choice) manualMix?.choose(choice.slot, choice.garmentTypeId);
+  }, [manualMix]);
+  useEffect(() => {
+    if (pickerSlot !== null || pendingChoice.current === null) return undefined;
+    const timer = setTimeout(applyPendingChoice, theme.motion.deliberate);
+    return () => clearTimeout(timer);
+  }, [applyPendingChoice, pickerSlot, theme.motion.deliberate]);
+
   const colorName = (family: ColorFamily | null) => family
     ? messages.catalog[`catalog.color_family.${family}`] : messages.wardrobe.colorUnspecified;
   // O8: the user's own piece is named by its palette option when it has one, else by family.
@@ -210,8 +346,9 @@ export function OutfitDetailScreen({
     const fill = colorFamilyFills[theme.colorScheme][family];
     return typeof fill === 'string' ? fill : fill[0];
   };
+  const pieceName = (garmentTypeId: GarmentTypeId) => messages.catalog[`catalog.garment_type.${garmentTypeId}.name`];
 
-  if (presentation.kind !== 'loaded' || !suggestion) {
+  if (presentation.kind !== 'loaded' || !suggestion || !palette) {
     const missingSuggestion = presentation.kind === 'loaded';
     return (
       // The same scroll view stays mounted when the outfit arrives; it keeps the tour's ref.
@@ -229,114 +366,176 @@ export function OutfitDetailScreen({
   }
 
   const stageColor = theme.atmosphere[presentation.atmosphere];
+  const categoryOf = (garmentTypeId: GarmentTypeId) =>
+    getGarmentType(garmentTypeId)?.structuralCategory ?? 'top';
+  // Each slot's order, the picker's and the board's: without a mix, only the piece itself.
+  const candidates = Object.fromEntries(suggestion.boardPieces.map(({ slot, garmentTypeId, category }) => [
+    slot,
+    manualMix?.candidates[slot as SwappableSlot]?.map((candidate) => ({
+      garmentTypeId: candidate.garmentTypeId, category: categoryOf(candidate.garmentTypeId),
+    })) ?? [{ garmentTypeId, category }],
+  ]));
+  const garmentIn = (slot: OutfitSlot) =>
+    suggestion.boardPieces.find((piece) => piece.slot === slot)?.garmentTypeId;
+  const pickerCurrent = pickerSlot ? garmentIn(pickerSlot) : undefined;
+  const pickerTarget: PiecePickerTarget | null = pickerSlot && manualMix && pickerCurrent ? {
+    slot: pickerSlot,
+    title: copy.slots[pickerSlot],
+    current: pickerCurrent,
+    options: (manualMix.candidates[pickerSlot] ?? []).map(({ garmentTypeId, suitable }) => ({
+      garmentTypeId, category: categoryOf(garmentTypeId), name: pieceName(garmentTypeId), suitable,
+    })),
+  } : null;
+  const openPicker = (slot: SwappableSlot) => {
+    setFocusedSlot(null);
+    setPickerSlot(slot);
+  };
+  const reset = () => {
+    setFocusedSlot(null);
+    manualMix?.reset();
+  };
+
+  const captionLayouts = new Map(boardLayout.boxes.map((box) => [box.slot, createDetailCaptionLayout(box, contentWidth)]));
+  const captionRects = Object.fromEntries(boardLayout.boxes.map((box) => {
+    const caption = captionLayouts.get(box.slot)!;
+    return [box.slot, {
+      x: caption.left, y: caption.top, w: caption.width, h: captionHeights[box.slot] ?? initialCaptionHeight,
+    }];
+  }));
   const renderCaption = (box: (typeof boardLayout.boxes)[number]) => {
     const entry = entryFor(box.garmentTypeId);
     if (!entry) return null;
-    const captionLayout = createDetailCaptionLayout(box, contentWidth);
     return (
-      <View key={box.slot} style={[styles.captionPosition, captionLayout]}>
-        <Pressable
-          accessibilityHint={copy.editPieceAccessibilityHint}
-          accessibilityLabel={entry.spokenLabel}
-          accessibilityRole="button"
-          hitSlop={spacing.sm}
-          onPress={() => onEditPiece(entry.target)}
-          style={({ pressed }) => pressed && { opacity: theme.interaction.pressedOpacity }}
-          testID={`outfit-detail-caption-${box.garmentTypeId}`}>
-          <View
-            onLayout={({ nativeEvent }) => {
-              const height = nativeEvent.layout.height;
-              if (captionHeights[box.slot] === height) return;
-              setCaptionHeights((current) => ({ ...current, [box.slot]: height }));
-            }}
-            style={styles.caption}
-            testID={`outfit-detail-caption-content-${box.garmentTypeId}`}>
-            <AppText style={styles.captionText} variant="bodyStrong">{entry.piece.item}</AppText>
-          </View>
-        </Pressable>
+      <View
+        key={`caption-${box.slot}`}
+        style={[styles.captionPosition, captionLayouts.get(box.slot)]}
+        testID={`outfit-detail-caption-${box.garmentTypeId}`}>
+        <View
+          onLayout={({ nativeEvent }) => {
+            const height = nativeEvent.layout.height;
+            if (captionHeights[box.slot] === height) return;
+            setCaptionHeights((current) => ({ ...current, [box.slot]: height }));
+          }}
+          style={styles.caption}
+          testID={`outfit-detail-caption-content-${box.garmentTypeId}`}>
+          <AppText style={styles.captionText} variant="bodyStrong">{entry.piece.item}</AppText>
+          {entry.piece.changed ? (
+            <AppText colorRole="brandAccent" style={styles.captionText} variant="caption">
+              {copy.manualMix.changed}
+            </AppText>
+          ) : null}
+        </View>
+      </View>
+    );
+  };
+  const renderBadge = (box: (typeof boardLayout.boxes)[number]) => {
+    const entry = entryFor(box.garmentTypeId);
+    if (!entry || entry.match.kind === 'none') return null;
+    return (
+      <View
+        key={`badge-${box.slot}`}
+        style={[styles.badge, {
+          backgroundColor: theme.colors.surface,
+          borderColor: theme.colors.borderDefined,
+          left: box.x + box.width - BADGE_SIZE * 2 / 3,
+          top: box.y - BADGE_SIZE / 3,
+        }]}
+        testID={`outfit-detail-badge-${box.garmentTypeId}`}>
+        <Icon color={theme.colors.brandAccent} name={matchIcons[entry.match.kind]} size={BADGE_GLYPH_SIZE} />
       </View>
     );
   };
 
-  // The garment itself is the larger target (O6). Its caption already carries the name and
-  // the state for assistive tech, so the drawing's target stays out of the reading order.
-  const renderGarmentTarget = (box: (typeof boardLayout.boxes)[number]) => {
-    const entry = entryFor(box.garmentTypeId);
-    if (!entry) return null;
-    return (
-      <Pressable
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        key={box.slot}
-        onPress={() => onEditPiece(entry.target)}
-        style={[styles.garmentTarget, { height: box.height, left: box.x, top: box.y, width: box.width }]}
-        testID={`outfit-detail-garment-${box.garmentTypeId}`}>
-        {entry.match.kind === 'none' ? null : (
-          <View
-            style={[styles.badge, {
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.borderDefined,
-            }]}
-            testID={`outfit-detail-badge-${box.garmentTypeId}`}>
-            <Icon color={theme.colors.brandAccent} name={matchIcons[entry.match.kind]} size={BADGE_GLYPH_SIZE} />
-          </View>
-        )}
-      </Pressable>
-    );
-  };
+  const boardOverlay = (
+    <>
+      {boardLayout.boxes.map(renderBadge)}
+      {usesStackedLayout ? null : boardLayout.boxes.map(renderCaption)}
+    </>
+  );
 
   return (
     <Screen ref={scrollRef} scrollToOverflowEnabled testID="outfit-detail-screen">
       <View
         onLayout={({ nativeEvent }) => setContentWidth(nativeEvent.layout.width)}
+        onTouchEnd={({ nativeEvent }) => {
+          const start = touchStart.current;
+          touchStart.current = null;
+          // Any tap outside the board ends the focus; the tapped control still acts.
+          if (!start || start.inBoard || focusedSlot === null) return;
+          if (Math.hypot(nativeEvent.pageX - start.x, nativeEvent.pageY - start.y) <= OUTSIDE_TAP_SLOP) {
+            setFocusedSlot(null);
+          }
+        }}
+        onTouchStart={({ nativeEvent }) => {
+          touchStart.current = { x: nativeEvent.pageX, y: nativeEvent.pageY, inBoard: boardTouched.current };
+          boardTouched.current = false;
+        }}
         testID="outfit-detail-content">
 
-        {/* ADR 0021: three equal options, so the title carries no emphasis pill. */}
+        {/* ADR 0021: three equal options, so the title carries no emphasis pill. Phase 7,
+            after a change the title is the reader's and says where it came from. */}
         <View style={styles.headingGroup} testID="outfit-detail-heading-group">
-          <AppText accessibilityRole="header" variant="title">
-            {suggestion.title}
-          </AppText>
+          <CrossfadeTitle title={suggestion.title} />
+          <Presence testID="outfit-detail-changed-from" visible={suggestion.changedFrom !== null}>
+            <AppText colorRole="textSecondary" style={styles.changedFrom} variant="body">
+              {suggestion.changedFrom ?? shownChangedFrom}
+            </AppText>
+          </Presence>
         </View>
 
-        <View
-          style={[styles.boardPlate, { height: plateHeight, width: contentWidth }]}
-          testID="outfit-detail-board-plate">
-          <GarmentBoard
-            accessibilityLabel={suggestion.boardAccessibilityLabel}
-            decorative
+        <View onTouchStart={() => { boardTouched.current = true; }} style={styles.boardPlate}>
+          <GarmentSwapBoard
+            candidates={candidates}
+            captionRects={captionRects}
             entrance={{
               // The pieces leave from where Today's fitted stage drew them (P2).
-              fromFit: true,
-              fromPreset: 'today',
               fromStageColor: stageColor,
               fromStageRadius: 26,
-              onSettled: onPiecesSettled,
             }}
+            focusedSlot={focusedSlot}
+            labels={{
+              pieceName,
+              slotName: (slot) => copy.slots[slot],
+              counter: copy.manualMix.counter,
+              pieceValue: (piece, position, total) => copy.manualMix.pieceValue({ piece, position, total }),
+              previous: copy.manualMix.previousPiece,
+              next: copy.manualMix.nextPiece,
+            }}
+            onFocusChange={setFocusedSlot}
+            onStep={onBoardStep}
+            overlay={boardOverlay}
+            overlayTestID="outfit-detail-caption-overlay"
             // The opened outfit keeps the palette it had on Today (O15). The plate stands on
             // the page ground, so every fill is made legible on `background`.
-            palette={suggestion.palette}
+            palette={palette}
             pieces={suggestion.boardPieces}
-            preset="detail"
+            restHeight={plateHeight}
             settle={completions}
             testID="outfit-detail-board"
             width={contentWidth}
           />
-          <Animated.View
-            style={[styles.captionOverlay, captionEntranceStyle]}
-            testID="outfit-detail-caption-overlay">
-            {boardLayout.boxes.map(renderGarmentTarget)}
-            {usesStackedLayout ? null : boardLayout.boxes.map(renderCaption)}
-          </Animated.View>
         </View>
 
-        <Entrance>
-          <View style={styles.editHint} testID="outfit-detail-edit-hint">
-            <Icon color={theme.colors.iconSecondary} name="info" size={16} />
-            <AppText colorRole="textSecondary" style={styles.flexText} variant="caption">
-              {copy.editPieceHint}
+        {/* The hint names the gesture until the first change; the unusual note is a status in
+            its own glyph and ink, and the two never stand together. */}
+        <Presence testID="outfit-detail-edit-hint" visible={!changed}>
+          <Entrance>
+            <View style={styles.boardLine}>
+              <Icon color={theme.colors.iconSecondary} name="info" size={16} />
+              <AppText colorRole="textSecondary" style={styles.flexText} variant="caption">
+                {copy.boardHint}
+              </AppText>
+            </View>
+          </Entrance>
+        </Presence>
+        <Presence testID="outfit-detail-unusual" visible={unusual}>
+          <View style={styles.boardLine}>
+            <Icon color={theme.colors.warningInk} name="warning" size={16} />
+            <AppText accessibilityLiveRegion="polite" colorRole="warningInk" style={styles.flexText} variant="caption">
+              {copy.manualMix.unusual}
             </AppText>
           </View>
-        </Entrance>
+        </Presence>
 
         {/* ADR 0038: one worn record per dressing day, written only by this action. */}
         {worn === 'this' ? (
@@ -367,6 +566,16 @@ export function OutfitDetailScreen({
             {wornError}
           </AppText>
         ) : null}
+        <Presence testID="outfit-detail-reset" visible={changed}>
+          <Button
+            label={copy.manualMix.reset}
+            onPress={reset}
+            size="large"
+            style={styles.wornAction}
+            testID="outfit-detail-reset-button"
+            variant="tonal"
+          />
+        </Presence>
 
         <View
           onLayout={({ nativeEvent }) => { piecesTop.current = nativeEvent.layout.y; }}
@@ -376,99 +585,153 @@ export function OutfitDetailScreen({
             {presentation.copy.piecesHeading}
           </AppText>
           <View>
-            {entries.map(({ piece, slot, match, status, target, spokenLabel }, index) => (
-              // Phase 8: the first piece row is the tour's step 2 control; the wrapper adds a
-              // plain view and nothing else.
-              <TourTarget
-                activate={() => onEditPiece(target)}
-                id={index === 0 ? 'piece' : null}
-                key={piece.garmentTypeId}
-                label={spokenLabel}
-                name={piece.item}
-                reveal={() => scrollRef.current?.scrollTo({
-                  animated: true,
-                  y: Math.max(0, piecesTop.current - windowHeight / 3),
-                })}
-                scrollBy={(dy) => scrollRef.current?.scrollTo({ animated: true, y: scrollOffset.get() + dy })}>
-              <PressScale
-                accessibilityHint={copy.editPieceAccessibilityHint}
-                accessibilityLabel={match.kind === 'similar'
-                  ? `${spokenLabel}, ${copy.ownershipYours(ownColorName(match.item))}`
-                  : spokenLabel}
-                accessibilityRole="button"
-                key={piece.garmentTypeId}
-                onPress={() => onEditPiece(target)}
-                style={[styles.pieceRow, index > 0 && {
-                  borderTopColor: theme.colors.borderSubtle,
-                  borderTopWidth: StyleSheet.hairlineWidth,
-                }]}
-                testID={`outfit-detail-piece-${piece.garmentTypeId}`}>
-                <View style={[styles.rowTile, { backgroundColor: theme.colors.surfaceMuted }]}>
-                  <GarmentTileArtwork
-                    category={piece.category}
-                    colorFamily={null}
-                    garmentTypeId={piece.garmentTypeId}
-                    glyphSize={ROW_TILE_SIZE * 0.6}
-                    height={ROW_TILE_SIZE}
-                    photoTestID={`outfit-detail-piece-photo-${piece.garmentTypeId}`}
-                    photoUri={null}
-                    placeholderTestID={`outfit-detail-piece-glyph-${piece.garmentTypeId}`}
-                    roles={pieceRoles.get(slot)}
-                    silhouetteTestID={`outfit-detail-piece-silhouette-${piece.garmentTypeId}`}
-                    width={ROW_TILE_SIZE}
-                  />
-                </View>
-                <View style={styles.rowText}>
-                  <AppText variant="bodyStrong">{piece.item}</AppText>
-                  <AppText colorRole="textSecondary" variant="caption">{piece.slot}</AppText>
-                  {match.kind !== 'none' && status ? (
-                    <View style={styles.rowStatus} testID={`outfit-detail-piece-status-${piece.garmentTypeId}`}>
-                      <Icon color={theme.colors.brandAccent} name={match.kind === 'wanted' ? 'heartFilled' : 'hanger'} size={16} />
-                      <AppText variant="caption">{status}</AppText>
-                      {match.kind === 'owned' ? (
-                        <Icon color={theme.colors.brandAccent} name="check" size={16} />
-                      ) : null}
-                    </View>
-                  ) : null}
-                  {match.kind === 'similar' ? (
-                    <View style={styles.rowStatus} testID={`outfit-detail-piece-yours-${piece.garmentTypeId}`}>
-                      <View style={[styles.ownTile, { backgroundColor: theme.colors.surfaceMuted }]}>
-                        <GarmentTileArtwork
-                          category={piece.category}
-                          colorChoice={match.item.colorChoice ?? null}
-                          colorFamily={match.item.colorFamily}
-                          garmentTypeId={piece.garmentTypeId}
-                          glyphSize={OWN_TILE_SIZE * 0.6}
-                          height={OWN_TILE_SIZE}
-                          photoTestID={`outfit-detail-yours-photo-${piece.garmentTypeId}`}
-                          photoUri={null}
-                          placeholderTestID={`outfit-detail-yours-glyph-${piece.garmentTypeId}`}
-                          silhouetteTestID={`outfit-detail-yours-silhouette-${piece.garmentTypeId}`}
-                          width={OWN_TILE_SIZE}
-                        />
-                      </View>
-                      {match.item.colorChoice ? (
-                        <ClosetColorDisc
-                          choice={match.item.colorChoice}
-                          size={SWATCH_DOT_SIZE}
-                          testID={`outfit-detail-yours-swatch-${piece.garmentTypeId}`}
-                        />
-                      ) : match.item.colorFamily ? (
-                        <View style={[styles.swatchDot, {
-                          backgroundColor: swatchFill(match.item.colorFamily),
-                          borderColor: theme.colors.borderDefined,
-                        }]} />
-                      ) : null}
-                      <AppText colorRole="textSecondary" style={styles.flexText} variant="caption">
-                        {copy.ownershipYours(ownColorName(match.item))}
+            {entries.map(({ piece, slot, match, status, target, spokenLabel }, index) => {
+              const pressed = pressedRow === slot;
+              const rowBody = (
+                <View
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+                  style={[styles.rowBody, pressed && styles.rowPressed]}>
+                  <View style={[styles.rowTile, { backgroundColor: theme.colors.surfaceMuted }]}>
+                    <GarmentTileArtwork
+                      category={piece.category}
+                      colorFamily={null}
+                      garmentTypeId={piece.garmentTypeId}
+                      glyphSize={ROW_TILE_SIZE * 0.6}
+                      height={ROW_TILE_SIZE}
+                      photoTestID={`outfit-detail-piece-photo-${piece.garmentTypeId}`}
+                      photoUri={null}
+                      placeholderTestID={`outfit-detail-piece-glyph-${piece.garmentTypeId}`}
+                      roles={pieceRoles.get(slot)}
+                      silhouetteTestID={`outfit-detail-piece-silhouette-${piece.garmentTypeId}`}
+                      width={ROW_TILE_SIZE}
+                    />
+                  </View>
+                  <View style={styles.rowText} testID={`outfit-detail-piece-text-${piece.garmentTypeId}`}>
+                    <AppText variant="bodyStrong">{piece.item}</AppText>
+                    <AppText colorRole="textSecondary" variant="caption">{piece.slot}</AppText>
+                    {piece.changed ? (
+                      <AppText colorRole="brandAccent" testID={`outfit-detail-piece-changed-${piece.garmentTypeId}`}
+                        variant="caption">
+                        {copy.manualMix.changed}
                       </AppText>
-                    </View>
+                    ) : null}
+                    {match.kind !== 'none' && status ? (
+                      <View style={styles.rowStatus} testID={`outfit-detail-piece-status-${piece.garmentTypeId}`}>
+                        <Icon color={theme.colors.brandAccent} name={match.kind === 'wanted' ? 'heartFilled' : 'hanger'} size={16} />
+                        <AppText variant="caption">{status}</AppText>
+                        {match.kind === 'owned' ? (
+                          <Icon color={theme.colors.brandAccent} name="check" size={16} />
+                        ) : null}
+                      </View>
+                    ) : null}
+                    {match.kind === 'similar' ? (
+                      <View style={styles.rowStatus} testID={`outfit-detail-piece-yours-${piece.garmentTypeId}`}>
+                        <View style={[styles.ownTile, { backgroundColor: theme.colors.surfaceMuted }]}>
+                          <GarmentTileArtwork
+                            category={piece.category}
+                            colorChoice={match.item.colorChoice ?? null}
+                            colorFamily={match.item.colorFamily}
+                            garmentTypeId={piece.garmentTypeId}
+                            glyphSize={OWN_TILE_SIZE * 0.6}
+                            height={OWN_TILE_SIZE}
+                            photoTestID={`outfit-detail-yours-photo-${piece.garmentTypeId}`}
+                            photoUri={null}
+                            placeholderTestID={`outfit-detail-yours-glyph-${piece.garmentTypeId}`}
+                            silhouetteTestID={`outfit-detail-yours-silhouette-${piece.garmentTypeId}`}
+                            width={OWN_TILE_SIZE}
+                          />
+                        </View>
+                        {match.item.colorChoice ? (
+                          <ClosetColorDisc
+                            choice={match.item.colorChoice}
+                            size={SWATCH_DOT_SIZE}
+                            testID={`outfit-detail-yours-swatch-${piece.garmentTypeId}`}
+                          />
+                        ) : match.item.colorFamily ? (
+                          <View style={[styles.swatchDot, {
+                            backgroundColor: swatchFill(match.item.colorFamily),
+                            borderColor: theme.colors.borderDefined,
+                          }]} />
+                        ) : null}
+                        <AppText colorRole="textSecondary" style={styles.flexText} variant="caption">
+                          {copy.ownershipYours(ownColorName(match.item))}
+                        </AppText>
+                      </View>
+                    ) : null}
+                  </View>
+                  {stacksButtonPair || !manualMix ? (
+                    <Icon color={theme.colors.textSecondary} name="chevronRight" size={20} />
                   ) : null}
                 </View>
-                <Icon color={theme.colors.textSecondary} name="chevronRight" size={20} />
-              </PressScale>
-              </TourTarget>
-            ))}
+              );
+              const change = manualMix ? (
+                <Button
+                  accessibilityLabel={copy.manualMix.changeAccessibilityLabel({ slot: piece.slot, piece: piece.item })}
+                  label={copy.manualMix.change}
+                  onPress={() => openPicker(slot as SwappableSlot)}
+                  size="medium"
+                  style={stacksButtonPair ? styles.changeStacked : undefined}
+                  testID={`outfit-detail-change-${slot}`}
+                  variant="plain"
+                />
+              ) : null;
+              const rowLabel = [
+                spokenLabel,
+                piece.changed ? copy.manualMix.changed : null,
+                match.kind === 'similar' ? copy.ownershipYours(ownColorName(match.item)) : null,
+              ].filter(Boolean).join(', ');
+              return (
+                // Phase 8: the first piece row is the tour's step 2 control. The wrapper adds a
+                // plain view around the whole row, so the tour lights the row, and nothing else.
+                <TourTarget
+                  activate={() => onEditPiece(target)}
+                  id={index === 0 ? 'piece' : null}
+                  key={slot}
+                  label={rowLabel}
+                  name={piece.item}
+                  reveal={() => scrollRef.current?.scrollTo({
+                    animated: true,
+                    y: Math.max(0, piecesTop.current - windowHeight / 3),
+                  })}
+                  scrollBy={(dy) => scrollRef.current?.scrollTo({ animated: true, y: scrollOffset.get() + dy })}>
+                  <View
+                    style={[styles.pieceRow, easierToSeeOn && styles.pieceRowLarge, index > 0 && {
+                      borderTopColor: theme.colors.borderSubtle,
+                      borderTopWidth: StyleSheet.hairlineWidth,
+                    }]}>
+                    {/* O6: the row is the one control that opens the piece's Closet sheet; the
+                        Change control above it is its own element. */}
+                    <PressScale
+                      accessibilityHint={copy.editPieceAccessibilityHint}
+                      accessibilityLabel={rowLabel}
+                      accessibilityRole="button"
+                      onPress={() => onEditPiece(target)}
+                      onPressIn={() => setPressedRow(slot)}
+                      onPressOut={() => setPressedRow(null)}
+                      style={StyleSheet.absoluteFill}
+                      testID={`outfit-detail-piece-${piece.garmentTypeId}`}
+                    />
+                    <FadeOnChange animate={everChanged} key={piece.garmentTypeId}>
+                      <View pointerEvents="box-none" style={stacksButtonPair ? styles.rowStack : styles.rowLine}>
+                        {rowBody}
+                        {change}
+                        {stacksButtonPair || !manualMix ? null : (
+                          <View
+                            accessibilityElementsHidden
+                            importantForAccessibility="no-hide-descendants"
+                            pointerEvents="none"
+                            style={pressed && styles.rowPressed}>
+                            <Icon color={theme.colors.textSecondary} name="chevronRight" size={20} />
+                          </View>
+                        )}
+                      </View>
+                    </FadeOnChange>
+                  </View>
+                </TourTarget>
+              );
+            })}
           </View>
         </View>
 
@@ -523,8 +786,10 @@ export function OutfitDetailScreen({
           </View>
         ) : null}
 
+        {/* After a change the reasons are the changed outfit's own,
+            recomputed by the domain, never kuyara's pick's. */}
         {suggestion.requirementRows.length > 0 ? (
-          <View style={styles.section}>
+          <View style={styles.section} testID="outfit-detail-reasons">
             <AppText accessibilityRole="header" colorRole="textPrimary" variant="bodyStrong">
               {presentation.copy.reasonsHeading}
             </AppText>
@@ -553,13 +818,15 @@ export function OutfitDetailScreen({
             after the reasons and before the weather recap, as one plain sentence on the
             page ground. No card, no glyph, no accent, no pill, and no provider name. */}
         {presentation.generationSource ? (
-          <AppText
-            colorRole="textSecondary"
-            style={styles.generationSource}
-            testID="outfit-detail-generation-source"
-            variant="caption">
-            {presentation.generationSource}
-          </AppText>
+          <FadeOnChange animate={everChanged} key={presentation.generationSource}>
+            <AppText
+              colorRole="textSecondary"
+              style={styles.generationSource}
+              testID="outfit-detail-generation-source"
+              variant="caption">
+              {presentation.generationSource}
+            </AppText>
+          </FadeOnChange>
         ) : null}
 
         <Entrance index={1}>
@@ -587,6 +854,18 @@ export function OutfitDetailScreen({
           </View>
         </Entrance>
       </View>
+      <PiecePickerSheet
+        onChoose={(garmentTypeId) => {
+          if (pickerSlot && garmentTypeId !== pickerCurrent) pendingChoice.current = { slot: pickerSlot, garmentTypeId };
+          setPickerSlot(null);
+        }}
+        onDismiss={() => {
+          setPickerSlot(null);
+          applyPendingChoice();
+        }}
+        palette={palette}
+        target={pickerTarget}
+      />
     </Screen>
   );
 }
@@ -601,9 +880,11 @@ const styles = StyleSheet.create({
   headingGroup: {
     marginTop: spacing.md,
   },
+  changedFrom: {
+    paddingTop: spacing.xs,
+  },
   boardPlate: {
     marginTop: spacing.xl,
-    position: 'relative',
   },
   caption: {
     alignItems: 'center',
@@ -611,18 +892,8 @@ const styles = StyleSheet.create({
   captionPosition: {
     position: 'absolute',
   },
-  captionOverlay: {
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-    right: 0,
-    top: 0,
-  },
   captionText: {
     textAlign: 'center',
-  },
-  garmentTarget: {
-    position: 'absolute',
   },
   badge: {
     alignItems: 'center',
@@ -631,15 +902,13 @@ const styles = StyleSheet.create({
     height: BADGE_SIZE,
     justifyContent: 'center',
     position: 'absolute',
-    right: -BADGE_SIZE / 3,
-    top: -BADGE_SIZE / 3,
     width: BADGE_SIZE,
   },
-  editHint: {
+  boardLine: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: spacing.sm,
-    marginTop: spacing.md,
+    paddingTop: spacing.md,
   },
   flexText: {
     flex: 1,
@@ -658,11 +927,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   pieceRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.md,
     minHeight: layout.minimumTouchTarget,
     paddingVertical: spacing.md,
+  },
+  pieceRowLarge: {
+    minHeight: easierToSee.rowHeight,
+  },
+  rowLine: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  rowStack: {
+    gap: spacing.xs,
+  },
+  rowBody: {
+    alignItems: 'center',
+    flex: 1,
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  rowPressed: {
+    opacity: interaction.pressedOpacity,
+  },
+  changeStacked: {
+    alignSelf: 'flex-start',
+    marginLeft: ROW_TILE_SIZE + spacing.md,
   },
   rowTile: {
     alignItems: 'center',

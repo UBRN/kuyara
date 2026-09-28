@@ -197,3 +197,31 @@ test('a type offers its colourway folded onto families, most natural first and w
     assert.ok(families.every((family) => colorFamilies.includes(family)), typeId);
   }
 });
+
+// Phase 7: changing one piece never recolours the pieces the person
+// did not touch. Without `keepGarmentColors` a whole-set resolution does recolour some of
+// them, which is what the proposal fixes.
+test('a changed piece leaves the untouched pieces in their colours', async () => {
+  const { keepGarmentColors, paletteWithGarment } = await import('./garment-palette.ts');
+  const original = {
+    optionId: 'opt-p1', temperatureC: 8, condition: 'cloudy', isNight: false, formality: 'smart',
+    pieces: [piece('primary_top', 'long_sleeve_t_shirt'), piece('bottom', 'jeans'), piece('mid_layer', 'sweater'),
+      piece('outer_layer', 'trench_coat'), piece('footwear', 'ankle_boots')],
+  };
+  const swatches = (palette) => new Map(resolveGarmentPalette(input(palette)).map(({ piece: p, swatchId }) => [p.slot, swatchId]));
+  const before = swatches(original);
+  let recolouredWithoutKeeping = 0;
+  for (const bottom of ['trousers', 'track_pants', 'shorts', 'leggings', 'skirt', 'long_skirt']) {
+    const changed = paletteWithGarment(original, 'bottom', bottom);
+    const kept = keepGarmentColors(original, changed, ['primary_top', 'mid_layer', 'outer_layer', 'footwear']);
+    const after = swatches(kept);
+    for (const slot of ['primary_top', 'mid_layer', 'outer_layer', 'footwear']) {
+      assert.equal(after.get(slot), before.get(slot), `${bottom}: ${slot} keeps its colour`);
+    }
+    const unkept = swatches(changed);
+    if (['primary_top', 'mid_layer', 'outer_layer', 'footwear'].some((slot) => unkept.get(slot) !== before.get(slot))) {
+      recolouredWithoutKeeping += 1;
+    }
+  }
+  assert.ok(recolouredWithoutKeeping > 0, 'the whole-set resolution recolours untouched pieces');
+});

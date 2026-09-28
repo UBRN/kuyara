@@ -131,9 +131,35 @@ export type TodayMessages = Readonly<{
   ownershipSimilarLabel: string;
   /** The user's own similar piece, named by its colour family. */
   ownershipYours: (color: string) => string;
-  /** O6: the one line under the board that says the pieces open the edit sheet. */
-  editPieceHint: string;
+  /** Phase 7: the one line under the board before a change, naming tap and swipe. */
+  boardHint: string;
+  /** O6: the piece row opens the piece's Closet sheet. */
   editPieceAccessibilityHint: string;
+  // Phase 7, manual mix (ADR 0026 section 6): the row control and its picker, the board's
+  // focus chrome, and the changed outfit's title, note, reset and source sentence. Every
+  // spoken or visible sentence is whole per language, never assembled from fragments.
+  manualMix: Readonly<{
+    change: string;
+    changeAccessibilityLabel: (values: { slot: string; piece: string }) => string;
+    changed: string;
+    title: string;
+    changedFrom: (archetype: string) => string;
+    unusual: string;
+    unusualAccessibilityLabel: string;
+    reset: string;
+    pickerFits: string;
+    pickerOther: string;
+    pickerOtherHint: string;
+    pickerCurrent: string;
+    counter: (position: number, total: number) => string;
+    pieceValue: (values: { piece: string; position: number; total: number }) => string;
+    previousPiece: string;
+    nextPiece: string;
+    /** The source sentence after one changed piece, per generation mode; no AI words in deterministic. */
+    sourceOne: Readonly<{ onDeviceAi: string; aiAssisted: string; deterministic: string }>;
+    /** The same after two or more changed pieces. */
+    sourceMany: Readonly<{ onDeviceAi: string; aiAssisted: string; deterministic: string }>;
+  }>;
   // ADR 0038: "Wore this today" and its saved state, directly under the board.
   wornAction: string;
   wornToday: string;
@@ -1357,8 +1383,36 @@ const en = {
     ownershipUntrackedLabel: 'Not in your Closet',
     ownershipSimilarLabel: 'You have a similar one',
     ownershipYours: (color) => `Yours: ${color}`,
-    editPieceHint: 'Tap a piece to edit it.',
+    boardHint: 'Tap a piece, then swipe to change it.',
     editPieceAccessibilityHint: 'Opens this piece in your Closet',
+    manualMix: {
+      change: 'Change',
+      changeAccessibilityLabel: ({ slot, piece }) => `Change ${slot}, now ${piece}`,
+      changed: 'Changed',
+      title: 'Your outfit',
+      changedFrom: (archetype) => `Changed from ${archetype}`,
+      unusual: 'Unusual for this weather',
+      unusualAccessibilityLabel: 'Unusual for this weather. You can still wear this outfit and record it.',
+      reset: 'Back to kuyara’s pick',
+      pickerFits: 'Fits today’s weather',
+      pickerOther: 'Other pieces',
+      pickerOtherHint: 'These can make the outfit unusual for this weather.',
+      pickerCurrent: 'Current',
+      counter: (position, total) => `${position} / ${total}`,
+      pieceValue: ({ piece, position, total }) => `${piece}, ${position} of ${total}`,
+      previousPiece: 'Previous piece',
+      nextPiece: 'Next piece',
+      sourceOne: {
+        onDeviceAi: 'You changed a piece. kuyara chose the rest on your device with Apple Intelligence.',
+        aiAssisted: 'You changed a piece. kuyara chose the rest with online AI.',
+        deterministic: 'You changed a piece. kuyara computed the rest on your device.',
+      },
+      sourceMany: {
+        onDeviceAi: 'You changed some pieces. kuyara chose the rest on your device with Apple Intelligence.',
+        aiAssisted: 'You changed some pieces. kuyara chose the rest with online AI.',
+        deterministic: 'You changed some pieces. kuyara computed the rest on your device.',
+      },
+    },
     wornAction: 'Wore this today',
     wornToday: 'Worn today',
     wornSaveError: 'Today’s look could not be saved. Try again.',
@@ -2195,8 +2249,36 @@ const tr = {
     ownershipUntrackedLabel: 'Gardırobunda yok',
     ownershipSimilarLabel: 'Sende benzeri var',
     ownershipYours: (color) => `Seninki: ${color}`,
-    editPieceHint: 'Düzenlemek için bir parçaya dokun.',
+    boardHint: 'Bir parçaya dokun, sonra kaydırarak değiştir.',
     editPieceAccessibilityHint: 'Bu parçayı Gardırobunda açar',
+    manualMix: {
+      change: 'Değiştir',
+      changeAccessibilityLabel: ({ slot, piece }) => `${slot} parçasını değiştir, şu an ${piece}`,
+      changed: 'Değişti',
+      title: 'Senin kombinin',
+      changedFrom: (archetype) => `${archetype} önerisinden değiştirildi`,
+      unusual: 'Bu hava için alışılmadık',
+      unusualAccessibilityLabel: 'Bu hava için alışılmadık. Bu kombini yine de giyip kaydedebilirsin.',
+      reset: 'kuyara’nın seçimine dön',
+      pickerFits: 'Bugünkü havaya uygun',
+      pickerOther: 'Diğer parçalar',
+      pickerOtherHint: 'Bunlar kombini bu hava için alışılmadık yapabilir.',
+      pickerCurrent: 'Şu anki',
+      counter: (position, total) => `${position} / ${total}`,
+      pieceValue: ({ piece, position, total }) => `${piece}, ${total} parçadan ${position}`,
+      previousPiece: 'Önceki parça',
+      nextPiece: 'Sonraki parça',
+      sourceOne: {
+        onDeviceAi: 'Bir parçayı sen değiştirdin. Kalanını kuyara, cihazında Apple Intelligence ile seçti.',
+        aiAssisted: 'Bir parçayı sen değiştirdin. Kalanını kuyara çevrimiçi AI ile seçti.',
+        deterministic: 'Bir parçayı sen değiştirdin. Kalanını kuyara cihazında hesapladı.',
+      },
+      sourceMany: {
+        onDeviceAi: 'Birkaç parçayı sen değiştirdin. Kalanını kuyara, cihazında Apple Intelligence ile seçti.',
+        aiAssisted: 'Birkaç parçayı sen değiştirdin. Kalanını kuyara çevrimiçi AI ile seçti.',
+        deterministic: 'Birkaç parçayı sen değiştirdin. Kalanını kuyara cihazında hesapladı.',
+      },
+    },
     wornAction: 'Bugün bunu giydim',
     wornToday: 'Bugün giyildi',
     wornSaveError: 'Bugünkü kombin kaydedilemedi. Yeniden dene.',

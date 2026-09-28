@@ -30,7 +30,12 @@ import {
   todayPreset,
 } from './compose-garment-board';
 import { garmentLevelOfDetail, GarmentPainting } from './garment-painting';
-import { garmentRolesBySlot, type GarmentOutfitPalette, type GarmentRoles } from './garment-palette';
+import {
+  garmentRolesBySlot,
+  paletteWithGarment,
+  type GarmentOutfitPalette,
+  type GarmentRoles,
+} from './garment-palette';
 import { resolveGarmentSilhouette } from './garment-silhouette-map';
 
 export { composeGarmentBoard } from './compose-garment-board';
@@ -177,6 +182,29 @@ export function useGarmentRoles(
     accessoryStageColor: colors.background,
     inkColor: colors.textPrimary,
   });
+}
+
+/**
+ * Phase 7's picker: the colours each candidate would take in one slot of the outfit, so a
+ * tile shows the piece as the changed outfit would draw it.
+ */
+export function useGarmentCandidateRoles(
+  palette: GarmentOutfitPalette | null,
+  slot: OutfitSlot | null,
+  garmentTypeIds: readonly GarmentTypeId[],
+): ReadonlyMap<GarmentTypeId, GarmentRoles> {
+  const { colors, colorScheme } = useKuyaraTheme();
+  if (palette === null || slot === null) return new Map();
+  return new Map(garmentTypeIds.flatMap((garmentTypeId) => {
+    const roles = garmentRolesBySlot({
+      ...paletteWithGarment(palette, slot, garmentTypeId),
+      appearance: colorScheme,
+      stageColor: colors.background,
+      accessoryStageColor: colors.background,
+      inkColor: colors.textPrimary,
+    }).get(slot);
+    return roles ? [[garmentTypeId, roles] as const] : [];
+  }));
 }
 
 /** One composed piece in its own box, the viewBox fitted to its drawn bounds. */

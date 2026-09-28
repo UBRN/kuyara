@@ -12,7 +12,7 @@ The [product decisions](product-decisions.md) and [ADRs](adr/) define the approv
 | 4. Daily style and loading | Aesthetics, morning and evening sheets, first-generation runway and Today pill removal | Shipped in build 15 |
 | 5. Colour and history | Outfit history and garment edit sheet shipped; wider Closet palette, patterns and migration 20 follow in build 16 | Partly shipped |
 | 6. Silhouettes and suggested colour | Ink-edge silhouettes, eight new drawings and 31-colour catalog colorways | Shipped in build 15 |
-| 7. Manual mix-and-match | Catalog-piece swaps on outfit detail | Planned |
+| 7. Manual mix-and-match | Catalog-piece swaps on outfit detail: row Change and picker, tap and swipe on the board | Implemented for build 16, Simulator walkthrough pending |
 | 8. Onboarding walkthrough | Nine-step coach-mark tour over the real screens for new and existing users, its one-time gate (migration 22) and the Settings, Help row | Implemented for build 16 with automated checks; independent review, device database replay and Simulator walkthrough open |
 | 9. Optional accounts | Supabase Auth, sync and account deletion | Planned |
 

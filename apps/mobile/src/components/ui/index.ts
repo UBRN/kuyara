@@ -48,6 +48,7 @@ export { NativeColorWell, type NativeColorWellProps } from './native-color-well'
 export { NativeTextField, type NativeTextFieldProps } from './native-text-field';
 export { PhotoPlaceholder, type PhotoPlaceholderProps } from './photo-placeholder';
 export { Pill, type PillProps } from './pill';
+export { Presence, type PresenceProps } from './presence';
 export { PressScale } from './press-scale';
 export { ProgressFill, type ProgressFillProps } from './progress-fill';
 export { Screen, type ScreenProps } from './screen';
@@ -67,11 +68,19 @@ export {
   GarmentBoard,
   layoutGarmentBoard,
   measureGarmentBoardHeight,
+  useGarmentCandidateRoles,
   useGarmentRoles,
   type GarmentBoardLayout,
   type GarmentBoardLayoutBox,
   type GarmentBoardPiece,
 } from './garment-board/garment-board';
+
+export {
+  GarmentSwapBoard,
+  type GarmentSwapBoardLabels,
+  type GarmentSwapBoardProps,
+  type GarmentSwapCandidate,
+} from './garment-board/garment-swap-board';
 
 export { GarmentDrawing, GarmentTileArtwork } from './garment-board/garment-tile-artwork';
 export { ClosetColorDisc } from './garment-board/closet-color-art';
@@ -84,6 +93,7 @@ export {
 export {
   garmentColorFamiliesBySlot,
   garmentUsualColorFamilies,
+  keepGarmentColors,
   type GarmentOutfitPalette,
 } from './garment-board/garment-palette';
 
