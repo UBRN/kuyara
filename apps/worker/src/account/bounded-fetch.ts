@@ -5,6 +5,31 @@ export type FetchLike = typeof globalThis.fetch;
 // The account routes read small JSON bodies; anything larger is not an answer they know.
 const maxBodyBytes = 65_536;
 
+/**
+ * Reads a body as text but stops, cancelling the stream, once it passes `maxBytes`; that
+ * case is `undefined`. The limit is enforced while reading, never after buffering it all.
+ */
+export async function readTextWithLimit(
+  body: ReadableStream<Uint8Array> | null,
+  maxBytes: number,
+): Promise<string | undefined> {
+  if (body === null) return '';
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let text = '';
+  let received = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) return text + decoder.decode();
+    received += value.byteLength;
+    if (received > maxBytes) {
+      await reader.cancel();
+      return undefined;
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+}
+
 /** Bind the global: calling it as a stored property passes the wrong `this`, which workerd rejects. */
 export function defaultFetch(): FetchLike {
   return globalThis.fetch.bind(globalThis);
@@ -27,9 +52,11 @@ export async function boundedFetch(
   try {
     // 'manual', not 'error': workerd rejects 'error' before any network call.
     const response = await fetchImpl(url, { ...init, redirect: 'manual', signal: controller.signal });
-    const text = await response.text();
+    const text = await readTextWithLimit(response.body, maxBodyBytes);
+    // An oversized answer is not one this call knows how to read: fail closed.
+    if (text === undefined) throw new AccountError('unavailable');
     let json: unknown;
-    if (text.length > 0 && text.length <= maxBodyBytes) {
+    if (text.length > 0) {
       try {
         json = JSON.parse(text);
       } catch {

@@ -8,6 +8,7 @@ import {
 
 import type { AppleTokenRevoker } from './apple-token-revoker.ts';
 import { AccountError } from './account-error.ts';
+import { readTextWithLimit } from './bounded-fetch.ts';
 import type { SupabaseAdmin } from './supabase-admin.ts';
 import type { SupabaseTokenVerifier } from './supabase-token-verifier.ts';
 
@@ -17,6 +18,9 @@ type Dependencies = Readonly<{
   revoker: AppleTokenRevoker;
   rateLimiter: { limit(input: { key: string }): Promise<{ success: boolean }> };
 }>;
+
+// The body is `{}` or one code of at most 1024 characters; anything past this is refused unread.
+const maxRequestBodyBytes = 4096;
 
 type Stage = 'verify' | 'lookup' | 'apple' | 'delete';
 
@@ -72,9 +76,15 @@ export function createAccountDeleteHandler({ verifier, admin, revoker, rateLimit
     if (request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') {
       return error('invalid_request');
     }
+    // This body is unauthenticated: bound it before it is parsed, by the declared length and
+    // again while reading, since a header can lie or be absent. Too large is invalid_request.
+    const declared = Number(request.headers.get('content-length') ?? 0);
+    if (!Number.isFinite(declared) || declared > maxRequestBodyBytes) return error('invalid_request');
     let body: unknown;
     try {
-      body = await request.json();
+      const text = await readTextWithLimit(request.body, maxRequestBodyBytes);
+      if (text === undefined) return error('invalid_request');
+      body = JSON.parse(text);
     } catch {
       return error('invalid_request');
     }
