@@ -836,10 +836,9 @@ test.each([['the next piece', 1], ['a piece further on', 3]] as const)(
   },
 );
 
-// Simulator walkthrough: detail left with a piece
-// enlarged and opened again starts from a clean board. This pins the JavaScript side only:
-// every piece's drawn styles on the second opening equal the first. It passed before the
-// fix too; the walkthrough's broken board lives below what Jest's Reanimated mock renders.
+// Detail left with a piece enlarged and opened again starts from a clean board. This pins the
+// JavaScript side: every piece's drawn styles on the second opening equal the first. The
+// native side is pinned by the wrapper-size test below.
 const drawnBoard = async (result: Awaited<ReturnType<typeof renderDetail>>) => {
   const drawings = () => result.queryAllByTestId(/^outfit-detail-board-drawing-/, hidden)
     .filter((drawing) => !String(drawing.props.testID).endsWith('-big'));
@@ -870,3 +869,31 @@ test.each(['footwear', 'primary_top'] as const)(
     expect(await drawnBoard(first)).toEqual(clean);
   },
 );
+
+// React Native 0.86 reuses a closed screen's native views and skips writing a zero-size frame at
+// the origin, so a zero-size drawing wrapper kept its earlier position and a reopened board drew
+// its pieces out of place. Every wrapper, free or clipped, has a real size.
+test('every drawing wrapper on the board, with the strip open or closed, has a real size', async () => {
+  const result = await renderDetail('en');
+  const wrappers = () => result.queryAllByTestId(/^outfit-detail-board-drawing-/, hidden)
+    .filter((drawing) => !String(drawing.props.testID).endsWith('-big'));
+  const check = () => {
+    expect(wrappers().length).toBeGreaterThan(0);
+    for (const outer of wrappers()) {
+      const window = StyleSheet.flatten(outer.props.style);
+      if (window.overflow === 'hidden') {
+        expect(window.width).toBeGreaterThan(0);
+        expect(window.height).toBeGreaterThan(0);
+      } else {
+        expect(window).toMatchObject({ bottom: 0, left: 0, right: 0, top: 0 });
+      }
+      const inner = outer.children.find((child): child is Host => typeof child !== 'string')!;
+      expect(StyleSheet.flatten(inner.props.style)).toMatchObject({ bottom: 0, right: 0 });
+    }
+  };
+  await waitFor(() => expect(wrappers().length).toBeGreaterThan(0));
+  check();
+  await activate(result, 'footwear');
+  expect(wrappers().some((outer) => StyleSheet.flatten(outer.props.style).overflow === 'hidden')).toBe(true);
+  check();
+});
