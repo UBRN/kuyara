@@ -827,7 +827,7 @@ test('every message key has a production reader or a counted computed read', () 
 // files are the one allowed place: they keep a model name as a banned word in the app's AI output.
 const processTracePattern = new RegExp([
   ['cl', 'aude'], ['co', 'dex'], ['anth', 'ropic'], ['sub', 'agent'], ['hand', 'over'],
-  ['\\bla', 'ne\\b'], ['\\(C', 'C[0-9]+\\)'], ['to', 'ur A[0-9]'], ['simulator ', 'tour'],
+  ['\\bla', 'ne\\b'], ['\\(C', 'C[0-9]+\\)'], ['to', 'ur A[0-9]'], ['simulator ', 'tour'], ['pony', 'tail'],
 ].map((parts) => parts.join('')).join('|'), 'i');
 // The planning unit of the work process is a capitalized word; the ordinary lowercase word stays.
 const processTermPattern = new RegExp(['\\bGo', 'als?\\b'].join(''));
