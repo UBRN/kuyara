@@ -305,11 +305,11 @@ This section is the command sequence only.
   ```
 
   The deployed Worker must stay compatible with the binary store users already have. Binaries
-  built before commit 8e949ec (build 8, commit 67c20ae, and build 9, commit e4c9350, both
+  built before commit f0ab923 (build 8, commit 0317a55, and build 9, commit 84565c0, both
   released) carry `.strict()` response schemas and reject any unknown response key at any level.
   While one of them is installed every `/v1` response shape is frozen at every level: a changed
   shape ships on a new route and the old route keeps its exact shape. The shipped-shape test in
-  `packages/contracts` enforces this offline. Once a binary built from 8e949ec or later is the
+  `packages/contracts` enforces this offline. Once a binary built from f0ab923 or later is the
   oldest installed version, adding a field becomes safe; removing, renaming or retyping a field
   or route a shipped version reads never is, until no installed version needs it.
 

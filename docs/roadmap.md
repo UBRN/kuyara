@@ -22,7 +22,7 @@ The [product decisions](product-decisions.md) and [ADRs](adr/) define the approv
 | --- | --- | --- |
 | A | Today layout, AI badges, the first morning-sheet step and the approved visual refinements | Shipped in build 15 |
 | B | First-generation loading runway | Shipped in build 15 |
-| C | “Ask the stylist again” and the approved outfit timing model: C1 and C2 domain (c330eb0, 53e6246), migration 19 (1fc733a), and the C3 re-ask sheet (O2-O4) | Shipped in build 15 |
+| C | “Ask the stylist again” and the approved outfit timing model: C1 and C2 domain (eb35988, caf5c08), migration 19 (1763109), and the C3 re-ask sheet (O2-O4) | Shipped in build 15 |
 | Buttons | Capsule roles, toolbar save, press feedback and dark tonal fill (O5) | Shipped in build 15 |
 | C3 | Re-ask sheet with day type and Now or Later (O2-O4) | Shipped in build 15 |
 | Runway | Neutral five-slot drafts, condition fields and piece-by-piece dressing (O1, O17) | Shipped in build 15 |
@@ -32,7 +32,7 @@ The [product decisions](product-decisions.md) and [ADRs](adr/) define the approv
 | Add a piece | Visual form: preview stage, owned and wanted cards, illustrated type picker, toolbar save pair and photo-library import; in-app camera capture implemented for build 16 (O10, P5) | Base form shipped in build 15; camera implemented for build 16 |
 | Worker badge | Animated multicolour `sparkles` (O11) | Shipped in build 15 |
 | Accessibility and wave 2 | Easier to see switch (O13); cards, rows, back, name, weather and onboarding (O14) | O14 shipped in build 15; O13 implemented for build 16 with migration 21, device replay and Simulator evidence |
-| Sheet close button | The glass close button on the name, day-type (both steps), ask-again and piece-edit sheets draws a clipped glyph instead of an xmark on device and Simulator; the fix gives it an explicit `xmark` image and circle shape like the confirm button, keeps `role="close"`, and adds a close-button check to the Simulator walkthrough | Shipped to build 15 installs by the production EAS Update from commit `6bbe001` ([procedure](testing.md#javascript-only-fix-for-the-live-version)) |
+| Sheet close button | The glass close button on the name, day-type (both steps), ask-again and piece-edit sheets draws a clipped glyph instead of an xmark on device and Simulator; the fix gives it an explicit `xmark` image and circle shape like the confirm button, keeps `role="close"`, and adds a close-button check to the Simulator walkthrough | Shipped to build 15 installs by the production EAS Update from commit `7b5b4f8` ([procedure](testing.md#javascript-only-fix-for-the-live-version)) |
 | Build 15 | Completed build 15 milestones, including A and B | On the App Store (`READY_FOR_SALE`) |
 | Build 16 | Phase 5 colour and camera work; O13 Easier to see; Phase 7 manual mix; Phase 8 walkthrough; consent and analytics copy, and the Worker free-model guard | Submitted for App Review on 28 September 2026 (version 0.1.20260928) |
 | pnpm 12 | pnpm 12.6.0 replaces 11.18.0 in `packageManager` and both `eas.json` profiles. The lockfile keeps every resolved package and now opens with pnpm's own version record; `pnpm-workspace.yaml` needed no change. `pnpm check`, the component suite, Expo Doctor and a local Simulator build pass with it. It never rides an `eas update`, because the `appVersion` runtime policy lets an update reach installs without a native check | On main; first ships in build 16, never via an update |
