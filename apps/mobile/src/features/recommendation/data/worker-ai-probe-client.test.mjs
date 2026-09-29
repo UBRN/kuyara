@@ -1,10 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-  WorkerAiProbeClient,
-  WorkerAiProbeClientError,
-} from './worker-ai-probe-client.ts';
+import { WorkerAiProbeClientError } from '../domain/worker-ai-probe-client-error.ts';
+import { WorkerAiProbeClient } from './worker-ai-probe-client.ts';
 
 const successData = {
   status: 'ok',
