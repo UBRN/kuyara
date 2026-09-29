@@ -478,7 +478,7 @@ test('a tap enlarges a piece and a leftward flick changes it to the next candida
   expect(result.getByTestId(`outfit-detail-piece-${next}`)).toBeOnTheScreen();
 });
 
-// Simulator walkthrough: gesture-handler counts a pan's translation from where it activated,
+// Gesture-handler counts a pan's translation from where it activated,
 // past the slop, so the piece follows the finger from that point, never first jumping the
 // other way. A 5-point flick after activation commits in its own direction.
 test.each([['leftward', -1], ['rightward', 1]] as const)(
@@ -591,7 +591,7 @@ test.each(['en', 'tr'] as const)('%s strip header keeps one line at the largest 
   }
 });
 
-// The a11y and design review of Phase 7b.
+// Accessibility actions on the detail board.
 const activate = async (result: Awaited<ReturnType<typeof renderDetail>>, slot: string) =>
   fireEvent(result.getByTestId(`outfit-detail-board-piece-${slot}`), 'accessibilityAction',
     { nativeEvent: { actionName: 'activate' } });

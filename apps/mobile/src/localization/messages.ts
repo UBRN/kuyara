@@ -2006,7 +2006,7 @@ const tr = {
     unclassifiedType: 'Tür seçilmedi',
     ownedLabel: 'Sahip olduklarım',
     // ADR 0028 section 5: the twelve-letter "İstediklerim" could not fit the label
-    // column at fontScale 3.118. The Profile work already unified profile.wantedLabel;
+    // column at fontScale 3.118. The Profile screen already unified profile.wantedLabel;
     // this closes the same key here so the two screens cannot drift again.
     wantedLabel: 'İstekler',
     categoryFilterLabels: {

@@ -226,7 +226,7 @@ test('a step is the grown width plus the window pad and the outline on its side,
 });
 
 test('a neighbour of any width waits wholly behind the window edge, its outline included, on both sides', () => {
-  // Simulator walkthrough: an ink edge is drawn half outside its box and anti-aliased, so a box
+  // An ink edge is drawn half outside its box and anti-aliased, so a box
   // standing exactly on the window's edge still shows a line of it there. Every pair of an
   // enlarged width and a neighbour width, on both sides and at both outline weights, keeps
   // the whole outline weight between the neighbour's box and the edge.

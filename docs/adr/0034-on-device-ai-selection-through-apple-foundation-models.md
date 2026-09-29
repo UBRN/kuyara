@@ -235,9 +235,9 @@ Analytics gains the coarse mode value from section 3 and nothing else.
   choose independently from the same option set. The validation gate bounds the damage to
   an invalid pick, not to a worse-looking pick, so quality is judged by inspection during
   implementation.
-- The app carries Swift source and a platform capability check that the sandbox and
-  the Node suites cannot exercise. The routed client is tested against a fake native
-  module; the real module is verified on a host that can run the model.
+- The app carries Swift source and a platform capability check that a sandboxed build
+  environment and the Node suites cannot exercise. The routed client is tested against a
+  fake native module; the real module is verified on a host that can run the model.
 - Android behaviour is unchanged in every respect.
 - A user on an ineligible device sees the "AI-assisted" badge exactly as before and loses
   nothing.
