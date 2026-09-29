@@ -15,6 +15,7 @@ import Svg, { Ellipse, G } from 'react-native-svg';
 
 import type { GarmentTypeId, StructuralCategory } from '@/features/catalog/domain/garment-taxonomy';
 import type { OutfitSlot } from '@/features/recommendation/domain/outfit-composition';
+import { useStableEntries } from '@/hooks/use-stable-value';
 import { easierToSee as easierToSeeValues, useEasierToSee } from '@/theme/easier-to-see';
 import { spacing } from '@/theme/theme';
 import { useKuyaraTheme } from '@/theme/theme-context';
@@ -163,25 +164,24 @@ export type DrawnBox = ReturnType<typeof composePieces>['boxes'] extends Map<Com
   ? Box
   : never;
 
-const NO_ROLES: ReadonlyMap<OutfitSlot, GarmentRoles> = new Map();
-
 /**
  * The colour roles of every piece of one outfit on the plane it stands on, by slot. The
  * board, the Today badges and the runway read the same memoised result for the same outfit.
+ * A piece whose colours an outfit change leaves as they were keeps its roles' instance, so
+ * its drawing does not paint again.
  */
 export function useGarmentRoles(
   palette: GarmentOutfitPalette | null,
   stageColor?: string,
 ): ReadonlyMap<OutfitSlot, GarmentRoles> {
   const { colors, colorScheme } = useKuyaraTheme();
-  if (palette === null) return NO_ROLES;
-  return garmentRolesBySlot({
+  return useStableEntries(palette === null ? [] : [...garmentRolesBySlot({
     ...palette,
     appearance: colorScheme,
     stageColor: stageColor ?? colors.background,
     accessoryStageColor: colors.background,
     inkColor: colors.textPrimary,
-  });
+  })]);
 }
 
 /**
@@ -194,8 +194,8 @@ export function useGarmentCandidateRoles(
   garmentTypeIds: readonly GarmentTypeId[],
 ): ReadonlyMap<GarmentTypeId, GarmentRoles> {
   const { colors, colorScheme } = useKuyaraTheme();
-  if (palette === null || slot === null) return new Map();
-  return new Map(garmentTypeIds.flatMap((garmentTypeId) => {
+  // A step leaves the other candidates' colours as they were: their tiles keep their roles.
+  return useStableEntries(palette === null || slot === null ? [] : garmentTypeIds.flatMap((garmentTypeId) => {
     const roles = garmentRolesBySlot({
       ...paletteWithGarment(palette, slot, garmentTypeId),
       appearance: colorScheme,

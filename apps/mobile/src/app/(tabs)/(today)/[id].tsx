@@ -36,8 +36,19 @@ import {
 } from '@/features/wardrobe/presentation/piece-edit-sheet';
 import { showWardrobeConfirmation } from '@/features/wardrobe/presentation/wardrobe-confirmation';
 import { useWeatherApplication } from '@/features/weather/application/weather-application-context';
+import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useLocalization } from '@/localization/use-messages';
 import { useKuyaraTheme } from '@/theme/theme-context';
+
+// The worn record for an outfit, or none when it does not parse. Outside the route because
+// React Compiler skips a component that holds a value block inside try/catch.
+function wornOutfitOrNull(...args: Parameters<typeof wornOutfitFrom>): WornOutfit | null {
+  try {
+    return wornOutfitFrom(...args);
+  } catch {
+    return null;
+  }
+}
 
 export default function OutfitDetailRoute() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
@@ -55,6 +66,9 @@ export default function OutfitDetailRoute() {
   const [wornBusy, setWornBusy] = useState(false);
   const [wornError, setWornError] = useState<string | null>(null);
   const [boardFocused, setBoardFocused] = useState(false);
+  // Detail judges weather freshness itself; the clock moves on focus and on return to the
+  // foreground, which is also when detail revalidates the weather.
+  const clock = useForegroundClock();
   useScreenViewed('outfit_detail');
   const suggestionId = Array.isArray(id) ? id[0] : id;
   const recommendation = recommendationState.status === 'ready'
@@ -144,11 +158,10 @@ export default function OutfitDetailRoute() {
     return () => { live = false; };
   }, [dayKey, outfitHistory]);
   // A changed outfit records as `manual` (ADR 0038); the schema already carries the source.
-  const thisWorn = useMemo(() => {
-    try {
-      return changedOutfit ? wornOutfitFrom(changedOutfit, 'manual') : outfit ? wornOutfitFrom(outfit) : null;
-    } catch { return null; }
-  }, [changedOutfit, outfit]);
+  const thisWorn = useMemo(
+    () => changedOutfit ? wornOutfitOrNull(changedOutfit, 'manual') : outfit ? wornOutfitOrNull(outfit) : null,
+    [changedOutfit, outfit],
+  );
   const dayWorn = wornGarments?.key === dayKey ? wornGarments : null;
   const worn: OutfitWornState = !dayWorn || !thisWorn
     ? 'unknown'
@@ -243,10 +256,7 @@ export default function OutfitDetailRoute() {
     profile: profileState,
     dressingDayChoiceFailed,
     surface: 'detail',
-    // This route is skipped by React Compiler, so the clock is read on every render; if the
-    // try/catch bail-out is fixed, take the instant from an explicit source such as
-    // `useForegroundClock`, or freshness freezes at the first render.
-    now: new Date().toISOString(),
+    now: new Date(clock).toISOString(),
   });
 
   useScreenInteractive(state.kind === 'loaded' ? { state: 'loaded' } : null);

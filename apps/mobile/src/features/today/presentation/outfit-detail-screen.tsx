@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AccessibilityInfo, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, {
   runOnJS,
@@ -258,15 +258,17 @@ export function OutfitDetailScreen({
   const piecesTop = useRef(0);
   const { height: windowHeight } = useWindowDimensions();
   const now = useForegroundClock();
-  const messages = getMessages(language);
+  // Both are built once per input: React Compiler treats a hook's result as final, so the
+  // values derived from them below keep their identity across the screen's own state changes
+  // (a focused piece, a still board) instead of redrawing the board and the rows each time.
+  const messages = useMemo(() => getMessages(language), [language]);
   const copy = messages.today;
-  const changedSlots = manualMix?.changedSlots ?? [];
-  const changed = changedSlots.length > 0;
+  const changed = (manualMix?.changedSlots.length ?? 0) > 0;
   if (changed && !everChanged) setEverChanged(true);
-  const presentation = createTodayPresentation(state, language, hour12, temperatureUnit, now,
+  const presentation = useMemo(() => createTodayPresentation(state, language, hour12, temperatureUnit, now,
     manualMix && changed && suggestionId
-      ? { optionId: suggestionId, outfit: manualMix.outfit, changedSlots }
-      : null);
+      ? { optionId: suggestionId, outfit: manualMix.outfit, changedSlots: manualMix.changedSlots }
+      : null), [changed, hour12, language, manualMix, now, state, suggestionId, temperatureUnit]);
   const suggestion =
     presentation.kind === 'loaded'
       ? presentation.suggestions.find(({ id }) => id === suggestionId)
@@ -282,9 +284,9 @@ export function OutfitDetailScreen({
   // The finishing touches and the piece rows keep the colours the outfit's palette gave
   // them on Today (O15).
   const pieceRoles = useGarmentRoles(palette);
-  const boardLayout = suggestion
+  const boardLayout = useMemo(() => suggestion
     ? layoutGarmentBoard(suggestion.boardPieces, contentWidth, 'detail', easierToSeeOn)
-    : { height: 0, boxes: [] };
+    : { height: 0, boxes: [] }, [contentWidth, easierToSeeOn, suggestion]);
   const initialCaptionHeight = theme.typography.body.lineHeight * fontScale * 2;
   // Above 1.5 the captions leave the board and the piece rows alone name the pieces, so the
   // plate is exactly the board and nothing has to be reserved for text inside it.
@@ -298,7 +300,8 @@ export function OutfitDetailScreen({
         }),
       );
 
-  const entries = suggestion && palette ? pieceEntries(suggestion, palette, wardrobeItems, copy) : [];
+  const entries = useMemo(() => suggestion && palette ? pieceEntries(suggestion, palette, wardrobeItems, copy) : [],
+    [copy, palette, suggestion, wardrobeItems]);
   const entryFor = (garmentTypeId: string) =>
     entries.find(({ piece }) => piece.garmentTypeId === garmentTypeId);
   const ownedCount = entries.filter(({ match }) => match.kind === 'owned').length;

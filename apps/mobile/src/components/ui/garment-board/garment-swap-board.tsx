@@ -322,6 +322,16 @@ PieceValues {
   };
 }
 
+/**
+ * Whether a piece composed again draws exactly as before: the same slot, garment and
+ * silhouette. Composing makes a new object each time, and a drawing's memo holds only while
+ * its piece keeps its identity, so an unchanged piece keeps the one it has.
+ */
+function samePiece(a: ComposedPiece, b: ComposedPiece) {
+  const keys = Object.keys(a) as (keyof ComposedPiece)[];
+  return keys.length === Object.keys(b).length && keys.every((key) => a[key] === b[key]);
+}
+
 function neighbourIn(candidates: Candidates, slot: OutfitSlot, garmentTypeId: GarmentTypeId, direction: 1 | -1) {
   const order = candidates[slot] ?? [];
   const index = order.findIndex((candidate) => candidate.garmentTypeId === garmentTypeId);
@@ -399,7 +409,8 @@ function reconcile(model: Model, inputs: ReconcileInputs): Model {
       intents.push({ kind: 'entrance', values, reportsSettled: index === 0 });
     } else if (existing) {
       let next: Instance = {
-        ...existing, piece, paged: false, big: big ?? existing.big, scale, window: null, waits: null,
+        ...existing, piece: samePiece(existing.piece, piece) ? existing.piece : piece, paged: false,
+        big: big ?? existing.big, scale, window: null, waits: null,
       };
       if (existing.role !== 'current') {
         moved = true;
@@ -457,8 +468,10 @@ function reconcile(model: Model, inputs: ReconcileInputs): Model {
       const existing = byKey.get(key);
       if (existing) {
         byKey.set(key, {
-          ...existing, role, piece: preview.piece, roles: previewRoles, base: box, big: grow.scale, paged: true,
-          scale: grow.scale, window: pager.window, waits: offset,
+          ...existing, role,
+          piece: samePiece(existing.piece, preview.piece) ? existing.piece : preview.piece,
+          roles: JSON.stringify(existing.roles) === JSON.stringify(previewRoles) ? existing.roles : previewRoles,
+          base: box, big: grow.scale, paged: true, scale: grow.scale, window: pager.window, waits: offset,
         });
         intents.push({ kind: 'wait', values: existing.values, box, offset, scale: grow.scale, created: false });
       } else {
