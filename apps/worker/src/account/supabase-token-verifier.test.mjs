@@ -80,7 +80,7 @@ test('claims that do not match are unauthorized', async () => {
 });
 
 test('only ES256 with a matching signature passes', async () => {
-  const { key, jwk, sign } = await fixture();
+  const { jwk, sign } = await fixture();
   const verify = createSupabaseTokenVerifier({ supabaseUrl, now, fetch: jwksFetch(() => [jwk('k1')]) });
   const good = await sign({ alg: 'ES256', kid: 'k1' }, claims());
   const [header, payload, signature] = good.split('.');
@@ -102,7 +102,6 @@ test('only ES256 with a matching signature passes', async () => {
   ]) {
     await assertRejects(verify(token), 'unauthorized');
   }
-  assert.ok(key);
 });
 
 test('an unknown key id refetches once, then waits for the cooldown', async () => {
