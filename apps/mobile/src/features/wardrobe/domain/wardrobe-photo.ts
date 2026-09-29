@@ -41,6 +41,14 @@ export class WardrobeCameraAccessError extends Error {
   }
 }
 
+/** What the photo form shows: the camera's two reasons, or `failed` for any other photo error. */
+export type WardrobePhotoProblem = 'failed' | WardrobeCameraAccessError['reason'];
+
+/** Maps whatever a camera or photo attempt threw to the one problem the form shows. */
+export function classifyWardrobePhotoProblem(error: unknown): WardrobePhotoProblem {
+  return error instanceof WardrobeCameraAccessError ? error.reason : 'failed';
+}
+
 export function calculateWardrobePhotoResize({
   height,
   width,

@@ -56,6 +56,7 @@ import {
   type TodayMessages,
   type TodayRequirementName,
 } from '@/localization/messages';
+import { isEveningDressingDayKey } from '@/features/weather/domain/wardrobe-day';
 import type { TemperatureUnit } from '@/localization/device-locale';
 import {
   formatTemperature,
@@ -461,7 +462,7 @@ export function garmentPaletteDay(
   return {
     temperatureC: basis?.temperatureC ?? weather.current.temperatureCelsius,
     condition: basis?.condition ?? weather.current.condition,
-    isNight: (basis?.localDayKey ?? localDayKey(new Date(now))).endsWith(':evening'),
+    isNight: isEveningDressingDayKey(basis?.localDayKey ?? localDayKey(new Date(now))),
   };
 }
 

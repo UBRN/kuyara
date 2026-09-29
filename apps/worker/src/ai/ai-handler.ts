@@ -429,7 +429,9 @@ export function createAiHandler({
           // must not fail a validated response, so the promise handed over never rejects.
           const cached = response.clone();
           cached.headers.set('Cache-Control', 'public, max-age=2592000');
-          ctx.waitUntil(cache.put(cacheRequest, cached).catch(() => {}));
+          ctx.waitUntil(cache.put(cacheRequest, cached).catch(() => {
+            // Best effort: a failed shared-cache write only costs a later cache miss.
+          }));
         }
         return response;
       } catch (error) {

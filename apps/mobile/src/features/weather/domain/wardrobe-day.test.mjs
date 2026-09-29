@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { wardrobeDayKey, wardrobeDayWindow } from './wardrobe-day.ts';
+import {
+  dressingDayDateKey,
+  isEveningDressingDayKey,
+  wardrobeDayKey,
+  wardrobeDayWindow,
+} from './wardrobe-day.ts';
 
 // Europe/Istanbul is UTC+3 all year, so local 18:00 is 15:00Z and no daylight-saving edge
 // hides inside these rows; the zones that do have one are exercised on their own below.
@@ -145,4 +150,22 @@ test('the key for a wall-clock reading follows the same boundary', () => {
   // last day of the year before.
   assert.equal(at(0), '2025-12-31:evening');
   assert.equal(at(3), '2025-12-31:evening');
+});
+
+// The key's format has one reader: whether a key is an evening and which bare date it
+// stands on both agree with the window that produced it, on each side of both boundaries.
+test('isEveningDressingDayKey and dressingDayDateKey agree with the window at every boundary', () => {
+  // Istanbul is UTC+3, so 00:59Z is local 03:59 and 01:00Z is 04:00.
+  const rows = [
+    ['2026-09-18T00:59:00.000Z', true, '2026-09-17'],
+    ['2026-09-18T01:00:00.000Z', false, '2026-09-18'],
+    ['2026-09-18T14:59:00.000Z', false, '2026-09-18'],
+    ['2026-09-18T15:00:00.000Z', true, '2026-09-18'],
+  ];
+  for (const [instant, evening, date] of rows) {
+    const { key, period } = window(instant);
+    assert.equal(isEveningDressingDayKey(key), evening, instant);
+    assert.equal(isEveningDressingDayKey(key), period === 'evening', instant);
+    assert.equal(dressingDayDateKey(key), date, instant);
+  }
 });

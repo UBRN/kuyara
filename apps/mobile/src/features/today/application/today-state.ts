@@ -5,15 +5,24 @@ import { activeLocationRecommendation, unavailableTodayState, type TodayScreenSt
 import type { WeatherApplicationState } from '@/features/weather/application/weather-application-controller';
 import { activeLocationSnapshot, weatherFreshness } from '@/features/weather/domain/weather';
 
-type TodayStateInput = Readonly<{
+type TodayStateShared = Readonly<{
   weather: WeatherApplicationState;
   recommendation: RecommendationApplicationState;
   profile: ProfileApplicationState;
   dressingDayChoiceFailed?: boolean;
-  surface: 'today' | 'detail';
-  isPullRefreshing?: boolean;
-  choosingWindow?: Readonly<{ start: string; end: string }> | null;
 }>;
+
+// Today reads the freshness the weather controller already computed and takes no instant, so
+// its route hands in nothing that changes on every render. The detail surface measures
+// freshness itself and needs the instant, an ISO timestamp.
+type TodayStateInput = TodayStateShared & (
+  | Readonly<{
+    surface: 'today';
+    isPullRefreshing?: boolean;
+    choosingWindow?: Readonly<{ start: string; end: string }> | null;
+  }>
+  | Readonly<{ surface: 'detail'; now: string }>
+);
 
 export function classifyTodayState(input: TodayStateInput): Readonly<{
   state: TodayScreenState;
@@ -74,7 +83,7 @@ export function classifyTodayState(input: TodayStateInput): Readonly<{
         weather: placeSnapshot,
         activeLocation,
         freshness: input.surface === 'detail'
-          ? weatherFreshness(placeSnapshot.fetchedAt, new Date().toISOString()) === 'fresh'
+          ? weatherFreshness(placeSnapshot.fetchedAt, input.now) === 'fresh'
             ? 'fresh' : 'stale'
           : weather.freshness === 'fresh' ? 'fresh' : 'stale',
         recommendation: outfit,
@@ -85,7 +94,7 @@ export function classifyTodayState(input: TodayStateInput): Readonly<{
               localDayKey: recommendation.snapshot.localDayKey }
           : undefined,
       },
-      isRefreshing: Boolean(input.isPullRefreshing) || weather.isRefreshing || recommendation.isRefreshing,
+      isRefreshing: (input.surface === 'today' && Boolean(input.isPullRefreshing)) || weather.isRefreshing || recommendation.isRefreshing,
       refreshFailed: weather.refreshFailure !== null || recommendation.lastFailure !== null,
       ...(input.surface === 'today'
         ? { phase: recommendation.phase, choosingWindow: input.choosingWindow }

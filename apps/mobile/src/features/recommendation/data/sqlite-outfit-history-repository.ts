@@ -21,6 +21,15 @@ type Row = Readonly<{
 const uuidV4 = z.uuid().refine((value) => /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
 const columns = 'id, local_profile_id, day_key, outfit_json, photo_path, worn_at, created_at, updated_at, deleted_at';
 
+/**
+ * File cleanup is best effort and always follows the database step, which has already decided
+ * the outcome: a photo that cannot be removed is a leftover the Closet never reads (a missing
+ * file does not break it), so the failure is dropped rather than masking that outcome.
+ */
+function bestEffort(cleanup: Promise<unknown>): Promise<void> {
+  return cleanup.then(() => undefined, () => undefined);
+}
+
 function mapRow(row: Row): OutfitHistoryRecord {
   return {
     id: uuidV4.parse(row.id),
@@ -129,16 +138,16 @@ export class SqliteOutfitHistoryRepository implements OutfitHistoryRepository {
         if (!outcome.result) throw new Error('History write was not readable.');
       });
     } catch (error) {
-      if (copied) await this.photos.deleteStored(copied).catch(() => {});
+      if (copied) await bestEffort(this.photos.deleteStored(copied));
       throw error;
     }
     const result = outcome.result;
     if (!result) throw new Error('History write was not readable.');
     if (photo.kind === 'replace') {
-      await this.photos.discardStaged(photo.stagedUri).catch(() => {});
+      await bestEffort(this.photos.discardStaged(photo.stagedUri));
     }
     if (outcome.oldPhotoPath && outcome.oldPhotoPath !== result.photoPath) {
-      await this.photos.deleteStored(outcome.oldPhotoPath).catch(() => {});
+      await bestEffort(this.photos.deleteStored(outcome.oldPhotoPath));
     }
     return result;
   }
@@ -158,7 +167,7 @@ export class SqliteOutfitHistoryRepository implements OutfitHistoryRepository {
       changed = updated.changes > 0;
       if (changed) oldPhotoPath = managedPhotoPath(old);
     });
-    if (oldPhotoPath) await this.photos.deleteStored(oldPhotoPath).catch(() => {});
+    if (oldPhotoPath) await bestEffort(this.photos.deleteStored(oldPhotoPath));
     return changed;
   }
 }

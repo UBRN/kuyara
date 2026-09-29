@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { garmentTypeIdSchema } from '@/features/catalog/domain/garment-taxonomy';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import { outfitSlots, type OutfitCandidate } from '@/features/recommendation/domain/outfit-composition';
+import { dressingDayDateKey } from '@/features/weather/domain/wardrobe-day';
 
 export const bareHistoryDayKeySchema = z.iso.date();
 /** Whether a catalog garment type can dress one outfit slot: the rule the composer and the worn record share. */
@@ -49,7 +50,7 @@ export type WornOutfit = z.infer<typeof wornOutfitSchema>;
 
 /** The bare-date day a dressing-day key records under: the evening shares its date's row. */
 export function historyDayKey(dressingDayKey: string): string {
-  return bareHistoryDayKeySchema.parse(dressingDayKey.replace(/:evening$/, ''));
+  return bareHistoryDayKeySchema.parse(dressingDayDateKey(dressingDayKey));
 }
 
 /**

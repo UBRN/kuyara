@@ -11,6 +11,7 @@ import {
 } from './data/wardrobe-photo-path.ts';
 import {
   calculateWardrobePhotoResize,
+  classifyWardrobePhotoProblem,
   WardrobeCameraAccessError,
   wardrobePhotoPolicy,
   WardrobePhotoValidationError,
@@ -887,4 +888,12 @@ test('pending cleanup never sends unmanaged or live-referenced paths to storage'
     assert.deepEqual(events, []);
     assert.equal((await repo.getItemIncludingDeleted()).photoRelativePath, path);
   }
+});
+
+test('a photo attempt error maps to denied, unavailable or failed', () => {
+  assert.equal(classifyWardrobePhotoProblem(new WardrobeCameraAccessError('denied')), 'denied');
+  assert.equal(classifyWardrobePhotoProblem(new WardrobeCameraAccessError('unavailable')), 'unavailable');
+  assert.equal(classifyWardrobePhotoProblem(new WardrobePhotoValidationError()), 'failed');
+  assert.equal(classifyWardrobePhotoProblem(new Error('anything')), 'failed');
+  assert.equal(classifyWardrobePhotoProblem('not an error'), 'failed');
 });
