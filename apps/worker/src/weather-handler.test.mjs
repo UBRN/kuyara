@@ -39,6 +39,7 @@ function mockHandler() {
 async function assertError(response, status, code) {
   assert.equal(response.status, status);
   assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8');
   const body = await response.json();
   assert.deepEqual(body, { error: { code } });
   assert.equal(weatherV1ErrorSchema.safeParse(body).success, true);
@@ -56,6 +57,7 @@ test('returns deterministic, contract-valid sample weather without echoing locat
 
   assert.equal(firstResponse.status, 200);
   assert.equal(firstResponse.headers.get('cache-control'), 'no-store');
+  assert.equal(firstResponse.headers.get('content-type'), 'application/json; charset=utf-8');
   assert.equal(weatherV1SuccessSchema.safeParse(first).success, true);
   assert.equal(first.data.origin.kind, 'sample');
   assert.equal(first.data.hourly.length, 37);
@@ -73,6 +75,7 @@ test('serves the daily block on /v2 and the byte-identical old body on /v1', asy
 
   assert.equal(v2Response.status, 200);
   assert.equal(v2Response.headers.get('cache-control'), 'no-store');
+  assert.equal(v2Response.headers.get('content-type'), 'application/json; charset=utf-8');
   assert.equal(weatherV2SuccessSchema.safeParse(v2).success, true);
   // The installed strict binaries reject an unknown key, so the daily block exists on /v2 only
   // and the rest of the payload is the same object /v1 has always sent.

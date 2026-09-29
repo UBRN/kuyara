@@ -8,19 +8,13 @@ import {
   type PlaceSearchV1Request,
 } from '@kuyara/contracts';
 
+import { createErrorResponse, jsonHeaders } from '../json-response.ts';
+
 type Dependencies = Readonly<{
   provider: { search(request: PlaceSearchV1Request): Promise<PlaceSearchV1Data> };
   rateLimiter: { limit(input: { key: string }): Promise<{ success: boolean }> };
 }>;
-const headers = {
-  'Cache-Control': 'no-store',
-  'Content-Type': 'application/json; charset=utf-8',
-};
-function error(status: number, code: PlaceSearchV1ErrorCode, extraHeaders = {}): Response {
-  return Response.json(placeSearchV1ErrorSchema.parse({ error: { code } }), {
-    status, headers: { ...headers, ...extraHeaders },
-  });
-}
+const error = createErrorResponse<PlaceSearchV1ErrorCode>(placeSearchV1ErrorSchema);
 
 export function createPlaceSearchHandler({ provider, rateLimiter }: Dependencies) {
   return async (request: Request): Promise<Response> => {
@@ -55,7 +49,7 @@ export function createPlaceSearchHandler({ provider, rateLimiter }: Dependencies
     try {
       const result = placeSearchV1SuccessSchema.parse({ data: await provider.search(parsed.data) });
       if (result.data.places.length > parsed.data.limit) return error(503, 'places_unavailable');
-      return Response.json(result, { headers });
+      return Response.json(result, { headers: jsonHeaders });
     } catch {
       return error(503, 'places_unavailable');
     }

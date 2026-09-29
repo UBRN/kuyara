@@ -26,6 +26,7 @@ import {
 } from './ai/workers-ai-provider.ts';
 import { createDurableDailyCounter, type DailyCounterNamespace } from './daily-counter.ts';
 import { createRouter, type ExecutionContext, type Handler } from './router.ts';
+import { jsonHeaders } from './json-response.ts';
 import { createWeatherHandler } from './weather-handler.ts';
 import {
   createDailyCappedWeatherProvider,
@@ -75,11 +76,6 @@ export type Env = Readonly<{
   APPLE_SIGN_IN_KEY_ID?: string;
   ACCOUNT_DELETE_RATE_LIMIT?: RateLimitBinding;
 }>;
-
-const jsonHeaders = {
-  'Cache-Control': 'no-store',
-  'Content-Type': 'application/json; charset=utf-8',
-} as const;
 
 /**
  * One policy for every route that spends provider quota: when its rate limiter or its daily

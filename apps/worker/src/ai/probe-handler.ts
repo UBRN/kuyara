@@ -8,6 +8,8 @@ import {
   type AiV1ErrorCode,
 } from '@kuyara/contracts';
 
+import { createErrorResponse, jsonHeaders } from '../json-response.ts';
+
 import { AiProviderError, type AiProvider } from './ai-provider.ts';
 
 export const PROBE_CACHE_TTL_MS = 60_000;
@@ -132,22 +134,7 @@ function logProbeFailure(provider: AiProvider, reason: ProbeFailureReason): void
   console.warn({ event: 'ai_probe_attempt_failed', model: provider.model, reason });
 }
 
-const jsonHeaders = {
-  'Cache-Control': 'no-store',
-  'Content-Type': 'application/json; charset=utf-8',
-} as const;
-
-function errorResponse(
-  status: number,
-  code: AiV1ErrorCode,
-  extraHeaders?: Readonly<Record<string, string>>,
-): Response {
-  const body = aiV1ErrorSchema.parse({ error: { code } });
-  return Response.json(body, {
-    status,
-    headers: { ...jsonHeaders, ...extraHeaders },
-  });
-}
+const errorResponse = createErrorResponse<AiV1ErrorCode>(aiV1ErrorSchema);
 
 export function createProbeHandler({
   providers,

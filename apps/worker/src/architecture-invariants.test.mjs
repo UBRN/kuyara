@@ -90,3 +90,14 @@ test('the archetype gate is not called through a parameter-type cast', () => {
 
   assert.deepEqual(casts, [], 'type the argument as the contracts type instead of casting');
 });
+
+// The JSON response headers and the error envelope have one owner, `json-response.ts`.
+test('only json-response.ts defines the Worker JSON headers', () => {
+  const definers = sourceFiles()
+    .filter((relativePath) => !relativePath.endsWith('.test.mjs'))
+    .filter((relativePath) => /['"]Cache-Control['"]\s*:\s*['"]no-store['"]/.test(
+      readFileSync(path.join(sourceRoot, relativePath), 'utf8'),
+    ));
+
+  assert.deepEqual(definers, ['json-response.ts']);
+});

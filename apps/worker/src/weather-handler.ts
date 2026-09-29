@@ -6,6 +6,8 @@ import {
   type WeatherV1ErrorCode,
 } from '@kuyara/contracts';
 
+import { createErrorResponse, jsonHeaders } from './json-response.ts';
+
 import {
   InvalidProviderWeatherError,
   mapProviderWeatherToApi,
@@ -23,11 +25,6 @@ type Dependencies = Readonly<{
   rateLimiter: RateLimiter;
 }>;
 
-const jsonHeaders = {
-  'Cache-Control': 'no-store',
-  'Content-Type': 'application/json; charset=utf-8',
-} as const;
-
 /**
  * Both weather routes, one handler: same strict request, same rate-limit key and the same
  * provider chain and daily counters, so /v2 can never spend quota /v1 does not. The only
@@ -40,17 +37,7 @@ function responseMapper(pathname: string) {
   return undefined;
 }
 
-function errorResponse(
-  status: number,
-  code: WeatherV1ErrorCode,
-  extraHeaders?: Readonly<Record<string, string>>,
-): Response {
-  const body = weatherV1ErrorSchema.parse({ error: { code } });
-  return Response.json(body, {
-    status,
-    headers: { ...jsonHeaders, ...extraHeaders },
-  });
-}
+const errorResponse = createErrorResponse<WeatherV1ErrorCode>(weatherV1ErrorSchema);
 
 export function createWeatherHandler(
   dependencies: Dependencies,

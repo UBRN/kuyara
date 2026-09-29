@@ -136,6 +136,7 @@ function request(options = {}) {
 async function assertError(response, status, code) {
   assert.equal(response.status, status);
   assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8');
   assert.deepEqual(await response.json(), { error: { code } });
 }
 
@@ -166,6 +167,7 @@ test('returns a contract-valid pick response using supplied option ids', async (
   const optionIds = new Set(validRequestBody().options.map(({ optionId }) => optionId));
   assert.equal(response.status, 200);
   assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8');
   assert.equal(aiRecommendV1SuccessSchema.safeParse(body).success, true);
   assert.equal(body.data.picks.every(({ optionId }) => optionIds.has(optionId)), true);
 });
@@ -755,6 +757,7 @@ test('a second identical request is served from shared cache', async () => {
     assert.equal(first.status, 200);
     assert.equal(second.status, 200);
     assert.equal(second.headers.get('cache-control'), 'no-store');
+    assert.equal(second.headers.get('content-type'), 'application/json; charset=utf-8');
     assert.deepEqual(await second.json(), validOutput());
     assert.equal(providerCalls, 1);
   } finally {
@@ -1093,6 +1096,7 @@ test('collapses exhausted providers to one exact sanitized unavailable error', a
   const serialized = await response.text();
   assert.equal(response.status, 503);
   assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8');
   assert.equal(serialized, '{"error":{"code":"ai_unavailable"}}');
   for (const forbidden of [
     'SecretName', 'option-casual', 'clothingPreference', 'womens',
@@ -1151,6 +1155,7 @@ test('every provider failing immediately ends the request without spending the d
     assert.equal(Date.now() - startedAt, 0);
     assert.equal(response.status, 503);
     assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8');
     assert.equal(serialized, '{"error":{"code":"ai_unavailable"}}');
     assert.deepEqual(cacheWrites, []);
   } finally {
