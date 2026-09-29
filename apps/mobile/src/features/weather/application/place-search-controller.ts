@@ -1,6 +1,6 @@
 import type { PlaceSearchResult, PlaceSearchV1Data, PlaceSearchV1Request } from '@kuyara/contracts';
 
-import { PlaceSearchError } from '@/features/weather/data/worker-place-search-data-source';
+import { PlaceSearchError } from '@/features/weather/domain/place-search-error';
 
 export type SearchPlaces = (request: PlaceSearchV1Request) => Promise<PlaceSearchV1Data>;
 export type PlaceSearchState =

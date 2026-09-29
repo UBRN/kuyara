@@ -7,8 +7,8 @@ import ts from 'typescript';
 
 import { WeatherApplicationController } from './application/weather-application-controller.ts';
 import { DeterministicFakeWeatherProvider } from './__tests__/deterministic-fake-weather-provider.ts';
-import { getManualLocation } from './data/manual-location-catalog.ts';
-import { WeatherProviderError } from './data/weather-provider.ts';
+import { getManualLocation } from './domain/manual-location-catalog.ts';
+import { WeatherProviderError } from './domain/weather-provider-error.ts';
 import { WorkerWeatherProvider } from './data/worker-weather-provider.ts';
 import { resolveDeviceLocationTimeZone } from './domain/weather.ts';
 

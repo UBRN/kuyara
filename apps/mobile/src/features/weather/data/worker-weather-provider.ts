@@ -7,12 +7,14 @@ import {
 } from '@kuyara/contracts';
 
 import { mapWorkerWeatherToProvidedSnapshot } from '@/features/weather/data/worker-weather-mapper';
+import type {
+  ProvidedWeatherSnapshot,
+  WeatherProvider,
+} from '@/features/weather/data/weather-provider';
 import {
   WeatherProviderError,
-  type ProvidedWeatherSnapshot,
-  type WeatherProvider,
   type WeatherProviderFailureKind,
-} from '@/features/weather/data/weather-provider';
+} from '@/features/weather/domain/weather-provider-error';
 import type { ActiveLocation } from '@/features/weather/domain/weather';
 
 type Fetch = (input: string, init: RequestInit) => Promise<Response>;

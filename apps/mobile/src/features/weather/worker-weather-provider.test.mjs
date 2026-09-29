@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { resolveWorkerBaseUrl, WorkerBaseUrlConfigurationError, workerPlatform } from '../../config/worker-base-url.ts';
-import { getManualLocation } from './data/manual-location-catalog.ts';
+import { getManualLocation } from './domain/manual-location-catalog.ts';
 import {
   WorkerWeatherProvider,
   WorkerWeatherProviderError,

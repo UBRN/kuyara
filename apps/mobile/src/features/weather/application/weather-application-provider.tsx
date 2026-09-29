@@ -13,13 +13,12 @@ import { useProductAnalytics } from '@/features/analytics/application/use-produc
 import { resolveAppWorkerBaseUrl } from '@/config/app-worker-base-url';
 import { WorkerBaseUrlConfigurationError } from '@/config/worker-base-url';
 import { ExpoDeviceLocationGateway } from '@/features/weather/data/expo-device-location-gateway';
-import {
-  WeatherProviderError,
-  type WeatherProvider,
-} from '@/features/weather/data/weather-provider';
+import type { WeatherProvider } from '@/features/weather/data/weather-provider';
+import { PlaceSearchError } from '@/features/weather/domain/place-search-error';
+import { WeatherProviderError } from '@/features/weather/domain/weather-provider-error';
 import { loadWeatherRepository } from '@/features/weather/application/weather-repository-loader';
 import { WorkerWeatherProvider } from '@/features/weather/data/worker-weather-provider';
-import { PlaceSearchError, WorkerPlaceSearchDataSource } from '@/features/weather/data/worker-place-search-data-source';
+import { WorkerPlaceSearchDataSource } from '@/features/weather/data/worker-place-search-data-source';
 import type { SearchPlaces } from '@/features/weather/application/place-search-controller';
 
 const now = () => new Date().toISOString();

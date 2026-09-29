@@ -6,7 +6,7 @@ import {
   weatherV2SuccessSchema,
 } from '@kuyara/contracts';
 
-import { getManualLocation } from './data/manual-location-catalog.ts';
+import { getManualLocation } from './domain/manual-location-catalog.ts';
 import { mapWorkerWeatherToProvidedSnapshot } from './data/worker-weather-mapper.ts';
 import { LocalWeatherRepository, WeatherRepositoryError } from './data/weather-repository.ts';
 import { SqliteWeatherLocalDataSource } from './data/sqlite-weather-local-data-source.ts';

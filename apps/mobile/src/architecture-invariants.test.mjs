@@ -573,9 +573,6 @@ const sameFeatureApplicationDataAllowlist = [
   ['features/recommendation/application/use-ai-probe.ts', 'features/recommendation/data/worker-ai-probe-client'],
   ['features/wardrobe/application/wardrobe-application-controller.ts', 'features/wardrobe/data/wardrobe-photo-path'],
   ['features/wardrobe/application/wardrobe-application-controller.ts', 'features/wardrobe/data/wardrobe-repository'],
-  ['features/weather/application/place-search-controller.ts', 'features/weather/data/worker-place-search-data-source'],
-  ['features/weather/application/weather-application-controller.ts', 'features/weather/data/manual-location-catalog'],
-  ['features/weather/application/weather-application-controller.ts', 'features/weather/data/weather-provider'],
   ['features/weather/application/weather-application-controller.ts', 'features/weather/data/weather-repository'],
 ].map(([importer, module]) => `${importer} -> ${module}`);
 
@@ -612,7 +609,7 @@ test('an application module imports its own feature data as a value only in a pr
   assert.deepEqual(stale, [], `remove these entries so the list only shrinks:\n${stale.map((v) => `  - ${v}`).join('\n')}`);
   assert.equal(
     sameFeatureApplicationDataAllowlist.length,
-    11,
+    8,
     'the same-feature allowlist only shrinks: lower this count when an entry goes',
   );
 });
