@@ -20,6 +20,7 @@ import type {
   ClothingRequirementReasonCode,
   ClothingRequirements,
 } from '@/features/recommendation/domain/weather-to-clothing-requirements';
+import { uniqueInRankOrder } from '@/features/recommendation/domain/rank-order';
 
 export type EffectiveGarmentProperties = Readonly<{
   category: StructuralCategory;
@@ -150,18 +151,6 @@ const windStrength: Readonly<Record<WindProtection, number>> = Object.freeze({
 });
 const tractionStrength: Readonly<Record<TractionSuitability, number>> =
   Object.freeze({ everyday: 0, enhanced: 1 });
-
-function orderedReasonCodes(
-  values: Iterable<GarmentEligibilityReasonCode>,
-): readonly GarmentEligibilityReasonCode[] {
-  return Object.freeze(
-    [...new Set(values)].sort(
-      (left, right) =>
-        (reasonOrder.get(left) ?? Number.MAX_SAFE_INTEGER) -
-        (reasonOrder.get(right) ?? Number.MAX_SAFE_INTEGER),
-    ),
-  );
-}
 
 function propertiesFromGarmentType(
   type: GarmentType,
@@ -444,7 +433,7 @@ function ineligibleResult(
     scoreBeforePenalties: null,
     penaltyPoints: 0,
     evaluations: Object.freeze([...evaluations]),
-    reasonCodes: orderedReasonCodes(reasons),
+    reasonCodes: uniqueInRankOrder(reasons, reasonOrder),
   });
 }
 
@@ -547,7 +536,7 @@ export function evaluateGarmentEligibility(
     scoreBeforePenalties,
     penaltyPoints,
     evaluations,
-    reasonCodes: orderedReasonCodes(reasons),
+    reasonCodes: uniqueInRankOrder(reasons, reasonOrder),
   });
 }
 

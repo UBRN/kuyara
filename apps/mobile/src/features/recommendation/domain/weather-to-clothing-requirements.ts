@@ -11,6 +11,7 @@ import type {
   WeatherSnapshot,
 } from '@/features/weather/domain/weather';
 import { outfitCoverage } from '@/features/recommendation/domain/outfit-coverage';
+import { uniqueInRankOrder } from '@/features/recommendation/domain/rank-order';
 import {
   chillyCelsius,
   freezingCelsius,
@@ -176,18 +177,6 @@ const waterStrength: Readonly<
   Record<Exclude<WaterProtection, 'none'>, number>
 > = Object.freeze({ water_resistant: 1, waterproof: 2 });
 
-function orderedReasonCodes(
-  values: Iterable<ClothingRequirementReasonCode>,
-): readonly ClothingRequirementReasonCode[] {
-  return Object.freeze(
-    [...new Set(values)].sort(
-      (left, right) =>
-        (reasonOrder.get(left) ?? Number.MAX_SAFE_INTEGER) -
-        (reasonOrder.get(right) ?? Number.MAX_SAFE_INTEGER),
-    ),
-  );
-}
-
 /** The provider's calendar-day spread that earns `daily_range_wide`. */
 export function isWideDailyRange(minimumCelsius: number, maximumCelsius: number): boolean {
   return maximumCelsius - minimumCelsius >= 8;
@@ -206,11 +195,11 @@ export function withDailyRangeReason(
   maximumCelsius: number,
 ): readonly ClothingRequirementReasonCode[] {
   return isWideDailyRange(minimumCelsius, maximumCelsius) && !reasonCodes.includes('daily_range_wide')
-    ? orderedReasonCodes([...reasonCodes, 'daily_range_wide'])
+    ? uniqueInRankOrder([...reasonCodes, 'daily_range_wide'], reasonOrder)
     : reasonCodes;
 }
 
-function requirementKey(requirement: ClothingRequirement): string {
+export function requirementKey(requirement: ClothingRequirement): string {
   return requirement.kind === 'water_protection' ||
       requirement.kind === 'extremity_cover'
     ? `${requirement.kind}:${requirement.target}`
@@ -256,8 +245,9 @@ function mergeRequirements(
     const priority = entries.some(({ priority: value }) => value === 'mandatory')
       ? 'mandatory'
       : 'optional';
-    const reasonCodes = orderedReasonCodes(
+    const reasonCodes = uniqueInRankOrder(
       entries.flatMap(({ reasonCodes: values }) => values),
+      reasonOrder,
     );
 
     return Object.freeze({
@@ -303,7 +293,7 @@ function temperatureReasons(
     reasons.push('daily_range_wide');
   }
 
-  return orderedReasonCodes(reasons);
+  return uniqueInRankOrder(reasons, reasonOrder);
 }
 
 function addWaterProtection(
@@ -616,6 +606,6 @@ export function deriveClothingRequirements(
 
   return Object.freeze({
     requirements,
-    reasonCodes: orderedReasonCodes(globalReasonCodes),
+    reasonCodes: uniqueInRankOrder(globalReasonCodes, reasonOrder),
   });
 }

@@ -19,6 +19,7 @@ import {
 } from '@/features/recommendation/domain/garment-eligibility';
 import {
   bodyClothingRequirements,
+  requirementKey,
   type BodyClothingRequirement,
   type BodyClothingRequirements,
   type ClothingRequirement,
@@ -27,6 +28,7 @@ import {
   type ExtremityCoverRequirement,
   type ThermalRequirement,
 } from '@/features/recommendation/domain/weather-to-clothing-requirements';
+import { uniqueInRankOrder } from '@/features/recommendation/domain/rank-order';
 
 export const outfitSlots = Object.freeze([
   'primary_top',
@@ -268,40 +270,6 @@ function compareStrings(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
-function orderedFailureCodes(
-  values: Iterable<OutfitCompositionFailureCode>,
-): readonly OutfitCompositionFailureCode[] {
-  return Object.freeze(
-    [...new Set(values)].sort(
-      (left, right) =>
-        (failureOrder.get(left) ?? Number.MAX_SAFE_INTEGER) -
-        (failureOrder.get(right) ?? Number.MAX_SAFE_INTEGER),
-    ),
-  );
-}
-
-function orderedReasonCodes(
-  values: Iterable<OutfitCompositionReasonCode>,
-): readonly OutfitCompositionReasonCode[] {
-  return Object.freeze(
-    [...new Set(values)].sort(
-      (left, right) =>
-        (reasonOrder.get(left) ?? Number.MAX_SAFE_INTEGER) -
-        (reasonOrder.get(right) ?? Number.MAX_SAFE_INTEGER),
-    ),
-  );
-}
-
-function orderedSlots(values: Iterable<OutfitSlot>): readonly OutfitSlot[] {
-  return Object.freeze(
-    [...new Set(values)].sort(
-      (left, right) =>
-        (slotOrder.get(left) ?? Number.MAX_SAFE_INTEGER) -
-        (slotOrder.get(right) ?? Number.MAX_SAFE_INTEGER),
-    ),
-  );
-}
-
 function cloneRequirement<Requirement extends ClothingRequirement>(
   requirement: Requirement,
 ): Requirement {
@@ -404,13 +372,6 @@ function assignedGarment(
     eligibilityScore: result.score,
     evaluations,
   });
-}
-
-function requirementKey(requirement: ClothingRequirement): string {
-  return requirement.kind === 'water_protection' ||
-      requirement.kind === 'extremity_cover'
-    ? `${requirement.kind}:${requirement.target}`
-    : requirement.kind;
 }
 
 function findEvaluation(
@@ -1100,7 +1061,7 @@ function evaluateDraft(
     scoreBeforePenalties,
     penaltyPoints,
     penaltyBreakdown,
-    reasonCodes: orderedReasonCodes(reasons),
+    reasonCodes: uniqueInRankOrder(reasons, reasonOrder),
     candidateKeys: candidateKeys(draft),
     compositionKey: compositionKey(draft),
     formality,
@@ -1302,11 +1263,11 @@ function failureResult(
 ): OutfitCompositionFailure {
   return Object.freeze({
     status: 'failure',
-    reasonCodes: orderedFailureCodes([
+    reasonCodes: uniqueInRankOrder<OutfitCompositionFailureCode>([
       ...reasonCodes,
       'no_valid_composition',
-    ]),
-    missingSlots: orderedSlots(missingSlots),
+    ], failureOrder),
+    missingSlots: uniqueInRankOrder(missingSlots, slotOrder),
     unmetRequirements: Object.freeze(unmetRequirements.map(cloneRequirement)),
     bestObservedEvidence: Object.freeze([...evidence]),
     consideredCandidateKeys: Object.freeze([...consideredCandidateKeys]),
