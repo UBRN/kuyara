@@ -28,11 +28,9 @@ import type {
 import {
   accessoryOutfitSlots,
   assignedOutfitGarments,
-  outfitSlots,
   type AccessoryOutfitSlot,
   type OutfitRequirementEvaluation,
   type OutfitSlot,
-  type AssignedOutfitGarment,
   type OutfitCandidate,
 } from '@/features/recommendation/domain/outfit-composition';
 import type {
