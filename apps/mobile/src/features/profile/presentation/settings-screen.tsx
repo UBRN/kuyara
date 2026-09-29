@@ -14,6 +14,7 @@ import {
   NativeSheet,
   Button,
 } from '@/components/ui';
+import { parseCalendarDate } from '@/domain/calendar-date';
 import type { LanguagePreference, ThemePreference } from '@/domain/preferences';
 import type { DressStyle, Gender, LocalProfile, StyleAesthetic } from '@/features/profile/domain/profile';
 import { NameSheet } from '@/features/profile/presentation/name-sheet';
@@ -124,7 +125,7 @@ export function SettingsScreen({
   const birthDateValue = profile.birthDate === null
     ? messages.onboarding.birthDateNotSet
     : new Intl.DateTimeFormat(localeTag(language), { dateStyle: 'long' })
-      .format(calendarDate(profile.birthDate));
+      .format(parseCalendarDate(profile.birthDate));
   const notificationValue = notificationsOn
     ? messages.notifications.statusOn
     : messages.notifications.statusOff;
@@ -371,8 +372,3 @@ const styles = StyleSheet.create({
   version: { textAlign: 'center' },
   sheetContent: { gap: spacing.md, padding: spacing.lg },
 });
-
-function calendarDate(value: string): Date {
-  const [year, month, day] = value.split('-').map(Number);
-  return new Date(year, month - 1, day, 12);
-}

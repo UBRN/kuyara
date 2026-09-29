@@ -1,6 +1,7 @@
 import { dressStyleSchema, styleAestheticSchema, type DressStyle } from '@kuyara/contracts';
 import { z } from 'zod';
 
+import { formatCalendarDate } from '@/domain/calendar-date';
 import type {
   ClothingPreference,
   LanguagePreference,
@@ -111,8 +112,7 @@ export function isValidBirthDate(value: unknown, today: Date): value is string |
   const parsed = birthDateSchema.safeParse(value);
   if (!parsed.success) return false;
   if (parsed.data === null) return true;
-  const localToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  return parsed.data <= localToday;
+  return parsed.data <= formatCalendarDate(today);
 }
 
 export { dressStyleSchema };
