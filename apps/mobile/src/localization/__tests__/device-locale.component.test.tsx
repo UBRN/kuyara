@@ -5,6 +5,7 @@ import { LocalizationProvider } from '@/localization/localization-provider';
 import { useLocalization } from '@/localization/use-messages';
 import {
   firstSupportedLocale,
+  getDeviceHour12,
   getDeviceLocale,
   getDeviceTemperatureUnit,
   resolveDeviceHour12,
@@ -156,6 +157,49 @@ describe('the system language', () => {
       expect(getDeviceLocale()).toBe('tr-TR');
       NativeModules.SettingsManager = { settings: { AppleLanguages: ['de-DE', 'fr-FR'] } };
       expect(getDeviceLocale()).toBe('de-DE');
+    } finally {
+      Platform.OS = originalOS;
+      NativeModules.SettingsManager = originalSettingsManager;
+    }
+  });
+});
+
+// The interface language and the clock are two decisions: the language is the first
+// supported entry of the preferred list, the clock is the device's own setting or region.
+describe('the 12/24-hour clock', () => {
+  test.each([
+    [['de-DE', 'en-US'], 'de_DE', undefined, false],
+    [['tr-TR', 'en-US'], 'en_US', undefined, true],
+    [['de-DE', 'en-US'], 'de_DE@calendar=gregorian', undefined, false],
+    [['de-DE', 'en-US'], 'de_DE', { AppleICUForce12HourTime: true }, true],
+    [['en-US'], 'en_US', { AppleICUForce24HourTime: true }, false],
+    [['de-DE', 'en-US'], undefined, undefined, false],
+    [['en-US', 'de-DE'], 'en', undefined, true],
+  ] as const)('%j with AppleLocale %s and %j reads 12-hour: %s', (languages, locale, forced, expected) => {
+    const originalOS = Platform.OS;
+    const originalSettingsManager = NativeModules.SettingsManager;
+    Platform.OS = 'ios';
+    NativeModules.SettingsManager = {
+      settings: { AppleLanguages: languages, ...(locale ? { AppleLocale: locale } : {}), ...forced },
+    };
+    try {
+      expect(getDeviceHour12()).toBe(expected);
+    } finally {
+      Platform.OS = originalOS;
+      NativeModules.SettingsManager = originalSettingsManager;
+    }
+  });
+
+  test('the interface language still takes the first supported entry', () => {
+    const originalOS = Platform.OS;
+    const originalSettingsManager = NativeModules.SettingsManager;
+    Platform.OS = 'ios';
+    NativeModules.SettingsManager = {
+      settings: { AppleLanguages: ['de-DE', 'en-US'], AppleLocale: 'de_DE' },
+    };
+    try {
+      expect(getDeviceLocale()).toBe('en-US');
+      expect(getDeviceHour12()).toBe(false);
     } finally {
       Platform.OS = originalOS;
       NativeModules.SettingsManager = originalSettingsManager;

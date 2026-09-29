@@ -85,11 +85,30 @@ export function getDeviceLocale(): string {
   );
 }
 
+// The clock follows the device's region, not the app's language: German then English shows
+// English text but keeps Germany's 24-hour clock. iOS names the region in AppleLocale (with
+// keyword suffixes such as "@calendar=gregorian", dropped here); a tag that carries none is
+// no region. Without one, the first preferred language stands, as it did before the language
+// pick skipped unsupported entries.
+function regionLocale(tag: string | undefined): string | undefined {
+  const candidate = tag?.split('@')[0]?.replace(/_/g, '-');
+  return candidate && /^[A-Za-z]{2,3}(-[A-Za-z]{4})?-([A-Za-z]{2}|\d{3})(-|$)/.test(candidate)
+    ? candidate
+    : undefined;
+}
+
+function getDeviceClockLocale(settings: AppleSettings, fallback: string): string {
+  if (Platform.OS === 'ios') {
+    return regionLocale(firstString(settings?.AppleLocale))
+      ?? firstString(settings?.AppleLanguages)
+      ?? fallback;
+  }
+  return getLocales()[0]?.languageTag ?? fallback;
+}
+
 export function getDeviceHour12(deviceLocale = getDeviceLocale()): boolean {
-  return resolveDeviceHour12(
-    Platform.OS === 'ios' ? getAppleSettings() : undefined,
-    deviceLocale,
-  );
+  const settings = Platform.OS === 'ios' ? getAppleSettings() : undefined;
+  return resolveDeviceHour12(settings, getDeviceClockLocale(settings, deviceLocale));
 }
 
 export function resolveDeviceTemperatureUnit(
