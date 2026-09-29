@@ -67,8 +67,8 @@ const hourlySchema = z.object({
   }
 });
 
-// Open-Meteo answers `null` for a daily variable past its own horizon, so the three variables
-// this milestone added are nullable per entry; the mapper stops at the first day it cannot describe
+// Open-Meteo answers `null` for a daily variable past its own horizon, so the three
+// later-added variables are nullable per entry; the mapper stops at the first day it cannot describe
 // instead of guessing one.
 const dailySchema = z.object({
   time: z.array(z.string().min(1)).min(1),

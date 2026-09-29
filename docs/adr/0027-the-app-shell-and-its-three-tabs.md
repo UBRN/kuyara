@@ -13,7 +13,7 @@ Native Tabs decision is not reopened either.
 ## Context
 
 Milestone 3 of the redesign was to settle the shell every other screen is drawn inside, and to
-record a content inset that goals 4 to 6 could design against. The design question was how
+record a content inset that milestones 4 to 6 could design against. The design question was how
 much chrome the tab bar can carry before the styling-first feeling degrades.
 
 The design half was quick. The feasibility half, run as a read-only check against the
