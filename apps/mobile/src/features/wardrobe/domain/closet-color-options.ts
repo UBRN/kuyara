@@ -142,3 +142,30 @@ export function colorChoiceFamily(choice: ClosetColorChoice): ColorFamily {
   if (!option) throw new Error('Unknown Closet colour option.');
   return option.family;
 }
+
+/**
+ * The stored colour columns as one choice. A fixed option this build does not know reads as no
+ * choice, so an older build still shows the piece; columns that contradict each other, or a
+ * hex or family that does not match its choice, throw.
+ */
+export function closetColorChoiceFromColumns(
+  optionId: unknown,
+  customHex: unknown,
+  colorFamily: ColorFamily | null,
+): ClosetColorChoice | null {
+  if ((optionId !== null && typeof optionId !== 'string') ||
+      (customHex !== null && typeof customHex !== 'string') ||
+      (optionId !== null && customHex !== null)) {
+    throw new Error('Invalid Closet colour columns.');
+  }
+  const choice: ClosetColorChoice | null = typeof optionId === 'string'
+    ? findClosetColorOption(optionId) ? { kind: 'option', id: optionId } : null
+    : typeof customHex === 'string'
+      ? { kind: 'custom', hex: normalizeCustomColorHex(customHex) }
+      : null;
+  if ((customHex !== null && choice?.kind === 'custom' && customHex !== choice.hex) ||
+      (choice !== null && colorFamily !== colorChoiceFamily(choice))) {
+    throw new Error('Invalid Closet colour columns.');
+  }
+  return choice;
+}
