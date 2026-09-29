@@ -14,11 +14,14 @@ export function base64UrlEncode(bytes: Uint8Array): string {
 }
 
 /** Bytes of an unpadded base64url string, or null when it is not one. */
-export function base64UrlDecode(value: string): Uint8Array | null {
+export function base64UrlDecode(value: string): Uint8Array<ArrayBuffer> | null {
   if (!/^[A-Za-z0-9_-]*$/u.test(value)) return null;
   try {
     const padded = value.replaceAll('-', '+').replaceAll('_', '/').padEnd(Math.ceil(value.length / 4) * 4, '=');
-    return Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
+    const binary = atob(padded);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    return bytes;
   } catch {
     // Impossible lengths (one leftover character) are malformed input, not an error to surface.
     return null;
