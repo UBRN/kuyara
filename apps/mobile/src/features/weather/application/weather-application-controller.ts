@@ -15,15 +15,13 @@ import type {
   DeviceLocationGateway,
   LocationPermissionState,
 } from '@/features/weather/data/device-location-gateway';
-import { getManualLocation } from '@/features/weather/data/manual-location-catalog';
 import {
   WeatherRepositoryError,
   type WeatherRepository,
 } from '@/features/weather/data/weather-repository';
-import {
-  WeatherProviderError,
-  type WeatherProvider,
-} from '@/features/weather/data/weather-provider';
+import type { WeatherProvider } from '@/features/weather/data/weather-provider';
+import { getManualLocation } from '@/features/weather/domain/manual-location-catalog';
+import { WeatherProviderError } from '@/features/weather/domain/weather-provider-error';
 import {
   isManualLocationId,
   manualLocationKey,

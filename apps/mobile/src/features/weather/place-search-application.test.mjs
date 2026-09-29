@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { PlaceSearchController } from './application/place-search-controller.ts';
-import { PlaceSearchError } from './data/worker-place-search-data-source.ts';
+import { PlaceSearchError } from './domain/place-search-error.ts';
 
 const place = { id: 'place.745044', displayName: 'İstanbul', region: 'Türkiye', latitudeE2: 4101, longitudeE2: 2898, timeZone: 'Europe/Istanbul' };
 const data = (places = [place]) => ({ places, attribution: ['open-meteo', 'geonames'] });

@@ -11,7 +11,7 @@ import { ProductAnalyticsContext } from '@/features/analytics/application/use-pr
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
 import { WeatherApplicationContext, type WeatherApplicationValue } from '@/features/weather/application/weather-application-context';
-import { getManualLocation } from '@/features/weather/data/manual-location-catalog';
+import { getManualLocation } from '@/features/weather/domain/manual-location-catalog';
 import type { WeatherReadyState } from '@/features/weather/application/weather-application-controller';
 import { WeatherScreen } from '@/features/weather/presentation/weather-screen';
 import { LocalizationContext } from '@/localization/localization-context';

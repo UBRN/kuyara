@@ -5,7 +5,7 @@ import test from 'node:test';
 import { weatherSourceIds } from '@kuyara/contracts';
 
 import { weatherRefreshedAttributes } from '../analytics/domain/performance-telemetry-events.ts';
-import { getManualLocation } from './data/manual-location-catalog.ts';
+import { getManualLocation } from './domain/manual-location-catalog.ts';
 import { WorkerWeatherProvider } from './data/worker-weather-provider.ts';
 
 // `weather.refreshed` carries the attribution source as a closed enum (ADR 0033 section 7).

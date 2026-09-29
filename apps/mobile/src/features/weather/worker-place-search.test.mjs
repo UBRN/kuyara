@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { WorkerPlaceSearchDataSource, PlaceSearchError } from './data/worker-place-search-data-source.ts';
+import { WorkerPlaceSearchDataSource } from './data/worker-place-search-data-source.ts';
+import { PlaceSearchError } from './domain/place-search-error.ts';
 
 const query = { query: 'İzmir', limit: 5, language: 'tr' };
 const data = { places: [{ id: 'place.311046', displayName: 'İzmir', region: 'Türkiye', latitudeE2: 3841, longitudeE2: 2714, timeZone: 'Europe/Istanbul' }], attribution: ['open-meteo', 'geonames'] };

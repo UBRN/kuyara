@@ -17,7 +17,7 @@ import {
   WeatherApplicationContext,
   type WeatherApplicationValue,
 } from '@/features/weather/application/weather-application-context';
-import { getManualLocation } from '@/features/weather/data/manual-location-catalog';
+import { getManualLocation } from '@/features/weather/domain/manual-location-catalog';
 import { WeatherScreen } from '@/features/weather/presentation/weather-screen';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages } from '@/localization/messages';

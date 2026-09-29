@@ -10,7 +10,7 @@ import { ProductAnalyticsContext } from '@/features/analytics/application/use-pr
 import { InMemoryFirstUseStore } from '@/features/analytics/data/in-memory-first-use-store';
 import { RecordingProductAnalytics } from '@/features/analytics/data/recording-product-analytics';
 import { PlaceSearchApplicationContext, WeatherApplicationContext, type WeatherApplicationValue } from '@/features/weather/application/weather-application-context';
-import { PlaceSearchError } from '@/features/weather/data/worker-place-search-data-source';
+import { PlaceSearchError } from '@/features/weather/domain/place-search-error';
 import type { ManualLocationId } from '@/features/weather/domain/weather';
 import { LocationSelectionControls } from '@/features/weather/presentation/location-selection-controls';
 import { WeatherLocationScreen } from '@/features/weather/presentation/weather-location-screen';
