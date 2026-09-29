@@ -52,12 +52,10 @@ export function WeatherGlyph({
   condition = 'unknown',
   daypart = null,
   intensity = 'calm',
-  testID = 'weather-glyph',
 }: Readonly<{
   condition?: string;
   daypart?: Daypart | null;
   intensity?: AmbientIntensity;
-  testID?: string;
 }>) {
   const theme = useKuyaraTheme();
   const conditionStyle = resolveConditionStyle(condition, daypart);
@@ -71,7 +69,7 @@ export function WeatherGlyph({
   }));
 
   return (
-    <View style={styles.container} testID={testID}>
+    <View style={styles.container} testID="weather-glyph">
       <Animated.View style={animatedStyle}>
         <Icon
           color={theme.condition[conditionStyle.ink]}

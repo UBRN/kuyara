@@ -145,11 +145,9 @@ export function WardrobeRouteStatus({
 }
 
 export function WardrobeNewItemRoute({
-  confirmation = showWardrobeConfirmation,
   defaultCategory,
   defaultEntryState,
 }: Readonly<{
-  confirmation?: WardrobeConfirmation;
   /** The Closet category the add started from; the type chooser opens on it (O9). */
   defaultCategory?: StructuralCategory;
   /** The Closet list's current segment; the form falls back to owned without it. */
@@ -166,7 +164,7 @@ export function WardrobeNewItemRoute({
   const profileApplication = useProfileApplication();
   const recommendationApplication = use(RecommendationApplicationContext);
   const [isDirty, setIsDirty] = useState(false);
-  const guard = useWardrobeExitGuard(isDirty, confirmation);
+  const guard = useWardrobeExitGuard(isDirty, showWardrobeConfirmation);
   useScreenViewed('closet_item_form');
 
   if (state.status === 'loading') {
@@ -186,7 +184,7 @@ export function WardrobeNewItemRoute({
   return (
     <WardrobeItemFormScreen
       clothingPreference={clothingPreferenceOf(profileApplication)}
-      confirmation={confirmation}
+      confirmation={showWardrobeConfirmation}
       defaultCategory={defaultCategory}
       defaultEntryState={defaultEntryState}
       isBusy={state.isMutating}

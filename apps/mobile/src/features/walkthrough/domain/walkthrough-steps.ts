@@ -92,8 +92,6 @@ export const tourSteps: readonly TourStep[] = Object.freeze([
     litRadius: 14 },
 ] as const satisfies readonly TourStep[]);
 
-export const tourStepCount = tourSteps.length;
-
 /** The steps one run shows, as indexes into `tourSteps`, fixed when the tour opens. */
 export type TourPlan = readonly number[];
 

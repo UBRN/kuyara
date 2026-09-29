@@ -75,7 +75,6 @@ export const RACK_HOOKS: readonly Readonly<{ x: number; y: number }>[] = Array.f
 );
 export const RACK_UPPER_RAIL_Y = 52;
 export const RACK_LOWER_RAIL_Y = 134;
-export const RACK_SHELF_Y = 220;
 
 type RailZone = Readonly<{ x0: number; x1: number; ry: number; box: number; clip: boolean; maxLength: number }>;
 

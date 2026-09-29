@@ -92,7 +92,7 @@ The local data source owns fixed-column parameterized create and update statemen
 
 The controller owns initial loading, stable active-list refresh, retry state, and one in-flight mutation. It injects the ready local profile ID into repository calls, refreshes the list after successful writes, coalesces rapid duplicate save intents, and rejects malformed route UUIDs before repository access. Presentation never receives SQLite records or SQL.
 
-The form model contains only the editable optional name, required catalog type, color family, and seven nullable overrides. Its pure mapper derives applicable overrides from non-null catalog defaults, clears unsupported values, and deliberately omits UUID, owner, lifecycle, deletion, legacy `color`, and photo fields. Patch-style updates therefore preserve hidden fields. A confirmed type change resets explicit overrides and lets the effective-garment resolver use the new catalog defaults.
+The form model contains only the editable optional name, required catalog type, color family, and seven nullable overrides. Its pure mapper derives applicable overrides from non-null catalog defaults, clears unsupported values, and deliberately omits UUID, owner, lifecycle, deletion, legacy `color`, and photo fields. Patch-style updates therefore preserve hidden fields. A confirmed type change resets explicit overrides and leaves no override, so the catalog defaults apply.
 
 Photo persistence is deliberately path-only. The domain and record store a normalized forward-slash relative path into app-private document storage, never a blob, base64 value, absolute path, or `file://` URI. A feature-local photo manager coordinates three injected adapters: the system picker, the contextual image processor, and private storage. The picker has two sources, the photo library and the system camera, and both return the same picked shape, so a captured photo runs the same processing and staging as a chosen one. Selection and capture request one image without base64 or EXIF; processing preserves aspect ratio, limits the long edge to 1600 pixels without upscaling, and writes JPEG at 0.8 quality, then deletes the picker's original when it sits in the app's private cache, whether processing succeeded or failed; an original outside the cache is never touched, and a missing or undeletable one does not fail the photo. The library picker needs no permission. Camera access is requested only when the user taps Take photo: access that is off (iOS reports a restricted camera as denied) rejects with the closed reason `denied`, and an iOS device without a camera, the Simulator, rejects with `unavailable` after the permission answer and before the camera is launched, because UIKit raises an uncatchable exception for a missing camera source and expo-image-picker does not check; on Android, expo-image-picker's rejection for a missing camera app (`ERR_MISSING_ACTIVITY_TO_HANDLE_INTENT`) maps to `unavailable`. The form shows a localized note for either reason, with the platform's settings link for `denied`, and the library keeps working; a cancelled capture is no change. Managed staging files live in private cache storage and UUID-named canonical files live below `kuyara/wardrobe/photos` in the private document root.
 
@@ -102,15 +102,7 @@ The six categories continue to express only structural outfit roles. A versioned
 
 The research-backed taxonomy and version 3 contract are specified in [`clothing-taxonomy.md`](clothing-taxonomy.md). Mobile-only values and Zod schemas live in the catalog domain because no Worker API contract uses them yet. The catalog validator enforces ID, category, coverage, localization, applicability, and deprecation invariants before exporting deeply frozen definitions.
 
-The effective-garment read model is derived at runtime:
-
-```text
-validated canonical type defaults ─┐
-                                   ├─ pure effective resolver
-validated Wardrobe item overrides ─┘
-```
-
-The resolver has no SQLite, localization, weather-provider, UI, or outfit-composition dependency. It returns an explicit legacy view for unclassified version 2 rows, a resolved view for valid typed rows, or a sanitized invalid-data outcome for missing types, category mismatches, and inapplicable overrides. Catalog applicability filters future catalog suggestions only and is never consulted when reading or resolving an owned item.
+An owned item's effective value is its stored override over the current catalog default. No runtime resolver exists: the Closet shows the type and colour, and recommendations never read the Wardrobe. Catalog applicability filters catalog suggestions only and is never consulted when reading an owned item.
 
 ADR 0005 governs recommendation assembly: neither resolved owned items nor wanted items become candidates.
 

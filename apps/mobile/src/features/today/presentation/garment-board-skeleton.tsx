@@ -25,10 +25,9 @@ export const PLACEHOLDER_REST = 0.7;
 export type GarmentBoardSkeletonProps = Readonly<{
   width: number;
   testID?: string;
-  visibleCount?: number;
 }>;
 
-export function GarmentBoardSkeleton({ width, testID, visibleCount = 5 }: GarmentBoardSkeletonProps) {
+export function GarmentBoardSkeleton({ width, testID }: GarmentBoardSkeletonProps) {
   const theme = useKuyaraTheme();
   const { boxes, height } = layoutGarmentBoard(SKELETON_PIECES, width, 'today');
   const pulse = useAmbientPulse();
@@ -59,7 +58,6 @@ export function GarmentBoardSkeleton({ width, testID, visibleCount = 5 }: Garmen
             tintColor: theme.colors.iconSecondary,
             top: box.y,
             width: box.width,
-            opacity: index < visibleCount ? 1 : 0.12,
           }}
         />
       ))}

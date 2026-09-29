@@ -5,7 +5,6 @@ import test from 'node:test';
 import {
   evaluateGarmentEligibility,
   projectCatalogEffectiveGarment,
-  projectWardrobeEffectiveGarment,
 } from './garment-eligibility.ts';
 import { listGarmentTypesForPreference } from '../../catalog/domain/garment-catalog.ts';
 import {
@@ -168,35 +167,6 @@ function catalogCandidate(requirements, typeId, preference = 'womens') {
   return evaluateGarmentEligibility(
     requirements,
     projectCatalogEffectiveGarment(typeId, preference),
-  );
-}
-
-function wardrobeCandidate(requirements, id, garmentTypeId, category, overrides = {}) {
-  const item = Object.freeze({
-    id,
-    localProfileId: 'profile-one',
-    name: null,
-    category,
-    garmentTypeId,
-    color: null,
-    colorFamily: null,
-    thermalLevelOverride: null,
-    waterProtectionOverride: null,
-    windProtectionOverride: null,
-    breathabilityOverride: null,
-    armCoverageOverride: null,
-    legCoverageOverride: null,
-    tractionSuitabilityOverride: null,
-    photoRelativePath: null,
-    createdAt: '2026-08-01T10:00:00.000Z',
-    updatedAt: '2026-08-01T10:00:00.000Z',
-    deletedAt: null,
-    ...overrides,
-  });
-
-  return evaluateGarmentEligibility(
-    requirements,
-    projectWardrobeEffectiveGarment(item),
   );
 }
 
@@ -524,47 +494,24 @@ test('fails structurally for missing slots and duplicate input keys', () => {
   ]);
 });
 
-test('catalog and owned candidates remain ownership-neutral and deterministically ordered', () => {
+test('candidates are ordered deterministically whatever order they arrive in', () => {
   const requirements = clothingRequirements(requirement('thermal', 'light'));
   const catalogWarm = catalogCandidate(requirements, 'long_sleeve_t_shirt');
-  const ownedCool = wardrobeCandidate(
-    requirements,
-    'owned-cool',
-    't_shirt',
-    'top',
-  );
+  const catalogCool = catalogCandidate(requirements, 't_shirt');
   const shorts = catalogCandidate(requirements, 'shorts');
   const sandals = catalogCandidate(requirements, 'sandals');
-  const catalogWins = composeOutfit(requirements, [
-    ownedCool,
-    sandals,
-    catalogWarm,
-    shorts,
-  ]);
-  assert.equal(catalogWins.status, 'composed');
-  assert.equal(
-    catalogWins.outfit.body.primaryTop.garment.candidateKey,
-    'catalog:long_sleeve_t_shirt',
-  );
 
-  const ownedWarm = wardrobeCandidate(
-    requirements,
-    'owned-warm',
-    'long_sleeve_t_shirt',
-    'top',
-  );
-  const catalogCool = catalogCandidate(requirements, 't_shirt');
-  const ownedWins = composeOutfit(requirements, [
-    catalogCool,
-    sandals,
-    ownedWarm,
-    shorts,
-  ]);
-  assert.equal(ownedWins.status, 'composed');
-  assert.equal(
-    ownedWins.outfit.body.primaryTop.garment.candidateKey,
-    'wardrobe:owned-warm',
-  );
+  for (const candidates of [
+    [catalogCool, sandals, catalogWarm, shorts],
+    [shorts, catalogWarm, sandals, catalogCool],
+  ]) {
+    const result = composeOutfit(requirements, candidates);
+    assert.equal(result.status, 'composed');
+    assert.equal(
+      result.outfit.body.primaryTop.garment.candidateKey,
+      'catalog:long_sleeve_t_shirt',
+    );
+  }
 });
 
 test('outfit over-insulation penalty is bounded and does not count footwear warmth', () => {

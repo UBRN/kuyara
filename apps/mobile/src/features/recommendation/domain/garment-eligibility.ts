@@ -20,13 +20,6 @@ import type {
   ClothingRequirementReasonCode,
   ClothingRequirements,
 } from '@/features/recommendation/domain/weather-to-clothing-requirements';
-import {
-  resolveEffectiveGarment,
-} from '@/features/wardrobe/domain/effective-garment';
-import type {
-  ResolvedGarment,
-} from '@/features/wardrobe/domain/effective-garment';
-import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 
 export type EffectiveGarmentProperties = Readonly<{
   category: StructuralCategory;
@@ -43,6 +36,7 @@ export type EffectiveGarmentProperties = Readonly<{
 
 export type EffectiveGarmentCandidate = Readonly<{
   candidateKey: string;
+  // 'wardrobe' survives only in stored legacy snapshots (`legacyCandidateSchema`); nothing builds it.
   source: 'catalog' | 'wardrobe';
   garmentTypeId: GarmentTypeId;
   properties: EffectiveGarmentProperties;
@@ -51,9 +45,6 @@ export type EffectiveGarmentCandidate = Readonly<{
 export const garmentEligibilityReasonCodes = Object.freeze([
   'catalog_preference_mismatch',
   'catalog_type_unavailable',
-  'wardrobe_garment_deleted',
-  'wardrobe_garment_legacy',
-  'wardrobe_garment_invalid',
   'mandatory_body_water_shortfall',
   'mandatory_feet_water_shortfall',
   'mandatory_wind_shortfall',
@@ -80,9 +71,6 @@ export type EffectiveGarmentProjection =
         GarmentEligibilityReasonCode,
         | 'catalog_preference_mismatch'
         | 'catalog_type_unavailable'
-        | 'wardrobe_garment_deleted'
-        | 'wardrobe_garment_legacy'
-        | 'wardrobe_garment_invalid'
       >;
     }>;
 
@@ -192,23 +180,6 @@ function propertiesFromGarmentType(
   });
 }
 
-function propertiesFromResolvedGarment(
-  garment: ResolvedGarment,
-): EffectiveGarmentProperties {
-  return Object.freeze({
-    category: garment.category,
-    bodyRegion: garment.bodyRegion,
-    supportedLayerRoles: Object.freeze([...garment.supportedLayerRoles]),
-    thermalLevel: garment.thermalLevel,
-    waterProtection: garment.waterProtection,
-    windProtection: garment.windProtection,
-    breathability: garment.breathability,
-    armCoverage: garment.armCoverage,
-    legCoverage: garment.legCoverage,
-    tractionSuitability: garment.tractionSuitability,
-  });
-}
-
 function readyProjection(
   candidateKey: string,
   source: EffectiveGarmentCandidate['source'],
@@ -249,32 +220,6 @@ export function projectCatalogEffectiveGarment(
     'catalog',
     type.typeId,
     propertiesFromGarmentType(type),
-  );
-}
-
-export function projectWardrobeEffectiveGarment(
-  item: WardrobeItem,
-  lookupGarmentType: GarmentTypeLookup = getGarmentType,
-): EffectiveGarmentProjection {
-  const candidateKey = `wardrobe:${item.id}`;
-
-  if (item.deletedAt !== null) {
-    return rejectedProjection(candidateKey, 'wardrobe_garment_deleted');
-  }
-
-  const resolution = resolveEffectiveGarment(item, lookupGarmentType);
-  if (resolution.status === 'legacy') {
-    return rejectedProjection(candidateKey, 'wardrobe_garment_legacy');
-  }
-  if (resolution.status === 'invalid-data') {
-    return rejectedProjection(candidateKey, 'wardrobe_garment_invalid');
-  }
-
-  return readyProjection(
-    candidateKey,
-    'wardrobe',
-    resolution.garment.garmentTypeId,
-    propertiesFromResolvedGarment(resolution.garment),
   );
 }
 

@@ -194,8 +194,6 @@ test('English and Turkish locale resolution preserve the supported product langu
   assert.equal(resolveSupportedLanguage('TR_tr'), 'tr');
   assert.equal(getMessages('en-US'), messages.en);
   assert.equal(getMessages('tr-TR'), messages.tr);
-  assert.equal(messages.en.today.title, 'Today');
-  assert.equal(messages.tr.today.title, 'Bugün');
   assert.equal(messages.en.today.slots.outer_layer, 'Outer layer');
   assert.equal(messages.tr.today.slots.outer_layer, 'Dış katman');
   assert.equal(

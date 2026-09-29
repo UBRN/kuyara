@@ -5,7 +5,7 @@ import { colorFamilies, garmentTypeIds } from '../../../features/catalog/domain/
 import { darkTheme, lightTheme } from '../../../theme/theme.ts';
 import {
   garmentColorFamiliesBySlot, garmentFillForAppearance, garmentPaletteContrast, garmentPaletteMood, garmentPaletteRoutes,
-  garmentSwatchColorFamilies, garmentSwatches, legalizeGarmentFill,
+  garmentSwatches, legalizeGarmentFill,
   resolveGarmentPalette, toGarmentOklch,
 } from './garment-palette.ts';
 
@@ -105,8 +105,7 @@ test('formal derives deep accent on accessory only', () => {
 
 test('all catalog types resolve and all 31 swatches have a closed colorFamily', () => {
   assert.equal(Object.keys(garmentSwatches).length, 31);
-  assert.deepEqual(Object.keys(garmentSwatchColorFamilies).sort(), Object.keys(garmentSwatches).sort());
-  for (const family of Object.values(garmentSwatchColorFamilies)) assert.ok(colorFamilies.includes(family));
+  for (const { fam } of Object.values(garmentSwatches)) assert.ok(colorFamilies.includes(fam));
   for (const garmentTypeId of garmentTypeIds) {
     const actual = resolveGarmentPalette(input({ pieces: [piece('primary_top', garmentTypeId)] }));
     assert.equal(actual.length, 1, garmentTypeId);

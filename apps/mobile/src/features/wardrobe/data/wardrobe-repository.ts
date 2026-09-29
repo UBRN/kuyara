@@ -592,8 +592,7 @@ export class LocalWardrobeRepository implements WardrobeRepository {
     // every other item. Repairing it here would change the user's garment behind their
     // back, so the row keeps its stored values: the Closet renders it, the detail screen
     // opens it, deleting it works, and saving it is still refused by the write invariant
-    // until the user picks a garment type that resolves. Domain code that needs a coherent
-    // garment asks `resolveEffectiveGarment`, which still reports `invalid-data`.
+    // until the user picks a garment type that resolves.
     const item = mapWardrobeItemRecord(record);
 
     if (

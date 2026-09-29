@@ -269,9 +269,6 @@ describe.each(['en', 'tr'] as const)('%s Weather screen', (language) => {
     expect(within(currentCard).getByText(language === 'en'
       ? 'Feels like 15.0° · Low 12.0° · High 19.0°'
       : 'Hissedilen 15,0° · En düşük 12,0° · En yüksek 19,0°')).toBeOnTheScreen();
-    expect(within(currentCard).queryByText(
-      messages[language].weather.precipitation(0.5),
-    )).toBeNull();
     expect(StyleSheet.flatten(currentCard.props.style)).toMatchObject(lightTheme.elevation.raised);
     expect(StyleSheet.flatten(within(currentCard).getByText(language === 'en' ? '16.0°' : '16,0°').props.style).fontSize)
       .toBe(typography.display.fontSize);

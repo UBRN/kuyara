@@ -20,6 +20,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
+import ts from 'typescript';
 
 const sourceRoot = import.meta.dirname;
 const repoRelativeRoot = 'apps/mobile/src';
@@ -370,7 +371,6 @@ const rawPressableAllowlist = Object.freeze({
   // The Closet heading row and a category cell (O9; the rack is `ClosetRack`'s own button).
   'features/profile/presentation/profile-screen.tsx': 2,
   'features/profile/presentation/style-aesthetics-options.tsx': 1,
-  'features/profile/presentation/preference-option.tsx': 1,
 });
 
 const rawPressablePattern = /<(?:Pressable|PressScale|AnimatedPressable|Touchable\w*)\b/g;
@@ -774,4 +774,48 @@ test('the dressing-day key suffix is spelled only in weather/domain/wardrobe-day
   }
 
   assert.deepEqual(hits, [], 'call isEveningDressingDayKey or dressingDayDateKey from wardrobe-day.ts');
+});
+
+// Every message key has a production reader. The type-aware reference search finds
+// the keys no non-test file reads; the only ones allowed are read through a computed
+// property (`copy[captionKey]`, a `Record<Id, keyof Messages>` table), named here by parent
+// with an exact count so a new unread key cannot hide behind them.
+const computedlyReadMessageKeys = {
+  'TodayMessages.dailyStyle': 3, 'TodayMessages.drift': 3, 'TodayMessages.manualMix.sourceOne': 3,
+  'PreferenceMessages': 5, 'AppMessages.weather': 3, 'WalkthroughMessages.steps': 6,
+};
+
+test('every message key has a production reader or a counted computed read', () => {
+  const root = path.join(sourceRoot, '..');
+  const { options, fileNames } = ts.parseJsonConfigFileContent(
+    ts.readConfigFile(path.join(root, 'tsconfig.json'), ts.sys.readFile).config, ts.sys, root);
+  const service = ts.createLanguageService({
+    getScriptFileNames: () => fileNames, getScriptVersion: () => '1', getCurrentDirectory: () => root,
+    getScriptSnapshot: (file) => ts.sys.fileExists(file) ? ts.ScriptSnapshot.fromString(ts.sys.readFile(file)) : undefined,
+    getCompilationSettings: () => options, getDefaultLibFileName: ts.getDefaultLibFilePath,
+    fileExists: ts.sys.fileExists, readFile: ts.sys.readFile, readDirectory: ts.sys.readDirectory,
+  });
+  const file = path.join(sourceRoot, 'localization/messages.ts');
+  const unread = {};
+  const visit = (node, trail) => {
+    if (ts.isParameter(node)) return;
+    if (ts.isTypeAliasDeclaration(node)) trail = [node.name.text];
+    if (ts.isPropertySignature(node)) {
+      trail = [...trail, node.name.getText()];
+      const reads = (service.findReferences(file, node.name.getStart()) ?? []).flatMap(({ references }) => references)
+        .filter(({ fileName }) => fileName !== file && !/\.test\.|__tests__/.test(fileName));
+      if (reads.length === 0 && !node.type?.members) {
+        const parent = trail.slice(0, -1).join('.');
+        (unread[parent] ??= []).push(trail.at(-1));
+      }
+    }
+    ts.forEachChild(node, (child) => visit(child, trail));
+  };
+  const aliases = ['AppMessages', 'TodayMessages', 'PreferenceMessages', 'WalkthroughMessages'];
+  ts.forEachChild(service.getProgram().getSourceFile(file), (node) => {
+    if (ts.isTypeAliasDeclaration(node) && aliases.includes(node.name.text)) visit(node, []);
+  });
+
+  assert.deepEqual(Object.fromEntries(Object.entries(unread).map(([parent, keys]) => [parent, keys.length])),
+    computedlyReadMessageKeys, `unread message keys: ${JSON.stringify(unread)}`);
 });

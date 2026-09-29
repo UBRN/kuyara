@@ -4,13 +4,14 @@ import test from 'node:test';
 import {
   layoutClosetRack,
   RACK_LOWER_RAIL_Y,
-  RACK_SHELF_Y,
   RACK_WIDTH,
 } from './closet-rack-layout.ts';
 
 // O9's fill rule, checked without a renderer: every piece is drawn once, the newest owned
 // pieces face out, wanted pieces hang last, a zone that overflows says so, and no zone runs
 // into the next one.
+// The shelf line under the bottoms; only this test reads it (the layout has no shelf zone).
+const SHELF_Y = 220;
 const typeOf = { top: 't_shirt', bottom: 'jeans', one_piece: 'dress', outerwear: 'coat', footwear: 'sneakers', accessory: 'beanie' };
 
 let serial = 0;
@@ -106,7 +107,7 @@ test('accessories take one hook each and the last hook carries the overflow', ()
 test('zones never touch: coats end above the lower rail and bottoms above the shelf', () => {
   const layout = layoutClosetRack([piece('outerwear'), piece('one_piece'), piece('bottom', { garmentTypeId: 'long_skirt' })]);
   for (const mark of garments(layout)) {
-    const limit = mark.piece.category === 'bottom' ? RACK_SHELF_Y : RACK_LOWER_RAIL_Y;
+    const limit = mark.piece.category === 'bottom' ? SHELF_Y : RACK_LOWER_RAIL_Y;
     assert.ok(bottomOf(mark) < limit, `${mark.piece.id} ends at ${bottomOf(mark)}, above ${limit}`);
   }
 });

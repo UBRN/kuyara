@@ -1,10 +1,5 @@
 import { useState } from 'react';
-import {
-  StyleSheet,
-  type PressableProps,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { StyleSheet, type PressableProps } from 'react-native';
 
 import { Icon, type IconName } from '@/components/ui/icon';
 import { PressScale } from '@/components/ui/press-scale';
@@ -27,7 +22,6 @@ export type IconButtonProps = Omit<
   disabled?: boolean;
   /** Drawn on a sheet, where the dark appearance lifts the tonal fill. */
   raised?: boolean;
-  style?: StyleProp<ViewStyle>;
 };
 
 /**
@@ -43,7 +37,6 @@ export function IconButton({
   onFocus,
   onPress,
   raised = false,
-  style,
   ...rest
 }: IconButtonProps) {
   const theme = useKuyaraTheme();
@@ -79,7 +72,6 @@ export function IconButton({
           }).backgroundColor,
         },
         isFocused && { outlineColor: theme.colors.focusRing },
-        style,
       ]}
       {...rest}>
       <Icon

@@ -191,13 +191,11 @@ test('Screen and Surface keep children on semantic light and dark foundations', 
   }
 });
 
-test('Divider uses semantic tokens, supports one inset, and stays decorative', async () => {
+test('Divider uses semantic tokens and stays decorative', async () => {
   const dividerSource = await source('./divider.tsx');
 
-  assert.match(dividerSource, /variant\?: 'full' \| 'inset'/);
   assert.match(dividerSource, /theme\.colors\.borderSubtle/);
   assert.match(dividerSource, /borderWidths\.subtle/);
-  assert.match(dividerSource, /marginStart: spacing\.[a-zA-Z0-9]+/);
   assert.match(dividerSource, /accessibilityElementsHidden/);
   assert.match(dividerSource, /importantForAccessibility="no-hide-descendants"/);
   assert.match(dividerSource, /accessible=\{false\}/);

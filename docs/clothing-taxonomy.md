@@ -24,7 +24,6 @@ Current implementation locations are:
 - taxonomy values, Zod schemas, and inferred types: `apps/mobile/src/features/catalog/domain/garment-taxonomy.ts`
 - immutable catalog definitions and validation: `apps/mobile/src/features/catalog/domain/garment-catalog.ts`
 - Turkish and English catalog messages: `apps/mobile/src/features/catalog/localization/catalog-messages.ts`
-- effective garment resolution: `apps/mobile/src/features/wardrobe/domain/effective-garment.ts`
 - schema version 3: `apps/mobile/src/infrastructure/sqlite/migrations.ts`
 
 ## Research findings and design consequences
@@ -70,14 +69,14 @@ The model has five boundaries:
 1. `GarmentType` is an app-bundled, provider-independent catalog definition identified by an immutable `typeId`.
 2. `WardrobeItem` is a personal SQLite record that refers to a type, retains lifecycle data, and stores only actual item values or explicit overrides. It is not a recommendation input.
 3. Catalog defaults describe the typical item for a type. They are useful starting points, not immutable truths about every owned item.
-4. An effective garment view resolves each Wardrobe override over the current catalog default for personal-record display and editing.
+4. A Wardrobe item's effective value is its stored override over the current catalog default. No code resolves it at runtime: the Closet shows the type and colour, and recommendations never read the Wardrobe.
 5. A recommendation input contains catalog candidate identifiers and properties, deterministic weather requirements, clothing preference, and a local calendar day seed. Runtime outfit roles are not written back as garment taxonomy.
 
 ```text
 canonical GarmentType defaults ───────────────┐
 deterministic weather requirements ───────────┤
 clothing preference + local calendar day seed ├─ recommendation input
-WardrobeItem values/overrides ─ effective garment view (personal record only)
+WardrobeItem values/overrides ─ personal record only, never a recommendation input
 ```
 
 This gives the deterministic engine explicit dimensions without requiring a user to classify every property manually.
@@ -284,19 +283,19 @@ The catalog definition and its ownership boundary are:
 
 | Field | Rule |
 | --- | --- |
-| `typeId` | Immutable canonical ID matching the naming regex and unique within every catalog version. A Wardrobe item stores one reference or null for legacy data, and the effective view carries the resolved ID when available. |
-| `structuralCategory` | Exactly one of the six existing categories. A Wardrobe item retains the category snapshot, and the effective view rejects a typed item when the two disagree. |
-| `nameKey` | `catalog.garment_type.<typeId>.name`; both Turkish and English messages required. SQLite stores only the user's optional item name, while the effective view uses the localized type label plus that optional name. |
+| `typeId` | Immutable canonical ID matching the naming regex and unique within every catalog version. A Wardrobe item stores one reference or null for legacy data. |
+| `structuralCategory` | Exactly one of the six existing categories. A Wardrobe item retains the category snapshot, and the repository write invariant rejects a typed item when the two disagree. |
+| `nameKey` | `catalog.garment_type.<typeId>.name`; both Turkish and English messages required. SQLite stores only the user's optional item name, while display uses the localized type label plus that optional name. |
 | `bodyRegion` | One primary body region or null only for a carried item such as `umbrella`. |
 | `supportedLayerRoles` | Unique set of layer capabilities; empty only when layering does not apply. |
-| `defaultThermalLevel` | One thermal level or null when not applicable. As with every weather-property default, a Wardrobe item stores only an explicit actual-item override and the effective view resolves the override over the current default. |
+| `defaultThermalLevel` | One thermal level or null when not applicable. As with every weather-property default, a Wardrobe item stores only an explicit actual-item override and the override applies over the current default. |
 | `defaultWaterProtection` | One water value for relevant types; null when not applicable. |
 | `defaultWindProtection` | One wind value for relevant types; null when not applicable. |
 | `defaultBreathability` | One breathability value for relevant worn types; null for carried items. |
 | `defaultArmCoverage` | Required for upper/full-body types; otherwise null. |
 | `defaultLegCoverage` | Required for lower/full-body types; otherwise null. |
 | `defaultTractionSuitability` | Required for footwear; otherwise null. |
-| `colorFamily` | The catalog does not prescribe an owned item's color. A Wardrobe item stores the canonical family and optional display text; the effective view uses the family for compatibility and the text only for display. |
+| `colorFamily` | The catalog does not prescribe an owned item's color. A Wardrobe item stores the canonical family and optional display text; the family is the canonical colour and the text is only for display. |
 | `apparelPreferenceApplicability` | Non-empty unique set containing `womens`, `mens`, or both. A Wardrobe item stores no applicability metadata, and preference changes never remove an owned item. |
 | `status` | `active` or `deprecated`; deprecated entries remain resolvable against the current catalog manifest. Wardrobe items do not copy catalog versions or defaults. |
 | `replacedByTypeId` | Null for active types; optional valid different ID for a deprecated type. |
@@ -323,17 +322,9 @@ These columns are optional inputs, not a requirement that onboarding or add-item
 
 SQLite checks constrain every non-null enum override and `color_family`. `garment_type_id` does not use a SQL `CHECK` listing all IDs because adding a catalog type must not require a database migration. The repository validates it against the bundled catalog and requires the stored `category` to match. SQLite cannot use a foreign key to an app-bundled catalog.
 
-### Effective garment resolution
+### Effective garment value
 
-For each overrideable property:
-
-1. If a valid Wardrobe override is non-null, use it.
-2. Otherwise use the current catalog default for the stored `garmentTypeId`.
-3. If the item is legacy/unclassified, expose only its stored structural category and actual version 2 fields; do not invent detailed properties.
-4. If a deprecated type resolves, continue using its retained definition. A replacement can be offered to the user but is never silently written.
-5. If the ID cannot resolve because the catalog is corrupt or incomplete, return a sanitized invalid-data result and keep the SQLite row untouched.
-
-The resulting effective garment view is computed in the domain/application boundary. It is not another SQLite source of truth.
+A Wardrobe item's effective value for an overrideable property is its stored override when non-null, otherwise the current catalog default for its `garmentTypeId`. A legacy item with no type exposes only its stored structural category and version 2 fields, and a deprecated type keeps its retained definition. The value is never a SQLite source of truth, and no code computes it: nothing reads it, because recommendations never see the Wardrobe.
 
 The MVP does not offer a user-created or free-text custom type. New items select a canonical type; legacy `garmentTypeId = null` is a migration state, not a selectable “unknown” type. A future custom-type feature would require its own stable identity, sync, localization, and fallback decisions.
 
@@ -391,7 +382,6 @@ apps/mobile/src/features/catalog/domain/
 apps/mobile/src/features/catalog/localization/
   catalog-messages.ts
 apps/mobile/src/features/wardrobe/domain/
-  effective-garment.ts
 apps/mobile/src/features/wardrobe/data/
   wardrobe-item-record.ts
   wardrobe-item-mapper.ts
@@ -429,7 +419,7 @@ These records are **model-consistency examples**, not the final production fixtu
 
 These defaults intentionally remain coarse. A mesh sneaker, heavy sweater, short-sleeved dress, unlined waterproof shell, or fashion boot is carried by its catalog type rather than by forcing another canonical type.
 
-The seven override columns remain stored fields, and the effective garment view still resolves a stored override over the current default, but the item form does not expose them: a Wardrobe entry records a type, an optional name, an optional colour family (with an optional palette option or custom colour from build 16) and an optional photo. Existing stored overrides stay readable and survive an edit and save; nothing in the product writes a new one.
+The seven override columns remain stored fields, and a stored override still applies over the current default, but the item form does not expose them: a Wardrobe entry records a type, an optional name, an optional colour family (with an optional palette option or custom colour from build 16) and an optional photo. Existing stored overrides stay readable and survive an edit and save; nothing in the product writes a new one.
 
 That argument no longer covers recommendations. [ADR 0005](adr/0005-catalog-only-recommendation-candidates.md) removed the Wardrobe from the candidate set, so an override widens nothing a recommendation can see; it still applies to the Wardrobe as a personal record. [ADR 0013](adr/0013-catalog-content-corrections-and-version-3.md) accordingly corrected four property values and added `sleeveless_top` and `leggings`; the catalog is at version 6.
 
@@ -453,7 +443,7 @@ The implementation:
 4. Require `garmentTypeId` for newly created items at the repository/application boundary while continuing to read legacy unclassified rows.
 5. Add a validated bundled catalog and explicit catalog-to-domain and record-to-domain mapping; do not store the canonical catalog in SQLite for the MVP.
 6. Derive category from selected type in new UI and validate that it matches the persisted snapshot.
-7. Add effective-property resolution tests, catalog invariant tests, v2-to-v3 migration tests, mapper round trips, invalid enum tests, legacy-row behavior, deprecation behavior, and override/default precedence tests.
+7. Add catalog invariant tests, v2-to-v3 migration tests, mapper round trips, invalid enum tests, legacy-row behavior, deprecation behavior, and override persistence tests.
 8. Keep provider condition codes, normalized current-weather needs, layer assignment, temperature thresholds, and recommendation outputs out of the Wardrobe table.
 
 The implementation uses transactional `ALTER TABLE ... ADD COLUMN` statements with nullable checked columns. The production SQL is exercised by the repository's Node SQLite adapter for empty, version 1, and released version 2 databases, including rollback and idempotent re-entry, without editing migration version 2.
@@ -465,6 +455,6 @@ The implementation uses transactional `ALTER TABLE ... ADD COLUMN` statements wi
 
 ## Implemented boundary
 
-The taxonomy/migration slice added the validated catalog values, localization keys, migration version 3, updated Wardrobe boundaries, the effective resolver, and focused tests. It did not add weather thresholds, WeatherKit/provider contracts, AI, sync, authentication, photo analysis, or remote catalog infrastructure.
+The taxonomy/migration slice added the validated catalog values, localization keys, migration version 3, updated Wardrobe boundaries, and focused tests. It did not add weather thresholds, WeatherKit/provider contracts, AI, sync, authentication, photo analysis, or remote catalog infrastructure.
 
 Production applicability, override UI, and legacy color preservation are settled. The non-destructive migration preserves legacy items without guessing a type; the remaining deferred questions are listed above.

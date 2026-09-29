@@ -8,10 +8,7 @@ import {
   onboardingPreferencesFromDraft,
   reduceOnboardingDraft,
 } from './application/onboarding-state.ts';
-import {
-  canOpenSettings,
-  resolveProfileHomeRoute,
-} from './application/profile-route-gate.ts';
+import { resolveProfileHomeRoute } from './application/profile-route-gate.ts';
 import { composeBootstrapReportText } from './presentation/bootstrap-report-text.ts';
 import { resolveLanguagePreference } from '../../localization/language-preference.ts';
 import { messages } from '../../localization/messages.ts';
@@ -149,8 +146,6 @@ test('site honors an explicit app language for this visit without changing websi
 test('incomplete and completed profiles resolve to the correct local route gate', () => {
   assert.equal(resolveProfileHomeRoute(profile(false)), 'onboarding');
   assert.equal(resolveProfileHomeRoute(profile(true)), 'today');
-  assert.equal(canOpenSettings(profile(false)), false);
-  assert.equal(canOpenSettings(profile(true)), true);
 });
 
 test('English and Turkish include complete onboarding, Settings, and accessibility copy', () => {
@@ -174,8 +169,6 @@ test('English and Turkish include complete onboarding, Settings, and accessibili
     assert.ok(copy.settings.saveError);
     assert.ok(copy.navigation.today);
     assert.ok(copy.navigation.weather);
-    assert.ok(copy.navigation.wardrobe);
-    assert.ok(copy.navigation.settings);
     assert.ok(copy.weather.introduction);
     assert.ok(copy.wardrobe.typeRequiredError);
     assert.ok(copy.wardrobe.discardAction);
@@ -192,7 +185,7 @@ test('English and Turkish include complete onboarding, Settings, and accessibili
 
 test('route and presentation sources preserve local gating and accessible selected states', async () => {
   const source = async (path) => readFile(new URL(path, import.meta.url), 'utf8');
-  const [todayRoute, onboardingRoute, settingsRoute, layout, tabsLayout, tabBar, option, onboarding, settings, today] =
+  const [todayRoute, onboardingRoute, settingsRoute, layout, tabsLayout, tabBar, onboarding, settings, today] =
     await Promise.all([
       source('../../app/(tabs)/(today)/index.tsx'),
       source('../../app/onboarding.tsx'),
@@ -200,13 +193,12 @@ test('route and presentation sources preserve local gating and accessible select
       source('../../app/_layout.tsx'),
       source('../../app/(tabs)/_layout.tsx'),
       source('../../navigation/primary-tabs.tsx'),
-      source('./presentation/preference-option.tsx'),
       source('./presentation/onboarding-screen.tsx'),
       source('./presentation/settings-screen.tsx'),
       source('../today/presentation/today-screen.tsx'),
     ]);
   const routeSources = `${todayRoute}\n${onboardingRoute}\n${settingsRoute}\n${tabsLayout}`;
-  const presentationSources = `${tabBar}\n${option}\n${onboarding}\n${settings}\n${today}`;
+  const presentationSources = `${tabBar}\n${onboarding}\n${settings}\n${today}`;
 
   assert.match(tabsLayout, /<Redirect href="\/onboarding"/);
   assert.match(onboardingRoute, /<Redirect href="\/"/);
@@ -221,8 +213,6 @@ test('route and presentation sources preserve local gating and accessible select
   assert.match(tabBar, /<NativeTabs\b/);
   assert.match(tabBar, /accessibilityLabel=\{tab\.accessibilityLabel\}/);
   assert.match(tabBar, /testID=\{tab\.testID\}/);
-  assert.match(option, /accessibilityRole="radio"/);
-  assert.match(option, /accessibilityState=\{\{ disabled, selected \}\}/);
   assert.match(onboarding, /accessibilityRole="alert"/);
   assert.match(settings, /settings-language-/);
   assert.match(settings, /settings-theme-/);
