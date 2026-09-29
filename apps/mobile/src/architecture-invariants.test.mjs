@@ -828,6 +828,7 @@ test('every message key has a production reader or a counted computed read', () 
 const processTracePattern = new RegExp([
   ['cl', 'aude'], ['co', 'dex'], ['anth', 'ropic'], ['sub', 'agent'], ['hand', 'over'],
   ['\\bla', 'ne\\b'], ['\\(C', 'C[0-9]+\\)'], ['to', 'ur A[0-9]'], ['simulator ', 'tour'], ['pony', 'tail'],
+  ['\\bgol', 'die\\b'], ['\\barg', 'ent\\b'], ['\\bje', 'v\\b'],
 ].map((parts) => parts.join('')).join('|'), 'i');
 // The planning unit of the work process is a capitalized word; the ordinary lowercase word stays.
 const processTermPattern = new RegExp(['\\bGo', 'als?\\b'].join(''));
@@ -866,6 +867,7 @@ test('no private tool instruction, setting or screenshot-tooling path is tracked
   // Assembled from parts so the names do not trip the wording check above.
   const privatePath = new RegExp(`^(?:${[
     'AGENTS[^/]*\\.md', ['CL', 'AUDE[^/]*\\.md'].join(''), ['\\.cl', 'aude/'].join(''), '\\.agents/',
+    ['\\.co', 'dex/'].join(''), ['\\.arg', 'ent/'].join(''), ['gol', 'die/'].join(''),
   ].join('|')})`, 'i');
   assert.deepEqual(tracked.filter((relative) => privatePath.test(relative)), []);
 });
