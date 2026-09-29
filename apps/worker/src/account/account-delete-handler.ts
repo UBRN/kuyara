@@ -1,0 +1,119 @@
+import {
+  accountDeleteV1ErrorSchema,
+  accountDeleteV1Path,
+  accountDeleteV1RequestSchema,
+  accountDeleteV1SuccessSchema,
+  type AccountDeleteV1ErrorCode,
+} from '@kuyara/contracts';
+
+import type { AppleTokenRevoker } from './apple-token-revoker.ts';
+import { AccountError } from './account-error.ts';
+import type { SupabaseAdmin } from './supabase-admin.ts';
+import type { SupabaseTokenVerifier } from './supabase-token-verifier.ts';
+
+type Dependencies = Readonly<{
+  verifier: SupabaseTokenVerifier;
+  admin: SupabaseAdmin;
+  revoker: AppleTokenRevoker;
+  rateLimiter: { limit(input: { key: string }): Promise<{ success: boolean }> };
+}>;
+
+type Stage = 'verify' | 'lookup' | 'apple' | 'delete';
+
+const headers = {
+  'Cache-Control': 'no-store',
+  'Content-Type': 'application/json; charset=utf-8',
+};
+const statuses: Readonly<Record<AccountDeleteV1ErrorCode, number>> = {
+  invalid_request: 400,
+  apple_code_invalid: 400,
+  unauthorized: 401,
+  not_found: 404,
+  method_not_allowed: 405,
+  rate_limited: 429,
+  internal_error: 500,
+  unavailable: 503,
+};
+
+function error(code: AccountDeleteV1ErrorCode, extraHeaders = {}): Response {
+  return Response.json(accountDeleteV1ErrorSchema.parse({ error: { code } }), {
+    status: statuses[code], headers: { ...headers, ...extraHeaders },
+  });
+}
+
+// Only a closed stage and code are logged: never the token, the code, the user id or a message.
+function failure(stage: Stage, thrown: unknown): Response {
+  const code = thrown instanceof AccountError ? thrown.code : 'internal_error';
+  console.warn({ event: 'account_delete_failed', stage, code });
+  return error(code);
+}
+
+function bearerToken(request: Request): string | undefined {
+  const match = /^bearer ([^\s]+)$/iu.exec(request.headers.get('authorization') ?? '');
+  return match?.[1];
+}
+
+export function createAccountDeleteHandler({ verifier, admin, revoker, rateLimiter }: Dependencies) {
+  return async (request: Request): Promise<Response> => {
+    if (new URL(request.url).pathname !== accountDeleteV1Path) return error('not_found');
+    if (request.method !== 'POST') return error('method_not_allowed', { Allow: 'POST' });
+    try {
+      const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
+      if (!(await rateLimiter.limit({ key: `account-delete:${ip}` })).success) {
+        console.warn({ event: 'rate_limited', route: accountDeleteV1Path, limiter: 'account_delete_burst' });
+        return error('rate_limited', { 'Retry-After': '60' });
+      }
+    } catch {
+      // A limiter outage fails closed; its message is not worth logging.
+      return error('unavailable');
+    }
+    const accessToken = bearerToken(request);
+    if (accessToken === undefined) return error('unauthorized');
+    if (request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') {
+      return error('invalid_request');
+    }
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return error('invalid_request');
+    }
+    const parsed = accountDeleteV1RequestSchema.safeParse(body);
+    if (!parsed.success) return error('invalid_request');
+
+    let userId: string;
+    try {
+      ({ userId } = await verifier(accessToken));
+    } catch (thrown) {
+      return failure('verify', thrown);
+    }
+    let account: Awaited<ReturnType<SupabaseAdmin['getAccount']>>;
+    try {
+      account = await admin.getAccount(userId);
+    } catch (thrown) {
+      return failure('lookup', thrown);
+    }
+    // A valid token for a user that no longer exists is a repeated request: already deleted.
+    if (account !== null) {
+      // Revocation comes first: a delete that succeeds while revocation fails would leave
+      // Apple's requirement unmet with no way to get the token again.
+      if (account.appleSubject !== null) {
+        try {
+          if (parsed.data.appleAuthorizationCode === undefined) throw new AccountError('apple_code_invalid');
+          await revoker({
+            authorizationCode: parsed.data.appleAuthorizationCode,
+            expectedSubject: account.appleSubject,
+          });
+        } catch (thrown) {
+          return failure('apple', thrown);
+        }
+      }
+      try {
+        await admin.deleteUser(userId);
+      } catch (thrown) {
+        return failure('delete', thrown);
+      }
+    }
+    return Response.json(accountDeleteV1SuccessSchema.parse({ data: { status: 'deleted' } }), { headers });
+  };
+}
