@@ -886,6 +886,31 @@ describe.each(['en', 'tr'] as const)('%s wore this today', (language) => {
     expect(result.getByTestId('outfit-detail-wore-this')).toBeOnTheScreen();
     expect(result.getByRole('alert')).toHaveTextContent(copy.wornSaveError);
   });
+
+  // The `alert` role is silent on iOS, so a failed save is spoken once, as the other error
+  // lines are (`useErrorAnnouncement`); Android keeps the role's own announcement.
+  test('iOS hears a failed save once when it appears; Android hears nothing extra', async () => {
+    const copy = messages[language].today;
+    const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+    announce.mockClear();
+    const originalOS = Platform.OS;
+    try {
+      const result = await render(detail({ onWoreThis: jest.fn(), worn: 'none' }));
+      expect(announce).not.toHaveBeenCalled();
+      await result.rerender(detail({ onWoreThis: jest.fn(), worn: 'none', wornError: copy.wornSaveError }));
+      expect(announce).toHaveBeenCalledTimes(1);
+      expect(announce).toHaveBeenCalledWith(copy.wornSaveError);
+
+      announce.mockClear();
+      Object.defineProperty(Platform, 'OS', { configurable: true, value: 'android' });
+      await result.rerender(detail({ onWoreThis: jest.fn(), worn: 'none' }));
+      await result.rerender(detail({ onWoreThis: jest.fn(), worn: 'none', wornError: copy.wornSaveError }));
+      expect(announce).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(Platform, 'OS', { configurable: true, value: originalOS });
+      announce.mockRestore();
+    }
+  });
 });
 
 // N18, item 13 A: the detail's coverage line lives inside the weather recap it describes.

@@ -32,6 +32,7 @@ import {
   useGarmentRoles,
   useTextScaling,
 } from '@/components/ui';
+import { useErrorAnnouncement } from '@/components/ui/use-error-announcement';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
 import type { ColorFamily, GarmentTypeId } from '@/features/catalog/domain/garment-taxonomy';
 import type { RecommendedOutfit } from '@/features/recommendation/application/recommend-outfits';
@@ -100,7 +101,6 @@ type OutfitDetailScreenProps = Readonly<{
   suggestionId: string | undefined;
   /** The active Closet records; O7 matches each piece against them, on this screen only. */
   wardrobeItems: readonly WardrobeItem[];
-  ownershipError?: string | null;
   /** O6: a piece row opens the piece's Closet sheet. */
   onEditPiece: (target: PieceSheetTarget) => void;
   worn?: OutfitWornState;
@@ -224,7 +224,6 @@ export function OutfitDetailScreen({
   language,
   suggestionId,
   wardrobeItems,
-  ownershipError = null,
   onEditPiece,
   worn = 'unknown',
   wornBusy = false,
@@ -320,6 +319,8 @@ export function OutfitDetailScreen({
   useEffect(() => {
     onBoardFocusChange?.(boardFocused);
   }, [boardFocused, onBoardFocusChange]);
+  // VoiceOver ignores the alert role, so iOS hears a failed "Wore this" save spoken once.
+  useErrorAnnouncement(wornError);
   const unusual = changed && (manualMix?.unusual ?? false);
   const wasUnusual = useRef(unusual);
   // A board tile or swipe waits here until the change it asked for has rendered.
@@ -622,7 +623,7 @@ export function OutfitDetailScreen({
           </TourTarget>
         ) : null}
         {wornError ? (
-          <AppText accessibilityRole="alert" colorRole="dangerInk" style={styles.ownershipError} variant="caption">
+          <AppText accessibilityRole="alert" colorRole="dangerInk" style={styles.wornError} variant="caption">
             {wornError}
           </AppText>
         ) : null}
@@ -794,16 +795,6 @@ export function OutfitDetailScreen({
             })}
           </View>
         </View>
-
-        {ownershipError ? (
-          <AppText
-            accessibilityRole="alert"
-            colorRole="dangerInk"
-            style={styles.ownershipError}
-            variant="caption">
-            {ownershipError}
-          </AppText>
-        ) : null}
 
         {suggestion.accessories.length > 0 ? (
           <View style={styles.section} testID="outfit-detail-finishing-touches">
@@ -1046,7 +1037,7 @@ const styles = StyleSheet.create({
     height: SWATCH_DOT_SIZE,
     width: SWATCH_DOT_SIZE,
   },
-  ownershipError: {
+  wornError: {
     marginTop: spacing.sm,
   },
   section: {
