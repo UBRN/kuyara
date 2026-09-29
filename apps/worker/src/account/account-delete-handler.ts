@@ -7,6 +7,7 @@ import {
 } from '@kuyara/contracts';
 
 import type { AppleTokenRevoker } from './apple-token-revoker.ts';
+import { createErrorResponse, jsonHeaders } from '../json-response.ts';
 import { AccountError } from './account-error.ts';
 import { readTextWithLimit } from './bounded-fetch.ts';
 import type { SupabaseAdmin } from './supabase-admin.ts';
@@ -24,10 +25,6 @@ const maxRequestBodyBytes = 4096;
 
 type Stage = 'verify' | 'lookup' | 'apple' | 'delete';
 
-const headers = {
-  'Cache-Control': 'no-store',
-  'Content-Type': 'application/json; charset=utf-8',
-};
 const statuses: Readonly<Record<AccountDeleteV1ErrorCode, number>> = {
   invalid_request: 400,
   apple_code_invalid: 400,
@@ -39,10 +36,10 @@ const statuses: Readonly<Record<AccountDeleteV1ErrorCode, number>> = {
   unavailable: 503,
 };
 
-function error(code: AccountDeleteV1ErrorCode, extraHeaders = {}): Response {
-  return Response.json(accountDeleteV1ErrorSchema.parse({ error: { code } }), {
-    status: statuses[code], headers: { ...headers, ...extraHeaders },
-  });
+const errorResponse = createErrorResponse<AccountDeleteV1ErrorCode>(accountDeleteV1ErrorSchema);
+
+function error(code: AccountDeleteV1ErrorCode, extraHeaders?: Readonly<Record<string, string>>): Response {
+  return errorResponse(statuses[code], code, extraHeaders);
 }
 
 // Only a closed stage and code are logged: never the token, the code, the user id or a message.
@@ -124,6 +121,6 @@ export function createAccountDeleteHandler({ verifier, admin, revoker, rateLimit
         return failure('delete', thrown);
       }
     }
-    return Response.json(accountDeleteV1SuccessSchema.parse({ data: { status: 'deleted' } }), { headers });
+    return Response.json(accountDeleteV1SuccessSchema.parse({ data: { status: 'deleted' } }), { headers: jsonHeaders });
   };
 }
