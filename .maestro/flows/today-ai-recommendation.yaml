@@ -52,7 +52,7 @@ tags:
 - assertVisible:
     id: onboarding-step-7
 
-# Manual (searched) location, not the device location, per the milestone. See
+# Manual (searched) location, not the device location, by design. See
 # today-standard-suggestions.yaml for the reasoning behind "Reykjavik" and the Enter-before-
 # tapping-a-result workaround for the known place-results accessibility-tree gap in
 # apps/mobile/src/features/weather/presentation/location-selection-controls.tsx.

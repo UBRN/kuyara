@@ -54,7 +54,7 @@ tags:
 - assertVisible:
     id: onboarding-step-7
 
-# Manual (searched) location, not the device location, per the milestone. The search is a real
+# Manual (searched) location, not the device location, by design. The search is a real
 # call through the Worker's place-search route (Open-Meteo geocoding), so the exact result
 # set is a live external dependency; "Reykjavik" was chosen because it currently returns
 # exactly two rows ("Reykjavik, Capital Region, Iceland" and the airport), so a full-string

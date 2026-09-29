@@ -195,7 +195,7 @@ test('T0 the grid has the shape A2 measured, and its shortcut answers what recom
 
 test('T1 every shown outfit is valid, formality-consistent and shown once in its trio', () => {
   // A2's counter-evidence section: the validity gate held everywhere it looked, and this
-  // milestone reorders the offer without touching it. A failure here is a validity regression,
+  // change reorders the offer without touching it. A failure here is a validity regression,
   // not a diversity one.
   for (const { cell, outfit } of shownOutfits()) {
     for (const { requirement, status } of outfit.requirementEvaluations) {
@@ -231,7 +231,7 @@ test('T1 every shown outfit is valid, formality-consistent and shown once in its
 
 test('T2 the shown outfits are built from everyday garments often enough', () => {
   // Mean share of everyday garments per shown outfit. A2 measured 37% over the whole grid on
-  // 065cd22 and this milestone asked for 50%; the two ordering rules G1 owns carried it from 39.9%
+  // 065cd22 and the target was 50%; the two ordering rules G1 owns carried it from 39.9%
   // on main f5d28e2 to 43.9%, and G2's thermal ladder left it at 40.3%. The ladder's top rung
   // puts a mandatory fourth garment on every freezing outfit, and A2's everyday set holds one
   // high-thermal outer layer, the coat, which is formal: a casual or a wet freezing day has
@@ -246,7 +246,7 @@ test('T2 the shown outfits are built from everyday garments often enough', () =>
   // footwear is not excluded the same way: weather boots are waterproof and are in the set,
   // and the best wet arrangement the engine offers at 10 C reaches 75%. Today's 30.6% is
   // therefore score order, not a hard ceiling, which is why the wet floors only lock the
-  // present value while the dry cells are held to the milestone's own 50%.
+  // present value while the dry cells are held to the target's own 50%.
   const shareOf = (measured) => measured.reduce((total, { outfit }) => {
     const typeIds = garmentTypeIds(outfit);
     return total + typeIds.filter((typeId) => basicWardrobe.has(typeId)).length /

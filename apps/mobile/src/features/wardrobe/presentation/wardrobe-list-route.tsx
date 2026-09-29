@@ -142,7 +142,7 @@ export function WardrobeListRoute({
       onEdit={(id) => push(`/wardrobe/${id}`)}
       onRetry={handleRetry}
       // O10's Undo removes the piece just saved, as Delete would; it emits no analytics
-      // event of its own (no event change in this milestone).
+      // event of its own (no event change here).
       onUndoSaved={async (id) => {
         await softDeleteItem(id);
       }}

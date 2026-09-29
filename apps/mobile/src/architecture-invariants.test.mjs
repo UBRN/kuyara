@@ -829,6 +829,8 @@ const processTracePattern = new RegExp([
   ['cl', 'aude'], ['co', 'dex'], ['anth', 'ropic'], ['sub', 'agent'], ['hand', 'over'],
   ['\\bla', 'ne\\b'], ['\\(C', 'C[0-9]+\\)'], ['to', 'ur A[0-9]'], ['simulator ', 'tour'],
 ].map((parts) => parts.join('')).join('|'), 'i');
+// The planning unit of the work process is a capitalized word; the ordinary lowercase word stays.
+const processTermPattern = new RegExp(['\\bGo', 'als?\\b'].join(''));
 const processTraceAllowlist = new Set([
   'apps/mobile/src/features/recommendation/domain/insight-sentence.ts',
   'apps/mobile/src/features/recommendation/domain/insight-sentence.test.mjs',
@@ -849,7 +851,7 @@ test('tracked text files name no coding tool and no work-process term', () => {
     }
     if (buffer.includes(0)) continue; // binary
     buffer.toString('utf8').split('\n').forEach((line, index) => {
-      if (processTracePattern.test(line)) hits.push(`${relative}:${index + 1}`);
+      if (processTracePattern.test(line) || processTermPattern.test(line)) hits.push(`${relative}:${index + 1}`);
     });
   }
   assert.deepEqual(hits, [], `remove the tool or process wording at: ${hits.join(', ')}`);
