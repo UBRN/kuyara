@@ -1,47 +1,16 @@
 # kuyara mobile
 
-The mobile workspace uses the repository [stack and workspace layout](../../README.md#stack).
+The Expo and React Native app. The workspace layout is in the root
+[README Stack section](../../README.md#stack), and the commands are in
+[docs/testing.md](../../docs/testing.md).
 
-The checked-in app opens through a device-local onboarding gate backed by Expo
-SQLite. It persists profile preferences, Wardrobe data, weather and recommendation
-snapshots, and the notification opt-in state. Weather comes from the Worker's
-provider chain, WeatherKit followed by Open-Meteo and OpenWeather; Today uses the
-Worker AI route when available and the device-local deterministic generator
-otherwise. Local weather alerts are scheduled on the device from the persisted
-forecast; there is no server-sent push.
-
-`index.js` is the physical mobile entry that delegates to Expo Router. Keeping the entry inside the workspace package avoids resolving the app entry itself through a pnpm symlink when Metro uses the monorepo server root.
-
-From the repository root:
-
-```bash
-pnpm install --frozen-lockfile
-pnpm --filter @kuyara/mobile start
-```
-
-For local weather and AI development, start the Worker in another terminal:
-
-```bash
-pnpm --filter @kuyara/worker dev --port 8788
-```
-
-Worker origins are intentionally distinct:
-
-| Development target | Worker origin | Configuration |
-| --- | --- | --- |
-| iOS Simulator | `http://127.0.0.1:8788` | Built-in development default |
-| Android emulator | `http://10.0.2.2:8788` | Built-in development default |
-| Production builds | HTTPS deployed Worker | Set in `eas.json` |
-
-The production EAS profile provides the deployed HTTPS origin. Development
-keeps the platform-specific local defaults unless
-`EXPO_PUBLIC_KUYARA_WORKER_BASE_URL` overrides them; a physical device can use a
-reachable LAN origin through the same variable (see [Development build on the
-physical iPhone](../../docs/testing.md#development-build-on-the-physical-iphone)).
-The deployed Worker is
-unauthenticated but rate limited, so do not treat its public origin as a secret or
-put credentials in the mobile environment.
-
-Test and verification commands are documented in [`docs/testing.md`](../../docs/testing.md).
-
-Rebuild the generated native app after changing native plugins, permissions, or configuration instead of relying on an older Expo Go or development binary. Account/sync behavior and Android visual refinement are separate future work.
+- `index.js` is the entry and hands off to Expo Router. Keeping it inside the package
+  stops Metro, which runs from the monorepo root, from resolving the entry through a
+  pnpm symlink.
+- Rebuild the native app after changing a config plugin, a permission or other native
+  configuration; an older development build does not pick those changes up.
+- Development builds reach a local Worker at `http://127.0.0.1:8788` on the iOS
+  Simulator and `http://10.0.2.2:8788` on the Android emulator, unless
+  `EXPO_PUBLIC_KUYARA_WORKER_BASE_URL` overrides it. Production builds get the deployed
+  Worker origin from `eas.json`. That origin is public and rate limited, not a secret,
+  so never put credentials in the mobile environment.
