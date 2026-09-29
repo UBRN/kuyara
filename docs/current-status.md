@@ -149,9 +149,14 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   Android-compatible; Android validation is deferred.
 
 The shipped app has neither sign-in nor cross-device sync nor server-sent push. Supabase is the intended backend ([ADR 0022](adr/0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md))
-with nothing implemented. Phase 9, optional accounts, is accepted in
-[ADR 0041](adr/0041-optional-accounts.md) and not implemented: no Supabase project, Apple
-key or Google client exists yet, and the maintainer creates them. The project is
+with no client, table or project yet. Phase 9, optional accounts, is accepted in
+[ADR 0041](adr/0041-optional-accounts.md) and partly built: the account rules (first
+upload, merge, ongoing sync, account link) and the remote record mappers exist as tested
+domain and data code in `apps/mobile/src/features/account/` with no caller, and the Worker
+carries the account deletion route (`/v1/account/delete`), which answers 503 until its
+settings exist. No Supabase project, Apple key or Google client exists yet, and the
+maintainer creates them; the SDKs, the device migration, the sync consent and every account
+screen are not built. The project is
 source-available under PolyForm Noncommercial
 ([ADR 0024](adr/0024-relicensing-to-polyform-noncommercial.md)).
 
