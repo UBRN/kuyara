@@ -105,31 +105,15 @@ For a local iOS Simulator smoke test, start Metro and stop it with Ctrl+C after 
 pnpm --filter @kuyara/mobile exec expo start --ios --port 8081
 ```
 
-### Simulator control and debugging
+### Simulator debugging
 
-Simulator control uses the Simulator driver and Maestro.
-Select an iOS Simulator UDID explicitly; skip `kind: device`. Reuse the existing debug
-build and Metro when their configuration matches the test, and preserve Simulator data.
+Select an iOS Simulator UDID explicitly. Reuse the existing debug build and Metro when their
+configuration matches the test, and preserve Simulator data. A tap acknowledged by an input
+tool is not proof of navigation: verify the destination screen after each action.
 
-- Read screens with the Simulator driver's `describe` and `screenshot`; inspect React with
-  `debugger-component-tree`. Use returned targets and verify the destination after an action.
-  `tapped: true` is only an input acknowledgement, not proof of navigation.
-- Use `run-sequence` and `await-ui-element` for known transitions instead of repeated
-  screenshots or fixed sleeps. If input is acknowledged but the screen does not change,
-  inspect the target and try one independent input path instead of repeating the gesture.
-- With Xcode 27, the visible Simulator window belongs to **Device Hub**
-  (`com.apple.dt.Devices`). Desktop automation can select that app, read its accessibility
-  tree, click controls, scroll and type. This is the working fallback when the Simulator driver or Maestro
-  touch injection does not change the screen. Its coordinates are window coordinates,
-  not the Simulator driver's normalized device coordinates. Discover the window and targets afresh.
-- Attach `debugger-connect` to the Simulator UDID and the actual Metro port. Use
-  `debugger-evaluate` for bounded runtime checks and `debugger-log-registry` for the console
-  file, then search only the relevant log lines. Capture starts at connection; it does not
-  reconstruct earlier JavaScript logs. Keep build and Metro terminal output separately.
-- For native hierarchy and network diagnostics, inspect `native-devtools-status` first;
-  restart the app once when it reports `stale_process`. Native system logs are separate:
-  `xcrun simctl spawn <UDID> log show --last 5m --style compact --predicate 'process == "kuyara"'`.
-  Use `log stream` for a live capture. Native logs may redact private fields.
+Native system logs are separate from JavaScript logs:
+`xcrun simctl spawn <UDID> log show --last 5m --style compact --predicate 'process == "kuyara"'`.
+Use `log stream` for a live capture. Native logs may redact private fields.
 
 For local debugging with Apple Intelligence enabled and no cloud AI inference, use the
 existing `e2e` Worker from [AI tiers in E2E](#ai-tiers-in-e2e) on port 8788 and start Metro:

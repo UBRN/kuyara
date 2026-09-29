@@ -588,7 +588,7 @@ test('native config localizes camera and photo access and blocks the microphone'
   assert.ok(turkish.ios.NSPhotoLibraryUsageDescription);
   assert.match(english.ios.NSCameraUsageDescription, /take a Closet photo/);
   assert.match(turkish.ios.NSCameraUsageDescription, /Gardırop fotoğrafı çekebilmen/);
-  // K1 and the contributor rules: user-facing copy makes no storage-location promise.
+  // K1: user-facing copy makes no storage-location promise.
   for (const text of [english.ios.NSCameraUsageDescription, turkish.ios.NSCameraUsageDescription]) {
     assert.doesNotMatch(text, /device|stays|only|cihaz|kalır|yalnız/i);
   }
