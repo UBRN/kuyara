@@ -108,14 +108,21 @@ export function swapWindow(
 }
 
 /**
- * One step on one side: the piece that comes in from that side waits exactly behind the
- * window's edge, whatever its own grown width, so a wider neighbour never shows when a drag
- * makes it opaque; a step is never under two touch targets. With no neighbour on that side
- * the enlarged piece's own grown box stands in, which is its width plus the window's pad.
+ * One step on one side: the piece that comes in from that side waits behind the window's
+ * edge, whatever its own grown width, so a wider neighbour never shows when a drag makes it
+ * opaque; a step is never under two touch targets. With no neighbour on that side the
+ * enlarged piece's own grown box stands in, which is its width plus the window's pad. The
+ * ink edge is drawn half outside the box and anti-aliased, so the whole `outline` weight
+ * stands between the box and the edge: a box exactly on the edge shows a line of it there.
  */
-export function swapStride(window: Readonly<{ x: number; w: number }>, incoming: SwapBox, direction: 1 | -1): number {
+export function swapStride(
+  window: Readonly<{ x: number; w: number }>,
+  incoming: SwapBox,
+  direction: 1 | -1,
+  outline: number,
+): number {
   const behind = direction === 1 ? window.x + window.w - incoming.x : incoming.x + incoming.w - window.x;
-  return Math.max(2 * layout.minimumTouchTarget, behind);
+  return Math.max(2 * layout.minimumTouchTarget, behind + outline);
 }
 
 /** How far a resisted drag shows: 120 pt past an end shows as 37.7 pt at an 88 pt stride. */

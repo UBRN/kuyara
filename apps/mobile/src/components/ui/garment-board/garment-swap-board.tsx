@@ -37,6 +37,7 @@ import {
   type GarmentOutfitPalette,
   type GarmentRoles,
 } from './garment-palette';
+import { GARMENT_OUTLINE } from './garment-painting';
 import { GarmentSwapStrip, type GarmentSwapStripLabels } from './garment-swap-strip';
 import {
   SWAP_EDGE_GUARD,
@@ -290,6 +291,7 @@ function pagerFor(
   grow: Grow,
   width: number,
   neighbours: Readonly<Record<1 | -1, Box | null>>,
+  outline: number,
 ): Pager | null {
   const own = composed.bySlot.get(slot);
   if (!own) return null;
@@ -297,7 +299,7 @@ function pagerFor(
   const steppedBack = composed.order.filter((other) => other !== slot)
     .map((other) => swapScaledBox(composed.bySlot.get(other)!.box, SWAP_STEP_BACK));
   const window = swapWindow(grown, steppedBack, width, grow.held);
-  // Each side's step keeps that side's neighbour, grown, wholly behind the window's edge.
+  // Each side's step keeps that side's neighbour, grown and outlined, wholly behind the window's edge.
   const incoming = (direction: 1 | -1) => {
     const box = neighbours[direction];
     return box ? swapGrownBox(box, grow.scale, width, grow.held) : grown;
@@ -305,8 +307,8 @@ function pagerFor(
   return {
     grown,
     window,
-    strideNext: swapStride(window, incoming(1), 1),
-    stridePrevious: swapStride(window, incoming(-1), -1),
+    strideNext: swapStride(window, incoming(1), 1, outline),
+    stridePrevious: swapStride(window, incoming(-1), -1, outline),
     zone: swapDragZone(grown, grow.held),
   };
 }
@@ -619,6 +621,7 @@ export function GarmentSwapBoard({
   const { colors } = theme;
   const large = useEasierToSee();
   const outline = large ? easierToSeeValues.boardOutline : undefined;
+  const drawnOutline = outline ?? GARMENT_OUTLINE;
   const spatial = theme.springs.spatial;
   const { fast, normal } = theme.motion;
   const boardTestID = testID ?? 'garment-swap-board';
@@ -654,7 +657,7 @@ export function GarmentSwapBoard({
   const pager = focusedSlot && composed && activeGrow
     ? pagerFor(composed, focusedSlot, activeGrow, width,
       neighbourBoxes(pieces, composed, focusedSlot,
-        composed.bySlot.get(focusedSlot)?.piece.garmentTypeId, candidates, width, large))
+        composed.bySlot.get(focusedSlot)?.piece.garmentTypeId, candidates, width, large), drawnOutline)
     : null;
 
   // The strip follows the enlargement: it arrives with it, swaps when it moves, and stays
@@ -1202,7 +1205,9 @@ export function GarmentSwapBoard({
     })
     .onUpdate((event) => {
       if (!curDx || !pager || !currentTile) return;
-      const raw = dragBase.get() + event.translationX - Math.sign(event.translationX) * SWAP_TOUCH_SLOP;
+      // The handler counts the translation from where the drag activated, already past the
+      // slop, so the piece follows the finger from that point on.
+      const raw = dragBase.get() + event.translationX;
       const direction = raw < 0 ? 1 : raw > 0 ? -1 : 0;
       const stride = direction === -1 ? pager.stridePrevious : pager.strideNext;
       const shown = swapDragOffset(raw, stride, prevDx !== undefined, nextDx !== undefined);

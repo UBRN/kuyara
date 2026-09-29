@@ -214,31 +214,34 @@ test('the paging window never covers a stepped-back piece and reaches at most a 
   assert.equal(edge.padLeft, 10);
 });
 
-test('a step is the grown width plus the window pad on its side, never under two touch targets', () => {
+test('a step is the grown width plus the window pad and the outline on its side, never under two touch targets', () => {
   const grown = { x: 120, y: 20, w: 100, h: 140 };
   const window = swapWindow(grown, [], 358, 300);
-  assert.equal(swapStride(window, grown, 1), 144);
-  assert.equal(swapStride(window, grown, -1), 144);
+  assert.equal(swapStride(window, grown, 1, 1.9), 145.9);
+  assert.equal(swapStride(window, grown, -1, 1.9), 145.9);
   const edge = swapWindow({ x: 10, y: 0, w: 100, h: 100 }, [], 358, 300);
-  assert.equal(swapStride(edge, { x: 10, y: 0, w: 100, h: 100 }, -1), 110);
+  assert.equal(swapStride(edge, { x: 10, y: 0, w: 100, h: 100 }, -1, 1.9), 111.9);
   const small = { x: 150, y: 20, w: 20, h: 20 };
-  assert.equal(swapStride({ x: 150, w: 20 }, small, 1), 88);
+  assert.equal(swapStride({ x: 150, w: 20 }, small, 1, 1.9), 88);
 });
 
-test('a wider neighbour waits wholly behind the window edge, so a drag never shows it early', () => {
-  // A narrow enlarged piece (a sleeveless top) and a wide neighbour (a sweatshirt), both
-  // centred where the slot's piece stands: grown about that centre, the wider one reaches
-  // past the narrow one's window unless its own width sets the step.
-  const narrow = { x: 139, y: 20, w: 80, h: 120 };
-  const window = swapWindow(narrow, [], 358, 300);
-  for (const width of [80, 120, 160, 200]) {
-    const wide = { x: 179 - width / 2, y: 20, w: width, h: 120 };
-    const next = swapStride(window, wide, 1);
-    const previous = swapStride(window, wide, -1);
-    assert.ok(wide.x + next >= window.x + window.w - 1e-9, `next ${width}`);
-    assert.ok(wide.x + wide.w - previous <= window.x + 1e-9, `previous ${width}`);
-    // The shipped step, the enlarged width plus the pad, let the wider one peek.
-    if (width > narrow.w) assert.ok(wide.x + narrow.w + window.padRight < window.x + window.w);
+test('a neighbour of any width waits wholly behind the window edge, its outline included, on both sides', () => {
+  // Simulator walkthrough: an ink edge is drawn half outside its box and anti-aliased, so a box
+  // standing exactly on the window's edge still shows a line of it there. Every pair of an
+  // enlarged width and a neighbour width, on both sides and at both outline weights, keeps
+  // the whole outline weight between the neighbour's box and the edge.
+  for (const outline of [1.9, 2.8]) {
+    for (const enlarged of [40, 80, 120, 160]) {
+      const piece = { x: 179 - enlarged / 2, y: 20, w: enlarged, h: 120 };
+      const window = swapWindow(piece, [], 358, 300);
+      for (const width of [40, 80, 120, 160, 200, 240]) {
+        const neighbour = { x: 179 - width / 2, y: 20, w: width, h: 120 };
+        const next = swapStride(window, neighbour, 1, outline);
+        const previous = swapStride(window, neighbour, -1, outline);
+        assert.ok(neighbour.x + next >= window.x + window.w + outline - 1e-9, `next ${enlarged} ${width}`);
+        assert.ok(neighbour.x + neighbour.w - previous <= window.x - outline + 1e-9, `previous ${enlarged} ${width}`);
+      }
+    }
   }
 });
 
