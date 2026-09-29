@@ -4,6 +4,7 @@ import { Platform, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui/app-text';
 import { useTextScaling } from '@/components/ui/use-text-scaling';
+import { formatCalendarDate, parseCalendarDate } from '@/domain/calendar-date';
 import type { SupportedLanguage } from '@/localization/messages';
 import { localeTag } from '@/presentation/format-temperature';
 import { spacing } from '@/theme/theme';
@@ -47,20 +48,6 @@ export type NativeDatePickerProps = Readonly<{
 
 const STANDALONE_ROW_HEIGHT = 48;
 
-function calendarDate(value: string | null, fallback: Date): Date {
-  if (!value) return fallback;
-  const [year, month, day] = value.split('-').map(Number);
-  return new Date(year, month - 1, day, 12);
-}
-
-function isoCalendarDate(value: Date): string {
-  return [
-    value.getFullYear(),
-    String(value.getMonth() + 1).padStart(2, '0'),
-    String(value.getDate()).padStart(2, '0'),
-  ].join('-');
-}
-
 export function NativeDatePicker({
   accessibilityLabel,
   language,
@@ -73,7 +60,7 @@ export function NativeDatePicker({
 }: NativeDatePickerProps) {
   const theme = useKuyaraTheme();
   const { fontScale, usesStackedLayout } = useTextScaling();
-  const selection = calendarDate(value, maximumDate);
+  const selection = value ? parseCalendarDate(value) : maximumDate;
   const colorScheme = theme.isDark ? 'dark' : 'light';
   const standaloneRowHeight = STANDALONE_ROW_HEIGHT * Math.min(fontScale, 2);
 
@@ -94,7 +81,7 @@ export function NativeDatePicker({
       <NativeSwiftDatePicker
         displayedComponents={['date']}
         modifiers={modifiers}
-        onDateChange={(date) => onChange(isoCalendarDate(date))}
+        onDateChange={(date) => onChange(formatCalendarDate(date))}
         range={{ start: minimumDate, end: maximumDate }}
         selection={selection}
         testID={testID}
@@ -129,7 +116,7 @@ export function NativeDatePicker({
         <NativeAndroidDatePicker
           displayedComponents="date"
           initialDate={selection.toISOString()}
-          onDateSelected={(date) => onChange(isoCalendarDate(date))}
+          onDateSelected={(date) => onChange(formatCalendarDate(date))}
           selectableDates={{ start: minimumDate, end: maximumDate }}
         />
       </View>

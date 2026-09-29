@@ -1,3 +1,5 @@
+import { formatCalendarDateParts } from '@/domain/calendar-date';
+
 /**
  * The dressing day: the key for daily preferences and weather alerts.
  *
@@ -108,20 +110,15 @@ function shiftLocalDate(date: LocalDate, days: number): LocalDate {
   };
 }
 
-function localDateKey({ year, month, day }: LocalDate): string {
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return `${year}-${pad(month)}-${pad(day)}`;
-}
-
 /**
  * The dressing-day key for a wall-clock reading, for callers that already hold one and have
  * no instant to convert. The device clock's own day is such a caller: the recommendation
  * signals are keyed to the day the person is living on their own phone.
  */
 export function wardrobeDayKey(local: LocalTime): string {
-  if (local.hour >= eveningStartHour) return `${localDateKey(local)}${eveningKeySuffix}`;
-  if (local.hour < dayStartHour) return `${localDateKey(shiftLocalDate(local, -1))}${eveningKeySuffix}`;
-  return localDateKey(local);
+  if (local.hour >= eveningStartHour) return `${formatCalendarDateParts(local)}${eveningKeySuffix}`;
+  if (local.hour < dayStartHour) return `${formatCalendarDateParts(shiftLocalDate(local, -1))}${eveningKeySuffix}`;
+  return formatCalendarDateParts(local);
 }
 
 /** The dressing-day window used by daily preferences and weather alerts. */
