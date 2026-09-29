@@ -185,3 +185,37 @@ test('failures log a closed stage and code, never a token, code, id or message',
     { event: 'account_delete_failed', stage: 'delete', code: 'unavailable' },
   ]);
 });
+
+test('an oversized body is refused as invalid_request, read only up to the limit, and never reaches the token check', async () => {
+  // A stream that would deliver 1 MiB in 1 KiB chunks: the handler must stop far short of it.
+  let pulled = 0;
+  const chunk = new TextEncoder().encode(`${' '.repeat(1023)}\n`);
+  const body = new ReadableStream({
+    pull(controller) {
+      pulled += 1;
+      if (pulled > 1024) controller.close(); else controller.enqueue(chunk);
+    },
+  });
+  const { events, handle } = setup();
+  const oversized = new Request('https://worker.test/v1/account/delete', {
+    method: 'POST', body, duplex: 'half',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}`, 'cf-connecting-ip': '192.0.2.1' },
+  });
+  await expectError(await handle(oversized), 400, 'invalid_request');
+  assert.ok(pulled <= 8, `read ${pulled} chunks of a 1024-chunk body`);
+  assert.deepEqual(names(events), ['limit']);
+});
+
+test('a declared Content-Length over the limit is refused before the body is read', async () => {
+  const { events, handle } = setup();
+  const declared = request({ headers: { 'content-length': '5000' } });
+  await expectError(await handle(declared), 400, 'invalid_request');
+  assert.deepEqual(names(events), ['limit']);
+});
+
+test('a body at the limit is still parsed', async () => {
+  const { handle } = setup();
+  const padded = JSON.stringify({ appleAuthorizationCode: 'a'.repeat(1024) });
+  assert.ok(padded.length < 4096);
+  assert.equal((await handle(request({ raw: padded }))).status, 200);
+});
