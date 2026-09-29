@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { base64UrlDecode } from '../es256-jwt.ts';
 import { AccountError } from './account-error.ts';
 import { boundedFetch, defaultFetch, type FetchLike } from './bounded-fetch.ts';
+import { userIdPattern } from './user-id.ts';
 
 export type VerifiedSupabaseUser = Readonly<{ userId: string }>;
 export type SupabaseTokenVerifier = (accessToken: string) => Promise<VerifiedSupabaseUser>;
@@ -19,13 +20,12 @@ type Dependencies = Readonly<{
 }>;
 
 const maxTokenLength = 8192;
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
 
 const headerSchema = z.object({ alg: z.literal('ES256'), kid: z.string().min(1).max(256) });
 const claimsSchema = z.object({
   iss: z.string(),
   aud: z.union([z.string(), z.array(z.string())]),
-  sub: z.string().regex(uuid),
+  sub: z.string().regex(userIdPattern),
   exp: z.number(),
   nbf: z.number().optional(),
 });
