@@ -17,6 +17,7 @@
 // its allowlist of pre-existing violations only shrinks: a stale entry fails the test.
 
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
@@ -721,7 +722,7 @@ test('an error swallowed as `undefined` appears only where the allowlist names i
 
 // Untrusted values are parsed before they are typed: the Closet category reaches the domain
 // type through `isWardrobeItemCategory`, never a cast. The weather-condition and on-device AI
-// casts of that kind stay outside this check until their own milestones land.
+// casts of the same kind stay outside this check until their own goals land.
 test('the wardrobe category is narrowed by its guard, never cast', () => {
   const casts = [];
   for (const relativePath of sourceFiles()) {
@@ -735,6 +736,7 @@ test('the wardrobe category is narrowed by its guard, never cast', () => {
 
 // Presentation and routes render a failure; they never sort it. The caught error reaches a
 // `classify…` function in the domain or application layer and the screen reads the answer
+//.
 test('presentation and route code never sorts an error by its class', () => {
   const hits = [];
   for (const relativePath of sourceFiles()) {
@@ -818,4 +820,37 @@ test('every message key has a production reader or a counted computed read', () 
 
   assert.deepEqual(Object.fromEntries(Object.entries(unread).map(([parent, keys]) => [parent, keys.length])),
     computedlyReadMessageKeys, `unread message keys: ${JSON.stringify(unread)}`);
+});
+
+// Tracked files carry no trace of coding-tool names or of the work process that produced them.
+// The pattern is assembled from parts so this file does not match itself. The insight-sentence
+// files are the one allowed place: they keep a model name as a banned word in the app's AI output.
+const processTracePattern = new RegExp([
+  ['cl', 'aude'], ['co', 'dex'], ['anth', 'ropic'], ['sub', 'agent'], ['hand', 'over'],
+  ['\\bla', 'ne\\b'], ['\\(C', 'C[0-9]+\\)'], ['to', 'ur A[0-9]'], ['simulator ', 'tour'],
+].map((parts) => parts.join('')).join('|'), 'i');
+const processTraceAllowlist = new Set([
+  'apps/mobile/src/features/recommendation/domain/insight-sentence.ts',
+  'apps/mobile/src/features/recommendation/domain/insight-sentence.test.mjs',
+]);
+
+test('tracked text files name no coding tool and no work-process term', () => {
+  const repoRoot = path.join(sourceRoot, '..', '..', '..');
+  const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: repoRoot, maxBuffer: 64 * 1024 * 1024 })
+    .toString('utf8').split('\0').filter(Boolean);
+  const hits = [];
+  for (const relative of tracked) {
+    if (processTraceAllowlist.has(relative)) continue;
+    let buffer;
+    try {
+      buffer = readFileSync(path.join(repoRoot, relative));
+    } catch {
+      continue; // a tracked path deleted in the working tree has nothing to read
+    }
+    if (buffer.includes(0)) continue; // binary
+    buffer.toString('utf8').split('\n').forEach((line, index) => {
+      if (processTracePattern.test(line)) hits.push(`${relative}:${index + 1}`);
+    });
+  }
+  assert.deepEqual(hits, [], `remove the tool or process wording at: ${hits.join(', ')}`);
 });

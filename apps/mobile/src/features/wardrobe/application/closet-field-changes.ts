@@ -1,7 +1,7 @@
 // `docs/analytics-taxonomy.md` section 5.8: `closet_item_updated`'s `fields_changed`
 // reports which categories changed between the loaded item and the submitted form
 // payload, never a value. The category list mirrors `ClosetFieldChanged`
-// (`features/analytics/domain/analytics-events.ts`, the closed catalog this change does not
+// (`features/analytics/domain/analytics-events.ts`, the closed catalog this file does not
 // own) and the seven override fields of `wardrobeOverrideDefinitions` (`wardrobe-form.ts`).
 import type { ClosetFieldChanged } from '@/features/analytics/domain/analytics-events';
 import type {

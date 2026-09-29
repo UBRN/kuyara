@@ -1,7 +1,7 @@
 # kuyara testing conventions
 
-The iOS Simulator is the default for mobile verification. The Simulator tooling runs the relevant screens
-and captures screenshots and debug logs itself. Use a physical iPhone only for a specific
+The iOS Simulator is the default for mobile verification. Run the relevant screens and
+capture screenshots and debug logs in it. Use a physical iPhone only for a specific
 question the Simulator cannot answer, such as actual `BGTaskScheduler` execution or
 on-device Apple Intelligence performance. State the unverified behavior when the device is
 unavailable; it does not block routine Simulator checks. Simulator AI latency is not a
@@ -107,7 +107,7 @@ pnpm --filter @kuyara/mobile exec expo start --ios --port 8081
 
 ### Simulator control and debugging
 
-The Simulator driver and Maestro are available.
+Simulator control uses the Simulator driver and Maestro.
 Select an iOS Simulator UDID explicitly; skip `kind: device`. Reuse the existing debug
 build and Metro when their configuration matches the test, and preserve Simulator data.
 
