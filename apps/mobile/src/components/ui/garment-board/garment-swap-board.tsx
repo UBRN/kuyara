@@ -54,6 +54,7 @@ import {
   swapHeldStage,
   swapMarkerPosition,
   swapScaledBox,
+  swapStageFit,
   swapStride,
   swapStripLayout,
   swapWindow,
@@ -103,8 +104,10 @@ type Instance = Readonly<{
   /** A neighbour's offset behind the window's edge, where it waits for a drag. */
   waits: number | null;
 }>;
-/** One enlargement: the slot's grow scale and the stage held under it. */
-type Grow = Readonly<{ slot: OutfitSlot; scale: number; held: number; width: number; large: boolean }>;
+/** One enlargement: the slot's grow scale and the stage held under it, at the board's `fit`. */
+type Grow = Readonly<{ slot: OutfitSlot; scale: number; held: number; width: number; large: boolean; fit: number }>;
+/** A grow with the strip height and the visible height it was fitted to. */
+type Enlargement = Grow & Readonly<{ panel: number; visible: number }>;
 type Pager = Readonly<{
   grown: Box;
   window: Box;
@@ -189,6 +192,11 @@ export type GarmentSwapBoardProps = Readonly<{
   onRestChange?: (atRest: boolean) => void;
   /** An enlargement asks its owner to bring the strip into view, in board points. */
   onReveal?: (area: Readonly<{ pieceTop: number; panelBottom: number }>) => void;
+  /**
+   * The page's height between its bars. An enlarged board whose stage and strip are taller
+   * composes narrower until they fit (ADR 0026 section 6). Left out, the board keeps its width.
+   */
+  visibleHeight?: number;
   testID?: string;
 }>;
 
@@ -214,14 +222,17 @@ const atLeast = (box: Box, minimum: number): Box => {
 const inside = (box: Box, x: number, y: number) =>
   x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h;
 
-function composeInPoints(pieces: readonly GarmentBoardPiece[], width: number, large: boolean) {
+/** The composition in points; `fit` composes it that much narrower, centred in `width`. */
+function composeInPoints(pieces: readonly GarmentBoardPiece[], width: number, large: boolean, fit = 1) {
   const result = composePieces(pieces, 'detail', large);
+  const size = width * fit;
+  const left = (width - size) / 2;
   const bySlot = new Map<OutfitSlot, Readonly<{ piece: ComposedPiece; box: Box }>>();
   for (const piece of result.order) {
     const box = result.boxes.get(piece)!;
-    bySlot.set(piece.slot, { piece, box: { x: box.x * width, y: box.y * width, w: box.w * width, h: box.h * width } });
+    bySlot.set(piece.slot, { piece, box: { x: left + box.x * size, y: box.y * size, w: box.w * size, h: box.h * size } });
   }
-  return { bySlot, order: result.order.map(({ slot }) => slot), height: result.stageHeight * width };
+  return { bySlot, order: result.order.map(({ slot }) => slot), height: result.stageHeight * size };
 }
 type Composed = ReturnType<typeof composeInPoints>;
 
@@ -242,9 +253,10 @@ function growFor(
   width: number,
   large: boolean,
   current: Composed,
+  fit: number,
 ): Grow {
   const layouts = order.map((candidate) => {
-    const composed = composeInPoints(withGarment(pieces, slot, candidate), width, large);
+    const composed = composeInPoints(withGarment(pieces, slot, candidate), width, large, fit);
     return {
       box: composed.bySlot.get(slot)!.box,
       others: composed.order.filter((other) => other !== slot).map((other) => composed.bySlot.get(other)!.box),
@@ -260,7 +272,7 @@ function growFor(
   };
   const all = [own, ...layouts];
   return {
-    slot, width, large,
+    slot, width, large, fit,
     scale: swapGrowScale(all),
     held: swapHeldStage(all.map(({ stageHeight }) => stageHeight)),
   };
@@ -275,12 +287,13 @@ function neighbourBoxes(
   candidates: Candidates,
   width: number,
   large: boolean,
+  fit: number,
 ): Readonly<Record<1 | -1, Box | null>> {
   const current = composed.bySlot.get(slot)?.box;
   const boxOf = (direction: 1 | -1) => {
     const neighbour = current && garmentTypeId ? neighbourIn(candidates, slot, garmentTypeId, direction) : null;
     if (!current || !neighbour) return null;
-    return swapEntryBox(current, composeInPoints(withGarment(pieces, slot, neighbour), width, large).bySlot.get(slot)!.box);
+    return swapEntryBox(current, composeInPoints(withGarment(pieces, slot, neighbour), width, large, fit).bySlot.get(slot)!.box);
   };
   return { [1]: boxOf(1), [-1]: boxOf(-1) };
 }
@@ -458,7 +471,8 @@ function reconcile(model: Model, inputs: ReconcileInputs): Model {
     for (const direction of [-1, 1] as const) {
       const neighbour = neighbourIn(candidates, focusedSlot, current, direction);
       if (!neighbour) continue;
-      const preview = composeInPoints(withGarment(pieces, focusedSlot, neighbour), width, large).bySlot.get(focusedSlot)!;
+      const preview = composeInPoints(withGarment(pieces, focusedSlot, neighbour), width, large, grow.fit)
+        .bySlot.get(focusedSlot)!;
       const box = swapEntryBox(currentBox, preview.box);
       const offset = direction === 1 ? pager.strideNext : -pager.stridePrevious;
       const previewRoles = rolesFor(paletteWithGarment(palette, focusedSlot, neighbour.garmentTypeId)).get(focusedSlot)!;
@@ -628,6 +642,7 @@ export function GarmentSwapBoard({
   settle,
   onRestChange,
   onReveal,
+  visibleHeight = 0,
   testID,
 }: GarmentSwapBoardProps) {
   const theme = useKuyaraTheme();
@@ -642,7 +657,7 @@ export function GarmentSwapBoard({
   const pieces = useStableValue(piecesProp);
   const candidates = useStableValue(candidatesProp);
   const captionRects = useStableValue(captionRectsProp);
-  const composed = useMemo(() => (width > 0 ? composeInPoints(pieces, width, large) : null), [large, pieces, width]);
+  const rest = useMemo(() => (width > 0 ? composeInPoints(pieces, width, large) : null), [large, pieces, width]);
   const rolesFor = useMemo(() => (input: GarmentOutfitPalette) => garmentRolesBySlot({
     ...input,
     appearance: theme.colorScheme,
@@ -652,25 +667,48 @@ export function GarmentSwapBoard({
   }), [colors.background, colors.textPrimary, theme.colorScheme]);
   const roles = useMemo(() => rolesFor(palette), [palette, rolesFor]);
 
+  // The strip's header before it has measured itself: Done's height.
+  const headerMinimum = large ? easierToSeeValues.primaryActionHeight : layout.minimumTouchTarget;
+  const [headerHeight, setHeaderHeight] = useState<number>(headerMinimum);
+  // The strip: its candidates, tiles and the marker's tile.
+  const stripCandidates = (slot: OutfitSlot) => candidates[slot] ?? [];
+  const stripOf = (slot: OutfitSlot) => {
+    const order = stripCandidates(slot);
+    return swapStripLayout(order.length, order.filter(({ suitable }) => suitable).length, width);
+  };
+  const panelHeightOf = (slot: OutfitSlot) => headerHeight + spacing.sm + stripOf(slot).height;
+
   // One enlargement's grow scale and held stage; the stage never shrinks while the
-  // enlargement moves between slots.
+  // enlargement moves between slots. Where the stage and the strip would not fit the visible
+  // height, the whole board composes just narrow enough while the piece is enlarged.
   const [panels, setPanels] = useState<Panels>({ focus: null, current: null, leaving: null });
-  const [grow, setGrow] = useState<Grow | null>(null);
-  let activeGrow: Grow | null = null;
-  if (focusedSlot && composed && composed.bySlot.has(focusedSlot)) {
-    const fresh = grow && grow.slot === focusedSlot && grow.width === width && grow.large === large;
-    if (fresh) activeGrow = grow;
+  const [grow, setGrow] = useState<Enlargement | null>(null);
+  let enlargement: Enlargement | null = null;
+  if (focusedSlot && rest && rest.bySlot.has(focusedSlot)) {
+    const panel = panelHeightOf(focusedSlot);
+    const fresh = grow && grow.slot === focusedSlot && grow.width === width && grow.large === large
+      && grow.panel === panel && grow.visible === visibleHeight;
+    if (fresh) enlargement = grow;
     else {
-      const computed = growFor(pieces, focusedSlot, candidates[focusedSlot] ?? [], width, large, composed);
-      activeGrow = panels.focus !== null && grow ? { ...computed, held: Math.max(computed.held, grow.held) } : computed;
-      setGrow(activeGrow);
+      const order = stripCandidates(focusedSlot);
+      const full = growFor(pieces, focusedSlot, order, width, large, rest, 1);
+      const fullHeld = Math.max(full.held, rest.height, panels.focus !== null && grow ? grow.held / grow.fit : 0);
+      const fit = swapStageFit(fullHeld, panel, visibleHeight);
+      const fitted = fit < 1
+        ? growFor(pieces, focusedSlot, order, width, large, composeInPoints(pieces, width, large, fit), fit) : full;
+      enlargement = { ...fitted, held: fullHeld * fit, panel, visible: visibleHeight };
+      setGrow(enlargement);
     }
-    activeGrow = { ...activeGrow, held: Math.max(activeGrow.held, composed.height) };
   }
+  const fit = enlargement?.fit ?? 1;
+  const composed = useMemo(() => (width > 0 && fit < 1 ? composeInPoints(pieces, width, large, fit) : rest),
+    [fit, large, pieces, rest, width]);
+  const activeGrow = enlargement && composed
+    ? { ...enlargement, held: Math.max(enlargement.held, composed.height) } : null;
   const pager = focusedSlot && composed && activeGrow
     ? pagerFor(composed, focusedSlot, activeGrow, width,
       neighbourBoxes(pieces, composed, focusedSlot,
-        composed.bySlot.get(focusedSlot)?.piece.garmentTypeId, candidates, width, large), drawnOutline)
+        composed.bySlot.get(focusedSlot)?.piece.garmentTypeId, candidates, width, large, fit), drawnOutline)
     : null;
 
   // The strip follows the enlargement: it arrives with it, swaps when it moves, and stays
@@ -687,9 +725,6 @@ export function GarmentSwapBoard({
   const [settled, setSettled] = useState(false);
   const [lastSettle, setLastSettle] = useState(settle);
   const [previewId, setPreviewId] = useState<GarmentTypeId | null>(null);
-  // The strip's header before it has measured itself: Done's height.
-  const headerMinimum = large ? easierToSeeValues.primaryActionHeight : layout.minimumTouchTarget;
-  const [headerHeight, setHeaderHeight] = useState<number>(headerMinimum);
   const [hintHeight, setHintHeight] = useState(0);
   const [hintMounted, setHintMounted] = useState(hintVisible);
   if (hintVisible && !hintMounted) setHintMounted(true);
@@ -718,7 +753,7 @@ export function GarmentSwapBoard({
   // The pieces follow the owner's pieces, focus and layout; a change is derived here, while
   // rendering, and its motion starts once it has committed.
   const signature = composed
-    ? JSON.stringify([pieces, palette, width, large, focusedSlot, activeGrow?.scale ?? null,
+    ? JSON.stringify([pieces, palette, width, large, focusedSlot, activeGrow?.scale ?? null, fit,
       focusedSlot ? candidates[focusedSlot] ?? null : null, theme.colorScheme])
     : null;
   if (composed && signature && signature !== model.signature) {
@@ -909,13 +944,6 @@ export function GarmentSwapBoard({
   const nextInstance = focused ? instances.find((instance) => instance.role === 'next') : undefined;
   const previousInstance = focused ? instances.find((instance) => instance.role === 'previous') : undefined;
 
-  // The strip: its candidates, tiles and the marker's tile.
-  const stripCandidates = (slot: OutfitSlot) => candidates[slot] ?? [];
-  const stripOf = (slot: OutfitSlot) => {
-    const order = stripCandidates(slot);
-    return swapStripLayout(order.length, order.filter(({ suitable }) => suitable).length, width);
-  };
-  const panelHeightOf = (slot: OutfitSlot) => headerHeight + spacing.sm + stripOf(slot).height;
   const currentStrip = focusedSlot ? stripOf(focusedSlot) : null;
   const tileOf = (garmentTypeId: GarmentTypeId | undefined) => {
     if (!focusedSlot || !currentStrip || !garmentTypeId) return null;

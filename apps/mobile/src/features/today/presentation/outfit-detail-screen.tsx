@@ -437,13 +437,12 @@ export function OutfitDetailScreen({
     manualMix?.reset();
   };
   // An enlargement brings the strip into view by the least scroll that shows it, never so far
-  // that the enlarged piece leaves the top.
+  // that the enlarged piece leaves the top. The board fits itself between the bars first.
+  const visibleTop = insets.top + NAVIGATION_BAR_HEIGHT;
+  const visibleBottom = windowHeight - insets.bottom - TAB_BAR_HEIGHT;
   const revealStrip = (area: Readonly<{ pieceTop: number; panelBottom: number }>) => {
     boardRef.current?.measureInWindow((_x, boardTop) => {
-      const delta = swapRevealScroll(area, boardTop, {
-        top: insets.top + NAVIGATION_BAR_HEIGHT,
-        bottom: windowHeight - insets.bottom - TAB_BAR_HEIGHT,
-      });
+      const delta = swapRevealScroll(area, boardTop, { top: visibleTop, bottom: visibleBottom });
       if (delta > 0) scrollRef.current?.scrollTo({ animated: true, y: scrollOffset.get() + delta });
     });
   };
@@ -586,6 +585,7 @@ export function OutfitDetailScreen({
             restHeight={plateHeight}
             settle={completions}
             testID="outfit-detail-board"
+            visibleHeight={visibleBottom - visibleTop}
             width={contentWidth}
           />
         </View>
