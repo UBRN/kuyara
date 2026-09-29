@@ -215,6 +215,8 @@ export default function TodayRoute() {
     if (savingChoice.current || !target || !currentDressingDayKey) return;
     const chosen = stylesStep;
     savingChoice.current = true;
+    // A confirm that failed earlier in this opening must not follow a successful close into the next.
+    setSheetError(false);
     setSheetTarget(null);
     void (chooseFormality?.(currentDressingDayKey, chosen?.style ?? profileDressStyle, 'morning')
       ?? Promise.resolve())

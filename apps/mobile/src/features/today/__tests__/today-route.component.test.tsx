@@ -1,6 +1,6 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { useEffect, useState, useSyncExternalStore, type PropsWithChildren } from 'react';
-import { Alert, StyleSheet, Text } from 'react-native';
+import { AccessibilityInfo, Alert, StyleSheet, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorEpisodeTracker } from '@/features/analytics/application/error-episode-tracker';
@@ -1356,6 +1356,49 @@ test('a dismissal whose save fails reopens the question with the save error', as
   await fireEvent.press(await view.findByTestId('daily-formality-close'));
   expect(await view.findByText(messages.en.today.dailyStyle.saveError)).toBeOnTheScreen();
   expect(view.getByTestId('daily-formality-sheet')).toBeOnTheScreen();
+});
+
+// The save error belongs to the opening it happened in: a failed confirm followed by a
+// successful pan-down leaves the next opening (here the evening question) clean and silent.
+test('a save error from a failed confirm does not follow a successful dismissal into the next opening', async () => {
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  const chooseFormality = jest.fn<Promise<void>, unknown[]>()
+    .mockRejectedValueOnce(new Error('write failed'))
+    .mockResolvedValue(undefined);
+  const props = {
+    productAnalytics: createProductAnalytics(),
+    profile: profileValue({ morningSheetEnabled: true }),
+    recommendation: recommendationReady(),
+    resolvedDressStyle: 'smart' as const,
+    dressingDayChoiceReady: true,
+    chooseFormality,
+    wardrobe: wardrobeValue(),
+    weather: weatherValue(),
+  };
+  const view = await render(
+    <Providers {...props} dressingDayKey="2026-08-13" morningChoicePending>
+      <TodayRoute />
+    </Providers>,
+  );
+
+  await fireEvent.press(await view.findByTestId('daily-formality-formal'));
+  await fireEvent.press(view.getByTestId('daily-formality-styles-done'));
+  expect(await view.findByText(messages.en.today.dailyStyle.saveError)).toBeOnTheScreen();
+
+  await fireEvent.press(view.getByTestId('daily-formality-close'));
+  await waitFor(() => expect(view.queryByTestId('daily-formality-sheet')).toBeNull());
+  expect(chooseFormality).toHaveBeenCalledTimes(2);
+  announce.mockClear();
+
+  await view.rerender(
+    <Providers {...props} dressingDayKey="2026-08-13:evening" eveningChoicePending>
+      <TodayRoute />
+    </Providers>,
+  );
+  expect(await view.findByTestId('daily-formality-sheet')).toBeOnTheScreen();
+  expect(view.queryByText(messages.en.today.dailyStyle.saveError)).toBeNull();
+  expect(announce).not.toHaveBeenCalled();
+  announce.mockRestore();
 });
 
 // O3: one sheet, no system alert. The current day type is checked, Now is the default, and
