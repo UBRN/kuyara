@@ -842,6 +842,52 @@ test('same option ids with changed offered garments miss the shared cache', asyn
   } finally { restore(); }
 });
 
+// Each of these is a deliberate cache discriminator: dropping one would serve a 30-day
+// cached selection chosen for a different requirement, clothing preference or catalog
+// version, and `validSelection` alone would not notice. The requirement mutations use an
+// `extremity_cover` requirement, which the day facts (frozen, wet, cold, windy) never read,
+// so only the requirement projection in the key can tell the variants apart.
+const cacheDiscriminators = [
+  ['a requirement minimum', (body) => { body.requirements[1].minimum = 'moderate'; }],
+  ['a requirement priority', (body) => { body.requirements[1].priority = 'mandatory'; }],
+  ['a requirement target', (body) => { body.requirements[1].target = 'neck'; }],
+  ['the clothing preference', (body) => { body.clothingPreference = 'mens'; }],
+  ['the catalog version', (body) => { body.catalogVersion = 4; }],
+];
+
+function cacheBaseBody() {
+  const body = validRequestBody();
+  body.requirements.push({
+    kind: 'extremity_cover',
+    minimum: 'light',
+    priority: 'optional',
+    target: 'head',
+    reasonCodes: ['temperature_low'],
+  });
+  return body;
+}
+
+for (const [name, mutate] of cacheDiscriminators) {
+  test(`a request differing only in ${name} is a shared-cache miss`, async () => {
+    const restore = installMemoryCache();
+    try {
+      let providerCalls = 0;
+      const handle = createAiHandler({ providers: [{
+        async generateOutfits() { providerCalls += 1; return validOutput(); },
+      }] });
+      const changed = cacheBaseBody();
+      mutate(changed);
+      assert.equal((await handle(request({ body: JSON.stringify(cacheBaseBody()) }))).status, 200);
+      assert.equal((await handle(request({ body: JSON.stringify(cacheBaseBody()) }))).status, 200);
+      assert.equal(providerCalls, 1, 'an identical resend is served from the shared cache');
+      assert.equal((await handle(request({ body: JSON.stringify(changed) }))).status, 200);
+      assert.equal(providerCalls, 2, `${name} must be part of the shared-cache key`);
+    } finally {
+      restore();
+    }
+  });
+}
+
 test('a cached selection is checked against the current offer', async () => {
   const previous = globalThis.caches;
   let cached;

@@ -2003,3 +2003,26 @@ test('a failed version 22 migration rolls back and leaves version 21 intact', as
     ...before, walkthrough_version: 0,
   });
 });
+
+// An older binary can meet a newer schema (a rollback, or a TestFlight build older than the
+// one that migrated). The guard is the only thing that keeps the old code from reading and
+// writing tables it does not understand.
+test('a database from a newer application is refused untouched, every time', async (t) => {
+  const database = new NodeSqliteDatabase();
+  t.after(() => database.close());
+  await migrateDatabase(database);
+  await insertProfile(database);
+  const newer = latestDatabaseVersion + 1;
+  await database.execAsync(`PRAGMA user_version = ${newer}`);
+  const profileBefore = await database.getFirstAsync('SELECT * FROM local_profiles');
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await assert.rejects(
+      () => migrateDatabase(new NodeSqliteDatabase(database.database)),
+      /newer than this application supports/,
+    );
+  }
+
+  assert.equal((await database.getFirstAsync('PRAGMA user_version')).user_version, newer);
+  assert.deepEqual(await database.getFirstAsync('SELECT * FROM local_profiles'), profileBefore);
+});

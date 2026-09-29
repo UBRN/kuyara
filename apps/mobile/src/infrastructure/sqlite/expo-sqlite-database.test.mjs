@@ -46,7 +46,15 @@ const stub = `
     return handle(name, options);
   }
 
-  export function openDatabaseSync() { throw new Error('unused'); }
+  export function openDatabaseSync(name, options) {
+    const stub = globalThis.__expoSqliteStub;
+    const id = ++stub.handles;
+    stub.log.push([id, 'openDatabaseSync', name, options]);
+    return {
+      getFirstSync: (sql) => { stub.log.push([id, 'getFirstSync', sql]); return { consent: 'granted' }; },
+      closeSync: () => { stub.log.push([id, 'closeSync']); },
+    };
+  }
 `;
 
 registerHooks({
@@ -206,4 +214,23 @@ test('a COMMIT failure that already ended the transaction is rethrown without a 
     [2, 'isInTransactionAsync'],
     [2, 'closeAsync'],
   ]);
+});
+
+// The launch-time consent read must open its own native connection, so its `closeSync` can
+// never close the memoized handle every repository shares.
+test('the sync consent reader opens its own connection and closes only that one', async () => {
+  const { openKuyaraDatabase, openKuyaraDatabaseSync } = await loadFreshModule();
+  await openKuyaraDatabase();
+  log().length = 0;
+
+  const reader = openKuyaraDatabaseSync();
+  assert.deepEqual(reader.getFirstSync('SELECT 1'), { consent: 'granted' });
+  reader.closeSync();
+
+  assert.deepEqual(log(), [
+    [2, 'openDatabaseSync', 'kuyara.db', { useNewConnection: true }],
+    [2, 'getFirstSync', 'SELECT 1'],
+    [2, 'closeSync'],
+  ]);
+  assert.deepEqual(log().filter(([id]) => id === 1), [], 'the shared handle is never touched');
 });
