@@ -215,3 +215,75 @@ test('an invalid same-day row reads as absent and can be overwritten or deleted,
   assert.equal(await repo.softDelete(profileId, '2026-09-08'), true);
   assert.equal(deleted.length, 2);
 });
+
+// The history stores the user's own photos. File cleanup follows a database step that has
+// already decided the outcome, so a cleanup that throws must not turn a committed write into
+// an error the user would retry.
+test('history file cleanup that rejects never fails a write that already committed', async (t) => {
+  const db = await setup(t);
+  const photos = {
+    copyStaged: async () => `kuyara/history/photos/${randomUUID()}.jpg`,
+    discardStaged: async () => { throw new Error('staging locked'); },
+    deleteStored: async () => { throw new Error('file locked'); },
+    resolveUri: () => null,
+  };
+  const repo = new SqliteOutfitHistoryRepository(db, randomUUID, () => now, photos);
+  const stored = await repo.log(profileId, '2026-09-24', first, { kind: 'replace', stagedUri: 'stage' });
+  assert.notEqual(stored.photoPath, null);
+  const replaced = await repo.log(profileId, '2026-09-24', second, { kind: 'replace', stagedUri: 'stage' });
+  assert.equal(replaced.outfit.source, 'manual');
+  assert.notEqual(replaced.photoPath, stored.photoPath);
+  const removed = await repo.log(profileId, '2026-09-24', first, { kind: 'remove' });
+  assert.equal(removed.photoPath, null);
+  await repo.log(profileId, '2026-09-24', first, { kind: 'replace', stagedUri: 'stage' });
+  assert.equal(await repo.softDelete(profileId, '2026-09-24'), true);
+  const row = await db.getFirstAsync(
+    'SELECT photo_path, deleted_at FROM outfit_history WHERE day_key = ?', ['2026-09-24']);
+  assert.equal(row.photo_path, null);
+  assert.notEqual(row.deleted_at, null);
+});
+
+// A photo_path that is not a managed kuyara/history/photos/<uuid>.jpg is never trusted: it
+// reads back as no photo and is never handed to a file delete.
+for (const unmanaged of ['../../Library/x.jpg', '/abs/x.jpg', 'kuyara/history/photos/not-a-uuid.jpg']) {
+  test(`a stored photo_path ${unmanaged} reads as no photo and is never deleted`, async (t) => {
+    const db = await setup(t);
+    const deleted = [];
+    const photos = {
+      copyStaged: async () => `kuyara/history/photos/${randomUUID()}.jpg`,
+      discardStaged: async () => {},
+      deleteStored: async (path) => { deleted.push(path); },
+      resolveUri: () => null,
+    };
+    const repo = new SqliteOutfitHistoryRepository(db, randomUUID, () => now, photos);
+    for (const day of ['2026-09-10', '2026-09-11']) {
+      await repo.log(profileId, day, first, { kind: 'replace', stagedUri: 'stage' });
+    }
+    deleted.length = 0;
+    await db.runAsync('UPDATE outfit_history SET photo_path = ?', [unmanaged]);
+
+    assert.equal((await repo.get(profileId, '2026-09-10')).photoPath, null);
+    assert.equal((await repo.list(profileId)).every((entry) => entry.photoPath === null), true);
+    await repo.log(profileId, '2026-09-10', second, { kind: 'remove' });
+    assert.equal(await repo.softDelete(profileId, '2026-09-11'), true);
+    assert.deepEqual(deleted, [], 'an unmanaged path must never reach deleteStored');
+  });
+}
+
+test('a staged copy that comes back with an unmanaged path is rejected, removed and leaves no row', async (t) => {
+  const db = await setup(t);
+  const deleted = [];
+  const photos = {
+    copyStaged: async () => 'elsewhere/a.jpg',
+    discardStaged: async () => {},
+    deleteStored: async (path) => { deleted.push(path); },
+    resolveUri: () => null,
+  };
+  const repo = new SqliteOutfitHistoryRepository(db, randomUUID, () => now, photos);
+  await assert.rejects(
+    () => repo.log(profileId, '2026-09-24', first, { kind: 'replace', stagedUri: 'stage' }),
+    /Invalid history photo path/,
+  );
+  assert.deepEqual(deleted, ['elsewhere/a.jpg']);
+  assert.equal((await db.getFirstAsync('SELECT COUNT(*) AS count FROM outfit_history')).count, 0);
+});

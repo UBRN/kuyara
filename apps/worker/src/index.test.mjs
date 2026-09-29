@@ -325,3 +325,103 @@ test('a changed configuration recomposes and the weather chain runs WeatherKit, 
     globalThis.crypto.subtle.importKey = realImportKey;
   }
 });
+
+// The composed recommend route must hand its daily Workers AI attempt budget to the AI
+// handler. The handler treats a missing counter or limit as no gate at all, so a dropped or
+// renamed argument in `buildRouter` would fail open and spend the shared Neuron pool
+// uncounted while every handler-level test (which injects its own counter) stays green.
+const recommendDate = '2026-09-15';
+
+function recommendRequestBody() {
+  const traits = {
+    hasMidLayer: false, hasOuterLayer: false, outerThermalHigh: false, outerWaterProtective: false,
+    windResistant: false, tractionEnhanced: false, breathabilityHigh: false,
+  };
+  const separates = (optionId, formality, top, bottom, footwear, extra = {}) => ({
+    optionId,
+    formality,
+    garments: [
+      { slot: 'primary_top', layerRole: 'standalone', garmentTypeId: top },
+      { slot: 'bottom', layerRole: 'standalone', garmentTypeId: bottom },
+      { slot: 'footwear', layerRole: null, garmentTypeId: footwear },
+    ],
+    traits: { ...traits, ...extra },
+  });
+  return {
+    clothingPreference: 'womens',
+    catalogVersion: 3,
+    dayVariant: 0,
+    requirements: [{
+      kind: 'thermal', minimum: 'light', priority: 'mandatory', reasonCodes: ['temperature_low'],
+    }],
+    options: [
+      separates('option-casual', 'casual', 't_shirt', 'trousers', 'sneakers', { breathabilityHigh: true }),
+      separates('option-smart', 'smart', 'shirt', 'jeans', 'closed_shoes'),
+      {
+        optionId: 'option-formal',
+        formality: 'formal',
+        garments: [
+          { slot: 'one_piece', layerRole: 'standalone', garmentTypeId: 'dress' },
+          { slot: 'footwear', layerRole: null, garmentTypeId: 'ankle_boots' },
+        ],
+        traits,
+      },
+    ],
+  };
+}
+
+const recommendAnswer = {
+  data: {
+    picks: [
+      { optionId: 'option-casual', archetypeId: 'weekend_relaxed' },
+      { optionId: 'option-smart', archetypeId: 'smart_casual' },
+      { optionId: 'option-formal', archetypeId: 'office_ready' },
+    ],
+  },
+};
+
+function validRecommendRequest() {
+  return new Request('https://worker.test/v1/ai/recommend', {
+    method: 'POST',
+    headers: { 'cf-connecting-ip': '203.0.113.10', 'content-type': 'application/json' },
+    body: JSON.stringify(recommendRequestBody()),
+  });
+}
+
+async function incrementCounter(counters, name, key, times) {
+  const stub = counters.get(counters.idFromName(name));
+  for (let index = 0; index < times; index += 1) {
+    await stub.fetch(`https://daily-counter/increment?key=${encodeURIComponent(key)}`, { method: 'POST' });
+  }
+}
+
+test('the composed recommend route stops calling Workers AI once ai:workers-ai reaches the daily attempt limit', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse(`${recommendDate}T10:00:00.000Z`) });
+  t.mock.method(console, 'info', () => {});
+  const { WORKERS_AI_DAILY_ATTEMPT_LIMIT } = await import('./ai/ai-handler.ts');
+  const counters = fakeDailyCounters();
+  let runs = 0;
+  const route = buildRouter({
+    ...boundEnv,
+    DAILY_COUNTERS: counters,
+    WORKERS_AI_MODELS: ['@cf/meta/llama-3.3-70b-instruct-fp8-fast'],
+    AI: { async run() { runs += 1; return { response: recommendAnswer }; } },
+  });
+
+  // The probe has its own counter: exhausting it leaves the recommend budget untouched.
+  await incrementCounter(counters, 'probe', `probe:${recommendDate}`, WORKERS_AI_DAILY_ATTEMPT_LIMIT + 1);
+  // One attempt below the limit: this request's own increment lands exactly on it and runs.
+  await incrementCounter(
+    counters,
+    'ai:workers-ai',
+    `ai:workers-ai:${recommendDate}`,
+    WORKERS_AI_DAILY_ATTEMPT_LIMIT - 1,
+  );
+  const atLimit = await route(validRecommendRequest(), fakeContext());
+  assert.equal(atLimit.status, 200);
+  assert.equal(runs, 1, 'the increment that lands exactly on the limit still runs');
+
+  const overLimit = await route(validRecommendRequest(), fakeContext());
+  await assertOffline(overLimit, 'ai_unavailable');
+  assert.equal(runs, 1, 'past the daily limit Workers AI must not be called again');
+});

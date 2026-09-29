@@ -44,7 +44,7 @@ globalThis.__kuyaraWardrobePhotoNativeMocks = {
 
     async copy(destination) {
       nativeFiles.add(destination.uri);
-      throw nativeCopyFailure;
+      if (nativeCopyFailure) throw nativeCopyFailure;
     }
 
     delete() {
@@ -896,4 +896,71 @@ test('a photo attempt error maps to denied, unavailable or failed', () => {
   assert.equal(classifyWardrobePhotoProblem(new WardrobePhotoValidationError()), 'failed');
   assert.equal(classifyWardrobePhotoProblem(new Error('anything')), 'failed');
   assert.equal(classifyWardrobePhotoProblem('not an error'), 'failed');
+});
+
+// The real adapter behind the rule that a missing or corrupt photo file never breaks the
+// Closet: the read and delete paths, and the guards on staging and committing.
+test('resolvePhotoUri answers null for a missing file or an invalid path and never throws', (t) => {
+  t.after(() => nativeFiles.clear());
+  const storage = new ExpoPrivateWardrobePhotoStorage(() => '418f0f4d-1d45-4ae7-a8f1-796e8297d3b4');
+  nativeFiles.clear();
+  assert.equal(storage.resolvePhotoUri(newPath), null, 'a purged file is no photo');
+  for (const invalid of ['../x', '/abs/x.jpg', '', 'kuyara/wardrobe/photos/../../x.jpg']) {
+    assert.equal(storage.resolvePhotoUri(invalid), null, invalid);
+  }
+  nativeFiles.add(`file:///documents/${newPath}`);
+  assert.equal(storage.resolvePhotoUri(newPath), `file:///documents/${newPath}`);
+});
+
+test('deleteStoredPhoto removes a managed file, tolerates a missing one and skips unmanaged paths', async (t) => {
+  t.after(() => nativeFiles.clear());
+  const storage = new ExpoPrivateWardrobePhotoStorage(() => '418f0f4d-1d45-4ae7-a8f1-796e8297d3b4');
+  const legacy = 'file:///documents/wardrobe/photos/legacy.jpg';
+  const traversal = 'file:///documents/kuyara/wardrobe/photos/../secret.jpg';
+  nativeFiles.clear();
+  nativeFiles.add(legacy);
+  nativeFiles.add(traversal);
+
+  await storage.deleteStoredPhoto(newPath);
+  nativeFiles.add(`file:///documents/${newPath}`);
+  await storage.deleteStoredPhoto(newPath);
+  assert.equal(nativeFiles.has(`file:///documents/${newPath}`), false);
+  await storage.deleteStoredPhoto('wardrobe/photos/legacy.jpg');
+  await storage.deleteStoredPhoto('kuyara/wardrobe/photos/../secret.jpg');
+  assert.equal(nativeFiles.has(legacy), true);
+  assert.equal(nativeFiles.has(traversal), true);
+});
+
+test('commitStagedPhoto copies a staged file to a managed path and rejects a missing staged file', async (t) => {
+  t.after(() => nativeFiles.clear());
+  const storage = new ExpoPrivateWardrobePhotoStorage(() => '418f0f4d-1d45-4ae7-a8f1-796e8297d3b4');
+  nativeFiles.clear();
+  await assert.rejects(
+    () => storage.commitStagedPhoto(stagedPhoto),
+    (error) => error instanceof WardrobePhotoValidationError,
+  );
+  assert.equal(nativeFiles.has(`file:///documents/${newPath}`), false);
+
+  nativeFiles.add(`file:///cache/kuyara/wardrobe/staging/${stagedPhoto.id}.jpg`);
+  const stored = await storage.commitStagedPhoto(stagedPhoto);
+  assert.equal(stored.relativePath, newPath);
+  assert.equal(stored.previewUri, `file:///documents/${newPath}`);
+  assert.equal(nativeFiles.has(`file:///documents/${newPath}`), true);
+});
+
+test('stagePhoto rejects a source that is missing or outside the private cache', async (t) => {
+  t.after(() => nativeFiles.clear());
+  const storage = new ExpoPrivateWardrobePhotoStorage(() => '418f0f4d-1d45-4ae7-a8f1-796e8297d3b4');
+  const outside = 'file:///documents/kuyara/wardrobe/photos/518f0f4d-1d45-4ae7-a8f1-796e8297d3b4.jpg';
+  nativeFiles.clear();
+  nativeFiles.add(outside);
+  await assert.rejects(
+    () => storage.stagePhoto({ uri: outside, width: 800, height: 600 }),
+    (error) => error instanceof WardrobePhotoValidationError,
+  );
+  await assert.rejects(
+    () => storage.stagePhoto({ uri: 'file:///cache/missing.jpg', width: 800, height: 600 }),
+    (error) => error instanceof WardrobePhotoValidationError,
+  );
+  assert.equal(nativeFiles.has(outside), true, 'the outside file is left alone');
 });

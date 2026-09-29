@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test, { mock } from 'node:test';
 
+import { DailyCounter } from '../daily-counter.ts';
 import { createWeatherProviders } from '../index.ts';
+import { openWeatherDailyCallLimit, weatherKitDailyCallLimit } from './daily-capped-weather-provider.ts';
 import { DeterministicMockWeatherProvider } from './__tests__/mock-weather-provider.ts';
 import { OpenMeteoWeatherProvider } from './open-meteo-weather-provider.ts';
 import { OpenWeatherWeatherProvider } from './openweather-weather-provider.ts';
@@ -266,4 +268,95 @@ test('a WeatherKit 404 is answered by one call per provider, never a retry loop'
   );
   assert.equal(weatherKitCalls, 1);
   assert.equal(secondCalls, 1);
+});
+
+// One Durable Object per counter name running the real `DailyCounter` class over a Map, so
+// the composed providers meet the same atomic increment they get in production.
+function realDailyCounters() {
+  const objects = new Map();
+  return {
+    idFromName: (name) => name,
+    get(name) {
+      let object = objects.get(name);
+      if (!object) {
+        const map = new Map();
+        object = new DailyCounter({ storage: {
+          async get(key) { return map.get(key); },
+          async put(key, value) { map.set(key, value); },
+          async delete(key) { return map.delete(key); },
+          async list() { return new Map(map); },
+        } }, {});
+        objects.set(name, object);
+      }
+      return { fetch: (input, init) => object.fetch(new Request(input, init)) };
+    },
+  };
+}
+
+async function seedCounter(counters, name, key, times) {
+  const stub = counters.get(counters.idFromName(name));
+  for (let index = 0; index < times; index += 1) {
+    await stub.fetch(`https://daily-counter/increment?key=${encodeURIComponent(key)}`, { method: 'POST' });
+  }
+}
+
+async function throwawayWeatherKitPrivateKey() {
+  const keyPair = await crypto.subtle.generateKey(
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    true,
+    ['sign', 'verify'],
+  );
+  const pkcs8 = Buffer.from(await crypto.subtle.exportKey('pkcs8', keyPair.privateKey));
+  return pkcs8.toString('base64').match(/.{1,64}/gu).join('\n');
+}
+
+// The wrapper is unit tested with an injected counter; this pins what production composes:
+// each capped provider's own counter name, source slug and limit. A swapped constant, a
+// shared counter or a dropped wrapper would let a quota-limited provider run past its cap.
+test('the composed WeatherKit and OpenWeather providers stop calling upstream at their own daily limits', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-09-15T10:00:00.000Z') });
+  const counters = realDailyCounters();
+  const providers = createWeatherProviders({
+    DAILY_COUNTERS: counters,
+    OPENWEATHER_API_KEY: 'key',
+    WEATHERKIT_TEAM_ID: 'TEAM123456',
+    WEATHERKIT_SERVICE_ID: 'com.example.weatherkit-client',
+    WEATHERKIT_KEY_ID: 'KEY1234567',
+    WEATHERKIT_PRIVATE_KEY: await throwawayWeatherKitPrivateKey(),
+  });
+  const [weatherKit, , openWeather] = providers;
+  assert.equal(providers.length, 3);
+
+  const realFetch = globalThis.fetch;
+  const hosts = [];
+  globalThis.fetch = async (input) => {
+    hosts.push(new URL(input instanceof Request ? input.url : input).host);
+    throw new Error('network disabled in tests');
+  };
+  const signal = new AbortController().signal;
+  const isQuota = (error) => error instanceof WeatherProviderError && error.kind === 'quota';
+  try {
+    // Exhaust OpenWeather only: its own counter, its own limit.
+    await seedCounter(counters, 'weather:openweather', 'weather:openweather:2026-09-15', openWeatherDailyCallLimit - 1);
+    await assert.rejects(openWeather.fetchWeather(location, signal), (error) => !isQuota(error));
+    assert.deepEqual(hosts, ['api.openweathermap.org'], 'the attempt that lands on the limit still runs');
+    hosts.length = 0;
+    await assert.rejects(openWeather.fetchWeather(location, signal), isQuota);
+    assert.deepEqual(hosts, [], 'past openWeatherDailyCallLimit no upstream call is made');
+
+    // WeatherKit is a separate counter: OpenWeather's exhaustion leaves it callable.
+    await assert.rejects(weatherKit.fetchWeather(location, signal), (error) => !isQuota(error));
+    assert.deepEqual(hosts, ['weatherkit.apple.com']);
+    hosts.length = 0;
+
+    // Its own limit is the WeatherKit one: seed to one below it, one more call runs, the next does not.
+    await seedCounter(counters, 'weather:weatherkit', 'weather:weatherkit:2026-09-15', weatherKitDailyCallLimit - 2);
+    await assert.rejects(weatherKit.fetchWeather(location, signal), (error) => !isQuota(error));
+    assert.deepEqual(hosts, ['weatherkit.apple.com']);
+    hosts.length = 0;
+    await assert.rejects(weatherKit.fetchWeather(location, signal), isQuota);
+    assert.deepEqual(hosts, [], 'past weatherKitDailyCallLimit no upstream call is made');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });
