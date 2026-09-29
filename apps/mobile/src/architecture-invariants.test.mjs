@@ -165,6 +165,20 @@ const rules = [
       + 'an architecture decision to record in docs/architecture.md first, not a test fix.',
   },
   {
+    name: 'the account SDK packages are imported only under features/account/data/',
+    matches: (specifier) => [
+      '@supabase/supabase-js', 'expo-apple-authentication',
+      '@react-native-google-signin/google-signin', 'expo-secure-store',
+    ].some((packageName) => packageMatcher(packageName)(specifier)),
+    forbiddenDirectories: null,
+    allowedDirectories: ['features/account/data/'],
+    ruleText:
+      'The Supabase client library, native Apple and Google sign-in and the secure key store '
+      + 'are imported only from the account feature\'s data layer; UI and domain code never '
+      + 'import them (ADR 0041 sections 9 and 12). Reach them through the account feature\'s '
+      + 'application layer.',
+  },
+  {
     name: 'the garment fill tables and the accent resolver stay behind the board renderer',
     matches: (specifier) =>
       modulePathMatcher('garment-board/garment-render-fills')(specifier)
@@ -444,6 +458,20 @@ test('every exported symbol has a use outside its own definition', () => {
 
   const stale = [...unusedExportAllowlist].filter((name) => occurrences.get(name) !== 1);
   assert.deepEqual(stale, [], 'an allowlisted export now has a use (or is gone): drop it from the list');
+});
+
+// ADR 0041 section 12: PostHog is never linked to the account. `identify()` is never called,
+// so analytics stays on its install identifier and neither `localProfileId` nor a Supabase user
+// ID becomes an analytics identifier.
+test('mobile production code never calls identify()', () => {
+  const found = [];
+  for (const relativePath of sourceFiles()) {
+    readFileSync(path.join(sourceRoot, relativePath), 'utf8').split('\n').forEach((line, index) => {
+      if (/\.identify\(/.test(line)) found.push(`${repoRelativeRoot}/${relativePath}:${index + 1}`);
+    });
+  }
+
+  assert.deepEqual(found, [], 'analytics stays on its install identifier (ADR 0041 section 12)');
 });
 
 // Mobile production code never calls the global `fetch` by its bare name: a client takes its
