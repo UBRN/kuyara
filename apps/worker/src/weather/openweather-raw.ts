@@ -3,11 +3,11 @@ import {
   isWeatherHourlyForecastInWindow,
   weatherDailyForecastMaximumEntries,
   weatherHourlyForecastMaximumEntries,
-  weatherLocalDateKey,
   type WeatherConditionCode,
 } from '@kuyara/contracts';
 import { z } from 'zod';
 
+import { isoTimestamp, localDateKey } from './raw-time.ts';
 import type {
   ProviderDailyForecast,
   ProviderLocation,
@@ -99,12 +99,6 @@ function unixSecondsToIso(timestamp: number): string {
   return date.toISOString();
 }
 
-function isoTimestamp(timestamp: string): string {
-  const date = new Date(timestamp);
-  if (!Number.isFinite(date.getTime())) throw new WeatherProviderError('invalid_response');
-  return date.toISOString();
-}
-
 // Both keys absent is a day with no precipitation reported at all, which stays null rather
 // than becoming a zero the provider never sent; either key present is a real measurement.
 function precipitationMillimetres(
@@ -113,12 +107,6 @@ function precipitationMillimetres(
 ): number | null {
   if (rain === undefined && snow === undefined) return null;
   return (rain ?? 0) + (snow ?? 0);
-}
-
-function localDateKey(timestamp: string, timeZone: string): string {
-  const dateKey = weatherLocalDateKey(timestamp, timeZone);
-  if (dateKey === null) throw new WeatherProviderError('invalid_response');
-  return dateKey;
 }
 
 function mapHourly(raw: OpenWeatherResponse['hourly']) {

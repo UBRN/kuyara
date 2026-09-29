@@ -3,11 +3,11 @@ import {
   isWeatherHourlyForecastInWindow,
   weatherDailyForecastMaximumEntries,
   weatherHourlyForecastMaximumEntries,
-  weatherLocalDateKey,
   type WeatherConditionCode,
 } from '@kuyara/contracts';
 import { z } from 'zod';
 
+import { isoTimestamp, localDateKey } from './raw-time.ts';
 import type {
   ProviderDailyForecast,
   ProviderLocation,
@@ -113,18 +113,6 @@ export function mapWeatherKitCondition(conditionCode: string): WeatherConditionC
   );
   if (condition === undefined) throw new WeatherProviderError('invalid_response');
   return condition;
-}
-
-function isoTimestamp(timestamp: string): string {
-  const date = new Date(timestamp);
-  if (!Number.isFinite(date.getTime())) throw new WeatherProviderError('invalid_response');
-  return date.toISOString();
-}
-
-function localDateKey(timestamp: string, timeZone: string): string {
-  const dateKey = weatherLocalDateKey(timestamp, timeZone);
-  if (dateKey === null) throw new WeatherProviderError('invalid_response');
-  return dateKey;
 }
 
 function mapHourly(raw: WeatherKitResponse['forecastHourly']['hours']) {
