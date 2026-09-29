@@ -856,3 +856,16 @@ test('tracked text files name no coding tool and no work-process term', () => {
   }
   assert.deepEqual(hits, [], `remove the tool or process wording at: ${hits.join(', ')}`);
 });
+
+// Coding-tool instructions, skills, settings and the store screenshot tooling live in a private
+// repository and are linked into a checkout; none of them is tracked here.
+test('no private tool instruction, setting or screenshot-tooling path is tracked', () => {
+  const repoRoot = path.join(sourceRoot, '..', '..', '..');
+  const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: repoRoot, maxBuffer: 64 * 1024 * 1024 })
+    .toString('utf8').split('\0').filter(Boolean);
+  // Assembled from parts so the names do not trip the wording check above.
+  const privatePath = new RegExp(`^(?:${[
+    'AGENTS[^/]*\\.md', ['CL', 'AUDE[^/]*\\.md'].join(''), ['\\.cl', 'aude/'].join(''), '\\.agents/',
+  ].join('|')})`, 'i');
+  assert.deepEqual(tracked.filter((relative) => privatePath.test(relative)), []);
+});
