@@ -1,4 +1,5 @@
 import {
+  accountDeleteV1Path,
   aiProbeV1Path,
   aiReadyV1Path,
   aiReadyV1SuccessSchema,
@@ -25,6 +26,7 @@ export type Handler = (request: Request, ctx: ExecutionContext) => Promise<Respo
 type Dependencies = Readonly<{
   weatherHandler: Handler;
   placeSearchHandler: Handler;
+  accountDeleteHandler: Handler;
   aiHandler: Handler;
   probeHandler: Handler;
   aiReady: boolean;
@@ -50,6 +52,7 @@ function errorResponse(
 export function createRouter({
   weatherHandler,
   placeSearchHandler,
+  accountDeleteHandler,
   aiHandler,
   probeHandler,
   aiReady,
@@ -57,6 +60,7 @@ export function createRouter({
   return async (request: Request, ctx: ExecutionContext): Promise<Response> => {
     const pathname = new URL(request.url).pathname;
     if (pathname === placeSearchV1Path) return placeSearchHandler(request, ctx);
+    if (pathname === accountDeleteV1Path) return accountDeleteHandler(request, ctx);
     if (pathname === weatherV1Path || pathname === weatherV2Path) {
       return weatherHandler(request, ctx);
     }

@@ -29,6 +29,7 @@ function fakeContext() {
 function router({ aiReady = true, providers = [] } = {}) {
   const route = createRouter({
     placeSearchHandler: async () => Response.json({ data: { places: [], attribution: ['open-meteo', 'geonames'] } }),
+    accountDeleteHandler: async () => Response.json({ data: { status: 'deleted' } }),
     weatherHandler: createWeatherHandler({
       provider: new DeterministicMockWeatherProvider({ now: () => fixedNow }),
     }),
@@ -177,18 +178,19 @@ test('the router forwards the execution context to every route handler', async (
   };
   const route = createRouter({
     placeSearchHandler: handler('places'),
+    accountDeleteHandler: handler('account'),
     weatherHandler: handler('weather'),
     aiHandler: handler('ai'),
     probeHandler: handler('probe'),
     aiReady: true,
   });
   const ctx = fakeContext();
-  const paths = ['/v1/places/search', '/v1/weather', '/v2/weather', '/v1/ai/recommend',
+  const paths = ['/v1/places/search', '/v1/account/delete', '/v1/weather', '/v2/weather', '/v1/ai/recommend',
     '/v2/ai/recommend', '/v1/ai/probe'];
   for (const path of paths) {
     await route(new Request(`http://localhost${path}`, { method: 'POST' }), ctx);
   }
   assert.deepEqual(seen, [
-    ['places', ctx], ['weather', ctx], ['weather', ctx], ['ai', ctx], ['ai', ctx], ['probe', ctx],
+    ['places', ctx], ['account', ctx], ['weather', ctx], ['weather', ctx], ['ai', ctx], ['ai', ctx], ['probe', ctx],
   ]);
 });
