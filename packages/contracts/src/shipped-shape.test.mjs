@@ -1,6 +1,6 @@
 // Shipped response-shape guard for build 8 /v1 and build 15 /v2 readers.
 //
-// What it proves: build 8 (67c20ae, live) and build 9 (e4c9350, in review) parse every /v1
+// What it proves: build 8 (0317a55, live) and build 9 (84565c0, in review) parse every /v1
 // response with strict schemas, and the Worker sends its contract schema's parsed output. So
 // while such a binary is installed the /v1 response shapes are frozen: no new key at any level
 // (an unknown key fails the whole payload on those binaries), no removed key and no retyped key,
@@ -13,17 +13,17 @@
 // the enum node, so the members are still compared; the Worker's own tests keep them in the enum.
 //
 // What it cannot prove: for every route the guard assumes the wire body is the schema's
-// parsed output (since 7f3a543 the probe route parses its body too); it does not observe the
+// parsed output (since c95fa41 the probe route parses its body too); it does not observe the
 // wire, so a handler that bypasses its schema escapes it. `z.toJSONSchema` drops `.refine` and
 // `.superRefine`, so a loosened HEAD refinement (for example the hourly window bound) can let the
 // Worker emit a body the shipped refinement rejects without this guard noticing.
 //
 // Regenerate the fixture (after a Zod upgrade changes toJSONSchema output), from the repo root:
-//   node --experimental-strip-types packages/contracts/scripts/render-shipped-shapes.mjs 67c20ae
-//   node --experimental-strip-types packages/contracts/scripts/render-shipped-shapes.mjs --v2 046eb2c
+//   node --experimental-strip-types packages/contracts/scripts/render-shipped-shapes.mjs 0317a55
+//   node --experimental-strip-types packages/contracts/scripts/render-shipped-shapes.mjs --v2 4b533d1
 //
 // Retirement: the v1 fixture and its test are removed when the oldest installed binary is one
-// built from 8e949ec or later; the source of that fact is the Release State section of
+// built from f0ab923 or later; the source of that fact is the Release State section of
 // docs/current-status.md and nothing else. If a later strict-era build were ever shipped,
 // regenerate the fixture from the oldest supported build's commit instead of deleting it.
 // The v2 fixture remains until no supported build reads that route with this shape.

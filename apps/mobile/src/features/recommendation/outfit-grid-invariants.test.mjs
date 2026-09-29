@@ -230,9 +230,9 @@ test('T1 every shown outfit is valid, formality-consistent and shown once in its
 });
 
 test('T2 the shown outfits are built from everyday garments often enough', () => {
-  // Mean share of everyday garments per shown outfit. A2 measured 37% over the whole grid on
-  // 065cd22 and the target was 50%; the two ordering rules G1 owns carried it from 39.9%
-  // on main f5d28e2 to 43.9%, and G2's thermal ladder left it at 40.3%. The ladder's top rung
+  // Mean share of everyday garments per shown outfit. A2 measured 37% over the whole grid and
+  // the target was 50%; the two ordering rules G1 owns carried it from 39.9%
+  // on main 1ce0bdc to 43.9%, and G2's thermal ladder left it at 40.3%. The ladder's top rung
   // puts a mandatory fourth garment on every freezing outfit, and A2's everyday set holds one
   // high-thermal outer layer, the coat, which is formal: a casual or a wet freezing day has
   // to wear a parka or an insulated jacket instead, neither of them in the set. Closing that
@@ -275,7 +275,7 @@ test('T3 sneakers reach the shown trio on mild dry days', () => {
   // `catalog:sneakers`. Mild dry cells are the 15, 18, 22 and 27 C dry ones, both winds and
   // both clothing preferences: 16 cells, the band where a sneaker is an obvious answer and
   // nothing about the weather rules it out. A cell counts when any of its six trios shows
-  // one. Measured after the digest tie-breaker: 16 of 16, against 1 of 16 on main f5d28e2.
+  // one. Measured after the digest tie-breaker: 16 of 16, against 1 of 16 on main 1ce0bdc.
   const mildDry = grid().filter((cell) =>
     cell.precipitationName === 'dry' && [15, 18, 22, 27].includes(cell.temperature));
   assert.equal(mildDry.length, 16);
@@ -353,7 +353,7 @@ test('T7 an 8 C day composes no sandal at all', () => {
 
 test('T5 no archetype label contradicts the day it labels', () => {
   // A2/B8's definition: `snow_day` on a day that is not snowing, `rain_ready` on a dry or a
-  // snowy day, `light_and_airy` at or below 10 C. A2 counted 430 of 1512; main f5d28e2 was
+  // snowy day, `light_and_airy` at or below 10 C. A2 counted 430 of 1512; main 1ce0bdc was
   // at 232 after the snow-day ordering fix, G1 left 228 and G2 left 240, because the
   // predicates read the garment and never the day: a waterproof shell was a rain answer on a
   // dry freezing day and a rain boot was a snow answer in the rain. G3 gives both archetype

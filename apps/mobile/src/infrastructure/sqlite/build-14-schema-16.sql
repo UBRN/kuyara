@@ -1,5 +1,5 @@
 -- Frozen SQLite schema from build 14 (migration version 16).
--- Derived from the migration file at release commit 9b427ed (version 0.1.20260920); do not regenerate from working migrations.
+-- Derived from the migration file at release commit 80a1bef (version 0.1.20260920); do not regenerate from working migrations.
 CREATE TABLE wardrobe_items (
         id TEXT PRIMARY KEY NOT NULL,
         local_profile_id TEXT NOT NULL,

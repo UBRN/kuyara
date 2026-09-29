@@ -40,7 +40,7 @@ them for it, commercial use included. The licence change is forward-looking: Pol
 Noncommercial governs this version and every later one.
 
 The historical MIT text is in the Git history and is reachable at any commit up to and
-including `3b2586a`.
+including `c417795`.
 
 ## Ownership
 

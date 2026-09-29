@@ -12,7 +12,7 @@ Implementation: Landed in Milestone B (2026-09-02). `apps/mobile/app.json` pins 
 `:ios => '16.4'`, and `expo-modules-autolinking`'s installer carries the
 literal message about `ExpoModulesCore` having a 16.4 minimum. React Native
 0.86.2 alone would allow 15.1. The value entered the repo in the first
-scaffold commit `9867e08`, and no ADR ever treated it as a choice. Every doc
+scaffold commit `9b1155e`, and no ADR ever treated it as a choice. Every doc
 that mentions it states it as a pass-through fact of the SDK.
 
 ## Decision

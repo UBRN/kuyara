@@ -4,8 +4,8 @@
 //
 // Regenerate (for example after a Zod upgrade changes toJSONSchema output), from the repo root:
 //
-//   node --experimental-strip-types packages/contracts/scripts/render-shipped-shapes.mjs 67c20ae
-//   node --experimental-strip-types packages/contracts/scripts/render-shipped-shapes.mjs --v2 046eb2c
+//   node --experimental-strip-types packages/contracts/scripts/render-shipped-shapes.mjs 0317a55
+//   node --experimental-strip-types packages/contracts/scripts/render-shipped-shapes.mjs --v2 4b533d1
 //
 // The commit argument identifies the recorded binary. The script copies that commit's route
 // schemas and their imports into a temporary directory, resolves this package's Zod there,

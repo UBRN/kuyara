@@ -5,7 +5,7 @@
 // is deployed. Two kinds of guard live here:
 //
 //  - Golden payloads: the exact success and error bodies build 0.1.20260913 (build 8, commit
-//    67c20ae) expected. Today's schemas must still parse them, so a deployed Worker keeps
+//    0317a55) expected. Today's schemas must still parse them, so a deployed Worker keeps
 //    serving the binaries already in the field.
 //  - Installed requests: fixed examples from the schemas and client call sites at the recorded
 //    build commits must remain accepted by the current strict Worker parsers.
@@ -42,8 +42,8 @@ const installedRequests = JSON.parse(readFileSync(
 ));
 
 test('current Worker parsers accept requests sent by installed builds 8, 9, 14 and 15', () => {
-  // 8e949ec and e292fd7 use /v1. Build 14 adds dayKind on /v1; build 15
-  // (046eb2c) sends locale and aesthetics on /v2. Weather and places keep /v1 requests.
+  // f0ab923 and 221cd2a use /v1. Build 14 adds dayKind on /v1; build 15
+  // (4b533d1) sends locale and aesthetics on /v2. Weather and places keep /v1 requests.
   for (const build of [8, 9, 14, 15]) {
     assert.equal(weatherV1RequestSchema.safeParse(installedRequests.weather).success, true, `weather ${build}`);
     assert.equal(placeSearchV1RequestSchema.safeParse(installedRequests.placeSearch).success, true, `places ${build}`);
@@ -55,7 +55,7 @@ test('current Worker parsers accept requests sent by installed builds 8, 9, 14 a
   }
 });
 
-// --- Golden payloads (build 0.1.20260913, build 8, commit 67c20ae) -----------------------
+// --- Golden payloads (build 0.1.20260913, build 8, commit 0317a55) -----------------------
 //
 // Literals on purpose: a fixture read from git would drift with the file it was read from.
 
