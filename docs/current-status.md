@@ -149,8 +149,11 @@ ADR that decided it; product decisions live in [`product-decisions.md`](product-
   Android-compatible; Android validation is deferred.
 
 The shipped app has neither sign-in nor cross-device sync nor server-sent push. Supabase is the intended backend ([ADR 0022](adr/0022-supabase-is-the-intended-backend-and-kuyara-is-not-local-first.md))
-with nothing implemented, and the project is source-available under PolyForm
-Noncommercial ([ADR 0024](adr/0024-relicensing-to-polyform-noncommercial.md)).
+with nothing implemented. Phase 9, optional accounts, is accepted in
+[ADR 0041](adr/0041-optional-accounts.md) and not implemented: no Supabase project, Apple
+key or Google client exists yet. The project is
+source-available under PolyForm Noncommercial
+([ADR 0024](adr/0024-relicensing-to-polyform-noncommercial.md)).
 
 ## Active Work
 
