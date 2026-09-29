@@ -27,6 +27,7 @@ import type {
 } from '@/features/catalog/domain/garment-taxonomy';
 import {
   accessoryOutfitSlots,
+  assignedOutfitGarments,
   outfitSlots,
   type AccessoryOutfitSlot,
   type OutfitRequirementEvaluation,
@@ -432,22 +433,6 @@ export function runwayWeather(
   };
 }
 
-function assignedGarments(outfit: OutfitCandidate): readonly AssignedOutfitGarment[] {
-  const assigned = [
-    ...(outfit.body.kind === 'separates'
-      ? [outfit.body.primaryTop, outfit.body.bottom]
-      : [outfit.body.onePiece]),
-    outfit.midLayer,
-    outfit.outerLayer,
-    outfit.footwear,
-  ].filter((garment): garment is AssignedOutfitGarment => garment !== null);
-
-  return outfitSlots.flatMap((slot) => {
-    const garment = assigned.find((candidate) => candidate.slot === slot);
-    return garment ? [garment] : [];
-  });
-}
-
 export type GarmentPaletteDay = Pick<GarmentOutfitPalette, 'temperatureC' | 'condition' | 'isNight'>;
 
 /**
@@ -488,7 +473,7 @@ export function outfitGarmentPalette(outfit: RecommendedOutfit, day: GarmentPale
 
 /** The pieces a board draws for an outfit, in the board's slot order. */
 export function outfitBoardPieces(outfit: OutfitCandidate): LoadedOutfitPresentation['boardPieces'] {
-  return assignedGarments(outfit).map(({ garment, slot }) => ({
+  return assignedOutfitGarments(outfit).map(({ garment, slot }) => ({
     slot, garmentTypeId: garment.garmentTypeId, category: garment.properties.category,
   }));
 }
@@ -506,7 +491,7 @@ function localizeOutfit(
   const changedSlots = manual?.changedSlots ?? [];
   const messages = getMessages(language);
   const copy = messages.today;
-  const assigned = assignedGarments(outfit);
+  const assigned = assignedOutfitGarments(outfit);
   const boardPieces = outfitBoardPieces(outfit);
   const pieces = assigned.map(({ garment, slot }) => ({
     slot: copy.slots[slot],

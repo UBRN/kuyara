@@ -8,11 +8,13 @@ import {
 } from './garment-eligibility.ts';
 import { listGarmentTypesForPreference } from '../../catalog/domain/garment-catalog.ts';
 import {
+  assignedOutfitGarments,
   collectValidOutfits,
   composeOutfitOptions,
   excludeRecentlyWornOutfits,
   outfitCompositionFailureCodes,
   outfitCompositionReasonCodes,
+  outfitSlots,
 } from './outfit-composition.ts';
 import { deriveClothingRequirements } from './weather-to-clothing-requirements.ts';
 import { gridRecommendationInput } from '../../../../test/recommendation-grid.mjs';
@@ -45,6 +47,29 @@ test('the complete ordered catalog pool stays byte-identical across weather and 
     hash.digest('hex'),
     '2a40ff61c3d93f248d873238b3df4057677ce130f4c398d6c6025024e41cf81a',
   );
+});
+
+test('the assigned garments of every outfit follow the outfit slot order without gaps', () => {
+  for (const preference of ['womens', 'mens']) {
+    for (const weather of ['hot', 'mild', 'cold_rain', 'freezing']) {
+      const input = gridRecommendationInput(weather, preference, 'smart');
+      const requirements = deriveClothingRequirements(input.snapshot, input.now);
+      const candidates = listGarmentTypesForPreference(preference).map(({ typeId }) =>
+        catalogCandidate(requirements, typeId, preference));
+      const composed = collectValidOutfits(requirements, candidates);
+      assert.equal(composed.status, 'composed', `${preference} ${weather}`);
+
+      for (const outfit of composed.outfits) {
+        const slots = assignedOutfitGarments(outfit).map(({ slot }) => slot);
+        assert.deepEqual(
+          slots,
+          outfitSlots.filter((slot) => slots.includes(slot)),
+          `${preference} ${weather}`,
+        );
+        assert.ok(slots.includes('footwear'));
+      }
+    }
+  }
 });
 
 test('a mild dry Formal day offers a formal outfit for both clothing preferences', () => {

@@ -18,6 +18,7 @@ import {
   projectCatalogEffectiveGarment,
 } from '@/features/recommendation/domain/garment-eligibility';
 import {
+  assignedOutfitGarments,
   composeOutfitOptions,
   type OutfitCandidate,
   type OutfitCompositionFailure,
@@ -109,17 +110,6 @@ function fallbackArchetypeOrderFor(
     : fallbackArchetypeOrder;
 }
 
-function assignedGarments(outfit: OutfitCandidate) {
-  return [
-    ...(outfit.body.kind === 'separates'
-      ? [outfit.body.primaryTop, outfit.body.bottom]
-      : [outfit.body.onePiece]),
-    outfit.midLayer,
-    outfit.outerLayer,
-    outfit.footwear,
-  ].filter((garment) => garment !== null);
-}
-
 export function outfitMatchesArchetype(
   outfit: OutfitCandidate,
   archetypeId: OutfitArchetypeId,
@@ -146,7 +136,7 @@ export function outfitMatchesArchetype(
       return (day === dayBlindArchetypeDay || day.cold) &&
         outfit.outerLayer?.garment.properties.thermalLevel === 'high';
     case 'wind_guard':
-      return day.windy && assignedGarments(outfit).some(
+      return day.windy && assignedOutfitGarments(outfit).some(
         ({ garment }) => garment.properties.windProtection === 'wind_resistant',
       );
     case 'layered_warmth':

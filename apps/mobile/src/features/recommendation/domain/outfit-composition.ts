@@ -162,6 +162,24 @@ export type OutfitCandidate = Readonly<{
   formality: Formality;
 }>;
 
+/**
+ * The six body slots an outfit fills, in `outfitSlots` order: the body pieces, then the mid
+ * layer, the outer layer and the footwear; an empty layer is left out. The one place that
+ * flattens an outfit into its assigned garments.
+ */
+export function assignedOutfitGarments(
+  outfit: OutfitCandidate,
+): readonly AssignedOutfitGarment[] {
+  return [
+    ...(outfit.body.kind === 'separates'
+      ? [outfit.body.primaryTop, outfit.body.bottom]
+      : [outfit.body.onePiece]),
+    outfit.midLayer,
+    outfit.outerLayer,
+    outfit.footwear,
+  ].filter((garment): garment is AssignedOutfitGarment => garment !== null);
+}
+
 export type OutfitRequirementBestEvidence = Readonly<{
   requirement: BodyClothingRequirement;
   bestContribution: number;
@@ -1937,10 +1955,7 @@ export function composeOutfitOptions(
 }
 
 function garmentIdSet(outfit: OutfitCandidate): string {
-  const body = outfit.body.kind === 'separates'
-    ? [outfit.body.primaryTop, outfit.body.bottom] : [outfit.body.onePiece];
-  const assigned = [...body, outfit.midLayer, outfit.outerLayer, outfit.footwear];
-  return [...new Set(assigned.filter((item) => item !== null)
+  return [...new Set(assignedOutfitGarments(outfit)
     .map((item) => item.garment.garmentTypeId))].sort().join('|');
 }
 
