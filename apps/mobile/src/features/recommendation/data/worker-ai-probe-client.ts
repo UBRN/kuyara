@@ -5,6 +5,8 @@ import {
   type AiProbeV1Success,
 } from '@kuyara/contracts';
 
+import { WorkerAiProbeClientError } from '@/features/recommendation/domain/worker-ai-probe-client-error';
+
 type Fetch = (input: string, init: RequestInit) => Promise<Response>;
 
 type Dependencies = Readonly<{
@@ -12,22 +14,6 @@ type Dependencies = Readonly<{
   fetch?: Fetch;
   requestTimeoutMilliseconds?: number;
 }>;
-
-export type WorkerAiProbeFailureKind =
-  | 'network'
-  | 'service'
-  | 'rate-limited'
-  | 'invalid-response';
-
-export class WorkerAiProbeClientError extends Error {
-  readonly kind: WorkerAiProbeFailureKind;
-
-  constructor(kind: WorkerAiProbeFailureKind) {
-    super('The AI status check could not be completed.');
-    this.name = 'WorkerAiProbeClientError';
-    this.kind = kind;
-  }
-}
 
 async function readJson(response: Response): Promise<unknown> {
   try {

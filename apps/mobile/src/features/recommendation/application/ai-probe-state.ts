@@ -1,6 +1,6 @@
 import type { AiProbeV1Success } from '@kuyara/contracts';
 
-import { WorkerAiProbeClientError } from '@/features/recommendation/data/worker-ai-probe-client';
+import { WorkerAiProbeClientError } from '@/features/recommendation/domain/worker-ai-probe-client-error';
 
 export type AiProbeUiState =
   | { kind: 'idle' }

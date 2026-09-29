@@ -6,7 +6,7 @@ import {
   mapProbeResult,
   startAiProbe,
 } from './ai-probe-state.ts';
-import { WorkerAiProbeClientError } from '../data/worker-ai-probe-client.ts';
+import { WorkerAiProbeClientError } from '../domain/worker-ai-probe-client-error.ts';
 
 test('starts a supported idle probe and coalesces while checking', () => {
   assert.deepEqual(startAiProbe({ kind: 'idle' }, true), { kind: 'checking' });
