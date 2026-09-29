@@ -18,9 +18,6 @@ const sourceRoot = import.meta.dirname;
 // that no longer matches fails in both directions, so a fix must delete its entry and a new
 // bail-out cannot hide behind an old one.
 const knownBailouts = new Map([
-  // A value block inside try/catch. While skipped, the route reads the clock on every render;
-  // once it compiles, its `now` needs an explicit source such as `useForegroundClock`.
-  ['app/(tabs)/(today)/[id].tsx', 1],
   // A `finally` clause on the consent surfaces.
   ['features/analytics/presentation/analytics-consent-screen.tsx', 1],
   ['features/profile/presentation/privacy-settings-screen.tsx', 1],
@@ -39,9 +36,24 @@ const hotPath = new Set([
   'app/(tabs)/weather/index.tsx',
   'features/today/presentation/today-screen.tsx',
   'features/weather/presentation/weather-screen.tsx',
-  // Phase 7b: a piece change re-renders the whole outfit detail when either is skipped.
+  // Phase 7b: a piece change re-renders the whole outfit detail when any of these is skipped.
+  'app/(tabs)/(today)/[id].tsx',
   'features/today/presentation/outfit-detail-screen.tsx',
   'components/ui/garment-board/garment-swap-board.tsx',
+]);
+
+// On the outfit detail path, the values a compiled component still computes on every render
+// because the compiler dropped their memo block: file -> component -> how many. A value
+// derived before a hook call and handed to an unknown function after it keeps its block open
+// across the hook, and the compiler drops the block; everything built from it then changes
+// identity on every render, and the board below it draws again (measured 2026-09-29). The
+// list only shrinks, and a count that no longer matches fails in both directions.
+const knownPruned = new Map([
+  // The recommendation and the open outfit, read from provider state whose identity holds.
+  ['app/(tabs)/(today)/[id].tsx', { OutfitDetailRoute: 8 }],
+  ['features/today/presentation/outfit-detail-screen.tsx', {}],
+  ['components/ui/garment-board/garment-swap-board.tsx', { GarmentSwapBoard: 32 }],
+  ['components/ui/garment-board/garment-painting.tsx', {}],
 ]);
 
 const files = readdirSync(sourceRoot, { recursive: true })
@@ -68,8 +80,14 @@ for (const file of files) {
   });
 }
 
+for (const [file, pruned] of knownPruned) {
+  test(`React Compiler memoizes every value it can on the detail path in ${file}`, () => {
+    assert.deepEqual(report[path.join(sourceRoot, file)].pruned, pruned);
+  });
+}
+
 test('the bail-out list and the hot path name production files that exist', () => {
-  for (const file of [...knownBailouts.keys(), ...hotPath]) {
+  for (const file of [...knownBailouts.keys(), ...hotPath, ...knownPruned.keys()]) {
     assert.ok(existsSync(path.join(sourceRoot, file)), `${file} no longer exists`);
     assert.ok(files.includes(file), `${file} is not a production .tsx file`);
   }
