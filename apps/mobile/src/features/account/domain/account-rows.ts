@@ -5,6 +5,8 @@ import {
   type Gender,
   type Profile,
 } from '@/features/profile/domain/profile';
+import type { DressingDayChoice } from '@/features/recommendation/domain/dressing-day-choice';
+import type { DressingDayDeparture } from '@/features/recommendation/domain/dressing-day-departure';
 import type { OutfitHistoryRecord } from '@/features/recommendation/domain/outfit-history';
 import type { WardrobeItem } from '@/features/wardrobe/domain/wardrobe-item';
 
@@ -16,6 +18,15 @@ export type SyncedProfile = Readonly<{
   styleAesthetics: readonly StyleAesthetic[];
   createdAt: string;
   updatedAt: string;
+}>;
+
+/** Everything one side, the phone or the account, holds of the five synced tables. */
+export type AccountRows = Readonly<{
+  profile: SyncedProfile | null;
+  wardrobeItems: readonly WardrobeItem[];
+  dressingDayChoices: readonly DressingDayChoice[];
+  dressingDayDepartures: readonly DressingDayDeparture[];
+  outfitHistory: readonly OutfitHistoryRecord[];
 }>;
 
 export function syncedProfileOf(profile: Profile): SyncedProfile {
