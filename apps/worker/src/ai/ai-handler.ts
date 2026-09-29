@@ -20,6 +20,7 @@ import {
   type OutfitArchetypeId,
 } from '@kuyara/contracts';
 
+import { createErrorResponse, jsonHeaders } from '../json-response.ts';
 import type { ExecutionContext } from '../router.ts';
 import { AiProviderError, type AiProvider } from './ai-provider.ts';
 import { PROBE_DAILY_LIMIT, type RateLimiter } from './probe-handler.ts';
@@ -89,11 +90,6 @@ type ProviderFailureReason =
   | 'picks_not_distinct'
   | 'archetype_precondition';
 
-const jsonHeaders = {
-  'Cache-Control': 'no-store',
-  'Content-Type': 'application/json; charset=utf-8',
-} as const;
-
 // The phone transmits its own budget (37 s: its 38 s wait minus transport); this ceiling is
 // the configured deadline's, so a wrong or hostile header can never extend the walk.
 const maximumAiRequestBudgetMs = 36_000;
@@ -114,17 +110,7 @@ function requestBudgetMs(request: Request, configuredDeadlineMs: number): number
   );
 }
 
-function errorResponse(
-  status: number,
-  code: AiV1ErrorCode,
-  extraHeaders?: Readonly<Record<string, string>>,
-): Response {
-  const body = aiV1ErrorSchema.parse({ error: { code } });
-  return Response.json(body, {
-    status,
-    headers: { ...jsonHeaders, ...extraHeaders },
-  });
-}
+const errorResponse = createErrorResponse<AiV1ErrorCode>(aiV1ErrorSchema);
 
 function defaultCache(): Cache | undefined {
   return (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;

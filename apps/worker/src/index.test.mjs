@@ -211,6 +211,7 @@ function recommendRequest() {
 async function assertOffline(response, code) {
   assert.equal(response.status, 503);
   assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8');
   assert.deepEqual(await response.json(), { error: { code } });
 }
 

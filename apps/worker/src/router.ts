@@ -14,6 +14,8 @@ import {
   type AiV1ErrorCode,
 } from '@kuyara/contracts';
 
+import { createErrorResponse, jsonHeaders } from './json-response.ts';
+
 /**
  * The structural subset of the runtime's `ExecutionContext` the handlers use. Always call
  * `ctx.waitUntil(...)` on the object: a destructured `waitUntil` loses `this` and throws
@@ -32,22 +34,7 @@ type Dependencies = Readonly<{
   aiReady: boolean;
 }>;
 
-const jsonHeaders = {
-  'Cache-Control': 'no-store',
-  'Content-Type': 'application/json; charset=utf-8',
-} as const;
-
-function errorResponse(
-  status: number,
-  code: AiV1ErrorCode,
-  extraHeaders?: Readonly<Record<string, string>>,
-): Response {
-  const body = aiV1ErrorSchema.parse({ error: { code } });
-  return Response.json(body, {
-    status,
-    headers: { ...jsonHeaders, ...extraHeaders },
-  });
-}
+const errorResponse = createErrorResponse<AiV1ErrorCode>(aiV1ErrorSchema);
 
 export function createRouter({
   weatherHandler,
