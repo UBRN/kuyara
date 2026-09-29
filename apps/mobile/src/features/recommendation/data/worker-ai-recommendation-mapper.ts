@@ -49,6 +49,7 @@ import {
 } from '@/features/recommendation/domain/garment-eligibility';
 import {
   accessoryOutfitSlots,
+  assignedOutfitGarments,
   collectValidOutfits,
   outfitSlots,
   type AssignedOutfitGarment,
@@ -157,17 +158,6 @@ function normalizeRetiredContext(value: unknown): unknown {
   return { ...rest, dressStyle: 'smart' };
 }
 
-function assignedGarments(outfit: OutfitCandidate): readonly AssignedOutfitGarment[] {
-  return [
-    ...(outfit.body.kind === 'separates'
-      ? [outfit.body.primaryTop, outfit.body.bottom]
-      : [outfit.body.onePiece]),
-    outfit.midLayer,
-    outfit.outerLayer,
-    outfit.footwear,
-  ].filter((garment): garment is AssignedOutfitGarment => garment !== null);
-}
-
 /**
  * Everything the option carries, the accessories after the six body slots and always in the
  * same slot order, because the round trip back from an option compares this list verbatim.
@@ -175,7 +165,7 @@ function assignedGarments(outfit: OutfitCandidate): readonly AssignedOutfitGarme
  */
 function outfitGarments(outfit: OutfitCandidate): readonly AssignedOutfitGarment[] {
   return [
-    ...assignedGarments(outfit),
+    ...assignedOutfitGarments(outfit),
     ...accessoryOutfitSlots.flatMap((slot) => {
       const accessory = outfit.accessories[slot];
       return accessory ? [accessory] : [];
@@ -184,7 +174,7 @@ function outfitGarments(outfit: OutfitCandidate): readonly AssignedOutfitGarment
 }
 
 function toAiOption(outfit: OutfitCandidate): AiOption {
-  const garments = assignedGarments(outfit);
+  const garments = assignedOutfitGarments(outfit);
   const outer = outfit.outerLayer?.garment.properties;
   const primary = outfit.body.kind === 'separates'
     ? outfit.body.primaryTop.garment

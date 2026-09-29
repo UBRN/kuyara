@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { garmentTypeIdSchema } from '@/features/catalog/domain/garment-taxonomy';
 import { getGarmentType } from '@/features/catalog/domain/garment-catalog';
-import { outfitSlots, type OutfitCandidate } from '@/features/recommendation/domain/outfit-composition';
+import { assignedOutfitGarments, outfitSlots, type OutfitCandidate } from '@/features/recommendation/domain/outfit-composition';
 import { dressingDayDateKey } from '@/features/weather/domain/wardrobe-day';
 
 export const bareHistoryDayKeySchema = z.iso.date();
@@ -61,10 +61,10 @@ export function wornOutfitFrom(
   outfit: OutfitCandidate & Readonly<{ archetypeId: WornOutfit['archetypeId'] }>,
   source: WornOutfit['source'] = 'recommended',
 ): WornOutfit {
-  const body = outfit.body.kind === 'separates'
-    ? [outfit.body.primaryTop, outfit.body.bottom] : [outfit.body.onePiece];
-  const assigned = [...body, outfit.midLayer, outfit.outerLayer, outfit.footwear,
-    ...Object.values(outfit.accessories)].filter((garment) => garment !== null);
+  const assigned = [
+    ...assignedOutfitGarments(outfit),
+    ...Object.values(outfit.accessories).filter((garment) => garment !== null),
+  ];
   return wornOutfitSchema.parse({
     garments: Object.fromEntries(assigned.map(({ slot, garment }) => [slot, garment.garmentTypeId])),
     archetypeId: outfit.archetypeId,
