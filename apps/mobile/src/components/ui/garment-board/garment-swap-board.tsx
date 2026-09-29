@@ -1449,9 +1449,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'absolute',
   },
+  // Spans its parent: React Native reuses a closed screen's native view for a new one and skips
+  // writing a zero-size frame at the origin, so a zero-size wrapper keeps its earlier position.
   free: {
+    bottom: 0,
     left: 0,
     position: 'absolute',
+    right: 0,
     top: 0,
   },
   hint: {
