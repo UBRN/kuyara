@@ -1,10 +1,11 @@
-import { act, fireEvent, render, within } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import ReactNative, { AccessibilityInfo, Dimensions, StyleSheet } from 'react-native';
 import { State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { layoutGarmentBoard } from '@/components/ui';
+import { GARMENT_OUTLINE } from '@/components/ui/garment-board/garment-painting';
 import { useManualMix } from '@/features/recommendation/application/use-manual-mix';
 import { slotCandidates, swappableSlots } from '@/features/recommendation/domain/manual-mix';
 import { todayScreenState } from '@/features/today/__tests__/fixtures';
@@ -93,14 +94,15 @@ function Detail({
   );
 }
 
-async function renderDetail(
+function detailTree(
   language: SupportedLanguage = 'en',
   props: Partial<React.ComponentProps<typeof Detail>> = {},
   tourTargets: TourTargetRegistry | null = null,
   easierToSee = false,
   system: SystemVisibility = { boldText: false, increaseContrast: false },
+  opening = 0,
 ) {
-  const result = await render(
+  return (
     <LocalizationContext value={{ language, messages: messages[language], hour12: false, temperatureUnit: 'celsius' }}>
       <KuyaraThemeContext.Provider value={lightTheme}>
         <SystemVisibilityContext value={system}>
@@ -110,17 +112,29 @@ async function renderDetail(
           insets: { top: 59, right: 0, bottom: 34, left: 0 },
         }}>
           <TourTargetsContext value={tourTargets}>
-            <Detail language={language} {...props} />
+            {/* A new key is a new route: detail left and opened again. */}
+            <Detail key={opening} language={language} {...props} />
           </TourTargetsContext>
         </SafeAreaProvider>
         </EasierToSeeContext>
         </SystemVisibilityContext>
       </KuyaraThemeContext.Provider>
-    </LocalizationContext>,
+    </LocalizationContext>
   );
-  await fireEvent(result.getByTestId('outfit-detail-content'), 'layout', {
-    nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } },
-  });
+}
+
+const layOut = async (result: Awaited<ReturnType<typeof render>>) => fireEvent(result.getByTestId('outfit-detail-content'),
+  'layout', { nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } } });
+
+async function renderDetail(
+  language: SupportedLanguage = 'en',
+  props: Partial<React.ComponentProps<typeof Detail>> = {},
+  tourTargets: TourTargetRegistry | null = null,
+  easierToSee = false,
+  system: SystemVisibility = { boldText: false, increaseContrast: false },
+) {
+  const result = await render(detailTree(language, props, tourTargets, easierToSee, system));
+  await layOut(result);
   return result;
 }
 
@@ -464,6 +478,32 @@ test('a tap enlarges a piece and a leftward flick changes it to the next candida
   expect(result.getByTestId(`outfit-detail-piece-${next}`)).toBeOnTheScreen();
 });
 
+// Simulator walkthrough: gesture-handler counts a pan's translation from where it activated,
+// past the slop, so the piece follows the finger from that point, never first jumping the
+// other way. A 5-point flick after activation commits in its own direction.
+test.each([['leftward', -1], ['rightward', 1]] as const)(
+  'a %s flick commits from the point the drag activated: the piece never starts the other way',
+  async (_name, sign) => {
+    const result = await renderDetail('en');
+    await activate(result, 'footwear');
+    const order = slotCandidates(pick, 'footwear', recommendation.requirements, 'womens')
+      .map(({ garmentTypeId }) => garmentTypeId);
+    const target = order[order.indexOf('rain_boots') - sign];
+    expect(target).toBeDefined();
+    await act(async () => {
+      fireGestureHandler(getByGestureTestId('outfit-detail-board-pan'), [
+        { state: State.BEGAN, translationX: 0, velocityX: 0 },
+        // Activation reports the drag's start; the next move is the first it follows.
+        { state: State.ACTIVE, translationX: 0, velocityX: 600 * sign },
+        { state: State.ACTIVE, translationX: 5 * sign, velocityX: 600 * sign },
+        { state: State.END, translationX: 5 * sign, velocityX: 600 * sign },
+      ]);
+    });
+    expect(result.getByTestId('outfit-detail-board-piece-footwear').props.accessibilityValue.text)
+      .toContain(catalogName('en', target));
+  },
+);
+
 // The rule against sentences assembled from translated fragments: every changeable slot has
 // its own whole spoken sentence in both languages.
 test('each changeable slot has its own whole change sentence in English and Turkish', () => {
@@ -705,7 +745,9 @@ const firstHost = (node: Host, matches: (node: Host) => boolean): Host | null =>
   return null;
 };
 
-test('every waiting neighbour stands wholly behind its window edge, whatever the pair', async () => {
+// A piece's ink edge is drawn half outside its box; the neighbour waits with the whole
+// outline weight between its box and the window's edge, so no edge pixel shows.
+test('every waiting neighbour stands wholly behind its window edge, its outline included, whatever the pair', async () => {
   const result = await renderDetail('en');
   let checked = 0;
   for (const { slot } of archetype('en').boardPieces) {
@@ -727,8 +769,8 @@ test('every waiting neighbour stands wholly behind its window edge, whatever the
         const [{ translateX }, , { scaleX }] = style.transform as [{ translateX: number }, unknown, { scaleX: number }];
         const left = style.left + style.width / 2 + translateX - (style.width * scaleX) / 2;
         const right = left + style.width * scaleX;
-        if (side === 1) expect(left).toBeGreaterThanOrEqual(window.left + window.width - 0.01);
-        else expect(right).toBeLessThanOrEqual(window.left + 0.01);
+        if (side === 1) expect(left).toBeGreaterThanOrEqual(window.left + window.width + GARMENT_OUTLINE - 0.01);
+        else expect(right).toBeLessThanOrEqual(window.left - GARMENT_OUTLINE + 0.01);
         checked += 1;
       }
     }
@@ -791,5 +833,40 @@ test.each([['the next piece', 1], ['a piece further on', 3]] as const)(
       while (landed.length > 0) landed.shift()!();
     });
     expect(outgoing()).toBeNull();
+  },
+);
+
+// Simulator walkthrough: detail left with a piece
+// enlarged and opened again starts from a clean board. This pins the JavaScript side only:
+// every piece's drawn styles on the second opening equal the first. It passed before the
+// fix too; the walkthrough's broken board lives below what Jest's Reanimated mock renders.
+const drawnBoard = async (result: Awaited<ReturnType<typeof renderDetail>>) => {
+  const drawings = () => result.queryAllByTestId(/^outfit-detail-board-drawing-/, hidden)
+    .filter((drawing) => !String(drawing.props.testID).endsWith('-big'));
+  await waitFor(() => expect(drawings().length).toBeGreaterThan(0));
+  return drawings().map((drawing) => {
+    const styles: unknown[] = [];
+    const walk = (node: Host) => {
+      styles.push(StyleSheet.flatten(node.props.style) ?? null);
+      for (const child of node.children) if (typeof child !== 'string') walk(child);
+    };
+    walk(drawing);
+    return { id: drawing.props.testID, styles: JSON.stringify(styles) };
+  });
+};
+
+test.each(['footwear', 'primary_top'] as const)(
+  'leaving detail with the %s enlarged draws a clean board when detail opens again',
+  async (slot) => {
+    const first = await renderDetail('en');
+    const clean = await drawnBoard(first);
+    const hint = first.getByTestId('outfit-detail-edit-hint');
+    expect(hint).toBeOnTheScreen();
+    await activate(first, slot);
+    expect(first.getByTestId('outfit-detail-board-strip')).toBeOnTheScreen();
+    await first.rerender(detailTree('en', {}, null, false, undefined, 1));
+    await layOut(first);
+    expect(first.queryByTestId('outfit-detail-board-strip')).toBeNull();
+    expect(await drawnBoard(first)).toEqual(clean);
   },
 );
