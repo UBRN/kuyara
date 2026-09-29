@@ -14,11 +14,41 @@
 
 <a href="https://apps.apple.com/app/kuyara/id6806664440"><img src="docs/assets/img/badges/app-store-badge-en.svg" alt="Download on the App Store" width="150"></a>
 
+<sub>Android coming soon</sub>
+
 </div>
 
-kuyara is a free iPhone app. It lays out a few complete outfits suited to the day's
-weather, chosen from a garment catalog built into the app, so getting dressed is one
-calm decision instead of a dozen small ones.
+## The name
+
+**kuyara** comes from *koyash* (also written *kuyash*), a Turkic word for the sun. In
+Tatar and Bashkir it is still the everyday word for it. Long ago it meant something
+warmer: Mahmud al-Kashgari's 11th-century dictionary of Turkic explains it as the
+blazing heat of the midday sun. So the name began as sunshine you can feel, which is
+exactly the thing you dress for.
+
+The old Turkic sky has more to say about the weather:
+
+- **Sun Mother, Moon Father.** Many Turkic traditions saw the sun as female and the moon
+  as male. In Altai belief they are *Kün Ana* and *Ay Ata*.
+- **A day named after the sun.** The more common Turkic word for sun, *kün*, also means
+  "day". Turkish *gün* (day) and *güneş* (sun) grew from the same root.
+- **Sky before God.** In Old Turkic, *kök* meant both "sky" and "blue", and *tengri*
+  meant "sky" before it meant "God". The Orkhon inscriptions begin the world with the
+  blue sky above and the brown earth below, and people made between them.
+- **A compass made of daylight.** The same inscriptions name directions by the sun: east
+  is where the sun rises, south is the middle of the day, west is where it sets and
+  north is the middle of the night.
+- **Weather on demand.** The *yada* stone was believed to bring rain, snow or wind.
+  Kashgari writes that he saw it used to make snow fall and put out a summer fire.
+- **Winter versus spring.** His dictionary also keeps a verse quarrel between winter and
+  spring, one of the oldest debate poems in Turkic. People have been arguing about the
+  weather for a very long time.
+
+## What it is
+
+kuyara is a free app for iPhone, with Android coming soon. It lays out a few complete
+outfits suited to the day's weather, chosen from a garment catalog built into the app,
+so getting dressed is one calm decision instead of a dozen small ones.
 
 ## What it does
 
@@ -67,8 +97,8 @@ packages/contracts  Shared Zod schemas and API types
 docs/               Product decisions, architecture and design
 ```
 
-Weather comes from WeatherKit, then Open-Meteo, then OpenWeather. The Expo project stays
-buildable for Android.
+Weather comes from WeatherKit, then Open-Meteo, then OpenWeather. The same Expo project
+builds the Android app.
 
 ## Getting started
 
@@ -92,11 +122,6 @@ Everything else, from running the app to the Worker and end-to-end tests, is in
 **Reading the code:** [Architecture](docs/architecture.md) ·
 [Product decisions](docs/product-decisions.md) · [Testing](docs/testing.md) ·
 [Design](docs/design/) · [Decision records](docs/adr/) · [Licensing](LICENSING.md)
-
-## The name
-
-kuyara comes from *Koyash* (also written *Kuyash*), one of the names associated with
-the sun in Turkic mythology.
 
 ## License
 
