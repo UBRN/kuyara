@@ -34,7 +34,7 @@ import {
 } from '@/features/weather/presentation/daily-outlook';
 import { HourlyRail } from '@/features/weather/presentation/hourly-rail';
 import { remainingHourlyForecast } from '@/features/weather/presentation/remaining-hours';
-import { WeatherGlyph } from '@/features/today/presentation/weather-glyph';
+import { WeatherGlyph } from '@/features/weather/presentation/weather-glyph';
 import { resolveDaypart } from '@/features/today/domain/atmosphere-state';
 import { useForegroundClock } from '@/hooks/use-foreground-clock';
 import { useLocalization } from '@/localization/use-messages';

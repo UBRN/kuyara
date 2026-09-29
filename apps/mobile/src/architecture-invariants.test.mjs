@@ -288,8 +288,6 @@ const featureOf = (relativePath) => relativePath.match(/^features\/([^/]+)\//)?.
 const crossFeatureInternalImportAllowlist = [
   // Onboarding renders weather's location controls; pass them in from app/onboarding.tsx as a slot.
   ['features/profile/presentation/onboarding-screen.tsx', 'features/weather/presentation/location-selection-controls'],
-  // WeatherGlyph depends on theme only and is misfiled under today/; move it to components/ui.
-  ['features/weather/presentation/weather-screen.tsx', 'features/today/presentation/weather-glyph'],
 ].map(([importer, module]) => `${importer} -> ${module}`);
 
 test('a feature reaches another feature only through its domain or application layer', () => {
@@ -328,7 +326,7 @@ test('a feature reaches another feature only through its domain or application l
   assert.deepEqual(stale, [], `These allowlist entries no longer match an import; remove them so the list only shrinks:\n${stale.map((v) => `  - ${v}`).join('\n')}`);
   assert.equal(
     crossFeatureInternalImportAllowlist.length,
-    2,
+    1,
     'the cross-feature allowlist only shrinks: fix the import instead of listing it, and lower this count when an entry goes',
   );
 });

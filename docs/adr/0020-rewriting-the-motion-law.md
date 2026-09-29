@@ -9,8 +9,8 @@ primary-action clause and the ownership site in Law 8.
 
 A blanket prohibition on repetition conflicts with two accepted components:
 
-- `features/today/presentation/weather-glyph.tsx` loops a cloud bob and a rain drop
-  fall with `withRepeat`. It renders on Today and Weather.
+- `features/weather/presentation/weather-glyph.tsx` loops a cloud bob and a rain drop
+  fall with `withRepeat`. It renders on Weather.
 - `features/profile/presentation/probe-loading-overlay.tsx` pulses its dots on the shared
   ambient hook, `components/ui/use-ambient-pulse.ts`, which owns the `withRepeat` loop.
 
