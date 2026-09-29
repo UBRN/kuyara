@@ -7,10 +7,9 @@ import type {
   UpdateWardrobeItemInput,
   WardrobeItem,
 } from '@/features/wardrobe/domain/wardrobe-item';
-import {
-  WardrobeRepositoryError,
-  type PendingWardrobePhotoCleanup,
-  type WardrobeRepository,
+import type {
+  PendingWardrobePhotoCleanup,
+  WardrobeRepository,
 } from '@/features/wardrobe/data/wardrobe-repository';
 import { isWardrobeRouteId } from '@/features/wardrobe/application/wardrobe-form';
 import {
@@ -20,8 +19,9 @@ import {
   type WardrobePhotoManager,
 } from '@/features/wardrobe/application/wardrobe-photo-manager';
 import type { StagedWardrobePhoto } from '@/features/wardrobe/data/wardrobe-photo-adapters';
-import { isManagedWardrobePhotoRelativePath } from '@/features/wardrobe/data/wardrobe-photo-path';
+import { isManagedWardrobePhotoRelativePath } from '@/features/wardrobe/domain/wardrobe-photo-path';
 import type { WardrobePhotoSource } from '@/features/wardrobe/domain/wardrobe-photo';
+import { WardrobeRepositoryError } from '@/features/wardrobe/domain/wardrobe-repository-error';
 
 export type WardrobeApplicationState =
   | Readonly<{ status: 'loading' }>

@@ -8,7 +8,7 @@ import { LocalWardrobePhotoManager } from './application/wardrobe-photo-manager.
 import {
   createManagedWardrobePhotoRelativePath,
   isManagedWardrobePhotoRelativePath,
-} from './data/wardrobe-photo-path.ts';
+} from './domain/wardrobe-photo-path.ts';
 import {
   calculateWardrobePhotoResize,
   classifyWardrobePhotoProblem,
