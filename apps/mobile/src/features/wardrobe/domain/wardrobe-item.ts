@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { ClosetColorChoice } from '@/features/wardrobe/domain/closet-color-options';
 
 import {
+  garmentTypeIdSchema,
   structuralCategorySchema,
   type Breathability,
   type ColorFamily,
@@ -93,6 +94,18 @@ export class WardrobeItemValidationError extends Error {
 
 export function isWardrobeItemCategory(value: string): value is WardrobeItemCategory {
   return structuralCategorySchema.safeParse(value).success;
+}
+
+/**
+ * The stored garment type column: null stays null and a catalog id is kept. An id this build's
+ * catalog does not list reads as null, so the piece stays readable (a legacy entry); a
+ * non-string throws. A caller that must refuse such an id tells it apart by the non-null input.
+ */
+export function garmentTypeIdFromColumn(value: unknown): GarmentTypeId | null {
+  if (value === null) return null;
+  if (typeof value !== 'string') throw new Error('Invalid garment type column.');
+  const result = garmentTypeIdSchema.safeParse(value);
+  return result.success ? result.data : null;
 }
 
 export function normalizeOptionalWardrobeText(
